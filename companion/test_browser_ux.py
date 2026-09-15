@@ -2686,6 +2686,162 @@ def _display_page_height(browser, base_url, viewport):
     return seen
 
 
+# ---------------------------------------------------------------------
+# 7. AGREEMENT — the RELATIONSHIP between surfaces, which is the thing
+#    D17 shipped broken while every one of its own checks passed.
+# ---------------------------------------------------------------------
+#
+# The quiet-hours dial shipped with three correct checks and one live
+# defect. The arc was asserted correct SERVER-SIDE for the saved value.
+# The handles were asserted TO MOVE. The value was asserted TO PERSIST
+# to disk. All three pass, today, against a page on which the fields
+# read 08:00/18:00, both handles sit at 8 and 18, and the arc still
+# draws 23:00 -> 07:00 under a caption that still reads "23:00 -> 07:00
+# - 8 h". Nothing asserted that the arc AGREES with the handles after
+# an interaction, and that unmeasured relationship is the whole defect.
+#
+# So the shape below is deliberately NOT "one check per surface". One
+# check per surface is precisely the shape that shipped this: each of
+# them can be individually, permanently right while the page as a whole
+# lies. The subject here is the SET of decoded values, and the assertion
+# is that it has exactly one member.
+#
+# Two further clauses, and they are the vacuity answers rather than
+# decoration. Without "equals what the interaction REQUESTED" this
+# passes perfectly against a page that froze all four surfaces together
+# at their old value — four surfaces agreeing on the wrong thing is
+# still agreement. Without "DIFFERS from what was there before" it
+# passes against an interaction that did nothing at all, which is the
+# easiest way in the world to make every surface agree.
+
+
+def _canonical_surface_value(value):
+    """One canonical, hashable, comparable form for a decoded surface
+    value, so `(1380, 420)` and `[1380, 420]` are the SAME reading
+    rather than two members of a set.
+
+    This exists because the set is the whole assertion below, and a set
+    that counts a tuple and a list as two members would report a
+    disagreement between two surfaces that agree — a false FAIL is as
+    bad here as a false PASS, and worse for trust. Raises on anything
+    that cannot be made hashable rather than falling back to `repr()`,
+    which would make every unhashable value agree with itself and with
+    nothing else by accident.
+    """
+    if isinstance(value, (list, tuple)):
+        return tuple(_canonical_surface_value(item) for item in value)
+    try:
+        hash(value)
+    except TypeError:
+        raise AssertionError(
+            "_assert_surfaces_agree: a decoder returned %r, which cannot be "
+            "compared or put in a set — a surface decoder must return a "
+            "number, a string, or a tuple of them" % (value,))
+    return value
+
+
+def _surface_reading_report(decoded):
+    """Every surface and what it decoded to, in the order the caller
+    listed them — never only the mismatching pair.
+
+    The two-value message is the tempting one and it is the wrong one:
+    the shipped defect reads "the fields and the handles agree on
+    08:00-18:00 while the arc and the caption both still say
+    23:00-07:00", and that sentence is only available to a reader who
+    is shown all four. A message naming one pair would have sent the
+    next reader looking at the wrong half.
+    """
+    return "; ".join("%s -> %r" % (label, value) for label, value in decoded.items())
+
+
+def _assert_surfaces_agree(page, surfaces, requested, before, where):
+    """Decode N rendered surfaces into ONE canonical value and assert
+    they agree, that the agreed value is the one the interaction
+    REQUESTED, and that it DIFFERS from the pre-interaction value.
+
+    `surfaces` is an ordered mapping of a surface LABEL to a
+    zero-argument callable returning that surface's decoded value — a
+    mapping rather than a fixed pair of arguments, because the number of
+    surfaces describing one value is a property of the control and not
+    of this helper, and a two-argument version would have to be
+    hand-unrolled (and mis-unrolled) at every call site with three or
+    four.
+
+    Returns the `{label: decoded}` mapping on success, so a caller can
+    report the numbers it agreed on. RAISES AssertionError on every
+    failure, `_persist_without_js()`'s shape and for its reason: a
+    helper returning a verdict string hands every caller a guard it has
+    to remember, and `check()` turns a raised AssertionError into a
+    named FAIL nobody can forget.
+
+    THREE SEPARATE ASSERTIONS WITH THREE SEPARATE MESSAGES, deliberately
+    not collapsed into one boolean, because they fail for three
+    unrelated reasons and a reader needs to know which:
+      1. the surfaces DISAGREE — some part of the page did not follow;
+      2. they agree on the WRONG value — the page froze together, or the
+         interaction was applied and then overwritten;
+      3. they agree on the value that was already there — nothing
+         happened at all, and a one-boolean version of this helper would
+         have called that a pass.
+    A single `all(...)` over the three would report "agreement failed"
+    for a frozen page, which is both true and useless.
+
+    `page` is taken and used: every message names the document the
+    reading came off, because these surfaces are decoded on a live page
+    that a preceding step navigated, and a reading taken on the wrong
+    route is the one failure whose message would otherwise be a puzzle.
+
+    This helper drives NO state change of its own (T-27-01-A). It reads
+    what the caller's interaction already did, which is what lets it
+    compose with `_persist_without_js()` rather than wrap it.
+    """
+    decoded = {}
+    for label, decoder in surfaces.items():
+        decoded[label] = decoder()
+    if len(decoded) < 2:
+        raise AssertionError(
+            "_assert_surfaces_agree: %s was given %d surface(s) (%s) on %s — "
+            "agreement between fewer than two surfaces is not a relationship, "
+            "and a one-surface call is the endpoint check this helper exists "
+            "to replace"
+            % (where, len(decoded), _surface_reading_report(decoded), page.url))
+
+    canonical = {label: _canonical_surface_value(value)
+                 for label, value in decoded.items()}
+    distinct = set(canonical.values())
+    if len(distinct) != 1:
+        raise AssertionError(
+            "_assert_surfaces_agree: %s — the %d surfaces describing this "
+            "value DISAGREE on %s. They read: %s. The interaction asked for "
+            "%r. A surface that did not follow is a surface that is now "
+            "lying to the visitor about a value the page beside it shows "
+            "correctly"
+            % (where, len(canonical), page.url,
+               _surface_reading_report(decoded), requested))
+
+    agreed = next(iter(distinct))
+    if agreed != _canonical_surface_value(requested):
+        raise AssertionError(
+            "_assert_surfaces_agree: %s — all %d surfaces on %s agree on %r, "
+            "but the interaction asked for %r. They read: %s. Agreement on "
+            "the wrong value is what a page that froze every surface "
+            "together looks like from outside, which is why agreement alone "
+            "is not the assertion"
+            % (where, len(canonical), page.url, agreed, requested,
+               _surface_reading_report(decoded)))
+
+    if agreed == _canonical_surface_value(before):
+        raise AssertionError(
+            "_assert_surfaces_agree: %s — all %d surfaces on %s agree on %r, "
+            "which is exactly what was there BEFORE the interaction. They "
+            "read: %s. The interaction changed nothing, so this reading "
+            "proves nothing: a no-op is the cheapest way to make every "
+            "surface on a page agree"
+            % (where, len(canonical), page.url, agreed,
+               _surface_reading_report(decoded)))
+    return decoded
+
+
 def main():
     try:
         from playwright.sync_api import sync_playwright
