@@ -9082,35 +9082,26 @@ def main():
             return False, (
                 "the pending skip is PER REGION, not per tick: one unconfirmed control must not "
                 "stand down the refresh of every other region on the page")
-        # B1's lesson, verbatim: PRESENCE of the bar is not proof it is
-        # live. The gate reads dirty-state.js's own liveness marker AND
-        # the bar's current visibility; a bar that merely exists, hidden,
-        # is not an unsaved edit.
-        if "dirty-ready" not in code:
+        # 27-04-PLAN.md (deviation, in-scope per Rule 2 — CFG-63 retired
+        # the save bar this gate used to read): SUPERSEDES the B1-lesson
+        # clause this check used to assert. dirty-state.js is now the
+        # settings form's auto-save driver and exposes the identical
+        # question as window.SkyPaneDirtyState.hasUncommittedEdits() — a
+        # cross-script query with no proof-of-life marker needed on this
+        # side of the seam, because the function itself only ever exists
+        # on a page where dirty-state.js found the settings form (see
+        # that file's own top guard).
+        if "SkyPaneDirtyState" not in code:
             return False, (
-                "expected the dirty-form gate to key on dirty-state.js's own proof-of-life "
-                "marker — 22-01/B1's defect of record was a gate keyed to a PROXY for liveness "
-                "rather than to liveness itself")
-        if "data-dirty-bar" not in code:
-            return False, (
-                "expected the dirty-form gate to read the save bar's own element")
-        # MEASURED INSIDE THE GATE ITSELF, not anywhere in the file:
-        # ".hidden" appears in this script for document.hidden and for
-        # the pill, so a file-wide scan for it is satisfied by a gate
-        # that reads neither of the two things it is supposed to. A
-        # presence-only gate — B1's own defect — is what this clause
-        # exists to fail, and it does (mutation-tested).
+                "expected the dirty-form gate to read window.SkyPaneDirtyState — dirty-state.js's "
+                "own exposed cross-script query, the same small-namespace-object idiom window."
+                "SkyPaneLivePreview already established")
         edits_at = code.index("function unsavedEdits(")
         edits_body = code[edits_at:code.index("\n  }", edits_at)]
-        if "DIRTY_READY_CLASS" not in edits_body:
+        if "hasUncommittedEdits" not in edits_body:
             return False, (
-                "expected the gate to read dirty-state.js's own liveness marker, got %r"
+                "expected the gate itself to call SkyPaneDirtyState.hasUncommittedEdits(), got %r"
                 % (edits_body,))
-        if "bar.hidden" not in edits_body:
-            return False, (
-                "expected the gate to read the BAR'S OWN current visibility — a bar that exists "
-                "and is hidden reports no unsaved edits, and taking its mere presence for an "
-                "answer is 22-01/B1's defect exactly, got %r" % (edits_body,))
         # And nothing about the cadence, the ladder or the guard moved.
         for needle in ("AUTO_REFRESH_INTERVAL_MS = 45000", "RETRY_CEILING_MS = 600000",
                        "RETRY_BASE_MS", "inFlight", "failAndRetry()", "isEqualNode",
@@ -9124,10 +9115,10 @@ def main():
     check(
         "freshness.js knows three things it must not repaint: swapNodes() keeps 22-15's unchanged"
         "-region and focused-region skips and gains a per-region pending skip, and tick() stands "
-        "the whole cycle down while the save bar reports unsaved edits — gated on dirty-state.js's "
-        "own dirty-ready liveness marker AND the bar's current visibility, never on the bar's mere "
-        "presence (B1's lesson) — with the interval, ladder, ceiling, in-flight guard and "
-        "redirect:manual all untouched (D1/CFG-35, 23-06-PLAN.md Task 1)",
+        "the whole cycle down while dirty-state.js's own window.SkyPaneDirtyState."
+        "hasUncommittedEdits() reports unsaved edits — with the interval, ladder, ceiling, "
+        "in-flight guard and redirect:manual all untouched (D1/CFG-35, 23-06-PLAN.md Task 1; "
+        "retargeted from the retired save bar by 27-04-PLAN.md, CFG-63)",
         _23_06_the_loop_knows_three_things_it_must_not_repaint)
 
     # --- 23-08-PLAN.md Task 1 (D7/CFG-37): Flights joins the loop, and a
@@ -14243,83 +14234,53 @@ def main():
     # geometrically apart first and unambiguously ordered second.
     # ======================================================================
 
-    def _save_bar_clears_the_tab_bar_and_declares_one_stacking_value():
+    def _save_bar_geometry_is_retired_and_the_tab_bar_stacking_survives():
+        # 27-04-PLAN.md (D-04/CFG-63): SUPERSEDES this check's own
+        # pre-27-04 subject wholesale — the save bar this check measured
+        # (its sub-960px offset gaining the tab bar's own height, its
+        # z-index: 30 at both breakpoints, and its two MEASURED content-
+        # clearance rules) is retired outright along with the component,
+        # and style.css's own comments at each former site record the
+        # account. What survives, unmodified by this plan, is the tab
+        # bar's OWN stacking value and its OWN content clearance
+        # (.has-tab-bar .page-content) — neither ever depended on the
+        # save bar existing.
         css_source = _css_source()
-        phone = _block(
-            css_source,
-            ".dirty-bar {\n    position: fixed;\n    left: var(--space-md);")
-        # GEOMETRY FIRST: the offset gains the tab bar's own height, so
-        # in the normal case the two never overlap at all.
-        if "bottom: calc(var(--space-md) + 56px + env(safe-area-inset-bottom, 0px))" not in phone:
+
+        if ".dirty-bar" in css_source:
+            return False, "expected zero occurrences of .dirty-bar anywhere in style.css"
+        if ".dirty-ready .dashboard-main {" in css_source or ".dirty-ready .page-content {" in css_source:
             return False, (
-                "expected the sub-960px save bar's bottom offset to gain the tab bar's 56px "
-                "plus the safe-area inset, got %r" % (phone,))
-        if "z-index: 30" not in phone:
-            return False, "expected the phone save bar at the one stacking value (30)"
-        desktop = _block(
-            css_source,
-            ".dirty-bar {\n    position: fixed;\n    bottom: var(--space-lg);")
-        if "z-index: 30" not in desktop:
-            return False, (
-                "T7: the desktop save bar had no stacking value at all; expected the SAME one "
-                "the phone rule declares, got %r" % (desktop,))
-        # One value for the component, not one per width.
-        if len(re.findall(r"\n\s*z-index: \d+;", phone + desktop)) != 2:
-            return False, "expected exactly one z-index declaration in each save-bar rule"
+                "expected neither retired content-clearance rule to survive — .dirty-ready is "
+                "no longer written by any script")
+
         tab_bar = _block(
             css_source[css_source.index(_TAB_BAR_BANNER):],
             ".tab-bar {\n    display: flex;")
         tab_z = re.search(r"z-index: (\d+);", tab_bar)
         if tab_z is None:
-            return False, "expected the tab bar to declare its own stacking value"
-        if int(tab_z.group(1)) >= 30:
+            return False, "expected the tab bar to still declare its own stacking value"
+        if tab_z.group(1) != "20":
             return False, (
-                "the save bar is the active task and the tab bar is ambient chrome — a blocked "
-                "save is this phase's P0, so the tab bar must sit BELOW it, got %r"
-                % (tab_z.group(1),))
+                "expected the tab bar's stacking value to stay at 20, unmoved by the save bar's "
+                "retirement, got %r" % (tab_z.group(1),))
 
-        # The superseded paragraph is amended in place with the stated
-        # reason its own escape clause demands, never deleted.
-        if "if a future overlap appears, add one then with a" not in css_source:
-            return False, (
-                "expected the original 'No z-index, and why' paragraph to survive — its escape "
-                "clause is what this change is exercising")
-        if "STATED REASON" not in css_source:
-            return False, (
-                "expected the stated reason to be recorded where the z-index is declared, not "
-                "merely asserted elsewhere")
-
-        # T7's content clearance, at both breakpoints, scoped to the
-        # class dirty-state.js only adds once its own bar is live.
-        for selector, needle in (
-                (".dirty-ready .dashboard-main {", "var(--space-2xl) + 88px"),
-                (".dirty-ready .page-content {", "var(--space-2xl) + 56px + 144px")):
-            if selector not in css_source:
-                return False, "expected a .dirty-ready-scoped content clearance (%r)" % (selector,)
-            body = _block(css_source, selector)
-            if "padding-bottom" not in body:
-                return False, "expected %r to declare padding-bottom" % (selector,)
-            if needle not in body.replace("\n", " ").replace("      ", ""):
-                return False, (
-                    "expected the MEASURED clearance value in %r, got %r" % (selector, body))
-        # The phone clearance must be declared AFTER the tab bar's own,
-        # which targets the same element at the same specificity — source
-        # order is the only thing deciding between them.
-        if css_source.index(".dirty-ready .page-content {") < css_source.index(
-                ".has-tab-bar .page-content {"):
-            return False, (
-                "the save-bar clearance must follow the tab bar's own clearance in source "
-                "order, or the tab bar's shorter value silently wins")
+        # The tab bar's own content clearance is the ONLY one a
+        # phone-width settings page needs now — .save-status sits in
+        # normal document flow and claims no fixed space of its own.
+        if ".has-tab-bar .page-content {" not in css_source:
+            return False, "expected the tab bar's own content-clearance rule to survive"
+        clearance_body = _block(css_source, ".has-tab-bar .page-content {")
+        if "padding-bottom" not in clearance_body:
+            return False, "expected .has-tab-bar .page-content to declare padding-bottom"
         return True, ""
     check(
-        "below 960px the save bar's bottom offset clears the tab bar's 56px plus the safe-area inset "
-        "(geometry first), it declares ONE stacking value at both breakpoints — 30, above the tab bar's "
-        "20, which is also T7's desktop fix — with the reason stated where it is declared and the "
-        "superseded 'No z-index, and why' paragraph amended rather than deleted, and a "
-        ".dirty-ready-scoped content clearance exists at both breakpoints at its measured value, "
-        "declared after the tab bar's own so it cannot be silently overridden (D-10/T7, 22-14-PLAN.md "
-        "Task 3)",
-        _save_bar_clears_the_tab_bar_and_declares_one_stacking_value)
+        "the save bar's own sub-960px geometry, its z-index: 30 at both breakpoints and its two "
+        "MEASURED content-clearance rules are retired wholesale — zero occurrences of .dirty-bar "
+        "or any .dirty-ready-scoped rule survive anywhere in style.css — while the tab bar's own "
+        "stacking value (20) and its own content clearance are unmoved (D-10/T7, 22-14-PLAN.md "
+        "Task 3; retired by 27-04-PLAN.md, CFG-63)",
+        _save_bar_geometry_is_retired_and_the_tab_bar_stacking_survives)
 
     # ======================================================================
     # 22-04-PLAN.md Task 3 (D-03/CFG-26, X2): Health's Frame tile and the

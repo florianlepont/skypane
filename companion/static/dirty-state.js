@@ -1,131 +1,99 @@
 /*
  * SkyPane companion service — dirty-state.js.
  *
- * D-03 (06.6.3-CONTEXT.md): watches Config's form for unsaved edits and
- * shows a save/cancel bar while any field differs from the value it had
- * on page load. Like nav-dropdown.js/battery-trend.js before it, this
- * file has no build step, no bundler, no framework and no dependency of
- * any kind, and must stay written to an ES5-safe subset (no let/const/
- * arrow functions/template literals/backticks) so no transpiler is ever
- * needed to ship it. It is served by companion/app.py's
- * DIRTY_STATE_SCRIPT_ROUTE, mirroring the existing /static/style.css
- * route.
+ * 27-04-PLAN.md (D-04..D-10, CFG-63): the developer's own words, reviewing
+ * the deployed app — "je veux aucun bouton ça sert à rien. Si tu veux une
+ * confirmation visuelle, un 'sauvegarde…' et 'sauvegardé' suffit." This
+ * file WAS the dirty save bar: it watched Config's form for unsaved edits
+ * and showed a save/cancel bar with a running count of changed sections.
+ * It is now the settings form's auto-save driver instead — the bar, its
+ * count, its Save/Cancel buttons and the copy that named which sections
+ * changed are all deleted. What replaces them is the model
+ * companion/static/quick-switch.js already shipped for the three
+ * role="switch" controls on this same page: optimistic apply (already
+ * true here — a text field already shows what the user typed, with no
+ * script's help) -> POST by fetch -> 204 and nothing else confirms ->
+ * anything else rolls back the save (never the field's own text — see
+ * "WHY A REJECTED VALUE IS NOT REVERTED" below) and raises the SAME
+ * generic toast quick-switch.js already owns. There is no second save
+ * model on this page; this file adopts the one that already existed.
  *
- * Standing constraints, not just a description of this version: this
- * file must never introduce a network call, a timer, or any persistent
- * state — it only reads/writes form values, attributes, and text
- * content already present in the DOM.
+ * NO NEW SCRIPT, NO NEW ROUTE. This file already owned the delegated
+ * change/input listeners on the settings form and the region that
+ * announced save state (the bar's own [data-dirty-count]) — both are
+ * reused rather than re-derived. It still has no build step, no bundler,
+ * no framework and no dependency of any kind, and stays written to an
+ * ES5-safe subset (no let/const/arrow functions/template literals/
+ * backticks) so no transpiler is ever needed to ship it. It is served by
+ * companion/app.py's DIRTY_STATE_SCRIPT_ROUTE, mirroring the existing
+ * /static/style.css route.
  *
  * This script is served to every page on the site (a single cached
  * static asset, not re-emitted per page). Most pages carry no
  * form[data-dirty-form] at all — today only Config does — so the guard
- * below is load-bearing, not defensive noise, matching the project's
- * established convention (nav-dropdown.js/battery-trend.js's own early
- * returns).
+ * below is load-bearing, not defensive noise.
  *
- * 06.6.4.1 (D-03/D-04): the bar's copy now names which settings group(s)
- * changed, using the group labels Settings' own page module assigns via
- * data-dirty-section, instead of a raw field-diff count — see
- * dirtySectionLabels() and updateBar() below.
+ * --- THE TRIGGER IS change, NOT input (D-04, PROVISIONAL) -------------
  *
- * SUPERSEDED by 19-10-PLAN.md (D-09/A-27): this paragraph used to say
- * hiding the form's always-rendered bottom Save Settings button was NOT
- * this file's job, because that was instead a .js-gated CSS rule
- * (.js [data-static-save-fallback] { display: none; }) driven by the
- * .js class nav-dropdown.js sets unconditionally on <html>. That was the
- * defect: .js says nothing about whether THIS file ever reached its own
- * initialisation — any hiccup in dirty-state.js (a thrown exception, a
- * markup change that broke a querySelector) still left .js set, so the
- * fallback button hid anyway while the replacement bar never appeared,
- * leaving no way to save settings at all. The new contract: this file
- * adds a marker class to <html>, defined below right after the guard
- * that proves the bar actually exists, and
- * companion/static/style.css's fallback-hide rule is retargeted to key
- * on that marker instead of on .js, so the fallback now hides if and
- * only if a working replacement is actually present.
+ * A keystroke is not a decision; a commit is. change fires on blur for
+ * text/number/url fields and immediately for radios, checkboxes, selects
+ * and time inputs — exactly "the user has decided". This removes any
+ * need for a debounce timer and any question of saving a half-typed URL,
+ * and it is what makes the leave-guard below (still armed, D-10) and this
+ * driver agree on exactly one definition of "uncommitted".
  *
- * 19-10-PLAN.md (D-10/A-28): a beforeunload listener now warns before a
- * real navigation (Add rule, Delete, Trigger poll, or simply closing the
- * tab) discards unsaved settings edits. It uses one predicate,
- * countDifferences() below - the same one the bar itself uses, reused
- * rather than reimplemented - and is cleared by exactly two legitimate
- * exits: a real form submit, and the Cancel button.
+ * PROVISIONAL, named here so a later plan can revisit it on developer
+ * report: the visible cost is that a user who types into the calendar
+ * URL field and closes the tab without blurring has not saved — the
+ * leave-guard is what protects exactly that case today. The fallback,
+ * if this is ever found surprising, is input plus a debounce: a timer,
+ * a second tuning constant and a save per keystroke burst, deliberately
+ * not chosen here.
  *
- * 19-10-PLAN.md (D-14/S-04): three Quiet hours preset buttons
- * (config_page.py's quiet_hours_group()) are also handled here, reading
- * their data-preset-start/data-preset-end/data-preset-enabled
- * attributes and writing into the same form's time inputs and enable
- * checkbox, then reusing notifyDirty()/updateBar() to mark the form
- * dirty - never a synthetic change event.
+ * --- WHY A REJECTED VALUE IS NOT REVERTED ------------------------------
  *
- * 22-01-PLAN.md Task 2 (D-01/B1, T1, T8): several settings groups (see
- * config_page.py's own DIRTY_SECTION_ATTR wrappers) live OUTSIDE the
- * physical <form id="settings-form">, cross-submitting only via a form=
- * attribute on each control — a deliberate structural choice
- * (companion/pages/config_page.py's own docstrings: the rules/calendar/
- * screen/quiet-hours/imagery cards each need their own <form>, which
- * HTML forbids nesting inside this one). The change/input listeners
- * below used to be registered on the form element itself, and a <form>
- * element never receives a change/input event from a control that is
- * merely form=-associated with it while living elsewhere in the DOM (the
- * DOM event model dispatches at the control's OWN position, not its
- * associated form's). So every one of those fields could change on
- * screen and the bar would never appear. form.elements was ALREADY
- * correct here (the WHATWG spec builds it from both descendants and any
- * form=-matching element anywhere in the document) - snapshotValues(),
- * countDifferences() and dirtySectionLabels() needed no change at all.
- * The fix is purely the listener attachment point: delegate at the
- * document level instead (below), filtered to e.target.form === form so
- * a change anywhere else on the page (another form entirely, a page with
- * no dirty form at all) is still a correct no-op. The DOM structure
- * itself is preserved deliberately, not undone.
+ * The three switches roll a REJECTED FLIP back to what it was — there is
+ * nothing else a switch could sensibly show. A text field is different:
+ * this app already ships a deliberate design (wake_interval_group()'s own
+ * D-07 behaviour) where a rejected submission is echoed BACK into the
+ * field with scripts blocked, so the person can see and fix what they
+ * typed rather than have it silently vanish. Auto-save keeps that
+ * promise: on any non-204 the field keeps the user's own text, the save
+ * is not claimed (the status region never says the saved word), and the
+ * generic toast fires. Per-field error copy is NOT delivered to this
+ * path — companion/app.py's own docstring names why (rendering it would
+ * mean parsing returned HTML into the page, an HTML-writing sink this
+ * codebase forbids everywhere) and names the alternative for a later
+ * phase (a JSON error map on the rejection branch) as explicitly out of
+ * this one's scope.
  *
- * The second half of the same defect (B1): [data-dirty-bar] and
- * [data-dirty-count] merely existing in the DOM used to be enough to
- * write the marker below — element PRESENCE, not proven liveness — and
- * style.css's fallback-hide rule keyed on that one marker alone. Any
- * failure in this file after that point (this exact listener bug, or any
- * future one) still hid the always-rendered bottom Save button while the
- * bar itself never worked, leaving no way to save at all. A second,
- * narrower marker (set only inside updateBar()'s own bar.hidden = false
- * branch — i.e., only once the bar has genuinely been displayed with
- * real content at least once) is added below; style.css now requires
- * BOTH classes before hiding the fallback button.
+ * --- THE LEAVE-GUARD STAYS (D-10) --------------------------------------
  *
- * T1: suppressGuard used to be set on Cancel and never cleared again for
- * the rest of the page's life, so the beforeunload leave-guard stayed
- * permanently disarmed after one Cancel. updateBar() now resets it to
- * false at its own top whenever a real edit exists (countDifferences() >
- * 0), re-arming the guard the moment the next edit is detected.
+ * The developer's own binding answer, 2026-09-15: with change-triggered
+ * saves, an edit that has never fired change — a calendar URL pasted and
+ * the tab closed without leaving the field — is exactly the case a
+ * leave-guard exists for. It is unchanged in mechanism from before this
+ * plan: still keyed on countDifferences() below, still a plain leave
+ * listener with no custom message (every modern browser supplies its
+ * own). What changed is WHEN the snapshot this predicate compares
+ * against advances: every successful beginSave() call
+ * advances it BEFORE the fetch resolves (the same instant the status
+ * region starts saying the in-flight word), so the guard disarms the
+ * moment a save is under way and re-arms itself, via the identical
+ * revert, if that save turns out to have failed (see beginSave() below).
+ * "Annuler" is retired alongside the bar (D-10's other half) — it only
+ * ever meant something against a pending, uncommitted edit the Save
+ * button hadn't sent yet, and there is no longer such a state to cancel.
  *
- * T8: form.reset() (Cancel's handler, below) restores every field's
- * value but fires no change event, so theme-preview.js's live preview
- * kept showing the discarded theme after Cancel. Cancel now also calls
- * window.SkyPaneLivePreview.refresh() (theme-preview.js's own small
- * exposed namespace, added for this exact purpose) when that global is
- * present — a direct function call, not a synthesized DOM event, since
- * this file cannot cheaply construct a real change event for a cross-DOM
- * form= field.
+ * --- WHAT THIS FILE DOES NOT TOUCH --------------------------------------
  *
- * D-06 (20-11-PLAN.md Task 3): updateBar()'s own connector words are now
- * read once from the dirty-bar element itself, via five data-* attributes
- * server-rendered and translated by config_page.py's dirty_bar_html — the
- * same data-* label shape freshness.js uses (its former
- * data-pause-text pair was retired in 21-02):
- *   data-dirty-changed-suffix   — the word appended after a section-label
- *                                 list names what happened to it
- *   data-dirty-and              — the two-item list joiner
- *   data-dirty-list-and         — the final joiner for three or more
- *                                 items, distinct from the two-item one
- *   data-dirty-unsaved-singular — the whole sentence for the raw-count
- *                                 fallback (exactly one differing field
- *                                 outside every section wrapper)
- *   data-dirty-unsaved-plural   — that same fallback's own suffix,
- *                                 appended after the live count
- * Each var declaration below documents its own hardcoded fallback
- * literal, used only when the corresponding attribute is missing, so
- * the bar can never render empty; the pluralisation LOGIC itself
- * (which branch runs) stays in this file — only the words move.
+ * companion/static/submit-guard.js (the double-submit guard for every
+ * form on the site) and companion/static/confirm-submit.js (the
+ * destructive-action confirm, today the calendar disconnect) are NOT
+ * leave-guards and are NOT touched here — D-10 asks specifically that the
+ * two halves it separates (the beforeunload leave-guard and the
+ * "Annuler" cancel handler) both live and are both retired inside THIS
+ * file alone, and they did.
  */
 (function () {
   "use strict";
@@ -135,16 +103,13 @@
     return;
   }
 
-  var bar = document.querySelector("[data-dirty-bar]");
-  var countEl = document.querySelector("[data-dirty-count]");
-  var cancelBtn = document.querySelector("[data-dirty-cancel]");
-
   // D-14/S-04: Quiet hours presets. Fills the two time inputs and the
-  // enable checkbox client-side, then marks the form dirty through
-  // notifyDirty() below. Placed here, BEFORE the [data-dirty-bar]/
-  // [data-dirty-count] guard immediately below, so the presets keep
-  // working even on a page whose save bar failed to initialise - that
-  // is the whole point of D-09. This script is served to every page on
+  // enable checkbox client-side, then commits the same way any other
+  // field's own change event would — a preset press is as much a
+  // decision as a manual edit is. Placed here, BEFORE the [data-save-
+  // status] guard immediately below, so the presets keep working even on
+  // a page whose status region failed to render — matching this file's
+  // own top guard's reasoning. This script is served to every page on
   // the site; most pages render no [data-quiet-preset] buttons at all,
   // so the early return inside the nested function below is load-
   // bearing, matching this file's own top guard.
@@ -173,55 +138,78 @@
       if (enabledAttr !== null && form.elements["quiet_hours_enabled"]) {
         form.elements["quiet_hours_enabled"].checked = enabledAttr !== "0";
       }
-      notifyDirty();
+      beginSave();
     });
   }
 
-  // Reuses updateBar()/countDifferences() below rather than dispatching
-  // a synthetic change event - constructing one in an ES5-safe way is
-  // awkward and unnecessary when the handler that needs to react lives
-  // in this very same file. Only calls updateBar() once the bar itself
-  // is confirmed present, so a missing bar degrades to "the fields
-  // still fill in, there is just no dirty count to show" rather than
-  // throwing.
-  function notifyDirty() {
-    if (bar && countEl) {
-      updateBar();
+  // 27-04-PLAN.md Task 3 (CFG-63): the one status region that replaces
+  // the retired bar — companion/pages/config_page.py's own
+  // _save_status_region_html(), rendered unconditionally alongside
+  // data-dirty-form on every scope. A page carrying the form but no
+  // region (a markup regression, never expected today) simply gets no
+  // visible save feedback — the fetch/save machinery below still runs
+  // regardless, matching notifyDirty()'s own pre-27-04 degrade shape
+  // ("the fields still fill in, there is just no [feedback] to show").
+  var statusRegion = document.querySelector("[data-save-status]");
+
+  // D-06's data-*-attribute-with-an-English-fallback idiom, read once —
+  // see companion/pages/config_page.py's own SAVE_STATUS_SAVING_TEXT/
+  // SAVE_STATUS_SAVED_TEXT comment for why the fallback literals below
+  // are this file's documented degrade and must match those constants
+  // byte for byte.
+  var savingText = (statusRegion && statusRegion.getAttribute("data-save-status-saving"))
+    || "Saving…";
+  var savedText = (statusRegion && statusRegion.getAttribute("data-save-status-saved"))
+    || "Saved";
+
+  // --- The failure toast, reused rather than reinvented (D-08) ---------
+  //
+  // Byte-for-byte the same ELEMENT and the same COPY ATTRIBUTE
+  // companion/static/quick-switch.js's own announceFailure() reads —
+  // never a second toast element, never a second copy attribute. The
+  // show/dismiss MECHANISM (the timer, the visible class) is duplicated
+  // rather than shared, the same "no import across static/*.js files"
+  // convention layout.REFRESH_PENDING_ATTR's own three-file duplication
+  // already established for this codebase — there is no build step to
+  // share a module through. Each script owns writing to the shared
+  // element for the length of ITS OWN transient message; two scripts
+  // racing to report a failure inside the same six-second window is an
+  // accepted, low-probability edge shared by every multi-script toast
+  // owner already on this page (three quick-switch forms plus this one).
+  var TOAST_ATTR = "data-quick-toast";
+  var FAILED_TEXT_ATTR = "data-quick-failed-text";
+  var FAILED_TEXT = "Couldn't change that — please try again.";
+  var TOAST_DISMISS_MS = 6000;
+  var toastTimer = null;
+
+  function announceFailure() {
+    var toast = document.querySelector("[" + TOAST_ATTR + "]");
+    if (!toast) {
+      return;
     }
+    var copy = document.body ? document.body.getAttribute(FAILED_TEXT_ATTR) : null;
+    toast.textContent = copy || FAILED_TEXT;
+    toast.className = "quick-toast is-visible";
+    if (toastTimer !== null) {
+      window.clearTimeout(toastTimer);
+    }
+    toastTimer = window.setTimeout(function () {
+      toast.className = "quick-toast";
+      toast.textContent = "";
+      toastTimer = null;
+    }, TOAST_DISMISS_MS);
   }
 
-  if (!bar || !countEl) {
-    return;
-  }
-
-  // D-06 (20-11-PLAN.md Task 3): read once, off the dirty-bar element
-  // itself, now that it is proven present — see this file's own header
-  // comment for what each attribute means. Each fallback literal below
-  // is this file's pre-D-06 English wording, used only when the
-  // corresponding attribute is absent.
-  var dirtyChangedSuffix = bar.getAttribute("data-dirty-changed-suffix") || " changed";
-  var dirtyAnd = bar.getAttribute("data-dirty-and") || " and ";
-  var dirtyListAnd = bar.getAttribute("data-dirty-list-and") || ", and ";
-  var dirtyUnsavedSingular = bar.getAttribute("data-dirty-unsaved-singular") || "1 unsaved change";
-  var dirtyUnsavedPlural = bar.getAttribute("data-dirty-unsaved-plural") || " unsaved changes";
-  // 23-09-PLAN.md Task 2 (D3/CFG-32): the sixth word, same idiom, same
-  // reason — see this file's own header and config_page.py's own
-  // DIRTY_SAVING_TEXT comment. The fallback literal is byte-identical
-  // to the server constant; a check fails if the two ever drift.
-  var dirtySavingText = bar.getAttribute("data-dirty-saving") || "Saving…";
-
-  // D-09/A-27: the bar is now proven present — set the marker
-  // style.css's fallback-hide rule keys on. Mirrors nav-dropdown.js's
-  // own unconditional document.documentElement.className += " js"
-  // (its very first statement) rather than classList, matching this
-  // codebase's existing convention for writing a class onto <html>.
-  document.documentElement.className += " dirty-ready";
-
-  // Snapshot every named field's value at load time. form.elements is a
-  // live HTMLFormControlsCollection — re-scanned on every change/input
-  // event below rather than cached as a static list, so a field added or
-  // removed from the form later (not expected today, but cheap to get
-  // right) is still handled correctly.
+  // Snapshot every named field's value at load time — unchanged in shape
+  // from this file's pre-27-04 own snapshotValues()/countDifferences(),
+  // which the leave-guard below still depends on byte for byte. form.
+  // elements is a live HTMLFormControlsCollection, re-scanned on every
+  // call rather than cached, so a field added or removed later is still
+  // handled correctly — including every settings group living OUTSIDE
+  // this physical <form> via a form= attribute (several cross-submit
+  // this way; see this file's own git history for the B1 defect that
+  // made the listener attachment point below document-level rather than
+  // form-level for exactly this reason).
   var snapshot = {};
 
   function snapshotValues() {
@@ -266,173 +254,207 @@
     return count;
   }
 
-  // Returns an array of dirty section labels, in document order (making
-  // the bar's copy deterministic and independent of which field the user
-  // touched first) — one entry per [data-dirty-section] wrapper whose
-  // scoped fields differ from the load-time snapshot. Section labels are
-  // never hardcoded here: at least one settings group can render zero
-  // form controls at all (whenever its registry has exactly one member,
-  // there's nothing left to pick), so a hardcoded label list would name
-  // a section that structurally cannot change. Re-runs the same
-  // per-field comparison countDifferences() performs, scoped to only
-  // the fields each wrapper contains().
-  //
-  // 22-01-PLAN.md Task 3 (D-01/B1, found live while proving the fix in
-  // the browser): the wrapper lookup below queries document, not form.
-  // On the Display scope every [data-dirty-section] group renders as a
-  // SIBLING of the physical form, exactly like the fields inside them -
-  // form.querySelectorAll() only ever searches descendants, so it found
-  // zero wrappers there and the bar silently fell back to its raw-count
-  // copy on every Display save, never naming a section. Wrapper
-  // membership is still resolved the identical way afterwards
-  // (wrapper.contains(el) against form.elements, which was already
-  // correct) - only the wrapper QUERY's scope changes, for the same
-  // reason the listener attachment point did.
-  function dirtySectionLabels() {
-    var current = snapshotValues();
-    var wrappers = document.querySelectorAll("[data-dirty-section]");
-    var labels = [];
-    var i, j;
-    for (i = 0; i < wrappers.length; i++) {
-      var wrapper = wrappers[i];
-      var dirty = false;
-      var els = form.elements;
-      for (j = 0; j < els.length; j++) {
-        var el = els[j];
-        if (!el.name || !wrapper.contains(el)) {
+  // 27-04-PLAN.md (deviation, in-scope per Rule 2): companion/static/
+  // freshness.js's own tick() used to stand its whole refresh cycle down
+  // while the retired bar reported unsaved edits (23-06-PLAN.md Task 1,
+  // D1/CFG-35) — gated on the bar's OWN liveness marker AND its own
+  // current visibility, B1's lesson that presence is not proof of life.
+  // That bar and its own liveness marker class are both gone; a
+  // periodic swap landing mid-edit on an uncommitted field is exactly
+  // the same hazard this plan's own leave-guard exists for, so the
+  // predicate freshness.js reads is exposed here instead — the same
+  // small-namespace-object idiom theme-preview.js's own window.
+  // SkyPaneLivePreview already established, and this file's own ONE new
+  // global. No liveness marker is needed on this side of the seam any
+  // more: the function itself is the proof of life, in the one place
+  // that can genuinely fail to exist (a page freshness.js runs on but
+  // this form is not present) — see this file's own top guard, which is
+  // exactly why the object below is defined inside it rather than
+  // unconditionally.
+  window.SkyPaneDirtyState = {
+    hasUncommittedEdits: function () {
+      return countDifferences() > 0;
+    }
+  };
+
+  // D-32's own established idiom (23-09-PLAN.md Task 1's changed-value
+  // animation, list-filter.js's and freshness.js's own reuse of it): the
+  // stylesheet's EXISTING transform/opacity fade, never a fourth
+  // @keyframes block for this plan's own text. Nothing happens unless
+  // the sentence genuinely differs, matching this file's pre-27-04
+  // setCountText() reasoning against re-announcing identical text to a
+  // live region.
+  var STATUS_CHANGED_CLASS = "is-fading-in";
+
+  function setStatusText(text) {
+    if (!statusRegion) {
+      return;
+    }
+    if (statusRegion.textContent === text) {
+      return;
+    }
+    statusRegion.textContent = text;
+    if (statusRegion.classList) {
+      statusRegion.classList.remove(STATUS_CHANGED_CLASS);
+      void statusRegion.offsetWidth;
+      statusRegion.classList.add(STATUS_CHANGED_CLASS);
+    }
+  }
+
+  // Posts every named field the form currently holds, urlencoded exactly
+  // like a native submission of this same <form> would — CFG-36's own
+  // hazard (an absent field silently resolving to "leave unchanged" on
+  // ONE handler, "clear it" on another) is why this always serializes
+  // EVERY field rather than only the one that changed. Excludes any
+  // control with no name — the always-rendered fallback Save button
+  // (STATIC_SAVE_FALLBACK_ATTR) is exactly that shape and contributes no
+  // entry to a native submission either, so this matches native
+  // behaviour rather than special-casing it.
+  function serializeForm() {
+    var els = form.elements;
+    var parts = [];
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (!el.name || el.disabled) {
+        continue;
+      }
+      if (el.type === "checkbox" || el.type === "radio") {
+        if (!el.checked) {
           continue;
         }
-        if (current[el.name] !== snapshot[el.name]) {
-          dirty = true;
-          break;
-        }
       }
-      if (dirty) {
-        labels.push(wrapper.getAttribute("data-dirty-section"));
+      parts.push(encodeURIComponent(el.name) + "=" + encodeURIComponent(el.value));
+    }
+    return parts.join("&");
+  }
+
+  // --- The save itself, one in flight at a time (T-27-04-C/D) -----------
+  //
+  // saving is true for the life of one fetch; pendingSave records
+  // that a LATER commit arrived while it was in flight. Two booleans and
+  // no timer: N rapid commits produce at most one request in flight plus
+  // one coalesced follow-up, never N, and the follow-up always
+  // serializes the form's CURRENT state at the moment it actually fires
+  // — never a captured older body — so an older response can never win
+  // over a newer one.
+  var saving = false;
+  var pendingSave = false;
+  var previousSnapshot = null;
+
+  function settleSave() {
+    saving = false;
+    if (pendingSave) {
+      pendingSave = false;
+      beginSave();
+    }
+  }
+
+  function beginSave() {
+    if (saving) {
+      pendingSave = true;
+      return;
+    }
+    if (countDifferences() === 0) {
+      // Nothing left to save — can happen when a coalesced follow-up
+      // runs after the field that triggered it was edited back to its
+      // last-saved value before the first request even settled.
+      return;
+    }
+    // No fetch, no attempt. A browser this old still has the always-
+    // rendered fallback Save button available — .js hides it as a plain
+    // script-presence decision (27-03-PLAN.md/CFG-64), which is the
+    // deliberate floor this plan builds on rather than reopens; a
+    // JS-running, fetch-less browser is the same accepted, out-of-scope
+    // gap companion/static/quick-switch.js already ships for its own
+    // three switches.
+    if (!window.fetch) {
+      return;
+    }
+    saving = true;
+    previousSnapshot = snapshot;
+    // Optimistic commit — the SAME instant the status region starts
+    // saying the in-flight word, and the reason the leave-guard below
+    // disarms immediately on change rather than waiting on the
+    // network: this is the "apply" half of "optimistic apply -> POST ->
+    // 204 confirms -> anything else rolls back", identical in shape to
+    // quick-switch.js's own applyState() call before its own fetch.
+    snapshot = snapshotValues();
+    setStatusText(savingText);
+    var body = serializeForm();
+    window.fetch(form.action, {
+      method: "POST",
+      credentials: "same-origin",
+      redirect: "manual",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Requested-With": "quick-switch"
+      },
+      body: body
+    }).then(function (response) {
+      if (response.status === 204) {
+        setStatusText(savedText);
+      } else {
+        // A validation rejection (200, the user's submission re-rendered
+        // with field-level errors, never read here — see this file's
+        // own header for why), any 4xx/5xx, or an opaque redirect (a
+        // session that expired between page load and this save) — none
+        // of them is the server saying it saved. Revert the optimistic
+        // snapshot so the leave-guard re-arms for exactly the value that
+        // did not land, clear the region so it never claims saved over a
+        // failure (the same lie the stale arc this phase exists to fix
+        // would be, in a sentence instead), and raise the one toast.
+        snapshot = previousSnapshot;
+        setStatusText("");
+        announceFailure();
       }
-    }
-    return labels;
+      settleSave();
+    })["catch"](function () {
+      // The network branch: offline, DNS, aborted. Identical treatment
+      // to a non-OK status, for the identical reason — the server never
+      // said it saved. Written in bracket form because catch is a
+      // reserved word in ES3, matching quick-switch.js's own comment.
+      snapshot = previousSnapshot;
+      setStatusText("");
+      announceFailure();
+      settleSave();
+    });
   }
 
-  // 23-09-PLAN.md Task 1 (D3/CFG-32): the stylesheet's EXISTING
-  // changed-value animation, not a fourth keyframes block. Its own rule
-  // comment says it names the motion rather than the component so the
-  // next thing that changes under the reader spends it, and 23-08's own
-  // notes hand it to this plan by name. The bar's ENTRANCE is a
-  // different motion and has its own block; this is only the count.
-  var COUNT_CHANGED_CLASS = "is-fading-in";
-
-  // The count's ONE write site (there were four, one per branch of
-  // updateBar() below), and the whole reason it is one.
-  //
-  // The bar is role="status" and this element is its content, so every
-  // write to it is a potential announcement. updateBar() runs on every
-  // change AND every input event — which is every keystroke in the
-  // wake-interval and quiet-hours fields — and most of those produce the
-  // same sentence again. Re-writing identical text into a live region is
-  // how a screen reader ends up reading the same number twice, and
-  // animating it would be motion carrying no information, which is the
-  // one thing a motion budget exists to stop. So: nothing happens at all
-  // unless the sentence genuinely differs.
-  //
-  // The TEXT is written first and the CLASS second. What animates is the
-  // element's presentation; the number itself is never tweened, so the
-  // displayed value is the real one at every instant including the
-  // animation's first frame. An animation that had to rewrite the text
-  // mid-transition would be the wrong animation, not a reason to accept
-  // a partial announcement.
-  //
-  // Removed, reflowed, re-added: a class that is already present runs
-  // nothing on the next change, because the browser coalesces a remove
-  // and an add in the same frame into no change at all. Reading a layout
-  // property in between is what forces the removal to take effect first
-  // — and it is a READ, not a timer: this file's own header makes "never
-  // a timer" a standing constraint, and a live check enforces it.
-  function setCountText(text) {
-    if (countEl.textContent === text) {
-      return;
-    }
-    countEl.textContent = text;
-    if (countEl.classList) {
-      countEl.classList.remove(COUNT_CHANGED_CLASS);
-      void countEl.offsetWidth;
-      countEl.classList.add(COUNT_CHANGED_CLASS);
-    }
-  }
-
-  function updateBar() {
-    var count = countDifferences();
-    // T1: re-arm the leave-guard the moment a real edit exists again —
-    // Cancel (below) is the only place that ever sets suppressGuard to
-    // true, and it must not stay true for the rest of the page's life.
-    if (count > 0) {
-      suppressGuard = false;
-    }
-    if (count <= 0) {
-      bar.hidden = true;
-      return;
-    }
-    bar.hidden = false;
-    // B1/D-01: the second, narrower liveness marker — set only here,
-    // inside the branch that actually reveals the bar with real content,
-    // never at script-init time (that is what dirty-ready above still
-    // means: the script ran and found its nodes, nothing more). See this
-    // file's own header comment for the full fallback-contract rationale.
-    if (document.documentElement.className.indexOf("dirty-shown") === -1) {
-      document.documentElement.className += " dirty-shown";
-    }
-    var labels = dirtySectionLabels();
-    if (labels.length === 0) {
-      // Never-silent fallback: a differing field sits outside every
-      // section wrapper. Falls back to the raw-count copy this file
-      // shipped before D-03's section-naming so the bar can never go
-      // silent while unsaved edits exist.
-      setCountText(count === 1
-        ? dirtyUnsavedSingular
-        : count + dirtyUnsavedPlural);
-      return;
-    }
-    if (labels.length === 1) {
-      setCountText(labels[0] + dirtyChangedSuffix);
-      return;
-    }
-    if (labels.length === 2) {
-      setCountText(labels[0] + dirtyAnd + labels[1] + dirtyChangedSuffix);
-      return;
-    }
-    // Three or more: every label but the last joined with ", " (a
-    // punctuation mark, not a translatable word — French list-commas
-    // read identically), the last one prefixed with the final joiner —
-    // UI-SPEC §5.1's table.
-    var head = labels.slice(0, labels.length - 1).join(", ");
-    setCountText(head + dirtyListAnd + labels[labels.length - 1] + dirtyChangedSuffix);
-  }
-
-  var suppressGuard = false;
-
-  // B1/D-01 (22-01-PLAN.md Task 2): document-level delegation, filtered
-  // to this form's own associated elements via the native .form
-  // property (authoritative for both real descendants and any
-  // form=-attached field living elsewhere in the DOM) — see this
-  // file's own header comment for the full defect history. A change/
-  // input anywhere else on the page (a different form, or a page with
-  // no dirty form at all) resolves e.target.form !== form and is a
-  // no-op.
+  // B1/D-01's own lesson, carried forward rather than re-learned: the
+  // listeners below are delegated at the DOCUMENT level, filtered to
+  // e.target.form === form, because a <form> element never receives a
+  // change event from a control that is merely form=-associated with it
+  // while living elsewhere in the DOM. Only change drives a save (see
+  // this file's own header); input is deliberately NOT listened for
+  // any more — there is no bar left for it to update, and a save-on-
+  // input would be exactly the keystroke-is-a-decision mistake this
+  // plan's own D-04 PROVISIONAL note argues against.
   document.addEventListener("change", function (e) {
     if (e.target && e.target.form === form) {
-      updateBar();
-    }
-  });
-  document.addEventListener("input", function (e) {
-    if (e.target && e.target.form === form) {
-      updateBar();
+      beginSave();
     }
   });
 
-  // D-10/A-28: warn before a real navigation discards unsaved edits.
-  // Keyed on countDifferences() - the exact same predicate the bar
-  // itself uses, reused rather than reimplemented, so the two can never
-  // disagree about whether the form is actually dirty. Both
+  // 22-05-PLAN.md Task 3 (D-04): a Frame strip switch is its own,
+  // separate <form> (action="/quick/display" or "/quick/quiet-hours",
+  // companion/layout.py's frame_strip_html()) — a browser too old to run
+  // quick-switch.js's own fetch path lets that form submit natively,
+  // which is a real navigation the leave-guard below would otherwise warn
+  // against for a change the strip is itself about to apply. The
+  // settings form's own save no longer causes any such navigation (it is
+  // a fetch, never a real submit), so this is the ONE remaining reason
+  // this file still needs a suppress flag at all — kept narrowly scoped
+  // to that one case rather than generalised.
+  var suppressGuard = false;
+  document.addEventListener("submit", function (e) {
+    if (e.target && e.target.hasAttribute && e.target.hasAttribute("data-quick-switch")) {
+      suppressGuard = true;
+    }
+  });
+
+  // D-10 (unchanged mechanism, re-armed by the exact same predicate the
+  // save above reverts on failure): warns before a real navigation
+  // discards an edit that has never fired change at all. Both
   // evt.preventDefault() and setting evt.returnValue are needed for
   // cross-browser coverage; the browser supplies its own confirmation
   // copy in every modern browser, so never try to set a custom message.
@@ -445,151 +467,6 @@
       evt.returnValue = "";
     }
   });
-
-  // Clears the guard on the one legitimate submit path. The bar's own
-  // Save button renders OUTSIDE this form and submits it natively via
-  // its form="{SETTINGS_FORM_ID}" attribute (see config_page.py's
-  // dirty_bar_html, quick task 260901-re6) - so this single submit
-  // listener covers BOTH the in-form bottom Save button and the bar's
-  // out-of-form Save button. Do not add a second click handler on the
-  // bar's Save button for this; there is nothing to hook, it is a plain
-  // native submit.
-  form.addEventListener("submit", function (evt) {
-    suppressGuard = true;
-    relabelSubmitter(evt);
-  });
-
-  // 23-09-PLAN.md Task 2 (D3/CFG-32): the in-flight label. T14
-  // (22-15-PLAN.md Task 3) left this to D3 explicitly; submit-guard.js
-  // deliberately changes no label at all, and still does not.
-  //
-  // --- WHY THIS MAY RUN INLINE, WHICH IS THE WHOLE QUESTION ----------
-  //
-  // submit-guard.js's own header is the model for this register, and it
-  // asks one question of anything that touches a submitting control: a
-  // submit button's own name/value pair is contributed to the form data
-  // set by the SUBMITTER, and that set is built AFTER the submit event's
-  // listeners return. That is why THAT file switches the control off
-  // from a zero-delay timer rather than inline — inline, it would drop
-  // the field that says what the user asked for, which would have made
-  // every theme and language switch a silent no-op.
-  //
-  // The answer for this control is a property of the control, not of the
-  // timing. The bar's own Save and the bottom fallback Save are both
-  // <button type="submit"> carrying NO name attribute (see
-  // config_page.py's dirty_bar_html and its bottom Save), and a submitter
-  // with no name contributes NO entry to the form data set at all — so
-  // there is nothing a label could displace, whenever this runs. The
-  // clause below re-checks that on the live control rather than trusting
-  // it: if a later plan ever gives either Save button a name, the
-  // relabel stands down on its own instead of quietly rewriting a
-  // payload.
-  //
-  // The <button> clause is the sharper half of the same argument. An
-  // <input type="submit"> has no text content: its LABEL IS ITS VALUE,
-  // so relabelling one genuinely does change what is posted. That
-  // element is excluded by shape, not by a comment.
-  //
-  // --- ORDER AGAINST submit-guard.js, WHICH IS FIXED, NOT LUCKY ------
-  //
-  // This listener is registered on the FORM; submit-guard.js's is on
-  // document. A submit event dispatched at the form bubbles to the
-  // form's own listeners before it reaches document, so this one runs
-  // first, synchronously, every time. submit-guard.js then only SCHEDULES
-  // its own write, from a zero-delay timer, which cannot run until the
-  // whole dispatch has finished. So the sequence is relabel, then the
-  // shared guard, and it is guaranteed by event propagation plus a
-  // queued task rather than by either file knowing about the other.
-  //
-  // Neither file cancels anything, and neither writes the other's
-  // property: this one writes text content and never the property that
-  // makes a control unusable, and submit-guard.js writes that property
-  // and never text. That guard belongs to that file, once, for every
-  // form in the app; two owners of one property is how they start
-  // disagreeing about who undoes it.
-  //
-  // evt.submitter absent (an older browser, or a submission with no
-  // submitter at all) simply means no relabel. That degrades to exactly
-  // what this control did before this plan, which is the right degrade
-  // for a label: guessing at the submitter would risk relabelling a
-  // control whose name/value IS the request.
-
-  // The one control this file has relabelled, so a back/forward-cache
-  // restore can put it back. A page restored from bfcache comes back
-  // with the DOM exactly as it was left — including a Save button still
-  // reading the in-flight word for a request that finished, or never
-  // finished, a navigation ago. submit-guard.js restores the controls it
-  // wrote on the same event and for the same reason; this is that
-  // pattern applied to the property this file writes, and only to a
-  // control this file wrote it on.
-  var relabelled = null;
-
-  function relabelSubmitter(evt) {
-    var control = evt.submitter;
-    if (!control || !control.tagName || control.tagName.toUpperCase() !== "BUTTON") {
-      return;
-    }
-    if (control.getAttribute("name")) {
-      return;
-    }
-    relabelled = { el: control, text: control.textContent };
-    control.textContent = dirtySavingText;
-  }
-
-  window.addEventListener("pageshow", function (evt) {
-    if (!evt.persisted || !relabelled) {
-      return;
-    }
-    relabelled.el.textContent = relabelled.text;
-    relabelled = null;
-  });
-
-  // 22-05-PLAN.md Task 3 (D-04): a Frame strip switch is its own,
-  // separate <form> (action="/quick/display" or "/quick/quiet-hours",
-  // companion/layout.py's frame_strip_html(), 22-04-PLAN.md Task 1) —
-  // submitting it navigates away exactly like the settings form's own
-  // Save does, but the settings form's own submit listener above never
-  // fires for it (it is a different <form> element entirely). Without
-  // this, activating a strip switch while the settings form has unsaved
-  // edits raised the same leave-page dialog Save itself is exempt from,
-  // for a change the strip is itself about to apply. Delegated at the
-  // document level (the switch could be either of two forms, never
-  // exactly this file's own form variable) and keyed below on the
-  // submitting form's own pinned handshake attribute (22-04-PLAN.md
-  // Task 1's own named deliverable on both strip switch forms) — never
-  // a presentation class, which a later CSS change could rename with no
-  // semantic meaning behind it. Every OTHER form's submit (a page with
-  // no strip at all, or a deliberately crafted third-party form) still
-  // leaves suppressGuard untouched here, so the leave-guard still arms
-  // for it exactly as before.
-  document.addEventListener("submit", function (e) {
-    if (e.target && e.target.hasAttribute && e.target.hasAttribute("data-quick-switch")) {
-      suppressGuard = true;
-    }
-  });
-
-  if (cancelBtn) {
-    cancelBtn.addEventListener("click", function () {
-      form.reset();
-      bar.hidden = true;
-      // form.reset() above already restores the load-time snapshot
-      // values, so countDifferences() would already report 0 - this is
-      // belt-and-braces against a browser whose reset() timing races
-      // the unload event, not the primary mechanism.
-      suppressGuard = true;
-      // T8: form.reset() fires no change event, so the live theme
-      // preview (a sibling script, cross-DOM from every form=-attached
-      // theme chip) never hears about the discarded value on its own.
-      // Call its exposed refresh entry point directly instead of trying
-      // to synthesize a change event for a cross-DOM field - see this
-      // file's own header comment. Guarded: most pages carry no
-      // .frame-colours card at all, so theme-preview.js never defines
-      // this global on those pages.
-      if (window.SkyPaneLivePreview) {
-        window.SkyPaneLivePreview.refresh();
-      }
-    });
-  }
 
   // No DOMContentLoaded wrapper is needed: the <script> tag
   // companion/layout.py's page_shell() emits carries the defer
