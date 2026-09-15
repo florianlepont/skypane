@@ -579,11 +579,30 @@
       // THE PAIR SEAM'S OWN WRITE. Additive over the fraction write
       // above: a wrapper that declares no pair property is untouched
       // from here on, and behaves exactly as it did before this task.
+      //
+      // A SEPARATE FRACTION, NOT THE ONE JUST WRITTEN ABOVE — found by
+      // Task 4's own agreement check, which decodes the arc back to an
+      // exact minute and caught this disagreeing by one. FRACTION_PROPERTY
+      // above is deliberately (value - min) / (max - min), matching
+      // quiet_dial_handle_fraction()'s own documented choice to make the
+      // control's MAXIMUM reachable at a full visual turn. For a
+      // wrapping/angular pair that fraction is off by exactly
+      // 1 / (max - min) of a turn — under a quarter of a degree, which is
+      // invisible on a painted handle and exactly enough to round a
+      // decoded minute to its neighbour (1380/1439 of a turn decodes to
+      // minute 1381, not 1380). The pair fraction instead divides by
+      // (max - min) + 1: bounds are an INCLUSIVE range of integers, so the
+      // value one step past max is min again, and that wrap point — not
+      // max itself — is what one full turn must mean for a value a sweep
+      // gets derived from. This is exactly QUIET_WINDOW_MINUTES_PER_DAY
+      // (1440) for the quiet-hours dial, reached with no knowledge of
+      // that constant at all.
       var pairProperty = wrapper.getAttribute(PAIR_PROPERTY_ATTR);
       if (pairProperty) {
         var pairAncestor = ancestorWith(wrapper, PAIR_ATTR);
         if (pairAncestor && pairAncestor.style && pairAncestor.style.setProperty) {
-          pairAncestor.style.setProperty(pairProperty, String(fraction));
+          var pairFraction = (value - bounds.min) / (span + 1);
+          pairAncestor.style.setProperty(pairProperty, String(pairFraction));
           paintSweep(pairAncestor);
         }
       }
