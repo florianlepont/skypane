@@ -556,7 +556,10 @@ EXPECTED_CHECK_COUNT = 269
 # not counted as new. 269 + 2 = 271, recomputed directly against the
 # real on-disk check(...) call count at execution time (269/271 pass —
 # the two documented WR-11 root-sandbox failures, unrelated to this
-# plan), not trusted from arithmetic alone.
+# plan), not trusted from arithmetic alone. 28-01-PLAN.md (CFG-76) later
+# edits both of these same two checks in place again (22 -> 23 members,
+# icon-gear) — see that plan's own EXPECTED_CHECK_COUNT entry below for
+# its own check-count math.
 EXPECTED_CHECK_COUNT = 271
 # 22-15-PLAN.md Task 3 (T14): +1 — a real GET of /static/submit-guard.js,
 # because a registration whose route 404s is a guard that does not exist
@@ -826,6 +829,21 @@ EXPECTED_CHECK_COUNT = 313
 # the same two documented WR-11 root-sandbox failures and no others),
 # never by arithmetic.
 EXPECTED_CHECK_COUNT = 314
+# 28-01-PLAN.md (CFG-76): +1 — one new check,
+# _the_nav_toggle_wears_the_gear_and_opens_the_same_panel, proving
+# #site-nav-toggle renders icon-gear (never icon-hamburger), that its
+# aria-label is NAV_TOGGLE_LABEL translated through i18n's real
+# per-request path in both EN and FR (a live Accept-Language round trip,
+# never a hardcoded French literal), and that the panel it opens still
+# holds the language switch, the theme switch and Sign out with zero
+# page-navigation links — the relationship clause without which a glyph
+# swap alone would prove nothing about whether the glyph now tells the
+# truth. This plan also retargets _icon_sprite_integrity() and
+# _page_shell_emits_sprite_once_no_inline_styles() in place, the same
+# treatment 22-14-PLAN.md's own edit above gave the pair (22 -> 23
+# members, icon-gear) — edited, not counted as new. 314 + 1 = 315,
+# re-derived by RUNNING the harness, never by arithmetic.
+EXPECTED_CHECK_COUNT = 315
 
 # ==========================================================================
 # 25-01-PLAN.md Task 4 (CFG-46/D-09) — THE NO-JS CONTROL CONTRACT, AS A
@@ -2292,16 +2310,20 @@ def main():
             # (icon-more, the bottom tab bar's "More" cell) — this check
             # is edited IN PLACE, not added to: same three counts, one
             # higher, no EXPECTED_CHECK_COUNT contribution.
-            if len(layout.ICON_IDS) != 22:
-                return False, "expected exactly twenty-two ICON_IDS, got %d" % len(layout.ICON_IDS)
-            if len(set(layout.ICON_IDS)) != 22:
+            # 28-01-PLAN.md (CFG-76) grows it again, 22 -> 23
+            # (icon-gear, #site-nav-toggle's new glyph) — same treatment,
+            # edited in place again, no EXPECTED_CHECK_COUNT contribution
+            # from this edit either.
+            if len(layout.ICON_IDS) != 23:
+                return False, "expected exactly twenty-three ICON_IDS, got %d" % len(layout.ICON_IDS)
+            if len(set(layout.ICON_IDS)) != 23:
                 return False, "expected ICON_IDS to have no duplicates"
             symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
             if sorted(symbol_ids) != sorted(layout.ICON_IDS):
                 return False, "sprite symbol ids %r do not match ICON_IDS %r" % (
                     symbol_ids, layout.ICON_IDS)
-            if layout.ICON_DEFS_HTML.count("<symbol") != 22:
-                return False, "expected exactly twenty-two <symbol occurrences, got %d" % (
+            if layout.ICON_DEFS_HTML.count("<symbol") != 23:
+                return False, "expected exactly twenty-three <symbol occurrences, got %d" % (
                     layout.ICON_DEFS_HTML.count("<symbol"))
             if 'stroke="currentColor"' not in layout.ICON_DEFS_HTML:
                 return False, "expected stroke=\"currentColor\" in the sprite"
@@ -2309,7 +2331,7 @@ def main():
                 return False, "a hard-coded hex fill would defeat the per-status tint"
             return True, ""
         check(
-            "layout.ICON_IDS has exactly twenty-two unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
+            "layout.ICON_IDS has exactly twenty-three unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
             _icon_sprite_integrity)
 
         def _icon_html_whitelist_enforcement():
@@ -2358,15 +2380,17 @@ def main():
                 return False, "expected exactly one <defs, got %d" % doc.count("<defs")
             # 22-14-PLAN.md Task 1 (X9/D-10): twenty-one -> twenty-two
             # (icon-more). Edited in place; no check added or removed.
-            if doc.count("<symbol") != 22:
-                return False, "expected exactly twenty-two <symbol, got %d" % doc.count("<symbol")
+            # 28-01-PLAN.md (CFG-76): 22 -> 23 (icon-gear). Edited in
+            # place again; no check added or removed.
+            if doc.count("<symbol") != 23:
+                return False, "expected exactly twenty-three <symbol, got %d" % doc.count("<symbol")
             if doc.index("icon-defs") >= doc.index("dashboard-shell"):
                 return False, "expected the sprite to precede the dashboard-shell div"
             if ' style="' in doc:
                 return False, "page_shell() must emit no inline styles"
             return True, ""
         check(
-            "page_shell() emits exactly one sprite (one <defs, twenty-two <symbol) before dashboard-shell, "
+            "page_shell() emits exactly one sprite (one <defs, twenty-three <symbol) before dashboard-shell, "
             "no inline styles",
             _page_shell_emits_sprite_once_no_inline_styles)
 
@@ -8567,6 +8591,90 @@ def main():
         check(
             "the sp_ui_lang cookie beats Accept-Language when both are present (D-03)",
             _ui_lang_cookie_beats_accept_language)
+
+        # --- 28-01-PLAN.md (CFG-76): the mobile toggle's glyph swapped to ---
+        # --- a gear, and the label it has always carried is proven still ---
+        # --- accurate                                                    ---
+
+        def _the_nav_toggle_wears_the_gear_and_opens_the_same_panel():
+            import companion.i18n as i18n_module
+
+            # (a) + (b): #site-nav-toggle's own markup references
+            # icon-gear and never icon-hamburger.
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            toggle_start = doc.index('id="%s"' % layout.NAV_TOGGLE_ID)
+            toggle_end = doc.index("</button>", toggle_start) + len("</button>")
+            toggle_markup = doc[toggle_start:toggle_end]
+            if "icon-gear" not in toggle_markup:
+                return False, (
+                    "expected #site-nav-toggle's markup to reference icon-gear, got %r"
+                    % toggle_markup)
+            if toggle_markup.count("icon-hamburger") != 0:
+                return False, (
+                    "expected zero icon-hamburger references in #site-nav-toggle, got %d"
+                    % toggle_markup.count("icon-hamburger"))
+
+            # (c): the aria-label equals i18n.t(NAV_TOGGLE_LABEL) in EN and
+            # in FR, read through the SAME translation call the renderer
+            # uses — a real request round trip via Accept-Language,
+            # exactly the idiom _accept_language_resolves_html_lang_with_
+            # no_cookie and _ui_lang_cookie_beats_accept_language above
+            # already use, never a hardcoded French literal, so a
+            # catalogue change can never silently desync this check.
+            expected_en = i18n_module.t_lang(layout.NAV_TOGGLE_LABEL, "en")
+            expected_fr = i18n_module.t_lang(layout.NAV_TOGGLE_LABEL, "fr")
+            if expected_fr == layout.NAV_TOGGLE_LABEL:
+                return False, (
+                    "expected a real French translation for NAV_TOGGLE_LABEL, "
+                    "got the English source back unchanged")
+            status, _headers, body = http_request(
+                base + "/", cookie=session_cookie,
+                extra_headers={"Accept-Language": "en-GB"})
+            if status != 200:
+                return False, "expected 200 for the English-language GET, got %d" % status
+            en_needle = ('aria-label="%s"' % layout.escape_html(expected_en)).encode("utf-8")
+            if en_needle not in body:
+                return False, (
+                    "expected the EN toggle aria-label %r in the rendered body" % en_needle)
+            status, _headers, body = http_request(
+                base + "/", cookie=session_cookie,
+                extra_headers={"Accept-Language": "fr-FR,fr;q=0.9"})
+            if status != 200:
+                return False, "expected 200 for the French-language GET, got %d" % status
+            fr_needle = ('aria-label="%s"' % layout.escape_html(expected_fr)).encode("utf-8")
+            if fr_needle not in body:
+                return False, (
+                    "expected the FR toggle aria-label %r in the rendered body" % fr_needle)
+
+            # (d): the RELATIONSHIP clause — without this, the check above
+            # proves a glyph changed and nothing about whether the glyph
+            # now tells the truth. The panel still holds the language
+            # switch, the theme switch and the sign-out form, and zero
+            # page-navigation links, which is the entire reason the label
+            # is accurate and therefore the entire reason this phase
+            # changes only the glyph. Reuses _dropdown_contents_and_order's
+            # own idiom rather than inventing a second one.
+            doc = layout.page_shell(
+                title="T", active="health", body="<p>b</p>",
+                device_config={"display_enabled": True, "quiet_hours_enabled": False})
+            panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
+            panel = doc[panel_start:doc.index("</header>")]
+            for needle, name in (
+                    ('action="/ui-lang"', "the language switch"),
+                    ('action="/ui-theme"', "the theme switch"),
+                    ('action="/logout"', "Sign out")):
+                if needle not in panel:
+                    return False, "expected %s inside the dropdown" % name
+            if "<a href" in panel:
+                return False, (
+                    "expected zero page-navigation <a href> links in the dropdown, found one")
+            return True, ""
+        check(
+            "#site-nav-toggle renders icon-gear (never icon-hamburger), its aria-label is "
+            "NAV_TOGGLE_LABEL translated through i18n's real per-request path in both EN and "
+            "FR, and the panel it opens still holds the language/theme switches and Sign out "
+            "with zero page-navigation links (CFG-76)",
+            _the_nav_toggle_wears_the_gear_and_opens_the_same_panel)
 
         # --- 11-04 end-to-end: the real SKYPANE_SLEEP_S pre-fill, over a  ---
         # --- dedicated Harness instance (the environment must be set     ---
