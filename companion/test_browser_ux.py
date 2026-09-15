@@ -13058,6 +13058,24 @@ def main():
                         # in place, never a client-side shortcut.
                         rejected = "30"
 
+                        # Armed BEFORE the edit — never sampled only at
+                        # the end state. M-B (mutation-tested): a status
+                        # region that claims saved the MOMENT a save
+                        # starts, then quietly clears on failure, would
+                        # pass a final-state-only check while having
+                        # LIED for the fetch's whole duration. This
+                        # observer catches that transient claim, not
+                        # only the settled one.
+                        page.evaluate(
+                            "() => {"
+                            " window.__statusSeen = [];"
+                            " var el = document.querySelector('[data-save-status]');"
+                            " new MutationObserver(function () {"
+                            "   window.__statusSeen.push(el.textContent);"
+                            " }).observe(el, {childList: true, characterData: true,"
+                            "                 subtree: true});"
+                            "}")
+
                         wake_sel = 'input[name="wake_interval_s"]'
                         page.eval_on_selector(wake_sel, "el => el.focus()")
                         page.keyboard.press("Control+A")
@@ -13091,6 +13109,18 @@ def main():
                             return False, (
                                 "expected the status region to NOT claim saved after a rejected "
                                 "value, got %r" % (status_text,))
+                        # THE TRANSIENT CLAIM, not only the settled one —
+                        # the saved word must never have appeared in the
+                        # region's own text sequence AT ANY POINT during
+                        # this failed save, not even briefly before a
+                        # later correction.
+                        seen = page.evaluate("() => window.__statusSeen.slice()")
+                        if saved_word in seen:
+                            return False, (
+                                "the status region held the saved word %r at some point during "
+                                "a save that FAILED (full sequence: %r) — a region that briefly "
+                                "claims saved and then corrects itself has still lied once"
+                                % (saved_word, seen))
 
                         stored = str(device_config.load_device_config(
                             harness.tmpdir)["wake_interval_s"])
@@ -13109,9 +13139,10 @@ def main():
                     "a value the server's own validation rejects (wake_interval_s below its "
                     "floor) raises the EXISTING generic translated toast — VISIBLE, its copy the "
                     "same data-quick-failed-text the switches already use — the status region "
-                    "does NOT claim saved, and the rejected value is NOT on disk: three surfaces "
-                    "of one fact, 'nothing was saved', in ONE check (CFG-63/CFG-71, 27-04-PLAN.md "
-                    "Task 4)",
+                    "never held the saved word at ANY point during the sequence (a MutationObserver "
+                    "armed before the edit, not only the settled state), and the rejected value is "
+                    "NOT on disk: three surfaces of one fact, 'nothing was saved', in ONE check "
+                    "(CFG-63/CFG-71, 27-04-PLAN.md Task 4)",
                     _a_rejected_value_claims_nothing_the_toast_fires_and_disk_is_untouched)
 
                 def _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview():
