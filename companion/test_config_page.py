@@ -2526,46 +2526,53 @@ def main():
                 "values natively and this would say the same thing twice (%r)" % readout.group(1))
 
         # THE THREE CHILDREN, EACH WIRED THROUGH THE EXISTING READOUT
-        # SEAM. The two endpoints carry a bare token template (they
-        # substitute one number, the value-controls.js contract every
-        # other readout in this app already follows); the duration
-        # carries data-value-readout-base AND an EMPTY template — so
-        # paintReadouts()'s own blank-on-equal rule and its
-        # substitute-otherwise rule both resolve to "" once this element
-        # is next painted, which is the safe side of a rule built to
-        # blank a sentence when NOTHING changed (see the function's own
-        # docstring for why the shipped rule's polarity does not fit a
-        # duration that must blank the moment something DOES change).
+        # SEAM. 28-03-PLAN.md Task 1 (CFG-73 Bug A) widened both halves:
+        # the two endpoints now ALSO carry
+        # VALUE_CONTROL_READOUT_FORMAT_ATTR="clock" (the readout-scoped
+        # clock signal, alongside their existing bare-token template);
+        # the duration span no longer carries an EMPTY template at all —
+        # it carries its own data-value-readout-base PLUS all four
+        # layout.DURATION_ATTRS, each holding a non-empty translated
+        # wording, so value-controls.js can compose a live duration from
+        # the pair without inventing any language of its own.
         for field, value in (("quiet_hours_start", "23:00"), ("quiet_hours_end", "07:00")):
             endpoint = re.search(
-                r'<span %s="%s" %s="%s">%s</span>'
+                r'<span %s="%s" %s="%s" %s="%s">%s</span>'
                 % (re.escape(layout.VALUE_CONTROL_READOUT_ATTR), re.escape(field),
+                   re.escape(layout.VALUE_CONTROL_READOUT_FORMAT_ATTR),
+                   re.escape(layout.VALUE_CONTROL_FORMAT_CLOCK),
                    re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR),
                    re.escape(layout.VALUE_CONTROL_TEXT_TOKEN), re.escape(value)),
                 readout.group(2))
             if not endpoint:
                 return False, (
-                    "no %s readout span carrying the bare token template and %r: %r"
-                    % (field, value, readout.group(2)))
+                    "no %s readout span carrying the clock-format attribute and the bare token "
+                    "template and %r: %r" % (field, value, readout.group(2)))
         duration_span = re.search(
-            r'<span %s="quiet_hours_start" %s="" %s="(\d+)">([^<]*)</span>'
+            r'<span %s="quiet_hours_start" %s="(\d+)"((?: %s="[^"]*"){%d})>([^<]*)</span>'
             % (re.escape(layout.VALUE_CONTROL_READOUT_ATTR),
-               re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR),
-               re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR)),
+               re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR),
+               "(?:%s)" % "|".join(re.escape(attr) for attr in layout.DURATION_ATTRS),
+               len(layout.DURATION_ATTRS)),
             readout.group(2))
         if not duration_span:
             return False, (
-                "no duration span carrying an EMPTY readout template and a "
-                "data-value-readout-base: %r" % readout.group(2))
+                "no duration span carrying a data-value-readout-base and all %d "
+                "layout.DURATION_ATTRS: %r" % (len(layout.DURATION_ATTRS), readout.group(2)))
         if int(duration_span.group(1)) != config_page.quiet_window_minute_of_day("23:00"):
             return False, (
                 "the duration span's data-value-readout-base is %s minutes; the saved window's "
                 "own start is %d" % (duration_span.group(1),
                                       config_page.quiet_window_minute_of_day("23:00")))
-        if duration_span.group(2) != layout.duration_text(span.minutes * 60):
+        for attr in layout.DURATION_ATTRS:
+            if ('%s="' % attr) not in duration_span.group(2):
+                return False, (
+                    "the duration span is missing %r, one of layout.DURATION_ATTRS: %r"
+                    % (attr, duration_span.group(2)))
+        if duration_span.group(3) != layout.duration_text(span.minutes * 60):
             return False, (
                 "the duration span's own text is %r at rest, not this app's one duration ladder's "
-                "%r" % (duration_span.group(2), layout.duration_text(span.minutes * 60)))
+                "%r" % (duration_span.group(3), layout.duration_text(span.minutes * 60)))
 
         # CFG-52: NOTHING ON THIS CARD IS A LIVE REGION. Dragging fires
         # continuously and a role="status" here would re-announce the

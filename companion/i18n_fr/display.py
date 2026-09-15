@@ -236,6 +236,19 @@ CATALOG = {
     # with a space, and "Heures calmes Début" is not one.
     "Quiet hours start": "Début des heures calmes",
     "Quiet hours end": "Fin des heures calmes",
+    # 28-03-PLAN.md Task 1 (CFG-73 Bug A): the duration ladder's own
+    # client-side wordings (layout.DURATION_*_TEXT) — filled with
+    # _age_bucket()'s own quantity and pinned EQUAL to duration_text()'s
+    # own return, per bucket, per language, by
+    # companion/test_companion_app.py — exactly the RELATIVE_*_TEXT
+    # wordings' own contract, applied to the one length-of-time ladder
+    # instead of the two tensed ones. The real U+00A0 between "#" and the
+    # unit matches duration_text()'s own French branch byte-for-byte
+    # (D-09); a plain space here would silently desync the two.
+    "#s": "# s",
+    "#m": "# min",
+    "#h": "# h",
+    "#d": "# j",
     "Night (%s–%s)": "Nuit (%s–%s)",
     "Work day (%s–%s)": "Journée de travail (%s–%s)",
     # 20-12-PLAN.md Task 1: the workday preset's own pre-baked label
