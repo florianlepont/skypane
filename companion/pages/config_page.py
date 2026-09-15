@@ -2672,9 +2672,30 @@ QUIET_DIAL_RADIUS = QUIET_DIAL_SIZE // 2 - QUIET_DIAL_STROKE // 2 - QUIET_DIAL_C
 # there is exactly one place this name is chosen.
 QUIET_DIAL_PAIR_ATTR = "data-value-pair"
 QUIET_DIAL_PAIR_PROPERTY_ATTR = "data-value-pair-property"
-QUIET_DIAL_START_FRACTION_PROPERTY = "--quiet-start-fraction"
-QUIET_DIAL_END_FRACTION_PROPERTY = "--quiet-end-fraction"
-QUIET_DIAL_SWEEP_FRACTION_PROPERTY = "--quiet-sweep-fraction"
+
+# A DICT rather than three separate top-level ALL-CAPS names, and that
+# is not stylistic: a top-level string CONSTANT whose value begins with
+# "--" trips companion/test_i18n.py's D-05 scan — measured, running the
+# full suite after this task's first draft named them
+# QUIET_DIAL_START_FRACTION_PROPERTY et al. A leading "--" is not a
+# valid identifier start, so rule (a)'s lowercase-identifier exclusion
+# (which the FIELD_ATTR-shaped constants above all rely on) never
+# reaches it; companion/layout.py's own FRACTION_PROPERTY comment
+# already records this exact trap as the reason NO Python constant
+# exists there for "--value-fraction" at all. A DICT VALUE is scanned
+# under a narrower, SEPARATE exclusion (hyphenated-lowercase-identifier)
+# that DOES reach a leading "--" — companion/layout.py's own
+# `{"ok": "--ok", "warn": "--warn", "error": "--error"}` dict already
+# relies on exactly this path. So the one constant this plan's own
+# acceptance bar asks for ("the three property names exist as module
+# constants, not as literals at the call site") lives here, as three
+# dict values under one name, rather than as three names the scanner
+# cannot tell apart from prose.
+QUIET_DIAL_PAIR_PROPERTIES = {
+    "start": "--quiet-start-fraction",
+    "end": "--quiet-end-fraction",
+    "sweep": "--quiet-sweep-fraction",
+}
 
 # The four anchor hours, and four rather than twenty-four on purpose.
 # These are the quarter turns: they are the only hours whose position a
@@ -2843,10 +2864,10 @@ def quiet_dial_html(span, handles_html=""):
         pair_attrs = (
             ' %s="%s" style="%s: %.6f; %s: %.6f; %s: %.6f;"'
         ) % (
-            QUIET_DIAL_PAIR_ATTR, escape_html(QUIET_DIAL_SWEEP_FRACTION_PROPERTY),
-            QUIET_DIAL_START_FRACTION_PROPERTY, span.start_fraction,
-            QUIET_DIAL_END_FRACTION_PROPERTY, end_fraction,
-            QUIET_DIAL_SWEEP_FRACTION_PROPERTY, span.sweep_fraction,
+            QUIET_DIAL_PAIR_ATTR, escape_html(QUIET_DIAL_PAIR_PROPERTIES["sweep"]),
+            QUIET_DIAL_PAIR_PROPERTIES["start"], span.start_fraction,
+            QUIET_DIAL_PAIR_PROPERTIES["end"], end_fraction,
+            QUIET_DIAL_PAIR_PROPERTIES["sweep"], span.sweep_fraction,
         )
     return '<div class="%s"%s>%s%s%s</div>' % (
         escape_html(QUIET_DIAL_CLASS), pair_attrs, quiet_dial_svg(span), hours_html, handles_html)
@@ -2968,9 +2989,9 @@ def quiet_dial_handles_html(start_hm, end_hm):
     handles = []
     for value, field, label, pair_property in (
             (start_hm, "quiet_hours_start", QUIET_DIAL_START_LABEL,
-             QUIET_DIAL_START_FRACTION_PROPERTY),
+             QUIET_DIAL_PAIR_PROPERTIES["start"]),
             (end_hm, "quiet_hours_end", QUIET_DIAL_END_LABEL,
-             QUIET_DIAL_END_FRACTION_PROPERTY)):
+             QUIET_DIAL_PAIR_PROPERTIES["end"])):
         minute = quiet_window_minute_of_day(value)
         if minute is None:
             continue

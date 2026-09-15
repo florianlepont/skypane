@@ -917,7 +917,14 @@ EXPECTED_CHECK_COUNT = 258
 # key would take the native radiogroup selection away from the
 # scripts-blocked path that depends on it.
 # 258 + 1 = 259, re-derived by RUNNING (259/259).
-EXPECTED_CHECK_COUNT = 259
+#
+# 27-02-PLAN.md Tasks 2-3 (CFG-62): +1 — the pair seam's own markup
+# check (_the_pair_seam_publishes_both_handles_onto_the_shared_ancestor).
+# The two readout-structure fixes inside existing checks (the at-rest
+# byte-identical text and the D-07 echo, both narrowed to survive the
+# caption's new three-child shape) add no new check of their own.
+# 259 + 1 = 260, re-derived by RUNNING (260/260).
+EXPECTED_CHECK_COUNT = 260
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -3579,15 +3586,15 @@ def main():
         if not dial_tag:
             return False, "no .quiet-dial opening tag in the markup"
         if ('%s="%s"' % (config_page.QUIET_DIAL_PAIR_ATTR,
-                          config_page.QUIET_DIAL_SWEEP_FRACTION_PROPERTY)) not in dial_tag.group(0):
+                          config_page.QUIET_DIAL_PAIR_PROPERTIES["sweep"])) not in dial_tag.group(0):
             return False, (
                 "the .quiet-dial ancestor does not carry %s=%r: %s"
                 % (config_page.QUIET_DIAL_PAIR_ATTR,
-                   config_page.QUIET_DIAL_SWEEP_FRACTION_PROPERTY, dial_tag.group(0)))
+                   config_page.QUIET_DIAL_PAIR_PROPERTIES["sweep"], dial_tag.group(0)))
         for prop, expected in (
-                (config_page.QUIET_DIAL_START_FRACTION_PROPERTY, span.start_fraction),
-                (config_page.QUIET_DIAL_END_FRACTION_PROPERTY, end_fraction),
-                (config_page.QUIET_DIAL_SWEEP_FRACTION_PROPERTY, span.sweep_fraction)):
+                (config_page.QUIET_DIAL_PAIR_PROPERTIES["start"], span.start_fraction),
+                (config_page.QUIET_DIAL_PAIR_PROPERTIES["end"], end_fraction),
+                (config_page.QUIET_DIAL_PAIR_PROPERTIES["sweep"], span.sweep_fraction)):
             found = re.search(r"%s:\s*([\d.]+)" % re.escape(prop), dial_tag.group(0))
             if not found:
                 return False, (
@@ -3614,8 +3621,8 @@ def main():
             return False, (
                 "both handles publish under the SAME property (%r) — the sweep can only be "
                 "derived from two DIFFERENT fractions" % pair_properties[0])
-        if set(pair_properties) != {config_page.QUIET_DIAL_START_FRACTION_PROPERTY,
-                                     config_page.QUIET_DIAL_END_FRACTION_PROPERTY}:
+        if set(pair_properties) != {config_page.QUIET_DIAL_PAIR_PROPERTIES["start"],
+                                     config_page.QUIET_DIAL_PAIR_PROPERTIES["end"]}:
             return False, "the two handles publish %r, not the start/end pair" % (pair_properties,)
 
         # THE PRESENTATION ATTRIBUTES THIS RULE OVERRIDES ARE UNTOUCHED —
