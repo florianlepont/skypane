@@ -77,6 +77,7 @@ import contextlib
 import io
 import json
 import itertools
+import math
 import os
 import re
 import shutil
@@ -2840,6 +2841,261 @@ def _assert_surfaces_agree(page, surfaces, requested, before, where):
             % (where, len(canonical), page.url, agreed,
                _surface_reading_report(decoded)))
     return decoded
+
+
+# ---------------------------------------------------------------------
+# 8. The arc as a NUMBER — resolved geometry, read back out of the
+#    browser (27-01-PLAN.md Task 2).
+# ---------------------------------------------------------------------
+#
+# Until now the quiet-hours arc was only checkable as SERVER-RENDERED
+# HTML, and that is precisely the blind spot D17 shipped through: the
+# server-rendered attribute was right for the saved value on every page
+# load, and stayed right, and stayed on the screen, while the handles
+# and the fields moved away from it. A check that can only read the
+# declared attribute cannot see that defect at all. So what is read
+# here is the RESOLVED value — what the browser actually painted, after
+# script ran and after any `.js`-scoped stylesheet rule overrode the
+# presentation attribute (which a CSS declaration of any specificity
+# does, as `quiet_dial_svg()`'s own docstring records).
+#
+# MEASURED ON THIS TREE, and these are the numbers the decoder below is
+# built against rather than guessed at. On /display with the seeded
+# 23:00-07:00 window the arc reports:
+#     attribute   stroke-dasharray="163.3628 326.7256"
+#     resolved    stroke-dasharray: 163.363px, 326.726px
+#     attribute   transform="rotate(255.0000 88 88)"
+#     resolved    transform: matrix(-0.258819, -0.965926, 0.965926,
+#                                   -0.258819, 25.7746, 195.778)
+# Three facts follow, all of them load-bearing:
+#   * the resolved dash is COMMA-separated, unit-suffixed and rounded to
+#     three decimals where the attribute carries four — so it is parsed
+#     as "the numbers in this string", never string-compared against
+#     what the server emitted;
+#   * the resolved `transform` is a MATRIX, not the rotate() that was
+#     written, so the angle comes back through atan2 rather than off the
+#     attribute (`rotate` as its own resolved property is "none" here);
+#   * the resolved dash is in SVG USER UNITS, the same units
+#     QUIET_DIAL_RADIUS is in. That is why this decoder does NOT go
+#     through getBoundingClientRect and needs no correction for a
+#     `scale()` in force: a box measurement would need one (and
+#     `clientWidth` rounds to an integer, which can fail a perfectly
+#     correct drawing), while a resolved dash length is already in the
+#     coordinate system the emitter's own arithmetic used.
+#
+# The unit this file canonicalises a quiet window into is the
+# MINUTE-OF-DAY, and it is not a choice made here: the two handles
+# already publish `aria-valuenow="1380"` / `"420"`, so minutes are the
+# unit three of the four surfaces speak natively. A decoder returning
+# fractions would make the agreement helper compare 0.9583333 against
+# whatever a caption parsed to, and invent a tolerance to hide the
+# difference.
+
+_QUIET_ARC_SELECTOR = "." + config_page.QUIET_DIAL_ARC_CLASS
+# The emitter's OWN quarter-turn correction, read rather than retyped as
+# -90: this decoder must undo exactly the rotation quiet_dial_svg()
+# applied, and a second copy of that number is a second thing to change
+# and a second thing to forget. It is private by name because nothing
+# outside that module had a reason to read it until a check needed to
+# INVERT it, which is a new reason rather than a licence to copy it.
+_QUIET_ARC_TWELVE_OCLOCK_DEG = config_page._QUIET_DIAL_TWELVE_OCLOCK_DEG
+MINUTES_PER_DAY = 24 * 60
+
+# Any signed decimal, in any of the forms a resolved CSS value can put
+# one in. Deliberately tolerant about separators and units, because the
+# separator and the unit are the browser's business and the NUMBERS are
+# this decoder's.
+_GEOMETRY_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+_GEOMETRY_MATRIX_RE = re.compile(r"^matrix\(([^)]*)\)$")
+
+_RESOLVED_PROPERTY_PROBE = (
+    "args => {"
+    "  let els;"
+    "  try {"
+    "    els = [...document.querySelectorAll(args.selector)];"
+    "  } catch (e) {"
+    "    return {error: 'bad-selector', detail: String(e)};"
+    "  }"
+    "  if (els.length !== 1) return {error: 'count', count: els.length};"
+    "  const cs = getComputedStyle(els[0]);"
+    "  return {value: cs.getPropertyValue(args.property)};"
+    "}")
+
+
+def _resolved_property(page, selector, property_name, where):
+    """The RESOLVED value of one property — custom or standard — on the
+    one element `selector` matches, as a trimmed string.
+
+    Raises AssertionError naming the selector, the property and the
+    document when the selector matches anything other than exactly one
+    element, or when the resolved value is empty. NEVER returns a
+    default, and that refusal is the point rather than tidiness: a
+    reader that answered "" or 0 for an arc that is not on the page
+    would let `_assert_surfaces_agree()` pass on a document with no arc
+    at all — every surface agreeing because one of them is silently
+    absent is the exact vacuity this phase exists to refuse.
+
+    Custom properties and standard ones go through the SAME call
+    (`getPropertyValue` serves both), because after 27-02 the arc's
+    geometry lives in both places at once: the pair of custom properties
+    published on the shared ancestor, and the resolved presentation
+    properties on the circle they drive. Two readers would have made
+    "the ancestor says one thing and the circle paints another" a
+    comparison nobody wrote.
+
+    EXACTLY ONE ELEMENT, not `.first`. A selector that matches two arcs
+    has an ambiguous answer, and a reader that quietly took the first
+    would report a number that is right about half a page.
+    """
+    seen = page.evaluate(
+        _RESOLVED_PROPERTY_PROBE,
+        {"selector": selector, "property": property_name})
+    if seen.get("error") == "bad-selector":
+        raise AssertionError(
+            "_resolved_property: %s — %r is not a selector the browser will "
+            "accept (%s). An instrument that cannot be aimed measures nothing"
+            % (where, selector, seen["detail"]))
+    if seen.get("error") == "count":
+        raise AssertionError(
+            "_resolved_property: %s — %r matches %d element(s) on %s, and the "
+            "resolved value of %r is only defined for exactly one. A decoder "
+            "that defaulted here would make an ABSENT arc agree with every "
+            "other surface on the page"
+            % (where, selector, seen["count"], page.url, property_name))
+    value = (seen.get("value") or "").strip()
+    if not value:
+        raise AssertionError(
+            "_resolved_property: %s — %r resolves to nothing at all on %r on "
+            "%s. Read as absent rather than as a default, because a default "
+            "here is a number nobody measured"
+            % (where, property_name, selector, page.url))
+    return value
+
+
+def _fraction_to_minute(fraction):
+    """A fraction of a day to a minute-of-day, wrapped into [0, 1440).
+
+    Rounded to the nearest minute ON PURPOSE and stated here rather than
+    buried: the resolved dash comes back at three decimals where the
+    server emitted four, so a fraction decoded off the paint is within
+    about a thousandth of a minute of the one the server computed and
+    will never be bit-identical to it. The minute is the unit the
+    handles already publish, so rounding to it is canonicalisation, not
+    a tolerance that hides a disagreement — a surface that is a whole
+    minute out still reads as a different number here.
+    """
+    return int(round(fraction * MINUTES_PER_DAY)) % MINUTES_PER_DAY
+
+
+def _quiet_arc_minutes(page, where, selector=_QUIET_ARC_SELECTOR,
+                       radius=None):
+    """The quiet-hours arc, read back off what the browser PAINTED, as
+    a canonical `(start_minute, end_minute)` pair of ints.
+
+    Inverts `draw.unit_circle_dash_array()`'s own arithmetic — the drawn
+    dash over the full circumference is the sweep fraction — and
+    `quiet_dial_svg()`'s quarter-turn correction: the circle's dash
+    origin is three o'clock and the drawing rotates by minus ninety
+    degrees plus the window's own start.
+
+    `radius` defaults to `config_page.QUIET_DIAL_RADIUS`, the SAME
+    constant the emitter divides by, rather than a number retyped here.
+    A retyped 78 would go on agreeing with a stale drawing for exactly
+    as long as nobody changed the dial's size, and then disagree with
+    the whole page at once.
+
+    Raises AssertionError, naming what was read, when either property is
+    missing, when the transform is not a 2-D matrix, or when neither
+    parses as a number. It never returns a default — see
+    `_resolved_property()` for why that matters more than it looks.
+
+    IT DOES NOT WAIT FOR ANYTHING. Sampling at the right instant is the
+    CALLER's job and must be done by hooking the event the browser
+    actually emits (this file has lost two checks to a guessed instant:
+    one read an interpolation frame, one sampled two rAF after a click
+    and failed CI on a correct build). A decoder that slept would hide
+    that decision inside an instrument.
+    """
+    if radius is None:
+        radius = config_page.QUIET_DIAL_RADIUS
+    dash = _resolved_property(page, selector, "stroke-dasharray", where)
+    transform = _resolved_property(page, selector, "transform", where)
+
+    lengths = [float(n) for n in _GEOMETRY_NUMBER_RE.findall(dash)]
+    if len(lengths) < 2:
+        raise AssertionError(
+            "_quiet_arc_minutes: %s — %r resolves stroke-dasharray to %r, "
+            "which carries %d number(s); a dashed arc needs the drawn length "
+            "and the gap" % (where, selector, dash, len(lengths)))
+    circumference = 2 * math.pi * radius
+    if circumference <= 0:
+        raise AssertionError(
+            "_quiet_arc_minutes: %s — the dial radius read from config_page "
+            "is %r, which has no circumference to divide by"
+            % (where, radius))
+    sweep_fraction = lengths[0] / circumference
+
+    matrix = _GEOMETRY_MATRIX_RE.match(transform)
+    if not matrix:
+        raise AssertionError(
+            "_quiet_arc_minutes: %s — %r resolves transform to %r, which is "
+            "not the 2-D matrix a rotate() resolves to. The arc's start angle "
+            "cannot be recovered from it, and guessing one would be a number "
+            "nobody measured" % (where, selector, transform))
+    parts = [float(n) for n in _GEOMETRY_NUMBER_RE.findall(matrix.group(1))]
+    if len(parts) != 6:
+        raise AssertionError(
+            "_quiet_arc_minutes: %s — %r resolves transform to %r, which "
+            "carries %d component(s) rather than a 2-D matrix's six"
+            % (where, selector, transform, len(parts)))
+    angle_deg = math.degrees(math.atan2(parts[1], parts[0]))
+    # Undo quiet_dial_svg()'s own twelve-o'clock correction, then wrap.
+    start_fraction = ((angle_deg - _QUIET_ARC_TWELVE_OCLOCK_DEG) % 360.0) / 360.0
+
+    start_minute = _fraction_to_minute(start_fraction)
+    end_minute = (start_minute + _fraction_to_minute(sweep_fraction)) % MINUTES_PER_DAY
+    return (start_minute, end_minute)
+
+
+def _fraction_pair_minutes(page, selector, start_property, sweep_property,
+                           where):
+    """The quiet window as `(start_minute, end_minute)`, decoded from a
+    START fraction and a SWEEP fraction published as custom properties
+    on `selector` — the shared ancestor, not the circle.
+
+    This is the second place the arc's geometry lives after 27-02: the
+    script publishes the pair on the ancestor and the stylesheet draws
+    the circle from it. Reading BOTH ends of that chain with the same
+    canonical output is what lets `_assert_surfaces_agree()` catch "the
+    ancestor was updated and the paint did not follow", which is D17 one
+    layer down and would otherwise be nobody's check.
+
+    THE SECOND PROPERTY IS THE SWEEP, not the end, and that is a
+    contract rather than a convenience: a wrapping window is exactly
+    where an end fraction and a sweep fraction stop being the same
+    arithmetic (23:00 to 07:00 is end 0.2917, sweep 0.3333, and a
+    reader that mixed them up would report 07:00 to 07:00 and call it
+    agreement). If 27-02 publishes an end fraction instead, the
+    conversion belongs at the emitter, where the wrap decision already
+    lives in `quiet_window_span()`.
+
+    Raises through `_resolved_property()` when either property is
+    absent, and on its own when either does not parse.
+    """
+    fractions = []
+    for name in (start_property, sweep_property):
+        raw = _resolved_property(page, selector, name, where)
+        numbers = _GEOMETRY_NUMBER_RE.findall(raw)
+        if not numbers:
+            raise AssertionError(
+                "_fraction_pair_minutes: %s — %r resolves %s to %r on %s, "
+                "which carries no number at all. A fraction that cannot be "
+                "read is not a fraction of zero"
+                % (where, selector, name, raw, page.url))
+        fractions.append(float(numbers[0]))
+    start_minute = _fraction_to_minute(fractions[0])
+    end_minute = (start_minute + _fraction_to_minute(fractions[1])) % MINUTES_PER_DAY
+    return (start_minute, end_minute)
 
 
 def main():
