@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: "Completed 25-08-PLAN.md — Phase 25 executed 8/8 (Controls). CFG-46/47/48/49/51 ticked with per-clause evidence; CFG-50 and CFG-52 deliberately left unticked, each naming the unmet clause and the decision it needs. Display measures 3743px at 390px against X6's 2600px target — reported, not rounded up. The design system carries the controls contract; the coverage ledger walks every clause of all five D-items; the developer has one eight-decision list with each decision's reversal cost as it now stands. Gate: exactly the 5 sandbox baseline failures by NAME, browser harness 81/81 with 0 SKIP in 270s. Awaiting the developer's visual review of all five controls on a real phone — the phase's real gate. PR not marked ready, not merged."
-last_updated: "2026-09-14T19:34:27.585Z"
-last_activity: 2026-09-14
+stopped_at: "Completed 27-09-PLAN.md — Phase 27 executed 9/9 (companion review feedback). CFG-62/63/64/66/67/68/69/70/71 ticked with per-clause evidence re-verified on the finished tree; CFG-65 deliberately left unticked (investigated, no defect found). Display measures 3524px at 390px against 27-07's own stated ~3446-3496px prediction — a missed prediction, explained rather than absorbed. Design system carries a sixth standing contract (review-feedback discipline). Gate: exactly the 5 sandbox baseline failures by NAME, browser harness 88/88 with 0 SKIP in 265.9s. Awaiting the developer's real-phone/desktop review — the phase's real gate. PR not marked ready, not merged."
+last_updated: "2026-09-15T14:22:55.627Z"
+last_activity: 2026-09-15
 progress:
-  total_phases: 38
-  completed_phases: 35
-  total_plans: 240
-  completed_plans: 230
-  percent: 96
+  total_phases: 39
+  completed_phases: 36
+  total_plans: 249
+  completed_plans: 239
+  percent: 92
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -32,7 +32,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Ready to execute
+status: Phase complete — ready for verification
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
@@ -176,7 +176,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-14
+Last activity: 2026-09-15
 Last activity: 2026-09-04 - Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence. Also merged in from origin/main: quick task 260904-e92 (Airlines gallery image weight, UIR-08) and Phase 06.6.4.1.1 (settings theme picker + typography/spacing direction pass, 6/6 plans complete).
 **08-01 executed (2026-08-31), the first of Wave 1's 2 parallel-safe plans.** `server/device_config.py`'s `THEMES` grew from the single `"sky"` entry to five: `white` (new `DEFAULT_THEME_ID`), `black`, `yellow`, `red` (all single-colour — `departing_index == arriving_index` — with contrast-correct ink: black ink on white/yellow, white ink on black/red, built only from `panel_format`'s named `IDX_*` constants) and the retained `sky` (unchanged Blue/Green, relabelled `"Sky"` from `"Sky (default)"`, no longer default). The flip silently propagated to `server/plane/render.py`'s `STATE_BACKGROUND`/`STATE_INK` module constants (evaluated from `DEFAULT_THEME_ID` at import time) with zero edit to `render.py` itself, confirming the registry's own extension contract. `server/test_config_history.py` grew 21→25 checks (five stale default-comparison literals corrected `"sky"`→`"white"` — not the plan's stated three, the real on-disk count was five; four new registry-contract checks added, one demonstrated failing via a deliberate ink-index swap then reverted before commit). `server/test_render.py` grew 76→78 (two dominant-nibble checks now expect White; the Sky-equals-default check rewritten as White-matches-default AND Sky-still-differs, so it can't pass if Sky were deleted; two new checks loop `THEME_IDS` for per-theme background dominance and ink-index agreement). `companion/test_config_page.py` grew 37→39, proving the CFG-01 picker absorbed all five themes with zero edit to `companion/pages/config_page.py`/`companion/app.py` (`git diff --stat` confirmed). One Rule 1 deviation outside the plan's stated `files_modified`: `server/test_pipeline_e2e.py`'s battery-icon-region check hardcoded the active-state ink nibble as White (0x1), true only under the retired Sky default's white ink — corrected to derive the expectation from `device_config.theme_ink_index()` for the theme `run_once()` actually reported. Full suite green except `server/test_poll_loop.py`'s pinned `panel.bin` digest (already stale pre-phase from an unrelated macOS/Linux FreeType difference, now additionally invalidated for real by the White-default flip — re-pin explicitly deferred to plan 08-05, not fixed here). None of the four new hues has been seen on real Spectra 6 ink yet — screen-confirmed only, same as Sky was before Phase 7; the registry's provenance comment now records this honestly, and plan 08-06's blocking on-glass session is where that check happens. `requirements.mark-complete D-01 D-02 D-03 D-04` returned all four as `not_found`, consistent with every prior 06.x-style decimal/CONTEXT-only phase's precedent — these are `08-CONTEXT.md` Decision IDs, not formal REQUIREMENTS.md entries. `roadmap.update-plan-progress "08"` confirmed `plan_count: 6, summary_count: 1, status: "In Progress"` (plans 02-06 remain). `state.advance-plan` again could not parse this file's prose-based Current Position section (same known limitation documented throughout this file's history) — `state.update-progress` computed `percent: 93` (64/69) correctly this time, no hand-correction needed.
 
@@ -410,6 +410,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 23 P10 | 3h30m | 3 tasks | 6 files |
 | Phase 23 P11 | 3h | 3 tasks | 7 files |
 | Phase 25 P08 | ~3h | 3 tasks | 7 files |
+| Phase 27 P09 | ~2h45m | 4 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -762,6 +763,8 @@ Recent decisions affecting current work:
 - [Phase 23]: 23-11: style.css's accent-reservation list stopped being exhaustive (the switch's on-state track fill and the new-row arrival wash landed without an entry) and the gap is RECORDED as a finding rather than repaired from a documentation plan — the discipline that the list lives in exactly one place is worth more than closing one gap in the wrong file
 - [Phase 25]: Phase 25 closes with CFG-46/47/48/49/51 ticked on per-clause evidence and CFG-50 and CFG-52 deliberately left unticked: CFG-50 because nothing is behind the theme disclosure (a closed <details> hides its own children) and because Display measures 3743px at 390px against X6's 2600px target, 1143px over; CFG-52 because 'operable from the keyboard with no pointer event at all' is measured for four of the five controls and unmeasured for D19's native file input
 - [Phase 25]: The controls contract is the design system's fifth standing contract beside motion, colour-separation, spacing and drawings: one new script for five controls with three named taxes, the no-JS control contract proven by reading the value back from disk rather than by rendering, the continuous-value keyboard model recorded once (native Page = 10 percent of the band), hit targets measured in each control's own container, and the CSP recorded as shaping what a control may do
+- [Phase 27]: CFG-65 (one title form) left deliberately unticked — investigated (27-06) and found not to be a defect; the two title forms already serve distinct grammatical roles
+- [Phase 27]: Display measured 3524px at 390px against 27-07's own stated ~3446-3496px prediction — a missed prediction reported as one, with the arithmetic error named
 
 ### Pending Todos
 
@@ -863,8 +866,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-14T19:34:27.539Z
-Stopped at: Completed 25-08-PLAN.md — Phase 25 executed 8/8 (Controls). CFG-46/47/48/49/51 ticked with per-clause evidence; CFG-50 and CFG-52 deliberately left unticked, each naming the unmet clause and the decision it needs. Display measures 3743px at 390px against X6's 2600px target — reported, not rounded up. The design system carries the controls contract; the coverage ledger walks every clause of all five D-items; the developer has one eight-decision list with each decision's reversal cost as it now stands. Gate: exactly the 5 sandbox baseline failures by NAME, browser harness 81/81 with 0 SKIP in 270s. Awaiting the developer's visual review of all five controls on a real phone — the phase's real gate. PR not marked ready, not merged.
+Last session: 2026-09-15T14:22:55.532Z
+Stopped at: Completed 27-09-PLAN.md — Phase 27 executed 9/9 (companion review feedback). CFG-62/63/64/66/67/68/69/70/71 ticked with per-clause evidence re-verified on the finished tree; CFG-65 deliberately left unticked (investigated, no defect found). Display measures 3524px at 390px against 27-07's own stated ~3446-3496px prediction — a missed prediction, explained rather than absorbed. Design system carries a sixth standing contract (review-feedback discipline). Gate: exactly the 5 sandbox baseline failures by NAME, browser harness 88/88 with 0 SKIP in 265.9s. Awaiting the developer's real-phone/desktop review — the phase's real gate. PR not marked ready, not merged.
 
 Resume file: 
 

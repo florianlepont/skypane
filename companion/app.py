@@ -3201,16 +3201,14 @@ class Handler(BaseHTTPRequestHandler):
 
         calendar_signal = config_page.submitted_calendar_signal(form)
         if calendar_signal == config_page.CALENDAR_URL_SIGNAL_CLEAR:
-            return self.redirect(
-                "%s?flash=%s" % (back, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
+            return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_DISCONNECTED)
         if calendar_signal != config_page.CALENDAR_URL_SIGNAL_SET:
             # carry_forward — an unrelated settings save. No fetch, no
             # lock acquisition: byte-identical to today's behaviour.
-            return self.redirect("%s?flash=%s" % (back, quote(FLASH_KEY_SAVED)))
+            return self._settings_saved_redirect(back, FLASH_KEY_SAVED)
 
         if not _POLL_LOCK.acquire(blocking=False):
-            return self.redirect(
-                "%s?flash=%s" % (back, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
+            return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_SYNC_DEFERRED)
         try:
             result_code, _registry = calendar_rules.refresh_calendar_registry(
                 state_dir, poll_loop.now_s(), min_interval_s=0)
@@ -3218,10 +3216,34 @@ class Handler(BaseHTTPRequestHandler):
             _POLL_LOCK.release()
 
         if result_code == calendar_rules.FETCH_OK:
-            return self.redirect(
-                "%s?flash=%s" % (back, quote(FLASH_KEY_CALENDAR_CONNECTED)))
-        return self.redirect(
-            "%s?flash=%s" % (back, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+            return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_CONNECTED)
+        return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_SYNC_FAILED)
+
+    def _settings_saved_redirect(self, back, flash_key):
+        """27-04-PLAN.md Task 1 (CFG-63): the SUCCESS-branch response shape
+        for POST /settings, chosen by the same `_wants_no_content()`
+        predicate `_handle_quick_toggle()` already uses — a fetch gets
+        `send_no_content()`'s 204, a browser form post keeps the 303 and
+        its flash exactly as before this plan.
+
+        Every call site above is only ever reached after `_handle_settings_
+        post()`'s own `flash_key != FLASH_KEY_SAVED` guard has already
+        passed, so the write has already landed on disk by the time this
+        runs — `flash_key` here only names which CALENDAR-SYNC outcome the
+        browser's flash banner shows, never whether the save itself
+        succeeded. A fetch is therefore answered 204 regardless of which
+        of the five keys is passed in: the client's status region does
+        not (and must not) distinguish "saved, and the calendar synced"
+        from "saved, and the calendar sync was deferred/failed" — that
+        distinction is real but it is not this phase's vocabulary to
+        deliver over the auto-save path (see Task 1's own docstring
+        bullet 2 for the identical reasoning on the REJECTION branch,
+        which this method never sees: `_handle_settings_post()` returns
+        before calling this method whenever `errors` is non-empty).
+        """
+        if self._wants_no_content():
+            return self.send_no_content()
+        return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
     def _handle_poll_now(self):
         # Phase 18: the trigger lives on Home (Refresh now) and on Device

@@ -58,6 +58,12 @@ CATALOG = {
     "Next update ≈ %s": "Prochaine mise à jour ≈ %s",
     "Expected since %s": "Attendu depuis %s",
 
+    # --- Frame strip: the Quiet hours caption link (CFG-69, 27-08-PLAN.md
+    # Task 2) — companion/layout.py's own frame_strip_html(), keyed here
+    # for the same "this catalogue already holds that module's other
+    # frame-strip strings" reason "Expected since %s" above does.
+    "Change the schedule": "Modifier l’horaire",
+
     # --- Status card: the visually-hidden landmark heading --------------
     "Status": "Statut",
 

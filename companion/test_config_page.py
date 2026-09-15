@@ -45,6 +45,7 @@ if REPO_ROOT not in sys.path:
 
 from companion import app as companion_app  # noqa: E402
 from companion import battery  # noqa: E402
+from companion import draw  # noqa: E402
 from companion import i18n  # noqa: E402
 from companion import auth  # noqa: E402
 import companion.i18n_fr as i18n_fr  # noqa: E402
@@ -916,7 +917,87 @@ EXPECTED_CHECK_COUNT = 258
 # key would take the native radiogroup selection away from the
 # scripts-blocked path that depends on it.
 # 258 + 1 = 259, re-derived by RUNNING (259/259).
+#
+# 27-02-PLAN.md Tasks 2-3 (CFG-62): +1 — the pair seam's own markup
+# check (_the_pair_seam_publishes_both_handles_onto_the_shared_ancestor).
+# The two readout-structure fixes inside existing checks (the at-rest
+# byte-identical text and the D-07 echo, both narrowed to survive the
+# caption's new three-child shape) add no new check of their own.
+# 259 + 1 = 260, re-derived by RUNNING (260/260).
+#
+# 27-03-PLAN.md Task 1 (CFG-64): +1 — the source-and-render proof that
+# the native submit's emission is unconditional
+# (_the_native_submit_is_emitted_unconditionally_on_every_render).
+# 260 + 1 = 261, re-derived by RUNNING (261/261).
+#
+# 27-04-PLAN.md (D-04/CFG-63): the dirty save bar is retired outright.
+# Deleted: _render_dirty_bar_is_sibling_of_form_last_on_page (-1),
+# _the_save_control_says_what_it_is_doing_without_changing_what_it_posts
+# (-1, retargeted into a new check below rather than a bare delete),
+# _dirty_state_js_dirty_shown_marker_set_only_inside_update_bar (-1),
+# _dirty_state_js_sets_dirty_ready_only_after_bar_guard (-1),
+# _style_css_gives_the_dirty_bar_an_entrance_and_keeps_every_decision_
+# that_made_it (-1, retargeted into a new check below rather than a bare
+# delete). Retargeted in place (no count change):
+# _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_
+# syntax, _style_css_carries_section_caption_and_restyled_fixed_dirty_
+# bar, _dirty_state_js_still_has_no_network_or_timer_sinks,
+# _dirty_state_js_beforeunload_guard_reuses_count_differences. Added:
+# _save_status_region_sits_beside_the_heading_empty_and_announcing (+1),
+# _the_save_status_region_carries_both_translated_words_and_no_script_
+# holds_client_state (+1, the retarget of the deleted relabel check),
+# _skypane_bar_arrive_keyframes_survive_unreferenced (+1). Net: 261 - 5
+# + 3 = 259, re-derived by RUNNING (259/259).
 EXPECTED_CHECK_COUNT = 259
+
+# 27-05-PLAN.md Task 3 (CFG-66): CFG-47's schematic runway map RETIRED.
+# Removed, named: _runway_map_is_drawn_from_the_registry_never_a_typed_
+# list, _runway_strip_bearings_come_from_the_designators,
+# _runway_map_paint_resolves_and_joins_the_one_feature_query (-3).
+# Mutated in place (map-only assertion dropped, non-map subject kept,
+# no count change): _runway_map_paints_through_classes_and_announces_
+# nothing_twice -> _runway_fieldset_escapes_a_hostile_registry_label;
+# _the_map_changed_the_presentation_and_not_the_control ->
+# _the_controls_semantics_and_the_photographs_survive_the_map_s_removal.
+# Net: 259 - 3 = 256, re-derived by RUNNING (256/256).
+EXPECTED_CHECK_COUNT = 256
+
+# 27-06-PLAN.md Task 1 (CFG-65): +1 — the title-form inventory check
+# (_title_form_inventory_classifies_every_h2_text_heading_on_both_routes),
+# reproducing 27-01-SUMMARY.md's 7/3/2 browser count server-side and
+# stating the Outcome-2 conclusion before any markup is touched. Net:
+# 256 + 1 = 257, re-derived by RUNNING (257/257).
+EXPECTED_CHECK_COUNT = 257
+
+# 27-06-PLAN.md Task 2 (CFG-65): +1 — Outcome 2 found no markup to
+# convert, so this is the substitute for "the check that proves the
+# conversion happened": the source-level "zero card builder ever calls
+# section_intro_html()" guard
+# (_no_card_builder_function_ever_calls_section_intro_html). Net: 257 +
+# 1 = 258, re-derived by RUNNING (258/258).
+EXPECTED_CHECK_COUNT = 258
+
+# 27-06-PLAN.md Task 3 (CFG-67): +3 — one check per shortened region
+# (the wake-interval caption, the two wake gauges combined, the Quiet
+# hours paragraph), each proving "shorter than 27-01-SUMMARY.md's own
+# baseline" and, where the honesty contract or the live delay sentence
+# applies, the refusal/survival — on the SAME reading, in both
+# languages. Net: 258 + 3 = 261, re-derived by RUNNING (261/261).
+EXPECTED_CHECK_COUNT = 261
+
+# 27-07-PLAN.md Task 1 (CFG-68): +1 — the page-wide no-duplicate-id
+# check (_the_rendered_settings_page_carries_no_duplicate_id), the proof
+# THEME_CAROUSEL_STRIP_ID's required-argument fix actually closes the
+# trap rather than merely relocating it. Net: 261 + 1 = 262, re-derived
+# by RUNNING (262/262).
+EXPECTED_CHECK_COUNT = 262
+
+# 27-07-PLAN.md Task 3 (CFG-70): +1 — the swatch-legend relationship
+# check (_the_swatch_legend_names_as_many_things_as_the_registry_
+# carries), which computes its expected label count from the registry
+# at check time rather than restating THEME_CHIP_SWATCH_LEGEND's own
+# literal. Net: 262 + 1 = 263, re-derived by RUNNING (263/263).
+EXPECTED_CHECK_COUNT = 263
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1792,120 +1873,62 @@ def main():
         "Settings opens with the shared layout.page_header() component, not a bare <h1>",
         _render_opens_with_shared_page_header)
 
-    def _the_save_control_says_what_it_is_doing_without_changing_what_it_posts():
-        # 23-09-PLAN.md Task 2 (D3/CFG-32). T14 (22-15-PLAN.md Task 3)
-        # deliberately left this label change for this phase, in as many
-        # words: "Disable only — do NOT change any label to a progress
-        # word; that is D3, Phase 23." This is that plan, and this check
-        # is the source-level half of it.
-        #
-        # The whole risk lives in one sentence of submit-guard.js's own
-        # header: a submit button's name/value pair joins the form data
-        # set AFTER the submit event's listeners return, which is why
-        # THAT file disables from a zero-delay timer instead of inline.
-        # A relabel has to answer the same question, and the answer here
-        # is a property of the control rather than of the timing — so the
-        # check asserts the property.
-        #
-        # Read directly rather than through this file's own _read_static()
-        # helper: that helper is defined further down the same enclosing
-        # function, so its name is unbound at the moment this check runs.
+    def _the_save_status_region_carries_both_translated_words_and_no_script_holds_client_state():
+        # 27-04-PLAN.md Task 3 (D-04/CFG-63): SUPERSEDES this check's own
+        # pre-27-04 subject (23-09-PLAN.md Task 2's Save-button relabel,
+        # D3/CFG-32) wholesale — the relabel, and the Save button it
+        # relabelled, are both retired along with the dirty bar itself
+        # (dirty-state.js's own header records the full account). What
+        # replaces it is the auto-save status region's own two words,
+        # tested here the identical way: a server-rendered, translated
+        # data-* attribute with a byte-identical English fallback.
         static_dir = os.path.join(os.path.dirname(__file__), "static")
         with open(os.path.join(static_dir, "dirty-state.js")) as fh:
             source = fh.read()
 
-        # (a) THE WORD IS THE SERVER'S, not a JS literal. Same
-        # attribute-with-an-English-fallback idiom the bar's five
-        # connector words already use, so the French is a catalogue
-        # entry and the two can never silently disagree about what a
-        # missing attribute degrades to.
-        if not hasattr(config_page, "DIRTY_SAVING_TEXT"):
-            return False, "expected config_page to name the in-flight word as its own constant"
-        rendered = config_page.render({
-            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-            "poll_cooldown_remaining": 0,
-        })
-        marker = 'data-dirty-saving="%s"' % config_page.DIRTY_SAVING_TEXT
-        if marker not in rendered:
-            return False, (
-                "expected the bar to carry %r — the in-flight word belongs on the same element "
-                "the other five translated words already ride on" % (marker,))
-        if "data-dirty-saving" not in source:
-            return False, "expected dirty-state.js to read the in-flight word off the bar"
-        if ('"%s"' % config_page.DIRTY_SAVING_TEXT) not in source:
-            return False, (
-                "expected dirty-state.js's English fallback literal for the in-flight word to "
-                "match the server constant byte for byte, or a bar rendered without the "
-                "attribute says something different from one rendered with it")
-        try:
-            prefs.set_request_prefs(lang="fr")
-            fr_rendered = config_page.render({
+        for attr_const, text_const in (
+                (config_page.SAVE_STATUS_SAVING_ATTR, config_page.SAVE_STATUS_SAVING_TEXT),
+                (config_page.SAVE_STATUS_SAVED_ATTR, config_page.SAVE_STATUS_SAVED_TEXT)):
+            rendered = config_page.render({
                 "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
                 "poll_cooldown_remaining": 0,
-            })
-        finally:
-            prefs.set_request_prefs(lang="en")
-        fr_word = layout.i18n.t_lang(config_page.DIRTY_SAVING_TEXT, "fr")
-        if fr_word == config_page.DIRTY_SAVING_TEXT:
-            return False, (
-                "expected a French entry for %r — every new visible word is a catalogue entry"
-                % (config_page.DIRTY_SAVING_TEXT,))
-        if ('data-dirty-saving="%s"' % fr_word) not in fr_rendered:
-            return False, "expected a French render to carry the French in-flight word"
-
-        # (b) THE RELABEL IS SAFE BY THE CONTROL'S OWN SHAPE, not by
-        # timing. It runs only for a <button> carrying no name, and a
-        # control with no name contributes no entry to the form data set
-        # at all — so there is nothing the label could displace. The
-        # <input type="submit"> case is excluded by the same clause and
-        # for a sharper reason: that element's label IS its submitted
-        # value, so relabelling one would genuinely change the payload.
-        if "function relabelSubmitter(" not in source:
-            return False, "expected dirty-state.js to name its relabel"
-        body_at = source.index("function relabelSubmitter(")
-        body = source[body_at:source.index("\n  }", body_at)]
-        if '"BUTTON"' not in body:
-            return False, (
-                "expected the relabel to run only for a <button> — an <input type=\"submit\">'s "
-                "label is its submitted value, so relabelling one would change the payload")
-        if 'getAttribute("name")' not in body:
-            return False, (
-                "expected the relabel to stand down for a NAMED submitter: a named control's "
-                "name/value pair is part of the form data set, and companion/layout.py's theme "
-                "and language pickers are exactly that shape")
-        if ".value" in body:
-            return False, (
-                "expected the relabel to write only textContent — writing `value` on a submitter "
-                "is writing the form data set itself")
-        for forbidden in ("preventDefault", "return false", "disabled"):
-            if forbidden in body:
+            }, scope=config_page.SCOPE_DISPLAY)
+            marker = '%s="%s"' % (attr_const, text_const)
+            if marker not in rendered:
                 return False, (
-                    "the relabel found %r — it adds a label and nothing else: it must never "
-                    "cancel the submission, and the disable is submit-guard.js's, once, for "
-                    "every form in the app" % (forbidden,))
+                    "expected the save-status region to carry %r — both words belong on the "
+                    "same element, the same idiom the retired bar's own words used" % (marker,))
+            if attr_const not in source:
+                return False, "expected dirty-state.js to read %r off the region" % (attr_const,)
+            if ('"%s"' % text_const) not in source:
+                return False, (
+                    "expected dirty-state.js's English fallback literal for %r to match the "
+                    "server constant byte for byte, or a region rendered without the attribute "
+                    "says something different from one rendered with it" % (attr_const,))
+            try:
+                prefs.set_request_prefs(lang="fr")
+                fr_rendered = config_page.render({
+                    "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+                    "poll_cooldown_remaining": 0,
+                }, scope=config_page.SCOPE_DISPLAY)
+            finally:
+                prefs.set_request_prefs(lang="en")
+            fr_word = layout.i18n.t_lang(text_const, "fr")
+            if fr_word == text_const:
+                return False, (
+                    "expected a French entry for %r — every new visible word is a catalogue entry"
+                    % (text_const,))
+            if ('%s="%s"' % (attr_const, fr_word)) not in fr_rendered:
+                return False, "expected a French render to carry the French word for %r" % (attr_const,)
 
-        # (c) NO SECOND DISABLE anywhere in this file. submit-guard.js
-        # already owns that for every form, from a zero-delay timer, and
-        # two files writing the same property is how they start
-        # disagreeing about who re-enables it.
-        if "disabled" in source:
-            return False, (
-                "dirty-state.js must not write or read `disabled` at all — submit-guard.js owns "
-                "the double-submit guard for every form in the app")
-
-        # (d) NO CLIENT STATE, in any script. The completed state is
-        # NOT persisted across the save's navigation: the POST replaces
-        # the document, so the bar that said the in-flight word does not
-        # exist when the save finishes, and carrying a flag across that
-        # navigation would mean browser storage. This app holds none, on
-        # purpose — a second source of truth beside the server is the
-        # one thing its whole discipline excludes. The completed state
-        # is the existing save-confirmation flash, on the page the
-        # browser actually lands on.
-        #
-        # Measured on COMMENT-STRIPPED source, the way 23-01's own motion
-        # guard measures its bans, so a script may still write down WHY
-        # it holds no client state without failing the rule.
+        # NO CLIENT STATE, in any script. The completed state is not
+        # persisted client-side at all — the fetch's own 204 IS the
+        # confirmation, read once and written straight to the region;
+        # carrying a flag anywhere longer-lived would mean browser
+        # storage, and this app holds none, on purpose. Measured on
+        # COMMENT-STRIPPED source, the way 23-01's own motion guard
+        # measures its bans, so a script may still write down WHY it
+        # holds no client state without failing the rule.
         for name in sorted(os.listdir(static_dir)):
             if not name.endswith(".js"):
                 continue
@@ -1916,17 +1939,15 @@ def main():
                 if store in live:
                     return False, (
                         "companion/static/%s reaches for %s — this app holds no client state at "
-                        "all, deliberately, and a 'Saved' flag carried across the save's own "
-                        "navigation is exactly the thing that would introduce one" % (name, store))
+                        "all, deliberately, and a 'Saved' flag carried across a page's own "
+                        "lifetime is exactly the thing that would introduce one" % (name, store))
         return True, ""
     check(
-        "the save bar's in-flight word is a server-rendered, translated data-* attribute with a "
-        "byte-identical English fallback in dirty-state.js, and the relabel is safe by the "
-        "control's own shape rather than by timing — a <button> with no name contributes nothing "
-        "to the form data set, so the relabel writes textContent only, never `value`, never "
-        "`disabled`, never preventDefault — while no script anywhere reaches for client storage "
-        "(D3/CFG-32, T14's deferred label, 23-09-PLAN.md Task 2)",
-        _the_save_control_says_what_it_is_doing_without_changing_what_it_posts)
+        "the save-status region's two words (SAVE_STATUS_SAVING_TEXT/SAVE_STATUS_SAVED_TEXT) are "
+        "server-rendered, translated data-* attributes with byte-identical English fallbacks in "
+        "dirty-state.js, and no script anywhere reaches for client storage (27-04-PLAN.md Task 3, "
+        "D-04/CFG-63, supersedes the retired Save-button relabel check, 23-09-PLAN.md Task 2/D3/CFG-32)",
+        _the_save_status_region_carries_both_translated_words_and_no_script_holds_client_state)
 
     def _settings_form_carries_config_form_class_hook():
         # D-01 stable class hook: the settings form (POST /config) needs a
@@ -1962,60 +1983,49 @@ def main():
         "the settings form keeps the stable config-form class hook the desktop two-column fieldset layout targets",
         _settings_form_carries_config_form_class_hook)
 
-    def _render_dirty_bar_is_sibling_of_form_last_on_page():
-        # quick task 260901-re6: inverted wholesale from the pre-merge
-        # version of this check (which asserted the bar was a genuine
-        # descendant of the form). `position: sticky` resolved against
-        # the form's own short box, so the bar detached from the
-        # viewport bottom on a tall page — the fix moves the bar to be a
-        # sibling of the form, emitted last on the page (after both
-        # </form> and the Poll section), submitting via a form= attribute
-        # instead of native DOM nesting.
+    def _save_status_region_sits_beside_the_heading_empty_and_announcing():
+        # 27-04-PLAN.md Task 3 (D-04/D-06/CFG-63): SUPERSEDES this check's
+        # own pre-27-04 subject (the dirty save bar, a sibling emitted
+        # LAST on the page — quick task 260901-re6). The bar and its own
+        # placement contract are retired outright along with dirty_bar_
+        # html() itself; what replaces it is placed FIRST, immediately
+        # after the page's own heading, "beside the form's heading" per
+        # that plan's own wording — the opposite end of the page from
+        # where the bar used to live.
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
-        })
+        }, scope=config_page.SCOPE_DISPLAY)
         if rendered.count('<form class="config-form"') != 1:
             return False, "expected exactly one config-form <form>, no duplicate"
-        if "</form>" not in rendered:
-            return False, "expected a closing </form> tag"
-        if "data-dirty-bar" not in rendered:
-            return False, "expected data-dirty-bar to appear in render()'s output"
-        bar_pos = rendered.index("data-dirty-bar")
-        # 20-07-PLAN.md Task 2 (D-19): SCOPE_ALL's legacy flat join still
-        # calls the now-restructured display_group()/quiet_hours_group()
-        # (both are still members of scope_groups(SCOPE_ALL)'s own fixed
-        # tuple), and each now embeds its own small quick-action <form>
-        # ahead of the settings form's real closing tag — so the FIRST
-        # "</form>" in the document is no longer necessarily the settings
-        # form's own. The bottom static Save button is the last thing the
-        # settings form itself emits before its own closing tag (render()'s
-        # own template: "...Save settings</button></form>"), so the
-        # settings form's real "</form>" is the first one AFTER that
-        # button's own text.
-        save_button_pos = rendered.index("Save settings")
-        if save_button_pos >= bar_pos:
-            return False, "expected the bottom Save settings button to appear before the dirty bar"
-        form_end = rendered.index("</form>", save_button_pos)
-        if bar_pos <= form_end:
-            return False, "expected data-dirty-bar to appear AFTER </form> closes, not inside it"
-        poll_heading = '<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING
-        if poll_heading not in rendered:
-            return False, "expected the Poll section heading to be present"
-        poll_pos = rendered.index(poll_heading)
-        if bar_pos <= poll_pos:
-            return False, "expected data-dirty-bar to appear after the Poll section heading too, so the bar is genuinely last on the page"
-        form_start = rendered.index('<form class="config-form"')
-        form_segment = rendered[form_start:form_end]
-        if "Save settings" not in form_segment:
-            return False, "expected the always-visible bottom Save settings fallback button to still appear inside the form"
-        save_button_marker = 'class="dirty-bar__save" form="%s"' % config_page.SETTINGS_FORM_ID
-        if save_button_marker not in rendered:
-            return False, "expected the dirty-bar's own save button to carry form=%r" % (config_page.SETTINGS_FORM_ID,)
+        if config_page.SAVE_STATUS_ATTR not in rendered:
+            return False, "expected the save-status region's own attribute to appear in render()'s output"
+        region_pos = rendered.index(config_page.SAVE_STATUS_ATTR)
+        heading_marker = "<h1"
+        if heading_marker not in rendered:
+            return False, "expected a page heading"
+        heading_pos = rendered.index(heading_marker)
+        if region_pos <= heading_pos:
+            return False, "expected the save-status region to appear AFTER the page's own heading"
+        form_pos = rendered.index('<form class="config-form"')
+        if region_pos >= form_pos:
+            return False, "expected the save-status region to appear BEFORE the settings form, not after it"
+        # EMPTY at rest: a region already carrying its saved word on a
+        # fresh load would be the same stale-claim defect this phase
+        # exists to fix, in a sentence instead of an arc.
+        region_start = rendered.index("<p class=\"save-status")
+        region_end = rendered.index("</p>", region_start) + len("</p>")
+        region_markup = rendered[region_start:region_end]
+        if not region_markup.endswith("></p>"):
+            return False, "expected the save-status region to render with no text content at rest, got %r" % (region_markup,)
+        if 'role="status"' not in region_markup:
+            return False, "expected the save-status region to carry role=\"status\""
+        if 'aria-live="polite"' not in region_markup:
+            return False, "expected the save-status region to carry aria-live=\"polite\", not role=\"alert\" — a failed save's toast, not this region, is the assertive announcement"
         return True, ""
     check(
-        "render()'s dirty-state bar is a sibling of the config-form <form>, emitted last on the page after both </form> and the Poll section, with its save button carrying form=SETTINGS_FORM_ID (quick task 260901-re6)",
-        _render_dirty_bar_is_sibling_of_form_last_on_page)
+        "render() places one save-status region beside the page's own heading, before the settings form — EMPTY at rest, carrying role=\"status\" and aria-live=\"polite\" (27-04-PLAN.md Task 3, D-04/CFG-63, supersedes the retired dirty bar's own end-of-page placement check)",
+        _save_status_region_sits_beside_the_heading_empty_and_announcing)
 
     # 21-05-PLAN.md Task 1 (D-06): theme_fieldset() is retired outright —
     # every direct-call test against it (one-radio-per-registry-entry,
@@ -2118,15 +2128,14 @@ def main():
         _runway_fieldset_cards_image_rendering_per_card)
 
     # ------------------------------------------------------------------
-    # 25-03-PLAN.md Task 1 (CFG-47): the schematic Orly runway map.
-    #
-    # Four checks, and the thing they are collectively defending is that
-    # the DRAWING cannot disagree with the LABELS a visitor reads beside
-    # it. Every number in the geometry is derived from a runway
-    # designator that is already in the registry, so there is no second
-    # list of coordinates to fall out of step — and the checks below
-    # assert the derivation rather than the resulting angles, because a
-    # pinned angle is exactly the second list wearing a harness costume.
+    # 27-05-PLAN.md Task 3 (CFG-66): CFG-47's schematic Orly runway map
+    # was RETIRED — the drawing came out, the three native radios and
+    # the three photographs did not. `_temporary_registry()`/
+    # `_runway_entry()` below survive because the escaping check just
+    # past them still needs a hostile registry entry to swap in; every
+    # check that asserted the map's own classes, geometry or bearing
+    # derivation (four of them, plus their `_MAP_STRIP_ATTR` helper) is
+    # gone, named in 27-05-SUMMARY.md.
     # ------------------------------------------------------------------
 
     def _temporary_registry(entries):
@@ -2155,214 +2164,16 @@ def main():
     def _runway_entry(label):
         return {"label": label, "tag_text": label, "empty_heading": label}
 
-    _MAP_STRIP_ATTR = 'class="%s' % config_page.RUNWAY_MAP_STRIP_CLASS
-
-    def _runway_map_is_drawn_from_the_registry_never_a_typed_list():
-        # Every count here is len(RUNWAY_IDS), never the literal 3. The
-        # registry has held exactly three entries since Phase 6 and a
-        # harness that pinned the 3 would pass forever while the drawing
-        # silently stopped following the registry.
-        ids = device_config.RUNWAY_IDS
-        n = len(ids)
-        rendered = config_page.runway_fieldset("3")
-        radios = rendered.count('name="tracked_runway"')
-        if radios != n:
-            return False, (
-                "expected one radio per registry entry (%d), got %d" % (n, radios))
-        if rendered.count('class="visually-hidden"') < n:
-            return False, (
-                "expected every radio to keep class=\"visually-hidden\" — display:none "
-                "would drop it from the tab order and break keyboard selection")
-        if rendered.count('form="%s"' % config_page.SETTINGS_FORM_ID) < n:
-            return False, "expected every radio to keep its explicit form= association"
-        maps = rendered.count('<svg class="%s"' % config_page.RUNWAY_MAP_CLASS)
-        if maps != n:
-            return False, "expected one map per card (%d), got %d" % (n, maps)
-        # Every card draws the WHOLE airfield — n strips on each of n
-        # maps — which is what makes this a map rather than n unrelated
-        # single-strip marks. Counted on the class ATTRIBUTE prefix
-        # because "runway-map__strip--this" contains "runway-map__strip".
-        strips = rendered.count(_MAP_STRIP_ATTR)
-        if strips != n * n:
-            return False, (
-                "expected %d strips (%d cards x %d registry entries), got %d"
-                % (n * n, n, n, strips))
-        this = rendered.count(config_page.RUNWAY_MAP_THIS_STRIP_CLASS)
-        if this != n:
-            return False, (
-                "expected exactly one own-runway strip per card (%d), got %d"
-                % (n, this))
-
-        # THE MUTATION: a fourth entry, added to the registry only. If
-        # the drawing followed a typed list, this produces a fourth radio
-        # and no fourth strip.
-        grown = dict(device_config.RUNWAYS)
-        grown["09-27"] = _runway_entry("Runway 5 (09/27)")
-        with _temporary_registry(grown):
-            after = config_page.runway_fieldset("3")
-            if after.count('name="tracked_runway"') != n + 1:
-                return False, (
-                    "a fourth registry entry produced %d radios, expected %d"
-                    % (after.count('name="tracked_runway"'), n + 1))
-            if after.count('<svg class="%s"' % config_page.RUNWAY_MAP_CLASS) != n + 1:
-                return False, "a fourth registry entry produced no fourth map"
-            if after.count(_MAP_STRIP_ATTR) != (n + 1) * (n + 1):
-                return False, (
-                    "a fourth registry entry produced %d strips, expected %d — the "
-                    "drawing is following something other than the registry"
-                    % (after.count(_MAP_STRIP_ATTR), (n + 1) * (n + 1)))
-            if "rotate(90" not in after:
-                return False, (
-                    "the fourth entry's label says 09/27 and no strip is drawn at 090 — "
-                    "the drawing is not reading the designator it was given")
-        if device_config.RUNWAY_IDS != ids:
-            return False, "the registry mutation did not restore itself"
-        return True, ""
-    check(
-        "the runway map is drawn from device_config.RUNWAY_IDS and nothing else — one map per "
-        "card, one strip per registry entry on EVERY map, exactly one own-runway strip per card, "
-        "and a fourth entry added to the registry alone produces a fourth radio AND a fourth "
-        "strip on every map with no edit to runway_fieldset() (CFG-47, 25-03-PLAN.md Task 1)",
-        _runway_map_is_drawn_from_the_registry_never_a_typed_list)
-
-    def _runway_strip_bearings_come_from_the_designators():
-        # A designator IS a bearing in tens of degrees, so the drawing's
-        # angles are ASSERTED AGAINST THE LABELS rather than against
-        # pinned numbers. Both sides of every comparison below are read
-        # out of the registry at run time.
-        def designator(runway_id):
-            found = re.search(
-                r"\((\d{1,2})/(\d{1,2})\)", device_config.runway_label(runway_id))
-            if found is None:
-                return None
-            return int(found.group(1)) * 10 % 180
-
-        for runway_id in device_config.RUNWAY_IDS:
-            stated = designator(runway_id)
-            if stated is None:
-                continue
-            drawn = config_page.runway_bearing_deg(runway_id)
-            if drawn != stated:
-                return False, (
-                    "%r is labelled %r — its designator states %d degrees and the strip "
-                    "is drawn at %d"
-                    % (runway_id, device_config.runway_label(runway_id), stated, drawn))
-
-        # The relationship, not a magic number: two runways whose
-        # designators differ by 4 tens are drawn 40 degrees apart.
-        a, b = "06-24", "02-20"
-        if a in device_config.RUNWAY_IDS and b in device_config.RUNWAY_IDS:
-            expected_gap = designator(a) - designator(b)
-            drawn_gap = (config_page.runway_bearing_deg(a)
-                         - config_page.runway_bearing_deg(b))
-            if drawn_gap != expected_gap or expected_gap == 0:
-                return False, (
-                    "%r and %r are labelled %r and %r, a %d-degree difference, and are "
-                    "drawn %d degrees apart"
-                    % (a, b, device_config.runway_label(a),
-                       device_config.runway_label(b), expected_gap, drawn_gap))
-
-        # THE TRAP THIS PARSE EXISTS FOR. Orly's first entry is keyed
-        # "3" — an ADP runway NUMBER — and labelled "Runway 3 (07/25)".
-        # An id-first parse draws it at 030 while its own label says
-        # 07/25. The label is read first precisely so this cannot happen.
-        if "3" in device_config.RUNWAY_IDS:
-            if config_page.runway_bearing_deg("3") == 3 * 10:
-                return False, (
-                    "runway '3' is drawn at 030 — that is its ADP NUMBER parsed as a "
-                    "designator, and its own label says 07/25")
-        # ...and the clause above is NOT on its own enough to pin the
-        # label-before-id order, which is why this second case exists.
-        # Measured on the shipped registry: swapping the two sources
-        # changes no angle at all, because "3" parses as nothing under
-        # either order and the other two ids carry the same designators
-        # their labels do. So the order is proven on a registry where
-        # the two sources DISAGREE — a label of 07/25 against an id
-        # reading 31-13 — and the label has to win, because the label is
-        # what a visitor reads beside the drawing.
-        with _temporary_registry({"31-13": _runway_entry("Runway 9 (07/25)")}):
-            from_label = designator("31-13")
-            drawn = config_page.runway_bearing_deg("31-13")
-            if drawn != from_label:
-                return False, (
-                    "an entry keyed %r and labelled %r is drawn at %d — its LABEL states "
-                    "%d, and a drawing that contradicts the label printed beside it is "
-                    "the whole defect this parse exists to make unreachable"
-                    % ("31-13", "Runway 9 (07/25)", drawn, from_label))
-
-        # T-25-03-D: an entry carrying no parseable designator anywhere
-        # falls back to a stated angle and renders, rather than raising
-        # and taking the whole Display page down with it.
-        with _temporary_registry({"north-field": _runway_entry("The north field")}):
-            fallback = config_page.runway_bearing_deg("north-field")
-            if fallback != config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG:
-                return False, (
-                    "an unparseable entry gave %r, expected the stated fallback %r"
-                    % (fallback, config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG))
-            rendered = config_page.runway_fieldset("north-field")
-            if _MAP_STRIP_ATTR not in rendered:
-                return False, "an unparseable entry rendered no strip at all"
-        # A pair that is not reciprocal is not a designator pair: 12/2024
-        # would otherwise parse as 120 degrees.
-        with _temporary_registry({"x": _runway_entry("Rebuilt 12/19")}):
-            if config_page.runway_bearing_deg("x") != config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG:
-                return False, (
-                    "12/19 is not a reciprocal designator pair (they differ by 7, not 18) "
-                    "and was parsed as a bearing anyway")
-        return True, ""
-    check(
-        "every runway strip's bearing is DERIVED from the designator in its own registry label "
-        "(a designator is a magnetic bearing in tens of degrees) — asserted against the labels "
-        "rather than against pinned angles, with the id read only second so Orly's ADP-numbered "
-        "'3' cannot be drawn at 030 while its label says 07/25, a non-reciprocal pair refused, "
-        "and an unparseable entry falling back to a stated angle rather than raising (T-25-03-D)",
-        _runway_strip_bearings_come_from_the_designators)
-
-    def _runway_map_paints_through_classes_and_announces_nothing_twice():
-        svg = config_page.runway_map_svg("3")
-        found = re.search(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", svg)
-        if found is not None:
-            return False, (
-                "the map emits the colour %r — a colour decided in Python is correct in "
-                "ONE theme and is invisible to companion/test_contrast_check.py"
-                % (found.group(0),))
-        shapes = re.findall(
-            r"<(rect|circle|line|path|polygon|polyline|ellipse)\b([^>]*)", svg)
-        if not shapes:
-            return False, "the map emits no drawn shape at all"
-        for tag, attributes in shapes:
-            if ("class=" not in attributes and "fill=" not in attributes
-                    and "stroke=" not in attributes):
-                return False, (
-                    "the map emits a <%s> with neither a class nor an explicit "
-                    "fill/stroke — it paints SVG-default black, which is invisible "
-                    "against a dark card" % (tag,))
-        # EVERY ATTRIBUTE ASSERTION BELOW IS SCOPED TO THE OPENING <svg>
-        # TAG, and that is not tidiness. Measured on this tree: a scan
-        # over the whole markup for "width=" passes against an <svg>
-        # carrying no size at all, because every <rect> child declares
-        # its own width — so the unscoped form of this check reported a
-        # size route that was not there.
-        opening = svg[:svg.index(">") + 1]
-        # The accessible names come from the three labels, exactly as
-        # before this drawing existed; a labelled graphic would announce
-        # the runways a second time.
-        for attribute in ('aria-hidden="true"', 'focusable="false"'):
-            if attribute not in opening:
-                return False, (
-                    "expected the map's own <svg> tag to carry %s, got %r"
-                    % (attribute, opening))
-        # The size route. companion/layout.py's icon_html() docstring
-        # records what an <svg> with neither an attribute nor a CSS rule
-        # does: 300x150 and a blown layout.
-        for attribute in ("viewBox=", "width=", "height="):
-            if attribute not in opening:
-                return False, (
-                    "expected the map's own <svg> tag to carry an explicit size route "
-                    "(%s), got %r" % (attribute, opening))
-        # T-25-03-B: registry text reaching the page. The map itself
-        # interpolates no registry string at all — only integers derived
-        # from it — and the card's label text goes through escape_html().
+    def _runway_fieldset_escapes_a_hostile_registry_label():
+        # T-25-03-B, MUTATED IN PLACE by 27-05-PLAN.md Task 3 (CFG-66):
+        # this check used to also assert runway_map_svg("h") never
+        # interpolated the hostile label unescaped, alongside every
+        # colour/paint-route/aria/size assertion the now-retired map's
+        # own <svg> carried. The map is gone; the registry-text-reaching-
+        # the-page threat it was ALSO defending against is not — a
+        # runway's plain-text label still renders on this card, so the
+        # escaping proof stays, narrowed to the surface that still
+        # exists.
         hostile = 'Runway <script>"x"</script> (07/25)'
         with _temporary_registry({"h": _runway_entry(hostile)}):
             rendered = config_page.runway_fieldset("h")
@@ -2372,21 +2183,24 @@ def main():
             if "&lt;script&gt;" not in rendered:
                 return False, (
                     "expected the hostile registry label to render escaped, not dropped")
-            if "<script>" in config_page.runway_map_svg("h"):
-                return False, "the map itself interpolated a registry label unescaped"
         return True, ""
     check(
-        "the runway map takes every colour from a class bound to a theme token (no literal "
-        "anywhere in its emitted markup), gives every drawn shape a paint route, carries "
-        "aria-hidden/focusable=\"false\" plus an explicit size route so it neither announces the "
-        "runways a second time nor renders at the SVG default 300x150, and escapes registry text "
-        "that reaches the page (CFG-47, T-25-03-B)",
-        _runway_map_paints_through_classes_and_announces_nothing_twice)
+        "runway_fieldset() escapes a hostile registry label rather than dropping or "
+        "interpolating it unescaped (T-25-03-B, narrowed from the retired map's own "
+        "coverage by 27-05-PLAN.md Task 3, CFG-66)",
+        _runway_fieldset_escapes_a_hostile_registry_label)
 
-    def _the_map_changed_the_presentation_and_not_the_control():
-        # The radiogroup's semantics are the control. This check is the
-        # one that fails if a later edit "tidies" the map by moving,
-        # renaming or re-wrapping any of them.
+    def _the_controls_semantics_and_the_photographs_survive_the_map_s_removal():
+        # MUTATED IN PLACE by 27-05-PLAN.md Task 3 (CFG-66): this check
+        # used to be titled "the map changed the presentation and not
+        # the control" and additionally asserted that
+        # RUNWAY_MAP_THIS_STRIP_CLASS survived a current_runway_id=None
+        # render — the one assertion in this function whose subject was
+        # the now-retired drawing itself, removed with it. Everything
+        # below it is the radiogroup's OWN semantics and the
+        # photographs' own presence, neither of which the map's removal
+        # may touch, so both stay and both are re-asserted here rather
+        # than lost when the check that used to carry them was renamed.
         rendered = config_page.runway_fieldset("3")
         for fragment in (
                 'role="radiogroup"',
@@ -2394,23 +2208,15 @@ def main():
                 'aria-describedby="%s"' % config_page.RUNWAY_SECTION_CAPTION_ID):
             if fragment not in rendered:
                 return False, "expected the row to keep %s" % (fragment,)
-        # Nothing selected means nothing marked. A map that defaulted to
-        # highlighting one runway would be stating a saved value the
-        # config does not hold.
+        # Nothing selected means nothing marked.
         none_selected = config_page.runway_fieldset(None)
         if "runway-card--selected" in none_selected:
             return False, (
                 "current_runway_id=None still marked a card selected")
         if " checked" in none_selected:
             return False, "current_runway_id=None still left a radio checked"
-        # ...but every card still draws its OWN runway, because that
-        # class says "this card's runway", not "the chosen runway".
-        if none_selected.count(config_page.RUNWAY_MAP_THIS_STRIP_CLASS) != len(
-                device_config.RUNWAY_IDS):
-            return False, (
-                "with nothing selected the own-runway strips vanished — that class "
-                "marks which runway a card IS, never which one is chosen")
-        # The photographs are an addition's neighbour, not its casualty.
+        # The photographs are the map's former neighbour, not its
+        # casualty.
         empty = config_page.runway_fieldset("3", images_available=())
         if "<img" in empty:
             return False, "images_available=() still rendered an <img>"
@@ -2427,176 +2233,18 @@ def main():
             path = os.path.join(HERE, "static", "runway-%s.png" % runway_id)
             if not os.path.exists(path):
                 return False, (
-                    "%s is gone from disk — the map is an ADDITION, and deleting real "
-                    "imagery for a schematic is irreversible in a way adding is not"
-                    % (path,))
+                    "%s is gone from disk — the developer objected to the drawn map, "
+                    "not to the photographs, and deleting real imagery here would be "
+                    "an unrelated, irreversible loss" % (path,))
         return True, ""
     check(
-        "the map changed the presentation and NOT the control — the row keeps role=\"radiogroup\" "
-        "with the same aria-labelledby/aria-describedby ids, current_runway_id=None marks nothing "
-        "selected and leaves no radio checked while every card still draws its own runway, and "
-        "the three runway photographs still render from the session-gated route and still exist "
-        "on disk (CFG-47, 25-03-PLAN.md Task 1)",
-        _the_map_changed_the_presentation_and_not_the_control)
-
-    def _runway_map_paint_resolves_and_joins_the_one_feature_query():
-        # Read directly rather than through _read_static(): that helper
-        # is defined further down this same main(), so it is unbound at
-        # the moment this check runs.
-        with open(os.path.join(HERE, "static", "style.css")) as fh:
-            source = fh.read()
-        rendered = config_page.runway_fieldset("3")
-        svg = rendered[rendered.index("<svg"):rendered.index("</svg>")]
-
-        # EVERY CLASS THE MAP EMITS MUST RESOLVE TO A REAL SELECTOR,
-        # scanned off the EMITTED markup rather than off a list of
-        # constants, because the failure being defended against is a
-        # class that exists in Python and nowhere in the stylesheet — it
-        # paints nothing at all and nothing else in this codebase would
-        # notice. The boundary is a negative lookahead, not a substring
-        # test: ".runway-map__strip" is a substring of
-        # ".runway-map__strip--this" and a plain `in` would report the
-        # first as resolved by the second's rule.
-        emitted = set()
-        for attribute in re.findall(r'class="([^"]*)"', svg):
-            emitted.update(attribute.split())
-        if not emitted:
-            return False, "the emitted map carries no class at all"
-        for class_name in sorted(emitted):
-            if not re.search(r"\.%s(?![\w-])" % re.escape(class_name), source):
-                return False, (
-                    "the map emits class %r and companion/static/style.css declares no "
-                    "selector for it — a class with no rule paints nothing at all"
-                    % (class_name,))
-
-        def _body(selector):
-            if selector not in source:
-                return None, "expected style.css to declare %r" % (selector,)
-            start = source.index(selector) + len(selector)
-            return source[start:source.index("}", start)], ""
-
-        # The paint route: a theme token, never a literal, so the
-        # drawing is correct in BOTH themes from one rule.
-        for selector, token in (
-                (".runway-map__strip {", "var(--color-text)"),
-                (".runway-map__strip--this {", "var(--color-text)"),
-                (".runway-map__field {", "var(--color-border)")):
-            body, err = _body(selector)
-            if body is None:
-                return False, err
-            if token not in body:
-                return False, (
-                    "%s must take its colour from %s — a literal is correct in one theme "
-                    "only and is invisible to companion/test_contrast_check.py"
-                    % (selector, token))
-            found = re.search(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", body)
-            if found is not None:
-                return False, "%s carries the colour literal %r" % (selector, found.group(0))
-
-        # The overflow floor's DECLARED half. Three cards share one row
-        # at 360px and each content box is narrower than the map's own
-        # intrinsic 64 user units, so without these the drawing is wider
-        # than the card that holds it. The RENDERED half is measured in
-        # companion/test_browser_ux.py at 360px.
-        body, err = _body(".runway-map {")
-        if body is None:
-            return False, err
-        for declaration in ("max-width:", "height: auto;"):
-            if declaration not in body:
-                return False, (
-                    ".runway-map must declare %r — its intrinsic size is wider than a "
-                    "runway card at the 360px contract floor, and an SVG that overflows "
-                    "its card scrolls the page sideways" % (declaration,))
-
-        # The transition is on the BASE rule and nowhere else — the same
-        # discipline the card's own transition follows, and the reason
-        # the ONE feature query is separately asserted to declare none.
-        strip_body, _err = _body(".runway-map__strip {")
-        if "transition:" not in strip_body:
-            return False, (
-                ".runway-map__strip must declare the transition on its base rule, where "
-                "it animates the live selected state and its no-:has() fallback from one "
-                "declaration")
-        if "var(--motion-fast)" not in strip_body:
-            return False, (
-                "the strip's transition must spend from the existing motion tokens, not a "
-                "new duration")
-
-        # NO NEW ACCENT CONSUMER, anywhere in this component. The header
-        # comment's reservation list is exhaustive and this drawing is
-        # not on it.
-        for match in re.finditer(r"\.runway-map[^{]*\{([^}]*)\}", source):
-            if "var(--color-accent)" in match.group(1):
-                return False, (
-                    "a .runway-map rule paints accent — this component's accent budget is "
-                    "already spent on the card's border, ring, wash and check glyph, all "
-                    "four of which are on the header comment's reservation list, and a "
-                    "fifth would be a broadening of an exhaustive list: %r"
-                    % (match.group(0)[:120],))
-
-        # CFG-52: the live selected strip JOINS the one feature query;
-        # its no-:has() fallback stays outside it; the saved-but-not-live
-        # clear joins it too. Asserted by position against the block,
-        # which is the same mechanism this file's existing :has() checks
-        # use.
-        supports_marker = "@supports selector(:has(*)) {"
-        if source.count(supports_marker) != 1:
-            return False, (
-                "expected exactly one %r block, got %d — a second block fails two named "
-                "checks and forces re-derivation of specificity arithmetic marked "
-                "verified, not to be re-derived"
-                % (supports_marker, source.count(supports_marker)))
-        supports_idx = source.index(supports_marker)
-        for selector, inside in (
-                (".runway-card:has(input:checked) .runway-map__strip--this {", True),
-                (".runway-card--selected .runway-map__strip--this {", False),
-                (".runway-card--selected:not(:has(input:checked)) "
-                 ".runway-map__strip--this {", True)):
-            body, err = _body(selector)
-            if body is None:
-                return False, err
-            at = source.index(selector)
-            if inside and at < supports_idx:
-                return False, "expected %r to live inside the feature query" % (selector,)
-            if not inside and at > supports_idx:
-                return False, "expected %r to live outside the feature query" % (selector,)
-            if "var(--color-accent)" in body:
-                return False, "%r must stay accent-free" % (selector,)
-        # Parity: the live rule and its no-:has() fallback must paint the
-        # SAME thing, or a browser without :has() renders a different
-        # selected card — the identical contract T6 already holds for the
-        # border, the ring, the wash and the scale.
-        live, _err = _body(".runway-card:has(input:checked) .runway-map__strip--this {")
-        fallback, _err = _body(".runway-card--selected .runway-map__strip--this {")
-        if live.strip() != fallback.strip():
-            return False, (
-                "the live selected strip and its --selected fallback must declare the "
-                "same paint, got %r against %r" % (live.strip(), fallback.strip()))
-
-        # The motion budget, pinned by count. Both figures are the
-        # baselines measured on this tree before this plan touched the
-        # file; the map declares no keyframes and no per-rule
-        # reduced-motion block, which the design system records as dead
-        # code rather than a safety net.
-        keyframes = len(re.findall(r"^@keyframes\b", source, flags=re.MULTILINE))
-        if keyframes != 4:
-            return False, (
-                "expected the @keyframes count to stay at 4, got %d" % keyframes)
-        reduced = source.count("@media (prefers-reduced-motion: reduce)")
-        if reduced != 3:
-            return False, (
-                "expected the prefers-reduced-motion block count to stay at 3, got %d"
-                % reduced)
-        return True, ""
-    check(
-        "the runway map's paint resolves — every class the emitted markup carries has a real "
-        "selector, every colour comes from a theme token so both themes are correct from one "
-        "rule, the map declares the max-width/height pair that keeps its intrinsic size inside a "
-        "360px card, its transition sits on the base rule and spends an existing motion token, "
-        "and the live selected strip JOINS the one @supports selector(:has(*)) block with its "
-        "no-:has() fallback outside it declaring the identical paint — with no accent anywhere "
-        "in the component and the keyframe/reduced-motion counts unmoved (CFG-47/CFG-52)",
-        _runway_map_paint_resolves_and_joins_the_one_feature_query)
+        "the control's own semantics and the photographs survive the map's removal — the row "
+        "keeps role=\"radiogroup\" with the same aria-labelledby/aria-describedby ids, "
+        "current_runway_id=None marks nothing selected and leaves no radio checked, and the "
+        "three runway photographs still render from the session-gated route and still exist on "
+        "disk (CFG-66, retitled from CFG-47's retired 25-03-PLAN.md Task 1 check by "
+        "27-05-PLAN.md Task 3)",
+        _the_controls_semantics_and_the_photographs_survive_the_map_s_removal)
 
     # ------------------------------------------------------------------
     # 25-04-PLAN.md Task 1 (CFG-48): the wrapping-midnight arithmetic,
@@ -2851,23 +2499,73 @@ def main():
 
         # THE READOUT SAYS WHAT THE ARC DRAWS, asserted against BOTH at
         # once: the two times it names and the duration the span implies.
+        #
+        # 27-02-PLAN.md Task 3 (CFG-62): the readout is now THREE
+        # children (two `data-value-readout` endpoints plus a duration
+        # span), not one text node — so "at rest, byte-identical" is
+        # checked against the STRIPPED text (what a visitor reads), and
+        # the structural seam is checked separately.
         markup = config_page.quiet_hours_group("23:00", "07:00")
         readout = re.search(
-            r'<p class="time-value %s"([^>]*)>([^<]*)</p>'
-            % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), markup)
+            r'<p class="time-value %s"([^>]*)>(.*?)</p>'
+            % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), markup, re.DOTALL)
         if not readout:
             return False, "the card renders no dial readout"
         span = config_page.quiet_window_span("23:00", "07:00")
         expected_text = "23:00 → 07:00 · %s" % layout.duration_text(span.minutes * 60)
-        if readout.group(2) != expected_text:
+        stripped_text = re.sub(r"<[^>]*>", "", readout.group(2))
+        if stripped_text != expected_text:
             return False, (
-                "the readout says %r; the span it is drawn from is %d minutes, which this app's "
-                "one duration ladder names %r"
-                % (readout.group(2), span.minutes, expected_text))
+                "the readout reads %r at rest; the span it is drawn from is %d minutes, which "
+                "this app's one duration ladder names %r — AT REST this must be byte-identical "
+                "to what shipped before the pair seam (27-02-PLAN.md Task 3's own acceptance "
+                "bar)" % (stripped_text, span.minutes, expected_text))
         if 'aria-hidden="true"' not in readout.group(1):
             return False, (
                 "the readout is not aria-hidden — both time inputs already announce their own "
                 "values natively and this would say the same thing twice (%r)" % readout.group(1))
+
+        # THE THREE CHILDREN, EACH WIRED THROUGH THE EXISTING READOUT
+        # SEAM. The two endpoints carry a bare token template (they
+        # substitute one number, the value-controls.js contract every
+        # other readout in this app already follows); the duration
+        # carries data-value-readout-base AND an EMPTY template — so
+        # paintReadouts()'s own blank-on-equal rule and its
+        # substitute-otherwise rule both resolve to "" once this element
+        # is next painted, which is the safe side of a rule built to
+        # blank a sentence when NOTHING changed (see the function's own
+        # docstring for why the shipped rule's polarity does not fit a
+        # duration that must blank the moment something DOES change).
+        for field, value in (("quiet_hours_start", "23:00"), ("quiet_hours_end", "07:00")):
+            endpoint = re.search(
+                r'<span %s="%s" %s="%s">%s</span>'
+                % (re.escape(layout.VALUE_CONTROL_READOUT_ATTR), re.escape(field),
+                   re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR),
+                   re.escape(layout.VALUE_CONTROL_TEXT_TOKEN), re.escape(value)),
+                readout.group(2))
+            if not endpoint:
+                return False, (
+                    "no %s readout span carrying the bare token template and %r: %r"
+                    % (field, value, readout.group(2)))
+        duration_span = re.search(
+            r'<span %s="quiet_hours_start" %s="" %s="(\d+)">([^<]*)</span>'
+            % (re.escape(layout.VALUE_CONTROL_READOUT_ATTR),
+               re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR),
+               re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR)),
+            readout.group(2))
+        if not duration_span:
+            return False, (
+                "no duration span carrying an EMPTY readout template and a "
+                "data-value-readout-base: %r" % readout.group(2))
+        if int(duration_span.group(1)) != config_page.quiet_window_minute_of_day("23:00"):
+            return False, (
+                "the duration span's data-value-readout-base is %s minutes; the saved window's "
+                "own start is %d" % (duration_span.group(1),
+                                      config_page.quiet_window_minute_of_day("23:00")))
+        if duration_span.group(2) != layout.duration_text(span.minutes * 60):
+            return False, (
+                "the duration span's own text is %r at rest, not this app's one duration ladder's "
+                "%r" % (duration_span.group(2), layout.duration_text(span.minutes * 60)))
 
         # CFG-52: NOTHING ON THIS CARD IS A LIVE REGION. Dragging fires
         # continuously and a role="status" here would re-announce the
@@ -3072,8 +2770,19 @@ def main():
                 "submission, the same D-07 rule the two inputs already follow"
                 % (drawn / (2 * math.pi * float(arc["r"])), submitted_span.sweep_fraction,
                    config_page.quiet_window_span("23:00", "07:00").sweep_fraction))
-        if "09:00 → 17:00" not in echoed:
-            return False, "the rejected-save readout does not echo the submitted window"
+        # 27-02-PLAN.md Task 3 (CFG-62): the readout is now three
+        # children, not one text node, so the echo is checked per span
+        # rather than as one contiguous substring.
+        echoed_readout = re.search(
+            r'<p class="time-value %s"[^>]*>(.*?)</p>'
+            % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), echoed, re.DOTALL)
+        if not echoed_readout:
+            return False, "the rejected-save render carries no dial readout at all"
+        if (">09:00<" not in echoed_readout.group(1)
+                or ">17:00<" not in echoed_readout.group(1)):
+            return False, (
+                "the rejected-save readout does not echo the submitted window: %r"
+                % echoed_readout.group(1))
         return True, ""
     check(
         "the ring is an ADDITION: both native <input type=\"time\"> fields keep their value/"
@@ -3475,6 +3184,135 @@ def main():
         "document-order overlap rule, and the grip paints from theme tokens with no accent "
         "(CFG-48/CFG-52, 25-04-PLAN.md Task 3)",
         _the_handle_rides_the_ring_the_emitter_drew)
+
+    # ------------------------------------------------------------------
+    # 27-02-PLAN.md Tasks 1-2 (CFG-62): THE PAIR SEAM — the ancestor two
+    # handles publish their fraction onto, and the .js-scoped rule that
+    # redraws the arc from it once script is running.
+    # ------------------------------------------------------------------
+
+    def _the_pair_seam_publishes_both_handles_onto_the_shared_ancestor():
+        """CFG-62 (27-02-PLAN.md Tasks 1-2): the ancestor carries the pair
+        marker and all three fractions, computed from the SAME span the
+        arc is drawn from; each handle names which one is its own; the
+        script names both attributes and reuses the existing ancestor
+        walker rather than a second one; and the presentation attributes
+        this rule overrides stay untouched.
+        """
+        with open(os.path.join(HERE, "static", "value-controls.js")) as fh:
+            script = fh.read()
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            css = fh.read()
+
+        # THE SCRIPT NAMES BOTH ATTRIBUTES, AND REUSES ancestorWith()
+        # RATHER THAN A SECOND WALKER. `while (node` is ancestorWith()'s
+        # own loop and ancestorForm()'s; a plan that added a second
+        # walker would show a THIRD occurrence here.
+        for needle in ('"data-value-pair"', '"data-value-pair-property"'):
+            if needle not in script:
+                return False, "value-controls.js does not name %s" % needle
+        walker_loops = script.count("while (node")
+        if walker_loops != 2:
+            return False, (
+                "value-controls.js has %d 'while (node' loops, expected exactly 2 "
+                "(ancestorWith() and ancestorForm()) — the pair seam must reuse "
+                "ancestorWith() rather than add a second walker" % walker_loops)
+
+        markup = config_page.quiet_hours_group("23:00", "07:00")
+        span = config_page.quiet_window_span("23:00", "07:00")
+        end_fraction = (span.start_fraction + span.sweep_fraction) % 1.0
+
+        dial_tag = re.search(r"<div class=\"quiet-dial\"[^>]*>", markup)
+        if not dial_tag:
+            return False, "no .quiet-dial opening tag in the markup"
+        if ('%s="%s"' % (config_page.QUIET_DIAL_PAIR_ATTR,
+                          config_page.QUIET_DIAL_PAIR_PROPERTIES["sweep"])) not in dial_tag.group(0):
+            return False, (
+                "the .quiet-dial ancestor does not carry %s=%r: %s"
+                % (config_page.QUIET_DIAL_PAIR_ATTR,
+                   config_page.QUIET_DIAL_PAIR_PROPERTIES["sweep"], dial_tag.group(0)))
+        for prop, expected in (
+                (config_page.QUIET_DIAL_PAIR_PROPERTIES["start"], span.start_fraction),
+                (config_page.QUIET_DIAL_PAIR_PROPERTIES["end"], end_fraction),
+                (config_page.QUIET_DIAL_PAIR_PROPERTIES["sweep"], span.sweep_fraction)):
+            found = re.search(r"%s:\s*([\d.]+)" % re.escape(prop), dial_tag.group(0))
+            if not found:
+                return False, (
+                    "the .quiet-dial ancestor's inline style is missing %s: %s"
+                    % (prop, dial_tag.group(0)))
+            if abs(float(found.group(1)) - expected) > 1e-6:
+                return False, (
+                    "%s is %s on the ancestor; the span it must be computed from (no second "
+                    "window arithmetic) implies %.6f" % (prop, found.group(1), expected))
+
+        # EACH HANDLE NAMES WHICH PROPERTY IS ITS OWN, AND THE TWO DIFFER.
+        wrappers = _WRAPPER_RE.findall(markup)
+        if len(wrappers) != 2:
+            return False, "expected exactly two handle wrappers, got %d" % len(wrappers)
+        pair_properties = []
+        for _classes, attrs, _body in wrappers:
+            found = re.search(
+                r'%s="([^"]*)"' % re.escape(config_page.QUIET_DIAL_PAIR_PROPERTY_ATTR), attrs)
+            if not found:
+                return False, "a handle wrapper carries no %s: %s" % (
+                    config_page.QUIET_DIAL_PAIR_PROPERTY_ATTR, attrs)
+            pair_properties.append(found.group(1))
+        if pair_properties[0] == pair_properties[1]:
+            return False, (
+                "both handles publish under the SAME property (%r) — the sweep can only be "
+                "derived from two DIFFERENT fractions" % pair_properties[0])
+        if set(pair_properties) != {config_page.QUIET_DIAL_PAIR_PROPERTIES["start"],
+                                     config_page.QUIET_DIAL_PAIR_PROPERTIES["end"]}:
+            return False, "the two handles publish %r, not the start/end pair" % (pair_properties,)
+
+        # THE PRESENTATION ATTRIBUTES THIS RULE OVERRIDES ARE UNTOUCHED —
+        # still real user-unit values from draw.unit_circle_dash_array(),
+        # never pathLength-relative fractions (measured, in this task, to
+        # corrupt the no-JS rendering when pathLength="1" is also present;
+        # see quiet_dial_svg()'s own docstring).
+        arc = _dial_circle(markup, config_page.QUIET_DIAL_ARC_CLASS)
+        if arc is None:
+            return False, "the dial emits no arc for a real window"
+        if "pathLength" in arc:
+            return False, (
+                "the arc carries pathLength=%r — measured on this tree to corrupt the presentation "
+                "attribute's own rendering when combined with real user-unit stroke-dasharray "
+                "values (companion/static/style.css's own comment beside the .js override records "
+                "the measurement)" % arc["pathLength"])
+        expected_dash = draw.unit_circle_dash_array(
+            span.sweep_fraction, config_page.QUIET_DIAL_RADIUS)
+        if arc["stroke-dasharray"] != expected_dash:
+            return False, (
+                "the arc's stroke-dasharray is %r, not %r — the pair seam must not change the "
+                "presentation attribute the no-JS floor depends on"
+                % (arc["stroke-dasharray"], expected_dash))
+
+        # THE .js-SCOPED OVERRIDE RULE EXISTS, READS THE THREE ANCESTOR
+        # PROPERTIES, AND THE EXISTING --quiet-dial-radius (never a
+        # radius literal, and never pathLength).
+        override = re.search(
+            r"\.js \.quiet-dial \.quiet-dial__arc\s*\{([^}]*)\}", css, re.DOTALL)
+        if not override:
+            return False, "no .js .quiet-dial .quiet-dial__arc override rule in style.css"
+        body = override.group(1)
+        for needle in ("var(--quiet-start-fraction", "var(--quiet-sweep-fraction",
+                       "var(--quiet-dial-radius"):
+            if needle not in body:
+                return False, "the .js override rule does not read %r: %s" % (needle, body)
+        if "pathLength" in body or "path-length" in body:
+            return False, "the .js override rule mentions pathLength: %s" % body
+        return True, ""
+    check(
+        "the pair seam publishes both handles onto the shared ancestor (CFG-62, 27-02-PLAN.md "
+        "Tasks 1-2) — value-controls.js names both data-value-pair* attributes and reuses "
+        "ancestorWith() rather than a second walker (still exactly 2 'while (node' loops); the "
+        ".quiet-dial ancestor carries the pair marker (its own value naming the derived sweep "
+        "property) and all three fractions, computed from the SAME span triple the arc is drawn "
+        "from; the two handles publish under DIFFERENT, correctly-named properties; the arc's own "
+        "presentation attributes are untouched real user-unit values (no pathLength, measured to "
+        "corrupt them); and the .js-scoped override rule reads the three ancestor properties plus "
+        "the existing --quiet-dial-radius, never a radius literal",
+        _the_pair_seam_publishes_both_handles_onto_the_shared_ancestor)
 
     # ------------------------------------------------------------------
     # 06.6.4.1 Task 1 (D-01, D-02, D-05 form half, D-26): the new
@@ -5011,79 +4849,54 @@ def main():
         with open(os.path.join(_STATIC_DIR, name)) as fh:
             return fh.read()
 
-    def _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax():
+    def _dirty_state_js_delegates_change_only_at_document_level_and_has_no_forbidden_syntax():
+        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDES this check's own
+        # pre-27-04 subject — DIRTY_SECTION_ATTR and the dirty-ready
+        # marker are both retired along with the bar that read them
+        # (dirtySectionLabels() and updateBar() are both gone; see
+        # dirty-state.js's own header for the full account). B1's own
+        # fix (22-01-PLAN.md Task 2, D-01) survives unchanged: no
+        # form.addEventListener registration may return, and the
+        # delegation must stay at the document level gated on the
+        # control's own .form property.
         source = _read_static("dirty-state.js")
-        if config_page.DIRTY_SECTION_ATTR not in source:
-            return False, "expected dirty-state.js to reference the literal value of DIRTY_SECTION_ATTR"
-        # 19-10-PLAN.md (D-09/A-27): also pins the dirty-ready marker
-        # literal, keeping this script and style.css's retargeted
-        # fallback-hide selector from drifting apart.
-        if "dirty-ready" not in source:
-            return False, "expected dirty-state.js to reference the literal string dirty-ready"
-        # 22-01-PLAN.md Task 2 (D-01/B1): retargeted (not deleted) from a
-        # plain literal-reference check to also pin B1's own fix - the
-        # bug was purely in the listener attachment point (form vs
-        # document), so this is the one check keeping that regression
-        # from silently coming back. No form.addEventListener("change"
-        # registration may survive; document-level delegation, gated on
-        # the control's own .form property, must be present instead.
+        if config_page.DIRTY_SECTION_ATTR in source:
+            return False, (
+                "expected dirty-state.js to reference NEITHER DIRTY_SECTION_ATTR's value nor "
+                "dirty-ready any more — dirtySectionLabels() and the bar's own liveness marker "
+                "are both retired along with the bar itself (CFG-63)")
+        if "dirty-ready" in source or "dirty-shown" in source:
+            return False, (
+                "expected dirty-state.js to carry neither the dirty-ready nor the dirty-shown "
+                "marker any more — style.css's fallback-hide rule keys on a plain .js gate now "
+                "(27-03-PLAN.md/CFG-64) and there is no bar left to prove the liveness of")
         if 'form.addEventListener("change"' in source:
             return False, "expected no surviving form.addEventListener(\"change\" registration (B1 regression)"
-        if source.count("document.addEventListener") < 2:
-            return False, "expected at least two document.addEventListener registrations (change and input)"
+        if "document.addEventListener" not in source:
+            return False, "expected at least one document.addEventListener registration (change)"
         if "e.target.form === form" not in source and "e.target.form===form" not in source:
             return False, "expected the document-level delegation to gate on e.target.form === form"
+        # D-04: `input` no longer drives anything — there is no bar left
+        # to update on a keystroke, and a save on `input` would be the
+        # exact keystroke-is-a-decision mistake this plan's own
+        # PROVISIONAL note argues against. Measured on the document-level
+        # registration specifically, not a file-wide scan: "input" the
+        # substring also appears inside ordinary words (e.g. the file's
+        # own comments), so only the delegated-listener call sites count.
+        if 'document.addEventListener("input"' in source:
+            return False, (
+                "expected no document-level \"input\" listener — only `change` drives a save now "
+                "(D-04)")
         for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
             if forbidden in source:
                 return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
         return True, ""
     check(
-        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and the dirty-ready marker, "
-        "delegates change/input at document level gated on e.target.form === form with no surviving "
-        "form.addEventListener(\"change\" registration (B1), and contains none of innerHTML/let /const /=>/backtick",
-        _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax)
-
-    def _dirty_state_js_dirty_shown_marker_set_only_inside_update_bar():
-        # 22-01-PLAN.md Task 2 (D-01/B1): the second, narrower liveness
-        # marker style.css's retargeted fallback-hide rule now also keys
-        # on - must only ever be set after the bar's existence is proven
-        # (the same data-dirty-bar guard _dirty_state_js_sets_dirty_
-        # ready_only_after_bar_guard above already pins for dirty-ready),
-        # and specifically inside updateBar()'s own bar.hidden = false
-        # branch, never at script-init time next to dirty-ready itself -
-        # that positional distinction is what makes it a proven-liveness
-        # marker rather than a second element-presence one.
-        source = _read_static("dirty-state.js")
-        if "dirty-shown" not in source:
-            return False, "expected dirty-state.js to reference the literal string dirty-shown"
-        if source.index("dirty-shown") <= source.index("dirty-ready"):
-            return False, "expected the first dirty-shown occurrence to come after the first dirty-ready occurrence"
-        if "bar.hidden = false" not in source:
-            return False, "expected dirty-state.js to still set bar.hidden = false"
-        if source.index("dirty-shown") <= source.index("bar.hidden = false"):
-            return False, "expected dirty-shown to be set after the bar.hidden = false branch is entered"
-        return True, ""
-    check(
-        "dirty-state.js's first dirty-shown occurrence comes after both its first dirty-ready occurrence and its "
-        "bar.hidden = false branch (B1: proven liveness, not element presence)",
-        _dirty_state_js_dirty_shown_marker_set_only_inside_update_bar)
-
-    def _dirty_state_js_sets_dirty_ready_only_after_bar_guard():
-        # 19-10-PLAN.md (D-09/A-27): the same source-ordering technique
-        # test_companion_app.py's _panel_lookup_optional_replace_lookup_
-        # stays_outside_mandatory_guard check already uses - dirty-ready
-        # must only ever be set once the bar's existence is proven (the
-        # [data-dirty-bar] guard clause), never before it.
-        source = _read_static("dirty-state.js")
-        if "dirty-ready" not in source or "data-dirty-bar" not in source:
-            return False, "expected both dirty-ready and data-dirty-bar to be present in dirty-state.js"
-        if source.index("dirty-ready") <= source.index("data-dirty-bar"):
-            return False, "expected the first dirty-ready occurrence to come after the first data-dirty-bar occurrence"
-        return True, ""
-    check(
-        "dirty-state.js's first dirty-ready occurrence comes after its first data-dirty-bar occurrence (D-09: set "
-        "only after the bar guard passes)",
-        _dirty_state_js_sets_dirty_ready_only_after_bar_guard)
+        "dirty-state.js references neither DIRTY_SECTION_ATTR nor the retired dirty-ready/dirty-shown "
+        "markers any more, delegates ONLY change (never input) at document level gated on "
+        "e.target.form === form with no surviving form.addEventListener(\"change\" registration (B1), "
+        "and contains none of innerHTML/let /const /=>/backtick (27-04-PLAN.md Task 2, CFG-63)",
+        _dirty_state_js_delegates_change_only_at_document_level_and_has_no_forbidden_syntax)
 
     def _live_preview_crossfades_through_one_class_shared_by_css_and_js():
         """23-10-PLAN.md Task 2 (D3/CFG-32): the live theme preview
@@ -5212,10 +5025,18 @@ def main():
             return False, "expected dirty-state.js's beforeunload guard to set evt.returnValue"
         if "preventDefault" not in source:
             return False, "expected dirty-state.js's beforeunload guard to call evt.preventDefault()"
-        beforeunload_idx = source.index("beforeunload")
+        # 27-04-PLAN.md (CFG-63): located by the LISTENER REGISTRATION
+        # itself, not the bare word — this file's own header prose now
+        # discusses the leave-guard by name before the registration
+        # appears in source, and a bare-word search would find that prose
+        # instead of the real listener body.
+        listener_marker = 'addEventListener("beforeunload"'
+        if listener_marker not in source:
+            return False, "expected dirty-state.js to call addEventListener(\"beforeunload\", ...)"
+        beforeunload_idx = source.index(listener_marker)
         # The guard's own listener body must reference countDifferences -
         # reused, never reimplemented as a separate flag that can drift
-        # from the bar's own dirty state.
+        # from the form's own dirty state.
         listener_body = source[beforeunload_idx:beforeunload_idx + 400]
         if "countDifferences" not in listener_body:
             return False, "expected the beforeunload listener's body to reference countDifferences"
@@ -5254,6 +5075,17 @@ def main():
         _dirty_state_js_references_quiet_preset_attrs)
 
     def _style_css_references_static_save_fallback_attr():
+        # 19-10-PLAN.md (D-09/A-27): retargeted from .js to .dirty-ready;
+        # 22-01-PLAN.md Task 2 (D-01/B1) retargeted it AGAIN, to require
+        # BOTH .dirty-ready and .dirty-shown (proven liveness rather than
+        # mere element presence). 27-03-PLAN.md Task 2 (CFG-64) retargets
+        # it a THIRD time, in the opposite direction: the floor is kept
+        # by render()'s emission being unconditional now (Task 1's own
+        # source proof), so the two narrowing markers have nothing left
+        # to prove on THIS rule and the selector reverts to the plain
+        # script-presence gate it originally shipped as — the B1/P0
+        # contract is SUPERSEDED, not deleted, and the style.css comment
+        # block records that in writing, dated, right above the rule.
         source = _read_static("style.css")
         if config_page.STATIC_SAVE_FALLBACK_ATTR not in source:
             return False, "expected style.css to reference the literal value of STATIC_SAVE_FALLBACK_ATTR"
@@ -5261,31 +5093,41 @@ def main():
         window = source[idx:idx + 120]
         if "display: none" not in window and "display:none" not in window:
             return False, "expected the fallback-hide rule to set display: none near the attribute reference"
-        # 19-10-PLAN.md (D-09/A-27): retargeted from .js to .dirty-ready;
-        # 22-01-PLAN.md Task 2 (D-01/B1) retargets it AGAIN, from a single
-        # .dirty-ready marker (element presence) to requiring BOTH
-        # .dirty-ready AND .dirty-shown (proven liveness) - the fallback
-        # button must stay reachable until dirty-state.js has actually
-        # shown the bar once, not merely found its two DOM nodes. The
-        # selector prefix sits BEFORE the attribute reference
-        # (".dirty-ready.dirty-shown [data-static-save-fallback]"), so
-        # widen the window backwards too rather than only forwards.
+        # The selector prefix sits BEFORE the attribute reference
+        # (the plain `.js` gate), so widen the window backwards too
+        # rather than only forwards.
         selector_window = source[max(0, idx - 40):idx + 120]
-        if "dirty-ready" not in selector_window:
-            return False, "expected the fallback-hide rule's selector to reference dirty-ready"
-        if "dirty-shown" not in selector_window:
-            return False, "expected the fallback-hide rule's selector to ALSO reference dirty-shown (B1: two markers, not one)"
-        old_selector = ".js [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
-        if old_selector in source:
-            return False, "expected the old .js-gated selector to be gone entirely"
-        single_marker_selector = ".dirty-ready [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
-        if single_marker_selector in source:
-            return False, "expected the old single-marker .dirty-ready-only selector to be gone entirely (B1)"
+        if "dirty-ready" in selector_window or "dirty-shown" in selector_window:
+            return False, (
+                "expected the fallback-hide rule's OWN selector to carry neither dirty-ready nor "
+                "dirty-shown any more (CFG-64: the floor is kept by unconditional emission, not "
+                "by these two markers) — selector window reads %r" % (selector_window,))
+        combined_selector = ".dirty-ready.dirty-shown [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
+        if combined_selector in source:
+            return False, "expected the superseded two-marker selector to be gone entirely (CFG-64)"
+        # THE SUPERSEDED CONTRACT IS AMENDED IN WRITING, NOT ERASED: the
+        # original comment's own distinctive sentences must still be
+        # present (its history survives), and a dated Phase 27 paragraph
+        # must follow it naming what replaced it.
+        for distinctive in (
+                "PROVEN its own replacement bar is actually live",
+                "turned out to still be element PRESENCE, not proven liveness (B1)",
+                "B1's proven-liveness fix"):
+            if distinctive not in source:
+                return False, (
+                    "expected the ORIGINAL comment's own sentence %r to survive verbatim — "
+                    "the B1/P0 contract must be superseded in writing, not deleted" % (distinctive,))
+        if "27-03-PLAN.md" not in source or "SUPERSEDED" not in source:
+            return False, (
+                "expected a dated 27-03-PLAN.md paragraph stating the contract is SUPERSEDED, "
+                "not merely that the rule changed")
         return True, ""
     check(
-        "style.css contains the .dirty-ready.dirty-shown-gated (both markers, B1) fallback-hide rule referencing "
-        "config_page.STATIC_SAVE_FALLBACK_ATTR's literal value, and no longer the old .js-gated or "
-        "single-marker .dirty-ready-only selector",
+        "style.css's fallback-hide rule reverts to the plain .js gate (CFG-64: the floor is now "
+        "kept by render()'s unconditional emission, not by this rule's specificity), the "
+        "superseded two-marker selector is gone, and B1/P0's own contract survives in writing — "
+        "its original sentences intact plus a dated 27-03-PLAN.md paragraph naming what replaced "
+        "it (27-03-PLAN.md Task 2)",
         _style_css_references_static_save_fallback_attr)
 
     def _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors():
@@ -6495,16 +6337,17 @@ def main():
         "than inventing a new one (quick task 260904-bbi; retargeted by 22-10-PLAN.md Task 1, T10)",
         _saved_but_unchecked_card_degrades_to_a_quiet_current_marker)
 
-    def _style_css_carries_section_caption_and_restyled_fixed_dirty_bar():
-        # quick task 260901-re6 Task 3: the third new cross-file guard,
-        # following the same index-plus-window technique the neighbouring
-        # guards above use (never a regex CSS parser). quick task
-        # 260901-s5o: retargeted and extended in place (no count change)
-        # onto the floating-card treatment.
+    def _style_css_carries_section_caption_and_no_dirty_bar_rules_survive():
+        # 27-04-PLAN.md (D-04/CFG-63): SUPERSEDES this check's own
+        # pre-27-04 subject — quick task 260901-re6/260901-s5o's floating-
+        # card restyle and its >=960px fixed positioning are both deleted
+        # wholesale along with `.dirty-bar` itself (style.css's own
+        # superseding comment records the account, right where the rule
+        # used to be). (a) below is the one assertion that survives
+        # unchanged: `.section-caption` is unrelated to the bar and this
+        # is its only test site.
         source = _read_static("style.css")
 
-        # (a) .section-caption declares only the file's existing 70%
-        # muted color-mix idiom.
         caption_selector = ".section-caption {"
         if caption_selector not in source:
             return False, "expected style.css to declare a .section-caption rule"
@@ -6513,222 +6356,44 @@ def main():
         if "color-mix(in srgb, var(--color-text) 70%, transparent)" not in window:
             return False, "expected .section-caption's rule body to carry the 70% color-mix muted idiom"
 
-        # (b) the base (non-media-query) .dirty-bar rule is a fully-bordered
-        # floating card: dominant surface, a full border (no top-only
-        # hairline), the card radius token, and a token-based shadow (no
-        # upward-only literal), and no longer carries the old muted
-        # --color-secondary surface.
-        base_match = re.search(r'^\.dirty-bar \{(.*?)^\}', source, re.MULTILINE | re.DOTALL)
-        if not base_match:
-            return False, "expected a top-level (non-media-query) .dirty-bar rule"
-        base_body = base_match.group(1)
-        if "var(--color-dominant)" not in base_body:
-            return False, "expected the base .dirty-bar rule body to carry var(--color-dominant)"
-        if "border: 1px solid var(--color-border)" not in base_body:
-            return False, "expected the base .dirty-bar rule body to carry a full border: 1px solid var(--color-border) declaration"
-        if "border-top:" in base_body:
-            return False, "expected the base .dirty-bar rule body to no longer carry a border-top: declaration"
-        if "var(--color-secondary)" in base_body:
-            return False, "expected the base .dirty-bar rule body to no longer carry var(--color-secondary)"
-        if "border-radius: var(--radius-card)" not in base_body:
-            return False, "expected the base .dirty-bar rule body to carry border-radius: var(--radius-card), now load-bearing at every width"
-        if "box-shadow: var(--shadow-card-hover)" not in base_body:
-            return False, "expected the base .dirty-bar rule body to carry box-shadow: var(--shadow-card-hover) as its first shadow layer"
-        if "box-shadow: 0 -" in base_body:
-            return False, "expected the base .dirty-bar rule body to no longer carry the retired upward-only literal shadow"
-
-        # (c) the >=960px .dirty-bar rule is fixed, not sticky, and no
-        # .dirty-bar rule body anywhere still says position: sticky.
-        media_match = re.search(r'^  \.dirty-bar \{(.*?)^  \}', source, re.MULTILINE | re.DOTALL)
-        if not media_match:
-            return False, "expected an indented (>=960px media query) .dirty-bar rule"
-        media_body = media_match.group(1)
-        if "position: fixed" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to carry position: fixed"
-        if "position: sticky" in base_body or "position: sticky" in media_body:
-            return False, "expected no .dirty-bar rule body to carry position: sticky anywhere"
-
-        # (d) the 240px literal the fixed rule's left uses still equals
-        # .dashboard-shell's grid-template-columns first track - a
-        # duplicated-not-imported must-equal pair with no shared token,
-        # now a three-term left expression with the inset as a third addend.
-        if "grid-template-columns: 240px" not in source:
-            return False, "expected style.css to declare grid-template-columns: 240px on .dashboard-shell"
-        if "calc(240px + var(--space-xl) + var(--space-md))" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule's left offset to be calc(240px + var(--space-xl) + var(--space-md))"
-
-        # (e) the inset itself: right pulled in by var(--space-md), bottom
-        # by the larger var(--space-lg) (260901-s5o direct follow-up: a
-        # bigger edge gap reads more clearly as "floating"), max-width
-        # reduced by twice the var(--space-md) inset so the cap doesn't
-        # silently cancel it above roughly 1712px (where min(1440px, 100%)
-        # alone would size the box, flush with .dashboard-main on both
-        # sides), and no corner-squaring override left to re-dock the bar.
-        if "bottom: var(--space-lg)" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to carry bottom: var(--space-lg)"
-        if "right: var(--space-md)" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to carry right: var(--space-md)"
-        if "calc(min(1440px, 100%) - var(--space-md) * 2)" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule's max-width to be calc(min(1440px, 100%) - var(--space-md) * 2)"
-        if "border-radius: 0" in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to no longer carry a corner-squaring border-radius: 0 override"
-
-        # (f) 260901-s5o direct follow-up: developer feedback after seeing
-        # the floating card live was "correct shape, too wide, not visible
-        # enough." `width: fit-content` is the fix for "too wide" - without
-        # it, `width:auto` plus both `left` and `right` set non-auto makes
-        # the box stretch to fill the whole positioning region (full
-        # .dashboard-main width) per the CSS2.1 abs/fixed sizing rules.
-        # The >=960px padding override is gone outright now that the bar
-        # is compact rather than full-width - it existed only to align a
-        # full-width bar's controls with the content gutter, so the base
-        # rule's plain padding: var(--space-md) now governs unmodified.
-        if "width: fit-content" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to carry width: fit-content, so it sizes to its own content instead of stretching the full column"
-        if "padding:" in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to carry no padding override - the base rule's padding: var(--space-md) should apply unmodified now that the bar is compact"
+        if ".dirty-bar" in source:
+            return False, "expected zero occurrences of .dirty-bar anywhere in style.css — CFG-63 retired it"
         return True, ""
     check(
-        "style.css declares .section-caption (70% muted color-mix), the restyled base .dirty-bar as a floating rounded card (full border, radius token, surrounding token-based shadow, no --color-secondary), and the fixed-not-sticky >=960px .dirty-bar rule: inset by var(--space-md)/var(--space-lg) with a correspondingly reduced max-width, no corner-squaring, and width: fit-content so it sizes to its own content instead of stretching the full column (quick task 260901-re6, quick task 260901-s5o, 260901-s5o direct follow-up)",
-        _style_css_carries_section_caption_and_restyled_fixed_dirty_bar)
+        "style.css declares .section-caption (70% muted color-mix) and carries zero occurrences of "
+        ".dirty-bar anywhere — the floating-card restyle and its fixed->=960px positioning "
+        "(quick task 260901-re6, quick task 260901-s5o, 23-09-PLAN.md Task 1's entrance) are all "
+        "retired wholesale along with the component (27-04-PLAN.md, D-04/CFG-63)",
+        _style_css_carries_section_caption_and_no_dirty_bar_rules_survive)
 
-    def _style_css_gives_the_dirty_bar_an_entrance_and_keeps_every_decision_that_made_it():
-        # 23-09-PLAN.md Task 1 (D3/CFG-32). The save bar is this app's
-        # most-iterated component: four recorded design iterations, a P0
-        # (B1) when its hiding gate was keyed to a proxy, a z-index
-        # reversal argued through its own escape clause and a content
-        # clearance MEASURED at both breakpoints in both languages. This
-        # plan adds motion to that shape; this check is the machine that
-        # says the shape survived.
-        #
-        # Same index-plus-window / anchored-regex technique the
-        # neighbouring guard above uses, never a regex CSS parser.
+    def _skypane_bar_arrive_keyframes_survive_unreferenced():
+        # 27-04-PLAN.md (D-04/CFG-63): the save bar's own entrance
+        # (23-09-PLAN.md Task 1, D3/CFG-32) animated from this block, and
+        # every rule that referenced it (the base .dirty-bar rule's own
+        # `animation:` declaration) is retired along with the bar. The
+        # @keyframes DEFINITION is kept rather than deleted — this file's
+        # own @keyframes count is pinned at 4 by a separate check below,
+        # a live count re-derived by running rather than a value this
+        # plan is free to move — so removing it would require the phase
+        # to invent a replacement use or renumber the pin; neither is
+        # this plan's to do. It is therefore orphaned deliberately: no
+        # rule anywhere in the file may still reference its name.
         source = _read_static("style.css")
-
-        # (a) THE ENTRANCE EXISTS, and it is an animation rather than a
-        # transition: an animation runs for every visitor, whereas a
-        # transition out of `display: none` needs an @starting-style
-        # entry value and therefore animates only where that at-rule is
-        # supported. "It moves for some visitors and silently does
-        # nothing for the rest" is the exact failure 23-01's
-        # interpolate-size ban exists to stop, and it is not less of a
-        # failure when the property involved is Baseline-newer rather
-        # than Chromium-only.
         keyframes_marker = "@keyframes skypane-bar-arrive {"
         if source.count(keyframes_marker) != 1:
             return False, (
-                "expected exactly one %s block, got %d — 23-01's guard fails a second "
-                "definition of any name" % (keyframes_marker, source.count(keyframes_marker)))
-        kf_start = source.index(keyframes_marker)
-        kf_body = source[kf_start:source.index("\n}", kf_start)]
-        for prop in ("opacity", "transform"):
-            if prop + ":" not in kf_body:
-                return False, (
-                    "expected the save bar's entrance to be built from %r — transform and "
-                    "opacity are the two properties the global reduced-motion override handles "
-                    "cleanly and the only two that cost no layout" % (prop,))
-        # THE BAN, stated on the entrance itself rather than only on the
-        # component: a bar stranded at an intermediate SIZE is a blocked
-        # save, and this app has shipped a blocked save once already.
-        for banned in ("height:", "max-height:", "grid-template-rows:", "width:",
-                       "display:", "visibility:", "padding:", "margin:"):
-            if banned in kf_body:
-                return False, (
-                    "the save bar's entrance keyframes declare %r — an entrance that "
-                    "interpolates a size, a box or a display value can strand the bar at an "
-                    "intermediate value, and a stranded save bar is a blocked save "
-                    "(style.css's own `.js .mobile-nav` transition:none precedent)" % (banned,))
-
-        # (b) IT IS DECLARED ON THE BAR, spending the phase's fast token
-        # and no third duration. A user caused this and is watching for
-        # the confirmation, which is 23-01's REACTION category by its own
-        # definition.
-        base_match = re.search(r'^\.dirty-bar \{(.*?)^\}', source, re.MULTILINE | re.DOTALL)
-        if not base_match:
-            return False, "expected a top-level (non-media-query) .dirty-bar rule"
-        base_body = base_match.group(1)
-        if "animation: skypane-bar-arrive var(--motion-fast)" not in base_body:
+                "expected exactly one %s block (kept, not deleted, to hold the @keyframes count "
+                "at 4), got %d" % (keyframes_marker, source.count(keyframes_marker)))
+        if "animation: skypane-bar-arrive" in source:
             return False, (
-                "expected the base .dirty-bar rule to declare its entrance from "
-                "var(--motion-fast) — a save bar's arrival is something the user is waiting on, "
-                "and a bare duration literal fails 23-01's motion guard outright")
-        if "animation-fill-mode" in base_body or "forwards" in base_body:
-            return False, (
-                "expected NO fill mode on the save bar's entrance: an animation that holds its "
-                "final frame keeps overriding the element's own computed style, which is how a "
-                "bar gets stranded. With no fill the element is handed back to its own style the "
-                "instant the animation ends, which is the whole reason an animation was chosen "
-                "over a size interpolation")
-
-        # (c) THE [hidden] OVERRIDE STILL WINS. The base rule declares
-        # `display`, and an author `display` beats the user-agent
-        # `[hidden] { display: none }` regardless of source order — the
-        # collision this file's own comment documents and that Phase 22
-        # found on the login card, where it produced a visible control
-        # that did nothing. The entrance must not have quietly
-        # reintroduced it.
-        if "display:" not in base_body:
-            return False, (
-                "expected the base .dirty-bar rule to still declare a display value — if it ever "
-                "stops, the [hidden] override below becomes the dead code this check would then "
-                "be guarding")
-        hidden_marker = ".dirty-bar[hidden] {"
-        if source.count(hidden_marker) != 1:
-            return False, (
-                "expected exactly one %s rule, got %d" % (hidden_marker, source.count(hidden_marker)))
-        hidden_start = source.index(hidden_marker)
-        hidden_body = source[hidden_start:source.index("}", hidden_start)]
-        if "display: none" not in hidden_body:
-            return False, (
-                "expected .dirty-bar[hidden] to hide by display: none — without it the base "
-                "rule's own display beats the user-agent [hidden] rule and the save bar renders "
-                "permanently visible on every page load, including a scripts-blocked one. This "
-                "is B1's own collision class")
-        if hidden_start < base_match.start():
-            return False, (
-                "expected .dirty-bar[hidden] to stay AFTER the base .dirty-bar rule in source "
-                "order, the placement its own comment relies on")
-
-        # (d) NOTHING ELSE MOVED. The bar's geometry, stacking, width,
-        # clearance and resting shadow are Phase 22's, argued through
-        # four design iterations and an escape clause, and this plan
-        # reopens none of them.
-        media_match = re.search(r'^  \.dirty-bar \{(.*?)^  \}', source, re.MULTILINE | re.DOTALL)
-        if not media_match:
-            return False, "expected an indented (media-query) .dirty-bar rule"
-        for body, where in ((base_body, "the base .dirty-bar rule"),
-                            (media_match.group(1), "the >=960px .dirty-bar rule")):
-            for banned in ("height:", "max-height:", "grid-template-rows:"):
-                if banned in body:
-                    return False, (
-                        "%s declares %r — no size-interpolating property belongs on this "
-                        "component at all" % (where, banned))
-        if source.count("z-index: 30") < 2:
-            return False, (
-                "expected the save bar to still declare z-index: 30 at BOTH breakpoints — one "
-                "value for the component, argued through 22-14's own escape clause")
-        if "width: fit-content" not in source:
-            return False, "expected the >=960px bar to still size itself to its own content"
-        if "box-shadow: var(--shadow-card-hover)" not in base_body:
-            return False, "expected the bar's resting shadow to be untouched"
-        if ".dirty-ready .dashboard-main {" not in source or ".dirty-ready .page-content {" not in source:
-            return False, (
-                "expected BOTH of T7's measured content-clearance rules to survive — the desktop "
-                "one scoped to .dirty-ready .dashboard-main and the phone one to "
-                ".dirty-ready .page-content, declared next to the rule it supersedes")
-        for measured in ("var(--space-2xl) + 88px", "56px + 144px"):
-            if measured not in source:
-                return False, (
-                    "expected T7's MEASURED clearance figure %r to be unchanged — both were "
-                    "measured on a real render in both languages, not reasoned about" % (measured,))
+                "expected NO rule anywhere to still declare animation: skypane-bar-arrive — the "
+                "one rule that did (the retired .dirty-bar) is gone, and this block must not be "
+                "silently reattached to something else without a plan saying so")
         return True, ""
     check(
-        "style.css gives the save bar an entrance built from transform and opacity on "
-        "var(--motion-fast) with no fill mode and no size, box or display interpolation anywhere "
-        "in it, while its [hidden] override still declares display: none after the base rule and "
-        "its z-index, fit-content width, resting shadow and BOTH measured clearance figures are "
-        "untouched (D3/CFG-32, 23-09-PLAN.md Task 1)",
-        _style_css_gives_the_dirty_bar_an_entrance_and_keeps_every_decision_that_made_it)
+        "the retired save bar's own @keyframes skypane-bar-arrive block survives, unreferenced by "
+        "any rule, so the file's pinned @keyframes count of 4 does not move (27-04-PLAN.md, CFG-63)",
+        _skypane_bar_arrive_keyframes_survive_unreferenced)
 
     def _dirty_state_js_has_no_hardcoded_section_names():
         source = _read_static("dirty-state.js")
@@ -6740,15 +6405,45 @@ def main():
         "dirty-state.js contains no hardcoded occurrence of \"Theme\", \"Runway\", or \"Diagnostic LED\" (labels come from the DOM)",
         _dirty_state_js_has_no_hardcoded_section_names)
 
-    def _dirty_state_js_still_has_no_network_or_timer_sinks():
+    def _dirty_state_js_only_fetches_never_polls_debounces_or_xhrs():
+        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDES this check's own
+        # pre-27-04 ban — dirty-state.js is now the settings form's
+        # auto-save driver and fetch is exactly how it saves, the
+        # identical model quick-switch.js already ships. XMLHttpRequest
+        # and setInterval stay forbidden outright: the first would be a
+        # second, older request vocabulary beside fetch's already-shipped
+        # one, and the second would mean a poll loop this file has no
+        # business running. setTimeout is NOT banned outright — it drives
+        # the SAME toast-dismiss timer quick-switch.js's own announce
+        # Failure() already uses (TOAST_DISMISS_MS), duplicated rather
+        # than shared for the identical no-cross-file-import reason every
+        # other constant here is. What IS forbidden is using it to
+        # DEBOUNCE a save — this plan's own D-04 note explicitly declines
+        # that design — so the one setTimeout call in this file must be
+        # scoped to the toast, never to beginSave().
         source = _read_static("dirty-state.js")
-        for forbidden in ("fetch(", "XMLHttpRequest", "setInterval", "setTimeout"):
+        if "fetch(" not in source:
+            return False, "expected dirty-state.js to call fetch( — it is now the auto-save driver"
+        for forbidden in ("XMLHttpRequest", "setInterval"):
             if forbidden in source:
                 return False, "forbidden network/timer construct found in dirty-state.js: %r" % (forbidden,)
+        if source.count("setTimeout") != 1:
+            return False, (
+                "expected exactly one setTimeout call — the toast's own dismiss timer, "
+                "duplicated from quick-switch.js's identical idiom — got %d"
+                % source.count("setTimeout"))
+        timeout_idx = source.index("setTimeout")
+        timeout_call = source[timeout_idx:timeout_idx + 200]
+        if "beginSave" in timeout_call:
+            return False, "expected the one setTimeout call to never reference beginSave — no debounced save"
+        if "TOAST_DISMISS_MS" not in timeout_call:
+            return False, "expected the one setTimeout call to be the toast's own TOAST_DISMISS_MS dismiss"
         return True, ""
     check(
-        "dirty-state.js still contains no fetch/XMLHttpRequest/setInterval/setTimeout",
-        _dirty_state_js_still_has_no_network_or_timer_sinks)
+        "dirty-state.js calls fetch( (it is now the auto-save driver), contains neither "
+        "XMLHttpRequest nor setInterval, and its one setTimeout call is the toast's own "
+        "TOAST_DISMISS_MS dismiss timer — never a debounced save (27-04-PLAN.md Task 2, CFG-63)",
+        _dirty_state_js_only_fetches_never_polls_debounces_or_xhrs)
 
     # ==================================================================
     # 15-05-PLAN.md Task 3 (D-10, D-11, 15-VALIDATION.md row 10): the
@@ -7575,10 +7270,18 @@ def main():
             '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_CALENDAR))
         panel_segment = rendered[panel_start:rendered.index(
             '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_RULES))]
+        # 27-07-PLAN.md Task 2 (CFG-68): the calendar grid now ALSO
+        # carries the strip modifier and its own id (folded into a
+        # carousel, same as departures/arrivals) — both are matched
+        # rather than re-asserting an unconverted shape here, since this
+        # check's own subject is the radio population/order, not the
+        # carousel wrapper (that is _the_departures_grid_is_the_one_
+        # renderer_presented_as_a_strip's job, generalised in Task 2).
         grid_match = re.search(
-            r'<div class="theme-chip-grid theme-chip-grid--compact" role="radiogroup" '
-            r'aria-labelledby="%s">(.*?)</div>\s*(?:<p|</fieldset)'
-            % re.escape(config_page.FRAME_COLOURS_HEADING_ID),
+            r'<div class="theme-chip-grid theme-chip-grid--compact theme-chip-grid--strip" '
+            r'role="radiogroup" aria-labelledby="%s" id="%s">(.*?)</div>\s*(?:<p|</fieldset)'
+            % (re.escape(config_page.FRAME_COLOURS_HEADING_ID),
+               re.escape(config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR)),
             panel_segment, re.S)
         if not grid_match:
             return False, "expected the calendar theme grid carrying role=radiogroup and aria-labelledby"
@@ -8623,6 +8326,205 @@ def main():
         _display_h2_order_matches_d12_after_calendar_placement_fix)
 
     # ==================================================================
+    # 27-06-PLAN.md Task 1 (CFG-65): the title-form inventory, RUN
+    # before any markup choice. 27-RESEARCH.md's own grep produced a
+    # provisional 8/3/2 split and said so ("the regex matches a
+    # formatting convention, not a grammar"); 27-01-SUMMARY.md's browser
+    # inventory measured the real rendered split at 7/3/2 and named the
+    # eighth grep hit config_page.py never renders on either settings
+    # route. This check reproduces that inventory server-side (against
+    # config_page.render() directly, no browser needed) and classifies
+    # every one of the 12 instances by NAME, not just by count:
+    #
+    #   7 SETTINGS-CARD titles (form A, `[data-dirty-section] > h2`):
+    #   Frame colours/Calendar/Runway/Quiet hours (Display) and
+    #   Diagnostic LED/Wake interval/Notifications (Device) — each is
+    #   the FIRST thing inside its own bordered tile.
+    #
+    #   3 SUPERSECTION intros (form B, `.section-intro > h2`,
+    #   layout.section_intro_html() — SHARED, byte-identical, with
+    #   health_page.py, whose own structural checks match its markup
+    #   literally): Look/What it watches/When it is on. These are a
+    #   different, unbordered, generically-worded object — "Look" alone
+    #   introduces TWO cards (Frame colours and Calendar, render()'s own
+    #   5029/5183 ordering), which a card title, naming exactly one
+    #   card, cannot do.
+    #
+    #   2 UNCLASSIFIED headings that are neither: the Frame strip's own
+    #   live-status heading (layout.frame_strip_html(), Display only —
+    #   an unrelated preview widget, not a settings group) and the Poll
+    #   card's own bare `<section class="page-section">` heading
+    #   (config_page.py's poll_trigger_section() wrapper, Device only —
+    #   it carries no [data-dirty-section] attribute only because it
+    #   holds no persisted field for dirty-tracking to watch; its ROLE
+    #   — one heading, first thing inside its own box, naming exactly
+    #   the one card it belongs to — is otherwise identical to form A).
+    #
+    # CONCLUSION (stated here, before any markup is touched): Outcome 2.
+    # There is already exactly one title form for settings CARDS. The
+    # 7-vs-3 split is a real grammar distinction — supersection intro
+    # versus card title — not an inconsistency to convert away, and
+    # converting it either direction would mean either editing the
+    # shared, Health-pinned section_intro_html() call sites away from
+    # their documented "must never drift" shape, or reversing
+    # 20-07-PLAN.md's own D-12 supersection restructure (still pinned by
+    # the two checks immediately above this one). See 27-06-SUMMARY.md
+    # for the full substitute-cause investigation (heading SIZE, the
+    # spacing above a supersection's first card, and caption-as-title
+    # were each measured and found to be either a developer-confirmed,
+    # three-round-trip-validated decision this plan does not reopen, or
+    # a convention shared identically with Health, or unsupported by
+    # measurement).
+    # ==================================================================
+
+    def _title_form_inventory_classifies_every_h2_text_heading_on_both_routes():
+        ctx_display = {
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+            "calendar_configured": True, "calendar_last_synced_at": None,
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+        }
+        ctx_device = {
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 5,
+        }
+        display = config_page.render(ctx_display, scope=config_page.SCOPE_DISPLAY)
+        device = config_page.render(ctx_device, scope=config_page.SCOPE_DEVICE)
+
+        counts = {}
+        for label, rendered in (("display", display), ("device", device)):
+            total = rendered.count('class="text-heading"')
+            form_a = rendered.count('%s="' % config_page.DIRTY_SECTION_ATTR)
+            form_b = rendered.count("section-intro")
+            counts[label] = (total, form_a, form_b, total - form_a - form_b)
+        expected = {"display": (8, 4, 3, 1), "device": (4, 3, 0, 1)}
+        if counts != expected:
+            return False, (
+                "expected {route: (total h2.text-heading, form-A card titles, form-B "
+                "supersection intros, unclassified)} == %r, measured %r by running. This is "
+                "27-01-SUMMARY.md's own browser-driven inventory (7/3/2 total, corrected from "
+                "27-RESEARCH.md's provisional 8/3/2), reproduced server-side — a drift here "
+                "means the classification this check names below is stale" % (expected, counts))
+
+        card_title_headings = {
+            "display": (
+                config_page.FRAME_COLOURS_HEADING, config_page.CALENDAR_SECTION_HEADING,
+                "Runway", config_page.QUIET_HOURS_SECTION_HEADING),
+            "device": (
+                config_page.LED_SECTION_HEADING, config_page.WAKE_INTERVAL_SECTION_HEADING,
+                config_page.NOTIFICATIONS_SECTION_HEADING),
+        }
+        for route, rendered in (("display", display), ("device", device)):
+            for heading in card_title_headings[route]:
+                needle = ">%s</h2>" % escape_html(heading)
+                if needle not in rendered:
+                    return False, (
+                        "expected the settings-card heading %r to render inside its own "
+                        "[data-dirty-section] tile on the %s scope, and it did not"
+                        % (heading, route))
+
+        # The two unclassified instances, identified by name — neither
+        # is a settings card or a supersection intro.
+        frame_strip_needle = ">%s</h2>" % escape_html(layout.FRAME_STRIP_HEADING)
+        if frame_strip_needle not in display or frame_strip_needle in device:
+            return False, (
+                "expected the Frame strip's own <h2> (Display's unclassified instance) to "
+                "render on Display and never on Device")
+        poll_needle = '<h2 class="text-heading">%s</h2>' % escape_html(
+            config_page.POLL_SECTION_HEADING)
+        if poll_needle not in device or poll_needle in display:
+            return False, (
+                "expected Poll's own <h2> (Device's unclassified instance) to render on Device "
+                "and never on Display (Display never renders Poll)")
+
+        # OUTCOME 2: the two label vocabularies never overlap. A
+        # supersection's own text is always a GENERIC group label,
+        # never one of the 7 cards' own SPECIFIC names.
+        overlap = (
+            set(card_title_headings["display"]) | set(card_title_headings["device"])
+        ) & {
+            config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
+            config_page.DISPLAY_ON_HEADING,
+        }
+        if overlap:
+            return False, (
+                "expected the settings-card vocabulary and the supersection-label vocabulary "
+                "to share no text — found %r in both, which would mean a card's own identity "
+                "and a group's own label had collapsed into the same word" % (overlap,))
+        return True, ""
+    check(
+        "the title-form inventory, run before any markup choice: both settings routes' "
+        "h2.text-heading instances count and classify as 7 settings-card titles (form A, 3 on "
+        "Device + 4 on Display) + 3 supersection intros (form B, layout.section_intro_html(), "
+        "shared with health_page.py) + 2 unrelated headings (the Frame strip's own live-status "
+        "heading on Display, Poll's own bare-<section> heading on Device — neither a settings "
+        "card nor a supersection), reproducing 27-01-SUMMARY.md's corrected 7/3/2 browser count "
+        "server-side, with the two label vocabularies never overlapping (CFG-65, 27-06-PLAN.md "
+        "Task 1)",
+        _title_form_inventory_classifies_every_h2_text_heading_on_both_routes)
+
+    # ==================================================================
+    # 27-06-PLAN.md Task 2 (CFG-65): Task 1 concluded Outcome 2 — there
+    # is already one title form for settings cards, so there is no
+    # conversion to make (converting either direction would edit the
+    # shared, Health-pinned section_intro_html() call sites, or reverse
+    # 20-07-PLAN.md's own D-12 supersection restructure — both out of
+    # this plan's scope, per its own "form B is not editable" and "pick
+    # based on what costs less disruption" constraints). No markup or
+    # CSS changed for the title-form correction.
+    #
+    # In its place: the structural guarantee that keeps "one title form
+    # for cards" true GOING FORWARD, not just in today's markup. Every
+    # one of the 7 functions that builds a settings card's own tile
+    # returns its own <h2> (form A) as a fixed, flat string and never
+    # reaches for the shared supersection builder to do it — asserted
+    # here at the SOURCE level via AST, so the "losing form" this check
+    # names (a card's own heading produced through the supersection-
+    # intro shape) is ZERO, enforced independently of whatever the
+    # rendered markup happens to look like on any given day.
+    # ==================================================================
+
+    def _no_card_builder_function_ever_calls_section_intro_html():
+        card_builder_names = (
+            "_frame_colours_card_html", "runway_fieldset", "led_group",
+            "quiet_hours_group", "wake_interval_group", "notifications_group",
+            "calendar_group",
+        )
+        with open(os.path.join(HERE, "pages", "config_page.py")) as fh:
+            source = fh.read()
+        tree = ast.parse(source)
+        found_names = {
+            n.name for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef) and n.name in card_builder_names}
+        if found_names != set(card_builder_names):
+            return False, (
+                "expected to find all 7 card-builder functions by name in config_page.py, "
+                "missing %r — this check's own allowlist is stale"
+                % (set(card_builder_names) - found_names,))
+        offenders = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name in card_builder_names:
+                for call in ast.walk(node):
+                    if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+                            and call.func.attr == "section_intro_html"):
+                        offenders.append(node.name)
+        if offenders:
+            return False, (
+                "expected ZERO of the 7 settings-card builder functions to call "
+                "layout.section_intro_html() (form B) for their own <h2> — found it called "
+                "from %r. A card's own title must stay form A, never borrow the shared "
+                "supersection builder" % (offenders,))
+        return True, ""
+    check(
+        "none of the 7 settings-card builder functions (_frame_colours_card_html/"
+        "runway_fieldset/led_group/quiet_hours_group/wake_interval_group/notifications_group/"
+        "calendar_group) ever calls layout.section_intro_html() for their own heading — the "
+        "losing form (a card title produced through the supersection-intro shape) is ZERO, "
+        "enforced at the source level rather than only in today's rendered markup (CFG-65, "
+        "27-06-PLAN.md Task 2 — Outcome 2, no conversion, see 27-06-SUMMARY.md)",
+        _no_card_builder_function_ever_calls_section_intro_html)
+
+    # ==================================================================
     # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): the instant switches, and
     # the form restructure that makes them valid HTML.
     # ==================================================================
@@ -8756,9 +8658,15 @@ def main():
         # only — the Screen on/off card this loop used to also check is
         # retired outright along with display_group() itself, so there is
         # no longer a second card to check here.
+        # 27-08-PLAN.md Task 1 (CFG-69): the literal absorbs the heading's
+        # new id="{QUIET_HOURS_GROUP_HEADING_ID}" — the quick-action
+        # contract this check exists for is unchanged; only the markup it
+        # greps had to grow the new attribute.
         rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
         for heading in (config_page.QUIET_HOURS_SECTION_HEADING,):
-            start = rendered.index('<h2 class="text-heading">%s</h2>' % heading)
+            start = rendered.index(
+                '<h2 class="text-heading" id="%s">%s</h2>'
+                % (config_page.QUIET_HOURS_GROUP_HEADING_ID, heading))
             next_heading = rendered.find('<h2 class="text-heading"', start + 1)
             segment = rendered[start:next_heading] if next_heading != -1 else rendered[start:]
             if "quick-action" in segment:
@@ -10292,6 +10200,48 @@ def main():
         "section-caption's own declaration set, outside the radiogroup (22-10-PLAN.md Task 1)",
         _display_renders_one_chip_density_and_a_swatch_legend_under_every_grid)
 
+    # ------------------------------------------------------------------
+    # 27-07-PLAN.md Task 3 (CFG-70): the legend stops naming a
+    # distinction the registry does not carry.
+    # ------------------------------------------------------------------
+
+    def _the_swatch_legend_names_as_many_things_as_the_registry_carries():
+        # THE RELATIONSHIP, COMPUTED FROM THE REGISTRY AT CHECK TIME —
+        # never the literal string "Departures & arrivals". A literal
+        # check would go stale silently the day a theme makes departures
+        # and arrivals differ, pinning a lie in place exactly like the
+        # defect this task fixes wore a different hat. "·" is the
+        # separator the PREVIOUS copy used to name two things
+        # ("Departures · Arrivals"); splitting on it is how this check
+        # counts how many things the CURRENT copy names, whatever that
+        # copy's own wording turns out to be.
+        legend = config_page.THEME_CHIP_SWATCH_LEGEND
+        labels = [part.strip() for part in legend.split("·") if part.strip()]
+        label_count = len(labels)
+        for theme_id in device_config.THEME_IDS:
+            theme = device_config.THEMES[theme_id]
+            colours = {
+                config_page._palette_hex(theme["departing_index"]),
+                config_page._palette_hex(theme["arriving_index"]),
+            }
+            expected = len(colours)
+            if label_count != expected:
+                return False, (
+                    "theme=%r: the registry gives this theme %d distinct swatch colour(s) "
+                    "(departing_index=%r, arriving_index=%r) but the shared legend %r names "
+                    "%d label(s) — the legend is ONE line shown for every theme's chip, so it "
+                    "must name exactly as many things as the registry gives that theme"
+                    % (theme_id, expected, theme["departing_index"], theme["arriving_index"],
+                       legend, label_count))
+        return True, ""
+    check(
+        "the chip swatch legend names exactly as many things as the registry gives EVERY "
+        "theme — computed from _palette_hex(departing_index)/_palette_hex(arriving_index) at "
+        "check time, never a restated literal, so a future theme that DOES give departures "
+        "and arrivals different inks would make this check demand two labels on its own "
+        "(CFG-70, 27-07-PLAN.md Task 3)",
+        _the_swatch_legend_names_as_many_things_as_the_registry_carries)
+
     def _the_current_badge_reads_a_server_rendered_translated_attribute():
         # T10: the badge's text used to be hard-coded English inside
         # style.css. It is now rendered onto the saved chip/card only -
@@ -11020,6 +10970,149 @@ def main():
         "sibling (CFG-49/D-27, 25-05-PLAN.md Task 1)",
         _no_days_remaining_arithmetic_lives_outside_companion_battery)
 
+    # ==================================================================
+    # 27-06-PLAN.md Task 3 (CFG-67): the three texts, cut against
+    # 27-01-SUMMARY.md's own recorded baselines (measured 360px,
+    # rendered, both languages). Each check is ONE read of the region,
+    # with every assertion made against that SAME read — "shorter" and,
+    # where the honesty contract applies, "still refuses" are proven
+    # about one rendering, never two separate ones (T-27-06-A).
+    #
+    # The forbidden pattern is scoped to the DAYS-CLAIM SHAPE itself
+    # ("≈ <digits> day(s)/jour(s)"), never to "≈" near any digit —
+    # 27-01-SUMMARY.md found the naive `≈\s*\d` pattern false-positives
+    # on the wake-interval caption's own legitimate "(next wake ≈ 31
+    # Jul 08:05)" text, a real derivable timestamp, not an invented
+    # figure. That caption is a SEPARATE region from the gauges below in
+    # any case, but the pattern is scoped correctly regardless.
+    # ==================================================================
+
+    _DAYS_FIGURE_PATTERN = re.compile(r"≈\s*\d+\s*(?:day|days|jour|jours)\b")
+
+    def _html_region_text(fragment):
+        """Strip tags, unescape entities, collapse whitespace — the
+        python-side equivalent of reading `.textContent` off a rendered
+        element, without a browser.
+        """
+        stripped = re.sub(r"<[^>]*>", "", fragment)
+        return re.sub(r"\s+", " ", html.unescape(stripped)).strip()
+
+    def _wake_interval_caption_is_shortened_in_both_languages():
+        baseline = 220
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                rendered = config_page.wake_interval_group(
+                    300, next_wake_clock="31 Jul 08:05")
+            finally:
+                prefs.set_request_prefs(lang="en")
+            m = re.search(
+                r'<p class="text-label section-caption" id="%s">(.*?)</p>'
+                % re.escape(config_page.WAKE_INTERVAL_SECTION_CAPTION_ID), rendered)
+            if not m:
+                return False, "%s: #%s is missing from wake_interval_group()'s own markup" % (
+                    lang, config_page.WAKE_INTERVAL_SECTION_CAPTION_ID)
+            text = _html_region_text(m.group(1))
+            if len(text) >= baseline:
+                return False, (
+                    "%s: #%s renders %d character(s), against a recorded baseline of %d "
+                    "(27-01-SUMMARY.md). The copy was not cut. It reads %r"
+                    % (lang, config_page.WAKE_INTERVAL_SECTION_CAPTION_ID, len(text), baseline,
+                       text))
+        return True, ""
+    check(
+        "the wake-interval caption (#wake-interval-caption) is materially shorter than "
+        "27-01-SUMMARY.md's recorded 220-char baseline in BOTH languages — the mechanism and "
+        "apply-timing sentences are cut, the derived \"(next wake ≈ ...)\" suffix (a real "
+        "timestamp, not an invented figure) is untouched (CFG-67, 27-06-PLAN.md Task 3)",
+        _wake_interval_caption_is_shortened_in_both_languages)
+
+    def _wake_gauges_are_shortened_and_the_battery_refusal_survives_in_both_languages():
+        baseline = 254
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                # No battery_rows: the insufficient-history state — the
+                # one 27-01-SUMMARY.md's baseline was measured against,
+                # and the one whose refusal this check must prove
+                # survives on the SAME reading as the length.
+                rendered = config_page.wake_gauges_html(300)
+            finally:
+                prefs.set_request_prefs(lang="en")
+            segments = re.findall(
+                r'<p class="[^"]*\bwake-gauge\b[^"]*"[^>]*>(.*?)</p>', rendered, re.S)
+            if len(segments) != 2:
+                return False, (
+                    "%s: expected 2 .wake-gauge elements, found %d" % (lang, len(segments)))
+            text = " ".join(_html_region_text(seg) for seg in segments)
+            text = re.sub(r"\s+", " ", text).strip()
+            # ONE READ, TWO ASSERTIONS, per T-27-06-A — both against
+            # `text` as measured above, never a second re-render.
+            if len(text) >= baseline:
+                return False, (
+                    "%s: .wake-gauge renders %d character(s) across %d element(s), against a "
+                    "recorded baseline of %d (27-01-SUMMARY.md). The copy was not cut. It "
+                    "reads %r" % (lang, len(text), len(segments), baseline, text))
+            found = _DAYS_FIGURE_PATTERN.search(text)
+            if found:
+                return False, (
+                    "%s: .wake-gauge did get shorter (%d character(s), under the %d baseline) "
+                    "but the insufficient-history state now matches %r at %r — a shorter "
+                    "sentence that starts claiming a figure this frame's own history cannot "
+                    "support is a regression, not a cut. The whole region reads %r"
+                    % (lang, len(text), baseline, _DAYS_FIGURE_PATTERN.pattern,
+                       found.group(0), text))
+        return True, ""
+    check(
+        "the two wake gauges (.wake-gauge) are materially shorter than 27-01-SUMMARY.md's "
+        "recorded 254-char combined baseline in BOTH languages, and the insufficient-history "
+        "state still prints NO absolute battery figure — asserted about the SAME reading the "
+        "length is measured from, with the forbidden pattern scoped to the days-claim shape "
+        "itself so it does not false-positive on an unrelated ≈-bearing timestamp (D18's "
+        "honesty contract, CFG-67, 27-06-PLAN.md Task 3)",
+        _wake_gauges_are_shortened_and_the_battery_refusal_survives_in_both_languages)
+
+    def _quiet_hours_caption_is_shortened_and_the_delay_sentence_survives_in_both_languages():
+        baseline = 188
+        delay_sentence = "Applies at the next wake, around 31 Jul 08:05."
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                rendered = config_page.quiet_hours_group(
+                    "23:00", "07:00", delay_sentence=delay_sentence)
+            finally:
+                prefs.set_request_prefs(lang="en")
+            m = re.search(
+                r'<p class="text-label section-caption" id="%s">(.*?)</p>'
+                % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), rendered)
+            if not m:
+                return False, "%s: #%s is missing from quiet_hours_group()'s own markup" % (
+                    lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID)
+            text = _html_region_text(m.group(1))
+            if len(text) >= baseline:
+                return False, (
+                    "%s: #%s renders %d character(s), against a recorded baseline of %d "
+                    "(27-01-SUMMARY.md). The copy was not cut. It reads %r"
+                    % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, len(text), baseline,
+                       text))
+            # delay_sentence carries LIVE STATE (frame_state.DELAY_UNKNOWN
+            # by default), not explanation — the cut is scoped to
+            # QUIET_HOURS_SECTION_CAPTION alone, and this asserts the
+            # delay sentence survived it, on the SAME reading.
+            if delay_sentence not in text:
+                return False, (
+                    "%s: #%s lost its own computed delay sentence (%r) — expected it to survive "
+                    "the caption cut untouched, and it reads %r instead"
+                    % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, delay_sentence, text))
+        return True, ""
+    check(
+        "the Quiet hours paragraph (#quiet-hours-caption) is materially shorter than "
+        "27-01-SUMMARY.md's recorded 188-char baseline in BOTH languages, with its own computed "
+        "delay sentence — live state, not explanation, defaulting to i18n.t(frame_state."
+        "DELAY_UNKNOWN) — asserted to survive the cut on the SAME reading (CFG-67, 27-06-PLAN.md "
+        "Task 3)",
+        _quiet_hours_caption_is_shortened_and_the_delay_sentence_survives_in_both_languages)
+
     def _the_gauges_are_an_addition_and_the_number_input_is_untouched():
         """CFG-49 (25-05-PLAN.md Task 1): the `<input type="number">` is
         the ONLY thing on this card that posts, and its `value`-attribute
@@ -11392,61 +11485,87 @@ def main():
         card = config_page._frame_colours_card_html({}, "white", None, None)
         theme_count = len(device_config.THEME_IDS)
 
-        # The strip IS the radiogroup: one grid div, carrying the
-        # compact modifier it already had, the new strip modifier, the
-        # role, and the id the pagers' aria-controls names.
-        strip_open = re.search(
-            r'<div class="([^"]*theme-chip-grid--strip[^"]*)"([^>]*)>', card)
-        if not strip_open:
-            return False, "the Frame colours card renders no .theme-chip-grid--strip at all"
-        classes = strip_open.group(1).split()
-        attrs = strip_open.group(2)
-        for required in ("theme-chip-grid", "theme-chip-grid--compact"):
-            if required not in classes:
+        # 27-07-PLAN.md Task 2 (CFG-68): GENERALISED FROM DEPARTURES-ONLY
+        # TO ALL THREE. Departures has no leading chip (theme_count
+        # radios); arrivals/calendar each prepend a "Same as departures"
+        # chip submitting the empty string (D-09), so theme_count + 1.
+        if card.count("theme-chip-grid--strip") != 3:
+            return False, (
+                "the card renders %d strips — Task 2 folds exactly three grids (departures, "
+                "arrivals, calendar) into carousels, and the rule-add form's own grid stays "
+                "out (see its own call site's comment)" % card.count("theme-chip-grid--strip"))
+        strips = (
+            ("theme", config_page.THEME_CAROUSEL_STRIP_ID, theme_count),
+            ("theme_arriving", config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS, theme_count + 1),
+            ("calendar_theme_id", config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR, theme_count + 1),
+        )
+        departures_strip_open = None
+        for field, strip_id, expected_radios in strips:
+            # The strip IS the radiogroup: one grid div, carrying the
+            # compact modifier it already had, the strip modifier, the
+            # role, and ITS OWN id (the property the id-uniqueness check
+            # elsewhere on this page proves is unique across all three).
+            strip_open = re.search(
+                r'<div class="([^"]*theme-chip-grid--strip[^"]*)"([^>]*id="%s"[^>]*)>'
+                % re.escape(strip_id), card)
+            if not strip_open:
                 return False, (
-                    "the strip's class list is %r — it dropped %r, so the carousel replaced "
-                    "the grid instead of laying it out" % (classes, required))
-        if 'role="radiogroup"' not in attrs:
-            return False, (
-                "the strip carries no role=\"radiogroup\" — %r" % (attrs,))
-        if ('id="%s"' % config_page.THEME_CAROUSEL_STRIP_ID) not in attrs:
-            return False, (
-                "the strip carries no id=%r, so the pagers' aria-controls names nothing — %r"
-                % (config_page.THEME_CAROUSEL_STRIP_ID, attrs))
-        if card.count("theme-chip-grid--strip") != 1:
-            return False, (
-                "the card renders %d strips — exactly one grid (departures) is converted"
-                % card.count("theme-chip-grid--strip"))
+                    "field=%r: no .theme-chip-grid--strip carrying id=%r is rendered — the "
+                    "pagers' aria-controls would name nothing" % (field, strip_id))
+            if field == "theme":
+                departures_strip_open = strip_open
+            classes = strip_open.group(1).split()
+            attrs = strip_open.group(2)
+            for required in ("theme-chip-grid", "theme-chip-grid--compact"):
+                if required not in classes:
+                    return False, (
+                        "field=%r: the strip's class list is %r — it dropped %r, so the "
+                        "carousel replaced the grid instead of laying it out"
+                        % (field, classes, required))
+            if 'role="radiogroup"' not in attrs:
+                return False, (
+                    "field=%r: the strip carries no role=\"radiogroup\" — %r" % (field, attrs))
 
-        # The chips inside it are the renderer's own, unchanged.
-        radios = re.findall(
+            # The chips inside it are the renderer's own, unchanged.
+            radios = re.findall(
+                r'<input type="radio" name="%s" value="([^"]*)" class="visually-hidden"'
+                r' form="([^"]*)"' % re.escape(field), card)
+            if len(radios) != expected_radios:
+                return False, (
+                    "field=%r: expected %d visually-hidden, form-associated radios, got %d — "
+                    "the strip must be the SAME native radio group, never a second set"
+                    % (field, expected_radios, len(radios)))
+            for _value, form in radios:
+                if form != config_page.SETTINGS_FORM_ID:
+                    return False, (
+                        "field=%r: a strip radio carries form=%r, not %r — this card is a "
+                        "SIBLING of the settings form, so without that attribute it posts "
+                        "nowhere" % (field, form, config_page.SETTINGS_FORM_ID))
+
+        # Departures' own radios, specifically, are in THEME_IDS'
+        # registry order — the one field with no leading chip, so order
+        # is a direct comparison.
+        departures_radios = re.findall(
             r'<input type="radio" name="theme" value="([^"]*)" class="visually-hidden"'
             r' form="([^"]*)"', card)
-        if len(radios) != theme_count:
+        if [value for value, _form in departures_radios] != list(device_config.THEME_IDS):
             return False, (
-                "expected %d visually-hidden, form-associated radios named 'theme' in the "
-                "card, got %d — the strip must be the SAME native radio group, never a "
-                "second set" % (theme_count, len(radios)))
-        if [value for value, _form in radios] != list(device_config.THEME_IDS):
-            return False, (
-                "the strip's radios are %r, not device_config.THEME_IDS in registry order"
-                % ([value for value, _form in radios],))
-        for _value, form in radios:
-            if form != config_page.SETTINGS_FORM_ID:
-                return False, (
-                    "a strip radio carries form=%r, not %r — this card is a SIBLING of the "
-                    "settings form, so without that attribute it posts nowhere"
-                    % (form, config_page.SETTINGS_FORM_ID))
+                "the departures strip's radios are %r, not device_config.THEME_IDS in "
+                "registry order" % ([value for value, _form in departures_radios],))
         if "display:none" in card or "display: none" in card:
             return False, (
                 "the card emits a display:none — a radio hidden that way leaves the tab "
                 "order, and arrow-key selection with it")
 
-        # The swatch legend still renders under the grid and OUTSIDE the
-        # element carrying role="radiogroup", with its shipped copy.
+        # The swatch legend still renders under the departures grid and
+        # OUTSIDE the element carrying role="radiogroup", with its
+        # shipped copy — arrivals/calendar's own legend placement is
+        # covered by 22-10-PLAN.md Task 1's own check (unaffected by
+        # carousel wrapping: _theme_carousel_html() interpolates
+        # grid_html, legend included, unchanged).
         legend = '<p class="text-label section-caption">%s</p>' % html.escape(
             config_page.THEME_CHIP_SWATCH_LEGEND, quote=False)
-        strip_close = card.index("</div>", strip_open.end())
+        strip_close = card.index("</div>", departures_strip_open.end())
         if legend not in card:
             return False, (
                 "the swatch legend's shipped copy %r is not in the card"
@@ -11456,29 +11575,22 @@ def main():
                 "the swatch legend renders INSIDE the element carrying role=\"radiogroup\" — "
                 "a stray non-radio child is announced inside the group")
 
-        # And the three grids this plan deliberately did not convert.
-        for field in ("theme_arriving", "calendar_theme_id"):
-            grid = re.search(
-                r'<div class="([^"]*)"[^>]*>\s*(?:<label[^>]*>)?[^<]*'
-                r'(?=(?:.(?!</div>))*name="%s")' % re.escape(field), card, re.DOTALL)
-            if grid and "theme-chip-grid--strip" in grid.group(1):
-                return False, (
-                    "the %s grid was converted too — arrivals, calendar and rule-add are "
-                    "deliberately left alone (see _theme_chip_grid_html()'s docstring)"
-                    % field)
+        # And the ONE grid this plan deliberately did not convert.
         if config_page._rule_add_form_html().count("theme-chip-grid--strip"):
             return False, "the rule-add form's own chip grid was converted too"
         return True, ""
     check(
-        "the departures chip grid is the ONE renderer's own output laid out as a scroll-snap "
-        "strip, never a fork: a source scan of config_page.py finds exactly one function "
-        "emitting a chip <label> with data-preview-src, the strip keeps both the base and the "
-        "compact grid classes plus role=\"radiogroup\" and the id its pagers name, it holds "
-        "exactly len(THEME_IDS) visually-hidden radios named 'theme' in registry order each "
-        "carrying form=\"settings-form\" (one set, never two), no display:none appears "
-        "anywhere on the card, the swatch legend still renders after the radiogroup with its "
-        "shipped copy, and exactly one of the card's grids is converted (CFG-50, "
-        "25-06-PLAN.md Task 2)",
+        "departures/arrivals/calendar are all the ONE renderer's own output laid out as "
+        "scroll-snap strips, never a fork: a source scan of config_page.py finds exactly one "
+        "function emitting a chip <label> with data-preview-src, each strip keeps both the "
+        "base and the compact grid classes plus role=\"radiogroup\" and ITS OWN id, each holds "
+        "the right radio count for its field (theme_count for departures, +1 for arrivals/"
+        "calendar's leading 'Same as departures' chip) each carrying form=\"settings-form\" "
+        "(one set per field, never two), departures' own radios are in registry order, no "
+        "display:none appears anywhere on the card, the swatch legend still renders after the "
+        "departures radiogroup with its shipped copy, and exactly three of the card's four "
+        "grids are converted — the rule-add form's stays out (CFG-50, 25-06-PLAN.md Task 2; "
+        "generalised to arrivals/calendar, CFG-68, 27-07-PLAN.md Task 2)",
         _the_departures_grid_is_the_one_renderer_presented_as_a_strip)
 
     def _the_carousel_dots_are_real_colours_and_the_strip_rules_are_declared():
@@ -11539,7 +11651,20 @@ def main():
 
         source = _read_static("style.css")
         strip_rules = {
-            ".theme-chip-grid--strip {": (
+            # 27-07-PLAN.md Task 1 (CFG-68/D-20): anchored with a
+            # leading "\n" and NO indent, deliberately — the file's own
+            # single @supports selector(:has(*)) block now ALSO carries
+            # a compound selector ending in this exact class
+            # (".theme-carousel:has(...) .theme-chip-grid--strip {"),
+            # 2-space indented and textually earlier in the file than
+            # this base rule. A bare `.theme-chip-grid--strip {` search
+            # would find that compound selector FIRST and read ITS body
+            # (flex-wrap: wrap, not nowrap) instead of this rule's —
+            # measured: this is exactly the failure the standing
+            # "locate by first occurrence" convention warns about, and
+            # it was caught here by running this check, not reasoned
+            # about in advance.
+            "\n.theme-chip-grid--strip {": (
                 "flex-wrap: nowrap;", "overflow-x: auto;",
                 "scroll-snap-type: x mandatory;", "scroll-padding-right:"),
             ".theme-chip-grid--strip > .theme-chip {": (
@@ -11563,14 +11688,14 @@ def main():
         }
         for selector, declarations in strip_rules.items():
             if selector not in source:
-                return False, "style.css declares no %s rule" % selector.rstrip(" {")
+                return False, "style.css declares no %s rule" % selector.strip(" {\n")
             body = source[source.index(selector) + len(selector):]
             body = body[:body.index("}")]
             for declaration in declarations:
                 if declaration not in body:
                     return False, (
                         "%s does not declare %r — %r"
-                        % (selector.rstrip(" {"), declaration, body.strip()))
+                        % (selector.strip(" {\n"), declaration, body.strip()))
 
         # THE TWO NUMBERS THAT HAVE TO BE THE SAME NUMBER. The strip's
         # `scroll-padding-right` exists to keep the chip a keyboard
@@ -11590,7 +11715,10 @@ def main():
             body = body[:body.index("}")]
             hit = re.search(r"(?m)^\s*%s:\s*(\d+(?:\.\d+)?)px;" % re.escape(prop), body)
             return float(hit.group(1)) if hit else None
-        reserved = _px(".theme-chip-grid--strip {", "scroll-padding-right")
+        # Same anchoring as strip_rules above, and for the identical
+        # reason: an un-anchored search would find the @supports block's
+        # compound selector first.
+        reserved = _px("\n.theme-chip-grid--strip {", "scroll-padding-right")
         chip_width = _px(".theme-chip--compact {", "width")
         if reserved is None or chip_width is None:
             return False, (
@@ -11670,71 +11798,129 @@ def main():
                 "the Display page renders a <dialog> — a dialog cannot be opened without "
                 "script, and this disclosure is deliberately a native <details> instead "
                 "(25-RESEARCH.md Decision 4)")
-        disclosure = re.search(
-            r'<details class="theme-carousel__all"><summary>([^<]*)</summary>', page)
-        if not disclosure:
-            return False, "no <details class=\"theme-carousel__all\"><summary> is rendered"
-        if disclosure.group(1) != html.escape(
-                config_page.THEME_CAROUSEL_SUMMARY, quote=False):
-            return False, (
-                "the disclosure's summary reads %r, expected %r"
-                % (disclosure.group(1), config_page.THEME_CAROUSEL_SUMMARY))
-        strip_at = page.index('id="%s"' % config_page.THEME_CAROUSEL_STRIP_ID)
-        if disclosure.start() > strip_at:
-            return False, (
-                "the disclosure renders AFTER the strip — the stylesheet reaches the strip "
-                "through an adjacent-sibling combinator on the disclosure's [open] state, "
-                "which only matches when the disclosure comes first")
+        # 27-07-PLAN.md Task 2 (CFG-68): GENERALISED FROM ONE CAROUSEL TO
+        # THREE, scoped per USAGE PANEL rather than page-wide — each
+        # panel's own segment (bounded by the NEXT panel's
+        # data-usage-panel-target marker, the same delimiter
+        # _calendar_theme_chip_grid_exactly_one_compact_radiogroup_
+        # populated_in_order already uses) contains exactly one
+        # carousel, so scoping to it is also THE RELATIONSHIP check
+        # Task 2 asks for: each pager's aria-controls is asserted to
+        # resolve to the strip id inside THIS SAME segment, never
+        # merely "some strip id exists somewhere on the page" — a pager
+        # wired to a DIFFERENT carousel's strip would pass a page-wide
+        # existence check and fail this one.
+        panel_markers = [
+            (config_page.COLOUR_USAGE_DEPARTURES, config_page.THEME_CAROUSEL_STRIP_ID),
+            (config_page.COLOUR_USAGE_ARRIVALS, config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS),
+            (config_page.COLOUR_USAGE_CALENDAR, config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR),
+        ]
+        boundaries = [config_page.COLOUR_USAGE_ARRIVALS, config_page.COLOUR_USAGE_CALENDAR,
+                      config_page.COLOUR_USAGE_RULES]
+        for (usage, strip_id), next_usage in zip(panel_markers, boundaries):
+            seg_start = page.index(
+                '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, usage))
+            seg_end = page.index(
+                '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, next_usage))
+            segment = page[seg_start:seg_end]
 
-        # BOTH PAGERS INSIDE THE GATE, AND ZERO PAGER MARKUP OUTSIDE IT.
-        gate = re.search(
-            r'<div class="theme-carousel__pagers ([^"]*)" (%s)>(.*?)</div>'
-            % re.escape(config_page.THEME_CAROUSEL_WRAPPER_ATTR), page, re.DOTALL)
-        if not gate:
-            return False, "no .theme-carousel__pagers wrapper carrying the wrapper attribute"
-        if layout.JS_GATE_CLASS not in gate.group(1).split():
-            return False, (
-                "the pager wrapper's classes are %r — without %r it renders permanently with "
-                "scripts blocked, which is a control that shows and does nothing"
-                % (gate.group(1), layout.JS_GATE_CLASS))
-        inside = gate.group(3)
-        total_pagers = page.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="')
-        if inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="') != 2:
-            return False, (
-                "expected exactly two pagers inside the gate, found %d"
-                % inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="'))
-        if total_pagers != 2:
-            return False, (
-                "the page carries %d pager attributes but only two are inside the gate — a "
-                "pager rendered outside it is inert with scripts blocked" % total_pagers)
-        for direction, label in (
-                (config_page.THEME_CAROUSEL_PAGER_PREV, config_page.THEME_CAROUSEL_PREV_LABEL),
-                (config_page.THEME_CAROUSEL_PAGER_NEXT, config_page.THEME_CAROUSEL_NEXT_LABEL)):
-            button = re.search(
-                r'<button type="button"([^>]*%s="%s"[^>]*)>'
-                % (re.escape(config_page.THEME_CAROUSEL_PAGER_ATTR), direction), inside)
-            if not button:
-                return False, "no <button> carries the %r pager attribute" % direction
-            attrs = button.group(1)
-            if 'aria-label="%s"' % html.escape(label, quote=True) not in attrs:
+            disclosure = re.search(
+                r'<details class="theme-carousel__all"><summary>([^<]*)</summary>', segment)
+            if not disclosure:
                 return False, (
-                    "the %s pager carries no aria-label=%r — it draws its arrow in CSS and "
-                    "has no text of its own, so without one it announces nothing at all: %r"
-                    % (direction, label, attrs))
-            if ('aria-controls="%s"' % config_page.THEME_CAROUSEL_STRIP_ID) not in attrs:
+                    "usage=%r: no <details class=\"theme-carousel__all\"><summary> is rendered"
+                    % usage)
+            if disclosure.group(1) != html.escape(
+                    config_page.THEME_CAROUSEL_SUMMARY, quote=False):
                 return False, (
-                    "the %s pager's aria-controls does not name the strip — and that is not "
-                    "only an announcement: theme-preview.js resolves the element to scroll "
-                    "through this very attribute: %r" % (direction, attrs))
-            if "aria-hidden" in attrs:
+                    "usage=%r: the disclosure's summary reads %r, expected %r"
+                    % (usage, disclosure.group(1), config_page.THEME_CAROUSEL_SUMMARY))
+            strip_at = segment.index('id="%s"' % strip_id)
+            # 27-07-PLAN.md Task 1 (CFG-68/D-20): INVERTED from this
+            # check's original assertion. The disclosure used to render
+            # BEFORE the strip (an adjacent-sibling selector reached
+            # forward from it); the developer read that as "Voir tous
+            # les thèmes" sitting above the very thing it discloses,
+            # backwards for a way OUT. It now renders AFTER the strip
+            # (and after the pagers and dots — see
+            # _theme_carousel_html()'s own return statement), and
+            # style.css reaches the grid through a `:has()` rule scoped
+            # to the shared `.theme-carousel` wrapper instead, which
+            # does not care which of the two comes first.
+            if disclosure.start() < strip_at:
                 return False, (
-                    "the %s pager is aria-hidden — these are real controls with real labels, "
-                    "not decorations" % direction)
-            if "control-hit-area" not in attrs and "control-hit-area" not in button.group(0):
+                    "usage=%r: the disclosure renders BEFORE the strip — D-20 moved 'Voir "
+                    "tous les thèmes' below the strip it discloses, and style.css's :has() "
+                    "rule (scoped to the shared .theme-carousel wrapper) governs the grid's "
+                    "layout regardless of order, so there is no longer a reason for the "
+                    "disclosure to precede it" % usage)
+
+            # BOTH PAGERS INSIDE THE GATE, AND ZERO PAGER MARKUP OUTSIDE
+            # IT — WITHIN THIS CAROUSEL'S OWN SEGMENT.
+            gate = re.search(
+                r'<div class="theme-carousel__pagers ([^"]*)" (%s)>(.*?)</div>'
+                % re.escape(config_page.THEME_CAROUSEL_WRAPPER_ATTR), segment, re.DOTALL)
+            if not gate:
                 return False, (
-                    "the %s pager does not carry .control-hit-area, 25-01's shared "
-                    "22px-box-plus-44px-::before synthesis (.copy-btn's own values verbatim)"
-                    % direction)
+                    "usage=%r: no .theme-carousel__pagers wrapper carrying the wrapper "
+                    "attribute" % usage)
+            if layout.JS_GATE_CLASS not in gate.group(1).split():
+                return False, (
+                    "usage=%r: the pager wrapper's classes are %r — without %r it renders "
+                    "permanently with scripts blocked, which is a control that shows and does "
+                    "nothing" % (usage, gate.group(1), layout.JS_GATE_CLASS))
+            inside = gate.group(3)
+            total_pagers = segment.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="')
+            if inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="') != 2:
+                return False, (
+                    "usage=%r: expected exactly two pagers inside the gate, found %d"
+                    % (usage, inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="')))
+            if total_pagers != 2:
+                return False, (
+                    "usage=%r: this carousel's own segment carries %d pager attributes but "
+                    "only two are inside the gate — a pager rendered outside it is inert with "
+                    "scripts blocked" % (usage, total_pagers))
+            for direction, label in (
+                    (config_page.THEME_CAROUSEL_PAGER_PREV,
+                     config_page.THEME_CAROUSEL_PREV_LABEL),
+                    (config_page.THEME_CAROUSEL_PAGER_NEXT,
+                     config_page.THEME_CAROUSEL_NEXT_LABEL)):
+                button = re.search(
+                    r'<button type="button"([^>]*%s="%s"[^>]*)>'
+                    % (re.escape(config_page.THEME_CAROUSEL_PAGER_ATTR), direction), inside)
+                if not button:
+                    return False, (
+                        "usage=%r: no <button> carries the %r pager attribute"
+                        % (usage, direction))
+                attrs = button.group(1)
+                if 'aria-label="%s"' % html.escape(label, quote=True) not in attrs:
+                    return False, (
+                        "usage=%r: the %s pager carries no aria-label=%r — it draws its arrow "
+                        "in CSS and has no text of its own, so without one it announces "
+                        "nothing at all: %r" % (usage, direction, label, attrs))
+                # THE RELATIONSHIP ITSELF: this pager's aria-controls
+                # must name THIS SEGMENT's OWN strip id, not merely any
+                # strip id anywhere on the page — a pager wired to a
+                # sibling carousel's strip would drive that OTHER
+                # carousel silently, which is the exact trap Task 1
+                # closed for the id itself and this check closes for
+                # the pager wiring that depends on it.
+                if ('aria-controls="%s"' % strip_id) not in attrs:
+                    return False, (
+                        "usage=%r: the %s pager's aria-controls does not name THIS carousel's "
+                        "own strip (%r) — and that is not only an announcement: "
+                        "theme-preview.js resolves the element to scroll through this very "
+                        "attribute, so a pager wired to the wrong strip silently drives a "
+                        "sibling carousel instead: %r" % (usage, direction, strip_id, attrs))
+                if "aria-hidden" in attrs:
+                    return False, (
+                        "usage=%r: the %s pager is aria-hidden — these are real controls with "
+                        "real labels, not decorations" % (usage, direction))
+                if "control-hit-area" not in attrs and "control-hit-area" not in button.group(0):
+                    return False, (
+                        "usage=%r: the %s pager does not carry .control-hit-area, 25-01's "
+                        "shared 22px-box-plus-44px-::before synthesis (.copy-btn's own values "
+                        "verbatim)" % (usage, direction))
 
         # THE SCRIPT SIDE OF THE SAME SEAM, AND THE ONE THING IT MUST
         # NOT DO. A pager that listened for a key would take
@@ -11769,7 +11955,16 @@ def main():
 
         source = _read_static("style.css")
         rules = {
-            ".theme-carousel__all[open] + .theme-chip-grid--strip {": ("flex-wrap: wrap;",),
+            # 27-07-PLAN.md Task 1 (CFG-68/D-20): the adjacent-sibling
+            # selector this replaces cannot reach the strip once the
+            # disclosure trails it in the DOM — see config_page.
+            # _theme_carousel_html()'s own return statement. The
+            # replacement is scoped to the shared .theme-carousel
+            # wrapper, so it works regardless of which of the two comes
+            # first, and stays inside the file's one @supports
+            # selector(:has(*)) block (checked below by count).
+            ".theme-carousel:has(.theme-carousel__all[open]) .theme-chip-grid--strip {": (
+                "flex-wrap: wrap;",),
             ".theme-carousel__pagers {": (
                 "--js-gate-display: flex;", "gap: var(--space-lg);",
                 "margin-top: var(--space-sm);"),
@@ -11779,7 +11974,12 @@ def main():
                 "border-bottom: 2px solid currentColor;",
                 "transform: rotate(-45deg);"),
             ".theme-carousel__pager--prev::after {": ("transform: rotate(135deg);",),
-            ".theme-carousel__all {": ("margin-bottom: var(--space-sm);",),
+            # 27-07-PLAN.md Task 1 (CFG-68/D-20): `margin-top` joins
+            # `margin-bottom` now that the disclosure is the LAST child
+            # of .theme-carousel rather than the first — see
+            # style.css's own comment on this rule.
+            ".theme-carousel__all {": (
+                "margin-top: var(--space-sm);", "margin-bottom: var(--space-sm);"),
         }
         for selector, declarations in rules.items():
             if selector not in source:
@@ -11790,22 +11990,168 @@ def main():
                 if declaration not in body:
                     return False, (
                         "%s does not declare %r — %r"
-                        % (selector.rstrip(" {"), declaration, body.strip()))
+                        % (selector.strip(" {\n"), declaration, body.strip()))
         return True, ""
     check(
-        "the full grid sits behind a native <details>/<summary> and never a <dialog> (a dialog "
-        "cannot be opened without script, which would put eighteen themes behind a dead "
-        "control), the disclosure renders BEFORE the strip because the stylesheet reaches it "
-        "through an adjacent-sibling [open] rule, the whole Display page carries exactly "
-        "len(THEME_IDS) radios named 'theme' (ONE set, so the page can never show one setting "
-        "in two disagreeing places), both pagers render inside 25-01's gate wrapper and zero "
-        "pager markup renders outside it, each carries a real aria-label and an aria-controls "
-        "naming the strip — which is also how theme-preview.js finds it — neither is "
-        "aria-hidden, both wear .control-hit-area, and theme-preview.js registers no key "
-        "listener and calls no preventDefault at all, because a pager capturing an arrow key "
-        "would break the native radiogroup selection the no-JS path depends on (CFG-50/D-09, "
-        "25-06-PLAN.md Task 3)",
+        "each of the three carousels' full grid sits behind a native <details>/<summary> and "
+        "never a <dialog> (a dialog cannot be opened without script, which would put eighteen "
+        "themes behind a dead control), each disclosure renders AFTER its OWN strip (D-20, "
+        "27-07-PLAN.md Task 1 — 'Voir tous les thèmes' reads as a way OUT below the strip "
+        "rather than a preamble above it) with the stylesheet reaching each grid through a "
+        ":has() rule scoped to its own .theme-carousel wrapper, the whole Display page carries "
+        "exactly len(THEME_IDS) radios named 'theme' (ONE set, so the page can never show one "
+        "setting in two disagreeing places), and — checked PER USAGE PANEL, which is also THE "
+        "RELATIONSHIP Task 2 asks for — that panel's own two pagers render inside 25-01's gate "
+        "wrapper with zero pager markup outside it, each carries a real aria-label and an "
+        "aria-controls naming THAT SAME PANEL's own strip (never a sibling carousel's), neither "
+        "is aria-hidden, both wear .control-hit-area, and theme-preview.js (shared by all three) "
+        "registers no key listener and calls no preventDefault at all, because a pager "
+        "capturing an arrow key would break the native radiogroup selection the no-JS path "
+        "depends on (CFG-50/D-09, 25-06-PLAN.md Task 3; disclosure order and the :has() "
+        "replacement, CFG-68/D-20, 27-07-PLAN.md Task 1; generalised to three carousels with "
+        "the per-panel relationship check, CFG-68, 27-07-PLAN.md Task 2)",
         _the_full_grid_sits_behind_a_native_details_and_the_pagers_behind_the_gate)
+
+    # ------------------------------------------------------------------
+    # 27-07-PLAN.md Task 1 (CFG-68): THE TRAP CHECK. THEME_CAROUSEL_
+    # STRIP_ID used to be a single id literal serving as both the
+    # departures strip's own id AND what both pagers' aria-controls
+    # named — fine with one carousel, but a SECOND carousel built from
+    # the same literal (or from a helper that still defaulted to it)
+    # would render two elements sharing one id, which is invalid HTML,
+    # and every pager on the page would drive only the FIRST match.
+    # _theme_carousel_html() now takes strip_id as a required argument
+    # instead (no shared default), which makes that specific collision
+    # impossible BY CONSTRUCTION — this check is the proof that holds
+    # for every OTHER way a duplicate id could still reach the page
+    # (a typo, a copy-pasted call site, anything), because it asserts
+    # the property the trap violates directly: id uniqueness across the
+    # whole rendered page, not "the carousel ids I expect differ".
+    # ------------------------------------------------------------------
+
+    def _the_rendered_settings_page_carries_no_duplicate_id():
+        page = config_page.render({
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        }, scope=config_page.SCOPE_DISPLAY)
+        ids = re.findall(r'\bid="([^"]*)"', page)
+        if not ids:
+            return False, (
+                "found no id=\"...\" attributes at all on the rendered Display page — this scan "
+                "would pass against a page with none, which measures nothing")
+        seen = {}
+        for value in ids:
+            seen[value] = seen.get(value, 0) + 1
+        duplicates = {value: count for value, count in seen.items() if count > 1}
+        if duplicates:
+            # ONE named example, not the whole dict — a message a future
+            # reader can act on immediately, matching this file's own
+            # convention of naming the ACTUAL offending value rather
+            # than a summary of how many things are wrong.
+            dup_id, dup_count = sorted(duplicates.items())[0]
+            return False, (
+                "id=%r appears %d times on the rendered Display page — every id-based lookup "
+                "(aria-controls, a <label for=>, aria-labelledby, document.getElementById) "
+                "resolves to the FIRST match silently, so a duplicate id is not a cosmetic "
+                "defect: whichever control names %r second is driving or describing the FIRST "
+                "one instead of itself" % (dup_id, dup_count, dup_id))
+        return True, ""
+    check(
+        "the rendered Display page carries no duplicate id anywhere — asserted as page-wide id "
+        "uniqueness (THE property the THEME_CAROUSEL_STRIP_ID trap violates), never as 'the "
+        "carousel ids I expect differ', with a failure message naming the duplicated id and how "
+        "many times it appeared (CFG-68, 27-07-PLAN.md Task 1)",
+        _the_rendered_settings_page_carries_no_duplicate_id)
+
+    # --- 27-03-PLAN.md Task 1 (CFG-64) -------------------------------
+
+    def _the_native_submit_is_emitted_unconditionally_on_every_render():
+        """CFG-64: the no-JS floor is kept BY CONSTRUCTION, not by a
+        visibility rule — the native submit carrying
+        STATIC_SAVE_FALLBACK_ATTR must be reachable through every code
+        path render() has, with no conditional of any kind governing its
+        presence. Two proofs, not one, because a rendering-only proof
+        would pass against a page whose SOURCE has a branch that merely
+        never gets exercised by today's three scopes, and a source-only
+        proof would pass against a render() that formats the attribute
+        into a sub-template some caller forgets to include.
+
+        THE SOURCE PROOF: render() has exactly one `return` statement (a
+        second return would be a second, unproven code path), that
+        return is a direct statement of the function's own body — never
+        nested inside an `if`/`for`/`while`/`try` — and
+        STATIC_SAVE_FALLBACK_ATTR appears exactly once inside it as a
+        bare name, never behind an `ast.IfExp` (a ternary), which is the
+        one shape that would make its presence depend on a runtime
+        condition.
+
+        THE RENDER PROOF: render() is actually called for every scope
+        the page supports (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE) and
+        each rendering carries EXACTLY ONE `data-static-save-fallback`
+        occurrence — never zero (the submit is missing) and never two or
+        more (a second, competing save control). One check over all
+        three scopes, not one per scope: the relationship under test is
+        "every scope has it", and a per-scope check would let a future
+        fourth scope ship with no proof at all.
+        """
+        with open(os.path.join(HERE, "pages", "config_page.py"), encoding="utf-8") as fh:
+            source = fh.read()
+        tree = ast.parse(source)
+        render_fn = next(
+            (n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "render"),
+            None)
+        if render_fn is None:
+            return False, "config_page.py defines no top-level render() function any more"
+        returns = [n for n in ast.walk(render_fn) if isinstance(n, ast.Return)]
+        if len(returns) != 1:
+            return False, (
+                "expected exactly one return statement inside render(), found %d — a second "
+                "return is a second code path, and the one that reaches "
+                "STATIC_SAVE_FALLBACK_ATTR would no longer be the only one" % len(returns))
+        only_return = returns[0]
+        if only_return not in render_fn.body:
+            return False, (
+                "render()'s one return statement is NESTED inside a conditional/loop/try block "
+                "of the function body — the submit's emission would then be reachable on some "
+                "paths and not others, exactly the branch this check exists to rule out")
+        carriers = [
+            n for n in ast.walk(only_return.value)
+            if isinstance(n, ast.Name) and n.id == "STATIC_SAVE_FALLBACK_ATTR"]
+        if not carriers:
+            return False, (
+                "render()'s one return statement never names STATIC_SAVE_FALLBACK_ATTR at all "
+                "— the submit is not part of what this function returns")
+        if len(carriers) != 1:
+            return False, (
+                "STATIC_SAVE_FALLBACK_ATTR appears %d times in render()'s return — expected "
+                "exactly one submit" % len(carriers))
+        for node in ast.walk(only_return.value):
+            if isinstance(node, ast.IfExp) and carriers[0] in ast.walk(node):
+                return False, (
+                    "STATIC_SAVE_FALLBACK_ATTR is reached through a ternary inside render()'s "
+                    "return — its presence would then depend on a runtime condition, never "
+                    "unconditional")
+        base_ctx = {
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
+            rendered = config_page.render(base_ctx, scope=scope)
+            count = rendered.count(config_page.STATIC_SAVE_FALLBACK_ATTR)
+            if count != 1:
+                return False, (
+                    "expected exactly one %r occurrence on scope=%r, found %d — the native "
+                    "submit must render unconditionally, once, on every scope"
+                    % (config_page.STATIC_SAVE_FALLBACK_ATTR, scope, count))
+        return True, ""
+    check(
+        "the native submit carrying STATIC_SAVE_FALLBACK_ATTR is emitted UNCONDITIONALLY — "
+        "render() has exactly one return statement, it is never nested inside a branch, and "
+        "the attribute reaches it as a bare name rather than through a ternary — AND every one "
+        "of the three scopes (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE) renders it exactly once, so "
+        "there is no code path, past or future, that can omit the no-JS save floor (CFG-64, "
+        "27-03-PLAN.md Task 1)",
+        _the_native_submit_is_emitted_unconditionally_on_every_render)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

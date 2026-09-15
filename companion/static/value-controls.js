@@ -242,6 +242,27 @@
   // as a custom property so every bit of geometry stays in the CSS.
   var FRACTION_PROPERTY = "--value-fraction";
 
+  // THE PAIR SEAM — 27-02-PLAN.md Task 1 (CFG-62). Every wrapper above
+  // models ONE value; an arc and a caption sentence are functions of
+  // BOTH ends of a window, and until this seam existed there was no
+  // element in this file's model for a pair to live on at all — two
+  // handles could each be independently correct while nothing was a
+  // function of the two of them together, which is exactly how a
+  // correct pair of fields shipped a lying arc.
+  //
+  // PAIR_ATTR marks the shared ancestor two wrappers publish onto. Its
+  // OWN VALUE is the name of the DERIVED SWEEP property this file
+  // writes there once both members have published — not a fixed
+  // constant, because the sweep's name is a server decision like every
+  // other property name this file only ever reads, never invents.
+  //
+  // PAIR_PROPERTY_ATTR, on a wrapper, names which of the ancestor's
+  // properties is THAT wrapper's own fraction. A wrapper carrying
+  // neither attribute is untouched by any of this — the pair seam is
+  // strictly additive over the fraction write above.
+  var PAIR_ATTR = "data-value-pair";
+  var PAIR_PROPERTY_ATTR = "data-value-pair-property";
+
   // How many steps PageUp/PageDown move. Ten is the native <input
   // type="range"> convention and needs no attribute.
   var PAGE_STEPS = 10;
@@ -488,6 +509,49 @@
     }
   }
 
+  // THE SWEEP, DERIVED ON THE ANCESTOR ONCE BOTH MEMBERS OF THE PAIR
+  // HAVE PUBLISHED THERE — 27-02-PLAN.md Task 1 (CFG-62).
+  //
+  // Read back off the ANCESTOR'S OWN STYLE, never a cached number: the
+  // same "never a cached number" rule every other read in this file
+  // follows, and the reason there is still no parallel state after this
+  // seam exists. Members are found in DOCUMENT ORDER, which is
+  // publication order — quiet_dial_handles_html()'s own comment states
+  // the server always emits the start handle before the end handle, so
+  // the first wrapper this ancestor contains carrying
+  // PAIR_PROPERTY_ATTR is always the start of the pair and the second
+  // is always the end.
+  //
+  // THE +1 IS THE WRAP, AND IT IS THE WHOLE REASON THIS IS NOT A PLAIN
+  // SUBTRACTION. 23:00 -> 07:00 is start 0.9583, end 0.2917: end - start
+  // is -0.6667, which is not a sweep at all, and (end - start + 1) % 1
+  // reads it correctly as 0.3333 — the eight hours forward through
+  // midnight this control has always drawn.
+  //
+  // Silently does nothing until both members have a readable number on
+  // the ancestor (an unset custom property reads back as "", and
+  // numberOrNull("") is null) — there is no invented sweep for half a
+  // pair, matching this file's total-by-construction discipline
+  // elsewhere.
+  function paintSweep(ancestor) {
+    var sweepProperty = ancestor.getAttribute(PAIR_ATTR);
+    if (!sweepProperty || !ancestor.style || !ancestor.style.setProperty) {
+      return;
+    }
+    var members = ancestor.querySelectorAll("[" + PAIR_PROPERTY_ATTR + "]");
+    if (members.length < 2) {
+      return;
+    }
+    var startProperty = members[0].getAttribute(PAIR_PROPERTY_ATTR);
+    var endProperty = members[1].getAttribute(PAIR_PROPERTY_ATTR);
+    var start = numberOrNull(ancestor.style.getPropertyValue(startProperty));
+    var end = numberOrNull(ancestor.style.getPropertyValue(endProperty));
+    if (start === null || end === null) {
+      return;
+    }
+    ancestor.style.setProperty(sweepProperty, String((end - start + 1) % 1));
+  }
+
   function paint(wrapper, bounds, value) {
     // THE ANNOUNCING ELEMENT IS THE ONE A VISITOR LANDS ON: an explicit
     // handle first, then the native mirror (which IS the focusable
@@ -510,8 +574,38 @@
     paintReadouts(wrapper, value);
     if (wrapper.style && wrapper.style.setProperty) {
       var span = bounds.max - bounds.min;
-      wrapper.style.setProperty(
-        FRACTION_PROPERTY, String((value - bounds.min) / span));
+      var fraction = (value - bounds.min) / span;
+      wrapper.style.setProperty(FRACTION_PROPERTY, String(fraction));
+      // THE PAIR SEAM'S OWN WRITE. Additive over the fraction write
+      // above: a wrapper that declares no pair property is untouched
+      // from here on, and behaves exactly as it did before this task.
+      //
+      // A SEPARATE FRACTION, NOT THE ONE JUST WRITTEN ABOVE — found by
+      // Task 4's own agreement check, which decodes the arc back to an
+      // exact minute and caught this disagreeing by one. FRACTION_PROPERTY
+      // above is deliberately (value - min) / (max - min), matching
+      // quiet_dial_handle_fraction()'s own documented choice to make the
+      // control's MAXIMUM reachable at a full visual turn. For a
+      // wrapping/angular pair that fraction is off by exactly
+      // 1 / (max - min) of a turn — under a quarter of a degree, which is
+      // invisible on a painted handle and exactly enough to round a
+      // decoded minute to its neighbour (1380/1439 of a turn decodes to
+      // minute 1381, not 1380). The pair fraction instead divides by
+      // (max - min) + 1: bounds are an INCLUSIVE range of integers, so the
+      // value one step past max is min again, and that wrap point — not
+      // max itself — is what one full turn must mean for a value a sweep
+      // gets derived from. This is exactly QUIET_WINDOW_MINUTES_PER_DAY
+      // (1440) for the quiet-hours dial, reached with no knowledge of
+      // that constant at all.
+      var pairProperty = wrapper.getAttribute(PAIR_PROPERTY_ATTR);
+      if (pairProperty) {
+        var pairAncestor = ancestorWith(wrapper, PAIR_ATTR);
+        if (pairAncestor && pairAncestor.style && pairAncestor.style.setProperty) {
+          var pairFraction = (value - bounds.min) / (span + 1);
+          pairAncestor.style.setProperty(pairProperty, String(pairFraction));
+          paintSweep(pairAncestor);
+        }
+      }
     }
   }
 

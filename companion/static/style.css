@@ -59,10 +59,9 @@
  * "Turn off"/"Turn on") are `type="submit"` and used to be covered by
  * the "primary buttons" entry above — a `.frame-strip__cell button`
  * rule (equal (0,1,1) specificity to `button[type="submit"]`, placed
- * after it in source order, the same mechanism `.logout-form button`/
- * `.dirty-bar__cancel` already use) now repaints them with the ordinary
- * quiet-button wash instead, so "primary buttons" no longer includes
- * them.
+ * after it in source order, the same mechanism `.logout-form button`
+ * already uses) now repaints them with the ordinary quiet-button wash
+ * instead, so "primary buttons" no longer includes them.
  *
  * The arithmetic, CORRECTED IN PLACE by 22-16-PLAN.md's closing sweep
  * because the premise it rested on was wrong. This paragraph used to
@@ -1350,6 +1349,60 @@ a:hover {
   stroke: var(--color-text);
 }
 
+/* 27-02-PLAN.md Task 2 (CFG-62) — THE ARC, REPAINTED FROM THE PAIR,
+ * ONCE SCRIPT HAS PROVEN IT IS RUNNING.
+ *
+ * `.js` is added to <html> unconditionally by nav-dropdown.js's own
+ * first statement (the same gate the `.js .mobile-nav` rules above
+ * already rely on) — so this rule is live the instant ANY script has
+ * run, before companion/static/value-controls.js has painted anything
+ * at all. That is deliberate: the server ALSO writes
+ * --quiet-start-fraction/--quiet-sweep-fraction inline on `.quiet-dial`
+ * itself, from the same span that draws the presentation attributes
+ * below, so at rest this rule and the server's own `stroke-dasharray`/
+ * `transform` describe the identical picture. Only once a drag or a
+ * preset moves the pair does this rule diverge from the presentation
+ * attributes underneath it — which it is always free to do, because a
+ * CSS declaration of any specificity beats one, exactly as
+ * quiet_dial_svg()'s own docstring already records.
+ *
+ * THE PRESENTATION ATTRIBUTES THIS OVERRIDES ARE NEVER TOUCHED. They
+ * are still the saved value and still the no-JS floor; this rule only
+ * ever draws OVER something already correct.
+ *
+ * NO `pathLength` HERE, though 27-02-PLAN.md's own action text asked
+ * for one — measured, not assumed: `pathLength="1"` on this circle
+ * while its `stroke-dasharray` stayed in the SAME real user-unit values
+ * `draw.unit_circle_dash_array()` already emits reinterprets those
+ * numbers as a SECOND, PATHLENGTH-SCALED coordinate system, and a
+ * headless-browser measurement of exactly this ring (r=78, the
+ * 23:00→07:00 dasharray) painted a second, spurious dash on the far
+ * side of the ring that neither the server nor this stylesheet asked
+ * for. `--quiet-dial-radius` already exists on `.quiet-dial` (the
+ * handle transform above already reads it) and needs no `pathLength` to
+ * turn a fraction into a real dasharray length, so the circumference is
+ * computed here instead — 2π, spelled out because CSS has no built-in
+ * constant for it.
+ *
+ * `transform-box`/`transform-origin` are declared explicitly rather
+ * than left at their default: a CSS `rotate()` on an SVG shape rotates
+ * about the shape's OWN geometry only once told to, and the emitter's
+ * own presentation-attribute form (`rotate(deg cx cy)`,
+ * _QUIET_DIAL_TWELVE_OCLOCK_DEG's own Python constant restated as
+ * `-90deg` below) already rotates about the circle's centre — matching
+ * that without matching its EXACT resolved matrix is fine, because nothing
+ * downstream reads the translation component (a decoder that recovers
+ * the angle through atan2 never touches it, verified against this rule
+ * on this tree). */
+.js .quiet-dial .quiet-dial__arc {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: rotate(calc(-90deg + var(--quiet-start-fraction, 0) * 1turn));
+  stroke-dasharray:
+    calc(var(--quiet-sweep-fraction, 0) * var(--quiet-dial-radius) * 6.283185307)
+    calc(var(--quiet-dial-radius) * 6.283185307);
+}
+
 /* The four anchor hours, absolutely placed inside the ring's hole
  * rather than around its outside — outside would grow this block past
  * the 128px the parent declares and reopen the horizontal-overflow
@@ -1550,7 +1603,7 @@ a:hover {
  * other, unrelated file left this fallback button hidden with no
  * working replacement: no way to save settings at all (A-27).
  * `.dirty-ready` was the first fix: added by dirty-state.js itself, only
- * once it confirmed `[data-dirty-bar]`/`[data-dirty-count]` exist. That
+ * once it confirmed its bar's own root element and count node exist. That
  * turned out to still be element PRESENCE, not proven liveness (B1) —
  * every field attached to the form only via `form=` lived outside it, so
  * the bar's own listeners never fired for them, and the fallback still
@@ -1564,9 +1617,50 @@ a:hover {
  * dirty-state.js's own guards fails, at least one class never appears,
  * this rule never matches, and the bottom button remains the only way to
  * save (D-06 graceful degradation, the D-09 no-way-to-save fix, and now
- * B1's proven-liveness fix). */
-.dirty-ready.dirty-shown [data-static-save-fallback] {
+ * B1's proven-liveness fix).
+ *
+ * 27-03-PLAN.md (2026-09-15, CFG-64): SUPERSEDED above, not withdrawn —
+ * the account above was correct for a page whose only save feedback was
+ * the bar it describes, and this paragraph does not erase that history.
+ * Auto-save (27-04) retires the bar entirely; with no dirty state left
+ * to represent, there is nothing left for the two narrowing marker
+ * classes above to mean on THIS rule, and nothing left for them to
+ * prove the liveness of. The floor this rule used to carry is kept a
+ * different way now: render()'s emission of the attribute
+ * STATIC_SAVE_FALLBACK_ATTR names is unconditional on every scope
+ * (companion/pages/config_page.py, verified at the source by
+ * 27-03-PLAN.md Task 1), so there is no render-time branch left for a
+ * hiding rule to guard against. Hiding this button is now a plain
+ * script-presence decision — the same one the file's other progressive-
+ * enhancement rules already make — rather than a proof that a specific
+ * replacement bar succeeded. */
+.js [data-static-save-fallback] {
   display: none;
+}
+
+/* 27-04-PLAN.md Task 3 (D-04/CFG-63): the auto-save status region that
+ * replaces the retired dirty bar — companion/pages/config_page.py's own
+ * _save_status_region_html(), a sibling of `.text-label` in role but not
+ * in markup (it needs a hook of its own for dirty-state.js's lookup, so
+ * it carries both classes at the render site rather than this rule
+ * duplicating .text-label's own three declarations).
+ *
+ * NOT fixed, NOT an overlay, NOT sticky: the overlay drawer CFG-31
+ * already refused stays refused, and a second floating save affordance
+ * is exactly the defect this plan's own objective names as the reason
+ * the bar is gone. `margin-top`/`margin-bottom` are the only geometry
+ * this rule owns — everything else about its position in the page comes
+ * from where render() places it in the document (beside the page's own
+ * heading, before the Frame strip and the form).
+ *
+ * No color declared: at rest it is empty text, and while it holds a
+ * word it is exactly as loud as any other .text-label caption on the
+ * page — a save should read as confirmed, not alarmed, and this app's
+ * accent/status colours are reserved for primary actions and real
+ * warnings (22-UI-SPEC.md §1), neither of which this region ever is. */
+.save-status {
+  margin-top: var(--space-sm);
+  margin-bottom: 0;
 }
 
 /* 22-14-PLAN.md Task 2 (X9/D-10): `.mobile-nav__nav`'s own rule is
@@ -2260,9 +2354,9 @@ a.nav-status:hover {
   min-width: 0;
 }
 
-/* T13 (22-15-PLAN.md Task 2): the FOURTH consumer of this file's
- * `[hidden]`-versus-`display` guard, joining `.dirty-bar[hidden]`,
- * `.refresh-pill[hidden]` and `.login-reveal[hidden]`. The rule above
+/* T13 (22-15-PLAN.md Task 2): a consumer of this file's
+ * `[hidden]`-versus-`display` guard, joining `.refresh-pill[hidden]` and
+ * `.login-reveal[hidden]`. The rule above
  * declares `display: inline-flex`, and an author-stylesheet `display`
  * always beats the user-agent stylesheet's `[hidden] { display: none }`
  * regardless of source order — so the moment any `.banner__pill` is
@@ -2319,24 +2413,24 @@ a.nav-status:hover {
  * freshness.js relies on to hide the pill at rest and between refresh
  * cycles has no effect: the author stylesheet's `display: inline-flex`
  * above always beats the user-agent `[hidden] { display: none }`
- * regardless of source order — the exact collision `.dirty-bar[hidden]`'s
+ * regardless of source order — the exact collision `.banner__pill[hidden]`'s
  * own comment already documents, at a second call site.
  *
  * This rule satisfies that requirement, then makes one further,
- * deliberate choice `.dirty-bar[hidden]` does not: it hides by
+ * deliberate choice `.banner__pill[hidden]` does not: it hides by
  * VISIBILITY, not display, so the pill's own line box stays reserved and
  * revealing it shifts nothing in the page header — the same
  * reserved-space reasoning `.battery-readout`'s own min-height comment
  * already established, applied here to an element that now reveals
  * itself on a repeating cycle instead of once. That matters more here
- * than it did for `.dirty-bar`: the dirty bar reveals at most once per
- * editing session, in direct response to the user's own keystroke,
- * while this pill reveals itself on a timer with no user action at
- * all — a layout shift on reveal would read as a recurring twitch in
- * the header, not a one-off. `visibility: hidden` removes the element
- * from the accessibility tree exactly as `display: none` does, so the
- * no-ARIA-role decision in health_page.py's freshness_html comment is
- * unaffected by this choice. */
+ * than it does for a banner pill that only ever reveals in direct
+ * response to the user's own action: this pill reveals itself on a
+ * timer with no user action at all — a layout shift on reveal would
+ * read as a recurring twitch in the header, not a one-off.
+ * `visibility: hidden` removes the element from the accessibility tree
+ * exactly as `display: none` does, so the no-ARIA-role decision in
+ * health_page.py's freshness_html comment is unaffected by this
+ * choice. */
 .refresh-pill[hidden] {
   visibility: hidden;
 }
@@ -2420,7 +2514,7 @@ label {
 }
 
 /* The 1px edge uses --color-border, the structural-line token, matching
- * .site-nav-toggle / .logout-form button / .dirty-bar__cancel. It used
+ * .site-nav-toggle / .logout-form button. It used
  * to use --color-secondary — the control's own fill colour — so the
  * field had a border in name only and read as a flat block, while the
  * quiet buttons beside it on the same form were properly outlined. Two
@@ -2551,103 +2645,23 @@ button:active {
   color: var(--color-text);
 }
 
-/* Config dirty-state bar (06.6.3 D-03) — a JS-only enhancement layered on
- * top of the always-present, always-server-rendered `Save settings` submit
- * button at the bottom of the form (the no-JS fallback path is unchanged).
- * Full-width, in normal flow below 960px; the >=960px fixed variant is
- * added inside that breakpoint's own @media block below (quick task
- * 260901-re6: no longer sticky, see that rule's comment for why).
+/* 27-04-PLAN.md (D-04/D-06/CFG-63): the dirty save bar that used to
+ * render here — the docked/floating-card styling history (06.6.3 D-03,
+ * quick tasks 260901-re6/260901-s5o), its `[hidden]`-vs-`display`
+ * guard, and its Cancel button's quiet-wash override — is deleted
+ * wholesale along with the markup that carried it (companion/pages/
+ * config_page.py's dirty_bar_html(), retired by that same plan's Task
+ * 3). The `.js [data-static-save-fallback]` rule above still hides the
+ * always-rendered bottom Save settings button once script runs — that
+ * floor is untouched — and `.save-status`, further down this file, is
+ * what replaces the bar as the visible save affordance. See
+ * companion/static/dirty-state.js's own header for the full account of
+ * what auto-save replaced and why.
  *
- * quick task 260901-re6: the surface moved from the muted
- * --color-secondary to --color-dominant, the same card surface every
- * other card on the page uses — the bar used to read as a receding,
- * secondary strip when it should read as the raised action surface.
- *
- * quick task 260901-s5o: the bar is a floating rounded pop-up card, not
- * a docked toolbar — hence a full border rather than a single top
- * hairline, and a shadow that surrounds the whole box rather than
- * projecting upward only (the >=960px rule's own inset, below, is what
- * makes the floating read legible — see that rule's comment). The first
- * shadow layer is now the real --shadow-card-hover token rather than
- * the y-negated black-alpha literal it replaces: the token carries its
- * own dark-mode and [data-ui-theme] variants, whereas the retired
- * literal was theme-neutral and near-invisible on a dark surface,
- * leaning entirely on the hairline for separation. The second, larger
- * layer is a raw rgba literal deliberately, consistent with this file's
- * existing raw-rgba shadow precedent (button[type="submit"]), and
- * exists to push the card further off the page than a card-hover shadow
- * alone does. .lightbox (further down this file) is the existing
- * precedent for a floating element that carries a resting shadow rather
- * than revealing one on hover — this bar is the second, and for the
- * same reason: it is a floating overlay, not a page-flow card.
- *
- * Direct follow-up to 260901-s5o (developer feedback after seeing it
- * live: correct shape, but read as too wide and not visible enough).
- * The ambient shadow layer is deepened here (was `0 8px 24px / .10`) —
- * a stronger drop shadow is what reads as "elevated" without touching
- * any color semantics, which matters on this file: the accent hue is
- * deliberately reserved for primary actions/status, so leaning on a
- * second accent-tinted border here to gain visibility would blur that
- * signal rather than fix the actual complaint. The "too wide" half of
- * the feedback is a `width` fix, not a color fix — see the >=960px
- * rule below, where the bar changes from stretching the full content
- * column to sizing itself to its own content. */
-.dirty-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-md);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  margin-top: var(--space-md);
-  box-shadow: var(--shadow-card-hover), 0 12px 32px rgba(18, 21, 27, 0.16);
-  /* 23-09-PLAN.md Task 1 (D3/CFG-32): the entrance. Declared on the
-   * base rule, so the component has ONE arrival at both breakpoints
-   * rather than one per width — the same discipline its own z-index
-   * comment argues for below. The block it names, and the reason it is
-   * an animation rather than a transition, are at the keyframes' own
-   * site near the top of this file. `ease-out` at the call site because
-   * easing is not a token: 23-01 spent exactly two custom properties and
-   * easing was deliberately not one of them.
-   *
-   * It fires when the bar's own `display` changes from `none`, which is
-   * the only way this element is ever revealed (companion/static/
-   * dirty-state.js sets `bar.hidden = false`, and the `[hidden]`
-   * override immediately below is what makes that attribute mean
-   * anything against the `display: flex` above). Setting `hidden = false`
-   * on a bar that is already shown is not a style change, so a second
-   * edit moves only the count, not the whole bar again. */
-  animation: skypane-bar-arrive var(--motion-fast) ease-out;
-}
-
-/* Without this, the native `hidden` attribute dirty-state.js relies on to
- * hide the bar on load has no effect: the author-stylesheet `display: flex`
- * above always beats the user-agent stylesheet's `[hidden] { display: none }`
- * regardless of source order, so the bar would render visible even when
- * the form isn't dirty. Same collision class as the `.stat-tile svg`/
- * `.mobile-nav` cases elsewhere in this file — a higher-specificity
- * selector for the `[hidden]` case is required whenever a component's own
- * base rule sets `display`. */
-.dirty-bar[hidden] {
-  display: none;
-}
-
-/* `.dirty-bar__save` needs no rule of its own — it is a bare
- * `<button type="submit">`, already accent-filled by `button[type="submit"]`
- * above. `.dirty-bar__cancel` does need an explicit override, matching the
- * `.logout-form button` precedent immediately above (same equal-or-later
- * cascade weight, placed after `button[type="submit"]` in source order).
- * 06.6.4 (D-01b): restates the base rule's quiet wash/border explicitly
- * and adds `box-shadow: none` — this is also a submit button and would
- * otherwise inherit the primary inset highlight, same reasoning as
- * `.logout-form button` above. */
-.dirty-bar__cancel {
-  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
-  box-shadow: none;
-  color: var(--color-text);
-}
+ * The `skypane-bar-arrive` @keyframes block this rule used to reference
+ * is ALSO deleted — its own site (near this file's top) records the
+ * removal and this file's total @keyframes count (still 4, unchanged by
+ * this plan) is what a harness pins, not this comment. */
 
 /* 22-04-PLAN.md Task 2 (C2, T-22-13): the Frame strip's two switch
  * buttons ("Switch off"/"Switch on", "Turn off"/"Turn on") are
@@ -2657,14 +2671,13 @@ button:active {
  * selector plus a class selector on the same side either way — so this
  * rule is placed after `button[type="submit"]` in source order, which
  * is what actually wins the cascade here (the exact `.logout-form
- * button`/`.dirty-bar__cancel` precedent above, never raised further:
- * a higher specificity would start beating class-scoped controls this
- * app also relies on). Restates the base `button` rule's own quiet
- * wash/border explicitly (never a new wash value — 4.5%/9% is the
- * existing register) and neutralizes `box-shadow` for the identical
- * reason `.logout-form button`/`.dirty-bar__cancel` do: this is a
- * submit button and would otherwise inherit the primary inset
- * highlight. */
+ * button` precedent above, never raised further: a higher specificity
+ * would start beating class-scoped controls this app also relies on).
+ * Restates the base `button` rule's own quiet wash/border explicitly
+ * (never a new wash value — 4.5%/9% is the existing register) and
+ * neutralizes `box-shadow` for the identical reason `.logout-form
+ * button` does: this is a submit button and would otherwise inherit
+ * the primary inset highlight. */
 .frame-strip__cell button {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
@@ -2673,20 +2686,17 @@ button:active {
 }
 
 /* 06.6.4 (D-01b): the quiet-button hover reveal. Placement here is
- * load-bearing: this rule MUST sit after both `.logout-form button`
- * (0,1,1) and `.dirty-bar__cancel` (0,1,0) above in source order.
- * `button:hover` is itself (0,1,1) — equal to `.logout-form button`, so
- * source order is what decides the winner there — and while it already
- * out-specifies the bare-class `.dirty-bar__cancel`, keeping it after
- * both here (rather than relying on that asymmetry) keeps the ordering
- * rule uniform and easy to audit. Without this placement the two
- * quietest controls in the app would have no hover feedback. The primary
- * button is unaffected — its own hover rule above carries higher
- * specificity and restates the neutralized border explicitly.
+ * load-bearing: this rule MUST sit after `.logout-form button` (0,1,1)
+ * above in source order. `button:hover` is itself (0,1,1) — equal to
+ * `.logout-form button`, so source order is what decides the winner
+ * there. Without this placement the quietest control in the app would
+ * have no hover feedback. The primary button is unaffected — its own
+ * hover rule above carries higher specificity and restates the
+ * neutralized border explicitly.
  * 22-04-PLAN.md Task 2: `.frame-strip__cell button` (0,1,1) above is
  * ALSO equal specificity to this rule, and is placed before it in
  * source order too, so the strip's own switch buttons get the same
- * hover wash for free, exactly like the two quiet buttons above. */
+ * hover wash for free, exactly like the quiet button above. */
 button:hover {
   background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
   border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
@@ -3022,94 +3032,6 @@ button:disabled {
 
 .runway-card--selected .runway-card__check {
   display: inline-flex;
-}
-
-/* The schematic Orly map inside each runway card (CFG-47,
- * 25-03-PLAN.md Task 2). Server-rendered SVG, one per card, every
- * registry entry drawn at the bearing its own designator states.
- *
- * THE SIZE ROUTE IS DECLARED IN BOTH DIRECTIONS AND BOTH HALVES ARE
- * LOAD-BEARING. The <svg> carries intrinsic width/height attributes
- * (companion/draw.py's unit scheme), which is what keeps it off the SVG
- * default 300x150 with no stylesheet at all; the max-width/height pair
- * here is what keeps those intrinsic 64 user units from overflowing a
- * card that is narrower than 64px. At the 360px contract floor three
- * cards share one row and each one's content box measures about 54px,
- * so the intrinsic size is the WIDER of the two and `max-width: 100%`
- * is the declaration standing between this drawing and a page that
- * scrolls sideways. `height: auto` is what stops that shrink from
- * squashing an aspect-locked mark.
- *
- * No accent anywhere in this component, in any state. The header
- * comment's accent-reservation list is an exhaustive list and this
- * drawing is not on it — the card's own border, ring, wash and check
- * glyph already carry the selection signal in accent, and a fifth
- * accent property on the same component would be a broadening of that
- * list rather than a reuse of it. What the map says instead is said in
- * INK: a strip gets darker as it becomes more relevant. */
-.runway-map {
-  display: block;
-  width: 100%;
-  max-width: 64px;
-  height: auto;
-  margin-bottom: var(--space-sm);
-}
-
-/* The airfield outline: structural ink, the same --color-border token
- * every hairline card edge in this file already uses, so it recedes
- * behind the strips in both themes without a second rule. Stroke-only
- * on purpose — `fill: none` is companion/draw.py's contract rule 4
- * "deliberately unfilled" case stated out loud rather than left to the
- * SVG default. Deliberately declares NO `stroke-width`: 1 user unit is
- * the SVG default already, so a declaration of it would be inert — it
- * was written, mutated, measured to break nothing, and deleted rather
- * than left behind with a comment claiming it mattered. */
-.runway-map__field {
-  fill: none;
-  stroke: var(--color-border);
-}
-
-/* Context: the runways this card is NOT about. Faint, because their
- * job is to place the one strip that matters, not to compete with it.
- *
- * Painted from --color-text rather than a literal, which is what makes
- * the drawing correct in dark mode for the same reason the battery
- * chart already is: the token inverts with the theme and the shape
- * follows for free. 30% is this file's own existing muted-ink strength,
- * not an eighth wash percentage invented for one drawing.
- *
- * The transition lives HERE, on the base rule, and never inside the
- * feature query — the identical discipline the card's own transition
- * follows, and the reason this file's ONE feature query is asserted to
- * declare no transition at all. Declaring it once here animates the
- * live selected state and its no-:has() fallback identically. A plain
- * transition on a real element is already covered by the global
- * reduced-motion block, so this rule declares no per-rule
- * prefers-reduced-motion block (that would be dead code, not a safety
- * net) and no new @keyframes. */
-.runway-map__strip {
-  fill: color-mix(in srgb, var(--color-text) 30%, transparent);
-  transition: fill var(--motion-fast) ease;
-}
-
-/* The runway this card IS about — present on exactly one strip of every
- * map, selected or not. It says "this card's runway", never "the chosen
- * runway", which is what lets a page with nothing selected render with
- * nothing claimed. 55% is likewise an existing strength in this file. */
-.runway-map__strip--this {
-  fill: color-mix(in srgb, var(--color-text) 55%, transparent);
-}
-
-/* The no-:has() FALLBACK half of this drawing's selected state, keyed to
- * the server-rendered modifier, sitting outside the feature query and
- * declaring the same value its live twin inside the query does — the
- * identical parity contract the border, the ring, the wash and the
- * scale already hold on this component, for the identical reason: a
- * browser without :has() must not render a different-looking selected
- * card. Full ink, no accent: the strip that matters goes from 55% to
- * solid, which reads at a glance without borrowing a reserved colour. */
-.runway-card--selected .runway-map__strip--this {
-  fill: var(--color-text);
 }
 
 /* Theme picker chip (06.6.4.1.1-05, sketch 004 variant B — the
@@ -3550,28 +3472,6 @@ button:disabled {
     display: inline-flex;
   }
 
-  /* CFG-47/CFG-52 (25-03-PLAN.md Task 2): the map's own live selected
-   * state JOINS this block rather than opening a second one. Two named
-   * checks assert this file holds exactly one such block, and an
-   * unsupported :has() invalidates the whole selector list it appears
-   * in — which is why every rule needing it is quarantined here.
-   *
-   * Specificity, using the arithmetic recorded above this block and
-   * deliberately not re-derived: this is (0,1,0)+(0,1,1)+(0,1,0) =
-   * (0,3,1), against the fallback rule's (0,2,0). The live rule wins,
-   * which is the required direction.
-   *
-   * The property is `fill` and the value is plain ink. No accent: this
-   * component's accent budget is already spent on the card's border,
-   * ring, wash and check glyph, all four of which are on the header
-   * comment's reservation list, and a drawing that also painted accent
-   * would be a new entry on an exhaustive list rather than a reuse of
-   * one. The transition that animates this lives on the strip's own
-   * base rule outside this query, never in here. */
-  .runway-card:has(input:checked) .runway-map__strip--this {
-    fill: var(--color-text);
-  }
-
   /* T6 (22-15-PLAN.md Task 1): the same positive-restore reconciliation
    * the chip's own hover rule above documents in full — `none` would
    * now erase the selection ring rather than suppress the hover
@@ -3596,17 +3496,6 @@ button:disabled {
 
   .runway-card--selected:not(:has(input:checked)) .runway-card__check {
     display: none;
-  }
-
-  /* CFG-47 (25-03-PLAN.md Task 2): saved-but-not-live CLEARS the map's
-   * full-ink strip back to its resting weight, for exactly the reason
-   * the rules above clear the ring, the wash, the glyph and the scale —
-   * a card can be SAVED at the very moment its neighbour is the LIVE
-   * choice, and two solid-ink strips would claim two selections. The
-   * value is the resting strength restated, so it can never drift from
-   * the base rule it restores. */
-  .runway-card--selected:not(:has(input:checked)) .runway-map__strip--this {
-    fill: color-mix(in srgb, var(--color-text) 55%, transparent);
   }
 
   /* Top-right here (unlike the chip's bottom-right): .runway-card has no
@@ -3673,6 +3562,39 @@ button:disabled {
   .theme-chip:has(input:focus-visible) {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+  }
+
+  /* 27-07-PLAN.md Task 1 (CFG-68/D-20): D5's carousel disclosure moved
+   * to render LAST inside `.theme-carousel` (see
+   * config_page._theme_carousel_html()'s own return statement and the
+   * `.theme-carousel__all` rule above this block for the full story),
+   * so it no longer precedes the strip it has to lay out and the
+   * adjacent-sibling selector this replaces (`.theme-carousel__all
+   * [open] + .theme-chip-grid--strip`) can no longer reach it — a
+   * forward combinator cannot select a PRECEDING sibling. Scoping
+   * `:has()` to the shared `.theme-carousel` wrapper instead reads as
+   * "this carousel contains an open disclosure" rather than "this
+   * disclosure is immediately followed by a strip", so it does not
+   * care which of the two comes first in the DOM — and because the
+   * match is scoped to ONE `.theme-carousel` ancestor, three carousel
+   * instances on one page (27-07-PLAN.md Task 2: departures, arrivals,
+   * calendar) each toggle their OWN strip; there is no path for one
+   * instance's [open] state to reach a sibling instance's grid, which
+   * is exactly the property a shared/page-wide selector would not
+   * have had.
+   *
+   * Joins THIS block rather than opening a second one — the file's own
+   * pinned block-count convention (companion/test_config_page.py pins
+   * the whole file at EXACTLY ONE `@supports selector(:has(*))`
+   * block). A browser without `:has()` support skips this rule and
+   * keeps the strip in its scrolling, one-row form even with the
+   * disclosure open — the same accepted degradation every other rule
+   * in this block already carries, and not a silent one: the
+   * disclosure's own body copy already says "They are all in the strip
+   * either way — it scrolls," so a reader on such a browser is told
+   * the truth either way. */
+  .theme-carousel:has(.theme-carousel__all[open]) .theme-chip-grid--strip {
+    flex-wrap: wrap;
   }
 }
 
@@ -4100,11 +4022,25 @@ table.data-table--registry .cell-inline-sep {
   padding: var(--space-md);
 }
 
+/* 27-08-PLAN.md Task 3 (CFG-70): `margin-bottom` closes the gap between
+ * this grid and whatever follows it in the same reveal cell (the
+ * callsign's own copy button, standalone rather than inside a `<dl>`
+ * item — companion/pages/history_page.py's `_flight_detail_row_html()`).
+ * MEASURED at the prior 0-margin value: the grid's bottom edge sat
+ * roughly 4px above that trailing button's own top edge, well inside
+ * both controls' own synthesized 11px reach — the later element (the
+ * trailing button, later in document order) wins that overlap outright,
+ * so the EARLIER control (the grid's own last-row copy button) measured
+ * a real 34x26 against its declared 44x44: full reach left/right/up,
+ * almost none down. `var(--space-lg)` (24px) reopens a real gap between
+ * the two 11px reaches (22px needed) with room to spare, the same
+ * `--space-lg`-over-the-exact-minimum margin this file's carousel pager
+ * gap rule already banked for the identical reason. */
 .flight-detail-row__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-sm) var(--space-md);
-  margin: 0;
+  margin: 0 0 var(--space-lg);
 }
 
 .flight-detail-row__grid dt {
@@ -4206,9 +4142,28 @@ table.data-table--registry .cell-inline-sep {
   }
 }
 
+/* 27-08-PLAN.md Task 3 (CFG-70): `padding-left` on THIS element, not on
+ * `.flight-detail-row td` two rules up (that rule's own `padding`
+ * declaration is shadowed by `table.data-table--flights td`'s higher-
+ * specificity `var(--space-sm)` padding, verified from source rather
+ * than assumed — editing the shadowed rule would be a change with no
+ * effect). This element is the one whose `overflow: hidden` (needed for
+ * the height-collapse animation two rules up) clips anything painted
+ * past its own edge, including a synthesized `::before` pointer target
+ * belonging to a descendant flush against that edge — which the first
+ * grid column's copy buttons are, at the 8px `table.data-table--flights
+ * td` leaves them. `var(--space-md)` (16px) clears the 11px reach those
+ * buttons need with a few pixels to spare. This DOES move the row's
+ * rendered content 16px further right than the table's own 8px cell
+ * padding alone would (24px total inset instead of 8px) — a visible,
+ * deliberate trade rather than a free one: touching `table.data-table--
+ * flights td` instead would have re-spaced every cell in the table
+ * (header and every summary row too) for a defect that lives in one
+ * component. */
 .flight-detail-row__reveal-inner {
   overflow: hidden;
   min-height: 0;
+  padding-left: var(--space-md);
 }
 
 /* 22-09-PLAN.md Task 1 (X5, 22-UI-SPEC.md §2): the row-toggle's FIRST
@@ -6974,111 +6929,20 @@ a.airline-card {
    * a supersede of the two-column idiom, not a narrower breakpoint or a
    * fixed wrap. Do not reintroduce a `.config-form` column rule here. */
 
-  /* Dirty-state bar (06.6.3 D-03), fixed not sticky at >=960px (quick
-   * task 260901-re6) — `position: sticky`'s containing block is the
-   * nearest scrolling ancestor's *box*, which was the short three-section
-   * `<form>` the bar used to live inside; that made the bar stop sticking
-   * at the form's own bottom edge instead of the viewport's, visibly
-   * detaching and stopping above the Poll section on a page much taller
-   * than the form. `position: fixed` is immune to that — genuinely
-   * pinned to the viewport regardless of any ancestor's height — which
-   * is what this bar (now emitted as a sibling of the form, last on the
-   * page, submitting via `form=` — see render()'s own comment) needs.
-   *
-   * `left`/`right` reproduce `.dashboard-main`'s own content-column
-   * geometry, INSET by `var(--space-md)` on each edge — the bar's
-   * positioning region is the content column, shrunk by that inset, not
-   * the column itself. The `240px` literal is a duplicated-not-imported
-   * must-equal value — it has to stay equal to `.dashboard-shell`'s
-   * `grid-template-columns` first track, and the `var(--space-xl)`
-   * addend equal to its `column-gap` — there is no token for either, so
-   * the pair (now a three-term `left` expression with the inset as a
-   * third addend) is guarded by a harness check instead of a shared
-   * variable. `max-width` is reduced by twice the inset
-   * (`calc(min(1440px, 100%) - var(--space-md) * 2)`) rather than left
-   * as the bare `min(1440px, 100%)` copied from `.dashboard-main`: for a
-   * fixed-position box, `100%` resolves against the viewport, so once
-   * the viewport passes roughly 1712px (240px sidebar + 32px gap +
-   * 1440px cap) the cap alone would size the box — a 16-inch MacBook
-   * Pro's 1728px default logical width included.
-   *
-   * Direct follow-up to 260901-s5o: that version additionally set
-   * `right: var(--space-md)` with no `width`, which — per the CSS2.1
-   * abs/fixed-positioning rules, `width:auto` plus both `left` and
-   * `right` non-auto — stretches the box to fill the entire positioning
-   * region, exactly as wide as `.dashboard-main` itself. Correct shape,
-   * developer feedback: too wide. `width: fit-content` overrides that
-   * stretch so the box sizes to its own content (the "changed" label
-   * plus the two buttons) instead of the full column; `left`/`right`
-   * stay as the region the box centres within, and `margin: 0 auto`
-   * still centres it there (the classic auto-margin-centering trick for
-   * a positioned box, which needs a definite `width` to engage — hence
-   * `fit-content` rather than leaving it unset). `max-width` remains as
-   * a hard ceiling for pathological cases (e.g. a very long future
-   * status label) rather than the effective width it used to be. The
-   * >=960px padding override is dropped entirely now that the bar is
-   * compact rather than full-width — it existed only to align the full-
-   * width bar's controls with `.dashboard-main`'s own content gutter, so
-   * the base rule's `padding: var(--space-md)` (the same value every
-   * other `.page-section` card uses) now applies unmodified. `bottom`
-   * grows from `var(--space-md)` to `var(--space-lg)` — a deliberately
-   * larger gap from the viewport edge reads as more clearly "floating,"
-   * not merely "shorter." The corner-squaring override (`border-radius:
-   * 0`) this rule used to carry stays deleted — the base rule above
-   * already declares `border-radius: var(--radius-card)`, and one
-   * definition site is what keeps this component's radius from
-   * drifting between widths. No `z-index`: this is the last positioned
-   * element in document order and nothing it overlaps creates a
-   * competing stacking context, so a z-index here would be an unearned
-   * magic number — if a future overlap appears, add one then with a
-   * stated reason.
-   *
-   * 22-14-PLAN.md Task 3 (T7, D-10): that future overlap has appeared,
-   * and the escape clause above is being used exactly as it was
-   * written, so the STATED REASON is recorded here rather than the
-   * paragraph deleted. The bottom tab bar (at the foot of this file) is
-   * a new `position: fixed` element that genuinely competes for the
-   * same corner of a phone viewport, so "nothing it overlaps creates a
-   * competing stacking context" has stopped being true. `z-index: 30`
-   * is declared at BOTH breakpoints — one value for the component, not
-   * one per width — and sits above the tab bar's 20.
-   *
-   * Why the save bar wins rather than the tab bar: the save bar is the
-   * user's ACTIVE TASK and the tab bar is ambient chrome, and a blocked
-   * save is the P0 (B1/CFG-25) this entire phase exists to fix. A
-   * wrapped, taller save bar covering a tab is acceptable; a tab bar
-   * covering the Save button is not. Geometric separation comes first
-   * (see the sub-960px rule, where the bar's own bottom offset gains
-   * the tab bar's height so the two never overlap at all); this
-   * stacking order is belt-and-braces for the cases geometry cannot
-   * cover, such as a save bar that wraps taller than its own gap. */
-  .dirty-bar {
-    position: fixed;
-    bottom: var(--space-lg);
-    left: calc(240px + var(--space-xl) + var(--space-md));
-    right: var(--space-md);
-    width: fit-content;
-    max-width: calc(min(1440px, 100%) - var(--space-md) * 2);
-    margin: 0 auto;
-    z-index: 30;
-  }
-
-  /* T7: the fixed bar covers page content at the foot of a scrolled
-   * page. Scoped to `.dirty-ready` — the class companion/static/
-   * dirty-state.js adds to <html> once it has confirmed its own bar
-   * exists — so a page with no save bar reserves nothing.
-   *
-   * 88px, MEASURED not guessed: the bar renders 64px tall at 1280px and
-   * sits `var(--space-lg)` (24px) above the viewport foot, so its whole
-   * footprint is 88px — already on the 8px spacing grid. Measured in
-   * BOTH languages: at this width the bar is `width: fit-content` and
-   * does not wrap, so English and French render the same 64px and there
-   * is no longer-copy case to budget for. The phone figure differs and
-   * is larger; see the tab bar's own block at the foot of this file for
-   * it and for why it is declared there. */
-  .dirty-ready .dashboard-main {
-    padding-bottom: calc(var(--space-2xl) + 88px);
-  }
+  /* 27-04-PLAN.md (D-04/CFG-63): the dirty-state bar's own >=960px
+   * fixed-position rule — the sticky-to-fixed history (quick task
+   * 260901-re6), the measured left/right/max-width geometry against
+   * `.dashboard-shell`'s own column track, the width: fit-content
+   * follow-up, and the T7/D-10 z-index-over-the-tab-bar escape clause —
+   * is deleted wholesale along with the component it positioned. So is
+   * the `.dirty-ready .dashboard-main` content-clearance rule that used
+   * to reserve 88px of bottom padding for it: `.dirty-ready` is no
+   * longer written by any script (companion/static/dirty-state.js's own
+   * header records the account), so the rule was dead code twice over
+   * even before this deletion. `.save-status`, further down this file,
+   * sits in normal document flow beside the page's own heading and
+   * needs no fixed positioning, no z-index and no content-clearance
+   * rule of its own — see that rule's own comment. */
 
   /* History's mobile/desktop toggle (06.6.3 D-07), inverted at this
    * breakpoint: cards hide, the desktop table (scoped via the same
@@ -7353,7 +7217,7 @@ a.airline-card {
  * user-agent `[hidden] { display: none }` regardless of source order, so
  * a browser with scripts blocked would render a show-password button
  * that does nothing at all — the exact defect this control was built to
- * avoid. Same collision class, and the same fix, as `.dirty-bar[hidden]`
+ * avoid. Same collision class, and the same fix, as `.banner__pill[hidden]`
  * and `.refresh-pill[hidden]` above: a component whose base rule sets
  * `display` always needs its own higher-specificity `[hidden]` selector.
  * Found by companion/test_browser_ux.py's own scripts-blocked pass, not
@@ -8481,12 +8345,16 @@ a.airline-card {
  * rather than a standing condition, and a permanent block would outlive
  * the thing it describes.
  *
- * Anchored at the TOP of the viewport on purpose. The bottom edge is
- * already claimed by two `position: fixed` components — `.tab-bar`
- * (z-index 20) and `.dirty-bar` (z-index 30) — and stacking a third
- * there would mean re-deriving their geometry. The top edge is free at
- * every breakpoint. `z-index: 40` continues that same declared order
- * upward rather than inventing a parallel one.
+ * Anchored at the TOP of the viewport on purpose. The bottom edge used
+ * to be claimed by two `position: fixed` components — `.tab-bar`
+ * (z-index 20) and the dirty save bar (z-index 30) — and stacking a
+ * third there would have meant re-deriving their geometry. The save bar
+ * is retired outright by 27-04-PLAN.md (CFG-63); `.tab-bar` is now the
+ * bottom edge's only fixed occupant, but this toast stays anchored at
+ * the top regardless — repositioning it was no part of what that plan
+ * changed. The top edge is free at every breakpoint. `z-index: 40`
+ * continues that same declared order upward rather than inventing a
+ * parallel one.
  *
  * The empty element is rendered on every page and is not `hidden`: a
  * live region added to the accessibility tree at announce time is one
@@ -8561,6 +8429,29 @@ a.airline-card {
   justify-content: space-between;
   gap: var(--space-md);
   min-width: 0;
+}
+
+/* 27-08-PLAN.md Task 2 (CFG-69): the Quiet hours caption's own link to
+ * the schedule fields (companion/layout.py's frame_strip_html(), the
+ * quiet cell's one write site). `.text-link` supplies the colour and
+ * underline; this class supplies the FLOOR — a bare inline `<a>` hit-
+ * tests to its own text line-height, well under 44px, and this sits in
+ * the same dense strip cell as a switch (the geometry that produced the
+ * 30x45 pager and the 43x43 handle elsewhere in this file). `display:
+ * inline-flex` plus `min-height` is the native-input idiom this file
+ * already uses for a floor that does not depend on font metrics, rather
+ * than a padding value tuned to one line-height that a copy change could
+ * silently undercut. No `::before` synthesis: unlike the small icon
+ * controls in the shared register above, this control's own text is
+ * already wider than 44px, so there is nothing to synthesize on that
+ * axis. Block-level in its own right (the delay sentence above it is a
+ * `<p>`, so this `<a>` starts its own line by construction) — it is a
+ * second, independent affordance in the caption row, not a run-on
+ * continuation of the delay sentence. */
+.frame-strip__schedule-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 /* The Frame strip (D-01, D-02, D-05; 22-04-PLAN.md Task 2, B13) — one
@@ -8923,7 +8814,7 @@ img.recent-flight__thumb,
  * "..."]` is (0,2,1) — EQUAL to the `.config-form input[type="number"]`
  * rule directly above, and placed immediately after it, which is this
  * file's own documented equal-specificity-plus-source-order mechanism
- * (`.logout-form button`, `.dirty-bar__cancel`). Raising specificity
+ * (`.logout-form button`). Raising specificity
  * instead would start beating rules this one has no business beating.
  *
  * It must live HERE, beside that rule, rather than up with the other
@@ -9016,35 +8907,16 @@ a.airline-card__zoom {
     width: calc(50% - var(--space-sm) / 2);
   }
 
-  /* The save bar used to sit in normal flow at the very bottom of the
-   * page on phones — below every group, the rules table and the
-   * refresh section — so a change made near the top had no visible way
-   * to be saved. Pin it like the desktop rule already does.
+  /* 27-04-PLAN.md (D-04/CFG-63): the save bar this rule used to pin to
+   * the phone viewport's bottom corner — GEOMETRIC SEPARATION FIRST
+   * against the tab bar (22-14-PLAN.md Task 3, D-10/T7), then a belt-
+   * and-braces z-index: 30 above the tab bar's 20 — is retired outright,
+   * along with the desktop rule that carried this one's full stated
+   * reason. `.save-status`, further down this file, is not fixed to the
+   * viewport at either breakpoint, so it needs no phone-side pin at
+   * all — see that rule's own comment for why.
    *
-   * 22-14-PLAN.md Task 3 (D-10, T7): GEOMETRIC SEPARATION FIRST. The
-   * bottom tab bar lands at exactly this corner — `bottom: 0`, 56px of
-   * row plus the same safe-area inset — so the bar's own offset gains
-   * that 56px and the two never overlap at all in the normal case.
-   * D-10's "must not cover the pinned save bar" is then satisfied by
-   * arithmetic rather than by a stacking assurance.
-   *
-   * The stacking order is the belt-and-braces half, for the cases
-   * geometry cannot cover (a save bar wrapped taller than its own gap):
-   * `z-index: 30`, raised from 20 so the component declares ONE value
-   * across both breakpoints, above the tab bar's 20. The desktop rule
-   * above carries the full stated reason, as that block's own escape
-   * clause requires. */
-  .dirty-bar {
-    position: fixed;
-    left: var(--space-md);
-    right: var(--space-md);
-    bottom: calc(var(--space-md) + 56px + env(safe-area-inset-bottom, 0px));
-    margin: 0;
-    z-index: 30;
-    flex-wrap: wrap;
-  }
-
-  /* T7's phone-side content clearance is NOT declared here. It has to
+   * T7's phone-side content clearance is NOT declared here. It has to
    * beat `.has-tab-bar .page-content`, which targets the same element at
    * the same (0,2,0) specificity, so it is declared AFTER it — in the
    * tab bar's own block at the foot of this file, next to the rule it
@@ -9393,9 +9265,9 @@ a.airline-card__zoom {
  * History's picture control are both `type="button"`), so the defect
  * was invisible on two of the three call sites.
  *
- * The fix is the mechanism this file already uses in four places
- * (`.logout-form button`, `.dirty-bar__cancel`, `.frame-strip__cell
- * button`, `.config-form input[name="wake_interval_s"]`): EQUAL
+ * The fix is the mechanism this file already uses in three places
+ * (`.logout-form button`, `.frame-strip__cell button`, `.config-form
+ * input[name="wake_interval_s"]`): EQUAL
  * specificity plus source order. `button.calendar-disconnect-btn` is
  * (0,1,1) — equal to the primary rule — and this block sits thousands
  * of lines after it, so source order decides and the grey treatment
@@ -9406,7 +9278,7 @@ a.airline-card__zoom {
  * §2's T2 row states this prohibition directly).
  *
  * `box-shadow: none` is new and load-bearing for the same reason
- * `.logout-form button`/`.dirty-bar__cancel`/`.frame-strip__cell
+ * `.logout-form button`/`.frame-strip__cell
  * button` each carry it: this is a submit button and would otherwise
  * keep the primary rule's inset highlight even once the fill is
  * repainted, which is what made the control read as raised.
@@ -9932,29 +9804,56 @@ input:checked + .frame-colours__row {
   scroll-snap-align: start;
 }
 
-/* 25-06-PLAN.md Task 3 (CFG-50): the "See all themes" disclosure, and
- * the ONE rule that is the whole reason it is a <details> sitting BEFORE
- * the strip rather than around it.
+/* 25-06-PLAN.md Task 3 (CFG-50): the "See all themes" disclosure.
  *
- * There is exactly one set of eighteen radios on this page. A <details>
- * hides its own non-summary children when closed, so a disclosure
- * CONTAINING the grid would hide every theme whenever it was shut and
- * there would be no strip at all. Governing the adjacent sibling's
- * layout is what keeps the strip and the full grid the same eighteen
- * native radios — see config_page._theme_carousel_html() for the
- * rejected two-set alternative.
+ * There is exactly one set of eighteen radios per usage on this page. A
+ * <details> hides its own non-summary children when closed, so a
+ * disclosure CONTAINING the grid would hide every theme whenever it was
+ * shut and there would be no strip at all — see
+ * config_page._theme_carousel_html() for the rejected two-set
+ * alternative. This rule only styles the disclosure's own box; the rule
+ * that makes ITS [open] state change the GRID's layout now lives inside
+ * the file's one `@supports selector(:has(*))` block, immediately
+ * below (see that rule for why).
  *
- * An adjacent-sibling combinator and an attribute selector, so no
- * `:has()` is involved and this file's single feature query is not
- * touched. (0,3,0) against the strip rule's own (0,1,0), so source
- * order decides nothing here. */
+ * 27-07-PLAN.md Task 1 (CFG-68/D-20): `margin-top` joins the existing
+ * `margin-bottom` here, because this element used to be the FIRST thing
+ * in `.theme-carousel` (nothing above it needed a gap) and is now the
+ * LAST — the dots row sits immediately above it and only ever declares
+ * its OWN `margin-top` (for ITS gap from the pagers above IT), never a
+ * `margin-bottom` of its own, so without this addition the dots and the
+ * disclosure would sit flush against each other. Same token,
+ * `--space-sm`, both sides. */
 .theme-carousel__all {
+  margin-top: var(--space-sm);
   margin-bottom: var(--space-sm);
 }
 
-.theme-carousel__all[open] + .theme-chip-grid--strip {
-  flex-wrap: wrap;
-}
+/* 27-07-PLAN.md Task 1 (CFG-68/D-20): D5's carousel disclosure now
+ * renders LAST inside `.theme-carousel` (grid, pagers, dots, disclosure
+ * — see config_page._theme_carousel_html()'s own return statement), so
+ * it no longer immediately PRECEDES the strip it has to affect and the
+ * adjacent-sibling selector this used to be (`.theme-carousel__all
+ * [open] + .theme-chip-grid--strip`) can no longer reach it — a forward
+ * combinator cannot select a PRECEDING sibling. `:has()` scoped to the
+ * shared `.theme-carousel` ancestor reads as "this carousel contains an
+ * open disclosure" instead of "this disclosure is immediately followed
+ * by a strip", which does not care which of the two comes first in the
+ * DOM, and — because the match is scoped to ONE `.theme-carousel`
+ * wrapper — three carousel instances on one page each toggle their OWN
+ * strip independently; there is no way for one instance's [open] state
+ * to reach a sibling instance's grid.
+ *
+ * Joins the file's existing `@supports selector(:has(*))` block rather
+ * than opening a second one — this file's own pinned block-count
+ * convention (companion/test_config_page.py pins the whole file at
+ * EXACTLY ONE such block). A browser without `:has()` support skips
+ * this rule and keeps the strip in its scrolling, one-row form even
+ * with the disclosure open — an accepted degradation matching every
+ * other rule in that block, and not a silent one: the disclosure's own
+ * body copy already says "They are all in the strip either way — it
+ * scrolls," so a reader on such a browser is told the truth either
+ * way. */
 
 /* The two pagers. `--js-gate-display` is how a consumer picks its own
  * display without re-deciding 25-01's gate direction.
@@ -10129,9 +10028,9 @@ input:checked + .frame-colours__row {
    * Surface/shadow: `--color-secondary` (the nav surface `.mobile-nav`
    * already uses), a single TOP hairline, and `--shadow-card-hover` at
    * REST. The resting shadow is a floating-overlay exception to the
-   * card hairline-at-rest contract, the same exception `.mobile-nav`,
-   * `.lightbox` and `.dirty-bar` already carry, for the same reason:
-   * this genuinely floats over the content it covers.
+   * card hairline-at-rest contract, the same exception `.mobile-nav`
+   * and `.lightbox` already carry, for the same reason: this genuinely
+   * floats over the content it covers.
    *
    * NO border radius, deliberately. `--radius-card` is for floating
    * elements that do NOT touch the viewport edge; this bar is anchored
@@ -10144,8 +10043,11 @@ input:checked + .frame-colours__row {
    * tab ROW's height, with the inset added as padding underneath so the
    * row itself never shrinks on a device with a home indicator.
    *
-   * `z-index: 20` puts the bar above ordinary page content and BELOW
-   * `.dirty-bar`'s 30 — see the save-bar rules and their stated reason. */
+   * `z-index: 20` puts the bar above ordinary page content. It used to
+   * sit below the save bar's own 30 (27-04-PLAN.md, CFG-63, retired that
+   * component outright); the value is left unchanged rather than
+   * reclaimed, since nothing about this component's own stacking needs
+   * moved. */
   .tab-bar {
     display: flex;
     position: fixed;
@@ -10328,23 +10230,12 @@ input:checked + .frame-colours__row {
       var(--space-2xl) + 56px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* T7, phone side (22-14-PLAN.md Task 3). When the save bar is live the
-   * page must clear BOTH fixed elements: the tab bar's 56px row and the
-   * save bar floating above it. Declared here, immediately after the
-   * rule it supersedes, because the two target the same element at the
-   * same (0,2,0) specificity and source order is what decides between
-   * them — writing this beside the sub-960px `.dirty-bar` block instead
-   * would have let the tab bar's own clearance silently win.
-   *
-   * 144px, MEASURED not guessed, and measured in BOTH languages rather
-   * than assumed: at 390px the bar is full-width and wraps, and it is
-   * ENGLISH that wraps taller here (122px against French's 110px) —
-   * the opposite of this file's usual longer-copy-is-French case, and
-   * exactly why the figure was measured instead of reasoned about. 122px
-   * of bar plus its own `var(--space-md)` offset above the tab bar is
-   * 138px, rounded up to 144px on the 8px spacing grid. */
-  .dirty-ready .page-content {
-    padding-bottom: calc(
-      var(--space-2xl) + 56px + 144px + env(safe-area-inset-bottom, 0px));
-  }
+  /* 27-04-PLAN.md (D-04/CFG-63): T7's phone-side second clearance rule
+   * (22-14-PLAN.md Task 3) — 144px, MEASURED across both languages, of
+   * EXTRA bottom padding so the page could clear both the tab bar's row
+   * AND the save bar floating above it — is deleted along with the bar
+   * itself. `.has-tab-bar .page-content` above, clearing the tab bar
+   * alone, is the only clearance a phone-width settings page needs now:
+   * `.save-status` sits in normal document flow and claims no fixed
+   * space of its own. */
 }

@@ -543,6 +543,22 @@ _FRAME_DELAY_HELD_TEXT = "Applies when quiet hours end, around %s."
 # TEXT survives as exactly this one computed branch's wording.
 _FRAME_DELAY_UNKNOWN_TEXT = QUICK_ACTION_APPLIES_SENTENCE
 
+# 27-08-PLAN.md Task 2 (CFG-69): the quiet cell's caption link, appended
+# to the SAME `delay_caption_html` slot the switch cells already share —
+# never a new slot, never a per-page fork (D-23; see frame_strip_html()
+# below). The link text is scanner-visible for the identical D-08 reason
+# the six _FRAME_*_TEXT constants above are: a local, byte-identical copy
+# rather than a cross-module attribute read.
+_FRAME_QUIET_SCHEDULE_LINK_TEXT = "Change the schedule"
+# Byte-identical to companion/pages/config_page.py's own
+# QUIET_HOURS_GROUP_HEADING_ID (27-08-PLAN.md Task 1) — duplicated, never
+# imported, for the same "a page module may never import another page
+# module" reason QUICK_ACTION_QUIET_LABEL and its ten siblings above are
+# local copies rather than a cross-module read. The two constants must
+# be kept byte-identical by hand; a harness proves it (27-08-PLAN.md
+# Task 2's own check).
+_FRAME_QUIET_SCHEDULE_TARGET_ID = "quiet-hours-group-heading"
+
 # The frame's held state reuses the app's existing neutral "off" dot
 # (companion/static/style.css's own comment: "a neutral, everyday state
 # ... never a problem") — never a new colour, never the warn dot
@@ -3600,9 +3616,23 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
         + quick_switch_html(
             "/quick/quiet-hours", return_to, is_quiet_on,
             QUICK_SWITCH_QUIET_LABEL_ID, QUICK_SWITCH_QUIET_STATE_ID))
+    # 27-08-PLAN.md Task 2 (CFG-69): the ONE write site for the Quiet
+    # hours caption link — appended to a COPY of the shared delay
+    # sentence, never to `delay_caption_html` itself (that variable is
+    # also the Screen cell's own caption two calls up; mutating it here
+    # would leak the link onto Screen too). Always a real `<a href>`,
+    # including when `return_to` is already DISPLAY_ROUTE: a same-page
+    # fragment link is a genuine, working jump with no script, which is
+    # why it is never rendered as a plain `<span>` on that page (Q4 — the
+    # CFG-57 "omit the href when already there" precedent is Phase 26,
+    # planned but NOT executed, so it is not available to borrow here).
+    quiet_schedule_link_html = '<a class="text-link frame-strip__schedule-link" href="%s#%s">%s</a>' % (
+        DISPLAY_ROUTE, _FRAME_QUIET_SCHEDULE_TARGET_ID,
+        escape_html(i18n.t(_FRAME_QUIET_SCHEDULE_LINK_TEXT)))
+    quiet_caption_html = delay_caption_html + quiet_schedule_link_html
     quiet_cell_html = _frame_strip_cell_html(
         "quick-action quick-action--%s" % ("on" if is_quiet_on else "off"),
-        quiet_label_html, quiet_state_row_html, delay_caption_html,
+        quiet_label_html, quiet_state_row_html, quiet_caption_html,
         extra_attrs=QUICK_SWITCH_REGION_ATTR)
 
     update_cell_html = ""

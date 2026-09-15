@@ -70,7 +70,7 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [x] **CFG-44**: Home gains a hero the other drawings feed — one composition assembled from the same emitters this phase defines elsewhere, never a second copy of any of them
 - [x] **CFG-45**: The phase's regression floor — every drawing renders with scripts blocked, fits 360 px with no horizontal scrollbar on the page body, takes every colour from the theme tokens so it reads in BOTH themes, spends only from the existing motion budget, and the design system is updated in step
 - [x] **CFG-46**: The no-JS control contract is executable, not promised — the server renders every submitting control unconditionally, the enhancement writes into it and never holds the value, an affordance that cannot work without script does not render without script, and a machine fails the build when any of those is violated; the whole phase spends ONE new static script, whose three taxes (the deferred-script pin, the French catalogue, the route and forbidden-sink guard) are paid once
-- [x] **CFG-47**: The runway is picked on one drawn map of Orly — the three strips are the same native radios, so selection, arrow-key navigation and saving all work with scripts blocked; the map's bearings derive from the designators already in the registry, so the drawing cannot contradict its own labels; every strip is a real touch target at 360 px, measured
+- [x] **CFG-47**: The runway is picked on one drawn map of Orly — the three strips are the same native radios, so selection, arrow-key navigation and saving all work with scripts blocked; the map's bearings derive from the designators already in the registry, so the drawing cannot contradict its own labels; every strip is a real touch target at 360 px, measured — **RETIRED (Phase 27, 2026-09-14).** Met as worded by 25-03 and ticked on that evidence; then WITHDRAWN as a product decision, which is a different fact from "not met" and must not be collapsed into one. The developer, reviewing the deployed app: *"Je comprends pas l'intérêt de ces cartes des pistes, elles représentent la même chose que mes schémas."* The drawn map is removed by Phase 27 (CFG-66); the three native radios return to being the control, and the three `runway-*.png` photographs stay served. The tick is left standing because the work it records really was done — what is retired is the REQUIREMENT, so that no ticked row points at deleted code.
 - [x] **CFG-48**: Quiet hours are set on a 24-hour dial whose arc is drawn by the server, so the window is visible with scripts blocked and only the drag handles are withheld — the two native time fields stay visible and stay what the form posts, B14's visible 24 h sibling survives, the window that wraps midnight is measured as the short way round, and the handles announce through `aria-valuetext` rather than a live region that re-reads on every step
 - [x] **CFG-49**: The wake interval is steered by a slider whose two gauges tell the truth — freshness stated as a bound ("at most N minutes"), battery life stated only as far as this device's own observed history supports, with a named "not enough history yet" state instead of a figure invented from a per-wake cost nobody has measured; the number input remains the only thing that posts, and its out-of-range guard still protects the whole Settings form
 - [ ] **CFG-50**: The theme picker folds — a scroll-snap carousel over the one existing chip grid with the full set behind a native disclosure that opens with scripts blocked, judged by Display's MEASURED page height rather than by the carousel's existence, with the stylesheet's single `:has()` feature query still single and the compact chip still size-only
@@ -85,6 +85,16 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [ ] **CFG-59**: The app tints the browser chrome to the frame's own theme via `<meta name="theme-color">` driven by the resolved theme's token, and the `manifest.webmanifest` half is deliberately NOT built, with its five grounds recorded in the code — the install prompt depends on the service worker D12 excluded, there are no icons and 22-13 declined a brand mark, `theme_color` cannot track eighteen runtime themes from a static file, a manifest behind auth needs `crossorigin="use-credentials"`, and an installed icon on a 12-hour session would frequently open on the login page
 - [ ] **CFG-60**: Static assets are compressed at the edge and nothing session-derived is — the `encode` directive lands in the companion's Caddy site block only, scoped to public static asset types served before `require_session()`, so BREACH is structurally out of scope rather than argued away; and prefetch-on-hover is deliberately NOT built because `no-store` responses cannot be reused, making it a duplicate request with zero speedup, with hover unreachable by touch and the only fix being to weaken a Phase 18 decision
 - [ ] **CFG-61**: The phase's instrumentation floor — focus restoration is observed rather than cited, an announcement is read back as text so a repeat is detectable, the unauthenticated-route set is enumerable so a new public route is detectable, a keystroke can be aimed at a named element with proof it landed there, and the destination sweep visits every destination rather than a sample; the helpers add zero net checks
+- [x] **CFG-62**: The quiet-hours dial tells one story — the arc and the caption are functions of the PAIR of values, not of one value per handle, so that after a drag or a preset the fields, the handles, the arc and the caption all describe the same window; the server-rendered arc stays authoritative for the SAVED value so the picture is still correct with scripts blocked, script only ever overrides what is already right, and a caption that cannot state a true duration says NOTHING rather than a stale one
+- [x] **CFG-63**: The settings pages have no save button — a change saves itself, confirmed by a transient "Sauvegarde…" → "Sauvegardé" and nothing else; the failure path reuses the app's ONE existing failure vocabulary (the optimistic rollback and the translated generic toast the `role="switch"` controls already use) rather than inventing a second, the three instant switches and the settings form end up under ONE stated save model rather than two, and the leave-guard and "Annuler" are retired only where they mean "discard a pending edit" and kept where they confirm a destructive act
+- [x] **CFG-64**: The no-JS floor survives the save button's removal BY CONSTRUCTION — the native submit is emitted on every render with no condition of any kind on its presence, script only hides it, and the proof is a value read back OFF DISK after a real form submit with scripts blocked, in both shipped languages and at 360 px, never a check that the button rendered; B1/P0's superseded `[data-static-save-fallback]` visibility contract is amended in writing where it lives, not deleted
+- [ ] **CFG-65**: There is one title form on the settings pages — both shapes are inventoried by a machine and their counts stated BEFORE the choice is made, the chosen form is applied everywhere it applies, and the check asserts the losing form's count is ZERO rather than asserting the winner exists
+- [x] **CFG-66**: The runway is picked with the three native radios again — D16's drawn map, its constants, its stylesheet rules and the standing checks that assert its classes and geometry are all removed and NAMED as removed; the three `runway-*.png` photographs, their route and their slot stay served; the radios' own scripts-blocked save-to-disk proof stays and still passes; and CFG-47 is retired in place with its reason rather than left ticked against deleted code
+- [x] **CFG-67**: The explanatory text is cut without weakening a refusal — the wake-interval caption, its two gauges and the Quiet hours paragraph are shorter, measured as a character count against a recorded baseline, while the honesty contract they carry is unchanged: with a battery history that cannot support an absolute figure the card still prints NO figure, and shortness and refusal are asserted about the SAME rendering rather than separately
+- [x] **CFG-68**: Every colour grid folds the same way — the carousel wraps the arrivals and calendar grids as well as departures, "Voir tous les thèmes" sits BELOW the strip in the one shared wrapper, each carousel carries its OWN strip id so no two elements share one and every pager drives its own strip, and Display's page height is reported at 390 px against a figure this phase STATED before it measured
+- [x] **CFG-69**: The Frame strip's Quiet hours cell links to the schedule fields, written ONCE in the shared component so Home and Display both get it from the same write site and neither is forked
+- [x] **CFG-70**: Two findings carried in from earlier phases are closed rather than re-deferred — the "Departures · Arrivals" legend stops naming two swatches that the registry never makes different (asserted as a relationship against the registry, so it self-corrects if a theme ever does differ), and `.copy-btn`'s 34×26 hit area meets the 44 px floor measured in its own container, together with `.row-toggle`, which reuses its values verbatim
+- [x] **CFG-71**: The phase's instrumentation floor is its own lesson made executable — ASSERT RELATIONSHIPS, NOT JUST ENDPOINTS: where several rendered surfaces are functions of one underlying value, ONE check decodes every surface to one canonical value and asserts the set has exactly one member, that the member is what the interaction requested and that it differs from what was there before; every check is mutation-tested with its failure message quoted, every `EXPECTED_CHECK_COUNT` is re-derived by RUNNING, and the phase adds no new script and no new route so the deferred-script pin stays at 15
 
 ## v2 Requirements
 
@@ -196,7 +206,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-44 | Phase 24 | **Complete (24-08) — as WORDED, and the distinction matters, so read the last third of this row before concluding otherwise.** Every clause: **"one composition"** — `.home-overview`, a grouping container holding the shared Frame strip, the three status tiles carrying 24-04's ring, and 24-06's day band. It is expressed as **proximity and asserted as two numbers**, not left to the eye: the parts sit one `--space-md` (16px) apart *inside* it and it sits one `--space-lg` (24px) *above* what follows — bound tighter than it is separated — and both are asserted as **equalities**, which is what caught the real defect below. It deliberately has **no surface of its own**: two of its three parts are already cards and the third is a grid of three more, so a background and a border would be a card holding cards — and the way out (taking the band's own card away) **widens the band's canvas**, silently invalidating the 278px `draw.DAY_BAND_MIN_MARK_SPACING_PERCENT` was re-derived from. **"Assembled from the same emitters this phase defines elsewhere"** and **"never a second copy of any of them"** — proven **behaviourally** rather than by grepping for a call, because two files can both import an emitter and still draw two different pictures: replace a class constant inside `companion/draw.py` and **both the hero and the page the emitter was borrowed from** change (verified by hand — one edit, `drawing-ring-value` → `MUTATED-ring-value`, two pages, two different sizes, 36px and 72px). A simulated fork (the ring's markup inlined into `home_page.py` with the real class strings) fails **both** a structural check and the behavioural one, a second estimator copied into the page fails, and even importing the estimator **unqualified** fails, because a bare `from companion.battery import battery_percent` makes it read as the page's own. The structural scan reads **string literals with docstrings excluded**, after a first draft failed on the page's own prose — `draw.DRAWING_GRID_CLASS` is the single word "drawing". Also held: the frame verdict is still rendered **exactly once**, asserted in **both** languages, and the French half is not redundant coverage — a mutation duplicating the verdict *only when the catalogue translates it* left every English verdict check in the repository green. The DB-read count is unmoved at **3**. **THE CLAUSE THAT COULD NOT BE BUILT IS THE PLAN'S, NOT THIS REQUIREMENT'S, and it is recorded here so the distinction is visible rather than convenient.** 24-08-PLAN.md's own wording — *"the stack is a floor behaviour rather than the only behaviour"* — reads as a hero that becomes multi-column on the desktop. Measured, it cannot be: the hero is **880.00px at a 1280px viewport**, so a one-third column (880 less the rule's own 16px gap, ÷3) is **288px**, against the **310px** a band *card* needs to keep its canvas at 278 — the canvas would come out at **256px**, making the band **narrower inside a wide desktop hero than it is at the 360px floor**. That is the "fits by shrinking its parts" failure arriving through the desktop rather than the phone. So the hero is **one column at every width**, and the floor-vs-not-floor property is asserted of its **parts** instead (the three tiles take three rows at 360px and share one row at 1280px; the band's canvas goes 278px → 830px, more room as the viewport grows, never less). **This requirement as written contains no stacking clause at all** — it asks for one composition, the same emitters, and no second copy — so the tick is honest; the plan-level clause is carried in the D4 row of the ledger below as a plan assumption measurement refuted. *(A related figure was wrong in a first draft and is corrected of record: 928 was read off a mutation's failure message, where it is a child's **left edge**, not the container's width. A mutation's message is evidence about the clause that fired, not a measurement of anything else in the sentence.)* |
 | CFG-45 | Phase 24 | **Complete (24-02 built the measurement half; every drawing plan asserted it; 24-09 closes it).** **"Every drawing renders with scripts blocked"** — measured through `_no_js_page()`, not inferred from "it is server-rendered": the ring on both pages, the chart's mark, the band's frame/2 spans/5 marks, the grid's cells and the hero's every child, each also read in **dark** mode, on the stated ground that dark + scripts-blocked is the combination most likely to be wrong. The phase added **no script at all** — the deferred-script pin is still **14**, its pre-phase value, which is the number server-rendered SVG was chosen to hold still. **"Fits 360 px with no horizontal scrollbar on the page body"** — one shared assertion (`_assert_no_page_overflow`) rather than five slightly different ones, measuring `documentElement` to match both pre-existing page-level checks; Home and Health both 360/360, in **both languages**; proven to fire (a 420px ring takes Health to `scrollWidth` 516 against 360) and proven **not** to fire on a deliberately-scrollable `.data-table-wrap`, so it cannot start disagreeing with the wrap-level check that owns that question. **"Takes every colour from the theme tokens so it reads in BOTH themes"** — this is the clause that had never been checkable before this phase: until 24-02, **no browser check in this project had ever switched theme**, so every dark-mode claim rested on reading CSS. Sixteen resolved paint values across the phase's drawings, none the SVG default, in both themes; the helper that produces them **refuses to return unless the two themes genuinely invert**, so the vacuous state (every "differs between themes" assertion comparing a value to itself while printing PASS) is unreachable rather than unlikely — and it caught a real defect in itself on its first run, before any caller existed. Translucent fills are measured as **composites over their own background** through the app's own `contrast_ratio()`, because a resolved-paint reader cannot see "painted but invisible". **"Spends only from the existing motion budget"** — it spends **nothing**: the `.drawing*` block declares no `transition` and no `animation`, and `@keyframes` is still 4, `reduce` blocks 2 and `no-preference` 1, exactly where Phase 23 left them. **"The design system is updated in step"** — discharged by this plan: four `sketch-findings-skypane` files, every number read live from `companion/draw.py`, `companion/battery.py`, `companion/static/style.css` and the harnesses at execution time, every supersession marked **in place** with its reason and nothing deleted (nine removed lines, each one an amended line, verified by diff). **Two things this row does not claim:** the human sweep is the developer's and has not been performed, and CFG-39's single-drawing-module clause is unmet — this row asks about theme, floor, script and motion, and those hold for the chart exactly as they do for the four drawings that go through the shared module |
 | CFG-46 | Phase 25 | **Complete (25-01 built it; 25-03..25-07 each registered against it; 25-08 closes it).** `grep -l CFG-46 .planning/phases/25-*/25-*-PLAN.md` returns 25-01 and 25-08. Every clause, checked against the code at close rather than against the plans. **(1) "the server renders every submitting control unconditionally"** — `companion/test_companion_app.py`'s `_NO_JS_CONTROL_REGISTRY` carries **six rows for five controls** (D17 holds two values in two inputs, so it owns two rows) and asserts per row that the named field is present in the group builder's own returned string. **(2) "the enhancement writes into it and never holds the value"** — exactly **one** `.value =` assignment in `companion/static/value-controls.js`, and the pin was **strengthened rather than satisfied** when 25-05 added a mirror: funnelling two writes through one helper would have kept the count at one while reopening what it guards, so the check now pins the *shape* (the assignment lives in `writeValue()`; exactly one `writeValue(field, ...)`; exactly one `writeValue(mirrorFor(wrapper), ...)`; the second asserted to lie **inside `paint()`**, strictly downstream of a value read back off the field). The script also writes **nothing at load** — every control's initial position is server-rendered, which is what makes the scripts-blocked render correct rather than merely present. **(3) "an affordance that cannot work without script does not render without script"** — `.js-gate { display: none }` / `.js .js-gate { display: var(--js-gate-display, block) }`, with `display` (not `visibility`/`opacity`, which leave a focusable ghost), the direction (hidden by default) and the `var()` fallback each mutation-proven; the gate class sits on the **gated element itself**, never an ancestor, so the nesting mistake is removed rather than detected; and every gated wrapper is measured in a real browser in **both** directions — zero height and zero focusable descendants in a 24-step walk of the real tab order with scripts blocked, a real box with scripts on. **(4) "a machine fails the build when any of those is violated"** — the registry is **non-vacuous on the day it landed**, proven against four fixtures built from real group-builder output (one correct control it must accept, three it must reject) plus five mutations, two of which (D and E) disable the guard's *own* assertions and are caught. **(5) "the whole phase spends ONE new static script"** — `ls companion/static/*.js | wc -l` is **16 → 17**, verified by diff against the phase's base commit `f7d25d9`; D16 spent **zero**, D5 grew `theme-preview.js` (+71 lines) and D19 grew `panel-lookup.js` (+283), each because that file already owned the subject and each recording why in its own header. **(6) "whose three taxes are paid once"** — the deferred-script pin moved **14 → 15 exactly once**, in 25-01, retargeted in place (the shell's script list is a fixed-arity `%`-format template, not a loop, which is recorded); the route is pre-auth like its sixteen siblings and is asserted to **behave like** an existing static route (200, `text/javascript`, `max-age=300`, no session) rather than assumed, with the ES5/forbidden-sink guard covering the file. **One nuance stated rather than glossed, because the clause names three taxes and one of them cost nothing:** the French-catalogue tax was assessed once and came to **zero** — `companion/i18n_fr/common.py` was listed in 25-01's `files_modified` and was **not touched**, because the script produces no user-visible literal at all (`aria-valuetext` is filled from a server-rendered, already-translated template on the wrapper, and with no template **no** `aria-valuetext` is written rather than an English sentence invented in the script). That is a stronger outcome than paying it, not a skipped payment: every literal the file declares is a hyphenated attribute name, a custom property or a token with no letters, all excluded by `test_i18n.py` Check 6's own rule, and that harness is 24/24 unchanged across the whole phase. |
-| CFG-47 | Phase 25 | **Complete (25-03) — as WORDED, and read this row's second half before concluding otherwise, because one word in the requirement describes a shape that is impossible in HTML.** `grep -l CFG-47 .planning/phases/25-*/25-*-PLAN.md` returns 25-03 and 25-08. **"the three strips are the same native radios, so selection, arrow-key navigation and saving all work with scripts blocked"** — the strongest clause and the one fully met: the three `<input type="radio" name="tracked_runway" class="visually-hidden" form="settings-form">` are **untouched**; the map is a drawing wrapped around them. Measured, at 360 px, in **both** shipped languages, with scripts blocked: `'3'` → `'06-24'` → `'3'`, operated natively, submitted through the real form and **read back off the state directory after a genuine second GET**. The nine maps and twenty-seven strips on that page are asserted **after** the save, so the rendering can never stand in for it — and the mutation that proves the check tests *saving* rather than rendering is M20 (the radios lose `form="settings-form"`: the map still draws perfectly and the check fails anyway). Keyboard: one ArrowDown moves the radiogroup to the registry's next entry and ArrowDown/ArrowDown/ArrowUp returns to it, with **zero pointer events** and the recorder proving itself alive. **"the map's bearings derive from the designators already in the registry, so the drawing cannot contradict its own labels"** — `runway_bearing_deg()` parses the **LABEL before the id**, because Orly's first entry is keyed `'3'` (an ADP number) and labelled `Runway 3 (07/25)`. The source order is pinned by a registry where the two sources genuinely **disagree** (id `31-13`, label `Runway 9 (07/25)`), which is the fixture the first draft lacked — swapping the two sources against the shipped registry changed no angle at all. A pair that is not reciprocal is refused rather than drawn, and the emitter decides **no colour in Python**. **"every strip is a real touch target at 360 px, measured"** — measured by real `elementFromPoint` hit-testing in the runway row, never inherited from a class: **90 × 201 / 89 × 197 / 88 × 197**, all three clearing the 44 px floor by a factor of two in one axis and four in the other. `references/control-density.md`'s **exempt-by-delegation** category keeps its precondition and needed no new entry. **The one word re-scoped, with its ground: "one drawn map" renders as one map drawn three times, once per card, and it could not have been otherwise.** An `<svg>` cannot contain a `<label>` or an `<input>`, so a single shared canvas with three labels floated over it was the only literal reading — and it would have put all three touch targets on absolutely-positioned overlays at 360 px, which is precisely the hit-area failure this requirement's own third clause exists to measure, engineered in deliberately. The alternative reading (each card draws only its own strip) keeps the control intact and answers none of the question, because three strips side by side still do not say where these runways *are* relative to each other. So **each `.runway-card` carries a complete map of all three runways with its own picked out**, and comparing cards compares highlights on one shared picture. The measured consequence is the opposite of a cost: the cards got **taller**, which is why the hit areas rose from 25-02's pre-map 88 × 138. `runway-map__strip--this` means *"this card's runway"* and is present on every card selected or not — a check proves `runway_fieldset(None)` renders a map with nothing claimed rather than defaulting to one, which is the same check that proves the class did not quietly become a selection marker. **Two further deviations from plan sentences, recorded rather than quietly adjusted:** the caption claims relative bearings and north-up and deliberately does **not** claim relative lengths, because `device_config.RUNWAYS` carries no length for any entry and inventing plausible ones would be the dishonest-state defect the sentence exists to prevent (every strip is drawn the same length); and the selected strip pays in **INK** (30 % → 55 % → solid `--color-text`), never in accent, so the stylesheet's accent-reservation list is unchanged by this plan. The three `runway-*.png` photographs keep their slot, their route and their files (Decision 2), measured serving at `naturalWidth` 1672 through the session-gated route. |
+| CFG-47 | Phase 25 | **Complete (25-03) — as WORDED, and read this row's second half before concluding otherwise, because one word in the requirement describes a shape that is impossible in HTML.** `grep -l CFG-47 .planning/phases/25-*/25-*-PLAN.md` returns 25-03 and 25-08. **"the three strips are the same native radios, so selection, arrow-key navigation and saving all work with scripts blocked"** — the strongest clause and the one fully met: the three `<input type="radio" name="tracked_runway" class="visually-hidden" form="settings-form">` are **untouched**; the map is a drawing wrapped around them. Measured, at 360 px, in **both** shipped languages, with scripts blocked: `'3'` → `'06-24'` → `'3'`, operated natively, submitted through the real form and **read back off the state directory after a genuine second GET**. The nine maps and twenty-seven strips on that page are asserted **after** the save, so the rendering can never stand in for it — and the mutation that proves the check tests *saving* rather than rendering is M20 (the radios lose `form="settings-form"`: the map still draws perfectly and the check fails anyway). Keyboard: one ArrowDown moves the radiogroup to the registry's next entry and ArrowDown/ArrowDown/ArrowUp returns to it, with **zero pointer events** and the recorder proving itself alive. **"the map's bearings derive from the designators already in the registry, so the drawing cannot contradict its own labels"** — `runway_bearing_deg()` parses the **LABEL before the id**, because Orly's first entry is keyed `'3'` (an ADP number) and labelled `Runway 3 (07/25)`. The source order is pinned by a registry where the two sources genuinely **disagree** (id `31-13`, label `Runway 9 (07/25)`), which is the fixture the first draft lacked — swapping the two sources against the shipped registry changed no angle at all. A pair that is not reciprocal is refused rather than drawn, and the emitter decides **no colour in Python**. **"every strip is a real touch target at 360 px, measured"** — measured by real `elementFromPoint` hit-testing in the runway row, never inherited from a class: **90 × 201 / 89 × 197 / 88 × 197**, all three clearing the 44 px floor by a factor of two in one axis and four in the other. `references/control-density.md`'s **exempt-by-delegation** category keeps its precondition and needed no new entry. **The one word re-scoped, with its ground: "one drawn map" renders as one map drawn three times, once per card, and it could not have been otherwise.** An `<svg>` cannot contain a `<label>` or an `<input>`, so a single shared canvas with three labels floated over it was the only literal reading — and it would have put all three touch targets on absolutely-positioned overlays at 360 px, which is precisely the hit-area failure this requirement's own third clause exists to measure, engineered in deliberately. The alternative reading (each card draws only its own strip) keeps the control intact and answers none of the question, because three strips side by side still do not say where these runways *are* relative to each other. So **each `.runway-card` carries a complete map of all three runways with its own picked out**, and comparing cards compares highlights on one shared picture. The measured consequence is the opposite of a cost: the cards got **taller**, which is why the hit areas rose from 25-02's pre-map 88 × 138. `runway-map__strip--this` means *"this card's runway"* and is present on every card selected or not — a check proves `runway_fieldset(None)` renders a map with nothing claimed rather than defaulting to one, which is the same check that proves the class did not quietly become a selection marker. **Two further deviations from plan sentences, recorded rather than quietly adjusted:** the caption claims relative bearings and north-up and deliberately does **not** claim relative lengths, because `device_config.RUNWAYS` carries no length for any entry and inventing plausible ones would be the dishonest-state defect the sentence exists to prevent (every strip is drawn the same length); and the selected strip pays in **INK** (30 % → 55 % → solid `--color-text`), never in accent, so the stylesheet's accent-reservation list is unchanged by this plan. The three `runway-*.png` photographs keep their slot, their route and their files (Decision 2), measured serving at `naturalWidth` 1672 through the session-gated route. **RETIRED 2026-09-14 (Phase 27).** This row's verdict is unchanged and is not being rewritten: the requirement was met as worded. Phase 27 withdraws the requirement itself after the developer reviewed the deployed app and found the map taught him nothing his own schematics did not already. Met-then-withdrawn is recorded as its own outcome, distinct from "not met" and from "deleted". The successor is CFG-66, which removes the drawing, names every check that comes out with it, and keeps the radios' scripts-blocked save-to-disk proof. |
 | CFG-48 | Phase 25 | **Complete (25-04).** Every clause measured, none inferred. `grep -l CFG-48 .planning/phases/25-*/25-*-PLAN.md` returns 25-04 and 25-08. **"a 24-hour dial whose arc is drawn by the server, so the window is visible with scripts blocked and only the drag handles are withheld"** — the ring is server-drawn from `quiet_hours_start`/`quiet_hours_end` and sits **outside** the gate; only `.quiet-dial__handles` is gated. Measured with scripts blocked at 360 px in both languages: the gated handle layer has **zero height and no keyboard can reach into it**, while the **arc, the readout, both time inputs, B14's two 24-hour siblings and the three presets are all present** — asserted after the save so none of them can stand in for it. The vacuity fix behind that clause is worth recording: the first version counted DOM elements with `locator.count()`, which passes against the arc **moved behind the gate** — the exact refactor the clause exists to notice — so it now measures the rendered box (M33). **"the two native time fields stay visible and stay what the form posts"** and **"B14's visible 24 h sibling survives"** — proven **byte-identical**, not asserted: `quiet_hours_group()` was loaded from `HEAD` under a second module name and rendered beside the new one, and the new output with only the two new fragments removed compared byte-for-byte across **five** argument shapes including the D-07 rejected-save path and the empty-window path (`ALL IDENTICAL: True`). The durable half is a named check exercised by M14 (the ring moved below the End field), which asserts the card's order by measured document positions. **"the window that wraps midnight is measured as the short way round"** — `quiet_window_span()` returns one triple and the **drawn sweep is derived from the returned minute count inside that one function**, so the picture and the printed duration cannot disagree (M2). 23:00 → 07:00 is **480 minutes forward through midnight** (`(end - start) % 1440`; an `abs()` implementation returns 960 and an `end - start` one returns −960). Equal ends are **0**, never a whole day, and a zero-length window draws **nothing** — a zero-length dash under a round cap is a DOT, so "no window" would read as a few minutes. Cross-file agreement is asserted by **reconstruction**: the span is rebuilt from what `server/device_config` has left at five shared instants on **both** sides of midnight, which is what makes the server's own wrap branch drifting (`days=1` → `days=2`) fail — it failed **nothing** until that vacuity was fixed. **"the handles announce through `aria-valuetext` rather than a live region that re-reads on every step"** — the readout is `aria-hidden` and `role="status"` on it is refused by name (M12); each handle is a real `<button type="slider">`-shaped control carrying `role="slider"` and the `aria-value*` set, with `aria-valuetext` the local **HH:MM** and never the raw minute count (M22). One real defect was found here and fixed: `paint()` announced on the **wrapper** rather than on the focusable handle, so a screen reader would have read the *saved* value on every step of a drag that had already moved somewhere else — measured as the handle announcing `23:00` while its own input held `12:00` (M30). **Four deliberate departures from plan sentences, each argued rather than smoothed over:** Page keys move **150 minutes** (ten steps of 15) and not the plan's 60, because the same plan's binding constraint says the model must match the native range one 25-05 would inherit and the two sentences cannot both hold — see CFG-49 for the correction of record that the native rule is a **percentage of the band**; there is **no minimum separation** between the handles, deliberately, because a zero-length window is a real defined state and refusing it here would make a state reachable by typing unreachable by dragging (z-order is document order, the END handle is emitted second and wins an overlapping pointer-down, and the start handle stays its own tab stop — measured focusable at 15 minutes' separation where its own centre hit-tests to the end handle); the dial is **176 px, not 128 px**, which is geometry rather than taste (two 46 px hit boxes need ~45 px between centres, so on a 128 px ring the handles cannot both clear the floor until the ends are ≈ 4 h 49 apart, against ≈ 3 h 12 at 176 px); and the registry took **two** rows rather than the anticipated one, because a row names one field and this control holds two. **One defect only a browser could have found, and it is the reason this requirement is ticked on measurement rather than on reading:** a preset that writes into the two fields was supposed to move the handles for free. It did not — assigning to `.value` from script fires **no event of any kind**, so `dirty-state.js`'s preset handler moved both inputs and left both handles where they were. The fix stayed inside the design (`value-controls.js` repaints on `change`/`input`/`click`, learning nothing about presets) and `dirty-state.js` is untouched. Measured after: a preset click moves both fractions. |
 | CFG-49 | Phase 25 | **Complete (25-01 built the arithmetic in `companion/battery.py`; 25-05 built the slider and the two gauges; 25-08 closes it) — and the clause this requirement was most at risk on is the one it holds most strongly.** `grep -l CFG-49 .planning/phases/25-*/25-*-PLAN.md` returns 25-01, 25-05 and 25-08. **"the wake interval is steered by a slider"** — a real native `<input type="range">` inside the `.js` gate, `min`/`max` interpolated from `device_config` and asserted against the module rather than against literals (M14). Measured end to end in a real browser: a drag across 55 % of the track moved the number input `300 → 3060`; with the range-to-number write disabled the same drag leaves it at `600` and the check says so. **The script's job here is syncing, not steering** — all three gesture listeners **stand aside** for a wrapper declaring a native mirror, because `preventDefault()` on a `pointerdown` over a native range cancels the browser's own thumb drag and a prevented `keydown` steps the value twice per press. **"freshness stated as a bound ('at most N minutes')"** — the words *at most* are asserted to be in the **wording**, not merely in the docstring (M2), because a bound stated without them is a claim about typical behaviour and nothing in this project measures that. The minute conversion rounds **UP** (M1): a 90-second cadence bounds the wait at a minute and a half, and `90 // 60` prints "at most 1 min", which is false. Both gauges and the slider are fed by **one** `wake_gauge_interval_s()` call, so they cannot describe different values. **"battery life stated only as far as this device's own observed history supports, with a named 'not enough history yet' state instead of a figure invented from a per-wake cost nobody has measured"** — `battery_life_estimate()` returns **five NAMED states** (`no-reading`, `not-enough-history`, `rising`, `flat`, `falling`) and **only `falling` carries a number**, derived from this device's own observed daily-average discharge slope over a **14-day** window behind two floors (`LIFE_MIN_OBSERVED_SPAN_DAYS = 2`, because a one-day delta between two daily *averages* is inside this series' own noise; `LIFE_MIN_OBSERVED_DROP_MV = 10`, because a 1 mV fall over three days divides out to roughly five years, which a reader takes as a promise — and without it a flat series divides by zero). `rising` carries **no** number deliberately: a charged device has a positive slope, and dividing by it gives a negative or an infinite lifetime, both of which a reader would act on. **No per-wake energy cost is assumed anywhere.** The audit's own "≈ 38 days" was therefore **not computed**, and the figure the card does print wears the `≈` marker the battery percentage already wears (M7) and names its source. **And the honesty is STRUCTURAL rather than promised, which is the part worth carrying forward:** the absolute "≈ N days" sentence is rendered by the **server, outside every readout element**, and the script never touches it; what the script may rewrite is a `<span>` whose template names two cadences and contains **no days figure at all** (M18 refuses a readout handed the days wording). So "if the server said *not enough history*, the script keeps saying so" is not a policy a future editor has to remember — there is no template through which it could say anything else, and a check asserts exactly that. The live clause names **two cadences rather than a ratio**, which dissolved three problems at once (no decimal, therefore no locale-specific decimal mark travelling to the script; no rounding rule needing `Math.round` half-up and Python's `round` half-to-even to agree at a tie this control really reaches, 1260 s against 1200 s being exactly 1.05; and one wording instead of two). `relative_factor` is still consumed — as the **guard** deciding whether there is anything to say, not as the number. **"the number input remains the only thing that posts"** — the range carries **no `name`** (M11: it would post a second value for the same setting and whichever arrived last would win, silently), and `dirty-state.js`'s own snapshot skips nameless controls. The number input is **byte-identical** across six argument shapes (M10 fails on an added `inputmode`). **"its out-of-range guard still protects the whole Settings form"** — re-proven end to end in a real browser with **30 s on disk** (a state the supported paths cannot produce, so the check writes the config file's JSON directly and restores its exact previous bytes, and says so at the call site): the number input carries **no `value` attribute**, no range and no gauge render at all, and the whole Settings form still saves a corrected value. A submitted `"7"` likewise renders no gauge, because a gauge about seven seconds describes a cadence this device cannot be configured to use (M5). **Three things recorded rather than smoothed over.** (a) **`role="slider"` is refused by name** on the native range (M12) — it is already a slider with its own `aria-valuenow` and its own keyboard model, and a role on top is the classic double-role error. (b) **Correction of record, measured:** the native **Page** key moves **10 % of the band**, not ten steps — from 60, `PageUp` lands on **420** (six steps of 60 on a 3540-wide band), which coincides with "ten steps" only when a band is about 100 steps wide, as 25-04's dial's ~96-step band nearly is. No script Page handling was added, because that would mean preventing the default on a native control. (c) **A function NAME tripped an existing guard and the guard was right:** `wake_battery_life_text()` failed the battery one-home check by its name alone and was **renamed** (`wake_battery_observed_text()` — it does not compute a lifetime and should not claim to), **not allow-listed**, because an allow-list entry would have let a real second estimate in under that name later. **The developer still owns the WORDING**, which 25-05 named as the item most needing a human's eye, and **DEVICE-05's discharge run (closing 2026-09-23) supplies the measured mAh-per-cycle figure** that would let a later plan add a second, model-based branch inside the same module and print it through the same wording — **the gap is in the data, not in the presentation**, and nothing in this card has to change to accept it. See decision 3 in the ledger below. |
 | CFG-50 | Phase 25 | **NOT ticked — three of five clauses hold outright, one is contradicted by a shape that is impossible in HTML, and the one the requirement names as its own judge returns a FAILURE.** Served by 25-06; `grep -l CFG-50 .planning/phases/25-*/25-*-PLAN.md` returns 25-06 and 25-08. **This row's own planning text is carried forward rather than replaced, because it turned out to be right:** this requirement is X6's deferred half, and 22-10 had already recorded that the page-height target "is NOT met and cannot be by density alone — folding the grid behind the big preview is D5". The folding was done; the target is still not met. **Holds: "a scroll-snap carousel over the one existing chip grid"** — `_theme_carousel_html()` wraps `_theme_chip_grid_html()`'s existing output and **emits no chip**; a source scan finds **exactly one** function in `config_page.py` emitting a chip `<label>` carrying `data-preview-src` (M13 forks a second and fails), and the arrivals, calendar and rule-add grids were captured before the change and diffed after — **three of three byte-identical**. Swipe is native (CSS scroll-snap) and keyboard selection is native (a radiogroup's own arrow keys): measured, one, six and seventeen ArrowDowns each landing on the registry's own next theme with **zero pointer events** and the recorder proving itself. **Holds: "the stylesheet's single `:has()` feature query still single"** — **1**, brace-anchored and comment-stripped, verified live at this phase's close against the base commit's own 1. This was the phase's single highest-risk assertion and it was **never even approached**: the disclosure reaches the strip through an adjacent-sibling combinator on its own `[open]` state, so no `:has()` is involved at all. (A bare `grep -c` returns **6** on this file — one block plus five comment paragraphs quoting the at-rule — which is `references/settings-page-patterns.md`'s own stale-number warning running in the other direction.) **Holds: "the compact chip still size-only"** — M8 adds a `:has(input:checked)` to a `.theme-chip--compact` rule and fails by name. **CONTRADICTED BY A SHIPPED DECISION: "with the full set behind a native disclosure that opens with scripts blocked".** The disclosure is native and does open with scripts blocked (measured: it opens on a click and turns one row into a real grid holding the same eighteen radios). But **nothing is behind it, at any time** — every theme is always in the strip, always reachable by arrow key, always selectable, always saveable. **The plan's own recommended shape is impossible as literally written**, and that is the ground rather than a preference: a closed `<details>` hides its own non-summary children, so a disclosure *containing* the grid would hide all eighteen themes whenever it was shut and there would be no strip at all — the exact opposite of what the same sentence asks for. The shipped mechanism is the opposite arrangement (`.theme-carousel__all[open] + .theme-chip-grid--strip { flex-wrap: wrap }`), **one** set of eighteen radios rather than two: two sets would put two `--selected` chips, two check glyphs and thirty-six chip images on a page for a setting with one value, and open a duplicate-id surface (T-25-06-B). The honest consequence is recorded at the markup site as well as here, in real translated text: **the disclosure changes a LAYOUT, not a VISIBILITY.** **FAILS, AND IT IS THE CLAUSE THIS REQUIREMENT NOMINATES AS ITS OWN JUDGE: "judged by Display's MEASURED page height rather than by the carousel's existence".** The judging was done properly — `_display_page_height()` is a registered instrument, built in Task 1 **before there was anything to like**, asserting no target at all and asserting four things about where its number came from (the measurement was taken at the width asked for; the document is the authenticated Display page, proved by its Frame colours heading **and** a full `THEME_IDS`-sized departures radiogroup rather than merely "a page rendered"; the document is taller than the viewport). Run before any markup change and again after, on the same tree: **390 px: 4276 → 3743 px (−533). 360 px: 4269 → 3752 px (−517).** **X6's phone target is ≤ 2600 px, so it is NOT MET — 3743 px is 1143 px over it — and D5's own audit row ("Display page drops below 1 500 px") is 2243 px away.** The carousel itself **costs** about 82 px (a 44 px `<summary>`, the dots row and the pager row) against the ~615 px the strip removes, and that cost is inside the −533 rather than hidden. Two things this number does not license: reading the before-figures as a regression (phases 23–25 added the runway map, the quiet-hours dial and other Display content between 22-10's own 3661 px and this measurement — the only comparison that means anything is before-vs-after **by the same instrument on the same tree**, which is exactly why the instrument exists), and moving the goalposts. 22-10 recorded its own shortfall; this records the second attempt's. **DECISIONS NEEDED, and there are two.** (a) **On the height:** accept 3743 px and amend or retire X6's 2600 px phone target; or schedule a further density pass against what is actually left (four more cards — Calendar, Runway, Quiet hours and the three other usage panels — plus the Frame strip above them), which is **not a grid** and has no win of the carousel's size available inside a control plan's scope; or re-word this clause to name the measurement rather than a target. The instrument survives either way and is reusable. (b) **On the disclosure:** amend the clause to say the disclosure changes a layout rather than hiding a set, or ask for something genuinely hidden — which would mean two sets of radios and the duplicate-setting surface 25-06 refused. **What must not happen is this box being ticked with either clause as written.** **Two further scope statements, so a future audit meets the reasoning rather than the idea:** the strip does **not** render beside the big live preview (moving the departures panel out of `.frame-colours__panels` would take it out of `theme-preview.js`'s four-panel collapse machinery, which is D-08's locked no-JS floor, for a horizontal adjacency that does not exist at either of the two viewports this criterion is measured at); and the arrivals, calendar and rule-add grids are deliberately not converted (already compact, already beside other controls, and none of them is the page-height problem X6 named — four carousels would have multiplied the `:has()` risk by four for no gain). |
@@ -211,6 +221,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-59 | Phase 26 | Planned — 26-09. Half built, half refused in writing. D6's tab bar shipped in 22-14; only this leftover remained |
 | CFG-60 | Phase 26 | Planned — 26-09. Half built, half refused in writing. D11's hashed-filenames third was already excluded by the milestone's build-free constraint. The gzip check is a FILE-CONTENT assertion, weaker than this project's norm, because the harness never runs Caddy — reported honestly rather than implied to be a runtime proof |
 | CFG-61 | Phase 26 | Planned — 26-02 (the harness helpers: focus restoration, announcement read-back, the unauthenticated-route enumerator, the targeted keystroke driver and the exhaustive destination sweep), then asserted by every later plan, closed by 26-09 |
+| CFG-62 | Phase 27 | **Complete (27-02).** The pair is now the model: `value-controls.js` publishes a shared-ancestor fraction seam and derives the sweep `(end - start + 1) % 1`, so the arc, the handles and the caption decode to one canonical minute-of-day after a drag AND a preset, in both themes — proven by ONE check (`_the_arc_the_handles_and_the_caption_agree_after_an_interaction`), not one check per surface. The server-rendered arc's presentation attributes stay **byte-identical** — diffed, not assumed, across four windows including the wrap and the 1-minute floor, both at 27-02's own close and RE-VERIFIED at this phase's close (2026-09-15) after every later plan's own edits to `config_page.py` — still an exact match. The caption's duration BLANKS rather than lying (empty `data-value-readout-text`, both of `paintReadouts()`'s branches resolve to `""`) — PROVISIONAL per 27-02's own note, and the fallback (server-emitted per-unit templates, C2 in 27-RESEARCH.md) stays recorded for a reviewer who rejects the blanking. `QUIET_DIAL_RADIUS`'s stale comment ("64−7−3=54" beside a shipped 78) is corrected in the same commit (27-02, `2336074`). |
+| CFG-63 | Phase 27 | **Complete (27-04), one clause RE-SCOPED by the developer's own binding decision, recorded rather than silently reconciled.** No save button anywhere on Settings; `change` (never `input`) drives the same optimistic-apply/fetch/exact-204-confirms model `quick-switch.js`'s switches already shipped, over the app's ONE existing failure vocabulary (the existing generic translated toast, never a new string) — mutation-tested (M-A/M-B/M-C, all three failing on the predicted clause). The status region's own text sequence is recorded via `MutationObserver`, never sampled only at rest, closing a real vacuity gap M-B found in the check's own first draft. **The leave-guard clause is RE-SCOPED**: the requirement's own wording anticipated retiring it "only where it means discard a pending edit"; the developer's explicit, binding decision (`.planning/ROADMAP.md`, 2026-09-15) instead keeps it alive IN FULL, because a keystroke that never fires `change` still needs the same protection the old bar guaranteed — proven still armed and disarming correctly at the right moment (`_leave_guard_arms_on_uncommitted_edit_and_disarms_on_change`). "Annuler" is gone outright (there is no more pending-edit state to cancel). |
+| CFG-64 | Phase 27 | **Complete (27-03), re-verified UNCHANGED at this phase's close.** The native submit's emission is proven unconditional at the AST SOURCE level (one `return` statement, never inside an `ast.IfExp`, `STATIC_SAVE_FALLBACK_ATTR` a bare `Name`), not merely observed to render today. The fallback-hide CSS rule reverted to the plain `.js` gate; B1/P0's original two-marker visibility contract is SUPERSEDED IN WRITING (kept verbatim, a dated paragraph appended, no CSS selector literal quoted per D-30). The disk-and-submit proof (`_the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies`) is confirmed **byte-identical** — same function body, same registration message — from the commit that created it (27-03, `b717aab`) straight through every later plan's own edits to the same file, verified by direct extraction and comparison at this phase's close (2026-09-15), and it PASSES in today's final full-suite run. |
+| CFG-65 | Phase 27 | **Investigated (27-06), NO DEFECT FOUND — recorded as its own outcome, not as "fixed."** The executable inventory (`config_page.render()`, both scopes, counted against the rendered HTML) measured **7** card titles (form A, `[data-dirty-section] > h2`) and **3** supersection intros (form B, `layout.section_intro_html()`, shared byte-identical with `health_page.py`) plus 2 unclassified — confirming 27-01's own browser-driven 7/3/2, correcting 27-RESEARCH.md's provisional 8/3/2 (a grep hit at a call site neither settings route renders). The two forms are a genuine grammar distinction, not a duplicate: form B introduces MORE THAN ONE card ("Look" introduces both Frame colours and Calendar, which a card title naming exactly one card cannot do) and the two sizes (22px serif / 16px sans-semibold) are a developer-validated, three-round-trip heading ladder — reversing either direction means either editing `layout.section_intro_html()` away from a shape `health_page.py`'s own structural checks match literally, or undoing Phase 20's D-12 restructure, which this plan has no standing to reopen. **No markup was converted.** See the coverage ledger below for the full clause walk and the decision this leaves the developer. |
+| CFG-66 | Phase 27 | **Complete (27-05).** `runway_map_svg()`/`runway_bearing_deg()`/nine `RUNWAY_MAP_*` constants and all seven `runway-map` CSS rules removed; every map-only check named and removed (3 per harness), two mixed checks mutated IN PLACE (map clause dropped, the still-live escaping/radiogroup/photograph proof kept), one new relationship check added asserting absence-of-map AND presence-of-control AND presence-of-photographs as one fact. The radios' own scripts-blocked save-to-disk proof (CFG-64's own check, never the map-era one) is confirmed unedited by `git diff`. Touch targets re-measured post-removal: 90×138/89×136/88×136, within a pixel of 25-02's pre-map baseline. CFG-47's three retirement records (the ticked row, the traceability row above, the D16 section) are RE-VERIFIED present, dated and consistent at this phase's close (2026-09-15) — `grep -c RETIRED .planning/REQUIREMENTS.md` is **3**, unchanged since 27-05, despite three later plans (27-06/27-07/27-08) editing `config_page.py`/`style.css` again. |
+| CFG-67 | Phase 27 | **Complete (27-06), RE-VERIFIED on the current tree.** Wake-interval caption 220→137 chars, the two wake gauges 254→168, Quiet hours paragraph 188→121 — each check reads the region ONCE and asserts length + refusal-survival against that SAME read. The honesty contract (`wake_battery_observed_text()`'s own docstring, unedited by this plan) is re-confirmed unweakened at this phase's close: with an empty `battery_rows` series it still prints *"Not enough battery history yet to say how long a charge lasts."*, no figure, and the days-CLAIM-shaped forbidden pattern (`≈\s*\d+\s*(?:day\|days\|jour\|jours)\b` — scoped to the CLAIM, not to `≈` near any digit, which the wake-interval caption's own legitimate `(next wake ≈ 31 Jul 08:05)` would otherwise false-positive on) still does not match. |
+| CFG-68 | Phase 27 | **Complete (27-07/27-09).** `_theme_carousel_html(grid_html, strip_id)` takes `strip_id` as a REQUIRED argument (no shared default — the duplicate-id/wrong-pager-target trap is closed structurally, mutation-tested against a simulated collision); arrivals and calendar fold in with their own scripts-blocked save proofs; the disclosure moves to render LAST (below the strip) via one shared-helper reorder, reached by a `.theme-carousel:has(.theme-carousel__all[open])` rule scoped per instance, inside the file's one existing `@supports selector(:has(*))` block. **Display's height, measured at this phase's close (27-09, 2026-09-15): 3524 px at 390 px** (scripted; 360 px identical) — against 25-06's 3743 px baseline and 27-07's own STATED prediction of ≈3446–3496 px (midpoint ≈3471 px). The measured figure sits **28 px above** the top of that predicted range — reported as a missed prediction, not silently widened; see the coverage ledger below for why. 2600 px is NOT reached, as 27-07 said it would not be. |
+| CFG-69 | Phase 27 | **Complete (27-08).** `layout.frame_strip_html()`'s quiet cell appends a real `<a href>` to a COPY of the shared caption (never the shared variable the Screen cell also reads) — proven by ONE check rendering BOTH `home_page.render()` and `config_page.render(scope=SCOPE_DISPLAY)` and asserting the hrefs are byte-identical, mutation-tested against total removal and a simulated per-page fork (both fail on the correct clause). Clears the 44px floor via `inline-flex`/`min-height`, measured at 360px in both themes, no horizontal scroll added on either page. |
+| CFG-70 | Phase 27 | **Complete (27-07/27-08).** The swatch legend ("Departures · Arrivals" → "Departures & arrivals"/"Départs et arrivées") is checked as a REGISTRY RELATIONSHIP (expected label count computed from `device_config.THEMES` at check time), never a literal — self-corrects if a future theme ever gives departures/arrivals different inks. `.copy-btn` in a Flights detail row: root-caused to container spacing (a ~4px gap to a trailing sibling crushing the downward reach; an `overflow: hidden` clip boundary crushing the leftward one) — NOT `.copy-btn`'s own declared values, which already resolved correctly everywhere else — fixed via `.flight-detail-row__grid`/`.flight-detail-row__reveal-inner`, closing 34×26 to a resolved 45×45. `.row-toggle` re-measured and mutation-proven independently (its own targeted mutation names `.row-toggle` alone, confirming it is not piggy-backing on `.copy-btn`'s pass, even though it shares those exact CSS values verbatim). |
+| CFG-71 | Phase 27 | **Complete (27-01 through 27-09).** The pattern this whole phase runs on: `_assert_surfaces_agree()` decodes N rendered surfaces to one canonical value and asserts the set has exactly one member, that it equals what was requested, and that it differs from what was there before — three clauses, never one, applied to the dial (27-02), the auto-save model (27-04) and reused throughout. Re-derived by RUNNING at this phase's close (2026-09-15): every `EXPECTED_CHECK_COUNT` confirmed against its own harness; the 5 sandbox-baseline failures verified BY NAME (unchanged from the phase's start — see the phase gate below); `grep -c SKIP` over the whole suite is 0; zero new script (`ls companion/static/*.js` still 17, `dirty-state.js` REPURPOSED not replaced, the deferred-script pin still 15); zero new route (`git diff 839489a..HEAD -- companion/app.py` touches zero `require_session()` call sites and adds zero `_ROUTE` constants anywhere under `companion/`, confirmed by source diff, not by re-deriving the route list by hand). |
 
 ## Phase 23 coverage ledger (companion dynamism I — "Alive")
 
@@ -566,6 +586,8 @@ audit said and what shipped), or NOT BUILT (with its ground and the decision it 
 No clause is unaccounted for.**
 
 ### D16 — "Pick the runway on one SVG map of Orly" (CFG-47, served by 25-03)
+
+**RETIRED 2026-09-14 by Phase 27 (CFG-66).** Everything recorded below remains a true account of what 25-03 built and measured; it is kept for that reason. What changed is the product decision, not the evidence: the map is removed, the three native radios return to being the control, and the three `runway-*.png` photographs stay served. See CFG-47's row above for the retirement and its ground.
 
 | Audit clause | Verdict |
 |---|---|
@@ -958,6 +980,544 @@ languages, operated by touch **and** by keyboard — specifically the dial's han
 the window's ends are close, the battery gauge's **wording**, Display's page height, and
 whether the three clauses removed from D19 are accepted. That review is the developer's
 and is not claimed here.
+
+## Phase 27 coverage ledger (companion review feedback — the defects and the noise the developer found on the real app)
+
+Written at the phase's close by 27-09, by walking the dial defect and all nine
+corrections/findings against the eight preceding SUMMARYs **and against the
+code, on the finished tree with every plan's changes applied** — not against
+what the plans intended. It exists so the developer can see in one place what
+shipped, what was investigated and found not to need shipping, and what is
+still theirs to judge. **The traceability rows above carry the per-requirement
+evidence; this section carries the clause-by-clause walk, the re-verification
+of two things this phase itself warned would need care (CFG-68's height
+prediction and CFG-47's retirement note), and the findings that must carry
+forward.**
+
+One of ten rows is deliberately left unticked (**CFG-65**) — investigated,
+found not to be a defect, and recorded as that rather than rounded up to
+"fixed". That is the standard Phases 23, 24 and 25 held, and the standard this
+phase's own lesson demands most: a phase that exists because two correct
+halves shipped a lying arc cannot itself round a finding up to make its own
+ledger look cleaner.
+
+### The dial defect (CFG-62) — the reason this phase exists, in its executable form
+
+**D17 shipped with three individually correct, individually passing checks,
+and the relationship between them was never asserted.** The arc was asserted
+correct **server-side**, for the saved value. The handles were asserted **to
+move**. The value was asserted **to persist to disk**. All three passed,
+against a page on which the fields read `08:00`/`18:00`, both handles sat at
+8 and 18, and the arc and the caption still drew `23:00 → 07:00`. Two correct
+halves; the relationship between them unmeasured; an arc that lies is worse
+than no arc.
+
+**What closed it, and the check that now measures the relationship.**
+`value-controls.js` now publishes a shared-ancestor fraction seam
+(`data-value-pair`/`data-value-pair-property`) and derives the sweep as
+`(end − start + 1) % 1` — the `+1` is load-bearing and was found by the check
+itself: reusing the handle's own cosmetic `(value−min)/(max−min)` fraction
+decoded 23:00 as minute 1381, not 1380. `_the_arc_the_handles_and_the_caption_
+agree_after_an_interaction()` (`companion/test_browser_ux.py`, 27-02) decodes
+all four surfaces — the two native `<input type="time">` fields, the two
+handles' `aria-valuenow`, the arc's RESOLVED geometry (`stroke-dasharray` +
+`transform`, real SVG user units, never `getBoundingClientRect`), and the
+caption's text — to ONE canonical minute-of-day pair via 27-01's
+`_assert_surfaces_agree()`, over a real pointer drag AND a preset press, in
+both themes. Reverting the seam's three publication lines reproduces the
+shipped defect **live, on this plan's own fix, on demand**:
+
+> `_assert_surfaces_agree: drag path — the 4 surfaces describing this value
+> DISAGREE ... the arc's resolved geometry -> (480, 1380) ... The interaction
+> asked for (480, 1080)`
+
+**The server-rendered arc stays authoritative, and this is re-verified at this
+phase's close, not merely at 27-02's.** `quiet_dial_svg()`'s own output is
+**byte-identical** before and after the WHOLE plan's diff, across four windows
+including the wrap and the 1-minute floor — script only ever overrides what is
+already correct, computed from the SAME custom properties the server also
+renders inline at rest. Re-run today (2026-09-15), directly comparing the
+phase's base commit (`839489a`) against HEAD, after five more plans (27-03
+through 27-08) touched `config_page.py` again: **still an exact match, all
+four windows.** The caption's duration BLANKS rather than showing a stale or
+wrong number — an empty `data-value-readout-text` template, so both of
+`paintReadouts()`'s branches resolve to `""` the instant the pair moves away
+from what the server rendered. This is PROVISIONAL (27-02's own note): a
+reviewer who finds the disappearing duration during a drag unacceptable has
+C2 (server-emitted per-unit templates, 27-RESEARCH.md) as the recorded
+fallback.
+
+### Correction 1 — no save button, and the no-JS floor kept by construction (CFG-63, CFG-64)
+
+**Both requirements complete.** CFG-64 landed FIRST (27-03, wave 3),
+deliberately, so the no-JS floor was never momentarily made of the thing being
+removed. The native settings-form submit's emission is proven unconditional
+at the **AST source level** — one `return` statement, never nested under any
+`scope` branch, `STATIC_SAVE_FALLBACK_ATTR` reached as a bare `Name` never
+behind an `ast.IfExp` — not merely observed to render today, which is the
+difference between "the floor holds" and "the floor happens to be up right
+now." The CSS gate reverted to the simplest possible form, a plain `.js`
+selector; B1/P0's original two-marker `[data-static-save-fallback]` visibility
+contract is **superseded in writing**, not deleted — its comment block is kept
+verbatim in `companion/static/style.css` and a dated paragraph is appended
+after it, naming CFG-64/27-03-PLAN.md, with no CSS selector literal quoted
+(D-30).
+
+CFG-63 (27-04, wave 4) then retired the dirty save bar outright — no button,
+no Cancel, no per-field count, no connector words — and rebuilt the settings
+form's save behaviour on the exact optimistic-apply → fetch POST → exact-204-
+confirms → otherwise-revert-and-toast model the three `role="switch"`
+controls already shipped, reusing the app's ONE existing failure vocabulary
+(the same generic translated toast, never a new string). The sole visible
+affordance is one `role="status"` region, empty at rest, holding "Saving…"
+then "Saved" (or their French siblings) — proven with a `MutationObserver`
+recording the FULL text sequence, never sampled only at the settled state,
+which is what caught a real vacuity gap in the check's own first draft
+(mutation M-B: a status region that briefly claims "Saved" during a FAILED
+save, then quietly self-corrects, passed a settled-state-only read).
+
+**One clause is RE-SCOPED by the developer's own binding decision, and it is
+recorded here rather than silently reconciled.** CFG-63's own wording
+anticipated the leave-guard being "retired only where it means discard a
+pending edit, and kept where it confirms a destructive act." What actually
+shipped, per the developer's explicit instruction
+(`.planning/ROADMAP.md`, "Developer decisions, taken 2026-09-15"): the
+`beforeunload` leave-guard stays alive **in full**, not partially retired,
+because a keystroke that never fires `change` (the event auto-save listens
+for) still needs the exact protection the old dirty bar used to guarantee —
+pasting a calendar URL and closing the tab without leaving the field must not
+lose the edit silently. This is a genuine departure from the requirement's own
+anticipated shape, directed by the developer and executed as directed; it is
+recorded as a re-scope rather than absorbed into a plain "built as worded."
+"Annuler" is gone outright — there is no more pending-edit state left for it
+to cancel.
+
+### Correction 2 — one title form (CFG-65) — INVESTIGATED, NO DEFECT FOUND, NOT TICKED
+
+**This row is deliberately left unticked**, per the standard Phases 23-25
+held: a requirement whose premise does not survive investigation is recorded
+as unmet, not quietly rounded up.
+
+The developer's report was "titles sit inside the tile on some cards and
+above it on others." 27-06's executable inventory (`config_page.render()`,
+both scopes, counted directly against the server-rendered HTML — no browser
+needed) measured, of 12 total `text-heading` instances:
+
+| Form | What it is | Count |
+|---|---|---|
+| A — `[data-dirty-section] > h2` | the first thing inside a bordered settings card | **7** |
+| B — `.section-intro > h2` | `layout.section_intro_html()`, shared byte-identical with Health | **3** |
+| unclassified | the Frame strip's own live-status heading; the Poll card's bare-section heading | **2** |
+
+This reproduces 27-01's own browser-driven 7/3/2 exactly, and corrects
+27-RESEARCH.md's provisional 8/3/2 — the eighth grep hit is a form-A call site
+neither settings route actually renders.
+
+**Is this a genuine inconsistency, or two legitimate forms? Investigated
+structurally, not by impression.** Form B is not a second card-title form —
+it introduces a SUPERSECTION, and at least one instance ("Look") introduces
+**two** cards at once (Frame colours and Calendar), which a card title, naming
+exactly one card, structurally cannot do. The two forms also render at
+genuinely different sizes on purpose: nested cards under a supersection render
+their own `<h2>` at 16px sans-semibold, un-nested cards and supersection
+intros themselves at 22px serif regular — `style.css`'s own comment on that
+rule states this is "the third and final state of a three-round
+developer-reviewed decision... not a mistake to second-guess," shared verbatim
+with `health_page.py`. Converting either direction costs reversing a validated
+prior decision this plan has no standing to reopen (B→A) or editing
+`layout.section_intro_html()` away from a shape Health's own structural checks
+match literally (A→B). **No markup or CSS was converted.**
+
+**Verdict: the developer's impression very likely traces to Display's three
+supersection headings being visually present where Device has none at all —
+a real, intentional structural difference between the two settings pages —
+rather than to a per-card title inconsistency. This is a separate,
+out-of-scope, developer-confirmed design decision (the heading-ladder's own
+three-round-trip history), not a defect this phase can or should fix.**
+Guarded going forward at the source level:
+`_no_card_builder_function_ever_calls_section_intro_html()`
+(`companion/test_config_page.py`, AST-based) asserts **zero** of the seven
+settings-card builder functions ever call `layout.section_intro_html()` for
+their own `<h2>` — mutation-tested (a spurious call inserted into
+`led_group()` fails by name, naming the offending function).
+
+**Decision this leaves the developer**: accept that there is no title-form
+inconsistency to fix, and that what reads as one is Display's supersection
+structure; or, if the impression persists after a fresh look, ask specifically
+about the heading-ladder's third round-trip rather than about "the titles" —
+that is where the actual visual difference lives.
+
+### Correction 3 — D16's runway map removed, CFG-47 retired (CFG-66)
+
+**Complete (27-05).** `runway_map_svg()`, `runway_bearing_deg()`, nine
+`RUNWAY_MAP_*` constants and all seven `runway-map`/`runway-map__*` CSS rules
+are gone. Every map-only check is named and removed (3 per harness — the
+registry-following proof, the bearing-derivation math, the paint/feature-query
+assertions on the browser side; the map-drawn-from-registry proof, the
+bearing math and the paint/join proof on the markup side). Two pre-existing
+checks that bundled a map-only assertion with a still-load-bearing
+control/security assertion in the SAME function were mutated IN PLACE rather
+than deleted or left broken — the map's own colour-literal ban and shape-paint
+requirements dropped, `runway_fieldset()`'s own hostile-label escaping proof
+(the only escaping check for runway labels anywhere in the suite) kept. One
+new relationship check
+(`_the_map_is_gone_the_radios_and_photographs_remain_and_meet_their_floor`)
+asserts absence-of-map AND presence-of-the-control AND presence-of-the-
+photographs as ONE fact, replacing three narrower ones — mutation-tested
+twice (re-adding a map class; deleting a radio), each failing on the correct,
+named clause.
+
+**The radios' own scripts-blocked save-to-disk proof is CFG-64's check
+(`_the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies`),
+never the map-era one** — its own docstring already states the distinction
+("unlike 25-03's own check, which corroborates with the runway MAP's
+presence, this one asserts the SUBMIT itself"), and `git diff` confirms zero
+edits to its function body across the whole plan. Touch targets re-measured
+now that the map strip no longer provides the box: **90×138 / 89×136 /
+88×136** at 360px in both themes, within a pixel of 25-02's own pre-map
+baseline (88×138) — the map's removal returns the card to substantially its
+pre-map shape, not to empty space or a shrunk target.
+
+**CFG-47's retirement is RE-VERIFIED intact at this phase's close, per the
+standing instruction that several later plans touched the same files again.**
+All three records are present, dated `2026-09-14`, and consistent with the
+tree Phase 27 actually produced:
+
+1. The ticked requirement row (`.planning/REQUIREMENTS.md`, CFG-47): `[x]`
+   present, `**RETIRED (Phase 27, 2026-09-14).**`
+2. The traceability row (CFG-47): the full clause-by-clause evidence from
+   25-03, ending `**RETIRED 2026-09-14 (Phase 27).**`
+3. The D16 coverage-ledger section (Phase 25's own ledger, above): `**RETIRED
+   2026-09-14 by Phase 27 (CFG-66).**`
+
+`grep -c RETIRED .planning/REQUIREMENTS.md` → **3**, re-run today
+(2026-09-15) on the finished tree — unchanged from 27-05's own count, despite
+27-06, 27-07 and 27-08 each editing `config_page.py` and/or `style.css` again
+after 27-05 landed.
+
+### Correction 4 — the explanatory text cut, honesty contract intact (CFG-67)
+
+**Complete (27-06), and RE-VERIFIED on the current tree rather than trusted
+from 27-06's own close.** Three regions shortened, each measured as a
+character count against 27-01's own recorded baseline, each check reading the
+region ONCE and asserting length + refusal-survival against that SAME
+reading:
+
+| Region | Route | Before | After |
+|---|---|---|---|
+| Wake-interval caption | `/device` | 220 | **137** |
+| The two wake gauges (combined) | `/device` | 254 | **168** |
+| Quiet hours paragraph | `/display` | 188 | **121** |
+
+Every cut removes only a mechanism/reason clause; every honesty-contract or
+live-computed-state clause survives verbatim in meaning — the "at most" bound
+on the freshness gauge, the battery refusal sentence itself, and the Quiet
+hours delay sentence (computed live from `frame_state`, asserted to survive in
+the SAME check as the length cut).
+
+**Re-verified today (2026-09-15), directly against the shipped
+`wake_battery_observed_text()`:** its docstring is unedited since 27-06 —
+*"an absolute figure ONLY when this frame's own observed history supports
+one, and the named 'not enough history yet' sentence in every other case"* —
+and calling it with an empty `battery_rows` series still returns *"Not enough
+battery history yet to say how long a charge lasts."*, with zero match against
+the days-CLAIM-shaped forbidden pattern
+(`≈\s*\d+\s*(?:day|days|jour|jours)\b` — deliberately scoped to the CLAIM
+shape rather than to `≈` near any digit, since the wake-interval caption's own
+legitimate `(next wake ≈ 31 Jul 08:05)` text would otherwise false-positive
+on a naive pattern, a trap 27-01 flagged before 27-06 ever wrote the check).
+
+### Correction 5 — the carousel extended, the disclosure moved, the height measured (CFG-68)
+
+**Complete.** `_theme_carousel_html(grid_html, strip_id)` takes `strip_id` as
+a **required** argument — no shared default, so the duplicate-id/wrong-pager-
+target trap (`THEME_CAROUSEL_STRIP_ID` used to be one module-level literal
+read by both pagers' `aria-controls` builders) is closed **structurally**,
+mutation-tested against a simulated collision (two copies of the departures
+carousel's own output on one page fail by name, naming the exact id and the
+exact hazard). Arrivals and calendar fold into the same scroll-snap mechanism
+departures already had, each with its own id, its own scripts-blocked save
+proof (seeded through the validated `save_device_config()` API for
+`theme_arriving`, since its `None` state would otherwise defeat the shared
+save-floor guard's own "stored is None" check), and its own per-instance
+`:has()`-scoped toggle, proven independent in a real browser (opening one
+carousel's disclosure leaves both siblings' strips `nowrap` while only the
+opened one reads `wrap`). "Voir tous les thèmes"/"See all themes" now renders
+LAST in the shared wrapper (grid, pagers, dots, disclosure) — a one-line
+reorder of the ONE shared helper, correcting all three carousels at once. The
+swatch legend ("Departures · Arrivals" → "Departures & arrivals"/"Départs et
+arrivées") is checked as a REGISTRY RELATIONSHIP (the expected label count
+computed from `device_config.THEMES` at check time), never a literal string —
+closing the phase's first carried-in finding, see CFG-70 below.
+
+**Display's page height, measured at THIS phase's close (27-09,
+2026-09-15), against 27-07's own STATED prediction — the standard this row
+holds itself to.** 27-07 predicted, before anyone measured: **≈3446–3496 px**
+(midpoint ≈3471 px) at 390px, arithmetic stated in full (≈0 px from the
+carousel extension itself, since `theme-preview.js` already collapses
+non-selected panels at load; ≈−63 px from the runway-map removal; an
+ESTIMATED −40 to −90 px, midpoint −65, from the text cuts; ≈−144 px from the
+dead `.dirty-ready` padding-bottom removal), and stated plainly that **2600 px
+is NOT expected to be reached.**
+
+**Measured today, reproducing 25-06's own conditions exactly
+(`_display_page_height()`, scripts enabled, authenticated, pointed at the real
+Display page, both phone widths): 3524 px at 390px (and 360px — identical, as
+25-06 also found).**
+
+| | 25-06 baseline | 27-07's prediction | Measured (27-09) |
+|---|---|---|---|
+| Display height, 390px, scripted | 3743 px | ≈3446–3496 px (mid ≈3471) | **3524 px** |
+
+**The measured figure sits 28 px ABOVE the top of the predicted range — a
+missed prediction, reported as one, not silently widened to fit.** The
+reduction that actually happened is **−219 px** (3743 → 3524), against a
+predicted reduction of −247 to −297 px (midpoint −272). **Why, named rather
+than left as an unexplained gap:** 27-07's own text-cut term (−40 to −90px,
+midpoint −65) summed ALL 236 characters 27-06 cut across THREE regions — but
+two of those three regions (the wake-interval caption, the two wake gauges)
+render only on `/device`, never on `/display` at all
+(`screens.GROUP_WAKE_INTERVAL` is Device-scope-only, per its own code
+comment: "read only on a scope that actually renders this group... and never
+on Display"). Only the Quiet hours paragraph's 67-of-236 characters actually
+apply to Display's height — so the applicable text-cut term should have been
+roughly a third of what was estimated, on the order of −11 to −25 px rather
+than −40 to −90 px, an overestimate of roughly 40-50 px at the midpoint from
+scope alone. A second, smaller contributor in the same direction: the
+`.save-status` region that replaced the dirty bar's fixed `padding-bottom`
+reservation is measured, in its own empty-at-rest state, at **0 px** of its
+own box height (only its `margin-top: 8px` is real), so the `.dirty-ready`
+padding removal (−144 px) is very nearly fully realized rather than partly
+offset. Together these account for most of the 28 px the measurement missed
+the range by. **The lesson, in the same voice 25-06 used**: what is left after
+this phase is still four more Display cards plus the Frame strip, not a grid
+— 2600 px is **924 px** away, and no further win is available inside a
+correction-only phase's scope.
+
+**The scripts-blocked (no-JS) height, measured for the first time at this
+close: 5550 px at 390px (5581 px at 360px)** — roughly 2000 px taller than the
+scripted page, confirming 27-07's own prediction that the carousel
+extension's real saving is for a no-JS reader (all three grids render their
+full, un-collapsed rows with scripts blocked) rather than for the default
+scripted load (where `theme-preview.js` already collapsed the non-departures
+grids before this phase ever touched them). **No horizontal body scroll at
+360px, confirmed on every page this phase touched (`/display`, `/device`,
+`/`, `/flights`), in both themes** — `scrollWidth` equals `clientWidth` (360)
+in all eight measured combinations.
+
+### Correction 6 — the Frame strip's Quiet hours link (CFG-69)
+
+**Complete (27-08).** `config_page.QUIET_HOURS_GROUP_HEADING_ID` gives the
+Quiet hours card's own `<h2>` a stable fragment target.
+`layout.frame_strip_html()`'s quiet cell appends a real
+`<a class="text-link frame-strip__schedule-link" href="/display#quiet-hours-group-heading">`
+to a **copy** of the shared `delay_caption_html` (never the shared variable
+itself, which the Screen cell's own caption also reads two lines earlier in
+the same function) — one write site, unconditionally, so both Home and
+Display get the identical markup from the identical call by construction, not
+by two independently-maintained call sites that happen to agree today. Proven
+by ONE check rendering both `home_page.render()` and
+`config_page.render(scope=SCOPE_DISPLAY)` and asserting (a) both carry the
+link and (b) the two hrefs are byte-identical — mutation-tested against total
+removal (fails, naming both missing pages) and a simulated per-page fork
+(fails, naming the two different hrefs it produced). The href targets
+`layout.DISPLAY_ROUTE` directly, never `SETTINGS_ROUTE` (a legacy 303 redirect
+that would add an unnecessary hop). Clears the 44px floor via `inline-flex` +
+`min-height`, measured by real hit-testing at 360px in both themes; neither
+page gains horizontal scroll from the addition.
+
+### The two carried-in findings, closed rather than re-deferred (CFG-70)
+
+**Both complete.** These were logged by earlier phases against the SAME
+correction the developer's review independently surfaced work near, not new
+findings from this review itself.
+
+**The swatch legend** (found by 25-06: `departing_index == arriving_index`
+for 18 of 18 shipped themes, so "Departures · Arrivals" named a distinction
+nobody could ever see) — closed under CFG-68's own carousel-rewrapping plan
+(27-07), properly this row's subject: the legend now reads "Departures &
+arrivals"/"Départs et arrivées", checked as a registry relationship rather
+than a literal.
+
+**`.copy-btn`'s 34×26 hit area** in a Flights detail row (found by 25-02
+while demonstrating its own hit-area instrument) — closed by 27-08, which
+found the cause was a *container* problem, not a button problem: `.copy-btn`'s
+own declared box/inset values are correct everywhere else, including
+`.row-toggle`, which shares those exact values verbatim and already resolved
+45×45. The hex button's real defect was a ~4px gap to a trailing sibling
+crushing its downward reach to 2px (of an expected ~22px) and an
+`overflow: hidden` clip boundary on its container crushing its leftward reach
+to ~12px (of an expected ~22px) — both fixed with container spacing
+(`.flight-detail-row__grid` `margin-bottom`, `.flight-detail-row__reveal-inner`
+`padding-left`), closing to a resolved **45×45**, never by touching
+`.copy-btn`'s own rule. `.row-toggle` is separately re-measured and
+mutation-proven **independent** — a mutation that shrinks ONLY
+`.row-toggle::before`'s own inset names `.row-toggle` alone in its failure
+message, with no mention of `.copy-btn`, confirming the two controls are
+measured as genuinely separate subjects even though they share one register
+of values.
+
+### The instrumentation floor (CFG-71)
+
+**Complete, across the whole phase.** The pattern every later plan in this
+phase registers against: `_assert_surfaces_agree()` (27-01) decodes N rendered
+surfaces describing one logical value to a canonical form, builds the SET of
+decoded values, and asserts three things, never one — the set has exactly one
+member (the surfaces agree); that member equals what the interaction
+requested (agreement on the wrong value is what a page frozen together looks
+like from outside); and that member differs from what was there before (a
+no-op is the cheapest way to make every surface on a page agree). Applied to
+the dial (27-02, the phase's own defect), to auto-save's own settle sequence
+via `MutationObserver` (27-04), and generalized in the "review-feedback
+discipline" paragraph now recorded in `sketch-findings-skypane`. See the
+phase gate below for the re-derived counts, the five baseline failures by
+name, and the structural pins proven together, once, at the end.
+
+### The phase gate
+
+Re-derived by **running**, at this phase's close (2026-09-15), never trusted
+from a plan.
+
+**The full suite: exactly the 5 sandbox baseline failures, verified BY NAME.**
+`PYTHON=/home/user/skypane/server/.venv/bin/python3 bash scripts/run-all-tests.sh`,
+run to completion, total wall time **265.9s** at `JOBS=4`
+(`companion/test_browser_ux.py` is the critical path at 265.9s inside the
+suite; standalone it runs in **4m17.4s / 257.4s**). `grep -c '^FAIL'` over the
+whole run's output is **5** (a bare `grep -c FAIL` returns 14 — it also
+matches the run's own "FAILED harnesses (3)" summary lines and the per-file
+timing table's "FAIL" column, neither of which is a check result; anchored to
+the start of the line is what counts real per-check FAIL lines), and the five
+are, by name, unchanged from the set every earlier plan in this phase
+reported:
+
+1. `POST /airlines/resolve redirects with the manual_save_failed flash key … the state dir is read-only … (WR-11)` — `companion/test_companion_app.py`
+2. `POST /airlines/manual-resolutions/{prefix}/delete redirects with the manual_delete_failed flash key … (WR-11)` — `companion/test_companion_app.py`
+3. `add_entry() returns ADD_FAILED (never raises) when its state dir cannot be created because the parent directory is read-only … (WR-11)` — `server/test_manual_resolutions.py`
+4. `delete_entry() returns False (never raises) when the state dir goes read-only mid-write … (WR-11)` — `server/test_manual_resolutions.py`
+5. `anomaly_active() runs on every page render and must never raise — missing/empty/file/corrupt-db inputs all degrade safely` — `companion/test_status_pages.py`
+
+**No sixth.** These five fail only because this container runs as root; they
+pass in CI. `grep -c SKIP` over the whole run's output is **0** —
+`companion/test_browser_ux.py` really ran, in full, both times it was run
+today (once inside the suite, once standalone).
+
+**Every scripts-blocked save-to-disk check named and confirmed PASSING** —
+the phase's central claim is executable, not narrated:
+
+1. *"the runway ... no-JS floor still SAVES TO DISK after the gate simplifies to the plain .js rule (CFG-64) — tracked_runway operated natively ... re-read FROM DISK after a fresh GET ..."* (27-03's floor proof, which SUPERSEDED 25-03's own map-corroborated check when 27-05 removed the map)
+2. *"the quiet window still SAVES with scripts blocked through the dial — both ends set natively ... re-read FROM DISK after a fresh GET and restored the same way ..."* (25-04)
+3. *"the wake interval still SAVES with scripts blocked beside the slider ... re-read FROM DISK after a fresh GET and restored the same way ..."* (25-05)
+4. *"the theme still SAVES with scripts blocked through the carousel ... re-read FROM DISK after a fresh GET and restored the same way ..."* (25-06)
+5. *"with scripts blocked at 360px, an artwork file chosen through the native `<input type="file">` ... is STORED (read back off the real state directory ...) and SERVED back by the illustration route ..."* (25-07)
+6. *"the arrivals grid — the first grid this plan newly folds — still SAVES with scripts blocked through ITS OWN carousel ..."* (27-07)
+
+`grep -c 'new_context(java_script_enabled' companion/test_browser_ux.py` →
+**1** — exactly one scripts-blocked context, composed with, never duplicated.
+**A criterion that did not evaluate as predicted, recorded rather than
+silently adjusted**: this plan's own interfaces section asked for
+`grep -n 'java_script_enabled' companion/test_browser_ux.py` to return exactly
+one line; it returns **6** (five of them prose in comments), and 27-01 already
+found and recorded this exact fact on the phase's base commit — the call-site
+count above is the invariant that actually holds, and is what every plan
+since 27-01 has pinned.
+
+**Structural pins, proven TOGETHER, at the end, against the phase's own base
+commit `839489a`:**
+
+| Pin | Base | Now |
+|---|---|---|
+| `@supports selector(:has(*)) {` blocks (comment-stripped, brace-anchored) | 1 | **1** |
+| `@keyframes` (comment-stripped, `^@keyframes\b`-anchored) | 4 | **4** |
+| `ls companion/static/*.js \| wc -l` | 17 | **17** (`dirty-state.js` REPURPOSED, not replaced — the whole reason the count could hold) |
+| deferred `<script src=` on the authenticated shell | 15 | **15** (`_fifteen_deferred_scripts_before_closing_body`, passing) |
+| stray comment terminators in `style.css` (`/*` vs `*/` counts) | balanced | **486 / 486, balanced** |
+| `interpolate-size`/`calc-size(` in `style.css` | 2 (both banned-property prose) | **2**, unchanged |
+| the overlay drawer (`grep -i drawer`, comment-stripped) | 0 | **0** |
+| `position: sticky` (comment-stripped) | 1, `.dashboard-sidebar` | **1**, same rule, not a day header |
+| unauthenticated route set (GET + POST, `require_session()` gating) | 19 GET + 1 POST | **unchanged** — `git diff 839489a..HEAD -- companion/app.py` touches ZERO `require_session()` call sites and the whole diff is 63 lines (a 204-vs-303 response-shape refactor, `_settings_saved_redirect()`, on already-gated routes) |
+| new `_ROUTE`/`*_ROUTE` constants anywhere under `companion/` | — | **0**, confirmed by `git diff 839489a..HEAD -- companion/` |
+
+*(A bare `grep -c '@keyframes'` returns **6** and a bare
+`grep -c '@supports selector(:has(\*))'` returns **9** — both are prose in
+comments quoting the at-rule, growing across the phase as later plans'
+comments themselves referenced these pins; both are comment-stripped above
+for that reason, and the bare counts are recorded here so the next reader
+does not mistake either for a regression.)*
+
+**Both standing refusals stay refused, and this phase reopened neither** —
+proven above by grep, not merely asserted: the **overlay drawer** (three
+recorded rejections plus locked decision D-10) and **sticky day headers**
+(struck twice; every flight row already carries its own date).
+
+**Final `EXPECTED_CHECK_COUNT` for every harness this phase moved, each
+re-derived by running:**
+
+| Harness | Pre-phase | Final | Passing here |
+|---|---|---|---|
+| `companion/test_browser_ux.py` | 81 | **88** | 88/88, 0 SKIP |
+| `companion/test_companion_app.py` | 314 | 314 | 312/314 (the two WR-11) |
+| `companion/test_config_page.py` | 259 | **263** | 263/263 |
+| `companion/test_status_pages.py` | 305 | **306** | 305/306 (`anomaly_active()`) |
+| `companion/test_i18n.py` | 24 | 24 | 24/24 |
+| `companion/test_view_pages.py` | 164 | 164 | 164/164 |
+| `companion/test_contrast_check.py` | 49 | 49 | 49/49 |
+
+`ruff check .` — **All checks passed!**
+
+**One intermittent, flagged by 27-08, checked here for recurrence rather than
+waved away as already known.** 27-08's own SUMMARY recorded a `test_browser_
+ux.py` check (`SkyPaneDirtyState` timing on the `quiet_hours_start` field)
+failing once under 4-way parallel load and passing clean in four separate
+serial/standalone runs both before and after that plan's own changes. **It
+did NOT recur in this closing plan's own final run** — today's full-suite run
+(`JOBS=4`) and today's separate standalone `test_browser_ux.py` run were both
+clean at 88/88 with exactly the five named baseline failures and no sixth.
+Confirmed absent, not merely assumed absent — this is new information (a
+non-recurrence), not a re-statement of what 27-08 already knew.
+
+### `deferred-items.md`
+
+Created for this phase (`.planning/phases/27-companion-review-feedback-the-
+defects-and-the-noise-the-deve/deferred-items.md`) — no earlier plan in this
+phase had started one. Carries: the "règles par vol" view (explicitly out of
+scope for the whole phase, per the ROADMAP's own entry — "the brief is too
+vague to plan against and needs a conversation first"); the rule-add form's
+colour grid, left unwrapped by 27-07 for the identical reason (recorded
+together with the view it is deferred alongside, so the two decisions are
+findable in one place); and `DIRTY_SECTION_ATTR` (`data-dirty-section`), left
+standing in `config_page.py`'s markup by 27-04, unread by any script since its
+reader was deleted with the dirty bar, still marking the same visual grouping
+a sighted reader already sees.
+
+### What this gate does NOT cover — the human sweep, named and not claimed
+
+**This is the phase's real gate and it is the developer's, not this agent's.**
+On a real phone at 360px and on a desktop, in both themes and both languages:
+
+- **Auto-save's two words** — does "Sauvegarde…"/"Sauvegardé" arrive
+  reassuringly or invisibly on a real screen, at real reading speed?
+- **The dial's handles and arc**, following both a drag and a preset,
+  including when the window's two ends are close together or genuinely
+  overlapping.
+- **The runway card without its map** — does the simplified card read as
+  complete, or as missing something, on a real screen?
+- **The shortened wake-interval and battery wording** — is 137/168 characters
+  still enough explanation, or too terse now?
+- **The one title form** — does Display's supersection structure read
+  clearly now that CFG-65's investigation found nothing to convert, or does
+  the developer's original impression persist even having seen the
+  evidence above?
+- **All three colour strips and their pagers**, each carousel's own
+  disclosure now below the strip.
+- **The Quiet hours link**, tapped from both the Home and the Display Frame
+  strip.
+- **Whether the disappearing duration during a drag** (the dial's caption,
+  PROVISIONAL per CFG-62) is acceptable, or whether the C2 fallback
+  (server-emitted per-unit templates) should replace it.
+
+That review is the developer's. This gate reports what a machine can see;
+it does not claim the rest.
+
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.
 

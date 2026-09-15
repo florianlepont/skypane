@@ -30,10 +30,11 @@ from companion import battery  # 25-05-PLAN.md Task 1 (CFG-49): the ONE
 # `from companion.battery import battery_life_estimate` would make the
 # estimate read as this page's own, which is the drift 19-01 created
 # that module to prevent.
-from companion import draw  # 25-03-PLAN.md Task 1 (CFG-47): the shared
-# SVG geometry/emission primitives the runway map's shapes come from.
-# stdlib-only by its own contract, so importing it here adds no
-# dependency edge this module did not already have.
+from companion import draw  # 25-04-PLAN.md Task 2 (CFG-48): the shared
+# SVG geometry/emission primitives the quiet-hours dial's shapes come
+# from (27-05-PLAN.md Task 2, CFG-66, retired the runway map's own use
+# of this import). stdlib-only by its own contract, so importing it
+# here adds no dependency edge this module did not already have.
 from companion.layout import escape_html
 import companion.layout as layout
 from companion import frame_state  # 22-05-PLAN.md Task 2 (D-04): the one
@@ -220,7 +221,25 @@ FRAME_COLOURS_ROW_LABELS = {
 # one X6 reports. The words chosen instead are the usage panels' own
 # labels above, so the legend and the panel a user is looking at name
 # the same two things.
-THEME_CHIP_SWATCH_LEGEND = "Departures · Arrivals"
+#
+# 27-07-PLAN.md Task 3 (CFG-70): "Departures · Arrivals" — a middle dot
+# between the two words, the SAME separator the disclosure elsewhere on
+# this card would use to name two genuinely different things — reads as
+# a promise that the two dots are two different colours. They are not:
+# every one of the eighteen themes has `departing_index ==
+# arriving_index` (measured while writing `_theme_carousel_html()`,
+# 25-06-PLAN.md Task 2, and unchanged since), so the two dots are always
+# the same ink. A middle-dot legend over two identical swatches is X6's
+# OWN "unexplained swatches" defect wearing different words: it now
+# explains a distinction the registry does not carry. The copy is
+# joined into ONE phrase instead — no separator, naming what the single
+# shared colour is FOR rather than implying two colours to tell apart.
+# `companion/test_config_page.py`'s own check computes the expected
+# label count FROM THE REGISTRY at check time (never a restated
+# literal), so if a future theme ever does give departures and arrivals
+# different inks, that check starts demanding two labels again and
+# fails against this one-phrase copy until it is split back apart.
+THEME_CHIP_SWATCH_LEGEND = "Departures & arrivals"
 # 22-10-PLAN.md Task 1 (T10/B16/D-06): the "Current" badge's own text.
 # It used to be a hard-coded English `content: "Current"` literal inside
 # companion/static/style.css (twice), which no catalogue can reach; it is
@@ -238,19 +257,32 @@ CURRENT_BADGE_ATTR = "data-current-label"
 
 # --- 25-06-PLAN.md Task 2/3 (CFG-50): D5's theme carousel -------------
 #
-# The DEPARTURES chip grid, and only that one, is presented as a
-# horizontal scroll-snap strip. The other three grids (arrivals,
-# calendar, rule-add) are deliberately untouched — see
-# `_theme_chip_grid_html()`'s own docstring for that decision and its
-# reason.
+# 27-07-PLAN.md Task 2 (CFG-68): the DEPARTURES chip grid was, until
+# this plan, the only one presented as a horizontal scroll-snap strip.
+# Arrivals and calendar now fold the same way — the brief names exactly
+# "arrivals, departures, calendar flights" — leaving only the rule-add
+# form's own grid deliberately untouched (it lives inside the "règles
+# par vol" view the brief explicitly defers). See
+# `_theme_chip_grid_html()`'s own docstring for the full reasoning and
+# the rule-add form's own call site for the recorded ground.
 #
-# `theme-carousel-strip` is both the strip's `id` (so the two pagers'
-# `aria-controls` names something real) and the element
+# `theme-carousel-strip` is both the DEPARTURES strip's `id` (so the two
+# pagers' `aria-controls` names something real) and the element
 # `companion/static/theme-preview.js` scrolls — the script resolves it
 # through the button's OWN `aria-controls`, so the accessibility
 # contract and the script contract are one contract rather than two that
-# can drift apart.
+# can drift apart. Arrivals and calendar carry their OWN ids below,
+# derived from the SAME `COLOUR_USAGE_*` constants that already
+# distinguish these usages elsewhere on this card, rather than three
+# invented literals — see `_theme_carousel_html()`'s own docstring
+# (Task 1) for why a shared id is exactly the trap this had to avoid.
 THEME_CAROUSEL_STRIP_ID = "theme-carousel-strip"
+# 27-07-PLAN.md Task 2 (CFG-68): two more strip ids, one per usage this
+# plan folds into a carousel. Departures keeps its own bare
+# THEME_CAROUSEL_STRIP_ID above unchanged — it predates this plan and
+# nothing depends on it changing — these two are purely additive.
+THEME_CAROUSEL_STRIP_ID_ARRIVALS = THEME_CAROUSEL_STRIP_ID + "-" + COLOUR_USAGE_ARRIVALS
+THEME_CAROUSEL_STRIP_ID_CALENDAR = THEME_CAROUSEL_STRIP_ID + "-" + COLOUR_USAGE_CALENDAR
 # The gated wrapper's own attribute, and the one
 # companion/test_companion_app.py's `_NO_JS_CONTROL_REGISTRY` names for
 # this control. It is on the WRAPPER only, never on a button — that
@@ -449,13 +481,34 @@ LED_SECTION_HEADING = "Diagnostic LED"
 # the retired "which may now be hours away" wording with a real, computed
 # time rather than a fixed literal.
 QUIET_HOURS_SECTION_HEADING = "Quiet hours"
+# 27-06-PLAN.md Task 3 (CFG-67): shortened from 27-01-SUMMARY.md's
+# measured 188-char baseline (this caption plus its own computed delay
+# sentence, appended at render time by quiet_hours_group() — see that
+# function's own caption_html construction below, unchanged). The cut
+# is scoped to THIS explanatory sentence alone: "— the Frame strip's
+# Quiet hours switch is what turns it on and off" (the mechanism
+# clause) is dropped; "Pauses the frame's wake, poll and display cycle
+# during the schedule below" (what the schedule DOES) is kept, and the
+# appended delay sentence — computed state, not explanation — is
+# untouched by this edit entirely.
 QUIET_HOURS_SECTION_CAPTION = (
-    "Pauses the frame's wake, poll and display cycle during the schedule "
-    "below — the Frame strip's Quiet hours switch is what turns it on "
-    "and off.")
+    "Pauses the frame's wake, poll and display cycle during the "
+    "schedule below.")
 # 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
 # comment above.
 QUIET_HOURS_SECTION_CAPTION_ID = "quiet-hours-caption"
+# 27-08-PLAN.md Task 1 (CFG-69): the card's own heading id, the same
+# "id on the group's <h2>" convention RUNWAY_GROUP_HEADING_ID already
+# uses (runway_group() below) — added here because nothing on this card
+# carried a stable id before this task. `DIRTY_SECTION_ATTR` (still
+# emitted on this same card's wrapper) is not it: that is a `data-*`
+# attribute 27-04 left in place for reasons unrelated to navigation, and
+# a `data-*` attribute is not a fragment an `<a href="#...">` can ever
+# resolve to. This is the Frame strip's own link target (companion/
+# layout.py's frame_strip_html(), 27-08 Task 2) — a fragment identifier
+# naming the card a reader is sent to, not a new control and not a
+# change to anything that posts.
+QUIET_HOURS_GROUP_HEADING_ID = "quiet-hours-group-heading"
 
 # 22-05-PLAN.md Task 2 (D-04): scanner-visibility copies of two of
 # companion/frame_state.py's three delay-sentence constants — byte-
@@ -515,11 +568,17 @@ QUIET_HOURS_PRESET_ATTR = "data-quiet-preset"
 # state — it names the fallback behavior instead of showing a fabricated
 # number.
 WAKE_INTERVAL_SECTION_HEADING = "Wake interval"
+# 27-06-PLAN.md Task 3 (CFG-67): shortened from 27-01-SUMMARY.md's
+# measured 220-char baseline — the mechanism sentence ("How often the
+# frame wakes to poll for updates.") and the apply-timing sentence
+# ("Applies on the next scheduled poll.") are both cut; the derived
+# "(next wake ≈ ...)" suffix _with_next_wake() appends already states
+# the apply timing with a real timestamp, making the generic sentence
+# redundant. What is kept is the one sentence a reader needs to ACT:
+# what a shorter/longer number trades off.
 WAKE_INTERVAL_SECTION_CAPTION = (
-    "How often the frame wakes to poll for updates. Shorter means "
-    "fresher info and more battery drain; longer means more battery "
-    "life and staler info at a glance. Applies on the next scheduled "
-    "poll.")
+    "Shorter means fresher info and more battery drain; longer means "
+    "more battery life and staler info at a glance.")
 WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
 # 22-10-PLAN.md Task 3 (B17): the unit, rendered as a SIBLING beside the
 # number input — never a placeholder (the field already has one, and a
@@ -612,35 +671,46 @@ WAKE_BATTERY_WINDOW_DAYS = 14
 # app's one ladder and is used below for the ONE fixed cadence that is
 # not the field's own value (the screen-off one), where no live update
 # has to reproduce it in a second language of source.
+# 27-06-PLAN.md Task 3 (CFG-67): shortened from 27-01-SUMMARY.md's
+# measured 254-char combined baseline (this template + the battery
+# templates below). "at most" is UNCHANGED — it is the whole claim, not
+# decoration (WAKE_FRESHNESS_TEXT's own check in test_config_page.py
+# pins it) — only the trailing "after it passes" mechanism clause is
+# cut in favour of the shorter, equally exact "later".
 WAKE_FRESHNESS_TEXT = (
-    "A plane reaches the frame at most # min after it passes.")
+    "A plane reaches the frame at most # min later.")
 # The two absolute-figure wordings. Only ever rendered when
 # battery.battery_life_estimate() says the OBSERVED history supports a
 # figure, and carrying this app's own "≈" honesty marker (the battery
 # percentage already wears it) plus the source of the claim, so it can
-# never be read as a datasheet number.
+# never be read as a datasheet number. 27-06-PLAN.md Task 3 (CFG-67):
+# "at this interval" is cut (the sentence sits directly beside the
+# interval control it is about); "from this frame's own recent
+# readings" — the honesty attribution itself — is UNCHANGED.
 WAKE_BATTERY_DAY_TEXT = (
-    "≈ # day of battery left at this interval, from this frame's own "
-    "recent readings.")
+    "≈ # day of battery left, from this frame's own recent readings.")
 WAKE_BATTERY_DAYS_TEXT = (
-    "≈ # days of battery left at this interval, from this frame's own "
-    "recent readings.")
+    "≈ # days of battery left, from this frame's own recent readings.")
 # THE NAMED "NOT ENOUGH HISTORY YET" STATE. A rendered sentence, never a
 # blank and never a zero: a card that silently drops the battery half
 # whenever it cannot compute one reads as a card that has nothing to say
-# about battery at all.
+# about battery at all. 27-06-PLAN.md Task 3 (CFG-67): the trailing
+# reason clause ("— this frame has never measured what one wake costs")
+# is cut; the refusal itself ("Not enough battery history yet to say
+# how long a charge lasts") is UNCHANGED — this is D18's honesty
+# contract and this task shortens wording, never conditions.
 WAKE_BATTERY_UNKNOWN_TEXT = (
-    "Not enough battery history yet to say how long a charge lasts — "
-    "this frame has never measured what one wake costs.")
+    "Not enough battery history yet to say how long a charge lasts.")
 # The clause that keeps BOTH sentences from over-claiming: neither the
 # bound nor the battery figure is in force while the screen is off,
 # because device_config.DISPLAY_OFF_SLEEP_S is pinned independently of
 # this field then (server/wake.py's effective_wake_interval_s(),
 # precedence rule 1). A visitor who has turned the screen off would
-# otherwise read a claim that does not apply to their frame.
+# otherwise read a claim that does not apply to their frame. 27-06-
+# PLAN.md Task 3 (CFG-67): ", whatever this is set to" is cut — "instead"
+# already carries the override; the cadence itself stays named.
 WAKE_BATTERY_SCREEN_OFF_TEXT = (
-    "While the screen is off the frame wakes every %s instead, whatever "
-    "this is set to.")
+    "While the screen is off, the frame wakes every %s instead.")
 # The RELATIVE half, and the only half companion/static/value-controls.js
 # may recompute while the slider moves. It names TWO CADENCES and no
 # ratio: it is arithmetic on the two cadences and nothing else, which is
@@ -748,61 +818,55 @@ QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
 # Read elsewhere, not just here — this module's existing
 # duplicated-not-imported must-equal discipline (matches
 # OPEN_CLASS/MOBILE_NAV_OPEN_CLASS's own precedent): DIRTY_SECTION_ATTR
-# is read by companion/static/dirty-state.js (the section-aware
-# [data-dirty-count] copy walks every element carrying this attribute),
-# and STATIC_SAVE_FALLBACK_ATTR is read by a `.js`-gated rule in
-# companion/static/style.css (`.js [data-static-save-fallback] {
-# display: none; }`, landed by 06.6.4.1-01). Neither file imports this
-# module — the values must be kept equal by hand.
+# is read by companion/static/dirty-state.js (D-32's PLACEHOLDER doc
+# comment below explains its current, narrower use), and STATIC_SAVE_
+# FALLBACK_ATTR is read by a `.js`-gated rule in companion/static/
+# style.css (`.js [data-static-save-fallback] { display: none; }`,
+# landed by 06.6.4.1-01). Neither file imports this module — the values
+# must be kept equal by hand.
+#
+# 27-04-PLAN.md (D-06/CFG-63): DIRTY_SECTION_ATTR's own former READER —
+# dirty-state.js's dirtySectionLabels(), which built the retired dirty
+# bar's "Runway and Quiet hours changed" copy — is deleted along with
+# the bar. The attribute itself is left standing, unread by any script
+# today: every wrapper below still marks the settings groups a reader
+# (sighted or not) can already see as one visual unit, which is true
+# independent of whatever save model sits on top, and re-threading every
+# one of its seven emission sites to remove it is no part of what this
+# plan was asked to change.
 DIRTY_SECTION_ATTR = "data-dirty-section"
 STATIC_SAVE_FALLBACK_ATTR = "data-static-save-fallback"
-# D-03: the dirty-bar's seeded [data-dirty-count] text before
-# dirty-state.js's own section-aware copy ever runs (a no-JS page, or
-# the brief window before the script executes, would otherwise show
-# this raw string).
-DIRTY_BAR_INITIAL_TEXT = "Unsaved changes"
 
-# D-06 (20-11-PLAN.md Task 3): the five connector words
-# companion/static/dirty-state.js's own updateBar() used to hardcode in
-# English — now rendered, translated, as data-* attributes on the same
-# `.dirty-bar` element that script already looks up
-# (`document.querySelector("[data-dirty-bar]")`), the same shape
-# freshness.js already uses for data-pause-text/data-resume-text. Each
-# constant's own English value is also that script's documented
-# fallback literal, so the two can never silently disagree about what
-# "missing" degrades to.
-DIRTY_CHANGED_SUFFIX = " changed"
-DIRTY_AND = " and "
-DIRTY_LIST_AND = ", and "
-DIRTY_UNSAVED_SINGULAR = "1 unsaved change"
-DIRTY_UNSAVED_PLURAL = " unsaved changes"
-
-# 23-09-PLAN.md Task 2 (D3/CFG-32): the SIXTH word on the same element,
-# and the one T14 (22-15-PLAN.md Task 3) deliberately left for this
-# phase — "Disable only — do NOT change any label to a progress word;
-# that is D3, Phase 23."
+# 27-04-PLAN.md Task 3 (D-04/D-06/CFG-63): the auto-save status region's
+# two translated words, replacing the seven the retired dirty bar used
+# to carry (DIRTY_BAR_INITIAL_TEXT, DIRTY_CHANGED_SUFFIX, DIRTY_AND,
+# DIRTY_LIST_AND, DIRTY_UNSAVED_SINGULAR, DIRTY_UNSAVED_PLURAL and
+# DIRTY_SAVING_TEXT — all deleted with dirty_bar_html() itself). Same
+# data-*-attribute-with-an-English-fallback idiom as the bar's own words
+# were, and as quick-switch.js's data-quick-failed-text still is: each
+# constant's own English value is also dirty-state.js's documented
+# fallback literal, so the two can never silently disagree about what a
+# region rendered WITHOUT the attribute says.
 #
-# It rides the identical data-*-attribute-with-an-English-fallback idiom
-# as the five connectors above, for the identical reason: the French is
-# a catalogue entry rather than a JS literal, and this constant's own
-# English value is also companion/static/dirty-state.js's documented
-# fallback, so the two can never silently disagree about what a bar
-# rendered WITHOUT the attribute says.
-#
-# There is deliberately no "Saved" counterpart here, and its absence is
-# a decision rather than an omission. Saving is a full form POST that
-# replaces the document: the bar that shows this word does not exist any
-# more when the save completes. Reporting the finished state on the bar
-# would mean carrying a flag across that navigation, which would mean
-# browser storage, and this app holds no client state at all — a second
-# source of truth beside the server is the one thing its whole
-# discipline excludes. The completed state is companion/app.py's
-# existing FLASH_KEY_SAVED confirmation, delivered on the page the
-# browser actually lands on, which is where the reader's eyes are.
+# SUPERSEDES this module's former "There is deliberately no 'Saved'
+# counterpart" paragraph (D-04/D-06, pre-27-04): that reasoning held
+# only while saving WAS a full-document POST — the region reporting the
+# finished state does not exist any more by the time a real navigation
+# lands. Saving is no longer a navigation at all (27-04-PLAN.md Task 2's
+# fetch-based auto-save); the region that said "Enregistrement…" is
+# still the region on screen when the fetch resolves, so it is now the
+# right place to say "Enregistré" too, and no second source of truth is
+# introduced by doing so — the word is written by the same page that
+# already holds the value, from the same response that already confirms
+# it landed.
 #
 # The ellipsis is the single U+2026 character, matching this module's
 # own "Polling…" and layout.py's "Reconnecting…" — never three periods.
-DIRTY_SAVING_TEXT = "Saving…"
+SAVE_STATUS_ATTR = "data-save-status"
+SAVE_STATUS_SAVING_ATTR = "data-save-status-saving"
+SAVE_STATUS_SAVED_ATTR = "data-save-status-saved"
+SAVE_STATUS_SAVING_TEXT = "Saving…"
+SAVE_STATUS_SAVED_TEXT = "Saved"
 
 # Matches 06-UI-SPEC.md's Copywriting Contract "Poll-trigger cooldown"
 # row verbatim (D-17); "{n}" is filled in with a server-computed
@@ -1384,15 +1448,23 @@ def _theme_chip_grid_html(
     renderer is exactly how the arrivals grid and the departures grid
     come to disagree about what a selected chip looks like.
 
-    THE OTHER THREE GRIDS ARE DELIBERATELY NOT CONVERTED, and that is a
-    recorded scope decision rather than an oversight for a later reader
-    to "finish". Arrivals, Calendar flights and the rule-add form are
-    already compact and already sit beside other controls; none of them
-    is the page-height problem X6 named. Turning four grids into four
-    carousels would multiply this file's single largest risk — the ONE
-    `@supports selector(:has(*))` block, whose specificity arithmetic is
-    marked "verified, not to be re-derived" — by four, for no height
-    gain on the three cards that were never the defect.
+    27-07-PLAN.md Task 2 (CFG-68): ARRIVALS AND CALENDAR NOW FOLD THE
+    SAME WAY, each with its OWN strip id from `_theme_carousel_html()`'s
+    now-required `strip_id` argument (Task 1) — the brief names exactly
+    "arrivals, departures, calendar flights", so this is not the
+    research's four-grid scope but the brief's three-grid one. Only the
+    RULE-ADD FORM'S GRID stays unconverted, and that is a recorded scope
+    decision rather than an oversight for a later reader to "finish": it
+    lives inside the "règles par vol" view the brief explicitly defers
+    as too vague to plan against, and wrapping a control inside a view
+    that is about to be redesigned would spend work twice — see that
+    call site's own comment for the ground, PROVISIONAL and one more
+    call to this same helper away if the developer wants it folded too.
+    Three carousels share the file's ONE `@supports selector(:has(*))`
+    block (a `:has()` rule scoped per-`.theme-carousel` instance, not
+    one rule per carousel — see that rule's own comment in style.css),
+    so this does NOT multiply that risk by three; it was written and
+    measured to stay at exactly one block.
     """
     form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
     chips = []
@@ -1480,10 +1552,28 @@ def _theme_chip_grid_html(
         grid_class, attr_html, leading_chip_html, "".join(chips), legend_html)
 
 
-def _theme_carousel_html(grid_html):
+def _theme_carousel_html(grid_html, strip_id):
     """25-06-PLAN.md Task 2 (CFG-50): D5's carousel, as a PRESENTATION
     wrapped around `_theme_chip_grid_html()`'s existing output — never a
     second chip renderer.
+
+    27-07-PLAN.md Task 1 (CFG-68): `strip_id` is REQUIRED, not an
+    optional parameter with a shared default — THE TRAP this plan exists
+    to close. Before this task the strip's `id` and both pagers'
+    `aria-controls` all read the same module constant
+    (`THEME_CAROUSEL_STRIP_ID`) directly; calling this function a second
+    time for a second grid would render two elements sharing one `id`
+    (invalid HTML) and leave every pager on the page driving only the
+    FIRST strip, silently. Making the id a required argument — derived
+    ONCE per call site and threaded through both the grid's own `id`
+    attribute (set by the caller, outside this function — see
+    `_frame_colours_card_html()`) and this function's two
+    `aria-controls` — makes that collision structurally impossible
+    rather than merely untested: there is no code path left in which two
+    carousels can agree to share an id by omission. Departures, the one
+    caller that predates this parameter, passes its own
+    `THEME_CAROUSEL_STRIP_ID` explicitly and renders byte-identical
+    except for the reorder below.
 
     `grid_html` arrives already built and is interpolated UNCHANGED: the
     same eighteen `.theme-chip` labels, the same visually-hidden native
@@ -1521,8 +1611,11 @@ def _theme_carousel_html(grid_html):
     arriving_index`, and the eighteen resolve to only SEVEN distinct
     hexes. So this row is a palette overview, not an identifier of
     individual themes, and the chips' own two swatch dots — the ones the
-    "Departures · Arrivals" legend names — are the same colour as each
-    other in every theme this app ships. That is a registry fact, not a
+    "Departures & arrivals" legend names (27-07-PLAN.md Task 3, CFG-70:
+    joined into one phrase, since a middle-dot separator between two
+    identical swatches was itself naming a distinction that is not
+    there) — are the same colour as each other in every theme this app
+    ships. That is a registry fact, not a
     defect introduced here, and nothing in this plan changes it.
     """
     dots = "".join(
@@ -1542,18 +1635,37 @@ def _theme_carousel_html(grid_html):
     # natively, already has this app's shipped chevron treatment
     # (22-15 T3) and already sits in the harness's disclosure sweep.
     #
-    # AND IT GOVERNS THE GRID THAT FOLLOWS IT RATHER THAN CONTAINING
+    # AND IT GOVERNS THE GRID THAT PRECEDES IT RATHER THAN CONTAINING
     # ONE. This is the part a later reader will want explained, so:
-    # there is exactly ONE set of eighteen radios on this page, and the
-    # strip and the full grid are the same set. That forces this shape.
-    # A <details> hides its own non-summary children when closed, so a
-    # disclosure that CONTAINED the grid would hide all eighteen themes
-    # whenever it was shut — there would be no strip at all — and the
-    # only way to have both an always-visible strip and a full-grid
-    # disclosure while keeping one set of radios is for the disclosure
-    # to change the layout of the grid that follows it. Its `[open]`
-    # state selects that adjacent sibling in style.css; no `:has()` is
-    # involved and this file's one feature query is untouched.
+    # there is exactly ONE set of eighteen radios on this page (per
+    # usage), and the strip and the full grid are the same set. That
+    # forces this shape. A <details> hides its own non-summary children
+    # when closed, so a disclosure that CONTAINED the grid would hide
+    # all eighteen themes whenever it was shut — there would be no strip
+    # at all — and the only way to have both an always-visible strip and
+    # a full-grid disclosure while keeping one set of radios is for the
+    # disclosure to change the layout of a grid it does not contain.
+    #
+    # 27-07-PLAN.md Task 1 (CFG-68/D-20): the disclosure used to render
+    # BEFORE the strip (an adjacent-sibling `[open] + .theme-chip-grid
+    # --strip` rule reached forward from it) — "Voir tous les thèmes"
+    # sat above the strip it discloses, which the developer read as
+    # backwards: a way OUT belongs below the thing it expands, not above
+    # it. It now renders LAST in this wrapper (see the return statement
+    # below), so the adjacent-sibling selector can no longer reach
+    # forward to a grid that now precedes it in the DOM. style.css
+    # replaces it with a `:has()` rule scoped to the WRAPPING
+    # `.theme-carousel` element instead — `.theme-carousel:has(
+    # .theme-carousel__all[open]) .theme-chip-grid--strip` — which reads
+    # "this carousel contains an open disclosure" rather than "this
+    # disclosure is immediately followed by a strip", and so does not
+    # care which of the two comes first. It joins the file's existing
+    # `@supports selector(:has(*))` block rather than opening a second
+    # one (the file's own pinned block-count convention); a browser
+    # without `:has()` keeps the strip in its scrolling, one-row form
+    # even with the disclosure open — an accepted degradation, since
+    # the disclosure's own body copy already says "They are all in the
+    # strip either way — it scrolls."
     #
     # The alternative — two sets of eighteen radios — was rejected, and
     # not on tidiness grounds: they would share a name and a form, so a
@@ -1601,21 +1713,32 @@ def _theme_carousel_html(grid_html):
     pager_template = (
         '<button type="button" class="control-hit-area theme-carousel__pager%s"'
         ' %s="%s" aria-controls="%s" aria-label="%s"></button>')
+    # BOTH pagers' aria-controls derive from `strip_id` — the ONE
+    # argument this call was given — rather than from
+    # THEME_CAROUSEL_STRIP_ID directly. That is the whole fix: a second
+    # carousel built from this function with its own `strip_id` gets
+    # pagers that drive ITS OWN strip, never the first one built.
     pagers_html = (
         '<div class="theme-carousel__pagers %s" %s>%s%s</div>'
     ) % (
         escape_html(layout.JS_GATE_CLASS), THEME_CAROUSEL_WRAPPER_ATTR,
         pager_template % (
             " theme-carousel__pager--prev", THEME_CAROUSEL_PAGER_ATTR,
-            THEME_CAROUSEL_PAGER_PREV, escape_html(THEME_CAROUSEL_STRIP_ID),
+            THEME_CAROUSEL_PAGER_PREV, escape_html(strip_id),
             escape_html(i18n.t(THEME_CAROUSEL_PREV_LABEL))),
         pager_template % (
             "", THEME_CAROUSEL_PAGER_ATTR, THEME_CAROUSEL_PAGER_NEXT,
-            escape_html(THEME_CAROUSEL_STRIP_ID),
+            escape_html(strip_id),
             escape_html(i18n.t(THEME_CAROUSEL_NEXT_LABEL))),
     )
+    # 27-07-PLAN.md Task 1 (CFG-68/D-20): grid, pagers, dots, disclosure
+    # — the disclosure LAST, so "Voir tous les thèmes"/"See all themes"
+    # reads as a way OUT below the strip it expands rather than a
+    # preamble above it. See the disclosure's own comment above for why
+    # style.css no longer reaches the grid through a forward
+    # adjacent-sibling selector once the disclosure trails it.
     return '<div class="theme-carousel">%s%s%s%s</div>' % (
-        disclosure_html, grid_html, pagers_html, dots_html)
+        grid_html, pagers_html, dots_html, disclosure_html)
 
 
 def _theme_live_preview_html(current_theme_id, state_dir, extra_class=""):
@@ -1830,14 +1953,20 @@ def _frame_colours_card_html(
     # lands: the SECOND grid-level modifier below lays this one grid out
     # as a scroll-snap strip, and `_theme_carousel_html()` wraps its
     # output. Both are additive; the chips, their radios, their check
-    # glyphs and the swatch legend are byte-for-byte what they were, and
-    # the three other grids below are untouched.
+    # glyphs and the swatch legend are byte-for-byte what they were.
+    # 27-07-PLAN.md Task 2 (CFG-68): arrivals and calendar below now
+    # fold the same way, each with its OWN strip id — only the rule-add
+    # form's grid, further down, stays untouched (see its own call
+    # site's comment for the ground).
     departures_grid = _theme_chip_grid_html(
         "theme", effective_theme_id, extra_attr=departures_grid_attr,
         extra_class="theme-chip-grid--compact theme-chip-grid--strip",
         chip_extra_class="theme-chip--compact",
         radio_form_id=SETTINGS_FORM_ID)
-    departures_carousel = _theme_carousel_html(departures_grid)
+    # 27-07-PLAN.md Task 1 (CFG-68): the SAME id used above to build the
+    # grid's own `id=` attribute, passed straight through — one Python
+    # name, read twice, rather than two literals that could drift apart.
+    departures_carousel = _theme_carousel_html(departures_grid, THEME_CAROUSEL_STRIP_ID)
     theme_error_html = _field_error_html(errors, "theme", "theme")
     departures_safe_id = (
         effective_theme_id if effective_theme_id in device_config.THEMES
@@ -1854,13 +1983,20 @@ def _frame_colours_card_html(
     arrivals_same_checked = not effective_arriving
     arrivals_leading_chip = _same_as_departures_chip_html(
         "theme_arriving", arrivals_same_checked, radio_form_id=SETTINGS_FORM_ID)
-    arrivals_grid_attr = 'role="radiogroup" aria-labelledby="%s"' % escape_html(
-        FRAME_COLOURS_HEADING_ID)
+    # 27-07-PLAN.md Task 2 (CFG-68): the `id` is added HERE, at this ONE
+    # call site, matching 25-06 Task 2's own reasoning for departures —
+    # and it is THIS SAME NAME, read twice, that is passed to
+    # `_theme_carousel_html()` below, rather than two literals that
+    # could drift apart.
+    arrivals_grid_attr = 'role="radiogroup" aria-labelledby="%s" id="%s"' % (
+        escape_html(FRAME_COLOURS_HEADING_ID), escape_html(THEME_CAROUSEL_STRIP_ID_ARRIVALS))
     arrivals_grid = _theme_chip_grid_html(
         "theme_arriving", effective_arriving,
-        extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
+        extra_class="theme-chip-grid--compact theme-chip-grid--strip",
+        chip_extra_class="theme-chip--compact",
         extra_attr=arrivals_grid_attr, radio_form_id=SETTINGS_FORM_ID,
         leading_chip_html=arrivals_leading_chip)
+    arrivals_carousel = _theme_carousel_html(arrivals_grid, THEME_CAROUSEL_STRIP_ID_ARRIVALS)
     theme_arriving_error_html = _field_error_html(errors, "theme_arriving", "theme-arriving")
     if arrivals_same_checked:
         arrivals_meta = i18n.t(SAME_AS_DEPARTURES_LABEL)
@@ -1875,20 +2011,25 @@ def _frame_colours_card_html(
         arrivals_meta = i18n.t(device_config.theme_label(arrivals_safe_id))
     arrivals_panel = _frame_colours_usage_panel_html(
         COLOUR_USAGE_ARRIVALS, i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS]),
-        arrivals_grid + theme_arriving_error_html)
+        arrivals_carousel + theme_arriving_error_html)
 
     effective_calendar = _submitted_or_current(
         submitted, "calendar_theme_id", current_calendar_theme_id)
     calendar_same_checked = not effective_calendar
     calendar_leading_chip = _same_as_departures_chip_html(
         "calendar_theme_id", calendar_same_checked, radio_form_id=SETTINGS_FORM_ID)
-    calendar_grid_attr = 'role="radiogroup" aria-labelledby="%s"' % escape_html(
-        FRAME_COLOURS_HEADING_ID)
+    # 27-07-PLAN.md Task 2 (CFG-68): same reasoning as arrivals above —
+    # one Python name, built once, read at both the grid's own `id=` and
+    # the carousel's `strip_id` argument.
+    calendar_grid_attr = 'role="radiogroup" aria-labelledby="%s" id="%s"' % (
+        escape_html(FRAME_COLOURS_HEADING_ID), escape_html(THEME_CAROUSEL_STRIP_ID_CALENDAR))
     calendar_grid = _theme_chip_grid_html(
         "calendar_theme_id", effective_calendar,
-        extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
+        extra_class="theme-chip-grid--compact theme-chip-grid--strip",
+        chip_extra_class="theme-chip--compact",
         extra_attr=calendar_grid_attr, radio_form_id=SETTINGS_FORM_ID,
         leading_chip_html=calendar_leading_chip)
+    calendar_carousel = _theme_carousel_html(calendar_grid, THEME_CAROUSEL_STRIP_ID_CALENDAR)
     calendar_theme_error_html = _field_error_html(errors, "calendar_theme_id", "calendar-theme")
     if calendar_same_checked:
         calendar_meta = i18n.t(SAME_AS_DEPARTURES_LABEL)
@@ -1903,7 +2044,7 @@ def _frame_colours_card_html(
         calendar_meta = i18n.t(device_config.theme_label(calendar_safe_id))
     calendar_panel = _frame_colours_usage_panel_html(
         COLOUR_USAGE_CALENDAR, i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_CALENDAR]),
-        calendar_grid + calendar_theme_error_html)
+        calendar_carousel + calendar_theme_error_html)
 
     # D-10: the rules row's own panel — the existing rule list (or the
     # empty state), the existing add form (its own <form>, a legal
@@ -1989,163 +2130,6 @@ def _frame_colours_card_html(
         live_preview_html,
         escape_html(FRAME_COLOURS_HEADING_ID), list_items,
         panels_html,
-    )
-
-
-# --- 25-03-PLAN.md Task 1 (CFG-47): the schematic Orly runway map ------
-#
-# Class names as constants, never literals at the emission site, matching
-# this file's own convention and companion/draw.py's stated reason for
-# having any: a class that exists in Python and nowhere in
-# companion/static/style.css paints nothing at all and nothing else in
-# this codebase would notice. `_runway_map_classes_resolve_in_style_css`
-# in companion/test_config_page.py scans the EMITTED markup's classes
-# against the stylesheet for exactly that reason.
-RUNWAY_MAP_CLASS = "runway-map"
-RUNWAY_MAP_FIELD_CLASS = "runway-map__field"
-RUNWAY_MAP_STRIP_CLASS = "runway-map__strip"
-# The strip belonging to the card that draws it. Present on exactly one
-# strip per map, on EVERY card, selected or not — it says "this card's
-# runway", never "the chosen runway". Selection is the label's own
-# state (`.runway-card--selected` and the live `:has(input:checked)`
-# rule inside the ONE feature query), and keeping the two apart is what
-# makes a map with `current_runway_id=None` render with nothing marked
-# as chosen rather than defaulting to one.
-RUNWAY_MAP_THIS_STRIP_CLASS = "runway-map__strip--this"
-
-# User units. The map is an aspect-locked mark, so it belongs to
-# companion/draw.py's `unit_*` scheme (a viewBox plus intrinsic
-# width/height attributes), not the percentage scheme — see that
-# module's "TWO COORDINATE SCHEMES LIVE HERE" paragraph. The intrinsic
-# attributes are the size route companion/layout.py's icon_html()
-# docstring records: an <svg> with neither an attribute nor a CSS rule
-# renders at the SVG default 300x150 and blows the layout apart.
-RUNWAY_MAP_SIZE = 64
-RUNWAY_MAP_FIELD_RADIUS = 30
-RUNWAY_MAP_STRIP_LENGTH = 52
-RUNWAY_MAP_STRIP_WIDTH = 6
-# Perpendicular separation between adjacent strips, so three runways do
-# not all pile through one point. Derived from the strip's index in the
-# registry, so a fourth entry spaces itself.
-RUNWAY_MAP_STRIP_SPACING = 7
-
-# A runway designator IS its magnetic bearing in tens of degrees (ICAO
-# convention), and a designator pair is reciprocal: 07/25, 06/24, 02/20
-# all differ by exactly 18. Requiring the reciprocal is what makes this
-# a designator parser rather than a "two numbers with a slash" parser.
-_RUNWAY_DESIGNATOR_RE = re.compile(r"(?<!\d)(\d{1,2})\s*[/-]\s*(\d{1,2})(?!\d)")
-_RUNWAY_RECIPROCAL_OFFSET = 18
-# The stated fallback for a registry entry whose id and label both carry
-# no parseable designator: due north, drawn as a plain north-south
-# strip. A fallback and never an exception — T-25-03-D — because a
-# registry typo must not take down the whole Display page.
-RUNWAY_MAP_FALLBACK_BEARING_DEG = 0
-
-
-def runway_bearing_deg(runway_id):
-    """The bearing, in degrees clockwise from north and folded into
-    [0, 180), at which `runway_id`'s strip is drawn. Never raises.
-
-    THE LABEL IS READ BEFORE THE ID, AND THAT ORDER IS THE WHOLE POINT
-    OF THIS FUNCTION. Orly's first registry entry is keyed `"3"` — an
-    ADP runway NUMBER, not a designator — while its label is
-    `"Runway 3 (07/25)"`. Parsing the id first would draw that runway at
-    030 while its own visible label says 07/25, which is precisely the
-    drawing-contradicts-its-own-labels defect this parse exists to make
-    unreachable. The label is what the visitor reads, so the label is
-    what the geometry comes from; the id is the second source only
-    because a future registry entry may be keyed by its designator and
-    labelled in some other way.
-
-    Folded modulo 180 because a strip is a LINE, not an arrow: 07 and
-    25 are the same piece of tarmac walked in opposite directions and
-    draw identically, so the lower designator is the canonical one.
-
-    Falls back to RUNWAY_MAP_FALLBACK_BEARING_DEG for an entry neither
-    of whose strings carries a reciprocal designator pair.
-    """
-    label = device_config.RUNWAYS.get(runway_id, {}).get("label", "")
-    for text in (label, runway_id):
-        for match in _RUNWAY_DESIGNATOR_RE.finditer(str(text)):
-            first, second = int(match.group(1)), int(match.group(2))
-            if not (1 <= first <= 36 and 1 <= second <= 36):
-                continue
-            if abs(first - second) != _RUNWAY_RECIPROCAL_OFFSET:
-                continue
-            return (first * 10) % 180
-    return RUNWAY_MAP_FALLBACK_BEARING_DEG
-
-
-def runway_map_svg(this_runway_id):
-    """The schematic Orly map as one `<svg>`, drawn from
-    `device_config.RUNWAY_IDS` and nothing else — every entry in the
-    registry becomes a strip, and the strip belonging to
-    `this_runway_id` additionally carries RUNWAY_MAP_THIS_STRIP_CLASS.
-
-    WHAT THIS DRAWING CLAIMS, EXACTLY: relative bearings, north up. It
-    does not claim scale and it does not claim relative lengths — the
-    registry carries no length for any runway, so every strip is drawn
-    at RUNWAY_MAP_STRIP_LENGTH and the caption says so out loud
-    (RUNWAY_SECTION_CAPTION). A diagram that implied a survey it does
-    not have would be the same dishonest-state defect family Phase 22
-    removed, and the honest fix is the caption, not a plausible-looking
-    invented length.
-
-    EVERY CARD DRAWS THE WHOLE AIRFIELD, not just its own runway, and
-    that is the reason this is a map at all. Three photographs side by
-    side — or three lone strips side by side — tell a visitor nothing
-    about where these runways are RELATIVE TO EACH OTHER, which is the
-    one thing a map is for. So each `.runway-card` carries a complete
-    map with its own runway picked out, and comparing cards compares
-    highlights on one shared picture. An `<svg>` cannot contain a
-    `<label>` or an `<input>`, so one shared canvas with three labels
-    floated over it was the alternative, and it would have put the three
-    touch targets on absolutely-positioned overlays at 360px — the exact
-    hit-area failure Task 3 measures against.
-
-    `aria-hidden="true" focusable="false"`: the accessible names come
-    from the three labels, exactly as before this drawing existed. A
-    labelled graphic would announce the runways a second time.
-    Deliberately hand-written rather than `draw.unit_canvas()`, which
-    emits the viewBox, the intrinsic size and `aria-hidden` but not
-    `focusable` — every SHAPE inside still comes from draw.py's own
-    primitives, so the escaping and the refuse-a-paint-decided-in-Python
-    guard apply to all of them.
-    """
-    centre = RUNWAY_MAP_SIZE / 2.0
-    runway_ids = device_config.RUNWAY_IDS
-    count = len(runway_ids)
-    shapes = [draw.circle(
-        RUNWAY_MAP_FIELD_CLASS, centre, centre, RUNWAY_MAP_FIELD_RADIUS)]
-    for index, runway_id in enumerate(runway_ids):
-        class_name = RUNWAY_MAP_STRIP_CLASS
-        if runway_id == this_runway_id:
-            class_name += " " + RUNWAY_MAP_THIS_STRIP_CLASS
-        # Offset perpendicular to the strip's own axis (applied before
-        # the rotation, so it rotates with it), centred on the registry
-        # so the set stays symmetric whatever its size.
-        offset = (index - (count - 1) / 2.0) * RUNWAY_MAP_STRIP_SPACING
-        shapes.append(draw.rect(
-            class_name,
-            centre + offset - RUNWAY_MAP_STRIP_WIDTH / 2.0,
-            centre - RUNWAY_MAP_STRIP_LENGTH / 2.0,
-            RUNWAY_MAP_STRIP_WIDTH,
-            RUNWAY_MAP_STRIP_LENGTH,
-            attrs={
-                "rx": RUNWAY_MAP_STRIP_WIDTH / 2.0,
-                # Clockwise from north, which is what a bearing is, and
-                # what an SVG rotate() about the centre of a
-                # north-south strip already does.
-                "transform": "rotate(%d %.2f %.2f)" % (
-                    runway_bearing_deg(runway_id), centre, centre),
-            },
-        ))
-    return (
-        '<svg class="%s" viewBox="0 0 %d %d" width="%d" height="%d" '
-        'aria-hidden="true" focusable="false">%s</svg>'
-    ) % (
-        escape_html(RUNWAY_MAP_CLASS), RUNWAY_MAP_SIZE, RUNWAY_MAP_SIZE,
-        RUNWAY_MAP_SIZE, RUNWAY_MAP_SIZE, "".join(shapes),
     )
 
 
@@ -2239,35 +2223,31 @@ def runway_fieldset(
     sit between the Calendar card and this group in document order
     without ever nesting one `<form>` inside another.
 
-    25-03-PLAN.md Task 1 (CFG-47) adds a schematic MAP to each card and
-    changes NOTHING about the control. The three radios keep their
+    27-05-PLAN.md Task 2 (CFG-66) RETIRED the schematic map 25-03
+    (CFG-47) drew into each card: the developer's own review found it
+    taught him nothing his own paper schematics did not already
+    ("Je comprends pas l'intérêt de ces cartes des pistes, elles
+    représentent la même chose que mes schémas."). The map was a drawing
+    wrapped around a native radiogroup that already worked, so removing
+    it changed NOTHING about the control: the three radios keep their
     `name`, their `value`s, their `class="visually-hidden"` (never
     `display: none`, which would drop them from the tab order and break
     keyboard selection), their `form=` association and their `checked`
     computation; the row keeps `role="radiogroup"`, `aria-labelledby`
-    and `aria-describedby` with the same ids. That is the whole point of
-    this change: a native radiogroup already has arrow-key navigation,
-    already has a native selected state and already submits, so the map
-    is what a visitor LOOKS AT while operating a control that was
-    already complete. This group therefore ships ZERO new JavaScript and
-    needs none of 25-01's `.js` gate — a control that needs no
-    enhancement needs no gate.
-
-    Each card's map is `runway_map_svg(runway_id)`: the whole airfield,
-    every registry entry drawn at the bearing its own designator states,
-    with this card's runway picked out. See that function for why every
-    card draws every runway and why the geometry is parsed rather than
-    typed.
+    and `aria-describedby` with the same ids. This group ships ZERO
+    JavaScript and needs none of 25-01's `.js` gate, exactly as it did
+    with the map — a control that needed no enhancement before still
+    needs none.
 
     THE PHOTOGRAPHS STAY, AND STAY WHERE THEY WERE. `images_available`
     is untouched, the session-gated `/runway-image/{id}.png` route is
-    untouched, and the three PNGs on disk are untouched. The map is
-    ADDED above the card's number; the `<img>` keeps its existing slot
-    below it, so `.runway-card__image`'s own rule and the two-of-three
-    availability behaviour need no edit at all. The map and the
-    photograph answer different questions — where this runway is, and
-    what it looks like — and deleting real imagery in favour of a
-    schematic would be irreversible in a way adding one is not.
+    untouched, and the three PNGs on disk are untouched. The `<img>`
+    keeps its existing slot below the card's number, so
+    `.runway-card__image`'s own rule and the two-of-three availability
+    behaviour need no edit at all — the map and the photograph always
+    answered different questions (where this runway is, and what it
+    looks like), and removing the former leaves the latter's slot exactly
+    where it was.
     """
     effective_runway_id = _submitted_or_current(
         submitted, "tracked_runway", current_runway_id)
@@ -2302,7 +2282,6 @@ def runway_fieldset(
             '<label class="%s"%s>'
             '<input type="radio" name="tracked_runway" value="%s" class="visually-hidden" '
             'form="%s"%s>'
-            "%s"
             '<span class="runway-card__number">%s</span>'
             "%s"
             '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
@@ -2310,7 +2289,7 @@ def runway_fieldset(
             % (
                 card_class, current_attr_html,
                 escaped_id, SETTINGS_FORM_ID, checked,
-                runway_map_svg(runway_id), escape_html(label),
+                escape_html(label),
                 image_html, layout.icon_html("icon-check"),
                 escape_html(i18n.t("Selected")),
             )
@@ -2629,11 +2608,10 @@ def _normalised_time_html(value):
 
 # --- 25-04-PLAN.md Task 2 (CFG-48): the server-drawn 24 h ring --------
 #
-# Class names as constants rather than literals at the emission site,
-# the same reason RUNWAY_MAP_* above gives: a class that exists in Python
-# and nowhere in companion/static/style.css paints nothing at all, and a
-# check scans the EMITTED markup's classes against the stylesheet for
-# exactly that.
+# Class names as constants rather than literals at the emission site: a
+# class that exists in Python and nowhere in companion/static/style.css
+# paints nothing at all, and a check scans the EMITTED markup's classes
+# against the stylesheet for exactly that.
 QUIET_DIAL_CLASS = "quiet-dial"
 QUIET_DIAL_RING_CLASS = "quiet-dial__ring"
 # The full circumference: the whole 24 hours, always drawn.
@@ -2647,15 +2625,55 @@ QUIET_DIAL_READOUT_CLASS = "quiet-dial__readout"
 # companion/draw.py documents, with an explicit intrinsic size so the
 # <svg> can never fall back to the format's own 300x150 default.
 QUIET_DIAL_SIZE = 176
-# Chosen so the arithmetic below lands on whole numbers: 64 - 7 - 3 = 54.
+# Chosen so the arithmetic below lands on whole numbers: 176 - 14 - 3 = 78,
+# i.e. QUIET_DIAL_SIZE // 2 - QUIET_DIAL_STROKE // 2 - QUIET_DIAL_CLEARANCE.
 # A radius carrying a rounding tail would make every recomputed-from-the-
-# markup check invent a tolerance to hide it.
+# markup check invent a tolerance to hide it. (27-02-PLAN.md: this comment
+# used to read "64 - 7 - 3 = 54", a stale figure from before the ring grew
+# to its current 176px size — the arithmetic and the shipped radius were
+# always correct, only the comment beside them was not.)
 QUIET_DIAL_STROKE = 14
 # Clear space between the stroke's OUTER edge and the viewBox edge. A
 # stroked arc extends half its stroke width past the nominal radius,
 # which is the usual way a ring clips itself on its own box.
 QUIET_DIAL_CLEARANCE = 3
 QUIET_DIAL_RADIUS = QUIET_DIAL_SIZE // 2 - QUIET_DIAL_STROKE // 2 - QUIET_DIAL_CLEARANCE
+
+# --- 27-02-PLAN.md Task 1/2 (CFG-62): THE PAIR SEAM's three property
+# names, decided here because every property name value-controls.js's
+# generic pair seam reads or writes is a SERVER decision — the same
+# reason FIELD_ATTR/GEOMETRY_ATTR/FORMAT_ATTR's values are decided in
+# companion/layout.py rather than invented in the script that consumes
+# them. `QUIET_DIAL_PAIR_ATTR`'s own VALUE is the name of the derived
+# sweep property — value-controls.js's `paintSweep()` writes the sweep
+# under whatever name the ancestor's own marker attribute carries, so
+# there is exactly one place this name is chosen.
+QUIET_DIAL_PAIR_ATTR = "data-value-pair"
+QUIET_DIAL_PAIR_PROPERTY_ATTR = "data-value-pair-property"
+
+# A DICT rather than three separate top-level ALL-CAPS names, and that
+# is not stylistic: a top-level string CONSTANT whose value begins with
+# "--" trips companion/test_i18n.py's D-05 scan — measured, running the
+# full suite after this task's first draft named them
+# QUIET_DIAL_START_FRACTION_PROPERTY et al. A leading "--" is not a
+# valid identifier start, so rule (a)'s lowercase-identifier exclusion
+# (which the FIELD_ATTR-shaped constants above all rely on) never
+# reaches it; companion/layout.py's own FRACTION_PROPERTY comment
+# already records this exact trap as the reason NO Python constant
+# exists there for "--value-fraction" at all. A DICT VALUE is scanned
+# under a narrower, SEPARATE exclusion (hyphenated-lowercase-identifier)
+# that DOES reach a leading "--" — companion/layout.py's own
+# `{"ok": "--ok", "warn": "--warn", "error": "--error"}` dict already
+# relies on exactly this path. So the one constant this plan's own
+# acceptance bar asks for ("the three property names exist as module
+# constants, not as literals at the call site") lives here, as three
+# dict values under one name, rather than as three names the scanner
+# cannot tell apart from prose.
+QUIET_DIAL_PAIR_PROPERTIES = {
+    "start": "--quiet-start-fraction",
+    "end": "--quiet-end-fraction",
+    "sweep": "--quiet-sweep-fraction",
+}
 
 # The four anchor hours, and four rather than twenty-four on purpose.
 # These are the quarter turns: they are the only hours whose position a
@@ -2724,9 +2742,9 @@ def quiet_dial_svg(span):
     `draw.unit_circle_dash_array()` already owns it.
 
     `aria-hidden="true" focusable="false"`, and hand-written rather than
-    `draw.unit_canvas()` for the one reason `runway_map_svg()` above
-    records: that helper emits the viewBox, the intrinsic size and
-    `aria-hidden`, but not `focusable`. Every SHAPE still comes from
+    `draw.unit_canvas()` for the one reason: that helper emits the
+    viewBox, the intrinsic size and `aria-hidden`, but not `focusable`.
+    Every SHAPE still comes from
     draw.py's own primitives, so the escaping and the
     refuse-a-paint-decided-in-Python guard apply to all of them.
 
@@ -2737,6 +2755,24 @@ def quiet_dial_svg(span):
     a stylesheet declaration — a CSS stroke-width of any specificity
     beats a presentation attribute, which would flatten the geometry the
     constants above derive.
+
+    27-02-PLAN.md Task 2 (CFG-62): the `.js`-scoped stylesheet rule that
+    overrides this circle's `stroke-dasharray`/`transform` once script is
+    running reads the SAME `QUIET_DIAL_RADIUS` this function divides by
+    — via `--quiet-dial-radius`, the custom property the handle's own
+    transform already reads (companion/static/style.css) — rather than
+    a `pathLength="1"` attribute. `pathLength="1"` was tried first and
+    measured, not assumed, to be the wrong shape here: with this
+    circle's dasharray left in real user units (the STATED requirement
+    below — the presentation attribute is the saved value and the no-JS
+    floor, and must not change), adding `pathLength="1"` reinterprets
+    those same numbers on a SECOND, pathLength-scaled coordinate system
+    and a headless-browser measurement of this exact ring painted a
+    second, spurious dash on the far side of it. `stroke-dasharray`/
+    `transform` are UNCHANGED here either way: they are still the saved
+    value, computed the same way, and still what a scripts-blocked
+    visitor sees. See companion/static/style.css's own comment beside
+    the override rule for the full measurement.
     """
     centre = QUIET_DIAL_SIZE // 2
     shapes = [draw.circle(QUIET_DIAL_DAY_CLASS, centre, centre, QUIET_DIAL_RADIUS, attrs={
@@ -2782,13 +2818,37 @@ def quiet_dial_html(span, handles_html=""):
     `handles_html` is the `.js`-gated handle layer (25-04 Task 3) and is
     empty for every caller that has none. It is rendered LAST so document
     order is paint order: the handles sit above the ring they steer.
+
+    27-02-PLAN.md Task 2 (CFG-62): THE PAIR SEAM'S SHARED ANCESTOR. This
+    `<div>` is where the two handles' own fractions get published a
+    second time (see `quiet_dial_handles_html()`), and where their
+    derived sweep lands — `QUIET_DIAL_PAIR_ATTR`'s own VALUE names that
+    third property, so value-controls.js's generic pair seam writes it
+    under whatever name THIS FUNCTION chose, never a name of its own
+    invention. The three fractions are computed from the SAME `span`
+    triple `quiet_dial_svg()` draws from — no second window arithmetic
+    anywhere — so at rest the CSS-driven geometry and the presentation-
+    attribute geometry describe the identical picture. `span is None`
+    (nothing parseable stored) carries none of this: there is no pair to
+    publish for a window that does not exist.
     """
     hours_html = "".join(
         '<span class="text-label %s %s" aria-hidden="true">%02d</span>' % (
             escape_html(QUIET_DIAL_HOUR_CLASS), escape_html(modifier_class), hour)
         for hour, modifier_class in QUIET_DIAL_LABELLED_HOURS)
-    return '<div class="%s">%s%s%s</div>' % (
-        escape_html(QUIET_DIAL_CLASS), quiet_dial_svg(span), hours_html, handles_html)
+    pair_attrs = ""
+    if span is not None:
+        end_fraction = (span.start_fraction + span.sweep_fraction) % 1.0
+        pair_attrs = (
+            ' %s="%s" style="%s: %.6f; %s: %.6f; %s: %.6f;"'
+        ) % (
+            QUIET_DIAL_PAIR_ATTR, escape_html(QUIET_DIAL_PAIR_PROPERTIES["sweep"]),
+            QUIET_DIAL_PAIR_PROPERTIES["start"], span.start_fraction,
+            QUIET_DIAL_PAIR_PROPERTIES["end"], end_fraction,
+            QUIET_DIAL_PAIR_PROPERTIES["sweep"], span.sweep_fraction,
+        )
+    return '<div class="%s"%s>%s%s%s</div>' % (
+        escape_html(QUIET_DIAL_CLASS), pair_attrs, quiet_dial_svg(span), hours_html, handles_html)
 
 
 # --- 25-04-PLAN.md Task 3 (CFG-48): the two handles, gated ------------
@@ -2905,14 +2965,17 @@ def quiet_dial_handles_html(start_hm, end_hm):
         narrower than that and records the result.
     """
     handles = []
-    for value, field, label in ((start_hm, "quiet_hours_start", QUIET_DIAL_START_LABEL),
-                                (end_hm, "quiet_hours_end", QUIET_DIAL_END_LABEL)):
+    for value, field, label, pair_property in (
+            (start_hm, "quiet_hours_start", QUIET_DIAL_START_LABEL,
+             QUIET_DIAL_PAIR_PROPERTIES["start"]),
+            (end_hm, "quiet_hours_end", QUIET_DIAL_END_LABEL,
+             QUIET_DIAL_PAIR_PROPERTIES["end"])):
         minute = quiet_window_minute_of_day(value)
         if minute is None:
             continue
         handles.append((
             '<div class="value-control %s %s" %s %s="%s" %s="%s" %s="%d" %s="%d" %s="%d"'
-            ' %s="angular" %s="%s" %s="%s" style="--value-fraction: %.6f">'
+            ' %s="angular" %s="%s" %s="%s" %s="%s" style="--value-fraction: %.6f">'
             '<span class="value-control__track %s" %s></span>'
             '<button type="button" class="value-control__handle control-hit-area %s" %s'
             ' role="slider" aria-valuemin="%d" aria-valuemax="%d" aria-valuenow="%d"'
@@ -2929,6 +2992,12 @@ def quiet_dial_handles_html(start_hm, end_hm):
             layout.VALUE_CONTROL_GEOMETRY_ATTR,
             layout.VALUE_CONTROL_FORMAT_ATTR, escape_html(layout.VALUE_CONTROL_FORMAT_CLOCK),
             layout.VALUE_CONTROL_TEXT_ATTR, escape_html(layout.VALUE_CONTROL_TEXT_TOKEN),
+            # 27-02-PLAN.md Task 2 (CFG-62): THE PAIR SEAM. Names which of
+            # quiet_dial_html()'s ancestor properties this handle
+            # publishes its own fraction under — the ancestor itself is
+            # the nearest ancestor carrying QUIET_DIAL_PAIR_ATTR, found by
+            # value-controls.js's existing ancestorWith().
+            QUIET_DIAL_PAIR_PROPERTY_ATTR, escape_html(pair_property),
             quiet_dial_handle_fraction(minute),
             escape_html(QUIET_DIAL_HANDLE_TRACK_CLASS), layout.VALUE_CONTROL_TRACK_ATTR,
             escape_html(QUIET_DIAL_HANDLE_CLASS), layout.VALUE_CONTROL_HANDLE_ATTR,
@@ -2969,13 +3038,64 @@ def quiet_dial_readout_html(start_hm, end_hm, span):
     "translate first, escape once" convention. Both times are already
     known to be real HH:MM here (a `span` exists), so this escaping is
     the convention holding rather than a live need — T-25-04-B.
+
+    27-02-PLAN.md Task 3 (CFG-62): THREE CHILDREN, NOT ONE TEXT NODE, so
+    the sentence can follow the pair the way the arc now does. AT REST
+    (this function's own return value, always) the visible text is
+    BYTE-IDENTICAL to what shipped before this task — the paragraph's
+    class and `aria-hidden` are unchanged and the three children,
+    concatenated with the same " → "/" · " connectors the old
+    single template used, spell out exactly the same sentence.
+
+    THE TWO ENDPOINTS carry the existing `data-value-readout` seam,
+    named by the field whose handle moves them (`quiet_hours_start`/
+    `quiet_hours_end`), with a bare token template — so they follow the
+    handles for free, through the shipped mechanism, substituting the
+    one number value-controls.js already reads back off each field.
+    Nothing here writes copy: the substituted value is a number, and the
+    template holding its place is server-rendered.
+
+    THE DURATION CHILD NEVER SHOWS A SCRIPT-COMPUTED SENTENCE, and this
+    is the honesty contract (D18's battery gauge, applied to a different
+    sentence) made structural rather than trusted: its own
+    `data-value-readout-text` is the EMPTY template. paintReadouts()'s
+    shipped substitution therefore always resolves to "" the moment this
+    element is next painted — whether or not the pair still matches
+    `data-value-readout-base` — which is deliberately the SAFE side of
+    the "blanks when equal to base" rule this seam was built for
+    (25-05-PLAN.md Task 2): that rule blanks a sentence when nothing
+    changed (a comparison against itself is noise) and shows one once
+    something did, which is the OPPOSITE of what a duration that cannot
+    be recomputed in script needs. An empty template makes both of that
+    rule's branches resolve to "" rather than ever risking the SHOWN
+    branch substituting a bare, unrelated minute count where a duration
+    phrase belongs. `data-value-readout-base` is still recorded, both
+    because a later, smarter blank-only-when-different rule could read
+    it and because CFG-62's own acceptance bar asks for it; today it is
+    inert given the empty template, and that is written here rather than
+    left for a reader to have to prove. The server RE-RENDERS the true
+    figure on the very next load, which is the only path back to a
+    stated duration.
     """
     if span is None:
         return ""
-    return '<p class="time-value %s" aria-hidden="true">%s</p>' % (
+    return (
+        '<p class="time-value %s" aria-hidden="true">'
+        '<span %s="quiet_hours_start" %s="%s">%s</span>'
+        ' → '
+        '<span %s="quiet_hours_end" %s="%s">%s</span>'
+        ' · '
+        '<span %s="quiet_hours_start" %s="" %s="%d">%s</span>'
+        "</p>"
+    ) % (
         escape_html(QUIET_DIAL_READOUT_CLASS),
-        escape_html(QUIET_DIAL_READOUT_TEMPLATE % (
-            start_hm, end_hm, layout.duration_text(span.minutes * 60))),
+        layout.VALUE_CONTROL_READOUT_ATTR, layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        escape_html(layout.VALUE_CONTROL_TEXT_TOKEN), escape_html(start_hm),
+        layout.VALUE_CONTROL_READOUT_ATTR, layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        escape_html(layout.VALUE_CONTROL_TEXT_TOKEN), escape_html(end_hm),
+        layout.VALUE_CONTROL_READOUT_ATTR, layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        layout.VALUE_CONTROL_READOUT_BASE_ATTR, quiet_window_minute_of_day(start_hm),
+        escape_html(layout.duration_text(span.minutes * 60)),
     )
 
 
@@ -3055,6 +3175,13 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     cannot even accidentally submit the form); both time inputs remain
     fully usable either way, an acceptable degradation matching this
     page's established graceful-degradation convention.
+
+    27-08-PLAN.md Task 1 (CFG-69): the `<h2>` now carries
+    `id="{QUIET_HOURS_GROUP_HEADING_ID}"` — a fragment target for the
+    Frame strip's own Quiet hours caption link (companion/layout.py's
+    frame_strip_html(), Task 2 of the same plan), the same "id on the
+    group's own heading" convention `runway_group()` already uses. Not a
+    control and not part of anything that posts.
     """
     # 19-11-PLAN.md Task 3 (D-12/A-30): the group's single hint links to
     # BOTH time inputs (there is no separate per-field hint for Start vs
@@ -3147,7 +3274,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     caption_html = "%s %s" % (i18n.t(QUIET_HOURS_SECTION_CAPTION), effective_delay_sentence)
     return (
         '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">%s</h2>'
+        '<h2 class="text-heading" id="%s">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
         "%s%s"
         "%s"
@@ -3160,6 +3287,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
+        escape_html(QUIET_HOURS_GROUP_HEADING_ID),
         escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
         escape_html(caption_html),
@@ -4434,6 +4562,17 @@ def _rule_add_form_html(errors=None, submitted=None):
     selected_theme_id = _submitted_or_current(
         submitted, "rule_theme_id", device_config.THEME_IDS[0])
     theme_error_html = _field_error_html(errors, "rule_theme_id", "rule-theme")
+    # 27-07-PLAN.md Task 2 (CFG-68): DELIBERATELY NOT WRAPPED IN
+    # `_theme_carousel_html()`, unlike departures/arrivals/calendar above
+    # — recorded here, greppable, so this reads as a decision and not an
+    # oversight for a later plan to "finish". This grid lives inside the
+    # per-flight rules ADD FORM, part of the "règles par vol" view the
+    # brief explicitly defers as too vague to plan against; folding a
+    # control into a view that is about to be redesigned spends work
+    # twice and pre-commits a decision the deferred conversation is
+    # supposed to make. PROVISIONAL: if the developer wants this grid
+    # folded too, it is one more call to `_theme_carousel_html()` with
+    # one more id — the helper already supports it (Task 1).
     chip_grid_html = _theme_chip_grid_html(
         "rule_theme_id", selected_theme_id,
         extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
@@ -4711,6 +4850,34 @@ def _display_groups_html(builders, groups):
     return watches_supersection_html, on_supersection_html
 
 
+def _save_status_region_html():
+    """The transient auto-save status region (27-04-PLAN.md Task 3,
+    CFG-63) — the one thing that replaces the retired dirty save bar.
+
+    `role="status"` + `aria-live="polite"`, the same polite-announcement
+    shape freshness.js's own regions use (never `role="alert"`: that is
+    quick-switch.js's own toast, reserved for a FAILURE, which this
+    region never announces — see dirty-state.js's own header for why the
+    failure path reuses that toast rather than speaking here too).
+
+    Rendered EMPTY at rest, deliberately: a region that already said
+    "Enregistré" on a fresh load, before anything was ever saved, would
+    be the exact stale-claim defect this phase exists to fix, in a
+    sentence instead of an arc. Its two words are carried as translated
+    data-* attributes on the region itself — dirty-state.js reads them
+    with `getAttribute()` and writes them with `textContent` only, so a
+    French reader can never be dropped into English by a save.
+    """
+    return (
+        '<p class="save-status text-label" %s role="status" aria-live="polite" '
+        '%s="%s" %s="%s"></p>'
+    ) % (
+        SAVE_STATUS_ATTR,
+        SAVE_STATUS_SAVING_ATTR, escape_html(i18n.t(SAVE_STATUS_SAVING_TEXT)),
+        SAVE_STATUS_SAVED_ATTR, escape_html(i18n.t(SAVE_STATUS_SAVED_TEXT)),
+    )
+
+
 def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     """Render one settings page (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE).
 
@@ -4869,47 +5036,30 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # before the bottom Save settings button. Do not restore the
     # separate section by reading a stale rationale.
     #
-    # D-03: data-dirty-form and the dirty-bar markup below are a JS-only
-    # enhancement layered on top of this always-server-rendered form —
-    # dirty-state.js reads these exact attributes.
+    # D-03: data-dirty-form is a JS-only enhancement layered on top of
+    # this always-server-rendered form — dirty-state.js reads it to find
+    # the form it now auto-saves.
     #
-    # quick task 260901-re6: the dirty-bar used to be a genuine descendant
-    # of this <form>, between the three groups and the always-visible
-    # bottom Save settings button, submitting natively via normal DOM
-    # nesting with no form= attribute needed. That premise broke the
-    # bar's own `position: sticky; bottom: 0` styling: a sticky element's
-    # containing block is its nearest scrolling ancestor's *box* — here
-    # the short three-section form — so the bar stopped sticking at the
-    # form's own bottom edge instead of the viewport's, visibly detaching
-    # and stopping above the Poll section on a page much taller than the
-    # form. The bar is now a sibling, emitted last on the page (after
-    # both `</form>` and the Poll `</section>`), positioned `fixed`
-    # instead of `sticky` at >=960px. companion/static/dirty-state.js
-    # needs no change for this: its `[data-dirty-bar]` /
-    # `[data-dirty-count]` / `[data-dirty-cancel]` lookups are already
-    # document-wide `document.querySelector` calls, not scoped to the
-    # form, and its cancel handler already calls `form.reset()` on its
-    # own separately-resolved form reference. The save button's
-    # `form="{SETTINGS_FORM_ID}"` attribute is what preserves native
-    # submission of the merged settings form despite the bar now living
-    # outside it in the DOM — narrowing any of those three JS lookups to
-    # a form-scoped query would silently break the bar.
-    dirty_bar_html = (
-        '<div class="dirty-bar" data-dirty-bar hidden role="status" '
-        'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
-        'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
-        'data-dirty-unsaved-plural="%s" data-dirty-saving="%s">'
-        "<span data-dirty-count>%s</span>"
-        '<button type="submit" class="dirty-bar__save" form="%s">%s</button>'
-        '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
-        "</div>"
-    ) % (
-        escape_html(i18n.t(DIRTY_CHANGED_SUFFIX)), escape_html(i18n.t(DIRTY_AND)),
-        escape_html(i18n.t(DIRTY_LIST_AND)), escape_html(i18n.t(DIRTY_UNSAVED_SINGULAR)),
-        escape_html(i18n.t(DIRTY_UNSAVED_PLURAL)), escape_html(i18n.t(DIRTY_SAVING_TEXT)),
-        escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT)), SETTINGS_FORM_ID,
-        escape_html(i18n.t("Save settings")), escape_html(i18n.t("Cancel")),
-    )
+    # 27-04-PLAN.md Task 3 (D-04/D-06/CFG-63): the dirty save bar that
+    # used to render here — quick task 260901-re6's own account of why it
+    # was a SIBLING of this form, positioned `fixed`, is superseded
+    # wholesale along with the bar itself; nothing about that sticky/fixed
+    # history survives into what replaces it. In its place, one small,
+    # ALWAYS-empty-at-rest status region (save_status_html, computed once
+    # above render()'s per-scope branch and placed beside the page's own
+    # heading — never fixed to the viewport, never an overlay: the
+    # overlay drawer CFG-31/CFG-64 already refused stays refused). It
+    # carries its own two translated words as data-* attributes on itself
+    # (SAVE_STATUS_ATTR/SAVE_STATUS_SAVING_ATTR/SAVE_STATUS_SAVED_ATTR),
+    # the same idiom the bar's own six words used — dirty-state.js reads
+    # them from there, never hardcoding a word of its own.
+    #
+    # The native fallback Save button (STATIC_SAVE_FALLBACK_ATTR, below,
+    # inside this form) is UNTOUCHED — 27-03's own construction, not this
+    # plan's to spend. It keeps being emitted unconditionally; only the
+    # bar that used to sit beneath it, once script had a genuine
+    # replacement, is gone.
+    save_status_html = _save_status_region_html()
 
     # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the per-flight
     # rules editor is no longer a standalone sibling section at all — it
@@ -5148,6 +5298,13 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
 
     return (
         header
+        # 27-04-PLAN.md Task 3 (D-04/CFG-63): the status region sits
+        # immediately after the page's own heading and BEFORE the Frame
+        # strip — "beside the form's heading", never fixed to the
+        # viewport, never a second banner. Rendered on every scope
+        # (Display, Device and the legacy SCOPE_ALL alike), matching
+        # data-dirty-form's own scope-independent emission it replaces.
+        + save_status_html
         # 21-04-PLAN.md Task 1 (D-02/R-01): the shared Frame strip
         # renders immediately after the page header and before the
         # form (whose own groups_html opens with the "Look"
@@ -5159,7 +5316,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         '<button type="submit" %s>%s</button>'
         "</form>"
-        "%s"
         "%s"
         "%s"
         "%s"
@@ -5215,7 +5371,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # above), so this addition changes nothing for either.
         display_on_supersection_html,
         poll_section_html,
-        dirty_bar_html,
     )
 
 

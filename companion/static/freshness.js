@@ -244,11 +244,6 @@
   var PENDING_ATTR = "data-pending";
   var PENDING_SELECTOR = "[" + PENDING_ATTR + "]";
 
-  // The save bar's own proof of life and its own element
-  // (companion/static/dirty-state.js writes the first onto <html> only
-  // once it has found its form, its bar and its count node; the second
-  // is the bar itself). Both are needed to answer "does this page have
-  // unsaved edits", and neither alone is — see unsavedEdits() below.
   // 23-06-PLAN.md Task 2 (D1/CFG-35): the picture that fades when a NEW
   // render arrives. The class is companion/static/style.css's; the
   // image class is companion/pages/home_page.py's own, duplicated here
@@ -284,10 +279,6 @@
   // a script that cares re-derives whatever it owns. It is announced,
   // not commanded: this file knows nothing about what any listener does.
   var SWAPPED_EVENT = "skypane-regions-swapped";
-
-  var DIRTY_READY_CLASS = "dirty-ready";
-  var DIRTY_BAR_ATTR = "data-dirty-bar";
-  var DIRTY_BAR_SELECTOR = "[" + DIRTY_BAR_ATTR + "]";
 
   // Every selector literal above is built from an attribute or class
   // NAME held in its own constant rather than written out whole, which
@@ -372,34 +363,26 @@
   // one of those regions. Standing down is also strictly fewer requests,
   // which is the direction T-23-20 requires.
   //
-  // GATED ON THE BAR'S OWN PROOF OF LIFE, NOT ON A PROXY FOR IT — this
-  // is 22-01/B1's defect of record, read the other way round. There, a
-  // stylesheet hid the fallback Save because a marker element EXISTED;
-  // the script that was meant to be behind it had silently stopped
-  // working, and the page became unsaveable. So neither half alone is
-  // enough here either:
-  //   - the dirty-ready class is dirty-state.js saying "I ran and found
-  //     my form, my bar and my count node" — it says nothing about
-  //     whether there are edits;
-  //   - the bar not being hidden is that same live script's own answer
-  //     to "are there unsaved edits right now", set in the one branch
-  //     that reveals the bar with real content.
-  // A bar element that merely exists, hidden, on a page whose script
-  // never ran reports NO unsaved edits, which is the honest reading: a
-  // user typing into a field is already covered by userIsInteracting()
-  // above, so a dead dirty-state.js cannot silently disable this loop
-  // and cannot silently expose a half-edited form either.
+  // 27-04-PLAN.md (deviation, in-scope per Rule 2 — CFG-63 retired the
+  // save bar this gate used to read): SUPERSEDES the account above. The
+  // save bar and its own two-marker proof-of-life (B1's lesson,
+  // 22-01-PLAN.md Task 3) are both gone — dirty-state.js is now the
+  // settings form's auto-save driver, and it exposes the identical
+  // question through window.SkyPaneDirtyState.hasUncommittedEdits(),
+  // the same small-namespace-object idiom theme-preview.js's own window.
+  // SkyPaneLivePreview already established for exactly this kind of
+  // cross-script query with no shared module to import. The proof-of-
+  // life concern does not reappear in a different shape here: a page
+  // whose dirty-state.js never ran (or ran and found no settings form)
+  // simply never defines window.SkyPaneDirtyState at all, which this
+  // guard reads as "no unsaved edits" — the same honest degrade the bar
+  // era's own comment already argued for, and a user actively typing
+  // into a field is covered by userIsInteracting() above regardless.
   //
   // Looked up fresh on every call, never cached — the same reason
   // revealPill() below gives.
   function unsavedEdits() {
-    var root = document.documentElement;
-    if (!root || !root.className
-        || (" " + root.className + " ").indexOf(" " + DIRTY_READY_CLASS + " ") === -1) {
-      return false;
-    }
-    var bar = document.querySelector(DIRTY_BAR_SELECTOR);
-    return !!(bar && !bar.hidden);
+    return !!(window.SkyPaneDirtyState && window.SkyPaneDirtyState.hasUncommittedEdits());
   }
 
   // 19-09-PLAN.md (D-02): looked up fresh on every call, never cached

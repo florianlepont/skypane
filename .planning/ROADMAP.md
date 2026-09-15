@@ -1248,3 +1248,59 @@ Cross-cutting constraints (appearing in two or more plans' `must_haves`):
 - Motion tokens only (`--motion-fast` 180 ms / `--motion-slow` 2 s); `interpolate-size` and `calc-size(` banned; no new `@keyframes`; no per-rule `prefers-reduced-motion` block; the palette reuses the existing `<dialog>` `@starting-style` entrance rather than inventing a third. `style.css` stays at zero stray comment terminators and exactly one `@supports selector(:has(*))` block.
 - **Two standing refusals stay refused and unreversed:** the **overlay drawer** (three recorded rejections plus locked decision D-10) and **sticky day headers** (struck twice; every flight row already carries its date).
 - Every check is mutation-tested and must survive the vacuity question; `EXPECTED_CHECK_COUNT` is re-derived by RUNNING, never by arithmetic; the sandbox baseline is exactly 5 failing checks verified by NAME (4 × WR-11 read-only, 1 × `anomaly_active()`). A `SKIP` from `test_browser_ux.py` is a **failed phase gate**, not a caveat — this phase's central claim is a claim about a browser with scripts blocked.
+
+### Phase 27: Companion review feedback — the defects and the noise the developer found on the real app
+
+**Goal:** The developer reviewed phases 23, 24 and 25 on the deployed app and found one real defect and six things that are simply wrong for the product. This phase fixes them. It adds no new capability.
+
+**Requirements**: CFG-62, CFG-63, CFG-64, CFG-65, CFG-66, CFG-67, CFG-68, CFG-69, CFG-70, CFG-71 (all new; nine ticked with per-clause evidence, CFG-65 deliberately left unticked — investigated, no defect found; CFG-47 retired in place by this phase)
+**Depends on:** Phases 23, 24 and 25 (all merged and deployed)
+**Plans:** 9/9 plans complete
+
+**The one real defect, diagnosed from a screen recording before this entry was written.** D17's quiet-hours dial: the handles follow a drag AND a preset correctly, but **the arc and the caption never move**. Measured on the recording — after dragging the end handle the fields read `08:00`/`18:00` and both handles sit at 8 and 18, while the arc still draws 23:00→07:00 and the caption still reads `23:00 → 07:00 · 8 h`. The cause is structural: `value-controls.js` models ONE value per wrapper and `paint()` writes a per-handle CSS fraction, but an arc and a span sentence are functions of BOTH values, and nothing in the script models the pair. The arc is server-rendered SVG (correct, and what keeps the no-JS floor) and is never repainted client-side.
+
+**Why every check passed anyway, which is the lesson to carry:** the arc was asserted correct server-side for the saved value, the handles were asserted to move, and the value was asserted to persist to disk. Nothing ever asserted that **the arc agrees with the handles after an interaction**. Two correct halves, the relationship between them unmeasured. An arc that shows 23:00→07:00 while the fields say 08:00→18:00 is worse than no arc: it actively lies.
+
+**The six product corrections, in the developer's own priority order:**
+
+1. **No save button at all.** The developer's words: "je veux aucun bouton ça sert à rien. Si tu veux une confirmation visuelle, un 'sauvegarde…' et 'sauvegardé' suffit." Settings save automatically, with a transient "Sauvegarde…" → "Sauvegardé". The native submit exists ONLY when scripts are blocked, hidden by the `.js` gate 25-01 built. **This retires the dirty save bar that Phases 22 and 23 invested heavily in** — including B1/P0's `[data-static-save-fallback]` visibility contract, whose current rule (`.dirty-ready.dirty-shown`) is exactly why a large accented "Enregistrer les réglages" button greets every fresh page load. That contract is not deleted silently: it is superseded in writing, with the no-JS floor kept by construction rather than by a visibility rule.
+2. **One title form, everywhere.** Titles currently sit inside the setting tile on some cards and above it on others. Inventory both forms, pick one, apply it.
+3. **Remove D16's runway map.** "Je comprends pas l'intérêt de ces cartes des pistes, elles représentent la même chose que mes schémas." It cost a whole wave in Phase 25 and teaches the developer nothing. The three native radios return to being the control; the three `runway-*.png` photographs were never deleted and stay served. CFG-47 is retired rather than left ticked against removed code.
+4. **Cut the explanatory text**: the wake-interval slider ("beaucoup trop de texte d'explication"), its gauges, and the Quiet hours card's paragraph.
+5. **Extend the carousel to the other colour grids** — arrivals, departures, calendar flights — and move "Voir tous les thèmes" BELOW the strip. This is also what is left of Display's page height: 25-06 measured 3743 px at 390 px against X6's 2600 px target, and recorded that what remains is four more cards, not a grid.
+6. **A link from the Frame strip's Quiet hours switch to the schedule fields.** The card already says where the switch is; the reverse does not exist.
+
+**Deliberately NOT in this phase, and scoped separately:** the "règles par vol" view ("pas propre, manque de simplicité, trop de texte"). The brief is too vague to plan against and needs a conversation first.
+
+**Also carried in, from earlier phases' own findings rather than the review:** `departing_index == arriving_index` for 18 of 18 themes, so the shipped "Departures · Arrivals" legend names two swatches that are never different; and `.copy-btn`'s measured 34×26 hit area in a Flights detail row.
+
+Plans (nine, one per wave — nearly every plan writes `config_page.py`, `style.css` and the two
+browser harnesses, so the waves are serial by file ownership rather than by choice):
+- [x] 27-01 — the instrumentation: a surface-agreement helper, a rendered-geometry decoder, and the shortening/inventory helpers. ZERO net checks (CFG-71)
+- [x] 27-02 — the dial defect: the pair in the model, the arc still server-authoritative, the caption that blanks rather than lies, and THE one agreement check (CFG-62, CFG-71)
+- [x] 27-03 — the no-JS floor made structural, BEFORE the save bar is retired, proven by saving to disk (CFG-64, CFG-71)
+- [x] 27-04 — auto-save: `dirty-state.js` repurposed from bar to driver, the one existing failure vocabulary reused, the leave-guard and "Annuler" retired (CFG-63, CFG-71)
+- [x] 27-05 — D16's runway map removed, every removed check named, the radios and the photographs untouched; CFG-47's retirement verified (CFG-66, CFG-71)
+- [x] 27-06 — one title form (inventory runs before the choice) and the three texts cut without weakening D18's refusal (CFG-65, CFG-67, CFG-71)
+- [x] 27-07 — the carousel extended to arrivals and calendar with per-usage ids, the disclosure moved below, the legend fixed, and Display's height PREDICTED before measurement (CFG-68, CFG-70, CFG-71)
+- [x] 27-08 — the Frame strip's Quiet hours link, written once in the shared component; `.copy-btn` and `.row-toggle` measured in their own containers (CFG-69, CFG-70, CFG-71)
+- [x] 27-09 — the gate: every count re-derived by running, the five baseline failures named, Display measured against 27-07's prediction, the ledger written against the code (CFG-68, CFG-71)
+
+**Plans: 9/9 complete.** Closed 2026-09-15. CFG-62/63/64/66/67/68/69/70/71 ticked
+with per-clause evidence in `.planning/REQUIREMENTS.md`'s Phase 27 coverage
+ledger; CFG-65 deliberately left unticked — investigated (27-06) and found not
+to be a defect (the two title forms already serve distinct grammatical roles),
+recorded as its own outcome rather than rounded up. Display measured 3524 px
+at 390 px against 27-07's own stated ≈3446–3496 px prediction — a missed
+prediction, reported as one, with the arithmetic error named (the text-cut
+term wrongly summed two regions that don't render on Display at all). Gate:
+exactly the 5 sandbox baseline failures by NAME, browser harness 88/88 with
+0 SKIP in 265.9s. The human sweep — auto-save's two words, the dial's handles,
+the runway card without its map, all three colour strips — is the developer's
+and is not claimed here. PR not marked ready, not merged.
+
+**Developer decisions, taken 2026-09-15 after the plans were written.** Three provisional choices were put to the developer; all three answers are binding on the plans below.
+
+- **Auto-save fires on `change`, and the leave-guard STAYS.** A keystroke is not a decision, so nothing saves mid-typing — but `dirty-state.js`'s existing `beforeunload` guard (:439) is **kept alive** rather than retired with the save bar. Without it, pasting a calendar URL and closing the tab without leaving the field loses the edit silently. 27-04 planned to retire the leave-guard alongside the bar; that is now wrong, and the plan must keep it and prove it still fires. The research correction that found this guard lives in `dirty-state.js` — not `submit-guard.js`, which is a double-submit guard, nor `confirm-submit.js`, which confirms destructive actions — is what makes keeping it cheap.
+- **A rejected value shows the existing generic translated message, and no "Sauvegardé".** Per-field errors are NOT built now: returning a JSON error map is a real mechanism and parsing returned HTML is a forbidden sink here. Acceptable because most fields are now controls that cannot produce an invalid value. The JSON error map stays recorded as a later phase's option.
+- **The carousel is extended to arrivals, departures and calendar flights anyway**, for consistency across the four grids, with the height expectation stated in advance rather than discovered: `theme-preview.js` ALREADY collapses the non-selected colour panels, so the scripted page height barely moves. The real gain is for a scripts-blocked reader and after a panel switch. 25-06 measured 3743 px at 390 px against X6's 2600 px target; **2600 px is not expected to be reached**, and 27-07 says so up front. Moving "Voir tous les thèmes" below the strip is the part that addresses the developer's actual irritation.

@@ -4794,7 +4794,14 @@ def main():
             "\"Copied\" literal survives only as the one documented fallback (D-06)",
             _copy_button_script_es5_safe_reads_data_copied_text)
 
-        def _dirty_state_script_es5_safe_reads_five_connector_attributes():
+        def _dirty_state_script_es5_safe_reads_two_save_status_attributes():
+            # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDES this check's own
+            # pre-27-04 subject — dirty-state.js is now the settings
+            # form's auto-save driver, and fetch( is exactly how it
+            # saves, so it is REMOVED from the banned list (and added to
+            # required instead) rather than left banned and permanently
+            # failing. The five retired connector-word attributes are
+            # replaced by the auto-save status region's own two words.
             js_path = os.path.join(HERE, "static", "dirty-state.js")
             with open(js_path) as fh:
                 src = fh.read()
@@ -4803,51 +4810,50 @@ def main():
                     "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
             banned = (
                 "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
-                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "insertAdjacentHTML", "document.write", "eval(",
                 "XMLHttpRequest")
             for token in banned:
                 if token in src:
                     return False, "dirty-state.js must not contain %r" % token
-            required = ("textContent", "addEventListener", "getAttribute", "querySelector")
+            required = (
+                "textContent", "addEventListener", "getAttribute", "querySelector", "fetch(")
             for token in required:
                 if token not in src:
                     return False, "expected %r in dirty-state.js" % token
-            for attr in (
-                    "data-dirty-changed-suffix", "data-dirty-and", "data-dirty-list-and",
-                    "data-dirty-unsaved-singular", "data-dirty-unsaved-plural"):
+            for attr in ("data-save-status-saving", "data-save-status-saved"):
                 if attr not in src:
                     return False, "expected dirty-state.js to read %r" % attr
-            # D-06: each removed hardcoded connector word survives ONLY as
-            # its own documented fallback literal, never a second inline
-            # occurrence elsewhere in updateBar().
-            if src.count('"1 unsaved change"') != 1:
-                return False, "expected exactly one \"1 unsaved change\" literal (the fallback)"
-            if src.count('" unsaved changes"') != 1:
-                return False, "expected exactly one \" unsaved changes\" literal (the fallback)"
+            # D-06: each removed hardcoded word survives ONLY as its own
+            # documented fallback literal, never a second inline
+            # occurrence elsewhere in the file.
+            if src.count('"Saving…"') != 1:
+                return False, "expected exactly one \"Saving…\" literal (the fallback)"
+            if src.count('"Saved"') != 1:
+                return False, "expected exactly one \"Saved\" literal (the fallback)"
             return True, ""
         check(
             "dirty-state.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/"
-            "insertAdjacentHTML/document.write/eval/fetch/XHR), reads all five connector words "
-            "from the dirty-bar element's own data-dirty-* attributes, and each removed "
-            "hardcoded literal survives only as its own documented fallback (D-06)",
-            _dirty_state_script_es5_safe_reads_five_connector_attributes)
+            "insertAdjacentHTML/document.write/eval/XHR), now CALLS fetch( as the settings form's "
+            "auto-save driver, reads both save-status words from the region's own data-save-status-* "
+            "attributes, and each removed hardcoded literal survives only as its own documented "
+            "fallback (27-04-PLAN.md Task 2, CFG-63)",
+            _dirty_state_script_es5_safe_reads_two_save_status_attributes)
 
-        def _dirty_state_animates_the_counts_element_and_never_its_number():
-            # 23-09-PLAN.md Task 1 (D3/CFG-32). The save bar is
-            # role="status" and the count is its content, so an
-            # animation that rewrote the text more than once per change
-            # would make a screen reader announce the same number twice
-            # — or announce a partial one. The rule this check enforces
-            # is the one 23-08 established on the filter count: animate
-            # the ELEMENT, write the number exactly once, and only when
-            # it genuinely differs.
+        def _dirty_state_animates_the_status_regions_element_and_never_its_word():
+            # 27-04-PLAN.md Task 2 (CFG-63). SUPERSEDES this check's own
+            # pre-27-04 subject — the retired bar's countEl is gone, and
+            # the identical discipline (23-09-PLAN.md Task 1, D3/CFG-32)
+            # now applies to the auto-save status region instead:
+            # role="status" and the word is its content, so an animation
+            # that rewrote the text more than once per change would make
+            # a screen reader announce the same word twice, or a partial
+            # one. Animate the ELEMENT, write the word exactly once, and
+            # only when it genuinely differs.
             js_path = os.path.join(HERE, "static", "dirty-state.js")
             with open(js_path) as fh:
                 src = fh.read()
 
-            # ONE write site. Before this plan the count's text was
-            # assigned in four branches of updateBar(); four write sites
-            # is four places a later plan can forget the gate below.
+            # ONE write site.
             #
             # The negative lookahead is load-bearing, not decoration: a
             # plain substring search for the assignment also matches the
@@ -4857,32 +4863,32 @@ def main():
             # exists to require. Same substring-collision class 23-08
             # hit on a selector that ended in another selector.
             write_sites = [m.start() for m in re.finditer(
-                r"countEl\.textContent =(?!=)", src)]
+                r"statusRegion\.textContent =(?!=)", src)]
             if len(write_sites) != 1:
                 return False, (
-                    "expected exactly ONE assignment to the count's textContent in "
-                    "dirty-state.js, got %d — the count lives in a role=\"status\" region, so "
-                    "every extra write site is another way for the same number to be announced "
-                    "twice" % (len(write_sites),))
+                    "expected exactly ONE assignment to the region's textContent in "
+                    "dirty-state.js, got %d — the region is role=\"status\", so every extra "
+                    "write site is another way for the same word to be announced twice"
+                    % (len(write_sites),))
 
             # THE GATE. Without it the text is rewritten on every
-            # keystroke — the live region re-announces a number that did
+            # keystroke — the live region re-announces a word that did
             # not change, and the animation fires carrying no
             # information, which is the one thing a motion budget exists
             # to stop.
-            if "countEl.textContent === text" not in src:
+            if "statusRegion.textContent === text" not in src:
                 return False, (
-                    "expected the count's write to be gated on the text having actually changed "
-                    "— an unrelated re-render must write nothing at all, not the same string "
-                    "again")
+                    "expected the region's write to be gated on the text having actually "
+                    "changed — an unrelated re-render must write nothing at all, not the same "
+                    "string again")
 
             # TEXT FIRST, CLASS SECOND. The displayed value has to be
             # correct at every instant, including the animation's first
             # frame: what animates is the element's presentation, never
-            # the number itself.
+            # the word itself.
             if "is-fading-in" not in src:
                 return False, (
-                    "expected the count to spend the stylesheet's EXISTING changed-value "
+                    "expected the region to spend the stylesheet's EXISTING changed-value "
                     "animation (.is-fading-in), whose own rule comment says it names the motion "
                     "rather than the component so the next thing that changes under the reader "
                     "spends it — not a fourth keyframes block")
@@ -4890,8 +4896,8 @@ def main():
             add_at = src.index("classList.add(")
             if add_at < write_at:
                 return False, (
-                    "expected the count's text to be written BEFORE the animation class is "
-                    "added, so the displayed number is the real one from the first frame")
+                    "expected the region's text to be written BEFORE the animation class is "
+                    "added, so the displayed word is the real one from the first frame")
             # Removed, reflowed, re-added — or a second change in a row
             # runs nothing at all, because the browser coalesces a
             # remove and an add in one frame into no change.
@@ -4907,25 +4913,23 @@ def main():
                     "expected the order write-text, remove-class, re-add-class, got offsets "
                     "%d/%d/%d" % (write_at, remove_at, add_at))
 
-            # And the reflow is NOT a timer. This file's standing
-            # constraint (its own header, and a live check in
-            # companion/test_config_page.py) is that it introduces no
-            # network call, no timer and no persistent state, ever.
-            for forbidden in ("setTimeout", "setInterval", "requestAnimationFrame"):
+            # And the reflow is NOT a timer. setTimeout survives ONCE, for
+            # the toast's own dismiss (companion/test_config_page.py's own
+            # check pins that to exactly one, scoped away from any save
+            # path) — this clause only bans a SECOND timer primitive.
+            for forbidden in ("setInterval", "requestAnimationFrame"):
                 if forbidden in src:
                     return False, (
-                        "dirty-state.js must not contain %r — its own header makes "
-                        "no-timer a standing constraint, not a description of one version"
-                        % (forbidden,))
+                        "dirty-state.js must not contain %r" % (forbidden,))
             return True, ""
         check(
-            "dirty-state.js animates the change count's ELEMENT and never its number: exactly one "
-            "text write site, gated on the text having genuinely changed, written before the "
+            "dirty-state.js animates the save-status region's ELEMENT and never its word: exactly "
+            "one text write site, gated on the text having genuinely changed, written before the "
             "class is added, spending the stylesheet's existing .is-fading-in rule through a "
-            "remove/reflow/re-add with no timer anywhere — so the role=\"status\" region "
-            "announces each change once and never a partial number (D3/CFG-32, 23-09-PLAN.md "
-            "Task 1)",
-            _dirty_state_animates_the_counts_element_and_never_its_number)
+            "remove/reflow/re-add with no interval/rAF anywhere — so the role=\"status\" region "
+            "announces each change once and never a partial word (27-04-PLAN.md Task 2, CFG-63; "
+            "supersedes 23-09-PLAN.md Task 1/D3/CFG-32's own count-element check)",
+            _dirty_state_animates_the_status_regions_element_and_never_its_word)
 
         # --- 19-09-PLAN.md Task 3: freshness.js's own named guard (D-02) ---
 

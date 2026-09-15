@@ -77,6 +77,7 @@ import contextlib
 import io
 import json
 import itertools
+import math
 import os
 import re
 import shutil
@@ -818,7 +819,68 @@ EXPECTED_CHECK_COUNT = 78
 # than a ceiling in both themes.
 # 78 + 3 = 81, re-derived by RUNNING the harness (81/81, 0 SKIPs), never
 # by arithmetic.
-EXPECTED_CHECK_COUNT = 81
+#
+# 27-02-PLAN.md Task 4 (CFG-62/CFG-71): +1 — THE arc/handles/caption
+# agreement check. 81 + 1 = 82, re-derived by RUNNING (82/82, 0 SKIPs).
+#
+# 27-03-PLAN.md Task 3 (CFG-64): +1 — the no-JS floor proven to save TO
+# DISK after 27-03-PLAN.md Task 2 simplifies the fallback-hide rule to
+# the plain .js gate: tracked_runway operated with scripts blocked,
+# submitted through the real form, re-read from disk, in both shipped
+# languages, with the fallback submit itself asserted present and
+# visible AFTER the save
+# (_the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies).
+# 82 + 1 = 83, re-derived by RUNNING.
+#
+# 27-04-PLAN.md Task 4 (D-04/CFG-63): the dirty save bar is retired and
+# auto-save replaces it. A large number of existing checks are RETARGETED
+# IN PLACE (no count change): the reveal-and-persist checks (Display,
+# Device), the fallback-hides-immediately check, the leave-guard/live-
+# preview pair, the tab-bar-overlap check, the double-submit check, the
+# freshness-stand-down check, the strip-switch-vs-leave-guard check, the
+# status-region-animates-its-element check, the auto-save-posts-the-
+# whole-form check, the no-script-fallback-is-the-only-way check, the
+# quiet-hours/wake-interval drag-and-key checks (via _set_window()/
+# _set_interval()), the arc/handles/caption agreement check, and the
+# theme-carousel keyboard check. Added: THE two checks this plan exists
+# to ship — _the_save_settles_the_field_the_region_and_disk_agree (+1)
+# and _a_rejected_value_claims_nothing_the_toast_fires_and_disk_is_
+# untouched (+1). 83 + 2 = 85, re-derived by RUNNING (85/85, 0 SKIPs).
+EXPECTED_CHECK_COUNT = 85
+
+# 27-05-PLAN.md Task 3 (CFG-66): CFG-47's schematic runway map RETIRED.
+# -3: the three checks 25-03-PLAN.md Task 3 added above (the map's own
+# save-corroboration, its keyboard/paint proof, its 360px floor
+# measurement) are gone, named in 27-05-SUMMARY.md, along with the
+# `_runway_ids()`/`_SETTLE_STRIPS` helpers only they used. +1:
+# _the_map_is_gone_the_radios_and_photographs_remain_and_meet_their_
+# floor replaces all three — the map is gone AND the radios AND the
+# photographs are not, asserted as ONE relationship (D-32), with the
+# touch target the map's own card used to provide now measured in the
+# control's own container at 360px in both themes (T-27-05-B) rather
+# than assumed. The radios' OWN scripts-blocked save-to-disk proof
+# (CFG-64, line ~826 above) is UNCHANGED by this removal.
+# 85 - 3 + 1 = 83, re-derived by RUNNING (83/83, 0 SKIPs).
+EXPECTED_CHECK_COUNT = 83
+
+# 27-07-PLAN.md Task 2 (CFG-68): +3 — the arrivals grid's own
+# scripts-blocked save proof
+# (_arrivals_still_saves_with_scripts_blocked_through_its_own_carousel),
+# the per-instance disclosure-toggle independence proof
+# (_each_carousels_own_disclosure_toggles_only_its_own_strip), and the
+# keyboard-keeps-the-chip-in-view proof generalised from departures
+# alone to arrivals+calendar
+# (_arrivals_and_calendar_keep_the_focused_chip_in_view_when_keyed).
+# 83 + 3 = 86, re-derived by RUNNING (86/86, 0 SKIPs).
+EXPECTED_CHECK_COUNT = 86
+
+# 27-08-PLAN.md Task 2/3 (CFG-69/CFG-70): +2 — the Quiet hours caption
+# schedule link's own hit-target-plus-floor proof
+# (_the_quiet_schedule_link_meets_the_hit_target_floor_at_360px) and the
+# .copy-btn/.row-toggle family's own resolved-not-declared hit-target
+# proof (_copy_btn_and_row_toggle_resolve_to_the_floor_in_their_own_
+# containers). 86 + 2 = 88, re-derived by RUNNING (88/88, 0 SKIPs).
+EXPECTED_CHECK_COUNT = 88
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -1082,6 +1144,59 @@ def _guard_armed(page):
     return page.evaluate(
         "() => { var e = new Event('beforeunload', {cancelable: true}); "
         "window.dispatchEvent(e); return e.defaultPrevented; }")
+
+
+# --- 27-04-PLAN.md (D-04/CFG-63): the auto-save status region ----------
+#
+# The region's own two words are read off its OWN data-save-status-saving/
+# data-save-status-saved attributes (D-06's idiom) rather than hardcoded
+# here in English — the region can equally be showing the French words,
+# and a check that assumed English would be measuring the wrong thing on
+# a French-language page.
+_SAVE_STATUS_SEL = "[data-save-status]"
+
+
+def _save_status_text(page):
+    return page.eval_on_selector(_SAVE_STATUS_SEL, "el => el.textContent")
+
+
+def _wait_for_save_status(page, which, timeout=5000):
+    """Waits, via wait_for_function (never a sleep), for the save-status
+    region to hold the word its OWN data-save-status-{which} attribute
+    names — "saving" or "saved". Never a guessed instant: this resolves
+    the moment dirty-state.js's own setStatusText() writes the matching
+    text, whatever language it is in.
+    """
+    page.wait_for_function(
+        "which => {"
+        " var el = document.querySelector('%s');"
+        " return !!el && el.textContent === el.getAttribute('data-save-status-' + which)"
+        " && el.textContent !== '';}" % _SAVE_STATUS_SEL,
+        arg=which, timeout=timeout)
+
+
+def _wait_for_saved(page, timeout=5000):
+    _wait_for_save_status(page, "saved", timeout=timeout)
+
+
+def _wait_for_saving(page, timeout=5000):
+    _wait_for_save_status(page, "saving", timeout=timeout)
+
+
+def _commit_field(page, selector):
+    """Fires the real `change` event dirty-state.js's own document-level
+    listener is waiting for — MEASURED necessary, not decorative:
+    Playwright's own `locator.fill()` dispatches `input` only (its
+    documented contract), never `change`, so a field filled and left
+    there stays UNCOMMITTED by this app's own D-04 definition (change,
+    not input, is what auto-save listens for). Real keyboard typing
+    followed by a real Tab/blur also produces a genuine `change` and
+    does not need this helper — this one is for the `.fill()` shape,
+    the same shape value-controls.js's own notify() dispatches for a
+    drag/keyboard interaction on a custom control.
+    """
+    page.eval_on_selector(
+        selector, "el => el.dispatchEvent(new Event('change', {bubbles: true}))")
 
 
 # --- 24-02-PLAN.md (CFG-45): the three shared measurement helpers the
@@ -2686,6 +2801,625 @@ def _display_page_height(browser, base_url, viewport):
     return seen
 
 
+# ---------------------------------------------------------------------
+# 7. AGREEMENT — the RELATIONSHIP between surfaces, which is the thing
+#    D17 shipped broken while every one of its own checks passed.
+# ---------------------------------------------------------------------
+#
+# The quiet-hours dial shipped with three correct checks and one live
+# defect. The arc was asserted correct SERVER-SIDE for the saved value.
+# The handles were asserted TO MOVE. The value was asserted TO PERSIST
+# to disk. All three pass, today, against a page on which the fields
+# read 08:00/18:00, both handles sit at 8 and 18, and the arc still
+# draws 23:00 -> 07:00 under a caption that still reads "23:00 -> 07:00
+# - 8 h". Nothing asserted that the arc AGREES with the handles after
+# an interaction, and that unmeasured relationship is the whole defect.
+#
+# So the shape below is deliberately NOT "one check per surface". One
+# check per surface is precisely the shape that shipped this: each of
+# them can be individually, permanently right while the page as a whole
+# lies. The subject here is the SET of decoded values, and the assertion
+# is that it has exactly one member.
+#
+# Two further clauses, and they are the vacuity answers rather than
+# decoration. Without "equals what the interaction REQUESTED" this
+# passes perfectly against a page that froze all four surfaces together
+# at their old value — four surfaces agreeing on the wrong thing is
+# still agreement. Without "DIFFERS from what was there before" it
+# passes against an interaction that did nothing at all, which is the
+# easiest way in the world to make every surface agree.
+
+
+def _canonical_surface_value(value):
+    """One canonical, hashable, comparable form for a decoded surface
+    value, so `(1380, 420)` and `[1380, 420]` are the SAME reading
+    rather than two members of a set.
+
+    This exists because the set is the whole assertion below, and a set
+    that counts a tuple and a list as two members would report a
+    disagreement between two surfaces that agree — a false FAIL is as
+    bad here as a false PASS, and worse for trust. Raises on anything
+    that cannot be made hashable rather than falling back to `repr()`,
+    which would make every unhashable value agree with itself and with
+    nothing else by accident.
+    """
+    if isinstance(value, (list, tuple)):
+        return tuple(_canonical_surface_value(item) for item in value)
+    try:
+        hash(value)
+    except TypeError:
+        raise AssertionError(
+            "_assert_surfaces_agree: a decoder returned %r, which cannot be "
+            "compared or put in a set — a surface decoder must return a "
+            "number, a string, or a tuple of them" % (value,))
+    return value
+
+
+def _surface_reading_report(decoded):
+    """Every surface and what it decoded to, in the order the caller
+    listed them — never only the mismatching pair.
+
+    The two-value message is the tempting one and it is the wrong one:
+    the shipped defect reads "the fields and the handles agree on
+    08:00-18:00 while the arc and the caption both still say
+    23:00-07:00", and that sentence is only available to a reader who
+    is shown all four. A message naming one pair would have sent the
+    next reader looking at the wrong half.
+    """
+    return "; ".join("%s -> %r" % (label, value) for label, value in decoded.items())
+
+
+def _assert_surfaces_agree(page, surfaces, requested, before, where):
+    """Decode N rendered surfaces into ONE canonical value and assert
+    they agree, that the agreed value is the one the interaction
+    REQUESTED, and that it DIFFERS from the pre-interaction value.
+
+    `surfaces` is an ordered mapping of a surface LABEL to a
+    zero-argument callable returning that surface's decoded value — a
+    mapping rather than a fixed pair of arguments, because the number of
+    surfaces describing one value is a property of the control and not
+    of this helper, and a two-argument version would have to be
+    hand-unrolled (and mis-unrolled) at every call site with three or
+    four.
+
+    Returns the `{label: decoded}` mapping on success, so a caller can
+    report the numbers it agreed on. RAISES AssertionError on every
+    failure, `_persist_without_js()`'s shape and for its reason: a
+    helper returning a verdict string hands every caller a guard it has
+    to remember, and `check()` turns a raised AssertionError into a
+    named FAIL nobody can forget.
+
+    THREE SEPARATE ASSERTIONS WITH THREE SEPARATE MESSAGES, deliberately
+    not collapsed into one boolean, because they fail for three
+    unrelated reasons and a reader needs to know which:
+      1. the surfaces DISAGREE — some part of the page did not follow;
+      2. they agree on the WRONG value — the page froze together, or the
+         interaction was applied and then overwritten;
+      3. they agree on the value that was already there — nothing
+         happened at all, and a one-boolean version of this helper would
+         have called that a pass.
+    A single `all(...)` over the three would report "agreement failed"
+    for a frozen page, which is both true and useless.
+
+    `page` is taken and used: every message names the document the
+    reading came off, because these surfaces are decoded on a live page
+    that a preceding step navigated, and a reading taken on the wrong
+    route is the one failure whose message would otherwise be a puzzle.
+
+    This helper drives NO state change of its own (T-27-01-A). It reads
+    what the caller's interaction already did, which is what lets it
+    compose with `_persist_without_js()` rather than wrap it.
+    """
+    decoded = {}
+    for label, decoder in surfaces.items():
+        decoded[label] = decoder()
+    if len(decoded) < 2:
+        raise AssertionError(
+            "_assert_surfaces_agree: %s was given %d surface(s) (%s) on %s — "
+            "agreement between fewer than two surfaces is not a relationship, "
+            "and a one-surface call is the endpoint check this helper exists "
+            "to replace"
+            % (where, len(decoded), _surface_reading_report(decoded), page.url))
+
+    canonical = {label: _canonical_surface_value(value)
+                 for label, value in decoded.items()}
+    distinct = set(canonical.values())
+    if len(distinct) != 1:
+        raise AssertionError(
+            "_assert_surfaces_agree: %s — the %d surfaces describing this "
+            "value DISAGREE on %s. They read: %s. The interaction asked for "
+            "%r. A surface that did not follow is a surface that is now "
+            "lying to the visitor about a value the page beside it shows "
+            "correctly"
+            % (where, len(canonical), page.url,
+               _surface_reading_report(decoded), requested))
+
+    agreed = next(iter(distinct))
+    if agreed != _canonical_surface_value(requested):
+        raise AssertionError(
+            "_assert_surfaces_agree: %s — all %d surfaces on %s agree on %r, "
+            "but the interaction asked for %r. They read: %s. Agreement on "
+            "the wrong value is what a page that froze every surface "
+            "together looks like from outside, which is why agreement alone "
+            "is not the assertion"
+            % (where, len(canonical), page.url, agreed, requested,
+               _surface_reading_report(decoded)))
+
+    if agreed == _canonical_surface_value(before):
+        raise AssertionError(
+            "_assert_surfaces_agree: %s — all %d surfaces on %s agree on %r, "
+            "which is exactly what was there BEFORE the interaction. They "
+            "read: %s. The interaction changed nothing, so this reading "
+            "proves nothing: a no-op is the cheapest way to make every "
+            "surface on a page agree"
+            % (where, len(canonical), page.url, agreed,
+               _surface_reading_report(decoded)))
+    return decoded
+
+
+# ---------------------------------------------------------------------
+# 8. The arc as a NUMBER — resolved geometry, read back out of the
+#    browser (27-01-PLAN.md Task 2).
+# ---------------------------------------------------------------------
+#
+# Until now the quiet-hours arc was only checkable as SERVER-RENDERED
+# HTML, and that is precisely the blind spot D17 shipped through: the
+# server-rendered attribute was right for the saved value on every page
+# load, and stayed right, and stayed on the screen, while the handles
+# and the fields moved away from it. A check that can only read the
+# declared attribute cannot see that defect at all. So what is read
+# here is the RESOLVED value — what the browser actually painted, after
+# script ran and after any `.js`-scoped stylesheet rule overrode the
+# presentation attribute (which a CSS declaration of any specificity
+# does, as `quiet_dial_svg()`'s own docstring records).
+#
+# MEASURED ON THIS TREE, and these are the numbers the decoder below is
+# built against rather than guessed at. On /display with the seeded
+# 23:00-07:00 window the arc reports:
+#     attribute   stroke-dasharray="163.3628 326.7256"
+#     resolved    stroke-dasharray: 163.363px, 326.726px
+#     attribute   transform="rotate(255.0000 88 88)"
+#     resolved    transform: matrix(-0.258819, -0.965926, 0.965926,
+#                                   -0.258819, 25.7746, 195.778)
+# Three facts follow, all of them load-bearing:
+#   * the resolved dash is COMMA-separated, unit-suffixed and rounded to
+#     three decimals where the attribute carries four — so it is parsed
+#     as "the numbers in this string", never string-compared against
+#     what the server emitted;
+#   * the resolved `transform` is a MATRIX, not the rotate() that was
+#     written, so the angle comes back through atan2 rather than off the
+#     attribute (`rotate` as its own resolved property is "none" here);
+#   * the resolved dash is in SVG USER UNITS, the same units
+#     QUIET_DIAL_RADIUS is in. That is why this decoder does NOT go
+#     through getBoundingClientRect and needs no correction for a
+#     `scale()` in force: a box measurement would need one (and
+#     `clientWidth` rounds to an integer, which can fail a perfectly
+#     correct drawing), while a resolved dash length is already in the
+#     coordinate system the emitter's own arithmetic used.
+#
+# The unit this file canonicalises a quiet window into is the
+# MINUTE-OF-DAY, and it is not a choice made here: the two handles
+# already publish `aria-valuenow="1380"` / `"420"`, so minutes are the
+# unit three of the four surfaces speak natively. A decoder returning
+# fractions would make the agreement helper compare 0.9583333 against
+# whatever a caption parsed to, and invent a tolerance to hide the
+# difference.
+
+_QUIET_ARC_SELECTOR = "." + config_page.QUIET_DIAL_ARC_CLASS
+# The emitter's OWN quarter-turn correction, read rather than retyped as
+# -90: this decoder must undo exactly the rotation quiet_dial_svg()
+# applied, and a second copy of that number is a second thing to change
+# and a second thing to forget. It is private by name because nothing
+# outside that module had a reason to read it until a check needed to
+# INVERT it, which is a new reason rather than a licence to copy it.
+_QUIET_ARC_TWELVE_OCLOCK_DEG = config_page._QUIET_DIAL_TWELVE_OCLOCK_DEG
+MINUTES_PER_DAY = 24 * 60
+
+# Any signed decimal, in any of the forms a resolved CSS value can put
+# one in. Deliberately tolerant about separators and units, because the
+# separator and the unit are the browser's business and the NUMBERS are
+# this decoder's.
+_GEOMETRY_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+_GEOMETRY_MATRIX_RE = re.compile(r"^matrix\(([^)]*)\)$")
+
+_RESOLVED_PROPERTY_PROBE = (
+    "args => {"
+    "  let els;"
+    "  try {"
+    "    els = [...document.querySelectorAll(args.selector)];"
+    "  } catch (e) {"
+    "    return {error: 'bad-selector', detail: String(e)};"
+    "  }"
+    "  if (els.length !== 1) return {error: 'count', count: els.length};"
+    "  const cs = getComputedStyle(els[0]);"
+    "  return {value: cs.getPropertyValue(args.property)};"
+    "}")
+
+
+def _resolved_property(page, selector, property_name, where):
+    """The RESOLVED value of one property — custom or standard — on the
+    one element `selector` matches, as a trimmed string.
+
+    Raises AssertionError naming the selector, the property and the
+    document when the selector matches anything other than exactly one
+    element, or when the resolved value is empty. NEVER returns a
+    default, and that refusal is the point rather than tidiness: a
+    reader that answered "" or 0 for an arc that is not on the page
+    would let `_assert_surfaces_agree()` pass on a document with no arc
+    at all — every surface agreeing because one of them is silently
+    absent is the exact vacuity this phase exists to refuse.
+
+    Custom properties and standard ones go through the SAME call
+    (`getPropertyValue` serves both), because after 27-02 the arc's
+    geometry lives in both places at once: the pair of custom properties
+    published on the shared ancestor, and the resolved presentation
+    properties on the circle they drive. Two readers would have made
+    "the ancestor says one thing and the circle paints another" a
+    comparison nobody wrote.
+
+    EXACTLY ONE ELEMENT, not `.first`. A selector that matches two arcs
+    has an ambiguous answer, and a reader that quietly took the first
+    would report a number that is right about half a page.
+    """
+    seen = page.evaluate(
+        _RESOLVED_PROPERTY_PROBE,
+        {"selector": selector, "property": property_name})
+    if seen.get("error") == "bad-selector":
+        raise AssertionError(
+            "_resolved_property: %s — %r is not a selector the browser will "
+            "accept (%s). An instrument that cannot be aimed measures nothing"
+            % (where, selector, seen["detail"]))
+    if seen.get("error") == "count":
+        raise AssertionError(
+            "_resolved_property: %s — %r matches %d element(s) on %s, and the "
+            "resolved value of %r is only defined for exactly one. A decoder "
+            "that defaulted here would make an ABSENT arc agree with every "
+            "other surface on the page"
+            % (where, selector, seen["count"], page.url, property_name))
+    value = (seen.get("value") or "").strip()
+    if not value:
+        raise AssertionError(
+            "_resolved_property: %s — %r resolves to nothing at all on %r on "
+            "%s. Read as absent rather than as a default, because a default "
+            "here is a number nobody measured"
+            % (where, property_name, selector, page.url))
+    return value
+
+
+def _fraction_to_minute(fraction):
+    """A fraction of a day to a minute-of-day, wrapped into [0, 1440).
+
+    Rounded to the nearest minute ON PURPOSE and stated here rather than
+    buried: the resolved dash comes back at three decimals where the
+    server emitted four, so a fraction decoded off the paint is within
+    about a thousandth of a minute of the one the server computed and
+    will never be bit-identical to it. The minute is the unit the
+    handles already publish, so rounding to it is canonicalisation, not
+    a tolerance that hides a disagreement — a surface that is a whole
+    minute out still reads as a different number here.
+    """
+    return int(round(fraction * MINUTES_PER_DAY)) % MINUTES_PER_DAY
+
+
+def _quiet_arc_minutes(page, where, selector=_QUIET_ARC_SELECTOR,
+                       radius=None):
+    """The quiet-hours arc, read back off what the browser PAINTED, as
+    a canonical `(start_minute, end_minute)` pair of ints.
+
+    Inverts `draw.unit_circle_dash_array()`'s own arithmetic — the drawn
+    dash over the full circumference is the sweep fraction — and
+    `quiet_dial_svg()`'s quarter-turn correction: the circle's dash
+    origin is three o'clock and the drawing rotates by minus ninety
+    degrees plus the window's own start.
+
+    `radius` defaults to `config_page.QUIET_DIAL_RADIUS`, the SAME
+    constant the emitter divides by, rather than a number retyped here.
+    A retyped 78 would go on agreeing with a stale drawing for exactly
+    as long as nobody changed the dial's size, and then disagree with
+    the whole page at once.
+
+    Raises AssertionError, naming what was read, when either property is
+    missing, when the transform is not a 2-D matrix, or when neither
+    parses as a number. It never returns a default — see
+    `_resolved_property()` for why that matters more than it looks.
+
+    IT DOES NOT WAIT FOR ANYTHING. Sampling at the right instant is the
+    CALLER's job and must be done by hooking the event the browser
+    actually emits (this file has lost two checks to a guessed instant:
+    one read an interpolation frame, one sampled two rAF after a click
+    and failed CI on a correct build). A decoder that slept would hide
+    that decision inside an instrument.
+    """
+    if radius is None:
+        radius = config_page.QUIET_DIAL_RADIUS
+    dash = _resolved_property(page, selector, "stroke-dasharray", where)
+    transform = _resolved_property(page, selector, "transform", where)
+
+    lengths = [float(n) for n in _GEOMETRY_NUMBER_RE.findall(dash)]
+    if len(lengths) < 2:
+        raise AssertionError(
+            "_quiet_arc_minutes: %s — %r resolves stroke-dasharray to %r, "
+            "which carries %d number(s); a dashed arc needs the drawn length "
+            "and the gap" % (where, selector, dash, len(lengths)))
+    circumference = 2 * math.pi * radius
+    if circumference <= 0:
+        raise AssertionError(
+            "_quiet_arc_minutes: %s — the dial radius read from config_page "
+            "is %r, which has no circumference to divide by"
+            % (where, radius))
+    sweep_fraction = lengths[0] / circumference
+
+    matrix = _GEOMETRY_MATRIX_RE.match(transform)
+    if not matrix:
+        raise AssertionError(
+            "_quiet_arc_minutes: %s — %r resolves transform to %r, which is "
+            "not the 2-D matrix a rotate() resolves to. The arc's start angle "
+            "cannot be recovered from it, and guessing one would be a number "
+            "nobody measured" % (where, selector, transform))
+    parts = [float(n) for n in _GEOMETRY_NUMBER_RE.findall(matrix.group(1))]
+    if len(parts) != 6:
+        raise AssertionError(
+            "_quiet_arc_minutes: %s — %r resolves transform to %r, which "
+            "carries %d component(s) rather than a 2-D matrix's six"
+            % (where, selector, transform, len(parts)))
+    angle_deg = math.degrees(math.atan2(parts[1], parts[0]))
+    # Undo quiet_dial_svg()'s own twelve-o'clock correction, then wrap.
+    start_fraction = ((angle_deg - _QUIET_ARC_TWELVE_OCLOCK_DEG) % 360.0) / 360.0
+
+    start_minute = _fraction_to_minute(start_fraction)
+    end_minute = (start_minute + _fraction_to_minute(sweep_fraction)) % MINUTES_PER_DAY
+    return (start_minute, end_minute)
+
+
+def _fraction_pair_minutes(page, selector, start_property, sweep_property,
+                           where):
+    """The quiet window as `(start_minute, end_minute)`, decoded from a
+    START fraction and a SWEEP fraction published as custom properties
+    on `selector` — the shared ancestor, not the circle.
+
+    This is the second place the arc's geometry lives after 27-02: the
+    script publishes the pair on the ancestor and the stylesheet draws
+    the circle from it. Reading BOTH ends of that chain with the same
+    canonical output is what lets `_assert_surfaces_agree()` catch "the
+    ancestor was updated and the paint did not follow", which is D17 one
+    layer down and would otherwise be nobody's check.
+
+    THE SECOND PROPERTY IS THE SWEEP, not the end, and that is a
+    contract rather than a convenience: a wrapping window is exactly
+    where an end fraction and a sweep fraction stop being the same
+    arithmetic (23:00 to 07:00 is end 0.2917, sweep 0.3333, and a
+    reader that mixed them up would report 07:00 to 07:00 and call it
+    agreement). If 27-02 publishes an end fraction instead, the
+    conversion belongs at the emitter, where the wrap decision already
+    lives in `quiet_window_span()`.
+
+    Raises through `_resolved_property()` when either property is
+    absent, and on its own when either does not parse.
+    """
+    fractions = []
+    for name in (start_property, sweep_property):
+        raw = _resolved_property(page, selector, name, where)
+        numbers = _GEOMETRY_NUMBER_RE.findall(raw)
+        if not numbers:
+            raise AssertionError(
+                "_fraction_pair_minutes: %s — %r resolves %s to %r on %s, "
+                "which carries no number at all. A fraction that cannot be "
+                "read is not a fraction of zero"
+                % (where, selector, name, raw, page.url))
+        fractions.append(float(numbers[0]))
+    start_minute = _fraction_to_minute(fractions[0])
+    end_minute = (start_minute + _fraction_to_minute(fractions[1])) % MINUTES_PER_DAY
+    return (start_minute, end_minute)
+
+
+# Any run of digits, for the caption's own text — 27-02-PLAN.md Task 3's
+# own design (see quiet_dial_readout_html()'s docstring): the two
+# endpoint spans substitute value-controls.js's paintReadouts() raw,
+# UNCONVERTED value — the same minute-of-day number the handles publish
+# as aria-valuenow, not an "HH:MM" string, because paintReadouts()'s own
+# substitution is a bare number and this app writes no clock-formatting
+# copy into that seam. So the LIVE caption (after any interaction) reads
+# like "480 → 1080 · ", and this decoder reads it exactly that way,
+# through the same minute-of-day unit the other three surfaces already
+# speak — no HH:MM parsing, no second unit, no tolerance.
+_CAPTION_NUMBER_RE = re.compile(r"\d+")
+_QUIET_READOUT_SELECTOR = "." + config_page.QUIET_DIAL_READOUT_CLASS
+
+
+def _quiet_caption_minutes(page, where, selector=None):
+    """The quiet-hours caption, read back off what the browser is
+    CURRENTLY SHOWING, as a canonical `(start_minute, end_minute)` pair
+    of ints — the fourth and last surface `_assert_surfaces_agree()`
+    checks.
+
+    Reads `textContent` (not `inner_text()`): the paragraph is
+    `aria-hidden="true"` and its own two endpoint spans are ordinary
+    elements with no visibility trick played on them, but `textContent`
+    is unambiguous about picking up every character in document order
+    regardless of layout, which is what a decoder that must never
+    silently read stale/absent text needs.
+
+    THE FIRST TWO DIGIT RUNS ARE THE PAIR, taken in document order
+    (start span, then end span) — the same order
+    `quiet_dial_readout_html()` emits them in and the same order
+    `quiet_dial_handles_html()` emits its own two wrappers in. The
+    duration segment contributes no digits of its own once it has been
+    painted at all (27-02-PLAN.md Task 3's own empty-template design), so
+    there is no third number to mistake for part of the pair on a page
+    that has been interacted with.
+
+    Raises AssertionError, naming what was read, when fewer than two
+    digit runs are present — never returns a default, matching every
+    other decoder in this file.
+    """
+    if selector is None:
+        selector = _QUIET_READOUT_SELECTOR
+    text = page.locator(selector).text_content()
+    if text is None:
+        raise AssertionError(
+            "_quiet_caption_minutes: %s — %r has no text content at all on %s"
+            % (where, selector, page.url))
+    numbers = _CAPTION_NUMBER_RE.findall(text)
+    if len(numbers) < 2:
+        raise AssertionError(
+            "_quiet_caption_minutes: %s — the caption %r on %s carries %d digit run(s), fewer "
+            "than the two minute-of-day numbers a pair needs"
+            % (where, text, page.url, len(numbers)))
+    return (int(numbers[0]) % MINUTES_PER_DAY, int(numbers[1]) % MINUTES_PER_DAY)
+
+
+# ---------------------------------------------------------------------
+# 9. "Shorter, and still refusing" — ONE read, two facts
+#    (27-01-PLAN.md Task 3).
+# ---------------------------------------------------------------------
+#
+# 27-06 cuts three regions of explanatory copy. Two of them sit directly
+# on top of this app's loudest honesty rule: the battery gauge prints an
+# absolute days figure ONLY when this frame's own observed history
+# supports one, and prints no figure at all otherwise —
+# `wake_battery_observed_text()`'s docstring, `wake_gauges_html()` and
+# `value-controls.js`'s header all say so in as many words. A shorter
+# sentence that starts naming a number is not a cut, it is a REGRESSION
+# wearing a cut's clothes.
+#
+# So "it got shorter" and "it still refuses to claim a figure" are
+# asserted about ONE read of ONE rendering, and that is structural
+# rather than tidy. Asserted separately they can be satisfied by two
+# different page states — a cut proven on a page with a falling battery
+# series and a refusal proven on a page without one — and the pair would
+# report success about a rendering that never existed. The read happens
+# once; both assertions are made against that string.
+#
+# Whitespace is normalised to single spaces before anything is counted,
+# because the rendered textContent carries the markup's own indentation
+# and newlines, and a baseline that moved when a template was re-wrapped
+# would be a baseline about formatting rather than about copy.
+
+_REGION_TEXT_PROBE = (
+    "args => {"
+    "  let els;"
+    "  try {"
+    "    els = [...document.querySelectorAll(args.selector)];"
+    "  } catch (e) {"
+    "    return {error: 'bad-selector', detail: String(e)};"
+    "  }"
+    "  if (!els.length) return {error: 'no-element'};"
+    "  return {count: els.length,"
+    "          text: els.map(e => e.textContent).join(' ')};"
+    "}")
+
+_REGION_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _region_text(page, selector, where):
+    """Every element `selector` matches, read ONCE, joined in document
+    order and whitespace-normalised.
+
+    Joined rather than restricted to one element because two of 27-06's
+    three regions are genuinely plural — `wake_gauges_html()` emits the
+    two gauges as two sibling `<p>`s, and a helper that measured only
+    the first would report a card half cut. Raises when nothing matches:
+    a region that is not on the page has no length to compare, and zero
+    is the shortest possible string, so a defaulting version of this
+    would call a DELETED region a successful cut.
+    """
+    seen = page.evaluate(_REGION_TEXT_PROBE, {"selector": selector})
+    if seen.get("error") == "bad-selector":
+        raise AssertionError(
+            "_region_text: %s — %r is not a selector the browser will accept "
+            "(%s)" % (where, selector, seen["detail"]))
+    if seen.get("error") == "no-element":
+        raise AssertionError(
+            "_region_text: %s — %r matches nothing on %s. A region that is "
+            "absent is not a region that was shortened, and zero is the "
+            "shortest length there is" % (where, selector, page.url))
+    text = _REGION_WHITESPACE_RE.sub(" ", seen["text"]).strip()
+    return {"selector": selector, "elements": seen["count"],
+            "text": text, "chars": len(text)}
+
+
+def _assert_shorter_and_still_refuses(page, selector, baseline_chars,
+                                      forbidden, where):
+    """One region, read once; two assertions against that single read:
+    it is strictly SHORTER than `baseline_chars`, and `forbidden` does
+    not match it.
+
+    Returns `_region_text()`'s measurement so a caller can report the
+    number it measured. Raises AssertionError with two distinct
+    messages, because the two failures mean opposite things: the first
+    says the cut never happened, the second says the cut went through
+    something that was holding a refusal up.
+
+    `baseline_chars` is a number 27-01 MEASURED on the pre-cut tree and
+    recorded, never a round number chosen because it looked about right.
+    STRICTLY less than, not "at most": a cut that changed nothing is
+    exactly the claim this is here to refuse.
+
+    `forbidden` is a regex (a string or a compiled pattern) describing
+    the claim the shortened copy still must not make — for the battery
+    gauge, the shape of an absolute days figure. It is searched against
+    the same normalised string the length was taken from.
+    """
+    seen = _region_text(page, selector, where)
+    pattern = re.compile(forbidden) if isinstance(forbidden, str) else forbidden
+    if seen["chars"] >= baseline_chars:
+        raise AssertionError(
+            "_assert_shorter_and_still_refuses: %s — %r renders %d character(s) "
+            "across %d element(s) on %s, against a recorded baseline of %d. "
+            "The copy was not cut. It reads %r"
+            % (where, selector, seen["chars"], seen["elements"], page.url,
+               baseline_chars, seen["text"]))
+    found = pattern.search(seen["text"])
+    if found:
+        raise AssertionError(
+            "_assert_shorter_and_still_refuses: %s — %r did get shorter (%d "
+            "character(s), under the %d baseline) but now matches %r at %r. "
+            "A shorter sentence that starts claiming a figure this frame's "
+            "own history cannot support is a regression, not a cut. The whole "
+            "region reads %r"
+            % (where, selector, seen["chars"], baseline_chars,
+               pattern.pattern, found.group(0), seen["text"]))
+    return seen
+
+
+_MARKUP_INVENTORY_PROBE = (
+    "args => {"
+    "  const out = {};"
+    "  for (const label of Object.keys(args.shapes)) {"
+    "    try {"
+    "      out[label] = document.querySelectorAll(args.shapes[label]).length;"
+    "    } catch (e) {"
+    "      return {error: 'bad-selector', label: label,"
+    "              selector: args.shapes[label], detail: String(e)};"
+    "    }"
+    "  }"
+    "  return {counts: out};"
+    "}")
+
+
+def _markup_inventory(page, shapes):
+    """How many elements each named markup shape has on this page, as
+    `{label: count}`.
+
+    IT ASSERTS NOTHING ABOUT THE SUBJECT, on purpose. 27-06 has to pick
+    one title form over another, and the count that decision rests on
+    must be DERIVED BY RUNNING rather than copied out of a research
+    document's grep — 27-RESEARCH.md §3 states its own 8/3/2 split is
+    provisional precisely because a regex matches a formatting
+    convention and not a grammar. A helper that also asserted the count
+    would be a helper nobody could use to find out what the count is.
+    Zero is a legitimate answer and is returned as one.
+    """
+    seen = page.evaluate(_MARKUP_INVENTORY_PROBE, {"shapes": dict(shapes)})
+    if seen.get("error") == "bad-selector":
+        raise AssertionError(
+            "_markup_inventory: %r (for %r) is not a selector the browser "
+            "will accept on %s (%s). An instrument that cannot be aimed "
+            "counts nothing"
+            % (seen["selector"], seen["label"], page.url, seen["detail"]))
+    return seen["counts"]
+
+
 def main():
     try:
         from playwright.sync_api import sync_playwright
@@ -2823,6 +3557,159 @@ def main():
                     "click on a non-interactive cell of the same row expands it, while a click on the "
                     "toggle itself toggles exactly once (22-09-PLAN.md Task 1, X5/T-22-32)",
                     _flights_detail_row_expands_and_collapses)
+
+                # ==========================================================
+                # 27-08-PLAN.md Task 2 (CFG-69): the Quiet hours caption
+                # link's own hit target — it sits in a dense strip cell
+                # beside a switch, the exact geometry that already produced
+                # this file's 30x45 pager and 43x43 handle. Measured on
+                # Home (the strip is one shared component, D-23; the
+                # status-pages check proves it is the SAME markup on
+                # Display), at the 360px floor, in both themes.
+                # ==========================================================
+
+                def _the_quiet_schedule_link_meets_the_hit_target_floor_at_360px():
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        recorded = {}
+                        for route in ("/", "/display"):
+                            page.goto(harness.base_url() + route)
+                            overflow = page.evaluate(
+                                "document.documentElement.scrollWidth > "
+                                "document.documentElement.clientWidth")
+                            if overflow:
+                                return False, (
+                                    "%s: expected no horizontal page scroll at 360px with the "
+                                    "schedule link in the strip — the link is a FLOOR addition, "
+                                    "not one that pushes the strip past the viewport" % (route,))
+                        page.goto(harness.base_url() + "/")
+                        for theme in ("light", "dark"):
+                            _set_ui_theme(page, theme)
+                            seen = _assert_hit_target(
+                                page, "a.frame-strip__schedule-link",
+                                "the Quiet hours caption's schedule link, in its own frame-strip "
+                                "cell, %s theme" % theme)
+                            recorded[theme] = (seen["visual"], seen["hit"])
+                        if recorded["light"][1][0] < 44 or recorded["light"][1][1] < 44:
+                            return False, "expected the light-theme hit area to clear 44px, got %r" % (
+                                recorded["light"][1],)
+                        if recorded["dark"][1][0] < 44 or recorded["dark"][1][1] < 44:
+                            return False, "expected the dark-theme hit area to clear 44px, got %r" % (
+                                recorded["dark"][1],)
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the Quiet hours caption's schedule link clears the 44px hit-target floor by "
+                    "real hit-testing in its own frame-strip cell, in both themes, at the 360px "
+                    "floor, on both Home and Display, with neither page gaining horizontal scroll "
+                    "from the addition (CFG-69, 27-08-PLAN.md Task 2)",
+                    _the_quiet_schedule_link_meets_the_hit_target_floor_at_360px)
+
+                # ==========================================================
+                # 27-08-PLAN.md Task 3 (CFG-70): `.copy-btn` (a Flights
+                # detail row) and `.row-toggle` (the Flights list's own
+                # toggle) — measured in THEIR OWN containers, never a
+                # declared-vs-resolved assumption. `.row-toggle` reuses
+                # `.copy-btn`'s values verbatim (style.css's own comment),
+                # so both are measured here as ONE check about the family,
+                # not two independent ones — the shape that let a declared
+                # 44 ship beside a resolved 34x26 in the first place.
+                #
+                # `.row-toggle` and the desktop `.copy-btn` trio only exist
+                # in `.data-table-wrap`, which this app's own responsive
+                # rule hides below 960px in favour of `.history-cards` —
+                # there is no 360px rendering of either to measure, so they
+                # are measured at the narrowest width they actually occupy
+                # (960px) instead, in both themes. The mobile `.copy-btn`
+                # trio (inside each `.history-card`'s own `<details>`) DOES
+                # render at 360px and is measured there, in both themes,
+                # closing the literal 360px case for this family too.
+                # ==========================================================
+
+                def _copy_btn_and_row_toggle_resolve_to_the_floor_in_their_own_containers():
+                    recorded = {}
+
+                    def _measure_desktop(page):
+                        toggle = page.locator("[data-row-toggle]").first
+                        toggle.wait_for(state="visible")
+                        controls_id = toggle.get_attribute("aria-controls")
+                        if toggle.get_attribute("aria-expanded") != "true":
+                            toggle.click()
+                        page.wait_for_timeout(50)
+                        detail_sel = "#" + controls_id
+                        page.locator(detail_sel).hover()
+                        seen = _assert_hit_target(
+                            page, "[data-row-toggle]",
+                            "the Flights list's own row-toggle, in ITS OWN container (the "
+                            "summary row, not the detail row's grid)")
+                        recorded["row-toggle/desktop"] = (seen["visual"], seen["hit"])
+                        for label, value in (
+                                ("hex", "399023"), ("timestamp", "2026-08-01T22:31:40+00:00"),
+                                ("callsign", "AFR135")):
+                            sel = '%s [data-copy-value="%s"]' % (detail_sel, value)
+                            page.locator(sel).focus()
+                            seen = _assert_hit_target(
+                                page, sel,
+                                "the %s .copy-btn, in ITS OWN container (the Flights detail "
+                                "row's grid, hovered/focused so its opacity/pointer-events "
+                                "reveal fires)" % (label,))
+                            recorded["copy-btn/desktop/%s" % label] = (seen["visual"], seen["hit"])
+
+                    def _measure_mobile(page):
+                        card = page.locator(".history-card").first
+                        card.wait_for(state="visible")
+                        card.locator("summary").first.click()
+                        for label, value in (
+                                ("hex", "399023"), ("timestamp", "2026-08-01T22:31:40+00:00"),
+                                ("callsign", "AFR135")):
+                            sel = '.history-card [data-copy-value="%s"]' % (value,)
+                            seen = _assert_hit_target(
+                                page, sel,
+                                "the mobile %s .copy-btn, in ITS OWN container (the "
+                                "<details> card, not the desktop grid)" % (label,))
+                            recorded["copy-btn/mobile/%s" % label] = (seen["visual"], seen["hit"])
+
+                    context_desktop = browser.new_context(viewport={"width": 960, "height": 900})
+                    try:
+                        page = context_desktop.new_page()
+                        _login(page, harness.base_url())
+                        for theme in ("light", "dark"):
+                            page.goto(harness.base_url() + "/flights")
+                            _set_ui_theme(page, theme)
+                            _measure_desktop(page)
+                    finally:
+                        context_desktop.close()
+
+                    context_mobile = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context_mobile.new_page()
+                        _login(page, harness.base_url())
+                        for theme in ("light", "dark"):
+                            page.goto(harness.base_url() + "/flights")
+                            _set_ui_theme(page, theme)
+                            _measure_mobile(page)
+                    finally:
+                        context_mobile.close()
+
+                    for key, (visual, hit) in recorded.items():
+                        if hit[0] < 44 or hit[1] < 44:
+                            return False, (
+                                "%s: expected a resolved hit area >=44x44, got %r (visual box "
+                                "%r) — a declared 44 is not a resolved 44"
+                                % (key, hit, visual))
+                    return True, ""
+                check(
+                    "every icon control in the .copy-btn/.row-toggle family resolves to the 44px "
+                    "hit-target floor in its OWN container, by real hit-testing rather than a "
+                    "declared value: .row-toggle and the desktop Flights detail row's three "
+                    ".copy-btn (hex/timestamp/callsign, each hovered/focused to clear the "
+                    "opacity-at-rest reveal) at 960px, and the mobile <details> card's own three "
+                    ".copy-btn at the 360px floor — both in both themes, ONE check for the whole "
+                    "family sharing .copy-btn's values (CFG-70, 27-08-PLAN.md Task 3)",
+                    _copy_btn_and_row_toggle_resolve_to_the_floor_in_their_own_containers)
 
                 def _filter_count_and_clear_share_one_line_at_390px():
                     # B11 (22-09-PLAN.md Task 3): Phase 18's A-18
@@ -3210,6 +4097,14 @@ def main():
                 # ----------------------------------------------------------------
 
                 def _display_reveal_and_persist_across_all_field_kinds():
+                    # 27-04-PLAN.md Task 4 (CFG-63): SUPERSEDES this check's
+                    # own pre-27-04 subject — the save bar it used to reveal,
+                    # name and click Save on is retired outright. Its real
+                    # value (three cross-DOM form=-attached field KINDS —
+                    # radio-as-chip, radio-as-card, time input — each
+                    # genuinely committing and persisting) survives,
+                    # retargeted onto auto-save: a committed `change` saves
+                    # itself, proven on DISK, with no click anywhere.
                     context = browser.new_context()
                     try:
                         page = context.new_page()
@@ -3218,40 +4113,30 @@ def main():
                         theme_ids = device_config.THEME_IDS
                         runway_ids = device_config.RUNWAY_IDS
 
+                        def on_disk():
+                            return device_config.load_device_config(harness.tmpdir)
+
                         # 1. Theme chip (Frame colours card, form=-attached,
-                        # rendered as a sibling of <form id="settings-form">):
-                        # reveal, name the section, submit, persist.
+                        # rendered as a sibling of <form id="settings-form">).
                         page.goto(base_url + "/display")
                         target_theme = theme_ids[1]
                         theme_sel = 'input[name="theme"][value="%s"]' % target_theme
                         _click_control(page, theme_sel)
-                        bar = page.locator("[data-dirty-bar]")
-                        if bar.is_hidden():
-                            return False, "expected the save bar to become visible after a theme chip click"
-                        count_text = page.locator("[data-dirty-count]").inner_text()
-                        if "Frame colours" not in count_text:
-                            return False, "expected the bar to name Frame colours, got %r" % count_text
-                        with page.expect_navigation():
-                            page.locator(".dirty-bar__save").click()
-                        page.goto(base_url + "/display")
-                        if not page.eval_on_selector(theme_sel, "el => el.checked"):
-                            return False, "expected the saved theme chip to be checked after reload"
+                        _wait_for_saved(page)
+                        if on_disk()["theme"] != target_theme:
+                            return False, (
+                                "expected the theme chip's committed value to reach disk, got %r"
+                                % (on_disk()["theme"],))
 
                         # 2. Runway card (also a sibling of the form).
-                        page.goto(base_url + "/display")
                         target_runway = runway_ids[1]
                         runway_sel = 'input[name="tracked_runway"][value="%s"]' % target_runway
                         _click_control(page, runway_sel)
-                        if bar.is_hidden():
-                            return False, "expected the save bar to become visible after a runway card click"
-                        count_text = page.locator("[data-dirty-count]").inner_text()
-                        if "Runway" not in count_text:
-                            return False, "expected the bar to name Runway, got %r" % count_text
-                        with page.expect_navigation():
-                            page.locator(".dirty-bar__save").click()
-                        page.goto(base_url + "/display")
-                        if not page.eval_on_selector(runway_sel, "el => el.checked"):
-                            return False, "expected the saved runway card to be checked after reload"
+                        _wait_for_saved(page)
+                        if str(on_disk()["tracked_runway"]) != str(target_runway):
+                            return False, (
+                                "expected the runway card's committed value to reach disk, got %r"
+                                % (on_disk()["tracked_runway"],))
 
                         # 3. Enable-display checkbox — RETIRED outright by
                         # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the Frame
@@ -3266,27 +4151,28 @@ def main():
                         # delegation this check exists for.
 
                         # 4. Quiet-hours time field (a sibling of the form).
-                        page.goto(base_url + "/display")
+                        # .fill() dispatches `input` only (Playwright's own
+                        # documented contract) — never `change` — so
+                        # _commit_field() fires the real `change` a blur
+                        # would, which is the exact commit auto-save
+                        # listens for (D-04: change, not input).
                         quiet_sel = 'input[name="quiet_hours_start"]'
                         page.fill(quiet_sel, "22:15")
-                        if bar.is_hidden():
-                            return False, "expected the save bar to become visible after a quiet-hours time edit"
-                        count_text = page.locator("[data-dirty-count]").inner_text()
-                        if "Quiet hours" not in count_text:
-                            return False, "expected the bar to name Quiet hours, got %r" % count_text
-                        with page.expect_navigation():
-                            page.locator(".dirty-bar__save").click()
-                        page.goto(base_url + "/display")
-                        if page.eval_on_selector(quiet_sel, "el => el.value") != "22:15":
-                            return False, "expected the saved quiet-hours start time to persist after reload"
+                        _commit_field(page, quiet_sel)
+                        _wait_for_saved(page)
+                        if str(on_disk()["quiet_hours_start"]) != "22:15":
+                            return False, (
+                                "expected the quiet-hours time field's committed value to reach "
+                                "disk, got %r" % (on_disk()["quiet_hours_start"],))
                         return True, ""
                     finally:
                         context.close()
                 check(
-                    "Display: a theme chip, a runway card and a quiet-hours time field each reveal the "
-                    "save bar, name their own section, and persist on save (B1, form=-attached radio "
+                    "Display: a theme chip, a runway card and a quiet-hours time field each commit "
+                    "via change and auto-save to DISK with no click anywhere (form=-attached radio "
                     "and time-input field kinds — the Enable-display checkbox this check also covered "
-                    "is retired outright by 22-05-PLAN.md Task 1, X1/D-04/D-12.1)",
+                    "is retired outright by 22-05-PLAN.md Task 1, X1/D-04/D-12.1; retargeted from the "
+                    "retired save bar by 27-04-PLAN.md Task 4, CFG-63)",
                     _display_reveal_and_persist_across_all_field_kinds)
 
                 def _device_reveal_and_persist_stays_in_step_with_display():
@@ -3300,33 +4186,24 @@ def main():
                         # checkbox to the wake-interval field. The LED is
                         # no longer a Save-governed control at all — it
                         # is a role="switch" applying instantly over
-                        # /quick/led — so it cannot witness a save-bar
-                        # round trip any more. The wake-interval number
-                        # input is the Device scope's surviving
-                        # form=-attached field and carries this check's
-                        # real subject unchanged: the bar reveals, names
-                        # its own section, and the value persists on
-                        # save, exactly as Display's does. (The LED's own
-                        # no-JS persistence is proven separately, in this
-                        # file's scripts-blocked switch check.)
+                        # /quick/led. 27-04-PLAN.md Task 4 (CFG-63):
+                        # retargeted AGAIN — the save bar this check used
+                        # to reveal-and-click is retired; the wake-interval
+                        # field now commits via change and auto-saves to
+                        # DISK, exactly like Display's own fields, proving
+                        # the two scopes still stay in step.
                         page.goto(base_url + "/device")
                         wake_sel = 'input[name="wake_interval_s"]'
                         before = page.eval_on_selector(wake_sel, "el => el.value")
                         target = "1800" if before != "1800" else "3600"
                         page.fill(wake_sel, target)
-                        bar = page.locator("[data-dirty-bar]")
-                        if bar.is_hidden():
-                            return False, "expected the save bar to become visible on Device too"
-                        count_text = page.locator("[data-dirty-count]").inner_text()
-                        if "Wake interval" not in count_text:
-                            return False, "expected the bar to name Wake interval, got %r" % count_text
-                        with page.expect_navigation():
-                            page.locator(".dirty-bar__save").click()
-                        page.goto(base_url + "/device")
-                        if page.eval_on_selector(wake_sel, "el => el.value") != target:
+                        _commit_field(page, wake_sel)
+                        _wait_for_saved(page)
+                        stored = device_config.load_device_config(harness.tmpdir)["wake_interval_s"]
+                        if str(stored) != target:
                             return False, (
-                                "expected the edited wake interval to have persisted, got %r"
-                                % page.eval_on_selector(wake_sel, "el => el.value"))
+                                "expected the edited wake interval to reach disk, got %r"
+                                % (stored,))
                         # And the LED switch, which is NOT part of that
                         # form, must be unmoved by the save — the whole
                         # point of T-23-25.
@@ -3341,142 +4218,147 @@ def main():
                     finally:
                         context.close()
                 check(
-                    "Device: the same reveal-and-persist round trip proves the two scopes stay in "
-                    "step (B1) — witnessed by the wake-interval field since the Diagnostic LED "
-                    "stopped being a Save-governed control (retargeted in place by 23-07-PLAN.md "
-                    "Task 2, D2/CFG-36)",
+                    "Device: the wake-interval field commits via change and auto-saves to DISK, "
+                    "proving the two scopes stay in step (B1) — witnessed by the wake-interval field "
+                    "since the Diagnostic LED stopped being a Save-governed control (retargeted in "
+                    "place by 23-07-PLAN.md Task 2, D2/CFG-36; retargeted from the retired save bar "
+                    "by 27-04-PLAN.md Task 4, CFG-63)",
                     _device_reveal_and_persist_stays_in_step_with_display)
 
-                def _fallback_save_reachable_until_bar_proven_live():
+                def _fallback_save_hides_immediately_once_script_runs():
+                    # 27-03-PLAN.md Task 2 (CFG-64): SUPERSEDES this
+                    # check's own pre-27-03 shape (D-01/B1: the fallback
+                    # stayed visible-with-script until the dirty bar
+                    # PROVED itself live, only then hiding). The
+                    # fallback-hide rule reverted to the plain `.js`
+                    # gate (style.css's own dated comment carries the
+                    # full account) because the floor is now kept a
+                    # different way: render()'s emission is unconditional
+                    # (companion/pages/config_page.py, verified at the
+                    # source by 27-03-PLAN.md Task 1), so hiding this
+                    # button is a pure script-presence decision again,
+                    # never a proof of the bar's liveness.
+                    #
+                    # 27-04-PLAN.md Task 4 (CFG-63): retargeted AGAIN — the
+                    # dirty bar this check used to click Save on is retired.
+                    # The fallback stays hidden before AND after an edit
+                    # (still a plain script-presence decision, unaffected
+                    # by the auto-save rewrite), and the "still genuinely
+                    # submits" half of this check is now: no button, no
+                    # click, and the edit still reaches disk on its own.
                     context = browser.new_context()
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
                         base_url = harness.base_url()
 
-                        # With the bar never revealed, the fallback stays visible
-                        # and submitting it saves (D-01: the fallback is the only
-                        # write path a broken/blocked script leaves behind).
                         page.goto(base_url + "/display")
                         fallback = page.locator("[data-static-save-fallback]")
-                        if not fallback.is_visible():
-                            return False, "expected the fallback Save button to be visible before the bar is ever shown"
-                        with page.expect_navigation():
-                            fallback.click()
-                        if "/display" not in page.url:
-                            return False, "expected the fallback Save button to actually submit the form"
-
-                        # Once the bar has been revealed once, the fallback hides.
-                        page.goto(base_url + "/display")
-                        fallback = page.locator("[data-static-save-fallback]")
-                        if not fallback.is_visible():
-                            return False, "expected the fallback Save button to still be visible before any edit on a fresh load"
-                        theme_ids = device_config.THEME_IDS
-                        _click_control(page, 'input[name="theme"][value="%s"]' % theme_ids[2])
-                        if page.locator("[data-dirty-bar]").is_hidden():
-                            return False, "expected the save bar to become visible after the edit"
                         if fallback.is_visible():
-                            return False, "expected the fallback Save button to hide once the bar has genuinely been shown"
+                            return False, (
+                                "expected the fallback Save button to be HIDDEN on a fresh load "
+                                "with scripts running — CFG-64's plain script-presence gate, "
+                                "not proof of anything replacing it")
+
+                        theme_ids = device_config.THEME_IDS
+                        target = theme_ids[2]
+                        _click_control(page, 'input[name="theme"][value="%s"]' % target)
+                        if fallback.is_visible():
+                            return False, (
+                                "expected the fallback Save button to stay hidden after the edit "
+                                "too — there is no bar left for its hiding to depend on")
+
+                        # No button, no click — the edit still reaches disk
+                        # on its own, which is the auto-save replacement
+                        # for "the bar's own Save still genuinely submits".
+                        _wait_for_saved(page)
+                        stored = device_config.load_device_config(harness.tmpdir)["theme"]
+                        if stored != target:
+                            return False, (
+                                "expected the theme edit to reach disk with no save button "
+                                "anywhere on the page, got %r" % (stored,))
                         return True, ""
                     finally:
                         context.close()
                 check(
-                    "the fallback Save button stays reachable and functional until the bar has actually been "
-                    "shown once, then hides (D-01: the no-way-to-save-at-all fix)",
-                    _fallback_save_reachable_until_bar_proven_live)
+                    "27-03-PLAN.md Task 2 (CFG-64): the fallback Save button hides IMMEDIATELY once "
+                    "script runs and stays hidden through an edit — a plain script-presence "
+                    "decision — while the edit still reaches disk with no save button anywhere on "
+                    "the page at all, proving auto-save is the scripted floor's real replacement "
+                    "(D-01/CFG-64; retargeted from the retired dirty bar by 27-04-PLAN.md Task 4, "
+                    "CFG-63)",
+                    _fallback_save_hides_immediately_once_script_runs)
 
-                def _cancel_restores_preview_and_rearms_guard():
+                def _leave_guard_arms_on_uncommitted_edit_and_disarms_on_change():
+                    # 27-04-PLAN.md Task 4 (D-10/CFG-63): SUPERSEDES this
+                    # check's own pre-27-04 subject wholesale — "Annuler"
+                    # (T8/T1's own Cancel-restores-preview-and-rearms-guard
+                    # contract) is retired along with the bar it belonged
+                    # to; the live preview's own no-cancel-needed proof
+                    # moves to _the_live_preview_crossfade_settles_correct
+                    # (this file, below), stripped of its own Cancel half.
+                    #
+                    # What replaces this check is the developer's own
+                    # binding decision (2026-09-15): the leave-guard STAYS
+                    # specifically for the gap change-triggered auto-save
+                    # creates — a value typed but never committed (no
+                    # `change` has fired) is exactly the case it exists
+                    # for. Proven both directions: armed while uncommitted,
+                    # disarmed the instant `change` commits it — which is
+                    # also the instant auto-save has already begun (the
+                    # optimistic snapshot advance is synchronous with the
+                    # commit, never waiting on the fetch).
                     context = browser.new_context()
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
                         base_url = harness.base_url()
-                        page.goto(base_url + "/display")
-                        theme_ids = device_config.THEME_IDS
-                        original_sel = 'input[name="theme"]:checked'
-                        original_value = page.eval_on_selector(original_sel, "el => el.value")
-                        original_src = page.locator(".theme-live-preview__image").get_attribute("src")
-
+                        page.goto(base_url + "/device")
                         if _guard_armed(page):
                             return False, "expected the leave-guard to start disarmed on a clean page load"
 
-                        # 23-10-PLAN.md Task 2 (D3/CFG-32), RETARGETED IN
-                        # PLACE: this used to read the src synchronously
-                        # on the line after the click and assert it had
-                        # already changed. It had, because the swap was a
-                        # bare assignment. The preview now CROSSFADES:
-                        # theme-preview.js holds the swap until the
-                        # fade-out's own transitionend, so the new src
-                        # lands ~var(--motion-fast) later. The contract
-                        # this check owns is T8 and T1 - that the preview
-                        # follows the edit and that Cancel restores it -
-                        # and neither weakens by being asserted on the
-                        # SETTLED state instead of the next statement.
-                        #
-                        # It is a bounded WAIT, never a sleep: if the
-                        # preview never changes, this fails on a real
-                        # timeout rather than passing because the pause
-                        # was long enough.
-                        def _await_preview_src(want_change_from=None, want=None):
-                            if want is None:
-                                expr = (
-                                    "expected => document.querySelector("
-                                    "'.theme-live-preview__image').getAttribute('src') "
-                                    "!== expected")
-                                arg = want_change_from
-                            else:
-                                expr = (
-                                    "expected => document.querySelector("
-                                    "'.theme-live-preview__image').getAttribute('src') "
-                                    "=== expected")
-                                arg = want
-                            try:
-                                page.wait_for_function(expr, arg=arg, timeout=3000)
-                            except Exception:
-                                return page.locator(
-                                    ".theme-live-preview__image").get_attribute("src")
-                            return None
+                        wake_sel = 'input[name="wake_interval_s"]'
+                        before = page.eval_on_selector(wake_sel, "el => el.value")
+                        target = "1800" if before != "1800" else "3600"
 
-                        other_theme = next(t for t in theme_ids if t != original_value)
-                        _click_control(page, 'input[name="theme"][value="%s"]' % other_theme)
-                        stuck = _await_preview_src(want_change_from=original_src)
-                        if stuck is not None:
-                            return False, (
-                                "expected the live preview to follow the edit within 3s (it "
-                                "crossfades rather than cutting, so the swap lands one "
-                                "var(--motion-fast) after the click), still reads %r" % (stuck,))
+                        # Focus and type WITHOUT blurring — `input` fires
+                        # per keystroke; `change` does not fire until focus
+                        # leaves the field. This is the uncommitted state.
+                        page.eval_on_selector(wake_sel, "el => el.focus()")
+                        page.keyboard.press("Control+A")
+                        page.keyboard.type(target)
+                        if page.eval_on_selector(wake_sel, "el => el.value") != target:
+                            return False, "expected the typed value to be held by the field before any commit"
                         if not _guard_armed(page):
-                            return False, "expected the leave-guard to be armed after a real edit"
-
-                        page.locator("[data-dirty-cancel]").click()
-                        # T8: Cancel restores both the form value AND the live
-                        # preview - form.reset() alone only restores the former.
-                        if not page.eval_on_selector(
-                                'input[name="theme"][value="%s"]' % original_value, "el => el.checked"):
-                            return False, "expected Cancel to restore the original theme chip's checked state"
-                        restored_src = _await_preview_src(want=original_src)
-                        if restored_src is not None:
                             return False, (
-                                "expected Cancel to restore the live preview to its original src "
-                                "within 3s, through the crossfade rather than around it, got %r "
-                                "(T8)" % (restored_src,))
+                                "expected the leave-guard to be armed for an edited-but-uncommitted "
+                                "field (D-10) — the exact gap auto-save's own change-not-input "
+                                "trigger creates")
+                        if _save_status_text(page):
+                            return False, (
+                                "expected the save-status region to stay silent before the field "
+                                "has committed, got %r" % (_save_status_text(page),))
+
+                        # Commit it — blur fires `change`, which drives
+                        # auto-save AND re-defines "committed" for the guard.
+                        page.keyboard.press("Tab")
+                        _wait_for_saved(page)
                         if _guard_armed(page):
-                            return False, "expected Cancel to disarm the leave-guard"
-
-                        # T1: the NEXT edit re-arms the guard - it must not stay
-                        # disarmed for the rest of the page's life after Cancel.
-                        _click_control(page, 'input[name="theme"][value="%s"]' % other_theme)
-                        if not _guard_armed(page):
-                            return False, "expected a subsequent edit after Cancel to re-arm the leave-guard (T1)"
+                            return False, "expected the leave-guard to disarm the instant change commits the edit (D-10)"
+                        stored = device_config.load_device_config(harness.tmpdir)["wake_interval_s"]
+                        if str(stored) != target:
+                            return False, "expected the committed value to reach disk, got %r" % (stored,)
                         return True, ""
                     finally:
                         context.close()
                 check(
-                    "Cancel restores the form value AND the live theme preview (T8), and a subsequent edit "
-                    "re-arms the leave-guard (T1) - both preview assertions retargeted in place by "
-                    "23-10-PLAN.md Task 2 from a synchronous read to a bounded wait, because the preview "
-                    "now crossfades and the swap lands one var(--motion-fast) after the click",
-                    _cancel_restores_preview_and_rearms_guard)
+                    "the leave-guard stays armed for a field that has been edited but never fired "
+                    "change, the save-status region stays silent for that same uncommitted edit, and "
+                    "the guard disarms the instant change commits it and auto-save begins — the "
+                    "developer's own binding decision (2026-09-15): an edit that has never fired "
+                    "change is exactly the case this guard exists for (D-10, 27-04-PLAN.md Task 4, "
+                    "CFG-63)",
+                    _leave_guard_arms_on_uncommitted_edit_and_disarms_on_change)
 
                 def _strip_switch_applies_without_the_leave_guard_while_other_navigation_still_warns():
                     # 22-05-PLAN.md Task 3 (D-04): a real browser proof,
@@ -3496,11 +4378,6 @@ def main():
                         page.goto(base_url + "/display")
                         dialogs = []
                         page.on("dialog", lambda d: (dialogs.append(d.type), d.accept()))
-
-                        theme_ids = device_config.THEME_IDS
-                        original_sel = 'input[name="theme"]:checked'
-                        original_value = page.eval_on_selector(original_sel, "el => el.value")
-                        other_theme = next(t for t in theme_ids if t != original_value)
 
                         # 23-07-PLAN.md Task 1 (D2/CFG-36): RETARGETED IN
                         # PLACE, and made strictly stronger. This check
@@ -3525,7 +4402,25 @@ def main():
                         # capture phase and stops propagation precisely
                         # so that listener never runs for a submission
                         # that is not happening.
-                        _click_control(page, 'input[name="theme"][value="%s"]' % other_theme)
+                        #
+                        # 27-04-PLAN.md Task 4 (CFG-63): a radio commits
+                        # (fires change) the instant it is clicked, which
+                        # now means auto-save begins and the guard
+                        # disarms again a moment later — a radio click can
+                        # no longer hold this check's own "unsaved edit"
+                        # precondition open. Focusing and TYPING would
+                        # not survive either: clicking the switch button
+                        # shifts DOM focus away from the field, which
+                        # BLURS it and fires the very `change` that would
+                        # commit and auto-save it before the assertion
+                        # below even runs. countDifferences() (the guard's
+                        # own predicate) reads the field's LIVE value
+                        # against the load-time snapshot and needs no
+                        # event at all to see a difference, so the value
+                        # is set directly with no focus taken and no event
+                        # dispatched — nothing to blur, nothing to commit.
+                        quiet_sel = 'input[name="quiet_hours_start"]'
+                        page.eval_on_selector(quiet_sel, "el => { el.value = '04:44'; }")
                         if not _guard_armed(page):
                             return False, (
                                 "control: the leave-guard was not armed before the switch was "
@@ -3566,12 +4461,14 @@ def main():
                         # Reset: reload, make the SAME kind of unsaved
                         # edit again, then navigate away by a plain nav
                         # link - no [data-quick-switch] form involved at
-                        # all - and the guard must still warn.
+                        # all - and the guard must still warn. Same
+                        # focus-free value set as above, for the same
+                        # reason: clicking the nav link would blur a
+                        # FOCUSED field and commit it before the
+                        # navigation's own beforeunload check ever runs.
                         page.goto(base_url + "/display")
                         dialogs[:] = []
-                        current_value = page.eval_on_selector(original_sel, "el => el.value")
-                        alt_theme = next(t for t in theme_ids if t != current_value)
-                        _click_control(page, 'input[name="theme"][value="%s"]' % alt_theme)
+                        page.eval_on_selector(quiet_sel, "el => { el.value = '05:55'; }")
                         with page.expect_navigation():
                             page.click('a[href="/"]')
                         if "beforeunload" not in dialogs:
@@ -4017,7 +4914,7 @@ def main():
                     "(D3/CFG-32, T-23-36, 23-10-PLAN.md Task 2)",
                     _both_dialogs_fade_in_and_leave_nothing_behind)
 
-                def _the_live_preview_crossfade_settles_correct_and_cancel_restores_it():
+                def _the_live_preview_crossfade_settles_correct_through_its_own_listener():
                     # 23-10-PLAN.md Task 2 (D3/CFG-32, T-23-38). The
                     # crossfade's one real failure mode is settling on
                     # the WRONG theme, or settling invisible: both look
@@ -4026,12 +4923,17 @@ def main():
                     # correct. So this asserts the SETTLED state after
                     # the transition, never a frame during it.
                     #
-                    # And it asserts T8 through the crossfade rather than
-                    # around it. T8 exists because form.reset() restores
-                    # every radio natively and fires no change event, so
-                    # theme-preview.js never heard about the discarded
-                    # value; a crossfade starting from a stale frame
-                    # would be a visible version of the same defect.
+                    # 27-04-PLAN.md Task 2 (T8, CFG-63): the OTHER half
+                    # this check used to assert — Cancel restoring the
+                    # SAVED theme through the same crossfade — is deleted
+                    # along with "Annuler" itself (dirty-state.js's own
+                    # header records the account). What is proven here
+                    # instead, by running rather than by inspection, is
+                    # the claim Task 2's own action text requires: the
+                    # live preview still follows a chip selection through
+                    # theme-preview.js's OWN delegated listener on the
+                    # card, with dirty-state.js never in the loop at all —
+                    # this check drives no Cancel and no save of any kind.
                     context = browser.new_context(viewport=VIEWPORT_DESKTOP)
                     try:
                         page = context.new_page()
@@ -4043,7 +4945,7 @@ def main():
                             " document.querySelector('.theme-live-preview__image');"
                             "return {src: i.getAttribute('src'),"
                             " opacity: parseFloat(getComputedStyle(i).opacity)}; }")
-                        saved = page.evaluate(read)
+                        page.evaluate(read)  # pre-click baseline; no longer compared (Cancel retired)
                         target = page.evaluate(
                             "() => { const panel = document.querySelector("
                             "'[data-usage-panel-target=\"departures\"]');"
@@ -4129,19 +5031,6 @@ def main():
                                 "the crossfade settled INVISIBLE (opacity %r) — a fade-out with "
                                 "no fade back in is worse than the cut it replaced"
                                 % (settled["opacity"],))
-
-                        page.click(".dirty-bar__cancel")
-                        page.wait_for_timeout(900)
-                        restored = page.evaluate(read)
-                        if restored["src"] != saved["src"]:
-                            return False, (
-                                "Cancel did not restore the SAVED theme through the crossfade: "
-                                "preview reads %r, expected %r — T8's defect, now wearing a fade"
-                                % (restored["src"], saved["src"]))
-                        if restored["opacity"] != 1:
-                            return False, (
-                                "the restore settled invisible (opacity %r)"
-                                % (restored["opacity"],))
                         return True, ""
                     finally:
                         context.close()
@@ -4149,12 +5038,12 @@ def main():
                     "the live theme preview CROSSFADES - proven by the opacity transition the "
                     "browser CREATES on the preview image, caught as a transitionrun event rather "
                     "than sampled at a guessed instant, because every other assertion here is "
-                    "satisfied by the cut this plan replaces - and settles on the theme that "
-                    "was actually "
-                    "selected, fully opaque rather than stuck mid-fade, and Cancel restores the "
-                    "SAVED theme through that same crossfade — T8 asserted through the fade "
-                    "rather than around it (D3/CFG-32, T-23-38, 23-10-PLAN.md Task 2)",
-                    _the_live_preview_crossfade_settles_correct_and_cancel_restores_it)
+                    "satisfied by the cut this plan replaces - and settles on the theme that was "
+                    "actually selected, fully opaque rather than stuck mid-fade, driven entirely by "
+                    "theme-preview.js's OWN delegated listener with no save and no dirty-state.js "
+                    "involvement at all (D3/CFG-32, T-23-38, 23-10-PLAN.md Task 2; the Cancel half "
+                    "retired by 27-04-PLAN.md Task 2, CFG-63)",
+                    _the_live_preview_crossfade_settles_correct_through_its_own_listener)
 
                 def _images_hold_their_place_before_they_arrive():
                     # 23-10-PLAN.md Task 3 (D3/CFG-32, T-23-39). The only
@@ -4809,31 +5698,22 @@ def main():
                     "an event that never arrives (T5/D-02, 22-14-PLAN.md Task 2)",
                     _mobile_nav_close_leaves_hidden_and_aria_expanded_consistent)
 
-                def _save_bar_and_tab_bar_never_overlap_at_390x844():
-                    # D-10's "must not cover the pinned save bar", and
-                    # 22-UI-SPEC.md §3.1's own acceptance sentence,
-                    # verified rather than asserted. Both elements are
-                    # `position: fixed` at the same corner of a 390x844
-                    # viewport, so nothing short of a real layout engine
-                    # can answer whether they intersect.
-                    #
-                    # Geometric separation is checked FIRST, because that
-                    # is the order the fix is built in: the save bar's
-                    # own bottom offset gains the tab bar's height, so in
-                    # the normal case the two never overlap at all. The
-                    # stacking order is the belt-and-braces half and is
-                    # checked second.
-                    def centre_owner(page, selector):
-                        return page.evaluate(
-                            "(sel) => {"
-                            " var el = document.querySelector(sel);"
-                            " var r = el.getBoundingClientRect();"
-                            " var hit = document.elementFromPoint("
-                            "   Math.round(r.left + r.width / 2),"
-                            "   Math.round(r.top + r.height / 2));"
-                            " return hit ? (hit === el || el.contains(hit)) : false;}",
-                            selector)
-
+                def _save_status_region_never_overlaps_the_tab_bar_at_390x844():
+                    # 27-04-PLAN.md (D-04/CFG-63): SUPERSEDES this check's
+                    # own pre-27-04 subject wholesale — the fixed, z-index-
+                    # stacked save bar this check measured against the tab
+                    # bar is retired outright, and with it every one of
+                    # D-10/T7's geometry/stacking assertions (their own
+                    # subject no longer exists to measure). What replaces
+                    # it: the auto-save status region sits in NORMAL
+                    # DOCUMENT FLOW beside the page's own heading — never
+                    # `position: fixed`, never an overlay — restating the
+                    # CFG-31 concern (the overlapping-save-bar defect,
+                    # "a standing refusal") for the component that now
+                    # carries the same responsibility: it must never
+                    # become a second fixed/floating affordance, and it
+                    # must never overlap the one fixed element the page
+                    # still has, the tab bar.
                     for width, height, label in ((390, 844, "390x844"), (1280, 900, "1280x900")):
                         context = browser.new_context(
                             viewport={"width": width, "height": height})
@@ -4848,111 +5728,57 @@ def main():
                                 t for t in device_config.THEME_IDS if t != current)
                             _click_control(
                                 page, 'input[name="theme"][value="%s"]' % other)
-                            page.wait_for_timeout(300)
+                            _wait_for_saved(page)
 
-                            if not page.locator("[data-dirty-bar]").is_visible():
-                                return False, (
-                                    "expected the save bar to be visible after an unsaved edit "
-                                    "at %s" % label)
                             geom = page.evaluate(
                                 "() => {"
-                                " var bar = document.querySelector('[data-dirty-bar]');"
+                                " var region = document.querySelector('[data-save-status]');"
                                 " var tabs = document.querySelector('.tab-bar');"
-                                " var b = bar.getBoundingClientRect();"
-                                " var out = {bar: {top: b.top, bottom: b.bottom,"
-                                "                  left: b.left, right: b.right},"
-                                "            barZ: getComputedStyle(bar).zIndex,"
+                                " var r = region.getBoundingClientRect();"
+                                " var cs = getComputedStyle(region);"
+                                " var out = {region: {top: r.top, bottom: r.bottom,"
+                                "                      left: r.left, right: r.right},"
+                                "            regionPosition: cs.position,"
                                 "            tabsPresent: !!tabs};"
                                 " if (tabs) {"
                                 "   var t = tabs.getBoundingClientRect();"
                                 "   out.tabs = {top: t.top, bottom: t.bottom,"
                                 "               left: t.left, right: t.right};"
                                 "   out.tabsDisplay = getComputedStyle(tabs).display;"
-                                "   out.tabsZ = getComputedStyle(tabs).zIndex;"
                                 " }"
                                 " return out;}")
-                            if geom["barZ"] != "30":
+                            if geom["regionPosition"] in ("fixed", "sticky"):
                                 return False, (
-                                    "expected ONE save-bar stacking value across both "
-                                    "breakpoints (30), got %r at %s" % (geom["barZ"], label))
-                            if not centre_owner(page, "[data-dirty-bar]"):
-                                return False, (
-                                    "the save bar must be hit-testable at its own centre at %s"
-                                    % label)
-
-                            if width >= 960:
-                                # T7's desktop half: no tab bar here, so
-                                # the only thing to prove is that the
-                                # stacking value is the same one.
-                                if geom.get("tabsDisplay") not in (None, "none"):
-                                    return False, (
-                                        "the tab bar must not render at %s, got display %r"
-                                        % (label, geom.get("tabsDisplay")))
-                            else:
+                                    "the save-status region must never be position: fixed/sticky "
+                                    "at %s, got %r — the overlay drawer/save bar this app has "
+                                    "already refused twice must not reappear as a THIRD floating "
+                                    "affordance" % (label, geom["regionPosition"]))
+                            if width < 960:
                                 if geom.get("tabsDisplay") != "flex":
                                     return False, (
                                         "expected the tab bar visible at %s, got display %r"
                                         % (label, geom.get("tabsDisplay")))
-                                bar, tabs = geom["bar"], geom["tabs"]
+                                region, tabs = geom["region"], geom["tabs"]
                                 overlaps = (
-                                    bar["left"] < tabs["right"]
-                                    and tabs["left"] < bar["right"]
-                                    and bar["top"] < tabs["bottom"]
-                                    and tabs["top"] < bar["bottom"])
+                                    region["left"] < tabs["right"]
+                                    and tabs["left"] < region["right"]
+                                    and region["top"] < tabs["bottom"]
+                                    and tabs["top"] < region["bottom"])
                                 if overlaps:
                                     return False, (
-                                        "the save bar and the tab bar must not intersect at %s; "
-                                        "save %r vs tabs %r" % (label, bar, tabs))
-                                if bar["bottom"] > tabs["top"]:
-                                    return False, (
-                                        "the save bar must float ABOVE the tab bar, got "
-                                        "bar bottom %r against tab top %r"
-                                        % (bar["bottom"], tabs["top"]))
-                                if int(geom["tabsZ"]) >= int(geom["barZ"]):
-                                    return False, (
-                                        "the save bar is the active task and the tab bar is "
-                                        "ambient chrome — the save bar must win on stacking "
-                                        "order too, got %r vs %r"
-                                        % (geom["barZ"], geom["tabsZ"]))
-                                if not centre_owner(page, ".tab-bar"):
-                                    return False, (
-                                        "the tab bar must stay hit-testable at its own centre "
-                                        "at %s" % label)
-
-                            # T7: the fixed bar must cover no content.
-                            page.evaluate(
-                                "() => window.scrollTo(0, document.body.scrollHeight)")
-                            page.wait_for_timeout(200)
-                            covered = page.evaluate(
-                                "() => {"
-                                " var bar = document.querySelector('[data-dirty-bar]');"
-                                " var barTop = bar.getBoundingClientRect().top;"
-                                " var sections = document.querySelectorAll("
-                                "   '.page-content .page-section');"
-                                " var last = sections[sections.length - 1];"
-                                " return {contentBottom: last.getBoundingClientRect().bottom,"
-                                "         barTop: barTop,"
-                                "         atBottom: (window.innerHeight + window.scrollY) >="
-                                "                   (document.documentElement.scrollHeight - 2)};}")
-                            if not covered["atBottom"]:
-                                return False, (
-                                    "expected the page to be scrolled to its own foot at %s"
-                                    % label)
-                            if covered["contentBottom"] > covered["barTop"]:
-                                return False, (
-                                    "the fixed save bar must cover no page content at %s: the "
-                                    "last section ends at %r, the bar starts at %r"
-                                    % (label, covered["contentBottom"], covered["barTop"]))
+                                        "the save-status region and the tab bar must not "
+                                        "intersect at %s; region %r vs tabs %r"
+                                        % (label, region, tabs))
                         finally:
                             context.close()
                     return True, ""
                 check(
-                    "at 390x844 on Display with an unsaved edit the save bar and the bottom tab bar are "
-                    "both visible, their bounding boxes do not intersect, both are hit-testable at their "
-                    "centre points and the save bar wins on stacking order at the ONE value it declares "
-                    "at both breakpoints — and at neither breakpoint does the fixed bar cover the last "
-                    "section once the page is scrolled to its foot (D-10/T7, 22-14-PLAN.md Task 3)",
-                    _save_bar_and_tab_bar_never_overlap_at_390x844)
+                    "the auto-save status region sits in normal document flow — never position: "
+                    "fixed/sticky at either breakpoint — and never overlaps the tab bar at 390x844, "
+                    "restating CFG-31's own standing refusal (the overlapping-save-bar defect) for "
+                    "the component that replaced it (27-04-PLAN.md, D-04/CFG-63; retired the fixed "
+                    "save-bar-vs-tab-bar geometry D-10/T7, 22-14-PLAN.md Task 3, used to measure)",
+                    _save_status_region_never_overlaps_the_tab_bar_at_390x844)
 
                 def _refresh_loop_shows_a_neutral_pill_on_failure_and_clears_on_recovery():
                     # T13 (22-15-PLAN.md Task 2). The defect was that any
@@ -5066,25 +5892,27 @@ def main():
                     ".banner__pill[hidden] guard (T13, 22-15-PLAN.md Task 2)",
                     _refresh_loop_shows_a_neutral_pill_on_failure_and_clears_on_recovery)
 
-                def _a_second_click_on_save_produces_no_second_post():
-                    # T14 (22-15-PLAN.md Task 3). The audit found exactly
-                    # one double-submission guard in the app - the poll
-                    # button's - and every other form accepting a repeat
-                    # POST. Only a real browser can prove the shared
-                    # guard works, because the whole mechanism is the
-                    # ordering between a submit event, the form data set
-                    # the browser builds from it, and a zero-delay timer.
+                def _a_double_fire_of_change_before_the_first_save_resolves_coalesces_to_one_follow_up():
+                    # 27-04-PLAN.md Task 4 (T-27-04-C/D, CFG-63): SUPERSEDES
+                    # this check's own pre-27-04 subject wholesale — there
+                    # is no more Save button to double-click, and
+                    # submit-guard.js's own zero-delay-timer disable
+                    # mechanism this check exercised belongs to a control
+                    # that no longer exists on this page under script (it
+                    # is still tested, unmodified, for every OTHER form on
+                    # the site — this file's own header makes clear
+                    # submit-guard.js is not touched by 27-04).
                     #
-                    # The POST is intercepted and answered 204 rather
-                    # than allowed through. That is what makes this check
-                    # deterministic instead of a race: a 204 is the one
-                    # response to a form POST that commits no new
-                    # document, so the page stays put, the button is
-                    # still there to click a second time and to inspect,
-                    # and every POST that reaches the wire is counted
-                    # exactly once. (Aborting the route does NOT work
-                    # here - Chromium commits its own network-error
-                    # document, which destroys the page under test.)
+                    # What replaces it is the auto-save driver's OWN
+                    # double-submission question, the Standing Constraint
+                    # this plan's own PLAN.md names explicitly: "What
+                    # happens on a double-fire of change before the first
+                    # save resolves?" Proven here against a HELD first
+                    # request: a second commit while it is still in flight
+                    # must not fire a second concurrent POST (serialised),
+                    # and once the first settles, exactly ONE coalesced
+                    # follow-up fires carrying the LATEST committed value
+                    # — never the stale one, never a third request.
                     context = browser.new_context()
                     try:
                         page = context.new_page()
@@ -5095,133 +5923,72 @@ def main():
                         page.goto(base_url + "/display")
                         original = page.eval_on_selector(
                             'input[name="theme"]:checked', "el => el.value")
-                        target = next(t for t in theme_ids if t != original)
-                        _click_control(page, 'input[name="theme"][value="%s"]' % target)
-                        if page.locator("[data-dirty-bar]").is_hidden():
-                            return False, "expected the save bar after a theme edit"
+                        target1, target2 = [t for t in theme_ids if t != original][:2]
 
-                        posts = {"n": 0}
+                        posts = {"n": 0, "held": []}
 
-                        def _count_and_block(route, request):
-                            if request.method == "POST":
+                        def _hold_posts(route, request):
+                            if request.method == "POST" and request.url.split("?")[0] == base_url + "/settings":
                                 posts["n"] += 1
-                                route.fulfill(status=204, body="")
+                                posts["held"].append(route)
                             else:
                                 route.continue_()
 
-                        page.route("**/*", _count_and_block)
+                        page.route("**/*", _hold_posts)
 
-                        save = '.dirty-bar__save'
-                        page.eval_on_selector(save, "el => el.click()")
-                        # The guard disables from a zero-delay timer, on
-                        # purpose: a submit button's own name/value is
-                        # contributed to the form data set AFTER the
-                        # listeners return, so an inline disable can drop
-                        # it. Wait for the timer rather than assuming it.
-                        page.wait_for_function(
-                            "() => {"
-                            " var b = document.querySelector('.dirty-bar__save');"
-                            " return !!b && b.disabled === true;}",
-                            timeout=5000)
+                        _click_control(page, 'input[name="theme"][value="%s"]' % target1)
+                        # Wait for the FIRST POST to actually reach the
+                        # route handler (counted, not guessed) before
+                        # firing the second commit — this is the in-flight
+                        # window the coalescing exists to serialise.
+                        for _ in range(200):
+                            if posts["n"] >= 1:
+                                break
+                            page.wait_for_timeout(10)
                         if posts["n"] != 1:
-                            return False, (
-                                "expected exactly one POST from the first click, got %d"
-                                % posts["n"])
+                            return False, "expected the first commit's POST to reach the wire, got %d" % posts["n"]
 
-                        # The second click, as a separate task - which is
-                        # what a human double click actually is.
-                        page.eval_on_selector(save, "el => el.click()")
+                        # The second commit, WHILE the first is still held
+                        # open — the double-fire this check's own subject
+                        # is named for.
+                        _click_control(page, 'input[name="theme"][value="%s"]' % target2)
                         page.wait_for_timeout(300)
                         if posts["n"] != 1:
                             return False, (
-                                "expected a repeat click to produce NO second POST, got %d total "
-                                "(T14)" % posts["n"])
-                        # 23-09-PLAN.md Task 3 (D3/CFG-32): RETARGETED IN
-                        # PLACE, because this plan is the deferral's own
-                        # due date. This clause used to assert the label
-                        # carried NO progress word, with the message "a
-                        # progress word is D3, Phase 23". D3 has now
-                        # landed and the label does change — so asserted
-                        # literally the old clause would have been
-                        # testing for the absence of the feature the
-                        # phase exists to ship.
-                        #
-                        # What it was actually about survives and is now
-                        # asserted from the other side: the SHARED GUARD
-                        # still writes no label. That is not something a
-                        # browser can see (both files' effects land on
-                        # the same control), so it is asserted where it
-                        # can be — companion/test_companion_app.py's
-                        # served-body check on submit-guard.js, which
-                        # fails that file for containing the word at all.
-                        # Here the two are asserted to COEXIST rather
-                        # than fight: the control is disabled AND wears
-                        # the in-flight word, which is the property T14's
-                        # own deferral was protecting.
-                        label = page.eval_on_selector(save, "el => el.textContent.trim()")
-                        if label != config_page.DIRTY_SAVING_TEXT:
-                            return False, (
-                                "expected the Save control to read the in-flight word %r after "
-                                "its POST went out, got %r — the label change T14 deferred to D3 "
-                                "is dirty-state.js's, and it must survive the shared guard "
-                                "disabling the same control a task later"
-                                % (config_page.DIRTY_SAVING_TEXT, label))
+                                "expected NO second concurrent POST while the first is still in "
+                                "flight, got %d total (T-27-04-C/D)" % posts["n"])
 
-                        # And the two flows the guard must not fight
-                        # still work, with the route removed: a real save
-                        # persists, and a strip switch still navigates.
-                        page.unroute("**/*")
-                        page.goto(base_url + "/display")
-                        _click_control(page, 'input[name="theme"][value="%s"]' % target)
-                        with page.expect_navigation():
-                            page.locator(save).click()
-                        page.goto(base_url + "/display")
-                        if not page.eval_on_selector(
-                                'input[name="theme"][value="%s"]' % target, "el => el.checked"):
+                        # Release the first request. A coalesced follow-up
+                        # must fire once it settles, carrying target2.
+                        posts["held"].pop(0).fulfill(status=204, body="")
+                        for _ in range(200):
+                            if posts["n"] >= 2:
+                                break
+                            page.wait_for_timeout(10)
+                        if posts["n"] != 2:
                             return False, (
-                                "expected the save bar to still persist a real save with the "
-                                "shared guard installed (T14)")
-                        switch = page.locator("[data-quick-switch] button[type=\"submit\"]").first
-                        if switch.count() == 0:
-                            return False, "expected a Frame strip switch to exercise"
-                        # 23-07-PLAN.md Task 1 (D2/CFG-36): retargeted in
-                        # place. This used to assert the switch still
-                        # NAVIGATES with the shared guard installed; D2
-                        # is the decision that it applies over fetch
-                        # instead. The property this clause is actually
-                        # about — that T14's guard does not fight the
-                        # switch — survives intact and is now asserted on
-                        # the response and the control's own state
-                        # rather than on a navigation that no longer
-                        # happens.
-                        before = device_config.load_device_config(harness.tmpdir)["display_enabled"]
-                        with page.expect_response(
-                                lambda r: r.url.split("?")[0] == base_url + "/quick/display"):
-                            switch.click()
-                        page.wait_for_timeout(400)
-                        after = device_config.load_device_config(harness.tmpdir)["display_enabled"]
-                        if after == before:
+                                "expected exactly ONE coalesced follow-up once the first save "
+                                "settled, got %d POSTs total" % posts["n"])
+                        follow_up_body = posts["held"][0].request.post_data or ""
+                        if ("theme=%s" % target2) not in follow_up_body:
                             return False, (
-                                "expected the strip switch to still apply with the shared guard "
-                                "installed (T14 + D2)")
-                        if switch.evaluate("el => el.disabled"):
-                            return False, (
-                                "the shared guard left the switch disabled — with no navigation "
-                                "to replace the page it would stay dead (T14 + D2)")
+                                "expected the coalesced follow-up to carry the LATEST committed "
+                                "value (%r), got body %r" % (target2, follow_up_body))
+                        posts["held"].pop(0).fulfill(status=204, body="")
+                        _wait_for_saved(page)
+                        if posts["n"] != 2:
+                            return False, "expected no THIRD request, got %d total" % posts["n"]
                         return True, ""
                     finally:
                         context.close()
                 check(
-                    "a second click on the save bar's Save produces NO second POST - the shared guard "
-                    "disables the submitting control from a zero-delay timer, so the browser has already "
-                    "built the form data set (which is what keeps the named theme/language submit buttons "
-                    "working) - and the disabled control also wears D3's in-flight word, the two "
-                    "mechanisms coexisting rather than fighting, while a real save still persists and a "
-                    "Frame strip switch still APPLIES with the guard installed, without navigating and "
-                    "without being left disabled (T14, 22-15-PLAN.md Task 3; retargeted in place by "
-                    "23-07-PLAN.md Task 1 and again by 23-09-PLAN.md Task 3, which is the deferral's "
-                    "own due date)",
-                    _a_second_click_on_save_produces_no_second_post)
+                    "a double-fire of change before the first save resolves serialises to ONE request "
+                    "in flight and coalesces to exactly ONE follow-up carrying the LATEST committed "
+                    "value once the first settles — never a second concurrent POST, never a third "
+                    "request, never a stale value (T-27-04-C/D, 27-04-PLAN.md Task 4, CFG-63; "
+                    "retargeted from the retired Save button's double-submit guard, T14, "
+                    "22-15-PLAN.md Task 3)",
+                    _a_double_fire_of_change_before_the_first_save_resolves_coalesces_to_one_follow_up)
 
                 def _home_paints_nothing_outside_the_viewport_or_its_cards():
                     # B11 (quick task 260913-bjy) — the audit's "no
@@ -6723,18 +7490,30 @@ def main():
                                 "control: a clean Display page issued no request at all (%d), so "
                                 "the dirty-form assertion below would measure nothing"
                                 % (clean_requests,))
-                        # Now a real edit, made the way a user makes one.
-                        current = device_config.load_device_config(harness.tmpdir)["theme"]
-                        other = next(t for t in device_config.THEME_IDS if t != current)
-                        _click_control(page, 'input[name="theme"][value="%s"]' % other)
-                        page.wait_for_timeout(200)
-                        bar_shown = page.eval_on_selector(
-                            "[data-dirty-bar]", "el => !el.hidden")
-                        if not bar_shown:
+                        # 27-04-PLAN.md Task 4 (CFG-63): RETARGETED — a
+                        # radio commits (fires change) the instant it is
+                        # clicked, which now means the form is clean again
+                        # a moment later (auto-save's own optimistic
+                        # snapshot advance) — a radio click can no longer
+                        # hold this check's own precondition open. The
+                        # genuinely uncommitted state this check needs is
+                        # a value typed but not yet blurred, read through
+                        # window.SkyPaneDirtyState.hasUncommittedEdits() —
+                        # the exact predicate freshness.js's own gate now
+                        # reads (this plan's own deviation, replacing the
+                        # retired bar's liveness+visibility gate).
+                        quiet_sel = 'input[name="quiet_hours_start"]'
+                        page.eval_on_selector(quiet_sel, "el => el.focus()")
+                        page.keyboard.press("Control+A")
+                        page.keyboard.type("03:33")
+                        uncommitted = page.evaluate(
+                            "() => !!(window.SkyPaneDirtyState "
+                            "&& window.SkyPaneDirtyState.hasUncommittedEdits())")
+                        if not uncommitted:
                             return False, (
-                                "expected the save bar to report the unsaved edit — this check "
-                                "gates on the bar's own live answer, so a bar that never "
-                                "appeared would make it vacuous")
+                                "expected the typed-but-uncommitted edit to report unsaved edits "
+                                "— this check gates on that same predicate, so a page that never "
+                                "reports one would make it vacuous")
                         before = count()
                         _force_refresh(page)
                         page.wait_for_timeout(REFRESH_SETTLE_MS)
@@ -6749,11 +7528,12 @@ def main():
                     finally:
                         context.close()
                 check(
-                    "a Display page whose save bar reports unsaved edits issues ZERO requests when "
+                    "a Display page with a typed-but-uncommitted edit issues ZERO requests when "
                     "the same trigger that fetched on the clean page fires — counted as REQUESTS, "
                     "not inferred from the DOM, because a page that fetched and then declined to "
                     "swap is a different and worse behaviour — against a control proving the clean "
-                    "page does fetch (T-23-20/T-23-21, 23-06-PLAN.md Task 3)",
+                    "page does fetch (T-23-20/T-23-21, 23-06-PLAN.md Task 3; retargeted from the "
+                    "retired save bar's own gate by 27-04-PLAN.md Task 4, CFG-63)",
                     _a_dirty_settings_form_stands_the_whole_cycle_down)
 
                 def _a_hidden_tab_issues_zero_requests_on_all_three_pages():
@@ -7849,192 +8629,122 @@ def main():
                 # double-submit guard) were run and recorded GREEN
                 # before a line of this plan's CSS or JS was written.
 
-                COUNT_SEL = "[data-dirty-count]"
+                STATUS_SEL = "[data-save-status]"
 
-                def _the_bar_arrives_and_the_count_moves_only_when_the_number_does():
-                    # Three properties no string-comparison harness can
-                    # see, and the middle one is the whole reason this
-                    # check exists: the bar is role="status", so what a
-                    # screen reader announces is precisely the sequence
-                    # of text values its content ever holds. A
-                    # MutationObserver installed BEFORE the first edit
-                    # records that sequence directly, rather than
-                    # sampling the end state and hoping nothing else
-                    # happened in between.
+                def _the_status_region_arrives_and_moves_only_when_the_word_does():
+                    # 27-04-PLAN.md Task 4 (CFG-63): SUPERSEDES this
+                    # check's own pre-27-04 subject wholesale — the save
+                    # bar and its own count element are retired; the
+                    # identical discipline (role="status" means every
+                    # text write is a potential announcement) now applies
+                    # to the auto-save status region. A MutationObserver
+                    # installed BEFORE the first edit records the exact
+                    # sequence of text values, rather than sampling the
+                    # end state and hoping nothing else happened between.
                     context = browser.new_context()
                     try:
                         page = context.new_page()
                         base_url = harness.base_url()
                         _login(page, base_url)
                         page.goto(base_url + "/display")
-                        # Both targets are chosen against what the page
-                        # is ACTUALLY showing, never a fixed index: the
-                        # save-bar checks above persist their own edits,
-                        # so a hardcoded index can be the value already
-                        # stored by the time this check runs — and
-                        # clicking the chip that is already selected is
-                        # not an edit, which would make every assertion
-                        # below vacuous rather than red.
                         current_theme = page.eval_on_selector(
                             'input[name="theme"]:checked', "el => el.value")
                         theme_target = next(
                             t for t in device_config.THEME_IDS if t != current_theme)
-                        current_runway = page.eval_on_selector(
-                            'input[name="tracked_runway"]:checked', "el => el.value")
-                        runway_target = next(
-                            r for r in device_config.RUNWAY_IDS if r != current_runway)
 
-                        # B1's OWN COLLISION CLASS, asserted rather than
-                        # reasoned about. The bar's base rule declares
-                        # display, and an author display always beats the
-                        # user-agent [hidden] rule regardless of source
-                        # order — so the entrance this plan adds must not
-                        # have made a permanently visible bar. Phase 22
-                        # found exactly this on the login card, where the
-                        # declaration was present and correct in the file
-                        # and no source scan could see the defect.
-                        shown = page.evaluate(
-                            "() => getComputedStyle("
-                            "document.querySelector('[data-dirty-bar]')).display")
-                        if shown != "none":
+                        # EMPTY AT REST — a region that already said
+                        # something before any save is the stale-claim
+                        # defect this phase exists to fix, in a sentence.
+                        shown = page.eval_on_selector(STATUS_SEL, "el => el.textContent")
+                        if shown:
                             return False, (
-                                "a hidden save bar computes display %r — the [hidden] override "
-                                "has stopped winning, and a bar that is visible before any edit "
-                                "is the same class of defect as one that never appears (B1)"
-                                % (shown,))
+                                "expected the save-status region to render EMPTY before any "
+                                "edit, got %r" % (shown,))
+
+                        saving_word = page.eval_on_selector(
+                            STATUS_SEL, "el => el.getAttribute('data-save-status-saving')")
+                        saved_word = page.eval_on_selector(
+                            STATUS_SEL, "el => el.getAttribute('data-save-status-saved')")
 
                         page.evaluate(
                             "() => {"
-                            " window.__counts = [];"
+                            " window.__statusWords = [];"
                             " var el = document.querySelector('%s');"
                             " new MutationObserver(function () {"
-                            "   window.__counts.push(el.textContent);"
+                            "   window.__statusWords.push(el.textContent);"
                             " }).observe(el, {childList: true, characterData: true,"
                             "                 subtree: true});"
-                            "}" % COUNT_SEL)
+                            "}" % STATUS_SEL)
 
-                        # 1. The first edit reveals the bar, and it
-                        # ARRIVES: the entrance resolves to the
-                        # stylesheet's own block rather than merely
-                        # having been declared in a file.
+                        # 1. The edit commits, saves, and ARRIVES: the
+                        # region's own changed-value class fires, and the
+                        # exact SEQUENCE is the in-flight word then the
+                        # saved word — never a partial or reordered one.
                         _click_control(page, 'input[name="theme"][value="%s"]' % theme_target)
-                        if page.locator("[data-dirty-bar]").is_hidden():
-                            return False, "expected the save bar to become visible after the edit"
-                        arrival = page.evaluate(
-                            "() => getComputedStyle("
-                            "document.querySelector('[data-dirty-bar]')).animationName")
-                        if arrival != "skypane-bar-arrive":
+                        _wait_for_saved(page)
+                        words = page.evaluate("() => window.__statusWords.slice()")
+                        if words != [saving_word, saved_word]:
                             return False, (
-                                "the revealed bar's animation resolves to %r — an entrance that "
-                                "names a block the stylesheet does not define renders as no "
-                                "entrance at all, and no browser reports it" % (arrival,))
-                        if "is-fading-in" not in (page.locator(COUNT_SEL).get_attribute("class") or ""):
-                            return False, (
-                                "expected the count's own element to carry the changed-value "
-                                "class after a real change")
-
-                        # 2. A second, DIFFERENT edit moves the count
-                        # again — the number is genuinely different, so
-                        # this must produce exactly one more announcement.
-                        _click_control(
-                            page, 'input[name="tracked_runway"][value="%s"]' % runway_target)
-                        page.wait_for_timeout(120)
-                        after_real_edits = page.evaluate("() => window.__counts.slice()")
-                        if len(after_real_edits) != 2:
-                            return False, (
-                                "expected exactly TWO text writes from two genuinely different "
-                                "counts, got %d: %r — the bar is role=\"status\", so an extra "
-                                "write is an extra announcement of a number that did not change"
-                                % (len(after_real_edits), after_real_edits))
-                        if after_real_edits[0] == after_real_edits[1]:
-                            return False, (
-                                "expected the two announcements to differ, got %r twice — a "
-                                "control that proves the observer is watching a real change"
-                                % (after_real_edits[0],))
-                        for seen in after_real_edits:
+                                "expected the region's own text sequence to be [%r, %r], got %r "
+                                "— the region is role=\"status\", so any other sequence is a "
+                                "wrong or a doubled announcement" % (saving_word, saved_word, words))
+                        for seen in words:
                             if not seen.strip():
                                 return False, (
-                                    "the count held the empty string at some point (%r) — a "
+                                    "the region held the empty string mid-sequence (%r) — a "
                                     "partially-written live region is exactly what an animated "
-                                    "number produces and what this check exists to forbid"
-                                    % (after_real_edits,))
-                        if page.locator(COUNT_SEL).inner_text().strip() != after_real_edits[-1]:
+                                    "word produces and what this check exists to forbid" % (words,))
+                        if page.locator(STATUS_SEL).inner_text().strip() != words[-1]:
                             return False, (
-                                "the displayed count is not the last value announced — the "
-                                "number must never be tweened, only its element animated")
+                                "the displayed word is not the last one announced — the word "
+                                "must never be tweened, only its element animated")
+                        if "is-fading-in" not in (page.locator(STATUS_SEL).get_attribute("class") or ""):
+                            return False, (
+                                "expected the region's own element to carry the changed-value "
+                                "class after a real change")
 
-                        # 3. THE CONTROL PHASE, without which clause 2
-                        # proves nothing about the gate: a re-render that
-                        # leaves the SENTENCE the same must write
-                        # NOTHING. This is what a wrong implementation
-                        # gets wrong — it rewrites identical text on
-                        # every keystroke, and the live region says the
-                        # same number again.
-                        #
-                        # The trigger is a REAL edit, not a synthesised
-                        # event, and that is the point: a third theme
-                        # value inside the already-dirty Frame colours
-                        # section changes the form and runs the same
-                        # delegated listener clause 1 proved works, while
-                        # leaving the set of dirty sections — and so the
-                        # rendered sentence — identical. A synthesised
-                        # event that silently failed to reach the script
-                        # would have made this clause pass by doing
-                        # nothing at all.
-                        third_theme = next(
-                            t for t in device_config.THEME_IDS
-                            if t not in (current_theme, theme_target))
-                        _click_control(page, 'input[name="theme"][value="%s"]' % third_theme)
-                        page.wait_for_timeout(120)
-                        if not page.eval_on_selector(
-                                'input[name="theme"][value="%s"]' % third_theme,
-                                "el => el.checked"):
+                        # 2. THE CONTROL PHASE: clicking an ALREADY-
+                        # CHECKED radio fires no native `change` event at
+                        # all (the checked state does not change), so
+                        # auto-save must not run and the region must
+                        # write NOTHING new. This is what a wrong
+                        # implementation gets wrong — reacting to `input`,
+                        # or to every click regardless of state change,
+                        # and announcing a word for an edit that never
+                        # happened.
+                        _click_control(page, 'input[name="theme"][value="%s"]' % theme_target)
+                        page.wait_for_timeout(150)
+                        after_noop = page.evaluate("() => window.__statusWords.slice()")
+                        if after_noop != words:
                             return False, (
-                                "the control edit did not land, so the clause below would prove "
-                                "nothing about the gate")
-                        after_noop = page.evaluate("() => window.__counts.slice()")
-                        if after_noop != after_real_edits:
-                            return False, (
-                                "a re-render that changed no number still wrote to the count: "
-                                "%r became %r. Re-writing identical text into a role=\"status\" "
-                                "region is how the same number gets announced twice"
-                                % (after_real_edits, after_noop))
+                                "re-clicking the ALREADY-selected theme still wrote to the "
+                                "region: %r became %r — a click that changed no value must not "
+                                "announce one" % (words, after_noop))
                         return True, ""
                     finally:
                         context.close()
                 check(
-                    "the save bar ARRIVES rather than appearing — its entrance resolves to the "
-                    "stylesheet's own skypane-bar-arrive block, and a hidden bar still computes "
-                    "display:none with that entrance declared (B1's own collision class) — while "
-                    "its count, recorded by a MutationObserver installed before the first edit, "
-                    "is written exactly once per genuinely different number, never empty, never "
-                    "tweened, and NOT AT ALL by a re-render that changed nothing (D3/CFG-32, "
-                    "23-09-PLAN.md Task 3)",
-                    _the_bar_arrives_and_the_count_moves_only_when_the_number_does)
+                    "the auto-save status region ARRIVES rather than appearing — the changed-value "
+                    "class fires, and its text sequence is exactly [saving word, saved word], "
+                    "recorded by a MutationObserver installed before the first edit, never empty "
+                    "mid-sequence, never tweened, and NOT AT ALL from a click that changed no "
+                    "value (D3/CFG-32, 23-09-PLAN.md Task 3; retargeted from the retired save bar's "
+                    "own count by 27-04-PLAN.md Task 4, CFG-63)",
+                    _the_status_region_arrives_and_moves_only_when_the_word_does)
 
-                def _saving_says_so_without_changing_a_byte_of_what_it_posts():
-                    # T14 (22-15-PLAN.md Task 3) deferred this label to
-                    # D3 and left behind the reason it was worth
-                    # deferring: a submit button's name/value joins the
-                    # form data set AFTER the listeners return, so
-                    # anything that touches the submitting control can
-                    # change what is posted. dirty-state.js's answer is
-                    # a property of the control rather than of the
-                    # timing; this check is that answer measured on the
-                    # wire, in both languages.
-                    #
-                    # The POST is intercepted and answered 204 in the
-                    # first two phases — the one response to a form POST
-                    # that commits no new document, so the page stays
-                    # put, the control is still there to read, and every
-                    # body that reaches the wire is captured exactly
-                    # once. Same technique, and same reason, as the
-                    # double-submit check above.
+                def _auto_save_posts_the_whole_form_never_only_the_touched_field():
+                    # 27-04-PLAN.md Task 4 (T-27-04-D, CFG-63): SUPERSEDES
+                    # this check's own pre-27-04 subject (T14's deferred
+                    # Save-button relabel, D3/CFG-32) wholesale — there is
+                    # no more Save button to relabel. What replaces it is
+                    # CFG-36's own hazard, proven END TO END on the wire
+                    # rather than only from the source: a single field's
+                    # commit must serialize and post EVERY named field the
+                    # settings form carries, never only the one that
+                    # changed — the exact shape M-C's own mutation test
+                    # (test_config_page.py) proves from the other side.
                     base_url = harness.base_url()
-                    for lang, expected_word, expected_flash in (
-                            ("en", config_page.DIRTY_SAVING_TEXT, "Saved —"),
-                            ("fr", i18n.t_lang(config_page.DIRTY_SAVING_TEXT, "fr"),
-                             i18n.t_lang("Saved — %s", "fr").split("%s")[0].strip())):
+                    for lang in ("en", "fr"):
                         context = browser.new_context()
                         try:
                             page = context.new_page()
@@ -8049,84 +8759,50 @@ def main():
                             bodies = []
 
                             def _capture(route, request):
-                                if request.method == "POST":
-                                    bodies.append(request.post_data)
-                                    route.fulfill(status=204, body="")
-                                else:
-                                    route.continue_()
+                                if request.method == "POST" and request.url.split("?")[0] == base_url + "/settings":
+                                    bodies.append(request.post_data or "")
+                                # ALWAYS continue — this check's own
+                                # assertion is that the save persists, so
+                                # faking the 204 (as the double-fire check
+                                # above deliberately does, to hold the
+                                # request open) would mean the real write
+                                # this check reads back never happens.
+                                route.continue_()
 
-                            # PHASE A — the control body. requestSubmit()
-                            # with no submitter fires a real submit event
-                            # with evt.submitter null, so the relabel
-                            # stands down by its own first clause and
-                            # this is genuinely the payload as it was
-                            # before this plan.
                             page.goto(base_url + "/display")
-                            _click_control(page, theme_sel)
                             page.route("**/*", _capture)
-                            page.eval_on_selector(
-                                "form[data-dirty-form]", "el => el.requestSubmit()")
-                            page.wait_for_timeout(300)
+                            _click_control(page, theme_sel)
+                            _wait_for_saved(page)
                             page.unroute("**/*")
                             if len(bodies) != 1:
                                 return False, (
-                                    "lang=%s: expected exactly one control POST, got %d"
-                                    % (lang, len(bodies)))
-
-                            # PHASE B — the same edit, posted by the
-                            # bar's own Save, whose label the relabel
-                            # does reach.
-                            page.goto(base_url + "/display")
-                            _click_control(page, theme_sel)
-                            page.route("**/*", _capture)
-                            page.eval_on_selector(".dirty-bar__save", "el => el.click()")
-                            page.wait_for_timeout(300)
-                            page.unroute("**/*")
-                            if len(bodies) != 2:
+                                    "lang=%s: expected exactly one auto-save POST from the "
+                                    "theme edit, got %d" % (lang, len(bodies)))
+                            body = bodies[0]
+                            if ("theme=%s" % target) not in body:
                                 return False, (
-                                    "lang=%s: expected a second POST from the bar's Save, got %d"
-                                    % (lang, len(bodies)))
-
-                            # THE CONTROL THAT MAKES THE COMPARISON MEAN
-                            # SOMETHING. Without it, two identical bodies
-                            # would also be what a script that never
-                            # relabels anything produces, and this check
-                            # would pass against the absence of the
-                            # feature it exists to test.
-                            label = page.eval_on_selector(
-                                ".dirty-bar__save", "el => el.textContent.trim()")
-                            if label != expected_word:
-                                return False, (
-                                    "lang=%s: expected the Save control to read %r while its "
-                                    "POST is in flight, got %r — and without that the payload "
-                                    "comparison below would prove nothing"
-                                    % (lang, expected_word, label))
-                            if bodies[0] != bodies[1]:
-                                return False, (
-                                    "lang=%s: the relabel changed what the form posts.\n"
-                                    "  without it: %r\n  with it:    %r\n"
-                                    "A submitter's name/value joins the form data set after the "
-                                    "listeners return — this is the assertion submit-guard.js's "
-                                    "own header argues for" % (lang, bodies[0], bodies[1]))
-
-                            # PHASE C — the completed state, where the
-                            # document actually is. There is no "Saved"
-                            # on the bar and there must not be: the POST
-                            # replaces the document, so the bar that said
-                            # the in-flight word is gone. The existing
-                            # confirmation flash is the completed state,
-                            # on the page the browser lands on.
-                            page.goto(base_url + "/display")
-                            _click_control(page, theme_sel)
-                            with page.expect_navigation():
-                                page.eval_on_selector(".dirty-bar__save", "el => el.click()")
-                            body_text = page.locator("body").inner_text()
-                            if expected_flash not in body_text:
-                                return False, (
-                                    "lang=%s: expected the landing page to carry the save "
-                                    "confirmation %r — the completed state is delivered where "
-                                    "the document actually is, never persisted onto a bar that "
-                                    "no longer exists" % (lang, expected_flash))
+                                    "lang=%s: expected the posted body to carry the touched "
+                                    "field theme=%r, got %r" % (lang, target, body))
+                            # EVERY OTHER NAMED FIELD the DISPLAY scope's
+                            # settings form carries, not just the one that
+                            # changed — tracked_runway and quiet_hours_end
+                            # are both cross-DOM form=-attached fields
+                            # living OUTSIDE the physical <form>, the
+                            # exact shape CFG-36's own hazard was found
+                            # in. wake_interval_s is deliberately NOT in
+                            # this list — it is a Device-scope-only field
+                            # (measured: absent from a real Display POST
+                            # body) and asserting its presence here would
+                            # be asserting a fact about the wrong scope.
+                            for other_field in ("tracked_runway=", "quiet_hours_start=",
+                                                 "quiet_hours_end="):
+                                if other_field not in body:
+                                    return False, (
+                                        "lang=%s: the posted body omits %r — a save that posts "
+                                        "only the touched field silently resolves every other "
+                                        "field to whatever the server's own absent-field "
+                                        "semantics decide, the exact CFG-36 hazard, got %r"
+                                        % (lang, other_field, body))
                             saved = device_config.load_device_config(harness.tmpdir)["theme"]
                             if saved != target:
                                 return False, (
@@ -8136,33 +8812,26 @@ def main():
                             context.close()
                     return True, ""
                 check(
-                    "the Save control reads a TRANSLATED in-flight word once its POST is away and "
-                    "the posted body is byte-identical to the same edit posted without the "
-                    "relabel (captured on the wire, in both languages, against a control phase "
-                    "proving the relabel really ran), and the completed state arrives as the "
-                    "existing confirmation flash on the page the POST lands on — never persisted "
-                    "onto a bar the navigation destroyed (D3/CFG-32, T14's deferred label, "
-                    "23-09-PLAN.md Task 3)",
-                    _saving_says_so_without_changing_a_byte_of_what_it_posts)
+                    "a single field's committed edit auto-saves by posting the WHOLE settings "
+                    "form, never only the touched field — captured on the wire in both languages, "
+                    "naming the touched field's own new value AND three other cross-DOM "
+                    "form=-attached fields that never changed (T-27-04-D, CFG-36's own hazard "
+                    "proven end to end; 27-04-PLAN.md Task 4, CFG-63; supersedes the retired "
+                    "Save-button relabel check, T14's deferred label, 23-09-PLAN.md Task 3/D3/"
+                    "CFG-32)",
+                    _auto_save_posts_the_whole_form_never_only_the_touched_field)
 
-                def _with_no_script_there_is_no_bar_and_the_fallback_save_is_the_only_way():
-                    # THE FLOOR THIS COMPONENT BROKE ONCE. B1 was two
-                    # dead paths at the same time: the save bar never
-                    # appeared, and `.dirty-ready [data-static-save-
-                    # fallback]` had already hidden the only other Save
-                    # on the page. With scripts blocked neither marker
-                    # class can be written at all, so this is the
-                    # configuration in which the fallback is not a
-                    # fallback but THE control — and this plan animates
-                    # the component that sits on top of it, so the floor
-                    # is re-asserted at this plan's own commit rather
-                    # than trusted.
-                    #
-                    # It asserts what the sibling scripts-blocked save
-                    # check (23-06's) does not: that the fallback is
-                    # VISIBLE rather than merely rendered, that the bar
-                    # computes display:none with the entrance declared
-                    # on it, and that neither hiding marker is on <html>.
+                def _with_no_script_the_fallback_save_is_the_only_way():
+                    # 27-04-PLAN.md Task 4 (CFG-63): SUPERSEDES this
+                    # check's own pre-27-04 subject — THE FLOOR THIS
+                    # COMPONENT BROKE ONCE (B1: the save bar never
+                    # appeared, and the fallback had already hidden
+                    # itself). The bar and both of its former liveness
+                    # markers (dirty-ready/dirty-shown) are retired
+                    # outright, so there is nothing left on <html> or in
+                    # the DOM for a scripts-blocked page to prove absent
+                    # — what survives is the floor itself: the fallback
+                    # Save is VISIBLE, has a real box, and still saves.
                     base_url = harness.base_url()
                     for lang in ("en", "fr"):
                         with _no_js_page(browser, base_url, "/display",
@@ -8173,24 +8842,6 @@ def main():
                             page.goto(base_url + "/display")
                             if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
                                 return False, "expected the measurement at the 360px contract floor"
-                            markers = page.evaluate(
-                                "() => document.documentElement.className")
-                            for marker in ("dirty-ready", "dirty-shown"):
-                                if marker in markers:
-                                    return False, (
-                                        "lang=%s: <html> carries %r with scripts blocked (%r) — "
-                                        "both markers have exactly one writer and it cannot run "
-                                        "here, and the fallback-hide rule keys on both"
-                                        % (lang, marker, markers))
-                            bar_display = page.evaluate(
-                                "() => { var b = document.querySelector('[data-dirty-bar]');"
-                                " return b ? getComputedStyle(b).display : 'absent'; }")
-                            if bar_display not in ("none", "absent"):
-                                return False, (
-                                    "lang=%s: the save bar computes display %r on a page with no "
-                                    "script — nothing can ever reveal it here, so a visible bar "
-                                    "would be a Save button that does nothing"
-                                    % (lang, bar_display))
                             fallback = page.locator(
                                 "[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
                             if fallback.count() != 1:
@@ -8226,12 +8877,11 @@ def main():
                                     % (lang, target, saved))
                     return True, ""
                 check(
-                    "with scripts blocked at 360px, in BOTH languages, neither hiding marker is "
-                    "on <html>, the save bar computes display:none with this plan's entrance "
-                    "declared on it, and the fallback Save is VISIBLE with a real box and still "
-                    "saves to disk — B1's floor re-asserted in the plan that animates the "
-                    "component sitting on top of it (B1/CFG-38, 23-09-PLAN.md Task 3)",
-                    _with_no_script_there_is_no_bar_and_the_fallback_save_is_the_only_way)
+                    "with scripts blocked at 360px, in BOTH languages, the fallback Save is "
+                    "VISIBLE with a real box and still saves to disk — B1's floor re-asserted "
+                    "after the bar and both its former liveness markers are retired outright "
+                    "(B1/CFG-38, 23-09-PLAN.md Task 3; retargeted by 27-04-PLAN.md Task 4, CFG-63)",
+                    _with_no_script_the_fallback_save_is_the_only_way)
 
                 # ==========================================================
                 # 24-04-PLAN.md Task 4 (CFG-40/CFG-45/D-09): the battery
@@ -10196,456 +10846,111 @@ def main():
                     _the_heros_grouping_holds_at_both_widths_and_owes_nothing_to_a_script)
 
                 # ----------------------------------------------------------
-                # 25-03-PLAN.md Task 3 (CFG-47): the runway map, measured
-                # where it has to be correct.
+                # 27-05-PLAN.md Task 3 (CFG-66): CFG-47's schematic runway
+                # map RETIRED. The three checks 25-03-PLAN.md Task 3 added
+                # here — the map's own save-corroboration, its keyboard/
+                # paint proof, and its 360px floor measurement — are GONE,
+                # named in 27-05-SUMMARY.md, along with the `_runway_ids()`
+                # and `_SETTLE_STRIPS` helpers only they used.
                 #
-                # Three checks, and NOT ONE OF THEM MEASURES THAT THE MAP
-                # RENDERS. A check that asserted the radios are present
-                # would pass against a map that saves nothing, which is
-                # precisely the class of defect Phase 22 found; a check
-                # that read a CSS value would pass against a hit area the
-                # browser does not actually award (25-02 measured
-                # `.copy-btn`'s declared 44x44 at a real 34x26). So the
-                # subjects here are: what reaches DISK with scripts
-                # blocked, what a keyboard alone can do with zero pointer
-                # events, and what the browser's own hit test and cascade
-                # answer at 360px in both themes.
+                # The radios' OWN scripts-blocked save-to-disk proof —
+                # `_the_floor_saves_to_disk_with_scripts_blocked_after_the_
+                # gate_simplifies` (CFG-64, 27-03-PLAN.md Task 3), further
+                # down this file — never depended on the map's presence
+                # and is UNCHANGED by this removal; it is the mitigation
+                # T-27-05-A names.
+                #
+                # ONE check replaces the three: the map is gone, the
+                # radios and the photographs are not — asserted as a
+                # RELATIONSHIP (D-32) rather than as three separate facts,
+                # because "the drawing is gone" alone would also pass on a
+                # card that lost the control or the pictures with it. And
+                # the touch target the map's own card used to provide is
+                # measured rather than assumed, in the control's own
+                # container, at 360px, in BOTH themes (T-27-05-B) — the
+                # box changed when the drawing came out, and nobody had
+                # re-measured it until now.
                 # ----------------------------------------------------------
 
-                def _runway_ids():
-                    return device_config.RUNWAY_IDS
-
-                # Every strip carries `transition: fill var(--motion-fast)`,
-                # so ANY sample taken right after a theme switch or a
-                # selection change reads an interpolation frame rather
-                # than the settled paint — measured, not feared: the first
-                # version of the paint check below read rgb(41, 43, 49)
-                # for a strip whose settled dark value is
-                # rgb(241, 243, 246), and reported a theme that does not
-                # invert. This waits on the Web Animations `finished`
-                # promise, the browser's OWN signal that the transition is
-                # over, and never on a timer: an element with nothing
-                # running returns an empty list and resolves at once, so
-                # this neither guesses an instant nor waits for one that
-                # will not come.
-                _SETTLE_STRIPS = (
-                    "async () => {"
-                    "  const els = [...document.querySelectorAll("
-                    "    '.runway-map__strip, .runway-map__field')];"
-                    "  await Promise.all(els.flatMap("
-                    "    e => e.getAnimations().map("
-                    "      a => a.finished.catch(() => {}))));"
-                    "  return els.length;"
-                    "}")
-
-                def _the_runway_still_saves_with_scripts_blocked_through_the_map():
+                def _the_map_is_gone_the_radios_and_photographs_remain_and_meet_their_floor():
                     base_url = harness.base_url()
+                    ids = device_config.RUNWAY_IDS
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
 
-                    def read_back():
-                        return device_config.load_device_config(
-                            harness.tmpdir)["tracked_runway"]
-
-                    before = read_back()
-                    target = next(r for r in _runway_ids() if r != before)
-                    seen = {}
-                    # BOTH SHIPPED LANGUAGES, because the UI language is a
-                    # cookie the first rendered document has to honour and
-                    # "it saves in English" is not the D-09 floor.
-                    for lang in ("en", "fr"):
-                        seen[lang] = _persist_without_js(
-                            browser, base_url, "/display", "tracked_runway",
-                            target, read_back,
-                            viewport=VIEWPORT_MIN_SUPPORTED,
-                            cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
-                                      "value": lang, "url": base_url}])
-                    after = read_back()
-                    if str(after) != str(before):
-                        return False, (
-                            "the scripts-blocked save left tracked_runway at %r, it "
-                            "started at %r — a harness that changes a real setting is a "
-                            "test that edits its neighbours' subject" % (after, before))
-                    for lang, result in seen.items():
-                        if str(result["stored"]) != str(target):
-                            return False, (
-                                "lang=%s: tracked_runway did not reach disk, it reads %r"
-                                % (lang, result["stored"]))
-                        if str(result["restored"]) != str(before):
-                            return False, (
-                                "lang=%s: the restore leg did not put %r back, disk reads "
-                                "%r" % (lang, before, result["restored"]))
-
-                    # And the map itself is really on that scripts-blocked
-                    # page — asserted AFTER the save, so it can never be
-                    # mistaken for the verdict. One map per card, every
-                    # registry entry drawn on each.
-                    n = len(_runway_ids())
-                    with _no_js_page(browser, base_url, "/display",
-                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        # THE RELATIONSHIP, IN ONE PLACE: the drawing is
+                        # gone AND the control is not AND the photographs
+                        # are not — three clauses about one rendering,
+                        # because a check that only asked the first would
+                        # pass against a card that lost everything else
+                        # with it.
                         maps = page.locator(".runway-card .runway-map").count()
-                        strips = page.locator(".runway-card .runway-map__strip").count()
-                        if maps != n:
+                        if maps != 0:
                             return False, (
-                                "expected %d maps with scripts blocked, found %d — the "
-                                "drawing is server-rendered and owes nothing to a script"
-                                % (n, maps))
-                        if strips != n * n:
+                                "expected ZERO .runway-map elements on /display after CFG-66's "
+                                "removal, found %d — the drawing is supposed to be gone" % (maps,))
+                        radios = page.locator('input[name="tracked_runway"]').count()
+                        if radios != len(ids):
                             return False, (
-                                "expected %d strips with scripts blocked, found %d"
-                                % (n * n, strips))
-                    return True, ""
-                check(
-                    "the runway still SAVES with scripts blocked through the map, at 360px and "
-                    "in BOTH shipped languages — operated natively, submitted through the real "
-                    "form, re-read FROM DISK after a fresh GET, and restored through the "
-                    "identical sequence; with the server-rendered map present on the "
-                    "scripts-blocked page itself, asserted after the save so it can never stand "
-                    "in for it (D-09/CFG-47, 25-03-PLAN.md Task 3)",
-                    _the_runway_still_saves_with_scripts_blocked_through_the_map)
+                                "expected %d tracked_runway radios, found %d — the map coming "
+                                "out must not take the control it was wrapped around with it"
+                                % (len(ids), radios))
+                        photos = page.locator(".runway-card .runway-card__image").count()
+                        if photos != len(ids):
+                            return False, (
+                                "expected %d runway photographs (.runway-card__image), found %d "
+                                "— the developer objected to the drawn map, not to the "
+                                "pictures, and this relationship must also fail if they vanish"
+                                % (len(ids), photos))
 
-                def _keyboard_only_selection_survived_the_map():
-                    base_url = harness.base_url()
-                    ids = _runway_ids()
-                    if len(ids) < 2:
-                        return False, "a radiogroup of one has no arrow-key behaviour to keep"
-                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-                    try:
-                        page = context.new_page()
-                        _login(page, base_url)
-                        page.goto(base_url + "/display")
-                        saved = str(device_config.load_device_config(
-                            harness.tmpdir)["tracked_runway"])
-                        if saved not in ids:
-                            return False, (
-                                "the saved runway %r is not in the registry — this check "
-                                "would be measuring nothing" % (saved,))
-                        start = ids.index(saved)
-                        following = ids[(start + 1) % len(ids)]
-                        selector = 'input[name="tracked_runway"][value="%s"]' % saved
-                        # THE SUBJECT IS WHETHER THE MAP BROKE IT. Arrow
-                        # keys moving selection inside a native radiogroup
-                        # is the browser's own default action, measured on
-                        # the PRE-map markup by 25-02 ('3' -> '06-24' on
-                        # one ArrowDown, zero pointer events). This plan
-                        # wrapped a drawing around that control and adds
-                        # no script, so the same sequence must give the
-                        # same answer.
-                        down = _operate_with_keyboard(page, selector, ["ArrowDown"])
-                        if down["group"] != following:
-                            return False, (
-                                "one ArrowDown from %r selected %r, expected the registry's "
-                                "next entry %r — the map broke native radiogroup navigation"
-                                % (saved, down["group"], following))
-                        if down["pointer_events"]:
-                            return False, (
-                                "a pointer event fired during the keyboard sequence: %r"
-                                % (down["pointer_events"],))
-                        if not down["recorder_proved"]:
-                            return False, (
-                                "the pointer recorder never proved itself, so the empty "
-                                "pointer-event list measured nothing")
-                        # A radiogroup wraps and returns; a control that
-                        # only ever moved forwards would pass the clause
-                        # above.
-                        back = _operate_with_keyboard(
-                            page, selector, ["ArrowDown", "ArrowDown", "ArrowUp"])
-                        if back["group"] != following:
-                            return False, (
-                                "ArrowDown/ArrowDown/ArrowUp from %r landed on %r, expected "
-                                "%r — arrow navigation moves one way only"
-                                % (saved, back["group"], following))
-                        # The selection is REAL: the strip the CSS paints
-                        # follows the live checked radio, not the saved
-                        # one. Measured through the browser's own :has()
-                        # evaluation, which is the mechanism the stylesheet
-                        # relies on.
-                        live = page.eval_on_selector_all(
-                            ".runway-card:has(input:checked) input",
-                            "els => els.map(e => e.value)")
-                        if live != [following]:
-                            return False, (
-                                "after keyboard selection the live :has(input:checked) card "
-                                "is %r, expected exactly [%r] — the paint is following the "
-                                "saved value, not the visitor's choice" % (live, following))
-
-                        # AND THE PAINT REALLY MOVED WITH IT. This is the
-                        # only state in which the feature query earns its
-                        # place: at rest the saved card is also the checked
-                        # card, so the no-:has() fallback paints the
-                        # identical thing and deleting the live rule
-                        # entirely changes NOTHING a first-paint
-                        # measurement can see — that mutation was run and
-                        # failed nothing, which is why these three samples
-                        # exist. Here the two have been pulled apart: one
-                        # card is checked, a different one is saved, and a
-                        # third is neither.
-                        if not page.evaluate(_SETTLE_STRIPS):
-                            return False, "no strip matched the settle probe"
-                        chosen = _computed_paint(
-                            page,
-                            ".runway-card:has(input:checked) "
-                            ".runway-map__strip--this", props=("fill",))["fill"]
-                        was_saved = _computed_paint(
-                            page,
-                            ".runway-card--selected:not(:has(input:checked)) "
-                            ".runway-map__strip--this", props=("fill",))["fill"]
-                        neither = _computed_paint(
-                            page,
-                            ".runway-card:not(.runway-card--selected)"
-                            ":not(:has(input:checked)) "
-                            ".runway-map__strip--this", props=("fill",))["fill"]
-                        if chosen == was_saved:
-                            return False, (
-                                "the card the keyboard chose and the card that is merely "
-                                "SAVED paint their own strip identically (%r) — the live "
-                                ":has(input:checked) rule is doing nothing, and the map is "
-                                "showing the stored value rather than the visitor's choice"
-                                % (chosen,))
-                        if was_saved != neither:
-                            return False, (
-                                "the saved-but-not-live card's strip paints %r against %r "
-                                "on a card that is neither — a saved card must fall back to "
-                                "the resting weight, or two strips claim one selection"
-                                % (was_saved, neither))
-                        return True, ""
-                    finally:
-                        context.close()
-                check(
-                    "keyboard-only selection survived the map — one ArrowDown moves the native "
-                    "radiogroup to the registry's next entry and an ArrowDown/ArrowDown/ArrowUp "
-                    "returns to it, with ZERO pointer events fired and the recorder proving "
-                    "itself, and the live :has(input:checked) card follows the keyboard choice "
-                    "rather than the saved one (CFG-47, matching 25-02's pre-map measurement)",
-                    _keyboard_only_selection_survived_the_map)
-
-                def _the_map_meets_its_floors_at_360px_in_both_themes():
-                    base_url = harness.base_url()
-                    ids = _runway_ids()
-                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-                    try:
-                        page = context.new_page()
-                        _login(page, base_url)
-                        page.goto(base_url + "/display")
-
-                        # 1. THE HIT AREA, MEASURED IN THIS CONTAINER AND
-                        # NOT INHERITED FROM A CLASS. A runway strip is
-                        # long and thin and is not the target; the wrapping
-                        # label is, and `control-density.md`'s
-                        # exempt-by-delegation category is only valid while
-                        # that label really exceeds 44px in both axes. At
-                        # 360px with three cards in one row that is not
-                        # automatic, which is why all three are measured
-                        # rather than one.
-                        hits = []
-                        for index in range(len(ids)):
-                            selector = (
-                                ".runway-row > .runway-card:nth-child(%d)" % (index + 1))
-                            hits.append(_assert_hit_target(
-                                page, selector,
-                                "the runway map's card %d of %d on /display"
-                                % (index + 1, len(ids))))
-
-                        # 2. THE DRAWING FITS THE CARD IT IS IN. The <svg>
-                        # carries intrinsic 64-user-unit width/height; a
-                        # runway card's content box at 360px is narrower
-                        # than that, so without the stylesheet's
-                        # max-width/height pair the drawing is wider than
-                        # its own card. Measured, not read off the rule.
-                        # THE COMPARISON IS AGAINST THE CARD'S CONTENT
-                        # BOX, NOT ITS BORDER BOX, AND THAT IS THE
-                        # DIFFERENCE BETWEEN A CHECK AND A DECORATION.
-                        # Measured on this tree: a runway card at 360px is
-                        # about 88px wide and carries 16px of padding on
-                        # each side plus a 1px border, so its content box
-                        # is about 54px. Comparing against the 88 lets a
-                        # 64px drawing — the map's own intrinsic size, i.e.
-                        # exactly what it renders at with the stylesheet's
-                        # max-width removed — pass while overflowing its
-                        # card by 10px. That mutation was run, passed
-                        # everything, and is the reason this reads
-                        # clientWidth minus the padding.
-                        boxes = page.eval_on_selector_all(
-                            ".runway-card .runway-map",
-                            "els => els.map(e => {"
-                            "  const r = e.getBoundingClientRect();"
-                            "  const card = e.parentElement;"
-                            "  const cs = getComputedStyle(card);"
-                            # The selected card carries transform:
-                            # scale(1.02), so its rect and the drawing's
-                            # rect are both in a scaled space while its
-                            # padding and border are not. Dividing both
-                            # rects by the card's own scale factor puts
-                            # every number in one space; clientWidth is
-                            # not usable here because it is an INTEGER,
-                            # and its rounding alone reported a 54.41px
-                            # drawing as overflowing a "53px" box.
-                            "  const k = cs.transform === 'none' ? 1"
-                            "    : (new DOMMatrixReadOnly(cs.transform).a || 1);"
-                            "  const cr = card.getBoundingClientRect();"
-                            "  const content = (cr.width / k)"
-                            "    - parseFloat(cs.paddingLeft)"
-                            "    - parseFloat(cs.paddingRight)"
-                            "    - parseFloat(cs.borderLeftWidth)"
-                            "    - parseFloat(cs.borderRightWidth);"
-                            "  const s = getComputedStyle(e);"
-                            "  return [r.width / k, r.height / k, content, s.display,"
-                            "          s.marginBottom];"
-                            "})")
-                        if len(boxes) != len(ids):
-                            return False, (
-                                "expected %d maps, measured %d" % (len(ids), len(boxes)))
-                        for width, height, card_width, display, margin in boxes:
-                            if width <= 0 or height <= 0:
-                                return False, (
-                                    "a map measured %sx%s — it has no box at all"
-                                    % (width, height))
-                            if width > card_width + 0.5:
-                                return False, (
-                                    "a map measures %.2fpx inside a %.2fpx card CONTENT "
-                                    "box — the drawing is wider than the space the card "
-                                    "has for it" % (width, card_width))
-                            if abs(width - height) > 1:
-                                return False, (
-                                    "a map measured %.2fx%.2f — the aspect-locked mark is "
-                                    "being stretched, so `height: auto` is not doing its "
-                                    "job" % (width, height))
-                            if display != "block":
-                                return False, (
-                                    "a map computes display:%s — an inline <svg> sits on a "
-                                    "text baseline and leaves a descender gap under it"
-                                    % (display,))
-                            if margin in ("0px", "", None):
-                                return False, (
-                                    "a map computes margin-bottom:%r — it would sit hard "
-                                    "against the runway name under it" % (margin,))
-
-                        # 3. THE PAGE DOES NOT SCROLL SIDEWAYS at the
-                        # narrowest supported screen. 24-02's helper, not a
-                        # second convention about what "the page" means.
                         message = _assert_no_page_overflow(
-                            page, "the runway map on /display",
+                            page, "the runway row on /display",
                             VIEWPORT_MIN_SUPPORTED["width"])
                         if message:
                             return False, message
 
-                        # 4. THE PAINT, IN BOTH THEMES, ASSERTED AS A FLOOR
-                        # AND NOT ONLY A CEILING. "Not the SVG default" is
-                        # the ceiling and passes against a drawing where
-                        # every strip is the same flat grey; the floor is
-                        # that the three states are three different paints
-                        # and that both themes are two different paints.
-                        #
-                        # SAMPLED ONLY ONCE THE BROWSER SAYS IT HAS
-                        # FINISHED, AND THIS IS NOT A PRECAUTION — IT IS
-                        # THE DEFECT THIS CHECK ALREADY CAUGHT. The strips
-                        # carry `transition: fill var(--motion-fast)`, so
-                        # switching the theme starts a 180ms transition on
-                        # every one of them; the first version of this
-                        # check read getComputedStyle immediately after
-                        # the switch and measured rgb(41, 43, 49) for a
-                        # strip whose settled dark value is
-                        # rgb(241, 243, 246) — an interpolation frame,
-                        # reported as a theme that does not invert. The
-                        # fix is the Web Animations `finished` promise,
-                        # which is the browser's OWN signal that the
-                        # transition is over, and never a timer: an
-                        # element with nothing running returns an empty
-                        # list and resolves at once, so this neither
-                        # guesses an instant nor waits for one that will
-                        # not come.
-                        samples = {
-                            "context": (
-                                ".runway-map__strip:not(.runway-map__strip--this)",
-                                "fill"),
-                            "own": (
-                                ".runway-card:not(:has(input:checked)) "
-                                ".runway-map__strip--this", "fill"),
-                            "selected": (
-                                ".runway-card:has(input:checked) "
-                                ".runway-map__strip--this", "fill"),
-                            "field": (".runway-map__field", "stroke"),
-                        }
-                        paints = []
-                        for measured in _in_both_themes(page):
-                            if not page.evaluate(_SETTLE_STRIPS):
-                                return False, (
-                                    "%s: no strip matched the settle probe, so nothing "
-                                    "below measured anything" % (measured["theme"],))
-                            sample = {}
-                            for name, (selector, prop) in samples.items():
-                                seen = _computed_paint(page, selector, props=(prop,))
-                                if prop in seen["svg_default"]:
-                                    return False, (
-                                        "%s: the %s shape's %s is %r, indistinguishable "
-                                        "from the SVG initial value — it is taking no "
-                                        "colour from the stylesheet at all"
-                                        % (measured["theme"], name, prop, seen[prop]))
-                                sample[name] = seen[prop]
-                            if sample["context"] == sample["own"]:
-                                return False, (
-                                    "%s: a context strip and this card's own strip paint "
-                                    "identically (%r) — the map marks nothing"
-                                    % (measured["theme"], sample["own"]))
-                            if sample["own"] == sample["selected"]:
-                                return False, (
-                                    "%s: the own-runway strip paints the same selected and "
-                                    "unselected (%r) — the live selected state does nothing"
-                                    % (measured["theme"], sample["own"]))
-                            paints.append((measured["theme"], sample))
-                        if len(paints) != 2:
-                            return False, "expected a measurement in each theme, got %d" % (
-                                len(paints),)
-                        light, dark = paints[0][1], paints[1][1]
-                        for name in sorted(samples):
-                            if light[name] == dark[name]:
-                                return False, (
-                                    "the %s paint is %r in BOTH themes — it is not coming "
-                                    "from a token that inverts, so one of the two themes is "
-                                    "wrong" % (name, light[name]))
-
-                        # 5. THE TRANSITION IS REAL, measured rather than
-                        # read off the rule: a theme switch must put a
-                        # running animation on the strips. Declared-but-
-                        # inert is the failure mode this phase keeps
-                        # finding, and the only thing that can tell the
-                        # difference is the browser.
-                        running = page.evaluate(
-                            "async themes => {"
-                            "  const el = document.documentElement;"
-                            "  const strips = [...document.querySelectorAll("
-                            "    '.runway-map__strip')];"
-                            "  el.setAttribute('data-ui-theme', themes[0]);"
-                            "  await Promise.all(strips.flatMap("
-                            "    e => e.getAnimations().map("
-                            "      a => a.finished.catch(() => {}))));"
-                            "  el.setAttribute('data-ui-theme', themes[1]);"
-                            # One painted frame, awaited through the
-                            # browser's own rAF callback rather than a
-                            # timer: a transition is created during the
-                            # style recalculation that precedes a paint,
-                            # so counting before one has happened counts
-                            # a transition that does not exist yet.
-                            "  await new Promise(r => requestAnimationFrame(r));"
-                            "  return strips.reduce("
-                            "    (n, e) => n + e.getAnimations().length, 0);"
-                            "}", list(UI_THEMES_EXPLICIT))
-                        if not running:
+                        # THE HIT TARGET THE MAP'S OWN CARD USED TO
+                        # PROVIDE, MEASURED RATHER THAN ASSUMED (T-27-05-B).
+                        # `.runway-row > .runway-card` is the SAME
+                        # container the retired map check measured — only
+                        # the box inside it changed, from a drawing plus a
+                        # number to a number, a photograph and a check
+                        # glyph. IN ITS OWN CONTAINER, never inherited from
+                        # a class, and in BOTH themes: a card that only
+                        # cleared the floor in one theme's box model would
+                        # still fail a visitor using the other.
+                        themes_measured = []
+                        for state in _in_both_themes(page):
+                            for index in range(len(ids)):
+                                selector = (
+                                    ".runway-row > .runway-card:nth-child(%d)" % (index + 1))
+                                _assert_hit_target(
+                                    page, selector,
+                                    "the runway card %d of %d on /display in the %s theme, "
+                                    "now that its map is gone"
+                                    % (index + 1, len(ids), state["theme"]))
+                            themes_measured.append(state["theme"])
+                        if len(themes_measured) != 2:
                             return False, (
-                                "switching the theme started no transition on any strip — "
-                                "the `transition` declared on .runway-map__strip is inert, "
-                                "so it is either dead code or the fill is not changing")
-                        _ = hits
+                                "expected a hit-target measurement in each of two themes, got "
+                                "%d (%r)" % (len(themes_measured), themes_measured))
                         return True, ""
                     finally:
                         context.close()
                 check(
-                    "the map meets its floors at 360px — every one of the runway labels clears "
-                    "the 44px touch target by real hit-testing in ITS OWN container (never "
-                    "inherited from a class), each drawing fits inside the card holding it "
-                    "without stretching, the page does not scroll sideways, and the paint is a "
-                    "FLOOR not a ceiling: context/own/selected are three different colours and "
-                    "every one of them differs between the two themes, so none is the SVG "
-                    "default and none is a literal (CFG-47, 25-03-PLAN.md Task 3)",
-                    _the_map_meets_its_floors_at_360px_in_both_themes)
+                    "CFG-66: the map is gone, the radios and the photographs are not — asserted "
+                    "as ONE relationship rather than three separate facts: zero .runway-map "
+                    "elements resolve on /display, exactly RUNWAY_IDS' own count of "
+                    "tracked_runway radios and of .runway-card__image photographs still "
+                    "resolve, the runway row does not scroll the page sideways at 360px, and "
+                    "every runway card clears the 44px hit-target floor in ITS OWN container at "
+                    "360px in BOTH themes — measured, not assumed, now that the map strip no "
+                    "longer provides the box (CFG-66/D-32/T-27-05-B, retiring CFG-47's three "
+                    "checks named in 27-05-SUMMARY.md)",
+                    _the_map_is_gone_the_radios_and_photographs_remain_and_meet_their_floor)
 
                 # ----------------------------------------------------------
                 # 25-04-PLAN.md Task 4 (CFG-48): D17's quiet-hours dial,
@@ -10680,14 +10985,20 @@ def main():
                 # arrangement this file measures is reached the way a
                 # visitor reaches it. Returns nothing; raises on failure.
                 def _set_window(page, base_url, start, end):
+                    # 27-04-PLAN.md Task 4 (CFG-63): RETARGETED from a
+                    # click on the retired .dirty-bar__save to auto-save.
+                    # MEASURED, not assumed: Playwright's own .fill()
+                    # dispatches `input` only (its documented contract),
+                    # never `change` — D-04's own trigger — so
+                    # _commit_field() fires the real event a blur would,
+                    # on each field, the same way value-controls.js's own
+                    # notify() does for a drag/keyboard interaction.
                     page.goto(base_url + "/display")
                     page.fill('input[name="quiet_hours_start"]', start)
+                    _commit_field(page, 'input[name="quiet_hours_start"]')
                     page.fill('input[name="quiet_hours_end"]', end)
-                    page.eval_on_selector(
-                        'input[name="quiet_hours_end"]',
-                        "el => el.dispatchEvent(new Event('change', {bubbles: true}))")
-                    with page.expect_navigation():
-                        page.locator(".dirty-bar__save").click()
+                    _commit_field(page, 'input[name="quiet_hours_end"]')
+                    _wait_for_saved(page)
                     stored = _quiet_hours_on_disk()
                     if stored != (start, end):
                         raise AssertionError(
@@ -10896,14 +11207,17 @@ def main():
                                 "the wrapper carries aria-valuenow; the element a keyboard "
                                 "visitor lands on is the button inside it, and two elements "
                                 "announcing one value is how the stale one gets read")
-                        # A CONTROL THAT CHANGES A VALUE WITHOUT WAKING
-                        # THE SAVE BAR LOSES THE EDIT SILENTLY.
-                        if page.locator("[data-dirty-bar]").is_hidden():
-                            return False, (
-                                "the save bar stayed hidden after a drag changed a settings "
-                                "value — the edit is lost the moment the visitor navigates")
-                        with page.expect_navigation():
-                            page.locator(".dirty-bar__save").click()
+                        # 27-04-PLAN.md Task 4 (CFG-63): RETARGETED — a
+                        # control that changes a value without notify()'s
+                        # own real `change` event used to lose the edit
+                        # silently once the save bar never woke; now the
+                        # identical event is what auto-save itself listens
+                        # for (value-controls.js's own notify() comment:
+                        # "the bubbling notification dirty-state.js's
+                        # delegated document-level listener is waiting
+                        # for" — unchanged by this plan), so the edit
+                        # reaching disk on its own IS the proof.
+                        _wait_for_saved(page)
                         recorded["dragged_stored"] = _quiet_hours_on_disk()[0]
                         if recorded["dragged_stored"] != "12:00":
                             return False, (
@@ -10942,11 +11256,26 @@ def main():
                             return False, (
                                 "Home put %r into the start field" % (recorded["after_home"],))
 
-                        # 3. A PRESET MOVES BOTH HANDLES, which is the
-                        # cheapest available proof that the two native
-                        # inputs are the ONE source of truth: the presets
-                        # write into those fields and know nothing about
-                        # this control.
+                        # 3. A PRESET MOVES BOTH HANDLES — the cheapest
+                        # available proof that the two native inputs are
+                        # the ONE source of truth: the presets write into
+                        # those fields and know nothing about this
+                        # control. (27-02-PLAN.md Task 4, CFG-71: what
+                        # used to live here as sections 3-4 — this
+                        # endpoint-only "the handles moved" claim and a
+                        # separate "the readout names the window" claim —
+                        # is SUPERSEDED by
+                        # _the_arc_the_handles_and_the_caption_agree_
+                        # after_an_interaction() below, which asserts
+                        # agreement across all four surfaces after both a
+                        # drag AND a preset, rather than four endpoint
+                        # checks that can each be individually right
+                        # while the page as a whole lies. This clause
+                        # stays, narrowed to what it alone still proves:
+                        # a preset is a SILENT script write with no
+                        # event of its own, so it is a distinct code path
+                        # from a drag and worth its own cheap proof that
+                        # both handles still follow it.
                         _set_window(page, base_url, "12:00", "13:00")
                         fractions = page.evaluate(
                             "() => [...document.querySelectorAll('[data-value-control]')]"
@@ -10967,19 +11296,6 @@ def main():
                             return False, (
                                 "a preset click moved only one handle: %r -> %r"
                                 % (fractions, moved))
-
-                        # 4. THE WRAP, END TO END IN A REAL BROWSER. The
-                        # window this device ships with, read back as
-                        # words off the rendered page.
-                        _set_window(page, base_url, "23:00", "07:00")
-                        readout = page.locator(QUIET_READOUT_SEL).inner_text()
-                        recorded["readout"] = readout
-                        if "23:00" not in readout or "07:00" not in readout:
-                            return False, "the readout %r does not name the window" % readout
-                        if not re.search(r"(?<!\d)8\s*h", readout):
-                            return False, (
-                                "the readout reads %r — 23:00 to 07:00 is EIGHT hours forward "
-                                "through midnight, and sixteen the other way" % readout)
                         # RESTORED THROUGH THE SAME UI SEQUENCE, never
                         # a direct write to the state directory — a
                         # harness that changes a real setting is a test
@@ -11003,14 +11319,236 @@ def main():
                         context.close()
                 check(
                     "dragging a quiet-hours handle changes its own native <input type=\"time\">, "
-                    "moves the announcement ON THE HANDLE rather than on the wrapper, raises the "
-                    "save bar, and PERSISTS to disk across a submit and a reload; one ArrowRight "
+                    "moves the announcement ON THE HANDLE rather than on the wrapper, and "
+                    "auto-saves to disk with no click anywhere; one ArrowRight "
                     "moves exactly one stated step and End/Home reach 23:59 and 00:00 with zero "
-                    "pointer events fired and the recorder proving itself; a preset click moves "
+                    "pointer events fired and the recorder proving itself; and a preset click moves "
                     "BOTH handles, which is what proves the two native inputs are the one source "
-                    "of truth; and 23:00→07:00 reads as eight hours in the browser "
-                    "(CFG-48, 25-04-PLAN.md Task 4)",
+                    "of truth (the arc/caption AGREEMENT claim this check used to also carry is "
+                    "superseded by "
+                    "_the_arc_the_handles_and_the_caption_agree_after_an_interaction(), CFG-71, "
+                    "27-02-PLAN.md Task 4) (CFG-48, 25-04-PLAN.md Task 4; retargeted from the "
+                    "retired save bar by 27-04-PLAN.md Task 4, CFG-63)",
                     _dragging_and_keying_a_handle_reach_disk)
+
+                # ----------------------------------------------------------
+                # 27-02-PLAN.md Task 4 (CFG-62/CFG-71/D-32): THE ONE CHECK
+                # that D17 shipped without. Three correct halves — the arc
+                # asserted correct SERVER-SIDE for the saved value, the
+                # handles asserted to MOVE, the value asserted to PERSIST —
+                # and nothing ever asserted that the arc agrees with the
+                # handles AFTER an interaction. Not four endpoint checks:
+                # ONE check whose subject is agreement between all four
+                # surfaces, covering BOTH the drag path and the preset
+                # path, using 27-01's own `_assert_surfaces_agree()`.
+                # ----------------------------------------------------------
+
+                def _quiet_surfaces(page, where):
+                    """The four surfaces `_assert_surfaces_agree()` decodes
+                    for `page`, closed over the CURRENT `where` label so
+                    every raised AssertionError names which path (drag or
+                    preset, which theme) produced it.
+                    """
+                    def native_inputs():
+                        return (
+                            config_page.quiet_window_minute_of_day(
+                                page.input_value('input[name="quiet_hours_start"]')),
+                            config_page.quiet_window_minute_of_day(
+                                page.input_value('input[name="quiet_hours_end"]')),
+                        )
+
+                    def handles_aria_valuenow():
+                        return (
+                            int(page.get_attribute(
+                                _handle_sel("quiet_hours_start"), "aria-valuenow")),
+                            int(page.get_attribute(
+                                _handle_sel("quiet_hours_end"), "aria-valuenow")),
+                        )
+
+                    def arc_resolved_geometry():
+                        return _quiet_arc_minutes(page, where)
+
+                    def caption_text():
+                        return _quiet_caption_minutes(page, where)
+
+                    # An ORDERED mapping, so a disagreement's message lists
+                    # the four surfaces in the same order a reader would
+                    # look at the card: the fields, then the handles, then
+                    # the drawing, then the sentence under it.
+                    return {
+                        "the two native <input type=\"time\"> fields": native_inputs,
+                        "the two handles' aria-valuenow": handles_aria_valuenow,
+                        "the arc's resolved geometry": arc_resolved_geometry,
+                        "the caption's text": caption_text,
+                    }
+
+                def _the_arc_the_handles_and_the_caption_agree_after_an_interaction():
+                    base_url = harness.base_url()
+                    before_on_disk = _quiet_hours_on_disk()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+
+                        # A KNOWN, DETERMINISTIC STARTING WINDOW —
+                        # 08:00-23:00 — chosen so the drag below only has
+                        # to move the END handle to reach the developer's
+                        # own recording (08:00-18:00): the start is
+                        # already right. _set_window() saves and reloads,
+                        # so this is real, on-disk state exactly like
+                        # every neighbouring dial check reaches it.
+                        #
+                        # 27-04-PLAN.md Task 4 (CFG-63): SUPERSEDES this
+                        # paragraph's own former "once, before the loop,
+                        # not inside it" instruction — that reasoning
+                        # depended on "neither the drag nor the preset
+                        # below ever clicks Save", which auto-save makes
+                        # FALSE: both value-controls.js's own notify()
+                        # (the drag) and dirty-state.js's preset handler
+                        # now fire a real `change` that saves to disk
+                        # immediately, same as every other committing
+                        # interaction in this app. So the baseline is
+                        # reset INSIDE the loop instead, once per theme,
+                        # or the second iteration would start from
+                        # whatever the FIRST iteration's own preset left
+                        # on disk (23:00-07:00) rather than the known
+                        # 08:00-23:00 this check's own arithmetic assumes.
+                        for theme in UI_THEMES_EXPLICIT:
+                            _set_window(page, base_url, "08:00", "23:00")
+                            _set_ui_theme(page, theme)
+
+                            # 1. THE DRAG PATH. Aimed at nine o'clock on the
+                            # ring, which is 18:00 — the same
+                            # scroll-into-view-first, box-relative aiming
+                            # `_dragging_and_keying_a_handle_reach_disk()`
+                            # above already uses and for the same reason
+                            # (the page is long and its tab bar is fixed to
+                            # the bottom at this viewport).
+                            page.eval_on_selector(
+                                QUIET_DIAL_SEL, "el => el.scrollIntoView({block: 'center'})")
+                            box = page.evaluate(
+                                "sel => { const r = document.querySelector(sel)"
+                                "  .getBoundingClientRect();"
+                                "  return [r.left + r.width / 2, r.top + r.height / 2,"
+                                "          r.width, r.height]; }", QUIET_DIAL_SEL)
+                            grip = page.evaluate(
+                                "sel => { const r = document.querySelector(sel)"
+                                "  .getBoundingClientRect();"
+                                "  return [r.left + r.width / 2, r.top + r.height / 2]; }",
+                                _handle_sel("quiet_hours_end"))
+                            page.mouse.move(grip[0], grip[1])
+                            page.mouse.down()
+                            if not page.evaluate(
+                                    "sel => document.activeElement"
+                                    "  === document.querySelector(sel)",
+                                    _handle_sel("quiet_hours_end")):
+                                page.mouse.up()
+                                return False, (
+                                    "%s: a pointer-down at the end handle's own centre (%r, dial "
+                                    "box %r) did not reach the steering script"
+                                    % (theme, grip, box))
+                            page.mouse.move(box[0] - box[2] / 2 + 8, box[1], steps=8)
+                            page.mouse.up()
+                            dragged_end = page.input_value('input[name="quiet_hours_end"]')
+                            recorded["%s/dragged_end" % theme] = dragged_end
+                            if dragged_end != "18:00":
+                                return False, (
+                                    "%s: dragging the end handle to nine o'clock on the ring put "
+                                    "%r into quiet_hours_end; nine o'clock on this 24h dial is "
+                                    "18:00" % (theme, dragged_end))
+
+                            requested_drag = (8 * 60, 18 * 60)
+                            before_drag = (8 * 60, 23 * 60)
+                            agreed_drag = _assert_surfaces_agree(
+                                page, _quiet_surfaces(page, "%s theme, drag path" % theme),
+                                requested_drag, before_drag,
+                                "%s theme, drag path" % theme)
+                            recorded["%s/drag" % theme] = agreed_drag
+
+                            # 2. THE PRESET PATH, from wherever the drag
+                            # above left the pair. Both paths were reported
+                            # working for the handles and broken for the
+                            # arc, so both belong to the SAME agreement
+                            # assertion — two separate checks would
+                            # re-create the very split this phase exists to
+                            # close.
+                            page.locator('[data-preset-start="23:00"]').click()
+                            requested_preset = (23 * 60, 7 * 60)
+                            agreed_preset = _assert_surfaces_agree(
+                                page, _quiet_surfaces(page, "%s theme, preset path" % theme),
+                                requested_preset, requested_drag,
+                                "%s theme, preset path" % theme)
+                            recorded["%s/preset" % theme] = agreed_preset
+
+                        # 3. THE SCRIPTS-BLOCKED HALF. 27-04-PLAN.md
+                        # (CFG-63): SUPERSEDES this paragraph's own former
+                        # claim that neither interaction above reaches
+                        # disk — under auto-save, the PRESET path's own
+                        # commit is the last thing either loop iteration
+                        # does, so disk now holds whatever that preset
+                        # last wrote (23:00-07:00), not the 08:00-23:00
+                        # baseline. `saved` below is read FRESH, right
+                        # here, so it already reflects that correctly —
+                        # only this comment's account was stale. A FRESH,
+                        # scripts-blocked load must still draw whatever
+                        # window is actually saved, from the presentation
+                        # attributes alone.
+                        saved = _quiet_hours_on_disk()
+                        saved_minutes = (
+                            config_page.quiet_window_minute_of_day(saved[0]),
+                            config_page.quiet_window_minute_of_day(saved[1]))
+                        with _no_js_page(browser, base_url, "/display",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as no_js_page:
+                            dash_attr = no_js_page.get_attribute(QUIET_ARC_SEL, "stroke-dasharray")
+                            transform_attr = no_js_page.get_attribute(QUIET_ARC_SEL, "transform")
+                            if not dash_attr or not transform_attr:
+                                return False, (
+                                    "scripts-blocked: the arc is missing stroke-dasharray/"
+                                    "transform (%r, %r) — the no-JS floor requires the server-"
+                                    "drawn presentation attributes to be present with no script "
+                                    "running at all" % (dash_attr, transform_attr))
+                            static_minutes = _quiet_arc_minutes(
+                                no_js_page, "scripts-blocked, no .js override in force")
+                        recorded["scripts_blocked"] = (saved, static_minutes)
+                        if static_minutes != saved_minutes:
+                            return False, (
+                                "scripts-blocked: the arc's presentation attributes decode to %r, "
+                                "but the saved window on disk is %r (%r) — the server-rendered arc "
+                                "must stay authoritative for the saved value with no script "
+                                "running at all" % (static_minutes, saved_minutes, saved))
+
+                        # RESTORED THROUGH THE SAME UI SEQUENCE, never a
+                        # direct write to the state directory.
+                        _set_window(page, base_url, before_on_disk[0], before_on_disk[1])
+                        if _quiet_hours_on_disk() != before_on_disk:
+                            return False, (
+                                "this check left the window at %r; it started at %r"
+                                % (_quiet_hours_on_disk(), before_on_disk))
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        try:
+                            _set_window(page, base_url, before_on_disk[0], before_on_disk[1])
+                        except Exception:
+                            pass
+                        context.close()
+                check(
+                    "THE arc/handles/caption agreement check (CFG-62/CFG-71/D-32, "
+                    "27-02-PLAN.md Task 4): in BOTH themes, after dragging the end handle to "
+                    "reach the developer's own recorded window (08:00→18:00) AND, in the "
+                    "same check, after pressing a preset (23:00→07:00, the wrap through "
+                    "midnight) from wherever the drag left it, all FOUR surfaces — the two "
+                    "native <input type=\"time\"> fields, the two handles' aria-valuenow, the "
+                    "arc's RESOLVED geometry (read back through getComputedStyle, not the "
+                    "static attribute), and the caption's own text — decode to the SAME "
+                    "canonical (start_minute, end_minute) pair, which equals what the "
+                    "interaction requested and differs from what was there before; separately, "
+                    "with scripts blocked, the arc still carries both presentation attributes "
+                    "and they still decode to whatever window is actually saved on disk — under "
+                    "auto-save that is the preset's own commit, read fresh rather than assumed "
+                    "(27-04-PLAN.md Task 4, CFG-63)",
+                    _the_arc_the_handles_and_the_caption_agree_after_an_interaction)
 
                 def _the_dial_meets_its_floors_at_360px_in_both_themes():
                     base_url = harness.base_url()
@@ -11336,21 +11874,24 @@ def main():
                 # arrangement measured below is reached the way a visitor
                 # reaches it. Raises on failure.
                 def _set_interval(page, base_url, seconds):
-                    # IDEMPOTENT, AND THAT IS NOT A CONVENIENCE. The save
-                    # bar only exists while the form differs from what
-                    # was loaded, so "set it to what it already is"
-                    # renders no Save control at all and a click on one
-                    # waits thirty seconds for an element that is
-                    # correctly absent. Measured here the hard way.
+                    # 27-04-PLAN.md Task 4 (CFG-63): RETARGETED from a
+                    # click on the retired .dirty-bar__save to auto-save.
+                    # MEASURED, not assumed: Playwright's own .fill()
+                    # dispatches `input` only (its documented contract),
+                    # never `change` — D-04's own trigger — so
+                    # _commit_field() fires the real event a blur would.
+                    #
+                    # IDEMPOTENT, still not a mere convenience: "set it to
+                    # what it already is" fires no `change` at all (the
+                    # value never differs), so auto-save never begins and
+                    # _wait_for_saved() below would wait out its own
+                    # timeout for a save that correctly never happens.
                     page.goto(base_url + "/device")
                     if _wake_interval_on_disk() == seconds:
                         return
                     page.fill(WAKE_NUMBER_SEL, str(seconds))
-                    page.eval_on_selector(
-                        WAKE_NUMBER_SEL,
-                        "el => el.dispatchEvent(new Event('change', {bubbles: true}))")
-                    with page.expect_navigation():
-                        page.locator(".dirty-bar__save").click()
+                    _commit_field(page, WAKE_NUMBER_SEL)
+                    _wait_for_saved(page)
                     stored = _wake_interval_on_disk()
                     if stored != seconds:
                         raise AssertionError(
@@ -11610,14 +12151,13 @@ def main():
                                 "the battery gauge produced a days figure (%r) from a rising "
                                 "series — the per-wake energy cost has never been measured and "
                                 "the script has no template that could state one" % moved[1])
-                        # A CONTROL THAT CHANGES A VALUE WITHOUT WAKING
-                        # THE SAVE BAR LOSES THE EDIT SILENTLY.
-                        if page.locator("[data-dirty-bar]").is_hidden():
-                            return False, (
-                                "the save bar stayed hidden after a drag changed a settings "
-                                "value — the edit is lost the moment the visitor navigates")
-                        with page.expect_navigation():
-                            page.locator(".dirty-bar__save").click()
+                        # 27-04-PLAN.md Task 4 (CFG-63): RETARGETED — see
+                        # the identical comment on the quiet-hours dial's
+                        # own drag check: value-controls.js's notify() is
+                        # the same real `change` event auto-save's own
+                        # document-level listener already reacts to, so
+                        # the edit reaching disk on its own IS the proof.
+                        _wait_for_saved(page)
                         recorded["dragged_stored"] = _wake_interval_on_disk()
                         if recorded["dragged_stored"] != dragged_s:
                             return False, (
@@ -11716,8 +12256,8 @@ def main():
                         context.close()
                 check(
                     "dragging the wake-interval range moves the native <input type=\"number\"> "
-                    "the form posts, moves BOTH gauge sentences with it, raises the save bar and "
-                    "PERSISTS to disk across a submit and a reload — with the script's own "
+                    "the form posts, moves BOTH gauge sentences with it, and auto-saves to disk "
+                    "with no click anywhere — with the script's own "
                     "wording asserted EQUAL to the server's for the same two cadences, so the "
                     "script provably carries no copy of its own; one ArrowRight moves exactly "
                     "one stated step and End/Home reach device_config's own ceiling and floor "
@@ -11725,7 +12265,8 @@ def main():
                     "the number input moves the range back; and at no position — dragged, keyed, "
                     "at the floor or at the ceiling — does the battery gauge produce a days "
                     "figure from this fixture's RISING series (CFG-49/CFG-52/T-25-05-C, "
-                    "25-05-PLAN.md Task 3)",
+                    "25-05-PLAN.md Task 3; retargeted from the retired save bar by 27-04-PLAN.md "
+                    "Task 4, CFG-63)",
                     _dragging_and_keying_the_range_reach_disk)
 
                 def _the_slider_meets_its_floors_at_360px_in_both_themes():
@@ -11945,6 +12486,59 @@ def main():
                     "  return els.length;"
                     "}")
 
+                # 27-07-PLAN.md Task 2 (CFG-68): _STRIP_PROBE above
+                # hardcodes `input[name="theme"]` for its "checked"
+                # field and resolves `sels.details` with a bare
+                # `document.querySelector` — both fine with exactly one
+                # carousel on the page, and both WRONG now that
+                # arrivals and calendar have their own. This variant
+                # takes the field name as a parameter and resolves the
+                # details element by walking UP from the strip to its
+                # OWN `.theme-carousel` ancestor first — the same
+                # per-instance scoping style.css's :has() rule uses —
+                # so it can never read a SIBLING carousel's disclosure
+                # state by accident.
+                _CAROUSEL_INSTANCE_PROBE = (
+                    "sels => {"
+                    "  const s = document.querySelector(sels.strip);"
+                    "  if (!s) return {error: 'no-strip'};"
+                    "  const carousel = s.closest('.theme-carousel');"
+                    "  if (!carousel) return {error: 'no-carousel'};"
+                    "  const d = carousel.querySelector('.theme-carousel__all');"
+                    "  const chips = [...s.querySelectorAll('.theme-chip')];"
+                    "  const sr = s.getBoundingClientRect();"
+                    "  const cs = getComputedStyle(s);"
+                    "  const tops = chips.map("
+                    "    c => Math.round(c.getBoundingClientRect().top));"
+                    "  return {chips: chips.length,"
+                    "          scroll: [s.scrollWidth, s.clientWidth],"
+                    "          box: [sr.width, sr.height],"
+                    "          wrap: cs.flexWrap, overflow: cs.overflowX,"
+                    "          snap: cs.scrollSnapType,"
+                    "          rows: new Set(tops).size,"
+                    "          spread: Math.max(...tops) - Math.min(...tops),"
+                    "          open: d ? d.open : null,"
+                    "          checked: [...document.querySelectorAll("
+                    "            'input[name=\"' + sels.field + '\"]')].filter("
+                    "              e => e.checked).map(e => e.value)};"
+                    "}")
+
+                # Opens (or closes, if already open) ONE carousel's OWN
+                # disclosure, resolved the same way — up from ITS strip
+                # to ITS `.theme-carousel`, never a bare class selector
+                # that would hit whichever carousel happens to be first
+                # in document order.
+                _TOGGLE_OWN_DISCLOSURE = (
+                    "sel => {"
+                    "  const s = document.querySelector(sel);"
+                    "  const carousel = s && s.closest('.theme-carousel');"
+                    "  const summary = carousel && carousel.querySelector("
+                    "    '.theme-carousel__all summary');"
+                    "  if (!summary) return {error: 'no-summary'};"
+                    "  summary.click();"
+                    "  return {ok: true};"
+                    "}")
+
                 # --- 25-06-PLAN.md Task 1 (CFG-50): the number this
                 # plan is judged against, taken before there was any
                 # incentive to like it. See _display_page_height() for
@@ -12157,6 +12751,634 @@ def main():
                     "(CFG-50/D-09, 25-06-PLAN.md Task 4)",
                     _the_theme_still_saves_with_scripts_blocked_through_the_carousel)
 
+                # --- 27-07-PLAN.md Task 2 (CFG-68): arrivals and
+                # calendar fold the same way, and the arrivals grid gets
+                # this plan's OWN scripts-blocked save proof — the
+                # <no_js_floor> in 27-07-PLAN.md requires proving the
+                # fold did not trap a no-JS reader, not merely that it
+                # renders. ------------------------------------------
+
+                def _arrivals_still_saves_with_scripts_blocked_through_its_own_carousel():
+                    base_url = harness.base_url()
+
+                    def read_back():
+                        return device_config.load_device_config(
+                            harness.tmpdir).get("theme_arriving")
+
+                    original_arriving = read_back()
+                    # SEED A KNOWN, NON-NONE STARTING VALUE, through the
+                    # validated server API (never a raw file write).
+                    # theme_arriving's valid value set includes None
+                    # ("Same as departures"), and _persist_once()'s own
+                    # "stored is None" guard exists to catch a control
+                    # that saves NOTHING — it cannot tell that apart
+                    # from a deliberate restore-to-None, so starting
+                    # from None would make _persist_without_js()'s own
+                    # restore leg raise against a CORRECT outcome.
+                    # Cleared back to None (via CLEAR_THEME_ARRIVING) as
+                    # this check's LAST act if that is where it started.
+                    current_theme = device_config.load_device_config(
+                        harness.tmpdir)["theme"]
+                    seed = next(
+                        t for t in device_config.THEME_IDS if t != current_theme)
+                    device_config.save_device_config(harness.tmpdir, theme_arriving=seed)
+                    before = read_back()
+                    if before != seed:
+                        return False, (
+                            "the seeded theme_arriving did not read back as written: %r"
+                            % (before,))
+                    target = next(t for t in device_config.THEME_IDS if t != before)
+
+                    try:
+                        seen = {}
+                        for lang in ("en", "fr"):
+                            seen[lang] = _persist_without_js(
+                                browser, base_url, "/display", "theme_arriving", target,
+                                read_back, viewport=VIEWPORT_MIN_SUPPORTED,
+                                cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
+                                          "value": lang, "url": base_url}])
+                        after = read_back()
+                        if str(after) != str(before):
+                            return False, (
+                                "the scripts-blocked save left theme_arriving at %r, it "
+                                "started (seeded) at %r — a harness that changes a real "
+                                "setting edits its neighbours' subject" % (after, before))
+                        for lang, result in seen.items():
+                            if str(result["stored"]) != str(target):
+                                return False, (
+                                    "lang=%s: theme_arriving did not reach disk, it reads %r"
+                                    % (lang, result["stored"]))
+                            if str(result["restored"]) != str(before):
+                                return False, (
+                                    "lang=%s: the restore leg did not put %r back, disk "
+                                    "reads %r" % (lang, before, result["restored"]))
+
+                        strip_sel = "#" + config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS
+                        # theme_count real chips PLUS the leading "Same
+                        # as departures" placeholder chip (D-09) — the
+                        # one structural difference from the departures
+                        # proof this check otherwise mirrors.
+                        arrivals_chip_count = len(device_config.THEME_IDS) + 1
+                        with _no_js_page(browser, base_url, "/display",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                            shut = page.evaluate(
+                                _CAROUSEL_INSTANCE_PROBE,
+                                {"strip": strip_sel, "field": "theme_arriving"})
+                            if shut.get("error"):
+                                return False, (
+                                    "no arrivals strip on the scripts-blocked page at all: %r"
+                                    % (shut,))
+                            if shut["chips"] != arrivals_chip_count:
+                                return False, (
+                                    "the scripts-blocked arrivals strip holds %d chips, "
+                                    "expected %d (every theme plus the leading chip) — every "
+                                    "chip is server-rendered and owes nothing to a script"
+                                    % (shut["chips"], arrivals_chip_count))
+                            if shut["scroll"][0] <= shut["scroll"][1]:
+                                return False, (
+                                    "the arrivals strip's scrollWidth (%s) does not exceed "
+                                    "its clientWidth (%s) with scripts blocked — it is not "
+                                    "overflowing, so it is not a strip and there is nothing "
+                                    "to scroll" % tuple(shut["scroll"]))
+                            if shut["spread"] > 2:
+                                return False, (
+                                    "the arrivals chips sit on %d rows spread over %dpx with "
+                                    "the disclosure shut — a strip is one row"
+                                    % (shut["rows"], shut["spread"]))
+
+                            opened_ok = page.evaluate(_TOGGLE_OWN_DISCLOSURE, strip_sel)
+                            if opened_ok.get("error"):
+                                return False, (
+                                    "could not find the arrivals carousel's own disclosure "
+                                    "summary to click")
+                            opened = page.evaluate(
+                                _CAROUSEL_INSTANCE_PROBE,
+                                {"strip": strip_sel, "field": "theme_arriving"})
+                            if not opened["open"]:
+                                return False, (
+                                    "clicking the arrivals summary with scripts blocked did "
+                                    "not open its own disclosure")
+                            if opened["wrap"] != "wrap" or opened["spread"] <= 2:
+                                return False, (
+                                    "the arrivals disclosure opened and its strip is still "
+                                    "one row (flex-wrap %r, chips spread over %dpx)"
+                                    % (opened["wrap"], opened["spread"]))
+                            if opened["chips"] != shut["chips"]:
+                                return False, (
+                                    "the open arrivals grid holds %d chips and the shut "
+                                    "strip held %d — they are the SAME radios and must be"
+                                    % (opened["chips"], shut["chips"]))
+
+                            message = _assert_no_page_overflow(
+                                page, "the arrivals carousel on /display with scripts blocked",
+                                VIEWPORT_MIN_SUPPORTED["width"])
+                            if message:
+                                return False, message
+                        return True, ""
+                    finally:
+                        # LAST ACT: put theme_arriving back exactly
+                        # where this check found it, through the SAME
+                        # validated server API it was seeded with.
+                        if original_arriving is None:
+                            device_config.save_device_config(
+                                harness.tmpdir,
+                                theme_arriving=device_config.CLEAR_THEME_ARRIVING)
+                        else:
+                            device_config.save_device_config(
+                                harness.tmpdir, theme_arriving=original_arriving)
+                        final = read_back()
+                        if final != original_arriving:
+                            raise AssertionError(
+                                "restoring theme_arriving failed: wanted %r, disk reads %r"
+                                % (original_arriving, final))
+                check(
+                    "the arrivals grid — the first grid this plan newly folds — still SAVES "
+                    "with scripts blocked through ITS OWN carousel, at 360px and in BOTH "
+                    "shipped languages — operated natively, submitted through the real form, "
+                    "re-read FROM DISK after a fresh GET and restored the same way (seeded "
+                    "through the validated save_device_config() API rather than a raw file "
+                    "write, since theme_arriving's own None state would otherwise defeat the "
+                    "shared helper's stored-is-None save-floor guard) — and on that same "
+                    "scripts-blocked page every chip (theme count plus the leading 'Same as "
+                    "departures' one) is present, the strip really overflows and really is ONE "
+                    "row, and its OWN <details> (resolved by walking up from ITS strip, never "
+                    "a bare class selector that could hit a sibling carousel) OPENS on a click "
+                    "and turns that one row into a real grid holding the same chips, with the "
+                    "page not scrolling sideways (CFG-68, 27-07-PLAN.md Task 2)",
+                    _arrivals_still_saves_with_scripts_blocked_through_its_own_carousel)
+
+                def _each_carousels_own_disclosure_toggles_only_its_own_strip():
+                    # 27-07-PLAN.md Task 2 (CFG-68), standing constraint
+                    # 3: a shared/page-wide id (the very trap Task 1
+                    # closed) would make one carousel's [open] state
+                    # leak into a SIBLING's strip. style.css's fix is a
+                    # :has() rule scoped to each strip's OWN
+                    # .theme-carousel ancestor (see that rule's own
+                    # comment) — this is the proof that the scoping
+                    # actually holds in a real browser, not merely that
+                    # the selector text looks right.
+                    base_url = harness.base_url()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        page.wait_for_load_state("networkidle")
+                        strips = {
+                            "departures": THEME_STRIP_SEL,
+                            "arrivals": "#" + config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS,
+                            "calendar": "#" + config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR,
+                        }
+                        for opened_usage, opened_sel in strips.items():
+                            opened_ok = page.evaluate(_TOGGLE_OWN_DISCLOSURE, opened_sel)
+                            if opened_ok.get("error"):
+                                return False, (
+                                    "usage=%r: no disclosure summary found to open"
+                                    % opened_usage)
+                            wraps = page.evaluate(
+                                "sels => Object.fromEntries("
+                                "  Object.entries(sels).map(([k, sel]) => {"
+                                "    const s = document.querySelector(sel);"
+                                "    return [k, s ? getComputedStyle(s).flexWrap : null];"
+                                "  }))", strips)
+                            for usage, wrap in wraps.items():
+                                if usage == opened_usage:
+                                    if wrap != "wrap":
+                                        return False, (
+                                            "with %r's own disclosure OPEN, its own strip's "
+                                            "flex-wrap reads %r, expected 'wrap' — opening "
+                                            "the disclosure did not lay the grid out at all"
+                                            % (usage, wrap))
+                                elif wrap != "nowrap":
+                                    return False, (
+                                        "opening %r's own disclosure changed %r's strip "
+                                        "flex-wrap to %r (expected it to stay 'nowrap') — "
+                                        "one carousel's [open] state is leaking into a "
+                                        "sibling's layout, which is exactly what a shared/"
+                                        "page-wide id would cause" % (opened_usage, usage, wrap))
+                            # Close it again before the next usage, so
+                            # every usage is tested from the same shut
+                            # baseline.
+                            page.evaluate(_TOGGLE_OWN_DISCLOSURE, opened_sel)
+                        message = _assert_no_page_overflow(
+                            page, "the Display page with each carousel disclosure opened in "
+                            "turn", VIEWPORT_MIN_SUPPORTED["width"])
+                        if message:
+                            return False, message
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "each of the three carousels' own <details> toggles ONLY its own strip's "
+                    "flex-wrap — opened one at a time (departures, arrivals, calendar), the "
+                    "OPENED carousel's own strip reads flex-wrap: wrap while BOTH other "
+                    "strips stay flex-wrap: nowrap, proving style.css's :has() scoping (each "
+                    "rule matched against its OWN .theme-carousel ancestor, never a shared id) "
+                    "holds in a real browser — the exact failure a shared/page-wide strip id "
+                    "would cause — and the page never scrolls sideways at 360px with any "
+                    "carousel open (CFG-68, 27-07-PLAN.md Task 2)",
+                    _each_carousels_own_disclosure_toggles_only_its_own_strip)
+
+                def _arrivals_and_calendar_keep_the_focused_chip_in_view_when_keyed():
+                    # 27-07-PLAN.md Task 2 (CFG-68), standing constraint
+                    # 2: 25-06/27-04's own "the selected chip stays
+                    # inside the strip" proof
+                    # (_keying_the_strip_selects_scrolls_into_view_and_
+                    # moves_the_preview, below) was written against
+                    # DEPARTURES alone. Extending the carousel to two
+                    # more grids means the SAME scroll-padding-right
+                    # mechanism has to hold for strips this plan just
+                    # created — a missing modifier or an id mix-up on a
+                    # NEW strip would not show up in a departures-only
+                    # check at all.
+                    base_url = harness.base_url()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    fields = (
+                        ("theme_arriving", config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS,
+                         config_page.COLOUR_USAGE_ARRIVALS),
+                        ("calendar_theme_id", config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR,
+                         config_page.COLOUR_USAGE_CALENDAR),
+                    )
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        page.wait_for_load_state("networkidle")
+                        for field, strip_id, usage in fields:
+                            strip_sel = "#" + strip_id
+
+                            def read_back(field=field):
+                                return device_config.load_device_config(
+                                    harness.tmpdir).get(field)
+
+                            # theme-preview.js COLLAPSES every usage
+                            # panel except the checked colour_usage one
+                            # (departures, by default) — a display:none
+                            # element cannot take focus, so a keyboard
+                            # check on arrivals/calendar has to select
+                            # that usage row FIRST, exactly what a real
+                            # visitor clicking "Arrivals"/"Calendar
+                            # flights" in the same radiogroup above
+                            # would do. colour_usage itself is never
+                            # submitted (no form= attribute — see
+                            # _frame_colours_card_html()'s own
+                            # docstring), so this is pure client-side
+                            # state and needs no restore of its own.
+                            _click_control(
+                                page, 'input[name="%s"][value="%s"]'
+                                % (config_page.COLOUR_USAGE_FIELD_NAME, usage))
+
+                            saved = read_back()
+                            saved_str = "" if saved is None else str(saved)
+                            selector = 'input[name="%s"][value="%s"]' % (field, saved_str)
+                            for steps in (1, 6):
+                                seen = _operate_with_keyboard(
+                                    page, selector, ["ArrowDown"] * steps)
+                                if seen["pointer_events"]:
+                                    return False, (
+                                        "field=%r: a pointer event fired during the keyboard "
+                                        "sequence: %r" % (field, seen["pointer_events"]))
+                                box = page.evaluate(
+                                    "sel => {"
+                                    "  const s = document.querySelector(sel);"
+                                    "  const a = document.activeElement;"
+                                    "  const chip = a.closest ? a.closest('.theme-chip') : "
+                                    "    null;"
+                                    "  if (!chip) return {error: 'no-chip'};"
+                                    "  const c = chip.getBoundingClientRect();"
+                                    "  const r = s.getBoundingClientRect();"
+                                    "  return {left: c.left - r.left, "
+                                    "          right: r.right - c.right, value: a.value};"
+                                    "}", strip_sel)
+                                if box.get("error"):
+                                    return False, (
+                                        "field=%r: after %d ArrowDown(s) the focused element "
+                                        "is not inside a chip at all" % (field, steps))
+                                if box["left"] < -1 or box["right"] < -1:
+                                    return False, (
+                                        "field=%r: after %d ArrowDown(s) the selected chip "
+                                        "%r sits %.1fpx past the strip's left edge and "
+                                        "%.1fpx past its right — this strip's own "
+                                        "scroll-padding-right is not doing its job"
+                                        % (field, steps, box["value"],
+                                           -min(box["left"], 0), -min(box["right"], 0)))
+                            # RESTORE, through the same UI sequence, as
+                            # the LAST act for this field — every
+                            # keyboard commit above genuinely auto-saved
+                            # (27-04-PLAN.md Task 4, CFG-63).
+                            _click_control(page, selector)
+                            _wait_for_saved(page)
+                            restored = read_back()
+                            restored_str = "" if restored is None else str(restored)
+                            if restored_str != saved_str:
+                                return False, (
+                                    "field=%r: this check left the stored value at %r; it "
+                                    "started at %r" % (field, restored, saved))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "arrivals' and calendar's own carousels keep the keyboard-selected chip "
+                    "fully inside THEIR OWN strip — each usage panel un-collapsed first via "
+                    "its own colour_usage radio (exactly what a real visitor would click; "
+                    "colour_usage itself is never submitted, so this is pure client state "
+                    "needing no restore), then one and six ArrowDowns each, with zero pointer "
+                    "events, the same scroll-padding-right proof 25-06/27-04 ran against "
+                    "departures alone, generalised to the two grids this plan folds — and both "
+                    "theme fields are restored to their starting value through the same "
+                    "keyboard/save sequence as the LAST act, since keyboard selection commits "
+                    "(CFG-68, 27-07-PLAN.md Task 2)",
+                    _arrivals_and_calendar_keep_the_focused_chip_in_view_when_keyed)
+
+                # --- 27-03-PLAN.md Task 3 (CFG-64) -----------------------
+
+                def _the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies():
+                    """CFG-64: 27-03-PLAN.md Task 2 reverted the
+                    fallback-hide rule from the two-marker
+                    `.dirty-ready.dirty-shown` gate to the plain `.js`
+                    gate 06.6.4.1-01 originally shipped. This is the
+                    proof that the floor UNDER that change still holds —
+                    a value on DISK, never a rendering — using
+                    tracked_runway, the same field and the same
+                    form="settings-form" mutation 25-03's own M20
+                    recorded (25-03-SUMMARY.md), because the subject
+                    under test is the identical no-JS save path, now
+                    reached through a simplified gate rather than a
+                    proven-live save bar.
+
+                    Unlike 25-03's own check, which corroborates with the
+                    runway MAP's presence, this one asserts the SUBMIT
+                    itself — the element the simplified gate actually
+                    governs — is present and VISIBLE AFTER the save. A
+                    check that only asked whether it renders would pass
+                    against the exact defect Phase 22's P0 found; a check
+                    that only asked whether it renders would ALSO pass
+                    against a submit whose value never reaches disk. This
+                    check carries both facts about the one relationship
+                    that matters, deliberately never split into two.
+                    """
+                    base_url = harness.base_url()
+
+                    def read_back():
+                        return device_config.load_device_config(
+                            harness.tmpdir)["tracked_runway"]
+
+                    before = read_back()
+                    target = next(r for r in device_config.RUNWAY_IDS if r != before)
+                    seen = {}
+                    # BOTH SHIPPED LANGUAGES, at the 360px floor: the UI
+                    # language is a cookie the FIRST rendered document
+                    # already has to honour, and "it saves in English" is
+                    # not the D-09 floor.
+                    for lang in ("en", "fr"):
+                        seen[lang] = _persist_without_js(
+                            browser, base_url, "/display", "tracked_runway",
+                            target, read_back, viewport=VIEWPORT_MIN_SUPPORTED,
+                            cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
+                                      "value": lang, "url": base_url}])
+                    after = read_back()
+                    if str(after) != str(before):
+                        return False, (
+                            "the scripts-blocked save left tracked_runway at %r, it started at "
+                            "%r — a harness that changes a real setting is a test that edits "
+                            "its neighbours' subject" % (after, before))
+                    for lang, result in seen.items():
+                        if str(result["stored"]) != str(target):
+                            return False, (
+                                "lang=%s: tracked_runway did not reach disk, it reads %r"
+                                % (lang, result["stored"]))
+                        if str(result["restored"]) != str(before):
+                            return False, (
+                                "lang=%s: the restore leg did not put %r back, disk reads %r"
+                                % (lang, before, result["restored"]))
+
+                    # AND THE SUBMIT ITSELF, ASSERTED AFTER THE SAVE
+                    # ABOVE — never before, and never in its place. A
+                    # rendering can never stand in for the save this
+                    # check just proved.
+                    with _no_js_page(browser, base_url, "/display",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        submit = page.locator(
+                            "[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
+                        if submit.count() != 1:
+                            return False, (
+                                "expected exactly one fallback submit with scripts blocked "
+                                "AFTER the save above, found %d" % submit.count())
+                        if not submit.is_visible():
+                            return False, (
+                                "the fallback submit rendered but is not VISIBLE with scripts "
+                                "blocked after the save — this is precisely the shape Phase "
+                                "22's P0 took")
+                    return True, ""
+                check(
+                    "the no-JS floor still SAVES TO DISK after the gate simplifies to the "
+                    "plain .js rule (CFG-64) — tracked_runway operated natively, submitted "
+                    "through the real form, re-read FROM DISK after a fresh GET, in BOTH "
+                    "shipped languages, at 360px, restored as the last act (the same field and "
+                    "mutation 25-03's own M20 recorded) — and the data-static-save-fallback "
+                    "submit is present and VISIBLE on that scripts-blocked page AFTER the save, "
+                    "so a rendering can never stand in for it (CFG-64, 27-03-PLAN.md Task 3)",
+                    _the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies)
+
+                # ==========================================================
+                # 27-04-PLAN.md Task 4 (CFG-63/CFG-71): THE two checks —
+                # a scripted save proven on disk, and its failure proven
+                # honest. Two endpoints (a DOM read and a disk read) are
+                # not a relationship; this plan's whole discipline is to
+                # assert them as ONE.
+                # ==========================================================
+
+                def _the_save_settles_the_field_the_region_and_disk_agree():
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        base_url = harness.base_url()
+                        page.goto(base_url + "/display")
+
+                        # No visible save button anywhere on the page under
+                        # script — the plan's own objective, checked as a
+                        # precondition rather than assumed.
+                        for selector in ("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR,
+                                         ".dirty-bar__save", ".dirty-bar__cancel",
+                                         "[data-dirty-bar]"):
+                            loc = page.locator(selector)
+                            if loc.count() and loc.first.is_visible():
+                                return False, (
+                                    "expected no visible save affordance at %r before any edit"
+                                    % (selector,))
+
+                        before = str(device_config.load_device_config(
+                            harness.tmpdir)["tracked_runway"])
+                        target = next(
+                            r for r in device_config.RUNWAY_IDS if r != before)
+
+                        # The MutationObserver is armed BEFORE the edit, so
+                        # the ordering assertion below cannot be satisfied
+                        # by a region that only ever shows the end state —
+                        # that cannot be distinguished from one that lies.
+                        page.evaluate(
+                            "() => {"
+                            " window.__statusSeen = [];"
+                            " var el = document.querySelector('[data-save-status]');"
+                            " new MutationObserver(function () {"
+                            "   window.__statusSeen.push(el.textContent);"
+                            " }).observe(el, {childList: true, characterData: true,"
+                            "                 subtree: true});"
+                            "}")
+                        saving_word = page.eval_on_selector(
+                            "[data-save-status]", "el => el.getAttribute('data-save-status-saving')")
+                        saved_word = page.eval_on_selector(
+                            "[data-save-status]", "el => el.getAttribute('data-save-status-saved')")
+
+                        _click_control(page, 'input[name="tracked_runway"][value="%s"]' % target)
+                        _wait_for_saved(page)
+
+                        seen = page.evaluate("() => window.__statusSeen.slice()")
+                        if seen != [saving_word, saved_word]:
+                            return False, (
+                                "expected the status region's text sequence to be [%r, %r] — a "
+                                "region that only ever shows the end state cannot be "
+                                "distinguished from one that lies — got %r"
+                                % (saving_word, saved_word, seen))
+
+                        # ONE agreement subject, via 27-01's own helper:
+                        # the field's own DOM value and the value on disk
+                        # must describe the SAME new value, the one
+                        # requested, differing from what was there before.
+                        _assert_surfaces_agree(
+                            page,
+                            {
+                                "the field's own DOM value": lambda: str(page.eval_on_selector(
+                                    'input[name="tracked_runway"]:checked', "el => el.value")),
+                                "the value on disk": lambda: str(device_config.load_device_config(
+                                    harness.tmpdir)["tracked_runway"]),
+                            },
+                            requested=target, before=before,
+                            where="Display's runway card after an auto-save settles")
+
+                        for selector in ("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR,
+                                         ".dirty-bar__save"):
+                            loc = page.locator(selector)
+                            if loc.count() and loc.first.is_visible():
+                                return False, (
+                                    "expected no visible save button anywhere on the page "
+                                    "after the save, got one at %r" % (selector,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a scripted save settles: the save-status region holds the saving word THEN "
+                    "the saved word (recorded by a MutationObserver armed before the edit, never "
+                    "sampled at the end state alone), the field's own DOM value and the value on "
+                    "DISK agree on the value requested and differ from the value before it — via "
+                    "27-01's own surface-agreement helper — and no save button is visible anywhere "
+                    "on the page at any point (CFG-63/CFG-71, 27-04-PLAN.md Task 4)",
+                    _the_save_settles_the_field_the_region_and_disk_agree)
+
+                def _a_rejected_value_claims_nothing_the_toast_fires_and_disk_is_untouched():
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        base_url = harness.base_url()
+                        page.goto(base_url + "/device")
+
+                        before = str(device_config.load_device_config(
+                            harness.tmpdir)["wake_interval_s"])
+                        # Below server/device_config.py's own WAKE_INTERVAL_MIN_S
+                        # (60) — a genuine server-side rejection, exercising
+                        # the 200-is-not-204 branch Task 1 deliberately left
+                        # in place, never a client-side shortcut.
+                        rejected = "30"
+
+                        # Armed BEFORE the edit — never sampled only at
+                        # the end state. M-B (mutation-tested): a status
+                        # region that claims saved the MOMENT a save
+                        # starts, then quietly clears on failure, would
+                        # pass a final-state-only check while having
+                        # LIED for the fetch's whole duration. This
+                        # observer catches that transient claim, not
+                        # only the settled one.
+                        page.evaluate(
+                            "() => {"
+                            " window.__statusSeen = [];"
+                            " var el = document.querySelector('[data-save-status]');"
+                            " new MutationObserver(function () {"
+                            "   window.__statusSeen.push(el.textContent);"
+                            " }).observe(el, {childList: true, characterData: true,"
+                            "                 subtree: true});"
+                            "}")
+
+                        wake_sel = 'input[name="wake_interval_s"]'
+                        page.eval_on_selector(wake_sel, "el => el.focus()")
+                        page.keyboard.press("Control+A")
+                        page.keyboard.type(rejected)
+                        page.keyboard.press("Tab")
+
+                        # The ONE visible surface a failure raises — never
+                        # merely present in the DOM.
+                        page.wait_for_function(
+                            "() => {"
+                            " var t = document.querySelector('[data-quick-toast]');"
+                            " return !!t && t.className.indexOf('is-visible') !== -1"
+                            " && t.textContent.trim() !== '';}",
+                            timeout=5000)
+                        if not page.locator("[data-quick-toast]").is_visible():
+                            return False, "expected the toast to be VISIBLE, not merely present in the DOM"
+
+                        failed_text = page.eval_on_selector(
+                            "body", "el => el.getAttribute('data-quick-failed-text')")
+                        toast_text = page.eval_on_selector("[data-quick-toast]", "el => el.textContent")
+                        if (toast_text or "").strip() != (failed_text or "").strip():
+                            return False, (
+                                "expected the toast to carry the EXISTING generic translated "
+                                "copy %r, got %r — a second failure vocabulary is exactly what "
+                                "this plan forbids" % (failed_text, toast_text))
+
+                        saved_word = page.eval_on_selector(
+                            "[data-save-status]", "el => el.getAttribute('data-save-status-saved')")
+                        status_text = _save_status_text(page)
+                        if status_text == saved_word:
+                            return False, (
+                                "expected the status region to NOT claim saved after a rejected "
+                                "value, got %r" % (status_text,))
+                        # THE TRANSIENT CLAIM, not only the settled one —
+                        # the saved word must never have appeared in the
+                        # region's own text sequence AT ANY POINT during
+                        # this failed save, not even briefly before a
+                        # later correction.
+                        seen = page.evaluate("() => window.__statusSeen.slice()")
+                        if saved_word in seen:
+                            return False, (
+                                "the status region held the saved word %r at some point during "
+                                "a save that FAILED (full sequence: %r) — a region that briefly "
+                                "claims saved and then corrects itself has still lied once"
+                                % (saved_word, seen))
+
+                        stored = str(device_config.load_device_config(
+                            harness.tmpdir)["wake_interval_s"])
+                        if stored == rejected:
+                            return False, (
+                                "the rejected value %r reached disk — a validation failure must "
+                                "never be mistaken for a save" % (rejected,))
+                        if stored != before:
+                            return False, (
+                                "expected the stored wake interval to stay UNCHANGED at %r after "
+                                "a rejected save, got %r" % (before, stored))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a value the server's own validation rejects (wake_interval_s below its "
+                    "floor) raises the EXISTING generic translated toast — VISIBLE, its copy the "
+                    "same data-quick-failed-text the switches already use — the status region "
+                    "never held the saved word at ANY point during the sequence (a MutationObserver "
+                    "armed before the edit, not only the settled state), and the rejected value is "
+                    "NOT on disk: three surfaces of one fact, 'nothing was saved', in ONE check "
+                    "(CFG-63/CFG-71, 27-04-PLAN.md Task 4)",
+                    _a_rejected_value_claims_nothing_the_toast_fires_and_disk_is_untouched)
+
                 def _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview():
                     base_url = harness.base_url()
                     ids = list(device_config.THEME_IDS)
@@ -12310,12 +13532,29 @@ def main():
                                 "choosing, and a pager that selects is a second way to change "
                                 "a saved setting"
                                 % (paged["was"], paged["afterNext"], paged["afterPrev"]))
-                        if str(device_config.load_device_config(
-                                harness.tmpdir)["theme"]) != saved:
+                        # 27-04-PLAN.md Task 4 (CFG-63): RETARGETED — a
+                        # keyboard-driven radiogroup selection fires a
+                        # real `change` per spec, exactly like a click
+                        # does, so every ArrowDown above genuinely
+                        # auto-saved. That is CORRECT behaviour under
+                        # auto-save (the whole point: keyboard selection
+                        # commits too), not a defect — so this check no
+                        # longer asserts the stored theme stayed put
+                        # DURING the sequence; it restores the original
+                        # theme through the identical UI sequence as its
+                        # LAST act, never a direct write to the state
+                        # directory, and asserts THAT landed — the same
+                        # "a harness that changes a real setting is a
+                        # test that edits its neighbours' subject"
+                        # discipline every other check in this file uses.
+                        _click_control(page, selector)
+                        _wait_for_saved(page)
+                        restored = str(device_config.load_device_config(
+                            harness.tmpdir)["theme"])
+                        if restored != saved:
                             return False, (
-                                "this check changed the stored theme (%r, started at %r)"
-                                % (device_config.load_device_config(
-                                    harness.tmpdir)["theme"], saved))
+                                "this check left the stored theme at %r; it started at %r"
+                                % (restored, saved))
                         _ = recorded
                         return True, ""
                     finally:
@@ -12328,10 +13567,13 @@ def main():
                     "clause the carousel adds, and the one that FAILED before the scrollport "
                     "reserved a chip's width, because the browser only ever scrolls the 1px "
                     "visually-hidden radio into view; the live preview follows a KEYBOARD "
-                    "selection (the existing crossfade check clicks) and settles opaque; and "
-                    "the two pagers scroll the strip forward and exactly back again while "
-                    "changing no selection at all, on the page or on disk (CFG-50/CFG-52, "
-                    "25-06-PLAN.md Task 4)",
+                    "selection (the existing crossfade check clicks) and settles opaque; the "
+                    "two pagers scroll the strip forward and exactly back again while changing "
+                    "no selection at all, on the page or on disk; and the theme is restored to "
+                    "its starting value as the LAST act through the same UI sequence, since "
+                    "every keyboard commit above genuinely auto-saved (CFG-50/CFG-52, "
+                    "25-06-PLAN.md Task 4; the restore step added by 27-04-PLAN.md Task 4, "
+                    "CFG-63, now that keyboard selection commits)",
                     _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview)
 
                 def _the_carousel_meets_its_floors_at_360px_in_both_themes():
