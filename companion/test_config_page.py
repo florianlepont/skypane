@@ -962,6 +962,13 @@ EXPECTED_CHECK_COUNT = 259
 # Net: 259 - 3 = 256, re-derived by RUNNING (256/256).
 EXPECTED_CHECK_COUNT = 256
 
+# 27-06-PLAN.md Task 1 (CFG-65): +1 — the title-form inventory check
+# (_title_form_inventory_classifies_every_h2_text_heading_on_both_routes),
+# reproducing 27-01-SUMMARY.md's 7/3/2 browser count server-side and
+# stating the Outcome-2 conclusion before any markup is touched. Net:
+# 256 + 1 = 257, re-derived by RUNNING (257/257).
+EXPECTED_CHECK_COUNT = 257
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -8279,6 +8286,144 @@ def main():
         "X1/D-04/D-12.1), and every calendar_theme_id radio carries a form=\"settings-form\" "
         "attribute (D-12 fix, 20-REVIEW.md verification gap)",
         _display_h2_order_matches_d12_after_calendar_placement_fix)
+
+    # ==================================================================
+    # 27-06-PLAN.md Task 1 (CFG-65): the title-form inventory, RUN
+    # before any markup choice. 27-RESEARCH.md's own grep produced a
+    # provisional 8/3/2 split and said so ("the regex matches a
+    # formatting convention, not a grammar"); 27-01-SUMMARY.md's browser
+    # inventory measured the real rendered split at 7/3/2 and named the
+    # eighth grep hit config_page.py never renders on either settings
+    # route. This check reproduces that inventory server-side (against
+    # config_page.render() directly, no browser needed) and classifies
+    # every one of the 12 instances by NAME, not just by count:
+    #
+    #   7 SETTINGS-CARD titles (form A, `[data-dirty-section] > h2`):
+    #   Frame colours/Calendar/Runway/Quiet hours (Display) and
+    #   Diagnostic LED/Wake interval/Notifications (Device) — each is
+    #   the FIRST thing inside its own bordered tile.
+    #
+    #   3 SUPERSECTION intros (form B, `.section-intro > h2`,
+    #   layout.section_intro_html() — SHARED, byte-identical, with
+    #   health_page.py, whose own structural checks match its markup
+    #   literally): Look/What it watches/When it is on. These are a
+    #   different, unbordered, generically-worded object — "Look" alone
+    #   introduces TWO cards (Frame colours and Calendar, render()'s own
+    #   5029/5183 ordering), which a card title, naming exactly one
+    #   card, cannot do.
+    #
+    #   2 UNCLASSIFIED headings that are neither: the Frame strip's own
+    #   live-status heading (layout.frame_strip_html(), Display only —
+    #   an unrelated preview widget, not a settings group) and the Poll
+    #   card's own bare `<section class="page-section">` heading
+    #   (config_page.py's poll_trigger_section() wrapper, Device only —
+    #   it carries no [data-dirty-section] attribute only because it
+    #   holds no persisted field for dirty-tracking to watch; its ROLE
+    #   — one heading, first thing inside its own box, naming exactly
+    #   the one card it belongs to — is otherwise identical to form A).
+    #
+    # CONCLUSION (stated here, before any markup is touched): Outcome 2.
+    # There is already exactly one title form for settings CARDS. The
+    # 7-vs-3 split is a real grammar distinction — supersection intro
+    # versus card title — not an inconsistency to convert away, and
+    # converting it either direction would mean either editing the
+    # shared, Health-pinned section_intro_html() call sites away from
+    # their documented "must never drift" shape, or reversing
+    # 20-07-PLAN.md's own D-12 supersection restructure (still pinned by
+    # the two checks immediately above this one). See 27-06-SUMMARY.md
+    # for the full substitute-cause investigation (heading SIZE, the
+    # spacing above a supersection's first card, and caption-as-title
+    # were each measured and found to be either a developer-confirmed,
+    # three-round-trip-validated decision this plan does not reopen, or
+    # a convention shared identically with Health, or unsupported by
+    # measurement).
+    # ==================================================================
+
+    def _title_form_inventory_classifies_every_h2_text_heading_on_both_routes():
+        ctx_display = {
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+            "calendar_configured": True, "calendar_last_synced_at": None,
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+        }
+        ctx_device = {
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 5,
+        }
+        display = config_page.render(ctx_display, scope=config_page.SCOPE_DISPLAY)
+        device = config_page.render(ctx_device, scope=config_page.SCOPE_DEVICE)
+
+        counts = {}
+        for label, rendered in (("display", display), ("device", device)):
+            total = rendered.count('class="text-heading"')
+            form_a = rendered.count('%s="' % config_page.DIRTY_SECTION_ATTR)
+            form_b = rendered.count("section-intro")
+            counts[label] = (total, form_a, form_b, total - form_a - form_b)
+        expected = {"display": (8, 4, 3, 1), "device": (4, 3, 0, 1)}
+        if counts != expected:
+            return False, (
+                "expected {route: (total h2.text-heading, form-A card titles, form-B "
+                "supersection intros, unclassified)} == %r, measured %r by running. This is "
+                "27-01-SUMMARY.md's own browser-driven inventory (7/3/2 total, corrected from "
+                "27-RESEARCH.md's provisional 8/3/2), reproduced server-side — a drift here "
+                "means the classification this check names below is stale" % (expected, counts))
+
+        card_title_headings = {
+            "display": (
+                config_page.FRAME_COLOURS_HEADING, config_page.CALENDAR_SECTION_HEADING,
+                "Runway", config_page.QUIET_HOURS_SECTION_HEADING),
+            "device": (
+                config_page.LED_SECTION_HEADING, config_page.WAKE_INTERVAL_SECTION_HEADING,
+                config_page.NOTIFICATIONS_SECTION_HEADING),
+        }
+        for route, rendered in (("display", display), ("device", device)):
+            for heading in card_title_headings[route]:
+                needle = ">%s</h2>" % escape_html(heading)
+                if needle not in rendered:
+                    return False, (
+                        "expected the settings-card heading %r to render inside its own "
+                        "[data-dirty-section] tile on the %s scope, and it did not"
+                        % (heading, route))
+
+        # The two unclassified instances, identified by name — neither
+        # is a settings card or a supersection intro.
+        frame_strip_needle = ">%s</h2>" % escape_html(layout.FRAME_STRIP_HEADING)
+        if frame_strip_needle not in display or frame_strip_needle in device:
+            return False, (
+                "expected the Frame strip's own <h2> (Display's unclassified instance) to "
+                "render on Display and never on Device")
+        poll_needle = '<h2 class="text-heading">%s</h2>' % escape_html(
+            config_page.POLL_SECTION_HEADING)
+        if poll_needle not in device or poll_needle in display:
+            return False, (
+                "expected Poll's own <h2> (Device's unclassified instance) to render on Device "
+                "and never on Display (Display never renders Poll)")
+
+        # OUTCOME 2: the two label vocabularies never overlap. A
+        # supersection's own text is always a GENERIC group label,
+        # never one of the 7 cards' own SPECIFIC names.
+        overlap = (
+            set(card_title_headings["display"]) | set(card_title_headings["device"])
+        ) & {
+            config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
+            config_page.DISPLAY_ON_HEADING,
+        }
+        if overlap:
+            return False, (
+                "expected the settings-card vocabulary and the supersection-label vocabulary "
+                "to share no text — found %r in both, which would mean a card's own identity "
+                "and a group's own label had collapsed into the same word" % (overlap,))
+        return True, ""
+    check(
+        "the title-form inventory, run before any markup choice: both settings routes' "
+        "h2.text-heading instances count and classify as 7 settings-card titles (form A, 3 on "
+        "Device + 4 on Display) + 3 supersection intros (form B, layout.section_intro_html(), "
+        "shared with health_page.py) + 2 unrelated headings (the Frame strip's own live-status "
+        "heading on Display, Poll's own bare-<section> heading on Device — neither a settings "
+        "card nor a supersection), reproducing 27-01-SUMMARY.md's corrected 7/3/2 browser count "
+        "server-side, with the two label vocabularies never overlapping (CFG-65, 27-06-PLAN.md "
+        "Task 1)",
+        _title_form_inventory_classifies_every_h2_text_heading_on_both_routes)
 
     # ==================================================================
     # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): the instant switches, and
