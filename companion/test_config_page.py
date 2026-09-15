@@ -969,6 +969,14 @@ EXPECTED_CHECK_COUNT = 256
 # 256 + 1 = 257, re-derived by RUNNING (257/257).
 EXPECTED_CHECK_COUNT = 257
 
+# 27-06-PLAN.md Task 2 (CFG-65): +1 — Outcome 2 found no markup to
+# convert, so this is the substitute for "the check that proves the
+# conversion happened": the source-level "zero card builder ever calls
+# section_intro_html()" guard
+# (_no_card_builder_function_ever_calls_section_intro_html). Net: 257 +
+# 1 = 258, re-derived by RUNNING (258/258).
+EXPECTED_CHECK_COUNT = 258
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -8424,6 +8432,67 @@ def main():
         "server-side, with the two label vocabularies never overlapping (CFG-65, 27-06-PLAN.md "
         "Task 1)",
         _title_form_inventory_classifies_every_h2_text_heading_on_both_routes)
+
+    # ==================================================================
+    # 27-06-PLAN.md Task 2 (CFG-65): Task 1 concluded Outcome 2 — there
+    # is already one title form for settings cards, so there is no
+    # conversion to make (converting either direction would edit the
+    # shared, Health-pinned section_intro_html() call sites, or reverse
+    # 20-07-PLAN.md's own D-12 supersection restructure — both out of
+    # this plan's scope, per its own "form B is not editable" and "pick
+    # based on what costs less disruption" constraints). No markup or
+    # CSS changed for the title-form correction.
+    #
+    # In its place: the structural guarantee that keeps "one title form
+    # for cards" true GOING FORWARD, not just in today's markup. Every
+    # one of the 7 functions that builds a settings card's own tile
+    # returns its own <h2> (form A) as a fixed, flat string and never
+    # reaches for the shared supersection builder to do it — asserted
+    # here at the SOURCE level via AST, so the "losing form" this check
+    # names (a card's own heading produced through the supersection-
+    # intro shape) is ZERO, enforced independently of whatever the
+    # rendered markup happens to look like on any given day.
+    # ==================================================================
+
+    def _no_card_builder_function_ever_calls_section_intro_html():
+        card_builder_names = (
+            "_frame_colours_card_html", "runway_fieldset", "led_group",
+            "quiet_hours_group", "wake_interval_group", "notifications_group",
+            "calendar_group",
+        )
+        with open(os.path.join(HERE, "pages", "config_page.py")) as fh:
+            source = fh.read()
+        tree = ast.parse(source)
+        found_names = {
+            n.name for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef) and n.name in card_builder_names}
+        if found_names != set(card_builder_names):
+            return False, (
+                "expected to find all 7 card-builder functions by name in config_page.py, "
+                "missing %r — this check's own allowlist is stale"
+                % (set(card_builder_names) - found_names,))
+        offenders = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name in card_builder_names:
+                for call in ast.walk(node):
+                    if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+                            and call.func.attr == "section_intro_html"):
+                        offenders.append(node.name)
+        if offenders:
+            return False, (
+                "expected ZERO of the 7 settings-card builder functions to call "
+                "layout.section_intro_html() (form B) for their own <h2> — found it called "
+                "from %r. A card's own title must stay form A, never borrow the shared "
+                "supersection builder" % (offenders,))
+        return True, ""
+    check(
+        "none of the 7 settings-card builder functions (_frame_colours_card_html/"
+        "runway_fieldset/led_group/quiet_hours_group/wake_interval_group/notifications_group/"
+        "calendar_group) ever calls layout.section_intro_html() for their own heading — the "
+        "losing form (a card title produced through the supersection-intro shape) is ZERO, "
+        "enforced at the source level rather than only in today's rendered markup (CFG-65, "
+        "27-06-PLAN.md Task 2 — Outcome 2, no conversion, see 27-06-SUMMARY.md)",
+        _no_card_builder_function_ever_calls_section_intro_html)
 
     # ==================================================================
     # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): the instant switches, and
