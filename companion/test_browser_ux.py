@@ -874,6 +874,14 @@ EXPECTED_CHECK_COUNT = 83
 # 83 + 3 = 86, re-derived by RUNNING (86/86, 0 SKIPs).
 EXPECTED_CHECK_COUNT = 86
 
+# 27-08-PLAN.md Task 2/3 (CFG-69/CFG-70): +2 — the Quiet hours caption
+# schedule link's own hit-target-plus-floor proof
+# (_the_quiet_schedule_link_meets_the_hit_target_floor_at_360px) and the
+# .copy-btn/.row-toggle family's own resolved-not-declared hit-target
+# proof (_copy_btn_and_row_toggle_resolve_to_the_floor_in_their_own_
+# containers). 86 + 2 = 88, re-derived by RUNNING (88/88, 0 SKIPs).
+EXPECTED_CHECK_COUNT = 88
+
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
 # ONE element must carry it. Both halves are asserted: the declared set
@@ -3549,6 +3557,159 @@ def main():
                     "click on a non-interactive cell of the same row expands it, while a click on the "
                     "toggle itself toggles exactly once (22-09-PLAN.md Task 1, X5/T-22-32)",
                     _flights_detail_row_expands_and_collapses)
+
+                # ==========================================================
+                # 27-08-PLAN.md Task 2 (CFG-69): the Quiet hours caption
+                # link's own hit target — it sits in a dense strip cell
+                # beside a switch, the exact geometry that already produced
+                # this file's 30x45 pager and 43x43 handle. Measured on
+                # Home (the strip is one shared component, D-23; the
+                # status-pages check proves it is the SAME markup on
+                # Display), at the 360px floor, in both themes.
+                # ==========================================================
+
+                def _the_quiet_schedule_link_meets_the_hit_target_floor_at_360px():
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        recorded = {}
+                        for route in ("/", "/display"):
+                            page.goto(harness.base_url() + route)
+                            overflow = page.evaluate(
+                                "document.documentElement.scrollWidth > "
+                                "document.documentElement.clientWidth")
+                            if overflow:
+                                return False, (
+                                    "%s: expected no horizontal page scroll at 360px with the "
+                                    "schedule link in the strip — the link is a FLOOR addition, "
+                                    "not one that pushes the strip past the viewport" % (route,))
+                        page.goto(harness.base_url() + "/")
+                        for theme in ("light", "dark"):
+                            _set_ui_theme(page, theme)
+                            seen = _assert_hit_target(
+                                page, "a.frame-strip__schedule-link",
+                                "the Quiet hours caption's schedule link, in its own frame-strip "
+                                "cell, %s theme" % theme)
+                            recorded[theme] = (seen["visual"], seen["hit"])
+                        if recorded["light"][1][0] < 44 or recorded["light"][1][1] < 44:
+                            return False, "expected the light-theme hit area to clear 44px, got %r" % (
+                                recorded["light"][1],)
+                        if recorded["dark"][1][0] < 44 or recorded["dark"][1][1] < 44:
+                            return False, "expected the dark-theme hit area to clear 44px, got %r" % (
+                                recorded["dark"][1],)
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the Quiet hours caption's schedule link clears the 44px hit-target floor by "
+                    "real hit-testing in its own frame-strip cell, in both themes, at the 360px "
+                    "floor, on both Home and Display, with neither page gaining horizontal scroll "
+                    "from the addition (CFG-69, 27-08-PLAN.md Task 2)",
+                    _the_quiet_schedule_link_meets_the_hit_target_floor_at_360px)
+
+                # ==========================================================
+                # 27-08-PLAN.md Task 3 (CFG-70): `.copy-btn` (a Flights
+                # detail row) and `.row-toggle` (the Flights list's own
+                # toggle) — measured in THEIR OWN containers, never a
+                # declared-vs-resolved assumption. `.row-toggle` reuses
+                # `.copy-btn`'s values verbatim (style.css's own comment),
+                # so both are measured here as ONE check about the family,
+                # not two independent ones — the shape that let a declared
+                # 44 ship beside a resolved 34x26 in the first place.
+                #
+                # `.row-toggle` and the desktop `.copy-btn` trio only exist
+                # in `.data-table-wrap`, which this app's own responsive
+                # rule hides below 960px in favour of `.history-cards` —
+                # there is no 360px rendering of either to measure, so they
+                # are measured at the narrowest width they actually occupy
+                # (960px) instead, in both themes. The mobile `.copy-btn`
+                # trio (inside each `.history-card`'s own `<details>`) DOES
+                # render at 360px and is measured there, in both themes,
+                # closing the literal 360px case for this family too.
+                # ==========================================================
+
+                def _copy_btn_and_row_toggle_resolve_to_the_floor_in_their_own_containers():
+                    recorded = {}
+
+                    def _measure_desktop(page):
+                        toggle = page.locator("[data-row-toggle]").first
+                        toggle.wait_for(state="visible")
+                        controls_id = toggle.get_attribute("aria-controls")
+                        if toggle.get_attribute("aria-expanded") != "true":
+                            toggle.click()
+                        page.wait_for_timeout(50)
+                        detail_sel = "#" + controls_id
+                        page.locator(detail_sel).hover()
+                        seen = _assert_hit_target(
+                            page, "[data-row-toggle]",
+                            "the Flights list's own row-toggle, in ITS OWN container (the "
+                            "summary row, not the detail row's grid)")
+                        recorded["row-toggle/desktop"] = (seen["visual"], seen["hit"])
+                        for label, value in (
+                                ("hex", "399023"), ("timestamp", "2026-08-01T22:31:40+00:00"),
+                                ("callsign", "AFR135")):
+                            sel = '%s [data-copy-value="%s"]' % (detail_sel, value)
+                            page.locator(sel).focus()
+                            seen = _assert_hit_target(
+                                page, sel,
+                                "the %s .copy-btn, in ITS OWN container (the Flights detail "
+                                "row's grid, hovered/focused so its opacity/pointer-events "
+                                "reveal fires)" % (label,))
+                            recorded["copy-btn/desktop/%s" % label] = (seen["visual"], seen["hit"])
+
+                    def _measure_mobile(page):
+                        card = page.locator(".history-card").first
+                        card.wait_for(state="visible")
+                        card.locator("summary").first.click()
+                        for label, value in (
+                                ("hex", "399023"), ("timestamp", "2026-08-01T22:31:40+00:00"),
+                                ("callsign", "AFR135")):
+                            sel = '.history-card [data-copy-value="%s"]' % (value,)
+                            seen = _assert_hit_target(
+                                page, sel,
+                                "the mobile %s .copy-btn, in ITS OWN container (the "
+                                "<details> card, not the desktop grid)" % (label,))
+                            recorded["copy-btn/mobile/%s" % label] = (seen["visual"], seen["hit"])
+
+                    context_desktop = browser.new_context(viewport={"width": 960, "height": 900})
+                    try:
+                        page = context_desktop.new_page()
+                        _login(page, harness.base_url())
+                        for theme in ("light", "dark"):
+                            page.goto(harness.base_url() + "/flights")
+                            _set_ui_theme(page, theme)
+                            _measure_desktop(page)
+                    finally:
+                        context_desktop.close()
+
+                    context_mobile = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context_mobile.new_page()
+                        _login(page, harness.base_url())
+                        for theme in ("light", "dark"):
+                            page.goto(harness.base_url() + "/flights")
+                            _set_ui_theme(page, theme)
+                            _measure_mobile(page)
+                    finally:
+                        context_mobile.close()
+
+                    for key, (visual, hit) in recorded.items():
+                        if hit[0] < 44 or hit[1] < 44:
+                            return False, (
+                                "%s: expected a resolved hit area >=44x44, got %r (visual box "
+                                "%r) — a declared 44 is not a resolved 44"
+                                % (key, hit, visual))
+                    return True, ""
+                check(
+                    "every icon control in the .copy-btn/.row-toggle family resolves to the 44px "
+                    "hit-target floor in its OWN container, by real hit-testing rather than a "
+                    "declared value: .row-toggle and the desktop Flights detail row's three "
+                    ".copy-btn (hex/timestamp/callsign, each hovered/focused to clear the "
+                    "opacity-at-rest reveal) at 960px, and the mobile <details> card's own three "
+                    ".copy-btn at the 360px floor — both in both themes, ONE check for the whole "
+                    "family sharing .copy-btn's values (CFG-70, 27-08-PLAN.md Task 3)",
+                    _copy_btn_and_row_toggle_resolve_to_the_floor_in_their_own_containers)
 
                 def _filter_count_and_clear_share_one_line_at_390px():
                     # B11 (22-09-PLAN.md Task 3): Phase 18's A-18
