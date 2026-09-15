@@ -703,6 +703,18 @@ ICON_IDS = ICON_IDS + (
     "icon-more",
 )
 
+# 28-01-PLAN.md (CFG-76): one more icon for the mobile #site-nav-toggle,
+# which used to render icon-hamburger even though the panel it opens
+# holds zero page-navigation links (those moved to the bottom tab bar in
+# 22-14) — the developer reported the hamburger reads as site navigation
+# and proposed a gear instead. Appended, not merged into any tuple
+# above, for the same "appended, not reordered" reason those tuples' own
+# comments already state — grows the whitelist from twenty-two to
+# twenty-three.
+ICON_IDS = ICON_IDS + (
+    "icon-gear",
+)
+
 # One shared inline sprite, emitted once per document by page_shell().
 # `display: none` (companion/static/style.css's `.icon-defs` rule) still
 # lets every <use href="#icon-..."> reference below resolve correctly —
@@ -811,6 +823,17 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-moon" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M16 12.5A7 7 0 0 1 7.5 4a7 7 0 1 0 8.5 8.5z"/>'
+    "</symbol>"
+    # 28-01-PLAN.md (CFG-76): #site-nav-toggle's new glyph — a centre
+    # circle plus a toothed outer ring, same viewBox/stroke language as
+    # icon-power/icon-moon above (its closest neighbours by stroke
+    # weight), built from <circle>/<path> only, two shapes.
+    '<symbol id="icon-gear" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="10" cy="10" r="2.6"/>'
+    '<path d="M10 2.5v2.4M10 15.1v2.4M17.5 10h-2.4M4.9 10H2.5'
+    'M15.3 4.7l-1.7 1.7M6.4 13.6l-1.7 1.7M15.3 15.3l-1.7-1.7'
+    'M6.4 6.4L4.7 4.7"/>'
     "</symbol>"
     '<symbol id="icon-check" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
@@ -2417,7 +2440,7 @@ def _mobile_nav_html(
         'aria-label="%s" aria-expanded="false" aria-controls="%s">%s</button>'
     ) % (
         NAV_TOGGLE_ID, escape_html(i18n.t(NAV_TOGGLE_LABEL)), MOBILE_NAV_ID,
-        icon_html("icon-hamburger", size=24))
+        icon_html("icon-gear", size=24))
     # D-02 (20-01-PLAN.md Task 3): resolved order — language, theme,
     # Sign out. D-17 (21-01-PLAN.md Task 1, 21-UI-SPEC.md §G): the
     # simple-mode switch that used to sit between theme and Sign out
