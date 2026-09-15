@@ -882,6 +882,13 @@ EXPECTED_CHECK_COUNT = 86
 # containers). 86 + 2 = 88, re-derived by RUNNING (88/88, 0 SKIPs).
 EXPECTED_CHECK_COUNT = 88
 
+# 28-02-PLAN.md Task 2 (CFG-73, Bug B): +1 —
+# _the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press, which
+# samples the quiet-dial handle's resolved distance from the dial's own
+# centre throughout a held press (not just before/after), in both
+# themes. 88 + 1 = 89, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 89
+
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
 # ONE element must carry it. Both halves are asserted: the declared set
@@ -11835,6 +11842,235 @@ def main():
                     "differs between the two themes (CFG-48/CFG-52, 25-04-PLAN.md Task 4)",
                     _the_dial_meets_its_floors_at_360px_in_both_themes)
 
+                # ----------------------------------------------------------
+                # 28-02-PLAN.md Task 2 (CFG-73, Bug B): THE check the bug's
+                # own before/after recovery let every earlier check miss.
+                # `.quiet-dial__handle` measured 78px from the dial's
+                # centre (correct, on the ring) at press, collapsing to
+                # 14-16px (the centre) within 90-150ms as the base `button`
+                # rule's `transition: transform .15s ease` animated the
+                # collapse, then recovering to 78px ~200ms after release —
+                # so an endpoint-only check (before/after) passes on the
+                # broken stylesheet. This is this project's own "assert
+                # relationships, not just endpoints" contract applied to a
+                # time axis instead of a surface axis: it SAMPLES the
+                # handle's resolved distance from the dial's own centre
+                # continuously across a held press, rather than reading the
+                # two ends of it.
+                # ----------------------------------------------------------
+
+                def _the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press():
+                    """A PRESS, NOT A DRAG: the pointer never moves after
+                    mouse.down(), so the value the control reports must be
+                    byte-identical before and after — a fix that ever gets
+                    "helped along" by suppressing the handle's pointer
+                    handling would fail this clause even while passing the
+                    geometry one.
+                    """
+                    base_url = harness.base_url()
+                    before_on_disk = _quiet_hours_on_disk()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        # Set ONCE, outside the loop — unlike the
+                        # neighbouring drag/preset checks, a plain
+                        # press-and-hold with no drag changes NOTHING
+                        # (that is this check's own value-identity
+                        # clause below), so calling _set_window() again
+                        # inside the loop with the SAME values would ask
+                        # the app to "save" a value it already holds;
+                        # dirty-state.js has nothing new to commit, the
+                        # save-status region never makes a fresh
+                        # "saved" transition, and _wait_for_saved() times
+                        # out waiting for one that was never coming —
+                        # measured live, not guessed.
+                        _set_window(page, base_url, "23:00", "07:00")
+                        for theme in UI_THEMES_EXPLICIT:
+                            _set_ui_theme(page, theme)
+
+                            page.eval_on_selector(
+                                QUIET_DIAL_SEL, "el => el.scrollIntoView({block: 'center'})")
+                            grip = page.evaluate(
+                                "sel => { const r = document.querySelector(sel)"
+                                "  .getBoundingClientRect();"
+                                "  return [r.left + r.width / 2, r.top + r.height / 2]; }",
+                                _handle_sel("quiet_hours_start"))
+                            before_value = page.input_value(
+                                'input[name="quiet_hours_start"]')
+
+                            page.mouse.move(grip[0], grip[1])
+                            page.mouse.down()
+                            if not page.evaluate(
+                                    "sel => document.activeElement"
+                                    "  === document.querySelector(sel)",
+                                    _handle_sel("quiet_hours_start")):
+                                page.mouse.up()
+                                return False, (
+                                    "%s: a pointer-down at the start handle's own centre (%r) "
+                                    "did not reach the steering script — nothing below sampled "
+                                    "a held press" % (theme, grip))
+
+                            # THE SAMPLE, taken while the button is STILL
+                            # DOWN. One page.evaluate, one rAF loop, so the
+                            # whole window is sampled with no Python-side
+                            # round trip resetting the clock between
+                            # frames (a round trip here would widen the
+                            # very gaps a frame-timed bug hides in). >=
+                            # 400ms because the measured collapse completes
+                            # by 90-150ms and the recovery lands ~200ms
+                            # after release — a shorter window would
+                            # reproduce the exact blind spot this check
+                            # exists to close. The ring radius is read
+                            # from --quiet-dial-radius, the SAME custom
+                            # property the handle's own transform reads,
+                            # never hardcoded as 78.
+                            sampled = page.evaluate(
+                                "async (args) => {"
+                                "  const handle = document.querySelector(args.handleSel);"
+                                "  const dial = document.querySelector(args.dialSel);"
+                                "  const radiusRaw = getComputedStyle(dial)"
+                                "    .getPropertyValue('--quiet-dial-radius');"
+                                "  const radius = parseFloat(radiusRaw);"
+                                "  const samples = [];"
+                                "  const t0 = performance.now();"
+                                "  while (performance.now() - t0 < args.durationMs) {"
+                                "    const hr = handle.getBoundingClientRect();"
+                                "    const dr = dial.getBoundingClientRect();"
+                                "    const hcx = hr.left + hr.width / 2;"
+                                "    const hcy = hr.top + hr.height / 2;"
+                                "    const dcx = dr.left + dr.width / 2;"
+                                "    const dcy = dr.top + dr.height / 2;"
+                                "    samples.push({"
+                                "      t: performance.now() - t0,"
+                                "      dist: Math.hypot(hcx - dcx, hcy - dcy)});"
+                                "    await new Promise(r => requestAnimationFrame(r));"
+                                "  }"
+                                # windowMs is measured AFTER the loop exits,
+                                # not read off the last sample's own `t` —
+                                # that timestamp is necessarily taken
+                                # BEFORE the loop's own exit check runs
+                                # (the sample is pushed, THEN one more
+                                # frame is awaited, THEN the condition is
+                                # re-tested), so the last sample's `t` is
+                                # always at least one frame short of the
+                                # loop's real elapsed time. Gating on the
+                                # sample's own `t` instead of this value
+                                # made the check fail on a correct run.
+                                "  const windowMs = performance.now() - t0;"
+                                "  return {radius: radius, radiusRaw: radiusRaw,"
+                                "          samples: samples, windowMs: windowMs};"
+                                "}",
+                                {"handleSel": _handle_sel("quiet_hours_start"),
+                                 "dialSel": QUIET_DIAL_SEL, "durationMs": 400})
+
+                            page.mouse.up()
+                            after_value = page.input_value(
+                                'input[name="quiet_hours_start"]')
+
+                            # ONE FINAL SAMPLE, after release — the
+                            # recovery state, which is the ONLY state
+                            # today's broken code already gets right and
+                            # therefore the one that must not be mistaken
+                            # for the whole proof: a check that only read
+                            # this would pass against the exact bug this
+                            # check exists to catch.
+                            released = page.evaluate(
+                                "args => {"
+                                "  const handle = document.querySelector(args.handleSel);"
+                                "  const dial = document.querySelector(args.dialSel);"
+                                "  const hr = handle.getBoundingClientRect();"
+                                "  const dr = dial.getBoundingClientRect();"
+                                "  return Math.hypot("
+                                "    (hr.left + hr.width / 2) - (dr.left + dr.width / 2),"
+                                "    (hr.top + hr.height / 2) - (dr.top + dr.height / 2));"
+                                "}",
+                                {"handleSel": _handle_sel("quiet_hours_start"),
+                                 "dialSel": QUIET_DIAL_SEL})
+
+                            samples = sampled["samples"]
+                            radius = sampled["radius"]
+                            window_ms = sampled["windowMs"]
+                            recorded["%s/samples" % theme] = len(samples)
+                            recorded["%s/window_ms" % theme] = window_ms
+                            if len(samples) < 10:
+                                return False, (
+                                    "%s: only %d sample(s) were collected across the held "
+                                    "press (window %.1fms) — at least 10 are required, or this "
+                                    "is a third endpoint rather than a sampling"
+                                    % (theme, len(samples), window_ms))
+                            if window_ms < 400:
+                                return False, (
+                                    "%s: the sampling window only covered %.1fms; the measured "
+                                    "collapse completes by 90-150ms and the recovery lands "
+                                    "~200ms after release, so a window under 400ms would "
+                                    "reproduce the exact blind spot this check exists to close"
+                                    % (theme, window_ms))
+                            if not radius or radius <= 0:
+                                return False, (
+                                    "%s: --quiet-dial-radius resolved to %r on .quiet-dial — "
+                                    "the ring radius must be read from rendered geometry, and "
+                                    "an empty/zero value means it could not be"
+                                    % (theme, sampled["radiusRaw"]))
+                            tolerance = 4.0
+                            worst_index, worst = max(
+                                enumerate(samples),
+                                key=lambda pair: abs(pair[1]["dist"] - radius))
+                            if abs(worst["dist"] - radius) > tolerance:
+                                return False, (
+                                    "%s: sample #%d (of %d, at %.1fms into the press) resolved "
+                                    "%.2fpx from the dial's centre; the ring radius is %.2fpx "
+                                    "and the stated tolerance is %.2fpx — the handle left its "
+                                    "ring DURING the press, which is exactly the collapse "
+                                    "toward the centre the pre-fix stylesheet produced"
+                                    % (theme, worst_index, len(samples), worst["t"],
+                                       worst["dist"], radius, tolerance))
+                            recorded["%s/worst" % theme] = (
+                                worst_index, worst["dist"], radius)
+
+                            if after_value != before_value:
+                                return False, (
+                                    "%s: a plain press-and-hold with no drag changed "
+                                    "quiet_hours_start from %r to %r — a press is not a drag, "
+                                    "and this control must not move the value it did not "
+                                    "steer anywhere" % (theme, before_value, after_value))
+
+                            if abs(released - radius) > tolerance:
+                                return False, (
+                                    "%s: %.2fpx after release; the ring radius is %.2fpx and "
+                                    "the tolerance is %.2fpx — even the recovery state, the ONE "
+                                    "state the pre-fix code already got right, regressed"
+                                    % (theme, released, radius, tolerance))
+                            recorded["%s/released" % theme] = released
+
+                        _set_window(page, base_url, before_on_disk[0], before_on_disk[1])
+                        if _quiet_hours_on_disk() != before_on_disk:
+                            return False, (
+                                "this check left the window at %r; it started at %r"
+                                % (_quiet_hours_on_disk(), before_on_disk))
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        try:
+                            _set_window(page, base_url, before_on_disk[0], before_on_disk[1])
+                        except Exception:
+                            pass
+                        context.close()
+                check(
+                    "THE handle-stays-on-its-ring check (CFG-73 Bug B, 28-02-PLAN.md Task 2): "
+                    "holding the quiet-hours start handle down with no drag samples its "
+                    "resolved distance from the dial's own centre at least 10 times across at "
+                    "least 400ms — long enough to cover the measured 90-150ms collapse — and "
+                    "asserts EVERY sample stays within a stated tolerance of the dial's own "
+                    "--quiet-dial-radius (read from rendered geometry, never hardcoded), naming "
+                    "the worst sample's distance and index on failure; the control's reported "
+                    "value is asserted IDENTICAL before mouse.down() and after mouse.up() (a "
+                    "press is not a drag); a final post-release sample is asserted on the ring "
+                    "too, with the source recording that this is the ONE state the pre-fix "
+                    "code already got right and therefore not sufficient alone; and the whole "
+                    "check runs in BOTH themes at the 360px floor",
+                    _the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press)
 
                 # ----------------------------------------------------------
                 # 25-05-PLAN.md Task 3 (CFG-49/CFG-52): D18's wake-interval
