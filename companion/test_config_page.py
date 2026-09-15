@@ -977,6 +977,14 @@ EXPECTED_CHECK_COUNT = 257
 # 1 = 258, re-derived by RUNNING (258/258).
 EXPECTED_CHECK_COUNT = 258
 
+# 27-06-PLAN.md Task 3 (CFG-67): +3 — one check per shortened region
+# (the wake-interval caption, the two wake gauges combined, the Quiet
+# hours paragraph), each proving "shorter than 27-01-SUMMARY.md's own
+# baseline" and, where the honesty contract or the live delay sentence
+# applies, the refusal/survival — on the SAME reading, in both
+# languages. Net: 258 + 3 = 261, re-derived by RUNNING (261/261).
+EXPECTED_CHECK_COUNT = 261
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -10891,6 +10899,149 @@ def main():
         "this card adds carries the \"#\" mark rather than a format artefact and has a French "
         "sibling (CFG-49/D-27, 25-05-PLAN.md Task 1)",
         _no_days_remaining_arithmetic_lives_outside_companion_battery)
+
+    # ==================================================================
+    # 27-06-PLAN.md Task 3 (CFG-67): the three texts, cut against
+    # 27-01-SUMMARY.md's own recorded baselines (measured 360px,
+    # rendered, both languages). Each check is ONE read of the region,
+    # with every assertion made against that SAME read — "shorter" and,
+    # where the honesty contract applies, "still refuses" are proven
+    # about one rendering, never two separate ones (T-27-06-A).
+    #
+    # The forbidden pattern is scoped to the DAYS-CLAIM SHAPE itself
+    # ("≈ <digits> day(s)/jour(s)"), never to "≈" near any digit —
+    # 27-01-SUMMARY.md found the naive `≈\s*\d` pattern false-positives
+    # on the wake-interval caption's own legitimate "(next wake ≈ 31
+    # Jul 08:05)" text, a real derivable timestamp, not an invented
+    # figure. That caption is a SEPARATE region from the gauges below in
+    # any case, but the pattern is scoped correctly regardless.
+    # ==================================================================
+
+    _DAYS_FIGURE_PATTERN = re.compile(r"≈\s*\d+\s*(?:day|days|jour|jours)\b")
+
+    def _html_region_text(fragment):
+        """Strip tags, unescape entities, collapse whitespace — the
+        python-side equivalent of reading `.textContent` off a rendered
+        element, without a browser.
+        """
+        stripped = re.sub(r"<[^>]*>", "", fragment)
+        return re.sub(r"\s+", " ", html.unescape(stripped)).strip()
+
+    def _wake_interval_caption_is_shortened_in_both_languages():
+        baseline = 220
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                rendered = config_page.wake_interval_group(
+                    300, next_wake_clock="31 Jul 08:05")
+            finally:
+                prefs.set_request_prefs(lang="en")
+            m = re.search(
+                r'<p class="text-label section-caption" id="%s">(.*?)</p>'
+                % re.escape(config_page.WAKE_INTERVAL_SECTION_CAPTION_ID), rendered)
+            if not m:
+                return False, "%s: #%s is missing from wake_interval_group()'s own markup" % (
+                    lang, config_page.WAKE_INTERVAL_SECTION_CAPTION_ID)
+            text = _html_region_text(m.group(1))
+            if len(text) >= baseline:
+                return False, (
+                    "%s: #%s renders %d character(s), against a recorded baseline of %d "
+                    "(27-01-SUMMARY.md). The copy was not cut. It reads %r"
+                    % (lang, config_page.WAKE_INTERVAL_SECTION_CAPTION_ID, len(text), baseline,
+                       text))
+        return True, ""
+    check(
+        "the wake-interval caption (#wake-interval-caption) is materially shorter than "
+        "27-01-SUMMARY.md's recorded 220-char baseline in BOTH languages — the mechanism and "
+        "apply-timing sentences are cut, the derived \"(next wake ≈ ...)\" suffix (a real "
+        "timestamp, not an invented figure) is untouched (CFG-67, 27-06-PLAN.md Task 3)",
+        _wake_interval_caption_is_shortened_in_both_languages)
+
+    def _wake_gauges_are_shortened_and_the_battery_refusal_survives_in_both_languages():
+        baseline = 254
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                # No battery_rows: the insufficient-history state — the
+                # one 27-01-SUMMARY.md's baseline was measured against,
+                # and the one whose refusal this check must prove
+                # survives on the SAME reading as the length.
+                rendered = config_page.wake_gauges_html(300)
+            finally:
+                prefs.set_request_prefs(lang="en")
+            segments = re.findall(
+                r'<p class="[^"]*\bwake-gauge\b[^"]*"[^>]*>(.*?)</p>', rendered, re.S)
+            if len(segments) != 2:
+                return False, (
+                    "%s: expected 2 .wake-gauge elements, found %d" % (lang, len(segments)))
+            text = " ".join(_html_region_text(seg) for seg in segments)
+            text = re.sub(r"\s+", " ", text).strip()
+            # ONE READ, TWO ASSERTIONS, per T-27-06-A — both against
+            # `text` as measured above, never a second re-render.
+            if len(text) >= baseline:
+                return False, (
+                    "%s: .wake-gauge renders %d character(s) across %d element(s), against a "
+                    "recorded baseline of %d (27-01-SUMMARY.md). The copy was not cut. It "
+                    "reads %r" % (lang, len(text), len(segments), baseline, text))
+            found = _DAYS_FIGURE_PATTERN.search(text)
+            if found:
+                return False, (
+                    "%s: .wake-gauge did get shorter (%d character(s), under the %d baseline) "
+                    "but the insufficient-history state now matches %r at %r — a shorter "
+                    "sentence that starts claiming a figure this frame's own history cannot "
+                    "support is a regression, not a cut. The whole region reads %r"
+                    % (lang, len(text), baseline, _DAYS_FIGURE_PATTERN.pattern,
+                       found.group(0), text))
+        return True, ""
+    check(
+        "the two wake gauges (.wake-gauge) are materially shorter than 27-01-SUMMARY.md's "
+        "recorded 254-char combined baseline in BOTH languages, and the insufficient-history "
+        "state still prints NO absolute battery figure — asserted about the SAME reading the "
+        "length is measured from, with the forbidden pattern scoped to the days-claim shape "
+        "itself so it does not false-positive on an unrelated ≈-bearing timestamp (D18's "
+        "honesty contract, CFG-67, 27-06-PLAN.md Task 3)",
+        _wake_gauges_are_shortened_and_the_battery_refusal_survives_in_both_languages)
+
+    def _quiet_hours_caption_is_shortened_and_the_delay_sentence_survives_in_both_languages():
+        baseline = 188
+        delay_sentence = "Applies at the next wake, around 31 Jul 08:05."
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                rendered = config_page.quiet_hours_group(
+                    "23:00", "07:00", delay_sentence=delay_sentence)
+            finally:
+                prefs.set_request_prefs(lang="en")
+            m = re.search(
+                r'<p class="text-label section-caption" id="%s">(.*?)</p>'
+                % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), rendered)
+            if not m:
+                return False, "%s: #%s is missing from quiet_hours_group()'s own markup" % (
+                    lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID)
+            text = _html_region_text(m.group(1))
+            if len(text) >= baseline:
+                return False, (
+                    "%s: #%s renders %d character(s), against a recorded baseline of %d "
+                    "(27-01-SUMMARY.md). The copy was not cut. It reads %r"
+                    % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, len(text), baseline,
+                       text))
+            # delay_sentence carries LIVE STATE (frame_state.DELAY_UNKNOWN
+            # by default), not explanation — the cut is scoped to
+            # QUIET_HOURS_SECTION_CAPTION alone, and this asserts the
+            # delay sentence survived it, on the SAME reading.
+            if delay_sentence not in text:
+                return False, (
+                    "%s: #%s lost its own computed delay sentence (%r) — expected it to survive "
+                    "the caption cut untouched, and it reads %r instead"
+                    % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, delay_sentence, text))
+        return True, ""
+    check(
+        "the Quiet hours paragraph (#quiet-hours-caption) is materially shorter than "
+        "27-01-SUMMARY.md's recorded 188-char baseline in BOTH languages, with its own computed "
+        "delay sentence — live state, not explanation, defaulting to i18n.t(frame_state."
+        "DELAY_UNKNOWN) — asserted to survive the cut on the SAME reading (CFG-67, 27-06-PLAN.md "
+        "Task 3)",
+        _quiet_hours_caption_is_shortened_and_the_delay_sentence_survives_in_both_languages)
 
     def _the_gauges_are_an_addition_and_the_number_input_is_untouched():
         """CFG-49 (25-05-PLAN.md Task 1): the `<input type="number">` is

@@ -450,10 +450,19 @@ LED_SECTION_HEADING = "Diagnostic LED"
 # the retired "which may now be hours away" wording with a real, computed
 # time rather than a fixed literal.
 QUIET_HOURS_SECTION_HEADING = "Quiet hours"
+# 27-06-PLAN.md Task 3 (CFG-67): shortened from 27-01-SUMMARY.md's
+# measured 188-char baseline (this caption plus its own computed delay
+# sentence, appended at render time by quiet_hours_group() — see that
+# function's own caption_html construction below, unchanged). The cut
+# is scoped to THIS explanatory sentence alone: "— the Frame strip's
+# Quiet hours switch is what turns it on and off" (the mechanism
+# clause) is dropped; "Pauses the frame's wake, poll and display cycle
+# during the schedule below" (what the schedule DOES) is kept, and the
+# appended delay sentence — computed state, not explanation — is
+# untouched by this edit entirely.
 QUIET_HOURS_SECTION_CAPTION = (
-    "Pauses the frame's wake, poll and display cycle during the schedule "
-    "below — the Frame strip's Quiet hours switch is what turns it on "
-    "and off.")
+    "Pauses the frame's wake, poll and display cycle during the "
+    "schedule below.")
 # 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
 # comment above.
 QUIET_HOURS_SECTION_CAPTION_ID = "quiet-hours-caption"
@@ -516,11 +525,17 @@ QUIET_HOURS_PRESET_ATTR = "data-quiet-preset"
 # state — it names the fallback behavior instead of showing a fabricated
 # number.
 WAKE_INTERVAL_SECTION_HEADING = "Wake interval"
+# 27-06-PLAN.md Task 3 (CFG-67): shortened from 27-01-SUMMARY.md's
+# measured 220-char baseline — the mechanism sentence ("How often the
+# frame wakes to poll for updates.") and the apply-timing sentence
+# ("Applies on the next scheduled poll.") are both cut; the derived
+# "(next wake ≈ ...)" suffix _with_next_wake() appends already states
+# the apply timing with a real timestamp, making the generic sentence
+# redundant. What is kept is the one sentence a reader needs to ACT:
+# what a shorter/longer number trades off.
 WAKE_INTERVAL_SECTION_CAPTION = (
-    "How often the frame wakes to poll for updates. Shorter means "
-    "fresher info and more battery drain; longer means more battery "
-    "life and staler info at a glance. Applies on the next scheduled "
-    "poll.")
+    "Shorter means fresher info and more battery drain; longer means "
+    "more battery life and staler info at a glance.")
 WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
 # 22-10-PLAN.md Task 3 (B17): the unit, rendered as a SIBLING beside the
 # number input — never a placeholder (the field already has one, and a
@@ -613,35 +628,46 @@ WAKE_BATTERY_WINDOW_DAYS = 14
 # app's one ladder and is used below for the ONE fixed cadence that is
 # not the field's own value (the screen-off one), where no live update
 # has to reproduce it in a second language of source.
+# 27-06-PLAN.md Task 3 (CFG-67): shortened from 27-01-SUMMARY.md's
+# measured 254-char combined baseline (this template + the battery
+# templates below). "at most" is UNCHANGED — it is the whole claim, not
+# decoration (WAKE_FRESHNESS_TEXT's own check in test_config_page.py
+# pins it) — only the trailing "after it passes" mechanism clause is
+# cut in favour of the shorter, equally exact "later".
 WAKE_FRESHNESS_TEXT = (
-    "A plane reaches the frame at most # min after it passes.")
+    "A plane reaches the frame at most # min later.")
 # The two absolute-figure wordings. Only ever rendered when
 # battery.battery_life_estimate() says the OBSERVED history supports a
 # figure, and carrying this app's own "≈" honesty marker (the battery
 # percentage already wears it) plus the source of the claim, so it can
-# never be read as a datasheet number.
+# never be read as a datasheet number. 27-06-PLAN.md Task 3 (CFG-67):
+# "at this interval" is cut (the sentence sits directly beside the
+# interval control it is about); "from this frame's own recent
+# readings" — the honesty attribution itself — is UNCHANGED.
 WAKE_BATTERY_DAY_TEXT = (
-    "≈ # day of battery left at this interval, from this frame's own "
-    "recent readings.")
+    "≈ # day of battery left, from this frame's own recent readings.")
 WAKE_BATTERY_DAYS_TEXT = (
-    "≈ # days of battery left at this interval, from this frame's own "
-    "recent readings.")
+    "≈ # days of battery left, from this frame's own recent readings.")
 # THE NAMED "NOT ENOUGH HISTORY YET" STATE. A rendered sentence, never a
 # blank and never a zero: a card that silently drops the battery half
 # whenever it cannot compute one reads as a card that has nothing to say
-# about battery at all.
+# about battery at all. 27-06-PLAN.md Task 3 (CFG-67): the trailing
+# reason clause ("— this frame has never measured what one wake costs")
+# is cut; the refusal itself ("Not enough battery history yet to say
+# how long a charge lasts") is UNCHANGED — this is D18's honesty
+# contract and this task shortens wording, never conditions.
 WAKE_BATTERY_UNKNOWN_TEXT = (
-    "Not enough battery history yet to say how long a charge lasts — "
-    "this frame has never measured what one wake costs.")
+    "Not enough battery history yet to say how long a charge lasts.")
 # The clause that keeps BOTH sentences from over-claiming: neither the
 # bound nor the battery figure is in force while the screen is off,
 # because device_config.DISPLAY_OFF_SLEEP_S is pinned independently of
 # this field then (server/wake.py's effective_wake_interval_s(),
 # precedence rule 1). A visitor who has turned the screen off would
-# otherwise read a claim that does not apply to their frame.
+# otherwise read a claim that does not apply to their frame. 27-06-
+# PLAN.md Task 3 (CFG-67): ", whatever this is set to" is cut — "instead"
+# already carries the override; the cadence itself stays named.
 WAKE_BATTERY_SCREEN_OFF_TEXT = (
-    "While the screen is off the frame wakes every %s instead, whatever "
-    "this is set to.")
+    "While the screen is off, the frame wakes every %s instead.")
 # The RELATIVE half, and the only half companion/static/value-controls.js
 # may recompute while the slider moves. It names TWO CADENCES and no
 # ratio: it is arithmetic on the two cadences and nothing else, which is

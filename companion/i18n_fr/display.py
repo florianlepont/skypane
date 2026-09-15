@@ -201,13 +201,14 @@ CATALOG = {
     # sentence that replaces the retired "Applies on the next scheduled
     # poll, which may now be hours away" wording — Task 2 appends one
     # computed delay sentence (below) as this caption's own second
-    # sentence, never a second, competing caption element.
-    "Pauses the frame's wake, poll and display cycle during the schedule "
-    "below — the Frame strip's Quiet hours switch is what turns it on "
-    "and off.":
+    # sentence, never a second, competing caption element. 27-06-
+    # PLAN.md Task 3 (CFG-67): the mechanism clause naming the Frame
+    # strip's switch is cut; the delay sentence it precedes is
+    # untouched.
+    "Pauses the frame's wake, poll and display cycle during the "
+    "schedule below.":
         "Met en pause le réveil, la vérification et l’affichage du "
-        "cadre pendant la plage horaire ci-dessous — c’est l’interrupteur "
-        "Heures calmes du bandeau Cadre qui l’active ou la désactive.",
+        "cadre pendant la plage horaire ci-dessous.",
     # 22-05-PLAN.md Task 2 (D-04): the two DELAY_DUE/DELAY_HELD delay-
     # sentence branches this caption's own computed second sentence uses
     # are DELIBERATELY NOT redefined here — they already have a live
@@ -264,16 +265,17 @@ CATALOG = {
     # action-shaped label left to translate. Check 2 of the i18n harness
     # is what found it: a key no module produces is a key nobody reads.
     "Wake interval": "Intervalle de réveil",
-    "How often the frame wakes to poll for updates. Shorter means "
-    "fresher info and more battery drain; longer means more battery "
-    "life and staler info at a glance. Applies on the next scheduled "
-    "poll.":
-        "À quelle fréquence le cadre se réveille pour vérifier les "
-        "mises à jour. Plus court signifie des informations plus "
-        "fraîches et plus de décharge de la batterie ; plus long "
-        "signifie plus d’autonomie et des informations plus datées "
-        "en un coup d’œil. S’applique lors de la prochaine "
-        "vérification programmée.",
+    # 27-06-PLAN.md Task 3 (CFG-67): shortened — the mechanism sentence
+    # ("How often the frame wakes...") and the apply-timing sentence
+    # ("Applies on the next scheduled poll.") are both cut; the
+    # derived "(prochain réveil ≈ ...)" suffix already states the
+    # apply timing with a real timestamp.
+    "Shorter means fresher info and more battery drain; longer means "
+    "more battery life and staler info at a glance.":
+        "Plus court signifie des informations plus fraîches et plus de "
+        "décharge de la batterie ; plus long signifie plus "
+        "d’autonomie et des informations plus datées en un coup "
+        "d’œil.",
     "Wake interval (seconds)": "Intervalle de réveil (secondes)",
     # 25-05-PLAN.md Task 2 (CFG-52): the range input's OWN accessible
     #     name. It needs one distinct from the number input's label
@@ -291,29 +293,33 @@ CATALOG = {
     #     changes mid-sweep. U+00A0 between the number and its
     #     unit, per D-09, exactly as layout.duration_text() already
     #     does for its own French branch.
-    "A plane reaches the frame at most # min after it passes.":
-        "Un avion apparaît sur le cadre au plus # min après son passage.",
+    # 27-06-PLAN.md Task 3 (CFG-67): "after it passes" is cut in favour
+    # of the shorter, equally exact "later" — "at most" is unchanged.
+    "A plane reaches the frame at most # min later.":
+        "Un avion apparaît sur le cadre au plus # min plus tard.",
     # The two absolute-figure wordings, SINGULAR and PLURAL both —
     #     a days count of 1 is reachable (a nearly empty battery)
     #     and "1 jours" is the missing-plural defect this harness
-    #     has caught before.
-    "≈ # day of battery left at this interval, from this frame's own "
-    "recent readings.":
-        "≈ # jour d’autonomie restante à cet intervalle, d’après les "
-        "relevés récents de ce cadre.",
-    "≈ # days of battery left at this interval, from this frame's own "
-    "recent readings.":
-        "≈ # jours d’autonomie restante à cet intervalle, d’après les "
-        "relevés récents de ce cadre.",
-    "Not enough battery history yet to say how long a charge lasts — "
-    "this frame has never measured what one wake costs.":
-        "Pas encore assez d’historique de batterie pour dire combien de "
-        "temps dure une charge — ce cadre n’a jamais mesuré ce que coûte "
-        "un réveil.",
-    "While the screen is off the frame wakes every %s instead, whatever "
-    "this is set to.":
-        "Quand l’écran est éteint, le cadre se réveille toutes les %s à la "
-        "place, quel que soit ce réglage.",
+    #     has caught before. 27-06-PLAN.md Task 3 (CFG-67): "at this
+    #     interval"/"à cet intervalle" is cut — the honesty
+    #     attribution ("from this frame’s own recent readings") is
+    #     UNCHANGED.
+    "≈ # day of battery left, from this frame's own recent readings.":
+        "≈ # jour d’autonomie restante, d’après les relevés "
+        "récents de ce cadre.",
+    "≈ # days of battery left, from this frame's own recent readings.":
+        "≈ # jours d’autonomie restante, d’après les relevés "
+        "récents de ce cadre.",
+    # 27-06-PLAN.md Task 3 (CFG-67): the trailing reason clause is cut;
+    # the refusal itself — D18’s honesty contract — is UNCHANGED.
+    "Not enough battery history yet to say how long a charge lasts.":
+        "Pas encore assez d’historique de batterie pour dire combien "
+        "de temps dure une charge.",
+    # 27-06-PLAN.md Task 3 (CFG-67): ", whatever this is set to" is cut —
+    # "instead"/"à la place" already carries the override.
+    "While the screen is off, the frame wakes every %s instead.":
+        "Quand l’écran est éteint, le cadre se réveille toutes les %s "
+        "à la place.",
     # The relative clause names both cadences rather than a ratio, so it
     #     carries no decimal at all — which is what keeps it out of the
     #     French decimal-comma question entirely. "%d" is the SAVED
