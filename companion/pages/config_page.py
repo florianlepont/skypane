@@ -30,10 +30,11 @@ from companion import battery  # 25-05-PLAN.md Task 1 (CFG-49): the ONE
 # `from companion.battery import battery_life_estimate` would make the
 # estimate read as this page's own, which is the drift 19-01 created
 # that module to prevent.
-from companion import draw  # 25-03-PLAN.md Task 1 (CFG-47): the shared
-# SVG geometry/emission primitives the runway map's shapes come from.
-# stdlib-only by its own contract, so importing it here adds no
-# dependency edge this module did not already have.
+from companion import draw  # 25-04-PLAN.md Task 2 (CFG-48): the shared
+# SVG geometry/emission primitives the quiet-hours dial's shapes come
+# from (27-05-PLAN.md Task 2, CFG-66, retired the runway map's own use
+# of this import). stdlib-only by its own contract, so importing it
+# here adds no dependency edge this module did not already have.
 from companion.layout import escape_html
 import companion.layout as layout
 from companion import frame_state  # 22-05-PLAN.md Task 2 (D-04): the one
@@ -1986,163 +1987,6 @@ def _frame_colours_card_html(
     )
 
 
-# --- 25-03-PLAN.md Task 1 (CFG-47): the schematic Orly runway map ------
-#
-# Class names as constants, never literals at the emission site, matching
-# this file's own convention and companion/draw.py's stated reason for
-# having any: a class that exists in Python and nowhere in
-# companion/static/style.css paints nothing at all and nothing else in
-# this codebase would notice. `_runway_map_classes_resolve_in_style_css`
-# in companion/test_config_page.py scans the EMITTED markup's classes
-# against the stylesheet for exactly that reason.
-RUNWAY_MAP_CLASS = "runway-map"
-RUNWAY_MAP_FIELD_CLASS = "runway-map__field"
-RUNWAY_MAP_STRIP_CLASS = "runway-map__strip"
-# The strip belonging to the card that draws it. Present on exactly one
-# strip per map, on EVERY card, selected or not — it says "this card's
-# runway", never "the chosen runway". Selection is the label's own
-# state (`.runway-card--selected` and the live `:has(input:checked)`
-# rule inside the ONE feature query), and keeping the two apart is what
-# makes a map with `current_runway_id=None` render with nothing marked
-# as chosen rather than defaulting to one.
-RUNWAY_MAP_THIS_STRIP_CLASS = "runway-map__strip--this"
-
-# User units. The map is an aspect-locked mark, so it belongs to
-# companion/draw.py's `unit_*` scheme (a viewBox plus intrinsic
-# width/height attributes), not the percentage scheme — see that
-# module's "TWO COORDINATE SCHEMES LIVE HERE" paragraph. The intrinsic
-# attributes are the size route companion/layout.py's icon_html()
-# docstring records: an <svg> with neither an attribute nor a CSS rule
-# renders at the SVG default 300x150 and blows the layout apart.
-RUNWAY_MAP_SIZE = 64
-RUNWAY_MAP_FIELD_RADIUS = 30
-RUNWAY_MAP_STRIP_LENGTH = 52
-RUNWAY_MAP_STRIP_WIDTH = 6
-# Perpendicular separation between adjacent strips, so three runways do
-# not all pile through one point. Derived from the strip's index in the
-# registry, so a fourth entry spaces itself.
-RUNWAY_MAP_STRIP_SPACING = 7
-
-# A runway designator IS its magnetic bearing in tens of degrees (ICAO
-# convention), and a designator pair is reciprocal: 07/25, 06/24, 02/20
-# all differ by exactly 18. Requiring the reciprocal is what makes this
-# a designator parser rather than a "two numbers with a slash" parser.
-_RUNWAY_DESIGNATOR_RE = re.compile(r"(?<!\d)(\d{1,2})\s*[/-]\s*(\d{1,2})(?!\d)")
-_RUNWAY_RECIPROCAL_OFFSET = 18
-# The stated fallback for a registry entry whose id and label both carry
-# no parseable designator: due north, drawn as a plain north-south
-# strip. A fallback and never an exception — T-25-03-D — because a
-# registry typo must not take down the whole Display page.
-RUNWAY_MAP_FALLBACK_BEARING_DEG = 0
-
-
-def runway_bearing_deg(runway_id):
-    """The bearing, in degrees clockwise from north and folded into
-    [0, 180), at which `runway_id`'s strip is drawn. Never raises.
-
-    THE LABEL IS READ BEFORE THE ID, AND THAT ORDER IS THE WHOLE POINT
-    OF THIS FUNCTION. Orly's first registry entry is keyed `"3"` — an
-    ADP runway NUMBER, not a designator — while its label is
-    `"Runway 3 (07/25)"`. Parsing the id first would draw that runway at
-    030 while its own visible label says 07/25, which is precisely the
-    drawing-contradicts-its-own-labels defect this parse exists to make
-    unreachable. The label is what the visitor reads, so the label is
-    what the geometry comes from; the id is the second source only
-    because a future registry entry may be keyed by its designator and
-    labelled in some other way.
-
-    Folded modulo 180 because a strip is a LINE, not an arrow: 07 and
-    25 are the same piece of tarmac walked in opposite directions and
-    draw identically, so the lower designator is the canonical one.
-
-    Falls back to RUNWAY_MAP_FALLBACK_BEARING_DEG for an entry neither
-    of whose strings carries a reciprocal designator pair.
-    """
-    label = device_config.RUNWAYS.get(runway_id, {}).get("label", "")
-    for text in (label, runway_id):
-        for match in _RUNWAY_DESIGNATOR_RE.finditer(str(text)):
-            first, second = int(match.group(1)), int(match.group(2))
-            if not (1 <= first <= 36 and 1 <= second <= 36):
-                continue
-            if abs(first - second) != _RUNWAY_RECIPROCAL_OFFSET:
-                continue
-            return (first * 10) % 180
-    return RUNWAY_MAP_FALLBACK_BEARING_DEG
-
-
-def runway_map_svg(this_runway_id):
-    """The schematic Orly map as one `<svg>`, drawn from
-    `device_config.RUNWAY_IDS` and nothing else — every entry in the
-    registry becomes a strip, and the strip belonging to
-    `this_runway_id` additionally carries RUNWAY_MAP_THIS_STRIP_CLASS.
-
-    WHAT THIS DRAWING CLAIMS, EXACTLY: relative bearings, north up. It
-    does not claim scale and it does not claim relative lengths — the
-    registry carries no length for any runway, so every strip is drawn
-    at RUNWAY_MAP_STRIP_LENGTH and the caption says so out loud
-    (RUNWAY_SECTION_CAPTION). A diagram that implied a survey it does
-    not have would be the same dishonest-state defect family Phase 22
-    removed, and the honest fix is the caption, not a plausible-looking
-    invented length.
-
-    EVERY CARD DRAWS THE WHOLE AIRFIELD, not just its own runway, and
-    that is the reason this is a map at all. Three photographs side by
-    side — or three lone strips side by side — tell a visitor nothing
-    about where these runways are RELATIVE TO EACH OTHER, which is the
-    one thing a map is for. So each `.runway-card` carries a complete
-    map with its own runway picked out, and comparing cards compares
-    highlights on one shared picture. An `<svg>` cannot contain a
-    `<label>` or an `<input>`, so one shared canvas with three labels
-    floated over it was the alternative, and it would have put the three
-    touch targets on absolutely-positioned overlays at 360px — the exact
-    hit-area failure Task 3 measures against.
-
-    `aria-hidden="true" focusable="false"`: the accessible names come
-    from the three labels, exactly as before this drawing existed. A
-    labelled graphic would announce the runways a second time.
-    Deliberately hand-written rather than `draw.unit_canvas()`, which
-    emits the viewBox, the intrinsic size and `aria-hidden` but not
-    `focusable` — every SHAPE inside still comes from draw.py's own
-    primitives, so the escaping and the refuse-a-paint-decided-in-Python
-    guard apply to all of them.
-    """
-    centre = RUNWAY_MAP_SIZE / 2.0
-    runway_ids = device_config.RUNWAY_IDS
-    count = len(runway_ids)
-    shapes = [draw.circle(
-        RUNWAY_MAP_FIELD_CLASS, centre, centre, RUNWAY_MAP_FIELD_RADIUS)]
-    for index, runway_id in enumerate(runway_ids):
-        class_name = RUNWAY_MAP_STRIP_CLASS
-        if runway_id == this_runway_id:
-            class_name += " " + RUNWAY_MAP_THIS_STRIP_CLASS
-        # Offset perpendicular to the strip's own axis (applied before
-        # the rotation, so it rotates with it), centred on the registry
-        # so the set stays symmetric whatever its size.
-        offset = (index - (count - 1) / 2.0) * RUNWAY_MAP_STRIP_SPACING
-        shapes.append(draw.rect(
-            class_name,
-            centre + offset - RUNWAY_MAP_STRIP_WIDTH / 2.0,
-            centre - RUNWAY_MAP_STRIP_LENGTH / 2.0,
-            RUNWAY_MAP_STRIP_WIDTH,
-            RUNWAY_MAP_STRIP_LENGTH,
-            attrs={
-                "rx": RUNWAY_MAP_STRIP_WIDTH / 2.0,
-                # Clockwise from north, which is what a bearing is, and
-                # what an SVG rotate() about the centre of a
-                # north-south strip already does.
-                "transform": "rotate(%d %.2f %.2f)" % (
-                    runway_bearing_deg(runway_id), centre, centre),
-            },
-        ))
-    return (
-        '<svg class="%s" viewBox="0 0 %d %d" width="%d" height="%d" '
-        'aria-hidden="true" focusable="false">%s</svg>'
-    ) % (
-        escape_html(RUNWAY_MAP_CLASS), RUNWAY_MAP_SIZE, RUNWAY_MAP_SIZE,
-        RUNWAY_MAP_SIZE, RUNWAY_MAP_SIZE, "".join(shapes),
-    )
-
-
 def runway_fieldset(
         current_runway_id, images_available=(), errors=None, submitted=None,
         next_wake_clock=None):
@@ -2233,35 +2077,31 @@ def runway_fieldset(
     sit between the Calendar card and this group in document order
     without ever nesting one `<form>` inside another.
 
-    25-03-PLAN.md Task 1 (CFG-47) adds a schematic MAP to each card and
-    changes NOTHING about the control. The three radios keep their
+    27-05-PLAN.md Task 2 (CFG-66) RETIRED the schematic map 25-03
+    (CFG-47) drew into each card: the developer's own review found it
+    taught him nothing his own paper schematics did not already
+    ("Je comprends pas l'intérêt de ces cartes des pistes, elles
+    représentent la même chose que mes schémas."). The map was a drawing
+    wrapped around a native radiogroup that already worked, so removing
+    it changed NOTHING about the control: the three radios keep their
     `name`, their `value`s, their `class="visually-hidden"` (never
     `display: none`, which would drop them from the tab order and break
     keyboard selection), their `form=` association and their `checked`
     computation; the row keeps `role="radiogroup"`, `aria-labelledby`
-    and `aria-describedby` with the same ids. That is the whole point of
-    this change: a native radiogroup already has arrow-key navigation,
-    already has a native selected state and already submits, so the map
-    is what a visitor LOOKS AT while operating a control that was
-    already complete. This group therefore ships ZERO new JavaScript and
-    needs none of 25-01's `.js` gate — a control that needs no
-    enhancement needs no gate.
-
-    Each card's map is `runway_map_svg(runway_id)`: the whole airfield,
-    every registry entry drawn at the bearing its own designator states,
-    with this card's runway picked out. See that function for why every
-    card draws every runway and why the geometry is parsed rather than
-    typed.
+    and `aria-describedby` with the same ids. This group ships ZERO
+    JavaScript and needs none of 25-01's `.js` gate, exactly as it did
+    with the map — a control that needed no enhancement before still
+    needs none.
 
     THE PHOTOGRAPHS STAY, AND STAY WHERE THEY WERE. `images_available`
     is untouched, the session-gated `/runway-image/{id}.png` route is
-    untouched, and the three PNGs on disk are untouched. The map is
-    ADDED above the card's number; the `<img>` keeps its existing slot
-    below it, so `.runway-card__image`'s own rule and the two-of-three
-    availability behaviour need no edit at all. The map and the
-    photograph answer different questions — where this runway is, and
-    what it looks like — and deleting real imagery in favour of a
-    schematic would be irreversible in a way adding one is not.
+    untouched, and the three PNGs on disk are untouched. The `<img>`
+    keeps its existing slot below the card's number, so
+    `.runway-card__image`'s own rule and the two-of-three availability
+    behaviour need no edit at all — the map and the photograph always
+    answered different questions (where this runway is, and what it
+    looks like), and removing the former leaves the latter's slot exactly
+    where it was.
     """
     effective_runway_id = _submitted_or_current(
         submitted, "tracked_runway", current_runway_id)
@@ -2296,7 +2136,6 @@ def runway_fieldset(
             '<label class="%s"%s>'
             '<input type="radio" name="tracked_runway" value="%s" class="visually-hidden" '
             'form="%s"%s>'
-            "%s"
             '<span class="runway-card__number">%s</span>'
             "%s"
             '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
@@ -2304,7 +2143,7 @@ def runway_fieldset(
             % (
                 card_class, current_attr_html,
                 escaped_id, SETTINGS_FORM_ID, checked,
-                runway_map_svg(runway_id), escape_html(label),
+                escape_html(label),
                 image_html, layout.icon_html("icon-check"),
                 escape_html(i18n.t("Selected")),
             )
@@ -2623,11 +2462,10 @@ def _normalised_time_html(value):
 
 # --- 25-04-PLAN.md Task 2 (CFG-48): the server-drawn 24 h ring --------
 #
-# Class names as constants rather than literals at the emission site,
-# the same reason RUNWAY_MAP_* above gives: a class that exists in Python
-# and nowhere in companion/static/style.css paints nothing at all, and a
-# check scans the EMITTED markup's classes against the stylesheet for
-# exactly that.
+# Class names as constants rather than literals at the emission site: a
+# class that exists in Python and nowhere in companion/static/style.css
+# paints nothing at all, and a check scans the EMITTED markup's classes
+# against the stylesheet for exactly that.
 QUIET_DIAL_CLASS = "quiet-dial"
 QUIET_DIAL_RING_CLASS = "quiet-dial__ring"
 # The full circumference: the whole 24 hours, always drawn.
@@ -2758,9 +2596,9 @@ def quiet_dial_svg(span):
     `draw.unit_circle_dash_array()` already owns it.
 
     `aria-hidden="true" focusable="false"`, and hand-written rather than
-    `draw.unit_canvas()` for the one reason `runway_map_svg()` above
-    records: that helper emits the viewBox, the intrinsic size and
-    `aria-hidden`, but not `focusable`. Every SHAPE still comes from
+    `draw.unit_canvas()` for the one reason: that helper emits the
+    viewBox, the intrinsic size and `aria-hidden`, but not `focusable`.
+    Every SHAPE still comes from
     draw.py's own primitives, so the escaping and the
     refuse-a-paint-decided-in-Python guard apply to all of them.
 
