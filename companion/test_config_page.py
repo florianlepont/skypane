@@ -999,6 +999,15 @@ EXPECTED_CHECK_COUNT = 262
 # literal. Net: 262 + 1 = 263, re-derived by RUNNING (263/263).
 EXPECTED_CHECK_COUNT = 263
 
+# 28-03-PLAN.md Task 3 (CFG-73 Bug A): +1 — the quiet-dial readout's own
+# server-render contract check
+# (_the_quiet_dial_readout_carries_clock_format_and_duration_wordings_in_both_languages),
+# proving both endpoint spans carry the readout-scoped clock-format
+# attribute and the duration span carries a non-empty value for every
+# one of layout.DURATION_ATTRS, in both shipped languages. Net:
+# 263 + 1 = 264, re-derived by RUNNING (264/264).
+EXPECTED_CHECK_COUNT = 264
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -2632,6 +2641,50 @@ def main():
         "while the full-day ring still draws; and a hostile submitted value reaches neither "
         "(T-25-04-B) (CFG-48, 25-04-PLAN.md Task 2)",
         _the_ring_draws_the_saved_window_from_the_emitted_attributes)
+
+    def _the_quiet_dial_readout_carries_clock_format_and_duration_wordings_in_both_languages():
+        # 28-03-PLAN.md Task 3 (CFG-73 Bug A): quiet_dial_readout_html()'s
+        # own server-render contract, checked directly rather than only
+        # through the byte-identical-at-rest assertion above — both
+        # endpoint spans carry the readout-scoped clock-format attribute,
+        # and the duration span carries a non-empty value for EVERY one
+        # of layout.DURATION_ATTRS, in BOTH shipped languages.
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                markup = config_page.quiet_hours_group("23:00", "07:00")
+            finally:
+                prefs.set_request_prefs(lang="en")
+            readout = re.search(
+                r'<p class="time-value %s"([^>]*)>(.*?)</p>'
+                % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), markup, re.DOTALL)
+            if not readout:
+                return False, "lang=%s: the card renders no dial readout" % lang
+            body = readout.group(2)
+            clock_count = body.count(
+                '%s="%s"' % (layout.VALUE_CONTROL_READOUT_FORMAT_ATTR,
+                             layout.VALUE_CONTROL_FORMAT_CLOCK))
+            if clock_count != 2:
+                return False, (
+                    "lang=%s: expected %s=%r exactly twice (once per endpoint span), found %d "
+                    "in %r" % (lang, layout.VALUE_CONTROL_READOUT_FORMAT_ATTR,
+                               layout.VALUE_CONTROL_FORMAT_CLOCK, clock_count, body))
+            for attr in layout.DURATION_ATTRS:
+                m = re.search(r'%s="([^"]*)"' % re.escape(attr), body)
+                if not m:
+                    return False, (
+                        "lang=%s: the duration span carries no %r: %r" % (lang, attr, body))
+                if not m.group(1):
+                    return False, (
+                        "lang=%s: %r is present but EMPTY — every bucket wording must be "
+                        "non-empty so the client never has to invent one: %r"
+                        % (lang, attr, body))
+        return True, ""
+    check(
+        "quiet_dial_readout_html() carries data-value-readout-format=\"clock\" on both endpoint "
+        "spans and a non-empty value for each of the four layout.DURATION_ATTRS on the duration "
+        "span, in both shipped languages (CFG-73 Bug A, 28-03-PLAN.md Task 3)",
+        _the_quiet_dial_readout_carries_clock_format_and_duration_wordings_in_both_languages)
 
     def _the_ring_is_an_addition_and_the_four_controls_are_untouched():
         """CFG-48 (25-04-PLAN.md Task 2): B14 has been broken once

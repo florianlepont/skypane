@@ -889,6 +889,17 @@ EXPECTED_CHECK_COUNT = 88
 # themes. 88 + 1 = 89, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 89
 
+# 28-03-PLAN.md Task 3 (CFG-73, Bug A): +1 —
+# _the_dial_caption_keeps_its_form_after_every_interaction_kind, which
+# reads the caption's ACTUAL DISPLAYED TEXT after each of a drag, a
+# keyboard step, a typed field edit and a preset click, asserting the
+# decoded endpoints, a non-empty duration equal to the wrapped-
+# difference computation worded from the page's own
+# layout.DURATION_ATTRS, and the caption's structural shape unchanged
+# from the server-rendered reference — in both shipped languages, with
+# the preset step crossing midnight. 89 + 1 = 90, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 90
+
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
 # ONE element must carry it. Both halves are asserted: the declared set
@@ -3219,17 +3230,33 @@ def _fraction_pair_minutes(page, selector, start_property, sweep_property,
     return (start_minute, end_minute)
 
 
-# Any run of digits, for the caption's own text — 27-02-PLAN.md Task 3's
-# own design (see quiet_dial_readout_html()'s docstring): the two
-# endpoint spans substitute value-controls.js's paintReadouts() raw,
-# UNCONVERTED value — the same minute-of-day number the handles publish
-# as aria-valuenow, not an "HH:MM" string, because paintReadouts()'s own
-# substitution is a bare number and this app writes no clock-formatting
-# copy into that seam. So the LIVE caption (after any interaction) reads
-# like "480 → 1080 · ", and this decoder reads it exactly that way,
-# through the same minute-of-day unit the other three surfaces already
-# speak — no HH:MM parsing, no second unit, no tolerance.
-_CAPTION_NUMBER_RE = re.compile(r"\d+")
+# 28-03-PLAN.md Task 3 (CFG-73 Bug A) — SUPERSEDED. Kept below, legible,
+# because it documents the real design this task inverts on purpose, not
+# by accident:
+#
+#     "Any run of digits, for the caption's own text — 27-02-PLAN.md
+#     Task 3's own design (see quiet_dial_readout_html()'s docstring):
+#     the two endpoint spans substitute value-controls.js's
+#     paintReadouts() raw, UNCONVERTED value — the same minute-of-day
+#     number the handles publish as aria-valuenow, not an "HH:MM"
+#     string, because paintReadouts()'s own substitution is a bare
+#     number and this app writes no clock-formatting copy into that
+#     seam. So the LIVE caption (after any interaction) reads like
+#     "480 -> 1080 . ", and this decoder reads it exactly that way,
+#     through the same minute-of-day unit the other three surfaces
+#     already speak - no HH:MM parsing, no second unit, no tolerance."
+#
+# THAT WAS THE BUG, DOCUMENTED HERE AS CORRECT BEHAVIOUR. 28-03-PLAN.md
+# Task 1/2 (CFG-73 Bug A) gave both endpoint spans a real HH:MM codec and
+# the duration span a live, worded duration, so the LIVE caption now
+# reads "08:00 -> 18:00 . 8h" — the SAME FORM the server emits at load.
+# `_CAPTION_NUMBER_RE`'s old bare-digit-run approach, re-applied to that
+# string, would misparse "08:00" into the digit runs "08"/"00" and
+# silently report (8, 0) instead of (480, 1080) — precisely how this
+# regression shipped and survived a phase undetected: a decoder that
+# read the bug's own output as ground truth. `_CAPTION_TOKEN_RE` below
+# matches "HH:MM" tokens instead of bare digit runs.
+_CAPTION_TOKEN_RE = re.compile(r"(\d{1,2}):(\d{2})")
 _QUIET_READOUT_SELECTOR = "." + config_page.QUIET_DIAL_READOUT_CLASS
 
 
@@ -3246,18 +3273,23 @@ def _quiet_caption_minutes(page, where, selector=None):
     regardless of layout, which is what a decoder that must never
     silently read stale/absent text needs.
 
-    THE FIRST TWO DIGIT RUNS ARE THE PAIR, taken in document order
-    (start span, then end span) — the same order
-    `quiet_dial_readout_html()` emits them in and the same order
-    `quiet_dial_handles_html()` emits its own two wrappers in. The
-    duration segment contributes no digits of its own once it has been
-    painted at all (27-02-PLAN.md Task 3's own empty-template design), so
-    there is no third number to mistake for part of the pair on a page
-    that has been interacted with.
+    28-03-PLAN.md Task 3 (CFG-73 Bug A): THE FIRST TWO "HH:MM" TOKENS ARE
+    THE PAIR, taken in document order (start span, then end span) — the
+    same order `quiet_dial_readout_html()` emits them in and the same
+    order `quiet_dial_handles_html()` emits its own two wrappers in, and
+    the SAME "HH:MM -> HH:MM . <duration>" FORM the server emits at
+    load: both endpoints are painted through `numberToField()`'s own
+    zero-padded clock codec after ANY interaction now (28-03's own
+    Bug A fix), not the bare minute-of-day number this decoder used to
+    (mis)read as ground truth. The duration segment's own wording (e.g.
+    "8h"/"8 h") contains no "HH:MM"-shaped substring, so it never
+    contributes a false third pair member.
 
-    Raises AssertionError, naming what was read, when fewer than two
-    digit runs are present — never returns a default, matching every
-    other decoder in this file.
+    Raises AssertionError, with the caption's ACTUAL text quoted, when
+    fewer than two "HH:MM" tokens are present — a decoder that silently
+    returns a plausible-looking pair from unparseable text is exactly
+    how the original bug survived a phase undetected, and this one does
+    not repeat that mistake.
     """
     if selector is None:
         selector = _QUIET_READOUT_SELECTOR
@@ -3266,13 +3298,80 @@ def _quiet_caption_minutes(page, where, selector=None):
         raise AssertionError(
             "_quiet_caption_minutes: %s — %r has no text content at all on %s"
             % (where, selector, page.url))
-    numbers = _CAPTION_NUMBER_RE.findall(text)
-    if len(numbers) < 2:
+    tokens = _CAPTION_TOKEN_RE.findall(text)
+    if len(tokens) < 2:
         raise AssertionError(
-            "_quiet_caption_minutes: %s — the caption %r on %s carries %d digit run(s), fewer "
-            "than the two minute-of-day numbers a pair needs"
-            % (where, text, page.url, len(numbers)))
-    return (int(numbers[0]) % MINUTES_PER_DAY, int(numbers[1]) % MINUTES_PER_DAY)
+            "_quiet_caption_minutes: %s — the caption %r on %s carries %d \"HH:MM\" token(s), "
+            "fewer than the two endpoints a pair needs" % (where, text, page.url, len(tokens)))
+
+    def _token_to_minute(token):
+        hours, minutes = token
+        return (int(hours) * 60 + int(minutes)) % MINUTES_PER_DAY
+
+    return (_token_to_minute(tokens[0]), _token_to_minute(tokens[1]))
+
+
+# 28-03-PLAN.md Task 3 (CFG-73 Bug A): the duration span's own selector —
+# it carries VALUE_CONTROL_READOUT_BASE_ATTR (data-value-readout-base)
+# and neither endpoint span does, so this is unique WITHIN the quiet-dial
+# readout paragraph without inventing a class the stylesheet never uses.
+_QUIET_DURATION_SELECTOR = "%s [%s]" % (
+    _QUIET_READOUT_SELECTOR, layout.VALUE_CONTROL_READOUT_BASE_ATTR)
+
+
+def _quiet_caption_shape(text):
+    """`text`'s STRUCTURE, never its value: every "HH:MM" token becomes
+    the literal placeholder "HH:MM" and every remaining digit becomes
+    "#", so two captions naming different times/durations but sharing
+    the same separators, spacing and token order compare equal, while a
+    caption whose FORM actually changed (a dropped separator, a missing
+    duration, a reordered pair) does not.
+
+    28-03-PLAN.md Task 3 (CFG-73 Bug A)'s own contract: the caption must
+    keep the SAME FORM the server emits at load after every interaction
+    kind — this is "the same form" made comparable without pinning the
+    one reference string, which would only ever be true for one value.
+    """
+    shaped = _CAPTION_TOKEN_RE.sub("HH:MM", text)
+    return re.sub(r"\d+", "#", shaped)
+
+
+def _quiet_duration_span_text(page, where):
+    """The duration span's own CURRENTLY DISPLAYED text — the third
+    child of the readout paragraph — read the same `textContent` way
+    `_quiet_caption_minutes()` reads the whole caption.
+    """
+    text = page.locator(_QUIET_DURATION_SELECTOR).text_content()
+    if text is None:
+        raise AssertionError(
+            "_quiet_duration_span_text: %s — %r has no text content at all on %s"
+            % (where, _QUIET_DURATION_SELECTOR, page.url))
+    return text
+
+
+def _expected_quiet_duration_text(page, requested, where):
+    """The duration text `page`'s OWN duration span SHOULD show for the
+    `requested` (start_minute, end_minute) pair — computed as the
+    WRAPPED difference between the two ends (matching
+    `quiet_window_span()`'s own "always forward from start" contract),
+    bucketed with `layout._age_bucket()`'s own boundaries, and worded
+    with whichever of `layout.DURATION_ATTRS` the PAGE ITSELF carries —
+    read off the duration span's own attribute, never hardcoded as
+    "h"/"min"/"heure", so this check cannot desync from the catalogue
+    the server actually shipped.
+    """
+    start_minute, end_minute = requested
+    minutes = (end_minute - start_minute) % MINUTES_PER_DAY
+    quantity, unit = layout._age_bucket(minutes * 60)
+    index = {"s": 0, "m": 1, "h": 2, "d": 3}[unit]
+    attr = layout.DURATION_ATTRS[index]
+    wording = page.get_attribute(_QUIET_DURATION_SELECTOR, attr)
+    if not wording:
+        raise AssertionError(
+            "_expected_quiet_duration_text: %s — the duration span on %s carries no usable %r"
+            % (where, page.url, attr))
+    mark = layout.RELATIVE_QUANTITY_MARK
+    return wording.replace(mark, str(quantity), 1) if mark in wording else wording
 
 
 # ---------------------------------------------------------------------
@@ -11556,6 +11655,167 @@ def main():
                     "auto-save that is the preset's own commit, read fresh rather than assumed "
                     "(27-04-PLAN.md Task 4, CFG-63)",
                     _the_arc_the_handles_and_the_caption_agree_after_an_interaction)
+
+                def _the_dial_caption_keeps_its_form_after_every_interaction_kind():
+                    # 28-03-PLAN.md Task 3 (CFG-73 Bug A): the developer's
+                    # own report was that the caption reverts to a raw,
+                    # blank-duration form after EVERY interaction, not
+                    # just a drag — so this check drives all FOUR kinds
+                    # (drag, keyboard, typed field edit, preset), in this
+                    # order, on the SAME page, and reads the caption's
+                    # ACTUAL DISPLAYED TEXT after each one.
+                    base_url = harness.base_url()
+                    before = _quiet_hours_on_disk()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        for lang in ("en", "fr"):
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            # A KNOWN, DETERMINISTIC STARTING WINDOW,
+                            # reset EVERY language pass for the identical
+                            # reason 27-02-PLAN.md Task 4's own agreement
+                            # check resets inside its loop: auto-save
+                            # means the second language pass would
+                            # otherwise start from whatever the FIRST
+                            # pass's own preset left on disk.
+                            _set_window(page, base_url, "08:00", "23:00")
+
+                            # THE REFERENCE SHAPE — captured from the
+                            # server-rendered page, BEFORE any
+                            # interaction, on THIS language pass.
+                            reference_text = page.locator(
+                                _QUIET_READOUT_SELECTOR).text_content()
+                            reference_shape = _quiet_caption_shape(reference_text)
+                            recorded["%s/reference" % lang] = reference_text
+
+                            def _assert_after(requested, kind):
+                                caption_text = page.locator(
+                                    _QUIET_READOUT_SELECTOR).text_content()
+                                decoded = _quiet_caption_minutes(
+                                    page, "%s/%s" % (lang, kind))
+                                if decoded != requested:
+                                    return (
+                                        "%s/%s: the caption decodes to %r; the interaction "
+                                        "requested %r" % (lang, kind, decoded, requested))
+                                duration_text = _quiet_duration_span_text(
+                                    page, "%s/%s" % (lang, kind))
+                                if not duration_text:
+                                    return (
+                                        "%s/%s: the duration segment is EMPTY after this "
+                                        "interaction — this is the exact regression the "
+                                        "developer reported" % (lang, kind))
+                                expected_duration = _expected_quiet_duration_text(
+                                    page, requested, "%s/%s" % (lang, kind))
+                                if duration_text != expected_duration:
+                                    return (
+                                        "%s/%s: the duration segment reads %r; the wrapped-"
+                                        "difference computation, worded from the page's own "
+                                        "layout.DURATION_ATTRS, expects %r"
+                                        % (lang, kind, duration_text, expected_duration))
+                                shape = _quiet_caption_shape(caption_text)
+                                if shape != reference_shape:
+                                    return (
+                                        "%s/%s: the caption's FORM changed — the server-"
+                                        "rendered reference is %r (shape %r), the live caption "
+                                        "after this interaction is %r (shape %r)"
+                                        % (lang, kind, reference_text, reference_shape,
+                                           caption_text, shape))
+                                return None
+
+                            # 1. DRAG the end handle to nine o'clock,
+                            # which is 18:00 — the same aiming
+                            # `_the_arc_the_handles_and_the_caption_
+                            # agree_after_an_interaction()` above uses.
+                            page.eval_on_selector(
+                                QUIET_DIAL_SEL,
+                                "el => el.scrollIntoView({block: 'center'})")
+                            box = page.evaluate(
+                                "sel => { const r = document.querySelector(sel)"
+                                "  .getBoundingClientRect();"
+                                "  return [r.left + r.width / 2, r.top + r.height / 2,"
+                                "          r.width, r.height]; }", QUIET_DIAL_SEL)
+                            grip = page.evaluate(
+                                "sel => { const r = document.querySelector(sel)"
+                                "  .getBoundingClientRect();"
+                                "  return [r.left + r.width / 2, r.top + r.height / 2]; }",
+                                _handle_sel("quiet_hours_end"))
+                            page.mouse.move(grip[0], grip[1])
+                            page.mouse.down()
+                            if not page.evaluate(
+                                    "sel => document.activeElement"
+                                    "  === document.querySelector(sel)",
+                                    _handle_sel("quiet_hours_end")):
+                                page.mouse.up()
+                                return False, (
+                                    "%s: a pointer-down at the end handle's own centre did not "
+                                    "reach the steering script" % lang)
+                            page.mouse.move(box[0] - box[2] / 2 + 8, box[1], steps=8)
+                            page.mouse.up()
+                            requested_drag = (8 * 60, 18 * 60)
+                            problem = _assert_after(requested_drag, "drag")
+                            if problem:
+                                return False, problem
+
+                            # 2. KEYBOARD: one ArrowRight on the START
+                            # handle — QUIET_DIAL_HANDLE_STEP is 15
+                            # minutes.
+                            _operate_with_keyboard(
+                                page, _handle_sel("quiet_hours_start"), ["ArrowRight"])
+                            requested_keyboard = (8 * 60 + 15, 18 * 60)
+                            problem = _assert_after(requested_keyboard, "keyboard step")
+                            if problem:
+                                return False, problem
+
+                            # 3. TYPED FIELD EDIT: the `.fill()` shape,
+                            # committed the same way `_set_window()`
+                            # commits each field.
+                            page.fill('input[name="quiet_hours_end"]', "19:00")
+                            _commit_field(page, 'input[name="quiet_hours_end"]')
+                            requested_typed = (8 * 60 + 15, 19 * 60)
+                            problem = _assert_after(requested_typed, "typed field edit")
+                            if problem:
+                                return False, problem
+
+                            # 4. PRESET CLICK — a silent script write
+                            # with no event of its own, and the ONE
+                            # interaction kind here that crosses
+                            # midnight (23:00 -> 07:00), so the wrapped-
+                            # difference duration computation is
+                            # genuinely exercised, not merely stated.
+                            page.locator('[data-preset-start="23:00"]').click()
+                            requested_preset = (23 * 60, 7 * 60)
+                            problem = _assert_after(requested_preset, "preset click")
+                            if problem:
+                                return False, problem
+
+                        _set_window(page, base_url, before[0], before[1])
+                        if _quiet_hours_on_disk() != before:
+                            return False, (
+                                "this check left the window at %r; it started at %r"
+                                % (_quiet_hours_on_disk(), before))
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        try:
+                            _set_window(page, base_url, before[0], before[1])
+                        except Exception:
+                            pass
+                        context.close()
+                check(
+                    "the dial caption keeps the SAME FORM the server emits at load after EACH "
+                    "of a drag, a keyboard step, a typed field edit and a preset click (CFG-73 "
+                    "Bug A, 28-03-PLAN.md Task 3): after every one, the caption's two \"HH:MM\" "
+                    "tokens decode to what the interaction requested, its duration segment is "
+                    "NON-EMPTY and equals the wrapped-difference computation worded from the "
+                    "page's own layout.DURATION_ATTRS (never a hardcoded unit literal), and the "
+                    "whole caption's structural shape (separators, spacing, token order) "
+                    "matches the server-rendered reference captured before any interaction — in "
+                    "BOTH shipped languages, with the preset step crossing midnight",
+                    _the_dial_caption_keeps_its_form_after_every_interaction_kind)
 
                 def _the_dial_meets_its_floors_at_360px_in_both_themes():
                     base_url = harness.base_url()
