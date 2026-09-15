@@ -844,6 +844,17 @@ EXPECTED_CHECK_COUNT = 314
 # members, icon-gear) — edited, not counted as new. 314 + 1 = 315,
 # re-derived by RUNNING the harness, never by arithmetic.
 EXPECTED_CHECK_COUNT = 315
+# 28-03-PLAN.md Task 3 (CFG-73 Bug A): +1 — one new check,
+# _duration_wordings_equal_the_ladders_own_output, pinning
+# layout.DURATION_ATTRS' four wordings equal to layout.duration_text()'s
+# own output per bucket per language, and present in
+# value-controls.js's own source — the same "the copy is the ladder's
+# output with the number lifted out" guard
+# _relative_time_wordings_equal_the_ladders_own_output already runs for
+# relative-time.js's nine wordings, applied to the duration readout's
+# four. 315 + 1 = 316, re-derived by RUNNING the harness, never by
+# arithmetic.
+EXPECTED_CHECK_COUNT = 316
 
 # ==========================================================================
 # 25-01-PLAN.md Task 4 (CFG-46/D-09) — THE NO-JS CONTROL CONTRACT, AS A
@@ -5954,6 +5965,63 @@ def main():
             "every attribute name reaches both the rendered <body> and the script that reads it "
             "(D14/CFG-34, 23-05-PLAN.md Task 1)",
             _relative_time_wordings_equal_the_ladders_own_output)
+
+        def _duration_wordings_equal_the_ladders_own_output():
+            # 28-03-PLAN.md Task 3 (CFG-73 Bug A): layout.DURATION_ATTRS'
+            # four wordings are NOT a second ladder — they are
+            # layout.duration_text()'s own output with the number lifted
+            # out, modelled directly on
+            # _relative_time_wordings_equal_the_ladders_own_output()
+            # above, applied to the ONE bare-length ladder instead of the
+            # two tensed ones.
+            #
+            # One representative seconds value per bucket, well inside
+            # it, so French's real U+00A0 is exercised in both
+            # directions and a boundary value never leaves the bucket
+            # this check thinks it is sampling ambiguous.
+            samples = (
+                (0, "seconds"), (240, "minutes"), (7200, "hours"), (172800, "days"))
+            texts = (
+                layout.DURATION_SECONDS_TEXT, layout.DURATION_MINUTES_TEXT,
+                layout.DURATION_HOURS_TEXT, layout.DURATION_DAYS_TEXT)
+            mark = layout.RELATIVE_QUANTITY_MARK
+            import companion.i18n as i18n_module
+            for lang in ("en", "fr"):
+                for index, (seconds, bucket_name) in enumerate(samples):
+                    quantity, _unit = layout._age_bucket(seconds)
+                    wording = i18n_module.t_lang(texts[index], lang)
+                    filled = (wording.replace(mark, str(quantity), 1)
+                              if mark in wording else wording)
+                    expected = layout.duration_text(seconds, lang=lang)
+                    if filled != expected:
+                        return False, (
+                            "lang=%s %s bucket: layout.DURATION_ATTRS[%d]'s wording (%r) fills "
+                            "to %r but layout.duration_text(%d, lang=%r) renders %r — the "
+                            "duration readout's copy is the ladder's own output with the number "
+                            "lifted out, never a second wording"
+                            % (lang, bucket_name, index, texts[index], filled, seconds, lang,
+                               expected))
+            # Every attribute name layout.DURATION_ATTRS names must
+            # appear as a literal in the script that reads it — the same
+            # rename-on-one-side-alone guard
+            # _relative_time_wordings_equal_the_ladders_own_output()
+            # above runs against relative-time.js's own attributes.
+            js_path = os.path.join(HERE, "static", "value-controls.js")
+            with open(js_path) as fh:
+                js = fh.read()
+            for attr in layout.DURATION_ATTRS:
+                if ('"%s"' % attr) not in js:
+                    return False, (
+                        "layout.DURATION_ATTRS names %r but value-controls.js never names it — "
+                        "a rename on one side alone would silently stop the live duration from "
+                        "ever painting, with no error anywhere" % attr)
+            return True, ""
+        check(
+            "every one of layout.DURATION_ATTRS' four wordings, filled with the quantity "
+            "layout._age_bucket() picks, EQUALS layout.duration_text()'s own output for every "
+            "bucket in both languages, and every attribute name reaches value-controls.js "
+            "(CFG-73 Bug A, 28-03-PLAN.md Task 3)",
+            _duration_wordings_equal_the_ladders_own_output)
 
         def _relative_time_html_countdown_keyword_is_marked_and_neutral():
             # A countdown that has run out is still a countdown. Without

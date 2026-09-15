@@ -999,6 +999,15 @@ EXPECTED_CHECK_COUNT = 262
 # literal. Net: 262 + 1 = 263, re-derived by RUNNING (263/263).
 EXPECTED_CHECK_COUNT = 263
 
+# 28-03-PLAN.md Task 3 (CFG-73 Bug A): +1 — the quiet-dial readout's own
+# server-render contract check
+# (_the_quiet_dial_readout_carries_clock_format_and_duration_wordings_in_both_languages),
+# proving both endpoint spans carry the readout-scoped clock-format
+# attribute and the duration span carries a non-empty value for every
+# one of layout.DURATION_ATTRS, in both shipped languages. Net:
+# 263 + 1 = 264, re-derived by RUNNING (264/264).
+EXPECTED_CHECK_COUNT = 264
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -2526,46 +2535,53 @@ def main():
                 "values natively and this would say the same thing twice (%r)" % readout.group(1))
 
         # THE THREE CHILDREN, EACH WIRED THROUGH THE EXISTING READOUT
-        # SEAM. The two endpoints carry a bare token template (they
-        # substitute one number, the value-controls.js contract every
-        # other readout in this app already follows); the duration
-        # carries data-value-readout-base AND an EMPTY template — so
-        # paintReadouts()'s own blank-on-equal rule and its
-        # substitute-otherwise rule both resolve to "" once this element
-        # is next painted, which is the safe side of a rule built to
-        # blank a sentence when NOTHING changed (see the function's own
-        # docstring for why the shipped rule's polarity does not fit a
-        # duration that must blank the moment something DOES change).
+        # SEAM. 28-03-PLAN.md Task 1 (CFG-73 Bug A) widened both halves:
+        # the two endpoints now ALSO carry
+        # VALUE_CONTROL_READOUT_FORMAT_ATTR="clock" (the readout-scoped
+        # clock signal, alongside their existing bare-token template);
+        # the duration span no longer carries an EMPTY template at all —
+        # it carries its own data-value-readout-base PLUS all four
+        # layout.DURATION_ATTRS, each holding a non-empty translated
+        # wording, so value-controls.js can compose a live duration from
+        # the pair without inventing any language of its own.
         for field, value in (("quiet_hours_start", "23:00"), ("quiet_hours_end", "07:00")):
             endpoint = re.search(
-                r'<span %s="%s" %s="%s">%s</span>'
+                r'<span %s="%s" %s="%s" %s="%s">%s</span>'
                 % (re.escape(layout.VALUE_CONTROL_READOUT_ATTR), re.escape(field),
+                   re.escape(layout.VALUE_CONTROL_READOUT_FORMAT_ATTR),
+                   re.escape(layout.VALUE_CONTROL_FORMAT_CLOCK),
                    re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR),
                    re.escape(layout.VALUE_CONTROL_TEXT_TOKEN), re.escape(value)),
                 readout.group(2))
             if not endpoint:
                 return False, (
-                    "no %s readout span carrying the bare token template and %r: %r"
-                    % (field, value, readout.group(2)))
+                    "no %s readout span carrying the clock-format attribute and the bare token "
+                    "template and %r: %r" % (field, value, readout.group(2)))
         duration_span = re.search(
-            r'<span %s="quiet_hours_start" %s="" %s="(\d+)">([^<]*)</span>'
+            r'<span %s="quiet_hours_start" %s="(\d+)"((?: %s="[^"]*"){%d})>([^<]*)</span>'
             % (re.escape(layout.VALUE_CONTROL_READOUT_ATTR),
-               re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR),
-               re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR)),
+               re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR),
+               "(?:%s)" % "|".join(re.escape(attr) for attr in layout.DURATION_ATTRS),
+               len(layout.DURATION_ATTRS)),
             readout.group(2))
         if not duration_span:
             return False, (
-                "no duration span carrying an EMPTY readout template and a "
-                "data-value-readout-base: %r" % readout.group(2))
+                "no duration span carrying a data-value-readout-base and all %d "
+                "layout.DURATION_ATTRS: %r" % (len(layout.DURATION_ATTRS), readout.group(2)))
         if int(duration_span.group(1)) != config_page.quiet_window_minute_of_day("23:00"):
             return False, (
                 "the duration span's data-value-readout-base is %s minutes; the saved window's "
                 "own start is %d" % (duration_span.group(1),
                                       config_page.quiet_window_minute_of_day("23:00")))
-        if duration_span.group(2) != layout.duration_text(span.minutes * 60):
+        for attr in layout.DURATION_ATTRS:
+            if ('%s="' % attr) not in duration_span.group(2):
+                return False, (
+                    "the duration span is missing %r, one of layout.DURATION_ATTRS: %r"
+                    % (attr, duration_span.group(2)))
+        if duration_span.group(3) != layout.duration_text(span.minutes * 60):
             return False, (
                 "the duration span's own text is %r at rest, not this app's one duration ladder's "
-                "%r" % (duration_span.group(2), layout.duration_text(span.minutes * 60)))
+                "%r" % (duration_span.group(3), layout.duration_text(span.minutes * 60)))
 
         # CFG-52: NOTHING ON THIS CARD IS A LIVE REGION. Dragging fires
         # continuously and a role="status" here would re-announce the
@@ -2625,6 +2641,50 @@ def main():
         "while the full-day ring still draws; and a hostile submitted value reaches neither "
         "(T-25-04-B) (CFG-48, 25-04-PLAN.md Task 2)",
         _the_ring_draws_the_saved_window_from_the_emitted_attributes)
+
+    def _the_quiet_dial_readout_carries_clock_format_and_duration_wordings_in_both_languages():
+        # 28-03-PLAN.md Task 3 (CFG-73 Bug A): quiet_dial_readout_html()'s
+        # own server-render contract, checked directly rather than only
+        # through the byte-identical-at-rest assertion above — both
+        # endpoint spans carry the readout-scoped clock-format attribute,
+        # and the duration span carries a non-empty value for EVERY one
+        # of layout.DURATION_ATTRS, in BOTH shipped languages.
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                markup = config_page.quiet_hours_group("23:00", "07:00")
+            finally:
+                prefs.set_request_prefs(lang="en")
+            readout = re.search(
+                r'<p class="time-value %s"([^>]*)>(.*?)</p>'
+                % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), markup, re.DOTALL)
+            if not readout:
+                return False, "lang=%s: the card renders no dial readout" % lang
+            body = readout.group(2)
+            clock_count = body.count(
+                '%s="%s"' % (layout.VALUE_CONTROL_READOUT_FORMAT_ATTR,
+                             layout.VALUE_CONTROL_FORMAT_CLOCK))
+            if clock_count != 2:
+                return False, (
+                    "lang=%s: expected %s=%r exactly twice (once per endpoint span), found %d "
+                    "in %r" % (lang, layout.VALUE_CONTROL_READOUT_FORMAT_ATTR,
+                               layout.VALUE_CONTROL_FORMAT_CLOCK, clock_count, body))
+            for attr in layout.DURATION_ATTRS:
+                m = re.search(r'%s="([^"]*)"' % re.escape(attr), body)
+                if not m:
+                    return False, (
+                        "lang=%s: the duration span carries no %r: %r" % (lang, attr, body))
+                if not m.group(1):
+                    return False, (
+                        "lang=%s: %r is present but EMPTY — every bucket wording must be "
+                        "non-empty so the client never has to invent one: %r"
+                        % (lang, attr, body))
+        return True, ""
+    check(
+        "quiet_dial_readout_html() carries data-value-readout-format=\"clock\" on both endpoint "
+        "spans and a non-empty value for each of the four layout.DURATION_ATTRS on the duration "
+        "span, in both shipped languages (CFG-73 Bug A, 28-03-PLAN.md Task 3)",
+        _the_quiet_dial_readout_carries_clock_format_and_duration_wordings_in_both_languages)
 
     def _the_ring_is_an_addition_and_the_four_controls_are_untouched():
         """CFG-48 (25-04-PLAN.md Task 2): B14 has been broken once

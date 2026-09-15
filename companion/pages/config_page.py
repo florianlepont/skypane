@@ -3007,6 +3007,16 @@ def quiet_dial_handles_html(start_hm, end_hm):
     return "".join(handles)
 
 
+# 28-03-PLAN.md Task 1 (CFG-73 Bug A): layout.DURATION_ATTRS' own four
+# English wordings, in the SAME s/m/h/d order — quiet_dial_readout_html()
+# below zips this against that tuple so the attribute name and its
+# translated wording are always written together.
+_QUIET_DIAL_DURATION_TEXTS = (
+    layout.DURATION_SECONDS_TEXT, layout.DURATION_MINUTES_TEXT,
+    layout.DURATION_HOURS_TEXT, layout.DURATION_DAYS_TEXT,
+)
+
+
 def quiet_dial_readout_html(start_hm, end_hm, span):
     """"23:00 → 07:00 · 8h" — the window in words, or nothing at all when
     `span` is None.
@@ -3053,48 +3063,88 @@ def quiet_dial_readout_html(start_hm, end_hm, span):
     handles for free, through the shipped mechanism, substituting the
     one number value-controls.js already reads back off each field.
     Nothing here writes copy: the substituted value is a number, and the
-    template holding its place is server-rendered.
+    template holding its place is server-rendered. **28-03-PLAN.md
+    Task 1 (CFG-73 Bug A)** additionally marks both endpoint spans
+    `data-value-readout-format="clock"` — the readout-scoped sibling of
+    the wrapper's own `data-value-format="clock"` — so
+    `value-controls.js`'s `paintReadouts()` substitutes zero-padded
+    "HH:MM" through the SAME codec the native time input already uses
+    (`numberToField()`'s own formatting body) rather than the raw
+    minute-of-day number it used to write.
 
-    THE DURATION CHILD NEVER SHOWS A SCRIPT-COMPUTED SENTENCE, and this
-    is the honesty contract (D18's battery gauge, applied to a different
-    sentence) made structural rather than trusted: its own
-    `data-value-readout-text` is the EMPTY template. paintReadouts()'s
-    shipped substitution therefore always resolves to "" the moment this
-    element is next painted — whether or not the pair still matches
-    `data-value-readout-base` — which is deliberately the SAFE side of
-    the "blanks when equal to base" rule this seam was built for
-    (25-05-PLAN.md Task 2): that rule blanks a sentence when nothing
-    changed (a comparison against itself is noise) and shows one once
-    something did, which is the OPPOSITE of what a duration that cannot
-    be recomputed in script needs. An empty template makes both of that
-    rule's branches resolve to "" rather than ever risking the SHOWN
-    branch substituting a bare, unrelated minute count where a duration
-    phrase belongs. `data-value-readout-base` is still recorded, both
-    because a later, smarter blank-only-when-different rule could read
-    it and because CFG-62's own acceptance bar asks for it; today it is
-    inert given the empty template, and that is written here rather than
-    left for a reader to have to prove. The server RE-RENDERS the true
-    figure on the very next load, which is the only path back to a
-    stated duration.
+    THE DURATION CHILD — SUPERSEDED 28-03-PLAN.md Task 1 (CFG-73 Bug A).
+    Kept below, legible, because it explains a real decision this task
+    inverts on purpose rather than by accident:
+
+        "THE DURATION CHILD NEVER SHOWS A SCRIPT-COMPUTED SENTENCE, and
+        this is the honesty contract (D18's battery gauge, applied to a
+        different sentence) made structural rather than trusted: its own
+        `data-value-readout-text` is the EMPTY template. paintReadouts()'s
+        shipped substitution therefore always resolves to "" the moment
+        this element is next painted — whether or not the pair still
+        matches `data-value-readout-base` — which is deliberately the
+        SAFE side of the "blanks when equal to base" rule this seam was
+        built for (25-05-PLAN.md Task 2): that rule blanks a sentence
+        when nothing changed (a comparison against itself is noise) and
+        shows one once something did, which is the OPPOSITE of what a
+        duration that cannot be recomputed in script needs. An empty
+        template makes both of that rule's branches resolve to ""
+        rather than ever risking the SHOWN branch substituting a bare,
+        unrelated minute count where a duration phrase belongs.
+        `data-value-readout-base` is still recorded, both because a
+        later, smarter blank-only-when-different rule could read it and
+        because CFG-62's own acceptance bar asks for it; today it is
+        inert given the empty template, and that is written here rather
+        than left for a reader to have to prove. The server RE-RENDERS
+        the true figure on the very next load, which is the only path
+        back to a stated duration."
+
+    WHAT REPLACED IT: the developer's own report (28-CONTEXT.md,
+    CFG-73) is that the empty template's honesty came at too high a
+    cost — a permanently blank duration after any interaction reads as
+    "still buggy", not as honest. The fix is not to let the client
+    invent a sentence; it is to hand the client the SAME ladder's own
+    words, already translated, the way `relative-time.js`'s ticker has
+    carried its four bucket wordings since Phase 23. The duration span
+    below now carries all four `layout.DURATION_ATTRS`, each filled with
+    `i18n.t()` of the matching `layout.DURATION_*_TEXT` wording —
+    `value-controls.js` substitutes a quantity into whichever one
+    `_age_bucket()`'s own boundaries select and writes no language logic
+    of its own. `data-value-readout-base` stops being inert: the pair
+    seam it names is exactly what the client-side duration is computed
+    from. `data-value-readout-text` is no longer emitted on this span at
+    all — there is nothing left for it to hold an empty value for. The
+    span's own VISIBLE, server-rendered content is unchanged: still
+    `layout.duration_text(span.minutes * 60)`, still byte-identical to
+    what shipped before this task, so a fresh load or a scripts-blocked
+    page reads exactly as it always has.
     """
     if span is None:
         return ""
+    duration_attrs_html = "".join(
+        ' %s="%s"' % (attr, escape_html(i18n.t(text)))
+        for attr, text in zip(layout.DURATION_ATTRS, _QUIET_DIAL_DURATION_TEXTS))
     return (
         '<p class="time-value %s" aria-hidden="true">'
-        '<span %s="quiet_hours_start" %s="%s">%s</span>'
+        '<span %s="quiet_hours_start" %s="%s" %s="%s">%s</span>'
         ' → '
-        '<span %s="quiet_hours_end" %s="%s">%s</span>'
+        '<span %s="quiet_hours_end" %s="%s" %s="%s">%s</span>'
         ' · '
-        '<span %s="quiet_hours_start" %s="" %s="%d">%s</span>'
+        '<span %s="quiet_hours_start" %s="%d"%s>%s</span>'
         "</p>"
     ) % (
         escape_html(QUIET_DIAL_READOUT_CLASS),
-        layout.VALUE_CONTROL_READOUT_ATTR, layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        layout.VALUE_CONTROL_READOUT_ATTR,
+        layout.VALUE_CONTROL_READOUT_FORMAT_ATTR, escape_html(layout.VALUE_CONTROL_FORMAT_CLOCK),
+        layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
         escape_html(layout.VALUE_CONTROL_TEXT_TOKEN), escape_html(start_hm),
-        layout.VALUE_CONTROL_READOUT_ATTR, layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        layout.VALUE_CONTROL_READOUT_ATTR,
+        layout.VALUE_CONTROL_READOUT_FORMAT_ATTR, escape_html(layout.VALUE_CONTROL_FORMAT_CLOCK),
+        layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
         escape_html(layout.VALUE_CONTROL_TEXT_TOKEN), escape_html(end_hm),
-        layout.VALUE_CONTROL_READOUT_ATTR, layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        layout.VALUE_CONTROL_READOUT_ATTR,
         layout.VALUE_CONTROL_READOUT_BASE_ATTR, quiet_window_minute_of_day(start_hm),
+        duration_attrs_html,
         escape_html(layout.duration_text(span.minutes * 60)),
     )
 
