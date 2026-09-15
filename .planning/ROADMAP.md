@@ -1255,7 +1255,7 @@ Cross-cutting constraints (appearing in two or more plans' `must_haves`):
 
 **Requirements**: CFG-62, CFG-63, CFG-64, CFG-65, CFG-66, CFG-67, CFG-68, CFG-69, CFG-70, CFG-71 (all new; nine ticked with per-clause evidence, CFG-65 deliberately left unticked — investigated, no defect found; CFG-47 retired in place by this phase)
 **Depends on:** Phases 23, 24 and 25 (all merged and deployed)
-**Plans:** 9 plans across 9 waves
+**Plans:** 9/9 plans complete
 
 **The one real defect, diagnosed from a screen recording before this entry was written.** D17's quiet-hours dial: the handles follow a drag AND a preset correctly, but **the arc and the caption never move**. Measured on the recording — after dragging the end handle the fields read `08:00`/`18:00` and both handles sit at 8 and 18, while the arc still draws 23:00→07:00 and the caption still reads `23:00 → 07:00 · 8 h`. The cause is structural: `value-controls.js` models ONE value per wrapper and `paint()` writes a per-handle CSS fraction, but an arc and a span sentence are functions of BOTH values, and nothing in the script models the pair. The arc is server-rendered SVG (correct, and what keeps the no-JS floor) and is never repainted client-side.
 
