@@ -284,55 +284,273 @@ Task 2 analysis.*
   Reconciliation` in the eventual Task 3 write-up, which will need to
   proceed on two independent cycle-count witnesses (nominal from elapsed
   span, and observed polls in `device_health`) instead of three.
-- `boot_count_end`: *filled in by Task 3, after the run ends*
+- `boot_count_end`: **pending** — the developer was away from the device
+  when the pack depleted and has not yet reconnected USB to read the
+  post-mortem wake line. Recorded honestly rather than guessed; see
+  `## Cycle Count Reconciliation` below, which proceeds on the two
+  witnesses available (nominal from elapsed span, observed polls in
+  `device_health`) rather than the three D-07 originally specified.
 - wall-clock disconnect time: 2026-09-02T12:55:00+00:00 (14:55 CEST,
   developer-reported) — corroborated by the server-side record: the last
   charging-plateau reading was 4122 mV at 12:58:13, and the first clearly
   falling reading was 4038 mV at 12:58:50, consistent with the cable
   coming out a few minutes earlier and the drop becoming visible once
   the device was genuinely running off the pack under real load
-- timestamp of the last poll so far: 2026-09-02T13:15:19+00:00 (run still
-  in progress — this is not the final value, see `## Verdict`)
-- elapsed span so far: ~20 minutes (run still in progress)
+- timestamp of the last poll: **2026-09-14T21:05:53+00:00** (battery_mv
+  2946) — the device did not wake again after this; independently
+  confirmed both by direct SSH query and by the passive cloud routine's
+  own hourly check, which flagged the stale check-in and notified the
+  developer at 2026-09-14T23:14:04Z
+- elapsed span: **12.340 days** (1,066,206 s), from
+  2026-09-02T12:55:47+00:00 to 2026-09-14T21:05:53+00:00
 
 ## Verdict
 
-*Filled in by Task 3: `**Verdict:** MEASURED` or `**Verdict:** CENSORED`,
-the date, the exact `check-battery` command with its real argument
-values, and the headline mAh-per-cycle and mAh-per-day figures.*
+**Verdict:** MEASURED — 2026-09-15. The pack emptied on its own, 8.66
+days inside the 21-day ceiling; this is not a censored run.
+
+Command (re-runnable against the committed log):
+
+```
+python3 hardware/logtools.py check-battery hardware/logs/battery-run-server.log \
+  --interval-s 300 --capacity-mah 3000 --expect-depleted
+```
+
+**mAh per cycle: 0.923. mAh per day: 243.10.**
+
+Five of the six gates pass outright: log/timestamp sanity, minimum
+span, maximum gap (no gap exceeds 3 intervals), minimum millivolt drop,
+and the depletion cutoff (last reading 2946 mV, well below 3400 mV).
+**The coverage gate fails as pre-registered — 0.915, below the 0.95
+floor — and this is reported honestly rather than adjusted after the
+fact.** The pre-registered thresholds are not renegotiable once the
+answer is known (Task 1's whole reason for existing), so this is not
+waved through; it is diagnosed instead, immediately below and in
+`## Cycle Count Reconciliation`.
+
+**Diagnosis of the coverage shortfall, not a defect in the record.**
+The mean interval between consecutive polls across the whole run is
+**328.0 s**, not the nominal 300 s `interval_s` — `check-battery`'s
+coverage formula (`nominal = elapsed / interval_s`) assumes zero awake
+time per cycle, but a real cycle also spends real wall-clock time
+associated to Wi-Fi and the HTTP round trip before the *next* sleep
+timer starts. The gap distribution is clean, not erratic: 39.8% of the
+3,251 inter-poll gaps land at or under 310 s (one interval), 60.1% land
+in the 311-610 s band (essentially one interval plus real wake
+overhead), only 4 gaps (0.1%) reach a second missed interval, and the
+maximum gap across the entire 12.34-day run is 665 s — comfortably
+inside the 900 s (3-interval) ceiling. Nothing here looks like dropped
+telemetry; it looks like ~28 s of real, consistent per-cycle overhead
+that the checker's nominal formula does not model. `--interval-s 300`
+is left exactly as pre-registered (D-07's value, not a fitted one) —
+the fix, if any, belongs in a future revision of `check-battery`'s
+nominal formula, not in this run's inputs.
 
 ## Cycle Count Reconciliation
 
-*Filled in by Task 3: the nominal, observed and device boot-counter-delta
-cycle counts, the coverage figure, and which count the headline division
-used.*
+| Witness | Count | Source |
+|---|---|---|
+| Nominal (elapsed / interval_s) | 3554.02 | `1,066,206 s / 300 s` |
+| Observed (server log) | **3252** | `device_health` rows via `from-history-db`; this is what `mAh/cycle` divides by, per D-07 |
+| Device NVS boot-counter delta | **not available** | `boot_count_start` was never read (Task 2 gap, disclosed above); `boot_count_end` is pending the developer's physical reconnection |
+
+Coverage (observed/nominal) is **0.915** — diagnosed above as real
+per-cycle wake overhead inflating the true average interval to ~328 s,
+not as lost polls. The headline division uses the **observed** count
+(3252), matching D-07's instruction to divide by the actually-counted
+cycles rather than a theoretical one. Ordinarily this run would also
+reconcile against the device's own boot-counter delta as a third,
+independent witness; that check cannot be performed this run because
+neither endpoint of it was captured (Task 2's disclosed gap on the
+open end, physical distance on the close end) — recorded as a real
+limitation of this specific run, not smoothed over.
 
 ## Discharge Trend
 
-*Filled in by Task 3: the opening/closing millivolt window means, the
-drop, the last observed value, and a short table sampling the millivolts
-across the run.*
+Opening window mean: **4009.6 mV**. Closing window mean: **3275.2 mV**.
+Drop: **734.4 mV**. Last observed reading: **2946 mV**.
+
+| Timestamp (UTC) | Battery (mV) |
+|---|---|
+| 2026-09-02 12:55 | 4112 |
+| 2026-09-03 09:28 | 4000 |
+| 2026-09-04 06:26 | 4000 |
+| 2026-09-05 03:36 | 3982 |
+| 2026-09-06 00:48 | 3922 |
+| 2026-09-06 21:46 | 3892 |
+| 2026-09-07 18:56 | 3836 |
+| 2026-09-08 16:12 | 3814 |
+| 2026-09-09 13:26 | 3784 |
+| 2026-09-10 10:32 | 3734 |
+| 2026-09-11 07:39 | 3652 |
+| 2026-09-12 04:44 | 3556 |
+| 2026-09-13 02:04 | 3500 |
+| 2026-09-13 23:29 | 3364 |
+| 2026-09-14 20:48 | 2960 |
+| 2026-09-14 21:05 | 2946 (last) |
+
+The curve bends visibly, in the direction a single-cell LiPo's own
+chemistry predicts: nearly flat for the first ~2 days (4112→4000 mV,
+then holding near 4000 mV for a full day), a long, gently declining
+middle (4000→3500 mV over roughly 10 days, ~50 mV/day), then a real
+cliff in the last ~36 hours (3500→2946 mV) — the terminal drop from
+2960 to 2946 mV happened inside the final 17 minutes before the device
+went silent. The 3000 mAh figure being divided is the pack's *rated*
+capacity; a pack that under-delivers against its nameplate, or a
+protection circuit that cut off before the cell was truly flat (which
+the 2946 mV last reading — above most protection ICs' ~2.5-2.8 V hard
+floor — suggests may be the case here), both mean the true energy
+consumed per cycle is lower than 0.923 mAh, not higher. The figure
+errs toward pessimism, the safe direction for a battery-life plan.
 
 ## What This Figure Does Not Cover
 
-*Filled in by Task 3: the hash-skip-only nature of the measured cycles
-(no download, no panel refresh), the single-cadence projection-band
-limitation, and the absence of any inline current instrumentation.*
+**No download, no panel refresh.** The served image never changed
+across the whole run, so every one of the 3,252 measured cycles took
+the hash-skip path — a wake, a poll, a hash comparison, and back to
+sleep, with no 960,000-byte image download and no e-paper blit. A real
+deployment that actually refreshes content will cost more energy per
+cycle than this figure states; `0.923 mAh/cycle` is a floor, not a
+typical value, until a future run or field data adds a real-refresh
+component.
+
+**A single-cadence run cannot separate per-wake energy from standing
+leakage.** One equation, two unknowns: the 0.923 mAh/cycle figure is
+consistent with a wide range of splits between "cost of waking up" and
+"cost of fifteen-plus-2/3 minutes of deep sleep between wakes." The
+projection band below is deliberately printed as a range rather than a
+point estimate for exactly this reason, and it is wide — at 3600 s the
+range spans 12.34 to 148.08 days depending entirely on that unresolved
+split. This is the single biggest open question a future measurement
+should resolve before either buying a bigger pack or committing to a
+specific field wake interval (see the follow-up findings below).
+
+**No inline current instrumentation.** This run was performed with
+D-07's deliberately simple method — a full charge, a disconnected
+cable, and arithmetic — by explicit user decision. Nothing here
+resolves the instantaneous deep-sleep current in isolation, which
+`01-RESEARCH.md`'s own Common Pitfalls #2 already flagged as
+unpredictable from datasheets alone.
+
+Reproduced projection band, for the record (see `## Checker Output`
+for the exact command):
+
+```
+    300s interval: 12.34-12.34 days
+    900s interval: 12.34-37.02 days
+   3600s interval: 12.34-148.08 days
+```
 
 ## Checker Output
 
-*Filled in by Task 3: the full, verbatim output of the final
-`check-battery` analysis run, including the summary line and the
-projection band.*
+```
+PASS logs carry timestamps and at least two battery-bearing polls
+PASS run spans at least 1 day(s)
+FAIL coverage is at least 0.95 - coverage is 0.915 (observed=3252, nominal=3554.0), below 0.95 - the frame losing home Wi-Fi or internet, the server unit restarting, or journald having rotated the earliest entries out of the window being converted are the likely causes
+PASS no gap between consecutive polls exceeds 3 interval(s)
+PASS millivolt drop between opening and closing windows is at least 100 mV
+PASS last observed millivolt reading is at or below the 3400 mV cutoff
+battery: 5/6 checks pass
+span: 12.340 day(s) (1066206s), from 2026-09-02T12:55:47+00:00 to 2026-09-14T21:05:53+00:00
+cycle counts: observed=3252 nominal=3554.02
+coverage: 0.915
+mAh/day: 243.10
+mAh/cycle: 0.923 (dividing by observed poll count = 3252.00 cycles)
+battery mV: opening window mean=4009.6 closing window mean=3275.2 drop=734.4 last=2946
+projection band (days) for candidate wake intervals - lower bound assumes all drain is standing leakage (life unchanged), upper bound assumes all drain is per-wake (life scales linearly with the interval); a single-cadence run cannot separate the two:
+    300s interval: 12.34-12.34 days
+    900s interval: 12.34-37.02 days
+   3600s interval: 12.34-148.08 days
+```
+
+(Exit code 1, from the coverage gate alone — diagnosed under
+`## Verdict` above, not a run-invalidating fault.)
 
 ## Run Conditions
 
-*Filled in by Task 3: the public host the frame was pointed at, the
-`SKYPANE_SLEEP_S` in force during the run and the value restored
-afterwards, whether `skypane-byos.service` stayed active throughout and
-whether it restarted, whether `history.db` was reachable throughout and
-whether the journald fallback was needed at any point (and, only if the
-fallback was used, whether journald retention covered the whole
-window), any home-network or internet outage noticed, charge/recharge
-times, the pack's post-depletion physical condition, and any
-interruption or anomaly from the check-in table.*
+- **Public host:** the frame was pointed at the OVH VPS's public host
+  throughout (`SKYPANE_PUBLIC_HOST` in `deploy/skypane.env.example`'s
+  shape; the real value is deliberately never written into this repo).
+- **`SKYPANE_SLEEP_S`:** set to 300 at run start (2026-09-02, confirmed
+  live on the running process's own command line, not just the config
+  file), left in force for the full 12.34-day run, and **restored to
+  30 on 2026-09-15** immediately once the run's conclusion was
+  confirmed — `skypane-byos.service` restarted cleanly both times, and
+  the restored value was likewise confirmed on the running process.
+- **`skypane-byos.service` / `skypane-poll.timer`:** both remained
+  active for the whole run; the only two restarts of the byos service
+  were the two deliberate `SKYPANE_SLEEP_S` changes above (start and
+  restore), not faults.
+- **`history.db` reachability:** reachable for every check performed
+  across the run (dozens of direct SSH queries plus 40+ passive cloud
+  routine checks); the `from-journal` fallback was never needed.
+- **Coverage anomaly:** the persistent ~0.915-0.922 coverage figure
+  present from early in the run through its conclusion — diagnosed
+  under `## Verdict` as real per-cycle wake overhead (~328 s true mean
+  interval vs. 300 s nominal), not an interruption. No home-network,
+  VPS, or internet outage was otherwise observed or reported during
+  the run.
+- **Charge time:** the pack was connected around 09:47 UTC on
+  2026-09-02 (inferred from a `power-on` boot event in `device_health`
+  at that time) and reached a stable ~4120 mV charge plateau by
+  ~12:34-12:39 UTC the same day — roughly 2h50 to visible plateau, USB
+  left connected throughout per the protocol.
+- **Recharge time and pack post-depletion condition:** **pending** —
+  the developer was away from the device when the pack depleted; both
+  items await the physical reconnection described in 05-01-PLAN.md's
+  Task 3 (inspect for swelling/heat/smell *before* recharging; do not
+  recharge if any is present).
+- **Post-mortem wake reason and clean-recovery-without-reflash
+  confirmation:** **pending**, same physical step.
+- **Anomalies from the check-in table:** none beyond the coverage
+  figure already diagnosed above; no restart, outage, or interruption
+  was otherwise flagged by either the developer's own checks or the
+  passive cloud routine's 40+ automated ones.
+
+## Calibration & Follow-Up Findings
+
+*Not part of the pre-registered D-07 protocol — captured here because
+this run is the first real Spectra-6-hardware discharge curve this
+project has ever produced, and it bears directly on three things this
+project has been carrying as open questions. Each is planted as a seed
+(`.planning/seeds/`) rather than acted on inline, so it gets a proper
+scoped pass rather than a same-session patch.*
+
+**1. `companion/battery.py` / `server/poll_loop.py`'s battery-percentage
+estimate is measurably miscalibrated.** Both modules assume
+`BATTERY_FULL_MV = 4200` / `BATTERY_EMPTY_MV = 3300`, linear in
+between. This run's own data: the pack's real charge plateau was
+**~4122 mV**, never 4200 — so a freshly-charged pack would never read
+100% under the current constants (it would read ≈91%). The device kept
+polling successfully all the way to **2946 mV**, well past the
+assumed "0%" point at 3300 mV — for roughly the final 24 hours of the
+run, the estimate would have already been pinned at 0% while the
+device was still very much alive. See `SEED-` (to be planted) for
+recalibrating both constants against this run's real curve.
+
+**2. The low-battery warning threshold (`BATTERY_LOW_THRESHOLD_MV = 3500`,
+`server/poll_loop.py`) is validated, not miscalibrated.** It would have
+first fired on 2026-09-12 at 11:54:42 UTC — **57.2 hours (2.4 days)**
+before the device actually went silent. That is a comfortable, honest
+lead time; this run gives no reason to change it.
+
+**3. The bigger open question — a bigger battery, or a longer wake
+interval? — is not yet answerable, and shouldn't be guessed at.** This
+run measured 12.34 days at the 300 s test cadence. The current
+production default, `SKYPANE_SLEEP_S = 30` (a development/testing
+value, never intended as a real battery-only field cadence), would
+extrapolate to roughly a single day of battery life if ever run as-is
+on the pack alone — nowhere near viable, and now that Phase 11 made
+the wake interval web-configurable, choosing a realistic field value is
+a free lever available right now. But the wide projection band
+(12.34-148.08 days at 3600 s, depending entirely on the unresolved
+per-wake-vs-standing-leakage split noted under `## What This Figure
+Does Not Cover`) means a bigger pack is not yet a well-founded
+recommendation either way — it could matter enormously or barely at
+all. `PROJECT.md` itself defers the solar-charging question "until
+real battery life and frame placement are known" — this run is exactly
+the trigger that clause was written for, but the honest answer right
+now is "known, but not yet precise enough to decide." A second,
+shorter discharge run at a different candidate interval (e.g. 3600 s)
+would resolve the split and turn both the battery-capacity and the
+solar questions into informed decisions instead of guesses.
