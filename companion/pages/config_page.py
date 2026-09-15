@@ -1501,10 +1501,28 @@ def _theme_chip_grid_html(
         grid_class, attr_html, leading_chip_html, "".join(chips), legend_html)
 
 
-def _theme_carousel_html(grid_html):
+def _theme_carousel_html(grid_html, strip_id):
     """25-06-PLAN.md Task 2 (CFG-50): D5's carousel, as a PRESENTATION
     wrapped around `_theme_chip_grid_html()`'s existing output — never a
     second chip renderer.
+
+    27-07-PLAN.md Task 1 (CFG-68): `strip_id` is REQUIRED, not an
+    optional parameter with a shared default — THE TRAP this plan exists
+    to close. Before this task the strip's `id` and both pagers'
+    `aria-controls` all read the same module constant
+    (`THEME_CAROUSEL_STRIP_ID`) directly; calling this function a second
+    time for a second grid would render two elements sharing one `id`
+    (invalid HTML) and leave every pager on the page driving only the
+    FIRST strip, silently. Making the id a required argument — derived
+    ONCE per call site and threaded through both the grid's own `id`
+    attribute (set by the caller, outside this function — see
+    `_frame_colours_card_html()`) and this function's two
+    `aria-controls` — makes that collision structurally impossible
+    rather than merely untested: there is no code path left in which two
+    carousels can agree to share an id by omission. Departures, the one
+    caller that predates this parameter, passes its own
+    `THEME_CAROUSEL_STRIP_ID` explicitly and renders byte-identical
+    except for the reorder below.
 
     `grid_html` arrives already built and is interpolated UNCHANGED: the
     same eighteen `.theme-chip` labels, the same visually-hidden native
@@ -1563,18 +1581,37 @@ def _theme_carousel_html(grid_html):
     # natively, already has this app's shipped chevron treatment
     # (22-15 T3) and already sits in the harness's disclosure sweep.
     #
-    # AND IT GOVERNS THE GRID THAT FOLLOWS IT RATHER THAN CONTAINING
+    # AND IT GOVERNS THE GRID THAT PRECEDES IT RATHER THAN CONTAINING
     # ONE. This is the part a later reader will want explained, so:
-    # there is exactly ONE set of eighteen radios on this page, and the
-    # strip and the full grid are the same set. That forces this shape.
-    # A <details> hides its own non-summary children when closed, so a
-    # disclosure that CONTAINED the grid would hide all eighteen themes
-    # whenever it was shut — there would be no strip at all — and the
-    # only way to have both an always-visible strip and a full-grid
-    # disclosure while keeping one set of radios is for the disclosure
-    # to change the layout of the grid that follows it. Its `[open]`
-    # state selects that adjacent sibling in style.css; no `:has()` is
-    # involved and this file's one feature query is untouched.
+    # there is exactly ONE set of eighteen radios on this page (per
+    # usage), and the strip and the full grid are the same set. That
+    # forces this shape. A <details> hides its own non-summary children
+    # when closed, so a disclosure that CONTAINED the grid would hide
+    # all eighteen themes whenever it was shut — there would be no strip
+    # at all — and the only way to have both an always-visible strip and
+    # a full-grid disclosure while keeping one set of radios is for the
+    # disclosure to change the layout of a grid it does not contain.
+    #
+    # 27-07-PLAN.md Task 1 (CFG-68/D-20): the disclosure used to render
+    # BEFORE the strip (an adjacent-sibling `[open] + .theme-chip-grid
+    # --strip` rule reached forward from it) — "Voir tous les thèmes"
+    # sat above the strip it discloses, which the developer read as
+    # backwards: a way OUT belongs below the thing it expands, not above
+    # it. It now renders LAST in this wrapper (see the return statement
+    # below), so the adjacent-sibling selector can no longer reach
+    # forward to a grid that now precedes it in the DOM. style.css
+    # replaces it with a `:has()` rule scoped to the WRAPPING
+    # `.theme-carousel` element instead — `.theme-carousel:has(
+    # .theme-carousel__all[open]) .theme-chip-grid--strip` — which reads
+    # "this carousel contains an open disclosure" rather than "this
+    # disclosure is immediately followed by a strip", and so does not
+    # care which of the two comes first. It joins the file's existing
+    # `@supports selector(:has(*))` block rather than opening a second
+    # one (the file's own pinned block-count convention); a browser
+    # without `:has()` keeps the strip in its scrolling, one-row form
+    # even with the disclosure open — an accepted degradation, since
+    # the disclosure's own body copy already says "They are all in the
+    # strip either way — it scrolls."
     #
     # The alternative — two sets of eighteen radios — was rejected, and
     # not on tidiness grounds: they would share a name and a form, so a
@@ -1622,21 +1659,32 @@ def _theme_carousel_html(grid_html):
     pager_template = (
         '<button type="button" class="control-hit-area theme-carousel__pager%s"'
         ' %s="%s" aria-controls="%s" aria-label="%s"></button>')
+    # BOTH pagers' aria-controls derive from `strip_id` — the ONE
+    # argument this call was given — rather than from
+    # THEME_CAROUSEL_STRIP_ID directly. That is the whole fix: a second
+    # carousel built from this function with its own `strip_id` gets
+    # pagers that drive ITS OWN strip, never the first one built.
     pagers_html = (
         '<div class="theme-carousel__pagers %s" %s>%s%s</div>'
     ) % (
         escape_html(layout.JS_GATE_CLASS), THEME_CAROUSEL_WRAPPER_ATTR,
         pager_template % (
             " theme-carousel__pager--prev", THEME_CAROUSEL_PAGER_ATTR,
-            THEME_CAROUSEL_PAGER_PREV, escape_html(THEME_CAROUSEL_STRIP_ID),
+            THEME_CAROUSEL_PAGER_PREV, escape_html(strip_id),
             escape_html(i18n.t(THEME_CAROUSEL_PREV_LABEL))),
         pager_template % (
             "", THEME_CAROUSEL_PAGER_ATTR, THEME_CAROUSEL_PAGER_NEXT,
-            escape_html(THEME_CAROUSEL_STRIP_ID),
+            escape_html(strip_id),
             escape_html(i18n.t(THEME_CAROUSEL_NEXT_LABEL))),
     )
+    # 27-07-PLAN.md Task 1 (CFG-68/D-20): grid, pagers, dots, disclosure
+    # — the disclosure LAST, so "Voir tous les thèmes"/"See all themes"
+    # reads as a way OUT below the strip it expands rather than a
+    # preamble above it. See the disclosure's own comment above for why
+    # style.css no longer reaches the grid through a forward
+    # adjacent-sibling selector once the disclosure trails it.
     return '<div class="theme-carousel">%s%s%s%s</div>' % (
-        disclosure_html, grid_html, pagers_html, dots_html)
+        grid_html, pagers_html, dots_html, disclosure_html)
 
 
 def _theme_live_preview_html(current_theme_id, state_dir, extra_class=""):
@@ -1858,7 +1906,10 @@ def _frame_colours_card_html(
         extra_class="theme-chip-grid--compact theme-chip-grid--strip",
         chip_extra_class="theme-chip--compact",
         radio_form_id=SETTINGS_FORM_ID)
-    departures_carousel = _theme_carousel_html(departures_grid)
+    # 27-07-PLAN.md Task 1 (CFG-68): the SAME id used above to build the
+    # grid's own `id=` attribute, passed straight through — one Python
+    # name, read twice, rather than two literals that could drift apart.
+    departures_carousel = _theme_carousel_html(departures_grid, THEME_CAROUSEL_STRIP_ID)
     theme_error_html = _field_error_html(errors, "theme", "theme")
     departures_safe_id = (
         effective_theme_id if effective_theme_id in device_config.THEMES

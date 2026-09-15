@@ -3563,6 +3563,39 @@ button:disabled {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
+
+  /* 27-07-PLAN.md Task 1 (CFG-68/D-20): D5's carousel disclosure moved
+   * to render LAST inside `.theme-carousel` (see
+   * config_page._theme_carousel_html()'s own return statement and the
+   * `.theme-carousel__all` rule above this block for the full story),
+   * so it no longer precedes the strip it has to lay out and the
+   * adjacent-sibling selector this replaces (`.theme-carousel__all
+   * [open] + .theme-chip-grid--strip`) can no longer reach it — a
+   * forward combinator cannot select a PRECEDING sibling. Scoping
+   * `:has()` to the shared `.theme-carousel` wrapper instead reads as
+   * "this carousel contains an open disclosure" rather than "this
+   * disclosure is immediately followed by a strip", so it does not
+   * care which of the two comes first in the DOM — and because the
+   * match is scoped to ONE `.theme-carousel` ancestor, three carousel
+   * instances on one page (27-07-PLAN.md Task 2: departures, arrivals,
+   * calendar) each toggle their OWN strip; there is no path for one
+   * instance's [open] state to reach a sibling instance's grid, which
+   * is exactly the property a shared/page-wide selector would not
+   * have had.
+   *
+   * Joins THIS block rather than opening a second one — the file's own
+   * pinned block-count convention (companion/test_config_page.py pins
+   * the whole file at EXACTLY ONE `@supports selector(:has(*))`
+   * block). A browser without `:has()` support skips this rule and
+   * keeps the strip in its scrolling, one-row form even with the
+   * disclosure open — the same accepted degradation every other rule
+   * in this block already carries, and not a silent one: the
+   * disclosure's own body copy already says "They are all in the strip
+   * either way — it scrolls," so a reader on such a browser is told
+   * the truth either way. */
+  .theme-carousel:has(.theme-carousel__all[open]) .theme-chip-grid--strip {
+    flex-wrap: wrap;
+  }
 }
 
 /* 21-05-PLAN.md Task 1 (D-06/D-09): the retired arrivals-override
@@ -9715,29 +9748,56 @@ input:checked + .frame-colours__row {
   scroll-snap-align: start;
 }
 
-/* 25-06-PLAN.md Task 3 (CFG-50): the "See all themes" disclosure, and
- * the ONE rule that is the whole reason it is a <details> sitting BEFORE
- * the strip rather than around it.
+/* 25-06-PLAN.md Task 3 (CFG-50): the "See all themes" disclosure.
  *
- * There is exactly one set of eighteen radios on this page. A <details>
- * hides its own non-summary children when closed, so a disclosure
- * CONTAINING the grid would hide every theme whenever it was shut and
- * there would be no strip at all. Governing the adjacent sibling's
- * layout is what keeps the strip and the full grid the same eighteen
- * native radios — see config_page._theme_carousel_html() for the
- * rejected two-set alternative.
+ * There is exactly one set of eighteen radios per usage on this page. A
+ * <details> hides its own non-summary children when closed, so a
+ * disclosure CONTAINING the grid would hide every theme whenever it was
+ * shut and there would be no strip at all — see
+ * config_page._theme_carousel_html() for the rejected two-set
+ * alternative. This rule only styles the disclosure's own box; the rule
+ * that makes ITS [open] state change the GRID's layout now lives inside
+ * the file's one `@supports selector(:has(*))` block, immediately
+ * below (see that rule for why).
  *
- * An adjacent-sibling combinator and an attribute selector, so no
- * `:has()` is involved and this file's single feature query is not
- * touched. (0,3,0) against the strip rule's own (0,1,0), so source
- * order decides nothing here. */
+ * 27-07-PLAN.md Task 1 (CFG-68/D-20): `margin-top` joins the existing
+ * `margin-bottom` here, because this element used to be the FIRST thing
+ * in `.theme-carousel` (nothing above it needed a gap) and is now the
+ * LAST — the dots row sits immediately above it and only ever declares
+ * its OWN `margin-top` (for ITS gap from the pagers above IT), never a
+ * `margin-bottom` of its own, so without this addition the dots and the
+ * disclosure would sit flush against each other. Same token,
+ * `--space-sm`, both sides. */
 .theme-carousel__all {
+  margin-top: var(--space-sm);
   margin-bottom: var(--space-sm);
 }
 
-.theme-carousel__all[open] + .theme-chip-grid--strip {
-  flex-wrap: wrap;
-}
+/* 27-07-PLAN.md Task 1 (CFG-68/D-20): D5's carousel disclosure now
+ * renders LAST inside `.theme-carousel` (grid, pagers, dots, disclosure
+ * — see config_page._theme_carousel_html()'s own return statement), so
+ * it no longer immediately PRECEDES the strip it has to affect and the
+ * adjacent-sibling selector this used to be (`.theme-carousel__all
+ * [open] + .theme-chip-grid--strip`) can no longer reach it — a forward
+ * combinator cannot select a PRECEDING sibling. `:has()` scoped to the
+ * shared `.theme-carousel` ancestor reads as "this carousel contains an
+ * open disclosure" instead of "this disclosure is immediately followed
+ * by a strip", which does not care which of the two comes first in the
+ * DOM, and — because the match is scoped to ONE `.theme-carousel`
+ * wrapper — three carousel instances on one page each toggle their OWN
+ * strip independently; there is no way for one instance's [open] state
+ * to reach a sibling instance's grid.
+ *
+ * Joins the file's existing `@supports selector(:has(*))` block rather
+ * than opening a second one — this file's own pinned block-count
+ * convention (companion/test_config_page.py pins the whole file at
+ * EXACTLY ONE such block). A browser without `:has()` support skips
+ * this rule and keeps the strip in its scrolling, one-row form even
+ * with the disclosure open — an accepted degradation matching every
+ * other rule in that block, and not a silent one: the disclosure's own
+ * body copy already says "They are all in the strip either way — it
+ * scrolls," so a reader on such a browser is told the truth either
+ * way. */
 
 /* The two pagers. `--js-gate-display` is how a consumer picks its own
  * display without re-deciding 25-01's gate direction.

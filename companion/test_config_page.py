@@ -985,6 +985,13 @@ EXPECTED_CHECK_COUNT = 258
 # languages. Net: 258 + 3 = 261, re-derived by RUNNING (261/261).
 EXPECTED_CHECK_COUNT = 261
 
+# 27-07-PLAN.md Task 1 (CFG-68): +1 — the page-wide no-duplicate-id
+# check (_the_rendered_settings_page_carries_no_duplicate_id), the proof
+# THEME_CAROUSEL_STRIP_ID's required-argument fix actually closes the
+# trap rather than merely relocating it. Net: 261 + 1 = 262, re-derived
+# by RUNNING (262/262).
+EXPECTED_CHECK_COUNT = 262
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -11562,7 +11569,20 @@ def main():
 
         source = _read_static("style.css")
         strip_rules = {
-            ".theme-chip-grid--strip {": (
+            # 27-07-PLAN.md Task 1 (CFG-68/D-20): anchored with a
+            # leading "\n" and NO indent, deliberately — the file's own
+            # single @supports selector(:has(*)) block now ALSO carries
+            # a compound selector ending in this exact class
+            # (".theme-carousel:has(...) .theme-chip-grid--strip {"),
+            # 2-space indented and textually earlier in the file than
+            # this base rule. A bare `.theme-chip-grid--strip {` search
+            # would find that compound selector FIRST and read ITS body
+            # (flex-wrap: wrap, not nowrap) instead of this rule's —
+            # measured: this is exactly the failure the standing
+            # "locate by first occurrence" convention warns about, and
+            # it was caught here by running this check, not reasoned
+            # about in advance.
+            "\n.theme-chip-grid--strip {": (
                 "flex-wrap: nowrap;", "overflow-x: auto;",
                 "scroll-snap-type: x mandatory;", "scroll-padding-right:"),
             ".theme-chip-grid--strip > .theme-chip {": (
@@ -11586,14 +11606,14 @@ def main():
         }
         for selector, declarations in strip_rules.items():
             if selector not in source:
-                return False, "style.css declares no %s rule" % selector.rstrip(" {")
+                return False, "style.css declares no %s rule" % selector.strip(" {\n")
             body = source[source.index(selector) + len(selector):]
             body = body[:body.index("}")]
             for declaration in declarations:
                 if declaration not in body:
                     return False, (
                         "%s does not declare %r — %r"
-                        % (selector.rstrip(" {"), declaration, body.strip()))
+                        % (selector.strip(" {\n"), declaration, body.strip()))
 
         # THE TWO NUMBERS THAT HAVE TO BE THE SAME NUMBER. The strip's
         # `scroll-padding-right` exists to keep the chip a keyboard
@@ -11613,7 +11633,10 @@ def main():
             body = body[:body.index("}")]
             hit = re.search(r"(?m)^\s*%s:\s*(\d+(?:\.\d+)?)px;" % re.escape(prop), body)
             return float(hit.group(1)) if hit else None
-        reserved = _px(".theme-chip-grid--strip {", "scroll-padding-right")
+        # Same anchoring as strip_rules above, and for the identical
+        # reason: an un-anchored search would find the @supports block's
+        # compound selector first.
+        reserved = _px("\n.theme-chip-grid--strip {", "scroll-padding-right")
         chip_width = _px(".theme-chip--compact {", "width")
         if reserved is None or chip_width is None:
             return False, (
@@ -11703,11 +11726,22 @@ def main():
                 "the disclosure's summary reads %r, expected %r"
                 % (disclosure.group(1), config_page.THEME_CAROUSEL_SUMMARY))
         strip_at = page.index('id="%s"' % config_page.THEME_CAROUSEL_STRIP_ID)
-        if disclosure.start() > strip_at:
+        # 27-07-PLAN.md Task 1 (CFG-68/D-20): INVERTED from this check's
+        # original assertion. The disclosure used to render BEFORE the
+        # strip (an adjacent-sibling selector reached forward from it);
+        # the developer read that as "Voir tous les thèmes" sitting
+        # above the very thing it discloses, backwards for a way OUT.
+        # It now renders AFTER the strip (and after the pagers and dots
+        # — see _theme_carousel_html()'s own return statement), and
+        # style.css reaches the grid through a `:has()` rule scoped to
+        # the shared `.theme-carousel` wrapper instead, which does not
+        # care which of the two comes first.
+        if disclosure.start() < strip_at:
             return False, (
-                "the disclosure renders AFTER the strip — the stylesheet reaches the strip "
-                "through an adjacent-sibling combinator on the disclosure's [open] state, "
-                "which only matches when the disclosure comes first")
+                "the disclosure renders BEFORE the strip — D-20 moved 'Voir tous les thèmes' "
+                "below the strip it discloses, and style.css's :has() rule (scoped to the "
+                "shared .theme-carousel wrapper) governs the grid's layout regardless of "
+                "order, so there is no longer a reason for the disclosure to precede it")
 
         # BOTH PAGERS INSIDE THE GATE, AND ZERO PAGER MARKUP OUTSIDE IT.
         gate = re.search(
@@ -11792,7 +11826,16 @@ def main():
 
         source = _read_static("style.css")
         rules = {
-            ".theme-carousel__all[open] + .theme-chip-grid--strip {": ("flex-wrap: wrap;",),
+            # 27-07-PLAN.md Task 1 (CFG-68/D-20): the adjacent-sibling
+            # selector this replaces cannot reach the strip once the
+            # disclosure trails it in the DOM — see config_page.
+            # _theme_carousel_html()'s own return statement. The
+            # replacement is scoped to the shared .theme-carousel
+            # wrapper, so it works regardless of which of the two comes
+            # first, and stays inside the file's one @supports
+            # selector(:has(*)) block (checked below by count).
+            ".theme-carousel:has(.theme-carousel__all[open]) .theme-chip-grid--strip {": (
+                "flex-wrap: wrap;",),
             ".theme-carousel__pagers {": (
                 "--js-gate-display: flex;", "gap: var(--space-lg);",
                 "margin-top: var(--space-sm);"),
@@ -11802,7 +11845,12 @@ def main():
                 "border-bottom: 2px solid currentColor;",
                 "transform: rotate(-45deg);"),
             ".theme-carousel__pager--prev::after {": ("transform: rotate(135deg);",),
-            ".theme-carousel__all {": ("margin-bottom: var(--space-sm);",),
+            # 27-07-PLAN.md Task 1 (CFG-68/D-20): `margin-top` joins
+            # `margin-bottom` now that the disclosure is the LAST child
+            # of .theme-carousel rather than the first — see
+            # style.css's own comment on this rule.
+            ".theme-carousel__all {": (
+                "margin-top: var(--space-sm);", "margin-bottom: var(--space-sm);"),
         }
         for selector, declarations in rules.items():
             if selector not in source:
@@ -11813,22 +11861,76 @@ def main():
                 if declaration not in body:
                     return False, (
                         "%s does not declare %r — %r"
-                        % (selector.rstrip(" {"), declaration, body.strip()))
+                        % (selector.strip(" {\n"), declaration, body.strip()))
         return True, ""
     check(
         "the full grid sits behind a native <details>/<summary> and never a <dialog> (a dialog "
         "cannot be opened without script, which would put eighteen themes behind a dead "
-        "control), the disclosure renders BEFORE the strip because the stylesheet reaches it "
-        "through an adjacent-sibling [open] rule, the whole Display page carries exactly "
-        "len(THEME_IDS) radios named 'theme' (ONE set, so the page can never show one setting "
-        "in two disagreeing places), both pagers render inside 25-01's gate wrapper and zero "
-        "pager markup renders outside it, each carries a real aria-label and an aria-controls "
-        "naming the strip — which is also how theme-preview.js finds it — neither is "
-        "aria-hidden, both wear .control-hit-area, and theme-preview.js registers no key "
-        "listener and calls no preventDefault at all, because a pager capturing an arrow key "
-        "would break the native radiogroup selection the no-JS path depends on (CFG-50/D-09, "
-        "25-06-PLAN.md Task 3)",
+        "control), the disclosure renders AFTER the strip (D-20, 27-07-PLAN.md Task 1 — 'Voir "
+        "tous les thèmes' reads as a way OUT below the strip rather than a preamble above it) "
+        "with the stylesheet now reaching the grid through a :has() rule scoped to the shared "
+        ".theme-carousel wrapper instead of a forward adjacent-sibling rule, the whole Display "
+        "page carries exactly len(THEME_IDS) radios named 'theme' (ONE set, so the page can "
+        "never show one setting in two disagreeing places), both pagers render inside 25-01's "
+        "gate wrapper and zero pager markup renders outside it, each carries a real aria-label "
+        "and an aria-controls naming the strip — which is also how theme-preview.js finds it — "
+        "neither is aria-hidden, both wear .control-hit-area, and theme-preview.js registers no "
+        "key listener and calls no preventDefault at all, because a pager capturing an arrow "
+        "key would break the native radiogroup selection the no-JS path depends on (CFG-50/D-09, "
+        "25-06-PLAN.md Task 3; disclosure order and the :has() replacement, CFG-68/D-20, "
+        "27-07-PLAN.md Task 1)",
         _the_full_grid_sits_behind_a_native_details_and_the_pagers_behind_the_gate)
+
+    # ------------------------------------------------------------------
+    # 27-07-PLAN.md Task 1 (CFG-68): THE TRAP CHECK. THEME_CAROUSEL_
+    # STRIP_ID used to be a single id literal serving as both the
+    # departures strip's own id AND what both pagers' aria-controls
+    # named — fine with one carousel, but a SECOND carousel built from
+    # the same literal (or from a helper that still defaulted to it)
+    # would render two elements sharing one id, which is invalid HTML,
+    # and every pager on the page would drive only the FIRST match.
+    # _theme_carousel_html() now takes strip_id as a required argument
+    # instead (no shared default), which makes that specific collision
+    # impossible BY CONSTRUCTION — this check is the proof that holds
+    # for every OTHER way a duplicate id could still reach the page
+    # (a typo, a copy-pasted call site, anything), because it asserts
+    # the property the trap violates directly: id uniqueness across the
+    # whole rendered page, not "the carousel ids I expect differ".
+    # ------------------------------------------------------------------
+
+    def _the_rendered_settings_page_carries_no_duplicate_id():
+        page = config_page.render({
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        }, scope=config_page.SCOPE_DISPLAY)
+        ids = re.findall(r'\bid="([^"]*)"', page)
+        if not ids:
+            return False, (
+                "found no id=\"...\" attributes at all on the rendered Display page — this scan "
+                "would pass against a page with none, which measures nothing")
+        seen = {}
+        for value in ids:
+            seen[value] = seen.get(value, 0) + 1
+        duplicates = {value: count for value, count in seen.items() if count > 1}
+        if duplicates:
+            # ONE named example, not the whole dict — a message a future
+            # reader can act on immediately, matching this file's own
+            # convention of naming the ACTUAL offending value rather
+            # than a summary of how many things are wrong.
+            dup_id, dup_count = sorted(duplicates.items())[0]
+            return False, (
+                "id=%r appears %d times on the rendered Display page — every id-based lookup "
+                "(aria-controls, a <label for=>, aria-labelledby, document.getElementById) "
+                "resolves to the FIRST match silently, so a duplicate id is not a cosmetic "
+                "defect: whichever control names %r second is driving or describing the FIRST "
+                "one instead of itself" % (dup_id, dup_count, dup_id))
+        return True, ""
+    check(
+        "the rendered Display page carries no duplicate id anywhere — asserted as page-wide id "
+        "uniqueness (THE property the THEME_CAROUSEL_STRIP_ID trap violates), never as 'the "
+        "carousel ids I expect differ', with a failure message naming the duplicated id and how "
+        "many times it appeared (CFG-68, 27-07-PLAN.md Task 1)",
+        _the_rendered_settings_page_carries_no_duplicate_id)
 
     # --- 27-03-PLAN.md Task 1 (CFG-64) -------------------------------
 
