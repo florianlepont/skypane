@@ -139,6 +139,15 @@ None - no external service configuration required.
 - `companion/layout.py` and `companion/test_companion_app.py` are the two files this plan owns for Wave 1; later waves depending on them landing first (28-03 writes `layout.py`, 28-06 writes `test_companion_app.py`) can proceed once this plan merges.
 - No blockers. The icon-hamburger zero-consumer observation is recorded above for a future phase's discretion, not a blocker for this one.
 
+## Self-Check: PASSED
+
+- FOUND: `companion/layout.py`
+- FOUND: `companion/test_companion_app.py`
+- FOUND: `.planning/phases/28-companion-review-feedback-round-2-five-more-findings-from-th/28-01-SUMMARY.md`
+- FOUND: commit `275e943` (Task 1)
+- FOUND: commit `dcfc0cd` (Task 2)
+- FOUND: commit `68876e5` (plan metadata)
+
 ---
 *Phase: 28-companion-review-feedback-round-2-five-more-findings-from-th*
 *Completed: 2026-09-15*
