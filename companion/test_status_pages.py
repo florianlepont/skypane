@@ -942,6 +942,10 @@ EXPECTED_CHECK_COUNT = 302
 # the one documented anomaly_active() sandbox failure), never by
 # arithmetic.
 EXPECTED_CHECK_COUNT = 305
+EXPECTED_CHECK_COUNT = 306  # 27-08-PLAN.md Task 2 (CFG-69): +1 (the quiet
+# cell's caption-link one-write-site/both-pages check), re-derived by
+# RUNNING (305/306 pass here — the same standing anomaly_active() sandbox
+# failure, unrelated to this plan).
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -14488,6 +14492,73 @@ def main():
         "companion/static/style.css's own dot--* class-name occurrence count is unchanged by this "
         "plan (9 before, 9 after) — this plan adds no dot class",
         _health_render_no_new_dot_class_count_unchanged)
+
+    # ======================================================================
+    # 27-08-PLAN.md Task 2 (CFG-69/D-23): the Frame strip is a SHARED
+    # component — one write site (layout.frame_strip_html()'s quiet
+    # cell) feeding both Home and Display. The check that proves this is
+    # NOT "the link exists on Home" plus a second, separate "the link
+    # exists on Display" — two per-page checks would both pass against a
+    # forked component (each page's own builder rendering its own copy).
+    # The property under test is IDENTITY: the same href, read off BOTH
+    # real page renderers, in ONE check whose failure message names
+    # whichever page it could not find on, or the two hrefs when they
+    # disagree.
+    # ======================================================================
+
+    _QUIET_SCHEDULE_LINK_RE = re.compile(
+        r'<a class="text-link frame-strip__schedule-link" href="([^"]+)">')
+
+    def _the_quiet_schedule_link_is_one_write_site_reaching_both_pages():
+        from companion.pages import config_page, home_page
+        tmp = _mkstate("h-quiet-schedule-link")
+        try:
+            now_iso = _iso(_now())
+            home_ctx = _home_ctx(tmp, now_iso)
+            display_ctx = {
+                "device_config": home_ctx["device_config"], "state_dir": tmp,
+                "poll_cooldown_remaining": 0, "now": now_iso,
+            }
+            rendered_home = home_page.render(home_ctx)
+            rendered_display = config_page.render(display_ctx, scope=config_page.SCOPE_DISPLAY)
+            # Collected across BOTH pages before returning — a shared
+            # write site that is missing entirely fails on both at once,
+            # and the message says so by naming every page that lacked
+            # it, not only whichever happened to be checked first.
+            hrefs = {}
+            missing = []
+            for rendered, name in ((rendered_home, "Home"), (rendered_display, "Display")):
+                match = _QUIET_SCHEDULE_LINK_RE.search(rendered)
+                if match:
+                    hrefs[name] = match.group(1)
+                else:
+                    missing.append(name)
+            if missing:
+                return False, (
+                    "expected a.frame-strip__schedule-link on every page that renders the strip — "
+                    "found none on: %s" % (", ".join(missing),))
+            if hrefs["Home"] != hrefs["Display"]:
+                return False, (
+                    "expected the SAME href on both pages (one write site, D-23) — Home read %r, "
+                    "Display read %r; two different hrefs is exactly what a forked component "
+                    "would produce" % (hrefs["Home"], hrefs["Display"]))
+            if rendered_home.count('frame-strip__schedule-link') != 1:
+                return False, (
+                    "expected exactly one schedule-link render on Home, got %d"
+                    % rendered_home.count('frame-strip__schedule-link'))
+            if rendered_display.count('frame-strip__schedule-link') != 1:
+                return False, (
+                    "expected exactly one schedule-link render on Display, got %d"
+                    % rendered_display.count('frame-strip__schedule-link'))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the quiet cell's caption link is present on BOTH Home's and Display's own real "
+        "render() output, with the IDENTICAL href on both — asserted as one check whose failure "
+        "names the page missing the link or the two hrefs when they differ, never two separate "
+        "per-page checks (CFG-69, D-23, 27-08-PLAN.md Task 2)",
+        _the_quiet_schedule_link_is_one_write_site_reaching_both_pages)
 
     # --- 23-07-PLAN.md Task 1 (D2/CFG-36): the Frame strip's two
     # switches become real role="switch" controls, SERVER-rendered from

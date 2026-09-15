@@ -4022,11 +4022,25 @@ table.data-table--registry .cell-inline-sep {
   padding: var(--space-md);
 }
 
+/* 27-08-PLAN.md Task 3 (CFG-70): `margin-bottom` closes the gap between
+ * this grid and whatever follows it in the same reveal cell (the
+ * callsign's own copy button, standalone rather than inside a `<dl>`
+ * item — companion/pages/history_page.py's `_flight_detail_row_html()`).
+ * MEASURED at the prior 0-margin value: the grid's bottom edge sat
+ * roughly 4px above that trailing button's own top edge, well inside
+ * both controls' own synthesized 11px reach — the later element (the
+ * trailing button, later in document order) wins that overlap outright,
+ * so the EARLIER control (the grid's own last-row copy button) measured
+ * a real 34x26 against its declared 44x44: full reach left/right/up,
+ * almost none down. `var(--space-lg)` (24px) reopens a real gap between
+ * the two 11px reaches (22px needed) with room to spare, the same
+ * `--space-lg`-over-the-exact-minimum margin this file's carousel pager
+ * gap rule already banked for the identical reason. */
 .flight-detail-row__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-sm) var(--space-md);
-  margin: 0;
+  margin: 0 0 var(--space-lg);
 }
 
 .flight-detail-row__grid dt {
@@ -4128,9 +4142,28 @@ table.data-table--registry .cell-inline-sep {
   }
 }
 
+/* 27-08-PLAN.md Task 3 (CFG-70): `padding-left` on THIS element, not on
+ * `.flight-detail-row td` two rules up (that rule's own `padding`
+ * declaration is shadowed by `table.data-table--flights td`'s higher-
+ * specificity `var(--space-sm)` padding, verified from source rather
+ * than assumed — editing the shadowed rule would be a change with no
+ * effect). This element is the one whose `overflow: hidden` (needed for
+ * the height-collapse animation two rules up) clips anything painted
+ * past its own edge, including a synthesized `::before` pointer target
+ * belonging to a descendant flush against that edge — which the first
+ * grid column's copy buttons are, at the 8px `table.data-table--flights
+ * td` leaves them. `var(--space-md)` (16px) clears the 11px reach those
+ * buttons need with a few pixels to spare. This DOES move the row's
+ * rendered content 16px further right than the table's own 8px cell
+ * padding alone would (24px total inset instead of 8px) — a visible,
+ * deliberate trade rather than a free one: touching `table.data-table--
+ * flights td` instead would have re-spaced every cell in the table
+ * (header and every summary row too) for a defect that lives in one
+ * component. */
 .flight-detail-row__reveal-inner {
   overflow: hidden;
   min-height: 0;
+  padding-left: var(--space-md);
 }
 
 /* 22-09-PLAN.md Task 1 (X5, 22-UI-SPEC.md §2): the row-toggle's FIRST
@@ -8396,6 +8429,29 @@ a.airline-card {
   justify-content: space-between;
   gap: var(--space-md);
   min-width: 0;
+}
+
+/* 27-08-PLAN.md Task 2 (CFG-69): the Quiet hours caption's own link to
+ * the schedule fields (companion/layout.py's frame_strip_html(), the
+ * quiet cell's one write site). `.text-link` supplies the colour and
+ * underline; this class supplies the FLOOR — a bare inline `<a>` hit-
+ * tests to its own text line-height, well under 44px, and this sits in
+ * the same dense strip cell as a switch (the geometry that produced the
+ * 30x45 pager and the 43x43 handle elsewhere in this file). `display:
+ * inline-flex` plus `min-height` is the native-input idiom this file
+ * already uses for a floor that does not depend on font metrics, rather
+ * than a padding value tuned to one line-height that a copy change could
+ * silently undercut. No `::before` synthesis: unlike the small icon
+ * controls in the shared register above, this control's own text is
+ * already wider than 44px, so there is nothing to synthesize on that
+ * axis. Block-level in its own right (the delay sentence above it is a
+ * `<p>`, so this `<a>` starts its own line by construction) — it is a
+ * second, independent affordance in the caption row, not a run-on
+ * continuation of the delay sentence. */
+.frame-strip__schedule-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 /* The Frame strip (D-01, D-02, D-05; 22-04-PLAN.md Task 2, B13) — one
