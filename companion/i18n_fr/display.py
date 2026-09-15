@@ -75,6 +75,21 @@ CATALOG = {
     "Applies the next time the frame wakes up.":
         "S’applique au prochain réveil du cadre.",
 
+    # --- Device's own two supersections plus the Poll card's one-card
+    #     supersection (CFG-72, 28-04-PLAN.md Task 1) -------------------
+    "When it wakes": "Quand il se réveille",
+    "— how often the frame wakes up to fetch a new picture.":
+        "— à quelle fréquence le cadre se réveille pour récupérer une "
+        "nouvelle image.",
+    "How it tells you": "Comment il vous prévient",
+    "— the light on the frame and the alerts on your phone.":
+        "— le voyant du cadre et les alertes sur votre téléphone.",
+    "When you can't wait": "Quand vous ne pouvez pas attendre",
+    "— fetch a new picture right now instead of waiting for the next "
+    "wake.":
+        "— récupère une nouvelle image tout de suite au lieu "
+        "d’attendre le prochain réveil.",
+
     # --- Frame colours card (config_page.py's _frame_colours_card_html(),
     #     D-06..D-12, 21-05-PLAN.md Task 1) — replaces the retired Theme
     #     card (theme_fieldset(), its own THEME_SECTION_CAPTION/"Use a

@@ -166,6 +166,30 @@ DISPLAY_WATCHES_INTRO = "— which Orly runway the frame is watching."
 DISPLAY_ON_SECTION_ID = "display-on"
 DISPLAY_ON_HEADING = "When it is on"
 DISPLAY_ON_INTRO = "— when the screen is lit and when it stays quiet."
+# 28-04-PLAN.md Task 1 (CFG-72): Device's own two supersections, the same
+# `section_intro_html()` shape as the three above — "When it wakes" over
+# Wake interval alone, "How it tells you" over Diagnostic LED and
+# Notifications together. The LED/Notifications pairing is a real shared
+# subject, not a bucket invented so a wrapper class would have somewhere
+# to live: both cards are the frame's SIGNALLING channels — the LED
+# reports what the device is doing on the device itself, notifications
+# report it on the reader's phone. A third supersection, "When you
+# can't wait", introduces the fourth Device card (Manual refresh / Poll,
+# built outside `builders` entirely — see `poll_section_html` below) on
+# its own: it is the one Device control that acts immediately rather
+# than on a schedule, the manual counterpart to "When it wakes", and a
+# one-card supersection has precedent in "What it watches" above.
+DEVICE_WAKES_SECTION_ID = "device-wakes"
+DEVICE_WAKES_HEADING = "When it wakes"
+DEVICE_WAKES_INTRO = "— how often the frame wakes up to fetch a new picture."
+DEVICE_TELLS_SECTION_ID = "device-tells"
+DEVICE_TELLS_HEADING = "How it tells you"
+DEVICE_TELLS_INTRO = "— the light on the frame and the alerts on your phone."
+DEVICE_POLL_SECTION_ID = "device-poll"
+DEVICE_POLL_HEADING = "When you can't wait"
+DEVICE_POLL_INTRO = (
+    "— fetch a new picture right now instead of waiting for the next "
+    "wake.")
 # 19-12-PLAN.md Task 2 (D-23): the conditional screen-type <select> — an
 # element id (not a class) because its own <label> targets it via `for`.
 SCREEN_SELECTOR_ID = "screen-id-selector"
@@ -4900,6 +4924,56 @@ def _display_groups_html(builders, groups):
     return watches_supersection_html, on_supersection_html
 
 
+def _device_groups_html(builders, groups):
+    """28-04-PLAN.md Task 1 (CFG-72): the Device scope's own two headed
+    supersections, mirroring `_display_groups_html()`'s shape — "When it
+    wakes" over Wake interval alone, "How it tells you" over Diagnostic
+    LED and Notifications together (the grouping argument is recorded
+    on the module constants above this function). Replaces the flat
+    `"".join(builders[g]() for g in groups if g in builders)` join the
+    Device branch used before this task; the legacy SCOPE_ALL branch's
+    own byte-identical copy of that flat join is untouched — this
+    helper is Device-scope-only, called from nowhere else.
+
+    Unlike `_display_groups_html()` above (whose two supersection
+    headings always render, even when their one card is itself absent),
+    this helper omits a supersection's own heading entirely when EVERY
+    card it would introduce is absent — an intro sentence introducing
+    nothing is worse than the flat join it replaces. The check is `g in
+    builders`, preserving the original flat join's own tolerance: a
+    group missing from `builders` (not merely absent from `groups`)
+    renders neither its card nor an orphaned heading.
+    """
+    wake_interval_html = (
+        _nested_wrapper_html(
+            builders[screens.GROUP_WAKE_INTERVAL](), "theme-status", "theme-status--nested")
+        if screens.GROUP_WAKE_INTERVAL in groups and screens.GROUP_WAKE_INTERVAL in builders
+        else "")
+    wakes_supersection_html = (
+        (layout.section_intro_html(
+            DEVICE_WAKES_SECTION_ID, i18n.t(DEVICE_WAKES_HEADING), i18n.t(DEVICE_WAKES_INTRO))
+         + wake_interval_html)
+        if wake_interval_html else "")
+
+    led_html = (
+        _nested_wrapper_html(
+            builders[screens.GROUP_LED](), "theme-status", "theme-status--nested")
+        if screens.GROUP_LED in groups and screens.GROUP_LED in builders else "")
+    notifications_html = (
+        _nested_wrapper_html(
+            builders[screens.GROUP_NOTIFICATIONS](), "theme-status", "theme-status--nested")
+        if screens.GROUP_NOTIFICATIONS in groups and screens.GROUP_NOTIFICATIONS in builders
+        else "")
+    tells_cards_html = led_html + notifications_html
+    tells_supersection_html = (
+        (layout.section_intro_html(
+            DEVICE_TELLS_SECTION_ID, i18n.t(DEVICE_TELLS_HEADING), i18n.t(DEVICE_TELLS_INTRO))
+         + tells_cards_html)
+        if tells_cards_html else "")
+
+    return wakes_supersection_html + tells_supersection_html
+
+
 def _save_status_region_html():
     """The transient auto-save status region (27-04-PLAN.md Task 3,
     CFG-63) — the one thing that replaces the retired dirty save bar.
@@ -5301,7 +5375,15 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # (only ever Display's everyday_groups/SCOPE_ALL's legacy
         # tuple), so its absence from `builders` (above) changes
         # nothing here either.
-        groups_html = "".join(builders[g]() for g in groups if g in builders)
+        # 28-04-PLAN.md Task 1 (CFG-72): the flat join is replaced by
+        # `_device_groups_html()`, which wraps each card exactly like
+        # Display's own cards are wrapped and introduces them under two
+        # named supersections — see that function's own docstring and
+        # the module constants above it for the grouping argument. The
+        # legacy SCOPE_ALL branch below keeps its own, byte-identical
+        # copy of the flat join this replaces; that copy is deliberately
+        # untouched.
+        groups_html = _device_groups_html(builders, groups)
         frame_colours_section_html = ""
         display_calendar_card_html = ""
         display_watches_supersection_html = ""
@@ -5345,6 +5427,20 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(cooldown_remaining))
         if show_poll else "")
+    # 28-04-PLAN.md Task 1 (CFG-72): the fourth Device card, wrapped with
+    # the Poll card's OWN modifier below (the wrapper this card actually
+    # emits is a `.page-section`, not a `.theme-status`) under its own
+    # one-card supersection, "When you can't wait" — DEVICE-SCOPE-ONLY.
+    # Computed here rather than gating `poll_section_html` itself, so
+    # the legacy SCOPE_ALL branch's own `poll_section_html` (built once,
+    # above, shared by both scopes via the identical `show_poll` gate)
+    # reaches the return tuple below byte-identical to its pre-task
+    # output.
+    poll_supersection_html = (
+        (layout.section_intro_html(
+            DEVICE_POLL_SECTION_ID, i18n.t(DEVICE_POLL_HEADING), i18n.t(DEVICE_POLL_INTRO))
+         + _nested_wrapper_html(poll_section_html, "page-section", "page-section--nested"))
+        if scope == SCOPE_DEVICE and poll_section_html else "")
 
     return (
         header
@@ -5420,7 +5516,13 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # on the Device/SCOPE_ALL paths (both set it to "" explicitly
         # above), so this addition changes nothing for either.
         display_on_supersection_html,
-        poll_section_html,
+        # 28-04-PLAN.md Task 1 (CFG-72): the Device scope renders the
+        # wrapped, supersection-introduced form of the Poll card
+        # (`poll_supersection_html`); the legacy SCOPE_ALL branch (and
+        # Display, which never sets `show_poll`) renders the original
+        # bare `poll_section_html` unchanged — `poll_supersection_html`
+        # is "" on both of those scopes by construction above.
+        poll_supersection_html if scope == SCOPE_DEVICE else poll_section_html,
     )
 
 
