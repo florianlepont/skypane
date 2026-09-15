@@ -822,7 +822,16 @@ EXPECTED_CHECK_COUNT = 78
 #
 # 27-02-PLAN.md Task 4 (CFG-62/CFG-71): +1 — THE arc/handles/caption
 # agreement check. 81 + 1 = 82, re-derived by RUNNING (82/82, 0 SKIPs).
-EXPECTED_CHECK_COUNT = 82
+#
+# 27-03-PLAN.md Task 3 (CFG-64): +1 — the no-JS floor proven to save TO
+# DISK after 27-03-PLAN.md Task 2 simplifies the fallback-hide rule to
+# the plain .js gate: tracked_runway operated with scripts blocked,
+# submitted through the real form, re-read from disk, in both shipped
+# languages, with the fallback submit itself asserted present and
+# visible AFTER the save
+# (_the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies).
+# 82 + 1 = 83, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 83
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -3970,43 +3979,65 @@ def main():
                     "Task 2, D2/CFG-36)",
                     _device_reveal_and_persist_stays_in_step_with_display)
 
-                def _fallback_save_reachable_until_bar_proven_live():
+                def _fallback_save_hides_immediately_once_script_runs():
+                    # 27-03-PLAN.md Task 2 (CFG-64): SUPERSEDES this
+                    # check's own pre-27-03 shape (D-01/B1: the fallback
+                    # stayed visible-with-script until the dirty bar
+                    # PROVED itself live, only then hiding). The
+                    # fallback-hide rule reverted to the plain `.js`
+                    # gate (style.css's own dated comment carries the
+                    # full account) because the floor is now kept a
+                    # different way: render()'s emission is unconditional
+                    # (companion/pages/config_page.py, verified at the
+                    # source by 27-03-PLAN.md Task 1), so hiding this
+                    # button is a pure script-presence decision again,
+                    # never a proof of the bar's liveness. This check is
+                    # retargeted to the new claim: with script running,
+                    # the fallback is gone BEFORE any edit — the OPPOSITE
+                    # of what it asserted before this plan — and the
+                    # dirty bar remains the scripted save affordance,
+                    # unaffected, still genuinely submitting a real edit.
                     context = browser.new_context()
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
                         base_url = harness.base_url()
 
-                        # With the bar never revealed, the fallback stays visible
-                        # and submitting it saves (D-01: the fallback is the only
-                        # write path a broken/blocked script leaves behind).
                         page.goto(base_url + "/display")
                         fallback = page.locator("[data-static-save-fallback]")
-                        if not fallback.is_visible():
-                            return False, "expected the fallback Save button to be visible before the bar is ever shown"
-                        with page.expect_navigation():
-                            fallback.click()
-                        if "/display" not in page.url:
-                            return False, "expected the fallback Save button to actually submit the form"
+                        if fallback.is_visible():
+                            return False, (
+                                "expected the fallback Save button to be HIDDEN on a fresh load "
+                                "with scripts running — CFG-64's plain script-presence gate, "
+                                "not proof the bar has shown")
 
-                        # Once the bar has been revealed once, the fallback hides.
-                        page.goto(base_url + "/display")
-                        fallback = page.locator("[data-static-save-fallback]")
-                        if not fallback.is_visible():
-                            return False, "expected the fallback Save button to still be visible before any edit on a fresh load"
                         theme_ids = device_config.THEME_IDS
                         _click_control(page, 'input[name="theme"][value="%s"]' % theme_ids[2])
                         if page.locator("[data-dirty-bar]").is_hidden():
                             return False, "expected the save bar to become visible after the edit"
                         if fallback.is_visible():
-                            return False, "expected the fallback Save button to hide once the bar has genuinely been shown"
+                            return False, (
+                                "expected the fallback Save button to stay hidden once the bar "
+                                "has appeared too")
+
+                        # And the bar's own Save still genuinely submits —
+                        # this plan changes nothing about ITS behaviour,
+                        # only about when the fallback beneath it hides.
+                        with page.expect_navigation():
+                            page.locator(".dirty-bar__save").click()
+                        if "/display" not in page.url:
+                            return False, "expected the bar's Save to actually submit the form"
                         return True, ""
                     finally:
                         context.close()
                 check(
-                    "the fallback Save button stays reachable and functional until the bar has actually been "
-                    "shown once, then hides (D-01: the no-way-to-save-at-all fix)",
-                    _fallback_save_reachable_until_bar_proven_live)
+                    "27-03-PLAN.md Task 2 (CFG-64): the fallback Save button now hides "
+                    "IMMEDIATELY once script runs — a plain script-presence decision, never "
+                    "proof the dirty bar has genuinely shown — while the dirty bar remains the "
+                    "scripted save affordance, unaffected, still genuinely submitting a real "
+                    "edit; supersedes the B1/D-01 two-marker contract this check asserted "
+                    "before this plan (D-01/CFG-64)",
+                    _fallback_save_hides_immediately_once_script_runs)
 
                 def _cancel_restores_preview_and_rearms_guard():
                     context = browser.new_context()
@@ -8803,7 +8834,9 @@ def main():
                                     return False, (
                                         "lang=%s: <html> carries %r with scripts blocked (%r) — "
                                         "both markers have exactly one writer and it cannot run "
-                                        "here, and the fallback-hide rule keys on both"
+                                        "here (27-03-PLAN.md Task 2: the fallback-hide rule no "
+                                        "longer keys on either — this assertion is now "
+                                        "corroboration, not the floor itself)"
                                         % (lang, marker, markers))
                             bar_display = page.evaluate(
                                 "() => { var b = document.querySelector('[data-dirty-bar]');"
@@ -12995,6 +13028,96 @@ def main():
                     "scroll sideways — with the pager wrapper proved in BOTH gate directions "
                     "(CFG-50/D-09, 25-06-PLAN.md Task 4)",
                     _the_theme_still_saves_with_scripts_blocked_through_the_carousel)
+
+                # --- 27-03-PLAN.md Task 3 (CFG-64) -----------------------
+
+                def _the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies():
+                    """CFG-64: 27-03-PLAN.md Task 2 reverted the
+                    fallback-hide rule from the two-marker
+                    `.dirty-ready.dirty-shown` gate to the plain `.js`
+                    gate 06.6.4.1-01 originally shipped. This is the
+                    proof that the floor UNDER that change still holds —
+                    a value on DISK, never a rendering — using
+                    tracked_runway, the same field and the same
+                    form="settings-form" mutation 25-03's own M20
+                    recorded (25-03-SUMMARY.md), because the subject
+                    under test is the identical no-JS save path, now
+                    reached through a simplified gate rather than a
+                    proven-live save bar.
+
+                    Unlike 25-03's own check, which corroborates with the
+                    runway MAP's presence, this one asserts the SUBMIT
+                    itself — the element the simplified gate actually
+                    governs — is present and VISIBLE AFTER the save. A
+                    check that only asked whether it renders would pass
+                    against the exact defect Phase 22's P0 found; a check
+                    that only asked whether it renders would ALSO pass
+                    against a submit whose value never reaches disk. This
+                    check carries both facts about the one relationship
+                    that matters, deliberately never split into two.
+                    """
+                    base_url = harness.base_url()
+
+                    def read_back():
+                        return device_config.load_device_config(
+                            harness.tmpdir)["tracked_runway"]
+
+                    before = read_back()
+                    target = next(r for r in device_config.RUNWAY_IDS if r != before)
+                    seen = {}
+                    # BOTH SHIPPED LANGUAGES, at the 360px floor: the UI
+                    # language is a cookie the FIRST rendered document
+                    # already has to honour, and "it saves in English" is
+                    # not the D-09 floor.
+                    for lang in ("en", "fr"):
+                        seen[lang] = _persist_without_js(
+                            browser, base_url, "/display", "tracked_runway",
+                            target, read_back, viewport=VIEWPORT_MIN_SUPPORTED,
+                            cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
+                                      "value": lang, "url": base_url}])
+                    after = read_back()
+                    if str(after) != str(before):
+                        return False, (
+                            "the scripts-blocked save left tracked_runway at %r, it started at "
+                            "%r — a harness that changes a real setting is a test that edits "
+                            "its neighbours' subject" % (after, before))
+                    for lang, result in seen.items():
+                        if str(result["stored"]) != str(target):
+                            return False, (
+                                "lang=%s: tracked_runway did not reach disk, it reads %r"
+                                % (lang, result["stored"]))
+                        if str(result["restored"]) != str(before):
+                            return False, (
+                                "lang=%s: the restore leg did not put %r back, disk reads %r"
+                                % (lang, before, result["restored"]))
+
+                    # AND THE SUBMIT ITSELF, ASSERTED AFTER THE SAVE
+                    # ABOVE — never before, and never in its place. A
+                    # rendering can never stand in for the save this
+                    # check just proved.
+                    with _no_js_page(browser, base_url, "/display",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        submit = page.locator(
+                            "[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
+                        if submit.count() != 1:
+                            return False, (
+                                "expected exactly one fallback submit with scripts blocked "
+                                "AFTER the save above, found %d" % submit.count())
+                        if not submit.is_visible():
+                            return False, (
+                                "the fallback submit rendered but is not VISIBLE with scripts "
+                                "blocked after the save — this is precisely the shape Phase "
+                                "22's P0 took")
+                    return True, ""
+                check(
+                    "the no-JS floor still SAVES TO DISK after the gate simplifies to the "
+                    "plain .js rule (CFG-64) — tracked_runway operated natively, submitted "
+                    "through the real form, re-read FROM DISK after a fresh GET, in BOTH "
+                    "shipped languages, at 360px, restored as the last act (the same field and "
+                    "mutation 25-03's own M20 recorded) — and the data-static-save-fallback "
+                    "submit is present and VISIBLE on that scripts-blocked page AFTER the save, "
+                    "so a rendering can never stand in for it (CFG-64, 27-03-PLAN.md Task 3)",
+                    _the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies)
 
                 def _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview():
                     base_url = harness.base_url()
