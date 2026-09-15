@@ -924,7 +924,12 @@ EXPECTED_CHECK_COUNT = 258
 # byte-identical text and the D-07 echo, both narrowed to survive the
 # caption's new three-child shape) add no new check of their own.
 # 259 + 1 = 260, re-derived by RUNNING (260/260).
-EXPECTED_CHECK_COUNT = 260
+#
+# 27-03-PLAN.md Task 1 (CFG-64): +1 — the source-and-render proof that
+# the native submit's emission is unconditional
+# (_the_native_submit_is_emitted_unconditionally_on_every_render).
+# 260 + 1 = 261, re-derived by RUNNING (261/261).
+EXPECTED_CHECK_COUNT = 261
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -12004,6 +12009,96 @@ def main():
         "would break the native radiogroup selection the no-JS path depends on (CFG-50/D-09, "
         "25-06-PLAN.md Task 3)",
         _the_full_grid_sits_behind_a_native_details_and_the_pagers_behind_the_gate)
+
+    # --- 27-03-PLAN.md Task 1 (CFG-64) -------------------------------
+
+    def _the_native_submit_is_emitted_unconditionally_on_every_render():
+        """CFG-64: the no-JS floor is kept BY CONSTRUCTION, not by a
+        visibility rule — the native submit carrying
+        STATIC_SAVE_FALLBACK_ATTR must be reachable through every code
+        path render() has, with no conditional of any kind governing its
+        presence. Two proofs, not one, because a rendering-only proof
+        would pass against a page whose SOURCE has a branch that merely
+        never gets exercised by today's three scopes, and a source-only
+        proof would pass against a render() that formats the attribute
+        into a sub-template some caller forgets to include.
+
+        THE SOURCE PROOF: render() has exactly one `return` statement (a
+        second return would be a second, unproven code path), that
+        return is a direct statement of the function's own body — never
+        nested inside an `if`/`for`/`while`/`try` — and
+        STATIC_SAVE_FALLBACK_ATTR appears exactly once inside it as a
+        bare name, never behind an `ast.IfExp` (a ternary), which is the
+        one shape that would make its presence depend on a runtime
+        condition.
+
+        THE RENDER PROOF: render() is actually called for every scope
+        the page supports (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE) and
+        each rendering carries EXACTLY ONE `data-static-save-fallback`
+        occurrence — never zero (the submit is missing) and never two or
+        more (a second, competing save control). One check over all
+        three scopes, not one per scope: the relationship under test is
+        "every scope has it", and a per-scope check would let a future
+        fourth scope ship with no proof at all.
+        """
+        with open(os.path.join(HERE, "pages", "config_page.py"), encoding="utf-8") as fh:
+            source = fh.read()
+        tree = ast.parse(source)
+        render_fn = next(
+            (n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "render"),
+            None)
+        if render_fn is None:
+            return False, "config_page.py defines no top-level render() function any more"
+        returns = [n for n in ast.walk(render_fn) if isinstance(n, ast.Return)]
+        if len(returns) != 1:
+            return False, (
+                "expected exactly one return statement inside render(), found %d — a second "
+                "return is a second code path, and the one that reaches "
+                "STATIC_SAVE_FALLBACK_ATTR would no longer be the only one" % len(returns))
+        only_return = returns[0]
+        if only_return not in render_fn.body:
+            return False, (
+                "render()'s one return statement is NESTED inside a conditional/loop/try block "
+                "of the function body — the submit's emission would then be reachable on some "
+                "paths and not others, exactly the branch this check exists to rule out")
+        carriers = [
+            n for n in ast.walk(only_return.value)
+            if isinstance(n, ast.Name) and n.id == "STATIC_SAVE_FALLBACK_ATTR"]
+        if not carriers:
+            return False, (
+                "render()'s one return statement never names STATIC_SAVE_FALLBACK_ATTR at all "
+                "— the submit is not part of what this function returns")
+        if len(carriers) != 1:
+            return False, (
+                "STATIC_SAVE_FALLBACK_ATTR appears %d times in render()'s return — expected "
+                "exactly one submit" % len(carriers))
+        for node in ast.walk(only_return.value):
+            if isinstance(node, ast.IfExp) and carriers[0] in ast.walk(node):
+                return False, (
+                    "STATIC_SAVE_FALLBACK_ATTR is reached through a ternary inside render()'s "
+                    "return — its presence would then depend on a runtime condition, never "
+                    "unconditional")
+        base_ctx = {
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
+            rendered = config_page.render(base_ctx, scope=scope)
+            count = rendered.count(config_page.STATIC_SAVE_FALLBACK_ATTR)
+            if count != 1:
+                return False, (
+                    "expected exactly one %r occurrence on scope=%r, found %d — the native "
+                    "submit must render unconditionally, once, on every scope"
+                    % (config_page.STATIC_SAVE_FALLBACK_ATTR, scope, count))
+        return True, ""
+    check(
+        "the native submit carrying STATIC_SAVE_FALLBACK_ATTR is emitted UNCONDITIONALLY — "
+        "render() has exactly one return statement, it is never nested inside a branch, and "
+        "the attribute reaches it as a bare name rather than through a ternary — AND every one "
+        "of the three scopes (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE) renders it exactly once, so "
+        "there is no code path, past or future, that can omit the no-JS save floor (CFG-64, "
+        "27-03-PLAN.md Task 1)",
+        _the_native_submit_is_emitted_unconditionally_on_every_render)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
