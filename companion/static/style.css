@@ -1618,8 +1618,24 @@ a:hover {
  * dirty-state.js's own guards fails, at least one class never appears,
  * this rule never matches, and the bottom button remains the only way to
  * save (D-06 graceful degradation, the D-09 no-way-to-save fix, and now
- * B1's proven-liveness fix). */
-.dirty-ready.dirty-shown [data-static-save-fallback] {
+ * B1's proven-liveness fix).
+ *
+ * 27-03-PLAN.md (2026-09-15, CFG-64): SUPERSEDED above, not withdrawn —
+ * the account above was correct for a page whose only save feedback was
+ * the bar it describes, and this paragraph does not erase that history.
+ * Auto-save (27-04) retires the bar entirely; with no dirty state left
+ * to represent, there is nothing left for the two narrowing marker
+ * classes above to mean on THIS rule, and nothing left for them to
+ * prove the liveness of. The floor this rule used to carry is kept a
+ * different way now: render()'s emission of the attribute
+ * STATIC_SAVE_FALLBACK_ATTR names is unconditional on every scope
+ * (companion/pages/config_page.py, verified at the source by
+ * 27-03-PLAN.md Task 1), so there is no render-time branch left for a
+ * hiding rule to guard against. Hiding this button is now a plain
+ * script-presence decision — the same one the file's other progressive-
+ * enhancement rules already make — rather than a proof that a specific
+ * replacement bar succeeded. */
+.js [data-static-save-fallback] {
   display: none;
 }
 

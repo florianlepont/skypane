@@ -5457,6 +5457,17 @@ def main():
         _dirty_state_js_references_quiet_preset_attrs)
 
     def _style_css_references_static_save_fallback_attr():
+        # 19-10-PLAN.md (D-09/A-27): retargeted from .js to .dirty-ready;
+        # 22-01-PLAN.md Task 2 (D-01/B1) retargeted it AGAIN, to require
+        # BOTH .dirty-ready and .dirty-shown (proven liveness rather than
+        # mere element presence). 27-03-PLAN.md Task 2 (CFG-64) retargets
+        # it a THIRD time, in the opposite direction: the floor is kept
+        # by render()'s emission being unconditional now (Task 1's own
+        # source proof), so the two narrowing markers have nothing left
+        # to prove on THIS rule and the selector reverts to the plain
+        # script-presence gate it originally shipped as — the B1/P0
+        # contract is SUPERSEDED, not deleted, and the style.css comment
+        # block records that in writing, dated, right above the rule.
         source = _read_static("style.css")
         if config_page.STATIC_SAVE_FALLBACK_ATTR not in source:
             return False, "expected style.css to reference the literal value of STATIC_SAVE_FALLBACK_ATTR"
@@ -5464,31 +5475,41 @@ def main():
         window = source[idx:idx + 120]
         if "display: none" not in window and "display:none" not in window:
             return False, "expected the fallback-hide rule to set display: none near the attribute reference"
-        # 19-10-PLAN.md (D-09/A-27): retargeted from .js to .dirty-ready;
-        # 22-01-PLAN.md Task 2 (D-01/B1) retargets it AGAIN, from a single
-        # .dirty-ready marker (element presence) to requiring BOTH
-        # .dirty-ready AND .dirty-shown (proven liveness) - the fallback
-        # button must stay reachable until dirty-state.js has actually
-        # shown the bar once, not merely found its two DOM nodes. The
-        # selector prefix sits BEFORE the attribute reference
-        # (".dirty-ready.dirty-shown [data-static-save-fallback]"), so
-        # widen the window backwards too rather than only forwards.
+        # The selector prefix sits BEFORE the attribute reference
+        # (the plain `.js` gate), so widen the window backwards too
+        # rather than only forwards.
         selector_window = source[max(0, idx - 40):idx + 120]
-        if "dirty-ready" not in selector_window:
-            return False, "expected the fallback-hide rule's selector to reference dirty-ready"
-        if "dirty-shown" not in selector_window:
-            return False, "expected the fallback-hide rule's selector to ALSO reference dirty-shown (B1: two markers, not one)"
-        old_selector = ".js [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
-        if old_selector in source:
-            return False, "expected the old .js-gated selector to be gone entirely"
-        single_marker_selector = ".dirty-ready [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
-        if single_marker_selector in source:
-            return False, "expected the old single-marker .dirty-ready-only selector to be gone entirely (B1)"
+        if "dirty-ready" in selector_window or "dirty-shown" in selector_window:
+            return False, (
+                "expected the fallback-hide rule's OWN selector to carry neither dirty-ready nor "
+                "dirty-shown any more (CFG-64: the floor is kept by unconditional emission, not "
+                "by these two markers) — selector window reads %r" % (selector_window,))
+        combined_selector = ".dirty-ready.dirty-shown [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
+        if combined_selector in source:
+            return False, "expected the superseded two-marker selector to be gone entirely (CFG-64)"
+        # THE SUPERSEDED CONTRACT IS AMENDED IN WRITING, NOT ERASED: the
+        # original comment's own distinctive sentences must still be
+        # present (its history survives), and a dated Phase 27 paragraph
+        # must follow it naming what replaced it.
+        for distinctive in (
+                "PROVEN its own replacement bar is actually live",
+                "turned out to still be element PRESENCE, not proven liveness (B1)",
+                "B1's proven-liveness fix"):
+            if distinctive not in source:
+                return False, (
+                    "expected the ORIGINAL comment's own sentence %r to survive verbatim — "
+                    "the B1/P0 contract must be superseded in writing, not deleted" % (distinctive,))
+        if "27-03-PLAN.md" not in source or "SUPERSEDED" not in source:
+            return False, (
+                "expected a dated 27-03-PLAN.md paragraph stating the contract is SUPERSEDED, "
+                "not merely that the rule changed")
         return True, ""
     check(
-        "style.css contains the .dirty-ready.dirty-shown-gated (both markers, B1) fallback-hide rule referencing "
-        "config_page.STATIC_SAVE_FALLBACK_ATTR's literal value, and no longer the old .js-gated or "
-        "single-marker .dirty-ready-only selector",
+        "style.css's fallback-hide rule reverts to the plain .js gate (CFG-64: the floor is now "
+        "kept by render()'s unconditional emission, not by this rule's specificity), the "
+        "superseded two-marker selector is gone, and B1/P0's own contract survives in writing — "
+        "its original sentences intact plus a dated 27-03-PLAN.md paragraph naming what replaced "
+        "it (27-03-PLAN.md Task 2)",
         _style_css_references_static_save_fallback_attr)
 
     def _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors():
