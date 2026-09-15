@@ -929,7 +929,26 @@ EXPECTED_CHECK_COUNT = 258
 # the native submit's emission is unconditional
 # (_the_native_submit_is_emitted_unconditionally_on_every_render).
 # 260 + 1 = 261, re-derived by RUNNING (261/261).
-EXPECTED_CHECK_COUNT = 261
+#
+# 27-04-PLAN.md (D-04/CFG-63): the dirty save bar is retired outright.
+# Deleted: _render_dirty_bar_is_sibling_of_form_last_on_page (-1),
+# _the_save_control_says_what_it_is_doing_without_changing_what_it_posts
+# (-1, retargeted into a new check below rather than a bare delete),
+# _dirty_state_js_dirty_shown_marker_set_only_inside_update_bar (-1),
+# _dirty_state_js_sets_dirty_ready_only_after_bar_guard (-1),
+# _style_css_gives_the_dirty_bar_an_entrance_and_keeps_every_decision_
+# that_made_it (-1, retargeted into a new check below rather than a bare
+# delete). Retargeted in place (no count change):
+# _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_
+# syntax, _style_css_carries_section_caption_and_restyled_fixed_dirty_
+# bar, _dirty_state_js_still_has_no_network_or_timer_sinks,
+# _dirty_state_js_beforeunload_guard_reuses_count_differences. Added:
+# _save_status_region_sits_beside_the_heading_empty_and_announcing (+1),
+# _the_save_status_region_carries_both_translated_words_and_no_script_
+# holds_client_state (+1, the retarget of the deleted relabel check),
+# _skypane_bar_arrive_keyframes_survive_unreferenced (+1). Net: 261 - 5
+# + 3 = 259, re-derived by RUNNING (259/259).
+EXPECTED_CHECK_COUNT = 259
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1805,120 +1824,62 @@ def main():
         "Settings opens with the shared layout.page_header() component, not a bare <h1>",
         _render_opens_with_shared_page_header)
 
-    def _the_save_control_says_what_it_is_doing_without_changing_what_it_posts():
-        # 23-09-PLAN.md Task 2 (D3/CFG-32). T14 (22-15-PLAN.md Task 3)
-        # deliberately left this label change for this phase, in as many
-        # words: "Disable only — do NOT change any label to a progress
-        # word; that is D3, Phase 23." This is that plan, and this check
-        # is the source-level half of it.
-        #
-        # The whole risk lives in one sentence of submit-guard.js's own
-        # header: a submit button's name/value pair joins the form data
-        # set AFTER the submit event's listeners return, which is why
-        # THAT file disables from a zero-delay timer instead of inline.
-        # A relabel has to answer the same question, and the answer here
-        # is a property of the control rather than of the timing — so the
-        # check asserts the property.
-        #
-        # Read directly rather than through this file's own _read_static()
-        # helper: that helper is defined further down the same enclosing
-        # function, so its name is unbound at the moment this check runs.
+    def _the_save_status_region_carries_both_translated_words_and_no_script_holds_client_state():
+        # 27-04-PLAN.md Task 3 (D-04/CFG-63): SUPERSEDES this check's own
+        # pre-27-04 subject (23-09-PLAN.md Task 2's Save-button relabel,
+        # D3/CFG-32) wholesale — the relabel, and the Save button it
+        # relabelled, are both retired along with the dirty bar itself
+        # (dirty-state.js's own header records the full account). What
+        # replaces it is the auto-save status region's own two words,
+        # tested here the identical way: a server-rendered, translated
+        # data-* attribute with a byte-identical English fallback.
         static_dir = os.path.join(os.path.dirname(__file__), "static")
         with open(os.path.join(static_dir, "dirty-state.js")) as fh:
             source = fh.read()
 
-        # (a) THE WORD IS THE SERVER'S, not a JS literal. Same
-        # attribute-with-an-English-fallback idiom the bar's five
-        # connector words already use, so the French is a catalogue
-        # entry and the two can never silently disagree about what a
-        # missing attribute degrades to.
-        if not hasattr(config_page, "DIRTY_SAVING_TEXT"):
-            return False, "expected config_page to name the in-flight word as its own constant"
-        rendered = config_page.render({
-            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-            "poll_cooldown_remaining": 0,
-        })
-        marker = 'data-dirty-saving="%s"' % config_page.DIRTY_SAVING_TEXT
-        if marker not in rendered:
-            return False, (
-                "expected the bar to carry %r — the in-flight word belongs on the same element "
-                "the other five translated words already ride on" % (marker,))
-        if "data-dirty-saving" not in source:
-            return False, "expected dirty-state.js to read the in-flight word off the bar"
-        if ('"%s"' % config_page.DIRTY_SAVING_TEXT) not in source:
-            return False, (
-                "expected dirty-state.js's English fallback literal for the in-flight word to "
-                "match the server constant byte for byte, or a bar rendered without the "
-                "attribute says something different from one rendered with it")
-        try:
-            prefs.set_request_prefs(lang="fr")
-            fr_rendered = config_page.render({
+        for attr_const, text_const in (
+                (config_page.SAVE_STATUS_SAVING_ATTR, config_page.SAVE_STATUS_SAVING_TEXT),
+                (config_page.SAVE_STATUS_SAVED_ATTR, config_page.SAVE_STATUS_SAVED_TEXT)):
+            rendered = config_page.render({
                 "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
                 "poll_cooldown_remaining": 0,
-            })
-        finally:
-            prefs.set_request_prefs(lang="en")
-        fr_word = layout.i18n.t_lang(config_page.DIRTY_SAVING_TEXT, "fr")
-        if fr_word == config_page.DIRTY_SAVING_TEXT:
-            return False, (
-                "expected a French entry for %r — every new visible word is a catalogue entry"
-                % (config_page.DIRTY_SAVING_TEXT,))
-        if ('data-dirty-saving="%s"' % fr_word) not in fr_rendered:
-            return False, "expected a French render to carry the French in-flight word"
-
-        # (b) THE RELABEL IS SAFE BY THE CONTROL'S OWN SHAPE, not by
-        # timing. It runs only for a <button> carrying no name, and a
-        # control with no name contributes no entry to the form data set
-        # at all — so there is nothing the label could displace. The
-        # <input type="submit"> case is excluded by the same clause and
-        # for a sharper reason: that element's label IS its submitted
-        # value, so relabelling one would genuinely change the payload.
-        if "function relabelSubmitter(" not in source:
-            return False, "expected dirty-state.js to name its relabel"
-        body_at = source.index("function relabelSubmitter(")
-        body = source[body_at:source.index("\n  }", body_at)]
-        if '"BUTTON"' not in body:
-            return False, (
-                "expected the relabel to run only for a <button> — an <input type=\"submit\">'s "
-                "label is its submitted value, so relabelling one would change the payload")
-        if 'getAttribute("name")' not in body:
-            return False, (
-                "expected the relabel to stand down for a NAMED submitter: a named control's "
-                "name/value pair is part of the form data set, and companion/layout.py's theme "
-                "and language pickers are exactly that shape")
-        if ".value" in body:
-            return False, (
-                "expected the relabel to write only textContent — writing `value` on a submitter "
-                "is writing the form data set itself")
-        for forbidden in ("preventDefault", "return false", "disabled"):
-            if forbidden in body:
+            }, scope=config_page.SCOPE_DISPLAY)
+            marker = '%s="%s"' % (attr_const, text_const)
+            if marker not in rendered:
                 return False, (
-                    "the relabel found %r — it adds a label and nothing else: it must never "
-                    "cancel the submission, and the disable is submit-guard.js's, once, for "
-                    "every form in the app" % (forbidden,))
+                    "expected the save-status region to carry %r — both words belong on the "
+                    "same element, the same idiom the retired bar's own words used" % (marker,))
+            if attr_const not in source:
+                return False, "expected dirty-state.js to read %r off the region" % (attr_const,)
+            if ('"%s"' % text_const) not in source:
+                return False, (
+                    "expected dirty-state.js's English fallback literal for %r to match the "
+                    "server constant byte for byte, or a region rendered without the attribute "
+                    "says something different from one rendered with it" % (attr_const,))
+            try:
+                prefs.set_request_prefs(lang="fr")
+                fr_rendered = config_page.render({
+                    "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+                    "poll_cooldown_remaining": 0,
+                }, scope=config_page.SCOPE_DISPLAY)
+            finally:
+                prefs.set_request_prefs(lang="en")
+            fr_word = layout.i18n.t_lang(text_const, "fr")
+            if fr_word == text_const:
+                return False, (
+                    "expected a French entry for %r — every new visible word is a catalogue entry"
+                    % (text_const,))
+            if ('%s="%s"' % (attr_const, fr_word)) not in fr_rendered:
+                return False, "expected a French render to carry the French word for %r" % (attr_const,)
 
-        # (c) NO SECOND DISABLE anywhere in this file. submit-guard.js
-        # already owns that for every form, from a zero-delay timer, and
-        # two files writing the same property is how they start
-        # disagreeing about who re-enables it.
-        if "disabled" in source:
-            return False, (
-                "dirty-state.js must not write or read `disabled` at all — submit-guard.js owns "
-                "the double-submit guard for every form in the app")
-
-        # (d) NO CLIENT STATE, in any script. The completed state is
-        # NOT persisted across the save's navigation: the POST replaces
-        # the document, so the bar that said the in-flight word does not
-        # exist when the save finishes, and carrying a flag across that
-        # navigation would mean browser storage. This app holds none, on
-        # purpose — a second source of truth beside the server is the
-        # one thing its whole discipline excludes. The completed state
-        # is the existing save-confirmation flash, on the page the
-        # browser actually lands on.
-        #
-        # Measured on COMMENT-STRIPPED source, the way 23-01's own motion
-        # guard measures its bans, so a script may still write down WHY
-        # it holds no client state without failing the rule.
+        # NO CLIENT STATE, in any script. The completed state is not
+        # persisted client-side at all — the fetch's own 204 IS the
+        # confirmation, read once and written straight to the region;
+        # carrying a flag anywhere longer-lived would mean browser
+        # storage, and this app holds none, on purpose. Measured on
+        # COMMENT-STRIPPED source, the way 23-01's own motion guard
+        # measures its bans, so a script may still write down WHY it
+        # holds no client state without failing the rule.
         for name in sorted(os.listdir(static_dir)):
             if not name.endswith(".js"):
                 continue
@@ -1929,17 +1890,15 @@ def main():
                 if store in live:
                     return False, (
                         "companion/static/%s reaches for %s — this app holds no client state at "
-                        "all, deliberately, and a 'Saved' flag carried across the save's own "
-                        "navigation is exactly the thing that would introduce one" % (name, store))
+                        "all, deliberately, and a 'Saved' flag carried across a page's own "
+                        "lifetime is exactly the thing that would introduce one" % (name, store))
         return True, ""
     check(
-        "the save bar's in-flight word is a server-rendered, translated data-* attribute with a "
-        "byte-identical English fallback in dirty-state.js, and the relabel is safe by the "
-        "control's own shape rather than by timing — a <button> with no name contributes nothing "
-        "to the form data set, so the relabel writes textContent only, never `value`, never "
-        "`disabled`, never preventDefault — while no script anywhere reaches for client storage "
-        "(D3/CFG-32, T14's deferred label, 23-09-PLAN.md Task 2)",
-        _the_save_control_says_what_it_is_doing_without_changing_what_it_posts)
+        "the save-status region's two words (SAVE_STATUS_SAVING_TEXT/SAVE_STATUS_SAVED_TEXT) are "
+        "server-rendered, translated data-* attributes with byte-identical English fallbacks in "
+        "dirty-state.js, and no script anywhere reaches for client storage (27-04-PLAN.md Task 3, "
+        "D-04/CFG-63, supersedes the retired Save-button relabel check, 23-09-PLAN.md Task 2/D3/CFG-32)",
+        _the_save_status_region_carries_both_translated_words_and_no_script_holds_client_state)
 
     def _settings_form_carries_config_form_class_hook():
         # D-01 stable class hook: the settings form (POST /config) needs a
@@ -1975,60 +1934,49 @@ def main():
         "the settings form keeps the stable config-form class hook the desktop two-column fieldset layout targets",
         _settings_form_carries_config_form_class_hook)
 
-    def _render_dirty_bar_is_sibling_of_form_last_on_page():
-        # quick task 260901-re6: inverted wholesale from the pre-merge
-        # version of this check (which asserted the bar was a genuine
-        # descendant of the form). `position: sticky` resolved against
-        # the form's own short box, so the bar detached from the
-        # viewport bottom on a tall page — the fix moves the bar to be a
-        # sibling of the form, emitted last on the page (after both
-        # </form> and the Poll section), submitting via a form= attribute
-        # instead of native DOM nesting.
+    def _save_status_region_sits_beside_the_heading_empty_and_announcing():
+        # 27-04-PLAN.md Task 3 (D-04/D-06/CFG-63): SUPERSEDES this check's
+        # own pre-27-04 subject (the dirty save bar, a sibling emitted
+        # LAST on the page — quick task 260901-re6). The bar and its own
+        # placement contract are retired outright along with dirty_bar_
+        # html() itself; what replaces it is placed FIRST, immediately
+        # after the page's own heading, "beside the form's heading" per
+        # that plan's own wording — the opposite end of the page from
+        # where the bar used to live.
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
-        })
+        }, scope=config_page.SCOPE_DISPLAY)
         if rendered.count('<form class="config-form"') != 1:
             return False, "expected exactly one config-form <form>, no duplicate"
-        if "</form>" not in rendered:
-            return False, "expected a closing </form> tag"
-        if "data-dirty-bar" not in rendered:
-            return False, "expected data-dirty-bar to appear in render()'s output"
-        bar_pos = rendered.index("data-dirty-bar")
-        # 20-07-PLAN.md Task 2 (D-19): SCOPE_ALL's legacy flat join still
-        # calls the now-restructured display_group()/quiet_hours_group()
-        # (both are still members of scope_groups(SCOPE_ALL)'s own fixed
-        # tuple), and each now embeds its own small quick-action <form>
-        # ahead of the settings form's real closing tag — so the FIRST
-        # "</form>" in the document is no longer necessarily the settings
-        # form's own. The bottom static Save button is the last thing the
-        # settings form itself emits before its own closing tag (render()'s
-        # own template: "...Save settings</button></form>"), so the
-        # settings form's real "</form>" is the first one AFTER that
-        # button's own text.
-        save_button_pos = rendered.index("Save settings")
-        if save_button_pos >= bar_pos:
-            return False, "expected the bottom Save settings button to appear before the dirty bar"
-        form_end = rendered.index("</form>", save_button_pos)
-        if bar_pos <= form_end:
-            return False, "expected data-dirty-bar to appear AFTER </form> closes, not inside it"
-        poll_heading = '<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING
-        if poll_heading not in rendered:
-            return False, "expected the Poll section heading to be present"
-        poll_pos = rendered.index(poll_heading)
-        if bar_pos <= poll_pos:
-            return False, "expected data-dirty-bar to appear after the Poll section heading too, so the bar is genuinely last on the page"
-        form_start = rendered.index('<form class="config-form"')
-        form_segment = rendered[form_start:form_end]
-        if "Save settings" not in form_segment:
-            return False, "expected the always-visible bottom Save settings fallback button to still appear inside the form"
-        save_button_marker = 'class="dirty-bar__save" form="%s"' % config_page.SETTINGS_FORM_ID
-        if save_button_marker not in rendered:
-            return False, "expected the dirty-bar's own save button to carry form=%r" % (config_page.SETTINGS_FORM_ID,)
+        if config_page.SAVE_STATUS_ATTR not in rendered:
+            return False, "expected the save-status region's own attribute to appear in render()'s output"
+        region_pos = rendered.index(config_page.SAVE_STATUS_ATTR)
+        heading_marker = "<h1"
+        if heading_marker not in rendered:
+            return False, "expected a page heading"
+        heading_pos = rendered.index(heading_marker)
+        if region_pos <= heading_pos:
+            return False, "expected the save-status region to appear AFTER the page's own heading"
+        form_pos = rendered.index('<form class="config-form"')
+        if region_pos >= form_pos:
+            return False, "expected the save-status region to appear BEFORE the settings form, not after it"
+        # EMPTY at rest: a region already carrying its saved word on a
+        # fresh load would be the same stale-claim defect this phase
+        # exists to fix, in a sentence instead of an arc.
+        region_start = rendered.index("<p class=\"save-status")
+        region_end = rendered.index("</p>", region_start) + len("</p>")
+        region_markup = rendered[region_start:region_end]
+        if not region_markup.endswith("></p>"):
+            return False, "expected the save-status region to render with no text content at rest, got %r" % (region_markup,)
+        if 'role="status"' not in region_markup:
+            return False, "expected the save-status region to carry role=\"status\""
+        if 'aria-live="polite"' not in region_markup:
+            return False, "expected the save-status region to carry aria-live=\"polite\", not role=\"alert\" — a failed save's toast, not this region, is the assertive announcement"
         return True, ""
     check(
-        "render()'s dirty-state bar is a sibling of the config-form <form>, emitted last on the page after both </form> and the Poll section, with its save button carrying form=SETTINGS_FORM_ID (quick task 260901-re6)",
-        _render_dirty_bar_is_sibling_of_form_last_on_page)
+        "render() places one save-status region beside the page's own heading, before the settings form — EMPTY at rest, carrying role=\"status\" and aria-live=\"polite\" (27-04-PLAN.md Task 3, D-04/CFG-63, supersedes the retired dirty bar's own end-of-page placement check)",
+        _save_status_region_sits_beside_the_heading_empty_and_announcing)
 
     # 21-05-PLAN.md Task 1 (D-06): theme_fieldset() is retired outright —
     # every direct-call test against it (one-radio-per-registry-entry,
@@ -5214,79 +5162,54 @@ def main():
         with open(os.path.join(_STATIC_DIR, name)) as fh:
             return fh.read()
 
-    def _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax():
+    def _dirty_state_js_delegates_change_only_at_document_level_and_has_no_forbidden_syntax():
+        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDES this check's own
+        # pre-27-04 subject — DIRTY_SECTION_ATTR and the dirty-ready
+        # marker are both retired along with the bar that read them
+        # (dirtySectionLabels() and updateBar() are both gone; see
+        # dirty-state.js's own header for the full account). B1's own
+        # fix (22-01-PLAN.md Task 2, D-01) survives unchanged: no
+        # form.addEventListener registration may return, and the
+        # delegation must stay at the document level gated on the
+        # control's own .form property.
         source = _read_static("dirty-state.js")
-        if config_page.DIRTY_SECTION_ATTR not in source:
-            return False, "expected dirty-state.js to reference the literal value of DIRTY_SECTION_ATTR"
-        # 19-10-PLAN.md (D-09/A-27): also pins the dirty-ready marker
-        # literal, keeping this script and style.css's retargeted
-        # fallback-hide selector from drifting apart.
-        if "dirty-ready" not in source:
-            return False, "expected dirty-state.js to reference the literal string dirty-ready"
-        # 22-01-PLAN.md Task 2 (D-01/B1): retargeted (not deleted) from a
-        # plain literal-reference check to also pin B1's own fix - the
-        # bug was purely in the listener attachment point (form vs
-        # document), so this is the one check keeping that regression
-        # from silently coming back. No form.addEventListener("change"
-        # registration may survive; document-level delegation, gated on
-        # the control's own .form property, must be present instead.
+        if config_page.DIRTY_SECTION_ATTR in source:
+            return False, (
+                "expected dirty-state.js to reference NEITHER DIRTY_SECTION_ATTR's value nor "
+                "dirty-ready any more — dirtySectionLabels() and the bar's own liveness marker "
+                "are both retired along with the bar itself (CFG-63)")
+        if "dirty-ready" in source or "dirty-shown" in source:
+            return False, (
+                "expected dirty-state.js to carry neither the dirty-ready nor the dirty-shown "
+                "marker any more — style.css's fallback-hide rule keys on a plain .js gate now "
+                "(27-03-PLAN.md/CFG-64) and there is no bar left to prove the liveness of")
         if 'form.addEventListener("change"' in source:
             return False, "expected no surviving form.addEventListener(\"change\" registration (B1 regression)"
-        if source.count("document.addEventListener") < 2:
-            return False, "expected at least two document.addEventListener registrations (change and input)"
+        if "document.addEventListener" not in source:
+            return False, "expected at least one document.addEventListener registration (change)"
         if "e.target.form === form" not in source and "e.target.form===form" not in source:
             return False, "expected the document-level delegation to gate on e.target.form === form"
+        # D-04: `input` no longer drives anything — there is no bar left
+        # to update on a keystroke, and a save on `input` would be the
+        # exact keystroke-is-a-decision mistake this plan's own
+        # PROVISIONAL note argues against. Measured on the document-level
+        # registration specifically, not a file-wide scan: "input" the
+        # substring also appears inside ordinary words (e.g. the file's
+        # own comments), so only the delegated-listener call sites count.
+        if 'document.addEventListener("input"' in source:
+            return False, (
+                "expected no document-level \"input\" listener — only `change` drives a save now "
+                "(D-04)")
         for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
             if forbidden in source:
                 return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
         return True, ""
     check(
-        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and the dirty-ready marker, "
-        "delegates change/input at document level gated on e.target.form === form with no surviving "
-        "form.addEventListener(\"change\" registration (B1), and contains none of innerHTML/let /const /=>/backtick",
-        _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax)
-
-    def _dirty_state_js_dirty_shown_marker_set_only_inside_update_bar():
-        # 22-01-PLAN.md Task 2 (D-01/B1): the second, narrower liveness
-        # marker style.css's retargeted fallback-hide rule now also keys
-        # on - must only ever be set after the bar's existence is proven
-        # (the same data-dirty-bar guard _dirty_state_js_sets_dirty_
-        # ready_only_after_bar_guard above already pins for dirty-ready),
-        # and specifically inside updateBar()'s own bar.hidden = false
-        # branch, never at script-init time next to dirty-ready itself -
-        # that positional distinction is what makes it a proven-liveness
-        # marker rather than a second element-presence one.
-        source = _read_static("dirty-state.js")
-        if "dirty-shown" not in source:
-            return False, "expected dirty-state.js to reference the literal string dirty-shown"
-        if source.index("dirty-shown") <= source.index("dirty-ready"):
-            return False, "expected the first dirty-shown occurrence to come after the first dirty-ready occurrence"
-        if "bar.hidden = false" not in source:
-            return False, "expected dirty-state.js to still set bar.hidden = false"
-        if source.index("dirty-shown") <= source.index("bar.hidden = false"):
-            return False, "expected dirty-shown to be set after the bar.hidden = false branch is entered"
-        return True, ""
-    check(
-        "dirty-state.js's first dirty-shown occurrence comes after both its first dirty-ready occurrence and its "
-        "bar.hidden = false branch (B1: proven liveness, not element presence)",
-        _dirty_state_js_dirty_shown_marker_set_only_inside_update_bar)
-
-    def _dirty_state_js_sets_dirty_ready_only_after_bar_guard():
-        # 19-10-PLAN.md (D-09/A-27): the same source-ordering technique
-        # test_companion_app.py's _panel_lookup_optional_replace_lookup_
-        # stays_outside_mandatory_guard check already uses - dirty-ready
-        # must only ever be set once the bar's existence is proven (the
-        # [data-dirty-bar] guard clause), never before it.
-        source = _read_static("dirty-state.js")
-        if "dirty-ready" not in source or "data-dirty-bar" not in source:
-            return False, "expected both dirty-ready and data-dirty-bar to be present in dirty-state.js"
-        if source.index("dirty-ready") <= source.index("data-dirty-bar"):
-            return False, "expected the first dirty-ready occurrence to come after the first data-dirty-bar occurrence"
-        return True, ""
-    check(
-        "dirty-state.js's first dirty-ready occurrence comes after its first data-dirty-bar occurrence (D-09: set "
-        "only after the bar guard passes)",
-        _dirty_state_js_sets_dirty_ready_only_after_bar_guard)
+        "dirty-state.js references neither DIRTY_SECTION_ATTR nor the retired dirty-ready/dirty-shown "
+        "markers any more, delegates ONLY change (never input) at document level gated on "
+        "e.target.form === form with no surviving form.addEventListener(\"change\" registration (B1), "
+        "and contains none of innerHTML/let /const /=>/backtick (27-04-PLAN.md Task 2, CFG-63)",
+        _dirty_state_js_delegates_change_only_at_document_level_and_has_no_forbidden_syntax)
 
     def _live_preview_crossfades_through_one_class_shared_by_css_and_js():
         """23-10-PLAN.md Task 2 (D3/CFG-32): the live theme preview
@@ -5415,10 +5338,18 @@ def main():
             return False, "expected dirty-state.js's beforeunload guard to set evt.returnValue"
         if "preventDefault" not in source:
             return False, "expected dirty-state.js's beforeunload guard to call evt.preventDefault()"
-        beforeunload_idx = source.index("beforeunload")
+        # 27-04-PLAN.md (CFG-63): located by the LISTENER REGISTRATION
+        # itself, not the bare word — this file's own header prose now
+        # discusses the leave-guard by name before the registration
+        # appears in source, and a bare-word search would find that prose
+        # instead of the real listener body.
+        listener_marker = 'addEventListener("beforeunload"'
+        if listener_marker not in source:
+            return False, "expected dirty-state.js to call addEventListener(\"beforeunload\", ...)"
+        beforeunload_idx = source.index(listener_marker)
         # The guard's own listener body must reference countDifferences -
         # reused, never reimplemented as a separate flag that can drift
-        # from the bar's own dirty state.
+        # from the form's own dirty state.
         listener_body = source[beforeunload_idx:beforeunload_idx + 400]
         if "countDifferences" not in listener_body:
             return False, "expected the beforeunload listener's body to reference countDifferences"
@@ -6719,16 +6650,17 @@ def main():
         "than inventing a new one (quick task 260904-bbi; retargeted by 22-10-PLAN.md Task 1, T10)",
         _saved_but_unchecked_card_degrades_to_a_quiet_current_marker)
 
-    def _style_css_carries_section_caption_and_restyled_fixed_dirty_bar():
-        # quick task 260901-re6 Task 3: the third new cross-file guard,
-        # following the same index-plus-window technique the neighbouring
-        # guards above use (never a regex CSS parser). quick task
-        # 260901-s5o: retargeted and extended in place (no count change)
-        # onto the floating-card treatment.
+    def _style_css_carries_section_caption_and_no_dirty_bar_rules_survive():
+        # 27-04-PLAN.md (D-04/CFG-63): SUPERSEDES this check's own
+        # pre-27-04 subject — quick task 260901-re6/260901-s5o's floating-
+        # card restyle and its >=960px fixed positioning are both deleted
+        # wholesale along with `.dirty-bar` itself (style.css's own
+        # superseding comment records the account, right where the rule
+        # used to be). (a) below is the one assertion that survives
+        # unchanged: `.section-caption` is unrelated to the bar and this
+        # is its only test site.
         source = _read_static("style.css")
 
-        # (a) .section-caption declares only the file's existing 70%
-        # muted color-mix idiom.
         caption_selector = ".section-caption {"
         if caption_selector not in source:
             return False, "expected style.css to declare a .section-caption rule"
@@ -6737,222 +6669,44 @@ def main():
         if "color-mix(in srgb, var(--color-text) 70%, transparent)" not in window:
             return False, "expected .section-caption's rule body to carry the 70% color-mix muted idiom"
 
-        # (b) the base (non-media-query) .dirty-bar rule is a fully-bordered
-        # floating card: dominant surface, a full border (no top-only
-        # hairline), the card radius token, and a token-based shadow (no
-        # upward-only literal), and no longer carries the old muted
-        # --color-secondary surface.
-        base_match = re.search(r'^\.dirty-bar \{(.*?)^\}', source, re.MULTILINE | re.DOTALL)
-        if not base_match:
-            return False, "expected a top-level (non-media-query) .dirty-bar rule"
-        base_body = base_match.group(1)
-        if "var(--color-dominant)" not in base_body:
-            return False, "expected the base .dirty-bar rule body to carry var(--color-dominant)"
-        if "border: 1px solid var(--color-border)" not in base_body:
-            return False, "expected the base .dirty-bar rule body to carry a full border: 1px solid var(--color-border) declaration"
-        if "border-top:" in base_body:
-            return False, "expected the base .dirty-bar rule body to no longer carry a border-top: declaration"
-        if "var(--color-secondary)" in base_body:
-            return False, "expected the base .dirty-bar rule body to no longer carry var(--color-secondary)"
-        if "border-radius: var(--radius-card)" not in base_body:
-            return False, "expected the base .dirty-bar rule body to carry border-radius: var(--radius-card), now load-bearing at every width"
-        if "box-shadow: var(--shadow-card-hover)" not in base_body:
-            return False, "expected the base .dirty-bar rule body to carry box-shadow: var(--shadow-card-hover) as its first shadow layer"
-        if "box-shadow: 0 -" in base_body:
-            return False, "expected the base .dirty-bar rule body to no longer carry the retired upward-only literal shadow"
-
-        # (c) the >=960px .dirty-bar rule is fixed, not sticky, and no
-        # .dirty-bar rule body anywhere still says position: sticky.
-        media_match = re.search(r'^  \.dirty-bar \{(.*?)^  \}', source, re.MULTILINE | re.DOTALL)
-        if not media_match:
-            return False, "expected an indented (>=960px media query) .dirty-bar rule"
-        media_body = media_match.group(1)
-        if "position: fixed" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to carry position: fixed"
-        if "position: sticky" in base_body or "position: sticky" in media_body:
-            return False, "expected no .dirty-bar rule body to carry position: sticky anywhere"
-
-        # (d) the 240px literal the fixed rule's left uses still equals
-        # .dashboard-shell's grid-template-columns first track - a
-        # duplicated-not-imported must-equal pair with no shared token,
-        # now a three-term left expression with the inset as a third addend.
-        if "grid-template-columns: 240px" not in source:
-            return False, "expected style.css to declare grid-template-columns: 240px on .dashboard-shell"
-        if "calc(240px + var(--space-xl) + var(--space-md))" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule's left offset to be calc(240px + var(--space-xl) + var(--space-md))"
-
-        # (e) the inset itself: right pulled in by var(--space-md), bottom
-        # by the larger var(--space-lg) (260901-s5o direct follow-up: a
-        # bigger edge gap reads more clearly as "floating"), max-width
-        # reduced by twice the var(--space-md) inset so the cap doesn't
-        # silently cancel it above roughly 1712px (where min(1440px, 100%)
-        # alone would size the box, flush with .dashboard-main on both
-        # sides), and no corner-squaring override left to re-dock the bar.
-        if "bottom: var(--space-lg)" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to carry bottom: var(--space-lg)"
-        if "right: var(--space-md)" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to carry right: var(--space-md)"
-        if "calc(min(1440px, 100%) - var(--space-md) * 2)" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule's max-width to be calc(min(1440px, 100%) - var(--space-md) * 2)"
-        if "border-radius: 0" in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to no longer carry a corner-squaring border-radius: 0 override"
-
-        # (f) 260901-s5o direct follow-up: developer feedback after seeing
-        # the floating card live was "correct shape, too wide, not visible
-        # enough." `width: fit-content` is the fix for "too wide" - without
-        # it, `width:auto` plus both `left` and `right` set non-auto makes
-        # the box stretch to fill the whole positioning region (full
-        # .dashboard-main width) per the CSS2.1 abs/fixed sizing rules.
-        # The >=960px padding override is gone outright now that the bar
-        # is compact rather than full-width - it existed only to align a
-        # full-width bar's controls with the content gutter, so the base
-        # rule's plain padding: var(--space-md) now governs unmodified.
-        if "width: fit-content" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to carry width: fit-content, so it sizes to its own content instead of stretching the full column"
-        if "padding:" in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to carry no padding override - the base rule's padding: var(--space-md) should apply unmodified now that the bar is compact"
+        if ".dirty-bar" in source:
+            return False, "expected zero occurrences of .dirty-bar anywhere in style.css — CFG-63 retired it"
         return True, ""
     check(
-        "style.css declares .section-caption (70% muted color-mix), the restyled base .dirty-bar as a floating rounded card (full border, radius token, surrounding token-based shadow, no --color-secondary), and the fixed-not-sticky >=960px .dirty-bar rule: inset by var(--space-md)/var(--space-lg) with a correspondingly reduced max-width, no corner-squaring, and width: fit-content so it sizes to its own content instead of stretching the full column (quick task 260901-re6, quick task 260901-s5o, 260901-s5o direct follow-up)",
-        _style_css_carries_section_caption_and_restyled_fixed_dirty_bar)
+        "style.css declares .section-caption (70% muted color-mix) and carries zero occurrences of "
+        ".dirty-bar anywhere — the floating-card restyle and its fixed->=960px positioning "
+        "(quick task 260901-re6, quick task 260901-s5o, 23-09-PLAN.md Task 1's entrance) are all "
+        "retired wholesale along with the component (27-04-PLAN.md, D-04/CFG-63)",
+        _style_css_carries_section_caption_and_no_dirty_bar_rules_survive)
 
-    def _style_css_gives_the_dirty_bar_an_entrance_and_keeps_every_decision_that_made_it():
-        # 23-09-PLAN.md Task 1 (D3/CFG-32). The save bar is this app's
-        # most-iterated component: four recorded design iterations, a P0
-        # (B1) when its hiding gate was keyed to a proxy, a z-index
-        # reversal argued through its own escape clause and a content
-        # clearance MEASURED at both breakpoints in both languages. This
-        # plan adds motion to that shape; this check is the machine that
-        # says the shape survived.
-        #
-        # Same index-plus-window / anchored-regex technique the
-        # neighbouring guard above uses, never a regex CSS parser.
+    def _skypane_bar_arrive_keyframes_survive_unreferenced():
+        # 27-04-PLAN.md (D-04/CFG-63): the save bar's own entrance
+        # (23-09-PLAN.md Task 1, D3/CFG-32) animated from this block, and
+        # every rule that referenced it (the base .dirty-bar rule's own
+        # `animation:` declaration) is retired along with the bar. The
+        # @keyframes DEFINITION is kept rather than deleted — this file's
+        # own @keyframes count is pinned at 4 by a separate check below,
+        # a live count re-derived by running rather than a value this
+        # plan is free to move — so removing it would require the phase
+        # to invent a replacement use or renumber the pin; neither is
+        # this plan's to do. It is therefore orphaned deliberately: no
+        # rule anywhere in the file may still reference its name.
         source = _read_static("style.css")
-
-        # (a) THE ENTRANCE EXISTS, and it is an animation rather than a
-        # transition: an animation runs for every visitor, whereas a
-        # transition out of `display: none` needs an @starting-style
-        # entry value and therefore animates only where that at-rule is
-        # supported. "It moves for some visitors and silently does
-        # nothing for the rest" is the exact failure 23-01's
-        # interpolate-size ban exists to stop, and it is not less of a
-        # failure when the property involved is Baseline-newer rather
-        # than Chromium-only.
         keyframes_marker = "@keyframes skypane-bar-arrive {"
         if source.count(keyframes_marker) != 1:
             return False, (
-                "expected exactly one %s block, got %d — 23-01's guard fails a second "
-                "definition of any name" % (keyframes_marker, source.count(keyframes_marker)))
-        kf_start = source.index(keyframes_marker)
-        kf_body = source[kf_start:source.index("\n}", kf_start)]
-        for prop in ("opacity", "transform"):
-            if prop + ":" not in kf_body:
-                return False, (
-                    "expected the save bar's entrance to be built from %r — transform and "
-                    "opacity are the two properties the global reduced-motion override handles "
-                    "cleanly and the only two that cost no layout" % (prop,))
-        # THE BAN, stated on the entrance itself rather than only on the
-        # component: a bar stranded at an intermediate SIZE is a blocked
-        # save, and this app has shipped a blocked save once already.
-        for banned in ("height:", "max-height:", "grid-template-rows:", "width:",
-                       "display:", "visibility:", "padding:", "margin:"):
-            if banned in kf_body:
-                return False, (
-                    "the save bar's entrance keyframes declare %r — an entrance that "
-                    "interpolates a size, a box or a display value can strand the bar at an "
-                    "intermediate value, and a stranded save bar is a blocked save "
-                    "(style.css's own `.js .mobile-nav` transition:none precedent)" % (banned,))
-
-        # (b) IT IS DECLARED ON THE BAR, spending the phase's fast token
-        # and no third duration. A user caused this and is watching for
-        # the confirmation, which is 23-01's REACTION category by its own
-        # definition.
-        base_match = re.search(r'^\.dirty-bar \{(.*?)^\}', source, re.MULTILINE | re.DOTALL)
-        if not base_match:
-            return False, "expected a top-level (non-media-query) .dirty-bar rule"
-        base_body = base_match.group(1)
-        if "animation: skypane-bar-arrive var(--motion-fast)" not in base_body:
+                "expected exactly one %s block (kept, not deleted, to hold the @keyframes count "
+                "at 4), got %d" % (keyframes_marker, source.count(keyframes_marker)))
+        if "animation: skypane-bar-arrive" in source:
             return False, (
-                "expected the base .dirty-bar rule to declare its entrance from "
-                "var(--motion-fast) — a save bar's arrival is something the user is waiting on, "
-                "and a bare duration literal fails 23-01's motion guard outright")
-        if "animation-fill-mode" in base_body or "forwards" in base_body:
-            return False, (
-                "expected NO fill mode on the save bar's entrance: an animation that holds its "
-                "final frame keeps overriding the element's own computed style, which is how a "
-                "bar gets stranded. With no fill the element is handed back to its own style the "
-                "instant the animation ends, which is the whole reason an animation was chosen "
-                "over a size interpolation")
-
-        # (c) THE [hidden] OVERRIDE STILL WINS. The base rule declares
-        # `display`, and an author `display` beats the user-agent
-        # `[hidden] { display: none }` regardless of source order — the
-        # collision this file's own comment documents and that Phase 22
-        # found on the login card, where it produced a visible control
-        # that did nothing. The entrance must not have quietly
-        # reintroduced it.
-        if "display:" not in base_body:
-            return False, (
-                "expected the base .dirty-bar rule to still declare a display value — if it ever "
-                "stops, the [hidden] override below becomes the dead code this check would then "
-                "be guarding")
-        hidden_marker = ".dirty-bar[hidden] {"
-        if source.count(hidden_marker) != 1:
-            return False, (
-                "expected exactly one %s rule, got %d" % (hidden_marker, source.count(hidden_marker)))
-        hidden_start = source.index(hidden_marker)
-        hidden_body = source[hidden_start:source.index("}", hidden_start)]
-        if "display: none" not in hidden_body:
-            return False, (
-                "expected .dirty-bar[hidden] to hide by display: none — without it the base "
-                "rule's own display beats the user-agent [hidden] rule and the save bar renders "
-                "permanently visible on every page load, including a scripts-blocked one. This "
-                "is B1's own collision class")
-        if hidden_start < base_match.start():
-            return False, (
-                "expected .dirty-bar[hidden] to stay AFTER the base .dirty-bar rule in source "
-                "order, the placement its own comment relies on")
-
-        # (d) NOTHING ELSE MOVED. The bar's geometry, stacking, width,
-        # clearance and resting shadow are Phase 22's, argued through
-        # four design iterations and an escape clause, and this plan
-        # reopens none of them.
-        media_match = re.search(r'^  \.dirty-bar \{(.*?)^  \}', source, re.MULTILINE | re.DOTALL)
-        if not media_match:
-            return False, "expected an indented (media-query) .dirty-bar rule"
-        for body, where in ((base_body, "the base .dirty-bar rule"),
-                            (media_match.group(1), "the >=960px .dirty-bar rule")):
-            for banned in ("height:", "max-height:", "grid-template-rows:"):
-                if banned in body:
-                    return False, (
-                        "%s declares %r — no size-interpolating property belongs on this "
-                        "component at all" % (where, banned))
-        if source.count("z-index: 30") < 2:
-            return False, (
-                "expected the save bar to still declare z-index: 30 at BOTH breakpoints — one "
-                "value for the component, argued through 22-14's own escape clause")
-        if "width: fit-content" not in source:
-            return False, "expected the >=960px bar to still size itself to its own content"
-        if "box-shadow: var(--shadow-card-hover)" not in base_body:
-            return False, "expected the bar's resting shadow to be untouched"
-        if ".dirty-ready .dashboard-main {" not in source or ".dirty-ready .page-content {" not in source:
-            return False, (
-                "expected BOTH of T7's measured content-clearance rules to survive — the desktop "
-                "one scoped to .dirty-ready .dashboard-main and the phone one to "
-                ".dirty-ready .page-content, declared next to the rule it supersedes")
-        for measured in ("var(--space-2xl) + 88px", "56px + 144px"):
-            if measured not in source:
-                return False, (
-                    "expected T7's MEASURED clearance figure %r to be unchanged — both were "
-                    "measured on a real render in both languages, not reasoned about" % (measured,))
+                "expected NO rule anywhere to still declare animation: skypane-bar-arrive — the "
+                "one rule that did (the retired .dirty-bar) is gone, and this block must not be "
+                "silently reattached to something else without a plan saying so")
         return True, ""
     check(
-        "style.css gives the save bar an entrance built from transform and opacity on "
-        "var(--motion-fast) with no fill mode and no size, box or display interpolation anywhere "
-        "in it, while its [hidden] override still declares display: none after the base rule and "
-        "its z-index, fit-content width, resting shadow and BOTH measured clearance figures are "
-        "untouched (D3/CFG-32, 23-09-PLAN.md Task 1)",
-        _style_css_gives_the_dirty_bar_an_entrance_and_keeps_every_decision_that_made_it)
+        "the retired save bar's own @keyframes skypane-bar-arrive block survives, unreferenced by "
+        "any rule, so the file's pinned @keyframes count of 4 does not move (27-04-PLAN.md, CFG-63)",
+        _skypane_bar_arrive_keyframes_survive_unreferenced)
 
     def _dirty_state_js_has_no_hardcoded_section_names():
         source = _read_static("dirty-state.js")
@@ -6964,15 +6718,45 @@ def main():
         "dirty-state.js contains no hardcoded occurrence of \"Theme\", \"Runway\", or \"Diagnostic LED\" (labels come from the DOM)",
         _dirty_state_js_has_no_hardcoded_section_names)
 
-    def _dirty_state_js_still_has_no_network_or_timer_sinks():
+    def _dirty_state_js_only_fetches_never_polls_debounces_or_xhrs():
+        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDES this check's own
+        # pre-27-04 ban — dirty-state.js is now the settings form's
+        # auto-save driver and fetch is exactly how it saves, the
+        # identical model quick-switch.js already ships. XMLHttpRequest
+        # and setInterval stay forbidden outright: the first would be a
+        # second, older request vocabulary beside fetch's already-shipped
+        # one, and the second would mean a poll loop this file has no
+        # business running. setTimeout is NOT banned outright — it drives
+        # the SAME toast-dismiss timer quick-switch.js's own announce
+        # Failure() already uses (TOAST_DISMISS_MS), duplicated rather
+        # than shared for the identical no-cross-file-import reason every
+        # other constant here is. What IS forbidden is using it to
+        # DEBOUNCE a save — this plan's own D-04 note explicitly declines
+        # that design — so the one setTimeout call in this file must be
+        # scoped to the toast, never to beginSave().
         source = _read_static("dirty-state.js")
-        for forbidden in ("fetch(", "XMLHttpRequest", "setInterval", "setTimeout"):
+        if "fetch(" not in source:
+            return False, "expected dirty-state.js to call fetch( — it is now the auto-save driver"
+        for forbidden in ("XMLHttpRequest", "setInterval"):
             if forbidden in source:
                 return False, "forbidden network/timer construct found in dirty-state.js: %r" % (forbidden,)
+        if source.count("setTimeout") != 1:
+            return False, (
+                "expected exactly one setTimeout call — the toast's own dismiss timer, "
+                "duplicated from quick-switch.js's identical idiom — got %d"
+                % source.count("setTimeout"))
+        timeout_idx = source.index("setTimeout")
+        timeout_call = source[timeout_idx:timeout_idx + 200]
+        if "beginSave" in timeout_call:
+            return False, "expected the one setTimeout call to never reference beginSave — no debounced save"
+        if "TOAST_DISMISS_MS" not in timeout_call:
+            return False, "expected the one setTimeout call to be the toast's own TOAST_DISMISS_MS dismiss"
         return True, ""
     check(
-        "dirty-state.js still contains no fetch/XMLHttpRequest/setInterval/setTimeout",
-        _dirty_state_js_still_has_no_network_or_timer_sinks)
+        "dirty-state.js calls fetch( (it is now the auto-save driver), contains neither "
+        "XMLHttpRequest nor setInterval, and its one setTimeout call is the toast's own "
+        "TOAST_DISMISS_MS dismiss timer — never a debounced save (27-04-PLAN.md Task 2, CFG-63)",
+        _dirty_state_js_only_fetches_never_polls_debounces_or_xhrs)
 
     # ==================================================================
     # 15-05-PLAN.md Task 3 (D-10, D-11, 15-VALIDATION.md row 10): the

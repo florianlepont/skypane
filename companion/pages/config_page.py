@@ -748,61 +748,55 @@ QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
 # Read elsewhere, not just here — this module's existing
 # duplicated-not-imported must-equal discipline (matches
 # OPEN_CLASS/MOBILE_NAV_OPEN_CLASS's own precedent): DIRTY_SECTION_ATTR
-# is read by companion/static/dirty-state.js (the section-aware
-# [data-dirty-count] copy walks every element carrying this attribute),
-# and STATIC_SAVE_FALLBACK_ATTR is read by a `.js`-gated rule in
-# companion/static/style.css (`.js [data-static-save-fallback] {
-# display: none; }`, landed by 06.6.4.1-01). Neither file imports this
-# module — the values must be kept equal by hand.
+# is read by companion/static/dirty-state.js (D-32's PLACEHOLDER doc
+# comment below explains its current, narrower use), and STATIC_SAVE_
+# FALLBACK_ATTR is read by a `.js`-gated rule in companion/static/
+# style.css (`.js [data-static-save-fallback] { display: none; }`,
+# landed by 06.6.4.1-01). Neither file imports this module — the values
+# must be kept equal by hand.
+#
+# 27-04-PLAN.md (D-06/CFG-63): DIRTY_SECTION_ATTR's own former READER —
+# dirty-state.js's dirtySectionLabels(), which built the retired dirty
+# bar's "Runway and Quiet hours changed" copy — is deleted along with
+# the bar. The attribute itself is left standing, unread by any script
+# today: every wrapper below still marks the settings groups a reader
+# (sighted or not) can already see as one visual unit, which is true
+# independent of whatever save model sits on top, and re-threading every
+# one of its seven emission sites to remove it is no part of what this
+# plan was asked to change.
 DIRTY_SECTION_ATTR = "data-dirty-section"
 STATIC_SAVE_FALLBACK_ATTR = "data-static-save-fallback"
-# D-03: the dirty-bar's seeded [data-dirty-count] text before
-# dirty-state.js's own section-aware copy ever runs (a no-JS page, or
-# the brief window before the script executes, would otherwise show
-# this raw string).
-DIRTY_BAR_INITIAL_TEXT = "Unsaved changes"
 
-# D-06 (20-11-PLAN.md Task 3): the five connector words
-# companion/static/dirty-state.js's own updateBar() used to hardcode in
-# English — now rendered, translated, as data-* attributes on the same
-# `.dirty-bar` element that script already looks up
-# (`document.querySelector("[data-dirty-bar]")`), the same shape
-# freshness.js already uses for data-pause-text/data-resume-text. Each
-# constant's own English value is also that script's documented
-# fallback literal, so the two can never silently disagree about what
-# "missing" degrades to.
-DIRTY_CHANGED_SUFFIX = " changed"
-DIRTY_AND = " and "
-DIRTY_LIST_AND = ", and "
-DIRTY_UNSAVED_SINGULAR = "1 unsaved change"
-DIRTY_UNSAVED_PLURAL = " unsaved changes"
-
-# 23-09-PLAN.md Task 2 (D3/CFG-32): the SIXTH word on the same element,
-# and the one T14 (22-15-PLAN.md Task 3) deliberately left for this
-# phase — "Disable only — do NOT change any label to a progress word;
-# that is D3, Phase 23."
+# 27-04-PLAN.md Task 3 (D-04/D-06/CFG-63): the auto-save status region's
+# two translated words, replacing the seven the retired dirty bar used
+# to carry (DIRTY_BAR_INITIAL_TEXT, DIRTY_CHANGED_SUFFIX, DIRTY_AND,
+# DIRTY_LIST_AND, DIRTY_UNSAVED_SINGULAR, DIRTY_UNSAVED_PLURAL and
+# DIRTY_SAVING_TEXT — all deleted with dirty_bar_html() itself). Same
+# data-*-attribute-with-an-English-fallback idiom as the bar's own words
+# were, and as quick-switch.js's data-quick-failed-text still is: each
+# constant's own English value is also dirty-state.js's documented
+# fallback literal, so the two can never silently disagree about what a
+# region rendered WITHOUT the attribute says.
 #
-# It rides the identical data-*-attribute-with-an-English-fallback idiom
-# as the five connectors above, for the identical reason: the French is
-# a catalogue entry rather than a JS literal, and this constant's own
-# English value is also companion/static/dirty-state.js's documented
-# fallback, so the two can never silently disagree about what a bar
-# rendered WITHOUT the attribute says.
-#
-# There is deliberately no "Saved" counterpart here, and its absence is
-# a decision rather than an omission. Saving is a full form POST that
-# replaces the document: the bar that shows this word does not exist any
-# more when the save completes. Reporting the finished state on the bar
-# would mean carrying a flag across that navigation, which would mean
-# browser storage, and this app holds no client state at all — a second
-# source of truth beside the server is the one thing its whole
-# discipline excludes. The completed state is companion/app.py's
-# existing FLASH_KEY_SAVED confirmation, delivered on the page the
-# browser actually lands on, which is where the reader's eyes are.
+# SUPERSEDES this module's former "There is deliberately no 'Saved'
+# counterpart" paragraph (D-04/D-06, pre-27-04): that reasoning held
+# only while saving WAS a full-document POST — the region reporting the
+# finished state does not exist any more by the time a real navigation
+# lands. Saving is no longer a navigation at all (27-04-PLAN.md Task 2's
+# fetch-based auto-save); the region that said "Enregistrement…" is
+# still the region on screen when the fetch resolves, so it is now the
+# right place to say "Enregistré" too, and no second source of truth is
+# introduced by doing so — the word is written by the same page that
+# already holds the value, from the same response that already confirms
+# it landed.
 #
 # The ellipsis is the single U+2026 character, matching this module's
 # own "Polling…" and layout.py's "Reconnecting…" — never three periods.
-DIRTY_SAVING_TEXT = "Saving…"
+SAVE_STATUS_ATTR = "data-save-status"
+SAVE_STATUS_SAVING_ATTR = "data-save-status-saving"
+SAVE_STATUS_SAVED_ATTR = "data-save-status-saved"
+SAVE_STATUS_SAVING_TEXT = "Saving…"
+SAVE_STATUS_SAVED_TEXT = "Saved"
 
 # Matches 06-UI-SPEC.md's Copywriting Contract "Poll-trigger cooldown"
 # row verbatim (D-17); "{n}" is filled in with a server-computed
@@ -4853,6 +4847,34 @@ def _display_groups_html(builders, groups):
     return watches_supersection_html, on_supersection_html
 
 
+def _save_status_region_html():
+    """The transient auto-save status region (27-04-PLAN.md Task 3,
+    CFG-63) — the one thing that replaces the retired dirty save bar.
+
+    `role="status"` + `aria-live="polite"`, the same polite-announcement
+    shape freshness.js's own regions use (never `role="alert"`: that is
+    quick-switch.js's own toast, reserved for a FAILURE, which this
+    region never announces — see dirty-state.js's own header for why the
+    failure path reuses that toast rather than speaking here too).
+
+    Rendered EMPTY at rest, deliberately: a region that already said
+    "Enregistré" on a fresh load, before anything was ever saved, would
+    be the exact stale-claim defect this phase exists to fix, in a
+    sentence instead of an arc. Its two words are carried as translated
+    data-* attributes on the region itself — dirty-state.js reads them
+    with `getAttribute()` and writes them with `textContent` only, so a
+    French reader can never be dropped into English by a save.
+    """
+    return (
+        '<p class="save-status text-label" %s role="status" aria-live="polite" '
+        '%s="%s" %s="%s"></p>'
+    ) % (
+        SAVE_STATUS_ATTR,
+        SAVE_STATUS_SAVING_ATTR, escape_html(i18n.t(SAVE_STATUS_SAVING_TEXT)),
+        SAVE_STATUS_SAVED_ATTR, escape_html(i18n.t(SAVE_STATUS_SAVED_TEXT)),
+    )
+
+
 def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     """Render one settings page (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE).
 
@@ -5011,47 +5033,30 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # before the bottom Save settings button. Do not restore the
     # separate section by reading a stale rationale.
     #
-    # D-03: data-dirty-form and the dirty-bar markup below are a JS-only
-    # enhancement layered on top of this always-server-rendered form —
-    # dirty-state.js reads these exact attributes.
+    # D-03: data-dirty-form is a JS-only enhancement layered on top of
+    # this always-server-rendered form — dirty-state.js reads it to find
+    # the form it now auto-saves.
     #
-    # quick task 260901-re6: the dirty-bar used to be a genuine descendant
-    # of this <form>, between the three groups and the always-visible
-    # bottom Save settings button, submitting natively via normal DOM
-    # nesting with no form= attribute needed. That premise broke the
-    # bar's own `position: sticky; bottom: 0` styling: a sticky element's
-    # containing block is its nearest scrolling ancestor's *box* — here
-    # the short three-section form — so the bar stopped sticking at the
-    # form's own bottom edge instead of the viewport's, visibly detaching
-    # and stopping above the Poll section on a page much taller than the
-    # form. The bar is now a sibling, emitted last on the page (after
-    # both `</form>` and the Poll `</section>`), positioned `fixed`
-    # instead of `sticky` at >=960px. companion/static/dirty-state.js
-    # needs no change for this: its `[data-dirty-bar]` /
-    # `[data-dirty-count]` / `[data-dirty-cancel]` lookups are already
-    # document-wide `document.querySelector` calls, not scoped to the
-    # form, and its cancel handler already calls `form.reset()` on its
-    # own separately-resolved form reference. The save button's
-    # `form="{SETTINGS_FORM_ID}"` attribute is what preserves native
-    # submission of the merged settings form despite the bar now living
-    # outside it in the DOM — narrowing any of those three JS lookups to
-    # a form-scoped query would silently break the bar.
-    dirty_bar_html = (
-        '<div class="dirty-bar" data-dirty-bar hidden role="status" '
-        'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
-        'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
-        'data-dirty-unsaved-plural="%s" data-dirty-saving="%s">'
-        "<span data-dirty-count>%s</span>"
-        '<button type="submit" class="dirty-bar__save" form="%s">%s</button>'
-        '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
-        "</div>"
-    ) % (
-        escape_html(i18n.t(DIRTY_CHANGED_SUFFIX)), escape_html(i18n.t(DIRTY_AND)),
-        escape_html(i18n.t(DIRTY_LIST_AND)), escape_html(i18n.t(DIRTY_UNSAVED_SINGULAR)),
-        escape_html(i18n.t(DIRTY_UNSAVED_PLURAL)), escape_html(i18n.t(DIRTY_SAVING_TEXT)),
-        escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT)), SETTINGS_FORM_ID,
-        escape_html(i18n.t("Save settings")), escape_html(i18n.t("Cancel")),
-    )
+    # 27-04-PLAN.md Task 3 (D-04/D-06/CFG-63): the dirty save bar that
+    # used to render here — quick task 260901-re6's own account of why it
+    # was a SIBLING of this form, positioned `fixed`, is superseded
+    # wholesale along with the bar itself; nothing about that sticky/fixed
+    # history survives into what replaces it. In its place, one small,
+    # ALWAYS-empty-at-rest status region (save_status_html, computed once
+    # above render()'s per-scope branch and placed beside the page's own
+    # heading — never fixed to the viewport, never an overlay: the
+    # overlay drawer CFG-31/CFG-64 already refused stays refused). It
+    # carries its own two translated words as data-* attributes on itself
+    # (SAVE_STATUS_ATTR/SAVE_STATUS_SAVING_ATTR/SAVE_STATUS_SAVED_ATTR),
+    # the same idiom the bar's own six words used — dirty-state.js reads
+    # them from there, never hardcoding a word of its own.
+    #
+    # The native fallback Save button (STATIC_SAVE_FALLBACK_ATTR, below,
+    # inside this form) is UNTOUCHED — 27-03's own construction, not this
+    # plan's to spend. It keeps being emitted unconditionally; only the
+    # bar that used to sit beneath it, once script had a genuine
+    # replacement, is gone.
+    save_status_html = _save_status_region_html()
 
     # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the per-flight
     # rules editor is no longer a standalone sibling section at all — it
@@ -5290,6 +5295,13 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
 
     return (
         header
+        # 27-04-PLAN.md Task 3 (D-04/CFG-63): the status region sits
+        # immediately after the page's own heading and BEFORE the Frame
+        # strip — "beside the form's heading", never fixed to the
+        # viewport, never a second banner. Rendered on every scope
+        # (Display, Device and the legacy SCOPE_ALL alike), matching
+        # data-dirty-form's own scope-independent emission it replaces.
+        + save_status_html
         # 21-04-PLAN.md Task 1 (D-02/R-01): the shared Frame strip
         # renders immediately after the page header and before the
         # form (whose own groups_html opens with the "Look"
@@ -5301,7 +5313,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         '<button type="submit" %s>%s</button>'
         "</form>"
-        "%s"
         "%s"
         "%s"
         "%s"
@@ -5357,7 +5368,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # above), so this addition changes nothing for either.
         display_on_supersection_html,
         poll_section_html,
-        dirty_bar_html,
     )
 
 

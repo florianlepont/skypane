@@ -333,31 +333,29 @@ CATALOG = {
     "Poll triggered recently — try again in {n}s.":
         "Vérification déclenchée récemment — réessayez dans {n} s.",
 
-    # --- Dirty bar / Save (config_page.py's render()) -------------------
-    "Unsaved changes": "Modifications non enregistrées",
+    # --- Save (config_page.py's render()) --------------------------------
     "Save settings": "Enregistrer les réglages",
     "Next wake": "Prochain réveil",
     " (next wake ≈ %s)": " (prochain réveil ≈ %s)",
 
-    # --- The dirty bar's own five connector words (D-06, 20-11-PLAN.md
-    #     Task 3) — companion/static/dirty-state.js reads these as
-    #     data-* attributes rather than hardcoding them in English.
-    " changed": " modifié",
-    " and ": " et ",
-    ", and ": " et ",
-    "1 unsaved change": "1 modification non enregistrée",
-    " unsaved changes": " modifications non enregistrées",
-
-    # --- 23-09-PLAN.md Task 2 (D3/CFG-32): the bar's SIXTH word, read
-    #     as data-dirty-saving by the same script, and the label the
-    #     Save control wears while its POST is in flight. T14
-    #     (22-15-PLAN.md Task 3) left this word to D3 deliberately.
+    # --- 27-04-PLAN.md (D-04/CFG-63): the auto-save status region's two
+    #     words, read as data-save-status-saving/data-save-status-saved
+    #     by companion/static/dirty-state.js — replacing the retired
+    #     dirty bar's own six connector/progress words (SUPERSEDED: " changed",
+    #     " and ", ", and ", "1 unsaved change", " unsaved changes" and
+    #     "Unsaved changes" are all deleted as dead catalogue entries
+    #     along with the bar that read them).
+    #
     #     "Enregistrement…" is the progressive form of the same verb
-    #     "Enregistrer les réglages" above already uses, so the control
+    #     "Enregistrer les réglages" above already uses, so the region
     #     reads as the same action continuing rather than a new one, and
     #     it carries the same single U+2026 ellipsis as "Vérification en
-    #     cours…" above.
+    #     cours…" above. "Enregistré" matches the existing "Saved — %s":
+    #     "Enregistré — %s" entry (companion/i18n_fr/common.py) rather
+    #     than inventing a second past-participle wording for the same
+    #     event.
     "Saving…": "Enregistrement…",
+    "Saved": "Enregistré",
 
     # --- Field-level validation errors (config_page.py's
     #     _field_error_html(), rendered wherever `errors` carries one) --
