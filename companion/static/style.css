@@ -1267,6 +1267,17 @@ a:hover {
 .value-control__handle {
   position: absolute;
   touch-action: none;
+  /* 28-02-PLAN.md (CFG-73, Bug B): every OTHER transitioned property the
+   * base `button` rule lists, minus `transform`. A handle's polar
+   * position is a REPRESENTATION OF A VALUE, not an affordance that
+   * should ease anywhere — easing it means that for ~150ms after every
+   * value change the handle is drawing a position the control does not
+   * hold, the same class of lie as 27-02's stale arc, in geometry
+   * instead of in a sentence. The position now tracks `--value-fraction`
+   * instantly instead of lerping through the chord. The hover/press
+   * colour feedback below is genuinely an affordance and keeps its
+   * easing. */
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
 }
 
 /* ===================================================================
@@ -2620,8 +2631,24 @@ button[type="submit"]:hover {
 /* 06.6.4 (D-01b): every button — primary and quiet alike — depresses 1px
  * while pressed. Placed here, before button:disabled below, so a
  * disabled button's own treatment stays the later, winning declaration
- * set. */
-button:active {
+ * set.
+ *
+ * 28-02-PLAN.md (CFG-73, Bug B): excludes `.value-control__handle` from
+ * this depress. That class is absolutely positioned from
+ * `--value-fraction` (see its own rule above) — a `transform` declared
+ * here would REPLACE that position rather than nudge it, because CSS
+ * `transform` replaces wholesale, it never composes. Before this fix,
+ * `.quiet-dial__handle` (a real `<button>` wearing that shared class)
+ * measured 78px from the dial's centre — correct, on the ring — at
+ * press, collapsing to 14-16px (the centre) within 90-150ms as the base
+ * `button` rule's `transition: transform .15s ease` animated the
+ * deleted position, then recovering to 78px roughly 200ms after
+ * release. The exclusion is written against the SHARED class, not the
+ * dial's own, so any future second consumer of `.value-control__handle`
+ * is covered by construction rather than by a list someone has to
+ * maintain. Every other button in the app keeps matching this rule and
+ * still depresses exactly as before. */
+button:not(.value-control__handle):active {
   transform: translateY(1px);
 }
 
