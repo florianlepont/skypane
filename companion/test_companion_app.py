@@ -5651,7 +5651,13 @@ def main():
                         % (progress_word,))
             # The disabled APPEARANCE is the existing treatment, reused,
             # never a new one: style.css must still declare exactly the
-            # one button:disabled rule, ordered after button:active.
+            # one button:disabled rule, ordered after the button:active
+            # rule. 28-02-PLAN.md (CFG-73) narrowed that selector from
+            # bare `button:active` to `button:not(.value-control__handle)
+            # :active` (excluding the quiet-dial/wake-slider handle from
+            # the generic depress effect) — this check now looks for the
+            # narrowed selector text, since the bare substring no longer
+            # exists in the file at all.
             css_path = os.path.join(HERE, "static", "style.css")
             with open(css_path, "r", encoding="utf-8") as fh:
                 css = fh.read()
@@ -5659,7 +5665,11 @@ def main():
                 return False, (
                     "expected exactly one button:disabled rule — T14 reuses the existing disabled "
                     "treatment and adds no new disabled styling")
-            if css.index("button:active {") > css.index("button:disabled {"):
+            if "button:not(.value-control__handle):active {" not in css:
+                return False, (
+                    "expected the button:active rule to still exist, narrowed to "
+                    "button:not(.value-control__handle):active per 28-02-PLAN.md (CFG-73)")
+            if css.index("button:not(.value-control__handle):active {") > css.index("button:disabled {"):
                 return False, (
                     "expected button:disabled to stay AFTER button:active in source order, or a "
                     "pressed disabled button loses its own treatment")
