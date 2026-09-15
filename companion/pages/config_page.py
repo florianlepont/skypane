@@ -497,6 +497,18 @@ QUIET_HOURS_SECTION_CAPTION = (
 # 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
 # comment above.
 QUIET_HOURS_SECTION_CAPTION_ID = "quiet-hours-caption"
+# 27-08-PLAN.md Task 1 (CFG-69): the card's own heading id, the same
+# "id on the group's <h2>" convention RUNWAY_GROUP_HEADING_ID already
+# uses (runway_group() below) — added here because nothing on this card
+# carried a stable id before this task. `DIRTY_SECTION_ATTR` (still
+# emitted on this same card's wrapper) is not it: that is a `data-*`
+# attribute 27-04 left in place for reasons unrelated to navigation, and
+# a `data-*` attribute is not a fragment an `<a href="#...">` can ever
+# resolve to. This is the Frame strip's own link target (companion/
+# layout.py's frame_strip_html(), 27-08 Task 2) — a fragment identifier
+# naming the card a reader is sent to, not a new control and not a
+# change to anything that posts.
+QUIET_HOURS_GROUP_HEADING_ID = "quiet-hours-group-heading"
 
 # 22-05-PLAN.md Task 2 (D-04): scanner-visibility copies of two of
 # companion/frame_state.py's three delay-sentence constants — byte-
@@ -3163,6 +3175,13 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     cannot even accidentally submit the form); both time inputs remain
     fully usable either way, an acceptable degradation matching this
     page's established graceful-degradation convention.
+
+    27-08-PLAN.md Task 1 (CFG-69): the `<h2>` now carries
+    `id="{QUIET_HOURS_GROUP_HEADING_ID}"` — a fragment target for the
+    Frame strip's own Quiet hours caption link (companion/layout.py's
+    frame_strip_html(), Task 2 of the same plan), the same "id on the
+    group's own heading" convention `runway_group()` already uses. Not a
+    control and not part of anything that posts.
     """
     # 19-11-PLAN.md Task 3 (D-12/A-30): the group's single hint links to
     # BOTH time inputs (there is no separate per-field hint for Start vs
@@ -3255,7 +3274,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     caption_html = "%s %s" % (i18n.t(QUIET_HOURS_SECTION_CAPTION), effective_delay_sentence)
     return (
         '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">%s</h2>'
+        '<h2 class="text-heading" id="%s">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
         "%s%s"
         "%s"
@@ -3268,6 +3287,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
+        escape_html(QUIET_HOURS_GROUP_HEADING_ID),
         escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
         escape_html(caption_html),

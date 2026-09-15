@@ -8658,9 +8658,15 @@ def main():
         # only — the Screen on/off card this loop used to also check is
         # retired outright along with display_group() itself, so there is
         # no longer a second card to check here.
+        # 27-08-PLAN.md Task 1 (CFG-69): the literal absorbs the heading's
+        # new id="{QUIET_HOURS_GROUP_HEADING_ID}" — the quick-action
+        # contract this check exists for is unchanged; only the markup it
+        # greps had to grow the new attribute.
         rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
         for heading in (config_page.QUIET_HOURS_SECTION_HEADING,):
-            start = rendered.index('<h2 class="text-heading">%s</h2>' % heading)
+            start = rendered.index(
+                '<h2 class="text-heading" id="%s">%s</h2>'
+                % (config_page.QUIET_HOURS_GROUP_HEADING_ID, heading))
             next_heading = rendered.find('<h2 class="text-heading"', start + 1)
             segment = rendered[start:next_heading] if next_heading != -1 else rendered[start:]
             if "quick-action" in segment:
