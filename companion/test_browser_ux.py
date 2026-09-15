@@ -3098,6 +3098,158 @@ def _fraction_pair_minutes(page, selector, start_property, sweep_property,
     return (start_minute, end_minute)
 
 
+# ---------------------------------------------------------------------
+# 9. "Shorter, and still refusing" — ONE read, two facts
+#    (27-01-PLAN.md Task 3).
+# ---------------------------------------------------------------------
+#
+# 27-06 cuts three regions of explanatory copy. Two of them sit directly
+# on top of this app's loudest honesty rule: the battery gauge prints an
+# absolute days figure ONLY when this frame's own observed history
+# supports one, and prints no figure at all otherwise —
+# `wake_battery_observed_text()`'s docstring, `wake_gauges_html()` and
+# `value-controls.js`'s header all say so in as many words. A shorter
+# sentence that starts naming a number is not a cut, it is a REGRESSION
+# wearing a cut's clothes.
+#
+# So "it got shorter" and "it still refuses to claim a figure" are
+# asserted about ONE read of ONE rendering, and that is structural
+# rather than tidy. Asserted separately they can be satisfied by two
+# different page states — a cut proven on a page with a falling battery
+# series and a refusal proven on a page without one — and the pair would
+# report success about a rendering that never existed. The read happens
+# once; both assertions are made against that string.
+#
+# Whitespace is normalised to single spaces before anything is counted,
+# because the rendered textContent carries the markup's own indentation
+# and newlines, and a baseline that moved when a template was re-wrapped
+# would be a baseline about formatting rather than about copy.
+
+_REGION_TEXT_PROBE = (
+    "args => {"
+    "  let els;"
+    "  try {"
+    "    els = [...document.querySelectorAll(args.selector)];"
+    "  } catch (e) {"
+    "    return {error: 'bad-selector', detail: String(e)};"
+    "  }"
+    "  if (!els.length) return {error: 'no-element'};"
+    "  return {count: els.length,"
+    "          text: els.map(e => e.textContent).join(' ')};"
+    "}")
+
+_REGION_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _region_text(page, selector, where):
+    """Every element `selector` matches, read ONCE, joined in document
+    order and whitespace-normalised.
+
+    Joined rather than restricted to one element because two of 27-06's
+    three regions are genuinely plural — `wake_gauges_html()` emits the
+    two gauges as two sibling `<p>`s, and a helper that measured only
+    the first would report a card half cut. Raises when nothing matches:
+    a region that is not on the page has no length to compare, and zero
+    is the shortest possible string, so a defaulting version of this
+    would call a DELETED region a successful cut.
+    """
+    seen = page.evaluate(_REGION_TEXT_PROBE, {"selector": selector})
+    if seen.get("error") == "bad-selector":
+        raise AssertionError(
+            "_region_text: %s — %r is not a selector the browser will accept "
+            "(%s)" % (where, selector, seen["detail"]))
+    if seen.get("error") == "no-element":
+        raise AssertionError(
+            "_region_text: %s — %r matches nothing on %s. A region that is "
+            "absent is not a region that was shortened, and zero is the "
+            "shortest length there is" % (where, selector, page.url))
+    text = _REGION_WHITESPACE_RE.sub(" ", seen["text"]).strip()
+    return {"selector": selector, "elements": seen["count"],
+            "text": text, "chars": len(text)}
+
+
+def _assert_shorter_and_still_refuses(page, selector, baseline_chars,
+                                      forbidden, where):
+    """One region, read once; two assertions against that single read:
+    it is strictly SHORTER than `baseline_chars`, and `forbidden` does
+    not match it.
+
+    Returns `_region_text()`'s measurement so a caller can report the
+    number it measured. Raises AssertionError with two distinct
+    messages, because the two failures mean opposite things: the first
+    says the cut never happened, the second says the cut went through
+    something that was holding a refusal up.
+
+    `baseline_chars` is a number 27-01 MEASURED on the pre-cut tree and
+    recorded, never a round number chosen because it looked about right.
+    STRICTLY less than, not "at most": a cut that changed nothing is
+    exactly the claim this is here to refuse.
+
+    `forbidden` is a regex (a string or a compiled pattern) describing
+    the claim the shortened copy still must not make — for the battery
+    gauge, the shape of an absolute days figure. It is searched against
+    the same normalised string the length was taken from.
+    """
+    seen = _region_text(page, selector, where)
+    pattern = re.compile(forbidden) if isinstance(forbidden, str) else forbidden
+    if seen["chars"] >= baseline_chars:
+        raise AssertionError(
+            "_assert_shorter_and_still_refuses: %s — %r renders %d character(s) "
+            "across %d element(s) on %s, against a recorded baseline of %d. "
+            "The copy was not cut. It reads %r"
+            % (where, selector, seen["chars"], seen["elements"], page.url,
+               baseline_chars, seen["text"]))
+    found = pattern.search(seen["text"])
+    if found:
+        raise AssertionError(
+            "_assert_shorter_and_still_refuses: %s — %r did get shorter (%d "
+            "character(s), under the %d baseline) but now matches %r at %r. "
+            "A shorter sentence that starts claiming a figure this frame's "
+            "own history cannot support is a regression, not a cut. The whole "
+            "region reads %r"
+            % (where, selector, seen["chars"], baseline_chars,
+               pattern.pattern, found.group(0), seen["text"]))
+    return seen
+
+
+_MARKUP_INVENTORY_PROBE = (
+    "args => {"
+    "  const out = {};"
+    "  for (const label of Object.keys(args.shapes)) {"
+    "    try {"
+    "      out[label] = document.querySelectorAll(args.shapes[label]).length;"
+    "    } catch (e) {"
+    "      return {error: 'bad-selector', label: label,"
+    "              selector: args.shapes[label], detail: String(e)};"
+    "    }"
+    "  }"
+    "  return {counts: out};"
+    "}")
+
+
+def _markup_inventory(page, shapes):
+    """How many elements each named markup shape has on this page, as
+    `{label: count}`.
+
+    IT ASSERTS NOTHING ABOUT THE SUBJECT, on purpose. 27-06 has to pick
+    one title form over another, and the count that decision rests on
+    must be DERIVED BY RUNNING rather than copied out of a research
+    document's grep — 27-RESEARCH.md §3 states its own 8/3/2 split is
+    provisional precisely because a regex matches a formatting
+    convention and not a grammar. A helper that also asserted the count
+    would be a helper nobody could use to find out what the count is.
+    Zero is a legitimate answer and is returned as one.
+    """
+    seen = page.evaluate(_MARKUP_INVENTORY_PROBE, {"shapes": dict(shapes)})
+    if seen.get("error") == "bad-selector":
+        raise AssertionError(
+            "_markup_inventory: %r (for %r) is not a selector the browser "
+            "will accept on %s (%s). An instrument that cannot be aimed "
+            "counts nothing"
+            % (seen["selector"], seen["label"], page.url, seen["detail"]))
+    return seen["counts"]
+
+
 def main():
     try:
         from playwright.sync_api import sync_playwright
