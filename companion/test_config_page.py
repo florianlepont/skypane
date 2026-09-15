@@ -45,6 +45,7 @@ if REPO_ROOT not in sys.path:
 
 from companion import app as companion_app  # noqa: E402
 from companion import battery  # noqa: E402
+from companion import draw  # noqa: E402
 from companion import i18n  # noqa: E402
 from companion import auth  # noqa: E402
 import companion.i18n_fr as i18n_fr  # noqa: E402
@@ -3475,6 +3476,135 @@ def main():
         "document-order overlap rule, and the grip paints from theme tokens with no accent "
         "(CFG-48/CFG-52, 25-04-PLAN.md Task 3)",
         _the_handle_rides_the_ring_the_emitter_drew)
+
+    # ------------------------------------------------------------------
+    # 27-02-PLAN.md Tasks 1-2 (CFG-62): THE PAIR SEAM — the ancestor two
+    # handles publish their fraction onto, and the .js-scoped rule that
+    # redraws the arc from it once script is running.
+    # ------------------------------------------------------------------
+
+    def _the_pair_seam_publishes_both_handles_onto_the_shared_ancestor():
+        """CFG-62 (27-02-PLAN.md Tasks 1-2): the ancestor carries the pair
+        marker and all three fractions, computed from the SAME span the
+        arc is drawn from; each handle names which one is its own; the
+        script names both attributes and reuses the existing ancestor
+        walker rather than a second one; and the presentation attributes
+        this rule overrides stay untouched.
+        """
+        with open(os.path.join(HERE, "static", "value-controls.js")) as fh:
+            script = fh.read()
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            css = fh.read()
+
+        # THE SCRIPT NAMES BOTH ATTRIBUTES, AND REUSES ancestorWith()
+        # RATHER THAN A SECOND WALKER. `while (node` is ancestorWith()'s
+        # own loop and ancestorForm()'s; a plan that added a second
+        # walker would show a THIRD occurrence here.
+        for needle in ('"data-value-pair"', '"data-value-pair-property"'):
+            if needle not in script:
+                return False, "value-controls.js does not name %s" % needle
+        walker_loops = script.count("while (node")
+        if walker_loops != 2:
+            return False, (
+                "value-controls.js has %d 'while (node' loops, expected exactly 2 "
+                "(ancestorWith() and ancestorForm()) — the pair seam must reuse "
+                "ancestorWith() rather than add a second walker" % walker_loops)
+
+        markup = config_page.quiet_hours_group("23:00", "07:00")
+        span = config_page.quiet_window_span("23:00", "07:00")
+        end_fraction = (span.start_fraction + span.sweep_fraction) % 1.0
+
+        dial_tag = re.search(r"<div class=\"quiet-dial\"[^>]*>", markup)
+        if not dial_tag:
+            return False, "no .quiet-dial opening tag in the markup"
+        if ('%s="%s"' % (config_page.QUIET_DIAL_PAIR_ATTR,
+                          config_page.QUIET_DIAL_SWEEP_FRACTION_PROPERTY)) not in dial_tag.group(0):
+            return False, (
+                "the .quiet-dial ancestor does not carry %s=%r: %s"
+                % (config_page.QUIET_DIAL_PAIR_ATTR,
+                   config_page.QUIET_DIAL_SWEEP_FRACTION_PROPERTY, dial_tag.group(0)))
+        for prop, expected in (
+                (config_page.QUIET_DIAL_START_FRACTION_PROPERTY, span.start_fraction),
+                (config_page.QUIET_DIAL_END_FRACTION_PROPERTY, end_fraction),
+                (config_page.QUIET_DIAL_SWEEP_FRACTION_PROPERTY, span.sweep_fraction)):
+            found = re.search(r"%s:\s*([\d.]+)" % re.escape(prop), dial_tag.group(0))
+            if not found:
+                return False, (
+                    "the .quiet-dial ancestor's inline style is missing %s: %s"
+                    % (prop, dial_tag.group(0)))
+            if abs(float(found.group(1)) - expected) > 1e-6:
+                return False, (
+                    "%s is %s on the ancestor; the span it must be computed from (no second "
+                    "window arithmetic) implies %.6f" % (prop, found.group(1), expected))
+
+        # EACH HANDLE NAMES WHICH PROPERTY IS ITS OWN, AND THE TWO DIFFER.
+        wrappers = _WRAPPER_RE.findall(markup)
+        if len(wrappers) != 2:
+            return False, "expected exactly two handle wrappers, got %d" % len(wrappers)
+        pair_properties = []
+        for _classes, attrs, _body in wrappers:
+            found = re.search(
+                r'%s="([^"]*)"' % re.escape(config_page.QUIET_DIAL_PAIR_PROPERTY_ATTR), attrs)
+            if not found:
+                return False, "a handle wrapper carries no %s: %s" % (
+                    config_page.QUIET_DIAL_PAIR_PROPERTY_ATTR, attrs)
+            pair_properties.append(found.group(1))
+        if pair_properties[0] == pair_properties[1]:
+            return False, (
+                "both handles publish under the SAME property (%r) — the sweep can only be "
+                "derived from two DIFFERENT fractions" % pair_properties[0])
+        if set(pair_properties) != {config_page.QUIET_DIAL_START_FRACTION_PROPERTY,
+                                     config_page.QUIET_DIAL_END_FRACTION_PROPERTY}:
+            return False, "the two handles publish %r, not the start/end pair" % (pair_properties,)
+
+        # THE PRESENTATION ATTRIBUTES THIS RULE OVERRIDES ARE UNTOUCHED —
+        # still real user-unit values from draw.unit_circle_dash_array(),
+        # never pathLength-relative fractions (measured, in this task, to
+        # corrupt the no-JS rendering when pathLength="1" is also present;
+        # see quiet_dial_svg()'s own docstring).
+        arc = _dial_circle(markup, config_page.QUIET_DIAL_ARC_CLASS)
+        if arc is None:
+            return False, "the dial emits no arc for a real window"
+        if "pathLength" in arc:
+            return False, (
+                "the arc carries pathLength=%r — measured on this tree to corrupt the presentation "
+                "attribute's own rendering when combined with real user-unit stroke-dasharray "
+                "values (companion/static/style.css's own comment beside the .js override records "
+                "the measurement)" % arc["pathLength"])
+        expected_dash = draw.unit_circle_dash_array(
+            span.sweep_fraction, config_page.QUIET_DIAL_RADIUS)
+        if arc["stroke-dasharray"] != expected_dash:
+            return False, (
+                "the arc's stroke-dasharray is %r, not %r — the pair seam must not change the "
+                "presentation attribute the no-JS floor depends on"
+                % (arc["stroke-dasharray"], expected_dash))
+
+        # THE .js-SCOPED OVERRIDE RULE EXISTS, READS THE THREE ANCESTOR
+        # PROPERTIES, AND THE EXISTING --quiet-dial-radius (never a
+        # radius literal, and never pathLength).
+        override = re.search(
+            r"\.js \.quiet-dial \.quiet-dial__arc\s*\{([^}]*)\}", css, re.DOTALL)
+        if not override:
+            return False, "no .js .quiet-dial .quiet-dial__arc override rule in style.css"
+        body = override.group(1)
+        for needle in ("var(--quiet-start-fraction", "var(--quiet-sweep-fraction",
+                       "var(--quiet-dial-radius"):
+            if needle not in body:
+                return False, "the .js override rule does not read %r: %s" % (needle, body)
+        if "pathLength" in body or "path-length" in body:
+            return False, "the .js override rule mentions pathLength: %s" % body
+        return True, ""
+    check(
+        "the pair seam publishes both handles onto the shared ancestor (CFG-62, 27-02-PLAN.md "
+        "Tasks 1-2) — value-controls.js names both data-value-pair* attributes and reuses "
+        "ancestorWith() rather than a second walker (still exactly 2 'while (node' loops); the "
+        ".quiet-dial ancestor carries the pair marker (its own value naming the derived sweep "
+        "property) and all three fractions, computed from the SAME span triple the arc is drawn "
+        "from; the two handles publish under DIFFERENT, correctly-named properties; the arc's own "
+        "presentation attributes are untouched real user-unit values (no pathLength, measured to "
+        "corrupt them); and the .js-scoped override rule reads the three ancestor properties plus "
+        "the existing --quiet-dial-radius, never a radius literal",
+        _the_pair_seam_publishes_both_handles_onto_the_shared_ancestor)
 
     # ------------------------------------------------------------------
     # 06.6.4.1 Task 1 (D-01, D-02, D-05 form half, D-26): the new

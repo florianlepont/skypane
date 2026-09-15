@@ -1350,6 +1350,60 @@ a:hover {
   stroke: var(--color-text);
 }
 
+/* 27-02-PLAN.md Task 2 (CFG-62) — THE ARC, REPAINTED FROM THE PAIR,
+ * ONCE SCRIPT HAS PROVEN IT IS RUNNING.
+ *
+ * `.js` is added to <html> unconditionally by nav-dropdown.js's own
+ * first statement (the same gate the `.js .mobile-nav` rules above
+ * already rely on) — so this rule is live the instant ANY script has
+ * run, before companion/static/value-controls.js has painted anything
+ * at all. That is deliberate: the server ALSO writes
+ * --quiet-start-fraction/--quiet-sweep-fraction inline on `.quiet-dial`
+ * itself, from the same span that draws the presentation attributes
+ * below, so at rest this rule and the server's own `stroke-dasharray`/
+ * `transform` describe the identical picture. Only once a drag or a
+ * preset moves the pair does this rule diverge from the presentation
+ * attributes underneath it — which it is always free to do, because a
+ * CSS declaration of any specificity beats one, exactly as
+ * quiet_dial_svg()'s own docstring already records.
+ *
+ * THE PRESENTATION ATTRIBUTES THIS OVERRIDES ARE NEVER TOUCHED. They
+ * are still the saved value and still the no-JS floor; this rule only
+ * ever draws OVER something already correct.
+ *
+ * NO `pathLength` HERE, though 27-02-PLAN.md's own action text asked
+ * for one — measured, not assumed: `pathLength="1"` on this circle
+ * while its `stroke-dasharray` stayed in the SAME real user-unit values
+ * `draw.unit_circle_dash_array()` already emits reinterprets those
+ * numbers as a SECOND, PATHLENGTH-SCALED coordinate system, and a
+ * headless-browser measurement of exactly this ring (r=78, the
+ * 23:00→07:00 dasharray) painted a second, spurious dash on the far
+ * side of the ring that neither the server nor this stylesheet asked
+ * for. `--quiet-dial-radius` already exists on `.quiet-dial` (the
+ * handle transform above already reads it) and needs no `pathLength` to
+ * turn a fraction into a real dasharray length, so the circumference is
+ * computed here instead — 2π, spelled out because CSS has no built-in
+ * constant for it.
+ *
+ * `transform-box`/`transform-origin` are declared explicitly rather
+ * than left at their default: a CSS `rotate()` on an SVG shape rotates
+ * about the shape's OWN geometry only once told to, and the emitter's
+ * own presentation-attribute form (`rotate(deg cx cy)`,
+ * _QUIET_DIAL_TWELVE_OCLOCK_DEG's own Python constant restated as
+ * `-90deg` below) already rotates about the circle's centre — matching
+ * that without matching its EXACT resolved matrix is fine, because nothing
+ * downstream reads the translation component (a decoder that recovers
+ * the angle through atan2 never touches it, verified against this rule
+ * on this tree). */
+.js .quiet-dial .quiet-dial__arc {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: rotate(calc(-90deg + var(--quiet-start-fraction, 0) * 1turn));
+  stroke-dasharray:
+    calc(var(--quiet-sweep-fraction, 0) * var(--quiet-dial-radius) * 6.283185307)
+    calc(var(--quiet-dial-radius) * 6.283185307);
+}
+
 /* The four anchor hours, absolutely placed inside the ring's hole
  * rather than around its outside — outside would grow this block past
  * the 128px the parent declares and reopen the horizontal-overflow

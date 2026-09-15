@@ -2647,15 +2647,34 @@ QUIET_DIAL_READOUT_CLASS = "quiet-dial__readout"
 # companion/draw.py documents, with an explicit intrinsic size so the
 # <svg> can never fall back to the format's own 300x150 default.
 QUIET_DIAL_SIZE = 176
-# Chosen so the arithmetic below lands on whole numbers: 64 - 7 - 3 = 54.
+# Chosen so the arithmetic below lands on whole numbers: 176 - 14 - 3 = 78,
+# i.e. QUIET_DIAL_SIZE // 2 - QUIET_DIAL_STROKE // 2 - QUIET_DIAL_CLEARANCE.
 # A radius carrying a rounding tail would make every recomputed-from-the-
-# markup check invent a tolerance to hide it.
+# markup check invent a tolerance to hide it. (27-02-PLAN.md: this comment
+# used to read "64 - 7 - 3 = 54", a stale figure from before the ring grew
+# to its current 176px size — the arithmetic and the shipped radius were
+# always correct, only the comment beside them was not.)
 QUIET_DIAL_STROKE = 14
 # Clear space between the stroke's OUTER edge and the viewBox edge. A
 # stroked arc extends half its stroke width past the nominal radius,
 # which is the usual way a ring clips itself on its own box.
 QUIET_DIAL_CLEARANCE = 3
 QUIET_DIAL_RADIUS = QUIET_DIAL_SIZE // 2 - QUIET_DIAL_STROKE // 2 - QUIET_DIAL_CLEARANCE
+
+# --- 27-02-PLAN.md Task 1/2 (CFG-62): THE PAIR SEAM's three property
+# names, decided here because every property name value-controls.js's
+# generic pair seam reads or writes is a SERVER decision — the same
+# reason FIELD_ATTR/GEOMETRY_ATTR/FORMAT_ATTR's values are decided in
+# companion/layout.py rather than invented in the script that consumes
+# them. `QUIET_DIAL_PAIR_ATTR`'s own VALUE is the name of the derived
+# sweep property — value-controls.js's `paintSweep()` writes the sweep
+# under whatever name the ancestor's own marker attribute carries, so
+# there is exactly one place this name is chosen.
+QUIET_DIAL_PAIR_ATTR = "data-value-pair"
+QUIET_DIAL_PAIR_PROPERTY_ATTR = "data-value-pair-property"
+QUIET_DIAL_START_FRACTION_PROPERTY = "--quiet-start-fraction"
+QUIET_DIAL_END_FRACTION_PROPERTY = "--quiet-end-fraction"
+QUIET_DIAL_SWEEP_FRACTION_PROPERTY = "--quiet-sweep-fraction"
 
 # The four anchor hours, and four rather than twenty-four on purpose.
 # These are the quarter turns: they are the only hours whose position a
@@ -2737,6 +2756,24 @@ def quiet_dial_svg(span):
     a stylesheet declaration — a CSS stroke-width of any specificity
     beats a presentation attribute, which would flatten the geometry the
     constants above derive.
+
+    27-02-PLAN.md Task 2 (CFG-62): the `.js`-scoped stylesheet rule that
+    overrides this circle's `stroke-dasharray`/`transform` once script is
+    running reads the SAME `QUIET_DIAL_RADIUS` this function divides by
+    — via `--quiet-dial-radius`, the custom property the handle's own
+    transform already reads (companion/static/style.css) — rather than
+    a `pathLength="1"` attribute. `pathLength="1"` was tried first and
+    measured, not assumed, to be the wrong shape here: with this
+    circle's dasharray left in real user units (the STATED requirement
+    below — the presentation attribute is the saved value and the no-JS
+    floor, and must not change), adding `pathLength="1"` reinterprets
+    those same numbers on a SECOND, pathLength-scaled coordinate system
+    and a headless-browser measurement of this exact ring painted a
+    second, spurious dash on the far side of it. `stroke-dasharray`/
+    `transform` are UNCHANGED here either way: they are still the saved
+    value, computed the same way, and still what a scripts-blocked
+    visitor sees. See companion/static/style.css's own comment beside
+    the override rule for the full measurement.
     """
     centre = QUIET_DIAL_SIZE // 2
     shapes = [draw.circle(QUIET_DIAL_DAY_CLASS, centre, centre, QUIET_DIAL_RADIUS, attrs={
@@ -2782,13 +2819,37 @@ def quiet_dial_html(span, handles_html=""):
     `handles_html` is the `.js`-gated handle layer (25-04 Task 3) and is
     empty for every caller that has none. It is rendered LAST so document
     order is paint order: the handles sit above the ring they steer.
+
+    27-02-PLAN.md Task 2 (CFG-62): THE PAIR SEAM'S SHARED ANCESTOR. This
+    `<div>` is where the two handles' own fractions get published a
+    second time (see `quiet_dial_handles_html()`), and where their
+    derived sweep lands — `QUIET_DIAL_PAIR_ATTR`'s own VALUE names that
+    third property, so value-controls.js's generic pair seam writes it
+    under whatever name THIS FUNCTION chose, never a name of its own
+    invention. The three fractions are computed from the SAME `span`
+    triple `quiet_dial_svg()` draws from — no second window arithmetic
+    anywhere — so at rest the CSS-driven geometry and the presentation-
+    attribute geometry describe the identical picture. `span is None`
+    (nothing parseable stored) carries none of this: there is no pair to
+    publish for a window that does not exist.
     """
     hours_html = "".join(
         '<span class="text-label %s %s" aria-hidden="true">%02d</span>' % (
             escape_html(QUIET_DIAL_HOUR_CLASS), escape_html(modifier_class), hour)
         for hour, modifier_class in QUIET_DIAL_LABELLED_HOURS)
-    return '<div class="%s">%s%s%s</div>' % (
-        escape_html(QUIET_DIAL_CLASS), quiet_dial_svg(span), hours_html, handles_html)
+    pair_attrs = ""
+    if span is not None:
+        end_fraction = (span.start_fraction + span.sweep_fraction) % 1.0
+        pair_attrs = (
+            ' %s="%s" style="%s: %.6f; %s: %.6f; %s: %.6f;"'
+        ) % (
+            QUIET_DIAL_PAIR_ATTR, escape_html(QUIET_DIAL_SWEEP_FRACTION_PROPERTY),
+            QUIET_DIAL_START_FRACTION_PROPERTY, span.start_fraction,
+            QUIET_DIAL_END_FRACTION_PROPERTY, end_fraction,
+            QUIET_DIAL_SWEEP_FRACTION_PROPERTY, span.sweep_fraction,
+        )
+    return '<div class="%s"%s>%s%s%s</div>' % (
+        escape_html(QUIET_DIAL_CLASS), pair_attrs, quiet_dial_svg(span), hours_html, handles_html)
 
 
 # --- 25-04-PLAN.md Task 3 (CFG-48): the two handles, gated ------------
@@ -2905,14 +2966,17 @@ def quiet_dial_handles_html(start_hm, end_hm):
         narrower than that and records the result.
     """
     handles = []
-    for value, field, label in ((start_hm, "quiet_hours_start", QUIET_DIAL_START_LABEL),
-                                (end_hm, "quiet_hours_end", QUIET_DIAL_END_LABEL)):
+    for value, field, label, pair_property in (
+            (start_hm, "quiet_hours_start", QUIET_DIAL_START_LABEL,
+             QUIET_DIAL_START_FRACTION_PROPERTY),
+            (end_hm, "quiet_hours_end", QUIET_DIAL_END_LABEL,
+             QUIET_DIAL_END_FRACTION_PROPERTY)):
         minute = quiet_window_minute_of_day(value)
         if minute is None:
             continue
         handles.append((
             '<div class="value-control %s %s" %s %s="%s" %s="%s" %s="%d" %s="%d" %s="%d"'
-            ' %s="angular" %s="%s" %s="%s" style="--value-fraction: %.6f">'
+            ' %s="angular" %s="%s" %s="%s" %s="%s" style="--value-fraction: %.6f">'
             '<span class="value-control__track %s" %s></span>'
             '<button type="button" class="value-control__handle control-hit-area %s" %s'
             ' role="slider" aria-valuemin="%d" aria-valuemax="%d" aria-valuenow="%d"'
@@ -2929,6 +2993,12 @@ def quiet_dial_handles_html(start_hm, end_hm):
             layout.VALUE_CONTROL_GEOMETRY_ATTR,
             layout.VALUE_CONTROL_FORMAT_ATTR, escape_html(layout.VALUE_CONTROL_FORMAT_CLOCK),
             layout.VALUE_CONTROL_TEXT_ATTR, escape_html(layout.VALUE_CONTROL_TEXT_TOKEN),
+            # 27-02-PLAN.md Task 2 (CFG-62): THE PAIR SEAM. Names which of
+            # quiet_dial_html()'s ancestor properties this handle
+            # publishes its own fraction under — the ancestor itself is
+            # the nearest ancestor carrying QUIET_DIAL_PAIR_ATTR, found by
+            # value-controls.js's existing ancestorWith().
+            QUIET_DIAL_PAIR_PROPERTY_ATTR, escape_html(pair_property),
             quiet_dial_handle_fraction(minute),
             escape_html(QUIET_DIAL_HANDLE_TRACK_CLASS), layout.VALUE_CONTROL_TRACK_ATTR,
             escape_html(QUIET_DIAL_HANDLE_CLASS), layout.VALUE_CONTROL_HANDLE_ATTR,
