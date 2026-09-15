@@ -7263,10 +7263,18 @@ def main():
             '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_CALENDAR))
         panel_segment = rendered[panel_start:rendered.index(
             '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_RULES))]
+        # 27-07-PLAN.md Task 2 (CFG-68): the calendar grid now ALSO
+        # carries the strip modifier and its own id (folded into a
+        # carousel, same as departures/arrivals) — both are matched
+        # rather than re-asserting an unconverted shape here, since this
+        # check's own subject is the radio population/order, not the
+        # carousel wrapper (that is _the_departures_grid_is_the_one_
+        # renderer_presented_as_a_strip's job, generalised in Task 2).
         grid_match = re.search(
-            r'<div class="theme-chip-grid theme-chip-grid--compact" role="radiogroup" '
-            r'aria-labelledby="%s">(.*?)</div>\s*(?:<p|</fieldset)'
-            % re.escape(config_page.FRAME_COLOURS_HEADING_ID),
+            r'<div class="theme-chip-grid theme-chip-grid--compact theme-chip-grid--strip" '
+            r'role="radiogroup" aria-labelledby="%s" id="%s">(.*?)</div>\s*(?:<p|</fieldset)'
+            % (re.escape(config_page.FRAME_COLOURS_HEADING_ID),
+               re.escape(config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR)),
             panel_segment, re.S)
         if not grid_match:
             return False, "expected the calendar theme grid carrying role=radiogroup and aria-labelledby"
@@ -11422,61 +11430,87 @@ def main():
         card = config_page._frame_colours_card_html({}, "white", None, None)
         theme_count = len(device_config.THEME_IDS)
 
-        # The strip IS the radiogroup: one grid div, carrying the
-        # compact modifier it already had, the new strip modifier, the
-        # role, and the id the pagers' aria-controls names.
-        strip_open = re.search(
-            r'<div class="([^"]*theme-chip-grid--strip[^"]*)"([^>]*)>', card)
-        if not strip_open:
-            return False, "the Frame colours card renders no .theme-chip-grid--strip at all"
-        classes = strip_open.group(1).split()
-        attrs = strip_open.group(2)
-        for required in ("theme-chip-grid", "theme-chip-grid--compact"):
-            if required not in classes:
+        # 27-07-PLAN.md Task 2 (CFG-68): GENERALISED FROM DEPARTURES-ONLY
+        # TO ALL THREE. Departures has no leading chip (theme_count
+        # radios); arrivals/calendar each prepend a "Same as departures"
+        # chip submitting the empty string (D-09), so theme_count + 1.
+        if card.count("theme-chip-grid--strip") != 3:
+            return False, (
+                "the card renders %d strips — Task 2 folds exactly three grids (departures, "
+                "arrivals, calendar) into carousels, and the rule-add form's own grid stays "
+                "out (see its own call site's comment)" % card.count("theme-chip-grid--strip"))
+        strips = (
+            ("theme", config_page.THEME_CAROUSEL_STRIP_ID, theme_count),
+            ("theme_arriving", config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS, theme_count + 1),
+            ("calendar_theme_id", config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR, theme_count + 1),
+        )
+        departures_strip_open = None
+        for field, strip_id, expected_radios in strips:
+            # The strip IS the radiogroup: one grid div, carrying the
+            # compact modifier it already had, the strip modifier, the
+            # role, and ITS OWN id (the property the id-uniqueness check
+            # elsewhere on this page proves is unique across all three).
+            strip_open = re.search(
+                r'<div class="([^"]*theme-chip-grid--strip[^"]*)"([^>]*id="%s"[^>]*)>'
+                % re.escape(strip_id), card)
+            if not strip_open:
                 return False, (
-                    "the strip's class list is %r — it dropped %r, so the carousel replaced "
-                    "the grid instead of laying it out" % (classes, required))
-        if 'role="radiogroup"' not in attrs:
-            return False, (
-                "the strip carries no role=\"radiogroup\" — %r" % (attrs,))
-        if ('id="%s"' % config_page.THEME_CAROUSEL_STRIP_ID) not in attrs:
-            return False, (
-                "the strip carries no id=%r, so the pagers' aria-controls names nothing — %r"
-                % (config_page.THEME_CAROUSEL_STRIP_ID, attrs))
-        if card.count("theme-chip-grid--strip") != 1:
-            return False, (
-                "the card renders %d strips — exactly one grid (departures) is converted"
-                % card.count("theme-chip-grid--strip"))
+                    "field=%r: no .theme-chip-grid--strip carrying id=%r is rendered — the "
+                    "pagers' aria-controls would name nothing" % (field, strip_id))
+            if field == "theme":
+                departures_strip_open = strip_open
+            classes = strip_open.group(1).split()
+            attrs = strip_open.group(2)
+            for required in ("theme-chip-grid", "theme-chip-grid--compact"):
+                if required not in classes:
+                    return False, (
+                        "field=%r: the strip's class list is %r — it dropped %r, so the "
+                        "carousel replaced the grid instead of laying it out"
+                        % (field, classes, required))
+            if 'role="radiogroup"' not in attrs:
+                return False, (
+                    "field=%r: the strip carries no role=\"radiogroup\" — %r" % (field, attrs))
 
-        # The chips inside it are the renderer's own, unchanged.
-        radios = re.findall(
+            # The chips inside it are the renderer's own, unchanged.
+            radios = re.findall(
+                r'<input type="radio" name="%s" value="([^"]*)" class="visually-hidden"'
+                r' form="([^"]*)"' % re.escape(field), card)
+            if len(radios) != expected_radios:
+                return False, (
+                    "field=%r: expected %d visually-hidden, form-associated radios, got %d — "
+                    "the strip must be the SAME native radio group, never a second set"
+                    % (field, expected_radios, len(radios)))
+            for _value, form in radios:
+                if form != config_page.SETTINGS_FORM_ID:
+                    return False, (
+                        "field=%r: a strip radio carries form=%r, not %r — this card is a "
+                        "SIBLING of the settings form, so without that attribute it posts "
+                        "nowhere" % (field, form, config_page.SETTINGS_FORM_ID))
+
+        # Departures' own radios, specifically, are in THEME_IDS'
+        # registry order — the one field with no leading chip, so order
+        # is a direct comparison.
+        departures_radios = re.findall(
             r'<input type="radio" name="theme" value="([^"]*)" class="visually-hidden"'
             r' form="([^"]*)"', card)
-        if len(radios) != theme_count:
+        if [value for value, _form in departures_radios] != list(device_config.THEME_IDS):
             return False, (
-                "expected %d visually-hidden, form-associated radios named 'theme' in the "
-                "card, got %d — the strip must be the SAME native radio group, never a "
-                "second set" % (theme_count, len(radios)))
-        if [value for value, _form in radios] != list(device_config.THEME_IDS):
-            return False, (
-                "the strip's radios are %r, not device_config.THEME_IDS in registry order"
-                % ([value for value, _form in radios],))
-        for _value, form in radios:
-            if form != config_page.SETTINGS_FORM_ID:
-                return False, (
-                    "a strip radio carries form=%r, not %r — this card is a SIBLING of the "
-                    "settings form, so without that attribute it posts nowhere"
-                    % (form, config_page.SETTINGS_FORM_ID))
+                "the departures strip's radios are %r, not device_config.THEME_IDS in "
+                "registry order" % ([value for value, _form in departures_radios],))
         if "display:none" in card or "display: none" in card:
             return False, (
                 "the card emits a display:none — a radio hidden that way leaves the tab "
                 "order, and arrow-key selection with it")
 
-        # The swatch legend still renders under the grid and OUTSIDE the
-        # element carrying role="radiogroup", with its shipped copy.
+        # The swatch legend still renders under the departures grid and
+        # OUTSIDE the element carrying role="radiogroup", with its
+        # shipped copy — arrivals/calendar's own legend placement is
+        # covered by 22-10-PLAN.md Task 1's own check (unaffected by
+        # carousel wrapping: _theme_carousel_html() interpolates
+        # grid_html, legend included, unchanged).
         legend = '<p class="text-label section-caption">%s</p>' % html.escape(
             config_page.THEME_CHIP_SWATCH_LEGEND, quote=False)
-        strip_close = card.index("</div>", strip_open.end())
+        strip_close = card.index("</div>", departures_strip_open.end())
         if legend not in card:
             return False, (
                 "the swatch legend's shipped copy %r is not in the card"
@@ -11486,29 +11520,22 @@ def main():
                 "the swatch legend renders INSIDE the element carrying role=\"radiogroup\" — "
                 "a stray non-radio child is announced inside the group")
 
-        # And the three grids this plan deliberately did not convert.
-        for field in ("theme_arriving", "calendar_theme_id"):
-            grid = re.search(
-                r'<div class="([^"]*)"[^>]*>\s*(?:<label[^>]*>)?[^<]*'
-                r'(?=(?:.(?!</div>))*name="%s")' % re.escape(field), card, re.DOTALL)
-            if grid and "theme-chip-grid--strip" in grid.group(1):
-                return False, (
-                    "the %s grid was converted too — arrivals, calendar and rule-add are "
-                    "deliberately left alone (see _theme_chip_grid_html()'s docstring)"
-                    % field)
+        # And the ONE grid this plan deliberately did not convert.
         if config_page._rule_add_form_html().count("theme-chip-grid--strip"):
             return False, "the rule-add form's own chip grid was converted too"
         return True, ""
     check(
-        "the departures chip grid is the ONE renderer's own output laid out as a scroll-snap "
-        "strip, never a fork: a source scan of config_page.py finds exactly one function "
-        "emitting a chip <label> with data-preview-src, the strip keeps both the base and the "
-        "compact grid classes plus role=\"radiogroup\" and the id its pagers name, it holds "
-        "exactly len(THEME_IDS) visually-hidden radios named 'theme' in registry order each "
-        "carrying form=\"settings-form\" (one set, never two), no display:none appears "
-        "anywhere on the card, the swatch legend still renders after the radiogroup with its "
-        "shipped copy, and exactly one of the card's grids is converted (CFG-50, "
-        "25-06-PLAN.md Task 2)",
+        "departures/arrivals/calendar are all the ONE renderer's own output laid out as "
+        "scroll-snap strips, never a fork: a source scan of config_page.py finds exactly one "
+        "function emitting a chip <label> with data-preview-src, each strip keeps both the "
+        "base and the compact grid classes plus role=\"radiogroup\" and ITS OWN id, each holds "
+        "the right radio count for its field (theme_count for departures, +1 for arrivals/"
+        "calendar's leading 'Same as departures' chip) each carrying form=\"settings-form\" "
+        "(one set per field, never two), departures' own radios are in registry order, no "
+        "display:none appears anywhere on the card, the swatch legend still renders after the "
+        "departures radiogroup with its shipped copy, and exactly three of the card's four "
+        "grids are converted — the rule-add form's stays out (CFG-50, 25-06-PLAN.md Task 2; "
+        "generalised to arrivals/calendar, CFG-68, 27-07-PLAN.md Task 2)",
         _the_departures_grid_is_the_one_renderer_presented_as_a_strip)
 
     def _the_carousel_dots_are_real_colours_and_the_strip_rules_are_declared():
@@ -11716,82 +11743,129 @@ def main():
                 "the Display page renders a <dialog> — a dialog cannot be opened without "
                 "script, and this disclosure is deliberately a native <details> instead "
                 "(25-RESEARCH.md Decision 4)")
-        disclosure = re.search(
-            r'<details class="theme-carousel__all"><summary>([^<]*)</summary>', page)
-        if not disclosure:
-            return False, "no <details class=\"theme-carousel__all\"><summary> is rendered"
-        if disclosure.group(1) != html.escape(
-                config_page.THEME_CAROUSEL_SUMMARY, quote=False):
-            return False, (
-                "the disclosure's summary reads %r, expected %r"
-                % (disclosure.group(1), config_page.THEME_CAROUSEL_SUMMARY))
-        strip_at = page.index('id="%s"' % config_page.THEME_CAROUSEL_STRIP_ID)
-        # 27-07-PLAN.md Task 1 (CFG-68/D-20): INVERTED from this check's
-        # original assertion. The disclosure used to render BEFORE the
-        # strip (an adjacent-sibling selector reached forward from it);
-        # the developer read that as "Voir tous les thèmes" sitting
-        # above the very thing it discloses, backwards for a way OUT.
-        # It now renders AFTER the strip (and after the pagers and dots
-        # — see _theme_carousel_html()'s own return statement), and
-        # style.css reaches the grid through a `:has()` rule scoped to
-        # the shared `.theme-carousel` wrapper instead, which does not
-        # care which of the two comes first.
-        if disclosure.start() < strip_at:
-            return False, (
-                "the disclosure renders BEFORE the strip — D-20 moved 'Voir tous les thèmes' "
-                "below the strip it discloses, and style.css's :has() rule (scoped to the "
-                "shared .theme-carousel wrapper) governs the grid's layout regardless of "
-                "order, so there is no longer a reason for the disclosure to precede it")
+        # 27-07-PLAN.md Task 2 (CFG-68): GENERALISED FROM ONE CAROUSEL TO
+        # THREE, scoped per USAGE PANEL rather than page-wide — each
+        # panel's own segment (bounded by the NEXT panel's
+        # data-usage-panel-target marker, the same delimiter
+        # _calendar_theme_chip_grid_exactly_one_compact_radiogroup_
+        # populated_in_order already uses) contains exactly one
+        # carousel, so scoping to it is also THE RELATIONSHIP check
+        # Task 2 asks for: each pager's aria-controls is asserted to
+        # resolve to the strip id inside THIS SAME segment, never
+        # merely "some strip id exists somewhere on the page" — a pager
+        # wired to a DIFFERENT carousel's strip would pass a page-wide
+        # existence check and fail this one.
+        panel_markers = [
+            (config_page.COLOUR_USAGE_DEPARTURES, config_page.THEME_CAROUSEL_STRIP_ID),
+            (config_page.COLOUR_USAGE_ARRIVALS, config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS),
+            (config_page.COLOUR_USAGE_CALENDAR, config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR),
+        ]
+        boundaries = [config_page.COLOUR_USAGE_ARRIVALS, config_page.COLOUR_USAGE_CALENDAR,
+                      config_page.COLOUR_USAGE_RULES]
+        for (usage, strip_id), next_usage in zip(panel_markers, boundaries):
+            seg_start = page.index(
+                '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, usage))
+            seg_end = page.index(
+                '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, next_usage))
+            segment = page[seg_start:seg_end]
 
-        # BOTH PAGERS INSIDE THE GATE, AND ZERO PAGER MARKUP OUTSIDE IT.
-        gate = re.search(
-            r'<div class="theme-carousel__pagers ([^"]*)" (%s)>(.*?)</div>'
-            % re.escape(config_page.THEME_CAROUSEL_WRAPPER_ATTR), page, re.DOTALL)
-        if not gate:
-            return False, "no .theme-carousel__pagers wrapper carrying the wrapper attribute"
-        if layout.JS_GATE_CLASS not in gate.group(1).split():
-            return False, (
-                "the pager wrapper's classes are %r — without %r it renders permanently with "
-                "scripts blocked, which is a control that shows and does nothing"
-                % (gate.group(1), layout.JS_GATE_CLASS))
-        inside = gate.group(3)
-        total_pagers = page.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="')
-        if inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="') != 2:
-            return False, (
-                "expected exactly two pagers inside the gate, found %d"
-                % inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="'))
-        if total_pagers != 2:
-            return False, (
-                "the page carries %d pager attributes but only two are inside the gate — a "
-                "pager rendered outside it is inert with scripts blocked" % total_pagers)
-        for direction, label in (
-                (config_page.THEME_CAROUSEL_PAGER_PREV, config_page.THEME_CAROUSEL_PREV_LABEL),
-                (config_page.THEME_CAROUSEL_PAGER_NEXT, config_page.THEME_CAROUSEL_NEXT_LABEL)):
-            button = re.search(
-                r'<button type="button"([^>]*%s="%s"[^>]*)>'
-                % (re.escape(config_page.THEME_CAROUSEL_PAGER_ATTR), direction), inside)
-            if not button:
-                return False, "no <button> carries the %r pager attribute" % direction
-            attrs = button.group(1)
-            if 'aria-label="%s"' % html.escape(label, quote=True) not in attrs:
+            disclosure = re.search(
+                r'<details class="theme-carousel__all"><summary>([^<]*)</summary>', segment)
+            if not disclosure:
                 return False, (
-                    "the %s pager carries no aria-label=%r — it draws its arrow in CSS and "
-                    "has no text of its own, so without one it announces nothing at all: %r"
-                    % (direction, label, attrs))
-            if ('aria-controls="%s"' % config_page.THEME_CAROUSEL_STRIP_ID) not in attrs:
+                    "usage=%r: no <details class=\"theme-carousel__all\"><summary> is rendered"
+                    % usage)
+            if disclosure.group(1) != html.escape(
+                    config_page.THEME_CAROUSEL_SUMMARY, quote=False):
                 return False, (
-                    "the %s pager's aria-controls does not name the strip — and that is not "
-                    "only an announcement: theme-preview.js resolves the element to scroll "
-                    "through this very attribute: %r" % (direction, attrs))
-            if "aria-hidden" in attrs:
+                    "usage=%r: the disclosure's summary reads %r, expected %r"
+                    % (usage, disclosure.group(1), config_page.THEME_CAROUSEL_SUMMARY))
+            strip_at = segment.index('id="%s"' % strip_id)
+            # 27-07-PLAN.md Task 1 (CFG-68/D-20): INVERTED from this
+            # check's original assertion. The disclosure used to render
+            # BEFORE the strip (an adjacent-sibling selector reached
+            # forward from it); the developer read that as "Voir tous
+            # les thèmes" sitting above the very thing it discloses,
+            # backwards for a way OUT. It now renders AFTER the strip
+            # (and after the pagers and dots — see
+            # _theme_carousel_html()'s own return statement), and
+            # style.css reaches the grid through a `:has()` rule scoped
+            # to the shared `.theme-carousel` wrapper instead, which
+            # does not care which of the two comes first.
+            if disclosure.start() < strip_at:
                 return False, (
-                    "the %s pager is aria-hidden — these are real controls with real labels, "
-                    "not decorations" % direction)
-            if "control-hit-area" not in attrs and "control-hit-area" not in button.group(0):
+                    "usage=%r: the disclosure renders BEFORE the strip — D-20 moved 'Voir "
+                    "tous les thèmes' below the strip it discloses, and style.css's :has() "
+                    "rule (scoped to the shared .theme-carousel wrapper) governs the grid's "
+                    "layout regardless of order, so there is no longer a reason for the "
+                    "disclosure to precede it" % usage)
+
+            # BOTH PAGERS INSIDE THE GATE, AND ZERO PAGER MARKUP OUTSIDE
+            # IT — WITHIN THIS CAROUSEL'S OWN SEGMENT.
+            gate = re.search(
+                r'<div class="theme-carousel__pagers ([^"]*)" (%s)>(.*?)</div>'
+                % re.escape(config_page.THEME_CAROUSEL_WRAPPER_ATTR), segment, re.DOTALL)
+            if not gate:
                 return False, (
-                    "the %s pager does not carry .control-hit-area, 25-01's shared "
-                    "22px-box-plus-44px-::before synthesis (.copy-btn's own values verbatim)"
-                    % direction)
+                    "usage=%r: no .theme-carousel__pagers wrapper carrying the wrapper "
+                    "attribute" % usage)
+            if layout.JS_GATE_CLASS not in gate.group(1).split():
+                return False, (
+                    "usage=%r: the pager wrapper's classes are %r — without %r it renders "
+                    "permanently with scripts blocked, which is a control that shows and does "
+                    "nothing" % (usage, gate.group(1), layout.JS_GATE_CLASS))
+            inside = gate.group(3)
+            total_pagers = segment.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="')
+            if inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="') != 2:
+                return False, (
+                    "usage=%r: expected exactly two pagers inside the gate, found %d"
+                    % (usage, inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="')))
+            if total_pagers != 2:
+                return False, (
+                    "usage=%r: this carousel's own segment carries %d pager attributes but "
+                    "only two are inside the gate — a pager rendered outside it is inert with "
+                    "scripts blocked" % (usage, total_pagers))
+            for direction, label in (
+                    (config_page.THEME_CAROUSEL_PAGER_PREV,
+                     config_page.THEME_CAROUSEL_PREV_LABEL),
+                    (config_page.THEME_CAROUSEL_PAGER_NEXT,
+                     config_page.THEME_CAROUSEL_NEXT_LABEL)):
+                button = re.search(
+                    r'<button type="button"([^>]*%s="%s"[^>]*)>'
+                    % (re.escape(config_page.THEME_CAROUSEL_PAGER_ATTR), direction), inside)
+                if not button:
+                    return False, (
+                        "usage=%r: no <button> carries the %r pager attribute"
+                        % (usage, direction))
+                attrs = button.group(1)
+                if 'aria-label="%s"' % html.escape(label, quote=True) not in attrs:
+                    return False, (
+                        "usage=%r: the %s pager carries no aria-label=%r — it draws its arrow "
+                        "in CSS and has no text of its own, so without one it announces "
+                        "nothing at all: %r" % (usage, direction, label, attrs))
+                # THE RELATIONSHIP ITSELF: this pager's aria-controls
+                # must name THIS SEGMENT's OWN strip id, not merely any
+                # strip id anywhere on the page — a pager wired to a
+                # sibling carousel's strip would drive that OTHER
+                # carousel silently, which is the exact trap Task 1
+                # closed for the id itself and this check closes for
+                # the pager wiring that depends on it.
+                if ('aria-controls="%s"' % strip_id) not in attrs:
+                    return False, (
+                        "usage=%r: the %s pager's aria-controls does not name THIS carousel's "
+                        "own strip (%r) — and that is not only an announcement: "
+                        "theme-preview.js resolves the element to scroll through this very "
+                        "attribute, so a pager wired to the wrong strip silently drives a "
+                        "sibling carousel instead: %r" % (usage, direction, strip_id, attrs))
+                if "aria-hidden" in attrs:
+                    return False, (
+                        "usage=%r: the %s pager is aria-hidden — these are real controls with "
+                        "real labels, not decorations" % (usage, direction))
+                if "control-hit-area" not in attrs and "control-hit-area" not in button.group(0):
+                    return False, (
+                        "usage=%r: the %s pager does not carry .control-hit-area, 25-01's "
+                        "shared 22px-box-plus-44px-::before synthesis (.copy-btn's own values "
+                        "verbatim)" % (usage, direction))
 
         # THE SCRIPT SIDE OF THE SAME SEAM, AND THE ONE THING IT MUST
         # NOT DO. A pager that listened for a key would take
@@ -11864,21 +11938,23 @@ def main():
                         % (selector.strip(" {\n"), declaration, body.strip()))
         return True, ""
     check(
-        "the full grid sits behind a native <details>/<summary> and never a <dialog> (a dialog "
-        "cannot be opened without script, which would put eighteen themes behind a dead "
-        "control), the disclosure renders AFTER the strip (D-20, 27-07-PLAN.md Task 1 — 'Voir "
-        "tous les thèmes' reads as a way OUT below the strip rather than a preamble above it) "
-        "with the stylesheet now reaching the grid through a :has() rule scoped to the shared "
-        ".theme-carousel wrapper instead of a forward adjacent-sibling rule, the whole Display "
-        "page carries exactly len(THEME_IDS) radios named 'theme' (ONE set, so the page can "
-        "never show one setting in two disagreeing places), both pagers render inside 25-01's "
-        "gate wrapper and zero pager markup renders outside it, each carries a real aria-label "
-        "and an aria-controls naming the strip — which is also how theme-preview.js finds it — "
-        "neither is aria-hidden, both wear .control-hit-area, and theme-preview.js registers no "
-        "key listener and calls no preventDefault at all, because a pager capturing an arrow "
-        "key would break the native radiogroup selection the no-JS path depends on (CFG-50/D-09, "
-        "25-06-PLAN.md Task 3; disclosure order and the :has() replacement, CFG-68/D-20, "
-        "27-07-PLAN.md Task 1)",
+        "each of the three carousels' full grid sits behind a native <details>/<summary> and "
+        "never a <dialog> (a dialog cannot be opened without script, which would put eighteen "
+        "themes behind a dead control), each disclosure renders AFTER its OWN strip (D-20, "
+        "27-07-PLAN.md Task 1 — 'Voir tous les thèmes' reads as a way OUT below the strip "
+        "rather than a preamble above it) with the stylesheet reaching each grid through a "
+        ":has() rule scoped to its own .theme-carousel wrapper, the whole Display page carries "
+        "exactly len(THEME_IDS) radios named 'theme' (ONE set, so the page can never show one "
+        "setting in two disagreeing places), and — checked PER USAGE PANEL, which is also THE "
+        "RELATIONSHIP Task 2 asks for — that panel's own two pagers render inside 25-01's gate "
+        "wrapper with zero pager markup outside it, each carries a real aria-label and an "
+        "aria-controls naming THAT SAME PANEL's own strip (never a sibling carousel's), neither "
+        "is aria-hidden, both wear .control-hit-area, and theme-preview.js (shared by all three) "
+        "registers no key listener and calls no preventDefault at all, because a pager "
+        "capturing an arrow key would break the native radiogroup selection the no-JS path "
+        "depends on (CFG-50/D-09, 25-06-PLAN.md Task 3; disclosure order and the :has() "
+        "replacement, CFG-68/D-20, 27-07-PLAN.md Task 1; generalised to three carousels with "
+        "the per-panel relationship check, CFG-68, 27-07-PLAN.md Task 2)",
         _the_full_grid_sits_behind_a_native_details_and_the_pagers_behind_the_gate)
 
     # ------------------------------------------------------------------

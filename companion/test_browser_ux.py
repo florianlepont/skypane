@@ -863,6 +863,17 @@ EXPECTED_CHECK_COUNT = 85
 # 85 - 3 + 1 = 83, re-derived by RUNNING (83/83, 0 SKIPs).
 EXPECTED_CHECK_COUNT = 83
 
+# 27-07-PLAN.md Task 2 (CFG-68): +3 — the arrivals grid's own
+# scripts-blocked save proof
+# (_arrivals_still_saves_with_scripts_blocked_through_its_own_carousel),
+# the per-instance disclosure-toggle independence proof
+# (_each_carousels_own_disclosure_toggles_only_its_own_strip), and the
+# keyboard-keeps-the-chip-in-view proof generalised from departures
+# alone to arrivals+calendar
+# (_arrivals_and_calendar_keep_the_focused_chip_in_view_when_keyed).
+# 83 + 3 = 86, re-derived by RUNNING (86/86, 0 SKIPs).
+EXPECTED_CHECK_COUNT = 86
+
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
 # ONE element must carry it. Both halves are asserted: the declared set
@@ -12314,6 +12325,59 @@ def main():
                     "  return els.length;"
                     "}")
 
+                # 27-07-PLAN.md Task 2 (CFG-68): _STRIP_PROBE above
+                # hardcodes `input[name="theme"]` for its "checked"
+                # field and resolves `sels.details` with a bare
+                # `document.querySelector` — both fine with exactly one
+                # carousel on the page, and both WRONG now that
+                # arrivals and calendar have their own. This variant
+                # takes the field name as a parameter and resolves the
+                # details element by walking UP from the strip to its
+                # OWN `.theme-carousel` ancestor first — the same
+                # per-instance scoping style.css's :has() rule uses —
+                # so it can never read a SIBLING carousel's disclosure
+                # state by accident.
+                _CAROUSEL_INSTANCE_PROBE = (
+                    "sels => {"
+                    "  const s = document.querySelector(sels.strip);"
+                    "  if (!s) return {error: 'no-strip'};"
+                    "  const carousel = s.closest('.theme-carousel');"
+                    "  if (!carousel) return {error: 'no-carousel'};"
+                    "  const d = carousel.querySelector('.theme-carousel__all');"
+                    "  const chips = [...s.querySelectorAll('.theme-chip')];"
+                    "  const sr = s.getBoundingClientRect();"
+                    "  const cs = getComputedStyle(s);"
+                    "  const tops = chips.map("
+                    "    c => Math.round(c.getBoundingClientRect().top));"
+                    "  return {chips: chips.length,"
+                    "          scroll: [s.scrollWidth, s.clientWidth],"
+                    "          box: [sr.width, sr.height],"
+                    "          wrap: cs.flexWrap, overflow: cs.overflowX,"
+                    "          snap: cs.scrollSnapType,"
+                    "          rows: new Set(tops).size,"
+                    "          spread: Math.max(...tops) - Math.min(...tops),"
+                    "          open: d ? d.open : null,"
+                    "          checked: [...document.querySelectorAll("
+                    "            'input[name=\"' + sels.field + '\"]')].filter("
+                    "              e => e.checked).map(e => e.value)};"
+                    "}")
+
+                # Opens (or closes, if already open) ONE carousel's OWN
+                # disclosure, resolved the same way — up from ITS strip
+                # to ITS `.theme-carousel`, never a bare class selector
+                # that would hit whichever carousel happens to be first
+                # in document order.
+                _TOGGLE_OWN_DISCLOSURE = (
+                    "sel => {"
+                    "  const s = document.querySelector(sel);"
+                    "  const carousel = s && s.closest('.theme-carousel');"
+                    "  const summary = carousel && carousel.querySelector("
+                    "    '.theme-carousel__all summary');"
+                    "  if (!summary) return {error: 'no-summary'};"
+                    "  summary.click();"
+                    "  return {ok: true};"
+                    "}")
+
                 # --- 25-06-PLAN.md Task 1 (CFG-50): the number this
                 # plan is judged against, taken before there was any
                 # incentive to like it. See _display_page_height() for
@@ -12525,6 +12589,345 @@ def main():
                     "scroll sideways — with the pager wrapper proved in BOTH gate directions "
                     "(CFG-50/D-09, 25-06-PLAN.md Task 4)",
                     _the_theme_still_saves_with_scripts_blocked_through_the_carousel)
+
+                # --- 27-07-PLAN.md Task 2 (CFG-68): arrivals and
+                # calendar fold the same way, and the arrivals grid gets
+                # this plan's OWN scripts-blocked save proof — the
+                # <no_js_floor> in 27-07-PLAN.md requires proving the
+                # fold did not trap a no-JS reader, not merely that it
+                # renders. ------------------------------------------
+
+                def _arrivals_still_saves_with_scripts_blocked_through_its_own_carousel():
+                    base_url = harness.base_url()
+
+                    def read_back():
+                        return device_config.load_device_config(
+                            harness.tmpdir).get("theme_arriving")
+
+                    original_arriving = read_back()
+                    # SEED A KNOWN, NON-NONE STARTING VALUE, through the
+                    # validated server API (never a raw file write).
+                    # theme_arriving's valid value set includes None
+                    # ("Same as departures"), and _persist_once()'s own
+                    # "stored is None" guard exists to catch a control
+                    # that saves NOTHING — it cannot tell that apart
+                    # from a deliberate restore-to-None, so starting
+                    # from None would make _persist_without_js()'s own
+                    # restore leg raise against a CORRECT outcome.
+                    # Cleared back to None (via CLEAR_THEME_ARRIVING) as
+                    # this check's LAST act if that is where it started.
+                    current_theme = device_config.load_device_config(
+                        harness.tmpdir)["theme"]
+                    seed = next(
+                        t for t in device_config.THEME_IDS if t != current_theme)
+                    device_config.save_device_config(harness.tmpdir, theme_arriving=seed)
+                    before = read_back()
+                    if before != seed:
+                        return False, (
+                            "the seeded theme_arriving did not read back as written: %r"
+                            % (before,))
+                    target = next(t for t in device_config.THEME_IDS if t != before)
+
+                    try:
+                        seen = {}
+                        for lang in ("en", "fr"):
+                            seen[lang] = _persist_without_js(
+                                browser, base_url, "/display", "theme_arriving", target,
+                                read_back, viewport=VIEWPORT_MIN_SUPPORTED,
+                                cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
+                                          "value": lang, "url": base_url}])
+                        after = read_back()
+                        if str(after) != str(before):
+                            return False, (
+                                "the scripts-blocked save left theme_arriving at %r, it "
+                                "started (seeded) at %r — a harness that changes a real "
+                                "setting edits its neighbours' subject" % (after, before))
+                        for lang, result in seen.items():
+                            if str(result["stored"]) != str(target):
+                                return False, (
+                                    "lang=%s: theme_arriving did not reach disk, it reads %r"
+                                    % (lang, result["stored"]))
+                            if str(result["restored"]) != str(before):
+                                return False, (
+                                    "lang=%s: the restore leg did not put %r back, disk "
+                                    "reads %r" % (lang, before, result["restored"]))
+
+                        strip_sel = "#" + config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS
+                        # theme_count real chips PLUS the leading "Same
+                        # as departures" placeholder chip (D-09) — the
+                        # one structural difference from the departures
+                        # proof this check otherwise mirrors.
+                        arrivals_chip_count = len(device_config.THEME_IDS) + 1
+                        with _no_js_page(browser, base_url, "/display",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                            shut = page.evaluate(
+                                _CAROUSEL_INSTANCE_PROBE,
+                                {"strip": strip_sel, "field": "theme_arriving"})
+                            if shut.get("error"):
+                                return False, (
+                                    "no arrivals strip on the scripts-blocked page at all: %r"
+                                    % (shut,))
+                            if shut["chips"] != arrivals_chip_count:
+                                return False, (
+                                    "the scripts-blocked arrivals strip holds %d chips, "
+                                    "expected %d (every theme plus the leading chip) — every "
+                                    "chip is server-rendered and owes nothing to a script"
+                                    % (shut["chips"], arrivals_chip_count))
+                            if shut["scroll"][0] <= shut["scroll"][1]:
+                                return False, (
+                                    "the arrivals strip's scrollWidth (%s) does not exceed "
+                                    "its clientWidth (%s) with scripts blocked — it is not "
+                                    "overflowing, so it is not a strip and there is nothing "
+                                    "to scroll" % tuple(shut["scroll"]))
+                            if shut["spread"] > 2:
+                                return False, (
+                                    "the arrivals chips sit on %d rows spread over %dpx with "
+                                    "the disclosure shut — a strip is one row"
+                                    % (shut["rows"], shut["spread"]))
+
+                            opened_ok = page.evaluate(_TOGGLE_OWN_DISCLOSURE, strip_sel)
+                            if opened_ok.get("error"):
+                                return False, (
+                                    "could not find the arrivals carousel's own disclosure "
+                                    "summary to click")
+                            opened = page.evaluate(
+                                _CAROUSEL_INSTANCE_PROBE,
+                                {"strip": strip_sel, "field": "theme_arriving"})
+                            if not opened["open"]:
+                                return False, (
+                                    "clicking the arrivals summary with scripts blocked did "
+                                    "not open its own disclosure")
+                            if opened["wrap"] != "wrap" or opened["spread"] <= 2:
+                                return False, (
+                                    "the arrivals disclosure opened and its strip is still "
+                                    "one row (flex-wrap %r, chips spread over %dpx)"
+                                    % (opened["wrap"], opened["spread"]))
+                            if opened["chips"] != shut["chips"]:
+                                return False, (
+                                    "the open arrivals grid holds %d chips and the shut "
+                                    "strip held %d — they are the SAME radios and must be"
+                                    % (opened["chips"], shut["chips"]))
+
+                            message = _assert_no_page_overflow(
+                                page, "the arrivals carousel on /display with scripts blocked",
+                                VIEWPORT_MIN_SUPPORTED["width"])
+                            if message:
+                                return False, message
+                        return True, ""
+                    finally:
+                        # LAST ACT: put theme_arriving back exactly
+                        # where this check found it, through the SAME
+                        # validated server API it was seeded with.
+                        if original_arriving is None:
+                            device_config.save_device_config(
+                                harness.tmpdir,
+                                theme_arriving=device_config.CLEAR_THEME_ARRIVING)
+                        else:
+                            device_config.save_device_config(
+                                harness.tmpdir, theme_arriving=original_arriving)
+                        final = read_back()
+                        if final != original_arriving:
+                            raise AssertionError(
+                                "restoring theme_arriving failed: wanted %r, disk reads %r"
+                                % (original_arriving, final))
+                check(
+                    "the arrivals grid — the first grid this plan newly folds — still SAVES "
+                    "with scripts blocked through ITS OWN carousel, at 360px and in BOTH "
+                    "shipped languages — operated natively, submitted through the real form, "
+                    "re-read FROM DISK after a fresh GET and restored the same way (seeded "
+                    "through the validated save_device_config() API rather than a raw file "
+                    "write, since theme_arriving's own None state would otherwise defeat the "
+                    "shared helper's stored-is-None save-floor guard) — and on that same "
+                    "scripts-blocked page every chip (theme count plus the leading 'Same as "
+                    "departures' one) is present, the strip really overflows and really is ONE "
+                    "row, and its OWN <details> (resolved by walking up from ITS strip, never "
+                    "a bare class selector that could hit a sibling carousel) OPENS on a click "
+                    "and turns that one row into a real grid holding the same chips, with the "
+                    "page not scrolling sideways (CFG-68, 27-07-PLAN.md Task 2)",
+                    _arrivals_still_saves_with_scripts_blocked_through_its_own_carousel)
+
+                def _each_carousels_own_disclosure_toggles_only_its_own_strip():
+                    # 27-07-PLAN.md Task 2 (CFG-68), standing constraint
+                    # 3: a shared/page-wide id (the very trap Task 1
+                    # closed) would make one carousel's [open] state
+                    # leak into a SIBLING's strip. style.css's fix is a
+                    # :has() rule scoped to each strip's OWN
+                    # .theme-carousel ancestor (see that rule's own
+                    # comment) — this is the proof that the scoping
+                    # actually holds in a real browser, not merely that
+                    # the selector text looks right.
+                    base_url = harness.base_url()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        page.wait_for_load_state("networkidle")
+                        strips = {
+                            "departures": THEME_STRIP_SEL,
+                            "arrivals": "#" + config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS,
+                            "calendar": "#" + config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR,
+                        }
+                        for opened_usage, opened_sel in strips.items():
+                            opened_ok = page.evaluate(_TOGGLE_OWN_DISCLOSURE, opened_sel)
+                            if opened_ok.get("error"):
+                                return False, (
+                                    "usage=%r: no disclosure summary found to open"
+                                    % opened_usage)
+                            wraps = page.evaluate(
+                                "sels => Object.fromEntries("
+                                "  Object.entries(sels).map(([k, sel]) => {"
+                                "    const s = document.querySelector(sel);"
+                                "    return [k, s ? getComputedStyle(s).flexWrap : null];"
+                                "  }))", strips)
+                            for usage, wrap in wraps.items():
+                                if usage == opened_usage:
+                                    if wrap != "wrap":
+                                        return False, (
+                                            "with %r's own disclosure OPEN, its own strip's "
+                                            "flex-wrap reads %r, expected 'wrap' — opening "
+                                            "the disclosure did not lay the grid out at all"
+                                            % (usage, wrap))
+                                elif wrap != "nowrap":
+                                    return False, (
+                                        "opening %r's own disclosure changed %r's strip "
+                                        "flex-wrap to %r (expected it to stay 'nowrap') — "
+                                        "one carousel's [open] state is leaking into a "
+                                        "sibling's layout, which is exactly what a shared/"
+                                        "page-wide id would cause" % (opened_usage, usage, wrap))
+                            # Close it again before the next usage, so
+                            # every usage is tested from the same shut
+                            # baseline.
+                            page.evaluate(_TOGGLE_OWN_DISCLOSURE, opened_sel)
+                        message = _assert_no_page_overflow(
+                            page, "the Display page with each carousel disclosure opened in "
+                            "turn", VIEWPORT_MIN_SUPPORTED["width"])
+                        if message:
+                            return False, message
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "each of the three carousels' own <details> toggles ONLY its own strip's "
+                    "flex-wrap — opened one at a time (departures, arrivals, calendar), the "
+                    "OPENED carousel's own strip reads flex-wrap: wrap while BOTH other "
+                    "strips stay flex-wrap: nowrap, proving style.css's :has() scoping (each "
+                    "rule matched against its OWN .theme-carousel ancestor, never a shared id) "
+                    "holds in a real browser — the exact failure a shared/page-wide strip id "
+                    "would cause — and the page never scrolls sideways at 360px with any "
+                    "carousel open (CFG-68, 27-07-PLAN.md Task 2)",
+                    _each_carousels_own_disclosure_toggles_only_its_own_strip)
+
+                def _arrivals_and_calendar_keep_the_focused_chip_in_view_when_keyed():
+                    # 27-07-PLAN.md Task 2 (CFG-68), standing constraint
+                    # 2: 25-06/27-04's own "the selected chip stays
+                    # inside the strip" proof
+                    # (_keying_the_strip_selects_scrolls_into_view_and_
+                    # moves_the_preview, below) was written against
+                    # DEPARTURES alone. Extending the carousel to two
+                    # more grids means the SAME scroll-padding-right
+                    # mechanism has to hold for strips this plan just
+                    # created — a missing modifier or an id mix-up on a
+                    # NEW strip would not show up in a departures-only
+                    # check at all.
+                    base_url = harness.base_url()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    fields = (
+                        ("theme_arriving", config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS,
+                         config_page.COLOUR_USAGE_ARRIVALS),
+                        ("calendar_theme_id", config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR,
+                         config_page.COLOUR_USAGE_CALENDAR),
+                    )
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        page.wait_for_load_state("networkidle")
+                        for field, strip_id, usage in fields:
+                            strip_sel = "#" + strip_id
+
+                            def read_back(field=field):
+                                return device_config.load_device_config(
+                                    harness.tmpdir).get(field)
+
+                            # theme-preview.js COLLAPSES every usage
+                            # panel except the checked colour_usage one
+                            # (departures, by default) — a display:none
+                            # element cannot take focus, so a keyboard
+                            # check on arrivals/calendar has to select
+                            # that usage row FIRST, exactly what a real
+                            # visitor clicking "Arrivals"/"Calendar
+                            # flights" in the same radiogroup above
+                            # would do. colour_usage itself is never
+                            # submitted (no form= attribute — see
+                            # _frame_colours_card_html()'s own
+                            # docstring), so this is pure client-side
+                            # state and needs no restore of its own.
+                            _click_control(
+                                page, 'input[name="%s"][value="%s"]'
+                                % (config_page.COLOUR_USAGE_FIELD_NAME, usage))
+
+                            saved = read_back()
+                            saved_str = "" if saved is None else str(saved)
+                            selector = 'input[name="%s"][value="%s"]' % (field, saved_str)
+                            for steps in (1, 6):
+                                seen = _operate_with_keyboard(
+                                    page, selector, ["ArrowDown"] * steps)
+                                if seen["pointer_events"]:
+                                    return False, (
+                                        "field=%r: a pointer event fired during the keyboard "
+                                        "sequence: %r" % (field, seen["pointer_events"]))
+                                box = page.evaluate(
+                                    "sel => {"
+                                    "  const s = document.querySelector(sel);"
+                                    "  const a = document.activeElement;"
+                                    "  const chip = a.closest ? a.closest('.theme-chip') : "
+                                    "    null;"
+                                    "  if (!chip) return {error: 'no-chip'};"
+                                    "  const c = chip.getBoundingClientRect();"
+                                    "  const r = s.getBoundingClientRect();"
+                                    "  return {left: c.left - r.left, "
+                                    "          right: r.right - c.right, value: a.value};"
+                                    "}", strip_sel)
+                                if box.get("error"):
+                                    return False, (
+                                        "field=%r: after %d ArrowDown(s) the focused element "
+                                        "is not inside a chip at all" % (field, steps))
+                                if box["left"] < -1 or box["right"] < -1:
+                                    return False, (
+                                        "field=%r: after %d ArrowDown(s) the selected chip "
+                                        "%r sits %.1fpx past the strip's left edge and "
+                                        "%.1fpx past its right — this strip's own "
+                                        "scroll-padding-right is not doing its job"
+                                        % (field, steps, box["value"],
+                                           -min(box["left"], 0), -min(box["right"], 0)))
+                            # RESTORE, through the same UI sequence, as
+                            # the LAST act for this field — every
+                            # keyboard commit above genuinely auto-saved
+                            # (27-04-PLAN.md Task 4, CFG-63).
+                            _click_control(page, selector)
+                            _wait_for_saved(page)
+                            restored = read_back()
+                            restored_str = "" if restored is None else str(restored)
+                            if restored_str != saved_str:
+                                return False, (
+                                    "field=%r: this check left the stored value at %r; it "
+                                    "started at %r" % (field, restored, saved))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "arrivals' and calendar's own carousels keep the keyboard-selected chip "
+                    "fully inside THEIR OWN strip — each usage panel un-collapsed first via "
+                    "its own colour_usage radio (exactly what a real visitor would click; "
+                    "colour_usage itself is never submitted, so this is pure client state "
+                    "needing no restore), then one and six ArrowDowns each, with zero pointer "
+                    "events, the same scroll-padding-right proof 25-06/27-04 ran against "
+                    "departures alone, generalised to the two grids this plan folds — and both "
+                    "theme fields are restored to their starting value through the same "
+                    "keyboard/save sequence as the LAST act, since keyboard selection commits "
+                    "(CFG-68, 27-07-PLAN.md Task 2)",
+                    _arrivals_and_calendar_keep_the_focused_chip_in_view_when_keyed)
 
                 # --- 27-03-PLAN.md Task 3 (CFG-64) -----------------------
 

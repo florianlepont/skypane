@@ -239,19 +239,32 @@ CURRENT_BADGE_ATTR = "data-current-label"
 
 # --- 25-06-PLAN.md Task 2/3 (CFG-50): D5's theme carousel -------------
 #
-# The DEPARTURES chip grid, and only that one, is presented as a
-# horizontal scroll-snap strip. The other three grids (arrivals,
-# calendar, rule-add) are deliberately untouched — see
-# `_theme_chip_grid_html()`'s own docstring for that decision and its
-# reason.
+# 27-07-PLAN.md Task 2 (CFG-68): the DEPARTURES chip grid was, until
+# this plan, the only one presented as a horizontal scroll-snap strip.
+# Arrivals and calendar now fold the same way — the brief names exactly
+# "arrivals, departures, calendar flights" — leaving only the rule-add
+# form's own grid deliberately untouched (it lives inside the "règles
+# par vol" view the brief explicitly defers). See
+# `_theme_chip_grid_html()`'s own docstring for the full reasoning and
+# the rule-add form's own call site for the recorded ground.
 #
-# `theme-carousel-strip` is both the strip's `id` (so the two pagers'
-# `aria-controls` names something real) and the element
+# `theme-carousel-strip` is both the DEPARTURES strip's `id` (so the two
+# pagers' `aria-controls` names something real) and the element
 # `companion/static/theme-preview.js` scrolls — the script resolves it
 # through the button's OWN `aria-controls`, so the accessibility
 # contract and the script contract are one contract rather than two that
-# can drift apart.
+# can drift apart. Arrivals and calendar carry their OWN ids below,
+# derived from the SAME `COLOUR_USAGE_*` constants that already
+# distinguish these usages elsewhere on this card, rather than three
+# invented literals — see `_theme_carousel_html()`'s own docstring
+# (Task 1) for why a shared id is exactly the trap this had to avoid.
 THEME_CAROUSEL_STRIP_ID = "theme-carousel-strip"
+# 27-07-PLAN.md Task 2 (CFG-68): two more strip ids, one per usage this
+# plan folds into a carousel. Departures keeps its own bare
+# THEME_CAROUSEL_STRIP_ID above unchanged — it predates this plan and
+# nothing depends on it changing — these two are purely additive.
+THEME_CAROUSEL_STRIP_ID_ARRIVALS = THEME_CAROUSEL_STRIP_ID + "-" + COLOUR_USAGE_ARRIVALS
+THEME_CAROUSEL_STRIP_ID_CALENDAR = THEME_CAROUSEL_STRIP_ID + "-" + COLOUR_USAGE_CALENDAR
 # The gated wrapper's own attribute, and the one
 # companion/test_companion_app.py's `_NO_JS_CONTROL_REGISTRY` names for
 # this control. It is on the WRAPPER only, never on a button — that
@@ -1405,15 +1418,23 @@ def _theme_chip_grid_html(
     renderer is exactly how the arrivals grid and the departures grid
     come to disagree about what a selected chip looks like.
 
-    THE OTHER THREE GRIDS ARE DELIBERATELY NOT CONVERTED, and that is a
-    recorded scope decision rather than an oversight for a later reader
-    to "finish". Arrivals, Calendar flights and the rule-add form are
-    already compact and already sit beside other controls; none of them
-    is the page-height problem X6 named. Turning four grids into four
-    carousels would multiply this file's single largest risk — the ONE
-    `@supports selector(:has(*))` block, whose specificity arithmetic is
-    marked "verified, not to be re-derived" — by four, for no height
-    gain on the three cards that were never the defect.
+    27-07-PLAN.md Task 2 (CFG-68): ARRIVALS AND CALENDAR NOW FOLD THE
+    SAME WAY, each with its OWN strip id from `_theme_carousel_html()`'s
+    now-required `strip_id` argument (Task 1) — the brief names exactly
+    "arrivals, departures, calendar flights", so this is not the
+    research's four-grid scope but the brief's three-grid one. Only the
+    RULE-ADD FORM'S GRID stays unconverted, and that is a recorded scope
+    decision rather than an oversight for a later reader to "finish": it
+    lives inside the "règles par vol" view the brief explicitly defers
+    as too vague to plan against, and wrapping a control inside a view
+    that is about to be redesigned would spend work twice — see that
+    call site's own comment for the ground, PROVISIONAL and one more
+    call to this same helper away if the developer wants it folded too.
+    Three carousels share the file's ONE `@supports selector(:has(*))`
+    block (a `:has()` rule scoped per-`.theme-carousel` instance, not
+    one rule per carousel — see that rule's own comment in style.css),
+    so this does NOT multiply that risk by three; it was written and
+    measured to stay at exactly one block.
     """
     form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
     chips = []
@@ -1899,8 +1920,11 @@ def _frame_colours_card_html(
     # lands: the SECOND grid-level modifier below lays this one grid out
     # as a scroll-snap strip, and `_theme_carousel_html()` wraps its
     # output. Both are additive; the chips, their radios, their check
-    # glyphs and the swatch legend are byte-for-byte what they were, and
-    # the three other grids below are untouched.
+    # glyphs and the swatch legend are byte-for-byte what they were.
+    # 27-07-PLAN.md Task 2 (CFG-68): arrivals and calendar below now
+    # fold the same way, each with its OWN strip id — only the rule-add
+    # form's grid, further down, stays untouched (see its own call
+    # site's comment for the ground).
     departures_grid = _theme_chip_grid_html(
         "theme", effective_theme_id, extra_attr=departures_grid_attr,
         extra_class="theme-chip-grid--compact theme-chip-grid--strip",
@@ -1926,13 +1950,20 @@ def _frame_colours_card_html(
     arrivals_same_checked = not effective_arriving
     arrivals_leading_chip = _same_as_departures_chip_html(
         "theme_arriving", arrivals_same_checked, radio_form_id=SETTINGS_FORM_ID)
-    arrivals_grid_attr = 'role="radiogroup" aria-labelledby="%s"' % escape_html(
-        FRAME_COLOURS_HEADING_ID)
+    # 27-07-PLAN.md Task 2 (CFG-68): the `id` is added HERE, at this ONE
+    # call site, matching 25-06 Task 2's own reasoning for departures —
+    # and it is THIS SAME NAME, read twice, that is passed to
+    # `_theme_carousel_html()` below, rather than two literals that
+    # could drift apart.
+    arrivals_grid_attr = 'role="radiogroup" aria-labelledby="%s" id="%s"' % (
+        escape_html(FRAME_COLOURS_HEADING_ID), escape_html(THEME_CAROUSEL_STRIP_ID_ARRIVALS))
     arrivals_grid = _theme_chip_grid_html(
         "theme_arriving", effective_arriving,
-        extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
+        extra_class="theme-chip-grid--compact theme-chip-grid--strip",
+        chip_extra_class="theme-chip--compact",
         extra_attr=arrivals_grid_attr, radio_form_id=SETTINGS_FORM_ID,
         leading_chip_html=arrivals_leading_chip)
+    arrivals_carousel = _theme_carousel_html(arrivals_grid, THEME_CAROUSEL_STRIP_ID_ARRIVALS)
     theme_arriving_error_html = _field_error_html(errors, "theme_arriving", "theme-arriving")
     if arrivals_same_checked:
         arrivals_meta = i18n.t(SAME_AS_DEPARTURES_LABEL)
@@ -1947,20 +1978,25 @@ def _frame_colours_card_html(
         arrivals_meta = i18n.t(device_config.theme_label(arrivals_safe_id))
     arrivals_panel = _frame_colours_usage_panel_html(
         COLOUR_USAGE_ARRIVALS, i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS]),
-        arrivals_grid + theme_arriving_error_html)
+        arrivals_carousel + theme_arriving_error_html)
 
     effective_calendar = _submitted_or_current(
         submitted, "calendar_theme_id", current_calendar_theme_id)
     calendar_same_checked = not effective_calendar
     calendar_leading_chip = _same_as_departures_chip_html(
         "calendar_theme_id", calendar_same_checked, radio_form_id=SETTINGS_FORM_ID)
-    calendar_grid_attr = 'role="radiogroup" aria-labelledby="%s"' % escape_html(
-        FRAME_COLOURS_HEADING_ID)
+    # 27-07-PLAN.md Task 2 (CFG-68): same reasoning as arrivals above —
+    # one Python name, built once, read at both the grid's own `id=` and
+    # the carousel's `strip_id` argument.
+    calendar_grid_attr = 'role="radiogroup" aria-labelledby="%s" id="%s"' % (
+        escape_html(FRAME_COLOURS_HEADING_ID), escape_html(THEME_CAROUSEL_STRIP_ID_CALENDAR))
     calendar_grid = _theme_chip_grid_html(
         "calendar_theme_id", effective_calendar,
-        extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
+        extra_class="theme-chip-grid--compact theme-chip-grid--strip",
+        chip_extra_class="theme-chip--compact",
         extra_attr=calendar_grid_attr, radio_form_id=SETTINGS_FORM_ID,
         leading_chip_html=calendar_leading_chip)
+    calendar_carousel = _theme_carousel_html(calendar_grid, THEME_CAROUSEL_STRIP_ID_CALENDAR)
     calendar_theme_error_html = _field_error_html(errors, "calendar_theme_id", "calendar-theme")
     if calendar_same_checked:
         calendar_meta = i18n.t(SAME_AS_DEPARTURES_LABEL)
@@ -1975,7 +2011,7 @@ def _frame_colours_card_html(
         calendar_meta = i18n.t(device_config.theme_label(calendar_safe_id))
     calendar_panel = _frame_colours_usage_panel_html(
         COLOUR_USAGE_CALENDAR, i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_CALENDAR]),
-        calendar_grid + calendar_theme_error_html)
+        calendar_carousel + calendar_theme_error_html)
 
     # D-10: the rules row's own panel — the existing rule list (or the
     # empty state), the existing add form (its own <form>, a legal
@@ -4485,6 +4521,17 @@ def _rule_add_form_html(errors=None, submitted=None):
     selected_theme_id = _submitted_or_current(
         submitted, "rule_theme_id", device_config.THEME_IDS[0])
     theme_error_html = _field_error_html(errors, "rule_theme_id", "rule-theme")
+    # 27-07-PLAN.md Task 2 (CFG-68): DELIBERATELY NOT WRAPPED IN
+    # `_theme_carousel_html()`, unlike departures/arrivals/calendar above
+    # — recorded here, greppable, so this reads as a decision and not an
+    # oversight for a later plan to "finish". This grid lives inside the
+    # per-flight rules ADD FORM, part of the "règles par vol" view the
+    # brief explicitly defers as too vague to plan against; folding a
+    # control into a view that is about to be redesigned spends work
+    # twice and pre-commits a decision the deferred conversation is
+    # supposed to make. PROVISIONAL: if the developer wants this grid
+    # folded too, it is one more call to `_theme_carousel_html()` with
+    # one more id — the helper already supports it (Task 1).
     chip_grid_html = _theme_chip_grid_html(
         "rule_theme_id", selected_theme_id,
         extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
