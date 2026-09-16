@@ -14238,25 +14238,54 @@ def main():
     # geometrically apart first and unambiguously ordered second.
     # ======================================================================
 
-    def _save_bar_geometry_is_retired_and_the_tab_bar_stacking_survives():
-        # 27-04-PLAN.md (D-04/CFG-63): SUPERSEDES this check's own
+    def _save_bar_geometry_is_restored_and_the_tab_bar_stacking_survives():
+        # 27-04-PLAN.md (D-04/CFG-63): SUPERSEDED this check's own
         # pre-27-04 subject wholesale — the save bar this check measured
         # (its sub-960px offset gaining the tab bar's own height, its
         # z-index: 30 at both breakpoints, and its two MEASURED content-
-        # clearance rules) is retired outright along with the component,
-        # and style.css's own comments at each former site record the
-        # account. What survives, unmodified by this plan, is the tab
-        # bar's OWN stacking value and its OWN content clearance
-        # (.has-tab-bar .page-content) — neither ever depended on the
-        # save bar existing.
+        # clearance rules) was retired outright along with the
+        # component, and style.css's own comments at each former site
+        # recorded the account. What survived, unmodified by that plan,
+        # was the tab bar's OWN stacking value and its OWN content
+        # clearance (.has-tab-bar .page-content) — neither ever depended
+        # on the save bar existing.
+        #
+        # 28-08-PLAN.md Task 3 (CFG-77/CFG-78), 2026-09-16: RENAMED and
+        # retargeted in the OPPOSITE direction — the developer asked for
+        # the bar back (ROADMAP.md's Phase 28 addendum), twice confirmed.
+        # This is a file outside that plan's own declared files_modified
+        # list, fixed here as a direct, unavoidable, foreseeable
+        # consequence of restoring `.dirty-bar` to style.css (Rule 1: a
+        # check asserting "zero occurrences of .dirty-bar" cannot
+        # survive a plan whose whole point is putting .dirty-bar back).
+        # `.dirty-bar` now DOES exist, with its OWN z-index: 30 at both
+        # breakpoints (above the tab bar's 20, matching D-10/T7's own
+        # "why the save bar wins" argument, restored verbatim in
+        # style.css's own comments). `.dirty-ready`-scoped rules do NOT
+        # survive — this restoration deliberately does not bring that
+        # marker class back at all (28-08-PLAN.md Task 3: the CSS
+        # clearance mechanism is `:has(.dirty-bar)` now, which works
+        # with scripts blocked; `.dirty-ready` never would have).
         css_source = _css_source()
 
-        if ".dirty-bar" in css_source:
-            return False, "expected zero occurrences of .dirty-bar anywhere in style.css"
+        if ".dirty-bar {" not in css_source:
+            return False, "expected the restored .dirty-bar base rule to exist in style.css"
+        dirty_bar_blocks = re.findall(r"\.dirty-bar \{[^}]*\}", css_source)
+        fixed_count = sum(1 for block in dirty_bar_blocks if "position: fixed" in block)
+        z30_count = sum(1 for block in dirty_bar_blocks if "z-index: 30;" in block)
+        if fixed_count != 2:
+            return False, (
+                "expected exactly two `.dirty-bar { ... }` rule bodies to set position: fixed "
+                "(one per breakpoint), got %d" % fixed_count)
+        if z30_count != 2:
+            return False, (
+                "expected exactly two `.dirty-bar { ... }` rule bodies to set z-index: 30 (one "
+                "per breakpoint), got %d" % z30_count)
         if ".dirty-ready .dashboard-main {" in css_source or ".dirty-ready .page-content {" in css_source:
             return False, (
-                "expected neither retired content-clearance rule to survive — .dirty-ready is "
-                "no longer written by any script")
+                "expected neither .dirty-ready-scoped content-clearance rule to exist — this "
+                "restoration's own clearance mechanism is :has(.dirty-bar), which (unlike "
+                ".dirty-ready) works correctly with scripts blocked")
 
         tab_bar = _block(
             css_source[css_source.index(_TAB_BAR_BANNER):],
@@ -14267,11 +14296,12 @@ def main():
         if tab_z.group(1) != "20":
             return False, (
                 "expected the tab bar's stacking value to stay at 20, unmoved by the save bar's "
-                "retirement, got %r" % (tab_z.group(1),))
+                "restoration, got %r" % (tab_z.group(1),))
 
-        # The tab bar's own content clearance is the ONLY one a
-        # phone-width settings page needs now — .save-status sits in
-        # normal document flow and claims no fixed space of its own.
+        # The tab bar's own content clearance survives unmoved — it is
+        # now ONE of two clearance rules a phone-width settings page
+        # needs (the other is the restored bar's own :has()-scoped
+        # rule, asserted elsewhere by companion/test_config_page.py).
         if ".has-tab-bar .page-content {" not in css_source:
             return False, "expected the tab bar's own content-clearance rule to survive"
         clearance_body = _block(css_source, ".has-tab-bar .page-content {")
@@ -14279,12 +14309,13 @@ def main():
             return False, "expected .has-tab-bar .page-content to declare padding-bottom"
         return True, ""
     check(
-        "the save bar's own sub-960px geometry, its z-index: 30 at both breakpoints and its two "
-        "MEASURED content-clearance rules are retired wholesale — zero occurrences of .dirty-bar "
-        "or any .dirty-ready-scoped rule survive anywhere in style.css — while the tab bar's own "
-        "stacking value (20) and its own content clearance are unmoved (D-10/T7, 22-14-PLAN.md "
-        "Task 3; retired by 27-04-PLAN.md, CFG-63)",
-        _save_bar_geometry_is_retired_and_the_tab_bar_stacking_survives)
+        "the save bar's own sub-960px geometry and its z-index: 30 at both breakpoints are "
+        "RESTORED — the .dirty-ready marker class is not (this restoration's own clearance "
+        "mechanism is :has(.dirty-bar), which works with scripts blocked) — while the tab bar's "
+        "own stacking value (20) and its own content clearance are unmoved (D-10/T7, "
+        "22-14-PLAN.md Task 3; retired by 27-04-PLAN.md/CFG-63, restored by 28-08-PLAN.md Task 3/"
+        "CFG-77/CFG-78)",
+        _save_bar_geometry_is_restored_and_the_tab_bar_stacking_survives)
 
     # ======================================================================
     # 22-04-PLAN.md Task 3 (D-03/CFG-26, X2): Health's Frame tile and the
