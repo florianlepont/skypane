@@ -1311,7 +1311,7 @@ and is not claimed here. PR not marked ready, not merged.
 
 **Requirements**: CFG-72, CFG-73, CFG-74, CFG-75, CFG-76 (all new)
 **Depends on:** Phase 27 (merged and deployed)
-**Plans:** 4/7 plans executed
+**Plans:** 4/7 plans executed (28-06/28-07 superseded before execution; replaced by 28-08/28-09 — 9 plan numbers issued, 7 live)
 
 Plans (seven, six waves — 28-01 and 28-02 run in parallel because their file sets are
 disjoint; everything after is serial by file ownership, since nearly every remaining plan
@@ -1321,8 +1321,10 @@ writes `config_page.py`, `style.css` or the two browser harnesses):
 - [x] 28-03-PLAN.md — the dial's Bug A: readouts painted as HH:MM through the codec that already exists, a live duration spoken from the one ladder via server-rendered bucket wordings (no French in JS), and the decoder that documented the bug as correct rewritten (CFG-73)
 - [x] 28-04-PLAN.md — one title form: Device's cards wrapped in `theme-status--nested` under real supersections, ZERO CSS edited, proven by rendering BOTH pages and asserting one computed-style triple across them (CFG-72)
 - [ ] 28-05-PLAN.md — the carousel preview follows scroll: one tracker per strip, the existing `applyPreviewSrc()` sink reused, no radio touched, proven against the geometrically centered chip across four intermediate scroll positions (CFG-75)
-- [ ] 28-06-PLAN.md — save resilience, NOT a claimed Safari fix: the status pinned against scroll, four distinguished failure kinds including a bounded timeout, a retry affordance absent until it is needed, and four `style.css` comment blocks superseded in writing (CFG-74)
-- [ ] 28-07-PLAN.md — the runway `form=` path's own contract on both sides, the toast proven REACHABLE rather than present, and the gate: every count re-derived by running, the ledger written against the code with CFG-74's root cause recorded as UNCONFIRMED (CFG-72..76)
+- [~] 28-06-PLAN.md — SUPERSEDED 2026-09-16 before execution, kept on disk as `28-06-PLAN.md.superseded` (CFG-74)
+- [~] 28-07-PLAN.md — SUPERSEDED 2026-09-16 before execution, kept on disk as `28-07-PLAN.md.superseded` (CFG-74)
+- [ ] 28-08-PLAN.md — the save bar restored: `.dirty-bar` markup with its six translated connector words, the AST-unconditional native submit RELOCATED into the bar as its one visible Save (never a second button), `.dirty-bar` CSS at both breakpoints with clearance re-measured, `dirty-state.js` back to a timer-free, network-free bar driver, `/settings`'s dead 204 branch removed, and five `style.css` comment blocks superseded in writing (CFG-77, CFG-78)
+- [ ] 28-09-PLAN.md — closing: one save affordance proven by resolving each control's own `.form` in a live browser, the runway `form=` cross-tree path proven from click to bar-naming to disk, the gate with every count re-derived by running and the sandbox baseline named, and the ledger recording CFG-74 as superseded-never-built (CFG-77, CFG-78)
 
 **The developer's own words (French, verbatim), in the order given:**
 
