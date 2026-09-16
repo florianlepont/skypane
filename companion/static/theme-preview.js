@@ -549,7 +549,16 @@
   // already carries its own strip_id as its element id — an addressable
   // per-instance hook that already exists, so no new attribute is
   // needed in config_page.py for this.
-  var STRIP_SELECTOR = ".theme-chip-grid--strip";
+  // freshness.js's own idiom (its FADE_IMAGE_CLASS/FADE_IMAGE_SELECTOR
+  // pair): the class name and its own dot-selector prefix are two
+  // separate constants, never one assignment carrying both. A single
+  // module-level string constant whose value starts with a dot reads,
+  // to the JS-side fallback-literal i18n scanner
+  // (companion/test_i18n.py), exactly like an untranslated English
+  // fallback string would — that scanner's own hyphenated-identifier
+  // exclusion never matches a leading dot.
+  var STRIP_CLASS = "theme-chip-grid--strip";
+  var STRIP_SELECTOR = "." + STRIP_CLASS;
   var strips = card.querySelectorAll(STRIP_SELECTOR);
   var stripIndex;
   for (stripIndex = 0; stripIndex < strips.length; stripIndex++) {
