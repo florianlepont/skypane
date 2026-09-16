@@ -99,3 +99,43 @@ None — this phase's scope is exactly the 4 confirmed items (CFG-72, 73, 75, 76
 
 *Phase: 28-companion-review-feedback-round-2-five-more-findings-from-th*
 *Context gathered: 2026-09-15 via live investigation + developer AskUserQuestion decision*
+
+---
+
+## Addendum, 2026-09-16 — CFG-63 reversed: restore the pre-Phase-27 save bar
+
+**This entirely replaces CFG-74's scope (28-06/28-07, both superseded, neither executed).** Read `ROADMAP.md`'s Phase 28 addendum (same date) for the full narrative — summary: real Safari Network tab evidence showed the silent auto-save worked correctly (204, persisted) the whole time; the developer rejected the auto-save *model*, not just its missing feedback, and confirmed twice that they want the pre-Phase-27 dirty save bar back (real Enregistrer/Annuler, native form POST), as the ONE save affordance on the settings pages.
+
+### What's confirmed (product decisions, binding)
+- Real, clickable "Enregistrer"/"Annuler" buttons on a bar, not a button-less status indicator.
+- Native form POST (real page navigation), not fetch-based.
+- Exactly one save affordance on the settings pages (Display + Device) — nowhere else on those pages, and nowhere else in the app needs to change: Calendar Connect/Replace/Disconnect and Airlines' "Enregistrer le nom" are explicitly OUT of scope (developer confirmed via AskUserQuestion, "laisser ces deux-là tels quels").
+- The three `role="switch"` instant toggles (Screen, Quiet hours enable, LED) are NOT save buttons in the developer's sense — they're real-time toggles, untouched by any of this.
+
+### Implementation decisions (mine, as phase owner, on technical shape — not asked of the developer since these are execution details, not product questions)
+
+**The restored bar reuses the EXISTING native submit, not a second button.** Phase 27 never deleted `companion/pages/config_page.py`'s always-rendered `<button type="submit" data-static-save-fallback>` (CFG-64's own AST-level proof pins it to one unconditional `return` statement) — it only hid it via `style.css`'s `.js [data-static-save-fallback] { display: none; }`. The restoration:
+1. Keeps the button's unconditional emission (CFG-64's invariant must survive byte-for-byte — re-verify the AST check still passes, retargeted if its selector/attribute expectations change).
+2. Replaces the blanket `.js`-hide CSS rule with real dirty-bar visibility logic: JS toggles the SAME button's `hidden` attribute (or moves it into the bar's markup) based on `countDifferences() > 0`, exactly like the old bar's `bar.hidden` toggle — never a second element.
+3. With no JS: the button was already visible before (that's what the no-JS floor means), so nothing changes for a scripts-blocked visitor — it just doesn't get a Cancel button or section-naming, which is an acceptable, pre-existing degrade (the old bar had the identical shape: `.dirty-bar` was `hidden` by default too, requiring JS to un-hide it — a no-JS visitor always saw the bare fallback button alone, never the enhanced bar).
+
+**`/settings`'s 204 fetch-negotiation branch (`_wants_no_content()`/`_settings_saved_redirect()` in `companion/app.py`) becomes dead for this route once the auto-save fetch caller is removed.** Confirm no other caller fetches `/settings` (the investigation found none — only `/quick/*` routes and this one used the negotiation). Decide during planning whether to remove the branch outright (cleaner, no untested surface) or leave the shared helper functions intact for `/quick/*`'s continued use while simply not exercising the 204 path on `/settings` anymore — favor removing dead branches per this project's standing anti-cruft discipline, but verify `_wants_no_content()` isn't ALSO the mechanism something else still relies on before touching it.
+
+**`window.SkyPaneDirtyState.hasUncommittedEdits()` stays.** `freshness.js:385` depends on this exact function (not on the old `dirty-ready`/`dirty-shown` marker classes it replaced) — 27-04's own reasoning for building it this way ("presence is not proof of life") is still correct and should be kept even though the reason it was invented (auto-save's own logic) is going away. Wire it to the restored bar's own `countDifferences()` the same way.
+
+**`.quick-toast`/`announceFailure()` stays, exclusively for `quick-switch.js`'s three switches.** The settings form no longer uses it at all — a native POST's validation failure re-renders the page with inline field errors (the pre-existing, already-proven `wake_interval_group()` D-07 pattern this codebase already uses elsewhere), which is strictly more informative than a generic toast ever was. Do not delete the toast infrastructure; do not wire the restored bar to it either.
+
+**CFG-74(b)'s toast-reachability concern and CFG-74(c)'s runway regression check both still have value, retargeted:**
+- Toast reachability: still worth proving for `quick-switch.js`'s own three switches (unrelated to this reversal, but worth confirming while touching adjacent code) — lower priority, include only if convenient.
+- Runway `form=`-path regression: retarget entirely — prove the runway radio's cross-tree `form="settings-form"` wiring drives the SAME bar-appears → Save → persisted-to-disk path every other setting does, closing the path Phase 27's checks never specifically covered, now against the real POST instead of the fetch.
+
+**Sequencing:** 28-05 (carousel preview-follows-scroll) is independent and unaffected — its `window.SkyPaneLivePreview.refresh()` entry point is exactly what the restored bar's Cancel handler calls, confirmed unchanged in shape by the investigation. No ordering dependency either direction; 28-05 may finish before, during, or after the restoration plans.
+
+### Sources for the restoration itself (read before planning/implementing)
+- `git show 6dea46a:companion/static/dirty-state.js` — the last pre-removal version, DOM/CSS/JS all archaeologically confirmed accurate by a dedicated investigation (see this phase's chat history for the full report if more detail is needed; the key facts are captured above and in ROADMAP.md's addendum).
+- `git show 6dea46a:companion/pages/config_page.py` — `dirty_bar_html` and its six translated connector-word constants.
+- `git show 6dea46a:companion/static/style.css` — `.dirty-bar` and its responsive placement rules (desktop `position: fixed` + content clearance; phone `position: fixed` above the tab bar + its own clearance rule).
+- Current `companion/static/theme-preview.js` — `window.SkyPaneLivePreview.refresh()` still exists, confirmed unchanged in shape and still the documented Cancel entry point (its own comment says so verbatim).
+- Current `companion/static/value-controls.js` — the document-level `click` listener that repaints the quiet-hours dial already fires on any click anywhere, including a Cancel button's — confirmed by reading, not assumed; verify empirically during implementation rather than re-deriving.
+- Current `companion/i18n_fr/display.py` — "Cancel"/"Annuler" and "Save settings"/"Enregistrer les réglages" both already exist (never deleted); only the six connector-word entries need restoring.
+- `style.css`'s FIVE comment blocks asserting `.save-status`/the settings form's save UI is NOT fixed-positioned (28-04 already flagged one, `28-06`'s now-superseded plan flagged four more) — every one becomes false again once the bar returns to `position: fixed`; each must be superseded in writing, not silently made wrong.
