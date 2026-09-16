@@ -1,3 +1,4 @@
+> **SUPERSEDED 2026-09-16, never executed.** This plan closed out CFG-74's resilience work. The developer rejected the underlying auto-save model itself (see 28-06-PLAN.md.superseded's own note) and asked for the pre-Phase-27 dirty save bar back instead. See ROADMAP.md's Phase 28 addendum (2026-09-16) and REQUIREMENTS.md's CFG-74/CFG-77/CFG-78 notes for the full record. Its runway-regression-check and closing-gate scope carries forward into 28-09-PLAN.md, retargeted at the restored bar's save path. Kept on disk, not deleted, per this project's convention of preserving planning history rather than erasing it.
 ---
 phase: 28-companion-review-feedback-round-2-five-more-findings-from-th
 plan: 07

@@ -1,3 +1,4 @@
+> **SUPERSEDED 2026-09-16, never executed.** This plan built resilience around Phase 27's silent fetch-based auto-save (CFG-74). The developer, after seeing real Safari Network tab evidence that auto-save actually worked (204, persisted correctly) but never visibly confirmed it, rejected the auto-save model itself — not just its missing feedback — and asked for the pre-Phase-27 dirty save bar (real Enregistrer/Annuler buttons) back instead. See ROADMAP.md's Phase 28 addendum (2026-09-16) and REQUIREMENTS.md's CFG-63/CFG-74 notes for the full record. Replaced by 28-08-PLAN.md and 28-09-PLAN.md. Kept on disk, not deleted, per this project's convention of preserving planning history rather than erasing it.
 ---
 phase: 28-companion-review-feedback-round-2-five-more-findings-from-th
 plan: 06
