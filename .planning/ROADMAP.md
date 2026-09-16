@@ -1311,7 +1311,7 @@ and is not claimed here. PR not marked ready, not merged.
 
 **Requirements**: CFG-72, CFG-73, CFG-74, CFG-75, CFG-76 (all new)
 **Depends on:** Phase 27 (merged and deployed)
-**Plans:** 3/7 plans executed
+**Plans:** 4/7 plans executed
 
 Plans (seven, six waves — 28-01 and 28-02 run in parallel because their file sets are
 disjoint; everything after is serial by file ownership, since nearly every remaining plan
@@ -1319,7 +1319,7 @@ writes `config_page.py`, `style.css` or the two browser harnesses):
 - [x] 28-01-PLAN.md — the gear icon: one symbol appended to the sprite, one `icon_html()` argument changed, the hard-coded `ICON_IDS` count bumped 22 -> 23, and a check that the panel still has no page-nav links so the unchanged label stays honest (CFG-76)
 - [x] 28-02-PLAN.md — the dial's Bug B: `button:active` excluded from `.value-control__handle`, `transform` dropped from the handle's transition, and THE check that SAMPLES the handle's radius throughout a held press — with the endpoint-only version mutation-proven to pass on broken code (CFG-73)
 - [x] 28-03-PLAN.md — the dial's Bug A: readouts painted as HH:MM through the codec that already exists, a live duration spoken from the one ladder via server-rendered bucket wordings (no French in JS), and the decoder that documented the bug as correct rewritten (CFG-73)
-- [ ] 28-04-PLAN.md — one title form: Device's cards wrapped in `theme-status--nested` under real supersections, ZERO CSS edited, proven by rendering BOTH pages and asserting one computed-style triple across them (CFG-72)
+- [x] 28-04-PLAN.md — one title form: Device's cards wrapped in `theme-status--nested` under real supersections, ZERO CSS edited, proven by rendering BOTH pages and asserting one computed-style triple across them (CFG-72)
 - [ ] 28-05-PLAN.md — the carousel preview follows scroll: one tracker per strip, the existing `applyPreviewSrc()` sink reused, no radio touched, proven against the geometrically centered chip across four intermediate scroll positions (CFG-75)
 - [ ] 28-06-PLAN.md — save resilience, NOT a claimed Safari fix: the status pinned against scroll, four distinguished failure kinds including a bounded timeout, a retry affordance absent until it is needed, and four `style.css` comment blocks superseded in writing (CFG-74)
 - [ ] 28-07-PLAN.md — the runway `form=` path's own contract on both sides, the toast proven REACHABLE rather than present, and the gate: every count re-derived by running, the ledger written against the code with CFG-74's root cause recorded as UNCONFIRMED (CFG-72..76)
