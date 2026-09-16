@@ -1022,4 +1022,25 @@
   // scripts-blocked rendering correct rather than merely present, and
   // it is why this file mutates absolutely nothing until a user
   // touches a control that exists.
+
+  // 28-08-PLAN.md Task 3 (CFG-77), 2026-09-16: exposes the EXISTING
+  // repaintAll() as a callable entry point — dirty-state.js's restored
+  // Cancel handler calls it, from the deferred tick its own comment
+  // explains, after the native reset event has actually restored
+  // every field's value. Nothing about repaintAll() itself changes: it
+  // already reads each wrapper's LIVE field value at call time via
+  // currentValue(wrapper, bounds), which is exactly why calling it
+  // AFTER the restore produces the right answer, and the document-level
+  // click listener two lines above keeps registered exactly as-is,
+  // serving its own pre-existing purpose (repainting after any click
+  // that might have moved a value, e.g. a preset button) — this export
+  // adds a second, deliberate caller, never replaces the first.
+  //
+  // A small namespace object, matching theme-preview.js's own
+  // window.SkyPaneLivePreview = { refresh: refreshFromCurrentState };
+  // — this codebase's one-namespace-object-per-file idiom for a script
+  // that needs to give another script a named, stable entry point
+  // without becoming a stray global. window.SkyPaneDirtyState (dirty-
+  // state.js) is that same idiom's second instance; this is its third.
+  window.SkyPaneValueControls = { repaintAll: repaintAll };
 })();
