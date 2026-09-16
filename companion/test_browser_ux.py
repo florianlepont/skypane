@@ -909,6 +909,19 @@ EXPECTED_CHECK_COUNT = 90
 # cardinality 1. 90 + 1 = 91, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 91
 
+# 28-05-PLAN.md Task 2 (CFG-75): +1 —
+# _scrolling_a_strip_moves_its_own_preview_to_the_centered_chip_and_
+# selects_nothing, which drives all three carousel strips through four
+# real intermediate scroll positions each, in both UI themes at the
+# 360px floor, independently computing the geometrically centered chip
+# (the same nearest-centre getBoundingClientRect arithmetic
+# theme-preview.js itself uses) and asserting the live preview matches
+# it — proves scroll never selects (no radio's checked state moves, a
+# reload shows the SAVED theme) and proves one carousel's scroll never
+# reaches a sibling's state (27-07's strip_id-per-instance discipline).
+# 91 + 1 = 92, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 92
+
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
 # ONE element must carry it. Both halves are asserted: the declared set
@@ -14080,6 +14093,331 @@ def main():
                     "25-06-PLAN.md Task 4; the restore step added by 27-04-PLAN.md Task 4, "
                     "CFG-63, now that keyboard selection commits)",
                     _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview)
+
+                # --- 28-05-PLAN.md Task 2 (CFG-75) -----------------------
+
+                def _scrolling_a_strip_moves_its_own_preview_to_the_centered_chip_and_selects_nothing():
+                    """CFG-75, the developer's own product decision
+                    (AskUserQuestion, 2026-09-15): while scrolling a
+                    theme carousel strip, the live preview follows
+                    whichever chip is geometrically centered — a
+                    PREVIEW, never a SELECTION. This drives EACH of the
+                    three strips through FOUR real intermediate scroll
+                    positions per UI theme, and after each independently
+                    computes (via the SAME nearest-centre
+                    getBoundingClientRect arithmetic theme-preview.js
+                    itself uses) which chip is centered, asserting the
+                    preview's resolved src matches THAT chip's own
+                    data-preview-src — never merely that a scroll
+                    listener is attached. A companion clause proves
+                    scroll is not selection (no radio's checked state
+                    moves, and a reload shows the SAVED theme, never the
+                    last scrolled-past chip), and a final clause proves
+                    one carousel's scroll never reaches a sibling's
+                    state (27-07's strip_id-per-instance discipline).
+                    """
+                    base_url = harness.base_url()
+
+                    def read_back():
+                        cfg = device_config.load_device_config(harness.tmpdir)
+                        return cfg.get("theme_arriving"), cfg.get("calendar_theme_id")
+
+                    original_arriving, original_calendar = read_back()
+                    current_theme = device_config.load_device_config(harness.tmpdir)["theme"]
+                    seed_arrivals = next(
+                        t for t in device_config.THEME_IDS if t != current_theme)
+                    seed_calendar = next(
+                        t for t in device_config.THEME_IDS
+                        if t != current_theme and t != seed_arrivals)
+                    # SEED KNOWN, NON-"Same as departures" starting values
+                    # through the validated server API — the leading
+                    # placeholder chip carries no data-preview-src at all
+                    # (D-09: no fabricated preview for "no override"),
+                    # which would make this check's own reload-shows-the-
+                    # SAVED-theme clause measure nothing.
+                    device_config.save_device_config(
+                        harness.tmpdir, theme_arriving=seed_arrivals,
+                        calendar_theme_id=seed_calendar)
+
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        page.wait_for_load_state("networkidle")
+
+                        strips = (
+                            ("departures", "theme", THEME_STRIP_SEL,
+                             config_page.COLOUR_USAGE_DEPARTURES),
+                            ("arrivals", "theme_arriving",
+                             "#" + config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS,
+                             config_page.COLOUR_USAGE_ARRIVALS),
+                            ("calendar", "calendar_theme_id",
+                             "#" + config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR,
+                             config_page.COLOUR_USAGE_CALENDAR),
+                        )
+                        # At least FOUR distinct intermediate positions per
+                        # strip, never a jump straight to the end.
+                        FRACTIONS = (0.2, 0.45, 0.7, 0.95)
+
+                        def all_radio_state():
+                            return page.evaluate(
+                                "() => {"
+                                "  var inputs = document.querySelectorAll("
+                                "    'input[type=\"radio\"]');"
+                                "  var out = {};"
+                                "  for (var i = 0; i < inputs.length; i++) {"
+                                "    var el = inputs[i];"
+                                "    out[el.name + '::' + el.value] = el.checked;"
+                                "  }"
+                                "  return out;"
+                                "}")
+
+                        def centered_probe(strip_sel):
+                            return page.evaluate(
+                                "sel => {"
+                                "  var s = document.querySelector(sel);"
+                                "  if (!s) return {error: 'no-strip'};"
+                                "  var sr = s.getBoundingClientRect();"
+                                "  var cx = sr.left + sr.width / 2;"
+                                "  var chips = s.querySelectorAll('.theme-chip');"
+                                "  var best = null, bestDist = Infinity;"
+                                "  for (var i = 0; i < chips.length; i++) {"
+                                "    var c = chips[i];"
+                                "    var r = c.getBoundingClientRect();"
+                                "    var ccx = r.left + r.width / 2;"
+                                "    var d = Math.abs(ccx - cx);"
+                                "    if (d < bestDist) { bestDist = d; best = c; }"
+                                "  }"
+                                "  if (!best) return {error: 'no-chip'};"
+                                "  var input = best.querySelector('input');"
+                                "  return {src: best.getAttribute('data-preview-src'),"
+                                "          value: input ? input.value : null,"
+                                "          scrollLeft: s.scrollLeft,"
+                                "          maxScroll: s.scrollWidth - s.clientWidth};"
+                                "}", strip_sel)
+
+                        def wait_for_preview(expected_src, context_label):
+                            try:
+                                page.wait_for_function(
+                                    "args => {"
+                                    "  var img = document.querySelector(args.sel);"
+                                    "  return !!img"
+                                    "    && img.getAttribute('src') === args.expected;"
+                                    "}",
+                                    arg={"sel": THEME_PREVIEW_SEL, "expected": expected_src},
+                                    timeout=3000)
+                                return None
+                            except Exception:
+                                actual = page.eval_on_selector(
+                                    THEME_PREVIEW_SEL, "el => el.getAttribute('src')")
+                                return (
+                                    "%s: expected the preview to read %r, it still reads %r"
+                                    % (context_label, expected_src, actual))
+
+                        for usage_label, field, strip_sel, usage_value in strips:
+                            # Un-collapse this usage's panel exactly like
+                            # a real visitor clicking the row above it
+                            # would.
+                            _click_control(
+                                page, 'input[name="%s"][value="%s"]'
+                                % (config_page.COLOUR_USAGE_FIELD_NAME, usage_value))
+                            selected_value = page.eval_on_selector(
+                                'input[name="%s"]:checked' % field, "el => el.value")
+
+                            final_probe = None
+                            for theme in ("light", "dark"):
+                                _set_ui_theme(page, theme)
+                                before_radio_state = all_radio_state()
+
+                                probe0 = centered_probe(strip_sel)
+                                if probe0.get("error"):
+                                    return False, (
+                                        "theme=%r usage=%r: %s"
+                                        % (theme, usage_label, probe0["error"]))
+                                max_scroll = probe0["maxScroll"]
+                                if max_scroll <= 0:
+                                    return False, (
+                                        "theme=%r usage=%r: the strip does not overflow "
+                                        "(scrollWidth - clientWidth = %r) — there is "
+                                        "nothing to scroll"
+                                        % (theme, usage_label, max_scroll))
+
+                                for frac in FRACTIONS:
+                                    target = round(max_scroll * frac)
+                                    page.evaluate(
+                                        "args => {"
+                                        "  document.querySelector(args.sel).scrollTo("
+                                        "    {left: args.left, behavior: 'instant'});"
+                                        "}",
+                                        {"sel": strip_sel, "left": target})
+                                    expected = centered_probe(strip_sel)
+                                    if expected.get("error"):
+                                        return False, (
+                                            "theme=%r usage=%r scrollLeft=%r: %s"
+                                            % (theme, usage_label, target,
+                                               expected["error"]))
+                                    failure = wait_for_preview(
+                                        expected["src"],
+                                        "theme=%r usage=%r scrollLeft=%r (frac=%r of "
+                                        "maxScroll=%r), expected chip %r"
+                                        % (theme, usage_label, target, frac, max_scroll,
+                                           expected["value"]))
+                                    if failure:
+                                        return False, failure
+                                    final_probe = expected
+
+                                after_radio_state = all_radio_state()
+                                if after_radio_state != before_radio_state:
+                                    changed = dict(
+                                        (k, (before_radio_state.get(k),
+                                             after_radio_state.get(k)))
+                                        for k in set(before_radio_state)
+                                        | set(after_radio_state)
+                                        if before_radio_state.get(k)
+                                        != after_radio_state.get(k))
+                                    return False, (
+                                        "theme=%r usage=%r: scrolling changed a radio's "
+                                        "checked state: %r — scroll must never select"
+                                        % (theme, usage_label, changed))
+
+                            if final_probe["value"] == selected_value:
+                                return False, (
+                                    "usage=%r: the final scroll position's centered "
+                                    "chip (%r) is the SAME as the already-selected "
+                                    "theme (%r) — this proves nothing about "
+                                    "preview-vs-selection"
+                                    % (usage_label, final_probe["value"], selected_value))
+
+                            # Reload: a reload with nothing clicked must
+                            # show the SAVED theme, never whatever was
+                            # last scrolled past.
+                            page.reload()
+                            page.wait_for_load_state("networkidle")
+                            if usage_value != config_page.COLOUR_USAGE_DEPARTURES:
+                                _click_control(
+                                    page, 'input[name="%s"][value="%s"]'
+                                    % (config_page.COLOUR_USAGE_FIELD_NAME, usage_value))
+                            expected_saved_src = page.eval_on_selector(
+                                'input[name="%s"][value="%s"]' % (field, selected_value),
+                                "el => el.closest('.theme-chip')"
+                                ".getAttribute('data-preview-src')")
+                            failure = wait_for_preview(
+                                expected_saved_src,
+                                "usage=%r reload, expected the SAVED theme %r's own src"
+                                % (usage_label, selected_value))
+                            if failure:
+                                return False, failure + " — a scroll must never persist"
+
+                        # --- Cross-instance isolation (the 27-07
+                        # regression guard) — scroll departures, switch
+                        # to arrivals and scroll IT too, then switch back
+                        # to departures: the preview must reflect
+                        # departures' own SAVED theme, never arrivals'
+                        # scroll and never departures' own earlier scroll
+                        # position either (scroll never selects).
+                        _click_control(
+                            page, 'input[name="%s"][value="%s"]'
+                            % (config_page.COLOUR_USAGE_FIELD_NAME,
+                               config_page.COLOUR_USAGE_DEPARTURES))
+                        dep_selected = page.eval_on_selector(
+                            'input[name="theme"]:checked', "el => el.value")
+                        dep_probe0 = centered_probe(THEME_STRIP_SEL)
+                        dep_target = round(dep_probe0["maxScroll"] * 0.8)
+                        page.evaluate(
+                            "args => {"
+                            "  document.querySelector(args.sel).scrollTo("
+                            "    {left: args.left, behavior: 'instant'});"
+                            "}",
+                            {"sel": THEME_STRIP_SEL, "left": dep_target})
+                        dep_after_scroll = centered_probe(THEME_STRIP_SEL)
+                        failure = wait_for_preview(
+                            dep_after_scroll["src"],
+                            "cross-instance setup, departures scrolled to %r"
+                            % dep_target)
+                        if failure:
+                            return False, failure
+
+                        arrivals_strip_sel = (
+                            "#" + config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS)
+                        _click_control(
+                            page, 'input[name="%s"][value="%s"]'
+                            % (config_page.COLOUR_USAGE_FIELD_NAME,
+                               config_page.COLOUR_USAGE_ARRIVALS))
+                        arr_probe0 = centered_probe(arrivals_strip_sel)
+                        arr_target = round(arr_probe0["maxScroll"] * 0.3)
+                        page.evaluate(
+                            "args => {"
+                            "  document.querySelector(args.sel).scrollTo("
+                            "    {left: args.left, behavior: 'instant'});"
+                            "}",
+                            {"sel": arrivals_strip_sel, "left": arr_target})
+                        arr_after_scroll = centered_probe(arrivals_strip_sel)
+                        failure = wait_for_preview(
+                            arr_after_scroll["src"],
+                            "cross-instance setup, arrivals scrolled to %r" % arr_target)
+                        if failure:
+                            return False, failure
+
+                        _click_control(
+                            page, 'input[name="%s"][value="%s"]'
+                            % (config_page.COLOUR_USAGE_FIELD_NAME,
+                               config_page.COLOUR_USAGE_DEPARTURES))
+                        dep_probe_after = centered_probe(THEME_STRIP_SEL)
+                        if dep_probe_after["value"] != dep_after_scroll["value"]:
+                            return False, (
+                                "cross-instance: after scrolling arrivals, switching "
+                                "back to departures shows its own strip centered on "
+                                "%r, expected %r (its own last scroll position, "
+                                "untouched by arrivals) — one carousel's tracker is "
+                                "reaching into a sibling's state"
+                                % (dep_probe_after["value"], dep_after_scroll["value"]))
+                        expected_dep_src = page.eval_on_selector(
+                            'input[name="theme"][value="%s"]' % dep_selected,
+                            "el => el.closest('.theme-chip')"
+                            ".getAttribute('data-preview-src')")
+                        failure = wait_for_preview(
+                            expected_dep_src,
+                            "cross-instance: after switching back to departures, "
+                            "expected its own SAVED theme %r's own src" % dep_selected)
+                        if failure:
+                            return False, (
+                                failure + " — arrivals' scroll (or departures' own "
+                                "earlier scroll) leaked into the shared preview")
+
+                        return True, ""
+                    finally:
+                        context.close()
+                        restore_arriving = (
+                            original_arriving if original_arriving
+                            else device_config.CLEAR_THEME_ARRIVING)
+                        restore_calendar = original_calendar if original_calendar else ""
+                        device_config.save_device_config(
+                            harness.tmpdir, theme_arriving=restore_arriving,
+                            calendar_theme_id=restore_calendar)
+                        final_arriving, final_calendar = read_back()
+                        if (final_arriving != original_arriving
+                                or final_calendar != original_calendar):
+                            raise AssertionError(
+                                "restoring theme_arriving/calendar_theme_id failed: "
+                                "wanted %r, disk reads %r"
+                                % ((original_arriving, original_calendar),
+                                   (final_arriving, final_calendar)))
+                check(
+                    "scrolling any of the three theme carousel strips moves the live preview "
+                    "to whichever chip is GEOMETRICALLY CENTERED, proven across four real "
+                    "intermediate scroll positions per strip (never a jump to the end) in "
+                    "BOTH UI themes at the 360px floor, with the centered chip computed "
+                    "INDEPENDENTLY by this check (the same nearest-centre "
+                    "getBoundingClientRect arithmetic theme-preview.js itself uses) — never "
+                    "merely that a scroll listener exists; no radio's checked state moves "
+                    "during any of it, the final scrolled-to chip is proven distinct from the "
+                    "already-selected theme, and a reload with nothing clicked shows the "
+                    "SAVED theme, never the last scrolled-past one; all three carousels "
+                    "exercised, plus one cross-instance clause proving arrivals' own scroll "
+                    "never reaches departures' preview or strip state (27-07's "
+                    "strip_id-per-instance discipline) (CFG-75, 28-05-PLAN.md Task 2)",
+                    _scrolling_a_strip_moves_its_own_preview_to_the_centered_chip_and_selects_nothing)
 
                 def _the_carousel_meets_its_floors_at_360px_in_both_themes():
                     base_url = harness.base_url()

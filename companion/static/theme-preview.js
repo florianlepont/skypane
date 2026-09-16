@@ -72,6 +72,14 @@
  * the checked usage from the live DOM and re-applies its preview src -
  * the identical work the "Collapse at load" call below already does,
  * just callable again on demand.
+ *
+ * 28-05-PLAN.md Task 1 (CFG-75): the "only DOM writes this file ever
+ * makes" sentence above was re-checked against this plan's own addition
+ * (the per-strip scroll-preview tracker, near the bottom of this file)
+ * and CONFIRMED STILL TRUE — the new code calls applyPreviewSrc(), the
+ * SAME sink, and touches no other DOM write of any kind. It never sets a
+ * radio's checked property and never dispatches a change event, so a
+ * scroll only ever PREVIEWS a theme, never SELECTS one.
  */
 (function () {
   "use strict";
@@ -254,19 +262,25 @@
     return checkedChipSrc(departuresPanel());
   }
 
+  // 28-05-PLAN.md Task 1 (CFG-75): hoisted out of showUsage() so the new
+  // per-strip scroll-preview tracker below can ask the SAME question
+  // ("is this strip's own usage panel currently collapsed?") off the
+  // ONE literal, rather than a second copy that could drift from this
+  // one.
+  var COLLAPSED_PANEL_CLASS = "frame-colours__usage-panel--collapsed";
+
   function showUsage(usage) {
     var i;
     for (i = 0; i < panels.length; i++) {
       var target = panels[i].getAttribute("data-usage-panel-target");
-      var collapsedClass = "frame-colours__usage-panel--collapsed";
-      var isCollapsed = panels[i].className.indexOf(collapsedClass) !== -1;
+      var isCollapsed = panels[i].className.indexOf(COLLAPSED_PANEL_CLASS) !== -1;
       if (target === usage) {
         if (isCollapsed) {
           panels[i].className = panels[i].className.replace(
-            new RegExp("\\s*" + collapsedClass), "");
+            new RegExp("\\s*" + COLLAPSED_PANEL_CLASS), "");
         }
       } else if (!isCollapsed) {
-        panels[i].className += " " + collapsedClass;
+        panels[i].className += " " + COLLAPSED_PANEL_CLASS;
       }
     }
     applyPreviewSrc(effectiveSrcForUsage(usage));
@@ -409,6 +423,146 @@
   var pagerIndex;
   for (pagerIndex = 0; pagerIndex < pagers.length; pagerIndex++) {
     pagers[pagerIndex].addEventListener("click", onPagerClick);
+  }
+
+  // --- 28-05-PLAN.md Task 1 (CFG-75): preview follows scroll ----------
+  //
+  // PREVIEW IS NOT SELECTION. Forbidden in every function below:
+  // input.checked = true, dispatchEvent(new Event("change")), .click(),
+  // form.requestSubmit(), writing any form value of any kind, and
+  // writing the preview element's own image source through any path
+  // other than applyPreviewSrc() — no direct assignment to that
+  // property and no direct setAttribute call naming it. This code path
+  // calls applyPreviewSrc() — the SAME sink onPagerClick's own sibling,
+  // the delegated "change" listener above, already writes through —
+  // and nothing else. A reload with nothing clicked must still show
+  // the SAVED theme, never whatever chip a visitor last scrolled past.
+  //
+  // ONE TRACKER PER STRIP, built in a loop, exactly like the pagers
+  // above are wired one per button rather than one shared listener for
+  // all three carousels — 27-07-PLAN.md's strip_id-per-instance
+  // discipline exists precisely to stop one carousel's state leaking
+  // into a sibling's, and a single shared observer keyed by one strip
+  // would be that exact regression.
+  //
+  // "CENTERED" IS A TOTAL FUNCTION OF LAYOUT, NOT A THRESHOLD TO TUNE:
+  // the chip whose own getBoundingClientRect() centre X is nearest the
+  // strip's own centre X, recomputed fresh on every settle. There is no
+  // ambiguity when two chips are equally visible and nothing here
+  // guesses at an IntersectionObserver ratio.
+  function nearestCenteredChip(strip) {
+    var chips = strip.querySelectorAll(".theme-chip");
+    var stripRect = strip.getBoundingClientRect();
+    var stripCenterX = stripRect.left + stripRect.width / 2;
+    var closest = null;
+    var closestDistance = Infinity;
+    var i, chip, rect, chipCenterX, distance;
+    for (i = 0; i < chips.length; i++) {
+      chip = chips[i];
+      rect = chip.getBoundingClientRect();
+      chipCenterX = rect.left + rect.width / 2;
+      distance = Math.abs(chipCenterX - stripCenterX);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closest = chip;
+      }
+    }
+    return closest;
+  }
+
+  // Reuses the SAME panels NodeList and the SAME COLLAPSED_PANEL_CLASS
+  // showUsage() already maintains — never a second, independently
+  // invented visibility signal. A strip inside a collapsed usage panel
+  // (i.e. not the one currently on screen) must never fight the strip
+  // the visitor is actually scrolling.
+  function stripPanelIsCollapsed(strip) {
+    var i;
+    for (i = 0; i < panels.length; i++) {
+      if (panels[i].contains && panels[i].contains(strip)) {
+        return panels[i].className.indexOf(COLLAPSED_PANEL_CLASS) !== -1;
+      }
+    }
+    return false;
+  }
+
+  // One of these per strip, closing over its own lastScrollLeft so no
+  // two strips ever share a byte of state.
+  function makeScrollPreviewTracker(strip) {
+    var lastScrollLeft = strip.scrollLeft;
+
+    function settle() {
+      // Skip a strip that is not currently displayed — reuse the same
+      // signal showUsage() sets, never invent a second one.
+      if (stripPanelIsCollapsed(strip)) {
+        return;
+      }
+      // Skip when the scroll position has not actually moved, so a
+      // layout reflow (a window resize, a sibling image finishing its
+      // load) can never silently overwrite a preview a click just set.
+      if (strip.scrollLeft === lastScrollLeft) {
+        return;
+      }
+      lastScrollLeft = strip.scrollLeft;
+      var chip = nearestCenteredChip(strip);
+      if (!chip) {
+        return;
+      }
+      // The ONLY write in this whole code path. No checked property, no
+      // change event, no form value — see the forbidden-operations
+      // comment above this section.
+      applyPreviewSrc(chip.getAttribute("data-preview-src"));
+    }
+
+    // The plain "scroll" event covers BOTH a finger dragging the strip
+    // and a programmatic scrollLeft/scrollTo() assignment (exactly how
+    // onPagerClick already moves the strip, and how a check drives it)
+    // — every browser fires it for both.
+    strip.addEventListener("scroll", settle);
+
+    // IntersectionObserver is the CHEAP TRIGGER where available (it
+    // avoids a full settle() computation on every scroll frame), guarded
+    // so a browser without it simply falls back to the scroll listener
+    // above rather than throwing — a scripts-poor browser losing this
+    // preview nicety is acceptable, a thrown error that kills the rest
+    // of this file's behaviour is not. Its own threshold is never the
+    // definition of "centered" — settle() always recomputes that fresh
+    // via nearestCenteredChip(), so the observer only decides WHEN to
+    // look, never WHICH chip is picked.
+    if (window.IntersectionObserver) {
+      var observer = new IntersectionObserver(
+        function () {
+          settle();
+        },
+        { root: strip, threshold: [0, 0.25, 0.5, 0.75, 1] });
+      var obsChips = strip.querySelectorAll(".theme-chip");
+      var obsIndex;
+      for (obsIndex = 0; obsIndex < obsChips.length; obsIndex++) {
+        observer.observe(obsChips[obsIndex]);
+      }
+    }
+  }
+
+  // Found the same way the pagers are found above — a loop over the
+  // card's own strips, never three hardcoded ids. .theme-chip-grid
+  // --strip is the modifier _theme_carousel_html()'s three call sites
+  // already apply (companion/pages/config_page.py), and each strip
+  // already carries its own strip_id as its element id — an addressable
+  // per-instance hook that already exists, so no new attribute is
+  // needed in config_page.py for this.
+  // freshness.js's own idiom (its FADE_IMAGE_CLASS/FADE_IMAGE_SELECTOR
+  // pair): the class name and its own dot-selector prefix are two
+  // separate constants, never one assignment carrying both. A single
+  // module-level string constant whose value starts with a dot reads,
+  // to the JS-side fallback-literal i18n scanner
+  // (companion/test_i18n.py), exactly like an untranslated English
+  // fallback string would — that scanner's own hyphenated-identifier
+  // exclusion never matches a leading dot.
+  var STRIP_CLASS = "theme-chip-grid--strip";
+  var STRIP_SELECTOR = "." + STRIP_CLASS;
+  var strips = card.querySelectorAll(STRIP_SELECTOR);
+  var stripIndex;
+  for (stripIndex = 0; stripIndex < strips.length; stripIndex++) {
+    makeScrollPreviewTracker(strips[stripIndex]);
   }
 
   // No DOMContentLoaded wrapper is needed: the <script> tag
