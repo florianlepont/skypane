@@ -1008,6 +1008,17 @@ EXPECTED_CHECK_COUNT = 263
 # 263 + 1 = 264, re-derived by RUNNING (264/264).
 EXPECTED_CHECK_COUNT = 264
 
+# 28-04-PLAN.md Task 2 (CFG-72): +1 — the cheap structural guard
+# (_device_scope_wraps_all_four_settings_cards_with_the_nested_modifier),
+# asserting the Device scope's rendered output wraps all four of its
+# settings cards with the --nested modifier and carries zero unmodified
+# settings-card wrappers. Task 1's own two edits (the D-12 section-intro
+# check retargeted, and the title-form inventory reconciled) both
+# retargeted EXISTING check() calls in place — neither is a new
+# registration, so neither moves this count. Net: 264 + 1 = 265,
+# re-derived by RUNNING (265/265).
+EXPECTED_CHECK_COUNT = 265
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -8276,9 +8287,18 @@ def main():
 
     def _display_render_carries_three_section_intros_in_locked_order():
         # 20-07-PLAN.md Task 1 (D-12): Look, What it watches, When it is
-        # on, in that document order, and nowhere on the Device scope
-        # (Device's own intro sentence/caption are explicitly unchanged,
-        # per D-12 — no supersection tier there at all).
+        # on, in that document order.
+        #
+        # RETARGETED (28-04-PLAN.md Task 1, CFG-72): this check used to
+        # also assert "and nowhere on the Device scope" — Device's own
+        # intro sentence/caption were unchanged by D-12, so Device had no
+        # supersection tier at all. CFG-72 gives Device two supersections
+        # of its own ("When it wakes"/"How it tells you") plus a third,
+        # one-card supersection introducing the Poll card ("When you
+        # can't wait") — Device now renders three section-intro headings
+        # too, in that locked order. The Display half of this check is
+        # untouched; only the Device assertion is retargeted, from
+        # "absent" to "present, exactly three, in order".
         ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
@@ -8291,12 +8311,21 @@ def main():
             return False, "expected all three supersection heading ids to be present"
         if not (look_pos < watches_pos < on_pos):
             return False, "expected Look < What it watches < When it is on in document order"
-        if "section-intro" in device:
-            return False, "expected no section-intro on the Device scope (D-12: unchanged intro/caption)"
+        if device.count("section-intro") != 3:
+            return False, "expected exactly three section-intro occurrences on Device, got %d" % device.count("section-intro")
+        wakes_pos = device.find('id="%s"' % config_page.DEVICE_WAKES_SECTION_ID)
+        tells_pos = device.find('id="%s"' % config_page.DEVICE_TELLS_SECTION_ID)
+        poll_pos = device.find('id="%s"' % config_page.DEVICE_POLL_SECTION_ID)
+        if -1 in (wakes_pos, tells_pos, poll_pos):
+            return False, "expected all three Device supersection heading ids to be present"
+        if not (wakes_pos < tells_pos < poll_pos):
+            return False, "expected When it wakes < How it tells you < When you can't wait in document order"
         return True, ""
     check(
         "the Display scope renders exactly three section-intro headings, in the locked Look/What it "
-        "watches/When it is on order, and the Device scope renders none (D-12)",
+        "watches/When it is on order, and the Device scope renders exactly three of its own, in the "
+        "locked When it wakes/How it tells you/When you can't wait order (D-12, retargeted by "
+        "28-04-PLAN.md Task 1/CFG-72 from 'the Device scope renders none')",
         _display_render_carries_three_section_intros_in_locked_order)
 
     def _every_grouped_card_under_a_display_supersection_carries_nested_class():
@@ -8435,6 +8464,31 @@ def main():
     # three-round-trip-validated decision this plan does not reopen, or
     # a convention shared identically with Health, or unsupported by
     # measurement).
+    #
+    # SUPERSEDED IN PART (28-04-PLAN.md Task 1, CFG-72). Outcome 2's own
+    # conclusion — "one title form for settings CARDS" — is not
+    # reversed here, it is EXTENDED: the developer's second, rendered-
+    # and-measured report (the second "Ok mais visuellement les titres
+    # sont toujours incohérents !") found that Device's own four cards
+    # (including the Poll card this banner already discussed) rendered
+    # at the un-nested 22px/400/serif tier while Display's rendered at
+    # the nested 16px/600/sans tier — a real defect this banner's own
+    # "markup-level" inventory could not see, because it counted
+    # elements rather than reading computed style (see 28-04-SUMMARY.md
+    # for the rendered-and-measured proof). Device's counts move from
+    # (4, 3, 0, 1) to (7, 3, 3, 1): it gains three supersection intros
+    # of its own ("When it wakes"/"How it tells you"/"When you can't
+    # wait", `_device_groups_html()`), mirroring Display's three. The
+    # Poll card's own bare heading — this banner's second UNCLASSIFIED
+    # instance — is NOW WRAPPED with `page-section--nested` under its
+    # own "When you can't wait" supersection, so it is no longer
+    # typographically distinct from the other three Device cards. It
+    # STAYS the check's one remaining unclassified instance below,
+    # UNCHANGED reason: this check's own [data-dirty-section]-based
+    # arithmetic classifies it "unclassified" only because it holds no
+    # persisted field for dirty-tracking to watch — exactly what this
+    # banner already said above, and exactly why wrapping it was
+    # correct rather than a second, competing title form.
     # ==================================================================
 
     def _title_form_inventory_classifies_every_h2_text_heading_on_both_routes():
@@ -8457,7 +8511,15 @@ def main():
             form_a = rendered.count('%s="' % config_page.DIRTY_SECTION_ATTR)
             form_b = rendered.count("section-intro")
             counts[label] = (total, form_a, form_b, total - form_a - form_b)
-        expected = {"display": (8, 4, 3, 1), "device": (4, 3, 0, 1)}
+        # RE-DERIVED BY RUNNING (28-04-PLAN.md Task 1, CFG-72): Device's
+        # own tuple moved from (4, 3, 0, 1) to (7, 3, 3, 1) — three new
+        # h2.text-heading instances (the "When it wakes"/"How it tells
+        # you"/"When you can't wait" supersection intros), form-A
+        # unmoved at 3 (the wrap adds a class, not a [data-dirty-
+        # section] attribute), form-B 0 -> 3, unclassified unmoved at 1
+        # (the Poll card's own bare heading — see the banner above).
+        # Display's own tuple is untouched by this task.
+        expected = {"display": (8, 4, 3, 1), "device": (7, 3, 3, 1)}
         if counts != expected:
             return False, (
                 "expected {route: (total h2.text-heading, form-A card titles, form-B "
@@ -8490,6 +8552,10 @@ def main():
             return False, (
                 "expected the Frame strip's own <h2> (Display's unclassified instance) to "
                 "render on Display and never on Device")
+        # 28-04-PLAN.md Task 1 (CFG-72): the Poll card's own bare <h2> is
+        # now inside a `page-section page-section--nested` wrapper (it
+        # was a bare `page-section` before), but the <h2> TEXT itself is
+        # untouched — same needle, still present on Device only.
         poll_needle = '<h2 class="text-heading">%s</h2>' % escape_html(
             config_page.POLL_SECTION_HEADING)
         if poll_needle not in device or poll_needle in display:
@@ -8499,12 +8565,15 @@ def main():
 
         # OUTCOME 2: the two label vocabularies never overlap. A
         # supersection's own text is always a GENERIC group label,
-        # never one of the 7 cards' own SPECIFIC names.
+        # never one of the 7 cards' own SPECIFIC names. 28-04-PLAN.md
+        # Task 1 (CFG-72) widens the supersection-label side with
+        # Device's own three new labels.
         overlap = (
             set(card_title_headings["display"]) | set(card_title_headings["device"])
         ) & {
             config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
-            config_page.DISPLAY_ON_HEADING,
+            config_page.DISPLAY_ON_HEADING, config_page.DEVICE_WAKES_HEADING,
+            config_page.DEVICE_TELLS_HEADING, config_page.DEVICE_POLL_HEADING,
         }
         if overlap:
             return False, (
@@ -8520,7 +8589,14 @@ def main():
         "heading on Display, Poll's own bare-<section> heading on Device — neither a settings "
         "card nor a supersection), reproducing 27-01-SUMMARY.md's corrected 7/3/2 browser count "
         "server-side, with the two label vocabularies never overlapping (CFG-65, 27-06-PLAN.md "
-        "Task 1)",
+        "Task 1). SUPERSEDED IN PART (28-04-PLAN.md Task 1, CFG-72): a rendered-and-measured "
+        "check (companion/test_browser_ux.py) found the 7 settings-card titles were NOT one "
+        "typographic form after all — Device's four rendered 22px/400/serif against Display's "
+        "16px/600/sans — so Device now gains 3 supersection intros of its own (form B unmoved "
+        "in shape, Device's own count 0 -> 3, counts re-derived by running below) and its own "
+        "Poll card is wrapped, closing that gap; the settings-card/supersection-label GRAMMAR "
+        "distinction this check's own name asserts is unchanged, and the label-vocabulary "
+        "overlap clause now also covers Device's three new labels",
         _title_form_inventory_classifies_every_h2_text_heading_on_both_routes)
 
     # ==================================================================
@@ -8583,6 +8659,53 @@ def main():
         "enforced at the source level rather than only in today's rendered markup (CFG-65, "
         "27-06-PLAN.md Task 2 — Outcome 2, no conversion, see 27-06-SUMMARY.md)",
         _no_card_builder_function_ever_calls_section_intro_html)
+
+    # ==================================================================
+    # 28-04-PLAN.md Task 2 (CFG-72): the cheap structural guard. THIS IS
+    # NOT THE PROOF — companion/test_browser_ux.py's cross-page
+    # getComputedStyle comparator is, and that is stated here rather
+    # than left implicit, so nobody later mistakes this check for a
+    # substitute (that exact mistake is how 27-06 shipped in the first
+    # place). This only asserts that the Device scope's rendered markup
+    # wraps every one of its four settings cards with the --nested
+    # modifier and that zero unmodified settings-card wrappers of either
+    # base class survive on that page.
+    # ==================================================================
+
+    def _device_scope_wraps_all_four_settings_cards_with_the_nested_modifier():
+        ctx = {
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        nested_theme_status = device.count('class="theme-status theme-status--nested"')
+        if nested_theme_status != 3:
+            return False, (
+                "expected exactly 3 theme-status--nested settings-card wrappers on Device "
+                "(LED, wake interval, notifications), got %d" % nested_theme_status)
+        nested_page_section = device.count('class="page-section page-section--nested"')
+        if nested_page_section != 1:
+            return False, (
+                "expected exactly 1 page-section--nested settings-card wrapper on Device "
+                "(Poll), got %d" % nested_page_section)
+        bare_theme_status = device.count('class="theme-status"')
+        if bare_theme_status != 0:
+            return False, (
+                "expected zero unmodified .theme-status settings-card wrappers on Device, "
+                "got %d" % bare_theme_status)
+        bare_page_section = device.count('class="page-section"')
+        if bare_page_section != 0:
+            return False, (
+                "expected zero unmodified .page-section settings-card wrappers on Device, "
+                "got %d" % bare_page_section)
+        return True, ""
+    check(
+        "the cheap structural guard, NOT the real proof (that is test_browser_ux.py's "
+        "cross-page getComputedStyle comparator): the Device scope's rendered output wraps "
+        "all four of its settings cards with the --nested modifier (three "
+        "theme-status--nested, one page-section--nested) and carries zero unmodified "
+        "settings-card wrappers of either base class (CFG-72, 28-04-PLAN.md Task 2)",
+        _device_scope_wraps_all_four_settings_cards_with_the_nested_modifier)
 
     # ==================================================================
     # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): the instant switches, and
