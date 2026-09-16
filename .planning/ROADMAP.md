@@ -1311,7 +1311,7 @@ and is not claimed here. PR not marked ready, not merged.
 
 **Requirements**: CFG-72, CFG-73, CFG-74, CFG-75, CFG-76 (all new)
 **Depends on:** Phase 27 (merged and deployed)
-**Plans:** 4/7 plans executed (28-06/28-07 superseded before execution; replaced by 28-08/28-09 — 9 plan numbers issued, 7 live)
+**Plans:** 5/9 plans executed
 
 Plans (seven, six waves — 28-01 and 28-02 run in parallel because their file sets are
 disjoint; everything after is serial by file ownership, since nearly every remaining plan
@@ -1320,7 +1320,7 @@ writes `config_page.py`, `style.css` or the two browser harnesses):
 - [x] 28-02-PLAN.md — the dial's Bug B: `button:active` excluded from `.value-control__handle`, `transform` dropped from the handle's transition, and THE check that SAMPLES the handle's radius throughout a held press — with the endpoint-only version mutation-proven to pass on broken code (CFG-73)
 - [x] 28-03-PLAN.md — the dial's Bug A: readouts painted as HH:MM through the codec that already exists, a live duration spoken from the one ladder via server-rendered bucket wordings (no French in JS), and the decoder that documented the bug as correct rewritten (CFG-73)
 - [x] 28-04-PLAN.md — one title form: Device's cards wrapped in `theme-status--nested` under real supersections, ZERO CSS edited, proven by rendering BOTH pages and asserting one computed-style triple across them (CFG-72)
-- [ ] 28-05-PLAN.md — the carousel preview follows scroll: one tracker per strip, the existing `applyPreviewSrc()` sink reused, no radio touched, proven against the geometrically centered chip across four intermediate scroll positions (CFG-75)
+- [x] 28-05-PLAN.md — the carousel preview follows scroll: one tracker per strip, the existing `applyPreviewSrc()` sink reused, no radio touched, proven against the geometrically centered chip across four intermediate scroll positions (CFG-75)
 - [~] 28-06-PLAN.md — SUPERSEDED 2026-09-16 before execution, kept on disk as `28-06-PLAN.md.superseded` (CFG-74)
 - [~] 28-07-PLAN.md — SUPERSEDED 2026-09-16 before execution, kept on disk as `28-07-PLAN.md.superseded` (CFG-74)
 - [ ] 28-08-PLAN.md — the save bar restored: `.dirty-bar` markup with its six translated connector words, the AST-unconditional native submit RELOCATED into the bar as its one visible Save (never a second button), `.dirty-bar` CSS at both breakpoints with clearance re-measured, `dirty-state.js` back to a timer-free, network-free bar driver, `/settings`'s dead 204 branch removed, and five `style.css` comment blocks superseded in writing (CFG-77, CFG-78)
