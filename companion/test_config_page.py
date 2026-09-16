@@ -1042,6 +1042,23 @@ EXPECTED_CHECK_COUNT = 265
 # and Task 3's own history entries below for their further deltas).
 EXPECTED_CHECK_COUNT = 265
 
+# 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: style.css's own
+# .dirty-bar rules are restored. Three checks retargeted IN PLACE, no
+# count change: _style_css_references_static_save_fallback_attr renamed
+# to _style_css_carries_no_hide_rule_for_static_save_fallback_attr (the
+# hide rule is gone outright now, not merely re-keyed a fourth time —
+# the button it hid is the bar's own visible Save);
+# _style_css_carries_section_caption_and_no_dirty_bar_rules_survive
+# renamed to _style_css_carries_section_caption_and_the_restored_dirty_
+# bar_rules (asserts the bar EXISTS, fixed at both breakpoints, instead
+# of asserting zero occurrences);
+# _skypane_bar_arrive_keyframes_survive_unreferenced renamed to
+# _skypane_bar_arrive_keyframes_is_referenced_again_by_the_restored_bar
+# (asserts the block IS referenced now, by the restored base rule's own
+# animation: declaration — REUSED, never reinvented). Net: 265 + 0 =
+# 265, re-derived by RUNNING (265/265).
+EXPECTED_CHECK_COUNT = 265
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -5272,41 +5289,57 @@ def main():
         "data-preset-* attribute names, and contains none of innerHTML/let /const /=>/backtick",
         _dirty_state_js_references_quiet_preset_attrs)
 
-    def _style_css_references_static_save_fallback_attr():
+    def _style_css_carries_no_hide_rule_for_static_save_fallback_attr():
         # 19-10-PLAN.md (D-09/A-27): retargeted from .js to .dirty-ready;
         # 22-01-PLAN.md Task 2 (D-01/B1) retargeted it AGAIN, to require
         # BOTH .dirty-ready and .dirty-shown (proven liveness rather than
-        # mere element presence). 27-03-PLAN.md Task 2 (CFG-64) retargets
+        # mere element presence). 27-03-PLAN.md Task 2 (CFG-64) retargeted
         # it a THIRD time, in the opposite direction: the floor is kept
         # by render()'s emission being unconditional now (Task 1's own
-        # source proof), so the two narrowing markers have nothing left
-        # to prove on THIS rule and the selector reverts to the plain
-        # script-presence gate it originally shipped as — the B1/P0
-        # contract is SUPERSEDED, not deleted, and the style.css comment
-        # block records that in writing, dated, right above the rule.
+        # source proof), so the two narrowing markers had nothing left
+        # to prove on THIS rule and the selector reverted to the plain
+        # script-presence gate it originally shipped as.
+        #
+        # 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: RENAMED and
+        # retargeted a FOURTH time, in a direction none of the three
+        # above anticipated — the hide rule itself is GONE, not merely
+        # re-keyed, because the button it hid is now the restored bar's
+        # own visible Save (relocated by Task 1) and its visibility is
+        # the bar's OWN `hidden` attribute, never a second, independent
+        # CSS hide mechanism for the same element (the exact orphan
+        # CFG-78 forbids). This check now asserts the new contract: NO
+        # RULE SELECTOR anywhere in style.css still contains
+        # STATIC_SAVE_FALLBACK_ATTR's literal value — comments MAY
+        # (indeed do) still name it in prose, recording the history —
+        # while the three original B1/P0 sentences, the dated
+        # 27-03-PLAN.md SUPERSEDED paragraph, AND a new dated 28-08
+        # paragraph all survive. `grep -c 'data-static-save-fallback'
+        # companion/static/style.css` is >1 both before and after this
+        # plan (prose mentions inside comment blocks) — asserting "0
+        # occurrences" would be wrong on both sides of the change, so
+        # this check asserts the RELATIONSHIP (no occurrence sits inside
+        # a rule selector) rather than a raw count.
         source = _read_static("style.css")
         if config_page.STATIC_SAVE_FALLBACK_ATTR not in source:
-            return False, "expected style.css to reference the literal value of STATIC_SAVE_FALLBACK_ATTR"
-        idx = source.index(config_page.STATIC_SAVE_FALLBACK_ATTR)
-        window = source[idx:idx + 120]
-        if "display: none" not in window and "display:none" not in window:
-            return False, "expected the fallback-hide rule to set display: none near the attribute reference"
-        # The selector prefix sits BEFORE the attribute reference
-        # (the plain `.js` gate), so widen the window backwards too
-        # rather than only forwards.
-        selector_window = source[max(0, idx - 40):idx + 120]
-        if "dirty-ready" in selector_window or "dirty-shown" in selector_window:
+            return False, "expected style.css to still mention STATIC_SAVE_FALLBACK_ATTR's literal value somewhere (in prose, recording the history)"
+        # Strip comments first (this file's own established idiom, used
+        # by the motion-budget check and others), then check every
+        # remaining occurrence sits OUTSIDE a rule selector — i.e. a
+        # comment-stripped occurrence would only ever appear if a live
+        # rule still targeted the attribute.
+        stripped = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        if config_page.STATIC_SAVE_FALLBACK_ATTR in stripped:
+            idx = stripped.index(config_page.STATIC_SAVE_FALLBACK_ATTR)
             return False, (
-                "expected the fallback-hide rule's OWN selector to carry neither dirty-ready nor "
-                "dirty-shown any more (CFG-64: the floor is kept by unconditional emission, not "
-                "by these two markers) — selector window reads %r" % (selector_window,))
-        combined_selector = ".dirty-ready.dirty-shown [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
-        if combined_selector in source:
-            return False, "expected the superseded two-marker selector to be gone entirely (CFG-64)"
+                "expected NO rule selector anywhere in style.css (comments stripped) to still "
+                "reference %r, but found one — the hide rule this check used to require is "
+                "retired outright (28-08-PLAN.md Task 2, CFG-77/CFG-78); context: %r"
+                % (config_page.STATIC_SAVE_FALLBACK_ATTR, stripped[max(0, idx - 60):idx + 60]))
         # THE SUPERSEDED CONTRACT IS AMENDED IN WRITING, NOT ERASED: the
         # original comment's own distinctive sentences must still be
-        # present (its history survives), and a dated Phase 27 paragraph
-        # must follow it naming what replaced it.
+        # present (its history survives), and both a dated Phase 27
+        # paragraph AND a dated Phase 28 paragraph must follow it naming
+        # what replaced it, each time.
         for distinctive in (
                 "PROVEN its own replacement bar is actually live",
                 "turned out to still be element PRESENCE, not proven liveness (B1)",
@@ -5319,14 +5352,17 @@ def main():
             return False, (
                 "expected a dated 27-03-PLAN.md paragraph stating the contract is SUPERSEDED, "
                 "not merely that the rule changed")
+        if "28-08-PLAN.md Task 2" not in source:
+            return False, (
+                "expected a dated 28-08-PLAN.md Task 2 paragraph stating the hide rule itself is "
+                "now retired — the button it hid became the bar's own visible Save")
         return True, ""
     check(
-        "style.css's fallback-hide rule reverts to the plain .js gate (CFG-64: the floor is now "
-        "kept by render()'s unconditional emission, not by this rule's specificity), the "
-        "superseded two-marker selector is gone, and B1/P0's own contract survives in writing — "
-        "its original sentences intact plus a dated 27-03-PLAN.md paragraph naming what replaced "
-        "it (27-03-PLAN.md Task 2)",
-        _style_css_references_static_save_fallback_attr)
+        "style.css carries NO rule selector referencing STATIC_SAVE_FALLBACK_ATTR any more — the "
+        "hide rule is retired outright, its button now the restored bar's own visible Save — "
+        "while the B1/P0 contract and the dated 27-03/28-08 SUPERSEDED paragraphs all survive in "
+        "writing (CFG-77/CFG-78, 28-08-PLAN.md Task 2)",
+        _style_css_carries_no_hide_rule_for_static_save_fallback_attr)
 
     def _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors():
         # quick task 260901-qif: the third new cross-file guard - unlike
@@ -6535,15 +6571,23 @@ def main():
         "than inventing a new one (quick task 260904-bbi; retargeted by 22-10-PLAN.md Task 1, T10)",
         _saved_but_unchecked_card_degrades_to_a_quiet_current_marker)
 
-    def _style_css_carries_section_caption_and_no_dirty_bar_rules_survive():
-        # 27-04-PLAN.md (D-04/CFG-63): SUPERSEDES this check's own
+    def _style_css_carries_section_caption_and_the_restored_dirty_bar_rules():
+        # 27-04-PLAN.md (D-04/CFG-63): SUPERSEDED this check's own
         # pre-27-04 subject — quick task 260901-re6/260901-s5o's floating-
-        # card restyle and its >=960px fixed positioning are both deleted
-        # wholesale along with `.dirty-bar` itself (style.css's own
-        # superseding comment records the account, right where the rule
-        # used to be). (a) below is the one assertion that survives
-        # unchanged: `.section-caption` is unrelated to the bar and this
-        # is its only test site.
+        # card restyle and its >=960px fixed positioning were both deleted
+        # wholesale along with `.dirty-bar` itself. (a) below is the one
+        # assertion that survived unchanged then and survives unchanged
+        # now: `.section-caption` is unrelated to the bar and this is its
+        # only test site.
+        #
+        # 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: RENAMED and
+        # retargeted in the OPPOSITE direction from 27-04's own retarget
+        # — the developer asked for the bar back, so "zero occurrences of
+        # .dirty-bar" is now the wrong assertion; this check instead
+        # proves `.dirty-bar` genuinely exists, is fixed-positioned at
+        # BOTH breakpoints (never left `position: static` at one of
+        # them), and carries its `[hidden]` override and its Cancel
+        # button's own quiet-wash override.
         source = _read_static("style.css")
 
         caption_selector = ".section-caption {"
@@ -6554,44 +6598,77 @@ def main():
         if "color-mix(in srgb, var(--color-text) 70%, transparent)" not in window:
             return False, "expected .section-caption's rule body to carry the 70% color-mix muted idiom"
 
-        if ".dirty-bar" in source:
-            return False, "expected zero occurrences of .dirty-bar anywhere in style.css — CFG-63 retired it"
+        # Three `.dirty-bar {` rule bodies: the base rule (flex row,
+        # entrance animation — no position declared) plus one per
+        # breakpoint (each setting position: fixed with its own
+        # geometry). Assert the COUNT that actually carries
+        # position: fixed is exactly two — never zero (a breakpoint left
+        # `position: static`) and never three (the base rule itself
+        # should not be the one setting it).
+        dirty_bar_blocks = re.findall(r"\.dirty-bar \{[^}]*\}", source)
+        if len(dirty_bar_blocks) != 3:
+            return False, (
+                "expected exactly three `.dirty-bar { ... }` rule bodies (the base rule plus one "
+                "per breakpoint), got %d" % len(dirty_bar_blocks))
+        fixed_count = sum(1 for block in dirty_bar_blocks if "position: fixed" in block)
+        if fixed_count != 2:
+            return False, (
+                "expected exactly two of the three `.dirty-bar { ... }` rule bodies to set "
+                "position: fixed (one per breakpoint), got %d" % fixed_count)
+        if ".dirty-bar[hidden]" not in source:
+            return False, "expected the `.dirty-bar[hidden] { display: none; }` override to survive"
+        if ".dirty-bar__cancel {" not in source:
+            return False, "expected `.dirty-bar__cancel`'s own quiet-wash override to survive"
         return True, ""
     check(
-        "style.css declares .section-caption (70% muted color-mix) and carries zero occurrences of "
-        ".dirty-bar anywhere — the floating-card restyle and its fixed->=960px positioning "
-        "(quick task 260901-re6, quick task 260901-s5o, 23-09-PLAN.md Task 1's entrance) are all "
-        "retired wholesale along with the component (27-04-PLAN.md, D-04/CFG-63)",
-        _style_css_carries_section_caption_and_no_dirty_bar_rules_survive)
+        "style.css declares .section-caption (70% muted color-mix) AND the restored .dirty-bar — "
+        "fixed-positioned at both breakpoints, its [hidden] override and its Cancel button's own "
+        "quiet-wash override all present (CFG-77/CFG-78, 28-08-PLAN.md Task 2)",
+        _style_css_carries_section_caption_and_the_restored_dirty_bar_rules)
 
-    def _skypane_bar_arrive_keyframes_survive_unreferenced():
+    def _skypane_bar_arrive_keyframes_is_referenced_again_by_the_restored_bar():
         # 27-04-PLAN.md (D-04/CFG-63): the save bar's own entrance
         # (23-09-PLAN.md Task 1, D3/CFG-32) animated from this block, and
-        # every rule that referenced it (the base .dirty-bar rule's own
-        # `animation:` declaration) is retired along with the bar. The
-        # @keyframes DEFINITION is kept rather than deleted — this file's
-        # own @keyframes count is pinned at 4 by a separate check below,
-        # a live count re-derived by running rather than a value this
-        # plan is free to move — so removing it would require the phase
-        # to invent a replacement use or renumber the pin; neither is
-        # this plan's to do. It is therefore orphaned deliberately: no
-        # rule anywhere in the file may still reference its name.
+        # every rule that referenced it was retired along with the bar.
+        # The @keyframes DEFINITION was kept rather than deleted —
+        # deliberately ORPHANED, no rule anywhere referencing it — so
+        # this file's own pinned @keyframes count of 4 would not need to
+        # move for a component that might return.
+        #
+        # 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: it has
+        # returned. RENAMED and retargeted to assert the OPPOSITE of
+        # what it asserted before: the block is REFERENCED again, by the
+        # restored `.dirty-bar` base rule's own `animation:` declaration
+        # — REUSED, not reinvented (the plan's own explicit instruction:
+        # "reuse the stylesheet's existing motion vocabulary" rather than
+        # reintroduce a deleted block). The file's pinned @keyframes
+        # count stays at 4 either way, since this is the SAME block
+        # gaining a consumer, never a new one — re-verified by a
+        # separate check below, by RUNNING.
         source = _read_static("style.css")
         keyframes_marker = "@keyframes skypane-bar-arrive {"
         if source.count(keyframes_marker) != 1:
             return False, (
-                "expected exactly one %s block (kept, not deleted, to hold the @keyframes count "
-                "at 4), got %d" % (keyframes_marker, source.count(keyframes_marker)))
-        if "animation: skypane-bar-arrive" in source:
+                "expected exactly one %s block (still the same one, never duplicated), got %d"
+                % (keyframes_marker, source.count(keyframes_marker)))
+        if "animation: skypane-bar-arrive" not in source:
             return False, (
-                "expected NO rule anywhere to still declare animation: skypane-bar-arrive — the "
-                "one rule that did (the retired .dirty-bar) is gone, and this block must not be "
-                "silently reattached to something else without a plan saying so")
+                "expected the restored .dirty-bar base rule to declare "
+                "animation: skypane-bar-arrive var(--motion-fast) ease-out — REUSING the block "
+                "27-04 deliberately kept orphaned for exactly this restoration, rather than "
+                "leaving the bar with no entrance or reinventing a second block")
+        if source.count("animation: skypane-bar-arrive") != 1:
+            return False, (
+                "expected exactly ONE rule to reference animation: skypane-bar-arrive, got %d — "
+                "a second consumer would be a genuinely new use this plan did not intend"
+                % source.count("animation: skypane-bar-arrive"))
         return True, ""
     check(
-        "the retired save bar's own @keyframes skypane-bar-arrive block survives, unreferenced by "
-        "any rule, so the file's pinned @keyframes count of 4 does not move (27-04-PLAN.md, CFG-63)",
-        _skypane_bar_arrive_keyframes_survive_unreferenced)
+        "the @keyframes skypane-bar-arrive block — kept deliberately orphaned by 27-04 specifically "
+        "so a future restoration would not need to move the file's pinned @keyframes count — is "
+        "REFERENCED again by the restored .dirty-bar base rule's own animation: declaration, reused "
+        "rather than reinvented (CFG-77/CFG-78, 28-08-PLAN.md Task 2)",
+        _skypane_bar_arrive_keyframes_is_referenced_again_by_the_restored_bar)
 
     def _dirty_state_js_has_no_hardcoded_section_names():
         source = _read_static("dirty-state.js")

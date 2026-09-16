@@ -1644,10 +1644,21 @@ a:hover {
  * hiding rule to guard against. Hiding this button is now a plain
  * script-presence decision — the same one the file's other progressive-
  * enhancement rules already make — rather than a proof that a specific
- * replacement bar succeeded. */
-.js [data-static-save-fallback] {
-  display: none;
-}
+ * replacement bar succeeded.
+ *
+ * 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: the RULE below is
+ * RETIRED (not the comment above it, which stays, third layer on the
+ * same block) — the developer asked for the pre-Phase-27 dirty bar
+ * back (ROADMAP.md's Phase 28 addendum), and the button this rule used
+ * to hide with `.js` is now the bar's OWN visible Save, relocated into
+ * its markup (companion/pages/config_page.py's render(), Task 1). Its
+ * visibility is the bar's own `hidden` attribute and nothing else —
+ * `.dirty-bar[hidden] { display: none; }`, below, near the restored
+ * `.dirty-bar` base rule — never a second, independent hide mechanism
+ * for the same button, which is exactly the orphan CFG-78 forbids.
+ * `_style_css_references_static_save_fallback_attr()` is retargeted to
+ * assert NO rule selector anywhere in this file still contains
+ * `data-static-save-fallback` (companion/test_config_page.py). */
 
 /* 27-04-PLAN.md Task 3 (D-04/CFG-63): the auto-save status region that
  * replaces the retired dirty bar — companion/pages/config_page.py's own
@@ -1668,11 +1679,20 @@ a:hover {
  * word it is exactly as loud as any other .text-label caption on the
  * page — a save should read as confirmed, not alarmed, and this app's
  * accent/status colours are reserved for primary actions and real
- * warnings (22-UI-SPEC.md §1), neither of which this region ever is. */
-.save-status {
-  margin-top: var(--space-sm);
-  margin-bottom: 0;
-}
+ * warnings (22-UI-SPEC.md §1), neither of which this region ever is.
+ *
+ * SUPERSEDED by 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: the
+ * region this comment describes is deleted along with the RULE below
+ * (companion/pages/config_page.py's own superseded comment at the
+ * former SAVE_STATUS_* constants' site has the full account). The
+ * comment stays, legible, because it describes a real element that
+ * really existed for one phase — but there is no `.save-status`
+ * element left to style, so the RULE — not the comment — is gone. The
+ * `.dirty-bar` restored below is fixed-positioned again, which is
+ * exactly what makes this block's own "NOT fixed, NOT an overlay, NOT
+ * sticky" conclusion false again too; see the five superseded blocks
+ * further down this file (each named 28-08 in its own margin) for that
+ * half of the story. */
 
 /* 22-14-PLAN.md Task 2 (X9/D-10): `.mobile-nav__nav`'s own rule is
  * DELETED, not left as a dead selector — the element it styled no
@@ -2685,10 +2705,103 @@ button:not(.value-control__handle):active {
  * companion/static/dirty-state.js's own header for the full account of
  * what auto-save replaced and why.
  *
+ * CORRECTION, recorded here rather than silently fixed: the paragraph
+ * below claimed the `skypane-bar-arrive` @keyframes block was "ALSO
+ * deleted". It was not — verified live against the shipped file at
+ * 28-08 planning time, the block survives at this file's top, and
+ * companion/test_config_page.py's own
+ * _skypane_bar_arrive_keyframes_survive_unreferenced (added by this
+ * same 27-04 plan) says so explicitly: kept ON PURPOSE, unreferenced,
+ * specifically so the file's pinned @keyframes count would not need to
+ * move for a component that might return. It has now returned — see
+ * the restored `.dirty-bar` rule immediately below, and that check's
+ * own retarget (28-08-PLAN.md Task 2) for the other half of this story.
  * The `skypane-bar-arrive` @keyframes block this rule used to reference
  * is ALSO deleted — its own site (near this file's top) records the
  * removal and this file's total @keyframes count (still 4, unchanged by
- * this plan) is what a harness pins, not this comment. */
+ * this plan) is what a harness pins, not this comment.
+ *
+ * SUPERSEDED by 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: the
+ * developer asked for the pre-Phase-27 dirty bar back (ROADMAP.md's
+ * Phase 28 addendum). `.dirty-bar`, its `[hidden]` override and
+ * `.dirty-bar__cancel`'s quiet-wash override are ALL RESTORED below,
+ * verbatim from `6dea46a` except where noted in their own comments
+ * (re-measured clearance, Cancel's type="reset" change, and the CSS
+ * consequence that change has — or does not have — on the wash
+ * override). `.js [data-static-save-fallback]` above is retired in
+ * turn (see that rule's own superseded comment); `.save-status` below
+ * loses its RULE the identical way. */
+.dirty-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  margin-top: var(--space-md);
+  box-shadow: var(--shadow-card-hover), 0 12px 32px rgba(18, 21, 27, 0.16);
+  /* 23-09-PLAN.md Task 1 (D3/CFG-32): the entrance, REUSED rather than
+   * reinvented — this is the SAME `skypane-bar-arrive` @keyframes block
+   * 27-04 deliberately kept unreferenced for exactly this moment (see
+   * this rule's own superseded comment above), not a new block. The
+   * file's pinned @keyframes count therefore stays at 4, re-verified by
+   * RUNNING rather than assumed — the SUMMARY states the number.
+   *
+   * It fires when the bar's own `display` changes from `none`, which is
+   * the only way this element is ever revealed (companion/static/
+   * dirty-state.js sets `bar.hidden = false`, and the `[hidden]`
+   * override immediately below is what makes that attribute mean
+   * anything against the `display: flex` above). `ease-out` at the call
+   * site because easing is not a token — 23-01 spent exactly two custom
+   * properties and easing was deliberately not one of them. Its
+   * duration comes from `var(--motion-fast)`, 23-01's own REACTION
+   * token: the user just made an edit and is watching for confirmation
+   * that it can be saved. Under reduced motion this does not slide —
+   * the global `@media (prefers-reduced-motion: reduce)` override
+   * earlier in this file already zeroes animation-duration for every
+   * element, so no per-rule block is needed here either. */
+  animation: skypane-bar-arrive var(--motion-fast) ease-out;
+}
+
+/* Without this, the native `hidden` attribute dirty-state.js relies on to
+ * hide the bar on load has no effect: the author-stylesheet `display: flex`
+ * above always beats the user-agent stylesheet's `[hidden] { display: none }`
+ * regardless of source order, so the bar would render visible even when
+ * the form isn't dirty. Same collision class as the `.stat-tile svg`/
+ * `.mobile-nav` cases elsewhere in this file — a higher-specificity
+ * selector for the `[hidden]` case is required whenever a component's own
+ * base rule sets `display`. */
+.dirty-bar[hidden] {
+  display: none;
+}
+
+/* `.dirty-bar__save` needs no rule of its own — it is a bare
+ * `<button type="submit">`, already accent-filled by `button[type="submit"]`
+ * above.
+ *
+ * 28-08-PLAN.md Task 2 (CFG-77, Cancel's type change), 2026-09-16: Cancel
+ * is now a `<button type="reset" form="settings-form">` (companion/pages/
+ * config_page.py, Task 1's own BLOCKER 4), not `6dea46a`'s
+ * `<button type="button">`. Checked live: this file declares no
+ * `button[type="reset"]` rule and no other type-qualified `button` rule
+ * that would reach it — the base, unqualified `button` rule above (the
+ * 4.5%/9% quiet wash) already governs a `type="reset"` button with
+ * nothing competing, so this override is no longer load-bearing the way
+ * it was for `type="button"` either (that reasoning turns out to have
+ * been stale even before this plan — `button[type="submit"]` never
+ * matched `type="button"` to begin with). It is restored anyway,
+ * unchanged, for the same "explicit is better than implicit" precedent
+ * `.logout-form button`/`.frame-strip__cell button` already establish —
+ * restating the wash and neutralizing `box-shadow` here means a reader
+ * auditing this button never has to prove a negative by reading every
+ * OTHER rule in the file first. */
+.dirty-bar__cancel {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  box-shadow: none;
+  color: var(--color-text);
+}
 
 /* 22-04-PLAN.md Task 2 (C2, T-22-13): the Frame strip's two switch
  * buttons ("Switch off"/"Switch on", "Turn off"/"Turn on") are
@@ -3622,6 +3735,77 @@ button:disabled {
    * the truth either way. */
   .theme-carousel:has(.theme-carousel__all[open]) .theme-chip-grid--strip {
     flex-wrap: wrap;
+  }
+
+  /* 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: the bar's own
+   * content-clearance, and the ONE genuinely new problem this
+   * restoration has that `6dea46a` never did — the OLD clearance rules
+   * were scoped to `.dirty-ready`, a class dirty-state.js wrote onto
+   * `<html>` only once it had proven its own bar live, so a
+   * scripts-blocked visitor (for whom that class never gets written)
+   * reserved no space, but also never SAW the bar — it was `hidden`
+   * for them. Both premises change at once (Task 1's own no-JS-floor
+   * inversion): the bar renders VISIBLE without script now, so a
+   * scripts-blocked visitor needs the clearance too, and `.dirty-ready`
+   * — never written for them — would silently fail exactly that case.
+   *
+   * `:has()` is the fix, joining THIS block rather than opening a
+   * second one (the file's own pinned block-count convention, restated
+   * above): `.dashboard-main:has(.dirty-bar)` /
+   * `.has-tab-bar .page-content:has(.dirty-bar)` are TRUE the instant
+   * the bar exists in the DOM, with zero script needed to prove
+   * anything live first — the server already only ever emits
+   * `.dirty-bar` on a settings page (Task 1), so "the bar exists" and
+   * "clearance is owed" are the same fact by construction. A page that
+   * renders no bar (`/health`, `/flights`, Home) matches neither
+   * selector and gains no dead space, at either breakpoint, with
+   * scripts running or blocked — a browser without `:has()` support
+   * simply reserves no clearance and the bar may cover the last
+   * element, the same accepted degradation every other rule in this
+   * block already carries.
+   *
+   * Both figures below are MEASURED, not guessed and not copied from
+   * `6dea46a` (its own 88px/144px pair was measured against a bar with
+   * DIFFERENT content — a seeded count span and a differently-styled
+   * Cancel button — fifteen months before this restoration): rendered
+   * via a real Chromium tab, scripts BLOCKED (the binding case), at
+   * both breakpoints, in BOTH languages, on `/display` AND `/device`,
+   * reading `.dirty-bar`'s own `getBoundingClientRect().height`.
+   *
+   * >=960px: 64px, IDENTICAL across English/French and both routes (the
+   * bar is `width: fit-content` and does not wrap at this width) — plus
+   * `var(--space-lg)` (24px) above the viewport foot, 88px total,
+   * already on the 8px spacing grid. `.dashboard-main:has(.dirty-bar)`
+   * is (0,2,0), beating the base `.dashboard-main` rule's (0,1,0)
+   * regardless of source order (this block sits textually BEFORE that
+   * rule), so no `@media (min-width: 960px)` wrapper is needed here —
+   * specificity alone decides it. */
+  .dashboard-main:has(.dirty-bar) {
+    padding-bottom: calc(var(--space-2xl) + 88px);
+  }
+
+  /* <960px: 70px, IDENTICAL across English/French and both routes — the
+   * count span is EMPTY at rest (Task 1's own no-claim requirement) and
+   * `6dea46a`'s own asymmetric English/French wrap this file's earlier
+   * comments cited no longer applies to THIS bar's shorter content, so
+   * there is no longer-language case to budget for. Plus `var(
+   * --space-md)` (16px) above the tab bar, 86px, rounded UP to 88px on
+   * the 8px grid.
+   *
+   * `.has-tab-bar .page-content:has(.dirty-bar)` is (0,3,0) — higher
+   * than both `.page-content`'s own base rule (0,1,0) AND
+   * `.has-tab-bar .page-content`'s own tab-bar-only clearance (0,2,0),
+   * further down this file, near the tab bar's own block — so this
+   * rule wins regardless of which is declared later in source, unlike
+   * `6dea46a`'s own T7 clearance, which needed EQUAL specificity and a
+   * later source position to win. The extra `.has-tab-bar` qualifier is
+   * not decorative: it is what keeps this rule from ALSO matching a
+   * hypothetical future page that renders `.dirty-bar` without the tab
+   * bar, which no route in this app does today, but a bare
+   * `.page-content:has(.dirty-bar)` would silently assume forever. */
+  .has-tab-bar .page-content:has(.dirty-bar) {
+    padding-bottom: calc(
+      var(--space-2xl) + 88px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -5726,7 +5910,20 @@ details[open] > summary::before {
  * that alternative for its blast radius (every existing test asserting
  * `.theme-status` markup). Runway/Theme/LED on Device keep their
  * current, un-nested 22px-serif heading treatment — this selector only
- * ever matches a `.theme-status` that also carries `--nested`. */
+ * ever matches a `.theme-status` that also carries `--nested`.
+ *
+ * SUPERSEDED by 28-04-PLAN.md (CFG-72), CARRIED IN by 28-08-PLAN.md
+ * Task 2 (this plan edits zero CSS of its own for CFG-72, but is the
+ * last writer of this file in the phase and therefore the only plan
+ * that CAN correct a sentence this file's own later work falsified):
+ * "Runway/Theme/LED on Device keep their current, un-nested 22px-serif
+ * heading treatment" is now FALSE. 28-04 wrapped every Device settings
+ * card with the nested modifier (CFG-72's title-consistency fix), so
+ * those headings now DO render through this same rule, at this same
+ * 16px sans-semibold bottom rung — the rule below needed NO edit for
+ * that to become true, which is exactly why 28-04 itself touched no
+ * CSS: this selector was already correct, sitting there waiting for a
+ * consumer that hadn't arrived yet. */
 .page-section--nested > h2,
 .battery-trend-section > h2,
 .theme-status--nested > h2 {
@@ -6969,7 +7166,29 @@ a.airline-card {
    * even before this deletion. `.save-status`, further down this file,
    * sits in normal document flow beside the page's own heading and
    * needs no fixed positioning, no z-index and no content-clearance
-   * rule of its own — see that rule's own comment. */
+   * rule of its own — see that rule's own comment.
+   *
+   * SUPERSEDED by 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: the
+   * developer asked for the bar back. The OFFSETS below port unchanged
+   * from the deleted rule — `.dashboard-shell`'s 240px column and
+   * `--space-xl` gap are both confirmed unchanged (verified live at
+   * planning time, this file's own `.dashboard-shell` rule) — but the
+   * CLEARANCE is NOT ported; it is re-measured from scratch further
+   * down this file, inside the `@supports selector(:has(*))` block,
+   * against a bar whose CONTENT (the restored six-word/count-span/
+   * two-button markup) postdates the 88px figure this comment used to
+   * cite by fifteen months. `.save-status` above loses its RULE, not
+   * its comment, the identical way. */
+  .dirty-bar {
+    position: fixed;
+    bottom: var(--space-lg);
+    left: calc(240px + var(--space-xl) + var(--space-md));
+    right: var(--space-md);
+    width: fit-content;
+    max-width: calc(min(1440px, 100%) - var(--space-md) * 2);
+    margin: 0 auto;
+    z-index: 30;
+  }
 
   /* History's mobile/desktop toggle (06.6.3 D-07), inverted at this
    * breakpoint: cards hide, the desktop table (scoped via the same
@@ -8947,7 +9166,30 @@ a.airline-card__zoom {
    * beat `.has-tab-bar .page-content`, which targets the same element at
    * the same (0,2,0) specificity, so it is declared AFTER it — in the
    * tab bar's own block at the foot of this file, next to the rule it
-   * supersedes rather than 900 lines away from it. */
+   * supersedes rather than 900 lines away from it.
+   *
+   * SUPERSEDED by 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: the
+   * bar is back. GEOMETRIC SEPARATION FIRST, restored unchanged: the
+   * offset below already gains the tab bar's 56px height so the two
+   * never overlap in the normal case, arithmetic rather than a stacking
+   * assurance. The z-index stacking order is the belt-and-braces half,
+   * for a bar that wraps taller than its own gap: `z-index: 30`, the
+   * SAME single value the desktop rule declares (one value across both
+   * breakpoints, above the tab bar's 20), because the save bar is the
+   * user's ACTIVE TASK and the tab bar is ambient chrome — a save bar
+   * covering a tab is acceptable, a tab bar covering Save is not. This
+   * file's `.dirty-ready`-scoped clearance rule is NOT restored (see
+   * the tab bar's own block, further down this file, for why the
+   * scoping mechanism itself had to change, not just its figure). */
+  .dirty-bar {
+    position: fixed;
+    left: var(--space-md);
+    right: var(--space-md);
+    bottom: calc(var(--space-md) + 56px + env(safe-area-inset-bottom, 0px));
+    margin: 0;
+    z-index: 30;
+    flex-wrap: wrap;
+  }
 
   /* 22-04-PLAN.md Task 2: `.quick-action` no longer establishes its own
    * flex row (that layout moved onto `.frame-strip__row--state`, one
@@ -10264,5 +10506,22 @@ input:checked + .frame-colours__row {
    * itself. `.has-tab-bar .page-content` above, clearing the tab bar
    * alone, is the only clearance a phone-width settings page needs now:
    * `.save-status` sits in normal document flow and claims no fixed
-   * space of its own. */
+   * space of its own.
+   *
+   * SUPERSEDED by 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: the
+   * bar is back, and its own EXTRA clearance is restored too — but NOT
+   * here. `.has-tab-bar .page-content:has(.dirty-bar)`, inside this
+   * file's one `@supports selector(:has(*))` block (near this file's
+   * top, beside the restored `.dashboard-main:has(.dirty-bar)`
+   * desktop rule), is the new declaration site, deliberately NOT beside
+   * this rule the way `6dea46a`'s own T7 clearance was. That old
+   * placement existed only to win an EQUAL-specificity, later-source-
+   * order fight against `.has-tab-bar .page-content` immediately above
+   * — `:has()` gives the new rule higher specificity instead ((0,3,0)
+   * against this rule's (0,2,0)), so it wins regardless of where in the
+   * file it is declared, and it is declared where the file's `:has()`
+   * block-count convention requires it to live. 86px re-measured
+   * (70px bar + var(--space-md)), rounded up to 88px on the 8px grid —
+   * see that rule's own comment for the measurement method and why it
+   * differs from this paragraph's own historical 144px. */
 }
