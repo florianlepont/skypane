@@ -1019,6 +1019,29 @@ EXPECTED_CHECK_COUNT = 264
 # re-derived by RUNNING (265/265).
 EXPECTED_CHECK_COUNT = 265
 
+# 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: the pre-Phase-27
+# save bar is restored. Deleted, subject gone on both sides of the
+# restoration (-2):
+# _the_save_status_region_carries_both_translated_words_and_no_script_
+# holds_client_state, _save_status_region_sits_beside_the_heading_empty_
+# and_announcing — both tested the now-deleted auto-save status region;
+# their load-bearing properties (translated-word/fallback byte-identity,
+# no-client-storage) are recovered by Task 3's own retargeted
+# _dirty_state_script_es5_safe_reads_two_save_status_attributes. Added
+# (+2): _the_dirty_bar_renders_without_hidden_on_every_scope (the
+# no-JS-floor polarity inversion, pinned), _nothing_inside_the_bar_is_
+# inert_or_claims_a_dirty_state_that_does_not_exist (BLOCKER 4's two
+# consequences, asserted as one fact). Retargeted in place (no count
+# change): _bottom_save_button_carries_static_fallback_attr renamed to
+# _the_bar_s_save_button_is_the_same_static_fallback_element_relocated
+# and extended to assert the relocation's RELATIONSHIP, not just
+# co-presence; _no_js_floor_holds_on_display_and_device_after_the_
+# checkbox_removal's registered description corrected (form=-associated
+# sibling, not a literal descendant) with both original assertions
+# unchanged. Net: 265 - 2 + 2 = 265, re-derived by RUNNING (see Task 2
+# and Task 3's own history entries below for their further deltas).
+EXPECTED_CHECK_COUNT = 265
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -1657,6 +1680,24 @@ def main():
         # display_enabled/quiet_hours_enabled any more, since the Frame
         # strip's own plain POST forms (companion/layout.py, unaffected
         # by this plan) are what a no-JS visitor uses for those two.
+        #
+        # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: both
+        # assertions below keep PASSING UNEDITED after the relocation —
+        # STATIC_SAVE_FALLBACK_ATTR is still present on both scopes, and
+        # '<form class="config-form"' still opens the same physical
+        # form — but this check's OWN REGISTERED DESCRIPTION used to
+        # claim the fallback Save button lives "inside a plain
+        # server-rendered form", which became FALSE the moment Task 1
+        # relocated the button into the bar's markup: it is now a
+        # `form="settings-form"`-ASSOCIATED SIBLING of that form, never
+        # a literal descendant of it. A passing check with a false
+        # description is worse than a failing one, because nothing else
+        # would ever surface it — see the corrected description at this
+        # check's own registration below. The floor itself is UNCHANGED
+        # IN SUBSTANCE: native form submission works identically from a
+        # `form=`-associated sibling as it does from a literal
+        # descendant, which is the whole reason this relocation was
+        # safe to make in the first place.
         base_ctx = {
             "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "state_dir": "/tmp", "poll_cooldown_remaining": 0,
@@ -1686,8 +1727,11 @@ def main():
         return True, ""
     check(
         "D-09's no-JS floor holds at this plan's own commit: scripts-blocked Display and Device "
-        "renders each carry a reachable fallback Save button inside a plain server-rendered form, "
-        "and a plain (no-JS) POST still round-trips the Quiet hours schedule",
+        "renders each carry a reachable fallback Save button, form=\"settings-form\"-ASSOCIATED "
+        "with a plain server-rendered form (relocated into the restored .dirty-bar by "
+        "28-08-PLAN.md Task 1, CFG-77/CFG-78 — never a literal descendant of the form any more, "
+        "and native submission is unchanged in substance either way), and a plain (no-JS) POST "
+        "still round-trips the Quiet hours schedule",
         _no_js_floor_holds_on_display_and_device_after_the_checkbox_removal)
 
     def _handle_post_display_enabled_three_shapes():
@@ -1893,81 +1937,27 @@ def main():
         "Settings opens with the shared layout.page_header() component, not a bare <h1>",
         _render_opens_with_shared_page_header)
 
-    def _the_save_status_region_carries_both_translated_words_and_no_script_holds_client_state():
-        # 27-04-PLAN.md Task 3 (D-04/CFG-63): SUPERSEDES this check's own
-        # pre-27-04 subject (23-09-PLAN.md Task 2's Save-button relabel,
-        # D3/CFG-32) wholesale — the relabel, and the Save button it
-        # relabelled, are both retired along with the dirty bar itself
-        # (dirty-state.js's own header records the full account). What
-        # replaces it is the auto-save status region's own two words,
-        # tested here the identical way: a server-rendered, translated
-        # data-* attribute with a byte-identical English fallback.
-        static_dir = os.path.join(os.path.dirname(__file__), "static")
-        with open(os.path.join(static_dir, "dirty-state.js")) as fh:
-            source = fh.read()
-
-        for attr_const, text_const in (
-                (config_page.SAVE_STATUS_SAVING_ATTR, config_page.SAVE_STATUS_SAVING_TEXT),
-                (config_page.SAVE_STATUS_SAVED_ATTR, config_page.SAVE_STATUS_SAVED_TEXT)):
-            rendered = config_page.render({
-                "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-                "poll_cooldown_remaining": 0,
-            }, scope=config_page.SCOPE_DISPLAY)
-            marker = '%s="%s"' % (attr_const, text_const)
-            if marker not in rendered:
-                return False, (
-                    "expected the save-status region to carry %r — both words belong on the "
-                    "same element, the same idiom the retired bar's own words used" % (marker,))
-            if attr_const not in source:
-                return False, "expected dirty-state.js to read %r off the region" % (attr_const,)
-            if ('"%s"' % text_const) not in source:
-                return False, (
-                    "expected dirty-state.js's English fallback literal for %r to match the "
-                    "server constant byte for byte, or a region rendered without the attribute "
-                    "says something different from one rendered with it" % (attr_const,))
-            try:
-                prefs.set_request_prefs(lang="fr")
-                fr_rendered = config_page.render({
-                    "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-                    "poll_cooldown_remaining": 0,
-                }, scope=config_page.SCOPE_DISPLAY)
-            finally:
-                prefs.set_request_prefs(lang="en")
-            fr_word = layout.i18n.t_lang(text_const, "fr")
-            if fr_word == text_const:
-                return False, (
-                    "expected a French entry for %r — every new visible word is a catalogue entry"
-                    % (text_const,))
-            if ('%s="%s"' % (attr_const, fr_word)) not in fr_rendered:
-                return False, "expected a French render to carry the French word for %r" % (attr_const,)
-
-        # NO CLIENT STATE, in any script. The completed state is not
-        # persisted client-side at all — the fetch's own 204 IS the
-        # confirmation, read once and written straight to the region;
-        # carrying a flag anywhere longer-lived would mean browser
-        # storage, and this app holds none, on purpose. Measured on
-        # COMMENT-STRIPPED source, the way 23-01's own motion guard
-        # measures its bans, so a script may still write down WHY it
-        # holds no client state without failing the rule.
-        for name in sorted(os.listdir(static_dir)):
-            if not name.endswith(".js"):
-                continue
-            with open(os.path.join(static_dir, name)) as fh:
-                live = re.sub(r"/\*.*?\*/", "", fh.read(), flags=re.DOTALL)
-            live = re.sub(r"^\s*//.*$", "", live, flags=re.MULTILINE)
-            for store in ("sessionStorage", "localStorage", "indexedDB"):
-                if store in live:
-                    return False, (
-                        "companion/static/%s reaches for %s — this app holds no client state at "
-                        "all, deliberately, and a 'Saved' flag carried across a page's own "
-                        "lifetime is exactly the thing that would introduce one" % (name, store))
-        return True, ""
-    check(
-        "the save-status region's two words (SAVE_STATUS_SAVING_TEXT/SAVE_STATUS_SAVED_TEXT) are "
-        "server-rendered, translated data-* attributes with byte-identical English fallbacks in "
-        "dirty-state.js, and no script anywhere reaches for client storage (27-04-PLAN.md Task 3, "
-        "D-04/CFG-63, supersedes the retired Save-button relabel check, 23-09-PLAN.md Task 2/D3/CFG-32)",
-        _the_save_status_region_carries_both_translated_words_and_no_script_holds_client_state)
+    # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: the check that
+    # used to live here —
+    # _the_save_status_region_carries_both_translated_words_and_no_
+    # script_holds_client_state — tested the auto-save status region's
+    # SAVE_STATUS_SAVING_ATTR/SAVE_STATUS_SAVED_ATTR pair, both deleted
+    # by this plan along with the region itself (see config_page.py's
+    # own superseded comment at the former SAVE_STATUS_* constants'
+    # site). DELETED OUTRIGHT rather than retargeted in place: its
+    # subject no longer exists on either side of the restoration, unlike
+    # 27-04's own "supersedes the retired relabel check" precedent this
+    # docstring itself named, where the OLD and NEW subjects were both
+    # real elements at the same DOM site. The two properties this check
+    # verified are NOT lost: the restored bar's seven data-dirty-*
+    # words get the identical translated-attribute-plus-byte-identical-
+    # fallback proof from Task 3's own retargeted
+    # _dirty_state_script_es5_safe_reads_two_save_status_attributes
+    # (renamed there), and that same retarget folds in a "no script
+    # under companion/static/ reaches for client storage" scan so the
+    # NO-CLIENT-STATE invariant this check's own second half asserted
+    # keeps a home. This is a net -1 to EXPECTED_CHECK_COUNT (see the
+    # history comment above the constant).
 
     def _settings_form_carries_config_form_class_hook():
         # D-01 stable class hook: the settings form (POST /config) needs a
@@ -2003,49 +1993,18 @@ def main():
         "the settings form keeps the stable config-form class hook the desktop two-column fieldset layout targets",
         _settings_form_carries_config_form_class_hook)
 
-    def _save_status_region_sits_beside_the_heading_empty_and_announcing():
-        # 27-04-PLAN.md Task 3 (D-04/D-06/CFG-63): SUPERSEDES this check's
-        # own pre-27-04 subject (the dirty save bar, a sibling emitted
-        # LAST on the page — quick task 260901-re6). The bar and its own
-        # placement contract are retired outright along with dirty_bar_
-        # html() itself; what replaces it is placed FIRST, immediately
-        # after the page's own heading, "beside the form's heading" per
-        # that plan's own wording — the opposite end of the page from
-        # where the bar used to live.
-        rendered = config_page.render({
-            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-            "poll_cooldown_remaining": 0,
-        }, scope=config_page.SCOPE_DISPLAY)
-        if rendered.count('<form class="config-form"') != 1:
-            return False, "expected exactly one config-form <form>, no duplicate"
-        if config_page.SAVE_STATUS_ATTR not in rendered:
-            return False, "expected the save-status region's own attribute to appear in render()'s output"
-        region_pos = rendered.index(config_page.SAVE_STATUS_ATTR)
-        heading_marker = "<h1"
-        if heading_marker not in rendered:
-            return False, "expected a page heading"
-        heading_pos = rendered.index(heading_marker)
-        if region_pos <= heading_pos:
-            return False, "expected the save-status region to appear AFTER the page's own heading"
-        form_pos = rendered.index('<form class="config-form"')
-        if region_pos >= form_pos:
-            return False, "expected the save-status region to appear BEFORE the settings form, not after it"
-        # EMPTY at rest: a region already carrying its saved word on a
-        # fresh load would be the same stale-claim defect this phase
-        # exists to fix, in a sentence instead of an arc.
-        region_start = rendered.index("<p class=\"save-status")
-        region_end = rendered.index("</p>", region_start) + len("</p>")
-        region_markup = rendered[region_start:region_end]
-        if not region_markup.endswith("></p>"):
-            return False, "expected the save-status region to render with no text content at rest, got %r" % (region_markup,)
-        if 'role="status"' not in region_markup:
-            return False, "expected the save-status region to carry role=\"status\""
-        if 'aria-live="polite"' not in region_markup:
-            return False, "expected the save-status region to carry aria-live=\"polite\", not role=\"alert\" — a failed save's toast, not this region, is the assertive announcement"
-        return True, ""
-    check(
-        "render() places one save-status region beside the page's own heading, before the settings form — EMPTY at rest, carrying role=\"status\" and aria-live=\"polite\" (27-04-PLAN.md Task 3, D-04/CFG-63, supersedes the retired dirty bar's own end-of-page placement check)",
-        _save_status_region_sits_beside_the_heading_empty_and_announcing)
+    # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: the check that
+    # used to live here —
+    # _save_status_region_sits_beside_the_heading_empty_and_announcing —
+    # tested the auto-save status region's placement (beside the page
+    # heading, before the settings form) and its own SAVE_STATUS_ATTR.
+    # DELETED OUTRIGHT for the identical reason the check above this one
+    # was: the region and its constant are both gone. The bar that
+    # replaces it is emitted at the OPPOSITE end of the page now (LAST,
+    # a sibling after `</form>` and the Poll section — see this task's
+    # own new checks below, and render()'s own comment at the bar's
+    # emission site, for the full reasoning). This is a further -1 to
+    # EXPECTED_CHECK_COUNT (see the history comment above the constant).
 
     # 21-05-PLAN.md Task 1 (D-06): theme_fieldset() is retired outright —
     # every direct-call test against it (one-radio-per-registry-entry,
@@ -3562,7 +3521,24 @@ def main():
         "origin/main; narrowed by 21-05-PLAN.md Task 1 D-06 once theme_fieldset() is retired)",
         _each_group_emits_exactly_one_caption_between_heading_and_control)
 
-    def _bottom_save_button_carries_static_fallback_attr():
+    def _the_bar_s_save_button_is_the_same_static_fallback_element_relocated():
+        # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: RENAMED from
+        # _bottom_save_button_carries_static_fallback_attr — that name
+        # and this check's own registered description ("render()'s
+        # bottom Save settings button") both became false the moment
+        # STATIC_SAVE_FALLBACK_ATTR's button moved from a slot inside
+        # `<form>...</form>` to a slot inside the restored `.dirty-bar`'s
+        # own markup (Task 1's relocation, CFG-78's "same element, not a
+        # second button" requirement). The regex this check already ran
+        # survives unchanged — adding `class=`/`form=` attributes to the
+        # button does not break `<button\b[^>]*data-static-save-
+        # fallback[^>]*>Save settings</button>` — but co-presence alone
+        # no longer proves the relocation happened; this check now also
+        # asserts the RELATIONSHIP (Task 1's own acceptance criterion):
+        # the one STATIC_SAVE_FALLBACK_ATTR occurrence's string index
+        # falls strictly between `.dirty-bar`'s opening tag and its
+        # matching close, and no second submit-shaped control exists
+        # inside the settings form now that this one has left it.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -3578,10 +3554,161 @@ def main():
             return False, "expected the fallback attribute on a type=\"submit\" Save settings button"
         if 'type="submit"' not in button_match.group(0):
             return False, "expected the fallback button to carry type=\"submit\""
+        if 'form="%s"' % config_page.SETTINGS_FORM_ID not in button_match.group(0):
+            return False, (
+                "expected the relocated fallback button to carry form=%r, preserving native "
+                "submission from outside the physical form" % (config_page.SETTINGS_FORM_ID,))
+        # THE RELATIONSHIP: the button's own index sits strictly inside
+        # `.dirty-bar`'s span, not merely somewhere in the same document.
+        bar_open = rendered.index('<div class="dirty-bar"')
+        bar_close = rendered.index("</div>", bar_open) + len("</div>")
+        attr_pos = rendered.index(config_page.STATIC_SAVE_FALLBACK_ATTR)
+        if not (bar_open < attr_pos < bar_close):
+            return False, (
+                "expected data-static-save-fallback's one occurrence to sit INSIDE the "
+                ".dirty-bar element (between its opening tag at %d and its close at %d), got "
+                "index %d — a relocation that landed the button outside the bar is not the "
+                "relocation CFG-78 asked for" % (bar_open, bar_close, attr_pos))
+        # No second submit-shaped control left inside the settings form
+        # THAT WOULD ACTUALLY SUBMIT IT, now that the one that did has
+        # moved out. The Frame strip's LED quick-switch and the
+        # Notifications card's "Send a test" both render a
+        # type="submit" button positionally inside this <form>...</form>
+        # markup already (D-19/D2's own cross-DOM idiom, predating and
+        # unaffected by this plan) — each carries its OWN form=
+        # attribute pointing at a DIFFERENT physical form ("quick-led",
+        # "notifications-test"), so neither actually submits
+        # settings-form despite sitting inside its markup. Only a
+        # type="submit" button with NO form= attribute (which would
+        # submit its nearest ancestor form — this one) or an explicit
+        # form="settings-form" would be a genuine second save affordance
+        # for THIS form, and that is what this assertion actually rules
+        # out.
+        form_open = rendered.index('<form class="config-form"')
+        form_close = rendered.index("</form>", form_open) + len("</form>")
+        form_markup = rendered[form_open:form_close]
+        for tag in re.findall(r'<button\b[^>]*type="submit"[^>]*>', form_markup):
+            form_attr_match = re.search(r'\bform="([^"]*)"', tag)
+            submits = form_attr_match.group(1) if form_attr_match else config_page.SETTINGS_FORM_ID
+            if submits == config_page.SETTINGS_FORM_ID:
+                return False, (
+                    "expected the settings <form>...</form> itself to carry NO type=\"submit\" "
+                    "control that actually submits it any more — the one save affordance now "
+                    "lives in the bar, outside it — but found %r" % (tag,))
         return True, ""
     check(
-        "render()'s bottom Save settings button carries data-static-save-fallback exactly once (D-04)",
-        _bottom_save_button_carries_static_fallback_attr)
+        "the bar's Save button is the SAME STATIC_SAVE_FALLBACK_ATTR element CFG-64 pins, "
+        "relocated inside .dirty-bar with form=\"settings-form\" — never a second button, and the "
+        "physical <form> itself carries no submit control of its own any more (CFG-77/CFG-78, "
+        "28-08-PLAN.md Task 1)",
+        _the_bar_s_save_button_is_the_same_static_fallback_element_relocated)
+
+    def _the_dirty_bar_renders_without_hidden_on_every_scope():
+        # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: THE POLARITY
+        # INVERSION, pinned. `6dea46a`'s own pre-27-04 bar was
+        # server-rendered `hidden` because a separate always-visible
+        # bottom Save button existed as the no-JS floor. There is no
+        # second button any more — the bar's own visible state IS the
+        # floor now — so a `hidden` attribute here would silently remove
+        # the only way a scripts-blocked visitor can save. This check
+        # exists specifically to catch a future reader copying
+        # `6dea46a`'s markup back in without reading why it changed.
+        base_ctx = {
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
+            rendered = config_page.render(base_ctx, scope=scope)
+            bar_open_end = rendered.index(">", rendered.index('<div class="dirty-bar"')) + 1
+            bar_open_tag = rendered[rendered.index('<div class="dirty-bar"'):bar_open_end]
+            if "hidden" in bar_open_tag:
+                return False, (
+                    "expected NO hidden attribute on .dirty-bar's own opening tag on scope=%r, "
+                    "got %r — this would silently remove the no-JS save floor" % (scope, bar_open_tag))
+        return True, ""
+    check(
+        "the restored .dirty-bar renders WITHOUT a hidden attribute on every scope — the no-JS "
+        "floor is the bar's own visible server-rendered state now, not a separate fallback "
+        "button (CFG-77/CFG-78, 28-08-PLAN.md Task 1)",
+        _the_dirty_bar_renders_without_hidden_on_every_scope)
+
+    def _nothing_inside_the_bar_is_inert_or_claims_a_dirty_state_that_does_not_exist():
+        # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: BLOCKER 4's
+        # two consequences of the polarity inversion, asserted as one
+        # fact because both are load-bearing for the identical
+        # scripts-blocked visitor. (a) every control inside the bar
+        # genuinely FUNCTIONS with scripts blocked — parsed per-tag,
+        # never by grepping the file for the absence of a literal,
+        # because that would not catch a stray type="button" hiding
+        # behind other attributes. (b) [data-dirty-count]'s
+        # server-rendered content makes NO claim about unsaved changes
+        # existing, in either language — seeding it would be a
+        # permanent, role="status"-announced false claim to every
+        # scripts-blocked visitor on every fresh page load.
+        base_ctx = {
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        unsaved_claim_strings_en = (
+            config_page.DIRTY_BAR_INITIAL_TEXT,
+            config_page.DIRTY_UNSAVED_SINGULAR,
+            config_page.DIRTY_UNSAVED_PLURAL,
+        )
+        for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
+            for lang in ("en", "fr"):
+                try:
+                    prefs.set_request_prefs(lang=lang)
+                    rendered = config_page.render(base_ctx, scope=scope)
+                finally:
+                    prefs.set_request_prefs(lang="en")
+                bar_open = rendered.index('<div class="dirty-bar"')
+                bar_close = rendered.index("</div>", bar_open) + len("</div>")
+                bar_markup = rendered[bar_open:bar_close]
+                # (a) every <button>/<input> inside the bar resolves to
+                # type="submit" or type="reset", each form=-associated,
+                # and NONE resolves to type="button".
+                tags = re.findall(r'<(?:button|input)\b[^>]*>', bar_markup)
+                if not tags:
+                    return False, "expected at least the Save and Cancel controls inside .dirty-bar on scope=%r/%s" % (scope, lang)
+                for tag in tags:
+                    type_match = re.search(r'type="([^"]*)"', tag)
+                    resolved_type = type_match.group(1) if type_match else None
+                    if resolved_type == "button":
+                        return False, (
+                            "expected no control inside .dirty-bar to resolve to type=\"button\" "
+                            "on scope=%r/%s — a type=\"button\" control is fully visible and fully "
+                            "inert with scripts blocked; got %r" % (scope, lang, tag))
+                    if resolved_type not in ("submit", "reset"):
+                        return False, (
+                            "expected every control inside .dirty-bar to resolve to type=\"submit\" "
+                            "or type=\"reset\" on scope=%r/%s, got %r in %r" % (scope, lang, resolved_type, tag))
+                    if 'form="%s"' % config_page.SETTINGS_FORM_ID not in tag:
+                        return False, (
+                            "expected every control inside .dirty-bar to carry form=%r on "
+                            "scope=%r/%s, got %r" % (config_page.SETTINGS_FORM_ID, scope, lang, tag))
+                # (b) the count span's server-rendered content makes no
+                # claim about unsaved changes existing, in EITHER
+                # catalogue's wording — a French render must not leak
+                # the English claim either, and vice versa.
+                count_start = rendered.index("<span data-dirty-count")
+                count_end = rendered.index("</span>", count_start) + len("</span>")
+                count_markup = rendered[count_start:count_end]
+                for claim_en in unsaved_claim_strings_en:
+                    claim_fr = layout.i18n.t_lang(claim_en, "fr")
+                    for claim in (claim_en, claim_fr):
+                        if claim and claim in count_markup:
+                            return False, (
+                                "expected [data-dirty-count]'s server-rendered content to make NO "
+                                "claim about unsaved changes on scope=%r/%s, but found %r inside "
+                                "%r" % (scope, lang, claim, count_markup))
+        return True, ""
+    check(
+        "no control inside the restored .dirty-bar is inert with scripts blocked (every "
+        "<button>/<input> resolves to type=\"submit\" or type=\"reset\", each form=\"settings-form\"-"
+        "associated, none type=\"button\"), and [data-dirty-count]'s server-rendered content makes "
+        "no claim about unsaved changes existing, in either language (CFG-77/CFG-78, "
+        "28-08-PLAN.md Task 1)",
+        _nothing_inside_the_bar_is_inert_or_claims_a_dirty_state_that_does_not_exist)
 
     def _section_captions_appear_escaped_verbatim_exactly_once():
         # quick task 260901-re6: retargeted onto all three merged caption
