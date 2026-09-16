@@ -1059,6 +1059,25 @@ EXPECTED_CHECK_COUNT = 265
 # 265, re-derived by RUNNING (265/265).
 EXPECTED_CHECK_COUNT = 265
 
+# 28-08-PLAN.md Task 3 (CFG-77/CFG-78), 2026-09-16: dirty-state.js is
+# rewritten as the bar's driver again. Two checks retargeted IN PLACE,
+# no count change: _dirty_state_js_only_fetches_never_polls_debounces_
+# or_xhrs renamed to _dirty_state_js_is_network_free_again_with_one_
+# named_timer_exception (this plan's own three-JS-contract retarget —
+# fetch(/XMLHttpRequest/setInterval/requestAnimationFrame all
+# forbidden again, exactly ONE setTimeout permitted, pinned
+# structurally to the reset-event handler's own function body).
+# _dirty_state_js_delegates_change_only_at_document_level_and_has_no_
+# forbidden_syntax renamed to _dirty_state_js_delegates_change_and_
+# input_at_document_level_and_has_no_forbidden_syntax — NOT one of
+# this plan's own named three, but broken as a direct, unavoidable
+# consequence of restoring dirtySectionLabels() (DIRTY_SECTION_ATTR's
+# value legitimately reappears) and the dual change/input delegation
+# (Rule 1: fixed here, outside the plan's own file list, because the
+# breakage is this plan's own doing). Net: 265 + 0 = 265, re-derived
+# by RUNNING (265/265).
+EXPECTED_CHECK_COUNT = 265
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -5064,54 +5083,65 @@ def main():
         with open(os.path.join(_STATIC_DIR, name)) as fh:
             return fh.read()
 
-    def _dirty_state_js_delegates_change_only_at_document_level_and_has_no_forbidden_syntax():
-        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDES this check's own
+    def _dirty_state_js_delegates_change_and_input_at_document_level_and_has_no_forbidden_syntax():
+        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDED this check's own
         # pre-27-04 subject — DIRTY_SECTION_ATTR and the dirty-ready
-        # marker are both retired along with the bar that read them
-        # (dirtySectionLabels() and updateBar() are both gone; see
-        # dirty-state.js's own header for the full account). B1's own
-        # fix (22-01-PLAN.md Task 2, D-01) survives unchanged: no
-        # form.addEventListener registration may return, and the
-        # delegation must stay at the document level gated on the
-        # control's own .form property.
+        # marker were both retired along with the bar that read them.
+        #
+        # 28-08-PLAN.md Task 3 (CFG-77/CFG-78), 2026-09-16: RENAMED and
+        # retargeted in the OPPOSITE direction, outside this plan's own
+        # named three JS-contract checks but broken as a direct,
+        # unavoidable consequence of restoring dirtySectionLabels() and
+        # the dual change/input delegation (Rule 1: a check asserting
+        # "references neither DIRTY_SECTION_ATTR nor dirty-ready" cannot
+        # survive a plan whose whole point is restoring
+        # dirtySectionLabels()'s own [data-dirty-section] reader).
+        # DIRTY_SECTION_ATTR's value DOES appear again now — restored,
+        # as dirtySectionLabels()'s own wrapper-lookup attribute. The
+        # dirty-ready/dirty-shown MARKERS still do NOT survive — this
+        # restoration deliberately does not bring either one back at all
+        # (28-08-PLAN.md Task 3: the CSS clearance mechanism is
+        # :has(.dirty-bar) now, which needs no script-written marker).
+        # B1's own fix (22-01-PLAN.md Task 2, D-01) survives unchanged:
+        # no form.addEventListener("change"/"input" registration may
+        # return, and the delegation must stay at the document level
+        # gated on the control's own .form property — and D-04's own
+        # change-only restriction is ITSELF superseded: the restored
+        # bar listens for BOTH change and input again (6dea46a's own
+        # pre-27-04 shape — a keystroke in the wake-interval/quiet-hours
+        # fields updates the bar's live count as it's typed, the same
+        # way it did before 27-04 ever ran).
         source = _read_static("dirty-state.js")
-        if config_page.DIRTY_SECTION_ATTR in source:
+        if config_page.DIRTY_SECTION_ATTR not in source:
             return False, (
-                "expected dirty-state.js to reference NEITHER DIRTY_SECTION_ATTR's value nor "
-                "dirty-ready any more — dirtySectionLabels() and the bar's own liveness marker "
-                "are both retired along with the bar itself (CFG-63)")
+                "expected dirty-state.js to reference DIRTY_SECTION_ATTR's value again — "
+                "dirtySectionLabels() is restored and reads it")
         if "dirty-ready" in source or "dirty-shown" in source:
             return False, (
                 "expected dirty-state.js to carry neither the dirty-ready nor the dirty-shown "
-                "marker any more — style.css's fallback-hide rule keys on a plain .js gate now "
-                "(27-03-PLAN.md/CFG-64) and there is no bar left to prove the liveness of")
-        if 'form.addEventListener("change"' in source:
-            return False, "expected no surviving form.addEventListener(\"change\" registration (B1 regression)"
-        if "document.addEventListener" not in source:
-            return False, "expected at least one document.addEventListener registration (change)"
+                "marker — this restoration's own clearance mechanism is :has(.dirty-bar), which "
+                "needs no script-written marker class")
+        if 'form.addEventListener("change"' in source or 'form.addEventListener("input"' in source:
+            return False, (
+                "expected no surviving form.addEventListener(\"change\"/\"input\" registration "
+                "(B1 regression) — delegation must stay document-level")
+        for kind in ("change", "input"):
+            call = 'document.addEventListener("%s"' % kind
+            if call not in source:
+                return False, "expected a document.addEventListener(%r registration" % (kind,)
         if "e.target.form === form" not in source and "e.target.form===form" not in source:
             return False, "expected the document-level delegation to gate on e.target.form === form"
-        # D-04: `input` no longer drives anything — there is no bar left
-        # to update on a keystroke, and a save on `input` would be the
-        # exact keystroke-is-a-decision mistake this plan's own
-        # PROVISIONAL note argues against. Measured on the document-level
-        # registration specifically, not a file-wide scan: "input" the
-        # substring also appears inside ordinary words (e.g. the file's
-        # own comments), so only the delegated-listener call sites count.
-        if 'document.addEventListener("input"' in source:
-            return False, (
-                "expected no document-level \"input\" listener — only `change` drives a save now "
-                "(D-04)")
         for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
             if forbidden in source:
                 return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
         return True, ""
     check(
-        "dirty-state.js references neither DIRTY_SECTION_ATTR nor the retired dirty-ready/dirty-shown "
-        "markers any more, delegates ONLY change (never input) at document level gated on "
-        "e.target.form === form with no surviving form.addEventListener(\"change\" registration (B1), "
-        "and contains none of innerHTML/let /const /=>/backtick (27-04-PLAN.md Task 2, CFG-63)",
-        _dirty_state_js_delegates_change_only_at_document_level_and_has_no_forbidden_syntax)
+        "dirty-state.js references DIRTY_SECTION_ATTR again (dirtySectionLabels() restored) but "
+        "carries neither the retired dirty-ready nor dirty-shown marker, delegates BOTH change AND "
+        "input at document level gated on e.target.form === form with no surviving "
+        "form.addEventListener(\"change\"/\"input\" registration (B1), and contains none of "
+        "innerHTML/let /const /=>/backtick (CFG-77/CFG-78, 28-08-PLAN.md Task 3)",
+        _dirty_state_js_delegates_change_and_input_at_document_level_and_has_no_forbidden_syntax)
 
     def _live_preview_crossfades_through_one_class_shared_by_css_and_js():
         """23-10-PLAN.md Task 2 (D3/CFG-32): the live theme preview
@@ -6680,45 +6710,91 @@ def main():
         "dirty-state.js contains no hardcoded occurrence of \"Theme\", \"Runway\", or \"Diagnostic LED\" (labels come from the DOM)",
         _dirty_state_js_has_no_hardcoded_section_names)
 
-    def _dirty_state_js_only_fetches_never_polls_debounces_or_xhrs():
-        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDES this check's own
-        # pre-27-04 ban — dirty-state.js is now the settings form's
-        # auto-save driver and fetch is exactly how it saves, the
-        # identical model quick-switch.js already ships. XMLHttpRequest
-        # and setInterval stay forbidden outright: the first would be a
-        # second, older request vocabulary beside fetch's already-shipped
-        # one, and the second would mean a poll loop this file has no
-        # business running. setTimeout is NOT banned outright — it drives
-        # the SAME toast-dismiss timer quick-switch.js's own announce
-        # Failure() already uses (TOAST_DISMISS_MS), duplicated rather
-        # than shared for the identical no-cross-file-import reason every
-        # other constant here is. What IS forbidden is using it to
-        # DEBOUNCE a save — this plan's own D-04 note explicitly declines
-        # that design — so the one setTimeout call in this file must be
-        # scoped to the toast, never to beginSave().
+    def _dirty_state_js_is_network_free_again_with_one_named_timer_exception():
+        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDED this check's own
+        # pre-27-04 ban — dirty-state.js became the settings form's
+        # auto-save driver and fetch( was exactly how it saved, the
+        # identical model quick-switch.js already ships.
+        #
+        # 28-08-PLAN.md Task 3 (CFG-77/CFG-78), 2026-09-16: RENAMED and
+        # INVERTED — the developer asked for the bar back
+        # (ROADMAP.md's Phase 28 addendum), so this file is back to
+        # being network-free and poll-free. Forbidden OUTRIGHT: fetch(,
+        # XMLHttpRequest, setInterval, requestAnimationFrame.
+        #
+        # setTimeout is permitted EXACTLY ONCE, and pinned STRUCTURALLY,
+        # not by count alone: the single occurrence must be a
+        # setTimeout(fn, 0) — a literal zero delay, never a duration —
+        # scheduled from INSIDE the form's own reset-event handler
+        # (form.addEventListener("reset", function () { ... })) and
+        # nowhere else in the file. This is a reset-event side-effect
+        # flush, not a poll and not a debounce: the reset event fires
+        # BEFORE the browser restores the form's fields (the restore is
+        # that event's own cancelable default action), so the theme-
+        # preview refresh and the dial repaint must run on the next tick
+        # to read restored values — a synchronous call would read stale
+        # ones. This file's pre-27-04 shape also permitted exactly one
+        # setTimeout, then scoped to the toast's own dismissal — the
+        # toast's removal retires that one and this replaces it, so
+        # "exactly one, narrowly scoped" is this file's own existing
+        # convention, not a new liberty.
         source = _read_static("dirty-state.js")
-        if "fetch(" not in source:
-            return False, "expected dirty-state.js to call fetch( — it is now the auto-save driver"
-        for forbidden in ("XMLHttpRequest", "setInterval"):
+        for forbidden in ("fetch(", "XMLHttpRequest", "setInterval", "requestAnimationFrame"):
             if forbidden in source:
                 return False, "forbidden network/timer construct found in dirty-state.js: %r" % (forbidden,)
         if source.count("setTimeout") != 1:
             return False, (
-                "expected exactly one setTimeout call — the toast's own dismiss timer, "
-                "duplicated from quick-switch.js's identical idiom — got %d"
-                % source.count("setTimeout"))
-        timeout_idx = source.index("setTimeout")
-        timeout_call = source[timeout_idx:timeout_idx + 200]
-        if "beginSave" in timeout_call:
-            return False, "expected the one setTimeout call to never reference beginSave — no debounced save"
-        if "TOAST_DISMISS_MS" not in timeout_call:
-            return False, "expected the one setTimeout call to be the toast's own TOAST_DISMISS_MS dismiss"
+                "expected exactly one setTimeout occurrence anywhere in the file (the reset-event "
+                "side-effect flush), got %d" % source.count("setTimeout"))
+        # Locate the reset-event handler's own function body by reading,
+        # from its opening brace to its matching close — never by a
+        # file-wide grep, which would not prove CONTAINMENT.
+        handler_marker = 'form.addEventListener("reset", function () {'
+        if handler_marker not in source:
+            return False, "expected a form.addEventListener(\"reset\", function () { ... }) handler"
+        body_start = source.index(handler_marker) + len(handler_marker)
+        depth = 1
+        i = body_start
+        while depth > 0:
+            if i >= len(source):
+                return False, "reset handler's opening brace was never matched by a closing one"
+            if source[i] == "{":
+                depth += 1
+            elif source[i] == "}":
+                depth -= 1
+            i += 1
+        handler_body = source[body_start:i - 1]
+        if "setTimeout" not in handler_body:
+            return False, (
+                "expected the file's one setTimeout occurrence to sit INSIDE the reset handler's "
+                "own function body, but it was found outside it")
+        timeout_idx = handler_body.index("setTimeout")
+        timeout_call = handler_body[timeout_idx:timeout_idx + 400]
+        if not re.search(r"setTimeout\(function \(\) \{.*?\}, 0\);", timeout_call, re.DOTALL):
+            return False, (
+                "expected the reset handler's own setTimeout call to read "
+                "setTimeout(function () { ... }, 0) — a literal zero delay, never a duration; "
+                "got %r" % (timeout_call[:120],))
+        if "preventDefault" in handler_body or "returnValue" in handler_body:
+            return False, (
+                "expected the reset handler's own function body to contain neither "
+                "preventDefault nor returnValue — cancelling the reset event's own default "
+                "action would silently turn Annuler into a no-op for every JS-running visitor")
+        # The header carries BOTH halves of the constraint — the ban and
+        # the named exception — never a blanket claim the code
+        # contradicts.
+        if "never introduce a network call" not in source:
+            return False, "expected the header to restore its 'never introduce a network call' constraint"
+        if "ONE NAMED EXCEPTION" not in source:
+            return False, "expected the header to name the ONE timer exception explicitly, in the same breath as the constraint"
         return True, ""
     check(
-        "dirty-state.js calls fetch( (it is now the auto-save driver), contains neither "
-        "XMLHttpRequest nor setInterval, and its one setTimeout call is the toast's own "
-        "TOAST_DISMISS_MS dismiss timer — never a debounced save (27-04-PLAN.md Task 2, CFG-63)",
-        _dirty_state_js_only_fetches_never_polls_debounces_or_xhrs)
+        "dirty-state.js is network-free and poll-free again (no fetch(/XMLHttpRequest/setInterval/"
+        "requestAnimationFrame anywhere) with exactly ONE setTimeout in the whole file — a literal "
+        "setTimeout(fn, 0) sitting INSIDE the form's own reset-event handler, never cancelling that "
+        "event's own default action — and the file's header states both the standing constraint AND "
+        "this one named exception in the same breath (CFG-77/CFG-78, 28-08-PLAN.md Task 3)",
+        _dirty_state_js_is_network_free_again_with_one_named_timer_exception)
 
     # ==================================================================
     # 15-05-PLAN.md Task 3 (D-10, D-11, 15-VALIDATION.md row 10): the

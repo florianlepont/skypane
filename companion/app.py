@@ -3240,9 +3240,27 @@ class Handler(BaseHTTPRequestHandler):
         bullet 2 for the identical reasoning on the REJECTION branch,
         which this method never sees: `_handle_settings_post()` returns
         before calling this method whenever `errors` is non-empty).
+
+        SUPERSEDED by 28-08-PLAN.md Task 3 (CFG-77/CFG-78), 2026-09-16:
+        every sentence above described a real branch of THIS method for
+        one phase, and none of it is erased — but the content-negotiated
+        204 shape it documents is gone. The developer asked for the
+        pre-27-04 dirty save bar back (ROADMAP.md's Phase 28 addendum),
+        and the settings form's own fetch-based auto-save caller — the
+        ONLY thing that ever sent `X-Requested-With` on a POST to
+        SETTINGS_ROUTE — no longer exists (Enregistrer is a genuine
+        native form submission now, dirty-state.js's own header has the
+        full account). No test in this suite ever exercised the 204 on
+        `/settings` (verified at planning time), so the branch below was
+        provably dead code, not merely unlikely-to-run code, by the time
+        this plan started. Investigated and decided, per CONTEXT.md's own
+        open question: REMOVE the dead branch, KEEP the shared predicate
+        — `_wants_no_content()` itself survives untouched, unchanged in
+        shape, because `_handle_quick_toggle()` (below) still has a real
+        fetch-based caller and still needs it. This method now always
+        redirects; there is no longer a second response shape to choose
+        between.
         """
-        if self._wants_no_content():
-            return self.send_no_content()
         return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
     def _handle_poll_now(self):
