@@ -945,6 +945,20 @@ EXPECTED_CHECK_COUNT = 92
 # section).
 EXPECTED_CHECK_COUNT = 91
 
+# 28-11-PLAN.md (CFG-77): +3 — the three checks CFG-77 still owed, with
+# no executable coverage anywhere in the phase until this plan. Task 1:
+# _section_naming_reflects_the_fields_actually_changed_in_document_order,
+# proving the bar names real changed fields in document order (not click
+# order), in both languages. Task 2:
+# _cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_
+# dom, proving Annuler's side effects (the theme live preview, the
+# quiet-hours dial) by reading the resulting DOM after 28-08's deferred
+# tick, never by spying on refresh()/repaintAll(). Task 3:
+# _the_leave_guard_re_arms_after_a_new_edit_following_cancel, closing the
+# one coverage gap BLOCKER 3 named: a new edit after Cancel re-arms the
+# leave-guard. 91 + 3 = 94, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 94
+
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
 # ONE element must carry it. Both halves are asserted: the declared set
@@ -4602,6 +4616,105 @@ def main():
                     "inverted disarm-on-commit contract by 28-10-PLAN.md Task 2, CFG-77/CFG-78; "
                     "27-04-PLAN.md Task 4, CFG-63)",
                     _leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit)
+
+                # --- 28-11-PLAN.md Task 3 (CFG-77): the leave-guard's
+                # re-arm-after-Cancel clause — the one nothing in the
+                # phase proves. The check above (28-10-PLAN.md Task 2)
+                # proves armed-on-typed-edit, stays-armed-through-commit
+                # and disarmed-by-Cancel, and stops there BY DESIGN (its
+                # own comment names this one). CFG-77's own binding
+                # wording: "does not disarm the leave-guard permanently...
+                # kept exactly where CFG-63's own carve-out already put
+                # it" (.planning/REQUIREMENTS.md). `git show 6dea46a`'s
+                # own header names the historical defect this records: a
+                # naive Cancel handler sets suppressGuard = true once and
+                # never clears it, leaving the guard dead for the rest of
+                # the page's life while steps 1-3 below alone would still
+                # pass against that exact defect.
+                def _the_leave_guard_re_arms_after_a_new_edit_following_cancel():
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+
+                        # 1. Fresh load: disarmed, bar hidden.
+                        if _guard_armed(page):
+                            return False, (
+                                "expected the leave-guard to start disarmed on a clean page "
+                                "load")
+                        _wait_for_bar_hidden(page)
+
+                        runway_sel = 'input[name="tracked_runway"]'
+                        current_runway = page.eval_on_selector(
+                            "%s:checked" % runway_sel, "el => el.value")
+                        first_target = next(
+                            r for r in device_config.RUNWAY_IDS if r != current_runway)
+                        second_target = next(
+                            r for r in device_config.RUNWAY_IDS
+                            if r != current_runway and r != first_target)
+
+                        # 2. Edit a field: armed, bar visible. Kept
+                        #    minimal on purpose — the check above already
+                        #    proves the typed-vs-committed distinction;
+                        #    this step is only the precondition steps 3-5
+                        #    need.
+                        _click_control(page, '%s[value="%s"]' % (runway_sel, first_target))
+                        if not _guard_armed(page):
+                            return False, "expected the leave-guard to arm for a real edit"
+                        _wait_for_bar(page)
+
+                        # 3. Click Annuler: disarmed, bar hides.
+                        page.click("[data-dirty-cancel]")
+                        _wait_for_bar_hidden(page)
+                        if _guard_armed(page):
+                            return False, (
+                                "expected the leave-guard to disarm once Annuler is clicked")
+
+                        # 4. THE WHOLE POINT. A NEW edit that FOLLOWS a
+                        #    Cancel must RE-ARM the guard — nothing else
+                        #    in this phase proves it, and it is exactly
+                        #    what a naive `suppressGuard = true` (set once
+                        #    in the Cancel handler, never cleared) gets
+                        #    wrong, while steps 1-3 above alone would
+                        #    still pass against that defect.
+                        _click_control(page, '%s[value="%s"]' % (runway_sel, second_target))
+                        if not _guard_armed(page):
+                            return False, (
+                                "expected the leave-guard to RE-ARM for an edit that follows a "
+                                "Cancel — CFG-77's own 'does not disarm the leave-guard "
+                                "permanently... kept exactly where CFG-63's own carve-out "
+                                "already put it', and exactly the defect a Cancel handler that "
+                                "sets suppressGuard=true once and never clears it reproduces")
+                        _wait_for_bar(page)
+
+                        # 5. A SECOND Annuler disarms again — a re-arm
+                        #    that can only happen once is the same defect
+                        #    wearing a different number.
+                        page.click("[data-dirty-cancel]")
+                        _wait_for_bar_hidden(page)
+                        if _guard_armed(page):
+                            return False, (
+                                "expected the leave-guard to disarm on a SECOND Annuler too")
+
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the leave-guard's re-arm-after-Cancel clause — CFG-77's own 'does not "
+                    "disarm the leave-guard permanently... kept exactly where CFG-63's own "
+                    "carve-out already put it' — has executable coverage for the first time: "
+                    "fresh load (disarmed) -> edit (armed) -> Annuler (disarmed) -> a NEW edit "
+                    "(RE-ARMED, the clause nothing else in this phase proves, and exactly the "
+                    "defect a Cancel handler that sets suppressGuard=true once and never clears "
+                    "it reproduces) -> a second Annuler (disarmed again, so a one-shot re-arm "
+                    "cannot pass); reuses the existing _guard_armed() beforeunload probe "
+                    "throughout — never a second one (CFG-77, 28-11-PLAN.md Task 3; "
+                    "complements 28-10-PLAN.md Task 2's own armed-on-typed-edit/stays-armed-"
+                    "through-commit/disarmed-by-Cancel check, which deliberately stops short of "
+                    "this clause)",
+                    _the_leave_guard_re_arms_after_a_new_edit_following_cancel)
 
                 def _strip_switch_applies_without_the_leave_guard_while_other_navigation_still_warns():
                     # 22-05-PLAN.md Task 3 (D-04): a real browser proof,
@@ -14672,6 +14785,309 @@ def main():
                     "never reaches departures' preview or strip state (27-07's "
                     "strip_id-per-instance discipline) (CFG-75, 28-05-PLAN.md Task 2)",
                     _scrolling_a_strip_moves_its_own_preview_to_the_centered_chip_and_selects_nothing)
+
+                # --- 28-11-PLAN.md Task 1 (CFG-77): the section-naming
+                # relationship — CFG-77 says the bar names the changed
+                # section(s), in document order, not click order. A check
+                # that merely asserted the bar became visible would pass
+                # against a bar stuck on its raw-count fallback branch
+                # ("1 unsaved change" forever, dirty-state.js's own
+                # updateBar()), which is not this clause.
+                def _section_naming_reflects_the_fields_actually_changed_in_document_order():
+                    base_url = harness.base_url()
+                    for lang in ("en", "fr"):
+                        context = browser.new_context()
+                        try:
+                            page = context.new_page()
+                            _login(page, base_url)
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page.goto(base_url + "/display")
+
+                            def wait_for_bar_text(expected, timeout=5000):
+                                page.wait_for_function(
+                                    "args => {"
+                                    " var el = document.querySelector('[data-dirty-count]');"
+                                    " return !!el && el.textContent === args.expected;}",
+                                    arg={"expected": expected}, timeout=timeout)
+
+                            runway_sel = 'input[name="tracked_runway"]'
+                            current_runway = page.eval_on_selector(
+                                "%s:checked" % runway_sel, "el => el.value")
+                            target_runway = next(
+                                r for r in device_config.RUNWAY_IDS if r != current_runway)
+
+                            current_quiet_start = page.input_value(
+                                'input[name="quiet_hours_start"]')
+                            target_quiet_start = (
+                                "05:00" if current_quiet_start != "05:00" else "06:00")
+
+                            # Built from the bar's OWN data-dirty-* words
+                            # and each section wrapper's OWN label —
+                            # never a hardcoded English/French literal, so
+                            # this check works unchanged in either
+                            # language (the suite's existing D-06 idiom).
+                            runway_label = page.eval_on_selector(
+                                runway_sel,
+                                "el => el.closest('[data-dirty-section]')"
+                                ".getAttribute('data-dirty-section')")
+                            quiet_label = page.eval_on_selector(
+                                'input[name="quiet_hours_start"]',
+                                "el => el.closest('[data-dirty-section]')"
+                                ".getAttribute('data-dirty-section')")
+                            changed_suffix = page.eval_on_selector(
+                                "[data-dirty-bar]",
+                                "el => el.getAttribute('data-dirty-changed-suffix')")
+                            and_word = page.eval_on_selector(
+                                "[data-dirty-bar]", "el => el.getAttribute('data-dirty-and')")
+
+                            expected_one = runway_label + changed_suffix
+                            expected_two = (
+                                runway_label + and_word + quiet_label + changed_suffix)
+
+                            # Phase A: ONE changed field (Runway). The bar
+                            # names ONLY it.
+                            _click_control(
+                                page, '%s[value="%s"]' % (runway_sel, target_runway))
+                            _wait_for_bar(page)
+                            actual_one = _bar_text(page)
+                            if actual_one != expected_one:
+                                return False, (
+                                    "lang=%s: expected [data-dirty-count] to read %r for a "
+                                    "single changed field (Runway), got %r"
+                                    % (lang, expected_one, actual_one))
+
+                            # Phase B: ALSO change a Quiet hours field.
+                            # The bar names BOTH, Runway before Quiet
+                            # hours — DOCUMENT order (Runway's own
+                            # [data-dirty-section] wrapper precedes Quiet
+                            # hours' on the Display page). Runway was
+                            # clicked first in THIS pass too, so this
+                            # alone cannot distinguish document order from
+                            # click order — the reversed pass below does.
+                            page.fill(
+                                'input[name="quiet_hours_start"]', target_quiet_start)
+                            _commit_field(page, 'input[name="quiet_hours_start"]')
+                            wait_for_bar_text(expected_two)
+
+                            # Fresh load, REVERSED click order: Quiet
+                            # hours first, Runway second. dirtySection
+                            # Labels() walks the DOCUMENT, so the bar must
+                            # still read Runway before Quiet hours — a
+                            # CLICK-order implementation would pass the
+                            # first ordering above and fail THIS one.
+                            page.goto(base_url + "/display")
+                            page.fill(
+                                'input[name="quiet_hours_start"]', target_quiet_start)
+                            _commit_field(page, 'input[name="quiet_hours_start"]')
+                            _wait_for_bar(page)
+                            _click_control(
+                                page, '%s[value="%s"]' % (runway_sel, target_runway))
+                            wait_for_bar_text(expected_two)
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "the bar's own [data-dirty-count] names which section(s) actually changed, "
+                    "built from the bar's own data-dirty-* attributes plus each section "
+                    "wrapper's own label — never hardcoded English/French, never merely 'the "
+                    "bar is visible' or 'the text is non-empty': a single changed Runway field "
+                    "reads exactly that wrapper's own label plus the changed-suffix, and a "
+                    "second, different-section change (Quiet hours) reads the two-item join "
+                    "with Runway BEFORE Quiet hours in BOTH click orders — the reversed-order "
+                    "pass is what proves DOCUMENT order rather than click order, since "
+                    "dirtySectionLabels() walks the document and Runway's own wrapper precedes "
+                    "Quiet hours' on Display regardless of which the visitor touches first; run "
+                    "in both site languages (CFG-77, 28-11-PLAN.md Task 1)",
+                    _section_naming_reflects_the_fields_actually_changed_in_document_order)
+
+                # --- 28-11-PLAN.md Task 2 (CFG-77): Cancel's side
+                # effects, read off the RESULTING DOM — never by spying on
+                # refresh()/repaintAll(). 28-08 built the mechanism (a
+                # single setTimeout(fn, 0) deferred tick inside
+                # dirty-state.js's reset handler, calling BOTH
+                # window.SkyPaneLivePreview.refresh() and
+                # value-controls.js's exported repaintAll() once the
+                # native reset has actually restored the fields); this
+                # check proves the DOM STATE that mechanism produces.
+                #
+                # CONTEXT.md separately claimed the quiet-hours dial
+                # repaints "for free" because value-controls.js's
+                # document-level click listener fires on the Cancel
+                # button's own click. That claim is FALSE BY
+                # SPECIFICATION, already refuted in writing by 28-08: a
+                # click on a <button type="reset"> dispatches and bubbles
+                # to COMPLETION before the button's own default action —
+                # the reset — runs, so that listener repaints the dial
+                # from the EDITED values the user just asked to discard.
+                # This check does not re-open that as an empirical
+                # question; Mutation 2 (see this plan's own SUMMARY)
+                # records the stale-repaint observation as CORROBORATION
+                # of 28-08's spec argument, never as a fresh finding.
+                def _cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_dom():
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+
+                        def handle_values():
+                            return (
+                                int(page.get_attribute(
+                                    _handle_sel("quiet_hours_start"), "aria-valuenow")),
+                                int(page.get_attribute(
+                                    _handle_sel("quiet_hours_end"), "aria-valuenow")),
+                            )
+
+                        def preview_src():
+                            return page.eval_on_selector(
+                                THEME_PREVIEW_SEL, "el => el.getAttribute('src')")
+
+                        # --- Setup: record the pre-edit state of every
+                        # surface, off the DOM.
+                        original_theme = page.eval_on_selector(
+                            'input[name="theme"]:checked', "el => el.value")
+                        original_preview_src = preview_src()
+                        original_arc = _quiet_arc_minutes(page, "before the edit")
+                        original_handles = handle_values()
+
+                        target_theme = next(
+                            t for t in device_config.THEME_IDS if t != original_theme)
+                        target_preview_src = page.eval_on_selector(
+                            'input[name="theme"][value="%s"]' % target_theme,
+                            "el => el.closest('.theme-chip')"
+                            ".getAttribute('data-preview-src')")
+
+                        current_start = page.input_value(
+                            'input[name="quiet_hours_start"]')
+                        target_start = "05:00" if current_start != "05:00" else "06:00"
+
+                        # --- Edit: a DIFFERENT theme via a carousel chip,
+                        # AND a different quiet-hours window. Confirm both
+                        # surfaces actually MOVED before Cancel — a no-op
+                        # edit would make every assertion below vacuous.
+                        _click_control(
+                            page, 'input[name="theme"][value="%s"]' % target_theme)
+                        _wait_for_bar(page)
+                        page.wait_for_function(
+                            "args => { var img = document.querySelector(args.sel);"
+                            " return !!img && img.getAttribute('src') === args.expected; }",
+                            arg={"sel": THEME_PREVIEW_SEL, "expected": target_preview_src})
+
+                        page.fill('input[name="quiet_hours_start"]', target_start)
+                        _commit_field(page, 'input[name="quiet_hours_start"]')
+
+                        moved_arc = _quiet_arc_minutes(page, "after the edit, before Cancel")
+                        moved_handles = handle_values()
+                        if moved_arc == original_arc or moved_handles == original_handles:
+                            return False, (
+                                "the quiet-hours edit did not move the dial before Cancel: arc "
+                                "%r -> %r, handles %r -> %r — a no-op edit proves nothing about "
+                                "Cancel"
+                                % (original_arc, moved_arc, original_handles, moved_handles))
+
+                        # --- Cancel: a real click on the native
+                        # type="reset" button, exercising both the native
+                        # reset and 28-08's scripted enhancement at once.
+                        page.click("[data-dirty-cancel]")
+                        _wait_for_bar_hidden(page)
+
+                        # a. The theme chip's checked state is back to
+                        #    the original.
+                        try:
+                            page.wait_for_function(
+                                "args => {"
+                                " var f = document.querySelector("
+                                "   'input[name=\"theme\"]:checked');"
+                                " return !!f && f.value === args.expected; }",
+                                arg={"expected": original_theme}, timeout=3000)
+                        except Exception:
+                            restored_theme = page.eval_on_selector(
+                                'input[name="theme"]:checked', "el => el.value")
+                            return False, (
+                                "expected the theme radio to be restored to %r after Annuler, "
+                                "got %r" % (original_theme, restored_theme))
+
+                        # b. The live preview's <img> resolved src is back
+                        #    to the ORIGINALLY-selected theme's own — the
+                        #    clause that proves
+                        #    window.SkyPaneLivePreview.refresh() actually
+                        #    ran, since form.reset() fires no change event
+                        #    and the preview cannot repaint on its own.
+                        #    Waited for on the deferred tick, never read
+                        #    synchronously right after the click.
+                        try:
+                            page.wait_for_function(
+                                "args => { var img = document.querySelector(args.sel);"
+                                " return !!img && img.getAttribute('src') === args.expected; }",
+                                arg={
+                                    "sel": THEME_PREVIEW_SEL, "expected": original_preview_src},
+                                timeout=3000)
+                        except Exception:
+                            return False, (
+                                "expected the live preview's src to be back to the "
+                                "originally-selected theme's own %r after Annuler (proving "
+                                "window.SkyPaneLivePreview.refresh() actually ran), it still "
+                                "reads %r" % (original_preview_src, preview_src()))
+
+                        # c. The quiet-hours dial's decoded arc AND its
+                        #    handles' aria-valuenow are back to the
+                        #    PRE-EDIT window — 28-08's own explicit
+                        #    deferred repaint of value-controls.js's
+                        #    repaintAll(), proven by the DOM STATE it
+                        #    produces, never by asserting the function was
+                        #    called.
+                        try:
+                            page.wait_for_function(
+                                "args => {"
+                                " var s = document.querySelector(args.sSel);"
+                                " var e = document.querySelector(args.eSel);"
+                                " return !!s && !!e"
+                                "   && s.getAttribute('aria-valuenow') === String(args.s)"
+                                "   && e.getAttribute('aria-valuenow') === String(args.e); }",
+                                arg={
+                                    "sSel": _handle_sel("quiet_hours_start"),
+                                    "eSel": _handle_sel("quiet_hours_end"),
+                                    "s": original_handles[0], "e": original_handles[1]},
+                                timeout=3000)
+                        except Exception:
+                            return False, (
+                                "expected the quiet-hours handles' aria-valuenow to be back to "
+                                "%r after Annuler (28-08's deferred repaint of "
+                                "value-controls.js's repaintAll()), still read %r"
+                                % (original_handles, handle_values()))
+                        restored_arc = _quiet_arc_minutes(
+                            page, "after Annuler, once the deferred tick has run")
+                        if restored_arc != original_arc:
+                            return False, (
+                                "expected the quiet-hours dial's decoded arc to be back to %r "
+                                "after Annuler, got %r" % (original_arc, restored_arc))
+
+                        # d. The bar is hidden — asserted above via
+                        #    _wait_for_bar_hidden(), the SYNCHRONOUS half
+                        #    of the reset handler.
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a real Annuler click restores every surface, read off the RESULTING DOM: "
+                    "the theme chip's checked state is back to the original, the live preview "
+                    "<img>'s resolved src is back to the ORIGINALLY-selected theme's own (never "
+                    "the discarded one) — proving window.SkyPaneLivePreview.refresh() actually "
+                    "ran, since form.reset() fires no change event — and the quiet-hours dial's "
+                    "decoded arc and its handles' aria-valuenow are back to the pre-edit window, "
+                    "proving 28-08's own explicit deferred repaint of value-controls.js's "
+                    "repaintAll() landed; both edits are confirmed to have actually MOVED both "
+                    "surfaces before Cancel is ever clicked, and every post-Cancel read waits "
+                    "for 28-08's setTimeout(fn, 0) deferred tick rather than reading "
+                    "synchronously after the click; asserting that refresh()/repaintAll() was "
+                    "CALLED is explicitly not acceptable and this check never does — the "
+                    "dial-repaints-for-free claim CONTEXT.md made is false by specification "
+                    "(already refuted in writing by 28-08) and this check does not re-litigate "
+                    "it (CFG-77, 28-11-PLAN.md Task 2)",
+                    _cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_dom)
 
                 def _the_carousel_meets_its_floors_at_360px_in_both_themes():
                     base_url = harness.base_url()
