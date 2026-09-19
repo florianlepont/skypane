@@ -1078,6 +1078,13 @@ EXPECTED_CHECK_COUNT = 265
 # by RUNNING (265/265).
 EXPECTED_CHECK_COUNT = 265
 
+# 28-09-PLAN.md Task 1 (CFG-78), 2026-09-19: +1
+# (_style_css_carries_no_rule_for_the_retired_save_status_region — the
+# .save-status half of the orphan-rule clause the STATIC_SAVE_FALLBACK_
+# ATTR check above does not already cover). 265 + 1 = 266, re-derived
+# by RUNNING (266/266).
+EXPECTED_CHECK_COUNT = 266
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -5393,6 +5400,54 @@ def main():
         "while the B1/P0 contract and the dated 27-03/28-08 SUPERSEDED paragraphs all survive in "
         "writing (CFG-77/CFG-78, 28-08-PLAN.md Task 2)",
         _style_css_carries_no_hide_rule_for_static_save_fallback_attr)
+
+    def _style_css_carries_no_rule_for_the_retired_save_status_region():
+        # 28-09-PLAN.md Task 1 (CFG-78): the check immediately above
+        # (28-08-PLAN.md Task 2) already proves the STATIC_SAVE_FALLBACK_
+        # ATTR half of the orphan-rule clause — no rule selector still
+        # targets the retired hide mechanism. This check proves the OTHER
+        # half: `.save-status`, the retired auto-save status region's own
+        # selector (27-04-PLAN.md, CFG-63 — deleted outright, not
+        # relocated), carries no live RULE anywhere in style.css either,
+        # while the comment prose that narrates its own retirement
+        # survives. Re-derived live on the finished tree rather than
+        # pasted from planning time: `grep -n 'save-status'
+        # companion/static/style.css` is 6 hits today, every one inside a
+        # `/* ... */` block comment (none a rule selector) — the
+        # planning-time interfaces figure (a stale 5) is a baseline for
+        # spotting a miscount, never an expectation asserted here as a
+        # literal count.
+        source = _read_static("style.css")
+        if "save-status" not in source:
+            return False, (
+                "expected style.css to still mention save-status somewhere, in prose, "
+                "narrating its own retirement")
+        # Strip comments first (this file's own established idiom, used
+        # by the motion-budget check and the STATIC_SAVE_FALLBACK_ATTR
+        # check above), then require zero RULE selectors containing
+        # .save-status. A rule selector reads as `.save-status` followed
+        # eventually by `{` with no intervening `{`/`}` — distinct from a
+        # bare substring match, which strip-then-`in` alone cannot tell
+        # apart from (e.g.) a comment fragment that survived stripping
+        # incorrectly.
+        stripped = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        rule_match = re.search(r"\.save-status\b[^{}]*\{", stripped)
+        if rule_match:
+            idx = rule_match.start()
+            return False, (
+                "expected NO rule selector anywhere in style.css (comments stripped) to "
+                "still target .save-status — its own retired region is gone outright "
+                "(27-04-PLAN.md, CFG-63) and no rule should still reach for it; context: %r"
+                % (stripped[max(0, idx - 60):idx + 60],))
+        return True, ""
+    check(
+        "style.css carries no live RULE selector for the retired .save-status auto-save "
+        "status region (comments stripped before scanning) while the comment prose "
+        "narrating its own retirement survives verbatim — the .save-status half of the "
+        "orphan-rule clause the STATIC_SAVE_FALLBACK_ATTR check above does not already "
+        "cover, re-derived on the finished tree rather than pasted from planning time "
+        "(CFG-78, 28-09-PLAN.md Task 1)",
+        _style_css_carries_no_rule_for_the_retired_save_status_region)
 
     def _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors():
         # quick task 260901-qif: the third new cross-file guard - unlike
