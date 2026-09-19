@@ -959,6 +959,16 @@ EXPECTED_CHECK_COUNT = 91
 # leave-guard. 91 + 3 = 94, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 94
 
+# 28-09-PLAN.md Task 1 (CFG-78): +2 — the single-affordance audit
+# (_exactly_one_submit_shaped_control_resolves_to_the_settings_form,
+# resolving every submit-shaped control's own .form property in a live
+# browser rather than counting <button occurrences) and the runway
+# form= regression check
+# (_the_runway_form_associated_path_reaches_the_bar_and_disk_end_to_end,
+# closing the path CFG-74(c) named before it was superseded). 94 + 2 =
+# 96, re-derived by RUNNING (96/96).
+EXPECTED_CHECK_COUNT = 96
+
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
 # ONE element must carry it. Both halves are asserted: the declared set
@@ -15425,6 +15435,280 @@ def main():
                     "away. Both themes exercised via _set_ui_theme(), at the 360px floor "
                     "(CFG-72, 28-04-PLAN.md Task 2)",
                     _a_settings_card_title_renders_identically_on_both_settings_pages)
+
+                # --- 28-09-PLAN.md Task 1 (CFG-78): the single-affordance
+                # audit. "Exactly one save affordance" has been true BY
+                # CONSTRUCTION since 28-08 relocated the native submit into
+                # the bar and 28-08 Task 2 deleted the `.js`-hide rule — but
+                # "by construction" is exactly what 27-06 said about the
+                # title form, and it was wrong (CFG-65's own investigation).
+                # This check resolves every submit-shaped control's OWN
+                # `.form` property in a live browser — never a hand-
+                # maintained allow-list of expected buttons, never a count
+                # of `<button` occurrences in the HTML string — and
+                # requires exactly one whose form id is
+                # config_page.SETTINGS_FORM_ID.
+                #
+                # "Submit-shaped" is `input[type="submit"]`,
+                # `button[type="submit"]`, AND a bare `<button>` with no
+                # `type` attribute — the HTML default IS submit, and a
+                # check that only looked at explicit `type="submit"` would
+                # miss the exact regression class it exists to catch (a
+                # button added without a type, inside the form, silently
+                # becoming a second save affordance).
+                #
+                # THE ONE DELIBERATE EXCLUSION: the bar's own Cancel is a
+                # native `<button type="reset" form="settings-form">`
+                # (28-08-PLAN.md Task 1). It IS form-ASSOCIATED with the
+                # settings form — exactly what this audit hunts for — but
+                # it is not submit-SHAPED (an explicit `type="reset"`
+                # excludes it from every branch of the selector below) and
+                # it saves nothing. Recorded here because "a second control
+                # inside the bar that points at the settings form" looks
+                # exactly like the regression this audit exists to catch,
+                # and the next reader deserves to know it was considered,
+                # not missed.
+                def _submit_shaped_controls(page):
+                    return page.evaluate(
+                        "() => {"
+                        " var sel = 'input[type=\"submit\"], button[type=\"submit\"], "
+                        "button:not([type])';"
+                        " var els = Array.prototype.slice.call(document.querySelectorAll(sel));"
+                        " return els.map(function (el) {"
+                        "   var text = (el.textContent || el.value || '').trim().slice(0, 60);"
+                        "   return {"
+                        "     tag: el.tagName.toLowerCase(),"
+                        "     type: el.getAttribute('type') || '(default submit)',"
+                        "     formId: el.form ? el.form.id : null,"
+                        "     text: text,"
+                        "     fallback: el.hasAttribute('%s'),"
+                        "     inBar: !!el.closest('[data-dirty-bar]')"
+                        "   };"
+                        " });"
+                        "}" % config_page.STATIC_SAVE_FALLBACK_ATTR)
+
+                def _exactly_one_submit_shaped_control_resolves_to_the_settings_form():
+                    base_url = harness.base_url()
+                    for scope_route in ("/display", "/device"):
+                        for lang in ("en", "fr"):
+                            context = browser.new_context()
+                            try:
+                                page = context.new_page()
+                                _login(page, base_url)
+                                context.add_cookies([{
+                                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                    "url": base_url}])
+                                page.goto(base_url + scope_route)
+
+                                controls = _submit_shaped_controls(page)
+                                settings_controls = [
+                                    c for c in controls
+                                    if c["formId"] == config_page.SETTINGS_FORM_ID]
+
+                                if len(controls) < 2:
+                                    return False, (
+                                        "%s lang=%s: expected MORE than one submit-shaped "
+                                        "control on the page (the bar's own Save plus at "
+                                        "least one other form's own submit control), found "
+                                        "only %r — with only one candidate ever considered "
+                                        "the exactly-one assertion below would be vacuous"
+                                        % (scope_route, lang, controls))
+
+                                if len(settings_controls) != 1:
+                                    offenders = "; ".join(
+                                        "%s[type=%s] form=%r text=%r"
+                                        % (c["tag"], c["type"], c["formId"], c["text"])
+                                        for c in controls)
+                                    return False, (
+                                        "%s lang=%s: expected exactly ONE submit-shaped "
+                                        "control whose own .form.id resolves to %r, got %d "
+                                        "— every collected submit-shaped control on this "
+                                        "page: %s"
+                                        % (scope_route, lang, config_page.SETTINGS_FORM_ID,
+                                           len(settings_controls), offenders))
+
+                                the_one = settings_controls[0]
+                                if not the_one["fallback"]:
+                                    return False, (
+                                        "%s lang=%s: the one settings-form submit control "
+                                        "does not carry %s — %r"
+                                        % (scope_route, lang,
+                                           config_page.STATIC_SAVE_FALLBACK_ATTR, the_one))
+                                if not the_one["inBar"]:
+                                    return False, (
+                                        "%s lang=%s: the one settings-form submit control "
+                                        "is not a descendant of [data-dirty-bar] — %r"
+                                        % (scope_route, lang, the_one))
+
+                                # The complement — the relationship half,
+                                # not merely the endpoint: every OTHER
+                                # submit-shaped control this scope renders
+                                # (whichever of calendar/rules/
+                                # notifications-test/quick-LED/quick-switch
+                                # actually appear on THIS page — Airlines'
+                                # own "Enregistrer le nom" form is excluded
+                                # by construction too, trivially, since
+                                # this check never navigates to that page)
+                                # resolves to a form id that is NOT the
+                                # settings form. Already implied by the
+                                # exactly-one assertion above, but named
+                                # per-control here so a regression that
+                                # somehow gave TWO controls the settings-
+                                # form id would still be caught with each
+                                # offender's own identity in the message —
+                                # the developer's own confirmed scope
+                                # boundary ("laisser ces deux-la tels
+                                # quels") expressed as a contract, not a
+                                # comment.
+                                bad = [
+                                    c for c in controls
+                                    if c is not the_one
+                                    and c["formId"] == config_page.SETTINGS_FORM_ID]
+                                if bad:
+                                    return False, (
+                                        "%s lang=%s: expected every OTHER submit-shaped "
+                                        "control to resolve to a NON-settings-form id, "
+                                        "found a second one pointed at settings-form: %r"
+                                        % (scope_route, lang, bad))
+                            finally:
+                                context.close()
+                    return True, ""
+                check(
+                    "exactly ONE submit-shaped control on the whole settings page resolves "
+                    "its own .form.id to config_page.SETTINGS_FORM_ID, on both /display and "
+                    "/device, in both site languages — resolved via the browser's OWN .form "
+                    "property, never a count of <button occurrences in the HTML string and "
+                    "never a hand-maintained allow-list; covers input[type=submit], "
+                    "button[type=submit] AND a bare <button> with no type attribute (the "
+                    "HTML default IS submit); the bar's native type=\"reset\" Cancel is "
+                    "deliberately excluded (form-associated but not submit-shaped, and it "
+                    "saves nothing); the one settings-form control must carry "
+                    "data-static-save-fallback and be a descendant of [data-dirty-bar]; the "
+                    "failure message NAMES every collected control as a tagName/type/form-"
+                    "id/text tuple so a regression says WHICH control drifted; and the "
+                    "complement is asserted too — calendar/rules/notifications-test/quick-"
+                    "LED/quick-switch controls, whichever this scope renders, each resolve "
+                    "to a NON-settings-form id (CFG-78, 28-09-PLAN.md Task 1)",
+                    _exactly_one_submit_shaped_control_resolves_to_the_settings_form)
+
+                # --- 28-09-PLAN.md Task 1 (CFG-74(c)/CFG-78): the runway
+                # radios' cross-tree form="settings-form" regression check
+                # — the developer's ORIGINAL, narrower report ("Quand je
+                # fais un changement de parametre (comme la piste) je ne
+                # vois pas le bouton enregistrer apparaitre") that carries
+                # forward from the superseded CFG-74 with its value intact.
+                # The runway radios live OUTSIDE <form id="settings-form">
+                # (runway_fieldset()'s own docstring) and reach it only
+                # through a form="settings-form" attribute on each radio —
+                # a form element never receives a `change` event from a
+                # control that is merely form=-associated with it, which is
+                # exactly the B1 defect dirty-state.js's document-level
+                # delegation exists to handle. This proves the whole path
+                # end to end, against the restored bar's real POST rather
+                # than the retired fetch.
+                def _the_runway_form_associated_path_reaches_the_bar_and_disk_end_to_end():
+                    base_url = harness.base_url()
+                    for lang in ("en", "fr"):
+                        context = browser.new_context()
+                        try:
+                            page = context.new_page()
+                            _login(page, base_url)
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page.goto(base_url + "/display")
+
+                            # 1. Fresh load: script has run, nothing dirty.
+                            _wait_for_bar_hidden(page)
+
+                            runway_sel = 'input[name="tracked_runway"]'
+                            current_runway = page.eval_on_selector(
+                                "%s:checked" % runway_sel, "el => el.value")
+                            target_runway = next(
+                                r for r in device_config.RUNWAY_IDS
+                                if r != current_runway)
+
+                            # Built from the bar's OWN data-dirty-*
+                            # attribute plus the runway wrapper's own
+                            # [data-dirty-section] label — never a
+                            # hardcoded English/French literal (the
+                            # suite's existing D-06 idiom, reused verbatim
+                            # from 28-11's section-naming check).
+                            runway_label = page.eval_on_selector(
+                                runway_sel,
+                                "el => el.closest('[data-dirty-section]')"
+                                ".getAttribute('data-dirty-section')")
+                            changed_suffix = page.eval_on_selector(
+                                "[data-dirty-bar]",
+                                "el => el.getAttribute('data-dirty-changed-suffix')")
+                            expected = runway_label + changed_suffix
+
+                            # 2. Select a runway radio whose value differs
+                            #    from disk, via the same real
+                            #    element.click() every other visually-
+                            #    hidden selectable-card radio on this page
+                            #    uses (_click_control()'s own docstring
+                            #    warns a coordinate click can silently
+                            #    land elsewhere).
+                            _click_control(
+                                page, '%s[value="%s"]' % (runway_sel, target_runway))
+
+                            # 3. The bar becomes visible AND names EXACTLY
+                            #    Runway — proving the cross-tree form=
+                            #    association actually reached
+                            #    dirtySectionLabels()'s own
+                            #    [data-dirty-section] walk, not merely
+                            #    that "something" became dirty. Asserting
+                            #    visibility alone would not prove this.
+                            _wait_for_bar(page)
+                            actual = _bar_text(page)
+                            if actual != expected:
+                                return False, (
+                                    "lang=%s: expected [data-dirty-count] to read %r after "
+                                    "selecting a cross-tree form=-associated runway radio, "
+                                    "got %r — the section-naming walk must resolve this "
+                                    "control's own [data-dirty-section] ancestor even though "
+                                    "the radio is not a literal descendant of <form "
+                                    "id=\"settings-form\">"
+                                    % (lang, expected, actual))
+
+                            # 4. Click Enregistrer, wait for the REAL
+                            #    navigation.
+                            _save_via_bar(page)
+
+                            # 5. Re-read tracked_runway OFF DISK.
+                            saved = device_config.load_device_config(
+                                harness.tmpdir)["tracked_runway"]
+                            if saved != target_runway:
+                                return False, (
+                                    "lang=%s: expected tracked_runway on disk to be %r "
+                                    "after a real Enregistrer navigation through the "
+                                    "runway's own cross-tree form= path, got %r"
+                                    % (lang, target_runway, saved))
+
+                            # Reload: the round trip, not just the write.
+                            page.goto(base_url + "/display")
+                            checked = page.eval_on_selector(
+                                "%s:checked" % runway_sel, "el => el.value")
+                            if checked != target_runway:
+                                return False, (
+                                    "lang=%s: expected the reloaded page's checked runway "
+                                    "radio to be %r, got %r"
+                                    % (lang, target_runway, checked))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "the runway radios' cross-tree form=\"settings-form\" wiring drives the "
+                    "SAME bar-appears -> Enregistrer -> persisted-to-disk path every "
+                    "natively-nested control does — closing the path CFG-74(c) named before "
+                    "it was superseded, now against the real POST instead of the retired "
+                    "fetch: selecting a runway radio (rendered OUTSIDE the settings form) "
+                    "reveals the bar naming exactly its own Runway/Piste label, a real "
+                    "Enregistrer navigation writes tracked_runway to disk, and a reload "
+                    "shows the radio reflecting the saved value — both site languages "
+                    "(CFG-74(c)/CFG-78, 28-09-PLAN.md Task 1)",
+                    _the_runway_form_associated_path_reaches_the_bar_and_disk_end_to_end)
 
                 # ==========================================================
                 # 25-07-PLAN.md Task 3 (CFG-51/D19): THE ARTWORK DROP ZONE.
