@@ -3784,13 +3784,32 @@ button:disabled {
     padding-bottom: calc(var(--space-2xl) + 88px);
   }
 
-  /* <960px: 70px, IDENTICAL across English/French and both routes — the
-   * count span is EMPTY at rest (Task 1's own no-claim requirement) and
-   * `6dea46a`'s own asymmetric English/French wrap this file's earlier
-   * comments cited no longer applies to THIS bar's shorter content, so
-   * there is no longer-language case to budget for. Plus `var(
-   * --space-md)` (16px) above the tab bar, 86px, rounded UP to 88px on
-   * the 8px grid.
+  /* CORRECTED, 28-10-PLAN.md Task 3 (CFG-77/CFG-78) — a Rule 1 (direct,
+   * unavoidable consequence) fix found while mutation-testing this
+   * file's own tab-bar/last-in-flow-element overlap check against a
+   * REAL, scripts-enabled, scrolled-to-bottom page: the original 70px
+   * figure below (superseded, kept for its own record) was measured
+   * with the count span EMPTY, the SERVER-rendered initial state — not
+   * the populated, scripts-enabled state a real edit produces. The bar
+   * WRAPS at this width once the section-naming text plus Enregistrer
+   * no longer fit on one row (`flex-wrap: wrap`, this file's own
+   * `.dirty-bar` phone-width rule below), dropping Annuler to a second
+   * row and growing the bar's own height well past 70px. MEASURED, not
+   * guessed, via a real Chromium tab, scripts enabled, scrolled to the
+   * true document bottom: a single changed section reaches 122px
+   * (English "Frame colours changed"/French "Couleurs du cadre
+   * modifié"), and THREE changed sections — the realistic worst case on
+   * this scope — reach 134px in BOTH languages ("Frame colours, Runway,
+   * and Quiet hours changed" / "Couleurs du cadre, Piste et Heures
+   * calmes modifié"). 134px (bar) + 56px (tab bar) + `var(--space-md)`
+   * (16px, the bar's own bottom anchor) + `var(--space-md)` (16px,
+   * cushion above the bar, this rule's own original allowance) = 222px,
+   * rounded UP to 224px on the 8px grid.
+   *
+   * <960px, WAS 70px/88px total (see above): superseded — that figure
+   * only ever covered the empty-bar, pre-edit state, and this rule's
+   * OWN `.has-tab-bar .page-content:has(.dirty-bar)` is what has to
+   * clear the tallest state a real edit reaches, not the shortest.
    *
    * `.has-tab-bar .page-content:has(.dirty-bar)` is (0,3,0) — higher
    * than both `.page-content`'s own base rule (0,1,0) AND
@@ -3805,7 +3824,7 @@ button:disabled {
    * `.page-content:has(.dirty-bar)` would silently assume forever. */
   .has-tab-bar .page-content:has(.dirty-bar) {
     padding-bottom: calc(
-      var(--space-2xl) + 88px + env(safe-area-inset-bottom, 0px));
+      var(--space-2xl) + 176px + env(safe-area-inset-bottom, 0px));
   }
 }
 
