@@ -1309,13 +1309,16 @@ and is not claimed here. PR not marked ready, not merged.
 
 **Goal:** The developer tested Phase 27's deployed fixes hands-on and reported five more findings. Each was independently investigated against the live app (rendered pages, driven interactions, traced wiring) before this phase was scoped. Two rounds of follow-up from the developer then escalated two of the five: the dial turned out to have a SECOND bug beyond what was first found, and item 3 ("no save button appearing") turned out not to be a false alarm at all — live testing on real Safari (iPhone AND Mac) found that **no setting saves via auto-save at all**, on any settings page, in real Safari — a severe regression this project's Chromium-only test harness cannot see. This phase fixes what's confirmed and builds resilience around what remains genuinely uncertain after thorough investigation (see item 3 below) rather than guessing at an unconfirmed root cause.
 
-**Requirements**: CFG-72, CFG-73, CFG-74, CFG-75, CFG-76 (all new)
+**Requirements**: CFG-72, CFG-73, CFG-75, CFG-76, CFG-77, CFG-78 (all new; CFG-74 SUPERSEDED before implementation, never built — see the addendum below and REQUIREMENTS.md's own note)
 **Depends on:** Phase 27 (merged and deployed)
-**Plans:** 8/9 plans executed
+**Plans:** 9/9 live plans executed (28-06/28-07 superseded 2026-09-16 before execution, never run — 11 plan numbers issued, 9 live)
 
-Plans (seven, six waves — 28-01 and 28-02 run in parallel because their file sets are
-disjoint; everything after is serial by file ownership, since nearly every remaining plan
-writes `config_page.py`, `style.css` or the two browser harnesses):
+Plans (eleven numbers issued, nine live, across TEN waves — 28-01 and 28-02 run in parallel
+because their file sets are disjoint; everything after is serial by file ownership, since
+nearly every remaining plan writes `config_page.py`, `style.css` or the two browser
+harnesses; 28-06/28-07's original wave-5/6 scope was superseded before execution and
+replaced by 28-08 (wave 7), 28-10 (wave 8), 28-11 (wave 9) and 28-09 (wave 10, this
+phase's closing plan) — see the addendum below for why):
 - [x] 28-01-PLAN.md — the gear icon: one symbol appended to the sprite, one `icon_html()` argument changed, the hard-coded `ICON_IDS` count bumped 22 -> 23, and a check that the panel still has no page-nav links so the unchanged label stays honest (CFG-76)
 - [x] 28-02-PLAN.md — the dial's Bug B: `button:active` excluded from `.value-control__handle`, `transform` dropped from the handle's transition, and THE check that SAMPLES the handle's radius throughout a held press — with the endpoint-only version mutation-proven to pass on broken code (CFG-73)
 - [x] 28-03-PLAN.md — the dial's Bug A: readouts painted as HH:MM through the codec that already exists, a live duration spoken from the one ladder via server-rendered bucket wordings (no French in JS), and the decoder that documented the bug as correct rewritten (CFG-73)
@@ -1324,7 +1327,9 @@ writes `config_page.py`, `style.css` or the two browser harnesses):
 - [~] 28-06-PLAN.md — SUPERSEDED 2026-09-16 before execution, kept on disk as `28-06-PLAN.md.superseded` (CFG-74)
 - [~] 28-07-PLAN.md — SUPERSEDED 2026-09-16 before execution, kept on disk as `28-07-PLAN.md.superseded` (CFG-74)
 - [x] 28-08-PLAN.md — the save bar restored: `.dirty-bar` markup with its six translated connector words, the AST-unconditional native submit RELOCATED into the bar as its one visible Save (never a second button), `.dirty-bar` CSS at both breakpoints with clearance re-measured, `dirty-state.js` back to a timer-free, network-free bar driver, `/settings`'s dead 204 branch removed, and five `style.css` comment blocks superseded in writing (CFG-77, CFG-78)
-- [ ] 28-09-PLAN.md — closing: one save affordance proven by resolving each control's own `.form` in a live browser, the runway `form=` cross-tree path proven from click to bar-naming to disk, the gate with every count re-derived by running and the sandbox baseline named, and the ledger recording CFG-74 as superseded-never-built (CFG-77, CFG-78)
+- [x] 28-10-PLAN.md — `test_browser_ux.py`'s seventeen owners that reached through the retired auto-save helpers/status region retargeted onto the restored bar (nine mechanical swaps, seven hand-rewritten and mutation-tested contracts, one named removal — the fetch-coalescing check, whose subject ceased to exist), plus a real, measured clearance bug the new geometry check found and fixed in `style.css` (the phone-width `.dirty-bar` clearance widened from 88px to 176px additive, since the existing figure only ever covered the bar's EMPTY pre-edit height) (CFG-77, CFG-78)
+- [x] 28-11-PLAN.md — the three CFG-77 relationship checks that had zero executable coverage anywhere in the phase until this plan: the bar's section-naming proven against real changed fields in document order (both click orders, both languages), Cancel's restoration of the theme live preview and the quiet-hours dial proven by reading the resulting DOM after 28-08's own deferred tick, and the leave-guard's re-arm-after-Cancel clause — found missing by a plan review, then closed (CFG-77)
+- [x] 28-09-PLAN.md — closing: one save affordance proven by resolving each control's own `.form` in a live browser, the runway `form=` cross-tree path proven from click to bar-naming to disk, the gate with every count re-derived by running and the sandbox baseline named, and the ledger recording CFG-74 as superseded-never-built (CFG-77, CFG-78)
 
 **The developer's own words (French, verbatim), in the order given:**
 
