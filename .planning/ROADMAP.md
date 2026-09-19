@@ -1311,7 +1311,7 @@ and is not claimed here. PR not marked ready, not merged.
 
 **Requirements**: CFG-72, CFG-73, CFG-74, CFG-75, CFG-76 (all new)
 **Depends on:** Phase 27 (merged and deployed)
-**Plans:** 7/9 plans executed
+**Plans:** 8/9 plans executed
 
 Plans (seven, six waves — 28-01 and 28-02 run in parallel because their file sets are
 disjoint; everything after is serial by file ownership, since nearly every remaining plan
