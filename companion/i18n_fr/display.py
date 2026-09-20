@@ -75,6 +75,21 @@ CATALOG = {
     "Applies the next time the frame wakes up.":
         "S’applique au prochain réveil du cadre.",
 
+    # --- Device's own two supersections plus the Poll card's one-card
+    #     supersection (CFG-72, 28-04-PLAN.md Task 1) -------------------
+    "When it wakes": "Quand il se réveille",
+    "— how often the frame wakes up to fetch a new picture.":
+        "— à quelle fréquence le cadre se réveille pour récupérer une "
+        "nouvelle image.",
+    "How it tells you": "Comment il vous prévient",
+    "— the light on the frame and the alerts on your phone.":
+        "— le voyant du cadre et les alertes sur votre téléphone.",
+    "When you can't wait": "Quand vous ne pouvez pas attendre",
+    "— fetch a new picture right now instead of waiting for the next "
+    "wake.":
+        "— récupère une nouvelle image tout de suite au lieu "
+        "d’attendre le prochain réveil.",
+
     # --- Frame colours card (config_page.py's _frame_colours_card_html(),
     #     D-06..D-12, 21-05-PLAN.md Task 1) — replaces the retired Theme
     #     card (theme_fieldset(), its own THEME_SECTION_CAPTION/"Use a
@@ -236,6 +251,19 @@ CATALOG = {
     # with a space, and "Heures calmes Début" is not one.
     "Quiet hours start": "Début des heures calmes",
     "Quiet hours end": "Fin des heures calmes",
+    # 28-03-PLAN.md Task 1 (CFG-73 Bug A): the duration ladder's own
+    # client-side wordings (layout.DURATION_*_TEXT) — filled with
+    # _age_bucket()'s own quantity and pinned EQUAL to duration_text()'s
+    # own return, per bucket, per language, by
+    # companion/test_companion_app.py — exactly the RELATIVE_*_TEXT
+    # wordings' own contract, applied to the one length-of-time ladder
+    # instead of the two tensed ones. The real U+00A0 between "#" and the
+    # unit matches duration_text()'s own French branch byte-for-byte
+    # (D-09); a plain space here would silently desync the two.
+    "#s": "# s",
+    "#m": "# min",
+    "#h": "# h",
+    "#d": "# j",
     "Night (%s–%s)": "Nuit (%s–%s)",
     "Work day (%s–%s)": "Journée de travail (%s–%s)",
     # 20-12-PLAN.md Task 1: the workday preset's own pre-baked label
@@ -365,8 +393,37 @@ CATALOG = {
     #     "Enregistré — %s" entry (companion/i18n_fr/common.py) rather
     #     than inventing a second past-participle wording for the same
     #     event.
+    #
+    # SUPERSEDED by 28-08-PLAN.md (CFG-77/CFG-78), 2026-09-16: the auto-
+    # save status region this comment describes is gone — the developer
+    # asked for the pre-27-04 dirty save bar back (ROADMAP.md's Phase 28
+    # addendum), having seen real Safari Network tab evidence that the
+    # fetch-based save it replaced worked correctly the entire time.
+    # Saving is a real navigation again, not a fetch a region reports on.
+    # "Saved"/"Enregistré" LEAVES the catalogue —
+    # SAVE_STATUS_SAVED_TEXT was its only producer and that producer is
+    # deleted with the region (companion/test_i18n.py's dead-translation
+    # scanner would otherwise fail on the orphaned entry).
+    # "Saving…"/"Enregistrement…" SURVIVES: its producer changes back to
+    # DIRTY_SAVING_TEXT (companion/pages/config_page.py), the same
+    # constant that produced it before 27-04 ever ran, with the
+    # identical English value and this identical French translation.
     "Saving…": "Enregistrement…",
-    "Saved": "Enregistré",
+
+    # --- 28-08-PLAN.md (CFG-77), 2026-09-16: the restored dirty save
+    #     bar's six connector/progress words, read as data-dirty-changed-
+    #     suffix/data-dirty-and/data-dirty-list-and/data-dirty-unsaved-
+    #     singular/data-dirty-unsaved-plural/data-dirty-initial-text by
+    #     companion/static/dirty-state.js. Restored verbatim (English AND
+    #     French both) from their pre-27-04 wordings at commit 6dea46a —
+    #     the developer asked for this exact save model back, not a
+    #     reinvention of it.
+    "Unsaved changes": "Modifications non enregistrées",
+    " changed": " modifié",
+    " and ": " et ",
+    ", and ": " et ",
+    "1 unsaved change": "1 modification non enregistrée",
+    " unsaved changes": " modifications non enregistrées",
 
     # --- Field-level validation errors (config_page.py's
     #     _field_error_html(), rendered wherever `errors` carries one) --

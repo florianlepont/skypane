@@ -166,6 +166,30 @@ DISPLAY_WATCHES_INTRO = "— which Orly runway the frame is watching."
 DISPLAY_ON_SECTION_ID = "display-on"
 DISPLAY_ON_HEADING = "When it is on"
 DISPLAY_ON_INTRO = "— when the screen is lit and when it stays quiet."
+# 28-04-PLAN.md Task 1 (CFG-72): Device's own two supersections, the same
+# `section_intro_html()` shape as the three above — "When it wakes" over
+# Wake interval alone, "How it tells you" over Diagnostic LED and
+# Notifications together. The LED/Notifications pairing is a real shared
+# subject, not a bucket invented so a wrapper class would have somewhere
+# to live: both cards are the frame's SIGNALLING channels — the LED
+# reports what the device is doing on the device itself, notifications
+# report it on the reader's phone. A third supersection, "When you
+# can't wait", introduces the fourth Device card (Manual refresh / Poll,
+# built outside `builders` entirely — see `poll_section_html` below) on
+# its own: it is the one Device control that acts immediately rather
+# than on a schedule, the manual counterpart to "When it wakes", and a
+# one-card supersection has precedent in "What it watches" above.
+DEVICE_WAKES_SECTION_ID = "device-wakes"
+DEVICE_WAKES_HEADING = "When it wakes"
+DEVICE_WAKES_INTRO = "— how often the frame wakes up to fetch a new picture."
+DEVICE_TELLS_SECTION_ID = "device-tells"
+DEVICE_TELLS_HEADING = "How it tells you"
+DEVICE_TELLS_INTRO = "— the light on the frame and the alerts on your phone."
+DEVICE_POLL_SECTION_ID = "device-poll"
+DEVICE_POLL_HEADING = "When you can't wait"
+DEVICE_POLL_INTRO = (
+    "— fetch a new picture right now instead of waiting for the next "
+    "wake.")
 # 19-12-PLAN.md Task 2 (D-23): the conditional screen-type <select> — an
 # element id (not a class) because its own <label> targets it via `for`.
 SCREEN_SELECTOR_ID = "screen-id-selector"
@@ -834,8 +858,63 @@ QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
 # independent of whatever save model sits on top, and re-threading every
 # one of its seven emission sites to remove it is no part of what this
 # plan was asked to change.
+#
+# SUPERSEDED by 28-08-PLAN.md (CFG-77/CFG-78), 2026-09-16: both
+# paragraphs above described a state that held for one phase, not a
+# permanent fact — the developer asked for the dirty bar back, twice
+# confirmed (ROADMAP.md's Phase 28 addendum, "CFG-63 reversed"), having
+# seen real Safari Network tab evidence that the auto-save fetch it
+# replaced worked correctly the whole time. DIRTY_SECTION_ATTR's reader
+# is restored: dirty-state.js's dirtySectionLabels() is back, and it is
+# once again what walks every wrapper below to build the bar's
+# section-naming copy. STATIC_SAVE_FALLBACK_ATTR's own reader also
+# changes — the `.js`-hide rule this comment names is deleted
+# (28-08-PLAN.md Task 2), because the button it used to hide is now the
+# restored bar's own visible Save, relocated into the bar's markup below
+# with a `form="%s"` attribute rather than hidden by CSS. Both constants
+# keep their pre-existing values; only the mechanism reading them moved.
 DIRTY_SECTION_ATTR = "data-dirty-section"
 STATIC_SAVE_FALLBACK_ATTR = "data-static-save-fallback"
+
+# 28-08-PLAN.md (CFG-77), 2026-09-16: the seven words dirty-state.js's
+# updateBar()/dirtySectionLabels() carry as translated data-* attributes
+# on the bar itself — restored verbatim (constant names, English values
+# and French catalogue entries alike) from their pre-27-04 shape at
+# commit 6dea46a, because 27-04 deleted them along with the bar it
+# removed and the developer has now asked for that bar back. Same
+# data-*-attribute-with-an-English-fallback idiom as quick-switch.js's
+# own data-quick-failed-text: each constant's own English value is also
+# dirty-state.js's documented `|| "English fallback"` literal, so the
+# two can never silently disagree about what a bar rendered WITHOUT the
+# attribute says.
+#
+# DIRTY_BAR_INITIAL_TEXT's ROLE CHANGED from its pre-27-04 shape, and
+# this is the plan's most important non-obvious decision, stated here
+# too: it is no longer [data-dirty-count]'s server-rendered SEED. The
+# bar itself is no longer server-rendered `hidden` (Task 1's no-JS-floor
+# inversion — see render()'s own comment at the bar's emission site), so
+# seeding the count span with this text would announce a false "Unsaved
+# changes" claim, via `role="status"`, to every scripts-blocked visitor
+# on every page load before they have touched anything. It is carried
+# as a data-* attribute only, for dirty-state.js to write when — and
+# only when — countDifferences() actually finds one. A future reader
+# re-seeding the span with this constant's own value reintroduces
+# exactly the bug this restoration refused to ship.
+DIRTY_BAR_INITIAL_TEXT = "Unsaved changes"
+DIRTY_CHANGED_SUFFIX = " changed"
+DIRTY_AND = " and "
+DIRTY_LIST_AND = ", and "
+DIRTY_UNSAVED_SINGULAR = "1 unsaved change"
+DIRTY_UNSAVED_PLURAL = " unsaved changes"
+# 28-08-PLAN.md: this constant's PRODUCER changes back from the
+# now-removed auto-save status region's own progress constant to this
+# restored name — the English value and the French catalogue entry it
+# maps to ("Enregistrement…") are byte-identical, so the move changes
+# nothing a reader ever sees.
+#
+# The ellipsis is the single U+2026 character, matching this module's
+# own "Polling…" and layout.py's "Reconnecting…" — never three periods.
+DIRTY_SAVING_TEXT = "Saving…"
 
 # 27-04-PLAN.md Task 3 (D-04/D-06/CFG-63): the auto-save status region's
 # two translated words, replacing the seven the retired dirty bar used
@@ -860,13 +939,20 @@ STATIC_SAVE_FALLBACK_ATTR = "data-static-save-fallback"
 # already holds the value, from the same response that already confirms
 # it landed.
 #
-# The ellipsis is the single U+2026 character, matching this module's
-# own "Polling…" and layout.py's "Reconnecting…" — never three periods.
-SAVE_STATUS_ATTR = "data-save-status"
-SAVE_STATUS_SAVING_ATTR = "data-save-status-saving"
-SAVE_STATUS_SAVED_ATTR = "data-save-status-saved"
-SAVE_STATUS_SAVING_TEXT = "Saving…"
-SAVE_STATUS_SAVED_TEXT = "Saved"
+# SUPERSEDED IN TURN by 28-08-PLAN.md (CFG-77/CFG-78), 2026-09-16: the
+# developer rejected the auto-save MODEL this whole region existed to
+# report on, not just its missing feedback — real Safari Network tab
+# evidence showed the fetch-based save worked correctly the entire time
+# (ROADMAP.md's Phase 28 addendum). Saving is a real navigation again,
+# so the region's own premise ("no navigation left to report a finished
+# state after") is gone. The region's own attribute constant, its two
+# text-word constants, and _save_status_region_html() itself, are
+# DELETED — along with the "Saved"/"Enregistré" catalogue entry the
+# progress-word constant above was the only producer of.
+# "Saving…"/"Enregistrement…" SURVIVES: DIRTY_SAVING_TEXT (above) is its
+# new, restored producer — the same constant that
+# produced it before 27-04 ever ran, with the identical English value
+# and the identical French translation.
 
 # Matches 06-UI-SPEC.md's Copywriting Contract "Poll-trigger cooldown"
 # row verbatim (D-17); "{n}" is filled in with a server-computed
@@ -3007,6 +3093,16 @@ def quiet_dial_handles_html(start_hm, end_hm):
     return "".join(handles)
 
 
+# 28-03-PLAN.md Task 1 (CFG-73 Bug A): layout.DURATION_ATTRS' own four
+# English wordings, in the SAME s/m/h/d order — quiet_dial_readout_html()
+# below zips this against that tuple so the attribute name and its
+# translated wording are always written together.
+_QUIET_DIAL_DURATION_TEXTS = (
+    layout.DURATION_SECONDS_TEXT, layout.DURATION_MINUTES_TEXT,
+    layout.DURATION_HOURS_TEXT, layout.DURATION_DAYS_TEXT,
+)
+
+
 def quiet_dial_readout_html(start_hm, end_hm, span):
     """"23:00 → 07:00 · 8h" — the window in words, or nothing at all when
     `span` is None.
@@ -3053,48 +3149,88 @@ def quiet_dial_readout_html(start_hm, end_hm, span):
     handles for free, through the shipped mechanism, substituting the
     one number value-controls.js already reads back off each field.
     Nothing here writes copy: the substituted value is a number, and the
-    template holding its place is server-rendered.
+    template holding its place is server-rendered. **28-03-PLAN.md
+    Task 1 (CFG-73 Bug A)** additionally marks both endpoint spans
+    `data-value-readout-format="clock"` — the readout-scoped sibling of
+    the wrapper's own `data-value-format="clock"` — so
+    `value-controls.js`'s `paintReadouts()` substitutes zero-padded
+    "HH:MM" through the SAME codec the native time input already uses
+    (`numberToField()`'s own formatting body) rather than the raw
+    minute-of-day number it used to write.
 
-    THE DURATION CHILD NEVER SHOWS A SCRIPT-COMPUTED SENTENCE, and this
-    is the honesty contract (D18's battery gauge, applied to a different
-    sentence) made structural rather than trusted: its own
-    `data-value-readout-text` is the EMPTY template. paintReadouts()'s
-    shipped substitution therefore always resolves to "" the moment this
-    element is next painted — whether or not the pair still matches
-    `data-value-readout-base` — which is deliberately the SAFE side of
-    the "blanks when equal to base" rule this seam was built for
-    (25-05-PLAN.md Task 2): that rule blanks a sentence when nothing
-    changed (a comparison against itself is noise) and shows one once
-    something did, which is the OPPOSITE of what a duration that cannot
-    be recomputed in script needs. An empty template makes both of that
-    rule's branches resolve to "" rather than ever risking the SHOWN
-    branch substituting a bare, unrelated minute count where a duration
-    phrase belongs. `data-value-readout-base` is still recorded, both
-    because a later, smarter blank-only-when-different rule could read
-    it and because CFG-62's own acceptance bar asks for it; today it is
-    inert given the empty template, and that is written here rather than
-    left for a reader to have to prove. The server RE-RENDERS the true
-    figure on the very next load, which is the only path back to a
-    stated duration.
+    THE DURATION CHILD — SUPERSEDED 28-03-PLAN.md Task 1 (CFG-73 Bug A).
+    Kept below, legible, because it explains a real decision this task
+    inverts on purpose rather than by accident:
+
+        "THE DURATION CHILD NEVER SHOWS A SCRIPT-COMPUTED SENTENCE, and
+        this is the honesty contract (D18's battery gauge, applied to a
+        different sentence) made structural rather than trusted: its own
+        `data-value-readout-text` is the EMPTY template. paintReadouts()'s
+        shipped substitution therefore always resolves to "" the moment
+        this element is next painted — whether or not the pair still
+        matches `data-value-readout-base` — which is deliberately the
+        SAFE side of the "blanks when equal to base" rule this seam was
+        built for (25-05-PLAN.md Task 2): that rule blanks a sentence
+        when nothing changed (a comparison against itself is noise) and
+        shows one once something did, which is the OPPOSITE of what a
+        duration that cannot be recomputed in script needs. An empty
+        template makes both of that rule's branches resolve to ""
+        rather than ever risking the SHOWN branch substituting a bare,
+        unrelated minute count where a duration phrase belongs.
+        `data-value-readout-base` is still recorded, both because a
+        later, smarter blank-only-when-different rule could read it and
+        because CFG-62's own acceptance bar asks for it; today it is
+        inert given the empty template, and that is written here rather
+        than left for a reader to have to prove. The server RE-RENDERS
+        the true figure on the very next load, which is the only path
+        back to a stated duration."
+
+    WHAT REPLACED IT: the developer's own report (28-CONTEXT.md,
+    CFG-73) is that the empty template's honesty came at too high a
+    cost — a permanently blank duration after any interaction reads as
+    "still buggy", not as honest. The fix is not to let the client
+    invent a sentence; it is to hand the client the SAME ladder's own
+    words, already translated, the way `relative-time.js`'s ticker has
+    carried its four bucket wordings since Phase 23. The duration span
+    below now carries all four `layout.DURATION_ATTRS`, each filled with
+    `i18n.t()` of the matching `layout.DURATION_*_TEXT` wording —
+    `value-controls.js` substitutes a quantity into whichever one
+    `_age_bucket()`'s own boundaries select and writes no language logic
+    of its own. `data-value-readout-base` stops being inert: the pair
+    seam it names is exactly what the client-side duration is computed
+    from. `data-value-readout-text` is no longer emitted on this span at
+    all — there is nothing left for it to hold an empty value for. The
+    span's own VISIBLE, server-rendered content is unchanged: still
+    `layout.duration_text(span.minutes * 60)`, still byte-identical to
+    what shipped before this task, so a fresh load or a scripts-blocked
+    page reads exactly as it always has.
     """
     if span is None:
         return ""
+    duration_attrs_html = "".join(
+        ' %s="%s"' % (attr, escape_html(i18n.t(text)))
+        for attr, text in zip(layout.DURATION_ATTRS, _QUIET_DIAL_DURATION_TEXTS))
     return (
         '<p class="time-value %s" aria-hidden="true">'
-        '<span %s="quiet_hours_start" %s="%s">%s</span>'
+        '<span %s="quiet_hours_start" %s="%s" %s="%s">%s</span>'
         ' → '
-        '<span %s="quiet_hours_end" %s="%s">%s</span>'
+        '<span %s="quiet_hours_end" %s="%s" %s="%s">%s</span>'
         ' · '
-        '<span %s="quiet_hours_start" %s="" %s="%d">%s</span>'
+        '<span %s="quiet_hours_start" %s="%d"%s>%s</span>'
         "</p>"
     ) % (
         escape_html(QUIET_DIAL_READOUT_CLASS),
-        layout.VALUE_CONTROL_READOUT_ATTR, layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        layout.VALUE_CONTROL_READOUT_ATTR,
+        layout.VALUE_CONTROL_READOUT_FORMAT_ATTR, escape_html(layout.VALUE_CONTROL_FORMAT_CLOCK),
+        layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
         escape_html(layout.VALUE_CONTROL_TEXT_TOKEN), escape_html(start_hm),
-        layout.VALUE_CONTROL_READOUT_ATTR, layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        layout.VALUE_CONTROL_READOUT_ATTR,
+        layout.VALUE_CONTROL_READOUT_FORMAT_ATTR, escape_html(layout.VALUE_CONTROL_FORMAT_CLOCK),
+        layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
         escape_html(layout.VALUE_CONTROL_TEXT_TOKEN), escape_html(end_hm),
-        layout.VALUE_CONTROL_READOUT_ATTR, layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        layout.VALUE_CONTROL_READOUT_ATTR,
         layout.VALUE_CONTROL_READOUT_BASE_ATTR, quiet_window_minute_of_day(start_hm),
+        duration_attrs_html,
         escape_html(layout.duration_text(span.minutes * 60)),
     )
 
@@ -4850,32 +4986,64 @@ def _display_groups_html(builders, groups):
     return watches_supersection_html, on_supersection_html
 
 
-def _save_status_region_html():
-    """The transient auto-save status region (27-04-PLAN.md Task 3,
-    CFG-63) — the one thing that replaces the retired dirty save bar.
+def _device_groups_html(builders, groups):
+    """28-04-PLAN.md Task 1 (CFG-72): the Device scope's own two headed
+    supersections, mirroring `_display_groups_html()`'s shape — "When it
+    wakes" over Wake interval alone, "How it tells you" over Diagnostic
+    LED and Notifications together (the grouping argument is recorded
+    on the module constants above this function). Replaces the flat
+    `"".join(builders[g]() for g in groups if g in builders)` join the
+    Device branch used before this task; the legacy SCOPE_ALL branch's
+    own byte-identical copy of that flat join is untouched — this
+    helper is Device-scope-only, called from nowhere else.
 
-    `role="status"` + `aria-live="polite"`, the same polite-announcement
-    shape freshness.js's own regions use (never `role="alert"`: that is
-    quick-switch.js's own toast, reserved for a FAILURE, which this
-    region never announces — see dirty-state.js's own header for why the
-    failure path reuses that toast rather than speaking here too).
-
-    Rendered EMPTY at rest, deliberately: a region that already said
-    "Enregistré" on a fresh load, before anything was ever saved, would
-    be the exact stale-claim defect this phase exists to fix, in a
-    sentence instead of an arc. Its two words are carried as translated
-    data-* attributes on the region itself — dirty-state.js reads them
-    with `getAttribute()` and writes them with `textContent` only, so a
-    French reader can never be dropped into English by a save.
+    Unlike `_display_groups_html()` above (whose two supersection
+    headings always render, even when their one card is itself absent),
+    this helper omits a supersection's own heading entirely when EVERY
+    card it would introduce is absent — an intro sentence introducing
+    nothing is worse than the flat join it replaces. The check is `g in
+    builders`, preserving the original flat join's own tolerance: a
+    group missing from `builders` (not merely absent from `groups`)
+    renders neither its card nor an orphaned heading.
     """
-    return (
-        '<p class="save-status text-label" %s role="status" aria-live="polite" '
-        '%s="%s" %s="%s"></p>'
-    ) % (
-        SAVE_STATUS_ATTR,
-        SAVE_STATUS_SAVING_ATTR, escape_html(i18n.t(SAVE_STATUS_SAVING_TEXT)),
-        SAVE_STATUS_SAVED_ATTR, escape_html(i18n.t(SAVE_STATUS_SAVED_TEXT)),
-    )
+    wake_interval_html = (
+        _nested_wrapper_html(
+            builders[screens.GROUP_WAKE_INTERVAL](), "theme-status", "theme-status--nested")
+        if screens.GROUP_WAKE_INTERVAL in groups and screens.GROUP_WAKE_INTERVAL in builders
+        else "")
+    wakes_supersection_html = (
+        (layout.section_intro_html(
+            DEVICE_WAKES_SECTION_ID, i18n.t(DEVICE_WAKES_HEADING), i18n.t(DEVICE_WAKES_INTRO))
+         + wake_interval_html)
+        if wake_interval_html else "")
+
+    led_html = (
+        _nested_wrapper_html(
+            builders[screens.GROUP_LED](), "theme-status", "theme-status--nested")
+        if screens.GROUP_LED in groups and screens.GROUP_LED in builders else "")
+    notifications_html = (
+        _nested_wrapper_html(
+            builders[screens.GROUP_NOTIFICATIONS](), "theme-status", "theme-status--nested")
+        if screens.GROUP_NOTIFICATIONS in groups and screens.GROUP_NOTIFICATIONS in builders
+        else "")
+    tells_cards_html = led_html + notifications_html
+    tells_supersection_html = (
+        (layout.section_intro_html(
+            DEVICE_TELLS_SECTION_ID, i18n.t(DEVICE_TELLS_HEADING), i18n.t(DEVICE_TELLS_INTRO))
+         + tells_cards_html)
+        if tells_cards_html else "")
+
+    return wakes_supersection_html + tells_supersection_html
+
+
+# 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: _save_status_region_
+# html() — the auto-save status region's own builder, its `role="status"`
+# + `aria-live="polite"` shape, and its EMPTY-at-rest, data-*-attribute-
+# carried-words construction — is DELETED outright along with the region
+# it built. The developer asked for the pre-27-04 dirty save bar back,
+# not a reporting region beside a fetch that no longer exists. See the
+# region's own former constants' superseded comment above (beside
+# DIRTY_SAVING_TEXT) for the full account of what replaced it and why.
 
 
 def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
@@ -5038,28 +5206,84 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     #
     # D-03: data-dirty-form is a JS-only enhancement layered on top of
     # this always-server-rendered form — dirty-state.js reads it to find
-    # the form it now auto-saves.
+    # the form the restored bar (below) now watches.
     #
     # 27-04-PLAN.md Task 3 (D-04/D-06/CFG-63): the dirty save bar that
     # used to render here — quick task 260901-re6's own account of why it
-    # was a SIBLING of this form, positioned `fixed`, is superseded
-    # wholesale along with the bar itself; nothing about that sticky/fixed
-    # history survives into what replaces it. In its place, one small,
-    # ALWAYS-empty-at-rest status region (save_status_html, computed once
-    # above render()'s per-scope branch and placed beside the page's own
-    # heading — never fixed to the viewport, never an overlay: the
-    # overlay drawer CFG-31/CFG-64 already refused stays refused). It
-    # carries its own two translated words as data-* attributes on itself
-    # (SAVE_STATUS_ATTR/SAVE_STATUS_SAVING_ATTR/SAVE_STATUS_SAVED_ATTR),
-    # the same idiom the bar's own six words used — dirty-state.js reads
-    # them from there, never hardcoding a word of its own.
+    # was a SIBLING of this form, positioned `fixed` — was superseded by
+    # this plan's own auto-save status region, ALWAYS-empty-at-rest,
+    # placed beside the page's own heading.
     #
-    # The native fallback Save button (STATIC_SAVE_FALLBACK_ATTR, below,
-    # inside this form) is UNTOUCHED — 27-03's own construction, not this
-    # plan's to spend. It keeps being emitted unconditionally; only the
-    # bar that used to sit beneath it, once script had a genuine
-    # replacement, is gone.
-    save_status_html = _save_status_region_html()
+    # SUPERSEDED IN TURN by 28-08-PLAN.md (CFG-77/CFG-78), 2026-09-16:
+    # the developer asked for the bar back (ROADMAP.md's Phase 28
+    # addendum). The status region this paragraph described is deleted;
+    # its replacement is the `.dirty-bar` markup built below and emitted
+    # LAST in render()'s own return tuple, after `</form>` and after the
+    # Poll section — a SIBLING of this form again, exactly where
+    # `6dea46a` put it and for the identical reason its own comment gave
+    # (a `position: fixed` bar nested inside this short form would get
+    # the form's own box as its containing block and visibly detach —
+    # see Task 2's style.css comment for the CSS half of that argument).
+    #
+    # The native fallback Save button (STATIC_SAVE_FALLBACK_ATTR) is the
+    # SAME element as 27-03's own construction (CFG-64's AST-level proof
+    # still pins it to render()'s one unconditional return, unedited) —
+    # it MOVES, from a slot inside this `<form>...</form>` to a slot
+    # inside the bar's own markup below, with a `form="%s"` attribute
+    # added so it keeps submitting this form natively from outside it.
+    # It is not a second button: CFG-78 requires exactly one save
+    # affordance, and this relocation is what keeps that true while also
+    # making it the bar's own visible Save.
+    #
+    # THE VISIBILITY POLARITY INVERTS, and this is the plan's most
+    # important non-obvious decision (stated once here, in full, then
+    # referenced by name everywhere else it matters). The pre-27-04 bar
+    # was server-rendered `hidden`, because a no-JS visitor still had a
+    # SEPARATE always-visible bottom Save button to fall back to. That
+    # second button no longer exists — the fallback Save IS the bar's
+    # Save now — so the bar's own server-rendered state must BE the
+    # no-JS floor: it renders VISIBLE by default, and dirty-state.js
+    # hides it at init once it has proven itself live, then reveals it
+    # whenever countDifferences() > 0. A future reader who copies
+    # `6dea46a`'s `hidden` back onto this markup would silently remove
+    # the only way a scripts-blocked visitor can save — do not do that.
+    #
+    # Two consequences of the inversion, both first-class here because a
+    # scripts-blocked visitor now sees EVERYTHING inside the bar, so
+    # everything inside it must WORK without script or say nothing:
+    #   1. Cancel (below) is a native `<button type="reset"
+    #      form="%s">`, never `type="button"` — a `type="button"` with
+    #      no script is a fully visible, fully inert control that does
+    #      literally nothing when clicked, with no explanation. A native
+    #      reset restores every field with zero script; dirty-state.js
+    #      then layers its own enhancement on top (Task 3) rather than
+    #      BEING the behaviour.
+    #   2. `[data-dirty-count]` renders EMPTY — `<span
+    #      data-dirty-count></span>`, no seeded text of any kind. Seeding
+    #      it with DIRTY_BAR_INITIAL_TEXT (the pre-27-04 shape, when the
+    #      bar around it was `hidden` and nobody saw the seed) would now
+    #      show "Unsaved changes"/"Modifications non enregistrées" to
+    #      every scripts-blocked visitor on every fresh page load, and
+    #      `role="status"` would have an assistive-tech reader announce
+    #      it — a permanent, loudly-announced false claim, and the exact
+    #      opposite of this plan's own "the no-JS floor got STRONGER"
+    #      objective. dirty-state.js is the count span's only writer,
+    #      and it writes only once countDifferences() > 0.
+    #
+    # Every translated word below is computed once here, before the
+    # single `return` — none of these seven local variables is
+    # STATIC_SAVE_FALLBACK_ATTR itself, so none of this precomputation
+    # touches the AST invariant `_the_native_submit_is_emitted_
+    # unconditionally_on_every_render()` pins (that check requires
+    # STATIC_SAVE_FALLBACK_ATTR to reach render()'s own return as a bare
+    # name — see that button's own args in the return's tuple, below).
+    dirty_changed_suffix_html = escape_html(i18n.t(DIRTY_CHANGED_SUFFIX))
+    dirty_and_html = escape_html(i18n.t(DIRTY_AND))
+    dirty_list_and_html = escape_html(i18n.t(DIRTY_LIST_AND))
+    dirty_unsaved_singular_html = escape_html(i18n.t(DIRTY_UNSAVED_SINGULAR))
+    dirty_unsaved_plural_html = escape_html(i18n.t(DIRTY_UNSAVED_PLURAL))
+    dirty_saving_html = escape_html(i18n.t(DIRTY_SAVING_TEXT))
+    dirty_initial_text_html = escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT))
 
     # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the per-flight
     # rules editor is no longer a standalone sibling section at all — it
@@ -5251,7 +5475,15 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # (only ever Display's everyday_groups/SCOPE_ALL's legacy
         # tuple), so its absence from `builders` (above) changes
         # nothing here either.
-        groups_html = "".join(builders[g]() for g in groups if g in builders)
+        # 28-04-PLAN.md Task 1 (CFG-72): the flat join is replaced by
+        # `_device_groups_html()`, which wraps each card exactly like
+        # Display's own cards are wrapped and introduces them under two
+        # named supersections — see that function's own docstring and
+        # the module constants above it for the grouping argument. The
+        # legacy SCOPE_ALL branch below keeps its own, byte-identical
+        # copy of the flat join this replaces; that copy is deliberately
+        # untouched.
+        groups_html = _device_groups_html(builders, groups)
         frame_colours_section_html = ""
         display_calendar_card_html = ""
         display_watches_supersection_html = ""
@@ -5295,16 +5527,23 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(cooldown_remaining))
         if show_poll else "")
+    # 28-04-PLAN.md Task 1 (CFG-72): the fourth Device card, wrapped with
+    # the Poll card's OWN modifier below (the wrapper this card actually
+    # emits is a `.page-section`, not a `.theme-status`) under its own
+    # one-card supersection, "When you can't wait" — DEVICE-SCOPE-ONLY.
+    # Computed here rather than gating `poll_section_html` itself, so
+    # the legacy SCOPE_ALL branch's own `poll_section_html` (built once,
+    # above, shared by both scopes via the identical `show_poll` gate)
+    # reaches the return tuple below byte-identical to its pre-task
+    # output.
+    poll_supersection_html = (
+        (layout.section_intro_html(
+            DEVICE_POLL_SECTION_ID, i18n.t(DEVICE_POLL_HEADING), i18n.t(DEVICE_POLL_INTRO))
+         + _nested_wrapper_html(poll_section_html, "page-section", "page-section--nested"))
+        if scope == SCOPE_DEVICE and poll_section_html else "")
 
     return (
         header
-        # 27-04-PLAN.md Task 3 (D-04/CFG-63): the status region sits
-        # immediately after the page's own heading and BEFORE the Frame
-        # strip — "beside the form's heading", never fixed to the
-        # viewport, never a second banner. Rendered on every scope
-        # (Display, Device and the legacy SCOPE_ALL alike), matching
-        # data-dirty-form's own scope-independent emission it replaces.
-        + save_status_html
         # 21-04-PLAN.md Task 1 (D-02/R-01): the shared Frame strip
         # renders immediately after the page header and before the
         # form (whose own groups_html opens with the "Look"
@@ -5314,7 +5553,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         + '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
         "%s"
         "%s"
-        '<button type="submit" %s>%s</button>'
         "</form>"
         "%s"
         "%s"
@@ -5323,13 +5561,67 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "%s"
         "%s"
+        # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: the restored
+        # `.dirty-bar` — LAST in this tuple, after `</form>` and after
+        # the Poll section, exactly where `6dea46a` put it (see the
+        # comment above this return's own local-variable block for the
+        # full reasoning: sticky/fixed positioning needs a containing
+        # block wider than this short form). Emitted on every scope
+        # (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE), matching data-dirty-
+        # form's own scope-independent emission.
+        #
+        # NO `hidden` attribute — the no-JS-floor inversion this
+        # function's own comment above explains in full: this bar's
+        # server-rendered visible state IS the floor now, because there
+        # is no second, separate fallback button any more.
+        #
+        # `[data-dirty-count]` is `<span data-dirty-count></span>` —
+        # EMPTY, no seeded text — for the identical reason: a seeded
+        # claim would be a false, `role="status"`-announced "Unsaved
+        # changes" shown to every scripts-blocked visitor on every fresh
+        # load.
+        #
+        # Inside, in order: the count span, the Save button, the Cancel
+        # button — matching `6dea46a`'s own document order.
+        #
+        # The Save button is `STATIC_SAVE_FALLBACK_ATTR`'s OWN element,
+        # relocated here from its former slot inside `<form>...</form>`
+        # above (never a second button — CFG-78 requires exactly one).
+        # `form="%s"` is what lets it keep submitting the physical form
+        # natively from outside it, the same `form=` idiom Runway/
+        # Calendar's own cross-tree controls already use. Kept NAMELESS
+        # (no `name=` attribute) — a named submitter would contribute an
+        # entry to the form's own data set, and dirty-state.js's Task 3
+        # relabelSubmitter() stands down on any submitter that carries
+        # one.
+        #
+        # The Cancel button is a NATIVE `type="reset"`, never
+        # `type="button"` — `6dea46a` used `type="button"` and relied
+        # entirely on script, which was safe only because its own bar
+        # was `hidden` without one. With the polarity inverted, a
+        # `type="button"` here would be a fully visible, fully inert
+        # control for every scripts-blocked visitor. A native reset,
+        # `form=`-associated the same way the Save is, restores every
+        # field to its last-rendered value with zero script;
+        # dirty-state.js's Task 3 enhancement then layers the three
+        # things a native reset alone cannot do (hide the bar, suppress
+        # the leave-guard, refresh the theme preview and repaint the
+        # quiet-hours dial) on top of that native behaviour, rather than
+        # reimplementing it.
+        '<div class="dirty-bar" data-dirty-bar role="status" '
+        'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
+        'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
+        'data-dirty-unsaved-plural="%s" data-dirty-saving="%s" '
+        'data-dirty-initial-text="%s">'
+        "<span data-dirty-count></span>"
+        '<button type="submit" class="dirty-bar__save" form="%s" %s>%s</button>'
+        '<button type="reset" form="%s" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
+        "</div>"
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
         hidden_html,
         groups_html,
-        STATIC_SAVE_FALLBACK_ATTR,
-        escape_html(i18n.t("Save settings")),
         # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the "Look"
         # intro heading plus the Frame colours card now render
         # immediately after `</form>` closes, BEFORE the Calendar card
@@ -5370,7 +5662,33 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # on the Device/SCOPE_ALL paths (both set it to "" explicitly
         # above), so this addition changes nothing for either.
         display_on_supersection_html,
-        poll_section_html,
+        # 28-04-PLAN.md Task 1 (CFG-72): the Device scope renders the
+        # wrapped, supersection-introduced form of the Poll card
+        # (`poll_supersection_html`); the legacy SCOPE_ALL branch (and
+        # Display, which never sets `show_poll`) renders the original
+        # bare `poll_section_html` unchanged — `poll_supersection_html`
+        # is "" on both of those scopes by construction above.
+        poll_supersection_html if scope == SCOPE_DEVICE else poll_section_html,
+        # The bar's own seven data-* words, precomputed above this
+        # return (see this function's own local-variable block for why
+        # that precomputation does not touch the AST invariant).
+        dirty_changed_suffix_html,
+        dirty_and_html,
+        dirty_list_and_html,
+        dirty_unsaved_singular_html,
+        dirty_unsaved_plural_html,
+        dirty_saving_html,
+        dirty_initial_text_html,
+        # The Save button: form=, then STATIC_SAVE_FALLBACK_ATTR (a bare
+        # name, directly inside this return's own args tuple — the
+        # invariant `_the_native_submit_is_emitted_unconditionally_on_
+        # every_render()` pins), then its label.
+        SETTINGS_FORM_ID,
+        STATIC_SAVE_FALLBACK_ATTR,
+        escape_html(i18n.t("Save settings")),
+        # The Cancel button: form=, then its label.
+        SETTINGS_FORM_ID,
+        escape_html(i18n.t("Cancel")),
     )
 
 

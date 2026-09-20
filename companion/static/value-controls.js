@@ -234,9 +234,37 @@
   var READOUT_TEXT_ATTR = "data-value-readout-text";
   var READOUT_SCALE_ATTR = "data-value-readout-scale";
   var READOUT_BASE_ATTR = "data-value-readout-base";
+  // 28-03-PLAN.md Task 1/2 (CFG-73 Bug A): a READOUT-SCOPED clock-format
+  // signal, mirroring FORMAT_ATTR above. A readout is found by field
+  // NAME, never by wrapper containment (see READOUT_ATTR's own comment
+  // above), so the wrapper's own FORMAT_ATTR is invisible from here —
+  // this restates the identical "clock" signal on the readout itself.
+  var READOUT_FORMAT_ATTR = "data-value-readout-format";
   var MINUTES_PER_HOUR = 60;
   var HOURS_PER_DAY = 24;
+  var MINUTES_PER_DAY = MINUTES_PER_HOUR * HOURS_PER_DAY;
+  var SECONDS_PER_MINUTE = 60;
   var CLOCK_RE = /^(\d{1,2}):(\d{2})$/;
+
+  // 28-03-PLAN.md Task 1's own four duration-attribute names
+  // (layout.DURATION_ATTRS), in the SAME s/m/h/d order —
+  // _age_bucket()'s own unit-letter order, matched one-for-one against
+  // DURATION_BOUNDARY_SECONDS below. Literal strings, exactly like every
+  // other server-chosen attribute name this file reads (READOUT_ATTR,
+  // FORMAT_ATTR, ...) — companion/test_companion_app.py pins these four
+  // present in this file's own source, the same way relative-time.js's
+  // ticker attributes are pinned present in that file.
+  var DURATION_ATTRS = [
+    "data-duration-s",
+    "data-duration-m",
+    "data-duration-h",
+    "data-duration-d",
+  ];
+  // _age_bucket()'s own three boundaries, in SECONDS: 60 / 3600 / 86400.
+  // Never a second ladder — these are the same three numbers
+  // layout._age_bucket() is built from, compared here in the SAME unit
+  // (seconds) rather than a second unit that happens to agree today.
+  var DURATION_BOUNDARY_SECONDS = [60, 3600, 86400];
 
   // The painted position, as a 0..1 fraction, handed to the stylesheet
   // as a custom property so every bit of geometry stays in the CSS.
@@ -385,17 +413,26 @@
     return hours * MINUTES_PER_HOUR + minutes;
   }
 
-  // This file's number as the field's TEXT. Zero-padded both halves,
-  // because "7:0" is not a value a native time input accepts and a
-  // rejected write is an emptied field.
-  function numberToField(wrapper, value) {
-    if (!isClockFormat(wrapper)) {
-      return String(value);
-    }
+  // THE ZERO-PADDED "HH:MM" FORMATTING BODY ITSELF — 28-03-PLAN.md
+  // Task 2 (CFG-73 Bug A) extracted this out of numberToField() below so
+  // a readout wanting the identical text has ONE place to call, never a
+  // second six-line copy of the same arithmetic: a second copy of a
+  // codec is a second thing that can drift, and 28-CONTEXT.md names this
+  // explicitly. Zero-padded both halves, because "7:0" is not a value a
+  // native time input accepts and a rejected write is an emptied field.
+  function minutesToClock(value) {
     var whole = Math.max(0, Math.round(value));
     var hours = Math.floor(whole / MINUTES_PER_HOUR) % HOURS_PER_DAY;
     var minutes = whole % MINUTES_PER_HOUR;
     return (hours < 10 ? "0" : "") + hours + ":" + (minutes < 10 ? "0" : "") + minutes;
+  }
+
+  // This file's number as the field's TEXT.
+  function numberToField(wrapper, value) {
+    if (!isClockFormat(wrapper)) {
+      return String(value);
+    }
+    return minutesToClock(value);
   }
 
   // The control's CURRENT value: read back off the native input, never
@@ -482,10 +519,106 @@
     return Math.ceil(value / scale);
   }
 
+  // 28-03-PLAN.md Task 2 (CFG-73 Bug A): does THIS READOUT declare
+  // itself clock-formatted — READOUT_FORMAT_ATTR, never the wrapper's
+  // own FORMAT_ATTR, for the reason that constant's comment states.
+  function isReadoutClockFormat(readout) {
+    return readout.getAttribute(READOUT_FORMAT_ATTR) === "clock";
+  }
+
+  // THE DURATION, AS MINUTES — 28-03-PLAN.md Task 2 (CFG-73 Bug A).
+  // pairAncestor is the shared ancestor the CFG-62 pair seam already
+  // publishes both ends' fractions onto (paintSweep()'s own subject);
+  // its PAIR_PROPERTY_ATTR children are the two paired wrappers, in
+  // DOCUMENT ORDER — start before end, exactly as paintSweep()'s own
+  // comment states the server always emits them. Read straight off each
+  // member's own FIELD via currentValue() — never a cached number, and
+  // never the painted fraction, which would be a second, rounder
+  // encoding of the identical value.
+  //
+  // THE WRAP, NAMED: (end - start + MINUTES_PER_DAY) % MINUTES_PER_DAY
+  // measures FORWARD through midnight, matching
+  // quiet_window_span()'s own "always forward from start" server-side
+  // contract — 23:00 to 07:00 is 480 minutes, never a negative. A
+  // start-equals-end window measures 0, not a full day, matching that
+  // same function's zero-length-window contract — the one expression
+  // handles both edge cases because both are the same expression's
+  // natural output, not two branches.
+  //
+  // Returns null when either end has no usable bounds/value — no
+  // invented duration for half a pair, matching this file's
+  // total-by-construction discipline elsewhere.
+  function pairedDurationMinutes(pairAncestor) {
+    var members = pairAncestor.querySelectorAll("[" + PAIR_PROPERTY_ATTR + "]");
+    if (members.length < 2) {
+      return null;
+    }
+    var startBounds = boundsFor(members[0]);
+    var endBounds = boundsFor(members[1]);
+    if (!startBounds || !endBounds) {
+      return null;
+    }
+    var start = currentValue(members[0], startBounds);
+    var end = currentValue(members[1], endBounds);
+    return (end - start + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+  }
+
+  // THE DURATION READOUT ITSELF — 28-03-PLAN.md Task 2 (CFG-73 Bug A).
+  // wrapper is whichever paired wrapper is CURRENTLY painting (the
+  // caller of paintReadouts()), used only to find the shared pair
+  // ancestor via ancestorWith() — the readout element itself is a
+  // SIBLING of the dial's pair-ancestor div, never a descendant of it,
+  // so the lookup has to start from the wrapper, not from the readout.
+  //
+  // Selects the bucket with _age_bucket()'s OWN boundaries — 60 / 3600 /
+  // 86400 seconds, integer-divided, negatives clamped to 0 by
+  // pairedDurationMinutes()'s own wrap arithmetic (its result is always
+  // in [0, MINUTES_PER_DAY)) — and walks DURATION_ATTRS in the SAME
+  // s/m/h/d order to read the matching server-rendered wording. Writes
+  // "" when the pair is not resolvable or the server did not render a
+  // wording for the bucket reached (never invents English here).
+  function paintDurationReadout(wrapper, readout) {
+    var pairAncestor = ancestorWith(wrapper, PAIR_ATTR);
+    var minutes = pairAncestor ? pairedDurationMinutes(pairAncestor) : null;
+    if (minutes === null) {
+      readout.textContent = "";
+      return;
+    }
+    var seconds = Math.max(0, Math.round(minutes * SECONDS_PER_MINUTE));
+    var quantity, attrIndex;
+    if (seconds < DURATION_BOUNDARY_SECONDS[0]) {
+      quantity = seconds;
+      attrIndex = 0;
+    } else if (seconds < DURATION_BOUNDARY_SECONDS[1]) {
+      quantity = Math.floor(seconds / DURATION_BOUNDARY_SECONDS[0]);
+      attrIndex = 1;
+    } else if (seconds < DURATION_BOUNDARY_SECONDS[2]) {
+      quantity = Math.floor(seconds / DURATION_BOUNDARY_SECONDS[1]);
+      attrIndex = 2;
+    } else {
+      quantity = Math.floor(seconds / DURATION_BOUNDARY_SECONDS[2]);
+      attrIndex = 3;
+    }
+    var template = readout.getAttribute(DURATION_ATTRS[attrIndex]);
+    if (!template) {
+      readout.textContent = "";
+      return;
+    }
+    readout.textContent = template.split(TEXT_TOKEN).join(String(quantity));
+  }
+
   // Every readout for this wrapper's field, rewritten from its own
   // server-rendered template. A readout whose value equals its declared
   // base says NOTHING — that is the state every page load renders, and
   // a sentence comparing a value with itself would be noise.
+  //
+  // A READOUT CARRYING NO READOUT_TEXT_ATTR AT ALL is not skipped as it
+  // used to be unconditionally — 28-03-PLAN.md Task 2 (CFG-73 Bug A)
+  // gave the duration readout FOUR attributes (DURATION_ATTRS) instead
+  // of one empty template, so the absent-template branch now tries the
+  // duration path before giving up. Every OTHER readout in the app still
+  // carries READOUT_TEXT_ATTR and is painted exactly as before this
+  // task — this clause is additive, never a change to that path.
   function paintReadouts(wrapper, value) {
     var name = wrapper.getAttribute(FIELD_ATTR);
     if (!name) {
@@ -497,6 +630,7 @@
       var readout = readouts[i];
       var template = readout.getAttribute(READOUT_TEXT_ATTR);
       if (template === null) {
+        paintDurationReadout(wrapper, readout);
         continue;
       }
       var base = numberOrNull(readout.getAttribute(READOUT_BASE_ATTR));
@@ -504,8 +638,10 @@
         readout.textContent = "";
         continue;
       }
-      readout.textContent = template.split(TEXT_TOKEN).join(
-        String(readoutQuantity(readout, value)));
+      var quantity = isReadoutClockFormat(readout)
+        ? minutesToClock(value)
+        : String(readoutQuantity(readout, value));
+      readout.textContent = template.split(TEXT_TOKEN).join(quantity);
     }
   }
 
@@ -886,4 +1022,25 @@
   // scripts-blocked rendering correct rather than merely present, and
   // it is why this file mutates absolutely nothing until a user
   // touches a control that exists.
+
+  // 28-08-PLAN.md Task 3 (CFG-77), 2026-09-16: exposes the EXISTING
+  // repaintAll() as a callable entry point — dirty-state.js's restored
+  // Cancel handler calls it, from the deferred tick its own comment
+  // explains, after the native reset event has actually restored
+  // every field's value. Nothing about repaintAll() itself changes: it
+  // already reads each wrapper's LIVE field value at call time via
+  // currentValue(wrapper, bounds), which is exactly why calling it
+  // AFTER the restore produces the right answer, and the document-level
+  // click listener two lines above keeps registered exactly as-is,
+  // serving its own pre-existing purpose (repainting after any click
+  // that might have moved a value, e.g. a preset button) — this export
+  // adds a second, deliberate caller, never replaces the first.
+  //
+  // A small namespace object, matching theme-preview.js's own
+  // window.SkyPaneLivePreview = { refresh: refreshFromCurrentState };
+  // — this codebase's one-namespace-object-per-file idiom for a script
+  // that needs to give another script a named, stable entry point
+  // without becoming a stray global. window.SkyPaneDirtyState (dirty-
+  // state.js) is that same idiom's second instance; this is its third.
+  window.SkyPaneValueControls = { repaintAll: repaintAll };
 })();

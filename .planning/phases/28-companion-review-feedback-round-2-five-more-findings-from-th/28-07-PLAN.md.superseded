@@ -1,0 +1,444 @@
+> **SUPERSEDED 2026-09-16, never executed.** This plan closed out CFG-74's resilience work. The developer rejected the underlying auto-save model itself (see 28-06-PLAN.md.superseded's own note) and asked for the pre-Phase-27 dirty save bar back instead. See ROADMAP.md's Phase 28 addendum (2026-09-16) and REQUIREMENTS.md's CFG-74/CFG-77/CFG-78 notes for the full record. Its runway-regression-check and closing-gate scope carries forward into 28-09-PLAN.md, retargeted at the restored bar's save path. Kept on disk, not deleted, per this project's convention of preserving planning history rather than erasing it.
+---
+phase: 28-companion-review-feedback-round-2-five-more-findings-from-th
+plan: 07
+type: execute
+wave: 6
+depends_on: ["28-06"]
+files_modified:
+  - companion/test_browser_ux.py
+  - companion/test_config_page.py
+  - .planning/REQUIREMENTS.md
+  - .planning/ROADMAP.md
+autonomous: true
+requirements: [CFG-72, CFG-73, CFG-74, CFG-75, CFG-76]
+
+must_haves:
+  truths:
+    - "CFG-74(c): the runway radios' `form=`-attribute wiring is proven by its OWN check against the same pass/fail contract every other control meets — the path Phase 27's checks did not specifically cover, and the original narrower ask before the escalation"
+    - "CFG-74(b): the failure toast is proven genuinely REACHABLE and VISIBLE, not merely present in the DOM — the developer's report of 'no popup ever' spans both the status region and the toast, and only one of them was addressed by 28-06"
+    - "The gate: every check count is re-derived by RUNNING the suites, never by arithmetic; the full suite reports exactly the known sandbox baseline failures BY NAME"
+    - "The ledger is written against the CODE, not against the plans — each of CFG-72..76 is ticked only where per-clause evidence exists, and anything short of its full wording is recorded as an outcome rather than rounded up (the CFG-65 precedent from Phase 27)"
+    - "CFG-74 is ticked ONLY for what was proven: status visibility, failure surfacing, retry recovery, diagnostic distinction and the runway path. The Safari root cause is recorded as UNCONFIRMED and the requirement's ledger entry says so in as many words"
+  artifacts:
+    - path: "companion/test_browser_ux.py"
+      provides: "the runway form=-path regression check and the toast-reachability check"
+      contains: "form="
+    - path: ".planning/REQUIREMENTS.md"
+      provides: "the Phase 28 coverage ledger with per-clause evidence"
+      contains: "CFG-74"
+  key_links:
+    - from: "companion/test_browser_ux.py"
+      to: "the settings form's on-disk state"
+      via: "a cross-tree form=-associated radio committing through the same save path as a natively-nested control"
+      pattern: "form="
+---
+
+<objective>
+This is the phase's closing plan: the one CFG-74 clause 28-06 deliberately left out, the
+one re-verification the investigation flagged as still open, and the gate.
+
+**The runway path (CFG-74c).** This was the developer's ORIGINAL, narrower report before
+the escalation — *"je ne vois pas le bouton enregistrer apparaître"* when changing the
+runway. It was investigated and **not reproduced** in Chromium: the "Saved" status did
+appear correctly for the runway radio via its `form=`-attribute wiring. It gets its own
+check anyway, because "we looked once and it was fine" is not a contract. The runway
+radios live OUTSIDE `<form id="settings-form">` in the DOM and reach it only through a
+`form="settings-form"` attribute — a cross-tree association that `dirty-state.js`'s own
+document-level delegated listener exists specifically to handle (a `<form>` never
+receives a `change` event from a control that is merely `form=`-associated with it). That
+path deserves the same pass/fail contract every natively-nested control meets, and it did
+not have one.
+
+**The toast (CFG-74b, the open re-verification).** CONTEXT.md is precise about this: the
+status region and the failure toast are DISTINCT elements, and only the status region
+needed pinning. But *"no popup ever appears"* spans both, and the deep-dive found the
+toast to be `position: fixed` with no transformed ancestor and no obvious CSS collision —
+which is a reason to re-verify it end to end, not a reason to assume it. 28-06 asserted
+the toast's COPY on failure; this plan asserts it is actually REACHABLE — in the viewport,
+opaque, and not covered by anything.
+
+**The gate.** Phase 27's own closing plan is the precedent: every count re-derived by
+RUNNING, the baseline failures named, and the ledger written against the code. And the
+lesson that phase closed on is the one that matters most here: **CFG-65 was deliberately
+left unticked** because investigation found no defect, recorded as its own outcome rather
+than rounded up. CFG-74 gets the same honesty in the other direction — ticked for the
+resilience it actually delivered, with the unconfirmed root cause stated in as many words.
+</objective>
+
+<decisions_covered>
+CONTEXT.md's CFG-74 requirement (4) (the runway `form=` regression check, "unchanged from
+the original, narrower ask") and requirement (1)'s parenthetical ("re-verify the toast is
+genuinely reachable/visible too, since the report of 'no popup ever' spans both"), plus
+ROADMAP.md Phase 28's carried Phase-27 discipline for the gate.
+</decisions_covered>
+
+<execution_context>
+@$HOME/.claude/get-shit-done/workflows/execute-plan.md
+@$HOME/.claude/get-shit-done/templates/summary.md
+</execution_context>
+
+<context>
+@.planning/phases/28-companion-review-feedback-round-2-five-more-findings-from-th/28-CONTEXT.md
+@.planning/phases/28-companion-review-feedback-round-2-five-more-findings-from-th/28-PATTERNS.md
+@.claude/skills/sketch-findings-skypane/SKILL.md
+
+<files_owned>
+This plan is the only writer of all four of its files in Wave 6. It is the last plan of
+the phase and depends on 28-06 for `test_browser_ux.py` and `test_config_page.py`
+ownership.
+
+**This plan writes NO application code.** If it finds itself editing anything under
+`companion/` that is not a test harness, a real defect has surfaced at the gate — stop,
+name it, and report it rather than fixing it quietly in a plan whose job is to measure.
+</files_owned>
+
+<interfaces>
+RE-DERIVE by running before editing:
+
+  grep -n 'radio_form_id\|SETTINGS_FORM_ID\|def runway_fieldset' companion/pages/config_page.py
+  grep -n '_login\|_commit_field\|_wait_for_save_status\|_save_status_text\|_persist_without_js\|_persist_once\|_click_control' companion/test_browser_ux.py
+  grep -n 'quick-toast\|data-quick-toast\|data-quick-failed-text' companion/test_browser_ux.py companion/static/*.js companion/static/style.css
+  grep -n 'EXPECTED_CHECK_COUNT' companion/test_browser_ux.py | tail -3
+  grep -n 'CFG-72\|CFG-73\|CFG-74\|CFG-75\|CFG-76' .planning/REQUIREMENTS.md
+  grep -n '^### Phase 28' .planning/ROADMAP.md
+
+Measured at planning time (verify, do not trust):
+  config_page.py:~1431-1469   `runway_fieldset()`'s `form="{radio_form_id}"` emission —
+                              `form_attr_html = ' form="%s"' % escape_html(radio_form_id)
+                              if radio_form_id else ""`
+  config_page.py:~183, ~4785, ~4812  the comments recording that the runway card sits
+                              outside the settings form and "still posts through via
+                              `form=\"settings-form\"`"
+  dirty-state.js:~423-436     the comment explaining WHY the listener is delegated at the
+                              document level and filtered to `e.target.form === form` —
+                              the cross-tree `form=` case is its stated reason for existing
+  style.css:~8364-8386        `.quick-toast` — `position: fixed; top: var(--space-md);
+                              left: 50%; z-index: 40; opacity: 0; pointer-events: none;`
+                              and `.quick-toast.is-visible { opacity: 1; }`. Note the
+                              rest state is `opacity: 0`, NOT `display: none` — the check
+                              must assert RESOLVED opacity, not mere presence
+  test_browser_ux.py          `_click_control()`'s own docstring already records that a
+                              real coordinate click does not land reliably on these
+                              controls — CFG-74's own requirement text cites this as part
+                              of why a Chromium-only harness cannot see the reported
+                              failure. Read it before choosing how to drive the radio
+  test_browser_ux.py:~875-883 the current `EXPECTED_CHECK_COUNT` declarations (86, 88 at
+                              planning time — moved by every prior plan in this phase)
+
+Binding constraints:
+- Both themes load-bearing; 360 px floor; both shipped languages.
+- Mutation-test every new check; quote every failure message verbatim; revert with
+  `git checkout-index -f --`, never `git checkout --`.
+- `EXPECTED_CHECK_COUNT` re-derived by RUNNING, never by arithmetic.
+- No application code. No new script, no new route, no new dependency.
+- **The overclaim ban from 28-06 carries into this plan's ledger entries and SUMMARY.**
+</interfaces>
+</context>
+
+<tasks>
+
+<task type="auto" tdd="false">
+  <name>Task 1: The runway's cross-tree form= path meets the same contract every other control does</name>
+  <files>companion/test_browser_ux.py, companion/test_config_page.py</files>
+  <behavior>
+    - ONE browser check drives the runway radio — a control living OUTSIDE the settings form, associated only by `form="settings-form"` — and proves it produces the identical pass/fail contract a natively-nested control does
+    - The same check proves the failure half: when the save fails, the runway path surfaces the failure exactly as a nested control does
+    - ONE source-level check pins that the runway radios genuinely carry the `form=` attribute and genuinely sit outside the form element
+  </behavior>
+  <read_first>
+    - companion/test_browser_ux.py: 27-04's auto-save on-disk check and its failure counterpart — the "same pass/fail contract" this check must reproduce for a different control
+    - companion/test_browser_ux.py: `_commit_field()`, `_wait_for_save_status()`, `_persist_without_js()`/`_persist_once()` (for the on-disk read-back), and `_click_control()` INCLUDING its docstring about coordinate clicks not landing reliably
+    - companion/test_browser_ux.py: 28-06's Check B and Check C, so this check reuses their inducement and recovery idioms instead of inventing a third
+    - companion/pages/config_page.py: `runway_fieldset()`'s `form=` emission and the comments recording the card's position relative to the settings form
+    - companion/static/dirty-state.js: the delegated-listener comment explaining the cross-tree case
+  </read_first>
+  <action>
+    Add ONE browser check — e.g.
+    `_a_form_associated_runway_radio_meets_the_same_save_contract_as_a_nested_control()`.
+
+    **Prove the association is real before relying on it.** In the same check, first
+    assert from the DOM that the runway radio's `.form` property resolves to the settings
+    form AND that the radio is NOT a descendant of it (`form.contains(radio) === false`).
+    Without that clause the check could pass on a refactor that quietly nested the control,
+    and would then be proving nothing about the `form=` path at all.
+
+    **The success half.** Change the runway selection and assert, as ONE fact: the status
+    region held the saving word and then the saved word (in that order — a region that only
+    ever shows the end state cannot be distinguished from one that lies), and the new
+    runway value is READ BACK OFF DISK. Reuse the existing on-disk read-back step rather
+    than writing a second reader.
+
+    **The failure half.** Induce a genuine save failure using the same inducement 28-06's
+    Check B uses, with the runway as the control being changed, and assert: the retry
+    affordance is visible, the status does NOT hold the saved word, and the runway value
+    is NOT on disk. This is what "the same pass/fail contract every other control meets"
+    means — both halves, not just the happy one.
+
+    **Drive the radio honestly.** `_click_control()`'s own docstring records that a real
+    coordinate click does not land reliably on these controls, and CFG-74's requirement
+    text cites that as part of why this harness cannot see the reported Safari failure.
+    Use whichever driving method actually commits a real `change` event, and STATE IN THE
+    CHECK'S DESCRIPTION which method was used and why — so a future reader knows exactly
+    what was and was not exercised.
+
+    **The source check** in `test_config_page.py`: assert the rendered Display page emits
+    `form="settings-form"` on every runway radio, and that the runway fieldset's markup
+    appears outside the settings form element's own boundaries in the rendered output.
+
+    MUTATION-TEST and QUOTE EVERY MESSAGE VERBATIM:
+    - M-A: remove the `form=` attribute from the runway radios. Both the source check and
+      the browser check's association clause must fail.
+    - M-B: narrow `dirty-state.js`'s delegated listener from `document` to the form
+      element itself. The browser check's SUCCESS half must fail — this is the load-
+      bearing mutation, because it is exactly the regression the delegated listener exists
+      to prevent, and it would leave every natively-nested control still working.
+    - M-C: make the failure half's inducement silently succeed. The failure half must
+      fail, proving it asserts absence-from-disk rather than merely "something happened".
+
+    Revert every mutation with `git checkout-index -f -- <path>`, never `git checkout --`.
+  </action>
+  <verify>
+    <automated>PY=/home/user/skypane/server/.venv/bin/python; [ -x "$PY" ] || PY=$(command -v python3); "$PY" companion/test_config_page.py && "$PY" companion/test_browser_ux.py</automated>
+  </verify>
+  <acceptance_criteria>
+    - The check asserts BOTH `radio.form === settingsForm` AND `settingsForm.contains(radio) === false`
+    - The success half asserts the saving word BEFORE the saved word, and the value ON DISK
+    - The failure half asserts the retry affordance visible, the saved word absent, and the value NOT on disk
+    - The driving method for the radio is named in the check's registered description with its reason
+    - The `test_config_page.py` source check asserts `form="settings-form"` on every runway radio and the fieldset's position outside the form
+    - M-A, M-B and M-C failure messages QUOTED VERBATIM; M-B demonstrably fails the success half while nested controls still pass
+    - Every mutation reverted with `git checkout-index -f --`; `git status --porcelain` clean at the end
+    - `git diff --stat` names no file under `companion/` other than the two harnesses
+    - `ruff check .` clean
+  </acceptance_criteria>
+  <done>The one control that reaches the settings form through an attribute instead of through the DOM tree now has its own proof, on both sides of the contract.</done>
+</task>
+
+<task type="auto" tdd="false">
+  <name>Task 2: The toast is proven reachable, not merely present</name>
+  <files>companion/test_browser_ux.py</files>
+  <behavior>
+    - ONE check proves that on a genuine save failure the toast is actually VISIBLE to a reader: in the viewport, resolved opacity 1, and not covered by any other element at its own centre
+    - It proves this at 360 px and at desktop width, in both themes
+    - It proves the toast returns to its invisible rest state afterwards without leaving the accessibility tree
+  </behavior>
+  <read_first>
+    - companion/static/style.css: `.quick-toast` and `.quick-toast.is-visible` in full, INCLUDING the comment explaining why the element is kept in the accessibility tree with `opacity: 0` + `pointer-events: none` rather than `display: none`
+    - companion/static/quick-switch.js: `announceFailure()` and `TOAST_DISMISS_MS` — the timer that returns it to rest
+    - companion/test_browser_ux.py: 28-06's Check B, which already asserts the toast's COPY — this check asserts its REACHABILITY and must not duplicate the copy assertion
+    - companion/test_browser_ux.py: 28-06's Check A, for the `elementFromPoint` non-occlusion idiom being reused here
+    - .planning/phases/28-.../28-CONTEXT.md: the CFG-74 paragraph recording that the toast was read and found `position: fixed` with no transformed ancestor — this check is the verification of that reading, not a restatement of it
+  </read_first>
+  <action>
+    Add ONE check — e.g. `_the_failure_toast_is_actually_reachable_when_a_save_fails()`.
+
+    Induce a genuine save failure (reuse 28-06's inducement). Then assert, while the toast
+    is up:
+    (a) its `getBoundingClientRect()` lies within the viewport — top, bottom, left and
+        right all inside, not merely intersecting;
+    (b) its RESOLVED `getComputedStyle().opacity` is 1 — the rest state is `opacity: 0`,
+        so presence in the DOM proves nothing and a check that asserts presence would pass
+        on a toast nobody can see;
+    (c) `document.elementFromPoint()` at the toast's own centre resolves to the toast or a
+        descendant of it — nothing is covering it;
+    (d) no ancestor of the toast has a non-`none` resolved `transform` — a transformed
+        ancestor re-parents a `position: fixed` element to that ancestor's box and is one
+        of the classic ways a fixed toast ends up off-screen. The deep-dive looked for this
+        by reading; this clause looks for it by measuring.
+
+    Then wait out the dismiss timer and assert the toast has returned to resolved opacity
+    0 while STILL being present in the DOM and not `display: none` — the accessibility-tree
+    property its own CSS comment argues for.
+
+    Run at 360 px and at desktop width, in both themes.
+
+    Do NOT re-assert the toast's copy — 28-06's Check B owns that clause, and duplicating
+    it would mean two checks failing for one cause with two different messages.
+
+    MUTATION-TEST and QUOTE EVERY MESSAGE VERBATIM:
+    - M-A: set `.quick-toast { top: -400px; }`. Clause (a) must fail.
+    - M-B: leave the toast at `opacity: 0` on failure (drop the `is-visible` class). Clause
+      (b) must fail — and state explicitly whether a naive "the toast element exists"
+      assertion would have passed, because that is the exact failure shape this check was
+      written to rule out.
+    - M-C: add a `transform: translateZ(0)` to an ancestor of the toast. State the outcome
+      of clauses (a), (c) and (d) — if clause (d) is the only one that catches it, that is
+      the finding, and it is worth recording precisely.
+
+    Revert every mutation with `git checkout-index -f -- <path>`, never `git checkout --`.
+
+    **Overclaim ban.** This check proves the toast is reachable IN CHROMIUM. Nothing about
+    it may be described as proving anything about Safari. Say so in the check's registered
+    description.
+  </action>
+  <verify>
+    <automated>PY=/home/user/skypane/server/.venv/bin/python; [ -x "$PY" ] || PY=$(command -v python3); "$PY" companion/test_browser_ux.py</automated>
+  </verify>
+  <acceptance_criteria>
+    - All four clauses (a)-(d) are asserted while the toast is up, at 360 px AND desktop, in both themes
+    - Clause (b) asserts RESOLVED opacity 1 — `grep` shows no assertion that merely tests for the element's presence
+    - Clause (d) walks the ancestor chain and asserts every resolved `transform` is `none`
+    - The post-dismiss state is asserted as resolved opacity 0 AND still present AND not `display: none`
+    - The toast's COPY is NOT re-asserted here — 28-06's Check B owns it
+    - M-A and M-B quoted; M-B states explicitly whether a presence-only assertion would have passed; M-C's clause-by-clause outcome recorded
+    - Every mutation reverted with `git checkout-index -f --`; `git status --porcelain` clean at the end
+    - The check's registered description states the Chromium-only limitation
+    - `ruff check .` clean
+  </acceptance_criteria>
+  <done>The failure toast is now measured as visible rather than read as probably-visible, including the transformed-ancestor trap that a code read cannot rule out.</done>
+</task>
+
+<task type="auto" tdd="false">
+  <name>Task 3: The gate — every count re-derived by running, and the ledger written against the code</name>
+  <files>.planning/REQUIREMENTS.md, .planning/ROADMAP.md</files>
+  <behavior>
+    - Every harness's expected-check total is re-derived by RUNNING it, and the numbers are recorded with the commands that produced them
+    - The full suite is run and its outcome recorded as exactly the known baseline failures, named individually
+    - CFG-72 through CFG-76 are ticked in `.planning/REQUIREMENTS.md` with per-clause evidence — and anything short of its full wording is recorded as an outcome rather than rounded up
+    - ROADMAP.md's Phase 28 entry is closed with its plan list, its outcome and its honest limits
+  </behavior>
+  <read_first>
+    - .planning/REQUIREMENTS.md: the CFG-72..76 rows in full — these are the exact, binding, per-clause wordings the ledger must answer, clause by clause
+    - .planning/REQUIREMENTS.md: Phase 27's own coverage ledger, including the CFG-65 entry that was deliberately left UNTICKED with its reasoning — the precedent for honest non-closure
+    - .planning/ROADMAP.md: the Phase 27 closing paragraph (its plan list, its measured outcome, its named missed prediction) and the Phase 28 entry as it currently stands
+    - All six SUMMARYs from 28-01 through 28-06 — the ledger is written from what the code and the checks actually prove, cross-read against the SUMMARYs, never from the plans' own intentions
+  </read_first>
+  <action>
+    **Re-derive every count BY RUNNING.** For each of `companion/test_browser_ux.py`,
+    `companion/test_config_page.py`, `companion/test_companion_app.py`,
+    `companion/test_i18n.py` and any other harness this phase touched: run it, read the
+    printed total, and confirm the file's own expected-total constant matches. Record each
+    number together with the exact command that produced it. **Never compute a count by
+    arithmetic**, and if any constant disagrees with the run, the constant is wrong — fix
+    the constant in that harness (this is the one exception to this plan's no-application-
+    code rule, and it is a test constant, not application code).
+
+    **Run the full suite:**
+    `PYTHON=/home/user/skypane/server/.venv/bin/python bash scripts/run-all-tests.sh`
+    Record its outcome. The expectation is exactly the known sandbox baseline failures —
+    name each one individually. A baseline failure that is not on the known list is a real
+    regression and must be reported as one, not absorbed into the count.
+
+    **Write the ledger** in `.planning/REQUIREMENTS.md`, per requirement, clause by clause
+    against the requirement's OWN wording:
+
+    - **CFG-72** — cite the cross-page `getComputedStyle` comparator by name and the
+      measured triple; state that it is asserted equal across both pages and that the
+      markup-only shape was mutation-tested as insufficient.
+    - **CFG-73** — cite BOTH bugs separately: (a) the caption's displayed text after each
+      of the four interaction kinds, and (b) the sampled handle radius throughout a held
+      press. Record the wake-interval clause's outcome exactly as 28-02 measured it,
+      including the correction to the source artifacts if one was made.
+    - **CFG-74** — tick what was proven and NOTHING MORE. The ledger entry must state, in
+      as many words, that **the Safari root cause remains UNCONFIRMED and this phase does
+      not claim to have found or fixed it**; that what is proven is status visibility
+      independent of scroll, failure surfacing across four distinguished kinds, a retry
+      that actually recovers, and the runway `form=` path's own contract; and that the
+      harness is Chromium-only and therefore cannot observe the reported behaviour at all.
+      Record clause (d)'s outcome plainly — a named root-cause fix with its reproduction,
+      or "no reproducible save-pipeline defect was found in Chromium during this work."
+    - **CFG-75** — cite the multi-position scroll check, the independent centered-chip
+      computation, the not-selection clauses and the cross-instance isolation clause.
+    - **CFG-76** — cite the sprite-integrity count, the glyph swap and the
+      panel-has-no-page-nav-links clause that keeps the label honest.
+
+    **If any requirement is not fully met, DO NOT ROUND UP.** Phase 27 left CFG-65
+    unticked on purpose, recorded the investigation's actual finding, and was right to.
+    Leave the requirement unticked, state exactly which clause is outstanding and what it
+    would take to close it.
+
+    **Close the ROADMAP entry.** Update Phase 28's `**Plans:**` line and plan list with all
+    seven plans and their one-line outcomes, and add a closing paragraph in the shape of
+    Phase 27's: what shipped, the measured suite result, which human verification is the
+    developer's and is NOT claimed here, and — stated plainly — that CFG-74's root cause is
+    unconfirmed and the Safari behaviour is unverified from this environment.
+
+    Do not mark any PR ready and do not merge.
+  </action>
+  <verify>
+    <automated>PY=/home/user/skypane/server/.venv/bin/python; [ -x "$PY" ] || PY=$(command -v python3); "$PY" companion/test_browser_ux.py && "$PY" companion/test_config_page.py && "$PY" companion/test_companion_app.py && "$PY" companion/test_i18n.py && PYTHON="$PY" bash scripts/run-all-tests.sh; echo "suite exit: $?"</automated>
+  </verify>
+  <acceptance_criteria>
+    - Every harness's expected-check total was re-derived BY RUNNING; each number is recorded in the SUMMARY beside the exact command that produced it, and no number was obtained by arithmetic
+    - `scripts/run-all-tests.sh` was run and its failures are enumerated BY NAME and matched against the known sandbox baseline; any unlisted failure is reported as a regression
+    - `.planning/REQUIREMENTS.md` carries a Phase 28 coverage ledger answering CFG-72, CFG-73, CFG-74, CFG-75 and CFG-76 clause by clause against each requirement's own wording, citing checks by name
+    - CFG-73's ledger entry addresses bugs (a) and (b) SEPARATELY and records the wake-interval outcome as measured
+    - CFG-74's ledger entry states explicitly that the Safari root cause is UNCONFIRMED and not claimed fixed, and records clause (d)'s outcome either way
+    - **The CFG-74 overclaim guard — ONE shared command, identical in 28-06 and 28-07:**
+      ```
+      grep -rniE 'safari[^.]{0,40}(is )?(now )?(fixed|resolved|works|saves)|(fixed|fixes|resolved)[^.]{0,40}safari' companion/ .planning/REQUIREMENTS.md .planning/ROADMAP.md .planning/phases/28-*/
+      ```
+      This is the SAME command 28-06's Task 2 carries, character for character, so the
+      phase has ONE guard rather than two that can drift apart. Scope is `companion/`
+      BROADLY (check names and registered descriptions in all three harnesses) plus the
+      planning artifacts this task itself writes — REQUIREMENTS.md's ledger and
+      ROADMAP.md's closing paragraph.
+      **This command does NOT return zero, and must not be asserted to.** Measured at
+      planning time it returns **9** lines, every one of them a NEGATION: ROADMAP.md's and
+      28-CONTEXT.md's own "never as 'the Safari save bug is fixed'" decision text, plus the
+      guard criteria in these plans, which contain the banned words in order to ban them. A
+      grep whose own criterion matches itself cannot be a zero-assertion.
+      The satisfiable form, and the one used here — the same pre-assert inventory
+      discipline this phase already uses elsewhere:
+      (1) run the command BEFORE any edit and record the full hit list as `file:line` in
+          the SUMMARY (the baseline; expect 9, re-derive);
+      (2) run it again AFTER; every hit must be either IN the baseline or individually
+          NAMED in the SUMMARY and READ to confirm it is a negation or a ban, never a claim;
+      (3) the number of hits that are AFFIRMATIVE claims — determined by READING each new
+          hit, not by a second grep — is **0**.
+      Run it once more AFTER the ledger and the closing ROADMAP paragraph are written —
+      this task is the one most able to introduce a new hit — and record both counts and
+      the per-new-hit verdict in the ledger entry AND the SUMMARY.
+    - Any requirement not fully met is left UNTICKED with the outstanding clause named — never rounded up
+    - ROADMAP.md's Phase 28 entry lists all seven plans with outcomes and closes with the measured suite result and the honest limits
+    - No PR marked ready, nothing merged
+    - `git diff --stat` names no file under `companion/` except a test-harness expected-count constant, if one needed correcting
+    - `ruff check .` clean
+  </acceptance_criteria>
+  <done>Every number in this phase's record came out of a run, and every tick in the ledger is backed by a named check — including the one requirement whose honest answer is "not proven, and here is exactly why."</done>
+</task>
+
+</tasks>
+
+<threat_model>
+## Trust Boundaries
+
+| Boundary | Description |
+|----------|-------------|
+| cross-tree `form=` association | a control outside the form element commits through it, exercising the delegated-listener path |
+| planning record → future readers | the ledger is the artifact a future phase will trust about what is and is not fixed |
+
+## STRIDE Threat Register
+
+| Threat ID | Category | Component | Disposition | Mitigation Plan |
+|-----------|----------|-----------|-------------|-----------------|
+| T-28-07-A | Repudiation | a ledger that overstates coverage, leaving a live defect recorded as closed | mitigate | per-clause evidence against each requirement's own wording, checks cited by name, the CFG-65 precedent for honest non-closure, and a grep enforcing the overclaim ban across the planning tree |
+| T-28-07-B | Tampering | a check count taken from arithmetic drifting from reality | mitigate | every total re-derived by running, with the producing command recorded beside it |
+| T-28-07-C | Spoofing | a runway check that passes because the control was quietly nested rather than because the `form=` path works | mitigate | the association clause asserts `form.contains(radio) === false`, and M-B mutates the delegated listener to prove the check sees that regression |
+| T-28-07-D | Information Disclosure | a toast reachability check that passes on an invisible toast | mitigate | resolved opacity, viewport containment, `elementFromPoint` and the transformed-ancestor walk — four independent clauses, with M-B recording whether presence-only would have passed |
+| T-28-07-SC | Tampering | npm/pip/cargo installs | n/a | zero packages installed; this plan writes no application code and adds no dependency |
+</threat_model>
+
+<verification>
+- `companion/test_browser_ux.py`, `companion/test_config_page.py`, `companion/test_companion_app.py`, `companion/test_i18n.py` → exit 0, no SKIP
+- `PYTHON=/home/user/skypane/server/.venv/bin/python bash scripts/run-all-tests.sh` → exactly the known sandbox baseline failures, enumerated BY NAME
+- `ruff check .` clean
+- Every check added by 28-01 through 28-06 still passes, and each plan's own headline check is named in this plan's SUMMARY
+- `<human-check>` — the phase's real closing sweep, and it is the developer's, not this plan's: on the deployed app, on the iPhone and on Mac Safari as well as on Chromium, in both themes and both languages — (1) Device and Display card titles read as the same form; (2) press and hold a dial handle without dragging and confirm it stays on the ring, then drag it and confirm the caption reads `HH:MM → HH:MM · <duration>` after every interaction; (3) change a setting and report exactly what appears — status word, toast, retry button, or nothing; (4) swipe each colour strip and confirm the preview follows without selecting; (5) confirm the mobile toggle now shows a gear. Item (3) on Safari is the one observation nobody in this phase could make, and whatever it shows is data for the next phase rather than a verdict on this one.
+</verification>
+
+<success_criteria>
+- The runway `form=` path has its own check on BOTH sides of the save contract, with the delegated-listener regression mutation-tested
+- The failure toast is proven reachable by measurement, including the transformed-ancestor trap
+- Every count re-derived by running; the full suite's failures named individually
+- CFG-72..76 ticked clause by clause against their own wording, with anything short recorded as an outcome rather than rounded up
+- CFG-74's ledger entry states plainly that the Safari root cause is unconfirmed and unclaimed
+- ROADMAP.md's Phase 28 entry closed with all seven plans and the honest limits
+- No PR marked ready, nothing merged
+- One commit per task, no model identifier in any artifact
+</success_criteria>
+
+<output>
+Create `.planning/phases/28-companion-review-feedback-round-2-five-more-findings-from-th/28-07-SUMMARY.md` when done.
+</output>

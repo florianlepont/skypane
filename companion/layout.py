@@ -360,6 +360,20 @@ VALUE_CONTROL_READOUT_SCALE_ATTR = "data-value-readout-scale"
 # itself. Absent, the readout always speaks.
 VALUE_CONTROL_READOUT_BASE_ATTR = "data-value-readout-base"
 
+# 28-03-PLAN.md Task 1 (CFG-73 Bug A): a READOUT-SCOPED clock-format
+# signal. VALUE_CONTROL_FORMAT_ATTR above already exists and already
+# carries VALUE_CONTROL_FORMAT_CLOCK — but it lives on the WRAPPER, and
+# READOUT_ATTR's own comment above states readouts are found by the
+# field's NAME, via document.querySelectorAll, never by walking up to a
+# containing wrapper (a readout is deliberately not inside the wrapper
+# at all, so it stays correct with scripts blocked). That means the
+# wrapper's own data-value-format cannot be seen from a readout, and the
+# clock signal has to be re-stated on the readout element itself. Reuses
+# the EXISTING clock-format value (VALUE_CONTROL_FORMAT_CLOCK) rather than
+# defining a second one — this is the same value, on a second element,
+# for the same reason.
+VALUE_CONTROL_READOUT_FORMAT_ATTR = "data-value-readout-format"
+
 # THE PAINTED POSITION HAS NO CONSTANT HERE, AND THAT IS DELIBERATE. It
 # travels on the `--value-fraction` custom property, written by the
 # SERVER once (so the handle renders in the right place before any
@@ -703,6 +717,18 @@ ICON_IDS = ICON_IDS + (
     "icon-more",
 )
 
+# 28-01-PLAN.md (CFG-76): one more icon for the mobile #site-nav-toggle,
+# which used to render icon-hamburger even though the panel it opens
+# holds zero page-navigation links (those moved to the bottom tab bar in
+# 22-14) — the developer reported the hamburger reads as site navigation
+# and proposed a gear instead. Appended, not merged into any tuple
+# above, for the same "appended, not reordered" reason those tuples' own
+# comments already state — grows the whitelist from twenty-two to
+# twenty-three.
+ICON_IDS = ICON_IDS + (
+    "icon-gear",
+)
+
 # One shared inline sprite, emitted once per document by page_shell().
 # `display: none` (companion/static/style.css's `.icon-defs` rule) still
 # lets every <use href="#icon-..."> reference below resolve correctly —
@@ -811,6 +837,17 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-moon" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M16 12.5A7 7 0 0 1 7.5 4a7 7 0 1 0 8.5 8.5z"/>'
+    "</symbol>"
+    # 28-01-PLAN.md (CFG-76): #site-nav-toggle's new glyph — a centre
+    # circle plus a toothed outer ring, same viewBox/stroke language as
+    # icon-power/icon-moon above (its closest neighbours by stroke
+    # weight), built from <circle>/<path> only, two shapes.
+    '<symbol id="icon-gear" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="10" cy="10" r="2.6"/>'
+    '<path d="M10 2.5v2.4M10 15.1v2.4M17.5 10h-2.4M4.9 10H2.5'
+    'M15.3 4.7l-1.7 1.7M6.4 13.6l-1.7 1.7M15.3 15.3l-1.7-1.7'
+    'M6.4 6.4L4.7 4.7"/>'
     "</symbol>"
     '<symbol id="icon-check" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
@@ -1291,6 +1328,58 @@ def relative_copy_attrs(lang=None):
     pairs.append(
         (RELATIVE_WAITING_ATTR, i18n.t_lang(RELATIVE_WAITING_TEXT, lang)))
     return tuple(pairs)
+
+
+# --- 28-03-PLAN.md Task 1 (CFG-73 Bug A): the duration ladder's own
+# client-side wordings ---------------------------------------------------
+#
+# `duration_text()` above is this app's ONE length-of-time ladder
+# (`_age_bucket()`'s boundaries, read with no connector and no tense).
+# `companion/static/value-controls.js`'s quiet-hours readout needs to
+# say a LIVE duration after a drag, a keyboard step, a typed field edit
+# or a preset click — none of which round-trips through the server — and
+# the fix is the identical move `relative_copy_attrs()` above already
+# makes for the ticker: these are NOT a second ladder, they are
+# `duration_text()`'s own output with the number lifted back out, so the
+# script substitutes a quantity and carries no language logic at all.
+#
+# ONE COMPLETE WORDING PER BUCKET, reusing RELATIVE_QUANTITY_MARK
+# ("#") — the identical reasoning the RELATIVE_* block above states at
+# length applies unchanged: these strings reach the browser as
+# ATTRIBUTE VALUES on a rendered page, and companion/test_i18n.py's
+# Check 3 scans every French render for a stray "%s"/"%d"/"{}"; "#" is
+# not one, so it does not trip that check the way a second mark would
+# have to be proven not to. French quantities keep the same real U+00A0
+# `duration_text()` itself inserts between the number and the unit
+# (D-09) — that byte lives in the i18n_fr catalogue entry for each of
+# these four wordings, not in this module, exactly like the RELATIVE_*
+# block's own French forms.
+#
+# ALL FOUR BUCKETS SHIP, even though a quiet window's own arithmetic can
+# never reach the "d" bucket (the largest a 24h dial can express is 1439
+# minutes). "s" IS reachable — a window whose start equals its end is a
+# real, zero-length window (`quiet_window_span()`'s own docstring calls
+# this out), and `duration_text(0)` reads "0s"/"0 s". A ladder with a
+# hole in it, on the theory that one rung is currently unreachable, is a
+# ladder somebody falls through the day a caller changes.
+DURATION_SECONDS_TEXT = "#s"
+DURATION_MINUTES_TEXT = "#m"
+DURATION_HOURS_TEXT = "#h"
+DURATION_DAYS_TEXT = "#d"
+
+# Ordered s/m/h/d, matching _age_bucket()'s own unit letters — the same
+# ordering contract RELATIVE_PAST_ATTRS' comment states. Read directly
+# off companion/pages/config_page.py's quiet_dial_readout_html() (each
+# member carries i18n.t() of its matching *_TEXT constant above) and by
+# companion/static/value-controls.js, which walks these four attributes
+# in this order to pick the bucket whose boundary the live window falls
+# in.
+DURATION_ATTRS = (
+    "data-duration-s",
+    "data-duration-m",
+    "data-duration-h",
+    "data-duration-d",
+)
 
 
 def _machine_instant(parsed):
@@ -2417,7 +2506,7 @@ def _mobile_nav_html(
         'aria-label="%s" aria-expanded="false" aria-controls="%s">%s</button>'
     ) % (
         NAV_TOGGLE_ID, escape_html(i18n.t(NAV_TOGGLE_LABEL)), MOBILE_NAV_ID,
-        icon_html("icon-hamburger", size=24))
+        icon_html("icon-gear", size=24))
     # D-02 (20-01-PLAN.md Task 3): resolved order — language, theme,
     # Sign out. D-17 (21-01-PLAN.md Task 1, 21-UI-SPEC.md §G): the
     # simple-mode switch that used to sit between theme and Sign out

@@ -999,6 +999,92 @@ EXPECTED_CHECK_COUNT = 262
 # literal. Net: 262 + 1 = 263, re-derived by RUNNING (263/263).
 EXPECTED_CHECK_COUNT = 263
 
+# 28-03-PLAN.md Task 3 (CFG-73 Bug A): +1 — the quiet-dial readout's own
+# server-render contract check
+# (_the_quiet_dial_readout_carries_clock_format_and_duration_wordings_in_both_languages),
+# proving both endpoint spans carry the readout-scoped clock-format
+# attribute and the duration span carries a non-empty value for every
+# one of layout.DURATION_ATTRS, in both shipped languages. Net:
+# 263 + 1 = 264, re-derived by RUNNING (264/264).
+EXPECTED_CHECK_COUNT = 264
+
+# 28-04-PLAN.md Task 2 (CFG-72): +1 — the cheap structural guard
+# (_device_scope_wraps_all_four_settings_cards_with_the_nested_modifier),
+# asserting the Device scope's rendered output wraps all four of its
+# settings cards with the --nested modifier and carries zero unmodified
+# settings-card wrappers. Task 1's own two edits (the D-12 section-intro
+# check retargeted, and the title-form inventory reconciled) both
+# retargeted EXISTING check() calls in place — neither is a new
+# registration, so neither moves this count. Net: 264 + 1 = 265,
+# re-derived by RUNNING (265/265).
+EXPECTED_CHECK_COUNT = 265
+
+# 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: the pre-Phase-27
+# save bar is restored. Deleted, subject gone on both sides of the
+# restoration (-2):
+# _the_save_status_region_carries_both_translated_words_and_no_script_
+# holds_client_state, _save_status_region_sits_beside_the_heading_empty_
+# and_announcing — both tested the now-deleted auto-save status region;
+# their load-bearing properties (translated-word/fallback byte-identity,
+# no-client-storage) are recovered by Task 3's own retargeted
+# _dirty_state_script_es5_safe_reads_two_save_status_attributes. Added
+# (+2): _the_dirty_bar_renders_without_hidden_on_every_scope (the
+# no-JS-floor polarity inversion, pinned), _nothing_inside_the_bar_is_
+# inert_or_claims_a_dirty_state_that_does_not_exist (BLOCKER 4's two
+# consequences, asserted as one fact). Retargeted in place (no count
+# change): _bottom_save_button_carries_static_fallback_attr renamed to
+# _the_bar_s_save_button_is_the_same_static_fallback_element_relocated
+# and extended to assert the relocation's RELATIONSHIP, not just
+# co-presence; _no_js_floor_holds_on_display_and_device_after_the_
+# checkbox_removal's registered description corrected (form=-associated
+# sibling, not a literal descendant) with both original assertions
+# unchanged. Net: 265 - 2 + 2 = 265, re-derived by RUNNING (see Task 2
+# and Task 3's own history entries below for their further deltas).
+EXPECTED_CHECK_COUNT = 265
+
+# 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: style.css's own
+# .dirty-bar rules are restored. Three checks retargeted IN PLACE, no
+# count change: _style_css_references_static_save_fallback_attr renamed
+# to _style_css_carries_no_hide_rule_for_static_save_fallback_attr (the
+# hide rule is gone outright now, not merely re-keyed a fourth time —
+# the button it hid is the bar's own visible Save);
+# _style_css_carries_section_caption_and_no_dirty_bar_rules_survive
+# renamed to _style_css_carries_section_caption_and_the_restored_dirty_
+# bar_rules (asserts the bar EXISTS, fixed at both breakpoints, instead
+# of asserting zero occurrences);
+# _skypane_bar_arrive_keyframes_survive_unreferenced renamed to
+# _skypane_bar_arrive_keyframes_is_referenced_again_by_the_restored_bar
+# (asserts the block IS referenced now, by the restored base rule's own
+# animation: declaration — REUSED, never reinvented). Net: 265 + 0 =
+# 265, re-derived by RUNNING (265/265).
+EXPECTED_CHECK_COUNT = 265
+
+# 28-08-PLAN.md Task 3 (CFG-77/CFG-78), 2026-09-16: dirty-state.js is
+# rewritten as the bar's driver again. Two checks retargeted IN PLACE,
+# no count change: _dirty_state_js_only_fetches_never_polls_debounces_
+# or_xhrs renamed to _dirty_state_js_is_network_free_again_with_one_
+# named_timer_exception (this plan's own three-JS-contract retarget —
+# fetch(/XMLHttpRequest/setInterval/requestAnimationFrame all
+# forbidden again, exactly ONE setTimeout permitted, pinned
+# structurally to the reset-event handler's own function body).
+# _dirty_state_js_delegates_change_only_at_document_level_and_has_no_
+# forbidden_syntax renamed to _dirty_state_js_delegates_change_and_
+# input_at_document_level_and_has_no_forbidden_syntax — NOT one of
+# this plan's own named three, but broken as a direct, unavoidable
+# consequence of restoring dirtySectionLabels() (DIRTY_SECTION_ATTR's
+# value legitimately reappears) and the dual change/input delegation
+# (Rule 1: fixed here, outside the plan's own file list, because the
+# breakage is this plan's own doing). Net: 265 + 0 = 265, re-derived
+# by RUNNING (265/265).
+EXPECTED_CHECK_COUNT = 265
+
+# 28-09-PLAN.md Task 1 (CFG-78), 2026-09-19: +1
+# (_style_css_carries_no_rule_for_the_retired_save_status_region — the
+# .save-status half of the orphan-rule clause the STATIC_SAVE_FALLBACK_
+# ATTR check above does not already cover). 265 + 1 = 266, re-derived
+# by RUNNING (266/266).
+EXPECTED_CHECK_COUNT = 266
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -1637,6 +1723,24 @@ def main():
         # display_enabled/quiet_hours_enabled any more, since the Frame
         # strip's own plain POST forms (companion/layout.py, unaffected
         # by this plan) are what a no-JS visitor uses for those two.
+        #
+        # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: both
+        # assertions below keep PASSING UNEDITED after the relocation —
+        # STATIC_SAVE_FALLBACK_ATTR is still present on both scopes, and
+        # '<form class="config-form"' still opens the same physical
+        # form — but this check's OWN REGISTERED DESCRIPTION used to
+        # claim the fallback Save button lives "inside a plain
+        # server-rendered form", which became FALSE the moment Task 1
+        # relocated the button into the bar's markup: it is now a
+        # `form="settings-form"`-ASSOCIATED SIBLING of that form, never
+        # a literal descendant of it. A passing check with a false
+        # description is worse than a failing one, because nothing else
+        # would ever surface it — see the corrected description at this
+        # check's own registration below. The floor itself is UNCHANGED
+        # IN SUBSTANCE: native form submission works identically from a
+        # `form=`-associated sibling as it does from a literal
+        # descendant, which is the whole reason this relocation was
+        # safe to make in the first place.
         base_ctx = {
             "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "state_dir": "/tmp", "poll_cooldown_remaining": 0,
@@ -1666,8 +1770,11 @@ def main():
         return True, ""
     check(
         "D-09's no-JS floor holds at this plan's own commit: scripts-blocked Display and Device "
-        "renders each carry a reachable fallback Save button inside a plain server-rendered form, "
-        "and a plain (no-JS) POST still round-trips the Quiet hours schedule",
+        "renders each carry a reachable fallback Save button, form=\"settings-form\"-ASSOCIATED "
+        "with a plain server-rendered form (relocated into the restored .dirty-bar by "
+        "28-08-PLAN.md Task 1, CFG-77/CFG-78 — never a literal descendant of the form any more, "
+        "and native submission is unchanged in substance either way), and a plain (no-JS) POST "
+        "still round-trips the Quiet hours schedule",
         _no_js_floor_holds_on_display_and_device_after_the_checkbox_removal)
 
     def _handle_post_display_enabled_three_shapes():
@@ -1873,81 +1980,27 @@ def main():
         "Settings opens with the shared layout.page_header() component, not a bare <h1>",
         _render_opens_with_shared_page_header)
 
-    def _the_save_status_region_carries_both_translated_words_and_no_script_holds_client_state():
-        # 27-04-PLAN.md Task 3 (D-04/CFG-63): SUPERSEDES this check's own
-        # pre-27-04 subject (23-09-PLAN.md Task 2's Save-button relabel,
-        # D3/CFG-32) wholesale — the relabel, and the Save button it
-        # relabelled, are both retired along with the dirty bar itself
-        # (dirty-state.js's own header records the full account). What
-        # replaces it is the auto-save status region's own two words,
-        # tested here the identical way: a server-rendered, translated
-        # data-* attribute with a byte-identical English fallback.
-        static_dir = os.path.join(os.path.dirname(__file__), "static")
-        with open(os.path.join(static_dir, "dirty-state.js")) as fh:
-            source = fh.read()
-
-        for attr_const, text_const in (
-                (config_page.SAVE_STATUS_SAVING_ATTR, config_page.SAVE_STATUS_SAVING_TEXT),
-                (config_page.SAVE_STATUS_SAVED_ATTR, config_page.SAVE_STATUS_SAVED_TEXT)):
-            rendered = config_page.render({
-                "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-                "poll_cooldown_remaining": 0,
-            }, scope=config_page.SCOPE_DISPLAY)
-            marker = '%s="%s"' % (attr_const, text_const)
-            if marker not in rendered:
-                return False, (
-                    "expected the save-status region to carry %r — both words belong on the "
-                    "same element, the same idiom the retired bar's own words used" % (marker,))
-            if attr_const not in source:
-                return False, "expected dirty-state.js to read %r off the region" % (attr_const,)
-            if ('"%s"' % text_const) not in source:
-                return False, (
-                    "expected dirty-state.js's English fallback literal for %r to match the "
-                    "server constant byte for byte, or a region rendered without the attribute "
-                    "says something different from one rendered with it" % (attr_const,))
-            try:
-                prefs.set_request_prefs(lang="fr")
-                fr_rendered = config_page.render({
-                    "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-                    "poll_cooldown_remaining": 0,
-                }, scope=config_page.SCOPE_DISPLAY)
-            finally:
-                prefs.set_request_prefs(lang="en")
-            fr_word = layout.i18n.t_lang(text_const, "fr")
-            if fr_word == text_const:
-                return False, (
-                    "expected a French entry for %r — every new visible word is a catalogue entry"
-                    % (text_const,))
-            if ('%s="%s"' % (attr_const, fr_word)) not in fr_rendered:
-                return False, "expected a French render to carry the French word for %r" % (attr_const,)
-
-        # NO CLIENT STATE, in any script. The completed state is not
-        # persisted client-side at all — the fetch's own 204 IS the
-        # confirmation, read once and written straight to the region;
-        # carrying a flag anywhere longer-lived would mean browser
-        # storage, and this app holds none, on purpose. Measured on
-        # COMMENT-STRIPPED source, the way 23-01's own motion guard
-        # measures its bans, so a script may still write down WHY it
-        # holds no client state without failing the rule.
-        for name in sorted(os.listdir(static_dir)):
-            if not name.endswith(".js"):
-                continue
-            with open(os.path.join(static_dir, name)) as fh:
-                live = re.sub(r"/\*.*?\*/", "", fh.read(), flags=re.DOTALL)
-            live = re.sub(r"^\s*//.*$", "", live, flags=re.MULTILINE)
-            for store in ("sessionStorage", "localStorage", "indexedDB"):
-                if store in live:
-                    return False, (
-                        "companion/static/%s reaches for %s — this app holds no client state at "
-                        "all, deliberately, and a 'Saved' flag carried across a page's own "
-                        "lifetime is exactly the thing that would introduce one" % (name, store))
-        return True, ""
-    check(
-        "the save-status region's two words (SAVE_STATUS_SAVING_TEXT/SAVE_STATUS_SAVED_TEXT) are "
-        "server-rendered, translated data-* attributes with byte-identical English fallbacks in "
-        "dirty-state.js, and no script anywhere reaches for client storage (27-04-PLAN.md Task 3, "
-        "D-04/CFG-63, supersedes the retired Save-button relabel check, 23-09-PLAN.md Task 2/D3/CFG-32)",
-        _the_save_status_region_carries_both_translated_words_and_no_script_holds_client_state)
+    # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: the check that
+    # used to live here —
+    # _the_save_status_region_carries_both_translated_words_and_no_
+    # script_holds_client_state — tested the auto-save status region's
+    # SAVE_STATUS_SAVING_ATTR/SAVE_STATUS_SAVED_ATTR pair, both deleted
+    # by this plan along with the region itself (see config_page.py's
+    # own superseded comment at the former SAVE_STATUS_* constants'
+    # site). DELETED OUTRIGHT rather than retargeted in place: its
+    # subject no longer exists on either side of the restoration, unlike
+    # 27-04's own "supersedes the retired relabel check" precedent this
+    # docstring itself named, where the OLD and NEW subjects were both
+    # real elements at the same DOM site. The two properties this check
+    # verified are NOT lost: the restored bar's seven data-dirty-*
+    # words get the identical translated-attribute-plus-byte-identical-
+    # fallback proof from Task 3's own retargeted
+    # _dirty_state_script_es5_safe_reads_two_save_status_attributes
+    # (renamed there), and that same retarget folds in a "no script
+    # under companion/static/ reaches for client storage" scan so the
+    # NO-CLIENT-STATE invariant this check's own second half asserted
+    # keeps a home. This is a net -1 to EXPECTED_CHECK_COUNT (see the
+    # history comment above the constant).
 
     def _settings_form_carries_config_form_class_hook():
         # D-01 stable class hook: the settings form (POST /config) needs a
@@ -1983,49 +2036,18 @@ def main():
         "the settings form keeps the stable config-form class hook the desktop two-column fieldset layout targets",
         _settings_form_carries_config_form_class_hook)
 
-    def _save_status_region_sits_beside_the_heading_empty_and_announcing():
-        # 27-04-PLAN.md Task 3 (D-04/D-06/CFG-63): SUPERSEDES this check's
-        # own pre-27-04 subject (the dirty save bar, a sibling emitted
-        # LAST on the page — quick task 260901-re6). The bar and its own
-        # placement contract are retired outright along with dirty_bar_
-        # html() itself; what replaces it is placed FIRST, immediately
-        # after the page's own heading, "beside the form's heading" per
-        # that plan's own wording — the opposite end of the page from
-        # where the bar used to live.
-        rendered = config_page.render({
-            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-            "poll_cooldown_remaining": 0,
-        }, scope=config_page.SCOPE_DISPLAY)
-        if rendered.count('<form class="config-form"') != 1:
-            return False, "expected exactly one config-form <form>, no duplicate"
-        if config_page.SAVE_STATUS_ATTR not in rendered:
-            return False, "expected the save-status region's own attribute to appear in render()'s output"
-        region_pos = rendered.index(config_page.SAVE_STATUS_ATTR)
-        heading_marker = "<h1"
-        if heading_marker not in rendered:
-            return False, "expected a page heading"
-        heading_pos = rendered.index(heading_marker)
-        if region_pos <= heading_pos:
-            return False, "expected the save-status region to appear AFTER the page's own heading"
-        form_pos = rendered.index('<form class="config-form"')
-        if region_pos >= form_pos:
-            return False, "expected the save-status region to appear BEFORE the settings form, not after it"
-        # EMPTY at rest: a region already carrying its saved word on a
-        # fresh load would be the same stale-claim defect this phase
-        # exists to fix, in a sentence instead of an arc.
-        region_start = rendered.index("<p class=\"save-status")
-        region_end = rendered.index("</p>", region_start) + len("</p>")
-        region_markup = rendered[region_start:region_end]
-        if not region_markup.endswith("></p>"):
-            return False, "expected the save-status region to render with no text content at rest, got %r" % (region_markup,)
-        if 'role="status"' not in region_markup:
-            return False, "expected the save-status region to carry role=\"status\""
-        if 'aria-live="polite"' not in region_markup:
-            return False, "expected the save-status region to carry aria-live=\"polite\", not role=\"alert\" — a failed save's toast, not this region, is the assertive announcement"
-        return True, ""
-    check(
-        "render() places one save-status region beside the page's own heading, before the settings form — EMPTY at rest, carrying role=\"status\" and aria-live=\"polite\" (27-04-PLAN.md Task 3, D-04/CFG-63, supersedes the retired dirty bar's own end-of-page placement check)",
-        _save_status_region_sits_beside_the_heading_empty_and_announcing)
+    # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: the check that
+    # used to live here —
+    # _save_status_region_sits_beside_the_heading_empty_and_announcing —
+    # tested the auto-save status region's placement (beside the page
+    # heading, before the settings form) and its own SAVE_STATUS_ATTR.
+    # DELETED OUTRIGHT for the identical reason the check above this one
+    # was: the region and its constant are both gone. The bar that
+    # replaces it is emitted at the OPPOSITE end of the page now (LAST,
+    # a sibling after `</form>` and the Poll section — see this task's
+    # own new checks below, and render()'s own comment at the bar's
+    # emission site, for the full reasoning). This is a further -1 to
+    # EXPECTED_CHECK_COUNT (see the history comment above the constant).
 
     # 21-05-PLAN.md Task 1 (D-06): theme_fieldset() is retired outright —
     # every direct-call test against it (one-radio-per-registry-entry,
@@ -2526,46 +2548,53 @@ def main():
                 "values natively and this would say the same thing twice (%r)" % readout.group(1))
 
         # THE THREE CHILDREN, EACH WIRED THROUGH THE EXISTING READOUT
-        # SEAM. The two endpoints carry a bare token template (they
-        # substitute one number, the value-controls.js contract every
-        # other readout in this app already follows); the duration
-        # carries data-value-readout-base AND an EMPTY template — so
-        # paintReadouts()'s own blank-on-equal rule and its
-        # substitute-otherwise rule both resolve to "" once this element
-        # is next painted, which is the safe side of a rule built to
-        # blank a sentence when NOTHING changed (see the function's own
-        # docstring for why the shipped rule's polarity does not fit a
-        # duration that must blank the moment something DOES change).
+        # SEAM. 28-03-PLAN.md Task 1 (CFG-73 Bug A) widened both halves:
+        # the two endpoints now ALSO carry
+        # VALUE_CONTROL_READOUT_FORMAT_ATTR="clock" (the readout-scoped
+        # clock signal, alongside their existing bare-token template);
+        # the duration span no longer carries an EMPTY template at all —
+        # it carries its own data-value-readout-base PLUS all four
+        # layout.DURATION_ATTRS, each holding a non-empty translated
+        # wording, so value-controls.js can compose a live duration from
+        # the pair without inventing any language of its own.
         for field, value in (("quiet_hours_start", "23:00"), ("quiet_hours_end", "07:00")):
             endpoint = re.search(
-                r'<span %s="%s" %s="%s">%s</span>'
+                r'<span %s="%s" %s="%s" %s="%s">%s</span>'
                 % (re.escape(layout.VALUE_CONTROL_READOUT_ATTR), re.escape(field),
+                   re.escape(layout.VALUE_CONTROL_READOUT_FORMAT_ATTR),
+                   re.escape(layout.VALUE_CONTROL_FORMAT_CLOCK),
                    re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR),
                    re.escape(layout.VALUE_CONTROL_TEXT_TOKEN), re.escape(value)),
                 readout.group(2))
             if not endpoint:
                 return False, (
-                    "no %s readout span carrying the bare token template and %r: %r"
-                    % (field, value, readout.group(2)))
+                    "no %s readout span carrying the clock-format attribute and the bare token "
+                    "template and %r: %r" % (field, value, readout.group(2)))
         duration_span = re.search(
-            r'<span %s="quiet_hours_start" %s="" %s="(\d+)">([^<]*)</span>'
+            r'<span %s="quiet_hours_start" %s="(\d+)"((?: %s="[^"]*"){%d})>([^<]*)</span>'
             % (re.escape(layout.VALUE_CONTROL_READOUT_ATTR),
-               re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR),
-               re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR)),
+               re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR),
+               "(?:%s)" % "|".join(re.escape(attr) for attr in layout.DURATION_ATTRS),
+               len(layout.DURATION_ATTRS)),
             readout.group(2))
         if not duration_span:
             return False, (
-                "no duration span carrying an EMPTY readout template and a "
-                "data-value-readout-base: %r" % readout.group(2))
+                "no duration span carrying a data-value-readout-base and all %d "
+                "layout.DURATION_ATTRS: %r" % (len(layout.DURATION_ATTRS), readout.group(2)))
         if int(duration_span.group(1)) != config_page.quiet_window_minute_of_day("23:00"):
             return False, (
                 "the duration span's data-value-readout-base is %s minutes; the saved window's "
                 "own start is %d" % (duration_span.group(1),
                                       config_page.quiet_window_minute_of_day("23:00")))
-        if duration_span.group(2) != layout.duration_text(span.minutes * 60):
+        for attr in layout.DURATION_ATTRS:
+            if ('%s="' % attr) not in duration_span.group(2):
+                return False, (
+                    "the duration span is missing %r, one of layout.DURATION_ATTRS: %r"
+                    % (attr, duration_span.group(2)))
+        if duration_span.group(3) != layout.duration_text(span.minutes * 60):
             return False, (
                 "the duration span's own text is %r at rest, not this app's one duration ladder's "
-                "%r" % (duration_span.group(2), layout.duration_text(span.minutes * 60)))
+                "%r" % (duration_span.group(3), layout.duration_text(span.minutes * 60)))
 
         # CFG-52: NOTHING ON THIS CARD IS A LIVE REGION. Dragging fires
         # continuously and a role="status" here would re-announce the
@@ -2625,6 +2654,50 @@ def main():
         "while the full-day ring still draws; and a hostile submitted value reaches neither "
         "(T-25-04-B) (CFG-48, 25-04-PLAN.md Task 2)",
         _the_ring_draws_the_saved_window_from_the_emitted_attributes)
+
+    def _the_quiet_dial_readout_carries_clock_format_and_duration_wordings_in_both_languages():
+        # 28-03-PLAN.md Task 3 (CFG-73 Bug A): quiet_dial_readout_html()'s
+        # own server-render contract, checked directly rather than only
+        # through the byte-identical-at-rest assertion above — both
+        # endpoint spans carry the readout-scoped clock-format attribute,
+        # and the duration span carries a non-empty value for EVERY one
+        # of layout.DURATION_ATTRS, in BOTH shipped languages.
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                markup = config_page.quiet_hours_group("23:00", "07:00")
+            finally:
+                prefs.set_request_prefs(lang="en")
+            readout = re.search(
+                r'<p class="time-value %s"([^>]*)>(.*?)</p>'
+                % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), markup, re.DOTALL)
+            if not readout:
+                return False, "lang=%s: the card renders no dial readout" % lang
+            body = readout.group(2)
+            clock_count = body.count(
+                '%s="%s"' % (layout.VALUE_CONTROL_READOUT_FORMAT_ATTR,
+                             layout.VALUE_CONTROL_FORMAT_CLOCK))
+            if clock_count != 2:
+                return False, (
+                    "lang=%s: expected %s=%r exactly twice (once per endpoint span), found %d "
+                    "in %r" % (lang, layout.VALUE_CONTROL_READOUT_FORMAT_ATTR,
+                               layout.VALUE_CONTROL_FORMAT_CLOCK, clock_count, body))
+            for attr in layout.DURATION_ATTRS:
+                m = re.search(r'%s="([^"]*)"' % re.escape(attr), body)
+                if not m:
+                    return False, (
+                        "lang=%s: the duration span carries no %r: %r" % (lang, attr, body))
+                if not m.group(1):
+                    return False, (
+                        "lang=%s: %r is present but EMPTY — every bucket wording must be "
+                        "non-empty so the client never has to invent one: %r"
+                        % (lang, attr, body))
+        return True, ""
+    check(
+        "quiet_dial_readout_html() carries data-value-readout-format=\"clock\" on both endpoint "
+        "spans and a non-empty value for each of the four layout.DURATION_ATTRS on the duration "
+        "span, in both shipped languages (CFG-73 Bug A, 28-03-PLAN.md Task 3)",
+        _the_quiet_dial_readout_carries_clock_format_and_duration_wordings_in_both_languages)
 
     def _the_ring_is_an_addition_and_the_four_controls_are_untouched():
         """CFG-48 (25-04-PLAN.md Task 2): B14 has been broken once
@@ -3491,7 +3564,24 @@ def main():
         "origin/main; narrowed by 21-05-PLAN.md Task 1 D-06 once theme_fieldset() is retired)",
         _each_group_emits_exactly_one_caption_between_heading_and_control)
 
-    def _bottom_save_button_carries_static_fallback_attr():
+    def _the_bar_s_save_button_is_the_same_static_fallback_element_relocated():
+        # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: RENAMED from
+        # _bottom_save_button_carries_static_fallback_attr — that name
+        # and this check's own registered description ("render()'s
+        # bottom Save settings button") both became false the moment
+        # STATIC_SAVE_FALLBACK_ATTR's button moved from a slot inside
+        # `<form>...</form>` to a slot inside the restored `.dirty-bar`'s
+        # own markup (Task 1's relocation, CFG-78's "same element, not a
+        # second button" requirement). The regex this check already ran
+        # survives unchanged — adding `class=`/`form=` attributes to the
+        # button does not break `<button\b[^>]*data-static-save-
+        # fallback[^>]*>Save settings</button>` — but co-presence alone
+        # no longer proves the relocation happened; this check now also
+        # asserts the RELATIONSHIP (Task 1's own acceptance criterion):
+        # the one STATIC_SAVE_FALLBACK_ATTR occurrence's string index
+        # falls strictly between `.dirty-bar`'s opening tag and its
+        # matching close, and no second submit-shaped control exists
+        # inside the settings form now that this one has left it.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -3507,10 +3597,161 @@ def main():
             return False, "expected the fallback attribute on a type=\"submit\" Save settings button"
         if 'type="submit"' not in button_match.group(0):
             return False, "expected the fallback button to carry type=\"submit\""
+        if 'form="%s"' % config_page.SETTINGS_FORM_ID not in button_match.group(0):
+            return False, (
+                "expected the relocated fallback button to carry form=%r, preserving native "
+                "submission from outside the physical form" % (config_page.SETTINGS_FORM_ID,))
+        # THE RELATIONSHIP: the button's own index sits strictly inside
+        # `.dirty-bar`'s span, not merely somewhere in the same document.
+        bar_open = rendered.index('<div class="dirty-bar"')
+        bar_close = rendered.index("</div>", bar_open) + len("</div>")
+        attr_pos = rendered.index(config_page.STATIC_SAVE_FALLBACK_ATTR)
+        if not (bar_open < attr_pos < bar_close):
+            return False, (
+                "expected data-static-save-fallback's one occurrence to sit INSIDE the "
+                ".dirty-bar element (between its opening tag at %d and its close at %d), got "
+                "index %d — a relocation that landed the button outside the bar is not the "
+                "relocation CFG-78 asked for" % (bar_open, bar_close, attr_pos))
+        # No second submit-shaped control left inside the settings form
+        # THAT WOULD ACTUALLY SUBMIT IT, now that the one that did has
+        # moved out. The Frame strip's LED quick-switch and the
+        # Notifications card's "Send a test" both render a
+        # type="submit" button positionally inside this <form>...</form>
+        # markup already (D-19/D2's own cross-DOM idiom, predating and
+        # unaffected by this plan) — each carries its OWN form=
+        # attribute pointing at a DIFFERENT physical form ("quick-led",
+        # "notifications-test"), so neither actually submits
+        # settings-form despite sitting inside its markup. Only a
+        # type="submit" button with NO form= attribute (which would
+        # submit its nearest ancestor form — this one) or an explicit
+        # form="settings-form" would be a genuine second save affordance
+        # for THIS form, and that is what this assertion actually rules
+        # out.
+        form_open = rendered.index('<form class="config-form"')
+        form_close = rendered.index("</form>", form_open) + len("</form>")
+        form_markup = rendered[form_open:form_close]
+        for tag in re.findall(r'<button\b[^>]*type="submit"[^>]*>', form_markup):
+            form_attr_match = re.search(r'\bform="([^"]*)"', tag)
+            submits = form_attr_match.group(1) if form_attr_match else config_page.SETTINGS_FORM_ID
+            if submits == config_page.SETTINGS_FORM_ID:
+                return False, (
+                    "expected the settings <form>...</form> itself to carry NO type=\"submit\" "
+                    "control that actually submits it any more — the one save affordance now "
+                    "lives in the bar, outside it — but found %r" % (tag,))
         return True, ""
     check(
-        "render()'s bottom Save settings button carries data-static-save-fallback exactly once (D-04)",
-        _bottom_save_button_carries_static_fallback_attr)
+        "the bar's Save button is the SAME STATIC_SAVE_FALLBACK_ATTR element CFG-64 pins, "
+        "relocated inside .dirty-bar with form=\"settings-form\" — never a second button, and the "
+        "physical <form> itself carries no submit control of its own any more (CFG-77/CFG-78, "
+        "28-08-PLAN.md Task 1)",
+        _the_bar_s_save_button_is_the_same_static_fallback_element_relocated)
+
+    def _the_dirty_bar_renders_without_hidden_on_every_scope():
+        # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: THE POLARITY
+        # INVERSION, pinned. `6dea46a`'s own pre-27-04 bar was
+        # server-rendered `hidden` because a separate always-visible
+        # bottom Save button existed as the no-JS floor. There is no
+        # second button any more — the bar's own visible state IS the
+        # floor now — so a `hidden` attribute here would silently remove
+        # the only way a scripts-blocked visitor can save. This check
+        # exists specifically to catch a future reader copying
+        # `6dea46a`'s markup back in without reading why it changed.
+        base_ctx = {
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
+            rendered = config_page.render(base_ctx, scope=scope)
+            bar_open_end = rendered.index(">", rendered.index('<div class="dirty-bar"')) + 1
+            bar_open_tag = rendered[rendered.index('<div class="dirty-bar"'):bar_open_end]
+            if "hidden" in bar_open_tag:
+                return False, (
+                    "expected NO hidden attribute on .dirty-bar's own opening tag on scope=%r, "
+                    "got %r — this would silently remove the no-JS save floor" % (scope, bar_open_tag))
+        return True, ""
+    check(
+        "the restored .dirty-bar renders WITHOUT a hidden attribute on every scope — the no-JS "
+        "floor is the bar's own visible server-rendered state now, not a separate fallback "
+        "button (CFG-77/CFG-78, 28-08-PLAN.md Task 1)",
+        _the_dirty_bar_renders_without_hidden_on_every_scope)
+
+    def _nothing_inside_the_bar_is_inert_or_claims_a_dirty_state_that_does_not_exist():
+        # 28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: BLOCKER 4's
+        # two consequences of the polarity inversion, asserted as one
+        # fact because both are load-bearing for the identical
+        # scripts-blocked visitor. (a) every control inside the bar
+        # genuinely FUNCTIONS with scripts blocked — parsed per-tag,
+        # never by grepping the file for the absence of a literal,
+        # because that would not catch a stray type="button" hiding
+        # behind other attributes. (b) [data-dirty-count]'s
+        # server-rendered content makes NO claim about unsaved changes
+        # existing, in either language — seeding it would be a
+        # permanent, role="status"-announced false claim to every
+        # scripts-blocked visitor on every fresh page load.
+        base_ctx = {
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        unsaved_claim_strings_en = (
+            config_page.DIRTY_BAR_INITIAL_TEXT,
+            config_page.DIRTY_UNSAVED_SINGULAR,
+            config_page.DIRTY_UNSAVED_PLURAL,
+        )
+        for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
+            for lang in ("en", "fr"):
+                try:
+                    prefs.set_request_prefs(lang=lang)
+                    rendered = config_page.render(base_ctx, scope=scope)
+                finally:
+                    prefs.set_request_prefs(lang="en")
+                bar_open = rendered.index('<div class="dirty-bar"')
+                bar_close = rendered.index("</div>", bar_open) + len("</div>")
+                bar_markup = rendered[bar_open:bar_close]
+                # (a) every <button>/<input> inside the bar resolves to
+                # type="submit" or type="reset", each form=-associated,
+                # and NONE resolves to type="button".
+                tags = re.findall(r'<(?:button|input)\b[^>]*>', bar_markup)
+                if not tags:
+                    return False, "expected at least the Save and Cancel controls inside .dirty-bar on scope=%r/%s" % (scope, lang)
+                for tag in tags:
+                    type_match = re.search(r'type="([^"]*)"', tag)
+                    resolved_type = type_match.group(1) if type_match else None
+                    if resolved_type == "button":
+                        return False, (
+                            "expected no control inside .dirty-bar to resolve to type=\"button\" "
+                            "on scope=%r/%s — a type=\"button\" control is fully visible and fully "
+                            "inert with scripts blocked; got %r" % (scope, lang, tag))
+                    if resolved_type not in ("submit", "reset"):
+                        return False, (
+                            "expected every control inside .dirty-bar to resolve to type=\"submit\" "
+                            "or type=\"reset\" on scope=%r/%s, got %r in %r" % (scope, lang, resolved_type, tag))
+                    if 'form="%s"' % config_page.SETTINGS_FORM_ID not in tag:
+                        return False, (
+                            "expected every control inside .dirty-bar to carry form=%r on "
+                            "scope=%r/%s, got %r" % (config_page.SETTINGS_FORM_ID, scope, lang, tag))
+                # (b) the count span's server-rendered content makes no
+                # claim about unsaved changes existing, in EITHER
+                # catalogue's wording — a French render must not leak
+                # the English claim either, and vice versa.
+                count_start = rendered.index("<span data-dirty-count")
+                count_end = rendered.index("</span>", count_start) + len("</span>")
+                count_markup = rendered[count_start:count_end]
+                for claim_en in unsaved_claim_strings_en:
+                    claim_fr = layout.i18n.t_lang(claim_en, "fr")
+                    for claim in (claim_en, claim_fr):
+                        if claim and claim in count_markup:
+                            return False, (
+                                "expected [data-dirty-count]'s server-rendered content to make NO "
+                                "claim about unsaved changes on scope=%r/%s, but found %r inside "
+                                "%r" % (scope, lang, claim, count_markup))
+        return True, ""
+    check(
+        "no control inside the restored .dirty-bar is inert with scripts blocked (every "
+        "<button>/<input> resolves to type=\"submit\" or type=\"reset\", each form=\"settings-form\"-"
+        "associated, none type=\"button\"), and [data-dirty-count]'s server-rendered content makes "
+        "no claim about unsaved changes existing, in either language (CFG-77/CFG-78, "
+        "28-08-PLAN.md Task 1)",
+        _nothing_inside_the_bar_is_inert_or_claims_a_dirty_state_that_does_not_exist)
 
     def _section_captions_appear_escaped_verbatim_exactly_once():
         # quick task 260901-re6: retargeted onto all three merged caption
@@ -4849,54 +5090,65 @@ def main():
         with open(os.path.join(_STATIC_DIR, name)) as fh:
             return fh.read()
 
-    def _dirty_state_js_delegates_change_only_at_document_level_and_has_no_forbidden_syntax():
-        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDES this check's own
+    def _dirty_state_js_delegates_change_and_input_at_document_level_and_has_no_forbidden_syntax():
+        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDED this check's own
         # pre-27-04 subject — DIRTY_SECTION_ATTR and the dirty-ready
-        # marker are both retired along with the bar that read them
-        # (dirtySectionLabels() and updateBar() are both gone; see
-        # dirty-state.js's own header for the full account). B1's own
-        # fix (22-01-PLAN.md Task 2, D-01) survives unchanged: no
-        # form.addEventListener registration may return, and the
-        # delegation must stay at the document level gated on the
-        # control's own .form property.
+        # marker were both retired along with the bar that read them.
+        #
+        # 28-08-PLAN.md Task 3 (CFG-77/CFG-78), 2026-09-16: RENAMED and
+        # retargeted in the OPPOSITE direction, outside this plan's own
+        # named three JS-contract checks but broken as a direct,
+        # unavoidable consequence of restoring dirtySectionLabels() and
+        # the dual change/input delegation (Rule 1: a check asserting
+        # "references neither DIRTY_SECTION_ATTR nor dirty-ready" cannot
+        # survive a plan whose whole point is restoring
+        # dirtySectionLabels()'s own [data-dirty-section] reader).
+        # DIRTY_SECTION_ATTR's value DOES appear again now — restored,
+        # as dirtySectionLabels()'s own wrapper-lookup attribute. The
+        # dirty-ready/dirty-shown MARKERS still do NOT survive — this
+        # restoration deliberately does not bring either one back at all
+        # (28-08-PLAN.md Task 3: the CSS clearance mechanism is
+        # :has(.dirty-bar) now, which needs no script-written marker).
+        # B1's own fix (22-01-PLAN.md Task 2, D-01) survives unchanged:
+        # no form.addEventListener("change"/"input" registration may
+        # return, and the delegation must stay at the document level
+        # gated on the control's own .form property — and D-04's own
+        # change-only restriction is ITSELF superseded: the restored
+        # bar listens for BOTH change and input again (6dea46a's own
+        # pre-27-04 shape — a keystroke in the wake-interval/quiet-hours
+        # fields updates the bar's live count as it's typed, the same
+        # way it did before 27-04 ever ran).
         source = _read_static("dirty-state.js")
-        if config_page.DIRTY_SECTION_ATTR in source:
+        if config_page.DIRTY_SECTION_ATTR not in source:
             return False, (
-                "expected dirty-state.js to reference NEITHER DIRTY_SECTION_ATTR's value nor "
-                "dirty-ready any more — dirtySectionLabels() and the bar's own liveness marker "
-                "are both retired along with the bar itself (CFG-63)")
+                "expected dirty-state.js to reference DIRTY_SECTION_ATTR's value again — "
+                "dirtySectionLabels() is restored and reads it")
         if "dirty-ready" in source or "dirty-shown" in source:
             return False, (
                 "expected dirty-state.js to carry neither the dirty-ready nor the dirty-shown "
-                "marker any more — style.css's fallback-hide rule keys on a plain .js gate now "
-                "(27-03-PLAN.md/CFG-64) and there is no bar left to prove the liveness of")
-        if 'form.addEventListener("change"' in source:
-            return False, "expected no surviving form.addEventListener(\"change\" registration (B1 regression)"
-        if "document.addEventListener" not in source:
-            return False, "expected at least one document.addEventListener registration (change)"
+                "marker — this restoration's own clearance mechanism is :has(.dirty-bar), which "
+                "needs no script-written marker class")
+        if 'form.addEventListener("change"' in source or 'form.addEventListener("input"' in source:
+            return False, (
+                "expected no surviving form.addEventListener(\"change\"/\"input\" registration "
+                "(B1 regression) — delegation must stay document-level")
+        for kind in ("change", "input"):
+            call = 'document.addEventListener("%s"' % kind
+            if call not in source:
+                return False, "expected a document.addEventListener(%r registration" % (kind,)
         if "e.target.form === form" not in source and "e.target.form===form" not in source:
             return False, "expected the document-level delegation to gate on e.target.form === form"
-        # D-04: `input` no longer drives anything — there is no bar left
-        # to update on a keystroke, and a save on `input` would be the
-        # exact keystroke-is-a-decision mistake this plan's own
-        # PROVISIONAL note argues against. Measured on the document-level
-        # registration specifically, not a file-wide scan: "input" the
-        # substring also appears inside ordinary words (e.g. the file's
-        # own comments), so only the delegated-listener call sites count.
-        if 'document.addEventListener("input"' in source:
-            return False, (
-                "expected no document-level \"input\" listener — only `change` drives a save now "
-                "(D-04)")
         for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
             if forbidden in source:
                 return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
         return True, ""
     check(
-        "dirty-state.js references neither DIRTY_SECTION_ATTR nor the retired dirty-ready/dirty-shown "
-        "markers any more, delegates ONLY change (never input) at document level gated on "
-        "e.target.form === form with no surviving form.addEventListener(\"change\" registration (B1), "
-        "and contains none of innerHTML/let /const /=>/backtick (27-04-PLAN.md Task 2, CFG-63)",
-        _dirty_state_js_delegates_change_only_at_document_level_and_has_no_forbidden_syntax)
+        "dirty-state.js references DIRTY_SECTION_ATTR again (dirtySectionLabels() restored) but "
+        "carries neither the retired dirty-ready nor dirty-shown marker, delegates BOTH change AND "
+        "input at document level gated on e.target.form === form with no surviving "
+        "form.addEventListener(\"change\"/\"input\" registration (B1), and contains none of "
+        "innerHTML/let /const /=>/backtick (CFG-77/CFG-78, 28-08-PLAN.md Task 3)",
+        _dirty_state_js_delegates_change_and_input_at_document_level_and_has_no_forbidden_syntax)
 
     def _live_preview_crossfades_through_one_class_shared_by_css_and_js():
         """23-10-PLAN.md Task 2 (D3/CFG-32): the live theme preview
@@ -5074,41 +5326,57 @@ def main():
         "data-preset-* attribute names, and contains none of innerHTML/let /const /=>/backtick",
         _dirty_state_js_references_quiet_preset_attrs)
 
-    def _style_css_references_static_save_fallback_attr():
+    def _style_css_carries_no_hide_rule_for_static_save_fallback_attr():
         # 19-10-PLAN.md (D-09/A-27): retargeted from .js to .dirty-ready;
         # 22-01-PLAN.md Task 2 (D-01/B1) retargeted it AGAIN, to require
         # BOTH .dirty-ready and .dirty-shown (proven liveness rather than
-        # mere element presence). 27-03-PLAN.md Task 2 (CFG-64) retargets
+        # mere element presence). 27-03-PLAN.md Task 2 (CFG-64) retargeted
         # it a THIRD time, in the opposite direction: the floor is kept
         # by render()'s emission being unconditional now (Task 1's own
-        # source proof), so the two narrowing markers have nothing left
-        # to prove on THIS rule and the selector reverts to the plain
-        # script-presence gate it originally shipped as — the B1/P0
-        # contract is SUPERSEDED, not deleted, and the style.css comment
-        # block records that in writing, dated, right above the rule.
+        # source proof), so the two narrowing markers had nothing left
+        # to prove on THIS rule and the selector reverted to the plain
+        # script-presence gate it originally shipped as.
+        #
+        # 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: RENAMED and
+        # retargeted a FOURTH time, in a direction none of the three
+        # above anticipated — the hide rule itself is GONE, not merely
+        # re-keyed, because the button it hid is now the restored bar's
+        # own visible Save (relocated by Task 1) and its visibility is
+        # the bar's OWN `hidden` attribute, never a second, independent
+        # CSS hide mechanism for the same element (the exact orphan
+        # CFG-78 forbids). This check now asserts the new contract: NO
+        # RULE SELECTOR anywhere in style.css still contains
+        # STATIC_SAVE_FALLBACK_ATTR's literal value — comments MAY
+        # (indeed do) still name it in prose, recording the history —
+        # while the three original B1/P0 sentences, the dated
+        # 27-03-PLAN.md SUPERSEDED paragraph, AND a new dated 28-08
+        # paragraph all survive. `grep -c 'data-static-save-fallback'
+        # companion/static/style.css` is >1 both before and after this
+        # plan (prose mentions inside comment blocks) — asserting "0
+        # occurrences" would be wrong on both sides of the change, so
+        # this check asserts the RELATIONSHIP (no occurrence sits inside
+        # a rule selector) rather than a raw count.
         source = _read_static("style.css")
         if config_page.STATIC_SAVE_FALLBACK_ATTR not in source:
-            return False, "expected style.css to reference the literal value of STATIC_SAVE_FALLBACK_ATTR"
-        idx = source.index(config_page.STATIC_SAVE_FALLBACK_ATTR)
-        window = source[idx:idx + 120]
-        if "display: none" not in window and "display:none" not in window:
-            return False, "expected the fallback-hide rule to set display: none near the attribute reference"
-        # The selector prefix sits BEFORE the attribute reference
-        # (the plain `.js` gate), so widen the window backwards too
-        # rather than only forwards.
-        selector_window = source[max(0, idx - 40):idx + 120]
-        if "dirty-ready" in selector_window or "dirty-shown" in selector_window:
+            return False, "expected style.css to still mention STATIC_SAVE_FALLBACK_ATTR's literal value somewhere (in prose, recording the history)"
+        # Strip comments first (this file's own established idiom, used
+        # by the motion-budget check and others), then check every
+        # remaining occurrence sits OUTSIDE a rule selector — i.e. a
+        # comment-stripped occurrence would only ever appear if a live
+        # rule still targeted the attribute.
+        stripped = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        if config_page.STATIC_SAVE_FALLBACK_ATTR in stripped:
+            idx = stripped.index(config_page.STATIC_SAVE_FALLBACK_ATTR)
             return False, (
-                "expected the fallback-hide rule's OWN selector to carry neither dirty-ready nor "
-                "dirty-shown any more (CFG-64: the floor is kept by unconditional emission, not "
-                "by these two markers) — selector window reads %r" % (selector_window,))
-        combined_selector = ".dirty-ready.dirty-shown [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
-        if combined_selector in source:
-            return False, "expected the superseded two-marker selector to be gone entirely (CFG-64)"
+                "expected NO rule selector anywhere in style.css (comments stripped) to still "
+                "reference %r, but found one — the hide rule this check used to require is "
+                "retired outright (28-08-PLAN.md Task 2, CFG-77/CFG-78); context: %r"
+                % (config_page.STATIC_SAVE_FALLBACK_ATTR, stripped[max(0, idx - 60):idx + 60]))
         # THE SUPERSEDED CONTRACT IS AMENDED IN WRITING, NOT ERASED: the
         # original comment's own distinctive sentences must still be
-        # present (its history survives), and a dated Phase 27 paragraph
-        # must follow it naming what replaced it.
+        # present (its history survives), and both a dated Phase 27
+        # paragraph AND a dated Phase 28 paragraph must follow it naming
+        # what replaced it, each time.
         for distinctive in (
                 "PROVEN its own replacement bar is actually live",
                 "turned out to still be element PRESENCE, not proven liveness (B1)",
@@ -5121,14 +5389,65 @@ def main():
             return False, (
                 "expected a dated 27-03-PLAN.md paragraph stating the contract is SUPERSEDED, "
                 "not merely that the rule changed")
+        if "28-08-PLAN.md Task 2" not in source:
+            return False, (
+                "expected a dated 28-08-PLAN.md Task 2 paragraph stating the hide rule itself is "
+                "now retired — the button it hid became the bar's own visible Save")
         return True, ""
     check(
-        "style.css's fallback-hide rule reverts to the plain .js gate (CFG-64: the floor is now "
-        "kept by render()'s unconditional emission, not by this rule's specificity), the "
-        "superseded two-marker selector is gone, and B1/P0's own contract survives in writing — "
-        "its original sentences intact plus a dated 27-03-PLAN.md paragraph naming what replaced "
-        "it (27-03-PLAN.md Task 2)",
-        _style_css_references_static_save_fallback_attr)
+        "style.css carries NO rule selector referencing STATIC_SAVE_FALLBACK_ATTR any more — the "
+        "hide rule is retired outright, its button now the restored bar's own visible Save — "
+        "while the B1/P0 contract and the dated 27-03/28-08 SUPERSEDED paragraphs all survive in "
+        "writing (CFG-77/CFG-78, 28-08-PLAN.md Task 2)",
+        _style_css_carries_no_hide_rule_for_static_save_fallback_attr)
+
+    def _style_css_carries_no_rule_for_the_retired_save_status_region():
+        # 28-09-PLAN.md Task 1 (CFG-78): the check immediately above
+        # (28-08-PLAN.md Task 2) already proves the STATIC_SAVE_FALLBACK_
+        # ATTR half of the orphan-rule clause — no rule selector still
+        # targets the retired hide mechanism. This check proves the OTHER
+        # half: `.save-status`, the retired auto-save status region's own
+        # selector (27-04-PLAN.md, CFG-63 — deleted outright, not
+        # relocated), carries no live RULE anywhere in style.css either,
+        # while the comment prose that narrates its own retirement
+        # survives. Re-derived live on the finished tree rather than
+        # pasted from planning time: `grep -n 'save-status'
+        # companion/static/style.css` is 6 hits today, every one inside a
+        # `/* ... */` block comment (none a rule selector) — the
+        # planning-time interfaces figure (a stale 5) is a baseline for
+        # spotting a miscount, never an expectation asserted here as a
+        # literal count.
+        source = _read_static("style.css")
+        if "save-status" not in source:
+            return False, (
+                "expected style.css to still mention save-status somewhere, in prose, "
+                "narrating its own retirement")
+        # Strip comments first (this file's own established idiom, used
+        # by the motion-budget check and the STATIC_SAVE_FALLBACK_ATTR
+        # check above), then require zero RULE selectors containing
+        # .save-status. A rule selector reads as `.save-status` followed
+        # eventually by `{` with no intervening `{`/`}` — distinct from a
+        # bare substring match, which strip-then-`in` alone cannot tell
+        # apart from (e.g.) a comment fragment that survived stripping
+        # incorrectly.
+        stripped = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        rule_match = re.search(r"\.save-status\b[^{}]*\{", stripped)
+        if rule_match:
+            idx = rule_match.start()
+            return False, (
+                "expected NO rule selector anywhere in style.css (comments stripped) to "
+                "still target .save-status — its own retired region is gone outright "
+                "(27-04-PLAN.md, CFG-63) and no rule should still reach for it; context: %r"
+                % (stripped[max(0, idx - 60):idx + 60],))
+        return True, ""
+    check(
+        "style.css carries no live RULE selector for the retired .save-status auto-save "
+        "status region (comments stripped before scanning) while the comment prose "
+        "narrating its own retirement survives verbatim — the .save-status half of the "
+        "orphan-rule clause the STATIC_SAVE_FALLBACK_ATTR check above does not already "
+        "cover, re-derived on the finished tree rather than pasted from planning time "
+        "(CFG-78, 28-09-PLAN.md Task 1)",
+        _style_css_carries_no_rule_for_the_retired_save_status_region)
 
     def _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors():
         # quick task 260901-qif: the third new cross-file guard - unlike
@@ -6337,15 +6656,23 @@ def main():
         "than inventing a new one (quick task 260904-bbi; retargeted by 22-10-PLAN.md Task 1, T10)",
         _saved_but_unchecked_card_degrades_to_a_quiet_current_marker)
 
-    def _style_css_carries_section_caption_and_no_dirty_bar_rules_survive():
-        # 27-04-PLAN.md (D-04/CFG-63): SUPERSEDES this check's own
+    def _style_css_carries_section_caption_and_the_restored_dirty_bar_rules():
+        # 27-04-PLAN.md (D-04/CFG-63): SUPERSEDED this check's own
         # pre-27-04 subject — quick task 260901-re6/260901-s5o's floating-
-        # card restyle and its >=960px fixed positioning are both deleted
-        # wholesale along with `.dirty-bar` itself (style.css's own
-        # superseding comment records the account, right where the rule
-        # used to be). (a) below is the one assertion that survives
-        # unchanged: `.section-caption` is unrelated to the bar and this
-        # is its only test site.
+        # card restyle and its >=960px fixed positioning were both deleted
+        # wholesale along with `.dirty-bar` itself. (a) below is the one
+        # assertion that survived unchanged then and survives unchanged
+        # now: `.section-caption` is unrelated to the bar and this is its
+        # only test site.
+        #
+        # 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: RENAMED and
+        # retargeted in the OPPOSITE direction from 27-04's own retarget
+        # — the developer asked for the bar back, so "zero occurrences of
+        # .dirty-bar" is now the wrong assertion; this check instead
+        # proves `.dirty-bar` genuinely exists, is fixed-positioned at
+        # BOTH breakpoints (never left `position: static` at one of
+        # them), and carries its `[hidden]` override and its Cancel
+        # button's own quiet-wash override.
         source = _read_static("style.css")
 
         caption_selector = ".section-caption {"
@@ -6356,44 +6683,77 @@ def main():
         if "color-mix(in srgb, var(--color-text) 70%, transparent)" not in window:
             return False, "expected .section-caption's rule body to carry the 70% color-mix muted idiom"
 
-        if ".dirty-bar" in source:
-            return False, "expected zero occurrences of .dirty-bar anywhere in style.css — CFG-63 retired it"
+        # Three `.dirty-bar {` rule bodies: the base rule (flex row,
+        # entrance animation — no position declared) plus one per
+        # breakpoint (each setting position: fixed with its own
+        # geometry). Assert the COUNT that actually carries
+        # position: fixed is exactly two — never zero (a breakpoint left
+        # `position: static`) and never three (the base rule itself
+        # should not be the one setting it).
+        dirty_bar_blocks = re.findall(r"\.dirty-bar \{[^}]*\}", source)
+        if len(dirty_bar_blocks) != 3:
+            return False, (
+                "expected exactly three `.dirty-bar { ... }` rule bodies (the base rule plus one "
+                "per breakpoint), got %d" % len(dirty_bar_blocks))
+        fixed_count = sum(1 for block in dirty_bar_blocks if "position: fixed" in block)
+        if fixed_count != 2:
+            return False, (
+                "expected exactly two of the three `.dirty-bar { ... }` rule bodies to set "
+                "position: fixed (one per breakpoint), got %d" % fixed_count)
+        if ".dirty-bar[hidden]" not in source:
+            return False, "expected the `.dirty-bar[hidden] { display: none; }` override to survive"
+        if ".dirty-bar__cancel {" not in source:
+            return False, "expected `.dirty-bar__cancel`'s own quiet-wash override to survive"
         return True, ""
     check(
-        "style.css declares .section-caption (70% muted color-mix) and carries zero occurrences of "
-        ".dirty-bar anywhere — the floating-card restyle and its fixed->=960px positioning "
-        "(quick task 260901-re6, quick task 260901-s5o, 23-09-PLAN.md Task 1's entrance) are all "
-        "retired wholesale along with the component (27-04-PLAN.md, D-04/CFG-63)",
-        _style_css_carries_section_caption_and_no_dirty_bar_rules_survive)
+        "style.css declares .section-caption (70% muted color-mix) AND the restored .dirty-bar — "
+        "fixed-positioned at both breakpoints, its [hidden] override and its Cancel button's own "
+        "quiet-wash override all present (CFG-77/CFG-78, 28-08-PLAN.md Task 2)",
+        _style_css_carries_section_caption_and_the_restored_dirty_bar_rules)
 
-    def _skypane_bar_arrive_keyframes_survive_unreferenced():
+    def _skypane_bar_arrive_keyframes_is_referenced_again_by_the_restored_bar():
         # 27-04-PLAN.md (D-04/CFG-63): the save bar's own entrance
         # (23-09-PLAN.md Task 1, D3/CFG-32) animated from this block, and
-        # every rule that referenced it (the base .dirty-bar rule's own
-        # `animation:` declaration) is retired along with the bar. The
-        # @keyframes DEFINITION is kept rather than deleted — this file's
-        # own @keyframes count is pinned at 4 by a separate check below,
-        # a live count re-derived by running rather than a value this
-        # plan is free to move — so removing it would require the phase
-        # to invent a replacement use or renumber the pin; neither is
-        # this plan's to do. It is therefore orphaned deliberately: no
-        # rule anywhere in the file may still reference its name.
+        # every rule that referenced it was retired along with the bar.
+        # The @keyframes DEFINITION was kept rather than deleted —
+        # deliberately ORPHANED, no rule anywhere referencing it — so
+        # this file's own pinned @keyframes count of 4 would not need to
+        # move for a component that might return.
+        #
+        # 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: it has
+        # returned. RENAMED and retargeted to assert the OPPOSITE of
+        # what it asserted before: the block is REFERENCED again, by the
+        # restored `.dirty-bar` base rule's own `animation:` declaration
+        # — REUSED, not reinvented (the plan's own explicit instruction:
+        # "reuse the stylesheet's existing motion vocabulary" rather than
+        # reintroduce a deleted block). The file's pinned @keyframes
+        # count stays at 4 either way, since this is the SAME block
+        # gaining a consumer, never a new one — re-verified by a
+        # separate check below, by RUNNING.
         source = _read_static("style.css")
         keyframes_marker = "@keyframes skypane-bar-arrive {"
         if source.count(keyframes_marker) != 1:
             return False, (
-                "expected exactly one %s block (kept, not deleted, to hold the @keyframes count "
-                "at 4), got %d" % (keyframes_marker, source.count(keyframes_marker)))
-        if "animation: skypane-bar-arrive" in source:
+                "expected exactly one %s block (still the same one, never duplicated), got %d"
+                % (keyframes_marker, source.count(keyframes_marker)))
+        if "animation: skypane-bar-arrive" not in source:
             return False, (
-                "expected NO rule anywhere to still declare animation: skypane-bar-arrive — the "
-                "one rule that did (the retired .dirty-bar) is gone, and this block must not be "
-                "silently reattached to something else without a plan saying so")
+                "expected the restored .dirty-bar base rule to declare "
+                "animation: skypane-bar-arrive var(--motion-fast) ease-out — REUSING the block "
+                "27-04 deliberately kept orphaned for exactly this restoration, rather than "
+                "leaving the bar with no entrance or reinventing a second block")
+        if source.count("animation: skypane-bar-arrive") != 1:
+            return False, (
+                "expected exactly ONE rule to reference animation: skypane-bar-arrive, got %d — "
+                "a second consumer would be a genuinely new use this plan did not intend"
+                % source.count("animation: skypane-bar-arrive"))
         return True, ""
     check(
-        "the retired save bar's own @keyframes skypane-bar-arrive block survives, unreferenced by "
-        "any rule, so the file's pinned @keyframes count of 4 does not move (27-04-PLAN.md, CFG-63)",
-        _skypane_bar_arrive_keyframes_survive_unreferenced)
+        "the @keyframes skypane-bar-arrive block — kept deliberately orphaned by 27-04 specifically "
+        "so a future restoration would not need to move the file's pinned @keyframes count — is "
+        "REFERENCED again by the restored .dirty-bar base rule's own animation: declaration, reused "
+        "rather than reinvented (CFG-77/CFG-78, 28-08-PLAN.md Task 2)",
+        _skypane_bar_arrive_keyframes_is_referenced_again_by_the_restored_bar)
 
     def _dirty_state_js_has_no_hardcoded_section_names():
         source = _read_static("dirty-state.js")
@@ -6405,45 +6765,91 @@ def main():
         "dirty-state.js contains no hardcoded occurrence of \"Theme\", \"Runway\", or \"Diagnostic LED\" (labels come from the DOM)",
         _dirty_state_js_has_no_hardcoded_section_names)
 
-    def _dirty_state_js_only_fetches_never_polls_debounces_or_xhrs():
-        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDES this check's own
-        # pre-27-04 ban — dirty-state.js is now the settings form's
-        # auto-save driver and fetch is exactly how it saves, the
-        # identical model quick-switch.js already ships. XMLHttpRequest
-        # and setInterval stay forbidden outright: the first would be a
-        # second, older request vocabulary beside fetch's already-shipped
-        # one, and the second would mean a poll loop this file has no
-        # business running. setTimeout is NOT banned outright — it drives
-        # the SAME toast-dismiss timer quick-switch.js's own announce
-        # Failure() already uses (TOAST_DISMISS_MS), duplicated rather
-        # than shared for the identical no-cross-file-import reason every
-        # other constant here is. What IS forbidden is using it to
-        # DEBOUNCE a save — this plan's own D-04 note explicitly declines
-        # that design — so the one setTimeout call in this file must be
-        # scoped to the toast, never to beginSave().
+    def _dirty_state_js_is_network_free_again_with_one_named_timer_exception():
+        # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDED this check's own
+        # pre-27-04 ban — dirty-state.js became the settings form's
+        # auto-save driver and fetch( was exactly how it saved, the
+        # identical model quick-switch.js already ships.
+        #
+        # 28-08-PLAN.md Task 3 (CFG-77/CFG-78), 2026-09-16: RENAMED and
+        # INVERTED — the developer asked for the bar back
+        # (ROADMAP.md's Phase 28 addendum), so this file is back to
+        # being network-free and poll-free. Forbidden OUTRIGHT: fetch(,
+        # XMLHttpRequest, setInterval, requestAnimationFrame.
+        #
+        # setTimeout is permitted EXACTLY ONCE, and pinned STRUCTURALLY,
+        # not by count alone: the single occurrence must be a
+        # setTimeout(fn, 0) — a literal zero delay, never a duration —
+        # scheduled from INSIDE the form's own reset-event handler
+        # (form.addEventListener("reset", function () { ... })) and
+        # nowhere else in the file. This is a reset-event side-effect
+        # flush, not a poll and not a debounce: the reset event fires
+        # BEFORE the browser restores the form's fields (the restore is
+        # that event's own cancelable default action), so the theme-
+        # preview refresh and the dial repaint must run on the next tick
+        # to read restored values — a synchronous call would read stale
+        # ones. This file's pre-27-04 shape also permitted exactly one
+        # setTimeout, then scoped to the toast's own dismissal — the
+        # toast's removal retires that one and this replaces it, so
+        # "exactly one, narrowly scoped" is this file's own existing
+        # convention, not a new liberty.
         source = _read_static("dirty-state.js")
-        if "fetch(" not in source:
-            return False, "expected dirty-state.js to call fetch( — it is now the auto-save driver"
-        for forbidden in ("XMLHttpRequest", "setInterval"):
+        for forbidden in ("fetch(", "XMLHttpRequest", "setInterval", "requestAnimationFrame"):
             if forbidden in source:
                 return False, "forbidden network/timer construct found in dirty-state.js: %r" % (forbidden,)
         if source.count("setTimeout") != 1:
             return False, (
-                "expected exactly one setTimeout call — the toast's own dismiss timer, "
-                "duplicated from quick-switch.js's identical idiom — got %d"
-                % source.count("setTimeout"))
-        timeout_idx = source.index("setTimeout")
-        timeout_call = source[timeout_idx:timeout_idx + 200]
-        if "beginSave" in timeout_call:
-            return False, "expected the one setTimeout call to never reference beginSave — no debounced save"
-        if "TOAST_DISMISS_MS" not in timeout_call:
-            return False, "expected the one setTimeout call to be the toast's own TOAST_DISMISS_MS dismiss"
+                "expected exactly one setTimeout occurrence anywhere in the file (the reset-event "
+                "side-effect flush), got %d" % source.count("setTimeout"))
+        # Locate the reset-event handler's own function body by reading,
+        # from its opening brace to its matching close — never by a
+        # file-wide grep, which would not prove CONTAINMENT.
+        handler_marker = 'form.addEventListener("reset", function () {'
+        if handler_marker not in source:
+            return False, "expected a form.addEventListener(\"reset\", function () { ... }) handler"
+        body_start = source.index(handler_marker) + len(handler_marker)
+        depth = 1
+        i = body_start
+        while depth > 0:
+            if i >= len(source):
+                return False, "reset handler's opening brace was never matched by a closing one"
+            if source[i] == "{":
+                depth += 1
+            elif source[i] == "}":
+                depth -= 1
+            i += 1
+        handler_body = source[body_start:i - 1]
+        if "setTimeout" not in handler_body:
+            return False, (
+                "expected the file's one setTimeout occurrence to sit INSIDE the reset handler's "
+                "own function body, but it was found outside it")
+        timeout_idx = handler_body.index("setTimeout")
+        timeout_call = handler_body[timeout_idx:timeout_idx + 400]
+        if not re.search(r"setTimeout\(function \(\) \{.*?\}, 0\);", timeout_call, re.DOTALL):
+            return False, (
+                "expected the reset handler's own setTimeout call to read "
+                "setTimeout(function () { ... }, 0) — a literal zero delay, never a duration; "
+                "got %r" % (timeout_call[:120],))
+        if "preventDefault" in handler_body or "returnValue" in handler_body:
+            return False, (
+                "expected the reset handler's own function body to contain neither "
+                "preventDefault nor returnValue — cancelling the reset event's own default "
+                "action would silently turn Annuler into a no-op for every JS-running visitor")
+        # The header carries BOTH halves of the constraint — the ban and
+        # the named exception — never a blanket claim the code
+        # contradicts.
+        if "never introduce a network call" not in source:
+            return False, "expected the header to restore its 'never introduce a network call' constraint"
+        if "ONE NAMED EXCEPTION" not in source:
+            return False, "expected the header to name the ONE timer exception explicitly, in the same breath as the constraint"
         return True, ""
     check(
-        "dirty-state.js calls fetch( (it is now the auto-save driver), contains neither "
-        "XMLHttpRequest nor setInterval, and its one setTimeout call is the toast's own "
-        "TOAST_DISMISS_MS dismiss timer — never a debounced save (27-04-PLAN.md Task 2, CFG-63)",
-        _dirty_state_js_only_fetches_never_polls_debounces_or_xhrs)
+        "dirty-state.js is network-free and poll-free again (no fetch(/XMLHttpRequest/setInterval/"
+        "requestAnimationFrame anywhere) with exactly ONE setTimeout in the whole file — a literal "
+        "setTimeout(fn, 0) sitting INSIDE the form's own reset-event handler, never cancelling that "
+        "event's own default action — and the file's header states both the standing constraint AND "
+        "this one named exception in the same breath (CFG-77/CFG-78, 28-08-PLAN.md Task 3)",
+        _dirty_state_js_is_network_free_again_with_one_named_timer_exception)
 
     # ==================================================================
     # 15-05-PLAN.md Task 3 (D-10, D-11, 15-VALIDATION.md row 10): the
@@ -8216,9 +8622,18 @@ def main():
 
     def _display_render_carries_three_section_intros_in_locked_order():
         # 20-07-PLAN.md Task 1 (D-12): Look, What it watches, When it is
-        # on, in that document order, and nowhere on the Device scope
-        # (Device's own intro sentence/caption are explicitly unchanged,
-        # per D-12 — no supersection tier there at all).
+        # on, in that document order.
+        #
+        # RETARGETED (28-04-PLAN.md Task 1, CFG-72): this check used to
+        # also assert "and nowhere on the Device scope" — Device's own
+        # intro sentence/caption were unchanged by D-12, so Device had no
+        # supersection tier at all. CFG-72 gives Device two supersections
+        # of its own ("When it wakes"/"How it tells you") plus a third,
+        # one-card supersection introducing the Poll card ("When you
+        # can't wait") — Device now renders three section-intro headings
+        # too, in that locked order. The Display half of this check is
+        # untouched; only the Device assertion is retargeted, from
+        # "absent" to "present, exactly three, in order".
         ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
@@ -8231,12 +8646,21 @@ def main():
             return False, "expected all three supersection heading ids to be present"
         if not (look_pos < watches_pos < on_pos):
             return False, "expected Look < What it watches < When it is on in document order"
-        if "section-intro" in device:
-            return False, "expected no section-intro on the Device scope (D-12: unchanged intro/caption)"
+        if device.count("section-intro") != 3:
+            return False, "expected exactly three section-intro occurrences on Device, got %d" % device.count("section-intro")
+        wakes_pos = device.find('id="%s"' % config_page.DEVICE_WAKES_SECTION_ID)
+        tells_pos = device.find('id="%s"' % config_page.DEVICE_TELLS_SECTION_ID)
+        poll_pos = device.find('id="%s"' % config_page.DEVICE_POLL_SECTION_ID)
+        if -1 in (wakes_pos, tells_pos, poll_pos):
+            return False, "expected all three Device supersection heading ids to be present"
+        if not (wakes_pos < tells_pos < poll_pos):
+            return False, "expected When it wakes < How it tells you < When you can't wait in document order"
         return True, ""
     check(
         "the Display scope renders exactly three section-intro headings, in the locked Look/What it "
-        "watches/When it is on order, and the Device scope renders none (D-12)",
+        "watches/When it is on order, and the Device scope renders exactly three of its own, in the "
+        "locked When it wakes/How it tells you/When you can't wait order (D-12, retargeted by "
+        "28-04-PLAN.md Task 1/CFG-72 from 'the Device scope renders none')",
         _display_render_carries_three_section_intros_in_locked_order)
 
     def _every_grouped_card_under_a_display_supersection_carries_nested_class():
@@ -8375,6 +8799,31 @@ def main():
     # three-round-trip-validated decision this plan does not reopen, or
     # a convention shared identically with Health, or unsupported by
     # measurement).
+    #
+    # SUPERSEDED IN PART (28-04-PLAN.md Task 1, CFG-72). Outcome 2's own
+    # conclusion — "one title form for settings CARDS" — is not
+    # reversed here, it is EXTENDED: the developer's second, rendered-
+    # and-measured report (the second "Ok mais visuellement les titres
+    # sont toujours incohérents !") found that Device's own four cards
+    # (including the Poll card this banner already discussed) rendered
+    # at the un-nested 22px/400/serif tier while Display's rendered at
+    # the nested 16px/600/sans tier — a real defect this banner's own
+    # "markup-level" inventory could not see, because it counted
+    # elements rather than reading computed style (see 28-04-SUMMARY.md
+    # for the rendered-and-measured proof). Device's counts move from
+    # (4, 3, 0, 1) to (7, 3, 3, 1): it gains three supersection intros
+    # of its own ("When it wakes"/"How it tells you"/"When you can't
+    # wait", `_device_groups_html()`), mirroring Display's three. The
+    # Poll card's own bare heading — this banner's second UNCLASSIFIED
+    # instance — is NOW WRAPPED with `page-section--nested` under its
+    # own "When you can't wait" supersection, so it is no longer
+    # typographically distinct from the other three Device cards. It
+    # STAYS the check's one remaining unclassified instance below,
+    # UNCHANGED reason: this check's own [data-dirty-section]-based
+    # arithmetic classifies it "unclassified" only because it holds no
+    # persisted field for dirty-tracking to watch — exactly what this
+    # banner already said above, and exactly why wrapping it was
+    # correct rather than a second, competing title form.
     # ==================================================================
 
     def _title_form_inventory_classifies_every_h2_text_heading_on_both_routes():
@@ -8397,7 +8846,15 @@ def main():
             form_a = rendered.count('%s="' % config_page.DIRTY_SECTION_ATTR)
             form_b = rendered.count("section-intro")
             counts[label] = (total, form_a, form_b, total - form_a - form_b)
-        expected = {"display": (8, 4, 3, 1), "device": (4, 3, 0, 1)}
+        # RE-DERIVED BY RUNNING (28-04-PLAN.md Task 1, CFG-72): Device's
+        # own tuple moved from (4, 3, 0, 1) to (7, 3, 3, 1) — three new
+        # h2.text-heading instances (the "When it wakes"/"How it tells
+        # you"/"When you can't wait" supersection intros), form-A
+        # unmoved at 3 (the wrap adds a class, not a [data-dirty-
+        # section] attribute), form-B 0 -> 3, unclassified unmoved at 1
+        # (the Poll card's own bare heading — see the banner above).
+        # Display's own tuple is untouched by this task.
+        expected = {"display": (8, 4, 3, 1), "device": (7, 3, 3, 1)}
         if counts != expected:
             return False, (
                 "expected {route: (total h2.text-heading, form-A card titles, form-B "
@@ -8430,6 +8887,10 @@ def main():
             return False, (
                 "expected the Frame strip's own <h2> (Display's unclassified instance) to "
                 "render on Display and never on Device")
+        # 28-04-PLAN.md Task 1 (CFG-72): the Poll card's own bare <h2> is
+        # now inside a `page-section page-section--nested` wrapper (it
+        # was a bare `page-section` before), but the <h2> TEXT itself is
+        # untouched — same needle, still present on Device only.
         poll_needle = '<h2 class="text-heading">%s</h2>' % escape_html(
             config_page.POLL_SECTION_HEADING)
         if poll_needle not in device or poll_needle in display:
@@ -8439,12 +8900,15 @@ def main():
 
         # OUTCOME 2: the two label vocabularies never overlap. A
         # supersection's own text is always a GENERIC group label,
-        # never one of the 7 cards' own SPECIFIC names.
+        # never one of the 7 cards' own SPECIFIC names. 28-04-PLAN.md
+        # Task 1 (CFG-72) widens the supersection-label side with
+        # Device's own three new labels.
         overlap = (
             set(card_title_headings["display"]) | set(card_title_headings["device"])
         ) & {
             config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
-            config_page.DISPLAY_ON_HEADING,
+            config_page.DISPLAY_ON_HEADING, config_page.DEVICE_WAKES_HEADING,
+            config_page.DEVICE_TELLS_HEADING, config_page.DEVICE_POLL_HEADING,
         }
         if overlap:
             return False, (
@@ -8460,7 +8924,14 @@ def main():
         "heading on Display, Poll's own bare-<section> heading on Device — neither a settings "
         "card nor a supersection), reproducing 27-01-SUMMARY.md's corrected 7/3/2 browser count "
         "server-side, with the two label vocabularies never overlapping (CFG-65, 27-06-PLAN.md "
-        "Task 1)",
+        "Task 1). SUPERSEDED IN PART (28-04-PLAN.md Task 1, CFG-72): a rendered-and-measured "
+        "check (companion/test_browser_ux.py) found the 7 settings-card titles were NOT one "
+        "typographic form after all — Device's four rendered 22px/400/serif against Display's "
+        "16px/600/sans — so Device now gains 3 supersection intros of its own (form B unmoved "
+        "in shape, Device's own count 0 -> 3, counts re-derived by running below) and its own "
+        "Poll card is wrapped, closing that gap; the settings-card/supersection-label GRAMMAR "
+        "distinction this check's own name asserts is unchanged, and the label-vocabulary "
+        "overlap clause now also covers Device's three new labels",
         _title_form_inventory_classifies_every_h2_text_heading_on_both_routes)
 
     # ==================================================================
@@ -8523,6 +8994,53 @@ def main():
         "enforced at the source level rather than only in today's rendered markup (CFG-65, "
         "27-06-PLAN.md Task 2 — Outcome 2, no conversion, see 27-06-SUMMARY.md)",
         _no_card_builder_function_ever_calls_section_intro_html)
+
+    # ==================================================================
+    # 28-04-PLAN.md Task 2 (CFG-72): the cheap structural guard. THIS IS
+    # NOT THE PROOF — companion/test_browser_ux.py's cross-page
+    # getComputedStyle comparator is, and that is stated here rather
+    # than left implicit, so nobody later mistakes this check for a
+    # substitute (that exact mistake is how 27-06 shipped in the first
+    # place). This only asserts that the Device scope's rendered markup
+    # wraps every one of its four settings cards with the --nested
+    # modifier and that zero unmodified settings-card wrappers of either
+    # base class survive on that page.
+    # ==================================================================
+
+    def _device_scope_wraps_all_four_settings_cards_with_the_nested_modifier():
+        ctx = {
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        nested_theme_status = device.count('class="theme-status theme-status--nested"')
+        if nested_theme_status != 3:
+            return False, (
+                "expected exactly 3 theme-status--nested settings-card wrappers on Device "
+                "(LED, wake interval, notifications), got %d" % nested_theme_status)
+        nested_page_section = device.count('class="page-section page-section--nested"')
+        if nested_page_section != 1:
+            return False, (
+                "expected exactly 1 page-section--nested settings-card wrapper on Device "
+                "(Poll), got %d" % nested_page_section)
+        bare_theme_status = device.count('class="theme-status"')
+        if bare_theme_status != 0:
+            return False, (
+                "expected zero unmodified .theme-status settings-card wrappers on Device, "
+                "got %d" % bare_theme_status)
+        bare_page_section = device.count('class="page-section"')
+        if bare_page_section != 0:
+            return False, (
+                "expected zero unmodified .page-section settings-card wrappers on Device, "
+                "got %d" % bare_page_section)
+        return True, ""
+    check(
+        "the cheap structural guard, NOT the real proof (that is test_browser_ux.py's "
+        "cross-page getComputedStyle comparator): the Device scope's rendered output wraps "
+        "all four of its settings cards with the --nested modifier (three "
+        "theme-status--nested, one page-section--nested) and carries zero unmodified "
+        "settings-card wrappers of either base class (CFG-72, 28-04-PLAN.md Task 2)",
+        _device_scope_wraps_all_four_settings_cards_with_the_nested_modifier)
 
     # ==================================================================
     # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): the instant switches, and

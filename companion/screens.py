@@ -90,6 +90,17 @@ SCREEN_TYPES = {
         # D-10's list order is LED, wake interval, notifications, manual
         # refresh, and "manual refresh" is rendered directly by render()'s
         # own has_manual_poll branch below, never through this tuple.
+        # SUPERSEDED (28-04-PLAN.md Task 1, CFG-72): this tuple's own
+        # CONTENTS and iteration order are unchanged — config_page.py's
+        # Device render() branch no longer flat-joins it in listed order,
+        # though. `_device_groups_html()` now groups these three cards
+        # into two supersections ("When it wakes" over wake interval
+        # alone, "How it tells you" over LED and notifications together),
+        # so the RENDERED order is wake interval, LED, notifications,
+        # manual refresh — not D-10's original LED-first list. The
+        # second clause above — "manual refresh is rendered directly by
+        # render()'s own has_manual_poll branch, never through this
+        # tuple" — stays true and is unaffected by this change.
         "advanced_groups": (GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_NOTIFICATIONS),
         # Whether the Device page also shows the per-flight colour rules
         # editor and the manual refresh ("poll now") control — both are

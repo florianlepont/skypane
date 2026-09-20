@@ -86,8 +86,8 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [ ] **CFG-60**: Static assets are compressed at the edge and nothing session-derived is — the `encode` directive lands in the companion's Caddy site block only, scoped to public static asset types served before `require_session()`, so BREACH is structurally out of scope rather than argued away; and prefetch-on-hover is deliberately NOT built because `no-store` responses cannot be reused, making it a duplicate request with zero speedup, with hover unreachable by touch and the only fix being to weaken a Phase 18 decision
 - [ ] **CFG-61**: The phase's instrumentation floor — focus restoration is observed rather than cited, an announcement is read back as text so a repeat is detectable, the unauthenticated-route set is enumerable so a new public route is detectable, a keystroke can be aimed at a named element with proof it landed there, and the destination sweep visits every destination rather than a sample; the helpers add zero net checks
 - [x] **CFG-62**: The quiet-hours dial tells one story — the arc and the caption are functions of the PAIR of values, not of one value per handle, so that after a drag or a preset the fields, the handles, the arc and the caption all describe the same window; the server-rendered arc stays authoritative for the SAVED value so the picture is still correct with scripts blocked, script only ever overrides what is already right, and a caption that cannot state a true duration says NOTHING rather than a stale one
-- [x] **CFG-63**: The settings pages have no save button — a change saves itself, confirmed by a transient "Sauvegarde…" → "Sauvegardé" and nothing else; the failure path reuses the app's ONE existing failure vocabulary (the optimistic rollback and the translated generic toast the `role="switch"` controls already use) rather than inventing a second, the three instant switches and the settings form end up under ONE stated save model rather than two, and the leave-guard and "Annuler" are retired only where they mean "discard a pending edit" and kept where they confirm a destructive act
-- [x] **CFG-64**: The no-JS floor survives the save button's removal BY CONSTRUCTION — the native submit is emitted on every render with no condition of any kind on its presence, script only hides it, and the proof is a value read back OFF DISK after a real form submit with scripts blocked, in both shipped languages and at 360 px, never a check that the button rendered; B1/P0's superseded `[data-static-save-fallback]` visibility contract is amended in writing where it lives, not deleted
+- [x] **CFG-63**: The settings pages have no save button — a change saves itself, confirmed by a transient "Sauvegarde…" → "Sauvegardé" and nothing else; the failure path reuses the app's ONE existing failure vocabulary (the optimistic rollback and the translated generic toast the `role="switch"` controls already use) rather than inventing a second, the three instant switches and the settings form end up under ONE stated save model rather than two, and the leave-guard and "Annuler" are retired only where they mean "discard a pending edit" and kept where they confirm a destructive act — **RETIRED (Phase 28, 2026-09-16).** Met as worded by 27-04 and ticked on that evidence; then WITHDRAWN as a product decision, which is a different fact from "not met" and must not be collapsed into one. The developer, after testing the deployed silent auto-save on real Safari (iPhone and Mac) and confirming via the network tab that saves DID succeed (204) even though nothing ever visibly confirmed it: *"Mais ce n'était pas le comportement d'enregistrement qu'on a choisi. Je veux garder la pop up qui apparait et qui propose d'enregistrer... la barre qui apparait quand un changement de paramètres à été effectué et qui propose de sauvegarder... le comportement d'avant."* Confirmed explicitly, when asked whether real Enregistrer/Annuler buttons should return: *"Oui, avec les boutons Enregistrer/Annuler comme avant."* The pre-27-04 dirty save bar (native form POST, section-naming, Cancel with live-preview refresh) is restored by the successor requirement. The tick is left standing because the work it records really was done — what is retired is the REQUIREMENT, so that no ticked row points at removed behavior.
+- [x] **CFG-64**: The no-JS floor survives the save button's removal BY CONSTRUCTION — the native submit is emitted on every render with no condition of any kind on its presence, script only hides it, and the proof is a value read back OFF DISK after a real form submit with scripts blocked, in both shipped languages and at 360 px, never a check that the button rendered; B1/P0's superseded `[data-static-save-fallback]` visibility contract is amended in writing where it lives, not deleted — **AMENDED IN FRAMING (Phase 28, 2026-09-16), NOT retired.** Its substance is unaffected by CFG-63's retirement and remains fully true and load-bearing: the native submit is still emitted unconditionally on every render (proven at the AST level by 27-03), and the value is still provably read back off disk with scripts blocked. Only the framing sentence "survives the save button's removal" becomes historically odd once the save button returns — the successor requirement now additionally makes this SAME native submit the restored bar's own visible Save control (no second button, no CSS `.js`-hide rule any more), rather than a script-hidden fallback distinct from it.
 - [ ] **CFG-65**: There is one title form on the settings pages — both shapes are inventoried by a machine and their counts stated BEFORE the choice is made, the chosen form is applied everywhere it applies, and the check asserts the losing form's count is ZERO rather than asserting the winner exists
 - [x] **CFG-66**: The runway is picked with the three native radios again — D16's drawn map, its constants, its stylesheet rules and the standing checks that assert its classes and geometry are all removed and NAMED as removed; the three `runway-*.png` photographs, their route and their slot stay served; the radios' own scripts-blocked save-to-disk proof stays and still passes; and CFG-47 is retired in place with its reason rather than left ticked against deleted code
 - [x] **CFG-67**: The explanatory text is cut without weakening a refusal — the wake-interval caption, its two gauges and the Quiet hours paragraph are shorter, measured as a character count against a recorded baseline, while the honesty contract they carry is unchanged: with a battery history that cannot support an absolute figure the card still prints NO figure, and shortness and refusal are asserted about the SAME rendering rather than separately
@@ -95,6 +95,13 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [x] **CFG-69**: The Frame strip's Quiet hours cell links to the schedule fields, written ONCE in the shared component so Home and Display both get it from the same write site and neither is forked
 - [x] **CFG-70**: Two findings carried in from earlier phases are closed rather than re-deferred — the "Departures · Arrivals" legend stops naming two swatches that the registry never makes different (asserted as a relationship against the registry, so it self-corrects if a theme ever does differ), and `.copy-btn`'s 34×26 hit area meets the 44 px floor measured in its own container, together with `.row-toggle`, which reuses its values verbatim
 - [x] **CFG-71**: The phase's instrumentation floor is its own lesson made executable — ASSERT RELATIONSHIPS, NOT JUST ENDPOINTS: where several rendered surfaces are functions of one underlying value, ONE check decodes every surface to one canonical value and asserts the set has exactly one member, that the member is what the interaction requested and that it differs from what was there before; every check is mutation-tested with its failure message quoted, every `EXPECTED_CHECK_COUNT` is re-derived by RUNNING, and the phase adds no new script and no new route so the deferred-script pin stays at 15
+- [ ] **CFG-72**: A settings card's own title renders in ONE typographic form regardless of which settings page hosts it — Device's cards are wrapped in the same nested-supersection style Display's already are, measured by `getComputedStyle` (font-size, weight, family) on every such title across both pages and asserted equal, not by grepping markup for a shared class name
+- [ ] **CFG-73**: The quiet-hours dial is correct THROUGHOUT an interaction, not only before and after it — (a) after a drag, a keyboard step, a typed field edit or a preset click, the caption states both endpoints as HH:MM and a correctly recomputed duration, byte-for-byte matching the format the server emits at load, proven by reading the caption's actual displayed text after each interaction kind rather than by the existence of a formatting function; (b) the handle stays on the dial's own ring for the FULL DURATION of a press or drag, proven by sampling its resolved position against the dial's centre and radius while held rather than only at rest — the collapse toward the centre is a CSS specificity collision (`button:active`'s generic depress transform beating the handle's own positioning transform, both class-level specificity, the generic rule winning by source order and animating there via the shared `transition: transform`) and not the angle/pointer math, so the fix gives the positioned handle's own active state precedence without touching the value it reports, and extends to the wake-interval slider's handle, which shares the same base class and is subject to the identical collision
+- [ ] **CFG-74**: A settings save failure is never silent and never permanent — investigated live by the developer across iPhone Safari and Mac desktop Safari and CONFIRMED SEVERE: no setting on ANY settings page (Display or Device) currently saves via auto-save in real Safari, with no visible error and no way to retry — a regression from Phase 27's removal of the manual save button that a Chromium-only harness cannot see (its own `_click_control()` helper already documents that a real coordinate click doesn't land reliably on these controls). Thorough code review of `dirty-state.js`, the toast element and its CSS found no incompatibility, and the exact root cause could not be confirmed without a live WebKit debugger, unavailable in this project's development environment — **this requirement does not claim to have found and fixed that root cause.** It requires resilience regardless of cause: (a) the save status is visible independent of scroll position (fixed/sticky, not tied to page-header position); (b) any save failure — non-204 response, opaque redirect, thrown exception, or a save that never resolves within a bounded timeout — surfaces a real, actionable retry affordance that appears ONLY on genuine failure and is invisible otherwise, honoring the developer's standing "zero buttons" preference; (c) the runway radios' `form=`-attribute wiring is additionally proven by its own check against the same pass/fail contract every other control meets, closing a path Phase 27's checks did not specifically cover; and (d) if the executor's own live-Chromium testing while building (a) and (b) surfaces a genuine, reproducible defect in the save pipeline along the way, it is fixed and named as a real root-cause fix, not folded silently into "resilience" — **SUPERSEDED before implementation (2026-09-16), never built.** This requirement's own text names its own root cause: "a regression from Phase 27's removal of the manual save button." With that button restored (CFG-77/CFG-78), the resilience machinery this requirement specified — a fetch-timeout, distinguished async failure kinds, a conditional retry affordance — has no fetch left to wrap, since the settings form goes back to a real native POST whose success or failure is unambiguous by construction (a real page navigation, not an async call that can fail silently). Left unticked rather than retired-as-met, because nothing here was ever built: the real Chromium data captured while the developer WAS testing the silent auto-save (a genuine 204 success with zero visible confirmation) is what led directly to the reversal, and stands as this requirement's own evidence for why "resilience around a silent mechanism" was the wrong fix for the symptom it correctly diagnosed.
+- [x] **CFG-75**: Every theme carousel's live preview follows the scroll position — while scrolling or swiping, the preview image updates to match whichever chip is currently centered in the strip, without changing the SELECTED theme (no radio state change, no persisted setting change) until an actual click or keyboard-select commits it; every carousel instance (departures, arrivals, calendar) tracks its own preview state independently, preserving 27-07's per-instance `strip_id` discipline, proven by asserting the preview `<img src>` actually matches the geometrically centered chip during a scroll rather than by a scroll listener merely being attached
+- [x] **CFG-76**: The mobile nav toggle's icon matches what it opens — `#site-nav-toggle` renders a gear glyph instead of the hamburger, with its `aria-label` and the account/preferences panel it opens unchanged, and no other icon in `ICON_IDS` collides with the new gear symbol
+- [x] **CFG-77**: The settings pages have exactly one save mechanism, restored to its pre-Phase-27 form at the developer's explicit, twice-confirmed request — a bar that appears when a settings field changes, names which section(s) changed (in document order, from the same `data-dirty-section` wrappers that survived Phase 27 unread), and offers real "Enregistrer"/"Annuler" actions; Enregistrer is a genuine native form submission (never a fetch), so its result is a real page navigation whose success or failure is unambiguous by construction; Annuler restores every field via `form.reset()`, re-triggers the quiet-hours dial's own click-delegated repaint and the theme carousel's `window.SkyPaneLivePreview.refresh()` so neither control keeps showing a discarded value, and does not disarm the leave-guard permanently; the leave-guard itself is kept exactly where CFG-63's own carve-out already put it — confirming a pending, uncommitted edit, not a destructive act
+- [x] **CFG-78**: The restoration leaves exactly one save affordance in the DOM, never two — the already-existing, AST-provably-unconditional native submit CFG-64 depends on becomes the bar's own visible Save control rather than a second button living behind a `.js`-hide rule, so the no-JS floor and the restored bar are proven to be the SAME element under two rendering conditions, not two independent implementations that could drift; the runway radios' `form=`-attribute cross-tree wiring is proven under the restored bar by its own check (closing the path CFG-74(c) named before the reversal); and the phase's closing gate re-derives every check count by running, names the sandbox baseline by NAME, and states plainly which of CFG-74's original four clauses were genuinely built (none) versus superseded by this pair
 
 ## v2 Requirements
 
@@ -231,6 +238,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-69 | Phase 27 | **Complete (27-08).** `layout.frame_strip_html()`'s quiet cell appends a real `<a href>` to a COPY of the shared caption (never the shared variable the Screen cell also reads) — proven by ONE check rendering BOTH `home_page.render()` and `config_page.render(scope=SCOPE_DISPLAY)` and asserting the hrefs are byte-identical, mutation-tested against total removal and a simulated per-page fork (both fail on the correct clause). Clears the 44px floor via `inline-flex`/`min-height`, measured at 360px in both themes, no horizontal scroll added on either page. |
 | CFG-70 | Phase 27 | **Complete (27-07/27-08).** The swatch legend ("Departures · Arrivals" → "Departures & arrivals"/"Départs et arrivées") is checked as a REGISTRY RELATIONSHIP (expected label count computed from `device_config.THEMES` at check time), never a literal — self-corrects if a future theme ever gives departures/arrivals different inks. `.copy-btn` in a Flights detail row: root-caused to container spacing (a ~4px gap to a trailing sibling crushing the downward reach; an `overflow: hidden` clip boundary crushing the leftward one) — NOT `.copy-btn`'s own declared values, which already resolved correctly everywhere else — fixed via `.flight-detail-row__grid`/`.flight-detail-row__reveal-inner`, closing 34×26 to a resolved 45×45. `.row-toggle` re-measured and mutation-proven independently (its own targeted mutation names `.row-toggle` alone, confirming it is not piggy-backing on `.copy-btn`'s pass, even though it shares those exact CSS values verbatim). |
 | CFG-71 | Phase 27 | **Complete (27-01 through 27-09).** The pattern this whole phase runs on: `_assert_surfaces_agree()` decodes N rendered surfaces to one canonical value and asserts the set has exactly one member, that it equals what was requested, and that it differs from what was there before — three clauses, never one, applied to the dial (27-02), the auto-save model (27-04) and reused throughout. Re-derived by RUNNING at this phase's close (2026-09-15): every `EXPECTED_CHECK_COUNT` confirmed against its own harness; the 5 sandbox-baseline failures verified BY NAME (unchanged from the phase's start — see the phase gate below); `grep -c SKIP` over the whole suite is 0; zero new script (`ls companion/static/*.js` still 17, `dirty-state.js` REPURPOSED not replaced, the deferred-script pin still 15); zero new route (`git diff 839489a..HEAD -- companion/app.py` touches zero `require_session()` call sites and adds zero `_ROUTE` constants anywhere under `companion/`, confirmed by source diff, not by re-deriving the route list by hand). |
+| CFG-72 | Phase 28 | **Complete (28-04).** `grep -l CFG-72 .planning/phases/28-*/28-*-PLAN.md` returns 28-04 alone. Device's four settings cards (Diagnostic LED, Wake interval, Notifications, Manual refresh) are wrapped in the same `theme-status--nested`/nested-supersection style Display's cards already use — grouped under two new Device supersections plus a third one-card supersection for Poll — proven not by a markup inventory (27-06's own miss, and the exact mistake this requirement's own wording warns against) but by a rendered cross-page probe (`_a_settings_card_title_renders_identically_on_both_settings_pages()`) that opens BOTH settings pages in one session, addresses every settings-card title by STRUCTURAL POSITION rather than by class name, reads `getComputedStyle` (font-size, font-weight, font-family) on each, and asserts the combined set across both pages has cardinality 1. ZERO CSS was edited (28-04 reused `.page-section--nested > h2` verbatim); the failure message names the offending page, the offending title's own text, and BOTH triples; both themes exercised at the 360px floor. |
+| CFG-73 | Phase 28 | **Complete (28-02, 28-03) — two distinct bugs in the one control.** **Bug B** (28-02, the handle collapsing to the dial's centre during a held press): root-caused to `button:active { transform: translateY(1px) }`'s generic depress transform beating `.quiet-dial__handle`'s own ring-positioning transform at equal class-level specificity, animated visibly by the shared `transition: transform`; fixed by excluding `.value-control__handle` from the generic `:active` rule and dropping `transform` from the handle's own transition list; proven by `_the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press()`, which SAMPLES the handle's resolved distance from the dial's own centre >=10 times across a held press of >=400ms rather than only before/after — mutation-proven, since an endpoint-only version of the identical check passes on the broken code. 28-02 also corrected a planning-time claim (this same requirement's own text, ROADMAP.md's Phase 28 entry) that the wake-interval slider shared this defect: measured live, `.value-control__handle` has exactly one consumer (the quiet-dial handles); the wake-interval slider is a native `<input type="range">` whose own pre-existing comment states it deliberately does not wear `.value-control`, so no wake-side edit was made or needed — the fix is scoped to the shared class, covering any future consumer by construction. **Bug A** (28-03, the readout regressing to raw unconverted minutes with a permanently blank duration after any interaction): fixed by handing the client the SAME translated wordings a ticker already uses (server-rendered `#`-marked duration-bucket attributes), never a second HH:MM converter or a second duration ladder in JavaScript; proven by `_the_dial_caption_keeps_its_form_after_every_interaction_kind()`, reading the caption's actual displayed text after each interaction kind (drag, keyboard, typed field, preset) and asserting it matches computed HH:MM plus duration byte-for-byte against the server-rendered form, in both languages. |
+| CFG-74 | Phase 28 | **SUPERSEDED before implementation, never built — recorded here rather than ticked, retired-as-met, or marked "not met", because none of those is the fact.** The requirement's own text named its own root cause: "a regression from Phase 27's removal of the manual save button." With that button restored (CFG-77/CFG-78), the resilience machinery this requirement specified — a bounded fetch-timeout, distinguished async failure kinds, a conditional retry affordance — has no fetch left to wrap, since the settings form goes back to a real native POST whose success or failure is unambiguous by construction (a real page navigation, never an async call that can fail silently). The two plans that would have built it, 28-06 and 28-07, never executed; both are on disk with a superseding header note (`28-06-PLAN.md.superseded`, `28-07-PLAN.md.superseded`) rather than deleted, per this project's standing convention against erasing planning history. None of its four original clauses — (a) scroll-independent status, (b) a conditional retry affordance, (c) the runway `form=` regression check, (d) fixing any genuine defect found along the way — was built AS CFG-74's OWN machinery. Clause (c) carries forward with its value intact, unchanged in intent, and is what CFG-78/28-09's own runway regression check actually proves — but against the restored bar's real POST, never against CFG-74's own fetch-timeout framing, so it is evidence for CFG-78, not for this row. The real Chromium-era evidence that led to the reversal — the developer's own captured real-Safari Network tab showing `POST /settings` answering a genuine 204, every field present, the value genuinely persisted after reload, with zero visible confirmation — is CFG-74's own evidence for why "resilience around a silent mechanism" was the wrong fix for the symptom it correctly diagnosed. It worked; the model was rejected. See the Phase 28 coverage ledger below for the full account. |
+| CFG-75 | Phase 28 | **Complete (28-05).** While scrolling or swiping any of the three theme carousel strips (departures, arrivals, calendar), the live preview `<img>` now follows whichever chip is geometrically centered, via a per-strip IntersectionObserver-assisted tracker reusing the carousel's own existing `applyPreviewSrc()` sink — no radio touched, no setting persisted from scroll alone. Proven by `_scrolling_a_strip_moves_its_own_preview_to_the_centered_chip_and_selects_nothing()`, dispatching real scroll events across four real intermediate positions per strip (never a jump to the end), in both UI themes, asserting no radio's checked state moves during any of it, that the final scrolled-to chip is provably distinct from the already-selected theme, and that a reload with nothing clicked shows the SAVED theme, never the last scrolled-past one; all three carousels exercised, plus one cross-instance clause proving arrivals' own scroll never reaches departures' preview or strip state (27-07's `strip_id`-per-instance discipline, preserved). |
+| CFG-76 | Phase 28 | **Complete (28-01).** `#site-nav-toggle` now renders `icon-gear` (a new, 23rd `ICON_IDS` member, its own `<symbol>` alongside `icon-power`/`icon-moon`) instead of `icon-hamburger`; `NAV_TOGGLE_LABEL` ("Account and preferences") and the panel's own contents (`_mobile_nav_html()`) are byte-identical (confirmed via `git diff`: the only changed line in that function is the icon id). Both hard-coded icon-sprite member-count checks (`_icon_sprite_integrity()`, `_page_shell_emits_sprite_once_no_inline_styles()`) retargeted from 22 to 23, mutation-tested; a new check proves the glyph, the translated EN/FR label, and the panel's still-navigation-free contents all agree. No other `ICON_IDS` entry collides with the new gear symbol (0 hits for "gear"/"settings-icon"/⚙ before this plan). |
+| CFG-77 | Phase 28 | **Complete (28-08, 28-10, 28-11).** Every clause of this requirement's own wording now has named, mutation-tested evidence — see the Phase 28 coverage ledger below for the full clause-by-clause walk, including the leave-guard re-arm clause that had zero executable coverage anywhere in the phase until a plan review surfaced the gap (28-11) and the no-JS-floor evidence naming all four scripts-blocked facts a review caught before implementation (28-08). |
+| CFG-78 | Phase 28 | **Complete (28-08, 28-09).** The already-existing, AST-provably-unconditional native submit CFG-64 depends on (27-03's own AST proof, re-verified unmoved) became the bar's own visible Save — relocated, never duplicated — proven by `_the_bar_s_save_button_is_the_same_static_fallback_element_relocated()` (28-08, a static/string-level relationship proof) and by 28-09's own browser-level single-affordance audit, which resolves every submit-shaped control's own `.form` property in a live browser and requires exactly one whose form id is `settings-form`, on both settings pages, in both languages, mutation-proven against a deliberately added second button. The runway radios' cross-tree `form=` path is proven end to end by 28-09's own regression check (closing the path CFG-74(c) named before the reversal). The phase's closing gate (28-09) re-derives every check count by running, names the sandbox baseline by NAME (the same five checks 28-04 first recorded, re-verified rather than carried forward), and states plainly which of CFG-74's four original clauses were genuinely built (none) versus superseded by this pair — see the Phase 28 coverage ledger below. |
 
 ## Phase 23 coverage ledger (companion dynamism I — "Alive")
 
@@ -1518,6 +1532,382 @@ On a real phone at 360px and on a desktop, in both themes and both languages:
 That review is the developer's. This gate reports what a machine can see;
 it does not claim the rest.
 
+## Phase 28 coverage ledger (companion review feedback round 2 — five more findings from the deployed app, investigated before planning)
+
+Written at the phase's close by 28-09, walking all six items (five original
+findings plus the mid-phase reversal they produced) against the ten
+preceding SUMMARYs (28-01 through 28-05, 28-08, 28-10, 28-11) and against
+the code on the finished tree — not against what the plans intended. It
+exists so the developer can see in one place what shipped, what was
+superseded and why, and which requirement was deliberately left unticked
+because nothing was built for it, matching the discipline Phases 23, 24, 25
+and 27 each held.
+
+One of the six items is deliberately left UNTICKED (**CFG-74**) —
+superseded before implementation, never built, and recorded as exactly
+that rather than rounded up to "fixed" or down to "not met". A phase that
+runs on "assert relationships, not just endpoints" (CFG-71's own standing
+contract, inherited from Phase 27) cannot itself round a superseded
+requirement up to make its own ledger look cleaner.
+
+### Correction 1 — one typographic form for a settings-card title (CFG-72)
+
+**Complete (28-04).** The developer's report — *"Ok mais visuellement les
+titres sont toujours incohérents !"* — landed after 27-06's own
+investigation had found "no structural defect" by inventorying markup
+rather than rendering it. 28-04 rendered both settings pages and read
+`getComputedStyle` instead: Device's three `.theme-status` cards
+(Diagnostic LED, Wake interval, Notifications) were never wrapped in the
+nested-supersection style Display's cards already use, so they rendered at
+22px/regular/serif (the shared `.text-heading` default) while Display's
+nested cards rendered at 16px/semibold/sans
+(`companion/static/style.css:5703-5705`) — two unrelated typographic
+registers for the same semantic element, depending only on which page you
+were on. The fix wraps Device's four settings cards (the three above, plus
+the Poll card) in the existing `theme-status--nested`/`.page-section--nested`
+style under two new Device supersections plus a third one-card supersection
+for Poll — **reusing `_nested_wrapper_html()` verbatim, zero CSS edited.**
+`_a_settings_card_title_renders_identically_on_both_settings_pages()`
+renders BOTH pages in one session, addresses every settings-card title by
+STRUCTURAL POSITION (never a class name — the exact 27-06-shaped mistake
+this check is written to avoid), reads the (font-size, font-weight,
+font-family) triple on each, and asserts the combined set across both
+pages has cardinality 1; the failure message names the offending page, the
+offending title's text, and both triples. Supersection intro headings
+(`.section-intro > h2`) are excluded structurally and deliberately — a
+different, generically-worded tier, not an inconsistency this check should
+assert away.
+
+### Correction 2 — the quiet-hours dial's two bugs (CFG-73)
+
+**Complete (28-02, 28-03).** The developer's second report —
+*"Le curseur des heures calmes fonctionne mieux mais est toujours
+bugué"* — named two genuinely distinct defects in the one control, and a
+follow-up escalated a second one the first report had not separated out.
+
+**Bug B (28-02), the handle collapsing to the dial's centre during a held
+press.** Root-caused by live measurement, not by re-deriving the
+angle/pointer math (which was already correct in every scenario tried):
+`.quiet-dial__handle` is a real `<button>`, and the global
+`button:active { transform: translateY(1px); }` rule
+(`companion/static/style.css:2624-2626`, class-level specificity) beat the
+handle's own single-class ring-positioning rule
+(`companion/static/style.css:1519-1526`, the same specificity family, but
+losing on source order) while pressed, animated visibly by the shared
+`transition: transform .15s ease` (the base `button` rule) — measured live:
+78px from the dial's centre (correct, on the ring) at press, collapsing to
+14-16px (the centre) by 90-150ms, recovering to 78px roughly 200ms after
+release. Fixed by excluding `.value-control__handle` from the generic
+`:active` rule and dropping `transform` from the handle's own transition
+list. `_the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press()`
+SAMPLES the handle's resolved distance from the dial's own centre >=10
+times across a held press of >=400ms, never only before/after — mutation-
+proven: an endpoint-only version of the identical check passes on the
+broken code, which is exactly the shape of assertion that let this defect
+ship in the first place. **A planning-time claim was found wrong during
+execution, and corrected rather than silently worked around**: the
+requirement's own text (and ROADMAP.md's Phase 28 entry) asserted the
+wake-interval slider shares this defect via the same base class. Measured
+live: `.value-control__handle` has exactly one consumer in the codebase
+(the quiet-dial handles, `companion/pages/config_page.py:2980`); the
+wake-interval slider is a native `<input type="range">` whose own
+pre-existing CSS comment states it deliberately does not wear
+`.value-control`, so `button:active` cannot reach it at all. No wake-side
+edit was made or needed; the fix is scoped to the shared class, covering
+any future `.value-control__handle` consumer by construction rather than
+by enumeration.
+
+**Bug A (28-03), the readout regressing to raw minutes with a permanently
+blank duration.** `quiet_dial_readout_html()`'s own format (HH:MM plus a
+computed duration) held at initial server-rendered load but never
+recovered after any interaction — 27-02's own documented "known
+limitation" surfacing exactly as "still buggy." Fixed by handing the
+client the SAME translated wordings a ticker already uses (server-rendered
+`#`-marked duration-bucket attributes), never a second HH:MM converter or a
+second duration ladder written in JavaScript.
+`_the_dial_caption_keeps_its_form_after_every_interaction_kind()` reads the
+caption's own displayed text after EACH interaction kind — a drag, a
+keyboard step, a typed field edit, a preset click — and asserts it matches
+computed HH:MM plus duration byte-for-byte against the server-rendered
+form, in both languages.
+
+### Correction 3 — every carousel's preview follows the scroll (CFG-75)
+
+**Complete (28-05).** The developer's fourth report —
+*"Change pictures ne s'affiche pas quand je scroll ce qui n'est pas dingue
+d'un point de vue UX"* — was confirmed as coded, by design: the carousel's
+dots carried no position state at all, and the live preview `<img>` only
+ever changed on an actual click or keyboard-select. A product decision
+(AskUserQuestion, 2026-09-15, "Aperçu suit le scroll") built a genuinely
+new PREVIEW state, distinct from SELECTION: while scrolling or swiping any
+of the three carousel strips (departures, arrivals, calendar), the live
+preview now follows whichever chip is geometrically centered, via a
+per-strip IntersectionObserver-assisted tracker reusing the carousel's own
+existing `applyPreviewSrc()` sink — no radio touched, nothing persisted
+from scroll alone.
+`_scrolling_a_strip_moves_its_own_preview_to_the_centered_chip_and_selects_nothing()`
+dispatches real scroll events across four real intermediate positions per
+strip (never a jump to the end), in both UI themes, and asserts: no
+radio's checked state moves during any of it; the final scrolled-to chip
+is provably distinct from the already-selected theme; and a reload with
+nothing clicked shows the SAVED theme, never the last scrolled-past one.
+All three carousels are exercised, plus one cross-instance clause proving
+arrivals' own scroll never reaches departures' preview or strip state —
+27-07's `strip_id`-per-instance discipline, preserved rather than
+reinvented.
+
+### Correction 4 — the mobile nav toggle's icon matches what it opens (CFG-76)
+
+**Complete (28-01).** The developer's fifth report and proposed fix —
+*"Sur mobile le hamburger est perturbant car cela ressemble à la
+navigation. Remplacer par un engrenage ?"* — was confirmed exactly as
+described: `#site-nav-toggle` rendered `icon-hamburger` with
+`aria-label="Account and preferences"`, but the panel it opens
+(`_mobile_nav_html()`) holds zero page-navigation links (real navigation
+moved to the bottom tab bar in 22-14). Fixed by appending a new,
+23rd `ICON_IDS` member (`icon-gear`, its own `<symbol>` at the same visual
+weight as `icon-power`/`icon-moon`) and changing `#site-nav-toggle`'s single
+`icon_html(...)` argument — `NAV_TOGGLE_LABEL` and every other line of
+`_mobile_nav_html()` are byte-identical (`git diff` confirms the only
+changed line in that function is the icon id). Both hard-coded icon-sprite
+member-count checks (`_icon_sprite_integrity()`,
+`_page_shell_emits_sprite_once_no_inline_styles()`) retargeted from 22 to
+23, mutation-tested; a new check proves the glyph, the translated EN/FR
+label, and the panel's still-navigation-free contents all agree. No other
+`ICON_IDS` entry collides with the new gear symbol (0 hits for
+"gear"/"settings-icon"/⚙ app-wide before this plan).
+
+### Correction 5 — the save-reliability requirement, superseded before it was ever built (CFG-74)
+
+**Not ticked. Nothing was built for it.** This is the item that most needs
+saying plainly rather than glossed, so: **none of CFG-74's four original
+clauses — (a) scroll-independent save status, (b) a conditional retry
+affordance, (c) the runway `form=` regression check, (d) fixing any
+genuine defect found along the way — was built as CFG-74's own machinery.**
+The two plans that would have built it, `28-06-PLAN.md` and
+`28-07-PLAN.md`, never executed; both survive on disk with a superseding
+header note (`28-06-PLAN.md.superseded`, `28-07-PLAN.md.superseded`)
+rather than being deleted, per this project's standing convention against
+erasing planning history.
+
+**The timeline, because the reason matters more than the fact.** The
+developer's third report — *"Quand je fais un changement de paramètre
+(comme la piste) je ne vois pas le bouton enregistrer apparaître"* — was
+first investigated as a single-control question and not reproduced in
+Chromium. A follow-up escalated it completely: on a real iPhone in Safari,
+nothing saved at all, for anything, with no error shown; the same held on
+Mac Safari for every setting tested. A dedicated deep-dive (`dirty-state.js`
+end to end, the toast's CSS, script load order, every Safari-incompatible-
+API class checked) found no incompatibility, no syntax error, no CSS
+collision — and the exact root cause could not be confirmed without a live,
+tethered WebKit debugger, unavailable in this project's development
+environment. The decision taken with the developer on 2026-09-15 was to
+build resilience around the confirmed-severe, root-cause-unconfirmed
+failure rather than guess at a fix. That is what CFG-74's four clauses
+specified, and what 28-06/28-07 were written to build.
+
+**Then the picture changed, before either plan ran.** With 28-01 through
+28-04 shipped, the developer got hold of a Mac and captured the real
+Safari Network tab for a settings save: `POST /settings` -> a genuine
+**204**, every field present, and confirmed after reload that the value
+genuinely persisted. The auto-save mechanism was never broken — it worked
+correctly the whole time; the only real defect was that nothing ever
+visibly confirmed it, exactly the class of problem CFG-74's own resilience
+work was built to paper over without knowing the cause. Having seen this,
+the developer rejected the auto-save MODEL itself, not merely its missing
+feedback: *"Mais ce n'était pas le comportement d'enregistrement qu'on a
+choisi. Je veux garder la pop up qui apparait et qui propose
+d'enregistrer... le comportement d'avant."* Confirmed explicitly when asked
+directly: *"Oui, avec les boutons Enregistrer/Annuler comme avant."*
+
+**Why CFG-74 is superseded rather than failed.** The requirement's own
+text names its own root cause in its very first sentence: "a regression
+from Phase 27's removal of the manual save button." With that button
+restored (CFG-77/CFG-78, Correction 6 below), the resilience machinery
+this requirement specified — a bounded fetch-timeout, distinguished async
+failure kinds, a conditional retry affordance — has no fetch left to wrap,
+since the settings form goes back to a real native POST whose success or
+failure is unambiguous by construction (a real page navigation, never an
+async call that can fail silently). Building CFG-74's own machinery around
+a mechanism the developer was about to reject outright would have been
+work spent proving the wrong thing resilient. Clause (c) — the runway
+`form=` regression check — is the one exception with its value carried
+forward intact: CFG-78/28-09's own runway regression check proves exactly
+that path, but against the restored bar's real POST, not against CFG-74's
+own fetch-timeout framing, so it is recorded as CFG-78's evidence, not
+this row's.
+
+**Nothing here claims a Safari defect was found or fixed.** It worked; the
+model was rejected. This is the sentence CFG-78's own wording requires
+this ledger to say plainly, and it is said here without hedging.
+
+### Correction 6 — the pre-Phase-27 save bar, restored (CFG-77, CFG-78, across 28-08, 28-10, 28-11 and 28-09)
+
+**Both complete.** The restoration that replaced CFG-74's entire scope.
+Real Enregistrer/Annuler buttons over a native form POST, restored from
+this project's own history (`6dea46a` and its predecessors), at the
+developer's twice-confirmed request. Every clause of both requirements'
+own wording is walked below with its own named evidence — a check
+function, a measured figure, or a file and mechanism — never a plan's
+stated intention.
+
+**CFG-77's clauses:**
+- *The bar appears on a field change.* 28-08's restored `dirty-state.js`
+  (`updateBar()`, driven by the document-level `change`/`input`
+  delegation) and 28-10's retargeted
+  `_the_bar_hides_once_script_proves_live_then_reveals_on_edit_and_saves()`.
+- *It names the changed section(s), in document order, from the
+  surviving `data-dirty-section` wrappers.* 28-10's
+  `_the_dirty_count_arrives_and_moves_only_when_the_word_does()` (the
+  control-phase/changed-text-gate clauses) **plus 28-11's Task 1**,
+  `_section_naming_reflects_the_fields_actually_changed_in_document_order()`
+  — the actual document-order-vs-click-order proof against real changed
+  fields (Runway then Quiet hours, and the reverse), in both languages,
+  built entirely from the bar's own `data-dirty-*` attributes rather than
+  a hardcoded literal.
+- *Enregistrer is a genuine native form submission, never a fetch.*
+  28-08's own AST-level proof that the native submit
+  (`STATIC_SAVE_FALLBACK_ATTR`) is emitted unconditionally, plus 28-10's
+  retargeted checks waiting on a real `page.expect_navigation()` rather
+  than a same-page DOM update.
+- *Annuler restores every field via `form.reset()`, re-triggers the
+  quiet-hours dial's repaint and the theme carousel's
+  `window.SkyPaneLivePreview.refresh()`.* **28-11's Task 2**,
+  `_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_dom()`
+  — the only place in the phase this is proven by reading the RESULTING
+  DOM after 28-08's own deferred `setTimeout(fn, 0)` tick, never by
+  spying on `refresh()`/`repaintAll()` being called. This check's own
+  mutation testing produced a genuine corroboration of 28-08's written
+  design argument, not merely a fresh finding: removing only
+  `repaintAll()` from the deferred tick left the dial's start handle
+  reading the DISCARDED edit's value (`300`, i.e. `05:00`) rather than
+  the pre-edit original (`1335`, `22:15`) — proving `value-controls.js`'s
+  document-level click listener does fire on the Cancel button's own
+  click and does repaint from the STALE, pre-reset values, exactly as
+  28-08's own comment states.
+- *Annuler does not disarm the leave-guard permanently — a new edit
+  re-arms it.* **28-11's Task 3**,
+  `_the_leave_guard_re_arms_after_a_new_edit_following_cancel()` — **the
+  one CFG-77 clause that had ZERO executable coverage anywhere in the
+  phase until a plan review surfaced the gap.** A ledger that records
+  how a gap was found is worth more than one that only records that it
+  is closed: the check proves fresh load (disarmed) -> edit (armed) ->
+  Annuler (disarmed) -> a NEW edit (RE-ARMED) -> a second Annuler
+  (disarmed again, closing the symmetric "re-arms only once" hole),
+  mutation-proven against exactly the defect a Cancel handler that sets
+  `suppressGuard = true` once and never clears it reproduces.
+- *The leave-guard is kept exactly where CFG-63's own carve-out put it.*
+  28-10's retargeted
+  `_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit()`.
+
+**The no-JS-floor evidence, named precisely because it was nearly
+missed.** 28-08's scripts-blocked criteria proves all FOUR facts together:
+the bar renders VISIBLE by default (the polarity inversion — there is no
+second fallback button any more, so the bar's own server-rendered visible
+state IS the floor); the Save reaches disk via a real native POST with
+scripts blocked; the Cancel is a genuinely working native
+`<button type="reset">`, not a `type="button"` that would be scripted-
+enhancement-only; and `[data-dirty-count]` renders EMPTY at rest, seeding
+no claim. **A plan review caught two consequences before implementation,
+and this is the phase's most load-bearing no-regression claim, worth
+naming rather than compressing into one word:** (1) had Cancel shipped as
+the old `type="button"` (which relied entirely on script because the old
+bar was `hidden` by default), it would have been a fully visible, fully
+INERT control for every scripts-blocked visitor now that the polarity is
+inverted; (2) had `[data-dirty-count]` shipped seeded with
+`DIRTY_BAR_INITIAL_TEXT`'s literal "Unsaved changes" text, it would have
+been a permanently-announced false claim on a `role="status"` region for
+every scripts-blocked visitor on every fresh load. The shipped design
+avoids both: the native `type="reset"` restores every field with zero
+script, and the count span's own empty seed means a scripts-blocked
+visitor never has anything false announced to them.
+
+**CFG-78's clauses:**
+- *The already-existing, AST-provably-unconditional native submit becomes
+  the bar's own visible Save — one element under two rendering
+  conditions, never two implementations.* 28-08's
+  `_the_bar_s_save_button_is_the_same_static_fallback_element_relocated()`
+  (the static/string-level relationship proof: the one
+  `STATIC_SAVE_FALLBACK_ATTR` occurrence's index sits strictly inside
+  `.dirty-bar`'s own span) **plus 28-09's browser-level single-affordance
+  audit**,
+  `_exactly_one_submit_shaped_control_resolves_to_the_settings_form()` —
+  resolving every submit-shaped control's own `.form` property in a live
+  browser (never a count of `<button` occurrences, never a hand-
+  maintained allow-list), on both `/display` and `/device`, in both
+  languages, requiring exactly one whose form id is `settings-form` and
+  that it carries `data-static-save-fallback` inside `[data-dirty-bar]`.
+  Mutation-proven against a deliberately added second submit button
+  inside the settings form, which the check caught and named by tuple
+  (`tagName[type=submit] form='settings-form' text='MUTATION second
+  save'`).
+- *The runway radios' `form=`-attribute cross-tree wiring is proven under
+  the restored bar.* 28-09's
+  `_the_runway_form_associated_path_reaches_the_bar_and_disk_end_to_end()`
+  — closing the path CFG-74(c) named before the reversal, now against the
+  real POST instead of the retired fetch: selecting the runway radio
+  (rendered outside `<form id="settings-form">`) reveals the bar naming
+  exactly its own Runway/Piste label, a real Enregistrer navigation
+  writes `tracked_runway` to disk, and a reload shows the radio
+  reflecting the saved value, in both languages. Mutation-proven against
+  the exact B1 defect this path exists to guard (narrowing
+  `dirty-state.js`'s document-level delegation to the form element
+  reproduces the original bug class, and the check fails with a timeout
+  waiting for the bar).
+- *The closing gate re-derives every check count by running, names the
+  sandbox baseline by NAME, and states which of CFG-74's four clauses
+  were genuinely built.* See this plan's own gate section, immediately
+  below.
+
+**28-09's own gate, re-derived by RUNNING, not carried forward from any
+earlier SUMMARY:**
+
+| Harness | Pre-plan | Final | Passing here |
+|---|---|---|---|
+| `companion/test_browser_ux.py` | 94 | **96** | 96/96 |
+| `companion/test_config_page.py` | 265 | **266** | 266/266 |
+| `companion/test_companion_app.py` | 316 | 316 (unchanged, explicitly re-checked) | 314/316 (the 2 named WR-11 below) |
+| `companion/test_status_pages.py` | 306 | 306 | 305/306 (`anomaly_active()` below) |
+| `companion/test_i18n.py` | 24 | 24 | 24/24 |
+| `companion/test_contrast_check.py` | 49 | 49 | 49/49 |
+| `companion/test_view_pages.py` | 164 | 164 | 164/164 |
+
+`PYTHON=.../python3 bash scripts/run-all-tests.sh` (JOBS=4) exit status:
+**1 (FAIL)** — three harnesses named, exactly the same class the phase's
+own plans have recorded from 28-01 onward: `server/test_manual_
+resolutions.py`, `companion/test_companion_app.py`,
+`companion/test_status_pages.py`. **The sandbox baseline, RE-DERIVED by
+running today (2026-09-19) rather than carried forward from 28-04's own
+SUMMARY, is still exactly the five named failures 28-04 first recorded on
+2026-09-15** — unchanged in count and unchanged in membership across five
+intervening plans that all touched these same suites:
+1. `companion/test_companion_app.py` — *"expected the manual_save_failed
+   flash key when add_entry() fails to write, got
+   '/airlines?resolve=FLD&flash=manual_resolved'"* (WR-11).
+2. `companion/test_companion_app.py` — *"expected the manual_delete_failed
+   flash key when delete_entry() fails to write, got '/airlines'"*
+   (WR-11).
+3. `server/test_manual_resolutions.py` — *"expected ADD_FAILED for an
+   uncreatable state dir, got 'ok'"* (WR-11).
+4. `server/test_manual_resolutions.py` — *"expected False (never raises)
+   when the state dir is read-only, got True"* (WR-11).
+5. `companion/test_status_pages.py` — *"expected False for a non-existent
+   state_dir path"* (`anomaly_active()`).
+
+All five are a root-owned-sandbox artifact (permission enforcement on a
+directory made "read-only" is bypassed when the test process itself owns
+root, so the read-only-simulation setup this suite relies on cannot
+reproduce the condition it means to test) — none is attributable to
+28-08, 28-10, 28-11 or this plan's own Task 1, and none is widened into or
+absorbed by this ledger; `ruff check .` is clean across the whole
+repository.
+
+**Which of CFG-74's four clauses were genuinely built: none.** Clause (c)
+carries forward as CFG-78's own runway regression check, proven above —
+but that is CFG-78's evidence, earned by this restoration's own design,
+not CFG-74's machinery surviving in any form. Clauses (a), (b) and (d)
+have no successor anywhere in this phase, because the mechanism they would
+have wrapped (a fetch that can fail silently) no longer exists.
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.
 

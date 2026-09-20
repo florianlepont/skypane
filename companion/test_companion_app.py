@@ -556,7 +556,10 @@ EXPECTED_CHECK_COUNT = 269
 # not counted as new. 269 + 2 = 271, recomputed directly against the
 # real on-disk check(...) call count at execution time (269/271 pass —
 # the two documented WR-11 root-sandbox failures, unrelated to this
-# plan), not trusted from arithmetic alone.
+# plan), not trusted from arithmetic alone. 28-01-PLAN.md (CFG-76) later
+# edits both of these same two checks in place again (22 -> 23 members,
+# icon-gear) — see that plan's own EXPECTED_CHECK_COUNT entry below for
+# its own check-count math.
 EXPECTED_CHECK_COUNT = 271
 # 22-15-PLAN.md Task 3 (T14): +1 — a real GET of /static/submit-guard.js,
 # because a registration whose route 404s is a guard that does not exist
@@ -826,6 +829,48 @@ EXPECTED_CHECK_COUNT = 313
 # the same two documented WR-11 root-sandbox failures and no others),
 # never by arithmetic.
 EXPECTED_CHECK_COUNT = 314
+# 28-01-PLAN.md (CFG-76): +1 — one new check,
+# _the_nav_toggle_wears_the_gear_and_opens_the_same_panel, proving
+# #site-nav-toggle renders icon-gear (never icon-hamburger), that its
+# aria-label is NAV_TOGGLE_LABEL translated through i18n's real
+# per-request path in both EN and FR (a live Accept-Language round trip,
+# never a hardcoded French literal), and that the panel it opens still
+# holds the language switch, the theme switch and Sign out with zero
+# page-navigation links — the relationship clause without which a glyph
+# swap alone would prove nothing about whether the glyph now tells the
+# truth. This plan also retargets _icon_sprite_integrity() and
+# _page_shell_emits_sprite_once_no_inline_styles() in place, the same
+# treatment 22-14-PLAN.md's own edit above gave the pair (22 -> 23
+# members, icon-gear) — edited, not counted as new. 314 + 1 = 315,
+# re-derived by RUNNING the harness, never by arithmetic.
+EXPECTED_CHECK_COUNT = 315
+# 28-03-PLAN.md Task 3 (CFG-73 Bug A): +1 — one new check,
+# _duration_wordings_equal_the_ladders_own_output, pinning
+# layout.DURATION_ATTRS' four wordings equal to layout.duration_text()'s
+# own output per bucket per language, and present in
+# value-controls.js's own source — the same "the copy is the ladder's
+# output with the number lifted out" guard
+# _relative_time_wordings_equal_the_ladders_own_output already runs for
+# relative-time.js's nine wordings, applied to the duration readout's
+# four. 315 + 1 = 316, re-derived by RUNNING the harness, never by
+# arithmetic.
+EXPECTED_CHECK_COUNT = 316
+
+# 28-08-PLAN.md Task 3 (CFG-77/CFG-78), 2026-09-16: dirty-state.js is
+# rewritten as the bar's driver again. Two checks retargeted IN PLACE,
+# no count change:
+# _dirty_state_script_es5_safe_reads_two_save_status_attributes renamed
+# to _dirty_state_script_es5_safe_reads_seven_dirty_bar_attributes
+# (fetch( moves back to banned; the two data-save-status-* reads swap
+# for the restored bar's own seven data-dirty-* ones);
+# _dirty_state_animates_the_status_regions_element_and_never_its_word
+# renamed to _dirty_state_animates_the_bars_count_element_and_never_
+# its_word (retargets statusRegion.textContent back to countEl.
+# textContent — the identical one-write-site/gated/text-before-class/
+# remove-reflow-re-add discipline, unchanged in shape, with the live
+# regex-collision lookahead preserved). 316 + 0 = 316, re-derived by
+# RUNNING (316/316).
+EXPECTED_CHECK_COUNT = 316
 
 # ==========================================================================
 # 25-01-PLAN.md Task 4 (CFG-46/D-09) — THE NO-JS CONTROL CONTRACT, AS A
@@ -2292,16 +2337,20 @@ def main():
             # (icon-more, the bottom tab bar's "More" cell) — this check
             # is edited IN PLACE, not added to: same three counts, one
             # higher, no EXPECTED_CHECK_COUNT contribution.
-            if len(layout.ICON_IDS) != 22:
-                return False, "expected exactly twenty-two ICON_IDS, got %d" % len(layout.ICON_IDS)
-            if len(set(layout.ICON_IDS)) != 22:
+            # 28-01-PLAN.md (CFG-76) grows it again, 22 -> 23
+            # (icon-gear, #site-nav-toggle's new glyph) — same treatment,
+            # edited in place again, no EXPECTED_CHECK_COUNT contribution
+            # from this edit either.
+            if len(layout.ICON_IDS) != 23:
+                return False, "expected exactly twenty-three ICON_IDS, got %d" % len(layout.ICON_IDS)
+            if len(set(layout.ICON_IDS)) != 23:
                 return False, "expected ICON_IDS to have no duplicates"
             symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
             if sorted(symbol_ids) != sorted(layout.ICON_IDS):
                 return False, "sprite symbol ids %r do not match ICON_IDS %r" % (
                     symbol_ids, layout.ICON_IDS)
-            if layout.ICON_DEFS_HTML.count("<symbol") != 22:
-                return False, "expected exactly twenty-two <symbol occurrences, got %d" % (
+            if layout.ICON_DEFS_HTML.count("<symbol") != 23:
+                return False, "expected exactly twenty-three <symbol occurrences, got %d" % (
                     layout.ICON_DEFS_HTML.count("<symbol"))
             if 'stroke="currentColor"' not in layout.ICON_DEFS_HTML:
                 return False, "expected stroke=\"currentColor\" in the sprite"
@@ -2309,7 +2358,7 @@ def main():
                 return False, "a hard-coded hex fill would defeat the per-status tint"
             return True, ""
         check(
-            "layout.ICON_IDS has exactly twenty-two unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
+            "layout.ICON_IDS has exactly twenty-three unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
             _icon_sprite_integrity)
 
         def _icon_html_whitelist_enforcement():
@@ -2358,15 +2407,17 @@ def main():
                 return False, "expected exactly one <defs, got %d" % doc.count("<defs")
             # 22-14-PLAN.md Task 1 (X9/D-10): twenty-one -> twenty-two
             # (icon-more). Edited in place; no check added or removed.
-            if doc.count("<symbol") != 22:
-                return False, "expected exactly twenty-two <symbol, got %d" % doc.count("<symbol")
+            # 28-01-PLAN.md (CFG-76): 22 -> 23 (icon-gear). Edited in
+            # place again; no check added or removed.
+            if doc.count("<symbol") != 23:
+                return False, "expected exactly twenty-three <symbol, got %d" % doc.count("<symbol")
             if doc.index("icon-defs") >= doc.index("dashboard-shell"):
                 return False, "expected the sprite to precede the dashboard-shell div"
             if ' style="' in doc:
                 return False, "page_shell() must emit no inline styles"
             return True, ""
         check(
-            "page_shell() emits exactly one sprite (one <defs, twenty-two <symbol) before dashboard-shell, "
+            "page_shell() emits exactly one sprite (one <defs, twenty-three <symbol) before dashboard-shell, "
             "no inline styles",
             _page_shell_emits_sprite_once_no_inline_styles)
 
@@ -4794,14 +4845,26 @@ def main():
             "\"Copied\" literal survives only as the one documented fallback (D-06)",
             _copy_button_script_es5_safe_reads_data_copied_text)
 
-        def _dirty_state_script_es5_safe_reads_two_save_status_attributes():
-            # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDES this check's own
-            # pre-27-04 subject — dirty-state.js is now the settings
-            # form's auto-save driver, and fetch( is exactly how it
-            # saves, so it is REMOVED from the banned list (and added to
-            # required instead) rather than left banned and permanently
-            # failing. The five retired connector-word attributes are
-            # replaced by the auto-save status region's own two words.
+        def _dirty_state_script_es5_safe_reads_seven_dirty_bar_attributes():
+            # 27-04-PLAN.md Task 2 (CFG-63): SUPERSEDED this check's own
+            # pre-27-04 subject — dirty-state.js became the settings
+            # form's auto-save driver, and fetch( was exactly how it
+            # saved, so it was REMOVED from the banned list (and added
+            # to required instead). The five retired connector-word
+            # attributes were replaced by the auto-save status region's
+            # own two words.
+            #
+            # 28-08-PLAN.md Task 3 (CFG-77/CFG-78), 2026-09-16: RENAMED
+            # and inverted back — fetch( moves from required back to
+            # BANNED (the developer asked for the bar back, ROADMAP.md's
+            # Phase 28 addendum), and the two data-save-status-* reads
+            # swap for the seven data-dirty-* ones: the six connector
+            # words plus DIRTY_BAR_INITIAL_TEXT (the seventh, read for
+            # parity — see dirty-state.js's own DEPARTURE 5 comment).
+            # Each removed literal survives only as its own documented
+            # fallback, the identical discipline this check already
+            # applied to the two auto-save words, now applied to the
+            # restored seven.
             js_path = os.path.join(HERE, "static", "dirty-state.js")
             with open(js_path) as fh:
                 src = fh.read()
@@ -4811,63 +4874,74 @@ def main():
             banned = (
                 "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
                 "insertAdjacentHTML", "document.write", "eval(",
-                "XMLHttpRequest")
+                "XMLHttpRequest", "fetch(")
             for token in banned:
                 if token in src:
                     return False, "dirty-state.js must not contain %r" % token
-            required = (
-                "textContent", "addEventListener", "getAttribute", "querySelector", "fetch(")
+            required = ("textContent", "addEventListener", "getAttribute", "querySelector")
             for token in required:
                 if token not in src:
                     return False, "expected %r in dirty-state.js" % token
-            for attr in ("data-save-status-saving", "data-save-status-saved"):
+            for attr in (
+                    "data-dirty-changed-suffix", "data-dirty-and", "data-dirty-list-and",
+                    "data-dirty-unsaved-singular", "data-dirty-unsaved-plural",
+                    "data-dirty-saving", "data-dirty-initial-text"):
                 if attr not in src:
                     return False, "expected dirty-state.js to read %r" % attr
-            # D-06: each removed hardcoded word survives ONLY as its own
+            # D-06: each restored hardcoded word survives ONLY as its own
             # documented fallback literal, never a second inline
             # occurrence elsewhere in the file.
-            if src.count('"Saving…"') != 1:
-                return False, "expected exactly one \"Saving…\" literal (the fallback)"
-            if src.count('"Saved"') != 1:
-                return False, "expected exactly one \"Saved\" literal (the fallback)"
+            for literal in (
+                    '" changed"', '" and "', '", and "', '"1 unsaved change"',
+                    '" unsaved changes"', '"Saving…"', '"Unsaved changes"'):
+                if src.count(literal) != 1:
+                    return False, (
+                        "expected exactly one %s literal (the fallback), got %d"
+                        % (literal, src.count(literal)))
             return True, ""
         check(
             "dirty-state.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/"
-            "insertAdjacentHTML/document.write/eval/XHR), now CALLS fetch( as the settings form's "
-            "auto-save driver, reads both save-status words from the region's own data-save-status-* "
-            "attributes, and each removed hardcoded literal survives only as its own documented "
-            "fallback (27-04-PLAN.md Task 2, CFG-63)",
-            _dirty_state_script_es5_safe_reads_two_save_status_attributes)
+            "insertAdjacentHTML/document.write/eval/XHR), contains NO fetch( any more, reads all "
+            "seven of the bar's own data-dirty-* attributes, and each restored hardcoded literal "
+            "survives only as its own documented fallback (CFG-77/CFG-78, 28-08-PLAN.md Task 3)",
+            _dirty_state_script_es5_safe_reads_seven_dirty_bar_attributes)
 
-        def _dirty_state_animates_the_status_regions_element_and_never_its_word():
-            # 27-04-PLAN.md Task 2 (CFG-63). SUPERSEDES this check's own
-            # pre-27-04 subject — the retired bar's countEl is gone, and
-            # the identical discipline (23-09-PLAN.md Task 1, D3/CFG-32)
-            # now applies to the auto-save status region instead:
-            # role="status" and the word is its content, so an animation
-            # that rewrote the text more than once per change would make
-            # a screen reader announce the same word twice, or a partial
+        def _dirty_state_animates_the_bars_count_element_and_never_its_word():
+            # 23-09-PLAN.md Task 1 (D3/CFG-32), retargeted by 27-04-PLAN.md
+            # Task 2 (CFG-63) onto the auto-save status region: role=
+            # "status" and the word is its content, so an animation that
+            # rewrote the text more than once per change would make a
+            # screen reader announce the same word twice, or a partial
             # one. Animate the ELEMENT, write the word exactly once, and
             # only when it genuinely differs.
+            #
+            # 28-08-PLAN.md Task 3 (CFG-77/CFG-78), 2026-09-16: RENAMED
+            # and retargeted from statusRegion.textContent BACK to the
+            # bar's own [data-dirty-count] element (countEl) — the
+            # developer asked for the bar back (ROADMAP.md's Phase 28
+            # addendum), and setCountText() carries the IDENTICAL
+            # discipline this check already required of the region: one
+            # write site, a changed-text gate, text written before the
+            # class, and a remove/reflow/re-add sequence. Read this
+            # docstring head BEFORE the regex below, not after: the
+            # negative lookahead is load-bearing, not decoration — a
+            # plain substring search for the assignment also matches the
+            # GATE's own `=== ` comparison one line above it, so an
+            # unguarded count would read one higher than the truth. This
+            # exact live-regex trap is why 27-04's own version of this
+            # check already carried the identical lookahead; preserved
+            # here unchanged, with only the identifier swapped.
             js_path = os.path.join(HERE, "static", "dirty-state.js")
             with open(js_path) as fh:
                 src = fh.read()
 
             # ONE write site.
-            #
-            # The negative lookahead is load-bearing, not decoration: a
-            # plain substring search for the assignment also matches the
-            # GATE's own `=== ` comparison one line above it, so the
-            # count would read one higher than the truth and this check
-            # would have been failing on the very implementation it
-            # exists to require. Same substring-collision class 23-08
-            # hit on a selector that ended in another selector.
             write_sites = [m.start() for m in re.finditer(
-                r"statusRegion\.textContent =(?!=)", src)]
+                r"countEl\.textContent =(?!=)", src)]
             if len(write_sites) != 1:
                 return False, (
-                    "expected exactly ONE assignment to the region's textContent in "
-                    "dirty-state.js, got %d — the region is role=\"status\", so every extra "
+                    "expected exactly ONE assignment to the count element's textContent in "
+                    "dirty-state.js, got %d — the bar is role=\"status\", so every extra "
                     "write site is another way for the same word to be announced twice"
                     % (len(write_sites),))
 
@@ -4876,9 +4950,9 @@ def main():
             # not change, and the animation fires carrying no
             # information, which is the one thing a motion budget exists
             # to stop.
-            if "statusRegion.textContent === text" not in src:
+            if "countEl.textContent === text" not in src:
                 return False, (
-                    "expected the region's write to be gated on the text having actually "
+                    "expected the count element's write to be gated on the text having actually "
                     "changed — an unrelated re-render must write nothing at all, not the same "
                     "string again")
 
@@ -4888,7 +4962,7 @@ def main():
             # the word itself.
             if "is-fading-in" not in src:
                 return False, (
-                    "expected the region to spend the stylesheet's EXISTING changed-value "
+                    "expected the count element to spend the stylesheet's EXISTING changed-value "
                     "animation (.is-fading-in), whose own rule comment says it names the motion "
                     "rather than the component so the next thing that changes under the reader "
                     "spends it — not a fourth keyframes block")
@@ -4896,8 +4970,8 @@ def main():
             add_at = src.index("classList.add(")
             if add_at < write_at:
                 return False, (
-                    "expected the region's text to be written BEFORE the animation class is "
-                    "added, so the displayed word is the real one from the first frame")
+                    "expected the count element's text to be written BEFORE the animation class "
+                    "is added, so the displayed word is the real one from the first frame")
             # Removed, reflowed, re-added — or a second change in a row
             # runs nothing at all, because the browser coalesces a
             # remove and an add in one frame into no change.
@@ -4914,22 +4988,25 @@ def main():
                     "%d/%d/%d" % (write_at, remove_at, add_at))
 
             # And the reflow is NOT a timer. setTimeout survives ONCE, for
-            # the toast's own dismiss (companion/test_config_page.py's own
-            # check pins that to exactly one, scoped away from any save
-            # path) — this clause only bans a SECOND timer primitive.
+            # the reset handler's own deferred repaint flush
+            # (companion/test_config_page.py's own check pins that to
+            # exactly one, structurally scoped to that handler's own
+            # function body) — this clause only bans a SECOND timer
+            # primitive.
             for forbidden in ("setInterval", "requestAnimationFrame"):
                 if forbidden in src:
                     return False, (
                         "dirty-state.js must not contain %r" % (forbidden,))
             return True, ""
         check(
-            "dirty-state.js animates the save-status region's ELEMENT and never its word: exactly "
-            "one text write site, gated on the text having genuinely changed, written before the "
-            "class is added, spending the stylesheet's existing .is-fading-in rule through a "
-            "remove/reflow/re-add with no interval/rAF anywhere — so the role=\"status\" region "
-            "announces each change once and never a partial word (27-04-PLAN.md Task 2, CFG-63; "
-            "supersedes 23-09-PLAN.md Task 1/D3/CFG-32's own count-element check)",
-            _dirty_state_animates_the_status_regions_element_and_never_its_word)
+            "dirty-state.js animates the restored bar's own count element and never its word: "
+            "exactly one text write site, gated on the text having genuinely changed, written "
+            "before the class is added, spending the stylesheet's existing .is-fading-in rule "
+            "through a remove/reflow/re-add with no interval/rAF anywhere — so the role=\"status\" "
+            "bar announces each change once and never a partial word (CFG-77/CFG-78, "
+            "28-08-PLAN.md Task 3; retargets 27-04-PLAN.md Task 2's own status-region version back "
+            "onto the count element, restoring 23-09-PLAN.md Task 1/D3/CFG-32's original subject)",
+            _dirty_state_animates_the_bars_count_element_and_never_its_word)
 
         # --- 19-09-PLAN.md Task 3: freshness.js's own named guard (D-02) ---
 
@@ -5627,7 +5704,13 @@ def main():
                         % (progress_word,))
             # The disabled APPEARANCE is the existing treatment, reused,
             # never a new one: style.css must still declare exactly the
-            # one button:disabled rule, ordered after button:active.
+            # one button:disabled rule, ordered after the button:active
+            # rule. 28-02-PLAN.md (CFG-73) narrowed that selector from
+            # bare `button:active` to `button:not(.value-control__handle)
+            # :active` (excluding the quiet-dial/wake-slider handle from
+            # the generic depress effect) — this check now looks for the
+            # narrowed selector text, since the bare substring no longer
+            # exists in the file at all.
             css_path = os.path.join(HERE, "static", "style.css")
             with open(css_path, "r", encoding="utf-8") as fh:
                 css = fh.read()
@@ -5635,7 +5718,11 @@ def main():
                 return False, (
                     "expected exactly one button:disabled rule — T14 reuses the existing disabled "
                     "treatment and adds no new disabled styling")
-            if css.index("button:active {") > css.index("button:disabled {"):
+            if "button:not(.value-control__handle):active {" not in css:
+                return False, (
+                    "expected the button:active rule to still exist, narrowed to "
+                    "button:not(.value-control__handle):active per 28-02-PLAN.md (CFG-73)")
+            if css.index("button:not(.value-control__handle):active {") > css.index("button:disabled {"):
                 return False, (
                     "expected button:disabled to stay AFTER button:active in source order, or a "
                     "pressed disabled button loses its own treatment")
@@ -5920,6 +6007,63 @@ def main():
             "every attribute name reaches both the rendered <body> and the script that reads it "
             "(D14/CFG-34, 23-05-PLAN.md Task 1)",
             _relative_time_wordings_equal_the_ladders_own_output)
+
+        def _duration_wordings_equal_the_ladders_own_output():
+            # 28-03-PLAN.md Task 3 (CFG-73 Bug A): layout.DURATION_ATTRS'
+            # four wordings are NOT a second ladder — they are
+            # layout.duration_text()'s own output with the number lifted
+            # out, modelled directly on
+            # _relative_time_wordings_equal_the_ladders_own_output()
+            # above, applied to the ONE bare-length ladder instead of the
+            # two tensed ones.
+            #
+            # One representative seconds value per bucket, well inside
+            # it, so French's real U+00A0 is exercised in both
+            # directions and a boundary value never leaves the bucket
+            # this check thinks it is sampling ambiguous.
+            samples = (
+                (0, "seconds"), (240, "minutes"), (7200, "hours"), (172800, "days"))
+            texts = (
+                layout.DURATION_SECONDS_TEXT, layout.DURATION_MINUTES_TEXT,
+                layout.DURATION_HOURS_TEXT, layout.DURATION_DAYS_TEXT)
+            mark = layout.RELATIVE_QUANTITY_MARK
+            import companion.i18n as i18n_module
+            for lang in ("en", "fr"):
+                for index, (seconds, bucket_name) in enumerate(samples):
+                    quantity, _unit = layout._age_bucket(seconds)
+                    wording = i18n_module.t_lang(texts[index], lang)
+                    filled = (wording.replace(mark, str(quantity), 1)
+                              if mark in wording else wording)
+                    expected = layout.duration_text(seconds, lang=lang)
+                    if filled != expected:
+                        return False, (
+                            "lang=%s %s bucket: layout.DURATION_ATTRS[%d]'s wording (%r) fills "
+                            "to %r but layout.duration_text(%d, lang=%r) renders %r — the "
+                            "duration readout's copy is the ladder's own output with the number "
+                            "lifted out, never a second wording"
+                            % (lang, bucket_name, index, texts[index], filled, seconds, lang,
+                               expected))
+            # Every attribute name layout.DURATION_ATTRS names must
+            # appear as a literal in the script that reads it — the same
+            # rename-on-one-side-alone guard
+            # _relative_time_wordings_equal_the_ladders_own_output()
+            # above runs against relative-time.js's own attributes.
+            js_path = os.path.join(HERE, "static", "value-controls.js")
+            with open(js_path) as fh:
+                js = fh.read()
+            for attr in layout.DURATION_ATTRS:
+                if ('"%s"' % attr) not in js:
+                    return False, (
+                        "layout.DURATION_ATTRS names %r but value-controls.js never names it — "
+                        "a rename on one side alone would silently stop the live duration from "
+                        "ever painting, with no error anywhere" % attr)
+            return True, ""
+        check(
+            "every one of layout.DURATION_ATTRS' four wordings, filled with the quantity "
+            "layout._age_bucket() picks, EQUALS layout.duration_text()'s own output for every "
+            "bucket in both languages, and every attribute name reaches value-controls.js "
+            "(CFG-73 Bug A, 28-03-PLAN.md Task 3)",
+            _duration_wordings_equal_the_ladders_own_output)
 
         def _relative_time_html_countdown_keyword_is_marked_and_neutral():
             # A countdown that has run out is still a countdown. Without
@@ -8567,6 +8711,90 @@ def main():
         check(
             "the sp_ui_lang cookie beats Accept-Language when both are present (D-03)",
             _ui_lang_cookie_beats_accept_language)
+
+        # --- 28-01-PLAN.md (CFG-76): the mobile toggle's glyph swapped to ---
+        # --- a gear, and the label it has always carried is proven still ---
+        # --- accurate                                                    ---
+
+        def _the_nav_toggle_wears_the_gear_and_opens_the_same_panel():
+            import companion.i18n as i18n_module
+
+            # (a) + (b): #site-nav-toggle's own markup references
+            # icon-gear and never icon-hamburger.
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            toggle_start = doc.index('id="%s"' % layout.NAV_TOGGLE_ID)
+            toggle_end = doc.index("</button>", toggle_start) + len("</button>")
+            toggle_markup = doc[toggle_start:toggle_end]
+            if "icon-gear" not in toggle_markup:
+                return False, (
+                    "expected #site-nav-toggle's markup to reference icon-gear, got %r"
+                    % toggle_markup)
+            if toggle_markup.count("icon-hamburger") != 0:
+                return False, (
+                    "expected zero icon-hamburger references in #site-nav-toggle, got %d"
+                    % toggle_markup.count("icon-hamburger"))
+
+            # (c): the aria-label equals i18n.t(NAV_TOGGLE_LABEL) in EN and
+            # in FR, read through the SAME translation call the renderer
+            # uses — a real request round trip via Accept-Language,
+            # exactly the idiom _accept_language_resolves_html_lang_with_
+            # no_cookie and _ui_lang_cookie_beats_accept_language above
+            # already use, never a hardcoded French literal, so a
+            # catalogue change can never silently desync this check.
+            expected_en = i18n_module.t_lang(layout.NAV_TOGGLE_LABEL, "en")
+            expected_fr = i18n_module.t_lang(layout.NAV_TOGGLE_LABEL, "fr")
+            if expected_fr == layout.NAV_TOGGLE_LABEL:
+                return False, (
+                    "expected a real French translation for NAV_TOGGLE_LABEL, "
+                    "got the English source back unchanged")
+            status, _headers, body = http_request(
+                base + "/", cookie=session_cookie,
+                extra_headers={"Accept-Language": "en-GB"})
+            if status != 200:
+                return False, "expected 200 for the English-language GET, got %d" % status
+            en_needle = ('aria-label="%s"' % layout.escape_html(expected_en)).encode("utf-8")
+            if en_needle not in body:
+                return False, (
+                    "expected the EN toggle aria-label %r in the rendered body" % en_needle)
+            status, _headers, body = http_request(
+                base + "/", cookie=session_cookie,
+                extra_headers={"Accept-Language": "fr-FR,fr;q=0.9"})
+            if status != 200:
+                return False, "expected 200 for the French-language GET, got %d" % status
+            fr_needle = ('aria-label="%s"' % layout.escape_html(expected_fr)).encode("utf-8")
+            if fr_needle not in body:
+                return False, (
+                    "expected the FR toggle aria-label %r in the rendered body" % fr_needle)
+
+            # (d): the RELATIONSHIP clause — without this, the check above
+            # proves a glyph changed and nothing about whether the glyph
+            # now tells the truth. The panel still holds the language
+            # switch, the theme switch and the sign-out form, and zero
+            # page-navigation links, which is the entire reason the label
+            # is accurate and therefore the entire reason this phase
+            # changes only the glyph. Reuses _dropdown_contents_and_order's
+            # own idiom rather than inventing a second one.
+            doc = layout.page_shell(
+                title="T", active="health", body="<p>b</p>",
+                device_config={"display_enabled": True, "quiet_hours_enabled": False})
+            panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
+            panel = doc[panel_start:doc.index("</header>")]
+            for needle, name in (
+                    ('action="/ui-lang"', "the language switch"),
+                    ('action="/ui-theme"', "the theme switch"),
+                    ('action="/logout"', "Sign out")):
+                if needle not in panel:
+                    return False, "expected %s inside the dropdown" % name
+            if "<a href" in panel:
+                return False, (
+                    "expected zero page-navigation <a href> links in the dropdown, found one")
+            return True, ""
+        check(
+            "#site-nav-toggle renders icon-gear (never icon-hamburger), its aria-label is "
+            "NAV_TOGGLE_LABEL translated through i18n's real per-request path in both EN and "
+            "FR, and the panel it opens still holds the language/theme switches and Sign out "
+            "with zero page-navigation links (CFG-76)",
+            _the_nav_toggle_wears_the_gear_and_opens_the_same_panel)
 
         # --- 11-04 end-to-end: the real SKYPANE_SLEEP_S pre-fill, over a  ---
         # --- dedicated Harness instance (the environment must be set     ---
