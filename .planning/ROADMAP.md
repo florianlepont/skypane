@@ -1401,7 +1401,7 @@ Investigated before planning (git archaeology, not guesswork): the pre-removal b
 
 **Requirements**: CFG-79, CFG-80, CFG-81, CFG-82, CFG-83, CFG-84 (all new)
 **Depends on:** Phase 28 (merged and deployed); quick task Lot A merged first (its five fixes are assumed present)
-**Plans:** 1/6 plans executed
+**Plans:** 2/6 plans executed
 
 Plans:
 **Wave 1**
@@ -1410,7 +1410,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 29-02-PLAN.md — CFG-82: Compagnies reads gallery-first, and `.tab-bar__pill`'s margin stops truncating the mobile tab label
+- [x] 29-02-PLAN.md — CFG-82: Compagnies reads gallery-first, and `.tab-bar__pill`'s margin stops truncating the mobile tab label
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
