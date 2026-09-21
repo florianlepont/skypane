@@ -1401,7 +1401,7 @@ Investigated before planning (git archaeology, not guesswork): the pre-removal b
 
 **Requirements**: CFG-79, CFG-80, CFG-81, CFG-82, CFG-83, CFG-84 (all new)
 **Depends on:** Phase 28 (merged and deployed); quick task Lot A merged first (its five fixes are assumed present)
-**Plans:** 4/6 plans executed
+**Plans:** 5/6 plans executed
 
 Plans:
 **Wave 1**
@@ -1422,7 +1422,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 29-05-PLAN.md — CFG-79 (1/2): the editorial floor on Display and Device, the apply-timing sentence reduced to the Frame strip alone, Aspect pinned as an exemption
+- [x] 29-05-PLAN.md — CFG-79 (1/2): the editorial floor on Display and Device, the apply-timing sentence reduced to the Frame strip alone, Aspect pinned as an exemption
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
