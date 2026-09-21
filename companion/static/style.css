@@ -6429,27 +6429,6 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* X7 (22-11-PLAN.md Task 2, 22-UI-SPEC.md §2): the per-card "Replace
- * picture" control's PLACEMENT inside the card — and nothing else. Its
- * entire visual treatment (30px, 12px text, the 6%/12% washes, the 20%
- * hairline) comes from `.calendar-disconnect-btn`, reused verbatim in
- * the markup as that component's SECOND consumer, exactly as
- * references/control-density.md predicted when it named it "the pattern
- * to reuse the next time this app needs a small, deliberately
- * de-emphasized secondary action". No modifier class, no second base
- * rule and emphatically no `.btn` family: this block declares margin
- * and width only, so the single `.calendar-disconnect-btn` rule above
- * stays the one place that component's geometry is defined.
- *
- * Full-width inside the ~159px phone card because a 2-column grid leaves
- * no room for the control to sit beside anything, and a centred stub
- * button under a left-aligned name reads as debris. */
-.airline-card .calendar-disconnect-btn {
-  display: block;
-  width: 100%;
-  margin-top: var(--space-sm);
-}
-
 /* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
  * readout line. */
 
@@ -9769,10 +9748,13 @@ a.airline-card__zoom {
  * keep the primary rule's inset highlight even once the fill is
  * repainted, which is what made the control read as raised.
  *
- * `.airline-card .calendar-disconnect-btn` further down is (0,2,0) and
- * declares display/width/margin ONLY — no colour, no border, no
- * shadow — so it is unaffected by this change and keeps sourcing its
- * entire visual treatment from here, exactly as its own comment says. */
+ * Airlines' per-card Replace control (once (0,2,0) via `.airline-card
+ * .calendar-disconnect-btn`, display/width/margin only) was removed
+ * outright by 29-01-PLAN.md/CFG-81 — the illustration dialog owns
+ * Replace now — and its now-unreachable positioning rule was deleted as
+ * orphaned dead code by WR-01 (29-REVIEW.md). Only Config's Disconnect
+ * button, History's picture control and Flights' Show-more anchor (see
+ * CR-01 below) consume this class today. */
 button.calendar-disconnect-btn {
   min-height: 30px;
   padding: 4px var(--space-sm);
@@ -9799,12 +9781,10 @@ button.calendar-disconnect-btn:focus-visible {
  * Flights "Show more" reveal as an `<a class="calendar-disconnect-btn">`,
  * not a `<button>`. The element-type-qualified `button.calendar-
  * disconnect-btn` rule above can never match an `<a>` tag regardless of
- * class, and `.airline-card .calendar-disconnect-btn` below is
- * descendant-scoped to an ancestor this anchor is never inside — so
- * neither rule reached it, and it rendered as a bare underlined link.
- * An anchor has no `button[type="submit"]` specificity fight to win, so
- * a plain class selector (0,1,0) is enough here — no element-type
- * qualifier, no source-order dependency. */
+ * class, so it rendered as a bare underlined link. An anchor has no
+ * `button[type="submit"]` specificity fight to win, so a plain class
+ * selector (0,1,0) is enough here — no element-type qualifier, no
+ * source-order dependency. */
 a.calendar-disconnect-btn {
   display: inline-block;
   min-height: 30px;
