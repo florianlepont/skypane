@@ -46,6 +46,7 @@ if REPO_ROOT not in sys.path:
 from companion import app as companion_app  # noqa: E402
 from companion import battery  # noqa: E402
 from companion import draw  # noqa: E402
+from companion import frame_state  # noqa: E402
 from companion import i18n  # noqa: E402
 from companion import auth  # noqa: E402
 import companion.i18n_fr as i18n_fr  # noqa: E402
@@ -1099,6 +1100,17 @@ EXPECTED_CHECK_COUNT = 270
 # and a rejected-save echo). 270 + 3 = 273, re-derived by RUNNING
 # (273/273).
 EXPECTED_CHECK_COUNT = 273
+
+# 29-05-PLAN.md Task 3 (CFG-79), 2026-09-22: +1 — ONE new check, the
+# settings-pages editorial floor (render-level, both pages, both
+# languages, Aspect exemption reachability, once-per-page apply-timing
+# relationship). Every existing check Task 1/Task 2 of this plan
+# retargeted (the Quiet-hours delay-sentence checks, the ring-is-an-
+# addition caption assertion, the "exactly three times" count narrowed
+# to "exactly twice") was a RETARGET, never a net-new check, so this
+# plan's own net change to the total is this one line. 273 + 1 = 274,
+# re-derived by RUNNING (274/274).
+EXPECTED_CHECK_COUNT = 274
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -10413,6 +10425,205 @@ def main():
         "on the frame's next scheduled refresh') appears anywhere under companion/ or server/, "
         "excluding this repository's own test_*.py harnesses (D-04)",
         _retired_delay_wordings_appear_nowhere_under_companion_or_server)
+
+    # ==================================================================
+    # 29-05-PLAN.md Task 3 (CFG-79), 2026-09-22: the settings-pages
+    # editorial floor — render-level, both pages, both languages. The
+    # ONE new check in this section replaces a source-level scan with a
+    # measurement of what `config_page.render()` actually produces,
+    # matching CFG-79's own "enforced by a harness check measuring
+    # RENDERED caption length" requirement text.
+    # ==================================================================
+
+    # A realistic, worst-case-length fixture: a real last_checkin_ts/now
+    # pair so every "(next wake ≈ HH:MM)" suffix (`_with_next_wake()`)
+    # actually renders on Runway/LED/Wake-interval — the LONGEST form
+    # each of those captions ever reaches, which is the form this floor
+    # must hold against, not the shorter unknown-value fallback.
+    _FLOOR_CTX = {
+        "device_config": {
+            "wake_interval_s": 900, "led_enabled": True,
+            "quiet_hours_enabled": False,
+        },
+        "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
+        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+    }
+    # Minimums pinned a little below the observed figures (16 measured
+    # on /display, 8 on /device, both languages, re-derived by running
+    # this exact fixture through this exact selector) — enough margin
+    # for an unrelated future caption to be added or removed without
+    # retuning this number, not so much margin that a badly narrowed
+    # selector could still clear it.
+    _FLOOR_MIN_MEASURED = {"display": 14, "device": 6}
+    # /display carries exactly the four Aspect exemptions (Phase 30's
+    # own card); /device carries none of them (Aspect is Display-only).
+    _FLOOR_EXPECTED_SKIPS = {"display": len(config_page.ASPECT_CAPTION_EXEMPTIONS), "device": 0}
+
+    def _caption_word_count_text(fragment):
+        """THE ONE COUNTING RULE this whole floor applies, stated once
+        here rather than left to be inferred from arithmetic: strip
+        tags, unescape HTML entities (so `&#x27;` counts as the one
+        character it renders, not five), collapse internal whitespace,
+        then strip a single leading em dash and its following space —
+        `layout.section_intro_html()`'s own intro sentences (rendering
+        DISPLAY_LOOK_INTRO/DISPLAY_WATCHES_INTRO/DISPLAY_ON_INTRO/
+        DEVICE_WAKES_INTRO/DEVICE_TELLS_INTRO/DEVICE_POLL_INTRO)
+        legitimately open with "— ", and that leading mark is not a
+        WORD by any reading of "at most 12 words" — matching
+        RESEARCH.md's own measurement method exactly, so its offender
+        table's word counts are directly comparable to this check's.
+        """
+        stripped = re.sub(r"<[^>]*>", "", fragment)
+        text = html.unescape(stripped).strip()
+        if text.startswith("— "):
+            text = text[2:]
+        return re.sub(r"\s+", " ", text).strip()
+
+    def _measured_section_captions(rendered):
+        """Every `<p class="...">...</p>` element whose class list
+        contains the token "section-caption" and NO token beyond
+        "text-label"/"section-caption" themselves — a plain editorial
+        caption, never a live data readout.
+
+        THE ONE EXCLUSION THIS RULE MAKES ON THESE TWO PAGES, and the
+        reason it is a selector decision rather than a THIRD member of
+        ASPECT_CAPTION_EXEMPTIONS: `wake_gauges_html()`'s two elements
+        additionally carry a `wake-gauge` class token. Both are
+        COMPUTED QUANTITIES with a `data-value-readout` JS-substitution
+        hook, re-derived live from the slider's own position — not
+        descriptive prose about what a control does, the same
+        "status/error message, not a caption" distinction RESEARCH.md
+        itself draws for `MANUAL_SUPERSEDED_NOTE_TEMPLATE` elsewhere in
+        this app. `ASPECT_CAPTION_EXEMPTIONS` is reserved for Phase
+        30's own Aspect-section copy specifically (CFG-79's own
+        exemption, argued in that tuple's comment) — a structurally
+        different kind of element does not belong in that same list,
+        and folding it in would let the exemption's own reachability
+        assertion below (exactly 4 skips on /display, exactly 0 on
+        /device) silently stop proving what it claims to.
+
+        Returns a list of `(start, end, raw_fragment)` triples — the
+        MATCH's own span, not just its text, so a caller can locate an
+        element relative to another slice (the Frame strip's own
+        markup) without a second pass over the document.
+        """
+        out = []
+        for m in re.finditer(r'<p\s+class="([^"]*)"[^>]*>(.*?)</p>', rendered, re.DOTALL):
+            classes = m.group(1).split()
+            if "section-caption" not in classes:
+                continue
+            if set(classes) - {"text-label", "section-caption"}:
+                continue
+            out.append((m.start(), m.end(), m.group(2)))
+        return out
+
+    def _settings_pages_editorial_floor_render_level_both_languages():
+        exempt_by_lang = {
+            lang: {
+                _caption_word_count_text(i18n.t_lang(text, lang))
+                for text in config_page.ASPECT_CAPTION_EXEMPTIONS
+            }
+            for lang in ("en", "fr")
+        }
+        # THE ONCE-PER-PAGE RELATIONSHIP's own source constants — never a
+        # hand-typed English phrase. frame_state.DELAY_DUE/DELAY_HELD
+        # carry a "%s" clock placeholder; DELAY_UNKNOWN does not.
+        apply_timing_templates = (
+            frame_state.DELAY_DUE, frame_state.DELAY_HELD, frame_state.DELAY_UNKNOWN)
+
+        any_inside_strip = False
+        for page_name, scope in (
+                ("display", config_page.SCOPE_DISPLAY), ("device", config_page.SCOPE_DEVICE)):
+            for lang in ("en", "fr"):
+                prefs.set_request_prefs(lang=lang)
+                try:
+                    rendered = config_page.render(_FLOOR_CTX, scope=scope)
+                finally:
+                    prefs.set_request_prefs(lang="en")
+
+                captions = _measured_section_captions(rendered)
+                if len(captions) < _FLOOR_MIN_MEASURED[page_name]:
+                    return False, (
+                        "%s/%s: only %d .section-caption element(s) were measured, expected at "
+                        "least %d — a narrowed selector could pass over an empty set"
+                        % (page_name, lang, len(captions), _FLOOR_MIN_MEASURED[page_name]))
+
+                skip_count = 0
+                for _start, _end, fragment in captions:
+                    text = _caption_word_count_text(fragment)
+                    if text in exempt_by_lang[lang]:
+                        skip_count += 1
+                        continue
+                    words = text.split()
+                    if len(words) > 12:
+                        return False, (
+                            "%s/%s: a non-exempt section-caption renders %d word(s) (max 12): %r"
+                            % (page_name, lang, len(words), text))
+                if skip_count != _FLOOR_EXPECTED_SKIPS[page_name]:
+                    return False, (
+                        "%s/%s: expected exactly %d Aspect-exemption skip(s), got %d — either "
+                        "the exemption is unreachable from this page or it silently swallowed a "
+                        "caption it should not have"
+                        % (page_name, lang, _FLOOR_EXPECTED_SKIPS[page_name], skip_count))
+
+                # THE ONCE-PER-PAGE RELATIONSHIP, checked as a REGION
+                # invariant rather than a literal single-element count.
+                # The Frame strip's own two switch cells (Screen, Quiet
+                # hours) share ONE computed sentence by design
+                # (companion/layout.py's frame_strip_html(), unmodified
+                # by this plan — git diff --stat companion/layout.py is
+                # empty) — so up to two elements legitimately carry it
+                # INSIDE that one region on /display. What CFG-79
+                # actually forbids, and what this assertion actually
+                # proves, is the sentence appearing in any element
+                # OUTSIDE the Frame strip's own slice — exactly the
+                # property Task 2 of this plan established for the
+                # Quiet hours card, and exactly what Mutation C (see
+                # SUMMARY) re-breaks to prove this assertion is live.
+                strip_start = rendered.find(
+                    '<div class="frame-strip stat-tile stat-tile--accent"')
+                strip_end = (
+                    rendered.find('<form class="config-form"', strip_start)
+                    if strip_start != -1 else -1)
+                outside_matches = []
+                for start, _end, fragment in captions:
+                    text = _caption_word_count_text(fragment)
+                    for template in apply_timing_templates:
+                        translated = i18n.t_lang(template, lang)
+                        if "%s" in translated:
+                            pattern = re.escape(translated).replace(re.escape("%s"), r".+?")
+                        else:
+                            pattern = re.escape(translated)
+                        if not re.search(pattern, text):
+                            continue
+                        if strip_start != -1 and strip_start <= start < strip_end:
+                            any_inside_strip = True
+                        else:
+                            outside_matches.append(
+                                "%s/%s at offset %d (%r): %r"
+                                % (page_name, lang, start, text[:80], text))
+                        break
+                if outside_matches:
+                    return False, (
+                        "%s/%s: the apply-timing sentence rendered outside the Frame strip's own "
+                        "slice — CFG-79 confines it to exactly one place per page: %s"
+                        % (page_name, lang, "; ".join(outside_matches)))
+        if not any_inside_strip:
+            return False, (
+                "the apply-timing relationship never matched INSIDE the Frame strip either — "
+                "this assertion is vacuous unless it is proven to fire on the strip's own, "
+                "untouched markup at least once")
+        return True, ""
+    check(
+        "the settings-pages editorial floor, measured on the RENDERED page (never a source scan): "
+        "every non-exempt .section-caption element on /display and /device is at most 12 "
+        "whitespace-split words in both languages; ASPECT_CAPTION_EXEMPTIONS is skipped exactly "
+        "4 times on /display and exactly 0 times on /device (proving the exemption reachable and "
+        "not silently over-broad); and the apply-timing sentence — read from frame_state.py's own "
+        "DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN constants — never renders outside the Frame strip's "
+        "own markup slice, proven to actually fire inside it at least once so the assertion is "
+        "not vacuous (CFG-79, 29-05-PLAN.md Task 3)",
+        _settings_pages_editorial_floor_render_level_both_languages)
 
     harness = Harness()
     try:

@@ -217,25 +217,42 @@ CATALOG = {
     "Quiet hours": "Heures calmes",
     # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the enable-by-schedule
     # sentence that replaces the retired "Applies on the next scheduled
-    # poll, which may now be hours away" wording — Task 2 appends one
-    # computed delay sentence (below) as this caption's own second
-    # sentence, never a second, competing caption element. 27-06-
-    # PLAN.md Task 3 (CFG-67): the mechanism clause naming the Frame
-    # strip's switch is cut; the delay sentence it precedes is
-    # untouched.
+    # poll, which may now be hours away" wording — Task 2 used to append
+    # one computed delay sentence as this caption's own second sentence.
+    # 27-06-PLAN.md Task 3 (CFG-67): the mechanism clause naming the
+    # Frame strip's switch is cut; the delay sentence it preceded was,
+    # at the time, untouched.
+    #
+    # 29-05-PLAN.md Task 3 (CFG-79), 2026-09-21: shortened again — 16
+    # words to 12. This translation was never touched by Task 1 or
+    # Task 2 (the ENGLISH constant's own wording did not change; only
+    # its rendered COMPOSITION did, once Task 2 stopped appending a
+    # second sentence — see quiet_hours_group()'s own docstring). What
+    # this cut fixes is a gap RESEARCH.md's own offender table could not
+    # see: that table measured English only, and English was already 12
+    # words; French, measured separately for the first time by this
+    # plan's own render-level floor check (test_config_page.py), was
+    # 16 — over the floor on its own, independent of the delay sentence
+    # this plan already removed. "Met en pause" (3 words) becomes
+    # "Suspend" (1 word); "la plage horaire ci-dessous" (4 words,
+    # naming the schedule twice — "horaire" and "ci-dessous" both
+    # already say "the time range below") becomes "cette plage" (2
+    # words, a deictic pointing at the same fields, still directly
+    # below).
     "Pauses the frame's wake, poll and display cycle during the "
     "schedule below.":
-        "Met en pause le réveil, la vérification et l’affichage du "
-        "cadre pendant la plage horaire ci-dessous.",
-    # 22-05-PLAN.md Task 2 (D-04): the two DELAY_DUE/DELAY_HELD delay-
-    # sentence branches this caption's own computed second sentence uses
-    # are DELIBERATELY NOT redefined here — they already have a live
-    # entry in companion/i18n_fr/frame_state.py (22-02-PLAN.md Task 2),
-    # and the package's own auto-merge guard raises on a duplicate key.
-    # config_page.py's own scanner-visibility copies
-    # (_QUIET_HOURS_DELAY_DUE_TEXT/_QUIET_HOURS_DELAY_HELD_TEXT) are what
-    # make the D-05 AST scan trace these two CATALOG keys as genuinely
-    # produced now — see that module's own comment for the pattern.
+        "Suspend le réveil, la vérification et l’affichage du cadre "
+        "pendant cette plage.",
+    # 22-05-PLAN.md Task 2 (D-04) used to note here that the DELAY_DUE/
+    # DELAY_HELD delay-sentence branches this caption's own computed
+    # second sentence read were deliberately not redefined in this
+    # module, because they already had a live entry in companion/
+    # i18n_fr/frame_state.py, made scanner-visible by config_page.py's
+    # own copies. 29-05-PLAN.md Task 2 deleted those copies along with
+    # the delay sentence itself — the keys stay scanner-visible through
+    # companion/layout.py's OWN aliases instead (that module's
+    # frame_strip_html() is the sole remaining reader), confirmed by
+    # companion/test_i18n.py staying 24/24 after the deletion.
     "Start": "Début",
     "End": "Fin",
     # 25-04-PLAN.md Task 3 (CFG-48): the two quiet-hours dial handles'
@@ -287,9 +304,21 @@ CATALOG = {
     # 29-05-PLAN.md Task 1 (CFG-79): shortened again — "not visible from
     # the wall side" (a reason clause) and the apply-timing clause are
     # both cut. See config_page.py's LED_SECTION_CAPTION for the ground.
+    #
+    # 29-05-PLAN.md Task 3 (CFG-79): shortened FURTHER than the English
+    # cut alone required — this caption gains a rendered "(prochain
+    # réveil ≈ HH:MM)" suffix (`_with_next_wake()`) on every render
+    # where the value is known, and the ORIGINAL 10-word French
+    # translation plus that 4-token suffix measured 14 words under
+    # this plan's own render-level floor check (test_config_page.py) —
+    # a gap RESEARCH.md's English-only offender table could not see.
+    # "brève fenêtre de réveil de l’appareil" (6 words) becomes "brève
+    # période de réveil" (4 words): "réveil" alone already names the
+    # wake window, so naming it twice ("fenêtre... de réveil") and
+    # naming the device a second time ("de l’appareil", after
+    # "Allumée" already implies it is the device's own LED) both go.
     "Lit only during the device's brief wake window.":
-        "Allumée seulement pendant la brève fenêtre de réveil de "
-        "l’appareil.",
+        "Allumée seulement pendant la brève période de réveil.",
     # 23-07-PLAN.md Task 2 (D2/CFG-36): "Enable diagnostic LED" is
     # DELETED, not commented out. It was the label of the LED checkbox,
     # and that checkbox is retired — the Diagnostic LED is now a
@@ -308,9 +337,18 @@ CATALOG = {
     # 2026-09-17 audit’s own quoted shape (P1) — the two gauges
     # just below this caption already state both directions with
     # real numbers, so naming only one side in prose loses nothing.
+    #
+    # 29-05-PLAN.md Task 3 (CFG-79): shortened FURTHER — this
+    # caption gains the same rendered "(prochain réveil ≈ HH:MM)"
+    # suffix LED_SECTION_CAPTION’s own French entry above does, and
+    # the original 9-word translation (using a colon, which D-09’s
+    # own NBSP-before-":" rule inflates by one whitespace-split
+    # token) plus that 4-token suffix measured 13 words — one over
+    # the floor. The colon is replaced with a comma (no NBSP
+    # needed, and one token shorter for it alone) and the second
+    # "plus" is cut.
     "Shorter: fresher data, more battery drain.":
-        "Plus court : données plus fraîches, batterie plus "
-        "sollicitée.",
+        "Plus court, données plus fraîches, batterie sollicitée.",
     "Wake interval (seconds)": "Intervalle de réveil (secondes)",
     # 25-05-PLAN.md Task 2 (CFG-52): the range input's OWN accessible
     #     name. It needs one distinct from the number input's label

@@ -1311,6 +1311,40 @@ CALENDAR_URL_HINT = (
     "Your calendar's private iCal link. Stored on the server and never "
     "shown back here — pasting a new one replaces the old.")
 CALENDAR_URL_HINT_ID = "calendar-url-hint"
+
+# 29-05-PLAN.md Task 3 (CFG-79), 2026-09-21: the editorial floor this
+# plan and 29-06 together enforce is site-wide EXCEPT Display's Aspect
+# section — ROADMAP.md's Phase 30 entry states in full that it rebuilds
+# this card from scratch and owns its copy, including deleting "both
+# intro sentences" itself (CFG-79's own rule applied to that card BY
+# that phase, since this phase excludes it). These four are the
+# EXHAUSTIVE membership of that exemption as of this plan:
+# DISPLAY_LOOK_INTRO (the "Look" supersection intro sitting directly
+# above the Frame colours card), FRAME_COLOURS_CAPTION and CALENDAR_
+# CAPTION (both Aspect-region card captions once Phase 30 absorbs the
+# Calendar card into the Frame colours tile), and CALENDAR_URL_HINT
+# (22 words today, deliberately still over the floor — the check this
+# tuple feeds must PASS against this exact, unshortened text).
+#
+# The tuple lives HERE, in the page module, rather than in the test
+# harness: the exemption is a property of the page's own copy, worth
+# reviewing beside the four strings it exempts rather than as a second,
+# harness-side list that could silently drift from this one. A future
+# plan naming a FIFTH exemption must argue it here, in this comment,
+# not merely add a line to a test file.
+#
+# THE IMPORTANT HALF: this tuple is EXPECTED TO BECOME EMPTY. The day
+# Phase 30 lands and rewrites Aspect's copy to the same floor every
+# other card already meets, the exemption it fed has no more members,
+# and the floor check below (test_config_page.py) covers the whole
+# site with no carve-out at all. An empty tuple here is that plan
+# succeeding, not a check regressing.
+ASPECT_CAPTION_EXEMPTIONS = (
+    DISPLAY_LOOK_INTRO,
+    FRAME_COLOURS_CAPTION,
+    CALENDAR_CAPTION,
+    CALENDAR_URL_HINT,
+)
 # 21-07-PLAN.md Task 1 (D-14): the merged card's own small grey button
 # reads the short "Disconnect" — never the long checkbox-era sentence a
 # now-retired constant used to carry (that sentence survives, unchanged,
