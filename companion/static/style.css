@@ -10343,6 +10343,15 @@ input:checked + .frame-colours__row {
   /* The active/hover tint is painted on this INNER wrapper, not on the
    * cell, so the pill is inset from the cell edge while the cell keeps
    * its full 78x56px tap area. */
+  /* 2026-09-17 audit (CFG-82): the pill's 8px horizontal margin on each
+   * side left only 62px of a 78px cell for "Compagnies", which needs
+   * 65px at this label's 11px size — the label truncated with an
+   * ellipsis in a real browser. Halved to `calc(var(--space-xs) / 2)`
+   * (2px) so the label fits; the vertical component stays at
+   * `var(--space-xs)` deliberately, unchanged. The margin lives on this
+   * INNER pill, never on `.tab-bar__link` (the 78x56px cell above), so
+   * the tap area this comment already describes is unaffected by the
+   * shrink. */
   .tab-bar__pill {
     flex: 1 1 auto;
     min-width: 0;
@@ -10351,7 +10360,7 @@ input:checked + .frame-colours__row {
     align-items: center;
     justify-content: center;
     gap: var(--space-xs);
-    margin: var(--space-xs) var(--space-sm);
+    margin: var(--space-xs) calc(var(--space-xs) / 2);
     border-radius: var(--radius-control);
     transition: background-color .15s ease, color .15s ease;
   }

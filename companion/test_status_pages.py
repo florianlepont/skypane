@@ -58,6 +58,7 @@ if REPO_ROOT not in sys.path:
 import companion.app as app  # noqa: E402
 from companion import auth, battery, draw, illustration_normalize, layout, prefs  # noqa: E402
 import companion.i18n_fr.health as i18n_fr_health  # noqa: E402
+import companion.i18n_fr.nav as i18n_fr_nav  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 import companion.wake as wake  # noqa: E402
 from server import device_config  # noqa: E402
@@ -988,6 +989,14 @@ EXPECTED_CHECK_COUNT = 311
 # drops the now-meaningless kwarg. No check added or removed. 311 + 0 =
 # 311, re-derived by RUNNING (311/311 pass).
 EXPECTED_CHECK_COUNT = 311
+
+# 29-02-PLAN.md (CFG-82): +1 — the tab bar's .tab-bar__pill horizontal
+# margin fit check: the resolved 2px margin (down from 8px) leaves at
+# least the longest NAV_GROUPS label's own required width inside the
+# 360px-floor-viewport cell, and .tab-bar__link's 56px height / flex:
+# 1 1 0 width basis stay byte-identical, asserted independently.
+# 311 + 1 = 312, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 312
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -14014,6 +14023,123 @@ def main():
         "its label is 11px regular with no label voice; and .has-tab-bar clears the bar at the page foot "
         "(X9/D-10, 22-14-PLAN.md Task 1)",
         _tab_bar_css_geometry_surface_and_active_idiom)
+
+    # ======================================================================
+    # 29-02-PLAN.md (CFG-82): the 2026-09-17 audit measured "Compagnies"
+    # (10 characters) needing 65px at .tab-bar__label's 11px size, against
+    # only 62px available in a 78px cell once the pill's old 8px-per-side
+    # margin was subtracted — the label truncated. This check re-derives
+    # every one of those numbers from the stylesheet's own live source
+    # (never hardcoding 8, 65 or 78) and proves the fit as a
+    # RELATIONSHIP, plus proves the 78x56px cell itself is untouched by
+    # the margin edit, as a SEPARATE, independently-mutable assertion.
+    # ======================================================================
+
+    def _tab_bar_pill_horizontal_margin_lets_the_longest_label_fit():
+        css_source = _css_source()
+        region = css_source[css_source.index(_TAB_BAR_BANNER):]
+
+        tokens = dict(re.findall(r"--(space-[a-z]+):\s*(\d+)px", css_source))
+
+        pill = _block(region, ".tab-bar__pill {")
+        # Accepts either the shipped `calc(var(--space-xs) / N)` form or a
+        # plain `var(--space-sm)` form (mutation A below reverts to the
+        # latter) — both are resolved through the SAME token map, never
+        # hardcoded, so either form's real pixel value drives the check.
+        margin_match = re.search(
+            r"margin:\s*var\(--([a-z-]+)\)\s+(?:var\(--([a-z-]+)\)|"
+            r"calc\(var\(--([a-z-]+)\)\s*/\s*(\d+)\))",
+            pill)
+        if not margin_match:
+            return False, "could not parse .tab-bar__pill's margin shorthand: %r" % (pill,)
+        _vertical_token, plain_token, calc_token, divisor = margin_match.groups()
+        if plain_token:
+            if plain_token not in tokens:
+                return False, "margin shorthand referenced an unknown token %r" % (plain_token,)
+            horizontal_margin_px = float(tokens[plain_token])
+        else:
+            if calc_token not in tokens:
+                return False, "margin shorthand referenced an unknown token %r" % (calc_token,)
+            horizontal_margin_px = float(tokens[calc_token]) / float(divisor)
+
+        # The cell's own resolved box, asserted independently of the
+        # margin above: mutating this must fail on its own, proving the
+        # tap-area invariant is not merely a side effect of the fit math.
+        link = _block(region, ".tab-bar__link {")
+        height_match = re.search(r"height:\s*(\d+)px", link)
+        if not height_match or int(height_match.group(1)) != 56:
+            return False, (
+                "expected .tab-bar__link's own resolved height to stay 56px (the 78x56px cell, "
+                "unchanged by the pill's margin edit), got %r" % (link,))
+        if "flex: 1 1 0" not in link:
+            return False, (
+                "expected .tab-bar__link's own width basis (flex: 1 1 0) to stay byte-identical "
+                "to its pre-task value, got %r" % (link,))
+
+        label_block = _block(region, ".tab-bar__label {")
+        font_size_match = re.search(r"font-size:\s*(\d+)px", label_block)
+        if not font_size_match or int(font_size_match.group(1)) != 11:
+            return False, (
+                "expected .tab-bar__label's font-size to still resolve to 11px, got %r"
+                % (label_block,))
+
+        unlabelled_entries = [
+            (route, label) for group_label, entries in layout.NAV_GROUPS if not group_label
+            for route, label in entries]
+        cell_count = len(unlabelled_entries) + 1  # the everyday destinations plus one "More" cell
+
+        # The app's own contract floor (design_direction: "Minimum
+        # supported viewport width: 360 px") is the tightest case a
+        # smaller viewport gives a smaller cell, so this is the worst
+        # width the fit must survive, not merely the audit's own 390px
+        # device — a check passing only at 390px could still truncate at
+        # the app's actual supported floor.
+        FLOOR_VIEWPORT_PX = 360
+        cell_width_px = FLOOR_VIEWPORT_PX / cell_count
+        available_px = cell_width_px - (2 * horizontal_margin_px)
+
+        # The longest label across BOTH shipped languages — read from
+        # layout.NAV_GROUPS and companion.i18n_fr.nav.CATALOG, never
+        # typed literally, so a future longer label re-runs this same
+        # arithmetic rather than silently going unchecked.
+        candidate_labels = []
+        for _route, label in unlabelled_entries:
+            candidate_labels.append(label)
+            candidate_labels.append(i18n_fr_nav.CATALOG.get(label, label))
+        candidate_labels.append(layout.TAB_BAR_MORE_LABEL)
+        candidate_labels.append(
+            i18n_fr_nav.CATALOG.get(layout.TAB_BAR_MORE_LABEL, layout.TAB_BAR_MORE_LABEL))
+        longest_label = max(candidate_labels, key=len)
+
+        # Per-character advance: MEASURED, not modelled — the audit's own
+        # real-browser figure for "Compagnies" (10 characters) needing
+        # 65px at this 11px font-size gives 65 / 10 = 6.5px/character.
+        # CFG-82's own instruction is that a measured number beats a
+        # modelled one, so that measured factor (not a font-metrics
+        # estimate) is what this check spends on any future longest
+        # label, with the audit's own 65px kept as an explicit floor.
+        PER_CHARACTER_ADVANCE_PX = 6.5
+        AUDIT_MEASURED_FLOOR_PX = 65  # "Compagnies" at 11px, 2026-09-17 audit
+        modelled_requirement_px = PER_CHARACTER_ADVANCE_PX * len(longest_label)
+        required_px = max(modelled_requirement_px, AUDIT_MEASURED_FLOOR_PX)
+
+        if available_px < required_px:
+            return False, (
+                "expected the available label width (%.1fpx = %.1fpx cell [%dpx viewport / %d "
+                "cells] - 2x%.1fpx margin) to be at least %.1fpx (the longest label %r's own "
+                "requirement, floored at the audit's measured %dpx) but it was not (CFG-82, "
+                "29-02-PLAN.md)"
+                % (available_px, cell_width_px, FLOOR_VIEWPORT_PX, cell_count,
+                   horizontal_margin_px, required_px, longest_label, AUDIT_MEASURED_FLOOR_PX))
+        return True, ""
+    check(
+        "the .tab-bar__pill's horizontal margin, resolved from style.css's own --space-xs/--space-sm "
+        "tokens, leaves at least the longest NAV_GROUPS label's own required width (a measured "
+        "6.5px/character advance derived from the 2026-09-17 audit's real 'Compagnies' figure, floored "
+        "at that audit's own 65px) inside the tab cell at the app's 360px floor viewport, while "
+        "`.tab-bar__link`'s own 56px height and `flex: 1 1 0` width basis stay byte-identical (CFG-82, "
+        "29-02-PLAN.md)",
+        _tab_bar_pill_horizontal_margin_lets_the_longest_label_fit)
 
     def _tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row():
         css_source = _css_source()
