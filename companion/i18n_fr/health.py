@@ -160,7 +160,14 @@ CATALOG = {
     "over the last %d days, %d event": "au cours des %d derniers jours, %d événement",
 
     # --- Battery trend section -------------------------------------------
-    "Battery trend": "Tendance de la batterie",
+    # 29-06-PLAN.md Task 1 (CFG-84): the "Battery trend"/"Tendance de la
+    # batterie" entry that used to live here is DELETED outright, not
+    # left as a dead translation — BATTERY_SECTION_HEADING (the module
+    # constant that produced it) no longer exists, superseded by
+    # BATTERY_SECTION_HEADING_TEMPLATE below. test_i18n.py's Check 2
+    # (no dead translations) would fail on a stale entry no source
+    # produces any more.
+    "Battery · %d months": "Batterie · %d mois",
     "Last 3 months, daily average": "3 derniers mois, moyenne quotidienne",
     "%s — daily average (%d reading)": "%s — moyenne quotidienne (%d relevé)",
     "%s — daily average (%d readings)": "%s — moyenne quotidienne (%d relevés)",

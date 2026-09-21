@@ -502,7 +502,19 @@ BATTERY_TREND_SCRIPT_SRC = "/static/battery-trend.js"
 # now a named constant (was a literal passed straight to stat_tile())
 # rather than a tile caption — this is what lets a future plan attach an
 # icon to a known heading without re-typing the literal.
-BATTERY_SECTION_HEADING = "Battery trend"
+# 29-06-PLAN.md (CFG-84): BATTERY_SECTION_HEADING (a fixed "Battery
+# trend" literal) is SUPERSEDED by this template — the 2026-09-17
+# audit's P2 asked for the heading's own precision ("3 derniers mois,
+# moyenne quotidienne") to move into a sibling caption, leaving the
+# heading itself a short, fixed "Battery · N months" naming only the
+# real window BATTERY_TREND_WINDOW_DAYS already governs. "%d" is
+# interpolated with BATTERY_TREND_WINDOW_DAYS // 30 at every call
+# site — never a typed "3" — so the heading cannot silently drift from
+# the window the chart is actually plotting. The U+00B7 middle dot
+# matches this codebase's real-Unicode punctuation convention (the en
+# dash in the preset ranges is the existing precedent); translate the
+# template, then substitute — this codebase's established order.
+BATTERY_SECTION_HEADING_TEMPLATE = "Battery · %d months"
 # Contract value shared with companion/static/style.css's
 # .battery-trend-section rule (plan 06.6.1-01, same wave); guarded
 # against silent drift by a cross-file check in test_status_pages.py.
@@ -1816,11 +1828,16 @@ def battery_sparkline_svg(rows, now=None, daily=False):
         escape_html(_axis_day_label(pairs[-1][1]) if daily else _axis_clock_label(pairs[-1][1])),
     )
 
+    # 29-06-PLAN.md Task 1 (CFG-84): BATTERY_SECTION_HEADING is
+    # superseded by BATTERY_SECTION_HEADING_TEMPLATE (see that
+    # constant's own comment) — this accessible group name is
+    # recomputed the same way the visible heading now is, so the two
+    # can never disagree.
     svg_html = (
         '<svg class="sparkline__canvas" role="group" aria-label="%s">'
         "%s%s%s%s%s"
         "</svg>"
-    ) % (escape_html(i18n.t(BATTERY_SECTION_HEADING)),
+    ) % (escape_html(i18n.t(BATTERY_SECTION_HEADING_TEMPLATE) % (BATTERY_TREND_WINDOW_DAYS // 30)),
          area_layer, axis_chrome, threshold_rect,
          "".join(line_segments), "".join(circles))
 
@@ -2932,19 +2949,40 @@ def _battery_trend_section_html(battery_html, state, caption=None):
     working unchanged. `None` (the default) reproduces today's exact
     "Latest N readings" string byte-for-byte, in the same voice this
     function's own D-02/quick-task-260902-gjj widening used above.
+
+    SUPERSEDED (29-06-PLAN.md Task 1, CFG-84): the shape above — an
+    `<h2>` carrying its own escaped heading text plus a trailing
+    "— Latest N readings"/"— Last 3 months, daily average" `<span>` — is
+    itself now superseded. The 2026-09-17 audit's P2 named this heading
+    directly ("le titre... mérite d'être raccourci visuellement, par
+    exemple `Batterie · 3 mois`, avec la précision dans une légende"): a
+    heading carrying its own qualification reads as a long title, not as
+    a titled card. The `<h2>` now emits ONLY its own short, fixed,
+    window-derived text (`BATTERY_SECTION_HEADING_TEMPLATE` interpolated
+    with `BATTERY_TREND_WINDOW_DAYS // 30`, never a typed "3"); the
+    precision `_battery_trend_caption()` computes moves into a SIBLING
+    `<p class="text-label section-caption">` immediately after the
+    `</h2>` — the exact composition every other card's caption on this
+    site uses, and the one plan 29-05's (and this plan's own) floor
+    check measures. `_battery_trend_caption()` itself is untouched: its
+    three-case logic still decides what the sibling caption says, and
+    the `caption=None` default still reproduces the reading-count
+    fallback for any two-positional-argument caller. The four earlier
+    paragraphs above are kept readable as history, not deleted.
     """
     modifier = layout.card_status_class(BATTERY_SECTION_CLASS, state)
     section_class = BATTERY_SECTION_CLASS + ((" " + modifier) if modifier else "")
     caption_text = caption if caption is not None else (i18n.t("Latest %d readings") % BATTERY_TREND_LIMIT)
+    heading_text = i18n.t(BATTERY_SECTION_HEADING_TEMPLATE) % (BATTERY_TREND_WINDOW_DAYS // 30)
     return (
         '<section class="%s">'
-        '<h2 class="text-heading">%s<span class="text-label section-caption">'
-        " — %s</span></h2>"
+        '<h2 class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
         "%s"
         "</section>"
     ) % (
         section_class,
-        escape_html(i18n.t(BATTERY_SECTION_HEADING)), escape_html(caption_text), battery_html)
+        escape_html(heading_text), escape_html(caption_text), battery_html)
 
 
 def _battery_section(trend_rows, daily_rows=None):
