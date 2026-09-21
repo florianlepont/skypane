@@ -9795,6 +9795,33 @@ button.calendar-disconnect-btn:focus-visible {
   box-shadow: none;
 }
 
+/* CR-01 (29-REVIEW.md): history_page.py's _show_more_html() emits the
+ * Flights "Show more" reveal as an `<a class="calendar-disconnect-btn">`,
+ * not a `<button>`. The element-type-qualified `button.calendar-
+ * disconnect-btn` rule above can never match an `<a>` tag regardless of
+ * class, and `.airline-card .calendar-disconnect-btn` below is
+ * descendant-scoped to an ancestor this anchor is never inside — so
+ * neither rule reached it, and it rendered as a bare underlined link.
+ * An anchor has no `button[type="submit"]` specificity fight to win, so
+ * a plain class selector (0,1,0) is enough here — no element-type
+ * qualifier, no source-order dependency. */
+a.calendar-disconnect-btn {
+  display: inline-block;
+  min-height: 30px;
+  padding: 4px var(--space-sm);
+  font-size: 12px;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: var(--radius-control);
+  text-decoration: none;
+}
+a.calendar-disconnect-btn:hover,
+a.calendar-disconnect-btn:focus-visible {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 20%, transparent);
+}
+
 /* D-13: the masked feed URL (host + "…", companion/pages/config_page.
  * py's _masked_calendar_url()) renders in the same monospace token
  * this file already reserves for machine-derived strings (matching

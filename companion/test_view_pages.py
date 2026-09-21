@@ -708,6 +708,14 @@ EXPECTED_CHECK_COUNT = 165
 # RUNNING (168/168).
 EXPECTED_CHECK_COUNT = 168
 
+# CR-01 fix (29-REVIEW.md): +1. A real selector-vs-emitted-tag check for
+# the Show-more anchor — a class-string substring match in both the
+# markup and style.css is not proof of visual reuse, which is exactly
+# how the anchor shipped with none of `.calendar-disconnect-btn`'s
+# styling despite passing every prior check. 168 + 1 = 169, re-derived
+# by RUNNING (169/169).
+EXPECTED_CHECK_COUNT = 169
+
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -6011,6 +6019,84 @@ def main():
         "class (scanned-file floor >= 17, printed on failure) — a no-JS control proof, not merely "
         "a render (29-03-PLAN.md Task 3)",
         _flights_reveal_control_is_a_plain_anchor_no_script_mentions)
+
+    def _flights_reveal_anchor_has_a_matching_css_selector():
+        """CR-01 (29-REVIEW.md): a class-string substring search (present
+        in both the markup and style.css) is not proof the class actually
+        PAINTS the emitted tag — `button.calendar-disconnect-btn` is
+        element-type-qualified to a tag this anchor never is, and
+        `.airline-card .calendar-disconnect-btn` is descendant-scoped to
+        an ancestor this anchor is never inside; both pass a substring
+        search while reaching nothing. This check instead renders the
+        Show-more control, reads its actual tag and class list, then
+        parses style.css's own rule selectors and requires at least one
+        selector whose RIGHTMOST compound (the part a browser actually
+        matches against the element itself) carries no tag qualifier — or
+        one that matches the rendered tag exactly — with no ancestor
+        compound to its left (this control is never inside `.airline-
+        card`, so an ancestor-scoped selector does not reach it either).
+        """
+        tmp = _mkstate("h-reveal-css-match")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "cm%02d" % i,
+                 "callsign": "CSSM%02d" % i}
+                for i in range(1, 21)
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
+            if nav_match is None:
+                return False, "expected a non-empty <nav class=\"flights-more\"> in a 20-row render"
+            tag_match = re.search(r'<(\w+)\b[^>]*\bclass="([^"]*)"', nav_match.group(1))
+            if tag_match is None:
+                return False, (
+                    "expected the Show-more nav's child to carry a class attribute, got %r"
+                    % nav_match.group(1))
+            tag, classes = tag_match.group(1), tag_match.group(2).split()
+            if "calendar-disconnect-btn" not in classes:
+                return False, (
+                    "expected the Show-more control to carry calendar-disconnect-btn, got "
+                    "classes %r" % (classes,))
+
+            with open(os.path.join(HERE, "static", "style.css")) as fh:
+                css = fh.read()
+            stripped = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+            candidate_selectors = []
+            for selector_text, _body in re.findall(r'([^{}]+)\{([^{}]*)\}', stripped):
+                if ".calendar-disconnect-btn" not in selector_text:
+                    continue
+                for sel in selector_text.split(","):
+                    sel = sel.strip()
+                    if ".calendar-disconnect-btn" in sel:
+                        candidate_selectors.append(sel)
+            if not candidate_selectors:
+                return False, "expected at least one CSS rule selector mentioning .calendar-disconnect-btn"
+
+            reachable = False
+            for sel in candidate_selectors:
+                compounds = sel.split()
+                subject = compounds[-1]
+                qualifier_match = re.match(r'^([a-zA-Z][a-zA-Z0-9-]*)?\.calendar-disconnect-btn$', subject)
+                if qualifier_match is None:
+                    continue  # a pseudo-class/attribute-qualified subject — not this control's plain class
+                qualifier_tag = qualifier_match.group(1)
+                if len(compounds) == 1 and (qualifier_tag is None or qualifier_tag.lower() == tag.lower()):
+                    reachable = True
+                    break
+            if not reachable:
+                return False, (
+                    "expected a CSS selector whose rightmost compound has no tag qualifier or "
+                    "matches the rendered <%s>, with no ancestor compound to its left — found "
+                    "only %r, none of which actually paints <%s class=\"calendar-disconnect-btn\">"
+                    % (tag, candidate_selectors, tag))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Show-more anchor's rendered tag agrees with a REAL CSS selector match (rightmost "
+        "compound's tag qualifier, if any) — not merely a class-string substring shared between "
+        "the markup and style.css (CR-01, 29-REVIEW.md)",
+        _flights_reveal_anchor_has_a_matching_css_selector)
 
     def _flights_limit_is_clamped_and_the_clamp_is_the_only_path():
         """29-03-PLAN.md Task 3, Check C (T-29-03-01/T-29-03-02): the
