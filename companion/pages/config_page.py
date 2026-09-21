@@ -560,30 +560,43 @@ _QUIET_HOURS_DELAY_HELD_TEXT = "Applies when quiet hours end, around %s."
 # start/end are sourced from server.device_config's own shipped defaults
 # rather than retyped literals, so the preset and the default can never
 # drift apart. Ranges use a real U+2013 en dash, matching this module's
-# real-Unicode punctuation convention (see its em dashes elsewhere).
+# real-Unicode punctuation convention (see its em dashes elsewhere) —
+# still true of the START/END constants below even though the hours are
+# no longer PRINTED anywhere (29-04-PLAN.md Task 1, CFG-80): a preset
+# still WRITES this exact pair into the two time fields, and that is
+# unchanged.
 QUIET_HOURS_PRESET_NIGHT_START = device_config.DEFAULT_QUIET_HOURS_START
 QUIET_HOURS_PRESET_NIGHT_END = device_config.DEFAULT_QUIET_HOURS_END
-# 20-07-PLAN.md Task 3 (D-05): the %s-templated form, translated through
-# i18n.t() BEFORE substitution (this codebase's established pattern,
-# health_page.py's SOURCE_FAULT_BODY_TEMPLATE, 20-03-PLAN.md) — never an
-# already-formatted string translated as one opaque catalogue key, which
-# would bake this specific device's own configured times into the
-# French entry forever.
-QUIET_HOURS_PRESET_NIGHT_LABEL_TEMPLATE = "Night (%s–%s)"
-QUIET_HOURS_PRESET_NIGHT_LABEL = QUIET_HOURS_PRESET_NIGHT_LABEL_TEMPLATE % (
-    QUIET_HOURS_PRESET_NIGHT_START, QUIET_HOURS_PRESET_NIGHT_END)
+# 29-04-PLAN.md Task 1 (CFG-80): SHORTENED to bare labels — "Night
+# (23:00–07:00)" is gone, replaced by "Night" alone. The hours these
+# buttons set are already spoken, once, by quiet_dial_readout_html()'s
+# own caption directly above this row ("23:00 → 07:00 · 8h"); repeating
+# them on a button was the developer's own "pas très joli" complaint
+# (29-CONTEXT.md) — four surfaces spelling one value. The 20-07-PLAN.md
+# %s-templated form this superseded is gone along with it: there is no
+# longer a device-specific time baked into a button label at all, so the
+# "translate the template before substituting" reasoning that form
+# needed no longer applies to this pair.
+#
+# QUIET_HOURS_PRESET_NIGHT_START/_END and _WORKDAY_START/_END below are
+# UNCHANGED by this cut — they still feed the buttons' own
+# data-preset-start/data-preset-end attributes and still come from
+# server.device_config's own shipped defaults, so nothing about what a
+# preset WRITES changes, only what its own button prints.
+QUIET_HOURS_PRESET_NIGHT_LABEL = "Night"
 QUIET_HOURS_PRESET_WORKDAY_START = "08:00"
 QUIET_HOURS_PRESET_WORKDAY_END = "18:00"
-QUIET_HOURS_PRESET_WORKDAY_LABEL_TEMPLATE = "Work day (%s–%s)"
-QUIET_HOURS_PRESET_WORKDAY_LABEL = QUIET_HOURS_PRESET_WORKDAY_LABEL_TEMPLATE % (
-    QUIET_HOURS_PRESET_WORKDAY_START, QUIET_HOURS_PRESET_WORKDAY_END)
-# "Always on (off)": this preset UNCHECKS the enable checkbox and leaves
+QUIET_HOURS_PRESET_WORKDAY_LABEL = "Day"
+# "Always on": this preset UNCHECKS the enable checkbox and leaves
 # both times untouched - "off" means the curfew is disabled while the
 # configured window stays intact, the pre-configure-before-enabling
 # behaviour quiet_hours_group()'s own docstring already locks. Expressed
 # via a distinct data-preset-enabled="0" attribute rather than
-# overloading the time attributes with a sentinel value.
-QUIET_HOURS_PRESET_ALWAYS_ON_LABEL = "Always on (off)"
+# overloading the time attributes with a sentinel value. The trailing
+# "(off)" clause is dropped by the same 29-04-PLAN.md cut as the other
+# two labels — the preset's own data-preset-enabled="0" attribute is
+# still what does the work; the label only ever named it a second time.
+QUIET_HOURS_PRESET_ALWAYS_ON_LABEL = "Always on"
 QUIET_HOURS_PRESET_ATTR = "data-quiet-preset"
 
 # 11-UI-SPEC.md Copywriting Contract, locked verbatim (D-05). The caption's
@@ -2709,6 +2722,17 @@ QUIET_DIAL_ARC_CLASS = "quiet-dial__arc"
 QUIET_DIAL_HOUR_CLASS = "quiet-dial__hour"
 QUIET_DIAL_READOUT_CLASS = "quiet-dial__readout"
 
+# 29-04-PLAN.md Task 1 (CFG-80): the preset row's own container (a
+# segmented control, no longer `.runway-row` — see quiet_hours_group()'s
+# docstring for why) and the Start/End wrapper that lays the two time
+# fields out as one visual unit with the dial, rather than as two
+# stacked full-width lines. Same class-name-as-constant reasoning as the
+# dial's own classes above: a class that exists in Python and nowhere in
+# companion/static/style.css paints nothing, and a check scans the
+# emitted markup's classes against the stylesheet for exactly that.
+QUIET_PRESET_ROW_CLASS = "quiet-preset-row"
+QUIET_TIMES_ROW_CLASS = "quiet-times-row"
+
 # User units, and CSS pixels — the aspect-locked `unit_*` scheme
 # companion/draw.py documents, with an explicit intrinsic size so the
 # <svg> can never fall back to the format's own 300x150 default.
@@ -3260,6 +3284,26 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     viewport and to stay consistent with 06.6.4.1 (D-01)'s removal of this
     page's two-column grid.
 
+    29-04-PLAN.md Task 1 (CFG-80) SUPERSEDES the "each on its own
+    full-width line" clause above FOR START AND END SPECIFICALLY — the
+    sentence above is kept verbatim rather than deleted, per this file's
+    own SUPERSEDED-in-place convention, but it no longer describes what
+    ships. Four surfaces stacked full-width (the dial, the presets, Start,
+    End) is what made this card read as four separate controls for one
+    value rather than one control — the developer's own "pas très joli ce
+    composant" on the quiet-hours screenshot (29-CONTEXT.md). Start and
+    End now render side by side, as one visual unit with the dial, inside
+    a new `QUIET_TIMES_ROW_CLASS`-wrapped two-column grid. THE ORDER IS
+    UNCHANGED: presets still precede Start, Start still precedes End, in
+    document order inside that row — this is a LAYOUT change, not a
+    reordering, and the ring's own placement argument two paragraphs
+    below (25-04-PLAN.md Task 2) is untouched by it. `.theme-status__row`
+    is still never used by this card — the new side-by-side layout is a
+    dedicated grid, not that shared row class, so the "NOT wrapped in
+    `.theme-status__row`" sentence above stays true on its own narrow
+    terms even though the broader "each its own full-width line" premise
+    it once supported no longer holds.
+
     22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the `current_enabled`/
     `quiet_hours_enabled` checkbox this function used to render here is
     gone outright — the Frame strip is now the ONLY control for turning
@@ -3299,8 +3343,8 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     server-side HH:MM gate `handle_post()` runs before this render is
     ever reached is the real control.
 
-    19-10-PLAN.md (D-14/S-04): three `type="button"` presets (Night, Work
-    day, Always on) render between the caption and the Start input — a
+    19-10-PLAN.md (D-14/S-04): three `type="button"` presets (Night, Day,
+    Always on) render between the caption and the Start input — a
     CLIENT-SIDE affordance only, with NO server change. Each button
     carries `data-preset-start`/`data-preset-end`/`data-preset-enabled`
     attributes that `companion/static/dirty-state.js` reads and writes
@@ -3313,6 +3357,19 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     cannot even accidentally submit the form); both time inputs remain
     fully usable either way, an acceptable degradation matching this
     page's established graceful-degradation convention.
+
+    29-04-PLAN.md Task 1 (CFG-80): the three labels were "Night
+    (23:00–07:00)", "Work day (08:00–18:00)" and "Always on (off)" until
+    this task shortened them to bare "Night"/"Day"/"Always on" — the
+    hours a preset sets are already spoken, once, by
+    `quiet_dial_readout_html()`'s own caption directly above this row, so
+    repeating them on a button was a fourth surface for one value. The
+    row's own wrapper is no longer `.runway-row` (see below) — it is now
+    `QUIET_PRESET_ROW_CLASS`, styled as a segmented control with NO
+    selected state: these three buttons are momentary actions that WRITE
+    into the time fields, they are not a persistent choice, so there is
+    nothing to keep visually "selected" and this control reserves no new
+    accent.
 
     27-08-PLAN.md Task 1 (CFG-69): the `<h2>` now carries
     `id="{QUIET_HOURS_GROUP_HEADING_ID}"` — a fragment target for the
@@ -3334,32 +3391,32 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         errors, "quiet_hours_end", "quiet-hours-end", hint_id=QUIET_HOURS_SECTION_CAPTION_ID)
     end_error_html = _field_error_html(errors, "quiet_hours_end", "quiet-hours-end")
 
-    # 19-10-PLAN.md (D-14/S-04): the preset row. Reuses .runway-row -
-    # style.css's existing generic flex/wrap/gap row - rather than
-    # declaring a new CSS rule; that class is not scoped to the runway
-    # picker's markup, only to its layout shape, and nothing here asserts
-    # its absence from quiet_hours_group()'s own output (unlike
-    # .theme-status__row, which a pinned check requires stay absent from
-    # this group specifically). The three buttons are bare `type="button"`
-    # elements with no new class, inheriting the existing quiet-button
-    # treatment (base `button` selector) untouched.
+    # 29-04-PLAN.md Task 1 (CFG-80): the preset row, now its OWN class
+    # (QUIET_PRESET_ROW_CLASS) rather than borrowing `.runway-row` —
+    # style.css gives it the same bordered-container-plus-borderless-
+    # segment idiom `.theme-form`/`.theme-option` already use for the
+    # language/theme footer switches, but with NO selected state (see
+    # this function's own docstring for why). `.runway-row` itself
+    # survives unchanged for the runway picker, its only remaining
+    # consumer; nothing here asserts its absence from this group's own
+    # output (unlike `.theme-status__row`, which a pinned check requires
+    # stay absent from this group specifically). The three buttons are
+    # bare `type="button"` elements with no new class, inheriting the
+    # existing quiet-button treatment (base `button` selector) untouched.
     preset_row_html = (
-        '<div class="runway-row">'
+        '<div class="%s">'
         '<button type="button" %s data-preset-start="%s" data-preset-end="%s">%s</button>'
         '<button type="button" %s data-preset-start="%s" data-preset-end="%s">%s</button>'
         '<button type="button" %s data-preset-enabled="0">%s</button>'
         "</div>"
     ) % (
+        QUIET_PRESET_ROW_CLASS,
         QUIET_HOURS_PRESET_ATTR,
         escape_html(QUIET_HOURS_PRESET_NIGHT_START), escape_html(QUIET_HOURS_PRESET_NIGHT_END),
-        escape_html(
-            i18n.t(QUIET_HOURS_PRESET_NIGHT_LABEL_TEMPLATE)
-            % (QUIET_HOURS_PRESET_NIGHT_START, QUIET_HOURS_PRESET_NIGHT_END)),
+        escape_html(i18n.t(QUIET_HOURS_PRESET_NIGHT_LABEL)),
         QUIET_HOURS_PRESET_ATTR,
         escape_html(QUIET_HOURS_PRESET_WORKDAY_START), escape_html(QUIET_HOURS_PRESET_WORKDAY_END),
-        escape_html(
-            i18n.t(QUIET_HOURS_PRESET_WORKDAY_LABEL_TEMPLATE)
-            % (QUIET_HOURS_PRESET_WORKDAY_START, QUIET_HOURS_PRESET_WORKDAY_END)),
+        escape_html(i18n.t(QUIET_HOURS_PRESET_WORKDAY_LABEL)),
         QUIET_HOURS_PRESET_ATTR,
         escape_html(i18n.t(QUIET_HOURS_PRESET_ALWAYS_ON_LABEL)),
     )
@@ -3387,9 +3444,11 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     # 25-04-PLAN.md Task 2 (CFG-48): the server-drawn ring, rendered
     # between the caption and the presets. WHERE IT GOES, AND WHY IT IS
     # NOT A REORDERING: 10-UI-SPEC.md locks the order of the four
-    # CONTROLS — presets, then Start, then End, each on its own
-    # full-width line — and all four keep their positions and their
-    # adjacency. The ring is not a control; it is a picture of what is
+    # CONTROLS — presets, then Start, then End (29-04-PLAN.md Task 1,
+    # CFG-80, supersedes only the "each on its own full-width line" half
+    # of that sentence; the ORDER itself is untouched) — and all four
+    # keep their positions and their adjacency. The ring is not a control;
+    # it is a picture of what is
     # currently set, so it reads before the things that change it
     # (what this is now, then how to change it), and putting it after
     # the End field would separate the picture from the caption that
@@ -3410,18 +3469,28 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     effective_delay_sentence = (
         delay_sentence if delay_sentence is not None else i18n.t(frame_state.DELAY_UNKNOWN))
     caption_html = "%s %s" % (i18n.t(QUIET_HOURS_SECTION_CAPTION), effective_delay_sentence)
+    # 29-04-PLAN.md Task 1 (CFG-80): Start and End are now wrapped in ONE
+    # `QUIET_TIMES_ROW_CLASS` grid container, immediately after the
+    # preset row — so dial → readout → presets → times-row reads as one
+    # object. Each field gets its OWN unclassed `<div>` inside that grid
+    # (a genuine grid CELL, not a styling hook — it carries no class of
+    # its own and needs none), holding its `<label>` and its OWN error
+    # paragraph together: an error attaches to the field it is about and
+    # must never displace its sibling column, which is exactly what one
+    # cell per field guarantees under a two-column `grid-auto-flow: row`
+    # layout (the default) with two children instead of four.
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading" id="%s">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
         "%s%s"
         "%s"
-        '<label>%s <input type="time" name="quiet_hours_start" value="%s" required'
-        ' lang="%s" form="%s"%s>%s</label>'
-        "%s"
-        '<label>%s <input type="time" name="quiet_hours_end" value="%s" required'
-        ' lang="%s" form="%s"%s>%s</label>'
-        "%s"
+        '<div class="%s">'
+        '<div><label>%s <input type="time" name="quiet_hours_start" value="%s" required'
+        ' lang="%s" form="%s"%s>%s</label>%s</div>'
+        '<div><label>%s <input type="time" name="quiet_hours_end" value="%s" required'
+        ' lang="%s" form="%s"%s>%s</label>%s</div>'
+        "</div>"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
@@ -3431,6 +3500,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         escape_html(caption_html),
         dial_html, readout_html,
         preset_row_html,
+        QUIET_TIMES_ROW_CLASS,
         escape_html(i18n.t("Start")),
         escape_html(effective_start), escape_html(site_lang), SETTINGS_FORM_ID, start_error_attrs,
         _normalised_time_html(effective_start),

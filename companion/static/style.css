@@ -2947,11 +2947,100 @@ button:disabled {
  * gap). Before this wrapper, the cards were bare `display: block`
  * siblings of `.theme-status`'s heading and both paragraphs, so each
  * card took a full line and the group rendered as three stacked
- * full-width bars instead of a row. */
+ * full-width bars instead of a row.
+ *
+ * 29-04-PLAN.md Task 1 (CFG-80): this rule's SECOND consumer is gone.
+ * quiet_hours_group()'s preset row used to borrow this exact class (see
+ * the two comments below, kept in place rather than silently corrected,
+ * that still say otherwise) — it now has its own dedicated
+ * `.quiet-preset-row` rule immediately below this one, styled as a
+ * segmented control rather than a wrapping flex row. `.runway-row` is
+ * therefore back to its original one consumer, the runway picker. */
 .runway-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
+}
+
+/* 29-04-PLAN.md Task 1 (CFG-80) — THE QUIET-HOURS PRESET ROW, A
+ * SEGMENTED CONTROL WITH NO SELECTED STATE.
+ *
+ * Same bordered-container-plus-borderless-segment idiom `.theme-form`/
+ * `.theme-option` already use for the language/theme footer switches
+ * (a hairline border and radius on the container, segments with no
+ * border of their own) — but this control keeps NO active/selected
+ * modifier, deliberately: these three buttons are momentary actions
+ * that WRITE a value into the two time fields below, not a persistent
+ * choice, so there is nothing to keep visually "current" the way a
+ * theme or language choice is. That is also why this rule adds no
+ * accent consumer and needs no change to style.css's header-comment
+ * accent-reservation list — a control with no selected state has no
+ * accent-filled state to reserve one for.
+ *
+ * The hairline divider between segments is a `border-left` on every
+ * button but the first, reusing the same `--color-border` hairline
+ * every card edge in this file already uses — not `.theme-form`'s own
+ * `gap`-only separation, because these buttons keep the app's ordinary
+ * quiet-button treatment (padding, background wash) rather than
+ * `.theme-option`'s flush segment styling, and a gap alone would read
+ * as three loose buttons rather than one control. */
+.quiet-preset-row {
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.quiet-preset-row button {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  border-radius: 0;
+}
+
+.quiet-preset-row button:not(:first-child) {
+  border-left: 1px solid var(--color-border);
+}
+
+/* 29-04-PLAN.md Task 1 (CFG-80) — START AND END, ONE ROW.
+ *
+ * Two tracks at the card's own width, from the existing spacing scale —
+ * no new token. `minmax(0, 1fr)` on both (not a bare `1fr`) so a long
+ * error message inside either column can wrap instead of forcing the
+ * grid wider than the card, the same overflow guard `.data-table`'s own
+ * `min-width: max-content` note elsewhere in this file exists to avoid
+ * the opposite failure of.
+ *
+ * A NARROW-VIEWPORT FALLBACK IS DECLARED, and it is not pre-emptive —
+ * it is required by a number already on record in THIS file.
+ * `.config-form input[type="time"] { min-width: 9rem }` (144px) is a
+ * hard floor on each native time input, independent of anything this
+ * rule declares. At the 360px contract floor, this card's own inner
+ * content width is 360 − 2×24 (`.page-content`'s side padding,
+ * `--space-lg`) − 2×16 (`.theme-status`'s own padding below 960px,
+ * `--space-md`) = 280px. Two 144px inputs plus even the smallest
+ * column gap already need 2×144 + 8 = 296px — 16px MORE than the
+ * 280px available, before the "Start "/"End " label text or either
+ * twin has taken any width at all. Two columns cannot fit at the
+ * contract floor, arithmetically, from numbers already declared in
+ * this file — no live-browser measurement was available in this
+ * worktree to refine the exact breakpoint further (see the plan's own
+ * SUMMARY for the open follow-up), so the threshold below is set with
+ * deliberate headroom above the bare 392px the same arithmetic gives
+ * at the wider `--space-lg` (24px) gap this rule actually uses
+ * (2×144 + 24 + 80px of combined padding = 392px), rather than cut
+ * exactly to it. Below the threshold the row degrades to the ORIGINAL
+ * stacked layout (one track), never a broken two-column overflow. */
+.quiet-times-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm) var(--space-lg);
+}
+
+@media (max-width: 479.98px) {
+  .quiet-times-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Runway picker (06.4/06.6.3 D-05): selectable card, number prominence +
@@ -3005,11 +3094,16 @@ button:disabled {
    * measure 271.3px before and after.
    *
    * `.runway-row` itself is deliberately NOT given `flex-wrap: nowrap`,
-   * which is what 22-UI-SPEC.md §2's B9 row prescribes: that class has a
-   * SECOND consumer, `quiet_hours_group()`'s three-preset row, whose
-   * buttons carry long labels ("Night (23:00-07:00)") that must still be
-   * allowed to wrap on a phone. Fixing B9 on the card rather than the
-   * row leaves that second consumer untouched. */
+   * which is what 22-UI-SPEC.md §2's B9 row prescribes — SUPERSEDED-in-
+   * reasoning by 29-04-PLAN.md Task 1 (CFG-80): this paragraph used to
+   * name a SECOND consumer, `quiet_hours_group()`'s three-preset row
+   * (whose long labels, e.g. "Night (23:00-07:00)", needed to wrap on a
+   * phone), as the reason `.runway-row` itself keeps wrapping rather
+   * than being fixed to `nowrap` here. That second consumer is gone —
+   * the preset row now has its own `.quiet-preset-row` rule and short,
+   * non-wrapping labels — so `.runway-row` is back to its original one
+   * consumer, but the conclusion (fix B9 on the card, not the row) is
+   * unaffected and kept as written. */
   flex: 1 1 0;
   min-width: 0;
   cursor: pointer;
@@ -10299,8 +10393,11 @@ input:checked + .frame-colours__row {
  * 2 + 1 orphan is the defect B9 exists to remove, and reintroducing it
  * one breakpoint lower would be the same defect at a smaller size. A
  * 100% basis inside the row's existing `flex-wrap: wrap` puts one card
- * per line with no change to `.runway-row`, whose second consumer
- * (quiet_hours_group()'s preset row) must keep wrapping normally. */
+ * per line with no change to `.runway-row` — 29-04-PLAN.md Task 1
+ * (CFG-80) retired the second consumer this sentence used to name
+ * (`quiet_hours_group()`'s preset row moved to its own `.quiet-preset-
+ * row` rule); `.runway-row` keeps wrapping regardless, for its one
+ * remaining consumer, the runway picker itself. */
 @media (max-width: 359.98px) {
   .runway-card {
     flex: 1 1 100%;

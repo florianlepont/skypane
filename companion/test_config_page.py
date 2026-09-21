@@ -1085,6 +1085,13 @@ EXPECTED_CHECK_COUNT = 265
 # by RUNNING (266/266).
 EXPECTED_CHECK_COUNT = 266
 
+# 29-04-PLAN.md Task 1 (CFG-80), 2026-09-21: +4 (the emitted-class-vs-
+# stylesheet scan widened to the whole card, the times-row containment/
+# error-slot check, the short-preset-label/no-colon check, and the
+# times-row's own two-grid-track CSS check). 266 + 4 = 270, re-derived
+# by RUNNING (270/270).
+EXPECTED_CHECK_COUNT = 270
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -2799,29 +2806,52 @@ def main():
                     "%r→%r: the caption lost its computed delay sentence — the SAME triple the "
                     "Frame strip reads, never a second one computed here" % (start, end))
 
-            # THE LOCKED ORDER, AND WHERE THE RING JOINS IT. The four
-            # controls keep their positions and their adjacency; the ring
-            # is an addition between the caption and the presets, so the
-            # picture reads before the things that change it.
+            # THE LOCKED ORDER, AND WHERE THE RING JOINS IT. 29-04-PLAN.md
+            # Task 1 (CFG-80) re-derives this list: the four controls
+            # keep their positions and their adjacency (presets before
+            # Start, Start before End), but Start and End are now ONE
+            # element in document order — the QUIET_TIMES_ROW_CLASS
+            # wrapper — rather than two separately-indexed labels, since
+            # that wrapper is what now lays them out side by side.
+            # The readout is OMITTED, not fabricated, for an unparseable
+            # span (the ("", "", None) case in this very loop) — matching
+            # quiet_dial_readout_html()'s own "omit, don't fabricate"
+            # rule, so it is only checked for order when it actually
+            # rendered.
             positions = [
                 ("caption", markup.index('class="text-label section-caption"')),
                 ("dial", markup.index('class="%s"' % config_page.QUIET_DIAL_CLASS)),
-                ("presets", markup.index('class="runway-row"')),
-                ("start", markup.index('name="quiet_hours_start"')),
-                ("end", markup.index('name="quiet_hours_end"')),
+                ("presets", markup.index('class="%s"' % config_page.QUIET_PRESET_ROW_CLASS)),
+                ("times_row", markup.index('class="%s"' % config_page.QUIET_TIMES_ROW_CLASS)),
             ]
-            if [name for name, _ in sorted(positions, key=lambda pair: pair[1])] != [
-                    "caption", "dial", "presets", "start", "end"]:
+            expected_order = ["caption", "dial", "presets", "times_row"]
+            if config_page.QUIET_DIAL_READOUT_CLASS in markup:
+                positions.insert(2, ("readout", markup.index(config_page.QUIET_DIAL_READOUT_CLASS)))
+                expected_order = ["caption", "dial", "readout", "presets", "times_row"]
+            if [name for name, _ in sorted(positions, key=lambda pair: pair[1])] != expected_order:
                 return False, (
-                    "%r→%r: the card's order is %r — 10-UI-SPEC.md locks presets, then Start, "
-                    "then End, and the ring is an addition between the caption and the presets, "
-                    "never a reordering"
+                    "%r→%r: the card's order is %r — CFG-80 locks caption, dial, readout, "
+                    "presets, then the Start/End times row, and the ring is an addition between "
+                    "the caption and the presets, never a reordering"
                     % (start, end, sorted(positions, key=lambda pair: pair[1])))
+            # Start still precedes End INSIDE the times row, in document
+            # order — the wrapper changed the LAYOUT, never the order.
+            if markup.index('name="quiet_hours_start"') > markup.index('name="quiet_hours_end"'):
+                return False, "%r→%r: Start must still precede End in document order" % (
+                    start, end)
 
-            # NOT SIDE BY SIDE. 10-UI-SPEC.md rejects that explicitly, to
-            # keep two native time pickers from wrapping at 360px.
+            # NOT VIA `.theme-status__row`. CFG-80 puts Start and End side
+            # by side through its OWN dedicated `.quiet-times-row` grid,
+            # never through the shared `.theme-status__row` class this
+            # card has never used — a re-check of the same negative
+            # 10-UI-SPEC.md/22-05-PLAN.md history originally recorded here
+            # kept true on its own narrow terms even though the broader
+            # "never side by side" premise it once supported does not
+            # (see quiet_hours_group()'s own docstring for the full
+            # supersession).
             if "theme-status__row" in markup:
-                return False, "%r→%r: the two time fields were put side by side" % (start, end)
+                return False, "%r→%r: the two time fields used the shared row class" % (
+                    start, end)
 
         # THE D-07 ECHO, WHICH IS WHY THE ARC READS THE EFFECTIVE VALUES.
         # On a rejected save the picture must show what the visitor
@@ -2866,6 +2896,135 @@ def main():
         "untouched and no side-by-side row, and the arc echoes the SUBMITTED window on a "
         "rejected save rather than the stored one (B14/D-07/CFG-48, 25-04-PLAN.md Task 2)",
         _the_ring_is_an_addition_and_the_four_controls_are_untouched)
+
+    # ------------------------------------------------------------------
+    # 29-04-PLAN.md Task 1 (CFG-80): Quiet hours as one object — the
+    # segmented preset row, the Start/End times row, and the classes
+    # both new wrappers emit.
+    # ------------------------------------------------------------------
+
+    def _every_class_the_quiet_hours_card_emits_has_a_real_selector():
+        """The same "a class that exists in Python and nowhere in the
+        stylesheet paints nothing at all" scan
+        `_the_dials_paint_resolves_and_decides_nothing_in_python()`
+        already runs for the dial's own slice — extended here to the
+        WHOLE card, since the new `.quiet-preset-row`/`.quiet-times-row`
+        wrappers sit outside that slice.
+        """
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            source = fh.read()
+        markup = config_page.quiet_hours_group("23:00", "07:00")
+        emitted = set()
+        for attr in re.findall(r'class="([^"]*)"', markup):
+            emitted.update(attr.split())
+        for class_name in sorted(emitted):
+            if not re.search(r"\.%s(?![-\w])" % re.escape(class_name), source):
+                return False, (
+                    "quiet_hours_group() emits the class %r, which has no selector in "
+                    "style.css — it paints nothing at all" % class_name)
+        return True, ""
+    check(
+        "every class quiet_hours_group() emits — including the new .quiet-preset-row/"
+        ".quiet-times-row wrappers — resolves to a real selector in style.css, scanned off "
+        "the emitted markup rather than a hand-kept list (CFG-80, 29-04-PLAN.md Task 1)",
+        _every_class_the_quiet_hours_card_emits_has_a_real_selector)
+
+    _QUIET_FIELD_SLUGS = (
+        ("quiet_hours_start", "quiet-hours-start"),
+        ("quiet_hours_end", "quiet-hours-end"))
+
+    def _both_time_fields_and_twins_sit_inside_the_times_row_with_their_own_error_slot():
+        """CFG-80: the times-row wrapper's own slice of the markup must
+        contain BOTH native time inputs and both twins, and each field's
+        own error paragraph must sit inside that SAME field's column —
+        never displacing its sibling's.
+        """
+        for errors, submitted in (
+                (None, None),
+                ({"quiet_hours_start": "Bad start"},
+                 {"quiet_hours_start": "bad", "quiet_hours_end": "07:00"}),
+                ({"quiet_hours_end": "Bad end"},
+                 {"quiet_hours_start": "23:00", "quiet_hours_end": "bad"})):
+            markup = config_page.quiet_hours_group(
+                "23:00", "07:00", errors=errors, submitted=submitted)
+            row_open = '<div class="%s">' % config_page.QUIET_TIMES_ROW_CLASS
+            if row_open not in markup:
+                return False, "expected the times-row wrapper to render"
+            row_start = markup.index(row_open)
+            row_end = markup.index("</div></div>", row_start) + len("</div></div>")
+            row_slice = markup[row_start:row_end]
+            for field, slug in _QUIET_FIELD_SLUGS:
+                if 'name="%s"' % field not in row_slice:
+                    return False, "%s: expected the input inside the times row" % field
+                effective = config_page._submitted_or_current(
+                    submitted, field, "23:00" if field == "quiet_hours_start" else "07:00")
+                twin = config_page._normalised_time_html(effective)
+                if twin and row_slice.count(twin) != 1:
+                    return False, (
+                        "%s: expected exactly one twin inside the times row" % field)
+                error_html = config_page._field_error_html(errors, field, slug)
+                if error_html and error_html not in row_slice:
+                    return False, (
+                        "%s: expected its own error paragraph inside the times row" % field)
+        return True, ""
+    check(
+        "both <input type=\"time\"> elements, both B14 twins and each field's own error "
+        "paragraph all fall inside the .quiet-times-row container's own slice of the markup, "
+        "across a clean render and a rejected save on either field (CFG-80, 29-04-PLAN.md "
+        "Task 1)",
+        _both_time_fields_and_twins_sit_inside_the_times_row_with_their_own_error_slot)
+
+    def _the_three_preset_buttons_render_short_labels_with_no_colon_in_both_languages():
+        """CFG-80: the hours a preset sets are already spoken by the
+        dial's own readout caption — no preset label may spell one, in
+        either language, stated as a PROPERTY (no colon character) not
+        as three literal string comparisons.
+        """
+        for lang, labels in (
+                ("en", ("Night", "Day", "Always on")),
+                ("fr", ("Nuit", "Journée", "Toujours actif"))):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                markup = config_page.quiet_hours_group("23:00", "07:00")
+            finally:
+                prefs.set_request_prefs(lang="en")
+            found = re.findall(
+                r'<button type="button" %s[^>]*>([^<]*)</button>'
+                % re.escape(config_page.QUIET_HOURS_PRESET_ATTR), markup)
+            if list(found) != list(labels):
+                return False, "%s: expected preset labels %r, got %r" % (lang, labels, found)
+            for label in found:
+                if ":" in label:
+                    return False, (
+                        "%s: preset label %r still spells an hour with a colon" % (lang, label))
+        return True, ""
+    check(
+        "the three preset buttons render the short labels Night/Day/Always on and Nuit/"
+        "Journée/Toujours actif, and NO preset label contains a ':' in either language — the "
+        "hours are spoken once, by the dial's own readout (CFG-80, 29-04-PLAN.md Task 1)",
+        _the_three_preset_buttons_render_short_labels_with_no_colon_in_both_languages)
+
+    def _the_times_row_rule_declares_exactly_two_grid_tracks():
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            source = fh.read()
+        selector = ".%s {" % config_page.QUIET_TIMES_ROW_CLASS
+        if selector not in source:
+            return False, "expected style.css to declare %r" % selector
+        idx = source.index(selector)
+        body = source[idx + len(selector):source.index("}", idx)]
+        if "display: grid" not in body:
+            return False, "expected %r to declare display: grid" % selector
+        match = re.search(r"grid-template-columns:\s*repeat\((\d+)", body)
+        if not match or int(match.group(1)) != 2:
+            return False, (
+                "expected %r's grid-template-columns to declare exactly two tracks, got %r"
+                % (selector, body))
+        return True, ""
+    check(
+        "style.css's .quiet-times-row rule declares display: grid with a "
+        "grid-template-columns of exactly two tracks, parsed from the stylesheet itself "
+        "(CFG-80, 29-04-PLAN.md Task 1)",
+        _the_times_row_rule_declares_exactly_two_grid_tracks)
 
     def _the_dials_paint_resolves_and_decides_nothing_in_python():
         """CFG-48/CFG-52 (25-04-PLAN.md Task 2): the dial's paint,
@@ -10887,8 +11046,12 @@ def main():
             tail = rendered[idx:idx + 400]
             if 'lang="en"' not in tail:
                 return False, "%s must carry the site language as lang= (B14)" % name
-            sibling = (
-                '<span class="text-label field-inline-value" aria-hidden="true">%s</span>' % value)
+            # Built from the real emitter rather than a hand-typed literal
+            # so this check does not go stale the moment the span grows a
+            # new attribute (29-04-PLAN.md Task 2, CFG-80, added the
+            # QUIET_NORMALISED_TIME_ATTR hook) — it asserts the SIBLING
+            # renders, not one frozen shape of it.
+            sibling = config_page._normalised_time_html(value)
             if sibling not in tail:
                 return False, (
                     "%s must be followed by a VISIBLE sibling showing the normalised 24h value, "

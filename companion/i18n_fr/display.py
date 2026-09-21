@@ -261,16 +261,17 @@ CATALOG = {
     "#m": "# min",
     "#h": "# h",
     "#d": "# j",
-    "Night (%s–%s)": "Nuit (%s–%s)",
-    "Work day (%s–%s)": "Journée de travail (%s–%s)",
-    # 20-12-PLAN.md Task 1: the workday preset's own pre-baked label
-    # (QUIET_HOURS_PRESET_WORKDAY_LABEL, computed once at import time
-    # from the template above with the literal "08:00"/"18:00" default
-    # times) is read through i18n.t() as its own value, independent of
-    # the template — the completeness harness treats a module-level
-    # constant computed at import time the same as a literal one.
-    "Work day (08:00–18:00)": "Journée de travail (08:00–18:00)",
-    "Always on (off)": "Toujours allumé (désactivé)",
+    # 29-04-PLAN.md Task 1 (CFG-80): the three preset labels, shortened
+    # from "Night (23:00–07:00)"/"Work day (08:00–18:00)"/"Always on
+    # (off)" to bare labels — the hours are already spoken, once, by
+    # quiet_dial_readout_html()'s own caption. The three %-templated/
+    # pre-baked keys these replace ("Night (%s–%s)", "Work day (%s–%s)",
+    # "Work day (08:00–18:00)", "Always on (off)") are deleted below,
+    # not merely superseded, since companion/pages/config_page.py no
+    # longer produces any of them.
+    "Night": "Nuit",
+    "Day": "Journée",
+    "Always on": "Toujours actif",
     "On": "Allumé",
     "Off": "Éteint",
     "Switch on": "Allumer",
