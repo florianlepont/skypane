@@ -952,6 +952,11 @@ EXPECTED_CHECK_COUNT = 306  # 27-08-PLAN.md Task 2 (CFG-69): +1 (the quiet
 # inputs). 306 + 1 = 307, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 307
 
+# quick task 260921-n2n Task 2: +1 (the .resolve-context[hidden]
+# display-guard block-parsing check). 307 + 1 = 308, re-derived by
+# RUNNING.
+EXPECTED_CHECK_COUNT = 308
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -14245,6 +14250,38 @@ def main():
         "depends on, and both strings render onto <body> in both languages matching the script's own "
         "English fallbacks byte for byte (T13, 22-15-PLAN.md Task 2)",
         _refresh_loop_retries_with_backoff_and_says_so_neutrally)
+
+    def _resolve_context_hidden_guard_present_after_base_rule():
+        # Quick task 260921-n2n Task 2: `.resolve-context` declares
+        # `display: grid` with no `[hidden]` guard, the same collision
+        # named at `.banner__pill[hidden]` above — an author `display`
+        # declaration always beats the user-agent stylesheet's
+        # `[hidden] { display: none }`, so panel-lookup.js's
+        # `resolveContext.hidden = !count` was silently inert and every
+        # ordinary illustration lightbox painted five empty label/value
+        # pairs instead of nothing.
+        css_source = _css_source()
+        stripped_css = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
+        if stripped_css.count(".resolve-context[hidden] {") != 1:
+            return False, (
+                "expected exactly one .resolve-context[hidden] guard — .resolve-context declares "
+                "display: grid, which always beats the user-agent [hidden] rule, so the block "
+                "would render (empty) even when hidden, got %d occurrence(s)"
+                % stripped_css.count(".resolve-context[hidden] {"))
+        base_at = stripped_css.index(".resolve-context {")
+        guard_at = stripped_css.index(".resolve-context[hidden] {")
+        if guard_at <= base_at:
+            return False, "expected the .resolve-context[hidden] guard to come AFTER the base rule"
+        guard = _block(stripped_css, ".resolve-context[hidden] {")
+        if "display: none" not in guard:
+            return False, "expected .resolve-context[hidden] to hide by display: none"
+        return True, ""
+    check(
+        "style.css declares .resolve-context[hidden] { display: none; } after the base rule — "
+        "without it, an author display declaration beats the UA [hidden] rule and every ordinary "
+        "illustration's resolve-context block renders empty instead of hidden (quick task 260921-n2n "
+        "Task 2)",
+        _resolve_context_hidden_guard_present_after_base_rule)
 
     def _nav_toggle_label_now_describes_the_preferences_panel():
         if layout.NAV_TOGGLE_LABEL != "Account and preferences":

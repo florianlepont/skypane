@@ -653,6 +653,10 @@ EXPECTED_CHECK_COUNT = 164
 # 164 + 1 = 165, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 165
 
+# quick task 260921-n2n Task 2: +1 (the contextCallsign.textContent
+# gated-on-count check). 165 + 1 = 166, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 166
+
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -3855,6 +3859,37 @@ def main():
         "and exactly one document.addEventListener(\"click\", ...) - this plan extended the existing "
         "single mechanism rather than adding a second one (D-03's own rejected alternative)",
         _panel_lookup_single_dialog_lookup_single_click_listener)
+
+    def _panel_lookup_context_callsign_write_gated_on_count():
+        # Quick task 260921-n2n Task 2: for an ordinary art card,
+        # `captionText` is the illustration's own caption, not a callsign
+        # at all — an ungated write here printed the picture's title
+        # under the "Example callsign" label on every ordinary picture.
+        # Pin two things without a live DOM: exactly one
+        # contextCallsign.textContent assignment survives in the file
+        # (no second, ungated write reappears alongside the gated one),
+        # and that one assignment is gated on the SAME `count` that
+        # gates resolveContext.hidden, never a second independent
+        # condition.
+        src = _read_panel_lookup_source()
+        n = src.count("contextCallsign.textContent")
+        if n != 1:
+            return False, (
+                "expected exactly one contextCallsign.textContent assignment in panel-lookup.js, "
+                "got %d — an ungated second write would print an illustration's own caption under "
+                "the 'Example callsign' label again" % n)
+        if 'contextCallsign.textContent = count ? captionText : "";' not in src:
+            return False, (
+                "expected contextCallsign.textContent's one assignment to be gated on the same "
+                "`count` that gates resolveContext.hidden — an ungated assignment prints the "
+                "picture's own caption under the 'Example callsign' label on every ordinary "
+                "illustration")
+        return True, ""
+    check(
+        "panel-lookup.js's contextCallsign.textContent is assigned exactly once, gated on the same "
+        "`count` that gates resolveContext.hidden, so an ordinary illustration's own caption can "
+        "never be printed under the 'Example callsign' label (quick task 260921-n2n Task 2)",
+        _panel_lookup_context_callsign_write_gated_on_count)
 
     def _airlines_lightbox_constants_match_history():
         # quick task 260902-tli: the dialog id and the three
