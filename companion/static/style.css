@@ -10227,65 +10227,6 @@ input:checked + .frame-colours__row {
   margin-top: var(--space-sm);
 }
 
-/* --- 20-UI-SPEC.md §K: the Airlines "Change pictures" toggle (D-36) ----
- * An <a> cannot share the `button[type="submit"]`/bare `button` element
- * selectors above, so this is a deliberate, minimal duplication of the
- * base quiet-button visual treatment onto an anchor — the same reason
- * this class needs to exist at all. Values mirror the base `button`
- * block exactly: the wash/border strengths, the 30px/36px height pair. */
-.airlines-edit-toggle {
-  display: inline-flex;
-  align-items: center;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
-  text-decoration: none;
-  color: var(--color-text);
-  font-weight: var(--weight-semibold);
-  /* X7 (22-11-PLAN.md Task 2): the audit's "CHANGE PICTURES". This
-   * anchor sits inside a `.page-header__screen` wrapper — a class whose
-   * own role on the Device page is a label-voice CAPTION, where
-   * uppercase is correct — and inherited that caption's
-   * `text-transform: uppercase`. A shouting button is not a label, and
-   * this app's CTA voice is sentence case everywhere else ("Save airline
-   * name", "Send a test"). Declared HERE, on the toggle's own existing
-   * class, rather than by inventing a button class the file's own header
-   * comment refuses to have. */
-  text-transform: none;
-}
-
-/* The caption under the toggle inherits the same uppercase from the same
- * wrapper, and is a sentence — "Replace an airline's picture or add one
- * for an airline that has none." — so it is even less a label than the
- * button is. Scoped to a caption INSIDE the wrapper, which is why the
- * Device page's own `<p class="page-header__screen text-label">` (the
- * class on the element, not on an ancestor) is untouched and keeps its
- * label voice. */
-.page-header__screen .section-caption {
-  text-transform: none;
-}
-
-/* X7: the "Editing" state badge beside the toggle. `.banner__pill` is
- * reused verbatim for its label voice; this rule contributes only the
- * gap between the two, since the markup emits no whitespace between
- * them and both are inline-flex. */
-.page-header__screen .banner__pill {
-  margin-left: var(--space-sm);
-}
-
-.airlines-edit-toggle:hover {
-  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
-  border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
-}
-
-@media (max-width: 959.98px) {
-  .airlines-edit-toggle {
-    height: 36px;
-  }
-}
-
 /* B9 fallback (22-10-PLAN.md Task 2, 22-AUDIT.md's own second option).
  *
  * Below 360px the three equal columns stop being the right shape: the

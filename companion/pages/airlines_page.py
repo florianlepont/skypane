@@ -83,16 +83,6 @@ GALLERY_PURPOSE_TEXT = (
 
 CARD_IMAGE_ALT_TEMPLATE = "%s illustration"
 
-# 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle that
-# replaces the Device page's now-deleted "Edit artwork" link
-# (config_page._edit_artwork_link_html(), removed by 20-07-PLAN.md
-# Task 3) with an entry point that lives on the page it acts on.
-CHANGE_PICTURES_TEXT = "Change pictures"
-DONE_TEXT = "Done"
-EDIT_TOGGLE_CAPTION = (
-    "Replace an airline’s picture or add one for an airline that has "
-    "none.")
-
 # 19-08-PLAN.md Task 1 (D-21/A-38): the coverage-gap cards' own explained
 # strip, byte-identical-style copy convention to health_page.py's
 # SOURCE_FAULT_HEADING/SOURCE_FAULT_BODY (a module-level string constant,
@@ -515,23 +505,6 @@ MANUAL_DATALIST_ID = "known-airlines"
 SUPERSEDED_MARKER_TEXT = "Superseded"
 DELETE_BUTTON_TEXT = "Delete"
 
-# X7 (22-11-PLAN.md Task 2, 22-UI-SPEC.md §2): edit mode's two visible
-# affordances on the grid itself. Turning "Change pictures" on used to
-# change nothing a household member could see — every affordance lived
-# inside the lightbox, two clicks away, so the mode looked broken.
-#
-# EDITING_BADGE_TEXT rides `.banner__pill`'s label voice verbatim on the
-# page header. REPLACE_PICTURE_TEXT is a verb AND a noun on purpose: a
-# bare "Replace" reads as a sentence fragment against this app's
-# established CTA voice ("Save airline name", "Change pictures").
-# REPLACE_PICTURE_ARIA_TEMPLATE names the airline so twenty-seven
-# otherwise-identical buttons are distinguishable in a screen reader's
-# control list; it CONTAINS the visible label verbatim in both
-# languages, which is what WCAG 2.5.3 (Label in Name) requires.
-EDITING_BADGE_TEXT = "Editing"
-REPLACE_PICTURE_TEXT = "Replace picture"
-REPLACE_PICTURE_ARIA_TEMPLATE = "Replace picture for %s"
-
 # Phase 14 (14-02-PLAN.md Task 1, 14-UI-SPEC.md's Full Copy Deck): new
 # copy for the gap card, the dialog's manual-state chip/note, the
 # shared delete form's caption, the gap-overflow line and the
@@ -935,7 +908,7 @@ def _seen_attribute_text(value, now):
 
 
 def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None,
-                       now=None, edit_mode=False):
+                       now=None):
     """One `.airline-card` (06.6.4.1-UI-SPEC.md §7.1): an image pointing
     at the session-gated `/illustration/{key}.png` route, wrapped in a
     `.airline-card__zoom` click-to-enlarge trigger (quick task
@@ -964,16 +937,6 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     before this parameter existed. (Quick task 260903-btu: this
     parameter no longer also feeds a per-card replace form — the shared
     lightbox's single form is not built here at all.)
-
-    `edit_mode` (22-11-PLAN.md Task 2, X7): `render()`'s own presentation
-    -only `ctx["edit_mode"]` bool, defaulting to `False` so a call that
-    omits it renders byte-identically to before this parameter existed.
-    `True` appends one `.calendar-disconnect-btn` "Replace picture"
-    control to this card, carrying the same `data-view-panel-*`
-    vocabulary the zoom trigger carries. It decides only whether that
-    affordance is DRAWN — the replace/upload forms it opens keep their
-    own, separate `edit_mode` gate in `_lightbox_html()`, and the routes
-    those forms post to are unaffected by either.
 
     `manual_info` (Phase 14, 14-06-PLAN.md Task 1, D-08/D-10/D-12
     fallback reachability): either `None` (today's plain curated card —
@@ -1168,32 +1131,6 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         image_html,
         closing_tag,
     )
-    # X7: edit mode's per-card affordance. `.calendar-disconnect-btn`'s
-    # SECOND consumer — 30px, 12px text, the 6%/12% washes, the 20%
-    # hairline — exactly as references/control-density.md predicted when
-    # it named that class "the pattern to reuse the next time this app
-    # needs a small, deliberately de-emphasized secondary action". The
-    # class is reused verbatim, with no modifier and no `.btn` family;
-    # the control's placement inside the card comes from the card's own
-    # scoped rule in style.css, not from a second class here.
-    #
-    # It opens the SAME shared dialog the zoom trigger opens, at the same
-    # already-authorised replace/upload form, with the same `edit_mode`
-    # gate on that form untouched (T-22-39) — only the affordance's
-    # position changes. It is a plain <button> even on a card whose zoom
-    # trigger is an <a>: a nested interactive element would be invalid,
-    # and `panel-lookup.js` resolves a click by walking ancestors from
-    # the event target, so this sibling carrying the vocabulary itself is
-    # what makes it a trigger.
-    replace_control_html = ""
-    if edit_mode:
-        replace_control_html = (
-            '<button type="button" class="calendar-disconnect-btn" %saria-label="%s">%s</button>'
-        ) % (
-            panel_attrs,
-            escape_html(i18n.t(REPLACE_PICTURE_ARIA_TEMPLATE) % airline_name),
-            escape_html(i18n.t(REPLACE_PICTURE_TEXT)),
-        )
     chip_parts = []
     if shapes:
         chip_parts.extend(
@@ -1214,14 +1151,12 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         "%s"
         '<p class="airline-card__name">%s</p>'
         "%s"
-        "%s"
         "</div>"
-    ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html,
-         replace_control_html)
+    ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html)
 
 
 def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_name=None,
-                       now=None, edit_mode=False):
+                       now=None):
     """Wrap one `_airline_card_html()` card per `(airline_name, shapes)`
     pair in the `.illustration-grid` container (06.6.4.1-UI-SPEC.md
     §7.1, companion/static/style.css from plan 01). Skips (renders
@@ -1253,11 +1188,6 @@ def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_
     `-last-seen` carry the same Paris-local text the no-JS path renders.
     Defaults to `None` like every other optional parameter here.
 
-    `edit_mode` (22-11-PLAN.md Task 2, X7): threaded to every card so
-    each one draws its own "Replace picture" control while the mode is
-    on. Defaults to `False`, so an existing two-argument call is
-    byte-identical to before.
-
     `manual_info_by_name` (14-06-PLAN.md Task 1, D-08/D-10): an optional
     dict mapping an airline's display name to its own
     `(prefix, superseded, needs_artwork)` triple — `render()`'s own
@@ -1270,7 +1200,7 @@ def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_
     cards = "".join(
         _airline_card_html(
             index, airline_name, shapes, state_dir,
-            manual_info_by_name.get(airline_name), now=now, edit_mode=edit_mode)
+            manual_info_by_name.get(airline_name), now=now)
         for index, (airline_name, shapes) in enumerate(pairs))
     return '<div class="illustration-grid">%s%s</div>' % (gap_cards_html, cards)
 
@@ -2339,53 +2269,6 @@ def _manual_summary_html(manual_rows):
         'data-filter-set="manual">%s</button>') % summary_text
 
 
-def _edit_toggle_html(ctx, edit_mode):
-    """The "Change pictures"/"Done" toggle (D-36, 20-UI-SPEC.md §K) —
-    the Airlines-side replacement for the Device page's now-deleted
-    "Edit artwork" link. Reuses the `.page-header__screen` wrapper
-    shape that deleted link used (`config_page.py`'s former
-    `_edit_artwork_link_html()`, removed by 20-07-PLAN.md Task 3), so
-    the two look alike wherever a household member has seen one
-    before. One literal `<a class="airlines-edit-toggle">` per branch,
-    two literal hrefs — never a script, a GET form or a runtime
-    query-string builder.
-
-    D-17/D-20 (21-01-PLAN.md Task 2): this toggle used to be gated on a
-    now-deleted display-mode preference, hiding the anchor and its
-    explanatory sentence entirely when that mode was active. That gate
-    is deleted — the toggle is unconditional now, one deletion serving
-    both decisions (Pitfall 6: plan 21-06/D-19-D-20's upload-restore
-    work depends on this and must not touch this function again). The
-    `?edit=1` lightbox forms this toggle links to keep their OWN,
-    separate `ctx["edit_mode"]` gate exactly as phase 19 shipped it
-    (D-22) — unaffected by this change.
-    """
-    if edit_mode:
-        toggle_html = (
-            '<a href="/airlines" class="airlines-edit-toggle">%s</a>'
-        ) % escape_html(i18n.t(DONE_TEXT))
-    else:
-        toggle_html = (
-            '<a href="/airlines?edit=1" class="airlines-edit-toggle">%s</a>'
-        ) % escape_html(i18n.t(CHANGE_PICTURES_TEXT))
-    # X7 (22-11-PLAN.md Task 2): the first half of "edit mode is
-    # visible" — a state badge on the page header, reusing
-    # `.banner__pill`'s label voice VERBATIM (no modifier, no second
-    # pill class). It renders only while the mode is on; out of edit
-    # mode there is no badge at all, because a badge naming a state the
-    # page is not in is worse than none.
-    badge_html = (
-        '<span class="banner__pill">%s</span>' % escape_html(i18n.t(EDITING_BADGE_TEXT))
-        if edit_mode else "")
-    return (
-        '<div class="page-header__screen">'
-        "%s"
-        "%s"
-        '<p class="text-label section-caption">%s</p>'
-        "</div>"
-    ) % (toggle_html, badge_html, escape_html(i18n.t(EDIT_TOGGLE_CAPTION)))
-
-
 def render(ctx):
     """The Airlines page (D-13 through D-17, extended by phase 13's
     D-03/D-06/D-07/D-10 through D-13, phase 14's coverage-gap grid,
@@ -2568,19 +2451,12 @@ def render(ctx):
     # app, so a render with manual rows and no filter bar cannot occur.
     summary_html = _manual_summary_html(manual_rows)
     filter_html = _filter_bar_html(total, summary_html) if (pairs or gap_shown) else ""
-    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle is
-    # the first element inside the gallery section, directly under the
-    # page's own heading/purpose block — not in page_header()'s own
-    # action_html slot, which Airlines has no precedent for using.
-    edit_toggle_html = _edit_toggle_html(ctx, edit_mode)
     return (
         layout.page_header(i18n.t("Airlines"), purpose=i18n.t(GALLERY_PURPOSE_TEXT))
-        + edit_toggle_html
         + gap_strip_html
         + filter_html
         + _gallery_grid_html(
-            pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now,
-            edit_mode=edit_mode)
+            pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now)
         + lightbox_html
         + resolve_html
     )

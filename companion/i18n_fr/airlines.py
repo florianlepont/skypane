@@ -24,14 +24,6 @@ key across sibling modules, see companion/i18n_fr/__init__.py):
 - "%d of %d shown" / "Clear" — companion/i18n_fr/health.py already
   owns these exact keys (its own filter-bar copy).
 
-Task 1 (20-10-PLAN.md) added only the "Change pictures"/"Done" toggle's
-three strings, pulled forward into that task's own commit so it was
-independently buildable and its own French-render check passed at
-that commit (the same precedent 20-01-SUMMARY.md/20-06-SUMMARY.md
-document for their own Task 2/3 splits). Task 2 extends this same file
-with the rest of the page's sweep — every remaining string on Airlines,
-per D-05.
-
 Copy follows D-09 (20-CONTEXT.md): sentence case, the typographic
 apostrophe (U+2019, never a straight quote), guillemets («…») for an
 embedded quotation rather than a straight or curly double-quote pair,
@@ -39,21 +31,6 @@ and a non-breaking space (U+00A0) before ":" ";" "?" "!".
 """
 
 CATALOG = {
-    # --- The "Change pictures"/"Done" toggle (D-36, 20-10-PLAN.md Task 1) --
-    "Change pictures": "Modifier les images",
-    "Done": "Terminé",
-    # X7 (22-11-PLAN.md Task 2): edit mode's two visible affordances on
-    # the grid — the page-header state badge and the per-card control.
-    # The aria template CONTAINS the visible label verbatim in French
-    # too ("Remplacer l’image" inside "Remplacer l’image de %s"), which
-    # is what WCAG 2.5.3 (Label in Name) requires.
-    "Editing": "Modification",
-    "Replace picture": "Remplacer l’image",
-    "Replace picture for %s": "Remplacer l’image de %s",
-    "Replace an airline’s picture or add one for an airline that has "
-    "none.": "Remplacez l’image d’une compagnie, ou ajoutez-en une pour "
-    "une compagnie qui n’en a pas encore.",
-
     # --- Page header, gallery, cards (20-10-PLAN.md Task 2) -------------
     "Illustration reference for every airline this frame can recognize.":
         "Référence des illustrations pour chaque compagnie que le cadre "
