@@ -52,10 +52,10 @@ CATALOG = {
     # --- Display/Device page shells (config_page.py's render()) --------
     "Everything about what the frame shows and when.":
         "Tout ce que le cadre affiche, et quand.",
-    "Hardware, data and diagnostics for the frame. Nothing here needs "
-    "changing day to day.":
-        "Matériel, données et diagnostics du cadre. Rien ici n’a "
-        "besoin d’être changé au quotidien.",
+    # 29-05-PLAN.md Task 1 (CFG-79): shortened in step with the English
+    # constant — see config_page.py's DEVICE_PAGE_PURPOSE for the cut.
+    "Hardware, data and diagnostics for the frame.":
+        "Matériel, données et diagnostics du cadre.",
     "Settings": "Réglages",
     "Screen: %s": "Écran : %s",
     "Screen type": "Type d’écran",
@@ -85,10 +85,10 @@ CATALOG = {
     "— the light on the frame and the alerts on your phone.":
         "— le voyant du cadre et les alertes sur votre téléphone.",
     "When you can't wait": "Quand vous ne pouvez pas attendre",
-    "— fetch a new picture right now instead of waiting for the next "
-    "wake.":
-        "— récupère une nouvelle image tout de suite au lieu "
-        "d’attendre le prochain réveil.",
+    # 29-05-PLAN.md Task 1 (CFG-79): shortened in step with the English
+    # constant — the apply-timing comparison is cut (DEVICE_POLL_INTRO).
+    "— fetch a new picture right now.":
+        "— récupère une nouvelle image tout de suite.",
 
     # --- Frame colours card (config_page.py's _frame_colours_card_html(),
     #     D-06..D-12, 21-05-PLAN.md Task 1) — replaces the retired Theme
@@ -154,10 +154,11 @@ CATALOG = {
     # key below is byte-identical to config_page.py's shortened
     # RUNWAY_SECTION_CAPTION, or this entry goes dead and the page
     # silently falls back to English.
-    "Which Orly runway the device watches. Applies on the next "
-    "scheduled poll, not immediately.":
-        "Quelle piste d’Orly l’appareil surveille. S’applique lors "
-        "de la prochaine vérification programmée, pas immédiatement.",
+    # 29-05-PLAN.md Task 1 (CFG-79): shortened again — the apply-timing
+    # clause is cut; the Frame strip already carries that fact once per
+    # page. See config_page.py's RUNWAY_SECTION_CAPTION for the ground.
+    "Which Orly runway the device watches.":
+        "Quelle piste d’Orly l’appareil surveille.",
     "Airport diagram for %s": "Schéma de l’aéroport pour %s",
 
     # --- Calendar card (config_page.py's merged calendar_group()/
@@ -283,11 +284,12 @@ CATALOG = {
     # --- Device-only groups (config_page.py's led_group()/
     #     wake_interval_group()/poll_trigger_section()) -----------------
     "Diagnostic LED": "LED de diagnostic",
-    "Lit only during the device's brief wake window, not visible "
-    "from the wall side. Applies on the next scheduled poll.":
+    # 29-05-PLAN.md Task 1 (CFG-79): shortened again — "not visible from
+    # the wall side" (a reason clause) and the apply-timing clause are
+    # both cut. See config_page.py's LED_SECTION_CAPTION for the ground.
+    "Lit only during the device's brief wake window.":
         "Allumée seulement pendant la brève fenêtre de réveil de "
-        "l’appareil, non visible du côté mur. S’applique lors de "
-        "la prochaine vérification programmée.",
+        "l’appareil.",
     # 23-07-PLAN.md Task 2 (D2/CFG-36): "Enable diagnostic LED" is
     # DELETED, not commented out. It was the label of the LED checkbox,
     # and that checkbox is retired — the Diagnostic LED is now a
@@ -301,12 +303,14 @@ CATALOG = {
     # ("Applies on the next scheduled poll.") are both cut; the
     # derived "(prochain réveil ≈ ...)" suffix already states the
     # apply timing with a real timestamp.
-    "Shorter means fresher info and more battery drain; longer means "
-    "more battery life and staler info at a glance.":
-        "Plus court signifie des informations plus fraîches et plus de "
-        "décharge de la batterie ; plus long signifie plus "
-        "d’autonomie et des informations plus datées en un coup "
-        "d’œil.",
+    #
+    # 29-05-PLAN.md Task 1 (CFG-79): shortened again, in the
+    # 2026-09-17 audit’s own quoted shape (P1) — the two gauges
+    # just below this caption already state both directions with
+    # real numbers, so naming only one side in prose loses nothing.
+    "Shorter: fresher data, more battery drain.":
+        "Plus court : données plus fraîches, batterie plus "
+        "sollicitée.",
     "Wake interval (seconds)": "Intervalle de réveil (secondes)",
     # 25-05-PLAN.md Task 2 (CFG-52): the range input's OWN accessible
     #     name. It needs one distinct from the number input's label
@@ -361,10 +365,10 @@ CATALOG = {
         "les %d min.",
     "Uses server default": "Utilise la valeur par défaut du serveur",
     "Manual refresh": "Actualisation manuelle",
-    "Manually trigger an immediate poll cycle instead of waiting for "
-    "the next scheduled one.":
-        "Déclenchez manuellement une vérification immédiate au lieu "
-        "d’attendre la prochaine programmée.",
+    # 29-05-PLAN.md Task 1 (CFG-79): shortened again — the apply-timing
+    # comparison is cut. See config_page.py's POLL_SECTION_CAPTION.
+    "Trigger an immediate poll cycle.":
+        "Déclenchez un cycle de vérification immédiat.",
     "Trigger poll now": "Déclencher une vérification maintenant",
     "Polling…": "Vérification en cours…",
     "Poll triggered recently — try again in {n}s.":

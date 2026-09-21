@@ -145,9 +145,13 @@ DISPLAY_PAGE_TITLE = "Display"
 # sentence widens from "how the frame looks" to the whole page's scope.
 DISPLAY_PAGE_PURPOSE = "Everything about what the frame shows and when."
 DEVICE_PAGE_TITLE = "Device"
-DEVICE_PAGE_PURPOSE = (
-    "Hardware, data and diagnostics for the frame. Nothing here needs "
-    "changing day to day.")
+# 29-05-PLAN.md Task 1 (CFG-79): shortened from 14 words to 7 — the
+# "nothing here needs changing day to day" reassurance is a REASON
+# clause (why the page's contents don't matter day to day), not a fact
+# about what the page contains, and CFG-79's floor cuts reason clauses
+# on sight. What survives is the one thing this sentence is actually
+# for: naming the page's SUBJECT.
+DEVICE_PAGE_PURPOSE = "Hardware, data and diagnostics for the frame."
 SCREEN_CAPTION_TEMPLATE = "Screen: %s"
 
 # 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C): the
@@ -187,9 +191,16 @@ DEVICE_TELLS_HEADING = "How it tells you"
 DEVICE_TELLS_INTRO = "— the light on the frame and the alerts on your phone."
 DEVICE_POLL_SECTION_ID = "device-poll"
 DEVICE_POLL_HEADING = "When you can't wait"
-DEVICE_POLL_INTRO = (
-    "— fetch a new picture right now instead of waiting for the next "
-    "wake.")
+# 29-05-PLAN.md Task 1 (CFG-79): shortened from 14 words to 6 — "instead
+# of waiting for the next wake" is the apply-timing idea in disguise
+# (it is restating what NOT triggering this control means), and CFG-79
+# reserves that idea for the Frame strip alone. What survives names
+# what the control DOES, distinct on purpose from POLL_SECTION_CAPTION
+# below (which names the control itself, not its effect) — an intro
+# and its one card's caption saying the same thing at two levels is
+# 27-06's own CFG-65 finding, and this cut keeps them apart rather than
+# merging them.
+DEVICE_POLL_INTRO = "— fetch a new picture right now."
 # 19-12-PLAN.md Task 2 (D-23): the conditional screen-type <select> — an
 # element id (not a class) because its own <label> targets it via `for`.
 SCREEN_SELECTOR_ID = "screen-id-selector"
@@ -462,18 +473,34 @@ DISPLAY_CHECKBOX_VALUE = "on"
 # quoted again) had been describing a picture that no longer exists
 # since CFG-66 shipped. The one-caption-per-section rule above still
 # holds: this stays ONE caption, shortened in place rather than
-# replaced by a second paragraph. What survives is the three facts
-# that were always true independent of any drawing — which runway,
-# and that the change applies on the next scheduled poll, not
-# immediately — which is also why this caption now reads consistently
-# with LED_SECTION_CAPTION below it, which ends on that identical
-# clause.
-RUNWAY_SECTION_CAPTION = (
-    "Which Orly runway the device watches. Applies on the next "
-    "scheduled poll, not immediately.")
-LED_SECTION_CAPTION = (
-    "Lit only during the device's brief wake window, not visible from "
-    "the wall side. Applies on the next scheduled poll.")
+# replaced by a second paragraph. What survived THAT cut was the three
+# facts that were always true independent of any drawing — which
+# runway, and that the change applies on the next scheduled poll, not
+# immediately — which is also why this caption used to read
+# consistently with LED_SECTION_CAPTION below it, which ended on that
+# identical clause.
+#
+# 29-05-PLAN.md Task 1 (CFG-79), 2026-09-21: that consistency is now
+# consistency in the WRONG direction. "Applies on the next scheduled
+# poll" is CFG-79's own named example of a mechanism/apply-timing
+# clause repeated under a card when the Frame strip already carries it
+# once per page (companion/layout.py's frame_strip_html(), the delay
+# caption both the Screen and Quiet-hours switch cells share) — the
+# developer's own quoted tour example ("il y a trop de texte descriptif
+# qui servent à rien") is this exact caption. BOTH captions lose the
+# clause here, not just this one: the "consistency" quick task 260921-
+# n2n recorded between them survives as "both keep exactly one fact,
+# their own control's subject", not as a shared trailing sentence. What
+# remains of this caption is one fact: which runway. 14 words -> 6.
+RUNWAY_SECTION_CAPTION = "Which Orly runway the device watches."
+# 29-05-PLAN.md Task 1 (CFG-79): 20 words -> 8. Two clauses cut, both
+# for the same reason as RUNWAY_SECTION_CAPTION above: "not visible
+# from the wall side" is a reason clause (why the placement doesn't
+# matter), not a fact about the control, and the closing "Applies on
+# the next scheduled poll" is the apply-timing clause the Frame strip
+# already carries once per page. What remains names the one fact this
+# caption is actually for: when the LED lights up.
+LED_SECTION_CAPTION = "Lit only during the device's brief wake window."
 
 # 19-11-PLAN.md Task 3 (D-12/A-30): stable DOM ids for the group headings
 # a radiogroup's aria-labelledby points at, and for each hint paragraph
@@ -488,9 +515,16 @@ RUNWAY_SECTION_CAPTION_ID = "runway-caption"
 RUNWAY_GROUP_HEADING_ID = "runway-group-heading"
 LED_SECTION_CAPTION_ID = "led-caption"
 POLL_SECTION_HEADING = "Manual refresh"
-POLL_SECTION_CAPTION = (
-    "Manually trigger an immediate poll cycle instead of waiting for "
-    "the next scheduled one.")
+# 29-05-PLAN.md Task 1 (CFG-79): shortened from 14 words to 5 —
+# "instead of waiting for the next scheduled one" is the apply-timing
+# idea again, this time framed as what NOT triggering this control
+# means, and CFG-79 cuts it for the identical reason DEVICE_POLL_INTRO
+# above does. What survives names the CONTROL (a poll cycle), distinct
+# from DEVICE_POLL_INTRO's own surviving text, which names the
+# control's EFFECT (a new picture) — the supersection intro and this
+# one card's caption still say two different things at two levels,
+# matching 27-06's own CFG-65 finding that a merge here would be wrong.
+POLL_SECTION_CAPTION = "Trigger an immediate poll cycle."
 # D-05 (06.6.4.1): the LED group's new user-facing heading, once it moves
 # from its own <fieldset>/<legend> into a sibling <h2>-headed group of
 # the merged form — see led_group() below.
@@ -615,9 +649,19 @@ WAKE_INTERVAL_SECTION_HEADING = "Wake interval"
 # the apply timing with a real timestamp, making the generic sentence
 # redundant. What is kept is the one sentence a reader needs to ACT:
 # what a shorter/longer number trades off.
-WAKE_INTERVAL_SECTION_CAPTION = (
-    "Shorter means fresher info and more battery drain; longer means "
-    "more battery life and staler info at a glance.")
+#
+# 29-05-PLAN.md Task 1 (CFG-79), 2026-09-21: cut again, 19 words -> 6,
+# in the audit's own shape ("Plus court : données plus fraîches,
+# batterie plus sollicitée." — 2026-09-17 audit, P1). This is NOT a
+# fact lost: the "longer means more battery life" half this sentence
+# used to spell out is exactly what THE TWO GAUGES below (CFG-49,
+# 25-05-PLAN.md Task 1) already state, in both directions, with real
+# measured numbers — WAKE_FRESHNESS_TEXT's own "at most # min later"
+# and battery.battery_life_estimate()'s own day count. A caption naming
+# the trade-off in prose right above two gauges that COMPUTE it is the
+# redundant half; the gauges are the reference material, so nothing
+# here needed moving into a disclosure.
+WAKE_INTERVAL_SECTION_CAPTION = "Shorter: fresher data, more battery drain."
 WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
 # 22-10-PLAN.md Task 3 (B17): the unit, rendered as a SIBLING beside the
 # number input — never a placeholder (the field already has one, and a
@@ -782,9 +826,15 @@ WAKE_SLIDER_LABEL = "Wake interval slider"
 # sibling of LED/Wake interval inside <form id="{SETTINGS_FORM_ID}">,
 # built against led_group()'s exact fieldset-free idiom.
 NOTIFICATIONS_SECTION_HEADING = "Notifications"
-NOTIFICATIONS_SECTION_CAPTION = (
-    "Get a push alert when the battery runs low or the frame stops "
-    "checking in.")
+# 29-05-PLAN.md Task 1 (CFG-79): shortened from 15 words to 9. Nothing
+# lost: the two triggers this sentence used to spell out by name
+# ("the battery runs low", "the frame stops checking in") are the exact
+# two checkboxes rendered immediately below (NOTIFICATIONS_BATTERY_
+# LABEL = "Battery low", NOTIFICATIONS_SILENT_LABEL = "Frame silent") —
+# the caption naming both again in prose was a third surface for the
+# same two facts. What survives says there ARE two kinds of alert,
+# generically, and the checkboxes name them specifically.
+NOTIFICATIONS_SECTION_CAPTION = "Get a push alert about battery or connection issues."
 NOTIFICATIONS_SECTION_CAPTION_ID = "notifications-caption"
 # D-26 amended (20-CONTEXT.md's Resolutions): write-only, like the
 # calendar feed URL — never rendered back, not partially masked. The
@@ -792,11 +842,26 @@ NOTIFICATIONS_SECTION_CAPTION_ID = "notifications-caption"
 NOTIFICATIONS_STATUS_CONFIGURED_VERDICT = "Configured"
 NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT = "Not configured"
 NOTIFICATIONS_URL_FIELD_LABEL = "Push topic URL"
-NOTIFICATIONS_URL_HINT = (
-    "Paste your ntfy.sh topic URL (or a self-hosted one). Stored on "
-    "the server and never shown back here — pasting a new one "
-    "replaces the old.")
+# 29-05-PLAN.md Task 1 (CFG-79): 26 words -> 9. This hint carried real
+# reference material CFG-79's own rule says must be MOVED, not deleted:
+# where the value is stored, that it is never shown back, and that
+# pasting a new one replaces the old. That sentence survives verbatim
+# in meaning as NOTIFICATIONS_URL_HOW_IT_WORKS_BODY below, reached
+# through the same inline "How it works" <details> pattern
+# CALENDAR_HOW_IT_WORKS_SUMMARY/_BODY already use (config_page.py's
+# calendar_group()) — the identical summary label, reused rather than
+# a second one invented for an identical disclosure shape. What stays
+# visible here is the one thing a reader needs BEFORE they act: what
+# to paste.
+NOTIFICATIONS_URL_HINT = "Paste your ntfy.sh topic URL (or a self-hosted one)."
 NOTIFICATIONS_URL_HINT_ID = "notifications-url-hint"
+# 29-05-PLAN.md Task 1 (CFG-79): the storage/replacement sentence moved
+# out of NOTIFICATIONS_URL_HINT above, into the "How it works"
+# disclosure body rendered by notifications_group() below — same
+# wording, new home, nothing lost.
+NOTIFICATIONS_URL_HOW_IT_WORKS_BODY = (
+    "Stored on the server and never shown back here — pasting a new "
+    "one replaces the old.")
 NOTIFICATIONS_REPLACE_URL_SUMMARY = "Replace the URL"
 # A shape bound against an absurd paste, matching CALENDAR_URL_MAX_LEN's
 # own established rationale exactly — the one arbiter of an acceptable
@@ -4117,6 +4182,22 @@ def notifications_group(
         hint_id=NOTIFICATIONS_URL_HINT_ID)
     url_error_html = _field_error_html(
         errors, "notifications_topic_url", "notifications-topic-url")
+    # 29-05-PLAN.md Task 1 (CFG-79): the storage/replacement sentence
+    # that used to be NOTIFICATIONS_URL_HINT's own second half now
+    # lives here — the same inline `<details><summary>%s</summary>
+    # <p class="text-body">%s</p></details>` pattern calendar_group()'s
+    # own "How it works" disclosure uses (config_page.py, D-14a), with
+    # the identical CALENDAR_HOW_IT_WORKS_SUMMARY label rather than a
+    # second, near-duplicate summary string. This disclosure is
+    # unconditional (unlike the `configured`-gated one below, which
+    # wraps the whole field): the storage/replacement fact is true
+    # whether or not a URL is stored yet.
+    how_it_works_html = (
+        '<details><summary>%s</summary><p class="text-body">%s</p></details>'
+    ) % (
+        escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_SUMMARY)),
+        escape_html(i18n.t(NOTIFICATIONS_URL_HOW_IT_WORKS_BODY)),
+    )
     field_html = (
         '<div class="rule-add-form__field">'
         '<label for="notifications-topic-url">%s</label>'
@@ -4125,12 +4206,14 @@ def notifications_group(
         'spellcheck="false" maxlength="%s"%s>'
         '<p class="text-label section-caption" id="%s">%s</p>'
         "%s"
+        "%s"
         "</div>"
     ) % (
         escape_html(i18n.t(NOTIFICATIONS_URL_FIELD_LABEL)),
         NOTIFICATIONS_URL_MAX_LEN, url_error_attrs,
         escape_html(NOTIFICATIONS_URL_HINT_ID), escape_html(i18n.t(NOTIFICATIONS_URL_HINT)),
         url_error_html,
+        how_it_works_html,
     )
     if configured:
         field_html = (
