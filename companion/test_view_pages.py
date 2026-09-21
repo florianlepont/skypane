@@ -657,6 +657,24 @@ EXPECTED_CHECK_COUNT = 165
 # gated-on-count check). 165 + 1 = 166, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 166
 
+# 29-01-PLAN.md (CFG-81): -4 net. Five checks retired outright (the
+# edit_mode=True "one of each edit-only form" duplicate, the
+# "Change pictures" toggle default-render check, the "Done" toggle
+# edit_mode=True check, the French toggle-label check, and the CSS-rule
+# .airlines-edit-toggle in-normal-case check — its own CSS rule block is
+# deleted by Task 1 so it cannot be retargeted); one new absence check
+# added (no toggle class, no ?edit= literal, either language) covers the
+# property worth keeping from two of those retirements. Two checks
+# inverted/replaced in place (net 0 each): the default-render "no
+# edit-only forms" check now asserts the opposite (forms always
+# present), and the badge/per-card-control check now asserts their
+# absence plus the trigger's own vocabulary as a relationship. One
+# browser-level check retargeted in place (net 0): the exact-"1"
+# membership test is gone with the parameter, replaced by proving the
+# dialog's forms render unconditionally over real HTTP. 5 retired - 1
+# added back = -4. 166 - 4 = 162, re-derived by RUNNING (162/162 pass).
+EXPECTED_CHECK_COUNT = 162
+
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -3585,13 +3603,11 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-        # 19-08-PLAN.md Task 3 (D-22) retarget: LIGHTBOX_REPLACE_FORM_
-        # CLASS ("lightbox__replace") is now one of the three
-        # artwork-editing forms gated behind edit_mode, so this
-        # DOM-contract guard must render under edit_mode=True to see it
-        # at all - a plain {} render is exercised separately by the
-        # D-22 absence checks below.
-        airlines_rendered = airlines_page.render({"edit_mode": True})
+        # 29-01-PLAN.md (CFG-81): LIGHTBOX_REPLACE_FORM_CLASS
+        # ("lightbox__replace") is unconditional now — the page-wide
+        # editing mode this guard used to need is deleted — so a plain
+        # default render already carries it.
+        airlines_rendered = airlines_page.render({})
 
         for token in _LIGHTBOX_SHARED_TOKENS:
             if token not in js_source:
@@ -3976,11 +3992,10 @@ def main():
         with open(style_css_path) as fh:
             style_css_source = fh.read()
 
-        # 19-08-PLAN.md Task 3 (D-22) retarget: LIGHTBOX_REPLACE_FORM_
-        # CLASS is edit-gated now (see the DOM-contract guard's own
-        # identical retarget above) - render under edit_mode=True so
-        # this check keeps proving the token reaches a real render.
-        airlines_rendered = airlines_page.render({"edit_mode": True})
+        # 29-01-PLAN.md (CFG-81): LIGHTBOX_REPLACE_FORM_CLASS is
+        # unconditional now (see the DOM-contract guard's own identical
+        # retarget above) - a plain default render already carries it.
+        airlines_rendered = airlines_page.render({})
         tmp = _mkstate("h-replace-tokens-absent")
         try:
             names = ["2026-08-27T10-07-00+00-00.png"]
@@ -4151,61 +4166,55 @@ def main():
         _airlines_resolve_panel_back_link_names_and_targets_airlines)
 
     # ======================================================================
-    # 19-08-PLAN.md Task 3 (D-22): the shared lightbox's replace, upload
-    # and delete forms render only under an exact ?edit=1; the everyday
-    # view-only lightbox keeps only the resolve-name form.
+    # 29-01-PLAN.md (CFG-81): the shared lightbox's replace, upload and
+    # delete forms all render unconditionally now — the page-wide
+    # editing mode that used to gate replace/delete behind an exact
+    # ?edit=1 is deleted outright. panel-lookup.js decides which of
+    # replace/delete is VISIBLE on a given open, from the clicked
+    # trigger's own mode/manual data attributes.
     # ======================================================================
 
-    def _airlines_default_render_has_no_edit_only_forms():
+    def _airlines_default_render_always_has_the_dialogs_forms():
         rendered = airlines_page.render({})
-        # 21-06-PLAN.md Task 1 (D-19) dropped RESOLVE_UPLOAD_ZONE_CLASS
-        # from this asserted-absent tuple. 21-06-PLAN.md Task 2 (D-19)
-        # retargets it further: the dialog's own upload zone is
-        # unconditional now too, so this default render (the everyday
-        # view-only lightbox) must contain exactly one of it. Replace
-        # and delete stay edit-only (D-20).
-        #
         # Exact `class="{token}"` (with the closing quote), never a
         # bare substring - LIGHTBOX_REPLACE_FORM_CLASS
         # ("lightbox__replace") is itself a prefix of several sibling
         # classes (lightbox__replace-zone, lightbox__replace-icon,
-        # lightbox__replace-hint) that render unconditionally as part
-        # of the now-unconditional upload zone's own markup.
+        # lightbox__replace-hint) that also render unconditionally as
+        # part of the upload zone's own markup.
         for token in (
                 airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
-                airlines_page.LIGHTBOX_DELETE_CLASS):
-            if ('class="%s"' % token) in rendered:
-                return False, "expected no %r in a default (edit_mode absent) render" % (token,)
-        upload_count = rendered.count('class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS)
-        if upload_count != 1:
-            return False, (
-                "expected exactly one %r in a default (edit_mode absent) render, got %d"
-                % (airlines_page.RESOLVE_UPLOAD_ZONE_CLASS, upload_count))
+                airlines_page.LIGHTBOX_DELETE_CLASS,
+                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS):
+            count = rendered.count('class="%s"' % token)
+            if count != 1:
+                return False, (
+                    "expected exactly one %r in a default render (no page-wide editing mode "
+                    "gates this dialog form any more, CFG-81), got %d" % (token, count))
         return True, ""
     check(
-        "a default airlines_page.render({}) call (edit_mode absent, the everyday view-only "
-        "lightbox) contains none of the replace or delete edit-only forms, but exactly one "
-        "upload zone - unconditional now (D-19), unlike replace/delete which stay behind "
-        "\"Change pictures\" (D-20, D-22, 19-08-PLAN.md Task 3, retargeted by 21-06-PLAN.md "
-        "Tasks 1 and 2)",
-        _airlines_default_render_has_no_edit_only_forms)
+        "a default airlines_page.render({}) call (no query parameter involved) carries exactly "
+        "one each of the dialog's replace form, delete form and upload zone — the page-wide "
+        "editing mode that used to gate replace/delete behind an exact ?edit=1 is deleted "
+        "(CFG-81, 29-01-PLAN.md)",
+        _airlines_default_render_always_has_the_dialogs_forms)
 
     def _airlines_default_render_step_b_upload_zone_unconditional():
         # 21-06-PLAN.md Task 1 (D-19): a Step-B entry (name saved, no
         # artwork yet) offers the upload zone in the no-JS resolve
-        # panel without ?edit=1 - naming an airline and giving it a
-        # picture is one job. The shared delete form stays edit_mode-
-        # gated (D-20), and this no-JS fallback panel has no replace
-        # form of its own.
+        # panel — naming an airline and giving it a picture is one job.
+        # airlines_page.render() always emits both the fallback panel
+        # and the lightbox when there is at least one card, so a Step-B
+        # render carries TWO upload zones (one per surface).
         #
-        # 21-06-PLAN.md Task 2 (D-19) drops the identical guard on the
-        # lightbox's own copy, and airlines_page.render() always emits
-        # both the fallback panel and the lightbox when there is at
-        # least one card - so a Step-B render now carries TWO upload
-        # zones (one per surface), not one. This is the intended
-        # outcome of both decisions landing together, not a
-        # double-count bug (per 21-06-PLAN.md Task 1's own instruction
-        # to "fix the count, not the intent").
+        # 29-01-PLAN.md (CFG-81): the shared delete form is unconditional
+        # now too, and an entry exists at this point (Step B), so it
+        # renders once from the no-JS fallback panel (a real,
+        # server-computed action) and once from the dialog (an
+        # `action=""` placeholder panel-lookup.js fills in per click) —
+        # two, not zero. The dialog's replace form is unconditional as
+        # well, but this no-JS fallback panel has no replace form of its
+        # own, so that stays exactly one (the dialog's own copy).
         tmp = _mkstate("a-step-b-upload-default")
         try:
             result = manual_resolutions.add_entry(tmp, "NEW", "Totally Novel Airline")
@@ -4217,8 +4226,7 @@ def main():
         upload_count = rendered.count('class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS)
         if upload_count != 2:
             return False, (
-                "expected exactly two %r (fallback panel + lightbox) in a default "
-                "(edit_mode absent) Step-B render, got %d"
+                "expected exactly two %r (fallback panel + lightbox) in a Step-B render, got %d"
                 % (airlines_page.RESOLVE_UPLOAD_ZONE_CLASS, upload_count))
         # Exact `class="{token}"` (with the closing quote), never a bare
         # substring - LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
@@ -4226,16 +4234,24 @@ def main():
         # (lightbox__replace-zone, lightbox__replace-icon,
         # lightbox__replace-hint) that render unconditionally as part of
         # the upload zone's own markup.
-        if ('class="%s"' % airlines_page.LIGHTBOX_DELETE_CLASS) in rendered:
-            return False, "expected zero delete forms in a default (edit_mode absent) Step-B render"
-        if ('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS) in rendered:
-            return False, "expected zero replace forms in a default (edit_mode absent) Step-B render"
+        delete_count = rendered.count('class="%s"' % airlines_page.LIGHTBOX_DELETE_CLASS)
+        if delete_count != 2:
+            return False, (
+                "expected exactly two %r (fallback panel + lightbox) in a Step-B render, got %d"
+                % (airlines_page.LIGHTBOX_DELETE_CLASS, delete_count))
+        replace_count = rendered.count('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
+        if replace_count != 1:
+            return False, (
+                "expected exactly one %r (the dialog's own copy — this no-JS fallback panel has "
+                "none of its own) in a Step-B render, got %d"
+                % (airlines_page.LIGHTBOX_REPLACE_FORM_CLASS, replace_count))
         return True, ""
     check(
-        "a default (edit_mode absent) render of a Step-B entry (name saved, no artwork yet) "
-        "contains exactly two upload zones (the no-JS fallback panel's own copy plus the "
-        "lightbox's), zero manual-delete forms and zero replace forms (D-19/D-20, "
-        "21-06-PLAN.md Tasks 1 and 2)",
+        "a render of a Step-B entry (name saved, no artwork yet) contains exactly two upload "
+        "zones and two manual-delete forms (the no-JS fallback panel's own copy plus the "
+        "lightbox's, both unconditional per CFG-81), and exactly one replace form (the "
+        "dialog's own copy — this no-JS fallback panel has none of its own) (D-19, "
+        "21-06-PLAN.md Task 1; retargeted by 29-01-PLAN.md)",
         _airlines_default_render_step_b_upload_zone_unconditional)
 
     def _airlines_default_render_keeps_exactly_one_resolve_name_form():
@@ -4252,91 +4268,48 @@ def main():
         "19-08-PLAN.md Task 3)",
         _airlines_default_render_keeps_exactly_one_resolve_name_form)
 
-    def _airlines_edit_mode_render_has_exactly_one_of_each_edit_only_form():
-        # Exact `class="{token}"` (with the closing quote), never a bare
-        # substring - LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
-        # is itself a prefix of several sibling classes
-        # (lightbox__replace-zone, lightbox__replace-icon,
-        # lightbox__replace-hint), each of which also renders under
-        # edit_mode=True.
-        rendered = airlines_page.render({"edit_mode": True})
-        for token in (
-                airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
-                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
-                airlines_page.LIGHTBOX_DELETE_CLASS):
-            count = rendered.count('class="%s"' % token)
-            if count != 1:
-                return False, "expected exactly one %r form under edit_mode=True, got %d" % (token, count)
-        return True, ""
-    check(
-        "airlines_page.render({\"edit_mode\": True}) contains exactly one each of the replace, "
-        "upload-zone and delete edit-only forms (D-22, 19-08-PLAN.md Task 3)",
-        _airlines_edit_mode_render_has_exactly_one_of_each_edit_only_form)
+    # 29-01-PLAN.md (CFG-81): the check that used to prove "exactly one
+    # of each edit-only form under edit_mode=True" is retired — the
+    # property is now _airlines_default_render_always_has_the_dialogs_
+    # forms()'s own, above, since there is no longer a second render
+    # state to distinguish.
 
     # ======================================================================
-    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle,
-    # unconditional since 21-01-PLAN.md Task 2 (D-17/D-20) — never
-    # touching D-22's own ctx["edit_mode"] gate on the lightbox forms
-    # checked just above.
+    # 29-01-PLAN.md (CFG-81): the "Change pictures"/"Done" toggle, its
+    # editing badge and its explanatory caption are deleted outright —
+    # the door that used to hide the dialog's own actions is gone, not
+    # relocated. The checks that used to exercise it
+    # (_airlines_default_render_has_one_change_pictures_toggle,
+    # _airlines_edit_mode_render_shows_done_toggle_with_no_query,
+    # _airlines_french_render_shows_translated_toggle_labels) are
+    # retired; the one property worth keeping — that the toggle can
+    # never come back by accident — is the new absence check below.
     # ======================================================================
 
-    def _airlines_default_render_has_one_change_pictures_toggle():
-        rendered = airlines_page.render({})
-        count = rendered.count('class="airlines-edit-toggle"')
-        if count != 1:
-            return False, "expected exactly one airlines-edit-toggle anchor in a default render, got %d" % count
-        if 'href="/airlines?edit=1"' not in rendered:
-            return False, "expected the toggle's href to be /airlines?edit=1 in a default render"
-        if airlines_page.CHANGE_PICTURES_TEXT not in rendered:
-            return False, "expected the toggle's text to read 'Change pictures'"
-        if airlines_page.EDIT_TOGGLE_CAPTION not in rendered:
-            return False, "expected the explanatory sentence under the toggle"
-        return True, ""
-    check(
-        "a default airlines_page.render({}) call contains exactly one airlines-edit-toggle anchor, "
-        "linking to /airlines?edit=1 and reading 'Change pictures', plus its explanatory sentence "
-        "(D-36, 20-10-PLAN.md Task 1)",
-        _airlines_default_render_has_one_change_pictures_toggle)
-
-    def _airlines_edit_mode_render_shows_done_toggle_with_no_query():
-        rendered = airlines_page.render({"edit_mode": True})
-        count = rendered.count('class="airlines-edit-toggle"')
-        if count != 1:
-            return False, "expected exactly one airlines-edit-toggle anchor under edit_mode=True, got %d" % count
-        if 'href="/airlines"' not in rendered or 'href="/airlines?edit=1"' in rendered:
-            return False, "expected the toggle's href to be /airlines (no query) under edit_mode=True"
-        if airlines_page.DONE_TEXT not in rendered:
-            return False, "expected the toggle's text to read 'Done' under edit_mode=True"
-        return True, ""
-    check(
-        "airlines_page.render({\"edit_mode\": True}) shows the toggle reading 'Done' and linking "
-        "back to /airlines with no query (D-36, 20-10-PLAN.md Task 1)",
-        _airlines_edit_mode_render_shows_done_toggle_with_no_query)
-
-    # D-17 (21-01-PLAN.md Task 2): the two checks that used to exercise
-    # the display-mode gate on airlines_page._edit_toggle_html() are
-    # deleted — that gate itself is deleted (D-20: the toggle is
-    # unconditional now). Coverage that the toggle renders by default
-    # is unaffected and stays live in
-    # _airlines_default_render_has_one_change_pictures_toggle above.
-
-    def _airlines_french_render_shows_translated_toggle_labels():
+    def _airlines_no_page_wide_editing_mode_survives():
         import companion.prefs as _prefs
         try:
-            _prefs.set_request_prefs(lang="fr")
-            rendered_closed = airlines_page.render({})
-            rendered_open = airlines_page.render({"edit_mode": True})
+            for lang in ("en", "fr"):
+                _prefs.set_request_prefs(lang=lang)
+                for rendered in (
+                        airlines_page.render({}),
+                        airlines_page.render({"resolve_prefix": "not-a-real-prefix"})):
+                    if 'class="airlines-edit-toggle"' in rendered:
+                        return False, (
+                            "expected no airlines-edit-toggle anchor to ever render again "
+                            "(lang=%r)" % (lang,))
+                    if "?edit=" in rendered:
+                        return False, (
+                            "expected no ?edit= query literal to ever render again (lang=%r)"
+                            % (lang,))
         finally:
             _prefs.set_request_prefs(lang="en")
-        if "Modifier les images" not in rendered_closed:
-            return False, "expected the French 'Modifier les images' label in a closed, French render"
-        if "Terminé" not in rendered_open:
-            return False, "expected the French 'Terminé' label in an open, French render"
         return True, ""
     check(
-        "a French render of Airlines shows 'Modifier les images' when closed and 'Terminé' when "
-        "open (D-05, D-09, D-36, 20-10-PLAN.md Task 1)",
-        _airlines_french_render_shows_translated_toggle_labels)
+        "the deleted page-wide editing toggle (its class literal) and the deleted ?edit= query "
+        "parameter (its literal form) never render again, in either language, whether the query "
+        "string is absent or carries an arbitrary unrelated value (CFG-81, 29-01-PLAN.md)",
+        _airlines_no_page_wide_editing_mode_survives)
 
     # ======================================================================
     # 20-10-PLAN.md Task 2 (D-05): the rest of Airlines through i18n.t(),
@@ -4352,16 +4325,16 @@ def main():
             _prefs.set_request_prefs(lang="en")
         for needle in (
                 ">Compagnies<", "Filtrer par compagnie ou indicatif",
-                "Illustration de la compagnie", "Modifier les images"):
+                "Illustration de la compagnie"):
             if needle not in rendered:
                 return False, "expected the French %r in a French Airlines render" % (needle,)
         if "Air France" not in rendered:
             return False, "expected the seeded/curated airline name 'Air France' to stay untranslated data"
         return True, ""
     check(
-        "a French render of Airlines shows the French page title, filter label, lightbox aria-label "
-        "and toggle text, while a real airline name ('Air France') stays untranslated data (D-05, "
-        "20-10-PLAN.md Task 2)",
+        "a French render of Airlines shows the French page title, filter label and lightbox "
+        "aria-label, while a real airline name ('Air France') stays untranslated data (D-05, "
+        "20-10-PLAN.md Task 2; the toggle-text needle retired by 29-01-PLAN.md/CFG-81)",
         _airlines_french_render_translates_headings_not_data)
 
     def _airlines_full_seeded_render_french_end_to_end():
@@ -4378,13 +4351,12 @@ def main():
                 _prefs.set_request_prefs(lang="fr")
                 rendered_fr = airlines_page.render({"state_dir": tmp})
                 resolve_fr = airlines_page.render(
-                    {"state_dir": tmp, "resolve_prefix": "XYZ", "edit_mode": True})
+                    {"state_dir": tmp, "resolve_prefix": "XYZ"})
             finally:
                 _prefs.set_request_prefs(lang="en")
             for needle in (
                     ">Compagnies<", "Compagnies non identifiées",
-                    "Le cadre a vu ces indicatifs mais ne connaît pas la compagnie",
-                    "Modifier les images"):
+                    "Le cadre a vu ces indicatifs mais ne connaît pas la compagnie"):
                 if needle not in rendered_fr:
                     return False, "expected the French %r in the French Airlines render" % (needle,)
             for needle in (
@@ -4398,7 +4370,7 @@ def main():
             rendered_en = airlines_page.render({"state_dir": tmp})
             for needle in (
                     '<h1 class="page-title">Airlines</h1>', airlines_page.GAP_STRIP_HEADING,
-                    airlines_page.GAP_STRIP_BODY, airlines_page.CHANGE_PICTURES_TEXT):
+                    airlines_page.GAP_STRIP_BODY):
                 if needle not in rendered_en:
                     return False, "expected the English %r in the default-language Airlines render" % (
                         needle,)
@@ -4406,10 +4378,11 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a fully-seeded Airlines render under lang='fr' shows the French gap-strip heading/sentence, "
-        "toggle label and resolve-panel copy with no English leaking in, the seeded example callsign "
-        "stays untranslated data, and the identical seeded render under the default language still "
-        "carries every pre-existing English needle (D-05, 20-10-PLAN.md Task 2)",
+        "a fully-seeded Airlines render under lang='fr' shows the French gap-strip heading/sentence "
+        "and resolve-panel copy with no English leaking in, the seeded example callsign stays "
+        "untranslated data, and the identical seeded render under the default language still "
+        "carries every pre-existing English needle (D-05, 20-10-PLAN.md Task 2; the toggle-label "
+        "needle retired by 29-01-PLAN.md/CFG-81)",
         _airlines_full_seeded_render_french_end_to_end)
 
     def _airlines_catalog_keys_all_present_in_merged_catalog():
@@ -4672,150 +4645,71 @@ def main():
     # ======================================================================
     # 22-11-PLAN.md Task 2 (X7): edit mode becomes visible, the toggle
     # stops shouting, and the manual count becomes a filter control.
+    #
+    # 29-01-PLAN.md (CFG-81) retires the first two checks below outright:
+    # the toggle they exercised (and its caption, its badge, and the
+    # per-card Replace control) are deleted, not merely restyled. The
+    # `.airlines-edit-toggle` CSS rule block
+    # `_airlines_edit_toggle_and_its_caption_render_in_normal_case()`
+    # used to read out of style.css is deleted by Task 1, so that check
+    # cannot be retargeted; its absence is proven instead by the new
+    # `_airlines_no_page_wide_editing_mode_survives()` check above.
+    # `_airlines_edit_mode_shows_a_badge_and_one_replace_control_per_card()`
+    # is replaced below with an absence-plus-vocabulary check of the new
+    # shape: no badge, no per-card control, but the zoom trigger itself
+    # still carries every data-view-panel-* attribute this module
+    # defines for it.
     # ======================================================================
 
-    def _airlines_edit_toggle_and_its_caption_render_in_normal_case():
-        # X7: both inherited `text-transform: uppercase` from
-        # `.page-header__screen` — a class whose own role on the Device
-        # page is a label-voice caption, where uppercase IS correct.
+    def _airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary():
         rendered = airlines_page.render({})
-        if airlines_page.CHANGE_PICTURES_TEXT not in rendered:
-            return False, "expected the toggle's sentence-case label in the markup"
-        css_path = os.path.join(HERE, "static", "style.css")
-        with open(css_path) as fh:
-            css = fh.read()
-        toggle_rule = re.search(r"^\.airlines-edit-toggle\s*\{([^}]*)\}", css, re.S | re.M)
-        if toggle_rule is None:
-            return False, "expected the existing .airlines-edit-toggle rule block"
-        if "text-transform: none" not in toggle_rule.group(1):
+
+        if "banner__pill" in rendered:
+            return False, "expected no Editing badge anywhere — the page-wide editing mode is gone"
+        if "calendar-disconnect-btn" in rendered:
             return False, (
-                "expected text-transform: none on the toggle's OWN existing class, killing the "
-                "uppercase it inherits from .page-header__screen")
-        caption_rule = re.search(
-            r"^\.page-header__screen \.section-caption\s*\{([^}]*)\}", css, re.S | re.M)
-        if caption_rule is None or "text-transform: none" not in caption_rule.group(1):
-            return False, "expected the caption under the toggle to be reset to normal case too"
-        # The Device page's own `<p class="page-header__screen
-        # text-label">` keeps its label voice: the class is on the
-        # element there, not on an ancestor, so the descendant selector
-        # above cannot reach it.
-        screen_rule = re.search(r"^\.page-header__screen\s*\{([^}]*)\}", css, re.S | re.M)
-        if screen_rule is None or "text-transform: uppercase" not in screen_rule.group(1):
+                "expected zero per-card Replace controls anywhere — the affordance moved into the "
+                "dialog (CFG-81)")
+
+        triggers = re.findall(r'<(?:button type="button"|a href="[^"]*") class="airline-card__zoom" .*?</(?:button|a)>',
+                               rendered, re.S)
+        if len(triggers) < 2:
+            return False, "expected the curated grid to render triggers to count vocabulary against"
+
+        # Never a hardcoded 15 (or 14): derive the trigger's own
+        # vocabulary from the module's own constants. Every
+        # `_VIEW_PANEL_*_ATTR` constant is a `data-view-panel-*`
+        # attribute name; `_VIEW_PANEL_CLOSE_ATTR` alone is excluded
+        # because it belongs to the dialog's own Close button, never to
+        # a card trigger — panel_attrs (the trigger's own builder) never
+        # references it, only `_lightbox_html()`'s Close button does.
+        attr_names = {
+            getattr(airlines_page, name) for name in dir(airlines_page)
+            if re.match(r"^_VIEW_PANEL_[A-Z0-9_]*_ATTR$", name)
+            and name != "_VIEW_PANEL_CLOSE_ATTR"
+        }
+        expected_count = len(attr_names)
+
+        counts = set()
+        for trigger in triggers:
+            found = set(re.findall(r'(data-view-panel-[a-z-]+)=', trigger))
+            if found != attr_names:
+                return False, (
+                    "expected every airline-card__zoom trigger to carry the same data-view-panel-* "
+                    "attribute set %r, got %r" % (sorted(attr_names), sorted(found)))
+            counts.add(len(found))
+        if counts != {expected_count}:
             return False, (
-                "expected .page-header__screen itself to keep its uppercase label voice for the "
-                "Device page's own caption usage")
-        # No new button class rode in on this fix — the file's own header
-        # comment names the `.btn--` family it refuses to have.
-        if ".btn--" in re.sub(r"/\*.*?\*/", "", css, flags=re.S):
-            return False, "expected no .btn-- family anywhere in style.css"
+                "expected every trigger to carry exactly %d data-view-panel-* attributes (the "
+                "module's own _VIEW_PANEL_*_ATTR count, minus the Close-button-only one), got %r"
+                % (expected_count, counts))
         return True, ""
     check(
-        "the Change pictures toggle and its caption render in normal case via text-transform: none "
-        "on the toggle's own existing class and a caption selector scoped inside the wrapper — "
-        "with .page-header__screen itself keeping the uppercase the Device page's caption usage "
-        "needs, and no new .btn-- family anywhere (X7, 22-11-PLAN.md Task 2)",
-        _airlines_edit_toggle_and_its_caption_render_in_normal_case)
-
-    def _airlines_edit_mode_shows_a_badge_and_one_replace_control_per_card():
-        # X7: turning the mode on used to change nothing visible on the
-        # grid — every affordance lived inside the lightbox.
-        edit = airlines_page.render({"edit_mode": True})
-        plain = airlines_page.render({})
-
-        badge = '<span class="banner__pill">%s</span>' % airlines_page.EDITING_BADGE_TEXT
-        if edit.count(badge) != 1:
-            return False, (
-                "expected exactly one Editing badge reusing .banner__pill verbatim in an edit-mode "
-                "render, found %d" % (edit.count(badge),))
-        if badge in plain or "banner__pill" in plain:
-            return False, "expected no Editing badge at all out of edit mode"
-
-        cards = edit.count('<div class="airline-card" ')
-        controls = edit.count('class="calendar-disconnect-btn"')
-        if cards < 2:
-            return False, "expected the curated grid to render cards to count controls against"
-        if controls != cards:
-            return False, (
-                "expected exactly one Replace control per card in edit mode, got %d controls for "
-                "%d cards" % (controls, cards))
-        if "calendar-disconnect-btn" in plain:
-            return False, "expected zero per-card Replace controls out of edit mode"
-
-        # Verb AND noun, not a bare verb (this app's CTA voice), and the
-        # accessible name contains the visible label (WCAG 2.5.3).
-        if airlines_page.REPLACE_PICTURE_TEXT.strip() == "Replace":
-            return False, "expected a verb-plus-noun label, not a bare verb"
-        if airlines_page.REPLACE_PICTURE_TEXT not in airlines_page.REPLACE_PICTURE_ARIA_TEMPLATE:
-            return False, (
-                "expected the aria template to contain the visible label verbatim (WCAG 2.5.3)")
-        import companion.i18n_fr as i18n_fr
-        fr_label = i18n_fr.CATALOG[airlines_page.REPLACE_PICTURE_TEXT]
-        fr_aria = i18n_fr.CATALOG[airlines_page.REPLACE_PICTURE_ARIA_TEMPLATE]
-        if fr_label not in fr_aria:
-            return False, (
-                "expected the French aria template to contain the French visible label verbatim "
-                "too, got %r and %r" % (fr_label, fr_aria))
-
-        # It opens the SAME shared dialog the zoom trigger opens, so it
-        # must carry the SAME full vocabulary — a subset would blank the
-        # dialog's mode through panel-lookup.js's `attr || ""` idiom.
-        control = re.search(
-            r'<button type="button" class="calendar-disconnect-btn" (.*?)</button>', edit, re.S)
-        if control is None:
-            return False, "expected to locate a rendered Replace control"
-        vocabulary = tuple(
-            token for token in _LIGHTBOX_AIRLINES_ONLY_TOKENS if token.startswith("data-view-panel-"))
-        for attr in vocabulary + (airlines_page._VIEW_PANEL_SRC_ATTR,
-                                  airlines_page._VIEW_PANEL_CAPTION_ATTR):
-            if ('%s="' % attr) not in control.group(1):
-                return False, (
-                    "expected the Replace control to carry the full data-view-panel vocabulary, "
-                    "missing %s" % (attr,))
-        # And the treatment is reused, never re-declared: one base rule
-        # block for the component, serving both consumers.
-        css_path = os.path.join(HERE, "static", "style.css")
-        with open(css_path) as fh:
-            css = fh.read()
-        # RETARGETED STRICTLY NARROWER by 22-15-PLAN.md Task 1 (T2), in
-        # a file that plan does not own, because that plan changed this
-        # clause's own premise: the base rule's selector is now
-        # `button.calendar-disconnect-btn` rather than the bare class.
-        # T2's defect was that the bare class at (0,1,0) lost to
-        # `button[type="submit"]` at (0,1,1), so Config's DESTRUCTIVE
-        # Disconnect rendered as the page's primary accent CTA and every
-        # declaration in this block was dead. The element-qualified form
-        # is (0,1,1) — equal specificity, later in source — which is the
-        # fix. This assertion is narrower than the one it replaces: it
-        # still pins "exactly one base rule block for both consumers"
-        # AND now also pins the element qualifier that makes the block
-        # reachable at all. A regression to the bare class fails here.
-        if len(re.findall(r"^button\.calendar-disconnect-btn \{", css, re.M)) != 1:
-            return False, (
-                "expected exactly one button.calendar-disconnect-btn base rule block serving "
-                "every consumer, at the element-qualified (0,1,1) specificity T2 requires")
-        if re.search(r"^\.calendar-disconnect-btn \{", css, re.M):
-            return False, (
-                "expected NO bare .calendar-disconnect-btn base rule — at (0,1,0) it loses to "
-                "button[type=\"submit\"] (0,1,1) and the destructive Disconnect renders as the "
-                "page's primary accent CTA (T2)")
-        placement = re.search(
-            r"^\.airline-card \.calendar-disconnect-btn\s*\{([^}]*)\}", css, re.S | re.M)
-        if placement is None:
-            return False, "expected the card-scoped placement rule for the Replace control"
-        for redeclared in ("font-size", "min-height", "background", "border:", "border-radius"):
-            if redeclared in placement.group(1):
-                return False, (
-                    "expected the placement rule to declare placement only, found a redeclared %r "
-                    "— the treatment belongs to the one base rule" % (redeclared,))
-        return True, ""
-    check(
-        "an edit-mode Airlines render carries exactly one .banner__pill Editing badge and exactly "
-        "one .calendar-disconnect-btn Replace control per card, each carrying the SAME full "
-        "data-view-panel vocabulary the zoom trigger carries, with a verb-plus-noun label whose "
-        "accessible name contains it in both languages — while a normal render carries neither, "
-        "and style.css keeps exactly one .calendar-disconnect-btn base rule for both consumers "
-        "(X7, 22-11-PLAN.md Task 2)",
-        _airlines_edit_mode_shows_a_badge_and_one_replace_control_per_card)
+        "a normal Airlines render carries no Editing badge and no per-card Replace control "
+        "anywhere (both deleted outright, CFG-81) — while every airline-card__zoom trigger still "
+        "carries the SAME full data-view-panel-* vocabulary, its size derived from the module's "
+        "own _VIEW_PANEL_*_ATTR constants rather than a hardcoded number (29-01-PLAN.md)",
+        _airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary)
 
     def _airlines_manual_count_is_a_filter_control_in_the_filter_bar():
         # X7: "1 manual resolutions" rendered as a 12px underlined bare
@@ -8633,56 +8527,38 @@ def main():
             "bytes, against a real running service",
             _history_preview_gallery_end_to_end)
 
-        def _airlines_edit_query_param_exact_one_membership_test():
-            # 19-08-PLAN.md Task 3 (D-22, T-19-31): a real authenticated
-            # HTTP GET, not a direct render() call - proves the exact-"1"
-            # membership test app.py's page_context() applies survives
-            # the full query-string round trip, against a real running
-            # service.
-            #
-            # 21-06-PLAN.md Task 2 (D-19): RESOLVE_UPLOAD_ZONE_CLASS
-            # moved out of this edit-only tuple - the lightbox's upload
-            # zone is unconditional now, so it is asserted present
-            # across every query variant below instead, proving it
-            # survives the real HTTP round trip regardless of edit
-            # mode.
-            edit_only_tokens = (
+        def _airlines_dialog_forms_render_unconditionally_over_real_http():
+            # 29-01-PLAN.md (CFG-81): the exact-"1" ?edit= membership
+            # test this check used to prove end to end is deleted along
+            # with the query parameter itself - a real authenticated
+            # HTTP GET now renders the dialog's replace/delete/upload
+            # forms with NO query string at all, and an arbitrary
+            # leftover ?edit=1 in a bookmark changes nothing, proving
+            # the removed parameter has no reader anywhere in the real
+            # request path (not just in a direct render() call).
+            unconditional_tokens = (
                 airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
                 airlines_page.LIGHTBOX_DELETE_CLASS,
+                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
             )
-            upload_zone_class_attr = 'class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS
-            for query in ("?edit=2", "?edit=true", "?edit="):
+            for query in ("", "?edit=1"):
                 status, _headers, body = http_request(
                     base + "/airlines" + query, cookie=session_cookie)
                 if status != 200:
                     return False, "expected 200 for /airlines%s, got %d" % (query, status)
                 body_text = body.decode("utf-8", "replace")
-                if upload_zone_class_attr not in body_text:
-                    return False, (
-                        "expected /airlines%s to still render the upload zone (D-19, "
-                        "unconditional)" % (query,))
-                for token in edit_only_tokens:
-                    if ('class="%s"' % token) in body_text:
+                for token in unconditional_tokens:
+                    if ('class="%s"' % token) not in body_text:
                         return False, (
-                            "expected /airlines%s to NOT enable edit mode - found a %r form"
+                            "expected /airlines%s to render a %r form (CFG-81: unconditional now)"
                             % (query, token))
-            status, _headers, body = http_request(base + "/airlines?edit=1", cookie=session_cookie)
-            if status != 200:
-                return False, "expected 200 for /airlines?edit=1, got %d" % status
-            body_text = body.decode("utf-8", "replace")
-            if upload_zone_class_attr not in body_text:
-                return False, "expected /airlines?edit=1 to still render the upload zone (D-19)"
-            for token in edit_only_tokens:
-                if ('class="%s"' % token) not in body_text:
-                    return False, "expected /airlines?edit=1 to enable edit mode - missing a %r form" % (token,)
             return True, ""
         check(
-            "a real authenticated GET of /airlines?edit=2, ?edit=true and ?edit= does not enable "
-            "edit mode (the exact-\"1\" membership test) but still renders the now-unconditional "
-            "upload zone (D-19), while /airlines?edit=1 additionally renders the replace and "
-            "delete edit-only forms, against a real running service (D-19, D-22, T-19-31, "
-            "19-08-PLAN.md Task 3, retargeted by 21-06-PLAN.md Task 2)",
-            _airlines_edit_query_param_exact_one_membership_test)
+            "a real authenticated GET of /airlines renders the dialog's replace, delete and "
+            "upload-zone forms with no query string at all, and a leftover ?edit=1 in a bookmark "
+            "renders identically — against a real running service, proving the removed query "
+            "parameter has no reader anywhere in the real request path (CFG-81, 29-01-PLAN.md)",
+            _airlines_dialog_forms_render_unconditionally_over_real_http)
 
         def _both_dialogs_arrive_through_one_starting_style_entrance():
             """23-10-PLAN.md Task 2 (D3/CFG-32): both <dialog>s fade and
@@ -8812,7 +8688,7 @@ def main():
                 ])
                 history_html = history_page.render(
                     _history_ctx(tmp, gallery_entries=names))
-                airlines_html = airlines_page.render({"edit_mode": True})
+                airlines_html = airlines_page.render({})
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
             for label, marker in rendered:

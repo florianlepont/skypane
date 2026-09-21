@@ -977,6 +977,18 @@ EXPECTED_CHECK_COUNT = 310
 # existing values). 310 + 1 = 311, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 311
 
+# 29-01-PLAN.md (CFG-81): net 0. The per-card Replace control's own
+# vocabulary check is retargeted in place (narrowed back from 2 to 1
+# trigger per airline, since the per-card control is deleted outright);
+# the served-HTML "?edit=1" round trip in the /both-tabs end-to-end
+# check is retargeted in place too (the second, now-duplicate fetch is
+# dropped — the removed query parameter has no reader, so a plain
+# /airlines fetch already carries everything the ?edit=1 fetch used to
+# prove); every other edit_mode=True render() call site in this file
+# drops the now-meaningless kwarg. No check added or removed. 311 + 0 =
+# 311, re-derived by RUNNING (311/311 pass).
+EXPECTED_CHECK_COUNT = 311
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -11568,8 +11580,9 @@ def main():
         # exactly once.
         tmp = _mkstate("a-replace-action-membership")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
             # quick task 260903-df3: LIGHTBOX_REPLACE_ZONE_CLASS
             # ("lightbox__replace-zone") shares a prefix with
             # LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace"), but the
@@ -11582,37 +11595,27 @@ def main():
             targets = set(illustrations.target_filenames())
             prefix = airlines_page.ILLUSTRATION_ROUTE_PREFIX
             actions = re.findall(r'data-view-panel-replace-action="([^"]+)"', rendered)
-            # 22-11-PLAN.md Task 2 (X7), retargeted in place and
-            # NARROWED: an edit-mode card now carries TWO triggers for
-            # the same dialog — the zoom trigger it always had, plus the
-            # new per-card "Replace picture" control, which must carry
-            # the identical full vocabulary or panel-lookup.js's
-            # `attr || ""` idiom would blank the dialog. So the expected
-            # total doubles, AND each airline's own action must appear
-            # exactly twice: a pairing assertion the old bare total could
-            # not make, so a drift where one card gained a third trigger
-            # (or lost its second) now fails rather than passing on a
-            # coincidental sum.
-            per_airline = 2
+            # 29-01-PLAN.md (CFG-81), retargeted in place and NARROWED
+            # BACK: the per-card "Replace picture" control (22-11-PLAN.md
+            # Task 2, X7) that used to double this total is deleted
+            # outright — the affordance moved into the dialog, which
+            # carries no data-view-panel-replace-action attribute of its
+            # own (it is the zoom trigger's target, not a second
+            # trigger). So each card is back to carrying exactly one
+            # replace-action trigger, the zoom trigger, and there is no
+            # edit-mode/plain distinction left to test separately.
+            per_airline = 1
             expected = per_airline * len(illustrations.target_airline_names())
             if len(actions) != expected:
                 return False, (
-                    "expected %d replace-action triggers (%d per target airline: the zoom trigger "
-                    "and the edit-mode Replace control), got %d"
+                    "expected %d replace-action triggers (%d per target airline: the zoom "
+                    "trigger — the per-card Replace control is deleted, CFG-81), got %d"
                     % (expected, per_airline, len(actions)))
             for action in set(actions):
                 if actions.count(action) != per_airline:
                     return False, (
-                        "expected each airline's replace action to appear exactly %d times, %r "
+                        "expected each airline's replace action to appear exactly %d time(s), %r "
                         "appeared %d" % (per_airline, action, actions.count(action)))
-            # And out of edit mode there is exactly one per airline: the
-            # Replace control is drawn only while the mode is on.
-            plain_actions = re.findall(
-                r'data-view-panel-replace-action="([^"]+)"', airlines_page.render(_ctx(tmp)))
-            if len(plain_actions) != len(illustrations.target_airline_names()):
-                return False, (
-                    "expected one replace-action trigger per airline out of edit mode, got %d"
-                    % (len(plain_actions),))
             for action in actions:
                 if not action.startswith(prefix) or not action.endswith(".png"):
                     return False, "expected every replace-action trigger to be %s{key}.png, got %r" % (
@@ -11635,8 +11638,9 @@ def main():
         # contract: now singular, since the form itself is singular.
         tmp = _mkstate("a-replace-method-enctype")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
             forms = re.findall(r'<form class="%s"[^>]*>' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS, rendered)
             if len(forms) != 1:
                 return False, "expected exactly one replace form, got %d" % len(forms)
@@ -11679,8 +11683,9 @@ def main():
         # ids is.
         tmp = _mkstate("a-replace-input-ids")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
             input_ids = re.findall(r'<input type="file" id="([^"]+)"', rendered)
             replace_ids = [i for i in input_ids if i == airlines_page.REPLACE_INPUT_ID]
             if len(replace_ids) != 1:
@@ -11787,8 +11792,9 @@ def main():
         hostile_name = '<script>alert(1)</script>"'
         illustrations.target_variants_by_airline = lambda: [(hostile_name, [])]
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render({"edit_mode": True})
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render({})
         finally:
             illustrations.target_variants_by_airline = original_target_variants_by_airline
         if hostile_name in rendered:
@@ -11850,8 +11856,9 @@ def main():
         # constant.
         tmp = _mkstate("a-no-revert-control")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         form_match = re.search(
@@ -11924,8 +11931,9 @@ def main():
             return False, "expected 'icon-upload' to be a member of layout.ICON_IDS"
         tmp = _mkstate("a-replace-zone-icon-sprite")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         # Phase 14 (14-02-PLAN.md Task 3) retargeted this count in place
@@ -11967,8 +11975,9 @@ def main():
         # in the stylesheet, plus the first ::file-selector-button rule).
         tmp = _mkstate("a-replace-zone-contract")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         zone_open_tag = '<div class="%s">' % airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS
@@ -12138,7 +12147,7 @@ def main():
             if result != manual_resolutions.ADD_OK:
                 return False, "test setup failure: add_entry returned %r" % (result,)
             rendered = airlines_page.render(
-                dict(_ctx(tmp), resolve_prefix="NEW", edit_mode=True))
+                dict(_ctx(tmp), resolve_prefix="NEW"))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
@@ -12753,8 +12762,6 @@ def main():
                 return False, "expected add_entry() to accept a fresh, valid name, got %r" % (add_result,)
             ctx = _ctx(tmp, now=now)
             ctx["resolve_prefix"] = "XYZ"
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
             section = _resolve_slice(rendered)
             expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Brand New Air"
@@ -12930,8 +12937,6 @@ def main():
 
             ctx = _ctx(tmp, now=now)
             ctx["resolve_prefix"] = "XYZ"
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
             section = _resolve_slice(rendered)
             if airlines_page.RESOLVE_STALE_BODY in section:
@@ -13248,8 +13253,6 @@ def main():
             manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
             ctx = _ctx(tmp)
             ctx["resolve_prefix"] = "ZZZ"
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
 
             dialog_open_index = rendered.index('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID)
@@ -15507,17 +15510,14 @@ def main():
                     retired_token = "airline-card__" + "replace"
                     if retired_token in body_text:
                         return False, "expected zero occurrences of the retired per-card class token in the real /airlines HTTP response body"
-                    # 19-08 (D-22): edit-only forms need edit_mode=True.
-                    # The replace/resolve-upload/delete forms only render
-                    # under an exact ?edit=1, so the assertions below that
-                    # depend on those forms existing need a second, real
-                    # fetch of the edit-mode page rather than the plain
-                    # /airlines response already captured in body_text.
-                    edit_status, _edit_headers, edit_body = http_request(
-                        base + path + "?edit=1", cookie=session_cookie)
-                    if edit_status != 200:
-                        return False, "expected 200 for %s?edit=1, got %d" % (path, edit_status)
-                    edit_body_text = edit_body.decode("utf-8", errors="replace")
+                    # 29-01-PLAN.md (CFG-81): the replace/resolve-upload/
+                    # delete forms are unconditional now — the second,
+                    # real fetch of "?edit=1" this check used to need is
+                    # deleted (it would now be byte-identical to the
+                    # plain /airlines response already captured in
+                    # body_text above; a second real fetch to prove that
+                    # is a duplicate, not a new property).
+                    #
                     # quick task 260903-df3: a bare substring count of
                     # LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
                     # is no longer unambiguous — it is now also a prefix
@@ -15529,7 +15529,7 @@ def main():
                     # itself is counted, the same trailing-quote
                     # technique _replace_form_action_matches_trigger_attribute_membership()
                     # already uses.
-                    replace_form_count = edit_body_text.count('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
+                    replace_form_count = body_text.count('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
                     if replace_form_count != 1:
                         return False, (
                             "expected airlines_page.LIGHTBOX_REPLACE_FORM_CLASS exactly once in the real "
@@ -15565,20 +15565,20 @@ def main():
                     # resolve-name form's own action is never empty (it
                     # always posts to RESOLVE_ROUTE, in both the dialog
                     # and the no-JS fallback).
-                    if edit_body_text.count(' action=""') != 3:
+                    if body_text.count(' action=""') != 3:
                         return False, (
                             "expected ' action=\"\"' exactly 3 times (replace/resolve-upload/delete "
                             "forms) in the real /airlines HTTP response body, "
-                            "got %d" % edit_body_text.count(' action=""'))
+                            "got %d" % body_text.count(' action=""'))
                     # Phase 14 (14-02-PLAN.md Task 3) retargeted: the
                     # dialog now also carries the resolve-upload form's
                     # own file input, alongside the pre-existing replace
                     # form's, so the expected count is 2, not 1.
-                    if edit_body_text.count('<input type="file"') != 2:
+                    if body_text.count('<input type="file"') != 2:
                         return False, (
                             "expected <input type=\"file\" exactly twice (replace form, resolve-upload "
                             "form) in the real /airlines HTTP response "
-                            "body, got %d" % edit_body_text.count('<input type="file"'))
+                            "body, got %d" % body_text.count('<input type="file"'))
 
                 elif path == "/flights":
                     # quick task 260903-btu Task 5a: the served-HTML twin
