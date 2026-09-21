@@ -403,14 +403,6 @@ MANUAL_DELETE_ROUTE_PREFIX = "/airlines/manual-resolutions/"
 MANUAL_DELETE_ROUTE_SUFFIX = "/delete"
 AIRLINES_ROUTE = "/airlines"
 RESOLVE_QUERY_PARAM = "resolve"
-# 19-08-PLAN.md Task 3 (D-22): the query-flag name for the artwork-
-# editing affordances (replace/upload/delete). Read by companion/app.py's
-# page_context() via an exact `== "1"` membership test — never a
-# substring, truthiness or case-insensitive check — into
-# ctx["edit_mode"]; see that key's own doc comment in
-# companion/pages/__init__.py for the presentation-only-flag boundary
-# this constant sits behind.
-EDIT_QUERY_PARAM = "edit"
 
 # Phase 14 (14-04-PLAN.md, D-06): the gap block's threshold and cap —
 # both locked numeric values from D-06's own text, not a discretion
@@ -1482,7 +1474,7 @@ def _gap_strip_html(gap_cards_html, overflow_html):
     )
 
 
-def _lightbox_html(edit_mode=False):
+def _lightbox_html():
     """The single shared click-to-enlarge `<dialog>` (quick task
     260902-tli), emitted once per page — never once per card — by
     `render()`, only when at least one card actually carries a zoom
@@ -1525,25 +1517,18 @@ def _lightbox_html(edit_mode=False):
     own submits all stay inside their framed zones, where their labels
     ("Upload", "Delete") belong to the zone rather than to the dialog.
 
-    19-08-PLAN.md Task 3 (D-22) originally split this dialog's forms
-    into two tiers, gating `resolve_upload_html`, the replace form and
-    the delete form all behind `edit_mode`. 21-06-PLAN.md Task 2 (D-19)
-    moves `resolve_upload_html` into the unconditional tier, alongside
-    the resolve-name form (and the always-present resolve-context
-    `<dl>`) — naming an unrecognised airline and giving it a picture is
-    one job, so the view-only lightbox's own no-artwork-yet upload
-    affordance is no longer hidden behind "Change pictures". The
-    replace form and the delete form stay the artwork-editing tier
-    (D-20): each is emitted only when `edit_mode` is true, and is the
-    empty string otherwise. This needs no change to
-    `companion/static/panel-lookup.js` — all three of its lookups for
-    these elements (`.lightbox__replace`, `.resolve-upload-zone`,
-    `.lightbox__delete`) already sit outside its mandatory
-    image/caption/note guard and are each used behind their own
-    `if (form)`-style test, so a form's absence (now only possible for
-    the replace/delete pair) is an already-handled state, exactly like
-    History's own dialog (which never renders any of the three at
-    all).
+    Every form here, including the replace form and the delete form, is
+    now unconditional (29-01-PLAN.md, CFG-81: the page-wide editing
+    mode this page used to have is deleted outright, and with it the
+    two-tier split a prior phase built into this dialog). Which of the
+    two artwork-editing forms is actually VISIBLE on a given open is
+    decided entirely client-side, by `companion/static/panel-lookup.js`
+    from the clicked trigger's own data attributes: it sets
+    `replaceForm.hidden` from whether the trigger's mode attribute
+    equals `"art"`, and `deleteForm.hidden` from whether the trigger's
+    manual attribute is non-empty. This function's job is only to make
+    sure both forms are always present in the document for that script
+    to find and show or hide — never to decide the visibility itself.
 
     Every optional child here is a real, present placeholder — heading
     and manual-note are emitted empty (their own `:empty` CSS collapse
@@ -1571,12 +1556,12 @@ def _lightbox_html(edit_mode=False):
     """
     resolve_context_html = _resolve_context_html(None, None, id_suffix="-dialog")
     resolve_name_html = _resolve_name_form_html("", "-dialog", include_submit=False)
-    # 21-06-PLAN.md Task 2 (D-19): unconditional, matching
-    # _resolve_section_html()'s own Step-B upload zone — no `edit_mode`
-    # gate here. replace_html/delete_html stay gated (D-20).
     resolve_upload_html = _resolve_upload_form_html("", "-dialog")
-    replace_html = _lightbox_replace_form_html() if edit_mode else ""
-    delete_html = _manual_delete_form_html("") if edit_mode else ""
+    # 29-01-PLAN.md (CFG-81): both forms are always in the document now.
+    # `panel-lookup.js` decides which one a given open shows — see this
+    # function's own docstring for the two attribute reads that do it.
+    replace_html = _lightbox_replace_form_html()
+    delete_html = _manual_delete_form_html("")
     return (
         '<dialog class="lightbox lightbox--wide" id="%s" aria-label="%s">'
         '<img class="lightbox__image" src="" alt="">'
@@ -2018,7 +2003,7 @@ def _manual_delete_form_html(action):
     ) % (LIGHTBOX_DELETE_CLASS, action, i18n.t(MANUAL_DELETE_CAPTION), i18n.t(DELETE_BUTTON_TEXT))
 
 
-def _resolve_section_html(ctx, edit_mode=False):
+def _resolve_section_html(ctx):
     """The conditional resolve section (D-03, D-10 through D-13):
     `""` when `ctx.get("resolve_prefix")` is falsy, otherwise one of the
     server-derived states below. Every branch reads `state_dir`/`now`
@@ -2069,17 +2054,16 @@ def _resolve_section_html(ctx, edit_mode=False):
     `manual` being `active`/`superseded`, i.e. whenever an entry exists.
     One rule, two render sites, not two rules.
 
-    19-08-PLAN.md Task 3 (D-22) originally gated Step B's upload zone
-    on `edit_mode`, matching `_lightbox_html()`'s own gate at the time.
-    21-06-PLAN.md Task 1 (D-19) removes that gate: naming an
-    unrecognised airline and giving it a picture is one job, so Step
-    B's upload zone is unconditional again, in both this fallback panel
-    and the dialog (`_lightbox_html()`'s identical gate is dropped by
-    21-06-PLAN.md Task 2). The shared delete form stays gated on
-    `edit_mode` (D-20) — "Change pictures" keeps only replace/delete of
-    existing artwork. The resolve-name form (Step A) stays
-    unconditional, for the identical reason `_lightbox_html()` keeps it
-    unconditional.
+    Step B's upload zone, the resolve-name form (Step A), and the
+    shared manual-delete form are all unconditional (29-01-PLAN.md,
+    CFG-81: the page-wide editing mode this page used to gate the
+    delete form behind is deleted outright). Unlike the dialog's own
+    delete-form placeholder (`_lightbox_html()`'s `action=""`, filled
+    in client-side per click), this function already has the real
+    prefix in hand, so it computes a real, server-derived action
+    (`_manual_delete_action(prefix)`) and renders whenever an entry
+    exists for that prefix — which is already what "D-09 amendment"
+    above means by "whenever an entry exists".
     """
     prefix_raw = ctx.get("resolve_prefix")
     if not prefix_raw:
@@ -2137,18 +2121,16 @@ def _resolve_section_html(ctx, edit_mode=False):
     escaped_name = escape_html(airline_name)
     heading = '<h2 class="text-heading">%s</h2>' % (i18n.t(STEP_B_HEADING_TEMPLATE) % escaped_name)
     # D-09 amendment: an entry exists past this point in every remaining
-    # branch, so the delete form is eligible to render in both of them.
-    # 19-08-PLAN.md Task 3 (D-22): eligible does not mean unconditional
-    # any more — gated on edit_mode, matching _lightbox_html()'s own gate.
-    delete_form = _manual_delete_form_html(_manual_delete_action(prefix)) if edit_mode else ""
+    # branch, so the delete form is eligible to render in both of them —
+    # unconditionally now (29-01-PLAN.md, CFG-81).
+    delete_form = _manual_delete_form_html(_manual_delete_action(prefix))
 
     if illustrations.resolved_illustration_path(key, state_dir) is None:
         # Step B — name already saved, no artwork exists yet.
         caption = '<p class="text-label section-caption">%s</p>' % i18n.t(STEP_B_CAPTION)
         upload_action = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
         # 21-06-PLAN.md Task 1 (D-19): uploading a picture is part of
-        # naming an airline again — no `edit_mode` gate here (unlike
-        # the delete form above, which D-20 keeps gated).
+        # naming an airline again.
         upload_zone = _resolve_upload_form_html(upload_action, "")
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
             AIRLINES_ROUTE, i18n.t(STEP_B_SKIP_TEXT))
@@ -2273,19 +2255,19 @@ def render(ctx):
     """The Airlines page (D-13 through D-17, extended by phase 13's
     D-03/D-06/D-07/D-10 through D-13, phase 14's coverage-gap grid,
     manual-resolution absorption, and page-order reversal, and 19-08-
-    PLAN.md's D-21/D-22 explained-gap-strip and edit-gated-lightbox
-    rework): the page header, then (19-08-PLAN.md Task 1, D-21) the
-    "Unidentified airlines" gap strip — its own explained `<section>`,
-    emitted before everything else so a household member sees it first
-    — the D-16 filter bar, the D-11 manual-resolutions summary line
-    (only when the registry has at least one entry), one card per
-    airline in `illustrations.target_variants_by_airline()` order (plus
-    any injected manual-only card, D-08; the gap cards themselves no
-    longer live in this grid, per D-21), the shared click-to-enlarge
-    lightbox dialog (quick task 260902-tli, now edit-gated per D-22),
-    then (phase 14, moved from the top of the page) the conditional
-    resolve section. `ctx` is accepted for call-site parity with every
-    other page module's `render(ctx)` signature.
+    PLAN.md's D-21 explained-gap-strip rework): the page header, then
+    (19-08-PLAN.md Task 1, D-21) the "Unidentified airlines" gap strip —
+    its own explained `<section>`, emitted before everything else so a
+    household member sees it first — the D-16 filter bar, the D-11
+    manual-resolutions summary line (only when the registry has at
+    least one entry), one card per airline in `illustrations.
+    target_variants_by_airline()` order (plus any injected manual-only
+    card, D-08; the gap cards themselves no longer live in this grid,
+    per D-21), the shared click-to-enlarge lightbox dialog (quick task
+    260902-tli; its Replace/Delete forms always render, per 29-01-
+    PLAN.md/CFG-81), then (phase 14, moved from the top of the page) the
+    conditional resolve section. `ctx` is accepted for call-site parity
+    with every other page module's `render(ctx)` signature.
 
     Since quick task 260902-v26 this reads `state_dir` (used to resolve
     each card's illustration-replace cache buster, see
@@ -2304,13 +2286,6 @@ def render(ctx):
     cards, no manual summary, no resolve section. This page still opens
     no database.
 
-    19-08-PLAN.md Task 3 (D-22) adds a fifth `ctx.get()` read,
-    `edit_mode` — a presentation-only bool (documented in full in
-    companion/pages/__init__.py) threaded into both `_lightbox_html()`
-    and `_resolve_section_html()` as a fully-defaulted keyword, so it
-    decides only whether the artwork-editing forms render, never
-    whether the routes those forms target accept the request.
-
     The filter bar and the lightbox dialog both render whenever there is
     at least one card of EITHER kind (gap or curated) — this codebase's
     consistent "no chrome with no data" rule, widened here so a state
@@ -2327,7 +2302,6 @@ def render(ctx):
     # of this page (companion/app.py's page_context()) does supply
     # state_dir, so this must stay tolerant of both.
     state_dir = ctx.get("state_dir")
-    edit_mode = bool(ctx.get("edit_mode"))
     # 22-11-PLAN.md Task 1 (D-05, B5): the SAME `ctx["now"]` key
     # `_resolve_section_html()` already reads for the no-JS path's own
     # `layout.concise_timestamp_html()` calls — read once here and
@@ -2335,7 +2309,7 @@ def render(ctx):
     # the no-JS path's rendered text are produced from one value by one
     # formatter, and therefore cannot disagree.
     now = ctx.get("now")
-    resolve_html = _resolve_section_html(ctx, edit_mode=edit_mode)
+    resolve_html = _resolve_section_html(ctx)
     pairs = illustrations.target_variants_by_airline()
 
     # Phase 14 (14-06-PLAN.md Task 1, D-08/D-10/D-12 fallback
@@ -2424,7 +2398,7 @@ def render(ctx):
     pairs = pairs + injected_pairs
 
     total = len(gap_shown) + len(pairs)
-    lightbox_html = _lightbox_html(edit_mode=edit_mode) if (pairs or gap_shown) else ""
+    lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
     # Phase 14 (14-06-PLAN.md Task 2, D-11): UI-SPEC's binding
     # top-to-bottom order is filter_bar, then manual-summary, then
     # gap-overflow, then grid — the standalone management table

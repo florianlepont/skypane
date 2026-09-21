@@ -33,7 +33,8 @@ Every page module in this package exposes:
           companion.prefs.set_request_prefs()/current_lang(), the
           SAME resolution companion/i18n.py's t() reads through
           companion.prefs directly. This is presentation only, like
-          ctx["edit_mode"] below: no POST handler ever consults it.
+          several other keys in this contract: no POST handler ever
+          consults it.
         - (simple_mode: the CFG-18 key added by 20-01 was removed by
           21-01-PLAN.md — CFG-23 withdrew simple mode entirely; no page
           may read it.)
@@ -144,22 +145,6 @@ Every page module in this package exposes:
           value through `companion.wake.next_wake_at_iso()` and then
           `companion.layout.local_clock_text()` themselves, matching
           `wake.py`'s own deliberate no-view-dependency rule.
-        - edit_mode: a bool, `True` only for an exact `?edit=1` query
-          value (added by 19-08-PLAN.md Task 3, D-22) — computed by
-          companion/app.py's `page_context()` as
-          `params.get(airlines_page.EDIT_QUERY_PARAM, [None])[0] ==
-          "1"`, a strict membership test, never a truthiness check or a
-          substring/case-insensitive match. companion/pages/
-          airlines_page.py's render() is the sole consumer: it decides
-          whether the shared lightbox's artwork-editing affordances
-          (replace/upload/delete) render at all. This is a
-          **presentation-only** flag and must NEVER be treated as
-          authorisation — the POST routes those forms target
-          (`ILLUSTRATION_IMAGE_ROUTE_PREFIX`, `MANUAL_DELETE_ROUTE_
-          PREFIX`) keep their own `require_session()` gate in `do_POST()`
-          regardless of this key's value. Hiding a form changes what is
-          offered to render, not what is permitted to execute.
-
     handle_post(form, ctx) -> str
         Only modules that accept a form (today: config_page) additionally
         expose this. `form` is the plain {field: value} dict
