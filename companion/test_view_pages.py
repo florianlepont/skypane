@@ -45,7 +45,10 @@ python3. No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_view_pages.py
 """
+import ast
+import glob
 import html
+import inspect
 import math
 import os
 import re
@@ -697,6 +700,13 @@ EXPECTED_CHECK_COUNT = 164
 # child set). 0 (retarget) + 1 (new) = +1. 164 + 1 = 165, re-derived by
 # RUNNING (165/165).
 EXPECTED_CHECK_COUNT = 165
+
+# 29-03-PLAN.md Task 3: +3 (Check A, the refresh-survival property's
+# structural half; Check B, the Show-more control's no-JS/no-script-
+# mentions proof; Check C, the hostile-input clamp exhaustion plus the
+# "only one path" structural invariant). 165 + 3 = 168, re-derived by
+# RUNNING (168/168).
+EXPECTED_CHECK_COUNT = 168
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -5818,6 +5828,279 @@ def main():
         "callsign, hex-plus-note, empty — produce a child set the grid can place with no third, "
         "unclassified top-level child (2026-09-17 audit P1, 29-03-PLAN.md Task 2)",
         _history_card_primary_grid_pins_the_timestamp_track)
+
+    def _flights_reveal_state_reproduces_from_the_url_alone():
+        """29-03-PLAN.md Task 3, Check A (29-RESEARCH.md's decisive
+        finding): `freshness.js` re-fetches `window.location.href` — the
+        browser's CURRENT url, including its query string — every
+        AUTO_REFRESH_INTERVAL_MS. This check does NOT run a browser and
+        does NOT execute the fetch or the DOMParser swap: it asserts the
+        two structural halves that make the refresh-survival property
+        hold at runtime. (1) Rendering the SAME ctx (the same `?limit=`
+        value) TWICE reproduces byte-identical pagination state,
+        standing in for the background loop's own re-fetch of that
+        unchanged URL. (2) `.flights-more` is a declared
+        REFRESH_SWAP_SELECTORS_BY_PAGE region, and freshness.js's own
+        fetch target is genuinely `window.location.href`, read from the
+        file, so a future edit that hardcodes a path breaks THIS check
+        rather than silently breaking the feature. What this does NOT
+        cover: no browser executes here, so the DOMParser swap ITSELF is
+        never exercised — that half needs a live re-verification (see
+        this plan's SUMMARY for the human follow-up).
+        """
+        tmp = _mkstate("h-reveal-survives")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "rv%02d" % i,
+                 "callsign": "REV%02d" % i}
+                for i in range(1, 37)
+            ])
+            ctx = _history_ctx(tmp, flights_limit="30")
+            first = history_page.render(ctx)
+            second = history_page.render(ctx)
+            for label, rendered in (("first", first), ("second", second)):
+                card_count = rendered.count('<li class="history-card"')
+                if card_count != 30:
+                    return False, "%s render: expected 30 cards, got %d" % (label, card_count)
+                nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
+                if nav_match is None:
+                    return False, "%s render: expected a non-empty Show-more nav" % label
+                href_match = re.search(r'href="([^"]+)"', nav_match.group(1))
+                if href_match is None or href_match.group(1) != "/flights?limit=45":
+                    return False, (
+                        "%s render: expected the Show-more anchor's href to be "
+                        "/flights?limit=45, got %r"
+                        % (label, href_match.group(1) if href_match else None))
+            first_cards_match = re.search(r'<ul class="history-cards">(.*?)</ul>', first, re.S)
+            second_cards_match = re.search(r'<ul class="history-cards">(.*?)</ul>', second, re.S)
+            if first_cards_match is None or second_cards_match is None:
+                return False, "could not locate ul.history-cards in one of the two renders"
+            if first_cards_match.group(1) != second_cards_match.group(1):
+                return False, (
+                    "expected two renders of the SAME ?limit= ctx to produce byte-identical "
+                    "ul.history-cards markup (standing in for freshness.js's own re-fetch of "
+                    "window.location.href), first %r, second %r"
+                    % (first_cards_match.group(1), second_cards_match.group(1)))
+
+            selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_FLIGHTS]
+            if ".flights-more" not in selectors:
+                return False, (
+                    "expected '.flights-more' to be a declared REFRESH_SWAP_SELECTORS_BY_PAGE "
+                    "region for Flights, got %r" % (selectors,))
+
+            js_path = os.path.join(HERE, "static", "freshness.js")
+            with open(js_path) as fh:
+                js_source = _strip_js_comments(fh.read())
+            fetch_calls = re.findall(r"fetch\(\s*([^,)]+)", js_source)
+            if len(fetch_calls) != 1:
+                return False, (
+                    "expected exactly one fetch( call in freshness.js, found %d: %r"
+                    % (len(fetch_calls), fetch_calls))
+            if fetch_calls[0].strip() != "window.location.href":
+                return False, (
+                    "expected freshness.js's one fetch( call to target window.location.href, "
+                    "got %r" % (fetch_calls[0].strip(),))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "two renders of a 36-row fixture at the SAME ?limit= value produce byte-identical "
+        "pagination state (standing in for freshness.js's own re-fetch of the unchanged "
+        "window.location.href), '.flights-more' is a declared swap region, and freshness.js "
+        "carries exactly one fetch( call targeting window.location.href verbatim — the "
+        "structural half of the refresh-survival property this harness can prove without a "
+        "browser (29-RESEARCH.md, 29-03-PLAN.md Task 3)",
+        _flights_reveal_state_reproduces_from_the_url_alone)
+
+    def _flights_reveal_control_is_a_plain_anchor_no_script_mentions():
+        """29-03-PLAN.md Task 3, Check B: the Show-more control must
+        work with scripts blocked. Proven two ways — (1) the rendered
+        anchor itself carries only an href and the shared, already-
+        script-free `.calendar-disconnect-btn` class: no `onclick`, no
+        `data-`-prefixed attribute, and the element is a plain `<a>`,
+        never a `<button>` or a `<form>`. (2) as a RELATIONSHIP rather
+        than a literal: every `companion/static/*.js` file is scanned
+        for the ONE class literal unique to this control, "flights-
+        more" — a control no script MENTIONS is a control that cannot
+        DEPEND on one. There is exactly ONE sanctioned exception,
+        stated rather than silently carved out: Task 1's own deviation
+        added ".flights-more" to freshness.js's generic
+        SWAP_SELECTORS_BY_PAGE mirror, the SAME plain-selector-array
+        entry every other Flights region already has there — the swap
+        loop refreshes whatever is inside it without ever reading,
+        clicking or parsing its href, so this is declaring a region,
+        not depending on a control. Anything beyond that single
+        registry-array mention — a second file, or a targeted
+        `querySelector`/`addEventListener`/`.click(`/`.href` reference
+        inside freshness.js itself — is a real script dependency this
+        control must not have. A vacuity floor asserts the scan
+        actually read at least 17 files (the count at planning time),
+        printed on failure, so a broken glob cannot make this pass
+        silently.
+        """
+        tmp = _mkstate("h-reveal-no-js")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "nj%02d" % i,
+                 "callsign": "NOJS%02d" % i}
+                for i in range(1, 21)
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
+            if nav_match is None:
+                return False, "expected a non-empty <nav class=\"flights-more\"> in a 20-row render"
+            nav_html = nav_match.group(1)
+            if not nav_html.startswith("<a ") or nav_html.count("<a ") != 1:
+                return False, (
+                    "expected the Show-more nav's one child to be a plain <a>, got %r" % nav_html)
+            if "<button" in nav_html or "<form" in nav_html:
+                return False, (
+                    "did not expect a <button> or <form> inside the Show-more nav, got %r"
+                    % nav_html)
+            if "href=" not in nav_html:
+                return False, "expected the Show-more anchor to carry an href, got %r" % nav_html
+            if "onclick" in nav_html:
+                return False, (
+                    "did not expect an onclick attribute on the Show-more anchor, got %r"
+                    % nav_html)
+            if re.search(r'\sdata-[a-z-]+=', nav_html):
+                return False, (
+                    "did not expect a data-prefixed attribute on the Show-more anchor (a script "
+                    "could read it), got %r" % nav_html)
+
+            js_files = sorted(glob.glob(os.path.join(HERE, "static", "*.js")))
+            if len(js_files) < 17:
+                return False, (
+                    "FLOOR TRIPPED: expected at least 17 companion/static/*.js files to scan, "
+                    "found %d: %r" % (len(js_files), js_files))
+            hits_by_file = {}
+            for path in js_files:
+                with open(path) as fh:
+                    stripped = _strip_js_comments(fh.read())
+                lines_with_hit = [ln for ln in stripped.splitlines() if "flights-more" in ln]
+                if lines_with_hit:
+                    hits_by_file[os.path.basename(path)] = lines_with_hit
+            unsanctioned = {
+                name: lines for name, lines in hits_by_file.items() if name != "freshness.js"}
+            if unsanctioned:
+                return False, (
+                    "expected only freshness.js's own generic swap-registry mirror to mention "
+                    "'flights-more' — found it in %r too (scanned %d files)"
+                    % (sorted(unsanctioned), len(js_files)))
+            if "freshness.js" in hits_by_file:
+                targeted = [
+                    ln for ln in hits_by_file["freshness.js"]
+                    if re.search(r'querySelector\(|addEventListener|\.click\(|\.href', ln)]
+                if targeted:
+                    return False, (
+                        "expected freshness.js's 'flights-more' mention(s) to be plain "
+                        "swap-registry array entries, found a targeted reference: %r" % (targeted,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Show-more anchor renders with an href and no onclick/data- attribute and is never a "
+        "<button> or <form>, and zero companion/static/*.js files mention its 'flights-more' "
+        "class (scanned-file floor >= 17, printed on failure) — a no-JS control proof, not merely "
+        "a render (29-03-PLAN.md Task 3)",
+        _flights_reveal_control_is_a_plain_anchor_no_script_mentions)
+
+    def _flights_limit_is_clamped_and_the_clamp_is_the_only_path():
+        """29-03-PLAN.md Task 3, Check C (T-29-03-01/T-29-03-02): the
+        19-entry hostile-input table exhausted against
+        history_page.flights_limit(), plus the STRUCTURAL invariant
+        that it is the ONLY path a raw ?limit= value can reach a render
+        through — render() calls it exactly once and never reads
+        ctx['flights_limit'] directly, companion/app.py performs no
+        arithmetic or comparison on the raw value it threads through
+        ctx, and HISTORY_ROW_LIMIT (the database query's own hard cap)
+        is the literal ceiling flights_limit()'s own source uses.
+        """
+        hostile_inputs = [
+            None, "", " ", "abc", "1.5", "-1", "0", "14", "15", "50", "51",
+            "999999999", "1e9", "0x10", True, False, [], {}, object(),
+        ]
+        for raw in hostile_inputs:
+            try:
+                result = history_page.flights_limit({"flights_limit": raw})
+            except Exception as exc:
+                return False, "flights_limit(%r) raised %r instead of degrading" % (raw, exc)
+            if not isinstance(result, int) or isinstance(result, bool):
+                return False, (
+                    "flights_limit(%r) returned %r, expected a plain int" % (raw, result))
+            if not (history_page.FLIGHTS_PAGE_SIZE <= result <= history_page.HISTORY_ROW_LIMIT):
+                return False, (
+                    "flights_limit(%r) returned %r, outside [%d, %d]"
+                    % (raw, result, history_page.FLIGHTS_PAGE_SIZE, history_page.HISTORY_ROW_LIMIT))
+
+        # AST-based, not a raw substring search (this module's own
+        # completeness scanners' methodology) — a comment mentioning
+        # "flights_limit(" in prose must not be counted as a call.
+        render_source = inspect.getsource(history_page.render)
+        render_tree = ast.parse(render_source)
+        limit_calls = [
+            node for node in ast.walk(render_tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            and node.func.id == "flights_limit"]
+        if len(limit_calls) != 1:
+            return False, (
+                "expected render()'s source to call flights_limit( exactly once, found %d"
+                % len(limit_calls))
+
+        def _reads_raw_ctx_key(node):
+            if isinstance(node, ast.Subscript):
+                key = node.slice
+                if isinstance(key, ast.Constant) and key.value == "flights_limit":
+                    return isinstance(node.value, ast.Name) and node.value.id == "ctx"
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if (node.func.attr == "get" and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id == "ctx" and node.args
+                        and isinstance(node.args[0], ast.Constant)
+                        and node.args[0].value == "flights_limit"):
+                    return True
+            return False
+
+        direct_reads = [node for node in ast.walk(render_tree) if _reads_raw_ctx_key(node)]
+        if direct_reads:
+            return False, (
+                "expected render() to never read ctx['flights_limit'] directly — validation "
+                "belongs solely to flights_limit() — found %d direct read(s)"
+                % len(direct_reads))
+
+        flights_limit_source = inspect.getsource(history_page.flights_limit)
+        if "HISTORY_ROW_LIMIT" not in flights_limit_source:
+            return False, (
+                "expected flights_limit()'s own source to reference HISTORY_ROW_LIMIT as its "
+                "ceiling, found no such reference")
+
+        import companion.app as app_module
+        app_source = inspect.getsource(app_module)
+        flights_limit_lines = [ln for ln in app_source.splitlines() if "flights_limit" in ln]
+        if len(flights_limit_lines) != 2:
+            return False, (
+                "expected app.py to mention 'flights_limit' on exactly 2 lines (a comment and "
+                "the ctx assignment), found %d: %r" % (len(flights_limit_lines), flights_limit_lines))
+        assignment_lines = [
+            ln for ln in flights_limit_lines if ln.strip().startswith('"flights_limit"')]
+        if len(assignment_lines) != 1:
+            return False, (
+                "expected exactly one ctx assignment line for 'flights_limit', found %d: %r"
+                % (len(assignment_lines), assignment_lines))
+        forbidden_chars = set("+-*/%<>=")
+        assignment = assignment_lines[0]
+        found_forbidden = forbidden_chars & set(assignment)
+        if found_forbidden:
+            return False, (
+                "expected the flights_limit ctx assignment to perform no arithmetic or "
+                "comparison — found %r in %r" % (found_forbidden, assignment))
+        return True, ""
+    check(
+        "history_page.flights_limit() clamps all 19 hostile inputs into [15, 50] without "
+        "raising, render() calls it exactly once and never reads ctx['flights_limit'] directly, "
+        "companion/app.py performs no arithmetic or comparison on the raw threaded value, and "
+        "HISTORY_ROW_LIMIT is the literal ceiling flights_limit()'s own source uses (T-29-03-01, "
+        "T-29-03-02, 29-03-PLAN.md Task 3)",
+        _flights_limit_is_clamped_and_the_clamp_is_the_only_path)
 
     def _the_count_animates_without_its_text_production_moving():
         js_path = os.path.join(HERE, "static", "list-filter.js")
