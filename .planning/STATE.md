@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 29
 current_phase_name: companion-review-feedback-round-3-the-developer-s-own-tour-o
 status: executing
-stopped_at: "Completed 29-05-PLAN.md — the settings-pages editorial floor (CFG-79): eight over-length Device/Runway captions cut to one sentence of at most twelve words in both languages, the apply-timing clause confined to the Frame strip, the Quiet-hours caption's delay-sentence append and its now-dead delay_sentence parameter deleted outright, a NOTIFICATIONS_URL_HOW_IT_WORKS_BODY disclosure added for the moved storage/replacement sentence, and config_page.ASPECT_CAPTION_EXEMPTIONS pinning the four Display Aspect captions Phase 30 owns. A new render-level, mutation-proven floor check in test_config_page.py (274/274, +1) also caught and fixed three French translations that exceeded 12 words on their own — a gap RESEARCH.md's English-only offender table could not see (QUIET_HOURS_SECTION_CAPTION, WAKE_INTERVAL_SECTION_CAPTION, LED_SECTION_CAPTION). test_i18n.py 24/24, test_companion_app.py 316/316, test_view_pages.py 168/168, test_status_pages.py 312/312, full suite green via scripts/run-all-tests.sh (test_browser_ux.py SKIPPED, no playwright). No blockers. 29-06 is next, generalising this same floor to all six authenticated routes."
-last_updated: "2026-09-21T22:13:51.113Z"
+stopped_at: Completed 29-06-PLAN.md — the site-wide editorial floor (CFG-79/CFG-84), the LAST plan of Phase 29. Battery-trend heading is now short and fixed (Batterie · 3 mois), precision moved to a sibling caption; Etat's check-in caption and read-only note split into a one-sentence visible caption plus a moved-clause disclosure; Compagnies' six over-length captions shortened; one HTTP-level check in test_companion_app.py measures every caption on all six authenticated routes in both languages (317/317), also catching two French translations that exceeded 12 words on their own. Full suite green (scripts/run-all-tests.sh, 93% coverage). Phase 29 is now ready for verification.
+last_updated: "2026-09-21T23:17:34.328Z"
 last_activity: 2026-09-21
 progress:
   total_phases: 42
-  completed_phases: 37
+  completed_phases: 38
   total_plans: 264
-  completed_plans: 253
+  completed_plans: 254
   percent: 96
 ---
 
@@ -421,6 +421,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 29 P03 | 58min | 3 tasks | 8 files |
 | Phase 29 P04 | 90min | 3 tasks | 6 files |
 | Phase 29 P05 | 120min | 3 tasks | 4 files |
+| Phase 29 P06 | ~3h | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -790,6 +791,9 @@ Recent decisions affecting current work:
 - [Phase ?]: quiet_hours_group()'s delay_sentence parameter deleted outright rather than left unread — nothing else in config_page.py consumed it after Task 2
 - [Phase ?]: wake_gauges_html()'s computed-quantity readouts excluded from the CFG-79 floor by selector (extra wake-gauge class token), not folded into ASPECT_CAPTION_EXEMPTIONS
 - [Phase ?]: the once-per-page apply-timing relationship is enforced as a region invariant (zero matches outside the Frame strip) rather than a literal at-most-one-element count, since the Frame strip's own two switch cells legitimately share one computed sentence by pre-existing design
+- [Phase ?]: CAPTION_FLOOR_EXEMPTIONS imports config_page.ASPECT_CAPTION_EXEMPTIONS rather than re-listing it; no additional exemption entries needed since layout.empty_state()'s compact body is already excluded by the class-subset selector (extra empty-state__body token), the same mechanism plan 29-05 uses for wake-gauge readouts. — One home for the exemption list; Phase 30 empties it in one place.
+- [Phase 29]: MANUAL_SUPERSEDED_NOTE_TEMPLATE is exempt from the CFG-79 editorial floor by argument, not by shortening: it is a status message naming a real conflict state, renders only as .lightbox__manual-note (never .section-caption), and needs no exemption-list entry since it never enters the measured set at all.
+- [Phase 29]: test_config_page.py's _caption_word_count_text is a nested function inside main(), not importable; test_companion_app.py duplicates it verbatim and proves agreement by extracting the real source via ast, execing it in isolation, and comparing output on a fixture string, rather than re-typing the rule from memory.
 
 ### Pending Todos
 
@@ -895,8 +899,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-21T22:13:51.092Z
-Stopped at: Completed 29-05-PLAN.md — the settings-pages editorial floor (CFG-79): eight over-length Device/Runway captions cut to one sentence of at most twelve words in both languages, the apply-timing clause confined to the Frame strip, the Quiet-hours caption's delay-sentence append and its now-dead delay_sentence parameter deleted outright, a NOTIFICATIONS_URL_HOW_IT_WORKS_BODY disclosure added for the moved storage/replacement sentence, and config_page.ASPECT_CAPTION_EXEMPTIONS pinning the four Display Aspect captions Phase 30 owns. A new render-level, mutation-proven floor check in test_config_page.py (274/274, +1) also caught and fixed three French translations that exceeded 12 words on their own — a gap RESEARCH.md's English-only offender table could not see (QUIET_HOURS_SECTION_CAPTION, WAKE_INTERVAL_SECTION_CAPTION, LED_SECTION_CAPTION). test_i18n.py 24/24, test_companion_app.py 316/316, test_view_pages.py 168/168, test_status_pages.py 312/312, full suite green via scripts/run-all-tests.sh (test_browser_ux.py SKIPPED, no playwright). No blockers. 29-06 is next, generalising this same floor to all six authenticated routes.
+Last session: 2026-09-21T23:12:51.187Z
+Stopped at: Completed 29-06-PLAN.md — the site-wide editorial floor (CFG-79/CFG-84), the LAST plan of Phase 29. Battery-trend heading is now short and fixed (Batterie · 3 mois), precision moved to a sibling caption; Etat's check-in caption and read-only note split into a one-sentence visible caption plus a moved-clause disclosure; Compagnies' six over-length captions shortened; one HTTP-level check in test_companion_app.py measures every caption on all six authenticated routes in both languages (317/317), also catching two French translations that exceeded 12 words on their own. Full suite green (scripts/run-all-tests.sh, 93% coverage). Phase 29 is now ready for verification.
 
 Resume file: 
 

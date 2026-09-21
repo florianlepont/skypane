@@ -1401,7 +1401,7 @@ Investigated before planning (git archaeology, not guesswork): the pre-removal b
 
 **Requirements**: CFG-79, CFG-80, CFG-81, CFG-82, CFG-83, CFG-84 (all new)
 **Depends on:** Phase 28 (merged and deployed); quick task Lot A merged first (its five fixes are assumed present)
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 **Wave 1**
@@ -1426,7 +1426,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 29-06-PLAN.md — CFG-84 + CFG-79 (2/2): État's short battery heading, État/Compagnies copy with every honesty clause moved not cut, and the site-wide caption floor over all six routes in both languages
+- [x] 29-06-PLAN.md — CFG-84 + CFG-79 (2/2): État's short battery heading, État/Compagnies copy with every honesty clause moved not cut, and the site-wide caption floor over all six routes in both languages
 
 **Wave order is strictly sequential (waves 1-6), by real file ownership rather than by preference:** `airlines_page.py` is written by 29-01 and 29-02, `config_page.py` by 29-04 and 29-05, `health_page.py`/`airlines_page.py` again by 29-06, `style.css` by 29-02/29-03/29-04, and `test_view_pages.py`/`test_status_pages.py`/`test_config_page.py` by almost all of them — each harness's `EXPECTED_CHECK_COUNT` is a single append point that two concurrent plans would both get wrong. CFG-81 lands before CFG-82 because CFG-82's "any remaining editing affordance" is only knowable once the toggle is gone; CFG-79's two halves land last so the floor checks measure final copy, and CFG-79 deliberately does not touch `EDIT_TOGGLE_CAPTION` (29-01 deletes it with its toggle).
 
