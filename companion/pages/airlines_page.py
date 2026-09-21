@@ -1687,7 +1687,11 @@ def _lightbox_html(edit_mode=False):
 # Unlike the retired diagnostics page, this gallery carries no read-only
 # constraint, so the Clear control below is a real <button>, matching
 # History's variant rather than the old Airlines page's anchor-link one.
-_FILTER_INPUT_ID = "airlines-gallery-filter-input"
+#
+# Quick task 260921-p2w Task 1: hyphen removed from this value — see
+# history_page.py's own `_FILTER_INPUT_ID` comment for the full WebKit/
+# Safari contacts-autofill explanation.
+_FILTER_INPUT_ID = "airlines_gallery_filter_input"
 # Phase 14 (14-02-PLAN.md Task 1) reworded this label in place: the
 # search behaviour genuinely broadens once gap cards are filterable by
 # callsign/prefix too (14-UI-SPEC.md Autonomous Decision #2).
