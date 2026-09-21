@@ -854,11 +854,14 @@ def _seed_gallery(state_dir, names):
         _write_gallery_png(os.path.join(gallery_dir, name))
 
 
-def _history_ctx(state_dir, now=None, gallery_entries=None):
+def _history_ctx(state_dir, now=None, gallery_entries=None, flights_limit=None):
     return {
         "state_dir": state_dir,
         "now": now or history_db.utc_now_iso(),
         "gallery_entries": gallery_entries or [],
+        # 29-03-PLAN.md Task 1 (CFG-83): the raw `?limit=` value, mirroring
+        # app.py's own ctx key exactly (None when the caller does not care).
+        "flights_limit": flights_limit,
     }
 
 
@@ -5439,6 +5442,12 @@ def main():
                 "ul.history-cards": '<ul class="history-cards"',
                 ".data-table-wrap": 'class="data-table-wrap"',
                 "[data-filter-count]": "data-filter-count ",
+                # 29-03-PLAN.md Task 1 (CFG-83): this fixture seeds
+                # exactly one row, so _show_more_html(1, 1) renders the
+                # EMPTY nav (shown >= total_available) — the witness
+                # still matches, because the element itself is always
+                # present (see that function's own comment for why).
+                ".flights-more": 'class="flights-more"',
             }
             if sorted(witnesses) != sorted(selectors):
                 return False, (

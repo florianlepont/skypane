@@ -99,6 +99,15 @@ Every page module in this package exposes:
           `unresolved_row_for_prefix()`, the same D-11 membership test
           companion/app.py's `Handler._handle_manual_resolve_post()`
           re-runs on the write path, so the two can never diverge
+        - flights_limit: the raw `?limit=` query value, or None — added
+          by 29-03-PLAN.md Task 1 (CFG-83), deliberately unvalidated at
+          this point, following resolve_prefix's own shape immediately
+          above. companion/pages/history_page.py's render() is the sole
+          consumer; it clamps this value on every use via
+          `flights_limit(ctx)`, the one function every representation
+          (the phone card list and the desktop table) shares, so the two
+          can never disagree about how many flights to show. No POST
+          handler ever consults this key
         - manual_resolutions: `server.plane.manual_resolutions.load_
           manual_resolutions(state_dir)`'s return value — the full
           `{prefix: {"airline_name": ..., "created_at": ...}}` registry,

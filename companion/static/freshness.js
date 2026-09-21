@@ -575,7 +575,8 @@
       ".page-header__freshness",
       "ul.history-cards",
       ".data-table-wrap",
-      "[data-filter-count]"
+      "[data-filter-count]",
+      ".flights-more"
     ]
   };
 

@@ -1608,6 +1608,18 @@ class Handler(BaseHTTPRequestHandler):
             # of this phase's threat posture.
             "resolve_prefix": params.get(
                 airlines_page.RESOLVE_QUERY_PARAM, [None])[0],
+            # 29-03-PLAN.md Task 1 (CFG-83): the raw `?limit=` query
+            # value, or None — deliberately unvalidated here, following
+            # "resolve_prefix" immediately above verbatim. Validation
+            # belongs to `history_page.flights_limit()`, the single
+            # clamp shared by every consumer; threading the raw value
+            # through ctx and validating only at the point of use is
+            # what keeps the render path from ever drifting against a
+            # second, independent parse. No POST handler ever consults
+            # this key — it is presentation-only, read only by
+            # `history_page.render()`.
+            "flights_limit": params.get(
+                history_page.FLIGHTS_LIMIT_QUERY_PARAM, [None])[0],
             # Read fresh per request, exactly like device_config.load_
             # device_config(state_dir) above — never the process-scoped
             # cache set_manual_registry_state_dir()/airline_name_for_

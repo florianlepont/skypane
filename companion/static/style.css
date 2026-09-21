@@ -4781,6 +4781,24 @@ table.data-table--registry .cell-inline-sep {
   margin-left: 0;
 }
 
+/* 29-03-PLAN.md Task 1 (CFG-83): the "Afficher plus" / "Show more"
+ * reveal's own container. `.flights-more` is ALWAYS rendered
+ * (history_page.py's `_show_more_html()`, empty when nothing remains —
+ * see that function's own comment for why an empty container must
+ * still exist), so `:empty` is what keeps a page with nothing left to
+ * reveal from paying for this rule's own top margin. No new custom
+ * property, no new colour, no new size — `--space-md` is the same
+ * token `.history-card` already uses for its own padding. */
+.flights-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-md);
+}
+
+.flights-more:empty {
+  display: none;
+}
+
 /* Health's own generic mobile card-list mechanism (quick task 260903-ghy,
  * UIR-10/UIR-11) — the SIBLING of History's page-scoped `.history-card*`
  * vocabulary above, not a merge with it: consolidating the two into one

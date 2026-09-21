@@ -2191,6 +2191,18 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         "ul.history-cards",
         ".data-table-wrap",
         "[data-filter-count]",
+        # 29-03-PLAN.md Task 1 (CFG-83): the Show-more nav's own `href`
+        # advances by one page on every render (history_page.py's
+        # `_show_more_html()`), so a background refresh that skipped
+        # this region would leave a STALE href on screen after the
+        # first swap — clicking it would silently re-request the page
+        # the visitor is already on instead of the next one. Declaring
+        # it here is also why `_show_more_html()` renders an EMPTY
+        # `<nav>` rather than nothing at all when there is no more to
+        # show: `test_view_pages.py`'s registry-witness check requires
+        # every declared region to be findable in every rendered page,
+        # including its single-row fixture where nothing remains.
+        ".flights-more",
     ),
 }
 
