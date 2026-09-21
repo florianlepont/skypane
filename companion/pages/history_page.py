@@ -269,7 +269,26 @@ _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
 # [data-filter-empty] attribute contract — reused verbatim by
 # 06.6.3-06's Airlines page (that plan supplies its own label/empty
 # copy, same contract).
-_FILTER_INPUT_ID = "history-filter-input"
+#
+# Quick task 260921-p2w Task 1: this value carried a hyphen
+# ("history-filter-input"). WebKit/Safari renders a contacts icon and
+# offers the user's own Contacts phone numbers when a text input's
+# `name` — or, absent a `name` (as here), its `id` — contains a
+# hyphen, and in that specific case Safari ignores
+# `autocomplete="off"`, which is why quick task 260921-n2n's attribute
+# fix alone did not suppress the dropdown the developer photographed
+# on 2026-09-21 and re-photographed after that fix deployed. The
+# underscore form below is safe because the documented trigger is the
+# hyphen character specifically; the value is otherwise unchanged.
+# This app's id convention remains hyphen-case everywhere else
+# deliberately — no other id is a `name`-less `type="search"` field
+# and none has been reported showing this behaviour — and
+# `companion/static/list-filter.js` selects this field via
+# `[data-filter-input]`, never by id, so this rename reaches no client
+# code. The same fix, same reasoning, is applied at
+# `airlines_page.py`'s and `health_page.py`'s own `_FILTER_INPUT_ID`
+# sites (each carries a short comment pointing back here).
+_FILTER_INPUT_ID = "history_filter_input"
 _FILTER_LABEL_TEXT = "Filter by callsign or hex"
 _FILTER_EMPTY_HEADING = "No matching flights"
 _FILTER_EMPTY_BODY_TEMPLATE = (

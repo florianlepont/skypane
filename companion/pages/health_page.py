@@ -796,12 +796,21 @@ _STATS_HEADERS = ("Source", "Description", "Count")
 # D-20: the filter bar's copy (06.6.3-UI-SPEC.md's Copywriting Contract),
 # driven client-side by companion/static/list-filter.js's shared
 # [data-filter-input]/[data-filter-count]/[data-filter-clear]/
-# [data-filter-empty] attribute contract. Kept byte-identical to
-# airlines_page.py's own constants, including the "airlines-" id prefix —
-# D-12 says the registry card's content and behaviour are unchanged by
-# this move, and list-filter.js keys on the data-filter-* attributes, not
-# on the element's id string.
-_FILTER_INPUT_ID = "airlines-filter-input"
+# [data-filter-empty] attribute contract. This is Health's OWN
+# unresolved-prefix registry filter (see `_FILTER_LABEL_TEXT` and
+# `_FILTER_EMPTY_HEADING` below), not the Compagnies gallery's — the
+# `airlines` prefix on this id is kept deliberately even though the two
+# values now differ (quick task 260921-p2w Task 1 renamed each site
+# independently): D-12 says the registry card's content and behaviour
+# are unchanged by this move, so this constant's scope stays
+# `airlines`-prefixed, and list-filter.js keys on the data-filter-*
+# attributes, not on the element's id string, so the prefix choice
+# reaches no client code either way.
+#
+# Quick task 260921-p2w Task 1: hyphen removed from this value — see
+# history_page.py's own `_FILTER_INPUT_ID` comment for the full WebKit/
+# Safari contacts-autofill explanation.
+_FILTER_INPUT_ID = "airlines_filter_input"
 _FILTER_LABEL_TEXT = "Filter by prefix"
 _FILTER_EMPTY_HEADING = "No matching prefixes"
 _FILTER_EMPTY_BODY_TEMPLATE = (

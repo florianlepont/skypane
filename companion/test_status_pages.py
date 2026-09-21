@@ -970,6 +970,13 @@ EXPECTED_CHECK_COUNT = 309
 # RUNNING.
 EXPECTED_CHECK_COUNT = 310
 
+# quick task 260921-p2w Task 2: +1 (the ast-based standing invariant
+# that no *_FILTER_INPUT_ID constant value and no hardcoded
+# <input type="search"> id literal contains a hyphen — the WebKit/
+# Safari contacts-autofill trigger Task 1 removed from all three
+# existing values). 310 + 1 = 311, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 311
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -10913,8 +10920,20 @@ def main():
         tmp = _mkstate("a-filter-label-for")
         try:
             rendered = airlines_page.render(_ctx(tmp))
-            if airlines_page._FILTER_INPUT_ID != "airlines-gallery-filter-input":
-                return False, "expected the UI-SPEC-pinned input id, got %r" % (airlines_page._FILTER_INPUT_ID,)
+            # quick task 260921-p2w Task 1: this literal was
+            # "airlines-gallery-filter-input", pinned by
+            # .planning/phases/06.6.4.1-.../06.6.4.1-UI-SPEC.md:381
+            # (§7.2's `Input id` row). That row is superseded by this
+            # quick task's hyphen-removal rename — the archived spec
+            # file itself is a historical record and is NOT edited —
+            # so the pinned value here is now the hyphen-free form.
+            if airlines_page._FILTER_INPUT_ID != "airlines_gallery_filter_input":
+                return False, (
+                    "expected the hyphen-free input id pinned by quick task 260921-p2w "
+                    "Task 1 (superseding 06.6.4.1-UI-SPEC.md §7.2's now-stale hyphenated "
+                    "value) — a hyphenated id here would reopen the WebKit/Safari "
+                    "contacts-autofill defect that rename fixed, got %r"
+                    % (airlines_page._FILTER_INPUT_ID,))
             expected_label = '<label class="text-label" for="%s">' % airlines_page._FILTER_INPUT_ID
             if expected_label not in rendered:
                 return False, "expected the filter label's for= to equal the search input's id"
@@ -10927,7 +10946,8 @@ def main():
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "the gallery filter label's for attribute equals the search input's id, and that id is the "
-        "UI-SPEC-pinned value",
+        "hyphen-free value quick task 260921-p2w Task 1 pins (superseding the now-stale "
+        "06.6.4.1-UI-SPEC.md §7.2 row)",
         _gallery_filter_label_for_matches_input_id)
 
     def _compagnies_and_health_filter_inputs_carry_safari_autofill_suppression_attributes():
@@ -11048,6 +11068,135 @@ def main():
         "bar added later cannot reintroduce the Safari contact-autofill defect with nothing to "
         "catch it (quick task 260921-n2n Task 4)",
         _every_search_input_in_the_app_carries_safari_autofill_suppression_attributes)
+
+    def _no_filter_input_id_anywhere_in_the_app_contains_a_hyphen():
+        # quick task 260921-p2w Task 2: Task 1 fixed three hand-edited
+        # values; without a standing check, a future filter bar — or a
+        # revert of Task 1 by someone who reads this codebase's
+        # hyphen-case id convention (used everywhere else) and
+        # "corrects" this back — silently reintroduces the exact
+        # WebKit/Safari defect the developer photographed twice: a
+        # contacts icon offering the user's OWN Contacts phone numbers
+        # on a text input whose name-less id contains a hyphen, a
+        # heuristic Safari applies even with autocomplete="off" set.
+        #
+        # Two parts, one check. Part A is the real gate: every
+        # `..._FILTER_INPUT_ID`-suffixed constant's VALUE, read through
+        # `ast` — never grepped as raw text, deliberately: Task 1's own
+        # provenance comments legitimately NAME the old hyphenated
+        # values, and a text-level scan would make those very comments
+        # illegal. Part B is a forward guard: a future filter bar that
+        # inlines its id as a literal instead of routing it through a
+        # constant would evade Part A entirely, so this also scans
+        # rendered `<input type="search">` tag literals for a
+        # hardcoded, non-template `id="..."`.
+        files = sorted(glob.glob(os.path.join(HERE, "pages", "*.py")))
+        files.append(os.path.join(HERE, "app.py"))
+
+        def docstring_constant_ids(tree):
+            # A local copy of the sibling scan's own helper just above
+            # (`_every_search_input_in_the_app_carries_safari_autofill_
+            # suppression_attributes`'s `docstring_constant_ids`) —
+            # deliberately NOT hoisted or shared, so that check stays
+            # unmodified.
+            ids = set()
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    body = getattr(node, "body", None)
+                    if (body and isinstance(body[0], ast.Expr)
+                            and isinstance(body[0].value, ast.Constant)
+                            and isinstance(body[0].value.value, str)):
+                        ids.add(id(body[0].value))
+            return ids
+
+        constant_hits = 0
+        constant_bad = []
+        tag_bad = []
+        id_attr_re = re.compile(r'id="([^"]*)"')
+        for fp in files:
+            with open(fp, "r", encoding="utf-8") as fh:
+                src = fh.read()
+            tree = ast.parse(src, filename=fp)
+            rel = os.path.relpath(fp, HERE)
+
+            # Part A: every `..._FILTER_INPUT_ID`-suffixed assignment's
+            # string constant VALUE.
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Assign):
+                    continue
+                if not (isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)):
+                    continue
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id.endswith("_FILTER_INPUT_ID"):
+                        constant_hits += 1
+                        value = node.value.value
+                        if "-" in value:
+                            constant_bad.append("%s: %s = %r" % (rel, target.id, value))
+
+            # Part B: a hardcoded (non-template) id on a literal
+            # <input type="search"> tag, docstrings excluded (same
+            # discipline as the sibling scan above). A tag with no
+            # id= attribute, or whose id is the "%s" template form
+            # every builder uses today, is skipped — this is a
+            # forward guard, not a duplicate of Lot A's attribute
+            # check or Part A's constant scan.
+            skip_ids = docstring_constant_ids(tree)
+            for node in ast.walk(tree):
+                if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                    continue
+                if id(node) in skip_ids:
+                    continue
+                literal = node.value
+                start = 0
+                while True:
+                    idx = literal.find('<input type="search"', start)
+                    if idx == -1:
+                        break
+                    end = literal.find(">", idx)
+                    tag = literal[idx:end + 1] if end != -1 else literal[idx:]
+                    start = idx + 1
+                    m = id_attr_re.search(tag)
+                    if not m:
+                        continue
+                    tag_id = m.group(1)
+                    if tag_id == "%s":
+                        continue
+                    if "-" in tag_id:
+                        tag_bad.append("%s: %r has hardcoded id %r" % (rel, tag, tag_id))
+
+        mechanism = (
+            "WebKit/Safari renders a contacts icon inside a text input and offers phone "
+            "numbers from the user's OWN Contacts card when the field's name — or, absent "
+            "a name, its id — contains a hyphen, and Safari ignores autocomplete=\"off\" "
+            "in that case, which is why quick task 260921-n2n's attribute fix alone left "
+            "the dropdown showing on the deployed app (the developer's 2026-09-21 report)"
+        )
+        if constant_bad:
+            return False, (
+                "%s — a hyphenated *_FILTER_INPUT_ID constant reintroduces exactly that "
+                "defect: %s" % (mechanism, "; ".join(constant_bad)))
+        if constant_hits < 3:
+            return False, (
+                "expected at least 3 *_FILTER_INPUT_ID constant assignments across "
+                "companion/pages/*.py and companion/app.py (the floor known at plan time — "
+                "airlines_page.py, health_page.py, history_page.py), found only %d — this "
+                "would let the check pass vacuously if every filter constant were deleted"
+                % constant_hits)
+        if tag_bad:
+            return False, (
+                "%s — a hardcoded (non-template) id= on a rendered <input type=\"search\"> "
+                "tag reintroduces exactly that defect, bypassing the *_FILTER_INPUT_ID "
+                "constant scan entirely: %s" % (mechanism, "; ".join(tag_bad)))
+        return True, ""
+    check(
+        "no *_FILTER_INPUT_ID constant value and no hardcoded <input type=\"search\"> id "
+        "literal, across companion/pages/*.py and companion/app.py (enumerated from disk, "
+        "3 constants found at plan time, a >= 3 vacuity floor so deleting the constants "
+        "cannot make this pass trivially), contains a hyphen — the documented WebKit/Safari "
+        "trigger that offers the user's own Contacts phone numbers on a name-less "
+        "type=\"search\" field even with autocomplete=\"off\" set (quick task 260921-p2w "
+        "Task 2, closing the gap Task 1's three hand-fixed values left open)",
+        _no_filter_input_id_anywhere_in_the_app_contains_a_hyphen)
 
     def _gallery_filter_count_and_empty_body_name_the_real_total():
         tmp = _mkstate("a-filter-count-total")
