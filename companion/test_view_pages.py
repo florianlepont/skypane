@@ -675,6 +675,19 @@ EXPECTED_CHECK_COUNT = 166
 # added back = -4. 166 - 4 = 162, re-derived by RUNNING (162/162 pass).
 EXPECTED_CHECK_COUNT = 162
 
+# 29-02-PLAN.md (CFG-82): +2 net. One existing check
+# (_airlines_gap_strip_renders_before_filter_bar_with_heading_and_no_grid_placeholder,
+# renamed to its "_after_the_gallery_" form) is retargeted in place (net
+# 0) to the new order — the strip now renders after the filter bar and
+# the gallery grid, not before them. Two checks are new: one asserts the
+# whole page's section order as a chain of index relationships (title <
+# filter < gallery < gap strip < lightbox, each literal exactly once);
+# one re-proves render()'s existing no-chrome gate survives the reorder
+# untouched (a gap-cards-only fixture still shows the filter bar, a
+# neither fixture shows none). 0 (retarget) + 2 (new) = +2.
+# 162 + 2 = 164, re-derived by RUNNING (164/164).
+EXPECTED_CHECK_COUNT = 164
+
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -4081,9 +4094,17 @@ def main():
     # 19-08-PLAN.md Task 1 (D-21/A-38): the "Unidentified airlines" gap
     # strip - its own explained home for the coverage-gap cards, moved
     # off the head of the curated artwork grid.
+    #
+    # 29-02-PLAN.md (CFG-82) SUPERSEDES this section's own check in
+    # place: D-21 put the strip BEFORE the filter bar (first thing on
+    # the page); CFG-82 moves it AFTER the filter bar and the gallery
+    # grid instead, so a household member reaches the page's main
+    # content before a diagnostic list. The check below is retargeted
+    # to the new order, not retired - the "no gap card ever leaks into
+    # the curated grid" property it proves is unchanged by the reorder.
     # ======================================================================
 
-    def _airlines_gap_strip_renders_before_filter_bar_with_heading_and_no_grid_placeholder():
+    def _airlines_gap_strip_renders_after_the_gallery_with_heading_and_no_grid_placeholder():
         tmp = _mkstate("a-gap-strip")
         try:
             _seed_unresolved_prefixes(tmp, {
@@ -4102,23 +4123,28 @@ def main():
         try:
             strip_index = rendered.index(airlines_page.GAP_STRIP_HEADING)
             filter_bar_index = rendered.index('class="filter-bar')
+            gallery_index = rendered.index('class="illustration-grid"')
         except ValueError as exc:
-            return False, "expected both the gap strip heading and the filter bar present: %s" % (exc,)
-        if strip_index >= filter_bar_index:
-            return False, "expected the gap strip to render before the filter bar"
+            return False, (
+                "expected the gap strip heading, the filter bar and the gallery grid all present: %s"
+                % (exc,))
+        if strip_index <= filter_bar_index:
+            return False, "expected the gap strip to render after the filter bar (CFG-82, 29-02-PLAN.md)"
+        if strip_index <= gallery_index:
+            return False, "expected the gap strip to render after the gallery grid (CFG-82, 29-02-PLAN.md)"
         # The curated artwork grid never holds a gap card: every gap
         # card carries .airline-card__placeholder, and no curated card
-        # ever does, so zero occurrences anywhere at/after the filter
-        # bar (i.e. outside the strip, which rendered entirely before
-        # it) proves the grid holds none.
-        if "airline-card__placeholder" in rendered[filter_bar_index:]:
+        # ever does, so zero occurrences BEFORE the gap strip's own
+        # index (i.e. inside the filter bar and the gallery grid, which
+        # now render entirely before it) proves the grid holds none.
+        if "airline-card__placeholder" in rendered[:strip_index]:
             return False, "expected the curated artwork grid to hold no gap card placeholder"
         return True, ""
     check(
         "a render with an eligible gap emits the \"Unidentified airlines\" strip with its exact heading and "
-        "sentence before the filter bar, and the curated artwork grid holds no gap card (D-21, A-38, "
-        "19-08-PLAN.md Task 1)",
-        _airlines_gap_strip_renders_before_filter_bar_with_heading_and_no_grid_placeholder)
+        "sentence after the filter bar and the gallery grid, and the curated artwork grid holds no gap card "
+        "(D-21/A-38, 19-08-PLAN.md Task 1, order superseded by CFG-82, 29-02-PLAN.md)",
+        _airlines_gap_strip_renders_after_the_gallery_with_heading_and_no_grid_placeholder)
 
     def _airlines_gap_strip_absent_with_no_gaps():
         tmp = _mkstate("a-no-gap-strip")
@@ -4135,6 +4161,107 @@ def main():
         "a render with no eligible gaps emits no \"Unidentified airlines\" strip and no empty section "
         "(D-21, 19-08-PLAN.md Task 1)",
         _airlines_gap_strip_absent_with_no_gaps)
+
+    # ======================================================================
+    # 29-02-PLAN.md (CFG-82): the page's whole section order, asserted as
+    # a chain of relationships (never a literal offset) - the filter bar
+    # and the known-airline gallery are the first two things under the
+    # title, and the unidentified-prefix strip is a secondary section
+    # below the gallery.
+    # ======================================================================
+
+    def _airlines_section_order_is_title_then_filter_then_gallery_then_gapstrip_then_lightbox():
+        tmp = _mkstate("a-section-order")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 3, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            # illustrations.target_variants_by_airline() is the real
+            # curated in-repo catalog and is never empty in this app, so
+            # every gallery card term is non-empty here with no
+            # monkeypatch needed - the same "never empty" premise
+            # render()'s own comments state.
+            rendered = airlines_page.render({"state_dir": tmp})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        literals = (
+            ("title", '<h1 class="page-title"'),
+            ("filter", 'class="filter-bar"'),
+            ("gallery", 'class="illustration-grid"'),
+            ("gapstrip", airlines_page.GAP_STRIP_HEADING),
+            ("lightbox", '<dialog class="lightbox'),
+        )
+        indices = {}
+        for name, literal in literals:
+            occurrences = rendered.count(literal)
+            if occurrences != 1:
+                return False, (
+                    "expected exactly one occurrence of %r (the %s section), found %d"
+                    % (literal, name, occurrences))
+            indices[name] = rendered.index(literal)
+
+        order = ["title", "filter", "gallery", "gapstrip", "lightbox"]
+        for earlier, later in zip(order, order[1:]):
+            if not indices[earlier] < indices[later]:
+                return False, (
+                    "expected %s before %s, but got indices title=%d filter=%d gallery=%d "
+                    "gapstrip=%d lightbox=%d (CFG-82, 29-02-PLAN.md)"
+                    % (earlier, later, indices["title"], indices["filter"], indices["gallery"],
+                       indices["gapstrip"], indices["lightbox"]))
+        return True, ""
+    check(
+        "on a render with both an eligible gap and at least one curated gallery card, the page's own "
+        "sections chain title < filter bar < gallery grid < \"Unidentified airlines\" strip < the lightbox "
+        "dialog, each literal occurring exactly once (CFG-82, 29-02-PLAN.md)",
+        _airlines_section_order_is_title_then_filter_then_gallery_then_gapstrip_then_lightbox)
+
+    def _airlines_no_chrome_gate_survives_the_reorder():
+        original_target_variants_by_airline = illustrations.target_variants_by_airline
+        # Fixture A: gap cards present, the gallery's own curated pairs
+        # empty - monkeypatched, since the real catalog is never empty
+        # (render()'s own comment). The no-chrome gate is
+        # `pairs or gap_shown`, so this fixture must still show chrome.
+        tmp_a = _mkstate("a-no-chrome-gap-only")
+        try:
+            _seed_unresolved_prefixes(tmp_a, {
+                "XYZ": {
+                    "count": 3, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            illustrations.target_variants_by_airline = lambda: []
+            rendered_gap_only = airlines_page.render({"state_dir": tmp_a})
+        finally:
+            illustrations.target_variants_by_airline = original_target_variants_by_airline
+            shutil.rmtree(tmp_a, ignore_errors=True)
+        if 'class="filter-bar"' not in rendered_gap_only:
+            return False, (
+                "expected the filter bar to still render when there are gap cards but no curated pairs "
+                "(the gate is `pairs or gap_shown`, CFG-82, 29-02-PLAN.md)")
+
+        # Fixture B: neither gap cards nor curated pairs - the existing
+        # no-chrome-with-no-data rule must still hold after the reorder.
+        tmp_b = _mkstate("a-no-chrome-neither")
+        try:
+            illustrations.target_variants_by_airline = lambda: []
+            rendered_neither = airlines_page.render({"state_dir": tmp_b})
+        finally:
+            illustrations.target_variants_by_airline = original_target_variants_by_airline
+            shutil.rmtree(tmp_b, ignore_errors=True)
+        if 'class="filter-bar"' in rendered_neither:
+            return False, (
+                "expected no filter bar at all when there is nothing to filter (the no-chrome-with-no-data "
+                "gate, CFG-82, 29-02-PLAN.md)")
+        return True, ""
+    check(
+        "the reorder does not touch render()'s own no-chrome gate: a render with gap cards but no curated "
+        "pairs still shows the filter bar, and a render with neither shows no filter bar at all (CFG-82, "
+        "29-02-PLAN.md)",
+        _airlines_no_chrome_gate_survives_the_reorder)
 
     # ======================================================================
     # 19-08-PLAN.md Task 2 (D-21/A-38): the resolve panel's back link now

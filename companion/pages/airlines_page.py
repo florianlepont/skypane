@@ -2296,6 +2296,28 @@ def render(ctx):
     same "reference/cleanup material, not the page's purpose" framing
     the retired management table's own empty state used to carry
     (UI-SPEC Autonomous Decision 2).
+
+    29-02-PLAN.md (CFG-82) supersedes 19-08-PLAN.md's (D-21) "gap strip
+    first" ordering: the return expression's term order is now
+    page_header, filter_html, the gallery grid, gap_strip_html,
+    lightbox_html, resolve_html — the filter bar and the known-airline
+    gallery are the first two things under the title, and the
+    unidentified-prefix strip drops to a secondary position below the
+    gallery, still carrying its own `GAP_STRIP_HEADING`/`GAP_STRIP_BODY`
+    announcement so it stays a clearly-announced secondary section, just
+    no longer the page's first one. D-21's own reasoning — surfacing a
+    diagnostic list before anything else — is what this supersedes: on a
+    phone it put a diagnostic list ahead of the page's main content.
+    Resolving CFG-82's "any remaining editing affordance moves to a
+    clearly announced secondary section" (A2): 29-01-PLAN.md (CFG-81)
+    already deleted the one page-wide editing toggle this could have
+    named, so nothing needed relocating on that account. Of this
+    function's remaining terms, the manual-resolutions summary button
+    lives INSIDE the filter bar (a filter control, per the 22-11 comment
+    above `filter_html`'s assignment) and the resolve flow's own
+    controls render only under `?resolve=...`, never on the default
+    view — neither is "above the gallery" on the page this reorder
+    actually renders, so neither moved.
     """
     # ctx.get(), never ctx["state_dir"]: companion/test_view_pages.py:1365
     # calls render({}) with a literal empty dict, and every other caller
@@ -2423,14 +2445,24 @@ def render(ctx):
     # cards-exist gate, which is not a real narrowing — `pairs` is
     # `illustrations.target_variants_by_airline()`, never empty in this
     # app, so a render with manual rows and no filter bar cannot occur.
+    #
+    # 29-02-PLAN.md (CFG-82) supersedes D-21's "gap strip first" placement
+    # in a third respect: `gap_strip_html` moves from the front of this
+    # return expression to just before `lightbox_html`, so the filter bar
+    # and the known-airline gallery are the first two things under the
+    # page title. This is a pure reorder of the same three already-built
+    # strings — `total`, `filter_html`'s gate expression and
+    # `lightbox_html`'s gate expression (both immediately above) are
+    # untouched. See render()'s own docstring for the superseded-in-place
+    # account and the resolved A2 decision.
     summary_html = _manual_summary_html(manual_rows)
     filter_html = _filter_bar_html(total, summary_html) if (pairs or gap_shown) else ""
     return (
         layout.page_header(i18n.t("Airlines"), purpose=i18n.t(GALLERY_PURPOSE_TEXT))
-        + gap_strip_html
         + filter_html
         + _gallery_grid_html(
             pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now)
+        + gap_strip_html
         + lightbox_html
         + resolve_html
     )
