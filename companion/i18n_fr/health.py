@@ -193,10 +193,18 @@ CATALOG = {
     "— the physical frame: is it checking in, and how's the battery.":
         "— le cadre physique : se connecte-t-il, et comment va la batterie.",
     "Server & data": "Serveur et données",
+    # 29-06-PLAN.md Task 3 (CFG-79): shortened from 15 words to 12 —
+    # surfaced only by Task 3’s own bilingual, render-level site-wide
+    # check. The English source is already exactly at the 12-word
+    # floor; the French translation’s real non-breaking space before
+    # its colon (D-09) costs one extra whitespace-split token the
+    # English colon does not, so "sont-elles fraîches et" is trimmed
+    # to stay under the same floor without losing "route resolution"
+    # itself.
     "— the ADS-B pipeline and route resolution: is the data fresh and "
     "trustworthy.":
-        "— le pipeline ADS-B et la résolution des trajets : les "
-        "données sont-elles fraîches et fiables.",
+        "— le pipeline ADS-B et la résolution des trajets : "
+        "données fiables ?",
 
     # --- Unresolved-prefix registry / filter bar --------------------------
     "Airlines we could not name": "Compagnies non identifiées",
@@ -310,9 +318,12 @@ CATALOG = {
     # recorded, a wake is something the FRAME did, and this grid can
     # only report the first.
     "Check-in regularity": "Régularité des relevés",
+    # 29-06-PLAN.md Task 3 (CFG-79): shortened from 17 words to 12 —
+    # surfaced only by Task 3's own bilingual, render-level site-wide
+    # check (Task 2's own checks never measured French word count).
     "Each cell is one day of observed check-in regularity, oldest first.":
-        "Chaque case correspond à un jour de régularité observée des "
-        "relevés, du plus ancien au plus récent.",
+        "Chaque case représente un jour observé, du plus ancien au "
+        "plus récent.",
     "Judged against the cadence configured now — a check-in every %s — not "
     "necessarily the cadence in force on an earlier day.":
         "Évaluée selon la cadence configurée actuellement — un relevé "
