@@ -1401,12 +1401,12 @@ Investigated before planning (git archaeology, not guesswork): the pre-removal b
 
 **Requirements**: CFG-79, CFG-80, CFG-81, CFG-82, CFG-83, CFG-84 (all new)
 **Depends on:** Phase 28 (merged and deployed); quick task Lot A merged first (its five fixes are assumed present)
-**Plans:** 6 plans
+**Plans:** 1/6 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 29-01-PLAN.md — CFG-81: the illustration dialog owns its actions; the page-wide picture-editing mode and its `?edit=1` plumbing removed outright
+- [x] 29-01-PLAN.md — CFG-81: the illustration dialog owns its actions; the page-wide picture-editing mode and its `?edit=1` plumbing removed outright
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
