@@ -1401,7 +1401,7 @@ Investigated before planning (git archaeology, not guesswork): the pre-removal b
 
 **Requirements**: CFG-79, CFG-80, CFG-81, CFG-82, CFG-83, CFG-84 (all new)
 **Depends on:** Phase 28 (merged and deployed); quick task Lot A merged first (its five fixes are assumed present)
-**Plans:** 2/6 plans executed
+**Plans:** 3/6 plans executed
 
 Plans:
 **Wave 1**
@@ -1414,7 +1414,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 29-03-PLAN.md — CFG-83: Vols paginated to 15 flights behind a no-JS `?limit=` reveal that survives the refresh loop, plus the phone summary card's stable grid
+- [x] 29-03-PLAN.md — CFG-83: Vols paginated to 15 flights behind a no-JS `?limit=` reveal that survives the refresh loop, plus the phone summary card's stable grid
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
