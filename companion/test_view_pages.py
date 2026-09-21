@@ -688,6 +688,16 @@ EXPECTED_CHECK_COUNT = 162
 # 162 + 2 = 164, re-derived by RUNNING (164/164).
 EXPECTED_CHECK_COUNT = 164
 
+# 29-03-PLAN.md (CFG-83): +1 net. Task 1 retargets the existing
+# registry-witness check's witness dict (a ".flights-more" entry added
+# alongside the new swap-registry region) in place — net 0, no new
+# check(...) call. Task 2 adds one new check: the
+# .history-card__primary two-track-grid relationship (CSS declarations
+# plus all three primary_value_html branches producing a placeable
+# child set). 0 (retarget) + 1 (new) = +1. 164 + 1 = 165, re-derived by
+# RUNNING (165/165).
+EXPECTED_CHECK_COUNT = 165
+
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -5705,6 +5715,109 @@ def main():
         "the card and OUT of the summary, and the disclosure body still holds exactly the three "
         "copy buttons (D7/CFG-37, 23-08-PLAN.md Task 2)",
         _the_phone_cards_own_face_is_its_disclosure_summary)
+
+    def _history_card_primary_grid_pins_the_timestamp_track():
+        # 29-03-PLAN.md Task 2 (CFG-83, 2026-09-17 audit P1): the CSS
+        # half — .history-card__primary is a two-track grid, its second
+        # track pinned to auto and its timestamp span forbidden from
+        # wrapping — plus the RELATIONSHIP that matters: the markup's
+        # three primary_value_html branches must each produce a child
+        # set the two-track grid can actually place, with no branch
+        # producing a third, unclassified top-level child.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+
+        primary_block = _css_rule_body(css, ".history-card__primary")
+        if primary_block is None:
+            return False, "could not locate the .history-card__primary rule block"
+        if not re.search(r"display:\s*grid\s*;", primary_block):
+            return False, (
+                "expected .history-card__primary to declare display: grid, got block %r"
+                % primary_block)
+        tracks_match = re.search(r"grid-template-columns:\s*([^;]+);", primary_block)
+        if tracks_match is None:
+            return False, (
+                "expected .history-card__primary to declare grid-template-columns, found none "
+                "in %r" % primary_block)
+        tracks = tracks_match.group(1).strip()
+        if not re.match(r"^minmax\(\s*0\s*,\s*1fr\s*\)\s+auto$", tracks):
+            return False, (
+                "expected grid-template-columns to declare exactly two tracks — minmax(0, 1fr) "
+                "then auto — got %r" % tracks)
+        if "justify-content" in primary_block:
+            return False, (
+                "expected justify-content ABSENT from .history-card__primary (meaningless on a "
+                "two-track grid whose second track is auto), found it in %r" % primary_block)
+
+        time_block = _css_rule_body(css, ".history-card__time")
+        if time_block is None:
+            return False, "could not locate the .history-card__time rule block"
+        if not re.search(r"white-space:\s*nowrap\s*;", time_block):
+            return False, (
+                "expected .history-card__time to declare white-space: nowrap, got %r" % time_block)
+        if "margin-left" in time_block:
+            return False, (
+                "expected .history-card__time to declare no margin-left (the grid places it now "
+                "instead of the flex auto-margin trick), found %r" % time_block)
+
+        branches = (
+            ("callsign", {"ts": "2026-09-21T10:00:00+00:00", "callsign": "GRD01"}),
+            ("hex-plus-note", {"ts": "2026-09-21T10:00:00+00:00", "hex": "abc123"}),
+            ("empty", {"ts": "2026-09-21T10:00:00+00:00"}),
+        )
+        for name, fields in branches:
+            tmp = _mkstate("h-grid-%s" % name)
+            try:
+                _seed_runway_events(tmp, [fields])
+                rendered = history_page.render(_history_ctx(tmp))
+                li_block = _row_block(rendered, "li", 0)
+                if li_block is None:
+                    return False, "%s branch: could not locate the rendered card" % name
+                primary_match = re.search(
+                    r'<div class="history-card__primary">(.*?)</div>', li_block, re.S)
+                if primary_match is None:
+                    return False, (
+                        "%s branch: could not locate .history-card__primary markup in %r"
+                        % (name, li_block))
+                primary_markup = primary_match.group(1)
+                if primary_markup.count('<span class="history-card__time">') != 1:
+                    return False, (
+                        "%s branch: expected exactly one history-card__time (track-2) child, "
+                        "found %d in %r" % (
+                            name, primary_markup.count('<span class="history-card__time">'),
+                            primary_markup))
+                track2_start = primary_markup.index('<span class="history-card__time">')
+                track1_markup = primary_markup[:track2_start]
+                track1_children = re.findall(
+                    r'<span class="(cell-primary|cell-secondary)[^"]*"', track1_markup)
+                if not track1_children:
+                    return False, (
+                        "%s branch: expected at least one track-1 (.cell-primary/.cell-secondary) "
+                        "child before the timestamp span, found none in %r"
+                        % (name, primary_markup))
+                # Strip every classified track-1 child; anything left
+                # over is a THIRD top-level child the two-track grid has
+                # no track for — the property this check exists to
+                # prove, per branch.
+                unclassified = re.sub(
+                    r'<span class="cell-(?:primary|secondary)[^"]*">.*?</span>', "",
+                    track1_markup, flags=re.S).strip()
+                if unclassified:
+                    return False, (
+                        "%s branch: expected every child before the timestamp span to be a "
+                        "classified .cell-primary/.cell-secondary track-1 child, found leftover "
+                        "unclassified markup %r in %r" % (name, unclassified, primary_markup))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the phone summary card's .history-card__primary line is a two-track CSS grid "
+        "(minmax(0, 1fr) then auto, no justify-content) with a non-wrapping .history-card__time "
+        "(white-space: nowrap, no margin-left: auto), and all three primary_value_html branches — "
+        "callsign, hex-plus-note, empty — produce a child set the grid can place with no third, "
+        "unclassified top-level child (2026-09-17 audit P1, 29-03-PLAN.md Task 2)",
+        _history_card_primary_grid_pins_the_timestamp_track)
 
     def _the_count_animates_without_its_text_production_moving():
         js_path = os.path.join(HERE, "static", "list-filter.js")

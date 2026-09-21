@@ -4647,11 +4647,41 @@ table.data-table--registry .cell-inline-sep {
   box-shadow: var(--shadow-card-hover);
 }
 
+/* 29-03-PLAN.md Task 2 (CFG-83, 2026-09-17 audit P1 second paragraph):
+ * the flex row let its two children renegotiate their share of the
+ * line at 390px — "l'horodatage et l'indicatif se disputent aussi la
+ * même ligne dans certaines cartes" — because a flex row with no fixed
+ * track never guarantees which side gives way first. The two-track
+ * grid below pins the timestamp's track to its own content width
+ * (`auto`) and gives every remaining pixel to the callsign/hex track
+ * (`minmax(0, 1fr)`, free to shrink to zero and wrap/ellipsis within
+ * itself) — the timestamp can never be squeezed again. `white-space:
+ * nowrap` on `.history-card__time` below is the half that makes the
+ * pin meaningful: without it, a timestamp column pinned to `auto`
+ * would still be free to wrap internally onto a second line.
+ * `justify-content` is meaningless on a two-track grid whose second
+ * track is `auto` (there is no leftover space to distribute), so it is
+ * removed rather than kept as dead weight. */
 .history-card__primary {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-sm);
-  justify-content: space-between;
+}
+
+/* The callsign/hex side of the primary line renders as ONE OR TWO bare
+ * sibling spans (`.cell-primary`, and — only in the hex-with-no-
+ * callsign branch — a following `.cell-secondary` note), both direct
+ * children of `.history-card__primary` with no wrapper of their own
+ * (companion/pages/history_page.py's `_history_cards_html()`). Both
+ * must land in the grid's FIRST track and stack there, never spill
+ * into the timestamp's second track — scoped to this one parent, never
+ * to the bare `.cell-primary`/`.cell-secondary` classes themselves,
+ * which `_history_table_html()`'s desktop cells also use with no grid
+ * of their own to conflict with. */
+.history-card__primary > .cell-primary,
+.history-card__primary > .cell-secondary {
+  grid-column: 1;
 }
 
 /* opacity 0.7, matching .cell-secondary / .cell-inline-sep above. This
@@ -4687,9 +4717,18 @@ table.data-table--registry .cell-inline-sep {
   font-size: var(--font-label-size);
 }
 
+/* 29-03-PLAN.md Task 2: `margin-left: auto` was the FLEX mechanism that
+ * pushed this span to the line's trailing edge — the grid above places
+ * it in its own track instead, so the auto margin is dead weight now
+ * (and, left in place, would fight the grid's own alignment). `white-
+ * space: nowrap` is new: a wrapped clock is the exact "retours
+ * visuellement maladroits" the audit photographed, and pinning the
+ * track to `auto` (above) only stops the track's WIDTH from being
+ * squeezed — nothing stops the text inside it from wrapping unless
+ * this is also declared. */
 .history-card__time {
-  margin-left: auto;
   font-size: var(--font-label-size);
+  white-space: nowrap;
 }
 
 /* 23-08-PLAN.md Task 2 (D7/CFG-37): the disclosure is the card's WHOLE
