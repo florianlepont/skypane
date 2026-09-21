@@ -1401,7 +1401,7 @@ Investigated before planning (git archaeology, not guesswork): the pre-removal b
 
 **Requirements**: CFG-79, CFG-80, CFG-81, CFG-82, CFG-83, CFG-84 (all new)
 **Depends on:** Phase 28 (merged and deployed); quick task Lot A merged first (its five fixes are assumed present)
-**Plans:** 3/6 plans executed
+**Plans:** 4/6 plans executed
 
 Plans:
 **Wave 1**
@@ -1418,7 +1418,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 29-04-PLAN.md — CFG-80: quiet hours as one object — Start/End on one line, segmented short-labelled presets, the normalised twin hidden only on a positive 24 h determination
+- [x] 29-04-PLAN.md — CFG-80: quiet hours as one object — Start/End on one line, segmented short-labelled presets, the normalised twin hidden only on a positive 24 h determination
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
