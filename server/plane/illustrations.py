@@ -510,15 +510,22 @@ _ILLUSTRATION_TARGETS = [
         "genuine flight returns. The developer observed a real "
         "DJT-prefixed La Compagnie flight at Orly on 2026-09-21 - that is "
         "the blocker the old verdict named, and it is now cleared. "
-        "Primary airframe: Airbus A350-900, La Compagnie's single-type "
-        "all-business-class fleet. [DEVELOPER-OBSERVED]",
+        "Primary airframe: Airbus A321neo LR (registration F-HNCO in the "
+        "delivered art), La Compagnie's real current single-type "
+        "all-business-class fleet - corrects this note's own earlier "
+        "draft, which assumed the carrier's former Boeing 757 / a "
+        "guessed A350 before the actual delivered file was inspected. "
+        "[DEVELOPER-OBSERVED]",
     ),
     (
         "Qatar Amiri Flight",
         None,
         "Qatar's state/VIP operator (ICAO QAF). Primary airframe: Airbus "
-        "ACJ320, matching the developer's observed tail A7-MBK. "
-        "[DEVELOPER-OBSERVED]",
+        "A320, depicted in Qatar Airways' commercial 'QATAR' livery - the "
+        "delivered art carries no distinct VIP paint scheme and no "
+        "visible registration, so it is not confirmed to depict the "
+        "developer's observed tail A7-MBK specifically, only the QAF "
+        "operator identity. [DEVELOPER-OBSERVED]",
     ),
     (
         "South Korea Government",
@@ -538,7 +545,9 @@ _ILLUSTRATION_TARGETS = [
         "commercial carrier - see enrich.py's RJA/SVA header comment for "
         "why this row, unlike the state/charter operators around it, may "
         "see a live adsbdb hit under a different string. Primary "
-        "airframe: Airbus A320. [DEVELOPER-OBSERVED]",
+        "airframe: Boeing 787-8 Dreamliner (registration JY-BAA in the "
+        "delivered art), Royal Jordanian's widebody flagship type. "
+        "[DEVELOPER-OBSERVED]",
     ),
     (
         "French Air Force",
@@ -567,9 +576,12 @@ _ILLUSTRATION_TARGETS = [
         "Saudi Royal Aviation",
         None,
         "Saudi Arabia's state/royal VIP operator (ICAO SRA). Primary "
-        "airframe: Boeing 747-8, a plausible royal-flight widebody type "
-        "- no 747 shape bucket exists in _TYPE_SHAPE_BUCKETS, so this "
-        "carrier is reachable only through Tier 2. [DEVELOPER-OBSERVED]",
+        "airframe: Boeing 777-300ER, in the green/white 'KINGDOM OF "
+        "SAUDI ARABIA' state livery (registration HZ-HM5 in the "
+        "delivered art). No B777 shape bucket exists in "
+        "_TYPE_SHAPE_BUCKETS (only the 737/A330/A350/etc. families do), "
+        "so this carrier is reachable only through Tier 2 (the airline's "
+        "own primary file). [DEVELOPER-OBSERVED]",
     ),
     (
         "Saudia",
@@ -591,10 +603,10 @@ _ILLUSTRATION_TARGETS = [
         "branch of the French national gendarmerie (ICAO FGN), a state "
         "law-enforcement operator, not a commercial airline - recorded "
         "here so that fact stays visible in-tree. Primary airframe: "
-        "Airbus H145 helicopter shape rendered as a fixed-wing-style "
-        "side profile per this project's existing illustration "
-        "convention (no rotorcraft shape bucket exists). "
-        "[DEVELOPER-OBSERVED]",
+        "Eurocopter/Airbus EC145 helicopter (labelled 'EC145 AIRBUS' in "
+        "the delivered art), rendered as a rotorcraft side profile - no "
+        "rotorcraft shape bucket exists in _TYPE_SHAPE_BUCKETS, so this "
+        "operator is reachable only through Tier 2. [DEVELOPER-OBSERVED]",
     ),
     (
         "Iraqi Government",
@@ -602,9 +614,13 @@ _ILLUSTRATION_TARGETS = [
         "QT-v9c-D-05: initially scoped out as 'not a real airline', "
         "reversed by the developer on 2026-09-21. This is the Iraqi "
         "Prime Minister's Office aircraft (ICAO IPF), observed tail "
-        "YI-ASF, a state operator, not a commercial airline - recorded "
+        "YI-ASF (matching the registration visible in the delivered "
+        "art), a state operator, not a commercial airline - recorded "
         "here so that fact stays visible in-tree. Primary airframe: "
-        "Boeing Business Jet (737-based). [DEVELOPER-OBSERVED]",
+        "Boeing 737 in 'REPUBLIC OF IRAQ' government livery - the "
+        "delivered art does not depict a distinct VIP/BBJ cabin "
+        "configuration, so it is described here as a 737, not "
+        "overclaimed as a Boeing Business Jet. [DEVELOPER-OBSERVED]",
     ),
 ]
 
