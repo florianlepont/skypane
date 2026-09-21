@@ -648,6 +648,11 @@ EXPECTED_CHECK_COUNT = 162
 # 162 + 2 = 164, re-derived by RUNNING (164/164).
 EXPECTED_CHECK_COUNT = 164
 
+# quick task 260921-n2n Task 1: +1 (the Safari contact-autofill
+# suppression-attributes check on History's search filter input).
+# 164 + 1 = 165, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 165
+
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -2013,6 +2018,34 @@ def main():
     check(
         "History's filter bar carries exactly one data-filter-input/-count/-clear/-empty marker each",
         _filter_bar_markers_present_once)
+
+    def _filter_input_carries_safari_autofill_suppression_attributes():
+        # Quick task 260921-n2n Task 1: the developer photographed Safari
+        # offering household contact/phone-number autofill on Flights'
+        # search filter on 2026-09-21 — a bare `<input type="search">`
+        # with no `name` and no `autocomplete` is exactly the shape
+        # Safari's heuristic treats as a contact field. Pin all three
+        # suppression attributes on the rendered input so a future edit
+        # cannot silently drop one back to the bare, autofill-prone form.
+        tmp = _mkstate("h-filter-autofill")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "fb01", "callsign": "FB1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            for attr in ('autocomplete="off"', 'spellcheck="false"', 'autocapitalize="characters"'):
+                if attr not in rendered:
+                    return False, (
+                        "expected History's search filter input to carry %r — without it, "
+                        "iOS Safari offers contact/phone-number autofill on the field "
+                        "(the defect the developer photographed on 2026-09-21)" % (attr,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's search filter input carries autocomplete=off/spellcheck=false/"
+        "autocapitalize=characters (Safari contact-autofill suppression)",
+        _filter_input_carries_safari_autofill_suppression_attributes)
 
     def _filter_count_template_attribute_english_and_french():
         # 20-11-PLAN.md Task 3 (D-06): companion/static/list-filter.js

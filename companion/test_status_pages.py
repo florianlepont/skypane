@@ -947,6 +947,11 @@ EXPECTED_CHECK_COUNT = 306  # 27-08-PLAN.md Task 2 (CFG-69): +1 (the quiet
 # RUNNING (305/306 pass here — the same standing anomaly_active() sandbox
 # failure, unrelated to this plan).
 
+# quick task 260921-n2n Task 1: +1 (the Safari contact-autofill
+# suppression-attributes check over Compagnies' and Health's filter
+# inputs). 306 + 1 = 307, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 307
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -10895,7 +10900,9 @@ def main():
             expected_label = '<label class="text-label" for="%s">' % airlines_page._FILTER_INPUT_ID
             if expected_label not in rendered:
                 return False, "expected the filter label's for= to equal the search input's id"
-            if '<input type="search" id="%s" data-filter-input>' % airlines_page._FILTER_INPUT_ID not in rendered:
+            if ('<input type="search" id="%s" autocomplete="off" spellcheck="false" '
+                    'autocapitalize="characters" data-filter-input>' % airlines_page._FILTER_INPUT_ID
+                    not in rendered):
                 return False, "expected the search input to carry the same id"
             return True, ""
         finally:
@@ -10904,6 +10911,39 @@ def main():
         "the gallery filter label's for attribute equals the search input's id, and that id is the "
         "UI-SPEC-pinned value",
         _gallery_filter_label_for_matches_input_id)
+
+    def _compagnies_and_health_filter_inputs_carry_safari_autofill_suppression_attributes():
+        # Quick task 260921-n2n Task 1: the same Safari contact-autofill
+        # fix as History's filter input, proven on the other two rendered
+        # sites in one check — Compagnies' gallery filter and Health's
+        # unresolved-registry filter (the latter renders only when the
+        # registry is non-empty, so it must be seeded here to appear at
+        # all).
+        attrs = ('autocomplete="off"', 'spellcheck="false"', 'autocapitalize="characters"')
+        tmp = _mkstate("ah-filter-autofill")
+        try:
+            airlines_rendered = airlines_page.render(_ctx(tmp))
+            now = _now()
+            _seed_unresolved_prefixes(tmp, {
+                "ABC": {"count": 3, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            health_rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        for possessive, rendered in (("Compagnies'", airlines_rendered), ("Health's", health_rendered)):
+            for attr in attrs:
+                if attr not in rendered:
+                    return False, (
+                        "expected %s search filter input to carry %r — without it, iOS Safari "
+                        "offers contact/phone-number autofill on the field (the defect the "
+                        "developer photographed on 2026-09-21)" % (possessive, attr))
+        return True, ""
+    check(
+        "Compagnies' gallery filter input and Health's registry filter input both carry "
+        "autocomplete=off/spellcheck=false/autocapitalize=characters (Safari contact-autofill "
+        "suppression)",
+        _compagnies_and_health_filter_inputs_carry_safari_autofill_suppression_attributes)
 
     def _gallery_filter_count_and_empty_body_name_the_real_total():
         tmp = _mkstate("a-filter-count-total")

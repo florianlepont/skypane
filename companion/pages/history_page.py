@@ -976,7 +976,31 @@ def _filter_bar_html(total):
         '<label class="text-label" for="%s">%s</label>'
         '<div class="filter-bar__field">'
         "%s"
-        '<input type="search" id="%s" data-filter-input>'
+        # Quick task 260921-n2n Task 1: the developer photographed Safari
+        # popping up "09 51 90 38 96 - domicile" style contact/phone-number
+        # autofill suggestions when tapping this field on 2026-09-21. A
+        # bare `<input type="search">` with no `name` and no `autocomplete`
+        # is exactly the shape Safari's heuristic treats as a contact
+        # field. `autocomplete="off"` is the documented suppression;
+        # `spellcheck="false"` stops the OS spell-checker underlining
+        # callsigns/hex codes it doesn't recognise; `autocapitalize=
+        # "characters"` opens the on-screen keyboard shifted, since all
+        # three filters (Flights, Compagnies, Health) search conventionally
+        # upper-case tokens (callsigns, hex codes, company names). This is
+        # safe for matching: `companion/static/list-filter.js:122` matches
+        # on `input.value.toLowerCase()` against server-lowercased
+        # haystacks, so the keyboard's shift state can never affect what
+        # matches — `autocapitalize` only changes what the on-screen
+        # keyboard defaults to, never the filter result. No `name`
+        # attribute is added: a filter input is never submitted by an
+        # enclosing form and `list-filter.js` reads it by attribute
+        # selector, not by name. The identical three attributes are
+        # repeated verbatim at `airlines_page.py`'s and `health_page.py`'s
+        # own `_filter_bar_html()`-shaped builders below — these three
+        # builders are deliberately NOT a shared helper (extracting one
+        # would be a refactor, out of scope for a quick task), so the
+        # fix is applied at each site rather than in one place.
+        '<input type="search" id="%s" autocomplete="off" spellcheck="false" autocapitalize="characters" data-filter-input>'
         "</div>"
         '<div class="filter-bar__meta">'
         '<span class="filter-bar__count" data-filter-count '
