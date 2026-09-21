@@ -964,6 +964,12 @@ EXPECTED_CHECK_COUNT = 308
 # companion/app.py). 308 + 1 = 309, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 309
 
+# quick task 260921-n2n Task 5: +1 (CFG-70's measured 22px hit-target
+# floor made executable — .flight-detail-row__grid's margin-bottom vs.
+# .copy-btn::before's inset magnitude). 309 + 1 = 310, re-derived by
+# RUNNING.
+EXPECTED_CHECK_COUNT = 310
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -14375,6 +14381,51 @@ def main():
         "illustration's resolve-context block renders empty instead of hidden (quick task 260921-n2n "
         "Task 2)",
         _resolve_context_hidden_guard_present_after_base_rule)
+
+    def _flight_detail_row_grid_margin_never_shrinks_below_cfg70_floor():
+        # Quick task 260921-n2n Task 5: CFG-70 (27-08-PLAN.md Task 3)
+        # MEASURED the prior 0-margin state and found the grid's last-row
+        # copy button resolved to 34x26 against its declared 44x44,
+        # because two adjacent 11px pointer-target reaches need 22px of
+        # clearance between their owners' visual boxes, and
+        # var(--space-lg) (24px) was chosen as that clearance with a
+        # couple of pixels to spare. A smaller margin here — for example
+        # var(--space-md) at 16px, which the developer's own screenshot
+        # of "l'écart bizarre" might tempt someone into trying — would
+        # silently re-break that mutation-tested 44x44 hit-target
+        # contract, and nothing else in this suite would catch it.
+        #
+        # This asserts the RELATIONSHIP, not the endpoint: both numbers
+        # are resolved from style.css's own source (the token the grid's
+        # margin references, and copy-btn::before's own inset magnitude)
+        # rather than hardcoded, so a change to either token is measured
+        # against the other rather than against a frozen constant.
+        css_source = _css_source()
+        tok = dict(re.findall(r"--(space-[a-z]+):\s*(\d+)px", css_source))
+        grid_block = _block(css_source, ".flight-detail-row__grid {")
+        margin_match = re.search(r"margin:\s*0\s+0\s+var\(--(space-[a-z]+)\)", grid_block)
+        if not margin_match:
+            return False, "could not parse .flight-detail-row__grid's margin shorthand: %r" % grid_block
+        margin_bottom = int(tok[margin_match.group(1)])
+        before_block = _block(css_source, ".copy-btn::before {")
+        inset_match = re.search(r"inset:\s*-(\d+)px", before_block)
+        if not inset_match:
+            return False, "could not parse .copy-btn::before's inset: %r" % before_block
+        reach = int(inset_match.group(1))
+        if margin_bottom < 2 * reach:
+            return False, (
+                "CFG-70 floor violated: two adjacent synthesized 44x44 pointer targets need their "
+                "owners' visual boxes at least 2x%dpx apart; CFG-70 measured the earlier control at "
+                "34x26 when they were not, and .flight-detail-row__grid's margin-bottom is only "
+                "%dpx — a smaller margin here silently shrinks a hit target nothing else in the "
+                "suite would catch" % (reach, margin_bottom))
+        return True, ""
+    check(
+        "style.css's .flight-detail-row__grid margin-bottom is at least 2x .copy-btn::before's own "
+        "inset magnitude — CFG-70's measured 22px hit-target floor made executable rather than a "
+        "comment; this is the check that would have failed had this quick task's own source data's "
+        "'reduce to var(--space-md)' suggestion been taken (quick task 260921-n2n Task 5)",
+        _flight_detail_row_grid_margin_never_shrinks_below_cfg70_floor)
 
     def _nav_toggle_label_now_describes_the_preferences_panel():
         if layout.NAV_TOGGLE_LABEL != "Account and preferences":
