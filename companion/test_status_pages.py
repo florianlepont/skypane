@@ -1007,6 +1007,12 @@ EXPECTED_CHECK_COUNT = 312
 # pass).
 EXPECTED_CHECK_COUNT = 315
 
+# 29-06-PLAN.md Task 2 (CFG-79): +1 — the four-case check-in moved-
+# clause check. No existing check removed; the read-only-note check is
+# retargeted in place (see 29-06-SUMMARY.md). 315 + 1 = 316, re-derived
+# by RUNNING (316/316 pass).
+EXPECTED_CHECK_COUNT = 316
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -3856,6 +3862,104 @@ def main():
         "24-07-PLAN.md Task 2)",
         _the_rendered_page_never_claims_punctuality_in_either_language)
 
+    def _check_in_disclosure_moved_clauses_render_across_all_four_cases():
+        # 29-06-PLAN.md Task 2 (CFG-79): "moved, not cut" as an
+        # executable claim, not a promise. Four cases (observed x
+        # cadence-known), each asserting: the visible caption <p>
+        # carries EXACTLY CHECK_IN_CAPTION_OBSERVED and nothing else;
+        # every other clause the pre-plan single joined-paragraph
+        # caption used to carry for that case still renders, byte-
+        # identical, inside the card's own <details class="readings-
+        # disclosure"> slice — never inside the visible caption, never
+        # missing from the card entirely.
+        def _section_slice(rendered):
+            heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(
+                i18n.t(health_page.CHECK_IN_SECTION_HEADING))
+            start = rendered.index(heading_marker)
+            end = rendered.index("</section>", start) + len("</section>")
+            return rendered[start:end]
+
+        def _visible_caption(section_html):
+            m = re.search(r'<p class="text-label section-caption">(.*?)</p>', section_html)
+            if m is None:
+                raise AssertionError("expected a visible caption <p> in the check-in card")
+            return m.group(1)
+
+        def _disclosure_body(section_html):
+            m = re.search(
+                r'<details class="readings-disclosure"><summary>[^<]*</summary>'
+                r'<p>(.*?)</p></details>',
+                section_html)
+            if m is None:
+                raise AssertionError("expected a readings-disclosure <details> in the check-in card")
+            return m.group(1)
+
+        cases = [
+            ("observed, cadence known", True, 300),
+            ("observed, cadence unknown", True, None),
+            ("not observed, cadence known", False, 300),
+            ("not observed, cadence unknown", False, None),
+        ]
+        env_before = os.environ.pop(wake.SLEEP_ENV_VAR, None)
+        try:
+            for case_name, observed, wake_interval_s in cases:
+                if wake_interval_s is None and wake.effective_wake_interval_s(None) is not None:
+                    return False, "%s: the environment still resolves a cadence — this case measures nothing" % (
+                        case_name,)
+                tmp = _mkstate("h-check-in-moved-clauses")
+                try:
+                    now = _now()
+                    if observed:
+                        rendered = _seeded_regularity_page(tmp, now, wake_interval_s=wake_interval_s)
+                    else:
+                        if wake_interval_s is not None:
+                            device_config.save_device_config(tmp, wake_interval_s=wake_interval_s)
+                        rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                    section_html = _section_slice(rendered)
+                    visible = _visible_caption(section_html)
+                    expected_visible = layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_OBSERVED))
+                    if visible != expected_visible:
+                        return False, (
+                            "%s: expected the visible caption to be EXACTLY %r, got %r"
+                            % (case_name, expected_visible, visible))
+
+                    disclosure = _disclosure_body(section_html)
+                    expected_disclosure_clauses = []
+                    if not observed:
+                        expected_disclosure_clauses.append(
+                            layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_EMPTY)))
+                    if wake_interval_s is not None:
+                        expected_disclosure_clauses.append(layout.escape_html(
+                            i18n.t(health_page.CHECK_IN_CAPTION_CADENCE)
+                            % layout.duration_text(wake_interval_s)))
+                    else:
+                        expected_disclosure_clauses.append(
+                            layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_CADENCE_FALLBACK)))
+                    expected_disclosure_clauses.append(
+                        layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_NOT_PROOF)))
+                    for clause in expected_disclosure_clauses:
+                        if clause not in disclosure:
+                            return False, (
+                                "%s: expected clause %r inside the disclosure — missing (the "
+                                "'moved, not cut' guarantee is broken)" % (case_name, clause))
+                        if clause in visible:
+                            return False, (
+                                "%s: expected clause %r to be MOVED out of the visible caption, "
+                                "still found there" % (case_name, clause))
+                finally:
+                    shutil.rmtree(tmp, ignore_errors=True)
+            return True, ""
+        finally:
+            if env_before is not None:
+                os.environ[wake.SLEEP_ENV_VAR] = env_before
+    check(
+        "for all four check-in-card cases (observed x cadence-known), the visible caption carries "
+        "EXACTLY CHECK_IN_CAPTION_OBSERVED and every other clause that case renders moves, "
+        "byte-identical, into the card's own <details class=\"readings-disclosure\"> — 'moved, not "
+        "cut' proven as a relationship, case and clause named on failure (29-06-PLAN.md Task 2, "
+        "CFG-79)",
+        _check_in_disclosure_moved_clauses_render_across_all_four_cases)
+
     def _sparkline_axis_chrome_present():
         # quick task 260902-ep7 (BUG 4): the new check for the drawn axis
         # lines and ticks — real <rect class="sparkline-axis"> elements,
@@ -5675,26 +5779,48 @@ def main():
         # 19-06-PLAN.md Task 3 (D-06): retargeted in place — "that
         # prefix's airline" reworded to "that airline", dropping the
         # word "prefix" from this visible sentence entirely.
+        #
+        # 29-06-PLAN.md Task 2 (CFG-79): retargeted again — the note is
+        # now split. `_READ_ONLY_NOTE` (the visible sentence) carries
+        # only "This list is read-only here."; the Airlines-pointing
+        # instruction this check used to pin as ONE sentence with it now
+        # lives in `_READ_ONLY_NOTE_DETAIL`, moved verbatim into the
+        # card's own <details class="readings-disclosure"> — both must
+        # render, the visible one outside it, the detail one inside it.
         old_note_closing_phrase = "following the existing coverage-gap runbook."
-        expected_note = (
-            "This list is read-only here — each row's Resolve link opens "
-            "the Airlines page to name that airline (and add "
-            "artwork, if it needs one).")
-        if health_page._READ_ONLY_NOTE != expected_note:
+        expected_visible = "This list is read-only here."
+        expected_detail = (
+            "Each row's Resolve link opens the Airlines page to name "
+            "that airline (and add artwork, if it needs one).")
+        if health_page._READ_ONLY_NOTE != expected_visible:
             return False, (
-                "expected _READ_ONLY_NOTE to equal the D-06 plain-language "
+                "expected _READ_ONLY_NOTE to equal the CFG-79 shortened "
                 "string, got %r" % (health_page._READ_ONLY_NOTE,))
+        if health_page._READ_ONLY_NOTE_DETAIL != expected_detail:
+            return False, (
+                "expected _READ_ONLY_NOTE_DETAIL to equal the moved D-06 "
+                "plain-language instruction, got %r" % (health_page._READ_ONLY_NOTE_DETAIL,))
         if "prefix" in health_page._READ_ONLY_NOTE.lower():
             return False, "expected _READ_ONLY_NOTE to contain no occurrence of 'prefix'"
+        if "prefix" in health_page._READ_ONLY_NOTE_DETAIL.lower():
+            return False, "expected _READ_ONLY_NOTE_DETAIL to contain no occurrence of 'prefix'"
         tmp = _mkstate("h-read-only-note-reworded")
         try:
             rendered = health_page.render(_ctx(tmp))
-            # The note contains an apostrophe ("row's"), which
+            # Both contain an apostrophe ("row's"), which
             # escape_html()'s quote=True mode renders as &#x27; —
             # compare against the escaped form, the module's own single
             # escaping choke-point discipline.
-            if layout.escape_html(expected_note) not in rendered:
-                return False, "expected the rendered page to contain the new note verbatim (escaped)"
+            visible_marker = '<p class="text-body section-caption">%s</p>' % layout.escape_html(
+                expected_visible)
+            if visible_marker not in rendered:
+                return False, "expected the rendered page to contain the visible note verbatim (escaped)"
+            detail_marker = (
+                '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
+                % (layout.escape_html(i18n.t("More details")), layout.escape_html(expected_detail)))
+            if detail_marker not in rendered:
+                return False, (
+                    "expected the moved instruction verbatim (escaped) inside a readings-disclosure")
             if old_note_closing_phrase in rendered:
                 return False, "expected the old runbook-pointing phrase to be fully gone from the render"
             return True, ""
@@ -5702,8 +5828,9 @@ def main():
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "the read-only note is reworded to name Airlines as the resolution surface, no longer points at "
-        "the manual runbook (phase 13 D-10), and (19-06-PLAN.md Task 3, D-06) no longer says 'prefix' in "
-        "its visible sentence",
+        "the manual runbook (phase 13 D-10), no longer says 'prefix' in either half (19-06-PLAN.md "
+        "Task 3, D-06), and (29-06-PLAN.md Task 2, CFG-79) is now split into a short visible sentence "
+        "plus its moved instruction inside a readings-disclosure",
         _read_only_note_reworded_to_point_at_airlines_not_the_runbook)
 
     def _source_rows_gains_fifth_manual_entry():

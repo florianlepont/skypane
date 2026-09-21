@@ -205,12 +205,14 @@ CATALOG = {
     "to look up.":
         "Toutes les compagnies vues récemment ont été identifiées — il "
         "n’y a plus rien à rechercher.",
-    "This list is read-only here — each row's Resolve link opens the "
-    "Airlines page to name that airline (and add artwork, if it "
-    "needs one).":
-        "Cette liste est en lecture seule ici — le lien Résoudre de "
-        "chaque ligne ouvre la page Compagnies pour nommer cette "
-        "compagnie (et ajouter une image, si besoin).",
+    # 29-06-PLAN.md Task 2 (CFG-79): the note is shortened to one
+    # sentence and its instruction clause moves, unchanged in wording,
+    # into _READ_ONLY_NOTE_DETAIL's own entry below.
+    "This list is read-only here.": "Cette liste est en lecture seule ici.",
+    "Each row's Resolve link opens the Airlines page to name that "
+    "airline (and add artwork, if it needs one).":
+        "Le lien Résoudre de chaque ligne ouvre la page Compagnies pour "
+        "nommer cette compagnie (et ajouter une image, si besoin).",
     "Filter by prefix": "Filtrer par préfixe",
     "No matching prefixes": "Aucun préfixe correspondant",
     "Try a different search, or Clear filter to see all %d prefixes.":

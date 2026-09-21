@@ -91,9 +91,11 @@ CARD_IMAGE_ALT_TEMPLATE = "%s illustration"
 # artwork grid with no heading at all, reading as broken artwork rather
 # than a call to action.
 GAP_STRIP_HEADING = "Unidentified airlines"
-GAP_STRIP_BODY = (
-    "The frame saw these callsigns but doesn’t know the airline. Tap "
-    "one to name it.")
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 8. The
+# dropped clause ("The frame saw these callsigns but doesn't know the
+# airline") restated what GAP_STRIP_HEADING already says; nothing this
+# card's own instruction depends on is lost.
+GAP_STRIP_BODY = "Tap a callsign below to name its airline."
 
 # quick task 260902-tli: the click-to-enlarge lightbox. This gallery
 # reuses History's already-shipped `<dialog>` lightbox and the document-
@@ -293,8 +295,12 @@ UPLOAD_DROP_MESSAGE_CLASS = "upload-drop__message"
 # Promising a visitor what the result will LOOK like is precisely the
 # promise a client-side canvas would have had to keep.
 UPLOAD_DROP_HINT_TEXT = "Or drag an image onto this card."
-UPLOAD_PREVIEW_CAPTION_TEXT = (
-    "Framing preview — how it will be framed. The server does the final crop.")
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 14 words to 8. "The
+# server does the final crop" is a mechanism clause, not something the
+# reader needs to act on the preview — it is dropped, not moved,
+# because it names an implementation detail with no reader-facing
+# consequence.
+UPLOAD_PREVIEW_CAPTION_TEXT = "Framing preview — how it will be framed."
 UPLOAD_PREVIEW_ALT_TEXT = "Framing preview of the image you chose"
 UPLOAD_DROP_TYPE_ERROR_TEXT = "Only PNG images can be dropped here."
 UPLOAD_DROP_MULTIPLE_ERROR_TEXT = "Drop one image at a time."
@@ -435,9 +441,12 @@ RESOLVE_HEADING = "Resolve an unidentified flight"
 # so it stays true on the CR-02 row-gone path where no sighting data
 # survives. This wording is what discharges D-01's obligation that the
 # dialog state the per-prefix scope at the moment of acting.
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 10 —
+# "once you save a name" is dropped as conditional framing; the
+# consequence itself ("will show as this airline") is what the reader
+# needs and is kept.
 RESOLVE_CAPTION_TEMPLATE = (
-    "Every flight using prefix %s will show as this airline once you "
-    "save a name.")
+    "Every flight using prefix %s will show as this airline.")
 RESOLVE_CONTEXT_LABELS = (
     "Prefix", "First seen", "Last seen", "Times seen", "Example callsign")
 # Phase 14 (14-02-PLAN.md Task 1): the five per-<dd> hook classes
@@ -452,14 +461,19 @@ RESOLVE_CONTEXT_DD_CLASSES = (
     "resolve-context__callsign",
 )
 NAME_LABEL_TEXT = "Airline name"
-NAME_HINT_TEXT = (
-    "Start typing — pick a suggestion if the airline already has "
-    "artwork, so this reuses it instead of asking for a new upload.")
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 23 words to 6 — the
+# instruction alone survives; the "so this reuses it instead of asking
+# for a new upload" explanation is dropped (no existing disclosure
+# sits beside this inline form field to move it into, and the
+# instruction itself is self-sufficient without it).
+NAME_HINT_TEXT = "Start typing — pick a suggestion."
 SAVE_BUTTON_TEXT = "Save airline name"
 STEP_B_HEADING_TEMPLATE = "Add an illustration for %s"
-STEP_B_CAPTION = (
-    "Saved. This airline doesn’t have artwork yet — add one "
-    "below, or skip for now.")
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 9 — keeps
+# the state ("Saved") and the one action (add artwork, or skip);
+# drops the "doesn't have artwork yet" reason clause as restating what
+# STEP_B_HEADING_TEMPLATE's own heading already implies.
+STEP_B_CAPTION = "Saved — add artwork below, or skip for now."
 STEP_B_SKIP_TEXT = "Skip — I’ll add artwork later"
 # Planner addition, not in 13-UI-SPEC.md's Full Copy Deck: the fourth
 # reachable state (a bookmark or a Back press landing on a prefix that is
@@ -505,10 +519,31 @@ DELETE_BUTTON_TEXT = "Delete"
 # rendering functions plan 14-02's Task 2 introduces.
 GAP_CARD_ARIA_TEMPLATE = "Resolve prefix %s — example callsign %s"
 MANUAL_CHIP_ACTIVE_TEXT = "Resolved by hand"
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 13 words to 12 —
+# "only" dropped as the single word needed to clear the floor; every
+# other word is load-bearing (what deleting does, and does not, affect).
 MANUAL_DELETE_CAPTION = (
-    "Deleting removes only this manual name — any uploaded artwork "
-    "stays in place.")
+    "Deleting removes this manual name — any uploaded artwork stays in place.")
 # %s arity: prefix, built-in name, operator's name, built-in name again.
+#
+# 29-06-PLAN.md Task 2 (CFG-79): DELIBERATELY EXEMPT from the editorial
+# floor, argued rather than left to look like an oversight. This is not
+# a description of a control — it is a STATUS MESSAGE naming a real
+# conflict state (which airline a prefix now resolves to, and that a
+# manual name was superseded by it), the same "status/error message,
+# not a caption" distinction plan 29-05 draws for
+# wake_gauges_html()'s computed readouts. Its VALUE is computed here
+# and written client-side (panel-lookup.js) into the dialog's own
+# `<p class="%s text-body">` element (LIGHTBOX_MANUAL_NOTE_CLASS,
+# "lightbox__manual-note") — that element's static server-rendered
+# markup is always empty; grep confirms LIGHTBOX_MANUAL_NOTE_CLASS
+# never composes with "section-caption" anywhere in this module, so
+# Task 3's site-wide floor selector (which matches only
+# `.section-caption` elements) never reaches it. It needs no
+# exemption-list entry either — structural non-membership is enough.
+# Shortening it would cost the reader the one thing they need at
+# exactly the moment it renders: which two names are in conflict and
+# what happens next. Left unchanged, byte-for-byte.
 MANUAL_SUPERSEDED_NOTE_TEMPLATE = (
     "SkyPane’s built-in list now recognizes prefix %s as “%s” — its "
     "entry wins over the name you gave it (“%s”), so that artwork is "

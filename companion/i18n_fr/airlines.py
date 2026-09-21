@@ -52,10 +52,10 @@ CATALOG = {
 
     # --- The "Unidentified airlines" gap strip and its cards ------------
     "Unidentified airlines": "Compagnies non identifiées",
-    "The frame saw these callsigns but doesn’t know the airline. Tap "
-    "one to name it.":
-        "Le cadre a vu ces indicatifs mais ne connaît pas la compagnie. "
-        "Touchez-en un pour la nommer.",
+    # 29-06-PLAN.md Task 2 (CFG-79): shortened (the old 15-word English
+    # source and its French twin are both replaced, not left dead).
+    "Tap a callsign below to name its airline.":
+        "Touchez un indicatif ci-dessous pour nommer sa compagnie.",
     "Resolve prefix %s — example callsign %s":
         "Identifier le préfixe %s — exemple d’indicatif %s",
     "%d other unresolved prefixes — ": "%d autres préfixes non résolus — ",
@@ -84,33 +84,34 @@ CATALOG = {
         "Cette lacune n’existe plus — elle est peut-être déjà résolue. "
         "Consultez État pour la liste complète des lacunes actuelles.",
     "Resolve an unidentified flight": "Identifier un vol non reconnu",
-    "Every flight using prefix %s will show as this airline once you "
-    "save a name.":
+    # 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 10 —
+    # "once you save a name" (conditional framing) dropped.
+    "Every flight using prefix %s will show as this airline.":
         "Chaque vol utilisant le préfixe %s s’affichera sous cette "
-        "compagnie une fois le nom enregistré.",
+        "compagnie.",
     "Times seen": "Nombre de vues",
     "Airline name": "Nom de la compagnie",
-    "Start typing — pick a suggestion if the airline already has "
-    "artwork, so this reuses it instead of asking for a new upload.":
-        "Commencez à taper — choisissez une suggestion si la compagnie "
-        "a déjà une image, pour la réutiliser plutôt que d’en demander "
-        "une nouvelle.",
+    # 29-06-PLAN.md Task 2 (CFG-79): shortened from 23 words to 6 — the
+    # explanation clause dropped, the instruction alone survives.
+    "Start typing — pick a suggestion.":
+        "Commencez à taper — choisissez une suggestion.",
     "Save airline name": "Enregistrer le nom de la compagnie",
     "Add an illustration for %s": "Ajouter une illustration pour %s",
-    "Saved. This airline doesn’t have artwork yet — add one below, or "
-    "skip for now.":
-        "Enregistré. Cette compagnie n’a pas encore d’image — "
-        "ajoutez-en une ci-dessous, ou ignorez pour l’instant.",
+    # 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 9 —
+    # keeps the state ("Saved") and the one action.
+    "Saved — add artwork below, or skip for now.":
+        "Enregistré — ajoutez une image ci-dessous, ou ignorez pour "
+        "l’instant.",
     "Skip — I’ll add artwork later": "Ignorer — j’ajouterai une image plus tard",
     "%s is already named for this prefix and has artwork — nothing "
     "more to do here.":
         "%s est déjà nommée pour ce préfixe et a une image — rien de "
         "plus à faire ici.",
     "Choose an image": "Choisir une image",
-    "Deleting removes only this manual name — any uploaded artwork "
-    "stays in place.":
-        "La suppression retire uniquement ce nom manuel — toute image "
-        "déjà chargée reste en place.",
+    # 29-06-PLAN.md Task 2 (CFG-79): shortened from 13 words to 12 —
+    # "only" dropped.
+    "Deleting removes this manual name — any uploaded artwork stays in place.":
+        "La suppression retire ce nom manuel — l’image reste en place.",
 
     # --- The replace/upload forms' shared copy ---------------------------
     "Replace this illustration": "Remplacer cette illustration",
@@ -125,10 +126,10 @@ CATALOG = {
     # whole reason no canvas crop was built on the client.
     "Or drag an image onto this card.":
         "Ou glissez une image sur cette carte.",
-    "Framing preview — how it will be framed. The server does the final "
-    "crop.":
-        "Aperçu du cadrage — comment elle sera cadrée. Le serveur "
-        "effectue le recadrage final.",
+    # 29-06-PLAN.md Task 2 (CFG-79): shortened from 14 words to 8 — "The
+    # server does the final crop" (a mechanism clause) dropped.
+    "Framing preview — how it will be framed.":
+        "Aperçu du cadrage — comment elle sera cadrée.",
     "Framing preview of the image you chose":
         "Aperçu du cadrage de l’image choisie",
     "Only PNG images can be dropped here.":

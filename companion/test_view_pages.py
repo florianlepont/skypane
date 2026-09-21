@@ -4489,6 +4489,7 @@ def main():
 
     def _airlines_full_seeded_render_french_end_to_end():
         import companion.prefs as _prefs
+        import companion.i18n_fr.airlines as i18n_fr_airlines
         tmp = _mkstate("airlines-fr")
         try:
             _seed_unresolved_prefixes(tmp, {
@@ -4504,9 +4505,15 @@ def main():
                     {"state_dir": tmp, "resolve_prefix": "XYZ"})
             finally:
                 _prefs.set_request_prefs(lang="en")
+            # 29-06-PLAN.md Task 2 (CFG-79): retargeted in place — the
+            # gap-strip sentence this needle pinned was shortened from
+            # 15 to 8 words; the needle now names the CURRENT French
+            # translation via the module's own CATALOG lookup, never a
+            # hand-typed literal that would silently go stale on the
+            # next edit.
             for needle in (
                     ">Compagnies<", "Compagnies non identifiées",
-                    "Le cadre a vu ces indicatifs mais ne connaît pas la compagnie"):
+                    i18n_fr_airlines.CATALOG[airlines_page.GAP_STRIP_BODY]):
                 if needle not in rendered_fr:
                     return False, "expected the French %r in the French Airlines render" % (needle,)
             for needle in (
