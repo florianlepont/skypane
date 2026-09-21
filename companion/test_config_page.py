@@ -2794,9 +2794,19 @@ def main():
                 if needed not in markup:
                     return False, "%r→%r: the preset row lost %r" % (start, end, needed)
 
-            # THE CAPTION, INCLUDING ITS ONE COMPUTED DELAY SENTENCE, and
-            # exactly one caption element — the one-caption-per-section
-            # rule, which a drawing is the obvious way to break.
+            # THE CAPTION, exactly one caption element — the
+            # one-caption-per-section rule, which a drawing is the
+            # obvious way to break.
+            #
+            # 29-05-PLAN.md Task 2 (CFG-79): retargeted from "starts with
+            # the static sentence, then carries something longer" (the
+            # computed delay sentence used to be appended here) to exact
+            # equality — quiet_hours_group() no longer accepts a
+            # `delay_sentence` keyword at all, and the caption is now
+            # ONE sentence, full stop. The property that survives —
+            # the Frame strip still carries the computed delay sentence
+            # — is pinned by its own dedicated checks below, against the
+            # Frame strip's own markup, not this card's.
             caption = re.search(
                 r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
                 % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), markup)
@@ -2806,13 +2816,11 @@ def main():
                 return False, (
                     "%r→%r: the card renders %d section captions; one section, one caption"
                     % (start, end, markup.count('class="text-label section-caption"')))
-            if not caption.group(1).startswith(
-                    escape_html(config_page.QUIET_HOURS_SECTION_CAPTION)):
-                return False, "%r→%r: the caption's first sentence changed" % (start, end)
-            if len(caption.group(1)) <= len(escape_html(config_page.QUIET_HOURS_SECTION_CAPTION)):
+            if caption.group(1) != escape_html(config_page.QUIET_HOURS_SECTION_CAPTION):
                 return False, (
-                    "%r→%r: the caption lost its computed delay sentence — the SAME triple the "
-                    "Frame strip reads, never a second one computed here" % (start, end))
+                    "%r→%r: expected the caption to be EXACTLY QUIET_HOURS_SECTION_CAPTION "
+                    "with no appended delay sentence, got %r"
+                    % (start, end, caption.group(1)))
 
             # THE LOCKED ORDER, AND WHERE THE RING JOINS IT. 29-04-PLAN.md
             # Task 1 (CFG-80) re-derives this list: the four controls
@@ -2899,7 +2907,8 @@ def main():
         "the ring is an ADDITION: both native <input type=\"time\"> fields keep their value/"
         "required/lang/form attributes and are never disabled, B14's visible 24h sibling still "
         "renders beside each, the three presets keep the data attributes dirty-state.js writes "
-        "through, the one section caption keeps its computed delay sentence, the card's order is "
+        "through, the one section caption is EXACTLY QUIET_HOURS_SECTION_CAPTION with no "
+        "appended delay sentence (29-05-PLAN.md Task 2, CFG-79), the card's order is "
         "caption → ring → presets → Start → End with the four controls' own order and adjacency "
         "untouched and no side-by-side row, and the arc echoes the SUBMITTED window on a "
         "rejected save rather than the stored one (B14/D-07/CFG-48, 25-04-PLAN.md Task 2)",
@@ -9652,30 +9661,36 @@ def main():
         "(22-05-PLAN.md Task 1, X1/D-04/D-12.1)",
         _two_scheduled_inputs_carry_form_settings_form)
 
-    def _applies_next_wake_sentence_appears_exactly_three_times():
+    def _applies_next_wake_sentence_appears_exactly_twice():
         # 21-04-PLAN.md Task 1 (D-01/D-02): the constant moved to
         # companion/layout.py along with the switch markup it captions.
-        # 22-05-PLAN.md Task 2 (D-04): retargeted from "exactly twice" to
-        # "exactly three times" — layout.QUICK_ACTION_APPLIES_SENTENCE is
-        # byte-identical to frame_state.DELAY_UNKNOWN (22-04-PLAN.md's own
-        # alias), and _TASK2_BASE_CTX carries no last_checkin_ts, so
-        # frame_state resolves STATE_UNKNOWN/DELAY_UNKNOWN for the Quiet
-        # hours caption's own computed delay sentence too — a THIRD,
-        # genuinely independent consumer of the same translated text, not
-        # a widened count for the same two switches.
+        # 22-05-PLAN.md Task 2 (D-04) widened this from "exactly twice"
+        # to "exactly three times" once the Quiet hours card's own
+        # caption started appending the same computed delay sentence.
+        #
+        # 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: retargeted BACK to
+        # "exactly twice" — quiet_hours_group() no longer appends a
+        # delay sentence to its own caption at all (see that function's
+        # own docstring), so the THIRD occurrence this check used to
+        # require is gone, and CFG-79's whole point is that it should
+        # be: the apply-timing sentence now renders in exactly one
+        # place per page — the Frame strip, which is what these
+        # remaining two occurrences are (one per instant switch cell).
         rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
         count = rendered.count(escape_html(layout.QUICK_ACTION_APPLIES_SENTENCE))
-        if count != 3:
+        if count != 2:
             return False, (
-                "expected the shared instant-switch/delay sentence to appear exactly three times, "
+                "expected the shared instant-switch delay sentence to appear exactly twice (once "
+                "per Frame-strip switch cell, and nowhere under the Quiet hours card any more), "
                 "got %d" % count)
         return True, ""
     check(
-        "the shared \"Applies the next time the frame wakes up.\" sentence appears exactly three "
-        "times on the Display page — once per instant switch, plus once as the Quiet hours card's "
-        "own computed delay sentence when no check-in data exists yet (D-19, 22-05-PLAN.md Task 2 "
-        "D-04)",
-        _applies_next_wake_sentence_appears_exactly_three_times)
+        "the shared \"Applies the next time the frame wakes up.\" sentence appears exactly twice "
+        "on the Display page — once per Frame-strip instant switch, and no longer a third time "
+        "under the Quiet hours card's own caption now that CFG-79 confines it to one place per "
+        "page (29-05-PLAN.md Task 2; widened to three by 22-05-PLAN.md Task 2 D-04, narrowed back "
+        "here)",
+        _applies_next_wake_sentence_appears_exactly_twice)
 
     def _handle_post_same_field_set_after_restructure_saves_the_same_config():
         # D-13: only the DOM position of display_group()/quiet_hours_
@@ -10229,6 +10244,20 @@ def main():
     # its three branches, for the Quiet hours caption AND the post-save
     # flash — pinned against the SAME frame_state.py source of truth the
     # Frame strip itself reads (22-04-PLAN.md).
+    #
+    # 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: RETARGETED, all three.
+    # quiet_hours_group() no longer appends the computed delay sentence
+    # to its own caption at all — that property is gone, not merely
+    # relocated inside this card. What survives, and what these three
+    # checks now assert instead: (a) the delay sentence still renders,
+    # once per branch, inside the Frame strip's own markup slice
+    # (proven by locating that slice the same way
+    # `_display_render_has_exactly_one_quick_action_pair_inside_the_strip`
+    # already does, above), (b) the Quiet hours card's OWN caption
+    # element carries NO delay sentence at all, in every branch, and
+    # (c) the post-save flash text is untouched by this plan (a
+    # different code path, companion/app.py's _resolve_flash_text(),
+    # unaffected by quiet_hours_group()'s own signature change).
     # ==================================================================
 
     def _quiet_hours_caption_and_flash_agree_on_the_due_branch():
@@ -10238,11 +10267,24 @@ def main():
             "state_dir": "/tmp", "poll_cooldown_remaining": 0,
         }
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        expected_caption_fragment = escape_html("Applies at the next wake, around 14:10.")
-        if expected_caption_fragment not in display:
+        expected_delay_fragment = escape_html("Applies at the next wake, around 14:10.")
+        strip_start = display.index('<div class="frame-strip stat-tile stat-tile--accent"')
+        strip_end = display.index('<form class="config-form"', strip_start)
+        if display.count(expected_delay_fragment) != 2:
             return False, (
-                "expected the Quiet hours caption to carry the DUE delay sentence with the "
-                "computed clock, not found in %r" % (display,))
+                "expected the DUE delay sentence to appear exactly twice (once per Frame-strip "
+                "switch cell), got %d in %r" % (display.count(expected_delay_fragment), display))
+        if expected_delay_fragment not in display[strip_start:strip_end]:
+            return False, "expected the DUE delay sentence inside the Frame strip's own slice"
+        caption = re.search(
+            r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
+            % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), display)
+        if not caption:
+            return False, "the Quiet hours card's own caption is gone"
+        if expected_delay_fragment in caption.group(1):
+            return False, (
+                "expected the Quiet hours card's OWN caption to carry NO delay sentence any "
+                "more (CFG-79) — found it in %r" % (caption.group(1),))
         flash = companion_app._resolve_flash_text(
             companion_app.FLASH_KEY_SAVED, "/tmp",
             last_checkin_ts=ctx["last_checkin_ts"], device_cfg=ctx["device_config"])
@@ -10250,8 +10292,10 @@ def main():
             return False, "expected the DUE flash text, got %r" % (flash,)
         return True, ""
     check(
-        "with a due result, the Quiet hours caption and the post-save flash both read the DUE delay "
-        "sentence naming the same computed time (D-04)",
+        "with a due result, the Frame strip carries the DUE delay sentence exactly twice (once per "
+        "switch cell), the Quiet hours card's own caption carries NO delay sentence any more "
+        "(29-05-PLAN.md Task 2, CFG-79), and the post-save flash still reads the DUE delay "
+        "sentence naming the same computed time, unaffected by the caption change (D-04)",
         _quiet_hours_caption_and_flash_agree_on_the_due_branch)
 
     def _quiet_hours_caption_and_flash_agree_on_the_held_branch():
@@ -10269,11 +10313,24 @@ def main():
             "state_dir": "/tmp", "poll_cooldown_remaining": 0,
         }
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        expected_caption_fragment = escape_html("Applies when quiet hours end, around 07:00.")
-        if expected_caption_fragment not in display:
+        expected_delay_fragment = escape_html("Applies when quiet hours end, around 07:00.")
+        strip_start = display.index('<div class="frame-strip stat-tile stat-tile--accent"')
+        strip_end = display.index('<form class="config-form"', strip_start)
+        if display.count(expected_delay_fragment) != 2:
             return False, (
-                "expected the Quiet hours caption to carry the HELD delay sentence naming the "
-                "window's own end, not found in %r" % (display,))
+                "expected the HELD delay sentence to appear exactly twice (once per Frame-strip "
+                "switch cell), got %d in %r" % (display.count(expected_delay_fragment), display))
+        if expected_delay_fragment not in display[strip_start:strip_end]:
+            return False, "expected the HELD delay sentence inside the Frame strip's own slice"
+        caption = re.search(
+            r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
+            % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), display)
+        if not caption:
+            return False, "the Quiet hours card's own caption is gone"
+        if expected_delay_fragment in caption.group(1):
+            return False, (
+                "expected the Quiet hours card's OWN caption to carry NO delay sentence any "
+                "more (CFG-79) — found it in %r" % (caption.group(1),))
         flash = companion_app._resolve_flash_text(
             companion_app.FLASH_KEY_SAVED, "/tmp",
             last_checkin_ts=ctx["last_checkin_ts"], device_cfg=device_cfg)
@@ -10281,26 +10338,44 @@ def main():
             return False, "expected the HELD flash text, got %r" % (flash,)
         return True, ""
     check(
-        "with a held result (the nightly regression fixture), the Quiet hours caption and the "
-        "post-save flash both read the HELD delay sentence naming the window's own end, never the "
-        "generic due wording (D-04, 22-UI-SPEC.md §3.3 binding rule 6)",
+        "with a held result (the nightly regression fixture), the Frame strip carries the HELD "
+        "delay sentence exactly twice (once per switch cell), the Quiet hours card's own caption "
+        "carries NO delay sentence any more (29-05-PLAN.md Task 2, CFG-79), and the post-save "
+        "flash still reads the HELD delay sentence naming the window's own end, never the generic "
+        "due wording (D-04, 22-UI-SPEC.md §3.3 binding rule 6)",
         _quiet_hours_caption_and_flash_agree_on_the_held_branch)
 
     def _quiet_hours_caption_and_flash_agree_on_the_unknown_branch():
         ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        expected_caption_fragment = escape_html("Applies the next time the frame wakes up.")
-        if expected_caption_fragment not in display:
+        expected_delay_fragment = escape_html("Applies the next time the frame wakes up.")
+        strip_start = display.index('<div class="frame-strip stat-tile stat-tile--accent"')
+        strip_end = display.index('<form class="config-form"', strip_start)
+        if display.count(expected_delay_fragment) != 2:
             return False, (
-                "expected the Quiet hours caption to carry the UNKNOWN delay sentence, not found "
-                "in %r" % (display,))
+                "expected the UNKNOWN delay sentence to appear exactly twice (once per "
+                "Frame-strip switch cell), got %d in %r"
+                % (display.count(expected_delay_fragment), display))
+        if expected_delay_fragment not in display[strip_start:strip_end]:
+            return False, "expected the UNKNOWN delay sentence inside the Frame strip's own slice"
+        caption = re.search(
+            r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
+            % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), display)
+        if not caption:
+            return False, "the Quiet hours card's own caption is gone"
+        if expected_delay_fragment in caption.group(1):
+            return False, (
+                "expected the Quiet hours card's OWN caption to carry NO delay sentence any "
+                "more (CFG-79) — found it in %r" % (caption.group(1),))
         flash = companion_app._resolve_flash_text(companion_app.FLASH_KEY_SAVED, "/tmp")
         if flash != "Saved — applies the next time the frame wakes up.":
             return False, "expected the UNKNOWN flash text, got %r" % (flash,)
         return True, ""
     check(
-        "with no check-in at all, the Quiet hours caption and the post-save flash both read the "
-        "UNKNOWN delay sentence, which names no time (D-04)",
+        "with no check-in at all, the Frame strip carries the UNKNOWN delay sentence exactly "
+        "twice (once per switch cell), the Quiet hours card's own caption carries NO delay "
+        "sentence any more (29-05-PLAN.md Task 2, CFG-79), and the post-save flash still reads "
+        "the UNKNOWN delay sentence, which names no time (D-04)",
         _quiet_hours_caption_and_flash_agree_on_the_unknown_branch)
 
     def _retired_delay_wordings_appear_nowhere_under_companion_or_server():
@@ -12006,14 +12081,24 @@ def main():
         "honesty contract, CFG-67, 27-06-PLAN.md Task 3)",
         _wake_gauges_are_shortened_and_the_battery_refusal_survives_in_both_languages)
 
-    def _quiet_hours_caption_is_shortened_and_the_delay_sentence_survives_in_both_languages():
+    def _quiet_hours_caption_is_shortened_and_carries_no_delay_sentence_in_either_language():
+        # 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: RETARGETED.
+        # quiet_hours_group() no longer accepts a `delay_sentence`
+        # keyword at all — the old call below would now raise
+        # TypeError, which is itself proof the parameter is gone (a
+        # regression back to accepting it would fail this check by
+        # crashing it, not by a silent pass). What this check asserts
+        # instead: the caption renders as EXACTLY
+        # QUIET_HOURS_SECTION_CAPTION's own translated text, nothing
+        # appended, in both languages — materially shorter than the
+        # 27-01-SUMMARY.md 188-char baseline this check has pinned
+        # since CFG-67, and now for a stronger reason (no second
+        # sentence AT ALL, not merely a shortened one).
         baseline = 188
-        delay_sentence = "Applies at the next wake, around 31 Jul 08:05."
         for lang in ("en", "fr"):
             prefs.set_request_prefs(lang=lang)
             try:
-                rendered = config_page.quiet_hours_group(
-                    "23:00", "07:00", delay_sentence=delay_sentence)
+                rendered = config_page.quiet_hours_group("23:00", "07:00")
             finally:
                 prefs.set_request_prefs(lang="en")
             m = re.search(
@@ -12029,23 +12114,19 @@ def main():
                     "(27-01-SUMMARY.md). The copy was not cut. It reads %r"
                     % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, len(text), baseline,
                        text))
-            # delay_sentence carries LIVE STATE (frame_state.DELAY_UNKNOWN
-            # by default), not explanation — the cut is scoped to
-            # QUIET_HOURS_SECTION_CAPTION alone, and this asserts the
-            # delay sentence survived it, on the SAME reading.
-            if delay_sentence not in text:
+            expected = i18n.t_lang(config_page.QUIET_HOURS_SECTION_CAPTION, lang)
+            if text != expected:
                 return False, (
-                    "%s: #%s lost its own computed delay sentence (%r) — expected it to survive "
-                    "the caption cut untouched, and it reads %r instead"
-                    % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, delay_sentence, text))
+                    "%s: #%s expected to render as EXACTLY %r (no appended delay sentence), "
+                    "got %r" % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, expected, text))
         return True, ""
     check(
         "the Quiet hours paragraph (#quiet-hours-caption) is materially shorter than "
-        "27-01-SUMMARY.md's recorded 188-char baseline in BOTH languages, with its own computed "
-        "delay sentence — live state, not explanation, defaulting to i18n.t(frame_state."
-        "DELAY_UNKNOWN) — asserted to survive the cut on the SAME reading (CFG-67, 27-06-PLAN.md "
-        "Task 3)",
-        _quiet_hours_caption_is_shortened_and_the_delay_sentence_survives_in_both_languages)
+        "27-01-SUMMARY.md's recorded 188-char baseline in BOTH languages, and renders as EXACTLY "
+        "QUIET_HOURS_SECTION_CAPTION's own translated text with no delay sentence appended at "
+        "all any more — quiet_hours_group() no longer accepts a delay_sentence keyword (CFG-79, "
+        "29-05-PLAN.md Task 2, narrowing CFG-67's 27-06-PLAN.md Task 3 cut)",
+        _quiet_hours_caption_is_shortened_and_carries_no_delay_sentence_in_either_language)
 
     def _the_gauges_are_an_addition_and_the_number_input_is_untouched():
         """CFG-49 (25-05-PLAN.md Task 1): the `<input type="number">` is
