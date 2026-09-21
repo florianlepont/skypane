@@ -30,6 +30,8 @@ checks below. No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_status_pages.py
 """
+import ast
+import glob
 import inspect
 import io
 import math
@@ -946,6 +948,27 @@ EXPECTED_CHECK_COUNT = 306  # 27-08-PLAN.md Task 2 (CFG-69): +1 (the quiet
 # cell's caption-link one-write-site/both-pages check), re-derived by
 # RUNNING (305/306 pass here — the same standing anomaly_active() sandbox
 # failure, unrelated to this plan).
+
+# quick task 260921-n2n Task 1: +1 (the Safari contact-autofill
+# suppression-attributes check over Compagnies' and Health's filter
+# inputs). 306 + 1 = 307, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 307
+
+# quick task 260921-n2n Task 2: +1 (the .resolve-context[hidden]
+# display-guard block-parsing check). 307 + 1 = 308, re-derived by
+# RUNNING.
+EXPECTED_CHECK_COUNT = 308
+
+# quick task 260921-n2n Task 4: +1 (the ast-based exhaustive scan of
+# every <input type="search"> in companion/pages/*.py and
+# companion/app.py). 308 + 1 = 309, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 309
+
+# quick task 260921-n2n Task 5: +1 (CFG-70's measured 22px hit-target
+# floor made executable — .flight-detail-row__grid's margin-bottom vs.
+# .copy-btn::before's inset magnitude). 309 + 1 = 310, re-derived by
+# RUNNING.
+EXPECTED_CHECK_COUNT = 310
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -10895,7 +10918,9 @@ def main():
             expected_label = '<label class="text-label" for="%s">' % airlines_page._FILTER_INPUT_ID
             if expected_label not in rendered:
                 return False, "expected the filter label's for= to equal the search input's id"
-            if '<input type="search" id="%s" data-filter-input>' % airlines_page._FILTER_INPUT_ID not in rendered:
+            if ('<input type="search" id="%s" autocomplete="off" spellcheck="false" '
+                    'autocapitalize="characters" data-filter-input>' % airlines_page._FILTER_INPUT_ID
+                    not in rendered):
                 return False, "expected the search input to carry the same id"
             return True, ""
         finally:
@@ -10904,6 +10929,125 @@ def main():
         "the gallery filter label's for attribute equals the search input's id, and that id is the "
         "UI-SPEC-pinned value",
         _gallery_filter_label_for_matches_input_id)
+
+    def _compagnies_and_health_filter_inputs_carry_safari_autofill_suppression_attributes():
+        # Quick task 260921-n2n Task 1: the same Safari contact-autofill
+        # fix as History's filter input, proven on the other two rendered
+        # sites in one check — Compagnies' gallery filter and Health's
+        # unresolved-registry filter (the latter renders only when the
+        # registry is non-empty, so it must be seeded here to appear at
+        # all).
+        attrs = ('autocomplete="off"', 'spellcheck="false"', 'autocapitalize="characters"')
+        tmp = _mkstate("ah-filter-autofill")
+        try:
+            airlines_rendered = airlines_page.render(_ctx(tmp))
+            now = _now()
+            _seed_unresolved_prefixes(tmp, {
+                "ABC": {"count": 3, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            health_rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        for possessive, rendered in (("Compagnies'", airlines_rendered), ("Health's", health_rendered)):
+            for attr in attrs:
+                if attr not in rendered:
+                    return False, (
+                        "expected %s search filter input to carry %r — without it, iOS Safari "
+                        "offers contact/phone-number autofill on the field (the defect the "
+                        "developer photographed on 2026-09-21)" % (possessive, attr))
+        return True, ""
+    check(
+        "Compagnies' gallery filter input and Health's registry filter input both carry "
+        "autocomplete=off/spellcheck=false/autocapitalize=characters (Safari contact-autofill "
+        "suppression)",
+        _compagnies_and_health_filter_inputs_carry_safari_autofill_suppression_attributes)
+
+    def _every_search_input_in_the_app_carries_safari_autofill_suppression_attributes():
+        # Quick task 260921-n2n Task 4 (FIX 4): Task 1 fixed three
+        # hand-copied literals; this makes that fix a standing property
+        # of the whole app rather than three named sites, so a FOURTH
+        # filter bar added by a later phase cannot reintroduce Safari's
+        # contact/phone-number autofill defect with nothing to catch it
+        # (this project's own "assert relationships, not endpoints"
+        # contract).
+        #
+        # A SOURCE scan, not a render scan: the literal is a %s-template,
+        # and one of the three known sites (health_page.py) renders its
+        # filter bar only when the unresolved registry is non-empty.
+        #
+        # ast-based, not a raw substring search, and docstrings are
+        # excluded: history_page.py:947's own _filter_bar_html()
+        # docstring DESCRIBES this markup and contains the very substring
+        # being matched, with no attributes on it at all — a naive text
+        # scan would fail on that docstring forever. This follows
+        # test_i18n.py's own methodology (ast.parse() of the source,
+        # never an import of the scanned module): walk every
+        # ast.Constant string node, skip any node that is a module's,
+        # function's or class's own docstring, and search only the
+        # surviving literals. Note ast folds adjacent string literals
+        # together, so each hit below arrives inside a builder's WHOLE
+        # concatenated markup literal, not as a bare standalone tag.
+        files = sorted(glob.glob(os.path.join(HERE, "pages", "*.py")))
+        files.append(os.path.join(HERE, "app.py"))
+
+        def docstring_constant_ids(tree):
+            ids = set()
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    body = getattr(node, "body", None)
+                    if (body and isinstance(body[0], ast.Expr)
+                            and isinstance(body[0].value, ast.Constant)
+                            and isinstance(body[0].value.value, str)):
+                        ids.add(id(body[0].value))
+            return ids
+
+        required_attrs = ('autocomplete="off"', 'spellcheck="false"', 'autocapitalize="characters"')
+        total_hits = 0
+        bad = []
+        for fp in files:
+            with open(fp, "r", encoding="utf-8") as fh:
+                src = fh.read()
+            tree = ast.parse(src, filename=fp)
+            skip_ids = docstring_constant_ids(tree)
+            for node in ast.walk(tree):
+                if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                    continue
+                if id(node) in skip_ids:
+                    continue
+                literal = node.value
+                start = 0
+                while True:
+                    idx = literal.find('<input type="search"', start)
+                    if idx == -1:
+                        break
+                    end = literal.find(">", idx)
+                    tag = literal[idx:end + 1] if end != -1 else literal[idx:]
+                    total_hits += 1
+                    missing = [a for a in required_attrs if a not in tag]
+                    if missing:
+                        bad.append("%s: %r missing %r" % (os.path.relpath(fp, HERE), tag, missing))
+                    start = idx + 1
+        if bad:
+            return False, (
+                "iOS Safari offers contact/phone-number autofill on a bare <input "
+                "type=\"search\"> with no name and no autocomplete, as the developer "
+                "photographed on 2026-09-21 — found %d occurrence(s) missing at least one "
+                "required attribute: %s" % (len(bad), "; ".join(bad)))
+        if total_hits < 3:
+            return False, (
+                "expected at least 3 <input type=\"search\"> occurrences across companion/pages/*.py "
+                "and companion/app.py (the floor known at plan time), found only %d — this would "
+                "make the check vacuously pass if every filter input were deleted" % total_hits)
+        return True, ""
+    check(
+        "every <input type=\"search\"> this app can render, across companion/pages/*.py and "
+        "companion/app.py (an ast-based source scan excluding docstrings, 3 occurrences found "
+        "at plan time — history_page.py, airlines_page.py, health_page.py, one builder each), "
+        "carries autocomplete=off/spellcheck=false/autocapitalize=characters — a fourth filter "
+        "bar added later cannot reintroduce the Safari contact-autofill defect with nothing to "
+        "catch it (quick task 260921-n2n Task 4)",
+        _every_search_input_in_the_app_carries_safari_autofill_suppression_attributes)
 
     def _gallery_filter_count_and_empty_body_name_the_real_total():
         tmp = _mkstate("a-filter-count-total")
@@ -14205,6 +14349,83 @@ def main():
         "depends on, and both strings render onto <body> in both languages matching the script's own "
         "English fallbacks byte for byte (T13, 22-15-PLAN.md Task 2)",
         _refresh_loop_retries_with_backoff_and_says_so_neutrally)
+
+    def _resolve_context_hidden_guard_present_after_base_rule():
+        # Quick task 260921-n2n Task 2: `.resolve-context` declares
+        # `display: grid` with no `[hidden]` guard, the same collision
+        # named at `.banner__pill[hidden]` above — an author `display`
+        # declaration always beats the user-agent stylesheet's
+        # `[hidden] { display: none }`, so panel-lookup.js's
+        # `resolveContext.hidden = !count` was silently inert and every
+        # ordinary illustration lightbox painted five empty label/value
+        # pairs instead of nothing.
+        css_source = _css_source()
+        stripped_css = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
+        if stripped_css.count(".resolve-context[hidden] {") != 1:
+            return False, (
+                "expected exactly one .resolve-context[hidden] guard — .resolve-context declares "
+                "display: grid, which always beats the user-agent [hidden] rule, so the block "
+                "would render (empty) even when hidden, got %d occurrence(s)"
+                % stripped_css.count(".resolve-context[hidden] {"))
+        base_at = stripped_css.index(".resolve-context {")
+        guard_at = stripped_css.index(".resolve-context[hidden] {")
+        if guard_at <= base_at:
+            return False, "expected the .resolve-context[hidden] guard to come AFTER the base rule"
+        guard = _block(stripped_css, ".resolve-context[hidden] {")
+        if "display: none" not in guard:
+            return False, "expected .resolve-context[hidden] to hide by display: none"
+        return True, ""
+    check(
+        "style.css declares .resolve-context[hidden] { display: none; } after the base rule — "
+        "without it, an author display declaration beats the UA [hidden] rule and every ordinary "
+        "illustration's resolve-context block renders empty instead of hidden (quick task 260921-n2n "
+        "Task 2)",
+        _resolve_context_hidden_guard_present_after_base_rule)
+
+    def _flight_detail_row_grid_margin_never_shrinks_below_cfg70_floor():
+        # Quick task 260921-n2n Task 5: CFG-70 (27-08-PLAN.md Task 3)
+        # MEASURED the prior 0-margin state and found the grid's last-row
+        # copy button resolved to 34x26 against its declared 44x44,
+        # because two adjacent 11px pointer-target reaches need 22px of
+        # clearance between their owners' visual boxes, and
+        # var(--space-lg) (24px) was chosen as that clearance with a
+        # couple of pixels to spare. A smaller margin here — for example
+        # var(--space-md) at 16px, which the developer's own screenshot
+        # of "l'écart bizarre" might tempt someone into trying — would
+        # silently re-break that mutation-tested 44x44 hit-target
+        # contract, and nothing else in this suite would catch it.
+        #
+        # This asserts the RELATIONSHIP, not the endpoint: both numbers
+        # are resolved from style.css's own source (the token the grid's
+        # margin references, and copy-btn::before's own inset magnitude)
+        # rather than hardcoded, so a change to either token is measured
+        # against the other rather than against a frozen constant.
+        css_source = _css_source()
+        tok = dict(re.findall(r"--(space-[a-z]+):\s*(\d+)px", css_source))
+        grid_block = _block(css_source, ".flight-detail-row__grid {")
+        margin_match = re.search(r"margin:\s*0\s+0\s+var\(--(space-[a-z]+)\)", grid_block)
+        if not margin_match:
+            return False, "could not parse .flight-detail-row__grid's margin shorthand: %r" % grid_block
+        margin_bottom = int(tok[margin_match.group(1)])
+        before_block = _block(css_source, ".copy-btn::before {")
+        inset_match = re.search(r"inset:\s*-(\d+)px", before_block)
+        if not inset_match:
+            return False, "could not parse .copy-btn::before's inset: %r" % before_block
+        reach = int(inset_match.group(1))
+        if margin_bottom < 2 * reach:
+            return False, (
+                "CFG-70 floor violated: two adjacent synthesized 44x44 pointer targets need their "
+                "owners' visual boxes at least 2x%dpx apart; CFG-70 measured the earlier control at "
+                "34x26 when they were not, and .flight-detail-row__grid's margin-bottom is only "
+                "%dpx — a smaller margin here silently shrinks a hit target nothing else in the "
+                "suite would catch" % (reach, margin_bottom))
+        return True, ""
+    check(
+        "style.css's .flight-detail-row__grid margin-bottom is at least 2x .copy-btn::before's own "
+        "inset magnitude — CFG-70's measured 22px hit-target floor made executable rather than a "
+        "comment; this is the check that would have failed had this quick task's own source data's "
+        "'reduce to var(--space-md)' suggestion been taken (quick task 260921-n2n Task 5)",
+        _flight_detail_row_grid_margin_never_shrinks_below_cfg70_floor)
 
     def _nav_toggle_label_now_describes_the_preferences_panel():
         if layout.NAV_TOGGLE_LABEL != "Account and preferences":

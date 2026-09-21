@@ -4898,6 +4898,35 @@ table.data-table--registry .cell-inline-sep {
   margin: 0 0 var(--space-md);
 }
 
+/* Quick task 260921-n2n Task 2: the developer's 2026-09-21 report
+ * ("une bonne part de ces infos ne servent à rien") traced to this
+ * exact collision, the same one named above at `.banner__pill[hidden]`,
+ * `.refresh-pill[hidden]` and `.dirty-bar[hidden]`. panel-lookup.js
+ * already sets the native `hidden` attribute correctly
+ * (`resolveContext.hidden = !count;`), but the rule above declares
+ * `display: grid` with no `[hidden]` guard, and an author `display`
+ * declaration always beats the user-agent stylesheet's
+ * `[hidden] { display: none }` regardless of source order — so every
+ * ordinary illustration lightbox painted five empty label/value pairs
+ * (Prefix / First seen / Last seen / Times seen / Example callsign)
+ * instead of nothing at all.
+ *
+ * This uses the additive `[hidden]`-suffix form, like the three
+ * siblings above, rather than rewriting the base rule's selector to
+ * `:not([hidden])` the way the lightbox forms further below do
+ * (`.lightbox__replace:not([hidden])` et al.). Both idioms are
+ * correct; the choice here is not an oversight. The base rule carries
+ * five declarations that all belong to the visible state — grid
+ * columns, gaps, alignment, margin — and Phase 22's B5 deliberately
+ * laid that rule out as a single block. Moving the whole selector to
+ * `:not([hidden])` would restructure a rule this file already treats
+ * as settled, to change nothing about what it looks like when visible.
+ * A two-line additive guard changes nothing about the visible state at
+ * all, which is the smaller change for the same fix. */
+.resolve-context[hidden] {
+  display: none;
+}
+
 .resolve-context dt,
 .resolve-context dd {
   margin: 0;

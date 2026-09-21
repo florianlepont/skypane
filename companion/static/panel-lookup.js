@@ -526,7 +526,17 @@
       contextCount.textContent = count;
     }
     if (contextCallsign) {
-      contextCallsign.textContent = captionText;
+      // Quick task 260921-n2n Task 2: gated on the SAME count that
+      // gates resolveContext.hidden above, never a second independent
+      // condition — the field and the container it lives in can then
+      // never disagree. In art mode captionText is the illustration's
+      // own caption, which is not a callsign at all; writing it here
+      // printed the picture's title under the "Example callsign" label
+      // on every ordinary picture. In the resolve modes the caption
+      // attribute genuinely IS the example callsign
+      // (airlines_page._gap_card_html()), so this branch is unchanged
+      // there.
+      contextCallsign.textContent = count ? captionText : "";
     }
 
     // Quick task 260903-btu: when a replace form is present (Airlines

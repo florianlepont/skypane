@@ -3351,7 +3351,10 @@ def _registry_filter_bar_html(total):
         '<label class="text-label" for="%s">%s</label>'
         '<div class="filter-bar__field">'
         "%s"
-        '<input type="search" id="%s" data-filter-input>'
+        # Quick task 260921-n2n Task 1: same Safari contact-autofill fix as
+        # `history_page.py`'s `_filter_bar_html()` — see that file for the
+        # full explanation of the three attributes below.
+        '<input type="search" id="%s" autocomplete="off" spellcheck="false" autocapitalize="characters" data-filter-input>'
         "</div>"
         '<div class="filter-bar__meta">'
         '<span class="filter-bar__count" data-filter-count>%s</span>'

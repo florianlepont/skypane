@@ -454,21 +454,23 @@ DISPLAY_CHECKBOX_VALUE = "on"
 # other three, it is consumed by a two-branch renderer
 # (poll_trigger_section()), so it must be interpolated on both branches
 # or it would silently vanish for the whole cooldown window.
-# 25-03-PLAN.md Task 1 (CFG-47): the caption gains a schematic clause and
-# stays ONE caption — the one-caption-per-section rule above is the
-# reason this sentence is extended in place rather than joined by a
-# second paragraph under the map. The clause is not decoration: the
-# group now draws a diagram, and a diagram that implies a scale it does
-# not have is the same dishonest-state defect family Phase 22 removed.
-# What the drawing really claims is stated exactly: relative bearings,
-# north up, nothing else. It does NOT claim relative lengths — the
-# registry carries no runway length for any entry, so every strip is
-# drawn the same length, and a caption promising relative lengths would
-# be promising a fact the drawing does not have.
+# Quick task 260921-n2n Task 3: the developer's 2026-09-21 tour quoted
+# this caption as his example of useless descriptive text. Phase 27's
+# CFG-66 removed the runway diagram outright, but this caption still
+# described it — the two schematic-drawing clauses a prior revision
+# added here (see git history for the exact wording, deliberately not
+# quoted again) had been describing a picture that no longer exists
+# since CFG-66 shipped. The one-caption-per-section rule above still
+# holds: this stays ONE caption, shortened in place rather than
+# replaced by a second paragraph. What survives is the three facts
+# that were always true independent of any drawing — which runway,
+# and that the change applies on the next scheduled poll, not
+# immediately — which is also why this caption now reads consistently
+# with LED_SECTION_CAPTION below it, which ends on that identical
+# clause.
 RUNWAY_SECTION_CAPTION = (
-    "Which Orly runway the device watches. The diagram is schematic: "
-    "relative bearings only, north up, not to scale. Applies on the "
-    "next scheduled poll, not immediately.")
+    "Which Orly runway the device watches. Applies on the next "
+    "scheduled poll, not immediately.")
 LED_SECTION_CAPTION = (
     "Lit only during the device's brief wake window, not visible from "
     "the wall side. Applies on the next scheduled poll.")

@@ -1027,6 +1027,7 @@ Plans:
 **Plans:** 8/8 plans complete — verified 2026-09-12 (21-VERIFICATION.md 10/10, 21-REVIEW.md resolved, 21-HUMAN-UAT.md 8 browser-only items pending)
 
 Plans:
+
 - [x] 21-01: Simple mode removed — prefs, cookie, route, nav switch, every gate (wave 1)
 - [x] 21-02: Health "Pause updates" button and freshness.js pause branch removed (wave 2)
 - [x] 21-03: Compact Flights table, detail row, flight-rows.js (wave 2)
@@ -1044,6 +1045,7 @@ Plans:
 **Plans:** 16/16 plans complete
 
 Plans:
+
 - [x] 22-01-PLAN.md — B1 blocker: document-level dirty-state delegation, the fallback-Save contract, T1/T8, and the Playwright harness (wave 1)
 - [x] 22-02-PLAN.md — D-03: one quiet-hours- and screen-off-aware next wake, plus the view-free frame-state vocabulary (wave 2)
 - [x] 22-03-PLAN.md — B2/B3: a neutral never-ran pipeline state, a verdict-free detail for Home, and naming stats that count every row (wave 2)
@@ -1077,6 +1079,7 @@ Three decisions taken before planning, on 23-RESEARCH.md's evidence (developer, 
 - **D7's sticky day headers are NOT built — option A** (developer, 2026-09-13), and the reason found by the sketch is better than the cost argument that preceded it. Both variants were rendered on the real page with seeded data and scrolled to the same offset. The current page shows no day title once scrolled — but **every row already carries its own date** (`1 août 21:41`, `1 août 21:13`, …), so a sticky title would display information that is already on every line. The sticky variant also turns the list into a ~7-row box inside a half-empty page and leaves a clipped row peeking under the pinned header. Phase 22's T4 had already deleted the app's one sticky rule as inert; this decision is not a repeat of that, it is a separate finding on the same feature. **Revisit only if the per-row date is ever removed** — for phone density, say — which would make the title non-redundant.
 
 Plans:
+
 - [x] 23-01-PLAN.md — wave 1: the motion vocabulary (two duration tokens, the app's first `@keyframes`) and the executable guard every later plan is measured against
 - [x] 23-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — one no-JS helper, a 360 px viewport constant, and the disclosure sweep made motion-proof (zero net checks)
 - [x] 23-03-PLAN.md — wave 1: the `<time data-relative>` server convention and the future form, wrapping the one existing ladder rather than copying it
@@ -1109,29 +1112,37 @@ One structural finding shapes the whole phase: **the shared battery estimator al
 Plans:
 
 **Wave 1** *(parallel — three plans, disjoint files)*
+
 - [ ] 24-01-PLAN.md — wave 1: the one battery estimator (extended) and `companion/draw.py`, plus the executable drawing contract every later plan is measured against
 - [ ] 24-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — a theme switch (this harness has never once measured dark mode), a computed-paint reader and a 360 px body-overflow assertion; zero net checks
 - [ ] 24-03-PLAN.md — wave 1: D20's data question settled in code — the check-in gap reader, verdicts from the one existing threshold function, and the migration-free epoch table nothing reads yet
 
 **Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 24-04-PLAN.md — wave 2: D21 — one ring emitter, two sizes (Health's battery section and Home's tile), proven one function by mutating it and watching both pages change
 
 **Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 24-05-PLAN.md — wave 3: D8 — the chart's area, marked last point and low-battery threshold, all from the one filtered pair list, with the coordinate scheme intact
 
 **Wave 4** *(blocked on Wave 2 completion)*
+
 - [ ] 24-06-PLAN.md — wave 4: D13 — Home's day band on a time-domain scale, the wrapping quiet-hours window as two spans, and a caption that never claims a count the band collapsed
 
 **Wave 5** *(blocked on Waves 1 and 3)*
+
 - [ ] 24-07-PLAN.md — wave 5: D20 — the check-in regularity grid, four states including "no observation", and a caption whose three clauses are each separately asserted
 
 **Wave 6** *(blocked on Waves 2 and 4)*
+
 - [ ] 24-08-PLAN.md — wave 6: D4 — the Home hero assembled from calls, with "fed by" proven behaviourally and the frame verdict still rendered exactly once
 
 **Wave 7** *(blocked on all prior waves)*
+
 - [ ] 24-09-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's decision list, and the phase gate including the human sweep
 
 Cross-cutting constraints (appearing in two or more plans' `must_haves`):
+
 - Server-rendered SVG is chosen because **D-09's no-JS floor is absolute**: the drawing arrives complete in the first response, so it paints with scripts blocked and needs no measurement pass. **This phase adds zero static scripts**, so the deferred-script pin in `companion/test_companion_app.py` must not move.
 - Every drawing takes its colour from a theme token through a CSS class (`currentColor` + token, the `.sparkline*` idiom). A colour literal, an unpainted shape, or a class that resolves to no selector each fails 24-01's guard. **A drawing correct only in light mode is a defect, not a polish item.**
 - One scale places marks, ticks and labels; every label names a value the drawing actually reaches, derived from the same single-pass filtered list as the marks.
@@ -1161,30 +1172,38 @@ Planned with **no CONTEXT.md and no UI-SPEC** (the precedent Phases 23 and 24 bo
 Plans:
 
 **Wave 1** *(parallel — two plans, disjoint files)*
+
 - [x] 25-01-PLAN.md — wave 1: the phase's one new script with its three taxes paid once, the `.js`-gate control vocabulary, the shared battery-life arithmetic, and the executable no-JS control contract. Builds no control.
 - [x] 25-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — operate-submit-**persist** under blocked scripts, keyboard-only operation with zero pointer events, real hit-tested area measurement, and the two-direction gate assertion; zero net checks
 
 **Wave 2** *(blocked on Wave 1)*
+
 - [x] 25-03-PLAN.md — wave 2: D16 — the runway picked on one drawn schematic of Orly, adding zero scripts because the three radios were always the control
 
 **Wave 3** *(blocked on Wave 2)*
+
 - [x] 25-04-PLAN.md — wave 3: D17 — the server-drawn 24 h arc, the two gated handles, and the wrapping-midnight arithmetic settled before anything is drawn
 
 **Wave 4** *(blocked on Wave 3)*
+
 - [x] 25-05-PLAN.md — wave 4: D18 — the gated range input beside an untouched number input, and two gauges of which only one can currently be absolute
 
 **Wave 5** *(blocked on Wave 4)*
+
 - [x] 25-06-PLAN.md — wave 5: D5 — the carousel around the one chip renderer, the full grid behind a native disclosure, and Display's height measured before and after
 
 **Wave 6** *(blocked on Wave 1)*
+
 - [x] 25-07-PLAN.md — wave 6: D19 — the drop zone and framing preview over two byte-identical upload forms, with the normaliser untouched and picked-vs-dropped proven equivalent
 
 **Wave 7** *(blocked on all prior waves)*
+
 - [x] 25-08-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's eight-decision list with each one's reversal cost, and the phase gate including the required real-device sweep
 
 *The waves are serial after wave 1 because `companion/pages/config_page.py` is written by four plans and `companion/static/style.css` by six, and this project's rule is one writer per file per wave — the same reason Phase 23 needed 9 waves for 11 plans and Phase 24 needs 7 for 9. 25-07 touches neither the settings page nor its form and is serialised only by the stylesheet.*
 
 Cross-cutting constraints (appearing in two or more plans' `must_haves`):
+
 - **The no-JS floor (D-09) is absolute and this is the phase most at risk from it.** Every control's fallback is an **executable check, not a promise**, and the proof is **operate → submit → reload → assert persisted**. A check asserting only that the control renders would pass against a control that saves nothing — the exact defect Phase 22 found.
 - CSP is `script-src 'self'`; the deferred-script pin moves ONCE, in 25-01, fourteen → fifteen, retargeted in place with a stated reason.
 - **Exactly ONE `@supports selector(:has(*))` block**, pinned by two named checks, with specificity arithmetic marked "verified, not to be re-derived". D5 is the largest threat to it in the whole phase and D16 the second.
@@ -1217,31 +1236,39 @@ Planned with **no CONTEXT.md and no UI-SPEC** (the precedent Phases 23, 24 and 2
 Plans:
 
 **Wave 1** *(parallel — two plans, disjoint files)*
+
 - [ ] 26-01-PLAN.md — wave 1: the phase's one new script with its three taxes paid once, the nav-derived command index, the `<dialog>` and the `.js`-gated trigger, and the two executable structural contracts. Builds no search and no shortcut.
 - [ ] 26-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — focus-restoration reading, announcement read-back that can tell a repeat from a change, the unauthenticated-route enumerator, and the exhaustive destination sweep; zero net checks
 
 **Wave 2** *(blocked on Wave 1)*
+
 - [ ] 26-03-PLAN.md — wave 2: D23's palette — filtering over the server's own index, the combobox relationship, the count-only announcement, and the three traps the platform closes
 
 **Wave 3** *(parallel — two plans, disjoint files; blocked on Wave 2)*
+
 - [ ] 26-04-PLAN.md — wave 3: D23's shortcuts, the typing guard, the bounded chord, and the check the whole feature's legitimacy rests on — every destination reachable with scripts blocked, per destination, every run
 - [ ] 26-05-PLAN.md — wave 3: D24's guided first run — three signals that can actually fail, derived live, disappearing by construction, with no script and no storage
 
 **Wave 4** *(blocked on Wave 3)*
+
 - [ ] 26-06-PLAN.md — wave 4: D24's drawn empty states — the `empty_state()` extension whose default is byte-identical for all six callers, and illustrations emitted through Phase 24's one drawing module
 
 **Wave 5** *(blocked on Wave 4)*
+
 - [ ] 26-07-PLAN.md — wave 5: adoption across all six empty states, with every next action a real destination or an href-less span
 
 **Wave 6** *(blocked on Wave 5)*
+
 - [ ] 26-08-PLAN.md — wave 6: D15 — the download anchor that needs no script, the capability-gated share built without a network call, and the privacy proof that no route became public
 
 **Wave 7** *(blocked on all prior waves)*
+
 - [ ] 26-09-PLAN.md — wave 7: D6's theme-color half and D11's gzip half built, their other halves refused in writing; the design system updated in step, the coverage ledger, the eight-decision list, and the phase gate including the human sweep
 
 *The waves are serial after wave 1 because `companion/static/style.css` is written by five plans and `companion/static/command-palette.js` by three, and this project's rule is one writer per file per wave — the same reason Phase 23 needed 9 waves for 11 plans, Phase 24 7 for 9, and Phase 25 7 for 8.*
 
 Cross-cutting constraints (appearing in two or more plans' `must_haves`):
+
 - **The no-JS floor (D-09) is absolute, and this is the phase most structurally at odds with it.** A palette and a keystroke are script-only by nature; that is acceptable ONLY because everything they reach is reachable without them, and that is made true by construction (the index is the fourth consumer of the ONE `_nav_links()` iteration) and proven **exhaustively, per destination, every run** — never as a sample, because a single hand-added command is the entire failure mode.
 - CSP is `script-src 'self'`; there is no catch-all `/static/` handler, so the one new script needs its own route constant pair and its own dispatch line. The deferred-script pin moves ONCE, in 26-01, re-derived by RUNNING.
 - Minimum viewport 360 px, no horizontal body scrollbar; hit areas ≥ 44 px in both axes **measured in a real browser**. Keyboard shortcuts reach nobody on a phone and **no touch equivalent is invented** — the bottom tab bar (22-14) already is one.
@@ -1276,6 +1303,7 @@ Cross-cutting constraints (appearing in two or more plans' `must_haves`):
 
 Plans (nine, one per wave — nearly every plan writes `config_page.py`, `style.css` and the two
 browser harnesses, so the waves are serial by file ownership rather than by choice):
+
 - [x] 27-01 — the instrumentation: a surface-agreement helper, a rendered-geometry decoder, and the shortening/inventory helpers. ZERO net checks (CFG-71)
 - [x] 27-02 — the dial defect: the pair in the model, the arc still server-authoritative, the caption that blanks rather than lies, and THE one agreement check (CFG-62, CFG-71)
 - [x] 27-03 — the no-JS floor made structural, BEFORE the save bar is retired, proven by saving to disk (CFG-64, CFG-71)
@@ -1319,6 +1347,7 @@ nearly every remaining plan writes `config_page.py`, `style.css` or the two brow
 harnesses; 28-06/28-07's original wave-5/6 scope was superseded before execution and
 replaced by 28-08 (wave 7), 28-10 (wave 8), 28-11 (wave 9) and 28-09 (wave 10, this
 phase's closing plan) — see the addendum below for why):
+
 - [x] 28-01-PLAN.md — the gear icon: one symbol appended to the sprite, one `icon_html()` argument changed, the hard-coded `ICON_IDS` count bumped 22 -> 23, and a check that the panel still has no page-nav links so the unchanged label stays honest (CFG-76)
 - [x] 28-02-PLAN.md — the dial's Bug B: `button:active` excluded from `.value-control__handle`, `transform` dropped from the handle's transition, and THE check that SAMPLES the handle's radius throughout a held press — with the endpoint-only version mutation-proven to pass on broken code (CFG-73)
 - [x] 28-03-PLAN.md — the dial's Bug A: readouts painted as HH:MM through the codec that already exists, a live duration spoken from the one ladder via server-rendered bucket wordings (no French in JS), and the decoder that documented the bug as correct rewritten (CFG-73)
@@ -1344,6 +1373,7 @@ phase's closing plan) — see the addendum below for why):
 5. *"Sur mobile le hamburger est perturbant car cela ressemble à la navigation. Remplacer par un engrenage ?"* — confirmed, and the developer proposed the fix themselves. `#site-nav-toggle` renders the hamburger glyph (`icon-hamburger`) with `aria-label="Account and preferences"`, but the panel it opens (`_mobile_nav_html()`, `companion/layout.py:2348-2444`) holds zero page-navigation links — only language switch, theme switch and sign-out (real page navigation lives in the bottom tab bar since 22-14). No gear/settings icon exists anywhere else in the app (`ICON_IDS`, app-wide grep for "gear"/"settings-icon"/⚙: 0 hits), so introducing one here creates no collision.
 
 **Scope for this phase:**
+
 - Unify item 1: wrap Device page's settings cards in the same nested-supersection style Display's already use, so a card's own title renders identically regardless of page.
 - Fix item 2 (two bugs, one control): the interactive quiet-hours readout must format both endpoints as HH:MM and compute a live duration on every interaction; AND the handle must stay on the dial's ring for the full duration of a press, not just at rest — give the handle's own `:active` transform precedence over the generic `button:active` rule (same specificity family, ordered to win, or scoped via `:not()`), and reconsider whether `transition: transform` belongs on this element at all given its position should track the pointer/value instantly. Apply the same handle fix to the wake-interval slider.
 - Item 3, escalated: build resilience around a confirmed-severe, root-cause-unconfirmed total auto-save failure in real Safari. (a) The save status must be visible independent of scroll position — fixed/sticky, not tied to page-header position. (b) Any save failure — non-204, opaque redirect, thrown exception, or a save that never resolves within a bounded timeout — must surface a real, actionable retry affordance, appearing ONLY on genuine failure and otherwise invisible (honors "zero boutons"). (c) The runway radios' `form=`-attribute path gets its own regression check regardless, closing what Phase 27 didn't specifically cover. (d) If real, reproducible defects turn up in the save pipeline while building (a)/(b) against a live Chromium instance, fix and name them as genuine root-cause fixes — do not silently fold a found bug into "resilience" framing.
@@ -1359,7 +1389,77 @@ phase's closing plan) — see the addendum below for why):
 Investigated before planning (git archaeology, not guesswork): the pre-removal bar's full implementation survives in history (`6dea46a` and its predecessors) — DOM structure, CSS, the native-submit Save button, the `form.reset()`-plus-`window.SkyPaneLivePreview.refresh()` Cancel handler, the document-delegated leave-guard, and `dirtySectionLabels()`'s section-naming logic, which reads from `data-dirty-section` wrappers that Phase 27 left standing (unread, but present) on all seven settings groups. Confirmed structurally compatible with everything built since: the quiet-hours dial's pair-seam model repaints for free on a `click`-delegated listener already in `value-controls.js` (a Cancel button's own click bubbles into it after `form.reset()`); the theme carousel's `window.SkyPaneLivePreview.refresh()` hook is untouched by the carousel-preview work in this same phase; the D16 runway map removal never touched the radios' `form=`/`DIRTY_SECTION_ATTR` wiring; the CSP is unaffected (zero inline script either way). Crucially, **Phase 27 never deleted the native submit button** — CFG-64's own AST-level proof (27-03) established it is unconditionally emitted on every render, currently hidden purely by a `.js` CSS rule. The restoration reuses this SAME button as the bar's visible Save, rather than building a second one — the only way to honor "exactly one save button, nowhere else" without inventing new markup for something that already exists.
 
 **Replaces items 3's original wave-5/6 scope (28-06-PLAN.md, 28-07-PLAN.md — both superseded, neither ever executed, kept on disk with a header note rather than deleted, per this project's standing convention of not erasing planning history):**
+
 - Restore the dirty bar: DOM, CSS (including the fixed-position placement and its content-clearance rules at both breakpoints), the section-naming logic reading the seven surviving `DIRTY_SECTION_ATTR` wrappers, Save (relocating the existing unconditional native submit into the bar rather than duplicating it) and Annuler (`form.reset()` + dial repaint via the existing click-delegation + `window.SkyPaneLivePreview.refresh()`), and the leave-guard.
 - Consolidate to exactly one save affordance: no `.js`-hide rule left orphaned, no second button anywhere on the settings pages; audit confirms every OTHER submit-shaped control on the site (the three `role="switch"` instant toggles, the calendar connect/replace/disconnect forms, the per-flight rule add/delete, Airlines' own save) is a genuinely different kind of action and stays untouched, per the developer's own confirmed scope.
 - Retarget the fetch-era test suite (`dirty-state.js`'s auto-save-specific checks, the `.quick-toast`-on-settings-form path if it was settings-specific, the 204 negotiation on `/settings` if nothing else calls it) — remove what's now dead, keep what quick-switch.js's three switches still depend on.
 - Carry forward from 28-07's original scope, essentially unchanged: the runway radios' `form=`-attribute path gets its own regression check (now against the restored bar's save path, not the fetch path), and the phase's closing gate (every count re-derived by running, the sandbox baseline named, the ledger written against the code).
+
+### Phase 29: Companion review feedback round 3 — the developer's own tour of the deployed app, plus the measured 17 September audit's leftovers
+
+**Goal:** On 2026-09-20/21 the developer toured the deployed companion and reported eight cases in one sitting, each with a screenshot. Six are this phase's scope. The first (the whole "Aspect" section of Display) is large enough to be its own phase and becomes Phase 30; the last (a real domain name for the companion) is an operations task with no code and is recorded in STATE.md's Roadmap Evolution, not here. Five of the eight yielded one-line fixes that ship AHEAD of this phase as one quick task ("Lot A") so they are not held hostage by the planning cycle. This phase also folds in three leftovers of the measured audit of 2026-09-17 (`.planning/ui-reviews/2026-09-17-companion-ui-ux-audit.md`, versioned with this roadmap entry) that touch the same pages — chosen by the developer via AskUserQuestion on 2026-09-21; the audit's 44 px tap-target item was NOT selected and stays in that audit's own backlog. Mistral's audit of 2026-09-20 (`.planning/ui-reviews/2026-09-20-mistral-companion-audit.md`) contributes nothing here beyond corroboration.
+
+**Requirements**: CFG-79, CFG-80, CFG-81, CFG-82, CFG-83, CFG-84 (all new)
+**Depends on:** Phase 28 (merged and deployed); quick task Lot A merged first (its five fixes are assumed present)
+**Plans:** 0 plans — not planned yet
+
+Plans:
+
+**The developer's own words (French, verbatim), in the order given, each investigated against the code before this entry was written:**
+
+1. *"il y a trop de texte descriptif qui servent à rien sur l'ensemble du site. Exemple « Quelle piste d'Orly l'appareil surveille. Le schéma est indicatif : orientations relatives seulement, nord en haut, pas à l'échelle. S'applique lors de la prochaine vérification programmée, pas immédiatement. »"* — measured in the French translation modules: ~95 explanatory sentences, ~1 800 words (`i18n_fr/display.py` 20 sentences/370 words, `health.py` 25/501, `common.py` 26/460, `airlines.py` 12/222); the settings pages emit 16 `.section-caption`s and 5 "How it works" disclosures. The quoted example is worse than verbose: its schematic clause describes the runway map Phase 27 REMOVED (CFG-66), and `i18n_fr/display.py`'s own comment says "because the group now draws a map" — both languages still ship it. The stale clause is cut in Lot A; the RULE is this phase's (CFG-79). Phase 27's CFG-67 already did this for three regions; this generalises it and makes it executable.
+
+2. *"pas très joli ce composant"* (screenshot: the quiet-hours Start/End fields under the preset buttons) — four surfaces for one value: the dial, the presets, the two native `<input type="time">`, and beside each a "normalised" twin (`_normalised_time_html()`, B14/22-10) that protects browsers forcing a 12 h rendering but merely duplicates on a 24 h one. The 2026-09-17 audit's P2 already targets the twin. Presets render as long quiet buttons (`Nuit (23:00–07:00)`, `Journée de travail (08:00–18:00)`). (CFG-80)
+
+3. *"ce bouton est pas au bon endroit et pas bien placé. typiquement quand on est dans la liste d'avion on ne le voit plus"* (Airlines, "Modifier les images") — it is an `<a href="/airlines?edit=1">` that reloads the page in edit mode, placed under the page intro, above a paragraph, the unidentified-prefix section, the filter and the gallery; once in the list it is out of reach. (CFG-81, CFG-82)
+
+4. *"une bonne part de ces infos ne servent à rien. Le bouton « remplacer l'image » pourrait être ici"* (the illustration lightbox) — two bugs and a closed door. The Prefix / First seen / Last seen / Times seen / Example callsign block belongs to the unresolved-prefix flow; `panel-lookup.js` sets `hidden` on it for an art card, but `.resolve-context { display: grid }` has no `[hidden]` guard (the stylesheet already guards `.refresh-pill`, `.dirty-bar` and `.login-reveal` for exactly this trap), so the block shows EMPTY on every illustration; and `contextCallsign.textContent = captionText` runs unconditionally, so "Example callsign" prints the image caption ("Illustration Transavia France"). Both are Lot A. The Replace form DOES exist in the dialog but is rendered only when `edit_mode` is true (`airlines_page.py`, `_lightbox_replace_form_html() if edit_mode else ""`), so without `?edit=1` the developer never sees it. (CFG-81)
+
+5. *"numéro de téléphones proposés dans ce field de recherche"* and *"écart bizarre entre le texte et le bouton"* — Lot A (the Flights/Airlines filter `<input type="search">` carries no `name` and no `autocomplete`, so Safari offers contact phone numbers; the flight detail row's `<dl>` carries a 24 px bottom margin and is followed by the callsign copy button's reserved 44 px hit box before "View image" — the exact resolved gap is to be MEASURED in a rendered row before it is fixed, never guessed).
+
+**Scope for this phase:**
+- CFG-79, the editorial floor, site-wide except Display's Aspect section (Phase 30 owns that copy): one sentence under a card title, at most ~12 words, no mechanism clause and no reason clause; "applies at the next wake" said in ONE place per page (the Frame strip / save bar already carry it), never repeated under each card; everything longer moves into the existing "How it works" disclosure or is deleted. Enforced by a harness check that measures RENDERED caption length on every authenticated route in both languages, mutation-proven against a deliberately long caption.
+- CFG-80, quiet hours as one object: Start and End on one line beside/under the dial as one visual unit; the normalised twin hidden at load when the native field already renders unambiguous 24 h (kept as the no-JS / 12 h fallback — B14's ground still holds); presets as a segmented control with short labels ("Nuit", "Journée"), the hours being already spoken by the dial caption. The uncommitted 17-09 sibling fix in the main checkout is moot once the twin hides and is NOT replayed.
+- CFG-81, the illustration dialog owns its actions: Replace (and Delete for a manual entry) always rendered in the dialog, the page-wide `edit_mode` and the "Modifier les images" toggle removed; "Send a picture" for an airline without artwork stays. The dialog's resolve-context block renders only in the resolve modes (Lot A fixes the CSS guard; this phase removes the reason it was ever reachable).
+- CFG-82, Compagnies gallery-first: filter + known-airline gallery directly under the title; unidentified prefixes and any remaining editing affordance in a clearly announced secondary section below (17-09 P2). Plus the 17-09 fix for the truncated `Compagnies` tab label at 360/390 px: `.tab-bar__pill`'s horizontal margin from `var(--space-sm)` to `calc(var(--space-xs) / 2)` (the diff sits uncommitted in the main checkout's `style.css`; replay it, do not merge it).
+- CFG-83, Vols paginated (17-09 P1): 10–15 flights then a real "Afficher plus" that works with scripts blocked (a server-side `?limit=` or a `<details>`-style reveal, planner's choice with its ground); the filter stays immediately visible; the summary card keeps one stable grid on mobile (timestamp and callsign no longer fight for one line).
+- CFG-84, État's battery-trend title shortened to the form "Batterie · 3 mois" with "moyenne quotidienne" in a caption, not the `<h2>` (17-09 P2).
+
+**Decisions taken with the developer (2026-09-21, AskUserQuestion):** the cut into Lot A / Phase 29 / Phase 30 as written; the three 17-09 leftovers above folded in (tap targets NOT); the Aspect section excluded from CFG-79's pass; the companion domain handled outside code.
+
+**Carried discipline from Phases 27 and 28:** assert relationships, not endpoints; measure the resolved hit-target box in its own container; mutation-test every new check with the failure message quoted; `git checkout-index -f --` for any mutation revert; `EXPECTED_CHECK_COUNT` re-derived by running; Display's page height at 390 px re-measured by the registered instrument and reported against the 2 600 px target honestly.
+
+### Phase 30: Aspect rebuilt — one tile, three rows, one palette, the calendar absorbed, sketch first
+
+**Goal:** The developer's first and largest case of the 2026-09-20/21 tour: the "Aspect" section of Display (the "Couleurs du cadre" card plus the separate "Calendrier" card) is rebuilt as ONE tile. The current card stacks six mechanisms for one choice — the live preview, a four-row usage radiogroup, a scroll-snap strip of 18 chips, its native scrollbar, two pagers, an 18-dot row and a "Voir tous les thèmes" disclosure — the accumulated result of Phases 20 (grid + preview), 21 (one card, four rows), 22 (compact chips), 25 (carousel + disclosure), 27 (carousel on all three grids) and 28 (preview follows scroll), each reasonable alone. The Calendar card lives apart while the calendar's COLOUR is set in the other card, and its own intro sentence talks about colour. This phase replaces the accretion with one shape and measures what it saves on Display's page height.
+
+**Requirements**: CFG-85, CFG-86 (all new)
+**Depends on:** Phase 29 (merged) — so Display is touched once for the editorial pass and once here, never twice for the same card
+**Plans:** 0 plans — not planned yet. **A `/gsd-sketch` round comes BEFORE planning**: two throwaway HTML variants on the real 18-theme registry and the developer's last flight, decided on the visible result.
+
+Plans:
+
+**The developer's own words (French, verbatim):** *"pour commencer j'aimerais vraiment qu'on améliore ce pannel. Il n'est pas très joli, il est pas évident à comprendre... je pense qu'il y a vraiment plus simple et plus moderne."* and, on the Calendar card: *"je comprends pas pourquoi calendrier ne fait pas partie de la même tuile que les autres, au moins intégré dans « vols du calendrier ». Il y a vraiment quelque chose à revoir sur l'ensemble."*
+
+**Investigated before this entry (against the code at Phase 28):**
+- Every one of the 18 themes has `departing_index == arriving_index` (`server/device_config.py`, a Phase 25 finding), so the two swatches each usage row paints are always identical and distinguish nothing.
+- On the developer's screenshot the selected departures theme ("Bande rouge pleine", the 18th) is not visible: the strip opens on the first chip, and the dot row carries no position state (a Phase 28 finding, CFG-75, fixed for the preview only).
+- "Règles par vol" is a list with its own add-form, not a theme, yet sits in the same radiogroup as three themes.
+- The Calendar card's connection status, masked URL, replace-URL disclosure, Disconnect and "How it works" are a second `page-section` below, with the caption "Les vols de votre calendrier ont leur propre couleur sur le cadre." pointing at the other card.
+- Footprint: `.frame-colours` 21 CSS rules, `.theme-carousel` 16, `.theme-chip` 73, three Python builders (`_frame_colours_card_html()`, `_theme_carousel_html()`, `_theme_chip_grid_html()`), the carousel half of `theme-preview.js`, and the CFG-50/CFG-68/CFG-75 browser checks — most of it disappears.
+
+**Recommended direction ("accordéon"), to be sketched against the lighter alternative ("segments"):**
+1. One tile "Aspect" absorbing the Calendar card; the live preview full-width on phones, left column on desktop.
+2. Three rows, not four: Départs, Arrivées, Vols du calendrier — each ONE swatch, the theme name, opening in place; one row open at a time.
+3. Under the open row a palette of the 18 themes as a wrapping grid of ~44 px swatches: no strip, no scrollbar, no pagers, no dots, no disclosure. A swatch draws the theme's own SHAPE (band or full field) without the aircraft — the big preview does that job and follows hover/focus the way it already follows scroll (CFG-75's preview state, re-keyed). Arrivées and Calendrier keep a leading "Comme les départs" entry.
+4. The Calendar row also carries its connection: "Connecté · 0 vol à venir" and a "Gérer" disclosure holding the URL line, Replace-URL, Disconnect and How-it-works UNDER the row — colour and connection of the calendar in one place.
+5. Règles par vol becomes a fourth, secondary row below the three ("Aucune règle · Ajouter") disclosing the existing list + add form.
+6. Both intro sentences go (CFG-79's rule applied to this card by this phase, since Phase 29 excludes it).
+The alternative keeps the current structure and swaps only the selector: three segments Départs / Arrivées / Calendrier over one wrapping swatch grid, the calendar connection folded into the same tile. Less change, but the three current values are no longer visible at a glance and the separate Calendar card still has to be justified. The developer decides on the two sketches.
+
+**Floors that do not move:** the no-JS control contract (the palette is native radios cross-submitting via `form="settings-form"`; the preview is server-rendered for the SAVED theme; opening a row without scripts renders every row open — the same shape the carousel's disclosure already has); the CSP (`img-src 'self' data:`, no inline script); the one-script budget (extend `theme-preview.js`, never a new file); the accent-reservation list (the selected swatch reuses the existing `:has(input:checked)` selected-card treatment); zero new custom properties, colour literals, families or sizes unless argued in the stylesheet's own header.
+
+**CFG-86 is the measurement:** Display's page height at 390 px, scripted with the registered instrument, before and after — the last honest figures are 3 743 px (Phase 25), 3 524 px (Phase 27) and 3 556 px (17-09 audit) against X6's never-met 2 600 px target; this phase reports the delta and whether the target is met, never restates the target to fit.
+
+**Carried discipline:** as Phase 29's, plus: the sketch is thrown away (it is `/gsd-sketch` output, never copied into `style.css`); every removed CSS rule is grepped for a surviving consumer before deletion; `EXPECTED_CHECK_COUNT` re-derived by running after the carousel checks are retired.
+
