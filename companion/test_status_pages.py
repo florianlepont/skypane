@@ -30,6 +30,8 @@ checks below. No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_status_pages.py
 """
+import ast
+import glob
 import inspect
 import io
 import math
@@ -956,6 +958,11 @@ EXPECTED_CHECK_COUNT = 307
 # display-guard block-parsing check). 307 + 1 = 308, re-derived by
 # RUNNING.
 EXPECTED_CHECK_COUNT = 308
+
+# quick task 260921-n2n Task 4: +1 (the ast-based exhaustive scan of
+# every <input type="search"> in companion/pages/*.py and
+# companion/app.py). 308 + 1 = 309, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 309
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -10949,6 +10956,92 @@ def main():
         "autocomplete=off/spellcheck=false/autocapitalize=characters (Safari contact-autofill "
         "suppression)",
         _compagnies_and_health_filter_inputs_carry_safari_autofill_suppression_attributes)
+
+    def _every_search_input_in_the_app_carries_safari_autofill_suppression_attributes():
+        # Quick task 260921-n2n Task 4 (FIX 4): Task 1 fixed three
+        # hand-copied literals; this makes that fix a standing property
+        # of the whole app rather than three named sites, so a FOURTH
+        # filter bar added by a later phase cannot reintroduce Safari's
+        # contact/phone-number autofill defect with nothing to catch it
+        # (this project's own "assert relationships, not endpoints"
+        # contract).
+        #
+        # A SOURCE scan, not a render scan: the literal is a %s-template,
+        # and one of the three known sites (health_page.py) renders its
+        # filter bar only when the unresolved registry is non-empty.
+        #
+        # ast-based, not a raw substring search, and docstrings are
+        # excluded: history_page.py:947's own _filter_bar_html()
+        # docstring DESCRIBES this markup and contains the very substring
+        # being matched, with no attributes on it at all — a naive text
+        # scan would fail on that docstring forever. This follows
+        # test_i18n.py's own methodology (ast.parse() of the source,
+        # never an import of the scanned module): walk every
+        # ast.Constant string node, skip any node that is a module's,
+        # function's or class's own docstring, and search only the
+        # surviving literals. Note ast folds adjacent string literals
+        # together, so each hit below arrives inside a builder's WHOLE
+        # concatenated markup literal, not as a bare standalone tag.
+        files = sorted(glob.glob(os.path.join(HERE, "pages", "*.py")))
+        files.append(os.path.join(HERE, "app.py"))
+
+        def docstring_constant_ids(tree):
+            ids = set()
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    body = getattr(node, "body", None)
+                    if (body and isinstance(body[0], ast.Expr)
+                            and isinstance(body[0].value, ast.Constant)
+                            and isinstance(body[0].value.value, str)):
+                        ids.add(id(body[0].value))
+            return ids
+
+        required_attrs = ('autocomplete="off"', 'spellcheck="false"', 'autocapitalize="characters"')
+        total_hits = 0
+        bad = []
+        for fp in files:
+            with open(fp, "r", encoding="utf-8") as fh:
+                src = fh.read()
+            tree = ast.parse(src, filename=fp)
+            skip_ids = docstring_constant_ids(tree)
+            for node in ast.walk(tree):
+                if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                    continue
+                if id(node) in skip_ids:
+                    continue
+                literal = node.value
+                start = 0
+                while True:
+                    idx = literal.find('<input type="search"', start)
+                    if idx == -1:
+                        break
+                    end = literal.find(">", idx)
+                    tag = literal[idx:end + 1] if end != -1 else literal[idx:]
+                    total_hits += 1
+                    missing = [a for a in required_attrs if a not in tag]
+                    if missing:
+                        bad.append("%s: %r missing %r" % (os.path.relpath(fp, HERE), tag, missing))
+                    start = idx + 1
+        if bad:
+            return False, (
+                "iOS Safari offers contact/phone-number autofill on a bare <input "
+                "type=\"search\"> with no name and no autocomplete, as the developer "
+                "photographed on 2026-09-21 — found %d occurrence(s) missing at least one "
+                "required attribute: %s" % (len(bad), "; ".join(bad)))
+        if total_hits < 3:
+            return False, (
+                "expected at least 3 <input type=\"search\"> occurrences across companion/pages/*.py "
+                "and companion/app.py (the floor known at plan time), found only %d — this would "
+                "make the check vacuously pass if every filter input were deleted" % total_hits)
+        return True, ""
+    check(
+        "every <input type=\"search\"> this app can render, across companion/pages/*.py and "
+        "companion/app.py (an ast-based source scan excluding docstrings, 3 occurrences found "
+        "at plan time — history_page.py, airlines_page.py, health_page.py, one builder each), "
+        "carries autocomplete=off/spellcheck=false/autocapitalize=characters — a fourth filter "
+        "bar added later cannot reintroduce the Safari contact-autofill defect with nothing to "
+        "catch it (quick task 260921-n2n Task 4)",
+        _every_search_input_in_the_app_carries_safari_autofill_suppression_attributes)
 
     def _gallery_filter_count_and_empty_body_name_the_real_total():
         tmp = _mkstate("a-filter-count-total")
