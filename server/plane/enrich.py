@@ -295,6 +295,23 @@ _AIRLINE_NAME_CORRECTIONS = {
     ("FPO", "Europe Airpost"): "ASL Airlines France",  # rebranded 2015
     ("CRL", "Corsairfly"): "Corsair",  # reverted to "Corsair" ~2012
     ("CCM", "CCM Airlines"): "Air Corsica",  # rebranded 2013
+    # Quick task 260921-v9c (2026-09-21): DJT/"Denver Jet" -> "La
+    # Compagnie", structurally identical to the AIA row above (same
+    # failure mode: adsbdb's DJT code attributes to a *different*,
+    # unrelated US operator, "Denver Jet", per
+    # 03.1-LIVE-RESOLUTION.md Step C's live curl:
+    # `GET https://api.adsbdb.com/v0/airline/DJT` ->
+    # `{"response":[{"name":"Denver Jet","icao":"DJT",...}]}`).
+    # WEAKER evidentiary footing than the AIA row, though: the
+    # "Denver Jet" string comes from an airline-ENDPOINT probe recorded
+    # in 03.1-LIVE-RESOLUTION.md, never from a real callsign hit, so no
+    # fixture exists and nobody has confirmed that a genuine La
+    # Compagnie callsign returns this string at all. This row is
+    # DEFENSIVE - if a live DJT callsign ever does resolve this way, the
+    # correction is already in place - the same evidentiary-caveat
+    # discipline the KlasJet row applies to its own uncertainty applies
+    # here.
+    ("DJT", "Denver Jet"): "La Compagnie",
 }
 
 
@@ -620,6 +637,97 @@ _ICAO_AIRLINE_PREFIXES = {
     # operator): if a KLJ callsign is ever observed resolving to a
     # DIFFERENT carrier, this row is the first thing to re-verify.
     "KLJ": "KlasJet",
+    # --- Quick task 260921-v9c (2026-09-21): eleven new prefixes, all
+    # observed by the developer at Orly on 2026-09-21 from
+    # photographs/screenshots reviewed offline that session.
+    #
+    # (a) Evidence class, stated once rather than eleven times: EVERY row
+    # in this block carries the new [DEVELOPER-OBSERVED] token
+    # (illustrations.py's module docstring and HANDOFF.md define it) -
+    # the developer's own in-session confirmation, no adsbdb transcript
+    # and no fixture exists for any prefix in this batch. This is the
+    # same evidence class as the KLJ row's 2026-09-02 confirmation above,
+    # and materially weaker than every curl-cited row before it in this
+    # table. Do not run adsbdb probes to try to upgrade this evidence
+    # after the fact - no transcript was captured when the flights were
+    # seen, and a probe run today would answer a different question (what
+    # adsbdb says about a code today, not what the real observed flight
+    # returned).
+    #
+    # (b) RJA and SVA are ordinary scheduled commercial carriers - the
+    # category adsbdb covers best - unlike the state and charter
+    # operators in this batch, so a live callsign for either may well
+    # resolve. If adsbdb ever returns a different string for one of them
+    # (a former legal name, say), that flight renders adsbdb's string and
+    # drops to a lower illustration tier - exactly the accepted
+    # consequence already recorded for the JAF row above. STANDING
+    # INSTRUCTION: do not pre-emptively add an _AIRLINE_NAME_CORRECTIONS
+    # row for RJA or SVA - no evidence exists for what adsbdb actually
+    # returns, and this file's discipline is that a correction row cites
+    # a real observed upstream string. If a live RJA or SVA flight is
+    # ever observed resolving to a different string, that is when the
+    # row gets added, with the transcript.
+    #
+    # CAJ: Air Caraïbes Atlantique, the group's long-haul AOC - a
+    # separate legal entity from the existing FWI row above but the same
+    # brand/livery. Mapped to the parent brand's existing "Air Caraïbes"
+    # key deliberately (QT-v9c-D-01), the identical brand-consolidation
+    # precedent as the shipped WMT -> "Wizz Air" and EJU -> "easyJet"
+    # rows above - zero new artwork, zero new _ILLUSTRATION_TARGETS
+    # entries.
+    "CAJ": "Air Caraïbes",
+    # DJT: La Compagnie. QT-v9c-D-02: supersedes Phase 3.1's [UNRESOLVED]
+    # verdict (03.1-LIVE-RESOLUTION.md Step C). That document marked this
+    # carrier unresolved precisely because adsbdb's airline endpoint for
+    # this code resolves to a different, unrelated US operator ("Denver
+    # Jet") - the blocker that verdict named was the absence of any real
+    # observed flight to determine what a genuine La Compagnie callsign
+    # actually returns. The developer's 2026-09-21 observation of a real
+    # DJT-prefixed La Compagnie flight clears that blocker - this
+    # supersedes, it does not contradict, the older document. See the
+    # matching _AIRLINE_NAME_CORRECTIONS row below.
+    "DJT": "La Compagnie",
+    # QAF: Qatar Amiri Flight, Qatar's state/VIP operator.
+    "QAF": "Qatar Amiri Flight",
+    # KAF: South Korea Government - the ROKAF-operated presidential
+    # fleet. Observed as callsign KAF001, a Boeing 747-8i, tail 22-001.
+    # Kuwait Air Force was considered and explicitly ruled out as the
+    # meaning of this prefix - KAF here names the Republic of Korea
+    # presidential fleet, not Kuwait.
+    "KAF": "South Korea Government",
+    # RJA: Royal Jordanian, Jordan's flag carrier. See caveat (b) above -
+    # no correction row without a real observed transcript.
+    "RJA": "Royal Jordanian",
+    # CTM: French Air Force. The operator's real name is COTAM
+    # (Commandement du Transport Aerien Militaire) - named here so the
+    # term stays greppable. Cross-references QT-v9c-D-04
+    # (illustrations.py) for why the illustration is filed under the
+    # broader "French Air Force" name rather than a COTAM-specific one.
+    "CTM": "French Air Force",
+    "SRA": "Saudi Royal Aviation",
+    # SVA: Saudia, the carrier's current real name. The former name
+    # "Saudi Arabian Airlines" is a searchable alias, never a value
+    # stored in any table here. See caveat (b) above - no correction row
+    # without a real observed transcript.
+    "SVA": "Saudia",
+    # TFV: QT-v9c-D-03, a defensive alias, not a second ICAO code. The
+    # observed callsign read TFV60HA; the official prefix already in
+    # this table (above) is TVF. A letter transposition in the observed
+    # data is far more likely than a real second code. Maps to the same
+    # existing "Transavia France" value, adds no illustration target.
+    # This row's premise is a probable misreading - a future reader with
+    # real evidence should delete it rather than defend it.
+    "TFV": "Transavia France",
+    # FGN: Gendarmerie Nationale. QT-v9c-D-05: this is the aviation
+    # branch of the French national gendarmerie, a state
+    # law-enforcement operator, not a commercial airline - initially
+    # scoped out as "not a real airline", the developer reversed that on
+    # 2026-09-21.
+    "FGN": "Gendarmerie Nationale",
+    # IPF: Iraqi Government. QT-v9c-D-05: the Iraqi Prime Minister's
+    # Office aircraft, observed tail YI-ASF - a state operator, not a
+    # commercial airline. Same reversal as FGN above.
+    "IPF": "Iraqi Government",
 }
 
 

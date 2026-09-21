@@ -45,7 +45,19 @@ if REPO_ROOT not in sys.path:
 # precedence), hostile-key confinement across BOTH directories, vendored-
 # file-immutability, and set_override_state_dir()'s process-default round
 # trip.
-EXPECTED_CHECK_COUNT = 58
+#
+# 60 (quick task 260921-v9c, 2026-09-21). 58 + 2 new checks covering the
+# nine new [DEVELOPER-OBSERVED] targets this batch adds (52 target files,
+# 36 target airlines, up from 43/27): one asserting all nine new filenames
+# are members of target_filenames() and exist on disk, that "French Air
+# Force" is a target_airline_names() member, and that the deferred tenth
+# file (saudi-special-flight.png, QT-v9c-D-06) is neither a target nor on
+# disk; one asserting the structural invariant this session discovered -
+# for every airline in target_variants_by_airline(), the unsuffixed
+# {slug}.png is a target_filenames() member AND exists on disk, protecting
+# the companion gallery card contract (airlines_page.py builds every card's
+# <img src> from the primary key alone).
+EXPECTED_CHECK_COUNT = 60
 
 
 def main():
@@ -702,29 +714,32 @@ def main():
         _km_malta_and_tuifly_belgium_targets_present,
     )
 
-    # 45 (quick task 260827-kih, total updated by 260827-lgt and by a
-    # parallel 2026-08-27 livery-audit session that delivered real artwork
-    # for every outstanding target plus two further Air Caraïbes secondary
-    # variants). Amelia's two new target filenames are present in
+    # 45 (quick task 260827-kih, total updated by 260827-lgt, by a parallel
+    # 2026-08-27 livery-audit session that delivered real artwork for every
+    # outstanding target plus two further Air Caraïbes secondary variants,
+    # and by quick task 260921-v9c's nine new [DEVELOPER-OBSERVED]
+    # primaries). Amelia's two new target filenames are present in
     # target_filenames() and now exist on disk (delivered, not merely
     # planned - see VENDOR.md's "Amelia A320 correction" note for the
-    # livery-fix record), and the full target plan now totals 43 entries
+    # livery-fix record), and the full target plan now totals 52 entries
     # (38 -> 41 via 260827-lgt, 41 -> 43 via the parallel session's two
-    # Air Caraïbes additions: air-caraibes-a350-1000.png, air-caraibes-atr72.png).
-    def _amelia_targets_present_and_total_is_43():
+    # Air Caraïbes additions: air-caraibes-a350-1000.png,
+    # air-caraibes-atr72.png; 43 -> 52 via 260921-v9c's nine new primaries).
+    def _amelia_targets_present_and_total_is_52():
         targets = ill.target_filenames()
         for expected_file in ("amelia.png", "amelia-embraer.png"):
             if expected_file not in targets:
                 return False, "target_filenames() is missing %r: not present" % (expected_file,)
             if not os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)):
                 return False, "%r is a target but missing on disk - expected it to be delivered" % (expected_file,)
-        if len(targets) != 43:
-            return False, "target_filenames() has %d entries, expected 43" % (len(targets),)
+        if len(targets) != 52:
+            return False, "target_filenames() has %d entries, expected 52" % (len(targets),)
         return True, ""
     check(
         "target_filenames() contains 'amelia.png'/'amelia-embraer.png' (delivered on disk) and totals "
-        "43 entries (260827-kih baseline, updated by 260827-lgt and a parallel Air Caraïbes livery-audit session)",
-        _amelia_targets_present_and_total_is_43,
+        "52 entries (260827-kih baseline, updated by 260827-lgt, a parallel Air Caraïbes livery-audit "
+        "session, and quick task 260921-v9c's nine new primaries)",
+        _amelia_targets_present_and_total_is_52,
     )
 
     # 46 (quick task 260827-kih). The four renamed files exist on disk
@@ -791,15 +806,16 @@ def main():
 
     def _variants_by_airline_matches_names_order_and_count():
         pairs = ill.target_variants_by_airline()
-        if len(pairs) != 27:
-            return False, "target_variants_by_airline() returned %d pairs, expected 27" % (len(pairs),)
+        if len(pairs) != 36:
+            return False, "target_variants_by_airline() returned %d pairs, expected 36" % (len(pairs),)
         got_names = [name for name, _shapes in pairs]
         expected_names = ill.target_airline_names()
         if got_names != expected_names:
             return False, "target_variants_by_airline() names %r != target_airline_names() %r" % (got_names, expected_names)
         return True, ""
     check(
-        "target_variants_by_airline() returns 27 pairs in the same order as target_airline_names()",
+        "target_variants_by_airline() returns 36 pairs in the same order as target_airline_names() "
+        "(260921-v9c: 27 -> 36 via nine new primaries)",
         _variants_by_airline_matches_names_order_and_count,
     )
 
@@ -1058,6 +1074,70 @@ def main():
         "override; resetting to None restores the vendored path, and the reset is guaranteed by a finally block "
         "(260902-v26, T-v26-01-04)",
         _set_override_state_dir_round_trip,
+    )
+
+    # --- Quick task 260921-v9c (2026-09-21): nine new [DEVELOPER-OBSERVED]
+    # targets, delivered on arrival ------------------------------------------
+
+    _V9C_NEW_FILENAMES = (
+        "qatar-amiri-flight.png",
+        "royal-jordanian.png",
+        "saudi-royal-aviation.png",
+        "saudia.png",
+        "south-korea-government.png",
+        "la-compagnie.png",
+        "gendarmerie-nationale.png",
+        "iraqi-government.png",
+        "french-air-force.png",
+    )
+
+    def _v9c_nine_new_targets_present_and_tenth_excluded():
+        filenames = ill.target_filenames()
+        for expected_file in _V9C_NEW_FILENAMES:
+            if expected_file not in filenames:
+                return False, "target_filenames() is missing %r: not present" % (expected_file,)
+            if not os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)):
+                return False, "%r is a target but missing on disk - expected it to be delivered" % (expected_file,)
+        names = ill.target_airline_names()
+        if "French Air Force" not in names:
+            return False, "target_airline_names() is missing 'French Air Force': %r" % (names,)
+        # QT-v9c-D-06 guard: the tenth delivered file (unresolved operator
+        # mismatch) is neither a target nor present on disk.
+        if "saudi-special-flight.png" in filenames:
+            return False, "'saudi-special-flight.png' must never be a target (QT-v9c-D-06)"
+        if os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, "saudi-special-flight.png")):
+            return False, "'saudi-special-flight.png' must never be copied into the illustration directory (QT-v9c-D-06)"
+        return True, ""
+    check(
+        "target_filenames() contains all nine 260921-v9c filenames (delivered on disk), 'French Air Force' is "
+        "a target_airline_names() member, and the deferred tenth file 'saudi-special-flight.png' is neither a "
+        "target nor present on disk (QT-v9c-D-06 guard)",
+        _v9c_nine_new_targets_present_and_tenth_excluded,
+    )
+
+    # Structural invariant this session discovered: companion/pages/
+    # airlines_page.py's _airline_card_html() builds every gallery card's
+    # <img src> from the PRIMARY key alone (illustrations.normalise_
+    # airline_key(airline_name) + '.png'), unconditionally - it never
+    # consults the shapes list for the image. A shape-only target (no
+    # unsuffixed primary file) would therefore render a 404 image in the
+    # companion gallery. This is exactly the near-miss QT-v9c-D-04 avoided
+    # for French Air Force by installing its art under the unsuffixed
+    # primary name rather than as an a330-suffixed secondary.
+    def _every_airline_has_an_unsuffixed_primary_file_on_disk():
+        for name, _shapes in ill.target_variants_by_airline():
+            key = ill.normalise_airline_key(name)
+            primary_filename = "%s.png" % key
+            if primary_filename not in ill.target_filenames():
+                return False, "airline %r has no unsuffixed primary %r in target_filenames()" % (name, primary_filename)
+            if not os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, primary_filename)):
+                return False, "airline %r's unsuffixed primary %r is a target but missing on disk" % (name, primary_filename)
+        return True, ""
+    check(
+        "every airline in target_variants_by_airline() has an unsuffixed {slug}.png primary that is both a "
+        "target_filenames() member and present on disk - protects the companion gallery card contract "
+        "(airlines_page.py builds every card's <img src> from the primary key alone, 260921-v9c)",
+        _every_airline_has_an_unsuffixed_primary_file_on_disk,
     )
 
     total = len(results)
