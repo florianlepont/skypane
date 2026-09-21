@@ -27,13 +27,17 @@ the same day delivered real vendored artwork for every one of those 41
 files' outstanding entries directly to `main`, plus two further Air Caraïbes
 secondary variants (A350-1000, ATR72) this document did not previously
 track — taking the registry to **43 target files total**, reconciled here
-rather than duplicated.
+rather than duplicated. Quick task `260921-v9c` (2026-09-21) added nine more
+primaries — carriers the developer personally observed at Orly that
+session, all delivered with real art on arrival, nothing left outstanding —
+taking the registry to **52 target files total**, the current authoritative
+count.
 
 Read this file in full before generating anything. Run these two commands at
 any time for the authoritative machine-reported state:
 
 ```
-server/.venv/bin/python3 server/plane/illustrations.py --targets       # the full 43-file plan
+server/.venv/bin/python3 server/plane/illustrations.py --targets       # the full 52-file plan
 server/.venv/bin/python3 server/plane/illustrations.py --outstanding   # what is still missing right now
 ```
 
@@ -44,9 +48,9 @@ exist on disk plus the pre-Phase-3.1 baseline. Nothing in the target set is
 ever silently dropped — whatever remains outstanding when you stop is
 recorded by name in `VENDOR.md`.
 
-## Required files (43 total — see Outstanding below for what remains undelivered)
+## Required files (52 total — see Outstanding below for what remains undelivered)
 
-**Airline primary files (27)**
+**Airline primary files (36)**
 
 One unsuffixed file per airline — the carrier's numerically dominant aircraft
 type per `03.1-CONTEXT.md`'s D-03 table. An asterisk `*` marks a file already
@@ -80,13 +84,27 @@ tuifly-belgium.png            see Naming rules — this is the one approved curr
 amelia.png                    see Naming rules and Coverage caveat — new target, 260827-kih
 air-france-hop.png            see Coverage caveat — Embraer primary, MEDIUM confidence on the split
 klasjet.png                   see Coverage caveat — lower-confidence entry
+la-compagnie.png              *  already vendored (260921-v9c, QT-v9c-D-02) — Airbus A321neo LR, supersedes Phase 3.1's [UNRESOLVED] verdict
+qatar-amiri-flight.png        *  already vendored (260921-v9c) — Qatar's state/VIP operator, Airbus A320
+south-korea-government.png    *  already vendored (260921-v9c) — ROKAF presidential fleet, Boeing 747-8i
+royal-jordanian.png           *  already vendored (260921-v9c) — Jordan's flag carrier, Boeing 787-8 Dreamliner
+french-air-force.png          *  already vendored (260921-v9c, QT-v9c-D-04, renamed from french-air-force-a330.png — see Naming rules) — COTAM, Airbus A330 MRTT Phénix
+saudi-royal-aviation.png      *  already vendored (260921-v9c) — Saudi state/royal VIP operator, Boeing 777-300ER
+saudia.png                    *  already vendored (260921-v9c) — Saudi Arabia's flag carrier, Boeing 777-300ER
+gendarmerie-nationale.png     *  already vendored (260921-v9c, QT-v9c-D-05) — French gendarmerie's aviation branch, Eurocopter/Airbus EC145
+iraqi-government.png          *  already vendored (260921-v9c, QT-v9c-D-05) — Iraqi PM's Office aircraft, Boeing 737
 ```
 
-**Airline secondary-variant files (6)**
+**Airline secondary-variant files (8)**
 
 One `{airline-slug}-{shape-slug}.png` file per mixed-fleet airline whose
 minority type is common enough at Orly to warrant its own illustration
-(P-04). All five are new except the renamed ATR72 slug.
+(P-04). All five are new except the renamed ATR72 slug; the two Air
+Caraïbes long-haul/regional variants below were delivered directly to
+`main` by a parallel 2026-08-27 livery-audit session and are already
+vendored — this list previously omitted them even after the intro
+paragraph's total was reconciled to include them (fixed in passing by
+quick task `260921-v9c`, 2026-09-21).
 
 ```
 air-corsica-atr72.png         *  already vendored (renamed from ccm-airlines-atr72.png, 260827-kih) — Air Corsica's ATR72-600 (mixed fleet with the A320 primary)
@@ -95,6 +113,8 @@ royal-air-maroc-embraer.png   Royal Air Maroc's Embraer E190 (minority alongside
 air-caraibes-a330.png         Air Caraïbes' A330-300/200 (minority alongside the A350 primary)
 amelia-embraer.png            Amelia's Embraer E145 (minority alongside the A320 primary, 260827-kih)
 air-france-hop-atr72.png      Air France Hop's minority ATR turboprop, alongside the Embraer primary (260827-lgt, MEDIUM-confidence split)
+air-caraibes-a350-1000.png    *  already vendored (parallel 2026-08-27 livery-audit session) — Air Caraïbes' long-haul A350-1000 secondary
+air-caraibes-atr72.png        *  already vendored (parallel 2026-08-27 livery-audit session) — Air Caraïbes' regional ATR72 secondary
 ```
 
 **Neutral shape fallbacks + universal fallback (8)**
@@ -207,6 +227,48 @@ fleet significant enough at Orly to matter (D-03/P-04). One illustration
 covers a whole family: ceo, neo, and XLR sub-variants of the same base type
 (e.g. A320/A320neo, A321/A321neo/A321XLR) share a single file — do not
 generate separate art per sub-variant.
+
+### `french-air-force.png` — a delivered-filename rename, QT-v9c-D-04
+
+Quick task `260921-v9c` (2026-09-21) delivered a file the developer named
+`french-air-force-a330.png`. It is vendored in this directory under the
+**unsuffixed primary name** `french-air-force.png` instead — a deliberate
+rename, not a filing mistake. `companion/pages/airlines_page.py`'s
+`_airline_card_html()` builds every gallery card's `<img src>` from the
+primary key alone (`illustrations.normalise_airline_key(airline_name) +
+".png"`), unconditionally — it never consults the shapes list for the
+image. A shape-only "French Air Force" target (e.g.
+`french-air-force-a330.png` filed as an `a330`-suffixed secondary with no
+unsuffixed primary) would therefore render a 404 image in the companion
+gallery and fail `companion/test_status_pages.py`'s
+`target_filenames()`-membership assertion. Filed as the primary instead,
+Tier 2 (D-06, "brand identity wins over exact type precision") returns this
+identical file for a real COTAM A330 flight that an `a330`-suffixed Tier 1
+match would have returned anyway, and additionally covers COTAM's other
+observed types instead of dropping them to the generic silhouette — this is
+strictly more coverage, one fewer file, zero duplicated bytes, at the cost
+of the filename no longer literally matching the aircraft type it depicts.
+See `VENDOR.md`'s "Quick task 260921-v9c" section for the delivered
+filename's own provenance record — this is a rename to a different
+filename, not a renamed-with-`git mv`, bytes-preserved case like the three
+Phase-3.1 renames above (this file never had a prior committed history
+under the delivered name).
+
+## Verdict tokens
+
+Every table entry in this project's target tables (`_ILLUSTRATION_TARGETS`
+in `server/plane/illustrations.py`) carries an evidence token in its note,
+defined once here rather than re-explained per row:
+
+| Token | Meaning |
+|---|---|
+| `[VERIFIED-CALLSIGN]` | A real, currently-flying callsign was curled against `adsbdb` and returned a full resolved route for this carrier. |
+| `[VERIFIED-AIRLINE-ENDPOINT-ONLY]` | `adsbdb`'s airline endpoint (not a real callsign hit) confirmed the carrier's ICAO code. |
+| `[VERIFIED-CALLSIGN-MISS]` | A real callsign was curled and returned a confirmed permanent miss ("unknown callsign") — the carrier is reachable only via the static ICAO-prefix fallback, never via an `adsbdb` hit. |
+| `[VERIFIED-CALLSIGN-STALE-NAME-OVERRIDDEN]` | A real callsign resolves live, but to a stale pre-rebrand name the developer chose not to mirror — the target uses the current brand name instead. |
+| `[CITED: ...]` | Sourced from a named prior planning document, not independently re-verified this session. |
+| `[UNCONFIRMED-PREFIX]` | The ICAO prefix is corroborated by reference sources but was never live-confirmed against `adsbdb` — weaker than a confirmed miss. |
+| `[DEVELOPER-OBSERVED]` | **New, quick task `260921-v9c` (2026-09-21).** Observed by the developer at Orly on 2026-09-21 from photographs/screenshots reviewed offline; no `adsbdb` transcript and no fixture exists for any prefix carrying this token. This is the same evidence class as the `KLJ` row's 2026-09-02 confirmation, and materially weaker than every other token above — none of them makes a claim this token's evidence can support. |
 
 ## Requirements — every file, no exceptions
 
@@ -370,13 +432,62 @@ phase's coverage boundary live:
   project's detections at Orly. The developer chose to include it anyway,
   with that uncertainty in hand. Remediation pointer: re-verify this row
   first if a `KLJ` flight is ever observed with a surprising caption.
-- **La Compagnie is excluded from this target set.**
-  `03.1-LIVE-RESOLUTION.md` also marks it `[UNRESOLVED]`: its real-world
-  ICAO code (`DJT`) is independently confirmed via Wikipedia, but `adsbdb`'s
-  own database resolves that exact code to an unrelated US airline ("Denver
-  Jet"), and no real La Compagnie callsign was available this session to
-  determine what a genuine flight actually returns. Same remediation path
-  as Amelia: re-verify with a real callsign later.
+- **La Compagnie was excluded from this target set through quick task
+  `260921-v9c` (2026-09-21); status changed by that same session.**
+  `03.1-LIVE-RESOLUTION.md` marked it `[UNRESOLVED]`: its real-world ICAO
+  code (`DJT`) is independently confirmed via Wikipedia, but `adsbdb`'s own
+  database resolves that exact code to an unrelated US airline ("Denver
+  Jet"), and no real La Compagnie callsign was available at that time to
+  determine what a genuine flight actually returns. The developer observed
+  a real DJT-prefixed La Compagnie flight at Orly on 2026-09-21
+  (`[DEVELOPER-OBSERVED]` evidence class, weaker than a curl transcript but
+  the blocker the old verdict named), clearing this exclusion. `La
+  Compagnie` is now a real target — `la-compagnie.png`, primary, Airbus
+  A321neo LR — see `VENDOR.md`'s "Quick task 260921-v9c" section for the
+  full record.
+
+**Eight further carriers added by quick task `260921-v9c` (2026-09-21),
+all developer-observed at Orly that session (`[DEVELOPER-OBSERVED]`
+evidence class — see the Verdict tokens section above), each a standing
+decision recorded here so a later reader does not re-litigate or
+"complete" it as tidy-up:**
+
+- **`CAJ` (Air Caraïbes Atlantique) and `TFV` reuse existing keys with zero
+  new files.** `CAJ` maps to the existing `"Air Caraïbes"` target
+  (QT-v9c-D-01) — the same brand-consolidation precedent as `WMT` → `"Wizz
+  Air"` and `EJU` → `"easyJet"` above. `TFV` maps to the existing
+  `"Transavia France"` target (QT-v9c-D-03) as a defensive alias for a
+  probable `TFV60HA`/`TVF` transposition, not a confirmed second ICAO
+  code — a future reader with real evidence should delete this row rather
+  than defend it.
+- **`FGN` (Gendarmerie Nationale) and `IPF` (Iraqi Government) are included
+  as state operators with their own artwork (QT-v9c-D-05).** Both were
+  initially scoped out as "not real airlines"; the developer reversed that
+  decision on 2026-09-21. Neither is a commercial airline — FGN is the
+  aviation branch of the French national gendarmerie, IPF is the Iraqi
+  Prime Minister's Office aircraft (observed tail YI-ASF).
+- **`RJA` (Royal Jordanian) and `SVA` (Saudia) are ordinary scheduled
+  commercial carriers — standing instruction: do not add an
+  `_AIRLINE_NAME_CORRECTIONS` row for either without a real observed
+  transcript.** Unlike the state/charter operators in this batch, a live
+  callsign for either may well resolve through `adsbdb`, possibly under a
+  different string (a former legal name, say). No evidence exists yet for
+  what `adsbdb` actually returns for either prefix, and this file's
+  correction-row discipline requires citing a real observed upstream
+  string. If a live RJA or SVA flight is ever observed resolving
+  differently, that is when the row gets added, with the transcript — not
+  before.
+- **`DEF`, `QEM` and a tenth delivered file, `saudi-special-flight.png`,
+  are deliberately out of scope (QT-v9c-D-06) — do not add any of them as
+  tidy-up.** `DEF` was a privately-registered Cirrus SR22T (tail D-EFGM),
+  not an operator. `QEM` was flagged by the developer as NOT Qatar Amiri
+  Flight's official prefix — the aircraft actually observed under that
+  code (an Airbus ACJ320, tail A7-MBK) belongs to Qatar Amiri Flight and is
+  reachable through the `QAF` row this batch adds instead. The tenth file
+  has no confirmed operator behind it — its name says "Saudi" while the
+  only candidate prefix discussed this session (`QEM`) was for a Qatari
+  aircraft, an unresolved mismatch — and is neither copied nor referenced
+  anywhere, deferred to a future session.
 
 Transavia France (`TVF`, the numerically dominant prefix in raw traffic)
 resolves in only 2 of 20 real lookups per Phase 3's live test, so its
