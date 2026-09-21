@@ -8391,6 +8391,24 @@ a.airline-card {
   white-space: nowrap;
 }
 
+/* 29-04-PLAN.md Task 2 (CFG-80): the `[hidden]`-versus-`display` guard,
+ * joining `.refresh-pill[hidden]`, `.dirty-bar[hidden]`, `.resolve-
+ * context[hidden]` and `.login-reveal[hidden]` above — the same trap
+ * quick task 260921-n2n's `.resolve-context[hidden]` guard fixed: an
+ * author `display` declaration on the base rule always beats the user-
+ * agent stylesheet's `[hidden] { display: none }`, regardless of source
+ * order, so setting `hidden` on an element governed by an undefended
+ * base rule hides nothing at all. The base rule above declares NO
+ * `display` of its own (only `margin-left`/`white-space`), so this guard
+ * is defence in depth rather than a fix for an active collision — added
+ * anyway, matching this stylesheet's own posture on every one of the
+ * four siblings named above, because a future declaration on the base
+ * rule (a `display: inline-flex` for some new layout need, say) would
+ * silently reopen exactly this trap without it. */
+.field-inline-value[hidden] {
+  display: none;
+}
+
 
 /* =====================================================================
  * Phase 18 — companion audit / UX refactor.

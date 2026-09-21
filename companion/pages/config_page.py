@@ -2700,11 +2700,31 @@ def _normalised_time_html(value):
     fabricating one, matching this file's "omit, don't fabricate"
     convention. The value is already server-validated HH:MM by
     `handle_post()`; this only ever echoes it back.
+
+    29-04-PLAN.md Task 2 (CFG-80): the span now also carries
+    `QUIET_NORMALISED_TIME_ATTR`, a stable hook `companion/static/
+    value-controls.js` reads at load to decide whether to hide it. THIS
+    IS A MARKER, NOT A VISIBILITY CHANGE — the span renders exactly as
+    visible as it always has, with no `hidden` attribute, no `.js-gate`
+    class and no `style` of any kind. B14's own ground for this element
+    existing at all is UNCHANGED by that marker: a browser that forces a
+    12h rendering still needs the stored 24h text beside the field, and
+    nothing about that fact is being second-guessed here. What CFG-80
+    changes is only the element's DEFAULT VISIBILITY on a browser that is
+    ALREADY unambiguous — and it changes it in this specific direction,
+    server-visible, script-hidden, deliberately: the opposite direction
+    (`.js-gate`, hidden by default, revealed under `.js`) would delete
+    the fallback for exactly the scripts-blocked and forced-12h-browser
+    readers who need it most, which is the defect this whole element
+    exists to prevent. See `companion/static/value-controls.js`'s own
+    load-time pass for the strict, conservative condition under which the
+    hide actually happens.
     """
     if not value or not _HHMM_RE.match(str(value)):
         return ""
-    return ' <span class="text-label field-inline-value" aria-hidden="true">%s</span>' % escape_html(
-        value)
+    return (
+        ' <span class="text-label field-inline-value" %s aria-hidden="true">%s</span>'
+    ) % (QUIET_NORMALISED_TIME_ATTR, escape_html(value))
 
 
 # --- 25-04-PLAN.md Task 2 (CFG-48): the server-drawn 24 h ring --------
@@ -2732,6 +2752,13 @@ QUIET_DIAL_READOUT_CLASS = "quiet-dial__readout"
 # emitted markup's classes against the stylesheet for exactly that.
 QUIET_PRESET_ROW_CLASS = "quiet-preset-row"
 QUIET_TIMES_ROW_CLASS = "quiet-times-row"
+
+# 29-04-PLAN.md Task 2 (CFG-80): the stable hook `_normalised_time_html()`
+# marks its own span with, so `companion/static/value-controls.js` can
+# find it and hide it — and ONLY it, never the wake-interval unit sibling
+# that shares `.field-inline-value` but carries no hook of its own (see
+# both functions' docstrings).
+QUIET_NORMALISED_TIME_ATTR = "data-normalised-time"
 
 # User units, and CSS pixels — the aspect-locked `unit_*` scheme
 # companion/draw.py documents, with an explicit intrinsic size so the
