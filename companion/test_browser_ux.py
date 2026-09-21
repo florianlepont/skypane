@@ -11912,6 +11912,45 @@ def main():
                                 "%s theme, preset path" % theme)
                             recorded["%s/preset" % theme] = agreed_preset
 
+                            # 29-04-PLAN.md Task 3 (CFG-80), added to
+                            # THIS existing check rather than as a new
+                            # `check(...)` call — folded in per the
+                            # plan's own instruction not to move this
+                            # file's EXPECTED_CHECK_COUNT for an
+                            # assertion nobody in this worktree could
+                            # verify (playwright is not installed here;
+                            # this whole file reports SKIPPED, never a
+                            # pass, until it is). A FIFTH surface, after
+                            # the same preset click the four above just
+                            # agreed on: each twin's OWN visibility must
+                            # match the browser's own resolved hour
+                            # cycle — hidden when it is unambiguously
+                            # 24h, visible otherwise — read from the
+                            # live DOM's `.hidden` property, never from
+                            # the served HTML (which is a SEPARATE,
+                            # runnable proof in test_config_page.py).
+                            resolved_hour12 = page.evaluate(
+                                "() => { try { return new Intl.DateTimeFormat("
+                                "undefined, {hour: 'numeric'})"
+                                ".resolvedOptions().hour12; } catch (e) { return null; } }")
+                            expect_hidden = resolved_hour12 is False
+                            for field in ("quiet_hours_start", "quiet_hours_end"):
+                                twin_hidden = page.eval_on_selector(
+                                    'input[name="%s"] ~ [%s]'
+                                    % (field, config_page.QUIET_NORMALISED_TIME_ATTR),
+                                    "el => el.hidden")
+                                if twin_hidden != expect_hidden:
+                                    return False, (
+                                        "%s theme, preset path: this browser's own resolved "
+                                        "hour12 is %r (expected twin hidden=%r) but %s's "
+                                        "normalised-time twin is hidden=%r — a false negative "
+                                        "here (hidden=True on a browser that in fact paints "
+                                        "12h) reopens the exact defect B14 exists to prevent"
+                                        % (theme, resolved_hour12, expect_hidden, field,
+                                           twin_hidden))
+                            recorded["%s/twin_visibility" % theme] = (
+                                resolved_hour12, expect_hidden)
+
                         # 3. THE SCRIPTS-BLOCKED HALF. 27-04-PLAN.md
                         # (CFG-63): SUPERSEDES this paragraph's own former
                         # claim that neither interaction above reaches
@@ -11974,7 +12013,11 @@ def main():
                     "arc's RESOLVED geometry (read back through getComputedStyle, not the "
                     "static attribute), and the caption's own text — decode to the SAME "
                     "canonical (start_minute, end_minute) pair, which equals what the "
-                    "interaction requested and differs from what was there before; separately, "
+                    "interaction requested and differs from what was there before; AND, after "
+                    "the same preset click, each B14 twin's own live .hidden property matches "
+                    "this browser's resolved hour12 (CFG-80, 29-04-PLAN.md Task 3, folded into "
+                    "this existing check rather than a new one so EXPECTED_CHECK_COUNT does not "
+                    "move for an assertion this worktree has never run); separately, "
                     "with scripts blocked, the arc still carries both presentation attributes "
                     "and they still decode to whatever window is actually saved on disk — under "
                     "auto-save that is the preset's own commit, read fresh rather than assumed "

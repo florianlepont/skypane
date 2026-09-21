@@ -1092,6 +1092,14 @@ EXPECTED_CHECK_COUNT = 266
 # by RUNNING (270/270).
 EXPECTED_CHECK_COUNT = 270
 
+# 29-04-PLAN.md Task 3 (CFG-80), 2026-09-21: +3 (Check A — the twin is
+# visible in the served markup in both languages; Check B — the hide
+# path is gated on one strict hour12 === false branch; Check C — the
+# four server-rendered surfaces still agree, including a midnight wrap
+# and a rejected-save echo). 270 + 3 = 273, re-derived by RUNNING
+# (273/273).
+EXPECTED_CHECK_COUNT = 273
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -3025,6 +3033,251 @@ def main():
         "grid-template-columns of exactly two tracks, parsed from the stylesheet itself "
         "(CFG-80, 29-04-PLAN.md Task 1)",
         _the_times_row_rule_declares_exactly_two_grid_tracks)
+
+    # ------------------------------------------------------------------
+    # 29-04-PLAN.md Task 3 (CFG-80): three RUNNABLE proofs — the served
+    # markup's own scripts-blocked state, the script's gated hide path,
+    # and the four server-rendered surfaces still agreeing at the
+    # render level. None depends on a browser.
+    # ------------------------------------------------------------------
+
+    def _check_a_the_twin_is_visible_in_the_served_markup_in_both_languages():
+        """Check A (29-04-PLAN.md Task 3): with no script running, the
+        served HTML IS what a scripts-blocked reader sees — so a
+        VISIBLE twin in the served HTML, for both fields, in both
+        languages, IS the scripts-blocked proof. This asserts a fact
+        about the served markup, never about a browser.
+        """
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                markup = config_page.quiet_hours_group("23:00", "07:00")
+            finally:
+                prefs.set_request_prefs(lang="en")
+            # Broad open-tag match FIRST, deliberately loose about what
+            # sits between the hook attribute and the closing `>` — a
+            # mutation that inserts `hidden` (or any other attribute)
+            # between them must still be CAUGHT here, by name, rather
+            # than silently making the narrower two-span count below
+            # find zero and report a vaguer failure.
+            open_tags = re.findall(
+                r'<span class="text-label field-inline-value"[^>]*%s[^>]*>'
+                % re.escape(config_page.QUIET_NORMALISED_TIME_ATTR), markup)
+            if len(open_tags) != 2:
+                return False, (
+                    "%s: expected exactly two hook-attribute spans, got %d: %r"
+                    % (lang, len(open_tags), open_tags))
+            for tag in open_tags:
+                # Boundary-anchored: "aria-hidden" (which this tag is
+                # SUPPOSED to carry, per B14) contains the substring
+                # "hidden" and must not trip this check.
+                if re.search(r"(?<![-\w])hidden(?![-\w])", tag):
+                    return False, "%s: the twin's own tag carries hidden=: %r" % (lang, tag)
+                for forbidden in ("js-gate", "style="):
+                    if forbidden in tag:
+                        return False, (
+                            "%s: the twin's own tag carries %r: %r" % (lang, forbidden, tag))
+            hook_spans = re.findall(
+                r'<span class="text-label field-inline-value"[^>]*%s[^>]*>([^<]*)</span>'
+                % re.escape(config_page.QUIET_NORMALISED_TIME_ATTR), markup)
+            for field in ("quiet_hours_start", "quiet_hours_end"):
+                field_match = re.search(
+                    r'<input type="time" name="%s" value="([^"]*)"' % field, markup)
+                if not field_match:
+                    return False, "%s: no %s input found" % (lang, field)
+                value = field_match.group(1)
+                if value not in hook_spans:
+                    return False, (
+                        "%s: %s's own field value %r has no matching hook-attribute span "
+                        "among %r — the twin must render the SAME text as its own field, "
+                        "as a relationship, not a hardcoded literal"
+                        % (lang, field, value, hook_spans))
+        return True, ""
+    check(
+        "Check A — the scripts-blocked state, proven from the served markup: rendering "
+        "/display's quiet-hours card in both languages emits exactly two hook-attribute "
+        "spans, each rendering the SAME text as its own field's value attribute (a "
+        "relationship, never a literal), with none carrying hidden/js-gate/style — the "
+        "served HTML IS what a scripts-blocked reader sees (CFG-80, 29-04-PLAN.md Task 3)",
+        _check_a_the_twin_is_visible_in_the_served_markup_in_both_languages)
+
+    def _check_b_the_hide_path_is_gated_on_one_strict_condition():
+        """Check B (29-04-PLAN.md Task 3): the hide assignment must be
+        reachable through exactly one strict, guarded branch.
+
+        Comment-stripped first, the same way
+        `_the_motion_budget_is_enforced_in_the_stylesheet()`-style
+        checks in test_companion_app.py strip style.css before
+        measuring it — this file's own comments quote the very tokens
+        this scan counts.
+        """
+        with open(os.path.join(HERE, "static", "value-controls.js")) as fh:
+            raw = fh.read()
+        stripped = re.sub(r"/\*.*?\*/|//[^\n]*", "", raw, flags=re.DOTALL)
+
+        # VACUITY FLOOR. A mangled strip must not let this check pass
+        # over nothing — bounded on BOTH sides, not just a lower floor,
+        # since this specific file is genuinely comment-dense (measured:
+        # ~32% code remains after stripping, because its header alone
+        # runs to over a hundred lines of prose). A ratio near 0% means
+        # the strip ate real code; a ratio near 100% means the strip did
+        # nothing at all (this file's comments quote the very tokens
+        # this scan counts, so an unstripped source could pass by
+        # matching its OWN prose rather than real code).
+        ratio = float(len(stripped)) / float(len(raw)) if raw else 0.0
+        if not (0.05 < ratio < 0.95):
+            return False, (
+                "comment-stripped source is %d chars of %d raw (%.0f%%) — outside the "
+                "[5%%, 95%%] band this file's own real comment density should land in; the "
+                "strip looks broken" % (len(stripped), len(raw), ratio * 100.0))
+        # This file's own convention (WRAPPER_ATTR, FIELD_ATTR, ...) is
+        # the raw string literal ONCE, in a `var NAME = "literal";`
+        # declaration, then every other reference by the CONSTANT NAME
+        # — so the "hook literal" this vacuity floor counts is the
+        # constant's own NAME, not a second copy of the raw string.
+        hook_name_count = stripped.count("NORMALISED_TIME_ATTR")
+        if hook_name_count < 2:
+            return False, (
+                "expected the hook constant NORMALISED_TIME_ATTR to appear at least twice "
+                "in the comment-stripped source (its own declaration + the selector that "
+                "reads it), found %d — the hook may have been renamed on one side only"
+                % hook_name_count)
+
+        hidden_assignments = list(re.finditer(r"\.hidden\s*=\s*true\b", stripped))
+        if len(hidden_assignments) != 1:
+            return False, (
+                "expected exactly one `.hidden = true` assignment gated on the hook "
+                "attribute, found %d — a second, ungated path could otherwise be added "
+                "silently" % len(hidden_assignments))
+        assign_at = hidden_assignments[0].start()
+
+        # Found from the ASSIGNMENT's own nearest enclosing branch, not
+        # from a bare file-wide search for the strict pattern — so a
+        # relaxed condition (a truthiness test, `!= true`, a negation)
+        # is reported BY ITS OWN TEXT, printed on failure, rather than
+        # producing a generic "not found anywhere" message.
+        if_before = stripped.rfind("if (", 0, assign_at)
+        if if_before == -1:
+            return False, "the .hidden = true assignment is not inside any if (...) branch"
+        condition_text = stripped[if_before:stripped.index(")", if_before) + 1]
+        if not re.search(r"hour12\s*===\s*false", condition_text):
+            return False, (
+                "the assignment's own nearest enclosing branch condition is %r — not a "
+                "strict `hour12 === false` comparison, not a truthiness test, not `!= "
+                "true`, not a negation of a truthy read" % condition_text)
+
+        guard_match = re.search(r"resolvedOptions", stripped)
+        if not guard_match or guard_match.start() > if_before:
+            return False, (
+                "the Intl/resolvedOptions availability guard does not precede the "
+                "hour12 determination (guard at %r, branch at %r)"
+                % (guard_match.start() if guard_match else None, if_before))
+        return True, ""
+    check(
+        "Check B — the hide path is gated, and gated on one thing only: exactly one "
+        "`.hidden = true` assignment on the hook attribute, gated by a strict `hour12 === "
+        "false` comparison (never a truthiness test), with the Intl/resolvedOptions "
+        "availability guard preceding it, and a vacuity floor on the comment-stripped "
+        "source's own length ratio and hook-literal count (CFG-80, 29-04-PLAN.md Task 3)",
+        _check_b_the_hide_path_is_gated_on_one_strict_condition)
+
+    def _decode_quiet_arc_pair(markup):
+        import math
+        arc = _dial_circle(markup, config_page.QUIET_DIAL_ARC_CLASS)
+        if arc is None:
+            return None
+        transform_match = re.search(r"rotate\(([-\d.]+)\s", arc.get("transform", ""))
+        dash = arc.get("stroke-dasharray", "")
+        if not transform_match or not dash:
+            return None
+        deg = float(transform_match.group(1))
+        start_fraction = (
+            (deg - config_page._QUIET_DIAL_TWELVE_OCLOCK_DEG)
+            / config_page._QUIET_DIAL_FULL_TURN_DEG) % 1.0
+        r = float(arc["r"])
+        drawn = float(dash.split()[0])
+        sweep_fraction = drawn / (2 * math.pi * r)
+        start_minute = int(round(start_fraction * 1440)) % 1440
+        sweep_minute = int(round(sweep_fraction * 1440))
+        return (start_minute, (start_minute + sweep_minute) % 1440)
+
+    def _decode_quiet_handles_pair(markup):
+        def valuenow(field):
+            m = re.search(
+                r'data-value-field="%s"[^>]*>.*?aria-valuenow="(\d+)"' % re.escape(field),
+                markup, re.DOTALL)
+            return int(m.group(1)) if m else None
+        start, end = valuenow("quiet_hours_start"), valuenow("quiet_hours_end")
+        return None if start is None or end is None else (start, end)
+
+    def _decode_quiet_readout_pair(markup):
+        def clock_text(field):
+            m = re.search(
+                r'data-value-readout="%s" data-value-readout-format="clock"[^>]*>'
+                r'([^<]*)<' % re.escape(field), markup)
+            return m.group(1) if m else None
+        start_txt, end_txt = clock_text("quiet_hours_start"), clock_text("quiet_hours_end")
+        if not start_txt or not end_txt:
+            return None
+        start = config_page.quiet_window_minute_of_day(start_txt)
+        end = config_page.quiet_window_minute_of_day(end_txt)
+        return None if start is None or end is None else (start, end)
+
+    def _decode_quiet_fields_pair(markup):
+        def field_value(field):
+            m = re.search(r'name="%s" value="([^"]*)"' % re.escape(field), markup)
+            return m.group(1) if m else None
+        start_txt = field_value("quiet_hours_start")
+        end_txt = field_value("quiet_hours_end")
+        if not start_txt or not end_txt:
+            return None
+        start = config_page.quiet_window_minute_of_day(start_txt)
+        end = config_page.quiet_window_minute_of_day(end_txt)
+        return None if start is None or end is None else (start, end)
+
+    def _check_c_the_four_server_rendered_surfaces_agree():
+        """Check C (29-04-PLAN.md Task 3): CFG-62's own surfaces-agree
+        check is browser-level and cannot run here — but the SERVER's
+        four surfaces (the arc's presentation attributes, the two
+        handles' aria-valuenow, the readout's own endpoint text, and
+        both <input type="time"> values) are all computed in
+        quiet_hours_group() from the SAME effective_start/effective_end
+        pair, and that agreement is provable from the rendered markup
+        alone. This is a GUARD against Task 1's own markup restructuring
+        silently breaking Phase 27's agreement — it is NOT a
+        replacement for the browser-level preset-click check in
+        test_browser_ux.py, which this worktree cannot run.
+        """
+        cases = (
+            ("23:00", "07:00", None, None),
+            ("08:00", "18:00", None, None),
+            ("23:00", "07:00",
+             {"quiet_hours_end": "Bad"},
+             {"quiet_hours_start": "09:00", "quiet_hours_end": "17:00"}),
+        )
+        for start, end, errors, submitted in cases:
+            markup = config_page.quiet_hours_group(
+                start, end, errors=errors, submitted=submitted)
+            decoded = {
+                "arc": _decode_quiet_arc_pair(markup),
+                "handles": _decode_quiet_handles_pair(markup),
+                "readout": _decode_quiet_readout_pair(markup),
+                "fields": _decode_quiet_fields_pair(markup),
+            }
+            distinct = set(decoded.values())
+            if len(distinct) != 1:
+                return False, (
+                    "%r/%r (errors=%r, submitted=%r): the four surfaces disagree: %r"
+                    % (start, end, errors, submitted, decoded))
+        return True, ""
+    check(
+        "Check C — the four surfaces still agree, at the render level: for 23:00→07:00 "
+        "(midnight-wrapping), 08:00→18:00 (non-wrapping) and a rejected-save echo "
+        "(09:00→17:00 submitted over a 23:00→07:00 stored value), the arc's presentation "
+        "attributes, the two handles' aria-valuenow, the readout's endpoint text and both "
+        "<input type=\"time\"> values all decode to the SAME canonical minute-of-day pair "
+        "(CFG-80/CFG-62, 29-04-PLAN.md Task 3)",
+        _check_c_the_four_server_rendered_surfaces_agree)
 
     def _the_dials_paint_resolves_and_decides_nothing_in_python():
         """CFG-48/CFG-52 (25-04-PLAN.md Task 2): the dial's paint,
