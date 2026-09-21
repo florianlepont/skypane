@@ -9752,17 +9752,18 @@ def main():
     ]
 
     # quick task 260904-e92 (UIR-08, DP-6): the pre-change 900x263 frame
-    # served 132.5-175.5KB per file (measured across the 27 gallery-visible
-    # illustrations); the post-change 450x132 frame measured 40.8-53.1KB.
-    # This ceiling (64KB) sits far below the OLD per-file minimum
-    # (132.5KB), so a silent revert to the old frame size fails this check
-    # loudly rather than merely getting dimensions right while leaving the
-    # served bytes unchanged.
+    # served 132.5-175.5KB per file (measured across the 36 gallery-visible
+    # illustrations, updated by quick task 260921-v9c from 27); the
+    # post-change 450x132 frame measured 40.8-53.1KB. This ceiling (64KB)
+    # sits far below the OLD per-file minimum (132.5KB), so a silent
+    # revert to the old frame size fails this check loudly rather than
+    # merely getting dimensions right while leaving the served bytes
+    # unchanged.
     _ILLUSTRATION_BYTE_CEILING = 65536
 
     def _all_43_normalized_outputs_share_identical_pixel_dimensions():
-        if len(_VENDORED_ILLUSTRATION_PATHS) != 43:
-            return False, "expected 43 vendored illustration files, got %d" % len(_VENDORED_ILLUSTRATION_PATHS)
+        if len(_VENDORED_ILLUSTRATION_PATHS) != 52:
+            return False, "expected 52 vendored illustration files, got %d" % len(_VENDORED_ILLUSTRATION_PATHS)
         for path in _VENDORED_ILLUSTRATION_PATHS:
             png_bytes = illustration_normalize.normalized_png_bytes(path)
             with Image.open(io.BytesIO(png_bytes)) as out:
@@ -9771,7 +9772,7 @@ def main():
                         os.path.basename(path), out.size, illustration_normalize.ILLUSTRATION_TARGET_SIZE)
         return True, ""
     check(
-        "all 43 vendored illustrations normalize to the exact same pixel dimensions "
+        "all 52 vendored illustrations normalize to the exact same pixel dimensions "
         "(illustration_normalize.ILLUSTRATION_TARGET_SIZE)",
         _all_43_normalized_outputs_share_identical_pixel_dimensions)
 
@@ -9783,7 +9784,7 @@ def main():
                     os.path.basename(path), len(png_bytes), _ILLUSTRATION_BYTE_CEILING)
         return True, ""
     check(
-        "all 43 vendored illustrations normalize and serve well under %d bytes per file, the UIR-08 "
+        "all 52 vendored illustrations normalize and serve well under %d bytes per file, the UIR-08 "
         "weight fix — a regression that got the dimensions right but left the served bytes unchanged "
         "would defeat this check" % _ILLUSTRATION_BYTE_CEILING,
         _all_43_normalized_outputs_serve_well_under_the_byte_ceiling)
@@ -9810,7 +9811,7 @@ def main():
                     os.path.basename(path), centre_y, target_h / 2.0)
         return True, ""
     check(
-        "all 43 vendored illustrations normalize with their painted content centred within 1px on both "
+        "all 52 vendored illustrations normalize with their painted content centred within 1px on both "
         "axes and never clipped",
         _all_43_normalized_outputs_are_centred_and_unclipped)
 
@@ -10764,7 +10765,7 @@ def main():
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "the gallery renders exactly one .airline-card per illustrations.target_airline_names() entry "
-        "(27 against today's data)",
+        "(36 against today's data)",
         _gallery_renders_one_card_per_target_airline)
 
     def _every_card_image_source_passes_route_membership_test():
@@ -11213,7 +11214,7 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the gallery filter bar's count text and empty-state body both name the real (27) card total",
+        "the gallery filter bar's count text and empty-state body both name the real (36) card total",
         _gallery_filter_count_and_empty_body_name_the_real_total)
 
     def _every_card_carries_distinct_filter_text_and_group():
@@ -12844,7 +12845,7 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Step A's rendered datalist carries exactly len(illustrations.target_airline_names()) (27 against "
+        "Step A's rendered datalist carries exactly len(illustrations.target_airline_names()) (36 against "
         "today's data) <option> elements, the datalist's id matches the name input's list attribute, every "
         "airline name appears as an escaped <option value=...> exactly once (D-13), and the shared "
         "_resolve_name_form_html() output also carries an empty <p class=\"lightbox__resolve-scope\"></p> "

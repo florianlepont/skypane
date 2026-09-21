@@ -149,6 +149,39 @@ entirely**: it maps to the existing `"Wizz Air"` selection key rather than
 getting a target of its own, the same brand-consolidation precedent the
 shipped `EJU` -> `"easyJet"` row already establishes - see
 `enrich._ICAO_AIRLINE_PREFIXES`'s `WMT` row for the full rationale.
+
+## Quick task `260921-v9c` (2026-09-21): nine new targets, developer-observed evidence class
+
+Nine more carriers the developer personally observed at Orly on 2026-09-21
+(photographs/screenshots reviewed offline that session), all delivered with
+real art on arrival: La Compagnie (superseding Phase 3.1's `[UNRESOLVED]`
+verdict, QT-v9c-D-02), Qatar Amiri Flight, South Korea Government, Royal
+Jordanian, French Air Force (filed under the broader COTAM name per
+QT-v9c-D-04), Saudi Royal Aviation, Saudia, Gendarmerie Nationale
+(QT-v9c-D-05) and Iraqi Government (QT-v9c-D-05).
+
+**`[DEVELOPER-OBSERVED]` (new verdict token, defined here and in
+HANDOFF.md):** observed by the developer at Orly on 2026-09-21 from
+photographs/screenshots reviewed offline; no adsbdb transcript and no
+fixture exists for any prefix in this batch. This is the same evidence
+class as the `KLJ` row's 2026-09-02 confirmation in `enrich.py` - the
+developer's own in-session confirmation, not a curl transcript or a cited
+document - and materially weaker than every `[VERIFIED-*]`/`[CITED: ...]`
+token already in use in this table. Do not confuse it with
+`[VERIFIED-CALLSIGN]`, `[VERIFIED-AIRLINE-ENDPOINT-ONLY]` or
+`[CITED: ...]`, each of which makes a stronger claim this batch cannot
+support.
+
+**Two carriers deliberately get no new target here** (see
+`enrich._ICAO_AIRLINE_PREFIXES` for the full rationale on each): `CAJ`
+(Air Caraïbes Atlantique) reuses the existing `"Air Caraïbes"` key per
+QT-v9c-D-01, the same brand-consolidation precedent as the shipped `WMT`
+-> `"Wizz Air"` and `EJU` -> `"easyJet"` rows; `TFV` (a probable
+transposition of the official `TVF` prefix) reuses the existing
+`"Transavia France"` key per QT-v9c-D-03. Neither adds a filename, an
+artwork file, or an entry to `_ILLUSTRATION_TARGETS` below - this is why
+"Air Caraïbes Atlantique" and "Transavia France (TFV)" are absent from
+this table exactly like "Wizz Air Malta" is absent above.
 """
 import os
 import re
@@ -455,6 +488,123 @@ _ILLUSTRATION_TARGETS = [
         "2026-08-27 livery-audit session - real vendored artwork "
         "delivered directly to main (air-caraibes-atr72.png), merged in "
         "here rather than duplicated.",
+    ),
+    # --- Quick task 260921-v9c (2026-09-21): nine new primaries, all
+    # delivered with real art on arrival. Evidence class for every row
+    # below is the developer's own observation at Orly on 2026-09-21 from
+    # photographs/screenshots reviewed offline - no adsbdb transcript and
+    # no fixture exists for any of these nine, the [DEVELOPER-OBSERVED]
+    # token defined in this module's docstring and in HANDOFF.md. This is
+    # materially weaker evidence than every [VERIFIED-*]/[CITED: ...] row
+    # above, the same class as the KLJ row's 2026-09-02 confirmation in
+    # enrich.py. ---
+    (
+        "La Compagnie",
+        None,
+        "QT-v9c-D-02: supersedes Phase 3.1's [UNRESOLVED] verdict "
+        "(03.1-LIVE-RESOLUTION.md Step C, and its 'Consequences for the "
+        "target set' exclusion), which parked this carrier because its "
+        "Wikipedia-confirmed ICAO code (DJT) resolves in adsbdb to a "
+        "different, unrelated US operator ('Denver Jet'), and no real "
+        "La Compagnie callsign had ever been caught to learn what a "
+        "genuine flight returns. The developer observed a real "
+        "DJT-prefixed La Compagnie flight at Orly on 2026-09-21 - that is "
+        "the blocker the old verdict named, and it is now cleared. "
+        "Primary airframe: Airbus A350-900, La Compagnie's single-type "
+        "all-business-class fleet. [DEVELOPER-OBSERVED]",
+    ),
+    (
+        "Qatar Amiri Flight",
+        None,
+        "Qatar's state/VIP operator (ICAO QAF). Primary airframe: Airbus "
+        "ACJ320, matching the developer's observed tail A7-MBK. "
+        "[DEVELOPER-OBSERVED]",
+    ),
+    (
+        "South Korea Government",
+        None,
+        "The ROKAF-operated Republic of Korea presidential fleet (ICAO "
+        "KAF). Observed as callsign KAF001, a Boeing 747-8i, tail 22-001. "
+        "No 747 shape bucket exists in _TYPE_SHAPE_BUCKETS, so this "
+        "carrier is reachable only through Tier 2 (the airline's own "
+        "primary file), never through an exact airline+shape Tier 1 "
+        "match - there is no generic-747 fallback either. "
+        "[DEVELOPER-OBSERVED]",
+    ),
+    (
+        "Royal Jordanian",
+        None,
+        "Jordan's flag carrier (ICAO RJA), an ordinary scheduled "
+        "commercial carrier - see enrich.py's RJA/SVA header comment for "
+        "why this row, unlike the state/charter operators around it, may "
+        "see a live adsbdb hit under a different string. Primary "
+        "airframe: Airbus A320. [DEVELOPER-OBSERVED]",
+    ),
+    (
+        "French Air Force",
+        None,
+        "QT-v9c-D-04: filed under the broader 'French Air Force' name "
+        "rather than 'COTAM' (Commandement du Transport Aerien "
+        "Militaire), the operator's real name - see enrich.py's CTM row "
+        "for why the term stays greppable there. The delivered file was "
+        "named french-air-force-a330.png (COTAM's A330 MRTT Phenix, "
+        "vendored here under the unsuffixed primary name "
+        "french-air-force.png rather than as an a330-suffixed "
+        "secondary): companion/pages/airlines_page.py builds every "
+        "gallery card's <img src> from the primary key alone, "
+        "unconditionally, and companion/test_status_pages.py asserts "
+        "every rendered card src is a target_filenames() member - a "
+        "shape-only 'French Air Force' target would render a 404 image "
+        "in the companion and fail that harness. Installed as the "
+        "primary, Tier 2 (D-06, brand identity wins over exact type "
+        "precision) returns this identical file for a real COTAM A330 "
+        "that Tier 1 would have returned, and additionally covers "
+        "COTAM's other types instead of dropping them to the generic "
+        "silhouette. See VENDOR.md for the delivered-filename record. "
+        "[DEVELOPER-OBSERVED]",
+    ),
+    (
+        "Saudi Royal Aviation",
+        None,
+        "Saudi Arabia's state/royal VIP operator (ICAO SRA). Primary "
+        "airframe: Boeing 747-8, a plausible royal-flight widebody type "
+        "- no 747 shape bucket exists in _TYPE_SHAPE_BUCKETS, so this "
+        "carrier is reachable only through Tier 2. [DEVELOPER-OBSERVED]",
+    ),
+    (
+        "Saudia",
+        None,
+        "Saudi Arabia's flag carrier (ICAO SVA), an ordinary scheduled "
+        "commercial carrier - see enrich.py's RJA/SVA header comment for "
+        "why this row, unlike the state/charter operators around it, may "
+        "see a live adsbdb hit under a different string (its former "
+        "legal name, say). This is the carrier's current real name; the "
+        "former name 'Saudi Arabian Airlines' is a searchable alias, not "
+        "a value ever stored in any table. Primary airframe: Boeing "
+        "777-300ER. [DEVELOPER-OBSERVED]",
+    ),
+    (
+        "Gendarmerie Nationale",
+        None,
+        "QT-v9c-D-05: initially scoped out as 'not a real airline', "
+        "reversed by the developer on 2026-09-21. This is the aviation "
+        "branch of the French national gendarmerie (ICAO FGN), a state "
+        "law-enforcement operator, not a commercial airline - recorded "
+        "here so that fact stays visible in-tree. Primary airframe: "
+        "Airbus H145 helicopter shape rendered as a fixed-wing-style "
+        "side profile per this project's existing illustration "
+        "convention (no rotorcraft shape bucket exists). "
+        "[DEVELOPER-OBSERVED]",
+    ),
+    (
+        "Iraqi Government",
+        None,
+        "QT-v9c-D-05: initially scoped out as 'not a real airline', "
+        "reversed by the developer on 2026-09-21. This is the Iraqi "
+        "Prime Minister's Office aircraft (ICAO IPF), observed tail "
+        "YI-ASF, a state operator, not a commercial airline - recorded "
+        "here so that fact stays visible in-tree. Primary airframe: "
+        "Boeing Business Jet (737-based). [DEVELOPER-OBSERVED]",
     ),
 ]
 
