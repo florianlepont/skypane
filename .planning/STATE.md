@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 31
 current_phase_name: ci-test-suite-parallelize-companion-test-browser-ux-py-to-cu
 status: executing
-stopped_at: Completed 31-04-PLAN.md
-last_updated: "2026-09-22T19:08:46.053Z"
+stopped_at: Completed 31-05-PLAN.md
+last_updated: "2026-09-22T19:30:33.160Z"
 last_activity: 2026-09-22
 progress:
   total_phases: 43
-  completed_phases: 38
+  completed_phases: 39
   total_plans: 269
-  completed_plans: 258
-  percent: 96
+  completed_plans: 259
+  percent: 91
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -428,6 +428,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 31 P02 | 70min | 3 tasks | 2 files |
 | Phase 31 P03 | ~2h20m | 3 tasks | 2 files |
 | Phase 31 P04 | 2h30m | 3 tasks | 4 files |
+| Phase 31 P05 | 45min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -807,6 +808,8 @@ Recent decisions affecting current work:
 - [Phase 31]: 31-03: extracted the 25-04/25-05 quiet-hours dial and wake-interval slider group (9 checks) into companion/test_browser_ux_quiet_wake.py, reducing companion/test_browser_ux.py to 76/76; both D-04 mandatory extractions now complete (18 of 96 checks split across 2 files), verdict-preservation proven by a four-way PASS-name-set comparison and a three-way concurrent run (0/0/0 exits). — Completes D-04's mandate; plan 04 can now register three worker-pool-eligible files.
 - [Phase ?]: Timing measured natively (matching plan 01's own JOBS=4 baseline architecture); correctness measured via linux/amd64 Docker as a non-root user, since root's own permission-bypass false-failed 4 unrelated checks
 - [Phase ?]: D-05 gate MISSED on every local sample (job-level estimate 9.1%-29.6%, all below the 30-40% bar); root cause is worker-pool contention among 3 concurrent Chromium processes, not a defect in the extraction; recommended getting a real CI gh run view timing before plan 05 decides
+- [Phase 31]: skip-flights selected at plan 05's Task 1 checkpoint: D-05's gate missed on every plan-04 local-proxy sample, D-06 sanctions stopping at diminishing returns; developer treated local-proxy evidence as decisive without requesting a real CI number first.
+- [Phase 31]: Phase 31 closing D-05 verdict: MISSED against the ~30-40% bar on all five local-proxy samples (9.1%-29.6% job-level estimate, mean 22.4%, median 28.7%); recommended against opening a follow-up settings-mega-cluster decomposition phase, tied to the measured worker-pool-contention mechanism and the mega-cluster's harder decomposition profile.
 
 ### Pending Todos
 
@@ -914,8 +917,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-22T19:08:46.032Z
-Stopped at: Completed 31-04-PLAN.md
+Last session: 2026-09-22T19:30:33.140Z
+Stopped at: Completed 31-05-PLAN.md
 
 Resume file: 
 

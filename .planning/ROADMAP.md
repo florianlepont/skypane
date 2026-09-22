@@ -1500,7 +1500,7 @@ The alternative keeps the current structure and swaps only the selector: three s
 
 **Requirements**: TBD (scope defined by 31-CONTEXT.md's D-01 through D-07)
 **Depends on:** (none — independent of the companion UI phases)
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 **Wave 1**
@@ -1521,4 +1521,4 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 31-05-PLAN.md — Blocking decision on the optional Flights extraction (8 checks) against the measured D-05 gate, then close the phase with a written verdict and a follow-up recommendation
+- [x] 31-05-PLAN.md — Blocking decision on the optional Flights extraction (8 checks) against the measured D-05 gate, then close the phase with a written verdict and a follow-up recommendation
