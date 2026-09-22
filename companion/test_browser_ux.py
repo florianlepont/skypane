@@ -973,6 +973,125 @@ EXPECTED_CHECK_COUNT = 94
 # 96, re-derived by RUNNING (96/96).
 EXPECTED_CHECK_COUNT = 96
 
+# 30-03-PLAN.md Task 3 (CFG-85): -6/+1 = -5. Six checks pinning the
+# retiring scroll-snap-strip/pager/disclosure carousel are removed:
+# _each_carousels_own_disclosure_toggles_only_its_own_strip and
+# _arrivals_and_calendar_keep_the_focused_chip_in_view_when_keyed retire
+# outright (scroll-into-view and per-carousel disclosure toggling have
+# no meaning over a static wrapping grid, so no property survives);
+# _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview,
+# _scrolling_a_strip_moves_its_own_preview_to_the_centered_chip_and_
+# selects_nothing, _the_carousel_meets_its_floors_at_360px_in_both_themes
+# and _the_no_js_floor_holds_for_both_settings_pages are LEDGERED to
+# 30-08 — see _ASPECT_REPIN_LEDGER below. Two more checks are NARROWED,
+# NOT a net-new or net-removed check(...) call (the SAME registered
+# check() survives under a new name: _the_theme_still_saves_with_
+# scripts_blocked, _arrivals_still_saves_with_scripts_blocked, so this
+# is a RETARGET, matching this file's own established "retargeted
+# in place" convention, and contributes 0 to the count) — their deleted
+# strip-probe halves are ALSO ledgered, under their OLD (now un-def'd)
+# names, since the property that half proved has no home in this file
+# any more. Plus one new check, this file's own ledger guard
+# (_every_aspect_repin_ledger_row_names_a_live_or_owed_replacement).
+# 96 - 6 + 1 = 91, re-derived by RUNNING (91/91 — modulo the 3
+# pre-existing FAILs this file's own floor already carries forward
+# unchanged from 30-01/30-02, see this plan's own SUMMARY.md).
+EXPECTED_CHECK_COUNT = 91
+
+# 30-03-PLAN.md Task 3 (CFG-85): this file's own coverage-gap ledger,
+# same five-key row shape and EXPECTED-TO-EMPTY convention as
+# companion/test_config_page.py's _ASPECT_REPIN_LEDGER (see that file's
+# own header comment for the shared rationale) — kept as a SEPARATE
+# tuple rather than a shared import, because each guard reads its OWN
+# file's source, which is what makes it a guard rather than a cross-file
+# assumption. Every row here is owed by 30-08.
+_ASPECT_REPIN_LEDGER = (
+    {
+        "retired": "_the_theme_still_saves_with_scripts_blocked_through_the_carousel",
+        "property": (
+            "with scripts blocked, every registry theme's radio is present in the "
+            "carousel, the strip really overflows and is one row, keyboard ArrowDown "
+            "moves the selection, the <details> disclosure opens on a click and reveals "
+            "the same radios, and the pager gate holds in both directions"),
+        "replacement": "_the_palette_still_saves_with_scripts_blocked_through_the_gate",
+        "owed_by": "30-08",
+        "why": (
+            "every deleted assertion (strip chip count, overflow, keyboard-through-the-"
+            "strip, disclosure, pager gate) reads the retiring strip/pager DOM directly; "
+            "the markup-agnostic half survives renamed as "
+            "_the_theme_still_saves_with_scripts_blocked"),
+    },
+    {
+        "retired": "_arrivals_still_saves_with_scripts_blocked_through_its_own_carousel",
+        "property": (
+            "with scripts blocked, the arrivals row's own strip carries every theme plus "
+            "the leading 'Same as departures' chip, really overflows, and its own "
+            "<details> disclosure (resolved by walking up from its own strip) opens on a "
+            "click"),
+        "replacement": "_the_arrivals_palette_still_saves_with_scripts_blocked_through_the_gate",
+        "owed_by": "30-08",
+        "why": (
+            "the same reasoning as the departures twin above — the deleted half reads the "
+            "retiring strip/disclosure DOM directly; the markup-agnostic half survives "
+            "renamed as _arrivals_still_saves_with_scripts_blocked"),
+    },
+    {
+        "retired": "_keying_the_strip_selects_scrolls_into_view_and_moves_the_preview",
+        "property": (
+            "arrow-keying the palette's native radiogroup with the keyboard still moves "
+            "the live preview to match the newly-selected theme, settled fully opaque"),
+        "replacement": "_keying_the_palette_moves_the_preview",
+        "owed_by": "30-08",
+        "why": (
+            "the scroll-into-view and pager assertions this check makes have no "
+            "equivalent over a static wrapping grid"),
+    },
+    {
+        "retired": (
+            "_scrolling_a_strip_moves_its_own_preview_to_the_centered_chip_and_selects_"
+            "nothing"),
+        "property": (
+            "hovering or focusing a palette chip previews that theme without ever "
+            "writing a radio, firing a change event, or moving a form value — the saved "
+            "selection stays untouched until a chip is actually chosen"),
+        "replacement": "_hovering_or_focusing_a_palette_chip_previews_without_selecting",
+        "owed_by": "30-08",
+        "why": (
+            "the scroll-to-centred-chip tracking this check measures has no meaning once "
+            "there is nothing to scroll; the replacement re-keys the same preview-is-not-"
+            "selection property onto hover/focus"),
+    },
+    {
+        "retired": "_the_carousel_meets_its_floors_at_360px_in_both_themes",
+        "property": (
+            "the palette's touch targets, its container geometry, and its paint (chip "
+            "name/surface and whatever replaces the disclosure summary/pager chevron) "
+            "all meet 30-UI-SPEC.md's Touch Targets table by real hit-testing in their "
+            "own containers, as a floor in both UI themes"),
+        "replacement": "_the_palette_meets_its_floors_at_360px_in_both_themes",
+        "owed_by": "30-08",
+        "why": (
+            "every geometry/paint assertion this check makes is read off the retiring "
+            "strip/pager DOM shape directly"),
+    },
+    {
+        "retired": "_the_no_js_floor_holds_for_both_settings_pages",
+        "property": (
+            "with scripts blocked, no control on either settings page is unreachable or "
+            "unsaveable: every accordion row's controls remain in the form despite being "
+            "visually closed, every summary is natively operable by pointer and "
+            "keyboard, and a settings save still round-trips to disk"),
+        "replacement": "_the_no_js_floor_holds_for_both_settings_pages",
+        "owed_by": "30-08",
+        "why": (
+            "the retired check's collapsed-usage-panel count "
+            "(.frame-colours__usage-panel) has no equivalent mechanism once the "
+            "colour_usage radiogroup is retired — see this row's own former call site "
+            "for the full requirement-text-vs-approved-design discrepancy 30-08's "
+            "replacement must prove instead, more strongly than a visible-stack claim"),
+    },
+)
+
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
 # ONE element must carry it. Both halves are asserted: the declared set
@@ -3673,6 +3792,62 @@ def main():
         with sync_playwright() as p:
             browser = p.chromium.launch()
             try:
+                # ==========================================================
+                # 30-03-PLAN.md Task 3 (CFG-85): this file's own ledger
+                # guard, same idiom as companion/test_config_page.py's own
+                # (reads THIS file's source via __file__, mirroring the
+                # established "check that reads its own project's Python
+                # source" pattern).
+                # ==========================================================
+
+                def _every_aspect_repin_ledger_row_names_a_live_or_owed_replacement():
+                    if not _ASPECT_REPIN_LEDGER:
+                        return False, (
+                            "_ASPECT_REPIN_LEDGER is empty — this guard must never pass "
+                            "vacuously; if every row has genuinely been repaid, this check "
+                            "itself should be retired, not left to pass against nothing")
+                    with open(os.path.join(HERE, "test_browser_ux.py")) as fh:
+                        own_source = fh.read()
+                    for row in _ASPECT_REPIN_LEDGER:
+                        for key in ("retired", "property", "replacement", "why"):
+                            if not row.get(key):
+                                return False, "ledger row %r is missing/empty key %r" % (row, key)
+                        if "owed_by" not in row:
+                            return False, "ledger row %r is missing key 'owed_by'" % (row,)
+                        if len(row["property"].split()) < 8:
+                            return False, (
+                                "ledger row %r's 'property' is under eight words — it must "
+                                "name the PROPERTY under test, not restate a selector"
+                                % (row["retired"],))
+                        if re.search(r"def %s\(" % re.escape(row["retired"]), own_source):
+                            return False, (
+                                "retired check %r still has a def in this file — a retired "
+                                "check left behind is the OTHER failure shape this guard "
+                                "exists to catch" % (row["retired"],))
+                        if row["owed_by"]:
+                            if row["owed_by"] not in ("30-05", "30-06", "30-07", "30-08"):
+                                return False, (
+                                    "ledger row %r names owed_by=%r, not one of this "
+                                    "phase's own later plans" % (row["retired"], row["owed_by"]))
+                        else:
+                            if not re.search(
+                                    r"def %s\(" % re.escape(row["replacement"]), own_source):
+                                return False, (
+                                    "ledger row %r names owed_by='' (repaid in THIS file) "
+                                    "but its replacement %r has no def here — the "
+                                    "repayment claim is false"
+                                    % (row["retired"], row["replacement"]))
+                    return True, ""
+                check(
+                    "_ASPECT_REPIN_LEDGER is non-empty, every row is well-formed (all five "
+                    "keys present, 'property' naming an actual property in at least eight "
+                    "words, not a restated selector), no 'retired' name still has a def in "
+                    "this file, every 'owed_by' names one of this phase's own later plans, "
+                    "and any row claiming repayment IN this file (empty owed_by) names a "
+                    "replacement that genuinely has a def here — so a forgotten re-pin is "
+                    "a red build, not a silent coverage loss (CFG-85, 30-03-PLAN.md Task 3)",
+                    _every_aspect_repin_ledger_row_names_a_live_or_owed_replacement)
+
                 def _flights_detail_row_expands_and_collapses():
                     # 22-09-PLAN.md Task 1 (X5) retargets this scenario
                     # onto the icon-only toggle: the same expand/collapse
@@ -5549,92 +5724,37 @@ def main():
                     "contract floor and at 1280px (D3/CFG-32, T-23-39, 23-10-PLAN.md Task 3)",
                     _images_hold_their_place_before_they_arrive)
 
-                def _the_no_js_floor_holds_for_both_settings_pages():
-                    # D-09's floor, asserted at THIS plan's own commit
-                    # rather than deferred to the phase's end: this plan
-                    # re-homes a control through the cross-DOM `form=`
-                    # idiom (B8) and converts a CSS `content` literal to
-                    # an attribute read (T10). Both are exactly the kind
-                    # of change that can look fine with scripts running
-                    # and be dead without them, so a break must fail here.
-                    base_url = harness.base_url()
-                    with _no_js_page(browser, base_url, "/display") as page:
-                        if not page.query_selector(".theme-chip"):
-                            return False, "Display must render its chips with scripts blocked"
-                        # T10: the badge's text is an ATTRIBUTE now, so it
-                        # has to be in the server's own HTML.
-                        badge = page.eval_on_selector_all(
-                            "[data-current-label]", "els => els.map(e => e.dataset.currentLabel)")
-                        if not badge or not all(badge):
-                            return False, (
-                                "expected the 'Current' badge's text to be server-rendered into "
-                                "data-current-label, got %r" % (badge,))
-                        # D-08's no-JS floor: the server never emits
-                        # `hidden` on a usage panel, so every control is
-                        # reachable without theme-preview.js.
-                        hidden_panels = page.eval_on_selector_all(
-                            ".frame-colours__usage-panel",
-                            "els => els.filter(e => e.hidden "
-                            "|| e.classList.contains('frame-colours__usage-panel--collapsed')).length")
-                        if hidden_panels:
-                            return False, (
-                                "expected no collapsed usage panel with scripts blocked, got %d"
-                                % hidden_panels)
-                        # A settings save still round-trips. 28-10-PLAN.md
-                        # (CFG-77/CFG-78), a direct consequence of
-                        # 28-08's own restoration: the settings form's
-                        # ONE submit button (STATIC_SAVE_FALLBACK_ATTR)
-                        # is now relocated OUTSIDE `#settings-form`,
-                        # cross-submitting via its own `form=` attribute
-                        # from inside `.dirty-bar` — the old descendant
-                        # selector no longer resolves to it. The bar's
-                        # own entrance `animation: skypane-bar-arrive`
-                        # (style.css) is on its BASE rule, unconditional
-                        # on script, so it fires on this page's very
-                        # first paint too; well past var(--motion-fast)
-                        # (180ms) before the coordinate click, so it is
-                        # not attempted against a button still
-                        # translating into place.
-                        theme_ids = device_config.THEME_IDS
-                        current = device_config.load_device_config(harness.tmpdir)["theme"]
-                        other = next(t for t in theme_ids if t != current)
-                        page.eval_on_selector(
-                            'input[name="theme"][value="%s"]' % other, "el => el.checked = true")
-                        page.wait_for_timeout(600)
-                        with page.expect_navigation():
-                            page.click("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
-                        if device_config.load_device_config(harness.tmpdir)["theme"] != other:
-                            return False, "expected a settings save to persist with scripts blocked"
-
-                        page.goto(base_url + "/device")
-                        # B8: the re-homed button must be inside the card
-                        # AND still own its form, which with scripts
-                        # blocked is entirely the browser's own `form=`
-                        # resolution - nothing else can supply it.
-                        btn = page.query_selector('button[form="notifications-test"]')
-                        if btn is None:
-                            return False, "expected the re-homed 'Send a test' button on Device"
-                        owned = page.eval_on_selector(
-                            'button[form="notifications-test"]',
-                            "el => el.form && el.form.getAttribute('action')")
-                        if owned != "/settings/notifications/test":
-                            return False, (
-                                "expected the button's form= attachment to resolve to the test "
-                                "form's own action with scripts blocked, got %r" % (owned,))
-                        with page.expect_navigation():
-                            btn.click()
-                        if "/device" not in page.url:
-                            return False, (
-                                "expected the test submission to redirect back to Device, got %r"
-                                % page.url)
-                        return True, ""
-                check(
-                    "with scripts blocked both settings pages render and stay usable: the 'Current' "
-                    "badge's text is server-rendered into data-current-label, no usage panel is "
-                    "collapsed, a Display save round-trips, and the re-homed 'Send a test' button "
-                    "resolves its own form= attachment and submits (D-09 floor asserted at this "
-                    "plan's own commit, 22-10-PLAN.md Task 3)",
-                    _the_no_js_floor_holds_for_both_settings_pages)
+                # 30-03-PLAN.md Task 3 (CFG-85): the check that used to
+                # live here — _the_no_js_floor_holds_for_both_settings_
+                # pages — is RETIRED and LEDGERED to 30-08. Its "no
+                # collapsed usage panel" assertion (`.frame-colours__
+                # usage-panel`, D-08's floor) has no equivalent once the
+                # colour_usage radiogroup/usage-panel mechanism is
+                # retired.
+                #
+                # A REQUIREMENT-TEXT VS. APPROVED-DESIGN DISCREPANCY,
+                # recorded here rather than papered over (see this
+                # plan's own SUMMARY.md for the full argument, flagged
+                # for the developer): CFG-85's own requirement text
+                # includes "every row open with scripts blocked", but
+                # 30-UI-SPEC.md's developer-approved accordion is a
+                # native `<details name="aspect-rows">` group, which is
+                # mutually exclusive by construction — "every row open"
+                # is not achievable while keeping that accordion. The
+                # PROPERTY CFG-85 is actually protecting — no control is
+                # unreachable or unsaveable with scripts blocked — is
+                # met, and met MORE strongly than by a visible stack: a
+                # closed <details>'s form controls remain in the DOM and
+                # DO participate in form submission; <summary> is
+                # natively activatable by pointer and keyboard with
+                # scripts blocked, so a visitor can open any row
+                # themselves; and the preview is server-rendered for the
+                # SAVED theme either way. 30-08's replacement must prove
+                # all three of those points, with scripts blocked, at
+                # 360px, in both languages, with the verdict read back
+                # from disk — a STRONGER proof than this retired check's
+                # single collapsed-panel count, never a quietly narrowed
+                # one. See _ASPECT_REPIN_LEDGER below.
 
                 # --- 22-13-PLAN.md Task 3 (X3): the login card ---
 
@@ -13388,109 +13508,21 @@ def main():
                     "(CFG-49/CFG-52, 25-05-PLAN.md Task 3)",
                     _the_slider_meets_its_floors_at_360px_in_both_themes)
 
-                # --- 25-06-PLAN.md Tasks 1 and 4 (CFG-50): D5's theme
-                # carousel. One selector set for all four checks.
-                THEME_STRIP_SEL = "#" + config_page.THEME_CAROUSEL_STRIP_ID
-                THEME_PAGERS_SEL = ".theme-carousel__pagers"
-                THEME_DETAILS_SEL = ".theme-carousel__all"
+                # 30-03-PLAN.md Task 3 (CFG-85): THEME_STRIP_SEL,
+                # THEME_PAGERS_SEL, THEME_DETAILS_SEL, _STRIP_PROBE,
+                # _SETTLE_CAROUSEL, _CAROUSEL_INSTANCE_PROBE and
+                # _TOGGLE_OWN_DISCLOSURE (the whole shared carousel
+                # selector/probe block that used to live here) are
+                # RETIRED WITH THEIR LAST CONSUMER
+                # (_the_carousel_meets_its_floors_at_360px_in_both_
+                # themes, ledgered above) — grepped whole-file before
+                # deletion, zero remaining consumers of any of the
+                # seven. THEME_PREVIEW_SEL SURVIVES — the live preview
+                # element (`.theme-live-preview__image`) is unchanged by
+                # this phase, and
+                # _cancel_restores_the_field_the_preview_and_the_dial_
+                # from_the_resulting_dom (below) still reads it.
                 THEME_PREVIEW_SEL = ".theme-live-preview__image"
-
-                # The strip's own state, read as one object so a caller
-                # never takes two samples that could disagree.
-                _STRIP_PROBE = (
-                    "sels => {"
-                    "  const s = document.querySelector(sels.strip);"
-                    "  if (!s) return {error: 'no-strip'};"
-                    "  const chips = [...s.querySelectorAll('.theme-chip')];"
-                    "  const sr = s.getBoundingClientRect();"
-                    "  const cs = getComputedStyle(s);"
-                    "  const d = document.querySelector(sels.details);"
-                    "  const tops = chips.map("
-                    "    c => Math.round(c.getBoundingClientRect().top));"
-                    "  return {chips: chips.length,"
-                    "          scroll: [s.scrollWidth, s.clientWidth],"
-                    "          box: [sr.width, sr.height],"
-                    "          wrap: cs.flexWrap, overflow: cs.overflowX,"
-                    "          snap: cs.scrollSnapType,"
-                    "          rows: new Set(tops).size,"
-                    "          spread: Math.max(...tops) - Math.min(...tops),"
-                    "          open: d ? d.open : null,"
-                    "          checked: [...document.querySelectorAll("
-                    "            'input[name=\"theme\"]')].filter("
-                    "              e => e.checked).map(e => e.value)};"
-                    "}")
-
-                # THE WHOLE POINT OF A SETTLE PROBE, AND NOT A TIMER:
-                # `.theme-chip` declares `transition: transform,
-                # border-color, box-shadow`, so any sample taken right
-                # after a theme switch or a selection change reads an
-                # interpolation frame. 25-03 lost a paint measurement to
-                # exactly this and 25-05 lost another. An element with
-                # nothing running returns an empty list and resolves at
-                # once, so this neither guesses an instant nor waits for
-                # one that will not come.
-                _SETTLE_CAROUSEL = (
-                    "async () => {"
-                    "  const els = [...document.querySelectorAll("
-                    "    '.theme-carousel, .theme-carousel *, body')];"
-                    "  await Promise.all(els.flatMap("
-                    "    e => e.getAnimations().map("
-                    "      a => a.finished.catch(() => {}))));"
-                    "  return els.length;"
-                    "}")
-
-                # 27-07-PLAN.md Task 2 (CFG-68): _STRIP_PROBE above
-                # hardcodes `input[name="theme"]` for its "checked"
-                # field and resolves `sels.details` with a bare
-                # `document.querySelector` — both fine with exactly one
-                # carousel on the page, and both WRONG now that
-                # arrivals and calendar have their own. This variant
-                # takes the field name as a parameter and resolves the
-                # details element by walking UP from the strip to its
-                # OWN `.theme-carousel` ancestor first — the same
-                # per-instance scoping style.css's :has() rule uses —
-                # so it can never read a SIBLING carousel's disclosure
-                # state by accident.
-                _CAROUSEL_INSTANCE_PROBE = (
-                    "sels => {"
-                    "  const s = document.querySelector(sels.strip);"
-                    "  if (!s) return {error: 'no-strip'};"
-                    "  const carousel = s.closest('.theme-carousel');"
-                    "  if (!carousel) return {error: 'no-carousel'};"
-                    "  const d = carousel.querySelector('.theme-carousel__all');"
-                    "  const chips = [...s.querySelectorAll('.theme-chip')];"
-                    "  const sr = s.getBoundingClientRect();"
-                    "  const cs = getComputedStyle(s);"
-                    "  const tops = chips.map("
-                    "    c => Math.round(c.getBoundingClientRect().top));"
-                    "  return {chips: chips.length,"
-                    "          scroll: [s.scrollWidth, s.clientWidth],"
-                    "          box: [sr.width, sr.height],"
-                    "          wrap: cs.flexWrap, overflow: cs.overflowX,"
-                    "          snap: cs.scrollSnapType,"
-                    "          rows: new Set(tops).size,"
-                    "          spread: Math.max(...tops) - Math.min(...tops),"
-                    "          open: d ? d.open : null,"
-                    "          checked: [...document.querySelectorAll("
-                    "            'input[name=\"' + sels.field + '\"]')].filter("
-                    "              e => e.checked).map(e => e.value)};"
-                    "}")
-
-                # Opens (or closes, if already open) ONE carousel's OWN
-                # disclosure, resolved the same way — up from ITS strip
-                # to ITS `.theme-carousel`, never a bare class selector
-                # that would hit whichever carousel happens to be first
-                # in document order.
-                _TOGGLE_OWN_DISCLOSURE = (
-                    "sel => {"
-                    "  const s = document.querySelector(sel);"
-                    "  const carousel = s && s.closest('.theme-carousel');"
-                    "  const summary = carousel && carousel.querySelector("
-                    "    '.theme-carousel__all summary');"
-                    "  if (!summary) return {error: 'no-summary'};"
-                    "  summary.click();"
-                    "  return {ok: true};"
-                    "}")
 
                 # --- 25-06-PLAN.md Task 1 (CFG-50): the number this
                 # plan is judged against, taken before there was any
@@ -13551,7 +13583,17 @@ def main():
 
                 # --- 25-06-PLAN.md Task 4 (CFG-50/D-09) ---------------
 
-                def _the_theme_still_saves_with_scripts_blocked_through_the_carousel():
+                def _the_theme_still_saves_with_scripts_blocked():
+                    # 30-03-PLAN.md Task 3 (CFG-85): NARROWED, not
+                    # deleted. This is the markup-agnostic half of
+                    # CFG-85's own named proof — it drives by field
+                    # NAME and reads back from disk, never a strip/
+                    # pager/disclosure selector — so it survives the
+                    # rebuild verbatim. The trailing strip-probe half
+                    # (carousel chip count, overflow, keyboard-arrow
+                    # selection through the strip, the <details>
+                    # disclosure, the pager gate) is LEDGERED to 30-08
+                    # — see _ASPECT_REPIN_LEDGER below.
                     base_url = harness.base_url()
 
                     def read_back():
@@ -13584,125 +13626,13 @@ def main():
                             return False, (
                                 "lang=%s: the restore leg did not put %r back, disk reads %r"
                                 % (lang, before, result["restored"]))
-
-                    with _no_js_page(browser, base_url, "/display",
-                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
-                        shut = page.evaluate(
-                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
-                                           "details": THEME_DETAILS_SEL})
-                        if shut.get("error"):
-                            return False, "no strip on the scripts-blocked page at all"
-                        if shut["chips"] != len(device_config.THEME_IDS):
-                            return False, (
-                                "the scripts-blocked strip holds %d chips, expected %d — every "
-                                "theme is server-rendered and owes nothing to a script"
-                                % (shut["chips"], len(device_config.THEME_IDS)))
-                        # IT REALLY IS A STRIP, AND IT REALLY SCROLLS.
-                        # A count passes against eighteen chips stacked
-                        # in a column; this does not.
-                        if shut["scroll"][0] <= shut["scroll"][1]:
-                            return False, (
-                                "the strip's scrollWidth (%s) does not exceed its clientWidth "
-                                "(%s) with scripts blocked — it is not overflowing, so it is "
-                                "not a strip and there is nothing to scroll" % tuple(shut["scroll"]))
-                        if shut["spread"] > 2:
-                            return False, (
-                                "the eighteen chips sit on %d rows spread over %dpx with the "
-                                "disclosure shut — a strip is one row"
-                                % (shut["rows"], shut["spread"]))
-
-                        # KEYBOARD SELECTION, WITH SCRIPTS BLOCKED. This
-                        # is what `.visually-hidden` buys and
-                        # `display: none` would destroy: a radio that
-                        # cannot take focus cannot be arrow-keyed, and a
-                        # keyboard visitor loses the control entirely.
-                        # `_operate_with_keyboard()` refuses to run here
-                        # (its pointer recorder cannot prove itself in a
-                        # context where listeners never fire), so focus
-                        # is taken through the element's own API and the
-                        # keys are real presses — arrow navigation inside
-                        # a radiogroup is the BROWSER's default action
-                        # and needs no listener at all.
-                        focused = page.evaluate(
-                            "v => {"
-                            "  const el = document.querySelector("
-                            "    'input[name=\"theme\"][value=\"' + v + '\"]');"
-                            "  if (!el) return {error: 'no-radio'};"
-                            "  el.focus();"
-                            "  return {focused: document.activeElement === el};"
-                            "}", before)
-                        if focused.get("error") or not focused.get("focused"):
-                            return False, (
-                                "the saved theme's radio could not take focus with scripts "
-                                "blocked (%r) — a radio hidden with display:none rather than "
-                                "the .visually-hidden utility is exactly this, and it takes "
-                                "arrow-key selection away with it" % (focused,))
-                        page.keyboard.press("ArrowDown")
-                        moved = page.evaluate(
-                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
-                                           "details": THEME_DETAILS_SEL})
-                        if moved["checked"] == [before]:
-                            return False, (
-                                "one ArrowDown with scripts blocked left the selection on %r — "
-                                "native radiogroup navigation is the whole no-JS story here"
-                                % (before,))
-
-                        # THE DISCLOSURE OPENS WITH SCRIPTS BLOCKED, and
-                        # that is the entire reason it is a <details>
-                        # rather than the <dialog> the audit named.
-                        page.click(THEME_DETAILS_SEL + " summary")
-                        opened = page.evaluate(
-                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
-                                           "details": THEME_DETAILS_SEL})
-                        if not opened["open"]:
-                            return False, (
-                                "clicking the summary with scripts blocked did not open the "
-                                "disclosure — a <dialog> would behave exactly like this, which "
-                                "is why this is not one")
-                        if opened["wrap"] != "wrap" or opened["spread"] <= 2:
-                            return False, (
-                                "the disclosure opened and the strip is still one row "
-                                "(flex-wrap %r, chips spread over %dpx) — 'See all themes' laid "
-                                "nothing out" % (opened["wrap"], opened["spread"]))
-                        if opened["box"][1] <= shut["box"][1] * 2:
-                            return False, (
-                                "the strip measured %.1fpx shut and %.1fpx open — opening the "
-                                "disclosure has to reveal a real grid, not nudge a row"
-                                % (shut["box"][1], opened["box"][1]))
-                        if opened["chips"] != shut["chips"]:
-                            return False, (
-                                "the open grid holds %d chips and the shut strip held %d — they "
-                                "are the SAME eighteen radios and must be"
-                                % (opened["chips"], shut["chips"]))
-
-                        message = _assert_no_page_overflow(
-                            page, "the theme carousel on /display with scripts blocked",
-                            VIEWPORT_MIN_SUPPORTED["width"])
-                        if message:
-                            return False, message
-
-                    # AND THE GATE, IN BOTH DIRECTIONS. Asserting only
-                    # the blocked half passes against a gate stuck shut.
-                    gate = _assert_js_gate(
-                        browser, base_url, "/display", THEME_PAGERS_SEL,
-                        viewport=VIEWPORT_MIN_SUPPORTED)
-                    if not gate["blocked"]["candidates"]:
-                        return False, (
-                            "the pager wrapper holds nothing focusable at all, so the tab walk "
-                            "proving a keyboard visitor cannot reach it measured nothing")
                     return True, ""
                 check(
-                    "the theme still SAVES with scripts blocked through the carousel, at 360px "
-                    "and in BOTH shipped languages — operated natively, submitted through the "
-                    "real form, re-read FROM DISK after a fresh GET and restored the same way — "
-                    "and on that same scripts-blocked page all eighteen chips are present, the "
-                    "strip really overflows and really is ONE row, the saved theme's radio "
-                    "takes focus and one ArrowDown moves the selection (which display:none "
-                    "would take away), the <details> OPENS on a click and turns that one row "
-                    "into a real grid holding the same eighteen radios, and the page does not "
-                    "scroll sideways — with the pager wrapper proved in BOTH gate directions "
-                    "(CFG-50/D-09, 25-06-PLAN.md Task 4)",
-                    _the_theme_still_saves_with_scripts_blocked_through_the_carousel)
+                    "the theme still SAVES with scripts blocked, at 360px and in BOTH shipped "
+                    "languages — operated natively by field name, submitted through the real "
+                    "form, re-read FROM DISK after a fresh GET and restored the same way "
+                    "(CFG-50/D-09/CFG-85, 25-06-PLAN.md Task 4, narrowed by 30-03-PLAN.md Task 3)",
+                    _the_theme_still_saves_with_scripts_blocked)
 
                 # --- 27-07-PLAN.md Task 2 (CFG-68): arrivals and
                 # calendar fold the same way, and the arrivals grid gets
@@ -13711,7 +13641,13 @@ def main():
                 # fold did not trap a no-JS reader, not merely that it
                 # renders. ------------------------------------------
 
-                def _arrivals_still_saves_with_scripts_blocked_through_its_own_carousel():
+                def _arrivals_still_saves_with_scripts_blocked():
+                    # 30-03-PLAN.md Task 3 (CFG-85): NARROWED, not
+                    # deleted, same treatment as the departures twin
+                    # above. The trailing strip-probe half (arrivals
+                    # carousel chip count, overflow, its own disclosure
+                    # opening) is LEDGERED to 30-08 — see
+                    # _ASPECT_REPIN_LEDGER below.
                     base_url = harness.base_url()
 
                     def read_back():
@@ -13766,67 +13702,6 @@ def main():
                                     "lang=%s: the restore leg did not put %r back, disk "
                                     "reads %r" % (lang, before, result["restored"]))
 
-                        strip_sel = "#" + config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS
-                        # theme_count real chips PLUS the leading "Same
-                        # as departures" placeholder chip (D-09) — the
-                        # one structural difference from the departures
-                        # proof this check otherwise mirrors.
-                        arrivals_chip_count = len(device_config.THEME_IDS) + 1
-                        with _no_js_page(browser, base_url, "/display",
-                                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
-                            shut = page.evaluate(
-                                _CAROUSEL_INSTANCE_PROBE,
-                                {"strip": strip_sel, "field": "theme_arriving"})
-                            if shut.get("error"):
-                                return False, (
-                                    "no arrivals strip on the scripts-blocked page at all: %r"
-                                    % (shut,))
-                            if shut["chips"] != arrivals_chip_count:
-                                return False, (
-                                    "the scripts-blocked arrivals strip holds %d chips, "
-                                    "expected %d (every theme plus the leading chip) — every "
-                                    "chip is server-rendered and owes nothing to a script"
-                                    % (shut["chips"], arrivals_chip_count))
-                            if shut["scroll"][0] <= shut["scroll"][1]:
-                                return False, (
-                                    "the arrivals strip's scrollWidth (%s) does not exceed "
-                                    "its clientWidth (%s) with scripts blocked — it is not "
-                                    "overflowing, so it is not a strip and there is nothing "
-                                    "to scroll" % tuple(shut["scroll"]))
-                            if shut["spread"] > 2:
-                                return False, (
-                                    "the arrivals chips sit on %d rows spread over %dpx with "
-                                    "the disclosure shut — a strip is one row"
-                                    % (shut["rows"], shut["spread"]))
-
-                            opened_ok = page.evaluate(_TOGGLE_OWN_DISCLOSURE, strip_sel)
-                            if opened_ok.get("error"):
-                                return False, (
-                                    "could not find the arrivals carousel's own disclosure "
-                                    "summary to click")
-                            opened = page.evaluate(
-                                _CAROUSEL_INSTANCE_PROBE,
-                                {"strip": strip_sel, "field": "theme_arriving"})
-                            if not opened["open"]:
-                                return False, (
-                                    "clicking the arrivals summary with scripts blocked did "
-                                    "not open its own disclosure")
-                            if opened["wrap"] != "wrap" or opened["spread"] <= 2:
-                                return False, (
-                                    "the arrivals disclosure opened and its strip is still "
-                                    "one row (flex-wrap %r, chips spread over %dpx)"
-                                    % (opened["wrap"], opened["spread"]))
-                            if opened["chips"] != shut["chips"]:
-                                return False, (
-                                    "the open arrivals grid holds %d chips and the shut "
-                                    "strip held %d — they are the SAME radios and must be"
-                                    % (opened["chips"], shut["chips"]))
-
-                            message = _assert_no_page_overflow(
-                                page, "the arrivals carousel on /display with scripts blocked",
-                                VIEWPORT_MIN_SUPPORTED["width"])
-                            if message:
-                                return False, message
                         return True, ""
                     finally:
                         # LAST ACT: put theme_arriving back exactly
@@ -13845,223 +13720,25 @@ def main():
                                 "restoring theme_arriving failed: wanted %r, disk reads %r"
                                 % (original_arriving, final))
                 check(
-                    "the arrivals grid — the first grid this plan newly folds — still SAVES "
-                    "with scripts blocked through ITS OWN carousel, at 360px and in BOTH "
-                    "shipped languages — operated natively, submitted through the real form, "
-                    "re-read FROM DISK after a fresh GET and restored the same way (seeded "
-                    "through the validated save_device_config() API rather than a raw file "
-                    "write, since theme_arriving's own None state would otherwise defeat the "
-                    "shared helper's stored-is-None save-floor guard) — and on that same "
-                    "scripts-blocked page every chip (theme count plus the leading 'Same as "
-                    "departures' one) is present, the strip really overflows and really is ONE "
-                    "row, and its OWN <details> (resolved by walking up from ITS strip, never "
-                    "a bare class selector that could hit a sibling carousel) OPENS on a click "
-                    "and turns that one row into a real grid holding the same chips, with the "
-                    "page not scrolling sideways (CFG-68, 27-07-PLAN.md Task 2)",
-                    _arrivals_still_saves_with_scripts_blocked_through_its_own_carousel)
+                    "the arrivals grid still SAVES with scripts blocked, at 360px and in BOTH "
+                    "shipped languages — operated natively by field name, submitted through "
+                    "the real form, re-read FROM DISK after a fresh GET and restored the same "
+                    "way (seeded through the validated save_device_config() API rather than a "
+                    "raw file write, since theme_arriving's own None state would otherwise "
+                    "defeat the shared helper's stored-is-None save-floor guard) (CFG-68/"
+                    "CFG-85, 27-07-PLAN.md Task 2, narrowed by 30-03-PLAN.md Task 3)",
+                    _arrivals_still_saves_with_scripts_blocked)
 
-                def _each_carousels_own_disclosure_toggles_only_its_own_strip():
-                    # 27-07-PLAN.md Task 2 (CFG-68), standing constraint
-                    # 3: a shared/page-wide id (the very trap Task 1
-                    # closed) would make one carousel's [open] state
-                    # leak into a SIBLING's strip. style.css's fix is a
-                    # :has() rule scoped to each strip's OWN
-                    # .theme-carousel ancestor (see that rule's own
-                    # comment) — this is the proof that the scoping
-                    # actually holds in a real browser, not merely that
-                    # the selector text looks right.
-                    base_url = harness.base_url()
-                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-                    try:
-                        page = context.new_page()
-                        _login(page, base_url)
-                        page.goto(base_url + "/display")
-                        page.wait_for_load_state("networkidle")
-                        strips = {
-                            "departures": THEME_STRIP_SEL,
-                            "arrivals": "#" + config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS,
-                            "calendar": "#" + config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR,
-                        }
-                        for opened_usage, opened_sel in strips.items():
-                            opened_ok = page.evaluate(_TOGGLE_OWN_DISCLOSURE, opened_sel)
-                            if opened_ok.get("error"):
-                                return False, (
-                                    "usage=%r: no disclosure summary found to open"
-                                    % opened_usage)
-                            wraps = page.evaluate(
-                                "sels => Object.fromEntries("
-                                "  Object.entries(sels).map(([k, sel]) => {"
-                                "    const s = document.querySelector(sel);"
-                                "    return [k, s ? getComputedStyle(s).flexWrap : null];"
-                                "  }))", strips)
-                            for usage, wrap in wraps.items():
-                                if usage == opened_usage:
-                                    if wrap != "wrap":
-                                        return False, (
-                                            "with %r's own disclosure OPEN, its own strip's "
-                                            "flex-wrap reads %r, expected 'wrap' — opening "
-                                            "the disclosure did not lay the grid out at all"
-                                            % (usage, wrap))
-                                elif wrap != "nowrap":
-                                    return False, (
-                                        "opening %r's own disclosure changed %r's strip "
-                                        "flex-wrap to %r (expected it to stay 'nowrap') — "
-                                        "one carousel's [open] state is leaking into a "
-                                        "sibling's layout, which is exactly what a shared/"
-                                        "page-wide id would cause" % (opened_usage, usage, wrap))
-                            # Close it again before the next usage, so
-                            # every usage is tested from the same shut
-                            # baseline.
-                            page.evaluate(_TOGGLE_OWN_DISCLOSURE, opened_sel)
-                        message = _assert_no_page_overflow(
-                            page, "the Display page with each carousel disclosure opened in "
-                            "turn", VIEWPORT_MIN_SUPPORTED["width"])
-                        if message:
-                            return False, message
-                        return True, ""
-                    finally:
-                        context.close()
-                check(
-                    "each of the three carousels' own <details> toggles ONLY its own strip's "
-                    "flex-wrap — opened one at a time (departures, arrivals, calendar), the "
-                    "OPENED carousel's own strip reads flex-wrap: wrap while BOTH other "
-                    "strips stay flex-wrap: nowrap, proving style.css's :has() scoping (each "
-                    "rule matched against its OWN .theme-carousel ancestor, never a shared id) "
-                    "holds in a real browser — the exact failure a shared/page-wide strip id "
-                    "would cause — and the page never scrolls sideways at 360px with any "
-                    "carousel open (CFG-68, 27-07-PLAN.md Task 2)",
-                    _each_carousels_own_disclosure_toggles_only_its_own_strip)
-
-                def _arrivals_and_calendar_keep_the_focused_chip_in_view_when_keyed():
-                    # 27-07-PLAN.md Task 2 (CFG-68), standing constraint
-                    # 2: 25-06/27-04's own "the selected chip stays
-                    # inside the strip" proof
-                    # (_keying_the_strip_selects_scrolls_into_view_and_
-                    # moves_the_preview, below) was written against
-                    # DEPARTURES alone. Extending the carousel to two
-                    # more grids means the SAME scroll-padding-right
-                    # mechanism has to hold for strips this plan just
-                    # created — a missing modifier or an id mix-up on a
-                    # NEW strip would not show up in a departures-only
-                    # check at all.
-                    base_url = harness.base_url()
-                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-                    fields = (
-                        ("theme_arriving", config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS,
-                         config_page.COLOUR_USAGE_ARRIVALS),
-                        ("calendar_theme_id", config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR,
-                         config_page.COLOUR_USAGE_CALENDAR),
-                    )
-                    try:
-                        page = context.new_page()
-                        _login(page, base_url)
-                        page.goto(base_url + "/display")
-                        page.wait_for_load_state("networkidle")
-                        for field, strip_id, usage in fields:
-                            strip_sel = "#" + strip_id
-
-                            def read_back(field=field):
-                                return device_config.load_device_config(
-                                    harness.tmpdir).get(field)
-
-                            # theme-preview.js COLLAPSES every usage
-                            # panel except the checked colour_usage one
-                            # (departures, by default) — a display:none
-                            # element cannot take focus, so a keyboard
-                            # check on arrivals/calendar has to select
-                            # that usage row FIRST, exactly what a real
-                            # visitor clicking "Arrivals"/"Calendar
-                            # flights" in the same radiogroup above
-                            # would do. colour_usage itself is never
-                            # submitted (no form= attribute — see
-                            # _frame_colours_card_html()'s own
-                            # docstring), so this is pure client-side
-                            # state and needs no restore of its own.
-                            _click_control(
-                                page, 'input[name="%s"][value="%s"]'
-                                % (config_page.COLOUR_USAGE_FIELD_NAME, usage))
-
-                            saved = read_back()
-                            saved_str = "" if saved is None else str(saved)
-                            selector = 'input[name="%s"][value="%s"]' % (field, saved_str)
-                            for steps in (1, 6):
-                                seen = _operate_with_keyboard(
-                                    page, selector, ["ArrowDown"] * steps)
-                                if seen["pointer_events"]:
-                                    return False, (
-                                        "field=%r: a pointer event fired during the keyboard "
-                                        "sequence: %r" % (field, seen["pointer_events"]))
-                                box = page.evaluate(
-                                    "sel => {"
-                                    "  const s = document.querySelector(sel);"
-                                    "  const a = document.activeElement;"
-                                    "  const chip = a.closest ? a.closest('.theme-chip') : "
-                                    "    null;"
-                                    "  if (!chip) return {error: 'no-chip'};"
-                                    "  const c = chip.getBoundingClientRect();"
-                                    "  const r = s.getBoundingClientRect();"
-                                    "  return {left: c.left - r.left, "
-                                    "          right: r.right - c.right, value: a.value};"
-                                    "}", strip_sel)
-                                if box.get("error"):
-                                    return False, (
-                                        "field=%r: after %d ArrowDown(s) the focused element "
-                                        "is not inside a chip at all" % (field, steps))
-                                if box["left"] < -1 or box["right"] < -1:
-                                    return False, (
-                                        "field=%r: after %d ArrowDown(s) the selected chip "
-                                        "%r sits %.1fpx past the strip's left edge and "
-                                        "%.1fpx past its right — this strip's own "
-                                        "scroll-padding-right is not doing its job"
-                                        % (field, steps, box["value"],
-                                           -min(box["left"], 0), -min(box["right"], 0)))
-                            # RESTORE THE VISIBLE UI SELECTION, through
-                            # the same UI sequence, as the LAST act for
-                            # this field — 28-10-PLAN.md Task 1
-                            # (CFG-77/CFG-78): unlike auto-save, nothing
-                            # above ever reached DISK in the first place
-                            # — every keyboard commit only REVEALED the
-                            # bar (dirty-state.js's countDifferences()
-                            # compares against the page's LOAD-TIME
-                            # snapshot, never against disk directly), and
-                            # this check never clicked Enregistrer at any
-                            # point. Clicking back to the field's own
-                            # ORIGINAL value returns countDifferences()
-                            # to 0 — the SAME value as the load-time
-                            # snapshot — so the bar correctly HIDES again
-                            # rather than revealing a second time; there
-                            # is deliberately nothing to Save here. Disk
-                            # was never touched by this check at all, so
-                            # the assertion below is a confirmation, not
-                            # a genuine restore.
-                            _click_control(page, selector)
-                            restored = read_back()
-                            restored_str = "" if restored is None else str(restored)
-                            if restored_str != saved_str:
-                                return False, (
-                                    "field=%r: this check left the stored value at %r; it "
-                                    "started at %r — disk should never have moved, since no "
-                                    "Save was ever clicked" % (field, restored, saved))
-                        return True, ""
-                    finally:
-                        context.close()
-                check(
-                    "arrivals' and calendar's own carousels keep the keyboard-selected chip "
-                    "fully inside THEIR OWN strip — each usage panel un-collapsed first via "
-                    "its own colour_usage radio (exactly what a real visitor would click; "
-                    "colour_usage itself is never submitted, so this is pure client state "
-                    "needing no restore), then one and six ArrowDowns each, with zero pointer "
-                    "events, the same scroll-padding-right proof 25-06/27-04 ran against "
-                    "departures alone, generalised to the two grids this plan folds — and both "
-                    "theme fields are restored to their starting value through the same "
-                    "keyboard sequence as the LAST act — disk was never touched by this check "
-                    "at all, since nothing above ever clicked Enregistrer; keyboard selection "
-                    "only REVEALS the bar (against the page's own load-time snapshot), and "
-                    "clicking back to the ORIGINAL value returns countDifferences() to 0, so the "
-                    "bar correctly hides again rather than needing a second save (CFG-68, "
-                    "27-07-PLAN.md Task 2; retargeted from the retired auto-save onto the "
-                    "restored bar by 28-10-PLAN.md Task 1, CFG-77/CFG-78)",
-                    _arrivals_and_calendar_keep_the_focused_chip_in_view_when_keyed)
+                # 30-03-PLAN.md Task 3 (CFG-85): two checks used to live
+                # here — _each_carousels_own_disclosure_toggles_only_
+                # its_own_strip and _arrivals_and_calendar_keep_the_
+                # focused_chip_in_view_when_keyed — both drove real
+                # scroll-snap-strip/pager/disclosure interactions that
+                # have no equivalent in a wrapping grid. RETIRED
+                # OUTRIGHT — no ledger row; scroll-into-view and
+                # per-carousel disclosure toggling have no meaning once
+                # the strip becomes a native accordion over a static
+                # grid.
 
                 # --- 27-03-PLAN.md Task 3 (CFG-64) -----------------------
 
@@ -14387,538 +14064,20 @@ def main():
                     "inline-error path by 28-10-PLAN.md Task 3, CFG-77/CFG-78)",
                     _a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouched)
 
-                def _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview():
-                    base_url = harness.base_url()
-                    ids = list(device_config.THEME_IDS)
-                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-                    recorded = {}
-                    try:
-                        page = context.new_page()
-                        _login(page, base_url)
-                        page.goto(base_url + "/display")
-                        page.wait_for_load_state("networkidle")
-                        saved = str(device_config.load_device_config(
-                            harness.tmpdir)["theme"])
-                        if saved not in ids:
-                            return False, (
-                                "the saved theme %r is not in the registry — this check would "
-                                "measure nothing" % (saved,))
-                        selector = 'input[name="theme"][value="%s"]' % saved
-                        start = ids.index(saved)
+                # 30-03-PLAN.md Task 3 (CFG-85): two checks used to live
+                # here — _keying_the_strip_selects_scrolls_into_view_and_
+                # moves_the_preview and _scrolling_a_strip_moves_its_own_
+                # preview_to_the_centered_chip_and_selects_nothing — both
+                # drove real scroll-snap-strip geometry (scroll-into-view
+                # on arrow-key selection, geometric-centre scroll-tracking
+                # for the preview) that has no equivalent over a static
+                # wrapping grid. RETIRED, and LEDGERED to 30-08: keying's
+                # surviving half (arrow-keying the radiogroup still moves
+                # the preview) and scrolling's surviving half (preview-is-
+                # not-selection: hover/focus previews a theme and never
+                # writes a radio, a change event or a form value) — see
+                # _ASPECT_REPIN_LEDGER below.
 
-                        # 1. ARROW KEYS MOVE SELECTION, WITH NOT ONE
-                        #    POINTER EVENT, AND THE RECORDER PROVES
-                        #    ITSELF. A `click` is not a pointer event and
-                        #    that distinction is 25-02's, not this
-                        #    plan's: a keyboard-activated radio fires a
-                        #    real click as part of its activation
-                        #    behaviour, so "no click" would prove
-                        #    nothing here.
-                        for steps in (1, 6, len(ids) - 1):
-                            expected = ids[(start + steps) % len(ids)]
-                            seen = _operate_with_keyboard(
-                                page, selector, ["ArrowDown"] * steps)
-                            if seen["group"] != expected:
-                                return False, (
-                                    "%d ArrowDown(s) from %r selected %r, expected the "
-                                    "registry's entry %r — the carousel broke native "
-                                    "radiogroup navigation, which is the only selection the "
-                                    "no-JS path has" % (steps, saved, seen["group"], expected))
-                            if seen["pointer_events"]:
-                                return False, (
-                                    "a pointer event fired during the keyboard sequence: %r"
-                                    % (seen["pointer_events"],))
-                            if not seen["recorder_proved"]:
-                                return False, (
-                                    "the pointer recorder never proved itself, so the empty "
-                                    "pointer-event list measured nothing")
-
-                            # 2. AND THE CHIP IS STILL ON SCREEN. THIS IS
-                            #    THE CLAUSE THE CAROUSEL ADDS, and it
-                            #    FAILED before `scroll-padding-right`
-                            #    existed: focus lands on a 1px
-                            #    visually-hidden radio at the chip's
-                            #    top-left corner, so the browser scrolls
-                            #    that into view, is satisfied, and leaves
-                            #    50px of the selected chip outside the
-                            #    strip. A control that selects something
-                            #    the visitor cannot see is a control that
-                            #    has lost its own feedback.
-                            box = page.evaluate(
-                                "sel => {"
-                                "  const s = document.querySelector(sel);"
-                                "  const a = document.activeElement;"
-                                "  const chip = a.closest ? a.closest('.theme-chip') : null;"
-                                "  if (!chip) return {error: 'no-chip'};"
-                                "  const c = chip.getBoundingClientRect();"
-                                "  const r = s.getBoundingClientRect();"
-                                "  return {left: c.left - r.left, right: r.right - c.right,"
-                                "          value: a.value, scrollLeft: s.scrollLeft};"
-                                "}", THEME_STRIP_SEL)
-                            recorded["inview_%d" % steps] = box
-                            if box.get("error"):
-                                return False, (
-                                    "after %d ArrowDown(s) the focused element is not inside a "
-                                    "chip at all" % steps)
-                            if box["left"] < -1 or box["right"] < -1:
-                                return False, (
-                                    "after %d ArrowDown(s) the selected chip %r sits %.1fpx "
-                                    "past the strip's left edge and %.1fpx past its right — "
-                                    "scroll-snap and the keyboard have to agree, and the "
-                                    "browser only ever scrolls the 1px radio into view"
-                                    % (steps, box["value"], -min(box["left"], 0),
-                                       -min(box["right"], 0)))
-
-                        # 3. THE LIVE PREVIEW FOLLOWS A KEYBOARD
-                        #    SELECTION. The existing crossfade check
-                        #    CLICKS a chip; this plan touched the script
-                        #    that owns the preview, and a carousel that
-                        #    traded the preview for a strip would still
-                        #    pass every clause above.
-                        landed = _operate_with_keyboard(
-                            page, selector, ["ArrowDown"] * 6)["group"]
-                        page.wait_for_timeout(900)
-                        preview = page.eval_on_selector(
-                            THEME_PREVIEW_SEL,
-                            "el => [el.getAttribute('src'),"
-                            "       parseFloat(getComputedStyle(el).opacity)]")
-                        recorded["preview"] = preview
-                        if landed not in (preview[0] or ""):
-                            return False, (
-                                "the keyboard selected %r and the live preview still reads %r "
-                                "— this plan grew the script that owns that swap, and a "
-                                "carousel that broke it has traded one feature for another"
-                                % (landed, preview[0]))
-                        if preview[1] != 1:
-                            return False, (
-                                "the preview settled at opacity %r — a fade-out with no fade "
-                                "back in is worse than the cut it replaced" % (preview[1],))
-
-                        # 4. THE PAGERS SCROLL, AND CHANGE NOTHING ELSE.
-                        #    A pager that moved the selection would be a
-                        #    second way to change a saved setting, and
-                        #    one that captured an arrow key would break
-                        #    clause 1 above.
-                        paged = page.evaluate(
-                            "sels => {"
-                            "  const s = document.querySelector(sels.strip);"
-                            "  const checked = () => [...document.querySelectorAll("
-                            "    'input[name=\"theme\"]')].filter(e => e.checked)"
-                            "      .map(e => e.value)[0];"
-                            "  s.scrollLeft = 0;"
-                            "  const was = checked();"
-                            "  document.querySelector(sels.next).click();"
-                            "  const forward = s.scrollLeft;"
-                            "  const afterNext = checked();"
-                            "  document.querySelector(sels.prev).click();"
-                            "  return {forward: forward, back: s.scrollLeft,"
-                            "          was: was, afterNext: afterNext,"
-                            "          afterPrev: checked()};"
-                            "}",
-                            {"strip": THEME_STRIP_SEL,
-                             "next": '[%s="%s"]' % (
-                                 config_page.THEME_CAROUSEL_PAGER_ATTR,
-                                 config_page.THEME_CAROUSEL_PAGER_NEXT),
-                             "prev": '[%s="%s"]' % (
-                                 config_page.THEME_CAROUSEL_PAGER_ATTR,
-                                 config_page.THEME_CAROUSEL_PAGER_PREV)})
-                        recorded["paged"] = paged
-                        if paged["forward"] <= 0:
-                            return False, (
-                                "the Next pager left the strip at scrollLeft %r — it is the "
-                                "one part of this control that needs a script, and it does "
-                                "nothing" % (paged["forward"],))
-                        if paged["back"] != 0:
-                            return False, (
-                                "Next then Previous left the strip at scrollLeft %r rather "
-                                "than back where it started (%r forward) — the two pagers do "
-                                "not step the same distance"
-                                % (paged["back"], paged["forward"]))
-                        if paged["afterNext"] != paged["was"] or paged["afterPrev"] != paged["was"]:
-                            return False, (
-                                "a pager changed the selection: %r -> %r -> %r. Paging is not "
-                                "choosing, and a pager that selects is a second way to change "
-                                "a saved setting"
-                                % (paged["was"], paged["afterNext"], paged["afterPrev"]))
-                        # 28-10-PLAN.md Task 1 (CFG-77/CFG-78): RETARGETED
-                        # from auto-save onto the restored bar — a
-                        # keyboard-driven radiogroup selection fires a
-                        # real `change` per spec, exactly like a click
-                        # does, so every ArrowDown above genuinely
-                        # REVEALED the bar, but under the restored model
-                        # nothing ever reaches disk until Enregistrer is
-                        # clicked — the on-disk theme never moved during
-                        # the sequence above at all, so this check never
-                        # clicked Save anywhere. Clicking back to the
-                        # field's own ORIGINAL value returns
-                        # countDifferences() to 0 — the same value as the
-                        # page's load-time snapshot — so the bar
-                        # correctly HIDES again rather than needing a
-                        # second save; there is nothing left to persist.
-                        # The restore's own click is still the LAST act,
-                        # through the identical UI sequence, never a
-                        # direct write to the state directory, and the
-                        # disk read below is what proves the sequence
-                        # never accidentally left a DIFFERENT value
-                        # persisted — the same "a harness that changes a
-                        # real setting is a test that edits its
-                        # neighbours' subject" discipline every other
-                        # check in this file uses.
-                        _click_control(page, selector)
-                        restored = str(device_config.load_device_config(
-                            harness.tmpdir)["theme"])
-                        if restored != saved:
-                            return False, (
-                                "this check left the stored theme at %r; it started at %r"
-                                % (restored, saved))
-                        _ = recorded
-                        return True, ""
-                    finally:
-                        context.close()
-                check(
-                    "the carousel is driven by the keyboard ALONE and the strip keeps up: one, "
-                    "six and seventeen ArrowDowns each land on the registry's own next theme "
-                    "with zero pointer events and the recorder proving itself, and at every one "
-                    "of those positions the selected chip is still fully inside the strip — the "
-                    "clause the carousel adds, and the one that FAILED before the scrollport "
-                    "reserved a chip's width, because the browser only ever scrolls the 1px "
-                    "visually-hidden radio into view; the live preview follows a KEYBOARD "
-                    "selection (the existing crossfade check clicks) and settles opaque; the "
-                    "two pagers scroll the strip forward and exactly back again while changing "
-                    "no selection at all, on the page or on disk; and the theme is restored to "
-                    "its starting value as the LAST act through the same UI sequence — disk was "
-                    "never touched by this check at all, since nothing above ever clicked "
-                    "Enregistrer, and clicking back to the ORIGINAL value returns "
-                    "countDifferences() to 0, so the bar correctly hides again rather than "
-                    "needing a second save (CFG-50/CFG-52, 25-06-PLAN.md Task 4; the restore "
-                    "step added by 27-04-PLAN.md Task 4, CFG-63, retargeted from the retired "
-                    "auto-save onto the restored bar by 28-10-PLAN.md Task 1, CFG-77/CFG-78)",
-                    _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview)
-
-                # --- 28-05-PLAN.md Task 2 (CFG-75) -----------------------
-
-                def _scrolling_a_strip_moves_its_own_preview_to_the_centered_chip_and_selects_nothing():
-                    """CFG-75, the developer's own product decision
-                    (AskUserQuestion, 2026-09-15): while scrolling a
-                    theme carousel strip, the live preview follows
-                    whichever chip is geometrically centered — a
-                    PREVIEW, never a SELECTION. This drives EACH of the
-                    three strips through FOUR real intermediate scroll
-                    positions per UI theme, and after each independently
-                    computes (via the SAME nearest-centre
-                    getBoundingClientRect arithmetic theme-preview.js
-                    itself uses) which chip is centered, asserting the
-                    preview's resolved src matches THAT chip's own
-                    data-preview-src — never merely that a scroll
-                    listener is attached. A companion clause proves
-                    scroll is not selection (no radio's checked state
-                    moves, and a reload shows the SAVED theme, never the
-                    last scrolled-past chip), and a final clause proves
-                    one carousel's scroll never reaches a sibling's
-                    state (27-07's strip_id-per-instance discipline).
-                    """
-                    base_url = harness.base_url()
-
-                    def read_back():
-                        cfg = device_config.load_device_config(harness.tmpdir)
-                        return cfg.get("theme_arriving"), cfg.get("calendar_theme_id")
-
-                    original_arriving, original_calendar = read_back()
-                    current_theme = device_config.load_device_config(harness.tmpdir)["theme"]
-                    seed_arrivals = next(
-                        t for t in device_config.THEME_IDS if t != current_theme)
-                    seed_calendar = next(
-                        t for t in device_config.THEME_IDS
-                        if t != current_theme and t != seed_arrivals)
-                    # SEED KNOWN, NON-"Same as departures" starting values
-                    # through the validated server API — the leading
-                    # placeholder chip carries no data-preview-src at all
-                    # (D-09: no fabricated preview for "no override"),
-                    # which would make this check's own reload-shows-the-
-                    # SAVED-theme clause measure nothing.
-                    device_config.save_device_config(
-                        harness.tmpdir, theme_arriving=seed_arrivals,
-                        calendar_theme_id=seed_calendar)
-
-                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-                    try:
-                        page = context.new_page()
-                        _login(page, base_url)
-                        page.goto(base_url + "/display")
-                        page.wait_for_load_state("networkidle")
-
-                        strips = (
-                            ("departures", "theme", THEME_STRIP_SEL,
-                             config_page.COLOUR_USAGE_DEPARTURES),
-                            ("arrivals", "theme_arriving",
-                             "#" + config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS,
-                             config_page.COLOUR_USAGE_ARRIVALS),
-                            ("calendar", "calendar_theme_id",
-                             "#" + config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR,
-                             config_page.COLOUR_USAGE_CALENDAR),
-                        )
-                        # At least FOUR distinct intermediate positions per
-                        # strip, never a jump straight to the end.
-                        FRACTIONS = (0.2, 0.45, 0.7, 0.95)
-
-                        def all_radio_state():
-                            return page.evaluate(
-                                "() => {"
-                                "  var inputs = document.querySelectorAll("
-                                "    'input[type=\"radio\"]');"
-                                "  var out = {};"
-                                "  for (var i = 0; i < inputs.length; i++) {"
-                                "    var el = inputs[i];"
-                                "    out[el.name + '::' + el.value] = el.checked;"
-                                "  }"
-                                "  return out;"
-                                "}")
-
-                        def centered_probe(strip_sel):
-                            return page.evaluate(
-                                "sel => {"
-                                "  var s = document.querySelector(sel);"
-                                "  if (!s) return {error: 'no-strip'};"
-                                "  var sr = s.getBoundingClientRect();"
-                                "  var cx = sr.left + sr.width / 2;"
-                                "  var chips = s.querySelectorAll('.theme-chip');"
-                                "  var best = null, bestDist = Infinity;"
-                                "  for (var i = 0; i < chips.length; i++) {"
-                                "    var c = chips[i];"
-                                "    var r = c.getBoundingClientRect();"
-                                "    var ccx = r.left + r.width / 2;"
-                                "    var d = Math.abs(ccx - cx);"
-                                "    if (d < bestDist) { bestDist = d; best = c; }"
-                                "  }"
-                                "  if (!best) return {error: 'no-chip'};"
-                                "  var input = best.querySelector('input');"
-                                "  return {src: best.getAttribute('data-preview-src'),"
-                                "          value: input ? input.value : null,"
-                                "          scrollLeft: s.scrollLeft,"
-                                "          maxScroll: s.scrollWidth - s.clientWidth};"
-                                "}", strip_sel)
-
-                        def wait_for_preview(expected_src, context_label):
-                            try:
-                                page.wait_for_function(
-                                    "args => {"
-                                    "  var img = document.querySelector(args.sel);"
-                                    "  return !!img"
-                                    "    && img.getAttribute('src') === args.expected;"
-                                    "}",
-                                    arg={"sel": THEME_PREVIEW_SEL, "expected": expected_src},
-                                    timeout=3000)
-                                return None
-                            except Exception:
-                                actual = page.eval_on_selector(
-                                    THEME_PREVIEW_SEL, "el => el.getAttribute('src')")
-                                return (
-                                    "%s: expected the preview to read %r, it still reads %r"
-                                    % (context_label, expected_src, actual))
-
-                        for usage_label, field, strip_sel, usage_value in strips:
-                            # Un-collapse this usage's panel exactly like
-                            # a real visitor clicking the row above it
-                            # would.
-                            _click_control(
-                                page, 'input[name="%s"][value="%s"]'
-                                % (config_page.COLOUR_USAGE_FIELD_NAME, usage_value))
-                            selected_value = page.eval_on_selector(
-                                'input[name="%s"]:checked' % field, "el => el.value")
-
-                            final_probe = None
-                            for theme in ("light", "dark"):
-                                _set_ui_theme(page, theme)
-                                before_radio_state = all_radio_state()
-
-                                probe0 = centered_probe(strip_sel)
-                                if probe0.get("error"):
-                                    return False, (
-                                        "theme=%r usage=%r: %s"
-                                        % (theme, usage_label, probe0["error"]))
-                                max_scroll = probe0["maxScroll"]
-                                if max_scroll <= 0:
-                                    return False, (
-                                        "theme=%r usage=%r: the strip does not overflow "
-                                        "(scrollWidth - clientWidth = %r) — there is "
-                                        "nothing to scroll"
-                                        % (theme, usage_label, max_scroll))
-
-                                for frac in FRACTIONS:
-                                    target = round(max_scroll * frac)
-                                    page.evaluate(
-                                        "args => {"
-                                        "  document.querySelector(args.sel).scrollTo("
-                                        "    {left: args.left, behavior: 'instant'});"
-                                        "}",
-                                        {"sel": strip_sel, "left": target})
-                                    expected = centered_probe(strip_sel)
-                                    if expected.get("error"):
-                                        return False, (
-                                            "theme=%r usage=%r scrollLeft=%r: %s"
-                                            % (theme, usage_label, target,
-                                               expected["error"]))
-                                    failure = wait_for_preview(
-                                        expected["src"],
-                                        "theme=%r usage=%r scrollLeft=%r (frac=%r of "
-                                        "maxScroll=%r), expected chip %r"
-                                        % (theme, usage_label, target, frac, max_scroll,
-                                           expected["value"]))
-                                    if failure:
-                                        return False, failure
-                                    final_probe = expected
-
-                                after_radio_state = all_radio_state()
-                                if after_radio_state != before_radio_state:
-                                    changed = dict(
-                                        (k, (before_radio_state.get(k),
-                                             after_radio_state.get(k)))
-                                        for k in set(before_radio_state)
-                                        | set(after_radio_state)
-                                        if before_radio_state.get(k)
-                                        != after_radio_state.get(k))
-                                    return False, (
-                                        "theme=%r usage=%r: scrolling changed a radio's "
-                                        "checked state: %r — scroll must never select"
-                                        % (theme, usage_label, changed))
-
-                            if final_probe["value"] == selected_value:
-                                return False, (
-                                    "usage=%r: the final scroll position's centered "
-                                    "chip (%r) is the SAME as the already-selected "
-                                    "theme (%r) — this proves nothing about "
-                                    "preview-vs-selection"
-                                    % (usage_label, final_probe["value"], selected_value))
-
-                            # Reload: a reload with nothing clicked must
-                            # show the SAVED theme, never whatever was
-                            # last scrolled past.
-                            page.reload()
-                            page.wait_for_load_state("networkidle")
-                            if usage_value != config_page.COLOUR_USAGE_DEPARTURES:
-                                _click_control(
-                                    page, 'input[name="%s"][value="%s"]'
-                                    % (config_page.COLOUR_USAGE_FIELD_NAME, usage_value))
-                            expected_saved_src = page.eval_on_selector(
-                                'input[name="%s"][value="%s"]' % (field, selected_value),
-                                "el => el.closest('.theme-chip')"
-                                ".getAttribute('data-preview-src')")
-                            failure = wait_for_preview(
-                                expected_saved_src,
-                                "usage=%r reload, expected the SAVED theme %r's own src"
-                                % (usage_label, selected_value))
-                            if failure:
-                                return False, failure + " — a scroll must never persist"
-
-                        # --- Cross-instance isolation (the 27-07
-                        # regression guard) — scroll departures, switch
-                        # to arrivals and scroll IT too, then switch back
-                        # to departures: the preview must reflect
-                        # departures' own SAVED theme, never arrivals'
-                        # scroll and never departures' own earlier scroll
-                        # position either (scroll never selects).
-                        _click_control(
-                            page, 'input[name="%s"][value="%s"]'
-                            % (config_page.COLOUR_USAGE_FIELD_NAME,
-                               config_page.COLOUR_USAGE_DEPARTURES))
-                        dep_selected = page.eval_on_selector(
-                            'input[name="theme"]:checked', "el => el.value")
-                        dep_probe0 = centered_probe(THEME_STRIP_SEL)
-                        dep_target = round(dep_probe0["maxScroll"] * 0.8)
-                        page.evaluate(
-                            "args => {"
-                            "  document.querySelector(args.sel).scrollTo("
-                            "    {left: args.left, behavior: 'instant'});"
-                            "}",
-                            {"sel": THEME_STRIP_SEL, "left": dep_target})
-                        dep_after_scroll = centered_probe(THEME_STRIP_SEL)
-                        failure = wait_for_preview(
-                            dep_after_scroll["src"],
-                            "cross-instance setup, departures scrolled to %r"
-                            % dep_target)
-                        if failure:
-                            return False, failure
-
-                        arrivals_strip_sel = (
-                            "#" + config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS)
-                        _click_control(
-                            page, 'input[name="%s"][value="%s"]'
-                            % (config_page.COLOUR_USAGE_FIELD_NAME,
-                               config_page.COLOUR_USAGE_ARRIVALS))
-                        arr_probe0 = centered_probe(arrivals_strip_sel)
-                        arr_target = round(arr_probe0["maxScroll"] * 0.3)
-                        page.evaluate(
-                            "args => {"
-                            "  document.querySelector(args.sel).scrollTo("
-                            "    {left: args.left, behavior: 'instant'});"
-                            "}",
-                            {"sel": arrivals_strip_sel, "left": arr_target})
-                        arr_after_scroll = centered_probe(arrivals_strip_sel)
-                        failure = wait_for_preview(
-                            arr_after_scroll["src"],
-                            "cross-instance setup, arrivals scrolled to %r" % arr_target)
-                        if failure:
-                            return False, failure
-
-                        _click_control(
-                            page, 'input[name="%s"][value="%s"]'
-                            % (config_page.COLOUR_USAGE_FIELD_NAME,
-                               config_page.COLOUR_USAGE_DEPARTURES))
-                        dep_probe_after = centered_probe(THEME_STRIP_SEL)
-                        if dep_probe_after["value"] != dep_after_scroll["value"]:
-                            return False, (
-                                "cross-instance: after scrolling arrivals, switching "
-                                "back to departures shows its own strip centered on "
-                                "%r, expected %r (its own last scroll position, "
-                                "untouched by arrivals) — one carousel's tracker is "
-                                "reaching into a sibling's state"
-                                % (dep_probe_after["value"], dep_after_scroll["value"]))
-                        expected_dep_src = page.eval_on_selector(
-                            'input[name="theme"][value="%s"]' % dep_selected,
-                            "el => el.closest('.theme-chip')"
-                            ".getAttribute('data-preview-src')")
-                        failure = wait_for_preview(
-                            expected_dep_src,
-                            "cross-instance: after switching back to departures, "
-                            "expected its own SAVED theme %r's own src" % dep_selected)
-                        if failure:
-                            return False, (
-                                failure + " — arrivals' scroll (or departures' own "
-                                "earlier scroll) leaked into the shared preview")
-
-                        return True, ""
-                    finally:
-                        context.close()
-                        restore_arriving = (
-                            original_arriving if original_arriving
-                            else device_config.CLEAR_THEME_ARRIVING)
-                        restore_calendar = original_calendar if original_calendar else ""
-                        device_config.save_device_config(
-                            harness.tmpdir, theme_arriving=restore_arriving,
-                            calendar_theme_id=restore_calendar)
-                        final_arriving, final_calendar = read_back()
-                        if (final_arriving != original_arriving
-                                or final_calendar != original_calendar):
-                            raise AssertionError(
-                                "restoring theme_arriving/calendar_theme_id failed: "
-                                "wanted %r, disk reads %r"
-                                % ((original_arriving, original_calendar),
-                                   (final_arriving, final_calendar)))
-                check(
-                    "scrolling any of the three theme carousel strips moves the live preview "
-                    "to whichever chip is GEOMETRICALLY CENTERED, proven across four real "
-                    "intermediate scroll positions per strip (never a jump to the end) in "
-                    "BOTH UI themes at the 360px floor, with the centered chip computed "
-                    "INDEPENDENTLY by this check (the same nearest-centre "
-                    "getBoundingClientRect arithmetic theme-preview.js itself uses) — never "
-                    "merely that a scroll listener exists; no radio's checked state moves "
-                    "during any of it, the final scrolled-to chip is proven distinct from the "
-                    "already-selected theme, and a reload with nothing clicked shows the "
-                    "SAVED theme, never the last scrolled-past one; all three carousels "
-                    "exercised, plus one cross-instance clause proving arrivals' own scroll "
-                    "never reaches departures' preview or strip state (27-07's "
-                    "strip_id-per-instance discipline) (CFG-75, 28-05-PLAN.md Task 2)",
-                    _scrolling_a_strip_moves_its_own_preview_to_the_centered_chip_and_selects_nothing)
 
                 # --- 28-11-PLAN.md Task 1 (CFG-77): the section-naming
                 # relationship — CFG-77 says the bar names the changed
@@ -15223,168 +14382,20 @@ def main():
                     "it (CFG-77, 28-11-PLAN.md Task 2)",
                     _cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_dom)
 
-                def _the_carousel_meets_its_floors_at_360px_in_both_themes():
-                    base_url = harness.base_url()
-                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-                    recorded = {}
-                    try:
-                        page = context.new_page()
-                        _login(page, base_url)
-                        page.goto(base_url + "/display")
-                        page.wait_for_load_state("networkidle")
-
-                        # 1. THE HIT TARGETS, MEASURED IN THIS CONTROL'S
-                        #    OWN CONTAINER AND NEVER INHERITED FROM A
-                        #    CLASS. `control-density.md`'s
-                        #    exempt-by-delegation category is valid only
-                        #    while the WRAPPING LABEL exceeds 44px in
-                        #    both axes, and a compact chip in a
-                        #    scroll-snap strip is exactly where that
-                        #    could stop being true. The pagers are
-                        #    measured for the opposite reason and it is
-                        #    not hypothetical: at --space-sm apart, the
-                        #    Previous pager hit-tested 30x45 here,
-                        #    because the Next pager's own 44px ::before
-                        #    covered its right side.
-                        recorded["chip_first"] = _assert_hit_target(
-                            page, THEME_STRIP_SEL + " > .theme-chip:nth-child(1)",
-                            "the carousel's FIRST chip on /display")
-                        recorded["chip_last"] = _assert_hit_target(
-                            page, THEME_STRIP_SEL + " > .theme-chip:nth-last-child(1)",
-                            "the carousel's LAST chip on /display")
-                        for direction in (config_page.THEME_CAROUSEL_PAGER_PREV,
-                                          config_page.THEME_CAROUSEL_PAGER_NEXT):
-                            recorded["pager_" + direction] = _assert_hit_target(
-                                page, '[%s="%s"]' % (
-                                    config_page.THEME_CAROUSEL_PAGER_ATTR, direction),
-                                "the carousel's %s pager on /display" % direction)
-
-                        # 2. THE STRIP'S OWN GEOMETRY, by
-                        #    getBoundingClientRect and never clientWidth,
-                        #    which rounds to an integer and can fail a
-                        #    correct drawing.
-                        shut = page.evaluate(
-                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
-                                           "details": THEME_DETAILS_SEL})
-                        recorded["shut"] = shut
-                        panel = page.eval_on_selector(
-                            THEME_STRIP_SEL,
-                            "el => {"
-                            "  const p = el.closest('.frame-colours__usage-panel');"
-                            "  const r = p.getBoundingClientRect();"
-                            "  const cs = getComputedStyle(p);"
-                            "  return r.width - parseFloat(cs.paddingLeft)"
-                            "    - parseFloat(cs.paddingRight);"
-                            "}")
-                        recorded["panel"] = panel
-                        if shut["box"][0] > panel + 0.5:
-                            return False, (
-                                "the strip measures %.2fpx inside a %.2fpx panel content box — "
-                                "a strip wider than the card holding it is the grid blowout, "
-                                "and it takes the whole page sideways with it"
-                                % (shut["box"][0], panel))
-                        if shut["scroll"][0] <= shut["scroll"][1]:
-                            return False, (
-                                "the strip's scrollWidth (%s) does not exceed its clientWidth "
-                                "(%s) at 360px — with eighteen 104px chips in one nowrap row "
-                                "it must, or `flex: 0 0 auto` is not holding and the chips are "
-                                "being squeezed" % tuple(shut["scroll"]))
-                        if shut["overflow"] != "auto" or shut["snap"] != "x mandatory":
-                            return False, (
-                                "the strip computes overflow-x:%r and scroll-snap-type:%r — "
-                                "without both it is either a blowout or a free-scrolling row "
-                                "that never settles on a chip"
-                                % (shut["overflow"], shut["snap"]))
-
-                        # 3. THE PAGE DOES NOT SCROLL SIDEWAYS. A strip
-                        #    that scrolls ITSELF is allowed and is the
-                        #    whole design; the page body is not.
-                        message = _assert_no_page_overflow(
-                            page, "the theme carousel on /display",
-                            VIEWPORT_MIN_SUPPORTED["width"])
-                        if message:
-                            return False, message
-                        page.click(THEME_DETAILS_SEL + " summary")
-                        message = _assert_no_page_overflow(
-                            page, "the theme carousel on /display with the grid open",
-                            VIEWPORT_MIN_SUPPORTED["width"])
-                        if message:
-                            return False, message
-                        page.click(THEME_DETAILS_SEL + " summary")
-
-                        # 4. THE PAINT, IN BOTH THEMES, AS A FLOOR AND
-                        #    NOT ONLY A CEILING. "Not the default" is the
-                        #    ceiling and passes against a strip painted
-                        #    in one flat grey; the floor is that a chip's
-                        #    name is not its own surface, that the
-                        #    disclosure and the pager chevron are visible
-                        #    at all, and that every one of them inverts
-                        #    with the theme.
-                        paints = {}
-                        for theme in UI_THEMES_EXPLICIT:
-                            _set_ui_theme(page, theme)
-                            recorded["settled_" + theme] = page.evaluate(_SETTLE_CAROUSEL)
-                            paints[theme] = page.evaluate(
-                                "sels => {"
-                                "  const read = (s, p, pseudo) =>"
-                                "    getComputedStyle(document.querySelector(s), pseudo || null)"
-                                "      .getPropertyValue(p).trim();"
-                                "  return {"
-                                "    name: read(sels.strip + ' .theme-chip__name', 'color'),"
-                                "    surface: read(sels.strip + ' .theme-chip',"
-                                "                  'background-color'),"
-                                "    summary: read(sels.details + ' summary', 'color'),"
-                                "    chevron: read(sels.pager, 'border-right-color', '::after'),"
-                                "    canvas: getComputedStyle(document.body).backgroundColor};"
-                                "}",
-                                {"strip": THEME_STRIP_SEL, "details": THEME_DETAILS_SEL,
-                                 "pager": '[%s="%s"]' % (
-                                     config_page.THEME_CAROUSEL_PAGER_ATTR,
-                                     config_page.THEME_CAROUSEL_PAGER_NEXT)})
-                        recorded["paints"] = paints
-                        light, dark = paints["light"], paints["dark"]
-                        for key in ("name", "surface", "summary", "chevron"):
-                            if light[key] == dark[key]:
-                                return False, (
-                                    "the carousel's %s paints identically in both themes (%r) — "
-                                    "a token that does not invert is a literal, and one of the "
-                                    "two modes is wrong" % (key, light[key]))
-                        for theme, sampled in paints.items():
-                            if sampled["name"] == sampled["surface"]:
-                                return False, (
-                                    "%s: a chip's name is painted in its own surface colour "
-                                    "(%r) — the chips are not legible at all"
-                                    % (theme, sampled["name"]))
-                            if sampled["summary"] == sampled["canvas"]:
-                                return False, (
-                                    "%s: the disclosure's summary is the canvas colour (%r)"
-                                    % (theme, sampled["summary"]))
-                            if sampled["chevron"] == sampled["canvas"]:
-                                return False, (
-                                    "%s: the pager's chevron is the canvas colour (%r) — the "
-                                    "buttons have no text of their own, so an invisible "
-                                    "chevron is an invisible control"
-                                    % (theme, sampled["chevron"]))
-                        _set_ui_theme(page, "light")
-                        _ = recorded
-                        return True, ""
-                    finally:
-                        context.close()
-                check(
-                    "the carousel meets its floors at 360px — the FIRST and LAST chip and BOTH "
-                    "pagers clear the 44px target by real hit-testing in THIS control's own "
-                    "container (never inherited from a class: the pagers measured 30x45 here "
-                    "at --space-sm apart, each covering the other's synthesised ::before), the "
-                    "strip fits its panel's content box by getBoundingClientRect rather than "
-                    "clientWidth while genuinely overflowing its own scrollport, it computes "
-                    "both overflow-x:auto and scroll-snap-type, the PAGE does not scroll "
-                    "sideways with the grid shut or open (a strip that scrolls itself is the "
-                    "design; the body is not), and the paint is a FLOOR not a ceiling: the chip "
-                    "name, the chip surface, the disclosure summary and the pager chevron all "
-                    "differ between the two themes, no chip name is its own surface colour, and "
-                    "neither the summary nor the chevron is the canvas colour (CFG-50/CFG-52, "
-                    "25-06-PLAN.md Task 4)",
-                    _the_carousel_meets_its_floors_at_360px_in_both_themes)
+                # 30-03-PLAN.md Task 3 (CFG-85): the check that used to
+                # live here — _the_carousel_meets_its_floors_at_360px_
+                # in_both_themes — measured the strip/pager control's
+                # touch targets, geometry, overflow and paint floors.
+                # LEDGERED to 30-08 (replacement:
+                # _the_palette_meets_its_floors_at_360px_in_both_themes)
+                # — the replacement measures the four controls in
+                # 30-UI-SPEC.md's Touch Targets table by real
+                # hit-testing in their own containers, the same
+                # discipline this check used. See _ASPECT_REPIN_LEDGER
+                # below. This is also the shared selector block's LAST
+                # consumer of THEME_STRIP_SEL/THEME_PAGERS_SEL/
+                # THEME_DETAILS_SEL/_STRIP_PROBE/_SETTLE_CAROUSEL —
+                # deleted below, together with it.
 
                 # ==========================================================
                 # 28-04-PLAN.md Task 2 (CFG-72): THE real proof. 27-06's own
