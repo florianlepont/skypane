@@ -5113,17 +5113,20 @@ def _display_groups_html(builders, groups):
     Calendar's own chip grid already did before this task retired it
     (D-06) and as Runway/Screen/Quiet hours already do.
 
-    21-07-PLAN.md Task 1 (D-13/Pitfall 2): the Calendar card is ALSO no
-    longer this function's concern, and — unlike Frame colours — it is
-    also no longer a member of the generic `builders` dict at all
-    (`render()` calls the merged `calendar_group()` directly). The
-    merged card now embeds its own connect/replace `<form>` in every
-    state (D-13's "not connected" branch always shows one), which would
-    nest inside `<form id="{SETTINGS_FORM_ID}">` on the legacy SCOPE_ALL
-    render if `calendar_group()` stayed in `builders` — the same reason
-    Frame colours left that dict in 21-05. `render()` builds the merged
-    card directly, as a sibling of the physical form, exactly like Frame
-    colours; SCOPE_ALL (never served) simply loses Calendar content, the
+    21-07-PLAN.md Task 1 (D-13/Pitfall 2), UPDATED by 30-06-PLAN.md
+    Task 2: the Calendar card's own connection block was ALSO never
+    this function's concern, and — unlike Frame colours — was also
+    never a member of the generic `builders` dict at all (`render()`
+    used to call the now-retired `calendar_group()` directly for it).
+    Since 30-06-PLAN.md that block is folded into the Aspect card's own
+    Calendar row, so `render()`'s single `_aspect_card_html()` call
+    (built the same way this docstring already describes for Frame
+    colours/Aspect) now carries it too. The connect/replace `<form>`
+    still renders in every state (D-13's "not connected" branch always
+    shows one), which would still nest inside `<form id=
+    "{SETTINGS_FORM_ID}">` on the legacy SCOPE_ALL render if left in
+    `builders` — the same reason Frame colours left that dict in
+    21-05; SCOPE_ALL (never served) simply loses Calendar content, the
     same accepted, documented consequence 21-05-PLAN.md Task 1 already
     established for Theme.
 
@@ -5488,20 +5491,24 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # must never render as a literal descendant of <form id=
     # "{SETTINGS_FORM_ID}"> (the same constraint that already kept
     # Flight colours out of this dict). 21-07-PLAN.md Task 1 (D-13/
-    # Pitfall 2): screens.GROUP_CALENDAR has no entry here either any
-    # more, for the identical reason — the merged calendar_group() now
-    # embeds its own connect/replace <form> in EVERY state, which would
-    # nest inside <form id="{SETTINGS_FORM_ID}"> on the legacy SCOPE_ALL
-    # render if left in this dict. render()'s own Display branch calls
-    # calendar_group() directly instead, as a sibling of the physical
-    # form, exactly like Frame colours. On the legacy SCOPE_ALL/Device
-    # paths below, `groups_html`'s own `"".join(builders[g]() for g in
-    # groups if g in builders)` loop simply skips screens.GROUP_THEME/
-    # screens.GROUP_CALENDAR now (both are still members of
-    # `scope_groups(SCOPE_ALL)`'s fixed tuple, just no longer present in
-    # `builders`) — SCOPE_ALL is the legacy, never-served whole-page
-    # render, so this is a deliberate, documented behaviour change to
-    # that path, not an oversight.
+    # Pitfall 2), UPDATED by 30-06-PLAN.md Task 2: screens.GROUP_CALENDAR
+    # has no entry here either any more, for the identical reason — the
+    # calendar's own connect/replace <form> (folded into the Aspect
+    # card's Calendar row since 30-06-PLAN.md; calendar_group() itself
+    # is retired) renders in EVERY state, which would nest inside <form
+    # id="{SETTINGS_FORM_ID}"> on the legacy SCOPE_ALL render if left in
+    # this dict. render()'s own Display branch builds the whole Aspect
+    # card (calendar row included) as a sibling of the physical form
+    # instead, gated on the single `GROUP_THEME`-in-scope check below —
+    # see that gate's own comment for the registry invariant this
+    # collapse relies on. On the legacy SCOPE_ALL/Device paths below,
+    # `groups_html`'s own
+    # `"".join(builders[g]() for g in groups if g in builders)` loop
+    # simply skips screens.GROUP_THEME/screens.GROUP_CALENDAR now (both
+    # are still members of `scope_groups(SCOPE_ALL)`'s fixed tuple, just
+    # no longer present in `builders`) — SCOPE_ALL is the legacy,
+    # never-served whole-page render, so this is a deliberate, documented
+    # behaviour change to that path, not an oversight.
     builders = {
         screens.GROUP_RUNWAY: lambda: runway_fieldset(
             current_runway_id, ctx.get("runway_images") or (),
@@ -5600,39 +5607,33 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # exactly like Runway/Calendar already do (Structural Note 2's
         # own "the physical form becomes a pure submission target").
         #
-        # 30-04-PLAN.md Task 2 (CFG-85/Pitfall 3): still gated on
-        # `screens.GROUP_THEME in groups` alone, NOT a merged
-        # `GROUP_THEME or GROUP_CALENDAR` condition — even though this
-        # card's Calendar row now carries `calendar_theme_id`'s own
-        # picker. `screens.GROUP_CALENDAR`'s own gate below (unchanged)
-        # is what still controls whether `calendar_group()`'s SEPARATE
-        # card renders at all today; collapsing the two gates into one
-        # is 30-06-PLAN.md's task, once the calendar body has actually
-        # moved into this row (30-RESEARCH.md Pitfall 3: today's one
-        # registered screen type always carries both groups together,
-        # so this is correctly "" on every scope that skips either).
+        # 30-06-PLAN.md Task 2 (CFG-85/30-RESEARCH.md Pitfall 3): ONE
+        # gate for the ONE merged card — the second card's own local
+        # variable and its own separate `GROUP_CALENDAR`-gated `if`
+        # condition are BOTH RETIRED outright (calendar_group() no
+        # longer exists; its body is now inside this card's Calendar
+        # row, threaded through the six calendar_* keyword arguments
+        # below).
+        #
+        # RELIED-ON INVARIANT (companion/screens.py, everyday_groups):
+        # safe only because that module's one registered screen type
+        # lists GROUP_THEME and GROUP_CALENDAR together in its own
+        # everyday_groups tuple — always both true or both false today.
+        # A FUTURE screen type registered with only one of the two must
+        # re-split this gate; this comment is the marker to find.
         aspect_section_html = (
             layout.section_intro_html(
                 DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING), i18n.t(DISPLAY_LOOK_INTRO))
             + _nested_wrapper_html(
                 _aspect_card_html(
                     ctx, current_theme_id, current_theme_arriving, current_calendar_theme_id,
-                    errors=errors, submitted=submitted, state_dir=ctx.get("state_dir")),
+                    errors=errors, submitted=submitted, state_dir=ctx.get("state_dir"),
+                    calendar_configured=calendar_configured, calendar_drift=calendar_drift,
+                    calendar_last_synced_at=calendar_last_synced_at,
+                    calendar_last_attempt_at=calendar_last_attempt_at, now=ctx.get("now"),
+                    calendar_entry_count=calendar_entry_count),
                 "page-section aspect-card", "page-section--nested")
             if screens.GROUP_THEME in groups else "")
-        # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): the merged Calendar card
-        # is built directly here — never through the generic `builders`
-        # dict (see that dict's own comment above) — because it embeds
-        # its own connect/replace <form> in every state; nested-wrapped
-        # exactly like Runway used to be through _display_groups_html().
-        display_calendar_card_html = (
-            _nested_wrapper_html(
-                calendar_group(
-                    calendar_configured, calendar_drift, calendar_last_synced_at,
-                    calendar_last_attempt_at, ctx.get("now"), calendar_entry_count,
-                    errors=errors, submitted=submitted, state_dir=ctx.get("state_dir")),
-                "page-section", "page-section--nested")
-            if screens.GROUP_CALENDAR in groups else "")
         groups_html = ""
         (display_watches_supersection_html,
             display_on_supersection_html) = _display_groups_html(builders, groups)
@@ -5682,7 +5683,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # untouched.
         groups_html = _device_groups_html(builders, groups)
         aspect_section_html = ""
-        display_calendar_card_html = ""
         display_watches_supersection_html = ""
         display_on_supersection_html = ""
     else:
@@ -5714,7 +5714,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # `builders` any more either.
         groups_html = "".join(builders[g]() for g in groups if g in builders)
         aspect_section_html = ""
-        display_calendar_card_html = ""
         display_watches_supersection_html = ""
         display_on_supersection_html = ""
 
@@ -5751,7 +5750,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "%s"
         "</form>"
-        "%s"
         "%s"
         "%s"
         "%s"
@@ -5820,32 +5818,23 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         hidden_html,
         groups_html,
         # 21-05-PLAN.md Task 1 (D-06, Structural Note 2), renamed by
-        # 30-04-PLAN.md Task 2 (CFG-85): the "Look" intro heading plus
-        # the Aspect card now render immediately after `</form>` closes,
-        # BEFORE the Calendar card — restoring the locked Look-heading
-        # -> Aspect -> Calendar reading order, now entirely outside the
-        # physical form. Always "" on the Device/SCOPE_ALL paths (both
-        # set it to "" explicitly above).
+        # 30-04-PLAN.md Task 2 (CFG-85), and by 30-06-PLAN.md Task 2
+        # (CFG-85): the "Look" intro heading plus the Aspect card now
+        # render immediately after `</form>` closes — the ONLY card
+        # under Look, its Calendar row now carrying the connection
+        # block that used to be a separate sibling card here (retired,
+        # see the gate-collapse comment above this branch). Always ""
+        # on the Device/SCOPE_ALL paths (both set it to "" explicitly
+        # above).
         aspect_section_html,
-        # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): the merged Calendar
-        # card, nested-wrapped exactly like Runway, now renders here —
-        # after the Aspect card — carrying its own connect/replace form
-        # and, when connected or drifted, its own data-only disconnect
-        # form as a trailing sibling fragment, both already concatenated
-        # into this one string by calendar_group() itself. STILL A
-        # SEPARATE CARD from Aspect (30-04-PLAN.md's own objective: the
-        # calendar CONNECTION block does not move here; 30-06-PLAN.md
-        # folds it into Aspect's own Calendar row). Always "" on
-        # Device/SCOPE_ALL (computed above).
-        display_calendar_card_html,
         # 20-07-PLAN.md Task 1 (D-12), restructured by the D-12 fix
         # above: "What it watches"'s own header plus the Runway card —
         # always "" on the Device/SCOPE_ALL paths (both set it to ""
         # explicitly above), so this addition changes nothing for
-        # either. On Display, this now renders AFTER the Calendar card
-        # above, so Runway still follows Calendar in document order even
-        # though neither is any longer a literal descendant of the same
-        # <form>.
+        # either. On Display, this now renders directly after the
+        # Aspect card, so Runway still follows Aspect in document
+        # order even though neither is any longer a literal descendant
+        # of the same <form>.
         display_watches_supersection_html,
         # 20-11-PLAN.md Task 1 (D-19/Pitfall 1): "" on Display/SCOPE_ALL
         # (computed above), so this addition changes nothing for either

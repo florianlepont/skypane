@@ -153,8 +153,8 @@ CATALOG = {
         "Quelle piste d’Orly l’appareil surveille.",
     "Airport diagram for %s": "Schéma de l’aéroport pour %s",
 
-    # --- Calendar card (config_page.py's merged calendar_group()/
-    #     calendar_disconnect_confirm_page()) ---------------------------
+    # --- Calendar row's connection block (config_page.py's
+    #     _calendar_connection_html()/calendar_disconnect_confirm_page())
     # 21-07-PLAN.md Task 1 (D-14, Pitfall 5): removed "Disconnect this
     # calendar and delete the flights it supplied" (no question mark) —
     # the merged card's own small Disconnect button now reads the
@@ -163,7 +163,14 @@ CATALOG = {
     # question mark, or naming "calendar"/"calendar?" alone) are
     # untouched — they still belong to calendar_disconnect_confirm_
     # page(), unaffected by this merge.
-    "Calendar": "Calendrier",
+    #
+    # 30-06-PLAN.md Task 2 (CFG-85), 2026-09-22: "Calendar": "Calendrier"
+    # is deleted here, in the same commit as its English source constant,
+    # CALENDAR_SECTION_HEADING — the connection block no longer has its
+    # own `<h2>Calendar</h2>`; the Calendar usage row's own `<summary>`
+    # (built from FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_CALENDAR],
+    # "Calendar flights"/"Vols du calendrier", a DIFFERENT string) names
+    # the row instead.
     "Connected, but ignored — its saved link on the server became "
     "readable beyond this frame. Paste the feed URL again below to "
     "store it safely.":
