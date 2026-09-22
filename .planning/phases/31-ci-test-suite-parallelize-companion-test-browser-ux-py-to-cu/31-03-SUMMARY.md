@@ -173,4 +173,10 @@ RESEARCH.md Open Question 2 asked: *"Does any check in the 87 checks NOT being e
 *Phase: 31-ci-test-suite-parallelize-companion-test-browser-ux-py-to-cu*
 *Completed: 2026-09-22*
 
-## Self-Check: PENDING
+## Self-Check: PASSED
+
+- FOUND: `companion/test_browser_ux_quiet_wake.py`
+- FOUND: `.planning/phases/31-ci-test-suite-parallelize-companion-test-browser-ux-py-to-cu/31-03-SUMMARY.md`
+- FOUND commit `c37a4f0` (Task 1)
+- FOUND commit `3562290` (Task 2)
+- FOUND commit `68e61d0` (Task 3)

@@ -1500,7 +1500,7 @@ The alternative keeps the current structure and swaps only the selector: three s
 
 **Requirements**: TBD (scope defined by 31-CONTEXT.md's D-01 through D-07)
 **Depends on:** (none — independent of the companion UI phases)
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 **Wave 1**
@@ -1513,7 +1513,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 31-03-PLAN.md — Extract the quiet-hours dial + wake-interval slider group (9 checks) into `companion/test_browser_ux_quiet_wake.py`; parent down to 76/76; prove no verdict changed
+- [x] 31-03-PLAN.md — Extract the quiet-hours dial + wake-interval slider group (9 checks) into `companion/test_browser_ux_quiet_wake.py`; parent down to 76/76; prove no verdict changed
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
