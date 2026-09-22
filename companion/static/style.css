@@ -3010,12 +3010,18 @@ button:disabled {
  * `gap`-only separation, because these buttons keep the app's ordinary
  * quiet-button treatment (padding, background wash) rather than
  * `.theme-option`'s flush segment styling, and a gap alone would read
- * as three loose buttons rather than one control. */
+ * as three loose buttons rather than one control.
+ *
+ * Quick task 260922-jiy: `margin-bottom: var(--space-md)` separates this
+ * row from the Debut/Fin fields below it, matching `.quiet-dial__readout`'s
+ * own `margin: 0 0 var(--space-md)` one component above — the same gap
+ * stacked twice so the card reads as one rhythm rather than two. */
 .quiet-preset-row {
   display: flex;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   overflow: hidden;
+  margin-bottom: var(--space-md);
 }
 
 .quiet-preset-row button {
@@ -6282,6 +6288,23 @@ details[open] > summary::before {
   .illustration-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Quick task 260922-jiy: separate the Compagnies gallery from the
+ * "Compagnies non identifiees" gap-strip card below it, spending the
+ * same D-14/UIR-24 sibling-card gap (--space-lg) every other stacked
+ * pair in this app already uses. This is declared as a top margin on
+ * the FOLLOWING .page-section, not a bottom margin on .illustration-grid
+ * itself, because .illustration-grid is load-bearing on TWO elements:
+ * the outer gallery grid above, and the gap-strip's own inner grid
+ * (which wears illustration-grid--gap alongside it, see that rule's
+ * comment). A margin on the shared base class would also push the
+ * strip's own unresolved-callsign cards away from the overflow line
+ * below them, which is not wanted. The adjacent-sibling selector is
+ * what confines the gap to the outer gallery: the inner grid is always
+ * followed by a <p>, never by a .page-section. */
+.illustration-grid + .page-section {
+  margin-top: var(--space-lg);
 }
 
 /* The 06.6.4 D-03 hairline-at-rest/shadow-on-hover card contract,
