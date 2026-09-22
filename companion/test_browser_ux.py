@@ -14395,6 +14395,18 @@ def main():
                             theme_record["paint"] = paint
 
                             recorded[theme] = theme_record
+                        # 30-08-PLAN.md Task 2's own required artifact:
+                        # every measured box, printed for the SUMMARY -
+                        # a measurement nobody can read back off the
+                        # check's own PASS line otherwise.
+                        for theme, rec in recorded.items():
+                            for control in (
+                                    "chip_first", "chip_last", "row_summary",
+                                    "leading_option", "rule_add_summary"):
+                                seen = rec[control]
+                                print(
+                                    "        [30-08 T2] theme=%s %s: hit=%r visual=%r"
+                                    % (theme, control, seen["hit"], seen["visual"]))
                         return True, ""
                     finally:
                         context.close()
