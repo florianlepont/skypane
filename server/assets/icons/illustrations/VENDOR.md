@@ -143,16 +143,24 @@ for all seven.
 
 ### `_unresolved/` — generated but NOT selection targets (not shipped assets)
 
-These two files exist on disk (required here only so
-`scripts/check-attribution.sh` — which recurses — passes; they are invisible
+**Quick task 260921-v9c (2026-09-21):** `_unresolved/la-compagnie.png` has
+been removed from disk and from this table. La Compagnie is no longer
+unresolved — see the new "Quick task 260921-v9c" section below for the
+fresh, regenerated `la-compagnie.png` now vendored as a real target. The
+removed draft (2048×768,
+`b3acb6f628bae81c29c7cce6796b72880e2b19277cf692b284a3b8487192f4f9`) had
+different bytes from the new file and was superseded, not promoted — `git
+rm`, not `git mv`.
+
+This one file exists on disk (required here only so
+`scripts/check-attribution.sh` — which recurses — passes; it is invisible
 to `server/plane/illustrations.py --validate`, which does a non-recursive
-directory listing) but correspond to **no `(airline, shape)` combination any
-code path can ever select**. A future reader must not mistake these for
+directory listing) but corresponds to **no `(airline, shape)` combination
+any code path can ever select**. A future reader must not mistake this for
 shipped, reachable art.
 
 | Filename | Why it is not a target | Dimensions (px) | sha256 |
 |---|---|---|---|
-| `_unresolved/la-compagnie.png` | Same situation as Amelia International. `03.1-LIVE-RESOLUTION.md` Step C marks La Compagnie `[UNRESOLVED]`: its real-world ICAO code (`DJT`) is independently confirmed via Wikipedia, but `adsbdb`'s own database resolves that exact code to an unrelated US airline ("Denver Jet"), and no real La Compagnie callsign was available this session to determine what a genuine flight actually returns. Kept for future reference only; same remediation path as Amelia. | 2048×768 | `b3acb6f628bae81c29c7cce6796b72880e2b19277cf692b284a3b8487192f4f9` |
 | `_unresolved/air-caraibes-atr72-unused.png` | Superseded draft retained only for historical reference. A separately audited `air-caraibes-atr72.png` is now a canonical target. | 2172×724 | `f7a682ae42c45a351949797eb2f62cb2eb51537cc2320a2e7189390e1843f8d3` |
 
 The aircraft-type column mirrors `server/assets/icons/VENDOR.md`'s
@@ -296,15 +304,23 @@ by design, per `03.1-LIVE-RESOLUTION.md`):**
   same parallel session that delivered the real `amelia.png`/
   `amelia-embraer.png` art) — it is no longer present and no longer listed
   in the `_unresolved/` table above.
-- **La Compagnie** — `[UNRESOLVED]`, still excluded. Its real-world ICAO
-  code (`DJT`) is independently confirmed via Wikipedia, but `adsbdb`'s own
-  database resolves that exact code to an unrelated US airline ("Denver
-  Jet"), and no real La Compagnie callsign was available this session to
-  determine what a genuine flight actually returns. See
-  `_unresolved/la-compagnie.png` above for the disposition of the art
-  generated for this excluded carrier. Can be added to
-  `_ILLUSTRATION_TARGETS` later with zero other code change, once a real
-  callsign confirms the carrier's true selection-key string.
+- **La Compagnie** — `[UNRESOLVED]` **through quick task 260921-v9c only.**
+  **Status changed by quick task `260921-v9c` (2026-09-21): this carrier IS
+  now a real target** (`la-compagnie.png`, primary — see the "Quick task
+  260921-v9c" section below for the full record). At the time this
+  exclusion was recorded (Phase 3.1), the real-world ICAO code (`DJT`) was
+  independently confirmed via Wikipedia, but `adsbdb`'s own database
+  resolved that exact code to an unrelated US airline ("Denver Jet"), and
+  no real La Compagnie callsign was available that session to determine
+  what a genuine flight actually returns. The developer observed a real
+  DJT-prefixed La Compagnie flight at Orly on 2026-09-21, clearing that
+  blocker (`[DEVELOPER-OBSERVED]` evidence class — weaker than a curl
+  transcript, but sufficient by the developer's own decision). The
+  speculatively-generated `_unresolved/la-compagnie.png` draft this
+  exclusion produced has been removed from disk — the new `la-compagnie.png`
+  is a fresh regeneration superseding that draft, not the draft promoted
+  (different bytes, different sha256; see the `_unresolved/` table above
+  for the removed draft's own digest).
 
 ### Quick task 260827-kih (2026-08-27) — Amelia added, three files renamed, correction mechanism introduced
 
@@ -482,3 +498,89 @@ with the real aircraft's plain white tail, modest uppercase `AMELIA` title and
 two low emerald ribbons. A first correction draft that painted a checkerboard
 was rejected as opaque RGB and never vendored; the accepted replacement is
 native RGBA with transparent corners.
+
+## Quick task 260921-v9c (2026-09-21) — nine new targets, developer-observed evidence class
+
+**Target count:** `server/plane/illustrations.py --targets` reported **43**
+before this task and **52** after (nine new primaries). **Outstanding
+count:** 0 before, 0 after — every target this batch adds is delivered on
+arrival, nothing is left for a future generation pass.
+
+**Provenance.** These nine files were generated externally by the developer
+(not in this environment — this environment still has no image-generation
+tool, unchanged from every prior batch) and delivered on 2026-09-21 as
+untracked files in a sibling checkout of this repo, then copied into this
+branch unchanged (plain `cp`, no `git mv` — there was no history to
+preserve in the sibling checkout). The generation tool is **not recorded**:
+the developer did not state which tool produced these files, and this
+record does not guess. Same licensing rationale as every prior AI-generated
+batch (see the "Provenance summary" section at the top of this file) — not
+independently rights-cleared or reviewed by counsel, accepted for this
+hobby project's scope on the same basis already accepted for every earlier
+batch.
+
+**Evidence class.** Every one of these nine targets is backed by the
+`[DEVELOPER-OBSERVED]` verdict token (defined in `illustrations.py`'s
+module docstring and in `HANDOFF.md`): observed by the developer at Orly on
+2026-09-21 from photographs/screenshots reviewed offline; no adsbdb
+transcript and no fixture exists for any prefix in this batch. This is
+materially weaker evidence than every `[VERIFIED-*]`/`[CITED: ...]` row in
+the tables above — the same class as the KLJ row's 2026-09-02
+confirmation.
+
+**Aircraft-type note:** the "Aircraft type" column below records what is
+actually depicted in each delivered file (confirmed by visual inspection),
+not what was originally assumed before the files were inspected — see
+`server/plane/illustrations.py`'s `_ILLUSTRATION_TARGETS` notes, which were
+corrected in a follow-up commit this same task after the initial notes
+(written before inspection) turned out to describe the wrong aircraft type
+for five of the nine files.
+
+All nine files are native RGBA PNGs, at least 1200px wide, landscape, with a
+real (non-fully-opaque) alpha channel, and all pass `server/.venv/bin/
+python3 server/plane/illustrations.py --validate` as of this record (sha256
+digests computed directly against the files vendored in this directory,
+`shasum -a 256 <file>`; pixel dimensions read via Pillow `Image.open(path)
+.size`).
+
+| Filename | Airline served | Aircraft type | Dimensions (px) | sha256 |
+|---|---|---|---|---|
+| `la-compagnie.png` | La Compagnie | Airbus A321neo LR (registration F-HNCO visible) | 2172×724 | `dac378213479dd11c0bc39f53cc8865b98d26a707b11920d07052d1a6c59fb57` |
+| `qatar-amiri-flight.png` | Qatar Amiri Flight | Airbus A320, Qatar Airways' commercial "QATAR" livery — no distinct VIP paint scheme or registration is visible in the delivered art | 2172×724 | `bd51442b076d59e935fd8c9f56fbdaada4c11de90e8e08f3448e198bad7d32ee` |
+| `south-korea-government.png` | South Korea Government | Boeing 747-8i, "KOREA" presidential livery (tail marking `22-001`, matching the developer's observed callsign KAF001) | 2172×724 | `1b4c9b91bd50aec20d6051777e755094c262037184900ec6deafeb16dc4ed4d7` |
+| `royal-jordanian.png` | Royal Jordanian | Boeing 787-8 Dreamliner (registration JY-BAA visible) | 2170×725 | `57080774427d928944e5b951e00bc3486a6ff955cf7cf6b545d789b2f8abd569` |
+| `french-air-force.png` (delivered as `french-air-force-a330.png`, see the renaming note below) | French Air Force (COTAM) | Airbus A330 MRTT Phénix, "ARMÉE DE L'AIR ET DE L'ESPACE" livery, refuelling boom visible (tail marking `070`) | 2135×736 | `62c25be8aa5595e1aac24a3a44051d3bf783dc486cbcf8a4b919ef452b20e17d` |
+| `saudi-royal-aviation.png` | Saudi Royal Aviation | Boeing 777-300ER, "KINGDOM OF SAUDI ARABIA" state livery (registration HZ-HM5 visible) | 2172×724 | `93b11b160b24a7168800b9789f38888dfb29e87746f43eec7f0c67e292063c44` |
+| `saudia.png` | Saudia | Boeing 777-300ER, current Saudia livery (registration HZ-AK7 visible) | 2170×725 | `99a7cba14c1306e93d024b349843a7c5f0094aff5897c6dc241f1ffbfc73b0be` |
+| `gendarmerie-nationale.png` | Gendarmerie Nationale | Eurocopter/Airbus EC145 helicopter (labelled "EC145 AIRBUS" in the art), "GENDARMERIE" titling | 1774×887 | `a9f86fe875de9033c4bb3068b71f8ee0a0145970e7a17ba30686c9ee37df7079` |
+| `iraqi-government.png` | Iraqi Government | Boeing 737, "REPUBLIC OF IRAQ" government livery (registration YI-ASF visible, matching the developer's observed tail) | 2172×724 | `195c9a0003f7b04627d9671f61acd48c002bb4fbd9733f1ce17e2eb37e1348d1` |
+
+**`french-air-force.png` renaming (QT-v9c-D-04).** The developer's delivered
+filename was `french-air-force-a330.png`. It is vendored here under the
+unsuffixed primary name `french-air-force.png` instead, because
+`companion/pages/airlines_page.py` builds every gallery card's `<img src>`
+from the primary key alone and a shape-suffixed-only target would render a
+404 image in the companion — see `server/plane/illustrations.py`'s "French
+Air Force" note and `enrich.py`'s `CTM` row for the full rationale. The
+bytes are unchanged from the delivered file; only the on-disk filename
+differs from what the developer named it.
+
+**Local modifications:** none. All nine files are used exactly as
+delivered — no post-processing, cropping, recompression, or alpha
+replacement applied by this project, beyond the one filename change noted
+above.
+
+**Deliberately excluded from this batch (QT-v9c-D-06), for the record:**
+
+- **`DEF`** — a privately-registered Cirrus SR22T (tail D-EFGM), not an
+  operator. No prefix row, no target, no artwork.
+- **`QEM`** — flagged by the developer as NOT Qatar Amiri Flight's official
+  prefix. The aircraft actually observed under this code (an Airbus ACJ320,
+  tail A7-MBK) belongs to Qatar Amiri Flight and is reachable through this
+  batch's `QAF` row instead — hardcoding `QEM` would encode an unreliable
+  guess for zero gain. No prefix row, no target, no artwork.
+- **`saudi-special-flight.png`** — a tenth file delivered alongside the nine
+  above, with no confirmed operator behind it. Its name says "Saudi" while
+  the only candidate prefix discussed this session (`QEM`) was for a Qatari
+  aircraft — an unresolved mismatch. Neither copied into this directory nor
+  referenced by any table; deferred to a future session.

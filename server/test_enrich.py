@@ -28,7 +28,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 59
+EXPECTED_CHECK_COUNT = 60
 
 
 def load_fixture(name):
@@ -1397,6 +1397,59 @@ def main():
         "int, an empty string, a bare 3-letter callsign, and a path-separator payload - one check covering the "
         "whole hostile-input sweep",
         _clear_resolved_unresolved_prefix_hostile_input_sweep,
+    )
+
+    # 60. Quick task 260921-v9c (2026-09-21): the eleven new prefixes each
+    #     resolve to their exact expected name via airline_from_callsign()
+    #     using a realistically-shaped callsign for each (including
+    #     TFV60HA and KAF001 as actually observed); the DJT correction seam
+    #     rewrites the wrong-carrier string "Denver Jet" to "La Compagnie"
+    #     via correct_airline_name(); and the two deliberate exclusions
+    #     (DEF, QEM) resolve to nothing - QT-v9c-D-06 guard.
+    def _v9c_eleven_new_prefixes_and_djt_correction_and_exclusions():
+        want = {
+            "CAJ": "Air Caraïbes",
+            "DJT": "La Compagnie",
+            "QAF": "Qatar Amiri Flight",
+            "KAF": "South Korea Government",
+            "RJA": "Royal Jordanian",
+            "CTM": "French Air Force",
+            "SRA": "Saudi Royal Aviation",
+            "SVA": "Saudia",
+            "TFV": "Transavia France",
+            "FGN": "Gendarmerie Nationale",
+            "IPF": "Iraqi Government",
+        }
+        for prefix, expected in want.items():
+            got = enrich.airline_from_callsign("%s101" % prefix)
+            if got != expected:
+                return False, "airline_from_callsign('%s101') = %r, expected %r" % (prefix, got, expected)
+
+        got_tfv = enrich.airline_from_callsign("TFV60HA")
+        if got_tfv != "Transavia France":
+            return False, "airline_from_callsign('TFV60HA') = %r, expected 'Transavia France'" % (got_tfv,)
+
+        got_kaf = enrich.airline_from_callsign("KAF001")
+        if got_kaf != "South Korea Government":
+            return False, "airline_from_callsign('KAF001') = %r, expected 'South Korea Government'" % (got_kaf,)
+
+        got_correction = enrich.correct_airline_name("DJT9001", "Denver Jet")
+        if got_correction != "La Compagnie":
+            return False, "correct_airline_name('DJT9001', 'Denver Jet') = %r, expected 'La Compagnie'" % (got_correction,)
+
+        got_def = enrich.airline_from_callsign("DEF123")
+        if got_def is not None:
+            return False, "airline_from_callsign('DEF123') = %r, expected None (QT-v9c-D-06 guard)" % (got_def,)
+        got_qem = enrich.airline_from_callsign("QEM123")
+        if got_qem is not None:
+            return False, "airline_from_callsign('QEM123') = %r, expected None (QT-v9c-D-06 guard)" % (got_qem,)
+        return True, ""
+    check(
+        "the eleven 260921-v9c prefixes each resolve through airline_from_callsign() to their exact expected "
+        "name (including TFV60HA and KAF001 as actually observed), the DJT correction seam rewrites "
+        "'Denver Jet' to 'La Compagnie' via correct_airline_name(), and DEF/QEM both resolve to None "
+        "(QT-v9c-D-06 guard)",
+        _v9c_eleven_new_prefixes_and_djt_correction_and_exclusions,
     )
 
     total = len(results)

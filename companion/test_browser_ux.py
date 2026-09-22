@@ -162,8 +162,9 @@ EXPECTED_CHECK_COUNT = 9
 # 22-11-PLAN.md Task 2 (X7): +1 — at a 390px viewport every Airlines
 # illustration grid renders exactly two cards per row, each row's two
 # columns equal within 1px, the main grid's cards near 159px, and the
-# whole page under 3200px against the audit's measured 5800px. Only a
-# real layout engine resolves `repeat(auto-fill, minmax(200px, 1fr))`,
+# whole page under a ceiling recalibrated against the audit's measured
+# 5800px one-per-row collapse. Only a real layout engine resolves
+# `repeat(auto-fill, minmax(200px, 1fr))`,
 # which is what silently collapsed to ONE column inside a 342px content
 # column — a stylesheet assertion cannot see it. 9 + 1 = 10, recomputed
 # directly against the real on-disk check(...) call count at execution
@@ -4018,11 +4019,27 @@ def main():
                             return False, (
                                 "expected each card near the 159px the contract predicts, got %r"
                                 % (widest_row[0]["width"],))
-                        # X7's second half: the 5800px page roughly
-                        # halves. Measured, with headroom, so this fails
-                        # on a regression rather than on a pixel.
+                        # X7's second half: the 5800px collapsed page
+                        # roughly halves under a working two-per-row grid.
+                        # Originally pinned at 3200px against a measured
+                        # 2594px baseline for the 27 airlines on the grid
+                        # when 22-11 shipped this check (22-11-SUMMARY.md).
+                        # Recalibrated here (quick task 260921-v9c) after
+                        # nine more illustrated carriers (27->36 airlines)
+                        # legitimately grew the grid: CI measured 3318px
+                        # for the new, correctly-laid-out two-per-row page,
+                        # so the ceiling moves to 3800px — comparable
+                        # proportional headroom to the original (roughly
+                        # +15% over the freshly measured baseline, vs the
+                        # original's +23%), while staying nowhere near the
+                        # ~2x a real one-per-row collapse would produce
+                        # (~6600px on today's card count). Measured, with
+                        # headroom, so this fails on a regression rather
+                        # than on a pixel — and moves again, deliberately,
+                        # the next time the airline count legitimately
+                        # changes.
                         height = page.evaluate("document.documentElement.scrollHeight")
-                        if height > 3200:
+                        if height > 3800:
                             return False, (
                                 "expected the two-per-row grid to roughly halve the audit's 5800px "
                                 "page, measured %r" % (height,))
@@ -4035,8 +4052,9 @@ def main():
                     "at 390px every Airlines illustration grid renders exactly two cards per row "
                     "(never the one-per-row auto-fill collapse that made the page 5800px tall), "
                     "with each row's two columns equal within 1px, the main grid's cards near the "
-                    "159px the contract predicts, and the whole page under 3200px (X7, "
-                    "22-11-PLAN.md Task 2)",
+                    "159px the contract predicts, and the whole page under 3800px (X7, "
+                    "22-11-PLAN.md Task 2, ceiling recalibrated by quick task 260921-v9c for the "
+                    "27->36 airline count)",
                     _airlines_grid_renders_two_cards_per_row_at_390px)
 
                 def _airlines_filter_count_and_clear_share_one_line_at_390px():
