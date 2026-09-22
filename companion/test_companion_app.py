@@ -992,33 +992,28 @@ _NO_JS_CONTROL_REGISTRY = (
         "page_route": "/device",
         "render": lambda: config_page.wake_interval_group(600),
     },
-    # 25-06-PLAN.md Task 3 (CFG-50): ONE row, not two, and the reason is
-    # the opposite of 25-04's. A row names one FIELD, and D5's carousel
-    # holds exactly one — `theme` — however many affordances surround it.
-    # The two pagers are two BUTTONS steering one native radio group;
-    # registering them separately would claim this card saves two
-    # settings, which it does not.
+    # 30-03-PLAN.md Task 2 (CFG-85), 2026-09-22: the row that used to
+    # live here — "the theme carousel's two pagers (D5)" — is DELETED
+    # OUTRIGHT, not repointed at the new accordion/palette markup
+    # (30-RESEARCH.md's own Pitfall 2). This registry proves ONE thing:
+    # every element carrying a `.js`-gated wrapper attribute also has a
+    # native input reachable when the gate is absent — it registers
+    # JS-REQUIRED affordances only. The retired pagers were registered
+    # here for exactly that reason ("the only part of this control that
+    # cannot work without a script"); the new `<details name="aspect-
+    # rows">` accordion is complete from first paint with ZERO script
+    # (native grouped-<details> exclusivity), so it introduces no
+    # `layout.JS_GATE_CLASS`-wrapped element at all — there is nothing
+    # left to gate, and therefore nothing to register. Repointing this
+    # row at the palette radios would claim a JS-optionality property
+    # that was never at risk for them (they were never script-gated),
+    # which is either a guard that fails immediately (no wrapper
+    # attribute exists on the new markup) or, worse, one that passes
+    # vacuously against a leftover attribute — both wrong. A future
+    # plan that DOES introduce a genuinely `.js`-gated Aspect element
+    # should add a new row here, arguing it the way every other row in
+    # this tuple does; none is owed by this phase.
     #
-    # The registered wrapper attribute is the PAGER WRAPPER's, because
-    # the pagers are the only part of this control that cannot work
-    # without a script. Everything else the carousel adds — the strip's
-    # scroll-snap layout, the "See all themes" <details>, the dots row —
-    # is native or server-rendered and is deliberately NOT gated: gating
-    # any of it would hide working affordances from a scripts-blocked
-    # visitor, which is the mirror of the defect this registry catches.
-    #
-    # `form_assoc` is "attribute": the Frame colours card is a SIBLING of
-    # <form id="settings-form"> (a <form> cannot nest inside another
-    # <form>), so every theme radio carries form= itself.
-    {
-        "control": "the theme carousel's two pagers (D5)",
-        "plan": "25-06-PLAN.md Task 3",
-        "wrapper_attr": config_page.THEME_CAROUSEL_WRAPPER_ATTR,
-        "field": "theme",
-        "form": config_page.SETTINGS_FORM_ID,
-        "form_assoc": "attribute",
-        "render": lambda: config_page._frame_colours_card_html({}, "white", None, None),
-    },
     # 25-07-PLAN.md Task 2 (CFG-51): ONE row. A row names one FIELD, and
     # D19's drop zone holds exactly one — `image` — however many copies
     # of the form carry a zone (three on a Step-B edit-mode render).
