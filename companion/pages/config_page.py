@@ -1221,16 +1221,20 @@ FLASH_RULE_DELETE_FAILED = "rule_delete_failed"
 # happens to be the one currently on screen - it does not track, watch,
 # follow, monitor, notify, or know a flight is happening independently of
 # what is on screen, and no string here may imply otherwise.
-CALENDAR_SECTION_HEADING = "Calendar"
-# 20-09-PLAN.md Task 1 (D-14d): the compact chip grid's own
-# aria-labelledby target — the card's own <h2> already names the
-# subject, so no second visually-hidden label is needed (20-UI-SPEC.md
-# §E).
-CALENDAR_HEADING_ID = "calendar-heading"
-# D-14a: one plain sentence, no lecture — the two-sentence disclaimer
-# and the "applies on the next poll" note move into the "How it works"
-# disclosure below.
-CALENDAR_CAPTION = "Flights from your calendar get their own colour on the frame."
+#
+# 30-06-PLAN.md Task 1 (CFG-85), 2026-09-22: CALENDAR_SECTION_HEADING,
+# CALENDAR_HEADING_ID and CALENDAR_CAPTION are RETIRED here — the
+# calendar's connection block no longer renders its own
+# `<div class="page-section">` with its own `<h2>`/caption; it folds
+# directly into the Calendar usage row inside the Aspect card
+# (`_calendar_connection_html()`, below), which already has its own
+# `<h2 class="text-heading" id="aspect-heading">Aspect</h2>` naming the
+# whole card. Real call-site counts before this deletion (git grep,
+# code files only): CALENDAR_SECTION_HEADING 8 total mentions / 2 real
+# reads (both inside `calendar_group()`'s own now-deleted card_html
+# string); CALENDAR_HEADING_ID 4 total / 1 real read (same string);
+# CALENDAR_CAPTION 11 total / 1 real read (same string). Zero surviving
+# consumers after this commit.
 CALENDAR_HOW_IT_WORKS_SUMMARY = "How it works"
 CALENDAR_HOW_IT_WORKS_BODY = (
     "It can only colour a flight that happens to be on screen — it "
@@ -1321,15 +1325,17 @@ CALENDAR_URL_HINT_ID = "calendar-url-hint"
 # plan naming a new exemption must argue it here, in this comment, not
 # merely add a line to a test file.
 #
-# THIS TUPLE DOES NOT EMPTY THIS PHASE, and — per the paragraph above —
-# never fully empties: `DISPLAY_LOOK_INTRO` and `CALENDAR_URL_HINT`
-# are permanent, deliberate carve-outs, not a debt Phase 30 pays off.
-# 30-06-PLAN.md narrows this tuple to two members (`DISPLAY_LOOK_INTRO`,
-# `CALENDAR_URL_HINT`) when it deletes `CALENDAR_CAPTION`; it does not
-# and should not try to reach zero.
+# 30-06-PLAN.md Task 1 (CFG-85), 2026-09-22: `CALENDAR_CAPTION` is
+# removed here, in the SAME commit that deletes the constant itself
+# (the calendar's connection block no longer has its own caption once
+# it folds into the Calendar usage row) — narrowing this tuple to its
+# two PERMANENT members, `DISPLAY_LOOK_INTRO` and `CALENDAR_URL_HINT`.
+# THIS TUPLE DOES NOT EMPTY THIS PHASE, and never will: those two are
+# deliberate, standing carve-outs (a different card's own intro; a
+# hint sentence 30-UI-SPEC.md explicitly says never to shorten), not a
+# debt any later plan owes. Do not try to reach zero.
 ASPECT_CAPTION_EXEMPTIONS = (
     DISPLAY_LOOK_INTRO,
-    CALENDAR_CAPTION,
     CALENDAR_URL_HINT,
 )
 # 21-07-PLAN.md Task 1 (D-14): the merged card's own small grey button
@@ -2093,24 +2099,33 @@ def _usage_row_html(usage, summary_html, body_html, is_open=False, extra_class="
 
 def _aspect_card_html(
         ctx, current_theme_id, current_theme_arriving, current_calendar_theme_id,
-        errors=None, submitted=None, state_dir=None):
+        errors=None, submitted=None, state_dir=None,
+        calendar_configured=False, calendar_drift=False, calendar_last_synced_at=None,
+        calendar_last_attempt_at=None, now=None, calendar_entry_count=0):
     """30-04-PLAN.md Task 1 (CFG-85): "Aspect" — the ONE tile that
     replaces `_frame_colours_card_html()`'s four-row `colour_usage`
     radiogroup + four usage panels with a native `<details name=
     "aspect-rows">` accordion: one live preview above four grouped
     `_usage_row_html()` rows, in `COLOUR_USAGES`' own locked order
-    (departures/arrivals/calendar/rules). SAME SIGNATURE as the
-    function it replaces, so `render()`'s own call site changes by one
-    name.
+    (departures/arrivals/calendar/rules).
 
-    THE CALENDAR ROW'S CONNECTION BLOCK IS NOT HERE. `calendar_group()`
-    still renders its own separate `<div class="page-section">` below
-    this card, entirely unchanged, until 30-06-PLAN.md folds its body
-    into this row — splitting the merge that way is deliberate (see
-    this plan's own `<objective>`: two independent failure modes belong
-    in two diffs, not one). This row therefore only carries the
-    calendar's own THEME picker (`calendar_theme_id`), identical in
-    shape to Arrivals' leading-option-plus-palette.
+    30-06-PLAN.md Task 1 (CFG-85), 2026-09-22: THE CALENDAR ROW'S
+    CONNECTION BLOCK IS NOW HERE. `calendar_group()` is retired outright
+    — its body (status row, connect/replace/disconnect, "How it works")
+    is built by `_calendar_connection_html()` (below) and threaded into
+    the Calendar row directly beneath its palette and field error, per
+    30-UI-SPEC.md's Structural Contract row 3 and §6 (no third "Gérer"
+    wrapper — see that function's own docstring). The six new keyword
+    parameters above (`calendar_configured`/`calendar_drift`/
+    `calendar_last_synced_at`/`calendar_last_attempt_at`/`now`/
+    `calendar_entry_count`) carry the exact names `calendar_group()`'s
+    own call site in `render()` already used for its local variables —
+    this is a merge, not a re-interface. `errors`/`submitted`/
+    `state_dir` were already this function's own parameters (they
+    repopulate the theme palettes on a rejected save) and now double as
+    `_calendar_connection_html()`'s own arguments of the same names —
+    the calendar URL field's own error/submitted-echo behaviour is
+    unchanged by the merge.
 
     `errors`/`submitted` repopulate the three palette grids from a
     rejected save exactly like the retired `_frame_colours_card_html()`
@@ -2189,6 +2204,19 @@ def _aspect_card_html(
             else departures_safe_id)
         calendar_meta = i18n.t(device_config.theme_label(calendar_safe_id))
         calendar_swatch_id = calendar_safe_id
+    # 30-06-PLAN.md Task 1 (CFG-85): the calendar's connection block —
+    # status row, masked-URL/Replace/Disconnect actions, "How it works"
+    # — nests directly beneath this row's palette and field error, per
+    # 30-UI-SPEC.md's Structural Contract row 3 ("directly beneath the
+    # palette, not behind any further disclosure"). The disconnect
+    # `<form>` returned alongside it is NOT part of the row body — it is
+    # a sibling fragment of the whole `.aspect-card` div, concatenated
+    # onto this function's own return value below (Pattern 2,
+    # 30-PATTERNS.md; matches `calendar_group()`'s own retired shape).
+    calendar_connection_row_html, calendar_disconnect_form_html = _calendar_connection_html(
+        calendar_configured, calendar_drift, calendar_last_synced_at,
+        calendar_last_attempt_at, now, calendar_entry_count,
+        errors=errors, submitted=submitted, state_dir=state_dir)
     calendar_row = _usage_row_html(
         COLOUR_USAGE_CALENDAR,
         _usage_row_summary_html(
@@ -2196,7 +2224,8 @@ def _aspect_card_html(
         _palette_grid_html(
             "calendar_theme_id", effective_calendar, radio_form_id=SETTINGS_FORM_ID,
             leading_html=calendar_leading, labelled_by=ASPECT_HEADING_ID)
-        + _field_error_html(errors, "calendar_theme_id", "calendar-theme"))
+        + _field_error_html(errors, "calendar_theme_id", "calendar-theme")
+        + calendar_connection_row_html)
 
     # D-10: the rules row's own body — the existing rule list (or the
     # empty state), the existing add form (its own <form>, a legal
@@ -2213,7 +2242,8 @@ def _aspect_card_html(
         registry = {kind: {} for kind in colour_rules.RULE_KINDS}
     rule_rows = colour_rules.rule_rows(registry)
     # RULES_SECTION_CAPTION stays: it is not one of the two captions
-    # CFG-85 deletes (FRAME_COLOURS_CAPTION/CALENDAR_CAPTION — see
+    # CFG-85 deletes outright (the former FRAME_COLOURS_CAPTION,
+    # 30-04-PLAN.md, and CALENDAR_CAPTION, 30-06-PLAN.md — see
     # ASPECT_CAPTION_EXEMPTIONS above) and already meets CFG-79's word
     # floor on its own.
     rules_caption_html = '<p class="text-label section-caption">%s</p>' % escape_html(
@@ -2257,7 +2287,7 @@ def _aspect_card_html(
         extra_class="usage-row--secondary")
 
     rows_html = departures_row + arrivals_row + calendar_row + rules_row
-    return (
+    card_html = (
         '<div class="page-section aspect-card" %s="%s">'
         '<h2 class="text-heading" id="%s">%s</h2>'
         "%s"
@@ -2269,6 +2299,12 @@ def _aspect_card_html(
         live_preview_html,
         rows_html,
     )
+    # 30-06-PLAN.md Task 1 (CFG-85), Pattern 2 (30-PATTERNS.md): the
+    # disconnect `<form>` is a data-only sibling of the WHOLE
+    # `.aspect-card` div, never nested inside it or inside the Calendar
+    # `<details>` row — matching `calendar_group()`'s own retired
+    # `card_html + disconnect_form_html` shape exactly.
+    return card_html + calendar_disconnect_form_html
 
 
 def runway_fieldset(
@@ -4367,56 +4403,46 @@ def _masked_calendar_url(url):
     return "%s…" % netloc
 
 
-def calendar_group(
+def _calendar_connection_html(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count,
         errors=None, submitted=None, state_dir=None):
-    """The Calendar card (21-07-PLAN.md Task 1, 21-UI-SPEC.md Section
-    Anatomy E; D-13/D-14): ONE `<div class="page-section">`, in the
-    "Look" supersection, after the Frame colours card (D-06, 21-05-
-    PLAN.md Task 1). Retires the three-piece split (a status-only card,
-    a separate connect/replace mini-form card, and a standalone
-    disconnect form) a run of earlier plans (20-04/20-07/20-09) built up
-    — D-13 wants genuine nesting, not three DOM siblings visually glued
-    by a `:has()` CSS trick (21-RESEARCH.md Pitfall 2).
+    """30-06-PLAN.md Task 1 (CFG-85), 2026-09-22: the calendar's
+    connection block, folded into the Calendar accordion row inside
+    `_aspect_card_html()` — replaces the retired `calendar_group()`,
+    which used to render this same content as its OWN separate
+    `<div class="page-section">`, with its own `<h2>Calendar</h2>` and
+    caption. Neither the card, the heading nor the caption exist any
+    more: the Calendar `<details>` row's own `<summary>` (built by
+    `_usage_row_summary_html()`) now names the subject, and
+    `_aspect_card_html()`'s single `<h2>Aspect</h2>` names the whole
+    card. SAME ARGUMENTS as the retired function, in the same order —
+    this is a body extraction, not a re-interface.
 
-    In document order: the status row, then a state branch (below), then
-    the "How it works" disclosure — always inside this one wrapper. The
-    disconnect action's own confirmed `<form>` is the ONE piece that
-    still cannot live inside this div (HTML forbids a `<form>` nested in
-    another `<form>`, and this card's own connect/replace form is
-    itself a `<form>`) — it renders as a second, data-only fragment,
-    concatenated onto this function's return value as a plain sibling,
-    never as a second value the caller has to remember to place. Every
-    caller therefore gets both pieces, correctly ordered, from one call.
+    Returns a `(row_body_html, disconnect_form_html)` **tuple**, not one
+    concatenated string — the honest shape now that `row_body_html`
+    nests inside a `<details>` while the disconnect `<form>` must not
+    (30-PATTERNS.md, "Disconnect-form sibling-fragment pattern"; HTML
+    forbids a `<form>` nested in another `<form>`, and this row's own
+    connect/replace form is itself a `<form>`). The caller
+    (`_aspect_card_html()`) places `row_body_html` inside the Calendar
+    `<details>`, directly beneath that row's palette and field error,
+    and concatenates `disconnect_form_html` onto its OWN return value
+    as a sibling of the whole `.aspect-card` div — never as a second
+    value a caller could forget to place.
 
-    21-05-PLAN.md Task 1 (D-06): the compact `calendar_theme_id` chip
-    grid this card used to render (D-14d) is retired outright — it now
-    lives inside the Frame colours card's own "Calendar flights" usage
-    panel, alongside a "Same as departures" leading chip (D-09).
-    `current_calendar_theme_id`/`current_theme_id`/`errors["calendar_
-    theme_id"]` are therefore no longer this function's concern.
-    `errors`/`submitted` stay: `errors` reaches the write-only URL
-    field's own error message (the one field this merged card still
-    validates); `submitted` stays fully defaulted, unused, purely for
-    call-site symmetry with every other group builder — there is
-    nothing else here to repopulate.
-
-    21-07-PLAN.md Task 2 (D-14/R-10): `state_dir` (fully defaulted,
-    `None` when the caller has none to give) is the ONE new parameter
-    this task adds — it is read exactly once, only in the connected
-    branch below, purely to compute the masked feed-URL line via
-    `_masked_calendar_url()` (`calendar_rules.configured_calendar_url(
-    state_dir)`). This is the single call site in this module that
-    reads a stored calendar secret back for display; every other
-    reader of `configured` never touches the value itself.
-
-    D-12 fix (carried forward): this card renders as a SIBLING of
-    `<form id="settings-form">`, not a literal descendant — nothing
-    inside it posts through the physical form any more.
+    `row_body_html` is, in this order and with NO extra wrapping
+    element of any kind — 30-UI-SPEC.md §6's resolved discrepancy vs.
+    ROADMAP's prose: two of these four pieces (Replace-URL, How it
+    works) are already their own `<details>`, so a further "Gérer"/
+    "Manage" wrapper around them would be a third disclosure layer
+    around two disclosures that already exist — redundant, not
+    clarifying. Build the flatter, sketch-approved shape:
 
     **D-14b — the status row.** `layout.status_row("", verdict, detail,
-    state)`: label is `""` because the card's own `<h2>Calendar</h2>`
-    already names the subject. Four branches, `drift` first — a
+    state)`: label is `""` because the Calendar row's own `<summary>`
+    already names the subject (the retired function's docstring said
+    the same of its own `<h2>Calendar</h2>` — the reasoning transfers
+    unchanged to the new landmark). Four branches, `drift` first — a
     permission-drifted stored link (D-02) wins over everything else,
     because `configured` is already `False` in that state (D-08 —
     `calendar_is_configured()`'s own bool contract) and a later check
@@ -4460,28 +4486,30 @@ def calendar_group(
 
     **D-14 — the cross-form Disconnect button.** The disconnect
     `<form id="{CALENDAR_DISCONNECT_FORM_ID}">` is a genuinely separate
-    DOM element (a data-only sibling of this card's own outer `<div>`,
-    concatenated onto the return value below) carrying only its hidden,
-    EMPTY confirm field — a bare POST of that form therefore submits no
-    confirm value at all, landing on `_handle_calendar_disconnect_post()`
-    's own server-rendered confirmation page (`calendar_disconnect_
-    confirm_page()` below) rather than erasing anything. That page IS
-    the real control; the visible button (rendered inline, wherever this
-    function's state branch puts it) additionally carries `data-
-    confirm`/`data-confirm-value` attributes `companion/static/
-    confirm-submit.js` reads to show one native `confirm()` dialog and,
-    on acceptance only, fill this same hidden field with `CALENDAR_
+    DOM element (a data-only sibling of the whole `.aspect-card` div,
+    concatenated onto `_aspect_card_html()`'s own return value) carrying
+    only its hidden, EMPTY confirm field — a bare POST of that form
+    therefore submits no confirm value at all, landing on
+    `_handle_calendar_disconnect_post()`'s own server-rendered
+    confirmation page (`calendar_disconnect_confirm_page()` below)
+    rather than erasing anything. That page IS the real control; the
+    visible button (rendered inline, wherever this function's state
+    branch puts it) additionally carries `data-confirm`/`data-confirm-
+    value` attributes `companion/static/confirm-submit.js` reads to
+    show one native `confirm()` dialog and, on acceptance only, fill
+    this same hidden field with `CALENDAR_
     DISCONNECT_CONFIRM_VALUE` before letting the submit proceed — a
-    misclick guard layered on top, never a substitute for the server-
-    side gate. The button reaches the form it does not contain via a
-    `form="{CALENDAR_DISCONNECT_FORM_ID}"` attribute — the same cross-
-    DOM submission idiom the dirty bar's own Save button already uses,
-    required here because HTML forbids nesting this `<form>` inside the
-    card's own connect/replace `<form>` or inside the card's outer
-    `<div>` sitting next to one.
+    misclick guard layered on top, never a substitute for the
+    server-side gate. The button reaches the form it does not contain
+    via a `form="{CALENDAR_
+    DISCONNECT_FORM_ID}"` attribute — the same cross-DOM submission
+    idiom the dirty bar's own Save button already uses, required here
+    because HTML forbids nesting this `<form>` inside the row's own
+    connect/replace `<form>` or inside the `<details>` sitting next to
+    one.
 
     **D-14a — the "How it works" disclosure.** Always renders in full,
-    at the bottom of the card, in every state.
+    at the bottom of this block, in every state.
     """
     # Drift first (D-02): a drifted file makes `configured` already
     # False (D-08), so checking `not configured` before `drift` would
@@ -4609,22 +4637,11 @@ def calendar_group(
         escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_BODY)),
     )
 
-    card_html = (
-        '<div class="page-section" %s="%s">'
-        '<h2 class="text-heading" id="%s">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
-        "%s"
-        "%s"
-        "%s"
-        "</div>"
-    ) % (
-        DIRTY_SECTION_ATTR, escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
-        escape_html(CALENDAR_HEADING_ID), escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
-        escape_html(i18n.t(CALENDAR_CAPTION)),
-        status_html,
-        state_branch_html,
-        how_it_works_html,
-    )
+    # No wrapping element of any kind — the retired calendar_group()'s
+    # own outer `<div class="page-section">`, `<h2>` and caption are all
+    # gone; this is now a plain concatenation of the four pieces, placed
+    # by the caller directly inside the Calendar `<details>` row.
+    row_body_html = status_html + state_branch_html + how_it_works_html
 
     if configured or drift:
         disconnect_form_html = (
@@ -4642,7 +4659,7 @@ def calendar_group(
     else:
         disconnect_form_html = ""
 
-    return card_html + disconnect_form_html
+    return row_body_html, disconnect_form_html
 
 
 def calendar_disconnect_confirm_page(ctx):
