@@ -19,7 +19,7 @@ Goodreads — warm editorial feel, card-based browsing with visible relief, seri
 | 003 | history-table-density | Does merging Callsign+Hex and Type+Airline make the table fit a 13" laptop without horizontal scroll? | B (Inline compact) | data-density, table |
 | 004 | theme-picker-chips | Do runway-card-style chips with a real rendered theme preview actually read well at 16-theme scale? | B (Chip grid, 160px) | theme-picker, settings, visual-direction |
 | 005 | type-ladder-health-page | Does the new type ladder (32/22/16px + unified sans-uppercase labels + 24px gaps) hold together on a real page? | B (New ladder) | typography, hierarchy, labels, spacing, visual-direction |
-| 006 | aspect-tile-accordion-vs-segments | Accordion or segments — which structure reads best for Aspect's one-tile rebuild (CFG-85)? | *(awaiting developer)* | settings, theme-picker, control-density, visual-direction, phase-30 |
+| 006 | aspect-tile-accordion-vs-segments | Accordion or segments — which structure reads best for Aspect's one-tile rebuild (CFG-85)? | A (Accordion) | settings, theme-picker, control-density, visual-direction, phase-30 |
 
 ## Phase 30 note
 

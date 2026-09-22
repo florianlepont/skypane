@@ -2,7 +2,7 @@
 sketch: 006
 name: aspect-tile-accordion-vs-segments
 question: "Accordion or segments — which structure reads best for Aspect's one-tile rebuild (CFG-85)?"
-winner: null
+winner: "A (Accordion)"
 tags: [settings, theme-picker, control-density, visual-direction, phase-30]
 ---
 
@@ -21,7 +21,7 @@ python3 -m http.server 8731 --directory .planning/sketches
 open http://localhost:8731/006-aspect-tile-accordion-vs-segments/index.html
 ```
 
-(A plain `open index.html` also works — the sketch has no external dependency beyond `../themes/default.css`, which resolves fine over `file://` in a real browser. The one broken path found during this build was this session's own in-app preview pane, whose screenshot mechanism renders a stale/wrong frame for this file while the DOM and every interaction underneath it are provably correct — verified by direct JS inspection and `get_page_text`, not by trusting the screenshot. Open it in a real browser tab to judge it visually.)
+(A plain `open index.html` also works — the sketch has no external dependency beyond `../themes/default.css`, which resolves fine over `file://` in a real browser.)
 
 ## Variants
 
@@ -41,3 +41,7 @@ Both variants:
 - **Repetition vs redundancy.** Accordion builds three independent palette grids (one per row); Segments builds one, reused. Does Accordion's repetition feel like unnecessary weight, or does each row feeling "complete on its own" matter more?
 - **Résize to 360px** (the app's own floor) — both variants target a narrow settings-page column; check nothing wraps awkwardly or the palette grid gets uncomfortably cramped.
 - **Dark mode** (the Clair/Sombre switch top-right) — swatches and selection state should stay legible in both themes.
+
+## Decision
+
+**Winner: A (Accordion).** Approved by the developer 2026-09-22 after re-verifying both variants at the 360px floor and in dark mode. Phase 30 planning should build the one-tile Aspect rebuild on the accordion structure: `<details name="aspect-rows">` per usage row, palette inline under the open row, calendar connection status nested inside "Vols du calendrier", "Règles par vol" as a fourth disclosure row with the add-rule form from `config_page.py`'s `_rule_add_form_html()`.
