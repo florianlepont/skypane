@@ -6252,6 +6252,23 @@ details[open] > summary::before {
   }
 }
 
+/* Quick task 260922-jiy: separate the Compagnies gallery from the
+ * "Compagnies non identifiees" gap-strip card below it, spending the
+ * same D-14/UIR-24 sibling-card gap (--space-lg) every other stacked
+ * pair in this app already uses. This is declared as a top margin on
+ * the FOLLOWING .page-section, not a bottom margin on .illustration-grid
+ * itself, because .illustration-grid is load-bearing on TWO elements:
+ * the outer gallery grid above, and the gap-strip's own inner grid
+ * (which wears illustration-grid--gap alongside it, see that rule's
+ * comment). A margin on the shared base class would also push the
+ * strip's own unresolved-callsign cards away from the overflow line
+ * below them, which is not wanted. The adjacent-sibling selector is
+ * what confines the gap to the outer gallery: the inner grid is always
+ * followed by a <p>, never by a .page-section. */
+.illustration-grid + .page-section {
+  margin-top: var(--space-lg);
+}
+
 /* The 06.6.4 D-03 hairline-at-rest/shadow-on-hover card contract,
  * verbatim — do not "restore" a resting shadow on this component. */
 .airline-card {
