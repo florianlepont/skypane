@@ -8475,7 +8475,12 @@ def main():
             # via its own data-usage-panel-target attribute.
             if "Manual refresh" not in device_text:
                 return False, "expected the Device page to carry Manual refresh"
-            rules_panel_marker = 'data-usage-panel-target="rules"'
+            # 30-05-PLAN.md Task 3 (CFG-85): repointed from the retired
+            # data-usage-panel-target attribute to the accordion row's
+            # own data-usage attribute — the same locator
+            # test_config_page.py's own _aspect_usage_row_bounds()
+            # keys off.
+            rules_panel_marker = 'data-usage="rules"'
             if rules_panel_marker in device_text:
                 return False, "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)"
             if rules_panel_marker not in display_text:
@@ -11924,20 +11929,25 @@ def main():
             # Minimums pinned a little below the observed figures on this
             # exact (fresh, unseeded) fixture — re-derived by RUNNING this
             # exact selector against a real render of each route: Home 2,
-            # Display 15, Flights 0 (a genuinely empty page with no
-            # .section-caption element at all on a fresh state dir — not a
-            # narrowed-selector artefact; Airlines 2, Health 4, Device 8
-            # (English counts; French renders the identical structure).
-            # Enough margin for an unrelated future caption to be added or
+            # Display 11 (30-05-PLAN.md Task 3, CFG-85: down from 15 —
+            # FRAME_COLOURS_CAPTION and the three retired per-grid swatch
+            # legends all disappeared once the accordion rebuild landed),
+            # Flights 0 (a genuinely empty page with no .section-caption
+            # element at all on a fresh state dir — not a narrowed-
+            # selector artefact; Airlines 2, Health 4, Device 8 (English
+            # counts; French renders the identical structure). Enough
+            # margin for an unrelated future caption to be added or
             # removed without retuning this number, not so much margin
             # that a badly narrowed selector could still clear it.
             per_route_min = {
-                layout.HOME_ROUTE: 1, layout.DISPLAY_ROUTE: 13, layout.FLIGHTS_ROUTE: 0,
+                layout.HOME_ROUTE: 1, layout.DISPLAY_ROUTE: 9, layout.FLIGHTS_ROUTE: 0,
                 layout.AIRLINES_ROUTE: 1, layout.HEALTH_ROUTE: 3, layout.DEVICE_ROUTE: 6,
             }
-            # Site-wide total across BOTH languages: 2+2 + 15+15 + 0+0 +
-            # 2+2 + 4+4 + 8+8 = 62 observed, re-derived by RUNNING.
-            site_total_min = 55
+            # Site-wide total across BOTH languages: 2+2 + 11+11 + 0+0 +
+            # 2+2 + 4+4 + 8+8 = 54 observed, re-derived by RUNNING
+            # (30-05-PLAN.md Task 3, CFG-85: down from 62 — Display's own
+            # drop from 15 to 11 per route above is the only change).
+            site_total_min = 47
 
             skip_counts = {"en": 0, "fr": 0}
             site_total_captions = 0
