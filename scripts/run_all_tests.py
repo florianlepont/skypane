@@ -3,7 +3,7 @@
 half; scripts/run-all-tests.sh is the thin invocation wrapper CI and README
 both call).
 
-Runs all 18 harnesses under coverage, aggregates the result, and enforces
+Runs all 24 harnesses under coverage, aggregates the result, and enforces
 the coverage threshold configured in pyproject.toml. Plan 04-04's CI
 workflow calls run-all-tests.sh rather than restating the file list, and
 plan 04-05's README tells contributors to run the same thing — one list,
@@ -46,7 +46,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 
-# Canonical 18-file enumeration (M1, measured live during 04-02 planning;
+# Canonical 24-file enumeration (M1, measured live during 04-02 planning;
 # phase 6 added 6 harnesses — see 06-11-PLAN.md Task 3; 06.6.2-01 added
 # companion/test_contrast_check.py; phase 13 plan 01 added
 # server/test_manual_resolutions.py; phase 14 plan 01 added
@@ -55,10 +55,13 @@ REPO_ROOT = os.path.dirname(HERE)
 # harnesses this phase's notifications and i18n work needed — the
 # companion one is created by a sibling plan in the same wave; this
 # file's own owning plan registers both entries below so the two
-# plans never edit this file together). 04-CONTEXT.md's D-07 list is
-# 7 files and is known-stale — do NOT "correct" this list back down to
-# match it. This list is the single source of truth CI (04-04) and
-# README.md (04-05) both defer to.
+# plans never edit this file together; phase 31 plans 02 and 03 added
+# the two companion/test_browser_ux_*.py entries below, extracted out
+# of companion/test_browser_ux.py to let the worker pool run them
+# concurrently). 04-CONTEXT.md's D-07 list is 7 files and is
+# known-stale — do NOT "correct" this list back down to match it.
+# This list is the single source of truth CI (04-04) and README.md
+# (04-05) both defer to.
 HARNESSES = [
     "server/test_config_history.py",
     "server/test_colour_rules.py",
@@ -87,6 +90,18 @@ HARNESSES = [
     # playwright/Chromium is unavailable, so its presence here never
     # breaks a checkout without the dev-only browser dependency installed.
     "companion/test_browser_ux.py",
+    # 31-02-PLAN.md Task 1: the Health SVG-drawings scenario group (battery
+    # ring, battery chart, day band, regularity grid) split out of
+    # companion/test_browser_ux.py so the worker pool can run it
+    # concurrently with its parent. Like its parent, it skips cleanly
+    # (exit 0) when playwright/Chromium is unavailable.
+    "companion/test_browser_ux_health_drawings.py",
+    # 31-03-PLAN.md Task 1: the quiet-hours dial + wake-interval slider
+    # scenario group split out of companion/test_browser_ux.py so the
+    # worker pool can run it concurrently with its parent. Like its
+    # parent, it skips cleanly (exit 0) when playwright/Chromium is
+    # unavailable.
+    "companion/test_browser_ux_quiet_wake.py",
 ]
 
 # Submission order only (readability of HARNESSES above stays untouched) —
@@ -96,6 +111,13 @@ HARNESSES = [
 # test_render 59.4s, test_poll_loop 22.8s, companion_app 8.9s,
 # poll_cycle 3.8s, panel_preview 3.5s, status_pages 2.6s, pipeline_e2e 2.3s;
 # everything else under 1s each and left in HARNESSES' own list order.
+# 31-02/31-03: the two companion/test_browser_ux_*.py entries below also
+# each launch their own Chromium plus their own companion/app.py
+# subprocess (the same property that makes their parent the slowest file
+# by construction), so they belong near the top too. Standalone wall
+# times measured under linux/amd64 Docker (31-02-SUMMARY.md,
+# 31-03-SUMMARY.md): test_browser_ux_health_drawings 46.30-48.6s,
+# test_browser_ux_quiet_wake 56.65s.
 EXPECTED_SLOWEST = (
     # 22-01-PLAN.md Task 1 (D-02): launches a real headless Chromium
     # subprocess plus the companion/app.py subprocess it drives — the
@@ -103,6 +125,8 @@ EXPECTED_SLOWEST = (
     # browser page load per check), placed first so it is in flight from
     # the first moment rather than queued behind shorter harnesses.
     "companion/test_browser_ux.py",
+    "companion/test_browser_ux_health_drawings.py",
+    "companion/test_browser_ux_quiet_wake.py",
     "server/test_render.py",
     "server/test_poll_loop.py",
     "companion/test_companion_app.py",
@@ -186,7 +210,7 @@ def main():
     # `parallel = true` — each process below writes its own .coverage.*
     # data file. Do NOT also pass --append here: coverage.py rejects the
     # combination outright ("Can't append to data files in parallel mode"),
-    # and parallel mode is precisely what makes running these 18 processes
+    # and parallel mode is precisely what makes running these 24 processes
     # concurrently safe in the first place.
     env = dict(os.environ)
     if sys.version_info >= (3, 12) and "COVERAGE_CORE" not in os.environ:
