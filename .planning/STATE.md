@@ -5,15 +5,16 @@ milestone_name: milestone
 current_phase: 29
 current_phase_name: companion-review-feedback-round-3-the-developer-s-own-tour-o
 status: executing
-stopped_at: Completed 29-06-PLAN.md — the site-wide editorial floor (CFG-79/CFG-84), the LAST plan of Phase 29. Battery-trend heading is now short and fixed (Batterie · 3 mois), precision moved to a sibling caption; Etat's check-in caption and read-only note split into a one-sentence visible caption plus a moved-clause disclosure; Compagnies' six over-length captions shortened; one HTTP-level check in test_companion_app.py measures every caption on all six authenticated routes in both languages (317/317), also catching two French translations that exceeded 12 words on their own. Full suite green (scripts/run-all-tests.sh, 93% coverage). Phase 29 is now ready for verification. Code review (29-REVIEW.md) then found one Critical (the Show-more link on Vols shipped with zero of its intended styling — button.calendar-disconnect-btn cannot match an <a> tag) and two Warnings (an orphaned CSS rule from 29-01's own deletion; CFG-80's REQUIREMENTS.md row overclaiming its ≥480px-only fix as unconditional), all three fixed and independently re-verified (7d48aec/772fb11/b140c33). Phase verification (29-VERIFICATION.md) returned human_needed: 9/9 code-level truths verified, 4 items need a real device/browser this sandbox lacks (persisted as 29-UAT.md). Also fixed, as a documentation gap the verifier caught: REQUIREMENTS.md's traceability table had drifted from its own accurate checklist for five requirements — corrected (d9ad926).
-last_updated: "2026-09-21T23:17:34.328Z"
-last_activity: 2026-09-21
+stopped_at: Phase 31 context gathered
+last_updated: "2026-09-22T13:50:39.594Z"
+last_activity: 2026-09-22
+last_activity_desc: "Completed quick task 260922-jiy: added margin between Airlines' gallery grid and its "Compagnies non identifiées" gap-strip, and between Heures calmes' Nuit/Journée/Toujours actif preset row and the Début/Fin fields — both flagged from real screenshots of the deployed app. Pure CSS, zero new tokens. Shipped on its own branch (claude/quick-260922-jiy-margins), separate from the in-flight Phase 30 branch."
 progress:
-  total_phases: 42
+  total_phases: 43
   completed_phases: 38
   total_plans: 264
   completed_plans: 254
-  percent: 96
+  percent: 88
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -903,12 +904,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-21T23:12:51.187Z
-Stopped at: Completed 29-06-PLAN.md — the site-wide editorial floor (CFG-79/CFG-84), the LAST plan of Phase 29. Battery-trend heading is now short and fixed (Batterie · 3 mois), precision moved to a sibling caption; Etat's check-in caption and read-only note split into a one-sentence visible caption plus a moved-clause disclosure; Compagnies' six over-length captions shortened; one HTTP-level check in test_companion_app.py measures every caption on all six authenticated routes in both languages (317/317), also catching two French translations that exceeded 12 words on their own. Full suite green (scripts/run-all-tests.sh, 93% coverage). Phase 29 is now ready for verification.
+Last session: 2026-09-22T13:50:39.567Z
+Stopped at: Phase 31 context gathered
 
 Resume file: 
 
-None
+.planning/phases/31-ci-test-suite-parallelize-companion-test-browser-ux-py-to-cu/31-CONTEXT.md
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).
