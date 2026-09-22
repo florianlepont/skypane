@@ -1498,10 +1498,14 @@ The alternative keeps the current structure and swaps only the selector: three s
 
 **Context (measured on 5 real CI runs via `gh run view` on `ci.yml`):** the "test" job averages ~5min40. `companion/test_browser_ux.py` alone takes 300-320s consistently (300.9s, 318.7s, 314.4s, 303.4s, 314.2s) — ~88-90% of the job's total wall time. All 21 other harnesses in `scripts/run_all_tests.py` finish in under 32s combined (the pool already runs everything concurrently via `JOBS=4`, so the job's total time is bounded by this one file regardless of anything else). Only 10.6s of the file's time is explained by `page.wait_for_timeout()` fixed sleeps — the real cost is structural: 108 `page.goto()` calls and 184 browser/context/page creations, all executed sequentially inside one 16,361-line `main()` that shares a single Playwright browser and a single `companion/app.py` subprocess harness, accumulating into a global `results` list gated by an `EXPECTED_CHECK_COUNT` invariant. `scripts/run_all_tests.py` already documents this file as "the slowest single file by construction" — a known, accepted tradeoff, not a bug. This phase exists to actually address it.
 
-**Requirements**: TBD
+**Requirements**: TBD (scope defined by 31-CONTEXT.md's D-01 through D-07)
 **Depends on:** (none — independent of the companion UI phases)
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 31 to break down)
+- [ ] 31-01-PLAN.md — Capture the irreproducible pre-split baseline (96-check transcript + `JOBS=4` timings), then create `companion/test_browser_ux_helpers.py` from the module-level preamble and rewire `companion/test_browser_ux.py` onto it, still at 96/96
+- [ ] 31-02-PLAN.md — Extract the 24-04/24-06/24-07/24-08 drawings series (11 checks) into `companion/test_browser_ux_health_drawings.py`; parent down to 85/85; prove no verdict changed
+- [ ] 31-03-PLAN.md — Extract the quiet-hours dial + wake-interval slider group (9 checks) into `companion/test_browser_ux_quiet_wake.py`; parent down to 76/76; prove no verdict changed
+- [ ] 31-04-PLAN.md — Register both harnesses in `HARNESSES`/`EXPECTED_SLOWEST`, fix the stale harness counts, run the suite at `JOBS=4` and record the measured wall-time delta against the D-01 baseline
+- [ ] 31-05-PLAN.md — Blocking decision on the optional Flights extraction (8 checks) against the measured D-05 gate, then close the phase with a written verdict and a follow-up recommendation
