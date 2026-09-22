@@ -998,6 +998,23 @@ EXPECTED_CHECK_COUNT = 96
 # unchanged from 30-01/30-02, see this plan's own SUMMARY.md).
 EXPECTED_CHECK_COUNT = 91
 
+# 30-08-PLAN.md Task 2 (CFG-85): +4 — every remaining _ASPECT_REPIN_
+# LEDGER row in this file is cleared this plan (all six, all owed_by
+# "30-08"): _keying_the_palette_moves_the_preview,
+# _the_preview_follows_hover_and_focus_and_selects_nothing,
+# _the_accordion_is_operable_and_saves_with_scripts_blocked (which also
+# repays the "<details> disclosure opens on a click" half of the two
+# still-saves-with-scripts-blocked rows and the retired no-JS-floor
+# row) and _the_palette_meets_its_floors_at_360px_in_both_themes are
+# four genuinely NEW check(...) registrations; the two narrowed
+# still-saves-with-scripts-blocked checks and the four re-pointed
+# .theme-chip/.palette-chip checks (30-04-SUMMARY.md's own "4 new,
+# unledgered" inventory) are extended/re-pointed IN PLACE, contributing
+# 0 to the count. 91 + 4 = 95, re-derived by RUNNING (92/95 — the same
+# 3 pre-existing FAILs this file's own floor carries forward unchanged
+# since 30-01, none newly introduced by this plan).
+EXPECTED_CHECK_COUNT = 95
+
 # 30-03-PLAN.md Task 3 (CFG-85): this file's own coverage-gap ledger,
 # same five-key row shape and EXPECTED-TO-EMPTY convention as
 # companion/test_config_page.py's _ASPECT_REPIN_LEDGER (see that file's
@@ -1013,13 +1030,17 @@ _ASPECT_REPIN_LEDGER = (
             "carousel, the strip really overflows and is one row, keyboard ArrowDown "
             "moves the selection, the <details> disclosure opens on a click and reveals "
             "the same radios, and the pager gate holds in both directions"),
-        "replacement": "_the_palette_still_saves_with_scripts_blocked_through_the_gate",
-        "owed_by": "30-08",
+        "replacement": "_the_accordion_is_operable_and_saves_with_scripts_blocked",
+        "owed_by": "",
         "why": (
             "every deleted assertion (strip chip count, overflow, keyboard-through-the-"
             "strip, disclosure, pager gate) reads the retiring strip/pager DOM directly; "
-            "the markup-agnostic half survives renamed as "
-            "_the_theme_still_saves_with_scripts_blocked"),
+            "the markup-agnostic 'radio is present' half already survives renamed as "
+            "_the_theme_still_saves_with_scripts_blocked (30-03), now extended by "
+            "30-08-PLAN.md Task 2 to prove it holds for a CLOSED row too; the "
+            "'<details> disclosure opens on a click' half re-keys onto the real property "
+            "left in this row's own landing name — a real pointer click opening a closed "
+            "grouped <details> row and closing its previously-open sibling"),
     },
     {
         "retired": "_arrivals_still_saves_with_scripts_blocked_through_its_own_carousel",
@@ -1028,12 +1049,15 @@ _ASPECT_REPIN_LEDGER = (
             "the leading 'Same as departures' chip, really overflows, and its own "
             "<details> disclosure (resolved by walking up from its own strip) opens on a "
             "click"),
-        "replacement": "_the_arrivals_palette_still_saves_with_scripts_blocked_through_the_gate",
-        "owed_by": "30-08",
+        "replacement": "_the_accordion_is_operable_and_saves_with_scripts_blocked",
+        "owed_by": "",
         "why": (
             "the same reasoning as the departures twin above — the deleted half reads the "
-            "retiring strip/disclosure DOM directly; the markup-agnostic half survives "
-            "renamed as _arrivals_still_saves_with_scripts_blocked"),
+            "retiring strip/disclosure DOM directly; the markup-agnostic 'radio is "
+            "present' half already survives renamed as "
+            "_arrivals_still_saves_with_scripts_blocked (30-03), now extended by "
+            "30-08-PLAN.md Task 2; the disclosure-opens-on-click half re-keys onto this "
+            "row's own landing name, the same generic grouped-<details> proof"),
     },
     {
         "retired": "_keying_the_strip_selects_scrolls_into_view_and_moves_the_preview",
@@ -1041,7 +1065,7 @@ _ASPECT_REPIN_LEDGER = (
             "arrow-keying the palette's native radiogroup with the keyboard still moves "
             "the live preview to match the newly-selected theme, settled fully opaque"),
         "replacement": "_keying_the_palette_moves_the_preview",
-        "owed_by": "30-08",
+        "owed_by": "",
         "why": (
             "the scroll-into-view and pager assertions this check makes have no "
             "equivalent over a static wrapping grid"),
@@ -1054,12 +1078,15 @@ _ASPECT_REPIN_LEDGER = (
             "hovering or focusing a palette chip previews that theme without ever "
             "writing a radio, firing a change event, or moving a form value — the saved "
             "selection stays untouched until a chip is actually chosen"),
-        "replacement": "_hovering_or_focusing_a_palette_chip_previews_without_selecting",
-        "owed_by": "30-08",
+        "replacement": "_the_preview_follows_hover_and_focus_and_selects_nothing",
+        "owed_by": "",
         "why": (
             "the scroll-to-centred-chip tracking this check measures has no meaning once "
             "there is nothing to scroll; the replacement re-keys the same preview-is-not-"
-            "selection property onto hover/focus"),
+            "selection property onto hover/focus. Lands under a different name than this "
+            "row originally predicted — the same same-name-repoint guard collision "
+            "30-05/30-06/30-07-SUMMARY.md already documented, resolved the same way, and "
+            "matching this file's own required SUMMARY artifact name"),
     },
     {
         "retired": "_the_carousel_meets_its_floors_at_360px_in_both_themes",
@@ -1069,7 +1096,7 @@ _ASPECT_REPIN_LEDGER = (
             "all meet 30-UI-SPEC.md's Touch Targets table by real hit-testing in their "
             "own containers, as a floor in both UI themes"),
         "replacement": "_the_palette_meets_its_floors_at_360px_in_both_themes",
-        "owed_by": "30-08",
+        "owed_by": "",
         "why": (
             "every geometry/paint assertion this check makes is read off the retiring "
             "strip/pager DOM shape directly"),
@@ -1081,14 +1108,18 @@ _ASPECT_REPIN_LEDGER = (
             "unsaveable: every accordion row's controls remain in the form despite being "
             "visually closed, every summary is natively operable by pointer and "
             "keyboard, and a settings save still round-trips to disk"),
-        "replacement": "_the_no_js_floor_holds_for_both_settings_pages",
-        "owed_by": "30-08",
+        "replacement": "_the_accordion_is_operable_and_saves_with_scripts_blocked",
+        "owed_by": "",
         "why": (
-            "the retired check's collapsed-usage-panel count "
-            "(.frame-colours__usage-panel) has no equivalent mechanism once the "
-            "colour_usage radiogroup is retired — see this row's own former call site "
-            "for the full requirement-text-vs-approved-design discrepancy 30-08's "
-            "replacement must prove instead, more strongly than a visible-stack claim"),
+            "the retired check's collapsed-usage-panel count (the retired card's own "
+            "usage-panel class, named in full at this row's former call site) has no "
+            "equivalent mechanism once the colour_usage radiogroup is retired — see "
+            "that former call site "
+            "for the full requirement-text-vs-approved-design discrepancy the "
+            "replacement proves instead, more strongly than a visible-stack claim. Lands "
+            "under a different name than this row originally predicted, matching this "
+            "plan's own required SUMMARY artifact name — the same same-name-repoint "
+            "guard collision 30-05/30-06/30-07-SUMMARY.md already documented"),
     },
 )
 
@@ -5230,6 +5261,29 @@ def main():
                     # statement that belongs here is that nothing inside
                     # the grid moved, and every chip in the grid is
                     # measured, not just the clicked one.
+                    # 30-08-PLAN.md Task 2 (CFG-85): re-pointed from the
+                    # retired [data-usage-panel-target]/label.theme-chip
+                    # departures panel to details.usage-row[data-usage=
+                    # "departures"]/label.palette-chip. The "answers with
+                    # a scale" half of this check's ORIGINAL property does
+                    # NOT survive the rebuild — confirmed directly against
+                    # style.css (30-07-PLAN.md Task 1's own comment): the
+                    # selected .palette-chip's :has(input:checked) rule
+                    # adds exactly three consequences (border-colour,
+                    # inset box-shadow ring, the .palette-chip__name wash)
+                    # and NO transform/transition, a DELIBERATE, already-
+                    # recorded 30-07 decision ("a fourth [treatment] would
+                    # also need a new transition declared on this
+                    # component's own base rule, out of this plan's
+                    # scope"). Restating a scale/transition-duration
+                    # assertion the real CSS no longer produces would make
+                    # this check permanently red for a reason that is not
+                    # a defect, so the property actually proved here is
+                    # the one that DOES still hold: selection paints
+                    # instantly via border/box-shadow/wash, and — the
+                    # half that matters for T6 — moves no layout box at
+                    # all, since box-shadow is `inset` and only the
+                    # border's COLOUR (never its width) changes.
                     context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
@@ -5239,27 +5293,25 @@ def main():
 
                         probe = (
                             "() => {"
-                            "const panel = document.querySelector("
-                            "'[data-usage-panel-target=\"departures\"]');"
-                            "if (!panel) return {error: 'no departures panel'};"
-                            "const chips = [...panel.querySelectorAll('label.theme-chip')]"
+                            "const row = document.querySelector("
+                            "'details.usage-row[data-usage=\"departures\"]');"
+                            "if (!row) return {error: 'no departures row'};"
+                            "const chips = [...row.querySelectorAll('label.palette-chip')]"
                             ".filter(c => c.querySelector('input[type=radio]'));"
                             "if (chips.length < 2) return {error: 'chips: ' + chips.length};"
                             "const target = chips.find("
                             "c => !c.querySelector('input[type=radio]').checked);"
                             "if (!target) return {error: 'every chip is already checked'};"
-                            "const grid = target.closest('.theme-chip-grid');"
-                            "if (!grid) return {error: 'no .theme-chip-grid'};"
+                            "const grid = target.closest('.palette');"
+                            "if (!grid) return {error: 'no .palette'};"
                             "const read = e => { const s = getComputedStyle(e);"
-                            "const body = e.querySelector('.theme-chip__body');"
-                            "const bs = body ? getComputedStyle(body) : null;"
+                            "const name = e.querySelector('.palette-chip__name');"
+                            "const ns = name ? getComputedStyle(name) : null;"
                             "return {w: e.offsetWidth, h: e.offsetHeight,"
                             " left: e.offsetLeft - grid.offsetLeft,"
                             " top: e.offsetTop - grid.offsetTop,"
-                            " transform: s.transform, dur: s.transitionDuration,"
-                            " props: s.transitionProperty,"
-                            " wash: bs ? bs.backgroundColor : null,"
-                            " washDur: bs ? bs.transitionDuration : null}; };"
+                            " borderColor: s.borderColor, boxShadow: s.boxShadow,"
+                            " wash: ns ? ns.backgroundColor : null}; };"
                             "return {value: target.querySelector('input[type=radio]').value,"
                             " chip: read(target),"
                             " grid: {w: grid.offsetWidth, h: grid.offsetHeight},"
@@ -5268,17 +5320,17 @@ def main():
                             "}")
                         before = page.evaluate(probe)
                         if before.get("error"):
-                            return False, "could not find an unchecked theme chip: %s" % (
+                            return False, "could not find an unchecked palette chip: %s" % (
                                 before["error"],)
                         value = before["value"]
                         _click_control(
                             page,
-                            '[data-usage-panel-target="departures"] '
-                            'label.theme-chip input[type=radio][value="%s"]' % value)
-                        # Well past var(--motion-fast) (180ms): the
-                        # settled state is what is asserted, never a
-                        # frame mid-transition.
-                        page.wait_for_timeout(600)
+                            'details.usage-row[data-usage="departures"] '
+                            'label.palette-chip input[type=radio][value="%s"]' % value)
+                        # No transition to wait out any more (see the
+                        # comment above) - a short settle for the change
+                        # event/repaint is still cheap insurance.
+                        page.wait_for_timeout(200)
                         after = page.evaluate(
                             probe.replace(
                                 "const target = chips.find("
@@ -5291,49 +5343,24 @@ def main():
                                 after["error"],)
 
                         # --- 1. the answer is real -------------------
-                        if before["chip"]["transform"] not in ("none", ""):
+                        if before["chip"]["boxShadow"] not in ("none", ""):
                             return False, (
-                                "expected an UNSELECTED chip to carry no transform, got %r"
-                                % (before["chip"]["transform"],))
-                        live = after["chip"]["transform"]
-                        if live in ("none", ""):
+                                "expected an UNSELECTED palette chip to carry no box-shadow, got "
+                                "%r" % (before["chip"]["boxShadow"],))
+                        if after["chip"]["boxShadow"] in ("none", ""):
                             return False, (
-                                "expected the newly-selected chip to carry the selection scale "
-                                "(D3: 'selecting a chip answers with a small scale'), got %r - a "
-                                "chip that switches state instantly is the behaviour this plan "
-                                "exists to replace" % (live,))
-                        try:
-                            scale = float(live[live.index("(") + 1:].split(",")[0])
-                        except (ValueError, IndexError):
-                            return False, "could not read a scale out of transform %r" % (live,)
-                        if scale <= 1.0:
+                                "expected the newly-selected chip to carry the accent inset ring "
+                                "(30-07-PLAN.md Task 1: box-shadow inset 0 0 0 2px), got %r - a "
+                                "chip that switches state with no visible signal at all is the "
+                                "behaviour this check exists to catch" % (after["chip"]["boxShadow"],))
+                        if before["chip"]["borderColor"] == after["chip"]["borderColor"]:
                             return False, (
-                                "expected the selection transform to SCALE UP (matrix a > 1), got "
-                                "%r" % (live,))
-                        if "0.18s" not in after["chip"]["dur"]:
-                            return False, (
-                                "expected the chip's transition to spend var(--motion-fast) "
-                                "(180ms), got duration %r on properties %r"
-                                % (after["chip"]["dur"], after["chip"]["props"]))
-                        for prop in ("transform", "box-shadow", "border-color"):
-                            if prop not in after["chip"]["props"]:
-                                return False, (
-                                    "expected the chip's transition to name %r - a property "
-                                    "absent from the list switches instantly, got %r"
-                                    % (prop, after["chip"]["props"]))
-                        # The wash FADES: it is a real transitioned
-                        # background on the body, and it actually
-                        # changed. A wash that is declared but never
-                        # applied would pass a stylesheet scan.
+                                "expected the selected chip's border-colour to change to the "
+                                "accent, both read %r" % (after["chip"]["borderColor"],))
                         if before["chip"]["wash"] == after["chip"]["wash"]:
                             return False, (
-                                "expected the selected chip's .theme-chip__body wash to change on "
-                                "selection, both read %r" % (after["chip"]["wash"],))
-                        if "0.18s" not in (after["chip"]["washDur"] or ""):
-                            return False, (
-                                "expected the wash to FADE over var(--motion-fast) rather than "
-                                "cut, got .theme-chip__body transition-duration %r"
-                                % (after["chip"]["washDur"],))
+                                "expected the selected chip's .palette-chip__name wash to change "
+                                "on selection, both read %r" % (after["chip"]["wash"],))
 
                         # --- 2. and nothing moved --------------------
                         for key in ("w", "h", "left", "top"):
@@ -5341,8 +5368,8 @@ def main():
                                 return False, (
                                     "the chip's own LAYOUT box changed on selection: %s went from "
                                     "%r to %r. T6's defect was exactly this (98.67px against "
-                                    "96.66px at 390px); a transform-based scale must change no "
-                                    "layout box at all"
+                                    "96.66px at 390px); a border-colour/inset-shadow selection "
+                                    "signal must change no layout box at all"
                                     % (key, before["chip"][key], after["chip"][key]))
                         if before["grid"] != after["grid"]:
                             return False, (
@@ -5361,12 +5388,14 @@ def main():
                     finally:
                         context.close()
                 check(
-                    "at 390px selecting a theme chip ANSWERS - the chip takes a scale > 1, its "
-                    ".theme-chip__body wash changes, and both the chip's transform/box-shadow/"
-                    "border-colour and the body's background transition over var(--motion-fast) "
-                    "(0.18s) rather than cutting - while its own LAYOUT box (offsetWidth/Height/"
-                    "Left/Top), the grid's own box and EVERY chip's position inside it are plain-equal "
-                    "before and after, so T6 cannot recur through the scale (D3/CFG-32, 23-10-PLAN.md Task 1)",
+                    "at 390px selecting a palette chip ANSWERS - the chip's border-colour changes "
+                    "to the accent, an inset accent ring (box-shadow) appears, and the "
+                    ".palette-chip__name wash changes - while its own LAYOUT box (offsetWidth/"
+                    "Height/Left/Top), the grid's own box and EVERY chip's position inside it are "
+                    "plain-equal before and after, so T6 cannot recur through the selection signal "
+                    "(D3/CFG-32, 23-10-PLAN.md Task 1; re-pointed to .palette-chip and narrowed off "
+                    "the scale/transition clauses 30-07-PLAN.md deliberately did not add, by "
+                    "30-08-PLAN.md Task 2, CFG-85)",
                     _selecting_a_theme_chip_answers_and_moves_no_layout_box)
 
                 def _both_dialogs_fade_in_and_leave_nothing_behind():
@@ -5518,17 +5547,25 @@ def main():
                             "return {src: i.getAttribute('src'),"
                             " opacity: parseFloat(getComputedStyle(i).opacity)}; }")
                         page.evaluate(read)  # pre-click baseline; no longer compared (Cancel retired)
+                        # 30-08-PLAN.md Task 2 (CFG-85): re-pointed from
+                        # the retired [data-usage-panel-target]/
+                        # label.theme-chip departures panel to
+                        # details.usage-row[data-usage="departures"]/
+                        # label.palette-chip - the crossfade mechanism
+                        # itself (theme-preview.js's applyPreviewSrc()/
+                        # FADE_CLASS) is unchanged by the rebuild, so
+                        # every OTHER clause below is unchanged too.
                         target = page.evaluate(
-                            "() => { const panel = document.querySelector("
-                            "'[data-usage-panel-target=\"departures\"]');"
-                            "const chip = [...panel.querySelectorAll('label.theme-chip')].find("
+                            "() => { const row = document.querySelector("
+                            "'details.usage-row[data-usage=\"departures\"]');"
+                            "const chip = [...row.querySelectorAll('label.palette-chip')].find("
                             "c => c.getAttribute('data-preview-src')"
                             " && !c.querySelector('input[type=radio]').checked);"
                             "return chip ? {value: chip.querySelector("
                             "'input[type=radio]').value,"
                             " src: chip.getAttribute('data-preview-src')} : null; }")
                         if not target:
-                            return False, "found no unchecked departures theme chip to click"
+                            return False, "found no unchecked departures palette chip to click"
                         # Click, then WAIT FOR THE TRANSITION ITSELF to
                         # be created rather than sampling at a guessed
                         # instant. Without this the whole check would
@@ -5580,8 +5617,8 @@ def main():
                             " props: s && s.transitionProperty});"
                             "}, 400);"
                             "})",
-                            '[data-usage-panel-target="departures"] '
-                            'label.theme-chip input[type=radio][value="%s"]' % target["value"])
+                            'details.usage-row[data-usage="departures"] '
+                            'label.palette-chip input[type=radio][value="%s"]' % target["value"])
                         if not mid["ran"]:
                             return False, (
                                 "expected the live preview to CROSSFADE — no opacity transition "
@@ -5614,7 +5651,8 @@ def main():
                     "actually selected, fully opaque rather than stuck mid-fade, driven entirely by "
                     "theme-preview.js's OWN delegated listener with no save and no dirty-state.js "
                     "involvement at all (D3/CFG-32, T-23-38, 23-10-PLAN.md Task 2; the Cancel half "
-                    "retired by 27-04-PLAN.md Task 2, CFG-63)",
+                    "retired by 27-04-PLAN.md Task 2, CFG-63; re-pointed to details.usage-row/"
+                    ".palette-chip by 30-08-PLAN.md Task 2, CFG-85)",
                     _the_live_preview_crossfade_settles_correct_through_its_own_listener)
 
                 def _images_hold_their_place_before_they_arrive():
@@ -5640,20 +5678,34 @@ def main():
                     # otherwise pass on the defect: Home at 1280px
                     # measured 2x2 before and 380x506 after).
                     surfaces = (
-                        ("/", ".preview-frame", ".preview-frame__image", "**/gallery/**", 100),
-                        # 30, because the first .theme-chip__preview on
-                        # /display is the Frame colours card's COMPACT
-                        # variant, whose band is 36px rather than the
-                        # base 56px - measured, not assumed. Still well
-                        # clear of the ~2px a collapsed replaced element
-                        # reports, which is the number this floor exists
-                        # to exclude.
+                        ("/", ".preview-frame", ".preview-frame__image", "**/gallery/**", 100, ()),
+                        # 30-08-PLAN.md Task 2 (CFG-85): the accordion's
+                        # own .palette-chip renders NO <img> of any kind
+                        # (30-UI-SPEC.md's Swatch Rendering Contract - a
+                        # CSS-drawn shape only), so the departures/
+                        # arrivals/calendar rows this surface used to
+                        # measure no longer have one. The ONE surviving
+                        # .theme-chip/.theme-chip__preview pair on
+                        # Display now lives inside the rules row's own
+                        # nested, closed-by-default rule-add disclosure -
+                        # opened here (rules row summary, then the
+                        # rule-add summary) before measuring, which keeps
+                        # this a real, laid-out surface rather than the
+                        # collapsed-box vacuity this check's own comment
+                        # already warns about. 30, because that chip is
+                        # the COMPACT variant, whose band is 36px rather
+                        # than the base 56px - measured, not assumed.
+                        # Still well clear of the ~2px a collapsed
+                        # replaced element reports, which is the number
+                        # this floor exists to exclude.
                         ("/display", ".theme-chip", ".theme-chip__preview",
-                         "**/theme-preview/**", 30),
+                         "**/theme-preview/**", 30,
+                         ('details.usage-row[data-usage="rules"] > summary',
+                          '.rule-add > summary')),
                     )
                     for width in (VIEWPORT_MIN_SUPPORTED["width"],
                                   VIEWPORT_DESKTOP["width"]):
-                        for route_path, box_sel, img_sel, url_glob, floor in surfaces:
+                        for route_path, box_sel, img_sel, url_glob, floor, openers in surfaces:
                             context = browser.new_context(
                                 viewport={"width": width, "height": VIEWPORT_DESKTOP["height"]})
                             try:
@@ -5663,6 +5715,8 @@ def main():
                                 page.route(url_glob, lambda route: held.append(route))
                                 page.goto(harness.base_url() + route_path,
                                           wait_until="domcontentloaded")
+                                for opener in openers:
+                                    page.click(opener)
                                 page.wait_for_selector(img_sel, state="attached")
                                 page.wait_for_timeout(400)
                                 read = (
@@ -13636,6 +13690,32 @@ def main():
                             return False, (
                                 "lang=%s: the restore leg did not put %r back, disk reads %r"
                                 % (lang, before, result["restored"]))
+
+                    # 30-08-PLAN.md Task 2 (CFG-85): the property plan
+                    # 30-03 ledgered off this narrowed check ("every
+                    # registry theme's radio is present") — restated for
+                    # the accordion: every registry theme renders
+                    # server-side and owes nothing to a script, whether
+                    # its own row is OPEN (departures) or CLOSED
+                    # (calendar) at load.
+                    n_themes = len(device_config.THEME_IDS)
+                    with _no_js_page(browser, base_url, "/display",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        # calendar_theme_id's own group also carries the
+                        # leading "Same as departures" radio (D-09) - one
+                        # MORE than the registry, unlike theme, which has
+                        # no leading option at all.
+                        for field, usage, state, expected in (
+                                ("theme", "departures", "open", n_themes),
+                                ("calendar_theme_id", "calendar", "closed", n_themes + 1)):
+                            count = page.eval_on_selector_all(
+                                'input[name="%s"]' % field, "els => els.length")
+                            if count != expected:
+                                return False, (
+                                    "with scripts blocked, expected %d radios named %r (the "
+                                    "%s row's own palette, %s by default) with no script "
+                                    "involvement in rendering it - found %d"
+                                    % (expected, field, usage, state, count))
                     return True, ""
                 check(
                     "the theme still SAVES with scripts blocked, at 360px and in BOTH shipped "
@@ -13712,6 +13792,32 @@ def main():
                                     "lang=%s: the restore leg did not put %r back, disk "
                                     "reads %r" % (lang, before, result["restored"]))
 
+                        # 30-08-PLAN.md Task 2 (CFG-85): the property
+                        # plan 30-03 ledgered off this narrowed check —
+                        # restated for the accordion, from the arrivals
+                        # twin's own perspective: every registry theme
+                        # renders server-side with no script involvement
+                        # whether its own row is CLOSED (arrivals, the
+                        # default) or OPEN (departures).
+                        n_themes = len(device_config.THEME_IDS)
+                        with _no_js_page(browser, base_url, "/display",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                            # theme_arriving's own group also carries the
+                            # leading "Same as departures" radio (D-09) -
+                            # one MORE than the registry, unlike theme,
+                            # which has no leading option at all.
+                            for field, usage, state, expected in (
+                                    ("theme_arriving", "arrivals", "closed", n_themes + 1),
+                                    ("theme", "departures", "open", n_themes)):
+                                count = page.eval_on_selector_all(
+                                    'input[name="%s"]' % field, "els => els.length")
+                                if count != expected:
+                                    return False, (
+                                        "with scripts blocked, expected %d radios named %r "
+                                        "(the %s row's own palette, %s by default) with no "
+                                        "script involvement in rendering it - found %d"
+                                        % (expected, field, usage, state, count))
+
                         return True, ""
                     finally:
                         # LAST ACT: put theme_arriving back exactly
@@ -13749,6 +13855,559 @@ def main():
                 # per-carousel disclosure toggling have no meaning once
                 # the strip becomes a native accordion over a static
                 # grid.
+
+                # ==========================================================
+                # 30-08-PLAN.md Task 2 (CFG-85): the phase's closing
+                # browser proofs — the last unproven behaviour (hover/
+                # focus preview-follow), the accordion's own scripts-
+                # blocked operability, and the measured touch-target
+                # floors. Clears every remaining _ASPECT_REPIN_LEDGER row
+                # in this file.
+                # ==========================================================
+
+                def _keying_the_palette_moves_the_preview():
+                    # _ASPECT_REPIN_LEDGER replacement for
+                    # _keying_the_strip_selects_scrolls_into_view_and_
+                    # moves_the_preview. The scroll-into-view and pager
+                    # halves of that check's own property have no
+                    # equivalent over a static wrapping grid; what
+                    # survives, and is proven here, is the part that
+                    # never depended on a strip at all: native radiogroup
+                    # keyboard navigation (ArrowDown) still moves the
+                    # SELECTION, and theme-preview.js's own delegated
+                    # change listener still follows it to the live
+                    # preview, settled fully opaque.
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/display")
+                        page.wait_for_load_state("networkidle")
+
+                        checked_value = page.eval_on_selector(
+                            'details.usage-row[data-usage="departures"] '
+                            'input[name="theme"]:checked', "el => el.value")
+                        page.focus(
+                            'details.usage-row[data-usage="departures"] '
+                            'input[name="theme"][value="%s"]' % checked_value)
+                        page.keyboard.press("ArrowDown")
+                        page.wait_for_timeout(200)
+                        new_value = page.eval_on_selector(
+                            'details.usage-row[data-usage="departures"] '
+                            'input[name="theme"]:checked', "el => el.value")
+                        if new_value == checked_value:
+                            return False, (
+                                "ArrowDown inside the departures palette's native radiogroup "
+                                "did not move the checked selection off %r" % (checked_value,))
+                        expected_src = page.eval_on_selector(
+                            'details.usage-row[data-usage="departures"] '
+                            'input[name="theme"][value="%s"]' % new_value,
+                            "el => el.closest('.palette-chip').getAttribute('data-preview-src')")
+                        try:
+                            page.wait_for_function(
+                                "args => { var img = document.querySelector(args.sel);"
+                                " return !!img && img.getAttribute('src') === args.expected"
+                                " && parseFloat(getComputedStyle(img).opacity) === 1; }",
+                                arg={"sel": THEME_PREVIEW_SEL, "expected": expected_src},
+                                timeout=3000)
+                        except Exception:
+                            live_src = page.eval_on_selector(
+                                THEME_PREVIEW_SEL, "el => el.getAttribute('src')")
+                            return False, (
+                                "expected the live preview to settle on %r (the newly "
+                                "ArrowDown-selected chip's own data-preview-src), fully opaque, "
+                                "after keying the palette with no click at all - it reads %r"
+                                % (expected_src, live_src))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "arrow-keying the departures palette's native radiogroup (no click at all) "
+                    "still moves the checked selection, and the live preview still follows it "
+                    "via theme-preview.js's own delegated change listener, settled fully opaque "
+                    "- the one property _keying_the_strip_selects_scrolls_into_view_and_moves_"
+                    "the_preview proved that survives a static wrapping grid with no strip/"
+                    "scroll/pager to key through (_ASPECT_REPIN_LEDGER, 30-08-PLAN.md Task 2, "
+                    "CFG-85)",
+                    _keying_the_palette_moves_the_preview)
+
+                def _the_preview_follows_hover_and_focus_and_selects_nothing():
+                    # _ASPECT_REPIN_LEDGER replacement for
+                    # _scrolling_a_strip_moves_its_own_preview_to_the_
+                    # centered_chip_and_selects_nothing. The scroll-to-
+                    # centred-chip mechanism that retired check measured
+                    # has no meaning once there is nothing to scroll; the
+                    # SAME underlying property (the preview can show
+                    # something other than the saved selection, non-
+                    # destructively) is re-keyed here onto hover and
+                    # keyboard focus - theme-preview.js's own genuinely
+                    # NEW interaction (30-RESEARCH.md Pitfall 4: there was
+                    # no existing hover/focus code to "re-key", this is
+                    # new code proven here for the first time).
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/display")
+                        page.wait_for_load_state("networkidle")
+
+                        def read_back():
+                            return device_config.load_device_config(harness.tmpdir)["theme"]
+
+                        def preview_src():
+                            return page.eval_on_selector(
+                                THEME_PREVIEW_SEL, "el => el.getAttribute('src')")
+
+                        def checked_value():
+                            return page.eval_on_selector(
+                                'details.usage-row[data-usage="departures"] '
+                                'input[name="theme"]:checked', "el => el.value")
+
+                        # TWO selectors, deliberately, not one: the radio
+                        # itself is visually-hidden via `clip-path:
+                        # inset(50%)` (this app's own selectable-card
+                        # idiom, `_click_control()`'s own docstring),
+                        # which clips its hit-testable area to nothing -
+                        # a REAL pointer hover (unlike page.focus(), which
+                        # does not require actionability) can only ever
+                        # land on the wrapping, visible <label>.
+                        def chip_label_selector(value):
+                            return (
+                                'details.usage-row[data-usage="departures"] '
+                                'label.palette-chip:has('
+                                'input[type=radio][value="%s"])' % value)
+
+                        def chip_selector(value):
+                            return (
+                                'details.usage-row[data-usage="departures"] '
+                                'label.palette-chip input[type=radio][value="%s"]' % value)
+
+                        def wait_for_src(expected):
+                            page.wait_for_function(
+                                "args => { var img = document.querySelector(args.sel);"
+                                " return !!img && img.getAttribute('src') === args.expected; }",
+                                arg={"sel": THEME_PREVIEW_SEL, "expected": expected},
+                                timeout=3000)
+
+                        before_disk = read_back()
+                        chips = page.evaluate(
+                            "() => [...document.querySelectorAll("
+                            "'details.usage-row[data-usage=\"departures\"] "
+                            "label.palette-chip')]"
+                            ".map(c => ({value: c.querySelector('input[type=radio]').value,"
+                            " checked: c.querySelector('input[type=radio]').checked,"
+                            " src: c.getAttribute('data-preview-src')}))")
+                        checked_chip = next((c for c in chips if c["checked"]), None)
+                        unchecked = [c for c in chips if not c["checked"]]
+                        if checked_chip is None or len(unchecked) < 2:
+                            return False, (
+                                "expected one checked departures chip and at least 2 unchecked "
+                                "siblings to hover, got checked=%r unchecked=%d"
+                                % (checked_chip, len(unchecked)))
+                        chip_a, chip_b = unchecked[0], unchecked[1]
+
+                        # --- 1. hovering an unchecked chip previews it,
+                        #        and selects nothing -------------------
+                        page.hover(chip_label_selector(chip_a["value"]))
+                        wait_for_src(chip_a["src"])
+                        if checked_value() != checked_chip["value"]:
+                            return False, (
+                                "hovering an unchecked chip changed the CHECKED radio from %r "
+                                "to %r - a preview must never become a selection"
+                                % (checked_chip["value"], checked_value()))
+                        if read_back() != before_disk:
+                            return False, "hovering an unchecked chip changed the value ON DISK"
+
+                        # --- moving away reverts to the checked chip ---
+                        page.hover("body", position={"x": 2, "y": 2})
+                        wait_for_src(checked_chip["src"])
+
+                        # --- 2. the same pair, via keyboard focus ------
+                        page.focus(chip_selector(chip_a["value"]))
+                        wait_for_src(chip_a["src"])
+                        if checked_value() != checked_chip["value"]:
+                            return False, (
+                                "keyboard-focusing an unchecked chip changed the CHECKED radio "
+                                "from %r to %r" % (checked_chip["value"], checked_value()))
+                        page.eval_on_selector(chip_selector(chip_a["value"]), "el => el.blur()")
+                        wait_for_src(checked_chip["src"])
+
+                        # --- 3. chip A -> chip B never flashes the
+                        #        checked selection's own src in between -
+                        page.hover(chip_label_selector(chip_a["value"]))
+                        wait_for_src(chip_a["src"])
+                        page.evaluate(
+                            "sel => { var img = document.querySelector(sel);"
+                            " window.__paletteHoverFrames = [];"
+                            " window.__paletteHoverObserver = new MutationObserver("
+                            "   function () {"
+                            "     window.__paletteHoverFrames.push(img.getAttribute('src'));"
+                            "   });"
+                            " window.__paletteHoverObserver.observe("
+                            "   img, {attributes: true, attributeFilter: ['src']}); }",
+                            THEME_PREVIEW_SEL)
+                        page.hover(chip_label_selector(chip_b["value"]))
+                        wait_for_src(chip_b["src"])
+                        page.wait_for_timeout(200)
+                        frames = page.evaluate(
+                            "() => { window.__paletteHoverObserver.disconnect();"
+                            " return window.__paletteHoverFrames; }")
+                        if checked_chip["src"] in frames:
+                            return False, (
+                                "hovering directly from chip A to chip B passed THROUGH the "
+                                "checked selection's own src %r before settling on chip B's own "
+                                "%r - frames observed: %r"
+                                % (checked_chip["src"], chip_b["src"], frames))
+                        final_src = preview_src()
+                        if final_src != chip_b["src"]:
+                            return False, (
+                                "expected the preview to end on chip B's own src %r after "
+                                "hovering straight from chip A to chip B, got %r"
+                                % (chip_b["src"], final_src))
+
+                        # --- disk is unchanged, start to finish --------
+                        if read_back() != before_disk:
+                            return False, (
+                                "the value on disk changed over the course of this check - "
+                                "hovering/focusing must never write a selection")
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "hovering or keyboard-focusing an unchecked palette chip previews that "
+                    "chip's own theme in the ONE live preview, writing NO radio's checked state "
+                    "and NO value on disk; moving the pointer/focus away reverts the preview to "
+                    "the checked chip's own src; hovering straight from chip A to chip B never "
+                    "passes through the checked selection's own src in between (observed via a "
+                    "live MutationObserver on the preview's src attribute), settling on B; and "
+                    "the value on disk is unchanged start to finish - the genuinely new "
+                    "interaction this phase adds, with no existing hover/focus precedent to "
+                    "re-key (30-RESEARCH.md Pitfall 4, _ASPECT_REPIN_LEDGER, 30-08-PLAN.md "
+                    "Task 1+2, CFG-85)",
+                    _the_preview_follows_hover_and_focus_and_selects_nothing)
+
+                def _the_accordion_is_operable_and_saves_with_scripts_blocked():
+                    # _ASPECT_REPIN_LEDGER replacement for
+                    # _the_no_js_floor_holds_for_both_settings_pages (and,
+                    # for the "a closed row's radios still reach disk"
+                    # half, for _the_theme_still_saves_with_scripts_
+                    # blocked_through_the_carousel/_arrivals_still_saves_
+                    # with_scripts_blocked_through_its_own_carousel's own
+                    # "the <details> disclosure opens on a click" clause).
+                    #
+                    # CFG-85's own requirement text reads "every row open
+                    # with scripts blocked". A grouped <details
+                    # name="aspect-rows"> set is mutually exclusive BY
+                    # BROWSER CONSTRUCTION, so that literal wording is
+                    # UNACHIEVABLE alongside the zero-script accordion the
+                    # developer already approved (30-04-SUMMARY.md's own
+                    # <two_recorded_deviations> item 2; 30-03-SUMMARY.md's
+                    # own <no_js_floor_note>). What is proved here
+                    # instead, and is STRONGER than a visible stack:
+                    #   1. all four rows are present, each with its own
+                    #      <summary>;
+                    #   2. every theme radiogroup is present in the DOM
+                    #      at FULL REGISTRY SIZE, including inside CLOSED
+                    #      rows - the fact that makes a closed row
+                    #      harmless;
+                    #   3. a closed row's own <summary> is natively
+                    #      activatable by a REAL pointer click with
+                    #      scripts blocked, and opening it closes the
+                    #      previously-open sibling - the native grouped-
+                    #      <details> mechanism CFG-85's zero-script floor
+                    #      actually rests on;
+                    #   4. a palette selection made INSIDE a row the
+                    #      visitor opened THEMSELVES reaches disk, read
+                    #      back via device_config.load_device_config(),
+                    #      with the restore leg putting the old value
+                    #      back.
+                    # A check that quietly asserted something weaker than
+                    # its own requirement's words is the failure shape
+                    # this comment exists to head off.
+                    base_url = harness.base_url()
+                    n_themes = len(device_config.THEME_IDS)
+
+                    def read_back():
+                        return device_config.load_device_config(
+                            harness.tmpdir).get("calendar_theme_id")
+
+                    for lang in ("en", "fr"):
+                        with _no_js_page(browser, base_url, "/display",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                            page.context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page.goto(base_url + "/display")
+
+                            # --- 1. every row, every summary ----------
+                            rows = page.query_selector_all("details.usage-row")
+                            if len(rows) != 4:
+                                return False, (
+                                    "lang=%s: expected 4 usage rows, found %d"
+                                    % (lang, len(rows)))
+                            for row in rows:
+                                if row.query_selector("summary") is None:
+                                    return False, (
+                                        "lang=%s: a usage row carries no <summary>" % (lang,))
+
+                            # --- 2. full registry size, even closed ---
+                            # theme_arriving/calendar_theme_id each also
+                            # carry the leading "Same as departures"
+                            # radio (D-09) inside the SAME name group -
+                            # one MORE than the registry; theme/
+                            # rule_theme_id have no leading option.
+                            for field, expected in (
+                                    ("theme", n_themes),
+                                    ("theme_arriving", n_themes + 1),
+                                    ("calendar_theme_id", n_themes + 1),
+                                    ("rule_theme_id", n_themes)):
+                                count = page.eval_on_selector_all(
+                                    'input[name="%s"]' % field, "els => els.length")
+                                if count != expected:
+                                    return False, (
+                                        "lang=%s: expected %d radios named %r in the DOM "
+                                        "regardless of which row is open, found %d"
+                                        % (lang, expected, field, count))
+
+                            # --- 3. grouped exclusivity, real click ---
+                            calendar_row = page.query_selector(
+                                'details.usage-row[data-usage="calendar"]')
+                            departures_row = page.query_selector(
+                                'details.usage-row[data-usage="departures"]')
+                            if calendar_row.get_attribute("open") is not None:
+                                return False, (
+                                    "lang=%s: expected the calendar row closed at load"
+                                    % (lang,))
+                            if departures_row.get_attribute("open") is None:
+                                return False, (
+                                    "lang=%s: expected the departures row open at load"
+                                    % (lang,))
+                            calendar_row.query_selector("summary").click()
+                            if calendar_row.get_attribute("open") is None:
+                                return False, (
+                                    "lang=%s: a real pointer click on a closed row's own "
+                                    "<summary> did not open it, with scripts blocked" % (lang,))
+                            if departures_row.get_attribute("open") is not None:
+                                return False, (
+                                    "lang=%s: opening the calendar row did not close its "
+                                    "previously-open sibling - the native grouped-<details> "
+                                    "behaviour CFG-85's zero-script floor rests on" % (lang,))
+
+                            # --- 4. a selection made in the row the
+                            #        visitor just opened reaches disk ---
+                            before = read_back()
+                            target = next(
+                                t for t in device_config.THEME_IDS if t != before)
+                            _click_control(
+                                page,
+                                'input[name="calendar_theme_id"][value="%s"]' % target)
+                            held = page.eval_on_selector(
+                                'input[name="calendar_theme_id"][value="%s"]' % target,
+                                "el => el.checked")
+                            if not held:
+                                return False, (
+                                    "lang=%s: the browser refused to check calendar_theme_id=%r "
+                                    "with scripts blocked" % (lang, target))
+                            # ARMED before the click, matching
+                            # _persist_once()'s own established sequence
+                            # — a wait AFTER the click races the
+                            # navigation the click itself starts, and
+                            # this context's own close() below can abort
+                            # an in-flight request that lost that race.
+                            with page.expect_navigation():
+                                via = page.evaluate(
+                                    _SUBMIT_PROBE, {"field": "calendar_theme_id"})
+
+                        stored = read_back()
+                        if str(stored) != str(target):
+                            return False, (
+                                "lang=%s: a selection made inside a row the visitor opened "
+                                "themselves (via the %s) did NOT reach disk - expected %r, "
+                                "got %r" % (lang, via, target, stored))
+
+                        # --- restore, through the validated server API -
+                        # calendar_theme_id=None means "not supplied,
+                        # carry forward" at the WRITE path (unlike the
+                        # READ path's own normalise_calendar_theme_id(),
+                        # which degrades a non-member value TO None) - so
+                        # restoring an originally-unset value needs the
+                        # empty string, its own documented clear signal,
+                        # never the bare None a "leave unchanged" write
+                        # would silently no-op against.
+                        device_config.save_device_config(
+                            harness.tmpdir,
+                            calendar_theme_id=before if before is not None else "")
+                        restored = read_back()
+                        if restored != before:
+                            raise AssertionError(
+                                "restoring calendar_theme_id failed: wanted %r, disk reads %r"
+                                % (before, restored))
+                    return True, ""
+                check(
+                    "with scripts blocked, in BOTH languages, at 360px: all 4 usage rows carry "
+                    "their own <summary>; every registry theme's radio (theme/theme_arriving/"
+                    "calendar_theme_id/rule_theme_id) is present in the DOM at full registry "
+                    "size regardless of which row is open; a REAL pointer click on a closed "
+                    "row's own <summary> opens it and closes the previously-open sibling (the "
+                    "native grouped <details name=\"aspect-rows\"> mechanism); and a palette "
+                    "selection made INSIDE the row the visitor just opened themselves reaches "
+                    "disk, read back via device_config.load_device_config(), with the restore "
+                    "leg putting the old value back - CFG-85's own \"every row open\" wording is "
+                    "unachievable alongside the grouped, mutually-exclusive accordion the "
+                    "developer already approved, and this check's own comment states that "
+                    "discrepancy plainly rather than narrowing the claim "
+                    "(_ASPECT_REPIN_LEDGER, 30-08-PLAN.md Task 2, CFG-85)",
+                    _the_accordion_is_operable_and_saves_with_scripts_blocked)
+
+                def _the_palette_meets_its_floors_at_360px_in_both_themes():
+                    # _ASPECT_REPIN_LEDGER replacement for
+                    # _the_carousel_meets_its_floors_at_360px_in_both_
+                    # themes. Every geometry/paint assertion the retired
+                    # check made was read off the retiring strip/pager
+                    # DOM shape directly; this is 30-UI-SPEC.md's own
+                    # Touch Targets table, MEASURED (never declared)
+                    # fresh against the real .palette-chip/.usage-row/
+                    # .leading-option/.rule-add markup.
+                    base_url = harness.base_url()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+
+                        def open_row(usage):
+                            # IDEMPOTENT, deliberately: a grouped
+                            # <details name="aspect-rows"> summary click
+                            # TOGGLES, so clicking an ALREADY-open row
+                            # (departures, the server's own default)
+                            # would CLOSE it rather than leave it open -
+                            # measured directly on this tree: a closed
+                            # row's own content keeps a real, non-zero
+                            # getBoundingClientRect() in this browser
+                            # (layout is retained for cheap re-display)
+                            # while its PAINT and HIT-TEST are
+                            # suppressed, so an unconditional click here
+                            # would make _assert_hit_target() report a
+                            # spurious "occluded" failure against a row
+                            # that was never meant to be closed.
+                            row = page.query_selector(
+                                'details.usage-row[data-usage="%s"]' % usage)
+                            if row.get_attribute("open") is None:
+                                row.query_selector("summary").click()
+
+                        for theme in UI_THEMES_EXPLICIT:
+                            _set_ui_theme(page, theme)
+                            theme_record = {}
+
+                            # --- the open row's FIRST/LAST palette-chip
+                            open_row("departures")
+                            chip_count = page.eval_on_selector_all(
+                                'details.usage-row[data-usage="departures"] '
+                                'label.palette-chip', "els => els.length")
+                            if chip_count < 2:
+                                return False, (
+                                    "theme=%s: expected at least 2 .palette-chip in the open "
+                                    "departures row, found %d" % (theme, chip_count))
+                            theme_record["chip_first"] = _assert_hit_target(
+                                page,
+                                'details.usage-row[data-usage="departures"] '
+                                'label.palette-chip:first-of-type',
+                                "theme=%s: the FIRST palette-chip in the open departures row"
+                                % theme)
+                            theme_record["chip_last"] = _assert_hit_target(
+                                page,
+                                'details.usage-row[data-usage="departures"] '
+                                'label.palette-chip:last-of-type',
+                                "theme=%s: the LAST palette-chip in the open departures row"
+                                % theme)
+
+                            # --- the usage-row <summary> (always visible)
+                            theme_record["row_summary"] = _assert_hit_target(
+                                page, 'details.usage-row[data-usage="departures"] > summary',
+                                "theme=%s: the departures row's own <summary>" % theme)
+
+                            # --- the arrivals row's leading option -----
+                            open_row("arrivals")
+                            theme_record["leading_option"] = _assert_hit_target(
+                                page,
+                                'details.usage-row[data-usage="arrivals"] .leading-option',
+                                "theme=%s: the arrivals row's \"Same as departures\" leading "
+                                "option" % theme)
+
+                            # --- the nested rule-add <summary> ---------
+                            open_row("rules")
+                            theme_record["rule_add_summary"] = _assert_hit_target(
+                                page, ".rule-add > summary",
+                                "theme=%s: the nested \"+ Add rule\" disclosure's own <summary>"
+                                % theme)
+
+                            # --- the palette grid never scrolls sideways
+                            for usage in ("departures", "arrivals"):
+                                open_row(usage)
+                                grid = page.eval_on_selector(
+                                    'details.usage-row[data-usage="%s"] .palette' % usage,
+                                    "el => ({scrollWidth: el.scrollWidth,"
+                                    " clientWidth: el.clientWidth})")
+                                if grid["scrollWidth"] > grid["clientWidth"]:
+                                    return False, (
+                                        "theme=%s: the %s row's own .palette grid scrolls "
+                                        "horizontally - scrollWidth %r > clientWidth %r, "
+                                        "exactly the strip CFG-85 retires"
+                                        % (theme, usage, grid["scrollWidth"],
+                                           grid["clientWidth"]))
+
+                            # --- the page itself never overflows sideways
+                            msg = _assert_no_page_overflow(
+                                page, "the Aspect card on /display (theme=%s)" % theme,
+                                VIEWPORT_MIN_SUPPORTED["width"])
+                            if msg:
+                                return False, msg
+
+                            # --- the swatch paints distinct from its
+                            #     own surrounding chip surface ----------
+                            # Deliberately the "black" theme, not the
+                            # FIRST chip: THEME_IDS[0] is "white" (a
+                            # solid #FFFFFF fill), and --color-dominant
+                            # is ALSO #FFFFFF in light mode (style.css) -
+                            # a white swatch on a white card surface is
+                            # a REAL, correct product fact (the chip's
+                            # own border is what distinguishes it there),
+                            # never the "invisible swatch" defect this
+                            # clause exists to catch. "black" fills
+                            # #000000, which differs from BOTH themes'
+                            # own --color-dominant (#FFFFFF light,
+                            # #151922 dark).
+                            open_row("departures")
+                            paint = page.eval_on_selector(
+                                'details.usage-row[data-usage="departures"] '
+                                'label.palette-chip:has(input[type=radio][value="black"])',
+                                "el => { var swatch = el.querySelector('.palette-swatch');"
+                                " var chip = getComputedStyle(el);"
+                                " return {swatch: getComputedStyle(swatch).backgroundColor,"
+                                " chipSurface: chip.backgroundColor}; }")
+                            if paint["swatch"] == paint["chipSurface"]:
+                                return False, (
+                                    "theme=%s: the 'black' palette-chip's own swatch paints "
+                                    "IDENTICALLY to its surrounding chip surface (%r) - a "
+                                    "swatch invisible against its own card is the defect a "
+                                    "hit-target measurement cannot see" % (theme, paint["swatch"]))
+                            theme_record["paint"] = paint
+
+                            recorded[theme] = theme_record
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "30-UI-SPEC.md's Touch Targets table, MEASURED (never declared) in each "
+                    "control's own container, in both UI themes, at the 360px contract floor: "
+                    "the open row's first and last .palette-chip, the usage-row's own <summary>, "
+                    "the arrivals row's leading \"Same as departures\" option, and the nested "
+                    "rule-add disclosure's own <summary> all clear 44px; the palette grid never "
+                    "scrolls horizontally, the page itself never overflows sideways, and the "
+                    "swatch paints visibly distinct from its own surrounding chip surface in "
+                    "both themes (_ASPECT_REPIN_LEDGER, 30-08-PLAN.md Task 2, CFG-85)",
+                    _the_palette_meets_its_floors_at_360px_in_both_themes)
 
                 # --- 27-03-PLAN.md Task 3 (CFG-64) -----------------------
 
@@ -14258,9 +14917,14 @@ def main():
 
                         target_theme = next(
                             t for t in device_config.THEME_IDS if t != original_theme)
+                        # 30-08-PLAN.md Task 2 (CFG-85): re-pointed from
+                        # .theme-chip to .palette-chip - the departures
+                        # radio's own wrapping label class changed under
+                        # the accordion rebuild, the data-preview-src
+                        # attribute it carries did not.
                         target_preview_src = page.eval_on_selector(
                             'input[name="theme"][value="%s"]' % target_theme,
-                            "el => el.closest('.theme-chip')"
+                            "el => el.closest('.palette-chip')"
                             ".getAttribute('data-preview-src')")
 
                         current_start = page.input_value(
@@ -14389,7 +15053,8 @@ def main():
                     "CALLED is explicitly not acceptable and this check never does — the "
                     "dial-repaints-for-free claim CONTEXT.md made is false by specification "
                     "(already refuted in writing by 28-08) and this check does not re-litigate "
-                    "it (CFG-77, 28-11-PLAN.md Task 2)",
+                    "it (CFG-77, 28-11-PLAN.md Task 2; re-pointed to .palette-chip by "
+                    "30-08-PLAN.md Task 2, CFG-85)",
                     _cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_dom)
 
                 # 30-03-PLAN.md Task 3 (CFG-85): the check that used to
