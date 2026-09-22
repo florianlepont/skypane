@@ -346,9 +346,11 @@ EXPECTED_CHECK_COUNT = 25
 # sweep in this file before 260913-cz6 measured pages in their DEFAULT
 # state and everything inside a disclosure was invisible BY
 # CONSTRUCTION; cz6 pinned exactly one of them, by name, on one page.
-# This covers the 47 that exist today (1 Home / 3 Display / 37 Flights /
-# 1 Airlines / 4 Health / 1 Device / 0 login, re-derived by running) and
-# any added later without editing this file. Each page asserts a minimum
+# This covers the 26 that exist today (1 Home / 3 Display / 16 Flights /
+# 1 Airlines / 4 Health / 1 Device / 0 login, re-derived by running —
+# Flights was 37 before 29-03-PLAN.md/CFG-83 paginated it to
+# history_page.FLIGHTS_PAGE_SIZE) and any added later without editing
+# this file. Each page asserts a minimum
 # disclosure count AND that at least one was closed beforehand, so a
 # selector change fails it instead of silently measuring nothing.
 # Mutation-tested by restoring `min-width: max-content` on
@@ -6799,19 +6801,27 @@ def main():
                     #   page       route       <details>  kinds
                     #   Accueil    /            1        nav
                     #   Affichage  /display     3        nav + 2 "how it works"
-                    #   Vols       /flights    37        nav + 36 row cards
+                    #   Vols       /flights    16        nav + 15 row cards
                     #   Compagnies /airlines    1        nav
                     #   État       /health      4        nav + readings + 2 cards
                     #   Appareil   /device      1        nav
                     #   Connexion  /login       0        (no nav is rendered)
                     #
-                    # 47 in total, not the ~83 an earlier task reported:
+                    # 26 in total, not the ~83 an earlier task reported:
                     # /preview and /settings are 303 redirects (to /flights
                     # and /display), so the "panel-preview page" in that
                     # figure is /flights counted a second time. The raw
-                    # number flatters the coverage either way — 36 of
-                    # Vols' 37 are one component repeated per row, so the
+                    # number flatters the coverage either way — 15 of
+                    # Vols' 16 are one component repeated per row, so the
                     # distinct KINDS number five.
+                    #
+                    # 29-03-PLAN.md (CFG-83): Vols' row-card count was 36
+                    # (one per seed_state_dir() flight, rendered without a
+                    # cap) before Vols was paginated to
+                    # history_page.FLIGHTS_PAGE_SIZE by default. It is
+                    # FLIGHTS_PAGE_SIZE now, not the fixture's own 36 —
+                    # the total below is derived from that constant for
+                    # the same reason.
                     #
                     # Two assertions, because one of them cannot see the
                     # defect that motivated this:
@@ -6834,11 +6844,14 @@ def main():
                     # and asserts at least one was CLOSED before being
                     # forced — without that second half this degenerates
                     # into an ordinary default-state page sweep and stops
-                    # adding anything. All 47 are closed by default today.
-                    # /flights' minimum of 37 is deliberately coupled to
-                    # seed_state_dir()'s own 36 runway events: if the seed
-                    # or a row cap changes, this must be re-derived here
-                    # on purpose, not left to slide.
+                    # adding anything. All 26 are closed by default today.
+                    # /flights' minimum is deliberately coupled to
+                    # history_page.FLIGHTS_PAGE_SIZE (no longer to
+                    # seed_state_dir()'s 36 runway events, since 29-03
+                    # capped the default render below the fixture's own
+                    # size): if that constant or the coupling changes,
+                    # this must be re-derived here on purpose, not left
+                    # to slide.
                     #
                     # 360px is measured alongside the brief's 390/1280
                     # because 360 is the minimum supported viewport
@@ -6894,7 +6907,7 @@ def main():
                     # all three widths, for free.
                     #
                     # Deliberately NOT a timeout, a sleep or an
-                    # event listener. A timing wait across 47 disclosures
+                    # event listener. A timing wait across 26 disclosures
                     # x 6 routes x 2 languages x 3 widths is a flakiness
                     # generator and real wall clock on a file already at
                     # ~50s; and listening for the event a <details> fires
