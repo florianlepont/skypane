@@ -3012,7 +3012,17 @@ def _display_page_height(browser, base_url, viewport):
         page.wait_for_load_state("networkidle")
         seen = page.evaluate(
             _DISPLAY_HEIGHT_PROBE,
-            {"headingId": config_page.FRAME_COLOURS_HEADING_ID})
+            # 30-04-PLAN.md Task 2 (CFG-85/CFG-86): repointed from the
+            # retired FRAME_COLOURS_HEADING_ID to ASPECT_HEADING_ID, in
+            # the SAME commit that renamed the heading — 30-RESEARCH.md
+            # Pitfall 1. The theme-radio guard just below still holds
+            # unchanged: the departures palette (`_palette_grid_html()`)
+            # renders exactly `len(device_config.THEME_IDS)` radios
+            # named `theme`, the identical count the retired departures
+            # chip grid always rendered — this is the guard most likely
+            # to be assumed broken by the accordion rebuild and quietly
+            # loosened, and it does not need to be.
+            {"headingId": config_page.ASPECT_HEADING_ID})
     finally:
         context.close()
     if seen["clientWidth"] != viewport["width"]:
@@ -3023,8 +3033,8 @@ def _display_page_height(browser, base_url, viewport):
             % (viewport["width"], seen["clientWidth"]))
     if not seen["heading"]:
         raise AssertionError(
-            "_display_page_height: the document at %dpx carries no Frame "
-            "colours heading — this is not the authenticated Display page "
+            "_display_page_height: the document at %dpx carries no Aspect "
+            "heading — this is not the authenticated Display page "
             "(a missing session redirects to the login card, which renders "
             "perfectly and is a quarter of the height)" % (viewport["width"],))
     expected_radios = len(device_config.THEME_IDS)
@@ -13572,7 +13582,7 @@ def main():
                 check(
                     "Display's full rendered document height is recorded at 390px and at 360px "
                     "by one instrument — proved to be pointed at the authenticated Display page "
-                    "(its Frame colours heading AND a full THEME_IDS-sized departures "
+                    "(its Aspect heading AND a full THEME_IDS-sized departures "
                     "radiogroup, never merely 'a page rendered'), at the width the caller asked "
                     "for, and taller than the viewport — asserting NO target, because the "
                     "number IS the criterion and 25-06 states in its own SUMMARY whether it is "

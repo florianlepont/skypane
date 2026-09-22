@@ -4853,9 +4853,10 @@ def _rule_add_form_html(errors=None, submitted=None):
     always-valid default kind (callsign/"Flight"). Validation errors
     render under the field (phase 19 D-07 idiom), keeping the typed
     value — `errors`/`submitted` are both fully defaulted so the one
-    live call site (the rules usage panel built by
-    `frame_colours_section_html()`, since 21-05) keeps calling this
-    with neither, unaffected by this addition.
+    live call site (the rules row's own rule-add disclosure, built by
+    `_aspect_card_html()`, 30-04-PLAN.md, formerly
+    `_frame_colours_card_html()`) keeps calling this with neither,
+    unaffected by this addition.
     """
     selected_kind = _submitted_or_current(
         submitted, "rule_kind", colour_rules.RULE_KIND_CALLSIGN)
@@ -5028,8 +5029,8 @@ def _rule_list_html(rows):
     `>=960px`/`<960px` split to maintain. `colour_rules.rule_rows()`
     already orders `rows` most-specific first (callsign, then hex, then
     prefix) and alphabetically within each kind — no re-sort needed
-    here. Returns "" for an empty list; the rules usage panel
-    (`frame_colours_section_html()`, 21-05) renders
+    here. Returns "" for an empty list; the rules row
+    (`_aspect_card_html()`, 30-04-PLAN.md) renders
     the empty state instead in that case (never called on the empty
     branch in practice, kept total for the same reason its two retired
     predecessors were).
@@ -5448,12 +5449,13 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     dirty_saving_html = escape_html(i18n.t(DIRTY_SAVING_TEXT))
     dirty_initial_text_html = escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT))
 
-    # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the per-flight
-    # rules editor is no longer a standalone sibling section at all — it
-    # relocated, verbatim, into the Frame colours card's own "Per-flight
-    # rules" usage panel (see _frame_colours_card_html()'s own
-    # docstring). Every existing group's DOM nesting above stays
-    # byte-identical; only Theme's own former slot is gone.
+    # 21-05-PLAN.md Task 1 (D-06, Structural Note 2), re-homed by
+    # 30-04-PLAN.md Task 1 (CFG-85): the per-flight rules editor is no
+    # longer a standalone sibling section at all — it lives inside the
+    # Aspect card's own "Per-flight rules" secondary row (see
+    # `_aspect_card_html()`'s own docstring). Every existing group's DOM
+    # nesting above stays byte-identical; only Theme's own former slot
+    # is gone.
     screen_id = screens.current_screen_id(ctx)
     screen = screens.screen_type(screen_id)
     if scope not in SCOPES:
@@ -5462,9 +5464,9 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
 
     # 21-05-PLAN.md Task 1 (D-06): screens.GROUP_THEME has no entry in
     # this dict any more — theme_fieldset() is retired outright, and its
-    # replacement (_frame_colours_card_html(), below) is built directly
-    # by render()'s own Display branch rather than through this generic
-    # per-group dict, because it needs ctx/errors/submitted/state_dir
+    # replacement (_aspect_card_html(), 30-04-PLAN.md, below) is built
+    # directly by render()'s own Display branch rather than through this
+    # generic per-group dict, because it needs ctx/errors/submitted/state_dir
     # AND because its own rules panel contains real <form> elements that
     # must never render as a literal descendant of <form id=
     # "{SETTINGS_FORM_ID}"> (the same constraint that already kept
@@ -5566,28 +5568,40 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # with its group; Poll (Manual refresh) stays Device-only,
         # unaffected by this move. Flight colours is no longer a
         # standalone section at all (its own show_rules flag is gone
-        # along with _rules_section_html() — see frame_colours_section_
-        # html below).
+        # along with _rules_section_html() — see aspect_section_html
+        # below).
         show_poll = False
-        # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the "Look"
-        # intro heading plus the Frame colours card render here, as a
-        # SIBLING of <form id="{SETTINGS_FORM_ID}"> — not through the
-        # generic per-group `builders` dict (see its own comment above)
-        # — because the rules panel it now holds contains real <form>
-        # elements. `groups_html` (the form's own visible content) is
-        # therefore empty on this scope: every saved theme radio now
-        # cross-submits from outside the form via `form=
-        # "{SETTINGS_FORM_ID}"`, exactly like Runway/Calendar already
-        # do (Structural Note 2's own "the physical form becomes a pure
-        # submission target").
-        frame_colours_section_html = (
+        # 21-05-PLAN.md Task 1 (D-06, Structural Note 2), renamed by
+        # 30-04-PLAN.md Task 2 (CFG-85): the "Look" intro heading plus
+        # the Aspect card render here, as a SIBLING of <form id=
+        # "{SETTINGS_FORM_ID}"> — not through the generic per-group
+        # `builders` dict (see its own comment above) — because the
+        # rules row it now holds contains real <form> elements.
+        # `groups_html` (the form's own visible content) is therefore
+        # empty on this scope: every saved theme radio now cross-
+        # submits from outside the form via `form="{SETTINGS_FORM_ID}"`,
+        # exactly like Runway/Calendar already do (Structural Note 2's
+        # own "the physical form becomes a pure submission target").
+        #
+        # 30-04-PLAN.md Task 2 (CFG-85/Pitfall 3): still gated on
+        # `screens.GROUP_THEME in groups` alone, NOT a merged
+        # `GROUP_THEME or GROUP_CALENDAR` condition — even though this
+        # card's Calendar row now carries `calendar_theme_id`'s own
+        # picker. `screens.GROUP_CALENDAR`'s own gate below (unchanged)
+        # is what still controls whether `calendar_group()`'s SEPARATE
+        # card renders at all today; collapsing the two gates into one
+        # is 30-06-PLAN.md's task, once the calendar body has actually
+        # moved into this row (30-RESEARCH.md Pitfall 3: today's one
+        # registered screen type always carries both groups together,
+        # so this is correctly "" on every scope that skips either).
+        aspect_section_html = (
             layout.section_intro_html(
                 DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING), i18n.t(DISPLAY_LOOK_INTRO))
             + _nested_wrapper_html(
-                _frame_colours_card_html(
+                _aspect_card_html(
                     ctx, current_theme_id, current_theme_arriving, current_calendar_theme_id,
                     errors=errors, submitted=submitted, state_dir=ctx.get("state_dir")),
-                "page-section frame-colours", "page-section--nested")
+                "page-section aspect-card", "page-section--nested")
             if screens.GROUP_THEME in groups else "")
         # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): the merged Calendar card
         # is built directly here — never through the generic `builders`
@@ -5650,7 +5664,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # copy of the flat join this replaces; that copy is deliberately
         # untouched.
         groups_html = _device_groups_html(builders, groups)
-        frame_colours_section_html = ""
+        aspect_section_html = ""
         display_calendar_card_html = ""
         display_watches_supersection_html = ""
         display_on_supersection_html = ""
@@ -5682,7 +5696,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # identical reason — screens.GROUP_CALENDAR has no entry in
         # `builders` any more either.
         groups_html = "".join(builders[g]() for g in groups if g in builders)
-        frame_colours_section_html = ""
+        aspect_section_html = ""
         display_calendar_card_html = ""
         display_watches_supersection_html = ""
         display_on_supersection_html = ""
@@ -5788,21 +5802,24 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         SETTINGS_ROUTE,
         hidden_html,
         groups_html,
-        # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the "Look"
-        # intro heading plus the Frame colours card now render
-        # immediately after `</form>` closes, BEFORE the Calendar card
-        # — restoring the locked Look-heading -> Frame colours ->
-        # Calendar reading order, now entirely outside the physical
-        # form. Always "" on the Device/SCOPE_ALL paths (both set it to
-        # "" explicitly above).
-        frame_colours_section_html,
+        # 21-05-PLAN.md Task 1 (D-06, Structural Note 2), renamed by
+        # 30-04-PLAN.md Task 2 (CFG-85): the "Look" intro heading plus
+        # the Aspect card now render immediately after `</form>` closes,
+        # BEFORE the Calendar card — restoring the locked Look-heading
+        # -> Aspect -> Calendar reading order, now entirely outside the
+        # physical form. Always "" on the Device/SCOPE_ALL paths (both
+        # set it to "" explicitly above).
+        aspect_section_html,
         # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): the merged Calendar
         # card, nested-wrapped exactly like Runway, now renders here —
-        # after the Frame colours section — carrying its own connect/
-        # replace form and, when connected or drifted, its own data-only
-        # disconnect form as a trailing sibling fragment, both already
-        # concatenated into this one string by calendar_group() itself.
-        # Always "" on Device/SCOPE_ALL (computed above).
+        # after the Aspect card — carrying its own connect/replace form
+        # and, when connected or drifted, its own data-only disconnect
+        # form as a trailing sibling fragment, both already concatenated
+        # into this one string by calendar_group() itself. STILL A
+        # SEPARATE CARD from Aspect (30-04-PLAN.md's own objective: the
+        # calendar CONNECTION block does not move here; 30-06-PLAN.md
+        # folds it into Aspect's own Calendar row). Always "" on
+        # Device/SCOPE_ALL (computed above).
         display_calendar_card_html,
         # 20-07-PLAN.md Task 1 (D-12), restructured by the D-12 fix
         # above: "What it watches"'s own header plus the Runway card —
