@@ -40,6 +40,16 @@
  * crossfade — no markup-writing DOM sink of any kind is used anywhere
  * in this file.
  *
+ * 30-08-PLAN.md Task 1 (CFG-85): re-checked against the hover/focus-
+ * follow listener pair added below — still true. The new listeners
+ * read one attribute (data-preview-src, off whichever chip label the
+ * pointer/focus walk resolves to) and call applyPreviewSrc() with it,
+ * the exact same write sink every other caller in this file already
+ * uses; they write nothing else — no checked= write, no dispatchEvent,
+ * no .click(), no requestSubmit(), no form-value write, and no "src"
+ * write outside applyPreviewSrc(). That governs the hover path too,
+ * not only the existing crossfade/change-listener paths.
+ *
  * 23-10-PLAN.md Task 2 (D3/CFG-32) changed that src write from
  * the .src PROPERTY to setAttribute("src", …) — the same sink, the same
  * server-rendered value, and the change is load-bearing rather than
@@ -329,6 +339,81 @@
     }
     applyPreviewSrc(src);
   });
+
+  // 30-08-PLAN.md Task 1 (CFG-85): the one genuinely new interaction
+  // this file adds. The old carousel followed SCROLL position, which
+  // has no "leaving" — scrolling away from a chip has no opposite
+  // event. Hover and focus are a different shape entirely: both have a
+  // real exit (mouseout/focusout), and the exit needs somewhere to go
+  // back to (30-RESEARCH.md Pitfall 4). Delegated on the card, never
+  // one pair per chip — a single row can carry a full THEME_IDS-sized
+  // palette, and binding 18+ listeners per row is exactly what
+  // delegation exists to avoid.
+  //
+  // mouseover/mouseout, not mouseenter/mouseleave: the latter do not
+  // bubble, so a delegated listener on the card could never see them.
+  // Same reasoning rules out pointerenter/pointerleave.
+  //
+  // Walks from the event target up to (but not including) the card,
+  // mirroring the walk-up-by-parentNode idiom
+  // companion/static/flight-rows.js already uses for its own delegated
+  // listener, rather than inventing a second resolution style. Only a
+  // real chip label ever carries data-preview-src (D-24) — the leading
+  // "Same as departures" option and every other element in the card
+  // carry none, so a walk that finds nothing is the correct "not a
+  // chip" signal, not an error.
+  function resolveChipPreviewSrc(node) {
+    while (node && node !== card) {
+      if (node.getAttribute) {
+        var src = node.getAttribute("data-preview-src");
+        if (src) {
+          return src;
+        }
+      }
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  // A mouseover/focusin that resolves to no chip is a no-op, never a
+  // preview change — hovering the "Same as departures" option, the
+  // summary chevron, or empty grid padding must not disturb the
+  // preview at all.
+  function previewHoveredOrFocusedChip(evt) {
+    var src = resolveChipPreviewSrc(evt.target);
+    if (src) {
+      applyPreviewSrc(src);
+    }
+  }
+
+  // Reverts to the OPEN row's own checked chip (falling back to
+  // departures when that row's own checked option is the leading "Same
+  // as departures" radio, which carries no data-preview-src of its
+  // own) — computed fresh on every revert, never cached at load, since
+  // the checked selection changes under this script's feet whenever a
+  // visitor clicks one.
+  //
+  // Only reverts when evt.relatedTarget (the element the pointer/focus
+  // is moving TO) resolves to no chip of its own. This is what makes
+  // hovering from one chip straight to a sibling chip preview the
+  // sibling without flashing back to the checked selection in between:
+  // the outgoing mouseout/focusout fires first, sees the incoming
+  // target is itself a chip, and does nothing, leaving the very next
+  // mouseover/focusin (on that sibling) to apply its own src instead.
+  function revertUnlessMovingToAnotherChip(evt) {
+    if (!resolveChipPreviewSrc(evt.target)) {
+      return;
+    }
+    if (resolveChipPreviewSrc(evt.relatedTarget)) {
+      return;
+    }
+    applyPreviewSrc(checkedChipSrc(openRow()) || checkedChipSrc(departuresRow()));
+  }
+
+  card.addEventListener("mouseover", previewHoveredOrFocusedChip);
+  card.addEventListener("focusin", previewHoveredOrFocusedChip);
+  card.addEventListener("mouseout", revertUnlessMovingToAnotherChip);
+  card.addEventListener("focusout", revertUnlessMovingToAnotherChip);
 
   // No DOMContentLoaded wrapper is needed: the <script> tag
   // companion/layout.py's page_shell() emits carries the defer
