@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 30
 current_phase_name: Aspect rebuilt — one tile, three rows, one palette, the calendar absorbed, sketch first
 status: executing
-stopped_at: Completed 29-06-PLAN.md — the site-wide editorial floor (CFG-79/CFG-84), the LAST plan of Phase 29. Battery-trend heading is now short and fixed (Batterie · 3 mois), precision moved to a sibling caption; Etat's check-in caption and read-only note split into a one-sentence visible caption plus a moved-clause disclosure; Compagnies' six over-length captions shortened; one HTTP-level check in test_companion_app.py measures every caption on all six authenticated routes in both languages (317/317), also catching two French translations that exceeded 12 words on their own. Full suite green (scripts/run-all-tests.sh, 93% coverage). Phase 29 is now ready for verification.
-last_updated: "2026-09-22T08:26:21.602Z"
+stopped_at: Phase 30 UI-SPEC approved
+last_updated: "2026-09-22T09:07:29.251Z"
 last_activity: 2026-09-22
 last_activity_desc: Phase 29 complete, transitioned to Phase 30
 progress:
@@ -903,12 +903,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-21T23:12:51.187Z
-Stopped at: Completed 29-06-PLAN.md — the site-wide editorial floor (CFG-79/CFG-84), the LAST plan of Phase 29. Battery-trend heading is now short and fixed (Batterie · 3 mois), precision moved to a sibling caption; Etat's check-in caption and read-only note split into a one-sentence visible caption plus a moved-clause disclosure; Compagnies' six over-length captions shortened; one HTTP-level check in test_companion_app.py measures every caption on all six authenticated routes in both languages (317/317), also catching two French translations that exceeded 12 words on their own. Full suite green (scripts/run-all-tests.sh, 93% coverage). Phase 29 is now ready for verification.
+Last session: 2026-09-22T09:07:29.230Z
+Stopped at: Phase 30 UI-SPEC approved
 
 Resume file: 
 
-None
+.planning/phases/30-aspect-rebuilt-one-tile-three-rows-one-palette-the-calendar-/30-UI-SPEC.md
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).
