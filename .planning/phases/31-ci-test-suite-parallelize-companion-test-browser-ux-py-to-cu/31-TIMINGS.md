@@ -396,3 +396,205 @@ above — every one of `server/test_render.py`, `server/test_poll_loop.py`,
 `stub-server/test_poll_cycle.py` slowed down after this split despite no code
 change to any of them, consistent with three simultaneous Chromium processes
 now competing for the pool's four worker slots where only one did before.
+
+## Phase 31 Closing Verdict (31-05-PLAN.md Task 1 decision + Task 3 measurement)
+
+### Task 1 checkpoint outcome: `skip-flights`
+
+The developer selected **`skip-flights`** at the plan 05 Task 1 checkpoint,
+after being shown this file's gate section (suite-level delta, the
+D-01-methodology CI-job-level estimate, the three browser harnesses'
+individual wall times, and the finding that the reduced parent still bounds
+total wall time) and the scope correction that the early Flights cluster is
+not contiguous (`_the_quiet_schedule_link_meets_the_hit_target_floor_at_360px`
+sits between the first and second early Flights checks and would have had to
+stay behind, per the live-file re-verification in `31-05-SUMMARY.md`).
+
+**Reasoning given:** D-05's gate missed on every sample of plan 04's local
+proxy; D-06 explicitly sanctions stopping at diminishing returns; and this
+matches both plan 04's own recommendation and the executing agent's
+independent read of the same evidence. The developer did not request a real
+CI number before deciding — the local-proxy evidence was treated as decisive.
+
+**Consequence for Task 2:** no-op. No file was created or modified —
+`companion/test_browser_ux_flights.py` does not exist,
+`companion/test_browser_ux.py` remains at 76/76, and
+`scripts/run_all_tests.py`/`EXPECTED_SLOWEST` were not touched.
+`git status --porcelain companion/ scripts/` is empty for the whole plan.
+
+### Fresh JOBS=4 re-measurement (Task 3, on the unchanged post-plan-04 code)
+
+Since Task 2 changed nothing, this re-measurement exercises the exact same
+24-harness, 96-check code state plan 04 measured — it exists to add samples
+and firm up the closing verdict, not to measure a new change.
+
+- **Commit SHA:** `77c6b116daef4220ec94247c13ac74978d6233c8`
+- **Host:** same 10-core Apple Silicon macOS/arm64 host as plans 01 and 04.
+- **Measurement command:** `PYTHON=server/.venv/bin/python3 JOBS=4
+  ./scripts/run-all-tests.sh`, two independent runs.
+
+| Run | Total wall time | Result | Failing checks |
+| --- | --- | --- | --- |
+| 1 | 212.7s | FAIL* | The two known Ctrl+A checks (leave-guard stays armed; validation-rejection echo) + the known DOM-detach check (no-JS fallback Save) in `companion/test_browser_ux.py` |
+| 2 | 210.8s | FAIL* | Same three known checks, identical failure signatures |
+
+\* Both runs fail for exactly the same three pre-existing, environment-only
+checks documented and root-caused in `31-01-SUMMARY.md`/`31-03-SUMMARY.md`/the
+pre-split section above (Blink's `EditingMacBehavior` makes `Control+A` a
+no-op for selection on native macOS; one intermittent arm64-Chromium
+DOM-detach race). No new failure appeared in either run — confirming this
+re-measurement is not exercising any regression, only adding wall-time
+samples on top of plan 04's already-established correctness proof (the
+`linux/amd64` Docker run, 96/96, still stands unchanged since Task 2 touched
+nothing).
+
+**Run 2's full per-harness table (representative):**
+
+| Harness | Wall (s) | Status |
+| --- | --- | --- |
+| companion/test_browser_ux.py | 210.7 | FAIL* (known env flake) |
+| companion/test_companion_app.py | 25.0 | PASS |
+| companion/test_browser_ux_quiet_wake.py | 23.3 | PASS |
+| companion/test_browser_ux_health_drawings.py | 19.2 | PASS |
+| server/test_render.py | 19.1 | PASS |
+| server/test_poll_loop.py | 8.4 | PASS |
+| companion/test_status_pages.py | 5.7 | PASS |
+| stub-server/test_poll_cycle.py | 3.9 | PASS |
+| server/test_pipeline_e2e.py | 1.7 | PASS |
+| server/test_panel_preview.py | 1.6 | PASS |
+| companion/test_config_page.py | 1.3 | PASS |
+| companion/test_view_pages.py | 1.2 | PASS |
+| companion/test_i18n.py | 1.0 | PASS |
+| server/test_illustrations.py | 1.0 | PASS |
+| server/test_calendar_rules.py | 0.6 | PASS |
+| server/test_manual_resolutions.py | 0.3 | PASS |
+| server/test_notify.py | 0.3 | PASS |
+| server/test_dither.py | 0.2 | PASS |
+| server/test_enrich.py | 0.2 | PASS |
+| server/test_colour_rules.py | 0.2 | PASS |
+| server/test_plane_detection.py | 0.2 | PASS |
+| server/test_config_history.py | 0.2 | PASS |
+| server/test_runway_config.py | 0.1 | PASS |
+| companion/test_contrast_check.py | 0.1 | PASS |
+
+`companion/test_browser_ux.py`'s own wall time (210.7s) again equals the
+run's total wall time (210.8s) within rounding — the reduced parent is
+still the sole bound on total wall time, exactly as in every one of plan
+04's three samples.
+
+### Delta arithmetic — this plan's two samples
+
+**Vs. the pre-split baseline (240.9s, plan 01):**
+
+| Sample | Pre-split (s) | This run (s) | Delta (s) | Delta (%) |
+| --- | --- | --- | --- | --- |
+| Run 1 | 240.9 | 212.7 | +28.2 | **+11.7%** (faster) |
+| Run 2 | 240.9 | 210.8 | +30.1 | **+12.5%** (faster) |
+| Mean (2 runs) | 240.9 | 211.75 | +29.15 | **+12.1%** (faster) |
+
+**Vs. plan 04's own post-split measurement (209.5s / 279.4s / 258.2s, mean 249.0s):**
+
+This plan's mean (211.75s) is faster than plan 04's mean (249.0s) by 37.25s
+(**14.9%**), and lands almost exactly on plan 04's own best sample (209.5s) —
+i.e., these two new samples sit at the fast end of plan 04's observed range,
+not outside it. This is consistent with plan 04's own finding that the
+suite's wall time is dominated by pool-contention noise rather than by a
+fixed cost: five samples now exist (209.5, 279.4, 258.2, 212.7, 210.8) and
+they span a 68.6s range (279.4s to 210.8s) on **identical code**, which is
+itself evidence that the local proxy alone is too noisy to declare a precise
+percentage — see the combined verdict below.
+
+**CI-job-level estimate (D-01 methodology: `29.7 + critical-path sample`,
+compared against the 340s job average):**
+
+| Sample | New critical path (s) | Job estimate (s) | vs. 340s job avg |
+| --- | --- | --- | --- |
+| Run 1 | 212.7 | 242.4 | **-97.6s, -28.7%** |
+| Run 2 | 210.8 | 240.5 | **-99.5s, -29.3%** |
+
+**Combined across all five samples measured for this phase (plan 04's three
+plus this plan's two), sorted:**
+
+| Sample source | Critical path (s) | Job estimate (s) | vs. 340s job avg |
+| --- | --- | --- | --- |
+| Plan 04, worst | 279.4 | 309.1 | 9.1% |
+| Plan 04, median | 258.2 | 287.9 | 15.3% |
+| This plan, run 1 | 212.7 | 242.4 | 28.7% |
+| This plan, run 2 | 210.8 | 240.5 | 29.3% |
+| Plan 04, best | 209.5 | 239.2 | 29.6% |
+
+Mean of all five: **22.4%**. Median of all five: **28.7%**. Range: **9.1% to
+29.6%** — a 20.5-point spread across five runs of literally identical code,
+which is the clearest single piece of evidence in this file that pool
+contention (not a fixed extraction benefit) is the dominant variable, and
+that this host's local proxy cannot pin the true figure down more precisely
+than "somewhere under 30%, possibly close to it on a good run."
+
+### Final D-05 verdict
+
+**Against D-05's ~30-40% bar: MISSED.** Not one of the five samples measured
+across plans 04 and 05 clears even the bar's 30% floor — the best single
+sample (29.6%) and this plan's two fresh samples (28.7%, 29.3%) all fall just
+short. The bar is not cleared, but three of five samples come close enough
+(within 1-2 points of 30%) that "missed" should be read as "missed, and
+close on a good run, but not reliably close" rather than "missed by a wide
+margin on every measurement" — the mean (22.4%) and the worst sample (9.1%)
+show the same code can also land well below that.
+
+**Suite-level:** no consistent win either. This plan's two samples both show
+a real suite-level improvement (+11.7%, +12.5%, faster than pre-split), but
+combined with plan 04's own three samples (+13.0% best to -16.0% worst), the
+five-sample suite-level picture remains mixed rather than a clean win.
+
+**Recommendation: against opening the follow-up decomposition phase for the
+settings mega-cluster, at this time.**
+
+Reasoning tied to the measured numbers:
+
+1. **The bar was not cleared on any of five independent local samples**,
+   despite two of this plan's own runs landing at the favourable end of the
+   observed range. D-06 explicitly instructs stopping at diminishing returns
+   rather than chasing a number, and five samples clustered mostly below 30%
+   (with a 20-point spread) is diminishing-returns evidence, not a marginal
+   near-miss on a stable number.
+2. **The dominant mechanism is pool contention, not "one file has too many
+   checks."** Plan 04 measured every non-browser harness slowing 22-77% with
+   zero code changes to any of them once three Chromium-launching harnesses
+   joined the same four-worker pool. A follow-up phase decomposing the
+   settings mega-cluster would very likely add yet more concurrent Chromium
+   processes to that same contended pool — the evidence here suggests that
+   makes the contention problem worse, not the check-count problem better,
+   which is exactly the mechanism this plan's own Task 1 checkpoint declined
+   to test further via the (smaller, cheaper) Flights extraction.
+3. **The settings mega-cluster is a materially harder decomposition than the
+   two clean extractions this phase already took.** Per `31-RESEARCH.md`'s
+   "Why the mega-cluster is not this phase's target": it accounts for
+   roughly 70% of the original check bodies, spans 34 heavily-interleaved
+   Display-page checks and 7 Device-page checks, includes checks
+   deliberately written to drive both pages in a single check body, and
+   reuses a set of shared local closures across multiple checks inside it.
+   None of the risk-reducing properties that made Health-Drawings and
+   Quiet-Wake safe extractions (small, self-contained, zero cross-file
+   coupling) hold for this cluster.
+4. **If a future phase revisits this**, it should address the mechanism
+   first — e.g. a CI runner with more cores, or a pool policy that caps how
+   many Chromium-launching harnesses run concurrently regardless of `JOBS`
+   — rather than extracting further scenario groups into the same
+   contended four-slot pool.
+
+**CI caveat (repeated per D-05's own measurement method):** every number in
+this file, including this closing verdict, is a **local proxy** on a 10-core
+Apple Silicon host. D-05's authoritative figure is the CI "test" job's wall
+time from `gh run view`, averaged over several real runs, the same way D-01
+measured the baseline. This branch (`claude/optimize-tests-ci-278bc4`) has
+not yet been pushed, so no real CI number exists for it at the time this
+verdict was written. **This verdict should be re-checked on the first real
+CI run of this branch and revised if the CI figure disagrees materially** —
+particularly because the CI runner has only 4 vCPUs (fewer than this host's
+10), which could make the measured pool contention better or worse there in
+ways this local proxy cannot predict.
+
+**D-07 held for the whole phase:** `git status --porcelain .github/` is
+empty at every plan boundary in phase 31, including this one — no workflow
+YAML change, no matrix strategy, no new scheduling mechanism was introduced
+anywhere in this phase.
