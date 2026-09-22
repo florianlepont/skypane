@@ -1503,9 +1503,22 @@ The alternative keeps the current structure and swaps only the selector: three s
 **Plans:** 5 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 31-01-PLAN.md — Capture the irreproducible pre-split baseline (96-check transcript + `JOBS=4` timings), then create `companion/test_browser_ux_helpers.py` from the module-level preamble and rewire `companion/test_browser_ux.py` onto it, still at 96/96
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 31-02-PLAN.md — Extract the 24-04/24-06/24-07/24-08 drawings series (11 checks) into `companion/test_browser_ux_health_drawings.py`; parent down to 85/85; prove no verdict changed
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 31-03-PLAN.md — Extract the quiet-hours dial + wake-interval slider group (9 checks) into `companion/test_browser_ux_quiet_wake.py`; parent down to 76/76; prove no verdict changed
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 31-04-PLAN.md — Register both harnesses in `HARNESSES`/`EXPECTED_SLOWEST`, fix the stale harness counts, run the suite at `JOBS=4` and record the measured wall-time delta against the D-01 baseline
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 31-05-PLAN.md — Blocking decision on the optional Flights extraction (8 checks) against the measured D-05 gate, then close the phase with a written verdict and a follow-up recommendation
