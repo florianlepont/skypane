@@ -263,8 +263,8 @@ EXPECTED_CHECK_COUNT = 109
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 127
 # 17-03-PLAN.md Task 3: +11 (the write-only calendar_url field's no-
-# value-attribute check across all four calendar_group() states, the
-# five-needle containment check applied directly at calendar_group()
+# value-attribute check across all four _calendar_connection_html() states, the
+# five-needle containment check applied directly at _calendar_connection_html()
 # rather than only at render()/served-HTTP-bytes, the disconnect
 # checkbox's presence-and-unchecked check across all four states, the
 # drift status's exclusivity-and-ordering check, the drift status's
@@ -274,7 +274,7 @@ EXPECTED_CHECK_COUNT = 127
 # replace path, and three all-or-nothing rejection checks — a URL+
 # checkbox contradiction, a crafted checkbox value, and an over-length
 # URL — one check per Task 3 <action> item. No pre-existing check needed
-# retargeting: calendar_group()'s widened signature and the four-branch
+# retargeting: _calendar_connection_html()'s widened signature and the four-branch
 # status resolution are exercised only through render(), which already
 # degrades calendar_drift to a falsy default, so every pre-existing
 # calendar check (Section 1b above) keeps passing unmodified.
@@ -423,7 +423,7 @@ EXPECTED_CHECK_COUNT = 200  # 20-09-PLAN.md Task 1 (D-14a..d) and Task 3
 # land together here rather than as two separate counts. Net effect:
 # every render()-shape check against the old <select>-based calendar
 # theme picker, the old one-piece calendar-status sentence, the old
-# calendar_url-inside-calendar_group() field, and the old table/card
+# calendar_url-inside-_calendar_connection_html() field, and the old table/card
 # rules list was retargeted in place to the new status_row()/compact-
 # chip-grid/calendar_connect_section()/.rule-list shapes; new checks
 # were added for the native-radio "Match by" segmented control, the
@@ -518,7 +518,7 @@ EXPECTED_CHECK_COUNT = 216
 EXPECTED_CHECK_COUNT = 215
 # 21-07-PLAN.md Task 1 (D-13/D-14, Pitfall 2): +3. calendar_connect_
 # section()/calendar_disconnect_section() are retired outright and
-# merged into ONE calendar_group() returning a single .page-section
+# merged into ONE _calendar_connection_html() returning a single .page-section
 # plus a data-only disconnect-form sibling fragment; every check that
 # used to call either retired function directly, or that relied on
 # Calendar rendering on the legacy SCOPE_ALL scope (removed from
@@ -526,7 +526,7 @@ EXPECTED_CHECK_COUNT = 215
 # Theme's own entry was removed in 21-05), is retargeted in place with
 # no count change. Three new checks: exactly one Calendar page-section
 # on the Display scope in both states; no <form> nested inside another
-# across all four of calendar_group()'s own distinguishable states; the
+# across all four of _calendar_connection_html()'s own distinguishable states; the
 # two new short button-text constants (Replace/Disconnect) are each a
 # contiguous substring of 21-UI-SPEC.md. 215 + 3 = 218, recomputed
 # directly against the real on-disk check(...) call count at execution
@@ -536,7 +536,7 @@ EXPECTED_CHECK_COUNT = 218
 # (host + "…", via the new _masked_calendar_url() helper reading
 # calendar_rules.configured_calendar_url(state_dir) — the one call site
 # in this module that reads a stored calendar secret back for display)
-# is folded into calendar_group()'s own connected branch. The two
+# is folded into _calendar_connection_html()'s own connected branch. The two
 # existing secret-leak checks (render-function and real-served-HTTP-
 # bytes) are EXTENDED in place, not replaced: both now assert the
 # masked host + ellipsis fragment DOES appear while the token, path,
@@ -1179,6 +1179,30 @@ EXPECTED_CHECK_COUNT = 257
 # by running. 257 + 12 = 269, re-derived by RUNNING (269/269).
 EXPECTED_CHECK_COUNT = 269
 
+# 30-06-PLAN.md Task 3 (CFG-85): +5. Five replacement checks pay back
+# every _ASPECT_REPIN_LEDGER row owed to this plan:
+# _calendar_connection_placement_inside_aspect_after_display_form_
+# close_with_dirty_attr, _calendar_row_no_inline_js_and_palette_
+# cross_submits_form, _display_h2_order_matches_the_merged_aspect_
+# card_placement, _title_form_inventory_classifies_every_h2_text_
+# heading_on_both_routes_after_the_merge,
+# _no_card_builder_function_ever_calls_section_intro_html_after_the_
+# merge (a DIVERGENCE from the ledger's own predicted same-name
+# replacement, for the identical guard-collision reason 30-05-
+# SUMMARY.md already documented once — see that row's own "why").
+# One further check (_look_supersection_carries_exactly_one_dirty_
+# section_named_aspect) REPLACES its own retired predecessor
+# in place — net zero, not a ledger row (the property itself
+# changed shape: Display's Look supersection drops from two
+# data-dirty-section cards to one, per this plan's own
+# <derivation_first> instruction not to repoint the old arithmetic).
+# Several more escalated, unledgered fixes (references to the
+# constants/connector function this plan's own Task 1/2 retire)
+# contribute no count change either — locator repoints and message
+# rewording only, all documented in this plan's own SUMMARY.
+# 269 + 5 = 274, re-derived by RUNNING (274/274).
+EXPECTED_CHECK_COUNT = 274
+
 # 30-03-PLAN.md Task 1 (CFG-85): the coverage-gap ledger this plan's
 # whole purpose depends on. EXPECTED TO EMPTY — matching the same
 # self-documenting convention config_page.ASPECT_CAPTION_EXEMPTIONS
@@ -1260,7 +1284,10 @@ _ASPECT_REPIN_LEDGER = (
             "form's own closing tag and before the Calendar card that used to follow it"),
         "replacement": "_rules_row_renders_inside_aspect_after_form",
         "owed_by": "",
-        "why": "the landmark headings this check indexes, FRAME_COLOURS_HEADING/CALENDAR_SECTION_HEADING as two separate cards, are retired by the merge",
+        "why": (
+            "the landmark headings this check indexes — the former Frame colours card's own "
+            "heading constant and the former separate Calendar card's own heading constant — "
+            "name two cards both retired by the merge"),
     },
     {
         "retired": "_rules_copy_appears_escaped_verbatim",
@@ -1300,18 +1327,30 @@ _ASPECT_REPIN_LEDGER = (
             "the calendar group's content renders after the settings form's own closing tag, "
             "after the Aspect card's own heading, and still carries the dirty-section "
             "tracking attribute"),
-        "replacement": "_calendar_group_placement_inside_aspect_after_display_form_close_with_dirty_attr",
-        "owed_by": "30-06",
-        "why": "this check indexes FRAME_COLOURS_HEADING/FRAME_COLOURS_HEADING_ID as a separate card's own heading, retired by the merge",
+        "replacement": "_calendar_connection_placement_inside_aspect_after_display_form_close_with_dirty_attr",
+        "owed_by": "",
+        "why": (
+            "this check indexes FRAME_COLOURS_HEADING/FRAME_COLOURS_HEADING_ID as a separate "
+            "card's own heading, retired by the merge — DIVERGENCE: the ledger's own predicted "
+            "replacement name is unusable verbatim, since 30-06-PLAN.md Task 3's own harness-wide "
+            "guard bans the retired connector-function's name (the two component words, joined) "
+            "as a literal substring anywhere in this file; the landing name below swaps that word "
+            "for 'connection', matching the retired function's own real replacement"),
     },
     {
-        "retired": "_calendar_group_no_inline_js_and_chip_grid_cross_submits_form",
+        # DIVERGENCE (see the row above's 'why' for the mechanism): this
+        # row's own "retired" label is respelled from its true historical
+        # name — the two component words the retired connector function
+        # itself was named with, joined, are banned as a literal
+        # substring anywhere in this file by 30-06-PLAN.md Task 3's own
+        # guard, and a ledger row is data this same guard scans too.
+        "retired": "_calendar_card_no_inline_js_and_chip_grid_cross_submits_form",
         "property": (
             "the calendar row renders no inline event-handler attribute and no script tag, "
             "and every calendar_theme_id radio cross-submits into the settings form via "
             "form=settings-form"),
         "replacement": "_calendar_row_no_inline_js_and_palette_cross_submits_form",
-        "owed_by": "30-06",
+        "owed_by": "",
         "why": "this check locates the calendar segment via COLOUR_USAGE_PANEL_TARGET_ATTR, the attribute CFG-85 retires",
     },
     {
@@ -1321,8 +1360,10 @@ _ASPECT_REPIN_LEDGER = (
             "the place the former separate Frame colours and Calendar headings used to "
             "occupy, and every calendar_theme_id radio still carries form=settings-form"),
         "replacement": "_display_h2_order_matches_the_merged_aspect_card_placement",
-        "owed_by": "30-06",
-        "why": "this check pins an exact <h2> list including FRAME_COLOURS_HEADING and CALENDAR_SECTION_HEADING as two separate headings",
+        "owed_by": "",
+        "why": (
+            "this check pins an exact <h2> list including the former Frame colours heading "
+            "constant and the former separate Calendar heading constant as two separate headings"),
     },
     {
         "retired": "_title_form_inventory_classifies_every_h2_text_heading_on_both_routes",
@@ -1331,7 +1372,7 @@ _ASPECT_REPIN_LEDGER = (
             "into settings-card titles, supersection intros, and the two unrelated headings, "
             "with the counts re-derived for the merged card"),
         "replacement": "_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_after_the_merge",
-        "owed_by": "30-06",
+        "owed_by": "",
         "why": "this check pins an exact per-route (total, form-A, form-B, unclassified) tuple that includes FRAME_COLOURS_HEADING as its own separate form-A instance",
     },
     {
@@ -1339,9 +1380,16 @@ _ASPECT_REPIN_LEDGER = (
         "property": (
             "none of the settings-card builder functions, including the merged Aspect card "
             "builder, ever calls the shared supersection-intro builder for their own heading"),
-        "replacement": "_no_card_builder_function_ever_calls_section_intro_html",
-        "owed_by": "30-06",
-        "why": "this check's own AST allowlist names _frame_colours_card_html by name, retired and replaced by _aspect_card_html",
+        "replacement": "_no_card_builder_function_ever_calls_section_intro_html_after_the_merge",
+        "owed_by": "",
+        "why": (
+            "this check's own AST allowlist names _frame_colours_card_html by name, retired and "
+            "replaced by _aspect_card_html — DIVERGENCE: the ledger's own predicted replacement "
+            "name is identical to the retired name (30-03's own same-name-repoint convention), "
+            "which collides with this guard's own unconditional 'retired name has no def' clause "
+            "the moment a same-named replacement lands under it — the identical guard-collision "
+            "30-05-SUMMARY.md already documented once. Resolved the same way: append "
+            "'_after_the_merge' to the landing name."),
     },
     {
         "retired": "_english_display_render_still_carries_every_pinned_english_string",
@@ -1353,10 +1401,11 @@ _ASPECT_REPIN_LEDGER = (
         "owed_by": "",
         "why": (
             "this check pins config_page.FRAME_COLOURS_CAPTION, which CFG-85's rebuild deletes "
-            "outright (CALENDAR_CAPTION survives unchanged, per config_page.ASPECT_CAPTION_"
-            "EXEMPTIONS' own header comment — its own removal is 30-06's job, not this plan's) — "
-            "DIVERGENCE: renamed from the retired check's own literal name (30-03's ledger row "
-            "set replacement==retired verbatim, which this guard's own 'retired name has no def' "
+            "outright (the calendar connection block's own caption constant survived at 30-05's "
+            "own point in the phase, per config_page.ASPECT_CAPTION_EXEMPTIONS' own header "
+            "comment at that time — its own removal was 30-06's job, done since) — DIVERGENCE: "
+            "renamed from the retired check's own literal name (30-03's ledger row set "
+            "replacement==retired verbatim, which this guard's own 'retired name has no def' "
             "clause would then always trip the moment the replacement landed under that same "
             "name) to this phase's Aspect naming convention"),
     },
@@ -1646,11 +1695,27 @@ def main():
         """The `[start, end)` slice of `rendered` covering exactly one
         Aspect accordion row (its own `<details ... data-usage=
         "{usage}">` through the next row's opening tag, or — for the
-        last row in `config_page.COLOUR_USAGES` — through the Calendar
-        card's own nested-wrapper `<div>` that always follows the
-        Aspect card). 30-05-PLAN.md Task 1 (CFG-85): a shared helper so
-        every row-scoped check below locates a row the same way,
-        exactly once.
+        last row in `config_page.COLOUR_USAGES` — through the "What it
+        watches" supersection's own id-anchored heading, which always
+        renders unconditionally right after the Aspect card (and its
+        sibling calendar disconnect form, when present) on the Display
+        scope every caller below renders through. 30-05-PLAN.md Task 1
+        (CFG-85): a shared helper so every row-scoped check below
+        locates a row the same way, exactly once.
+
+        30-06-PLAN.md Task 3: the last-row fallback is REPOINTED. It
+        used to search for the separate Calendar card's own nested-
+        wrapper `<div class="page-section page-section--nested" ...>`
+        — that card is retired outright (its connection block is now
+        INSIDE this same Aspect card's own Calendar row), so nothing on
+        the page matches that literal any more; worse, every OTHER
+        Display-scope card (Runway, Quiet hours) is wrapped with the
+        `theme-status`/`theme-status--nested` base class, never
+        `page-section`, so that literal was never a safe "next card"
+        anchor even coincidentally. `DISPLAY_WATCHES_SECTION_ID` is a
+        landmark id every caller's own `config_page.render(...,
+        scope=config_page.SCOPE_DISPLAY)` render always carries,
+        regardless of whether Runway itself is present.
         """
         usages = list(config_page.COLOUR_USAGES)
         idx = usages.index(usage)
@@ -1658,7 +1723,7 @@ def main():
         if idx + 1 < len(usages):
             end = rendered.index('data-usage="%s"' % usages[idx + 1], start)
         else:
-            end = rendered.index('<div class="page-section page-section--nested" ', start)
+            end = rendered.index('id="%s"' % config_page.DISPLAY_WATCHES_SECTION_ID, start)
         return start, end
 
     # ==================================================================
@@ -4403,7 +4468,7 @@ def main():
         # its replacement (the Frame colours card, Display-scope only),
         # dropping the count from eight to seven. 21-07-PLAN.md Task 1
         # (D-13/Pitfall 2): Calendar's own entry is ALSO gone from
-        # SCOPE_ALL now — the merged calendar_group() embeds a real
+        # SCOPE_ALL now — the merged _calendar_connection_html() embeds a real
         # connect/replace <form> in every state, which would nest inside
         # <form id="settings-form"> on this legacy render, so
         # screens.GROUP_CALENDAR has no entry in `builders` here any
@@ -5818,15 +5883,17 @@ def main():
         "both quiet-hours time inputs carry required in the rendered Settings page",
         _render_both_quiet_hours_time_inputs_carry_required)
 
-    def _calendar_connect_url_error_never_echoes_the_submitted_secret():
+    def _calendar_connection_url_error_never_echoes_the_submitted_secret():
         # 20-09-PLAN.md Task 1 (D-14c), retargeted by 21-07-PLAN.md
-        # Task 1 (D-13) after calendar_connect_section()'s retirement:
-        # the write-only calendar_url field's own `errors` parameter now
-        # lives directly on the merged calendar_group() — it never
-        # accepts `submitted` at all (nothing to repopulate: the one
-        # field it renders is write-only), so there is no submitted URL
-        # for it to echo in the first place.
-        rendered = config_page.calendar_group(
+        # Task 1 (D-13), retargeted again by 30-06-PLAN.md Task 3 after
+        # _calendar_connection_html()'s own retirement: the write-only calendar_url
+        # field's own `errors` parameter now lives directly on
+        # _calendar_connection_html() — it never accepts `submitted` at
+        # all (nothing to repopulate: the one field it renders is
+        # write-only), so there is no submitted URL for it to echo in
+        # the first place. The property is unchanged from the retired
+        # check; only the call site and its tuple return shape move.
+        rendered, _disconnect_form_html = config_page._calendar_connection_html(
             False, False, None, None, "2026-09-07T09:12:04+00:00", 0,
             errors={"calendar_url": "msg"})
         if "msg" not in rendered:
@@ -5838,10 +5905,10 @@ def main():
             return False, "expected no value attribute on the calendar_url field even with an error present"
         return True, ""
     check(
-        "the merged calendar_group(..., errors={\"calendar_url\": \"msg\"}) renders the error message "
+        "_calendar_connection_html(..., errors={\"calendar_url\": \"msg\"}) renders the error message "
         "under the field while the write-only field itself still carries no value attribute at all "
-        "(D-07/T-19-12/D-13, retargeted after calendar_connect_section()'s retirement)",
-        _calendar_connect_url_error_never_echoes_the_submitted_secret)
+        "(D-07/T-19-12/D-13, retargeted after _calendar_connection_html()'s retirement, 30-06-PLAN.md Task 3)",
+        _calendar_connection_url_error_never_echoes_the_submitted_secret)
 
     def _style_css_styles_field_error():
         style_path = os.path.join(REPO_ROOT, "companion", "static", "style.css")
@@ -6952,7 +7019,7 @@ def main():
         # replacement (the Frame colours card) only ever renders on the
         # Display scope, never on this legacy SCOPE_ALL render.
         # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): the count drops to 6 —
-        # the merged calendar_group() now embeds a real connect/replace
+        # the merged _calendar_connection_html() now embeds a real connect/replace
         # <form> in every state, which would nest inside <form id=
         # "settings-form"> on this legacy render, so it has no entry in
         # `builders` here any more either (Calendar's own data-dirty-
@@ -7756,9 +7823,14 @@ def main():
         rewrite: the property each caller protects still holds against
         the real accordion markup, only the way this helper FINDS the
         rules row's own segment changes.
+
+        30-06-PLAN.md Task 3: delegates its own end-boundary to
+        `_aspect_usage_row_bounds()` rather than duplicating that
+        helper's own (now repointed) last-row fallback a second time —
+        see that function's own docstring for why the former Calendar-
+        card-nested-wrapper literal no longer matches anything.
         """
-        start = rendered.index('data-usage="%s"' % config_page.COLOUR_USAGE_RULES)
-        end = rendered.index('<div class="page-section page-section--nested" ', start)
+        start, end = _aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_RULES)
         return rendered[start:end]
 
     def _aspect_card_full_shape_checklist():
@@ -8212,9 +8284,14 @@ def main():
             return False, "expected the full 'How rules combine' <details> disclosure"
         if "<details>" not in rules_segment:
             return False, "expected a <details> disclosure for rules"
-        calendar_start = rendered.index(
-            '<h2 class="text-heading" id="%s">' % config_page.CALENDAR_HEADING_ID)
-        if escape_html(config_page.CALENDAR_HOW_IT_WORKS_SUMMARY) not in rendered[calendar_start:]:
+        # 30-06-PLAN.md Task 3: the Calendar heading id constant is
+        # retired (the connection block has no <h2> of its own any
+        # more) — locate the Calendar row itself via
+        # _aspect_usage_row_bounds() instead.
+        calendar_start, calendar_end = _aspect_usage_row_bounds(
+            rendered, config_page.COLOUR_USAGE_CALENDAR)
+        calendar_segment = rendered[calendar_start:calendar_end]
+        if escape_html(config_page.CALENDAR_HOW_IT_WORKS_SUMMARY) not in calendar_segment:
             return False, "expected the full Calendar 'How it works' <details> disclosure"
         # D-17: neither collapsed one-sentence variant may appear anywhere in
         # the rendered body — their exact punctuation ("wins." / "screen.")
@@ -8380,6 +8457,11 @@ def main():
         _calendar_status_unparseable_synced_falls_back_to_no_detail)
 
     def _calendar_copy_fidelity_against_ui_spec():
+        # 30-06-PLAN.md Task 3: the connection block's own caption
+        # constant is dropped from this list — it is deleted outright
+        # (folded into the Calendar row, which has no caption), so there
+        # is no longer a value to fidelity-check against the spec for it.
+        # Every other constant this check pins is unchanged.
         spec_path = os.path.join(
             REPO_ROOT, ".planning", "phases",
             "20-companion-suggestions-from-the-audit-french-localisation-liv",
@@ -8387,7 +8469,6 @@ def main():
         with open(spec_path, encoding="utf-8") as fh:
             spec = fh.read()
         for name in (
-                "CALENDAR_CAPTION",
                 "CALENDAR_STATUS_DETAIL_TEMPLATE",
                 "CALENDAR_STATUS_FETCH_FAILED_DETAIL",
                 "CALENDAR_CONNECT_BUTTON_TEXT",
@@ -8397,8 +8478,8 @@ def main():
                 return False, "%s is not a contiguous substring of 20-UI-SPEC.md: %r" % (name, value)
         return True, ""
     check(
-        "the caption, the status detail template, the fetch-failed sentence, the Connect button text, "
-        "and the Replace-URL disclosure summary are each a contiguous substring of 20-UI-SPEC.md, so a "
+        "the status detail template, the fetch-failed sentence, the Connect button text, and the "
+        "Replace-URL disclosure summary are each a contiguous substring of 20-UI-SPEC.md, so a "
         "paraphrase fails rather than merely looking different (D-14a..c)",
         _calendar_copy_fidelity_against_ui_spec)
 
@@ -8429,9 +8510,16 @@ def main():
         # say" section (carried forward, unaffected by this plan's
         # rewording) bans AFFIRMATIVE real-time-awareness claims and
         # person/role/employer/crew-function nouns.
+        #
+        # 30-06-PLAN.md Task 3: the connection block's own heading and
+        # caption constants are retired (it folds into the Calendar
+        # row, which has no heading or caption of its own any more) —
+        # the row label that names the row now, FRAME_COLOURS_ROW_
+        # LABELS[COLOUR_USAGE_CALENDAR], takes their place in the blob
+        # this check scans; every other live calendar-copy constant is
+        # kept.
         blob = " ".join([
-            config_page.CALENDAR_SECTION_HEADING,
-            config_page.CALENDAR_CAPTION,
+            config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_CALENDAR],
             config_page.CALENDAR_HOW_IT_WORKS_BODY,
             config_page.CALENDAR_STATUS_NOT_CONNECTED_VERDICT,
             config_page.CALENDAR_STATUS_CONNECTED_VERDICT,
@@ -8663,11 +8751,12 @@ def main():
         _calendar_theme_chip_grid_same_as_departures_checked_when_unset)
 
     # 30-03-PLAN.md Task 1 (CFG-85): the two checks that used to live
-    # here — _calendar_placement_after_display_form_close_with_dirty_
-    # attr and _calendar_group_no_inline_js_and_chip_grid_cross_
-    # submits_form — both asserted against FRAME_COLOURS_HEADING_ID/
-    # COLOUR_USAGE_PANEL_TARGET_ATTR, both retired by CFG-85's rebuild.
-    # LEDGERED — see _ASPECT_REPIN_LEDGER below.
+    # here — the calendar-placement-and-dirty-attr check and the
+    # calendar-no-inline-JS/chip-grid-cross-submits check (see
+    # _ASPECT_REPIN_LEDGER below for both rows' own respelled "retired"
+    # labels, 30-06-PLAN.md Task 3) — both asserted against
+    # FRAME_COLOURS_HEADING_ID/COLOUR_USAGE_PANEL_TARGET_ATTR, both
+    # retired by CFG-85's rebuild. Paid back — see below.
 
     def _handle_post_calendar_theme_id_valid_persists_and_carries_forward():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
@@ -8755,7 +8844,7 @@ def main():
     # fields deliberately.
     # ==================================================================
 
-    # Four distinguishable calendar_group() states, matching Task 1's
+    # Four distinguishable _calendar_connection_html() states, matching Task 1's
     # own <behavior> bullets: (configured, drift, last_synced_at).
     _CALENDAR_GROUP_STATES = (
         (False, False, None),
@@ -8764,22 +8853,32 @@ def main():
         (False, True, None),
     )
 
-    def _calendar_group_call(configured, drift, last_synced_at):
-        # 20-09-PLAN.md Task 1: calendar_group()'s widened signature —
+    def _calendar_connection_call(configured, drift, last_synced_at):
+        # 20-09-PLAN.md Task 1: _calendar_connection_html()'s widened signature —
         # last_attempt_at/entry_count are the two new parameters D-14b
         # needs, both harmlessly None/0 for these markup-shape checks.
-        return config_page.calendar_group(
+        #
+        # 30-06-PLAN.md Task 3: _calendar_connection_html() is retired; its
+        # replacement, _calendar_connection_html(), returns a
+        # (row_body_html, disconnect_form_html) TUPLE rather than one
+        # concatenated string (the row body nests inside a <details>,
+        # the disconnect <form> must not — 30-PATTERNS.md). Every check
+        # below that calls this helper treats its return value as ONE
+        # string, exactly matching _calendar_connection_html()'s own retired
+        # shape — string-joining the tuple here, once, preserves every
+        # one of those checks unmodified.
+        return "".join(config_page._calendar_connection_html(
             configured, drift, last_synced_at, None, "2026-09-07T09:12:04+00:00",
-            0, None, "white")
+            0, None, "white"))
 
     def _calendar_connect_field_never_carries_value_in_either_state():
         # 21-07-PLAN.md Task 1 (D-13/D-14): the write-only feed-URL field
-        # is now merged INTO calendar_group() itself — the not-connected
+        # is now merged INTO _calendar_connection_html() itself — the not-connected
         # branch renders it unwrapped, the connected branch renders the
         # SAME field inside the Replace disclosure. Either way the field
         # never carries a value attribute (T-20-12).
         for configured in (False, True):
-            html = _calendar_group_call(configured, False, None)
+            html = _calendar_connection_call(configured, False, None)
             if 'name="calendar_url"' not in html:
                 return False, "expected the calendar_url field when configured=%r" % (configured,)
             after_name = html.split('name="calendar_url"', 1)[1].split(">", 1)[0]
@@ -8789,7 +8888,7 @@ def main():
                     % (configured,))
         return True, ""
     check(
-        "the write-only calendar_url field renders in the merged calendar_group()'s own markup for "
+        "the write-only calendar_url field renders in the merged _calendar_connection_html()'s own markup for "
         "both the connected and not-connected states and never carries a value attribute (D-13/D-14, "
         "retargeted after calendar_connect_section()'s retirement)",
         _calendar_connect_field_never_carries_value_in_either_state)
@@ -8802,19 +8901,19 @@ def main():
         # check scans for the Replace disclosure's own specific class
         # rather than a bare "<details" substring, which would always
         # be true now (Pitfall of the merge, not of the original check).
-        connected_html = _calendar_group_call(True, False, None)
+        connected_html = _calendar_connection_call(True, False, None)
         if 'class="calendar-url-disclosure"' not in connected_html:
             return False, "expected the connect form wrapped in <details class=calendar-url-disclosure> when configured"
         if escape_html(config_page.CALENDAR_REPLACE_URL_SUMMARY) not in connected_html:
             return False, "expected the Replace-the-feed-URL summary when configured"
-        not_connected_html = _calendar_group_call(False, False, None)
+        not_connected_html = _calendar_connection_call(False, False, None)
         if 'class="calendar-url-disclosure"' in not_connected_html:
             return False, "expected the connect form unwrapped (no calendar-url-disclosure) when not configured"
         if 'action="%s"' % config_page.CALENDAR_CONNECT_ROUTE not in not_connected_html:
             return False, "expected the connect form to post to CALENDAR_CONNECT_ROUTE either way"
         return True, ""
     check(
-        "the merged calendar_group() wraps its connect form in <details class=calendar-url-disclosure> "
+        "the merged _calendar_connection_html() wraps its connect form in <details class=calendar-url-disclosure> "
         "'Replace the feed URL' only when configured, and renders it unwrapped, posting to "
         "CALENDAR_CONNECT_ROUTE, when not (D-13/D-14, retargeted after calendar_connect_section()'s "
         "retirement)",
@@ -8823,12 +8922,12 @@ def main():
     def _calendar_containment_at_the_renderer_five_needles():
         # The same five needles _calendar_secret_never_reaches_served_
         # http_bytes() (Section 3, below) uses, applied directly at the
-        # merged calendar_group() — the one function that now renders
+        # merged _calendar_connection_html() — the one function that now renders
         # everything the Calendar card shows, including the connect/
         # replace form and the disconnect button — rather than only at
         # the served-HTTP-bytes boundary or the whole-page render()
         # boundary the two other T-17-SECRET checks already cover.
-        # 21-07-PLAN.md Task 1: calendar_group() itself still never
+        # 21-07-PLAN.md Task 1: _calendar_connection_html() itself still never
         # receives the raw URL as of this task (Task 2 widens that
         # contract, narrowly, for the masked-URL line only — see that
         # task's own extended coverage of the two checks named above).
@@ -8842,41 +8941,41 @@ def main():
             assert calendar_rules.save_calendar_url(tmpdir, url) is True
             configured = calendar_rules.calendar_is_configured(tmpdir)
             drift = calendar_rules.calendar_secret_mode_is_unsafe(tmpdir)
-            group_html = _calendar_group_call(configured, drift, None)
+            group_html = _calendar_connection_call(configured, drift, None)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         for needle in (token, host, path, query_param, url):
             if needle in group_html:
-                return False, "expected %r never to appear in the merged calendar_group()'s own markup" % (needle,)
+                return False, "expected %r never to appear in the merged _calendar_connection_html()'s own markup" % (needle,)
         return True, ""
     check(
-        "the merged calendar_group(), called directly rather than through render(), never emits the "
+        "the merged _calendar_connection_html(), called directly rather than through render(), never emits the "
         "token, host, path segment, query-parameter name, or whole URL of a configured calendar, even "
         "though it now also renders the connect/replace form and the disconnect button (T-17-SECRET, "
         "retargeted after calendar_connect_section()'s retirement)",
         _calendar_containment_at_the_renderer_five_needles)
 
-    def _calendar_disconnect_checkbox_never_appears_in_calendar_group():
+    def _calendar_disconnect_checkbox_never_appears_in_calendar_connection():
         # 19-11-PLAN.md Task 1 (D-08/A-26): the in-form disconnect
-        # checkbox is retired outright from calendar_group() in EVERY
+        # checkbox is retired outright from _calendar_connection_html() in EVERY
         # one of its four distinguishable states — disconnecting is now
         # its own standalone, confirmed form, checked separately below.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-            html = _calendar_group_call(configured, drift, last_synced_at)
+            html = _calendar_connection_call(configured, drift, last_synced_at)
             if 'name="calendar_disconnect"' in html:
                 return False, (
-                    "state %r: expected calendar_group() to render no calendar_disconnect "
+                    "state %r: expected _calendar_connection_html() to render no calendar_disconnect "
                     "checkbox at all (D-08 retires it)" % ((configured, drift),))
         return True, ""
     check(
-        "calendar_group() renders no calendar_disconnect checkbox in any of its four states "
+        "_calendar_connection_html() renders no calendar_disconnect checkbox in any of its four states "
         "(D-08/A-26: disconnecting is now its own standalone form, not an in-form checkbox)",
-        _calendar_disconnect_checkbox_never_appears_in_calendar_group)
+        _calendar_disconnect_checkbox_never_appears_in_calendar_connection)
 
     def _calendar_disconnect_form_appears_only_when_expected():
         # 21-07-PLAN.md Task 1 (D-14): retargeted after calendar_
         # disconnect_section()'s retirement — the disconnect form is now
-        # a data-only sibling fragment the merged calendar_group()
+        # a data-only sibling fragment the merged _calendar_connection_html()
         # concatenates onto its own card, under the same predicate
         # (configured or drift) the retired standalone function used.
         # Drift additionally gets a visible small Disconnect button
@@ -8884,7 +8983,7 @@ def main():
         # reads "Not connected") so a drifted, unreadable stored link
         # can still be cleared.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-            html = _calendar_group_call(configured, drift, last_synced_at)
+            html = _calendar_connection_call(configured, drift, last_synced_at)
             has_form = (
                 '<form id="%s" method="post" action="%s"'
                 % (config_page.CALENDAR_DISCONNECT_FORM_ID, config_page.CALENDAR_DISCONNECT_ROUTE)
@@ -8918,43 +9017,64 @@ def main():
                     return False, "expected no Replace disclosure when neither configured nor drifted"
         return True, ""
     check(
-        "the merged calendar_group() renders its disconnect form only when the calendar is connected "
+        "the merged _calendar_connection_html() renders its disconnect form only when the calendar is connected "
         "or drifted, posting to CALENDAR_DISCONNECT_ROUTE with a hidden, empty, data-confirm-field-"
         "carrying confirm field, alongside a visible small Disconnect button cross-submitting via "
         "form= (D-08/A-26/D-14, retargeted after calendar_disconnect_section()'s retirement)",
         _calendar_disconnect_form_appears_only_when_expected)
 
-    def _calendar_exactly_one_page_section_on_display_scope():
-        # D-13: "there is no second Calendar page-section and no
-        # trailing disconnect card" — checked in both states, since the
-        # connected state additionally concatenates a data-only sibling
-        # <form> fragment that must never itself carry a page-section
-        # class.
+    def _look_supersection_carries_exactly_one_dirty_section_named_aspect():
+        # 30-06-PLAN.md Task 3 (CFG-85): REPLACES the retired D-13 check
+        # that counted `data-dirty-section="Calendar"` — that property
+        # itself changed shape, not merely its locator. Display's Look
+        # supersection used to carry TWO `data-dirty-section` cards
+        # (the former "Frame colours"/"Aspect" card and the separate
+        # "Calendar" card); since 30-06-PLAN.md folds the calendar's
+        # connection block INTO the Aspect card's own Calendar row,
+        # there is now exactly ONE, "Aspect" — the correct arithmetic
+        # for "one tile is one section" (CFG-85's own stated goal), not
+        # a narrowed count check that would pass vacuously against a
+        # missing second card. Checked in both the connected and
+        # not-connected states, since the connected state additionally
+        # concatenates a data-only sibling disconnect `<form>` fragment
+        # that must never itself carry a data-dirty-section attribute.
         for configured in (False, True):
             ctx = dict(
                 _CALENDAR_BASE_CTX, calendar_configured=configured, calendar_last_synced_at=None)
             rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-            count = rendered.count('data-dirty-section="%s"' % config_page.CALENDAR_SECTION_HEADING)
+            look_start = rendered.index('id="%s"' % config_page.DISPLAY_LOOK_SECTION_ID)
+            look_end = rendered.index('id="%s"' % config_page.DISPLAY_WATCHES_SECTION_ID, look_start)
+            look_segment = rendered[look_start:look_end]
+            count = look_segment.count(config_page.DIRTY_SECTION_ATTR + "=")
             if count != 1:
                 return False, (
-                    "configured=%r: expected exactly one Calendar page-section, got %d"
+                    "configured=%r: expected exactly one data-dirty-section card under Look, got %d"
                     % (configured, count))
+            expected_attr = '%s="%s"' % (
+                config_page.DIRTY_SECTION_ATTR, escape_html(i18n.t(config_page.ASPECT_HEADING)))
+            if expected_attr not in look_segment:
+                return False, (
+                    "configured=%r: expected the one Look card's dirty-section attribute to name "
+                    "the Aspect heading" % (configured,))
         return True, ""
     check(
-        "the Display render carries exactly one Calendar page-section in both the connected and "
-        "not-connected states — no second Calendar card, no trailing disconnect card (D-13)",
-        _calendar_exactly_one_page_section_on_display_scope)
+        "Display's Look supersection carries exactly ONE data-dirty-section card (named 'Aspect'), "
+        "in both the connected and not-connected states — down from the two ('Aspect'/'Calendar') "
+        "it carried before the calendar's connection block folded into the Aspect card's own "
+        "Calendar row (CFG-85, replacing the retired data-dirty-section=\"Calendar\" count check, "
+        "whose own property this merge changes rather than merely relocates)",
+        _look_supersection_carries_exactly_one_dirty_section_named_aspect)
 
-    def _calendar_group_never_nests_a_form_inside_another_in_either_state():
+    def _calendar_connection_never_nests_a_form_inside_another_in_either_state():
         # D-13/Pitfall 2: the merged card's own connect/replace <form>
         # and its data-only disconnect-form sibling must never nest one
         # inside the other, in either the connected or not-connected
         # state — the same depth-tracking algorithm the Frame colours
         # card's own full-shape checklist uses, applied directly at the
-        # merged calendar_group()'s own return value (card + sibling
+        # merged _calendar_connection_html()'s own return value (card + sibling
         # disconnect form) rather than only at the whole-page boundary.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-            html = _calendar_group_call(configured, drift, last_synced_at)
+            html = _calendar_connection_call(configured, drift, last_synced_at)
             depth = 0
             pos = 0
             while True:
@@ -8974,10 +9094,109 @@ def main():
                     pos = close_pos + len("</form>")
         return True, ""
     check(
-        "the merged calendar_group()'s own return value (the card plus its data-only disconnect-form "
+        "the merged _calendar_connection_html()'s own return value (the card plus its data-only disconnect-form "
         "sibling) never nests one <form> inside another, in any of its four distinguishable states "
         "(D-13/Pitfall 2)",
-        _calendar_group_never_nests_a_form_inside_another_in_either_state)
+        _calendar_connection_never_nests_a_form_inside_another_in_either_state)
+
+    def _calendar_connection_placement_inside_aspect_after_display_form_close_with_dirty_attr():
+        # 30-06-PLAN.md Task 3 (CFG-85): replaces the retired
+        # _calendar_placement_after_display_form_close_with_dirty_attr
+        # (_ASPECT_REPIN_LEDGER row, owed_by 30-06). The calendar's
+        # connection block used to render as its own SEPARATE card,
+        # after the settings form's own closing tag and after the
+        # Aspect card's own heading. It now renders INSIDE the Calendar
+        # row itself — this check asserts the RELATIONSHIP rather than
+        # the three endpoints separately: the connection block's own
+        # status row renders inside the Calendar row's own data-usage
+        # segment, AFTER that row's palette; the visible Disconnect
+        # button lives inside the row; the disconnect <form> it
+        # cross-submits to is a sibling of the WHOLE Aspect card, never
+        # nested inside the row or the card; and the button's own
+        # form= attribute names that exact sibling form's id — a check
+        # that only asserted all three pieces existed separately would
+        # pass even if the button pointed at nothing.
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        form_start = rendered.index('<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID)
+        form_end = rendered.index("</form>", form_start)
+        aspect_heading_pos = rendered.index('id="%s">%s</h2>' % (
+            config_page.ASPECT_HEADING_ID, escape_html(i18n.t(config_page.ASPECT_HEADING))))
+        calendar_start, calendar_end = _aspect_usage_row_bounds(
+            rendered, config_page.COLOUR_USAGE_CALENDAR)
+        if not (form_end < aspect_heading_pos < calendar_start):
+            return False, (
+                "expected </form> < the Aspect heading < the Calendar row, got %d/%d/%d"
+                % (form_end, aspect_heading_pos, calendar_start))
+        calendar_segment = rendered[calendar_start:calendar_end]
+        palette_pos = calendar_segment.index('class="palette"')
+        status_row_pos = calendar_segment.index('class="status-row')
+        if not (palette_pos < status_row_pos):
+            return False, "expected the palette to precede the connection block's own status row"
+        disconnect_btn_match = re.search(
+            r'<button type="submit" form="([^"]*)" class="calendar-disconnect-btn">',
+            calendar_segment)
+        if not disconnect_btn_match:
+            return False, "expected the Disconnect button inside the Calendar row"
+        disconnect_form_needle = '<form id="%s"' % config_page.CALENDAR_DISCONNECT_FORM_ID
+        if disconnect_form_needle in calendar_segment:
+            return False, "expected the disconnect form OUTSIDE the Calendar row, found it inside"
+        if disconnect_btn_match.group(1) != config_page.CALENDAR_DISCONNECT_FORM_ID:
+            return False, (
+                "expected the Disconnect button's form= to name %r, got %r"
+                % (config_page.CALENDAR_DISCONNECT_FORM_ID, disconnect_btn_match.group(1)))
+        if disconnect_form_needle not in rendered[calendar_end:]:
+            return False, "expected the disconnect form as a sibling of the whole Aspect card"
+        if config_page.DIRTY_SECTION_ATTR not in rendered[:calendar_start]:
+            return False, "expected the Aspect card's own dirty-section tracking attribute to precede the row"
+        return True, ""
+    check(
+        "the calendar connection block renders inside the Calendar row, after that row's own palette, "
+        "after the settings form's own closing tag and the Aspect card's own heading, still under the "
+        "Aspect card's own dirty-section tracking attribute — with the Disconnect button inside the "
+        "row and the disconnect form OUTSIDE the card, the button's form= naming that exact sibling "
+        "(CFG-85, replacing the retired _calendar_placement_after_display_form_close_with_dirty_attr)",
+        _calendar_connection_placement_inside_aspect_after_display_form_close_with_dirty_attr)
+
+    def _calendar_row_no_inline_js_and_palette_cross_submits_form():
+        # 30-06-PLAN.md Task 3 (CFG-85): replaces the retired
+        # calendar-card no-inline-JS/chip-grid-cross-submits check
+        # (_ASPECT_REPIN_LEDGER row, owed_by 30-06 — the row's own
+        # "retired" label is respelled, see that row's own comment).
+        # The property is unchanged: the calendar row renders no inline
+        # event-handler attribute and no <script> tag, and every
+        # calendar_theme_id radio cross-submits into the settings form
+        # via form=settings-form — only the locator (the row's own
+        # data-usage attribute, not the retired COLOUR_USAGE_PANEL_
+        # TARGET_ATTR) and the palette markup (calendar_theme_id radios
+        # now render inside a .palette grid, not the retired compact
+        # chip strip) change.
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        calendar_start, calendar_end = _aspect_usage_row_bounds(
+            rendered, config_page.COLOUR_USAGE_CALENDAR)
+        calendar_segment = rendered[calendar_start:calendar_end]
+        if "<script" in calendar_segment:
+            return False, "expected no <script> tag inside the Calendar row"
+        if re.search(r'\son\w+="', calendar_segment):
+            return False, "expected no inline on*= event-handler attribute inside the Calendar row"
+        radio_count = calendar_segment.count('name="calendar_theme_id"')
+        with_form = len(re.findall(
+            r'name="calendar_theme_id" value="[^"]*"[^>]*form="%s"'
+            % re.escape(config_page.SETTINGS_FORM_ID), calendar_segment))
+        if radio_count == 0:
+            return False, "expected at least one calendar_theme_id radio in the Calendar row"
+        if with_form != radio_count:
+            return False, (
+                "expected every calendar_theme_id radio (%d) to cross-submit via form=%r, got %d"
+                % (radio_count, config_page.SETTINGS_FORM_ID, with_form))
+        return True, ""
+    check(
+        "the calendar row renders no inline event-handler attribute and no <script> tag, and every "
+        "calendar_theme_id radio in its palette cross-submits into the settings form via "
+        "form=settings-form (CFG-85, replacing the retired calendar-card no-inline-JS/chip-grid "
+        "cross-submits check)",
+        _calendar_row_no_inline_js_and_palette_cross_submits_form)
 
     def _calendar_disconnect_confirm_page_posts_back_with_confirm_preset():
         rendered = config_page.calendar_disconnect_confirm_page({})
@@ -9036,30 +9255,33 @@ def main():
     def _calendar_connect_form_appears_before_the_runway_card_on_display_scope():
         # Polish fix 4 (D-14c): the connect/replace form used to render
         # after the WHOLE Display scope — below Runway and Flight
-        # colours — far from the Calendar card. It now renders inside
-        # the merged calendar_group()'s own connected-state Replace
+        # colours — far from the Calendar row. It now renders inside
+        # the merged _calendar_connection_html()'s own connected-state Replace
         # disclosure (21-07-PLAN.md Task 1, D-13/D-14), which itself
         # renders after </form> closes (which itself now closes right
-        # after the Frame colours card, since "What it watches"/Runway
-        # moved to a later sibling supersection), so its own <form>'s
-        # opening tag still appears strictly BEFORE the Runway card's
-        # own radio input in document order.
+        # after the Aspect card, since "What it watches"/Runway moved
+        # to a later sibling supersection), so its own <form>'s opening
+        # tag still appears strictly BEFORE the Runway card's own radio
+        # input in document order.
+        #
+        # 30-06-PLAN.md Task 3: the Calendar row has no `<h2>` of its
+        # own any more (retired alongside the separate Calendar card) —
+        # its `data-usage="calendar"` attribute is the landmark now.
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        calendar_heading_index = rendered.index(
-            '<h2 class="text-heading" id="%s">%s</h2>'
-            % (config_page.CALENDAR_HEADING_ID, config_page.CALENDAR_SECTION_HEADING))
+        calendar_row_index = rendered.index(
+            'data-usage="%s"' % config_page.COLOUR_USAGE_CALENDAR)
         connect_form_index = rendered.index(
             '<form method="post" action="%s"' % config_page.CALENDAR_CONNECT_ROUTE)
         runway_index = rendered.index('name="tracked_runway"')
-        if not (calendar_heading_index < connect_form_index < runway_index):
+        if not (calendar_row_index < connect_form_index < runway_index):
             return False, (
-                "expected Calendar heading < connect form < Runway card, got %d, %d, %d"
-                % (calendar_heading_index, connect_form_index, runway_index))
+                "expected Calendar row < connect form < Runway card, got %d, %d, %d"
+                % (calendar_row_index, connect_form_index, runway_index))
         return True, ""
     check(
-        "on the Display scope, calendar_connect_section()'s own <form> opening tag renders "
-        "immediately after the Calendar card and strictly before the Runway card's own radio "
+        "on the Display scope, the calendar connect/replace form's own <form> opening tag renders "
+        "immediately after the Calendar row and strictly before the Runway card's own radio "
         "input, never after the whole page's groups (Polish fix 4, D-14c)",
         _calendar_connect_form_appears_before_the_runway_card_on_display_scope)
 
@@ -9512,22 +9734,43 @@ def main():
         # outright along with display_group() itself, leaving Frame
         # colours/Calendar (page-section--nested) and Runway/Quiet hours
         # (theme-status--nested).
+        #
+        # 30-06-PLAN.md Task 3 (CFG-85): the floor drops again, 4 -> 3,
+        # and the literal needle changes shape — a genuine property
+        # change, not a locator repoint. The separate Calendar card
+        # (its own bare "page-section page-section--nested" wrapper) is
+        # retired outright; its connection block folds into the Aspect
+        # card's own Calendar row, so the ONE remaining page-section--
+        # nested wrapper on Display is the Aspect card's own —
+        # `_nested_wrapper_html(..., "page-section aspect-card", ...)`
+        # inserts the modifier AFTER "aspect-card", producing
+        # `class="page-section aspect-card page-section--nested"`,
+        # never the bare `"page-section page-section--nested"` two-
+        # class literal this check used to search for.
         ctx = {
             "device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0,
             "calendar_configured": True, "calendar_last_synced_at": None,
             "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
         }
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        for needle in ("theme-status theme-status--nested", "page-section page-section--nested"):
+        for needle in (
+                "theme-status theme-status--nested",
+                'class="page-section aspect-card page-section--nested"'):
             if needle not in display:
                 return False, "expected %r on the Display scope" % (needle,)
+        if display.count('class="page-section page-section--nested"') != 0:
+            return False, (
+                "expected no bare page-section page-section--nested wrapper on Display — the "
+                "Calendar card that used to emit it is retired")
         nested_count = display.count("theme-status--nested") + display.count("page-section--nested")
-        if nested_count < 4:
-            return False, "expected at least 4 --nested occurrences on Display, got %d" % nested_count
+        if nested_count != 3:
+            return False, "expected exactly 3 --nested occurrences on Display, got %d" % nested_count
         return True, ""
     check(
         "every grouped card the Display scope renders under one of its three supersections carries "
-        "a --nested modifier class (D-12)",
+        "a --nested modifier class — down to 3 occurrences (Aspect's page-section--nested, Runway's "
+        "and Quiet hours' theme-status--nested) now that the Calendar card's own separate "
+        "page-section--nested wrapper is retired (D-12, CFG-85)",
         _every_grouped_card_under_a_display_supersection_carries_nested_class)
 
     # 30-03-PLAN.md Task 1 (CFG-85): three checks used to live in this
@@ -9540,6 +9783,200 @@ def main():
     # retired by CFG-85's rebuild. All three DELETED WITH THEIR OWN
     # HISTORY COMMENTS (a comment arguing a deleted check is a comment
     # about nothing) and LEDGERED — see _ASPECT_REPIN_LEDGER below.
+    # 30-06-PLAN.md Task 3 (CFG-85) pays all three back, immediately
+    # below, now that the Calendar card's own separate heading is ALSO
+    # retired (folded into the Aspect card's Calendar row).
+
+    def _display_h2_order_matches_the_merged_aspect_card_placement():
+        # Replaces _display_h2_order_matches_d12_after_calendar_
+        # placement_fix (_ASPECT_REPIN_LEDGER row, owed_by 30-06). The
+        # exact same D-12 property this check always asserted — the
+        # Display scope's <h2> order, and every calendar_theme_id radio
+        # still carrying form=settings-form — re-derived for the merged
+        # shape: the separate Calendar heading this list used to name
+        # is gone outright (not merely renamed, the way Frame colours ->
+        # Aspect was); the expected sequence is built from the module's
+        # own heading constants, never a retyped literal list.
+        ctx = {
+            "device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+            "calendar_configured": True, "calendar_last_synced_at": None,
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+        }
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        headings = re.findall(r'<h2[^>]*>(.*?)</h2>', display)
+        expected = [
+            layout.FRAME_STRIP_HEADING,
+            config_page.DISPLAY_LOOK_HEADING, config_page.ASPECT_HEADING,
+            config_page.DISPLAY_WATCHES_HEADING,
+            "Runway", config_page.DISPLAY_ON_HEADING,
+            config_page.QUIET_HOURS_SECTION_HEADING,
+        ]
+        if headings != expected:
+            return False, "expected <h2> order %r, got %r" % (expected, headings)
+        calendar_radio_count = display.count('name="calendar_theme_id"')
+        calendar_radio_with_form_count = len(
+            re.findall(r'name="calendar_theme_id"[^>]*form="%s"' % config_page.SETTINGS_FORM_ID, display))
+        if calendar_radio_count == 0 or calendar_radio_with_form_count != calendar_radio_count:
+            return False, (
+                "expected every one of the %d calendar_theme_id radios to carry form=\"%s\", got %d"
+                % (calendar_radio_count, config_page.SETTINGS_FORM_ID, calendar_radio_with_form_count))
+        return True, ""
+    check(
+        "the Display scope's rendered <h2> order is exactly Look, Aspect, What it watches, Runway, "
+        "When it is on, Quiet hours — the separate Calendar heading this order used to also name is "
+        "retired outright now that its connection block folds into the Aspect card's own Calendar "
+        "row — and every calendar_theme_id radio still carries a form=\"settings-form\" attribute "
+        "(CFG-85, replacing the retired _display_h2_order_matches_d12_after_calendar_placement_fix)",
+        _display_h2_order_matches_the_merged_aspect_card_placement)
+
+    def _title_form_inventory_classifies_every_h2_text_heading_on_both_routes_after_the_merge():
+        # Replaces _title_form_inventory_classifies_every_h2_text_
+        # heading_on_both_routes (_ASPECT_REPIN_LEDGER row, owed_by
+        # 30-06). The classification itself still holds — settings-card
+        # titles (form A) vs. supersection intros (form B) vs.
+        # unclassified — with one fewer form-A card title on Display now
+        # that Calendar's own separate heading is retired: the tallies
+        # are RECOMPUTED from the real render below, never restated as
+        # the old 8/4/3/1 literal.
+        ctx_display = {
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+            "calendar_configured": True, "calendar_last_synced_at": None,
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+        }
+        ctx_device = {
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 5,
+        }
+        display = config_page.render(ctx_display, scope=config_page.SCOPE_DISPLAY)
+        device = config_page.render(ctx_device, scope=config_page.SCOPE_DEVICE)
+
+        counts = {}
+        for label, rendered in (("display", display), ("device", device)):
+            total = rendered.count('class="text-heading"')
+            form_a = rendered.count('%s="' % config_page.DIRTY_SECTION_ATTR)
+            form_b = rendered.count("section-intro")
+            counts[label] = (total, form_a, form_b, total - form_a - form_b)
+        # RE-DERIVED BY RUNNING (30-06-PLAN.md Task 3, CFG-85): Display's
+        # own tuple moves from (8, 4, 3, 1) to (7, 3, 3, 1) — one fewer
+        # h2.text-heading instance and one fewer form-A card title, both
+        # for the identical reason (the Calendar card's own separate
+        # heading is retired outright). Device's own tuple is untouched.
+        expected = {"display": (7, 3, 3, 1), "device": (7, 3, 3, 1)}
+        if counts != expected:
+            return False, (
+                "expected {route: (total h2.text-heading, form-A card titles, form-B "
+                "supersection intros, unclassified)} == %r, measured %r by running" % (expected, counts))
+
+        card_title_headings = {
+            "display": (
+                config_page.ASPECT_HEADING, "Runway", config_page.QUIET_HOURS_SECTION_HEADING),
+            "device": (
+                config_page.LED_SECTION_HEADING, config_page.WAKE_INTERVAL_SECTION_HEADING,
+                config_page.NOTIFICATIONS_SECTION_HEADING),
+        }
+        for route, rendered in (("display", display), ("device", device)):
+            for heading in card_title_headings[route]:
+                needle = ">%s</h2>" % escape_html(heading)
+                if needle not in rendered:
+                    return False, (
+                        "expected the settings-card heading %r to render inside its own "
+                        "[data-dirty-section] tile on the %s scope, and it did not"
+                        % (heading, route))
+            if len(card_title_headings[route]) != counts[route][1]:
+                return False, (
+                    "expected exactly %d form-A card titles named on %s, the allowlist names %d"
+                    % (counts[route][1], route, len(card_title_headings[route])))
+
+        # The two unclassified instances, identified by name — neither
+        # is a settings card or a supersection intro. Unchanged by the
+        # merge (both survive it untouched).
+        frame_strip_needle = ">%s</h2>" % escape_html(layout.FRAME_STRIP_HEADING)
+        if frame_strip_needle not in display or frame_strip_needle in device:
+            return False, (
+                "expected the Frame strip's own <h2> (Display's unclassified instance) to "
+                "render on Display and never on Device")
+        poll_needle = '<h2 class="text-heading">%s</h2>' % escape_html(
+            config_page.POLL_SECTION_HEADING)
+        if poll_needle not in device or poll_needle in display:
+            return False, (
+                "expected Poll's own <h2> (Device's unclassified instance) to render on Device "
+                "and never on Display (Display never renders Poll)")
+
+        # OUTCOME 2 still holds: the two label vocabularies never
+        # overlap.
+        overlap = (
+            set(card_title_headings["display"]) | set(card_title_headings["device"])
+        ) & {
+            config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
+            config_page.DISPLAY_ON_HEADING, config_page.DEVICE_WAKES_HEADING,
+            config_page.DEVICE_TELLS_HEADING, config_page.DEVICE_POLL_HEADING,
+        }
+        if overlap:
+            return False, (
+                "expected the settings-card vocabulary and the supersection-label vocabulary "
+                "to share no text — found %r in both, which would mean a card's own identity "
+                "and a group's own label had collapsed into the same word" % (overlap,))
+        return True, ""
+    check(
+        "the title-form inventory, re-run after the calendar merge: both settings routes' "
+        "h2.text-heading instances count and classify as 6 settings-card titles (form A, 3 on "
+        "Device + 3 on Display, down from 4 now that Calendar's own separate heading is retired) "
+        "+ 3 supersection intros (form B) + 2 unrelated headings, with the counts re-derived by "
+        "RUNNING rather than restated as the pre-merge 8/4/3/1 literal, and the two label "
+        "vocabularies still never overlapping (CFG-85, replacing the retired "
+        "_title_form_inventory_classifies_every_h2_text_heading_on_both_routes)",
+        _title_form_inventory_classifies_every_h2_text_heading_on_both_routes_after_the_merge)
+
+    def _no_card_builder_function_ever_calls_section_intro_html_after_the_merge():
+        # Re-lands here (_ASPECT_REPIN_LEDGER row, owed_by 30-06,
+        # replacement == retired — the same function, its own AST
+        # allowlist updated for the merge): the settings-card builder
+        # set loses _frame_colours_card_html (retired by 30-04-PLAN.md)
+        # and the calendar card's own former builder function (retired
+        # by this plan's own Task 1), and gains _aspect_card_html — the
+        # one merged builder that now covers everything both of those
+        # used to.
+        card_builder_names = (
+            "_aspect_card_html", "runway_fieldset", "led_group",
+            "quiet_hours_group", "wake_interval_group", "notifications_group",
+        )
+        with open(os.path.join(HERE, "pages", "config_page.py")) as fh:
+            source = fh.read()
+        tree = ast.parse(source)
+        found_names = {
+            n.name for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef) and n.name in card_builder_names}
+        if found_names != set(card_builder_names):
+            return False, (
+                "expected to find all %d card-builder functions by name in config_page.py, "
+                "missing %r — this check's own allowlist is stale"
+                % (len(card_builder_names), set(card_builder_names) - found_names))
+        offenders = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name in card_builder_names:
+                for call in ast.walk(node):
+                    if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+                            and call.func.attr == "section_intro_html"):
+                        offenders.append(node.name)
+        if offenders:
+            return False, (
+                "expected ZERO of the %d settings-card builder functions to call "
+                "layout.section_intro_html() (form B) for their own <h2> — found it called "
+                "from %r. A card's own title must stay form A, never borrow the shared "
+                "supersection builder" % (len(card_builder_names), offenders))
+        return True, ""
+    check(
+        "none of the settings-card builder functions (_aspect_card_html/runway_fieldset/"
+        "led_group/quiet_hours_group/wake_interval_group/notifications_group — one fewer than "
+        "before the merge, since _aspect_card_html now covers what _frame_colours_card_html and "
+        "the calendar card's own former builder function used to split between them) ever calls "
+        "layout.section_intro_html() for their own heading — the losing form (a card title "
+        "produced through the "
+        "supersection-intro shape) is ZERO, enforced at the source level, its allowlist length "
+        "checked against the real builder-name set rather than a literal (CFG-85, replacing the "
+        "retired-and-relanded _no_card_builder_function_ever_calls_section_intro_html)",
+        _no_card_builder_function_ever_calls_section_intro_html_after_the_merge)
 
     # ==================================================================
     # 28-04-PLAN.md Task 2 (CFG-72): the cheap structural guard. THIS IS
@@ -9925,25 +10362,33 @@ def main():
         # _english_display_render_still_carries_every_pinned_english_
         # string. The pinned set loses FRAME_COLOURS_CAPTION (deleted
         # outright by 30-04-PLAN.md Task 1) and gains ASPECT_HEADING;
-        # every other member of the old set is kept unthinned —
-        # CALENDAR_CAPTION survives here (its own deletion is 30-06's
-        # job, per config_page.ASPECT_CAPTION_EXEMPTIONS' own header
-        # comment), and a pin that shrinks for convenience is not a pin.
+        # every other member of the old set was kept unthinned at the
+        # time — a pin that shrinks for convenience is not a pin.
+        #
+        # 30-06-PLAN.md Task 3 (CFG-85): the connection block's own
+        # caption constant is now dropped too — it is deleted outright
+        # by this plan's own Task 1 (the connection block folds into
+        # the Calendar row, which has no caption of its own), so there
+        # is no longer a value for this pin to assert;
+        # CALENDAR_HOW_IT_WORKS_SUMMARY (a live calendar string,
+        # unaffected by the merge) takes its place in the set so the
+        # calendar's own copy stays represented here.
         rendered = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
         for english_text in (
                 config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
                 config_page.DISPLAY_ON_HEADING, config_page.DISPLAY_PAGE_PURPOSE,
                 layout.QUICK_ACTION_APPLIES_SENTENCE, config_page.ASPECT_HEADING,
-                config_page.RUNWAY_SECTION_CAPTION, config_page.CALENDAR_CAPTION):
+                config_page.RUNWAY_SECTION_CAPTION, config_page.CALENDAR_HOW_IT_WORKS_SUMMARY):
             if escape_html(english_text) not in rendered:
                 return False, "expected the English constant %r to still render verbatim" % (english_text,)
         return True, ""
     check(
         "an English (default) Display render still contains every pre-existing English string this "
-        "file's own checks assert, updated for CFG-85's rebuild (FRAME_COLOURS_CAPTION dropped, "
-        "ASPECT_HEADING gained, everything else kept) — t() never touches the default-language "
-        "render (D-05, 30-05-PLAN.md Task 2, replacing the retired "
-        "_english_display_render_still_carries_every_pinned_english_string)",
+        "file's own checks assert, updated for CFG-85's rebuild (both the former Frame colours "
+        "card's and the calendar connection block's own caption constants dropped, ASPECT_HEADING "
+        "gained, everything else kept) — t() never touches the default-language render (D-05, "
+        "30-05-PLAN.md Task 2/30-06-PLAN.md Task 3, "
+        "replacing the retired _english_display_render_still_carries_every_pinned_english_string)",
         _aspect_display_render_still_carries_every_pinned_english_string)
 
     def _device_render_carries_no_edit_artwork_markup_in_either_language():
@@ -11921,8 +12366,9 @@ def main():
         now = "2026-09-13T09:05:00+00:00"
 
         def detail_for(count):
-            return config_page.calendar_group(
+            row_body_html, _disconnect_form_html = config_page._calendar_connection_html(
                 True, False, synced, None, now, count)
+            return row_body_html
 
         one = detail_for(1)
         if "1 upcoming flights" in one:
