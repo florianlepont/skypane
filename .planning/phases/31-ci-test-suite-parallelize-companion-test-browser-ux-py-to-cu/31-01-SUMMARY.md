@@ -145,3 +145,14 @@ None - no external service configuration required.
 ---
 *Phase: 31-ci-test-suite-parallelize-companion-test-browser-ux-py-to-cu*
 *Completed: 2026-09-22*
+
+## Self-Check: PASSED
+
+- FOUND: `companion/test_browser_ux_helpers.py`
+- FOUND: `companion/test_browser_ux.py`
+- FOUND: `.planning/phases/31-ci-test-suite-parallelize-companion-test-browser-ux-py-to-cu/31-BASELINE-CHECKS.txt`
+- FOUND: `.planning/phases/31-ci-test-suite-parallelize-companion-test-browser-ux-py-to-cu/31-TIMINGS.md`
+- FOUND commit `3297cbd` (Task 1)
+- FOUND commit `dc190f9` (Task 2)
+- FOUND commit `3f49cf6` (Task 3)
+- FOUND commit `6f366ff` (plan summary)

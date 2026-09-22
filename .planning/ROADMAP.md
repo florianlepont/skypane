@@ -1500,12 +1500,12 @@ The alternative keeps the current structure and swaps only the selector: three s
 
 **Requirements**: TBD (scope defined by 31-CONTEXT.md's D-01 through D-07)
 **Depends on:** (none — independent of the companion UI phases)
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 31-01-PLAN.md — Capture the irreproducible pre-split baseline (96-check transcript + `JOBS=4` timings), then create `companion/test_browser_ux_helpers.py` from the module-level preamble and rewire `companion/test_browser_ux.py` onto it, still at 96/96
+- [x] 31-01-PLAN.md — Capture the irreproducible pre-split baseline (96-check transcript + `JOBS=4` timings), then create `companion/test_browser_ux_helpers.py` from the module-level preamble and rewire `companion/test_browser_ux.py` onto it, still at 96/96
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
