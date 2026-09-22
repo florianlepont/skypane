@@ -2983,12 +2983,18 @@ button:disabled {
  * `gap`-only separation, because these buttons keep the app's ordinary
  * quiet-button treatment (padding, background wash) rather than
  * `.theme-option`'s flush segment styling, and a gap alone would read
- * as three loose buttons rather than one control. */
+ * as three loose buttons rather than one control.
+ *
+ * Quick task 260922-jiy: `margin-bottom: var(--space-md)` separates this
+ * row from the Debut/Fin fields below it, matching `.quiet-dial__readout`'s
+ * own `margin: 0 0 var(--space-md)` one component above — the same gap
+ * stacked twice so the card reads as one rhythm rather than two. */
 .quiet-preset-row {
   display: flex;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   overflow: hidden;
+  margin-bottom: var(--space-md);
 }
 
 .quiet-preset-row button {
