@@ -1491,3 +1491,17 @@ The alternative keeps the current structure and swaps only the selector: three s
 **CFG-86 is the measurement:** Display's page height at 390 px, scripted with the registered instrument, before and after — the last honest figures are 3 743 px (Phase 25), 3 524 px (Phase 27) and 3 556 px (17-09 audit) against X6's never-met 2 600 px target; this phase reports the delta and whether the target is met, never restates the target to fit.
 
 **Carried discipline:** as Phase 29's, plus: the sketch is thrown away (it is `/gsd-sketch` output, never copied into `style.css`); every removed CSS rule is grepped for a surviving consumer before deletion; `EXPECTED_CHECK_COUNT` re-derived by running after the carousel checks are retired.
+
+### Phase 31: CI test suite — parallelize companion/test_browser_ux.py to cut wall-clock time
+
+**Goal:** Reduce the CI "test" job's wall-clock time by making `companion/test_browser_ux.py` run in true parallel instead of as one sequential ~300s+ script, without losing coverage or introducing flakiness.
+
+**Context (measured on 5 real CI runs via `gh run view` on `ci.yml`):** the "test" job averages ~5min40. `companion/test_browser_ux.py` alone takes 300-320s consistently (300.9s, 318.7s, 314.4s, 303.4s, 314.2s) — ~88-90% of the job's total wall time. All 21 other harnesses in `scripts/run_all_tests.py` finish in under 32s combined (the pool already runs everything concurrently via `JOBS=4`, so the job's total time is bounded by this one file regardless of anything else). Only 10.6s of the file's time is explained by `page.wait_for_timeout()` fixed sleeps — the real cost is structural: 108 `page.goto()` calls and 184 browser/context/page creations, all executed sequentially inside one 16,361-line `main()` that shares a single Playwright browser and a single `companion/app.py` subprocess harness, accumulating into a global `results` list gated by an `EXPECTED_CHECK_COUNT` invariant. `scripts/run_all_tests.py` already documents this file as "the slowest single file by construction" — a known, accepted tradeoff, not a bug. This phase exists to actually address it.
+
+**Requirements**: TBD
+**Depends on:** (none — independent of the companion UI phases)
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 31 to break down)
