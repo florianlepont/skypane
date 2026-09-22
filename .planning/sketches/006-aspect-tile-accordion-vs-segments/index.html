@@ -182,6 +182,23 @@
   .rule-row { display: flex; justify-content: space-between; align-items: center; font-size: var(--font-label-size); padding: 6px 8px; border-radius: 6px; background: var(--color-canvas); }
   .rule-row__swatch { width: 20px; height: 20px; border-radius: 4px; overflow: hidden; border: 1px solid var(--color-border); display: inline-block; vertical-align: middle; margin-right: 8px; }
 
+  /* --- Add-rule form (companion/pages/config_page.py
+     _rule_add_form_html(): kind segments, a value input, a compact
+     theme grid, one submit) — hidden until "+ Ajouter une règle" is
+     clicked, a real native <details> so it needs no script either. --- */
+  .rule-add { margin-top: var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: var(--space-md); background: var(--color-canvas); }
+  .rule-add > summary { list-style: none; cursor: pointer; font-size: var(--font-label-size); font-weight: var(--weight-semibold); color: var(--color-accent); }
+  .rule-add > summary::-webkit-details-marker { display: none; }
+  .rule-add[open] > summary { margin-bottom: var(--space-sm); }
+  .rule-add__field { margin-bottom: var(--space-sm); }
+  .rule-add__field label { display: block; font-size: 12px; color: color-mix(in srgb, var(--color-text) 70%, transparent); margin-bottom: 4px; }
+  .rule-add__segments { display: flex; gap: 2px; padding: 2px; background: var(--color-dominant); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+  .rule-add__segments label { flex: 1; text-align: center; padding: 6px 4px; border-radius: 6px; font-size: 12px; font-weight: var(--weight-semibold); cursor: pointer; color: color-mix(in srgb, var(--color-text) 70%, transparent); margin: 0; }
+  .rule-add__segments input { position: absolute; opacity: 0; pointer-events: none; }
+  .rule-add__segments input:checked + label { background: var(--color-dominant); color: var(--color-accent); box-shadow: var(--shadow-card); }
+  .rule-add__value { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-control); font-family: var(--font-mono); font-size: var(--font-body-size); background: var(--color-dominant); color: var(--color-text); }
+  .rule-add__submit { margin-top: 4px; padding: 8px 16px; border-radius: var(--radius-control); border: none; background: var(--color-accent); color: var(--color-on-accent); font-weight: var(--weight-semibold); font-size: 13px; cursor: pointer; }
+
   /* --- Segments (Variant B). --- */
   .segments { display: flex; gap: 2px; padding: 2px; background: var(--color-canvas); border-radius: var(--radius-control); margin-bottom: var(--space-md); }
   .segment {
@@ -282,7 +299,26 @@
       <ul class="rule-list">
         <li class="rule-row"><span><span class="rule-row__swatch" style="background:#f0e050"></span>AFR — Jaune</span><button class="text-link" type="button">Retirer</button></li>
       </ul>
-      <button class="quiet-btn" type="button">+ Ajouter une règle</button>
+      <details class="rule-add">
+        <summary>+ Ajouter une règle</summary>
+        <div class="rule-add__field">
+          <label>Correspondance par</label>
+          <div class="rule-add__segments">
+            <input type="radio" name="rule-kind" id="rk-callsign" checked><label for="rk-callsign" title="Callsign">Vol</label>
+            <input type="radio" name="rule-kind" id="rk-hex"><label for="rk-hex" title="ICAO24 hex">Avion</label>
+            <input type="radio" name="rule-kind" id="rk-prefix"><label for="rk-prefix" title="Callsign prefix">Compagnie</label>
+          </div>
+        </div>
+        <div class="rule-add__field">
+          <label>Valeur</label>
+          <input class="rule-add__value" type="text" placeholder="AFR1234">
+        </div>
+        <div class="rule-add__field">
+          <label>Thème</label>
+          <div class="palette" style="grid-template-columns:repeat(auto-fill,minmax(44px,1fr));padding:0"></div>
+        </div>
+        <button class="rule-add__submit" type="button">Ajouter la règle</button>
+      </details>
     </details>
   </div>
 
@@ -339,7 +375,26 @@
       <ul class="rule-list">
         <li class="rule-row"><span><span class="rule-row__swatch" style="background:#f0e050"></span>AFR — Jaune</span><button class="text-link" type="button">Retirer</button></li>
       </ul>
-      <button class="quiet-btn" type="button">+ Ajouter une règle</button>
+      <details class="rule-add">
+        <summary>+ Ajouter une règle</summary>
+        <div class="rule-add__field">
+          <label>Correspondance par</label>
+          <div class="rule-add__segments">
+            <input type="radio" name="rule-kind" id="rk-callsign" checked><label for="rk-callsign" title="Callsign">Vol</label>
+            <input type="radio" name="rule-kind" id="rk-hex"><label for="rk-hex" title="ICAO24 hex">Avion</label>
+            <input type="radio" name="rule-kind" id="rk-prefix"><label for="rk-prefix" title="Callsign prefix">Compagnie</label>
+          </div>
+        </div>
+        <div class="rule-add__field">
+          <label>Valeur</label>
+          <input class="rule-add__value" type="text" placeholder="AFR1234">
+        </div>
+        <div class="rule-add__field">
+          <label>Thème</label>
+          <div class="palette" style="grid-template-columns:repeat(auto-fill,minmax(44px,1fr));padding:0"></div>
+        </div>
+        <button class="rule-add__submit" type="button">Ajouter la règle</button>
+      </details>
     </details>
   </div>
 
@@ -529,6 +584,33 @@ function segB(usage, btn) {
 
 buildPaletteB();
 updatePreview('preview-b');
+
+// ---------- Add-rule forms' own compact theme grid (real swatches,
+// select-one-radio behaviour, demo-only — not wired to the departures/
+// arrivals/calendar state above, since a rule is its own value). ----
+document.querySelectorAll('.rule-add .palette').forEach((grid, gi) => {
+  THEMES.forEach((t, i) => {
+    const id = 'rule-theme-' + gi + '-' + i;
+    const wrap = document.createElement('label');
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer';
+    const input = document.createElement('input');
+    input.type = 'radio'; input.name = 'rule-theme-' + gi; input.id = id;
+    input.style.cssText = 'position:absolute;opacity:0;pointer-events:none';
+    if (i === 5) input.checked = true; // "Jaune" — matches the one existing rule
+    const sw = document.createElement('span');
+    sw.className = 'palette-chip__swatch';
+    sw.style.width = '100%';
+    paintSwatch(sw, t);
+    input.addEventListener('change', () => {
+      grid.querySelectorAll('label').forEach(l => l.style.opacity = '0.55');
+      wrap.style.opacity = '1';
+    });
+    wrap.appendChild(input);
+    wrap.appendChild(sw);
+    wrap.style.opacity = (i === 5) ? '1' : '0.55';
+    grid.appendChild(wrap);
+  });
+});
 
 // ---------- Variant tabs ----------
 function showVariant(id, btn) {
