@@ -15801,7 +15801,22 @@ def main():
                 ARTWORK_ROUTE = "/airlines?resolve=" + ARTWORK_PREFIX
                 ARTWORK_SERVE = "/illustration/%s.png" % ARTWORK_KEY
                 FALLBACK_ZONE = "[data-resolve-fallback] [data-upload-drop]"
-                DIALOG_ZONE = "#panel-lookup-dialog [data-upload-drop]"
+                # 29-01-PLAN.md (CFG-81): the dialog's Replace form now
+                # renders UNCONDITIONALLY (edit_mode is gone), so the
+                # shared #panel-lookup-dialog carries BOTH upload-drop
+                # zones at once from here on — this one (the needs-
+                # artwork resolve zone, id_suffix="-dialog") and
+                # REPLACE_INPUT_ID's own ("airline-replace-input"),
+                # panel-lookup.js's `mode` gate hides whichever does not
+                # apply, but both are always present in the DOM, so a
+                # bare "[data-upload-drop]" now matches two elements —
+                # this check's own subject is the needs-artwork one,
+                # disambiguated by the same UPLOAD_DROP_INPUT_ATTR value
+                # panel-lookup.js itself reads to decide which to hide.
+                DIALOG_ZONE = "#panel-lookup-dialog [%s='%s']" % (
+                    airlines_page.UPLOAD_DROP_INPUT_ATTR,
+                    airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog",
+                )
 
                 art_dir = tempfile.mkdtemp(prefix="skypane-browser-ux-artwork-")
                 artwork_harness.start()
