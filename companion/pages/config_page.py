@@ -1606,6 +1606,55 @@ def _palette_hex(index):
     return "#%02X%02X%02X" % (r, g, b)
 
 
+def _palette_swatch_html(theme_id, extra_class=""):
+    """30-02-PLAN.md Task 1 (CFG-85): the app's first CSS-drawn,
+    non-photographic themed swatch — one outer `<span class=
+    "palette-swatch">` filled with `_palette_hex(departing_index)`, plus
+    an OPTIONAL child `<span class="palette-swatch__band">` carrying
+    `_palette_hex(band_index)`. This function reads ONLY those two
+    registry keys — `departing_index` and `band_index` — and NOTHING
+    ELSE: never `arriving_index` (18/18 registered themes have
+    `departing_index == arriving_index`, the already-recorded Phase 25
+    finding that is this swatch's own reason to be ONE swatch, not the
+    retired two-dot `.theme-chip__dot` pair), never `dithered`, never
+    `band_dithered`, never `ink_index`, never `weight`.
+
+    Reading only those two keys makes TWO corrections to the
+    developer-approved sketch's own transcribed registry moot by
+    construction, rather than by remembering them:
+    1. `band_blue_light`/`band_green_light` carry a separate
+       `band_dithered` key, not `dithered: True` (the sketch's JS table
+       marked both `dithered: true`) — irrelevant here, since this
+       function never reads either dithered key.
+    2. The sketch's `paintSwatch()` applied `opacity: 0.72` to dithered
+       themes; 30-UI-SPEC.md's Swatch Rendering Contract states the
+       opposite ("renders their flat ink colour... no dither texture at
+       44-64px") — this function never emits an `opacity` style at all.
+
+    The band child is emitted IFF `"band_index" in theme` AND
+    `theme["band_index"] != theme["departing_index"]` — both halves
+    load-bearing: the second is what keeps `band_blue_field`/
+    `band_red_field` solid rather than faking a two-tone band the real
+    panel paints as one colour (those two themes have
+    `departing_index == band_index` in the live registry).
+
+    The band child's geometry (`top: 33%; height: 34%`) is a stylesheet
+    rule (plan 30-07), never inline — only the two colours are
+    server-computed here.
+    """
+    theme = device_config.THEMES[theme_id]
+    hex_fill = _palette_hex(theme["departing_index"])
+    css_class = "palette-swatch"
+    if extra_class:
+        css_class += " " + extra_class
+    band_html = ""
+    if "band_index" in theme and theme["band_index"] != theme["departing_index"]:
+        band_html = '<span class="palette-swatch__band" style="background:%s"></span>' % (
+            escape_html(_palette_hex(theme["band_index"])))
+    return '<span class="%s" aria-hidden="true" style="background:%s">%s</span>' % (
+        escape_html(css_class), escape_html(hex_fill), band_html)
+
+
 def _theme_chip_grid_html(
         field_name, selected_theme_id, extra_class="", extra_attr="", chip_extra_class="",
         radio_form_id=None, leading_chip_html=""):

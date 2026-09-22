@@ -1112,6 +1112,15 @@ EXPECTED_CHECK_COUNT = 273
 # re-derived by RUNNING (274/274).
 EXPECTED_CHECK_COUNT = 274
 
+# 30-02-PLAN.md Task 1 (CFG-85): +1 — ONE new check,
+# _palette_swatch_html_matches_the_live_registry_band_facts, proving the
+# new CSS-drawn swatch's band/solid split against the LIVE registry (the
+# 5-of-18/13-of-18 split derived inside the check, never hardcoded), the
+# plain-theme one-span shape, the dithered-theme no-opacity rule, and
+# extra_class space-joining. 274 + 1 = 275, re-derived by RUNNING
+# (275/275).
+EXPECTED_CHECK_COUNT = 275
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -2175,6 +2184,54 @@ def main():
     check(
         "runway_fieldset('3', images_available=('3', '06-24')) renders an <img> inside exactly those two cards, none in the third (D-05)",
         _runway_fieldset_cards_image_rendering_per_card)
+
+    def _palette_swatch_html_matches_the_live_registry_band_facts():
+        # 30-02-PLAN.md Task 1 (CFG-85): the swatch's band/solid split
+        # DERIVED from the registry at check time, never restated as a
+        # literal "5" — a check that hardcodes the count stops being
+        # true the day a theme is added.
+        banded = [
+            theme_id for theme_id in device_config.THEME_IDS
+            if "palette-swatch__band" in config_page._palette_swatch_html(theme_id)
+        ]
+        expect_banded = [
+            theme_id for theme_id in device_config.THEME_IDS
+            if "band_index" in device_config.THEMES[theme_id]
+            and device_config.THEMES[theme_id]["band_index"]
+            != device_config.THEMES[theme_id]["departing_index"]
+        ]
+        if banded != expect_banded:
+            return False, (
+                "expected exactly the registry-derived banded themes %r to carry a "
+                "palette-swatch__band child, got %r" % (expect_banded, banded))
+        white_html = config_page._palette_swatch_html("white")
+        if white_html.count("<span") != 1:
+            return False, (
+                "expected a plain theme's swatch to render exactly one <span (no band "
+                "child), got %d in %r" % (white_html.count("<span"), white_html))
+        grey_html = config_page._palette_swatch_html("grey")
+        if "opacity" in grey_html:
+            return False, (
+                "expected a dithered theme's swatch to carry NO opacity style "
+                "(30-UI-SPEC.md's Swatch Rendering Contract), got %r" % (grey_html,))
+        if 'class="palette-swatch"' not in white_html:
+            return False, "expected class=\"palette-swatch\" with no extra_class given"
+        extra_html = config_page._palette_swatch_html("white", extra_class="usage-row__swatch")
+        if 'class="palette-swatch usage-row__swatch"' not in extra_html:
+            return False, (
+                "expected extra_class to append space-joined onto the class attribute, "
+                "got %r" % (extra_html,))
+        field_html = config_page._palette_swatch_html("band_blue_field")
+        if "palette-swatch__band" in field_html:
+            return False, (
+                "band_blue_field has departing_index == band_index in the live registry "
+                "and must render SOLID, not banded — got %r" % (field_html,))
+        return True, ""
+    check(
+        "_palette_swatch_html() draws exactly the registry-derived 5-of-18 banded themes "
+        "with a band child, renders a plain theme as one solid <span> with no opacity, and "
+        "space-joins extra_class onto its class attribute (CFG-85)",
+        _palette_swatch_html_matches_the_live_registry_band_facts)
 
     # ------------------------------------------------------------------
     # 27-05-PLAN.md Task 3 (CFG-66): CFG-47's schematic Orly runway map
