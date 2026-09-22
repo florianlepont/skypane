@@ -1500,7 +1500,7 @@ The alternative keeps the current structure and swaps only the selector: three s
 
 **Requirements**: TBD (scope defined by 31-CONTEXT.md's D-01 through D-07)
 **Depends on:** (none — independent of the companion UI phases)
-**Plans:** 1/5 plans executed
+**Plans:** 2/5 plans executed
 
 Plans:
 **Wave 1**
@@ -1509,7 +1509,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 31-02-PLAN.md — Extract the 24-04/24-06/24-07/24-08 drawings series (11 checks) into `companion/test_browser_ux_health_drawings.py`; parent down to 85/85; prove no verdict changed
+- [x] 31-02-PLAN.md — Extract the 24-04/24-06/24-07/24-08 drawings series (11 checks) into `companion/test_browser_ux_health_drawings.py`; parent down to 85/85; prove no verdict changed
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
