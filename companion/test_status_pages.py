@@ -57,7 +57,9 @@ if REPO_ROOT not in sys.path:
 
 import companion.app as app  # noqa: E402
 from companion import auth, battery, draw, illustration_normalize, layout, prefs  # noqa: E402
+import companion.i18n as i18n  # noqa: E402
 import companion.i18n_fr.health as i18n_fr_health  # noqa: E402
+import companion.i18n_fr.nav as i18n_fr_nav  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 import companion.wake as wake  # noqa: E402
 from server import device_config  # noqa: E402
@@ -977,6 +979,40 @@ EXPECTED_CHECK_COUNT = 310
 # existing values). 310 + 1 = 311, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 311
 
+# 29-01-PLAN.md (CFG-81): net 0. The per-card Replace control's own
+# vocabulary check is retargeted in place (narrowed back from 2 to 1
+# trigger per airline, since the per-card control is deleted outright);
+# the served-HTML "?edit=1" round trip in the /both-tabs end-to-end
+# check is retargeted in place too (the second, now-duplicate fetch is
+# dropped — the removed query parameter has no reader, so a plain
+# /airlines fetch already carries everything the ?edit=1 fetch used to
+# prove); every other edit_mode=True render() call site in this file
+# drops the now-meaningless kwarg. No check added or removed. 311 + 0 =
+# 311, re-derived by RUNNING (311/311 pass).
+EXPECTED_CHECK_COUNT = 311
+
+# 29-02-PLAN.md (CFG-82): +1 — the tab bar's .tab-bar__pill horizontal
+# margin fit check: the resolved 2px margin (down from 8px) leaves at
+# least the longest NAV_GROUPS label's own required width inside the
+# 360px-floor-viewport cell, and .tab-bar__link's 56px height / flex:
+# 1 1 0 width basis stay byte-identical, asserted independently.
+# 311 + 1 = 312, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 312
+
+# 29-06-PLAN.md Task 1 (CFG-84): +3 — the battery-trend heading/sibling-
+# caption structure-and-order check, the heading-equals-constant
+# relationship check (both languages), and the three-branch caption
+# check. No existing check removed; several retargeted in place (see
+# 29-06-SUMMARY.md). 312 + 3 = 315, re-derived by RUNNING (315/315
+# pass).
+EXPECTED_CHECK_COUNT = 315
+
+# 29-06-PLAN.md Task 2 (CFG-79): +1 — the four-case check-in moved-
+# clause check. No existing check removed; the read-only-note check is
+# retargeted in place (see 29-06-SUMMARY.md). 315 + 1 = 316, re-derived
+# by RUNNING (316/316 pass).
+EXPECTED_CHECK_COUNT = 316
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -1079,6 +1115,20 @@ def _seed_manual_resolutions(state_dir, entries):
 
 def _ctx(state_dir, now=None):
     return {"state_dir": state_dir, "now": now or _iso(_now())}
+
+
+# 29-06-PLAN.md Task 1 (CFG-84): the battery-trend heading's own
+# rendered text, computed the SAME way _battery_trend_section_html()
+# computes it — a relationship against BATTERY_SECTION_HEADING_
+# TEMPLATE/BATTERY_TREND_WINDOW_DAYS, never a typed "Battery · 3
+# months" literal — for the many checks below that used to anchor on
+# the now-superseded BATTERY_SECTION_HEADING constant. `lang` defaults
+# to "en" (this file's own default request language); pass "fr" to get
+# the French form via i18n.t_lang(), never i18n.t() (which would read
+# whatever the CURRENT ContextVar happens to hold at call time).
+def _battery_section_heading(lang="en"):
+    return i18n.t_lang(health_page.BATTERY_SECTION_HEADING_TEMPLATE, lang) % (
+        health_page.BATTERY_TREND_WINDOW_DAYS // 30)
 
 
 # --- 22-12-PLAN.md Task 1 (X8): one tile anatomy ------------------------
@@ -3812,6 +3862,104 @@ def main():
         "24-07-PLAN.md Task 2)",
         _the_rendered_page_never_claims_punctuality_in_either_language)
 
+    def _check_in_disclosure_moved_clauses_render_across_all_four_cases():
+        # 29-06-PLAN.md Task 2 (CFG-79): "moved, not cut" as an
+        # executable claim, not a promise. Four cases (observed x
+        # cadence-known), each asserting: the visible caption <p>
+        # carries EXACTLY CHECK_IN_CAPTION_OBSERVED and nothing else;
+        # every other clause the pre-plan single joined-paragraph
+        # caption used to carry for that case still renders, byte-
+        # identical, inside the card's own <details class="readings-
+        # disclosure"> slice — never inside the visible caption, never
+        # missing from the card entirely.
+        def _section_slice(rendered):
+            heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(
+                i18n.t(health_page.CHECK_IN_SECTION_HEADING))
+            start = rendered.index(heading_marker)
+            end = rendered.index("</section>", start) + len("</section>")
+            return rendered[start:end]
+
+        def _visible_caption(section_html):
+            m = re.search(r'<p class="text-label section-caption">(.*?)</p>', section_html)
+            if m is None:
+                raise AssertionError("expected a visible caption <p> in the check-in card")
+            return m.group(1)
+
+        def _disclosure_body(section_html):
+            m = re.search(
+                r'<details class="readings-disclosure"><summary>[^<]*</summary>'
+                r'<p>(.*?)</p></details>',
+                section_html)
+            if m is None:
+                raise AssertionError("expected a readings-disclosure <details> in the check-in card")
+            return m.group(1)
+
+        cases = [
+            ("observed, cadence known", True, 300),
+            ("observed, cadence unknown", True, None),
+            ("not observed, cadence known", False, 300),
+            ("not observed, cadence unknown", False, None),
+        ]
+        env_before = os.environ.pop(wake.SLEEP_ENV_VAR, None)
+        try:
+            for case_name, observed, wake_interval_s in cases:
+                if wake_interval_s is None and wake.effective_wake_interval_s(None) is not None:
+                    return False, "%s: the environment still resolves a cadence — this case measures nothing" % (
+                        case_name,)
+                tmp = _mkstate("h-check-in-moved-clauses")
+                try:
+                    now = _now()
+                    if observed:
+                        rendered = _seeded_regularity_page(tmp, now, wake_interval_s=wake_interval_s)
+                    else:
+                        if wake_interval_s is not None:
+                            device_config.save_device_config(tmp, wake_interval_s=wake_interval_s)
+                        rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                    section_html = _section_slice(rendered)
+                    visible = _visible_caption(section_html)
+                    expected_visible = layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_OBSERVED))
+                    if visible != expected_visible:
+                        return False, (
+                            "%s: expected the visible caption to be EXACTLY %r, got %r"
+                            % (case_name, expected_visible, visible))
+
+                    disclosure = _disclosure_body(section_html)
+                    expected_disclosure_clauses = []
+                    if not observed:
+                        expected_disclosure_clauses.append(
+                            layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_EMPTY)))
+                    if wake_interval_s is not None:
+                        expected_disclosure_clauses.append(layout.escape_html(
+                            i18n.t(health_page.CHECK_IN_CAPTION_CADENCE)
+                            % layout.duration_text(wake_interval_s)))
+                    else:
+                        expected_disclosure_clauses.append(
+                            layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_CADENCE_FALLBACK)))
+                    expected_disclosure_clauses.append(
+                        layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_NOT_PROOF)))
+                    for clause in expected_disclosure_clauses:
+                        if clause not in disclosure:
+                            return False, (
+                                "%s: expected clause %r inside the disclosure — missing (the "
+                                "'moved, not cut' guarantee is broken)" % (case_name, clause))
+                        if clause in visible:
+                            return False, (
+                                "%s: expected clause %r to be MOVED out of the visible caption, "
+                                "still found there" % (case_name, clause))
+                finally:
+                    shutil.rmtree(tmp, ignore_errors=True)
+            return True, ""
+        finally:
+            if env_before is not None:
+                os.environ[wake.SLEEP_ENV_VAR] = env_before
+    check(
+        "for all four check-in-card cases (observed x cadence-known), the visible caption carries "
+        "EXACTLY CHECK_IN_CAPTION_OBSERVED and every other clause that case renders moves, "
+        "byte-identical, into the card's own <details class=\"readings-disclosure\"> — 'moved, not "
+        "cut' proven as a relationship, case and clause named on failure (29-06-PLAN.md Task 2, "
+        "CFG-79)",
+        _check_in_disclosure_moved_clauses_render_across_all_four_cases)
+
     def _sparkline_axis_chrome_present():
         # quick task 260902-ep7 (BUG 4): the new check for the drawn axis
         # lines and ticks — real <rect class="sparkline-axis"> elements,
@@ -5631,26 +5779,48 @@ def main():
         # 19-06-PLAN.md Task 3 (D-06): retargeted in place — "that
         # prefix's airline" reworded to "that airline", dropping the
         # word "prefix" from this visible sentence entirely.
+        #
+        # 29-06-PLAN.md Task 2 (CFG-79): retargeted again — the note is
+        # now split. `_READ_ONLY_NOTE` (the visible sentence) carries
+        # only "This list is read-only here."; the Airlines-pointing
+        # instruction this check used to pin as ONE sentence with it now
+        # lives in `_READ_ONLY_NOTE_DETAIL`, moved verbatim into the
+        # card's own <details class="readings-disclosure"> — both must
+        # render, the visible one outside it, the detail one inside it.
         old_note_closing_phrase = "following the existing coverage-gap runbook."
-        expected_note = (
-            "This list is read-only here — each row's Resolve link opens "
-            "the Airlines page to name that airline (and add "
-            "artwork, if it needs one).")
-        if health_page._READ_ONLY_NOTE != expected_note:
+        expected_visible = "This list is read-only here."
+        expected_detail = (
+            "Each row's Resolve link opens the Airlines page to name "
+            "that airline (and add artwork, if it needs one).")
+        if health_page._READ_ONLY_NOTE != expected_visible:
             return False, (
-                "expected _READ_ONLY_NOTE to equal the D-06 plain-language "
+                "expected _READ_ONLY_NOTE to equal the CFG-79 shortened "
                 "string, got %r" % (health_page._READ_ONLY_NOTE,))
+        if health_page._READ_ONLY_NOTE_DETAIL != expected_detail:
+            return False, (
+                "expected _READ_ONLY_NOTE_DETAIL to equal the moved D-06 "
+                "plain-language instruction, got %r" % (health_page._READ_ONLY_NOTE_DETAIL,))
         if "prefix" in health_page._READ_ONLY_NOTE.lower():
             return False, "expected _READ_ONLY_NOTE to contain no occurrence of 'prefix'"
+        if "prefix" in health_page._READ_ONLY_NOTE_DETAIL.lower():
+            return False, "expected _READ_ONLY_NOTE_DETAIL to contain no occurrence of 'prefix'"
         tmp = _mkstate("h-read-only-note-reworded")
         try:
             rendered = health_page.render(_ctx(tmp))
-            # The note contains an apostrophe ("row's"), which
+            # Both contain an apostrophe ("row's"), which
             # escape_html()'s quote=True mode renders as &#x27; —
             # compare against the escaped form, the module's own single
             # escaping choke-point discipline.
-            if layout.escape_html(expected_note) not in rendered:
-                return False, "expected the rendered page to contain the new note verbatim (escaped)"
+            visible_marker = '<p class="text-body section-caption">%s</p>' % layout.escape_html(
+                expected_visible)
+            if visible_marker not in rendered:
+                return False, "expected the rendered page to contain the visible note verbatim (escaped)"
+            detail_marker = (
+                '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
+                % (layout.escape_html(i18n.t("More details")), layout.escape_html(expected_detail)))
+            if detail_marker not in rendered:
+                return False, (
+                    "expected the moved instruction verbatim (escaped) inside a readings-disclosure")
             if old_note_closing_phrase in rendered:
                 return False, "expected the old runbook-pointing phrase to be fully gone from the render"
             return True, ""
@@ -5658,8 +5828,9 @@ def main():
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "the read-only note is reworded to name Airlines as the resolution surface, no longer points at "
-        "the manual runbook (phase 13 D-10), and (19-06-PLAN.md Task 3, D-06) no longer says 'prefix' in "
-        "its visible sentence",
+        "the manual runbook (phase 13 D-10), no longer says 'prefix' in either half (19-06-PLAN.md "
+        "Task 3, D-06), and (29-06-PLAN.md Task 2, CFG-79) is now split into a short visible sentence "
+        "plus its moved instruction inside a readings-disclosure",
         _read_only_note_reworded_to_point_at_airlines_not_the_runbook)
 
     def _source_rows_gains_fifth_manual_entry():
@@ -5939,16 +6110,25 @@ def main():
         # .section-caption still declares exactly one property, the same
         # 70% color-mix), together — so a future edit cannot satisfy the
         # markup half while quietly forking a second muted value.
+        #
+        # 29-06-PLAN.md Task 1 (CFG-84): retargeted in place — the
+        # battery heading's own trailing <span> this check used to
+        # locate is gone (superseded, see BATTERY_SECTION_HEADING_
+        # TEMPLATE's own comment); the caption now lives in a SIBLING
+        # <p> immediately after </h2>, and that is what this check
+        # locates instead.
         tmp = _mkstate("h-muted-captions")
         try:
             rendered = health_page.render(_ctx(tmp))
-            heading_at = rendered.index(">%s" % health_page.BATTERY_SECTION_HEADING)
-            heading_close = rendered.index("</h2>", heading_at) + len("</h2>")
-            heading_html = rendered[heading_at:heading_close]
-            if 'class="text-label section-caption"' not in heading_html:
+            heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(
+                _battery_section_heading())
+            heading_at = rendered.index(heading_marker)
+            after_heading = rendered[heading_at + len(heading_marker):]
+            if not after_heading.startswith('<p class="text-label section-caption">'):
                 return False, (
-                    "expected the battery heading's trailing span to compose "
-                    "text-label with section-caption, got %r" % heading_html)
+                    "expected the battery heading's sibling caption <p> to compose "
+                    "text-label with section-caption immediately after </h2>, got %r"
+                    % after_heading[:80])
 
             # phase 13 (D-10): the reworded note contains apostrophes,
             # which escape_html() renders as &#x27; — locate the escaped
@@ -5975,7 +6155,8 @@ def main():
                 "the file's single 70%% muted color-mix, got %r" % body)
         return True, ""
     check(
-        "the battery heading's trailing span and the Unresolved-prefixes read-only note both compose "
+        "the battery heading's sibling caption <p> (retargeted from the retired trailing <span>, "
+        "29-06-PLAN.md Task 1/CFG-84) and the Unresolved-prefixes read-only note both compose "
         "section-caption with their existing sizing class, and style.css's .section-caption still declares "
         "exactly one property at the file's single 70% muted strength (quick task 260902-gjj, ISSUE 1)",
         _quick_260902_gjj_muted_captions_compose_section_caption)
@@ -6080,8 +6261,10 @@ def main():
             ]
             _seed_device_health(tmp, readings)
             rendered = health_page.render(_ctx(tmp, now=_iso(base)))
-            if ">%s<" % health_page.BATTERY_SECTION_HEADING not in rendered:
-                return False, "expected BATTERY_SECTION_HEADING inside an <h2>"
+            # 29-06-PLAN.md Task 1 (CFG-84): retargeted onto the new
+            # window-derived heading text (see _battery_section_heading()).
+            if ">%s<" % _battery_section_heading() not in rendered:
+                return False, "expected the battery heading's own text inside an <h2>"
             # quick task 260902-gjj (ISSUE 2): retargeted — the badge
             # label this check used to require survived the D-02 move; it
             # is now retired outright, and the card's own status-modifier
@@ -6116,6 +6299,161 @@ def main():
         "the battery-trend section keeps its own status modifier (retargeted from the retired badge, quick "
         "task 260902-gjj), readout, and single script tag after moving out of the grid",
         _battery_section_keeps_everything_after_the_move)
+
+    def _battery_heading_is_short_and_precision_lives_in_a_sibling_caption():
+        # 29-06-PLAN.md Task 1 (CFG-84): the 2026-09-17 audit's own P2 —
+        # the <h2> must carry ONLY its short, fixed, window-derived text
+        # (no inline precision span), and the precision
+        # _battery_trend_caption() computes must live in a SIBLING
+        # <p class="text-label section-caption"> immediately after
+        # </h2>, itself followed by the chart/table body — three
+        # separate, ordered assertions, not one substring check.
+        tmp = _mkstate("h-battery-heading-short")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 4190),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+
+            heading_text = _battery_section_heading()
+            precision_text = health_page._battery_trend_caption(
+                [{"ts": _iso(base - timedelta(minutes=1)), "battery_mv": 4200},
+                 {"ts": _iso(base), "battery_mv": 4190}],
+                None)
+            heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(heading_text)
+            if heading_marker not in rendered:
+                return False, "expected the fixed heading marker %r, got none" % (heading_marker,)
+            if layout.escape_html(precision_text) in rendered[
+                    rendered.index(heading_marker):rendered.index(heading_marker) + len(heading_marker)]:
+                return False, "the heading itself must not carry the precision text"
+
+            heading_at = rendered.index(heading_marker)
+            caption_marker = '<p class="text-label section-caption">%s</p>' % layout.escape_html(precision_text)
+            caption_at = rendered.index(caption_marker)
+            if not (heading_at < caption_at):
+                return False, "expected the heading to precede its sibling caption"
+            if rendered[heading_at + len(heading_marker):caption_at].strip():
+                return False, (
+                    "expected the caption <p> to sit IMMEDIATELY after </h2>, found intervening "
+                    "markup %r" % rendered[heading_at + len(heading_marker):caption_at])
+
+            # The chart/table body (the <details class="readings-
+            # disclosure"> that always renders, chart or no chart)
+            # follows the caption.
+            body_at = rendered.index('<details class="readings-disclosure"', caption_at)
+            if not (caption_at < body_at):
+                return False, "expected the caption to precede the chart/table body"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the battery-trend heading carries ONLY its short fixed text (no inline precision span), "
+        "immediately followed by a sibling <p class=\"text-label section-caption\"> carrying "
+        "_battery_trend_caption()'s own text, itself followed by the chart/table body — "
+        "index(h2) < index(caption) < index(body) (29-06-PLAN.md Task 1, CFG-84)",
+        _battery_heading_is_short_and_precision_lives_in_a_sibling_caption)
+
+    def _battery_heading_equals_template_times_window_in_both_languages():
+        # 29-06-PLAN.md Task 1 (CFG-84): a RELATIONSHIP against the real
+        # constants, never a typed "Batterie · 3 mois" literal — proven
+        # in both languages so a future edit to either the template or
+        # BATTERY_TREND_WINDOW_DAYS is caught here rather than only in
+        # English.
+        tmp = _mkstate("h-battery-heading-relationship")
+        try:
+            for lang in ("en", "fr"):
+                try:
+                    prefs.set_request_prefs(lang=lang)
+                    rendered = health_page.render(_ctx(tmp))
+                finally:
+                    prefs.set_request_prefs(lang="en")
+                expected = i18n.t_lang(health_page.BATTERY_SECTION_HEADING_TEMPLATE, lang) % (
+                    health_page.BATTERY_TREND_WINDOW_DAYS // 30)
+                marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(expected)
+                if marker not in rendered:
+                    return False, (
+                        "%s: expected the heading to equal i18n.t_lang(BATTERY_SECTION_HEADING_"
+                        "TEMPLATE, lang) %% (BATTERY_TREND_WINDOW_DAYS // 30) == %r, marker %r not found"
+                        % (lang, expected, marker))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the battery-trend heading's rendered text equals i18n.t_lang(BATTERY_SECTION_HEADING_TEMPLATE, "
+        "lang) % (BATTERY_TREND_WINDOW_DAYS // 30) in both English and French — a relationship against "
+        "the real constants, not a typed literal (29-06-PLAN.md Task 1, CFG-84)",
+        _battery_heading_equals_template_times_window_in_both_languages)
+
+    def _battery_trend_caption_all_three_branches_render_in_sibling_caption():
+        # 29-06-PLAN.md Task 1 (CFG-84): _battery_trend_caption()'s three
+        # cases (daily series usable, no rows at all, sub-two-day raw
+        # series) must each land in the sibling caption <p> — never
+        # inside the heading, never silently dropped.
+        base = datetime(2026, 9, 10, 12, 0, 0, tzinfo=timezone.utc)
+
+        def _caption_paragraph(rendered):
+            heading_text = _battery_section_heading()
+            heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(heading_text)
+            after = rendered[rendered.index(heading_marker) + len(heading_marker):]
+            m = re.match(r'<p class="text-label section-caption">(.*?)</p>', after)
+            if m is None:
+                raise AssertionError("expected a sibling caption <p> immediately after </h2>")
+            return m.group(1)
+
+        # Branch 1: a usable daily series (>= 2 Paris-day buckets) — the
+        # 3-month/daily-average framing.
+        tmp_daily = _mkstate("h-caption-branch-daily")
+        try:
+            readings = []
+            for day, mv in enumerate((4000, 4100, 4200)):
+                readings.append((_iso(base - timedelta(days=day)), mv))
+            _seed_device_health(tmp_daily, readings)
+            rendered = health_page.render(_ctx(tmp_daily, now=_iso(base)))
+            expected = layout.escape_html(i18n.t("Last 3 months, daily average"))
+            got = _caption_paragraph(rendered)
+            if got != expected:
+                return False, "daily-series branch: expected caption %r, got %r" % (expected, got)
+        finally:
+            shutil.rmtree(tmp_daily, ignore_errors=True)
+
+        # Branch 2: no rows at all (and the DB-unavailable case, which
+        # shares the same 3-month framing) — an empty state dir.
+        tmp_empty = _mkstate("h-caption-branch-empty")
+        try:
+            rendered = health_page.render(_ctx(tmp_empty, now=_iso(base)))
+            expected = layout.escape_html(i18n.t("Last 3 months, daily average"))
+            got = _caption_paragraph(rendered)
+            if got != expected:
+                return False, "no-rows branch: expected caption %r, got %r" % (expected, got)
+        finally:
+            shutil.rmtree(tmp_empty, ignore_errors=True)
+
+        # Branch 3: a sub-two-day raw series (the day-1 fallback) — the
+        # real reading count, never BATTERY_TREND_LIMIT.
+        tmp_sameday = _mkstate("h-caption-branch-sameday")
+        try:
+            sameday_readings = [
+                (_iso(base - timedelta(minutes=2)), 4200),
+                (_iso(base - timedelta(minutes=1)), 4190),
+                (_iso(base), 4180),
+            ]
+            _seed_device_health(tmp_sameday, sameday_readings)
+            rendered = health_page.render(_ctx(tmp_sameday, now=_iso(base)))
+            expected = layout.escape_html(i18n.t("Latest %d readings") % len(sameday_readings))
+            got = _caption_paragraph(rendered)
+            if got != expected:
+                return False, "sub-two-day branch: expected caption %r, got %r" % (expected, got)
+        finally:
+            shutil.rmtree(tmp_sameday, ignore_errors=True)
+        return True, ""
+    check(
+        "all three _battery_trend_caption() branches (usable daily series, no rows at all, sub-two-day "
+        "raw series) render their own exact text inside the sibling caption <p>, never inside the "
+        "heading (29-06-PLAN.md Task 1, CFG-84)",
+        _battery_trend_caption_all_three_branches_render_in_sibling_caption)
 
     def _battery_readout_precedes_chart_class_list_and_live_region():
         # quick task 260901-tsa (finding D): the readout is now the
@@ -6850,7 +7188,7 @@ def main():
                 # loop below, which now covers only the two headings
                 # that still render unconditionally either way.
                 headings_to_check = [
-                    health_page.BATTERY_SECTION_HEADING,
+                    _battery_section_heading(),  # 29-06-PLAN.md Task 1 (CFG-84)
                     health_page.UNRESOLVED_SECTION_HEADING,
                 ]
                 if seeded:
@@ -6983,8 +7321,26 @@ def main():
         # its own `.data-cards` mobile list (UIR-10), which style.css
         # gives its own `margin: 0` list-reset rule, so it needs no
         # separate top-margin exception of its own.
+        #
+        # 29-06-PLAN.md Task 1 (CFG-84): a fourth member added in place —
+        # the battery-trend card's own next element is now a SIBLING
+        # `<p class="text-label section-caption">` (never `.text-body`),
+        # the same composition every settings-page card caption already
+        # uses directly under its own `<h2>` (companion/pages/
+        # config_page.py's `theme_fieldset()`/`quiet_hours_group()` etc.,
+        # e.g. `<h2 class="text-heading">%s</h2><p class="text-label
+        # section-caption" ...>`) — that composition relies on the same
+        # UA default top margin `.section-caption`'s own comment in
+        # style.css explicitly declines to override ("Settings' own
+        # .section-caption role relies on the same UA default in a
+        # different context. Do not 'complete' this rule by adding a
+        # margin."). This is therefore consistency with an established,
+        # already-accepted pattern, not a new gap — no style.css edit
+        # accompanies this plan (git diff --stat companion/static/ is
+        # empty).
         allowed = (
             '<p class="text-body">', '<p class="text-body section-caption">',
+            '<p class="text-label section-caption">',
             '<p id="%s"' % health_page.BATTERY_READOUT_ID, "<div ", "<details", "<svg ",
             '<ul class="data-cards">')
         for seeded in (False, True):
@@ -7011,7 +7367,7 @@ def main():
                 # when seeded (matching the fixture that actually
                 # renders it).
                 headings_to_check = [
-                    health_page.BATTERY_SECTION_HEADING,
+                    _battery_section_heading(),  # 29-06-PLAN.md Task 1 (CFG-84)
                     health_page.UNRESOLVED_SECTION_HEADING,
                 ]
                 if seeded:
@@ -7094,7 +7450,9 @@ def main():
             unresolved_at = rendered.index(health_page.UNRESOLVED_SECTION_HEADING)
             if unresolved_at < prose_at < stats_at:
                 return False, "the unresolved-prefix registry table must not carry data-table--prose"
-            readings_at = rendered.index(health_page.BATTERY_SECTION_HEADING)
+            # 29-06-PLAN.md Task 1 (CFG-84): retargeted onto the new
+            # window-derived heading text.
+            readings_at = rendered.index(_battery_section_heading())
             if readings_at < prose_at < unresolved_at:
                 return False, "the battery readings table must not carry data-table--prose"
 
@@ -7153,7 +7511,9 @@ def main():
 
             stats_at = rendered.index(health_page.STATS_SECTION_HEADING)
             unresolved_at = rendered.index(health_page.UNRESOLVED_SECTION_HEADING)
-            battery_at = rendered.index(health_page.BATTERY_SECTION_HEADING)
+            # 29-06-PLAN.md Task 1 (CFG-84): retargeted onto the new
+            # window-derived heading text.
+            battery_at = rendered.index(_battery_section_heading())
             first_desc_at = rendered.index('<td class="desc">')
             if first_desc_at < stats_at:
                 return False, "expected every desc cell to live in the Resolution-statistics table (after its own heading)"
@@ -8604,15 +8964,34 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-        # UIR-12 markup half: the Battery trend caption span opens with a
-        # space before its em dash.
+        # UIR-12 markup half: SUPERSEDED in place by 29-06-PLAN.md Task 1
+        # (CFG-84) — the space-before-em-dash fix this used to pin
+        # applied to the OLD inline `<span class="text-label
+        # section-caption"> — %s</span>` this heading carried; that span
+        # (and the em dash it opened with) no longer exists, superseded
+        # by a SIBLING `<p class="text-label section-caption">` that
+        # carries only `_battery_trend_caption()`'s own text — no
+        # leading em dash at all, because the dash was markup this
+        # function used to add between heading and caption, never part
+        # of the caption's own text. The equivalent property now: the
+        # sibling caption follows the heading immediately, and its text
+        # opens with no dash of its own.
         tmp2 = _mkstate("h-v2v-em-dash")
         try:
             rendered2 = health_page.render(_ctx(tmp2))
-            if 'section-caption"> — ' not in rendered2:
+            heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(
+                _battery_section_heading())
+            after_heading = rendered2[rendered2.index(heading_marker) + len(heading_marker):]
+            caption_open = '<p class="text-label section-caption">'
+            if not after_heading.startswith(caption_open):
                 return False, (
-                    "expected the Battery trend caption span to open with a space before its "
-                    "em dash (UIR-12)")
+                    "expected the battery heading's sibling caption <p> to follow </h2> "
+                    "immediately (UIR-12, retargeted by 29-06-PLAN.md Task 1)")
+            caption_text_start = after_heading[len(caption_open):]
+            if caption_text_start.startswith("—") or caption_text_start.startswith(" —"):
+                return False, (
+                    "expected the sibling caption to carry no leading em dash of its own "
+                    "(UIR-12, retargeted by 29-06-PLAN.md Task 1)")
         finally:
             shutil.rmtree(tmp2, ignore_errors=True)
 
@@ -8622,8 +9001,9 @@ def main():
         ".banner__label rendered on the anomaly banner's lead span, .banner__pill gains min-width: 0 "
         "while keeping flex: none and its source position before .refresh-pill, .airline-card__image "
         "gains height: auto alongside its surviving aspect-ratio, the .data-table--prose first-column "
-        "nowrap rule exists after the base rule, and the rendered Battery trend heading carries a space "
-        "before its em dash (quick task 260902-v2v)",
+        "nowrap rule exists after the base rule, and the rendered Battery trend heading's sibling "
+        "caption follows immediately with no leading em dash of its own (UIR-12, retargeted by "
+        "29-06-PLAN.md Task 1/CFG-84; quick task 260902-v2v)",
         _quick_260902_v2v_uir_03_07_12_13_fixes)
 
     def _quick_260902_ep7_dashboard_grid_card_gap_two_role_split():
@@ -10614,7 +10994,13 @@ def main():
                     return False, "expected the French string %r in the rendered page" % (french_text,)
             for english_text in (
                 "Screen status and server data quality, in one place.",
-                "Battery trend", "Checking in normally", "Server & data"):
+                # 29-06-PLAN.md Task 1 (CFG-84): retargeted from the now
+                # permanently-dead "Battery trend" literal (no source
+                # produces it any more, so its absence proved nothing)
+                # onto the ENGLISH form of the real, currently-rendered
+                # heading — a check against a string this render would
+                # actually produce if the French translation broke.
+                _battery_section_heading("en"), "Checking in normally", "Server & data"):
                 if english_text in rendered:
                     return False, "expected no English source string %r to leak into the French render" % (
                         english_text,)
@@ -10640,7 +11026,9 @@ def main():
             for english_text in (
                 health_page.PAGE_PURPOSE_TEXT, health_page.SCREEN_SECTION_HEADING,
                 layout.escape_html(health_page.SERVER_DATA_SECTION_HEADING),
-                health_page.BATTERY_SECTION_HEADING,
+                # 29-06-PLAN.md Task 1 (CFG-84): retargeted onto the new
+                # window-derived heading text.
+                _battery_section_heading(),
                 health_page.DEVICE_STATE_TEXT["ok"], "Health"):
                 if english_text not in rendered:
                     return False, "expected the unchanged English string %r under lang='en'" % (
@@ -11569,8 +11957,9 @@ def main():
         # exactly once.
         tmp = _mkstate("a-replace-action-membership")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
             # quick task 260903-df3: LIGHTBOX_REPLACE_ZONE_CLASS
             # ("lightbox__replace-zone") shares a prefix with
             # LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace"), but the
@@ -11583,37 +11972,27 @@ def main():
             targets = set(illustrations.target_filenames())
             prefix = airlines_page.ILLUSTRATION_ROUTE_PREFIX
             actions = re.findall(r'data-view-panel-replace-action="([^"]+)"', rendered)
-            # 22-11-PLAN.md Task 2 (X7), retargeted in place and
-            # NARROWED: an edit-mode card now carries TWO triggers for
-            # the same dialog — the zoom trigger it always had, plus the
-            # new per-card "Replace picture" control, which must carry
-            # the identical full vocabulary or panel-lookup.js's
-            # `attr || ""` idiom would blank the dialog. So the expected
-            # total doubles, AND each airline's own action must appear
-            # exactly twice: a pairing assertion the old bare total could
-            # not make, so a drift where one card gained a third trigger
-            # (or lost its second) now fails rather than passing on a
-            # coincidental sum.
-            per_airline = 2
+            # 29-01-PLAN.md (CFG-81), retargeted in place and NARROWED
+            # BACK: the per-card "Replace picture" control (22-11-PLAN.md
+            # Task 2, X7) that used to double this total is deleted
+            # outright — the affordance moved into the dialog, which
+            # carries no data-view-panel-replace-action attribute of its
+            # own (it is the zoom trigger's target, not a second
+            # trigger). So each card is back to carrying exactly one
+            # replace-action trigger, the zoom trigger, and there is no
+            # edit-mode/plain distinction left to test separately.
+            per_airline = 1
             expected = per_airline * len(illustrations.target_airline_names())
             if len(actions) != expected:
                 return False, (
-                    "expected %d replace-action triggers (%d per target airline: the zoom trigger "
-                    "and the edit-mode Replace control), got %d"
+                    "expected %d replace-action triggers (%d per target airline: the zoom "
+                    "trigger — the per-card Replace control is deleted, CFG-81), got %d"
                     % (expected, per_airline, len(actions)))
             for action in set(actions):
                 if actions.count(action) != per_airline:
                     return False, (
-                        "expected each airline's replace action to appear exactly %d times, %r "
+                        "expected each airline's replace action to appear exactly %d time(s), %r "
                         "appeared %d" % (per_airline, action, actions.count(action)))
-            # And out of edit mode there is exactly one per airline: the
-            # Replace control is drawn only while the mode is on.
-            plain_actions = re.findall(
-                r'data-view-panel-replace-action="([^"]+)"', airlines_page.render(_ctx(tmp)))
-            if len(plain_actions) != len(illustrations.target_airline_names()):
-                return False, (
-                    "expected one replace-action trigger per airline out of edit mode, got %d"
-                    % (len(plain_actions),))
             for action in actions:
                 if not action.startswith(prefix) or not action.endswith(".png"):
                     return False, "expected every replace-action trigger to be %s{key}.png, got %r" % (
@@ -11636,8 +12015,9 @@ def main():
         # contract: now singular, since the form itself is singular.
         tmp = _mkstate("a-replace-method-enctype")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
             forms = re.findall(r'<form class="%s"[^>]*>' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS, rendered)
             if len(forms) != 1:
                 return False, "expected exactly one replace form, got %d" % len(forms)
@@ -11680,8 +12060,9 @@ def main():
         # ids is.
         tmp = _mkstate("a-replace-input-ids")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
             input_ids = re.findall(r'<input type="file" id="([^"]+)"', rendered)
             replace_ids = [i for i in input_ids if i == airlines_page.REPLACE_INPUT_ID]
             if len(replace_ids) != 1:
@@ -11788,8 +12169,9 @@ def main():
         hostile_name = '<script>alert(1)</script>"'
         illustrations.target_variants_by_airline = lambda: [(hostile_name, [])]
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render({"edit_mode": True})
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render({})
         finally:
             illustrations.target_variants_by_airline = original_target_variants_by_airline
         if hostile_name in rendered:
@@ -11851,8 +12233,9 @@ def main():
         # constant.
         tmp = _mkstate("a-no-revert-control")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         form_match = re.search(
@@ -11925,8 +12308,9 @@ def main():
             return False, "expected 'icon-upload' to be a member of layout.ICON_IDS"
         tmp = _mkstate("a-replace-zone-icon-sprite")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         # Phase 14 (14-02-PLAN.md Task 3) retargeted this count in place
@@ -11968,8 +12352,9 @@ def main():
         # in the stylesheet, plus the first ::file-selector-button rule).
         tmp = _mkstate("a-replace-zone-contract")
         try:
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
+            # 29-01-PLAN.md (CFG-81): the dialog's replace/delete forms are
+            # unconditional now - no edit_mode needed.
+            rendered = airlines_page.render(_ctx(tmp))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         zone_open_tag = '<div class="%s">' % airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS
@@ -12139,7 +12524,7 @@ def main():
             if result != manual_resolutions.ADD_OK:
                 return False, "test setup failure: add_entry returned %r" % (result,)
             rendered = airlines_page.render(
-                dict(_ctx(tmp), resolve_prefix="NEW", edit_mode=True))
+                dict(_ctx(tmp), resolve_prefix="NEW"))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
@@ -12754,8 +13139,6 @@ def main():
                 return False, "expected add_entry() to accept a fresh, valid name, got %r" % (add_result,)
             ctx = _ctx(tmp, now=now)
             ctx["resolve_prefix"] = "XYZ"
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
             section = _resolve_slice(rendered)
             expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Brand New Air"
@@ -12931,8 +13314,6 @@ def main():
 
             ctx = _ctx(tmp, now=now)
             ctx["resolve_prefix"] = "XYZ"
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
             section = _resolve_slice(rendered)
             if airlines_page.RESOLVE_STALE_BODY in section:
@@ -13249,8 +13630,6 @@ def main():
             manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
             ctx = _ctx(tmp)
             ctx["resolve_prefix"] = "ZZZ"
-            # 19-08 (D-22): edit-only forms need edit_mode=True
-            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
 
             dialog_open_index = rendered.index('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID)
@@ -14012,6 +14391,123 @@ def main():
         "its label is 11px regular with no label voice; and .has-tab-bar clears the bar at the page foot "
         "(X9/D-10, 22-14-PLAN.md Task 1)",
         _tab_bar_css_geometry_surface_and_active_idiom)
+
+    # ======================================================================
+    # 29-02-PLAN.md (CFG-82): the 2026-09-17 audit measured "Compagnies"
+    # (10 characters) needing 65px at .tab-bar__label's 11px size, against
+    # only 62px available in a 78px cell once the pill's old 8px-per-side
+    # margin was subtracted — the label truncated. This check re-derives
+    # every one of those numbers from the stylesheet's own live source
+    # (never hardcoding 8, 65 or 78) and proves the fit as a
+    # RELATIONSHIP, plus proves the 78x56px cell itself is untouched by
+    # the margin edit, as a SEPARATE, independently-mutable assertion.
+    # ======================================================================
+
+    def _tab_bar_pill_horizontal_margin_lets_the_longest_label_fit():
+        css_source = _css_source()
+        region = css_source[css_source.index(_TAB_BAR_BANNER):]
+
+        tokens = dict(re.findall(r"--(space-[a-z]+):\s*(\d+)px", css_source))
+
+        pill = _block(region, ".tab-bar__pill {")
+        # Accepts either the shipped `calc(var(--space-xs) / N)` form or a
+        # plain `var(--space-sm)` form (mutation A below reverts to the
+        # latter) — both are resolved through the SAME token map, never
+        # hardcoded, so either form's real pixel value drives the check.
+        margin_match = re.search(
+            r"margin:\s*var\(--([a-z-]+)\)\s+(?:var\(--([a-z-]+)\)|"
+            r"calc\(var\(--([a-z-]+)\)\s*/\s*(\d+)\))",
+            pill)
+        if not margin_match:
+            return False, "could not parse .tab-bar__pill's margin shorthand: %r" % (pill,)
+        _vertical_token, plain_token, calc_token, divisor = margin_match.groups()
+        if plain_token:
+            if plain_token not in tokens:
+                return False, "margin shorthand referenced an unknown token %r" % (plain_token,)
+            horizontal_margin_px = float(tokens[plain_token])
+        else:
+            if calc_token not in tokens:
+                return False, "margin shorthand referenced an unknown token %r" % (calc_token,)
+            horizontal_margin_px = float(tokens[calc_token]) / float(divisor)
+
+        # The cell's own resolved box, asserted independently of the
+        # margin above: mutating this must fail on its own, proving the
+        # tap-area invariant is not merely a side effect of the fit math.
+        link = _block(region, ".tab-bar__link {")
+        height_match = re.search(r"height:\s*(\d+)px", link)
+        if not height_match or int(height_match.group(1)) != 56:
+            return False, (
+                "expected .tab-bar__link's own resolved height to stay 56px (the 78x56px cell, "
+                "unchanged by the pill's margin edit), got %r" % (link,))
+        if "flex: 1 1 0" not in link:
+            return False, (
+                "expected .tab-bar__link's own width basis (flex: 1 1 0) to stay byte-identical "
+                "to its pre-task value, got %r" % (link,))
+
+        label_block = _block(region, ".tab-bar__label {")
+        font_size_match = re.search(r"font-size:\s*(\d+)px", label_block)
+        if not font_size_match or int(font_size_match.group(1)) != 11:
+            return False, (
+                "expected .tab-bar__label's font-size to still resolve to 11px, got %r"
+                % (label_block,))
+
+        unlabelled_entries = [
+            (route, label) for group_label, entries in layout.NAV_GROUPS if not group_label
+            for route, label in entries]
+        cell_count = len(unlabelled_entries) + 1  # the everyday destinations plus one "More" cell
+
+        # The app's own contract floor (design_direction: "Minimum
+        # supported viewport width: 360 px") is the tightest case a
+        # smaller viewport gives a smaller cell, so this is the worst
+        # width the fit must survive, not merely the audit's own 390px
+        # device — a check passing only at 390px could still truncate at
+        # the app's actual supported floor.
+        FLOOR_VIEWPORT_PX = 360
+        cell_width_px = FLOOR_VIEWPORT_PX / cell_count
+        available_px = cell_width_px - (2 * horizontal_margin_px)
+
+        # The longest label across BOTH shipped languages — read from
+        # layout.NAV_GROUPS and companion.i18n_fr.nav.CATALOG, never
+        # typed literally, so a future longer label re-runs this same
+        # arithmetic rather than silently going unchecked.
+        candidate_labels = []
+        for _route, label in unlabelled_entries:
+            candidate_labels.append(label)
+            candidate_labels.append(i18n_fr_nav.CATALOG.get(label, label))
+        candidate_labels.append(layout.TAB_BAR_MORE_LABEL)
+        candidate_labels.append(
+            i18n_fr_nav.CATALOG.get(layout.TAB_BAR_MORE_LABEL, layout.TAB_BAR_MORE_LABEL))
+        longest_label = max(candidate_labels, key=len)
+
+        # Per-character advance: MEASURED, not modelled — the audit's own
+        # real-browser figure for "Compagnies" (10 characters) needing
+        # 65px at this 11px font-size gives 65 / 10 = 6.5px/character.
+        # CFG-82's own instruction is that a measured number beats a
+        # modelled one, so that measured factor (not a font-metrics
+        # estimate) is what this check spends on any future longest
+        # label, with the audit's own 65px kept as an explicit floor.
+        PER_CHARACTER_ADVANCE_PX = 6.5
+        AUDIT_MEASURED_FLOOR_PX = 65  # "Compagnies" at 11px, 2026-09-17 audit
+        modelled_requirement_px = PER_CHARACTER_ADVANCE_PX * len(longest_label)
+        required_px = max(modelled_requirement_px, AUDIT_MEASURED_FLOOR_PX)
+
+        if available_px < required_px:
+            return False, (
+                "expected the available label width (%.1fpx = %.1fpx cell [%dpx viewport / %d "
+                "cells] - 2x%.1fpx margin) to be at least %.1fpx (the longest label %r's own "
+                "requirement, floored at the audit's measured %dpx) but it was not (CFG-82, "
+                "29-02-PLAN.md)"
+                % (available_px, cell_width_px, FLOOR_VIEWPORT_PX, cell_count,
+                   horizontal_margin_px, required_px, longest_label, AUDIT_MEASURED_FLOOR_PX))
+        return True, ""
+    check(
+        "the .tab-bar__pill's horizontal margin, resolved from style.css's own --space-xs/--space-sm "
+        "tokens, leaves at least the longest NAV_GROUPS label's own required width (a measured "
+        "6.5px/character advance derived from the 2026-09-17 audit's real 'Compagnies' figure, floored "
+        "at that audit's own 65px) inside the tab cell at the app's 360px floor viewport, while "
+        "`.tab-bar__link`'s own 56px height and `flex: 1 1 0` width basis stay byte-identical (CFG-82, "
+        "29-02-PLAN.md)",
+        _tab_bar_pill_horizontal_margin_lets_the_longest_label_fit)
 
     def _tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row():
         css_source = _css_source()
@@ -15508,17 +16004,14 @@ def main():
                     retired_token = "airline-card__" + "replace"
                     if retired_token in body_text:
                         return False, "expected zero occurrences of the retired per-card class token in the real /airlines HTTP response body"
-                    # 19-08 (D-22): edit-only forms need edit_mode=True.
-                    # The replace/resolve-upload/delete forms only render
-                    # under an exact ?edit=1, so the assertions below that
-                    # depend on those forms existing need a second, real
-                    # fetch of the edit-mode page rather than the plain
-                    # /airlines response already captured in body_text.
-                    edit_status, _edit_headers, edit_body = http_request(
-                        base + path + "?edit=1", cookie=session_cookie)
-                    if edit_status != 200:
-                        return False, "expected 200 for %s?edit=1, got %d" % (path, edit_status)
-                    edit_body_text = edit_body.decode("utf-8", errors="replace")
+                    # 29-01-PLAN.md (CFG-81): the replace/resolve-upload/
+                    # delete forms are unconditional now — the second,
+                    # real fetch of "?edit=1" this check used to need is
+                    # deleted (it would now be byte-identical to the
+                    # plain /airlines response already captured in
+                    # body_text above; a second real fetch to prove that
+                    # is a duplicate, not a new property).
+                    #
                     # quick task 260903-df3: a bare substring count of
                     # LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
                     # is no longer unambiguous — it is now also a prefix
@@ -15530,7 +16023,7 @@ def main():
                     # itself is counted, the same trailing-quote
                     # technique _replace_form_action_matches_trigger_attribute_membership()
                     # already uses.
-                    replace_form_count = edit_body_text.count('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
+                    replace_form_count = body_text.count('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
                     if replace_form_count != 1:
                         return False, (
                             "expected airlines_page.LIGHTBOX_REPLACE_FORM_CLASS exactly once in the real "
@@ -15566,20 +16059,20 @@ def main():
                     # resolve-name form's own action is never empty (it
                     # always posts to RESOLVE_ROUTE, in both the dialog
                     # and the no-JS fallback).
-                    if edit_body_text.count(' action=""') != 3:
+                    if body_text.count(' action=""') != 3:
                         return False, (
                             "expected ' action=\"\"' exactly 3 times (replace/resolve-upload/delete "
                             "forms) in the real /airlines HTTP response body, "
-                            "got %d" % edit_body_text.count(' action=""'))
+                            "got %d" % body_text.count(' action=""'))
                     # Phase 14 (14-02-PLAN.md Task 3) retargeted: the
                     # dialog now also carries the resolve-upload form's
                     # own file input, alongside the pre-existing replace
                     # form's, so the expected count is 2, not 1.
-                    if edit_body_text.count('<input type="file"') != 2:
+                    if body_text.count('<input type="file"') != 2:
                         return False, (
                             "expected <input type=\"file\" exactly twice (replace form, resolve-upload "
                             "form) in the real /airlines HTTP response "
-                            "body, got %d" % edit_body_text.count('<input type="file"'))
+                            "body, got %d" % body_text.count('<input type="file"'))
 
                 elif path == "/flights":
                     # quick task 260903-btu Task 5a: the served-HTML twin

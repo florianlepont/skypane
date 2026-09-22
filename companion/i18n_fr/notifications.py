@@ -30,22 +30,34 @@ Contract copy table G is copied verbatim from that table.
 CATALOG = {
     # --- Heading and caption (D-26) --------------------------------------
     "Notifications": "Notifications",
-    "Get a push alert when the battery runs low or the frame stops "
-    "checking in.":
-        "Recevez une alerte quand la batterie est faible ou que le "
-        "cadre arrête de se connecter.",
+    # 29-05-PLAN.md Task 1 (CFG-79): shortened — the two named triggers
+    # ("battery runs low", "the frame stops checking in") are now what
+    # the two checkboxes below say by themselves; see config_page.py's
+    # NOTIFICATIONS_SECTION_CAPTION.
+    "Get a push alert about battery or connection issues.":
+        "Recevez une alerte pour les problèmes de batterie ou de "
+        "connexion.",
 
     # --- The write-only topic-URL field (D-26 amended: never rendered
     #     back, status row instead of a masked value) -------------------
     "Configured": "Configuré",
     "Not configured": "Non configuré",
     "Push topic URL": "URL du sujet de notification",
-    "Paste your ntfy.sh topic URL (or a self-hosted one). Stored on "
-    "the server and never shown back here — pasting a new one "
-    "replaces the old.":
+    # 29-05-PLAN.md Task 1 (CFG-79): shortened to the one fact a reader
+    # needs before acting — what to paste. The storage/replacement
+    # sentence this hint used to carry moved, verbatim in meaning, to
+    # NOTIFICATIONS_URL_HOW_IT_WORKS_BODY's own entry below, reached
+    # through the card's new "How it works" disclosure.
+    "Paste your ntfy.sh topic URL (or a self-hosted one).":
         "Collez l’URL de votre sujet ntfy.sh (ou d’un serveur ntfy "
-        "personnel). Stockée sur le serveur et jamais réaffichée ici — "
-        "en coller une nouvelle remplace l’ancienne.",
+        "personnel).",
+    # 29-05-PLAN.md Task 1 (CFG-79): the sentence NOTIFICATIONS_URL_HINT
+    # used to carry as its own second half, moved here verbatim in
+    # meaning — same French wording as before the cut.
+    "Stored on the server and never shown back here — pasting a new "
+    "one replaces the old.":
+        "Stockée sur le serveur et jamais réaffichée ici — en coller "
+        "une nouvelle remplace l’ancienne.",
     "Replace the URL": "Remplacer l’URL",
 
     # --- The two checkboxes (D-26) ---------------------------------------

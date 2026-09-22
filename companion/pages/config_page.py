@@ -37,11 +37,19 @@ from companion import draw  # 25-04-PLAN.md Task 2 (CFG-48): the shared
 # here adds no dependency edge this module did not already have.
 from companion.layout import escape_html
 import companion.layout as layout
-from companion import frame_state  # 22-05-PLAN.md Task 2 (D-04): the one
-# frame-state resolution and the one delay sentence — the Frame strip
-# (companion/layout.py, 22-04-PLAN.md) and this module's own Quiet hours
-# caption both read frame_state.delay_sentence_template() from the SAME
-# wake.next_wake_status() triple, so the two can never disagree.
+# 22-05-PLAN.md Task 2 (D-04) added `from companion import frame_state`
+# here: the Frame strip (companion/layout.py, 22-04-PLAN.md) and this
+# module's own Quiet hours caption both read frame_state.
+# delay_sentence_template() from the SAME wake.next_wake_status()
+# triple, so the two could never disagree.
+#
+# 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: that import is DELETED —
+# this module no longer computes a delay sentence of its own at all
+# (see quiet_hours_group()'s own docstring for the full account); the
+# Frame strip is now the ONLY reader of frame_state in this codebase's
+# render path, and it lives in companion/layout.py, not here. Confirmed
+# unused by grep before deleting: every remaining "frame_state" text in
+# this module is prose, in a comment or docstring, not executable code.
 from companion import prefs  # 22-10-PLAN.md Task 2 (B14): the resolved
 # site language, set as `lang` on both native time inputs.
 from companion import screens
@@ -145,9 +153,13 @@ DISPLAY_PAGE_TITLE = "Display"
 # sentence widens from "how the frame looks" to the whole page's scope.
 DISPLAY_PAGE_PURPOSE = "Everything about what the frame shows and when."
 DEVICE_PAGE_TITLE = "Device"
-DEVICE_PAGE_PURPOSE = (
-    "Hardware, data and diagnostics for the frame. Nothing here needs "
-    "changing day to day.")
+# 29-05-PLAN.md Task 1 (CFG-79): shortened from 14 words to 7 — the
+# "nothing here needs changing day to day" reassurance is a REASON
+# clause (why the page's contents don't matter day to day), not a fact
+# about what the page contains, and CFG-79's floor cuts reason clauses
+# on sight. What survives is the one thing this sentence is actually
+# for: naming the page's SUBJECT.
+DEVICE_PAGE_PURPOSE = "Hardware, data and diagnostics for the frame."
 SCREEN_CAPTION_TEMPLATE = "Screen: %s"
 
 # 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C): the
@@ -187,9 +199,16 @@ DEVICE_TELLS_HEADING = "How it tells you"
 DEVICE_TELLS_INTRO = "— the light on the frame and the alerts on your phone."
 DEVICE_POLL_SECTION_ID = "device-poll"
 DEVICE_POLL_HEADING = "When you can't wait"
-DEVICE_POLL_INTRO = (
-    "— fetch a new picture right now instead of waiting for the next "
-    "wake.")
+# 29-05-PLAN.md Task 1 (CFG-79): shortened from 14 words to 6 — "instead
+# of waiting for the next wake" is the apply-timing idea in disguise
+# (it is restating what NOT triggering this control means), and CFG-79
+# reserves that idea for the Frame strip alone. What survives names
+# what the control DOES, distinct on purpose from POLL_SECTION_CAPTION
+# below (which names the control itself, not its effect) — an intro
+# and its one card's caption saying the same thing at two levels is
+# 27-06's own CFG-65 finding, and this cut keeps them apart rather than
+# merging them.
+DEVICE_POLL_INTRO = "— fetch a new picture right now."
 # 19-12-PLAN.md Task 2 (D-23): the conditional screen-type <select> — an
 # element id (not a class) because its own <label> targets it via `for`.
 SCREEN_SELECTOR_ID = "screen-id-selector"
@@ -462,18 +481,34 @@ DISPLAY_CHECKBOX_VALUE = "on"
 # quoted again) had been describing a picture that no longer exists
 # since CFG-66 shipped. The one-caption-per-section rule above still
 # holds: this stays ONE caption, shortened in place rather than
-# replaced by a second paragraph. What survives is the three facts
-# that were always true independent of any drawing — which runway,
-# and that the change applies on the next scheduled poll, not
-# immediately — which is also why this caption now reads consistently
-# with LED_SECTION_CAPTION below it, which ends on that identical
-# clause.
-RUNWAY_SECTION_CAPTION = (
-    "Which Orly runway the device watches. Applies on the next "
-    "scheduled poll, not immediately.")
-LED_SECTION_CAPTION = (
-    "Lit only during the device's brief wake window, not visible from "
-    "the wall side. Applies on the next scheduled poll.")
+# replaced by a second paragraph. What survived THAT cut was the three
+# facts that were always true independent of any drawing — which
+# runway, and that the change applies on the next scheduled poll, not
+# immediately — which is also why this caption used to read
+# consistently with LED_SECTION_CAPTION below it, which ended on that
+# identical clause.
+#
+# 29-05-PLAN.md Task 1 (CFG-79), 2026-09-21: that consistency is now
+# consistency in the WRONG direction. "Applies on the next scheduled
+# poll" is CFG-79's own named example of a mechanism/apply-timing
+# clause repeated under a card when the Frame strip already carries it
+# once per page (companion/layout.py's frame_strip_html(), the delay
+# caption both the Screen and Quiet-hours switch cells share) — the
+# developer's own quoted tour example ("il y a trop de texte descriptif
+# qui servent à rien") is this exact caption. BOTH captions lose the
+# clause here, not just this one: the "consistency" quick task 260921-
+# n2n recorded between them survives as "both keep exactly one fact,
+# their own control's subject", not as a shared trailing sentence. What
+# remains of this caption is one fact: which runway. 14 words -> 6.
+RUNWAY_SECTION_CAPTION = "Which Orly runway the device watches."
+# 29-05-PLAN.md Task 1 (CFG-79): 20 words -> 8. Two clauses cut, both
+# for the same reason as RUNWAY_SECTION_CAPTION above: "not visible
+# from the wall side" is a reason clause (why the placement doesn't
+# matter), not a fact about the control, and the closing "Applies on
+# the next scheduled poll" is the apply-timing clause the Frame strip
+# already carries once per page. What remains names the one fact this
+# caption is actually for: when the LED lights up.
+LED_SECTION_CAPTION = "Lit only during the device's brief wake window."
 
 # 19-11-PLAN.md Task 3 (D-12/A-30): stable DOM ids for the group headings
 # a radiogroup's aria-labelledby points at, and for each hint paragraph
@@ -488,9 +523,16 @@ RUNWAY_SECTION_CAPTION_ID = "runway-caption"
 RUNWAY_GROUP_HEADING_ID = "runway-group-heading"
 LED_SECTION_CAPTION_ID = "led-caption"
 POLL_SECTION_HEADING = "Manual refresh"
-POLL_SECTION_CAPTION = (
-    "Manually trigger an immediate poll cycle instead of waiting for "
-    "the next scheduled one.")
+# 29-05-PLAN.md Task 1 (CFG-79): shortened from 14 words to 5 —
+# "instead of waiting for the next scheduled one" is the apply-timing
+# idea again, this time framed as what NOT triggering this control
+# means, and CFG-79 cuts it for the identical reason DEVICE_POLL_INTRO
+# above does. What survives names the CONTROL (a poll cycle), distinct
+# from DEVICE_POLL_INTRO's own surviving text, which names the
+# control's EFFECT (a new picture) — the supersection intro and this
+# one card's caption still say two different things at two levels,
+# matching 27-06's own CFG-65 finding that a merge here would be wrong.
+POLL_SECTION_CAPTION = "Trigger an immediate poll cycle."
 # D-05 (06.6.4.1): the LED group's new user-facing heading, once it moves
 # from its own <fieldset>/<legend> into a sibling <h2>-headed group of
 # the merged form — see led_group() below.
@@ -510,13 +552,28 @@ QUIET_HOURS_SECTION_HEADING = "Quiet hours"
 # 27-06-PLAN.md Task 3 (CFG-67): shortened from 27-01-SUMMARY.md's
 # measured 188-char baseline (this caption plus its own computed delay
 # sentence, appended at render time by quiet_hours_group() — see that
-# function's own caption_html construction below, unchanged). The cut
-# is scoped to THIS explanatory sentence alone: "— the Frame strip's
-# Quiet hours switch is what turns it on and off" (the mechanism
-# clause) is dropped; "Pauses the frame's wake, poll and display cycle
-# during the schedule below" (what the schedule DOES) is kept, and the
-# appended delay sentence — computed state, not explanation — is
-# untouched by this edit entirely.
+# function's own caption_html construction below, unchanged at the
+# time). The cut was scoped to THIS explanatory sentence alone: "— the
+# Frame strip's Quiet hours switch is what turns it on and off" (the
+# mechanism clause) is dropped; "Pauses the frame's wake, poll and
+# display cycle during the schedule below" (what the schedule DOES) is
+# kept, and the appended delay sentence — computed state, not
+# explanation — was untouched by that edit entirely.
+#
+# 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: the SECOND sentence this
+# comment's own previous paragraph left untouched is now gone
+# completely — not shortened, removed. The Frame strip renders the
+# identical computed sentence in its own Quiet-hours switch cell on
+# both Home and Display (companion/layout.py's frame_strip_html()), and
+# 27-08-PLAN.md's CFG-69 already made that cell LINK to this card's own
+# heading — so the page's one home for "applies at the next wake" was
+# already the strip, and appending it here too was a second, redundant
+# copy of the same fact, which is precisely what CFG-79 forbids ("said
+# in exactly one place per page"). This caption is now, and stays, the
+# ONE sentence below — see quiet_hours_group()'s own docstring for the
+# full account of what else this removal took with it (the
+# `delay_sentence` parameter, and the two scanner-visibility copies
+# immediately below).
 QUIET_HOURS_SECTION_CAPTION = (
     "Pauses the frame's wake, poll and display cycle during the "
     "schedule below.")
@@ -536,54 +593,71 @@ QUIET_HOURS_SECTION_CAPTION_ID = "quiet-hours-caption"
 # change to anything that posts.
 QUIET_HOURS_GROUP_HEADING_ID = "quiet-hours-group-heading"
 
-# 22-05-PLAN.md Task 2 (D-04): scanner-visibility copies of two of
-# companion/frame_state.py's three delay-sentence constants — byte-
+# 22-05-PLAN.md Task 2 (D-04) added scanner-visibility copies of two of
+# companion/frame_state.py's three delay-sentence constants here — byte-
 # identical to frame_state.DELAY_DUE/DELAY_HELD, matching companion/
 # layout.py's own 22-04-PLAN.md Task 1 precedent exactly (that module's
-# own docstring/summary calls this pattern out by name). The D-05 AST
-# i18n completeness scan (companion/test_i18n.py) can trace a same-file
-# top-level scalar used directly as an i18n.t() argument, but not an
-# imported module's attribute access read through a local variable —
-# render()'s own `quiet_hours_delay_template` is exactly such a local
-# variable. The DECISION (which of the three branches applies) still
-# comes from frame_state.delay_sentence_template() alone; only the
-# wording's scanner-visible home is local. frame_state.DELAY_UNKNOWN
-# needs no copy here: companion/layout.py's own
-# `_FRAME_DELAY_UNKNOWN_TEXT` alias already makes that one key scanner-
-# visible (22-04-PLAN.md), so a second copy here would only duplicate,
-# never newly "produce", the same CATALOG key.
-_QUIET_HOURS_DELAY_DUE_TEXT = "Applies at the next wake, around %s."
-_QUIET_HOURS_DELAY_HELD_TEXT = "Applies when quiet hours end, around %s."
+# own docstring/summary calls this pattern out by name). They existed
+# because the D-05 AST i18n completeness scan (companion/test_i18n.py)
+# can trace a same-file top-level scalar used directly as an i18n.t()
+# argument, but not an imported module's attribute access read through
+# a local variable — render()'s own `quiet_hours_delay_template` was
+# exactly such a local variable.
+#
+# 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: DELETED. Once
+# quiet_hours_group() stopped rendering a delay sentence at all (see
+# QUIET_HOURS_SECTION_CAPTION's own comment above), these two copies had
+# no reader anywhere in this module — `render()`'s own computation that
+# used to produce their translated text is deleted at the same call
+# site, below. Deleting them does not orphan either CATALOG key:
+# companion/layout.py's OWN `_FRAME_DELAY_DUE_TEXT`/`_FRAME_DELAY_HELD_
+# TEXT` aliases (byte-identical text, 22-04-PLAN.md) already make both
+# keys scanner-visible from that module's own `i18n.t()` calls in
+# frame_strip_html() — the harness is the arbiter here, not judgement,
+# and companion/test_i18n.py stayed 24/24 after this deletion.
 
 # 19-10-PLAN.md (D-14/S-04): three one-tap presets, client-side only - no
 # server change (see quiet_hours_group()'s docstring). The Night preset's
 # start/end are sourced from server.device_config's own shipped defaults
 # rather than retyped literals, so the preset and the default can never
 # drift apart. Ranges use a real U+2013 en dash, matching this module's
-# real-Unicode punctuation convention (see its em dashes elsewhere).
+# real-Unicode punctuation convention (see its em dashes elsewhere) —
+# still true of the START/END constants below even though the hours are
+# no longer PRINTED anywhere (29-04-PLAN.md Task 1, CFG-80): a preset
+# still WRITES this exact pair into the two time fields, and that is
+# unchanged.
 QUIET_HOURS_PRESET_NIGHT_START = device_config.DEFAULT_QUIET_HOURS_START
 QUIET_HOURS_PRESET_NIGHT_END = device_config.DEFAULT_QUIET_HOURS_END
-# 20-07-PLAN.md Task 3 (D-05): the %s-templated form, translated through
-# i18n.t() BEFORE substitution (this codebase's established pattern,
-# health_page.py's SOURCE_FAULT_BODY_TEMPLATE, 20-03-PLAN.md) — never an
-# already-formatted string translated as one opaque catalogue key, which
-# would bake this specific device's own configured times into the
-# French entry forever.
-QUIET_HOURS_PRESET_NIGHT_LABEL_TEMPLATE = "Night (%s–%s)"
-QUIET_HOURS_PRESET_NIGHT_LABEL = QUIET_HOURS_PRESET_NIGHT_LABEL_TEMPLATE % (
-    QUIET_HOURS_PRESET_NIGHT_START, QUIET_HOURS_PRESET_NIGHT_END)
+# 29-04-PLAN.md Task 1 (CFG-80): SHORTENED to bare labels — "Night
+# (23:00–07:00)" is gone, replaced by "Night" alone. The hours these
+# buttons set are already spoken, once, by quiet_dial_readout_html()'s
+# own caption directly above this row ("23:00 → 07:00 · 8h"); repeating
+# them on a button was the developer's own "pas très joli" complaint
+# (29-CONTEXT.md) — four surfaces spelling one value. The 20-07-PLAN.md
+# %s-templated form this superseded is gone along with it: there is no
+# longer a device-specific time baked into a button label at all, so the
+# "translate the template before substituting" reasoning that form
+# needed no longer applies to this pair.
+#
+# QUIET_HOURS_PRESET_NIGHT_START/_END and _WORKDAY_START/_END below are
+# UNCHANGED by this cut — they still feed the buttons' own
+# data-preset-start/data-preset-end attributes and still come from
+# server.device_config's own shipped defaults, so nothing about what a
+# preset WRITES changes, only what its own button prints.
+QUIET_HOURS_PRESET_NIGHT_LABEL = "Night"
 QUIET_HOURS_PRESET_WORKDAY_START = "08:00"
 QUIET_HOURS_PRESET_WORKDAY_END = "18:00"
-QUIET_HOURS_PRESET_WORKDAY_LABEL_TEMPLATE = "Work day (%s–%s)"
-QUIET_HOURS_PRESET_WORKDAY_LABEL = QUIET_HOURS_PRESET_WORKDAY_LABEL_TEMPLATE % (
-    QUIET_HOURS_PRESET_WORKDAY_START, QUIET_HOURS_PRESET_WORKDAY_END)
-# "Always on (off)": this preset UNCHECKS the enable checkbox and leaves
+QUIET_HOURS_PRESET_WORKDAY_LABEL = "Day"
+# "Always on": this preset UNCHECKS the enable checkbox and leaves
 # both times untouched - "off" means the curfew is disabled while the
 # configured window stays intact, the pre-configure-before-enabling
 # behaviour quiet_hours_group()'s own docstring already locks. Expressed
 # via a distinct data-preset-enabled="0" attribute rather than
-# overloading the time attributes with a sentinel value.
-QUIET_HOURS_PRESET_ALWAYS_ON_LABEL = "Always on (off)"
+# overloading the time attributes with a sentinel value. The trailing
+# "(off)" clause is dropped by the same 29-04-PLAN.md cut as the other
+# two labels — the preset's own data-preset-enabled="0" attribute is
+# still what does the work; the label only ever named it a second time.
+QUIET_HOURS_PRESET_ALWAYS_ON_LABEL = "Always on"
 QUIET_HOURS_PRESET_ATTR = "data-quiet-preset"
 
 # 11-UI-SPEC.md Copywriting Contract, locked verbatim (D-05). The caption's
@@ -602,9 +676,19 @@ WAKE_INTERVAL_SECTION_HEADING = "Wake interval"
 # the apply timing with a real timestamp, making the generic sentence
 # redundant. What is kept is the one sentence a reader needs to ACT:
 # what a shorter/longer number trades off.
-WAKE_INTERVAL_SECTION_CAPTION = (
-    "Shorter means fresher info and more battery drain; longer means "
-    "more battery life and staler info at a glance.")
+#
+# 29-05-PLAN.md Task 1 (CFG-79), 2026-09-21: cut again, 19 words -> 6,
+# in the audit's own shape ("Plus court : données plus fraîches,
+# batterie plus sollicitée." — 2026-09-17 audit, P1). This is NOT a
+# fact lost: the "longer means more battery life" half this sentence
+# used to spell out is exactly what THE TWO GAUGES below (CFG-49,
+# 25-05-PLAN.md Task 1) already state, in both directions, with real
+# measured numbers — WAKE_FRESHNESS_TEXT's own "at most # min later"
+# and battery.battery_life_estimate()'s own day count. A caption naming
+# the trade-off in prose right above two gauges that COMPUTE it is the
+# redundant half; the gauges are the reference material, so nothing
+# here needed moving into a disclosure.
+WAKE_INTERVAL_SECTION_CAPTION = "Shorter: fresher data, more battery drain."
 WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
 # 22-10-PLAN.md Task 3 (B17): the unit, rendered as a SIBLING beside the
 # number input — never a placeholder (the field already has one, and a
@@ -769,9 +853,15 @@ WAKE_SLIDER_LABEL = "Wake interval slider"
 # sibling of LED/Wake interval inside <form id="{SETTINGS_FORM_ID}">,
 # built against led_group()'s exact fieldset-free idiom.
 NOTIFICATIONS_SECTION_HEADING = "Notifications"
-NOTIFICATIONS_SECTION_CAPTION = (
-    "Get a push alert when the battery runs low or the frame stops "
-    "checking in.")
+# 29-05-PLAN.md Task 1 (CFG-79): shortened from 15 words to 9. Nothing
+# lost: the two triggers this sentence used to spell out by name
+# ("the battery runs low", "the frame stops checking in") are the exact
+# two checkboxes rendered immediately below (NOTIFICATIONS_BATTERY_
+# LABEL = "Battery low", NOTIFICATIONS_SILENT_LABEL = "Frame silent") —
+# the caption naming both again in prose was a third surface for the
+# same two facts. What survives says there ARE two kinds of alert,
+# generically, and the checkboxes name them specifically.
+NOTIFICATIONS_SECTION_CAPTION = "Get a push alert about battery or connection issues."
 NOTIFICATIONS_SECTION_CAPTION_ID = "notifications-caption"
 # D-26 amended (20-CONTEXT.md's Resolutions): write-only, like the
 # calendar feed URL — never rendered back, not partially masked. The
@@ -779,11 +869,26 @@ NOTIFICATIONS_SECTION_CAPTION_ID = "notifications-caption"
 NOTIFICATIONS_STATUS_CONFIGURED_VERDICT = "Configured"
 NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT = "Not configured"
 NOTIFICATIONS_URL_FIELD_LABEL = "Push topic URL"
-NOTIFICATIONS_URL_HINT = (
-    "Paste your ntfy.sh topic URL (or a self-hosted one). Stored on "
-    "the server and never shown back here — pasting a new one "
-    "replaces the old.")
+# 29-05-PLAN.md Task 1 (CFG-79): 26 words -> 9. This hint carried real
+# reference material CFG-79's own rule says must be MOVED, not deleted:
+# where the value is stored, that it is never shown back, and that
+# pasting a new one replaces the old. That sentence survives verbatim
+# in meaning as NOTIFICATIONS_URL_HOW_IT_WORKS_BODY below, reached
+# through the same inline "How it works" <details> pattern
+# CALENDAR_HOW_IT_WORKS_SUMMARY/_BODY already use (config_page.py's
+# calendar_group()) — the identical summary label, reused rather than
+# a second one invented for an identical disclosure shape. What stays
+# visible here is the one thing a reader needs BEFORE they act: what
+# to paste.
+NOTIFICATIONS_URL_HINT = "Paste your ntfy.sh topic URL (or a self-hosted one)."
 NOTIFICATIONS_URL_HINT_ID = "notifications-url-hint"
+# 29-05-PLAN.md Task 1 (CFG-79): the storage/replacement sentence moved
+# out of NOTIFICATIONS_URL_HINT above, into the "How it works"
+# disclosure body rendered by notifications_group() below — same
+# wording, new home, nothing lost.
+NOTIFICATIONS_URL_HOW_IT_WORKS_BODY = (
+    "Stored on the server and never shown back here — pasting a new "
+    "one replaces the old.")
 NOTIFICATIONS_REPLACE_URL_SUMMARY = "Replace the URL"
 # A shape bound against an absurd paste, matching CALENDAR_URL_MAX_LEN's
 # own established rationale exactly — the one arbiter of an acceptable
@@ -1206,6 +1311,40 @@ CALENDAR_URL_HINT = (
     "Your calendar's private iCal link. Stored on the server and never "
     "shown back here — pasting a new one replaces the old.")
 CALENDAR_URL_HINT_ID = "calendar-url-hint"
+
+# 29-05-PLAN.md Task 3 (CFG-79), 2026-09-21: the editorial floor this
+# plan and 29-06 together enforce is site-wide EXCEPT Display's Aspect
+# section — ROADMAP.md's Phase 30 entry states in full that it rebuilds
+# this card from scratch and owns its copy, including deleting "both
+# intro sentences" itself (CFG-79's own rule applied to that card BY
+# that phase, since this phase excludes it). These four are the
+# EXHAUSTIVE membership of that exemption as of this plan:
+# DISPLAY_LOOK_INTRO (the "Look" supersection intro sitting directly
+# above the Frame colours card), FRAME_COLOURS_CAPTION and CALENDAR_
+# CAPTION (both Aspect-region card captions once Phase 30 absorbs the
+# Calendar card into the Frame colours tile), and CALENDAR_URL_HINT
+# (22 words today, deliberately still over the floor — the check this
+# tuple feeds must PASS against this exact, unshortened text).
+#
+# The tuple lives HERE, in the page module, rather than in the test
+# harness: the exemption is a property of the page's own copy, worth
+# reviewing beside the four strings it exempts rather than as a second,
+# harness-side list that could silently drift from this one. A future
+# plan naming a FIFTH exemption must argue it here, in this comment,
+# not merely add a line to a test file.
+#
+# THE IMPORTANT HALF: this tuple is EXPECTED TO BECOME EMPTY. The day
+# Phase 30 lands and rewrites Aspect's copy to the same floor every
+# other card already meets, the exemption it fed has no more members,
+# and the floor check below (test_config_page.py) covers the whole
+# site with no carve-out at all. An empty tuple here is that plan
+# succeeding, not a check regressing.
+ASPECT_CAPTION_EXEMPTIONS = (
+    DISPLAY_LOOK_INTRO,
+    FRAME_COLOURS_CAPTION,
+    CALENDAR_CAPTION,
+    CALENDAR_URL_HINT,
+)
 # 21-07-PLAN.md Task 1 (D-14): the merged card's own small grey button
 # reads the short "Disconnect" — never the long checkbox-era sentence a
 # now-retired constant used to carry (that sentence survives, unchanged,
@@ -2687,11 +2826,31 @@ def _normalised_time_html(value):
     fabricating one, matching this file's "omit, don't fabricate"
     convention. The value is already server-validated HH:MM by
     `handle_post()`; this only ever echoes it back.
+
+    29-04-PLAN.md Task 2 (CFG-80): the span now also carries
+    `QUIET_NORMALISED_TIME_ATTR`, a stable hook `companion/static/
+    value-controls.js` reads at load to decide whether to hide it. THIS
+    IS A MARKER, NOT A VISIBILITY CHANGE — the span renders exactly as
+    visible as it always has, with no `hidden` attribute, no `.js-gate`
+    class and no `style` of any kind. B14's own ground for this element
+    existing at all is UNCHANGED by that marker: a browser that forces a
+    12h rendering still needs the stored 24h text beside the field, and
+    nothing about that fact is being second-guessed here. What CFG-80
+    changes is only the element's DEFAULT VISIBILITY on a browser that is
+    ALREADY unambiguous — and it changes it in this specific direction,
+    server-visible, script-hidden, deliberately: the opposite direction
+    (`.js-gate`, hidden by default, revealed under `.js`) would delete
+    the fallback for exactly the scripts-blocked and forced-12h-browser
+    readers who need it most, which is the defect this whole element
+    exists to prevent. See `companion/static/value-controls.js`'s own
+    load-time pass for the strict, conservative condition under which the
+    hide actually happens.
     """
     if not value or not _HHMM_RE.match(str(value)):
         return ""
-    return ' <span class="text-label field-inline-value" aria-hidden="true">%s</span>' % escape_html(
-        value)
+    return (
+        ' <span class="text-label field-inline-value" %s aria-hidden="true">%s</span>'
+    ) % (QUIET_NORMALISED_TIME_ATTR, escape_html(value))
 
 
 # --- 25-04-PLAN.md Task 2 (CFG-48): the server-drawn 24 h ring --------
@@ -2708,6 +2867,24 @@ QUIET_DIAL_DAY_CLASS = "quiet-dial__day"
 QUIET_DIAL_ARC_CLASS = "quiet-dial__arc"
 QUIET_DIAL_HOUR_CLASS = "quiet-dial__hour"
 QUIET_DIAL_READOUT_CLASS = "quiet-dial__readout"
+
+# 29-04-PLAN.md Task 1 (CFG-80): the preset row's own container (a
+# segmented control, no longer `.runway-row` — see quiet_hours_group()'s
+# docstring for why) and the Start/End wrapper that lays the two time
+# fields out as one visual unit with the dial, rather than as two
+# stacked full-width lines. Same class-name-as-constant reasoning as the
+# dial's own classes above: a class that exists in Python and nowhere in
+# companion/static/style.css paints nothing, and a check scans the
+# emitted markup's classes against the stylesheet for exactly that.
+QUIET_PRESET_ROW_CLASS = "quiet-preset-row"
+QUIET_TIMES_ROW_CLASS = "quiet-times-row"
+
+# 29-04-PLAN.md Task 2 (CFG-80): the stable hook `_normalised_time_html()`
+# marks its own span with, so `companion/static/value-controls.js` can
+# find it and hide it — and ONLY it, never the wake-interval unit sibling
+# that shares `.field-inline-value` but carries no hook of its own (see
+# both functions' docstrings).
+QUIET_NORMALISED_TIME_ATTR = "data-normalised-time"
 
 # User units, and CSS pixels — the aspect-locked `unit_*` scheme
 # companion/draw.py documents, with an explicit intrinsic size so the
@@ -3237,7 +3414,7 @@ def quiet_dial_readout_html(start_hm, end_hm, span):
     )
 
 
-def quiet_hours_group(current_start, current_end, errors=None, submitted=None, delay_sentence=None):
+def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
     """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md;
     restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1; its own on/off
     checkbox retired outright by 22-05-PLAN.md Task 1, X1/D-04/D-12.1):
@@ -3260,6 +3437,26 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     viewport and to stay consistent with 06.6.4.1 (D-01)'s removal of this
     page's two-column grid.
 
+    29-04-PLAN.md Task 1 (CFG-80) SUPERSEDES the "each on its own
+    full-width line" clause above FOR START AND END SPECIFICALLY — the
+    sentence above is kept verbatim rather than deleted, per this file's
+    own SUPERSEDED-in-place convention, but it no longer describes what
+    ships. Four surfaces stacked full-width (the dial, the presets, Start,
+    End) is what made this card read as four separate controls for one
+    value rather than one control — the developer's own "pas très joli ce
+    composant" on the quiet-hours screenshot (29-CONTEXT.md). Start and
+    End now render side by side, as one visual unit with the dial, inside
+    a new `QUIET_TIMES_ROW_CLASS`-wrapped two-column grid. THE ORDER IS
+    UNCHANGED: presets still precede Start, Start still precedes End, in
+    document order inside that row — this is a LAYOUT change, not a
+    reordering, and the ring's own placement argument two paragraphs
+    below (25-04-PLAN.md Task 2) is untouched by it. `.theme-status__row`
+    is still never used by this card — the new side-by-side layout is a
+    dedicated grid, not that shared row class, so the "NOT wrapped in
+    `.theme-status__row`" sentence above stays true on its own narrow
+    terms even though the broader "each its own full-width line" premise
+    it once supported no longer holds.
+
     22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the `current_enabled`/
     `quiet_hours_enabled` checkbox this function used to render here is
     gone outright — the Frame strip is now the ONLY control for turning
@@ -3274,18 +3471,38 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     unchanged" (D-12.1), so removing this checkbox does not, by itself,
     change what an unrelated settings save persists.
 
-    22-05-PLAN.md Task 2 (D-04): `delay_sentence` is one fully i18n.t()-
-    translated, already-clock-formatted sentence — the caller (`render()`)
-    computes it once from `wake.next_wake_status()`'s own triple via
-    `companion.frame_state.delay_sentence_template()`, the SAME triple the
-    Frame strip's own captions read (22-04-PLAN.md), so the two can never
-    disagree. Appended as the caption's own second sentence, replacing
-    the retired "Applies on the next scheduled poll, which may now be
-    hours away" wording with a real computed time. Defaults to `None`,
-    which degrades to `frame_state.DELAY_UNKNOWN`'s own translated text —
-    the same degrade every direct call site that does not pass this
-    keyword (a page load with no computed wake data at all) already
-    needs.
+    22-05-PLAN.md Task 2 (D-04) added a `delay_sentence` keyword here:
+    one fully i18n.t()-translated, already-clock-formatted sentence the
+    caller (`render()`) computed once from `wake.next_wake_status()`'s
+    own triple via `companion.frame_state.delay_sentence_template()`,
+    appended as the caption's own SECOND sentence.
+
+    29-05-PLAN.md Task 2 (CFG-79), 2026-09-21, REMOVES that keyword
+    outright rather than merely leaving it unrendered. The reasoning,
+    in full, because it is the one non-obvious call this function makes:
+    the Frame strip (companion/layout.py's `frame_strip_html()`) renders
+    the SAME computed sentence in its own Quiet-hours switch cell, on
+    both Home and Display, and 27-08-PLAN.md's CFG-69 additionally made
+    that strip cell LINK to this card's own heading
+    (`QUIET_HOURS_GROUP_HEADING_ID`). So the page's one home for the
+    apply-timing sentence was already the strip; appending it here too
+    made it a SECOND, independent copy of a fact the strip already
+    states — CFG-79's own rule ("applies at the next wake" is said in
+    exactly one place per page) names this exact shape as the thing to
+    cut. Between "stop rendering `delay_sentence` but keep the unused
+    parameter" and "delete the parameter and its call-site computation
+    outright", this function takes the second: a parameter nothing
+    renders is dead wiring this project's own review-feedback
+    discipline warns against carrying forward. `render()`'s own
+    computation of the value this parameter used to receive is deleted
+    at the same call site, since nothing else in this module consumed
+    it (confirmed by grep before deleting, not assumed) — see that
+    computation's own former site for the full account.
+
+    The caption is now `escape_html(i18n.t(QUIET_HOURS_SECTION_CAPTION))`
+    alone — one sentence, its own `id` unchanged (the `aria-describedby`
+    target both time inputs still point at via `_field_error_attrs(...,
+    hint_id=...)` below).
 
     Every interpolated current value — the heading, the caption, and
     both current times — is routed through `escape_html()`, matching
@@ -3299,8 +3516,8 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     server-side HH:MM gate `handle_post()` runs before this render is
     ever reached is the real control.
 
-    19-10-PLAN.md (D-14/S-04): three `type="button"` presets (Night, Work
-    day, Always on) render between the caption and the Start input — a
+    19-10-PLAN.md (D-14/S-04): three `type="button"` presets (Night, Day,
+    Always on) render between the caption and the Start input — a
     CLIENT-SIDE affordance only, with NO server change. Each button
     carries `data-preset-start`/`data-preset-end`/`data-preset-enabled`
     attributes that `companion/static/dirty-state.js` reads and writes
@@ -3313,6 +3530,19 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     cannot even accidentally submit the form); both time inputs remain
     fully usable either way, an acceptable degradation matching this
     page's established graceful-degradation convention.
+
+    29-04-PLAN.md Task 1 (CFG-80): the three labels were "Night
+    (23:00–07:00)", "Work day (08:00–18:00)" and "Always on (off)" until
+    this task shortened them to bare "Night"/"Day"/"Always on" — the
+    hours a preset sets are already spoken, once, by
+    `quiet_dial_readout_html()`'s own caption directly above this row, so
+    repeating them on a button was a fourth surface for one value. The
+    row's own wrapper is no longer `.runway-row` (see below) — it is now
+    `QUIET_PRESET_ROW_CLASS`, styled as a segmented control with NO
+    selected state: these three buttons are momentary actions that WRITE
+    into the time fields, they are not a persistent choice, so there is
+    nothing to keep visually "selected" and this control reserves no new
+    accent.
 
     27-08-PLAN.md Task 1 (CFG-69): the `<h2>` now carries
     `id="{QUIET_HOURS_GROUP_HEADING_ID}"` — a fragment target for the
@@ -3334,32 +3564,32 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         errors, "quiet_hours_end", "quiet-hours-end", hint_id=QUIET_HOURS_SECTION_CAPTION_ID)
     end_error_html = _field_error_html(errors, "quiet_hours_end", "quiet-hours-end")
 
-    # 19-10-PLAN.md (D-14/S-04): the preset row. Reuses .runway-row -
-    # style.css's existing generic flex/wrap/gap row - rather than
-    # declaring a new CSS rule; that class is not scoped to the runway
-    # picker's markup, only to its layout shape, and nothing here asserts
-    # its absence from quiet_hours_group()'s own output (unlike
-    # .theme-status__row, which a pinned check requires stay absent from
-    # this group specifically). The three buttons are bare `type="button"`
-    # elements with no new class, inheriting the existing quiet-button
-    # treatment (base `button` selector) untouched.
+    # 29-04-PLAN.md Task 1 (CFG-80): the preset row, now its OWN class
+    # (QUIET_PRESET_ROW_CLASS) rather than borrowing `.runway-row` —
+    # style.css gives it the same bordered-container-plus-borderless-
+    # segment idiom `.theme-form`/`.theme-option` already use for the
+    # language/theme footer switches, but with NO selected state (see
+    # this function's own docstring for why). `.runway-row` itself
+    # survives unchanged for the runway picker, its only remaining
+    # consumer; nothing here asserts its absence from this group's own
+    # output (unlike `.theme-status__row`, which a pinned check requires
+    # stay absent from this group specifically). The three buttons are
+    # bare `type="button"` elements with no new class, inheriting the
+    # existing quiet-button treatment (base `button` selector) untouched.
     preset_row_html = (
-        '<div class="runway-row">'
+        '<div class="%s">'
         '<button type="button" %s data-preset-start="%s" data-preset-end="%s">%s</button>'
         '<button type="button" %s data-preset-start="%s" data-preset-end="%s">%s</button>'
         '<button type="button" %s data-preset-enabled="0">%s</button>'
         "</div>"
     ) % (
+        QUIET_PRESET_ROW_CLASS,
         QUIET_HOURS_PRESET_ATTR,
         escape_html(QUIET_HOURS_PRESET_NIGHT_START), escape_html(QUIET_HOURS_PRESET_NIGHT_END),
-        escape_html(
-            i18n.t(QUIET_HOURS_PRESET_NIGHT_LABEL_TEMPLATE)
-            % (QUIET_HOURS_PRESET_NIGHT_START, QUIET_HOURS_PRESET_NIGHT_END)),
+        escape_html(i18n.t(QUIET_HOURS_PRESET_NIGHT_LABEL)),
         QUIET_HOURS_PRESET_ATTR,
         escape_html(QUIET_HOURS_PRESET_WORKDAY_START), escape_html(QUIET_HOURS_PRESET_WORKDAY_END),
-        escape_html(
-            i18n.t(QUIET_HOURS_PRESET_WORKDAY_LABEL_TEMPLATE)
-            % (QUIET_HOURS_PRESET_WORKDAY_START, QUIET_HOURS_PRESET_WORKDAY_END)),
+        escape_html(i18n.t(QUIET_HOURS_PRESET_WORKDAY_LABEL)),
         QUIET_HOURS_PRESET_ATTR,
         escape_html(i18n.t(QUIET_HOURS_PRESET_ALWAYS_ON_LABEL)),
     )
@@ -3372,11 +3602,12 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the scheduled on/off
     # checkbox that used to render next is retired outright too — the
     # presets, both time inputs and the Save button are unchanged.
-    # 22-05-PLAN.md Task 2 (D-04): the caption's own second sentence is
-    # the one computed delay sentence, already translated/formatted by
-    # the caller — this is the ONE place it is escaped, alongside the
-    # caption's own first sentence, in a single combined string (matching
-    # this file's "translate first, escape once" convention).
+    # 29-05-PLAN.md Task 2 (CFG-79): the caption is now ONE sentence —
+    # see this function's own docstring for why the computed delay
+    # sentence that used to be appended here is gone rather than merely
+    # hidden. "Translate first, escape once" is unchanged: `caption_html`
+    # still holds translated, unescaped text, escaped once at the
+    # interpolation site below.
     # 22-10-PLAN.md Task 2 (B14): the site's own resolved language, set
     # on both <input type="time"> elements. `<html lang>` already carries
     # it, but a native time control formats itself from the BROWSER's
@@ -3387,9 +3618,11 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     # 25-04-PLAN.md Task 2 (CFG-48): the server-drawn ring, rendered
     # between the caption and the presets. WHERE IT GOES, AND WHY IT IS
     # NOT A REORDERING: 10-UI-SPEC.md locks the order of the four
-    # CONTROLS — presets, then Start, then End, each on its own
-    # full-width line — and all four keep their positions and their
-    # adjacency. The ring is not a control; it is a picture of what is
+    # CONTROLS — presets, then Start, then End (29-04-PLAN.md Task 1,
+    # CFG-80, supersedes only the "each on its own full-width line" half
+    # of that sentence; the ORDER itself is untouched) — and all four
+    # keep their positions and their adjacency. The ring is not a control;
+    # it is a picture of what is
     # currently set, so it reads before the things that change it
     # (what this is now, then how to change it), and putting it after
     # the End field would separate the picture from the caption that
@@ -3407,21 +3640,29 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     readout_html = quiet_dial_readout_html(effective_start, effective_end, dial_span)
 
     site_lang = prefs.current_lang()
-    effective_delay_sentence = (
-        delay_sentence if delay_sentence is not None else i18n.t(frame_state.DELAY_UNKNOWN))
-    caption_html = "%s %s" % (i18n.t(QUIET_HOURS_SECTION_CAPTION), effective_delay_sentence)
+    caption_html = i18n.t(QUIET_HOURS_SECTION_CAPTION)
+    # 29-04-PLAN.md Task 1 (CFG-80): Start and End are now wrapped in ONE
+    # `QUIET_TIMES_ROW_CLASS` grid container, immediately after the
+    # preset row — so dial → readout → presets → times-row reads as one
+    # object. Each field gets its OWN unclassed `<div>` inside that grid
+    # (a genuine grid CELL, not a styling hook — it carries no class of
+    # its own and needs none), holding its `<label>` and its OWN error
+    # paragraph together: an error attaches to the field it is about and
+    # must never displace its sibling column, which is exactly what one
+    # cell per field guarantees under a two-column `grid-auto-flow: row`
+    # layout (the default) with two children instead of four.
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading" id="%s">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
         "%s%s"
         "%s"
-        '<label>%s <input type="time" name="quiet_hours_start" value="%s" required'
-        ' lang="%s" form="%s"%s>%s</label>'
-        "%s"
-        '<label>%s <input type="time" name="quiet_hours_end" value="%s" required'
-        ' lang="%s" form="%s"%s>%s</label>'
-        "%s"
+        '<div class="%s">'
+        '<div><label>%s <input type="time" name="quiet_hours_start" value="%s" required'
+        ' lang="%s" form="%s"%s>%s</label>%s</div>'
+        '<div><label>%s <input type="time" name="quiet_hours_end" value="%s" required'
+        ' lang="%s" form="%s"%s>%s</label>%s</div>'
+        "</div>"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
@@ -3431,6 +3672,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         escape_html(caption_html),
         dial_html, readout_html,
         preset_row_html,
+        QUIET_TIMES_ROW_CLASS,
         escape_html(i18n.t("Start")),
         escape_html(effective_start), escape_html(site_lang), SETTINGS_FORM_ID, start_error_attrs,
         _normalised_time_html(effective_start),
@@ -4020,6 +4262,22 @@ def notifications_group(
         hint_id=NOTIFICATIONS_URL_HINT_ID)
     url_error_html = _field_error_html(
         errors, "notifications_topic_url", "notifications-topic-url")
+    # 29-05-PLAN.md Task 1 (CFG-79): the storage/replacement sentence
+    # that used to be NOTIFICATIONS_URL_HINT's own second half now
+    # lives here — the same inline `<details><summary>%s</summary>
+    # <p class="text-body">%s</p></details>` pattern calendar_group()'s
+    # own "How it works" disclosure uses (config_page.py, D-14a), with
+    # the identical CALENDAR_HOW_IT_WORKS_SUMMARY label rather than a
+    # second, near-duplicate summary string. This disclosure is
+    # unconditional (unlike the `configured`-gated one below, which
+    # wraps the whole field): the storage/replacement fact is true
+    # whether or not a URL is stored yet.
+    how_it_works_html = (
+        '<details><summary>%s</summary><p class="text-body">%s</p></details>'
+    ) % (
+        escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_SUMMARY)),
+        escape_html(i18n.t(NOTIFICATIONS_URL_HOW_IT_WORKS_BODY)),
+    )
     field_html = (
         '<div class="rule-add-form__field">'
         '<label for="notifications-topic-url">%s</label>'
@@ -4028,12 +4286,14 @@ def notifications_group(
         'spellcheck="false" maxlength="%s"%s>'
         '<p class="text-label section-caption" id="%s">%s</p>'
         "%s"
+        "%s"
         "</div>"
     ) % (
         escape_html(i18n.t(NOTIFICATIONS_URL_FIELD_LABEL)),
         NOTIFICATIONS_URL_MAX_LEN, url_error_attrs,
         escape_html(NOTIFICATIONS_URL_HINT_ID), escape_html(i18n.t(NOTIFICATIONS_URL_HINT)),
         url_error_html,
+        how_it_works_html,
     )
     if configured:
         field_html = (
@@ -5156,44 +5416,34 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # itself is byte-identical either way (next_wake_at_iso() is a thin
     # wrapper over this same call, 22-02-PLAN.md Task 1), so every
     # existing reader of `next_wake_iso`/`next_wake_clock` below is
-    # unaffected. The two new elements feed `frame_state.
-    # delay_sentence_template()` (below) for the Quiet hours caption's
-    # own computed delay sentence — the SAME triple the Frame strip's
-    # own captions already read (22-04-PLAN.md), so the two can never
-    # disagree; this is the file's own single next-wake call for this
-    # value (comment at the frame_strip_html() call site below).
+    # unaffected.
+    #
+    # 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: this comment used to say
+    # the two new elements ALSO fed `frame_state.delay_sentence_
+    # template()` for the Quiet hours caption's own computed delay
+    # sentence. That computation, and the `quiet_hours_delay_template`/
+    # `quiet_hours_delay_sentence` locals it produced, are DELETED —
+    # quiet_hours_group() no longer accepts a `delay_sentence` keyword at
+    # all (see that function's own docstring for the full account), and
+    # grep across this module before deleting confirmed nothing else
+    # read either local. `next_wake_iso`/`next_wake_clock` below keep
+    # every OTHER reader they already had (the Frame strip, the LED/
+    # Runway/Wake-interval "next wake" suffixes) — this deletion removes
+    # one downstream consumer, not the computation those two names
+    # themselves are.
     next_wake_clock = None
-    next_wake_iso, next_wake_effective_interval_s, next_wake_hold_reason = wake.next_wake_status(
+    # 29-05-PLAN.md Task 2 (CFG-79): the triple's own second and third
+    # elements are unpacked as `_` now — they fed ONLY the deleted delay-
+    # sentence computation above; `next_wake_iso` alone still feeds
+    # `next_wake_clock` immediately below and every "next wake" suffix
+    # this render() call computes further down.
+    next_wake_iso, _, _ = wake.next_wake_status(
         ctx.get("last_checkin_ts"), device_cfg)
     if next_wake_iso:
         next_wake_parsed = layout.parse_iso(next_wake_iso)
         if next_wake_parsed is not None:
             next_wake_clock = layout.local_clock_text(
                 next_wake_parsed, now_parsed=layout.parse_iso(ctx.get("now")))
-    # 22-05-PLAN.md Task 2 (D-04): the ONE computed delay sentence for
-    # Quiet hours' own caption, chosen by frame_state's three branches
-    # from the SAME triple above — never a second, independent
-    # computation. Degrades to DELAY_UNKNOWN's own translated text
-    # (rather than emitting a literal "%s") on the rare case where the
-    # template names a clock but none could be resolved above.
-    quiet_hours_delay_template = frame_state.delay_sentence_template(
-        next_wake_iso, next_wake_effective_interval_s, next_wake_hold_reason)
-    # Branches on frame_state's own return value for equality, then
-    # translates one of THIS module's own scanner-visible local copies —
-    # never the imported constant directly — matching companion/
-    # layout.py's identical pattern (see the constants' own comment
-    # above for why).
-    if quiet_hours_delay_template == frame_state.DELAY_DUE:
-        quiet_hours_delay_sentence = i18n.t(_QUIET_HOURS_DELAY_DUE_TEXT)
-    elif quiet_hours_delay_template == frame_state.DELAY_HELD:
-        quiet_hours_delay_sentence = i18n.t(_QUIET_HOURS_DELAY_HELD_TEXT)
-    else:
-        quiet_hours_delay_sentence = i18n.t(frame_state.DELAY_UNKNOWN)
-    if "%s" in quiet_hours_delay_sentence:
-        if next_wake_clock:
-            quiet_hours_delay_sentence = quiet_hours_delay_sentence % next_wake_clock
-        else:
-            quiet_hours_delay_sentence = i18n.t(frame_state.DELAY_UNKNOWN)
 
     # D-05 (06.6.4.1): the LED group used to be a sibling page-section,
     # appended AFTER the Poll section, rather than a third fieldset
@@ -5329,9 +5579,12 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         screens.GROUP_LED: lambda: led_group(
             current_led_enabled, errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock),
+        # 29-05-PLAN.md Task 2 (CFG-79): no `delay_sentence` keyword any
+        # more — quiet_hours_group() no longer accepts one (see its own
+        # docstring).
         screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
             current_quiet_start, current_quiet_end,
-            errors=errors, submitted=submitted, delay_sentence=quiet_hours_delay_sentence),
+            errors=errors, submitted=submitted),
         # 25-05-PLAN.md Task 1 (CFG-49): the battery series is read
         # INSIDE the lambda, so it is read only on a scope that actually
         # renders this group (Device and the legacy SCOPE_ALL) and never

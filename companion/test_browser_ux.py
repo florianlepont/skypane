@@ -101,7 +101,8 @@ from companion.contrast_check import (  # noqa: E402
     perceptual_distance,
 )
 from companion.test_companion_app import Harness, TEST_PASSWORD  # noqa: E402
-from companion.pages import airlines_page, config_page, health_page  # noqa: E402
+from companion.pages import (  # noqa: E402
+    airlines_page, config_page, health_page, history_page)
 from server import device_config, history_db  # noqa: E402
 from companion import illustration_normalize  # noqa: E402
 from server.plane import colour_rules, illustrations, manual_resolutions  # noqa: E402
@@ -345,9 +346,11 @@ EXPECTED_CHECK_COUNT = 25
 # sweep in this file before 260913-cz6 measured pages in their DEFAULT
 # state and everything inside a disclosure was invisible BY
 # CONSTRUCTION; cz6 pinned exactly one of them, by name, on one page.
-# This covers the 47 that exist today (1 Home / 3 Display / 37 Flights /
-# 1 Airlines / 4 Health / 1 Device / 0 login, re-derived by running) and
-# any added later without editing this file. Each page asserts a minimum
+# This covers the 26 that exist today (1 Home / 3 Display / 16 Flights /
+# 1 Airlines / 4 Health / 1 Device / 0 login, re-derived by running —
+# Flights was 37 before 29-03-PLAN.md/CFG-83 paginated it to
+# history_page.FLIGHTS_PAGE_SIZE) and any added later without editing
+# this file. Each page asserts a minimum
 # disclosure count AND that at least one was closed beforehand, so a
 # selector change fails it instead of silently measuring nothing.
 # Mutation-tested by restoring `min-width: max-content` on
@@ -6798,19 +6801,27 @@ def main():
                     #   page       route       <details>  kinds
                     #   Accueil    /            1        nav
                     #   Affichage  /display     3        nav + 2 "how it works"
-                    #   Vols       /flights    37        nav + 36 row cards
+                    #   Vols       /flights    16        nav + 15 row cards
                     #   Compagnies /airlines    1        nav
                     #   État       /health      4        nav + readings + 2 cards
                     #   Appareil   /device      1        nav
                     #   Connexion  /login       0        (no nav is rendered)
                     #
-                    # 47 in total, not the ~83 an earlier task reported:
+                    # 26 in total, not the ~83 an earlier task reported:
                     # /preview and /settings are 303 redirects (to /flights
                     # and /display), so the "panel-preview page" in that
                     # figure is /flights counted a second time. The raw
-                    # number flatters the coverage either way — 36 of
-                    # Vols' 37 are one component repeated per row, so the
+                    # number flatters the coverage either way — 15 of
+                    # Vols' 16 are one component repeated per row, so the
                     # distinct KINDS number five.
+                    #
+                    # 29-03-PLAN.md (CFG-83): Vols' row-card count was 36
+                    # (one per seed_state_dir() flight, rendered without a
+                    # cap) before Vols was paginated to
+                    # history_page.FLIGHTS_PAGE_SIZE by default. It is
+                    # FLIGHTS_PAGE_SIZE now, not the fixture's own 36 —
+                    # the total below is derived from that constant for
+                    # the same reason.
                     #
                     # Two assertions, because one of them cannot see the
                     # defect that motivated this:
@@ -6833,11 +6844,14 @@ def main():
                     # and asserts at least one was CLOSED before being
                     # forced — without that second half this degenerates
                     # into an ordinary default-state page sweep and stops
-                    # adding anything. All 47 are closed by default today.
-                    # /flights' minimum of 37 is deliberately coupled to
-                    # seed_state_dir()'s own 36 runway events: if the seed
-                    # or a row cap changes, this must be re-derived here
-                    # on purpose, not left to slide.
+                    # adding anything. All 26 are closed by default today.
+                    # /flights' minimum is deliberately coupled to
+                    # history_page.FLIGHTS_PAGE_SIZE (no longer to
+                    # seed_state_dir()'s 36 runway events, since 29-03
+                    # capped the default render below the fixture's own
+                    # size): if that constant or the coupling changes,
+                    # this must be re-derived here on purpose, not left
+                    # to slide.
                     #
                     # 360px is measured alongside the brief's 390/1280
                     # because 360 is the minimum supported viewport
@@ -6893,7 +6907,7 @@ def main():
                     # all three widths, for free.
                     #
                     # Deliberately NOT a timeout, a sleep or an
-                    # event listener. A timing wait across 47 disclosures
+                    # event listener. A timing wait across 26 disclosures
                     # x 6 routes x 2 languages x 3 widths is a flakiness
                     # generator and real wall clock on a file already at
                     # ~50s; and listening for the event a <details> fires
@@ -6929,8 +6943,24 @@ def main():
                         "}")
 
                     # (route, minimum <details> the page must render). Every
-                    # authenticated page, in nav order.
-                    pages = (("/", 1), ("/display", 3), ("/flights", 37),
+                    # authenticated page, in nav order. Each route's own
+                    # floor is its page-specific disclosure count plus the
+                    # ONE shared `<details class="tab-bar__more">` every
+                    # authenticated page renders (layout.py) — visible in
+                    # the "/" / "/airlines" / "/device" floors of 1, which
+                    # have no page-specific disclosure of their own.
+                    #
+                    # 29-03-PLAN.md (CFG-83): /flights' floor was 37 (one
+                    # `<details>` per phone card, against the harness's own
+                    # ~36-flight realistic fixture, +1 for the shared
+                    # tab-bar disclosure) before Vols was paginated. It is
+                    # now `history_page.FLIGHTS_PAGE_SIZE + 1` — the
+                    # rendered fixture no longer determines this floor,
+                    # the page's own default page size does, and a stale
+                    # literal here would silently stop proving anything
+                    # the moment that constant next changes.
+                    pages = (("/", 1), ("/display", 3),
+                             ("/flights", history_page.FLIGHTS_PAGE_SIZE + 1),
                              ("/airlines", 1), ("/health", 4), ("/device", 1))
 
                     def _assert_clean(seen, where, width):
@@ -8606,12 +8636,27 @@ def main():
                         page.wait_for_timeout(REFRESH_SETTLE_MS)
 
                         after_ids = _row_ids(page)
-                        if len(after_ids) != len(before_ids) + 1:
+                        # 29-03-PLAN.md (CFG-83): Vols is now paginated to
+                        # history_page.FLIGHTS_PAGE_SIZE by default, so
+                        # "grows by exactly one" only holds BELOW that
+                        # cap — at or above it (this harness's own
+                        # realistic fixture already renders a full page),
+                        # a new detection arriving pushes the oldest
+                        # visible row off-page and the count holds flat.
+                        # Both shapes are the SAME real behaviour; the
+                        # invariant that survives pagination is the one
+                        # `arrived`/`marked` below actually test: exactly
+                        # one identity is new, and it is at the top.
+                        want_after = min(
+                            len(before_ids) + 1, history_page.FLIGHTS_PAGE_SIZE)
+                        if len(after_ids) != want_after:
                             return False, (
                                 "expected the swap to bring the new detection into the live "
-                                "list: %d rows before, %d after — with no new row this check "
+                                "list: %d rows before, %d after, wanted %d (min(before+1, "
+                                "FLIGHTS_PAGE_SIZE=%d)) — with no new row this check "
                                 "would be asserting a highlight on nothing"
-                                % (len(before_ids), len(after_ids)))
+                                % (len(before_ids), len(after_ids), want_after,
+                                   history_page.FLIGHTS_PAGE_SIZE))
                         arrived = [rid for rid in after_ids if rid not in before_ids]
                         if len(arrived) != 1:
                             return False, (
@@ -8778,8 +8823,26 @@ def main():
                         page.wait_for_load_state("networkidle")
                         requests = _count_document_requests(page, base_url + "/flights")
 
+                        # 29-03-PLAN.md (CFG-83): Vols is now paginated
+                        # to history_page.FLIGHTS_PAGE_SIZE by default, so
+                        # a hardcoded callsign from seed_state_dir()'s own
+                        # 36-flight fixture is no longer guaranteed to be
+                        # among the rows the SERVER actually sent — this
+                        # reads the first rendered row's own
+                        # data-filter-text (unique per row: "{callsign
+                        # lowercased} {hex}") straight off the page
+                        # instead, so the query always targets a row
+                        # that is genuinely there, whatever the default
+                        # page size is.
+                        query = page.eval_on_selector(
+                            "tr[data-flight-row]", "el => el.getAttribute('data-filter-text')")
+                        if not query:
+                            return False, (
+                                "expected the first rendered row to carry a non-empty "
+                                "data-filter-text to filter by — with none, this check has "
+                                "nothing to type")
                         page.click("[data-filter-input]")
-                        page.type("[data-filter-input]", "AFR101")
+                        page.type("[data-filter-input]", query)
                         visible = page.evaluate(
                             "() => [...document.querySelectorAll('tr[data-flight-row]')]"
                             ".filter(el => !el.hidden).length")
@@ -8836,7 +8899,7 @@ def main():
                                 "the live count reverted to the server's own unfiltered sentence "
                                 "after a refresh, expected it to still read %r" % (count_text,))
                         if page.eval_on_selector(
-                                "[data-filter-input]", "el => el.value") != "AFR101":
+                                "[data-filter-input]", "el => el.value") != query:
                             return False, "the typed query itself did not survive the refresh"
                         return True, ""
                     finally:
@@ -11930,6 +11993,45 @@ def main():
                                 "%s theme, preset path" % theme)
                             recorded["%s/preset" % theme] = agreed_preset
 
+                            # 29-04-PLAN.md Task 3 (CFG-80), added to
+                            # THIS existing check rather than as a new
+                            # `check(...)` call — folded in per the
+                            # plan's own instruction not to move this
+                            # file's EXPECTED_CHECK_COUNT for an
+                            # assertion nobody in this worktree could
+                            # verify (playwright is not installed here;
+                            # this whole file reports SKIPPED, never a
+                            # pass, until it is). A FIFTH surface, after
+                            # the same preset click the four above just
+                            # agreed on: each twin's OWN visibility must
+                            # match the browser's own resolved hour
+                            # cycle — hidden when it is unambiguously
+                            # 24h, visible otherwise — read from the
+                            # live DOM's `.hidden` property, never from
+                            # the served HTML (which is a SEPARATE,
+                            # runnable proof in test_config_page.py).
+                            resolved_hour12 = page.evaluate(
+                                "() => { try { return new Intl.DateTimeFormat("
+                                "undefined, {hour: 'numeric'})"
+                                ".resolvedOptions().hour12; } catch (e) { return null; } }")
+                            expect_hidden = resolved_hour12 is False
+                            for field in ("quiet_hours_start", "quiet_hours_end"):
+                                twin_hidden = page.eval_on_selector(
+                                    'input[name="%s"] ~ [%s]'
+                                    % (field, config_page.QUIET_NORMALISED_TIME_ATTR),
+                                    "el => el.hidden")
+                                if twin_hidden != expect_hidden:
+                                    return False, (
+                                        "%s theme, preset path: this browser's own resolved "
+                                        "hour12 is %r (expected twin hidden=%r) but %s's "
+                                        "normalised-time twin is hidden=%r — a false negative "
+                                        "here (hidden=True on a browser that in fact paints "
+                                        "12h) reopens the exact defect B14 exists to prevent"
+                                        % (theme, resolved_hour12, expect_hidden, field,
+                                           twin_hidden))
+                            recorded["%s/twin_visibility" % theme] = (
+                                resolved_hour12, expect_hidden)
+
                         # 3. THE SCRIPTS-BLOCKED HALF. 27-04-PLAN.md
                         # (CFG-63): SUPERSEDES this paragraph's own former
                         # claim that neither interaction above reaches
@@ -11992,7 +12094,11 @@ def main():
                     "arc's RESOLVED geometry (read back through getComputedStyle, not the "
                     "static attribute), and the caption's own text — decode to the SAME "
                     "canonical (start_minute, end_minute) pair, which equals what the "
-                    "interaction requested and differs from what was there before; separately, "
+                    "interaction requested and differs from what was there before; AND, after "
+                    "the same preset click, each B14 twin's own live .hidden property matches "
+                    "this browser's resolved hour12 (CFG-80, 29-04-PLAN.md Task 3, folded into "
+                    "this existing check rather than a new one so EXPECTED_CHECK_COUNT does not "
+                    "move for an assertion this worktree has never run); separately, "
                     "with scripts blocked, the arc still carries both presentation attributes "
                     "and they still decode to whatever window is actually saved on disk — under "
                     "auto-save that is the preset's own commit, read fresh rather than assumed "
@@ -15758,7 +15864,22 @@ def main():
                 ARTWORK_ROUTE = "/airlines?resolve=" + ARTWORK_PREFIX
                 ARTWORK_SERVE = "/illustration/%s.png" % ARTWORK_KEY
                 FALLBACK_ZONE = "[data-resolve-fallback] [data-upload-drop]"
-                DIALOG_ZONE = "#panel-lookup-dialog [data-upload-drop]"
+                # 29-01-PLAN.md (CFG-81): the dialog's Replace form now
+                # renders UNCONDITIONALLY (edit_mode is gone), so the
+                # shared #panel-lookup-dialog carries BOTH upload-drop
+                # zones at once from here on — this one (the needs-
+                # artwork resolve zone, id_suffix="-dialog") and
+                # REPLACE_INPUT_ID's own ("airline-replace-input"),
+                # panel-lookup.js's `mode` gate hides whichever does not
+                # apply, but both are always present in the DOM, so a
+                # bare "[data-upload-drop]" now matches two elements —
+                # this check's own subject is the needs-artwork one,
+                # disambiguated by the same UPLOAD_DROP_INPUT_ATTR value
+                # panel-lookup.js itself reads to decide which to hide.
+                DIALOG_ZONE = "#panel-lookup-dialog [%s='%s']" % (
+                    airlines_page.UPLOAD_DROP_INPUT_ATTR,
+                    airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog",
+                )
 
                 art_dir = tempfile.mkdtemp(prefix="skypane-browser-ux-artwork-")
                 artwork_harness.start()

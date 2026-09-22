@@ -502,7 +502,19 @@ BATTERY_TREND_SCRIPT_SRC = "/static/battery-trend.js"
 # now a named constant (was a literal passed straight to stat_tile())
 # rather than a tile caption — this is what lets a future plan attach an
 # icon to a known heading without re-typing the literal.
-BATTERY_SECTION_HEADING = "Battery trend"
+# 29-06-PLAN.md (CFG-84): BATTERY_SECTION_HEADING (a fixed "Battery
+# trend" literal) is SUPERSEDED by this template — the 2026-09-17
+# audit's P2 asked for the heading's own precision ("3 derniers mois,
+# moyenne quotidienne") to move into a sibling caption, leaving the
+# heading itself a short, fixed "Battery · N months" naming only the
+# real window BATTERY_TREND_WINDOW_DAYS already governs. "%d" is
+# interpolated with BATTERY_TREND_WINDOW_DAYS // 30 at every call
+# site — never a typed "3" — so the heading cannot silently drift from
+# the window the chart is actually plotting. The U+00B7 middle dot
+# matches this codebase's real-Unicode punctuation convention (the en
+# dash in the preset ranges is the existing precedent); translate the
+# template, then substitute — this codebase's established order.
+BATTERY_SECTION_HEADING_TEMPLATE = "Battery · %d months"
 # Contract value shared with companion/static/style.css's
 # .battery-trend-section rule (plan 06.6.1-01, same wave); guarded
 # against silent drift by a cross-file check in test_status_pages.py.
@@ -584,7 +596,21 @@ CHECK_IN_STATE_TEXT = {
 # THE CAPTION'S THREE CLAUSES, one constant each, because they are three
 # separate claims and each is asserted by its own named check.
 #
-# 1. What the grid shows.
+# 29-06-PLAN.md Task 2 (CFG-79): these four/five clauses used to be
+# joined with " ".join(...) into ONE visible paragraph (roughly fifty
+# words at their longest combination). Only CHECK_IN_CAPTION_OBSERVED
+# still renders in the card's own visible <p class="text-label
+# section-caption"> now; every other clause below MOVES, byte-
+# identical in wording, into a `<details class="readings-disclosure">`
+# immediately after it (see `_check_in_regularity_section_html()`).
+# Moved, never cut: each clause's own comment below is extended to say
+# so, and a dedicated check in test_status_pages.py asserts every
+# clause that rendered before this plan still renders somewhere in the
+# card, across all four observed/cadence-known combinations.
+#
+# 1. What the grid shows. Stays visible — this is the one clause short
+#    enough (11 words) to carry alone as the card's own one-sentence
+#    caption; no shortening needed.
 CHECK_IN_CAPTION_OBSERVED = (
     "Each cell is one day of observed check-in regularity, oldest first.")
 # 2. What it was judged against — and that this is TODAY'S cadence. The
@@ -592,6 +618,14 @@ CHECK_IN_CAPTION_OBSERVED = (
 #    (device_config.json is a current-state file), so naming it without
 #    this qualifier would be a claim about the past made from a value
 #    read in the present.
+#
+#    29-06-PLAN.md Task 2 (CFG-79): MOVED into the disclosure, not
+#    shortened and not paraphrased. The "not necessarily the cadence in
+#    force on an earlier day" qualifier is what stops this caption
+#    making a claim about the past from a present-tense config file;
+#    moving it one tap away costs nothing, because it still renders on
+#    every request, in the same words, in the same document — it is
+#    simply no longer the FIRST thing a reader sees.
 CHECK_IN_CAPTION_CADENCE = (
     "Judged against the cadence configured now — a check-in every %s — not "
     "necessarily the cadence in force on an earlier day.")
@@ -599,6 +633,10 @@ CHECK_IN_CAPTION_CADENCE = (
 #     wake_interval_s and no SKYPANE_SLEEP_S gets
 #     device_staleness_thresholds()' bare floors, and the caption has to
 #     say THAT rather than silently print an assumed default.
+#
+#     29-06-PLAN.md Task 2 (CFG-79): MOVED into the disclosure alongside
+#     CHECK_IN_CAPTION_CADENCE above, same reasoning, same guarantee
+#     (still renders every request, unshortened).
 CHECK_IN_CAPTION_CADENCE_FALLBACK = (
     "This frame's cadence cannot be determined, so the grid is judged against "
     "the fallback staleness floors rather than against a configured cadence.")
@@ -608,11 +646,25 @@ CHECK_IN_CAPTION_CADENCE_FALLBACK = (
 #    the frame missed from a log range this server lost, so a grid
 #    without this sentence is a picture making a claim its own data
 #    cannot support (T-24-07-A).
+#
+#    29-06-PLAN.md Task 2 (CFG-79) moved this clause into the card's own
+#    `<details class="readings-disclosure">`, one tap away from the
+#    visible caption — this is NOT a weakening of the KEEP THIS CLAUSE
+#    instruction above. The clause is byte-identical, still renders on
+#    every request, still lives in the same document; only its
+#    position moved, from the always-visible caption to a disclosure
+#    that opens with one tap. A dedicated four-case check in
+#    test_status_pages.py proves this sentence still renders somewhere
+#    in the card for every observed/cadence-known combination — "moved,
+#    not cut" is therefore an executable claim, not a promise.
 CHECK_IN_CAPTION_NOT_PROOF = (
     "A day with no record is not proof the frame did not wake: a log rotation "
     "this server missed leaves exactly the same gap.")
 # The empty deployment. A real case, and it renders as an honest grid of
 # no-observation cells rather than as a missing section.
+#
+# 29-06-PLAN.md Task 2 (CFG-79): MOVED into the disclosure, same
+# reasoning as CHECK_IN_CAPTION_CADENCE above.
 CHECK_IN_CAPTION_EMPTY = (
     "No check-in intervals are recorded yet, so every day below is a day the "
     "record says nothing about.")
@@ -689,9 +741,18 @@ _NO_GAPS_BODY = (
 #
 # 19-06-PLAN.md Task 3 (D-06): "that prefix's airline" reworded to
 # "that airline" — no "prefix" in the visible sentence.
-_READ_ONLY_NOTE = (
-    "This list is read-only here — each row's Resolve link opens the Airlines page "
-    "to name that airline (and add artwork, if it needs one).")
+#
+# 29-06-PLAN.md Task 2 (CFG-79): SHORTENED to one sentence (25 words ->
+# 5) naming only what the list IS. The genuine reference material this
+# note used to carry — WHERE resolution happens and what it does — is
+# not deleted; it moves, unchanged in wording, into
+# _READ_ONLY_NOTE_DETAIL below, rendered in a new `<details
+# class="readings-disclosure">` immediately after this visible
+# sentence (see `_registry_section()`).
+_READ_ONLY_NOTE = "This list is read-only here."
+_READ_ONLY_NOTE_DETAIL = (
+    "Each row's Resolve link opens the Airlines page to name that airline "
+    "(and add artwork, if it needs one).")
 
 # 22-03-PLAN.md Task 2 (B3): replaces the former "No resolution data
 # yet." / "No flight events recorded yet — resolution statistics
@@ -1816,11 +1877,16 @@ def battery_sparkline_svg(rows, now=None, daily=False):
         escape_html(_axis_day_label(pairs[-1][1]) if daily else _axis_clock_label(pairs[-1][1])),
     )
 
+    # 29-06-PLAN.md Task 1 (CFG-84): BATTERY_SECTION_HEADING is
+    # superseded by BATTERY_SECTION_HEADING_TEMPLATE (see that
+    # constant's own comment) — this accessible group name is
+    # recomputed the same way the visible heading now is, so the two
+    # can never disagree.
     svg_html = (
         '<svg class="sparkline__canvas" role="group" aria-label="%s">'
         "%s%s%s%s%s"
         "</svg>"
-    ) % (escape_html(i18n.t(BATTERY_SECTION_HEADING)),
+    ) % (escape_html(i18n.t(BATTERY_SECTION_HEADING_TEMPLATE) % (BATTERY_TREND_WINDOW_DAYS // 30)),
          area_layer, axis_chrome, threshold_rect,
          "".join(line_segments), "".join(circles))
 
@@ -2932,19 +2998,40 @@ def _battery_trend_section_html(battery_html, state, caption=None):
     working unchanged. `None` (the default) reproduces today's exact
     "Latest N readings" string byte-for-byte, in the same voice this
     function's own D-02/quick-task-260902-gjj widening used above.
+
+    SUPERSEDED (29-06-PLAN.md Task 1, CFG-84): the shape above — an
+    `<h2>` carrying its own escaped heading text plus a trailing
+    "— Latest N readings"/"— Last 3 months, daily average" `<span>` — is
+    itself now superseded. The 2026-09-17 audit's P2 named this heading
+    directly ("le titre... mérite d'être raccourci visuellement, par
+    exemple `Batterie · 3 mois`, avec la précision dans une légende"): a
+    heading carrying its own qualification reads as a long title, not as
+    a titled card. The `<h2>` now emits ONLY its own short, fixed,
+    window-derived text (`BATTERY_SECTION_HEADING_TEMPLATE` interpolated
+    with `BATTERY_TREND_WINDOW_DAYS // 30`, never a typed "3"); the
+    precision `_battery_trend_caption()` computes moves into a SIBLING
+    `<p class="text-label section-caption">` immediately after the
+    `</h2>` — the exact composition every other card's caption on this
+    site uses, and the one plan 29-05's (and this plan's own) floor
+    check measures. `_battery_trend_caption()` itself is untouched: its
+    three-case logic still decides what the sibling caption says, and
+    the `caption=None` default still reproduces the reading-count
+    fallback for any two-positional-argument caller. The four earlier
+    paragraphs above are kept readable as history, not deleted.
     """
     modifier = layout.card_status_class(BATTERY_SECTION_CLASS, state)
     section_class = BATTERY_SECTION_CLASS + ((" " + modifier) if modifier else "")
     caption_text = caption if caption is not None else (i18n.t("Latest %d readings") % BATTERY_TREND_LIMIT)
+    heading_text = i18n.t(BATTERY_SECTION_HEADING_TEMPLATE) % (BATTERY_TREND_WINDOW_DAYS // 30)
     return (
         '<section class="%s">'
-        '<h2 class="text-heading">%s<span class="text-label section-caption">'
-        " — %s</span></h2>"
+        '<h2 class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
         "%s"
         "</section>"
     ) % (
         section_class,
-        escape_html(i18n.t(BATTERY_SECTION_HEADING)), escape_html(caption_text), battery_html)
+        escape_html(heading_text), escape_html(caption_text), battery_html)
 
 
 def _battery_section(trend_rows, daily_rows=None):
@@ -3691,7 +3778,22 @@ def _registry_section(rows, now):
     # Body size, and dropping it to Label size would be an unrequested
     # size change that would also disagree with the sibling prose in this
     # same card region.
-    header_html = '<p class="text-body section-caption">%s</p>' % escape_html(i18n.t(_READ_ONLY_NOTE))
+    #
+    # 29-06-PLAN.md Task 2 (CFG-79): _READ_ONLY_NOTE is now the short
+    # visible sentence alone; _READ_ONLY_NOTE_DETAIL — the instruction
+    # this note used to carry in the same paragraph — moves, unchanged
+    # in wording, into a new `<details class="readings-disclosure">`
+    # immediately after it, reusing the same collapsed-disclosure idiom
+    # and "More details" summary label the battery readings table and
+    # `_corroboration_details_html()` already use.
+    header_html = (
+        '<p class="text-body section-caption">%s</p>'
+        '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
+    ) % (
+        escape_html(i18n.t(_READ_ONLY_NOTE)),
+        escape_html(i18n.t("More details")),
+        escape_html(i18n.t(_READ_ONLY_NOTE_DETAIL)),
+    )
 
     if not rows:
         return header_html + layout.empty_state(i18n.t(_NO_GAPS_HEADING), i18n.t(_NO_GAPS_BODY))
@@ -3905,8 +4007,9 @@ def _check_in_regularity_cells(gap_rows, wake_interval_s, now):
 
 
 def _check_in_regularity_section_html(gap_rows, wake_interval_s, now):
-    """The whole "Check-in regularity" card: heading, the three-clause
-    caption, the grid, its two date labels and the four-state key.
+    """The whole "Check-in regularity" card: heading, the one-sentence
+    visible caption plus its disclosure, the grid, its two date labels
+    and the four-state key.
 
     `wake_interval_s` is `wake.effective_wake_interval_s()`'s answer for
     the config in force RIGHT NOW, and the caption says so in as many
@@ -3915,6 +4018,25 @@ def _check_in_regularity_section_html(gap_rows, wake_interval_s, now):
     classifier degrades to `device_staleness_thresholds()`' bare floors
     for it, and the caption names those floors instead of naming a
     cadence nobody configured.
+
+    29-06-PLAN.md Task 2 (CFG-79): SUPERSEDES the former single joined
+    caption (`" ".join(clauses)` inside one `<p>`, up to four clauses,
+    roughly fifty words at its longest combination). The VISIBLE
+    caption is now `CHECK_IN_CAPTION_OBSERVED` alone; every other
+    clause this function used to append moves, byte-identical in
+    wording, into a `<details class="readings-disclosure">` rendered
+    immediately after it — the same collapsed-disclosure idiom
+    `_battery_section()`'s own readings table and
+    `_corroboration_details_html()` already use, reusing that idiom's
+    own "More details" summary label rather than inventing a second
+    one. The conditional logic that decides WHICH clauses apply is
+    unchanged: `CHECK_IN_CAPTION_EMPTY` only when nothing was observed;
+    `CHECK_IN_CAPTION_CADENCE` (with its duration substitution) or
+    `CHECK_IN_CAPTION_CADENCE_FALLBACK`, exactly as before; and
+    `CHECK_IN_CAPTION_NOT_PROOF` unconditionally, always last. See each
+    clause constant's own comment above for why this move costs nothing
+    — every clause still renders, in the same words, in the same
+    document, one tap away.
     """
     if gap_rows is _DB_UNAVAILABLE:
         body = _unavailable_block()
@@ -3939,21 +4061,34 @@ def _check_in_regularity_section_html(gap_rows, wake_interval_s, now):
         # stops being true, rather than a caption quietly naming a day
         # the grid no longer draws.
         oldest = labels[dropped] if dropped < len(labels) else labels[-1]
-        clauses = [i18n.t(CHECK_IN_CAPTION_OBSERVED)]
+        # 29-06-PLAN.md Task 2 (CFG-79): visible_caption is the ONLY
+        # clause the card's own <p class="text-label section-caption">
+        # carries now; disclosure_clauses holds every other clause this
+        # function used to fold into that same paragraph, in the exact
+        # same conditional order as before.
+        visible_caption = i18n.t(CHECK_IN_CAPTION_OBSERVED)
+        disclosure_clauses = []
         if not observed:
-            clauses.append(i18n.t(CHECK_IN_CAPTION_EMPTY))
+            disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_EMPTY))
         if draw.is_number(wake_interval_s) and wake_interval_s > 0:
-            clauses.append(
+            disclosure_clauses.append(
                 i18n.t(CHECK_IN_CAPTION_CADENCE) % layout.duration_text(wake_interval_s))
         else:
-            clauses.append(i18n.t(CHECK_IN_CAPTION_CADENCE_FALLBACK))
-        clauses.append(i18n.t(CHECK_IN_CAPTION_NOT_PROOF))
+            disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_CADENCE_FALLBACK))
+        disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_NOT_PROOF))
+        disclosure_html = (
+            '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
+        ) % (
+            escape_html(i18n.t("More details")),
+            escape_html(" ".join(disclosure_clauses)))
         body = (
             '<p class="text-label section-caption">%s</p>'
+            '%s'
             '<div class="%s">%s<div class="%s">%s%s</div></div>'
             '%s'
         ) % (
-            escape_html(" ".join(clauses)),
+            escape_html(visible_caption),
+            disclosure_html,
             escape_html(CHECK_IN_GRID_CLASS), grid_html,
             escape_html(CHECK_IN_SCALE_CLASS),
             draw.label_span(oldest, hidden=False),

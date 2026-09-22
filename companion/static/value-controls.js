@@ -295,6 +295,18 @@
   // type="range"> convention and needs no attribute.
   var PAGE_STEPS = 10;
 
+  // 29-04-PLAN.md Task 2 (CFG-80): THE NORMALISED-TIME TWIN'S OWN HOOK.
+  // Unrelated to every wrapper/pair/readout name above — this marks a
+  // plain <span> (companion/pages/config_page.py's _normalised_time_
+  // html(), B14/22-10), not a control, and is read by the ONE load-time
+  // pass near the bottom of this file rather than by any delegated
+  // listener. Kept as its own named constant for the identical reason
+  // every other server-decided attribute name in this file is: a
+  // harness reads this file's own source for it, so a rename on either
+  // side alone fails rather than producing a twin that renders and is
+  // never found.
+  var NORMALISED_TIME_ATTR = "data-normalised-time";
+
   function ancestorWith(el, attr) {
     var node = el;
     while (node && node.getAttribute) {
@@ -1022,6 +1034,62 @@
   // scripts-blocked rendering correct rather than merely present, and
   // it is why this file mutates absolutely nothing until a user
   // touches a control that exists.
+  //
+  // 29-04-PLAN.md Task 2 (CFG-80): THE ONE EXCEPTION TO THE PARAGRAPH
+  // ABOVE, AND WHY IT DOES NOT REOPEN IT. That paragraph is about not
+  // DUPLICATING LIVE STATE — every control's initial position already
+  // comes from the server, and re-deriving it at load would be a second
+  // copy of state this file must never hold (see this file's own
+  // header, "this file never holds a value"). The pass below writes NO
+  // state of any kind and steers no control. It makes one, one-time
+  // ENVIRONMENT determination — does this browser's own resolved hour
+  // cycle unambiguously use 24 hour time — and, on a strictly positive
+  // answer only, hides the normalised-time twins that exist purely to
+  // correct a browser whose native <input type="time"> does NOT. No CSS
+  // media feature exists for "does this input render 24h", so the
+  // closest thing the platform offers is asked here instead, once, in
+  // script — the same one-time-environment-check shape this file's own
+  // defer placement already relies on, not a second pattern.
+  //
+  // CONSERVATIVE BY CONSTRUCTION, AND STRICT ON PURPOSE. 29-RESEARCH.md's
+  // own assumption A1 names the risk in full: Intl.DateTimeFormat's
+  // resolved hour12 measures the BROWSER's locale-derived preference,
+  // not what THIS SPECIFIC input will actually paint — no DOM API
+  // exposes that directly. A FALSE NEGATIVE (hiding the twin on a
+  // browser that in fact paints 12h) would silently reintroduce the
+  // exact defect B14 exists to prevent, so every uncertain case — no
+  // Intl, no DateTimeFormat, a missing resolvedOptions, or a resolved
+  // hour12 that is anything other than the literal boolean false
+  // (including undefined) — leaves every twin exactly as visible as the
+  // server rendered it. Real-device confirmation on a browser whose OS
+  // region forces a 12h clock remains an outstanding, named human
+  // follow-up (see the plan's own SUMMARY) rather than an assumption
+  // made here.
+  function hideNormalisedTimeTwinsIfUnambiguously24Hour() {
+    try {
+      if (!window.Intl || !window.Intl.DateTimeFormat) {
+        return;
+      }
+      var formatter = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
+      if (!formatter.resolvedOptions) {
+        return;
+      }
+      var resolved = formatter.resolvedOptions();
+      if (resolved && resolved.hour12 === false) {
+        var twins = document.querySelectorAll("[" + NORMALISED_TIME_ATTR + "]");
+        for (var i = 0; i < twins.length; i++) {
+          twins[i].hidden = true;
+        }
+      }
+    } catch (err) {
+      // A throw here must never break the rest of this file's own
+      // initialisation (the listeners registered above) — this pass
+      // makes a best-effort environment check, and its own failure is
+      // itself an uncertain case, which this file's own rule already
+      // says means: leave every twin visible.
+    }
+  }
+  hideNormalisedTimeTwinsIfUnambiguously24Hour();
 
   // 28-08-PLAN.md Task 3 (CFG-77), 2026-09-16: exposes the EXISTING
   // repaintAll() as a callable entry point — dirty-state.js's restored

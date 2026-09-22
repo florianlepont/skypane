@@ -46,6 +46,7 @@ if REPO_ROOT not in sys.path:
 from companion import app as companion_app  # noqa: E402
 from companion import battery  # noqa: E402
 from companion import draw  # noqa: E402
+from companion import frame_state  # noqa: E402
 from companion import i18n  # noqa: E402
 from companion import auth  # noqa: E402
 import companion.i18n_fr as i18n_fr  # noqa: E402
@@ -1084,6 +1085,32 @@ EXPECTED_CHECK_COUNT = 265
 # ATTR check above does not already cover). 265 + 1 = 266, re-derived
 # by RUNNING (266/266).
 EXPECTED_CHECK_COUNT = 266
+
+# 29-04-PLAN.md Task 1 (CFG-80), 2026-09-21: +4 (the emitted-class-vs-
+# stylesheet scan widened to the whole card, the times-row containment/
+# error-slot check, the short-preset-label/no-colon check, and the
+# times-row's own two-grid-track CSS check). 266 + 4 = 270, re-derived
+# by RUNNING (270/270).
+EXPECTED_CHECK_COUNT = 270
+
+# 29-04-PLAN.md Task 3 (CFG-80), 2026-09-21: +3 (Check A — the twin is
+# visible in the served markup in both languages; Check B — the hide
+# path is gated on one strict hour12 === false branch; Check C — the
+# four server-rendered surfaces still agree, including a midnight wrap
+# and a rejected-save echo). 270 + 3 = 273, re-derived by RUNNING
+# (273/273).
+EXPECTED_CHECK_COUNT = 273
+
+# 29-05-PLAN.md Task 3 (CFG-79), 2026-09-22: +1 — ONE new check, the
+# settings-pages editorial floor (render-level, both pages, both
+# languages, Aspect exemption reachability, once-per-page apply-timing
+# relationship). Every existing check Task 1/Task 2 of this plan
+# retargeted (the Quiet-hours delay-sentence checks, the ring-is-an-
+# addition caption assertion, the "exactly three times" count narrowed
+# to "exactly twice") was a RETARGET, never a net-new check, so this
+# plan's own net change to the total is this one line. 273 + 1 = 274,
+# re-derived by RUNNING (274/274).
+EXPECTED_CHECK_COUNT = 274
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2779,9 +2806,19 @@ def main():
                 if needed not in markup:
                     return False, "%r→%r: the preset row lost %r" % (start, end, needed)
 
-            # THE CAPTION, INCLUDING ITS ONE COMPUTED DELAY SENTENCE, and
-            # exactly one caption element — the one-caption-per-section
-            # rule, which a drawing is the obvious way to break.
+            # THE CAPTION, exactly one caption element — the
+            # one-caption-per-section rule, which a drawing is the
+            # obvious way to break.
+            #
+            # 29-05-PLAN.md Task 2 (CFG-79): retargeted from "starts with
+            # the static sentence, then carries something longer" (the
+            # computed delay sentence used to be appended here) to exact
+            # equality — quiet_hours_group() no longer accepts a
+            # `delay_sentence` keyword at all, and the caption is now
+            # ONE sentence, full stop. The property that survives —
+            # the Frame strip still carries the computed delay sentence
+            # — is pinned by its own dedicated checks below, against the
+            # Frame strip's own markup, not this card's.
             caption = re.search(
                 r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
                 % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), markup)
@@ -2791,37 +2828,58 @@ def main():
                 return False, (
                     "%r→%r: the card renders %d section captions; one section, one caption"
                     % (start, end, markup.count('class="text-label section-caption"')))
-            if not caption.group(1).startswith(
-                    escape_html(config_page.QUIET_HOURS_SECTION_CAPTION)):
-                return False, "%r→%r: the caption's first sentence changed" % (start, end)
-            if len(caption.group(1)) <= len(escape_html(config_page.QUIET_HOURS_SECTION_CAPTION)):
+            if caption.group(1) != escape_html(config_page.QUIET_HOURS_SECTION_CAPTION):
                 return False, (
-                    "%r→%r: the caption lost its computed delay sentence — the SAME triple the "
-                    "Frame strip reads, never a second one computed here" % (start, end))
+                    "%r→%r: expected the caption to be EXACTLY QUIET_HOURS_SECTION_CAPTION "
+                    "with no appended delay sentence, got %r"
+                    % (start, end, caption.group(1)))
 
-            # THE LOCKED ORDER, AND WHERE THE RING JOINS IT. The four
-            # controls keep their positions and their adjacency; the ring
-            # is an addition between the caption and the presets, so the
-            # picture reads before the things that change it.
+            # THE LOCKED ORDER, AND WHERE THE RING JOINS IT. 29-04-PLAN.md
+            # Task 1 (CFG-80) re-derives this list: the four controls
+            # keep their positions and their adjacency (presets before
+            # Start, Start before End), but Start and End are now ONE
+            # element in document order — the QUIET_TIMES_ROW_CLASS
+            # wrapper — rather than two separately-indexed labels, since
+            # that wrapper is what now lays them out side by side.
+            # The readout is OMITTED, not fabricated, for an unparseable
+            # span (the ("", "", None) case in this very loop) — matching
+            # quiet_dial_readout_html()'s own "omit, don't fabricate"
+            # rule, so it is only checked for order when it actually
+            # rendered.
             positions = [
                 ("caption", markup.index('class="text-label section-caption"')),
                 ("dial", markup.index('class="%s"' % config_page.QUIET_DIAL_CLASS)),
-                ("presets", markup.index('class="runway-row"')),
-                ("start", markup.index('name="quiet_hours_start"')),
-                ("end", markup.index('name="quiet_hours_end"')),
+                ("presets", markup.index('class="%s"' % config_page.QUIET_PRESET_ROW_CLASS)),
+                ("times_row", markup.index('class="%s"' % config_page.QUIET_TIMES_ROW_CLASS)),
             ]
-            if [name for name, _ in sorted(positions, key=lambda pair: pair[1])] != [
-                    "caption", "dial", "presets", "start", "end"]:
+            expected_order = ["caption", "dial", "presets", "times_row"]
+            if config_page.QUIET_DIAL_READOUT_CLASS in markup:
+                positions.insert(2, ("readout", markup.index(config_page.QUIET_DIAL_READOUT_CLASS)))
+                expected_order = ["caption", "dial", "readout", "presets", "times_row"]
+            if [name for name, _ in sorted(positions, key=lambda pair: pair[1])] != expected_order:
                 return False, (
-                    "%r→%r: the card's order is %r — 10-UI-SPEC.md locks presets, then Start, "
-                    "then End, and the ring is an addition between the caption and the presets, "
-                    "never a reordering"
+                    "%r→%r: the card's order is %r — CFG-80 locks caption, dial, readout, "
+                    "presets, then the Start/End times row, and the ring is an addition between "
+                    "the caption and the presets, never a reordering"
                     % (start, end, sorted(positions, key=lambda pair: pair[1])))
+            # Start still precedes End INSIDE the times row, in document
+            # order — the wrapper changed the LAYOUT, never the order.
+            if markup.index('name="quiet_hours_start"') > markup.index('name="quiet_hours_end"'):
+                return False, "%r→%r: Start must still precede End in document order" % (
+                    start, end)
 
-            # NOT SIDE BY SIDE. 10-UI-SPEC.md rejects that explicitly, to
-            # keep two native time pickers from wrapping at 360px.
+            # NOT VIA `.theme-status__row`. CFG-80 puts Start and End side
+            # by side through its OWN dedicated `.quiet-times-row` grid,
+            # never through the shared `.theme-status__row` class this
+            # card has never used — a re-check of the same negative
+            # 10-UI-SPEC.md/22-05-PLAN.md history originally recorded here
+            # kept true on its own narrow terms even though the broader
+            # "never side by side" premise it once supported does not
+            # (see quiet_hours_group()'s own docstring for the full
+            # supersession).
             if "theme-status__row" in markup:
-                return False, "%r→%r: the two time fields were put side by side" % (start, end)
+                return False, "%r→%r: the two time fields used the shared row class" % (
+                    start, end)
 
         # THE D-07 ECHO, WHICH IS WHY THE ARC READS THE EFFECTIVE VALUES.
         # On a rejected save the picture must show what the visitor
@@ -2861,11 +2919,386 @@ def main():
         "the ring is an ADDITION: both native <input type=\"time\"> fields keep their value/"
         "required/lang/form attributes and are never disabled, B14's visible 24h sibling still "
         "renders beside each, the three presets keep the data attributes dirty-state.js writes "
-        "through, the one section caption keeps its computed delay sentence, the card's order is "
+        "through, the one section caption is EXACTLY QUIET_HOURS_SECTION_CAPTION with no "
+        "appended delay sentence (29-05-PLAN.md Task 2, CFG-79), the card's order is "
         "caption → ring → presets → Start → End with the four controls' own order and adjacency "
         "untouched and no side-by-side row, and the arc echoes the SUBMITTED window on a "
         "rejected save rather than the stored one (B14/D-07/CFG-48, 25-04-PLAN.md Task 2)",
         _the_ring_is_an_addition_and_the_four_controls_are_untouched)
+
+    # ------------------------------------------------------------------
+    # 29-04-PLAN.md Task 1 (CFG-80): Quiet hours as one object — the
+    # segmented preset row, the Start/End times row, and the classes
+    # both new wrappers emit.
+    # ------------------------------------------------------------------
+
+    def _every_class_the_quiet_hours_card_emits_has_a_real_selector():
+        """The same "a class that exists in Python and nowhere in the
+        stylesheet paints nothing at all" scan
+        `_the_dials_paint_resolves_and_decides_nothing_in_python()`
+        already runs for the dial's own slice — extended here to the
+        WHOLE card, since the new `.quiet-preset-row`/`.quiet-times-row`
+        wrappers sit outside that slice.
+        """
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            source = fh.read()
+        markup = config_page.quiet_hours_group("23:00", "07:00")
+        emitted = set()
+        for attr in re.findall(r'class="([^"]*)"', markup):
+            emitted.update(attr.split())
+        for class_name in sorted(emitted):
+            if not re.search(r"\.%s(?![-\w])" % re.escape(class_name), source):
+                return False, (
+                    "quiet_hours_group() emits the class %r, which has no selector in "
+                    "style.css — it paints nothing at all" % class_name)
+        return True, ""
+    check(
+        "every class quiet_hours_group() emits — including the new .quiet-preset-row/"
+        ".quiet-times-row wrappers — resolves to a real selector in style.css, scanned off "
+        "the emitted markup rather than a hand-kept list (CFG-80, 29-04-PLAN.md Task 1)",
+        _every_class_the_quiet_hours_card_emits_has_a_real_selector)
+
+    _QUIET_FIELD_SLUGS = (
+        ("quiet_hours_start", "quiet-hours-start"),
+        ("quiet_hours_end", "quiet-hours-end"))
+
+    def _both_time_fields_and_twins_sit_inside_the_times_row_with_their_own_error_slot():
+        """CFG-80: the times-row wrapper's own slice of the markup must
+        contain BOTH native time inputs and both twins, and each field's
+        own error paragraph must sit inside that SAME field's column —
+        never displacing its sibling's.
+        """
+        for errors, submitted in (
+                (None, None),
+                ({"quiet_hours_start": "Bad start"},
+                 {"quiet_hours_start": "bad", "quiet_hours_end": "07:00"}),
+                ({"quiet_hours_end": "Bad end"},
+                 {"quiet_hours_start": "23:00", "quiet_hours_end": "bad"})):
+            markup = config_page.quiet_hours_group(
+                "23:00", "07:00", errors=errors, submitted=submitted)
+            row_open = '<div class="%s">' % config_page.QUIET_TIMES_ROW_CLASS
+            if row_open not in markup:
+                return False, "expected the times-row wrapper to render"
+            row_start = markup.index(row_open)
+            row_end = markup.index("</div></div>", row_start) + len("</div></div>")
+            row_slice = markup[row_start:row_end]
+            for field, slug in _QUIET_FIELD_SLUGS:
+                if 'name="%s"' % field not in row_slice:
+                    return False, "%s: expected the input inside the times row" % field
+                effective = config_page._submitted_or_current(
+                    submitted, field, "23:00" if field == "quiet_hours_start" else "07:00")
+                twin = config_page._normalised_time_html(effective)
+                if twin and row_slice.count(twin) != 1:
+                    return False, (
+                        "%s: expected exactly one twin inside the times row" % field)
+                error_html = config_page._field_error_html(errors, field, slug)
+                if error_html and error_html not in row_slice:
+                    return False, (
+                        "%s: expected its own error paragraph inside the times row" % field)
+        return True, ""
+    check(
+        "both <input type=\"time\"> elements, both B14 twins and each field's own error "
+        "paragraph all fall inside the .quiet-times-row container's own slice of the markup, "
+        "across a clean render and a rejected save on either field (CFG-80, 29-04-PLAN.md "
+        "Task 1)",
+        _both_time_fields_and_twins_sit_inside_the_times_row_with_their_own_error_slot)
+
+    def _the_three_preset_buttons_render_short_labels_with_no_colon_in_both_languages():
+        """CFG-80: the hours a preset sets are already spoken by the
+        dial's own readout caption — no preset label may spell one, in
+        either language, stated as a PROPERTY (no colon character) not
+        as three literal string comparisons.
+        """
+        for lang, labels in (
+                ("en", ("Night", "Day", "Always on")),
+                ("fr", ("Nuit", "Journée", "Toujours actif"))):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                markup = config_page.quiet_hours_group("23:00", "07:00")
+            finally:
+                prefs.set_request_prefs(lang="en")
+            found = re.findall(
+                r'<button type="button" %s[^>]*>([^<]*)</button>'
+                % re.escape(config_page.QUIET_HOURS_PRESET_ATTR), markup)
+            if list(found) != list(labels):
+                return False, "%s: expected preset labels %r, got %r" % (lang, labels, found)
+            for label in found:
+                if ":" in label:
+                    return False, (
+                        "%s: preset label %r still spells an hour with a colon" % (lang, label))
+        return True, ""
+    check(
+        "the three preset buttons render the short labels Night/Day/Always on and Nuit/"
+        "Journée/Toujours actif, and NO preset label contains a ':' in either language — the "
+        "hours are spoken once, by the dial's own readout (CFG-80, 29-04-PLAN.md Task 1)",
+        _the_three_preset_buttons_render_short_labels_with_no_colon_in_both_languages)
+
+    def _the_times_row_rule_declares_exactly_two_grid_tracks():
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            source = fh.read()
+        selector = ".%s {" % config_page.QUIET_TIMES_ROW_CLASS
+        if selector not in source:
+            return False, "expected style.css to declare %r" % selector
+        idx = source.index(selector)
+        body = source[idx + len(selector):source.index("}", idx)]
+        if "display: grid" not in body:
+            return False, "expected %r to declare display: grid" % selector
+        match = re.search(r"grid-template-columns:\s*repeat\((\d+)", body)
+        if not match or int(match.group(1)) != 2:
+            return False, (
+                "expected %r's grid-template-columns to declare exactly two tracks, got %r"
+                % (selector, body))
+        return True, ""
+    check(
+        "style.css's .quiet-times-row rule declares display: grid with a "
+        "grid-template-columns of exactly two tracks, parsed from the stylesheet itself "
+        "(CFG-80, 29-04-PLAN.md Task 1)",
+        _the_times_row_rule_declares_exactly_two_grid_tracks)
+
+    # ------------------------------------------------------------------
+    # 29-04-PLAN.md Task 3 (CFG-80): three RUNNABLE proofs — the served
+    # markup's own scripts-blocked state, the script's gated hide path,
+    # and the four server-rendered surfaces still agreeing at the
+    # render level. None depends on a browser.
+    # ------------------------------------------------------------------
+
+    def _check_a_the_twin_is_visible_in_the_served_markup_in_both_languages():
+        """Check A (29-04-PLAN.md Task 3): with no script running, the
+        served HTML IS what a scripts-blocked reader sees — so a
+        VISIBLE twin in the served HTML, for both fields, in both
+        languages, IS the scripts-blocked proof. This asserts a fact
+        about the served markup, never about a browser.
+        """
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            try:
+                markup = config_page.quiet_hours_group("23:00", "07:00")
+            finally:
+                prefs.set_request_prefs(lang="en")
+            # Broad open-tag match FIRST, deliberately loose about what
+            # sits between the hook attribute and the closing `>` — a
+            # mutation that inserts `hidden` (or any other attribute)
+            # between them must still be CAUGHT here, by name, rather
+            # than silently making the narrower two-span count below
+            # find zero and report a vaguer failure.
+            open_tags = re.findall(
+                r'<span class="text-label field-inline-value"[^>]*%s[^>]*>'
+                % re.escape(config_page.QUIET_NORMALISED_TIME_ATTR), markup)
+            if len(open_tags) != 2:
+                return False, (
+                    "%s: expected exactly two hook-attribute spans, got %d: %r"
+                    % (lang, len(open_tags), open_tags))
+            for tag in open_tags:
+                # Boundary-anchored: "aria-hidden" (which this tag is
+                # SUPPOSED to carry, per B14) contains the substring
+                # "hidden" and must not trip this check.
+                if re.search(r"(?<![-\w])hidden(?![-\w])", tag):
+                    return False, "%s: the twin's own tag carries hidden=: %r" % (lang, tag)
+                for forbidden in ("js-gate", "style="):
+                    if forbidden in tag:
+                        return False, (
+                            "%s: the twin's own tag carries %r: %r" % (lang, forbidden, tag))
+            hook_spans = re.findall(
+                r'<span class="text-label field-inline-value"[^>]*%s[^>]*>([^<]*)</span>'
+                % re.escape(config_page.QUIET_NORMALISED_TIME_ATTR), markup)
+            for field in ("quiet_hours_start", "quiet_hours_end"):
+                field_match = re.search(
+                    r'<input type="time" name="%s" value="([^"]*)"' % field, markup)
+                if not field_match:
+                    return False, "%s: no %s input found" % (lang, field)
+                value = field_match.group(1)
+                if value not in hook_spans:
+                    return False, (
+                        "%s: %s's own field value %r has no matching hook-attribute span "
+                        "among %r — the twin must render the SAME text as its own field, "
+                        "as a relationship, not a hardcoded literal"
+                        % (lang, field, value, hook_spans))
+        return True, ""
+    check(
+        "Check A — the scripts-blocked state, proven from the served markup: rendering "
+        "/display's quiet-hours card in both languages emits exactly two hook-attribute "
+        "spans, each rendering the SAME text as its own field's value attribute (a "
+        "relationship, never a literal), with none carrying hidden/js-gate/style — the "
+        "served HTML IS what a scripts-blocked reader sees (CFG-80, 29-04-PLAN.md Task 3)",
+        _check_a_the_twin_is_visible_in_the_served_markup_in_both_languages)
+
+    def _check_b_the_hide_path_is_gated_on_one_strict_condition():
+        """Check B (29-04-PLAN.md Task 3): the hide assignment must be
+        reachable through exactly one strict, guarded branch.
+
+        Comment-stripped first, the same way
+        `_the_motion_budget_is_enforced_in_the_stylesheet()`-style
+        checks in test_companion_app.py strip style.css before
+        measuring it — this file's own comments quote the very tokens
+        this scan counts.
+        """
+        with open(os.path.join(HERE, "static", "value-controls.js")) as fh:
+            raw = fh.read()
+        stripped = re.sub(r"/\*.*?\*/|//[^\n]*", "", raw, flags=re.DOTALL)
+
+        # VACUITY FLOOR. A mangled strip must not let this check pass
+        # over nothing — bounded on BOTH sides, not just a lower floor,
+        # since this specific file is genuinely comment-dense (measured:
+        # ~32% code remains after stripping, because its header alone
+        # runs to over a hundred lines of prose). A ratio near 0% means
+        # the strip ate real code; a ratio near 100% means the strip did
+        # nothing at all (this file's comments quote the very tokens
+        # this scan counts, so an unstripped source could pass by
+        # matching its OWN prose rather than real code).
+        ratio = float(len(stripped)) / float(len(raw)) if raw else 0.0
+        if not (0.05 < ratio < 0.95):
+            return False, (
+                "comment-stripped source is %d chars of %d raw (%.0f%%) — outside the "
+                "[5%%, 95%%] band this file's own real comment density should land in; the "
+                "strip looks broken" % (len(stripped), len(raw), ratio * 100.0))
+        # This file's own convention (WRAPPER_ATTR, FIELD_ATTR, ...) is
+        # the raw string literal ONCE, in a `var NAME = "literal";`
+        # declaration, then every other reference by the CONSTANT NAME
+        # — so the "hook literal" this vacuity floor counts is the
+        # constant's own NAME, not a second copy of the raw string.
+        hook_name_count = stripped.count("NORMALISED_TIME_ATTR")
+        if hook_name_count < 2:
+            return False, (
+                "expected the hook constant NORMALISED_TIME_ATTR to appear at least twice "
+                "in the comment-stripped source (its own declaration + the selector that "
+                "reads it), found %d — the hook may have been renamed on one side only"
+                % hook_name_count)
+
+        hidden_assignments = list(re.finditer(r"\.hidden\s*=\s*true\b", stripped))
+        if len(hidden_assignments) != 1:
+            return False, (
+                "expected exactly one `.hidden = true` assignment gated on the hook "
+                "attribute, found %d — a second, ungated path could otherwise be added "
+                "silently" % len(hidden_assignments))
+        assign_at = hidden_assignments[0].start()
+
+        # Found from the ASSIGNMENT's own nearest enclosing branch, not
+        # from a bare file-wide search for the strict pattern — so a
+        # relaxed condition (a truthiness test, `!= true`, a negation)
+        # is reported BY ITS OWN TEXT, printed on failure, rather than
+        # producing a generic "not found anywhere" message.
+        if_before = stripped.rfind("if (", 0, assign_at)
+        if if_before == -1:
+            return False, "the .hidden = true assignment is not inside any if (...) branch"
+        condition_text = stripped[if_before:stripped.index(")", if_before) + 1]
+        if not re.search(r"hour12\s*===\s*false", condition_text):
+            return False, (
+                "the assignment's own nearest enclosing branch condition is %r — not a "
+                "strict `hour12 === false` comparison, not a truthiness test, not `!= "
+                "true`, not a negation of a truthy read" % condition_text)
+
+        guard_match = re.search(r"resolvedOptions", stripped)
+        if not guard_match or guard_match.start() > if_before:
+            return False, (
+                "the Intl/resolvedOptions availability guard does not precede the "
+                "hour12 determination (guard at %r, branch at %r)"
+                % (guard_match.start() if guard_match else None, if_before))
+        return True, ""
+    check(
+        "Check B — the hide path is gated, and gated on one thing only: exactly one "
+        "`.hidden = true` assignment on the hook attribute, gated by a strict `hour12 === "
+        "false` comparison (never a truthiness test), with the Intl/resolvedOptions "
+        "availability guard preceding it, and a vacuity floor on the comment-stripped "
+        "source's own length ratio and hook-literal count (CFG-80, 29-04-PLAN.md Task 3)",
+        _check_b_the_hide_path_is_gated_on_one_strict_condition)
+
+    def _decode_quiet_arc_pair(markup):
+        import math
+        arc = _dial_circle(markup, config_page.QUIET_DIAL_ARC_CLASS)
+        if arc is None:
+            return None
+        transform_match = re.search(r"rotate\(([-\d.]+)\s", arc.get("transform", ""))
+        dash = arc.get("stroke-dasharray", "")
+        if not transform_match or not dash:
+            return None
+        deg = float(transform_match.group(1))
+        start_fraction = (
+            (deg - config_page._QUIET_DIAL_TWELVE_OCLOCK_DEG)
+            / config_page._QUIET_DIAL_FULL_TURN_DEG) % 1.0
+        r = float(arc["r"])
+        drawn = float(dash.split()[0])
+        sweep_fraction = drawn / (2 * math.pi * r)
+        start_minute = int(round(start_fraction * 1440)) % 1440
+        sweep_minute = int(round(sweep_fraction * 1440))
+        return (start_minute, (start_minute + sweep_minute) % 1440)
+
+    def _decode_quiet_handles_pair(markup):
+        def valuenow(field):
+            m = re.search(
+                r'data-value-field="%s"[^>]*>.*?aria-valuenow="(\d+)"' % re.escape(field),
+                markup, re.DOTALL)
+            return int(m.group(1)) if m else None
+        start, end = valuenow("quiet_hours_start"), valuenow("quiet_hours_end")
+        return None if start is None or end is None else (start, end)
+
+    def _decode_quiet_readout_pair(markup):
+        def clock_text(field):
+            m = re.search(
+                r'data-value-readout="%s" data-value-readout-format="clock"[^>]*>'
+                r'([^<]*)<' % re.escape(field), markup)
+            return m.group(1) if m else None
+        start_txt, end_txt = clock_text("quiet_hours_start"), clock_text("quiet_hours_end")
+        if not start_txt or not end_txt:
+            return None
+        start = config_page.quiet_window_minute_of_day(start_txt)
+        end = config_page.quiet_window_minute_of_day(end_txt)
+        return None if start is None or end is None else (start, end)
+
+    def _decode_quiet_fields_pair(markup):
+        def field_value(field):
+            m = re.search(r'name="%s" value="([^"]*)"' % re.escape(field), markup)
+            return m.group(1) if m else None
+        start_txt = field_value("quiet_hours_start")
+        end_txt = field_value("quiet_hours_end")
+        if not start_txt or not end_txt:
+            return None
+        start = config_page.quiet_window_minute_of_day(start_txt)
+        end = config_page.quiet_window_minute_of_day(end_txt)
+        return None if start is None or end is None else (start, end)
+
+    def _check_c_the_four_server_rendered_surfaces_agree():
+        """Check C (29-04-PLAN.md Task 3): CFG-62's own surfaces-agree
+        check is browser-level and cannot run here — but the SERVER's
+        four surfaces (the arc's presentation attributes, the two
+        handles' aria-valuenow, the readout's own endpoint text, and
+        both <input type="time"> values) are all computed in
+        quiet_hours_group() from the SAME effective_start/effective_end
+        pair, and that agreement is provable from the rendered markup
+        alone. This is a GUARD against Task 1's own markup restructuring
+        silently breaking Phase 27's agreement — it is NOT a
+        replacement for the browser-level preset-click check in
+        test_browser_ux.py, which this worktree cannot run.
+        """
+        cases = (
+            ("23:00", "07:00", None, None),
+            ("08:00", "18:00", None, None),
+            ("23:00", "07:00",
+             {"quiet_hours_end": "Bad"},
+             {"quiet_hours_start": "09:00", "quiet_hours_end": "17:00"}),
+        )
+        for start, end, errors, submitted in cases:
+            markup = config_page.quiet_hours_group(
+                start, end, errors=errors, submitted=submitted)
+            decoded = {
+                "arc": _decode_quiet_arc_pair(markup),
+                "handles": _decode_quiet_handles_pair(markup),
+                "readout": _decode_quiet_readout_pair(markup),
+                "fields": _decode_quiet_fields_pair(markup),
+            }
+            distinct = set(decoded.values())
+            if len(distinct) != 1:
+                return False, (
+                    "%r/%r (errors=%r, submitted=%r): the four surfaces disagree: %r"
+                    % (start, end, errors, submitted, decoded))
+        return True, ""
+    check(
+        "Check C — the four surfaces still agree, at the render level: for 23:00→07:00 "
+        "(midnight-wrapping), 08:00→18:00 (non-wrapping) and a rejected-save echo "
+        "(09:00→17:00 submitted over a 23:00→07:00 stored value), the arc's presentation "
+        "attributes, the two handles' aria-valuenow, the readout's endpoint text and both "
+        "<input type=\"time\"> values all decode to the SAME canonical minute-of-day pair "
+        "(CFG-80/CFG-62, 29-04-PLAN.md Task 3)",
+        _check_c_the_four_server_rendered_surfaces_agree)
 
     def _the_dials_paint_resolves_and_decides_nothing_in_python():
         """CFG-48/CFG-52 (25-04-PLAN.md Task 2): the dial's paint,
@@ -9240,30 +9673,36 @@ def main():
         "(22-05-PLAN.md Task 1, X1/D-04/D-12.1)",
         _two_scheduled_inputs_carry_form_settings_form)
 
-    def _applies_next_wake_sentence_appears_exactly_three_times():
+    def _applies_next_wake_sentence_appears_exactly_twice():
         # 21-04-PLAN.md Task 1 (D-01/D-02): the constant moved to
         # companion/layout.py along with the switch markup it captions.
-        # 22-05-PLAN.md Task 2 (D-04): retargeted from "exactly twice" to
-        # "exactly three times" — layout.QUICK_ACTION_APPLIES_SENTENCE is
-        # byte-identical to frame_state.DELAY_UNKNOWN (22-04-PLAN.md's own
-        # alias), and _TASK2_BASE_CTX carries no last_checkin_ts, so
-        # frame_state resolves STATE_UNKNOWN/DELAY_UNKNOWN for the Quiet
-        # hours caption's own computed delay sentence too — a THIRD,
-        # genuinely independent consumer of the same translated text, not
-        # a widened count for the same two switches.
+        # 22-05-PLAN.md Task 2 (D-04) widened this from "exactly twice"
+        # to "exactly three times" once the Quiet hours card's own
+        # caption started appending the same computed delay sentence.
+        #
+        # 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: retargeted BACK to
+        # "exactly twice" — quiet_hours_group() no longer appends a
+        # delay sentence to its own caption at all (see that function's
+        # own docstring), so the THIRD occurrence this check used to
+        # require is gone, and CFG-79's whole point is that it should
+        # be: the apply-timing sentence now renders in exactly one
+        # place per page — the Frame strip, which is what these
+        # remaining two occurrences are (one per instant switch cell).
         rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
         count = rendered.count(escape_html(layout.QUICK_ACTION_APPLIES_SENTENCE))
-        if count != 3:
+        if count != 2:
             return False, (
-                "expected the shared instant-switch/delay sentence to appear exactly three times, "
+                "expected the shared instant-switch delay sentence to appear exactly twice (once "
+                "per Frame-strip switch cell, and nowhere under the Quiet hours card any more), "
                 "got %d" % count)
         return True, ""
     check(
-        "the shared \"Applies the next time the frame wakes up.\" sentence appears exactly three "
-        "times on the Display page — once per instant switch, plus once as the Quiet hours card's "
-        "own computed delay sentence when no check-in data exists yet (D-19, 22-05-PLAN.md Task 2 "
-        "D-04)",
-        _applies_next_wake_sentence_appears_exactly_three_times)
+        "the shared \"Applies the next time the frame wakes up.\" sentence appears exactly twice "
+        "on the Display page — once per Frame-strip instant switch, and no longer a third time "
+        "under the Quiet hours card's own caption now that CFG-79 confines it to one place per "
+        "page (29-05-PLAN.md Task 2; widened to three by 22-05-PLAN.md Task 2 D-04, narrowed back "
+        "here)",
+        _applies_next_wake_sentence_appears_exactly_twice)
 
     def _handle_post_same_field_set_after_restructure_saves_the_same_config():
         # D-13: only the DOM position of display_group()/quiet_hours_
@@ -9817,6 +10256,20 @@ def main():
     # its three branches, for the Quiet hours caption AND the post-save
     # flash — pinned against the SAME frame_state.py source of truth the
     # Frame strip itself reads (22-04-PLAN.md).
+    #
+    # 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: RETARGETED, all three.
+    # quiet_hours_group() no longer appends the computed delay sentence
+    # to its own caption at all — that property is gone, not merely
+    # relocated inside this card. What survives, and what these three
+    # checks now assert instead: (a) the delay sentence still renders,
+    # once per branch, inside the Frame strip's own markup slice
+    # (proven by locating that slice the same way
+    # `_display_render_has_exactly_one_quick_action_pair_inside_the_strip`
+    # already does, above), (b) the Quiet hours card's OWN caption
+    # element carries NO delay sentence at all, in every branch, and
+    # (c) the post-save flash text is untouched by this plan (a
+    # different code path, companion/app.py's _resolve_flash_text(),
+    # unaffected by quiet_hours_group()'s own signature change).
     # ==================================================================
 
     def _quiet_hours_caption_and_flash_agree_on_the_due_branch():
@@ -9826,11 +10279,24 @@ def main():
             "state_dir": "/tmp", "poll_cooldown_remaining": 0,
         }
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        expected_caption_fragment = escape_html("Applies at the next wake, around 14:10.")
-        if expected_caption_fragment not in display:
+        expected_delay_fragment = escape_html("Applies at the next wake, around 14:10.")
+        strip_start = display.index('<div class="frame-strip stat-tile stat-tile--accent"')
+        strip_end = display.index('<form class="config-form"', strip_start)
+        if display.count(expected_delay_fragment) != 2:
             return False, (
-                "expected the Quiet hours caption to carry the DUE delay sentence with the "
-                "computed clock, not found in %r" % (display,))
+                "expected the DUE delay sentence to appear exactly twice (once per Frame-strip "
+                "switch cell), got %d in %r" % (display.count(expected_delay_fragment), display))
+        if expected_delay_fragment not in display[strip_start:strip_end]:
+            return False, "expected the DUE delay sentence inside the Frame strip's own slice"
+        caption = re.search(
+            r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
+            % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), display)
+        if not caption:
+            return False, "the Quiet hours card's own caption is gone"
+        if expected_delay_fragment in caption.group(1):
+            return False, (
+                "expected the Quiet hours card's OWN caption to carry NO delay sentence any "
+                "more (CFG-79) — found it in %r" % (caption.group(1),))
         flash = companion_app._resolve_flash_text(
             companion_app.FLASH_KEY_SAVED, "/tmp",
             last_checkin_ts=ctx["last_checkin_ts"], device_cfg=ctx["device_config"])
@@ -9838,8 +10304,10 @@ def main():
             return False, "expected the DUE flash text, got %r" % (flash,)
         return True, ""
     check(
-        "with a due result, the Quiet hours caption and the post-save flash both read the DUE delay "
-        "sentence naming the same computed time (D-04)",
+        "with a due result, the Frame strip carries the DUE delay sentence exactly twice (once per "
+        "switch cell), the Quiet hours card's own caption carries NO delay sentence any more "
+        "(29-05-PLAN.md Task 2, CFG-79), and the post-save flash still reads the DUE delay "
+        "sentence naming the same computed time, unaffected by the caption change (D-04)",
         _quiet_hours_caption_and_flash_agree_on_the_due_branch)
 
     def _quiet_hours_caption_and_flash_agree_on_the_held_branch():
@@ -9857,11 +10325,24 @@ def main():
             "state_dir": "/tmp", "poll_cooldown_remaining": 0,
         }
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        expected_caption_fragment = escape_html("Applies when quiet hours end, around 07:00.")
-        if expected_caption_fragment not in display:
+        expected_delay_fragment = escape_html("Applies when quiet hours end, around 07:00.")
+        strip_start = display.index('<div class="frame-strip stat-tile stat-tile--accent"')
+        strip_end = display.index('<form class="config-form"', strip_start)
+        if display.count(expected_delay_fragment) != 2:
             return False, (
-                "expected the Quiet hours caption to carry the HELD delay sentence naming the "
-                "window's own end, not found in %r" % (display,))
+                "expected the HELD delay sentence to appear exactly twice (once per Frame-strip "
+                "switch cell), got %d in %r" % (display.count(expected_delay_fragment), display))
+        if expected_delay_fragment not in display[strip_start:strip_end]:
+            return False, "expected the HELD delay sentence inside the Frame strip's own slice"
+        caption = re.search(
+            r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
+            % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), display)
+        if not caption:
+            return False, "the Quiet hours card's own caption is gone"
+        if expected_delay_fragment in caption.group(1):
+            return False, (
+                "expected the Quiet hours card's OWN caption to carry NO delay sentence any "
+                "more (CFG-79) — found it in %r" % (caption.group(1),))
         flash = companion_app._resolve_flash_text(
             companion_app.FLASH_KEY_SAVED, "/tmp",
             last_checkin_ts=ctx["last_checkin_ts"], device_cfg=device_cfg)
@@ -9869,26 +10350,44 @@ def main():
             return False, "expected the HELD flash text, got %r" % (flash,)
         return True, ""
     check(
-        "with a held result (the nightly regression fixture), the Quiet hours caption and the "
-        "post-save flash both read the HELD delay sentence naming the window's own end, never the "
-        "generic due wording (D-04, 22-UI-SPEC.md §3.3 binding rule 6)",
+        "with a held result (the nightly regression fixture), the Frame strip carries the HELD "
+        "delay sentence exactly twice (once per switch cell), the Quiet hours card's own caption "
+        "carries NO delay sentence any more (29-05-PLAN.md Task 2, CFG-79), and the post-save "
+        "flash still reads the HELD delay sentence naming the window's own end, never the generic "
+        "due wording (D-04, 22-UI-SPEC.md §3.3 binding rule 6)",
         _quiet_hours_caption_and_flash_agree_on_the_held_branch)
 
     def _quiet_hours_caption_and_flash_agree_on_the_unknown_branch():
         ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        expected_caption_fragment = escape_html("Applies the next time the frame wakes up.")
-        if expected_caption_fragment not in display:
+        expected_delay_fragment = escape_html("Applies the next time the frame wakes up.")
+        strip_start = display.index('<div class="frame-strip stat-tile stat-tile--accent"')
+        strip_end = display.index('<form class="config-form"', strip_start)
+        if display.count(expected_delay_fragment) != 2:
             return False, (
-                "expected the Quiet hours caption to carry the UNKNOWN delay sentence, not found "
-                "in %r" % (display,))
+                "expected the UNKNOWN delay sentence to appear exactly twice (once per "
+                "Frame-strip switch cell), got %d in %r"
+                % (display.count(expected_delay_fragment), display))
+        if expected_delay_fragment not in display[strip_start:strip_end]:
+            return False, "expected the UNKNOWN delay sentence inside the Frame strip's own slice"
+        caption = re.search(
+            r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
+            % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), display)
+        if not caption:
+            return False, "the Quiet hours card's own caption is gone"
+        if expected_delay_fragment in caption.group(1):
+            return False, (
+                "expected the Quiet hours card's OWN caption to carry NO delay sentence any "
+                "more (CFG-79) — found it in %r" % (caption.group(1),))
         flash = companion_app._resolve_flash_text(companion_app.FLASH_KEY_SAVED, "/tmp")
         if flash != "Saved — applies the next time the frame wakes up.":
             return False, "expected the UNKNOWN flash text, got %r" % (flash,)
         return True, ""
     check(
-        "with no check-in at all, the Quiet hours caption and the post-save flash both read the "
-        "UNKNOWN delay sentence, which names no time (D-04)",
+        "with no check-in at all, the Frame strip carries the UNKNOWN delay sentence exactly "
+        "twice (once per switch cell), the Quiet hours card's own caption carries NO delay "
+        "sentence any more (29-05-PLAN.md Task 2, CFG-79), and the post-save flash still reads "
+        "the UNKNOWN delay sentence, which names no time (D-04)",
         _quiet_hours_caption_and_flash_agree_on_the_unknown_branch)
 
     def _retired_delay_wordings_appear_nowhere_under_companion_or_server():
@@ -9926,6 +10425,205 @@ def main():
         "on the frame's next scheduled refresh') appears anywhere under companion/ or server/, "
         "excluding this repository's own test_*.py harnesses (D-04)",
         _retired_delay_wordings_appear_nowhere_under_companion_or_server)
+
+    # ==================================================================
+    # 29-05-PLAN.md Task 3 (CFG-79), 2026-09-22: the settings-pages
+    # editorial floor — render-level, both pages, both languages. The
+    # ONE new check in this section replaces a source-level scan with a
+    # measurement of what `config_page.render()` actually produces,
+    # matching CFG-79's own "enforced by a harness check measuring
+    # RENDERED caption length" requirement text.
+    # ==================================================================
+
+    # A realistic, worst-case-length fixture: a real last_checkin_ts/now
+    # pair so every "(next wake ≈ HH:MM)" suffix (`_with_next_wake()`)
+    # actually renders on Runway/LED/Wake-interval — the LONGEST form
+    # each of those captions ever reaches, which is the form this floor
+    # must hold against, not the shorter unknown-value fallback.
+    _FLOOR_CTX = {
+        "device_config": {
+            "wake_interval_s": 900, "led_enabled": True,
+            "quiet_hours_enabled": False,
+        },
+        "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
+        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+    }
+    # Minimums pinned a little below the observed figures (16 measured
+    # on /display, 8 on /device, both languages, re-derived by running
+    # this exact fixture through this exact selector) — enough margin
+    # for an unrelated future caption to be added or removed without
+    # retuning this number, not so much margin that a badly narrowed
+    # selector could still clear it.
+    _FLOOR_MIN_MEASURED = {"display": 14, "device": 6}
+    # /display carries exactly the four Aspect exemptions (Phase 30's
+    # own card); /device carries none of them (Aspect is Display-only).
+    _FLOOR_EXPECTED_SKIPS = {"display": len(config_page.ASPECT_CAPTION_EXEMPTIONS), "device": 0}
+
+    def _caption_word_count_text(fragment):
+        """THE ONE COUNTING RULE this whole floor applies, stated once
+        here rather than left to be inferred from arithmetic: strip
+        tags, unescape HTML entities (so `&#x27;` counts as the one
+        character it renders, not five), collapse internal whitespace,
+        then strip a single leading em dash and its following space —
+        `layout.section_intro_html()`'s own intro sentences (rendering
+        DISPLAY_LOOK_INTRO/DISPLAY_WATCHES_INTRO/DISPLAY_ON_INTRO/
+        DEVICE_WAKES_INTRO/DEVICE_TELLS_INTRO/DEVICE_POLL_INTRO)
+        legitimately open with "— ", and that leading mark is not a
+        WORD by any reading of "at most 12 words" — matching
+        RESEARCH.md's own measurement method exactly, so its offender
+        table's word counts are directly comparable to this check's.
+        """
+        stripped = re.sub(r"<[^>]*>", "", fragment)
+        text = html.unescape(stripped).strip()
+        if text.startswith("— "):
+            text = text[2:]
+        return re.sub(r"\s+", " ", text).strip()
+
+    def _measured_section_captions(rendered):
+        """Every `<p class="...">...</p>` element whose class list
+        contains the token "section-caption" and NO token beyond
+        "text-label"/"section-caption" themselves — a plain editorial
+        caption, never a live data readout.
+
+        THE ONE EXCLUSION THIS RULE MAKES ON THESE TWO PAGES, and the
+        reason it is a selector decision rather than a THIRD member of
+        ASPECT_CAPTION_EXEMPTIONS: `wake_gauges_html()`'s two elements
+        additionally carry a `wake-gauge` class token. Both are
+        COMPUTED QUANTITIES with a `data-value-readout` JS-substitution
+        hook, re-derived live from the slider's own position — not
+        descriptive prose about what a control does, the same
+        "status/error message, not a caption" distinction RESEARCH.md
+        itself draws for `MANUAL_SUPERSEDED_NOTE_TEMPLATE` elsewhere in
+        this app. `ASPECT_CAPTION_EXEMPTIONS` is reserved for Phase
+        30's own Aspect-section copy specifically (CFG-79's own
+        exemption, argued in that tuple's comment) — a structurally
+        different kind of element does not belong in that same list,
+        and folding it in would let the exemption's own reachability
+        assertion below (exactly 4 skips on /display, exactly 0 on
+        /device) silently stop proving what it claims to.
+
+        Returns a list of `(start, end, raw_fragment)` triples — the
+        MATCH's own span, not just its text, so a caller can locate an
+        element relative to another slice (the Frame strip's own
+        markup) without a second pass over the document.
+        """
+        out = []
+        for m in re.finditer(r'<p\s+class="([^"]*)"[^>]*>(.*?)</p>', rendered, re.DOTALL):
+            classes = m.group(1).split()
+            if "section-caption" not in classes:
+                continue
+            if set(classes) - {"text-label", "section-caption"}:
+                continue
+            out.append((m.start(), m.end(), m.group(2)))
+        return out
+
+    def _settings_pages_editorial_floor_render_level_both_languages():
+        exempt_by_lang = {
+            lang: {
+                _caption_word_count_text(i18n.t_lang(text, lang))
+                for text in config_page.ASPECT_CAPTION_EXEMPTIONS
+            }
+            for lang in ("en", "fr")
+        }
+        # THE ONCE-PER-PAGE RELATIONSHIP's own source constants — never a
+        # hand-typed English phrase. frame_state.DELAY_DUE/DELAY_HELD
+        # carry a "%s" clock placeholder; DELAY_UNKNOWN does not.
+        apply_timing_templates = (
+            frame_state.DELAY_DUE, frame_state.DELAY_HELD, frame_state.DELAY_UNKNOWN)
+
+        any_inside_strip = False
+        for page_name, scope in (
+                ("display", config_page.SCOPE_DISPLAY), ("device", config_page.SCOPE_DEVICE)):
+            for lang in ("en", "fr"):
+                prefs.set_request_prefs(lang=lang)
+                try:
+                    rendered = config_page.render(_FLOOR_CTX, scope=scope)
+                finally:
+                    prefs.set_request_prefs(lang="en")
+
+                captions = _measured_section_captions(rendered)
+                if len(captions) < _FLOOR_MIN_MEASURED[page_name]:
+                    return False, (
+                        "%s/%s: only %d .section-caption element(s) were measured, expected at "
+                        "least %d — a narrowed selector could pass over an empty set"
+                        % (page_name, lang, len(captions), _FLOOR_MIN_MEASURED[page_name]))
+
+                skip_count = 0
+                for _start, _end, fragment in captions:
+                    text = _caption_word_count_text(fragment)
+                    if text in exempt_by_lang[lang]:
+                        skip_count += 1
+                        continue
+                    words = text.split()
+                    if len(words) > 12:
+                        return False, (
+                            "%s/%s: a non-exempt section-caption renders %d word(s) (max 12): %r"
+                            % (page_name, lang, len(words), text))
+                if skip_count != _FLOOR_EXPECTED_SKIPS[page_name]:
+                    return False, (
+                        "%s/%s: expected exactly %d Aspect-exemption skip(s), got %d — either "
+                        "the exemption is unreachable from this page or it silently swallowed a "
+                        "caption it should not have"
+                        % (page_name, lang, _FLOOR_EXPECTED_SKIPS[page_name], skip_count))
+
+                # THE ONCE-PER-PAGE RELATIONSHIP, checked as a REGION
+                # invariant rather than a literal single-element count.
+                # The Frame strip's own two switch cells (Screen, Quiet
+                # hours) share ONE computed sentence by design
+                # (companion/layout.py's frame_strip_html(), unmodified
+                # by this plan — git diff --stat companion/layout.py is
+                # empty) — so up to two elements legitimately carry it
+                # INSIDE that one region on /display. What CFG-79
+                # actually forbids, and what this assertion actually
+                # proves, is the sentence appearing in any element
+                # OUTSIDE the Frame strip's own slice — exactly the
+                # property Task 2 of this plan established for the
+                # Quiet hours card, and exactly what Mutation C (see
+                # SUMMARY) re-breaks to prove this assertion is live.
+                strip_start = rendered.find(
+                    '<div class="frame-strip stat-tile stat-tile--accent"')
+                strip_end = (
+                    rendered.find('<form class="config-form"', strip_start)
+                    if strip_start != -1 else -1)
+                outside_matches = []
+                for start, _end, fragment in captions:
+                    text = _caption_word_count_text(fragment)
+                    for template in apply_timing_templates:
+                        translated = i18n.t_lang(template, lang)
+                        if "%s" in translated:
+                            pattern = re.escape(translated).replace(re.escape("%s"), r".+?")
+                        else:
+                            pattern = re.escape(translated)
+                        if not re.search(pattern, text):
+                            continue
+                        if strip_start != -1 and strip_start <= start < strip_end:
+                            any_inside_strip = True
+                        else:
+                            outside_matches.append(
+                                "%s/%s at offset %d (%r): %r"
+                                % (page_name, lang, start, text[:80], text))
+                        break
+                if outside_matches:
+                    return False, (
+                        "%s/%s: the apply-timing sentence rendered outside the Frame strip's own "
+                        "slice — CFG-79 confines it to exactly one place per page: %s"
+                        % (page_name, lang, "; ".join(outside_matches)))
+        if not any_inside_strip:
+            return False, (
+                "the apply-timing relationship never matched INSIDE the Frame strip either — "
+                "this assertion is vacuous unless it is proven to fire on the strip's own, "
+                "untouched markup at least once")
+        return True, ""
+    check(
+        "the settings-pages editorial floor, measured on the RENDERED page (never a source scan): "
+        "every non-exempt .section-caption element on /display and /device is at most 12 "
+        "whitespace-split words in both languages; ASPECT_CAPTION_EXEMPTIONS is skipped exactly "
+        "4 times on /display and exactly 0 times on /device (proving the exemption reachable and "
+        "not silently over-broad); and the apply-timing sentence — read from frame_state.py's own "
+        "DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN constants — never renders outside the Frame strip's "
+        "own markup slice, proven to actually fire inside it at least once so the assertion is "
+        "not vacuous (CFG-79, 29-05-PLAN.md Task 3)",
+        _settings_pages_editorial_floor_render_level_both_languages)
 
     harness = Harness()
     try:
@@ -10887,8 +11585,12 @@ def main():
             tail = rendered[idx:idx + 400]
             if 'lang="en"' not in tail:
                 return False, "%s must carry the site language as lang= (B14)" % name
-            sibling = (
-                '<span class="text-label field-inline-value" aria-hidden="true">%s</span>' % value)
+            # Built from the real emitter rather than a hand-typed literal
+            # so this check does not go stale the moment the span grows a
+            # new attribute (29-04-PLAN.md Task 2, CFG-80, added the
+            # QUIET_NORMALISED_TIME_ATTR hook) — it asserts the SIBLING
+            # renders, not one frozen shape of it.
+            sibling = config_page._normalised_time_html(value)
             if sibling not in tail:
                 return False, (
                     "%s must be followed by a VISIBLE sibling showing the normalised 24h value, "
@@ -11590,14 +12292,24 @@ def main():
         "honesty contract, CFG-67, 27-06-PLAN.md Task 3)",
         _wake_gauges_are_shortened_and_the_battery_refusal_survives_in_both_languages)
 
-    def _quiet_hours_caption_is_shortened_and_the_delay_sentence_survives_in_both_languages():
+    def _quiet_hours_caption_is_shortened_and_carries_no_delay_sentence_in_either_language():
+        # 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: RETARGETED.
+        # quiet_hours_group() no longer accepts a `delay_sentence`
+        # keyword at all — the old call below would now raise
+        # TypeError, which is itself proof the parameter is gone (a
+        # regression back to accepting it would fail this check by
+        # crashing it, not by a silent pass). What this check asserts
+        # instead: the caption renders as EXACTLY
+        # QUIET_HOURS_SECTION_CAPTION's own translated text, nothing
+        # appended, in both languages — materially shorter than the
+        # 27-01-SUMMARY.md 188-char baseline this check has pinned
+        # since CFG-67, and now for a stronger reason (no second
+        # sentence AT ALL, not merely a shortened one).
         baseline = 188
-        delay_sentence = "Applies at the next wake, around 31 Jul 08:05."
         for lang in ("en", "fr"):
             prefs.set_request_prefs(lang=lang)
             try:
-                rendered = config_page.quiet_hours_group(
-                    "23:00", "07:00", delay_sentence=delay_sentence)
+                rendered = config_page.quiet_hours_group("23:00", "07:00")
             finally:
                 prefs.set_request_prefs(lang="en")
             m = re.search(
@@ -11613,23 +12325,19 @@ def main():
                     "(27-01-SUMMARY.md). The copy was not cut. It reads %r"
                     % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, len(text), baseline,
                        text))
-            # delay_sentence carries LIVE STATE (frame_state.DELAY_UNKNOWN
-            # by default), not explanation — the cut is scoped to
-            # QUIET_HOURS_SECTION_CAPTION alone, and this asserts the
-            # delay sentence survived it, on the SAME reading.
-            if delay_sentence not in text:
+            expected = i18n.t_lang(config_page.QUIET_HOURS_SECTION_CAPTION, lang)
+            if text != expected:
                 return False, (
-                    "%s: #%s lost its own computed delay sentence (%r) — expected it to survive "
-                    "the caption cut untouched, and it reads %r instead"
-                    % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, delay_sentence, text))
+                    "%s: #%s expected to render as EXACTLY %r (no appended delay sentence), "
+                    "got %r" % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, expected, text))
         return True, ""
     check(
         "the Quiet hours paragraph (#quiet-hours-caption) is materially shorter than "
-        "27-01-SUMMARY.md's recorded 188-char baseline in BOTH languages, with its own computed "
-        "delay sentence — live state, not explanation, defaulting to i18n.t(frame_state."
-        "DELAY_UNKNOWN) — asserted to survive the cut on the SAME reading (CFG-67, 27-06-PLAN.md "
-        "Task 3)",
-        _quiet_hours_caption_is_shortened_and_the_delay_sentence_survives_in_both_languages)
+        "27-01-SUMMARY.md's recorded 188-char baseline in BOTH languages, and renders as EXACTLY "
+        "QUIET_HOURS_SECTION_CAPTION's own translated text with no delay sentence appended at "
+        "all any more — quiet_hours_group() no longer accepts a delay_sentence keyword (CFG-79, "
+        "29-05-PLAN.md Task 2, narrowing CFG-67's 27-06-PLAN.md Task 3 cut)",
+        _quiet_hours_caption_is_shortened_and_carries_no_delay_sentence_in_either_language)
 
     def _the_gauges_are_an_addition_and_the_number_input_is_untouched():
         """CFG-49 (25-05-PLAN.md Task 1): the `<input type="number">` is

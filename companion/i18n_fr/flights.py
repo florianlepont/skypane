@@ -91,6 +91,12 @@ CATALOG = {
     "Try a different search, or Clear filter to see all %d flights.":
         "Essayez une autre recherche, ou effacez le filtre pour voir "
         "les %d vols.",
+    # 29-03-PLAN.md Task 1 (CFG-83): the empty-state body used only
+    # while a limit is in force and rows remain unloaded — see
+    # history_page.py's _FILTER_EMPTY_BODY_LIMITED_TEMPLATE.
+    "Try a different search — this only searches the %d flights shown.":
+        "Essayez une autre recherche — seuls les %d vols affichés sont "
+        "cherchés.",
 
     # --- Copy-to-clipboard accessible names (D-23) -----------------------
     "Copy callsign %s": "Copier l’indicatif %s",
@@ -148,4 +154,7 @@ CATALOG = {
     # the detail row rather than a 16px icon-only eye in the summary
     # row. "View panel near this time" survives above as its title.
     "View picture": "Voir l’image",
+
+    # --- 29-03-PLAN.md Task 1 (CFG-83): the pagination reveal ------------
+    "Show more (%d remaining)": "Afficher plus (%d restants)",
 }

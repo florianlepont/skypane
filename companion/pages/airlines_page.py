@@ -83,16 +83,6 @@ GALLERY_PURPOSE_TEXT = (
 
 CARD_IMAGE_ALT_TEMPLATE = "%s illustration"
 
-# 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle that
-# replaces the Device page's now-deleted "Edit artwork" link
-# (config_page._edit_artwork_link_html(), removed by 20-07-PLAN.md
-# Task 3) with an entry point that lives on the page it acts on.
-CHANGE_PICTURES_TEXT = "Change pictures"
-DONE_TEXT = "Done"
-EDIT_TOGGLE_CAPTION = (
-    "Replace an airline’s picture or add one for an airline that has "
-    "none.")
-
 # 19-08-PLAN.md Task 1 (D-21/A-38): the coverage-gap cards' own explained
 # strip, byte-identical-style copy convention to health_page.py's
 # SOURCE_FAULT_HEADING/SOURCE_FAULT_BODY (a module-level string constant,
@@ -101,9 +91,11 @@ EDIT_TOGGLE_CAPTION = (
 # artwork grid with no heading at all, reading as broken artwork rather
 # than a call to action.
 GAP_STRIP_HEADING = "Unidentified airlines"
-GAP_STRIP_BODY = (
-    "The frame saw these callsigns but doesn’t know the airline. Tap "
-    "one to name it.")
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 8. The
+# dropped clause ("The frame saw these callsigns but doesn't know the
+# airline") restated what GAP_STRIP_HEADING already says; nothing this
+# card's own instruction depends on is lost.
+GAP_STRIP_BODY = "Tap a callsign below to name its airline."
 
 # quick task 260902-tli: the click-to-enlarge lightbox. This gallery
 # reuses History's already-shipped `<dialog>` lightbox and the document-
@@ -303,8 +295,12 @@ UPLOAD_DROP_MESSAGE_CLASS = "upload-drop__message"
 # Promising a visitor what the result will LOOK like is precisely the
 # promise a client-side canvas would have had to keep.
 UPLOAD_DROP_HINT_TEXT = "Or drag an image onto this card."
-UPLOAD_PREVIEW_CAPTION_TEXT = (
-    "Framing preview — how it will be framed. The server does the final crop.")
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 14 words to 8. "The
+# server does the final crop" is a mechanism clause, not something the
+# reader needs to act on the preview — it is dropped, not moved,
+# because it names an implementation detail with no reader-facing
+# consequence.
+UPLOAD_PREVIEW_CAPTION_TEXT = "Framing preview — how it will be framed."
 UPLOAD_PREVIEW_ALT_TEXT = "Framing preview of the image you chose"
 UPLOAD_DROP_TYPE_ERROR_TEXT = "Only PNG images can be dropped here."
 UPLOAD_DROP_MULTIPLE_ERROR_TEXT = "Drop one image at a time."
@@ -413,14 +409,6 @@ MANUAL_DELETE_ROUTE_PREFIX = "/airlines/manual-resolutions/"
 MANUAL_DELETE_ROUTE_SUFFIX = "/delete"
 AIRLINES_ROUTE = "/airlines"
 RESOLVE_QUERY_PARAM = "resolve"
-# 19-08-PLAN.md Task 3 (D-22): the query-flag name for the artwork-
-# editing affordances (replace/upload/delete). Read by companion/app.py's
-# page_context() via an exact `== "1"` membership test — never a
-# substring, truthiness or case-insensitive check — into
-# ctx["edit_mode"]; see that key's own doc comment in
-# companion/pages/__init__.py for the presentation-only-flag boundary
-# this constant sits behind.
-EDIT_QUERY_PARAM = "edit"
 
 # Phase 14 (14-04-PLAN.md, D-06): the gap block's threshold and cap —
 # both locked numeric values from D-06's own text, not a discretion
@@ -453,9 +441,12 @@ RESOLVE_HEADING = "Resolve an unidentified flight"
 # so it stays true on the CR-02 row-gone path where no sighting data
 # survives. This wording is what discharges D-01's obligation that the
 # dialog state the per-prefix scope at the moment of acting.
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 10 —
+# "once you save a name" is dropped as conditional framing; the
+# consequence itself ("will show as this airline") is what the reader
+# needs and is kept.
 RESOLVE_CAPTION_TEMPLATE = (
-    "Every flight using prefix %s will show as this airline once you "
-    "save a name.")
+    "Every flight using prefix %s will show as this airline.")
 RESOLVE_CONTEXT_LABELS = (
     "Prefix", "First seen", "Last seen", "Times seen", "Example callsign")
 # Phase 14 (14-02-PLAN.md Task 1): the five per-<dd> hook classes
@@ -470,14 +461,19 @@ RESOLVE_CONTEXT_DD_CLASSES = (
     "resolve-context__callsign",
 )
 NAME_LABEL_TEXT = "Airline name"
-NAME_HINT_TEXT = (
-    "Start typing — pick a suggestion if the airline already has "
-    "artwork, so this reuses it instead of asking for a new upload.")
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 23 words to 6 — the
+# instruction alone survives; the "so this reuses it instead of asking
+# for a new upload" explanation is dropped (no existing disclosure
+# sits beside this inline form field to move it into, and the
+# instruction itself is self-sufficient without it).
+NAME_HINT_TEXT = "Start typing — pick a suggestion."
 SAVE_BUTTON_TEXT = "Save airline name"
 STEP_B_HEADING_TEMPLATE = "Add an illustration for %s"
-STEP_B_CAPTION = (
-    "Saved. This airline doesn’t have artwork yet — add one "
-    "below, or skip for now.")
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 9 — keeps
+# the state ("Saved") and the one action (add artwork, or skip);
+# drops the "doesn't have artwork yet" reason clause as restating what
+# STEP_B_HEADING_TEMPLATE's own heading already implies.
+STEP_B_CAPTION = "Saved — add artwork below, or skip for now."
 STEP_B_SKIP_TEXT = "Skip — I’ll add artwork later"
 # Planner addition, not in 13-UI-SPEC.md's Full Copy Deck: the fourth
 # reachable state (a bookmark or a Back press landing on a prefix that is
@@ -515,23 +511,6 @@ MANUAL_DATALIST_ID = "known-airlines"
 SUPERSEDED_MARKER_TEXT = "Superseded"
 DELETE_BUTTON_TEXT = "Delete"
 
-# X7 (22-11-PLAN.md Task 2, 22-UI-SPEC.md §2): edit mode's two visible
-# affordances on the grid itself. Turning "Change pictures" on used to
-# change nothing a household member could see — every affordance lived
-# inside the lightbox, two clicks away, so the mode looked broken.
-#
-# EDITING_BADGE_TEXT rides `.banner__pill`'s label voice verbatim on the
-# page header. REPLACE_PICTURE_TEXT is a verb AND a noun on purpose: a
-# bare "Replace" reads as a sentence fragment against this app's
-# established CTA voice ("Save airline name", "Change pictures").
-# REPLACE_PICTURE_ARIA_TEMPLATE names the airline so twenty-seven
-# otherwise-identical buttons are distinguishable in a screen reader's
-# control list; it CONTAINS the visible label verbatim in both
-# languages, which is what WCAG 2.5.3 (Label in Name) requires.
-EDITING_BADGE_TEXT = "Editing"
-REPLACE_PICTURE_TEXT = "Replace picture"
-REPLACE_PICTURE_ARIA_TEMPLATE = "Replace picture for %s"
-
 # Phase 14 (14-02-PLAN.md Task 1, 14-UI-SPEC.md's Full Copy Deck): new
 # copy for the gap card, the dialog's manual-state chip/note, the
 # shared delete form's caption, the gap-overflow line and the
@@ -540,10 +519,31 @@ REPLACE_PICTURE_ARIA_TEMPLATE = "Replace picture for %s"
 # rendering functions plan 14-02's Task 2 introduces.
 GAP_CARD_ARIA_TEMPLATE = "Resolve prefix %s — example callsign %s"
 MANUAL_CHIP_ACTIVE_TEXT = "Resolved by hand"
+# 29-06-PLAN.md Task 2 (CFG-79): shortened from 13 words to 12 —
+# "only" dropped as the single word needed to clear the floor; every
+# other word is load-bearing (what deleting does, and does not, affect).
 MANUAL_DELETE_CAPTION = (
-    "Deleting removes only this manual name — any uploaded artwork "
-    "stays in place.")
+    "Deleting removes this manual name — any uploaded artwork stays in place.")
 # %s arity: prefix, built-in name, operator's name, built-in name again.
+#
+# 29-06-PLAN.md Task 2 (CFG-79): DELIBERATELY EXEMPT from the editorial
+# floor, argued rather than left to look like an oversight. This is not
+# a description of a control — it is a STATUS MESSAGE naming a real
+# conflict state (which airline a prefix now resolves to, and that a
+# manual name was superseded by it), the same "status/error message,
+# not a caption" distinction plan 29-05 draws for
+# wake_gauges_html()'s computed readouts. Its VALUE is computed here
+# and written client-side (panel-lookup.js) into the dialog's own
+# `<p class="%s text-body">` element (LIGHTBOX_MANUAL_NOTE_CLASS,
+# "lightbox__manual-note") — that element's static server-rendered
+# markup is always empty; grep confirms LIGHTBOX_MANUAL_NOTE_CLASS
+# never composes with "section-caption" anywhere in this module, so
+# Task 3's site-wide floor selector (which matches only
+# `.section-caption` elements) never reaches it. It needs no
+# exemption-list entry either — structural non-membership is enough.
+# Shortening it would cost the reader the one thing they need at
+# exactly the moment it renders: which two names are in conflict and
+# what happens next. Left unchanged, byte-for-byte.
 MANUAL_SUPERSEDED_NOTE_TEMPLATE = (
     "SkyPane’s built-in list now recognizes prefix %s as “%s” — its "
     "entry wins over the name you gave it (“%s”), so that artwork is "
@@ -935,7 +935,7 @@ def _seen_attribute_text(value, now):
 
 
 def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None,
-                       now=None, edit_mode=False):
+                       now=None):
     """One `.airline-card` (06.6.4.1-UI-SPEC.md §7.1): an image pointing
     at the session-gated `/illustration/{key}.png` route, wrapped in a
     `.airline-card__zoom` click-to-enlarge trigger (quick task
@@ -964,16 +964,6 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     before this parameter existed. (Quick task 260903-btu: this
     parameter no longer also feeds a per-card replace form — the shared
     lightbox's single form is not built here at all.)
-
-    `edit_mode` (22-11-PLAN.md Task 2, X7): `render()`'s own presentation
-    -only `ctx["edit_mode"]` bool, defaulting to `False` so a call that
-    omits it renders byte-identically to before this parameter existed.
-    `True` appends one `.calendar-disconnect-btn` "Replace picture"
-    control to this card, carrying the same `data-view-panel-*`
-    vocabulary the zoom trigger carries. It decides only whether that
-    affordance is DRAWN — the replace/upload forms it opens keep their
-    own, separate `edit_mode` gate in `_lightbox_html()`, and the routes
-    those forms post to are unaffected by either.
 
     `manual_info` (Phase 14, 14-06-PLAN.md Task 1, D-08/D-10/D-12
     fallback reachability): either `None` (today's plain curated card —
@@ -1168,32 +1158,6 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         image_html,
         closing_tag,
     )
-    # X7: edit mode's per-card affordance. `.calendar-disconnect-btn`'s
-    # SECOND consumer — 30px, 12px text, the 6%/12% washes, the 20%
-    # hairline — exactly as references/control-density.md predicted when
-    # it named that class "the pattern to reuse the next time this app
-    # needs a small, deliberately de-emphasized secondary action". The
-    # class is reused verbatim, with no modifier and no `.btn` family;
-    # the control's placement inside the card comes from the card's own
-    # scoped rule in style.css, not from a second class here.
-    #
-    # It opens the SAME shared dialog the zoom trigger opens, at the same
-    # already-authorised replace/upload form, with the same `edit_mode`
-    # gate on that form untouched (T-22-39) — only the affordance's
-    # position changes. It is a plain <button> even on a card whose zoom
-    # trigger is an <a>: a nested interactive element would be invalid,
-    # and `panel-lookup.js` resolves a click by walking ancestors from
-    # the event target, so this sibling carrying the vocabulary itself is
-    # what makes it a trigger.
-    replace_control_html = ""
-    if edit_mode:
-        replace_control_html = (
-            '<button type="button" class="calendar-disconnect-btn" %saria-label="%s">%s</button>'
-        ) % (
-            panel_attrs,
-            escape_html(i18n.t(REPLACE_PICTURE_ARIA_TEMPLATE) % airline_name),
-            escape_html(i18n.t(REPLACE_PICTURE_TEXT)),
-        )
     chip_parts = []
     if shapes:
         chip_parts.extend(
@@ -1214,14 +1178,12 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         "%s"
         '<p class="airline-card__name">%s</p>'
         "%s"
-        "%s"
         "</div>"
-    ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html,
-         replace_control_html)
+    ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html)
 
 
 def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_name=None,
-                       now=None, edit_mode=False):
+                       now=None):
     """Wrap one `_airline_card_html()` card per `(airline_name, shapes)`
     pair in the `.illustration-grid` container (06.6.4.1-UI-SPEC.md
     §7.1, companion/static/style.css from plan 01). Skips (renders
@@ -1253,11 +1215,6 @@ def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_
     `-last-seen` carry the same Paris-local text the no-JS path renders.
     Defaults to `None` like every other optional parameter here.
 
-    `edit_mode` (22-11-PLAN.md Task 2, X7): threaded to every card so
-    each one draws its own "Replace picture" control while the mode is
-    on. Defaults to `False`, so an existing two-argument call is
-    byte-identical to before.
-
     `manual_info_by_name` (14-06-PLAN.md Task 1, D-08/D-10): an optional
     dict mapping an airline's display name to its own
     `(prefix, superseded, needs_artwork)` triple — `render()`'s own
@@ -1270,7 +1227,7 @@ def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_
     cards = "".join(
         _airline_card_html(
             index, airline_name, shapes, state_dir,
-            manual_info_by_name.get(airline_name), now=now, edit_mode=edit_mode)
+            manual_info_by_name.get(airline_name), now=now)
         for index, (airline_name, shapes) in enumerate(pairs))
     return '<div class="illustration-grid">%s%s</div>' % (gap_cards_html, cards)
 
@@ -1552,7 +1509,7 @@ def _gap_strip_html(gap_cards_html, overflow_html):
     )
 
 
-def _lightbox_html(edit_mode=False):
+def _lightbox_html():
     """The single shared click-to-enlarge `<dialog>` (quick task
     260902-tli), emitted once per page — never once per card — by
     `render()`, only when at least one card actually carries a zoom
@@ -1595,25 +1552,18 @@ def _lightbox_html(edit_mode=False):
     own submits all stay inside their framed zones, where their labels
     ("Upload", "Delete") belong to the zone rather than to the dialog.
 
-    19-08-PLAN.md Task 3 (D-22) originally split this dialog's forms
-    into two tiers, gating `resolve_upload_html`, the replace form and
-    the delete form all behind `edit_mode`. 21-06-PLAN.md Task 2 (D-19)
-    moves `resolve_upload_html` into the unconditional tier, alongside
-    the resolve-name form (and the always-present resolve-context
-    `<dl>`) — naming an unrecognised airline and giving it a picture is
-    one job, so the view-only lightbox's own no-artwork-yet upload
-    affordance is no longer hidden behind "Change pictures". The
-    replace form and the delete form stay the artwork-editing tier
-    (D-20): each is emitted only when `edit_mode` is true, and is the
-    empty string otherwise. This needs no change to
-    `companion/static/panel-lookup.js` — all three of its lookups for
-    these elements (`.lightbox__replace`, `.resolve-upload-zone`,
-    `.lightbox__delete`) already sit outside its mandatory
-    image/caption/note guard and are each used behind their own
-    `if (form)`-style test, so a form's absence (now only possible for
-    the replace/delete pair) is an already-handled state, exactly like
-    History's own dialog (which never renders any of the three at
-    all).
+    Every form here, including the replace form and the delete form, is
+    now unconditional (29-01-PLAN.md, CFG-81: the page-wide editing
+    mode this page used to have is deleted outright, and with it the
+    two-tier split a prior phase built into this dialog). Which of the
+    two artwork-editing forms is actually VISIBLE on a given open is
+    decided entirely client-side, by `companion/static/panel-lookup.js`
+    from the clicked trigger's own data attributes: it sets
+    `replaceForm.hidden` from whether the trigger's mode attribute
+    equals `"art"`, and `deleteForm.hidden` from whether the trigger's
+    manual attribute is non-empty. This function's job is only to make
+    sure both forms are always present in the document for that script
+    to find and show or hide — never to decide the visibility itself.
 
     Every optional child here is a real, present placeholder — heading
     and manual-note are emitted empty (their own `:empty` CSS collapse
@@ -1641,12 +1591,12 @@ def _lightbox_html(edit_mode=False):
     """
     resolve_context_html = _resolve_context_html(None, None, id_suffix="-dialog")
     resolve_name_html = _resolve_name_form_html("", "-dialog", include_submit=False)
-    # 21-06-PLAN.md Task 2 (D-19): unconditional, matching
-    # _resolve_section_html()'s own Step-B upload zone — no `edit_mode`
-    # gate here. replace_html/delete_html stay gated (D-20).
     resolve_upload_html = _resolve_upload_form_html("", "-dialog")
-    replace_html = _lightbox_replace_form_html() if edit_mode else ""
-    delete_html = _manual_delete_form_html("") if edit_mode else ""
+    # 29-01-PLAN.md (CFG-81): both forms are always in the document now.
+    # `panel-lookup.js` decides which one a given open shows — see this
+    # function's own docstring for the two attribute reads that do it.
+    replace_html = _lightbox_replace_form_html()
+    delete_html = _manual_delete_form_html("")
     return (
         '<dialog class="lightbox lightbox--wide" id="%s" aria-label="%s">'
         '<img class="lightbox__image" src="" alt="">'
@@ -2088,7 +2038,7 @@ def _manual_delete_form_html(action):
     ) % (LIGHTBOX_DELETE_CLASS, action, i18n.t(MANUAL_DELETE_CAPTION), i18n.t(DELETE_BUTTON_TEXT))
 
 
-def _resolve_section_html(ctx, edit_mode=False):
+def _resolve_section_html(ctx):
     """The conditional resolve section (D-03, D-10 through D-13):
     `""` when `ctx.get("resolve_prefix")` is falsy, otherwise one of the
     server-derived states below. Every branch reads `state_dir`/`now`
@@ -2139,17 +2089,16 @@ def _resolve_section_html(ctx, edit_mode=False):
     `manual` being `active`/`superseded`, i.e. whenever an entry exists.
     One rule, two render sites, not two rules.
 
-    19-08-PLAN.md Task 3 (D-22) originally gated Step B's upload zone
-    on `edit_mode`, matching `_lightbox_html()`'s own gate at the time.
-    21-06-PLAN.md Task 1 (D-19) removes that gate: naming an
-    unrecognised airline and giving it a picture is one job, so Step
-    B's upload zone is unconditional again, in both this fallback panel
-    and the dialog (`_lightbox_html()`'s identical gate is dropped by
-    21-06-PLAN.md Task 2). The shared delete form stays gated on
-    `edit_mode` (D-20) — "Change pictures" keeps only replace/delete of
-    existing artwork. The resolve-name form (Step A) stays
-    unconditional, for the identical reason `_lightbox_html()` keeps it
-    unconditional.
+    Step B's upload zone, the resolve-name form (Step A), and the
+    shared manual-delete form are all unconditional (29-01-PLAN.md,
+    CFG-81: the page-wide editing mode this page used to gate the
+    delete form behind is deleted outright). Unlike the dialog's own
+    delete-form placeholder (`_lightbox_html()`'s `action=""`, filled
+    in client-side per click), this function already has the real
+    prefix in hand, so it computes a real, server-derived action
+    (`_manual_delete_action(prefix)`) and renders whenever an entry
+    exists for that prefix — which is already what "D-09 amendment"
+    above means by "whenever an entry exists".
     """
     prefix_raw = ctx.get("resolve_prefix")
     if not prefix_raw:
@@ -2207,18 +2156,16 @@ def _resolve_section_html(ctx, edit_mode=False):
     escaped_name = escape_html(airline_name)
     heading = '<h2 class="text-heading">%s</h2>' % (i18n.t(STEP_B_HEADING_TEMPLATE) % escaped_name)
     # D-09 amendment: an entry exists past this point in every remaining
-    # branch, so the delete form is eligible to render in both of them.
-    # 19-08-PLAN.md Task 3 (D-22): eligible does not mean unconditional
-    # any more — gated on edit_mode, matching _lightbox_html()'s own gate.
-    delete_form = _manual_delete_form_html(_manual_delete_action(prefix)) if edit_mode else ""
+    # branch, so the delete form is eligible to render in both of them —
+    # unconditionally now (29-01-PLAN.md, CFG-81).
+    delete_form = _manual_delete_form_html(_manual_delete_action(prefix))
 
     if illustrations.resolved_illustration_path(key, state_dir) is None:
         # Step B — name already saved, no artwork exists yet.
         caption = '<p class="text-label section-caption">%s</p>' % i18n.t(STEP_B_CAPTION)
         upload_action = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
         # 21-06-PLAN.md Task 1 (D-19): uploading a picture is part of
-        # naming an airline again — no `edit_mode` gate here (unlike
-        # the delete form above, which D-20 keeps gated).
+        # naming an airline again.
         upload_zone = _resolve_upload_form_html(upload_action, "")
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
             AIRLINES_ROUTE, i18n.t(STEP_B_SKIP_TEXT))
@@ -2339,70 +2286,23 @@ def _manual_summary_html(manual_rows):
         'data-filter-set="manual">%s</button>') % summary_text
 
 
-def _edit_toggle_html(ctx, edit_mode):
-    """The "Change pictures"/"Done" toggle (D-36, 20-UI-SPEC.md §K) —
-    the Airlines-side replacement for the Device page's now-deleted
-    "Edit artwork" link. Reuses the `.page-header__screen` wrapper
-    shape that deleted link used (`config_page.py`'s former
-    `_edit_artwork_link_html()`, removed by 20-07-PLAN.md Task 3), so
-    the two look alike wherever a household member has seen one
-    before. One literal `<a class="airlines-edit-toggle">` per branch,
-    two literal hrefs — never a script, a GET form or a runtime
-    query-string builder.
-
-    D-17/D-20 (21-01-PLAN.md Task 2): this toggle used to be gated on a
-    now-deleted display-mode preference, hiding the anchor and its
-    explanatory sentence entirely when that mode was active. That gate
-    is deleted — the toggle is unconditional now, one deletion serving
-    both decisions (Pitfall 6: plan 21-06/D-19-D-20's upload-restore
-    work depends on this and must not touch this function again). The
-    `?edit=1` lightbox forms this toggle links to keep their OWN,
-    separate `ctx["edit_mode"]` gate exactly as phase 19 shipped it
-    (D-22) — unaffected by this change.
-    """
-    if edit_mode:
-        toggle_html = (
-            '<a href="/airlines" class="airlines-edit-toggle">%s</a>'
-        ) % escape_html(i18n.t(DONE_TEXT))
-    else:
-        toggle_html = (
-            '<a href="/airlines?edit=1" class="airlines-edit-toggle">%s</a>'
-        ) % escape_html(i18n.t(CHANGE_PICTURES_TEXT))
-    # X7 (22-11-PLAN.md Task 2): the first half of "edit mode is
-    # visible" — a state badge on the page header, reusing
-    # `.banner__pill`'s label voice VERBATIM (no modifier, no second
-    # pill class). It renders only while the mode is on; out of edit
-    # mode there is no badge at all, because a badge naming a state the
-    # page is not in is worse than none.
-    badge_html = (
-        '<span class="banner__pill">%s</span>' % escape_html(i18n.t(EDITING_BADGE_TEXT))
-        if edit_mode else "")
-    return (
-        '<div class="page-header__screen">'
-        "%s"
-        "%s"
-        '<p class="text-label section-caption">%s</p>'
-        "</div>"
-    ) % (toggle_html, badge_html, escape_html(i18n.t(EDIT_TOGGLE_CAPTION)))
-
-
 def render(ctx):
     """The Airlines page (D-13 through D-17, extended by phase 13's
     D-03/D-06/D-07/D-10 through D-13, phase 14's coverage-gap grid,
     manual-resolution absorption, and page-order reversal, and 19-08-
-    PLAN.md's D-21/D-22 explained-gap-strip and edit-gated-lightbox
-    rework): the page header, then (19-08-PLAN.md Task 1, D-21) the
-    "Unidentified airlines" gap strip — its own explained `<section>`,
-    emitted before everything else so a household member sees it first
-    — the D-16 filter bar, the D-11 manual-resolutions summary line
-    (only when the registry has at least one entry), one card per
-    airline in `illustrations.target_variants_by_airline()` order (plus
-    any injected manual-only card, D-08; the gap cards themselves no
-    longer live in this grid, per D-21), the shared click-to-enlarge
-    lightbox dialog (quick task 260902-tli, now edit-gated per D-22),
-    then (phase 14, moved from the top of the page) the conditional
-    resolve section. `ctx` is accepted for call-site parity with every
-    other page module's `render(ctx)` signature.
+    PLAN.md's D-21 explained-gap-strip rework): the page header, then
+    (19-08-PLAN.md Task 1, D-21) the "Unidentified airlines" gap strip —
+    its own explained `<section>`, emitted before everything else so a
+    household member sees it first — the D-16 filter bar, the D-11
+    manual-resolutions summary line (only when the registry has at
+    least one entry), one card per airline in `illustrations.
+    target_variants_by_airline()` order (plus any injected manual-only
+    card, D-08; the gap cards themselves no longer live in this grid,
+    per D-21), the shared click-to-enlarge lightbox dialog (quick task
+    260902-tli; its Replace/Delete forms always render, per 29-01-
+    PLAN.md/CFG-81), then (phase 14, moved from the top of the page) the
+    conditional resolve section. `ctx` is accepted for call-site parity
+    with every other page module's `render(ctx)` signature.
 
     Since quick task 260902-v26 this reads `state_dir` (used to resolve
     each card's illustration-replace cache buster, see
@@ -2421,13 +2321,6 @@ def render(ctx):
     cards, no manual summary, no resolve section. This page still opens
     no database.
 
-    19-08-PLAN.md Task 3 (D-22) adds a fifth `ctx.get()` read,
-    `edit_mode` — a presentation-only bool (documented in full in
-    companion/pages/__init__.py) threaded into both `_lightbox_html()`
-    and `_resolve_section_html()` as a fully-defaulted keyword, so it
-    decides only whether the artwork-editing forms render, never
-    whether the routes those forms target accept the request.
-
     The filter bar and the lightbox dialog both render whenever there is
     at least one card of EITHER kind (gap or curated) — this codebase's
     consistent "no chrome with no data" rule, widened here so a state
@@ -2438,13 +2331,34 @@ def render(ctx):
     same "reference/cleanup material, not the page's purpose" framing
     the retired management table's own empty state used to carry
     (UI-SPEC Autonomous Decision 2).
+
+    29-02-PLAN.md (CFG-82) supersedes 19-08-PLAN.md's (D-21) "gap strip
+    first" ordering: the return expression's term order is now
+    page_header, filter_html, the gallery grid, gap_strip_html,
+    lightbox_html, resolve_html — the filter bar and the known-airline
+    gallery are the first two things under the title, and the
+    unidentified-prefix strip drops to a secondary position below the
+    gallery, still carrying its own `GAP_STRIP_HEADING`/`GAP_STRIP_BODY`
+    announcement so it stays a clearly-announced secondary section, just
+    no longer the page's first one. D-21's own reasoning — surfacing a
+    diagnostic list before anything else — is what this supersedes: on a
+    phone it put a diagnostic list ahead of the page's main content.
+    Resolving CFG-82's "any remaining editing affordance moves to a
+    clearly announced secondary section" (A2): 29-01-PLAN.md (CFG-81)
+    already deleted the one page-wide editing toggle this could have
+    named, so nothing needed relocating on that account. Of this
+    function's remaining terms, the manual-resolutions summary button
+    lives INSIDE the filter bar (a filter control, per the 22-11 comment
+    above `filter_html`'s assignment) and the resolve flow's own
+    controls render only under `?resolve=...`, never on the default
+    view — neither is "above the gallery" on the page this reorder
+    actually renders, so neither moved.
     """
     # ctx.get(), never ctx["state_dir"]: companion/test_view_pages.py:1365
     # calls render({}) with a literal empty dict, and every other caller
     # of this page (companion/app.py's page_context()) does supply
     # state_dir, so this must stay tolerant of both.
     state_dir = ctx.get("state_dir")
-    edit_mode = bool(ctx.get("edit_mode"))
     # 22-11-PLAN.md Task 1 (D-05, B5): the SAME `ctx["now"]` key
     # `_resolve_section_html()` already reads for the no-JS path's own
     # `layout.concise_timestamp_html()` calls — read once here and
@@ -2452,7 +2366,7 @@ def render(ctx):
     # the no-JS path's rendered text are produced from one value by one
     # formatter, and therefore cannot disagree.
     now = ctx.get("now")
-    resolve_html = _resolve_section_html(ctx, edit_mode=edit_mode)
+    resolve_html = _resolve_section_html(ctx)
     pairs = illustrations.target_variants_by_airline()
 
     # Phase 14 (14-06-PLAN.md Task 1, D-08/D-10/D-12 fallback
@@ -2541,7 +2455,7 @@ def render(ctx):
     pairs = pairs + injected_pairs
 
     total = len(gap_shown) + len(pairs)
-    lightbox_html = _lightbox_html(edit_mode=edit_mode) if (pairs or gap_shown) else ""
+    lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
     # Phase 14 (14-06-PLAN.md Task 2, D-11): UI-SPEC's binding
     # top-to-bottom order is filter_bar, then manual-summary, then
     # gap-overflow, then grid — the standalone management table
@@ -2566,21 +2480,24 @@ def render(ctx):
     # cards-exist gate, which is not a real narrowing — `pairs` is
     # `illustrations.target_variants_by_airline()`, never empty in this
     # app, so a render with manual rows and no filter bar cannot occur.
+    #
+    # 29-02-PLAN.md (CFG-82) supersedes D-21's "gap strip first" placement
+    # in a third respect: `gap_strip_html` moves from the front of this
+    # return expression to just before `lightbox_html`, so the filter bar
+    # and the known-airline gallery are the first two things under the
+    # page title. This is a pure reorder of the same three already-built
+    # strings — `total`, `filter_html`'s gate expression and
+    # `lightbox_html`'s gate expression (both immediately above) are
+    # untouched. See render()'s own docstring for the superseded-in-place
+    # account and the resolved A2 decision.
     summary_html = _manual_summary_html(manual_rows)
     filter_html = _filter_bar_html(total, summary_html) if (pairs or gap_shown) else ""
-    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle is
-    # the first element inside the gallery section, directly under the
-    # page's own heading/purpose block — not in page_header()'s own
-    # action_html slot, which Airlines has no precedent for using.
-    edit_toggle_html = _edit_toggle_html(ctx, edit_mode)
     return (
         layout.page_header(i18n.t("Airlines"), purpose=i18n.t(GALLERY_PURPOSE_TEXT))
-        + edit_toggle_html
-        + gap_strip_html
         + filter_html
         + _gallery_grid_html(
-            pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now,
-            edit_mode=edit_mode)
+            pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now)
+        + gap_strip_html
         + lightbox_html
         + resolve_html
     )

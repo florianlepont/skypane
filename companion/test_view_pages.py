@@ -45,7 +45,10 @@ python3. No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_view_pages.py
 """
+import ast
+import glob
 import html
+import inspect
 import math
 import os
 import re
@@ -657,6 +660,62 @@ EXPECTED_CHECK_COUNT = 165
 # gated-on-count check). 165 + 1 = 166, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 166
 
+# 29-01-PLAN.md (CFG-81): -4 net. Five checks retired outright (the
+# edit_mode=True "one of each edit-only form" duplicate, the
+# "Change pictures" toggle default-render check, the "Done" toggle
+# edit_mode=True check, the French toggle-label check, and the CSS-rule
+# .airlines-edit-toggle in-normal-case check — its own CSS rule block is
+# deleted by Task 1 so it cannot be retargeted); one new absence check
+# added (no toggle class, no ?edit= literal, either language) covers the
+# property worth keeping from two of those retirements. Two checks
+# inverted/replaced in place (net 0 each): the default-render "no
+# edit-only forms" check now asserts the opposite (forms always
+# present), and the badge/per-card-control check now asserts their
+# absence plus the trigger's own vocabulary as a relationship. One
+# browser-level check retargeted in place (net 0): the exact-"1"
+# membership test is gone with the parameter, replaced by proving the
+# dialog's forms render unconditionally over real HTTP. 5 retired - 1
+# added back = -4. 166 - 4 = 162, re-derived by RUNNING (162/162 pass).
+EXPECTED_CHECK_COUNT = 162
+
+# 29-02-PLAN.md (CFG-82): +2 net. One existing check
+# (_airlines_gap_strip_renders_before_filter_bar_with_heading_and_no_grid_placeholder,
+# renamed to its "_after_the_gallery_" form) is retargeted in place (net
+# 0) to the new order — the strip now renders after the filter bar and
+# the gallery grid, not before them. Two checks are new: one asserts the
+# whole page's section order as a chain of index relationships (title <
+# filter < gallery < gap strip < lightbox, each literal exactly once);
+# one re-proves render()'s existing no-chrome gate survives the reorder
+# untouched (a gap-cards-only fixture still shows the filter bar, a
+# neither fixture shows none). 0 (retarget) + 2 (new) = +2.
+# 162 + 2 = 164, re-derived by RUNNING (164/164).
+EXPECTED_CHECK_COUNT = 164
+
+# 29-03-PLAN.md (CFG-83): +1 net. Task 1 retargets the existing
+# registry-witness check's witness dict (a ".flights-more" entry added
+# alongside the new swap-registry region) in place — net 0, no new
+# check(...) call. Task 2 adds one new check: the
+# .history-card__primary two-track-grid relationship (CSS declarations
+# plus all three primary_value_html branches producing a placeable
+# child set). 0 (retarget) + 1 (new) = +1. 164 + 1 = 165, re-derived by
+# RUNNING (165/165).
+EXPECTED_CHECK_COUNT = 165
+
+# 29-03-PLAN.md Task 3: +3 (Check A, the refresh-survival property's
+# structural half; Check B, the Show-more control's no-JS/no-script-
+# mentions proof; Check C, the hostile-input clamp exhaustion plus the
+# "only one path" structural invariant). 165 + 3 = 168, re-derived by
+# RUNNING (168/168).
+EXPECTED_CHECK_COUNT = 168
+
+# CR-01 fix (29-REVIEW.md): +1. A real selector-vs-emitted-tag check for
+# the Show-more anchor — a class-string substring match in both the
+# markup and style.css is not proof of visual reuse, which is exactly
+# how the anchor shipped with none of `.calendar-disconnect-btn`'s
+# styling despite passing every prior check. 168 + 1 = 169, re-derived
+# by RUNNING (169/169).
+EXPECTED_CHECK_COUNT = 169
+
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -823,11 +882,14 @@ def _seed_gallery(state_dir, names):
         _write_gallery_png(os.path.join(gallery_dir, name))
 
 
-def _history_ctx(state_dir, now=None, gallery_entries=None):
+def _history_ctx(state_dir, now=None, gallery_entries=None, flights_limit=None):
     return {
         "state_dir": state_dir,
         "now": now or history_db.utc_now_iso(),
         "gallery_entries": gallery_entries or [],
+        # 29-03-PLAN.md Task 1 (CFG-83): the raw `?limit=` value, mirroring
+        # app.py's own ctx key exactly (None when the caller does not care).
+        "flights_limit": flights_limit,
     }
 
 
@@ -3585,13 +3647,11 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-        # 19-08-PLAN.md Task 3 (D-22) retarget: LIGHTBOX_REPLACE_FORM_
-        # CLASS ("lightbox__replace") is now one of the three
-        # artwork-editing forms gated behind edit_mode, so this
-        # DOM-contract guard must render under edit_mode=True to see it
-        # at all - a plain {} render is exercised separately by the
-        # D-22 absence checks below.
-        airlines_rendered = airlines_page.render({"edit_mode": True})
+        # 29-01-PLAN.md (CFG-81): LIGHTBOX_REPLACE_FORM_CLASS
+        # ("lightbox__replace") is unconditional now — the page-wide
+        # editing mode this guard used to need is deleted — so a plain
+        # default render already carries it.
+        airlines_rendered = airlines_page.render({})
 
         for token in _LIGHTBOX_SHARED_TOKENS:
             if token not in js_source:
@@ -3976,11 +4036,10 @@ def main():
         with open(style_css_path) as fh:
             style_css_source = fh.read()
 
-        # 19-08-PLAN.md Task 3 (D-22) retarget: LIGHTBOX_REPLACE_FORM_
-        # CLASS is edit-gated now (see the DOM-contract guard's own
-        # identical retarget above) - render under edit_mode=True so
-        # this check keeps proving the token reaches a real render.
-        airlines_rendered = airlines_page.render({"edit_mode": True})
+        # 29-01-PLAN.md (CFG-81): LIGHTBOX_REPLACE_FORM_CLASS is
+        # unconditional now (see the DOM-contract guard's own identical
+        # retarget above) - a plain default render already carries it.
+        airlines_rendered = airlines_page.render({})
         tmp = _mkstate("h-replace-tokens-absent")
         try:
             names = ["2026-08-27T10-07-00+00-00.png"]
@@ -4066,9 +4125,17 @@ def main():
     # 19-08-PLAN.md Task 1 (D-21/A-38): the "Unidentified airlines" gap
     # strip - its own explained home for the coverage-gap cards, moved
     # off the head of the curated artwork grid.
+    #
+    # 29-02-PLAN.md (CFG-82) SUPERSEDES this section's own check in
+    # place: D-21 put the strip BEFORE the filter bar (first thing on
+    # the page); CFG-82 moves it AFTER the filter bar and the gallery
+    # grid instead, so a household member reaches the page's main
+    # content before a diagnostic list. The check below is retargeted
+    # to the new order, not retired - the "no gap card ever leaks into
+    # the curated grid" property it proves is unchanged by the reorder.
     # ======================================================================
 
-    def _airlines_gap_strip_renders_before_filter_bar_with_heading_and_no_grid_placeholder():
+    def _airlines_gap_strip_renders_after_the_gallery_with_heading_and_no_grid_placeholder():
         tmp = _mkstate("a-gap-strip")
         try:
             _seed_unresolved_prefixes(tmp, {
@@ -4087,23 +4154,28 @@ def main():
         try:
             strip_index = rendered.index(airlines_page.GAP_STRIP_HEADING)
             filter_bar_index = rendered.index('class="filter-bar')
+            gallery_index = rendered.index('class="illustration-grid"')
         except ValueError as exc:
-            return False, "expected both the gap strip heading and the filter bar present: %s" % (exc,)
-        if strip_index >= filter_bar_index:
-            return False, "expected the gap strip to render before the filter bar"
+            return False, (
+                "expected the gap strip heading, the filter bar and the gallery grid all present: %s"
+                % (exc,))
+        if strip_index <= filter_bar_index:
+            return False, "expected the gap strip to render after the filter bar (CFG-82, 29-02-PLAN.md)"
+        if strip_index <= gallery_index:
+            return False, "expected the gap strip to render after the gallery grid (CFG-82, 29-02-PLAN.md)"
         # The curated artwork grid never holds a gap card: every gap
         # card carries .airline-card__placeholder, and no curated card
-        # ever does, so zero occurrences anywhere at/after the filter
-        # bar (i.e. outside the strip, which rendered entirely before
-        # it) proves the grid holds none.
-        if "airline-card__placeholder" in rendered[filter_bar_index:]:
+        # ever does, so zero occurrences BEFORE the gap strip's own
+        # index (i.e. inside the filter bar and the gallery grid, which
+        # now render entirely before it) proves the grid holds none.
+        if "airline-card__placeholder" in rendered[:strip_index]:
             return False, "expected the curated artwork grid to hold no gap card placeholder"
         return True, ""
     check(
         "a render with an eligible gap emits the \"Unidentified airlines\" strip with its exact heading and "
-        "sentence before the filter bar, and the curated artwork grid holds no gap card (D-21, A-38, "
-        "19-08-PLAN.md Task 1)",
-        _airlines_gap_strip_renders_before_filter_bar_with_heading_and_no_grid_placeholder)
+        "sentence after the filter bar and the gallery grid, and the curated artwork grid holds no gap card "
+        "(D-21/A-38, 19-08-PLAN.md Task 1, order superseded by CFG-82, 29-02-PLAN.md)",
+        _airlines_gap_strip_renders_after_the_gallery_with_heading_and_no_grid_placeholder)
 
     def _airlines_gap_strip_absent_with_no_gaps():
         tmp = _mkstate("a-no-gap-strip")
@@ -4120,6 +4192,107 @@ def main():
         "a render with no eligible gaps emits no \"Unidentified airlines\" strip and no empty section "
         "(D-21, 19-08-PLAN.md Task 1)",
         _airlines_gap_strip_absent_with_no_gaps)
+
+    # ======================================================================
+    # 29-02-PLAN.md (CFG-82): the page's whole section order, asserted as
+    # a chain of relationships (never a literal offset) - the filter bar
+    # and the known-airline gallery are the first two things under the
+    # title, and the unidentified-prefix strip is a secondary section
+    # below the gallery.
+    # ======================================================================
+
+    def _airlines_section_order_is_title_then_filter_then_gallery_then_gapstrip_then_lightbox():
+        tmp = _mkstate("a-section-order")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 3, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            # illustrations.target_variants_by_airline() is the real
+            # curated in-repo catalog and is never empty in this app, so
+            # every gallery card term is non-empty here with no
+            # monkeypatch needed - the same "never empty" premise
+            # render()'s own comments state.
+            rendered = airlines_page.render({"state_dir": tmp})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        literals = (
+            ("title", '<h1 class="page-title"'),
+            ("filter", 'class="filter-bar"'),
+            ("gallery", 'class="illustration-grid"'),
+            ("gapstrip", airlines_page.GAP_STRIP_HEADING),
+            ("lightbox", '<dialog class="lightbox'),
+        )
+        indices = {}
+        for name, literal in literals:
+            occurrences = rendered.count(literal)
+            if occurrences != 1:
+                return False, (
+                    "expected exactly one occurrence of %r (the %s section), found %d"
+                    % (literal, name, occurrences))
+            indices[name] = rendered.index(literal)
+
+        order = ["title", "filter", "gallery", "gapstrip", "lightbox"]
+        for earlier, later in zip(order, order[1:]):
+            if not indices[earlier] < indices[later]:
+                return False, (
+                    "expected %s before %s, but got indices title=%d filter=%d gallery=%d "
+                    "gapstrip=%d lightbox=%d (CFG-82, 29-02-PLAN.md)"
+                    % (earlier, later, indices["title"], indices["filter"], indices["gallery"],
+                       indices["gapstrip"], indices["lightbox"]))
+        return True, ""
+    check(
+        "on a render with both an eligible gap and at least one curated gallery card, the page's own "
+        "sections chain title < filter bar < gallery grid < \"Unidentified airlines\" strip < the lightbox "
+        "dialog, each literal occurring exactly once (CFG-82, 29-02-PLAN.md)",
+        _airlines_section_order_is_title_then_filter_then_gallery_then_gapstrip_then_lightbox)
+
+    def _airlines_no_chrome_gate_survives_the_reorder():
+        original_target_variants_by_airline = illustrations.target_variants_by_airline
+        # Fixture A: gap cards present, the gallery's own curated pairs
+        # empty - monkeypatched, since the real catalog is never empty
+        # (render()'s own comment). The no-chrome gate is
+        # `pairs or gap_shown`, so this fixture must still show chrome.
+        tmp_a = _mkstate("a-no-chrome-gap-only")
+        try:
+            _seed_unresolved_prefixes(tmp_a, {
+                "XYZ": {
+                    "count": 3, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            illustrations.target_variants_by_airline = lambda: []
+            rendered_gap_only = airlines_page.render({"state_dir": tmp_a})
+        finally:
+            illustrations.target_variants_by_airline = original_target_variants_by_airline
+            shutil.rmtree(tmp_a, ignore_errors=True)
+        if 'class="filter-bar"' not in rendered_gap_only:
+            return False, (
+                "expected the filter bar to still render when there are gap cards but no curated pairs "
+                "(the gate is `pairs or gap_shown`, CFG-82, 29-02-PLAN.md)")
+
+        # Fixture B: neither gap cards nor curated pairs - the existing
+        # no-chrome-with-no-data rule must still hold after the reorder.
+        tmp_b = _mkstate("a-no-chrome-neither")
+        try:
+            illustrations.target_variants_by_airline = lambda: []
+            rendered_neither = airlines_page.render({"state_dir": tmp_b})
+        finally:
+            illustrations.target_variants_by_airline = original_target_variants_by_airline
+            shutil.rmtree(tmp_b, ignore_errors=True)
+        if 'class="filter-bar"' in rendered_neither:
+            return False, (
+                "expected no filter bar at all when there is nothing to filter (the no-chrome-with-no-data "
+                "gate, CFG-82, 29-02-PLAN.md)")
+        return True, ""
+    check(
+        "the reorder does not touch render()'s own no-chrome gate: a render with gap cards but no curated "
+        "pairs still shows the filter bar, and a render with neither shows no filter bar at all (CFG-82, "
+        "29-02-PLAN.md)",
+        _airlines_no_chrome_gate_survives_the_reorder)
 
     # ======================================================================
     # 19-08-PLAN.md Task 2 (D-21/A-38): the resolve panel's back link now
@@ -4151,61 +4324,55 @@ def main():
         _airlines_resolve_panel_back_link_names_and_targets_airlines)
 
     # ======================================================================
-    # 19-08-PLAN.md Task 3 (D-22): the shared lightbox's replace, upload
-    # and delete forms render only under an exact ?edit=1; the everyday
-    # view-only lightbox keeps only the resolve-name form.
+    # 29-01-PLAN.md (CFG-81): the shared lightbox's replace, upload and
+    # delete forms all render unconditionally now — the page-wide
+    # editing mode that used to gate replace/delete behind an exact
+    # ?edit=1 is deleted outright. panel-lookup.js decides which of
+    # replace/delete is VISIBLE on a given open, from the clicked
+    # trigger's own mode/manual data attributes.
     # ======================================================================
 
-    def _airlines_default_render_has_no_edit_only_forms():
+    def _airlines_default_render_always_has_the_dialogs_forms():
         rendered = airlines_page.render({})
-        # 21-06-PLAN.md Task 1 (D-19) dropped RESOLVE_UPLOAD_ZONE_CLASS
-        # from this asserted-absent tuple. 21-06-PLAN.md Task 2 (D-19)
-        # retargets it further: the dialog's own upload zone is
-        # unconditional now too, so this default render (the everyday
-        # view-only lightbox) must contain exactly one of it. Replace
-        # and delete stay edit-only (D-20).
-        #
         # Exact `class="{token}"` (with the closing quote), never a
         # bare substring - LIGHTBOX_REPLACE_FORM_CLASS
         # ("lightbox__replace") is itself a prefix of several sibling
         # classes (lightbox__replace-zone, lightbox__replace-icon,
-        # lightbox__replace-hint) that render unconditionally as part
-        # of the now-unconditional upload zone's own markup.
+        # lightbox__replace-hint) that also render unconditionally as
+        # part of the upload zone's own markup.
         for token in (
                 airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
-                airlines_page.LIGHTBOX_DELETE_CLASS):
-            if ('class="%s"' % token) in rendered:
-                return False, "expected no %r in a default (edit_mode absent) render" % (token,)
-        upload_count = rendered.count('class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS)
-        if upload_count != 1:
-            return False, (
-                "expected exactly one %r in a default (edit_mode absent) render, got %d"
-                % (airlines_page.RESOLVE_UPLOAD_ZONE_CLASS, upload_count))
+                airlines_page.LIGHTBOX_DELETE_CLASS,
+                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS):
+            count = rendered.count('class="%s"' % token)
+            if count != 1:
+                return False, (
+                    "expected exactly one %r in a default render (no page-wide editing mode "
+                    "gates this dialog form any more, CFG-81), got %d" % (token, count))
         return True, ""
     check(
-        "a default airlines_page.render({}) call (edit_mode absent, the everyday view-only "
-        "lightbox) contains none of the replace or delete edit-only forms, but exactly one "
-        "upload zone - unconditional now (D-19), unlike replace/delete which stay behind "
-        "\"Change pictures\" (D-20, D-22, 19-08-PLAN.md Task 3, retargeted by 21-06-PLAN.md "
-        "Tasks 1 and 2)",
-        _airlines_default_render_has_no_edit_only_forms)
+        "a default airlines_page.render({}) call (no query parameter involved) carries exactly "
+        "one each of the dialog's replace form, delete form and upload zone — the page-wide "
+        "editing mode that used to gate replace/delete behind an exact ?edit=1 is deleted "
+        "(CFG-81, 29-01-PLAN.md)",
+        _airlines_default_render_always_has_the_dialogs_forms)
 
     def _airlines_default_render_step_b_upload_zone_unconditional():
         # 21-06-PLAN.md Task 1 (D-19): a Step-B entry (name saved, no
         # artwork yet) offers the upload zone in the no-JS resolve
-        # panel without ?edit=1 - naming an airline and giving it a
-        # picture is one job. The shared delete form stays edit_mode-
-        # gated (D-20), and this no-JS fallback panel has no replace
-        # form of its own.
+        # panel — naming an airline and giving it a picture is one job.
+        # airlines_page.render() always emits both the fallback panel
+        # and the lightbox when there is at least one card, so a Step-B
+        # render carries TWO upload zones (one per surface).
         #
-        # 21-06-PLAN.md Task 2 (D-19) drops the identical guard on the
-        # lightbox's own copy, and airlines_page.render() always emits
-        # both the fallback panel and the lightbox when there is at
-        # least one card - so a Step-B render now carries TWO upload
-        # zones (one per surface), not one. This is the intended
-        # outcome of both decisions landing together, not a
-        # double-count bug (per 21-06-PLAN.md Task 1's own instruction
-        # to "fix the count, not the intent").
+        # 29-01-PLAN.md (CFG-81): the shared delete form is unconditional
+        # now too, and an entry exists at this point (Step B), so it
+        # renders once from the no-JS fallback panel (a real,
+        # server-computed action) and once from the dialog (an
+        # `action=""` placeholder panel-lookup.js fills in per click) —
+        # two, not zero. The dialog's replace form is unconditional as
+        # well, but this no-JS fallback panel has no replace form of its
+        # own, so that stays exactly one (the dialog's own copy).
         tmp = _mkstate("a-step-b-upload-default")
         try:
             result = manual_resolutions.add_entry(tmp, "NEW", "Totally Novel Airline")
@@ -4217,8 +4384,7 @@ def main():
         upload_count = rendered.count('class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS)
         if upload_count != 2:
             return False, (
-                "expected exactly two %r (fallback panel + lightbox) in a default "
-                "(edit_mode absent) Step-B render, got %d"
+                "expected exactly two %r (fallback panel + lightbox) in a Step-B render, got %d"
                 % (airlines_page.RESOLVE_UPLOAD_ZONE_CLASS, upload_count))
         # Exact `class="{token}"` (with the closing quote), never a bare
         # substring - LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
@@ -4226,16 +4392,24 @@ def main():
         # (lightbox__replace-zone, lightbox__replace-icon,
         # lightbox__replace-hint) that render unconditionally as part of
         # the upload zone's own markup.
-        if ('class="%s"' % airlines_page.LIGHTBOX_DELETE_CLASS) in rendered:
-            return False, "expected zero delete forms in a default (edit_mode absent) Step-B render"
-        if ('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS) in rendered:
-            return False, "expected zero replace forms in a default (edit_mode absent) Step-B render"
+        delete_count = rendered.count('class="%s"' % airlines_page.LIGHTBOX_DELETE_CLASS)
+        if delete_count != 2:
+            return False, (
+                "expected exactly two %r (fallback panel + lightbox) in a Step-B render, got %d"
+                % (airlines_page.LIGHTBOX_DELETE_CLASS, delete_count))
+        replace_count = rendered.count('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
+        if replace_count != 1:
+            return False, (
+                "expected exactly one %r (the dialog's own copy — this no-JS fallback panel has "
+                "none of its own) in a Step-B render, got %d"
+                % (airlines_page.LIGHTBOX_REPLACE_FORM_CLASS, replace_count))
         return True, ""
     check(
-        "a default (edit_mode absent) render of a Step-B entry (name saved, no artwork yet) "
-        "contains exactly two upload zones (the no-JS fallback panel's own copy plus the "
-        "lightbox's), zero manual-delete forms and zero replace forms (D-19/D-20, "
-        "21-06-PLAN.md Tasks 1 and 2)",
+        "a render of a Step-B entry (name saved, no artwork yet) contains exactly two upload "
+        "zones and two manual-delete forms (the no-JS fallback panel's own copy plus the "
+        "lightbox's, both unconditional per CFG-81), and exactly one replace form (the "
+        "dialog's own copy — this no-JS fallback panel has none of its own) (D-19, "
+        "21-06-PLAN.md Task 1; retargeted by 29-01-PLAN.md)",
         _airlines_default_render_step_b_upload_zone_unconditional)
 
     def _airlines_default_render_keeps_exactly_one_resolve_name_form():
@@ -4252,91 +4426,48 @@ def main():
         "19-08-PLAN.md Task 3)",
         _airlines_default_render_keeps_exactly_one_resolve_name_form)
 
-    def _airlines_edit_mode_render_has_exactly_one_of_each_edit_only_form():
-        # Exact `class="{token}"` (with the closing quote), never a bare
-        # substring - LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
-        # is itself a prefix of several sibling classes
-        # (lightbox__replace-zone, lightbox__replace-icon,
-        # lightbox__replace-hint), each of which also renders under
-        # edit_mode=True.
-        rendered = airlines_page.render({"edit_mode": True})
-        for token in (
-                airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
-                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
-                airlines_page.LIGHTBOX_DELETE_CLASS):
-            count = rendered.count('class="%s"' % token)
-            if count != 1:
-                return False, "expected exactly one %r form under edit_mode=True, got %d" % (token, count)
-        return True, ""
-    check(
-        "airlines_page.render({\"edit_mode\": True}) contains exactly one each of the replace, "
-        "upload-zone and delete edit-only forms (D-22, 19-08-PLAN.md Task 3)",
-        _airlines_edit_mode_render_has_exactly_one_of_each_edit_only_form)
+    # 29-01-PLAN.md (CFG-81): the check that used to prove "exactly one
+    # of each edit-only form under edit_mode=True" is retired — the
+    # property is now _airlines_default_render_always_has_the_dialogs_
+    # forms()'s own, above, since there is no longer a second render
+    # state to distinguish.
 
     # ======================================================================
-    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle,
-    # unconditional since 21-01-PLAN.md Task 2 (D-17/D-20) — never
-    # touching D-22's own ctx["edit_mode"] gate on the lightbox forms
-    # checked just above.
+    # 29-01-PLAN.md (CFG-81): the "Change pictures"/"Done" toggle, its
+    # editing badge and its explanatory caption are deleted outright —
+    # the door that used to hide the dialog's own actions is gone, not
+    # relocated. The checks that used to exercise it
+    # (_airlines_default_render_has_one_change_pictures_toggle,
+    # _airlines_edit_mode_render_shows_done_toggle_with_no_query,
+    # _airlines_french_render_shows_translated_toggle_labels) are
+    # retired; the one property worth keeping — that the toggle can
+    # never come back by accident — is the new absence check below.
     # ======================================================================
 
-    def _airlines_default_render_has_one_change_pictures_toggle():
-        rendered = airlines_page.render({})
-        count = rendered.count('class="airlines-edit-toggle"')
-        if count != 1:
-            return False, "expected exactly one airlines-edit-toggle anchor in a default render, got %d" % count
-        if 'href="/airlines?edit=1"' not in rendered:
-            return False, "expected the toggle's href to be /airlines?edit=1 in a default render"
-        if airlines_page.CHANGE_PICTURES_TEXT not in rendered:
-            return False, "expected the toggle's text to read 'Change pictures'"
-        if airlines_page.EDIT_TOGGLE_CAPTION not in rendered:
-            return False, "expected the explanatory sentence under the toggle"
-        return True, ""
-    check(
-        "a default airlines_page.render({}) call contains exactly one airlines-edit-toggle anchor, "
-        "linking to /airlines?edit=1 and reading 'Change pictures', plus its explanatory sentence "
-        "(D-36, 20-10-PLAN.md Task 1)",
-        _airlines_default_render_has_one_change_pictures_toggle)
-
-    def _airlines_edit_mode_render_shows_done_toggle_with_no_query():
-        rendered = airlines_page.render({"edit_mode": True})
-        count = rendered.count('class="airlines-edit-toggle"')
-        if count != 1:
-            return False, "expected exactly one airlines-edit-toggle anchor under edit_mode=True, got %d" % count
-        if 'href="/airlines"' not in rendered or 'href="/airlines?edit=1"' in rendered:
-            return False, "expected the toggle's href to be /airlines (no query) under edit_mode=True"
-        if airlines_page.DONE_TEXT not in rendered:
-            return False, "expected the toggle's text to read 'Done' under edit_mode=True"
-        return True, ""
-    check(
-        "airlines_page.render({\"edit_mode\": True}) shows the toggle reading 'Done' and linking "
-        "back to /airlines with no query (D-36, 20-10-PLAN.md Task 1)",
-        _airlines_edit_mode_render_shows_done_toggle_with_no_query)
-
-    # D-17 (21-01-PLAN.md Task 2): the two checks that used to exercise
-    # the display-mode gate on airlines_page._edit_toggle_html() are
-    # deleted — that gate itself is deleted (D-20: the toggle is
-    # unconditional now). Coverage that the toggle renders by default
-    # is unaffected and stays live in
-    # _airlines_default_render_has_one_change_pictures_toggle above.
-
-    def _airlines_french_render_shows_translated_toggle_labels():
+    def _airlines_no_page_wide_editing_mode_survives():
         import companion.prefs as _prefs
         try:
-            _prefs.set_request_prefs(lang="fr")
-            rendered_closed = airlines_page.render({})
-            rendered_open = airlines_page.render({"edit_mode": True})
+            for lang in ("en", "fr"):
+                _prefs.set_request_prefs(lang=lang)
+                for rendered in (
+                        airlines_page.render({}),
+                        airlines_page.render({"resolve_prefix": "not-a-real-prefix"})):
+                    if 'class="airlines-edit-toggle"' in rendered:
+                        return False, (
+                            "expected no airlines-edit-toggle anchor to ever render again "
+                            "(lang=%r)" % (lang,))
+                    if "?edit=" in rendered:
+                        return False, (
+                            "expected no ?edit= query literal to ever render again (lang=%r)"
+                            % (lang,))
         finally:
             _prefs.set_request_prefs(lang="en")
-        if "Modifier les images" not in rendered_closed:
-            return False, "expected the French 'Modifier les images' label in a closed, French render"
-        if "Terminé" not in rendered_open:
-            return False, "expected the French 'Terminé' label in an open, French render"
         return True, ""
     check(
-        "a French render of Airlines shows 'Modifier les images' when closed and 'Terminé' when "
-        "open (D-05, D-09, D-36, 20-10-PLAN.md Task 1)",
-        _airlines_french_render_shows_translated_toggle_labels)
+        "the deleted page-wide editing toggle (its class literal) and the deleted ?edit= query "
+        "parameter (its literal form) never render again, in either language, whether the query "
+        "string is absent or carries an arbitrary unrelated value (CFG-81, 29-01-PLAN.md)",
+        _airlines_no_page_wide_editing_mode_survives)
 
     # ======================================================================
     # 20-10-PLAN.md Task 2 (D-05): the rest of Airlines through i18n.t(),
@@ -4352,20 +4483,21 @@ def main():
             _prefs.set_request_prefs(lang="en")
         for needle in (
                 ">Compagnies<", "Filtrer par compagnie ou indicatif",
-                "Illustration de la compagnie", "Modifier les images"):
+                "Illustration de la compagnie"):
             if needle not in rendered:
                 return False, "expected the French %r in a French Airlines render" % (needle,)
         if "Air France" not in rendered:
             return False, "expected the seeded/curated airline name 'Air France' to stay untranslated data"
         return True, ""
     check(
-        "a French render of Airlines shows the French page title, filter label, lightbox aria-label "
-        "and toggle text, while a real airline name ('Air France') stays untranslated data (D-05, "
-        "20-10-PLAN.md Task 2)",
+        "a French render of Airlines shows the French page title, filter label and lightbox "
+        "aria-label, while a real airline name ('Air France') stays untranslated data (D-05, "
+        "20-10-PLAN.md Task 2; the toggle-text needle retired by 29-01-PLAN.md/CFG-81)",
         _airlines_french_render_translates_headings_not_data)
 
     def _airlines_full_seeded_render_french_end_to_end():
         import companion.prefs as _prefs
+        import companion.i18n_fr.airlines as i18n_fr_airlines
         tmp = _mkstate("airlines-fr")
         try:
             _seed_unresolved_prefixes(tmp, {
@@ -4378,13 +4510,18 @@ def main():
                 _prefs.set_request_prefs(lang="fr")
                 rendered_fr = airlines_page.render({"state_dir": tmp})
                 resolve_fr = airlines_page.render(
-                    {"state_dir": tmp, "resolve_prefix": "XYZ", "edit_mode": True})
+                    {"state_dir": tmp, "resolve_prefix": "XYZ"})
             finally:
                 _prefs.set_request_prefs(lang="en")
+            # 29-06-PLAN.md Task 2 (CFG-79): retargeted in place — the
+            # gap-strip sentence this needle pinned was shortened from
+            # 15 to 8 words; the needle now names the CURRENT French
+            # translation via the module's own CATALOG lookup, never a
+            # hand-typed literal that would silently go stale on the
+            # next edit.
             for needle in (
                     ">Compagnies<", "Compagnies non identifiées",
-                    "Le cadre a vu ces indicatifs mais ne connaît pas la compagnie",
-                    "Modifier les images"):
+                    i18n_fr_airlines.CATALOG[airlines_page.GAP_STRIP_BODY]):
                 if needle not in rendered_fr:
                     return False, "expected the French %r in the French Airlines render" % (needle,)
             for needle in (
@@ -4398,7 +4535,7 @@ def main():
             rendered_en = airlines_page.render({"state_dir": tmp})
             for needle in (
                     '<h1 class="page-title">Airlines</h1>', airlines_page.GAP_STRIP_HEADING,
-                    airlines_page.GAP_STRIP_BODY, airlines_page.CHANGE_PICTURES_TEXT):
+                    airlines_page.GAP_STRIP_BODY):
                 if needle not in rendered_en:
                     return False, "expected the English %r in the default-language Airlines render" % (
                         needle,)
@@ -4406,10 +4543,11 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a fully-seeded Airlines render under lang='fr' shows the French gap-strip heading/sentence, "
-        "toggle label and resolve-panel copy with no English leaking in, the seeded example callsign "
-        "stays untranslated data, and the identical seeded render under the default language still "
-        "carries every pre-existing English needle (D-05, 20-10-PLAN.md Task 2)",
+        "a fully-seeded Airlines render under lang='fr' shows the French gap-strip heading/sentence "
+        "and resolve-panel copy with no English leaking in, the seeded example callsign stays "
+        "untranslated data, and the identical seeded render under the default language still "
+        "carries every pre-existing English needle (D-05, 20-10-PLAN.md Task 2; the toggle-label "
+        "needle retired by 29-01-PLAN.md/CFG-81)",
         _airlines_full_seeded_render_french_end_to_end)
 
     def _airlines_catalog_keys_all_present_in_merged_catalog():
@@ -4672,150 +4810,71 @@ def main():
     # ======================================================================
     # 22-11-PLAN.md Task 2 (X7): edit mode becomes visible, the toggle
     # stops shouting, and the manual count becomes a filter control.
+    #
+    # 29-01-PLAN.md (CFG-81) retires the first two checks below outright:
+    # the toggle they exercised (and its caption, its badge, and the
+    # per-card Replace control) are deleted, not merely restyled. The
+    # `.airlines-edit-toggle` CSS rule block
+    # `_airlines_edit_toggle_and_its_caption_render_in_normal_case()`
+    # used to read out of style.css is deleted by Task 1, so that check
+    # cannot be retargeted; its absence is proven instead by the new
+    # `_airlines_no_page_wide_editing_mode_survives()` check above.
+    # `_airlines_edit_mode_shows_a_badge_and_one_replace_control_per_card()`
+    # is replaced below with an absence-plus-vocabulary check of the new
+    # shape: no badge, no per-card control, but the zoom trigger itself
+    # still carries every data-view-panel-* attribute this module
+    # defines for it.
     # ======================================================================
 
-    def _airlines_edit_toggle_and_its_caption_render_in_normal_case():
-        # X7: both inherited `text-transform: uppercase` from
-        # `.page-header__screen` — a class whose own role on the Device
-        # page is a label-voice caption, where uppercase IS correct.
+    def _airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary():
         rendered = airlines_page.render({})
-        if airlines_page.CHANGE_PICTURES_TEXT not in rendered:
-            return False, "expected the toggle's sentence-case label in the markup"
-        css_path = os.path.join(HERE, "static", "style.css")
-        with open(css_path) as fh:
-            css = fh.read()
-        toggle_rule = re.search(r"^\.airlines-edit-toggle\s*\{([^}]*)\}", css, re.S | re.M)
-        if toggle_rule is None:
-            return False, "expected the existing .airlines-edit-toggle rule block"
-        if "text-transform: none" not in toggle_rule.group(1):
+
+        if "banner__pill" in rendered:
+            return False, "expected no Editing badge anywhere — the page-wide editing mode is gone"
+        if "calendar-disconnect-btn" in rendered:
             return False, (
-                "expected text-transform: none on the toggle's OWN existing class, killing the "
-                "uppercase it inherits from .page-header__screen")
-        caption_rule = re.search(
-            r"^\.page-header__screen \.section-caption\s*\{([^}]*)\}", css, re.S | re.M)
-        if caption_rule is None or "text-transform: none" not in caption_rule.group(1):
-            return False, "expected the caption under the toggle to be reset to normal case too"
-        # The Device page's own `<p class="page-header__screen
-        # text-label">` keeps its label voice: the class is on the
-        # element there, not on an ancestor, so the descendant selector
-        # above cannot reach it.
-        screen_rule = re.search(r"^\.page-header__screen\s*\{([^}]*)\}", css, re.S | re.M)
-        if screen_rule is None or "text-transform: uppercase" not in screen_rule.group(1):
+                "expected zero per-card Replace controls anywhere — the affordance moved into the "
+                "dialog (CFG-81)")
+
+        triggers = re.findall(r'<(?:button type="button"|a href="[^"]*") class="airline-card__zoom" .*?</(?:button|a)>',
+                               rendered, re.S)
+        if len(triggers) < 2:
+            return False, "expected the curated grid to render triggers to count vocabulary against"
+
+        # Never a hardcoded 15 (or 14): derive the trigger's own
+        # vocabulary from the module's own constants. Every
+        # `_VIEW_PANEL_*_ATTR` constant is a `data-view-panel-*`
+        # attribute name; `_VIEW_PANEL_CLOSE_ATTR` alone is excluded
+        # because it belongs to the dialog's own Close button, never to
+        # a card trigger — panel_attrs (the trigger's own builder) never
+        # references it, only `_lightbox_html()`'s Close button does.
+        attr_names = {
+            getattr(airlines_page, name) for name in dir(airlines_page)
+            if re.match(r"^_VIEW_PANEL_[A-Z0-9_]*_ATTR$", name)
+            and name != "_VIEW_PANEL_CLOSE_ATTR"
+        }
+        expected_count = len(attr_names)
+
+        counts = set()
+        for trigger in triggers:
+            found = set(re.findall(r'(data-view-panel-[a-z-]+)=', trigger))
+            if found != attr_names:
+                return False, (
+                    "expected every airline-card__zoom trigger to carry the same data-view-panel-* "
+                    "attribute set %r, got %r" % (sorted(attr_names), sorted(found)))
+            counts.add(len(found))
+        if counts != {expected_count}:
             return False, (
-                "expected .page-header__screen itself to keep its uppercase label voice for the "
-                "Device page's own caption usage")
-        # No new button class rode in on this fix — the file's own header
-        # comment names the `.btn--` family it refuses to have.
-        if ".btn--" in re.sub(r"/\*.*?\*/", "", css, flags=re.S):
-            return False, "expected no .btn-- family anywhere in style.css"
+                "expected every trigger to carry exactly %d data-view-panel-* attributes (the "
+                "module's own _VIEW_PANEL_*_ATTR count, minus the Close-button-only one), got %r"
+                % (expected_count, counts))
         return True, ""
     check(
-        "the Change pictures toggle and its caption render in normal case via text-transform: none "
-        "on the toggle's own existing class and a caption selector scoped inside the wrapper — "
-        "with .page-header__screen itself keeping the uppercase the Device page's caption usage "
-        "needs, and no new .btn-- family anywhere (X7, 22-11-PLAN.md Task 2)",
-        _airlines_edit_toggle_and_its_caption_render_in_normal_case)
-
-    def _airlines_edit_mode_shows_a_badge_and_one_replace_control_per_card():
-        # X7: turning the mode on used to change nothing visible on the
-        # grid — every affordance lived inside the lightbox.
-        edit = airlines_page.render({"edit_mode": True})
-        plain = airlines_page.render({})
-
-        badge = '<span class="banner__pill">%s</span>' % airlines_page.EDITING_BADGE_TEXT
-        if edit.count(badge) != 1:
-            return False, (
-                "expected exactly one Editing badge reusing .banner__pill verbatim in an edit-mode "
-                "render, found %d" % (edit.count(badge),))
-        if badge in plain or "banner__pill" in plain:
-            return False, "expected no Editing badge at all out of edit mode"
-
-        cards = edit.count('<div class="airline-card" ')
-        controls = edit.count('class="calendar-disconnect-btn"')
-        if cards < 2:
-            return False, "expected the curated grid to render cards to count controls against"
-        if controls != cards:
-            return False, (
-                "expected exactly one Replace control per card in edit mode, got %d controls for "
-                "%d cards" % (controls, cards))
-        if "calendar-disconnect-btn" in plain:
-            return False, "expected zero per-card Replace controls out of edit mode"
-
-        # Verb AND noun, not a bare verb (this app's CTA voice), and the
-        # accessible name contains the visible label (WCAG 2.5.3).
-        if airlines_page.REPLACE_PICTURE_TEXT.strip() == "Replace":
-            return False, "expected a verb-plus-noun label, not a bare verb"
-        if airlines_page.REPLACE_PICTURE_TEXT not in airlines_page.REPLACE_PICTURE_ARIA_TEMPLATE:
-            return False, (
-                "expected the aria template to contain the visible label verbatim (WCAG 2.5.3)")
-        import companion.i18n_fr as i18n_fr
-        fr_label = i18n_fr.CATALOG[airlines_page.REPLACE_PICTURE_TEXT]
-        fr_aria = i18n_fr.CATALOG[airlines_page.REPLACE_PICTURE_ARIA_TEMPLATE]
-        if fr_label not in fr_aria:
-            return False, (
-                "expected the French aria template to contain the French visible label verbatim "
-                "too, got %r and %r" % (fr_label, fr_aria))
-
-        # It opens the SAME shared dialog the zoom trigger opens, so it
-        # must carry the SAME full vocabulary — a subset would blank the
-        # dialog's mode through panel-lookup.js's `attr || ""` idiom.
-        control = re.search(
-            r'<button type="button" class="calendar-disconnect-btn" (.*?)</button>', edit, re.S)
-        if control is None:
-            return False, "expected to locate a rendered Replace control"
-        vocabulary = tuple(
-            token for token in _LIGHTBOX_AIRLINES_ONLY_TOKENS if token.startswith("data-view-panel-"))
-        for attr in vocabulary + (airlines_page._VIEW_PANEL_SRC_ATTR,
-                                  airlines_page._VIEW_PANEL_CAPTION_ATTR):
-            if ('%s="' % attr) not in control.group(1):
-                return False, (
-                    "expected the Replace control to carry the full data-view-panel vocabulary, "
-                    "missing %s" % (attr,))
-        # And the treatment is reused, never re-declared: one base rule
-        # block for the component, serving both consumers.
-        css_path = os.path.join(HERE, "static", "style.css")
-        with open(css_path) as fh:
-            css = fh.read()
-        # RETARGETED STRICTLY NARROWER by 22-15-PLAN.md Task 1 (T2), in
-        # a file that plan does not own, because that plan changed this
-        # clause's own premise: the base rule's selector is now
-        # `button.calendar-disconnect-btn` rather than the bare class.
-        # T2's defect was that the bare class at (0,1,0) lost to
-        # `button[type="submit"]` at (0,1,1), so Config's DESTRUCTIVE
-        # Disconnect rendered as the page's primary accent CTA and every
-        # declaration in this block was dead. The element-qualified form
-        # is (0,1,1) — equal specificity, later in source — which is the
-        # fix. This assertion is narrower than the one it replaces: it
-        # still pins "exactly one base rule block for both consumers"
-        # AND now also pins the element qualifier that makes the block
-        # reachable at all. A regression to the bare class fails here.
-        if len(re.findall(r"^button\.calendar-disconnect-btn \{", css, re.M)) != 1:
-            return False, (
-                "expected exactly one button.calendar-disconnect-btn base rule block serving "
-                "every consumer, at the element-qualified (0,1,1) specificity T2 requires")
-        if re.search(r"^\.calendar-disconnect-btn \{", css, re.M):
-            return False, (
-                "expected NO bare .calendar-disconnect-btn base rule — at (0,1,0) it loses to "
-                "button[type=\"submit\"] (0,1,1) and the destructive Disconnect renders as the "
-                "page's primary accent CTA (T2)")
-        placement = re.search(
-            r"^\.airline-card \.calendar-disconnect-btn\s*\{([^}]*)\}", css, re.S | re.M)
-        if placement is None:
-            return False, "expected the card-scoped placement rule for the Replace control"
-        for redeclared in ("font-size", "min-height", "background", "border:", "border-radius"):
-            if redeclared in placement.group(1):
-                return False, (
-                    "expected the placement rule to declare placement only, found a redeclared %r "
-                    "— the treatment belongs to the one base rule" % (redeclared,))
-        return True, ""
-    check(
-        "an edit-mode Airlines render carries exactly one .banner__pill Editing badge and exactly "
-        "one .calendar-disconnect-btn Replace control per card, each carrying the SAME full "
-        "data-view-panel vocabulary the zoom trigger carries, with a verb-plus-noun label whose "
-        "accessible name contains it in both languages — while a normal render carries neither, "
-        "and style.css keeps exactly one .calendar-disconnect-btn base rule for both consumers "
-        "(X7, 22-11-PLAN.md Task 2)",
-        _airlines_edit_mode_shows_a_badge_and_one_replace_control_per_card)
+        "a normal Airlines render carries no Editing badge and no per-card Replace control "
+        "anywhere (both deleted outright, CFG-81) — while every airline-card__zoom trigger still "
+        "carries the SAME full data-view-panel-* vocabulary, its size derived from the module's "
+        "own _VIEW_PANEL_*_ATTR constants rather than a hardcoded number (29-01-PLAN.md)",
+        _airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary)
 
     def _airlines_manual_count_is_a_filter_control_in_the_filter_bar():
         # X7: "1 manual resolutions" rendered as a 12px underlined bare
@@ -5418,6 +5477,12 @@ def main():
                 "ul.history-cards": '<ul class="history-cards"',
                 ".data-table-wrap": 'class="data-table-wrap"',
                 "[data-filter-count]": "data-filter-count ",
+                # 29-03-PLAN.md Task 1 (CFG-83): this fixture seeds
+                # exactly one row, so _show_more_html(1, 1) renders the
+                # EMPTY nav (shown >= total_available) — the witness
+                # still matches, because the element itself is always
+                # present (see that function's own comment for why).
+                ".flights-more": 'class="flights-more"',
             }
             if sorted(witnesses) != sorted(selectors):
                 return False, (
@@ -5675,6 +5740,460 @@ def main():
         "the card and OUT of the summary, and the disclosure body still holds exactly the three "
         "copy buttons (D7/CFG-37, 23-08-PLAN.md Task 2)",
         _the_phone_cards_own_face_is_its_disclosure_summary)
+
+    def _history_card_primary_grid_pins_the_timestamp_track():
+        # 29-03-PLAN.md Task 2 (CFG-83, 2026-09-17 audit P1): the CSS
+        # half — .history-card__primary is a two-track grid, its second
+        # track pinned to auto and its timestamp span forbidden from
+        # wrapping — plus the RELATIONSHIP that matters: the markup's
+        # three primary_value_html branches must each produce a child
+        # set the two-track grid can actually place, with no branch
+        # producing a third, unclassified top-level child.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+
+        primary_block = _css_rule_body(css, ".history-card__primary")
+        if primary_block is None:
+            return False, "could not locate the .history-card__primary rule block"
+        if not re.search(r"display:\s*grid\s*;", primary_block):
+            return False, (
+                "expected .history-card__primary to declare display: grid, got block %r"
+                % primary_block)
+        tracks_match = re.search(r"grid-template-columns:\s*([^;]+);", primary_block)
+        if tracks_match is None:
+            return False, (
+                "expected .history-card__primary to declare grid-template-columns, found none "
+                "in %r" % primary_block)
+        tracks = tracks_match.group(1).strip()
+        if not re.match(r"^minmax\(\s*0\s*,\s*1fr\s*\)\s+auto$", tracks):
+            return False, (
+                "expected grid-template-columns to declare exactly two tracks — minmax(0, 1fr) "
+                "then auto — got %r" % tracks)
+        if "justify-content" in primary_block:
+            return False, (
+                "expected justify-content ABSENT from .history-card__primary (meaningless on a "
+                "two-track grid whose second track is auto), found it in %r" % primary_block)
+
+        time_block = _css_rule_body(css, ".history-card__time")
+        if time_block is None:
+            return False, "could not locate the .history-card__time rule block"
+        if not re.search(r"white-space:\s*nowrap\s*;", time_block):
+            return False, (
+                "expected .history-card__time to declare white-space: nowrap, got %r" % time_block)
+        if "margin-left" in time_block:
+            return False, (
+                "expected .history-card__time to declare no margin-left (the grid places it now "
+                "instead of the flex auto-margin trick), found %r" % time_block)
+
+        branches = (
+            ("callsign", {"ts": "2026-09-21T10:00:00+00:00", "callsign": "GRD01"}),
+            ("hex-plus-note", {"ts": "2026-09-21T10:00:00+00:00", "hex": "abc123"}),
+            ("empty", {"ts": "2026-09-21T10:00:00+00:00"}),
+        )
+        for name, fields in branches:
+            tmp = _mkstate("h-grid-%s" % name)
+            try:
+                _seed_runway_events(tmp, [fields])
+                rendered = history_page.render(_history_ctx(tmp))
+                li_block = _row_block(rendered, "li", 0)
+                if li_block is None:
+                    return False, "%s branch: could not locate the rendered card" % name
+                primary_match = re.search(
+                    r'<div class="history-card__primary">(.*?)</div>', li_block, re.S)
+                if primary_match is None:
+                    return False, (
+                        "%s branch: could not locate .history-card__primary markup in %r"
+                        % (name, li_block))
+                primary_markup = primary_match.group(1)
+                if primary_markup.count('<span class="history-card__time">') != 1:
+                    return False, (
+                        "%s branch: expected exactly one history-card__time (track-2) child, "
+                        "found %d in %r" % (
+                            name, primary_markup.count('<span class="history-card__time">'),
+                            primary_markup))
+                track2_start = primary_markup.index('<span class="history-card__time">')
+                track1_markup = primary_markup[:track2_start]
+                track1_children = re.findall(
+                    r'<span class="(cell-primary|cell-secondary)[^"]*"', track1_markup)
+                if not track1_children:
+                    return False, (
+                        "%s branch: expected at least one track-1 (.cell-primary/.cell-secondary) "
+                        "child before the timestamp span, found none in %r"
+                        % (name, primary_markup))
+                # Strip every classified track-1 child; anything left
+                # over is a THIRD top-level child the two-track grid has
+                # no track for — the property this check exists to
+                # prove, per branch.
+                unclassified = re.sub(
+                    r'<span class="cell-(?:primary|secondary)[^"]*">.*?</span>', "",
+                    track1_markup, flags=re.S).strip()
+                if unclassified:
+                    return False, (
+                        "%s branch: expected every child before the timestamp span to be a "
+                        "classified .cell-primary/.cell-secondary track-1 child, found leftover "
+                        "unclassified markup %r in %r" % (name, unclassified, primary_markup))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the phone summary card's .history-card__primary line is a two-track CSS grid "
+        "(minmax(0, 1fr) then auto, no justify-content) with a non-wrapping .history-card__time "
+        "(white-space: nowrap, no margin-left: auto), and all three primary_value_html branches — "
+        "callsign, hex-plus-note, empty — produce a child set the grid can place with no third, "
+        "unclassified top-level child (2026-09-17 audit P1, 29-03-PLAN.md Task 2)",
+        _history_card_primary_grid_pins_the_timestamp_track)
+
+    def _flights_reveal_state_reproduces_from_the_url_alone():
+        """29-03-PLAN.md Task 3, Check A (29-RESEARCH.md's decisive
+        finding): `freshness.js` re-fetches `window.location.href` — the
+        browser's CURRENT url, including its query string — every
+        AUTO_REFRESH_INTERVAL_MS. This check does NOT run a browser and
+        does NOT execute the fetch or the DOMParser swap: it asserts the
+        two structural halves that make the refresh-survival property
+        hold at runtime. (1) Rendering the SAME ctx (the same `?limit=`
+        value) TWICE reproduces byte-identical pagination state,
+        standing in for the background loop's own re-fetch of that
+        unchanged URL. (2) `.flights-more` is a declared
+        REFRESH_SWAP_SELECTORS_BY_PAGE region, and freshness.js's own
+        fetch target is genuinely `window.location.href`, read from the
+        file, so a future edit that hardcodes a path breaks THIS check
+        rather than silently breaking the feature. What this does NOT
+        cover: no browser executes here, so the DOMParser swap ITSELF is
+        never exercised — that half needs a live re-verification (see
+        this plan's SUMMARY for the human follow-up).
+        """
+        tmp = _mkstate("h-reveal-survives")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "rv%02d" % i,
+                 "callsign": "REV%02d" % i}
+                for i in range(1, 37)
+            ])
+            ctx = _history_ctx(tmp, flights_limit="30")
+            first = history_page.render(ctx)
+            second = history_page.render(ctx)
+            for label, rendered in (("first", first), ("second", second)):
+                card_count = rendered.count('<li class="history-card"')
+                if card_count != 30:
+                    return False, "%s render: expected 30 cards, got %d" % (label, card_count)
+                nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
+                if nav_match is None:
+                    return False, "%s render: expected a non-empty Show-more nav" % label
+                href_match = re.search(r'href="([^"]+)"', nav_match.group(1))
+                if href_match is None or href_match.group(1) != "/flights?limit=45":
+                    return False, (
+                        "%s render: expected the Show-more anchor's href to be "
+                        "/flights?limit=45, got %r"
+                        % (label, href_match.group(1) if href_match else None))
+            first_cards_match = re.search(r'<ul class="history-cards">(.*?)</ul>', first, re.S)
+            second_cards_match = re.search(r'<ul class="history-cards">(.*?)</ul>', second, re.S)
+            if first_cards_match is None or second_cards_match is None:
+                return False, "could not locate ul.history-cards in one of the two renders"
+            if first_cards_match.group(1) != second_cards_match.group(1):
+                return False, (
+                    "expected two renders of the SAME ?limit= ctx to produce byte-identical "
+                    "ul.history-cards markup (standing in for freshness.js's own re-fetch of "
+                    "window.location.href), first %r, second %r"
+                    % (first_cards_match.group(1), second_cards_match.group(1)))
+
+            selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_FLIGHTS]
+            if ".flights-more" not in selectors:
+                return False, (
+                    "expected '.flights-more' to be a declared REFRESH_SWAP_SELECTORS_BY_PAGE "
+                    "region for Flights, got %r" % (selectors,))
+
+            js_path = os.path.join(HERE, "static", "freshness.js")
+            with open(js_path) as fh:
+                js_source = _strip_js_comments(fh.read())
+            fetch_calls = re.findall(r"fetch\(\s*([^,)]+)", js_source)
+            if len(fetch_calls) != 1:
+                return False, (
+                    "expected exactly one fetch( call in freshness.js, found %d: %r"
+                    % (len(fetch_calls), fetch_calls))
+            if fetch_calls[0].strip() != "window.location.href":
+                return False, (
+                    "expected freshness.js's one fetch( call to target window.location.href, "
+                    "got %r" % (fetch_calls[0].strip(),))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "two renders of a 36-row fixture at the SAME ?limit= value produce byte-identical "
+        "pagination state (standing in for freshness.js's own re-fetch of the unchanged "
+        "window.location.href), '.flights-more' is a declared swap region, and freshness.js "
+        "carries exactly one fetch( call targeting window.location.href verbatim — the "
+        "structural half of the refresh-survival property this harness can prove without a "
+        "browser (29-RESEARCH.md, 29-03-PLAN.md Task 3)",
+        _flights_reveal_state_reproduces_from_the_url_alone)
+
+    def _flights_reveal_control_is_a_plain_anchor_no_script_mentions():
+        """29-03-PLAN.md Task 3, Check B: the Show-more control must
+        work with scripts blocked. Proven two ways — (1) the rendered
+        anchor itself carries only an href and the shared, already-
+        script-free `.calendar-disconnect-btn` class: no `onclick`, no
+        `data-`-prefixed attribute, and the element is a plain `<a>`,
+        never a `<button>` or a `<form>`. (2) as a RELATIONSHIP rather
+        than a literal: every `companion/static/*.js` file is scanned
+        for the ONE class literal unique to this control, "flights-
+        more" — a control no script MENTIONS is a control that cannot
+        DEPEND on one. There is exactly ONE sanctioned exception,
+        stated rather than silently carved out: Task 1's own deviation
+        added ".flights-more" to freshness.js's generic
+        SWAP_SELECTORS_BY_PAGE mirror, the SAME plain-selector-array
+        entry every other Flights region already has there — the swap
+        loop refreshes whatever is inside it without ever reading,
+        clicking or parsing its href, so this is declaring a region,
+        not depending on a control. Anything beyond that single
+        registry-array mention — a second file, or a targeted
+        `querySelector`/`addEventListener`/`.click(`/`.href` reference
+        inside freshness.js itself — is a real script dependency this
+        control must not have. A vacuity floor asserts the scan
+        actually read at least 17 files (the count at planning time),
+        printed on failure, so a broken glob cannot make this pass
+        silently.
+        """
+        tmp = _mkstate("h-reveal-no-js")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "nj%02d" % i,
+                 "callsign": "NOJS%02d" % i}
+                for i in range(1, 21)
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
+            if nav_match is None:
+                return False, "expected a non-empty <nav class=\"flights-more\"> in a 20-row render"
+            nav_html = nav_match.group(1)
+            if not nav_html.startswith("<a ") or nav_html.count("<a ") != 1:
+                return False, (
+                    "expected the Show-more nav's one child to be a plain <a>, got %r" % nav_html)
+            if "<button" in nav_html or "<form" in nav_html:
+                return False, (
+                    "did not expect a <button> or <form> inside the Show-more nav, got %r"
+                    % nav_html)
+            if "href=" not in nav_html:
+                return False, "expected the Show-more anchor to carry an href, got %r" % nav_html
+            if "onclick" in nav_html:
+                return False, (
+                    "did not expect an onclick attribute on the Show-more anchor, got %r"
+                    % nav_html)
+            if re.search(r'\sdata-[a-z-]+=', nav_html):
+                return False, (
+                    "did not expect a data-prefixed attribute on the Show-more anchor (a script "
+                    "could read it), got %r" % nav_html)
+
+            js_files = sorted(glob.glob(os.path.join(HERE, "static", "*.js")))
+            if len(js_files) < 17:
+                return False, (
+                    "FLOOR TRIPPED: expected at least 17 companion/static/*.js files to scan, "
+                    "found %d: %r" % (len(js_files), js_files))
+            hits_by_file = {}
+            for path in js_files:
+                with open(path) as fh:
+                    stripped = _strip_js_comments(fh.read())
+                lines_with_hit = [ln for ln in stripped.splitlines() if "flights-more" in ln]
+                if lines_with_hit:
+                    hits_by_file[os.path.basename(path)] = lines_with_hit
+            unsanctioned = {
+                name: lines for name, lines in hits_by_file.items() if name != "freshness.js"}
+            if unsanctioned:
+                return False, (
+                    "expected only freshness.js's own generic swap-registry mirror to mention "
+                    "'flights-more' — found it in %r too (scanned %d files)"
+                    % (sorted(unsanctioned), len(js_files)))
+            if "freshness.js" in hits_by_file:
+                targeted = [
+                    ln for ln in hits_by_file["freshness.js"]
+                    if re.search(r'querySelector\(|addEventListener|\.click\(|\.href', ln)]
+                if targeted:
+                    return False, (
+                        "expected freshness.js's 'flights-more' mention(s) to be plain "
+                        "swap-registry array entries, found a targeted reference: %r" % (targeted,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Show-more anchor renders with an href and no onclick/data- attribute and is never a "
+        "<button> or <form>, and zero companion/static/*.js files mention its 'flights-more' "
+        "class (scanned-file floor >= 17, printed on failure) — a no-JS control proof, not merely "
+        "a render (29-03-PLAN.md Task 3)",
+        _flights_reveal_control_is_a_plain_anchor_no_script_mentions)
+
+    def _flights_reveal_anchor_has_a_matching_css_selector():
+        """CR-01 (29-REVIEW.md): a class-string substring search (present
+        in both the markup and style.css) is not proof the class actually
+        PAINTS the emitted tag — `button.calendar-disconnect-btn` is
+        element-type-qualified to a tag this anchor never is, and
+        `.airline-card .calendar-disconnect-btn` is descendant-scoped to
+        an ancestor this anchor is never inside; both pass a substring
+        search while reaching nothing. This check instead renders the
+        Show-more control, reads its actual tag and class list, then
+        parses style.css's own rule selectors and requires at least one
+        selector whose RIGHTMOST compound (the part a browser actually
+        matches against the element itself) carries no tag qualifier — or
+        one that matches the rendered tag exactly — with no ancestor
+        compound to its left (this control is never inside `.airline-
+        card`, so an ancestor-scoped selector does not reach it either).
+        """
+        tmp = _mkstate("h-reveal-css-match")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "cm%02d" % i,
+                 "callsign": "CSSM%02d" % i}
+                for i in range(1, 21)
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
+            if nav_match is None:
+                return False, "expected a non-empty <nav class=\"flights-more\"> in a 20-row render"
+            tag_match = re.search(r'<(\w+)\b[^>]*\bclass="([^"]*)"', nav_match.group(1))
+            if tag_match is None:
+                return False, (
+                    "expected the Show-more nav's child to carry a class attribute, got %r"
+                    % nav_match.group(1))
+            tag, classes = tag_match.group(1), tag_match.group(2).split()
+            if "calendar-disconnect-btn" not in classes:
+                return False, (
+                    "expected the Show-more control to carry calendar-disconnect-btn, got "
+                    "classes %r" % (classes,))
+
+            with open(os.path.join(HERE, "static", "style.css")) as fh:
+                css = fh.read()
+            stripped = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+            candidate_selectors = []
+            for selector_text, _body in re.findall(r'([^{}]+)\{([^{}]*)\}', stripped):
+                if ".calendar-disconnect-btn" not in selector_text:
+                    continue
+                for sel in selector_text.split(","):
+                    sel = sel.strip()
+                    if ".calendar-disconnect-btn" in sel:
+                        candidate_selectors.append(sel)
+            if not candidate_selectors:
+                return False, "expected at least one CSS rule selector mentioning .calendar-disconnect-btn"
+
+            reachable = False
+            for sel in candidate_selectors:
+                compounds = sel.split()
+                subject = compounds[-1]
+                qualifier_match = re.match(r'^([a-zA-Z][a-zA-Z0-9-]*)?\.calendar-disconnect-btn$', subject)
+                if qualifier_match is None:
+                    continue  # a pseudo-class/attribute-qualified subject — not this control's plain class
+                qualifier_tag = qualifier_match.group(1)
+                if len(compounds) == 1 and (qualifier_tag is None or qualifier_tag.lower() == tag.lower()):
+                    reachable = True
+                    break
+            if not reachable:
+                return False, (
+                    "expected a CSS selector whose rightmost compound has no tag qualifier or "
+                    "matches the rendered <%s>, with no ancestor compound to its left — found "
+                    "only %r, none of which actually paints <%s class=\"calendar-disconnect-btn\">"
+                    % (tag, candidate_selectors, tag))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Show-more anchor's rendered tag agrees with a REAL CSS selector match (rightmost "
+        "compound's tag qualifier, if any) — not merely a class-string substring shared between "
+        "the markup and style.css (CR-01, 29-REVIEW.md)",
+        _flights_reveal_anchor_has_a_matching_css_selector)
+
+    def _flights_limit_is_clamped_and_the_clamp_is_the_only_path():
+        """29-03-PLAN.md Task 3, Check C (T-29-03-01/T-29-03-02): the
+        19-entry hostile-input table exhausted against
+        history_page.flights_limit(), plus the STRUCTURAL invariant
+        that it is the ONLY path a raw ?limit= value can reach a render
+        through — render() calls it exactly once and never reads
+        ctx['flights_limit'] directly, companion/app.py performs no
+        arithmetic or comparison on the raw value it threads through
+        ctx, and HISTORY_ROW_LIMIT (the database query's own hard cap)
+        is the literal ceiling flights_limit()'s own source uses.
+        """
+        hostile_inputs = [
+            None, "", " ", "abc", "1.5", "-1", "0", "14", "15", "50", "51",
+            "999999999", "1e9", "0x10", True, False, [], {}, object(),
+        ]
+        for raw in hostile_inputs:
+            try:
+                result = history_page.flights_limit({"flights_limit": raw})
+            except Exception as exc:
+                return False, "flights_limit(%r) raised %r instead of degrading" % (raw, exc)
+            if not isinstance(result, int) or isinstance(result, bool):
+                return False, (
+                    "flights_limit(%r) returned %r, expected a plain int" % (raw, result))
+            if not (history_page.FLIGHTS_PAGE_SIZE <= result <= history_page.HISTORY_ROW_LIMIT):
+                return False, (
+                    "flights_limit(%r) returned %r, outside [%d, %d]"
+                    % (raw, result, history_page.FLIGHTS_PAGE_SIZE, history_page.HISTORY_ROW_LIMIT))
+
+        # AST-based, not a raw substring search (this module's own
+        # completeness scanners' methodology) — a comment mentioning
+        # "flights_limit(" in prose must not be counted as a call.
+        render_source = inspect.getsource(history_page.render)
+        render_tree = ast.parse(render_source)
+        limit_calls = [
+            node for node in ast.walk(render_tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            and node.func.id == "flights_limit"]
+        if len(limit_calls) != 1:
+            return False, (
+                "expected render()'s source to call flights_limit( exactly once, found %d"
+                % len(limit_calls))
+
+        def _reads_raw_ctx_key(node):
+            if isinstance(node, ast.Subscript):
+                key = node.slice
+                if isinstance(key, ast.Constant) and key.value == "flights_limit":
+                    return isinstance(node.value, ast.Name) and node.value.id == "ctx"
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if (node.func.attr == "get" and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id == "ctx" and node.args
+                        and isinstance(node.args[0], ast.Constant)
+                        and node.args[0].value == "flights_limit"):
+                    return True
+            return False
+
+        direct_reads = [node for node in ast.walk(render_tree) if _reads_raw_ctx_key(node)]
+        if direct_reads:
+            return False, (
+                "expected render() to never read ctx['flights_limit'] directly — validation "
+                "belongs solely to flights_limit() — found %d direct read(s)"
+                % len(direct_reads))
+
+        flights_limit_source = inspect.getsource(history_page.flights_limit)
+        if "HISTORY_ROW_LIMIT" not in flights_limit_source:
+            return False, (
+                "expected flights_limit()'s own source to reference HISTORY_ROW_LIMIT as its "
+                "ceiling, found no such reference")
+
+        import companion.app as app_module
+        app_source = inspect.getsource(app_module)
+        flights_limit_lines = [ln for ln in app_source.splitlines() if "flights_limit" in ln]
+        if len(flights_limit_lines) != 2:
+            return False, (
+                "expected app.py to mention 'flights_limit' on exactly 2 lines (a comment and "
+                "the ctx assignment), found %d: %r" % (len(flights_limit_lines), flights_limit_lines))
+        assignment_lines = [
+            ln for ln in flights_limit_lines if ln.strip().startswith('"flights_limit"')]
+        if len(assignment_lines) != 1:
+            return False, (
+                "expected exactly one ctx assignment line for 'flights_limit', found %d: %r"
+                % (len(assignment_lines), assignment_lines))
+        forbidden_chars = set("+-*/%<>=")
+        assignment = assignment_lines[0]
+        found_forbidden = forbidden_chars & set(assignment)
+        if found_forbidden:
+            return False, (
+                "expected the flights_limit ctx assignment to perform no arithmetic or "
+                "comparison — found %r in %r" % (found_forbidden, assignment))
+        return True, ""
+    check(
+        "history_page.flights_limit() clamps all 19 hostile inputs into [15, 50] without "
+        "raising, render() calls it exactly once and never reads ctx['flights_limit'] directly, "
+        "companion/app.py performs no arithmetic or comparison on the raw threaded value, and "
+        "HISTORY_ROW_LIMIT is the literal ceiling flights_limit()'s own source uses (T-29-03-01, "
+        "T-29-03-02, 29-03-PLAN.md Task 3)",
+        _flights_limit_is_clamped_and_the_clamp_is_the_only_path)
 
     def _the_count_animates_without_its_text_production_moving():
         js_path = os.path.join(HERE, "static", "list-filter.js")
@@ -8633,56 +9152,38 @@ def main():
             "bytes, against a real running service",
             _history_preview_gallery_end_to_end)
 
-        def _airlines_edit_query_param_exact_one_membership_test():
-            # 19-08-PLAN.md Task 3 (D-22, T-19-31): a real authenticated
-            # HTTP GET, not a direct render() call - proves the exact-"1"
-            # membership test app.py's page_context() applies survives
-            # the full query-string round trip, against a real running
-            # service.
-            #
-            # 21-06-PLAN.md Task 2 (D-19): RESOLVE_UPLOAD_ZONE_CLASS
-            # moved out of this edit-only tuple - the lightbox's upload
-            # zone is unconditional now, so it is asserted present
-            # across every query variant below instead, proving it
-            # survives the real HTTP round trip regardless of edit
-            # mode.
-            edit_only_tokens = (
+        def _airlines_dialog_forms_render_unconditionally_over_real_http():
+            # 29-01-PLAN.md (CFG-81): the exact-"1" ?edit= membership
+            # test this check used to prove end to end is deleted along
+            # with the query parameter itself - a real authenticated
+            # HTTP GET now renders the dialog's replace/delete/upload
+            # forms with NO query string at all, and an arbitrary
+            # leftover ?edit=1 in a bookmark changes nothing, proving
+            # the removed parameter has no reader anywhere in the real
+            # request path (not just in a direct render() call).
+            unconditional_tokens = (
                 airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
                 airlines_page.LIGHTBOX_DELETE_CLASS,
+                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
             )
-            upload_zone_class_attr = 'class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS
-            for query in ("?edit=2", "?edit=true", "?edit="):
+            for query in ("", "?edit=1"):
                 status, _headers, body = http_request(
                     base + "/airlines" + query, cookie=session_cookie)
                 if status != 200:
                     return False, "expected 200 for /airlines%s, got %d" % (query, status)
                 body_text = body.decode("utf-8", "replace")
-                if upload_zone_class_attr not in body_text:
-                    return False, (
-                        "expected /airlines%s to still render the upload zone (D-19, "
-                        "unconditional)" % (query,))
-                for token in edit_only_tokens:
-                    if ('class="%s"' % token) in body_text:
+                for token in unconditional_tokens:
+                    if ('class="%s"' % token) not in body_text:
                         return False, (
-                            "expected /airlines%s to NOT enable edit mode - found a %r form"
+                            "expected /airlines%s to render a %r form (CFG-81: unconditional now)"
                             % (query, token))
-            status, _headers, body = http_request(base + "/airlines?edit=1", cookie=session_cookie)
-            if status != 200:
-                return False, "expected 200 for /airlines?edit=1, got %d" % status
-            body_text = body.decode("utf-8", "replace")
-            if upload_zone_class_attr not in body_text:
-                return False, "expected /airlines?edit=1 to still render the upload zone (D-19)"
-            for token in edit_only_tokens:
-                if ('class="%s"' % token) not in body_text:
-                    return False, "expected /airlines?edit=1 to enable edit mode - missing a %r form" % (token,)
             return True, ""
         check(
-            "a real authenticated GET of /airlines?edit=2, ?edit=true and ?edit= does not enable "
-            "edit mode (the exact-\"1\" membership test) but still renders the now-unconditional "
-            "upload zone (D-19), while /airlines?edit=1 additionally renders the replace and "
-            "delete edit-only forms, against a real running service (D-19, D-22, T-19-31, "
-            "19-08-PLAN.md Task 3, retargeted by 21-06-PLAN.md Task 2)",
-            _airlines_edit_query_param_exact_one_membership_test)
+            "a real authenticated GET of /airlines renders the dialog's replace, delete and "
+            "upload-zone forms with no query string at all, and a leftover ?edit=1 in a bookmark "
+            "renders identically — against a real running service, proving the removed query "
+            "parameter has no reader anywhere in the real request path (CFG-81, 29-01-PLAN.md)",
+            _airlines_dialog_forms_render_unconditionally_over_real_http)
 
         def _both_dialogs_arrive_through_one_starting_style_entrance():
             """23-10-PLAN.md Task 2 (D3/CFG-32): both <dialog>s fade and
@@ -8812,7 +9313,7 @@ def main():
                 ])
                 history_html = history_page.render(
                     _history_ctx(tmp, gallery_entries=names))
-                airlines_html = airlines_page.render({"edit_mode": True})
+                airlines_html = airlines_page.render({})
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
             for label, marker in rendered:

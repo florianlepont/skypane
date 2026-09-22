@@ -102,12 +102,12 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [x] **CFG-76**: The mobile nav toggle's icon matches what it opens — `#site-nav-toggle` renders a gear glyph instead of the hamburger, with its `aria-label` and the account/preferences panel it opens unchanged, and no other icon in `ICON_IDS` collides with the new gear symbol
 - [x] **CFG-77**: The settings pages have exactly one save mechanism, restored to its pre-Phase-27 form at the developer's explicit, twice-confirmed request — a bar that appears when a settings field changes, names which section(s) changed (in document order, from the same `data-dirty-section` wrappers that survived Phase 27 unread), and offers real "Enregistrer"/"Annuler" actions; Enregistrer is a genuine native form submission (never a fetch), so its result is a real page navigation whose success or failure is unambiguous by construction; Annuler restores every field via `form.reset()`, re-triggers the quiet-hours dial's own click-delegated repaint and the theme carousel's `window.SkyPaneLivePreview.refresh()` so neither control keeps showing a discarded value, and does not disarm the leave-guard permanently; the leave-guard itself is kept exactly where CFG-63's own carve-out already put it — confirming a pending, uncommitted edit, not a destructive act
 - [x] **CFG-78**: The restoration leaves exactly one save affordance in the DOM, never two — the already-existing, AST-provably-unconditional native submit CFG-64 depends on becomes the bar's own visible Save control rather than a second button living behind a `.js`-hide rule, so the no-JS floor and the restored bar are proven to be the SAME element under two rendering conditions, not two independent implementations that could drift; the runway radios' `form=`-attribute cross-tree wiring is proven under the restored bar by its own check (closing the path CFG-74(c) named before the reversal); and the phase's closing gate re-derives every check count by running, names the sandbox baseline by NAME, and states plainly which of CFG-74's original four clauses were genuinely built (none) versus superseded by this pair
-- [ ] **CFG-79**: The whole site meets one editorial floor, except Display's Aspect section (Phase 30's) — under a card title, one sentence of at most ~12 words with no mechanism clause and no reason clause; "applies at the next wake" is said in one place per page (the Frame strip / save bar) and never repeated under a card; anything longer lives in the existing "How it works" disclosure or is deleted; the runway card's stale schematic clause (describing the map CFG-66 removed) is gone in both languages (cut in quick task Lot A, re-asserted here); enforced by a harness check measuring RENDERED caption length on every authenticated route in both languages, mutation-proven against a deliberately long caption
-- [ ] **CFG-80**: Quiet hours is one visual object — Start and End on one line as one unit with the dial; the normalised HH:MM twin beside each native `<input type="time">` is hidden at load when the native field already renders unambiguous 24 h and stays as the scripts-blocked / 12 h fallback (B14's ground preserved); the presets are a segmented control with short labels whose hours are spoken once, by the dial's caption; proven by the surfaces-agree check reading the caption, the fields and the dial after a preset click, and by a check that the twin is hidden in a 24 h browser and visible with scripts blocked
-- [ ] **CFG-81**: The illustration dialog owns its own actions — Replace picture (and Delete for a manually resolved entry) is rendered in the dialog on every open, with the page-wide `edit_mode` and the "Change pictures" / "Modifier les images" toggle removed; "Send a picture" for an airline without artwork is unchanged; the resolve-context block (prefix, first/last seen, count, example callsign) renders only in the resolve modes and never shows an empty field or the image caption on an art card (its CSS `[hidden]` guard and its caption binding are fixed in quick task Lot A, re-asserted here); proven by opening a known airline's dialog and asserting Replace present, context absent, in both languages, with and without scripts
-- [ ] **CFG-82**: Compagnies reads gallery-first and its tab label never truncates — the filter and the known-airline gallery sit directly under the page title, unidentified prefixes and any remaining editing affordance move to a clearly announced secondary section below; the mobile tab bar's `Compagnies` label renders whole at 360 px and 390 px (`.tab-bar__pill`'s horizontal margin from `var(--space-sm)` to `calc(var(--space-xs) / 2)`, the 2026-09-17 audit's own fix, replayed) without the tab's 78×56 px tap area shrinking, proven by measuring the label's `scrollWidth` against its box at both widths
-- [ ] **CFG-83**: Vols is paginated — the list shows 10 to 15 flights then a real "Afficher plus" / "Show more" that works with scripts blocked (server-side limit or a native reveal, the planner's choice with its ground), the filter stays immediately visible above the first card, and the summary card keeps one stable grid on a 390 px phone (the timestamp and the callsign never share a wrapping line); proven by the page's measured height at 390 px on the realistic 36-flight fixture dropping below half of the audit's 6 710 px, and by the reveal read back from the DOM in both languages
-- [ ] **CFG-84**: État's battery-trend heading is short — the `<h2>` reads in the form "Batterie · 3 mois" / "Battery · 3 months" and the "daily average" precision moves to the card's caption, proven by the heading's rendered text in both languages and the caption carrying the precision
+- [x] **CFG-79**: The whole site meets one editorial floor, except Display's Aspect section (Phase 30's) — under a card title, one sentence of at most ~12 words with no mechanism clause and no reason clause; "applies at the next wake" is said in one place per page (the Frame strip / save bar) and never repeated under a card; anything longer lives in the existing "How it works" disclosure or is deleted; the runway card's stale schematic clause (describing the map CFG-66 removed) is gone in both languages (cut in quick task Lot A, re-asserted here); enforced by a harness check measuring RENDERED caption length on every authenticated route in both languages, mutation-proven against a deliberately long caption
+- [x] **CFG-80**: Quiet hours is one visual object — Start and End on one line as one unit with the dial **at ≥480px only**; below that width the shipped fix falls back to the original stacked, two-full-width-line layout (native `<input type="time">`'s 144px min-width floor does not fit both fields plus the normalised twin at 360px/390px, this app's own two reference viewports — see 29-04-SUMMARY.md's Known Limitations for the arithmetic), so the one-line claim does not hold on either shipped phone width today; the normalised HH:MM twin beside each native `<input type="time">` is hidden at load when the native field already renders unambiguous 24 h and stays as the scripts-blocked / 12 h fallback (B14's ground preserved); the presets are a segmented control with short labels whose hours are spoken once, by the dial's caption; proven by the surfaces-agree check reading the caption, the fields and the dial after a preset click, and by a check that the twin is hidden in a 24 h browser and visible with scripts blocked
+- [x] **CFG-81**: The illustration dialog owns its own actions — Replace picture (and Delete for a manually resolved entry) is rendered in the dialog on every open, with the page-wide `edit_mode` and the "Change pictures" / "Modifier les images" toggle removed; "Send a picture" for an airline without artwork is unchanged; the resolve-context block (prefix, first/last seen, count, example callsign) renders only in the resolve modes and never shows an empty field or the image caption on an art card (its CSS `[hidden]` guard and its caption binding are fixed in quick task Lot A, re-asserted here); proven by opening a known airline's dialog and asserting Replace present, context absent, in both languages, with and without scripts
+- [x] **CFG-82**: Compagnies reads gallery-first and its tab label never truncates — the filter and the known-airline gallery sit directly under the page title, unidentified prefixes and any remaining editing affordance move to a clearly announced secondary section below; the mobile tab bar's `Compagnies` label renders whole at 360 px and 390 px (`.tab-bar__pill`'s horizontal margin from `var(--space-sm)` to `calc(var(--space-xs) / 2)`, the 2026-09-17 audit's own fix, replayed) without the tab's 78×56 px tap area shrinking, proven by measuring the label's `scrollWidth` against its box at both widths
+- [x] **CFG-83**: Vols is paginated — the list shows 10 to 15 flights then a real "Afficher plus" / "Show more" that works with scripts blocked (server-side limit or a native reveal, the planner's choice with its ground), the filter stays immediately visible above the first card, and the summary card keeps one stable grid on a 390 px phone (the timestamp and the callsign never share a wrapping line); proven by the page's measured height at 390 px on the realistic 36-flight fixture dropping below half of the audit's 6 710 px, and by the reveal read back from the DOM in both languages
+- [x] **CFG-84**: État's battery-trend heading is short — the `<h2>` reads in the form "Batterie · 3 mois" / "Battery · 3 months" and the "daily average" precision moves to the card's caption, proven by the heading's rendered text in both languages and the caption carrying the precision
 - [ ] **CFG-85**: Aspect is one tile — the "Frame colours" card and the separate "Calendar" card are replaced by ONE tile holding the live preview, three usage rows (Départs, Arrivées, Vols du calendrier) each showing ONE swatch and the theme name, a wrapping palette grid of the 18 themes drawn as their own shape without the aircraft under the open row (no strip, no scrollbar, no pagers, no dot row, no disclosure), the calendar's connection folded under its own row, and "Règles par vol" as a secondary row disclosing the existing list and add form; the direction (accordion vs. segments) is decided by the developer on two `/gsd-sketch` variants BEFORE planning; the no-JS control contract holds (native radios cross-submitting via `form="settings-form"`, server-rendered preview for the saved theme, every row open with scripts blocked), the CSP is untouched, no new script file, no new custom property, colour literal, family or size; proven by the value read back from disk after an operate-submit round trip with scripts blocked at 360 px in both languages, by the preview following hover/focus and the selected swatch following the live radio state, and by every retired carousel rule grepped for a surviving consumer before deletion
 - [ ] **CFG-86**: Display's page height at 390 px is measured by the registered instrument before and after Phase 30 and reported against X6's 2 600 px target with the delta stated — the target is never restated to fit the result
 
@@ -253,12 +253,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-76 | Phase 28 | **Complete (28-01).** `#site-nav-toggle` now renders `icon-gear` (a new, 23rd `ICON_IDS` member, its own `<symbol>` alongside `icon-power`/`icon-moon`) instead of `icon-hamburger`; `NAV_TOGGLE_LABEL` ("Account and preferences") and the panel's own contents (`_mobile_nav_html()`) are byte-identical (confirmed via `git diff`: the only changed line in that function is the icon id). Both hard-coded icon-sprite member-count checks (`_icon_sprite_integrity()`, `_page_shell_emits_sprite_once_no_inline_styles()`) retargeted from 22 to 23, mutation-tested; a new check proves the glyph, the translated EN/FR label, and the panel's still-navigation-free contents all agree. No other `ICON_IDS` entry collides with the new gear symbol (0 hits for "gear"/"settings-icon"/⚙ before this plan). |
 | CFG-77 | Phase 28 | **Complete (28-08, 28-10, 28-11).** Every clause of this requirement's own wording now has named, mutation-tested evidence — see the Phase 28 coverage ledger below for the full clause-by-clause walk, including the leave-guard re-arm clause that had zero executable coverage anywhere in the phase until a plan review surfaced the gap (28-11) and the no-JS-floor evidence naming all four scripts-blocked facts a review caught before implementation (28-08). |
 | CFG-78 | Phase 28 | **Complete (28-08, 28-09).** The already-existing, AST-provably-unconditional native submit CFG-64 depends on (27-03's own AST proof, re-verified unmoved) became the bar's own visible Save — relocated, never duplicated — proven by `_the_bar_s_save_button_is_the_same_static_fallback_element_relocated()` (28-08, a static/string-level relationship proof) and by 28-09's own browser-level single-affordance audit, which resolves every submit-shaped control's own `.form` property in a live browser and requires exactly one whose form id is `settings-form`, on both settings pages, in both languages, mutation-proven against a deliberately added second button. The runway radios' cross-tree `form=` path is proven end to end by 28-09's own regression check (closing the path CFG-74(c) named before the reversal). The phase's closing gate (28-09) re-derives every check count by running, names the sandbox baseline by NAME (the same five checks 28-04 first recorded, re-verified rather than carried forward), and states plainly which of CFG-74's four original clauses were genuinely built (none) versus superseded by this pair — see the Phase 28 coverage ledger below. |
-| CFG-79 | Phase 29 | Pending — phase added 2026-09-21 from the developer's tour, not yet planned. |
-| CFG-80 | Phase 29 | Pending — phase added 2026-09-21, not yet planned. |
-| CFG-81 | Phase 29 | Pending — phase added 2026-09-21, not yet planned (its two CSS/JS bugs ship first in quick task Lot A). |
-| CFG-82 | Phase 29 | Pending — phase added 2026-09-21, not yet planned (17-09 audit P1 label fix + P2 gallery order). |
-| CFG-83 | Phase 29 | Pending — phase added 2026-09-21, not yet planned (17-09 audit P1). |
-| CFG-84 | Phase 29 | Pending — phase added 2026-09-21, not yet planned (17-09 audit P2). |
+| CFG-79 | Phase 29 | **Complete (29-05, 29-06).** The editorial floor — one sentence, ~12 words, no mechanism/reason clause, under a card title — landed across every settings/status page except Display's Aspect section (`ASPECT_CAPTION_EXEMPTIONS`, one definition site in 29-05, imported by 29-06, empties when Phase 30 rebuilds that section). The apply-timing sentence now renders once per page rather than repeated under each card. A render-level, bilingual harness check measures the RENDERED caption on all six authenticated routes; it independently caught and fixed three French-only translations that exceeded the floor even though their English source did not (29-05), plus two more in Health (29-06) — corroborated independently by the phase verifier, which wrote its own standalone word-count scanner and found zero violations. |
+| CFG-80 | Phase 29 | **Complete (29-04).** Start and End render on one line only at **≥480px**; both of this app's own reference viewports (360px, 390px) still see the original stacked layout below that width — a disclosed, correctly-derived trade-off (native `<input type="time">`'s 144px min-width floor), not an oversight. See 29-04-SUMMARY.md's Known Limitations for the arithmetic (WR-02, 29-REVIEW.md). |
+| CFG-81 | Phase 29 | **Complete (29-01).** Replace (and Delete, for a manually resolved entry) render in the illustration dialog unconditionally; the page-wide `edit_mode` query param and the "Modifier les images"/"Change pictures" toggle are deleted outright — `grep -rn edit_mode companion/` returns zero executable hits, only historical comments, independently re-confirmed by the phase verifier. `panel-lookup.js` needed a zero-line diff: its own `mode`-gated visibility logic (`replaceForm.hidden = (mode !== "art")`, `deleteForm.hidden = (manual === "")`) already did the whole job once the server started rendering unconditionally. |
+| CFG-82 | Phase 29 | **Complete (29-02).** Compagnies' `render()` now returns header → filter → gallery grid → gap strip (unidentified prefixes), independently confirmed by reading the function's actual return statement. The mobile tab bar's `Compagnies` label no longer truncates: `.tab-bar__pill`'s margin moved from `var(--space-sm)` to `calc(var(--space-xs) / 2)`, replaying the 2026-09-17 audit's own fix (which had drifted out of the working tree, never committed, ahead of this phase) against the current Phase 28-era stylesheet. |
+| CFG-83 | Phase 29 | **Complete (29-03).** Vols shows `flights_limit(ctx)` flights (clamped into `[FLIGHTS_PAGE_SIZE, HISTORY_ROW_LIMIT]`, total by construction — 15 adversarial inputs including bools, floats, hex and out-of-band integers all resolve inside the band with no raise, independently re-verified by the phase verifier) behind a real `?limit=` query param, chosen over a `<details>`-only reveal specifically because `freshness.js`'s ~45s background refresh re-fetches `window.location.href` — a query param survives that cycle, a client-only disclosure would not. The phone summary card's callsign/timestamp moved from a flex row to a two-track grid (2026-09-17 audit P1) so the two no longer renegotiate space at 390px. Code review (29-REVIEW.md, CR-01) caught the new Show-more link shipping with zero of its intended styling — `<a class="calendar-disconnect-btn">` matched no selector, since the only two existing rules were `button`-qualified or `.airline-card`-scoped — fixed with a genuine `a.calendar-disconnect-btn` rule plus a selector-vs-tag check (not a substring match), independently re-verified by the phase verifier via its own mutation of the fix. |
+| CFG-84 | Phase 29 | **Complete (29-06).** État's battery-trend `<h2>` reads "Batterie · 3 mois"/"Battery · 3 months"; "moyenne quotidienne"/"daily average" moved to the card's own caption sibling — independently confirmed by the phase verifier calling `_battery_trend_section_html()` directly and reading the rendered markup. |
 | CFG-85 | Phase 30 | Pending — phase added 2026-09-21; a `/gsd-sketch` round precedes planning. |
 | CFG-86 | Phase 30 | Pending — phase added 2026-09-21, not yet planned. |
 
@@ -387,6 +387,7 @@ three is re-proposed as unexamined.
   could never touch it. `freshness.js` already implements a better polling client (retry
   ladder, in-flight guard, visibility gate, focus-preserving targeted swaps) and was
   extended instead — which is what Phase 23 did, four times over.
+
 - **D12 (service worker / offline shell) — OUT OF SCOPE, on a verified security
   finding.** In the project's own harness Chromium, `cache.put()` stores a
   `Cache-Control: no-store` body **verbatim**. Every HTML response here is `no-store` by a
@@ -395,6 +396,7 @@ three is re-proposed as unexamined.
   deletion — a 404 leaves the registration live** — so reopening this requires two things
   to land first: a **tested** de-registration path (the harness can do this; `127.0.0.1`
   is a secure context) and an explicit answer on caching authenticated content.
+
 - **D3's overlay-drawer clause — STRUCK, on its third proposal.** It contradicts
   `22-CONTEXT.md`'s D-10 and three recorded rejections in `sketch-findings-skypane`, one
   of them established by real-device testing; `references/mobile-navigation.md` already
@@ -590,6 +592,7 @@ recorded them, and neither touches any drawing this phase shipped.
    which were measured on the tree **before** `7fa619f` landed; since that commit changes
    only how one already-passing check waits, the gate's numbers are unaffected, and this
    sequencing is recorded rather than glossed.
+
 2. **`…the reminder stays within 48px…`** (B10/X9/D-04, 22-14) — failed once at
    **48.1875**, a 0.19px overshoot of a hard ceiling; a sub-pixel text-metric boundary
    rather than a layout change. **Still open and still nobody's.** It did not fire in
@@ -751,14 +754,17 @@ change to keep it.*
 
 **5. D19 sheds three of the audit's clauses.** *Alternative:* build all three as
 specified. *Reversal cost today, per clause — they are no longer one decision:*
+
 - *The canvas crop:* **cost went UP.** `panel-lookup.js` now carries a standing
   assertion that it names **no canvas API at all**, comments included, so adding one
   means deleting a check first. The ground is unchanged and is the normaliser's own
   docstring.
+
 - *The progress bar:* **unchanged and small.** `submit-guard.js` already disables the
   submitting control. **Note the half that was also not built: the recommended
   "Uploading…" label.** Adding it is a translated string and a relabel on exactly the
   shape `submit-guard.js`'s own contract permits.
+
 - *Hover-only aircraft types:* **unchanged**, and the alternative the research named was
   never refused — render them as **visible card text** on Airlines, which is separate,
   cheap work and does not touch the drop zone at all.
@@ -1215,8 +1221,10 @@ tree Phase 27 actually produced:
 
 1. The ticked requirement row (`.planning/REQUIREMENTS.md`, CFG-47): `[x]`
    present, `**RETIRED (Phase 27, 2026-09-14).**`
+
 2. The traceability row (CFG-47): the full clause-by-clause evidence from
    25-03, ending `**RETIRED 2026-09-14 (Phase 27).**`
+
 3. The D16 coverage-ledger section (Phase 25's own ledger, above): `**RETIRED
    2026-09-14 by Phase 27 (CFG-66).**`
 
@@ -1526,21 +1534,28 @@ On a real phone at 360px and on a desktop, in both themes and both languages:
 
 - **Auto-save's two words** — does "Sauvegarde…"/"Sauvegardé" arrive
   reassuringly or invisibly on a real screen, at real reading speed?
+
 - **The dial's handles and arc**, following both a drag and a preset,
   including when the window's two ends are close together or genuinely
   overlapping.
+
 - **The runway card without its map** — does the simplified card read as
   complete, or as missing something, on a real screen?
+
 - **The shortened wake-interval and battery wording** — is 137/168 characters
   still enough explanation, or too terse now?
+
 - **The one title form** — does Display's supersection structure read
   clearly now that CFG-65's investigation found nothing to convert, or does
   the developer's original impression persist even having seen the
   evidence above?
+
 - **All three colour strips and their pagers**, each carousel's own
   disclosure now below the strip.
+
 - **The Quiet hours link**, tapped from both the Home and the Display Frame
   strip.
+
 - **Whether the disappearing duration during a drag** (the dial's caption,
   PROVISIONAL per CFG-62) is acceptable, or whether the C2 fallback
   (server-emitted per-unit templates) should replace it.
@@ -1768,10 +1783,12 @@ function, a measured figure, or a file and mechanism — never a plan's
 stated intention.
 
 **CFG-77's clauses:**
+
 - *The bar appears on a field change.* 28-08's restored `dirty-state.js`
   (`updateBar()`, driven by the document-level `change`/`input`
   delegation) and 28-10's retargeted
   `_the_bar_hides_once_script_proves_live_then_reveals_on_edit_and_saves()`.
+
 - *It names the changed section(s), in document order, from the
   surviving `data-dirty-section` wrappers.* 28-10's
   `_the_dirty_count_arrives_and_moves_only_when_the_word_does()` (the
@@ -1781,11 +1798,13 @@ stated intention.
   fields (Runway then Quiet hours, and the reverse), in both languages,
   built entirely from the bar's own `data-dirty-*` attributes rather than
   a hardcoded literal.
+
 - *Enregistrer is a genuine native form submission, never a fetch.*
   28-08's own AST-level proof that the native submit
   (`STATIC_SAVE_FALLBACK_ATTR`) is emitted unconditionally, plus 28-10's
   retargeted checks waiting on a real `page.expect_navigation()` rather
   than a same-page DOM update.
+
 - *Annuler restores every field via `form.reset()`, re-triggers the
   quiet-hours dial's repaint and the theme carousel's
   `window.SkyPaneLivePreview.refresh()`.* **28-11's Task 2**,
@@ -1801,6 +1820,7 @@ stated intention.
   document-level click listener does fire on the Cancel button's own
   click and does repaint from the STALE, pre-reset values, exactly as
   28-08's own comment states.
+
 - *Annuler does not disarm the leave-guard permanently — a new edit
   re-arms it.* **28-11's Task 3**,
   `_the_leave_guard_re_arms_after_a_new_edit_following_cancel()` — **the
@@ -1812,6 +1832,7 @@ stated intention.
   (disarmed again, closing the symmetric "re-arms only once" hole),
   mutation-proven against exactly the defect a Cancel handler that sets
   `suppressGuard = true` once and never clears it reproduces.
+
 - *The leave-guard is kept exactly where CFG-63's own carve-out put it.*
   28-10's retargeted
   `_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit()`.
@@ -1839,6 +1860,7 @@ script, and the count span's own empty seed means a scripts-blocked
 visitor never has anything false announced to them.
 
 **CFG-78's clauses:**
+
 - *The already-existing, AST-provably-unconditional native submit becomes
   the bar's own visible Save — one element under two rendering
   conditions, never two implementations.* 28-08's
@@ -1857,6 +1879,7 @@ visitor never has anything false announced to them.
   inside the settings form, which the check caught and named by tuple
   (`tagName[type=submit] form='settings-form' text='MUTATION second
   save'`).
+
 - *The runway radios' `form=`-attribute cross-tree wiring is proven under
   the restored bar.* 28-09's
   `_the_runway_form_associated_path_reaches_the_bar_and_disk_end_to_end()`
@@ -1870,6 +1893,7 @@ visitor never has anything false announced to them.
   `dirty-state.js`'s document-level delegation to the form element
   reproduces the original bug class, and the check fails with a timeout
   waiting for the bar).
+
 - *The closing gate re-derives every check count by running, names the
   sandbox baseline by NAME, and states which of CFG-74's four clauses
   were genuinely built.* See this plan's own gate section, immediately
@@ -1897,16 +1921,21 @@ running today (2026-09-19) rather than carried forward from 28-04's own
 SUMMARY, is still exactly the five named failures 28-04 first recorded on
 2026-09-15** — unchanged in count and unchanged in membership across five
 intervening plans that all touched these same suites:
+
 1. `companion/test_companion_app.py` — *"expected the manual_save_failed
    flash key when add_entry() fails to write, got
    '/airlines?resolve=FLD&flash=manual_resolved'"* (WR-11).
+
 2. `companion/test_companion_app.py` — *"expected the manual_delete_failed
    flash key when delete_entry() fails to write, got '/airlines'"*
    (WR-11).
+
 3. `server/test_manual_resolutions.py` — *"expected ADD_FAILED for an
    uncreatable state dir, got 'ok'"* (WR-11).
+
 4. `server/test_manual_resolutions.py` — *"expected False (never raises)
    when the state dir is read-only, got True"* (WR-11).
+
 5. `companion/test_status_pages.py` — *"expected False for a non-existent
    state_dir path"* (`anomaly_active()`).
 

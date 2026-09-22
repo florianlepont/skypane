@@ -160,7 +160,14 @@ CATALOG = {
     "over the last %d days, %d event": "au cours des %d derniers jours, %d événement",
 
     # --- Battery trend section -------------------------------------------
-    "Battery trend": "Tendance de la batterie",
+    # 29-06-PLAN.md Task 1 (CFG-84): the "Battery trend"/"Tendance de la
+    # batterie" entry that used to live here is DELETED outright, not
+    # left as a dead translation — BATTERY_SECTION_HEADING (the module
+    # constant that produced it) no longer exists, superseded by
+    # BATTERY_SECTION_HEADING_TEMPLATE below. test_i18n.py's Check 2
+    # (no dead translations) would fail on a stale entry no source
+    # produces any more.
+    "Battery · %d months": "Batterie · %d mois",
     "Last 3 months, daily average": "3 derniers mois, moyenne quotidienne",
     "%s — daily average (%d reading)": "%s — moyenne quotidienne (%d relevé)",
     "%s — daily average (%d readings)": "%s — moyenne quotidienne (%d relevés)",
@@ -186,10 +193,18 @@ CATALOG = {
     "— the physical frame: is it checking in, and how's the battery.":
         "— le cadre physique : se connecte-t-il, et comment va la batterie.",
     "Server & data": "Serveur et données",
+    # 29-06-PLAN.md Task 3 (CFG-79): shortened from 15 words to 12 —
+    # surfaced only by Task 3’s own bilingual, render-level site-wide
+    # check. The English source is already exactly at the 12-word
+    # floor; the French translation’s real non-breaking space before
+    # its colon (D-09) costs one extra whitespace-split token the
+    # English colon does not, so "sont-elles fraîches et" is trimmed
+    # to stay under the same floor without losing "route resolution"
+    # itself.
     "— the ADS-B pipeline and route resolution: is the data fresh and "
     "trustworthy.":
-        "— le pipeline ADS-B et la résolution des trajets : les "
-        "données sont-elles fraîches et fiables.",
+        "— le pipeline ADS-B et la résolution des trajets : "
+        "données fiables ?",
 
     # --- Unresolved-prefix registry / filter bar --------------------------
     "Airlines we could not name": "Compagnies non identifiées",
@@ -198,12 +213,14 @@ CATALOG = {
     "to look up.":
         "Toutes les compagnies vues récemment ont été identifiées — il "
         "n’y a plus rien à rechercher.",
-    "This list is read-only here — each row's Resolve link opens the "
-    "Airlines page to name that airline (and add artwork, if it "
-    "needs one).":
-        "Cette liste est en lecture seule ici — le lien Résoudre de "
-        "chaque ligne ouvre la page Compagnies pour nommer cette "
-        "compagnie (et ajouter une image, si besoin).",
+    # 29-06-PLAN.md Task 2 (CFG-79): the note is shortened to one
+    # sentence and its instruction clause moves, unchanged in wording,
+    # into _READ_ONLY_NOTE_DETAIL's own entry below.
+    "This list is read-only here.": "Cette liste est en lecture seule ici.",
+    "Each row's Resolve link opens the Airlines page to name that "
+    "airline (and add artwork, if it needs one).":
+        "Le lien Résoudre de chaque ligne ouvre la page Compagnies pour "
+        "nommer cette compagnie (et ajouter une image, si besoin).",
     "Filter by prefix": "Filtrer par préfixe",
     "No matching prefixes": "Aucun préfixe correspondant",
     "Try a different search, or Clear filter to see all %d prefixes.":
@@ -301,9 +318,12 @@ CATALOG = {
     # recorded, a wake is something the FRAME did, and this grid can
     # only report the first.
     "Check-in regularity": "Régularité des relevés",
+    # 29-06-PLAN.md Task 3 (CFG-79): shortened from 17 words to 12 —
+    # surfaced only by Task 3's own bilingual, render-level site-wide
+    # check (Task 2's own checks never measured French word count).
     "Each cell is one day of observed check-in regularity, oldest first.":
-        "Chaque case correspond à un jour de régularité observée des "
-        "relevés, du plus ancien au plus récent.",
+        "Chaque case représente un jour observé, du plus ancien au "
+        "plus récent.",
     "Judged against the cadence configured now — a check-in every %s — not "
     "necessarily the cadence in force on an earlier day.":
         "Évaluée selon la cadence configurée actuellement — un relevé "

@@ -55,6 +55,24 @@ from server.plane import render as panel_render
 # page's BATTERY_TREND_LIMIT already documents for device_health.
 HISTORY_ROW_LIMIT = 50
 
+# 29-03-PLAN.md Task 1 (CFG-83): the number of flights the FIRST screen
+# shows, before "Afficher plus" / "Show more" is ever clicked.
+# 29-CONTEXT.md locks the band at 10-15 flights; 15 is the TOP of that
+# band, chosen for two reasons: it is the fewest reveal clicks inside
+# the locked range, and HISTORY_ROW_LIMIT (50) divides into it as
+# 15/30/45/50 — four states, the last one short by 5, which
+# SHOW_MORE_TEMPLATE's own remaining-count handles without ever
+# claiming a full page.
+FLIGHTS_PAGE_SIZE = 15
+
+# The query parameter a "?limit=N" re-render reads. freshness.js's own
+# `fetch(window.location.href, ...)` re-requests whatever URL the
+# browser is currently on (29-RESEARCH.md), so once a visitor has
+# clicked through to "?limit=30" every later background refresh keeps
+# requesting that same URL automatically — the reveal state IS the URL,
+# with zero script change required to survive the refresh loop.
+FLIGHTS_LIMIT_QUERY_PARAM = "limit"
+
 # Phase 18: the tab is "Flights" now — "History" read as a log to a
 # household member, when the page is really "which planes has the frame
 # shown".
@@ -293,6 +311,24 @@ _FILTER_LABEL_TEXT = "Filter by callsign or hex"
 _FILTER_EMPTY_HEADING = "No matching flights"
 _FILTER_EMPTY_BODY_TEMPLATE = (
     "Try a different search, or Clear filter to see all %d flights.")
+
+# 29-03-PLAN.md Task 1 (CFG-83, T-29-03-04): a SECOND empty-state body,
+# used only while a limit is in force and rows remain unloaded —
+# `companion/static/list-filter.js` filters the DOM it has, never the
+# database, so with a limit active the search only ever covers the
+# flights currently on the page. The template above still says "all %d
+# flights" verbatim for the common all-loaded case (its own English/
+# French text is untouched); this one discloses the narrowed reach
+# instead of letting "all" imply a search that did not happen.
+_FILTER_EMPTY_BODY_LIMITED_TEMPLATE = (
+    "Try a different search — this only searches the %d flights shown.")
+
+# 29-03-PLAN.md Task 1 (CFG-83): the "Afficher plus" / "Show more"
+# control's label. `%d` is filled with the REMAINING count (not the
+# next page size) so the control never overclaims on the last, short
+# page (HISTORY_ROW_LIMIT does not divide evenly by FLIGHTS_PAGE_SIZE:
+# 15/30/45/50 is four steps, the last one short by 5).
+SHOW_MORE_TEMPLATE = "Show more (%d remaining)"
 
 # D-23: the copy-to-clipboard accessible-name contract
 # (06.6.3-UI-SPEC.md's Copywriting Contract: "Copy {field}").
@@ -659,6 +695,52 @@ def history_rows(conn):
     return history_db.recent_runway_events(conn, limit=HISTORY_ROW_LIMIT)
 
 
+def flights_limit(ctx):
+    """The number of flights THIS render should show, an int inside
+    `[FLIGHTS_PAGE_SIZE, HISTORY_ROW_LIMIT]` — 29-03-PLAN.md Task 1
+    (CFG-83). Reads the raw `?limit=` value companion/app.py threads
+    through unvalidated as `ctx["flights_limit"]` (the same
+    "resolve_prefix" shape that key's own comment documents — a raw
+    query value travels through ctx and is validated only here, the one
+    clamp every consumer shares, so the render path and any future write
+    path can never drift apart).
+
+    Parses with the exact `try: int(str(raw).strip()) except
+    (TypeError, ValueError)` idiom `companion/pages/config_page.py`'s
+    `wake_gauge_interval_s()` already uses for a different untrusted
+    numeric value. Unlike that function, an out-of-range result is
+    CLAMPED rather than rejected to `None`: a hand-edited URL should
+    render a page, not an error, and `HISTORY_ROW_LIMIT` (50) is already
+    the hard ceiling `history_rows()` ever fetches from the database, so
+    clamping upward can never make this page ask for a row the query
+    would not have returned anyway (T-29-03-01).
+
+    Total by construction: `None`, `""`, `" "`, `"abc"`, `"1.5"`,
+    `"-1"`, `"0"`, `"999999999"`, `"1e9"`, `"0x10"`, `True`, `False`,
+    `[]`, `{}` and `object()` all resolve to an int inside the band and
+    nothing raises (T-29-03-02).
+    """
+    raw = ctx.get("flights_limit")
+    if isinstance(raw, bool):
+        # Same explicit reject `wake_gauge_interval_s()` gives its own
+        # int-typed branch (`isinstance(x, int) and not isinstance(x,
+        # bool)`) — `bool` is an `int` subclass in Python, and
+        # `int(str(True))` would already fail below (the string is
+        # "True", not "1"), but rejecting it here, before ever reaching
+        # `str()`/`int()`, keeps that reasoning visible rather than
+        # relying on the stringification accident to carry it.
+        return FLIGHTS_PAGE_SIZE
+    try:
+        candidate = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return FLIGHTS_PAGE_SIZE
+    if candidate < FLIGHTS_PAGE_SIZE:
+        return FLIGHTS_PAGE_SIZE
+    if candidate > HISTORY_ROW_LIMIT:
+        return HISTORY_ROW_LIMIT
+    return candidate
+
+
 def format_event_row(row, now=None):
     """Turn one `runway_events` database row into the display cells this
     page renders. Never raises: every lookup degrades to a documented
@@ -962,7 +1044,7 @@ def _flight_cell_html(row):
     return html
 
 
-def _filter_bar_html(total):
+def _filter_bar_html(shown, total_available):
     """D-20's filter bar — a `<label>` + `<input type="search"
     data-filter-input>` (with `icon-search` inside, decorative), a live
     `<span data-filter-count>`, a `Clear` control, and a hidden-by-
@@ -986,10 +1068,25 @@ def _filter_bar_html(total):
     `companion/static/list-filter.js` can re-render the live count on
     every keystroke without ever hardcoding the English words "of"/
     "shown" itself.
+
+    29-03-PLAN.md Task 1 (CFG-83, T-29-03-04): `shown` and
+    `total_available` are two different numbers once a `?limit=` is in
+    force — `shown` is `len(visible_rows)`, the count `list-filter.js`
+    actually filters over, and `total_available` is the full row count
+    before slicing. The live count reads `shown` honestly (never
+    `total_available`, which would claim a search coverage this filter
+    does not have), and the empty-state body picks between
+    `_FILTER_EMPTY_BODY_TEMPLATE` (all rows loaded — `shown ==
+    total_available`) and `_FILTER_EMPTY_BODY_LIMITED_TEMPLATE` (rows
+    remain unloaded — `shown < total_available`), disclosing the
+    narrowed search reach instead of silently under-searching.
     """
     count_template = i18n.t("%d of %d shown")
-    count_text = count_template % (total, total)
-    empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
+    count_text = count_template % (shown, shown)
+    if shown < total_available:
+        empty_body = i18n.t(_FILTER_EMPTY_BODY_LIMITED_TEMPLATE) % shown
+    else:
+        empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % shown
     return (
         '<div class="filter-bar">'
         '<label class="text-label" for="%s">%s</label>'
@@ -1557,6 +1654,55 @@ def _history_cards_html(formatted_rows, now=None):
     return '<ul class="history-cards">%s</ul>' % "".join(items)
 
 
+def _show_more_html(shown, total_available):
+    """The "Afficher plus" / "Show more" reveal — 29-03-PLAN.md Task 1
+    (CFG-83). Returns `<nav class="flights-more">...</nav>`, EMPTY
+    (`shown >= total_available`) once every row is already on the page.
+
+    The nav element itself is ALWAYS rendered, even empty. This is
+    deliberate, not an oversight: `layout.REFRESH_SWAP_SELECTORS_BY_
+    PAGE[REFRESH_PAGE_FLIGHTS]` declares `.flights-more` as a swap
+    target, and `test_view_pages.py`'s own registry-witness check
+    requires every declared region to be findable in EVERY rendered
+    page, including its single-row fixture where there is nothing more
+    to show. `.flights-more:empty { display: none; }`
+    (companion/static/style.css) is what keeps an empty container from
+    costing any layout.
+
+    The one child, when present, is a plain `<a>` — never a `<button>`
+    or a `<form>` — reusing `.calendar-disconnect-btn`'s small, de-
+    emphasised secondary-action treatment verbatim (its third consumer;
+    `references/control-density.md` names it as the pattern to reuse
+    here). An anchor needs no script, no HTTP method and no CSRF
+    consideration to work with scripts blocked, matching this app's
+    no-JS control contract exactly.
+
+    The href is built ENTIRELY server-side from `layout.FLIGHTS_ROUTE`,
+    this module's own `FLIGHTS_LIMIT_QUERY_PARAM` constant and an int
+    computed as `min(shown + FLIGHTS_PAGE_SIZE, HISTORY_ROW_LIMIT)` —
+    never from the raw query string a visitor could have supplied
+    (T-29-03-03): a crafted `?limit=` value can therefore never be
+    reflected back into this link.
+
+    The label's `%d` is the REMAINING count (`total_available -
+    shown`), not the next page size, so the control never overclaims
+    "Show more" on the last, short page (HISTORY_ROW_LIMIT does not
+    divide evenly by FLIGHTS_PAGE_SIZE).
+    """
+    if shown >= total_available:
+        return '<nav class="flights-more"></nav>'
+    next_limit = min(shown + FLIGHTS_PAGE_SIZE, HISTORY_ROW_LIMIT)
+    remaining = total_available - shown
+    label = i18n.t(SHOW_MORE_TEMPLATE) % remaining
+    anchor = (
+        '<a class="calendar-disconnect-btn" href="%s?%s=%d">%s</a>'
+    ) % (
+        layout.FLIGHTS_ROUTE, FLIGHTS_LIMIT_QUERY_PARAM, next_limit,
+        escape_html(label),
+    )
+    return '<nav class="flights-more">%s</nav>' % anchor
+
+
 def render(ctx):
     state_dir = ctx["state_dir"]
     now = ctx.get("now") or history_db.utc_now_iso()
@@ -1609,6 +1755,20 @@ def render(ctx):
         lightbox_html = ""
     else:
         formatted_rows = [format_event_row(row, now) for row in rows]
+        # 29-03-PLAN.md Task 1 (CFG-83): the slice happens HERE, before
+        # the per-row enrichment loop below, so that loop's work (a
+        # gallery lookup and a thumbnail render per row) runs only for
+        # rows this render actually shows — never for the up-to-35 rows
+        # a default-limit render never displays. One slice, one list:
+        # visible_rows is the ONE list both _history_cards_html() and
+        # _history_table_html() below render from, so the phone card
+        # list and the desktop table can never disagree about which
+        # flights exist (the same "computed exactly once per row"
+        # discipline the view-panel-match loop below already followed,
+        # extended to the row set itself).
+        limit = flights_limit(ctx)
+        total_available = len(formatted_rows)
+        visible_rows = formatted_rows[:limit]
         # D-20: the nearest-render match is computed exactly once per
         # row, here, and stored onto the row dict both
         # _history_table_html() and _history_cards_html() below already
@@ -1616,7 +1776,7 @@ def render(ctx):
         # between the desktop and mobile representations. A row with no
         # match carries the empty string, never a disabled/broken
         # control.
-        for row in formatted_rows:
+        for row in visible_rows:
             match = nearest_gallery_entry(gallery_entries_list, row["raw_ts"])
             row["view_panel_html"] = (
                 _view_panel_button_html(match[0], match[1]) if match else "")
@@ -1635,19 +1795,27 @@ def render(ctx):
         # neither a button nor this dialog is ever rendered (the truth
         # this task's own acceptance criteria pin).
         has_view_panel_button = any(
-            row["view_panel_html"] for row in formatted_rows)
+            row["view_panel_html"] for row in visible_rows)
         lightbox_html = _lightbox_html() if has_view_panel_button else ""
-        if not formatted_rows:
+        if not visible_rows:
             # No filter bar over nothing to filter — matches the table/
             # card renderers' own "no chrome when there's no data" rule.
-            body = _history_table_html(formatted_rows, now)
+            # (visible_rows is empty exactly when formatted_rows was,
+            # since flights_limit() never clamps below FLIGHTS_PAGE_SIZE
+            # — a non-empty formatted_rows always yields at least one
+            # visible row.)
+            body = _history_table_html(visible_rows, now)
         else:
             # Cards render before the table - companion/static/style.css's
             # `.history-cards ~ .data-table-wrap` sibling-combinator
-            # toggle (06.6.3-02) depends on this exact DOM order.
+            # toggle (06.6.3-02) depends on this exact DOM order. The
+            # Show-more nav renders LAST, after the table — CFG-83's own
+            # filter-bar-stays-first requirement, unmoved and ungated on
+            # the limit.
             body = (
-                _filter_bar_html(len(formatted_rows))
-                + _history_cards_html(formatted_rows, now)
-                + _history_table_html(formatted_rows, now))
+                _filter_bar_html(len(visible_rows), total_available)
+                + _history_cards_html(visible_rows, now)
+                + _history_table_html(visible_rows, now)
+                + _show_more_html(len(visible_rows), total_available))
 
     return header + body + lightbox_html

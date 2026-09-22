@@ -80,6 +80,22 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
+
+# 29-06-PLAN.md Task 3 (CFG-79): the site-wide caption-floor's own
+# exemption list. Begins with config_page.ASPECT_CAPTION_EXEMPTIONS
+# (imported, never re-listed — one home, emptied in one place the day
+# Phase 30 lands) and carries NO further members. The one candidate
+# this plan anticipated — layout.empty_state()'s compact body, which
+# composes "empty-state__body text-label section-caption" — never
+# needs a text-based entry here: it is already excluded by the SAME
+# class-subset selector _measured_section_captions() below uses (its
+# extra "empty-state__body" token fails the strict
+# {"text-label", "section-caption"} subset check, the identical
+# mechanism that already excludes config_page.py's wake-gauge
+# readouts, per 29-05-SUMMARY.md). It never enters the measured set at
+# all, so it needs no exemption-list entry — recorded here as the
+# judgement call this plan made, not left silent.
+CAPTION_FLOOR_EXEMPTIONS = config_page.ASPECT_CAPTION_EXEMPTIONS
 EXPECTED_CHECK_COUNT = 129  # 11-04: +4 (env_wake_interval_default() full input space,
 # page_context() threading, the end-to-end env-prefill/on-disk-precedence
 # check, and the below-floor-degrades-to-placeholder check)
@@ -871,6 +887,12 @@ EXPECTED_CHECK_COUNT = 316
 # regex-collision lookahead preserved). 316 + 0 = 316, re-derived by
 # RUNNING (316/316).
 EXPECTED_CHECK_COUNT = 316
+
+# 29-06-PLAN.md Task 3 (CFG-79): +1 — the site-wide editorial floor
+# check, generalising plan 29-05's Display/Device-only floor to all six
+# authenticated routes over a real running server, in both languages.
+# 316 + 1 = 317, re-derived by RUNNING (317/317 pass).
+EXPECTED_CHECK_COUNT = 317
 
 # ==========================================================================
 # 25-01-PLAN.md Task 4 (CFG-46/D-09) — THE NO-JS CONTROL CONTRACT, AS A
@@ -11761,6 +11783,242 @@ def main():
             "and to their original English text under "
             "i18n.t_lang(..., 'en') (D-06/B16)",
             _nav_and_theme_labels_round_trip_to_french_and_back)
+
+        def _site_wide_editorial_floor_all_six_routes_both_languages():
+            # 29-06-PLAN.md Task 3 (CFG-79): generalises plan 29-05's
+            # render-level editorial floor (Display/Device only) to all
+            # six authenticated routes, over a REAL server, in both
+            # languages. This is the one check the phase is held to.
+            import companion.i18n as i18n_module
+            from companion import frame_state
+
+            # --- THE ONE COUNTING RULE, duplicated from test_config_page.py's
+            # own nested _caption_word_count_text() (not a module-level
+            # importable symbol there — it lives inside that file's main()
+            # — so it cannot be imported; the block below extracts its REAL
+            # source text via ast, execs it in isolation, and proves this
+            # duplicate agrees with it on a real fixture string before any
+            # of the checks below trust it). ---
+            def _caption_word_count_text(fragment):
+                stripped = re.sub(r"<[^>]*>", "", fragment)
+                text = html.unescape(stripped).strip()
+                if text.startswith("— "):
+                    text = text[2:]
+                return re.sub(r"\s+", " ", text).strip()
+
+            tcp_path = os.path.join(HERE, "test_config_page.py")
+            with open(tcp_path, encoding="utf-8") as fh:
+                tcp_source = fh.read()
+            tcp_tree = ast.parse(tcp_source, filename=tcp_path)
+            tcp_func_node = None
+            for node in ast.walk(tcp_tree):
+                if isinstance(node, ast.FunctionDef) and node.name == "_caption_word_count_text":
+                    tcp_func_node = node
+                    break
+            if tcp_func_node is None:
+                return False, (
+                    "expected companion/test_config_page.py to still define "
+                    "_caption_word_count_text — this file's own duplicate has "
+                    "nothing to be pinned equal to")
+            tcp_func_source = ast.get_source_segment(tcp_source, tcp_func_node)
+            tcp_namespace = {"re": re, "html": html}
+            exec(  # noqa: S102 — the extracted source is our own test file's, never external input
+                compile(tcp_func_source, "<test_config_page._caption_word_count_text>", "exec"),
+                tcp_namespace)
+            tcp_caption_word_count_text = tcp_namespace["_caption_word_count_text"]
+            fixture = '  — Hello   "World"&#x27;s <b>caption</b>  '
+            mine, theirs = _caption_word_count_text(fixture), tcp_caption_word_count_text(fixture)
+            if mine != theirs:
+                return False, (
+                    "this file's counting-rule duplicate disagrees with "
+                    "test_config_page.py's own _caption_word_count_text on "
+                    "fixture %r: got %r here, %r there — the two would measure "
+                    "the site inconsistently" % (fixture, mine, theirs))
+
+            def _measured_section_captions(rendered):
+                out = []
+                for m in re.finditer(r'<p\s+class="([^"]*)"[^>]*>(.*?)</p>', rendered, re.DOTALL):
+                    classes = m.group(1).split()
+                    if "section-caption" not in classes:
+                        continue
+                    if set(classes) - {"text-label", "section-caption"}:
+                        continue
+                    out.append((m.start(), m.end(), m.group(2)))
+                return out
+
+            def _frame_strip_slice(rendered):
+                marker = '<div class="frame-strip stat-tile stat-tile--accent"'
+                start = rendered.find(marker)
+                if start == -1:
+                    return None
+                depth = 0
+                for token in re.finditer(r"<div\b[^>]*>|</div>", rendered[start:]):
+                    depth += 1 if token.group(0) != "</div>" else -1
+                    if depth == 0:
+                        return start, start + token.end()
+                raise AssertionError("unbalanced frame-strip <div> markup")
+
+            # --- route-list parity: layout's own six constants vs.
+            # test_browser_ux.py's declared VIEW_TRANSITION_ROUTES, read as
+            # TEXT (never imported — this is an app-level harness, not a
+            # browser one) so a seventh route added to one enumeration and
+            # not the other fails here. ---
+            site_routes = (
+                layout.HOME_ROUTE, layout.DISPLAY_ROUTE, layout.FLIGHTS_ROUTE,
+                layout.AIRLINES_ROUTE, layout.HEALTH_ROUTE, layout.DEVICE_ROUTE,
+            )
+            browser_ux_path = os.path.join(HERE, "test_browser_ux.py")
+            with open(browser_ux_path, encoding="utf-8") as fh:
+                browser_ux_source = fh.read()
+            browser_ux_tree = ast.parse(browser_ux_source, filename=browser_ux_path)
+            view_transition_routes = None
+            for node in ast.walk(browser_ux_tree):
+                if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                        and isinstance(node.targets[0], ast.Name)
+                        and node.targets[0].id == "VIEW_TRANSITION_ROUTES"):
+                    view_transition_routes = ast.literal_eval(node.value)
+                    break
+            if view_transition_routes is None:
+                return False, (
+                    "expected test_browser_ux.py to still declare "
+                    "VIEW_TRANSITION_ROUTES")
+            if set(site_routes) != set(view_transition_routes):
+                return False, (
+                    "layout's own six route constants %r do not equal "
+                    "test_browser_ux.py's declared VIEW_TRANSITION_ROUTES "
+                    "membership %r" % (sorted(site_routes), sorted(view_transition_routes)))
+
+            # --- fetch every route x language over the real server ---
+            cookie = _login(harness)
+            exempt_by_lang = {
+                lang: {
+                    _caption_word_count_text(i18n_module.t_lang(text, lang))
+                    for text in CAPTION_FLOOR_EXEMPTIONS
+                }
+                for lang in ("en", "fr")
+            }
+            apply_timing_templates = (
+                frame_state.DELAY_DUE, frame_state.DELAY_HELD, frame_state.DELAY_UNKNOWN)
+
+            rendered_by = {}
+            for route in site_routes:
+                for lang in ("en", "fr"):
+                    cookie_header = "%s; %s=%s" % (cookie, auth.UI_LANG_COOKIE_NAME, lang)
+                    status, _headers, body = http_request(base + route, cookie=cookie_header)
+                    if status != 200:
+                        return False, "%s/%s: expected an authenticated 200, got %d" % (
+                            route, lang, status)
+                    rendered = body.decode("utf-8", errors="replace")
+                    expected_lang_attr = '<html lang="%s"' % lang
+                    if expected_lang_attr not in rendered:
+                        return False, (
+                            "%s/%s: expected the served document's <html lang> to be %r — "
+                            "otherwise this pass could be silently re-measuring English"
+                            % (route, lang, lang))
+                    rendered_by[(route, lang)] = rendered
+
+            # --- the length floor + exemption skip-count + anti-vacuity floors ---
+            # Minimums pinned a little below the observed figures on this
+            # exact (fresh, unseeded) fixture — re-derived by RUNNING this
+            # exact selector against a real render of each route: Home 2,
+            # Display 15, Flights 0 (a genuinely empty page with no
+            # .section-caption element at all on a fresh state dir — not a
+            # narrowed-selector artefact; Airlines 2, Health 4, Device 8
+            # (English counts; French renders the identical structure).
+            # Enough margin for an unrelated future caption to be added or
+            # removed without retuning this number, not so much margin
+            # that a badly narrowed selector could still clear it.
+            per_route_min = {
+                layout.HOME_ROUTE: 1, layout.DISPLAY_ROUTE: 13, layout.FLIGHTS_ROUTE: 0,
+                layout.AIRLINES_ROUTE: 1, layout.HEALTH_ROUTE: 3, layout.DEVICE_ROUTE: 6,
+            }
+            # Site-wide total across BOTH languages: 2+2 + 15+15 + 0+0 +
+            # 2+2 + 4+4 + 8+8 = 62 observed, re-derived by RUNNING.
+            site_total_min = 55
+
+            skip_counts = {"en": 0, "fr": 0}
+            site_total_captions = 0
+            outside_matches = []
+            any_inside_strip = False
+            for route in site_routes:
+                for lang in ("en", "fr"):
+                    rendered = rendered_by[(route, lang)]
+                    captions = _measured_section_captions(rendered)
+                    if lang == "en":
+                        if len(captions) < per_route_min[route]:
+                            return False, (
+                                "%s/%s: only %d .section-caption element(s) measured, expected "
+                                "at least %d — a narrowed selector could pass over an empty set"
+                                % (route, lang, len(captions), per_route_min[route]))
+                    site_total_captions += len(captions)
+
+                    strip_bounds = _frame_strip_slice(rendered)
+
+                    for start, _end, fragment in captions:
+                        text = _caption_word_count_text(fragment)
+                        if text in exempt_by_lang[lang]:
+                            skip_counts[lang] += 1
+                            continue
+                        words = text.split()
+                        if len(words) > 12:
+                            return False, (
+                                "%s/%s: a non-exempt section-caption renders %d word(s) "
+                                "(max 12): %r" % (route, lang, len(words), text))
+
+                        for template in apply_timing_templates:
+                            translated = i18n_module.t_lang(template, lang)
+                            if "%s" in translated:
+                                pattern = re.escape(translated).replace(re.escape("%s"), r".+?")
+                            else:
+                                pattern = re.escape(translated)
+                            if not re.search(pattern, text):
+                                continue
+                            if strip_bounds is not None and strip_bounds[0] <= start < strip_bounds[1]:
+                                any_inside_strip = True
+                            else:
+                                outside_matches.append(
+                                    "%s/%s at offset %d (%r): %r"
+                                    % (route, lang, start, text[:80], text))
+                            break
+
+            if site_total_captions < site_total_min:
+                return False, (
+                    "site-wide total: only %d .section-caption element(s) measured across all "
+                    "six routes/both languages, expected at least %d"
+                    % (site_total_captions, site_total_min))
+
+            expected_skip_count = len(CAPTION_FLOOR_EXEMPTIONS)
+            for lang in ("en", "fr"):
+                if skip_counts[lang] != expected_skip_count:
+                    return False, (
+                        "%s: expected exactly %d CAPTION_FLOOR_EXEMPTIONS skip(s) across the "
+                        "whole site, got %d — either the exemption is unreachable or it "
+                        "silently swallowed a caption it should not have"
+                        % (lang, expected_skip_count, skip_counts[lang]))
+
+            if outside_matches:
+                return False, (
+                    "the apply-timing sentence rendered outside the Frame strip's own slice — "
+                    "CFG-79 confines it to exactly one place per page: %s"
+                    % "; ".join(outside_matches))
+            if not any_inside_strip:
+                return False, (
+                    "the apply-timing relationship never matched INSIDE the Frame strip either "
+                    "— this assertion is vacuous unless it is proven to fire on the strip's own, "
+                    "untouched markup at least once")
+            return True, ""
+        check(
+            "the site-wide editorial floor (CFG-79): every non-exempt .section-caption element "
+            "on all six authenticated routes, in both English and French, over a real running "
+            "server, is at most 12 whitespace-split words; the route list is proven equal to "
+            "test_browser_ux.py's own VIEW_TRANSITION_ROUTES; CAPTION_FLOOR_EXEMPTIONS (config_"
+            "page.ASPECT_CAPTION_EXEMPTIONS, imported not re-listed) is skipped exactly its own "
+            "length per language across the whole site; per-route and site-wide caption-count "
+            "minimums guard against a narrowed selector passing vacuously; and the apply-timing "
+            "sentence (read from frame_state.py's own DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN "
+            "constants) never renders outside the Frame strip's own markup slice, proven to fire "
+            "inside it at least once (29-06-PLAN.md Task 3)",
+            _site_wide_editorial_floor_all_six_routes_both_languages)
 
     finally:
         harness.stop()

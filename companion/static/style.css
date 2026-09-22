@@ -2947,11 +2947,100 @@ button:disabled {
  * gap). Before this wrapper, the cards were bare `display: block`
  * siblings of `.theme-status`'s heading and both paragraphs, so each
  * card took a full line and the group rendered as three stacked
- * full-width bars instead of a row. */
+ * full-width bars instead of a row.
+ *
+ * 29-04-PLAN.md Task 1 (CFG-80): this rule's SECOND consumer is gone.
+ * quiet_hours_group()'s preset row used to borrow this exact class (see
+ * the two comments below, kept in place rather than silently corrected,
+ * that still say otherwise) — it now has its own dedicated
+ * `.quiet-preset-row` rule immediately below this one, styled as a
+ * segmented control rather than a wrapping flex row. `.runway-row` is
+ * therefore back to its original one consumer, the runway picker. */
 .runway-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
+}
+
+/* 29-04-PLAN.md Task 1 (CFG-80) — THE QUIET-HOURS PRESET ROW, A
+ * SEGMENTED CONTROL WITH NO SELECTED STATE.
+ *
+ * Same bordered-container-plus-borderless-segment idiom `.theme-form`/
+ * `.theme-option` already use for the language/theme footer switches
+ * (a hairline border and radius on the container, segments with no
+ * border of their own) — but this control keeps NO active/selected
+ * modifier, deliberately: these three buttons are momentary actions
+ * that WRITE a value into the two time fields below, not a persistent
+ * choice, so there is nothing to keep visually "current" the way a
+ * theme or language choice is. That is also why this rule adds no
+ * accent consumer and needs no change to style.css's header-comment
+ * accent-reservation list — a control with no selected state has no
+ * accent-filled state to reserve one for.
+ *
+ * The hairline divider between segments is a `border-left` on every
+ * button but the first, reusing the same `--color-border` hairline
+ * every card edge in this file already uses — not `.theme-form`'s own
+ * `gap`-only separation, because these buttons keep the app's ordinary
+ * quiet-button treatment (padding, background wash) rather than
+ * `.theme-option`'s flush segment styling, and a gap alone would read
+ * as three loose buttons rather than one control. */
+.quiet-preset-row {
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.quiet-preset-row button {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  border-radius: 0;
+}
+
+.quiet-preset-row button:not(:first-child) {
+  border-left: 1px solid var(--color-border);
+}
+
+/* 29-04-PLAN.md Task 1 (CFG-80) — START AND END, ONE ROW.
+ *
+ * Two tracks at the card's own width, from the existing spacing scale —
+ * no new token. `minmax(0, 1fr)` on both (not a bare `1fr`) so a long
+ * error message inside either column can wrap instead of forcing the
+ * grid wider than the card, the same overflow guard `.data-table`'s own
+ * `min-width: max-content` note elsewhere in this file exists to avoid
+ * the opposite failure of.
+ *
+ * A NARROW-VIEWPORT FALLBACK IS DECLARED, and it is not pre-emptive —
+ * it is required by a number already on record in THIS file.
+ * `.config-form input[type="time"] { min-width: 9rem }` (144px) is a
+ * hard floor on each native time input, independent of anything this
+ * rule declares. At the 360px contract floor, this card's own inner
+ * content width is 360 − 2×24 (`.page-content`'s side padding,
+ * `--space-lg`) − 2×16 (`.theme-status`'s own padding below 960px,
+ * `--space-md`) = 280px. Two 144px inputs plus even the smallest
+ * column gap already need 2×144 + 8 = 296px — 16px MORE than the
+ * 280px available, before the "Start "/"End " label text or either
+ * twin has taken any width at all. Two columns cannot fit at the
+ * contract floor, arithmetically, from numbers already declared in
+ * this file — no live-browser measurement was available in this
+ * worktree to refine the exact breakpoint further (see the plan's own
+ * SUMMARY for the open follow-up), so the threshold below is set with
+ * deliberate headroom above the bare 392px the same arithmetic gives
+ * at the wider `--space-lg` (24px) gap this rule actually uses
+ * (2×144 + 24 + 80px of combined padding = 392px), rather than cut
+ * exactly to it. Below the threshold the row degrades to the ORIGINAL
+ * stacked layout (one track), never a broken two-column overflow. */
+.quiet-times-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm) var(--space-lg);
+}
+
+@media (max-width: 479.98px) {
+  .quiet-times-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Runway picker (06.4/06.6.3 D-05): selectable card, number prominence +
@@ -3005,11 +3094,16 @@ button:disabled {
    * measure 271.3px before and after.
    *
    * `.runway-row` itself is deliberately NOT given `flex-wrap: nowrap`,
-   * which is what 22-UI-SPEC.md §2's B9 row prescribes: that class has a
-   * SECOND consumer, `quiet_hours_group()`'s three-preset row, whose
-   * buttons carry long labels ("Night (23:00-07:00)") that must still be
-   * allowed to wrap on a phone. Fixing B9 on the card rather than the
-   * row leaves that second consumer untouched. */
+   * which is what 22-UI-SPEC.md §2's B9 row prescribes — SUPERSEDED-in-
+   * reasoning by 29-04-PLAN.md Task 1 (CFG-80): this paragraph used to
+   * name a SECOND consumer, `quiet_hours_group()`'s three-preset row
+   * (whose long labels, e.g. "Night (23:00-07:00)", needed to wrap on a
+   * phone), as the reason `.runway-row` itself keeps wrapping rather
+   * than being fixed to `nowrap` here. That second consumer is gone —
+   * the preset row now has its own `.quiet-preset-row` rule and short,
+   * non-wrapping labels — so `.runway-row` is back to its original one
+   * consumer, but the conclusion (fix B9 on the card, not the row) is
+   * unaffected and kept as written. */
   flex: 1 1 0;
   min-width: 0;
   cursor: pointer;
@@ -4647,11 +4741,41 @@ table.data-table--registry .cell-inline-sep {
   box-shadow: var(--shadow-card-hover);
 }
 
+/* 29-03-PLAN.md Task 2 (CFG-83, 2026-09-17 audit P1 second paragraph):
+ * the flex row let its two children renegotiate their share of the
+ * line at 390px — "l'horodatage et l'indicatif se disputent aussi la
+ * même ligne dans certaines cartes" — because a flex row with no fixed
+ * track never guarantees which side gives way first. The two-track
+ * grid below pins the timestamp's track to its own content width
+ * (`auto`) and gives every remaining pixel to the callsign/hex track
+ * (`minmax(0, 1fr)`, free to shrink to zero and wrap/ellipsis within
+ * itself) — the timestamp can never be squeezed again. `white-space:
+ * nowrap` on `.history-card__time` below is the half that makes the
+ * pin meaningful: without it, a timestamp column pinned to `auto`
+ * would still be free to wrap internally onto a second line.
+ * `justify-content` is meaningless on a two-track grid whose second
+ * track is `auto` (there is no leftover space to distribute), so it is
+ * removed rather than kept as dead weight. */
 .history-card__primary {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-sm);
-  justify-content: space-between;
+}
+
+/* The callsign/hex side of the primary line renders as ONE OR TWO bare
+ * sibling spans (`.cell-primary`, and — only in the hex-with-no-
+ * callsign branch — a following `.cell-secondary` note), both direct
+ * children of `.history-card__primary` with no wrapper of their own
+ * (companion/pages/history_page.py's `_history_cards_html()`). Both
+ * must land in the grid's FIRST track and stack there, never spill
+ * into the timestamp's second track — scoped to this one parent, never
+ * to the bare `.cell-primary`/`.cell-secondary` classes themselves,
+ * which `_history_table_html()`'s desktop cells also use with no grid
+ * of their own to conflict with. */
+.history-card__primary > .cell-primary,
+.history-card__primary > .cell-secondary {
+  grid-column: 1;
 }
 
 /* opacity 0.7, matching .cell-secondary / .cell-inline-sep above. This
@@ -4687,9 +4811,18 @@ table.data-table--registry .cell-inline-sep {
   font-size: var(--font-label-size);
 }
 
+/* 29-03-PLAN.md Task 2: `margin-left: auto` was the FLEX mechanism that
+ * pushed this span to the line's trailing edge — the grid above places
+ * it in its own track instead, so the auto margin is dead weight now
+ * (and, left in place, would fight the grid's own alignment). `white-
+ * space: nowrap` is new: a wrapped clock is the exact "retours
+ * visuellement maladroits" the audit photographed, and pinning the
+ * track to `auto` (above) only stops the track's WIDTH from being
+ * squeezed — nothing stops the text inside it from wrapping unless
+ * this is also declared. */
 .history-card__time {
-  margin-left: auto;
   font-size: var(--font-label-size);
+  white-space: nowrap;
 }
 
 /* 23-08-PLAN.md Task 2 (D7/CFG-37): the disclosure is the card's WHOLE
@@ -4779,6 +4912,24 @@ table.data-table--registry .cell-inline-sep {
 
 .history-card__resolve .cell-unresolved-link {
   margin-left: 0;
+}
+
+/* 29-03-PLAN.md Task 1 (CFG-83): the "Afficher plus" / "Show more"
+ * reveal's own container. `.flights-more` is ALWAYS rendered
+ * (history_page.py's `_show_more_html()`, empty when nothing remains —
+ * see that function's own comment for why an empty container must
+ * still exist), so `:empty` is what keeps a page with nothing left to
+ * reveal from paying for this rule's own top margin. No new custom
+ * property, no new colour, no new size — `--space-md` is the same
+ * token `.history-card` already uses for its own padding. */
+.flights-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-md);
+}
+
+.flights-more:empty {
+  display: none;
 }
 
 /* Health's own generic mobile card-list mechanism (quick task 260903-ghy,
@@ -6276,27 +6427,6 @@ a.airline-card {
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* X7 (22-11-PLAN.md Task 2, 22-UI-SPEC.md §2): the per-card "Replace
- * picture" control's PLACEMENT inside the card — and nothing else. Its
- * entire visual treatment (30px, 12px text, the 6%/12% washes, the 20%
- * hairline) comes from `.calendar-disconnect-btn`, reused verbatim in
- * the markup as that component's SECOND consumer, exactly as
- * references/control-density.md predicted when it named it "the pattern
- * to reuse the next time this app needs a small, deliberately
- * de-emphasized secondary action". No modifier class, no second base
- * rule and emphatically no `.btn` family: this block declares margin
- * and width only, so the single `.calendar-disconnect-btn` rule above
- * stays the one place that component's geometry is defined.
- *
- * Full-width inside the ~159px phone card because a 2-column grid leaves
- * no room for the control to sit beside anything, and a centred stub
- * button under a left-aligned name reads as debris. */
-.airline-card .calendar-disconnect-btn {
-  display: block;
-  width: 100%;
-  margin-top: var(--space-sm);
 }
 
 /* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
@@ -8240,6 +8370,24 @@ a.airline-card {
   white-space: nowrap;
 }
 
+/* 29-04-PLAN.md Task 2 (CFG-80): the `[hidden]`-versus-`display` guard,
+ * joining `.refresh-pill[hidden]`, `.dirty-bar[hidden]`, `.resolve-
+ * context[hidden]` and `.login-reveal[hidden]` above — the same trap
+ * quick task 260921-n2n's `.resolve-context[hidden]` guard fixed: an
+ * author `display` declaration on the base rule always beats the user-
+ * agent stylesheet's `[hidden] { display: none }`, regardless of source
+ * order, so setting `hidden` on an element governed by an undefended
+ * base rule hides nothing at all. The base rule above declares NO
+ * `display` of its own (only `margin-left`/`white-space`), so this guard
+ * is defence in depth rather than a fix for an active collision — added
+ * anyway, matching this stylesheet's own posture on every one of the
+ * four siblings named above, because a future declaration on the base
+ * rule (a `display: inline-flex` for some new layout need, say) would
+ * silently reopen exactly this trap without it. */
+.field-inline-value[hidden] {
+  display: none;
+}
+
 
 /* =====================================================================
  * Phase 18 — companion audit / UX refactor.
@@ -9600,10 +9748,13 @@ a.airline-card__zoom {
  * keep the primary rule's inset highlight even once the fill is
  * repainted, which is what made the control read as raised.
  *
- * `.airline-card .calendar-disconnect-btn` further down is (0,2,0) and
- * declares display/width/margin ONLY — no colour, no border, no
- * shadow — so it is unaffected by this change and keeps sourcing its
- * entire visual treatment from here, exactly as its own comment says. */
+ * Airlines' per-card Replace control (once (0,2,0) via `.airline-card
+ * .calendar-disconnect-btn`, display/width/margin only) was removed
+ * outright by 29-01-PLAN.md/CFG-81 — the illustration dialog owns
+ * Replace now — and its now-unreachable positioning rule was deleted as
+ * orphaned dead code by WR-01 (29-REVIEW.md). Only Config's Disconnect
+ * button, History's picture control and Flights' Show-more anchor (see
+ * CR-01 below) consume this class today. */
 button.calendar-disconnect-btn {
   min-height: 30px;
   padding: 4px var(--space-sm);
@@ -9624,6 +9775,31 @@ button.calendar-disconnect-btn:focus-visible {
   background: color-mix(in srgb, var(--color-text) 12%, transparent);
   border-color: color-mix(in srgb, var(--color-text) 20%, transparent);
   box-shadow: none;
+}
+
+/* CR-01 (29-REVIEW.md): history_page.py's _show_more_html() emits the
+ * Flights "Show more" reveal as an `<a class="calendar-disconnect-btn">`,
+ * not a `<button>`. The element-type-qualified `button.calendar-
+ * disconnect-btn` rule above can never match an `<a>` tag regardless of
+ * class, so it rendered as a bare underlined link. An anchor has no
+ * `button[type="submit"]` specificity fight to win, so a plain class
+ * selector (0,1,0) is enough here — no element-type qualifier, no
+ * source-order dependency. */
+a.calendar-disconnect-btn {
+  display: inline-block;
+  min-height: 30px;
+  padding: 4px var(--space-sm);
+  font-size: 12px;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: var(--radius-control);
+  text-decoration: none;
+}
+a.calendar-disconnect-btn:hover,
+a.calendar-disconnect-btn:focus-visible {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 20%, transparent);
 }
 
 /* D-13: the masked feed URL (host + "…", companion/pages/config_page.
@@ -10227,65 +10403,6 @@ input:checked + .frame-colours__row {
   margin-top: var(--space-sm);
 }
 
-/* --- 20-UI-SPEC.md §K: the Airlines "Change pictures" toggle (D-36) ----
- * An <a> cannot share the `button[type="submit"]`/bare `button` element
- * selectors above, so this is a deliberate, minimal duplication of the
- * base quiet-button visual treatment onto an anchor — the same reason
- * this class needs to exist at all. Values mirror the base `button`
- * block exactly: the wash/border strengths, the 30px/36px height pair. */
-.airlines-edit-toggle {
-  display: inline-flex;
-  align-items: center;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
-  text-decoration: none;
-  color: var(--color-text);
-  font-weight: var(--weight-semibold);
-  /* X7 (22-11-PLAN.md Task 2): the audit's "CHANGE PICTURES". This
-   * anchor sits inside a `.page-header__screen` wrapper — a class whose
-   * own role on the Device page is a label-voice CAPTION, where
-   * uppercase is correct — and inherited that caption's
-   * `text-transform: uppercase`. A shouting button is not a label, and
-   * this app's CTA voice is sentence case everywhere else ("Save airline
-   * name", "Send a test"). Declared HERE, on the toggle's own existing
-   * class, rather than by inventing a button class the file's own header
-   * comment refuses to have. */
-  text-transform: none;
-}
-
-/* The caption under the toggle inherits the same uppercase from the same
- * wrapper, and is a sentence — "Replace an airline's picture or add one
- * for an airline that has none." — so it is even less a label than the
- * button is. Scoped to a caption INSIDE the wrapper, which is why the
- * Device page's own `<p class="page-header__screen text-label">` (the
- * class on the element, not on an ancestor) is untouched and keeps its
- * label voice. */
-.page-header__screen .section-caption {
-  text-transform: none;
-}
-
-/* X7: the "Editing" state badge beside the toggle. `.banner__pill` is
- * reused verbatim for its label voice; this rule contributes only the
- * gap between the two, since the markup emits no whitespace between
- * them and both are inline-flex. */
-.page-header__screen .banner__pill {
-  margin-left: var(--space-sm);
-}
-
-.airlines-edit-toggle:hover {
-  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
-  border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
-}
-
-@media (max-width: 959.98px) {
-  .airlines-edit-toggle {
-    height: 36px;
-  }
-}
-
 /* B9 fallback (22-10-PLAN.md Task 2, 22-AUDIT.md's own second option).
  *
  * Below 360px the three equal columns stop being the right shape: the
@@ -10301,8 +10418,11 @@ input:checked + .frame-colours__row {
  * 2 + 1 orphan is the defect B9 exists to remove, and reintroducing it
  * one breakpoint lower would be the same defect at a smaller size. A
  * 100% basis inside the row's existing `flex-wrap: wrap` puts one card
- * per line with no change to `.runway-row`, whose second consumer
- * (quiet_hours_group()'s preset row) must keep wrapping normally. */
+ * per line with no change to `.runway-row` — 29-04-PLAN.md Task 1
+ * (CFG-80) retired the second consumer this sentence used to name
+ * (`quiet_hours_group()`'s preset row moved to its own `.quiet-preset-
+ * row` rule); `.runway-row` keeps wrapping regardless, for its one
+ * remaining consumer, the runway picker itself. */
 @media (max-width: 359.98px) {
   .runway-card {
     flex: 1 1 100%;
@@ -10402,6 +10522,15 @@ input:checked + .frame-colours__row {
   /* The active/hover tint is painted on this INNER wrapper, not on the
    * cell, so the pill is inset from the cell edge while the cell keeps
    * its full 78x56px tap area. */
+  /* 2026-09-17 audit (CFG-82): the pill's 8px horizontal margin on each
+   * side left only 62px of a 78px cell for "Compagnies", which needs
+   * 65px at this label's 11px size — the label truncated with an
+   * ellipsis in a real browser. Halved to `calc(var(--space-xs) / 2)`
+   * (2px) so the label fits; the vertical component stays at
+   * `var(--space-xs)` deliberately, unchanged. The margin lives on this
+   * INNER pill, never on `.tab-bar__link` (the 78x56px cell above), so
+   * the tap area this comment already describes is unaffected by the
+   * shrink. */
   .tab-bar__pill {
     flex: 1 1 auto;
     min-width: 0;
@@ -10410,7 +10539,7 @@ input:checked + .frame-colours__row {
     align-items: center;
     justify-content: center;
     gap: var(--space-xs);
-    margin: var(--space-xs) var(--space-sm);
+    margin: var(--space-xs) calc(var(--space-xs) / 2);
     border-radius: var(--radius-control);
     transition: background-color .15s ease, color .15s ease;
   }

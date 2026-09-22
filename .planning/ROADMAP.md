@@ -1401,9 +1401,34 @@ Investigated before planning (git archaeology, not guesswork): the pre-removal b
 
 **Requirements**: CFG-79, CFG-80, CFG-81, CFG-82, CFG-83, CFG-84 (all new)
 **Depends on:** Phase 28 (merged and deployed); quick task Lot A merged first (its five fixes are assumed present)
-**Plans:** 0 plans — not planned yet
+**Plans:** 6/6 plans complete
 
 Plans:
+**Wave 1**
+
+- [x] 29-01-PLAN.md — CFG-81: the illustration dialog owns its actions; the page-wide picture-editing mode and its `?edit=1` plumbing removed outright
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 29-02-PLAN.md — CFG-82: Compagnies reads gallery-first, and `.tab-bar__pill`'s margin stops truncating the mobile tab label
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 29-03-PLAN.md — CFG-83: Vols paginated to 15 flights behind a no-JS `?limit=` reveal that survives the refresh loop, plus the phone summary card's stable grid
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 29-04-PLAN.md — CFG-80: quiet hours as one object — Start/End on one line, segmented short-labelled presets, the normalised twin hidden only on a positive 24 h determination
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 29-05-PLAN.md — CFG-79 (1/2): the editorial floor on Display and Device, the apply-timing sentence reduced to the Frame strip alone, Aspect pinned as an exemption
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 29-06-PLAN.md — CFG-84 + CFG-79 (2/2): État's short battery heading, État/Compagnies copy with every honesty clause moved not cut, and the site-wide caption floor over all six routes in both languages
+
+**Wave order is strictly sequential (waves 1-6), by real file ownership rather than by preference:** `airlines_page.py` is written by 29-01 and 29-02, `config_page.py` by 29-04 and 29-05, `health_page.py`/`airlines_page.py` again by 29-06, `style.css` by 29-02/29-03/29-04, and `test_view_pages.py`/`test_status_pages.py`/`test_config_page.py` by almost all of them — each harness's `EXPECTED_CHECK_COUNT` is a single append point that two concurrent plans would both get wrong. CFG-81 lands before CFG-82 because CFG-82's "any remaining editing affordance" is only knowable once the toggle is gone; CFG-79's two halves land last so the floor checks measure final copy, and CFG-79 deliberately does not touch `EDIT_TOGGLE_CAPTION` (29-01 deletes it with its toggle).
 
 **The developer's own words (French, verbatim), in the order given, each investigated against the code before this entry was written:**
 
@@ -1418,6 +1443,7 @@ Plans:
 5. *"numéro de téléphones proposés dans ce field de recherche"* and *"écart bizarre entre le texte et le bouton"* — Lot A (the Flights/Airlines filter `<input type="search">` carries no `name` and no `autocomplete`, so Safari offers contact phone numbers; the flight detail row's `<dl>` carries a 24 px bottom margin and is followed by the callsign copy button's reserved 44 px hit box before "View image" — the exact resolved gap is to be MEASURED in a rendered row before it is fixed, never guessed).
 
 **Scope for this phase:**
+
 - CFG-79, the editorial floor, site-wide except Display's Aspect section (Phase 30 owns that copy): one sentence under a card title, at most ~12 words, no mechanism clause and no reason clause; "applies at the next wake" said in ONE place per page (the Frame strip / save bar already carry it), never repeated under each card; everything longer moves into the existing "How it works" disclosure or is deleted. Enforced by a harness check that measures RENDERED caption length on every authenticated route in both languages, mutation-proven against a deliberately long caption.
 - CFG-80, quiet hours as one object: Start and End on one line beside/under the dial as one visual unit; the normalised twin hidden at load when the native field already renders unambiguous 24 h (kept as the no-JS / 12 h fallback — B14's ground still holds); presets as a segmented control with short labels ("Nuit", "Journée"), the hours being already spoken by the dial caption. The uncommitted 17-09 sibling fix in the main checkout is moot once the twin hides and is NOT replayed.
 - CFG-81, the illustration dialog owns its actions: Replace (and Delete for a manual entry) always rendered in the dialog, the page-wide `edit_mode` and the "Modifier les images" toggle removed; "Send a picture" for an airline without artwork stays. The dialog's resolve-context block renders only in the resolve modes (Lot A fixes the CSS guard; this phase removes the reason it was ever reachable).
@@ -1442,6 +1468,7 @@ Plans:
 **The developer's own words (French, verbatim):** *"pour commencer j'aimerais vraiment qu'on améliore ce pannel. Il n'est pas très joli, il est pas évident à comprendre... je pense qu'il y a vraiment plus simple et plus moderne."* and, on the Calendar card: *"je comprends pas pourquoi calendrier ne fait pas partie de la même tuile que les autres, au moins intégré dans « vols du calendrier ». Il y a vraiment quelque chose à revoir sur l'ensemble."*
 
 **Investigated before this entry (against the code at Phase 28):**
+
 - Every one of the 18 themes has `departing_index == arriving_index` (`server/device_config.py`, a Phase 25 finding), so the two swatches each usage row paints are always identical and distinguish nothing.
 - On the developer's screenshot the selected departures theme ("Bande rouge pleine", the 18th) is not visible: the strip opens on the first chip, and the dot row carries no position state (a Phase 28 finding, CFG-75, fixed for the preview only).
 - "Règles par vol" is a list with its own add-form, not a theme, yet sits in the same radiogroup as three themes.
@@ -1449,12 +1476,14 @@ Plans:
 - Footprint: `.frame-colours` 21 CSS rules, `.theme-carousel` 16, `.theme-chip` 73, three Python builders (`_frame_colours_card_html()`, `_theme_carousel_html()`, `_theme_chip_grid_html()`), the carousel half of `theme-preview.js`, and the CFG-50/CFG-68/CFG-75 browser checks — most of it disappears.
 
 **Recommended direction ("accordéon"), to be sketched against the lighter alternative ("segments"):**
+
 1. One tile "Aspect" absorbing the Calendar card; the live preview full-width on phones, left column on desktop.
 2. Three rows, not four: Départs, Arrivées, Vols du calendrier — each ONE swatch, the theme name, opening in place; one row open at a time.
 3. Under the open row a palette of the 18 themes as a wrapping grid of ~44 px swatches: no strip, no scrollbar, no pagers, no dots, no disclosure. A swatch draws the theme's own SHAPE (band or full field) without the aircraft — the big preview does that job and follows hover/focus the way it already follows scroll (CFG-75's preview state, re-keyed). Arrivées and Calendrier keep a leading "Comme les départs" entry.
 4. The Calendar row also carries its connection: "Connecté · 0 vol à venir" and a "Gérer" disclosure holding the URL line, Replace-URL, Disconnect and How-it-works UNDER the row — colour and connection of the calendar in one place.
 5. Règles par vol becomes a fourth, secondary row below the three ("Aucune règle · Ajouter") disclosing the existing list + add form.
 6. Both intro sentences go (CFG-79's rule applied to this card by this phase, since Phase 29 excludes it).
+
 The alternative keeps the current structure and swaps only the selector: three segments Départs / Arrivées / Calendrier over one wrapping swatch grid, the calendar connection folded into the same tile. Less change, but the three current values are no longer visible at a glance and the separate Calendar card still has to be justified. The developer decides on the two sketches.
 
 **Floors that do not move:** the no-JS control contract (the palette is native radios cross-submitting via `form="settings-form"`; the preview is server-rendered for the SAVED theme; opening a row without scripts renders every row open — the same shape the carousel's disclosure already has); the CSP (`img-src 'self' data:`, no inline script); the one-script budget (extend `theme-preview.js`, never a new file); the accent-reservation list (the selected swatch reuses the existing `:has(input:checked)` selected-card treatment); zero new custom properties, colour literals, families or sizes unless argued in the stylesheet's own header.
@@ -1462,4 +1491,3 @@ The alternative keeps the current structure and swaps only the selector: three s
 **CFG-86 is the measurement:** Display's page height at 390 px, scripted with the registered instrument, before and after — the last honest figures are 3 743 px (Phase 25), 3 524 px (Phase 27) and 3 556 px (17-09 audit) against X6's never-met 2 600 px target; this phase reports the delta and whether the target is met, never restates the target to fit.
 
 **Carried discipline:** as Phase 29's, plus: the sketch is thrown away (it is `/gsd-sketch` output, never copied into `style.css`); every removed CSS rule is grepped for a surviving consumer before deletion; `EXPECTED_CHECK_COUNT` re-derived by running after the carousel checks are retired.
-
