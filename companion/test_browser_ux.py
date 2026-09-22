@@ -101,7 +101,8 @@ from companion.contrast_check import (  # noqa: E402
     perceptual_distance,
 )
 from companion.test_companion_app import Harness, TEST_PASSWORD  # noqa: E402
-from companion.pages import airlines_page, config_page, health_page  # noqa: E402
+from companion.pages import (  # noqa: E402
+    airlines_page, config_page, health_page, history_page)
 from server import device_config, history_db  # noqa: E402
 from companion import illustration_normalize  # noqa: E402
 from server.plane import colour_rules, illustrations, manual_resolutions  # noqa: E402
@@ -6929,8 +6930,24 @@ def main():
                         "}")
 
                     # (route, minimum <details> the page must render). Every
-                    # authenticated page, in nav order.
-                    pages = (("/", 1), ("/display", 3), ("/flights", 37),
+                    # authenticated page, in nav order. Each route's own
+                    # floor is its page-specific disclosure count plus the
+                    # ONE shared `<details class="tab-bar__more">` every
+                    # authenticated page renders (layout.py) — visible in
+                    # the "/" / "/airlines" / "/device" floors of 1, which
+                    # have no page-specific disclosure of their own.
+                    #
+                    # 29-03-PLAN.md (CFG-83): /flights' floor was 37 (one
+                    # `<details>` per phone card, against the harness's own
+                    # ~36-flight realistic fixture, +1 for the shared
+                    # tab-bar disclosure) before Vols was paginated. It is
+                    # now `history_page.FLIGHTS_PAGE_SIZE + 1` — the
+                    # rendered fixture no longer determines this floor,
+                    # the page's own default page size does, and a stale
+                    # literal here would silently stop proving anything
+                    # the moment that constant next changes.
+                    pages = (("/", 1), ("/display", 3),
+                             ("/flights", history_page.FLIGHTS_PAGE_SIZE + 1),
                              ("/airlines", 1), ("/health", 4), ("/device", 1))
 
                     def _assert_clean(seen, where, width):
@@ -8606,12 +8623,27 @@ def main():
                         page.wait_for_timeout(REFRESH_SETTLE_MS)
 
                         after_ids = _row_ids(page)
-                        if len(after_ids) != len(before_ids) + 1:
+                        # 29-03-PLAN.md (CFG-83): Vols is now paginated to
+                        # history_page.FLIGHTS_PAGE_SIZE by default, so
+                        # "grows by exactly one" only holds BELOW that
+                        # cap — at or above it (this harness's own
+                        # realistic fixture already renders a full page),
+                        # a new detection arriving pushes the oldest
+                        # visible row off-page and the count holds flat.
+                        # Both shapes are the SAME real behaviour; the
+                        # invariant that survives pagination is the one
+                        # `arrived`/`marked` below actually test: exactly
+                        # one identity is new, and it is at the top.
+                        want_after = min(
+                            len(before_ids) + 1, history_page.FLIGHTS_PAGE_SIZE)
+                        if len(after_ids) != want_after:
                             return False, (
                                 "expected the swap to bring the new detection into the live "
-                                "list: %d rows before, %d after — with no new row this check "
+                                "list: %d rows before, %d after, wanted %d (min(before+1, "
+                                "FLIGHTS_PAGE_SIZE=%d)) — with no new row this check "
                                 "would be asserting a highlight on nothing"
-                                % (len(before_ids), len(after_ids)))
+                                % (len(before_ids), len(after_ids), want_after,
+                                   history_page.FLIGHTS_PAGE_SIZE))
                         arrived = [rid for rid in after_ids if rid not in before_ids]
                         if len(arrived) != 1:
                             return False, (
@@ -8778,8 +8810,26 @@ def main():
                         page.wait_for_load_state("networkidle")
                         requests = _count_document_requests(page, base_url + "/flights")
 
+                        # 29-03-PLAN.md (CFG-83): Vols is now paginated
+                        # to history_page.FLIGHTS_PAGE_SIZE by default, so
+                        # a hardcoded callsign from seed_state_dir()'s own
+                        # 36-flight fixture is no longer guaranteed to be
+                        # among the rows the SERVER actually sent — this
+                        # reads the first rendered row's own
+                        # data-filter-text (unique per row: "{callsign
+                        # lowercased} {hex}") straight off the page
+                        # instead, so the query always targets a row
+                        # that is genuinely there, whatever the default
+                        # page size is.
+                        query = page.eval_on_selector(
+                            "tr[data-flight-row]", "el => el.getAttribute('data-filter-text')")
+                        if not query:
+                            return False, (
+                                "expected the first rendered row to carry a non-empty "
+                                "data-filter-text to filter by — with none, this check has "
+                                "nothing to type")
                         page.click("[data-filter-input]")
-                        page.type("[data-filter-input]", "AFR101")
+                        page.type("[data-filter-input]", query)
                         visible = page.evaluate(
                             "() => [...document.querySelectorAll('tr[data-flight-row]')]"
                             ".filter(el => !el.hidden).length")
@@ -8836,7 +8886,7 @@ def main():
                                 "the live count reverted to the server's own unfiltered sentence "
                                 "after a refresh, expected it to still read %r" % (count_text,))
                         if page.eval_on_selector(
-                                "[data-filter-input]", "el => el.value") != "AFR101":
+                                "[data-filter-input]", "el => el.value") != query:
                             return False, "the typed query itself did not survive the refresh"
                         return True, ""
                     finally:
