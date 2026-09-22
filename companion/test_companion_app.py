@@ -5449,9 +5449,17 @@ def main():
                     return False, "theme-preview.js must not contain %r" % token
             required = (
                 "addEventListener", "querySelector", "getAttribute", "data-preview-src",
-                # 21-05-PLAN.md Task 3 (D-08/D-12): the row->panel->chip
-                # attribute contract this rewrite depends on.
-                "data-usage-panel")
+                # 30-04-PLAN.md Task 3 (CFG-85): re-pointed from the
+                # retired "data-usage-panel" (the usage-panel-target
+                # attribute the accordion rebuild deletes) to
+                # "data-usage" — the accordion row's own locked
+                # attribute (config_page.py's _usage_row_html(), read
+                # here via ".usage-row[data-usage=...]") — in the SAME
+                # commit as the rewrite, matching this file's own
+                # established "guard repointed with its rename" pattern
+                # elsewhere in this phase. Was: "data-usage-panel" (D-08/
+                # D-12, the retired row->panel->chip attribute contract).
+                "data-usage")
             for token in required:
                 if token not in src:
                     return False, "expected %r in theme-preview.js" % token
@@ -5459,8 +5467,8 @@ def main():
         check(
             "theme-preview.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
             "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers/a page-wide "
-            "single-grid lookup), and carries the row->panel->chip src-swap contract (addEventListener/"
-            "querySelector/getAttribute/data-preview-src/data-usage-panel all present) (D-08/D-12/R-11, "
+            "single-grid lookup), and carries the row->chip src-swap contract (addEventListener/"
+            "querySelector/getAttribute/data-preview-src/data-usage all present) (D-08/D-12/R-11, "
             "extended by 21-05-PLAN.md Task 3 from D-22..D-24's own original single-grid version)",
             _theme_preview_script_es5_safe_and_no_html_write)
 
