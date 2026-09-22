@@ -246,6 +246,21 @@ FRAME_COLOURS_ROW_LABELS = {
     COLOUR_USAGE_CALENDAR: "Calendar flights",
     COLOUR_USAGE_RULES: "Per-flight rules",
 }
+# 30-02-PLAN.md Task 2 (CFG-85): the grouped-<details> `name` attribute
+# value every one of the four Aspect accordion rows shares (native
+# grouped-disclosure, one-open-at-a-time with zero script) — ONE
+# constant so the four rows and every check that addresses them agree,
+# rather than four literals that can drift apart.
+ASPECT_ROWS_GROUP_NAME = "aspect-rows"
+# 30-02-PLAN.md Task 2 (CFG-85): the closed-row `<summary>` format —
+# "{row label} — {theme label}", e.g. "Departures — Red" — joining two
+# ALREADY-translated strings with an em dash. The em dash is
+# punctuation, not copy, so this template itself carries no French
+# entry (test_i18n.py's own scan excludes it: stripping its two `%s`
+# format specs leaves no letters). Defined once, per 30-UI-SPEC.md's own
+# copy table note that this format "must live once rather than four
+# times".
+ASPECT_ROW_SUMMARY_TEMPLATE = "%s — %s"
 # 22-10-PLAN.md Task 1 (X6): the one-line legend that names every chip's
 # two `.theme-chip__dot` swatches, rendered ONCE UNDER each grid rather
 # than once per chip — 22-AUDIT.md X6's "two unexplained square swatches
@@ -1653,6 +1668,126 @@ def _palette_swatch_html(theme_id, extra_class=""):
             escape_html(_palette_hex(theme["band_index"])))
     return '<span class="%s" aria-hidden="true" style="background:%s">%s</span>' % (
         escape_html(css_class), escape_html(hex_fill), band_html)
+
+
+def _palette_chip_html(field_name, theme_id, selected, radio_form_id=None):
+    """30-02-PLAN.md Task 2 (CFG-85): one palette entry — a `<label
+    class="palette-chip">` wrapping a visually-hidden native radio, this
+    theme's own `_palette_swatch_html()` (no `<img>`, no photo, no
+    `theme-preview` route call per chip), and a caption. Mirrors
+    `_theme_chip_grid_html()`'s hidden-radio-inside-`<label>` idiom (same
+    four field names, same `form=` cross-submit seam) but drops the
+    `<img>`, the two `.theme-chip__dot` spans and the swatch legend
+    entirely — there is now ONE swatch per theme (`departing_index ==
+    arriving_index` for all 18 registered themes), so there is nothing
+    left for a two-dot legend to name.
+
+    THE ATTRIBUTE THAT MUST NOT BE DROPPED: `data-preview-src` on the
+    `<label>` itself — `theme-preview.js` (D-24) resolves the live
+    preview source off the CHANGED radio input's `parentNode`. Dropping
+    it silently stops the live preview from following selection.
+
+    Deliberately does NOT emit the `--selected` server class or
+    `CURRENT_BADGE_ATTR` "Current" badge `_theme_chip_grid_html()`
+    carries — those belong to the big photo chip's quiet saved-state
+    marker; this chip's selected state is the live `:has(input:checked)`
+    treatment (plan 30-07), which is what the accent-reservation list's
+    re-keyed entry already covers. A third selected-state signal on one
+    control would be redundant.
+    """
+    form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
+    escaped_id = escape_html(theme_id)
+    label = i18n.t(device_config.theme_label(theme_id))
+    check_html = ""
+    if selected:
+        check_html = (
+            '<span class="palette-chip__check">%s'
+            '<span class="visually-hidden">%s</span></span>'
+        ) % (layout.icon_html("icon-check"), escape_html(i18n.t("Selected")))
+    return (
+        '<label class="palette-chip" data-preview-src="%s%s.png?live=1">'
+        '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
+        "%s"
+        '<span class="palette-chip__name">%s</span>'
+        "%s"
+        "</label>"
+    ) % (
+        THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
+        escape_html(field_name), escaped_id, form_attr_html,
+        " checked" if selected else "",
+        _palette_swatch_html(theme_id, extra_class="palette-chip__swatch"),
+        escape_html(label),
+        check_html,
+    )
+
+
+def _palette_grid_html(
+        field_name, selected_theme_id, radio_form_id=None, leading_html="",
+        labelled_by=""):
+    """30-02-PLAN.md Task 2 (CFG-85): the wrapping 18-entry palette grid
+    — `<div class="palette" role="radiogroup">`, looping
+    `device_config.THEME_IDS` in registry order (never a literal list,
+    never a re-sort) and interpolating `leading_html` BEFORE the 18
+    chips, so a caller can prepend `_same_as_departures_chip_html()`'s
+    output unchanged.
+
+    No `id` attribute: this function has three call sites on one page
+    (departures/arrivals/calendar), and an `id` emitted inside a
+    multi-call renderer is the exact trap `_theme_carousel_html()`'s own
+    docstring records (CFG-68) — a second call would either collide or
+    silently go un-controlled by anything.
+    """
+    labelled_by_html = ' aria-labelledby="%s"' % escape_html(labelled_by) if labelled_by else ""
+    chips = [
+        _palette_chip_html(
+            field_name, theme_id, theme_id == selected_theme_id,
+            radio_form_id=radio_form_id)
+        for theme_id in device_config.THEME_IDS
+    ]
+    return '<div class="palette" role="radiogroup"%s>%s%s</div>' % (
+        labelled_by_html, leading_html, "".join(chips))
+
+
+def _usage_row_summary_html(usage, theme_id, meta_text=None):
+    """30-02-PLAN.md Task 2 (CFG-85): one Aspect accordion row's
+    `<summary>` — the row's swatch, then a `<span class="usage-row__
+    name">` carrying the translated row label, wrapping a NESTED `<span
+    class="usage-row__meta">` — 30-UI-SPEC.md's Typography table's own
+    "trailing detail" tier (14px, muted) — so the two segments can carry
+    different weight/size while the row still reads, visually and to
+    assistive tech, as one continuous phrase: "{row label} — {meta}".
+
+    That em-dash join is computed from `ASPECT_ROW_SUMMARY_TEMPLATE`
+    ("%s — %s") EXACTLY ONCE per call — never a second, hand-typed em
+    dash — and then sliced back into its own "— {meta}" tail for the
+    nested meta span, so the dash itself has exactly one source even
+    though it renders inside a different element than the row label.
+
+    `meta_text`, when omitted, is derived from
+    `i18n.t(device_config.theme_label(theme_id))` — the row's own
+    currently-selected/saved theme name. The Rules row passes its own
+    `meta_text` explicitly (the translated rule count / empty-state
+    string) and its own `theme_id=None` — it has no single theme of its
+    own to swatch, so no swatch element renders at all for that row.
+    """
+    if meta_text is None:
+        meta_text = i18n.t(device_config.theme_label(theme_id))
+    row_label = i18n.t(FRAME_COLOURS_ROW_LABELS[usage])
+    escaped_row_label = escape_html(row_label)
+    escaped_meta = escape_html(meta_text)
+    joined = ASPECT_ROW_SUMMARY_TEMPLATE % (escaped_row_label, escaped_meta)
+    meta_suffix_html = joined[len(escaped_row_label):]
+    swatch_html = (
+        _palette_swatch_html(theme_id, extra_class="usage-row__swatch")
+        if theme_id is not None else ""
+    )
+    return (
+        "<summary>%s"
+        '<span class="usage-row__name">%s'
+        '<span class="usage-row__meta">%s</span>'
+        "</span>"
+        "</summary>"
+    ) % (swatch_html, escaped_row_label, meta_suffix_html)
 
 
 def _theme_chip_grid_html(

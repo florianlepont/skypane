@@ -1121,6 +1121,20 @@ EXPECTED_CHECK_COUNT = 274
 # (275/275).
 EXPECTED_CHECK_COUNT = 275
 
+# 30-02-PLAN.md Task 2 (CFG-85): +2 — two new checks
+# (_palette_grid_html_renders_one_chip_per_registered_theme_in_order_
+# no_photo, _usage_row_summary_html_joins_row_label_and_meta_with_one_
+# em_dash_source) proving _palette_chip_html()/_palette_grid_html()/
+# _usage_row_summary_html() against the live registry. One PRE-EXISTING
+# check (_the_departures_grid_is_the_one_renderer_presented_as_a_strip)
+# was RETARGETED IN PLACE, not counted as new: its "exactly ONE chip
+# renderer emits data-preview-src" guard now allow-lists exactly the two
+# DELIBERATE renderers 30-UI-SPEC.md's own Structural Contract names
+# (_theme_chip_grid_html, _palette_chip_html), preserving the guard's
+# real property (no ACCIDENTAL third fork) rather than loosening it.
+# 275 + 2 = 277, re-derived by RUNNING (277/277).
+EXPECTED_CHECK_COUNT = 277
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -2232,6 +2246,95 @@ def main():
         "with a band child, renders a plain theme as one solid <span> with no opacity, and "
         "space-joins extra_class onto its class attribute (CFG-85)",
         _palette_swatch_html_matches_the_live_registry_band_facts)
+
+    def _palette_grid_html_renders_one_chip_per_registered_theme_in_order_no_photo():
+        # 30-02-PLAN.md Task 2 (CFG-85): _palette_grid_html() renders
+        # exactly len(THEME_IDS) chips, in device_config.THEME_IDS order
+        # (never a re-sort), each carrying data-preview-src (D-24, the
+        # attribute theme-preview.js reads off the changed radio's
+        # parentNode) and form="settings-form" (the cross-submit seam),
+        # zero <img> (no photo, no per-chip preview route call), exactly
+        # one selected chip's check glyph, and exactly one outer swatch
+        # element per chip.
+        g = config_page._palette_grid_html(
+            "theme", "red", radio_form_id=config_page.SETTINGS_FORM_ID)
+        ids = re.findall(r'<input type="radio" name="theme" value="([^"]+)"', g)
+        if ids != list(device_config.THEME_IDS):
+            return False, (
+                "expected one radio per THEME_IDS entry IN REGISTRY ORDER, got %r" % (ids,))
+        if g.count("<img") != 0:
+            return False, "expected the palette to render zero <img> (no photo per chip)"
+        # Rule-1-class note: counting the literal substring "palette-swatch"
+        # would double-count every banded chip, since the band child's own
+        # class (palette-swatch__band, locked by Task 1) shares that
+        # string's prefix — count the OUTER swatch wrapper specifically
+        # (it alone carries aria-hidden="true"; the band child never does).
+        outer_swatch_count = g.count('aria-hidden="true" style="background:')
+        if outer_swatch_count != len(device_config.THEME_IDS):
+            return False, (
+                "expected exactly one outer palette-swatch per chip (%d), got %d"
+                % (len(device_config.THEME_IDS), outer_swatch_count))
+        preview_src_count = g.count(
+            'data-preview-src="%s' % config_page.THEME_PREVIEW_ROUTE_PREFIX)
+        if preview_src_count != len(device_config.THEME_IDS):
+            return False, (
+                "expected data-preview-src on all %d chip <label>s (theme-preview.js's own "
+                "D-24 read), got %d" % (len(device_config.THEME_IDS), preview_src_count))
+        form_attr_count = g.count('form="settings-form"')
+        if form_attr_count != len(device_config.THEME_IDS):
+            return False, (
+                "expected form=\"settings-form\" on all %d radios, got %d"
+                % (len(device_config.THEME_IDS), form_attr_count))
+        selected_needle = (
+            'value="red" class="visually-hidden" form="settings-form" checked')
+        if g.count(selected_needle) != 1 or g.count(" checked") != 1:
+            return False, "expected exactly the red chip's radio marked checked"
+        if g.count("palette-chip__check") != 1:
+            return False, "expected exactly one selected-chip check glyph"
+        lead = config_page._palette_grid_html(
+            "theme_arriving", None, leading_html="<label id=LEAD></label>")
+        if lead.index("LEAD") >= lead.index("palette-chip"):
+            return False, "expected leading_html to precede the 18 chips, not follow them"
+        if ' id="' in re.sub(r'data-preview-src="[^"]*"', "", g):
+            return False, (
+                "expected _palette_grid_html() to emit no id attribute of its own — three "
+                "call sites on one page sharing an id is the exact CFG-68 collision trap")
+        return True, ""
+    check(
+        "_palette_grid_html() renders one chip per registered theme in device_config."
+        "THEME_IDS order, zero <img>, data-preview-src and form=\"settings-form\" on "
+        "every chip, exactly one selected check glyph, leading_html before the chips, "
+        "and no id attribute of its own (CFG-85)",
+        _palette_grid_html_renders_one_chip_per_registered_theme_in_order_no_photo)
+
+    def _usage_row_summary_html_joins_row_label_and_meta_with_one_em_dash_source():
+        # 30-02-PLAN.md Task 2 (CFG-85): the closed-row <summary> — a
+        # swatch, the translated row label, and a nested meta span, the
+        # dash between them sourced ONCE from ASPECT_ROW_SUMMARY_TEMPLATE.
+        s = config_page._usage_row_summary_html(config_page.COLOUR_USAGE_DEPARTURES, "red")
+        if not (s.startswith("<summary") and s.rstrip().endswith("</summary>")):
+            return False, "expected a well-formed <summary>...</summary> fragment"
+        if "usage-row__swatch" not in s or "usage-row__name" not in s or "usage-row__meta" not in s:
+            return False, "expected the swatch, name and meta classes all present"
+        if "Departures" not in s or "Red" not in s:
+            return False, "expected the translated row label and theme label both present"
+        if "—" not in s:
+            return False, (
+                "expected the em-dash join from ASPECT_ROW_SUMMARY_TEMPLATE to appear "
+                "in the rendered summary")
+        s_rules = config_page._usage_row_summary_html(
+            config_page.COLOUR_USAGE_RULES, None, meta_text="No rules yet")
+        if "usage-row__swatch" in s_rules:
+            return False, (
+                "expected the rules row (theme_id=None) to render NO swatch element at all")
+        if "No rules yet" not in s_rules:
+            return False, "expected the given meta_text to appear verbatim (escaped)"
+        return True, ""
+    check(
+        "_usage_row_summary_html() renders a well-formed <summary> joining the translated "
+        "row label and meta text via ASPECT_ROW_SUMMARY_TEMPLATE's single em-dash source, "
+        "and renders no swatch at all when theme_id is None (the rules row) (CFG-85)",
+        _usage_row_summary_html_joins_row_label_and_meta_with_one_em_dash_source)
 
     # ------------------------------------------------------------------
     # 27-05-PLAN.md Task 3 (CFG-66): CFG-47's schematic Orly runway map
@@ -12758,12 +12861,23 @@ def main():
             # or silently breaks the live preview for its own chips.
             if "data-preview-src" in text and "<label" in text:
                 emitters.append(node.name)
-        if emitters != ["_theme_chip_grid_html"]:
+        # 30-02-PLAN.md Task 2 (CFG-85): RETARGETED, not loosened. Before
+        # this plan, `_theme_chip_grid_html()` was the ONLY chip renderer
+        # in the file, so "exactly one emitter" was the guard against an
+        # accidental fork. 30-UI-SPEC.md's own Structural Contract now
+        # explicitly adds a SECOND, DELIBERATE renderer
+        # (`_palette_chip_html()`, the smaller CSS-drawn palette chip —
+        # "This palette chip is NOT `_theme_chip_grid_html()`'s existing
+        # chip... a new, second, smaller renderer") — a real design
+        # decision, not fork drift. The guard's own property (no THIRD,
+        # accidental renderer ever emits this attribute) is preserved by
+        # pinning the allow-list to these exact two names.
+        expected_emitters = ["_theme_chip_grid_html", "_palette_chip_html"]
+        if sorted(emitters) != sorted(expected_emitters):
             return False, (
-                "expected exactly ONE function in config_page.py to emit a chip <label> "
-                "carrying data-preview-src, got %r — four call sites share that renderer, and "
-                "a second one is how the arrivals grid and the departures grid come to "
-                "disagree about what a selected chip looks like" % (emitters,))
+                "expected EXACTLY the two deliberate chip <label> renderers carrying "
+                "data-preview-src (%r), got %r — a third renderer is the exact accidental "
+                "fork this guard exists to catch" % (expected_emitters, emitters))
 
         card = config_page._frame_colours_card_html({}, "white", None, None)
         theme_count = len(device_config.THEME_IDS)
@@ -12864,8 +12978,10 @@ def main():
         return True, ""
     check(
         "departures/arrivals/calendar are all the ONE renderer's own output laid out as "
-        "scroll-snap strips, never a fork: a source scan of config_page.py finds exactly one "
-        "function emitting a chip <label> with data-preview-src, each strip keeps both the "
+        "scroll-snap strips, never an ACCIDENTAL fork: a source scan of config_page.py finds "
+        "exactly the two DELIBERATE chip <label> renderers carrying data-preview-src "
+        "(_theme_chip_grid_html and 30-02-PLAN.md's own _palette_chip_html), never a third; "
+        "each strip keeps both the "
         "base and the compact grid classes plus role=\"radiogroup\" and ITS OWN id, each holds "
         "the right radio count for its field (theme_count for departures, +1 for arrivals/"
         "calendar's leading 'Same as departures' chip) each carrying form=\"settings-form\" "
