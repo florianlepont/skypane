@@ -11870,12 +11870,18 @@ def main():
             # test_browser_ux.py's declared VIEW_TRANSITION_ROUTES, read as
             # TEXT (never imported — this is an app-level harness, not a
             # browser one) so a seventh route added to one enumeration and
-            # not the other fails here. ---
+            # not the other fails here. 31-01-PLAN.md Task 2 relocated the
+            # actual VIEW_TRANSITION_ROUTES assignment out of
+            # test_browser_ux.py into the shared
+            # test_browser_ux_helpers.py module (test_browser_ux.py now
+            # only imports the name) — read the constant from its current
+            # canonical declaration site rather than the file that merely
+            # imports it. ---
             site_routes = (
                 layout.HOME_ROUTE, layout.DISPLAY_ROUTE, layout.FLIGHTS_ROUTE,
                 layout.AIRLINES_ROUTE, layout.HEALTH_ROUTE, layout.DEVICE_ROUTE,
             )
-            browser_ux_path = os.path.join(HERE, "test_browser_ux.py")
+            browser_ux_path = os.path.join(HERE, "test_browser_ux_helpers.py")
             with open(browser_ux_path, encoding="utf-8") as fh:
                 browser_ux_source = fh.read()
             browser_ux_tree = ast.parse(browser_ux_source, filename=browser_ux_path)
