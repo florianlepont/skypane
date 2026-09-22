@@ -1203,6 +1203,15 @@ EXPECTED_CHECK_COUNT = 269
 # 269 + 5 = 274, re-derived by RUNNING (274/274).
 EXPECTED_CHECK_COUNT = 274
 
+# 30-07-PLAN.md Task 3 (CFG-85): the two remaining _ASPECT_REPIN_LEDGER
+# rows owed to this plan are cleared — the destructive-disconnect-
+# specificity-plus-selection check and the segmented-control-plus-
+# panel-legend check, both landing under names that diverge from the
+# ledger's own predicted "replacement" (same-name-repoint collisions,
+# resolved the same way 30-05/30-06 already resolved theirs — see each
+# row's own "why"). 274 + 2 = 276, re-derived by RUNNING (276/276).
+EXPECTED_CHECK_COUNT = 276
+
 # 30-03-PLAN.md Task 1 (CFG-85): the coverage-gap ledger this plan's
 # whole purpose depends on. EXPECTED TO EMPTY — matching the same
 # self-documenting convention config_page.ASPECT_CAPTION_EXEMPTIONS
@@ -1263,9 +1272,17 @@ _ASPECT_REPIN_LEDGER = (
             "its own 1px border and carries an inset accent ring (T6); 30-06 owes the T2/T15 "
             "half of this property back in its own commit, since only T6's own selector is "
             "retired by CFG-85"),
-        "replacement": "_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable",
-        "owed_by": "30-07",
-        "why": "T6's checked-row selector, 'input:checked + .frame-colours__row', has no .frame-colours__row to match once the accordion row markup replaces it",
+        "replacement": "_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable_after_the_accordion_rebuild",
+        "owed_by": "",
+        "why": (
+            "T6's checked-row selector, 'input:checked + .frame-colours__row', has no "
+            ".frame-colours__row to match once the accordion row markup replaces it — "
+            "DIVERGENCE: the ledger's own predicted replacement name is identical to the "
+            "retired name (30-03's same-name-repoint convention), which trips the ledger "
+            "guard's own unconditional 'retired name has no def' clause the instant a "
+            "same-named def lands under it — the identical guard-collision 30-05-SUMMARY.md/"
+            "30-06-SUMMARY.md already documented twice, at different rows. Resolved the same "
+            "way: appended '_after_the_accordion_rebuild' to the landing name."),
     },
     {
         "retired": "_frame_colours_card_full_shape_checklist",
@@ -1441,9 +1458,15 @@ _ASPECT_REPIN_LEDGER = (
             "the rule-kind segmented control keeps its own label margin/height reset "
             "(unaffected by CFG-85), and whatever legend or heading names the rules row's own "
             "copy still leaves the shared serif family through a later, higher-specificity rule"),
-        "replacement": "_segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif",
-        "owed_by": "30-07",
-        "why": "this check's C1 half pins '.frame-colours__panel-legend', a legend with nothing left to point at once the usage panels go",
+        "replacement": "_segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif_after_the_panel_legend_retires",
+        "owed_by": "",
+        "why": (
+            "this check's C1 half pins '.frame-colours__panel-legend', a legend with nothing "
+            "left to point at once the usage panels go — RETIRED outright rather than "
+            "repointed, narrowing the serif boundary's own non-serif-exception set by one; "
+            "T12's own half survives verbatim. DIVERGENCE: same-name-repoint collision "
+            "identical to the row above, resolved the same way: appended "
+            "'_after_the_panel_legend_retires' to the landing name."),
     },
 )
 
@@ -7480,6 +7503,113 @@ def main():
     # .frame-colours__row` selector (T6, CFG-85 retires .frame-colours__
     # row itself). LEDGERED WHOLE to 30-07 rather than split, with a note
     # that 30-06 owes the T2/T15 half back — see _ASPECT_REPIN_LEDGER.
+    #
+    # 30-07-PLAN.md Task 3: re-pinned below, landing under a name that
+    # diverges from the ledger's own predicted "replacement" — that
+    # predicted name is IDENTICAL to this row's own "retired" name
+    # (30-03's same-name-repoint convention), which would trip
+    # _every_aspect_repin_ledger_row_names_a_live_or_owed_replacement()'s
+    # own unconditional "retired name has no def" clause the instant a
+    # same-named def landed here — the identical guard-collision
+    # 30-05-SUMMARY.md/30-06-SUMMARY.md already documented twice, at
+    # different rows. Resolved the same way: append
+    # "_after_the_accordion_rebuild" to the landing name. Re-proves BOTH
+    # halves: (a) the destructive control's specificity RELATIONSHIP —
+    # `button.calendar-disconnect-btn` is element-qualified, (0,1,1), and
+    # placed AFTER `button[type="submit"]` in source order, so it wins on
+    # source order at equal specificity rather than on a higher one (the
+    # T2/T15 half, unaffected by CFG-85, never actually broken); and (b)
+    # the selection-is-free-and-focusable half, RE-KEYED from the retired
+    # `input:checked + .frame-colours__row` sibling selector to the new
+    # mechanism, which is now `.palette-chip:has(input:checked)` inside
+    # the file's one `@supports selector(:has(*))` block (the T6 half,
+    # the one CFG-85 genuinely retires the OLD selector for).
+
+    def _destructive_disconnect_is_secondary_and_selection_is_free_and_focusable_after_the_accordion_rebuild():
+        source = _read_static("style.css")
+
+        # (a) T2/T15: the specificity RELATIONSHIP, not merely presence.
+        # `button[type="submit"]` and `button.calendar-disconnect-btn`
+        # are both (0,1,1) — equal specificity — so which one wins is
+        # decided by SOURCE ORDER alone. The recorded defect (22-UI-
+        # SPEC.md, this file's own header comment) was a rule whose every
+        # declaration was dead for a phase and a half because the
+        # selector was only (0,1,0) against the submit rule's (0,1,1);
+        # asserting the element qualifier alone would not catch a
+        # regression back to that bug if the ORDER also regressed, so
+        # both are asserted together.
+        submit_selector = 'button[type="submit"] {'
+        disconnect_selector = "button.calendar-disconnect-btn {"
+        if submit_selector not in source:
+            return False, "expected style.css to declare %r" % (submit_selector,)
+        if disconnect_selector not in source:
+            return False, (
+                "expected style.css to declare %r (element-qualified — a bare "
+                "'.calendar-disconnect-btn' is only (0,1,0) and loses to "
+                "button[type=\"submit\"]'s (0,1,1) regardless of source order)"
+                % (disconnect_selector,))
+        submit_idx = source.index(submit_selector)
+        disconnect_idx = source.index(disconnect_selector)
+        if disconnect_idx < submit_idx:
+            return False, (
+                "expected %r to appear AFTER %r in source order — at equal "
+                "(0,1,1) specificity the LATER rule wins, and this is the exact "
+                "relationship that let the destructive control render as the "
+                "page's primary accent-filled CTA for a phase and a half"
+                % (disconnect_selector, submit_selector))
+
+        # (b) T6, re-keyed: the palette chip's checked-state declarations
+        # must live inside the ONE @supports selector(:has(*)) block —
+        # the new selection mechanism, replacing the retired
+        # `input:checked + .frame-colours__row` sibling selector.
+        supports_marker = "@supports selector(:has(*)) {"
+        if source.count(supports_marker) != 1:
+            return False, (
+                "expected exactly one %r block, got %d"
+                % (supports_marker, source.count(supports_marker)))
+        supports_idx = source.index(supports_marker)
+
+        def _rule_body(selector):
+            if selector not in source:
+                return None, "expected style.css to declare %r" % (selector,)
+            idx = source.index(selector)
+            if idx < supports_idx:
+                return None, (
+                    "expected %r to live inside the @supports selector(:has(*)) "
+                    "block" % (selector,))
+            return source[idx + len(selector):source.index("}", idx)], ""
+
+        base_body, err = _rule_body(".palette-chip:has(input:checked) {")
+        if base_body is None:
+            return False, err
+        if "border-color: var(--color-accent);" not in base_body:
+            return False, ".palette-chip:has(input:checked) must recolour its own border to accent"
+        if "box-shadow: inset 0 0 0 2px var(--color-accent);" not in base_body:
+            return False, ".palette-chip:has(input:checked) must carry the inset accent ring"
+
+        name_body, err = _rule_body(".palette-chip:has(input:checked) .palette-chip__name {")
+        if name_body is None:
+            return False, err
+        if "background: color-mix(in srgb, var(--color-accent) 12%, transparent);" not in name_body:
+            return False, "expected the 12%% accent wash on .palette-chip__name"
+
+        check_body, err = _rule_body(".palette-chip:has(input:checked) .palette-chip__check {")
+        if check_body is None:
+            return False, err
+        if "display: inline-flex;" not in check_body:
+            return False, "expected the check glyph to switch to inline-flex"
+
+        return True, ""
+    check(
+        "the destructive Disconnect control keeps its secondary, element-qualified specificity "
+        "AND its source-order relationship against button[type=\"submit\"] (T2/T15, re-proven as a "
+        "RELATIONSHIP rather than a bare presence check, since the recorded defect was a rule whose "
+        "every declaration was dead for a phase and a half), and the selected-chip mechanism is "
+        "re-keyed from the retired 'input:checked + .frame-colours__row' sibling selector to "
+        ".palette-chip:has(input:checked) inside the file's one @supports selector(:has(*)) block, "
+        "carrying the accent border, inset ring, 12%% wash and check-glyph declarations (T6, "
+        "30-07-PLAN.md Task 3)",
+        _destructive_disconnect_is_secondary_and_selection_is_free_and_focusable_after_the_accordion_rebuild)
 
     def _calendar_fusion_css_retired_from_the_stylesheet():
         # 21-07-PLAN.md Task 3 (D-13/R-08/Pitfall 2): both retired
@@ -12107,6 +12237,71 @@ def main():
     # its replacement must re-prove T12 verbatim (unaffected by CFG-85)
     # alongside whatever locator C1's property becomes. See
     # _ASPECT_REPIN_LEDGER below.
+    #
+    # 30-07-PLAN.md Task 3: C1's own half is RETIRED outright, not
+    # repointed — the usage panels and their <legend> elements are gone,
+    # and the rule-add form's "Match by" segmented control never had a
+    # <legend> of its own to begin with (it labels itself via a
+    # visually-hidden <span> plus aria-labelledby, confirmed at
+    # config_page.py:4910-4912) — there is genuinely nothing left for a
+    # legend-serif assertion to point at. This NARROWS the serif
+    # boundary's own documented non-serif-exception set by one (the
+    # sketch-findings-skypane skill's Typography section records
+    # `.frame-colours__panel-legend` as its "Second non-serif exception";
+    # that exception retires with its selector). Only T12 survives, and
+    # is re-pinned below under a landing name that diverges from the
+    # ledger's own predicted "replacement" — identical to "retired"
+    # (30-03's same-name-repoint convention), which would trip the
+    # ledger guard's own "retired name has no def" clause. Resolved the
+    # same way as the row above: append "_after_the_panel_legend_
+    # retires" to the landing name.
+
+    def _segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif_after_the_panel_legend_retires():
+        source = _read_static("style.css")
+
+        # T12, unaffected by CFG-85: the rule-kind segmented control
+        # ("Match by", inside the rule-add form's own .theme-form div,
+        # config_page.py:4913) still resets the global `label` rule's
+        # own 8px bottom margin and sits at its own 28px row height.
+        selector = 'input[type="radio"] + label {'
+        needle = ".theme-form " + selector
+        if needle not in source:
+            return False, "expected style.css to declare %r" % (needle,)
+        idx = source.index(needle)
+        body = source[idx + len(needle):source.index("}", idx)]
+        if "margin-bottom: 0;" not in body:
+            return False, (
+                "%r must reset the global label rule's own margin-bottom "
+                "(T12) — without it each 28px segment carries an 8px tail "
+                "inside the 2px-padded .theme-form container" % (needle,))
+        if "height: 28px;" not in body:
+            return False, "%r must keep its own 28px row height (T12)" % (needle,)
+
+        # C1's own selector is genuinely gone — the narrowed serif
+        # exception set is a design-system fact, not merely an absence.
+        # Comment-stripped: a historical comment naming the retired
+        # selector (this plan's own repointed cross-reference, and this
+        # very check's own docstring/comment above) must not fail this
+        # gate — the established fix for exactly this collision
+        # (companion/static/style.css's own header comment convention;
+        # see this file's _strong_selected_treatment_is_keyed_to_the_
+        # live_checked_radio() for the identical idiom).
+        stripped = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        if ".frame-colours__panel-legend" in stripped:
+            return False, (
+                "expected .frame-colours__panel-legend to be retired from style.css "
+                "entirely (comment-stripped) — its own usage panels and <legend> "
+                "elements no longer render anywhere on the page")
+
+        return True, ""
+    check(
+        "the rule-kind segmented control (config_page.py's 'Match by' <div class=\"theme-form\">, "
+        "unaffected by CFG-85) keeps its own global label-margin reset and 28px row height (T12), "
+        "and .frame-colours__panel-legend is confirmed retired outright rather than repointed — the "
+        "usage panels and their <legend> elements are gone, the rule-add form's own segmented "
+        "control never had a <legend> to begin with, and this genuinely NARROWS the serif "
+        "boundary's own documented non-serif-exception set by one (C1, 30-07-PLAN.md Task 3)",
+        _segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif_after_the_panel_legend_retires)
 
     def _the_rules_add_form_is_one_left_aligned_centre_aligned_row():
         source = _read_static("style.css")
