@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 YODE PTE LTD
+# SPDX-FileCopyrightText: 2026 Florian Lepont
+# SPDX-License-Identifier: Apache-2.0
+# Modified from FlightPortrait (github.com/flightportrait/frame) for
+# SkyPane; the changes are listed in firmware/VENDOR.md.
 # Unit B board profile: XIAO ePaper Display Board EE02 + XIAO ESP32-S3 Plus.
 #
 # Apply on top of sdkconfig.defaults, which keeps the reTerminal E1004 map:

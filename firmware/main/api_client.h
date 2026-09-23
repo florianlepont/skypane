@@ -1,5 +1,9 @@
 /* SPDX-FileCopyrightText: 2026 YODE PTE LTD
- * SPDX-License-Identifier: Apache-2.0 */
+ * SPDX-FileCopyrightText: 2026 Florian Lepont
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Modified from FlightPortrait (github.com/flightportrait/frame) for
+ * SkyPane; the changes are listed in firmware/VENDOR.md. */
 /* SkyPane device-protocol client — trimmed from flightportrait/frame's
  * `main/api_client.c/.h` (@ ce3335fc). Upstream implements the full
  * production surface: OTA firmware offers, possession-pairing signed

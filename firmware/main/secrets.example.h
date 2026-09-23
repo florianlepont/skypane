@@ -1,4 +1,5 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-FileCopyrightText: 2026 Florian Lepont
+ * SPDX-License-Identifier: Apache-2.0 */
 /* SkyPane — Phase 1 credential template.
  *
  * Copy this file to `secrets.h` (gitignored — see firmware/.gitignore,

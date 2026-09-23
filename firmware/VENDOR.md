@@ -13,6 +13,27 @@
   ```
   Full licence text: https://github.com/flightportrait/frame/blob/ce3335fc5e566bcc6ccd29966ec39bf5c5318f12/LICENSE
 
+## Licensing of this directory
+
+All of `firmware/` is distributed under the Apache License 2.0 — a verbatim
+copy of the upstream licence text is in [`LICENSE`](./LICENSE), and the
+upstream `NOTICE` is reproduced in [`NOTICE`](./NOTICE). This satisfies the
+four redistribution conditions of Apache-2.0 §4:
+
+1. **Licence copy** — `firmware/LICENSE`.
+2. **Modified files carry prominent notices** — every file marked "no" in
+   the table below starts with a header naming both copyright holders and
+   pointing back to this file for the list of changes.
+3. **Upstream notices retained** — every vendored file keeps its original
+   `SPDX-FileCopyrightText: 2026 YODE PTE LTD` line; verbatim files are
+   byte-identical to the pinned commit.
+4. **NOTICE** — `firmware/NOTICE`.
+
+Files original to SkyPane (see "Original To This Repository" below) carry
+`SPDX-FileCopyrightText: 2026 Florian Lepont` only. They are licensed under
+Apache-2.0 as well, so the whole directory has one licence. The repository's
+root MIT licence does **not** apply to `firmware/`.
+
 This is a pin to an exact commit, not a branch. A future phase intending to
 pick up upstream changes must re-pin deliberately — update the hash in this
 file, diff every vendored file in the table below against the new commit,
@@ -37,9 +58,9 @@ re-apply any local changes it still needs, and re-run the host tests
 | `main/panel.c` | `main/panel.c` | yes | none |
 | `main/panel.h` | `main/panel.h` | yes | none |
 | `main/panel_guard.c` | `main/panel_guard.c` | yes | none |
-| `main/panel_guard.h` | `main/panel_guard.h` | yes | none |
+| `main/panel_guard.h` | `main/panel_guard.h` | no | Doc comment only (commit `503e701`): the rationale for the refresh-spacing guard was rewritten to match the verified GDEP133C02 datasheet finding (no documented refresh-rate or endurance limit; refresh at least every 24 h). No declaration changed. |
 | `tests/test_panel_guard.c` | `tests/test_panel_guard.c` | yes | none |
-| `sdkconfig.ee02.defaults` | `sdkconfig.ee02.defaults` | yes | none |
+| `sdkconfig.ee02.defaults` | `sdkconfig.ee02.defaults` | no | Appended two SkyPane blocks after the upstream content, which is otherwise untouched: battery-sense pins (`CONFIG_FP_PIN_BATTERY_ADC`, `CONFIG_FP_PIN_BATTERY_ADC_EN`, plan `05-03`) and the bring-up LED (`CONFIG_FP_PIN_LED`, `CONFIG_FP_LED_ACTIVE_LOW`, plan `260827-wo4`). |
 | `main/Kconfig.projbuild` | `main/Kconfig.projbuild` | no | Trimmed to the options this project actually compiles against: kept `FP_API_BASE`, `FP_DEV_PROVISION_SECRET`, `FP_HW_REV`, the full 8-pin panel-pins menu, and the panel menu (`FP_MIN_REFRESH_SPACING_S`, `FP_MAX_GUARD_WAIT_S`). Removed `FP_PROVISION_TIMEOUT_S` (BLE provisioning timeout) and `FP_FACTORY_PREP` (factory-prep boolean) — neither has any code behind it in this project. Retained the "E1004 controls" menu (`FP_PIN_KEY0/1/2` plus the two hold-time options) with a new comment explaining why it stays without a compiled consumer this phase — the pin values are measured hardware fact from a real EE02 key-sweep (see `sdkconfig.ee02.defaults`), and losing them would mean re-deriving that measurement when Phase 4 (DEVICE-01) wires up the button handler. |
 | `main/wifi.c` | `main/wifi.c` | no | Credential source changed from NVS (written by a BLE provisioning flow this project doesn't compile) to the `SKYPANE_WIFI_SSID`/`SKYPANE_WIFI_PASS` macros in the gitignored `secrets.h`. Dropped the "adopt a live Unified-Provisioning connection" early-return branch (no provisioning session exists to adopt) and the fast-connect AP-remember helper, since it wrote to NVS keys (`wifi_bssid`, `wifi_chan`) this project's trimmed `nvs_schema.h` no longer defines. Kept: the join/retry event-group logic, the SNTP time sync (a TLS prerequisite after any power loss — the device has no RTC battery), RSSI read, and `fp_wifi_stop()` (radio off before deep sleep). |
 | `main/wifi.h` | `main/wifi.h` | no | Trimmed to the four functions the above still implements: `fp_wifi_platform_init`, `fp_wifi_connect`, `fp_wifi_rssi`, `fp_wifi_stop`. Removed the credential-store/-load and factory-reset declarations, since nothing in this project's compiled sources calls them. |
@@ -85,6 +106,11 @@ Files in `firmware/` that are not vendored from upstream at all:
   every path. Introduced in plan `05-03` (Phase 5, DEVICE-04), confirmed on
   real hardware — see `hardware/BRINGUP-LOG.md`'s "ADC Battery-Sense
   Bring-Up" section.
+- `main/led.h` / `main/led.c` — SkyPane-original, not vendored; upstream
+  carries no bring-up LED. Drives the EE02 board's diagnostic LED, gated
+  by the server's `led_enabled` flag. Introduced in plan `260827-wo4`.
+- `tests/test_battery_math.c` — SkyPane-original host test for
+  `battery_math.c`, introduced in plan `05-03`.
 
 ## Deliberately Not Vendored
 
