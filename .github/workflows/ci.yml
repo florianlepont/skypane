@@ -59,6 +59,12 @@ on:
       - '.claude/**'
       - 'LICENSE'
 
+# Least privilege for the workflow's GITHUB_TOKEN: read the repository,
+# nothing else. (The repo default is already read-only; declaring it here
+# keeps it read-only even if that repository setting is ever changed.)
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Lint, test, coverage, attribution
@@ -66,10 +72,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
           cache: pip
@@ -117,10 +123,10 @@ jobs:
       name: production
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Load deployment SSH key into agent
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
 
