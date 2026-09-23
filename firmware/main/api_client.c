@@ -19,98 +19,67 @@
 #include "nvs.h"
 #include "sdkconfig.h"
 
+#include "api_base.h"
 #include "battery.h"
 #include "nvs_schema.h"
+#include "nvs_util.h"
 #include "secrets.h"
+#include "validate.h"
 #include "wifi.h"
 
 static const char *TAG = "fp_api";
 
 #define RESP_MAX 2048               /* poll responses are <1 KB */
-#define API_BASE_MAX 256            /* fits SKYPANE_API_BASE with room to spare */
+#define API_BASE_MAX FP_API_BASE_MAX
 #define URL_MAX (API_BASE_MAX + 24) /* base + "/device/v1/display" */
 
-/* ---------------------------------------------------------------- helpers */
+/* Dev builds only (CONFIG_SKYPANE_ALLOW_HTTP): the laptop stub server
+ * has no TLS. Production leaves this option unset, so every URL this
+ * file touches must be https. */
+#ifdef CONFIG_SKYPANE_ALLOW_HTTP
+static const bool s_allow_http = true;
+#else
+static const bool s_allow_http = false;
+#endif
 
-static esp_err_t nvs_get_string(const char *key, char *out, size_t cap)
-{
-    nvs_handle_t nvs;
-    esp_err_t err = nvs_open(FP_NVS_NAMESPACE, NVS_READONLY, &nvs);
-    if (err != ESP_OK) {
-        return err;
-    }
-    size_t len = cap;
-    err = nvs_get_str(nvs, key, out, &len);
-    nvs_close(nvs);
-    return err;
-}
+/* ---------------------------------------------------------------- helpers */
 
 bool fp_api_has_token(void)
 {
     char token[80];
-    return nvs_get_string(FP_NVS_DEVICE_TOKEN, token, sizeof(token)) == ESP_OK;
+    return fp_nvs_get_str(FP_NVS_DEVICE_TOKEN, token, sizeof(token)) == ESP_OK;
 }
 
-/* PROTOCOL.md §2: image_hash is exactly "sha256:" followed by 64
- * lowercase hex characters. Uppercase hex is rejected. */
-static bool image_hash_valid(const char *hash)
+/* Resolves and validates the server base URL: the dev override when this
+ * build allows plain http and one is configured, else the compiled
+ * production default; normalized (fp_api_base_normalize collapses a
+ * trailing slash so callers never build "//device...") and checked
+ * against this build's scheme policy. Every caller propagates
+ * FP_ERR_CONFIG unchanged rather than attempting a request with a
+ * rejected base. */
+static esp_err_t api_base_get(char *out, size_t cap)
 {
-    if (!hash || strncmp(hash, "sha256:", 7) != 0) {
-        return false;
+#ifdef CONFIG_SKYPANE_ALLOW_HTTP
+#ifdef SKYPANE_API_BASE_DEV
+    const char *source = SKYPANE_API_BASE_DEV;
+#else
+    const char *source = SKYPANE_API_BASE;
+#endif
+#else
+    const char *source = SKYPANE_API_BASE;
+#endif
+    if (fp_api_base_normalize(source, out, cap) != 0 || out[0] == 0 ||
+        !fp_url_valid(out, cap, s_allow_http)) {
+        ESP_LOGE(TAG, "API base URL rejected (this build requires https)");
+        return FP_ERR_CONFIG;
     }
-    const char *hex = hash + 7;
-    size_t len = strlen(hex);
-    if (len != 64) {
-        return false;
-    }
-    for (size_t i = 0; i < len; i++) {
-        char c = hex[i];
-        bool lower_hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
-        if (!lower_hex) {
-            return false;
-        }
-    }
-    return true;
-}
-
-/* PROTOCOL.md §2: image/firmware URLs must be non-empty, fitting
- * http:// or https:// strings. */
-static bool url_valid(const char *url, size_t cap)
-{
-    if (!url) {
-        return false;
-    }
-    size_t len = strlen(url);
-    if (len == 0 || len >= cap) {
-        return false;
-    }
-    return strncmp(url, "http://", 7) == 0 || strncmp(url, "https://", 8) == 0;
-}
-
-/* Phase 1 base-URL resolution point (01-PATTERNS.md "Plain-HTTP BYOS
- * Local Stub Allowance"). Upstream resolves a hand-set NVS override,
- * falling back to a compiled default, through a versioned target blob
- * written only by provisioning flows (target_contract.h / identity.h,
- * deliberately not vendored here — see firmware/VENDOR.md). This
- * project has no provisioning this phase, so it targets SKYPANE_API_BASE
- * from the gitignored secrets.h directly.
- *
- * A plain http base is accepted here because PROTOCOL.md §5 explicitly
- * permits a hand-set target to be plain http. This is scoped to the
- * local stub server on the developer's own LAN and MUST NOT be carried
- * into the Phase 2 deployed-server firmware — that move is a
- * configuration change (SKYPANE_API_BASE moves to the VPS's https:// base),
- * not a code change, because the ESP-TLS + public CA bundle path below
- * (crt_bundle_attach) stays compiled in and reachable the whole time. */
-static void api_base_get(char *out, size_t cap)
-{
-    strlcpy(out, SKYPANE_API_BASE, cap);
+    return ESP_OK;
 }
 
 static void auth_header(esp_http_client_handle_t http)
 {
     char token[80], bearer[96];
-    if (nvs_get_string(FP_NVS_DEVICE_TOKEN, token, sizeof(token)) == ESP_OK) {
+    if (fp_nvs_get_str(FP_NVS_DEVICE_TOKEN, token, sizeof(token)) == ESP_OK) {
         snprintf(bearer, sizeof(bearer), "Bearer %s", token);
         esp_http_client_set_header(http, "Authorization", bearer);
     }
@@ -119,13 +88,13 @@ static void auth_header(esp_http_client_handle_t http)
 }
 
 /* Every telemetry header PROTOCOL.md §2 names, sent unconditionally on
- * every /display and /log call (upstream sends X-Rssi only when nonzero;
- * this project always sends all four so the stub server's telemetry
- * line - and the battery-life measurement - never has a gap).
- * X-Battery-Mv carries one cached adc_oneshot + adc_cali read per wake,
- * taken off the EE02 driver board's own factory sense divider
- * (battery.h, DEVICE-04); zero is reported - PROTOCOL.md §2's unknown
- * sentinel - if the read fails, never a fabricated value. */
+ * every /display call (upstream sends X-Rssi only when nonzero; this
+ * project always sends all four so the stub server's telemetry line -
+ * and the battery-life measurement - never has a gap). X-Battery-Mv
+ * carries one cached adc_oneshot + adc_cali read per wake, taken off the
+ * EE02 driver board's own factory sense divider (battery.h, DEVICE-04);
+ * zero is reported - PROTOCOL.md §2's unknown sentinel - if the read
+ * fails, never a fabricated value. */
 static void telemetry_headers(esp_http_client_handle_t http,
                               const char *boot_reason)
 {
@@ -142,6 +111,22 @@ static void telemetry_headers(esp_http_client_handle_t http,
     esp_http_client_set_header(http, "X-Boot-Reason", boot_reason);
 }
 
+/* One esp_http_client config shape (crt_bundle_attach, timeout) shared by
+ * setup, display and download — the three places this project opens an
+ * HTTP connection (FW-14). */
+static esp_http_client_handle_t http_client_new(const char *url,
+                                                 esp_http_client_method_t method,
+                                                 int timeout_ms)
+{
+    esp_http_client_config_t cfg = {
+        .url = url,
+        .method = method,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+        .timeout_ms = timeout_ms,
+    };
+    return esp_http_client_init(&cfg);
+}
+
 /* Perform a request whose response body fits in RESP_MAX. */
 static esp_err_t small_request(esp_http_client_handle_t http,
                                const char *body, char *resp, int *resp_len)
@@ -151,9 +136,16 @@ static esp_err_t small_request(esp_http_client_handle_t http,
         return FP_ERR_HTTP_TRANSPORT;
     }
     if (body) {
-        esp_http_client_write(http, body, strlen(body));
+        int written = esp_http_client_write(http, body, strlen(body));
+        if (written != (int)strlen(body)) {
+            esp_http_client_close(http);
+            return FP_ERR_HTTP_TRANSPORT;
+        }
     }
-    esp_http_client_fetch_headers(http);
+    if (esp_http_client_fetch_headers(http) < 0) {
+        esp_http_client_close(http);
+        return FP_ERR_HTTP_TRANSPORT;
+    }
     int n = esp_http_client_read_response(http, resp, RESP_MAX - 1);
     int status = esp_http_client_get_status_code(http);
     esp_http_client_close(http);
@@ -162,11 +154,13 @@ static esp_err_t small_request(esp_http_client_handle_t http,
     }
     resp[n] = 0;
     *resp_len = n;
-    if (status != 200) {
+
+    fp_http_class_t cls = fp_http_status_classify(status);
+    if (cls != FP_HTTP_CLASS_OK) {
         /* Bodies can echo validation inputs; never log setup credentials
          * or bearer tokens. Status + length is enough to diagnose. */
         ESP_LOGW(TAG, "HTTP %d (%d-byte response)", status, n);
-        return FP_ERR_HTTP_STATUS;
+        return cls == FP_HTTP_CLASS_AUTH ? FP_ERR_HTTP_AUTH : FP_ERR_HTTP_STATUS;
     }
     return ESP_OK;
 }
@@ -199,15 +193,15 @@ esp_err_t fp_api_setup(const char *provision_secret)
     }
 
     char base[API_BASE_MAX], url[URL_MAX];
-    api_base_get(base, sizeof(base));
+    esp_err_t err = api_base_get(base, sizeof(base));
+    if (err != ESP_OK) {
+        memset(body, 0, strlen(body));
+        cJSON_free(body);
+        return err;
+    }
     snprintf(url, sizeof(url), "%s/device/v1/setup", base);
-    esp_http_client_config_t cfg = {
-        .url = url,
-        .method = HTTP_METHOD_POST,
-        .crt_bundle_attach = esp_crt_bundle_attach,
-        .timeout_ms = 15000,
-    };
-    esp_http_client_handle_t http = esp_http_client_init(&cfg);
+    esp_http_client_handle_t http =
+        http_client_new(url, HTTP_METHOD_POST, 15000);
     if (!http) {
         memset(body, 0, strlen(body));
         cJSON_free(body);
@@ -217,7 +211,7 @@ esp_err_t fp_api_setup(const char *provision_secret)
 
     char resp[RESP_MAX];
     int n = 0;
-    esp_err_t err = small_request(http, body, resp, &n);
+    err = small_request(http, body, resp, &n);
     esp_http_client_cleanup(http);
     memset(body, 0, strlen(body));
     cJSON_free(body);
@@ -276,14 +270,13 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
         return ESP_ERR_INVALID_STATE;
     }
     char base[API_BASE_MAX], req_url[URL_MAX];
-    api_base_get(base, sizeof(base));
+    esp_err_t err = api_base_get(base, sizeof(base));
+    if (err != ESP_OK) {
+        return err;
+    }
     snprintf(req_url, sizeof(req_url), "%s/device/v1/display", base);
-    esp_http_client_config_t cfg = {
-        .url = req_url,
-        .crt_bundle_attach = esp_crt_bundle_attach,
-        .timeout_ms = 20000,
-    };
-    esp_http_client_handle_t http = esp_http_client_init(&cfg);
+    esp_http_client_handle_t http =
+        http_client_new(req_url, HTTP_METHOD_GET, 20000);
     if (!http) {
         return ESP_ERR_NO_MEM;
     }
@@ -292,7 +285,7 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
 
     char resp[RESP_MAX];
     int n = 0;
-    esp_err_t err = small_request(http, NULL, resp, &n);
+    err = small_request(http, NULL, resp, &n);
     esp_http_client_cleanup(http);
     if (err != ESP_OK) {
         return err;
@@ -307,35 +300,28 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
     const cJSON *url = cJSON_GetObjectItem(json, "image_url");
     const cJSON *hash = cJSON_GetObjectItem(json, "image_hash");
     const cJSON *sleep_s = cJSON_GetObjectItem(json, "sleep_s");
-    const cJSON *reset = cJSON_GetObjectItem(json, "reset");
     /* DEVICE-05 bring-up LED toggle - deliberately fetched here, outside
      * the rejection block below, and resolved after it. See its resolve
      * expression further down for why. */
     const cJSON *led = cJSON_GetObjectItem(json, "led_enabled");
 
-    /* sleep_s: an exact integer within 1..4294967295 (PROTOCOL.md §2).
-     * Zero, fractional values and anything above UINT32_MAX are
-     * rejected - this bound is what stops a hostile or buggy server
-     * parking the device for years. */
+    uint32_t sleep_val = 0;
     bool sleep_ok = cJSON_IsNumber(sleep_s) &&
-        sleep_s->valuedouble >= 1.0 &&
-        sleep_s->valuedouble <= 4294967295.0 &&
-        sleep_s->valuedouble == (double)(uint32_t)sleep_s->valuedouble;
+        fp_sleep_s_parse(sleep_s->valuedouble, &sleep_val);
 
     fp_display_t parsed = {0};
     if (!cJSON_IsString(url) ||
-        !url_valid(url->valuestring, sizeof(parsed.image_url)) ||
-        !cJSON_IsString(hash) || !image_hash_valid(hash->valuestring) ||
+        !fp_url_valid(url->valuestring, sizeof(parsed.image_url), s_allow_http) ||
+        !cJSON_IsString(hash) || !fp_image_hash_valid(hash->valuestring) ||
         strlen(hash->valuestring) >= sizeof(parsed.image_hash) ||
-        !sleep_ok || !cJSON_IsBool(reset)) {
+        !sleep_ok) {
         cJSON_Delete(json);
         memset(resp, 0, sizeof(resp));
         return FP_ERR_HTTP_JSON;
     }
     strlcpy(parsed.image_url, url->valuestring, sizeof(parsed.image_url));
     strlcpy(parsed.image_hash, hash->valuestring, sizeof(parsed.image_hash));
-    parsed.sleep_s = (uint32_t)sleep_s->valuedouble;
-    parsed.reset = cJSON_IsTrue(reset);
+    parsed.sleep_s = sleep_val;
     /* Permissive by design: a missing key yields NULL, and cJSON's type
      * predicates are NULL-safe and answer false, so an absent field
      * resolves to enabled; a null, string or number value is likewise
@@ -346,45 +332,15 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
      * than to a rejected poll and an exponential backoff - trading the
      * device's actual function for a debug LED's preference would be
      * the wrong failure direction, which is why this field is not
-     * validated the way image_url/sleep_s/reset are above. */
-    parsed.led_enabled = !cJSON_IsBool(led) || cJSON_IsTrue(led);
+     * validated the way image_url/sleep_s are above. */
+    parsed.led_enabled = fp_led_enabled_resolve(cJSON_IsBool(led), cJSON_IsTrue(led));
 
-    /* `firmware` is null in Phase 1 (OTA is out of scope); no field of
+    /* `firmware` is out of scope (OTA is not implemented); no field of
      * it is read or stored regardless of what the server sends. */
     *out = parsed;
     cJSON_Delete(json);
     memset(resp, 0, sizeof(resp));
     return ESP_OK;
-}
-
-/* -------------------------------------------------------------------- log */
-
-esp_err_t fp_api_post_logs(const char *body, const char *boot_reason)
-{
-    if (!body || !boot_reason) {
-        return ESP_ERR_INVALID_STATE;
-    }
-    char base[API_BASE_MAX], req_url[URL_MAX];
-    api_base_get(base, sizeof(base));
-    snprintf(req_url, sizeof(req_url), "%s/device/v1/log", base);
-    esp_http_client_config_t cfg = {
-        .url = req_url,
-        .method = HTTP_METHOD_POST,
-        .crt_bundle_attach = esp_crt_bundle_attach,
-        .timeout_ms = 15000,
-    };
-    esp_http_client_handle_t http = esp_http_client_init(&cfg);
-    if (!http) {
-        return ESP_ERR_NO_MEM;
-    }
-    esp_http_client_set_header(http, "Content-Type", "application/json");
-    auth_header(http);
-    telemetry_headers(http, boot_reason);
-    char resp[RESP_MAX];
-    int n = 0;
-    esp_err_t err = small_request(http, body, resp, &n);
-    esp_http_client_cleanup(http);
-    return err;
 }
 
 /* --------------------------------------------------------------- download */
@@ -396,16 +352,12 @@ esp_err_t fp_api_download(const char *url, const char *expected_hash,
      * two nibble-packed pixels per byte, PROTOCOL.md §1. The size check
      * below (`got != FP_IMAGE_BYTES`) is the gate that refuses to hand
      * `buf` to panel.c unless the download is exactly 960000 bytes. */
-    if (!buf || !url_valid(url, sizeof(((fp_display_t *)0)->image_url)) ||
-        !image_hash_valid(expected_hash)) {
+    if (!buf ||
+        !fp_url_valid(url, sizeof(((fp_display_t *)0)->image_url), s_allow_http) ||
+        !fp_image_hash_valid(expected_hash)) {
         return ESP_ERR_INVALID_ARG;
     }
-    esp_http_client_config_t cfg = {
-        .url = url,
-        .crt_bundle_attach = esp_crt_bundle_attach,
-        .timeout_ms = 30000,
-    };
-    esp_http_client_handle_t http = esp_http_client_init(&cfg);
+    esp_http_client_handle_t http = http_client_new(url, HTTP_METHOD_GET, 30000);
     if (!http) {
         return ESP_ERR_NO_MEM;
     }
@@ -414,7 +366,11 @@ esp_err_t fp_api_download(const char *url, const char *expected_hash,
         esp_http_client_cleanup(http);
         return err;
     }
-    esp_http_client_fetch_headers(http);
+    if (esp_http_client_fetch_headers(http) < 0) {
+        esp_http_client_close(http);
+        esp_http_client_cleanup(http);
+        return ESP_FAIL; /* maps to step=download */
+    }
 
     uint32_t got = 0;
     while (got < FP_IMAGE_BYTES) {
@@ -432,19 +388,27 @@ esp_err_t fp_api_download(const char *url, const char *expected_hash,
     esp_http_client_close(http);
     esp_http_client_cleanup(http);
 
-    if (status != 200 || got != FP_IMAGE_BYTES || oversize) {
+    /* Compute the digest only once the transfer itself checks out -
+     * hashing 960000 bytes is wasted work when the transfer is already
+     * going to be rejected. fp_download_verdict re-checks the same
+     * transfer facts regardless, so a BAD_TRANSFER verdict never
+     * depends on hex being meaningful. */
+    unsigned char digest[32] = {0};
+    char hex[FP_IMAGE_HASH_BUF] = "";
+    bool transfer_ok = status == 200 && got == FP_IMAGE_BYTES && !oversize;
+    if (transfer_ok) {
+        mbedtls_sha256(buf, FP_IMAGE_BYTES, digest, 0);
+        fp_sha256_to_image_hash(digest, hex);
+    }
+    fp_download_verdict_t verdict = fp_download_verdict(
+        status, got, FP_IMAGE_BYTES, oversize, hex, expected_hash);
+
+    if (verdict == FP_DOWNLOAD_BAD_TRANSFER) {
         ESP_LOGW(TAG, "download bad: HTTP %d, %lu bytes%s", status,
                  (unsigned long)got, oversize ? " (oversize)" : "");
         return ESP_FAIL;
     }
-
-    unsigned char digest[32];
-    mbedtls_sha256(buf, FP_IMAGE_BYTES, digest, 0);
-    char hex[7 + 64 + 1] = "sha256:";
-    for (int i = 0; i < 32; i++) {
-        snprintf(hex + 7 + i * 2, 3, "%02x", digest[i]);
-    }
-    if (strcmp(hex, expected_hash) != 0) {
+    if (verdict == FP_DOWNLOAD_HASH_MISMATCH) {
         ESP_LOGW(TAG, "sha256 MISMATCH, dropping image");
         return FP_ERR_IMAGE_VERIFY; /* never blit an unverified buffer */
     }

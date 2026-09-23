@@ -111,3 +111,14 @@ void fp_sha256_to_image_hash(const uint8_t digest[32],
         snprintf(out + 7 + i * 2, 3, "%02x", digest[i]);
     }
 }
+
+fp_http_class_t fp_http_status_classify(int status)
+{
+    if (status == 200) {
+        return FP_HTTP_CLASS_OK;
+    }
+    if (status == 401 || status == 403) {
+        return FP_HTTP_CLASS_AUTH;
+    }
+    return FP_HTTP_CLASS_OTHER;
+}

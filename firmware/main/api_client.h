@@ -9,12 +9,13 @@
  * production surface: OTA firmware offers, possession-pairing signed
  * headers, and a versioned target-blob (BYOS override) resolution chain
  * written only by provisioning flows. None of that is compiled here —
- * Phase 1's only server is the local stub in stub-server/, addressed
- * directly via the SKYPANE_API_BASE macro in the gitignored secrets.h.
+ * this project's server is addressed via SKYPANE_API_BASE in the
+ * gitignored secrets.h, with the per-device enrolment secret read
+ * separately from its own NVS partition (enrol_secret.h).
  *
- * Kept: the three endpoints, all four telemetry headers, and the
- * streamed download with SHA-256 + exact-byte-count verification before
- * any buffer reaches panel.c — PROTOCOL.md §2-3 at the pinned commit.
+ * Kept: the two endpoints, all four telemetry headers, and the streamed
+ * download with SHA-256 + exact-byte-count verification before any
+ * buffer reaches panel.c — PROTOCOL.md §2-3 at the pinned commit.
  */
 #pragma once
 
@@ -28,12 +29,12 @@
 #define FP_IMAGE_BYTES 960000u
 
 /* Distinct failure classifications the Log Line Contract's step tokens
- * need (firmware/VENDOR.md § Log Line Contract, 01-05-PLAN.md Task 3):
- * api_client.c already knows exactly where a request failed, so it
- * reports that here instead of state_machine.c re-deriving it from a
- * single generic esp_err_t. Values are outside every ESP-IDF component's
- * documented error-base range — they are compared for equality only,
- * never passed to ESP_ERROR_CHECK or interpreted by IDF internals. */
+ * need (firmware/VENDOR.md § Log Line Contract): api_client.c already
+ * knows exactly where a request failed, so it reports that here instead
+ * of state_machine.c re-deriving it from a single generic esp_err_t.
+ * Values are outside every ESP-IDF component's documented error-base
+ * range — they are compared for equality only, never passed to
+ * ESP_ERROR_CHECK or interpreted by IDF internals. */
 #define FP_ERR_HTTP_TRANSPORT ((esp_err_t)0x00600001) /* couldn't open/connect */
 #define FP_ERR_HTTP_STATUS    ((esp_err_t)0x00600002) /* non-200 response */
 #define FP_ERR_HTTP_JSON      ((esp_err_t)0x00600003) /* malformed/invalid response body */
@@ -43,11 +44,10 @@ typedef struct {
     char image_url[768];   /* presigned URLs are long */
     char image_hash[80];   /* "sha256:<64 hex>" */
     uint32_t sleep_s;
-    bool reset;
     /* DEVICE-05 bring-up LED toggle. The struct's one *optional* field,
-     * unlike the four above it: those four are hard-required and a bad
-     * value in any of them rejects the whole response, while this one
-     * defaults to true whenever it is absent, null or the wrong JSON
+     * unlike the three above it: those three are hard-required and a
+     * bad value in any of them rejects the whole response, while this
+     * one defaults to true whenever it is absent, null or the wrong JSON
      * type. See fp_api_get_display()'s doc comment below. */
     bool led_enabled;
 } fp_display_t;
@@ -62,8 +62,8 @@ esp_err_t fp_api_setup(const char *provision_secret);
 
 /* GET /device/v1/display. Sends the Authorization bearer header and all
  * four telemetry headers on every call. Rejects the whole response
- * before copying any field if image_hash, sleep_s, reset or image_url
- * fails its PROTOCOL.md §2 validation rule. `led_enabled` is deliberately
+ * before copying any field if image_hash, sleep_s or image_url fails
+ * its PROTOCOL.md §2 validation rule. `led_enabled` is deliberately
  * outside that list: it is optional, and no value it can take rejects
  * the response. */
 esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out);
@@ -74,7 +74,3 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out);
  * buffer from ever reaching panel.c. */
 esp_err_t fp_api_download(const char *url, const char *expected_hash,
                           uint8_t *buf);
-
-/* POST /device/v1/log with a prebuilt {"logs":[...]} body. Fire-and-
- * forget transport: the caller decides what to do (nothing) on failure. */
-esp_err_t fp_api_post_logs(const char *body, const char *boot_reason);
