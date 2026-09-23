@@ -1,11 +1,14 @@
-# SkyPane — CI pipeline (D-07 through D-12).
+# SkyPane — CI pipeline.
 #
-# Single workflow file, two jobs: `test` runs blocking lint + all 18
-# harnesses + coverage threshold + attribution check on every push and
-# pull request; `deploy` only runs after `test` succeeds, only on a push
-# to the default branch (never a pull request), and pauses for a human
-# reviewer before touching the production VPS. Kept as one file rather
-# than the two-file split 04-RESEARCH.md sketched, because a job cannot
+# Single workflow file, two jobs: `test` runs blocking lint + the full
+# pytest suite (coverage gate included) + attribution check on every push
+# and pull request, on the same Python version production runs (3.14),
+# installing only the hash-locked `server/requirements-dev.txt` with
+# `--require-hashes` so a compromised or substituted package on PyPI is
+# rejected rather than silently installed. `deploy` only runs after `test`
+# succeeds, only on a push to the default branch (never a pull request),
+# and pauses for a human reviewer before touching the production VPS.
+# Kept as one file rather than a two-file split, because a job cannot
 # `needs:` a job defined in a *different* workflow file — only
 # `workflow_run` crosses that boundary, and it carries its own
 # well-documented pitfalls. The firmware build lives in its own file
@@ -13,12 +16,20 @@
 # workflow-level feature, not a job-level one, and that build is
 # independent of this pipeline.
 #
-# quick-260907-esc hardening, on top of the above:
-#   - Top-level `concurrency` (below): a superseded PR push cancels its own
-#     in-flight run. A push to `main` is never cancelled at this level,
-#     because its `deploy` job may be sitting on the production reviewer
-#     approval — cancelling the workflow out from under a paused approval
-#     would leave that approval pointing at a dead run.
+# Hardening:
+#   - `test` and `deploy` each carry their own job-level `concurrency`
+#     group instead of sharing one at workflow level: a `deploy` sitting
+#     on the production reviewer's approval can no longer block the next
+#     push's `test` job from starting. `test`'s group cancels a superseded
+#     PR push (never a push to `main`); `deploy`'s group
+#     (`production-deploy`) never cancels a running job
+#     (`cancel-in-progress: false`) — an in-flight rsync is never killed
+#     half-done — but a newer queued deploy still replaces an older
+#     *pending* one. To stop a reviewer approving a queued deploy whose
+#     commit `main` has already moved past, the deploy job's first step
+#     compares its own `github.sha` against the current tip of `main` via
+#     `git ls-remote` and skips the SSH/rsync steps (with a `::notice::`)
+#     when they differ.
 #   - `paths-ignore` on both triggers: a docs-only change (`**/*.md`,
 #     `.planning/**`, `.claude/**`, `LICENSE`) no longer runs this job at
 #     all. This is safe specifically because `main` has NO branch
@@ -29,20 +40,13 @@
 #   - `timeout-minutes` on every job: no job can ever consume GitHub's
 #     6-hour default, whether from a genuinely hung step or a runner-side
 #     stall.
-#   - A job-level `concurrency` group on `deploy` (see that job below): a
-#     newer push to `main` cancels an older deploy run still waiting on the
-#     reviewer, so approving a stale queued run can no longer rsync
-#     superseded code onto the VPS.
 #   - `cache: pip` on setup-python: server/requirements*.txt-keyed pip
-#     cache, so a repeat run doesn't re-download the same wheels.
+#     cache, so a repeat run doesn't re-download the same wheels. The
+#     Playwright headless shell gets its own cache
+#     (`~/.cache/ms-playwright`), keyed on the exact installed Playwright
+#     version, since the browser binary is not something pip's own cache
+#     covers.
 name: CI
-
-# Superseded PR pushes cancel their own in-flight run. A push to `main` is
-# intentionally NOT cancelled here (`cancel-in-progress` is PR-only) — see
-# the header comment above for why.
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
@@ -70,6 +74,13 @@ jobs:
     name: Lint, test, coverage, attribution
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Own group, separate from `deploy`'s: a deploy paused on reviewer
+    # approval can never block this job. Only PR pushes cancel an
+    # in-flight run here — a push to `main` never does, matching `deploy`
+    # (see header comment above).
+    concurrency:
+      group: test-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -77,18 +88,43 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.12'
+          python-version: '3.14'
           cache: pip
           cache-dependency-path: server/requirements*.txt
 
-      - name: Create virtualenv and install dependencies
+      - name: Print resolved Python version
+        run: python3 --version
+
+      - name: Create virtualenv and install dependencies (hash-enforced)
+        # server/requirements-dev.txt is a hash-locked superset of
+        # server/requirements.txt (plan 32-12) — installing it alone with
+        # --require-hashes pulls in every runtime and dev package, pinned
+        # by hash, and rejects anything whose downloaded content doesn't
+        # match the lock.
         run: |
           python3 -m venv server/.venv
-          server/.venv/bin/pip install -r server/requirements.txt
-          server/.venv/bin/pip install -r server/requirements-dev.txt
+          server/.venv/bin/pip install --require-hashes -r server/requirements-dev.txt
 
-      - name: Download the Chromium browser companion/test_browser_ux.py drives
-        run: server/.venv/bin/python -m playwright install --with-deps chromium
+      - name: Read installed Playwright version
+        id: pw
+        run: |
+          version="$(server/.venv/bin/python -c "import importlib.metadata as m; print(m.version('playwright'))")"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-headless-shell
+
+      - name: Download the Chromium headless shell companion/test_browser_ux.py drives
+        # --only-shell installs just the headless shell binary the browser
+        # harnesses actually launch (p.chromium.launch(), headless by
+        # default) instead of the full Chromium download; --with-deps
+        # still installs the OS packages every run since those aren't
+        # covered by the cache above, but the browser download itself is
+        # skipped whenever the cache step restored a hit.
+        run: server/.venv/bin/python -m playwright install --with-deps --only-shell chromium
 
       - name: Lint (blocking — rule set lives in pyproject.toml)
         run: server/.venv/bin/ruff check .
@@ -105,27 +141,42 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Job-level concurrency group, separate from the workflow-level one
-    # above: a newer push to `main` cancels an older `deploy` run still
-    # waiting on the production reviewer's approval. Without this, a
-    # reviewer approving a stale queued run would rsync code `main` has
-    # already moved past onto the production VPS.
+    # Own group, separate from `test`'s (see header comment above).
+    # cancel-in-progress: false means a running deploy is never killed
+    # mid-rsync; a newer queued deploy still supersedes an older *pending*
+    # one. The "Skip if stale" step below is what stops a reviewer
+    # approving an already-superseded queued run from shipping old code.
     concurrency:
       group: production-deploy
-      cancel-in-progress: true
-    # The `environment:` declaration below is what makes GitHub pause this
-    # job for a required reviewer (D-11) — but only once the "production"
+      cancel-in-progress: false
+    # The production environment gate below is what makes GitHub pause
+    # this job for a required reviewer — but only once the "production"
     # environment actually exists, with a reviewer attached, in this
-    # repository's Settings. That environment is created in plan 04-06,
-    # not here. Without it, this declaration is inert and the approval
-    # gate silently degrades to no gate at all.
+    # repository's Settings. Without it, this gate is inert and the
+    # approval step silently degrades to no gate at all.
     environment:
       name: production
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Skip if this commit is no longer the tip of main
+        # A reviewer can sit on the approval gate long enough for a later
+        # push to move `main` past this run's commit. Rather than cancel
+        # this (possibly already-running) job — which could kill an
+        # in-flight rsync — the remaining steps individually no-op instead.
+        id: fresh
+        run: |
+          latest="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "${latest}" != "${{ github.sha }}" ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping deploy: ${{ github.sha }} is no longer the tip of main (now ${latest})."
+          else
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Load deployment SSH key into agent
+        if: steps.fresh.outputs.stale != 'true'
         uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # v0.10.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
@@ -135,6 +186,7 @@ jobs:
         # answers is trust-on-first-use on every single run and accepts
         # an impostor host silently. The expected key comes from its own
         # dedicated secret instead, written straight into known_hosts.
+        if: steps.fresh.outputs.stale != 'true'
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
@@ -144,4 +196,5 @@ jobs:
       - name: Deploy
         # The only deploy action. deploy/deploy.sh owns every bit of the
         # rsync/pip/systemd-restart logic; nothing is reimplemented here.
+        if: steps.fresh.outputs.stale != 'true'
         run: ./deploy/deploy.sh "${{ secrets.DEPLOY_SSH_TARGET }}"
