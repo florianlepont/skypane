@@ -1,5 +1,9 @@
 /* SPDX-FileCopyrightText: 2026 YODE PTE LTD
- * SPDX-License-Identifier: Apache-2.0 */
+ * SPDX-FileCopyrightText: 2026 Florian Lepont
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Modified from FlightPortrait (github.com/flightportrait/frame) for
+ * SkyPane; the changes are listed in firmware/VENDOR.md. */
 /* Trimmed from flightportrait/frame's `main/wifi.h` (@ ce3335fc). Upstream
  * loads STA credentials from NVS because a BLE provisioning flow put them
  * there; this project has no provisioning this phase, so the credential

@@ -1,15 +1,22 @@
-menu "FlightPortrait"
+# SPDX-FileCopyrightText: 2026 YODE PTE LTD
+# SPDX-FileCopyrightText: 2026 Florian Lepont
+# SPDX-License-Identifier: Apache-2.0
+# Modified from FlightPortrait (github.com/flightportrait/frame) for
+# SkyPane; the changes are listed in firmware/VENDOR.md.
+
+menu "SkyPane"
 
     config FP_API_BASE
-        string "Device API base URL (compiled-in default)"
-        default "https://api.flightportrait.com"
+        string "Device API base URL (unused by SkyPane)"
+        default "https://example.invalid"
         help
-            The ONE compiled-in endpoint: the production domain. At
-            runtime a hand-set versioned NVS target (target_v1,
-            PROTOCOL.md §5 BYOS) takes precedence; factory reset always
-            returns the frame to this default. For bench work, enter a
-            dev/BYOS target through BLE provisioning instead of changing
-            this value.
+            Kept only so the upstream CONFIG_FP_* namespace stays intact.
+            SkyPane does not read this value: api_client.c takes its
+            server URL from SKYPANE_API_BASE in the gitignored
+            main/secrets.h. The upstream default (FlightPortrait's own
+            production API) was replaced with a reserved, never-resolving
+            placeholder so no SkyPane build can point at a service it is
+            not affiliated with.
 
     config FP_DEV_PROVISION_SECRET
         string "DEV ONLY: provision secret for POST /device/v1/setup"

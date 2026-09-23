@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 YODE PTE LTD
+# SPDX-FileCopyrightText: 2026 Florian Lepont
 # SPDX-License-Identifier: Apache-2.0
+# Modified from FlightPortrait (github.com/flightportrait/frame) for
+# SkyPane; the changes are listed in stub-server/VENDOR.md. Full licence
+# text: firmware/LICENSE.
 """Minimal bring-your-own-server for FlightPortrait frames. Stdlib only.
 
 Implements the three device endpoints from docs/PROTOCOL.md well enough
