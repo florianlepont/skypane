@@ -1620,14 +1620,14 @@ Plans:
 4. No-change wake duration measured before/after on real hardware (DHCP, TLS, memtest) and logged
 5. byos refuses to re-enrol a known MAC; each device has its own secret
 
-**Plans:** 4/11 plans executed
+**Plans:** 5/11 plans executed
 
 Plans:
 - [x] 34-01-PLAN.md — Pure response validators (sleep_s cap, https rule, download gate) + discovery-based host-test runner
 - [x] 34-02-PLAN.md — Pure reset-reason, wake-deadline, sleep-decision and battery-averaging helpers with host tests
 - [x] 34-03-PLAN.md — byos per-device enrolment registry, devices_cli.py, registry tests, deploy migration
 - [x] 34-04-PLAN.md — Kconfig/sdkconfig (TWDT panic, DHCP, memtest, rollback, ISRG-only bundle), secret partition, production-config check in CI
-- [ ] 34-05-PLAN.md — git-describe PROJECT_VER, prod/dev/fault build profiles, firmware/provision.sh
+- [x] 34-05-PLAN.md — git-describe PROJECT_VER, prod/dev/fault build profiles, firmware/provision.sh
 - [ ] 34-06-PLAN.md — api_client: 401/403 token erase, per-device secret enrolment, https gate, checked returns, dead code, dedup
 - [ ] 34-07-PLAN.md — wake_guard (budget timer + task watchdog), panel driver errors/POF/light sleep, 8-sample battery read
 - [ ] 34-08-PLAN.md — app_main/state_machine wiring: reset backoff, deadline, step tokens, timing line, fault hooks, static IP

@@ -111,3 +111,9 @@ None - no external service configuration required.
 ---
 *Phase: 34-firmware-resilience-power-security-cleanup*
 *Completed: 2026-09-23*
+
+## Self-Check: PASSED
+
+All 5 files (firmware/CMakeLists.txt, firmware/build.sh, firmware/flash.sh,
+firmware/provision.sh, this SUMMARY.md) confirmed present on disk; all 3
+commit hashes (`2d8d50d`, `c5c47d5`, `244f2fa`) confirmed in `git log`.
