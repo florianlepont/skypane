@@ -143,3 +143,11 @@ None — no external service configuration required. `firmware/main/secrets.h` (
 ---
 *Phase: 34-firmware-resilience-power-security-cleanup*
 *Completed: 2026-09-23*
+
+## Self-Check: PASSED
+
+All 14 created/modified files (nvs_util.h/.c, enrol_secret.h/.c,
+nvs_schema.h, secrets.example.h, validate.h/.c, test_validate.c,
+api_client.h/.c, state_machine.c, VENDOR.md, this SUMMARY.md) confirmed
+present on disk; all 6 commit hashes (`be427ef`, `053aa9c`, `52278e7`,
+`85a240b`, `72dea00`, `edf5073`) confirmed in `git log`.
