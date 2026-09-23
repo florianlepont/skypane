@@ -503,7 +503,7 @@ def main():
 
                 def _the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script():
                     # The 360px floor, in both languages, because French
-                    # is the longer copy here ("Batterie faible — 3480 mV
+                    # is the longer copy here ("Batterie faible — 3540 mV
                     # (≈ 20 %)") and this file already carries several
                     # checks that exist because French overflowed where
                     # English did not.

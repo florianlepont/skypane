@@ -1661,9 +1661,10 @@ def main():
         try:
             base = _now().replace(hour=12, minute=0, second=0, microsecond=0)
             # 3690 mV is deliberately NOT a round percentage of the
-            # 3300-4200 estimate span: it lands on 43%, so a ring drawn
-            # from a plausible-but-wrong constant (half, full, empty)
-            # cannot coincide with the right answer.
+            # DEVICE-05 discharge curve (SEED-006, quick 260923-gaf): it
+            # lands on 32%, so a ring drawn from a plausible-but-wrong
+            # constant (half, full, empty) cannot coincide with the
+            # right answer.
             readings = [
                 (_iso(base - timedelta(minutes=2)), 3600),
                 (_iso(base - timedelta(minutes=1)), 3650),
