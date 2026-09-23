@@ -894,6 +894,15 @@ EXPECTED_CHECK_COUNT = 316
 # 316 + 1 = 317, re-derived by RUNNING (317/317 pass).
 EXPECTED_CHECK_COUNT = 317
 
+# quick 260923-gaf (SEED-006): +2 — BATTERY_DISCHARGE_CURVE's own
+# well-formedness check (strict monotonicity, 0..100 span, round-trips,
+# clamps, the SEED-006 anchors, NaN refusal, LOW_BATTERY_DISPLAY_MV's
+# relations) and the D-27 companion/server parity check (table equality,
+# FULL/EMPTY equality, output agreement for every millivolt from 2800 to
+# 4400 plus floats and a hostile set). 317 + 2 = 319, re-derived by
+# RUNNING (319/319 pass).
+EXPECTED_CHECK_COUNT = 319
+
 # ==========================================================================
 # 25-01-PLAN.md Task 4 (CFG-46/D-09) — THE NO-JS CONTROL CONTRACT, AS A
 # REGISTRY A LATER PLAN APPENDS ONE ROW TO.
@@ -4052,8 +4061,11 @@ def main():
     # allow-list of exactly two entries with two different justifications,
     # not a licence — any THIRD definition, anywhere, fails.
     _BATTERY_CONSTANT_HOMES = {
-        "companion/battery.py": ("BATTERY_FULL_MV", "BATTERY_EMPTY_MV"),
-        "server/poll_loop.py": ("_NOTIFY_BATTERY_FULL_MV", "_NOTIFY_BATTERY_EMPTY_MV"),
+        "companion/battery.py": (
+            "BATTERY_FULL_MV", "BATTERY_EMPTY_MV", "BATTERY_DISCHARGE_CURVE"),
+        "server/poll_loop.py": (
+            "_NOTIFY_BATTERY_FULL_MV", "_NOTIFY_BATTERY_EMPTY_MV",
+            "_NOTIFY_BATTERY_DISCHARGE_CURVE"),
     }
     _BATTERY_FUNCTION_HOMES = {
         "companion/battery.py": ("battery_percent", "battery_fraction"),
@@ -4074,7 +4086,7 @@ def main():
         r"battery_life|life_estimate|days_remaining|days_left|_life_days")
 
     def _battery_estimate_has_exactly_one_home():
-        constant_tail = re.compile(r"BATTERY_(FULL|EMPTY)_MV$")
+        constant_tail = re.compile(r"BATTERY_(FULL|EMPTY)_MV$|BATTERY_DISCHARGE_CURVE$")
         for path in _python_files_under("companion", "server"):
             code, _literals = _python_source_parts(os.path.join(REPO_ROOT, path))
             for match in re.finditer(r"(?m)^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)", code):
@@ -4112,25 +4124,142 @@ def main():
             # The third net, and the only one that catches a copy made
             # under NEW names: the two millivolt endpoints appearing
             # TOGETHER in one module is the signature of a copied
-            # estimate, whatever the copy calls itself. 4200 alone is
-            # innocent — health_page.SPARKLINE_Y_MAX_MV is legitimately
-            # the same number, being the same battery's full charge —
-            # which is exactly why the pair, not either literal, is what
-            # is measured.
+            # estimate, whatever the copy calls itself. This still
+            # carries the legacy linear pair (4200/3300) — a regression
+            # back to the old span would trip it too — AND the current
+            # curve's own endpoint pair (4112/2946), quick 260923-gaf
+            # (SEED-006). 4200 alone is innocent —
+            # health_page.SPARKLINE_Y_MAX_MV is legitimately the same
+            # number, being the same battery's full charge — which is
+            # exactly why the pair, not either literal, is what is
+            # measured. The planner confirmed no non-test companion/
+            # server module today names both 4112 and 2946.
             if path in _BATTERY_CONSTANT_HOMES:
                 continue
             if "4200" in code and "3300" in code:
                 return False, (
                     "%s names both 4200 and 3300 — the signature of a re-derived battery "
-                    "percentage. The estimate lives in companion/battery.py." % path)
+                    "percentage (the old linear span). The estimate lives in "
+                    "companion/battery.py." % path)
+            if "4112" in code and "2946" in code:
+                return False, (
+                    "%s names both 4112 and 2946 — the signature of a re-derived battery "
+                    "percentage (the SEED-006 curve's own endpoints). The estimate lives in "
+                    "companion/battery.py." % path)
         return True, ""
     check(
         "the battery millivolt constants are defined in exactly one companion module "
         "(companion/battery.py) plus server/poll_loop.py's documented private copy, no other "
         "module defines a second battery_percent()/battery_fraction(), and no module outside "
-        "those two names both millivolt endpoints — comments and docstrings stripped first, so "
-        "the prose that explains the rule can neither satisfy nor break it (CFG-39, T-24-03)",
+        "those two names either endpoint pair together — the legacy linear 4200/3300 pair or "
+        "the SEED-006 curve's own 4112/2946 pair — with comments and docstrings stripped first, "
+        "so the prose that explains the rule can neither satisfy nor break it (CFG-39, T-24-03, "
+        "quick 260923-gaf)",
         _battery_estimate_has_exactly_one_home)
+
+    # quick 260923-gaf (SEED-006, D-SEED006): the curve itself, checked
+    # for well-formedness independent of any one anchor value, plus the
+    # relationships the rest of this file's callers depend on.
+    def _battery_discharge_curve_is_well_formed():
+        from companion import battery as battery_module
+
+        curve = battery_module.BATTERY_DISCHARGE_CURVE
+        mvs = [pair[0] for pair in curve]
+        pcts = [pair[1] for pair in curve]
+        if mvs != sorted(set(mvs)) or len(set(mvs)) != len(mvs):
+            return False, "BATTERY_DISCHARGE_CURVE's millivolt column is not strictly increasing: %r" % (mvs,)
+        if pcts != sorted(set(pcts)) or len(set(pcts)) != len(pcts):
+            return False, "BATTERY_DISCHARGE_CURVE's percent column is not strictly increasing: %r" % (pcts,)
+        if pcts[0] != 0:
+            return False, "expected the curve's first knot to read 0%%, got %r" % (pcts[0],)
+        if pcts[-1] != 100:
+            return False, "expected the curve's last knot to read 100%%, got %r" % (pcts[-1],)
+        # Every knot round-trips through battery_percent() exactly.
+        for mv, pct in curve:
+            got = battery_module.battery_percent(mv)
+            if got != pct:
+                return False, "knot (%r, %r) did not round-trip: battery_percent(%r) == %r" % (
+                    mv, pct, mv, got)
+        # The clamps, exact at the boundary.
+        if battery_module.battery_percent(4200) != 100 or battery_module.battery_percent(2900) != 0:
+            return False, "expected battery_percent() to clamp at 4200 -> 100 and 2900 -> 0"
+        if (battery_module.battery_fraction(battery_module.BATTERY_FULL_MV) != 1.0
+                or battery_module.battery_fraction(battery_module.BATTERY_EMPTY_MV) != 0.0):
+            return False, "expected battery_fraction() to be EXACTLY 1.0/0.0 at the end knots"
+        # The anchors the planner hand-derived from the same table.
+        anchors = {
+            4200: 100, 4112: 100, 4050: 94, 4020: 92, 4000: 90, 3900: 67,
+            3800: 47, 3750: 38, 3690: 32, 3600: 25, 3540: 20, 3500: 15,
+            3400: 9, 3300: 6, 3200: 4, 3100: 3, 3000: 1, 2946: 0, 2900: 0,
+        }
+        for mv, expected in anchors.items():
+            got = battery_module.battery_percent(mv)
+            if got != expected:
+                return False, "battery_percent(%r) == %r, expected %r (SEED-006 anchor)" % (
+                    mv, got, expected)
+        # NaN is refused, same as every other hostile input.
+        if battery_module.battery_fraction(float("nan")) is not None:
+            return False, "expected battery_fraction(nan) to return None"
+        # LOW_BATTERY_DISPLAY_MV's own relations.
+        if battery_module.LOW_BATTERY_DISPLAY_MV != 3540:
+            return False, "expected LOW_BATTERY_DISPLAY_MV == 3540, got %r" % (
+                battery_module.LOW_BATTERY_DISPLAY_MV,)
+        if battery_module.battery_percent(battery_module.LOW_BATTERY_DISPLAY_MV) != (
+                battery_module.LOW_BATTERY_DISPLAY_PERCENT):
+            return False, "expected battery_percent(LOW_BATTERY_DISPLAY_MV) == LOW_BATTERY_DISPLAY_PERCENT"
+        if not (health_page.SPARKLINE_Y_MIN_MV < battery_module.LOW_BATTERY_DISPLAY_MV
+                < health_page.SPARKLINE_Y_MAX_MV):
+            return False, "expected LOW_BATTERY_DISPLAY_MV strictly inside the sparkline's fixed range"
+        if not (poll_loop.BATTERY_LOW_THRESHOLD_MV < battery_module.LOW_BATTERY_DISPLAY_MV):
+            return False, (
+                "expected poll_loop.BATTERY_LOW_THRESHOLD_MV < LOW_BATTERY_DISPLAY_MV, pinning "
+                "the relationship the module's own comment states")
+        return True, ""
+    check(
+        "companion.battery.BATTERY_DISCHARGE_CURVE is strictly increasing in both columns, runs "
+        "0..100, every knot round-trips through battery_percent(), the end-knot clamps are "
+        "exact, the SEED-006 anchor values hold, NaN is refused, and LOW_BATTERY_DISPLAY_MV is "
+        "3540 and sits strictly between the sparkline's fixed range and above "
+        "BATTERY_LOW_THRESHOLD_MV (SEED-006, quick 260923-gaf)",
+        _battery_discharge_curve_is_well_formed)
+
+    # The D-27 parity check: the two independently-maintained homes must
+    # never show two different percentages for one reading (T-gaf-02).
+    def _battery_estimate_parity_between_companion_and_server():
+        from companion import battery as battery_module
+
+        if battery_module.BATTERY_DISCHARGE_CURVE != poll_loop._NOTIFY_BATTERY_DISCHARGE_CURVE:
+            return False, (
+                "companion.battery.BATTERY_DISCHARGE_CURVE != "
+                "poll_loop._NOTIFY_BATTERY_DISCHARGE_CURVE — the D-27 duplicate has drifted")
+        if battery_module.BATTERY_FULL_MV != poll_loop._NOTIFY_BATTERY_FULL_MV:
+            return False, "BATTERY_FULL_MV != _NOTIFY_BATTERY_FULL_MV"
+        if battery_module.BATTERY_EMPTY_MV != poll_loop._NOTIFY_BATTERY_EMPTY_MV:
+            return False, "BATTERY_EMPTY_MV != _NOTIFY_BATTERY_EMPTY_MV"
+        inputs = list(range(2800, 4401)) + [3540.5, 3999.9, 4111.99]
+        for value in inputs:
+            companion_out = battery_module.battery_percent(value)
+            server_out = poll_loop._battery_percent_estimate(value)
+            if companion_out != server_out:
+                return False, (
+                    "the two homes disagree at %r: companion.battery.battery_percent() == %r, "
+                    "poll_loop._battery_percent_estimate() == %r" % (
+                        value, companion_out, server_out))
+        hostile = (None, "x", "", "3700", 0, -1, True, float("nan"), float("inf"), float("-inf"))
+        for value in hostile:
+            companion_out = battery_module.battery_percent(value)
+            server_out = poll_loop._battery_percent_estimate(value)
+            if companion_out != server_out:
+                return False, (
+                    "the two homes disagree on hostile input %r: companion returned %r, server "
+                    "returned %r" % (value, companion_out, server_out))
+        return True, ""
+    check(
+        "companion.battery and server.poll_loop's independently-maintained battery-percentage "
+        "copies (D-27) agree on their curve table, their FULL/EMPTY endpoints, and their output "
+        "for every integer millivolt value from 2800 to 4400, a few non-integer floats, and a "
+        "hostile input set — a drift here is exactly T-gaf-02 (SEED-006, quick 260923-gaf)",
+        _battery_estimate_parity_between_companion_and_server)
 
     def _drawing_emitter_files():
         """companion/draw.py plus every page module — the modules that
@@ -6922,23 +7051,30 @@ def main():
 
             # THE ONE SHAPE THAT MAY STATE A FIGURE, and the figure is
             # RECOMPUTED here from the observed series rather than
-            # restated: 4020 -> 3900 over six days is 20 mV/day, and
-            # 3900 is 600 mV above the empty endpoint, so thirty days.
+            # restated — SEED-006 (quick 260923-gaf): in STATE-OF-CHARGE
+            # space via battery_fraction(), not by millivolt
+            # extrapolation. 4020 -> 3900 over six days is 16 days on the
+            # DEVICE-05 curve; the plan's own hand-derivation is recorded
+            # here as the second, independent anchor.
             falling_result = results["falling"]
             if falling_result["trend"] != battery_module.LIFE_TREND_FALLING:
                 return False, (
                     "a falling series must report %r, got %r"
                     % (battery_module.LIFE_TREND_FALLING, falling_result["trend"]))
             span_days = 6.0
-            slope = (4020 - 3900) / span_days
-            expected_days = int(round(
-                (3900 - battery_module.BATTERY_EMPTY_MV) / slope))
+            oldest_fraction = battery_module.battery_fraction(4020)
+            newest_fraction = battery_module.battery_fraction(3900)
+            soc_drop_per_day = (oldest_fraction - newest_fraction) / span_days
+            expected_days = int(round(newest_fraction / soc_drop_per_day))
             if falling_result["days_remaining"] != expected_days:
                 return False, (
-                    "a falling series reported days_remaining=%r; recomputed from the OBSERVED "
-                    "slope (%.1f mV/day over %.0f days, %d mV above empty) it is %d"
-                    % (falling_result["days_remaining"], slope, span_days,
-                       3900 - battery_module.BATTERY_EMPTY_MV, expected_days))
+                    "a falling series reported days_remaining=%r; recomputed in "
+                    "STATE-OF-CHARGE space (4020 -> 3900 over %.0f days) it is %d"
+                    % (falling_result["days_remaining"], span_days, expected_days))
+            if expected_days != 16:
+                return False, (
+                    "the falling fixture's own SoC-space recomputation drifted off its "
+                    "documented anchor of 16 days, got %d" % (expected_days,))
 
             # THE OTHER EXTREME OF THE SAME BOUND. The falling case
             # above measures a six-day span; this one measures ONE day,
@@ -6984,17 +7120,41 @@ def main():
                     % (barely["days_remaining"],))
 
             # THE FLOOR, not only the ceiling: a series already at or
-            # below the empty endpoint has zero days left, not a
-            # negative number.
+            # below the curve's bottom knot has zero days left, not a
+            # negative number. SEED-006 (quick 260923-gaf): moved to
+            # 3100 (oldest) -> 2900 (newest) so newest sits at or below
+            # BATTERY_EMPTY_MV (2946) and battery_fraction() clamps to
+            # exactly 0.0.
             flat_out = est([
-                {"ts": "2026-09-10", "battery_mv": 3200, "reading_count": 96},
-                {"ts": "2026-09-04", "battery_mv": 3400, "reading_count": 96},
+                {"ts": "2026-09-10", "battery_mv": 2900, "reading_count": 96},
+                {"ts": "2026-09-04", "battery_mv": 3100, "reading_count": 96},
             ])
             if flat_out["days_remaining"] != 0:
                 return False, (
-                    "a series that has already fallen below the empty endpoint reported "
-                    "days_remaining=%r — the floor is zero, never a negative lifetime"
+                    "a series that has already fallen to or below the curve's bottom knot "
+                    "reported days_remaining=%r — the floor is zero, never a negative lifetime"
                     % (flat_out["days_remaining"],))
+
+            # ABOVE-CURVE FALLING, WITH NO MEASURABLE STATE-OF-CHARGE
+            # DROP. SEED-006 (quick 260923-gaf): both readings sit above
+            # BATTERY_FULL_MV (4112), so battery_fraction() clamps both
+            # to 1.0 and there is nothing to project a slope from — the
+            # trend still reads FALLING (millivolts did fall) but
+            # days_remaining must be None, not a division by zero.
+            above_curve = est([
+                {"ts": "2026-09-10", "battery_mv": 4150, "reading_count": 96},
+                {"ts": "2026-09-04", "battery_mv": 4200, "reading_count": 96},
+            ])
+            if above_curve["trend"] != battery_module.LIFE_TREND_FALLING:
+                return False, (
+                    "two readings above the curve's top knot, falling in millivolts, must still "
+                    "report %r, got %r"
+                    % (battery_module.LIFE_TREND_FALLING, above_curve["trend"]))
+            if above_curve["days_remaining"] is not None:
+                return False, (
+                    "two readings above the curve's top knot produced days_remaining=%r — no "
+                    "state-of-charge drop is measurable above BATTERY_FULL_MV, so the answer "
+                    "must be None, never a division by zero" % (above_curve["days_remaining"],))
 
             # THE RELATIVE FACTOR, available in EVERY shape including
             # the five with no absolute figure — it is arithmetic on two
@@ -7033,11 +7193,14 @@ def main():
             "one row, two flat rows, falling, RISING, and a newest row with a None reading) and "
             "never states a figure the data cannot support: a charged device's rising slope "
             "returns days_remaining=None rather than a negative or infinite lifetime, a flat "
-            "series returns None, an already-empty series floors at zero, the 'no reading' and "
+            "series returns None, a series at or below the curve's bottom knot floors at zero, "
+            "a series above the curve's top knot with falling millivolts but no measurable "
+            "state-of-charge drop reports FALLING with days_remaining=None, the 'no reading' and "
             "'not enough history' states are DIFFERENT named values, the falling series' figure "
-            "is recomputed from the observed slope, and the relative cadence factor is available "
-            "in all six shapes and doubles exactly when the proposed cadence doubles (CFG-49, "
-            "25-01-PLAN.md Task 3)",
+            "is recomputed in STATE-OF-CHARGE space via battery_fraction() (SEED-006, quick "
+            "260923-gaf) rather than by millivolt extrapolation, and the relative cadence factor "
+            "is available in all six shapes and doubles exactly when the proposed cadence "
+            "doubles (CFG-49, 25-01-PLAN.md Task 3)",
             _battery_life_estimate_is_total_and_never_claims_what_it_cannot)
 
         def _battery_module_imports_neither_a_page_module_nor_the_server_package():

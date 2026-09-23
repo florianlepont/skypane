@@ -12880,14 +12880,14 @@ def main():
         `test_companion_app.py`'s one-home guard already catches a second
         estimate by NAME and by the millivolt-endpoint pair. This is the
         third net and the narrow one: the arithmetic itself — a division
-        by an observed slope, or a distance to the empty endpoint —
-        appearing anywhere under `companion/pages/`. Comments and
-        docstrings are stripped first, for this file's own standing
-        reason: the prose that explains the rule must neither satisfy
-        nor break it.
+        by an observed slope, or a distance to the empty endpoint or the
+        SEED-006 curve table itself (quick 260923-gaf) — appearing
+        anywhere under `companion/pages/`. Comments and docstrings are
+        stripped first, for this file's own standing reason: the prose
+        that explains the rule must neither satisfy nor break it.
         """
         banned = ("days_remaining", "mv_per_day", "BATTERY_EMPTY_MV",
-                  "BATTERY_FULL_MV", "observed_span_days")
+                  "BATTERY_FULL_MV", "observed_span_days", "BATTERY_DISCHARGE_CURVE")
         pages_dir = os.path.join(HERE, "pages")
         for name in sorted(os.listdir(pages_dir)):
             if not name.endswith(".py"):
@@ -12941,11 +12941,12 @@ def main():
         return True, ""
     check(
         "no days-remaining arithmetic exists anywhere under companion/pages/ — every one of "
-        "days_remaining/mv_per_day/observed_span_days/the two millivolt endpoints appears only "
-        "as a read of the estimator's own returned dict, comments and docstrings stripped first "
-        "— the estimate is called QUALIFIED off companion.battery, and every quantity template "
-        "this card adds carries the \"#\" mark rather than a format artefact and has a French "
-        "sibling (CFG-49/D-27, 25-05-PLAN.md Task 1)",
+        "days_remaining/mv_per_day/observed_span_days/the two millivolt endpoints/the SEED-006 "
+        "BATTERY_DISCHARGE_CURVE table appears only as a read of the estimator's own returned "
+        "dict, comments and docstrings stripped first — the estimate is called QUALIFIED off "
+        "companion.battery, and every quantity template this card adds carries the \"#\" mark "
+        "rather than a format artefact and has a French sibling (CFG-49/D-27, 25-05-PLAN.md "
+        "Task 1, quick 260923-gaf)",
         _no_days_remaining_arithmetic_lives_outside_companion_battery)
 
     # ==================================================================

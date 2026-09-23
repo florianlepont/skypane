@@ -154,17 +154,18 @@ BATTERY_TREND_WINDOW_DAYS = 90  # 260902-l0b: the chart's primary window,
 # comment already draws for the raw-readings limit above — it bounds a
 # `ts >= ?` read (battery_daily_rows()), deleting nothing.
 
-# Provisional (T-06-08-05): hardware/BATTERY-RUN.md pre-registers a
-# --min-mv-drop default of 100mV, but that threshold is judged over the
-# *whole multi-day run's* opening-vs-closing window mean (the "phantom
-# USB power" gate), not between two consecutive device_health readings —
-# a materially different granularity. Phase 5's Tasks 2/3 (the actual
-# multi-day discharge run and its measured curve) have not run yet, so
-# there is no measured per-reading discharge figure to anchor this on.
-# 100mV is reused here only as the closest recorded, pre-registered
-# figure this project has — NOT presented as a measured per-cycle value.
-# Revisit once hardware/BATTERY-RUN.md's "Discharge Trend" section is
-# filled in.
+# Originally provisional (T-06-08-05): 100mV was borrowed from
+# hardware/BATTERY-RUN.md's pre-registered --min-mv-drop, a whole-run
+# opening-vs-closing gate rather than a per-reading one. DEVICE-05's
+# completed run (BATTERY-RUN.md "Discharge Trend", 2026-09-02..14, 300 s
+# cadence) now bounds the real per-reading drop: ~50 mV/day through the
+# middle (well under 1 mV per reading) and, even across the final cliff,
+# 3364->2960 mV over ~21 h — a couple of mV per reading on average. A
+# genuine discharge therefore never drops 100mV between two consecutive
+# readings, so crossing it still means an anomaly (a sampling artefact or
+# a real fault), which is exactly what battery_status() flags. The value
+# stays 100: the run kept only a sampled trend table, not every reading,
+# so there is no measured per-reading noise floor to tighten it against.
 BATTERY_DROP_WARN_MV = 100
 
 # --- Corroboration (D-15) ---------------------------------------------------
@@ -1069,17 +1070,25 @@ _SPARKLINE_CANVAS_HEIGHT_PX = 160
 _SPARKLINE_VERTICAL_INSET_PERCENT = 3.75
 
 # D-04 (A-22), 19-05-PLAN.md: the sparkline's Y-axis is now a FIXED range
-# — the single-cell LiPo's whole usable window (3.3-4.2V, the same span
-# `companion/battery.py`'s BATTERY_EMPTY_MV/BATTERY_FULL_MV estimate
-# uses), never an auto-scaled `min(values)`/`max(values)` window. Before
-# this task, a flat battery series pinned to the bottom of the canvas
-# (min == max, since nothing else was on screen to compare it against)
-# and a real but tiny 15mV wiggle stretched to fill the WHOLE vertical
-# range, reading as a cliff rather than the noise it actually was. A
-# fixed range fixes both: a flat series now draws flat, a small wiggle
-# now draws small, and the chart's own axis labels agree by construction
-# with the percentage readout `companion/battery.py`'s estimate already
-# shows beside it, since both are now measured against the same span.
+# — 3000-4200 mV, never an auto-scaled `min(values)`/`max(values)`
+# window. Before this task, a flat battery series pinned to the bottom
+# of the canvas (min == max, since nothing else was on screen to compare
+# it against) and a real but tiny 15mV wiggle stretched to fill the
+# WHOLE vertical range, reading as a cliff rather than the noise it
+# actually was. A fixed range fixes both: a flat series now draws flat,
+# and a small wiggle now draws small. 19-05's reasons for fixing the
+# range still hold.
+#
+# SEED-006 (quick 260923-gaf) changed what the two no longer agree BY
+# CONSTRUCTION on. The percentage printed beside this chart now comes
+# from `companion/battery.py`'s BATTERY_DISCHARGE_CURVE, the DEVICE-05
+# piecewise curve spanning 2946-4112 mV — flat near the top, steep near
+# the bottom — while this axis stays a straight 3000-4200 mV DISPLAY
+# window. Equal vertical distances on this chart are therefore NOT equal
+# percentages any more: a step near the top of the canvas covers far
+# more percent than the same step near the bottom. A reading below
+# 3000 mV, which happens only in the final hours of a discharge, clamps
+# to the chart floor rather than drawing off-canvas.
 SPARKLINE_Y_MIN_MV = 3000
 SPARKLINE_Y_MAX_MV = 4200
 _SPARKLINE_Y_SPAN_MV = SPARKLINE_Y_MAX_MV - SPARKLINE_Y_MIN_MV  # no `or 1`

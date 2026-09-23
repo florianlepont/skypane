@@ -3649,8 +3649,10 @@ def main():
                 return cfg
 
             # 68. A first cycle crossing into low sends exactly one push
-            # whose body carries the millivolt figure, and records
-            # last_battery_sent=True.
+            # whose body carries the millivolt figure AND the SEED-006
+            # curve's percentage (quick 260923-gaf), and records
+            # last_battery_sent=True. 3400 mV lies between the
+            # 3364->7 and 3500->15 knots, so 7 + 8*36/136 = 9.1 -> 9%.
             def _battery_low_transition_sends_once_with_mv():
                 poll_state = {}
                 sender = _FakeSender()
@@ -3667,12 +3669,20 @@ def main():
                     return False, "expected the project's short-name title, got %r" % (title,)
                 if "3400" not in body:
                     return False, "expected the millivolt figure 3400 in body %r" % (body,)
+                if "(≈ 9%)" not in body:
+                    return False, (
+                        "expected the SEED-006 curve percentage '(≈ 9%%)' in body %r" % (body,))
+                if poll_loop._battery_percent_estimate(3400) != 9:
+                    return False, (
+                        "expected poll_loop._battery_percent_estimate(3400) == 9, got %r"
+                        % (poll_loop._battery_percent_estimate(3400),))
                 if poll_state.get("notifications", {}).get("last_battery_sent") is not True:
                     return False, "expected last_battery_sent=True recorded, got %r" % (poll_state,)
                 return True, ""
             check(
-                "a first cycle crossing into battery-low sends exactly one push whose body carries the "
-                "millivolt reading, and records last_battery_sent=True",
+                "a first cycle crossing into battery-low sends exactly one push whose body carries "
+                "the millivolt reading and the SEED-006 curve percentage '(≈ 9%)', and records "
+                "last_battery_sent=True (quick 260923-gaf)",
                 _battery_low_transition_sends_once_with_mv,
             )
 

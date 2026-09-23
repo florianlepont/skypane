@@ -525,8 +525,22 @@ between. This run's own data: the pack's real charge plateau was
 polling successfully all the way to **2946 mV**, well past the
 assumed "0%" point at 3300 mV — for roughly the final 24 hours of the
 run, the estimate would have already been pinned at 0% while the
-device was still very much alive. See `SEED-` (to be planted) for
-recalibrating both constants against this run's real curve.
+device was still very much alive. See `SEED-006` for recalibrating both
+constants against this run's real curve.
+
+**Outcome (2026-09-23, quick 260923-gaf):** The estimate is now a
+piecewise millivolt-to-percent table (14 knots) built from this
+section's own Discharge Trend rows. Percent is the share of this run's
+runtime still ahead, with the 4000 mV plateau merged at its midpoint
+and the 2960/2946 tail merged into a single 0% knot at 2946.
+Readings at or above 4112 mV, including the 4122 mV on-charger plateau,
+now read 100%, and 2946 mV reads 0%. The rejected alternative was
+recalibrating only the two linear endpoints to 4112/2946. It was
+rejected because a straight line cannot follow this curve's flat top
+and end-of-run cliff: 3500 mV would read about 48% when this run shows
+about 15% remained. The companion's chart line is now derived at
+3540 mV (20%) and sits above the device's unchanged 3500 mV warning
+point (about 15%).
 
 **2. The low-battery warning threshold (`BATTERY_LOW_THRESHOLD_MV = 3500`,
 `server/poll_loop.py`) is validated, not miscalibrated.** It would have

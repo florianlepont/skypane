@@ -2217,7 +2217,7 @@ def main():
                         #    state, and it is still true, at equal
                         #    strength, after this restoration.
                         page.eval_on_selector(wake_sel, "el => el.focus()")
-                        page.keyboard.press("Control+A")
+                        page.keyboard.press("ControlOrMeta+A")
                         page.keyboard.type(target)
                         if page.eval_on_selector(wake_sel, "el => el.value") != target:
                             return False, "expected the typed value to be held by the field before any commit"
@@ -5535,7 +5535,7 @@ def main():
                         # retired bar's liveness+visibility gate).
                         quiet_sel = 'input[name="quiet_hours_start"]'
                         page.eval_on_selector(quiet_sel, "el => el.focus()")
-                        page.keyboard.press("Control+A")
+                        page.keyboard.press("ControlOrMeta+A")
                         page.keyboard.type("03:33")
                         uncommitted = page.evaluate(
                             "() => !!(window.SkyPaneDirtyState "
@@ -8183,7 +8183,7 @@ def main():
 
                         wake_sel = 'input[name="wake_interval_s"]'
                         page.eval_on_selector(wake_sel, "el => el.focus()")
-                        page.keyboard.press("Control+A")
+                        page.keyboard.press("ControlOrMeta+A")
                         page.keyboard.type(rejected)
                         page.keyboard.press("Tab")
                         _wait_for_bar(page)

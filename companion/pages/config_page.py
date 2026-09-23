@@ -710,10 +710,13 @@ WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
 # BATTERY LIFE cannot state an absolute figure from first principles,
 # and this is the constraint the whole card is built around. Computing
 # "≈ 38 days remaining" needs a per-wake energy cost, and this project
-# has NEVER MEASURED ONE — DEVICE-05's multi-day discharge run is still
-# open. A number invented from an assumed cost, printed next to a
-# control a person will act on, is exactly the dishonest state Phase 22
-# spent a whole phase removing. So the figure here comes out of
+# still has NO PER-WAKE ENERGY COST. DEVICE-05 ran (hardware/
+# BATTERY-RUN.md) and is the source of companion/battery.py's
+# BATTERY_DISCHARGE_CURVE (SEED-006, quick 260923-gaf), but it measured
+# a single wake cadence and left the per-wake versus standing-leakage
+# split unresolved. A number invented from an assumed cost, printed next
+# to a control a person will act on, is exactly the dishonest state
+# Phase 22 spent a whole phase removing. So the figure here comes out of
 # companion/battery.py's `battery_life_estimate()`, which derives it
 # from this device's OWN OBSERVED discharge slope or refuses to derive
 # it at all — and when it refuses, WAKE_BATTERY_UNKNOWN_TEXT is a real

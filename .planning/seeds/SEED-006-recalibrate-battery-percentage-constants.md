@@ -1,7 +1,8 @@
 ---
 id: SEED-006
-status: dormant
+status: fulfilled
 planted: 2026-09-15
+resolved_date: 2026-09-23
 planted_during: Phase 5 (05-low-battery-indicator) — DEVICE-05 battery discharge run, Task 3 write-up
 trigger_when: when relevant
 scope: unknown
@@ -58,3 +59,17 @@ empty) — a more honest but larger change.
 Captured 2026-09-15 during DEVICE-05's Task 3 write-up, at the developer's
 explicit request to think through what this run's data should change in
 the codebase, not just record the measurement itself.
+
+**Fulfilled — status closed 2026-09-23.** Quick task 260923-gaf replaced
+the linear estimate in both homes with the 14-knot piecewise curve
+derived from `## Discharge Trend`.
+
+The Scope Estimate's open question was decided in favour of the
+piecewise curve (user decision, D-SEED006). The endpoints-only
+alternative was rejected because 3500 mV would have read about 48%
+against about 15% observed.
+
+The follow-on effects: LOW_BATTERY_DISPLAY_MV is now derived as 3540
+(20%); the device's 3500/3600 thresholds are unchanged; the life
+estimate now projects in state-of-charge space; and a parity check now
+enforces the D-27 duplicate.
