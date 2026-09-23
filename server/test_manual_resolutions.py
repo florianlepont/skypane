@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
-"""Contract harness for server/plane/manual_resolutions.py - the phase 13
+"""Contract tests for server/plane/manual_resolutions.py - the phase 13
 manual-resolution registry (D-01/D-05/D-08/D-13, 13-VALIDATION.md Wave 0
 item 1).
 
-Stdlib-only, plus the module under test (server.plane.manual_resolutions)
-and its own dependency (server.plane.illustrations). Every fixture is a
-`tempfile.TemporaryDirectory()`, never a shared/real state dir. Exits 0
-only when every check below passes; any failure (or exception - none is
-ever swallowed into a pass) exits 1.
-
-Usage:
-    server/.venv/bin/python3 server/test_manual_resolutions.py
+Every fixture is `tmp_path` (pytest-owned, never a shared/real state dir).
+The two read-only-parent-directory checks (WR-11/CR-01) are skipped under
+euid 0 (`@requires_non_root`) - root ignores read-only directory permission
+bits, so the write those checks expect to fail would silently succeed
+instead, asserting the wrong thing rather than testing anything real.
 """
 import json
 import os
+import string
 import sys
-import tempfile
-import threading
+
+import pytest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -24,483 +22,337 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-# Initial value for this file, introduced by phase 13 plan 01. Re-derived
-# by RUNNING the harness (not by arithmetic), per this repo's own
-# documented discipline (see the ledger comment above
-# companion/test_status_pages.py's own EXPECTED_CHECK_COUNT).
-# 23 = 21 + 2 (13-REVIEW.md WR-11 fix: add_entry()/delete_entry() failure-
-# path checks against a real unwritable state dir — the exact CR-01
-# reproduction case, at module level). 21 = 20 + 1 (13-REVIEW.md WR-03
-# fix: the drop-count-message check for load_manual_resolutions()).
-# 20 = 19 + 1 (13-REVIEW.md WR-02 fix: the
-# concurrent-add_entry() no-lost-updates check, proving _WRITE_LOCK
-# closes the unsynchronised read-modify-write window).
-EXPECTED_CHECK_COUNT = 23
+# pyproject.toml's pythonpath puts test-support/ on sys.path for a normal
+# pytest run; the legacy-runner bridge at the bottom of this file
+# (`python3 server/test_manual_resolutions.py`) never reads that config,
+# so the same directory is added here too.
+_TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
+if _TEST_SUPPORT_DIR not in sys.path:
+    sys.path.insert(0, _TEST_SUPPORT_DIR)
+
+from skypane_test_support import requires_non_root  # noqa: E402
+
+import server.plane.illustrations as illustrations  # noqa: E402
+import server.plane.manual_resolutions as m  # noqa: E402
 
 
-def main():
-    results = []
+def test_missing_state_dir_returns_empty_dict_without_raising():
+    """load_manual_resolutions() on a nonexistent state dir returns {} without raising."""
+    result = m.load_manual_resolutions("/nonexistent/skypane-mr-dir")
+    assert result == {}, "expected {}, got %r" % (result,)
 
-    def check(name, fn):
+
+def test_invalid_json_returns_empty_dict(tmp_path):
+    """load_manual_resolutions() on a file containing invalid JSON returns {}."""
+    with open(m.manual_resolutions_path(tmp_path), "w") as fh:
+        fh.write("not json")
+    result = m.load_manual_resolutions(tmp_path)
+    assert result == {}, "expected {}, got %r" % (result,)
+
+
+def test_non_dict_top_level_returns_empty_dict(tmp_path):
+    """load_manual_resolutions() on a JSON list (non-dict top level) returns {}."""
+    with open(m.manual_resolutions_path(tmp_path), "w") as fh:
+        json.dump([1, 2, 3], fh)
+    result = m.load_manual_resolutions(tmp_path)
+    assert result == {}, "expected {}, got %r" % (result,)
+
+
+def test_non_dict_entry_value_dropped(tmp_path):
+    """load_manual_resolutions() drops an entry whose value is not a dict."""
+    with open(m.manual_resolutions_path(tmp_path), "w") as fh:
+        json.dump({"AAA": 5}, fh)
+    result = m.load_manual_resolutions(tmp_path)
+    assert result == {}, "expected {}, got %r" % (result,)
+
+
+def test_lowercase_key_normalised_on_read_and_round_trips(tmp_path):
+    """load_manual_resolutions() normalises a lowercase key to uppercase and round-trips a valid entry."""
+    with open(m.manual_resolutions_path(tmp_path), "w") as fh:
+        json.dump({"aaa": {"airline_name": "Volotea", "created_at": "2026-01-01T00:00:00+00:00"}}, fh)
+    result = m.load_manual_resolutions(tmp_path)
+    expected = {"AAA": {"airline_name": "Volotea", "created_at": "2026-01-01T00:00:00+00:00"}}
+    assert result == expected, "expected %r, got %r" % (expected, result)
+
+
+def test_malformed_keys_dropped(tmp_path, tmp_path_factory):
+    """load_manual_resolutions() drops a path-traversal-shaped key and a 4-letter key."""
+    with open(m.manual_resolutions_path(tmp_path), "w") as fh:
+        json.dump({"../x": {"airline_name": "Volotea", "created_at": "t"}}, fh)
+    result_traversal = m.load_manual_resolutions(tmp_path)
+    assert result_traversal == {}, "traversal-shaped key: expected {}, got %r" % (result_traversal,)
+
+    tmp2 = tmp_path_factory.mktemp("mr-4letter")
+    with open(m.manual_resolutions_path(tmp2), "w") as fh:
+        json.dump({"AAAA": {"airline_name": "Volotea", "created_at": "t"}}, fh)
+    result_4letter = m.load_manual_resolutions(tmp2)
+    assert result_4letter == {}, "4-letter key: expected {}, got %r" % (result_4letter,)
+
+
+def test_reserved_name_dropped_on_read(tmp_path):
+    """load_manual_resolutions() drops a hand-edited entry whose airline_name slugs to a reserved key."""
+    with open(m.manual_resolutions_path(tmp_path), "w") as fh:
+        json.dump({"AAA": {"airline_name": "Generic Fallback", "created_at": "t"}}, fh)
+    result = m.load_manual_resolutions(tmp_path)
+    assert result == {}, "expected {}, got %r" % (result,)
+
+
+def test_add_entry_round_trips_with_non_empty_created_at(tmp_path):
+    """add_entry() returns ADD_OK and round-trips through load_manual_resolutions() with a non-empty created_at."""
+    result = m.add_entry(tmp_path, "AAA", "Volotea")
+    assert result == m.ADD_OK, "add_entry() returned %r, expected ADD_OK" % (result,)
+    registry = m.load_manual_resolutions(tmp_path)
+    entry = registry.get("AAA")
+    assert entry is not None, "AAA missing from registry after add_entry(): %r" % (registry,)
+    assert entry.get("airline_name") == "Volotea", "airline_name %r != 'Volotea'" % (entry.get("airline_name"),)
+    assert entry.get("created_at"), "created_at is falsy: %r" % (entry.get("created_at"),)
+
+
+def test_add_entry_rejects_2letter_prefix(tmp_path):
+    """add_entry() rejects a 2-letter prefix with ADD_REJECTED_PREFIX."""
+    result = m.add_entry(tmp_path, "aa", "X")
+    assert result == m.ADD_REJECTED_PREFIX, "expected ADD_REJECTED_PREFIX, got %r" % (result,)
+
+
+def test_add_entry_rejects_whitespace_only_name(tmp_path):
+    """add_entry() rejects a whitespace-only name with ADD_REJECTED_NAME_EMPTY."""
+    result = m.add_entry(tmp_path, "AAA", "   ")
+    assert result == m.ADD_REJECTED_NAME_EMPTY, "expected ADD_REJECTED_NAME_EMPTY, got %r" % (result,)
+
+
+def test_add_entry_rejects_101char_name(tmp_path):
+    """add_entry() rejects a 101-char name with ADD_REJECTED_NAME_TOO_LONG."""
+    result = m.add_entry(tmp_path, "AAA", "x" * 101)
+    assert result == m.ADD_REJECTED_NAME_TOO_LONG, "expected ADD_REJECTED_NAME_TOO_LONG, got %r" % (result,)
+
+
+def test_add_entry_rejects_reserved_names(tmp_path, tmp_path_factory):
+    """add_entry() rejects 'Generic Fallback' and 'Generic A320' with ADD_REJECTED_NAME_RESERVED."""
+    result_fallback = m.add_entry(tmp_path, "AAA", "Generic Fallback")
+    tmp2 = tmp_path_factory.mktemp("mr-reserved")
+    result_shape = m.add_entry(tmp2, "AAA", "Generic A320")
+    assert result_fallback == m.ADD_REJECTED_NAME_RESERVED, (
+        "'Generic Fallback': expected ADD_REJECTED_NAME_RESERVED, got %r" % (result_fallback,)
+    )
+    assert result_shape == m.ADD_REJECTED_NAME_RESERVED, (
+        "'Generic A320': expected ADD_REJECTED_NAME_RESERVED, got %r" % (result_shape,)
+    )
+
+
+def test_add_entry_rejects_new_prefix_at_cap_but_allows_overwrite(tmp_path):
+    """add_entry() rejects a new prefix at MANUAL_RESOLUTION_MAX_ENTRIES (ADD_REJECTED_FULL) but allows overwriting an existing one."""
+    prefixes = []
+    count = 0
+    for a in string.ascii_uppercase:
+        for b in string.ascii_uppercase:
+            if count >= m.MANUAL_RESOLUTION_MAX_ENTRIES:
+                break
+            prefixes.append("Z" + a + b)
+            count += 1
+        if count >= m.MANUAL_RESOLUTION_MAX_ENTRIES:
+            break
+    assert len(prefixes) == m.MANUAL_RESOLUTION_MAX_ENTRIES, (
+        "test setup failure: only generated %d distinct prefixes" % (len(prefixes),)
+    )
+    for i, pfx in enumerate(prefixes):
+        result = m.add_entry(tmp_path, pfx, "Airline %d" % i)
+        assert result == m.ADD_OK, "filling the cap: add_entry(%r, ...) returned %r" % (pfx, result)
+    new_result = m.add_entry(tmp_path, "AAA", "One Too Many")
+    assert new_result == m.ADD_REJECTED_FULL, (
+        "expected ADD_REJECTED_FULL for a new prefix at the cap, got %r" % (new_result,)
+    )
+    overwrite_result = m.add_entry(tmp_path, prefixes[0], "Renamed Airline")
+    assert overwrite_result == m.ADD_OK, (
+        "expected ADD_OK re-adding an existing prefix at the cap, got %r" % (overwrite_result,)
+    )
+
+
+def test_delete_entry_returns_true_once_then_false(tmp_path):
+    """delete_entry() returns True once then False on a repeated call, without raising."""
+    m.add_entry(tmp_path, "AAA", "Volotea")
+    first = m.delete_entry(tmp_path, "AAA")
+    second = m.delete_entry(tmp_path, "AAA")
+    assert first is True, "first delete_entry() call returned %r, expected True" % (first,)
+    assert second is False, "second delete_entry() call returned %r, expected False" % (second,)
+
+
+def test_state_dir_cache_round_trips_and_clears_on_reset(tmp_path):
+    """set_manual_registry_state_dir()/airline_name_for_prefix() cache round-trips and clears on reset to None."""
+    m.add_entry(tmp_path, "AAA", "Volotea")
+    m.set_manual_registry_state_dir(tmp_path)
+    cached = m.airline_name_for_prefix("AAA")
+    m.set_manual_registry_state_dir(None)
+    after_reset = m.airline_name_for_prefix("AAA")
+    assert cached == "Volotea", "expected 'Volotea' from the cache, got %r" % (cached,)
+    assert after_reset is None, "expected None after set_manual_registry_state_dir(None), got %r" % (after_reset,)
+
+
+def test_entry_rows_sorted_and_skips_malformed_entry():
+    """entry_rows() returns (prefix, airline_name, created_at) tuples sorted by prefix, skipping a malformed entry."""
+    registry = {
+        "BBB": {"airline_name": "Bravo Air", "created_at": "t2"},
+        "AAA": {"airline_name": "Alpha Air", "created_at": "t1"},
+        "CCC": "not a dict",
+    }
+    rows = m.entry_rows(registry)
+    expected = [("AAA", "Alpha Air", "t1"), ("BBB", "Bravo Air", "t2")]
+    assert rows == expected, "expected %r, got %r" % (expected, rows)
+
+
+def test_delete_entry_leaves_override_png_untouched(tmp_path):
+    """delete_entry() leaves the override PNG on disk untouched (D-08), pinned to illustrations.override_path_for_key()."""
+    override_dir = illustrations.override_dir_for_state_dir(tmp_path)
+    os.makedirs(override_dir, exist_ok=True)
+    override_path = illustrations.override_path_for_key("volotea", tmp_path)
+    with open(override_path, "wb") as fh:
+        fh.write(b"not a real png, this test never decodes it")
+    m.add_entry(tmp_path, "VOE", "Volotea")
+    m.delete_entry(tmp_path, "VOE")
+    still_there = os.path.isfile(override_path)
+    registry_after = m.load_manual_resolutions(tmp_path)
+    assert still_there, "override PNG at %r was deleted by delete_entry() - violates D-08" % (override_path,)
+    assert "VOE" not in registry_after, (
+        "VOE entry still present in registry after delete_entry(): %r" % (registry_after,)
+    )
+
+
+def test_no_stray_tmp_file_after_successful_add(tmp_path):
+    """no manual_resolutions.json.tmp file remains after a successful add_entry() (atomicity proof)."""
+    result = m.add_entry(tmp_path, "AAA", "Volotea")
+    assert result == m.ADD_OK, "setup failure: add_entry() returned %r" % (result,)
+    stray = [f for f in os.listdir(tmp_path) if f.endswith(".tmp")]
+    assert not stray, "stray .tmp file(s) left behind after a successful add_entry(): %r" % (stray,)
+
+
+def test_concurrent_add_entry_calls_lose_no_updates(tmp_path):
+    """20 concurrent add_entry() calls for 20 distinct prefixes (ThreadingHTTPServer's real concurrency shape) all persist durably with no lost update and no stray .tmp file left behind (WR-02)."""
+    import threading
+
+    prefixes = ["AA%s" % chr(ord("A") + i) for i in range(20)]
+    errors = []
+
+    def _worker(pfx):
         try:
-            ok, reason = fn()
-        except Exception as exc:  # never let an exception be swallowed into a pass
-            ok, reason = False, "exception: %r" % (exc,)
-        results.append((name, ok))
-        if ok:
-            print("PASS %s" % name)
-        else:
-            print("FAIL %s - %s" % (name, reason))
-
-    try:
-        import server.plane.manual_resolutions as m
-    except ImportError as exc:
-        print("FAIL import server.plane.manual_resolutions - %r" % (exc,))
-        print("manual_resolutions: 0/%d checks pass" % EXPECTED_CHECK_COUNT)
-        return 1
-
-    try:
-        import server.plane.illustrations as illustrations
-    except ImportError as exc:
-        print("FAIL import server.plane.illustrations - %r" % (exc,))
-        print("manual_resolutions: 0/%d checks pass" % EXPECTED_CHECK_COUNT)
-        return 1
-
-    # 1. Missing state dir degrades to {}, never raises.
-    def _missing_state_dir():
-        result = m.load_manual_resolutions("/nonexistent/skypane-mr-dir")
-        if result != {}:
-            return False, "expected {}, got %r" % (result,)
-        return True, ""
-    check("load_manual_resolutions() on a nonexistent state dir returns {} without raising", _missing_state_dir)
-
-    # 2. Non-JSON file content degrades to {}.
-    def _not_json():
-        with tempfile.TemporaryDirectory() as tmp:
-            with open(m.manual_resolutions_path(tmp), "w") as fh:
-                fh.write("not json")
-            result = m.load_manual_resolutions(tmp)
-        if result != {}:
-            return False, "expected {}, got %r" % (result,)
-        return True, ""
-    check("load_manual_resolutions() on a file containing invalid JSON returns {}", _not_json)
-
-    # 3. A JSON list (non-dict top level) degrades to {}.
-    def _non_dict_top_level():
-        with tempfile.TemporaryDirectory() as tmp:
-            with open(m.manual_resolutions_path(tmp), "w") as fh:
-                json.dump([1, 2, 3], fh)
-            result = m.load_manual_resolutions(tmp)
-        if result != {}:
-            return False, "expected {}, got %r" % (result,)
-        return True, ""
-    check("load_manual_resolutions() on a JSON list (non-dict top level) returns {}", _non_dict_top_level)
-
-    # 4. An entry whose value is not a dict is dropped.
-    def _non_dict_entry_value():
-        with tempfile.TemporaryDirectory() as tmp:
-            with open(m.manual_resolutions_path(tmp), "w") as fh:
-                json.dump({"AAA": 5}, fh)
-            result = m.load_manual_resolutions(tmp)
-        if result != {}:
-            return False, "expected {}, got %r" % (result,)
-        return True, ""
-    check("load_manual_resolutions() drops an entry whose value is not a dict", _non_dict_entry_value)
-
-    # 5. A lowercase key is normalised to uppercase on read, and a valid
-    #    entry round-trips.
-    def _lowercase_key_normalised_on_read():
-        with tempfile.TemporaryDirectory() as tmp:
-            with open(m.manual_resolutions_path(tmp), "w") as fh:
-                json.dump({"aaa": {"airline_name": "Volotea", "created_at": "2026-01-01T00:00:00+00:00"}}, fh)
-            result = m.load_manual_resolutions(tmp)
-        expected = {"AAA": {"airline_name": "Volotea", "created_at": "2026-01-01T00:00:00+00:00"}}
-        if result != expected:
-            return False, "expected %r, got %r" % (expected, result)
-        return True, ""
-    check("load_manual_resolutions() normalises a lowercase key to uppercase and round-trips a valid entry", _lowercase_key_normalised_on_read)
-
-    # 6. A path-traversal-shaped key and a 4-letter key are both dropped.
-    def _malformed_keys_dropped():
-        with tempfile.TemporaryDirectory() as tmp:
-            with open(m.manual_resolutions_path(tmp), "w") as fh:
-                json.dump({"../x": {"airline_name": "Volotea", "created_at": "t"}}, fh)
-            result_traversal = m.load_manual_resolutions(tmp)
-        with tempfile.TemporaryDirectory() as tmp2:
-            with open(m.manual_resolutions_path(tmp2), "w") as fh:
-                json.dump({"AAAA": {"airline_name": "Volotea", "created_at": "t"}}, fh)
-            result_4letter = m.load_manual_resolutions(tmp2)
-        if result_traversal != {}:
-            return False, "traversal-shaped key: expected {}, got %r" % (result_traversal,)
-        if result_4letter != {}:
-            return False, "4-letter key: expected {}, got %r" % (result_4letter,)
-        return True, ""
-    check("load_manual_resolutions() drops a path-traversal-shaped key and a 4-letter key", _malformed_keys_dropped)
-
-    # 7. An entry whose airline_name slugs to a reserved key is dropped on
-    #    read too (defence in depth against a hand-edited file).
-    def _reserved_name_dropped_on_read():
-        with tempfile.TemporaryDirectory() as tmp:
-            with open(m.manual_resolutions_path(tmp), "w") as fh:
-                json.dump({"AAA": {"airline_name": "Generic Fallback", "created_at": "t"}}, fh)
-            result = m.load_manual_resolutions(tmp)
-        if result != {}:
-            return False, "expected {}, got %r" % (result,)
-        return True, ""
-    check("load_manual_resolutions() drops a hand-edited entry whose airline_name slugs to a reserved key", _reserved_name_dropped_on_read)
-
-    # 8. add_entry() round-trips through load_manual_resolutions() with a
-    #    non-empty created_at.
-    def _add_entry_round_trip():
-        with tempfile.TemporaryDirectory() as tmp:
-            result = m.add_entry(tmp, "AAA", "Volotea")
+            result = m.add_entry(tmp_path, pfx, "Airline %s" % pfx)
             if result != m.ADD_OK:
-                return False, "add_entry() returned %r, expected ADD_OK" % (result,)
-            registry = m.load_manual_resolutions(tmp)
-            entry = registry.get("AAA")
-            if entry is None:
-                return False, "AAA missing from registry after add_entry(): %r" % (registry,)
-            if entry.get("airline_name") != "Volotea":
-                return False, "airline_name %r != 'Volotea'" % (entry.get("airline_name"),)
-            if not entry.get("created_at"):
-                return False, "created_at is falsy: %r" % (entry.get("created_at"),)
-        return True, ""
-    check("add_entry() returns ADD_OK and round-trips through load_manual_resolutions() with a non-empty created_at", _add_entry_round_trip)
+                errors.append((pfx, result))
+        except Exception as exc:  # never let a worker's exception vanish silently
+            errors.append((pfx, repr(exc)))
 
-    # 9. add_entry() rejects a malformed prefix.
-    def _add_entry_rejects_bad_prefix():
-        with tempfile.TemporaryDirectory() as tmp:
-            result = m.add_entry(tmp, "aa", "X")
-        if result != m.ADD_REJECTED_PREFIX:
-            return False, "expected ADD_REJECTED_PREFIX, got %r" % (result,)
-        return True, ""
-    check("add_entry() rejects a 2-letter prefix with ADD_REJECTED_PREFIX", _add_entry_rejects_bad_prefix)
+    threads = [threading.Thread(target=_worker, args=(pfx,)) for pfx in prefixes]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
 
-    # 10. add_entry() rejects an empty (whitespace-only) name.
-    def _add_entry_rejects_empty_name():
-        with tempfile.TemporaryDirectory() as tmp:
-            result = m.add_entry(tmp, "AAA", "   ")
-        if result != m.ADD_REJECTED_NAME_EMPTY:
-            return False, "expected ADD_REJECTED_NAME_EMPTY, got %r" % (result,)
-        return True, ""
-    check("add_entry() rejects a whitespace-only name with ADD_REJECTED_NAME_EMPTY", _add_entry_rejects_empty_name)
+    assert not errors, "worker error(s)/rejection(s): %r" % (errors,)
 
-    # 11. add_entry() rejects an over-length name.
-    def _add_entry_rejects_too_long_name():
-        with tempfile.TemporaryDirectory() as tmp:
-            result = m.add_entry(tmp, "AAA", "x" * 101)
-        if result != m.ADD_REJECTED_NAME_TOO_LONG:
-            return False, "expected ADD_REJECTED_NAME_TOO_LONG, got %r" % (result,)
-        return True, ""
-    check("add_entry() rejects a 101-char name with ADD_REJECTED_NAME_TOO_LONG", _add_entry_rejects_too_long_name)
+    registry = m.load_manual_resolutions(tmp_path)
+    missing = [pfx for pfx in prefixes if pfx not in registry]
+    assert not missing, (
+        "WR-02: lost update(s) - missing prefixes after concurrent add_entry() calls: %r "
+        "(registry has %d/%d entries)" % (missing, len(registry), len(prefixes))
+    )
 
-    # 12. add_entry() rejects both reserved-slug shapes.
-    def _add_entry_rejects_reserved_names():
-        with tempfile.TemporaryDirectory() as tmp:
-            result_fallback = m.add_entry(tmp, "AAA", "Generic Fallback")
-        with tempfile.TemporaryDirectory() as tmp2:
-            result_shape = m.add_entry(tmp2, "AAA", "Generic A320")
-        if result_fallback != m.ADD_REJECTED_NAME_RESERVED:
-            return False, "'Generic Fallback': expected ADD_REJECTED_NAME_RESERVED, got %r" % (result_fallback,)
-        if result_shape != m.ADD_REJECTED_NAME_RESERVED:
-            return False, "'Generic A320': expected ADD_REJECTED_NAME_RESERVED, got %r" % (result_shape,)
-        return True, ""
-    check("add_entry() rejects 'Generic Fallback' and 'Generic A320' with ADD_REJECTED_NAME_RESERVED", _add_entry_rejects_reserved_names)
+    stray = [f for f in os.listdir(tmp_path) if f.endswith(".tmp")]
+    assert not stray, "stray .tmp file(s) left behind after concurrent writes: %r" % (stray,)
 
-    # 13. Filling the registry to the cap then adding a NEW prefix is
-    #     rejected; re-adding an EXISTING prefix at the cap still succeeds
-    #     (an overwrite is not growth).
-    def _cap_enforcement():
-        with tempfile.TemporaryDirectory() as tmp:
-            prefixes = []
-            import string
-            count = 0
-            for a in string.ascii_uppercase:
-                for b in string.ascii_uppercase:
-                    if count >= m.MANUAL_RESOLUTION_MAX_ENTRIES:
-                        break
-                    prefixes.append("Z" + a + b)
-                    count += 1
-                if count >= m.MANUAL_RESOLUTION_MAX_ENTRIES:
-                    break
-            if len(prefixes) != m.MANUAL_RESOLUTION_MAX_ENTRIES:
-                return False, "test setup failure: only generated %d distinct prefixes" % (len(prefixes),)
-            for i, pfx in enumerate(prefixes):
-                result = m.add_entry(tmp, pfx, "Airline %d" % i)
-                if result != m.ADD_OK:
-                    return False, "filling the cap: add_entry(%r, ...) returned %r" % (pfx, result)
-            new_result = m.add_entry(tmp, "AAA", "One Too Many")
-            if new_result != m.ADD_REJECTED_FULL:
-                return False, "expected ADD_REJECTED_FULL for a new prefix at the cap, got %r" % (new_result,)
-            overwrite_result = m.add_entry(tmp, prefixes[0], "Renamed Airline")
-            if overwrite_result != m.ADD_OK:
-                return False, "expected ADD_OK re-adding an existing prefix at the cap, got %r" % (overwrite_result,)
-        return True, ""
-    check("add_entry() rejects a new prefix at MANUAL_RESOLUTION_MAX_ENTRIES (ADD_REJECTED_FULL) but allows overwriting an existing one", _cap_enforcement)
 
-    # 14. delete_entry() removes an entry and returns True; a second call
-    #     on the same prefix returns False without raising.
-    def _delete_entry_idempotent():
-        with tempfile.TemporaryDirectory() as tmp:
-            m.add_entry(tmp, "AAA", "Volotea")
-            first = m.delete_entry(tmp, "AAA")
-            second = m.delete_entry(tmp, "AAA")
-        if first is not True:
-            return False, "first delete_entry() call returned %r, expected True" % (first,)
-        if second is not False:
-            return False, "second delete_entry() call returned %r, expected False" % (second,)
-        return True, ""
-    check("delete_entry() returns True once then False on a repeated call, without raising", _delete_entry_idempotent)
+def test_load_prints_drop_count_for_rejected_and_capped_entries(tmp_path, tmp_path_factory):
+    """load_manual_resolutions() prints a one-line drop-count message whenever it silently rejects an entry or truncates at the cap (naming the real count in both cases) and prints nothing when nothing is dropped (WR-03)."""
+    import contextlib
+    import io
 
-    # 15. set_manual_registry_state_dir()/airline_name_for_prefix() cache
-    #     round trip, and resetting to None clears the cache.
-    def _cache_round_trip():
-        with tempfile.TemporaryDirectory() as tmp:
-            m.add_entry(tmp, "AAA", "Volotea")
-            m.set_manual_registry_state_dir(tmp)
-            cached = m.airline_name_for_prefix("AAA")
-            m.set_manual_registry_state_dir(None)
-            after_reset = m.airline_name_for_prefix("AAA")
-        if cached != "Volotea":
-            return False, "expected 'Volotea' from the cache, got %r" % (cached,)
-        if after_reset is not None:
-            return False, "expected None after set_manual_registry_state_dir(None), got %r" % (after_reset,)
-        return True, ""
-    check("set_manual_registry_state_dir()/airline_name_for_prefix() cache round-trips and clears on reset to None", _cache_round_trip)
+    with open(m.manual_resolutions_path(tmp_path), "w") as fh:
+        json.dump({
+            "AAA": {"airline_name": "Volotea", "created_at": "2026-01-01T00:00:00+00:00"},
+            "BBB": "not a dict",
+        }, fh)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        result = m.load_manual_resolutions(tmp_path)
+    expected = {"AAA": {"airline_name": "Volotea", "created_at": "2026-01-01T00:00:00+00:00"}}
+    assert result == expected, "expected the valid entry alone to survive, got %r" % (result,)
+    assert "1 entry" in buf.getvalue(), (
+        "expected a drop-count message naming 1 dropped entry, got %r" % (buf.getvalue(),)
+    )
 
-    # 16. entry_rows() sorts by prefix ascending and skips a malformed
-    #     entry.
-    def _entry_rows_sorted_and_defensive():
-        registry = {
-            "BBB": {"airline_name": "Bravo Air", "created_at": "t2"},
-            "AAA": {"airline_name": "Alpha Air", "created_at": "t1"},
-            "CCC": "not a dict",
-        }
-        rows = m.entry_rows(registry)
-        expected = [("AAA", "Alpha Air", "t1"), ("BBB", "Bravo Air", "t2")]
-        if rows != expected:
-            return False, "expected %r, got %r" % (expected, rows)
-        return True, ""
-    check("entry_rows() returns (prefix, airline_name, created_at) tuples sorted by prefix, skipping a malformed entry", _entry_rows_sorted_and_defensive)
+    tmp_clean = tmp_path_factory.mktemp("mr-clean")
+    with open(m.manual_resolutions_path(tmp_clean), "w") as fh:
+        json.dump({"AAA": {"airline_name": "Volotea", "created_at": "t"}}, fh)
+    buf_clean = io.StringIO()
+    with contextlib.redirect_stdout(buf_clean):
+        m.load_manual_resolutions(tmp_clean)
+    assert not buf_clean.getvalue(), (
+        "expected no drop-count message when nothing is dropped, got %r" % (buf_clean.getvalue(),)
+    )
 
-    # 17. D-08 proof: delete_entry() never touches the override image file
-    #     on disk. The override path is built with the real path builder
-    #     (override_path_for_key()), not a hand-typed string, so this test
-    #     is pinned to the real contract rather than a guess about its
-    #     shape.
-    def _delete_entry_never_touches_override_file():
-        with tempfile.TemporaryDirectory() as tmp:
-            override_dir = illustrations.override_dir_for_state_dir(tmp)
-            os.makedirs(override_dir, exist_ok=True)
-            override_path = illustrations.override_path_for_key("volotea", tmp)
-            with open(override_path, "wb") as fh:
-                fh.write(b"not a real png, this test never decodes it")
-            m.add_entry(tmp, "VOE", "Volotea")
-            m.delete_entry(tmp, "VOE")
-            still_there = os.path.isfile(override_path)
-            registry_after = m.load_manual_resolutions(tmp)
-        if not still_there:
-            return False, "override PNG at %r was deleted by delete_entry() - violates D-08" % (override_path,)
-        if "VOE" in registry_after:
-            return False, "VOE entry still present in registry after delete_entry(): %r" % (registry_after,)
-        return True, ""
-    check("delete_entry() leaves the override PNG on disk untouched (D-08), pinned to illustrations.override_path_for_key()", _delete_entry_never_touches_override_file)
+    tmp_cap = tmp_path_factory.mktemp("mr-cap")
+    over_cap_by = 5
+    oversized = {}
+    count = 0
+    total = m.MANUAL_RESOLUTION_MAX_ENTRIES + over_cap_by
+    for a in string.ascii_uppercase:
+        for b in string.ascii_uppercase:
+            if count >= total:
+                break
+            oversized["Z" + a + b] = {"airline_name": "Airline %d" % count, "created_at": "t"}
+            count += 1
+        if count >= total:
+            break
+    with open(m.manual_resolutions_path(tmp_cap), "w") as fh:
+        json.dump(oversized, fh)
+    buf_cap = io.StringIO()
+    with contextlib.redirect_stdout(buf_cap):
+        result_cap = m.load_manual_resolutions(tmp_cap)
+    assert len(result_cap) == m.MANUAL_RESOLUTION_MAX_ENTRIES, (
+        "expected exactly the cap's worth of surviving entries, got %d" % (len(result_cap),)
+    )
+    assert ("%d entry" % over_cap_by) in buf_cap.getvalue(), (
+        "expected the drop-count message to name the %d over-cap entries, got %r" % (over_cap_by, buf_cap.getvalue())
+    )
 
-    # 18. Atomicity proof: after a successful add_entry(), no stray
-    #     manual_resolutions.json.tmp file remains in the state dir.
-    def _no_stray_tmp_file_after_add():
-        with tempfile.TemporaryDirectory() as tmp:
-            result = m.add_entry(tmp, "AAA", "Volotea")
-            if result != m.ADD_OK:
-                return False, "setup failure: add_entry() returned %r" % (result,)
-            stray = [f for f in os.listdir(tmp) if f.endswith(".tmp")]
-        if stray:
-            return False, "stray .tmp file(s) left behind after a successful add_entry(): %r" % (stray,)
-        return True, ""
-    check("no manual_resolutions.json.tmp file remains after a successful add_entry() (atomicity proof)", _no_stray_tmp_file_after_add)
 
-    # 19. WR-02 proof: 20 concurrent add_entry() calls for 20 distinct
-    #     prefixes (companion/app.py's real ThreadingHTTPServer
-    #     concurrency shape) must all persist durably under _WRITE_LOCK -
-    #     no lost update from an unsynchronised load-modify-write race,
-    #     and no stray unique-per-writer .tmp file left behind.
-    def _concurrent_add_entry_calls_lose_no_updates():
-        with tempfile.TemporaryDirectory() as tmp:
-            prefixes = ["AA%s" % chr(ord("A") + i) for i in range(20)]
-            errors = []
+@requires_non_root
+def test_add_entry_on_uncreatable_state_dir_returns_failed(tmp_path):
+    """add_entry() returns ADD_FAILED (never raises) when its state dir cannot be created because the parent directory is read-only - CR-01's exact reproduction case (WR-11)."""
+    os.chmod(tmp_path, 0o500)
+    try:
+        result = m.add_entry(tmp_path / "state", "ABC", "Test Air")
+    finally:
+        os.chmod(tmp_path, 0o700)
+    assert result == m.ADD_FAILED, "expected ADD_FAILED for an uncreatable state dir, got %r" % (result,)
 
-            def _worker(pfx):
-                try:
-                    result = m.add_entry(tmp, pfx, "Airline %s" % pfx)
-                    if result != m.ADD_OK:
-                        errors.append((pfx, result))
-                except Exception as exc:  # never let a worker's exception vanish silently
-                    errors.append((pfx, repr(exc)))
 
-            threads = [threading.Thread(target=_worker, args=(pfx,)) for pfx in prefixes]
-            for t in threads:
-                t.start()
-            for t in threads:
-                t.join()
+@requires_non_root
+def test_delete_entry_on_unwritable_state_dir_returns_false(tmp_path):
+    """delete_entry() returns False (never raises) when the state dir goes read-only mid-write, and the existing entry survives untouched since the write never happened - CR-01's mirror case for delete (WR-11)."""
+    add_result = m.add_entry(tmp_path, "ABC", "Test Air")
+    assert add_result == m.ADD_OK, "setup failure: add_entry() returned %r" % (add_result,)
+    os.chmod(tmp_path, 0o500)
+    try:
+        result = m.delete_entry(tmp_path, "ABC")
+    finally:
+        os.chmod(tmp_path, 0o700)
+    assert result is False, "expected False (never raises) when the state dir is read-only, got %r" % (result,)
+    registry = m.load_manual_resolutions(tmp_path)
+    assert "ABC" in registry, "expected the ABC entry to survive a failed delete_entry() write untouched"
 
-            if errors:
-                return False, "worker error(s)/rejection(s): %r" % (errors,)
 
-            registry = m.load_manual_resolutions(tmp)
-            missing = [pfx for pfx in prefixes if pfx not in registry]
-            if missing:
-                return False, (
-                    "WR-02: lost update(s) - missing prefixes after concurrent add_entry() "
-                    "calls: %r (registry has %d/%d entries)" % (missing, len(registry), len(prefixes)))
-
-            stray = [f for f in os.listdir(tmp) if f.endswith(".tmp")]
-            if stray:
-                return False, "stray .tmp file(s) left behind after concurrent writes: %r" % (stray,)
-        return True, ""
-    check(
-        "20 concurrent add_entry() calls for 20 distinct prefixes (ThreadingHTTPServer's real "
-        "concurrency shape) all persist durably with no lost update and no stray .tmp file left "
-        "behind (WR-02)",
-        _concurrent_add_entry_calls_lose_no_updates)
-
-    # 20. WR-03 proof: load_manual_resolutions() prints a one-line
-    #     drop-count message whenever it silently rejects an entry (or
-    #     truncates at the cap) — the exact loss add_entry()/delete_entry()
-    #     would otherwise make permanent on their next write, with no
-    #     record anywhere that it happened. Nothing is printed when
-    #     nothing is dropped, and an over-cap file's remainder is counted
-    #     without validating every key beyond the cap (T-13-04/T-13-12).
-    def _load_prints_drop_count_for_rejected_and_capped_entries():
-        import contextlib
-        import io
-        import string
-
-        with tempfile.TemporaryDirectory() as tmp:
-            with open(m.manual_resolutions_path(tmp), "w") as fh:
-                json.dump({
-                    "AAA": {"airline_name": "Volotea", "created_at": "2026-01-01T00:00:00+00:00"},
-                    "BBB": "not a dict",
-                }, fh)
-            buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
-                result = m.load_manual_resolutions(tmp)
-            expected = {"AAA": {"airline_name": "Volotea", "created_at": "2026-01-01T00:00:00+00:00"}}
-            if result != expected:
-                return False, "expected the valid entry alone to survive, got %r" % (result,)
-            if "1 entry" not in buf.getvalue():
-                return False, "expected a drop-count message naming 1 dropped entry, got %r" % (buf.getvalue(),)
-
-        with tempfile.TemporaryDirectory() as tmp_clean:
-            with open(m.manual_resolutions_path(tmp_clean), "w") as fh:
-                json.dump({"AAA": {"airline_name": "Volotea", "created_at": "t"}}, fh)
-            buf_clean = io.StringIO()
-            with contextlib.redirect_stdout(buf_clean):
-                m.load_manual_resolutions(tmp_clean)
-            if buf_clean.getvalue():
-                return False, "expected no drop-count message when nothing is dropped, got %r" % (
-                    buf_clean.getvalue(),)
-
-        with tempfile.TemporaryDirectory() as tmp_cap:
-            over_cap_by = 5
-            oversized = {}
-            count = 0
-            total = m.MANUAL_RESOLUTION_MAX_ENTRIES + over_cap_by
-            for a in string.ascii_uppercase:
-                for b in string.ascii_uppercase:
-                    if count >= total:
-                        break
-                    oversized["Z" + a + b] = {"airline_name": "Airline %d" % count, "created_at": "t"}
-                    count += 1
-                if count >= total:
-                    break
-            with open(m.manual_resolutions_path(tmp_cap), "w") as fh:
-                json.dump(oversized, fh)
-            buf_cap = io.StringIO()
-            with contextlib.redirect_stdout(buf_cap):
-                result_cap = m.load_manual_resolutions(tmp_cap)
-            if len(result_cap) != m.MANUAL_RESOLUTION_MAX_ENTRIES:
-                return False, "expected exactly the cap's worth of surviving entries, got %d" % (
-                    len(result_cap),)
-            if ("%d entry" % over_cap_by) not in buf_cap.getvalue():
-                return False, "expected the drop-count message to name the %d over-cap entries, got %r" % (
-                    over_cap_by, buf_cap.getvalue())
-        return True, ""
-    check(
-        "load_manual_resolutions() prints a one-line drop-count message whenever it silently rejects an "
-        "entry or truncates at the cap (naming the real count in both cases) and prints nothing when "
-        "nothing is dropped (WR-03)",
-        _load_prints_drop_count_for_rejected_and_capped_entries)
-
-    # 21. WR-11 proof (also CR-01's exact reproduction case): add_entry()
-    #     must return ADD_FAILED, never raise, when its state dir cannot be
-    #     created because the parent directory is read-only.
-    def _add_entry_on_uncreatable_state_dir_returns_failed():
-        with tempfile.TemporaryDirectory() as parent:
-            os.chmod(parent, 0o500)
-            try:
-                result = m.add_entry(os.path.join(parent, "state"), "ABC", "Test Air")
-            finally:
-                os.chmod(parent, 0o700)
-        if result != m.ADD_FAILED:
-            return False, "expected ADD_FAILED for an uncreatable state dir, got %r" % (result,)
-        return True, ""
-    check(
-        "add_entry() returns ADD_FAILED (never raises) when its state dir cannot be created because the "
-        "parent directory is read-only — CR-01's exact reproduction case (WR-11)",
-        _add_entry_on_uncreatable_state_dir_returns_failed)
-
-    # 22. WR-11 proof: delete_entry() must return False, never raise, when
-    #     the state dir goes read-only between the load and the write —
-    #     and the entry being deleted must survive untouched, since the
-    #     write never actually happened.
-    def _delete_entry_on_unwritable_state_dir_returns_false():
-        with tempfile.TemporaryDirectory() as tmp:
-            add_result = m.add_entry(tmp, "ABC", "Test Air")
-            if add_result != m.ADD_OK:
-                return False, "setup failure: add_entry() returned %r" % (add_result,)
-            os.chmod(tmp, 0o500)
-            try:
-                result = m.delete_entry(tmp, "ABC")
-            finally:
-                os.chmod(tmp, 0o700)
-            if result is not False:
-                return False, "expected False (never raises) when the state dir is read-only, got %r" % (
-                    result,)
-            registry = m.load_manual_resolutions(tmp)
-            if "ABC" not in registry:
-                return False, "expected the ABC entry to survive a failed delete_entry() write untouched"
-        return True, ""
-    check(
-        "delete_entry() returns False (never raises) when the state dir goes read-only mid-write, and "
-        "the existing entry survives untouched since the write never happened — CR-01's mirror case for "
-        "delete (WR-11)",
-        _delete_entry_on_unwritable_state_dir_returns_false)
-
-    # 23. Hostile-input sweep: every one of these must be rejected by
-    #     add_entry() with some ADD_REJECTED_* value, and the registry must
-    #     remain empty afterwards. One check covering the whole list, not
-    #     one per item.
-    def _hostile_input_sweep():
-        hostile_names = [
-            "../../etc/passwd", "a/b", "..\\..\\x", "", "   ", None, 42,
-            "x" * 400, "Generic Fallback", "generic-a320",
-        ]
-        with tempfile.TemporaryDirectory() as tmp:
-            for name in hostile_names:
-                result = m.add_entry(tmp, "AAA", name)
-                if not isinstance(result, str) or not result.startswith("rejected"):
-                    return False, "add_entry(tmp, 'AAA', %r) returned %r, expected some ADD_REJECTED_* value" % (name, result)
-            registry_after = m.load_manual_resolutions(tmp)
-        if registry_after != {}:
-            return False, "registry not empty after the hostile-input sweep: %r" % (registry_after,)
-        return True, ""
-    check("add_entry() rejects every name in the hostile-input sweep, leaving the registry empty", _hostile_input_sweep)
-
-    total = len(results)
-    passed = sum(1 for _, ok in results if ok)
-    print("manual_resolutions: %d/%d checks pass" % (passed, total))
-    return 0 if (passed == total and total == EXPECTED_CHECK_COUNT) else 1
+def test_add_entry_rejects_hostile_input_sweep(tmp_path):
+    """add_entry() rejects every name in the hostile-input sweep, leaving the registry empty."""
+    hostile_names = [
+        "../../etc/passwd", "a/b", "..\\..\\x", "", "   ", None, 42,
+        "x" * 400, "Generic Fallback", "generic-a320",
+    ]
+    for name in hostile_names:
+        result = m.add_entry(tmp_path, "AAA", name)
+        assert isinstance(result, str) and result.startswith("rejected"), (
+            "add_entry(tmp, 'AAA', %r) returned %r, expected some ADD_REJECTED_* value" % (name, result)
+        )
+    registry_after = m.load_manual_resolutions(tmp_path)
+    assert registry_after == {}, "registry not empty after the hostile-input sweep: %r" % (registry_after,)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))
