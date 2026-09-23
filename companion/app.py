@@ -808,7 +808,8 @@ def _validated_next_route(candidate):
 
 
 def _resolve_flash_text(
-        flash_key, state_dir, rule_key=None, last_checkin_ts=None, device_cfg=None):
+        flash_key, state_dir, rule_key=None, last_checkin_ts=None, device_cfg=None,
+        battery_critical=False):
     """`rule_key` (Phase 15 D-10, 15-05-PLAN.md) is the second special
     case this function carries, mirroring FLASH_KEY_POLL_COOLDOWN's own
     runtime-value-interpolation shape immediately below: FLASH_KEY_RULE_
@@ -836,6 +837,12 @@ def _resolve_flash_text(
     `wake.next_wake_status()` triple the Frame strip and the Quiet hours
     caption both read (`companion/frame_state.py`), so all three can
     never disagree about when a save reaches the frame.
+
+    `battery_critical` (quick task 260923-fr4, default False so every
+    pre-existing caller behaves exactly as before) is `page_context()`'s
+    own single per-request `wake.read_battery_critical(state_dir)` read,
+    passed straight through to `wake.next_wake_status()` below — never a
+    second read of poll_state.json for the same fact within one request.
     """
     if flash_key not in FLASH_MESSAGES:
         return None
@@ -858,7 +865,7 @@ def _resolve_flash_text(
         # hours away", "Saved — will apply on the frame's next scheduled
         # refresh" — are all gone; this is their one shared replacement.
         next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
-            last_checkin_ts, device_cfg or {})
+            last_checkin_ts, device_cfg or {}, battery_critical=battery_critical)
         delay_template = frame_state.delay_sentence_template(
             next_wake_iso, effective_interval_s, hold_reason)
         delay_text = i18n.t(delay_template)
@@ -1529,6 +1536,12 @@ class Handler(BaseHTTPRequestHandler):
         # text()'s own FLASH_KEY_SAVED special case — never a second,
         # independent read of the same fact.
         last_checkin_ts = _safe_last_checkin_ts(state_dir)
+        # Quick task 260923-fr4 (battery-empty-screen-before-the-pack-
+        # die): read ONCE per request, reused by both this dict's own
+        # "battery_critical" key below and _resolve_flash_text()'s
+        # FLASH_KEY_SAVED delay-sentence computation - never a second read
+        # of poll_state.json for the same fact within one request.
+        battery_critical = wake.read_battery_critical(state_dir)
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
@@ -1547,6 +1560,13 @@ class Handler(BaseHTTPRequestHandler):
             # (wake.next_wake_at_iso() + layout.local_clock_text()),
             # matching wake.py's own deliberate no-view-dependency rule.
             "last_checkin_ts": last_checkin_ts,
+            # Quick task 260923-fr4: the BATTERY EMPTY latch, read once
+            # above and threaded into every wake.next_wake_status()/
+            # wake.effective_wake_interval_s() call this request makes
+            # (the Frame strip, the flash text, and every other reader
+            # that shares this ctx) - so a parked frame's monitoring
+            # never mistakes its own hourly parked cadence for silence.
+            "battery_critical": battery_critical,
             # D-07 (11-04): the deployed SKYPANE_SLEEP_S, read fresh from
             # this process's own environment on every request — an int in
             # [WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S] or None. An
@@ -1560,7 +1580,7 @@ class Handler(BaseHTTPRequestHandler):
             "wake_interval_env_default": env_wake_interval_default(),
             "flash": _resolve_flash_text(
                 flash_key, state_dir, rule_key=rule_key, last_checkin_ts=last_checkin_ts,
-                device_cfg=device_cfg),
+                device_cfg=device_cfg, battery_critical=battery_critical),
             # 06.6.2-06 (UXA-07): the ARIA role the resolved flash text
             # should render with, looked up from the same flash_key this
             # method already resolved above — "status" for any key not
