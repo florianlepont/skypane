@@ -178,9 +178,10 @@ sharpest rule and it was settled by mutation rather than by argument. Health's a
 Home's battery rings draw `battery_percent(mv) / 100` — the printed integer over a
 hundred — and **not** `battery_fraction(mv)`, even though 24-01 added
 `battery_fraction()` for exactly this. Sourcing the ring from the fraction instead
-makes the arc and the text disagree by **0.0033** on a seeded 3690 mV reading, and the
-check (tolerance 0.0005) fails naming both: *the ring draws 0.4333 of its
-circumference while the readout beside it prints '≈ 43% · 3690 mV'*. The cost is real
+makes the arc and the text disagree by **0.0024** on a seeded 3690 mV reading (SEED-006's
+piecewise curve, quick 260923-gaf — it was **0.0033** under the pre-SEED-006 linear
+estimate), and the check (tolerance 0.0005) fails naming both: *the ring draws 0.3224 of
+its circumference while the readout beside it prints '≈ 32% · 3690 mV'*. The cost is real
 and worth stating: the ring quantises to 1% steps, which at 72px is 3.6° of arc, about
 0.6px of ink. The benefit is that the whole class of defect becomes unreachable rather
 than unlikely. The same rule shapes the day band from the other direction: the emitter
@@ -188,23 +189,30 @@ returns the number of marks it **collapsed**, so the caption cannot print a tota
 drawing does not show.
 
 **One battery estimator, with exactly TWO allow-listed homes.** `companion/battery.py`
-holds `BATTERY_FULL_MV` (4200), `BATTERY_EMPTY_MV` (3300), `battery_percent()`,
-`battery_fraction()`, `LOW_BATTERY_DISPLAY_PERCENT` (20) and `LOW_BATTERY_DISPLAY_MV`
-— the last **derived** (3480, and `battery_percent(3480) == 20`), never typed, so the
-line a chart draws and the percentage printed beside it cannot tell two stories. The
-second allow-listed home is **`server/poll_loop.py`'s deliberate private copy**
-(`_NOTIFY_BATTERY_FULL_MV` / `_NOTIFY_BATTERY_EMPTY_MV` /
-`_battery_percent_estimate()`), and it is allow-listed **by name with a written
-justification** rather than scoped away: the server package may never import the
-web-app package (D-27), so the poll oneshot genuinely cannot call the shared module.
-A **third** definition anywhere under `companion/` or `server/` fails the check. The
-scan has three nets, because the first two can be evaded by renaming: the constant
-names, a second `battery_percent`/`battery_fraction` definition, and — the one that
-catches a copy whatever it calls itself — **`4200` and `3300` appearing together in
-one module**. (`4200` alone is innocent: `health_page.SPARKLINE_Y_MAX_MV` is
-legitimately the same number.) A page that calls the estimator must call it
-**qualified** (`battery.battery_percent(...)`), because a bare
-`from companion.battery import battery_percent` makes it read as the page's own.
+holds `BATTERY_DISCHARGE_CURVE` — a 14-knot piecewise millivolt-to-percent table built
+from DEVICE-05's measured discharge run (SEED-006, quick 260923-gaf) — with
+`BATTERY_FULL_MV` (4112) and `BATTERY_EMPTY_MV` (2946) **indexed from it**, plus
+`battery_percent()`, `battery_fraction()`, `LOW_BATTERY_DISPLAY_PERCENT` (20) and
+`LOW_BATTERY_DISPLAY_MV` — the last **derived by inverse lookup** on the curve (3540,
+and `battery_percent(3540) == 20`), never typed, so the line a chart draws and the
+percentage printed beside it cannot tell two stories. The second allow-listed home is
+**`server/poll_loop.py`'s deliberate private copy** (`_NOTIFY_BATTERY_DISCHARGE_CURVE` /
+`_NOTIFY_BATTERY_FULL_MV` / `_NOTIFY_BATTERY_EMPTY_MV` / `_battery_percent_estimate()`),
+and it is allow-listed **by name with a written justification** rather than scoped away:
+the server package may never import the web-app package (D-27), so the poll oneshot
+genuinely cannot call the shared module. A **third** definition anywhere under
+`companion/` or `server/` fails the check, and a `companion.test_companion_app.py`
+parity check separately enforces that the two curves stay byte-identical and produce
+the same output for every millivolt from 2800 to 4400 — proven non-vacuous by a
+mutation test on one knot. The one-home scan has three nets, because the first two can
+be evaded by renaming: the constant names (now including anything ending
+`BATTERY_DISCHARGE_CURVE`), a second `battery_percent`/`battery_fraction` definition,
+and — the one that catches a copy whatever it calls itself — **either millivolt
+endpoint pair appearing together in one module**: the legacy linear `4200`/`3300` pair,
+or the curve's own `4112`/`2946` pair. (`4200` alone is innocent:
+`health_page.SPARKLINE_Y_MAX_MV` is legitimately the same number.) A page that calls
+the estimator must call it **qualified** (`battery.battery_percent(...)`), because a
+bare `from companion.battery import battery_percent` makes it read as the page's own.
 
 **The estimator's SECOND arithmetic, and the honesty rule that governs it (new, Phase
 25, D18/CFG-49, 25-01/25-05).** `battery_life_estimate(rows, current_s, proposed_s)`
@@ -218,11 +226,13 @@ worth carrying forward rather than the function:
   number.** `rising` carries none *deliberately* — a charged device has a positive
   slope, and dividing by it gives a negative or an infinite lifetime, and both are
   numbers a reader would act on.
-- **No per-wake energy cost is assumed anywhere**, because this project has never
-  measured one (DEVICE-05's discharge run is still open). The audit's own
-  "estimated battery life ≈ 38 days" **cannot be computed honestly today and was not
-  computed**. This is the dishonest-state defect class Phase 22 spent a phase
-  removing, met before it shipped rather than after.
+- **No per-wake energy cost is assumed anywhere.** DEVICE-05's discharge run
+  completed (SEED-006, quick 260923-gaf) and is now `BATTERY_DISCHARGE_CURVE`'s own
+  source, but it measured a single wake cadence and left the per-wake versus
+  standing-leakage split unresolved, so this project still has no per-wake energy
+  cost to assume. The audit's own "estimated battery life ≈ 38 days" **cannot be
+  computed honestly today and was not computed**. This is the dishonest-state defect
+  class Phase 22 spent a phase removing, met before it shipped rather than after.
 - **Two observation floors, both load-bearing and both pinned from the opposite
   extreme.** `LIFE_MIN_OBSERVED_SPAN_DAYS = 2` (a one-day delta between two daily
   *averages* is inside this series' own noise — a 150 mV fall measured across one day
