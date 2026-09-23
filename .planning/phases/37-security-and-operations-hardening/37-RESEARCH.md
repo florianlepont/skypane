@@ -351,7 +351,7 @@ deploy/
 | `poll_state.json` | poll (`poll_loop.py:334`) | **YES** (small) | Enrichment cache, unresolved-prefix registry (durable per `deploy/README.md:233-240`), battery-critical flag |
 | `battery_state.json` | byos (`byos_server.py:499`) | yes (tiny) | Refreshed on the next wake; cheap to include |
 | `panel.bin` | poll | no | Re-rendered every 30 s |
-| `gallery/` (≤25 PNGs, `poll_loop.py:83-84`) | poll | no (rendered cache) | D-03 excludes rendered caches. Low value; planner may include (a few MB) |
+| `gallery/` (≤25 PNGs, `poll_loop.py:83-84`) | poll | **yes** (D-24) | Rendered cache, but the developer wants the visual history kept (D-24, 2026-09-23) |
 | `theme_previews/` | companion (`theme_preview.py:149`) | no | Cache |
 | `caddy-access.log*` | caddy | no | D-03; already ingested into `history.db` |
 | `calendar_rules.lock`, `*.tmp`, future `poll.lock` (INT-01), `img/` (INT-05, Phase 36) | various | no | Locks, temp files, content-addressed panel copies |
@@ -693,7 +693,7 @@ header Strict-Transport-Security "max-age=31536000"
 1. **Companion loopback-only (D-18).** An IP filter is impossible because the companion needs outbound access. A `--bind 127.0.0.1` flag is a ~3-line `app.py` change, and D-18 excludes Python changes from Wave A.
    - Recommendation: ask the developer whether to add a companion `--bind` flag in Wave A (it does not touch `byos_server.py`, so it does not conflict with Phase 36). Otherwise record ufw as the control and leave it to a later phase.
 2. **Should the backup alert light the Health nav dot?** Recommend yes, as `warn`. The planner confirms it with the UI-phase gate.
-3. **Include `gallery/` in backups?** Recommend no (rendered cache, D-03). Cheap to include if the developer wants past panel images.
+3. ~~Include `gallery/` in backups?~~ **Resolved (D-24): yes, included.**
 4. **Caddy in CI.** The runner has no `caddy`. Options: the render test only (recommended), or download a pinned caddy release with sha256 verification and run `caddy adapt --adapter caddyfile` (syntax only). The real `caddy validate` runs on the VPS in activate.sh.
 5. **Phase 32 test layout.** It is unknown whether tests will live beside the code (`companion/test_*.py`) or under `tests/`. Follow whatever Phase 32 ships. New `deploy/` Python needs adding to pytest `testpaths` and possibly to coverage `source` (`pyproject.toml` `[tool.coverage.run] source`).
 

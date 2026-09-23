@@ -152,7 +152,10 @@ pre-empt them.
   "loopback-only IP filtering on its unit" part of D-18.
 - **D-23:** A stale (> 3 days) or never-made off-box backup also lights the
   Health entry's nav dot, at **warning** level (not error).
-- **D-24:** `gallery/` is **not** backed up (regenerable rendered cache).
+- **D-24:** `gallery/` (≤ 25 PNGs of the last rendered panels, a few MB)
+  **IS backed up** — the developer changed their mind (2026-09-23) and wants
+  the visual history kept. It is the one rendered cache included; the other
+  regenerable files (`panel.bin`, previews, Caddy logs) stay excluded.
 - **D-25 (Claude's discretion):** In CI the Caddyfile is tested as rendered text
   (no Caddy binary download); `caddy validate` runs on the VPS inside
   `activate.sh`. The pull gate is a small Python forced-command script
