@@ -8,4 +8,4 @@ coverage==7.16.1
 # uses to prove B1-class defects a string-comparison harness cannot see. Dev-only
 # for the identical reason the header comment above states: deploy/deploy.sh
 # installs server/requirements.txt only, so a browser driver never reaches the VPS.
-playwright==1.62.0
+playwright==1.63.0
