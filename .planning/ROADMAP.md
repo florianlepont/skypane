@@ -1568,7 +1568,7 @@ Plans:
 4. Coverage measured for `companion/app.py` and `byos_server.py`; gate raised to the measured floor
 5. Runtime and dev dependencies hash-locked; Playwright shell cached
 
-**Plans:** 7/15 plans executed
+**Plans:** 8/15 plans executed
 
 **Wave structure:** W1 infra + baselines (32-01, 32-02) → W2 harness migrations, /poll-now fake provider, hash-locks (32-03 … 32-12, disjoint files) → W3 runner retirement + ledger assembly, CI (32-13, 32-14) → W4 coverage floor + docs (32-15)
 
@@ -1580,7 +1580,7 @@ Plans:
 - [x] 32-05-PLAN.md — migrate illustrations, plane_detection (onto the fake providers)
 - [x] 32-06-PLAN.md — migrate stub-server/test_poll_cycle (byos fixtures, guarded children)
 - [x] 32-07-PLAN.md — migrate config_history
-- [ ] 32-08-PLAN.md — migrate calendar_rules
+- [x] 32-08-PLAN.md — migrate calendar_rules
 - [ ] 32-09-PLAN.md — migrate render
 - [ ] 32-10-PLAN.md — migrate poll_loop
 - [ ] 32-11-PLAN.md — /poll-now checks on the fake provider; shim runs every companion harness under the network guard
