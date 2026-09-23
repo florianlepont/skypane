@@ -2,7 +2,7 @@
 quick_id: 260923-9fe
 status: complete
 date: 2026-09-23
-commits: [363441c, 7c80d72, bd332c2, f61d6ac, 9c90522]
+commits: [363441c, 7c80d72, bd332c2, f61d6ac, 9c90522, ec36873]
 ---
 
 # Quick 260923-9fe — public-repo hygiene: SUMMARY
@@ -37,12 +37,17 @@ motivated the task had already gathered every fact the plan needed.
 | bd332c2 | `SECURITY.md`, `.github/dependabot.yml`, `permissions: contents: read`, all actions SHA-pinned |
 | f61d6ac | `.claude/CLAUDE.md` stack section now describes the shipped stack |
 | 9c90522 | Kconfig menu renamed to SkyPane; unused `CONFIG_FP_API_BASE` default changed from FlightPortrait's production API to `https://example.invalid`; container build verified, no upstream URL in the image |
+| ec36873 | **Relicensed to AGPL-3.0-only + commercial licence** (user decision 2026-09-23: open source is fine, but a private company must not profit for free). Verbatim AGPL text in `LICENSE`; NOTICE/README explain dual licensing and that pre-2026-09-23 versions stay MIT; `CONTRIBUTING.md` adds an inbound licence grant so dual licensing survives outside contributions. Sole-author claim checked: every commit on main is Florian's except one Mistral commit whose `audits/` files were later removed. firmware/ stays Apache-2.0. |
 
 GitHub settings applied via `gh api` (user-approved in chat): Dependabot alerts +
 security updates, private vulnerability reporting, fork-PR CI approval for all
 external contributors, ruleset "Protect main" (blocks force-push and deletion
 only — no required reviews/checks), new description + 11 topics, Wiki and
 Projects disabled.
+
+## Open item
+
+- The user wants a dedicated contact e-mail for commercial licensing in README/NOTICE; address not yet provided (GitHub profile used meanwhile).
 
 ## Verification
 
