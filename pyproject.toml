@@ -128,48 +128,27 @@ omit = [
     "server/test_*.py",
     "stub-server/test_*.py",
     "companion/test_*.py",
-    # Structurally unmeasurable: test_poll_cycle.py exercises these two
-    # scripts by launching them as a **child process** (subprocess), which
-    # an uninstrumented coverage run cannot observe from the parent
-    # process. Leaving them in would permanently pin ~180 statements at 0%
-    # and turn the threshold into noise (M5).
-    "stub-server/byos_server.py",
-    "stub-server/make_test_panel.py",
-    # 06-11: companion/app.py is the exact same structural shape as the two
-    # stub-server entries above — every companion/test_*.py harness drives
-    # it as a real, uninstrumented **subprocess** (a genuinely-running
-    # ThreadingHTTPServer on a free local port, the only way to prove D-02's
-    # whole-site auth gate over a real HTTP round trip), never imports it
-    # and calls its route handlers in-process. Left in scope, its ~320
-    # statements measure at ~21% (only module-level code — constants, the
-    # argument parser — executed by the handful of test files that import
-    # `companion.app` for those, never a route body), which would silently
-    # drag total coverage down for a reason that has nothing to do with an
-    # actual regression, exactly the M5 finding this omit list already
-    # documents for stub-server/byos_server.py. Every route this file
-    # dispatches to is itself fully covered in-process via the individual
-    # companion/pages/*.py modules' own harnesses.
-    "companion/app.py",
 ]
 
 [tool.coverage.report]
-# Threshold: 83. Derivation (06-11): measured 87% production-only coverage
-# under exactly this source/omit scope (server + stub-server + companion;
-# harnesses, the two subprocess-launched stub scripts, and
-# companion/app.py — itself subprocess-launched by every companion
-# harness, same M5 reasoning — all omitted), across all 15 harnesses via
-# scripts/run-all-tests.sh's parallel-mode + combine invocation, measured
-# 2026-08-28. 83 sits 4 points below the measurement — the same margin
-# discipline as the prior derivation (75, 4 points below a 79% measurement
-# under the smaller pre-phase-6 scope): tight enough that a genuine
-# regression trips it, loose enough that a legitimate refactor shifting a
-# few statements doesn't red-line the build and train the habit of
-# bypassing the gate. This is a floor to ratchet upward as coverage
-# improves, not a ceiling, and it only ever moves up — phase 6's own new
-# code (companion/pages/*.py, server/device_config.py, server/history_db.py,
-# server/panel_preview.py) measured well above the old 75 floor, so the
-# threshold is ratcheted up rather than left at its pre-phase-6 value to
-# accommodate it. Changing the `source` or `omit` lists above invalidates
-# this number — it stops meaning what it was measured to mean the moment
-# the scope changes.
-fail_under = 83
+# Threshold: 88. Derivation (32-15, TST-09): measured 88.11% total coverage
+# with `patch = ["subprocess"]` (companion/app.py, stub-server/byos_server.py
+# and stub-server/make_test_panel.py now measured in-scope, no longer
+# omitted) under this source/omit scope (server + stub-server + companion;
+# only the three test_*.py globs above omitted), all 768 tests passing, via
+# `./scripts/run-all-tests.sh --cov-report=term-missing` run as a non-root
+# user (matching GitHub CI's non-root runner — root ignores read-only-
+# directory permission bits, which changes 3 tests' pass/skip outcome
+# without moving the coverage total). Identical 88.11% on both CPython
+# 3.14.0rc2 (a scratch venv built from server/requirements-dev.txt with
+# --require-hashes; the CI interpreter) and this repo's CPython 3.11.15
+# server/.venv, measured 2026-09-23. 88 is the measured total rounded down
+# with no margin — the floor equals the measurement exactly, not a discount
+# below it, per TST-09's decision (a legitimate refactor that shifts a few
+# statements is expected to nudge this number in a future plan, not be
+# absorbed by slack). This is a floor to ratchet upward as coverage
+# improves, never downward, and only moves when someone re-measures and
+# raises it — changing the `source` or `omit` lists above invalidates this
+# number outright, since it stops describing what was actually measured the
+# moment the scope changes.
+fail_under = 88
