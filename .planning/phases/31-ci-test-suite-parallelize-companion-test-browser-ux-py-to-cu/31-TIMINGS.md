@@ -598,3 +598,44 @@ ways this local proxy cannot predict.
 empty at every plan boundary in phase 31, including this one — no workflow
 YAML change, no matrix strategy, no new scheduling mechanism was introduced
 anywhere in this phase.
+
+## Real CI confirmation (post-PR #78, UAT items 1 and 2)
+
+The verdict above asked to be re-checked against the first real CI run. That
+run happened: PR #78 (`claude/optimize-tests-ci-278bc4` → `main`), workflow
+run [35778948703](https://github.com/florianlepont/skypane/actions/runs/35778948703),
+2026-09-22.
+
+**Result: PASS, 24/24 harnesses green** — including all three
+Chromium-launching harnesses running concurrently (`browser-ux`,
+`browser-ux-health-drawings`, `browser-ux-quiet-wake`). No new flakiness;
+none of the three ARM64/macOS-only local flakes are present, as expected on
+Linux amd64.
+
+| Metric | Real CI value | D-01 baseline | Delta |
+| --- | --- | --- | --- |
+| Total job wall time (job start → job end) | 327s | ~340s (5min40, avg of 5 CI runs) | **-13s, -3.8%** |
+| Critical path (`companion/test_browser_ux.py`, same as suite total wall time) | 281.2s | 310.3s (avg of 5 CI runs) | -29.1s |
+| Job-level estimate (D-01 method: 29.7s fixed overhead + critical path) | 310.9s | 340s | **-29.1s, -8.6%** |
+
+**Verdict: CONFIRMED, not contradicted.** The real CI number (3.8%-8.6%
+depending on method) lands at or slightly below the worst of the five local
+samples (9.1%) and nowhere near the 30-40% bar — the local proxy correctly
+predicted both the shortfall and its cause. Direct confirmation of the
+contention mechanism: on the CI runner's 4 vCPUs (vs. this host's 10),
+`browser-ux-quiet-wake` took 43.1s and `browser-ux-health-drawings` took
+34.0s — both substantially slower than their local figures (22.3s, 18.7s) —
+and every non-browser harness that was slower locally after the split
+(`server/test_render.py`, `server/test_poll_loop.py`,
+`companion/test_status_pages.py`, `companion/test_companion_app.py`) is
+slower here too (35.7s, 20.2s, 17.0s, 32.8s respectively), consistent with
+fewer real cores making the same three-concurrent-Chromium contention worse,
+not better.
+
+**Both outstanding UAT items are resolved by this run:** the real-CI timing
+confirms the gate is missed (not just locally), and 24/24 harnesses passing
+with the three-Chromium-process pool running concurrently is direct evidence
+against new contention-driven flakiness. The developer's `skip-flights`
+decision, made before this run on local evidence alone, is validated by the
+real number rather than contradicted by it — closing the phase here, per
+D-06, remains the right call.
