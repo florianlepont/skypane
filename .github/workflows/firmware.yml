@@ -1,18 +1,17 @@
-# SkyPane — Firmware build workflow (D-10).
+# SkyPane — Firmware build workflow.
 #
-# D-10 left the firmware CI build to discretion, with a default
-# recommendation to include it if it's low-effort. It is low-effort, but
-# not through the route 04-RESEARCH.md's Open Question 2/Assumption A2
-# originally assumed — an ESP-IDF marketplace action. firmware/build.sh
-# already pins the toolchain image and already passes the two-file
-# sdkconfig-defaults invocation that Assumption A2 flagged as the
-# marketplace action's unverified parameter-mapping risk. Docker is
-# preinstalled on GitHub-hosted Linux runners, so invoking the script
-# directly here means CI builds with the exact same command the
-# developer runs locally — the two can never drift, and the open
-# question about parameter mapping simply does not arise. This is the
-# same "wrap the working script, do not reimplement it" principle D-12
-# applies to deployment.
+# Two independent jobs, so a compile failure and a host-test failure
+# always show as separate results. `host-tests` runs
+# firmware/tests/run_host_tests.sh — every hardware-free C test compiled
+# and run with the system `cc`, no ESP-IDF and no Docker — in a plain
+# ubuntu-latest job with no `needs:`, so it starts and finishes without
+# waiting on the container-based build below. `build` covers everything
+# that does need the toolchain: it invokes firmware/build.sh directly
+# (an ESP-IDF marketplace action was considered and rejected — the
+# script already pins the toolchain image and the sdkconfig-defaults
+# invocation, so running it as-is means CI builds with the exact same
+# command the developer runs locally) plus the static and built-image
+# production-config and Log Line Contract checks.
 name: Firmware Build
 
 on:
@@ -32,6 +31,22 @@ permissions:
   contents: read
 
 jobs:
+  host-tests:
+    name: Firmware host tests (hardware-free)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Print host compiler version
+        run: cc --version
+
+      - name: Run firmware host tests
+        run: ./firmware/tests/run_host_tests.sh
+
   build:
     name: Build EE02 firmware image
     runs-on: ubuntu-latest
@@ -41,9 +56,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-
-      - name: Run firmware host tests
-        run: sh firmware/tests/run_host_tests.sh
 
       - name: Check production configuration
         run: sh firmware/tests/check_production_config.sh static
