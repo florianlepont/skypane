@@ -10,15 +10,19 @@
  * tracking, shipping mode and Security-2/QR state. None of that is
  * compiled into this project this phase (see firmware/VENDOR.md
  * "Deliberately Not Vendored"). This is the COMPLETE list of what a
- * SkyPane device remembers in Phase 1: the namespace, plus exactly
- * four keys.
+ * SkyPane device remembers: four keys in the `skypane` namespace on the
+ * default `nvs` partition, plus one more key in that same namespace on
+ * its own dedicated `secret` partition.
  *
  * A later phase reintroducing provisioning MUST migrate this namespace
  * IN PLACE rather than renaming it, mirroring upstream's own warning
  * (docs/PROTOCOL.md §4 at the pinned commit) — an app factory-reset
- * erases this namespace wholesale, so a rename would silently orphan
- * every already-provisioned unit's stored token, image hash and failure
- * count rather than migrating them forward.
+ * erases the default `nvs` partition's `skypane` namespace wholesale, so
+ * a rename would silently orphan every already-provisioned unit's stored
+ * token, image hash and failure count rather than migrating them
+ * forward. The `secret` partition below is untouched by that
+ * factory-reset path, and deliberately keeps the same namespace name so
+ * a future migration only ever has one namespace to track.
  */
 #pragma once
 
@@ -41,3 +45,13 @@
 /* Boot counter — diagnostic only, emitted in the "wake reason=... boot_count=..."
  * log line. */
 #define FP_NVS_BOOT_COUNT "boot_count"
+
+/* The enrolment secret's own NVS partition (firmware/partitions.csv),
+ * kept apart from the default `nvs` partition above so re-provisioning a
+ * device (firmware/provision.sh) can never touch the token, image hash
+ * or backoff keys, and so an application factory-reset of the default
+ * partition can never erase the one copy of this device's credential.
+ * The application only ever reads this key — it never writes or erases
+ * the `secret` partition (enrol_secret.c). */
+#define FP_NVS_SECRET_PARTITION "secret"
+#define FP_NVS_ENROL_SECRET "enrol_secret"

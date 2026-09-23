@@ -21,6 +21,7 @@ forbids - one node id, one docstring line per old check label, is the
 faithful translation.
 """
 import hashlib
+import importlib.util
 import json
 import os
 import socket
@@ -40,6 +41,12 @@ STUB_SERVER_PATH = os.path.join(REPO_ROOT, "stub-server", "byos_server.py")
 IMAGE_BYTES = 960000
 LEGAL_NIBBLES = {0x0, 0x1, 0x2, 0x3, 0x5, 0x6}
 STARTUP_DEADLINE_S = 10.0
+# A fixed 64-lowercase-hex enrolment secret BYOSHarness.start() registers
+# every fixture MAC against before its subprocess starts, so the positive
+# setup calls below keep working against byos_server.py's registry-gated
+# /device/v1/setup.
+HARNESS_ENROL_SECRET = "4" * 64
+HARNESS_MACS = ("aa:bb:cc:dd:ee:02", "aa:bb:cc:dd:ee:03", "aa:bb:cc:dd:ee:04")
 
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
@@ -91,6 +98,16 @@ def http_request(url, method="GET", headers=None, json_body=None, timeout=10):
         return exc.code, dict(exc.headers or {}), exc.read()
 
 
+def load_byos_module():
+    """Import byos_server.py by path so BYOSHarness.start() can call
+    register_device() directly; its top level is constants and defs only."""
+    spec = importlib.util.spec_from_file_location(
+        "byos_server_pipeline_e2e_under_test", STUB_SERVER_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 class BYOSHarness:
     """Owns a byos_server.py subprocess lifecycle for the download half of
     this test. Modeled on stub-server/test_poll_cycle.py's Harness class -
@@ -120,6 +137,14 @@ class BYOSHarness:
         return "http://127.0.0.1:%d" % self.port
 
     def start(self):
+        # Setup is registry-gated: register every fixture MAC against this
+        # instance's --state-dir (replace=True: instances may share one).
+        byos_module = load_byos_module()
+        for mac in HARNESS_MACS:
+            byos_module.register_device(
+                self.state_dir, mac,
+                hashlib.sha256(HARNESS_ENROL_SECRET.encode("ascii")).hexdigest(),
+                replace=True)
         stdout_fh = open(self.stdout_path, "w")
         try:
             self.proc = subprocess.Popen(
@@ -235,7 +260,8 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
     harness = byos_server_factory(panel_path)
     status, _, body = http_request(
         harness.base_url() + "/device/v1/setup", method="POST",
-        json_body={"mac": "aa:bb:cc:dd:ee:02", "hw_rev": "pipeline-e2e-harness"})
+        json_body={"mac": "aa:bb:cc:dd:ee:02", "hw_rev": "pipeline-e2e-harness",
+                   "provision_secret": HARNESS_ENROL_SECRET})
     assert status == 200, "setup expected 200, got %d" % status
     token = json.loads(body.decode())["device_token"]
 
@@ -275,7 +301,8 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
     battery_harness = byos_server_factory(panel_path, state_dir=tmpdir)
     status, _, body = http_request(
         battery_harness.base_url() + "/device/v1/setup", method="POST",
-        json_body={"mac": "aa:bb:cc:dd:ee:03", "hw_rev": "pipeline-e2e-battery"})
+        json_body={"mac": "aa:bb:cc:dd:ee:03", "hw_rev": "pipeline-e2e-battery",
+                   "provision_secret": HARNESS_ENROL_SECRET})
     assert status == 200, "battery-check setup expected 200, got %d" % status
     token = json.loads(body.decode())["device_token"]
 
@@ -355,7 +382,8 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
     park_harness = byos_server_factory(panel_path, state_dir=tmpdir)
     status, _, body = http_request(
         park_harness.base_url() + "/device/v1/setup", method="POST",
-        json_body={"mac": "aa:bb:cc:dd:ee:04", "hw_rev": "pipeline-e2e-battery-critical"})
+        json_body={"mac": "aa:bb:cc:dd:ee:04", "hw_rev": "pipeline-e2e-battery-critical",
+                   "provision_secret": HARNESS_ENROL_SECRET})
     assert status == 200, "battery-critical setup expected 200, got %d" % status
     token = json.loads(body.decode())["device_token"]
 

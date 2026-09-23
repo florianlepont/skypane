@@ -1,20 +1,18 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
-/* SkyPane — Phase 1 credential template.
+/* SkyPane — credential template.
  *
- * Copy this file to `secrets.h` (gitignored — see firmware/.gitignore,
- * where the ignore rule was placed by plan 01-03 before this file ever
- * existed) and fill in the real values there. `secrets.h` must NEVER be
+ * Copy this file to `secrets.h` (gitignored — see firmware/.gitignore)
+ * and fill in the real values there. `secrets.h` must NEVER be
  * committed, and its contents must NEVER be pasted into a build log, an
  * issue, or a chat transcript.
  *
- * This whole credential-in-a-header arrangement belongs to Phase 1 only:
- * the device talks solely to the local stub server on the developer's
- * own laptop (stub-server/), which the developer fully controls, so
- * there is no BLE provisioning flow at runtime to receive these values
- * instead. A later phase reintroduces real provisioning (ESP-IDF's
- * `wifi_provisioning` component, BLE transport, Security 2) and this
- * file is retired in favour of it.
+ * These are the only credentials a SkyPane image needs: Wi-Fi joins
+ * with SKYPANE_WIFI_SSID/PASS, and the device talks to SKYPANE_API_BASE.
+ * The per-device enrolment secret is NOT compiled in — it is written
+ * directly into the device's own `secret` NVS partition by
+ * firmware/provision.sh, so the firmware image is identical for every
+ * device (see enrol_secret.h).
  */
 #pragma once
 
@@ -22,16 +20,25 @@
 #define SKYPANE_WIFI_SSID "your-wifi-ssid"
 #define SKYPANE_WIFI_PASS "your-wifi-password"
 
-/* The stub server's base URL: the http scheme, followed by the laptop's
- * LAN IPv4 address, followed by the stub server's port — for example
- * "http://192.168.1.42:8642". Print the real address with
- * `ipconfig getifaddr en0 || ipconfig getifaddr en1` on macOS (see
- * stub-server/README.md "Point the device at it" for the full command
- * and the transport decision behind why this is plain http, not https,
- * for Phase 1 only). */
-#define SKYPANE_API_BASE "http://192.168.1.42:8642"
+/* The server's base URL. Production builds require https:// —
+ * CONFIG_SKYPANE_ALLOW_HTTP is off by default and rejects anything
+ * else. */
+#define SKYPANE_API_BASE "https://your-server.example"
 
-/* The setup secret sent as `provision_secret` in POST /device/v1/setup.
- * The local stub (stub-server/byos_server.py) accepts any value here
- * unless it was started with --secret. */
-#define SKYPANE_SETUP_SECRET "dev-setup-secret"
+/* Optional. Read only when CONFIG_SKYPANE_ALLOW_HTTP is set (dev
+ * builds — `SKYPANE_PROFILE=dev ./build.sh`), to reach the LAN stub
+ * server (stub-server/) in place of the production base above. */
+#define SKYPANE_API_BASE_DEV "http://192.168.1.42:8642"
+
+/* Optional static IP fallback (D-34-03). Off by default — DHCP with
+ * CONFIG_LWIP_DHCP_RESTORE_LAST_IP is the default join path. Define all
+ * four of these (wifi.c's build fails with a #error otherwise) only if
+ * the hardware measurement shows DHCP's restore-last-IP path is still
+ * too slow; the address must sit outside the router's own DHCP pool, or
+ * the router may hand the same address to another device.
+ *
+ * #define SKYPANE_STATIC_IP      "192.168.1.50"
+ * #define SKYPANE_STATIC_NETMASK "255.255.255.0"
+ * #define SKYPANE_STATIC_GW      "192.168.1.1"
+ * #define SKYPANE_STATIC_DNS     "192.168.1.1"
+ */

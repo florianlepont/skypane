@@ -54,6 +54,21 @@ test needs to see many cycles quickly.
 The DEVICE-05 discharge run itself is now served by `skypane-byos.service`
 on the VPS rather than by a locally-run stub — see `deploy/README.md`.
 
+## Enrol a device
+
+`POST /device/v1/setup` is gated by a per-device registry
+(`devices.json` in `--state-dir`) — a MAC must be registered, with the
+SHA-256 of its own secret, before it can enrol. Register one with
+`stub-server/devices_cli.py`, pointed at the same `--state-dir` the
+server above is using:
+
+```bash
+python3 stub-server/devices_cli.py --state-dir <dir> add --mac aa:bb:cc:dd:ee:ff --secret-sha256 <64-hex-sha256-of-the-secret>
+```
+
+Registration takes effect on the very next setup request — the server
+re-reads the registry every time, no restart needed.
+
 ## Point the device at it
 
 Print the laptop's LAN IPv4 address on macOS:

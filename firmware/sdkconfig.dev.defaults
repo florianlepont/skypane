@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Florian Lepont
+# SPDX-License-Identifier: Apache-2.0
+#
+# Dev-only overlay, applied by build.sh's dev profile after the two
+# production defaults files; never part of a production build.
+CONFIG_SKYPANE_ALLOW_HTTP=y
