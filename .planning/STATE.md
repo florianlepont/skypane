@@ -8,13 +8,13 @@ status: completed
 stopped_at: Phase 30 complete (verification passed 9/9, PR #79 opened) merged with Phase 31 complete (5/5 plans, landed independently on main as PR #78)
 last_updated: "2026-09-22T20:19:17.981Z"
 last_activity: 2026-09-23
-last_activity_desc: Phase 30 complete
+last_activity_desc: Phases 32-41 added (2026-09-23 code audit remediation)
 progress:
-  total_phases: 42
+  total_phases: 52
   completed_phases: 41
   total_plans: 268
   completed_plans: 267
-  percent: 98
+  percent: 79
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -443,6 +443,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 
 ### Roadmap Evolution
 
+- Phases 32–41 added (2026-09-23): remediation of the whole-repository code audit (quality, efficiency, software architecture), ledger in `.planning/audits/2026-09-23-code-audit.md` — 82 findings, each a requirement (TST/FW/HYG/INT/SEC/EFF/ARC/CMP/DOC). The developer asked for 100 % of the findings, low severity included, inside **v1.0** rather than a v1.1. Decisions taken with the developer the same day: per-device enrolment secret (no flash/NVS encryption), full migration of the test suite to pytest (dev-only), comment purge in the source with an English-only rule, CI aligned on the production Python version, no git-history rewrite. Order: 32 → 33 (tests first, so every later phase refactors on a suite that cannot pass without running), 34 firmware in parallel (one hardware session), then 35 comment purge → 36 state integrity → 37 security/ops and 38 efficiency → 39/40 architecture → 41 docs + re-audit. Added via `gsd-sdk query phase.add` (Goal, requirements and success criteria written by hand).
 - Phase 22 planned (2026-09-12): 16 plans across 12 dependency waves, covering CFG-25..CFG-31. Full artefact set on branch `claude/companion-comprehensive-audit-zhpt1m`: `22-AUDIT.md` (the ledger), `22-CONTEXT.md` (twelve locked decisions), `22-RESEARCH.md`, `22-UI-SPEC.md` (approved on the UI checker's second pass), `22-VALIDATION.md`, and `22-01`..`22-16-PLAN.md`. Two developer decisions shaped it: sequencing is by dependency wave and never by calendar (D-11 forbids dates, week numbers and day estimates in any plan — the audit's original week-based plan carried fabricated durations), and the mobile navigation is a bottom tab bar, the overlay drawer withdrawn because `references/mobile-navigation.md` already carried a locked "rejected" verdict from real-device testing that the audit had missed (D-10). Waves 6-11 are serialised because every remaining group needs `style.css` and the phase allows one writer per file per wave. **Lesson worth keeping: the plan-check loop ran twice and its whole yield was one class of defect — acceptance greps that evaluate for the wrong reason.** Nine were found across the two passes: one security gate using a negative lookahead `grep -E` cannot parse (it returned 0 even for a line containing an external URL, leaving its threat unmitigated), one gate demanding zero `border-color: transparent` file-wide when twelve unrelated rules legitimately declare it and the plan owned one (the destructive remedy would have reached forward seven waves and removed the declarations a later plan rewrites), and seven more that passed or failed on comment prose, on a pipe that could never match, or on a `grep -rc` printing per-file counts. A gate that passes for the wrong reason gives false confidence; one that fails for the wrong reason pushes someone to act. Both classes are invisible unless every criterion is executed against the live tree, which is now the standing expectation for this project's plans.
 - Phase 22 added (2026-09-12): Companion audit round 4 — a comprehensive UI/UX/design-contract/dynamism audit of the companion on `main` at 541d19c (every page and interactive state screenshotted with Playwright at 1280/390 px, light/dark, FR/EN, on a seeded state directory; DOM geometry measured; two read-only code reviews), validated in full by the developer the same day. Ledger in `22-AUDIT.md` (1 P0, 9 P1, 24 P2, 15 P3 plus 24 validated dynamism suggestions D1–D24), evidence report at https://claude.ai/code/artifact/af979b96-c02d-41bc-ad04-9623ff0d143a. Headline: the Display page cannot be saved with JS on (B1 — `form=`-attached fields outside `<form>` never reach `dirty-state.js`; the fallback Save is hidden), a defect the string-based harnesses cannot see because none parses the DOM. Added via `gsd-sdk query phase.add` (Goal written by hand, same CLI gap as Phases 12-16 and 19).
 - Phase 19 added: Companion audit follow-through — fix the open findings from 18-AUDIT.md (2026-09-11)

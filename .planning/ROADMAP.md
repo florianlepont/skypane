@@ -1552,3 +1552,179 @@ Plans:
 **Wave 5** *(blocked on Wave 4 completion)*
 
 - [x] 31-05-PLAN.md — Blocking decision on the optional Flights extraction (8 checks) against the measured D-05 gate, then close the phase with a written verdict and a follow-up recommendation
+
+### Phase 32: Test foundation — pytest and CI you can trust
+
+**Origin (2026-09-23):** remediation of the whole-repository code audit, ledger in `.planning/audits/2026-09-23-code-audit.md`. The developer asked for 100 % of the findings, low severity included, to land in v1.0 (phases 32–41). Decisions D-A1..D-A6 are recorded in the ledger.
+
+**Goal:** Every test runs under pytest on the production Python version, no test touches the network, and a green CI means every check actually ran. Server-side harnesses migrated first; the infrastructure (fixtures, xdist, coverage gate, hash-locked deps) serves Phase 33.
+**Requirements**: TST-01, TST-02, TST-03, TST-04, TST-05, TST-06, TST-07, TST-08, TST-09 (ledger: `.planning/audits/2026-09-23-code-audit.md`)
+**Depends on:** Phase 31
+
+**Success criteria:**
+1. `pytest -n auto` runs every migrated server/stub-server test; the migration ledger accounts for every pre-migration check (ported, or deleted with a reason)
+2. A test opening a non-loopback socket fails; `/poll-now` tests use the fake provider
+3. CI runs on the production Python version and runs the firmware host tests
+4. Coverage measured for `companion/app.py` and `byos_server.py`; gate raised to the measured floor
+5. Runtime and dev dependencies hash-locked; Playwright shell cached
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 32 to break down)
+
+### Phase 33: Companion tests on pytest — behaviour over source text
+
+**Goal:** The companion suite runs under pytest with one shared app-server fixture; tests assert behaviour or parsed DOM, never source text, comments, CSS text or `.planning/` files; `run_all_tests.py`, its hand list and every `EXPECTED_CHECK_COUNT` are retired.
+**Requirements**: TST-10, TST-11, TST-12, TST-13, TST-14, TST-15 (ledger: `.planning/audits/2026-09-23-code-audit.md`)
+**Depends on:** Phase 32
+
+**Success criteria:**
+1. All 24 former harnesses are pytest modules; `scripts/run-all-tests.sh` is a thin pytest wrapper
+2. A missing browser fails CI instead of passing
+3. No test reads a source file as text, asserts on a comment, or opens a `.planning/` file
+4. The suite passes as root and writes nothing outside `tmp_path`
+5. Closing parity: all 2018 pre-migration checks accounted for; coverage ≥ the pre-migration figure
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 33 to break down)
+
+### Phase 34: Firmware — resilience, power, security, cleanup
+
+**Goal:** The frame recovers on its own from every failure the audit found (crash/brownout reset, hang, rejected token, absurd `sleep_s`), wakes for less time, reads its battery honestly and enrols with a per-device secret — all validated in ONE hardware session.
+**Requirements**: FW-01, FW-02, FW-03, FW-04, FW-05, FW-06, FW-07, FW-08, FW-09, FW-10, FW-11, FW-12, FW-13, FW-14, FW-15 (ledger: `.planning/audits/2026-09-23-code-audit.md`)
+**Depends on:** Phase 31 (independent of 32–33 — parallel firmware track)
+
+**Success criteria:**
+1. Simulated brownout/panic → backoff sleep, not an immediate retry; a hung wake is bounded by the global deadline
+2. A 401 from the server leads to re-enrolment on the next wake, with no reflash
+3. Validation helpers and the sleep decision covered by host tests that run in CI
+4. No-change wake duration measured before/after on real hardware (DHCP, TLS, memtest) and logged
+5. byos refuses to re-enrol a known MAC; each device has its own secret
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 34 to break down)
+
+### Phase 35: Comment purge in English and dead code
+
+**Goal:** Comments say what the code does and why, in English, and nothing else; plan/ticket history lives in git and `.planning/`. Dead code removed. A CI guard keeps the history from coming back.
+**Requirements**: HYG-01, HYG-02, HYG-03, HYG-04, HYG-05, HYG-06 (ledger: `.planning/audits/2026-09-23-code-audit.md`)
+**Depends on:** Phase 33 (tests no longer assert on comments) and Phase 34 (firmware settled)
+
+**Success criteria:**
+1. Comment ratio measured before/after per file; `style.css` shipped size reported
+2. No plan/ticket reference in any comment (CI guard green, mutation-proven)
+3. English-only rule written in CLAUDE.md and CONTRIBUTING.md
+4. Suite green with no behaviour change
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 35 to break down)
+
+### Phase 36: State integrity and device protocol
+
+**Goal:** No shared file can be torn or lose an update, the device always downloads the image it was told about, and no single bad input or slow upstream can hang or fail a cycle.
+**Requirements**: INT-01, INT-02, INT-03, INT-04, INT-05, INT-06, INT-07, INT-08, INT-09, INT-10, INT-11, INT-12, INT-13, INT-14 (ledger: `.planning/audits/2026-09-23-code-audit.md`)
+**Depends on:** Phase 35
+
+**Success criteria:**
+1. The concurrent-save reproduction (two processes × 200 saves) runs with zero exceptions and zero lost updates
+2. One `atomic_write` helper; no fixed `.tmp` name left in the tree
+3. `/img/<unknown sha>` → 404; a panel swap mid-wake no longer fails SHA verification
+4. byos survives malformed `Content-Length`/`mac` input; poll unit has a start timeout
+5. A transient adsbdb error is never cached as a miss
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 36 to break down)
+
+### Phase 37: Security and operations hardening
+
+**Goal:** The companion cannot be locked by a stranger, deploys are atomic and verified, state is backed up off-box, and services, secrets and SSH are hardened.
+**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, SEC-06, SEC-07, SEC-08 (ledger: `.planning/audits/2026-09-23-code-audit.md`)
+**Depends on:** Phase 36
+
+**Success criteria:**
+1. Failed logins from one IP never lock another
+2. HSTS present; a cross-origin POST is rejected
+3. A restore from the nightly backup is rehearsed once and documented
+4. A deploy that leaves a unit inactive fails the CI job; units and Caddyfile are deployed
+5. `systemd-analyze security` score recorded before/after; byos reachable on loopback only; no secret in `ps`
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 37 to break down)
+
+### Phase 38: Efficiency — companion, poll cycle, storage
+
+**Goal:** Pages and poll cycles do only the work they need: compressed and cacheable static files, per-page scripts, one SQLite connection per request/cycle, no throwaway markup, one state write per cycle, no fixed sleep between providers.
+**Requirements**: EFF-01, EFF-02, EFF-03, EFF-04, EFF-05, EFF-06 (ledger: `.planning/audits/2026-09-23-code-audit.md`)
+**Depends on:** Phase 36
+
+**Success criteria:**
+1. Page weight (transferred bytes) and request time measured before/after on every route
+2. Second page load returns 304s for static files
+3. SQLite connections per page request: 1; per poll cycle: 1
+4. Poll cycle wall time measured before/after (no fixed 1.1 s sleep)
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 38 to break down)
+
+### Phase 39: Server architecture — run_once split, state store, shared modules
+
+**Goal:** The poll cycle reads as a sequence of small named steps over one context object; state has one owner; no module-global setters; no logic duplicated between server, byos and companion; the pure core is typed and checked.
+**Requirements**: ARC-01, ARC-02, ARC-03, ARC-04, ARC-05, ARC-06 (ledger: `.planning/audits/2026-09-23-code-audit.md`)
+**Depends on:** Phase 38
+
+**Success criteria:**
+1. No function in `server/` over 80 code lines; `run_once` complexity measured before/after
+2. The companion no longer imports `server.poll_loop`
+3. Quiet hours, battery-critical and battery-curve logic exist once
+4. mypy green in CI on the typed modules; behaviour unchanged (suite green)
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 39 to break down)
+
+### Phase 40: Companion architecture — routes, pages, templates, i18n keys
+
+**Goal:** A route cannot be exposed by forgetting a line; pages are split by responsibility with typed context; templates use names not positions; CSS de-duplicated and tokenised; translations keyed by stable IDs.
+**Requirements**: CMP-01, CMP-02, CMP-03, CMP-04, CMP-05, CMP-06, CMP-07, CMP-08, CMP-09 (ledger: `.planning/audits/2026-09-23-code-audit.md`)
+**Depends on:** Phase 38
+
+**Success criteria:**
+1. Every route declared once in a table; a test proves every non-public route requires a session
+2. No companion file over ~1500 lines; no function over 80 code lines
+3. No duplicated CSS selector; no hard-coded colour outside tokens
+4. Rewording an English string cannot drop its French translation
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 40 to break down)
+
+### Phase 41: Docs, repository hygiene and closing re-audit
+
+**Goal:** The docs describe the code as it is, the repository ships nothing it does not use, and every audit finding is verified closed against the code.
+**Requirements**: DOC-01, DOC-02, DOC-03 (ledger: `.planning/audits/2026-09-23-code-audit.md`)
+**Depends on:** Phases 32–40
+
+**Success criteria:**
+1. Every doc claim flagged in DOC-01 corrected and re-checked
+2. Every ID in the audit ledger marked closed with its evidence (commit / test)
+3. A fresh audit pass finds no regression of a closed item
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 41 to break down)
