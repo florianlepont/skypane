@@ -19,7 +19,6 @@ WorkingDirectory=/opt/skypane
 ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/stub-server/byos_server.py \
     --image ${SKYPANE_STATE_DIR}/panel.bin \
     --port ${SKYPANE_BYOS_PORT} \
-    --secret ${SKYPANE_BYOS_SECRET} \
     --sleep ${SKYPANE_SLEEP_S} \
     --state-dir ${SKYPANE_STATE_DIR} \
     --image-url-scheme https
