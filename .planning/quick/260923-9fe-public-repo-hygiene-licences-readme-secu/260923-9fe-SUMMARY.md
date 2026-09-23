@@ -2,7 +2,7 @@
 quick_id: 260923-9fe
 status: complete
 date: 2026-09-23
-commits: [363441c, 7c80d72, bd332c2, f61d6ac]
+commits: [363441c, 7c80d72, bd332c2, f61d6ac, 9c90522]
 ---
 
 # Quick 260923-9fe — public-repo hygiene: SUMMARY
@@ -36,6 +36,7 @@ motivated the task had already gathered every fact the plan needed.
 | 7c80d72 | Public README (preview image `docs/panel-preview.png`, licence table, trademarks, security, AI-assisted note); top-level `NOTICE`; corrected trademark rationale |
 | bd332c2 | `SECURITY.md`, `.github/dependabot.yml`, `permissions: contents: read`, all actions SHA-pinned |
 | f61d6ac | `.claude/CLAUDE.md` stack section now describes the shipped stack |
+| 9c90522 | Kconfig menu renamed to SkyPane; unused `CONFIG_FP_API_BASE` default changed from FlightPortrait's production API to `https://example.invalid`; container build verified, no upstream URL in the image |
 
 GitHub settings applied via `gh api` (user-approved in chat): Dependabot alerts +
 security updates, private vulnerability reporting, fork-PR CI approval for all
