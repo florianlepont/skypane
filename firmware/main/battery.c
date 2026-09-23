@@ -24,6 +24,12 @@ static const char *TAG = "fp_batt";
  * before the sample is meaningful. */
 #define FP_BATTERY_SETTLE_MS 10
 
+/* Averaging FW-11's 8 samples smooths out ADC/divider noise a single
+ * read would carry straight into telemetry; no delay is needed between
+ * samples since the divider has already settled by FP_BATTERY_SETTLE_MS
+ * and oneshot conversions are microseconds apart. */
+#define FP_BATTERY_SAMPLES 8
+
 /* -1 = not yet read this wake. Deep sleep clears RAM, so this static gives
  * exactly one ADC read per wake with no change to app_main.c. */
 static int s_cached_mv = -1;
@@ -103,10 +109,23 @@ uint32_t fp_battery_mv(void)
         return 0;
     }
 
-    int pin_mv = 0;
-    err = adc_oneshot_get_calibrated_result(adc1, cali, channel, &pin_mv);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "adc_oneshot_get_calibrated_result failed: %d", err);
+    int samples[FP_BATTERY_SAMPLES];
+    for (int i = 0; i < FP_BATTERY_SAMPLES; i++) {
+        int sample_mv = 0;
+        err = adc_oneshot_get_calibrated_result(adc1, cali, channel,
+                                                 &sample_mv);
+        if (err != ESP_OK) {
+            ESP_LOGD(TAG, "battery sample %d failed: %d", i, err);
+            samples[i] = -1;
+        } else {
+            samples[i] = sample_mv;
+        }
+    }
+
+    uint32_t pin_mv = battery_math_average_mv(samples, FP_BATTERY_SAMPLES);
+    if (pin_mv == 0) {
+        ESP_LOGW(TAG, "no valid battery sample out of %d reads",
+                 FP_BATTERY_SAMPLES);
         adc_cali_delete_scheme_curve_fitting(cali);
         adc_oneshot_del_unit(adc1);
         gpio_set_level(PIN_BATT_EN, 0);
@@ -114,7 +133,7 @@ uint32_t fp_battery_mv(void)
         return 0;
     }
 
-    uint32_t pack_mv = battery_math_apply_divider((uint32_t)pin_mv);
+    uint32_t pack_mv = battery_math_apply_divider(pin_mv);
     adc_cali_delete_scheme_curve_fitting(cali);
     adc_oneshot_del_unit(adc1);
     gpio_set_level(PIN_BATT_EN, 0);
@@ -124,7 +143,8 @@ uint32_t fp_battery_mv(void)
      * pin read roughly half a plausible pack voltage", and a line
      * carrying only the converted value cannot distinguish a working
      * circuit from a coincidence. This line sits outside VENDOR.md's
-     * frozen five-line Log Line Contract. */
-    ESP_LOGI(TAG, "battery mv=%u pin_mv=%d", (unsigned)pack_mv, pin_mv);
+     * frozen five-line Log Line Contract. pin_mv is now the mean of
+     * FP_BATTERY_SAMPLES reads, not a single sample. */
+    ESP_LOGI(TAG, "battery mv=%u pin_mv=%d", (unsigned)pack_mv, (int)pin_mv);
     return pack_mv;
 }
