@@ -422,34 +422,69 @@ def apply_battery_hysteresis(battery_mv, was_active):
 # "did the reported state change" comparison inside each hook is a belt-
 # and-suspenders proof, not the sole gate.
 
-# A rough state-of-charge estimate for a single-cell LiPo, duplicated
-# (not imported) from the web app's own battery-percentage module - its
-# identical BATTERY_FULL_MV/BATTERY_EMPTY_MV/battery_percent(). This
-# module must never import anything from the web-app package (D-27, the
-# same constraint server/wake.py's own module docstring documents), and
-# the estimate is a handful of constants plus one clamped linear
-# interpolation - small enough that a private copy here is cheaper than
-# inventing a third shared home for it.
-_NOTIFY_BATTERY_FULL_MV = 4200
-_NOTIFY_BATTERY_EMPTY_MV = 3300
+# SEED-006 (quick 260923-gaf, D-27, D-SEED006): a small knot table plus
+# one clamped piecewise-linear lookup, duplicated (not imported) from
+# the web app's own battery-percentage module - its identical
+# BATTERY_DISCHARGE_CURVE/BATTERY_FULL_MV/BATTERY_EMPTY_MV/
+# battery_percent(). This module must never import anything from the
+# web-app package (D-27, the same constraint server/wake.py's own
+# module docstring documents), and the estimate is small enough that a
+# private copy here is cheaper than inventing a third shared home for
+# it. companion/test_companion_app.py enforces table equality and
+# output parity between the two copies for every millivolt value from
+# 2800 to 4400, sourced from hardware/BATTERY-RUN.md - see
+# companion/battery.py's own comment above BATTERY_DISCHARGE_CURVE for
+# the data and the method.
+_NOTIFY_BATTERY_DISCHARGE_CURVE = (
+    (2946, 0),
+    (3364, 7),
+    (3500, 15),
+    (3556, 22),
+    (3652, 29),
+    (3734, 36),
+    (3784, 43),
+    (3814, 50),
+    (3836, 57),
+    (3892, 65),
+    (3922, 72),
+    (3982, 79),
+    (4000, 90),
+    (4112, 100),
+)
+_NOTIFY_BATTERY_FULL_MV = _NOTIFY_BATTERY_DISCHARGE_CURVE[-1][0]
+_NOTIFY_BATTERY_EMPTY_MV = _NOTIFY_BATTERY_DISCHARGE_CURVE[0][0]
 
 
 def _battery_percent_estimate(battery_mv):
     """A clamped 0-100 estimate for `battery_mv`, or None for a
-    non-numeric or non-positive reading. Never raises. See the module
-    note above this function for why this duplicates, rather than
-    imports, the web app's identical estimate.
+    non-numeric, non-positive or NaN reading. Never raises. See the
+    module note above this function for why this duplicates, rather
+    than imports, the web app's identical estimate. Performs the same
+    operations, in the same order, as companion/battery.py's
+    battery_fraction() followed by battery_percent().
     """
     try:
         value = float(battery_mv)
     except (TypeError, ValueError):
         return None
+    if value != value:  # NaN is the one float that compares unequal to itself.
+        return None
     if value <= 0:
         return None
-    ratio = (value - _NOTIFY_BATTERY_EMPTY_MV) / float(
-        _NOTIFY_BATTERY_FULL_MV - _NOTIFY_BATTERY_EMPTY_MV
-    )
-    return int(round(max(0.0, min(1.0, ratio)) * 100))
+    if value <= _NOTIFY_BATTERY_EMPTY_MV:
+        fraction = 0.0
+    elif value >= _NOTIFY_BATTERY_FULL_MV:
+        fraction = 1.0
+    else:
+        fraction = None
+        for (lower_mv, lower_pct), (upper_mv, upper_pct) in zip(
+                _NOTIFY_BATTERY_DISCHARGE_CURVE, _NOTIFY_BATTERY_DISCHARGE_CURVE[1:]):
+            if upper_mv >= value:
+                percent = lower_pct + (value - lower_mv) * (upper_pct - lower_pct) / float(
+                    upper_mv - lower_mv)
+                fraction = percent / 100.0
+                break
+    return int(round(fraction * 100))
 
 
 def _humanize_age_s(age_s):

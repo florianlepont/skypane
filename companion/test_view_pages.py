@@ -6544,7 +6544,7 @@ def main():
             for needle in (
                     '<h1 class="page-title">Home</h1>', "AFR1380", "Air France", "ORY → TLS",
                     'src="/gallery/2026-08-27T11-50-00+00-00.png"', "3750 mV",
-                    "≈ 50%", "Next update ≈"):
+                    "≈ 38%", "Next update ≈"):
                 if needle not in rendered:
                     return False, "expected %r in the Home page" % needle
             if "<XYZ>" in rendered or "&lt;XYZ&gt;" not in rendered:
@@ -6590,9 +6590,9 @@ def main():
         blank = _mkstate("home-ring-none")
         try:
             now = "2026-08-27T12:00:00+00:00"
-            # 3690 mV lands on 43% of the 3300-4200 estimate span — a
-            # fraction no plausible constant (empty, half, full)
-            # coincides with.
+            # 3690 mV lands on 32% of the DEVICE-05 discharge curve
+            # (SEED-006, quick 260923-gaf) — a fraction no plausible
+            # constant (empty, half, full) coincides with.
             with _hdb.open_db(tmp) as conn:
                 _hdb.record_device_health(conn, "2026-08-27T11:55:00+00:00", battery_mv=3690)
             health_state = {"device_state": "ok", "pipeline_state": "ok",
@@ -6629,7 +6629,7 @@ def main():
 
             # The tile still prints all three of its own texts.
             tile = rendered[battery_at:data_at]
-            for needle in ("≈ 43%", "3690 mV"):
+            for needle in ("≈ 32%", "3690 mV"):
                 if needle not in tile:
                     return False, (
                         "expected the Battery tile to still print %r — the ring is an "
@@ -6643,10 +6643,10 @@ def main():
             dash = re.search(r'stroke-dasharray="([0-9.]+) ', values[0])
             drawn = float(dash.group(1)) if dash else 2 * math.pi * radius
             drawn_fraction = drawn / (2 * math.pi * radius)
-            if abs(drawn_fraction - 0.43) > 0.0005:
+            if abs(drawn_fraction - 0.32) > 0.0005:
                 return False, (
                     "Home's ring draws %.4f of its circumference while the tile prints "
-                    "'≈ 43%%' beside it (CFG-40)" % (drawn_fraction,))
+                    "'≈ 32%%' beside it (CFG-40, SEED-006 curve)" % (drawn_fraction,))
 
             # ONE EMITTER, TWO SIZES — measured across both pages.
             health_tmp = _mkstate("home-ring-health")
@@ -7575,8 +7575,13 @@ def main():
                        home_page.NO_READING_TEXT):
             if needle not in rendered:
                 return False, "expected %r for an empty ctx" % needle
-        if battery.battery_percent(4200) != 100 or battery.battery_percent(3300) != 0:
-            return False, "expected the percentage estimate to clamp at the full/empty voltages"
+        if (battery.battery_percent(battery.BATTERY_FULL_MV) != 100
+                or battery.battery_percent(4200) != 100
+                or battery.battery_percent(battery.BATTERY_EMPTY_MV) != 0
+                or battery.battery_percent(2900) != 0):
+            return False, (
+                "expected the percentage estimate to clamp at BATTERY_FULL_MV/4200 -> 100 and "
+                "BATTERY_EMPTY_MV/2900 -> 0 (SEED-006 curve endpoints)")
         if battery.battery_percent("x") is not None or battery.battery_percent(0) is not None:
             return False, "expected a non-numeric or zero reading to yield None"
         if home_page._gallery_name_to_iso("2026-09-10T21-38-48+00-00.png") != "2026-09-10T21:38:48+00:00":
@@ -8466,7 +8471,8 @@ def main():
             # call through companion/battery.py is the one home the
             # allow-list permits.
             source = inspect.getsource(home_page)
-            for token in ("stroke-dasharray", "BATTERY_FULL_MV", "4200", "3300"):
+            for token in ("stroke-dasharray", "BATTERY_FULL_MV", "4200", "3300",
+                          "BATTERY_DISCHARGE_CURVE", "4112", "2946"):
                 if token in source:
                     return False, (
                         "companion/pages/home_page.py contains %r — geometry and battery "
