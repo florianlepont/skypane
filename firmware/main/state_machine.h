@@ -28,17 +28,33 @@ typedef enum {
     FP_POLL_FAILED,       /* any failure — caller applies backoff      */
 } fp_poll_result_t;
 
+/* Per-stage wall-clock timings for the diagnostic `wake timing` line
+ * (FW-10, fp_diag tag, app_main.c) — milliseconds, 0 for a stage this
+ * wake never reached. Outside the Log Line Contract. */
+typedef struct {
+    uint32_t wifi_ms;
+    uint32_t setup_ms;
+    uint32_t display_ms;
+    uint32_t download_ms;
+    uint32_t draw_ms;
+} fp_poll_timing_t;
+
 /* One wake's poll attempt: connect Wi-Fi, ensure a bearer token exists
- * (calls POST /device/v1/setup on the very first wake, or after an NVS
- * erase), GET /device/v1/display, hash-skip or download+verify+blit, and
- * persist the new image hash only after a successful blit — so a blit
- * that never happened cannot cause the next wake to skip.
+ * (calls POST /device/v1/setup on the very first wake, or after a
+ * 401/403 erased it), GET /device/v1/display, hash-skip or
+ * download+verify+blit, and persist the new image hash only after a
+ * successful blit — so a blit that never happened cannot cause the next
+ * wake to skip.
  *
  * `boot_reason` feeds the X-Boot-Reason telemetry header. On any
  * FP_POLL_OK_* result, *sleep_s_out carries the server's sleep_s value.
  * On FP_POLL_FAILED, *fail_step_out is set to one of the Log Line
  * Contract's step tokens ("wifi", "http", "status", "json", "download",
- * "verify", "blit" — firmware/VENDOR.md § Log Line Contract) and
- * *sleep_s_out is left untouched. */
+ * "verify", "blit", "auth", "enrol", "secret", "config" —
+ * firmware/VENDOR.md § Log Line Contract) and *sleep_s_out is left
+ * untouched. `timing_out`, if non-NULL, is written to as each stage
+ * completes — a checkpoint that expires mid-stage still leaves the
+ * fields completed so far intact. */
 fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
-                              const char **fail_step_out);
+                              const char **fail_step_out,
+                              fp_poll_timing_t *timing_out);
