@@ -15,6 +15,8 @@
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_timer.h"
+#include "esp_transport_ssl.h"
 #include "mbedtls/sha256.h"
 #include "sdkconfig.h"
 
@@ -25,6 +27,7 @@
 #include "nvs_util.h"
 #include "secrets.h"
 #include "validate.h"
+#include "wake_guard.h"
 #include "wifi.h"
 
 static const char *TAG = "fp_api";
@@ -42,7 +45,130 @@ static const bool s_allow_http = true;
 static const bool s_allow_http = false;
 #endif
 
-/* ---------------------------------------------------------------- helpers */
+/* ------------------------------------------------------- shared per-wake client
+ *
+ * One esp_http_client handle (and, when the server allows it, one
+ * TCP+TLS connection) is reused for every request of a wake - setup,
+ * display, and a same-origin image download - instead of a fresh
+ * connection per request. This is FW-10's mandatory half; tls_session.c
+ * carries the TLS session across deep sleep as a best-effort addition on
+ * top of it. s_connects/s_first_connect_ms are read once, in
+ * fp_api_release(), for the diagnostic line the hardware session uses to
+ * explain the per-cycle overhead. */
+static esp_http_client_handle_t s_http;
+static esp_transport_handle_t s_tls; /* NULL for the dev http:// path */
+static char s_origin[API_BASE_MAX];  /* scheme://host[:port] of s_http */
+static unsigned s_connects;
+static uint32_t s_first_connect_ms;
+static int64_t s_connect_started_us;
+
+/* Every telemetry/auth header any request on the shared handle can carry.
+ * Deleting all of them before setting only what the next request needs
+ * is what keeps a bearer token or a battery reading from leaking onto a
+ * request it was never meant for (T-34-09-01) - esp_http_client does not
+ * clear headers on its own between esp_http_client_set_url() calls. */
+static void clear_request_headers(esp_http_client_handle_t http)
+{
+    esp_http_client_delete_header(http, "Authorization");
+    esp_http_client_delete_header(http, "Content-Type");
+    esp_http_client_delete_header(http, "X-Rssi");
+    esp_http_client_delete_header(http, "X-Battery-Mv");
+    esp_http_client_delete_header(http, "X-Fw-Version");
+    esp_http_client_delete_header(http, "X-Boot-Reason");
+}
+
+/* Extracts "scheme://host[:port]" from url, stopping at the first '/'
+ * after the scheme - the part esp_http_client keys a TCP+TLS connection
+ * on. Used to decide whether a download URL can share s_http (same
+ * origin) or needs its own one-shot client. Truncates rather than
+ * overruns if url's origin is implausibly long; a truncated result only
+ * ever causes the conservative (one-shot, no shared headers) path to be
+ * taken, never a wrong match. */
+static void url_origin(const char *url, char *out, size_t cap)
+{
+    if (!cap) {
+        return;
+    }
+    const char *scheme_end = strstr(url, "://");
+    const char *scan = scheme_end ? scheme_end + 3 : url;
+    const char *slash = strchr(scan, '/');
+    size_t len = slash ? (size_t)(slash - url) : strlen(url);
+    if (len >= cap) {
+        len = cap - 1;
+    }
+    memcpy(out, url, len);
+    out[len] = 0;
+}
+
+static void session_connect_noted(void)
+{
+    if (s_connects == 0) {
+        int64_t elapsed_us = esp_timer_get_time() - s_connect_started_us;
+        s_first_connect_ms = elapsed_us > 0 ? (uint32_t)(elapsed_us / 1000) : 0;
+    }
+    s_connects++;
+}
+
+static esp_err_t session_event_handler(esp_http_client_event_t *evt)
+{
+    if (evt->event_id == HTTP_EVENT_ON_CONNECTED) {
+        session_connect_noted();
+    }
+    return ESP_OK;
+}
+
+/* Replaces the plan-34-06 http_client_new() for every request that
+ * shares s_http: the first call this wake creates the handle (attaching
+ * a custom SSL transport for https so tls_session.c has something to
+ * offer a saved session to before the first connect); every later call
+ * just retargets the existing handle. Never calls esp_http_client_open()
+ * itself - callers open, and never close after success, so a server that
+ * allows it keeps the connection alive across requests. */
+static esp_err_t session_client(const char *url, esp_http_client_method_t method,
+                                int timeout_ms, esp_http_client_handle_t *out)
+{
+    if (!s_http) {
+        url_origin(url, s_origin, sizeof(s_origin));
+        bool https = strncmp(url, "https://", 8) == 0;
+        esp_http_client_config_t cfg = {
+            .url = url,
+            .method = method,
+            .crt_bundle_attach = esp_crt_bundle_attach,
+            .timeout_ms = timeout_ms,
+            .event_handler = session_event_handler,
+        };
+        if (https) {
+            s_tls = esp_transport_ssl_init();
+            if (!s_tls) {
+                return ESP_ERR_NO_MEM;
+            }
+            esp_transport_ssl_crt_bundle_attach(s_tls, esp_crt_bundle_attach);
+            esp_transport_set_default_port(s_tls, 443);
+#if CONFIG_ESP_TLS_CLIENT_SESSION_TICKETS
+            cfg.save_client_session = true;
+#endif
+#if CONFIG_ESP_HTTP_CLIENT_ENABLE_CUSTOM_TRANSPORT
+            cfg.transport = s_tls;
+#endif
+        }
+        s_http = esp_http_client_init(&cfg);
+        if (!s_http) {
+            if (s_tls) {
+                esp_transport_destroy(s_tls);
+                s_tls = NULL;
+            }
+            return ESP_ERR_NO_MEM;
+        }
+    } else {
+        if (esp_http_client_set_url(s_http, url) != ESP_OK ||
+            esp_http_client_set_method(s_http, method) != ESP_OK ||
+            esp_http_client_set_timeout_ms(s_http, timeout_ms) != ESP_OK) {
+            return FP_ERR_HTTP_TRANSPORT;
+        }
+    }
+    *out = s_http;
+    return ESP_OK;
+}
 
 bool fp_api_has_token(void)
 {
@@ -111,9 +237,13 @@ static void telemetry_headers(esp_http_client_handle_t http,
     esp_http_client_set_header(http, "X-Boot-Reason", boot_reason);
 }
 
-/* One esp_http_client config shape (crt_bundle_attach, timeout) shared by
- * setup, display and download — the three places this project opens an
- * HTTP connection (FW-14). */
+/* One esp_http_client config shape (crt_bundle_attach, timeout) for the
+ * one case that still needs a fresh, one-shot handle: a download whose
+ * URL is not on s_origin (a presigned CDN URL on a different host, say)
+ * - carrying the API handle's keep-alive connection or its headers over
+ * to an unrelated origin would be pointless and, for the headers, a
+ * credential leak (T-34-09-01). setup/display/same-origin download all
+ * go through session_client() instead. */
 static esp_http_client_handle_t http_client_new(const char *url,
                                                  esp_http_client_method_t method,
                                                  int timeout_ms)
@@ -127,28 +257,60 @@ static esp_http_client_handle_t http_client_new(const char *url,
     return esp_http_client_init(&cfg);
 }
 
-/* Perform a request whose response body fits in RESP_MAX. */
+/* Perform a request whose response body fits in RESP_MAX, on the shared
+ * s_http handle. If the connection turns out to have been closed by the
+ * peer (an HTTP/1.0 server like the LAN stub closes after every
+ * response), retries once on a fresh connection - but only once, and
+ * only if s_http has already connected successfully at least once this
+ * wake (s_connects > 0): a handle's very first connect failing is a real
+ * problem no retry fixes, while a later one failing on a handle that
+ * already worked is exactly the "server closed the keep-alive" case
+ * (T-34-09-06). Never retries once a response status has been read
+ * (esp_http_client_fetch_headers succeeded) - only a transport-level
+ * failure before that point is retried. */
 static esp_err_t small_request(esp_http_client_handle_t http,
                                const char *body, char *resp, int *resp_len)
 {
+    bool retry_ok = s_connects > 0;
+    bool retried = false;
+
+open_again:
+    s_connect_started_us = esp_timer_get_time();
     esp_err_t err = esp_http_client_open(http, body ? strlen(body) : 0);
     if (err != ESP_OK) {
+        if (retry_ok && !retried) {
+            retried = true;
+            esp_http_client_close(http);
+            goto open_again;
+        }
         return FP_ERR_HTTP_TRANSPORT;
     }
     if (body) {
         int written = esp_http_client_write(http, body, strlen(body));
         if (written != (int)strlen(body)) {
             esp_http_client_close(http);
+            if (retry_ok && !retried) {
+                retried = true;
+                goto open_again;
+            }
             return FP_ERR_HTTP_TRANSPORT;
         }
     }
     if (esp_http_client_fetch_headers(http) < 0) {
         esp_http_client_close(http);
+        if (retry_ok && !retried) {
+            retried = true;
+            goto open_again;
+        }
         return FP_ERR_HTTP_TRANSPORT;
     }
     int n = esp_http_client_read_response(http, resp, RESP_MAX - 1);
     int status = esp_http_client_get_status_code(http);
-    esp_http_client_close(http);
+    /* Never close here on a successful read - that is what forced a
+     * fresh TCP+TLS connection per request before this plan. The handle
+     * stays open (even on a read failure below, which is never retried)
+     * for the wake's next request or for fp_api_release()'s eventual
+     * cleanup. */
     if (n < 0) {
         return FP_ERR_HTTP_TRANSPORT;
     }
@@ -209,19 +371,19 @@ esp_err_t fp_api_setup(void)
         return err;
     }
     snprintf(url, sizeof(url), "%s/device/v1/setup", base);
-    esp_http_client_handle_t http =
-        http_client_new(url, HTTP_METHOD_POST, 15000);
-    if (!http) {
+    esp_http_client_handle_t http;
+    err = session_client(url, HTTP_METHOD_POST, 15000, &http);
+    if (err != ESP_OK) {
         memset(body, 0, strlen(body));
         cJSON_free(body);
-        return ESP_ERR_NO_MEM;
+        return err;
     }
+    clear_request_headers(http);
     esp_http_client_set_header(http, "Content-Type", "application/json");
 
     char resp[RESP_MAX];
     int n = 0;
     err = small_request(http, body, resp, &n);
-    esp_http_client_cleanup(http);
     memset(body, 0, strlen(body));
     cJSON_free(body);
     if (err == FP_ERR_HTTP_AUTH) {
@@ -262,11 +424,36 @@ esp_err_t fp_api_setup(void)
     return err;
 }
 
-/* No connection is kept open across calls yet - this is the call site a
- * future connection-reuse body attaches to, wired in now so its caller
- * never needs to change. */
+/* Ends the wake's shared connection: logs the diagnostic line the
+ * hardware session uses to explain the per-cycle overhead (tls_offered/
+ * tls_saved_len come from tls_session.c; both are 0/false whenever the
+ * TLS-session-persistence config isn't active), then tears down the
+ * handle and, since esp_http_client_cleanup() only destroys its own
+ * transport_list and never a custom transport handed in via
+ * config.transport (confirmed against esp_http_client.c: the custom
+ * transport is kept in a separate client->transport field cleanup()
+ * never frees), the custom SSL transport too. Safe to call more than
+ * once or when nothing was ever opened. */
 void fp_api_release(void)
 {
+    if (s_http) {
+        /* tls_offered/tls_saved_len are always 0/false until Task 2's
+         * tls_session.c getters land - the literals here are the exact
+         * shape of the eventual call, just not wired yet. */
+        ESP_LOGI(TAG,
+                 "http connects=%u first_connect_ms=%u tls_offered=%d tls_saved_len=%u",
+                 s_connects, (unsigned)s_first_connect_ms, 0, 0u);
+        esp_http_client_cleanup(s_http);
+        s_http = NULL;
+    }
+    if (s_tls) {
+        esp_transport_destroy(s_tls);
+        s_tls = NULL;
+    }
+    s_origin[0] = 0;
+    s_connects = 0;
+    s_first_connect_ms = 0;
+    s_connect_started_us = 0;
 }
 
 /* ---------------------------------------------------------------- display */
@@ -282,18 +469,18 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
         return err;
     }
     snprintf(req_url, sizeof(req_url), "%s/device/v1/display", base);
-    esp_http_client_handle_t http =
-        http_client_new(req_url, HTTP_METHOD_GET, 20000);
-    if (!http) {
-        return ESP_ERR_NO_MEM;
+    esp_http_client_handle_t http;
+    err = session_client(req_url, HTTP_METHOD_GET, 20000, &http);
+    if (err != ESP_OK) {
+        return err;
     }
+    clear_request_headers(http);
     auth_header(http);
     telemetry_headers(http, boot_reason);
 
     char resp[RESP_MAX];
     int n = 0;
     err = small_request(http, NULL, resp, &n);
-    esp_http_client_cleanup(http);
     if (err == FP_ERR_HTTP_AUTH) {
         fp_nvs_erase_key(FP_NVS_DEVICE_TOKEN);
         ESP_LOGW(TAG, "device token rejected; erased, re-enrolling on "
@@ -370,18 +557,53 @@ esp_err_t fp_api_download(const char *url, const char *expected_hash,
         !fp_image_hash_valid(expected_hash)) {
         return ESP_ERR_INVALID_ARG;
     }
-    esp_http_client_handle_t http = http_client_new(url, HTTP_METHOD_GET, 30000);
-    if (!http) {
-        return ESP_ERR_NO_MEM;
+
+    char origin[API_BASE_MAX];
+    url_origin(url, origin, sizeof(origin));
+    bool shared = s_http != NULL && strcmp(origin, s_origin) == 0;
+
+    esp_http_client_handle_t http;
+    if (shared) {
+        esp_err_t err = session_client(url, HTTP_METHOD_GET, 30000, &http);
+        if (err != ESP_OK) {
+            return err;
+        }
+        clear_request_headers(http); /* the image request carries none */
+    } else {
+        http = http_client_new(url, HTTP_METHOD_GET, 30000);
+        if (!http) {
+            return ESP_ERR_NO_MEM;
+        }
+    }
+
+    bool retry_ok = shared && s_connects > 0;
+    bool retried = false;
+
+open_again:
+    if (shared) {
+        s_connect_started_us = esp_timer_get_time();
     }
     esp_err_t err = esp_http_client_open(http, 0);
     if (err != ESP_OK) {
-        esp_http_client_cleanup(http);
+        if (retry_ok && !retried) {
+            retried = true;
+            esp_http_client_close(http);
+            goto open_again;
+        }
+        if (!shared) {
+            esp_http_client_cleanup(http);
+        }
         return err;
     }
     if (esp_http_client_fetch_headers(http) < 0) {
         esp_http_client_close(http);
-        esp_http_client_cleanup(http);
+        if (retry_ok && !retried) {
+            retried = true;
+            goto open_again;
+        }
+        if (!shared) {
+            esp_http_client_cleanup(http);
+        }
         return ESP_FAIL; /* maps to step=download */
     }
 
@@ -389,6 +611,11 @@ esp_err_t fp_api_download(const char *url, const char *expected_hash,
     while (got < FP_IMAGE_BYTES) {
         int n = esp_http_client_read(http, (char *)buf + got,
                                      FP_IMAGE_BYTES - got);
+        /* FW-02: bounds a trickling transfer by the whole-wake budget,
+         * not just this read's own per-call timeout - a download that
+         * dribbles in a few bytes at a time, just under the timeout on
+         * every single read, would otherwise never end. */
+        fp_wake_checkpoint();
         if (n <= 0) {
             break;
         }
@@ -398,8 +625,13 @@ esp_err_t fp_api_download(const char *url, const char *expected_hash,
     char extra;
     bool oversize = esp_http_client_read(http, &extra, 1) > 0;
     int status = esp_http_client_get_status_code(http);
-    esp_http_client_close(http);
-    esp_http_client_cleanup(http);
+    if (!shared) {
+        esp_http_client_cleanup(http);
+    }
+    /* shared: never close - this is always the wake's last request, so
+     * fp_api_release() tears the connection down at the end of the wake;
+     * closing it here early would discard a session tls_session.c is
+     * about to spend effort saving for nothing. */
 
     /* Compute the digest only once the transfer itself checks out -
      * hashing 960000 bytes is wasted work when the transfer is already
