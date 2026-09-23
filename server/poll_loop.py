@@ -275,6 +275,27 @@ def pop_fresh_pending(pending, now, max_staleness_s=None):
 BATTERY_LOW_THRESHOLD_MV = 3500
 BATTERY_LOW_CLEAR_MV = 3600
 
+# BATTERY EMPTY hysteresis thresholds (quick task 260923-fr4,
+# battery-empty-screen-before-the-pack-die), raw millivolts - same D-02
+# reasoning as the badge thresholds above: no real state-of-charge curve
+# exists yet, so this stays a raw-mV comparison, not a fabricated
+# percentage. Sourced from hardware/BATTERY-RUN.md's 2026-09-14 discharge
+# table: 3500 mV at about 43h remaining, 3364 mV at about 21.5h, and the
+# run's last reading, 2960 mV, at about 17 minutes before the panel froze
+# mid-transition. BATTERY_CRITICAL_MV = 3300 sits with real margin below
+# the 3500 mV badge (so the badge always fires first, hours earlier) and
+# above the 2960 mV failure point, leaving runway to park the frame on a
+# deliberate screen well before the pack that killed the 2026-09-14 run
+# would have. BATTERY_CRITICAL_RECOVER_MV = 3700 is a 400 mV re-arm buffer
+# (wider than the 100 mV badge buffer, since a false recovery here means a
+# device that dies again mid-refresh, not merely a redundant badge). byos
+# (stub-server/byos_server.py) keeps its own parity-checked copy of
+# BATTERY_CRITICAL_RECOVER_MV only, to anticipate recovery one check-in
+# early (see its own module docstring). The badge constants above are
+# unchanged by any of this.
+BATTERY_CRITICAL_MV = 3300
+BATTERY_CRITICAL_RECOVER_MV = 3700
+
 
 def _extract_aircraft(snapshot):
     """A raw aggregator response dict (as injected by tests, or as returned
@@ -331,13 +352,16 @@ def load_poll_state(state_dir):
 # they make "am I already holding?" a compound test every future hold
 # mechanism has to remember to extend everywhere it appears - with one key,
 # that test is the single `was_hold is None`, and it stays correct for a
-# third mechanism without touching a line.
-_HOLD_KINDS = ("quiet_hours", "display_off")
+# third mechanism without touching a line. "battery_empty" (quick task
+# 260923-fr4) is that third mechanism: without it here, a persisted park
+# would read back as "not holding" on the very next cycle and repaint
+# every 30 seconds instead of staying parked.
+_HOLD_KINDS = ("quiet_hours", "display_off", "battery_empty")
 
 
 def _hold_state(poll_state):
-    """Return the current hold kind (`"quiet_hours"` / `"display_off"`), or
-    `None` when not holding.
+    """Return the current hold kind (`"quiet_hours"` / `"display_off"` /
+    `"battery_empty"`), or `None` when not holding.
 
     Migration - this runs on a live deployed device. A `poll_state.json`
     written by the Phase 10 code carries only the legacy `quiet_hours_active`
@@ -407,6 +431,36 @@ def apply_battery_hysteresis(battery_mv, was_active):
     if was_active:
         return battery_mv < BATTERY_LOW_CLEAR_MV
     return battery_mv <= BATTERY_LOW_THRESHOLD_MV
+
+
+def apply_battery_critical_hysteresis(battery_mv, was_active):
+    """Pure function: the BATTERY EMPTY latch decision (quick task
+    260923-fr4), with hysteresis between BATTERY_CRITICAL_MV (3300) and
+    BATTERY_CRITICAL_RECOVER_MV (3700) - the identical shape as
+    `apply_battery_hysteresis()` above, applied to the park/hold decision
+    rather than the badge.
+
+    `battery_mv=None` (never reported, or load_battery_state() degraded on
+    an unreadable/malformed file) returns `was_active` unchanged - a
+    missing or rejected reading can neither newly park the frame nor
+    clear an existing park; byos never persists a rejected reading (0,
+    junk) to begin with, so "rejected" always arrives here as the last
+    valid reading or as None, never as a fabricated zero.
+
+    Otherwise: when `was_active` is truthy (already parked), it stays
+    parked while the reading is strictly below BATTERY_CRITICAL_RECOVER_MV
+    - `battery_mv < BATTERY_CRITICAL_RECOVER_MV`. When not already parked,
+    it parks at the threshold, inclusive - `battery_mv <=
+    BATTERY_CRITICAL_MV`. A reading strictly between the two constants
+    deliberately holds the previous decision in BOTH directions, exactly
+    like the badge's own dead zone: it can neither newly park nor newly
+    recover the frame.
+    """
+    if battery_mv is None:
+        return was_active
+    if was_active:
+        return battery_mv < BATTERY_CRITICAL_RECOVER_MV
+    return battery_mv <= BATTERY_CRITICAL_MV
 
 
 # D-25/D-27/D-28 (20-CONTEXT.md, 20-05-PLAN.md): the shared
@@ -593,8 +647,18 @@ def _notify_silence_transition(state_dir, poll_state, conn, device_cfg, sender=N
         if checkin_epoch is None:
             return
         age_s = now_s() - checkin_epoch
+        # Quick task 260923-fr4: the SAME critical-aware mirror the top of
+        # run_once() feeds into effective_wake_interval_s, read back from
+        # the persisted latch rather than threaded as a parameter (this
+        # function's own signature takes only `poll_state`, not
+        # `battery_critical`) - without it, a parked frame checking in
+        # hourly would cross the 3-missed-wakes warn threshold on its
+        # configured (short) cadence and raise a false frame-silent push
+        # every hour it stays parked (see the module docstring's issue 1).
         warn_s, _error_s = wake.device_staleness_thresholds(
-            wake.effective_wake_interval_s(device_cfg)
+            wake.effective_wake_interval_s(
+                device_cfg, battery_critical=bool(poll_state.get(wake.BATTERY_CRITICAL_STATE_KEY) is True)
+            )
         )
         silent = age_s >= warn_s
         state = poll_state.setdefault(
@@ -1009,12 +1073,39 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # here.
     device_cfg = device_config.load_device_config(state_dir)
     theme_id = device_cfg["theme"]
+    # WR-02 fix (20-REVIEW.md), extended (quick task 260923-fr4,
+    # battery-empty-screen-before-the-pack-die): poll_state.json and
+    # battery_state.json are each read ONCE per cycle, right here, and
+    # every branch below - both the hold branch and the main path - reuses
+    # these same two objects rather than re-reading either file a second
+    # time. poll_loop.py is the single writer of poll_state.json (byos and
+    # the companion only ever read it), so an earlier load is equivalent to
+    # a later one within the same cycle. One battery read now feeds three
+    # decisions instead of two: the badge (apply_battery_hysteresis, still
+    # computed further down, per branch, from this same battery_mv), the
+    # BATTERY EMPTY latch below, and - via that latch -
+    # wake.effective_wake_interval_s()'s critical-aware pin one line down.
+    poll_state = load_poll_state(state_dir)
+    battery_mv = load_battery_state(state_dir)
+    # BATTERY EMPTY hysteresis (quick task 260923-fr4): the same
+    # None-holds-the-prior-decision shape as apply_battery_hysteresis's own
+    # badge decision, applied to poll_state's own persisted latch rather
+    # than to a per-branch local. Stored back into poll_state immediately,
+    # before wake.effective_wake_interval_s() is called one line down, so
+    # the sleep-interval mirror sees THIS cycle's own decision rather than
+    # last cycle's stale one.
+    was_battery_critical = poll_state.get(wake.BATTERY_CRITICAL_STATE_KEY) is True
+    battery_critical = apply_battery_critical_hysteresis(battery_mv, was_battery_critical)
+    poll_state[wake.BATTERY_CRITICAL_STATE_KEY] = battery_critical
     # 24-03-PLAN.md Task 3 (CFG-43): the cadence in force THIS cycle,
     # resolved ONCE here for the same reason device_cfg itself is read
     # once - and passed down to every _record_history() call site rather
     # than re-resolved inside it. None is a legitimate value ("cannot be
-    # determined") and is recorded as such.
-    effective_wake_interval_s = wake.effective_wake_interval_s(device_cfg)
+    # determined") and is recorded as such. battery_critical (quick task
+    # 260923-fr4) pins this to device_config.BATTERY_CRITICAL_SLEEP_S
+    # ahead of every other consideration - see wake.effective_wake_interval_s()'s
+    # own docstring for the full precedence list.
+    effective_wake_interval_s = wake.effective_wake_interval_s(device_cfg, battery_critical=battery_critical)
     # D-13: a DEFAULT ASSIGNMENT, not a resolution. Every branch below -
     # including the four that display no flight - references this name, in
     # exactly the way `unknown_prefix` and `event_recorded` further down are
@@ -1059,7 +1150,16 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # here. Collapsing the two axes into one rule is exactly the mistake
     # D-05 warns a reader of only this file would otherwise reasonably make.
     display_enabled = device_cfg["display_enabled"]
-    if not display_enabled:
+    # Priority (quick task 260923-fr4): battery_empty, then display_off,
+    # then quiet_hours. The battery axis outranks the operator's own
+    # toggle and any standing schedule because a flat pack cannot honour
+    # either - it does not matter what the operator asked for or what
+    # window is open if the device is about to lose power mid-refresh,
+    # which is the exact failure this quick task exists to replace with a
+    # deliberate screen (`hardware/BATTERY-RUN.md`'s 2026-09-14 run).
+    if battery_critical:
+        hold_kind = "battery_empty"
+    elif not display_enabled:
         hold_kind = "display_off"
     elif quiet_remaining is not None:
         hold_kind = "quiet_hours"
@@ -1078,7 +1178,12 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         # the aggregators through it would be unbounded rather than merely
         # overnight, which makes this placement matter even more here than
         # it did for quiet hours alone.
-        poll_state = load_poll_state(state_dir)
+        #
+        # poll_state and battery_mv are already loaded, once, above (WR-02
+        # fix, extended by quick task 260923-fr4) - reused here rather than
+        # re-read, so this branch's battery_low decision and the top-level
+        # battery_critical decision can never observe two different mV
+        # readings for what is, on the wire, a single device check-in.
         was_hold = _hold_state(poll_state)
         legacy_present = "quiet_hours_active" in poll_state
 
@@ -1087,14 +1192,6 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         # battery-low icon, per 10-UI-SPEC.md's Panel Screen Contract and
         # _build_empty_canvas()'s own precedent.
         was_battery_low = bool(poll_state.get("battery_low_active", False))
-        # WR-02 fix (20-REVIEW.md): read battery_state.json ONCE per
-        # cycle - it is written concurrently, with no lock, by
-        # stub-server/byos_server.py on every device check-in, so a
-        # second read here could observe a different mV figure than
-        # the one that actually decided `battery_low`/`battery_changed`
-        # below, and the notification body would then describe a
-        # reading that never triggered the transition.
-        battery_mv = load_battery_state(state_dir)
         battery_low = apply_battery_hysteresis(battery_mv, was_battery_low)
         battery_changed = battery_low != was_battery_low
         poll_state["battery_low_active"] = battery_low
@@ -1111,27 +1208,45 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             del poll_state["quiet_hours_active"]
         now_iso = history_db.utc_now_iso()
 
-        # Render ONLY on entry into a hold from the live board - guarded by
-        # `was_hold is None`, NEVER by `was_hold != hold_kind` (D-07). A
-        # full e-ink refresh measures ~31.5s on this panel, the device is
-        # deep-asleep and cannot fetch anything mid-hold anyway, and
-        # re-rendering for zero new information burns the panel for
-        # nothing - so every later cycle inside a hold is a deliberate
-        # no-op, even across a battery transition (unlike the held branch
-        # below, nothing rendered mid-hold can ever reach the glass, so a
-        # battery transition during a hold must not trigger a repaint).
-        # `was_hold is None` is also what makes a MOVE BETWEEN two hold
-        # states silent in both directions (D-07): a quiet window ending
-        # while the toggle is still off leaves the off screen up; the
-        # toggle being switched off during a window leaves the quiet screen
-        # up until the window itself ends. Both are correct and both cost
-        # zero refreshes.
+        # Render on entry into a hold from the live board (`was_hold is
+        # None`), NEVER merely on `was_hold != hold_kind` (D-07) - EXCEPT
+        # for the one boundary quick task 260923-fr4 adds: crossing into or
+        # out of BATTERY EMPTY. A full e-ink refresh measures ~31.5s on
+        # this panel, the device is deep-asleep and cannot fetch anything
+        # mid-hold anyway, and re-rendering for zero new information burns
+        # the panel for nothing - so every later cycle inside a hold is
+        # still a deliberate no-op, even across a battery-low BADGE
+        # transition (unlike the held branch below, nothing rendered
+        # mid-hold can ever reach the glass, so a badge transition during a
+        # hold must not trigger a repaint). A MOVE BETWEEN QUIET HOURS and
+        # DISPLAY OFF stays silent in both directions, exactly as D-07
+        # requires: a quiet window ending while the toggle is still off
+        # leaves the off screen up; the toggle being switched off during a
+        # window leaves the quiet screen up until the window itself ends.
+        # But entering BATTERY EMPTY from an active DISPLAY OFF or QUIET
+        # HOURS hold - or recovering FROM it into one of those holds - MUST
+        # repaint: otherwise a flat-pack screen would never reach the glass
+        # from an existing hold, and a recovered device would be stranded
+        # on BATTERY EMPTY forever with no scheduled repaint to clear it.
+        battery_empty_boundary_crossed = (was_hold == "battery_empty") != (hold_kind == "battery_empty")
         panel_changed = False
-        if was_hold is None:
-            canvas = render.build_canvas(
-                None, hold_kind, theme_id=theme_id, quiet_hours_until=quiet_until,
-                source_fault=source_fault, battery_low=battery_low,
-            )
+        if was_hold is None or battery_empty_boundary_crossed:
+            if hold_kind == "battery_empty":
+                # The byte-stable BATTERY EMPTY screen (quick task
+                # 260923-fr4): no theme_id/quiet_hours_until/source_fault/
+                # battery_low - build_canvas() dispatches this state before
+                # any of the four are ever consulted (see its own
+                # docstring), and this call site never even offers them, so
+                # the whole cycle's local `theme_id`/`quiet_until`/
+                # `source_fault`/`battery_low` values (any of which might
+                # legitimately differ from the previous hold's) can never
+                # leak a hash-changing byte into the parked image.
+                canvas = render.build_canvas(None, "battery_empty")
+            else:
+                canvas = render.build_canvas(
+                    None, hold_kind, theme_id=theme_id, quiet_hours_until=quiet_until,
+                    source_fault=source_fault, battery_low=battery_low,
+                )
             rendered = panel_format.pack_panel(canvas)
             panel_changed = write_panel_atomic(state_dir, rendered)
             if panel_changed:
@@ -1144,7 +1259,14 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         # panel did not change but the record of what is on it did.
         # `legacy_present` is the one-time migration flush that retires the
         # stale key; it fires for at most one cycle per upgraded install.
-        if was_hold != hold_kind or battery_changed or legacy_present:
+        # `battery_critical_changed` (quick task 260923-fr4) covers the
+        # latch's own transition explicitly - in practice always coincident
+        # with a `hold_kind` change given battery_critical's top priority
+        # above, but named here rather than relied upon implicitly, so a
+        # future change to that priority cannot silently stop persisting
+        # this latch's own flip.
+        battery_critical_changed = battery_critical != was_battery_critical
+        if was_hold != hold_kind or battery_changed or legacy_present or battery_critical_changed:
             save_poll_state(state_dir, poll_state)
 
         # T-06-10-05/Pitfall 1: this call is NOT optional - it is what
@@ -1236,7 +1358,8 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # instant, not three slightly different clock reads.
     now_iso = history_db.utc_now_iso()
 
-    poll_state = load_poll_state(state_dir)
+    # poll_state is already loaded, once, at the top of this cycle (WR-02
+    # fix, extended by quick task 260923-fr4) - reused here, never re-read.
     # D-07 (12-CONTEXT.md): reaching this line at all means no hold
     # condition is active any more - whichever mechanism it was, and
     # regardless of how many kinds it passed through while held - so a
@@ -1288,11 +1411,10 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # no-detection branches) needs it, either to thread into a render call
     # or to decide whether a hold-cycle re-render is warranted.
     was_battery_low = bool(poll_state.get("battery_low_active", False))
-    # WR-02 fix (20-REVIEW.md): read battery_state.json ONCE per cycle -
-    # see the identical comment on the hold branch's own copy of this
-    # decision above for why a second read risks a body/decision
-    # mismatch.
-    battery_mv = load_battery_state(state_dir)
+    # battery_mv is already loaded, once, at the top of this cycle (WR-02
+    # fix, extended by quick task 260923-fr4) - reused here, never re-read,
+    # so this decision and the top-level battery_critical decision can
+    # never observe two different mV figures for one device check-in.
     battery_low = apply_battery_hysteresis(battery_mv, was_battery_low)
     battery_changed = battery_low != was_battery_low
     poll_state["battery_low_active"] = battery_low

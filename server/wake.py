@@ -27,14 +27,25 @@ return value is only ever fed to a clock-text formatter by a caller:
 this module stays free of any VIEW dependency, matching every other
 function here — each page module formats the ISO string itself.
 
-Stdlib-only (os, datetime), plus server.device_config.
+Stdlib-only (os, json, datetime), plus server.device_config.
 """
+import json
 import os
 from datetime import datetime, timedelta, timezone
 
 from server import device_config
 
 SLEEP_ENV_VAR = "SKYPANE_SLEEP_S"
+
+# Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die): the
+# BATTERY EMPTY latch's key in poll_state.json. Lives here, in this leaf
+# module the companion can already import (rather than in poll_loop.py,
+# which the companion never imports), so both poll_loop.py (the single
+# writer, via apply_battery_critical_hysteresis()) and every reader below -
+# this module's own effective_wake_interval_s()/next_wake_status(), plus
+# stub-server/byos_server.py's independent read_battery_critical() and the
+# companion's own ctx builder - name the same key.
+BATTERY_CRITICAL_STATE_KEY = "battery_critical_active"
 
 # D-05 (19-CONTEXT.md): warn after this many missed wakes, error after
 # this many, each multiplier applied to the device's own effective wake
@@ -82,7 +93,35 @@ def env_sleep_s():
     return value
 
 
-def effective_wake_interval_s(device_cfg):
+def read_battery_critical(state_dir):
+    """Quick task 260923-fr4: True only when
+    `<state_dir>/poll_state.json`'s BATTERY_CRITICAL_STATE_KEY is
+    literally `True` — every failure (missing file, malformed JSON, a
+    non-dict payload, or a value under the key that is anything other
+    than the literal boolean `True`) returns False and never raises,
+    the identical fail-open shape stub-server/byos_server.py's own
+    `read_display_enabled()` already uses for device_config.json.
+
+    server/poll_loop.py is the single writer of poll_state.json — its
+    own `apply_battery_critical_hysteresis()` computes the latch exactly
+    once per cycle and stores it under this same key — so this is a
+    read-only consumer, the same relationship device_config.json already
+    has with the companion. Fail-open is safe here specifically because
+    the only cost of a wrongly-returned False is a few extra wakes at the
+    device's ordinary cadence, never a missed BATTERY EMPTY render, which
+    poll_loop's own latch (not this reader) is solely responsible for.
+    """
+    try:
+        with open(os.path.join(state_dir, "poll_state.json")) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    return data.get(BATTERY_CRITICAL_STATE_KEY) is True
+
+
+def effective_wake_interval_s(device_cfg, battery_critical=False):
     """The wake interval, in seconds, actually governing this device's
     cadence right now — or None when it cannot be determined.
 
@@ -91,17 +130,29 @@ def effective_wake_interval_s(device_cfg):
     tolerates all three and never raises.
 
     Precedence:
-      1. When `device_cfg.get("display_enabled")` is explicitly
-         `False`, the screen-off cadence
+      1. When `battery_critical` is True (quick task 260923-fr4: the
+         BATTERY EMPTY hold is active), the parked cadence
+         (`device_config.BATTERY_CRITICAL_SLEEP_S`) is pinned ahead of
+         every other consideration — checked FIRST, before even
+         `display_enabled=False` below, because a flat pack overrides
+         even the operator's own toggle (poll_loop.py's hold-kind
+         priority — battery_empty, then display_off, then quiet_hours —
+         mirrors this exactly).
+      2. Otherwise, when `device_cfg.get("display_enabled")` is
+         explicitly `False`, the screen-off cadence
          (`device_config.DISPLAY_OFF_SLEEP_S`) is pinned independently
-         of `wake_interval_s` (12-CONTEXT.md D-01) — checked first,
+         of `wake_interval_s` (12-CONTEXT.md D-01) — checked next,
          before `wake_interval_s`, because the display-off cadence
          overrides whatever `wake_interval_s` happens to be configured
          to.
-      2. Otherwise, `device_cfg.get("wake_interval_s")` when it is a
+      3. Otherwise, `device_cfg.get("wake_interval_s")` when it is a
          positive int.
-      3. Otherwise, `env_sleep_s()`.
-      4. Otherwise, `None`.
+      4. Otherwise, `env_sleep_s()`.
+      5. Otherwise, `None`.
+
+    `battery_critical` defaults to `False` so every pre-existing call
+    site — none of which know about the BATTERY EMPTY latch — keeps its
+    original result exactly unchanged.
 
     Every test above is an explicit `isinstance()`/`is None` check,
     never `or` — this codebase's documented idiom for a value with a
@@ -111,6 +162,8 @@ def effective_wake_interval_s(device_cfg):
     """
     if device_cfg is None:
         device_cfg = {}
+    if battery_critical is True:
+        return device_config.BATTERY_CRITICAL_SLEEP_S
     if device_cfg.get("display_enabled") is False:
         return device_config.DISPLAY_OFF_SLEEP_S
     wake_interval_s = device_cfg.get("wake_interval_s")
@@ -247,7 +300,7 @@ def classify_check_in_gap(gap_s, wake_interval_s):
 HOLD_QUIET_HOURS = "quiet_hours"
 
 
-def next_wake_status(last_checkin_ts, device_cfg):
+def next_wake_status(last_checkin_ts, device_cfg, battery_critical=False):
     """The `(next_wake_iso, effective_interval_s, hold_reason)` triple
     every consumer of "when will the frame next wake" needs (D-03/
     CFG-26, 22-02-PLAN.md Task 1): the strip's headline, the Home/Health
@@ -255,6 +308,17 @@ def next_wake_status(last_checkin_ts, device_cfg):
     result instead of each re-deriving their own — that is what makes
     the disagreement X2 found ("Expected since 23:0x" beside "Checking
     in normally") impossible by construction.
+
+    `battery_critical` (quick task 260923-fr4, default False so every
+    pre-existing call site is unaffected) is threaded straight through to
+    `effective_wake_interval_s()` below, which pins the parked
+    `device_config.BATTERY_CRITICAL_SLEEP_S` cadence ahead of every other
+    consideration when True — see that function's own docstring for the
+    full precedence list. This is the same mirror
+    `_notify_silence_transition()` and every companion frame-strip/flash
+    call site read from `wake.read_battery_critical()`, so a parked frame
+    never crosses its own staleness threshold on the SHORT cadence it was
+    configured with before parking.
 
     Returns `(None, None, None)` — never raises — for every one of
     these cases, matching `next_wake_at_iso()`'s own pre-existing
@@ -331,7 +395,7 @@ def next_wake_status(last_checkin_ts, device_cfg):
         return None, None, None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
-    interval_s = effective_wake_interval_s(device_cfg)
+    interval_s = effective_wake_interval_s(device_cfg, battery_critical=battery_critical)
     if interval_s is None:
         return None, None, None
 
@@ -355,7 +419,7 @@ def next_wake_status(last_checkin_ts, device_cfg):
     return next_wake_iso, effective_interval_s, hold_reason
 
 
-def next_wake_at_iso(last_checkin_ts, device_cfg):
+def next_wake_at_iso(last_checkin_ts, device_cfg, battery_critical=False):
     """The next time the device is expected to wake, as an ISO-8601 UTC
     string, or `None` when it cannot be determined (D-13/S-02).
 
@@ -365,11 +429,14 @@ def next_wake_at_iso(last_checkin_ts, device_cfg):
     that extension, so `home_page.py:421` and `config_page.py:3109` keep
     compiling and keep returning the same values for every
     non-quiet-hours configuration; they migrate to the richer accessor
-    in their own plan, not here.
+    in their own plan, not here. `battery_critical` (quick task
+    260923-fr4, default False) is threaded straight through to
+    `next_wake_status()` for the identical reason that function's own
+    docstring gives.
 
     Returns a plain ISO string, not formatted text — deliberately not
     run through any formatter here, since this module has no view
     dependency (see the module docstring above): each caller formats
     the value itself for display.
     """
-    return next_wake_status(last_checkin_ts, device_cfg)[0]
+    return next_wake_status(last_checkin_ts, device_cfg, battery_critical=battery_critical)[0]
