@@ -148,3 +148,7 @@ None - no external service configuration required.
 ---
 *Phase: 32-test-foundation-pytest-and-ci-you-can-trust*
 *Completed: 2026-09-23*
+
+## Self-Check: PASSED
+
+All claimed files exist (`scripts/run-all-tests.sh`, `pyproject.toml`, `32-MIGRATION-LEDGER.md`, this SUMMARY); `scripts/run_all_tests.py` confirmed deleted; all 5 commit hashes (`720d2b8`, `1cb80d3`, `f0bee52`, `c370921`, `abc45b3`) found in `git log`.
