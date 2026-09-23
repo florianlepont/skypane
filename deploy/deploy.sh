@@ -64,10 +64,10 @@ echo "==> Checking whether requirements.txt changed"
 LOCAL_HASH="$(sha256sum "${REPO_ROOT}/server/requirements.txt" | awk '{print $1}')"
 REMOTE_HASH="$(ssh "${SSH_TARGET}" "sudo cat ${APP_ROOT}/.requirements.sha256 2>/dev/null || true")"
 if [ "${LOCAL_HASH}" != "${REMOTE_HASH}" ]; then
-    echo "    requirements.txt changed - reinstalling into the venv"
-    ssh "${SSH_TARGET}" "sudo -u skypane ${APP_ROOT}/venv/bin/pip install --quiet -r ${APP_ROOT}/server/requirements.txt && echo '${LOCAL_HASH}' | sudo -u skypane tee ${APP_ROOT}/.requirements.sha256 >/dev/null"
+    echo "    requirements.txt (hash-locked) changed - reinstalling into the venv"
+    ssh "${SSH_TARGET}" "sudo -u skypane ${APP_ROOT}/venv/bin/pip install --require-hashes --quiet -r ${APP_ROOT}/server/requirements.txt && echo '${LOCAL_HASH}' | sudo -u skypane tee ${APP_ROOT}/.requirements.sha256 >/dev/null"
 else
-    echo "    requirements.txt unchanged - skipping pip install"
+    echo "    requirements.txt (hash-locked) unchanged - skipping pip install"
 fi
 
 echo "==> Fixing ownership after rsync (defensive no-op - rsync above already writes as skypane via sudo)"
