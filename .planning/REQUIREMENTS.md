@@ -161,7 +161,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **TST-06**: Separate test and deploy concurrency groups; never cancel an in-flight deploy
 - [x] **TST-07**: `--only-shell`, cache `~/.cache/ms-playwright`
 - [x] **TST-08**: Hash-pinned lock files for runtime and dev deps
-- [ ] **TST-09**: Subprocess coverage (`patch = ["subprocess"]`), then raise `fail_under` to the measured floor
+- [x] **TST-09**: Subprocess coverage (`patch = ["subprocess"]`), then raise `fail_under` to the measured floor
 - [ ] **TST-10**: Migrated to pytest; one app-server fixture replaces every copy
 - [ ] **TST-11**: pytest-playwright; a missing browser is a failure in CI; parallelised per test with xdist
 - [ ] **TST-12**: Each rewritten as a behaviour or parsed-DOM assertion, or deleted with a stated reason in the migration ledger. No test reads `.planning/` or asserts on comments
@@ -356,7 +356,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TST-06 | Phase 32 | Complete |
 | TST-07 | Phase 32 | Complete |
 | TST-08 | Phase 32 | Complete |
-| TST-09 | Phase 32 | Pending |
+| TST-09 | Phase 32 | Complete |
 | TST-10 | Phase 33 | Pending |
 | TST-11 | Phase 33 | Pending |
 | TST-12 | Phase 33 | Pending |

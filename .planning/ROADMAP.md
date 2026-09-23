@@ -1568,7 +1568,7 @@ Plans:
 4. Coverage measured for `companion/app.py` and `byos_server.py`; gate raised to the measured floor
 5. Runtime and dev dependencies hash-locked; Playwright shell cached
 
-**Plans:** 14/15 plans executed
+**Plans:** 15/15 plans complete
 
 **Wave structure:** W1 infra + baselines (32-01, 32-02) → W2 harness migrations, /poll-now fake provider, hash-locks (32-03 … 32-12, disjoint files) → W3 runner retirement + ledger assembly, CI (32-13, 32-14) → W4 coverage floor + docs (32-15)
 
@@ -1587,7 +1587,7 @@ Plans:
 - [x] 32-12-PLAN.md — hash-locked runtime and dev deps for 3.14, `--require-hashes` in deploy.sh
 - [x] 32-13-PLAN.md — assemble and verify the migration ledger, retire run_all_tests.py, run-all-tests.sh → pytest wrapper, subprocess coverage
 - [x] 32-14-PLAN.md — CI on 3.14, hash-enforced installs, separate test/deploy concurrency (deploy never cancelled), Playwright shell + cache, firmware host tests
-- [ ] 32-15-PLAN.md — measure app.py/byos coverage, raise fail_under to the measured floor, docs (CLAUDE.md, CONTRIBUTING, README)
+- [x] 32-15-PLAN.md — measure app.py/byos coverage, raise fail_under to the measured floor, docs (CLAUDE.md, CONTRIBUTING, README)
 
 ### Phase 33: Companion tests on pytest — behaviour over source text
 

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 32-14-PLAN.md
-last_updated: "2026-09-23T17:44:38.225Z"
+status: verifying
+stopped_at: Completed 32-15-PLAN.md
+last_updated: "2026-09-23T18:13:12.454Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 53
-  completed_phases: 40
+  completed_phases: 41
   total_plans: 314
-  completed_plans: 291
-  percent: 75
+  completed_plans: 292
+  percent: 77
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -32,7 +32,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Ready to execute
+status: Phase complete — ready for verification
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
@@ -452,6 +452,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 32 P12 | 20min | 2 tasks | 6 files |
 | Phase 32 P13 | 40m | 3 tasks | 22 files |
 | Phase 32 P14 | 10min | 2 tasks | 2 files |
+| Phase 32 P15 | 35min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -867,6 +868,8 @@ Recent decisions affecting current work:
 - [Phase 32]: firmware.yml host-test step relocated (not duplicated) from Phase 34's build job into a new host-tests job, per plan 32-14
 - [Phase 32]: ci.yml deploy concurrency uses cancel-in-progress: false plus a git ls-remote stale-commit guard instead of cancelling a running deploy
 - [Phase 32]: actions/cache pinned via git ls-remote --tags (api.github.com unreachable this session) to v6.1.0 / 55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+- [Phase 32]: 32-15: fail_under raised from 83 to 88 (measured floor, no margin, per TST-09), measured non-root on both CI's CPython 3.14.0rc2 and the repo's 3.11.15 dev venv (identical 88.11%).
+- [Phase 32]: 32-15: coverage measured as a non-root user (runuser -u nobody), not root, to match GitHub CI's non-root runner and avoid under-counting 3 permission-bit tests that skip under root.
 
 ### Pending Todos
 
@@ -983,8 +986,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-23T17:44:38.161Z
-Stopped at: Completed 32-14-PLAN.md
+Last session: 2026-09-23T18:13:12.390Z
+Stopped at: Completed 32-15-PLAN.md
 
 Resume file: 
 
