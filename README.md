@@ -186,7 +186,9 @@ that other people use over a network.
 
 If you'd like to use SkyPane in a product or service without the AGPL's
 obligations, for example without publishing your own changes, a
-commercial licence is available. Get in touch via
+commercial licence is available. Get in touch by
+[opening an issue](https://github.com/florianlepont/skypane/issues/new)
+titled "Commercial licence", or via
 [github.com/florianlepont](https://github.com/florianlepont).
 
 Everything published before 2026-09-23 was released under the MIT
