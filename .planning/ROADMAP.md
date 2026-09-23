@@ -1568,14 +1568,14 @@ Plans:
 4. Coverage measured for `companion/app.py` and `byos_server.py`; gate raised to the measured floor
 5. Runtime and dev dependencies hash-locked; Playwright shell cached
 
-**Plans:** 2/15 plans executed
+**Plans:** 3/15 plans executed
 
 **Wave structure:** W1 infra + baselines (32-01, 32-02) → W2 harness migrations, /poll-now fake provider, hash-locks (32-03 … 32-12, disjoint files) → W3 runner retirement + ledger assembly, CI (32-13, 32-14) → W4 coverage floor + docs (32-15)
 
 Plans:
 - [x] 32-01-PLAN.md — pytest/xdist/cov/pytest-socket dev deps, pytest config, ruff py314, root conftest, cross-process network guard, fake providers, companion legacy-harness shim
 - [x] 32-02-PLAN.md — pre-migration baseline transcripts of the 15 server-side harnesses, migration-ledger scaffold and checker
-- [ ] 32-03-PLAN.md — migrate dither, runway_config, notify, panel_preview, pipeline_e2e
+- [x] 32-03-PLAN.md — migrate dither, runway_config, notify, panel_preview, pipeline_e2e
 - [ ] 32-04-PLAN.md — migrate manual_resolutions (root-safe), colour_rules, enrich
 - [ ] 32-05-PLAN.md — migrate illustrations, plane_detection (onto the fake providers)
 - [ ] 32-06-PLAN.md — migrate stub-server/test_poll_cycle (byos fixtures, guarded children)

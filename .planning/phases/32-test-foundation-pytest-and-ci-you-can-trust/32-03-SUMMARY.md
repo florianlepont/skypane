@@ -125,3 +125,9 @@ None beyond the notify.py DNS stub above. `server/test_pipeline_e2e.py` passed o
 ---
 *Phase: 32-test-foundation-pytest-and-ci-you-can-trust*
 *Completed: 2026-09-23*
+
+## Self-Check: PASSED
+
+All 5 migrated test modules, 5 ledger fragments, and this summary confirmed present on disk;
+task commit hashes (`c09bdd4`, `bfc2f87`) and this summary's own commit (`84ca692`) confirmed
+present in `git log --oneline --all`.

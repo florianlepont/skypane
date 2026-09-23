@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 32-02-PLAN.md
-last_updated: "2026-09-23T14:15:41.653Z"
+stopped_at: Completed 32-03-PLAN.md
+last_updated: "2026-09-23T14:28:00.870Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 53
   completed_phases: 40
-  total_plans: 292
-  completed_plans: 269
+  total_plans: 314
+  completed_plans: 270
   percent: 75
 ---
 
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 92%
+  [█████████░] 86%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -58,7 +58,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 Phase: 32 (test-foundation-pytest-and-ci-you-can-trust) — EXECUTING
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
-Plan: 3 of 15
+Plan: 4 of 15
 
 **23-10 executed (2026-09-13), wave 8 (depends on 23-01, 23-02, 23-09) — D3's remainder: the selection scale and wash fade, the theme-preview crossfade, both `<dialog>` entrances via `@starting-style`, and skeletons at final size.** **The one `@supports selector(:has(*))` block is still exactly one**, which the plan named as its single largest risk, and the way through was one sentence written into the stylesheet where the next editor will look: a transition is a property of the ELEMENT, not of the state, so declared on the base rule of `.theme-chip`/`.theme-chip__body`/`.runway-card` it animates the live `:has(input:checked)` treatment and the server-rendered `--selected` fallback identically, from one declaration, and no second feature query is needed. Both halves are asserted inside a SINGLE check function — the transitions exist outside the query AND the query contains no `transition` at all — so "helpfully" moving one inside fails exactly once rather than twice. The arithmetic comment, every border width, both dashed markers and the `:has(input:checked):hover` restore rule are untouched: the `style.css` diff for Task 1 is **111 insertions, 0 deletions**. **The decision that mattered most was refusing to loosen a tolerance.** `transform: scale(1.02)` is what makes selection free of T6 by construction, but `getBoundingClientRect()` reports the box AFTER transforms, so 22-15's still-green three-equal-outer-widths assertion failed by 1.9px and its equal-tops assertion by ~1px **on a correct build**. Shrinking the scale until it squeaked under the 1px tolerance would have been passing by luck and would have let a test choose the design; deleting the assertion would have retired the check T6 was closed with. Instead the read neutralises `transform` (and `transition` first, or it catches the 180ms unwind mid-flight) and the same check now asserts that **exactly one of the three cards really is scaled** — neutralising a thing you have not proven exists is how a check quietly becomes one that also passes when the feature is gone. The new chip check reads `offsetWidth/offsetHeight/offsetLeft/offsetTop` throughout, which is transform-independent by definition; **that layout-box-versus-visual-box distinction is the pattern worth carrying forward.** **Task 3 found a real, pre-existing ~500px layout shift.** Home's frame picture reserved its box correctly at 360px and reserved *nothing* at 1280px: measured **2 × 2** before the render arrived and **380 × 506** after. `width: auto` on an image with no content yet leaves it an intrinsic size of ZERO however well known its ratio is — the `width="600" height="800"` attributes supply a ratio, and a ratio alone resolves nothing without a definite size in one axis; mobile escaped only because `width: 100%` is definite. Fixed with `width: min(100%, calc(60vh * 3 / 4))` — the same 60vh cap the `max-height` states, written as a definite width — plus an explicit `aspect-ratio: 3 / 4` so the reservation no longer depends on the shape of whatever bytes arrive (and, because the universal reset makes every box border-box, so the width resolves to exactly the cap rather than the cap minus the hairline). **A flaky harness run was chased rather than reruns-until-green:** the crossfade could stall invisible on the discarded theme — `transitionend` only arrives if a transition actually RAN, and a class removed and re-added without an intervening style recalculation (an image `load` and a click in the same frame) transitions nothing. Reproduced at **4 stalls in 14 runs**, fixed by consulting the computed opacity before waiting, **0 in 14** after. **The skeleton deliberately does NOT shimmer, and the reasoning is in `style.css` rather than only in the summary**: the only placement where a pure-CSS skeleton auto-hides on load is the image's own `background-image` (painted above the backing, below the decoded bitmap), and that is exactly the placement where `skypane-pulse` — which cycles opacity, an element property — would go on breathing the decoded picture forever on a page left open all day. Overlays behind are covered from frame one; overlays in front can never learn the image arrived; a JS toggle would need a fourteenth script and route. Four keyframes stay four. **Both dialogs arrive through ONE `@starting-style` rule** (History's `.lightbox` and the Airlines gallery's `.lightbox--wide` are the same component under two classes) and the close is one-directional, with `display`/`allow-discrete` banned by a harness check rather than by a comment, following 23-08's precedent — a modal that has not reached `display: none` is an invisible sheet in the top layer. `::backdrop` is deliberately unanimated: the global reduce override matches `*, *::before, *::after`, and `::backdrop` is none of them. **Ten mutations, all quoted**, and one taught something: adding `allow-discrete` left the viewport-centre hit test returning FALSE (the closed dialog had left the top layer and sat in normal flow) while `display: block` and a 307,965px² box both caught it — a check built on the hit test alone would have passed the defect. **Four checks failed the vacuity question**, three of mine and one inherited: the crossfade check passed on the CUT until a mid-flight sample was added; the neutralised T6 read needed the "exactly one is scaled" clause; `before == after` is satisfied by `2x2 == 2x2` so the reserved box needed a floor; and `.lightbox[open] {` legitimately occurs twice on a correct file because `@starting-style` repeats its selector. **Three self-inflicted grep traps**, all the warned-about class: my own JS comment containing `setTimeout` answered my own timer ban (fixed by comment-stripping), backticks in my JS prose reddened the standing no-backtick rule, and `grep -c '@starting-style'` now returns 7 raw against **2** comment-stripped blocks / **1** dialog entrance / **2** dialogs served — recorded, not adjusted. Two pre-existing checks retargeted IN PLACE: the runway T6/B9 measurement, and 22-01's Cancel/T8 preview assertions (a synchronous read became a bounded `wait_for_function`, because the swap now lands one `var(--motion-fast)` after the click). `dirty-state.js` was NOT edited — the whole adaptation happened on the `theme-preview.js` side, as the plan directed. The browser fixture's 8×8 stand-in render became the **600 × 800** the markup itself declares, because an image whose loaded ratio is 1:1 against a 3:4 promise makes a layout-shift measurement meaningless. Counts re-derived by RUNNING: `config-page` 239→240, `view-pages` 152→153, `browser-ux` 50→54; `companion-app` and `status-pages` unmoved; `run-all-tests.sh` at exactly the documented 5-check root-sandbox baseline **verified by failing check NAMES**, coverage 93%. **`CFG-32` deliberately NOT ticked — 23-11 closes it.**
 
@@ -177,7 +177,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-23 — Phase 32 executing: plans 32-01 (pytest infrastructure, network guard, companion shim) and 32-02 (15 server harness baselines, migration ledger tool) complete; origin/main merged in (Phase 34 and 37 plans).
+Last activity: 2026-09-23
 Last activity: 2026-09-23 — Phase 34 planned (firmware track of the code-audit remediation): 11 plans in 5 waves, the last one the single developer-run hardware session; ready for /gsd-execute-phase 34.
 Last activity: 2026-09-23 - Completed quick task 260923-fr4: server-side BATTERY EMPTY hold screen (≤3300 mV latch, 3700 mV recovery, 3600 s parked cadence), styled like DISPLAY OFF / QUIET HOURS.
 Last activity: 2026-09-22 — Phase 31 complete on main (PR #78): companion/test_browser_ux.py split into three files (test_browser_ux_helpers.py, test_browser_ux_health_drawings.py, test_browser_ux_quiet_wake.py) for CI parallelization, 5/5 plans.
@@ -439,6 +439,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 31 P05 | 45min | 3 tasks | 1 files |
 | Phase 32 P01 | 55min | 3 tasks | 8 files |
 | Phase 32 P02 | 13min | 2 tasks | 18 files |
+| Phase 32 P03 | 45min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -827,6 +828,9 @@ Recent decisions affecting current work:
 - [Phase 32]: 32-02: label_matches() matches on the raw baseline line (not a pre-split label/reason pair) so the FAIL '<label> - <reason>' vs PASS '<label>' asymmetry is handled in one place
 - [Phase 32]: 32-02: check() mode fails only on a collection error in the harness under test itself, warning (not failing) on errors in other files, since a sibling migration plan in the same wave may be mid-edit
 - [Phase 32]: 32-02: the leftover EXPECTED_CHECK_COUNT/def check( marker check only fires once a ledger fragment declares at least one ported or deleted row, so an all-pending fragment is not penalized for its harness legitimately still being unmigrated
+- [Phase 32]: server/test_notify.py: an autouse fixture stubs socket.getaddrinfo('ntfy.sh', ...) to a fixed public IP so send_notification()'s real SSRF DNS lookup keeps running under the non-loopback network guard instead of being bypassed
+- [Phase 32]: server/test_pipeline_e2e.py's 7 old checks consolidate into ONE pytest test function/node id (shared tmp_path state directory across setup/download/battery/park is a genuinely sequential scenario, MR-4)
+- [Phase 32]: server/test_pipeline_e2e.py uses the fake_providers fixture (default adsbdb 404) for run_once()'s enrichment call instead of relying on the network guard's exception being silently swallowed by enrich.py, matching the baseline's route_source=airline_only outcome intentionally rather than incidentally
 
 ### Pending Todos
 
@@ -943,8 +947,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-23T14:15:41.587Z
-Stopped at: Completed 32-02-PLAN.md
+Last session: 2026-09-23T14:28:00.809Z
+Stopped at: Completed 32-03-PLAN.md
 
 Resume file: 
 
