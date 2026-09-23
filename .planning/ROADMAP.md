@@ -1648,7 +1648,9 @@ Plans:
 
 **Goal:** The companion cannot be locked by a stranger, deploys are atomic and verified, state is backed up off-box, and services, secrets and SSH are hardened.
 **Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, SEC-06, SEC-07, SEC-08 (ledger: `.planning/audits/2026-09-23-code-audit.md`)
-**Depends on:** Phase 36
+**Depends on:** Phase 32 (Wave A); Phase 36 (Wave B only)
+
+**Dependency correction (2026-09-23, agreed with the developer):** Phase 37 no longer depends on Phase 36 as a whole. Wave A depends only on Phase 32 (new tests are pytest tests on Phase 32's fixtures): SEC-01 per-IP login throttle, SEC-02 HSTS, SEC-03 `Origin`/`Sec-Fetch-Site` check on POST, SEC-04 nightly off-box backups (pulled over SSH by the developer's Mac) with a rehearsed restore and README correction, SEC-05 atomic deploy + post-deploy health check + units/Caddyfile deployed with `daemon-reload`, SEC-06 systemd hardening except byos binding, SEC-07 env file `root:root 600` and `DEPLOY_HOST_KEY` via `env:`, SEC-08 SSH drop-in `00-skypane.conf` + `PermitRootLogin no` + `sshd -t`. Wave B depends on Phase 36 (which modifies `stub-server/byos_server.py`): byos `--bind 127.0.0.1` + `IPAddressDeny`/`IPAddressAllow` (SEC-06 remainder) and the byos secret moved off the command line (SEC-07 remainder).
 
 **Success criteria:**
 1. Failed logins from one IP never lock another
