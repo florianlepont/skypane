@@ -2,7 +2,7 @@
 phase: 32
 slug: test-foundation-pytest-and-ci-you-can-trust
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-09-23
 ---
