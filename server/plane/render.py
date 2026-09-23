@@ -348,6 +348,24 @@ DISPLAY_OFF_BODY_LINES = (
 )
 DISPLAY_OFF_BODY_TEXT = " ".join(DISPLAY_OFF_BODY_LINES)
 
+# 260923-fr4 (battery-empty-screen-before-the-pack-die): the BATTERY EMPTY
+# hold screen's locked English copy, following DISPLAY_OFF_HEADING_TEXT/
+# DISPLAY_OFF_BODY_LINES' own convention exactly - a fixed-string sibling,
+# not a %-template (there is no return time for a flat pack, same reasoning
+# as D-03/D-04's display-off body). Two authored sentences, joined form kept
+# for locked-copy equality checks, matching DISPLAY_OFF_BODY_TEXT's own
+# convention. English per the locked panel-copy decision; deliberately no
+# fault vocabulary ("unavailable", "error", "offline", "disconnected") - a
+# flat battery is expected, not a malfunction - and the second sentence
+# stays true because poll_loop resumes the frame on its own once a
+# recovering reading arrives, with no user action beyond charging.
+BATTERY_EMPTY_HEADING_TEXT = "BATTERY EMPTY"
+BATTERY_EMPTY_BODY_LINES = (
+    "Charge the frame over USB-C.",
+    "It will pick up where it left off.",
+)
+BATTERY_EMPTY_BODY_TEXT = " ".join(BATTERY_EMPTY_BODY_LINES)
+
 # --- The dimmed hold composition (revised on real glass, 12-06 session) ---------
 # Shared by the two "resting on purpose" screens, DISPLAY OFF and QUIET HOURS,
 # and drawn by one routine (_build_dimmed_hold_canvas()) so the two share
@@ -1998,6 +2016,38 @@ def _build_display_off_canvas(source_fault=False, battery_low=False):
     )
 
 
+def _build_battery_empty_canvas():
+    """Build the BATTERY EMPTY hold canvas (quick task 260923-fr4): the
+    server's own answer to the 2026-09-14 depletion run, where the panel
+    froze mid-transition at about 2946 mV instead of ending on a screen that
+    says anything (`hardware/BATTERY-RUN.md`). poll_loop.py latches this
+    state once the reported pack voltage crosses BATTERY_CRITICAL_MV and
+    parks the frame here - see poll_loop.py's `apply_battery_critical_hysteresis`
+    for the 3300/3700 hysteresis and byos_server.py's `battery_critical_sleep_s`
+    for the hourly check-in pin.
+
+    Goes through the shared `_build_dimmed_hold_canvas()` composition, per
+    the user's explicit instruction: never a bespoke layout, always the same
+    family as DISPLAY OFF and QUIET HOURS (dithered dark field, white ink,
+    glyph, tracked label, rule, body).
+
+    Unlike its siblings, `theme_id`, `battery_low` and `source_fault` are
+    not accepted here at all - `build_canvas()` dispatches this state before
+    any of the three ever reach this function. That is deliberate rather
+    than an oversight: the pack is already flat, so the low-battery badge
+    would be redundant, and the image's bytes (and therefore its sha256
+    hash) must stay perfectly constant for the whole parked episode so every
+    hourly check-in byos serves is a hash-skip, never a redraw. A badge or a
+    theme toggling mid-episode would break that invariant.
+    """
+    return _build_dimmed_hold_canvas(
+        draw_empty_battery_icon,
+        EMPTY_BATTERY_ICON_HEIGHT_PX,
+        BATTERY_EMPTY_HEADING_TEXT,
+        BATTERY_EMPTY_BODY_LINES,
+    )
+
+
 # --- Display-off power glyph (Phase 12, 12-06 on-glass session) --------------
 # Drawn from primitives like every other panel mark (draw_battery_icon,
 # draw_source_fault_badge) - no vendored asset, so nothing to attribute.
@@ -2100,6 +2150,66 @@ def draw_moon_icon(draw, center_x, top_y, ink_idx):
     points = _unwrap(outer) + list(reversed(_unwrap(inner)))
     draw.polygon(points, fill=ink_idx)
     return MOON_ICON_DIAMETER_PX
+
+
+# --- Battery-empty glyph (quick task 260923-fr4) -----------------------------
+# An upright hollow battery, chosen over the horizontal draw_battery_icon()
+# form (the bottom-left low-battery badge) because a 76px-tall family glyph
+# drawn horizontally would run about 150px wide - heavier than the power ring
+# and the crescent, and out of step with the family's shared scale. Upright
+# instead, at the same 76px height as the ring and the crescent
+# (EMPTY_BATTERY_ICON_HEIGHT_PX == MOON_ICON_DIAMETER_PX == POWER_ICON_DIAMETER_PX)
+# and the same 48px width as the runway strip (EMPTY_BATTERY_ICON_WIDTH_PX ==
+# RUNWAY_ICON_WIDTH_PX) - the family's other upright glyph, so this one reads
+# as a sibling rather than a fourth, unrelated scale.
+#
+# The body is drawn as a stroke-only outline, exactly like draw_battery_icon()
+# draws its own body outline - the interior is left unpainted (hollow) so the
+# dithered field shows through, the same reasoning _build_hold_canvas()'s own
+# docstring gives for why every mark here is drawn in the caller's `ink_idx`
+# rather than a hardcoded index: a flat interior fill would paint a solid
+# patch over the dithered field, which is exactly what draw_moon_icon()'s
+# module comment says the crescent is filled (rather than outlined) to avoid.
+# A dead pack reading zero-charge is also the honest picture: an empty
+# battery has nothing inside to show.
+EMPTY_BATTERY_ICON_HEIGHT_PX = 76
+EMPTY_BATTERY_ICON_WIDTH_PX = 48
+EMPTY_BATTERY_NUB_W_PX = 20
+EMPTY_BATTERY_NUB_H_PX = 8
+EMPTY_BATTERY_ICON_STROKE_PX = POWER_ICON_STROKE_PX  # same Bold-class 8px stroke as the ring
+
+
+def draw_empty_battery_icon(draw, center_x, top_y, ink_idx):
+    """Draw the battery-empty mark centred on `center_x`, its topmost pixel
+    (the nub's top edge) at `top_y`, and return the glyph's total height so
+    the caller's vertical-centring arithmetic can account for it exactly
+    like every other `draw_*_icon()` here.
+
+    Two flat-filled/outlined rectangles, both in `ink_idx` (never a
+    hardcoded index - the caller supplies DIMMED_INK): a solid
+    EMPTY_BATTERY_NUB_W_PX x EMPTY_BATTERY_NUB_H_PX terminal nub centred on
+    top, then an EMPTY_BATTERY_ICON_WIDTH_PX-wide body below it, drawn as an
+    EMPTY_BATTERY_ICON_STROKE_PX-wide outline only - no fill, so the
+    interior stays the dithered field. Uses the same inclusive-corner
+    `right - 1` / `bottom - 1` convention as draw_runway_icon() so the
+    rendered footprint is exactly the nominal width/height, not one pixel
+    wider (contrast draw_battery_icon()'s own docstring, which documents the
+    opposite, deliberate, one-pixel-wider convention for that glyph).
+    """
+    nub_left = center_x - EMPTY_BATTERY_NUB_W_PX // 2
+    nub_right = nub_left + EMPTY_BATTERY_NUB_W_PX
+    draw.rectangle((nub_left, top_y, nub_right - 1, top_y + EMPTY_BATTERY_NUB_H_PX - 1), fill=ink_idx)
+
+    body_top = top_y + EMPTY_BATTERY_NUB_H_PX
+    body_left = center_x - EMPTY_BATTERY_ICON_WIDTH_PX // 2
+    body_right = body_left + EMPTY_BATTERY_ICON_WIDTH_PX
+    body_bottom = top_y + EMPTY_BATTERY_ICON_HEIGHT_PX
+    draw.rectangle(
+        (body_left, body_top, body_right - 1, body_bottom - 1),
+        outline=ink_idx,
+        width=EMPTY_BATTERY_ICON_STROKE_PX,
+    )
+    return EMPTY_BATTERY_ICON_HEIGHT_PX
 
 
 def _build_hold_canvas(glyph_draw, glyph_height, label_text, sentences, field_idx, ink, dithered, source_fault=False, battery_low=False):
@@ -2498,7 +2608,18 @@ def build_canvas(
     fixed body constant - no `theme_id`, `runway_id`, `route`,
     `previous_*`, or `quiet_hours_until` value reaches it, exactly like the
     quiet-hours and empty states ignore `theme_id`.
+
+    `state == "battery_empty"` (quick task 260923-fr4): the top-priority
+    hold, dispatched before every other state check below. A dedicated,
+    always-White/Black screen with the locked "BATTERY EMPTY" heading -
+    `theme_id`, `runway_id`, `route`, `previous_*`, `source_fault`,
+    `battery_low` and `quiet_hours_until` are all ignored, not merely
+    unused: the image's bytes must stay byte-stable for the whole parked
+    episode (poll_loop.py's hourly check-in relies on the hash never
+    changing), and a badge or theme toggling mid-episode would break that.
     """
+    if state == "battery_empty":
+        return _build_battery_empty_canvas()
     if state == "display_off":
         return _build_display_off_canvas(source_fault=source_fault, battery_low=battery_low)
     if state == "quiet_hours":
@@ -2588,7 +2709,11 @@ _PREVIEW_PREVIOUS_ROUTE = {
 
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--state", choices=["departing", "arriving", "empty", "quiet_hours", "display_off"], default="empty")
+    parser.add_argument(
+        "--state",
+        choices=["departing", "arriving", "empty", "quiet_hours", "display_off", "battery_empty"],
+        default="empty",
+    )
     parser.add_argument("--callsign", default=None, help="Manual QA only: fake callsign for a departing/arriving preview.")
     parser.add_argument("--hex", default="000000", help="Manual QA only: fake ICAO hex (used if --callsign is omitted).")
     parser.add_argument(

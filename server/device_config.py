@@ -84,6 +84,17 @@ WAKE_INTERVAL_MAX_S = 3600
 # it - the same cross-file convention WAKE_INTERVAL_MIN_S/WAKE_INTERVAL_MAX_S already use.
 DISPLAY_OFF_SLEEP_S = 300
 
+# Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die): the
+# fixed check-in cadence while the BATTERY EMPTY hold is active - one hour,
+# the developer-confirmed ceiling (WAKE_INTERVAL_MAX_S above) rather than a
+# shorter figure, since detection is skipped entirely while parked (there is
+# nothing new to check for until the pack is recharged) and every hourly
+# check-in serves the identical byte-stable image (a hash-skip, never a
+# redraw). stub-server/byos_server.py independently redefines this same
+# value across the vendor boundary and must be kept in step with it - the
+# same cross-file convention DISPLAY_OFF_SLEEP_S above already documents.
+BATTERY_CRITICAL_SLEEP_S = 3600
+
 # Deliberately no DEFAULT_WAKE_INTERVAL_S constant. Unlike every other field in this
 # module, wake_interval_s's unset state is `None`, a single deliberate exception to this
 # module's otherwise-universal "always return a concrete value" contract - the true

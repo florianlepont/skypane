@@ -31,7 +31,11 @@ STUB_SERVER_PATH = os.path.join(REPO_ROOT, "stub-server", "byos_server.py")
 IMAGE_BYTES = 960000
 LEGAL_NIBBLES = {0x0, 0x1, 0x2, 0x3, 0x5, 0x6}
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 6
+EXPECTED_CHECK_COUNT = 7  # Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die):
+# +1 (end to end through the real device protocol: a 3290 mV check-in latches BATTERY EMPTY
+# and its hash is served with sleep_s 3600; a second run_once() is a byte-identical hash-skip;
+# a 4100 mV check-in's own reply anticipates recovery before the next run_once() clears the
+# park and serves a different hash)
 
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
@@ -152,6 +156,7 @@ def main():
         import server.poll_loop as poll_loop
         import server.device_config as device_config
         import server.panel_format as panel_format
+        import server.plane.render as render
     except ImportError as exc:
         # Ordering note: this harness is written and run now, before
         # server/poll_loop.py (or its server/plane/render.py dependency)
@@ -353,6 +358,105 @@ def main():
             "served panel.bin only inside the icon's byte columns/rows, and the packed ink nibble at (1520,70) "
             "matches whichever state run_once() actually reported",
             _real_battery_poll_changes_only_the_icon_region,
+        )
+
+        # 7. Quick task 260923-fr4 (battery-empty-screen-before-the-pack-
+        # die): the whole BATTERY EMPTY slice, end to end, through the
+        # real device protocol. A third byos_server.py subprocess is
+        # started against this same tmpdir, mirroring the real
+        # deployment's shared SKYPANE_STATE_DIR exactly like check 6
+        # above.
+        def _real_battery_critical_park_and_recovery_end_to_end():
+            park_harness = BYOSHarness(panel_path, tmpdir)
+            ctx["park_harness"] = park_harness
+            try:
+                park_harness.start()
+                status, _, body = http_request(
+                    park_harness.base_url() + "/device/v1/setup", method="POST",
+                    json_body={"mac": "aa:bb:cc:dd:ee:04", "hw_rev": "pipeline-e2e-battery-critical"})
+                if status != 200:
+                    return False, "battery-critical setup expected 200, got %d" % status
+                token = json.loads(body.decode())["device_token"]
+
+                # Check in at 3290 mV (below BATTERY_CRITICAL_MV), then run
+                # one poll cycle - it must latch the park and render
+                # BATTERY EMPTY, byte-identical to
+                # pack_panel(build_canvas(None, "battery_empty")).
+                status, _, _ = http_request(
+                    park_harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % token, "X-Battery-Mv": "3290"})
+                if status != 200:
+                    return False, "3290 mV check-in expected 200, got %d" % status
+                time.sleep(1.0)  # allow the child process's write to land
+
+                result1 = poll_loop.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+                if result1.get("state") != "battery_empty":
+                    return False, (
+                        "expected state='battery_empty' after a 3290 mV check-in, got %r" % (result1.get("state"),)
+                    )
+                with open(panel_path, "rb") as fh:
+                    panel_parked_1 = fh.read()
+                expected_hash = hashlib.sha256(
+                    panel_format.pack_panel(render.build_canvas(None, "battery_empty"))
+                ).hexdigest()
+                if hashlib.sha256(panel_parked_1).hexdigest() != expected_hash:
+                    return False, "panel.bin after the park does not equal pack_panel(build_canvas(None, 'battery_empty'))"
+
+                status, _, body = http_request(
+                    park_harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % token})
+                if status != 200:
+                    return False, "post-park display poll expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if obj.get("sleep_s") != 3600:
+                    return False, "post-park sleep_s = %r, expected exactly 3600" % (obj.get("sleep_s"),)
+                served_hash = (obj.get("image_hash") or "").split(":", 1)[-1]
+                if served_hash != expected_hash:
+                    return False, (
+                        "post-park image_hash %r does not match the BATTERY EMPTY hash %r"
+                        % (served_hash, expected_hash)
+                    )
+
+                # A second run_once() with the panel already parked changes
+                # nothing - the hash-skip the whole park exists to produce.
+                poll_loop.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+                with open(panel_path, "rb") as fh:
+                    panel_parked_2 = fh.read()
+                if panel_parked_2 != panel_parked_1:
+                    return False, "a second parked run_once() cycle changed panel.bin - expected a byte-identical hash-skip"
+
+                # Check in at 4100 mV (recovering) - THIS reply must
+                # already carry the normal (non-parked) sleep_s,
+                # anticipating recovery within the very request that
+                # reports it, before the next run_once() has even run.
+                status, _, body = http_request(
+                    park_harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % token, "X-Battery-Mv": "4100"})
+                if status != 200:
+                    return False, "4100 mV recovery check-in expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if obj.get("sleep_s") == 3600:
+                    return False, "recovering check-in still returned the parked sleep_s (3600) - recovery anticipation failed"
+                time.sleep(1.0)  # allow the child process's write to land
+
+                # The next run_once() clears the park and repaints the live
+                # board - a different hash from the parked one.
+                result2 = poll_loop.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+                if result2.get("state") == "battery_empty":
+                    return False, "expected the park to clear after a 4100 mV recovery, but state is still 'battery_empty'"
+                with open(panel_path, "rb") as fh:
+                    panel_recovered = fh.read()
+                if hashlib.sha256(panel_recovered).hexdigest() == expected_hash:
+                    return False, "panel.bin after recovery still matches the BATTERY EMPTY hash, expected a different one"
+                return True, ""
+            finally:
+                park_harness.stop()
+        check(
+            "end to end through the real device protocol: a 3290 mV check-in followed by run_once() "
+            "latches BATTERY EMPTY and serves its hash with sleep_s 3600; a second run_once() is a "
+            "byte-identical hash-skip; a 4100 mV check-in's OWN reply anticipates recovery (sleep_s "
+            "!= 3600) before the next run_once() clears the park and serves a different hash",
+            _real_battery_critical_park_and_recovery_end_to_end,
         )
 
     finally:

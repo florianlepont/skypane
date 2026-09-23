@@ -268,6 +268,78 @@ names, response shapes, telemetry printing) is untouched:
    No other endpoint, response field, status code, or telemetry print
    statement was touched by this change.
 
+8. **Added a BATTERY EMPTY `sleep_s` pin composed between the display-off pin
+   and the quiet-hours extension** (quick task 260923-fr4,
+   battery-empty-screen-before-the-pack-die). Prior to this quick task,
+   nothing here knew about `server/poll_loop.py`'s own new BATTERY EMPTY hold
+   (its own `apply_battery_critical_hysteresis()`, latched into
+   `poll_state.json`'s `battery_critical_active` key once the reported pack
+   voltage crosses 3300 mV): a parked frame would still be told to check in at
+   whatever cadence `wake_interval_s`/quiet-hours/display-off already produced
+   — anywhere from 60 seconds up — even though `poll_loop.py` skips detection
+   entirely while parked and serves the identical byte-stable panel every
+   time. This change is this vendored file's read-and-compose half of that
+   feature: while parked, the device's check-in cadence is pinned to a fixed
+   3600 seconds, so a parked frame stops polling every few minutes for an
+   image that cannot change until it is recharged.
+
+   Concretely: this repository adds `BATTERY_CRITICAL_SLEEP_S = 3600`
+   (independently redefined, never imported, mirroring
+   `server/device_config.py`'s constant of the same name and value) and
+   `BATTERY_CRITICAL_RECOVER_MV = 3700` (independently redefined, never
+   imported, mirroring `server/poll_loop.py`'s constant of the same name and
+   value); `read_battery_critical(state_dir)` (mirrors `read_display_enabled()`'s
+   shape and never-raises contract: a missing file, an unreadable file,
+   malformed JSON, a non-dict document, or a present value that is anything
+   other than the literal boolean `True` all degrade to `False` — proven to
+   match `server.wake.read_battery_critical()`'s own behaviour field-by-field
+   across the identical fixture set, since this file must never import that
+   module); and `battery_critical_sleep_s(base_sleep_s, state_dir,
+   fresh_battery_mv)` (returns `BATTERY_CRITICAL_SLEEP_S` while parked, unless
+   `fresh_battery_mv` — this same request's own already-parsed `X-Battery-Mv`
+   reading, possibly `None` — is already at or above
+   `BATTERY_CRITICAL_RECOVER_MV`, in which case `base_sleep_s` wins instead;
+   not parked, `base_sleep_s` unchanged). The `do_GET` `/device/v1/display`
+   branch is the single call site — the response's `sleep_s` expression
+   becomes
+   `quiet_hours_sleep_s(battery_critical_sleep_s(display_off_sleep_s(read_wake_interval_s(...), state_dir), state_dir, battery_mv), state_dir)`,
+   reusing the `battery_mv` this same handler already parses from the request
+   header before building the response.
+
+   **Recovery anticipation, not a plain latch read, is the reason
+   `fresh_battery_mv` exists as a third argument at all.** `poll_loop.py`
+   clears its persisted latch up to 30 seconds *after* the recovering
+   check-in that answers it — the very request `battery_critical_sleep_s()`
+   is composing a response for. A plain `read_battery_critical(state_dir)`
+   read at that instant would still see the stale `True` this same request is
+   about to make obsolete, and would hand the recovering device another 3600
+   seconds of sleep: one false "frame has not checked in" push, and a resume
+   delay of up to two hours. `battery_critical_sleep_s()` only avoids handing
+   out that one stale long sleep; `poll_loop.py`'s own latch remains the
+   single source of truth for the *state* (whether BATTERY EMPTY is actually
+   on the glass).
+
+   **The nesting order is explicit and load-bearing, extending local
+   modification 7's own documented contract.** `battery_critical_sleep_s()`
+   sits *inside* `quiet_hours_sleep_s()` but *outside* `display_off_sleep_s()`
+   — never any other order. Composed this way, the 3600s pin (or
+   `base_sleep_s`, on recovery) becomes the base
+   `quiet_hours_sleep_s()`'s existing, completely unmodified
+   `max(base_sleep_s, remaining)` operates on: an active quiet-hours window
+   longer than 3600 seconds can still extend the sleep, while a parked frame
+   is never handed less than the parked cadence by either of the other two
+   pins. `stub-server/test_poll_cycle.py` proves the composed chain live over
+   HTTP, plus the parity checks named above.
+
+   A deliberate decision **not** made here, for the same reasons already
+   given for local modifications 4, 6 and 7: this file does not import
+   `server.wake` or `server.poll_loop` to read or validate the latch — the
+   read logic above is a small, self-contained, independent reimplementation
+   of just the read half of `server.wake.read_battery_critical()`.
+
+   No other endpoint, response field, status code, or telemetry print
+   statement was touched by this change.
+
 **Everything else is verbatim**, including: the three endpoint
 implementations (`POST /device/v1/setup`, `GET /device/v1/display`,
 `POST /device/v1/log`, `GET /img/*`), the `--image`/`--port`/`--secret`/
@@ -305,10 +377,12 @@ reference simulator, per `docs/PROTOCOL.md`'s own text).
 
 A future re-pin of `byos_server.py` to a newer upstream commit is a
 deliberate, reviewable act: diff the new upstream file against the version
-recorded here, re-apply all **seven** local modifications (`--state-dir`,
+recorded here, re-apply all **eight** local modifications (`--state-dir`,
 `--image-url-scheme`, the DEVICE-04 `X-Battery-Mv` validation/persistence,
 the LED read, the quiet-hours `sleep_s` extension, the wake-interval
-read, and the display-off `sleep_s` pin), update the pinned commit hash
-above, and re-run `stub-server/test_poll_cycle.py` to confirm the contract
-— including both scheme checks, the quiet-hours drift guard, and the
-display-off composition-order coverage — still holds.
+read, the display-off `sleep_s` pin, and the BATTERY EMPTY `sleep_s` pin),
+update the pinned commit hash above, and re-run
+`stub-server/test_poll_cycle.py` to confirm the contract — including both
+scheme checks, the quiet-hours drift guard, the display-off
+composition-order coverage, and the BATTERY EMPTY composition-order and
+parity coverage — still holds.

@@ -3657,8 +3657,16 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
     # caller of this function already used to compute the `next_wake_iso`
     # argument above — see this function's own docstring for why calling
     # it again here is not a second, disagreeing computation.
+    #
+    # `battery_critical` (quick task 260923-fr4): the BATTERY EMPTY
+    # latch, read once per request by page_context() and carried in ctx -
+    # never a second read of poll_state.json here. Without it, a parked
+    # frame configured at a short wake_interval_s would cross this same
+    # function's own warn threshold every hour it stays parked and the
+    # strip would announce "late" for a frame that is deliberately
+    # resting on a flat battery, not silent.
     resolved_next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
-        ctx.get("last_checkin_ts"), device_cfg)
+        ctx.get("last_checkin_ts"), device_cfg, battery_critical=ctx.get("battery_critical", False))
     resolved_state = frame_state.resolve_state(
         resolved_next_wake_iso, effective_interval_s, hold_reason, now_value)
     headline_template_value = frame_state.headline_template(resolved_state)

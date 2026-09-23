@@ -554,3 +554,26 @@ now is "known, but not yet precise enough to decide." A second,
 shorter discharge run at a different candidate interval (e.g. 3600 s)
 would resolve the split and turn both the battery-capacity and the
 solar questions into informed decisions instead of guesses.
+
+## Follow-up: BATTERY EMPTY park (quick task 260923-fr4)
+
+This run ended with the panel frozen mid-transition: the device went
+silent at **2946 mV**, 17 minutes after the 2960 mV reading immediately
+before it, with no indication on the glass that anything was wrong — just
+whatever the last successful refresh happened to leave behind.
+
+The server now parks the frame on a deliberate BATTERY EMPTY screen
+instead. Thresholds are sourced directly from this run's own table:
+`BATTERY_CRITICAL_MV = 3300` (`server/poll_loop.py`) sits with real margin
+below the 3500 mV low-battery badge (which this run showed firing 57.2
+hours before silence — comfortable, honest lead time) and above the 2960
+mV point recorded 17 minutes before the device actually died, leaving
+runway to park the frame on a legible screen well before a real pack
+would repeat this run's silent freeze. `BATTERY_CRITICAL_RECOVER_MV =
+3700` re-arms with a 400 mV buffer once charging resumes.
+
+This is **unverified on glass** until the next real depletion run: no
+device has yet reached 3300 mV against this code, so the park's timing,
+the screen's legibility at the panel's actual e-ink refresh rate, and the
+one-hour parked check-in cadence are all confirmed only by the harnesses
+listed in `260923-fr4-SUMMARY.md`, not by a physical device.

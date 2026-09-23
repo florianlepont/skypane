@@ -1013,6 +1013,14 @@ EXPECTED_CHECK_COUNT = 315
 # by RUNNING (316/316 pass).
 EXPECTED_CHECK_COUNT = 316
 
+# Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die): +1 —
+# the frame strip's parked twin of the existing late-result check: with
+# ctx["battery_critical"]=True, a check-in that would otherwise be late
+# renders no late state at all, while the identical setup without the
+# park still does (the control). No existing check removed or
+# retargeted. 316 + 1 = 317, re-derived by RUNNING (317/317 pass).
+EXPECTED_CHECK_COUNT = 317
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -14046,6 +14054,49 @@ def main():
         "text-colour class staying the plain status-card__headline--warn hook (never a status "
         "colour as text, 22-UI-SPEC.md §3.3 rule 2)",
         _frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class)
+
+    # Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die):
+    # the parked twin of the check immediately above - same shape as the
+    # frame-silent notifier's own parked/unparked control pair
+    # (server/test_poll_loop.py): wake_interval_s 300 (5 min), a
+    # check-in 20 minutes ago. Unparked, that crosses the 900s (3 x 300)
+    # warn threshold and is late - the control below, proving this setup
+    # genuinely does trigger lateness at a cadence the check above never
+    # exercises. Parked (ctx["battery_critical"]=True), the 3600s
+    # BATTERY_CRITICAL_SLEEP_S-derived cadence puts the same check-in
+    # nowhere near its own warn threshold, so the strip must show no late
+    # state at all.
+    def _frame_strip_parked_suppresses_late_state():
+        device_cfg = {"wake_interval_s": 300, "display_enabled": True}
+        now = "2026-08-27T12:20:00+00:00"
+        checkin = "2026-08-27T12:00:00+00:00"  # 20 minutes before `now`
+
+        control_ctx = _frame_strip_ctx(checkin, device_cfg, now)
+        control_rendered = layout.frame_strip_html(control_ctx, return_to=layout.HOME_ROUTE)
+        control_cell = _frame_strip_update_cell_slice(control_rendered)
+        if control_cell is None or "dot--warn" not in control_cell:
+            return False, (
+                "control (not parked): expected the late state at wake_interval_s=300 with a "
+                "20-minute-old check-in, got %r" % (control_rendered,)
+            )
+
+        parked_ctx = _frame_strip_ctx(checkin, device_cfg, now)
+        parked_ctx["battery_critical"] = True
+        parked_rendered = layout.frame_strip_html(parked_ctx, return_to=layout.HOME_ROUTE)
+        parked_cell = _frame_strip_update_cell_slice(parked_rendered)
+        if parked_cell is not None:
+            for token in ("dot--warn", "Expected since", "status-card__headline--warn"):
+                if token in parked_cell:
+                    return False, (
+                        "parked: expected no late state with battery_critical=True, found %r in %r"
+                        % (token, parked_cell)
+                    )
+        return True, ""
+    check(
+        "with a parked frame (ctx['battery_critical']=True), wake_interval_s 300 and a 20-minute-old "
+        "check-in, the frame strip does NOT show the late state - the identical setup without the "
+        "park does (quick task 260923-fr4)",
+        _frame_strip_parked_suppresses_late_state)
 
     def _frame_strip_no_checkin_renders_no_update_cell_and_claims_no_state():
         device_cfg = {"wake_interval_s": 900, "display_enabled": True}

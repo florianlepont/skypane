@@ -18,6 +18,14 @@ SAME classifier the Frame tile's own thresholds come from, rather than
 importing `server.wake` at one call site and this shim at every other:
 two import paths to one module is how a later reader comes to believe
 there are two definitions of "late".
+
+Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die) adds
+`read_battery_critical()` and `BATTERY_CRITICAL_STATE_KEY` to the
+re-export list below, for the identical reason: the companion's ctx
+builder reads the same BATTERY EMPTY latch `effective_wake_interval_s()`/
+`next_wake_status()` now accept as a `battery_critical` keyword, and it
+must reach that latch through this one shim rather than a second,
+companion-local `import server.wake`.
 """
 from server.wake import (  # noqa: F401
     env_sleep_s, effective_wake_interval_s, device_staleness_thresholds,
@@ -26,4 +34,5 @@ from server.wake import (  # noqa: F401
     STALE_WARN_FLOOR_S, STALE_ERROR_FLOOR_S, SLEEP_ENV_VAR,
     classify_check_in_gap,
     CHECK_IN_ON_CADENCE, CHECK_IN_LATE, CHECK_IN_MISSING, CHECK_IN_UNKNOWN,
+    read_battery_critical, BATTERY_CRITICAL_STATE_KEY,
 )

@@ -46,7 +46,13 @@ if REPO_ROOT not in sys.path:
 # _build_display_off_canvas() theme-independence, the dispatch-ordering
 # regression guard shared with quiet_hours/empty, quiet_hours_until
 # non-leak, battery/fault indicators, palette+safe-box compliance)
-EXPECTED_CHECK_COUNT = 134
+# 260923-fr4: +6 (battery_empty render state - locked copy constants,
+# dispatch through the shared _build_dimmed_hold_canvas() composition
+# proven with a recording wrapper, byte-shared dimmed field with
+# display_off, draw_empty_battery_icon() glyph geometry, byte-stability
+# across source_fault/battery_low/theme_id, and the Black/White palette
+# dominance rule)
+EXPECTED_CHECK_COUNT = 140
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -3930,6 +3936,225 @@ def main():
         "_assert_in_safe_box() check across all four battery_low/source_fault combinations (neither / "
         "battery only / fault only / both)",
         _display_off_legal_palette_and_safe_box_across_indicator_combos,
+    )
+
+    # 135. Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die),
+    # (1): the locked English copy constants, asserted by exact equality
+    # (D-04's precedent, mirroring _display_off_copy_constants_match_locked_strings).
+    def _battery_empty_copy_constants_match_locked_strings():
+        if render.BATTERY_EMPTY_HEADING_TEXT != "BATTERY EMPTY":
+            return False, "BATTERY_EMPTY_HEADING_TEXT is %r, expected 'BATTERY EMPTY'" % (render.BATTERY_EMPTY_HEADING_TEXT,)
+        expected_lines = ("Charge the frame over USB-C.", "It will pick up where it left off.")
+        if render.BATTERY_EMPTY_BODY_LINES != expected_lines:
+            return False, "BATTERY_EMPTY_BODY_LINES is %r, expected %r" % (render.BATTERY_EMPTY_BODY_LINES, expected_lines)
+        return True, ""
+    check(
+        "BATTERY_EMPTY_HEADING_TEXT == 'BATTERY EMPTY' and BATTERY_EMPTY_BODY_LINES == the two locked "
+        "authored sentences, asserted by exact equality",
+        _battery_empty_copy_constants_match_locked_strings,
+    )
+
+    # 136. Quick task 260923-fr4, (2): build_canvas(None, "battery_empty")
+    # goes through the shared _build_dimmed_hold_canvas() composition exactly
+    # once, with the right glyph/height/copy and neither indicator set - a
+    # recording wrapper around the seam itself, monkeypatch-and-restore like
+    # every spy above, rather than inferring the call from pixels.
+    def _battery_empty_dispatches_through_shared_dimmed_composition():
+        orig = render._build_dimmed_hold_canvas
+        calls = []
+
+        def _spy(*args, **kwargs):
+            calls.append((args, kwargs))
+            return orig(*args, **kwargs)
+
+        render._build_dimmed_hold_canvas = _spy
+        try:
+            render.build_canvas(None, "battery_empty")
+        finally:
+            render._build_dimmed_hold_canvas = orig
+        if len(calls) != 1:
+            return False, "_build_dimmed_hold_canvas was called %d time(s), expected exactly 1" % (len(calls),)
+        args, kwargs = calls[0]
+        if len(args) < 4:
+            return False, (
+                "_build_dimmed_hold_canvas call had %d positional args, expected at least 4 "
+                "(glyph_draw, glyph_height, label_text, sentences)" % (len(args),)
+            )
+        glyph_draw, glyph_height, label_text, sentences = args[0], args[1], args[2], args[3]
+        if glyph_draw is not render.draw_empty_battery_icon:
+            return False, "glyph_draw was %r, expected render.draw_empty_battery_icon" % (glyph_draw,)
+        if glyph_height != render.EMPTY_BATTERY_ICON_HEIGHT_PX:
+            return False, (
+                "glyph_height was %r, expected EMPTY_BATTERY_ICON_HEIGHT_PX (%r)"
+                % (glyph_height, render.EMPTY_BATTERY_ICON_HEIGHT_PX)
+            )
+        if label_text != render.BATTERY_EMPTY_HEADING_TEXT:
+            return False, "label_text was %r, expected BATTERY_EMPTY_HEADING_TEXT" % (label_text,)
+        if tuple(sentences) != render.BATTERY_EMPTY_BODY_LINES:
+            return False, "sentences was %r, expected BATTERY_EMPTY_BODY_LINES" % (sentences,)
+        if kwargs.get("source_fault", False) is not False:
+            return False, "source_fault was %r, expected False" % (kwargs.get("source_fault"),)
+        if kwargs.get("battery_low", False) is not False:
+            return False, "battery_low was %r, expected False" % (kwargs.get("battery_low"),)
+        return True, ""
+    check(
+        "build_canvas(None, 'battery_empty') calls render._build_dimmed_hold_canvas exactly once, with "
+        "draw_empty_battery_icon, EMPTY_BATTERY_ICON_HEIGHT_PX, BATTERY_EMPTY_HEADING_TEXT, "
+        "BATTERY_EMPTY_BODY_LINES, source_fault=False and battery_low=False",
+        _battery_empty_dispatches_through_shared_dimmed_composition,
+    )
+
+    # 137. Quick task 260923-fr4, (3): BATTERY EMPTY and DISPLAY OFF share the
+    # same dithered field by construction - byte-identical in the top and
+    # bottom 400 rows, where neither screen's centred block reaches - and are
+    # provably distinct overall (different glyph/label/body).
+    def _battery_empty_shares_dimmed_field_with_display_off():
+        battery_bytes = render.build_canvas(None, "battery_empty").tobytes()
+        off_bytes = render.build_canvas(None, "display_off").tobytes()
+        row_bytes = panel_format.WIDTH  # 'P' mode: one byte per pixel
+        band = 400 * row_bytes
+        if battery_bytes[:band] != off_bytes[:band]:
+            return False, "battery_empty and display_off differ within the top 400 rows of the shared dithered field"
+        if battery_bytes[-band:] != off_bytes[-band:]:
+            return False, "battery_empty and display_off differ within the bottom 400 rows of the shared dithered field"
+        if battery_bytes == off_bytes:
+            return False, "battery_empty is byte-identical to display_off overall - the centred block must differ"
+        return True, ""
+    check(
+        "build_canvas(None, 'battery_empty') and build_canvas(None, 'display_off') are byte-identical in "
+        "the top and bottom 400 rows (the same dithered field) and provably distinct overall (the centred "
+        "glyph/label/body differs)",
+        _battery_empty_shares_dimmed_field_with_display_off,
+    )
+
+    # 138. Quick task 260923-fr4, (4): draw_empty_battery_icon() geometry,
+    # drawn in isolation on a fresh field/ink canvas - returns
+    # EMPTY_BATTERY_ICON_HEIGHT_PX (== MOON_ICON_DIAMETER_PX), draws an ink
+    # bounding box exactly EMPTY_BATTERY_ICON_HEIGHT_PX tall and
+    # EMPTY_BATTERY_ICON_WIDTH_PX wide, a POWER_ICON_STROKE_PX-long ink run
+    # at body mid-height from the left edge (an outline, not a fill), a
+    # hollow body centre, and only the two supplied indices anywhere on the
+    # canvas.
+    def _draw_empty_battery_icon_geometry():
+        center_x, top_y = 200, 300
+        canvas = panel_format.new_canvas(IDX_BLACK)
+        draw = render.ImageDraw.Draw(canvas)
+        returned_height = render.draw_empty_battery_icon(draw, center_x, top_y, IDX_WHITE)
+        if returned_height != render.EMPTY_BATTERY_ICON_HEIGHT_PX:
+            return False, (
+                "draw_empty_battery_icon returned %r, expected EMPTY_BATTERY_ICON_HEIGHT_PX (%r)"
+                % (returned_height, render.EMPTY_BATTERY_ICON_HEIGHT_PX)
+            )
+        if render.EMPTY_BATTERY_ICON_HEIGHT_PX != render.MOON_ICON_DIAMETER_PX:
+            return False, (
+                "EMPTY_BATTERY_ICON_HEIGHT_PX (%r) != MOON_ICON_DIAMETER_PX (%r)"
+                % (render.EMPTY_BATTERY_ICON_HEIGHT_PX, render.MOON_ICON_DIAMETER_PX)
+            )
+
+        colors = canvas.getcolors()
+        idx_set = {value for _count, value in colors} if colors else set()
+        stray = idx_set - {IDX_BLACK, IDX_WHITE}
+        if stray:
+            return False, "canvas contains index(es) other than the field/ink pair: %r" % (sorted(stray),)
+
+        bbox = canvas.getbbox()
+        if bbox is None:
+            return False, "draw_empty_battery_icon drew nothing (getbbox() is None)"
+        left, top, right, bottom = bbox
+        if (bottom - top) != render.EMPTY_BATTERY_ICON_HEIGHT_PX:
+            return False, (
+                "ink bounding box is %dpx tall, expected EMPTY_BATTERY_ICON_HEIGHT_PX (%r)"
+                % (bottom - top, render.EMPTY_BATTERY_ICON_HEIGHT_PX)
+            )
+        if (right - left) != render.EMPTY_BATTERY_ICON_WIDTH_PX:
+            return False, (
+                "ink bounding box is %dpx wide, expected EMPTY_BATTERY_ICON_WIDTH_PX (%r)"
+                % (right - left, render.EMPTY_BATTERY_ICON_WIDTH_PX)
+            )
+
+        pixels = canvas.load()
+        body_mid_y = (
+            top_y + render.EMPTY_BATTERY_NUB_H_PX
+            + (render.EMPTY_BATTERY_ICON_HEIGHT_PX - render.EMPTY_BATTERY_NUB_H_PX) // 2
+        )
+        run = 0
+        x = left
+        while x < right and pixels[x, body_mid_y] == IDX_WHITE:
+            run += 1
+            x += 1
+        if run != render.EMPTY_BATTERY_ICON_STROKE_PX:
+            return False, (
+                "horizontal ink run at body mid-height from the left edge is %dpx, expected "
+                "EMPTY_BATTERY_ICON_STROKE_PX (%r)" % (run, render.EMPTY_BATTERY_ICON_STROKE_PX)
+            )
+
+        body_center_x = (left + right) // 2
+        center_value = pixels[body_center_x, body_mid_y]
+        if center_value != IDX_BLACK:
+            return False, (
+                "the body's centre pixel is index %r, expected the field index %r - the interior must "
+                "stay hollow so the dithered field shows through" % (center_value, IDX_BLACK)
+            )
+        return True, ""
+    check(
+        "draw_empty_battery_icon() returns EMPTY_BATTERY_ICON_HEIGHT_PX (== MOON_ICON_DIAMETER_PX), draws "
+        "an ink bounding box exactly EMPTY_BATTERY_ICON_HEIGHT_PX tall and EMPTY_BATTERY_ICON_WIDTH_PX "
+        "wide, a POWER_ICON_STROKE_PX-long ink run at body mid-height from the left edge, a hollow body "
+        "centre, and only the field/ink indices anywhere on the canvas",
+        _draw_empty_battery_icon_geometry,
+    )
+
+    # 139. Quick task 260923-fr4, (5): the image must stay byte-stable for
+    # the whole parked episode, so every hourly check-in byos serves is a
+    # hash-skip - source_fault, battery_low and every THEME_IDS entry are
+    # all ignored, not merely unused.
+    def _battery_empty_byte_stable_across_indicators_and_themes():
+        default = render.build_canvas(None, "battery_empty").tobytes()
+        with_fault = render.build_canvas(None, "battery_empty", source_fault=True).tobytes()
+        if with_fault != default:
+            return False, "build_canvas(None, 'battery_empty', source_fault=True) differs from the default call"
+        with_low = render.build_canvas(None, "battery_empty", battery_low=True).tobytes()
+        if with_low != default:
+            return False, "build_canvas(None, 'battery_empty', battery_low=True) differs from the default call"
+        both = render.build_canvas(None, "battery_empty", source_fault=True, battery_low=True).tobytes()
+        if both != default:
+            return False, "build_canvas(None, 'battery_empty', source_fault=True, battery_low=True) differs from the default call"
+        theme_ids = list(render.device_config.THEME_IDS)
+        if not theme_ids:
+            return False, "device_config.THEME_IDS is empty - nothing to iterate"
+        for theme_id in theme_ids:
+            themed = render.build_canvas(None, "battery_empty", theme_id=theme_id).tobytes()
+            if themed != default:
+                return False, "build_canvas(None, 'battery_empty', theme_id=%r) differs from the default call" % (theme_id,)
+        return True, ""
+    check(
+        "build_canvas(None, 'battery_empty', ...) bytes are byte-stable regardless of source_fault, "
+        "battery_low or theme_id - the hash the whole parked episode relies on staying constant",
+        _battery_empty_byte_stable_across_indicators_and_themes,
+    )
+
+    # 140. Quick task 260923-fr4, (6): the canvas uses only IDX_BLACK/
+    # IDX_WHITE, dominated by the dimmed field (Black), mirroring
+    # _display_off_flat_white_black_across_all_themes's dominance assertion.
+    def _battery_empty_black_white_black_dominant():
+        canvas = render.build_canvas(None, "battery_empty")
+        colors = canvas.getcolors()
+        idx_set = {value for _count, value in colors} if colors else set()
+        bad = idx_set - {IDX_WHITE, IDX_BLACK}
+        if bad:
+            return False, "battery_empty canvas contains index(es) other than White/Black: %r" % (sorted(bad),)
+        if IDX_WHITE not in idx_set:
+            return False, "battery_empty canvas has no White pixels"
+        if IDX_BLACK not in idx_set:
+            return False, "battery_empty canvas has no Black pixels"
+        counts = {value: count for count, value in colors}
+        if max(counts, key=counts.get) != render.DIMMED_FIELD_IDX:
+            return False, "battery_empty canvas is not dominated by its own field index %r" % (render.DIMMED_FIELD_IDX,)
+        return True, ""
+    check(
+        "build_canvas(None, 'battery_empty') uses only IDX_BLACK/IDX_WHITE, dominated by DIMMED_FIELD_IDX "
+        "(Black) - the same dimmed-field family rule as DISPLAY OFF and QUIET HOURS",
+        _battery_empty_black_white_black_dominant,
     )
 
     total = len(results)
