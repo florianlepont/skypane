@@ -26,6 +26,7 @@
 #include "nvs_schema.h"
 #include "nvs_util.h"
 #include "secrets.h"
+#include "tls_session.h"
 #include "validate.h"
 #include "wake_guard.h"
 #include "wifi.h"
@@ -61,6 +62,7 @@ static char s_origin[API_BASE_MAX];  /* scheme://host[:port] of s_http */
 static unsigned s_connects;
 static uint32_t s_first_connect_ms;
 static int64_t s_connect_started_us;
+static bool s_tls_saved; /* fp_tls_session_save() runs at most once/wake */
 
 /* Every telemetry/auth header any request on the shared handle can carry.
  * Deleting all of them before setting only what the next request needs
@@ -117,6 +119,21 @@ static esp_err_t session_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
+/* Serializes s_tls's current session into RTC memory for the next wake,
+ * once per wake - called right after the first request on s_http this
+ * wake has returned any HTTP status (esp_http_client's own
+ * save_client_session machinery has already captured the session by the
+ * time a connect completes, so this just has to run once to persist
+ * it). A no-op on the dev http:// path (s_tls is NULL there) and on
+ * every call after the first. */
+static void maybe_save_tls_session(void)
+{
+    if (s_tls && !s_tls_saved) {
+        fp_tls_session_save(s_tls, s_origin);
+        s_tls_saved = true;
+    }
+}
+
 /* Replaces the plan-34-06 http_client_new() for every request that
  * shares s_http: the first call this wake creates the handle (attaching
  * a custom SSL transport for https so tls_session.c has something to
@@ -150,6 +167,10 @@ static esp_err_t session_client(const char *url, esp_http_client_method_t method
 #if CONFIG_ESP_HTTP_CLIENT_ENABLE_CUSTOM_TRANSPORT
             cfg.transport = s_tls;
 #endif
+            /* Offered before the transport's first connect, so a session
+             * saved by a previous wake gets a chance to abbreviate this
+             * wake's very first handshake (FW-10, best effort). */
+            fp_tls_session_offer(s_tls, s_origin);
         }
         s_http = esp_http_client_init(&cfg);
         if (!s_http) {
@@ -283,6 +304,9 @@ open_again:
             esp_http_client_close(http);
             goto open_again;
         }
+        if (s_connects == 0 && fp_tls_session_offered()) {
+            fp_tls_session_forget();
+        }
         return FP_ERR_HTTP_TRANSPORT;
     }
     if (body) {
@@ -293,6 +317,9 @@ open_again:
                 retried = true;
                 goto open_again;
             }
+            if (s_connects == 0 && fp_tls_session_offered()) {
+                fp_tls_session_forget();
+            }
             return FP_ERR_HTTP_TRANSPORT;
         }
     }
@@ -302,8 +329,12 @@ open_again:
             retried = true;
             goto open_again;
         }
+        if (s_connects == 0 && fp_tls_session_offered()) {
+            fp_tls_session_forget();
+        }
         return FP_ERR_HTTP_TRANSPORT;
     }
+    maybe_save_tls_session();
     int n = esp_http_client_read_response(http, resp, RESP_MAX - 1);
     int status = esp_http_client_get_status_code(http);
     /* Never close here on a successful read - that is what forced a
@@ -437,12 +468,11 @@ esp_err_t fp_api_setup(void)
 void fp_api_release(void)
 {
     if (s_http) {
-        /* tls_offered/tls_saved_len are always 0/false until Task 2's
-         * tls_session.c getters land - the literals here are the exact
-         * shape of the eventual call, just not wired yet. */
         ESP_LOGI(TAG,
                  "http connects=%u first_connect_ms=%u tls_offered=%d tls_saved_len=%u",
-                 s_connects, (unsigned)s_first_connect_ms, 0, 0u);
+                 s_connects, (unsigned)s_first_connect_ms,
+                 (int)fp_tls_session_offered(),
+                 (unsigned)fp_tls_session_saved_len());
         esp_http_client_cleanup(s_http);
         s_http = NULL;
     }
@@ -454,6 +484,7 @@ void fp_api_release(void)
     s_connects = 0;
     s_first_connect_ms = 0;
     s_connect_started_us = 0;
+    s_tls_saved = false;
 }
 
 /* ---------------------------------------------------------------- display */
@@ -590,6 +621,9 @@ open_again:
             esp_http_client_close(http);
             goto open_again;
         }
+        if (shared && s_connects == 0 && fp_tls_session_offered()) {
+            fp_tls_session_forget();
+        }
         if (!shared) {
             esp_http_client_cleanup(http);
         }
@@ -601,10 +635,16 @@ open_again:
             retried = true;
             goto open_again;
         }
+        if (shared && s_connects == 0 && fp_tls_session_offered()) {
+            fp_tls_session_forget();
+        }
         if (!shared) {
             esp_http_client_cleanup(http);
         }
         return ESP_FAIL; /* maps to step=download */
+    }
+    if (shared) {
+        maybe_save_tls_session();
     }
 
     uint32_t got = 0;
