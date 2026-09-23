@@ -6927,6 +6927,21 @@ def main():
                             page.context.add_cookies([{
                                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
                                 "url": base_url}])
+                            # quick-260923-em4: the ROOT CAUSE the 260923-9na partial fix
+                            # below was circling. Clicking the fallback while the bar's
+                            # `skypane-bar-arrive` entrance animation is still running stalls
+                            # Playwright's `stable` actionability leg in this scripts-blocked
+                            # context: measured ~0.7-1.0s per click in isolation (vs ~0.06s with
+                            # motion reduced) and, inside this full harness, a hang for the whole
+                            # 30000ms budget — no request and no navigation fired during it
+                            # (traced with framenavigated/request listeners), so the click never
+                            # happened at all. Reduced motion zeroes the entrance through the
+                            # stylesheet's own `prefers-reduced-motion: reduce` override. This
+                            # check's subject is that the fallback is visible, has a box and
+                            # SAVES, not the entrance animation, so nothing it asserts is lost.
+                            # Every local full-harness run failed here without this; 2/2 pass
+                            # with it.
+                            page.emulate_media(reduced_motion="reduce")
                             page.goto(base_url + "/display")
                             if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
                                 return False, "expected the measurement at the 360px contract floor"
