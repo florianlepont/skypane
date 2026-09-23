@@ -45,9 +45,9 @@ external contributors, ruleset "Protect main" (blocks force-push and deletion
 only — no required reviews/checks), new description + 11 topics, Wiki and
 Projects disabled.
 
-## Open item
+## Commercial-licence contact
 
-- The user wants a dedicated contact e-mail for commercial licensing in README/NOTICE; address not yet provided (GitHub profile used meanwhile).
+- User decision (2026-09-23): no e-mail address is published. Requests go through a GitHub issue titled "Commercial licence" or the maintainer's GitHub profile.
 
 ## Verification
 
