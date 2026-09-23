@@ -154,7 +154,7 @@ Seed idea, deferred 2026-08-27 (explore session) — the device-local half of th
 Added 2026-09-23. Whole-repository code audit; the developer asked for every finding, low severity included, to be remediated inside v1.0 (Phases 32–41). Full evidence (file:line) and decisions D-A1..D-A6 in `.planning/audits/2026-09-23-code-audit.md`; each requirement below is that ledger row's remediation.
 
 - [x] **TST-01**: pytest + pytest-xdist + pytest-cov as dev deps in `server/requirements-dev.txt`; config in `pyproject.toml`; shared fixtures in `conftest.py`; coverage gate moves to pytest-cov; CLAUDE.md stack row and CONTRIBUTING updated
-- [ ] **TST-02**: Migrated to pytest; every old check mapped in a migration ledger (old check name → new test id, or deletion with a reason)
+- [x] **TST-02**: Migrated to pytest; every old check mapped in a migration ledger (old check name → new test id, or deletion with a reason)
 - [x] **TST-03**: Injectable fake provider fixture; a conftest guard fails any test that opens a non-loopback socket
 - [x] **TST-04**: CI (and ruff `target-version`) on the production version
 - [ ] **TST-05**: Run them in `firmware.yml`
@@ -349,7 +349,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-85 | Phase 30 | Pending — phase added 2026-09-21; a `/gsd-sketch` round precedes planning. |
 | CFG-86 | Phase 30 | Pending — phase added 2026-09-21, not yet planned. |
 | TST-01 | Phase 32 | Complete |
-| TST-02 | Phase 32 | Pending |
+| TST-02 | Phase 32 | Complete |
 | TST-03 | Phase 32 | Complete |
 | TST-04 | Phase 32 | Complete |
 | TST-05 | Phase 32 | Pending |
