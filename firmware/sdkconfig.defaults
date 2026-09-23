@@ -14,13 +14,36 @@ CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_SPEED_80M=y
 
-# OTA safety: new firmware must confirm (esp_ota_mark_app_valid) after one
-# successful poll, or the bootloader rolls back (PROTOCOL.md §2).
-CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+# No OTA code exists yet, so nothing ever marks an image valid; rollback
+# stays off until OTA is implemented.
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=n
 
-# Watchdog on everything: any hang -> reset -> backoff sleep.
+# The task watchdog is a hang detector: it panics when a subscribed task
+# stops feeding it for 60 s (the Kconfig maximum), and the next boot sees
+# a task-WDT reset and backs off. The whole-wake budget is
+# CONFIG_SKYPANE_WAKE_BUDGET_S, a separate timer.
 CONFIG_ESP_TASK_WDT_INIT=y
 CONFIG_ESP_TASK_WDT_TIMEOUT_S=60
+CONFIG_ESP_TASK_WDT_PANIC=y
+
+# The full-memory test costs ~0.45 s on every wake.
+CONFIG_SPIRAM_MEMTEST=n
+
+# DHCP was ~3.0 s of a ~4.4 s no-change wake; re-requesting the last lease
+# and skipping the ARP probe is the cheapest cut.
+CONFIG_LWIP_DHCP_RESTORE_LAST_IP=y
+CONFIG_LWIP_DHCP_DOES_ARP_CHECK=n
+
+# Trust only the ISRG roots behind the VPS's Let's Encrypt certificate; if
+# Let's Encrypt ever moves to a root not in this directory, devices stop
+# connecting until reflashed - update main/certs before that happens.
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_NONE=y
+CONFIG_MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE_PATH="main/certs"
+
+# Needed to keep one TLS session per wake and resume it across deep sleep.
+CONFIG_ESP_TLS_CLIENT_SESSION_TICKETS=y
+CONFIG_ESP_HTTP_CLIENT_ENABLE_CUSTOM_TRANSPORT=y
 
 # The synchronous state machine runs polling and JSON parsing on
 # app_main, nesting buffers inside the ESP-IDF TLS/HTTP client.
@@ -33,13 +56,7 @@ CONFIG_ESP_MAIN_TASK_STACK_SIZE=12288
 # namespace, including the panel pin map) is not introduced until plan
 # 01-05 - see VENDOR.md. Do not hand-edit the pin values here; the EE02
 # profile that overrides them is a separate, later overlay file.
-# Unused by SkyPane (see Kconfig.projbuild) - upstream's production URL
-# replaced with a reserved placeholder.
-CONFIG_FP_API_BASE="https://example.invalid"
-CONFIG_FP_DEV_PROVISION_SECRET=""
 CONFIG_FP_HW_REV="proto-e1004"
-CONFIG_FP_PROVISION_TIMEOUT_S=600
-CONFIG_FP_FACTORY_PREP=n
 CONFIG_FP_PIN_EPD_SCK=7
 CONFIG_FP_PIN_EPD_MOSI=9
 CONFIG_FP_PIN_EPD_CS_M=10

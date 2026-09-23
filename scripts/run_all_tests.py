@@ -3,7 +3,7 @@
 half; scripts/run-all-tests.sh is the thin invocation wrapper CI and README
 both call).
 
-Runs all 24 harnesses under coverage, aggregates the result, and enforces
+Runs all 25 harnesses under coverage, aggregates the result, and enforces
 the coverage threshold configured in pyproject.toml. Plan 04-04's CI
 workflow calls run-all-tests.sh rather than restating the file list, and
 plan 04-05's README tells contributors to run the same thing — one list,
@@ -46,7 +46,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 
-# Canonical 24-file enumeration (M1, measured live during 04-02 planning;
+# Canonical 25-file enumeration (M1, measured live during 04-02 planning;
 # phase 6 added 6 harnesses — see 06-11-PLAN.md Task 3; 06.6.2-01 added
 # companion/test_contrast_check.py; phase 13 plan 01 added
 # server/test_manual_resolutions.py; phase 14 plan 01 added
@@ -78,6 +78,7 @@ HARNESSES = [
     "server/test_render.py",
     "server/test_runway_config.py",
     "stub-server/test_poll_cycle.py",
+    "stub-server/test_devices_registry.py",
     "companion/test_companion_app.py",
     "companion/test_config_page.py",
     "companion/test_contrast_check.py",
@@ -131,6 +132,7 @@ EXPECTED_SLOWEST = (
     "server/test_poll_loop.py",
     "companion/test_companion_app.py",
     "stub-server/test_poll_cycle.py",
+    "stub-server/test_devices_registry.py",
     "server/test_panel_preview.py",
     "companion/test_status_pages.py",
     "server/test_pipeline_e2e.py",
@@ -210,7 +212,7 @@ def main():
     # `parallel = true` — each process below writes its own .coverage.*
     # data file. Do NOT also pass --append here: coverage.py rejects the
     # combination outright ("Can't append to data files in parallel mode"),
-    # and parallel mode is precisely what makes running these 24 processes
+    # and parallel mode is precisely what makes running these 25 processes
     # concurrently safe in the first place.
     env = dict(os.environ)
     if sys.version_info >= (3, 12) and "COVERAGE_CORE" not in os.environ:

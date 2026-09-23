@@ -6,25 +6,52 @@
 
 menu "SkyPane"
 
-    config FP_API_BASE
-        string "Device API base URL (unused by SkyPane)"
-        default "https://example.invalid"
+    config SKYPANE_ALLOW_HTTP
+        bool "DEV ONLY: allow plain http:// API base and image URLs"
+        default n
         help
-            Kept only so the upstream CONFIG_FP_* namespace stays intact.
-            SkyPane does not read this value: api_client.c takes its
-            server URL from SKYPANE_API_BASE in the gitignored
-            main/secrets.h. The upstream default (FlightPortrait's own
-            production API) was replaced with a reserved, never-resolving
-            placeholder so no SkyPane build can point at a service it is
-            not affiliated with.
+            Production images must keep this off so every request is
+            TLS-verified. The dev overlay (sdkconfig.dev.defaults) turns
+            it on for the LAN stub server, which has no certificate.
 
-    config FP_DEV_PROVISION_SECRET
-        string "DEV ONLY: provision secret for POST /device/v1/setup"
-        default ""
+    config SKYPANE_WAKE_BUDGET_S
+        int "Whole-wake time budget (seconds)"
+        range 180 900
+        default 300
         help
-            Bench-only seed copied once into the protected factory namespace.
-            Production images MUST leave this blank; each unit is injected
-            with its own high-entropy setup credential by the factory jig.
+            Bounds one wake end to end. On expiry the wake is recorded as
+            a failure and the device backs off. Must exceed the worst
+            legitimate wake (Wi-Fi, SNTP, setup, display, download,
+            refresh-spacing wait, blit - about 250 s with the default
+            guard wait). Separate from the 60 s task watchdog, which only
+            detects hangs.
+
+    config SKYPANE_TLS_SESSION_PERSIST
+        bool "Resume the TLS session across deep sleep (best effort)"
+        default y
+        depends on ESP_TLS_CLIENT_SESSION_TICKETS
+        help
+            Saves the session ticket in RTC memory so the next wake can
+            skip a full handshake. Failure falls back to a full handshake.
+
+    choice SKYPANE_FAULT_INJECT
+        prompt "DEV ONLY: fault injection"
+        default SKYPANE_FAULT_INJECT_NONE
+        help
+            Bench verification of the reset/backoff and deadline paths
+            only. Production must stay NONE and CI checks it.
+
+        config SKYPANE_FAULT_INJECT_NONE
+            bool "None (production)"
+        config SKYPANE_FAULT_INJECT_PANIC
+            bool "abort() after Wi-Fi connects"
+        config SKYPANE_FAULT_INJECT_TASK_WDT
+            bool "block forever without feeding the task watchdog"
+        config SKYPANE_FAULT_INJECT_INT_WDT
+            bool "spin with interrupts disabled"
+        config SKYPANE_FAULT_INJECT_SLOW_WAKE
+            bool "keep running past the wake budget"
+    endchoice
 
     config FP_HW_REV
         string "Hardware revision sent during setup"

@@ -340,10 +340,42 @@ names, response shapes, telemetry printing) is untouched:
    No other endpoint, response field, status code, or telemetry print
    statement was touched by this change.
 
-**Everything else is verbatim**, including: the three endpoint
-implementations (`POST /device/v1/setup`, `GET /device/v1/display`,
-`POST /device/v1/log`, `GET /img/*`), the `--image`/`--port`/`--secret`/
-`--sleep` flags, the bearer-token issuance and check logic, the
+9. **Replaced the shared `--secret` enrolment check with a per-device
+   registry.** Upstream's `POST /device/v1/setup` accepts any MAC and
+   grants a token when `provision_secret` equals the one operator-wide
+   `--secret` value (or unconditionally, if `--secret` is unset) — every
+   device that ever learned that one value could re-enrol (and hijack)
+   any other device's identity, including one that had just erased its
+   token after a rejected poll. This repository replaces that check with
+   a registry, `devices.json` in `--state-dir`, mapping each MAC to the
+   SHA-256 hex digest of that device's own secret — never the secret
+   itself. `POST /device/v1/setup` now issues a token only when the MAC
+   is registered and the presented `provision_secret` hashes to the
+   value on file (`hmac.compare_digest`, never `==`); an unregistered
+   MAC or a wrong secret is refused (403/401) and any existing token for
+   that MAC is left untouched. A missing or corrupt `devices.json` fails
+   CLOSED — it refuses every enrolment rather than falling back to open.
+
+   Concretely: this repository adds `registry_path(state_dir)`,
+   `normalize_mac(value)`, `load_registry(state_dir)`,
+   `save_registry(state_dir, registry)`,
+   `register_device(state_dir, mac, secret_sha256, replace=False)`, and
+   `secret_matches(registry, mac, presented)`, and rewrites the
+   `/device/v1/setup` branch of `do_POST` to call them. `--secret` is
+   still accepted on the command line — so a systemd unit still passing
+   it during a migration window does not crash-loop this process — but
+   it no longer does anything; a startup warning says so when a
+   non-empty value is passed. `stub-server/devices_cli.py`, a new
+   stdlib CLI in this same directory, is the operator tool that manages
+   the registry (`add`/`remove`/`list`/`revoke-token`), sharing these
+   same functions so the on-disk format never drifts between the CLI
+   and the server. No other endpoint, response field, status code, or
+   telemetry print statement was touched by this change.
+
+**Everything else is verbatim**, including: `GET /device/v1/display`,
+`POST /device/v1/log`, `GET /img/*`, the `--image`/`--port`/`--sleep`
+flags, the bearer-token issuance and check logic once a setup request
+has passed the registry gate, the
 `X-Fw-Version`/`X-Boot-Reason`/`X-Rssi`/`X-Battery-Mv` telemetry stdout
 print (`log_telemetry()` — this is the measurement channel plan 01-07
 depends on and was not reformatted, suppressed, or removed), and the
@@ -377,12 +409,14 @@ reference simulator, per `docs/PROTOCOL.md`'s own text).
 
 A future re-pin of `byos_server.py` to a newer upstream commit is a
 deliberate, reviewable act: diff the new upstream file against the version
-recorded here, re-apply all **eight** local modifications (`--state-dir`,
+recorded here, re-apply all **nine** local modifications (`--state-dir`,
 `--image-url-scheme`, the DEVICE-04 `X-Battery-Mv` validation/persistence,
 the LED read, the quiet-hours `sleep_s` extension, the wake-interval
-read, the display-off `sleep_s` pin, and the BATTERY EMPTY `sleep_s` pin),
-update the pinned commit hash above, and re-run
-`stub-server/test_poll_cycle.py` to confirm the contract — including both
-scheme checks, the quiet-hours drift guard, the display-off
-composition-order coverage, and the BATTERY EMPTY composition-order and
-parity coverage — still holds.
+read, the display-off `sleep_s` pin, the BATTERY EMPTY `sleep_s` pin, and
+the per-device enrolment registry), update the pinned commit hash above,
+and re-run `stub-server/test_poll_cycle.py` and
+`stub-server/test_devices_registry.py` to confirm the contract —
+including both scheme checks, the quiet-hours drift guard, the
+display-off composition-order coverage, the BATTERY EMPTY
+composition-order and parity coverage, and every registry rule —
+still holds.

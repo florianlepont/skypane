@@ -22,7 +22,18 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-BUILD_DIR="${SCRIPT_DIR}/build-ee02"
+
+SKYPANE_PROFILE="${SKYPANE_PROFILE:-prod}"
+case "${SKYPANE_PROFILE}" in
+    prod) BUILD_DIR="${SCRIPT_DIR}/build-ee02" ;;
+    dev) BUILD_DIR="${SCRIPT_DIR}/build-ee02-dev" ;;
+    *)
+        echo "ERROR: SKYPANE_PROFILE must be 'prod' or 'dev' (got '${SKYPANE_PROFILE}')" >&2
+        exit 2
+        ;;
+esac
+echo "Profile: ${SKYPANE_PROFILE} (${BUILD_DIR})"
+
 FLASHER_ARGS="${BUILD_DIR}/flasher_args.json"
 CHIP="esp32s3"
 BAUD="460800"

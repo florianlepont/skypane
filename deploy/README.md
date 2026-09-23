@@ -119,31 +119,92 @@ Create it directly there:
 # Direct-root example:
 ssh root@<vps-ip>
 cp deploy/skypane.env.example /opt/skypane/skypane.env
-nano /opt/skypane/skypane.env   # fill in a real SKYPANE_BYOS_SECRET and
-                                   # SKYPANE_COMPANION_PASSWORD (openssl rand -hex 32
-                                   # each), confirm SKYPANE_PUBLIC_HOST and
-                                   # SKYPANE_COMPANION_HOST match the public hosts above
+nano /opt/skypane/skypane.env   # fill in a real SKYPANE_COMPANION_PASSWORD
+                                   # (openssl rand -hex 32), confirm
+                                   # SKYPANE_PUBLIC_HOST and SKYPANE_COMPANION_HOST
+                                   # match the public hosts above
 chown skypane:skypane /opt/skypane/skypane.env
 chmod 600 /opt/skypane/skypane.env
 
 # Passwordless-sudo non-root example (e.g. Ubuntu cloud images):
 ssh ubuntu@<vps-ip>
 sudo cp /home/ubuntu/deploy/skypane.env.example /opt/skypane/skypane.env
-sudo nano /opt/skypane/skypane.env   # same fields as above
+sudo nano /opt/skypane/skypane.env   # same field as above
 sudo chown skypane:skypane /opt/skypane/skypane.env
 sudo chmod 600 /opt/skypane/skypane.env
 ```
 
-The `SKYPANE_BYOS_SECRET` value written here is the same value Task 3 of
-`02-05-PLAN.md` sets `firmware/main/secrets.h`'s `SKYPANE_SETUP_SECRET` to on
-the device side — it never enters git on either side, matching this
-repo's `secrets.h` discipline (T-02-05-02).
+**Companion password:** generate `SKYPANE_COMPANION_PASSWORD` with
+`openssl rand -hex 32`. It is the single shared password gating the
+companion configuration web interface (D-01/D-02) — there are no
+per-user accounts — and is written by hand on the VPS only, same
+discipline as every other secret in this file.
 
-**Companion password:** generate `SKYPANE_COMPANION_PASSWORD` with the same
-command (`openssl rand -hex 32`) as `SKYPANE_BYOS_SECRET` above. It is the
-single shared password gating the companion configuration web interface
-(D-01/D-02) — there are no per-user accounts — and is written by hand on
-the VPS only, same discipline as every other secret in this file.
+Device enrolment no longer has a secret to fill in here — see the next
+section.
+
+## Device enrolment (per-device secret)
+
+Each frame carries its own enrolment secret in flash, never a value
+shared across devices. This VPS stores only the SHA-256 hash of that
+secret, in a small registry file (`devices.json` in
+`${SKYPANE_STATE_DIR}`), managed with `stub-server/devices_cli.py`.
+`POST /device/v1/setup` issues a fresh bearer token only when the MAC
+is registered and the presented secret hashes to the value on file; a
+wrong secret (including a stale shared one, or another device's) is
+refused and the device's existing token keeps working.
+
+1. **Provision a frame.** Connect it over USB and run
+   `firmware/provision.sh <serial-port>` — it generates a random secret,
+   writes it into the device's flash, and prints the frame's MAC and the
+   secret's SHA-256 hash.
+
+2. **Register it on the VPS**, using the MAC and hash `provision.sh`
+   just printed:
+
+   ```bash
+   ssh <ssh-target> "sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/stub-server/devices_cli.py --state-dir /opt/skypane/state add --mac <mac> --secret-sha256 <hash>"
+   ```
+
+   Takes effect immediately — `byos_server.py` re-reads the registry on
+   every setup request, so no restart is needed.
+
+3. **List or remove devices** the same way:
+
+   ```bash
+   ssh <ssh-target> "sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/stub-server/devices_cli.py --state-dir /opt/skypane/state list"
+   ssh <ssh-target> "sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/stub-server/devices_cli.py --state-dir /opt/skypane/state remove --mac <mac>"
+   ```
+
+4. **Force a re-enrolment** (e.g. a suspected leaked token) with
+   `revoke-token`. Stop `skypane-byos` first — the running process keeps
+   tokens in memory and would otherwise overwrite the edit with its own
+   copy on its next write — then start it again after:
+
+   ```bash
+   ssh <ssh-target> "sudo systemctl stop skypane-byos && sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/stub-server/devices_cli.py --state-dir /opt/skypane/state revoke-token --mac <mac> && sudo systemctl start skypane-byos"
+   ```
+
+   The frame re-enrols with its own secret on its next wake, with no
+   reflash and no other operator action.
+
+### Migrating from the shared secret
+
+A VPS still running the old shared-secret unit migrates in this order —
+every existing frame keeps working throughout, since tokens already
+issued are never touched:
+
+1. Deploy this code (`deploy/deploy.sh`, see below).
+2. Re-run `deploy/provision.sh <public-host> [<companion-host>]` so the
+   unit file without `--secret` is installed and `systemctl daemon-reload`
+   runs.
+3. Register every frame's MAC in the registry (step 2 above) — do this
+   before any frame's token next expires or gets revoked, since only
+   (re-)enrolment needs the registry; an already-polling frame is
+   unaffected either way.
+4. Delete the `SKYPANE_BYOS_SECRET` line from `/opt/skypane/skypane.env`
+   once every frame is registered (it is already ignored by the running
+   code — this step just tidies the file).
 
 ## Ship the code
 
@@ -273,11 +334,13 @@ re-run `deploy/deploy.sh <ssh-target>`.
 ## Secrets discipline
 
 No cloud-provider API token is used in this flow (the OVH VPS is created
-by hand in the console — see the one-time human steps above), and
-`SKYPANE_BYOS_SECRET` never enters git — matching this project's
-`firmware/main/secrets.h` convention. `skypane.env.example`
-carries placeholders only; the real `skypane.env` is gitignored
-(`deploy/.gitignore`) and lives solely on the VPS. Before any commit
-touching this directory, confirm `git status --porcelain` shows no real
-env file, private key, or token staged, and that `git log -p` for the
-commit contains no secret value.
+by hand in the console — see the one-time human steps above). Each
+frame's enrolment secret lives only in that frame's own flash; this VPS
+stores only its SHA-256 hash, in `devices.json` under
+`${SKYPANE_STATE_DIR}`. `skypane.env.example` carries placeholders only
+for what remains a real secret there (`SKYPANE_COMPANION_PASSWORD`); the
+real `skypane.env` is gitignored (`deploy/.gitignore`) and lives solely
+on the VPS, same as `devices.json`. Before any commit touching this
+directory, confirm `git status --porcelain` shows no real env file,
+private key, or token staged, and that `git log -p` for the commit
+contains no secret value.

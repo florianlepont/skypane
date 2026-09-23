@@ -13,14 +13,19 @@ provisioning (PROTOCOL.md §5) and it will set up, poll, download, and
 display whatever panel image you serve.
 
     python3 byos_server.py --image path/to/panel.bin [--port 8642]
-        [--secret VALUE] [--sleep 3600] [--state-dir DIR]
+        [--sleep 3600] [--state-dir DIR]
 
 The image must be exactly 960,000 bytes in the PROTOCOL.md §1 format
 (the calibration patterns in first-flash/bins/ work). Swap the file on
 disk and the next poll serves the new content — the frame notices via
-the hash and refreshes. --secret, when set, must match the structured
-BYOS setup secret entered during provisioning; without it any
-provision_secret is accepted. Issued device tokens live in
+the hash and refreshes. Enrolment is gated by a per-device registry:
+devices.json in --state-dir maps each MAC to the SHA-256 of that
+device's own enrolment secret, never the secret itself, and POST
+/device/v1/setup only issues a token when the presented
+provision_secret hashes to the value registered for that MAC — a
+missing or unreadable registry file refuses every enrolment rather
+than falling back to open. Manage the registry with
+stub-server/devices_cli.py. Issued device tokens live in
 byos_state.json inside --state-dir (default: next to this script), so
 restarts don't strand frames.
 
@@ -61,11 +66,18 @@ BATTERY EMPTY hold is active, unless this same request's own X-Battery-Mv
 reading already signals recovery, composed between display_off_sleep_s()
 and quiet_hours_sleep_s() so the three pins can overlap without any one
 of them shortening the sleep the others alone would have given it (quick
-task 260923-fr4). See stub-server/VENDOR.md for the full list of local
-changes.
+task 260923-fr4); and replaced the shared --secret enrolment check in
+POST /device/v1/setup with a per-device registry (devices.json in
+--state-dir, managed with stub-server/devices_cli.py): each MAC's own
+secret is hashed with SHA-256 and only that MAC's registered hash can
+issue it a token; --secret is still accepted on the command line, so an
+old unit file cannot crash-loop this process during migration, but it
+no longer grants anything. See stub-server/VENDOR.md for the full list
+of local changes.
 """
 import argparse
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -156,6 +168,120 @@ def save_state(state_dir, state):
     with open(tmp, "w") as fh:
         json.dump(state, fh, indent=1)
     os.replace(tmp, state_path(state_dir))
+
+
+# --- Per-device enrolment registry -----------------------------------
+#
+# The registry maps each MAC to the SHA-256 hex digest of that device's own
+# enrolment secret, never the secret itself: {"devices": {mac: {"secret_sha256":
+# hex}}}. This closes the gap a single shared --secret left open - anyone
+# who ever learned the one shared value could re-enrol (and hijack) any
+# device that erased its token after a rejected poll. With a per-device
+# secret, re-enrolling a given MAC requires that MAC's own secret; a wrong
+# secret (including another device's, or the retired shared one) leaves the
+# existing token untouched.
+REGISTRY_FILE = "devices.json"
+
+_MAC_RE = re.compile(r"\A([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}\Z")
+_SHA256_HEX_RE = re.compile(r"\A[0-9a-f]{64}\Z")
+
+
+def registry_path(state_dir):
+    return os.path.join(state_dir, REGISTRY_FILE)
+
+
+def normalize_mac(value):
+    """Return `value` lowercased as "aa:bb:cc:dd:ee:ff", or None.
+
+    Accepts only a str matching six colon-separated hex byte pairs
+    (case-insensitive); any other shape - a non-string, wrong length,
+    missing colons, non-hex characters - returns None rather than
+    raising, so a malformed or hostile mac field degrades to a 422 at
+    the call site instead of a 500.
+    """
+    if not isinstance(value, str) or not _MAC_RE.match(value):
+        return None
+    return value.lower()
+
+
+def load_registry(state_dir):
+    """Load <state_dir>/devices.json as {"devices": {mac: {"secret_sha256": hex}}}.
+
+    Deliberately fail-CLOSED - the opposite of load_state()'s fail-open
+    contract above: a missing file, an unreadable file, malformed JSON,
+    or a document that is not shaped {"devices": {...}} all return an
+    EMPTY registry ({"devices": {}}), so a missing or corrupt registry
+    enrols nobody rather than enrolling everybody.
+    """
+    try:
+        with open(registry_path(state_dir)) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return {"devices": {}}
+    if not isinstance(data, dict) or not isinstance(data.get("devices"), dict):
+        return {"devices": {}}
+    return data
+
+
+def save_registry(state_dir, registry):
+    """Atomically write `registry` to devices.json, created 0600 (via
+    os.open, not chmod after the fact - no window where the file is
+    briefly world-readable). The file holds only SHA-256 hashes, never
+    a plaintext secret, but 0600 keeps even the hashes readable only by
+    the service account and whoever manages it with devices_cli.py.
+    """
+    path = registry_path(state_dir)
+    tmp = path + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        json.dump(registry, fh, indent=1)
+    os.replace(tmp, path)
+
+
+def register_device(state_dir, mac, secret_sha256, replace=False):
+    """Add (or, with replace=True, overwrite) one MAC's registry entry.
+
+    Raises ValueError with a human-readable message for a malformed mac
+    or secret_sha256, or for an already-registered MAC when replace is
+    False - devices_cli.py turns that into a non-zero exit rather than a
+    silent no-op or an accidental overwrite (the operator, not a device,
+    decides who is registered). Returns the normalized MAC on success.
+    """
+    normalized = normalize_mac(mac)
+    if normalized is None:
+        raise ValueError("not a MAC address: %r" % (mac,))
+    if not isinstance(secret_sha256, str) or not _SHA256_HEX_RE.match(secret_sha256):
+        raise ValueError(
+            "secret_sha256 must be 64 lowercase hex characters: %r" % (secret_sha256,))
+    registry = load_registry(state_dir)
+    if normalized in registry["devices"] and not replace:
+        raise ValueError(
+            "%s is already registered (pass replace=True to overwrite)" % normalized)
+    registry["devices"][normalized] = {"secret_sha256": secret_sha256}
+    save_registry(state_dir, registry)
+    return normalized
+
+
+def secret_matches(registry, mac, presented):
+    """True only if `mac` is registered in `registry` AND `presented` is
+    a str of exactly 64 lowercase hex characters whose SHA-256 equals
+    the hash registered for that MAC, compared with hmac.compare_digest
+    (never `==`, which would leak timing information about the matching
+    prefix length). The shape check on `presented` runs before any
+    comparison, so a non-string, wrong-length, or uppercase value is
+    rejected outright rather than reaching the digest comparison; an
+    unregistered mac is always False regardless of what is presented.
+    """
+    if not isinstance(presented, str) or not re.fullmatch(r"[0-9a-f]{64}", presented):
+        return False
+    entry = registry["devices"].get(mac)
+    if not isinstance(entry, dict):
+        return False
+    stored = entry.get("secret_sha256")
+    if not isinstance(stored, str):
+        return False
+    presented_hash = hashlib.sha256(presented.encode("ascii")).hexdigest()
+    return hmac.compare_digest(presented_hash, stored)
 
 
 def device_config_path(state_dir):
@@ -579,16 +705,24 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/device/v1/setup":
             body = self.read_body_json()
-            if not isinstance(body, dict) or "mac" not in body:
+            mac = normalize_mac(body.get("mac")) if isinstance(body, dict) else None
+            if mac is None:
                 return self.send_json(422, {"detail": "bad body"})
-            if (self.args.secret and
-                    body.get("provision_secret") != self.args.secret):
+            # Load fresh on every request (not cached on self.args), so a
+            # devices_cli.py add/remove takes effect for the very next
+            # setup call with no service restart required.
+            registry = load_registry(self.args.state_dir)
+            if mac not in registry["devices"]:
+                print("setup: %s refused (not registered)" % mac)
+                return self.send_json(403, {"detail": "device not registered"})
+            if not secret_matches(registry, mac, body.get("provision_secret")):
+                print("setup: %s refused (bad secret)" % mac)
                 return self.send_json(401, {"detail": "bad secret"})
             token = secrets.token_hex(32)
-            self.state["tokens"][body["mac"]] = token
+            self.state["tokens"][mac] = token
             save_state(self.args.state_dir, self.state)
             print("setup: %s enrolled (hw_rev=%s)"
-                  % (body["mac"], body.get("hw_rev", "?")))
+                  % (mac, body.get("hw_rev", "?")))
             # No pairing block: account pairing is a first-party
             # extension this example does not implement (PROTOCOL.md §2).
             return self.send_json(200, {"device_token": token})
@@ -739,7 +873,8 @@ def main():
                     help="960,000-byte panel image to serve")
     ap.add_argument("--port", type=int, default=8642)
     ap.add_argument("--secret", default="",
-                    help="require this BYOS setup secret (default: any)")
+                    help="retired: ignored; enrolment uses the per-device "
+                         "registry (devices.json)")
     ap.add_argument("--sleep", type=int, default=3600,
                     help="sleep_s handed to the frame (default 3600)")
     ap.add_argument("--state-dir", default=None,
@@ -759,6 +894,13 @@ def main():
         sys.exit("no such image: %s" % args.image)
     if args.state_dir is None:
         args.state_dir = os.path.dirname(os.path.abspath(__file__))
+    if args.secret:
+        # Accepted-and-ignored rather than removed outright, so a systemd
+        # unit still passing the old flag (mid-migration) starts cleanly
+        # instead of crash-looping on an unrecognized argument.
+        print("WARNING: --secret is retired and grants nothing; register "
+              "devices with stub-server/devices_cli.py instead (writes "
+              "devices.json in --state-dir)", file=sys.stderr)
     sys.stdout.reconfigure(line_buffering=True)
 
     Handler.args = args

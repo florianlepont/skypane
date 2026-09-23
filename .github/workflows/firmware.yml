@@ -39,6 +39,14 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Run firmware host tests
+        run: sh firmware/tests/run_host_tests.sh
+
+      - name: Check production configuration
+        run: sh firmware/tests/check_production_config.sh static
 
       - name: Create compile-only credentials header
         # firmware/main/secrets.h is gitignored and never committed
@@ -56,3 +64,6 @@ jobs:
 
       - name: Verify built image artifact exists
         run: test -f firmware/build-ee02/skypane.bin
+
+      - name: Check built image is a production build
+        run: sh firmware/tests/check_production_config.sh built firmware/build-ee02

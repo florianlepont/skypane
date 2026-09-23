@@ -13,6 +13,7 @@
 #include "sdkconfig.h"
 
 #include "epd13in3e.h"
+#include "wake_guard.h"
 
 static const char *TAG = "fp_panel";
 
@@ -88,13 +89,12 @@ esp_err_t fp_panel_draw(const uint8_t *buf)
                      (unsigned long)CONFIG_FP_MAX_GUARD_WAIT_S);
             return ESP_ERR_TIMEOUT;
         }
-        /* The image is already in PSRAM and PSRAM does not survive deep
-         * sleep, so sleeping this out would cost a second 960 KB download
-         * for the same picture. Wait it out with the radio already down and
-         * then blit — a press still ends in a redraw, just a slower one. */
+        /* Radio is already down and the panel is not yet powered (epd_init
+         * is called strictly after this branch), so light sleep is safe
+         * here; PSRAM (holding the image) is retained across light sleep. */
         ESP_LOGI(TAG, "holding %lus for the panel's refresh spacing",
                  (unsigned long)wait_s);
-        vTaskDelay(pdMS_TO_TICKS(wait_s * 1000U));
+        fp_wake_light_sleep_s(wait_s);
         account_awake_time();
     }
 

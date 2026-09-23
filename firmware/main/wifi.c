@@ -26,6 +26,59 @@ static EventGroupHandle_t s_events;
 static int s_retries;
 static bool s_platform_ready;
 static bool s_wifi_started;
+static esp_netif_t *s_sta_netif;
+
+#ifdef SKYPANE_STATIC_IP
+#if !defined(SKYPANE_STATIC_NETMASK) || !defined(SKYPANE_STATIC_GW) || \
+    !defined(SKYPANE_STATIC_DNS)
+#error "SKYPANE_STATIC_IP requires SKYPANE_STATIC_NETMASK, SKYPANE_STATIC_GW and SKYPANE_STATIC_DNS to all be defined"
+#endif
+
+/* Optional fallback (D-34-03, off unless secrets.h defines all four
+ * macros): stops the DHCP client on this netif and assigns a fixed
+ * address instead, for measuring against CONFIG_LWIP_DHCP_RESTORE_LAST_IP
+ * on hardware. With the DHCP client stopped, esp_netif's own
+ * esp_netif_action_connected() (ESP-IDF v5.3.1,
+ * components/esp_netif/esp_netif_handlers.c) posts IP_EVENT_STA_GOT_IP
+ * itself once the station associates, so fp_wifi_connect()'s existing
+ * wait on that event needs no change. */
+static esp_err_t apply_static_ip(esp_netif_t *netif)
+{
+    esp_err_t err = esp_netif_dhcpc_stop(netif);
+    if (err != ESP_OK && err != ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED) {
+        ESP_LOGE(TAG, "static IP: dhcpc_stop failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    esp_netif_ip_info_t ip_info = {0};
+    if (esp_netif_str_to_ip4(SKYPANE_STATIC_IP, &ip_info.ip) != ESP_OK ||
+        esp_netif_str_to_ip4(SKYPANE_STATIC_NETMASK, &ip_info.netmask) != ESP_OK ||
+        esp_netif_str_to_ip4(SKYPANE_STATIC_GW, &ip_info.gw) != ESP_OK) {
+        ESP_LOGE(TAG, "static IP: malformed address literal");
+        return ESP_ERR_INVALID_ARG;
+    }
+    err = esp_netif_set_ip_info(netif, &ip_info);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "static IP: set_ip_info failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    esp_netif_dns_info_t dns_info = {0};
+    dns_info.ip.type = ESP_IPADDR_TYPE_V4;
+    if (esp_netif_str_to_ip4(SKYPANE_STATIC_DNS, &dns_info.ip.u_addr.ip4) != ESP_OK) {
+        ESP_LOGE(TAG, "static IP: malformed DNS literal");
+        return ESP_ERR_INVALID_ARG;
+    }
+    err = esp_netif_set_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns_info);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "static IP: set_dns_info failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    ESP_LOGI(TAG, "static IP %s", SKYPANE_STATIC_IP);
+    return ESP_OK;
+}
+#endif /* SKYPANE_STATIC_IP */
 
 static void on_event(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
@@ -53,9 +106,16 @@ esp_err_t fp_wifi_platform_init(void)
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
         return err;
     }
-    if (!esp_netif_create_default_wifi_sta()) {
+    s_sta_netif = esp_netif_create_default_wifi_sta();
+    if (!s_sta_netif) {
         return ESP_FAIL;
     }
+#ifdef SKYPANE_STATIC_IP
+    err = apply_static_ip(s_sta_netif);
+    if (err != ESP_OK) {
+        return err;
+    }
+#endif
     wifi_init_config_t init = WIFI_INIT_CONFIG_DEFAULT();
     err = esp_wifi_init(&init);
     if (err != ESP_OK) {

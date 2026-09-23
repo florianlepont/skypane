@@ -27,6 +27,8 @@
 #include "freertos/task.h"
 #include "sdkconfig.h"
 
+#include "wake_guard.h"
+
 static const char *TAG = "epd13in3e";
 
 /* reTerminal E1004 wiring (Kconfig-overridable for the EE02 later). */
@@ -91,6 +93,11 @@ static const uint8_t V_VCOM[]  = {0x02};
 
 static spi_device_handle_t s_spi;
 static bool s_bus_ready;
+/* Set once the output-pin gpio_config() call succeeds, independent of
+ * s_bus_ready: epd_sleep() must be able to drive PIN_EN low after a
+ * later SPI setup failure without ever touching the (possibly still
+ * uninitialised) SPI handle. */
+static bool s_gpio_ready;
 
 /* ------------------------------------------------------------------ SPI */
 
@@ -132,6 +139,9 @@ static esp_err_t busy_wait(const char *what, int timeout_ms)
 {
     int waited = 0;
     while (gpio_get_level(PIN_BUSY) == 0) {
+        /* The DRF wait alone allows up to 60 s - well past the task
+         * watchdog's ceiling - so this poll loop must feed it itself. */
+        fp_wake_feed();
         vTaskDelay(pdMS_TO_TICKS(10));
         waited += 10;
         if (waited > timeout_ms) {
@@ -164,12 +174,24 @@ esp_err_t epd_init(void)
                             (1ULL << PIN_EN),
             .mode = GPIO_MODE_OUTPUT,
         };
-        ESP_ERROR_CHECK(gpio_config(&out));
+        esp_err_t setup_err = gpio_config(&out);
+        if (setup_err != ESP_OK) {
+            ESP_LOGE(TAG, "gpio_config(out) failed: %s",
+                     esp_err_to_name(setup_err));
+            return ESP_FAIL;
+        }
+        s_gpio_ready = true;
+
         gpio_config_t in = {
             .pin_bit_mask = 1ULL << PIN_BUSY,
             .mode = GPIO_MODE_INPUT,
         };
-        ESP_ERROR_CHECK(gpio_config(&in));
+        setup_err = gpio_config(&in);
+        if (setup_err != ESP_OK) {
+            ESP_LOGE(TAG, "gpio_config(in) failed: %s",
+                     esp_err_to_name(setup_err));
+            return ESP_FAIL;
+        }
         cs_set(CS_BOTH, 1);
         gpio_set_level(PIN_DC, 1);
         gpio_set_level(PIN_RST, 1);
@@ -182,14 +204,25 @@ esp_err_t epd_init(void)
             .quadhd_io_num = -1,
             .max_transfer_sz = 4096,
         };
-        ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &bus, SPI_DMA_CH_AUTO));
+        setup_err = spi_bus_initialize(SPI2_HOST, &bus, SPI_DMA_CH_AUTO);
+        if (setup_err != ESP_OK) {
+            ESP_LOGE(TAG, "spi_bus_initialize failed: %s",
+                     esp_err_to_name(setup_err));
+            return ESP_FAIL;
+        }
         spi_device_interface_config_t dev = {
             .clock_speed_hz = 10 * 1000 * 1000,   /* Seeed uses 10 MHz */
             .mode = 0,
             .spics_io_num = -1,                   /* dual CS: manual   */
             .queue_size = 2,
         };
-        ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &dev, &s_spi));
+        setup_err = spi_bus_add_device(SPI2_HOST, &dev, &s_spi);
+        if (setup_err != ESP_OK) {
+            ESP_LOGE(TAG, "spi_bus_add_device failed: %s",
+                     esp_err_to_name(setup_err));
+            spi_bus_free(SPI2_HOST);
+            return ESP_FAIL;
+        }
         s_bus_ready = true;
     }
 
@@ -230,9 +263,13 @@ static esp_err_t send_half(int cs_mask, const uint8_t *buf, int offset)
     gpio_set_level(PIN_DC, 1);
     for (int row = 0; row < EPD_HEIGHT && err == ESP_OK; row++) {
         err = xfer(buf + row * ROW_BYTES + offset, HALF_ROW_BYTES);
-        /* Reference paces ~1 ms/row; yield periodically for the WDT. */
+        /* Kept at the Waveshare reference driver's ~1 ms/row pacing:
+         * the GDEP133C02 datasheet specifies no per-row timing (see
+         * Kconfig.projbuild's FP_MIN_REFRESH_SPACING_S citation), and a
+         * wrong value risks a hard-to-spot corrupted colour refresh. */
         esp_rom_delay_us(800);
         if ((row & 0xFF) == 0xFF) {
+            fp_wake_feed();
             vTaskDelay(1);
         }
     }
@@ -262,17 +299,23 @@ esp_err_t epd_blit(const uint8_t *buf)
         return ESP_FAIL;
     }
     err = cmd_to(CS_BOTH, R_POF, V_POF, sizeof(V_POF));
-    busy_wait("POF", 3000);
+    if (err != ESP_OK || busy_wait("POF", 3000) != ESP_OK) {
+        return ESP_FAIL;
+    }
     ESP_LOGI(TAG, "refresh complete");
-    return err;
+    return ESP_OK;
 }
 
 void epd_sleep(void)
 {
-    uint8_t a5 = 0xA5;
-    cmd_to(CS_BOTH, R_DSLP, &a5, 1);
-    /* Datasheet §7: let the driver rails discharge after power-off
-     * sequencing before cutting supply — never yank power mid-sequence. */
-    vTaskDelay(pdMS_TO_TICKS(100));
-    gpio_set_level(PIN_EN, 0);                    /* panel rail off */
+    if (s_bus_ready) {
+        uint8_t a5 = 0xA5;
+        cmd_to(CS_BOTH, R_DSLP, &a5, 1);
+        /* Datasheet §7: let the driver rails discharge after power-off
+         * sequencing before cutting supply — never yank power mid-sequence. */
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    if (s_gpio_ready) {
+        gpio_set_level(PIN_EN, 0);                /* panel rail off */
+    }
 }
