@@ -819,6 +819,3 @@ def test_every_airline_has_an_unsuffixed_primary_file_on_disk():
             "airline %r's unsuffixed primary %r is a target but missing on disk" % (name, primary_filename)
         )
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

@@ -14,8 +14,6 @@ import os
 import string
 import sys
 
-import pytest
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 
@@ -353,6 +351,3 @@ def test_add_entry_rejects_hostile_input_sweep(tmp_path):
     registry_after = m.load_manual_resolutions(tmp_path)
     assert registry_after == {}, "registry not empty after the hostile-input sweep: %r" % (registry_after,)
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

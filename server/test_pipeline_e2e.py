@@ -425,6 +425,3 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
         "panel.bin after recovery still matches the BATTERY EMPTY hash, expected a different one"
     )
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

@@ -3266,6 +3266,3 @@ def test_silence_transition_parked_suppresses_false_alert(tmp_path):
         shutil.rmtree(unparked_dir, ignore_errors=True)
         shutil.rmtree(parked_dir, ignore_errors=True)
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

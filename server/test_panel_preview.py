@@ -202,6 +202,3 @@ def test_thumbnail_colour_set_is_a_strict_subset_of_the_full_images_colour_set(f
     extra = thumb_colours - full_colours
     assert not extra, "thumbnail introduced colours not present in the full image: %r" % (extra,)
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))
