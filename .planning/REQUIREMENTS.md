@@ -157,10 +157,10 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **TST-02**: Migrated to pytest; every old check mapped in a migration ledger (old check name → new test id, or deletion with a reason)
 - [x] **TST-03**: Injectable fake provider fixture; a conftest guard fails any test that opens a non-loopback socket
 - [x] **TST-04**: CI (and ruff `target-version`) on the production version
-- [ ] **TST-05**: Run them in `firmware.yml`
-- [ ] **TST-06**: Separate test and deploy concurrency groups; never cancel an in-flight deploy
-- [ ] **TST-07**: `--only-shell`, cache `~/.cache/ms-playwright`
-- [ ] **TST-08**: Hash-pinned lock files for runtime and dev deps
+- [x] **TST-05**: Run them in `firmware.yml`
+- [x] **TST-06**: Separate test and deploy concurrency groups; never cancel an in-flight deploy
+- [x] **TST-07**: `--only-shell`, cache `~/.cache/ms-playwright`
+- [x] **TST-08**: Hash-pinned lock files for runtime and dev deps
 - [ ] **TST-09**: Subprocess coverage (`patch = ["subprocess"]`), then raise `fail_under` to the measured floor
 - [ ] **TST-10**: Migrated to pytest; one app-server fixture replaces every copy
 - [ ] **TST-11**: pytest-playwright; a missing browser is a failure in CI; parallelised per test with xdist
@@ -352,10 +352,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TST-02 | Phase 32 | Complete |
 | TST-03 | Phase 32 | Complete |
 | TST-04 | Phase 32 | Complete |
-| TST-05 | Phase 32 | Pending |
-| TST-06 | Phase 32 | Pending |
-| TST-07 | Phase 32 | Pending |
-| TST-08 | Phase 32 | Pending |
+| TST-05 | Phase 32 | Complete |
+| TST-06 | Phase 32 | Complete |
+| TST-07 | Phase 32 | Complete |
+| TST-08 | Phase 32 | Complete |
 | TST-09 | Phase 32 | Pending |
 | TST-10 | Phase 33 | Pending |
 | TST-11 | Phase 33 | Pending |
