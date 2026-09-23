@@ -29,3 +29,16 @@
  * builds — `SKYPANE_PROFILE=dev ./build.sh`), to reach the LAN stub
  * server (stub-server/) in place of the production base above. */
 #define SKYPANE_API_BASE_DEV "http://192.168.1.42:8642"
+
+/* Optional static IP fallback (D-34-03). Off by default — DHCP with
+ * CONFIG_LWIP_DHCP_RESTORE_LAST_IP is the default join path. Define all
+ * four of these (wifi.c's build fails with a #error otherwise) only if
+ * the hardware measurement shows DHCP's restore-last-IP path is still
+ * too slow; the address must sit outside the router's own DHCP pool, or
+ * the router may hand the same address to another device.
+ *
+ * #define SKYPANE_STATIC_IP      "192.168.1.50"
+ * #define SKYPANE_STATIC_NETMASK "255.255.255.0"
+ * #define SKYPANE_STATIC_GW      "192.168.1.1"
+ * #define SKYPANE_STATIC_DNS     "192.168.1.1"
+ */
