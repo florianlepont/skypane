@@ -2,7 +2,25 @@ SkyPane
 Copyright (c) 2026 Florian Lepont
 
 This repository contains works under more than one licence. The root
-LICENSE file (MIT) covers everything that is not listed below.
+LICENSE file - the GNU Affero General Public License, version 3 only
+(AGPL-3.0-only) - covers everything that is not listed below.
+
+Commercial licensing
+--------------------
+
+Florian Lepont is the sole copyright holder of the AGPL-3.0 parts and
+offers them under a separate commercial licence to anyone who cannot or
+does not want to meet the AGPL's obligations (for example, a company
+that wants to run or modify SkyPane without publishing its own changes).
+Contact: https://github.com/florianlepont.
+
+Earlier versions
+----------------
+
+Everything published before the switch to the AGPL-3.0 on 2026-09-23
+was released under the MIT License (the last MIT version on the main
+branch is commit efafc89). Copies obtained under those versions remain
+available under MIT; the AGPL-3.0 applies to every later version.
 
 Licence map
 -----------
@@ -31,7 +49,7 @@ server/assets/icons/aircraft-silhouette.*
     CC0 / public domain. Provenance: server/assets/icons/VENDOR.md.
 
 server/assets/icons/illustrations/
-    AI-generated aircraft illustrations. Not covered by the MIT licence;
+    AI-generated aircraft illustrations. Not covered by the AGPL-3.0;
     see the Trademarks section below and
     server/assets/icons/illustrations/VENDOR.md.
 

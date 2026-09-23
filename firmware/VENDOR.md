@@ -32,7 +32,7 @@ four redistribution conditions of Apache-2.0 §4:
 Files original to SkyPane (see "Original To This Repository" below) carry
 `SPDX-FileCopyrightText: 2026 Florian Lepont` only. They are licensed under
 Apache-2.0 as well, so the whole directory has one licence. The repository's
-root MIT licence does **not** apply to `firmware/`.
+root AGPL-3.0 licence does **not** apply to `firmware/`.
 
 This is a pin to an exact commit, not a branch. A future phase intending to
 pick up upstream changes must re-pin deliberately — update the hash in this

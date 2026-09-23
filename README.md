@@ -164,17 +164,34 @@ Thanks to the volunteers who feed and run these services.
 ## Licence
 
 SkyPane's own code and documentation are released under the
-[MIT License](./LICENSE). Some parts have other licences:
+[GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0-only).
+Some parts have other licences:
 
 | Path | Licence |
 |---|---|
 | `firmware/`, `stub-server/byos_server.py` | Apache-2.0 — derived from FlightPortrait © 2026 YODE PTE LTD ([`firmware/LICENSE`](./firmware/LICENSE), [`firmware/NOTICE`](./firmware/NOTICE)) |
 | `server/assets/fonts/` | SIL Open Font License 1.1 (Inter, Zilla Slab, PT Serif) |
 | `server/assets/icons/plane-*` | ISC (derived from Lucide) |
-| `server/assets/icons/illustrations/` | AI-generated images, not MIT-licensed — see below |
+| `server/assets/icons/illustrations/` | AI-generated images, not AGPL-licensed — see below |
 
 [`NOTICE`](./NOTICE) has the full map. Each vendored directory has a
 `VENDOR.md` with per-file provenance.
+
+In short, the AGPL means you're free to use, study, modify and share
+SkyPane, including running it as a service, as long as you publish your
+changes under the same licence, including the code of a modified server
+that other people use over a network.
+
+### Commercial licence
+
+If you'd like to use SkyPane in a product or service without the AGPL's
+obligations, for example without publishing your own changes, a
+commercial licence is available. Get in touch via
+[github.com/florianlepont](https://github.com/florianlepont).
+
+Everything published before 2026-09-23 was released under the MIT
+License (the last MIT version on `main` is commit `efafc89`), and copies
+obtained under those versions stay MIT.
 
 ### Trademarks
 
@@ -185,6 +202,12 @@ non-commercial project. SkyPane is not affiliated with or endorsed by any
 airline, airport operator, aircraft manufacturer or government body. If
 you hold rights in one of these marks and want it removed, please open an
 issue and it will be replaced with a generic aircraft.
+
+## Contributing
+
+Issues and pull requests are welcome — see
+[`CONTRIBUTING.md`](./CONTRIBUTING.md), which explains the licence terms
+that apply to contributions.
 
 ## Security
 
