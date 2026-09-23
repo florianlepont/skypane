@@ -1675,10 +1675,20 @@ Plans:
 4. A deploy that leaves a unit inactive fails the CI job; units and Caddyfile are deployed
 5. `systemd-analyze security` score recorded before/after; byos reachable on loopback only; no secret in `ps`
 
-**Plans:** 0 plans
+**Plans:** 11 plans (Wave A: 37-01..37-10, waves 1–6, after Phase 32; Wave B: 37-11, wave 7, after Phase 36). Plan check passed 2026-09-23.
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 37 to break down)
+- [ ] 37-01-PLAN.md — Wave A — SEC-01 per-client-IP login throttle, plus the companion `--bind` flag (D-22)
+- [ ] 37-02-PLAN.md — Wave A — off-box backup freshness on the companion Health page, warn nav dot (SEC-04, D-07, D-23)
+- [ ] 37-03-PLAN.md — Wave A — HSTS + shared Caddyfile renderer, hardened units on `/opt/skypane/current` + backup timer, `ci.yml` secrets via `env:` + offline `systemd-analyze` gate (SEC-02/05/06/07)
+- [ ] 37-04-PLAN.md — Wave A — backup machinery: nightly snapshot (gallery/ included, D-24), forced-command gate, Mac pull script + launchd (SEC-04)
+- [ ] 37-05-PLAN.md — Wave A — SEC-03 `Origin`/`Sec-Fetch-Site` check on every POST
+- [ ] 37-06-PLAN.md — Wave A — SEC-05 atomic, verified deploy: release dirs + `mv -T` swap, units/Caddyfile + daemon-reload, probes, rollback
+- [ ] 37-07-PLAN.md — Wave A — provisioning and docs: SSH drop-in `00-skypane.conf` + `PermitRootLogin no` + `sshd -t`, env file `root:root 600`, backup user, README correction (SEC-04/07/08)
+- [ ] 37-08-PLAN.md — Wave A — human checkpoints CP-1..CP-3: baseline scores, deploy target, provision + second SSH session
+- [ ] 37-09-PLAN.md — Wave A — human checkpoints CP-4..CP-6: cutover, deliberately failing deploy, after scores
+- [ ] 37-10-PLAN.md — Wave A — human checkpoints CP-8..CP-10: backup key, launchd, restore rehearsal
+- [ ] 37-11-PLAN.md — Wave B — byos `--bind 127.0.0.1` + `IPAddressDeny`/`IPAddressAllow`, byos secret off the command line, CP-11, CP-7 (after Phase 36)
 
 ### Phase 38: Efficiency — companion, poll cycle, storage
 
