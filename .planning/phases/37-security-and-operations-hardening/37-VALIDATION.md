@@ -57,7 +57,7 @@ created: 2026-09-23
 | SEC-05 | Real cutover + a deliberately failing deploy | manual-only | VPS checkpoint | — |
 | SEC-06 | Units carry the directive set; offline score ≤ 2.0 | unit + CI | `pytest -q deploy/tests/test_units.py`; `systemd-analyze security --offline=true --threshold=20 deploy/<unit>` | ❌ Wave 0 |
 | SEC-06 | Online before/after scores; services work under the sandbox | manual-only | VPS checkpoint | — |
-| SEC-06/07 (Wave B) | byos `--bind 127.0.0.1` bound to loopback only; secret from env; no `--secret` in the unit | integration | `pytest -q stub-server/test_byos_bind_secret.py` | ❌ Wave B |
+| SEC-06/07 (Wave B) | byos `--bind 127.0.0.1` bound to loopback only; no shared secret (retired by Phase 34 FW-08), none in argv or env; no `--secret` in the unit | integration | `pytest -q stub-server/test_byos_bind_secret.py` | ❌ Wave B |
 | SEC-07 | No `${{ secrets.* }}` inside any `run:` of ci.yml | unit (YAML text parse) | `pytest -q deploy/tests/test_ci_secrets.py` | ❌ Wave 0 |
 | SEC-07 | Env file `root:root 600`; `pgrep -af byos_server` shows no secret | manual-only | VPS checkpoint | — |
 | SEC-08 | Drop-in content; provision step validates with `sshd -t` before reload (stub `sshd`) | unit | `pytest -q deploy/tests/test_provision_ssh.py` | ❌ Wave 0 |
