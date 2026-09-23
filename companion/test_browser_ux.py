@@ -6954,6 +6954,20 @@ def main():
                             page.eval_on_selector(
                                 'input[name="theme"][value="%s"]' % target,
                                 "el => el.checked = true")
+                            # quick-260923-9na: expect_navigation()'s 30000ms clock
+                            # starts the instant this `with` is entered — BEFORE
+                            # click()'s own actionability poll (visible/stable/
+                            # receives-events/enabled) has even begun, so under CI
+                            # load that poll silently eats the SAME budget the
+                            # navigation wait needs. Real CI (run 35818514258 on
+                            # main, 2026-09-23) recorded `TimeoutError('Timeout
+                            # 31ms exceeded ... "domcontentloaded" event fired')` —
+                            # the actionability poll had already burned 29969ms of
+                            # the 30000ms before navigation got a look-in. Waiting
+                            # for visibility here, on its OWN clock, before the
+                            # `with` block starts, removes that portion of the
+                            # overlap without widening any timeout.
+                            fallback.wait_for(state="visible")
                             with page.expect_navigation():
                                 fallback.click()
                             saved = device_config.load_device_config(harness.tmpdir)["theme"]

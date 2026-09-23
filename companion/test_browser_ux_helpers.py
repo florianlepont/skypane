@@ -347,6 +347,12 @@ def _save_via_bar(page, timeout=5000):
     is STALE the instant it returns — re-query by selector afterwards,
     never reuse a reference taken before the click.
     """
+    # quick-260923-9na: same shared-budget shape as the fallback-Save
+    # check in test_browser_ux.py — wait for the click target's own
+    # visibility on its OWN clock, before expect_navigation()'s clock
+    # starts, so an actionability poll here cannot silently eat the
+    # navigation wait's budget too.
+    page.wait_for_selector("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR, state="visible")
     with page.expect_navigation(timeout=timeout):
         page.click("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
 
