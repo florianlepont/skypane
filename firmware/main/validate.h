@@ -70,3 +70,16 @@ fp_download_verdict_t fp_download_verdict(int http_status, uint32_t got,
  * chars into out (must be at least FP_IMAGE_HASH_BUF bytes). */
 void fp_sha256_to_image_hash(const uint8_t digest[32],
                              char out[FP_IMAGE_HASH_BUF]);
+
+typedef enum {
+    FP_HTTP_CLASS_OK,    /* 200                                         */
+    FP_HTTP_CLASS_AUTH,  /* 401 or 403 - this device's credential is no
+                          * longer accepted                             */
+    FP_HTTP_CLASS_OTHER, /* any other status                            */
+} fp_http_class_t;
+
+/* Classifies an HTTP status code for the caller's retry/erase decision.
+ * AUTH is its own class, distinct from every other non-200 status,
+ * because only AUTH means "this credential is dead" - a 5xx or 404 says
+ * nothing about the credential and must never erase it. */
+fp_http_class_t fp_http_status_classify(int status);

@@ -178,6 +178,18 @@ static void sha256_to_image_hash_cases(void)
     assert(strcmp(out, expected_ab) == 0);
 }
 
+static void http_status_classify_cases(void)
+{
+    assert(fp_http_status_classify(200) == FP_HTTP_CLASS_OK);
+    assert(fp_http_status_classify(401) == FP_HTTP_CLASS_AUTH);
+    assert(fp_http_status_classify(403) == FP_HTTP_CLASS_AUTH);
+    assert(fp_http_status_classify(404) == FP_HTTP_CLASS_OTHER);
+    assert(fp_http_status_classify(500) == FP_HTTP_CLASS_OTHER);
+    assert(fp_http_status_classify(0) == FP_HTTP_CLASS_OTHER);
+    assert(fp_http_status_classify(-1) == FP_HTTP_CLASS_OTHER);
+    assert(fp_http_status_classify(302) == FP_HTTP_CLASS_OTHER);
+}
+
 int main(void)
 {
     hex_lower_valid_cases();
@@ -189,6 +201,7 @@ int main(void)
     led_enabled_resolve_cases();
     download_verdict_cases();
     sha256_to_image_hash_cases();
+    http_status_classify_cases();
     printf("validate: all cases pass\n");
     return 0;
 }
