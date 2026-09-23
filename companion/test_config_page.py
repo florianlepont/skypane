@@ -263,8 +263,8 @@ EXPECTED_CHECK_COUNT = 109
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 127
 # 17-03-PLAN.md Task 3: +11 (the write-only calendar_url field's no-
-# value-attribute check across all four calendar_group() states, the
-# five-needle containment check applied directly at calendar_group()
+# value-attribute check across all four _calendar_connection_html() states, the
+# five-needle containment check applied directly at _calendar_connection_html()
 # rather than only at render()/served-HTTP-bytes, the disconnect
 # checkbox's presence-and-unchecked check across all four states, the
 # drift status's exclusivity-and-ordering check, the drift status's
@@ -274,7 +274,7 @@ EXPECTED_CHECK_COUNT = 127
 # replace path, and three all-or-nothing rejection checks — a URL+
 # checkbox contradiction, a crafted checkbox value, and an over-length
 # URL — one check per Task 3 <action> item. No pre-existing check needed
-# retargeting: calendar_group()'s widened signature and the four-branch
+# retargeting: _calendar_connection_html()'s widened signature and the four-branch
 # status resolution are exercised only through render(), which already
 # degrades calendar_drift to a falsy default, so every pre-existing
 # calendar check (Section 1b above) keeps passing unmodified.
@@ -423,7 +423,7 @@ EXPECTED_CHECK_COUNT = 200  # 20-09-PLAN.md Task 1 (D-14a..d) and Task 3
 # land together here rather than as two separate counts. Net effect:
 # every render()-shape check against the old <select>-based calendar
 # theme picker, the old one-piece calendar-status sentence, the old
-# calendar_url-inside-calendar_group() field, and the old table/card
+# calendar_url-inside-_calendar_connection_html() field, and the old table/card
 # rules list was retargeted in place to the new status_row()/compact-
 # chip-grid/calendar_connect_section()/.rule-list shapes; new checks
 # were added for the native-radio "Match by" segmented control, the
@@ -518,7 +518,7 @@ EXPECTED_CHECK_COUNT = 216
 EXPECTED_CHECK_COUNT = 215
 # 21-07-PLAN.md Task 1 (D-13/D-14, Pitfall 2): +3. calendar_connect_
 # section()/calendar_disconnect_section() are retired outright and
-# merged into ONE calendar_group() returning a single .page-section
+# merged into ONE _calendar_connection_html() returning a single .page-section
 # plus a data-only disconnect-form sibling fragment; every check that
 # used to call either retired function directly, or that relied on
 # Calendar rendering on the legacy SCOPE_ALL scope (removed from
@@ -526,7 +526,7 @@ EXPECTED_CHECK_COUNT = 215
 # Theme's own entry was removed in 21-05), is retargeted in place with
 # no count change. Three new checks: exactly one Calendar page-section
 # on the Display scope in both states; no <form> nested inside another
-# across all four of calendar_group()'s own distinguishable states; the
+# across all four of _calendar_connection_html()'s own distinguishable states; the
 # two new short button-text constants (Replace/Disconnect) are each a
 # contiguous substring of 21-UI-SPEC.md. 215 + 3 = 218, recomputed
 # directly against the real on-disk check(...) call count at execution
@@ -536,7 +536,7 @@ EXPECTED_CHECK_COUNT = 218
 # (host + "…", via the new _masked_calendar_url() helper reading
 # calendar_rules.configured_calendar_url(state_dir) — the one call site
 # in this module that reads a stored calendar secret back for display)
-# is folded into calendar_group()'s own connected branch. The two
+# is folded into _calendar_connection_html()'s own connected branch. The two
 # existing secret-leak checks (render-function and real-served-HTTP-
 # bytes) are EXTENDED in place, not replaced: both now assert the
 # masked host + ellipsis fragment DOES appear while the token, path,
@@ -1112,6 +1112,364 @@ EXPECTED_CHECK_COUNT = 273
 # re-derived by RUNNING (274/274).
 EXPECTED_CHECK_COUNT = 274
 
+# 30-02-PLAN.md Task 1 (CFG-85): +1 — ONE new check,
+# _palette_swatch_html_matches_the_live_registry_band_facts, proving the
+# new CSS-drawn swatch's band/solid split against the LIVE registry (the
+# 5-of-18/13-of-18 split derived inside the check, never hardcoded), the
+# plain-theme one-span shape, the dithered-theme no-opacity rule, and
+# extra_class space-joining. 274 + 1 = 275, re-derived by RUNNING
+# (275/275).
+EXPECTED_CHECK_COUNT = 275
+
+# 30-02-PLAN.md Task 2 (CFG-85): +2 — two new checks
+# (_palette_grid_html_renders_one_chip_per_registered_theme_in_order_
+# no_photo, _usage_row_summary_html_joins_row_label_and_meta_with_one_
+# em_dash_source) proving _palette_chip_html()/_palette_grid_html()/
+# _usage_row_summary_html() against the live registry. One PRE-EXISTING
+# check (_the_departures_grid_is_the_one_renderer_presented_as_a_strip)
+# was RETARGETED IN PLACE, not counted as new: its "exactly ONE chip
+# renderer emits data-preview-src" guard now allow-lists exactly the two
+# DELIBERATE renderers 30-UI-SPEC.md's own Structural Contract names
+# (_theme_chip_grid_html, _palette_chip_html), preserving the guard's
+# real property (no ACCIDENTAL third fork) rather than loosening it.
+# 275 + 2 = 277, re-derived by RUNNING (277/277).
+EXPECTED_CHECK_COUNT = 277
+
+# 30-03-PLAN.md Task 1 (CFG-85): -22/+2 = -20. Twenty-two checks
+# pinning the retiring frame-colours/carousel/colour_usage/usage-panel
+# markup are retired from this file: three (_the_departures_grid_is_
+# the_one_renderer_presented_as_a_strip, _the_carousel_dots_are_real_
+# colours_and_the_strip_rules_are_declared, _the_full_grid_sits_
+# behind_a_native_details_and_the_pagers_behind_the_gate) retire
+# outright with no ledger row (the strip/pager/dots-row shape they pin
+# has no surviving property once the accordion replaces it), and one
+# new check (_the_display_page_carries_exactly_one_radio_set_per_
+# theme_field) re-homes the one property among them that DOES survive
+# (page-wide theme-radio-set uniqueness), written with no
+# retired-mechanism vocabulary. The other nineteen are LEDGERED — see
+# _ASPECT_REPIN_LEDGER below — deleted here, in the SAME commit as the
+# ledger row naming their replacement and the plan that owes it, while
+# the markup they used to assert against still ships unchanged (this
+# plan touches ZERO production files). A second new check, the ledger's
+# own guard (_every_aspect_repin_ledger_row_names_a_live_or_owed_
+# replacement, registered near the top of main()), is the +2's second
+# half. 277 - 22 + 2 = 257, re-derived by RUNNING (257/257).
+EXPECTED_CHECK_COUNT = 257
+
+# 30-05-PLAN.md (CFG-85): +12. Twelve replacement checks pay back every
+# _ASPECT_REPIN_LEDGER row owed to this plan:
+# _aspect_card_covers_every_registered_theme_with_own_id_and_label,
+# _aspect_card_default_selects_exactly_the_white_departures_option,
+# _aspect_arrivals_row_carries_leading_option_no_checkbox,
+# _aspect_arrivals_override_preselects_the_override_not_same_as_departures,
+# _aspect_card_full_shape_checklist, _rules_row_renders_inside_aspect_
+# after_form, _aspect_calendar_row_palette_populated_in_order,
+# _aspect_rules_copy_appears_escaped_verbatim,
+# _aspect_rules_row_label_locked_verbatim,
+# _aspect_display_render_still_carries_every_pinned_english_string,
+# _aspect_scoped_render_carries_hidden_fields_and_omits_other_groups,
+# _aspect_display_render_has_exactly_one_live_preview_figure_eager_with_
+# dimensions. One further check
+# (_display_renders_one_compact_chip_grid_and_three_palettes_with_one_
+# swatch_legend) is retargeted IN PLACE from its own retired
+# predecessor — same registration, net zero. Two escalated, unledgered
+# fixes (30-04-SUMMARY.md's own inventory) contribute no count change
+# either: seven Group-A checks repointed onto _rules_row_segment's new
+# data-usage locator, and one Group-B caption-floor minimum re-derived
+# by running. 257 + 12 = 269, re-derived by RUNNING (269/269).
+EXPECTED_CHECK_COUNT = 269
+
+# 30-06-PLAN.md Task 3 (CFG-85): +5. Five replacement checks pay back
+# every _ASPECT_REPIN_LEDGER row owed to this plan:
+# _calendar_connection_placement_inside_aspect_after_display_form_
+# close_with_dirty_attr, _calendar_row_no_inline_js_and_palette_
+# cross_submits_form, _display_h2_order_matches_the_merged_aspect_
+# card_placement, _title_form_inventory_classifies_every_h2_text_
+# heading_on_both_routes_after_the_merge,
+# _no_card_builder_function_ever_calls_section_intro_html_after_the_
+# merge (a DIVERGENCE from the ledger's own predicted same-name
+# replacement, for the identical guard-collision reason 30-05-
+# SUMMARY.md already documented once — see that row's own "why").
+# One further check (_look_supersection_carries_exactly_one_dirty_
+# section_named_aspect) REPLACES its own retired predecessor
+# in place — net zero, not a ledger row (the property itself
+# changed shape: Display's Look supersection drops from two
+# data-dirty-section cards to one, per this plan's own
+# <derivation_first> instruction not to repoint the old arithmetic).
+# Several more escalated, unledgered fixes (references to the
+# constants/connector function this plan's own Task 1/2 retire)
+# contribute no count change either — locator repoints and message
+# rewording only, all documented in this plan's own SUMMARY.
+# 269 + 5 = 274, re-derived by RUNNING (274/274).
+EXPECTED_CHECK_COUNT = 274
+
+# 30-07-PLAN.md Task 3 (CFG-85): the two remaining _ASPECT_REPIN_LEDGER
+# rows owed to this plan are cleared — the destructive-disconnect-
+# specificity-plus-selection check and the segmented-control-plus-
+# panel-legend check, both landing under names that diverge from the
+# ledger's own predicted "replacement" (same-name-repoint collisions,
+# resolved the same way 30-05/30-06 already resolved theirs — see each
+# row's own "why"). 274 + 2 = 276, re-derived by RUNNING (276/276).
+EXPECTED_CHECK_COUNT = 276
+
+# 30-03-PLAN.md Task 1 (CFG-85): the coverage-gap ledger this plan's
+# whole purpose depends on. EXPECTED TO EMPTY — matching the same
+# self-documenting convention config_page.ASPECT_CAPTION_EXEMPTIONS
+# already uses — as each named plan below lands its own replacement
+# check and this file's ledger row for it is deleted in that plan's own
+# commit. Row shape:
+#   retired      the check function name this plan deleted
+#   property     one sentence naming the PROPERTY under test, not the
+#                markup — at least eight words, so a one-line restated
+#                selector cannot pass as a property description
+#   replacement  the new check function name that will re-prove it
+#   owed_by      the plan number that owes the replacement ("30-05",
+#                "30-06", "30-07" or "30-08")
+#   why          one sentence: which CFG-85 mechanism removal makes the
+#                old shape unassertable
+_ASPECT_REPIN_LEDGER = (
+    {
+        "retired": "_frame_colours_card_covers_every_registered_theme_with_own_id_and_label",
+        "property": (
+            "every registered theme renders as its own radio, carrying its own registry id "
+            "as value and its own plain label as visible text, inside the Aspect card"),
+        "replacement": "_aspect_card_covers_every_registered_theme_with_own_id_and_label",
+        "owed_by": "",
+        "why": "the card builder this check calls directly, _frame_colours_card_html(), is retired",
+    },
+    {
+        "retired": "_frame_colours_card_default_selects_exactly_the_white_departures_option",
+        "property": (
+            "rendering the card with the registry's default theme id marks exactly the White "
+            "departures option selected, never a second option"),
+        "replacement": "_aspect_card_default_selects_exactly_the_white_departures_option",
+        "owed_by": "",
+        "why": "the card builder this check calls directly, _frame_colours_card_html(), is retired",
+    },
+    {
+        "retired": "_frame_colours_arrivals_grid_carries_leading_chip_no_checkbox",
+        "property": (
+            "the arrivals row carries a leading Same-as-departures option submitting the "
+            "empty string, and no checkbox-based override control exists anywhere on the page"),
+        "replacement": "_aspect_arrivals_row_carries_leading_option_no_checkbox",
+        "owed_by": "",
+        "why": "the rendered markup this check greps (theme-chip-grid, colour_usage panels) is retired",
+    },
+    {
+        "retired": "_frame_colours_arrivals_override_preselects_the_override_not_same_as_departures",
+        "property": (
+            "a stored theme_arriving override pre-selects that override in the arrivals row, "
+            "never the leading Same-as-departures option and never the departures theme"),
+        "replacement": "_aspect_arrivals_override_preselects_the_override_not_same_as_departures",
+        "owed_by": "",
+        "why": "this check calls _frame_colours_card_html() directly and greps its COLOUR_USAGE_PANEL_TARGET_ATTR segments, both retired",
+    },
+    {
+        "retired": "_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable",
+        "property": (
+            "the destructive Disconnect control keeps its secondary, element-qualified "
+            "specificity and placement (T2/T15), and a checked selectable row still recolours "
+            "its own 1px border and carries an inset accent ring (T6); 30-06 owes the T2/T15 "
+            "half of this property back in its own commit, since only T6's own selector is "
+            "retired by CFG-85"),
+        "replacement": "_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable_after_the_accordion_rebuild",
+        "owed_by": "",
+        "why": (
+            "T6's checked-row selector, 'input:checked + .frame-colours__row', has no "
+            ".frame-colours__row to match once the accordion row markup replaces it — "
+            "DIVERGENCE: the ledger's own predicted replacement name is identical to the "
+            "retired name (30-03's same-name-repoint convention), which trips the ledger "
+            "guard's own unconditional 'retired name has no def' clause the instant a "
+            "same-named def lands under it — the identical guard-collision 30-05-SUMMARY.md/"
+            "30-06-SUMMARY.md already documented twice, at different rows. Resolved the same "
+            "way: appended '_after_the_accordion_rebuild' to the landing name."),
+    },
+    {
+        "retired": "_frame_colours_card_full_shape_checklist",
+        "property": (
+            "the whole Aspect card renders as exactly one card under Look, with its rows in "
+            "locked order, no hidden usage-panel styling, every field cross-submitting via "
+            "form=settings-form, and a French render showing all four row labels"),
+        "replacement": "_aspect_card_full_shape_checklist",
+        "owed_by": "",
+        "why": "the whole check is a consolidated assertion against the retiring colour_usage radiogroup and usage-panel markup",
+    },
+    {
+        "retired": "_rules_section_renders_inside_frame_colours_after_form",
+        "property": (
+            "the rules disclosure row renders inside the Aspect card, after the settings "
+            "form's own closing tag and before the Calendar card that used to follow it"),
+        "replacement": "_rules_row_renders_inside_aspect_after_form",
+        "owed_by": "",
+        "why": (
+            "the landmark headings this check indexes — the former Frame colours card's own "
+            "heading constant and the former separate Calendar card's own heading constant — "
+            "name two cards both retired by the merge"),
+    },
+    {
+        "retired": "_rules_copy_appears_escaped_verbatim",
+        "property": (
+            "every rules-editor copy string — heading, caption, field labels, kind labels and "
+            "titles, empty-state text, and the how-rules-combine disclosure — renders "
+            "escaped-verbatim on the page"),
+        "replacement": "_aspect_rules_copy_appears_escaped_verbatim",
+        "owed_by": "",
+        "why": (
+            "this check reads config_page.FRAME_COLOURS_ROW_LABELS — DIVERGENCE: 30-04-PLAN.md "
+            "Task 1 kept that constant's own name deliberately (30-UI-SPEC.md's Copywriting "
+            "Contract cites it by this exact name), so the property survives unchanged; only "
+            "the check's own name changes, to this phase's Aspect naming convention"),
+    },
+    {
+        "retired": "_frame_colours_rules_row_label_locked_verbatim",
+        "property": (
+            "the rules row's own locked label text equals the UI-SPEC's exact 'Per-flight "
+            "rules' wording, verbatim"),
+        "replacement": "_aspect_rules_row_label_locked_verbatim",
+        "owed_by": "",
+        "why": "this check reads config_page.FRAME_COLOURS_ROW_LABELS, the constant CFG-85's rebuild renames",
+    },
+    {
+        "retired": "_calendar_theme_chip_grid_exactly_one_compact_radiogroup_populated_in_order",
+        "property": (
+            "the calendar row's palette carries one leading Same-as-departures option plus "
+            "exactly one entry per registered theme, in registry order"),
+        "replacement": "_aspect_calendar_row_palette_populated_in_order",
+        "owed_by": "",
+        "why": "this check greps the retiring strip markup (THEME_CAROUSEL_STRIP_ID_CALENDAR, FRAME_COLOURS_HEADING_ID as aria-labelledby)",
+    },
+    {
+        "retired": "_calendar_placement_after_display_form_close_with_dirty_attr",
+        "property": (
+            "the calendar group's content renders after the settings form's own closing tag, "
+            "after the Aspect card's own heading, and still carries the dirty-section "
+            "tracking attribute"),
+        "replacement": "_calendar_connection_placement_inside_aspect_after_display_form_close_with_dirty_attr",
+        "owed_by": "",
+        "why": (
+            "this check indexes FRAME_COLOURS_HEADING/FRAME_COLOURS_HEADING_ID as a separate "
+            "card's own heading, retired by the merge — DIVERGENCE: the ledger's own predicted "
+            "replacement name is unusable verbatim, since 30-06-PLAN.md Task 3's own harness-wide "
+            "guard bans the retired connector-function's name (the two component words, joined) "
+            "as a literal substring anywhere in this file; the landing name below swaps that word "
+            "for 'connection', matching the retired function's own real replacement"),
+    },
+    {
+        # DIVERGENCE (see the row above's 'why' for the mechanism): this
+        # row's own "retired" label is respelled from its true historical
+        # name — the two component words the retired connector function
+        # itself was named with, joined, are banned as a literal
+        # substring anywhere in this file by 30-06-PLAN.md Task 3's own
+        # guard, and a ledger row is data this same guard scans too.
+        "retired": "_calendar_card_no_inline_js_and_chip_grid_cross_submits_form",
+        "property": (
+            "the calendar row renders no inline event-handler attribute and no script tag, "
+            "and every calendar_theme_id radio cross-submits into the settings form via "
+            "form=settings-form"),
+        "replacement": "_calendar_row_no_inline_js_and_palette_cross_submits_form",
+        "owed_by": "",
+        "why": "this check locates the calendar segment via COLOUR_USAGE_PANEL_TARGET_ATTR, the attribute CFG-85 retires",
+    },
+    {
+        "retired": "_display_h2_order_matches_d12_after_calendar_placement_fix",
+        "property": (
+            "the Display scope's rendered heading order names exactly one Aspect heading in "
+            "the place the former separate Frame colours and Calendar headings used to "
+            "occupy, and every calendar_theme_id radio still carries form=settings-form"),
+        "replacement": "_display_h2_order_matches_the_merged_aspect_card_placement",
+        "owed_by": "",
+        "why": (
+            "this check pins an exact <h2> list including the former Frame colours heading "
+            "constant and the former separate Calendar heading constant as two separate headings"),
+    },
+    {
+        "retired": "_title_form_inventory_classifies_every_h2_text_heading_on_both_routes",
+        "property": (
+            "both settings routes' h2.text-heading instances still classify exhaustively "
+            "into settings-card titles, supersection intros, and the two unrelated headings, "
+            "with the counts re-derived for the merged card"),
+        "replacement": "_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_after_the_merge",
+        "owed_by": "",
+        "why": "this check pins an exact per-route (total, form-A, form-B, unclassified) tuple that includes FRAME_COLOURS_HEADING as its own separate form-A instance",
+    },
+    {
+        "retired": "_no_card_builder_function_ever_calls_section_intro_html",
+        "property": (
+            "none of the settings-card builder functions, including the merged Aspect card "
+            "builder, ever calls the shared supersection-intro builder for their own heading"),
+        "replacement": "_no_card_builder_function_ever_calls_section_intro_html_after_the_merge",
+        "owed_by": "",
+        "why": (
+            "this check's own AST allowlist names _frame_colours_card_html by name, retired and "
+            "replaced by _aspect_card_html — DIVERGENCE: the ledger's own predicted replacement "
+            "name is identical to the retired name (30-03's own same-name-repoint convention), "
+            "which collides with this guard's own unconditional 'retired name has no def' clause "
+            "the moment a same-named replacement lands under it — the identical guard-collision "
+            "30-05-SUMMARY.md already documented once. Resolved the same way: append "
+            "'_after_the_merge' to the landing name."),
+    },
+    {
+        "retired": "_english_display_render_still_carries_every_pinned_english_string",
+        "property": (
+            "an English, default-language Display render still contains every pre-existing "
+            "pinned English copy string this file's own checks assert, updated for the two "
+            "captions CFG-85 deletes outright"),
+        "replacement": "_aspect_display_render_still_carries_every_pinned_english_string",
+        "owed_by": "",
+        "why": (
+            "this check pins config_page.FRAME_COLOURS_CAPTION, which CFG-85's rebuild deletes "
+            "outright (the calendar connection block's own caption constant survived at 30-05's "
+            "own point in the phase, per config_page.ASPECT_CAPTION_EXEMPTIONS' own header "
+            "comment at that time — its own removal was 30-06's job, done since) — DIVERGENCE: "
+            "renamed from the retired check's own literal name (30-03's ledger row set "
+            "replacement==retired verbatim, which this guard's own 'retired name has no def' "
+            "clause would then always trip the moment the replacement landed under that same "
+            "name) to this phase's Aspect naming convention"),
+    },
+    {
+        "retired": "_scoped_render_carries_hidden_fields_and_omits_other_groups",
+        "property": (
+            "scoped renders carry their own hidden scope/return_to fields and only their own "
+            "groups, including locating the rules row on the page by its own locator"),
+        "replacement": "_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups",
+        "owed_by": "",
+        "why": (
+            "this check locates the rules panel via COLOUR_USAGE_PANEL_TARGET_ATTR, the "
+            "attribute CFG-85 retires — DIVERGENCE: renamed for the identical guard-collision "
+            "reason as the row above (replacement==retired is unrepayable under this guard's own "
+            "rules)"),
+    },
+    {
+        "retired": "_display_render_has_exactly_one_live_preview_figure_eager_with_dimensions",
+        "property": (
+            "a Display render contains exactly one live-preview figure whose image src ends "
+            "in the saved theme's live-preview query, carries eager loading, and carries "
+            "explicit width/height attributes"),
+        "replacement": "_aspect_display_render_has_exactly_one_live_preview_figure_eager_with_dimensions",
+        "owed_by": "",
+        "why": (
+            "this check pins the figure's exact class attribute, 'theme-live-preview "
+            "frame-colours__preview', and the wrapper class changes — DIVERGENCE: renamed for "
+            "the identical guard-collision reason as the two rows above"),
+    },
+    {
+        "retired": "_segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif",
+        "property": (
+            "the rule-kind segmented control keeps its own label margin/height reset "
+            "(unaffected by CFG-85), and whatever legend or heading names the rules row's own "
+            "copy still leaves the shared serif family through a later, higher-specificity rule"),
+        "replacement": "_segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif_after_the_panel_legend_retires",
+        "owed_by": "",
+        "why": (
+            "this check's C1 half pins '.frame-colours__panel-legend', a legend with nothing "
+            "left to point at once the usage panels go — RETIRED outright rather than "
+            "repointed, narrowing the serif boundary's own non-serif-exception set by one; "
+            "T12's own half survives verbatim. DIVERGENCE: same-name-repoint collision "
+            "identical to the row above, resolved the same way: appended "
+            "'_after_the_panel_legend_retires' to the landing name."),
+    },
+)
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -1283,6 +1641,113 @@ def main():
             print("PASS %s" % name)
         else:
             print("FAIL %s - %s" % (name, reason))
+
+    # ==================================================================
+    # 30-03-PLAN.md Task 1 (CFG-85): the ledger's own guard. Reads THIS
+    # file's own source, mirroring _no_card_builder_function_ever_calls_
+    # section_intro_html()'s established idiom for a check that reads
+    # its own project's Python source.
+    # ==================================================================
+
+    def _every_aspect_repin_ledger_row_names_a_live_or_owed_replacement():
+        if not _ASPECT_REPIN_LEDGER:
+            return False, (
+                "_ASPECT_REPIN_LEDGER is empty — this guard must never pass vacuously; if "
+                "every row has genuinely been repaid, this check itself should be retired, "
+                "not left to pass against nothing")
+        with open(os.path.join(HERE, "test_config_page.py")) as fh:
+            own_source = fh.read()
+        for row in _ASPECT_REPIN_LEDGER:
+            # "owed_by" is allowed to be the empty string — that is the
+            # legitimate "repaid IN THIS FILE" signal, checked below via
+            # its replacement's own def. Every OTHER key must be
+            # present AND non-empty; "owed_by" only needs to be present.
+            for key in ("retired", "property", "replacement", "why"):
+                if not row.get(key):
+                    return False, "ledger row %r is missing/empty key %r" % (row, key)
+            if "owed_by" not in row:
+                return False, "ledger row %r is missing key 'owed_by'" % (row,)
+            if len(row["property"].split()) < 8:
+                return False, (
+                    "ledger row %r's 'property' is under eight words — it must name the "
+                    "PROPERTY under test, not restate a selector" % (row["retired"],))
+            if re.search(r"def %s\(" % re.escape(row["retired"]), own_source):
+                return False, (
+                    "retired check %r still has a def in this file — a retired check left "
+                    "behind is the OTHER failure shape this guard exists to catch"
+                    % (row["retired"],))
+            if row["owed_by"]:
+                if row["owed_by"] not in ("30-05", "30-06", "30-07", "30-08"):
+                    return False, (
+                        "ledger row %r names owed_by=%r, not one of this phase's own later "
+                        "plans" % (row["retired"], row["owed_by"]))
+            else:
+                if not re.search(r"def %s\(" % re.escape(row["replacement"]), own_source):
+                    return False, (
+                        "ledger row %r names owed_by='' (repaid in THIS file) but its "
+                        "replacement %r has no def here — the repayment claim is false"
+                        % (row["retired"], row["replacement"]))
+        return True, ""
+    check(
+        "_ASPECT_REPIN_LEDGER is non-empty, every row is well-formed (all five keys present, "
+        "'property' naming an actual property in at least eight words, not a restated "
+        "selector), no 'retired' name still has a def in this file, every 'owed_by' names one "
+        "of this phase's own later plans, and any row claiming repayment IN this file (empty "
+        "owed_by) names a replacement that genuinely has a def here — so a forgotten re-pin "
+        "is a red build, not a silent coverage loss (CFG-85, 30-03-PLAN.md Task 1)",
+        _every_aspect_repin_ledger_row_names_a_live_or_owed_replacement)
+
+    # 30-05-PLAN.md Task 1 (CFG-85): two shared helpers every Aspect-card
+    # check below uses, defined once near the top of main() so every
+    # `check(...)` call site below (which runs its check function
+    # IMMEDIATELY, in source order) can already see them by name.
+    #
+    # Every mechanism the accordion rebuild retires outright — grepped
+    # whole-repo for a surviving consumer before 30-04-PLAN.md's own
+    # commit landed. Kept here as its own named tuple, not six inline
+    # `in` checks, so a future reader can see exactly what "retired
+    # mechanism" means without re-deriving it, and so
+    # `_aspect_card_full_shape_checklist()` below can assert their
+    # absence as one relationship rather than six separate assertions.
+    _ASPECT_RETIRED_MARKUP_TOKENS = (
+        "theme-carousel", "frame-colours", "colour_usage", "usage-panel",
+        "__dots", "theme-chip-grid--strip",
+    )
+
+    def _aspect_usage_row_bounds(rendered, usage):
+        """The `[start, end)` slice of `rendered` covering exactly one
+        Aspect accordion row (its own `<details ... data-usage=
+        "{usage}">` through the next row's opening tag, or — for the
+        last row in `config_page.COLOUR_USAGES` — through the "What it
+        watches" supersection's own id-anchored heading, which always
+        renders unconditionally right after the Aspect card (and its
+        sibling calendar disconnect form, when present) on the Display
+        scope every caller below renders through. 30-05-PLAN.md Task 1
+        (CFG-85): a shared helper so every row-scoped check below
+        locates a row the same way, exactly once.
+
+        30-06-PLAN.md Task 3: the last-row fallback is REPOINTED. It
+        used to search for the separate Calendar card's own nested-
+        wrapper `<div class="page-section page-section--nested" ...>`
+        — that card is retired outright (its connection block is now
+        INSIDE this same Aspect card's own Calendar row), so nothing on
+        the page matches that literal any more; worse, every OTHER
+        Display-scope card (Runway, Quiet hours) is wrapped with the
+        `theme-status`/`theme-status--nested` base class, never
+        `page-section`, so that literal was never a safe "next card"
+        anchor even coincidentally. `DISPLAY_WATCHES_SECTION_ID` is a
+        landmark id every caller's own `config_page.render(...,
+        scope=config_page.SCOPE_DISPLAY)` render always carries,
+        regardless of whether Runway itself is present.
+        """
+        usages = list(config_page.COLOUR_USAGES)
+        idx = usages.index(usage)
+        start = rendered.index('data-usage="%s"' % usage)
+        if idx + 1 < len(usages):
+            end = rendered.index('data-usage="%s"' % usages[idx + 1], start)
+        else:
+            end = rendered.index('id="%s"' % config_page.DISPLAY_WATCHES_SECTION_ID, start)
+        return start, end
 
     # ==================================================================
     # Section 1: unit checks against render()/theme_fieldset()/
@@ -2076,55 +2541,99 @@ def main():
     # emission site, for the full reasoning). This is a further -1 to
     # EXPECTED_CHECK_COUNT (see the history comment above the constant).
 
-    # 21-05-PLAN.md Task 1 (D-06): theme_fieldset() is retired outright —
-    # every direct-call test against it (one-radio-per-registry-entry,
-    # the single-theme read-only fallback, the multi-theme fallback, the
-    # per-theme id/label coverage, and the default-selection doubling
-    # across two always-rendered grids) is deleted along with it. The
-    # single-theme read-only branch has no replacement in the Frame
-    # colours card (a real, multi-theme registry is this app's only
-    # shipped shape, and the new card assumes a real radiogroup); the
-    # remaining, still-true assertions (one radio per registered theme,
-    # each carrying its own id/label; the currently-selected chip is
-    # marked) are covered directly against `_frame_colours_card_html()`
-    # below.
-
-    def _frame_colours_card_covers_every_registered_theme_with_own_id_and_label():
-        ctx = {"colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS}}
-        rendered = config_page._frame_colours_card_html(ctx, "white", None, None)
+    def _aspect_card_covers_every_registered_theme_with_own_id_and_label():
+        # 30-05-PLAN.md Task 1 (CFG-85): replaces the retired
+        # _frame_colours_card_covers_every_registered_theme_with_own_id_
+        # and_label. For each of the three saved fields (theme,
+        # theme_arriving, calendar_theme_id) the row's palette renders
+        # exactly one radio per device_config.THEME_IDS entry, in
+        # registry order, each carrying its own value/label/data-
+        # preview-src and form=settings-form; arrivals/calendar
+        # additionally carry exactly one leading Same-as-departures
+        # option, departures exactly zero.
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        }, scope=config_page.SCOPE_DISPLAY)
         theme_ids = device_config.THEME_IDS
         if not theme_ids:
             return False, "THEME_IDS is empty - nothing to render"
+        for field_name, leading_expected in (
+                ("theme", 0), ("theme_arriving", 1), ("calendar_theme_id", 1)):
+            radio_values = re.findall(
+                r'name="%s" value="([^"]*)" class="visually-hidden"' % re.escape(field_name),
+                rendered)
+            real_ids = [rid for rid in radio_values if rid]
+            leading_count = len(radio_values) - len(real_ids)
+            if leading_count != leading_expected:
+                return False, (
+                    "expected %d leading Same-as-departures option(s) for %r, got %d"
+                    % (leading_expected, field_name, leading_count))
+            if real_ids != list(theme_ids):
+                return False, (
+                    "expected one radio per THEME_IDS entry IN REGISTRY ORDER for %r, got %r"
+                    % (field_name, real_ids))
+            total = len(radio_values)
+            with_form = len(re.findall(
+                r'name="%s" value="[^"]*" class="visually-hidden"( form="%s")'
+                % (re.escape(field_name), re.escape(config_page.SETTINGS_FORM_ID)), rendered))
+            if with_form != total:
+                return False, (
+                    "expected every %s radio to carry form=%r, got %d/%d"
+                    % (field_name, config_page.SETTINGS_FORM_ID, with_form, total))
         for theme_id in theme_ids:
             value_needle = 'value="%s"' % escape_html(theme_id)
             if value_needle not in rendered:
                 return False, "expected a radio carrying value=%r, not found in the rendered card" % (theme_id,)
-            label_needle = escape_html(device_config.theme_label(theme_id))
+            label_needle = escape_html(i18n.t(device_config.theme_label(theme_id)))
             if label_needle not in rendered:
-                return False, "expected theme %r's plain label %r as visible text, not found" % (theme_id, label_needle)
+                return False, "expected theme %r's own translated label, not found" % (theme_id,)
+            preview_needle = 'data-preview-src="%s%s.png?live=1"' % (
+                config_page.THEME_PREVIEW_ROUTE_PREFIX, theme_id)
+            if preview_needle not in rendered:
+                return False, "expected theme %r's own data-preview-src, not found" % (theme_id,)
         return True, ""
     check(
-        "_frame_colours_card_html() renders one radio per registered theme in its departures grid, each "
-        "carrying its own registry id as value and its own plain label as visible text (D-06, replacing "
-        "the retired theme_fieldset()'s equivalent coverage)",
-        _frame_colours_card_covers_every_registered_theme_with_own_id_and_label)
+        "the Aspect card's three palettes each render one radio per registered theme, in registry "
+        "order, each carrying its own registry id/translated label/data-preview-src and "
+        "form=settings-form, with arrivals/calendar carrying exactly one leading Same-as-departures "
+        "option and departures exactly zero (D-06, 30-05-PLAN.md Task 1, replacing the retired "
+        "_frame_colours_card_covers_every_registered_theme_with_own_id_and_label)",
+        _aspect_card_covers_every_registered_theme_with_own_id_and_label)
 
-    def _frame_colours_card_default_selects_exactly_the_white_departures_option():
-        ctx = {"colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS}}
-        rendered = config_page._frame_colours_card_html(
-            ctx, device_config.DEFAULT_THEME_ID, None, None)
-        white_option_needle = 'value="white" class="visually-hidden" form="%s" checked' % (
-            config_page.SETTINGS_FORM_ID)
-        if rendered.count(white_option_needle) != 1:
-            return False, (
-                "expected the White departures chip selected exactly once (expected %r once), got %d"
-                % (white_option_needle, rendered.count(white_option_needle)))
+    def _aspect_card_default_selects_exactly_the_white_departures_option():
+        # 30-05-PLAN.md Task 1 (CFG-85): replaces the retired
+        # _frame_colours_card_default_selects_exactly_the_white_
+        # departures_option. Rendered with the registry's default theme
+        # id and no overrides: exactly one checked radio per group,
+        # asserted PER GROUP rather than as a page-wide checked count —
+        # a page-wide count would pass while two groups are wrong in
+        # opposite directions.
+        rendered = config_page.render({
+            "device_config": {"theme": device_config.DEFAULT_THEME_ID, "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        }, scope=config_page.SCOPE_DISPLAY)
+        for field_name, expected_value in (
+                ("theme", device_config.DEFAULT_THEME_ID),
+                ("theme_arriving", ""),
+                ("calendar_theme_id", "")):
+            checked = re.findall(
+                r'name="%s" value="([^"]*)" class="visually-hidden"[^>]*checked'
+                % re.escape(field_name), rendered)
+            if checked != [expected_value]:
+                return False, (
+                    "expected exactly one checked %r radio (value=%r), got %r"
+                    % (field_name, expected_value, checked))
         return True, ""
     check(
-        "_frame_colours_card_html() rendered with the default theme id marks exactly the White chip "
-        "selected in the departures grid (D-06/D-07, replacing the retired theme_fieldset()'s "
-        "equivalent coverage)",
-        _frame_colours_card_default_selects_exactly_the_white_departures_option)
+        "the Aspect card rendered with the default theme id marks exactly the White chip selected in "
+        "the departures palette, and exactly the leading Same-as-departures option selected in the "
+        "arrivals/calendar palettes, each asserted per group (D-06/D-07, 30-05-PLAN.md Task 1, "
+        "replacing the retired "
+        "_frame_colours_card_default_selects_exactly_the_white_departures_option)",
+        _aspect_card_default_selects_exactly_the_white_departures_option)
 
     def _runway_fieldset_exactly_three_radios():
         rendered = config_page.runway_fieldset("3")
@@ -2175,6 +2684,143 @@ def main():
     check(
         "runway_fieldset('3', images_available=('3', '06-24')) renders an <img> inside exactly those two cards, none in the third (D-05)",
         _runway_fieldset_cards_image_rendering_per_card)
+
+    def _palette_swatch_html_matches_the_live_registry_band_facts():
+        # 30-02-PLAN.md Task 1 (CFG-85): the swatch's band/solid split
+        # DERIVED from the registry at check time, never restated as a
+        # literal "5" — a check that hardcodes the count stops being
+        # true the day a theme is added.
+        banded = [
+            theme_id for theme_id in device_config.THEME_IDS
+            if "palette-swatch__band" in config_page._palette_swatch_html(theme_id)
+        ]
+        expect_banded = [
+            theme_id for theme_id in device_config.THEME_IDS
+            if "band_index" in device_config.THEMES[theme_id]
+            and device_config.THEMES[theme_id]["band_index"]
+            != device_config.THEMES[theme_id]["departing_index"]
+        ]
+        if banded != expect_banded:
+            return False, (
+                "expected exactly the registry-derived banded themes %r to carry a "
+                "palette-swatch__band child, got %r" % (expect_banded, banded))
+        white_html = config_page._palette_swatch_html("white")
+        if white_html.count("<span") != 1:
+            return False, (
+                "expected a plain theme's swatch to render exactly one <span (no band "
+                "child), got %d in %r" % (white_html.count("<span"), white_html))
+        grey_html = config_page._palette_swatch_html("grey")
+        if "opacity" in grey_html:
+            return False, (
+                "expected a dithered theme's swatch to carry NO opacity style "
+                "(30-UI-SPEC.md's Swatch Rendering Contract), got %r" % (grey_html,))
+        if 'class="palette-swatch"' not in white_html:
+            return False, "expected class=\"palette-swatch\" with no extra_class given"
+        extra_html = config_page._palette_swatch_html("white", extra_class="usage-row__swatch")
+        if 'class="palette-swatch usage-row__swatch"' not in extra_html:
+            return False, (
+                "expected extra_class to append space-joined onto the class attribute, "
+                "got %r" % (extra_html,))
+        field_html = config_page._palette_swatch_html("band_blue_field")
+        if "palette-swatch__band" in field_html:
+            return False, (
+                "band_blue_field has departing_index == band_index in the live registry "
+                "and must render SOLID, not banded — got %r" % (field_html,))
+        return True, ""
+    check(
+        "_palette_swatch_html() draws exactly the registry-derived 5-of-18 banded themes "
+        "with a band child, renders a plain theme as one solid <span> with no opacity, and "
+        "space-joins extra_class onto its class attribute (CFG-85)",
+        _palette_swatch_html_matches_the_live_registry_band_facts)
+
+    def _palette_grid_html_renders_one_chip_per_registered_theme_in_order_no_photo():
+        # 30-02-PLAN.md Task 2 (CFG-85): _palette_grid_html() renders
+        # exactly len(THEME_IDS) chips, in device_config.THEME_IDS order
+        # (never a re-sort), each carrying data-preview-src (D-24, the
+        # attribute theme-preview.js reads off the changed radio's
+        # parentNode) and form="settings-form" (the cross-submit seam),
+        # zero <img> (no photo, no per-chip preview route call), exactly
+        # one selected chip's check glyph, and exactly one outer swatch
+        # element per chip.
+        g = config_page._palette_grid_html(
+            "theme", "red", radio_form_id=config_page.SETTINGS_FORM_ID)
+        ids = re.findall(r'<input type="radio" name="theme" value="([^"]+)"', g)
+        if ids != list(device_config.THEME_IDS):
+            return False, (
+                "expected one radio per THEME_IDS entry IN REGISTRY ORDER, got %r" % (ids,))
+        if g.count("<img") != 0:
+            return False, "expected the palette to render zero <img> (no photo per chip)"
+        # Rule-1-class note: counting the literal substring "palette-swatch"
+        # would double-count every banded chip, since the band child's own
+        # class (palette-swatch__band, locked by Task 1) shares that
+        # string's prefix — count the OUTER swatch wrapper specifically
+        # (it alone carries aria-hidden="true"; the band child never does).
+        outer_swatch_count = g.count('aria-hidden="true" style="background:')
+        if outer_swatch_count != len(device_config.THEME_IDS):
+            return False, (
+                "expected exactly one outer palette-swatch per chip (%d), got %d"
+                % (len(device_config.THEME_IDS), outer_swatch_count))
+        preview_src_count = g.count(
+            'data-preview-src="%s' % config_page.THEME_PREVIEW_ROUTE_PREFIX)
+        if preview_src_count != len(device_config.THEME_IDS):
+            return False, (
+                "expected data-preview-src on all %d chip <label>s (theme-preview.js's own "
+                "D-24 read), got %d" % (len(device_config.THEME_IDS), preview_src_count))
+        form_attr_count = g.count('form="settings-form"')
+        if form_attr_count != len(device_config.THEME_IDS):
+            return False, (
+                "expected form=\"settings-form\" on all %d radios, got %d"
+                % (len(device_config.THEME_IDS), form_attr_count))
+        selected_needle = (
+            'value="red" class="visually-hidden" form="settings-form" checked')
+        if g.count(selected_needle) != 1 or g.count(" checked") != 1:
+            return False, "expected exactly the red chip's radio marked checked"
+        if g.count("palette-chip__check") != 1:
+            return False, "expected exactly one selected-chip check glyph"
+        lead = config_page._palette_grid_html(
+            "theme_arriving", None, leading_html="<label id=LEAD></label>")
+        if lead.index("LEAD") >= lead.index("palette-chip"):
+            return False, "expected leading_html to precede the 18 chips, not follow them"
+        if ' id="' in re.sub(r'data-preview-src="[^"]*"', "", g):
+            return False, (
+                "expected _palette_grid_html() to emit no id attribute of its own — three "
+                "call sites on one page sharing an id is the exact CFG-68 collision trap")
+        return True, ""
+    check(
+        "_palette_grid_html() renders one chip per registered theme in device_config."
+        "THEME_IDS order, zero <img>, data-preview-src and form=\"settings-form\" on "
+        "every chip, exactly one selected check glyph, leading_html before the chips, "
+        "and no id attribute of its own (CFG-85)",
+        _palette_grid_html_renders_one_chip_per_registered_theme_in_order_no_photo)
+
+    def _usage_row_summary_html_joins_row_label_and_meta_with_one_em_dash_source():
+        # 30-02-PLAN.md Task 2 (CFG-85): the closed-row <summary> — a
+        # swatch, the translated row label, and a nested meta span, the
+        # dash between them sourced ONCE from ASPECT_ROW_SUMMARY_TEMPLATE.
+        s = config_page._usage_row_summary_html(config_page.COLOUR_USAGE_DEPARTURES, "red")
+        if not (s.startswith("<summary") and s.rstrip().endswith("</summary>")):
+            return False, "expected a well-formed <summary>...</summary> fragment"
+        if "usage-row__swatch" not in s or "usage-row__name" not in s or "usage-row__meta" not in s:
+            return False, "expected the swatch, name and meta classes all present"
+        if "Departures" not in s or "Red" not in s:
+            return False, "expected the translated row label and theme label both present"
+        if "—" not in s:
+            return False, (
+                "expected the em-dash join from ASPECT_ROW_SUMMARY_TEMPLATE to appear "
+                "in the rendered summary")
+        s_rules = config_page._usage_row_summary_html(
+            config_page.COLOUR_USAGE_RULES, None, meta_text="No rules yet")
+        if "usage-row__swatch" in s_rules:
+            return False, (
+                "expected the rules row (theme_id=None) to render NO swatch element at all")
+        if "No rules yet" not in s_rules:
+            return False, "expected the given meta_text to appear verbatim (escaped)"
+        return True, ""
+    check(
+        "_usage_row_summary_html() renders a well-formed <summary> joining the translated "
+        "row label and meta text via ASPECT_ROW_SUMMARY_TEMPLATE's single em-dash source, "
+        "and renders no swatch at all when theme_id is None (the rules row) (CFG-85)",
+        _usage_row_summary_html_joins_row_label_and_meta_with_one_em_dash_source)
 
     # ------------------------------------------------------------------
     # 27-05-PLAN.md Task 3 (CFG-66): CFG-47's schematic Orly runway map
@@ -3845,7 +4491,7 @@ def main():
         # its replacement (the Frame colours card, Display-scope only),
         # dropping the count from eight to seven. 21-07-PLAN.md Task 1
         # (D-13/Pitfall 2): Calendar's own entry is ALSO gone from
-        # SCOPE_ALL now — the merged calendar_group() embeds a real
+        # SCOPE_ALL now — the merged _calendar_connection_html() embeds a real
         # connect/replace <form> in every state, which would nest inside
         # <form id="settings-form"> on this legacy render, so
         # screens.GROUP_CALENDAR has no entry in `builders` here any
@@ -5260,15 +5906,17 @@ def main():
         "both quiet-hours time inputs carry required in the rendered Settings page",
         _render_both_quiet_hours_time_inputs_carry_required)
 
-    def _calendar_connect_url_error_never_echoes_the_submitted_secret():
+    def _calendar_connection_url_error_never_echoes_the_submitted_secret():
         # 20-09-PLAN.md Task 1 (D-14c), retargeted by 21-07-PLAN.md
-        # Task 1 (D-13) after calendar_connect_section()'s retirement:
-        # the write-only calendar_url field's own `errors` parameter now
-        # lives directly on the merged calendar_group() — it never
-        # accepts `submitted` at all (nothing to repopulate: the one
-        # field it renders is write-only), so there is no submitted URL
-        # for it to echo in the first place.
-        rendered = config_page.calendar_group(
+        # Task 1 (D-13), retargeted again by 30-06-PLAN.md Task 3 after
+        # _calendar_connection_html()'s own retirement: the write-only calendar_url
+        # field's own `errors` parameter now lives directly on
+        # _calendar_connection_html() — it never accepts `submitted` at
+        # all (nothing to repopulate: the one field it renders is
+        # write-only), so there is no submitted URL for it to echo in
+        # the first place. The property is unchanged from the retired
+        # check; only the call site and its tuple return shape move.
+        rendered, _disconnect_form_html = config_page._calendar_connection_html(
             False, False, None, None, "2026-09-07T09:12:04+00:00", 0,
             errors={"calendar_url": "msg"})
         if "msg" not in rendered:
@@ -5280,10 +5928,10 @@ def main():
             return False, "expected no value attribute on the calendar_url field even with an error present"
         return True, ""
     check(
-        "the merged calendar_group(..., errors={\"calendar_url\": \"msg\"}) renders the error message "
+        "_calendar_connection_html(..., errors={\"calendar_url\": \"msg\"}) renders the error message "
         "under the field while the write-only field itself still carries no value attribute at all "
-        "(D-07/T-19-12/D-13, retargeted after calendar_connect_section()'s retirement)",
-        _calendar_connect_url_error_never_echoes_the_submitted_secret)
+        "(D-07/T-19-12/D-13, retargeted after _calendar_connection_html()'s retirement, 30-06-PLAN.md Task 3)",
+        _calendar_connection_url_error_never_echoes_the_submitted_secret)
 
     def _style_css_styles_field_error():
         style_path = os.path.join(REPO_ROOT, "companion", "static", "style.css")
@@ -6061,85 +6709,86 @@ def main():
     # contract (15-VALIDATION.md row 7).
     # ------------------------------------------------------------------
 
-    def _frame_colours_arrivals_grid_carries_leading_chip_no_checkbox():
-        # 21-05-PLAN.md Task 1 (D-06/D-09): retargeted from the retired
-        # arrivals-override checkbox onto the Frame colours card's own
-        # "Same as departures" leading chip — both grids present in the
-        # rendered Display page; the arrivals grid carries
-        # name="theme_arriving" radios AND a leading empty-string chip;
-        # THEME_ARRIVING_CHECKBOX_LABEL/THEME_ARRIVING_TOGGLE_ID/
-        # theme_arriving_enabled exist nowhere on the page any more.
+    def _aspect_arrivals_row_carries_leading_option_no_checkbox():
+        # 30-05-PLAN.md Task 1 (CFG-85): replaces the retired
+        # _frame_colours_arrivals_grid_carries_leading_chip_no_checkbox.
+        # This control used to be a checkbox; the empty-string radio is
+        # what keeps the clear signal honest now — kept as a comment
+        # here for the same reason the old check carried it.
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
             "poll_cooldown_remaining": 0,
         }, scope=config_page.SCOPE_DISPLAY)
-        # 22-10-PLAN.md Task 1 (X6): retargeted in place. The departures
-        # grid used to be the page's one full-size grid and was asserted
-        # here by its plain `class="theme-chip-grid"`; X6 gives the whole
-        # Display page one chip density, so that plain class must now be
-        # ABSENT and every grid must carry the compact modifier. The
-        # dedicated one-density check below owns the positive assertion;
-        # this line keeps the negative one at the site that used to pin
-        # the opposite, so the reversal cannot be missed by a reader.
-        if 'class="theme-chip-grid"' in rendered:
+        leading_needle = (
+            '<label class="leading-option">'
+            '<input type="radio" name="theme_arriving" value="" class="visually-hidden" form="%s"'
+            % config_page.SETTINGS_FORM_ID)
+        if leading_needle not in rendered:
             return False, (
-                "expected NO plain (non-compact) chip grid on Display any more - X6 gives the "
-                "page one chip density")
-        if 'class="theme-chip-grid theme-chip-grid--compact"' not in rendered:
-            return False, "expected the arrivals/calendar grids' compact modifier class"
-        theme_count = len(device_config.THEME_IDS)
-        # +1 per compact grid (arrivals, calendar) for the leading "Same
-        # as departures" chip, which also submits name="theme_arriving"/
-        # name="calendar_theme_id" with value="".
-        if rendered.count('name="theme_arriving" value="') != theme_count + 1:
-            return False, (
-                "expected %d theme_arriving radios (theme_count + 1 leading chip), got %d"
-                % (theme_count + 1, rendered.count('name="theme_arriving" value="')))
-        if "theme_arriving_enabled" in rendered:
-            return False, "expected no theme_arriving_enabled checkbox anywhere on the page (D-09)"
-        if "Use a different theme for arrivals" in rendered:
-            return False, "expected no THEME_ARRIVING_CHECKBOX_LABEL text anywhere on the page (D-09)"
-        for retired_name in ("THEME_ARRIVING_CHECKBOX_LABEL", "THEME_ARRIVING_TOGGLE_ID",
-                              "ARRIVING_CHECKBOX_VALUE", "THEME_DIRECTION_LABEL"):
-            if hasattr(config_page, retired_name):
-                return False, "expected config_page to expose no %s constant any more" % (retired_name,)
-        same_as_departures = escape_html(config_page.SAME_AS_DEPARTURES_LABEL)
-        if rendered.count(same_as_departures) < 2:
-            return False, (
-                "expected the 'Same as departures' chip label to appear at least twice "
-                "(arrivals grid + calendar grid)")
+                "expected the arrivals row's leading option to carry class=\"leading-option\" and "
+                "form=%r" % (config_page.SETTINGS_FORM_ID,))
+        if 'type="checkbox"' in rendered:
+            return False, "expected no <input type=\"checkbox\"> anywhere in the Aspect card"
         return True, ""
     check(
-        "the Frame colours card's arrivals/calendar grids carry a leading 'Same as departures' chip "
-        "(submitting the empty string) instead of the retired arrivals-override checkbox, and no trace "
-        "of that checkbox's own constants survives anywhere (D-06/D-09)",
-        _frame_colours_arrivals_grid_carries_leading_chip_no_checkbox)
+        "the arrivals row carries a leading Same-as-departures option submitting the empty string "
+        "(class=\"leading-option\", form=settings-form), and no checkbox-based override control "
+        "exists anywhere on the page (D-06/D-09, 30-05-PLAN.md Task 1, replacing the retired "
+        "_frame_colours_arrivals_grid_carries_leading_chip_no_checkbox)",
+        _aspect_arrivals_row_carries_leading_option_no_checkbox)
 
-    def _frame_colours_arrivals_override_preselects_the_override_not_same_as_departures():
-        # 21-05-PLAN.md Task 1 (D-06/D-09): retargeted from the retired
-        # theme_fieldset(theme, theme_arriving) direct call onto
-        # _frame_colours_card_html() directly — with a stored override,
-        # the leading "Same as departures" chip must NOT be checked, and
-        # the override's own chip must be.
-        ctx = {"colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS}}
-        rendered = config_page._frame_colours_card_html(ctx, "white", "black", None)
-        arrivals_start = rendered.index(
-            '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_ARRIVALS))
-        arrivals_end = rendered.index(
-            '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_CALENDAR))
-        grid = rendered[arrivals_start:arrivals_end]
-        if not re.search(r'name="theme_arriving" value="black"[^>]*checked', grid):
-            return False, "expected the arrivals grid's checked radio to be the stored override (black)"
-        if re.search(r'name="theme_arriving" value=""[^>]*checked', grid):
-            return False, "expected the leading 'Same as departures' chip to NOT be checked once an override is set"
-        if re.search(r'name="theme_arriving" value="white"[^>]*checked', grid):
-            return False, "expected the departures theme (white) to NOT be marked selected in the arrivals grid once an override is set"
+    def _aspect_arrivals_override_preselects_the_override_not_same_as_departures():
+        # 30-05-PLAN.md Task 1 (CFG-85): replaces the retired
+        # _frame_colours_arrivals_override_preselects_the_override_not_
+        # same_as_departures. Locates the arrivals row by its own
+        # data-usage attribute (never COLOUR_USAGE_PANEL_TARGET_ATTR,
+        # retired), and asserts the calendar row is unaffected in the
+        # same render — that cross-row independence is the relationship
+        # the old check was really protecting.
+        rendered = config_page.render({
+            "device_config": {
+                "theme": "white", "tracked_runway": "3", "theme_arriving": "black"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        }, scope=config_page.SCOPE_DISPLAY)
+        arrivals_start, arrivals_end = _aspect_usage_row_bounds(
+            rendered, config_page.COLOUR_USAGE_ARRIVALS)
+        arrivals_segment = rendered[arrivals_start:arrivals_end]
+        if not re.search(r'name="theme_arriving" value="black"[^>]*checked', arrivals_segment):
+            return False, "expected the arrivals row's checked radio to be the stored override (black)"
+        if re.search(r'name="theme_arriving" value=""[^>]*checked', arrivals_segment):
+            return False, (
+                "expected the leading Same-as-departures option to NOT be checked once an "
+                "override is set")
+        if re.search(r'name="theme_arriving" value="white"[^>]*checked', arrivals_segment):
+            return False, (
+                "expected the departures theme (white) to NOT be marked selected in the arrivals "
+                "row once an override is set")
+        summary_segment = arrivals_segment.split("</summary>", 1)[0]
+        override_label = escape_html(i18n.t(device_config.theme_label("black")))
+        if override_label not in summary_segment:
+            return False, "expected the arrivals row's summary meta to name the override's own label"
+        same_as_label = escape_html(i18n.t(config_page.SAME_AS_DEPARTURES_LABEL))
+        if same_as_label in summary_segment:
+            return False, (
+                "expected the arrivals row's summary meta to NOT read Same-as-departures once an "
+                "override is set")
+        calendar_start, calendar_end = _aspect_usage_row_bounds(
+            rendered, config_page.COLOUR_USAGE_CALENDAR)
+        calendar_segment = rendered[calendar_start:calendar_end]
+        if not re.search(r'name="calendar_theme_id" value=""[^>]*checked', calendar_segment):
+            return False, (
+                "expected the calendar row's leading Same-as-departures option to still be "
+                "checked, unaffected by the arrivals override")
         return True, ""
     check(
-        "_frame_colours_card_html() with a stored theme_arriving override pre-selects the OVERRIDE (not "
-        "'Same as departures', not the departures theme) in the arrivals grid (D-06/D-09, replacing the "
-        "retired arrivals-override checkbox)",
-        _frame_colours_arrivals_override_preselects_the_override_not_same_as_departures)
+        "a stored theme_arriving override pre-selects the OVERRIDE (not Same-as-departures, not the "
+        "departures theme) in the arrivals row, names the override's own label in the row's summary "
+        "meta, and leaves the calendar row's own Same-as-departures state unaffected in the same "
+        "render (D-06/D-09, 30-05-PLAN.md Task 1, replacing the retired "
+        "_frame_colours_arrivals_override_preselects_the_override_not_same_as_departures)",
+        _aspect_arrivals_override_preselects_the_override_not_same_as_departures)
 
     def _handle_post_theme_arriving_valid_id_persists_chosen_id():
         # 21-05-PLAN.md Task 2 (D-09/R-07): retargeted — no checkbox
@@ -6393,7 +7042,7 @@ def main():
         # replacement (the Frame colours card) only ever renders on the
         # Display scope, never on this legacy SCOPE_ALL render.
         # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): the count drops to 6 —
-        # the merged calendar_group() now embeds a real connect/replace
+        # the merged _calendar_connection_html() now embeds a real connect/replace
         # <form> in every state, which would nest inside <form id=
         # "settings-form"> on this legacy render, so it has no entry in
         # `builders` here any more either (Calendar's own data-dirty-
@@ -6845,128 +7494,122 @@ def main():
         "feature-query block declares no transition at all — asserted together so moving one inside fails once",
         _strong_selected_treatment_is_keyed_to_the_live_checked_radio)
 
-    def _destructive_disconnect_is_secondary_and_selection_is_free_and_focusable():
-        """22-15-PLAN.md Task 1 — T2, T6 and T15 in one structural scan.
+    # 30-03-PLAN.md Task 1 (CFG-85): the check that used to live here —
+    # _destructive_disconnect_is_secondary_and_selection_is_free_and_
+    # focusable (22-15-PLAN.md Task 1's T2/T6/T15 structural scan) —
+    # carried TWO properties in one function: the destructive Disconnect
+    # control's specificity/placement (T2, survives untouched by CFG-85
+    # — 30-06's subject, not ledgered here) and the `input:checked +
+    # .frame-colours__row` selector (T6, CFG-85 retires .frame-colours__
+    # row itself). LEDGERED WHOLE to 30-07 rather than split, with a note
+    # that 30-06 owes the T2/T15 half back — see _ASPECT_REPIN_LEDGER.
+    #
+    # 30-07-PLAN.md Task 3: re-pinned below, landing under a name that
+    # diverges from the ledger's own predicted "replacement" — that
+    # predicted name is IDENTICAL to this row's own "retired" name
+    # (30-03's same-name-repoint convention), which would trip
+    # _every_aspect_repin_ledger_row_names_a_live_or_owed_replacement()'s
+    # own unconditional "retired name has no def" clause the instant a
+    # same-named def landed here — the identical guard-collision
+    # 30-05-SUMMARY.md/30-06-SUMMARY.md already documented twice, at
+    # different rows. Resolved the same way: append
+    # "_after_the_accordion_rebuild" to the landing name. Re-proves BOTH
+    # halves: (a) the destructive control's specificity RELATIONSHIP —
+    # `button.calendar-disconnect-btn` is element-qualified, (0,1,1), and
+    # placed AFTER `button[type="submit"]` in source order, so it wins on
+    # source order at equal specificity rather than on a higher one (the
+    # T2/T15 half, unaffected by CFG-85, never actually broken); and (b)
+    # the selection-is-free-and-focusable half, RE-KEYED from the retired
+    # `input:checked + .frame-colours__row` sibling selector to the new
+    # mechanism, which is now `.palette-chip:has(input:checked)` inside
+    # the file's one `@supports selector(:has(*))` block (the T6 half,
+    # the one CFG-85 genuinely retires the OLD selector for).
 
-        All three were defects a code READER could see and no harness
-        could: every declaration involved was present in the file and
-        string-comparison correct, and the bugs lived entirely in the
-        cascade and in the box model.
-
-        T2  — the destructive Disconnect control wore the page's primary
-              accent fill because a bare class (0,1,0) loses to
-              `button[type="submit"]` (0,1,1). The fix is the element-
-              qualified selector at equal specificity, later in source;
-              the prohibition on weakening the primary rule with
-              `:where()` is asserted too, because that shortcut would
-              surrender the accent fill file-wide.
-        T6  — selection grew the border from 1px to 2px, so a selected
-              card was a different size from its siblings. No rule in
-              this file may declare a 2px border again.
-        T15 — a selected card's focus state was pixel-identical to rest
-              (the real focus target is an off-screen radio), and
-              `summary` was missing from the focus-visible floor.
-        """
+    def _destructive_disconnect_is_secondary_and_selection_is_free_and_focusable_after_the_accordion_rebuild():
         source = _read_static("style.css")
 
-        # --- T2 -----------------------------------------------------
-        primary = 'button[type="submit"] {'
-        disconnect = "button.calendar-disconnect-btn {"
-        if primary not in source:
-            return False, "expected style.css to still declare the primary button[type=submit] rule"
-        if disconnect not in source:
+        # (a) T2/T15: the specificity RELATIONSHIP, not merely presence.
+        # `button[type="submit"]` and `button.calendar-disconnect-btn`
+        # are both (0,1,1) — equal specificity — so which one wins is
+        # decided by SOURCE ORDER alone. The recorded defect (22-UI-
+        # SPEC.md, this file's own header comment) was a rule whose every
+        # declaration was dead for a phase and a half because the
+        # selector was only (0,1,0) against the submit rule's (0,1,1);
+        # asserting the element qualifier alone would not catch a
+        # regression back to that bug if the ORDER also regressed, so
+        # both are asserted together.
+        submit_selector = 'button[type="submit"] {'
+        disconnect_selector = "button.calendar-disconnect-btn {"
+        if submit_selector not in source:
+            return False, "expected style.css to declare %r" % (submit_selector,)
+        if disconnect_selector not in source:
             return False, (
-                "expected the Disconnect control's rule to be element-qualified "
-                "(button.calendar-disconnect-btn), the (0,1,1) form that is equal in specificity "
-                "to the primary rule — T2")
-        if source.index(disconnect) <= source.index(primary):
+                "expected style.css to declare %r (element-qualified — a bare "
+                "'.calendar-disconnect-btn' is only (0,1,0) and loses to "
+                "button[type=\"submit\"]'s (0,1,1) regardless of source order)"
+                % (disconnect_selector,))
+        submit_idx = source.index(submit_selector)
+        disconnect_idx = source.index(disconnect_selector)
+        if disconnect_idx < submit_idx:
             return False, (
-                "expected button.calendar-disconnect-btn to sit AFTER button[type=\"submit\"] in "
-                "source order — at equal specificity source order is the whole mechanism (T2)")
-        # The primary rule keeps its own specificity: a zero-specificity
-        # wrapper around it is the shortcut 22-UI-SPEC.md's T2 row bans
-        # by name, because it hands the accent fill to every competing
-        # zero-specificity rule in the file at once.
-        if ":where(button" in source:
-            return False, (
-                "expected NO :where() wrapper on the primary button rule — dropping it to (0,0,0) "
-                "surrenders the accent fill file-wide (T2)")
-        disconnect_body = source[
-            source.index(disconnect) + len(disconnect):
-            source.index("}", source.index(disconnect))]
-        if "box-shadow: none;" not in disconnect_body:
-            return False, (
-                "expected button.calendar-disconnect-btn to neutralize box-shadow — this is a "
-                "submit button and would otherwise keep the primary rule's inset highlight, the "
-                "same reason .logout-form button/.dirty-bar__cancel/.frame-strip__cell button all "
-                "carry it (T2)")
+                "expected %r to appear AFTER %r in source order — at equal "
+                "(0,1,1) specificity the LATER rule wins, and this is the exact "
+                "relationship that let the destructive control render as the "
+                "page's primary accent-filled CTA for a phase and a half"
+                % (disconnect_selector, submit_selector))
 
-        # --- T6: not one 2px border left anywhere in the file --------
-        if "border: 2px" in source or "border-width: 2px" in source:
-            return False, (
-                "expected ZERO 2px border declarations in style.css — T6 holds every selectable "
-                "surface at a constant 1px and carries selection on an inset ring, so a 2px "
-                "border anywhere is a reintroduction of the 2px layout shift")
-        # The third selectable surface, which lives outside the chip/card
-        # group the checks above cover.
-        row_selector = "input:checked + .frame-colours__row {"
-        if row_selector not in source:
-            return False, "expected style.css to still declare %r" % (row_selector,)
-        row_body = source[
-            source.index(row_selector) + len(row_selector):
-            source.index("}", source.index(row_selector))]
-        if "border-color: var(--color-accent);" not in row_body:
-            return False, "expected the checked frame-colours row to recolour its 1px border (T6)"
-        if "box-shadow: inset 0 0 0 2px var(--color-accent);" not in row_body:
-            return False, "expected the checked frame-colours row to carry T6's inset ring"
-
-        # --- T15 ----------------------------------------------------
-        focus_rule = (
-            "a:focus-visible,\n"
-            "button:focus-visible,\n"
-            "input:focus-visible,\n"
-            "select:focus-visible,\n"
-            "summary:focus-visible {")
-        if focus_rule not in source:
-            return False, (
-                "expected summary to have joined the global focus-visible selector list — it is a "
-                "native interactive element with no visible focus state at all today (T15)")
+        # (b) T6, re-keyed: the palette chip's checked-state declarations
+        # must live inside the ONE @supports selector(:has(*)) block —
+        # the new selection mechanism, replacing the retired
+        # `input:checked + .frame-colours__row` sibling selector.
         supports_marker = "@supports selector(:has(*)) {"
         if source.count(supports_marker) != 1:
             return False, (
-                "expected exactly one @supports selector(:has(*)) block, got %d"
-                % source.count(supports_marker))
+                "expected exactly one %r block, got %d"
+                % (supports_marker, source.count(supports_marker)))
         supports_idx = source.index(supports_marker)
-        selected_focus = (
-            ".runway-card:has(input:focus-visible),\n"
-            "  .theme-chip:has(input:focus-visible) {")
-        if selected_focus not in source:
-            return False, (
-                "expected a :has(input:focus-visible) focus ring covering BOTH selectable-card "
-                "components — a selected card's focus state is invisible without it (T15)")
-        if source.index(selected_focus) < supports_idx:
-            return False, (
-                "expected the selected-card focus ring INSIDE the one @supports selector(:has(*)) "
-                "block — this file is pinned at exactly one block, never two")
-        focus_body = source[
-            source.index(selected_focus) + len(selected_focus):
-            source.index("}", source.index(selected_focus))]
-        # The global floor's OWN values, not a new treatment.
-        for decl in ("outline: 2px solid var(--color-accent);", "outline-offset: 2px;"):
-            if decl not in focus_body:
-                return False, (
-                    "expected the selected-card focus ring to reuse the global focus-visible "
-                    "floor's own %r, not invent a treatment (T15)" % (decl,))
+
+        def _rule_body(selector):
+            if selector not in source:
+                return None, "expected style.css to declare %r" % (selector,)
+            idx = source.index(selector)
+            if idx < supports_idx:
+                return None, (
+                    "expected %r to live inside the @supports selector(:has(*)) "
+                    "block" % (selector,))
+            return source[idx + len(selector):source.index("}", idx)], ""
+
+        base_body, err = _rule_body(".palette-chip:has(input:checked) {")
+        if base_body is None:
+            return False, err
+        if "border-color: var(--color-accent);" not in base_body:
+            return False, ".palette-chip:has(input:checked) must recolour its own border to accent"
+        if "box-shadow: inset 0 0 0 2px var(--color-accent);" not in base_body:
+            return False, ".palette-chip:has(input:checked) must carry the inset accent ring"
+
+        name_body, err = _rule_body(".palette-chip:has(input:checked) .palette-chip__name {")
+        if name_body is None:
+            return False, err
+        if "background: color-mix(in srgb, var(--color-accent) 12%, transparent);" not in name_body:
+            return False, "expected the 12%% accent wash on .palette-chip__name"
+
+        check_body, err = _rule_body(".palette-chip:has(input:checked) .palette-chip__check {")
+        if check_body is None:
+            return False, err
+        if "display: inline-flex;" not in check_body:
+            return False, "expected the check glyph to switch to inline-flex"
+
         return True, ""
     check(
-        "the destructive Disconnect control is element-qualified to (0,1,1) and placed after "
-        "button[type=\"submit\"] with the primary rule's own specificity intact and no :where() "
-        "shortcut (T2); style.css declares ZERO 2px borders anywhere, with all three selectable "
-        "surfaces carrying a recoloured constant 1px edge plus an inset accent ring (T6); and "
-        "summary has joined the global focus-visible floor while a selected chip or card gets that "
-        "same floor's own outline values through a :has(input:focus-visible) rule inside the ONE "
-        "feature-query block (T15) — 22-15-PLAN.md Task 1",
-        _destructive_disconnect_is_secondary_and_selection_is_free_and_focusable)
+        "the destructive Disconnect control keeps its secondary, element-qualified specificity "
+        "AND its source-order relationship against button[type=\"submit\"] (T2/T15, re-proven as a "
+        "RELATIONSHIP rather than a bare presence check, since the recorded defect was a rule whose "
+        "every declaration was dead for a phase and a half), and the selected-chip mechanism is "
+        "re-keyed from the retired 'input:checked + .frame-colours__row' sibling selector to "
+        ".palette-chip:has(input:checked) inside the file's one @supports selector(:has(*)) block, "
+        "carrying the accent border, inset ring, 12%% wash and check-glyph declarations (T6, "
+        "30-07-PLAN.md Task 3)",
+        _destructive_disconnect_is_secondary_and_selection_is_free_and_focusable_after_the_accordion_rebuild)
 
     def _calendar_fusion_css_retired_from_the_stylesheet():
         # 21-07-PLAN.md Task 3 (D-13/R-08/Pitfall 2): both retired
@@ -7299,17 +7942,33 @@ def main():
     # next section (the Calendar card, which always follows it), rather
     # than the retired RULES_SECTION_HEADING/POLL_SECTION_HEADING pair
     # (Display never renders Poll at all).
-    def _rules_panel_segment(rendered):
-        start = rendered.index(
-            '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_RULES))
-        end = rendered.index('<div class="page-section page-section--nested" ', start)
+    def _rules_row_segment(rendered):
+        """30-05-PLAN.md Task 2 (CFG-85): renamed from
+        `_rules_panel_segment()` — the retired
+        `COLOUR_USAGE_PANEL_TARGET_ATTR` locator is replaced by the
+        rules row's own `data-usage` attribute, the same attribute
+        `theme-preview.js`'s `openRow()`/`departuresRow()` already key
+        off (30-04-PLAN.md Task 3). Every surviving caller below is
+        otherwise unchanged — this is a locator repoint, not a
+        rewrite: the property each caller protects still holds against
+        the real accordion markup, only the way this helper FINDS the
+        rules row's own segment changes.
+
+        30-06-PLAN.md Task 3: delegates its own end-boundary to
+        `_aspect_usage_row_bounds()` rather than duplicating that
+        helper's own (now repointed) last-row fallback a second time —
+        see that function's own docstring for why the former Calendar-
+        card-nested-wrapper literal no longer matches anything.
+        """
+        start, end = _aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_RULES)
         return rendered[start:end]
 
-    def _frame_colours_card_full_shape_checklist():
-        # 21-05-PLAN.md Task 1/Task 3 (D-06..D-12, R-11): the one
-        # consolidated checklist test covering every remaining bullet
-        # from Task 1's own <action> "Checks" paragraph and Task 3's own
-        # markup-contract bullets, against a real Display render.
+    def _aspect_card_full_shape_checklist():
+        # 30-05-PLAN.md Task 1 (CFG-85): the relationship check
+        # replacing the retired _frame_colours_card_full_shape_
+        # checklist — every bullet below asserts a RELATIONSHIP (order,
+        # uniqueness, adjacency) derived from the registry/COLOUR_USAGES
+        # at check time, never a restated literal.
         ctx = {
             "device_config": {"theme": "white", "tracked_runway": "3"},
             "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
@@ -7317,127 +7976,125 @@ def main():
         }
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
 
-        # Exactly one .frame-colours card, first under "Look".
+        # Exactly one Aspect card, positioned after the Look section intro.
         look_pos = rendered.index('id="%s"' % config_page.DISPLAY_LOOK_SECTION_ID)
-        frame_colours_pos = rendered.index('class="page-section frame-colours')
-        if rendered.count('class="page-section frame-colours') != 1:
-            return False, "expected exactly one .frame-colours card"
-        if not (look_pos < frame_colours_pos):
-            return False, "expected the Frame colours card after the Look section intro"
+        if rendered.count('class="page-section aspect-card') != 1:
+            return False, (
+                "expected exactly one .aspect-card, got %d"
+                % rendered.count('class="page-section aspect-card'))
+        aspect_pos = rendered.index('class="page-section aspect-card')
+        if not (look_pos < aspect_pos):
+            return False, "expected the Aspect card after the Look section intro"
 
-        # Exactly four colour_usage radios, in locked order, departures checked.
-        usage_matches = re.findall(
-            r'name="colour_usage" value="([^"]*)" class="visually-hidden"( checked)?', rendered)
-        if [u for u, _c in usage_matches] != list(config_page.COLOUR_USAGES):
-            return False, "expected the four colour_usage radios in locked order, got %r" % (usage_matches,)
-        checked_usages = [u for u, c in usage_matches if c]
-        if checked_usages != [config_page.COLOUR_USAGE_DEPARTURES]:
-            return False, "expected only departures checked by default, got %r" % (checked_usages,)
+        # Exactly len(COLOUR_USAGES) accordion rows, data-usage values in
+        # document order equal to COLOUR_USAGES itself — the locked-order
+        # property the retired colour_usage radiogroup check used to hold.
+        row_pattern = re.compile(
+            r'<details class="([^"]*)" name="%s" data-usage="([^"]*)"( open)?>'
+            % re.escape(config_page.ASPECT_ROWS_GROUP_NAME))
+        rows = row_pattern.findall(rendered)
+        usages_in_order = [usage for _cls, usage, _open in rows]
+        if usages_in_order != list(config_page.COLOUR_USAGES):
+            return False, (
+                "expected the accordion rows' data-usage values, in document order, to equal "
+                "COLOUR_USAGES exactly, got %r" % (usages_in_order,))
 
-        # Exactly four usage panels, none carrying hidden or style=.
-        panel_matches = re.findall(r'<fieldset class="frame-colours__usage-panel"[^>]*>', rendered)
-        if len(panel_matches) != 4:
-            return False, "expected exactly four usage panels, got %d" % len(panel_matches)
-        for tag in panel_matches:
-            if "hidden" in tag or "style=" in tag:
-                return False, "expected no hidden/style= attribute on a usage panel, got %r" % (tag,)
+        # Exactly one row carries `open`, and it is departures.
+        open_usages = [usage for _cls, usage, is_open in rows if is_open]
+        if open_usages != [config_page.COLOUR_USAGE_DEPARTURES]:
+            return False, (
+                "expected only the departures row open by default, got %r" % (open_usages,))
 
-        # Each of the three chip grids' radios carry form="settings-form".
-        for field in ("theme", "theme_arriving", "calendar_theme_id"):
-            if ('name="%s"' % field) not in rendered:
-                return False, "expected at least one %s radio" % field
-            total = rendered.count('name="%s" value="' % field)
-            with_form = len(re.findall(
-                r'name="%s" value="[^"]*" class="visually-hidden"( form="%s")'
-                % (re.escape(field), re.escape(config_page.SETTINGS_FORM_ID)), rendered))
-            if with_form != total:
-                return False, "expected every %s radio to carry form=%r, got %d/%d" % (
-                    field, config_page.SETTINGS_FORM_ID, with_form, total)
+        # The last row, and only it, carries usage-row--secondary.
+        secondary_usages = [
+            usage for cls, usage, _open in rows if "usage-row--secondary" in cls.split()]
+        if secondary_usages != [config_page.COLOUR_USAGES[-1]]:
+            return False, (
+                "expected only the last row (%r) to carry usage-row--secondary, got %r"
+                % (config_page.COLOUR_USAGES[-1], secondary_usages))
 
-        # Arrivals'/calendar's leading chip submits the empty string.
-        if rendered.count('name="theme_arriving" value=""') != 1:
-            return False, "expected exactly one leading empty-string theme_arriving chip"
-        if rendered.count('name="calendar_theme_id" value=""') != 1:
-            return False, "expected exactly one leading empty-string calendar_theme_id chip"
+        # Each of the three theme rows holds exactly one .palette grid;
+        # the rules row holds none.
+        for usage in config_page.COLOUR_USAGES:
+            start, end = _aspect_usage_row_bounds(rendered, usage)
+            palette_count = rendered[start:end].count('class="palette" role="radiogroup"')
+            expected = 0 if usage == config_page.COLOUR_USAGE_RULES else 1
+            if palette_count != expected:
+                return False, (
+                    "expected %d .palette grid(s) inside the %r row, got %d"
+                    % (expected, usage, palette_count))
 
-        # The rules panel holds the rule list/empty-state, the add form
-        # and the "How rules combine" details.
-        rules_segment = _rules_panel_segment(rendered)
-        if 'action="%s"' % config_page.RULES_ADD_ROUTE not in rules_segment:
-            return False, "expected the rule add form inside the rules panel"
-        if escape_html(config_page.RULES_HOW_RULES_COMBINE_SUMMARY) not in rules_segment:
-            return False, "expected the How rules combine disclosure inside the rules panel"
+        # Zero occurrences of every retired mechanism's own markup, page-wide.
+        for token in _ASPECT_RETIRED_MARKUP_TOKENS:
+            count = rendered.count(token)
+            if count != 0:
+                return False, (
+                    "expected zero occurrences of the retired token %r, got %d" % (token, count))
 
-        # No trace of the retired checkbox/heading/Calendar-card grid.
-        if "theme_arriving_enabled" in rendered:
-            return False, "expected no theme_arriving_enabled checkbox anywhere"
-        if "Use a different theme for arrivals" in rendered:
-            return False, "expected no arrivals-override checkbox label anywhere"
-        calendar_start = rendered.index(
-            '<h2 class="text-heading" id="%s">' % config_page.CALENDAR_HEADING_ID)
-        calendar_end = rendered.index(
-            escape_html(config_page.CALENDAR_HOW_IT_WORKS_SUMMARY), calendar_start)
-        if "theme-chip-grid" in rendered[calendar_start:calendar_end]:
-            return False, "expected no chip grid inside the Calendar card"
-
-        # No nested <form> anywhere (the pinned Pitfall-1 regression check).
-        depth = 0
-        pos = 0
-        while True:
-            open_pos = rendered.find("<form", pos)
-            close_pos = rendered.find("</form>", pos)
-            if open_pos == -1 and close_pos == -1:
-                break
-            if open_pos != -1 and (close_pos == -1 or open_pos < close_pos):
-                if depth >= 1:
-                    return False, "expected no <form> nested inside another <form>"
-                depth += 1
-                pos = open_pos + len("<form")
-            else:
-                depth -= 1
-                pos = close_pos + len("</form>")
-
-        # A French render shows the four row labels and "Comme les départs".
-        try:
-            prefs.set_request_prefs(lang="fr")
-            fr_rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        finally:
-            prefs.set_request_prefs(lang="en")
-        for fr_label in ("Départs", "Arrivées", "Vols du calendrier", "Règles par vol"):
-            if fr_label not in fr_rendered:
-                return False, "expected the French row label %r" % (fr_label,)
-        if "Comme les départs" not in fr_rendered:
-            return False, "expected the French 'Comme les départs' text"
+        # The <h2> immediately inside the card is ASPECT_HEADING at
+        # ASPECT_HEADING_ID, and the element right after it is NOT a
+        # section-caption paragraph — the no-caption half of CFG-85.
+        heading_needle = '<h2 class="text-heading" id="%s">%s</h2>' % (
+            config_page.ASPECT_HEADING_ID, escape_html(i18n.t(config_page.ASPECT_HEADING)))
+        if heading_needle not in rendered:
+            return False, "expected the Aspect <h2> at ASPECT_HEADING_ID"
+        after_heading = rendered[rendered.index(heading_needle) + len(heading_needle):]
+        if after_heading.startswith('<p class="text-label section-caption"'):
+            return False, (
+                "expected no section-caption paragraph immediately after the Aspect heading — "
+                "CFG-85 retires the caption")
         return True, ""
     check(
-        "the Frame colours card's full shape: one card first under Look, four colour_usage radios in "
-        "locked order (departures checked), four hidden/style=-free usage panels, every theme/"
-        "theme_arriving/calendar_theme_id radio carrying form=\"settings-form\", a leading empty-string "
-        "chip on arrivals/calendar, the rules panel holding the add form and How-rules-combine "
-        "disclosure, no trace of the retired checkbox/heading/Calendar-card grid, no nested <form>, "
-        "and a French render showing all four row labels plus 'Comme les départs' (21-05-PLAN.md "
-        "Task 1/Task 3)",
-        _frame_colours_card_full_shape_checklist)
+        "the Aspect card's full shape, as a relationship rather than a list of endpoints: one card "
+        "after the Look section intro, its four accordion rows' data-usage values in COLOUR_USAGES' "
+        "own locked order, exactly one row open (departures), only the last row secondary, exactly "
+        "one .palette grid per theme row and none in the rules row, zero occurrences of any retired "
+        "mechanism's markup, and no section-caption paragraph immediately after the heading (CFG-85, "
+        "30-05-PLAN.md Task 1, replacing the retired _frame_colours_card_full_shape_checklist)",
+        _aspect_card_full_shape_checklist)
 
-    def _rules_section_renders_inside_frame_colours_after_form():
+    def _rules_row_renders_inside_aspect_after_form():
+        # 30-05-PLAN.md Task 2 (CFG-85): replaces the retired
+        # _rules_section_renders_inside_frame_colours_after_form. The
+        # rules row holds real <form> elements (the add form), and HTML
+        # forbids a nested <form>, so the whole Aspect card must be a
+        # sibling of #settings-form while every theme radio still
+        # reaches it through form="settings-form" — all three facts
+        # asserted together, for the same original reason.
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
             "poll_cooldown_remaining": 0,
         }, scope=config_page.SCOPE_DISPLAY)
-        form_end = rendered.index("</form>")
-        rules_pos = rendered.index(
-            '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_RULES))
-        calendar_pos = rendered.index('<div class="page-section page-section--nested" ', rules_pos)
-        if not (form_end < rules_pos < calendar_pos):
+        # The settings form's OWN closing tag — never the bare first
+        # `</form>` in the whole document, which would instead match
+        # the Frame strip's own quick-switch <form>...</form> (it
+        # renders BEFORE <form id="settings-form"> opens) and pass
+        # vacuously regardless of where the real form actually closes.
+        form_start = rendered.index('<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID)
+        form_end = rendered.index("</form>", form_start)
+        aspect_pos = rendered.index('class="page-section aspect-card')
+        rules_start, rules_end = _aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_RULES)
+        if not (form_end < aspect_pos < rules_start):
             return False, (
-                "expected </form> < rules panel < Calendar card, got positions %d/%d/%d"
-                % (form_end, rules_pos, calendar_pos))
+                "expected </form> < the Aspect card < the rules row, got positions %d/%d/%d"
+                % (form_end, aspect_pos, rules_start))
+        for field in ("theme", "theme_arriving", "calendar_theme_id"):
+            total = rendered.count('name="%s" value="' % field)
+            with_form = len(re.findall(
+                r'name="%s" value="[^"]*" class="visually-hidden"( form="%s")'
+                % (re.escape(field), re.escape(config_page.SETTINGS_FORM_ID)), rendered))
+            if with_form != total:
+                return False, (
+                    "expected every %s radio to carry form=%r, got %d/%d"
+                    % (field, config_page.SETTINGS_FORM_ID, with_form, total))
         return True, ""
     check(
-        "render() places the rules panel, inside the Frame colours card, after the settings </form> "
-        "and before the Calendar card (Phase 15 D-10, relocated by 21-05-PLAN.md Task 1 D-06)",
-        _rules_section_renders_inside_frame_colours_after_form)
+        "render() places the Aspect card, holding the rules row, after the settings </form> and "
+        "before the Calendar card, with every theme/theme_arriving/calendar_theme_id radio still "
+        "carrying form=settings-form (Phase 15 D-10, replacing the retired "
+        "_rules_section_renders_inside_frame_colours_after_form)",
+        _rules_row_renders_inside_aspect_after_form)
 
     def _rules_section_empty_state_then_list_once_a_rule_exists():
         empty_ctx = {
@@ -7446,7 +8103,7 @@ def main():
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(empty_ctx, scope=config_page.SCOPE_DISPLAY)
-        rules_segment = _rules_panel_segment(rendered)
+        rules_segment = _rules_row_segment(rendered)
         if config_page.RULES_EMPTY_HEADING not in rules_segment:
             return False, "expected the empty-state heading with no rules"
         # 20-09-PLAN.md Task 3 (D-15c/d): the retired table/card split is
@@ -7468,7 +8125,7 @@ def main():
         filled_ctx["colour_rules"] = registry
         filled_ctx["now"] = "2026-01-02T00:00:00+00:00"
         rendered = config_page.render(filled_ctx, scope=config_page.SCOPE_DISPLAY)
-        rules_segment = _rules_panel_segment(rendered)
+        rules_segment = _rules_row_segment(rendered)
         if config_page.RULES_EMPTY_HEADING in rules_segment:
             return False, "expected the empty state to be replaced once a rule exists"
         if '<ul class="rule-list">' not in rules_segment:
@@ -7528,16 +8185,24 @@ def main():
         "prefix), alphabetically within each kind (D-15c)",
         _rules_list_orders_most_specific_first_then_alphabetically)
 
-    def _rules_copy_appears_escaped_verbatim():
+    def _aspect_rules_copy_appears_escaped_verbatim():
+        # 30-05-PLAN.md Task 3 (CFG-85): replaces the retired
+        # _rules_copy_appears_escaped_verbatim. DIVERGENCE FROM THE
+        # LEDGER'S OWN "why": 30-03's ledger row states this check
+        # "reads config_page.FRAME_COLOURS_ROW_LABELS, the constant
+        # CFG-85's rebuild renames" — but 30-04-PLAN.md Task 1 kept
+        # FRAME_COLOURS_ROW_LABELS' own name deliberately (30-UI-SPEC.md's
+        # Copywriting Contract cites it by this exact name), so that
+        # premise turns out to be stale. The property itself is
+        # unaffected either way; this check's own body is otherwise
+        # byte-identical to the retired one, renamed to match this
+        # phase's own Aspect naming convention.
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3"},
             "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
             "poll_cooldown_remaining": 0,
         }, scope=config_page.SCOPE_DISPLAY)
         copy_strings = (
-            # 21-05-PLAN.md Task 1 (D-06): RULES_SECTION_HEADING is
-            # retired outright — the rules row's own label (also its
-            # panel's <legend>) is the replacement naming text.
             config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_RULES],
             config_page.RULES_SECTION_CAPTION,
             config_page.RULE_KIND_FIELD_LABEL,
@@ -7559,25 +8224,50 @@ def main():
                 return False, "expected the kind title %r (for %r) to appear escaped-verbatim" % (title, kind)
         return True, ""
     check(
-        "every Flight-colours copy string (heading, caption, field labels, kind labels/titles, "
-        "empty-state heading/body, the How-rules-combine disclosure) appears escaped-verbatim, "
-        "matching 20-UI-SPEC.md's Copywriting Contract byte for byte",
-        _rules_copy_appears_escaped_verbatim)
+        "every rules-editor copy string — heading, caption, field labels, kind labels/titles, "
+        "empty-state heading/body, and the How-rules-combine disclosure — appears escaped-verbatim, "
+        "matching 20-UI-SPEC.md's Copywriting Contract byte for byte (30-05-PLAN.md Task 3, "
+        "replacing the retired _rules_copy_appears_escaped_verbatim)",
+        _aspect_rules_copy_appears_escaped_verbatim)
 
-    def _frame_colours_rules_row_label_locked_verbatim():
-        # 21-05-PLAN.md Task 1 (D-06/D-07): retargeted from the retired
-        # RULES_SECTION_HEADING ("Flight colours") to the rules row's
-        # own locked label — the replacement naming text, per
-        # 21-UI-SPEC.md's Copywriting Contract §D.
+    def _aspect_rules_row_label_locked_verbatim():
+        # 30-05-PLAN.md Task 2 (CFG-85): replaces the retired
+        # _frame_colours_rules_row_label_locked_verbatim. Keeps the
+        # original lock — FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_RULES]
+        # is still exactly "Per-flight rules" — and adds a second lock
+        # 30-UI-SPEC.md's own copy table corrects: the rules row's
+        # empty-state meta must read FRAME_COLOURS_RULES_EMPTY_META's
+        # real value ("No rules yet"), never ROADMAP's own plausible-
+        # sounding paraphrase "Aucune règle · Ajouter" — precisely the
+        # kind of copy a later editorial pass would "restore" without
+        # this check catching it.
         if config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_RULES] != "Per-flight rules":
             return False, (
                 "expected the rules row label to equal the locked \"Per-flight rules\" text exactly, "
                 "got %r" % (config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_RULES],))
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        }, scope=config_page.SCOPE_DISPLAY)
+        rules_start, rules_end = _aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_RULES)
+        summary_segment = rendered[rules_start:rules_end].split("</summary>", 1)[0]
+        empty_meta_needle = escape_html(config_page.FRAME_COLOURS_RULES_EMPTY_META)
+        if empty_meta_needle not in summary_segment:
+            return False, (
+                "expected the rules row's empty-state meta to read FRAME_COLOURS_RULES_EMPTY_META "
+                "(%r) verbatim, not a paraphrase" % (config_page.FRAME_COLOURS_RULES_EMPTY_META,))
+        if "Aucune règle" in summary_segment:
+            return False, (
+                "expected the rules row's meta to NEVER read ROADMAP's own paraphrase "
+                "'Aucune règle · Ajouter'")
         return True, ""
     check(
-        "the Frame colours card's rules row label equals 21-UI-SPEC.md's locked \"Per-flight rules\" "
-        "text exactly (D-06/D-07, retargeted from the retired RULES_SECTION_HEADING)",
-        _frame_colours_rules_row_label_locked_verbatim)
+        "the rules row label equals 21-UI-SPEC.md's locked \"Per-flight rules\" text exactly, and its "
+        "empty-state meta reads FRAME_COLOURS_RULES_EMPTY_META's real value, never ROADMAP's own "
+        "paraphrase (D-06/D-07, 30-05-PLAN.md Task 2, replacing the retired "
+        "_frame_colours_rules_row_label_locked_verbatim)",
+        _aspect_rules_row_label_locked_verbatim)
 
     def _rules_no_select_and_three_named_radios_one_checked():
         rendered = config_page.render({
@@ -7585,7 +8275,7 @@ def main():
             "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
             "poll_cooldown_remaining": 0,
         }, scope=config_page.SCOPE_DISPLAY)
-        rules_segment = _rules_panel_segment(rendered)
+        rules_segment = _rules_row_segment(rendered)
         if "<select" in rules_segment:
             return False, "expected no <select> anywhere in the Flight-colours section (D-15b)"
         radio_count = rules_segment.count('name="rule_kind"')
@@ -7659,7 +8349,7 @@ def main():
             "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
             "poll_cooldown_remaining": 0,
         }, scope=config_page.SCOPE_DISPLAY)
-        rules_segment = _rules_panel_segment(rendered)
+        rules_segment = _rules_row_segment(rendered)
         empty_match = re.search(r'<div class="empty-state-plain">(.*?)</div>', rules_segment, re.S)
         if not empty_match:
             return False, "expected the .empty-state-plain wrapper"
@@ -7688,7 +8378,7 @@ def main():
             }, scope=config_page.SCOPE_DISPLAY)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
-        rules_segment = _rules_panel_segment(rendered)
+        rules_segment = _rules_row_segment(rendered)
         if 'class="rule-suggestion-chip" data-kind="callsign" data-value="AFR1380"' not in rules_segment:
             return False, "expected a suggestion chip for the seeded callsign"
 
@@ -7698,7 +8388,7 @@ def main():
             "poll_cooldown_remaining": 0,
             "state_dir": None,
         }, scope=config_page.SCOPE_DISPLAY)
-        empty_segment = _rules_panel_segment(empty_rendered)
+        empty_segment = _rules_row_segment(empty_rendered)
         if "rule-suggestion-chip" in empty_segment:
             return False, "expected no suggestion chips when there are no recent events"
         return True, ""
@@ -7719,14 +8409,19 @@ def main():
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        rules_segment = _rules_panel_segment(rendered)
+        rules_segment = _rules_row_segment(rendered)
         if escape_html(config_page.RULES_HOW_RULES_COMBINE_SUMMARY) not in rules_segment:
             return False, "expected the full 'How rules combine' <details> disclosure"
         if "<details>" not in rules_segment:
             return False, "expected a <details> disclosure for rules"
-        calendar_start = rendered.index(
-            '<h2 class="text-heading" id="%s">' % config_page.CALENDAR_HEADING_ID)
-        if escape_html(config_page.CALENDAR_HOW_IT_WORKS_SUMMARY) not in rendered[calendar_start:]:
+        # 30-06-PLAN.md Task 3: the Calendar heading id constant is
+        # retired (the connection block has no <h2> of its own any
+        # more) — locate the Calendar row itself via
+        # _aspect_usage_row_bounds() instead.
+        calendar_start, calendar_end = _aspect_usage_row_bounds(
+            rendered, config_page.COLOUR_USAGE_CALENDAR)
+        calendar_segment = rendered[calendar_start:calendar_end]
+        if escape_html(config_page.CALENDAR_HOW_IT_WORKS_SUMMARY) not in calendar_segment:
             return False, "expected the full Calendar 'How it works' <details> disclosure"
         # D-17: neither collapsed one-sentence variant may appear anywhere in
         # the rendered body — their exact punctuation ("wins." / "screen.")
@@ -7749,7 +8444,7 @@ def main():
             "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
             "poll_cooldown_remaining": 0,
         }, scope=config_page.SCOPE_DISPLAY)
-        rules_segment = _rules_panel_segment(rendered)
+        rules_segment = _rules_row_segment(rendered)
         if config_page.DIRTY_SECTION_ATTR in rules_segment:
             return False, "expected the rules panel to carry no data-dirty-section attribute"
         return True, ""
@@ -7892,6 +8587,11 @@ def main():
         _calendar_status_unparseable_synced_falls_back_to_no_detail)
 
     def _calendar_copy_fidelity_against_ui_spec():
+        # 30-06-PLAN.md Task 3: the connection block's own caption
+        # constant is dropped from this list — it is deleted outright
+        # (folded into the Calendar row, which has no caption), so there
+        # is no longer a value to fidelity-check against the spec for it.
+        # Every other constant this check pins is unchanged.
         spec_path = os.path.join(
             REPO_ROOT, ".planning", "phases",
             "20-companion-suggestions-from-the-audit-french-localisation-liv",
@@ -7899,7 +8599,6 @@ def main():
         with open(spec_path, encoding="utf-8") as fh:
             spec = fh.read()
         for name in (
-                "CALENDAR_CAPTION",
                 "CALENDAR_STATUS_DETAIL_TEMPLATE",
                 "CALENDAR_STATUS_FETCH_FAILED_DETAIL",
                 "CALENDAR_CONNECT_BUTTON_TEXT",
@@ -7909,8 +8608,8 @@ def main():
                 return False, "%s is not a contiguous substring of 20-UI-SPEC.md: %r" % (name, value)
         return True, ""
     check(
-        "the caption, the status detail template, the fetch-failed sentence, the Connect button text, "
-        "and the Replace-URL disclosure summary are each a contiguous substring of 20-UI-SPEC.md, so a "
+        "the status detail template, the fetch-failed sentence, the Connect button text, and the "
+        "Replace-URL disclosure summary are each a contiguous substring of 20-UI-SPEC.md, so a "
         "paraphrase fails rather than merely looking different (D-14a..c)",
         _calendar_copy_fidelity_against_ui_spec)
 
@@ -7941,9 +8640,16 @@ def main():
         # say" section (carried forward, unaffected by this plan's
         # rewording) bans AFFIRMATIVE real-time-awareness claims and
         # person/role/employer/crew-function nouns.
+        #
+        # 30-06-PLAN.md Task 3: the connection block's own heading and
+        # caption constants are retired (it folds into the Calendar
+        # row, which has no heading or caption of its own any more) —
+        # the row label that names the row now, FRAME_COLOURS_ROW_
+        # LABELS[COLOUR_USAGE_CALENDAR], takes their place in the blob
+        # this check scans; every other live calendar-copy constant is
+        # kept.
         blob = " ".join([
-            config_page.CALENDAR_SECTION_HEADING,
-            config_page.CALENDAR_CAPTION,
+            config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_CALENDAR],
             config_page.CALENDAR_HOW_IT_WORKS_BODY,
             config_page.CALENDAR_STATUS_NOT_CONNECTED_VERDICT,
             config_page.CALENDAR_STATUS_CONNECTED_VERDICT,
@@ -8073,7 +8779,7 @@ def main():
                 calendar_last_synced_at="2026-09-07T09:00:00+00:00",
                 colour_rules=registry)
             rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-            rules_segment = _rules_panel_segment(rendered)
+            rules_segment = _rules_row_segment(rendered)
             if "AFR1234" not in rules_segment:
                 return False, "expected the manually-added rule's key to appear in the rules list"
             for code_pattern in (r"\bORY\b", r"\bTLS\b"):
@@ -8087,55 +8793,46 @@ def main():
         "shows exactly the manual rule and no calendar-sourced row (16-VALIDATION.md registry row, D-01)",
         _calendar_d01_registry_entries_never_appear_in_rules_list)
 
-    def _calendar_theme_chip_grid_exactly_one_compact_radiogroup_populated_in_order():
-        # 21-05-PLAN.md Task 1 (D-06/D-09): the calendar_theme_id grid
-        # moved off the Calendar card entirely, into the Frame colours
-        # card's own "Calendar flights" usage panel — a leading "Same
-        # as departures" chip (submitting the empty string) now
-        # precedes the THEME_IDS-ordered chips, so the total radio
-        # count is len(THEME_IDS) + 1, not len(THEME_IDS).
-        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
-        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        if rendered.count('name="calendar_theme_id"') != len(device_config.THEME_IDS) + 1:
-            return False, (
-                "expected one calendar_theme_id radio per THEME_IDS member plus one leading "
-                "'Same as departures' chip, got %d"
-                % rendered.count('name="calendar_theme_id"'))
-        # Scoped to the calendar usage panel specifically — the arrivals
-        # panel carries an identical class/aria-labelledby shape (both
-        # are compact grids labelled by the same card heading), so a
-        # page-wide regex would grab the wrong (earlier) panel.
-        panel_start = rendered.index(
-            '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_CALENDAR))
-        panel_segment = rendered[panel_start:rendered.index(
-            '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_RULES))]
-        # 27-07-PLAN.md Task 2 (CFG-68): the calendar grid now ALSO
-        # carries the strip modifier and its own id (folded into a
-        # carousel, same as departures/arrivals) — both are matched
-        # rather than re-asserting an unconverted shape here, since this
-        # check's own subject is the radio population/order, not the
-        # carousel wrapper (that is _the_departures_grid_is_the_one_
-        # renderer_presented_as_a_strip's job, generalised in Task 2).
-        grid_match = re.search(
-            r'<div class="theme-chip-grid theme-chip-grid--compact theme-chip-grid--strip" '
-            r'role="radiogroup" aria-labelledby="%s" id="%s">(.*?)</div>\s*(?:<p|</fieldset)'
-            % (re.escape(config_page.FRAME_COLOURS_HEADING_ID),
-               re.escape(config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR)),
-            panel_segment, re.S)
+    def _aspect_calendar_row_palette_populated_in_order():
+        # 30-05-PLAN.md Task 1 (CFG-85): replaces the retired
+        # _calendar_theme_chip_grid_exactly_one_compact_radiogroup_
+        # populated_in_order. The calendar row's palette is a real
+        # role="radiogroup", populated in registry order with
+        # name="calendar_theme_id", carrying no id attribute — the
+        # no-id clause is load-bearing: _palette_grid_html() has three
+        # call sites on one page, and an id emitted inside it would be
+        # three identical ids.
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        }, scope=config_page.SCOPE_DISPLAY)
+        start, end = _aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_CALENDAR)
+        calendar_segment = rendered[start:end]
+        grid_match = re.search(r'<div class="palette" role="radiogroup"[^>]*>', calendar_segment)
         if not grid_match:
-            return False, "expected the calendar theme grid carrying role=radiogroup and aria-labelledby"
-        options = re.findall(r'name="calendar_theme_id" value="([^"]*)"', grid_match.group(1))
-        if options != [""] + list(device_config.THEME_IDS):
+            return False, "expected a .palette role=radiogroup grid inside the calendar row"
+        if ' id="' in grid_match.group(0):
             return False, (
-                "expected the leading empty-string chip then radios in THEME_IDS order, got %r"
-                % (options,))
+                "expected the calendar row's palette to carry no id attribute, got %r"
+                % (grid_match.group(0),))
+        radio_values = re.findall(
+            r'name="calendar_theme_id" value="([^"]*)"', calendar_segment)
+        real_ids = [rid for rid in radio_values if rid]
+        if real_ids != list(device_config.THEME_IDS):
+            return False, (
+                "expected the calendar palette populated in registry order, got %r" % (real_ids,))
+        leading_count = len(radio_values) - len(real_ids)
+        if leading_count != 1:
+            return False, (
+                "expected exactly one leading Same-as-departures option, got %d" % leading_count)
         return True, ""
     check(
-        "the Frame colours card's compact calendar_theme_id grid carries one leading 'Same as "
-        "departures' chip plus exactly one radio per THEME_IDS member in order, with role=radiogroup "
-        "and aria-labelledby pointing at the card's own heading (D-06/D-09, relocated by 21-05-PLAN.md "
-        "Task 1)",
-        _calendar_theme_chip_grid_exactly_one_compact_radiogroup_populated_in_order)
+        "the calendar row's palette carries one leading Same-as-departures option plus exactly one "
+        "entry per registered theme, in registry order, with no id attribute of its own (D-06/D-09, "
+        "30-05-PLAN.md Task 1, replacing the retired "
+        "_calendar_theme_chip_grid_exactly_one_compact_radiogroup_populated_in_order)",
+        _aspect_calendar_row_palette_populated_in_order)
 
     def _calendar_theme_chip_grid_saved_value_is_checked():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
@@ -8183,87 +8880,13 @@ def main():
         "pre-D-09 default-to-base-theme behaviour)",
         _calendar_theme_chip_grid_same_as_departures_checked_when_unset)
 
-    def _calendar_placement_after_display_form_close_with_dirty_attr():
-        # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): retargeted from SCOPE_ALL
-        # (the legacy render — Calendar no longer has an entry in
-        # `builders` there at all, see the two dirty-section-count checks
-        # above) to SCOPE_DISPLAY, and from "before the settings form's
-        # closing tag" to "after" it — the merged calendar_group() now
-        # embeds its own connect/replace <form>, which HTML forbids
-        # nesting inside <form id="settings-form">, so the merged card
-        # renders as a sibling AFTER that form closes, exactly like
-        # Runway/Frame colours already do. The comparison landmark
-        # changes too: DISPLAY_SECTION_HEADING ("Screen on / off") no
-        # longer precedes Calendar on this scope at all (it moved to a
-        # LATER supersection, 21-04-PLAN.md Task 1) — Frame colours'
-        # own heading is the one that reliably still does.
-        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
-        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        frame_colours_index = rendered.index(
-            '<h2 class="text-heading" id="%s">%s</h2>'
-            % (config_page.FRAME_COLOURS_HEADING_ID, config_page.FRAME_COLOURS_HEADING))
-        # 20-09-PLAN.md Task 1 (D-14d): the Calendar heading carries its
-        # own id (an aria-labelledby target elsewhere on the page).
-        calendar_index = rendered.index(
-            '<h2 class="text-heading" id="%s">%s</h2>'
-            % (config_page.CALENDAR_HEADING_ID, config_page.CALENDAR_SECTION_HEADING))
-        form_close_index = rendered.index(
-            '<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID)
-        form_close_index = rendered.index("</form>", form_close_index)
-        if not (form_close_index < frame_colours_index < calendar_index):
-            return False, (
-                "expected </form> < Frame colours < Calendar, got %d, %d, %d"
-                % (form_close_index, frame_colours_index, calendar_index))
-        if '%s="%s"' % (config_page.DIRTY_SECTION_ATTR, config_page.CALENDAR_SECTION_HEADING) not in rendered:
-            return False, "expected the Calendar group to carry the dirty-section attribute"
-        return True, ""
-    check(
-        "on the Display scope, the Calendar heading's index is greater than the settings form's own "
-        "closing tag and greater than Frame colours' own heading — a sibling AFTER the form, never a "
-        "descendant before it, now that the merged card embeds its own connect/replace <form> — and "
-        "the group still carries the dirty-section attribute (retargeted by 21-07-PLAN.md Task 1, "
-        "D-13/Pitfall 2)",
-        _calendar_placement_after_display_form_close_with_dirty_attr)
-
-    def _calendar_group_no_inline_js_and_chip_grid_cross_submits_form():
-        # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the
-        # calendar_theme_id chip grid moved off the Calendar card into
-        # the Frame colours card, which renders as a SIBLING of <form
-        # id="settings-form"> — it no longer sits inside the form's own
-        # markup range at all. Every calendar_theme_id radio instead
-        # cross-submits via an explicit form="settings-form" attribute
-        # (the same idiom Runway's own radios already use), which is
-        # the correctness property this check now pins instead.
-        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
-        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        radio_count = rendered.count('name="calendar_theme_id"')
-        if radio_count < 1:
-            return False, "expected at least one calendar_theme_id radio"
-        # Every real theme's own radio and the leading empty-string chip
-        # all share the identical attribute sequence up to form=, so a
-        # per-value scan (rather than one fixed literal) covers all of
-        # them.
-        for theme_id in ("",) + device_config.THEME_IDS:
-            needle = (
-                'name="calendar_theme_id" value="%s" class="visually-hidden" form="%s"'
-                % (theme_id, config_page.SETTINGS_FORM_ID))
-            if needle not in rendered:
-                return False, "expected calendar_theme_id=%r to cross-submit via form=%r" % (
-                    theme_id, config_page.SETTINGS_FORM_ID)
-        calendar_start = rendered.index(
-            '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_CALENDAR))
-        calendar_end = rendered.index(
-            '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_RULES))
-        calendar_segment = rendered[calendar_start:calendar_end]
-        if "onclick" in calendar_segment or "onchange" in calendar_segment or "<script" in calendar_segment:
-            return False, "expected no inline event-handler attribute or script tag in the Calendar panel"
-        return True, ""
-    check(
-        "the Frame colours card's calendar usage panel renders no inline event-handler attribute and "
-        "no script tag, and every calendar_theme_id radio (including the leading 'Same as departures' "
-        "chip) cross-submits into the settings form via form=\"settings-form\" despite the card being "
-        "a sibling of that form (no-JS correctness, D-06/Structural Note 2)",
-        _calendar_group_no_inline_js_and_chip_grid_cross_submits_form)
+    # 30-03-PLAN.md Task 1 (CFG-85): the two checks that used to live
+    # here — the calendar-placement-and-dirty-attr check and the
+    # calendar-no-inline-JS/chip-grid-cross-submits check (see
+    # _ASPECT_REPIN_LEDGER below for both rows' own respelled "retired"
+    # labels, 30-06-PLAN.md Task 3) — both asserted against
+    # FRAME_COLOURS_HEADING_ID/COLOUR_USAGE_PANEL_TARGET_ATTR, both
+    # retired by CFG-85's rebuild. Paid back — see below.
 
     def _handle_post_calendar_theme_id_valid_persists_and_carries_forward():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
@@ -8351,7 +8974,7 @@ def main():
     # fields deliberately.
     # ==================================================================
 
-    # Four distinguishable calendar_group() states, matching Task 1's
+    # Four distinguishable _calendar_connection_html() states, matching Task 1's
     # own <behavior> bullets: (configured, drift, last_synced_at).
     _CALENDAR_GROUP_STATES = (
         (False, False, None),
@@ -8360,22 +8983,32 @@ def main():
         (False, True, None),
     )
 
-    def _calendar_group_call(configured, drift, last_synced_at):
-        # 20-09-PLAN.md Task 1: calendar_group()'s widened signature —
+    def _calendar_connection_call(configured, drift, last_synced_at):
+        # 20-09-PLAN.md Task 1: _calendar_connection_html()'s widened signature —
         # last_attempt_at/entry_count are the two new parameters D-14b
         # needs, both harmlessly None/0 for these markup-shape checks.
-        return config_page.calendar_group(
+        #
+        # 30-06-PLAN.md Task 3: _calendar_connection_html() is retired; its
+        # replacement, _calendar_connection_html(), returns a
+        # (row_body_html, disconnect_form_html) TUPLE rather than one
+        # concatenated string (the row body nests inside a <details>,
+        # the disconnect <form> must not — 30-PATTERNS.md). Every check
+        # below that calls this helper treats its return value as ONE
+        # string, exactly matching _calendar_connection_html()'s own retired
+        # shape — string-joining the tuple here, once, preserves every
+        # one of those checks unmodified.
+        return "".join(config_page._calendar_connection_html(
             configured, drift, last_synced_at, None, "2026-09-07T09:12:04+00:00",
-            0, None, "white")
+            0, None, "white"))
 
     def _calendar_connect_field_never_carries_value_in_either_state():
         # 21-07-PLAN.md Task 1 (D-13/D-14): the write-only feed-URL field
-        # is now merged INTO calendar_group() itself — the not-connected
+        # is now merged INTO _calendar_connection_html() itself — the not-connected
         # branch renders it unwrapped, the connected branch renders the
         # SAME field inside the Replace disclosure. Either way the field
         # never carries a value attribute (T-20-12).
         for configured in (False, True):
-            html = _calendar_group_call(configured, False, None)
+            html = _calendar_connection_call(configured, False, None)
             if 'name="calendar_url"' not in html:
                 return False, "expected the calendar_url field when configured=%r" % (configured,)
             after_name = html.split('name="calendar_url"', 1)[1].split(">", 1)[0]
@@ -8385,7 +9018,7 @@ def main():
                     % (configured,))
         return True, ""
     check(
-        "the write-only calendar_url field renders in the merged calendar_group()'s own markup for "
+        "the write-only calendar_url field renders in the merged _calendar_connection_html()'s own markup for "
         "both the connected and not-connected states and never carries a value attribute (D-13/D-14, "
         "retargeted after calendar_connect_section()'s retirement)",
         _calendar_connect_field_never_carries_value_in_either_state)
@@ -8398,19 +9031,19 @@ def main():
         # check scans for the Replace disclosure's own specific class
         # rather than a bare "<details" substring, which would always
         # be true now (Pitfall of the merge, not of the original check).
-        connected_html = _calendar_group_call(True, False, None)
+        connected_html = _calendar_connection_call(True, False, None)
         if 'class="calendar-url-disclosure"' not in connected_html:
             return False, "expected the connect form wrapped in <details class=calendar-url-disclosure> when configured"
         if escape_html(config_page.CALENDAR_REPLACE_URL_SUMMARY) not in connected_html:
             return False, "expected the Replace-the-feed-URL summary when configured"
-        not_connected_html = _calendar_group_call(False, False, None)
+        not_connected_html = _calendar_connection_call(False, False, None)
         if 'class="calendar-url-disclosure"' in not_connected_html:
             return False, "expected the connect form unwrapped (no calendar-url-disclosure) when not configured"
         if 'action="%s"' % config_page.CALENDAR_CONNECT_ROUTE not in not_connected_html:
             return False, "expected the connect form to post to CALENDAR_CONNECT_ROUTE either way"
         return True, ""
     check(
-        "the merged calendar_group() wraps its connect form in <details class=calendar-url-disclosure> "
+        "the merged _calendar_connection_html() wraps its connect form in <details class=calendar-url-disclosure> "
         "'Replace the feed URL' only when configured, and renders it unwrapped, posting to "
         "CALENDAR_CONNECT_ROUTE, when not (D-13/D-14, retargeted after calendar_connect_section()'s "
         "retirement)",
@@ -8419,12 +9052,12 @@ def main():
     def _calendar_containment_at_the_renderer_five_needles():
         # The same five needles _calendar_secret_never_reaches_served_
         # http_bytes() (Section 3, below) uses, applied directly at the
-        # merged calendar_group() — the one function that now renders
+        # merged _calendar_connection_html() — the one function that now renders
         # everything the Calendar card shows, including the connect/
         # replace form and the disconnect button — rather than only at
         # the served-HTTP-bytes boundary or the whole-page render()
         # boundary the two other T-17-SECRET checks already cover.
-        # 21-07-PLAN.md Task 1: calendar_group() itself still never
+        # 21-07-PLAN.md Task 1: _calendar_connection_html() itself still never
         # receives the raw URL as of this task (Task 2 widens that
         # contract, narrowly, for the masked-URL line only — see that
         # task's own extended coverage of the two checks named above).
@@ -8438,41 +9071,41 @@ def main():
             assert calendar_rules.save_calendar_url(tmpdir, url) is True
             configured = calendar_rules.calendar_is_configured(tmpdir)
             drift = calendar_rules.calendar_secret_mode_is_unsafe(tmpdir)
-            group_html = _calendar_group_call(configured, drift, None)
+            group_html = _calendar_connection_call(configured, drift, None)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         for needle in (token, host, path, query_param, url):
             if needle in group_html:
-                return False, "expected %r never to appear in the merged calendar_group()'s own markup" % (needle,)
+                return False, "expected %r never to appear in the merged _calendar_connection_html()'s own markup" % (needle,)
         return True, ""
     check(
-        "the merged calendar_group(), called directly rather than through render(), never emits the "
+        "the merged _calendar_connection_html(), called directly rather than through render(), never emits the "
         "token, host, path segment, query-parameter name, or whole URL of a configured calendar, even "
         "though it now also renders the connect/replace form and the disconnect button (T-17-SECRET, "
         "retargeted after calendar_connect_section()'s retirement)",
         _calendar_containment_at_the_renderer_five_needles)
 
-    def _calendar_disconnect_checkbox_never_appears_in_calendar_group():
+    def _calendar_disconnect_checkbox_never_appears_in_calendar_connection():
         # 19-11-PLAN.md Task 1 (D-08/A-26): the in-form disconnect
-        # checkbox is retired outright from calendar_group() in EVERY
+        # checkbox is retired outright from _calendar_connection_html() in EVERY
         # one of its four distinguishable states — disconnecting is now
         # its own standalone, confirmed form, checked separately below.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-            html = _calendar_group_call(configured, drift, last_synced_at)
+            html = _calendar_connection_call(configured, drift, last_synced_at)
             if 'name="calendar_disconnect"' in html:
                 return False, (
-                    "state %r: expected calendar_group() to render no calendar_disconnect "
+                    "state %r: expected _calendar_connection_html() to render no calendar_disconnect "
                     "checkbox at all (D-08 retires it)" % ((configured, drift),))
         return True, ""
     check(
-        "calendar_group() renders no calendar_disconnect checkbox in any of its four states "
+        "_calendar_connection_html() renders no calendar_disconnect checkbox in any of its four states "
         "(D-08/A-26: disconnecting is now its own standalone form, not an in-form checkbox)",
-        _calendar_disconnect_checkbox_never_appears_in_calendar_group)
+        _calendar_disconnect_checkbox_never_appears_in_calendar_connection)
 
     def _calendar_disconnect_form_appears_only_when_expected():
         # 21-07-PLAN.md Task 1 (D-14): retargeted after calendar_
         # disconnect_section()'s retirement — the disconnect form is now
-        # a data-only sibling fragment the merged calendar_group()
+        # a data-only sibling fragment the merged _calendar_connection_html()
         # concatenates onto its own card, under the same predicate
         # (configured or drift) the retired standalone function used.
         # Drift additionally gets a visible small Disconnect button
@@ -8480,7 +9113,7 @@ def main():
         # reads "Not connected") so a drifted, unreadable stored link
         # can still be cleared.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-            html = _calendar_group_call(configured, drift, last_synced_at)
+            html = _calendar_connection_call(configured, drift, last_synced_at)
             has_form = (
                 '<form id="%s" method="post" action="%s"'
                 % (config_page.CALENDAR_DISCONNECT_FORM_ID, config_page.CALENDAR_DISCONNECT_ROUTE)
@@ -8514,43 +9147,64 @@ def main():
                     return False, "expected no Replace disclosure when neither configured nor drifted"
         return True, ""
     check(
-        "the merged calendar_group() renders its disconnect form only when the calendar is connected "
+        "the merged _calendar_connection_html() renders its disconnect form only when the calendar is connected "
         "or drifted, posting to CALENDAR_DISCONNECT_ROUTE with a hidden, empty, data-confirm-field-"
         "carrying confirm field, alongside a visible small Disconnect button cross-submitting via "
         "form= (D-08/A-26/D-14, retargeted after calendar_disconnect_section()'s retirement)",
         _calendar_disconnect_form_appears_only_when_expected)
 
-    def _calendar_exactly_one_page_section_on_display_scope():
-        # D-13: "there is no second Calendar page-section and no
-        # trailing disconnect card" — checked in both states, since the
-        # connected state additionally concatenates a data-only sibling
-        # <form> fragment that must never itself carry a page-section
-        # class.
+    def _look_supersection_carries_exactly_one_dirty_section_named_aspect():
+        # 30-06-PLAN.md Task 3 (CFG-85): REPLACES the retired D-13 check
+        # that counted `data-dirty-section="Calendar"` — that property
+        # itself changed shape, not merely its locator. Display's Look
+        # supersection used to carry TWO `data-dirty-section` cards
+        # (the former "Frame colours"/"Aspect" card and the separate
+        # "Calendar" card); since 30-06-PLAN.md folds the calendar's
+        # connection block INTO the Aspect card's own Calendar row,
+        # there is now exactly ONE, "Aspect" — the correct arithmetic
+        # for "one tile is one section" (CFG-85's own stated goal), not
+        # a narrowed count check that would pass vacuously against a
+        # missing second card. Checked in both the connected and
+        # not-connected states, since the connected state additionally
+        # concatenates a data-only sibling disconnect `<form>` fragment
+        # that must never itself carry a data-dirty-section attribute.
         for configured in (False, True):
             ctx = dict(
                 _CALENDAR_BASE_CTX, calendar_configured=configured, calendar_last_synced_at=None)
             rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-            count = rendered.count('data-dirty-section="%s"' % config_page.CALENDAR_SECTION_HEADING)
+            look_start = rendered.index('id="%s"' % config_page.DISPLAY_LOOK_SECTION_ID)
+            look_end = rendered.index('id="%s"' % config_page.DISPLAY_WATCHES_SECTION_ID, look_start)
+            look_segment = rendered[look_start:look_end]
+            count = look_segment.count(config_page.DIRTY_SECTION_ATTR + "=")
             if count != 1:
                 return False, (
-                    "configured=%r: expected exactly one Calendar page-section, got %d"
+                    "configured=%r: expected exactly one data-dirty-section card under Look, got %d"
                     % (configured, count))
+            expected_attr = '%s="%s"' % (
+                config_page.DIRTY_SECTION_ATTR, escape_html(i18n.t(config_page.ASPECT_HEADING)))
+            if expected_attr not in look_segment:
+                return False, (
+                    "configured=%r: expected the one Look card's dirty-section attribute to name "
+                    "the Aspect heading" % (configured,))
         return True, ""
     check(
-        "the Display render carries exactly one Calendar page-section in both the connected and "
-        "not-connected states — no second Calendar card, no trailing disconnect card (D-13)",
-        _calendar_exactly_one_page_section_on_display_scope)
+        "Display's Look supersection carries exactly ONE data-dirty-section card (named 'Aspect'), "
+        "in both the connected and not-connected states — down from the two ('Aspect'/'Calendar') "
+        "it carried before the calendar's connection block folded into the Aspect card's own "
+        "Calendar row (CFG-85, replacing the retired data-dirty-section=\"Calendar\" count check, "
+        "whose own property this merge changes rather than merely relocates)",
+        _look_supersection_carries_exactly_one_dirty_section_named_aspect)
 
-    def _calendar_group_never_nests_a_form_inside_another_in_either_state():
+    def _calendar_connection_never_nests_a_form_inside_another_in_either_state():
         # D-13/Pitfall 2: the merged card's own connect/replace <form>
         # and its data-only disconnect-form sibling must never nest one
         # inside the other, in either the connected or not-connected
         # state — the same depth-tracking algorithm the Frame colours
         # card's own full-shape checklist uses, applied directly at the
-        # merged calendar_group()'s own return value (card + sibling
+        # merged _calendar_connection_html()'s own return value (card + sibling
         # disconnect form) rather than only at the whole-page boundary.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-            html = _calendar_group_call(configured, drift, last_synced_at)
+            html = _calendar_connection_call(configured, drift, last_synced_at)
             depth = 0
             pos = 0
             while True:
@@ -8570,10 +9224,109 @@ def main():
                     pos = close_pos + len("</form>")
         return True, ""
     check(
-        "the merged calendar_group()'s own return value (the card plus its data-only disconnect-form "
+        "the merged _calendar_connection_html()'s own return value (the card plus its data-only disconnect-form "
         "sibling) never nests one <form> inside another, in any of its four distinguishable states "
         "(D-13/Pitfall 2)",
-        _calendar_group_never_nests_a_form_inside_another_in_either_state)
+        _calendar_connection_never_nests_a_form_inside_another_in_either_state)
+
+    def _calendar_connection_placement_inside_aspect_after_display_form_close_with_dirty_attr():
+        # 30-06-PLAN.md Task 3 (CFG-85): replaces the retired
+        # _calendar_placement_after_display_form_close_with_dirty_attr
+        # (_ASPECT_REPIN_LEDGER row, owed_by 30-06). The calendar's
+        # connection block used to render as its own SEPARATE card,
+        # after the settings form's own closing tag and after the
+        # Aspect card's own heading. It now renders INSIDE the Calendar
+        # row itself — this check asserts the RELATIONSHIP rather than
+        # the three endpoints separately: the connection block's own
+        # status row renders inside the Calendar row's own data-usage
+        # segment, AFTER that row's palette; the visible Disconnect
+        # button lives inside the row; the disconnect <form> it
+        # cross-submits to is a sibling of the WHOLE Aspect card, never
+        # nested inside the row or the card; and the button's own
+        # form= attribute names that exact sibling form's id — a check
+        # that only asserted all three pieces existed separately would
+        # pass even if the button pointed at nothing.
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        form_start = rendered.index('<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID)
+        form_end = rendered.index("</form>", form_start)
+        aspect_heading_pos = rendered.index('id="%s">%s</h2>' % (
+            config_page.ASPECT_HEADING_ID, escape_html(i18n.t(config_page.ASPECT_HEADING))))
+        calendar_start, calendar_end = _aspect_usage_row_bounds(
+            rendered, config_page.COLOUR_USAGE_CALENDAR)
+        if not (form_end < aspect_heading_pos < calendar_start):
+            return False, (
+                "expected </form> < the Aspect heading < the Calendar row, got %d/%d/%d"
+                % (form_end, aspect_heading_pos, calendar_start))
+        calendar_segment = rendered[calendar_start:calendar_end]
+        palette_pos = calendar_segment.index('class="palette"')
+        status_row_pos = calendar_segment.index('class="status-row')
+        if not (palette_pos < status_row_pos):
+            return False, "expected the palette to precede the connection block's own status row"
+        disconnect_btn_match = re.search(
+            r'<button type="submit" form="([^"]*)" class="calendar-disconnect-btn">',
+            calendar_segment)
+        if not disconnect_btn_match:
+            return False, "expected the Disconnect button inside the Calendar row"
+        disconnect_form_needle = '<form id="%s"' % config_page.CALENDAR_DISCONNECT_FORM_ID
+        if disconnect_form_needle in calendar_segment:
+            return False, "expected the disconnect form OUTSIDE the Calendar row, found it inside"
+        if disconnect_btn_match.group(1) != config_page.CALENDAR_DISCONNECT_FORM_ID:
+            return False, (
+                "expected the Disconnect button's form= to name %r, got %r"
+                % (config_page.CALENDAR_DISCONNECT_FORM_ID, disconnect_btn_match.group(1)))
+        if disconnect_form_needle not in rendered[calendar_end:]:
+            return False, "expected the disconnect form as a sibling of the whole Aspect card"
+        if config_page.DIRTY_SECTION_ATTR not in rendered[:calendar_start]:
+            return False, "expected the Aspect card's own dirty-section tracking attribute to precede the row"
+        return True, ""
+    check(
+        "the calendar connection block renders inside the Calendar row, after that row's own palette, "
+        "after the settings form's own closing tag and the Aspect card's own heading, still under the "
+        "Aspect card's own dirty-section tracking attribute — with the Disconnect button inside the "
+        "row and the disconnect form OUTSIDE the card, the button's form= naming that exact sibling "
+        "(CFG-85, replacing the retired _calendar_placement_after_display_form_close_with_dirty_attr)",
+        _calendar_connection_placement_inside_aspect_after_display_form_close_with_dirty_attr)
+
+    def _calendar_row_no_inline_js_and_palette_cross_submits_form():
+        # 30-06-PLAN.md Task 3 (CFG-85): replaces the retired
+        # calendar-card no-inline-JS/chip-grid-cross-submits check
+        # (_ASPECT_REPIN_LEDGER row, owed_by 30-06 — the row's own
+        # "retired" label is respelled, see that row's own comment).
+        # The property is unchanged: the calendar row renders no inline
+        # event-handler attribute and no <script> tag, and every
+        # calendar_theme_id radio cross-submits into the settings form
+        # via form=settings-form — only the locator (the row's own
+        # data-usage attribute, not the retired COLOUR_USAGE_PANEL_
+        # TARGET_ATTR) and the palette markup (calendar_theme_id radios
+        # now render inside a .palette grid, not the retired compact
+        # chip strip) change.
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        calendar_start, calendar_end = _aspect_usage_row_bounds(
+            rendered, config_page.COLOUR_USAGE_CALENDAR)
+        calendar_segment = rendered[calendar_start:calendar_end]
+        if "<script" in calendar_segment:
+            return False, "expected no <script> tag inside the Calendar row"
+        if re.search(r'\son\w+="', calendar_segment):
+            return False, "expected no inline on*= event-handler attribute inside the Calendar row"
+        radio_count = calendar_segment.count('name="calendar_theme_id"')
+        with_form = len(re.findall(
+            r'name="calendar_theme_id" value="[^"]*"[^>]*form="%s"'
+            % re.escape(config_page.SETTINGS_FORM_ID), calendar_segment))
+        if radio_count == 0:
+            return False, "expected at least one calendar_theme_id radio in the Calendar row"
+        if with_form != radio_count:
+            return False, (
+                "expected every calendar_theme_id radio (%d) to cross-submit via form=%r, got %d"
+                % (radio_count, config_page.SETTINGS_FORM_ID, with_form))
+        return True, ""
+    check(
+        "the calendar row renders no inline event-handler attribute and no <script> tag, and every "
+        "calendar_theme_id radio in its palette cross-submits into the settings form via "
+        "form=settings-form (CFG-85, replacing the retired calendar-card no-inline-JS/chip-grid "
+        "cross-submits check)",
+        _calendar_row_no_inline_js_and_palette_cross_submits_form)
 
     def _calendar_disconnect_confirm_page_posts_back_with_confirm_preset():
         rendered = config_page.calendar_disconnect_confirm_page({})
@@ -8632,30 +9385,33 @@ def main():
     def _calendar_connect_form_appears_before_the_runway_card_on_display_scope():
         # Polish fix 4 (D-14c): the connect/replace form used to render
         # after the WHOLE Display scope — below Runway and Flight
-        # colours — far from the Calendar card. It now renders inside
-        # the merged calendar_group()'s own connected-state Replace
+        # colours — far from the Calendar row. It now renders inside
+        # the merged _calendar_connection_html()'s own connected-state Replace
         # disclosure (21-07-PLAN.md Task 1, D-13/D-14), which itself
         # renders after </form> closes (which itself now closes right
-        # after the Frame colours card, since "What it watches"/Runway
-        # moved to a later sibling supersection), so its own <form>'s
-        # opening tag still appears strictly BEFORE the Runway card's
-        # own radio input in document order.
+        # after the Aspect card, since "What it watches"/Runway moved
+        # to a later sibling supersection), so its own <form>'s opening
+        # tag still appears strictly BEFORE the Runway card's own radio
+        # input in document order.
+        #
+        # 30-06-PLAN.md Task 3: the Calendar row has no `<h2>` of its
+        # own any more (retired alongside the separate Calendar card) —
+        # its `data-usage="calendar"` attribute is the landmark now.
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        calendar_heading_index = rendered.index(
-            '<h2 class="text-heading" id="%s">%s</h2>'
-            % (config_page.CALENDAR_HEADING_ID, config_page.CALENDAR_SECTION_HEADING))
+        calendar_row_index = rendered.index(
+            'data-usage="%s"' % config_page.COLOUR_USAGE_CALENDAR)
         connect_form_index = rendered.index(
             '<form method="post" action="%s"' % config_page.CALENDAR_CONNECT_ROUTE)
         runway_index = rendered.index('name="tracked_runway"')
-        if not (calendar_heading_index < connect_form_index < runway_index):
+        if not (calendar_row_index < connect_form_index < runway_index):
             return False, (
-                "expected Calendar heading < connect form < Runway card, got %d, %d, %d"
-                % (calendar_heading_index, connect_form_index, runway_index))
+                "expected Calendar row < connect form < Runway card, got %d, %d, %d"
+                % (calendar_row_index, connect_form_index, runway_index))
         return True, ""
     check(
-        "on the Display scope, calendar_connect_section()'s own <form> opening tag renders "
-        "immediately after the Calendar card and strictly before the Runway card's own radio "
+        "on the Display scope, the calendar connect/replace form's own <form> opening tag renders "
+        "immediately after the Calendar row and strictly before the Runway card's own radio "
         "input, never after the whole page's groups (Polish fix 4, D-14c)",
         _calendar_connect_form_appears_before_the_runway_card_on_display_scope)
 
@@ -9108,33 +9864,69 @@ def main():
         # outright along with display_group() itself, leaving Frame
         # colours/Calendar (page-section--nested) and Runway/Quiet hours
         # (theme-status--nested).
+        #
+        # 30-06-PLAN.md Task 3 (CFG-85): the floor drops again, 4 -> 3,
+        # and the literal needle changes shape — a genuine property
+        # change, not a locator repoint. The separate Calendar card
+        # (its own bare "page-section page-section--nested" wrapper) is
+        # retired outright; its connection block folds into the Aspect
+        # card's own Calendar row, so the ONE remaining page-section--
+        # nested wrapper on Display is the Aspect card's own —
+        # `_nested_wrapper_html(..., "page-section aspect-card", ...)`
+        # inserts the modifier AFTER "aspect-card", producing
+        # `class="page-section aspect-card page-section--nested"`,
+        # never the bare `"page-section page-section--nested"` two-
+        # class literal this check used to search for.
         ctx = {
             "device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0,
             "calendar_configured": True, "calendar_last_synced_at": None,
             "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
         }
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        for needle in ("theme-status theme-status--nested", "page-section page-section--nested"):
+        for needle in (
+                "theme-status theme-status--nested",
+                'class="page-section aspect-card page-section--nested"'):
             if needle not in display:
                 return False, "expected %r on the Display scope" % (needle,)
+        if display.count('class="page-section page-section--nested"') != 0:
+            return False, (
+                "expected no bare page-section page-section--nested wrapper on Display — the "
+                "Calendar card that used to emit it is retired")
         nested_count = display.count("theme-status--nested") + display.count("page-section--nested")
-        if nested_count < 4:
-            return False, "expected at least 4 --nested occurrences on Display, got %d" % nested_count
+        if nested_count != 3:
+            return False, "expected exactly 3 --nested occurrences on Display, got %d" % nested_count
         return True, ""
     check(
         "every grouped card the Display scope renders under one of its three supersections carries "
-        "a --nested modifier class (D-12)",
+        "a --nested modifier class — down to 3 occurrences (Aspect's page-section--nested, Runway's "
+        "and Quiet hours' theme-status--nested) now that the Calendar card's own separate "
+        "page-section--nested wrapper is retired (D-12, CFG-85)",
         _every_grouped_card_under_a_display_supersection_carries_nested_class)
 
-    def _display_h2_order_matches_d12_after_calendar_placement_fix():
-        # D-12 fix (20-REVIEW.md verification gap): before this fix, the
-        # physical <form id="settings-form"> closed right after the
-        # Calendar card, which forced Flight colours (a real <form> that
-        # cannot nest inside another <form>) to render after "What it
-        # watches" instead of between Theme and Calendar. This pins the
-        # exact <h2> order the fix restores, and that Calendar's compact
-        # chip-grid radios still post through the physical form despite
-        # the card itself no longer being a literal descendant of it.
+    # 30-03-PLAN.md Task 1 (CFG-85): three checks used to live in this
+    # region — _display_h2_order_matches_d12_after_calendar_placement_
+    # fix, _title_form_inventory_classifies_every_h2_text_heading_on_
+    # both_routes (with its own long CFG-65/CFG-72 history banner) and
+    # _no_card_builder_function_ever_calls_section_intro_html (with its
+    # own CFG-65 Task 2 banner) — all three pinned FRAME_COLOURS_HEADING/
+    # _frame_colours_card_html by name or by counted <h2> position, both
+    # retired by CFG-85's rebuild. All three DELETED WITH THEIR OWN
+    # HISTORY COMMENTS (a comment arguing a deleted check is a comment
+    # about nothing) and LEDGERED — see _ASPECT_REPIN_LEDGER below.
+    # 30-06-PLAN.md Task 3 (CFG-85) pays all three back, immediately
+    # below, now that the Calendar card's own separate heading is ALSO
+    # retired (folded into the Aspect card's Calendar row).
+
+    def _display_h2_order_matches_the_merged_aspect_card_placement():
+        # Replaces _display_h2_order_matches_d12_after_calendar_
+        # placement_fix (_ASPECT_REPIN_LEDGER row, owed_by 30-06). The
+        # exact same D-12 property this check always asserted — the
+        # Display scope's <h2> order, and every calendar_theme_id radio
+        # still carrying form=settings-form — re-derived for the merged
+        # shape: the separate Calendar heading this list used to name
+        # is gone outright (not merely renamed, the way Frame colours ->
+        # Aspect was); the expected sequence is built from the module's
+        # own heading constants, never a retyped literal list.
         ctx = {
             "device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0,
             "calendar_configured": True, "calendar_last_synced_at": None,
@@ -9142,25 +9934,11 @@ def main():
         }
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         headings = re.findall(r'<h2[^>]*>(.*?)</h2>', display)
-        # 21-05-PLAN.md Task 1 (D-06): Theme's own <h2> and the standalone
-        # Flight-colours card's own <h2> (RULES_SECTION_HEADING) are both
-        # retired — replaced by a single "Frame colours" <h2>, the Frame
-        # colours card's own heading (its rules panel is named by its own
-        # <legend>, never a second <h2>).
         expected = [
-            # 21-04-PLAN.md Task 1 (D-01/D-02): the shared Frame strip's
-            # own <h2> is now the very first heading on the page,
-            # before "Look" — it renders outside <form id="settings-
-            # form"> entirely, immediately after the page header.
             layout.FRAME_STRIP_HEADING,
-            config_page.DISPLAY_LOOK_HEADING, config_page.FRAME_COLOURS_HEADING,
-            config_page.CALENDAR_SECTION_HEADING, config_page.DISPLAY_WATCHES_HEADING,
+            config_page.DISPLAY_LOOK_HEADING, config_page.ASPECT_HEADING,
+            config_page.DISPLAY_WATCHES_HEADING,
             "Runway", config_page.DISPLAY_ON_HEADING,
-            # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): config_page.
-            # DISPLAY_SECTION_HEADING ("Screen on / off") is retired
-            # outright along with display_group() — the Frame strip is
-            # the only Screen on/off control left, so "When it is on" now
-            # renders only the Quiet hours card.
             config_page.QUIET_HOURS_SECTION_HEADING,
         ]
         if headings != expected:
@@ -9174,92 +9952,22 @@ def main():
                 % (calendar_radio_count, config_page.SETTINGS_FORM_ID, calendar_radio_with_form_count))
         return True, ""
     check(
-        "the Display scope's rendered <h2> order is exactly Look, Frame colours, Calendar, What it "
-        "watches, Runway, When it is on, Quiet hours (Theme's and the standalone Flight-colours "
-        "card's own former headings both retired into one Frame colours heading, 21-05-PLAN.md "
-        "Task 1 D-06; Screen on/off's own heading retired outright by 22-05-PLAN.md Task 1 "
-        "X1/D-04/D-12.1), and every calendar_theme_id radio carries a form=\"settings-form\" "
-        "attribute (D-12 fix, 20-REVIEW.md verification gap)",
-        _display_h2_order_matches_d12_after_calendar_placement_fix)
+        "the Display scope's rendered <h2> order is exactly Look, Aspect, What it watches, Runway, "
+        "When it is on, Quiet hours — the separate Calendar heading this order used to also name is "
+        "retired outright now that its connection block folds into the Aspect card's own Calendar "
+        "row — and every calendar_theme_id radio still carries a form=\"settings-form\" attribute "
+        "(CFG-85, replacing the retired _display_h2_order_matches_d12_after_calendar_placement_fix)",
+        _display_h2_order_matches_the_merged_aspect_card_placement)
 
-    # ==================================================================
-    # 27-06-PLAN.md Task 1 (CFG-65): the title-form inventory, RUN
-    # before any markup choice. 27-RESEARCH.md's own grep produced a
-    # provisional 8/3/2 split and said so ("the regex matches a
-    # formatting convention, not a grammar"); 27-01-SUMMARY.md's browser
-    # inventory measured the real rendered split at 7/3/2 and named the
-    # eighth grep hit config_page.py never renders on either settings
-    # route. This check reproduces that inventory server-side (against
-    # config_page.render() directly, no browser needed) and classifies
-    # every one of the 12 instances by NAME, not just by count:
-    #
-    #   7 SETTINGS-CARD titles (form A, `[data-dirty-section] > h2`):
-    #   Frame colours/Calendar/Runway/Quiet hours (Display) and
-    #   Diagnostic LED/Wake interval/Notifications (Device) — each is
-    #   the FIRST thing inside its own bordered tile.
-    #
-    #   3 SUPERSECTION intros (form B, `.section-intro > h2`,
-    #   layout.section_intro_html() — SHARED, byte-identical, with
-    #   health_page.py, whose own structural checks match its markup
-    #   literally): Look/What it watches/When it is on. These are a
-    #   different, unbordered, generically-worded object — "Look" alone
-    #   introduces TWO cards (Frame colours and Calendar, render()'s own
-    #   5029/5183 ordering), which a card title, naming exactly one
-    #   card, cannot do.
-    #
-    #   2 UNCLASSIFIED headings that are neither: the Frame strip's own
-    #   live-status heading (layout.frame_strip_html(), Display only —
-    #   an unrelated preview widget, not a settings group) and the Poll
-    #   card's own bare `<section class="page-section">` heading
-    #   (config_page.py's poll_trigger_section() wrapper, Device only —
-    #   it carries no [data-dirty-section] attribute only because it
-    #   holds no persisted field for dirty-tracking to watch; its ROLE
-    #   — one heading, first thing inside its own box, naming exactly
-    #   the one card it belongs to — is otherwise identical to form A).
-    #
-    # CONCLUSION (stated here, before any markup is touched): Outcome 2.
-    # There is already exactly one title form for settings CARDS. The
-    # 7-vs-3 split is a real grammar distinction — supersection intro
-    # versus card title — not an inconsistency to convert away, and
-    # converting it either direction would mean either editing the
-    # shared, Health-pinned section_intro_html() call sites away from
-    # their documented "must never drift" shape, or reversing
-    # 20-07-PLAN.md's own D-12 supersection restructure (still pinned by
-    # the two checks immediately above this one). See 27-06-SUMMARY.md
-    # for the full substitute-cause investigation (heading SIZE, the
-    # spacing above a supersection's first card, and caption-as-title
-    # were each measured and found to be either a developer-confirmed,
-    # three-round-trip-validated decision this plan does not reopen, or
-    # a convention shared identically with Health, or unsupported by
-    # measurement).
-    #
-    # SUPERSEDED IN PART (28-04-PLAN.md Task 1, CFG-72). Outcome 2's own
-    # conclusion — "one title form for settings CARDS" — is not
-    # reversed here, it is EXTENDED: the developer's second, rendered-
-    # and-measured report (the second "Ok mais visuellement les titres
-    # sont toujours incohérents !") found that Device's own four cards
-    # (including the Poll card this banner already discussed) rendered
-    # at the un-nested 22px/400/serif tier while Display's rendered at
-    # the nested 16px/600/sans tier — a real defect this banner's own
-    # "markup-level" inventory could not see, because it counted
-    # elements rather than reading computed style (see 28-04-SUMMARY.md
-    # for the rendered-and-measured proof). Device's counts move from
-    # (4, 3, 0, 1) to (7, 3, 3, 1): it gains three supersection intros
-    # of its own ("When it wakes"/"How it tells you"/"When you can't
-    # wait", `_device_groups_html()`), mirroring Display's three. The
-    # Poll card's own bare heading — this banner's second UNCLASSIFIED
-    # instance — is NOW WRAPPED with `page-section--nested` under its
-    # own "When you can't wait" supersection, so it is no longer
-    # typographically distinct from the other three Device cards. It
-    # STAYS the check's one remaining unclassified instance below,
-    # UNCHANGED reason: this check's own [data-dirty-section]-based
-    # arithmetic classifies it "unclassified" only because it holds no
-    # persisted field for dirty-tracking to watch — exactly what this
-    # banner already said above, and exactly why wrapping it was
-    # correct rather than a second, competing title form.
-    # ==================================================================
-
-    def _title_form_inventory_classifies_every_h2_text_heading_on_both_routes():
+    def _title_form_inventory_classifies_every_h2_text_heading_on_both_routes_after_the_merge():
+        # Replaces _title_form_inventory_classifies_every_h2_text_
+        # heading_on_both_routes (_ASPECT_REPIN_LEDGER row, owed_by
+        # 30-06). The classification itself still holds — settings-card
+        # titles (form A) vs. supersection intros (form B) vs.
+        # unclassified — with one fewer form-A card title on Display now
+        # that Calendar's own separate heading is retired: the tallies
+        # are RECOMPUTED from the real render below, never restated as
+        # the old 8/4/3/1 literal.
         ctx_display = {
             "device_config": {"theme": "white", "tracked_runway": "3"},
             "state_dir": "/tmp", "poll_cooldown_remaining": 0,
@@ -9279,27 +9987,20 @@ def main():
             form_a = rendered.count('%s="' % config_page.DIRTY_SECTION_ATTR)
             form_b = rendered.count("section-intro")
             counts[label] = (total, form_a, form_b, total - form_a - form_b)
-        # RE-DERIVED BY RUNNING (28-04-PLAN.md Task 1, CFG-72): Device's
-        # own tuple moved from (4, 3, 0, 1) to (7, 3, 3, 1) — three new
-        # h2.text-heading instances (the "When it wakes"/"How it tells
-        # you"/"When you can't wait" supersection intros), form-A
-        # unmoved at 3 (the wrap adds a class, not a [data-dirty-
-        # section] attribute), form-B 0 -> 3, unclassified unmoved at 1
-        # (the Poll card's own bare heading — see the banner above).
-        # Display's own tuple is untouched by this task.
-        expected = {"display": (8, 4, 3, 1), "device": (7, 3, 3, 1)}
+        # RE-DERIVED BY RUNNING (30-06-PLAN.md Task 3, CFG-85): Display's
+        # own tuple moves from (8, 4, 3, 1) to (7, 3, 3, 1) — one fewer
+        # h2.text-heading instance and one fewer form-A card title, both
+        # for the identical reason (the Calendar card's own separate
+        # heading is retired outright). Device's own tuple is untouched.
+        expected = {"display": (7, 3, 3, 1), "device": (7, 3, 3, 1)}
         if counts != expected:
             return False, (
                 "expected {route: (total h2.text-heading, form-A card titles, form-B "
-                "supersection intros, unclassified)} == %r, measured %r by running. This is "
-                "27-01-SUMMARY.md's own browser-driven inventory (7/3/2 total, corrected from "
-                "27-RESEARCH.md's provisional 8/3/2), reproduced server-side — a drift here "
-                "means the classification this check names below is stale" % (expected, counts))
+                "supersection intros, unclassified)} == %r, measured %r by running" % (expected, counts))
 
         card_title_headings = {
             "display": (
-                config_page.FRAME_COLOURS_HEADING, config_page.CALENDAR_SECTION_HEADING,
-                "Runway", config_page.QUIET_HOURS_SECTION_HEADING),
+                config_page.ASPECT_HEADING, "Runway", config_page.QUIET_HOURS_SECTION_HEADING),
             "device": (
                 config_page.LED_SECTION_HEADING, config_page.WAKE_INTERVAL_SECTION_HEADING,
                 config_page.NOTIFICATIONS_SECTION_HEADING),
@@ -9312,18 +10013,19 @@ def main():
                         "expected the settings-card heading %r to render inside its own "
                         "[data-dirty-section] tile on the %s scope, and it did not"
                         % (heading, route))
+            if len(card_title_headings[route]) != counts[route][1]:
+                return False, (
+                    "expected exactly %d form-A card titles named on %s, the allowlist names %d"
+                    % (counts[route][1], route, len(card_title_headings[route])))
 
         # The two unclassified instances, identified by name — neither
-        # is a settings card or a supersection intro.
+        # is a settings card or a supersection intro. Unchanged by the
+        # merge (both survive it untouched).
         frame_strip_needle = ">%s</h2>" % escape_html(layout.FRAME_STRIP_HEADING)
         if frame_strip_needle not in display or frame_strip_needle in device:
             return False, (
                 "expected the Frame strip's own <h2> (Display's unclassified instance) to "
                 "render on Display and never on Device")
-        # 28-04-PLAN.md Task 1 (CFG-72): the Poll card's own bare <h2> is
-        # now inside a `page-section page-section--nested` wrapper (it
-        # was a bare `page-section` before), but the <h2> TEXT itself is
-        # untouched — same needle, still present on Device only.
         poll_needle = '<h2 class="text-heading">%s</h2>' % escape_html(
             config_page.POLL_SECTION_HEADING)
         if poll_needle not in device or poll_needle in display:
@@ -9331,11 +10033,8 @@ def main():
                 "expected Poll's own <h2> (Device's unclassified instance) to render on Device "
                 "and never on Display (Display never renders Poll)")
 
-        # OUTCOME 2: the two label vocabularies never overlap. A
-        # supersection's own text is always a GENERIC group label,
-        # never one of the 7 cards' own SPECIFIC names. 28-04-PLAN.md
-        # Task 1 (CFG-72) widens the supersection-label side with
-        # Device's own three new labels.
+        # OUTCOME 2 still holds: the two label vocabularies never
+        # overlap.
         overlap = (
             set(card_title_headings["display"]) | set(card_title_headings["device"])
         ) & {
@@ -9350,49 +10049,27 @@ def main():
                 "and a group's own label had collapsed into the same word" % (overlap,))
         return True, ""
     check(
-        "the title-form inventory, run before any markup choice: both settings routes' "
-        "h2.text-heading instances count and classify as 7 settings-card titles (form A, 3 on "
-        "Device + 4 on Display) + 3 supersection intros (form B, layout.section_intro_html(), "
-        "shared with health_page.py) + 2 unrelated headings (the Frame strip's own live-status "
-        "heading on Display, Poll's own bare-<section> heading on Device — neither a settings "
-        "card nor a supersection), reproducing 27-01-SUMMARY.md's corrected 7/3/2 browser count "
-        "server-side, with the two label vocabularies never overlapping (CFG-65, 27-06-PLAN.md "
-        "Task 1). SUPERSEDED IN PART (28-04-PLAN.md Task 1, CFG-72): a rendered-and-measured "
-        "check (companion/test_browser_ux.py) found the 7 settings-card titles were NOT one "
-        "typographic form after all — Device's four rendered 22px/400/serif against Display's "
-        "16px/600/sans — so Device now gains 3 supersection intros of its own (form B unmoved "
-        "in shape, Device's own count 0 -> 3, counts re-derived by running below) and its own "
-        "Poll card is wrapped, closing that gap; the settings-card/supersection-label GRAMMAR "
-        "distinction this check's own name asserts is unchanged, and the label-vocabulary "
-        "overlap clause now also covers Device's three new labels",
-        _title_form_inventory_classifies_every_h2_text_heading_on_both_routes)
+        "the title-form inventory, re-run after the calendar merge: both settings routes' "
+        "h2.text-heading instances count and classify as 6 settings-card titles (form A, 3 on "
+        "Device + 3 on Display, down from 4 now that Calendar's own separate heading is retired) "
+        "+ 3 supersection intros (form B) + 2 unrelated headings, with the counts re-derived by "
+        "RUNNING rather than restated as the pre-merge 8/4/3/1 literal, and the two label "
+        "vocabularies still never overlapping (CFG-85, replacing the retired "
+        "_title_form_inventory_classifies_every_h2_text_heading_on_both_routes)",
+        _title_form_inventory_classifies_every_h2_text_heading_on_both_routes_after_the_merge)
 
-    # ==================================================================
-    # 27-06-PLAN.md Task 2 (CFG-65): Task 1 concluded Outcome 2 — there
-    # is already one title form for settings cards, so there is no
-    # conversion to make (converting either direction would edit the
-    # shared, Health-pinned section_intro_html() call sites, or reverse
-    # 20-07-PLAN.md's own D-12 supersection restructure — both out of
-    # this plan's scope, per its own "form B is not editable" and "pick
-    # based on what costs less disruption" constraints). No markup or
-    # CSS changed for the title-form correction.
-    #
-    # In its place: the structural guarantee that keeps "one title form
-    # for cards" true GOING FORWARD, not just in today's markup. Every
-    # one of the 7 functions that builds a settings card's own tile
-    # returns its own <h2> (form A) as a fixed, flat string and never
-    # reaches for the shared supersection builder to do it — asserted
-    # here at the SOURCE level via AST, so the "losing form" this check
-    # names (a card's own heading produced through the supersection-
-    # intro shape) is ZERO, enforced independently of whatever the
-    # rendered markup happens to look like on any given day.
-    # ==================================================================
-
-    def _no_card_builder_function_ever_calls_section_intro_html():
+    def _no_card_builder_function_ever_calls_section_intro_html_after_the_merge():
+        # Re-lands here (_ASPECT_REPIN_LEDGER row, owed_by 30-06,
+        # replacement == retired — the same function, its own AST
+        # allowlist updated for the merge): the settings-card builder
+        # set loses _frame_colours_card_html (retired by 30-04-PLAN.md)
+        # and the calendar card's own former builder function (retired
+        # by this plan's own Task 1), and gains _aspect_card_html — the
+        # one merged builder that now covers everything both of those
+        # used to.
         card_builder_names = (
-            "_frame_colours_card_html", "runway_fieldset", "led_group",
+            "_aspect_card_html", "runway_fieldset", "led_group",
             "quiet_hours_group", "wake_interval_group", "notifications_group",
-            "calendar_group",
         )
         with open(os.path.join(HERE, "pages", "config_page.py")) as fh:
             source = fh.read()
@@ -9402,9 +10079,9 @@ def main():
             if isinstance(n, ast.FunctionDef) and n.name in card_builder_names}
         if found_names != set(card_builder_names):
             return False, (
-                "expected to find all 7 card-builder functions by name in config_page.py, "
+                "expected to find all %d card-builder functions by name in config_page.py, "
                 "missing %r — this check's own allowlist is stale"
-                % (set(card_builder_names) - found_names,))
+                % (len(card_builder_names), set(card_builder_names) - found_names))
         offenders = []
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef) and node.name in card_builder_names:
@@ -9414,19 +10091,22 @@ def main():
                         offenders.append(node.name)
         if offenders:
             return False, (
-                "expected ZERO of the 7 settings-card builder functions to call "
+                "expected ZERO of the %d settings-card builder functions to call "
                 "layout.section_intro_html() (form B) for their own <h2> — found it called "
                 "from %r. A card's own title must stay form A, never borrow the shared "
-                "supersection builder" % (offenders,))
+                "supersection builder" % (len(card_builder_names), offenders))
         return True, ""
     check(
-        "none of the 7 settings-card builder functions (_frame_colours_card_html/"
-        "runway_fieldset/led_group/quiet_hours_group/wake_interval_group/notifications_group/"
-        "calendar_group) ever calls layout.section_intro_html() for their own heading — the "
-        "losing form (a card title produced through the supersection-intro shape) is ZERO, "
-        "enforced at the source level rather than only in today's rendered markup (CFG-65, "
-        "27-06-PLAN.md Task 2 — Outcome 2, no conversion, see 27-06-SUMMARY.md)",
-        _no_card_builder_function_ever_calls_section_intro_html)
+        "none of the settings-card builder functions (_aspect_card_html/runway_fieldset/"
+        "led_group/quiet_hours_group/wake_interval_group/notifications_group — one fewer than "
+        "before the merge, since _aspect_card_html now covers what _frame_colours_card_html and "
+        "the calendar card's own former builder function used to split between them) ever calls "
+        "layout.section_intro_html() for their own heading — the losing form (a card title "
+        "produced through the "
+        "supersection-intro shape) is ZERO, enforced at the source level, its allowlist length "
+        "checked against the real builder-name set rather than a literal (CFG-85, replacing the "
+        "retired-and-relanded _no_card_builder_function_ever_calls_section_intro_html)",
+        _no_card_builder_function_ever_calls_section_intro_html_after_the_merge)
 
     # ==================================================================
     # 28-04-PLAN.md Task 2 (CFG-72): the cheap structural guard. THIS IS
@@ -9807,24 +10487,39 @@ def main():
         "untranslated attribute values (Polish fix 5, D-05)",
         _french_display_and_device_render_translate_registry_labels)
 
-    def _english_display_render_still_carries_every_pinned_english_string():
-        # The default (no prefs override) render must stay byte-identical
-        # to every pre-existing English-language check in this file —
-        # t()'s own fallback-to-English-unchanged contract, exercised at
-        # the whole-page level rather than per-string.
+    def _aspect_display_render_still_carries_every_pinned_english_string():
+        # 30-05-PLAN.md Task 2 (CFG-85): replaces the retired
+        # _english_display_render_still_carries_every_pinned_english_
+        # string. The pinned set loses FRAME_COLOURS_CAPTION (deleted
+        # outright by 30-04-PLAN.md Task 1) and gains ASPECT_HEADING;
+        # every other member of the old set was kept unthinned at the
+        # time — a pin that shrinks for convenience is not a pin.
+        #
+        # 30-06-PLAN.md Task 3 (CFG-85): the connection block's own
+        # caption constant is now dropped too — it is deleted outright
+        # by this plan's own Task 1 (the connection block folds into
+        # the Calendar row, which has no caption of its own), so there
+        # is no longer a value for this pin to assert;
+        # CALENDAR_HOW_IT_WORKS_SUMMARY (a live calendar string,
+        # unaffected by the merge) takes its place in the set so the
+        # calendar's own copy stays represented here.
         rendered = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
         for english_text in (
                 config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
                 config_page.DISPLAY_ON_HEADING, config_page.DISPLAY_PAGE_PURPOSE,
-                layout.QUICK_ACTION_APPLIES_SENTENCE, config_page.FRAME_COLOURS_CAPTION,
-                config_page.RUNWAY_SECTION_CAPTION, config_page.CALENDAR_CAPTION):
+                layout.QUICK_ACTION_APPLIES_SENTENCE, config_page.ASPECT_HEADING,
+                config_page.RUNWAY_SECTION_CAPTION, config_page.CALENDAR_HOW_IT_WORKS_SUMMARY):
             if escape_html(english_text) not in rendered:
                 return False, "expected the English constant %r to still render verbatim" % (english_text,)
         return True, ""
     check(
         "an English (default) Display render still contains every pre-existing English string this "
-        "file's own checks assert — t() never touches the default-language render (D-05)",
-        _english_display_render_still_carries_every_pinned_english_string)
+        "file's own checks assert, updated for CFG-85's rebuild (both the former Frame colours "
+        "card's and the calendar connection block's own caption constants dropped, ASPECT_HEADING "
+        "gained, everything else kept) — t() never touches the default-language render (D-05, "
+        "30-05-PLAN.md Task 2/30-06-PLAN.md Task 3, "
+        "replacing the retired _english_display_render_still_carries_every_pinned_english_string)",
+        _aspect_display_render_still_carries_every_pinned_english_string)
 
     def _device_render_carries_no_edit_artwork_markup_in_either_language():
         for lang in ("en", "fr"):
@@ -9873,7 +10568,12 @@ def main():
         "to the legacy all-scope and any non-member return_to falls back to /display",
         _submitted_scope_and_return_route_are_allowlisted)
 
-    def _scoped_render_carries_hidden_fields_and_omits_other_groups():
+    def _aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
+        # 30-05-PLAN.md Task 2 (CFG-85): replaces the retired
+        # _scoped_render_carries_hidden_fields_and_omits_other_groups.
+        # Locates the rules row via its own data-usage attribute (never
+        # the retired COLOUR_USAGE_PANEL_TARGET_ATTR); every other
+        # assertion is otherwise unchanged from the retired check.
         ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
@@ -9884,49 +10584,38 @@ def main():
             return False, "expected the device scope's hidden scope/return_to fields"
         if 'name="scope"' in legacy:
             return False, "expected the legacy all-scope render to carry no scope field"
-        # 20-07-PLAN.md Task 1 (D-10): Runway moved from Device's
-        # advanced_groups to Display's everyday_groups this phase — LED
-        # stays Device-only, unaffected.
         if 'name="led_enabled"' in display:
             return False, "expected no LED group on the Display page"
         if 'name="tracked_runway"' not in display:
             return False, "expected the runway group to render on the Display page (D-10)"
         if 'name="tracked_runway"' in device:
             return False, "expected no runway group on the Device page (D-10)"
-        # 21-05-PLAN.md Task 1 (D-06): theme_arriving_enabled is retired
-        # outright — "quiet_hours_enabled"-in-device is the surviving
-        # half of this assertion's own original premise.
         if 'name="quiet_hours_enabled"' in device:
             return False, "expected no quiet-hours group on the Device page"
         if display.count('<h1 class="page-title">Display</h1>') != 1:
             return False, "expected the Display page title"
         if device.count('<h1 class="page-title">Device</h1>') != 1:
             return False, "expected the Device page title"
-        # 20-07-PLAN.md Task 1 (D-11): Flight colours (the rules editor)
-        # moved from Device to Display with its Calendar group — Manual
-        # refresh (the Poll section) stays Device-only, unaffected.
-        # 21-05-PLAN.md Task 1 (D-06/D-10): the rules editor is no longer
-        # a standalone section with its own heading — it relocated into
-        # the Frame colours card's own "Per-flight rules" usage panel,
-        # located here via its own data-usage-panel-target attribute.
         if config_page.POLL_SECTION_HEADING in display:
             return False, "expected the manual-refresh section off the Display page"
-        rules_panel_marker = '%s="%s"' % (
-            config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, config_page.COLOUR_USAGE_RULES)
-        if rules_panel_marker not in display:
-            return False, "expected the rules panel, inside the Frame colours card, on the Display page (D-11)"
+        rules_row_marker = 'data-usage="%s"' % config_page.COLOUR_USAGE_RULES
+        if rules_row_marker not in display:
+            return False, "expected the rules row, inside the Aspect card, on the Display page (D-11)"
         if config_page.POLL_SECTION_HEADING not in device:
             return False, "expected the manual-refresh section on the Device page"
-        if rules_panel_marker in device:
-            return False, "expected the rules panel off the Device page (D-11)"
+        if rules_row_marker in device:
+            return False, "expected the rules row off the Device page (D-11)"
         hostile = config_page.render(ctx, scope="<script>")
         if 'name="scope"' in hostile or "&lt;script&gt;" in hostile:
             return False, "expected a hostile scope value to degrade to the legacy all-scope, never to be echoed"
         return True, ""
     check(
-        "render(scope=display/device) carries the matching hidden fields and only its own groups; the "
-        "legacy render(ctx) carries no scope field; a hostile scope never reaches the markup",
-        _scoped_render_carries_hidden_fields_and_omits_other_groups)
+        "render(scope=display/device) carries the matching hidden fields and only its own groups, "
+        "including locating the rules row (inside the Aspect card) by its own data-usage attribute; "
+        "the legacy render(ctx) carries no scope field; a hostile scope never reaches the markup "
+        "(30-05-PLAN.md Task 2, replacing the retired "
+        "_scoped_render_carries_hidden_fields_and_omits_other_groups)",
+        _aspect_scoped_render_carries_hidden_fields_and_omits_other_groups)
 
     def _handle_post_scope_carries_out_of_scope_checkboxes_forward():
         tmp = tempfile.mkdtemp(prefix="skypane-config-scope-")
@@ -10448,13 +11137,18 @@ def main():
         "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
         "state_dir": "/tmp", "poll_cooldown_remaining": 0,
     }
-    # Minimums pinned a little below the observed figures (16 measured
-    # on /display, 8 on /device, both languages, re-derived by running
-    # this exact fixture through this exact selector) — enough margin
-    # for an unrelated future caption to be added or removed without
-    # retuning this number, not so much margin that a badly narrowed
-    # selector could still clear it.
-    _FLOOR_MIN_MEASURED = {"display": 14, "device": 6}
+    # Minimums pinned a little below the observed figures — re-derived
+    # by RUNNING this exact fixture through this exact selector,
+    # 30-05-PLAN.md Task 3 (CFG-85): the old 16-measured-on-/display
+    # baseline dropped to 12 once FRAME_COLOURS_CAPTION (the caption
+    # paragraph) and the old per-grid swatch legends (three of them —
+    # the departures/arrivals/calendar rows now use _palette_grid_html(),
+    # which renders no legend at all) both disappeared from the Aspect
+    # card's rebuild; /device is untouched by CFG-85 and stays at its
+    # own previously-observed 8. Enough margin for an unrelated future
+    # caption to be added or removed without retuning this number, not
+    # so much margin that a badly narrowed selector could still clear it.
+    _FLOOR_MIN_MEASURED = {"display": 10, "device": 6}
     # /display carries exactly the four Aspect exemptions (Phase 30's
     # own card); /device carries none of them (Aspect is Display-only).
     _FLOOR_EXPECTED_SKIPS = {"display": len(config_page.ASPECT_CAPTION_EXEMPTIONS), "device": 0}
@@ -11241,19 +11935,27 @@ def main():
     # the chip grid.
     # ==================================================================
 
-    def _display_render_has_exactly_one_live_preview_figure_eager_with_dimensions():
-        # 21-05-PLAN.md Task 1 (D-07): the figure now also carries the
-        # Frame colours card's own layout modifier
-        # (frame-colours__preview) alongside the unchanged
-        # theme-live-preview class — retargeted from an exact-class-
-        # attribute match to a substring match for that reason.
+    def _aspect_display_render_has_exactly_one_live_preview_figure_eager_with_dimensions():
+        # 30-05-PLAN.md Task 2 (CFG-85): replaces the retired
+        # _display_render_has_exactly_one_live_preview_figure_eager_
+        # with_dimensions. The figure now wears aspect-card__preview
+        # (was frame-colours__preview) — retargeted from the old class
+        # attribute to the new one. Also asserts the figure's own index
+        # precedes the first name="aspect-rows" row's — the preview is
+        # ABOVE the rows (ROADMAP point 1), a relationship a
+        # class-presence check alone would miss.
         rendered = config_page.render(
             {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0},
             scope=config_page.SCOPE_DISPLAY)
-        if rendered.count('class="theme-live-preview frame-colours__preview"') != 1:
+        figure_needle = 'class="theme-live-preview aspect-card__preview"'
+        if rendered.count(figure_needle) != 1:
             return False, (
-                "expected exactly one .theme-live-preview.frame-colours__preview figure, got %d"
-                % rendered.count('class="theme-live-preview frame-colours__preview"'))
+                "expected exactly one .theme-live-preview.aspect-card__preview figure, got %d"
+                % rendered.count(figure_needle))
+        figure_pos = rendered.index(figure_needle)
+        first_row_pos = rendered.index('name="%s"' % config_page.ASPECT_ROWS_GROUP_NAME)
+        if not (figure_pos < first_row_pos):
+            return False, "expected the live preview figure ABOVE the first accordion row"
         match = re.search(r'<img class="theme-live-preview__image"[^>]*>', rendered)
         if not match:
             return False, "expected the live preview's own <img> element"
@@ -11268,10 +11970,12 @@ def main():
             return False, "expected an explicit height attribute"
         return True, ""
     check(
-        "a Display render contains exactly one .theme-live-preview figure whose <img> src ends in "
-        'the saved theme\'s ?live=1 URL, carries loading="eager" and explicit width/height '
-        "(D-22..D-24)",
-        _display_render_has_exactly_one_live_preview_figure_eager_with_dimensions)
+        "a Display render contains exactly one .theme-live-preview.aspect-card__preview figure whose "
+        "<img> src ends in the saved theme's ?live=1 URL, carries loading=\"eager\" and explicit "
+        "width/height, positioned ABOVE the first accordion row (D-22..D-24, 30-05-PLAN.md Task 2, "
+        "replacing the retired "
+        "_display_render_has_exactly_one_live_preview_figure_eager_with_dimensions)",
+        _aspect_display_render_has_exactly_one_live_preview_figure_eager_with_dimensions)
 
     def _every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
         rendered = config_page.render(
@@ -11362,59 +12066,77 @@ def main():
 
     # --- 22-10-PLAN.md Task 1 (X6, T10, T12, C1) ----------------------
 
-    def _display_renders_one_chip_density_and_a_swatch_legend_under_every_grid():
-        # X6: one chip size on the whole page. Before this plan the
-        # departures grid rendered eighteen 160x108 chips while the
-        # Arrivals/Calendar/Rules grids rendered the same eighteen themes
-        # at ~104px - one control, two shapes, on one page.
+    def _display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatch_legend():
+        # 30-05-PLAN.md Task 3 (CFG-85), UPDATED IN PLACE from the
+        # retired _display_renders_one_chip_density_and_a_swatch_
+        # legend_under_every_grid: that check's own property (four
+        # identical .theme-chip-grid grids, one legend each) is the
+        # LITERAL thing CFG-85's accordion redesign retires by design.
+        # There is now exactly one .theme-chip-grid on Display (the
+        # rule-add form's own compact grid, unaffected by CFG-85 — see
+        # its own call site's comment for why it deliberately stays a
+        # theme-chip-grid) plus three .palette grids (departures/
+        # arrivals/calendar), which carry no legend at all —
+        # _palette_swatch_html() reads only departing_index/band_index,
+        # never needing a two-dot legend to explain a single dot.
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3"},
             "poll_cooldown_remaining": 0,
         }, scope=config_page.SCOPE_DISPLAY)
 
         grid_classes = re.findall(r'<div class="(theme-chip-grid[^"]*)"', rendered)
-        if len(grid_classes) != 4:
+        if len(grid_classes) != 1:
             return False, (
-                "expected 4 chip grids on Display (departures, arrivals, calendar, rules), got %d"
-                % len(grid_classes))
-        for cls in grid_classes:
-            if "theme-chip-grid--compact" not in cls:
-                return False, "every chip grid must carry the compact modifier, got %r" % (cls,)
+                "expected exactly one .theme-chip-grid on Display (the rule-add form's own "
+                "compact grid), got %d" % len(grid_classes))
+        if "theme-chip-grid--compact" not in grid_classes[0]:
+            return False, (
+                "expected the remaining chip grid to carry the compact modifier, got %r"
+                % (grid_classes[0],))
 
-        chip_classes = re.findall(r'<label class="(theme-chip[^"]*)"', rendered)
         theme_count = len(device_config.THEME_IDS)
-        # 4 grids x every theme, plus the two leading "Same as departures"
-        # placeholder chips (arrivals + calendar), which are
-        # .theme-chip--placeholder and carry no --compact modifier of
-        # their own (they have no preview band to shrink).
-        real_chips = [c for c in chip_classes if "theme-chip--placeholder" not in c]
-        if len(real_chips) != theme_count * 4:
+        chip_classes = re.findall(r'<label class="(theme-chip[^"]*)"', rendered)
+        if len(chip_classes) != theme_count:
             return False, (
-                "expected %d real chips (%d themes x 4 grids), got %d"
-                % (theme_count * 4, theme_count, len(real_chips)))
-        for cls in real_chips:
+                "expected %d .theme-chip labels (the rule-add form's grid alone, no leading "
+                "chip), got %d" % (theme_count, len(chip_classes)))
+        for cls in chip_classes:
             if "theme-chip--compact" not in cls:
-                return False, "every chip must carry the size-only compact modifier, got %r" % (cls,)
+                return False, "expected every remaining chip to carry the compact modifier, got %r" % (cls,)
 
-        # The legend: one line under each grid, never one per chip.
-        legend = escape_html(config_page.THEME_CHIP_SWATCH_LEGEND)
-        if rendered.count(legend) != 4:
+        palette_count = rendered.count('class="palette" role="radiogroup"')
+        if palette_count != 3:
             return False, (
-                "expected the swatch legend exactly once per grid (4), got %d - it is a legend "
-                "under the grid, not a caption per chip" % rendered.count(legend))
+                "expected exactly 3 .palette grids (departures/arrivals/calendar), got %d"
+                % palette_count)
+        palette_chip_count = rendered.count('class="palette-chip"')
+        expected_palette_chips = theme_count * 3
+        if palette_chip_count != expected_palette_chips:
+            return False, (
+                "expected %d .palette-chip entries (%d themes x 3 palettes), got %d"
+                % (expected_palette_chips, theme_count, palette_chip_count))
+
+        # The legend: exactly once, under the ONE remaining chip-grid —
+        # never duplicated across the three legend-free palette grids.
+        legend = escape_html(config_page.THEME_CHIP_SWATCH_LEGEND)
+        if rendered.count(legend) != 1:
+            return False, (
+                "expected the swatch legend exactly once (only the rule-add form's grid renders "
+                "one; the palette grids carry none), got %d" % rendered.count(legend))
         legend_html = '<p class="text-label section-caption">%s</p>' % legend
         if legend_html not in rendered:
             return False, (
                 "expected the legend to carry .text-label section-caption's exact declaration set")
-        # Outside the radiogroup, immediately after its closing </div>.
         if ("</label></div>" + legend_html) not in rendered:
             return False, "expected the legend to render as a sibling AFTER the grid, not inside it"
         return True, ""
     check(
-        "every colour-usage chip grid on Display renders at the compact density (one chip size per "
-        "page, X6) and each grid is followed by exactly one swatch legend in .text-label "
-        "section-caption's own declaration set, outside the radiogroup (22-10-PLAN.md Task 1)",
-        _display_renders_one_chip_density_and_a_swatch_legend_under_every_grid)
+        "Display renders exactly one .theme-chip-grid (the rule-add form's own compact grid, "
+        "unaffected by CFG-85), followed by exactly one swatch legend in .text-label section-caption's "
+        "own declaration set outside the radiogroup, and exactly 3 .palette grids "
+        "(departures/arrivals/calendar) carrying no legend at all (22-10-PLAN.md Task 1, updated by "
+        "30-05-PLAN.md Task 3 for CFG-85's accordion rebuild)",
+        _display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatch_legend)
 
     # ------------------------------------------------------------------
     # 27-07-PLAN.md Task 3 (CFG-70): the legend stops naming a
@@ -11505,46 +12227,81 @@ def main():
         "French text (T10/B16, 22-10-PLAN.md Task 1)",
         _the_current_badge_reads_a_server_rendered_translated_attribute)
 
-    def _segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif():
+    # 30-03-PLAN.md Task 1 (CFG-85): the check that used to live here —
+    # _segmented_control_resets_the_global_label_margin_and_the_legend_
+    # leaves_the_serif — carried TWO properties: T12 (the rule-kind
+    # segmented control's own label margin/height, unrelated to Aspect,
+    # `.theme-form input[type="radio"] + label`) and C1 (the
+    # `.frame-colours__panel-legend` serif-leak fix, which has no legend
+    # to point at once the usage panels go). LEDGERED WHOLE to 30-07 —
+    # its replacement must re-prove T12 verbatim (unaffected by CFG-85)
+    # alongside whatever locator C1's property becomes. See
+    # _ASPECT_REPIN_LEDGER below.
+    #
+    # 30-07-PLAN.md Task 3: C1's own half is RETIRED outright, not
+    # repointed — the usage panels and their <legend> elements are gone,
+    # and the rule-add form's "Match by" segmented control never had a
+    # <legend> of its own to begin with (it labels itself via a
+    # visually-hidden <span> plus aria-labelledby, confirmed at
+    # config_page.py:4910-4912) — there is genuinely nothing left for a
+    # legend-serif assertion to point at. This NARROWS the serif
+    # boundary's own documented non-serif-exception set by one (the
+    # sketch-findings-skypane skill's Typography section records
+    # `.frame-colours__panel-legend` as its "Second non-serif exception";
+    # that exception retires with its selector). Only T12 survives, and
+    # is re-pinned below under a landing name that diverges from the
+    # ledger's own predicted "replacement" — identical to "retired"
+    # (30-03's same-name-repoint convention), which would trip the
+    # ledger guard's own "retired name has no def" clause. Resolved the
+    # same way as the row above: append "_after_the_panel_legend_
+    # retires" to the landing name.
+
+    def _segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif_after_the_panel_legend_retires():
         source = _read_static("style.css")
 
-        # T12: the global `label { margin-bottom: var(--space-sm) }` made
-        # the segmented rule-kind control 8px taller than its own 28px
-        # segments plus 2px padding, with the segments floating against
-        # the container's top edge.
-        selector = '.theme-form input[type="radio"] + label {'
-        if selector not in source:
-            return False, "expected style.css to declare %r" % (selector,)
-        body = source[source.index(selector) + len(selector):source.index("}", source.index(selector))]
-        if "margin-bottom: 0" not in body:
-            return False, "%r must reset the global label margin-bottom (T12)" % (selector,)
-        if "height: 28px" not in body:
-            return False, "%r must keep its registered 28px segment height" % (selector,)
-
-        # C1: the label-voice legend leaves the serif family by a LATER,
-        # HIGHER-SPECIFICITY rule - `legend` itself stays in the shared
-        # serif selector, which it earned as a bug fix.
-        serif_selector = "legend,\n.text-heading {"
-        if serif_selector not in source:
-            return False, "expected `legend` to stay in the shared serif selector"
-        serif_idx = source.index(serif_selector)
-        legend_selector = ".frame-colours__panel-legend {"
-        if legend_selector not in source:
-            return False, "expected style.css to declare %r" % (legend_selector,)
-        legend_idx = source.index(legend_selector)
-        if legend_idx <= serif_idx:
+        # T12, unaffected by CFG-85: the rule-kind segmented control
+        # ("Match by", inside the rule-add form's own .theme-form div,
+        # config_page.py:4913) still resets the global `label` rule's
+        # own 8px bottom margin and sits at its own 28px row height.
+        selector = 'input[type="radio"] + label {'
+        needle = ".theme-form " + selector
+        if needle not in source:
+            return False, "expected style.css to declare %r" % (needle,)
+        idx = source.index(needle)
+        body = source[idx + len(needle):source.index("}", idx)]
+        if "margin-bottom: 0;" not in body:
             return False, (
-                "the label-voice legend's override must come AFTER the shared serif rule in "
-                "source order")
-        legend_body = source[legend_idx + len(legend_selector):source.index("}", legend_idx)]
-        if "font-family: var(--font-ui)" not in legend_body:
-            return False, "%r must take the label-voice legend out of the serif family" % (legend_selector,)
+                "%r must reset the global label rule's own margin-bottom "
+                "(T12) — without it each 28px segment carries an 8px tail "
+                "inside the 2px-padded .theme-form container" % (needle,))
+        if "height: 28px;" not in body:
+            return False, "%r must keep its own 28px row height (T12)" % (needle,)
+
+        # C1's own selector is genuinely gone — the narrowed serif
+        # exception set is a design-system fact, not merely an absence.
+        # Comment-stripped: a historical comment naming the retired
+        # selector (this plan's own repointed cross-reference, and this
+        # very check's own docstring/comment above) must not fail this
+        # gate — the established fix for exactly this collision
+        # (companion/static/style.css's own header comment convention;
+        # see this file's _strong_selected_treatment_is_keyed_to_the_
+        # live_checked_radio() for the identical idiom).
+        stripped = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        if ".frame-colours__panel-legend" in stripped:
+            return False, (
+                "expected .frame-colours__panel-legend to be retired from style.css "
+                "entirely (comment-stripped) — its own usage panels and <legend> "
+                "elements no longer render anywhere on the page")
+
         return True, ""
     check(
-        "the segmented control resets the global label margin-bottom while keeping its 28px segments "
-        "(T12), and the label-voice legend leaves the serif family through a later, higher-specificity "
-        "rule while bare `legend` stays in the shared serif selector (C1, 22-10-PLAN.md Task 1)",
-        _segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif)
+        "the rule-kind segmented control (config_page.py's 'Match by' <div class=\"theme-form\">, "
+        "unaffected by CFG-85) keeps its own global label-margin reset and 28px row height (T12), "
+        "and .frame-colours__panel-legend is confirmed retired outright rather than repointed — the "
+        "usage panels and their <legend> elements are gone, the rule-add form's own segmented "
+        "control never had a <legend> to begin with, and this genuinely NARROWS the serif "
+        "boundary's own documented non-serif-exception set by one (C1, 30-07-PLAN.md Task 3)",
+        _segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif_after_the_panel_legend_retires)
 
     def _the_rules_add_form_is_one_left_aligned_centre_aligned_row():
         source = _read_static("style.css")
@@ -11804,8 +12561,9 @@ def main():
         now = "2026-09-13T09:05:00+00:00"
 
         def detail_for(count):
-            return config_page.calendar_group(
+            row_body_html, _disconnect_form_html = config_page._calendar_connection_html(
                 True, False, synced, None, now, count)
+            return row_body_html
 
         one = detail_for(1)
         if "1 upcoming flights" in one:
@@ -12674,335 +13432,22 @@ def main():
         "to state (CFG-49/T-25-05-C, 25-05-PLAN.md Task 2)",
         _the_readout_seam_this_card_declares_is_the_one_the_script_reads)
 
-    # ------------------------------------------------------------------
-    # 25-06-PLAN.md Task 2 (CFG-50): D5's theme carousel — the departures
-    # grid presented as a scroll-snap strip, around the ONE chip
-    # renderer.
-    # ------------------------------------------------------------------
+    # 30-03-PLAN.md Task 1 (CFG-85): three checks used to live in this
+    # region — _the_departures_grid_is_the_one_renderer_presented_as_a_
+    # strip, _the_carousel_dots_are_real_colours_and_the_strip_rules_
+    # are_declared, and _the_full_grid_sits_behind_a_native_details_and_
+    # the_pagers_behind_the_gate — all three pinned the retiring
+    # scroll-snap-strip/pager/dots-row carousel markup directly
+    # (THEME_CAROUSEL_*, .theme-chip-grid--strip, .theme-carousel__*).
+    # RETIRED OUTRIGHT (no ledger row — the strip/pager/dots-row shape
+    # itself has no surviving property once CFG-85's accordion replaces
+    # it), EXCEPT for one property re-homed here as a new check: the
+    # whole Display page must carry exactly len(THEME_IDS) radios named
+    # "theme" (ONE set, so the page can never show one setting in two
+    # disagreeing places) — written with no reference to a strip, a
+    # pager, a gate or a disclosure, so it survives the rebuild.
 
-    def _the_departures_grid_is_the_one_renderer_presented_as_a_strip():
-        # THE PROPERTY UNDER TEST IS THAT NOTHING WAS FORKED. A carousel
-        # that copied _theme_chip_grid_html() would pass every markup
-        # assertion below on its own copy while the arrivals grid drifted
-        # away from it — so the first clause is a SOURCE scan for a
-        # second renderer, and the last is the three unconverted grids.
-        module_src = open(
-            os.path.join(REPO_ROOT, "companion", "pages", "config_page.py")).read()
-        module_lines = module_src.split("\n")
-        emitters = []
-        for node in ast.walk(ast.parse(module_src)):
-            if not isinstance(node, ast.FunctionDef):
-                continue
-            text = "\n".join(module_lines[node.lineno - 1:node.end_lineno])
-            # `data-preview-src` is the chip's signature: it is the
-            # attribute companion/static/theme-preview.js reads off a
-            # chip's own <label> to swap the big live preview, so a
-            # second chip renderer either emits it (and is caught here)
-            # or silently breaks the live preview for its own chips.
-            if "data-preview-src" in text and "<label" in text:
-                emitters.append(node.name)
-        if emitters != ["_theme_chip_grid_html"]:
-            return False, (
-                "expected exactly ONE function in config_page.py to emit a chip <label> "
-                "carrying data-preview-src, got %r — four call sites share that renderer, and "
-                "a second one is how the arrivals grid and the departures grid come to "
-                "disagree about what a selected chip looks like" % (emitters,))
-
-        card = config_page._frame_colours_card_html({}, "white", None, None)
-        theme_count = len(device_config.THEME_IDS)
-
-        # 27-07-PLAN.md Task 2 (CFG-68): GENERALISED FROM DEPARTURES-ONLY
-        # TO ALL THREE. Departures has no leading chip (theme_count
-        # radios); arrivals/calendar each prepend a "Same as departures"
-        # chip submitting the empty string (D-09), so theme_count + 1.
-        if card.count("theme-chip-grid--strip") != 3:
-            return False, (
-                "the card renders %d strips — Task 2 folds exactly three grids (departures, "
-                "arrivals, calendar) into carousels, and the rule-add form's own grid stays "
-                "out (see its own call site's comment)" % card.count("theme-chip-grid--strip"))
-        strips = (
-            ("theme", config_page.THEME_CAROUSEL_STRIP_ID, theme_count),
-            ("theme_arriving", config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS, theme_count + 1),
-            ("calendar_theme_id", config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR, theme_count + 1),
-        )
-        departures_strip_open = None
-        for field, strip_id, expected_radios in strips:
-            # The strip IS the radiogroup: one grid div, carrying the
-            # compact modifier it already had, the strip modifier, the
-            # role, and ITS OWN id (the property the id-uniqueness check
-            # elsewhere on this page proves is unique across all three).
-            strip_open = re.search(
-                r'<div class="([^"]*theme-chip-grid--strip[^"]*)"([^>]*id="%s"[^>]*)>'
-                % re.escape(strip_id), card)
-            if not strip_open:
-                return False, (
-                    "field=%r: no .theme-chip-grid--strip carrying id=%r is rendered — the "
-                    "pagers' aria-controls would name nothing" % (field, strip_id))
-            if field == "theme":
-                departures_strip_open = strip_open
-            classes = strip_open.group(1).split()
-            attrs = strip_open.group(2)
-            for required in ("theme-chip-grid", "theme-chip-grid--compact"):
-                if required not in classes:
-                    return False, (
-                        "field=%r: the strip's class list is %r — it dropped %r, so the "
-                        "carousel replaced the grid instead of laying it out"
-                        % (field, classes, required))
-            if 'role="radiogroup"' not in attrs:
-                return False, (
-                    "field=%r: the strip carries no role=\"radiogroup\" — %r" % (field, attrs))
-
-            # The chips inside it are the renderer's own, unchanged.
-            radios = re.findall(
-                r'<input type="radio" name="%s" value="([^"]*)" class="visually-hidden"'
-                r' form="([^"]*)"' % re.escape(field), card)
-            if len(radios) != expected_radios:
-                return False, (
-                    "field=%r: expected %d visually-hidden, form-associated radios, got %d — "
-                    "the strip must be the SAME native radio group, never a second set"
-                    % (field, expected_radios, len(radios)))
-            for _value, form in radios:
-                if form != config_page.SETTINGS_FORM_ID:
-                    return False, (
-                        "field=%r: a strip radio carries form=%r, not %r — this card is a "
-                        "SIBLING of the settings form, so without that attribute it posts "
-                        "nowhere" % (field, form, config_page.SETTINGS_FORM_ID))
-
-        # Departures' own radios, specifically, are in THEME_IDS'
-        # registry order — the one field with no leading chip, so order
-        # is a direct comparison.
-        departures_radios = re.findall(
-            r'<input type="radio" name="theme" value="([^"]*)" class="visually-hidden"'
-            r' form="([^"]*)"', card)
-        if [value for value, _form in departures_radios] != list(device_config.THEME_IDS):
-            return False, (
-                "the departures strip's radios are %r, not device_config.THEME_IDS in "
-                "registry order" % ([value for value, _form in departures_radios],))
-        if "display:none" in card or "display: none" in card:
-            return False, (
-                "the card emits a display:none — a radio hidden that way leaves the tab "
-                "order, and arrow-key selection with it")
-
-        # The swatch legend still renders under the departures grid and
-        # OUTSIDE the element carrying role="radiogroup", with its
-        # shipped copy — arrivals/calendar's own legend placement is
-        # covered by 22-10-PLAN.md Task 1's own check (unaffected by
-        # carousel wrapping: _theme_carousel_html() interpolates
-        # grid_html, legend included, unchanged).
-        legend = '<p class="text-label section-caption">%s</p>' % html.escape(
-            config_page.THEME_CHIP_SWATCH_LEGEND, quote=False)
-        strip_close = card.index("</div>", departures_strip_open.end())
-        if legend not in card:
-            return False, (
-                "the swatch legend's shipped copy %r is not in the card"
-                % (config_page.THEME_CHIP_SWATCH_LEGEND,))
-        if card.index(legend) < strip_close:
-            return False, (
-                "the swatch legend renders INSIDE the element carrying role=\"radiogroup\" — "
-                "a stray non-radio child is announced inside the group")
-
-        # And the ONE grid this plan deliberately did not convert.
-        if config_page._rule_add_form_html().count("theme-chip-grid--strip"):
-            return False, "the rule-add form's own chip grid was converted too"
-        return True, ""
-    check(
-        "departures/arrivals/calendar are all the ONE renderer's own output laid out as "
-        "scroll-snap strips, never a fork: a source scan of config_page.py finds exactly one "
-        "function emitting a chip <label> with data-preview-src, each strip keeps both the "
-        "base and the compact grid classes plus role=\"radiogroup\" and ITS OWN id, each holds "
-        "the right radio count for its field (theme_count for departures, +1 for arrivals/"
-        "calendar's leading 'Same as departures' chip) each carrying form=\"settings-form\" "
-        "(one set per field, never two), departures' own radios are in registry order, no "
-        "display:none appears anywhere on the card, the swatch legend still renders after the "
-        "departures radiogroup with its shipped copy, and exactly three of the card's four "
-        "grids are converted — the rule-add form's stays out (CFG-50, 25-06-PLAN.md Task 2; "
-        "generalised to arrivals/calendar, CFG-68, 27-07-PLAN.md Task 2)",
-        _the_departures_grid_is_the_one_renderer_presented_as_a_strip)
-
-    def _the_carousel_dots_are_real_colours_and_the_strip_rules_are_declared():
-        card = config_page._frame_colours_card_html({}, "white", None, None)
-        theme_count = len(device_config.THEME_IDS)
-        dots_open = re.search(
-            r'<div class="theme-carousel__dots ([^"]*)" aria-hidden="true">', card)
-        if not dots_open:
-            return False, (
-                "no aria-hidden .theme-carousel__dots row is rendered — a dots row that is "
-                "announced repeats eighteen radios' state in eighteen wordless nodes")
-        if "theme-chip__swatches" not in dots_open.group(1).split():
-            return False, (
-                "the dots row does not reuse .theme-chip__swatches (%r) — a second swatch-row "
-                "geometry is a second set of numbers to keep in step"
-                % (dots_open.group(1),))
-        row_end = card.index("</div>", dots_open.end())
-        row = card[dots_open.end():row_end]
-        found = re.findall(
-            r'<span class="theme-chip__dot" style="background:([^"]*)"></span>', row)
-        expected = [
-            config_page._palette_hex(device_config.THEMES[t]["departing_index"])
-            for t in device_config.THEME_IDS]
-        if found != expected:
-            return False, (
-                "the dots row carries %r, expected one dot per theme in registry order "
-                "carrying that theme's own _palette_hex(departing_index) %r — a dot row that "
-                "is not the registry's own colours is decoration measuring nothing"
-                % (found, expected))
-        if len(found) != theme_count:
-            return False, (
-                "expected %d dots, got %d" % (theme_count, len(found)))
-        # AND MORE THAN ONE COLOUR IN THE ROW, WHICH IS THE FLOOR RATHER
-        # THAN THE CEILING. Measured on this registry while writing this
-        # check: every one of the eighteen themes has
-        # `departing_index == arriving_index`, and the eighteen resolve to
-        # only SEVEN distinct hexes. So "the dots carry the departing ink"
-        # and "the dots carry the arriving ink" are the same assertion
-        # here — swapping one for the other in the renderer changes not a
-        # byte of output, and was run and confirmed to change nothing.
-        # What a wrong implementation WOULD do is read one fixed palette
-        # index for every dot, which this clause and the equality above
-        # both catch.
-        if len(set(found)) < 2:
-            return False, (
-                "all %d dots are the same colour (%r) — the row is reading one fixed palette "
-                "index rather than each theme's own" % (len(found), found[:1]))
-        # NO SELECTION STATE, ASSERTED AS A FLOOR RATHER THAN LEFT
-        # IMPLIED. A server-rendered "active dot" would be marking the
-        # SAVED theme and would be visibly wrong the instant a chip is
-        # clicked with scripts blocked; see _theme_carousel_html()'s
-        # docstring for the whole argument.
-        if "theme-carousel__dot--" in card or "--selected" in row:
-            return False, (
-                "a dot carries a selected-state modifier — with no script and no :has() chain "
-                "it can only ever mark the SAVED theme, and would be wrong the moment a "
-                "different chip is clicked")
-
-        source = _read_static("style.css")
-        strip_rules = {
-            # 27-07-PLAN.md Task 1 (CFG-68/D-20): anchored with a
-            # leading "\n" and NO indent, deliberately — the file's own
-            # single @supports selector(:has(*)) block now ALSO carries
-            # a compound selector ending in this exact class
-            # (".theme-carousel:has(...) .theme-chip-grid--strip {"),
-            # 2-space indented and textually earlier in the file than
-            # this base rule. A bare `.theme-chip-grid--strip {` search
-            # would find that compound selector FIRST and read ITS body
-            # (flex-wrap: wrap, not nowrap) instead of this rule's —
-            # measured: this is exactly the failure the standing
-            # "locate by first occurrence" convention warns about, and
-            # it was caught here by running this check, not reasoned
-            # about in advance.
-            "\n.theme-chip-grid--strip {": (
-                "flex-wrap: nowrap;", "overflow-x: auto;",
-                "scroll-snap-type: x mandatory;", "scroll-padding-right:"),
-            ".theme-chip-grid--strip > .theme-chip {": (
-                "flex: 0 0 auto;", "scroll-snap-align: start;"),
-            ".theme-carousel__dots {": (
-                "flex-wrap: wrap;", "margin-top: var(--space-sm);"),
-            # THE TWO HALVES OF THE GRID-BLOWOUT FIX, pinned here
-            # because each of them looks redundant beside the other and
-            # neither is. Measured on this tree with the strip in place:
-            # with only one of the two, documentElement.scrollWidth read
-            # 2049 against a client width of 360 — the page itself
-            # scrolling sideways by 1689px, which is the floor CFG-52
-            # forbids. `1fr` is `minmax(auto, 1fr)` and an auto minimum
-            # is the item's min-content; a <fieldset> re-introduces the
-            # same minimum one level down through the UA's own
-            # `min-inline-size: min-content`. The browser harness
-            # measures the OUTCOME; this pins the two declarations that
-            # produce it, so deleting either fails here as well.
-            ".frame-colours__layout {": ("grid-template-columns: minmax(0, 1fr);",),
-            ".frame-colours__usage-panel {": ("min-width: 0;",),
-        }
-        for selector, declarations in strip_rules.items():
-            if selector not in source:
-                return False, "style.css declares no %s rule" % selector.strip(" {\n")
-            body = source[source.index(selector) + len(selector):]
-            body = body[:body.index("}")]
-            for declaration in declarations:
-                if declaration not in body:
-                    return False, (
-                        "%s does not declare %r — %r"
-                        % (selector.strip(" {\n"), declaration, body.strip()))
-
-        # THE TWO NUMBERS THAT HAVE TO BE THE SAME NUMBER. The strip's
-        # `scroll-padding-right` exists to keep the chip a keyboard
-        # visitor just selected fully inside the scrollport: focus lands
-        # on a 1px visually-hidden radio at the chip's top-left corner,
-        # so the browser scrolls that into view and stops, leaving the
-        # chip itself hanging off the right edge (measured at 360px: the
-        # focused chip at left 224 inside a 278px strip). The reserved
-        # width must be one chip's width, and the chip's width is
-        # declared by `.theme-chip--compact`. Read BOTH out of the
-        # stylesheet and compare, so a density pass that changes one
-        # fails here rather than silently re-breaking the keyboard.
-        def _px(selector, prop):
-            if selector not in source:
-                return None
-            body = source[source.index(selector) + len(selector):]
-            body = body[:body.index("}")]
-            hit = re.search(r"(?m)^\s*%s:\s*(\d+(?:\.\d+)?)px;" % re.escape(prop), body)
-            return float(hit.group(1)) if hit else None
-        # Same anchoring as strip_rules above, and for the identical
-        # reason: an un-anchored search would find the @supports block's
-        # compound selector first.
-        reserved = _px("\n.theme-chip-grid--strip {", "scroll-padding-right")
-        chip_width = _px(".theme-chip--compact {", "width")
-        if reserved is None or chip_width is None:
-            return False, (
-                "could not read both numbers: scroll-padding-right=%r, "
-                ".theme-chip--compact width=%r" % (reserved, chip_width))
-        if reserved != chip_width:
-            return False, (
-                "the strip reserves %gpx at its end edge but a compact chip is %gpx wide — "
-                "the reservation exists to fit exactly one chip, and any other number leaves "
-                "the chip a keyboard visitor just selected partly outside the scrollport"
-                % (reserved, chip_width))
-
-        # .theme-chip--compact STAYS SIZE-ONLY. The design system records
-        # that every selected-state rule reaches a compact chip from the
-        # BASE selectors automatically; one rule here and that contract
-        # is broken silently.
-        # COMMENTS STRIPPED FIRST, and that is not tidiness: the block
-        # comment ABOVE `.theme-chip--compact` explains at length why the
-        # modifier declares no `:has(input:checked)` rule, so a scan over
-        # the raw source reports the rule's own justification as the
-        # violation. Measured — this check failed exactly that way once.
-        rules = re.sub(r"/\*.*?\*/", " ", source, flags=re.DOTALL)
-        for match in re.finditer(r"([^{}]*)\{([^{}]*)\}", rules):
-            selector, body = match.group(1), match.group(2)
-            if "theme-chip--compact" not in selector:
-                continue
-            for banned in ("--selected", ":checked", ":has("):
-                if banned in selector:
-                    return False, (
-                        "a .theme-chip--compact rule carries %r in its selector (%r) — the "
-                        "compact modifier is SIZE-ONLY and inherits every selected-state rule "
-                        "from the base .theme-chip selectors"
-                        % (banned, selector.strip()))
-        return True, ""
-    check(
-        "the carousel's dots row is aria-hidden, reuses .theme-chip__swatches/.theme-chip__dot "
-        "rather than inventing a second swatch geometry, carries exactly one dot per theme in "
-        "registry order painted with that theme's OWN _palette_hex(departing_index), and "
-        "carries no selected-state modifier at all (with no script and no :has() chain it "
-        "could only ever mark the SAVED theme); and style.css declares the strip's nowrap / "
-        "overflow-x / scroll-snap-type, its chips' flex: 0 0 auto and scroll-snap-align, and "
-        "the dots row's own wrap and top margin — with .theme-chip--compact still declaring no "
-        "selected-state rule of any kind (CFG-50/CFG-52, 25-06-PLAN.md Task 2)",
-        _the_carousel_dots_are_real_colours_and_the_strip_rules_are_declared)
-
-    def _the_full_grid_sits_behind_a_native_details_and_the_pagers_behind_the_gate():
-        # THE DUPLICATION QUESTION, ASSERTED RATHER THAN ASSUMED. The
-        # whole page — not merely the card — must carry exactly
-        # len(THEME_IDS) radios named `theme`. Two sets would share a
-        # name and a form and so still post one value, but the page
-        # would show a selection in two places, carry two --selected
-        # chips and two copies of every chip image, for a setting with
-        # one value (T-25-06-B).
-        # SCOPE_DISPLAY, not the default SCOPE_ALL: the Frame colours
-        # card is Display's, and the legacy SCOPE_ALL render (never
-        # served) carries no theme radio at all — measured, and a page
-        # with zero of them would make every count below pass for the
-        # wrong reason.
+    def _the_display_page_carries_exactly_one_radio_set_per_theme_field():
         page = config_page.render({
             "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -13011,232 +13456,17 @@ def main():
         posted = len(re.findall(r'<input type="radio" name="theme" ', page))
         if posted != theme_count:
             return False, (
-                "the Display page renders %d radios named 'theme', expected exactly %d — the "
-                "strip and the full grid are ONE set of radios, and a second set is two places "
-                "showing one setting" % (posted, theme_count))
-
-        # A NATIVE <details>, AND NOT A <dialog>. A dialog has no way to
-        # open without script, so eighteen themes behind one is eighteen
-        # themes behind a dead control — the exact defect this phase
-        # exists to prevent.
-        if "<dialog" in page:
-            return False, (
-                "the Display page renders a <dialog> — a dialog cannot be opened without "
-                "script, and this disclosure is deliberately a native <details> instead "
-                "(25-RESEARCH.md Decision 4)")
-        # 27-07-PLAN.md Task 2 (CFG-68): GENERALISED FROM ONE CAROUSEL TO
-        # THREE, scoped per USAGE PANEL rather than page-wide — each
-        # panel's own segment (bounded by the NEXT panel's
-        # data-usage-panel-target marker, the same delimiter
-        # _calendar_theme_chip_grid_exactly_one_compact_radiogroup_
-        # populated_in_order already uses) contains exactly one
-        # carousel, so scoping to it is also THE RELATIONSHIP check
-        # Task 2 asks for: each pager's aria-controls is asserted to
-        # resolve to the strip id inside THIS SAME segment, never
-        # merely "some strip id exists somewhere on the page" — a pager
-        # wired to a DIFFERENT carousel's strip would pass a page-wide
-        # existence check and fail this one.
-        panel_markers = [
-            (config_page.COLOUR_USAGE_DEPARTURES, config_page.THEME_CAROUSEL_STRIP_ID),
-            (config_page.COLOUR_USAGE_ARRIVALS, config_page.THEME_CAROUSEL_STRIP_ID_ARRIVALS),
-            (config_page.COLOUR_USAGE_CALENDAR, config_page.THEME_CAROUSEL_STRIP_ID_CALENDAR),
-        ]
-        boundaries = [config_page.COLOUR_USAGE_ARRIVALS, config_page.COLOUR_USAGE_CALENDAR,
-                      config_page.COLOUR_USAGE_RULES]
-        for (usage, strip_id), next_usage in zip(panel_markers, boundaries):
-            seg_start = page.index(
-                '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, usage))
-            seg_end = page.index(
-                '%s="%s"' % (config_page.COLOUR_USAGE_PANEL_TARGET_ATTR, next_usage))
-            segment = page[seg_start:seg_end]
-
-            disclosure = re.search(
-                r'<details class="theme-carousel__all"><summary>([^<]*)</summary>', segment)
-            if not disclosure:
-                return False, (
-                    "usage=%r: no <details class=\"theme-carousel__all\"><summary> is rendered"
-                    % usage)
-            if disclosure.group(1) != html.escape(
-                    config_page.THEME_CAROUSEL_SUMMARY, quote=False):
-                return False, (
-                    "usage=%r: the disclosure's summary reads %r, expected %r"
-                    % (usage, disclosure.group(1), config_page.THEME_CAROUSEL_SUMMARY))
-            strip_at = segment.index('id="%s"' % strip_id)
-            # 27-07-PLAN.md Task 1 (CFG-68/D-20): INVERTED from this
-            # check's original assertion. The disclosure used to render
-            # BEFORE the strip (an adjacent-sibling selector reached
-            # forward from it); the developer read that as "Voir tous
-            # les thèmes" sitting above the very thing it discloses,
-            # backwards for a way OUT. It now renders AFTER the strip
-            # (and after the pagers and dots — see
-            # _theme_carousel_html()'s own return statement), and
-            # style.css reaches the grid through a `:has()` rule scoped
-            # to the shared `.theme-carousel` wrapper instead, which
-            # does not care which of the two comes first.
-            if disclosure.start() < strip_at:
-                return False, (
-                    "usage=%r: the disclosure renders BEFORE the strip — D-20 moved 'Voir "
-                    "tous les thèmes' below the strip it discloses, and style.css's :has() "
-                    "rule (scoped to the shared .theme-carousel wrapper) governs the grid's "
-                    "layout regardless of order, so there is no longer a reason for the "
-                    "disclosure to precede it" % usage)
-
-            # BOTH PAGERS INSIDE THE GATE, AND ZERO PAGER MARKUP OUTSIDE
-            # IT — WITHIN THIS CAROUSEL'S OWN SEGMENT.
-            gate = re.search(
-                r'<div class="theme-carousel__pagers ([^"]*)" (%s)>(.*?)</div>'
-                % re.escape(config_page.THEME_CAROUSEL_WRAPPER_ATTR), segment, re.DOTALL)
-            if not gate:
-                return False, (
-                    "usage=%r: no .theme-carousel__pagers wrapper carrying the wrapper "
-                    "attribute" % usage)
-            if layout.JS_GATE_CLASS not in gate.group(1).split():
-                return False, (
-                    "usage=%r: the pager wrapper's classes are %r — without %r it renders "
-                    "permanently with scripts blocked, which is a control that shows and does "
-                    "nothing" % (usage, gate.group(1), layout.JS_GATE_CLASS))
-            inside = gate.group(3)
-            total_pagers = segment.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="')
-            if inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="') != 2:
-                return False, (
-                    "usage=%r: expected exactly two pagers inside the gate, found %d"
-                    % (usage, inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="')))
-            if total_pagers != 2:
-                return False, (
-                    "usage=%r: this carousel's own segment carries %d pager attributes but "
-                    "only two are inside the gate — a pager rendered outside it is inert with "
-                    "scripts blocked" % (usage, total_pagers))
-            for direction, label in (
-                    (config_page.THEME_CAROUSEL_PAGER_PREV,
-                     config_page.THEME_CAROUSEL_PREV_LABEL),
-                    (config_page.THEME_CAROUSEL_PAGER_NEXT,
-                     config_page.THEME_CAROUSEL_NEXT_LABEL)):
-                button = re.search(
-                    r'<button type="button"([^>]*%s="%s"[^>]*)>'
-                    % (re.escape(config_page.THEME_CAROUSEL_PAGER_ATTR), direction), inside)
-                if not button:
-                    return False, (
-                        "usage=%r: no <button> carries the %r pager attribute"
-                        % (usage, direction))
-                attrs = button.group(1)
-                if 'aria-label="%s"' % html.escape(label, quote=True) not in attrs:
-                    return False, (
-                        "usage=%r: the %s pager carries no aria-label=%r — it draws its arrow "
-                        "in CSS and has no text of its own, so without one it announces "
-                        "nothing at all: %r" % (usage, direction, label, attrs))
-                # THE RELATIONSHIP ITSELF: this pager's aria-controls
-                # must name THIS SEGMENT's OWN strip id, not merely any
-                # strip id anywhere on the page — a pager wired to a
-                # sibling carousel's strip would drive that OTHER
-                # carousel silently, which is the exact trap Task 1
-                # closed for the id itself and this check closes for
-                # the pager wiring that depends on it.
-                if ('aria-controls="%s"' % strip_id) not in attrs:
-                    return False, (
-                        "usage=%r: the %s pager's aria-controls does not name THIS carousel's "
-                        "own strip (%r) — and that is not only an announcement: "
-                        "theme-preview.js resolves the element to scroll through this very "
-                        "attribute, so a pager wired to the wrong strip silently drives a "
-                        "sibling carousel instead: %r" % (usage, direction, strip_id, attrs))
-                if "aria-hidden" in attrs:
-                    return False, (
-                        "usage=%r: the %s pager is aria-hidden — these are real controls with "
-                        "real labels, not decorations" % (usage, direction))
-                if "control-hit-area" not in attrs and "control-hit-area" not in button.group(0):
-                    return False, (
-                        "usage=%r: the %s pager does not carry .control-hit-area, 25-01's "
-                        "shared 22px-box-plus-44px-::before synthesis (.copy-btn's own values "
-                        "verbatim)" % (usage, direction))
-
-        # THE SCRIPT SIDE OF THE SAME SEAM, AND THE ONE THING IT MUST
-        # NOT DO. A pager that listened for a key would take
-        # ArrowLeft/ArrowRight away from the native radiogroup, which is
-        # precisely the selection the scripts-blocked path depends on.
-        script = _read_static("theme-preview.js")
-        # ON A BOUNDARY, NEVER AS A BARE SUBSTRING. Measured: the first
-        # version of this clause asked `attr not in script`, and a
-        # mutation renaming the script's own constant to
-        # "data-theme-pagerr" — which matches nothing in the markup and
-        # leaves both pagers inert — passed it, because the typo
-        # CONTAINS the real name. The same boundary discipline
-        # test_companion_app.py's own gate-class pin records.
-        if not re.search(
-                r"(?<![-\w])%s(?![-\w])"
-                % re.escape(config_page.THEME_CAROUSEL_PAGER_ATTR), script):
-            return False, (
-                "companion/static/theme-preview.js never names %r, so the two pagers it is "
-                "supposed to own are two buttons that do nothing"
-                % config_page.THEME_CAROUSEL_PAGER_ATTR)
-        code = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", " ", script, flags=re.DOTALL))
-        for key_event in ("keydown", "keyup", "keypress"):
-            if key_event in code:
-                return False, (
-                    "theme-preview.js registers a %r listener — a pager that captures an arrow "
-                    "key breaks the native radiogroup selection the no-JS path depends on"
-                    % key_event)
-        if "preventDefault" in code:
-            return False, (
-                "theme-preview.js calls preventDefault — this file drives a native radio group "
-                "and a native scroll container, and the browser owns both models")
-
-        source = _read_static("style.css")
-        rules = {
-            # 27-07-PLAN.md Task 1 (CFG-68/D-20): the adjacent-sibling
-            # selector this replaces cannot reach the strip once the
-            # disclosure trails it in the DOM — see config_page.
-            # _theme_carousel_html()'s own return statement. The
-            # replacement is scoped to the shared .theme-carousel
-            # wrapper, so it works regardless of which of the two comes
-            # first, and stays inside the file's one @supports
-            # selector(:has(*)) block (checked below by count).
-            ".theme-carousel:has(.theme-carousel__all[open]) .theme-chip-grid--strip {": (
-                "flex-wrap: wrap;",),
-            ".theme-carousel__pagers {": (
-                "--js-gate-display: flex;", "gap: var(--space-lg);",
-                "margin-top: var(--space-sm);"),
-            ".theme-carousel__pager::after {": (
-                'content: "";', "width: 6px;", "height: 6px;",
-                "border-right: 2px solid currentColor;",
-                "border-bottom: 2px solid currentColor;",
-                "transform: rotate(-45deg);"),
-            ".theme-carousel__pager--prev::after {": ("transform: rotate(135deg);",),
-            # 27-07-PLAN.md Task 1 (CFG-68/D-20): `margin-top` joins
-            # `margin-bottom` now that the disclosure is the LAST child
-            # of .theme-carousel rather than the first — see
-            # style.css's own comment on this rule.
-            ".theme-carousel__all {": (
-                "margin-top: var(--space-sm);", "margin-bottom: var(--space-sm);"),
-        }
-        for selector, declarations in rules.items():
-            if selector not in source:
-                return False, "style.css declares no %s rule" % selector.rstrip(" {")
-            body = source[source.index(selector) + len(selector):]
-            body = body[:body.index("}")]
-            for declaration in declarations:
-                if declaration not in body:
-                    return False, (
-                        "%s does not declare %r — %r"
-                        % (selector.strip(" {\n"), declaration, body.strip()))
+                "the Display page renders %d radios named 'theme', expected exactly %d — a "
+                "second set sharing that name would still post one value while showing the "
+                "setting in two disagreeing places" % (posted, theme_count))
         return True, ""
     check(
-        "each of the three carousels' full grid sits behind a native <details>/<summary> and "
-        "never a <dialog> (a dialog cannot be opened without script, which would put eighteen "
-        "themes behind a dead control), each disclosure renders AFTER its OWN strip (D-20, "
-        "27-07-PLAN.md Task 1 — 'Voir tous les thèmes' reads as a way OUT below the strip "
-        "rather than a preamble above it) with the stylesheet reaching each grid through a "
-        ":has() rule scoped to its own .theme-carousel wrapper, the whole Display page carries "
-        "exactly len(THEME_IDS) radios named 'theme' (ONE set, so the page can never show one "
-        "setting in two disagreeing places), and — checked PER USAGE PANEL, which is also THE "
-        "RELATIONSHIP Task 2 asks for — that panel's own two pagers render inside 25-01's gate "
-        "wrapper with zero pager markup outside it, each carries a real aria-label and an "
-        "aria-controls naming THAT SAME PANEL's own strip (never a sibling carousel's), neither "
-        "is aria-hidden, both wear .control-hit-area, and theme-preview.js (shared by all three) "
-        "registers no key listener and calls no preventDefault at all, because a pager "
-        "capturing an arrow key would break the native radiogroup selection the no-JS path "
-        "depends on (CFG-50/D-09, 25-06-PLAN.md Task 3; disclosure order and the :has() "
-        "replacement, CFG-68/D-20, 27-07-PLAN.md Task 1; generalised to three carousels with "
-        "the per-panel relationship check, CFG-68, 27-07-PLAN.md Task 2)",
-        _the_full_grid_sits_behind_a_native_details_and_the_pagers_behind_the_gate)
+        "the whole rendered Display page carries exactly len(device_config.THEME_IDS) radios "
+        "named 'theme' — ONE set, computed from the registry at check time, re-homed from the "
+        "retiring carousel's own equivalent guard so the page can never show one setting in two "
+        "disagreeing places (CFG-85, 30-03-PLAN.md Task 1)",
+        _the_display_page_carries_exactly_one_radio_set_per_theme_field)
+
 
     # ------------------------------------------------------------------
     # 27-07-PLAN.md Task 1 (CFG-68): THE TRAP CHECK. THEME_CAROUSEL_

@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-"""companion/i18n_fr/calendar_group.py — French strings for the rebuilt
-Calendar card (companion/pages/config_page.py's calendar_group()/
-calendar_connect_section(), D-14a..d), 20-09-PLAN.md Task 1.
+"""companion/i18n_fr/calendar_group.py — French strings for the Calendar
+row's connection block (companion/pages/config_page.py's
+_calendar_connection_html(), 30-06-PLAN.md Task 2 — renamed from the
+now-retired calendar_group()/calendar_connect_section(), D-14a..d),
+20-09-PLAN.md Task 1.
 
 One sibling module of the companion/i18n_fr package (see that
 package's __init__.py for the auto-merge/duplicate-key contract this
@@ -28,10 +30,12 @@ Contract Section C/H is copied verbatim from that table.
 """
 
 CATALOG = {
-    # --- The card's one-line caption (D-14a) ----------------------------
-    "Flights from your calendar get their own colour on the frame.":
-        "Les vols de votre calendrier ont leur propre couleur sur le "
-        "cadre.",
+    # 30-06-PLAN.md Task 2 (CFG-85), 2026-09-22: the card's one-line
+    # caption ("Flights from your calendar get their own colour on the
+    # frame.") is deleted in this same commit as its English source
+    # constant, CALENDAR_CAPTION — the connection block no longer has
+    # its own caption once it folds into the Calendar usage row, which
+    # carries no caption of its own either.
 
     # --- "How it works" disclosure (D-14a) ------------------------------
     "How it works": "Comment ça marche",

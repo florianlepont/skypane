@@ -940,8 +940,19 @@ def main():
     # deleted along with the switch itself (companion/i18n_fr/nav.py) —
     # "Simple" is removed from this set, not left as dead documentation
     # for a key that no longer exists in the catalog.
+    # 30-04-PLAN.md Task 2 (CFG-85): a fifth genuine cognate — "Aspect"
+    # is the Aspect card's own heading (companion/pages/config_page.py's
+    # ASPECT_HEADING), a valid French noun spelled and pronounced
+    # identically in both languages, exactly the "Corroboration"/
+    # "Notifications" precedent above, not a missed translation. Do not
+    # confuse this with the PRE-EXISTING "Look" -> "Aspect" catalog
+    # entry (a DIFFERENT English key, "Look", translating to the French
+    # word "Aspect" for Display's supersection heading) — that entry
+    # was never identity-mapped and needs no exemption; this one is a
+    # second, distinct catalog key ("Aspect") whose OWN value is the
+    # same word.
     _UNCHANGED_IN_FRENCH = frozenset(
-        {"Corroboration", "Source", "Description", "Notifications"})
+        {"Corroboration", "Source", "Description", "Notifications", "Aspect"})
 
     def _check_every_catalog_value_is_str_and_differs_from_key():
         bad_type = [k for k, v in i18n_fr.CATALOG.items() if not isinstance(v, str)]

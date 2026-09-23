@@ -90,13 +90,22 @@ CATALOG = {
     "— fetch a new picture right now.":
         "— récupère une nouvelle image tout de suite.",
 
-    # --- Frame colours card (config_page.py's _frame_colours_card_html(),
-    #     D-06..D-12, 21-05-PLAN.md Task 1) — replaces the retired Theme
-    #     card (theme_fieldset(), its own THEME_SECTION_CAPTION/"Use a
+    # --- Aspect card (config_page.py's _aspect_card_html(), 30-04-
+    #     PLAN.md Task 2, CFG-85) — replaces the retired Frame colours
+    #     card (_frame_colours_card_html(), D-06..D-12, 21-05-PLAN.md
+    #     Task 1), which itself replaced the retired Theme card
+    #     (theme_fieldset(), its own THEME_SECTION_CAPTION/"Use a
     #     different theme for arrivals"/"Arrivals theme"/"current"
-    #     strings all deleted in this same commit as their English
+    #     strings all deleted in an earlier commit as their English
     #     source constants, per test_i18n.py's dead-translation check) --
-    "Frame colours": "Couleurs du cadre",
+    # 30-04-PLAN.md Task 2 (CFG-85): the identity translation IS
+    # required, not optional — this app's FR-completeness harness is
+    # mechanical and an untranslated key fails it regardless of the two
+    # words being the same. Do not conflate with the PRE-EXISTING
+    # "Look": "Aspect" entry above (Display's supersection heading) —
+    # that is a different English key mapping to the same French word,
+    # not a duplicate of this one.
+    "Aspect": "Aspect",
     "Departures": "Départs",
     "Arrivals": "Arrivées",
     "Calendar flights": "Vols du calendrier",
@@ -105,14 +114,12 @@ CATALOG = {
     "1 rule": "1 règle",
     "%d rules": "%d règles",
     "No rules yet": "Aucune règle pour l’instant",
-    "Choose the colour theme for departures, arrivals, calendar "
-    "flights and your own rules.":
-        "Choisissez le thème de couleurs pour les départs, les "
-        "arrivées, les vols du calendrier et vos propres règles.",
     "Selected": "Sélectionné",
-    # 22-10-PLAN.md Task 1 (X6): the one-line legend under each chip
-    # grid naming the two swatch dots. See config_page.py's
-    # THEME_CHIP_SWATCH_LEGEND for why this names departures/arrivals
+    # 22-10-PLAN.md Task 1 (X6): the one-line legend under the rule-add
+    # form's own compact chip grid (`_theme_chip_grid_html()`'s ONE
+    # surviving call site after 30-04-PLAN.md) naming the two swatch
+    # dots. See config_page.py's THEME_CHIP_SWATCH_LEGEND for why this
+    # names departures/arrivals
     # rather than 22-UI-SPEC.md's proposed "Background · Ink".
     #
     # 27-07-PLAN.md Task 3 (CFG-70): joined into one phrase, no
@@ -124,21 +131,6 @@ CATALOG = {
     # chip/runway card, which used to be a hard-coded English
     # `content: "Current"` in style.css that no catalogue could reach.
     "Current": "Actuel",
-
-    # --- 25-06-PLAN.md Task 2/3 (CFG-50): D5's theme carousel ---------
-    #     The disclosure's body says the one thing that matters about
-    #     it: nothing is hidden behind it. See
-    #     config_page._theme_carousel_html() for why the disclosure
-    #     governs the layout of the strip that follows it instead of
-    #     holding a second copy of the same eighteen radios.
-    "See all themes": "Voir tous les thèmes",
-    "Opening this lays all %d themes out at once. They are all in the "
-    "strip either way — it scrolls, and the arrow keys move through it.":
-        "L’ouvrir affiche les %d thèmes d’un seul coup. Ils sont de "
-        "toute façon tous dans la bande : elle défile, et les flèches "
-        "du clavier la parcourent.",
-    "Previous theme": "Thème précédent",
-    "Next theme": "Thème suivant",
 
     # --- The live theme preview above the chip grid (D-22..D-24,
     #     20-11-PLAN.md Task 2, 20-UI-SPEC.md copy table E) -------------
@@ -161,8 +153,8 @@ CATALOG = {
         "Quelle piste d’Orly l’appareil surveille.",
     "Airport diagram for %s": "Schéma de l’aéroport pour %s",
 
-    # --- Calendar card (config_page.py's merged calendar_group()/
-    #     calendar_disconnect_confirm_page()) ---------------------------
+    # --- Calendar row's connection block (config_page.py's
+    #     _calendar_connection_html()/calendar_disconnect_confirm_page())
     # 21-07-PLAN.md Task 1 (D-14, Pitfall 5): removed "Disconnect this
     # calendar and delete the flights it supplied" (no question mark) —
     # the merged card's own small Disconnect button now reads the
@@ -171,7 +163,14 @@ CATALOG = {
     # question mark, or naming "calendar"/"calendar?" alone) are
     # untouched — they still belong to calendar_disconnect_confirm_
     # page(), unaffected by this merge.
-    "Calendar": "Calendrier",
+    #
+    # 30-06-PLAN.md Task 2 (CFG-85), 2026-09-22: "Calendar": "Calendrier"
+    # is deleted here, in the same commit as its English source constant,
+    # CALENDAR_SECTION_HEADING — the connection block no longer has its
+    # own `<h2>Calendar</h2>`; the Calendar usage row's own `<summary>`
+    # (built from FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_CALENDAR],
+    # "Calendar flights"/"Vols du calendrier", a DIFFERENT string) names
+    # the row instead.
     "Connected, but ignored — its saved link on the server became "
     "readable beyond this frame. Paste the feed URL again below to "
     "store it safely.":

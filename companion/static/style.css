@@ -53,6 +53,31 @@
  * to this list. Do not broaden this list without updating
  * 06.6.1-UI-SPEC.md's Color section.
  *
+ * 30-07-PLAN.md Task 1 (CFG-85): the Aspect card's palette chip
+ * (`.palette-chip`, `@supports selector(:has(*))` block, far below) is a
+ * NEW SELECTOR consuming the ALREADY-LISTED selected-selectable-card use
+ * above (`.theme-chip`/`.runway-card`'s own border/check-glyph/
+ * background-wash) — the identical accent treatment, at a smaller box,
+ * for a third selectable-card component. Not a new use; naming the
+ * selector here rather than duplicating the list entry.
+ *
+ * The same commit also closes a gap this list's own prose has recorded
+ * as open since Phase 23 (see the sketch-findings-skypane skill's Colour
+ * section, "the pointer above is currently POINTING AT A LIST THAT IS NO
+ * LONGER EXHAUSTIVE"): two genuine Phase 23 accent consumers were added
+ * without ever being named here, re-verified still present and still
+ * unlisted immediately before this edit. (1) `.switch[aria-checked=
+ * "true"] .switch__track { background: var(--color-accent); border-
+ * color: var(--color-accent); }` (23-07) — a switch's on-state, an
+ * author fill on a custom button and therefore NOT covered by the
+ * existing native-`accent-color` entry above. (2) the
+ * `@keyframes skypane-row-arrive` wash — `color-mix(in srgb,
+ * var(--color-accent) 22%, transparent)` (23-08) — the newly-arrived
+ * Flights row's draining wash, an ARRIVAL signal distinct from the
+ * selected-card wash entry's SELECTION signal, a use this list has
+ * never carried. Both genuine broadenings, recorded because this list
+ * is kept exhaustive on purpose.
+ *
  * 22-04-PLAN.md Task 2 (C2, 22-UI-SPEC.md §1 "Accent reservation — the
  * delta this phase makes"): this list LOSES two entries and gains none.
  * The Frame strip's two switch buttons ("Switch off"/"Switch on",
@@ -2913,8 +2938,10 @@ button:hover {
  * must keep its 22x22px footprint so the ::before 44x44 hit area and
  * the table's column widths never shift for the ~1.5s a confirmation
  * is visible. Colour and label-voice values (12px/semibold/uppercase/
- * 0.06em, this file's existing label-voice register — see
- * .frame-colours__panel-legend below) are reused verbatim; --color-status-ok
+ * 0.06em, this file's existing label-voice register — see `.data-table
+ * th` for another instance; `.frame-colours__panel-legend`, the
+ * instance this comment used to point to, is retired by 30-07-PLAN.md
+ * Task 2, CFG-85) are reused verbatim; --color-status-ok
  * is the existing token, no new custom property, no accent use. */
 .copy-btn--copied .copy-btn__label {
   display: inline;
@@ -3757,20 +3784,6 @@ button:disabled {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  /* 21-05-PLAN.md Task 1 (D-08): the Frame colours card's own
-   * belt-and-braces :has() duplicate of the plain input:checked
-   * sibling rule above (companion/pages/config_page.py's own
-   * .frame-colours__row) — joins this block per the file's own
-   * pinned @supports-block-count convention rather than opening a
-   * third block. Not load-bearing today (the plain rule alone already
-   * covers this same-parent radio+label pair); kept for a future
-   * markup change only. */
-  .frame-colours__list li:has(input:checked) .frame-colours__row {
-    border-color: var(--color-accent);
-    box-shadow: inset 0 0 0 2px var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  }
-
   /* T15 (22-UI-SPEC.md §5 contract 1, 22-15-PLAN.md Task 1). A selected
    * chip or card had a focus state PIXEL-IDENTICAL to rest: the real
    * focus target is the visually-hidden native radio inside the label,
@@ -3804,37 +3817,56 @@ button:disabled {
     outline-offset: 2px;
   }
 
-  /* 27-07-PLAN.md Task 1 (CFG-68/D-20): D5's carousel disclosure moved
-   * to render LAST inside `.theme-carousel` (see
-   * config_page._theme_carousel_html()'s own return statement and the
-   * `.theme-carousel__all` rule above this block for the full story),
-   * so it no longer precedes the strip it has to lay out and the
-   * adjacent-sibling selector this replaces (`.theme-carousel__all
-   * [open] + .theme-chip-grid--strip`) can no longer reach it — a
-   * forward combinator cannot select a PRECEDING sibling. Scoping
-   * `:has()` to the shared `.theme-carousel` wrapper instead reads as
-   * "this carousel contains an open disclosure" rather than "this
-   * disclosure is immediately followed by a strip", so it does not
-   * care which of the two comes first in the DOM — and because the
-   * match is scoped to ONE `.theme-carousel` ancestor, three carousel
-   * instances on one page (27-07-PLAN.md Task 2: departures, arrivals,
-   * calendar) each toggle their OWN strip; there is no path for one
-   * instance's [open] state to reach a sibling instance's grid, which
-   * is exactly the property a shared/page-wide selector would not
-   * have had.
-   *
-   * Joins THIS block rather than opening a second one — the file's own
-   * pinned block-count convention (companion/test_config_page.py pins
-   * the whole file at EXACTLY ONE `@supports selector(:has(*))`
-   * block). A browser without `:has()` support skips this rule and
-   * keeps the strip in its scrolling, one-row form even with the
-   * disclosure open — the same accepted degradation every other rule
-   * in this block already carries, and not a silent one: the
-   * disclosure's own body copy already says "They are all in the strip
-   * either way — it scrolls," so a reader on such a browser is told
-   * the truth either way. */
-  .theme-carousel:has(.theme-carousel__all[open]) .theme-chip-grid--strip {
-    flex-wrap: wrap;
+  /* 30-07-PLAN.md Task 1 (CFG-85): the Aspect card's palette chip's
+   * selected state, joining this block rather than opening a second one
+   * (the file's own pinned block-count convention,
+   * _exactly_one_has_feature_query_block_survives()). Three
+   * consequences, matching `.theme-chip`'s own pattern rule for rule:
+   * accent border-colour plus the inset ring on the chip itself; the
+   * 12% accent wash on `.palette-chip__name` (this component's own
+   * equivalent of `.theme-chip__body` — the swatch itself is
+   * deliberately excluded, for the identical reason `.theme-chip__
+   * preview` is: it is real, undithered ink colour, and a wash would
+   * misrepresent it); and the check glyph switching to `inline-flex`,
+   * matching `.theme-chip__check`'s own mechanism. No scale/transform is
+   * added here (unlike `.theme-chip`'s own first rule) — 30-UI-SPEC.md
+   * names exactly these three consequences for this component and no
+   * fourth, and a fourth would also need a new `transition` declared on
+   * this component's own base rule to animate, which is out of this
+   * plan's scope. A browser without `:has()` support keeps the chip
+   * unstyled-but-functional on selection — the same accepted degradation
+   * every other rule in this block already carries. */
+  .palette-chip:has(input:checked) {
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 2px var(--color-accent);
+  }
+
+  .palette-chip:has(input:checked) .palette-chip__name {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  .palette-chip:has(input:checked) .palette-chip__check {
+    display: inline-flex;
+  }
+
+  /* 30-07-PLAN.md Task 1 (CFG-85): the "Comme les départs" leading
+   * option's checked state — a re-keyed consumer of the already-listed
+   * `.theme-form .theme-option--active` idiom (12% accent wash, accent
+   * text, semibold weight), not a new accent use (30-UI-SPEC.md Color
+   * section, item 2). `:has()` is required for the identical structural
+   * reason `.theme-chip`/`.palette-chip` above need it: the radio is a
+   * DESCENDANT of the `<label>` this rule must repaint, not a preceding
+   * sibling a plain `:checked ~` selector could reach. The check-glyph
+   * markup this control's own `<label>` carries
+   * (`.theme-chip__check`, reused verbatim from that component per
+   * `_same_as_departures_chip_html()`'s own markup) is deliberately NOT
+   * toggled visible here — 30-UI-SPEC.md names only the wash/text/weight
+   * consequences for this control, and inventing a fourth is out of this
+   * plan's scope. */
+  .leading-option:has(input:checked) {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    color: var(--color-accent);
+    font-weight: var(--weight-semibold);
   }
 
   /* 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: the bar's own
@@ -10092,166 +10124,258 @@ a.calendar-disconnect-btn:focus-visible {
   text-align: center;
 }
 
-/* --- 21-UI-SPEC.md §D: the "Frame colours" card (D-06..D-12) -----------
- * Replaces the retired Theme card/Calendar-card chip-grid/standalone
- * Flight-colours card with one preview-plus-four-row-assignment layout.
- * Zero new colour tokens: every accent/wash value below is the exact
- * literal .theme-chip--selected/.runway-card--selected already use. */
-/* 25-06-PLAN.md Task 2 (CFG-50): `minmax(0, 1fr)`, not the bare `1fr`
- * this declared until the departures grid became a scroll-snap strip.
- * `1fr` is `minmax(auto, 1fr)`, and an `auto` MINIMUM is the item's own
- * min-content width — which, once one of the panels below holds a
- * nowrap strip of eighteen 106px chips, is about 2000px. The classic
- * grid blowout, and MEASURED on this tree rather than feared: with the
- * bare `1fr`, documentElement.scrollWidth read 2049 against a client
- * width of 360, i.e. the page itself scrolled sideways by 1689px.
- *
- * IT IS ONE HALF OF THE FIX AND THE OTHER HALF IS
- * `.frame-colours__usage-panel`'s own `min-width: 0` (below). Each was
- * measured ALONE and each alone leaves the 2049px blowout exactly
- * where it was — the panel is a <fieldset>, whose UA `min-inline-size:
- * min-content` re-introduces the same minimum one level down. Neither
- * declaration is redundant with the other and neither may be "tidied"
- * away on the grounds that the other exists. */
-.frame-colours__layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-md);
-}
+/* --- 30-UI-SPEC.md: the "Aspect" card (CFG-85) --------------------------
+ * Replaces the retired "Frame colours" card and the retired separate
+ * Calendar card with one preview-plus-four-accordion-row tile. Zero new
+ * colour tokens, zero new custom properties: every value below is an
+ * existing spacing/radius/colour token, except the three literals this
+ * plan argues individually (the palette grid's 64px track floor, the
+ * swatch band's four geometry percentages, and the palette caption's
+ * 10px/1.2 sub-scale exception — each argued beside its own
+ * declaration, below). */
+
+/* .aspect-card already gets its surface (--color-dominant), its resting
+ * hairline and its responsive --space-lg/--space-md padding from
+ * .page-section, declared far above — nothing here restates those. Only
+ * the >=960px two-column layout is new: the live preview as the left
+ * column, the four accordion rows stacked in the right column. Reuses
+ * the file's existing 960px breakpoint and the exact 360px preview-
+ * column floor `.frame-colours__layout` (retired) used to declare — not
+ * a new literal, the identical value moved. `grid-template-rows: auto
+ * repeat(4, auto)` names the card's own five real children explicitly
+ * (the heading, then the four `.usage-row` elements in their own
+ * COLOUR_USAGES-locked order) so the preview's own row-span below lands
+ * on exactly the rows those four occupy, never a guessed count. */
 @media (min-width: 960px) {
-  .frame-colours__layout {
+  .aspect-card {
+    display: grid;
     grid-template-columns: minmax(360px, 1fr) minmax(0, 1fr);
-    gap: var(--space-lg);
-    /* flex-start, not the bare "start" keyword: this file pins the
-     * total count of that exact bare declaration to just the sticky
-     * sidebar's own one remaining occurrence (quick task 260901-uzi
-     * finding 1) — flex-start is an equivalent value for Grid, the
-     * same precedent 21-04-PLAN.md's own .home-picture-row rule
-     * already established for the identical reason. */
-    align-items: flex-start;
+    grid-template-rows: auto repeat(4, auto);
+    column-gap: var(--space-lg);
   }
-  /* Phase 21 polish: the usage panels span both columns under the
-   * preview/rows pair. */
-  .frame-colours__panels {
+
+  .aspect-card > h2 {
     grid-column: 1 / -1;
   }
-}
-.frame-colours__preview {
-  margin: 0;
+
+  .aspect-card__preview {
+    grid-column: 1;
+    grid-row: 2 / -1;
+  }
 }
 
-.frame-colours__list {
-  list-style: none;
-  margin: 0 0 var(--space-md);
-  padding: 0;
+/* No `min-width: 0` companion rule here, unlike the retired
+ * `.frame-colours__layout`/`.frame-colours__usage-panel` pair above (a
+ * carried-over concern from Task 3's own re-pin instruction, stated
+ * explicitly rather than silently dropped): that pair's whole reason to
+ * exist was a NOWRAP scroll-snap strip forcing a <fieldset>'s UA
+ * `min-inline-size: min-content` to ~2000px. Nothing in this layout is
+ * nowrap, and `.theme-live-preview__image` already declares `width:
+ * 100%; height: auto` — never `width: auto`, which would size to the
+ * image's own intrinsic pixels — so no grid cell here is ever forced
+ * wide by unshrinkable content. */
+
+/* One `.usage-row` per `<details name="aspect-rows">`, in COLOUR_
+ * USAGES' locked order. A border-top divider between rows, never on the
+ * first, is the only visual boundary a closed row needs — matches the
+ * developer-approved sketch's own accordion markup verbatim
+ * (.planning/sketches/006-aspect-tile-accordion-vs-segments/index.html
+ * lines 104-105). */
+.usage-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.usage-row:first-of-type {
+  border-top: none;
+}
+
+/* --secondary (the Rules row): one notch quieter, per 30-UI-SPEC.md's
+ * Structural Contract — regular weight instead of semibold, ONE
+ * declaration, never a second treatment. The developer-approved
+ * sketch's own throwaway CSS additionally mutes this row's whole summary
+ * to a new 85% colour-mix strength; skipped here to keep this a
+ * one-declaration modifier and spend zero new colour literals. */
+.usage-row--secondary .usage-row__name {
+  font-weight: var(--weight-regular);
+}
+
+/* The row's own <summary> inherits the global 44px floor and the global
+ * 6px rotated-border chevron (the `summary`/`summary::before` rules far
+ * below) as-is — this rule adds only the row's own vertical rhythm and
+ * layout around that inherited chevron, never a second one.
+ *
+ * `color: inherit` follows `.history-card__summary`'s own established
+ * "override only what differs" idiom for a `<summary>` inside a card:
+ * the global `summary` rule paints every `<summary>` in
+ * `--color-accent`, and 30-UI-SPEC.md's Color section is explicit that
+ * this accordion row's own summary must not be one of this card's
+ * accent consumers. Overriding to `inherit` (full-strength card text),
+ * matching `.history-card__summary`'s own choice, spends zero new
+ * tokens. Every OTHER `<summary>` inside this card (the calendar's
+ * "Replace the feed URL"/"How it works" disclosures, the rule-add
+ * disclosure, "How rules combine") is UNCHANGED and stays on the global
+ * accent default — the file's own already-listed, app-wide
+ * `<summary>`-marker accent use, not a new one — because the child
+ * combinator below scopes this override to ONLY the row's own top-level
+ * summary. */
+.usage-row > summary {
+  color: inherit;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+}
+
+/* The chevron specifically must read as quiet, never accented (30-UI-
+ * SPEC.md Color section: "the accordion <summary> chevron is not
+ * accented"). The developer-approved sketch's own throwaway CSS mutes
+ * it with a literal 50% colour-mix strength that exists nowhere else in
+ * this real file — spending that literal here would be a new colour
+ * strength this plan's own "zero new colour literal" floor forbids. The
+ * established 70% muted-text mix, already used 17+ times in this file,
+ * reads exactly as quiet and spends an existing idiom instead. */
+.usage-row > summary::before {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.usage-row__name {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+}
+
+.usage-row__meta {
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Sizing only — `.palette-swatch` (below) already contributes the shape
+ * (position, overflow clip, radius). `--space-xl` is 32px, the exact
+ * pixel value the sketch's own `.usage-row__swatch` declares as a bare
+ * literal — spent here as the existing token instead. */
+.usage-row__swatch {
+  width: var(--space-xl);
+  height: var(--space-xl);
+  flex-shrink: 0;
+}
+
+/* --- The palette grid (rows 1-3; unrelated to and never touching the
+ * rule-add form's own compact `.theme-chip-grid`, which keeps rendering
+ * `.theme-chip--compact` chips verbatim) --------------------------- */
+
+/* `minmax(64px, 1fr)` is a track-size literal, the same category as
+ * `.theme-chip--compact`'s own `width: 104px` two rules below — not a
+ * spacing value, and 30-UI-SPEC.md's own Spacing Scale exceptions table
+ * argues it explicitly. No `overflow-x`, no `scroll-snap-type`, no
+ * `flex-wrap: nowrap`, no fixed child width — the literal thing CFG-85
+ * retires, confirmed absent by this plan's own inline verify script. */
+.palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0 var(--space-md);
+}
+
+.palette-chip {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-}
-.frame-colours__row {
-  display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  gap: var(--space-xs);
+  padding: var(--space-xs);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   background: var(--color-dominant);
   cursor: pointer;
-  min-height: 44px;
+  position: relative;
 }
-.frame-colours__row:hover {
-  border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
+
+/* Fills the grid column's own resolved width; `aspect-ratio: 1` keeps
+ * the swatch square at every width without a second literal. */
+.palette-chip__swatch {
+  width: 100%;
+  aspect-ratio: 1;
 }
-/* Plain :checked sibling selector — works in every browser, no :has()
- * needed for a same-parent radio+label pair. The :has() form (below,
- * inside the file's existing live-selection-state @supports block) is
- * a belt-and-braces duplicate for a future markup change, not
- * load-bearing today. */
-/* T6 (22-15-PLAN.md Task 1): constant 1px border plus the inset ring,
- * the third and last selectable surface converted. These rows are a
- * vertical `flex-direction: column` list, so the old 2px border made a
- * checked row 2px TALLER than its siblings and nudged every row below
- * it — the same defect the chips and cards showed horizontally. */
-input:checked + .frame-colours__row {
-  border-color: var(--color-accent);
-  box-shadow: inset 0 0 0 2px var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+
+/* Shape only — the inline `background` (the real ink hex) arrives from
+ * the server; this rule contributes no colour. Also the row-summary
+ * swatch's own base rule (see `.usage-row__swatch` above, a
+ * sizing-only modifier of this same class). */
+.palette-swatch {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-control);
 }
-/* 21-REVIEW.md CR-01: the radio sits INSIDE the label, so a sibling
- * selector could never match — :focus-within on the row itself is the
- * selector that fires for keyboard focus on the hidden radio, in every
- * browser, no :has() needed. */
-.frame-colours__row:focus-within {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+
+/* Geometry from 30-UI-SPEC.md's locked Swatch Rendering Contract, not a
+ * spacing value — argued there, not chosen here. */
+.palette-swatch__band {
+  position: absolute;
+  top: 33%;
+  height: 34%;
+  left: 0;
+  right: 0;
 }
-.frame-colours__swatch {
-  flex: 0 0 auto;
-}
-.frame-colours__label {
-  flex: 1 1 auto;
-  font-weight: var(--weight-regular);
-}
-.frame-colours__meta {
-  flex: 0 0 auto;
-  font-weight: var(--weight-semibold);
+
+/* 10px/1.2 is the one typographic exception this plan spends: it WIDENS
+ * the existing sub-scale exception tier `.sparkline-axis-label`/
+ * `.drawing-axis-label` already occupy at this exact size/line-height —
+ * a deliberate per-selector literal convention this file's own skill
+ * reference already records, not a new size and not a new
+ * `--font-micro-size` token. */
+.palette-chip__name {
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* The no-JS floor's own visible <legend> per usage panel (D-08) — the
- * small-caps muted label voice this file already uses for a secondary
- * heading (e.g. .rule-row__kind's own text before the .banner__pill
- * treatment), reused verbatim rather than a new size/weight/tracking. */
-/* C1 (22-AUDIT.md, 22-10-PLAN.md Task 1): the serif leak. This legend
- * wears the 12px uppercase label voice but inherited `--font-serif` from
- * the shared `h1, h2, h3, legend, .text-heading` rule near the top of
- * this file, so it rendered as 12px uppercase Iowan Old Style — a label
- * role in a heading family.
- *
- * The fix is a LATER, HIGHER-SPECIFICITY override on this one instance —
- * (0,1,0) here against the shared selector's (0,0,1), and further down
- * the file — which is the same "non-serif exception, the other
- * direction" mechanism `.page-section--nested > h2` already uses.
- * `legend` STAYS in that shared selector: it earned its place there as a
- * bug fix (a sans-semibold <legend> sitting above a serif-regular <h2>
- * at the same size), and removing it is a different, larger change than
- * overriding one instance. Do not "simplify" this by editing the shared
- * selector instead. */
-.frame-colours__panel-legend {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  padding: 0;
-  margin: 0 0 var(--space-sm);
-}
-/* `min-width: 0` first, and load-bearing — see `.frame-colours__layout`
- * above for the measurement and for why that rule's own
- * `minmax(0, 1fr)` does not make this one redundant. A <fieldset>
- * carries `min-inline-size: min-content` in the UA stylesheet, so
- * without this the panel holding the scroll-snap strip is at least as
- * wide as eighteen chips laid end to end whatever the grid track does
- * (measured alone: documentElement.scrollWidth 2049 against a client
- * width of 360). */
-.frame-colours__usage-panel {
-  min-width: 0;
-  border: 0;
-  padding: 0;
-  margin: 0 0 var(--space-lg);
-}
-.frame-colours__usage-panel:last-child {
-  margin-bottom: 0;
-}
-/* 21-05-PLAN.md Task 3 (D-08/D-12, R-11): the ONLY rule that ever hides
- * a usage panel — added/removed exclusively by theme-preview.js's own
- * class-at-load pattern (mirroring flight-rows.js's identical
- * .flight-detail-row--collapsed idiom), never rendered server-side.
- * The server always emits all four panels with no `hidden` attribute
- * and no inline style (D-08's own no-JS floor). */
-.frame-colours__usage-panel--collapsed {
+/* Hidden at rest, matching `.theme-chip__check`'s own mechanism exactly
+ * — the live `:has(input:checked)` rule (this file's one feature-query
+ * block, above) switches it to `inline-flex`. */
+.palette-chip__check {
   display: none;
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  color: var(--color-accent);
+}
+
+/* --- "Comme les départs" leading option (Arrivals/Calendar rows) ------ */
+
+/* `grid-column: 1 / -1` is load-bearing, not decorative:
+ * `_palette_grid_html()` interpolates this `<label>` as the FIRST CHILD
+ * of the same `.palette` grid its 18 theme chips populate (30-UI-
+ * SPEC.md's own `leading_html` seam), so without an explicit full-row
+ * span it would render as one more 64px grid cell beside the first chip
+ * rather than the full-row-width control 30-UI-SPEC.md's Structural
+ * Contract describes — confirmed against the developer-approved
+ * sketch's own identical declaration. */
+.leading-option {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  position: relative;
+}
+
+.leading-option__name {
+  flex: 1 1 auto;
+}
+
+/* --- The rules row's own nested "+ Add rule" disclosure --------------- */
+
+/* Its own <summary> keeps the global 44px floor and the global accent
+ * colour (an already-listed, app-wide `<summary>` use, not a new one) —
+ * spacing only. */
+.rule-add {
+  margin-top: var(--space-sm);
+}
+
+.rule-add[open] > summary {
+  margin-bottom: var(--space-sm);
 }
 
 /* D-09: the leading "Same as departures" chip — reuses .theme-chip's
@@ -10262,168 +10386,6 @@ input:checked + .frame-colours__row {
   align-items: center;
   justify-content: center;
   min-height: 120px;
-}
-
-/* --- 25-06-PLAN.md Task 2 (CFG-50): D5's theme carousel ---------------
- * The DEPARTURES chip grid, and only that one, laid out as a horizontal
- * scroll-snap strip. Everything below is LAYOUT. Not one selected-state
- * declaration appears here, and none may be added: the whole
- * `.theme-chip` selected treatment lives in this file's single feature
- * query, whose specificity arithmetic is marked "verified, not to be
- * re-derived", and the carousel changes where a chip sits, never how a
- * selected one looks. `.theme-chip--compact` is likewise untouched and
- * stays size-only.
- *
- * SCROLL-SNAP IS WHY THIS CONTROL NEEDS ALMOST NO SCRIPT. Swipe is the
- * browser's own overflow scrolling; arrow keys already move selection
- * inside a radiogroup; a focused label is already scrolled into view by
- * the browser. Nothing below is reachable only with JavaScript, which is
- * what makes the strip work with scripts blocked.
- *
- * `flex-wrap: nowrap` is the strip. `overflow-x: auto` is what keeps
- * eighteen 104px chips — about 1900px of intrinsic width — from
- * painting past the card and giving the PAGE a horizontal scrollbar at
- * the 360px floor; a strip that scrolls itself is allowed and the page
- * body is not. `flex: 0 0 auto` on the chips is load-bearing in the
- * least obvious way of all: a nowrap flex line SHRINKS its items by
- * default, so without it eighteen chips squeeze into the card's ~330px
- * and every one of them drops far below the touch floor rather than
- * overflowing.
- *
- * `scroll-padding-right` IS THE ONE DECLARATION HERE THAT IS NOT
- * OBVIOUS, AND IT IS THE ONE THAT MAKES THE KEYBOARD AND THE STRIP
- * AGREE. Arrow-keying through the radiogroup moves focus to the next
- * RADIO, and that radio is a 1px `.visually-hidden` box sitting at its
- * chip's top-left corner — so the browser scrolls a 1px target into
- * view, is satisfied the instant the chip's left edge appears, and
- * leaves the chip the visitor just selected hanging 50px off the right
- * edge of the strip. MEASURED, not feared: six ArrowDowns at 360px put
- * the focused chip at left 224 inside a 278px strip, i.e. 50px of it
- * outside. Reserving the width of one chip at the scrollport's end edge
- * makes every position land fully inside it (measured again at 1, 3, 6,
- * 10 and 17 steps, and at the last theme in the group).
- *
- * 104px is `.theme-chip--compact`'s OWN declared width, not a number
- * chosen here — companion/test_config_page.py reads both out of this
- * file and asserts they are equal, so a future density pass that
- * changes one and forgets the other fails rather than silently
- * re-breaking the keyboard. */
-.theme-chip-grid--strip {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scroll-padding-right: 104px;
-}
-
-.theme-chip-grid--strip > .theme-chip {
-  flex: 0 0 auto;
-  scroll-snap-align: start;
-}
-
-/* 25-06-PLAN.md Task 3 (CFG-50): the "See all themes" disclosure.
- *
- * There is exactly one set of eighteen radios per usage on this page. A
- * <details> hides its own non-summary children when closed, so a
- * disclosure CONTAINING the grid would hide every theme whenever it was
- * shut and there would be no strip at all — see
- * config_page._theme_carousel_html() for the rejected two-set
- * alternative. This rule only styles the disclosure's own box; the rule
- * that makes ITS [open] state change the GRID's layout now lives inside
- * the file's one `@supports selector(:has(*))` block, immediately
- * below (see that rule for why).
- *
- * 27-07-PLAN.md Task 1 (CFG-68/D-20): `margin-top` joins the existing
- * `margin-bottom` here, because this element used to be the FIRST thing
- * in `.theme-carousel` (nothing above it needed a gap) and is now the
- * LAST — the dots row sits immediately above it and only ever declares
- * its OWN `margin-top` (for ITS gap from the pagers above IT), never a
- * `margin-bottom` of its own, so without this addition the dots and the
- * disclosure would sit flush against each other. Same token,
- * `--space-sm`, both sides. */
-.theme-carousel__all {
-  margin-top: var(--space-sm);
-  margin-bottom: var(--space-sm);
-}
-
-/* 27-07-PLAN.md Task 1 (CFG-68/D-20): D5's carousel disclosure now
- * renders LAST inside `.theme-carousel` (grid, pagers, dots, disclosure
- * — see config_page._theme_carousel_html()'s own return statement), so
- * it no longer immediately PRECEDES the strip it has to affect and the
- * adjacent-sibling selector this used to be (`.theme-carousel__all
- * [open] + .theme-chip-grid--strip`) can no longer reach it — a forward
- * combinator cannot select a PRECEDING sibling. `:has()` scoped to the
- * shared `.theme-carousel` ancestor reads as "this carousel contains an
- * open disclosure" instead of "this disclosure is immediately followed
- * by a strip", which does not care which of the two comes first in the
- * DOM, and — because the match is scoped to ONE `.theme-carousel`
- * wrapper — three carousel instances on one page each toggle their OWN
- * strip independently; there is no way for one instance's [open] state
- * to reach a sibling instance's grid.
- *
- * Joins the file's existing `@supports selector(:has(*))` block rather
- * than opening a second one — this file's own pinned block-count
- * convention (companion/test_config_page.py pins the whole file at
- * EXACTLY ONE such block). A browser without `:has()` support skips
- * this rule and keeps the strip in its scrolling, one-row form even
- * with the disclosure open — an accepted degradation matching every
- * other rule in that block, and not a silent one: the disclosure's own
- * body copy already says "They are all in the strip either way — it
- * scrolls," so a reader on such a browser is told the truth either
- * way. */
-
-/* The two pagers. `--js-gate-display` is how a consumer picks its own
- * display without re-deciding 25-01's gate direction.
- *
- * THE GAP IS `--space-lg`, NOT `--space-sm`, AND IT IS A HIT-TARGET
- * NUMBER RATHER THAN A SPACING ONE. `.control-hit-area::before` reaches
- * 11px beyond its button on every side; two of them 8px apart overlap
- * in the 8px between, and the later one in document order wins the hit
- * test. MEASURED AT 360px WITH `--space-sm`: the Previous pager's real
- * hit area came out 30x45 — it reached 23px left of its centre and only
- * 6px right, because the Next pager's own ::before covered the rest —
- * which is under the 44px floor in the x axis and is exactly the defect
- * 25-02 recorded for `.copy-btn` (a declared 44x44 hit-testing at
- * 34x26 because its neighbours covered the ::before that synthesises
- * it). At 24px the two ::befores stop 2px short of each other and both
- * buttons hit-test at a real 44x44. A future density pass shrinking
- * this to --space-md (16px) would silently put them back under the
- * floor; the browser harness measures it rather than trusting it. */
-.theme-carousel__pagers {
-  --js-gate-display: flex;
-  gap: var(--space-lg);
-  margin-top: var(--space-sm);
-}
-
-/* ::after, not ::before — `.control-hit-area::before` is already the
- * 44x44 pointer target and must stay empty. Pure geometry, no glyph:
- * `summary::before`'s own 6px box and 2px edges, reused verbatim for
- * that rule's own two recorded reasons — a `content` string is the
- * hard-coded-English hazard T10 unpicked, and an arrow character's
- * rendering varies by installed font. */
-.theme-carousel__pager::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(-45deg);
-}
-
-.theme-carousel__pager--prev::after {
-  transform: rotate(135deg);
-}
-
-/* The dots row: one dot per theme, in that theme's own departing ink,
- * carried by the SAME `.theme-chip__dot` rule and the same
- * `.theme-chip__swatches` row the chips' own swatches use — no new
- * geometry, and the per-theme colour arrives as an inline style from the
- * registry exactly as it already does on every chip, never as a literal
- * in this file. `flex-wrap` because eighteen 12px dots plus their gaps
- * are wider than the card's content box at the narrowest supported
- * width, and a nowrap flex row would shrink them instead. */
-.theme-carousel__dots {
-  flex-wrap: wrap;
-  margin-top: var(--space-sm);
 }
 
 /* B9 fallback (22-10-PLAN.md Task 2, 22-AUDIT.md's own second option).

@@ -992,33 +992,28 @@ _NO_JS_CONTROL_REGISTRY = (
         "page_route": "/device",
         "render": lambda: config_page.wake_interval_group(600),
     },
-    # 25-06-PLAN.md Task 3 (CFG-50): ONE row, not two, and the reason is
-    # the opposite of 25-04's. A row names one FIELD, and D5's carousel
-    # holds exactly one — `theme` — however many affordances surround it.
-    # The two pagers are two BUTTONS steering one native radio group;
-    # registering them separately would claim this card saves two
-    # settings, which it does not.
+    # 30-03-PLAN.md Task 2 (CFG-85), 2026-09-22: the row that used to
+    # live here — "the theme carousel's two pagers (D5)" — is DELETED
+    # OUTRIGHT, not repointed at the new accordion/palette markup
+    # (30-RESEARCH.md's own Pitfall 2). This registry proves ONE thing:
+    # every element carrying a `.js`-gated wrapper attribute also has a
+    # native input reachable when the gate is absent — it registers
+    # JS-REQUIRED affordances only. The retired pagers were registered
+    # here for exactly that reason ("the only part of this control that
+    # cannot work without a script"); the new `<details name="aspect-
+    # rows">` accordion is complete from first paint with ZERO script
+    # (native grouped-<details> exclusivity), so it introduces no
+    # `layout.JS_GATE_CLASS`-wrapped element at all — there is nothing
+    # left to gate, and therefore nothing to register. Repointing this
+    # row at the palette radios would claim a JS-optionality property
+    # that was never at risk for them (they were never script-gated),
+    # which is either a guard that fails immediately (no wrapper
+    # attribute exists on the new markup) or, worse, one that passes
+    # vacuously against a leftover attribute — both wrong. A future
+    # plan that DOES introduce a genuinely `.js`-gated Aspect element
+    # should add a new row here, arguing it the way every other row in
+    # this tuple does; none is owed by this phase.
     #
-    # The registered wrapper attribute is the PAGER WRAPPER's, because
-    # the pagers are the only part of this control that cannot work
-    # without a script. Everything else the carousel adds — the strip's
-    # scroll-snap layout, the "See all themes" <details>, the dots row —
-    # is native or server-rendered and is deliberately NOT gated: gating
-    # any of it would hide working affordances from a scripts-blocked
-    # visitor, which is the mirror of the defect this registry catches.
-    #
-    # `form_assoc` is "attribute": the Frame colours card is a SIBLING of
-    # <form id="settings-form"> (a <form> cannot nest inside another
-    # <form>), so every theme radio carries form= itself.
-    {
-        "control": "the theme carousel's two pagers (D5)",
-        "plan": "25-06-PLAN.md Task 3",
-        "wrapper_attr": config_page.THEME_CAROUSEL_WRAPPER_ATTR,
-        "field": "theme",
-        "form": config_page.SETTINGS_FORM_ID,
-        "form_assoc": "attribute",
-        "render": lambda: config_page._frame_colours_card_html({}, "white", None, None),
-    },
     # 25-07-PLAN.md Task 2 (CFG-51): ONE row. A row names one FIELD, and
     # D19's drop zone holds exactly one — `image` — however many copies
     # of the form carry a zone (three on a Step-B edit-mode render).
@@ -5454,9 +5449,17 @@ def main():
                     return False, "theme-preview.js must not contain %r" % token
             required = (
                 "addEventListener", "querySelector", "getAttribute", "data-preview-src",
-                # 21-05-PLAN.md Task 3 (D-08/D-12): the row->panel->chip
-                # attribute contract this rewrite depends on.
-                "data-usage-panel")
+                # 30-04-PLAN.md Task 3 (CFG-85): re-pointed from the
+                # retired "data-usage-panel" (the usage-panel-target
+                # attribute the accordion rebuild deletes) to
+                # "data-usage" — the accordion row's own locked
+                # attribute (config_page.py's _usage_row_html(), read
+                # here via ".usage-row[data-usage=...]") — in the SAME
+                # commit as the rewrite, matching this file's own
+                # established "guard repointed with its rename" pattern
+                # elsewhere in this phase. Was: "data-usage-panel" (D-08/
+                # D-12, the retired row->panel->chip attribute contract).
+                "data-usage")
             for token in required:
                 if token not in src:
                     return False, "expected %r in theme-preview.js" % token
@@ -5464,8 +5467,8 @@ def main():
         check(
             "theme-preview.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
             "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers/a page-wide "
-            "single-grid lookup), and carries the row->panel->chip src-swap contract (addEventListener/"
-            "querySelector/getAttribute/data-preview-src/data-usage-panel all present) (D-08/D-12/R-11, "
+            "single-grid lookup), and carries the row->chip src-swap contract (addEventListener/"
+            "querySelector/getAttribute/data-preview-src/data-usage all present) (D-08/D-12/R-11, "
             "extended by 21-05-PLAN.md Task 3 from D-22..D-24's own original single-grid version)",
             _theme_preview_script_es5_safe_and_no_html_write)
 
@@ -8472,7 +8475,12 @@ def main():
             # via its own data-usage-panel-target attribute.
             if "Manual refresh" not in device_text:
                 return False, "expected the Device page to carry Manual refresh"
-            rules_panel_marker = 'data-usage-panel-target="rules"'
+            # 30-05-PLAN.md Task 3 (CFG-85): repointed from the retired
+            # data-usage-panel-target attribute to the accordion row's
+            # own data-usage attribute — the same locator
+            # test_config_page.py's own _aspect_usage_row_bounds()
+            # keys off.
+            rules_panel_marker = 'data-usage="rules"'
             if rules_panel_marker in device_text:
                 return False, "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)"
             if rules_panel_marker not in display_text:
@@ -11927,20 +11935,25 @@ def main():
             # Minimums pinned a little below the observed figures on this
             # exact (fresh, unseeded) fixture — re-derived by RUNNING this
             # exact selector against a real render of each route: Home 2,
-            # Display 15, Flights 0 (a genuinely empty page with no
-            # .section-caption element at all on a fresh state dir — not a
-            # narrowed-selector artefact; Airlines 2, Health 4, Device 8
-            # (English counts; French renders the identical structure).
-            # Enough margin for an unrelated future caption to be added or
+            # Display 11 (30-05-PLAN.md Task 3, CFG-85: down from 15 —
+            # FRAME_COLOURS_CAPTION and the three retired per-grid swatch
+            # legends all disappeared once the accordion rebuild landed),
+            # Flights 0 (a genuinely empty page with no .section-caption
+            # element at all on a fresh state dir — not a narrowed-
+            # selector artefact; Airlines 2, Health 4, Device 8 (English
+            # counts; French renders the identical structure). Enough
+            # margin for an unrelated future caption to be added or
             # removed without retuning this number, not so much margin
             # that a badly narrowed selector could still clear it.
             per_route_min = {
-                layout.HOME_ROUTE: 1, layout.DISPLAY_ROUTE: 13, layout.FLIGHTS_ROUTE: 0,
+                layout.HOME_ROUTE: 1, layout.DISPLAY_ROUTE: 9, layout.FLIGHTS_ROUTE: 0,
                 layout.AIRLINES_ROUTE: 1, layout.HEALTH_ROUTE: 3, layout.DEVICE_ROUTE: 6,
             }
-            # Site-wide total across BOTH languages: 2+2 + 15+15 + 0+0 +
-            # 2+2 + 4+4 + 8+8 = 62 observed, re-derived by RUNNING.
-            site_total_min = 55
+            # Site-wide total across BOTH languages: 2+2 + 11+11 + 0+0 +
+            # 2+2 + 4+4 + 8+8 = 54 observed, re-derived by RUNNING
+            # (30-05-PLAN.md Task 3, CFG-85: down from 62 — Display's own
+            # drop from 15 to 11 per route above is the only change).
+            site_total_min = 47
 
             skip_counts = {"en": 0, "fr": 0}
             site_total_captions = 0

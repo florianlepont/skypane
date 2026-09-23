@@ -1461,9 +1461,37 @@ Plans:
 
 **Requirements**: CFG-85, CFG-86 (all new)
 **Depends on:** Phase 29 (merged) — so Display is touched once for the editorial pass and once here, never twice for the same card
-**Plans:** 0 plans — not planned yet. **A `/gsd-sketch` round comes BEFORE planning**: two throwaway HTML variants on the real 18-theme registry and the developer's last flight, decided on the visible result.
+**Plans:** 8/8 plans complete
 
 Plans:
+**Wave 1**
+
+- [x] 30-01-PLAN.md — Playwright + Chromium installed; the genuine same-instrument CFG-86 "before" reading at 390px and 360px against the unmodified tree (wave 0)
+- [x] 30-02-PLAN.md — the palette's new renderers: the CSS-drawn swatch (5 of 18 banded, 13 solid, derived from the live registry), the palette chip and grid, the row summary — additive, tested, called by nothing yet (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 30-03-PLAN.md — retire the pins before the mechanisms they pin: 3 config-page checks, 5 browser checks, the shared strip-selector block and the no-JS registry's pagers row, with a machine-guarded re-pin ledger for every property owed to a later plan (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 30-04-PLAN.md — the cut: `_aspect_card_html()` replaces the four-row radiogroup and three carousels, 16 constants and 4 builders retired, the French catalogue updated, the CFG-86 instrument repointed in the same commit as the heading rename, `theme-preview.js` re-scoped to `.aspect-card` (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 30-05-PLAN.md — re-pin the accordion: 8+ replacement checks asserting relationships and deriving every count from the registry; zero ledger rows owed by 30-05 (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 30-06-PLAN.md — the calendar absorbed into its own row in the sketch's flatter shape; `calendar_group()` and 3 constants retired; one render gate with the registry invariant documented at the code; `ASPECT_CAPTION_EXEMPTIONS` down to two (wave 5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 30-07-PLAN.md — CSS: 15+ new rules on existing tokens only, the audited deletions with three-category pre-delete greps in `30-CSS-AUDIT.md`, and the three-phase-old accent-reservation-list gap closed (wave 6)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [x] 30-08-PLAN.md — the preview follows hover and focus (new code, no analog); scripts-blocked accordion operability and save-to-disk at 360px in both languages; every touch target measured in both themes; CFG-86's after reading, delta and verdict (wave 7)
 
 **The developer's own words (French, verbatim):** *"pour commencer j'aimerais vraiment qu'on améliore ce pannel. Il n'est pas très joli, il est pas évident à comprendre... je pense qu'il y a vraiment plus simple et plus moderne."* and, on the Calendar card: *"je comprends pas pourquoi calendrier ne fait pas partie de la même tuile que les autres, au moins intégré dans « vols du calendrier ». Il y a vraiment quelque chose à revoir sur l'ensemble."*
 

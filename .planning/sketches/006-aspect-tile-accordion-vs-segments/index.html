@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 006 — Aspect tile: accordion vs segments</title>
+<link rel="stylesheet" href="../themes/default.css">
+<style>
+  /* ============================================================
+     Real 18-theme registry (server/device_config.py THEMES),
+     real Spectra 6 ink colours (server/panel_format.py PALETTE_RGB,
+     mirrored as --ink-* in the shared theme file). Every swatch
+     below is drawn from this same table — nothing invented.
+
+     Swatch shape: PLAIN themes fill solid. BAND themes paint a
+     white base with a coloured stripe across the middle third.
+     BAND *_field themes (band_blue_field, band_red_field) have
+     departing_index == band_index in the real registry — the field
+     and the band are the same colour, so the swatch is a solid
+     fill too, exactly as the panel would actually paint it. This
+     is a real, previously-flagged product fact (Phase 25: 18/18
+     themes paint identical departures/arrivals; the two *_field
+     themes are visually identical to their plain same-hue sibling)
+     and the sketch does not hide it behind a fake distinction.
+     ============================================================ */
+
+  * { box-sizing: border-box; }
+  body { padding-top: 96px; }
+
+  #variant-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9998;
+    background: var(--color-dominant); border-bottom: 1px solid var(--color-border);
+    padding: var(--space-sm) var(--space-lg); display: flex; gap: var(--space-sm);
+    align-items: center; font-family: var(--font-ui);
+  }
+  #variant-nav .title {
+    font-family: var(--font-serif); font-size: var(--font-heading-size);
+    font-weight: var(--weight-semibold); margin-right: var(--space-md);
+  }
+  .variant-tab {
+    font-family: var(--font-ui); font-size: 13px; font-weight: var(--weight-semibold);
+    padding: 8px 14px; border-radius: var(--radius-control);
+    border: 1px solid var(--color-border); background: var(--color-canvas);
+    color: var(--color-text); cursor: pointer;
+  }
+  .variant-tab.active {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    border-color: var(--color-accent); color: var(--color-accent);
+  }
+
+  .variant { display: none; max-width: 480px; margin: 0 auto; padding: var(--space-lg) var(--space-md) var(--space-3xl); }
+  .variant.active { display: block; }
+
+  .page-title {
+    font-family: var(--font-serif); font-size: var(--font-page-title-size);
+    font-weight: var(--weight-semibold); letter-spacing: -0.015em; margin: 0 0 4px;
+  }
+  .page-header__purpose {
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+    font-size: var(--font-body-size); margin: 0 0 var(--space-lg);
+  }
+
+  /* --- The card shell every variant shares — page-section treatment,
+     hairline at rest, no resting shadow (06.6.4 D-03). --- */
+  .aspect-card {
+    background: var(--color-dominant); border: 1px solid var(--color-border);
+    border-radius: var(--radius-control); padding: var(--space-lg);
+  }
+  .aspect-card__title {
+    font-family: var(--font-serif); font-size: var(--font-heading-size);
+    font-weight: var(--weight-regular); margin: 0 0 4px;
+  }
+  .aspect-card__caption {
+    font-family: var(--font-ui); font-size: var(--font-label-size);
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+    margin: 0 0 var(--space-lg); max-width: 42ch;
+  }
+
+  /* --- Live preview: the panel-shaped rectangle + its plane. --- */
+  .live-preview {
+    background: #17191F; border-radius: var(--radius-control);
+    overflow: hidden; aspect-ratio: 3 / 4; max-width: 220px;
+    margin: 0 auto var(--space-sm); display: flex; align-items: center; justify-content: center;
+    position: relative; box-shadow: var(--shadow-card-hover);
+  }
+  .live-preview__fill { position: absolute; inset: 0; transition: background-color var(--motion-fast, .18s) ease; }
+  .live-preview svg { position: relative; width: 62%; height: auto; }
+  .live-preview-caption {
+    text-align: center; font-size: var(--font-label-size);
+    color: color-mix(in srgb, var(--color-text) 70%, transparent); margin: 0 0 var(--space-lg);
+  }
+
+  /* --- Swatch: the one shape every palette entry and every usage-row
+     preview shares, real ink colours only. --- */
+  .swatch {
+    width: 100%; height: 100%; border-radius: 4px; overflow: hidden; position: relative;
+  }
+  .swatch__fill { position: absolute; inset: 0; }
+  .swatch__band { position: absolute; left: 0; right: 0; top: 33%; height: 34%; }
+
+  /* --- Usage row (accordion variant: a <details>; segments variant:
+     reused for the shared palette label). One swatch, the theme name,
+     nothing else in the closed state. --- */
+  .usage-row { border-top: 1px solid var(--color-border); }
+  .usage-row:first-of-type { border-top: none; }
+  .usage-row > summary {
+    display: flex; align-items: center; gap: var(--space-md);
+    padding: var(--space-md) 0; cursor: pointer; list-style: none;
+    font-family: var(--font-ui); font-size: var(--font-body-size); font-weight: var(--weight-semibold);
+  }
+  .usage-row > summary::-webkit-details-marker { display: none; }
+  .usage-row > summary::before {
+    content: ""; width: 10px; height: 10px; border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s ease;
+    color: color-mix(in srgb, var(--color-text) 50%, transparent); flex-shrink: 0;
+  }
+  .usage-row[open] > summary::before { transform: rotate(45deg); }
+  .usage-row__swatch { width: 32px; height: 32px; border-radius: 6px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--color-border); position: relative; }
+  .usage-row__name { flex: 1; }
+  .usage-row__meta {
+    font-weight: var(--weight-regular); font-size: var(--font-label-size);
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  /* --- Palette: a wrapping grid, no strip, no scrollbar, no pagers,
+     no dots, no disclosure — CFG-85's own words. --- */
+  .palette {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: var(--space-sm); padding: 4px 0 var(--space-md);
+  }
+  .palette-chip {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    cursor: pointer; border: none; background: none; padding: 0; font-family: var(--font-ui);
+  }
+  .palette-chip__swatch {
+    width: 100%; aspect-ratio: 1; border-radius: 6px; overflow: hidden;
+    border: 1px solid var(--color-border); position: relative;
+  }
+  .palette-chip__name {
+    font-size: 10px; line-height: 1.2; text-align: center;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+  .palette-chip[aria-pressed="true"] .palette-chip__swatch {
+    border: 2px solid var(--color-accent);
+    box-shadow: inset 0 0 0 2px var(--color-dominant);
+    outline: 2px solid var(--color-accent); outline-offset: 1px;
+  }
+  .palette-chip[aria-pressed="true"] .palette-chip__swatch::after {
+    content: "✓"; position: absolute; top: 2px; right: 2px; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--color-accent); color: var(--color-on-accent);
+    font-size: 9px; line-height: 14px; text-align: center;
+  }
+  .palette-chip[aria-pressed="true"] .palette-chip__name { color: var(--color-accent); font-weight: var(--weight-semibold); }
+
+  .leading-option {
+    grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-sm);
+    padding: 8px 10px; border-radius: var(--radius-control);
+    border: 1px dashed var(--color-border); background: var(--color-canvas);
+    cursor: pointer; font-family: var(--font-ui); font-size: var(--font-label-size);
+    margin-bottom: var(--space-xs);
+  }
+  .leading-option[aria-pressed="true"] {
+    border-style: solid; border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent); font-weight: var(--weight-semibold);
+  }
+
+  /* --- Calendar connection, folded under its own row. --- */
+  .cal-status { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--font-label-size); margin: var(--space-xs) 0 var(--space-sm); }
+  .cal-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-status-ok); flex-shrink: 0; }
+  .cal-url { font-family: var(--font-mono); font-size: 12px; color: color-mix(in srgb, var(--color-text) 70%, transparent); margin: 0 0 var(--space-sm); }
+  .cal-actions { display: flex; gap: var(--space-md); align-items: center; }
+  .text-link { color: var(--color-accent); font-size: var(--font-label-size); text-decoration: underline; cursor: pointer; background: none; border: none; padding: 0; font-family: var(--font-ui); }
+  .quiet-btn {
+    font-size: 12px; padding: 4px var(--space-sm); border-radius: var(--radius-control);
+    border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+    background: color-mix(in srgb, var(--color-text) 6%, transparent); color: var(--color-text); cursor: pointer;
+  }
+
+  /* --- Secondary row (Règles par vol): visually one notch quieter. --- */
+  .usage-row--secondary > summary { font-weight: var(--weight-regular); color: color-mix(in srgb, var(--color-text) 85%, transparent); }
+  .rule-list { list-style: none; margin: 0 0 var(--space-md); padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .rule-row { display: flex; justify-content: space-between; align-items: center; font-size: var(--font-label-size); padding: 6px 8px; border-radius: 6px; background: var(--color-canvas); }
+  .rule-row__swatch { width: 20px; height: 20px; border-radius: 4px; overflow: hidden; border: 1px solid var(--color-border); display: inline-block; vertical-align: middle; margin-right: 8px; }
+
+  /* --- Add-rule form (companion/pages/config_page.py
+     _rule_add_form_html(): kind segments, a value input, a compact
+     theme grid, one submit) — hidden until "+ Ajouter une règle" is
+     clicked, a real native <details> so it needs no script either. --- */
+  .rule-add { margin-top: var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: var(--space-md); background: var(--color-canvas); }
+  .rule-add > summary { list-style: none; cursor: pointer; font-size: var(--font-label-size); font-weight: var(--weight-semibold); color: var(--color-accent); }
+  .rule-add > summary::-webkit-details-marker { display: none; }
+  .rule-add[open] > summary { margin-bottom: var(--space-sm); }
+  .rule-add__field { margin-bottom: var(--space-sm); }
+  .rule-add__field label { display: block; font-size: 12px; color: color-mix(in srgb, var(--color-text) 70%, transparent); margin-bottom: 4px; }
+  .rule-add__segments { display: flex; gap: 2px; padding: 2px; background: var(--color-dominant); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+  .rule-add__segments label { flex: 1; text-align: center; padding: 6px 4px; border-radius: 6px; font-size: 12px; font-weight: var(--weight-semibold); cursor: pointer; color: color-mix(in srgb, var(--color-text) 70%, transparent); margin: 0; }
+  .rule-add__segments input { position: absolute; opacity: 0; pointer-events: none; }
+  .rule-add__segments input:checked + label { background: var(--color-dominant); color: var(--color-accent); box-shadow: var(--shadow-card); }
+  .rule-add__value { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-control); font-family: var(--font-mono); font-size: var(--font-body-size); background: var(--color-dominant); color: var(--color-text); }
+  .rule-add__submit { margin-top: 4px; padding: 8px 16px; border-radius: var(--radius-control); border: none; background: var(--color-accent); color: var(--color-on-accent); font-weight: var(--weight-semibold); font-size: 13px; cursor: pointer; }
+
+  /* --- Segments (Variant B). --- */
+  .segments { display: flex; gap: 2px; padding: 2px; background: var(--color-canvas); border-radius: var(--radius-control); margin-bottom: var(--space-md); }
+  .segment {
+    flex: 1; text-align: center; padding: 8px 4px; border-radius: 6px; border: none;
+    background: none; font-family: var(--font-ui); font-size: 13px; font-weight: var(--weight-semibold);
+    color: color-mix(in srgb, var(--color-text) 70%, transparent); cursor: pointer;
+  }
+  .segment.active { background: var(--color-dominant); color: var(--color-accent); box-shadow: var(--shadow-card); }
+  .segment__swatch { width: 16px; height: 16px; border-radius: 3px; display: inline-block; vertical-align: middle; margin-right: 6px; overflow: hidden; border: 1px solid var(--color-border); position: relative; top: -1px; }
+
+  .segment-target { display: none; }
+  .segment-target.active { display: block; }
+
+  .cal-inline {
+    border-top: 1px solid var(--color-border); margin-top: var(--space-md); padding-top: var(--space-md);
+  }
+  .cal-inline__label { font-size: var(--font-label-size); font-weight: var(--weight-semibold); margin-bottom: 4px; }
+
+  .look-for {
+    margin-top: var(--space-2xl); padding: var(--space-md); background: var(--color-secondary);
+    border-radius: var(--radius-control); font-size: 13px; line-height: 1.5;
+  }
+  .look-for h4 { margin: 0 0 6px; font-family: var(--font-ui); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="variant-nav">
+  <span class="title">Sketch 006 — Aspect</span>
+  <button class="variant-tab active" onclick="showVariant('a', this)">A: Accordion</button>
+  <button class="variant-tab" onclick="showVariant('b', this)">B: Segments</button>
+  <select style="margin-left:auto;font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--color-border)"
+          onchange="document.documentElement.setAttribute('data-theme', this.value)">
+    <option value="light">Clair</option>
+    <option value="dark">Sombre</option>
+  </select>
+</div>
+
+<!-- ============================= VARIANT A — ACCORDION ============================= -->
+<div id="variant-a" class="variant active">
+  <h1 class="page-title">Aspect</h1>
+  <p class="page-header__purpose">Le thème, les couleurs de vol et le calendrier qui décident de l'apparence de l'image.</p>
+
+  <div class="aspect-card">
+    <div class="live-preview" id="preview-a">
+      <div class="live-preview__fill" id="preview-a-fill" style="background:#a02020"></div>
+      <svg viewBox="0 0 100 100" fill="none" stroke="white" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M50 10 L58 45 L88 58 L88 65 L58 55 L54 80 L66 90 L66 95 L50 88 L34 95 L34 90 L46 80 L42 55 L12 65 L12 58 L42 45 Z" fill="white" fill-opacity="0.92"/>
+      </svg>
+    </div>
+    <p class="live-preview-caption">Aperçu avec votre dernier vol : TVF58GB</p>
+
+    <!-- Row 1 — Départs -->
+    <details class="usage-row" name="aspect-rows" open data-usage="departing">
+      <summary>
+        <span class="usage-row__swatch" data-role="row-swatch"></span>
+        <span class="usage-row__name">Départs <span class="usage-row__meta" data-role="row-name">— Rouge</span></span>
+      </summary>
+      <div class="palette" data-role="palette"></div>
+    </details>
+
+    <!-- Row 2 — Arrivées -->
+    <details class="usage-row" name="aspect-rows" data-usage="arriving">
+      <summary>
+        <span class="usage-row__swatch" data-role="row-swatch"></span>
+        <span class="usage-row__name">Arrivées <span class="usage-row__meta" data-role="row-name">— Blanc</span></span>
+      </summary>
+      <button class="leading-option" type="button" data-role="leading" aria-pressed="false">Comme les départs</button>
+      <div class="palette" data-role="palette"></div>
+    </details>
+
+    <!-- Row 3 — Vols du calendrier (carries the calendar connection) -->
+    <details class="usage-row" name="aspect-rows" data-usage="calendar">
+      <summary>
+        <span class="usage-row__swatch" data-role="row-swatch"></span>
+        <span class="usage-row__name">Vols du calendrier <span class="usage-row__meta" data-role="row-name">— Bleu</span></span>
+      </summary>
+      <button class="leading-option" type="button" data-role="leading" aria-pressed="false">Comme les départs</button>
+      <div class="palette" data-role="palette"></div>
+      <div class="cal-status">
+        <span class="cal-dot"></span>
+        <strong>Connecté</strong>&nbsp;· 0 vol à venir · vérifié il y a 8 min
+      </div>
+      <p class="cal-url">p56-caldav.icloud.com…</p>
+      <div class="cal-actions">
+        <button class="text-link" type="button">Remplacer l'URL du flux</button>
+        <button class="quiet-btn" type="button">Déconnecter</button>
+        <button class="text-link" type="button">Comment ça marche</button>
+      </div>
+    </details>
+
+    <!-- Row 4 — Règles par vol, secondary -->
+    <details class="usage-row usage-row--secondary" name="aspect-rows">
+      <summary>
+        <span class="usage-row__swatch" style="border-style:dashed;background:transparent"></span>
+        <span class="usage-row__name">Règles par vol <span class="usage-row__meta">— 1 règle</span></span>
+      </summary>
+      <ul class="rule-list">
+        <li class="rule-row"><span><span class="rule-row__swatch" style="background:#f0e050"></span>AFR — Jaune</span><button class="text-link" type="button">Retirer</button></li>
+      </ul>
+      <details class="rule-add">
+        <summary>+ Ajouter une règle</summary>
+        <div class="rule-add__field">
+          <label>Correspondance par</label>
+          <div class="rule-add__segments">
+            <input type="radio" name="rule-kind" id="rk-callsign" checked><label for="rk-callsign" title="Callsign">Vol</label>
+            <input type="radio" name="rule-kind" id="rk-hex"><label for="rk-hex" title="ICAO24 hex">Avion</label>
+            <input type="radio" name="rule-kind" id="rk-prefix"><label for="rk-prefix" title="Callsign prefix">Compagnie</label>
+          </div>
+        </div>
+        <div class="rule-add__field">
+          <label>Valeur</label>
+          <input class="rule-add__value" type="text" placeholder="AFR1234">
+        </div>
+        <div class="rule-add__field">
+          <label>Thème</label>
+          <div class="palette" style="grid-template-columns:repeat(auto-fill,minmax(44px,1fr));padding:0"></div>
+        </div>
+        <button class="rule-add__submit" type="button">Ajouter la règle</button>
+      </details>
+    </details>
+  </div>
+
+  <div class="look-for">
+    <h4>À observer — Accordéon</h4>
+    Une seule ligne ouverte à la fois (natif, <code>&lt;details name&gt;</code>, aucun script). La palette apparaît directement sous la ligne qu'on ouvre — le lien entre la valeur et son sélecteur est immédiat. Quatre lignes empilées : trois usages, une secondaire pour les règles.
+  </div>
+</div>
+
+<!-- ============================= VARIANT B — SEGMENTS ============================= -->
+<div id="variant-b" class="variant">
+  <h1 class="page-title">Aspect</h1>
+  <p class="page-header__purpose">Le thème, les couleurs de vol et le calendrier qui décident de l'apparence de l'image.</p>
+
+  <div class="aspect-card">
+    <div class="live-preview" id="preview-b">
+      <div class="live-preview__fill" id="preview-b-fill" style="background:#a02020"></div>
+      <svg viewBox="0 0 100 100" fill="none" stroke="white" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M50 10 L58 45 L88 58 L88 65 L58 55 L54 80 L66 90 L66 95 L50 88 L34 95 L34 90 L46 80 L42 55 L12 65 L12 58 L42 45 Z" fill="white" fill-opacity="0.92"/>
+      </svg>
+    </div>
+    <p class="live-preview-caption">Aperçu avec votre dernier vol : TVF58GB</p>
+
+    <div class="segments">
+      <button class="segment active" data-usage="departing" onclick="segB('departing', this)">
+        <span class="segment__swatch" data-role="seg-swatch"></span>Départs
+      </button>
+      <button class="segment" data-usage="arriving" onclick="segB('arriving', this)">
+        <span class="segment__swatch" data-role="seg-swatch"></span>Arrivées
+      </button>
+      <button class="segment" data-usage="calendar" onclick="segB('calendar', this)">
+        <span class="segment__swatch" data-role="seg-swatch"></span>Calendrier
+      </button>
+    </div>
+
+    <button class="leading-option" type="button" id="b-leading" style="display:none" aria-pressed="false">Comme les départs</button>
+    <div class="palette" id="b-palette"></div>
+
+    <div class="cal-inline">
+      <div class="cal-status" style="margin:0 0 4px">
+        <span class="cal-dot"></span>
+        <strong>Calendrier connecté</strong>&nbsp;· 0 vol à venir
+      </div>
+      <div class="cal-actions">
+        <button class="text-link" type="button">Gérer la connexion</button>
+      </div>
+    </div>
+
+    <details class="usage-row usage-row--secondary" style="margin-top:var(--space-md)">
+      <summary>
+        <span class="usage-row__swatch" style="border-style:dashed;background:transparent"></span>
+        <span class="usage-row__name">Règles par vol <span class="usage-row__meta">— 1 règle</span></span>
+      </summary>
+      <ul class="rule-list">
+        <li class="rule-row"><span><span class="rule-row__swatch" style="background:#f0e050"></span>AFR — Jaune</span><button class="text-link" type="button">Retirer</button></li>
+      </ul>
+      <details class="rule-add">
+        <summary>+ Ajouter une règle</summary>
+        <div class="rule-add__field">
+          <label>Correspondance par</label>
+          <div class="rule-add__segments">
+            <input type="radio" name="rule-kind" id="rk-callsign" checked><label for="rk-callsign" title="Callsign">Vol</label>
+            <input type="radio" name="rule-kind" id="rk-hex"><label for="rk-hex" title="ICAO24 hex">Avion</label>
+            <input type="radio" name="rule-kind" id="rk-prefix"><label for="rk-prefix" title="Callsign prefix">Compagnie</label>
+          </div>
+        </div>
+        <div class="rule-add__field">
+          <label>Valeur</label>
+          <input class="rule-add__value" type="text" placeholder="AFR1234">
+        </div>
+        <div class="rule-add__field">
+          <label>Thème</label>
+          <div class="palette" style="grid-template-columns:repeat(auto-fill,minmax(44px,1fr));padding:0"></div>
+        </div>
+        <button class="rule-add__submit" type="button">Ajouter la règle</button>
+      </details>
+    </details>
+  </div>
+
+  <div class="look-for">
+    <h4>À observer — Segments</h4>
+    Une seule grille de palette, réutilisée pour les trois usages — moins de code, moins de répétition visuelle. La connexion du calendrier reste visible en permanence sous la grille, jamais cachée derrière l'onglet Calendrier. Les trois valeurs actuelles ne sont plus visibles d'un coup d'œil : il faut cliquer chaque segment pour les voir toutes.
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Real 18-theme registry, server/device_config.py THEMES,
+// server/panel_format.py PALETTE_RGB — read live during this
+// sketch's own build (2026-09-22), not approximated.
+// ============================================================
+const INK = ['#000000', '#ffffff', '#f0e050', '#a02020', '#2d5f9b', '#326941'];
+const INK_NAME = { 0: 'Noir', 1: 'Blanc', 2: 'Jaune', 3: 'Rouge', 4: 'Bleu', 5: 'Vert' };
+
+const THEMES = [
+  { id: 'white',            label: 'Blanc',              idx: 1, band: null },
+  { id: 'black',             label: 'Noir',               idx: 0, band: null },
+  { id: 'grey',               label: 'Gris (tramé)',       idx: 0, band: null, dithered: true },
+  { id: 'yellow',           label: 'Jaune',              idx: 2, band: null },
+  { id: 'yellow_light',     label: 'Jaune clair',        idx: 2, band: null, dithered: true },
+  { id: 'red',                label: 'Rouge',              idx: 3, band: null },
+  { id: 'red_light',        label: 'Rouge clair',        idx: 3, band: null, dithered: true },
+  { id: 'green',            label: 'Vert',               idx: 5, band: null },
+  { id: 'green_light',      label: 'Vert clair',         idx: 5, band: null, dithered: true },
+  { id: 'blue',              label: 'Bleu',               idx: 4, band: null },
+  { id: 'blue_light',       label: 'Bleu clair',         idx: 4, band: null, dithered: true },
+  { id: 'band_blue',        label: 'Bande bleue',        idx: 1, band: 4 },
+  { id: 'band_blue_light',  label: 'Bande bleue claire', idx: 1, band: 4, dithered: true },
+  { id: 'band_green_light', label: 'Bande verte claire', idx: 1, band: 5, dithered: true },
+  { id: 'band_red',         label: 'Bande rouge',        idx: 1, band: 3 },
+  { id: 'band_black',       label: 'Bande noire',        idx: 1, band: 0 },
+  { id: 'band_blue_field',  label: 'Bande bleue pleine', idx: 4, band: 4 },
+  { id: 'band_red_field',   label: 'Bande rouge pleine', idx: 3, band: 3 },
+];
+
+function paintSwatch(el, theme) {
+  el.innerHTML = '';
+  const fill = document.createElement('div');
+  fill.className = 'swatch__fill';
+  fill.style.background = INK[theme.idx];
+  if (theme.dithered) fill.style.opacity = '0.72';
+  el.appendChild(fill);
+  // Band themes where band === departing index are FULL FIELD themes
+  // (band_blue_field, band_red_field) — the swatch is a solid fill,
+  // same as their plain-hue sibling, because that is genuinely what
+  // the panel paints (server/device_config.py: departing_index ==
+  // band_index for both). Only draw a visible stripe when the band
+  // colour actually differs from the field.
+  if (theme.band !== null && theme.band !== theme.idx) {
+    const band = document.createElement('div');
+    band.className = 'swatch__band';
+    band.style.background = INK[theme.band];
+    el.appendChild(band);
+  }
+}
+
+// state: which theme id is selected per usage
+const selected = { departing: 'red', arriving: 'white', calendar: 'blue' };
+const followsDepartures = { arriving: false, calendar: false };
+
+function themeById(id) { return THEMES.find(t => t.id === id); }
+
+function updatePreview(prefix) {
+  const t = themeById(selected.departing);
+  document.getElementById(prefix + '-fill').style.background = INK[t.idx];
+}
+
+// ---------- Variant A (accordion) ----------
+function buildRowA(row) {
+  const usage = row.dataset.usage;
+  const palette = row.querySelector('[data-role="palette"]');
+  THEMES.forEach(t => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'palette-chip';
+    chip.setAttribute('aria-pressed', selected[usage] === t.id ? 'true' : 'false');
+    const sw = document.createElement('span');
+    sw.className = 'palette-chip__swatch';
+    paintSwatch(sw, t);
+    const name = document.createElement('span');
+    name.className = 'palette-chip__name';
+    name.textContent = t.label;
+    chip.appendChild(sw);
+    chip.appendChild(name);
+    chip.onclick = () => selectThemeA(usage, t.id, row);
+    palette.appendChild(chip);
+  });
+  const leading = row.querySelector('[data-role="leading"]');
+  if (leading) {
+    leading.setAttribute('aria-pressed', followsDepartures[usage] ? 'true' : 'false');
+    leading.onclick = () => {
+      followsDepartures[usage] = !followsDepartures[usage];
+      if (followsDepartures[usage]) selected[usage] = selected.departing;
+      refreshRowA(row);
+    };
+  }
+  refreshRowA(row);
+}
+
+function refreshRowA(row) {
+  const usage = row.dataset.usage;
+  const t = themeById(selected[usage]);
+  paintSwatch(row.querySelector('[data-role="row-swatch"]'), t);
+  row.querySelector('[data-role="row-name"]').textContent = '— ' + t.label + (followsDepartures[usage] ? ' (comme les départs)' : '');
+  row.querySelectorAll('.palette-chip').forEach((chip, i) => chip.setAttribute('aria-pressed', THEMES[i].id === selected[usage] ? 'true' : 'false'));
+  const leading = row.querySelector('[data-role="leading"]');
+  if (leading) leading.setAttribute('aria-pressed', followsDepartures[usage] ? 'true' : 'false');
+}
+
+function selectThemeA(usage, id, row) {
+  selected[usage] = id;
+  if (usage === 'departing') {
+    updatePreview('preview-a');
+    if (followsDepartures.arriving) { selected.arriving = id; refreshRowA(document.querySelector('[data-usage="arriving"]')); }
+    if (followsDepartures.calendar) { selected.calendar = id; refreshRowA(document.querySelector('[data-usage="calendar"]')); }
+  } else {
+    followsDepartures[usage] = false;
+  }
+  refreshRowA(row);
+}
+
+document.querySelectorAll('#variant-a .usage-row[data-usage]').forEach(buildRowA);
+updatePreview('preview-a');
+
+// ---------- Variant B (segments) ----------
+let currentSegment = 'departing';
+function buildPaletteB() {
+  const palette = document.getElementById('b-palette');
+  palette.innerHTML = '';
+  THEMES.forEach(t => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'palette-chip';
+    chip.setAttribute('aria-pressed', selected[currentSegment] === t.id ? 'true' : 'false');
+    const sw = document.createElement('span');
+    sw.className = 'palette-chip__swatch';
+    paintSwatch(sw, t);
+    const name = document.createElement('span');
+    name.className = 'palette-chip__name';
+    name.textContent = t.label;
+    chip.appendChild(sw);
+    chip.appendChild(name);
+    chip.onclick = () => selectThemeB(t.id);
+    palette.appendChild(chip);
+  });
+  document.querySelectorAll('#variant-b .segment').forEach(seg => {
+    const t = themeById(selected[seg.dataset.usage]);
+    paintSwatch(seg.querySelector('[data-role="seg-swatch"]'), t);
+  });
+  const leading = document.getElementById('b-leading');
+  if (currentSegment === 'departing') {
+    leading.style.display = 'none';
+  } else {
+    leading.style.display = 'flex';
+    leading.setAttribute('aria-pressed', followsDepartures[currentSegment] ? 'true' : 'false');
+  }
+}
+
+function selectThemeB(id) {
+  selected[currentSegment] = id;
+  if (currentSegment === 'departing') {
+    updatePreview('preview-b');
+    if (followsDepartures.arriving) selected.arriving = id;
+    if (followsDepartures.calendar) selected.calendar = id;
+  } else {
+    followsDepartures[currentSegment] = false;
+  }
+  buildPaletteB();
+}
+
+document.getElementById('b-leading').onclick = () => {
+  followsDepartures[currentSegment] = !followsDepartures[currentSegment];
+  if (followsDepartures[currentSegment]) selected[currentSegment] = selected.departing;
+  buildPaletteB();
+};
+
+function segB(usage, btn) {
+  currentSegment = usage;
+  document.querySelectorAll('#variant-b .segment').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  buildPaletteB();
+}
+
+buildPaletteB();
+updatePreview('preview-b');
+
+// ---------- Add-rule forms' own compact theme grid (real swatches,
+// select-one-radio behaviour, demo-only — not wired to the departures/
+// arrivals/calendar state above, since a rule is its own value). ----
+document.querySelectorAll('.rule-add .palette').forEach((grid, gi) => {
+  THEMES.forEach((t, i) => {
+    const id = 'rule-theme-' + gi + '-' + i;
+    const wrap = document.createElement('label');
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer';
+    const input = document.createElement('input');
+    input.type = 'radio'; input.name = 'rule-theme-' + gi; input.id = id;
+    input.style.cssText = 'position:absolute;opacity:0;pointer-events:none';
+    if (i === 5) input.checked = true; // "Jaune" — matches the one existing rule
+    const sw = document.createElement('span');
+    sw.className = 'palette-chip__swatch';
+    sw.style.width = '100%';
+    paintSwatch(sw, t);
+    input.addEventListener('change', () => {
+      grid.querySelectorAll('label').forEach(l => l.style.opacity = '0.55');
+      wrap.style.opacity = '1';
+    });
+    wrap.appendChild(input);
+    wrap.appendChild(sw);
+    wrap.style.opacity = (i === 5) ? '1' : '0.55';
+    grid.appendChild(wrap);
+  });
+});
+
+// ---------- Variant tabs ----------
+function showVariant(id, btn) {
+  document.querySelectorAll('.variant').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('variant-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+
+<div id="sketch-tools" style="position:fixed;bottom:12px;right:12px;z-index:9999;font-family:system-ui;font-size:12px;background:rgba(0,0,0,0.7);color:white;padding:8px 12px;border-radius:8px;opacity:0.4;transition:opacity 0.2s;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.4'">
+  360px min-width app floor — resize the window to check
+</div>
+
+</body>
+</html>

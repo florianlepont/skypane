@@ -1937,7 +1937,25 @@ def _display_page_height(browser, base_url, viewport):
         page.wait_for_load_state("networkidle")
         seen = page.evaluate(
             _DISPLAY_HEIGHT_PROBE,
-            {"headingId": config_page.FRAME_COLOURS_HEADING_ID})
+            # 30-04-PLAN.md Task 2 (CFG-85/CFG-86): repointed from the
+            # retired FRAME_COLOURS_HEADING_ID to ASPECT_HEADING_ID, in
+            # the SAME commit that renamed the heading — 30-RESEARCH.md
+            # Pitfall 1. The theme-radio guard just below still holds
+            # unchanged: the departures palette (`_palette_grid_html()`)
+            # renders exactly `len(device_config.THEME_IDS)` radios
+            # named `theme`, the identical count the retired departures
+            # chip grid always rendered — this is the guard most likely
+            # to be assumed broken by the accordion rebuild and quietly
+            # loosened, and it does not need to be.
+            #
+            # MERGE NOTE (origin/main -> claude/phase-30-aspect-rebuilt):
+            # Phase 30 made this edit while _display_page_height() still
+            # lived in companion/test_browser_ux.py; 31-01-PLAN.md Task 3
+            # moved the function here. The edit follows the function —
+            # config_page.FRAME_COLOURS_HEADING_ID does not exist on this
+            # branch at all, so origin/main's copy of this line would
+            # raise AttributeError on its first call.
+            {"headingId": config_page.ASPECT_HEADING_ID})
     finally:
         context.close()
     if seen["clientWidth"] != viewport["width"]:
@@ -1948,8 +1966,8 @@ def _display_page_height(browser, base_url, viewport):
             % (viewport["width"], seen["clientWidth"]))
     if not seen["heading"]:
         raise AssertionError(
-            "_display_page_height: the document at %dpx carries no Frame "
-            "colours heading — this is not the authenticated Display page "
+            "_display_page_height: the document at %dpx carries no Aspect "
+            "heading — this is not the authenticated Display page "
             "(a missing session redirects to the login card, which renders "
             "perfectly and is a quarter of the height)" % (viewport["width"],))
     expected_radios = len(device_config.THEME_IDS)

@@ -19,6 +19,11 @@ Goodreads — warm editorial feel, card-based browsing with visible relief, seri
 | 003 | history-table-density | Does merging Callsign+Hex and Type+Airline make the table fit a 13" laptop without horizontal scroll? | B (Inline compact) | data-density, table |
 | 004 | theme-picker-chips | Do runway-card-style chips with a real rendered theme preview actually read well at 16-theme scale? | B (Chip grid, 160px) | theme-picker, settings, visual-direction |
 | 005 | type-ladder-health-page | Does the new type ladder (32/22/16px + unified sans-uppercase labels + 24px gaps) hold together on a real page? | B (New ladder) | typography, hierarchy, labels, spacing, visual-direction |
+| 006 | aspect-tile-accordion-vs-segments | Accordion or segments — which structure reads best for Aspect's one-tile rebuild (CFG-85)? | A (Accordion) | settings, theme-picker, control-density, visual-direction, phase-30 |
+
+## Phase 30 note
+
+Sketch 006 answers CFG-85's own stated gate: "the direction (accordion vs. segments) is decided by the developer on two `/gsd-sketch` variants BEFORE planning." Both variants use the real 18-theme registry and real Spectra 6 ink colours — no placeholder palette. `themes/default.css` was resynced for this round (2026-09-22): the heading/page-title sizes (20/30px → 22/32px) and the serif stack's lead font (Georgia → Iowan Old Style) had drifted from production since the 2026-09-03 sync, both from phase 06.6.4.1.1 shipping after that snapshot was taken.
 
 ## 06.6.4.1.1 note
 
