@@ -81,6 +81,12 @@ DEVICE_CONFIG_MODULE_PATH = os.path.join(REPO_ROOT, "server", "device_config.py"
 POLL_LOOP_MODULE_PATH = os.path.join(REPO_ROOT, "server", "poll_loop.py")
 IMAGE_BYTES = 960000
 STARTUP_DEADLINE_S = 10.0
+# A fixed 64-lowercase-hex enrolment secret Harness.start_server() registers
+# both fixture MACs against before the subprocess starts, so the two
+# existing positive setup calls below keep working against byos_server.py's
+# registry-gated /device/v1/setup (devices_registry contract) with no change
+# to this file's own check count or shape.
+HARNESS_ENROL_SECRET = "3" * 64
 EXPECTED_CHECK_COUNT = 46  # 12-03: +6 (display-off sleep pin: fail-open, flat pin, quiet-hours
 # overlap in both directions (unit + integration), on-state regression guard, and
 # DISPLAY_OFF_SLEEP_S parity)
@@ -270,6 +276,16 @@ class Harness:
         return out_path
 
     def start_server(self, sleep_s=300, image_url_scheme=None):
+        # Registry-gated setup (devices_registry contract): register both
+        # fixture MACs against this instance's own --state-dir before the
+        # subprocess starts, so every setup call below - whichever MAC it
+        # uses - is already enrolled against HARNESS_ENROL_SECRET.
+        byos_module = load_byos_module()
+        for mac in ("aa:bb:cc:dd:ee:01", "aa:bb:cc:dd:ee:02"):
+            byos_module.register_device(
+                self.tmpdir, mac,
+                hashlib.sha256(HARNESS_ENROL_SECRET.encode("ascii")).hexdigest(),
+                replace=True)
         stdout_fh = open(self.stdout_path, "w")
         cmd = [sys.executable, SERVER_PATH,
                "--image", self.image_path,
@@ -1031,7 +1047,8 @@ def main():
         def _setup_ok():
             status, _, body = http_request(
                 harness.base_url() + "/device/v1/setup", method="POST",
-                json_body={"mac": "aa:bb:cc:dd:ee:01", "hw_rev": "poll-cycle-harness"})
+                json_body={"mac": "aa:bb:cc:dd:ee:01", "hw_rev": "poll-cycle-harness",
+                           "provision_secret": HARNESS_ENROL_SECRET})
             if status != 200:
                 return False, "expected 200, got %d (%r)" % (status, body[:200])
             obj = json.loads(body.decode())
@@ -1252,7 +1269,8 @@ def main():
                 https_harness.start_server(sleep_s=300, image_url_scheme="https")
                 status, _, body = http_request(
                     https_harness.base_url() + "/device/v1/setup", method="POST",
-                    json_body={"mac": "aa:bb:cc:dd:ee:02", "hw_rev": "poll-cycle-harness"})
+                    json_body={"mac": "aa:bb:cc:dd:ee:02", "hw_rev": "poll-cycle-harness",
+                               "provision_secret": HARNESS_ENROL_SECRET})
                 if status != 200:
                     return False, "https-scheme setup expected 200, got %d" % status
                 token = json.loads(body.decode())["device_token"]

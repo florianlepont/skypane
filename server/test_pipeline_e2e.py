@@ -12,6 +12,7 @@ Usage:
     server/.venv/bin/python3 server/test_pipeline_e2e.py
 """
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
@@ -31,6 +32,16 @@ STUB_SERVER_PATH = os.path.join(REPO_ROOT, "stub-server", "byos_server.py")
 IMAGE_BYTES = 960000
 LEGAL_NIBBLES = {0x0, 0x1, 0x2, 0x3, 0x5, 0x6}
 STARTUP_DEADLINE_S = 10.0
+# A fixed 64-lowercase-hex enrolment secret BYOSHarness.start() registers
+# every fixture MAC against before its subprocess starts, so the three
+# positive setup calls below keep working against byos_server.py's
+# registry-gated /device/v1/setup (devices_registry contract).
+HARNESS_ENROL_SECRET = "4" * 64
+# The MACs any BYOSHarness instance in this file may enrol - registering
+# all three against every instance's own --state-dir is simpler than
+# threading a per-call mac list through BYOSHarness.start(), and costs
+# nothing extra since register_device() is a local file write.
+HARNESS_MACS = ("aa:bb:cc:dd:ee:02", "aa:bb:cc:dd:ee:03", "aa:bb:cc:dd:ee:04")
 EXPECTED_CHECK_COUNT = 7  # Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die):
 # +1 (end to end through the real device protocol: a 3290 mV check-in latches BATTERY EMPTY
 # and its hash is served with sleep_s 3600; a second run_once() is a byte-identical hash-skip;
@@ -44,6 +55,20 @@ if REPO_ROOT not in sys.path:
 def load_fixture(name):
     with open(os.path.join(FIXTURES_DIR, name)) as fh:
         return json.load(fh)
+
+
+def load_byos_module():
+    """Load byos_server.py directly via importlib.util, matching
+    stub-server/test_poll_cycle.py's own pattern, so BYOSHarness.start()
+    can call register_device() without going through HTTP. Safe because
+    the module's top level is constants and defs only - main() sits
+    behind an `if __name__ == "__main__"` guard.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "byos_server_pipeline_e2e_under_test", STUB_SERVER_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def verify_panel_bytes(buf, expected_hash):
@@ -101,6 +126,18 @@ class BYOSHarness:
         return "http://127.0.0.1:%d" % self.port
 
     def start(self):
+        # Registry-gated setup (devices_registry contract): register every
+        # fixture MAC this file's checks use against this instance's own
+        # --state-dir before the subprocess starts. Idempotent (replace=True)
+        # - the second and third BYOSHarness instances below share the same
+        # state_dir as the first, so re-registering is a harmless overwrite,
+        # not a duplicate-MAC error.
+        byos_module = load_byos_module()
+        for mac in HARNESS_MACS:
+            byos_module.register_device(
+                self.state_dir, mac,
+                hashlib.sha256(HARNESS_ENROL_SECRET.encode("ascii")).hexdigest(),
+                replace=True)
         stdout_fh = open(self.stdout_path, "w")
         try:
             self.proc = subprocess.Popen(
@@ -213,7 +250,8 @@ def main():
             harness.start()
             status, _, body = http_request(
                 harness.base_url() + "/device/v1/setup", method="POST",
-                json_body={"mac": "aa:bb:cc:dd:ee:02", "hw_rev": "pipeline-e2e-harness"})
+                json_body={"mac": "aa:bb:cc:dd:ee:02", "hw_rev": "pipeline-e2e-harness",
+                           "provision_secret": HARNESS_ENROL_SECRET})
             if status != 200:
                 return False, "setup expected 200, got %d" % status
             token = json.loads(body.decode())["device_token"]
@@ -278,7 +316,8 @@ def main():
                 battery_harness.start()
                 status, _, body = http_request(
                     battery_harness.base_url() + "/device/v1/setup", method="POST",
-                    json_body={"mac": "aa:bb:cc:dd:ee:03", "hw_rev": "pipeline-e2e-battery"})
+                    json_body={"mac": "aa:bb:cc:dd:ee:03", "hw_rev": "pipeline-e2e-battery",
+                               "provision_secret": HARNESS_ENROL_SECRET})
                 if status != 200:
                     return False, "battery-check setup expected 200, got %d" % status
                 token = json.loads(body.decode())["device_token"]
@@ -373,7 +412,8 @@ def main():
                 park_harness.start()
                 status, _, body = http_request(
                     park_harness.base_url() + "/device/v1/setup", method="POST",
-                    json_body={"mac": "aa:bb:cc:dd:ee:04", "hw_rev": "pipeline-e2e-battery-critical"})
+                    json_body={"mac": "aa:bb:cc:dd:ee:04", "hw_rev": "pipeline-e2e-battery-critical",
+                               "provision_secret": HARNESS_ENROL_SECRET})
                 if status != 200:
                     return False, "battery-critical setup expected 200, got %d" % status
                 token = json.loads(body.decode())["device_token"]
