@@ -154,17 +154,18 @@ BATTERY_TREND_WINDOW_DAYS = 90  # 260902-l0b: the chart's primary window,
 # comment already draws for the raw-readings limit above — it bounds a
 # `ts >= ?` read (battery_daily_rows()), deleting nothing.
 
-# Provisional (T-06-08-05): hardware/BATTERY-RUN.md pre-registers a
-# --min-mv-drop default of 100mV, but that threshold is judged over the
-# *whole multi-day run's* opening-vs-closing window mean (the "phantom
-# USB power" gate), not between two consecutive device_health readings —
-# a materially different granularity. Phase 5's Tasks 2/3 (the actual
-# multi-day discharge run and its measured curve) have not run yet, so
-# there is no measured per-reading discharge figure to anchor this on.
-# 100mV is reused here only as the closest recorded, pre-registered
-# figure this project has — NOT presented as a measured per-cycle value.
-# Revisit once hardware/BATTERY-RUN.md's "Discharge Trend" section is
-# filled in.
+# Originally provisional (T-06-08-05): 100mV was borrowed from
+# hardware/BATTERY-RUN.md's pre-registered --min-mv-drop, a whole-run
+# opening-vs-closing gate rather than a per-reading one. DEVICE-05's
+# completed run (BATTERY-RUN.md "Discharge Trend", 2026-09-02..14, 300 s
+# cadence) now bounds the real per-reading drop: ~50 mV/day through the
+# middle (well under 1 mV per reading) and, even across the final cliff,
+# 3364->2960 mV over ~21 h — a couple of mV per reading on average. A
+# genuine discharge therefore never drops 100mV between two consecutive
+# readings, so crossing it still means an anomaly (a sampling artefact or
+# a real fault), which is exactly what battery_status() flags. The value
+# stays 100: the run kept only a sampled trend table, not every reading,
+# so there is no measured per-reading noise floor to tighten it against.
 BATTERY_DROP_WARN_MV = 100
 
 # --- Corroboration (D-15) ---------------------------------------------------
