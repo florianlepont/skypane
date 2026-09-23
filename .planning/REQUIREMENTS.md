@@ -149,6 +149,93 @@ Seed idea, deferred 2026-08-27 (explore session) — the device-local half of th
 
 - **DEVICE-06**: When the device has failed to reach the server for 2+ consecutive poll attempts (`backoff_n >= 2`), it renders a small local fallback screen (solid fill + pre-baked alert icon) directly in firmware via the existing `fp_panel_draw()` call, without needing a successful server round-trip
 
+### Audit remediation (2026-09-23 code audit)
+
+Added 2026-09-23. Whole-repository code audit; the developer asked for every finding, low severity included, to be remediated inside v1.0 (Phases 32–41). Full evidence (file:line) and decisions D-A1..D-A6 in `.planning/audits/2026-09-23-code-audit.md`; each requirement below is that ledger row's remediation.
+
+- [ ] **TST-01**: pytest + pytest-xdist + pytest-cov as dev deps in `server/requirements-dev.txt`; config in `pyproject.toml`; shared fixtures in `conftest.py`; coverage gate moves to pytest-cov; CLAUDE.md stack row and CONTRIBUTING updated
+- [ ] **TST-02**: Migrated to pytest; every old check mapped in a migration ledger (old check name → new test id, or deletion with a reason)
+- [ ] **TST-03**: Injectable fake provider fixture; a conftest guard fails any test that opens a non-loopback socket
+- [ ] **TST-04**: CI (and ruff `target-version`) on the production version
+- [ ] **TST-05**: Run them in `firmware.yml`
+- [ ] **TST-06**: Separate test and deploy concurrency groups; never cancel an in-flight deploy
+- [ ] **TST-07**: `--only-shell`, cache `~/.cache/ms-playwright`
+- [ ] **TST-08**: Hash-pinned lock files for runtime and dev deps
+- [ ] **TST-09**: Subprocess coverage (`patch = ["subprocess"]`), then raise `fail_under` to the measured floor
+- [ ] **TST-10**: Migrated to pytest; one app-server fixture replaces every copy
+- [ ] **TST-11**: pytest-playwright; a missing browser is a failure in CI; parallelised per test with xdist
+- [ ] **TST-12**: Each rewritten as a behaviour or parsed-DOM assertion, or deleted with a stated reason in the migration ledger. No test reads `.planning/` or asserts on comments
+- [ ] **TST-13**: Permission tests skip under euid 0; every path inside `tmp_path`
+- [ ] **TST-14**: `run_all_tests.py` and all check counts retired; pytest discovery; `scripts/run-all-tests.sh` becomes a thin pytest wrapper
+- [ ] **TST-15**: Closing parity: every one of the 2018 pre-migration checks accounted for in the ledger; coverage ≥ pre-migration figure
+- [ ] **FW-01**: Reset reason checked at boot → increment `FP_NVS_BACKOFF_N` and sleep; `epd_init` returns errors
+- [ ] **FW-02**: Whole-wake deadline (one-shot `esp_timer` → deep sleep with backoff) and a real WDT; comment corrected
+- [ ] **FW-03**: 401/403 clears `FP_NVS_DEVICE_TOKEN`; next wake re-enrols; distinct error code
+- [ ] **FW-04**: Cap at 86400 s; above → JSON error
+- [ ] **FW-05**: Checked and mapped to the right `step=`
+- [ ] **FW-06**: Response validation (hash, URL, `sleep_s`, `led_enabled`, token), size/SHA gate and the sleep decision extracted into pure helpers with host tests
+- [ ] **FW-07**: https-only in production builds; custom bundle with the ISRG roots only
+- [ ] **FW-08**: Per-device enrolment secret; byos refuses re-enrolment of a known MAC
+- [ ] **FW-09**: `CONFIG_LWIP_DHCP_RESTORE_LAST_IP`, no ARP check (or static IP); measured on hardware
+- [ ] **FW-10**: One keep-alive client for display + image; TLS session tickets in RTC memory; wake duration logged (diagnostic line, Log Line Contract untouched); overhead explained
+- [ ] **FW-11**: Read once before Wi-Fi, 8-sample average
+- [ ] **FW-12**: `CONFIG_SPIRAM_MEMTEST=n`; shorter row wait if the datasheet allows; timed light sleep during the spacing wait
+- [ ] **FW-13**: Use `fp_api_base_normalize` or delete; delete dead code; drop orphan symbols; rollback disabled until OTA exists
+- [ ] **FW-14**: One helper each
+- [ ] **FW-15**: Derived from `git describe`
+- [ ] **HYG-01**: Keep what the code does, the *why* and invariants; drop plan/ticket history
+- [ ] **HYG-02**: Same purge in CSS and JS
+- [ ] **HYG-03**: Same purge
+- [ ] **HYG-04**: English-only rule for code, comments, docs and commits in CLAUDE.md and CONTRIBUTING.md
+- [ ] **HYG-05**: Deleted
+- [ ] **HYG-06**: Lint guard in CI rejecting plan/ticket IDs in comments (e.g. `\d{2}-\d{2}-PLAN`, `D-\d+`, `WR-\d+`)
+- [ ] **INT-01**: `fcntl.flock` on `state/poll.lock` around `run_once`
+- [ ] **INT-02**: One `atomic_write(path, data)` with unique temp names
+- [ ] **INT-03**: Thread lock + flock
+- [ ] **INT-04**: `mkstemp`, pruning, bounded cache
+- [ ] **INT-05**: Content-addressed `state/img/<sha>.bin` (last N kept); 404 on unknown hash
+- [ ] **INT-06**: Validated length, `Handler.timeout`, typed input, `hmac.compare_digest`
+- [ ] **INT-07**: `TimeoutStartSec`; total deadline per HTTP call
+- [ ] **INT-08**: Miss only on 404/empty route; TTL (misses ~1 day, hits ~30 days); LRU
+- [ ] **INT-09**: Advance to last newline; errors caught
+- [ ] **INT-10**: Type-checked
+- [ ] **INT-11**: Full traceback
+- [ ] **INT-12**: Injected clock; lock released during fetch
+- [ ] **INT-13**: Updated
+- [ ] **INT-14**: Pin the resolved IP for the connection (or correct the claim)
+- [ ] **SEC-01**: Per-client-IP throttle (trusted `X-Forwarded-For` from loopback Caddy)
+- [ ] **SEC-02**: `Strict-Transport-Security`
+- [ ] **SEC-03**: `Origin`/`Sec-Fetch-Site` check on every POST
+- [ ] **SEC-04**: Nightly `sqlite3 .backup` + off-box copy; README corrected
+- [ ] **SEC-05**: Release dir + symlink swap (or timer stopped); post-deploy `systemctl is-active` + HTTP probes fail the job; units/Caddyfile deployed with `daemon-reload`
+- [ ] **SEC-06**: `CapabilityBoundingSet=`, `PrivateDevices`, `ProtectKernel*`, `RestrictAddressFamilies`, `SystemCallFilter=@system-service`, `UMask=0027`; byos `--bind 127.0.0.1` + `IPAddressDeny=any`/`IPAddressAllow=localhost`
+- [ ] **SEC-07**: Secret via env; env file `root:root 600`; secret passed through `env:`
+- [ ] **SEC-08**: `sshd_config.d/00-skypane.conf`, `PermitRootLogin no`, validated
+- [ ] **EFF-01**: `encode zstd gzip`; validators + 304; static bytes cached in memory
+- [ ] **EFF-02**: Only the scripts each page uses (no build step)
+- [ ] **EFF-03**: One connection per request/cycle; schema once per process; one transaction
+- [ ] **EFF-04**: Lazy context; severity computed without markup; light freshness endpoint
+- [ ] **EFF-05**: Saved once, only if changed, compact
+- [ ] **EFF-06**: Providers queried in parallel, per-provider rate limit kept
+- [ ] **ARC-01**: `load_cycle_context` / `decide_hold` / `advance_display_queue` / `render_and_publish` / `persist` / `record` over a `CycleContext` dataclass
+- [ ] **ARC-02**: `server/state_store.py` owns `poll_state.json`; companion imports it
+- [ ] **ARC-03**: `render/{layout,text,hold_screens,cli}`, `calendar/{ics,registry,match}`, `themes.py`, shared `net/safe_fetch.py`
+- [ ] **ARC-04**: Explicit injection
+- [ ] **ARC-05**: One shared module used by server, byos and companion
+- [ ] **ARC-06**: Type hints on the pure core; mypy in CI
+- [ ] **CMP-01**: Route table `(method, matcher, handler, auth_required)`
+- [ ] **CMP-02**: One `{route: path}` allowlist
+- [ ] **CMP-03**: Split by settings group / by responsibility
+- [ ] **CMP-04**: Typed per-page context
+- [ ] **CMP-05**: Named templates
+- [ ] **CMP-06**: Broken down; `handle_post` per settings group
+- [ ] **CMP-07**: Shared helpers
+- [ ] **CMP-08**: Merged; colours → tokens
+- [ ] **CMP-09**: Stable message IDs
+- [ ] **DOC-01**: All docs aligned with the code as it stands after phases 32–40
+- [ ] **DOC-02**: Log gzipped in the tree (no history rewrite, D-A6); unused asset removed from the deploy; completed v1.0 phases archived via `/gsd-cleanup` at milestone close
+- [ ] **DOC-03**: Re-audit: every ID in this ledger verified against the code and marked closed
+
 ## Out of Scope
 
 Explicitly excluded. Documented to prevent scope creep.
@@ -261,6 +348,88 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-84 | Phase 29 | **Complete (29-06).** État's battery-trend `<h2>` reads "Batterie · 3 mois"/"Battery · 3 months"; "moyenne quotidienne"/"daily average" moved to the card's own caption sibling — independently confirmed by the phase verifier calling `_battery_trend_section_html()` directly and reading the rendered markup. |
 | CFG-85 | Phase 30 | Pending — phase added 2026-09-21; a `/gsd-sketch` round precedes planning. |
 | CFG-86 | Phase 30 | Pending — phase added 2026-09-21, not yet planned. |
+| TST-01 | Phase 32 | Pending |
+| TST-02 | Phase 32 | Pending |
+| TST-03 | Phase 32 | Pending |
+| TST-04 | Phase 32 | Pending |
+| TST-05 | Phase 32 | Pending |
+| TST-06 | Phase 32 | Pending |
+| TST-07 | Phase 32 | Pending |
+| TST-08 | Phase 32 | Pending |
+| TST-09 | Phase 32 | Pending |
+| TST-10 | Phase 33 | Pending |
+| TST-11 | Phase 33 | Pending |
+| TST-12 | Phase 33 | Pending |
+| TST-13 | Phase 33 | Pending |
+| TST-14 | Phase 33 | Pending |
+| TST-15 | Phase 33 | Pending |
+| FW-01 | Phase 34 | Pending |
+| FW-02 | Phase 34 | Pending |
+| FW-03 | Phase 34 | Pending |
+| FW-04 | Phase 34 | Pending |
+| FW-05 | Phase 34 | Pending |
+| FW-06 | Phase 34 | Pending |
+| FW-07 | Phase 34 | Pending |
+| FW-08 | Phase 34 | Pending |
+| FW-09 | Phase 34 | Pending |
+| FW-10 | Phase 34 | Pending |
+| FW-11 | Phase 34 | Pending |
+| FW-12 | Phase 34 | Pending |
+| FW-13 | Phase 34 | Pending |
+| FW-14 | Phase 34 | Pending |
+| FW-15 | Phase 34 | Pending |
+| HYG-01 | Phase 35 | Pending |
+| HYG-02 | Phase 35 | Pending |
+| HYG-03 | Phase 35 | Pending |
+| HYG-04 | Phase 35 | Pending |
+| HYG-05 | Phase 35 | Pending |
+| HYG-06 | Phase 35 | Pending |
+| INT-01 | Phase 36 | Pending |
+| INT-02 | Phase 36 | Pending |
+| INT-03 | Phase 36 | Pending |
+| INT-04 | Phase 36 | Pending |
+| INT-05 | Phase 36 | Pending |
+| INT-06 | Phase 36 | Pending |
+| INT-07 | Phase 36 | Pending |
+| INT-08 | Phase 36 | Pending |
+| INT-09 | Phase 36 | Pending |
+| INT-10 | Phase 36 | Pending |
+| INT-11 | Phase 36 | Pending |
+| INT-12 | Phase 36 | Pending |
+| INT-13 | Phase 36 | Pending |
+| INT-14 | Phase 36 | Pending |
+| SEC-01 | Phase 37 | Pending |
+| SEC-02 | Phase 37 | Pending |
+| SEC-03 | Phase 37 | Pending |
+| SEC-04 | Phase 37 | Pending |
+| SEC-05 | Phase 37 | Pending |
+| SEC-06 | Phase 37 | Pending |
+| SEC-07 | Phase 37 | Pending |
+| SEC-08 | Phase 37 | Pending |
+| EFF-01 | Phase 38 | Pending |
+| EFF-02 | Phase 38 | Pending |
+| EFF-03 | Phase 38 | Pending |
+| EFF-04 | Phase 38 | Pending |
+| EFF-05 | Phase 38 | Pending |
+| EFF-06 | Phase 38 | Pending |
+| ARC-01 | Phase 39 | Pending |
+| ARC-02 | Phase 39 | Pending |
+| ARC-03 | Phase 39 | Pending |
+| ARC-04 | Phase 39 | Pending |
+| ARC-05 | Phase 39 | Pending |
+| ARC-06 | Phase 39 | Pending |
+| CMP-01 | Phase 40 | Pending |
+| CMP-02 | Phase 40 | Pending |
+| CMP-03 | Phase 40 | Pending |
+| CMP-04 | Phase 40 | Pending |
+| CMP-05 | Phase 40 | Pending |
+| CMP-06 | Phase 40 | Pending |
+| CMP-07 | Phase 40 | Pending |
+| CMP-08 | Phase 40 | Pending |
+| CMP-09 | Phase 40 | Pending |
+| DOC-01 | Phase 41 | Pending |
+| DOC-02 | Phase 41 | Pending |
+| DOC-03 | Phase 41 | Pending |
 
 ## Phase 23 coverage ledger (companion dynamism I — "Alive")
 
