@@ -30,10 +30,10 @@ project pivoted to ADS-B detection of runway-3 traffic before v1.
 | Device | Seeed XIAO ePaper DIY Kit EE02 (XIAO ESP32-S3 Plus + 13.3" E Ink Spectra 6, 1200×1600, 6-color), 3.7 V LiPo — `hardware/BOM.md` |
 | Firmware | ESP-IDF 5.3.1 (C), built in the `espressif/idf:v5.3.1` container (`firmware/build.sh`); Apache-2.0, derived from flightportrait/frame — `firmware/VENDOR.md` |
 | Flight data | adsb.fi + adsb.lol (ADS-B positions, corroborated), adsbdb.com (callsign → airline/route); airplanes.live opt-in only — `COMPLIANCE.md` |
-| Server | Python 3.12, stdlib + Pillow + requests only (`server/requirements.txt`); poll loop is a systemd timer oneshot every 30 s; device protocol served by `stub-server/byos_server.py` (`skypane-byos.service`) |
+| Server | Python 3.14 (Ubuntu 26.04 distro python3), stdlib + Pillow + requests only (`server/requirements.txt`); poll loop is a systemd timer oneshot every 30 s; device protocol served by `stub-server/byos_server.py` (`skypane-byos.service`) |
 | Companion | stdlib `ThreadingHTTPServer` (`companion/app.py`), shared-password auth, English/French UI |
 | Hosting | OVH VPS-1, Ubuntu, Caddy for TLS, three systemd units — `deploy/README.md` |
-| Tests / CI | stdlib test harnesses (`./scripts/run-all-tests.sh`), ruff, coverage gate, Playwright for browser UX checks; GitHub Actions with a reviewer-gated production deploy |
+| Tests / CI | pytest + pytest-xdist + pytest-cov (`./scripts/run-all-tests.sh` wraps `pytest -n auto --cov`), a pytest-socket non-loopback guard, companion's remaining hand-rolled harnesses run through a pytest shim until Phase 33, ruff, coverage gate at the measured floor, Playwright headless shell, hash-locked `server/requirements*.txt`; GitHub Actions with a reviewer-gated production deploy and firmware host tests in `firmware.yml` |
 
 <!-- GSD:stack-end -->
 

@@ -83,11 +83,18 @@ apart.
 
 ## Running it locally
 
-Requires Python 3.12.
+Requires Python 3.14.
 
 ```bash
 python3 -m venv server/.venv
-server/.venv/bin/pip install -r server/requirements.txt
+server/.venv/bin/pip install --require-hashes -r server/requirements.txt
+```
+
+To run the tests too, install the dev superset instead (adds pytest and
+friends on top of the runtime pins above):
+
+```bash
+server/.venv/bin/pip install --require-hashes -r server/requirements-dev.txt
 ```
 
 Render a panel by hand (writes the 960,000-byte panel file plus a PNG
@@ -109,11 +116,12 @@ server/.venv/bin/python3 server/poll_loop.py --once --state-dir /tmp/skypane-sta
 ./scripts/run-all-tests.sh
 ```
 
-This is exactly what CI runs. There is no pytest: each `test_*.py` file is
-a standalone, stdlib-only script that reports its own check count and
-exit code. The runner executes them in parallel (`JOBS=1` for serial) and
-enforces a coverage threshold. Firmware logic that doesn't need hardware
-has host tests: `firmware/tests/run_host_tests.sh`.
+This is exactly what CI runs: a thin wrapper over `pytest -n auto --cov`.
+pytest and pytest-xdist own discovery and parallelism (`JOBS=1` for
+serial), pytest-cov enforces the coverage gate, and extra arguments are
+passed straight through to pytest (e.g. `./scripts/run-all-tests.sh -k
+dither`). Firmware logic that doesn't need hardware has host tests:
+`firmware/tests/run_host_tests.sh`.
 
 ## Firmware
 
