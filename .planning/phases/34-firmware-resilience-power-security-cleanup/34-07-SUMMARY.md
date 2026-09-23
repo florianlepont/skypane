@@ -115,3 +115,16 @@ None - no external service configuration required.
 ---
 *Phase: 34-firmware-resilience-power-security-cleanup*
 *Completed: 2026-09-23*
+
+## Self-Check: PASSED
+
+- FOUND: `firmware/main/wake_guard.h`
+- FOUND: `firmware/main/wake_guard.c`
+- FOUND: `firmware/main/epd13in3e.c` (modified)
+- FOUND: `firmware/main/panel.c` (modified)
+- FOUND: `firmware/main/battery.c` (modified)
+- FOUND: `firmware/main/battery.h` (modified)
+- FOUND commit `70ca527` (Task 1)
+- FOUND commit `fc3e4c2` (Task 2)
+- FOUND commit `ae822ca` (Task 3)
+- FOUND commit `b52e2df` (SUMMARY.md)
