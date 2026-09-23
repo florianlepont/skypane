@@ -16,7 +16,6 @@
 #include "led.h"
 #include "nvs_schema.h"
 #include "panel.h"
-#include "secrets.h"
 #include "wifi.h"
 
 static const char *TAG = "skypane";
@@ -34,13 +33,18 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     }
 
     if (!fp_api_has_token()) {
-        /* First wake ever (or the first wake after an NVS erase): enrol
-         * before any /display poll can carry a bearer token. Phase 1 has
-         * no BLE provisioning, so the setup secret comes straight from
-         * the gitignored secrets.h — see api_client.c's base-URL
-         * resolution comment for the same Phase-1-only scoping. */
-        if (fp_api_setup(SKYPANE_SETUP_SECRET) != ESP_OK) {
-            *fail_step_out = "http";
+        /* First wake ever (or the first wake after a 401/403 erased the
+         * token): enrol before any /display poll can carry a bearer
+         * token. The enrolment secret is this device's own, read from
+         * its dedicated NVS partition by fp_api_setup() itself
+         * (enrol_secret.h) — never a value this file supplies. */
+        esp_err_t setup_err = fp_api_setup();
+        if (setup_err != ESP_OK) {
+            *fail_step_out = setup_err == FP_ERR_NO_SECRET ? "secret"
+                : setup_err == FP_ERR_ENROL_REJECTED ? "enrol"
+                : setup_err == FP_ERR_CONFIG ? "config"
+                : setup_err == FP_ERR_HTTP_STATUS ? "status"
+                : setup_err == FP_ERR_HTTP_JSON ? "json" : "http";
             return FP_POLL_FAILED;
         }
     }
@@ -48,7 +52,9 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     fp_display_t disp;
     esp_err_t err = fp_api_get_display(boot_reason, &disp);
     if (err != ESP_OK) {
-        *fail_step_out = err == FP_ERR_HTTP_STATUS ? "status"
+        *fail_step_out = err == FP_ERR_HTTP_AUTH ? "auth"
+            : err == FP_ERR_CONFIG ? "config"
+            : err == FP_ERR_HTTP_STATUS ? "status"
             : err == FP_ERR_HTTP_JSON ? "json" : "http";
         return FP_POLL_FAILED;
     }
@@ -100,6 +106,7 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     /* Radio down before the panel: the blit (and any wait the panel's
      * refresh spacing imposes) is the longest part of the wake, and
      * holding an association through it buys nothing. */
+    fp_api_release();
     fp_wifi_stop();
     err = fp_panel_draw(buf);
     heap_caps_free(buf);

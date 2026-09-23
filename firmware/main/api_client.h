@@ -35,10 +35,14 @@
  * Values are outside every ESP-IDF component's documented error-base
  * range — they are compared for equality only, never passed to
  * ESP_ERROR_CHECK or interpreted by IDF internals. */
-#define FP_ERR_HTTP_TRANSPORT ((esp_err_t)0x00600001) /* couldn't open/connect */
-#define FP_ERR_HTTP_STATUS    ((esp_err_t)0x00600002) /* non-200 response */
-#define FP_ERR_HTTP_JSON      ((esp_err_t)0x00600003) /* malformed/invalid response body */
-#define FP_ERR_IMAGE_VERIFY   ((esp_err_t)0x00600004) /* sha256/size mismatch on download */
+#define FP_ERR_HTTP_TRANSPORT  ((esp_err_t)0x00600001) /* couldn't open/connect */
+#define FP_ERR_HTTP_STATUS     ((esp_err_t)0x00600002) /* non-200 response */
+#define FP_ERR_HTTP_JSON       ((esp_err_t)0x00600003) /* malformed/invalid response body */
+#define FP_ERR_IMAGE_VERIFY    ((esp_err_t)0x00600004) /* sha256/size mismatch on download */
+#define FP_ERR_HTTP_AUTH       ((esp_err_t)0x00600005) /* server rejected this device's bearer token (401/403); it has been erased */
+#define FP_ERR_ENROL_REJECTED  ((esp_err_t)0x00600006) /* setup refused with 401/403: secret wrong or device not registered */
+#define FP_ERR_NO_SECRET       ((esp_err_t)0x00600007) /* no valid enrolment secret in the secret partition */
+#define FP_ERR_CONFIG          ((esp_err_t)0x00600008) /* API base URL rejected by this build */
 
 typedef struct {
     char image_url[768];   /* presigned URLs are long */
@@ -55,10 +59,18 @@ typedef struct {
 /* True once POST /device/v1/setup has stored a bearer token in NVS. */
 bool fp_api_has_token(void);
 
-/* POST /device/v1/setup. Stores the returned device token in NVS only
- * after validating the complete response (PROTOCOL.md §2: device_token
- * is exactly 64 lowercase hex chars). */
-esp_err_t fp_api_setup(const char *provision_secret);
+/* POST /device/v1/setup, sending this device's own enrolment secret
+ * (read from its dedicated NVS partition — enrol_secret.h). Stores the
+ * returned device token in NVS only after validating the complete
+ * response (PROTOCOL.md §2: device_token is exactly 64 lowercase hex
+ * chars). Returns FP_ERR_NO_SECRET before any network activity if no
+ * valid secret is present, or FP_ERR_ENROL_REJECTED if the server
+ * refuses the secret with 401/403. */
+esp_err_t fp_api_setup(void);
+
+/* Releases any connection kept open between calls in this wake; safe to
+ * call when none is open. */
+void fp_api_release(void);
 
 /* GET /device/v1/display. Sends the Authorization bearer header and all
  * four telemetry headers on every call. Rejects the whole response

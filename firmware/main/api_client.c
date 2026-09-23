@@ -16,11 +16,11 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "mbedtls/sha256.h"
-#include "nvs.h"
 #include "sdkconfig.h"
 
 #include "api_base.h"
 #include "battery.h"
+#include "enrol_secret.h"
 #include "nvs_schema.h"
 #include "nvs_util.h"
 #include "secrets.h"
@@ -167,11 +167,18 @@ static esp_err_t small_request(esp_http_client_handle_t http,
 
 /* ------------------------------------------------------------------ setup */
 
-esp_err_t fp_api_setup(const char *provision_secret)
+esp_err_t fp_api_setup(void)
 {
-    if (!provision_secret) {
-        return ESP_ERR_INVALID_ARG;
+    char secret[65];
+    esp_err_t err = fp_enrol_secret_load(secret, sizeof(secret));
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG,
+                 "no enrolment secret in the '%s' partition; provision "
+                 "this device with firmware/provision.sh",
+                 FP_NVS_SECRET_PARTITION);
+        return FP_ERR_NO_SECRET;
     }
+
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
     char mac_text[18];
@@ -181,19 +188,21 @@ esp_err_t fp_api_setup(const char *provision_secret)
 
     cJSON *request = cJSON_CreateObject();
     if (!request) {
+        memset(secret, 0, sizeof(secret));
         return ESP_ERR_NO_MEM;
     }
     cJSON_AddStringToObject(request, "mac", mac_text);
     cJSON_AddStringToObject(request, "hw_rev", CONFIG_FP_HW_REV);
-    cJSON_AddStringToObject(request, "provision_secret", provision_secret);
+    cJSON_AddStringToObject(request, "provision_secret", secret);
     char *body = cJSON_PrintUnformatted(request);
     cJSON_Delete(request);
+    memset(secret, 0, sizeof(secret));
     if (!body) {
         return ESP_ERR_NO_MEM;
     }
 
     char base[API_BASE_MAX], url[URL_MAX];
-    esp_err_t err = api_base_get(base, sizeof(base));
+    err = api_base_get(base, sizeof(base));
     if (err != ESP_OK) {
         memset(body, 0, strlen(body));
         cJSON_free(body);
@@ -215,6 +224,15 @@ esp_err_t fp_api_setup(const char *provision_secret)
     esp_http_client_cleanup(http);
     memset(body, 0, strlen(body));
     cJSON_free(body);
+    if (err == FP_ERR_HTTP_AUTH) {
+        /* Nothing to erase here: setup never had a token to begin with.
+         * The secret itself is not at fault for a retry - it stays put
+         * for the next wake, which tries again after normal backoff. */
+        ESP_LOGW(TAG, "enrolment refused by the server (secret not "
+                      "accepted or device not registered)");
+        memset(resp, 0, sizeof(resp));
+        return FP_ERR_ENROL_REJECTED;
+    }
     if (err != ESP_OK) {
         memset(resp, 0, sizeof(resp));
         return err;
@@ -224,15 +242,7 @@ esp_err_t fp_api_setup(const char *provision_secret)
     const cJSON *tok = json
         ? cJSON_GetObjectItemCaseSensitive(json, "device_token") : NULL;
     bool token_ok = cJSON_IsString(tok) && tok->valuestring &&
-        strlen(tok->valuestring) == 64;
-    if (token_ok) {
-        for (const char *p = tok->valuestring; *p; p++) {
-            if (!((*p >= '0' && *p <= '9') || (*p >= 'a' && *p <= 'f'))) {
-                token_ok = false;
-                break;
-            }
-        }
-    }
+        fp_token_valid(tok->valuestring);
     if (!token_ok) {
         if (cJSON_IsString(tok) && tok->valuestring) {
             memset(tok->valuestring, 0, strlen(tok->valuestring));
@@ -242,17 +252,7 @@ esp_err_t fp_api_setup(const char *provision_secret)
         return FP_ERR_HTTP_JSON;
     }
 
-    nvs_handle_t nvs = 0;
-    err = nvs_open(FP_NVS_NAMESPACE, NVS_READWRITE, &nvs);
-    if (err == ESP_OK) {
-        err = nvs_set_str(nvs, FP_NVS_DEVICE_TOKEN, tok->valuestring);
-    }
-    if (err == ESP_OK) {
-        err = nvs_commit(nvs);
-    }
-    if (nvs != 0) {
-        nvs_close(nvs);
-    }
+    err = fp_nvs_set_str(FP_NVS_DEVICE_TOKEN, tok->valuestring);
     if (err == ESP_OK) {
         ESP_LOGI(TAG, "setup accepted; device credential stored");
     }
@@ -260,6 +260,13 @@ esp_err_t fp_api_setup(const char *provision_secret)
     cJSON_Delete(json);
     memset(resp, 0, sizeof(resp));
     return err;
+}
+
+/* No connection is kept open across calls yet - this is the call site a
+ * future connection-reuse body attaches to, wired in now so its caller
+ * never needs to change. */
+void fp_api_release(void)
+{
 }
 
 /* ---------------------------------------------------------------- display */
@@ -287,6 +294,12 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
     int n = 0;
     err = small_request(http, NULL, resp, &n);
     esp_http_client_cleanup(http);
+    if (err == FP_ERR_HTTP_AUTH) {
+        fp_nvs_erase_key(FP_NVS_DEVICE_TOKEN);
+        ESP_LOGW(TAG, "device token rejected; erased, re-enrolling on "
+                      "the next wake");
+        return FP_ERR_HTTP_AUTH;
+    }
     if (err != ESP_OK) {
         return err;
     }
