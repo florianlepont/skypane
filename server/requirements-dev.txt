@@ -9,3 +9,15 @@ coverage==7.16.1
 # for the identical reason the header comment above states: deploy/deploy.sh
 # installs server/requirements.txt only, so a browser driver never reaches the VPS.
 playwright==1.63.0
+# Phase 32 (32-01, TST-01/TST-03): the pytest migration target. pytest is the
+# test runner/discovery/assertions, pytest-xdist parallelises across worker
+# processes (replaces scripts/run_all_tests.py's own ThreadPoolExecutor),
+# pytest-cov bridges pytest to the coverage.py already pinned above, and
+# pytest-socket is the non-loopback network guard every test runs under.
+# All four rated [OK] by slopcheck 0.6.1 (32-RESEARCH.md Package Legitimacy
+# Audit). Dev-only for the identical reason every other line in this file
+# is: deploy/deploy.sh installs server/requirements.txt only.
+pytest==9.1.1
+pytest-xdist==3.8.0
+pytest-cov==7.1.0
+pytest-socket==0.8.1

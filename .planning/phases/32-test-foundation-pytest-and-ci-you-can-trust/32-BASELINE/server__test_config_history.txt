@@ -1,0 +1,91 @@
+PASS load_device_config() on a missing state directory returns the documented defaults
+PASS load_device_config() on a JSON array, a truncated document, or a non-dict returns defaults instead of raising
+PASS load_device_config() replaces an unrecognised theme/runway value with the default rather than passing it through
+PASS save_device_config() followed by load_device_config() round-trips the saved theme and tracked_runway
+PASS save_device_config() with an unknown theme id raises ValueError and leaves the state directory file-free
+PASS no .tmp file remains in the state directory after a successful save
+PASS a legitimately saved config, hand-edited on disk to hostile values, still yields defaults from load_device_config()
+PASS normalise_led_enabled() returns the value only for real bools and degrades a string, int 0, int 1, None, and a list to DEFAULT_LED_ENABLED
+PASS save_device_config(led_enabled=False) round-trips through load_device_config() as False, with theme/tracked_runway still at their defaults
+PASS a hand-written device_config.json whose led_enabled is a hostile string yields DEFAULT_LED_ENABLED from load_device_config()
+PASS save_device_config(led_enabled='off') raises ValueError and leaves a pre-existing, legitimately-saved file byte-identical
+PASS a subsequent theme-only save_device_config(theme='black') carries a previously-saved led_enabled=False forward unchanged
+PASS every THEMES entry carries exactly its contract keys (6 for non-band, 8 for band), real panel_format.IDX_* index values, a non-empty label, a bool dithered flag, a regular/bold weight, and (band entries only) a real band_index plus a bool band_dithered
+PASS every registered theme is single-colour (departing_index == arriving_index); the retired two-tone 'sky' theme is gone
+PASS every one of the 18 registered themes carries the exact background/ink pairing expected, pinned as an explicit id-to-(background,ink) mapping
+PASS every registered theme's base-canvas dithered/weight pair matches the on-glass-confirmed values, including Yellow Light's Regular exception, the 5 White-base band themes, and the 2 tinted-field band themes' blue_light/red_light-derived values
+PASS DEFAULT_THEME_ID is 'white' and a THEMES member; theme_label() returns the exact plain label for all 18 ids
+PASS theme_is_band() returns True for exactly the ids device_config.THEMES itself marks as band entries (band_index present) and False for every other registered id
+PASS theme_band_index() returns THEMES's own band_index for every band id (the exact spike-confirmed IDX_* per colour) and None for every non-band id
+PASS theme_band_dithered() returns THEMES's own band_dithered for every band id and False for every non-band id
+PASS band_blue_field/band_red_field are genuinely tone-on-tone (band_index equals departing_index equals arriving_index), dithered=True/band_dithered=False, and their base-canvas quadruple matches their tinted-field sibling's (blue_light/red_light) own registry row, read live rather than hardcoded
+PASS load_device_config() replaces hostile quiet_hours_enabled/quiet_hours_start/quiet_hours_end values with their documented defaults
+PASS save_device_config(quiet_hours_enabled=True, quiet_hours_start='22:30', quiet_hours_end='06:15') round-trips through load_device_config() with theme/tracked_runway/led_enabled still at their prior (default) values
+PASS save_device_config(quiet_hours_start='24:00') raises ValueError and leaves a pre-existing, legitimately-saved file byte-identical
+PASS save_device_config(quiet_hours_enabled='on') raises ValueError
+PASS normalise_quiet_hours_time() rejects an unpadded hour, an out-of-range minute, midnight-as-24:00, an empty string, None, an int, and a trailing newline - returning the supplied default for each
+PASS seconds_until_quiet_hours_end() returns the verified wrap-midnight/DST anchors: 28000 mid-window, None just past end, 23400 across spring-forward (1h less than naive), 30600 across autumn fall-back (1h more than naive)
+PASS seconds_until_quiet_hours_end() handles a same-day (non-wrapping) window correctly and returns None for a zero-width start_hm == end_hm window
+PASS quiet_hours_status() returns (None, None) when quiet_hours_enabled is False, and (28000, '07:00') for an enabled 23:00-07:00 config at the verified anchor epoch
+PASS quiet_hours_status() returns (None, None) and never raises for a non-numeric string, None, NaN, or an absurdly large now_epoch
+PASS normalise_wake_interval_s() returns None for True, False (the bool-is-an-int gotcha), a numeric string, a float, and every out-of-[60, 3600] int, and returns 60/3600/120 unchanged
+PASS load_device_config() degrades a hand-written hostile wake_interval_s (JSON true, a numeric string, a float, or the below-minimum 30) to None, and lets an in-range 120 survive unchanged
+PASS save_device_config(wake_interval_s=120) round-trips through load_device_config() as 120, with theme/tracked_runway/led_enabled and all three quiet-hours fields still at their prior (default) values
+PASS save_device_config() rejects wake_interval_s=59, 3601, True, False, '120', and 120.0 with ValueError, leaves a pre-existing, legitimately-saved file byte-identical across every rejection, and accepts the inclusive bounds 60 and 3600
+PASS a subsequent theme-only save_device_config(theme='black') carries a previously-saved wake_interval_s=120 forward unchanged
+PASS normalise_theme_arriving() degrades a hostile string, an int, a bool, an empty string, a dict, and None to None - never to DEFAULT_THEME_ID, the wrong-shaped answer normalise_theme_id() would give - and returns a real THEMES member unchanged
+PASS CLEAR_THEME_ARRIVING is a distinct object - not None, and neither equal to nor a member of any registered theme id, so it can never collide with a real theme id or with unset
+PASS load_device_config() degrades a hand-written hostile theme_arriving (an unregistered string, a JSON int, or JSON null) to None, never to DEFAULT_THEME_ID
+PASS a device_config.json written before this phase (no theme_arriving key at all) loads every stored key unchanged, resolves theme_arriving to None, and is not rewritten on disk by load_device_config() - no migration
+PASS save_device_config()'s theme_arriving honours its three-state contract end to end: set, carry-forward-on-omission, CLEAR_THEME_ARRIVING clears to None without disturbing theme, and a non-member value raises ValueError leaving the file byte-identical
+PASS normalise_display_enabled() degrades int 0, int 1, 'true', 'on', an empty string, None, an empty list, and an empty dict to DEFAULT_DISPLAY_ENABLED, and returns both real booleans unchanged
+PASS load_device_config() degrades a hand-written hostile display_enabled (0, "false", null, or a non-dict document) to True so a corrupted config can never darken the frame (D-09), while a legitimate display_enabled=false survives as False
+PASS save_device_config(display_enabled=False) round-trips through load_device_config() as False with all seven other fields still at their prior (default) values, and a subsequent theme-only save carries display_enabled=False forward unchanged
+PASS save_device_config() rejects display_enabled='on', 0, 1, 'false', and [] with ValueError and leaves a pre-existing, legitimately-saved file byte-identical across every rejection (display_enabled=None is not a rejection case - it means carry forward)
+PASS load_device_config() resolves calendar_theme_id to None both for a missing state dir and for a config saved before this key was ever supplied - a pre-existing deployed config must not break
+PASS save_device_config(calendar_theme_id=<a registered THEME_IDS member>) round-trips through load_device_config() unchanged
+PASS load_device_config() degrades a hand-written hostile calendar_theme_id (an unregistered string, the empty string, a JSON int, bool, list, dict, or null) to None, provably never to DEFAULT_THEME_ID (T-16-TAMPER)
+PASS save_device_config(calendar_theme_id=<non-member>) raises ValueError and leaves a pre-existing, legitimately-saved file byte-identical
+PASS a save that supplies only calendar_theme_id leaves theme/theme_arriving/tracked_runway/led_enabled/quiet-hours/wake_interval_s/display_enabled at their stored values, and a save that supplies only theme leaves an already-stored calendar_theme_id intact
+PASS clearing theme_arriving through CLEAR_THEME_ARRIVING leaves a separately-set calendar_theme_id untouched - the two override keys are not coupled by the shared write path
+PASS normalise_screen_id() degrades a hostile/unknown/None/non-string value to DEFAULT_SCREEN_ID and passes a real member through unchanged
+PASS save_device_config(screen_id='nope') raises ValueError naming SCREEN_IDS and leaves a pre-existing file byte-identical
+PASS a device_config.json written with no screen_id key loads with DEFAULT_SCREEN_ID and is never rewritten on read
+PASS device_config.SCREEN_IDS/DEFAULT_SCREEN_ID stay pinned equal to companion.screens's own duplicated-not-imported values
+PASS a device_config.json written before this phase (no notifications key at all) resolves notifications to DEFAULT_NOTIFICATIONS and is not rewritten on disk by load_device_config() - no migration
+PASS normalise_notifications() degrades a non-dict value ('x', [], 7, None) to a copy of DEFAULT_NOTIFICATIONS wholesale, and degrades each hostile sub-field ({'lang': 'de'}, or a wrong-typed topic_url/battery_low/frame_silent) independently while a real sibling field survives
+PASS save_device_config(notifications={...}) round-trips through load_device_config() unchanged, leaving every sibling field at its prior (default) value
+PASS save_device_config() rejects a non-dict notifications value, a non-str topic_url, a non-bool battery_low/frame_silent, and a lang outside ('en', 'fr') with ValueError, leaving a pre-existing, legitimately-saved file byte-identical across every rejection
+PASS server/device_config.py introduces no print()/logging call for the notifications group, preserving this module's own print-free-by-design contract (T-20-12: a topic_url can never reach a log this module controls)
+PASS connect() creates history.db, sets WAL + busy_timeout, creates all three tables, and is idempotent
+PASS record_runway_event() inserts one row; recent_runway_events(limit=2) returns the two newest, newest first
+PASS route_source_counts(since=...) returns fresh_hit/cache_hit/miss with counts 1/2/1
+PASS corroboration_counts(since=...) buckets True/None/False separately, never collapsing None into False
+PASS a runway_events row written with corroborated unknown is readable back as the unknown value, distinct from false
+PASS a callsign containing an HTML angle bracket and a SQL quote round-trips byte-identically through recent_runway_events()
+PASS set_meta()/get_meta() round-trip, absent key reads None, a second set_meta() overwrites rather than duplicating
+PASS ingest_caddy_battery_log() inserts exactly 2 rows from a mixed fixture, and 0 more on an unchanged re-run
+PASS daily_battery_averages() groups by Europe/Paris calendar day, rounds the mean, orders newest-first, honours since=, and excludes NULL-battery and unparseable-timestamp rows (22-06-PLAN.md Task 1)
+PASS daily_battery_averages(): a 01:30+02:00 reading buckets to its Europe/Paris day, and two same-Paris-day readings on different UTC days form ONE bucket (D-12.3, 22-06-PLAN.md Task 1)
+PASS daily_battery_averages() buckets correctly across the CET-to-CEST March transition (the skipped hour), on the Paris day each reading actually fell on (D-12.3)
+PASS daily_battery_averages() buckets correctly across the CEST-to-CET October transition (the repeated hour), counting each instant once on the correct Paris day (D-12.3)
+PASS check_in_gaps() returns the observed intervals between consecutive device_health check-ins, oldest-first, each carrying both timestamps, its length in seconds and its Paris day
+PASS check_in_gaps() reads EVERY device_health row, including one whose battery_mv is NULL - a missing X-Battery-Mv header is not a missed wake (CFG-43)
+PASS check_in_gaps() reports the spans an undatable ts bounds as UNKNOWN rather than merging them into one false long interval
+PASS check_in_gaps() returns an empty list - never raising - for an empty table, a single check-in, and a window containing no rows, while an inclusive window still yields its interval
+PASS check_in_gaps()'s docstring carries both 'cannot know' caveats - the ingest-missed log range and the UNIQUE(ts, battery_mv) collapse with its 60-second bound - plus why battery_mv is unfiltered
+PASS server/history_db.py still contains no ALTER TABLE and no PRAGMA user_version - the whole migration story remains CREATE TABLE IF NOT EXISTS on every connection (CFG-43)
+PASS classify_check_in_gap() is on-cadence below warn_s, late EXACTLY AT warn_s, still late below error_s and missing EXACTLY AT error_s, for a non-default 777 s cadence (CFG-43)
+PASS classify_check_in_gap() with a None cadence degrades to the bare floors rather than refusing to classify - the same degradation device_staleness_thresholds(None) already performs
+PASS classify_check_in_gap() reports an unknowable gap (None, a non-number, a bool, a negative, NaN) as unknown - never as on-cadence
+PASS classify_check_in_gap()'s own source derives its thresholds from device_staleness_thresholds(), re-types none of the multipliers or floors, reads no config, and history_db.py holds no second copy
+PASS the verdict vocabulary is four distinct observed terms and neither history_db.py nor wake.py uses the words 'honoured' or 'punctual' anywhere (24-RESEARCH.md Risk 1)
+PASS every CREATE TABLE in history_db.py is guarded by IF NOT EXISTS and there are exactly four - the fourth (wake_epochs) is the whole migration story for this phase
+PASS a history.db created BEFORE wake_epochs existed opens cleanly, gains the table from the existing CREATE TABLE IF NOT EXISTS bootstrap, and keeps every pre-existing row intact (no migration needed)
+PASS record_wake_epoch() inserts only when the effective interval differs from the newest stored row, treating an undeterminable cadence as a distinct value rather than a continuation
+PASS no file under companion/ so much as mentions wake_epochs - the table accrues data for a later phase and nothing in phase 24 reads it (24-RESEARCH.md Risk 1, Option C)
+PASS every history_db.py execute() call uses ? placeholders, never %-formatting or an f-string
+PASS effective_wake_interval_s(cfg, battery_critical=True) pins device_config.BATTERY_CRITICAL_SLEEP_S ahead of every other consideration, including display_enabled=False, and the default False leaves every existing result unchanged
+PASS read_battery_critical() returns True only for a literal JSON true under BATTERY_CRITICAL_STATE_KEY - a missing file, malformed JSON, a non-dict payload, the string 'true', and the int 1 all return False, and it never raises
+PASS next_wake_status(last_checkin, cfg, battery_critical=True) puts the next wake exactly BATTERY_CRITICAL_SLEEP_S (3600 s) after the check-in when no quiet-hours window applies
+config-history: 90/90 checks pass
