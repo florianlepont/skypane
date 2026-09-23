@@ -1568,10 +1568,26 @@ Plans:
 4. Coverage measured for `companion/app.py` and `byos_server.py`; gate raised to the measured floor
 5. Runtime and dev dependencies hash-locked; Playwright shell cached
 
-**Plans:** 0 plans
+**Plans:** 15 plans in 4 waves
+
+**Wave structure:** W1 infra + baselines (32-01, 32-02) → W2 harness migrations, /poll-now fake provider, hash-locks (32-03 … 32-12, disjoint files) → W3 runner retirement + ledger assembly, CI (32-13, 32-14) → W4 coverage floor + docs (32-15)
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 32 to break down)
+- [ ] 32-01-PLAN.md — pytest/xdist/cov/pytest-socket dev deps, pytest config, ruff py314, root conftest, cross-process network guard, fake providers, companion legacy-harness shim
+- [ ] 32-02-PLAN.md — pre-migration baseline transcripts of the 15 server-side harnesses, migration-ledger scaffold and checker
+- [ ] 32-03-PLAN.md — migrate dither, runway_config, notify, panel_preview, pipeline_e2e
+- [ ] 32-04-PLAN.md — migrate manual_resolutions (root-safe), colour_rules, enrich
+- [ ] 32-05-PLAN.md — migrate illustrations, plane_detection (onto the fake providers)
+- [ ] 32-06-PLAN.md — migrate stub-server/test_poll_cycle (byos fixtures, guarded children)
+- [ ] 32-07-PLAN.md — migrate config_history
+- [ ] 32-08-PLAN.md — migrate calendar_rules
+- [ ] 32-09-PLAN.md — migrate render
+- [ ] 32-10-PLAN.md — migrate poll_loop
+- [ ] 32-11-PLAN.md — /poll-now checks on the fake provider; shim runs every companion harness under the network guard
+- [ ] 32-12-PLAN.md — hash-locked runtime and dev deps for 3.14, `--require-hashes` in deploy.sh
+- [ ] 32-13-PLAN.md — assemble and verify the migration ledger, retire run_all_tests.py, run-all-tests.sh → pytest wrapper, subprocess coverage
+- [ ] 32-14-PLAN.md — CI on 3.14, hash-enforced installs, separate test/deploy concurrency (deploy never cancelled), Playwright shell + cache, firmware host tests
+- [ ] 32-15-PLAN.md — measure app.py/byos coverage, raise fail_under to the measured floor, docs (CLAUDE.md, CONTRIBUTING, README)
 
 ### Phase 33: Companion tests on pytest — behaviour over source text
 
