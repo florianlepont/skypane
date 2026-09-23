@@ -1,4 +1,9 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-FileCopyrightText: 2026 YODE PTE LTD
+ * SPDX-FileCopyrightText: 2026 Florian Lepont
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Modified from FlightPortrait (github.com/flightportrait/frame) for
+ * SkyPane; the changes are listed in firmware/VENDOR.md. */
 /*
  * SkyPane - Phase 1 wake dispatcher.
  *

@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 YODE PTE LTD
+# SPDX-FileCopyrightText: 2026 Florian Lepont
+# SPDX-License-Identifier: Apache-2.0
+# Modified from FlightPortrait (github.com/flightportrait/frame) for
+# SkyPane; the changes are listed in firmware/VENDOR.md.
 cmake_minimum_required(VERSION 3.16)
 # Single source of the firmware version; reported to the server as
 # X-Fw-Version via the app descriptor.

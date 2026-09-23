@@ -13,6 +13,27 @@
   ```
   Full licence text: https://github.com/flightportrait/frame/blob/ce3335fc5e566bcc6ccd29966ec39bf5c5318f12/LICENSE
 
+## Licensing of this directory
+
+All of `firmware/` is distributed under the Apache License 2.0 — a verbatim
+copy of the upstream licence text is in [`LICENSE`](./LICENSE), and the
+upstream `NOTICE` is reproduced in [`NOTICE`](./NOTICE). This satisfies the
+four redistribution conditions of Apache-2.0 §4:
+
+1. **Licence copy** — `firmware/LICENSE`.
+2. **Modified files carry prominent notices** — every file marked "no" in
+   the table below starts with a header naming both copyright holders and
+   pointing back to this file for the list of changes.
+3. **Upstream notices retained** — every vendored file keeps its original
+   `SPDX-FileCopyrightText: 2026 YODE PTE LTD` line; verbatim files are
+   byte-identical to the pinned commit.
+4. **NOTICE** — `firmware/NOTICE`.
+
+Files original to SkyPane (see "Original To This Repository" below) carry
+`SPDX-FileCopyrightText: 2026 Florian Lepont` only. They are licensed under
+Apache-2.0 as well, so the whole directory has one licence. The repository's
+root AGPL-3.0 licence does **not** apply to `firmware/`.
+
 This is a pin to an exact commit, not a branch. A future phase intending to
 pick up upstream changes must re-pin deliberately — update the hash in this
 file, diff every vendored file in the table below against the new commit,
@@ -30,17 +51,17 @@ re-apply any local changes it still needs, and re-run the host tests
 | `tests/test_backoff.c` | `tests/test_backoff.c` | yes | none |
 | `tests/test_api_base.c` | `tests/test_api_base.c` | yes | none |
 | `partitions.csv` | `partitions.csv` | yes | none |
-| `sdkconfig.defaults` | `sdkconfig.defaults` | no | Bluetooth disabled (`CONFIG_BT_ENABLED=n`, `CONFIG_BT_NIMBLE_ENABLED=n`) — Phase 1 implements no BLE provisioning; hardcoded credentials in a gitignored `secrets.h` replace it for a device that talks only to a local stub, so carrying the BLE/NimBLE stack would inflate the image for no Phase 1 behaviour. Everything else (ESP32-S3 target, OPI PSRAM settings, the 12 KiB `app_main` stack, watchdog settings, bootloader app-rollback, and every `CONFIG_FP_*` value including the panel pin map) is untouched from upstream. |
+| `sdkconfig.defaults` | `sdkconfig.defaults` | no | `CONFIG_FP_API_BASE` changed from upstream's production URL to the reserved placeholder `https://example.invalid` (quick `260923-9fe`; SkyPane never reads it — see `main/Kconfig.projbuild`). Bluetooth disabled (`CONFIG_BT_ENABLED=n`, `CONFIG_BT_NIMBLE_ENABLED=n`) — Phase 1 implements no BLE provisioning; hardcoded credentials in a gitignored `secrets.h` replace it for a device that talks only to a local stub, so carrying the BLE/NimBLE stack would inflate the image for no Phase 1 behaviour. Everything else (ESP32-S3 target, OPI PSRAM settings, the 12 KiB `app_main` stack, watchdog settings, bootloader app-rollback, and every `CONFIG_FP_*` value including the panel pin map) is untouched from upstream. |
 | `CMakeLists.txt` | `CMakeLists.txt` | no | `PROJECT_VER` changed from upstream's `"0.2.4"` to `"0.1.0-p1"` (this project has no release-tracking server yet, so it is just a human-readable phase marker) and `project(flightportrait)` renamed to `project(skypane)` (this project's own name), because the project name determines the build artifact's filename. Structure (the `cmake_minimum_required` version, the `IDF_PATH`-relative include of `project.cmake`) is otherwise the same shape as upstream. |
 | `main/epd13in3e.c` | `main/epd13in3e.c` | yes | none |
 | `main/epd13in3e.h` | `main/epd13in3e.h` | yes | none |
 | `main/panel.c` | `main/panel.c` | yes | none |
 | `main/panel.h` | `main/panel.h` | yes | none |
 | `main/panel_guard.c` | `main/panel_guard.c` | yes | none |
-| `main/panel_guard.h` | `main/panel_guard.h` | yes | none |
+| `main/panel_guard.h` | `main/panel_guard.h` | no | Doc comment only (commit `503e701`): the rationale for the refresh-spacing guard was rewritten to match the verified GDEP133C02 datasheet finding (no documented refresh-rate or endurance limit; refresh at least every 24 h). No declaration changed. |
 | `tests/test_panel_guard.c` | `tests/test_panel_guard.c` | yes | none |
-| `sdkconfig.ee02.defaults` | `sdkconfig.ee02.defaults` | yes | none |
-| `main/Kconfig.projbuild` | `main/Kconfig.projbuild` | no | Trimmed to the options this project actually compiles against: kept `FP_API_BASE`, `FP_DEV_PROVISION_SECRET`, `FP_HW_REV`, the full 8-pin panel-pins menu, and the panel menu (`FP_MIN_REFRESH_SPACING_S`, `FP_MAX_GUARD_WAIT_S`). Removed `FP_PROVISION_TIMEOUT_S` (BLE provisioning timeout) and `FP_FACTORY_PREP` (factory-prep boolean) — neither has any code behind it in this project. Retained the "E1004 controls" menu (`FP_PIN_KEY0/1/2` plus the two hold-time options) with a new comment explaining why it stays without a compiled consumer this phase — the pin values are measured hardware fact from a real EE02 key-sweep (see `sdkconfig.ee02.defaults`), and losing them would mean re-deriving that measurement when Phase 4 (DEVICE-01) wires up the button handler. |
+| `sdkconfig.ee02.defaults` | `sdkconfig.ee02.defaults` | no | Appended two SkyPane blocks after the upstream content, which is otherwise untouched: battery-sense pins (`CONFIG_FP_PIN_BATTERY_ADC`, `CONFIG_FP_PIN_BATTERY_ADC_EN`, plan `05-03`) and the bring-up LED (`CONFIG_FP_PIN_LED`, `CONFIG_FP_LED_ACTIVE_LOW`, plan `260827-wo4`). |
+| `main/Kconfig.projbuild` | `main/Kconfig.projbuild` | no | Top-level menu renamed from "FlightPortrait" to "SkyPane", and `FP_API_BASE`'s default changed from upstream's production URL to the reserved placeholder `https://example.invalid`, with help text saying SkyPane never reads it (quick `260923-9fe`). Trimmed to the options this project actually compiles against: kept `FP_API_BASE`, `FP_DEV_PROVISION_SECRET`, `FP_HW_REV`, the full 8-pin panel-pins menu, and the panel menu (`FP_MIN_REFRESH_SPACING_S`, `FP_MAX_GUARD_WAIT_S`). Removed `FP_PROVISION_TIMEOUT_S` (BLE provisioning timeout) and `FP_FACTORY_PREP` (factory-prep boolean) — neither has any code behind it in this project. Retained the "E1004 controls" menu (`FP_PIN_KEY0/1/2` plus the two hold-time options) with a new comment explaining why it stays without a compiled consumer this phase — the pin values are measured hardware fact from a real EE02 key-sweep (see `sdkconfig.ee02.defaults`), and losing them would mean re-deriving that measurement when Phase 4 (DEVICE-01) wires up the button handler. |
 | `main/wifi.c` | `main/wifi.c` | no | Credential source changed from NVS (written by a BLE provisioning flow this project doesn't compile) to the `SKYPANE_WIFI_SSID`/`SKYPANE_WIFI_PASS` macros in the gitignored `secrets.h`. Dropped the "adopt a live Unified-Provisioning connection" early-return branch (no provisioning session exists to adopt) and the fast-connect AP-remember helper, since it wrote to NVS keys (`wifi_bssid`, `wifi_chan`) this project's trimmed `nvs_schema.h` no longer defines. Kept: the join/retry event-group logic, the SNTP time sync (a TLS prerequisite after any power loss — the device has no RTC battery), RSSI read, and `fp_wifi_stop()` (radio off before deep sleep). |
 | `main/wifi.h` | `main/wifi.h` | no | Trimmed to the four functions the above still implements: `fp_wifi_platform_init`, `fp_wifi_connect`, `fp_wifi_rssi`, `fp_wifi_stop`. Removed the credential-store/-load and factory-reset declarations, since nothing in this project's compiled sources calls them. |
 | `main/api_client.c` | `main/api_client.c` | no | Trimmed to the three endpoints and nothing more, per 01-05-PLAN.md Task 2. Removed: OTA firmware-offer handling and partition writing, pairing registration headers and signature computation, pairing acknowledgement validation, and the versioned target-blob (BYOS override) resolution chain — none of `target_contract.h`/`identity.h` is vendored. Base-URL resolution now reads `SKYPANE_API_BASE` from `secrets.h` directly instead of resolving an NVS target blob; the resolution point carries a comment recording that a plain-http base is a Phase-1-only allowance (PROTOCOL.md §5) that must not carry into the Phase 2 deployed server. Kept, with local re-implementations since `target_contract.h`'s validators aren't vendored: the display-response field validation (image hash `sha256:`+64 lowercase hex, `sleep_s` integer in 1..4294967295, `reset` boolean, non-empty http/https `image_url`), the streamed download with SHA-256 + exact-960000-byte verification before any buffer is returned to the caller, and the setup call's 64-lowercase-hex token-shape check. All four telemetry headers (`X-Battery-Mv`, `X-Rssi`, `X-Fw-Version`, `X-Boot-Reason`) are now sent unconditionally on every `/display` and `/log` call, rather than upstream's conditional `X-Rssi`; `X-Battery-Mv` now reports `fp_battery_mv()`'s real measured value — one cached `adc_oneshot` + `adc_cali` read per wake off the EE02 driver board's own factory battery-sense divider, gated by `CONFIG_FP_PIN_BATTERY_ADC_EN` and sampled on `CONFIG_FP_PIN_BATTERY_ADC`, converted through `battery_math_apply_divider()` (`main/battery_math.c`), with `0` retained as the unknown sentinel on any read failure (Phase 5's DEVICE-04, confirmed on real hardware in plan `05-03`). The ESP-TLS `crt_bundle_attach` path stays compiled in and reachable on every request, unchanged from upstream, so Phase 2's move to a real HTTPS base is a configuration change. Task 3 (01-05-PLAN.md) added the `FP_ERR_HTTP_TRANSPORT`/`FP_ERR_HTTP_STATUS`/`FP_ERR_HTTP_JSON`/`FP_ERR_IMAGE_VERIFY` sentinel returns so `state_machine.c` can log the exact Log Line Contract step token without re-deriving it from a single generic `ESP_FAIL` — a local addition upstream has no equivalent for, since upstream doesn't have a fixed log-line contract. Plan `260827-wo4` added a `led_enabled` boolean read off the `/device/v1/display` response — another local addition upstream has no equivalent for, since upstream carries no bring-up LED — parsed permissively (absent, null or wrong-typed all resolve to enabled) so an older or future server stays compatible without any risk of turning a cosmetic preference into a rejected poll. |
@@ -85,6 +106,11 @@ Files in `firmware/` that are not vendored from upstream at all:
   every path. Introduced in plan `05-03` (Phase 5, DEVICE-04), confirmed on
   real hardware — see `hardware/BRINGUP-LOG.md`'s "ADC Battery-Sense
   Bring-Up" section.
+- `main/led.h` / `main/led.c` — SkyPane-original, not vendored; upstream
+  carries no bring-up LED. Drives the EE02 board's diagnostic LED, gated
+  by the server's `led_enabled` flag. Introduced in plan `260827-wo4`.
+- `tests/test_battery_math.c` — SkyPane-original host test for
+  `battery_math.c`, introduced in plan `05-03`.
 
 ## Deliberately Not Vendored
 

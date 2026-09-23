@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2026 YODE PTE LTD
+/* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
 /* Host-side unit test for the one half of the battery path testable
  * without hardware: the divider-ratio conversion (DEVICE-04). The ADC

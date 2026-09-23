@@ -1,0 +1,14 @@
+SkyPane firmware
+Copyright (c) 2026 Florian Lepont
+
+This directory is licensed under the Apache License, Version 2.0 (see
+LICENSE in this directory). It contains files vendored from FlightPortrait
+(https://github.com/flightportrait/frame, commit
+ce3335fc5e566bcc6ccd29966ec39bf5c5318f12), some of them modified. Which
+files are verbatim, which were modified and how, and which are original to
+SkyPane is recorded in VENDOR.md.
+
+The upstream NOTICE file reads, verbatim:
+
+FlightPortrait firmware
+Copyright (c) 2026 YODE PTE LTD

@@ -25,6 +25,12 @@ on:
       - 'firmware/**'
       - '.github/workflows/firmware.yml'
 
+# Least privilege for the workflow's GITHUB_TOKEN: read the repository,
+# nothing else. (The repo default is already read-only; declaring it here
+# keeps it read-only even if that repository setting is ever changed.)
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build EE02 firmware image
@@ -32,7 +38,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Create compile-only credentials header
         # firmware/main/secrets.h is gitignored and never committed
