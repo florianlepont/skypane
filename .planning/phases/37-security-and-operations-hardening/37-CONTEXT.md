@@ -143,6 +143,22 @@ pre-empt them.
 - **D-20:** `ci.yml` passes `DEPLOY_HOST_KEY` (and the SSH target) through
   `env:` instead of `${{ }}` interpolation inside `run:`.
 
+### Follow-up decisions after research (developer, 2026-09-23)
+- **D-22:** The companion gets a `--bind` flag in `companion/app.py`
+  (default kept backward compatible) and `skypane-companion.service` passes
+  `--bind 127.0.0.1` — **in Wave A** (no Phase 36 dependency). A systemd IP
+  filter on the companion is NOT used: it makes outbound calls (`/poll-now`
+  runs `run_once` in-process, calendar fetch, ntfy). This supersedes the
+  "loopback-only IP filtering on its unit" part of D-18.
+- **D-23:** A stale (> 3 days) or never-made off-box backup also lights the
+  Health entry's nav dot, at **warning** level (not error).
+- **D-24:** `gallery/` is **not** backed up (regenerable rendered cache).
+- **D-25 (Claude's discretion):** In CI the Caddyfile is tested as rendered text
+  (no Caddy binary download); `caddy validate` runs on the VPS inside
+  `activate.sh`. The pull gate is a small Python forced-command script
+  (`list` / `get NAME` / `ack NAME`) for a dedicated `skypane-backup` user,
+  per RESEARCH.md, not rrsync.
+
 ### Human checkpoints (developer instruction)
 - **D-21:** Every action on the production VPS or on GitHub settings is a
   human checkpoint with exact commands for the developer: first
