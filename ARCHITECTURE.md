@@ -335,6 +335,49 @@ It is a pure reader of `state/panel.bin` — it never calls an upstream API
 itself, so a device poll's response time is decoupled from aggregator or
 `adsbdb` latency entirely.
 
+**Hold screens and the `sleep_s` composition.** Three deliberate "resting
+on purpose" screens can each replace the live board, in priority order:
+BATTERY EMPTY, then DISPLAY OFF (the companion's manual toggle), then
+QUIET HOURS (the companion's scheduled window). All three are drawn by
+`server/plane/render.py`'s shared dimmed composition (a dithered dark
+field, one glyph, a tracked label, a short rule, two body sentences) so
+they read as one family; `poll_loop.py`'s hold branch renders each once
+on entry (and, uniquely for BATTERY EMPTY, again on the boundary crossing
+into or out of it from another hold) and is otherwise a no-op — an e-ink
+refresh costs energy and time the device is asleep for regardless.
+
+BATTERY EMPTY is latched from the device's own `X-Battery-Mv` header:
+`poll_loop.py`'s `apply_battery_critical_hysteresis()` enters the hold at
+3300 mV and clears it only at 3700 mV or above (a 400 mV re-arm buffer,
+wider than the separate 3500/3600 mV low-battery *badge* hysteresis,
+which is unaffected), persisting the decision as
+`poll_state.json`'s `battery_critical_active` key — `poll_loop.py` is
+that file's single writer. While parked, detection is skipped entirely
+(there is nothing new to check for until the pack is recharged), and
+`stub-server/byos_server.py` reads the same latch (`read_battery_critical()`,
+a fail-open reader proven behaviour-identical to `server/wake.py`'s own
+copy) to pin `sleep_s` to a fixed 3600 seconds — composed as
+`quiet_hours_sleep_s(battery_critical_sleep_s(display_off_sleep_s(base,
+...), ..., fresh_battery_mv), ...)`, so a longer active quiet-hours
+window can still extend the sleep beyond an hour, and a display-off pin
+never outlasts the flatter-pack pin. `battery_critical_sleep_s()`
+additionally anticipates recovery *within the same request that reports
+it*: if that request's own `X-Battery-Mv` is already at or above 3700 mV,
+it hands back the normal base value immediately rather than the stale
+3600 seconds `poll_loop.py`'s own latch clear (up to 30 seconds later)
+would otherwise still imply.
+
+The same latch feeds a monitoring mirror so a parked frame's slower
+check-ins are never mistaken for silence: `server/wake.py`'s
+`effective_wake_interval_s()`/`next_wake_status()` accept a
+`battery_critical` flag that pins their own answer to the 3600-second
+cadence ahead of every other consideration, and every caller that decides
+whether the frame has "gone quiet" — `poll_loop.py`'s
+`_notify_silence_transition()` (the ntfy push) and the companion's Frame
+strip/flash text (`companion/layout.py`, `companion/app.py`) — reads it
+from the same persisted latch before computing its own staleness
+threshold.
+
 ## Deployment topology
 
 Production runs on a single always-on VPS (Ubuntu, provisioned by

@@ -150,7 +150,19 @@ if REPO_ROOT not in sys.path:
 # cycles a day, so an undeduped write would be 2,880 informationless rows
 # a day; and a write raising sqlite3.Error contained by the existing
 # handler, the cycle completing and the panel still written) - 97 + 2.
-EXPECTED_CHECK_COUNT = 99
+# Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die): +11
+# (apply_battery_critical_hysteresis()'s pinned boundaries; entry from the
+# live board with detection skipped; priority over an active display_off
+# toggle and over an active quiet_hours window; the widened D-07 boundary
+# repainting on entry from an existing display_off hold; parked no-op
+# across four readings plus a display toggle and a theme change; a
+# missing/corrupt reading never parking and a deleted file never clearing
+# an existing park; recovery repainting the live board and clearing the
+# persisted latch; recovery with display_enabled=False repainting
+# DISPLAY OFF instead; the 3400 mV badge-only reading staying independent
+# of the park; and the silence-notifier's parked-vs-unparked control pair)
+# - 99 + 11.
+EXPECTED_CHECK_COUNT = 110
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -2265,7 +2277,10 @@ def main():
                     # repaint (unlike the held branch below, where a
                     # transition DOES force one) - nothing rendered mid-hold
                     # can ever reach the glass.
-                    _write_battery_state(off_dir, 3000)  # below BATTERY_LOW_THRESHOLD_MV
+                    # 3400 (quick task 260923-fr4): below BATTERY_LOW_THRESHOLD_MV
+                    # (3500) and above BATTERY_CRITICAL_MV (3300) - still a
+                    # badge-only transition, never a park.
+                    _write_battery_state(off_dir, 3400)
                     CLOCK["t"] = CLOCK_BASE + 60
                     result = poll_loop.run_once(state_dir=off_dir, geofence=GEOFENCE_PATH)
                     if result.get("panel_changed"):
@@ -2829,8 +2844,10 @@ def main():
                         # BATTERY_LOW_THRESHOLD_MV forces the held branch's
                         # guarded re-render of the SAME flight from
                         # current_route, with nothing about the flight itself
-                        # changing.
-                        _write_battery_state(d13_dir, 3000)
+                        # changing. 3400 (quick task 260923-fr4): below the
+                        # 3500 badge threshold, above BATTERY_CRITICAL_MV
+                        # (3300) - a badge-only transition, never a park.
+                        _write_battery_state(d13_dir, 3400)
                         _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                         result2 = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=d13_dir, geofence=GEOFENCE_PATH)
                     finally:
@@ -2935,8 +2952,11 @@ def main():
                     # Second cycle: nothing detected. Force the held branch's
                     # transition gate open via a battery change, exactly as
                     # the both-branches invariant does, so its empty-state
-                    # call site actually runs this cycle.
-                    _write_battery_state(b2_dir, 3000)
+                    # call site actually runs this cycle. 3400 (quick task
+                    # 260923-fr4): below the 3500 badge threshold, above
+                    # BATTERY_CRITICAL_MV (3300) - a badge-only transition,
+                    # never a park.
+                    _write_battery_state(b2_dir, 3400)
                     _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                     result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=b2_dir, geofence=GEOFENCE_PATH)
                     if result.get("effective_theme") != "white":
@@ -3120,8 +3140,11 @@ def main():
                         # version that recomputed the match in the held
                         # branch would find no candidate this far out and
                         # silently fall back to the base theme, passing a
-                        # same-minute test and failing only this one.
-                        _write_battery_state(cal1_dir, 3000)
+                        # same-minute test and failing only this one. 3400
+                        # (quick task 260923-fr4): below the 3500 badge
+                        # threshold, above BATTERY_CRITICAL_MV (3300) - a
+                        # badge-only transition, never a park.
+                        _write_battery_state(cal1_dir, 3400)
                         _tick(calendar_rules.CALENDAR_MATCH_TOLERANCE_S + 3600)
                         result2 = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal1_dir, geofence=GEOFENCE_PATH)
                     finally:
@@ -3266,7 +3289,10 @@ def main():
                     # Second cycle: nothing detected. Force the held
                     # branch's transition gate open via a battery change so
                     # its empty-state call site actually runs this cycle.
-                    _write_battery_state(cal4_dir, 3000)
+                    # 3400 (quick task 260923-fr4): below the 3500 badge
+                    # threshold, above BATTERY_CRITICAL_MV (3300) - a
+                    # badge-only transition, never a park.
+                    _write_battery_state(cal4_dir, 3400)
                     _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                     result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal4_dir, geofence=GEOFENCE_PATH)
                     if result.get("effective_theme") != "white":
@@ -3406,7 +3432,10 @@ def main():
                     tampered["last_calendar_theme_id"] = "not_a_registered_theme"
                     poll_loop.save_poll_state(cal7_dir, tampered)
 
-                    _write_battery_state(cal7_dir, 3000)
+                    # 3400 (quick task 260923-fr4): below the 3500 badge
+                    # threshold, above BATTERY_CRITICAL_MV (3300) - a
+                    # badge-only transition, never a park.
+                    _write_battery_state(cal7_dir, 3400)
                     _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                     result2 = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal7_dir, geofence=GEOFENCE_PATH)
                     if result2.get("effective_theme") == "not_a_registered_theme":
@@ -4150,6 +4179,444 @@ def main():
                 "a wake_epochs write raising sqlite3.Error is contained by _record_history()'s existing "
                 "handler - the poll cycle completes and the panel is still written (T-24-03-B)",
                 _a_raising_epoch_write_cannot_break_a_poll_cycle,
+            )
+
+            # --- Quick task 260923-fr4 (battery-empty-screen-before-the-
+            # pack-die): the BATTERY EMPTY hold. These mirror the
+            # display_off checks above (same fixture setup, same
+            # fake-clock injection, same assertion style) with one added
+            # axis: battery_mv, read via _write_battery_state(). ----------
+
+            # 86. apply_battery_critical_hysteresis()'s pinned boundaries -
+            # the identical hysteresis shape as apply_battery_hysteresis()'s
+            # own pinned boundaries above, applied to the park decision.
+            def _apply_battery_critical_hysteresis_boundaries():
+                cases = [
+                    ((None, False), False),
+                    ((None, True), True),
+                    ((3300, False), True),
+                    ((3301, False), False),
+                    ((3699, True), True),
+                    ((3700, True), False),
+                ]
+                for (mv, was_active), expected in cases:
+                    got = poll_loop.apply_battery_critical_hysteresis(mv, was_active)
+                    if got != expected:
+                        return False, (
+                            "apply_battery_critical_hysteresis(%r, %r) = %r, expected %r"
+                            % (mv, was_active, got, expected)
+                        )
+                return True, ""
+            check(
+                "apply_battery_critical_hysteresis(battery_mv, was_active) holds every pinned boundary: "
+                "(None, False)->False, (None, True)->True, (3300, False)->True, (3301, False)->False, "
+                "(3699, True)->True, (3700, True)->False",
+                _apply_battery_critical_hysteresis_boundaries,
+            )
+
+            # 87. Entry from the live board at 3290 mV: state
+            # "battery_empty", panel_changed True, hold_state and
+            # battery_critical_active both persisted, panel.bin
+            # byte-identical to render.build_canvas(None, "battery_empty"),
+            # and detection skipped entirely - a hold, exactly like
+            # display_off/quiet_hours above (Pitfall 4/D-06).
+            def _battery_empty_entry_from_live_board_renders_and_skips_detection():
+                be_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-be-entry-")
+                try:
+                    _write_battery_state(be_dir, 3290)
+                    called = {"poll": False, "geofence": False}
+                    original_poll = poll_loop.detect.poll_current_aircraft
+                    original_geofence = poll_loop.detect.load_geofence
+
+                    def _fake_poll(*args, **kwargs):
+                        called["poll"] = True
+                        return None
+
+                    def _fake_geofence(*args, **kwargs):
+                        called["geofence"] = True
+                        return {}
+
+                    poll_loop.detect.poll_current_aircraft = _fake_poll
+                    poll_loop.detect.load_geofence = _fake_geofence
+                    try:
+                        CLOCK["t"] = CLOCK_BASE
+                        result = poll_loop.run_once(state_dir=be_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.detect.poll_current_aircraft = original_poll
+                        poll_loop.detect.load_geofence = original_geofence
+                    if called["poll"] or called["geofence"]:
+                        return False, "detection was called on BATTERY EMPTY entry: %r" % (called,)
+                    if result.get("state") != "battery_empty":
+                        return False, "entry cycle returned state=%r, expected 'battery_empty'" % (result.get("state"),)
+                    if not result.get("panel_changed"):
+                        return False, "entry cycle returned panel_changed=%r, expected True" % (result.get("panel_changed"),)
+                    on_disk = poll_loop.load_poll_state(be_dir)
+                    if on_disk.get("hold_state") != "battery_empty":
+                        return False, "poll_state.json's hold_state is %r, expected 'battery_empty'" % (on_disk.get("hold_state"),)
+                    if on_disk.get(poll_loop.wake.BATTERY_CRITICAL_STATE_KEY) is not True:
+                        return False, (
+                            "poll_state.json's battery_critical_active is %r, expected True"
+                            % (on_disk.get(poll_loop.wake.BATTERY_CRITICAL_STATE_KEY),)
+                        )
+                    with open(os.path.join(be_dir, "panel.bin"), "rb") as fh:
+                        actual = fh.read()
+                    expected = poll_loop.panel_format.pack_panel(poll_loop.render.build_canvas(None, "battery_empty"))
+                    if actual != expected:
+                        return False, "panel.bin does not equal panel_format.pack_panel(render.build_canvas(None, 'battery_empty'))"
+                    return True, ""
+                finally:
+                    shutil.rmtree(be_dir, ignore_errors=True)
+            check(
+                "a 3290 mV reading on the live board enters BATTERY EMPTY: state, panel_changed, the persisted "
+                "hold_state/battery_critical_active latch, byte-identical panel.bin, and detection skipped "
+                "entirely (detect.poll_current_aircraft/load_geofence never called)",
+                _battery_empty_entry_from_live_board_renders_and_skips_detection,
+            )
+
+            # 88. Priority: battery_critical outranks the operator's own
+            # display toggle - display_enabled=False plus a critical
+            # reading yields battery_empty, not display_off.
+            def _battery_empty_outranks_display_off():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-be-vs-off-")
+                try:
+                    device_config.save_device_config(d, display_enabled=False)
+                    _write_battery_state(d, 3290)
+                    CLOCK["t"] = CLOCK_BASE
+                    result = poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "battery_empty":
+                        return False, (
+                            "display_enabled=False plus 3290 mV returned state=%r, expected 'battery_empty'"
+                            % (result.get("state"),)
+                        )
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "display_enabled=False plus a 3290 mV reading yields battery_empty, not display_off - the "
+                "battery axis outranks the operator's own toggle",
+                _battery_empty_outranks_display_off,
+            )
+
+            # 89. Priority, continued: an active quiet-hours window plus a
+            # critical reading yields battery_empty, not quiet_hours.
+            def _battery_empty_outranks_quiet_hours():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-be-vs-qh-")
+                try:
+                    device_config.save_device_config(
+                        d, quiet_hours_enabled=True, quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    _write_battery_state(d, 3290)
+                    CLOCK["t"] = CLOCK_BASE  # inside the window
+                    result = poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "battery_empty":
+                        return False, (
+                            "an active quiet-hours window plus 3290 mV returned state=%r, expected 'battery_empty'"
+                            % (result.get("state"),)
+                        )
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "an active quiet-hours window plus a 3290 mV reading yields battery_empty, not quiet_hours - "
+                "a flat pack cannot honour either standing condition",
+                _battery_empty_outranks_quiet_hours,
+            )
+
+            # 90. D-07 widened (issue 5): entering BATTERY EMPTY from an
+            # ALREADY-ACTIVE DISPLAY OFF hold must still repaint - the one
+            # boundary-crossing exception to "render only on was_hold is
+            # None".
+            def _battery_empty_entry_from_existing_display_off_hold_repaints():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-be-from-off-")
+                try:
+                    device_config.save_device_config(d, display_enabled=False)
+                    _write_battery_state(d, 4000)
+                    CLOCK["t"] = CLOCK_BASE
+                    poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    with open(os.path.join(d, "panel.bin"), "rb") as fh:
+                        off_bytes = fh.read()
+                    on_disk = poll_loop.load_poll_state(d)
+                    if on_disk.get("hold_state") != "display_off":
+                        return False, "setup did not enter display_off first: hold_state=%r" % (on_disk.get("hold_state"),)
+
+                    _write_battery_state(d, 3290)
+                    CLOCK["t"] = CLOCK_BASE + 60
+                    result = poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "battery_empty":
+                        return False, (
+                            "expected state='battery_empty' after crossing into it from an active display_off "
+                            "hold, got %r" % (result.get("state"),)
+                        )
+                    if not result.get("panel_changed"):
+                        return False, "crossing from display_off into battery_empty returned panel_changed=False, expected True"
+                    with open(os.path.join(d, "panel.bin"), "rb") as fh:
+                        be_bytes = fh.read()
+                    if be_bytes == off_bytes:
+                        return False, "panel.bin did not change when crossing from display_off into battery_empty"
+                    expected = poll_loop.panel_format.pack_panel(poll_loop.render.build_canvas(None, "battery_empty"))
+                    if be_bytes != expected:
+                        return False, "panel.bin does not equal render.build_canvas(None, 'battery_empty') after the crossing"
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "entering BATTERY EMPTY from an existing DISPLAY OFF hold repaints (the widened D-07 boundary), "
+                "producing the byte-identical BATTERY EMPTY canvas",
+                _battery_empty_entry_from_existing_display_off_hold_repaints,
+            )
+
+            # 91. Parked cycles at 3290, 3400, 3600 and 3699 mV, plus a
+            # display toggle and a theme change while still parked, all
+            # leave panel_changed False, panel.bin byte-unchanged and no
+            # gallery entry added - the same "render once, then hold"
+            # discipline as every other hold kind, now proven across a
+            # BADGE-crossing reading (3400 sets the badge) and two
+            # configuration edits that would otherwise change a live-board
+            # render.
+            def _battery_empty_parked_is_noop_across_readings_and_config_edits():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-be-parked-")
+                try:
+                    _write_battery_state(d, 3290)
+                    CLOCK["t"] = CLOCK_BASE
+                    poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    with open(os.path.join(d, "panel.bin"), "rb") as fh:
+                        first_bytes = fh.read()
+                    gallery_dir = os.path.join(d, "gallery")
+                    before_count = len(os.listdir(gallery_dir)) if os.path.isdir(gallery_dir) else 0
+
+                    t = CLOCK_BASE
+                    for mv in (3290, 3400, 3600, 3699):
+                        _write_battery_state(d, mv)
+                        t += 60
+                        CLOCK["t"] = t
+                        result = poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                        if result.get("panel_changed"):
+                            return False, "parked cycle at %d mV returned panel_changed=True, expected False" % (mv,)
+
+                    device_config.save_device_config(d, display_enabled=False)
+                    t += 60
+                    CLOCK["t"] = t
+                    result = poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    if result.get("panel_changed"):
+                        return False, "a display toggle while parked returned panel_changed=True, expected False"
+
+                    device_config.save_device_config(d, theme="black")
+                    t += 60
+                    CLOCK["t"] = t
+                    result = poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    if result.get("panel_changed"):
+                        return False, "a theme change while parked returned panel_changed=True, expected False"
+
+                    with open(os.path.join(d, "panel.bin"), "rb") as fh:
+                        last_bytes = fh.read()
+                    if last_bytes != first_bytes:
+                        return False, "panel.bin's bytes changed across the parked episode, expected them unchanged"
+                    after_count = len(os.listdir(gallery_dir)) if os.path.isdir(gallery_dir) else 0
+                    if after_count != before_count:
+                        return False, "a parked cycle added a gallery entry (%d -> %d), expected none" % (before_count, after_count)
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "parked cycles at 3290/3400/3600/3699 mV, plus a display toggle and a theme change while still "
+                "parked, are all no-ops - panel.bin unchanged and no gallery entry added",
+                _battery_empty_parked_is_noop_across_readings_and_config_edits,
+            )
+
+            # 92. A missing or corrupt battery_state.json can never enter
+            # the park (load_battery_state() degrades to None, and
+            # apply_battery_critical_hysteresis(None, False) holds False).
+            # Once parked, DELETING the file must not clear the park either
+            # - the persisted latch, not the file's mere presence, is
+            # authoritative.
+            def _battery_empty_missing_or_corrupt_reading_never_parks_and_never_clears():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-be-missing-")
+                try:
+                    # No battery_state.json at all.
+                    CLOCK["t"] = CLOCK_BASE
+                    result = poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    if result.get("state") == "battery_empty":
+                        return False, "a missing battery_state.json entered battery_empty"
+
+                    # A corrupt one.
+                    with open(os.path.join(d, "battery_state.json"), "w") as fh:
+                        fh.write("{not valid json")
+                    CLOCK["t"] = CLOCK_BASE + 60
+                    result = poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    if result.get("state") == "battery_empty":
+                        return False, "a corrupt battery_state.json entered battery_empty"
+
+                    # Now genuinely park it.
+                    _write_battery_state(d, 3290)
+                    CLOCK["t"] = CLOCK_BASE + 120
+                    result = poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "battery_empty":
+                        return False, "setup failed to park: state=%r" % (result.get("state"),)
+
+                    # Delete the file while parked - the park must hold.
+                    os.remove(os.path.join(d, "battery_state.json"))
+                    CLOCK["t"] = CLOCK_BASE + 180
+                    result = poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "battery_empty":
+                        return False, (
+                            "deleting battery_state.json while parked cleared the park: state=%r"
+                            % (result.get("state"),)
+                        )
+                    if result.get("panel_changed"):
+                        return False, "deleting battery_state.json while parked triggered a repaint, expected none"
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "a missing or corrupt battery_state.json can never enter BATTERY EMPTY, and deleting the file "
+                "while already parked never clears the park - the persisted latch, not the file's presence, "
+                "is authoritative",
+                _battery_empty_missing_or_corrupt_reading_never_parks_and_never_clears,
+            )
+
+            # 93. Recovery at 3700 mV: the hold clears, the live board is
+            # repainted (panel_changed True), and the persisted latch
+            # returns to False.
+            def _battery_empty_recovery_repaints_live_board():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-be-recover-")
+                try:
+                    _write_battery_state(d, 3290)
+                    CLOCK["t"] = CLOCK_BASE
+                    poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+
+                    _write_battery_state(d, 3700)
+                    CLOCK["t"] = CLOCK_BASE + 60
+                    result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=d, geofence=GEOFENCE_PATH)
+                    if result.get("state") == "battery_empty":
+                        return False, "a 3700 mV reading did not clear the BATTERY EMPTY hold"
+                    if not result.get("panel_changed"):
+                        return False, "recovery did not repaint the live board: panel_changed=%r" % (result.get("panel_changed"),)
+                    on_disk = poll_loop.load_poll_state(d)
+                    if on_disk.get(poll_loop.wake.BATTERY_CRITICAL_STATE_KEY) is not False:
+                        return False, (
+                            "poll_state.json's battery_critical_active is %r after recovery, expected False"
+                            % (on_disk.get(poll_loop.wake.BATTERY_CRITICAL_STATE_KEY),)
+                        )
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "a 3700 mV reading clears the BATTERY EMPTY hold, repaints the live board (panel_changed=True), "
+                "and the persisted battery_critical_active latch returns to False",
+                _battery_empty_recovery_repaints_live_board,
+            )
+
+            # 94. Recovery while display_enabled=False repaints DISPLAY OFF
+            # instead of the live board - the next hold in priority order,
+            # not a return to detection.
+            def _battery_empty_recovery_with_display_off_repaints_display_off():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-be-recover-off-")
+                try:
+                    device_config.save_device_config(d, display_enabled=False)
+                    _write_battery_state(d, 3290)
+                    CLOCK["t"] = CLOCK_BASE
+                    poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+
+                    _write_battery_state(d, 3700)
+                    CLOCK["t"] = CLOCK_BASE + 60
+                    result = poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "display_off":
+                        return False, (
+                            "recovery with display_enabled=False returned state=%r, expected 'display_off'"
+                            % (result.get("state"),)
+                        )
+                    if not result.get("panel_changed"):
+                        return False, "recovery into display_off did not repaint: panel_changed=%r" % (result.get("panel_changed"),)
+                    expected = poll_loop.panel_format.pack_panel(poll_loop.render.build_canvas(None, "display_off"))
+                    with open(os.path.join(d, "panel.bin"), "rb") as fh:
+                        actual = fh.read()
+                    if actual != expected:
+                        return False, (
+                            "panel.bin does not equal render.build_canvas(None, 'display_off') after recovering "
+                            "with the toggle still off"
+                        )
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "recovering while display_enabled=False repaints DISPLAY OFF, not the live board - the next "
+                "hold in priority order",
+                _battery_empty_recovery_with_display_off_repaints_display_off,
+            )
+
+            # 95. 3400 mV sets the battery-low BADGE (below
+            # BATTERY_LOW_THRESHOLD_MV, above BATTERY_CRITICAL_MV) without
+            # parking the frame - the two axes stay independent.
+            def _badge_threshold_reading_sets_badge_without_parking():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-badge-only-")
+                try:
+                    _write_battery_state(d, 3400)
+                    CLOCK["t"] = CLOCK_BASE
+                    result = poll_loop.run_once(
+                        snapshot=_snapshot("cccccc", "FLIGHT9 ", CLIMB), state_dir=d, geofence=GEOFENCE_PATH
+                    )
+                    if result.get("state") == "battery_empty":
+                        return False, "3400 mV entered battery_empty, expected the badge only"
+                    on_disk = poll_loop.load_poll_state(d)
+                    if on_disk.get("battery_low_active") is not True:
+                        return False, "3400 mV did not set battery_low_active: %r" % (on_disk.get("battery_low_active"),)
+                    if on_disk.get(poll_loop.wake.BATTERY_CRITICAL_STATE_KEY) is not False:
+                        return False, (
+                            "3400 mV set battery_critical_active: %r, expected False"
+                            % (on_disk.get(poll_loop.wake.BATTERY_CRITICAL_STATE_KEY),)
+                        )
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "3400 mV sets the battery-low badge (battery_low_active=True) without parking the frame "
+                "(battery_critical_active stays False) - the two axes are independent",
+                _badge_threshold_reading_sets_badge_without_parking,
+            )
+
+            # 96. The silence-notifier fix (issue 1): parked with
+            # wake_interval_s=300 and a last check-in 20 minutes ago, no
+            # frame_silent push is sent - the SAME setup without the park
+            # does send one (the control, proving the harness would catch a
+            # regression here).
+            def _silence_transition_parked_suppresses_false_alert():
+                unparked_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-silence-unparked-")
+                parked_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-silence-parked-")
+                try:
+                    device_cfg = _notify_device_cfg(wake_interval_s=300)
+                    now_epoch = poll_loop.now_s()
+                    checkin_iso = _iso(now_epoch - 1200)  # 20 minutes ago
+
+                    # Control: NOT parked - a 20-minute-old check-in at a
+                    # 300s cadence is past the (unparked) 900s warn
+                    # threshold and sends exactly one silent push.
+                    _seed_device_health(poll_loop, unparked_dir, checkin_iso)
+                    control_state = {}
+                    control_sender = _FakeSender()
+                    with poll_loop.history_db.open_db(unparked_dir) as conn:
+                        poll_loop._notify_silence_transition(unparked_dir, control_state, conn, device_cfg, sender=control_sender)
+                    if len(control_sender.calls) != 1:
+                        return False, "control (not parked): expected exactly one silent push, got %d" % len(control_sender.calls)
+
+                    # Parked: the identical 20-minute-old check-in now sits
+                    # well inside the 3600s BATTERY_CRITICAL_SLEEP_S-derived
+                    # warn window and must raise nothing.
+                    _seed_device_health(poll_loop, parked_dir, checkin_iso)
+                    poll_loop.save_poll_state(parked_dir, {poll_loop.wake.BATTERY_CRITICAL_STATE_KEY: True})
+                    parked_state = poll_loop.load_poll_state(parked_dir)
+                    parked_sender = _FakeSender()
+                    with poll_loop.history_db.open_db(parked_dir) as conn:
+                        poll_loop._notify_silence_transition(parked_dir, parked_state, conn, device_cfg, sender=parked_sender)
+                    if parked_sender.calls:
+                        return False, "parked: expected no frame_silent push, got %r" % (parked_sender.calls,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(unparked_dir, ignore_errors=True)
+                    shutil.rmtree(parked_dir, ignore_errors=True)
+            check(
+                "parked with wake_interval_s=300 and a 20-minute-old check-in, no frame_silent push is sent - "
+                "the identical setup without the park sends exactly one (issue 1's fix)",
+                _silence_transition_parked_suppresses_false_alert,
             )
 
 

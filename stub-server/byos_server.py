@@ -53,8 +53,16 @@ read-only display_enabled lookup (read_display_enabled()) plus a
 display_off_sleep_s() composer so /device/v1/display pins sleep_s to a
 fixed 300s off-state cadence when the companion app's saved
 display_enabled is False, composed inside the quiet-hours extension so
-the longer of the two always wins (Phase 12). See stub-server/VENDOR.md
-for the full list of local changes.
+the longer of the two always wins (Phase 12); added a read-only
+poll_state.json battery_critical_active reader (read_battery_critical())
+plus a battery_critical_sleep_s() composer so /device/v1/display pins
+sleep_s to a fixed 3600s parked cadence while server/poll_loop.py's
+BATTERY EMPTY hold is active, unless this same request's own X-Battery-Mv
+reading already signals recovery, composed between display_off_sleep_s()
+and quiet_hours_sleep_s() so the three pins can overlap without any one
+of them shortening the sleep the others alone would have given it (quick
+task 260923-fr4). See stub-server/VENDOR.md for the full list of local
+changes.
 """
 import argparse
 import hashlib
@@ -113,6 +121,22 @@ WAKE_INTERVAL_MAX_S = 3600
 # blocks and has nothing to compare for a bare integer - Task 2 adds a lighter,
 # purpose-built parity check instead.
 DISPLAY_OFF_SLEEP_S = 300
+
+# Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die):
+# BATTERY_CRITICAL_SLEEP_S mirrors server/device_config.py's constant of
+# the same name and value, following the identical cross-reference
+# discipline DISPLAY_OFF_SLEEP_S's own comment states - the two must be
+# kept numerically equal by hand, in the same commit.
+# BATTERY_CRITICAL_RECOVER_MV mirrors server/poll_loop.py's constant of
+# the same name and value (that module's own BATTERY_CRITICAL_MV, the
+# park-entry threshold, has no copy here - byos never decides whether to
+# ENTER the park, only whether to anticipate a recovery already reported
+# in the poll it is currently answering). Like WAKE_INTERVAL_MIN_S/MAX_S
+# and DISPLAY_OFF_SLEEP_S, neither is covered by test_poll_cycle.py's
+# byte-for-byte _quiet_hours_drift_guard - Task 3 adds its own
+# purpose-built parity check instead.
+BATTERY_CRITICAL_SLEEP_S = 3600
+BATTERY_CRITICAL_RECOVER_MV = 3700
 
 
 def state_path(state_dir):
@@ -190,6 +214,41 @@ def read_display_enabled(state_dir):
     if isinstance(value, bool):
         return value
     return True
+
+
+def read_battery_critical(state_dir):
+    """Best-effort, read-only read of poll_state.json's
+    battery_critical_active latch (quick task 260923-fr4,
+    battery-empty-screen-before-the-pack-die). Never raises.
+
+    server/poll_loop.py is the single writer of poll_state.json - its own
+    apply_battery_critical_hysteresis() computes this latch exactly once
+    per cycle. This is a read-only consumer, the same relationship
+    read_display_enabled() above already has with device_config.json:
+    every failure mode here (missing file, unreadable file, malformed
+    JSON, a non-dict document, or a present value that is anything other
+    than the literal boolean True) degrades to False (not parked) - the
+    same fail-open direction, and for the same reason: the only cost of a
+    wrongly-returned False is a few extra wakes at the device's ordinary
+    cadence, never a missed BATTERY EMPTY render, which poll_loop's own
+    latch (not this reader) is solely responsible for.
+
+    This mirrors server.wake.read_battery_critical() exactly, checked
+    field-by-field rather than merely by name -
+    stub-server/test_poll_cycle.py proves behaviour parity across the
+    identical set of fixtures (missing file, malformed JSON, a non-dict
+    payload, the string "true", and the int 1) - since this file must
+    never import that module (the vendor-boundary rationale above
+    seconds_until_quiet_hours_end() applies here too).
+    """
+    try:
+        with open(os.path.join(state_dir, "poll_state.json")) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    return data.get("battery_critical_active") is True
 
 
 def read_wake_interval_s(state_dir, default):
@@ -358,6 +417,52 @@ def display_off_sleep_s(base_sleep_s, state_dir):
     if read_display_enabled(state_dir) is False:
         return DISPLAY_OFF_SLEEP_S
     return base_sleep_s
+
+
+def battery_critical_sleep_s(base_sleep_s, state_dir, fresh_battery_mv):
+    """Return the sleep_s to feed into quiet_hours_sleep_s() as its base:
+    exactly BATTERY_CRITICAL_SLEEP_S (3600) while server/poll_loop.py's
+    BATTERY EMPTY hold is active, UNLESS this very request's own
+    X-Battery-Mv reading (`fresh_battery_mv` - already parsed by
+    parse_battery_mv() at the top of the handler, or None) already
+    signals recovery - at or above BATTERY_CRITICAL_RECOVER_MV - in which
+    case `base_sleep_s` wins instead (quick task 260923-fr4, issue 2).
+
+    Recovery ANTICIPATION, not merely a plain latch read, is the whole
+    point of `fresh_battery_mv`: poll_loop.py clears its persisted latch
+    up to 30s AFTER the recovering check-in this very GET represents, so
+    a plain `read_battery_critical(state_dir)` read here would still see
+    the STALE True this same request is about to make obsolete, and
+    would hand the recovering device another 3600s sleep - one false
+    "not checked in" push, and a resume delay of up to 2 hours. This
+    function only avoids handing out that stale long sleep; it never
+    writes anything, and poll_loop's own latch remains the single source
+    of truth for the *state* (whether BATTERY EMPTY is actually on the
+    glass right now).
+
+    A flat REPLACEMENT of `base_sleep_s` when parked, mirroring
+    display_off_sleep_s()'s own documented asymmetry rather than a
+    max()/min() against it - the reasoning applies even more directly
+    here: detection is skipped entirely while parked, so there is
+    nothing a longer configured wake_interval_s would usefully wait for.
+
+    Composition order is load-bearing, extending display_off_sleep_s()'s
+    own documented contract: this function's result must be nested
+    INSIDE quiet_hours_sleep_s() but OUTSIDE display_off_sleep_s(), i.e.
+    `quiet_hours_sleep_s(battery_critical_sleep_s(display_off_sleep_s(base,
+    ...), ..., fresh_battery_mv), ...)`, never any other order. Nested
+    this way, the 3600s pin (or `base_sleep_s`, on recovery) becomes
+    quiet_hours_sleep_s()'s own base, so an active quiet-hours window
+    longer than 3600s can still extend the sleep through that function's
+    existing `max(base_sleep_s, remaining)`, while a parked frame is
+    never handed LESS than 3600s by a shorter configured wake_interval_s
+    or by the display-off pin. See do_GET's own composition below.
+    """
+    if read_battery_critical(state_dir) is not True:
+        return base_sleep_s
+    if fresh_battery_mv is not None and fresh_battery_mv >= BATTERY_CRITICAL_RECOVER_MV:
+        return base_sleep_s
+    return BATTERY_CRITICAL_SLEEP_S
 
 
 def quiet_hours_sleep_s(base_sleep_s, state_dir, now=None):
@@ -568,10 +673,30 @@ class Handler(BaseHTTPRequestHandler):
                 # docstring for the full reasoning, and
                 # stub-server/test_poll_cycle.py for an executed negative
                 # control proving the inverted order fails.
+                # Quick task 260923-fr4 (D-05's sleep axis, extended):
+                # battery_critical_sleep_s() sits between
+                # display_off_sleep_s() and quiet_hours_sleep_s(), pinning
+                # sleep_s to BATTERY_CRITICAL_SLEEP_S (3600) whenever
+                # server/poll_loop.py's BATTERY EMPTY hold is active -
+                # unless this same request's own `battery_mv` (parsed
+                # above, before this response is built) already reports
+                # recovery, anticipating poll_loop's own up-to-30s-delayed
+                # latch clear. The nesting order below is deliberate and
+                # must not be swapped, for the identical reason
+                # display_off_sleep_s()'s own docstring gives: composed
+                # this way, the 3600s pin becomes quiet_hours_sleep_s()'s
+                # own base, so an active quiet-hours window longer than
+                # 3600s can still extend the sleep through its existing
+                # max(base_sleep_s, remaining) - a parked frame is never
+                # handed less than the parked cadence by either of the
+                # other two pins. See battery_critical_sleep_s()'s own
+                # docstring for the full reasoning.
                 "sleep_s": quiet_hours_sleep_s(
-                    display_off_sleep_s(
-                        read_wake_interval_s(self.args.state_dir, self.args.sleep),
-                        self.args.state_dir),
+                    battery_critical_sleep_s(
+                        display_off_sleep_s(
+                            read_wake_interval_s(self.args.state_dir, self.args.sleep),
+                            self.args.state_dir),
+                        self.args.state_dir, battery_mv),
                     self.args.state_dir),
                 "firmware": None,
                 "reset": False,

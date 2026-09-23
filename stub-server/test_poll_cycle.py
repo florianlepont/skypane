@@ -2,8 +2,17 @@
 """End-to-end poll-cycle contract harness for stub-server/byos_server.py.
 
 Stdlib-only (urllib.request, hashlib, json, subprocess, socket, time, os,
-sys, tempfile, shutil, importlib.util, datetime, zoneinfo - nothing
-else). Generates a deterministic panel image with make_test_panel.py,
+sys, tempfile, shutil, importlib.util, datetime, zoneinfo), plus ONE
+project import added by quick task 260923-fr4: server.wake, used solely
+for the BATTERY EMPTY behaviour-parity check below. This harness is not
+itself vendored (byos_server.py is the vendored file the "never import
+server.*" rule protects), and every other cross-file check here already
+reads the project side as plain text (the drift guards below) rather than
+importing it - the one exception exists because read_battery_critical()'s
+two copies are deliberately NOT byte-identical (one references
+server.wake.BATTERY_CRITICAL_STATE_KEY, the other the literal string it
+equals), so behaviour, not source text, is what that one check proves
+equal. Generates a deterministic panel image with make_test_panel.py,
 launches byos_server.py as a subprocess on a free local port, and
 drives it through the full device-protocol contract documented in
 flightportrait/frame's docs/PROTOCOL.md at the pinned commit
@@ -33,7 +42,14 @@ overlap in both directions (D-05's sleep axis: the longest of the two
 wins), an on-state regression guard proving the new branch does not
 alter the pre-existing Phase 10/11 chain, and a lightweight parity
 check pinning DISPLAY_OFF_SLEEP_S numerically equal between this file
-and server/device_config.py.
+and server/device_config.py. Quick task 260923-fr4 adds unit coverage of
+read_battery_critical()'s fail-open contract and its behaviour parity
+against server.wake.read_battery_critical(), unit coverage of
+battery_critical_sleep_s()'s parked/not-parked/recovery-anticipation
+decision and its composed-chain interaction with the display-off and
+quiet-hours pins, a constant-parity check for BATTERY_CRITICAL_SLEEP_S/
+BATTERY_CRITICAL_RECOVER_MV, and a live-HTTP integration pair (parked,
+then recovering) proving the pin over the real do_GET response.
 
 Exits 0 only when every check below passes; any failure (or exception -
 none is ever swallowed into a pass) exits 1.
@@ -62,11 +78,35 @@ REPO_ROOT = os.path.dirname(HERE)
 SERVER_PATH = os.path.join(HERE, "byos_server.py")
 MAKE_PANEL_PATH = os.path.join(HERE, "make_test_panel.py")
 DEVICE_CONFIG_MODULE_PATH = os.path.join(REPO_ROOT, "server", "device_config.py")
+POLL_LOOP_MODULE_PATH = os.path.join(REPO_ROOT, "server", "poll_loop.py")
 IMAGE_BYTES = 960000
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 40  # 12-03: +6 (display-off sleep pin: fail-open, flat pin, quiet-hours
+EXPECTED_CHECK_COUNT = 46  # 12-03: +6 (display-off sleep pin: fail-open, flat pin, quiet-hours
 # overlap in both directions (unit + integration), on-state regression guard, and
 # DISPLAY_OFF_SLEEP_S parity)
+# Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die): +6
+# (read_battery_critical() fail-open, proven behaviour-identical to
+# server.wake.read_battery_critical() across the same fixture set;
+# battery_critical_sleep_s()'s parked/not-parked/recovery-anticipation
+# unit coverage; the composed chain beating the display-off pin and
+# yielding to a longer quiet-hours remainder; BATTERY_CRITICAL_SLEEP_S/
+# BATTERY_CRITICAL_RECOVER_MV constant parity against
+# server/device_config.py and server/poll_loop.py; and the parked/
+# recovering live-HTTP integration pair)
+#
+# The behaviour-parity check below is this harness's first import of a
+# server.* module - unlike byos_server.py itself (the vendored file this
+# harness tests, which must never import server.*), this harness is not
+# vendored and every other cross-file check here already reads the
+# project side as plain text (the drift guards) rather than importing it;
+# this one check needs the REAL function, not a byte-identical source
+# text, because read_battery_critical()'s two copies are deliberately NOT
+# byte-identical (one references BATTERY_CRITICAL_STATE_KEY, the other
+# the literal string it equals) - so behaviour, not text, is what must be
+# proven equal here.
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+import server.wake as server_wake  # noqa: E402 - see the comment above
 
 
 def verify_panel_bytes(buf, expected_hash):
@@ -756,6 +796,234 @@ def main():
             _display_off_sleep_s_constant_parity,
         )
 
+        # --- Quick task 260923-fr4 (battery-empty-screen-before-the-pack-
+        # die): server/poll_loop.py's BATTERY EMPTY hold pins the device's
+        # check-in cadence to a fixed 3600s while parked, anticipating
+        # recovery within the very request that reports it. -------------
+
+        # O. Unit, fail-open + behaviour parity: read_battery_critical()
+        # degrades to False for every failure mode, never raises, and
+        # matches server.wake.read_battery_critical() field-by-field
+        # across the identical fixture set - the two copies are
+        # deliberately NOT byte-identical (see the module docstring), so
+        # behaviour, not source text, is what this check proves equal.
+        def _battery_critical_fail_open_matches_server_wake():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-bc-failopen-")
+            try:
+                path = os.path.join(tmpdir, "poll_state.json")
+
+                def _both(label):
+                    byos_result = module.read_battery_critical(tmpdir)
+                    server_result = server_wake.read_battery_critical(tmpdir)
+                    if byos_result != server_result:
+                        return None, (
+                            "%s: byos read_battery_critical()=%r != "
+                            "server.wake.read_battery_critical()=%r" % (label, byos_result, server_result)
+                        )
+                    return byos_result, None
+
+                got, err = _both("a missing poll_state.json")
+                if err:
+                    return False, err
+                if got is not False:
+                    return False, "a missing poll_state.json: expected False, got %r" % (got,)
+
+                cases = [
+                    ("{not valid json", "malformed JSON"),
+                    (json.dumps([1, 2, 3]), "a non-dict (list) payload"),
+                    (json.dumps({"battery_critical_active": "true"}), 'a string "true"'),
+                    (json.dumps({"battery_critical_active": 1}), "an int 1"),
+                    (json.dumps({"battery_critical_active": False}), "a literal false"),
+                ]
+                for raw, label in cases:
+                    with open(path, "w") as fh:
+                        fh.write(raw)
+                    got, err = _both(label)
+                    if err:
+                        return False, err
+                    if got is not False:
+                        return False, "%s: expected False, got %r" % (label, got)
+
+                with open(path, "w") as fh:
+                    json.dump({"battery_critical_active": True}, fh)
+                got, err = _both("a literal true")
+                if err:
+                    return False, err
+                if got is not True:
+                    return False, "a literal JSON true: expected True, got %r" % (got,)
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "read_battery_critical() degrades to False and never raises for a missing file, malformed "
+            "JSON, a non-dict payload, the string \"true\", the int 1, and a literal false, returns "
+            "True only for a literal JSON true, and matches server.wake.read_battery_critical() on "
+            "every one of those fixtures (behaviour parity)",
+            _battery_critical_fail_open_matches_server_wake,
+        )
+
+        # P. Unit: battery_critical_sleep_s()'s parked/not-parked/
+        # recovery-anticipation decision, in isolation.
+        def _battery_critical_sleep_s_unit():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-bc-sleep-")
+            try:
+                path = os.path.join(tmpdir, "poll_state.json")
+
+                # Not parked: base wins for every base, regardless of the
+                # fresh reading.
+                for base in (60, 300, 3600):
+                    got = module.battery_critical_sleep_s(base, tmpdir, 3290)
+                    if got != base:
+                        return False, "not parked: base=%r expected unchanged, got %r" % (base, got)
+
+                with open(path, "w") as fh:
+                    json.dump({"battery_critical_active": True}, fh)
+
+                # Parked: exactly BATTERY_CRITICAL_SLEEP_S for every base -
+                # a flat replacement, not a max()/min() against the base.
+                for base in (60, 300, 3600):
+                    got = module.battery_critical_sleep_s(base, tmpdir, None)
+                    if got != module.BATTERY_CRITICAL_SLEEP_S:
+                        return False, (
+                            "parked: base=%r expected BATTERY_CRITICAL_SLEEP_S (%r), got %r"
+                            % (base, module.BATTERY_CRITICAL_SLEEP_S, got)
+                        )
+
+                # Recovery anticipation: a fresh reading at or above
+                # BATTERY_CRITICAL_RECOVER_MV wins over the parked pin even
+                # while the persisted latch is still True.
+                got = module.battery_critical_sleep_s(300, tmpdir, 3800)
+                if got != 300:
+                    return False, (
+                        "parked with fresh_battery_mv=3800 (recovering): expected base (300), got %r"
+                        % (got,)
+                    )
+
+                # Below the recovery threshold, or unreported, stays parked.
+                for fresh_mv in (3500, None):
+                    got = module.battery_critical_sleep_s(300, tmpdir, fresh_mv)
+                    if got != module.BATTERY_CRITICAL_SLEEP_S:
+                        return False, (
+                            "parked with fresh_battery_mv=%r: expected BATTERY_CRITICAL_SLEEP_S (%r), "
+                            "got %r" % (fresh_mv, module.BATTERY_CRITICAL_SLEEP_S, got)
+                        )
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "battery_critical_sleep_s(base, d, fresh_mv): not parked returns base unchanged for every "
+            "base; parked returns exactly BATTERY_CRITICAL_SLEEP_S (3600) for bases 60/300/3600; a "
+            "fresh reading of 3800 mV (at or above BATTERY_CRITICAL_RECOVER_MV) anticipates recovery "
+            "and returns base instead; and a fresh reading of 3500 mV or None stays parked",
+            _battery_critical_sleep_s_unit,
+        )
+
+        # Q. Unit, the composed chain: parked beats the 300s display-off
+        # pin, and a longer quiet-hours remainder still wins over the
+        # 3600s parked pin (D-05's sleep axis, extended).
+        def _battery_critical_composed_chain():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-bc-chain-")
+            try:
+                cfg_path = os.path.join(tmpdir, "device_config.json")
+                poll_state_path = os.path.join(tmpdir, "poll_state.json")
+
+                # Parked AND display off: the 3600s parked pin beats the
+                # 300s display-off pin - composed inside it, per the
+                # documented nesting order.
+                with open(cfg_path, "w") as fh:
+                    json.dump({"display_enabled": False}, fh)
+                with open(poll_state_path, "w") as fh:
+                    json.dump({"battery_critical_active": True}, fh)
+                got = module.quiet_hours_sleep_s(
+                    module.battery_critical_sleep_s(
+                        module.display_off_sleep_s(300, tmpdir), tmpdir, None),
+                    tmpdir)
+                if got != module.BATTERY_CRITICAL_SLEEP_S:
+                    return False, (
+                        "parked with display_enabled=False: expected the 3600s parked pin to beat the "
+                        "300s off-state pin, got %r" % (got,)
+                    )
+
+                # Parked inside a quiet-hours window with MORE than 3600s
+                # remaining (the same 23:00-07:00 window entered at 23:30,
+                # 28000s remaining, verified independently against
+                # seconds_until_quiet_hours_end() during planning, reused
+                # from _display_off_and_quiet_hours_overlap() above): the
+                # window's remaining time wins over the 3600s parked pin.
+                os.remove(cfg_path)
+                now = datetime.fromtimestamp(1700000000.0, timezone.utc)
+                with open(cfg_path, "w") as fh:
+                    json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
+                               "quiet_hours_end": "07:00"}, fh)
+                got = module.quiet_hours_sleep_s(
+                    module.battery_critical_sleep_s(
+                        module.display_off_sleep_s(300, tmpdir), tmpdir, None),
+                    tmpdir, now=now)
+                if got != 28000:
+                    return False, (
+                        "parked inside a >3600s quiet-hours window: expected the window's remaining "
+                        "28000s to win over the 3600s parked pin, got %r" % (got,)
+                    )
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "the composed sleep_s chain: parked with display_enabled=False yields exactly 3600s (the "
+            "parked pin beats the 300s off-state pin), and parked inside a quiet-hours window with "
+            "more than 3600s remaining yields the window's own remaining time (the longer pin always "
+            "wins, D-05's sleep axis extended)",
+            _battery_critical_composed_chain,
+        )
+
+        # R. Constant parity: BATTERY_CRITICAL_SLEEP_S against
+        # server/device_config.py's constant of the same name;
+        # BATTERY_CRITICAL_RECOVER_MV against server/poll_loop.py's - both
+        # read as plain text via _extract_line(), mirroring
+        # _display_off_sleep_s_constant_parity()'s own shape exactly.
+        def _battery_critical_constant_parity():
+            module = ctx["byos_module"]
+            try:
+                with open(DEVICE_CONFIG_MODULE_PATH) as fh:
+                    device_config_text = fh.read()
+            except OSError as exc:
+                return False, "could not read %s: %r" % (DEVICE_CONFIG_MODULE_PATH, exc)
+            try:
+                with open(POLL_LOOP_MODULE_PATH) as fh:
+                    poll_loop_text = fh.read()
+            except OSError as exc:
+                return False, "could not read %s: %r" % (POLL_LOOP_MODULE_PATH, exc)
+
+            sleep_line = _extract_line(device_config_text, "BATTERY_CRITICAL_SLEEP_S = ")
+            if sleep_line is None:
+                return False, "could not locate 'BATTERY_CRITICAL_SLEEP_S = ' in server/device_config.py"
+            sleep_value = int(sleep_line.split("=", 1)[1].strip().split()[0])
+            if sleep_value != module.BATTERY_CRITICAL_SLEEP_S:
+                return False, (
+                    "BATTERY_CRITICAL_SLEEP_S has drifted between server/device_config.py (%r) and "
+                    "stub-server/byos_server.py (%r)" % (sleep_value, module.BATTERY_CRITICAL_SLEEP_S)
+                )
+
+            recover_line = _extract_line(poll_loop_text, "BATTERY_CRITICAL_RECOVER_MV = ")
+            if recover_line is None:
+                return False, "could not locate 'BATTERY_CRITICAL_RECOVER_MV = ' in server/poll_loop.py"
+            recover_value = int(recover_line.split("=", 1)[1].strip().split()[0])
+            if recover_value != module.BATTERY_CRITICAL_RECOVER_MV:
+                return False, (
+                    "BATTERY_CRITICAL_RECOVER_MV has drifted between server/poll_loop.py (%r) and "
+                    "stub-server/byos_server.py (%r)" % (recover_value, module.BATTERY_CRITICAL_RECOVER_MV)
+                )
+            return True, ""
+        check(
+            "BATTERY_CRITICAL_SLEEP_S is numerically equal between server/device_config.py and the "
+            "loaded stub-server/byos_server.py module, and BATTERY_CRITICAL_RECOVER_MV is numerically "
+            "equal between server/poll_loop.py and the loaded module - both read as plain text, never "
+            "imported",
+            _battery_critical_constant_parity,
+        )
+
         harness.generate_panel("palette")
         harness.start_server(sleep_s=300)
 
@@ -1378,6 +1646,73 @@ def main():
             "300 (the remaining window time wins over the flat off-state pin, D-05's sleep "
             "axis) - this is the check the composition-order negative control targets",
             _display_off_and_quiet_hours_overlap_integration,
+        )
+
+        # J. Integration, live HTTP (quick task 260923-fr4): with
+        # poll_state.json's battery_critical_active latched True in the
+        # harness's own --state-dir, a GET /device/v1/display carrying a
+        # still-critical X-Battery-Mv reading (3290, below
+        # BATTERY_CRITICAL_RECOVER_MV) returns sleep_s exactly 3600 - the
+        # parked pin, over the real do_GET response construction.
+        def _battery_critical_integration_parked():
+            poll_state_path = os.path.join(harness.tmpdir, "poll_state.json")
+            with open(poll_state_path, "w") as fh:
+                json.dump({"battery_critical_active": True}, fh)
+            try:
+                status, _, body = http_request(
+                    harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": "3290"})
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if not validate_display_response(obj):
+                    return False, "response failed validate_display_response: %r" % (obj,)
+                if obj.get("sleep_s") != 3600:
+                    return False, "expected sleep_s exactly 3600 while parked, got %r" % (obj.get("sleep_s"),)
+                return True, ""
+            finally:
+                if os.path.exists(poll_state_path):
+                    os.remove(poll_state_path)
+        check(
+            "with poll_state.json's battery_critical_active latched True, a live GET "
+            "/device/v1/display carrying X-Battery-Mv:3290 returns sleep_s exactly 3600 (the parked "
+            "pin)",
+            _battery_critical_integration_parked,
+        )
+
+        # K. Integration, live HTTP, the recovery-anticipation twin: the
+        # SAME latched-True poll_state.json, but this poll's own
+        # X-Battery-Mv reports recovery (4100, at or above
+        # BATTERY_CRITICAL_RECOVER_MV) - the response must NOT hand out
+        # the stale 3600s pin; sleep_s falls back to the harness's base
+        # --sleep value (300) instead.
+        def _battery_critical_integration_recovering():
+            poll_state_path = os.path.join(harness.tmpdir, "poll_state.json")
+            with open(poll_state_path, "w") as fh:
+                json.dump({"battery_critical_active": True}, fh)
+            try:
+                status, _, body = http_request(
+                    harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": "4100"})
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if not validate_display_response(obj):
+                    return False, "response failed validate_display_response: %r" % (obj,)
+                if obj.get("sleep_s") != 300:
+                    return False, (
+                        "expected sleep_s exactly 300 (the base value, recovery anticipated) with a "
+                        "recovering X-Battery-Mv:4100, got %r" % (obj.get("sleep_s"),)
+                    )
+                return True, ""
+            finally:
+                if os.path.exists(poll_state_path):
+                    os.remove(poll_state_path)
+        check(
+            "with poll_state.json's battery_critical_active still latched True, a live GET "
+            "/device/v1/display carrying a recovering X-Battery-Mv:4100 returns the base sleep_s "
+            "(300), not the stale 3600s parked pin - recovery is anticipated within THIS request",
+            _battery_critical_integration_recovering,
         )
 
         # 25. Failure classification: with the server stopped, a display poll

@@ -127,6 +127,16 @@ EXPECTED_CHECK_COUNT = 83
 # the last one; and no file under companion/ so much as mentioning the
 # table - re-derived by running the harness, not by arithmetic)
 EXPECTED_CHECK_COUNT = 87
+# Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die): 87 ->
+# 90, +3 (server/wake.py's critical-aware mirror: effective_wake_interval_s()
+# pins device_config.BATTERY_CRITICAL_SLEEP_S ahead of display_enabled=False
+# when battery_critical=True, and its default False leaves every existing
+# result unchanged; read_battery_critical() is fail-open, True only for a
+# literal JSON true, across missing/malformed/non-dict/"true"-string/1-int
+# fixtures, never raising; and next_wake_status(battery_critical=True) puts
+# the next wake exactly 3600 s after the check-in with no quiet-hours window
+# active - re-derived by running the harness, not by arithmetic)
+EXPECTED_CHECK_COUNT = 90
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -2486,6 +2496,131 @@ def main():
         return True, ""
 
     check("every history_db.py execute() call uses ? placeholders, never %-formatting or an f-string", _all_sql_uses_placeholders_not_string_formatting)
+
+    # --- Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die):
+    # server/wake.py's BATTERY EMPTY mirror - effective_wake_interval_s()'s
+    # new battery_critical keyword, read_battery_critical()'s fail-open
+    # reader, and next_wake_status()'s threaded-through parameter. `wake` is
+    # already imported above (24-03-PLAN.md Task 2's own import), and
+    # `device_config` was imported at the top of this function.
+
+    def _effective_wake_interval_s_battery_critical_pins_and_wins():
+        # battery_critical=True pins the parked cadence regardless of every
+        # other field, including display_enabled=False, which would
+        # otherwise win (12-CONTEXT.md D-01).
+        cfg_off = {"display_enabled": False, "wake_interval_s": 600}
+        got = wake.effective_wake_interval_s(cfg_off, battery_critical=True)
+        if got != device_config.BATTERY_CRITICAL_SLEEP_S:
+            return False, (
+                "effective_wake_interval_s(display_enabled=False, battery_critical=True) = %r, expected "
+                "device_config.BATTERY_CRITICAL_SLEEP_S (%r)" % (got, device_config.BATTERY_CRITICAL_SLEEP_S)
+            )
+        # The default (False) leaves every existing precedence path
+        # unchanged - a representative sample of cfgs, with and without the
+        # keyword, must produce identical results.
+        samples = [
+            None,
+            {},
+            {"display_enabled": False},
+            {"wake_interval_s": 900},
+            {"wake_interval_s": -5},
+            {"display_enabled": True, "wake_interval_s": 120},
+        ]
+        for cfg in samples:
+            without = wake.effective_wake_interval_s(cfg)
+            with_default = wake.effective_wake_interval_s(cfg, battery_critical=False)
+            if without != with_default:
+                return False, (
+                    "effective_wake_interval_s(%r) = %r without the keyword but %r with "
+                    "battery_critical=False - the default must leave every existing result unchanged"
+                    % (cfg, without, with_default)
+                )
+        return True, ""
+    check(
+        "effective_wake_interval_s(cfg, battery_critical=True) pins device_config.BATTERY_CRITICAL_SLEEP_S "
+        "ahead of every other consideration, including display_enabled=False, and the default False leaves "
+        "every existing result unchanged",
+        _effective_wake_interval_s_battery_critical_pins_and_wins,
+    )
+
+    def _read_battery_critical_is_fail_open():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-battery-critical-")
+        try:
+            # Missing file.
+            if wake.read_battery_critical(tmpdir) is not False:
+                return False, "a missing poll_state.json: expected False"
+
+            path = os.path.join(tmpdir, "poll_state.json")
+
+            def _write_raw(text):
+                with open(path, "w") as fh:
+                    fh.write(text)
+
+            def _write_json(obj):
+                with open(path, "w") as fh:
+                    json.dump(obj, fh)
+
+            _write_raw("{not valid json")
+            if wake.read_battery_critical(tmpdir) is not False:
+                return False, "malformed JSON: expected False"
+
+            _write_json([1, 2, 3])
+            if wake.read_battery_critical(tmpdir) is not False:
+                return False, "a JSON list (non-dict payload): expected False"
+
+            _write_json({wake.BATTERY_CRITICAL_STATE_KEY: "true"})
+            if wake.read_battery_critical(tmpdir) is not False:
+                return False, "a string 'true': expected False (only the literal boolean counts)"
+
+            _write_json({wake.BATTERY_CRITICAL_STATE_KEY: 1})
+            if wake.read_battery_critical(tmpdir) is not False:
+                return False, "an int 1: expected False (only the literal boolean counts)"
+
+            _write_json({wake.BATTERY_CRITICAL_STATE_KEY: True})
+            if wake.read_battery_critical(tmpdir) is not True:
+                return False, "a literal JSON true: expected True"
+
+            _write_json({wake.BATTERY_CRITICAL_STATE_KEY: False})
+            if wake.read_battery_critical(tmpdir) is not False:
+                return False, "a literal JSON false: expected False"
+
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "read_battery_critical() returns True only for a literal JSON true under BATTERY_CRITICAL_STATE_KEY - "
+        "a missing file, malformed JSON, a non-dict payload, the string 'true', and the int 1 all return "
+        "False, and it never raises",
+        _read_battery_critical_is_fail_open,
+    )
+
+    def _next_wake_status_battery_critical_pins_3600s():
+        from datetime import datetime, timedelta
+
+        checkin_iso = "2026-09-23T12:00:00+00:00"
+        next_iso, effective_interval_s, _hold_reason = wake.next_wake_status(
+            checkin_iso, {"wake_interval_s": 300}, battery_critical=True,
+        )
+        if effective_interval_s != device_config.BATTERY_CRITICAL_SLEEP_S:
+            return False, (
+                "next_wake_status(battery_critical=True) effective_interval_s = %r, expected "
+                "device_config.BATTERY_CRITICAL_SLEEP_S (%r)"
+                % (effective_interval_s, device_config.BATTERY_CRITICAL_SLEEP_S)
+            )
+        expected_next = (
+            datetime.fromisoformat(checkin_iso) + timedelta(seconds=device_config.BATTERY_CRITICAL_SLEEP_S)
+        ).isoformat()
+        if next_iso != expected_next:
+            return False, (
+                "next_wake_status(battery_critical=True)'s next_wake_iso = %r, expected %r (check-in + 3600s)"
+                % (next_iso, expected_next)
+            )
+        return True, ""
+    check(
+        "next_wake_status(last_checkin, cfg, battery_critical=True) puts the next wake exactly "
+        "BATTERY_CRITICAL_SLEEP_S (3600 s) after the check-in when no quiet-hours window applies",
+        _next_wake_status_battery_critical_pins_3600s,
+    )
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
