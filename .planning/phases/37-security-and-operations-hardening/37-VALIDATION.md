@@ -1,7 +1,7 @@
 ---
 phase: 37
 slug: security-and-operations-hardening
-status: draft
+status: planned
 nyquist_compliant: false
 wave_0_complete: false
 created: 2026-09-23
