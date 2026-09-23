@@ -7,14 +7,14 @@ current_phase_name: ci-test-suite-parallelize-companion-test-browser-ux-py-to-cu
 status: completed
 stopped_at: Phase 30 complete (verification passed 9/9, PR #79 opened) merged with Phase 31 complete (5/5 plans, landed independently on main as PR #78)
 last_updated: "2026-09-22T20:19:17.981Z"
-last_activity: 2026-09-22
+last_activity: 2026-09-23
 last_activity_desc: Phase 30 complete
 progress:
-  total_phases: 43
-  completed_phases: 40
-  total_plans: 277
+  total_phases: 42
+  completed_phases: 41
+  total_plans: 268
   completed_plans: 267
-  percent: 93
+  percent: 98
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -858,6 +858,9 @@ None yet.
 | 260923-9fe | Public-repo hygiene after the repo went public, ending in a relicense of SkyPane's own code to AGPL-3.0-only + commercial licence (firmware stays Apache-2.0): history scanned clean of real secrets; pure-MIT root LICENSE + top-level NOTICE licence map; Apache-2.0 compliance for firmware/ (LICENSE, NOTICE, corrected SPDX headers, two drifted "verbatim" files re-classified as modified); trademark disclaimer and corrected illustration rationale; public README; SECURITY.md, Dependabot, least-privilege SHA-pinned workflows; CLAUDE.md stack refreshed; GitHub security settings applied. Pre-existing 3/75 test_browser_ux.py local failures noted, unrelated. | 2026-09-23 | 363441c, 7c80d72, bd332c2, f61d6ac, 9c90522, ec36873 | [260923-9fe-public-repo-hygiene-licences-readme-secu](./quick/260923-9fe-public-repo-hygiene-licences-readme-secu/) |
 | 260923-em4 | Root-caused the flaky fallback-Save browser check that kept main's CI (and Dependabot PRs) red: clicking during the save bar's entrance animation stalls Playwright's stable check in the no-JS context, up to the full 30s with no request ever sent. The check now runs with reduced motion; assertions unchanged. 3/3 passes, versus failing every local full-harness run before. | 2026-09-23 | (this PR) | [260923-em4-fix-flaky-fallback-save-browser-check-ba](./quick/260923-em4-fix-flaky-fallback-save-browser-check-ba/) |
 | 260923-fr4 | Server-side BATTERY EMPTY screen so a dying pack no longer freezes the panel mid-refresh: at ≤3300 mV poll_loop latches `battery_critical_active` (clears at ≥3700 mV, unknown readings never flip it) and renders a new hold screen through `_build_dimmed_hold_canvas` — a visual sibling of DISPLAY OFF / QUIET HOURS with a hollow-battery glyph; the hold outranks display-off and quiet hours and skips ADS-B detection. byos pins `sleep_s` to 3600 s while parked (anticipating recovery from the same request's X-Battery-Mv), and wake.py/companion mirror the cadence so no false "not checked in" pushes fire. Firmware untouched (the developer chose server over an embedded firmware image). Full suite green except two pre-existing/flaky browser harnesses (test_browser_ux fails identically on base 4b530aa; quiet_wake 9/9 in isolation). | 2026-09-23 | 061571f, bf5ada3, 08eedbc | [260923-fr4-battery-empty-screen-before-the-pack-die](./quick/260923-fr4-battery-empty-screen-before-the-pack-die/) |
+| 260923-gjp | Companion moved to its own domain, skypane.algernon.ovh (hand-edited on the VPS, verified: valid Let's Encrypt cert, old nip.io host retired, device host untouched, nothing to change on GitHub). `deploy/provision.sh` now takes an optional second argument, companion-host (default `config-<public-host>`), so a re-provision no longer reverts production; substitutions are anchored to their site-block lines and hostnames are validated before reaching sed. README documents the choice, the production invocation, and the in-place change procedure. | 2026-09-23 | (this PR) | [260923-gjp-provision-sh-companion-hostname-argument](./quick/260923-gjp-provision-sh-companion-hostname-argument/) |
+| fast | Closed Phase 24 in ROADMAP.md (9/9 plans ticked, all SUMMARYs present; CFG-39/CFG-42 stay deliberately unticked) and marked SEED-003 fulfilled (delivered by Phases 15-17) | 2026-09-23 | (this commit) | - |
+| fast | Abandoned Phase 26 ("App": ⌘K palette, shortcuts, guided first run, drawn empty states, share picture) at the developer's request before execution — 9 plans marked [~] in ROADMAP.md, CFG-53..61 DROPPED in REQUIREMENTS.md, files kept as history; progress frontmatter re-counted (41/42 phases, 267/268 plans) | 2026-09-23 | (this commit) | - |
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|

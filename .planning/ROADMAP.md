@@ -1097,7 +1097,7 @@ Plans:
 **Goal:** The charts and pictures the data already supports, rendered server-side as SVG from `history.db`, sharing one battery estimator: D21 (battery ring gauge, reused small in Home's tile), D8 (battery chart with gradient area, marked last point, low-battery threshold), D13 (Home's day timeline), D20 (wake-punctuality grid) and D4 (the Home hero the others feed). **D20 carries a known blocker to settle at planning:** `device_health` records observed check-ins only, so "honoured-wake rate" needs historical expected intervals that are nowhere stored — either the schema grows or the metric changes.
 **Requirements**: CFG-39 (one shared battery estimator + one SVG drawing contract, machine-enforced), CFG-40 (D21 ring gauge, one emitter, two sizes), CFG-41 (D8 battery chart: area, marked last point, low-battery threshold), CFG-42 (D13 Home day timeline), CFG-43 (D20, reported only as far as the stored data can prove it), CFG-44 (D4 Home hero), CFG-45 (the phase's regression floor: no-JS, 360 px, both themes, motion budget, design system updated in step)
 **Depends on:** Phase 23
-**Plans:** 9/9 plans executed
+**Plans:** 9/9 plans complete — closed 2026-09-23 (every plan has its SUMMARY; CFG-40/41/43/44/45 ticked, CFG-39 and CFG-42 deliberately left unticked with their unmet clauses named in REQUIREMENTS.md and 24-09-SUMMARY.md)
 
 Three decisions were taken at planning, on `24-RESEARCH.md`'s evidence, and are
 PROVISIONAL — the developer was unavailable and every one is collected in
@@ -1113,33 +1113,33 @@ Plans:
 
 **Wave 1** *(parallel — three plans, disjoint files)*
 
-- [ ] 24-01-PLAN.md — wave 1: the one battery estimator (extended) and `companion/draw.py`, plus the executable drawing contract every later plan is measured against
-- [ ] 24-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — a theme switch (this harness has never once measured dark mode), a computed-paint reader and a 360 px body-overflow assertion; zero net checks
-- [ ] 24-03-PLAN.md — wave 1: D20's data question settled in code — the check-in gap reader, verdicts from the one existing threshold function, and the migration-free epoch table nothing reads yet
+- [x] 24-01-PLAN.md — wave 1: the one battery estimator (extended) and `companion/draw.py`, plus the executable drawing contract every later plan is measured against
+- [x] 24-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — a theme switch (this harness has never once measured dark mode), a computed-paint reader and a 360 px body-overflow assertion; zero net checks
+- [x] 24-03-PLAN.md — wave 1: D20's data question settled in code — the check-in gap reader, verdicts from the one existing threshold function, and the migration-free epoch table nothing reads yet
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 24-04-PLAN.md — wave 2: D21 — one ring emitter, two sizes (Health's battery section and Home's tile), proven one function by mutating it and watching both pages change
+- [x] 24-04-PLAN.md — wave 2: D21 — one ring emitter, two sizes (Health's battery section and Home's tile), proven one function by mutating it and watching both pages change
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 24-05-PLAN.md — wave 3: D8 — the chart's area, marked last point and low-battery threshold, all from the one filtered pair list, with the coordinate scheme intact
+- [x] 24-05-PLAN.md — wave 3: D8 — the chart's area, marked last point and low-battery threshold, all from the one filtered pair list, with the coordinate scheme intact
 
 **Wave 4** *(blocked on Wave 2 completion)*
 
-- [ ] 24-06-PLAN.md — wave 4: D13 — Home's day band on a time-domain scale, the wrapping quiet-hours window as two spans, and a caption that never claims a count the band collapsed
+- [x] 24-06-PLAN.md — wave 4: D13 — Home's day band on a time-domain scale, the wrapping quiet-hours window as two spans, and a caption that never claims a count the band collapsed
 
 **Wave 5** *(blocked on Waves 1 and 3)*
 
-- [ ] 24-07-PLAN.md — wave 5: D20 — the check-in regularity grid, four states including "no observation", and a caption whose three clauses are each separately asserted
+- [x] 24-07-PLAN.md — wave 5: D20 — the check-in regularity grid, four states including "no observation", and a caption whose three clauses are each separately asserted
 
 **Wave 6** *(blocked on Waves 2 and 4)*
 
-- [ ] 24-08-PLAN.md — wave 6: D4 — the Home hero assembled from calls, with "fed by" proven behaviourally and the frame verdict still rendered exactly once
+- [x] 24-08-PLAN.md — wave 6: D4 — the Home hero assembled from calls, with "fed by" proven behaviourally and the frame verdict still rendered exactly once
 
 **Wave 7** *(blocked on all prior waves)*
 
-- [ ] 24-09-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's decision list, and the phase gate including the human sweep
+- [x] 24-09-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's decision list, and the phase gate including the human sweep
 
 Cross-cutting constraints (appearing in two or more plans' `must_haves`):
 
@@ -1213,12 +1213,14 @@ Cross-cutting constraints (appearing in two or more plans' `must_haves`):
 - **Two standing refusals stay refused and unreversed:** the **overlay drawer** (three recorded rejections plus locked decision D-10, one from real-device testing) and **sticky day headers** (struck twice; every flight row already carries its date).
 - Every check mutation-tested and must survive the vacuity question; `EXPECTED_CHECK_COUNT` re-derived by RUNNING, never by arithmetic; the sandbox baseline is exactly 5 failing checks verified by NAME. A `SKIP` from `test_browser_ux.py` is a **failed phase gate**, not a caveat — this phase is entirely interaction.
 
-### Phase 26: Companion dynamism IV — "App": the finishes
+### Phase 26: Companion dynamism IV — "App": the finishes — ABANDONED
+
+**ABANDONED 2026-09-23, before execution, at the developer's request** ("je n'en veux plus"). None of the nine plans was ever executed and nothing of D23 (⌘K palette, shortcuts), D24 (guided first run, drawn empty states), D15 (share the picture of the day), D6's theme-color half or D11's gzip half was built. CFG-53..61 are dropped, not failed. The plans, RESEARCH, PATTERNS and VALIDATION stay on disk in `.planning/phases/26-*/` as history only; nothing is carried into another phase. Re-proposing any of it starts from a new discussion, not from these plans.
 
 **Goal:** D23 (keyboard shortcuts and a ⌘K command palette), D24 (guided first run and drawn empty states) and D15 (share the picture of the day). **D6 is already shipped** — its bottom tab bar landed in 22-14 — so only its manifest/theme-color half remains, if wanted. **D11 is partly excluded**: hashed filenames imply a build step, which this milestone's framework-free/build-free constraint forbids; prefetch-on-hover and gzip are still open. **D12 is excluded entirely** (see Phase 23).
 **Requirements**: CFG-53, CFG-54, CFG-55, CFG-56, CFG-57, CFG-58, CFG-59, CFG-60, CFG-61
 **Depends on:** Phase 23 **and Phase 24** — corrected at planning. 26-06's drawn empty states are emitted through `companion/draw.py`, which 24-01 creates; the plan enforces it as an executable precondition rather than forking a second drawing path. The entry previously said Phase 23 alone.
-**Plans:** 9 plans across 7 waves
+**Plans:** 0/9 executed — phase abandoned 2026-09-23 (see above)
 
 **Planned 2026-09-13, and planning ONLY.** This phase inherits facts from Phases 24 and 25, both of which are planned but NOT executed.
 
@@ -1237,33 +1239,33 @@ Plans:
 
 **Wave 1** *(parallel — two plans, disjoint files)*
 
-- [ ] 26-01-PLAN.md — wave 1: the phase's one new script with its three taxes paid once, the nav-derived command index, the `<dialog>` and the `.js`-gated trigger, and the two executable structural contracts. Builds no search and no shortcut.
-- [ ] 26-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — focus-restoration reading, announcement read-back that can tell a repeat from a change, the unauthenticated-route enumerator, and the exhaustive destination sweep; zero net checks
+- [~] 26-01-PLAN.md — ABANDONED 2026-09-23, never executed — wave 1: the phase's one new script with its three taxes paid once, the nav-derived command index, the `<dialog>` and the `.js`-gated trigger, and the two executable structural contracts. Builds no search and no shortcut.
+- [~] 26-02-PLAN.md — ABANDONED 2026-09-23, never executed — wave 1: the browser-harness helpers this phase runs on — focus-restoration reading, announcement read-back that can tell a repeat from a change, the unauthenticated-route enumerator, and the exhaustive destination sweep; zero net checks
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 26-03-PLAN.md — wave 2: D23's palette — filtering over the server's own index, the combobox relationship, the count-only announcement, and the three traps the platform closes
+- [~] 26-03-PLAN.md — ABANDONED 2026-09-23, never executed — wave 2: D23's palette — filtering over the server's own index, the combobox relationship, the count-only announcement, and the three traps the platform closes
 
 **Wave 3** *(parallel — two plans, disjoint files; blocked on Wave 2)*
 
-- [ ] 26-04-PLAN.md — wave 3: D23's shortcuts, the typing guard, the bounded chord, and the check the whole feature's legitimacy rests on — every destination reachable with scripts blocked, per destination, every run
-- [ ] 26-05-PLAN.md — wave 3: D24's guided first run — three signals that can actually fail, derived live, disappearing by construction, with no script and no storage
+- [~] 26-04-PLAN.md — ABANDONED 2026-09-23, never executed — wave 3: D23's shortcuts, the typing guard, the bounded chord, and the check the whole feature's legitimacy rests on — every destination reachable with scripts blocked, per destination, every run
+- [~] 26-05-PLAN.md — ABANDONED 2026-09-23, never executed — wave 3: D24's guided first run — three signals that can actually fail, derived live, disappearing by construction, with no script and no storage
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 26-06-PLAN.md — wave 4: D24's drawn empty states — the `empty_state()` extension whose default is byte-identical for all six callers, and illustrations emitted through Phase 24's one drawing module
+- [~] 26-06-PLAN.md — ABANDONED 2026-09-23, never executed — wave 4: D24's drawn empty states — the `empty_state()` extension whose default is byte-identical for all six callers, and illustrations emitted through Phase 24's one drawing module
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 26-07-PLAN.md — wave 5: adoption across all six empty states, with every next action a real destination or an href-less span
+- [~] 26-07-PLAN.md — ABANDONED 2026-09-23, never executed — wave 5: adoption across all six empty states, with every next action a real destination or an href-less span
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 26-08-PLAN.md — wave 6: D15 — the download anchor that needs no script, the capability-gated share built without a network call, and the privacy proof that no route became public
+- [~] 26-08-PLAN.md — ABANDONED 2026-09-23, never executed — wave 6: D15 — the download anchor that needs no script, the capability-gated share built without a network call, and the privacy proof that no route became public
 
 **Wave 7** *(blocked on all prior waves)*
 
-- [ ] 26-09-PLAN.md — wave 7: D6's theme-color half and D11's gzip half built, their other halves refused in writing; the design system updated in step, the coverage ledger, the eight-decision list, and the phase gate including the human sweep
+- [~] 26-09-PLAN.md — ABANDONED 2026-09-23, never executed — wave 7: D6's theme-color half and D11's gzip half built, their other halves refused in writing; the design system updated in step, the coverage ledger, the eight-decision list, and the phase gate including the human sweep
 
 *The waves are serial after wave 1 because `companion/static/style.css` is written by five plans and `companion/static/command-palette.js` by three, and this project's rule is one writer per file per wave — the same reason Phase 23 needed 9 waves for 11 plans, Phase 24 7 for 9, and Phase 25 7 for 8.*
 

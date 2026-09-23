@@ -7,13 +7,19 @@
 # this script itself with `sudo`.
 #
 # Usage:
-#   ./provision.sh [public-host]
+#   ./provision.sh [public-host [companion-host]]
 #
-# public-host: the hostname Caddy should request a certificate for, e.g.
-#   203-0-113-10.nip.io (see deploy/Caddyfile's comment for the nip.io
-#   pattern) or a real owned domain. If omitted, the Caddyfile's checked-in
-#   placeholder hostname is installed as-is and must be edited by hand
-#   before Caddy can obtain a valid certificate.
+# public-host: the hostname the device reaches, which Caddy requests a
+#   certificate for, e.g. 203-0-113-10.nip.io (see deploy/Caddyfile's
+#   comment for the nip.io pattern) or a real owned domain. If omitted, the
+#   Caddyfile's checked-in placeholder hostnames are installed as-is and
+#   must be edited by hand before Caddy can obtain a valid certificate.
+#
+# companion-host: the hostname of the companion web interface (the
+#   Caddyfile's second site block). Defaults to config-<public-host>, which
+#   only works when that name resolves (always true for nip.io). Pass it
+#   explicitly when the companion has its own DNS name - production uses
+#   skypane.algernon.ovh since 2026-09-23.
 #
 # Idempotent: every step below is safe to re-run (useradd/mkdir/apt/tee
 # all no-op or overwrite cleanly on a second run), so re-running this
@@ -24,10 +30,24 @@ APP_USER="skypane"
 APP_ROOT="/opt/skypane"
 STATE_DIR="${APP_ROOT}/state"
 PUBLIC_HOST="${1:-}"
+COMPANION_HOST="${2:-}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "provision.sh must run as root (sudo ./provision.sh [public-host])" >&2
+    echo "provision.sh must run as root (sudo ./provision.sh [public-host [companion-host]])" >&2
+    exit 1
+fi
+
+# Both hostnames are interpolated into a sed expression below - accept only
+# plain DNS characters so a typo cannot turn into a sed command.
+for host in "${PUBLIC_HOST}" "${COMPANION_HOST}"; do
+    if [ -n "${host}" ] && ! [[ "${host}" =~ ^[A-Za-z0-9.-]+$ ]]; then
+        echo "provision.sh: invalid hostname '${host}' (letters, digits, dots and dashes only)" >&2
+        exit 1
+    fi
+done
+if [ -z "${PUBLIC_HOST}" ] && [ -n "${COMPANION_HOST}" ]; then
+    echo "provision.sh: companion-host needs a public-host before it" >&2
     exit 1
 fi
 
@@ -94,8 +114,15 @@ install -m 644 "${HERE}/skypane-companion.service" /etc/systemd/system/skypane-c
 
 echo "==> Installing the Caddyfile"
 if [ -n "${PUBLIC_HOST}" ]; then
-    sed "s/203-0-113-10\.nip\.io/${PUBLIC_HOST}/" "${HERE}/Caddyfile" > /etc/caddy/Caddyfile
-    echo "    Caddyfile installed with public host: ${PUBLIC_HOST}"
+    COMPANION_HOST="${COMPANION_HOST:-config-${PUBLIC_HOST}}"
+    # Each substitution is anchored to its own site-block line, so the
+    # device host can never rewrite the companion line (which contains the
+    # device placeholder as a substring) and the comments stay untouched.
+    sed -e "s/^config-203-0-113-10\.nip\.io {/${COMPANION_HOST} {/" \
+        -e "s/^203-0-113-10\.nip\.io {/${PUBLIC_HOST} {/" \
+        "${HERE}/Caddyfile" > /etc/caddy/Caddyfile
+    echo "    Caddyfile installed with public host: ${PUBLIC_HOST}," \
+        "companion host: ${COMPANION_HOST}"
 else
     cp "${HERE}/Caddyfile" /etc/caddy/Caddyfile
     echo "    WARNING: no public-host argument given - /etc/caddy/Caddyfile" \
