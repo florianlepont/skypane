@@ -29,7 +29,7 @@ passwordless-sudo non-root one — see each script's header comment.
 | `skypane-byos.service` | Runs `stub-server/byos_server.py` as the `skypane` user, bound to loopback, `--image-url-scheme https` |
 | `skypane-poll.service` / `skypane-poll.timer` | A `Type=oneshot` unit invoking `server/poll_loop.py --once`, fired every 30s by the timer |
 | `skypane-companion.service` | Runs `companion/app.py` as the `skypane` user, bound to loopback — the companion configuration web interface (06-11-PLAN.md) |
-| `Caddyfile` | Reverse-proxies the public hostname to `127.0.0.1:8642` (device protocol) and a second, `config-`-prefixed hostname to `127.0.0.1:8643` (companion interface), both with Caddy's automatic Let's Encrypt HTTPS |
+| `Caddyfile` | Reverse-proxies the public hostname to `127.0.0.1:8642` (device protocol) and a second hostname to `127.0.0.1:8643` (companion interface; `config-<public-host>` by default, or its own domain), both with Caddy's automatic Let's Encrypt HTTPS |
 | `provision.sh` | Idempotent first-run setup on a fresh Ubuntu VPS: user, packages, venv, unit files, ufw, SSH hardening |
 | `deploy.sh` | Repeatable code push: rsync (`server/`, `stub-server/`, `companion/`), conditional pip install, service restarts, journald tail |
 
@@ -57,6 +57,13 @@ scripted one:
    for how nip.io resolution works). Either way, Caddy just needs *a*
    hostname that already resolves to this VPS's IP for the Let's Encrypt
    HTTP-01 challenge to succeed.
+5. Decide the companion interface's hostname. By default `provision.sh`
+   uses `config-<public-host>`, which resolves by itself only for a nip.io
+   host. With a real DNS name, either create a record for
+   `config-<public-host>` or give the companion its own name: an A record
+   pointing at the VPS's IPv4 (no AAAA unless it is the VPS's real IPv6,
+   or the certificate challenge can fail). Production has used
+   `skypane.algernon.ovh` for the companion since 2026-09-23.
 
 No OVH API token or credential is needed anywhere in this flow — the VPS
 is created by hand in the console, and everything after that point is
@@ -72,18 +79,33 @@ the VPS (`skypane.env`, see below) — never a dashboard click.
 # Direct-root example:
 scp -r deploy root@<vps-ip>:/root/deploy
 ssh root@<vps-ip>
-./deploy/provision.sh <public-host>
+./deploy/provision.sh <public-host> [<companion-host>]
 
 # Passwordless-sudo non-root example (e.g. Ubuntu cloud images, which
 # disable direct root SSH login by default and use a "ubuntu" user
 # instead):
 scp -r deploy ubuntu@<vps-ip>:/home/ubuntu/deploy
-ssh ubuntu@<vps-ip> "sudo /home/ubuntu/deploy/provision.sh <public-host>"
+ssh ubuntu@<vps-ip> "sudo /home/ubuntu/deploy/provision.sh <public-host> [<companion-host>]"
 ```
 
 `<public-host>` is the hostname from step 4 above — either the VPS's real
 public DNS name (e.g. `<public-host>`) or a nip.io fallback
-(e.g. `203-0-113-10.nip.io`).
+(e.g. `203-0-113-10.nip.io`). `<companion-host>` is the name from step 5;
+leave it out to get `config-<public-host>`. Production:
+
+```bash
+sudo ./deploy/provision.sh <public-host> skypane.algernon.ovh
+```
+
+To change the companion hostname later without re-provisioning, edit the
+second site block's first line in `/etc/caddy/Caddyfile` (listing both
+names, comma-separated, keeps the old one working during the switch),
+run `sudo caddy validate --config /etc/caddy/Caddyfile`, then
+`sudo systemctl reload caddy`, and update `SKYPANE_COMPANION_HOST` in
+`/opt/skypane/skypane.env`. Nothing in the repository or in GitHub needs
+to change: the companion code does not depend on its hostname, and
+`deploy.sh` never touches the Caddyfile or `skypane.env`. Users log in
+again once, since the session cookie belongs to the old hostname.
 
 `provision.sh` is idempotent — re-run it after editing any of the files it
 installs (unit files, Caddyfile) to apply the change.
@@ -168,7 +190,7 @@ ssh root@<vps-ip> journalctl -u caddy -n 20
 # The companion interface answers over TLS on its own hostname, and an
 # unauthenticated request redirects to the login page rather than serving
 # content (302/303 to /login, not 200):
-curl -sI https://<config-public-host>/ | head -1
+curl -sI https://<companion-host>/ | head -1
 
 # The companion port must NOT be reachable directly either (ufw denies it,
 # same as the app port above):

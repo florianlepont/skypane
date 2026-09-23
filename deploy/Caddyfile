@@ -30,7 +30,9 @@
 #
 # Two site blocks now exist (06-11-PLAN.md, D-05): the device-protocol
 # block below, and a second block for the companion configuration web
-# interface, prefixed "config-" (e.g. config-203-0-113-10.nip.io). nip.io
+# interface, prefixed "config-" by default (e.g. config-203-0-113-10.nip.io;
+# provision.sh's optional second argument replaces this line with any
+# other hostname, such as a domain of its own). nip.io
 # accepts an arbitrary label before the IP-encoding suffix, so the second
 # name needs no DNS configuration of its own — it resolves to the same IP
 # by the same mechanism as the first. Let's Encrypt issues a separate
