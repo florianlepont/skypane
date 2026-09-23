@@ -1,7 +1,8 @@
 ---
 id: SEED-003
-status: dormant
+status: fulfilled
 planted: 2026-09-02
+resolved_date: 2026-09-23
 planted_during: "Phase 9: Diagonal band theme"
 trigger_when: "When the companion web interface's config surface (Phase 6, CFG-01..12) is next revisited for a new milestone of personalization features — this seed bundles three related but separable ideas, and any one of them could trigger a look at the others. The calendar-import sub-idea additionally needs a decision on calendar source/auth (most likely a public iCal feed URL, to avoid OAuth) before it can be scoped for real."
 scope: large
@@ -185,3 +186,8 @@ recorded Orly duty day, none of her three flights were among 201 detections.
 That last point was put to the developer, who chose this design regardless.
 Status stays `dormant` until Phase 16 ships, per this project's own convention
 of closing a seed on delivery rather than on promotion.
+
+**Fulfilled — status closed 2026-09-23.** Phase 16 shipped (and Phase 17 then
+moved the calendar connection from SSH into the companion), so by this
+seed's own "close on delivery" convention nothing of it remains unshipped:
+sub-ideas 1-2 are Phase 15, sub-idea 3 is Phases 16-17.

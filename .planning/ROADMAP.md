@@ -1097,7 +1097,7 @@ Plans:
 **Goal:** The charts and pictures the data already supports, rendered server-side as SVG from `history.db`, sharing one battery estimator: D21 (battery ring gauge, reused small in Home's tile), D8 (battery chart with gradient area, marked last point, low-battery threshold), D13 (Home's day timeline), D20 (wake-punctuality grid) and D4 (the Home hero the others feed). **D20 carries a known blocker to settle at planning:** `device_health` records observed check-ins only, so "honoured-wake rate" needs historical expected intervals that are nowhere stored — either the schema grows or the metric changes.
 **Requirements**: CFG-39 (one shared battery estimator + one SVG drawing contract, machine-enforced), CFG-40 (D21 ring gauge, one emitter, two sizes), CFG-41 (D8 battery chart: area, marked last point, low-battery threshold), CFG-42 (D13 Home day timeline), CFG-43 (D20, reported only as far as the stored data can prove it), CFG-44 (D4 Home hero), CFG-45 (the phase's regression floor: no-JS, 360 px, both themes, motion budget, design system updated in step)
 **Depends on:** Phase 23
-**Plans:** 9/9 plans executed
+**Plans:** 9/9 plans complete — closed 2026-09-23 (every plan has its SUMMARY; CFG-40/41/43/44/45 ticked, CFG-39 and CFG-42 deliberately left unticked with their unmet clauses named in REQUIREMENTS.md and 24-09-SUMMARY.md)
 
 Three decisions were taken at planning, on `24-RESEARCH.md`'s evidence, and are
 PROVISIONAL — the developer was unavailable and every one is collected in
@@ -1113,33 +1113,33 @@ Plans:
 
 **Wave 1** *(parallel — three plans, disjoint files)*
 
-- [ ] 24-01-PLAN.md — wave 1: the one battery estimator (extended) and `companion/draw.py`, plus the executable drawing contract every later plan is measured against
-- [ ] 24-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — a theme switch (this harness has never once measured dark mode), a computed-paint reader and a 360 px body-overflow assertion; zero net checks
-- [ ] 24-03-PLAN.md — wave 1: D20's data question settled in code — the check-in gap reader, verdicts from the one existing threshold function, and the migration-free epoch table nothing reads yet
+- [x] 24-01-PLAN.md — wave 1: the one battery estimator (extended) and `companion/draw.py`, plus the executable drawing contract every later plan is measured against
+- [x] 24-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — a theme switch (this harness has never once measured dark mode), a computed-paint reader and a 360 px body-overflow assertion; zero net checks
+- [x] 24-03-PLAN.md — wave 1: D20's data question settled in code — the check-in gap reader, verdicts from the one existing threshold function, and the migration-free epoch table nothing reads yet
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 24-04-PLAN.md — wave 2: D21 — one ring emitter, two sizes (Health's battery section and Home's tile), proven one function by mutating it and watching both pages change
+- [x] 24-04-PLAN.md — wave 2: D21 — one ring emitter, two sizes (Health's battery section and Home's tile), proven one function by mutating it and watching both pages change
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 24-05-PLAN.md — wave 3: D8 — the chart's area, marked last point and low-battery threshold, all from the one filtered pair list, with the coordinate scheme intact
+- [x] 24-05-PLAN.md — wave 3: D8 — the chart's area, marked last point and low-battery threshold, all from the one filtered pair list, with the coordinate scheme intact
 
 **Wave 4** *(blocked on Wave 2 completion)*
 
-- [ ] 24-06-PLAN.md — wave 4: D13 — Home's day band on a time-domain scale, the wrapping quiet-hours window as two spans, and a caption that never claims a count the band collapsed
+- [x] 24-06-PLAN.md — wave 4: D13 — Home's day band on a time-domain scale, the wrapping quiet-hours window as two spans, and a caption that never claims a count the band collapsed
 
 **Wave 5** *(blocked on Waves 1 and 3)*
 
-- [ ] 24-07-PLAN.md — wave 5: D20 — the check-in regularity grid, four states including "no observation", and a caption whose three clauses are each separately asserted
+- [x] 24-07-PLAN.md — wave 5: D20 — the check-in regularity grid, four states including "no observation", and a caption whose three clauses are each separately asserted
 
 **Wave 6** *(blocked on Waves 2 and 4)*
 
-- [ ] 24-08-PLAN.md — wave 6: D4 — the Home hero assembled from calls, with "fed by" proven behaviourally and the frame verdict still rendered exactly once
+- [x] 24-08-PLAN.md — wave 6: D4 — the Home hero assembled from calls, with "fed by" proven behaviourally and the frame verdict still rendered exactly once
 
 **Wave 7** *(blocked on all prior waves)*
 
-- [ ] 24-09-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's decision list, and the phase gate including the human sweep
+- [x] 24-09-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's decision list, and the phase gate including the human sweep
 
 Cross-cutting constraints (appearing in two or more plans' `must_haves`):
 
