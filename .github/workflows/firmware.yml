@@ -48,6 +48,9 @@ jobs:
       - name: Check production configuration
         run: sh firmware/tests/check_production_config.sh static
 
+      - name: Check Log Line Contract
+        run: sh firmware/tests/check_log_contract.sh
+
       - name: Create compile-only credentials header
         # firmware/main/secrets.h is gitignored and never committed
         # (firmware/.gitignore). This copies the tracked placeholder
