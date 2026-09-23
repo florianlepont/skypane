@@ -1,0 +1,12 @@
+PASS send_notification() returns True for a 200 response from the injected transport
+PASS send_notification() returns False for a 500 response from the injected transport
+PASS send_notification() returns False (never raises) when the transport raises TimeoutError
+PASS send_notification() returns False (never raises) when the transport raises an arbitrary Exception
+PASS send_notification() returns False for a loopback, a localhost, a link-local cloud-metadata, and a file:// topic URL, without the injected transport ever being called
+PASS body_for_lang() returns the French form for 'fr' and the English source string unchanged for every other language argument
+PASS default_notify_transport() builds a POST request with the body UTF-8 encoded, a Title header, and the caller's timeout, against a faked opener
+PASS default_notify_transport()'s _NoRedirectHandler refuses a 302 pointing at an internal address (169.254.169.254) outright - send_notification() returns False and the redirect target is never fetched
+notify: 8/8 checks pass
+notify: send_notification() transport call failed: TimeoutError
+notify: send_notification() transport call failed: RuntimeError
+notify: send_notification() transport call failed: HTTPError

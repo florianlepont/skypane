@@ -1,0 +1,55 @@
+PASS filter_in_geofence drops out-of-bbox and position-less records
+PASS select_runway3_aircraft picks 39d300 (450ft beats 800ft)
+PASS select_runway3_aircraft: on-ground beats 800ft airborne
+PASS select_runway3_aircraft returns None for an empty snapshot
+PASS selected record's callsign is stripped of trailing padding
+PASS select_runway3_aircraft is deterministic under input reordering
+PASS select_runway3_aircraft: multi-aircraft winner's aircraft_type is B738
+PASS select_runway3_aircraft: on-ground winner's aircraft_type is A320
+PASS select_runway3_aircraft: a record with no t key yields aircraft_type None
+PASS select_runway3_aircraft: malformed type values all yield aircraft_type None without raising
+PASS real wrong-runway record 39de4a is in-bbox and below-ceiling (the pre-fix accept condition)
+PASS select_runway3_aircraft rejects the real runway-20 departure 39de4a (the reported false positive)
+PASS select_runway3_aircraft still selects the real runway-25 arrival 347288 (no over-tightening)
+PASS with both real aircraft present, only the genuine runway-3 arrival is a candidate
+PASS runway_axis/along_cross_track_m are derived from the published thresholds
+PASS track_axis_deviation_deg is bidirectional and rejects bools/non-numerics
+PASS runway 06/24's published thresholds are rejected by the corridor gate, not the track gate
+PASS runway 02/20's centreline crossing is rejected by the track gate, not the corridor gate
+PASS a record with no track is corridor-gated rather than rejected outright
+PASS default poll (no providers arg) queries adsb.fi then adsb.lol
+PASS airplaneslive remains a selectable opt-in, absent from the default order
+PASS poll_current_aircraft: two agreeing providers yield corroborated=True
+PASS poll_current_aircraft: disagreeing providers select nothing (doubt -> D-04 hold)
+PASS poll_current_aircraft: an unreachable provider is not scored as disagreement
+PASS poll_current_aircraft (default order): adsb.fi and adsb.lol agreeing yields corroborated=True with adsb.fi's record
+PASS poll_current_aircraft (default order): adsb.fi and adsb.lol disagreeing select nothing
+PASS poll_current_aircraft (default order): adsb.lol unreachable degrades to single-source, not suppressed
+PASS query_provider: adsb.fi and adsb.lol response keys are never interchanged (proven through the transport)
+PASS the taxiing masking record is in-bbox, track-aligned, inside the airborne corridor and outranks the real arrival (the pre-fix accept condition)
+PASS select_runway3_aircraft: a taxiing aircraft off the pavement no longer masks a real runway-3 movement
+PASS the on-ground gate keeps the real runway-3 ground record (+31m) and rejects the documented 150m residual
+PASS the pavement pair ties at effective altitude 0.0, is identical across both feeds except seen_pos, and the pre-fix key still splits them (the manufactured-disagreement precondition)
+PASS select_runway3_aircraft: two feeds differing only in seen_pos select the SAME aircraft
+PASS poll_current_aircraft (default order): two feeds differing only in seen_pos are corroborated, not suppressed
+PASS poll_current_aircraft (default order): unequal candidate sets corroborate the common aircraft instead of suppressing (a stable tie-break alone would not have)
+PASS poll_current_aircraft: genuinely disjoint candidate sets still suppress the cycle (D-04 intact)
+PASS poll_current_aircraft: the disagreement line names every candidate each feed saw, not just the winners
+PASS runways['3'] duplicates the legacy runway/corridor blocks exactly (drift guard)
+PASS runway_axis(geofence) matches runway_axis(geofence, runway_id='3')
+PASS runway_axis: 06-24/02-20 computed bearings match their published true headings
+PASS runway_axis(runway_id='totally-unknown') falls back to the default runway's axis (T-06-02-01)
+PASS corridor_params(runway_id='02-20') matches the file, negative entries fall back to the default
+PASS select_aircraft_for_runway positively tracks 06-24 and 02-20 on their own centrelines
+PASS the real runway-3 fixture is excluded from runway 06-24's gate (exclusive both ways)
+PASS selected_runway equals the requested id, or the default id on an unrecognised request
+PASS filter_in_geofence tags carry on_runway and the deprecated on_runway3 alias correctly
+PASS poll_current_aircraft diagnostics distinguishes all-providers-failed from a real selection
+plane-detection: 47/47 checks pass
+detect: providers disagree on the runway-3 aircraft (airplaneslive=[347288]; adsbfi=[3985a7]) - no aircraft common to every source, treating as doubt, selecting nothing this poll
+detect: airplaneslive query failed: RequestException: 403 Client Error: Forbidden
+detect: providers disagree on the runway-3 aircraft (adsbfi=[347288]; adsblol=[3985a7]) - no aircraft common to every source, treating as doubt, selecting nothing this poll
+detect: adsblol query failed: RequestException: simulated adsb.lol outage
+detect: adsbfi query failed: RequestException: simulated outage: adsbfi
+detect: adsblol query failed: RequestException: simulated outage: adsblol
+detect: adsblol query failed: RequestException: simulated outage

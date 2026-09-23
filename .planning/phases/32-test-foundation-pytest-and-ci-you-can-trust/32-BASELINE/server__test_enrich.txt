@@ -1,0 +1,61 @@
+PASS replaying the real recorded adsbdb hit (TVF16VB) yields the normalised route
+PASS replaying the real recorded adsbdb miss (EJU84YF, a genuine captured 404 - see fixtures/README.md) yields None
+PASS a 500 response yields None without raising
+PASS a connection error (transport raises) yields None without raising
+PASS a 200 response with a non-JSON body yields None without raising
+PASS a 200 body missing the 'response' key yields None
+PASS a 200 body missing the 'flightroute' key yields None
+PASS a structurally incomplete 200 body (missing/non-string municipality) yields None - UI-SPEC has no partial state
+PASS two consecutive lookups for the same callsign invoke the transport exactly once (cached hit)
+PASS a cached miss (a callsign that returned 404) is never re-queried on a later lookup
+PASS the cache round-trips through json.dumps/json.loads and still honours both a cached hit and a cached miss
+PASS callsigns are normalised (stripped, upper-cased) before both the cache key and the request URL are built
+PASS to_sentence_case_city lower-cases interior connective particles but capitalises the first word and all other words
+PASS _primary_city_name() reduces a '/'-separated compound municipality name to its first segment, unchanged when there is no '/'
+PASS _parse_route() applies _primary_city_name() to both origin_city and destination_city, not just one (D-09-style, Phase 9 09-04)
+PASS a callsign containing non-alphanumeric characters is rejected before the outbound request is built (T-02-04-02)
+PASS city_for_state() returns the destination city for departing and the origin city for arriving
+PASS normalise_callsign strips and upper-cases, returning None for anything empty or non-string
+PASS airline_from_callsign('TVF16VB') returns 'Transavia France'
+PASS airline_from_callsign(' tvf16vb ') normalises through normalise_callsign() before the prefix lookup
+PASS airline_from_callsign() returns None (never raises) for an unknown prefix, a bare 3-letter string, empty string, None, an int, and a path-separator payload
+PASS airline_only_route('Transavia France') carries _parse_route()'s exact key set, airline_name set and the other four keys None; airline_only_route(None) returns None
+PASS resolve_route('EJU84YF', ...) on the real recorded adsbdb miss yields an 'easyJet' airline-only route with source 'airline_only', identically on a second call, with exactly one transport invocation
+PASS resolve_route('TVF16VB', ...) classifies fresh_hit on the first call and cache_hit on the second
+PASS resolve_route() on a miss whose callsign prefix is absent from the table returns (None, 'miss')
+PASS every value in enrich._ICAO_AIRLINE_PREFIXES is a member of illustrations.target_airline_names() (D-07 drift guard)
+PASS every key of enrich._ICAO_AIRLINE_PREFIXES is exactly 3 uppercase A-Z characters
+PASS airline_from_callsign('KMM466') returns 'KM Malta Airlines' (260827-jz6, real curled callsign)
+PASS airline_from_callsign('JAF7521') returns 'TUIfly Belgium' (260827-jz6, real curled callsign, QT-jz6-D-02 override)
+PASS correct_airline_name('AIA6412', 'Avies') returns 'Amelia' (260827-kih)
+PASS correct_airline_name('ZZZ1234', 'Avies') returns 'Avies' unchanged - a different prefix carrying the same string is never rewritten (QT-kih-D-01)
+PASS resolve_route('AIA6412', ...) corrects the real recorded AIA/Avies misattribution to 'Amelia' on both a fresh_hit and a cache_hit, while the cache entry itself keeps the raw upstream string (QT-kih-D-02)
+PASS airline_from_callsign('AIA6412') returns 'Amelia' (260827-kih, zero network call)
+PASS every _AIRLINE_NAME_CORRECTIONS row agrees with _ICAO_AIRLINE_PREFIXES and its corrected value is a target_airline_names() member (QT-kih-D-03 cross-table invariant)
+PASS correct_airline_name()/apply_airline_name_correction() never raise for a hostile callsign x airline_name/route battery (None, int, empty string, bare prefix, path-separator payload, non-dict route, a route whose .get() raises), and never return a value derived from the arguments other than the unchanged airline_name (T-kih-01)
+PASS correct_airline_name() maps FPO/Europe Airpost -> ASL Airlines France, CRL/Corsairfly -> Corsair, CCM/CCM Airlines -> Air Corsica (260827-kih)
+PASS resolve_route() corrects all three stale-brand carriers under their own prefix and leaves the same string untouched under an unrelated prefix; the corrected Air Corsica route selects the renamed air-corsica.png/air-corsica-atr72.png files (260827-kih)
+PASS airline_from_callsign('HOP4001') returns 'Air France Hop' (260827-lgt, real curled callsign)
+PASS airline_from_callsign('WMT3001') returns 'Wizz Air' (260827-lgt, real curled callsign WMT3001; adsbdb itself resolves 'Wizz Air Malta', QT-lgt-D-01 deliberate brand consolidation)
+PASS airline_from_callsign('KLJ123') returns 'KlasJet' (260827-lgt, KLJ123 is a SYNTHETIC shape-valid callsign - no real KLJ callsign was ever live-confirmed, QT-lgt-D-06)
+PASS no _AIRLINE_NAME_CORRECTIONS row exists whose prefix element is HOP, WMT or KLJ (QT-lgt-D-07 guard)
+PASS note_unresolved_prefix() on a first sighting records a well-formed entry (count 1, both timestamps set)
+PASS note_unresolved_prefix() on a second sighting increments count, updates last_seen/example_callsign, and never moves first_seen
+PASS note_unresolved_prefix() returns None and records nothing for every single prefix already present in _ICAO_AIRLINE_PREFIXES (full-table invariant, not sampled)
+PASS note_unresolved_prefix() never records and never raises for None/int/empty/whitespace/bare-prefix/lowercase/path-separator/dot-dot/digit-in-prefix/non-dict-registry input, rebuilds a malformed pre-existing entry, and bounds the stored example for a 900-character legitimate-shape callsign
+PASS trim_unresolved_prefixes() evicts lowest-count-then-oldest-last-seen, so a recurring prefix survives a flood of one-off arrivals and the newer one-off wins the tie-break (QT-oz9-D-04)
+PASS note_unresolved_prefix() records exactly the callsigns resolve_route() classifies 'miss' and none it classifies 'airline_only', on the same real production condition (an adsbdb 404)
+PASS _parse_route() reads callsign_iata from two real fixtures (TVF16VB -> 'TO16VB', AIA6412 -> 'U36412') (D-09)
+PASS callsign_iata is optional and never route-fatal: absent/empty/whitespace/non-string values all still resolve a full route with callsign_iata degraded to None (D-09, T-08-02-01/T-08-02-02)
+PASS a callsign resolved twice, the second time with no transport available, agrees on callsign_iata both on the plain hit path (TVF16VB) and the airline-name-correction path (AIA6412, Avies->Amelia) - proving both _route_from_entry() and apply_airline_name_correction()'s shallow copy preserve the field (D-09)
+PASS _parse_route(), _route_from_entry() and airline_only_route() all agree on one key set, derived from a real _parse_route() result rather than hardcoded (D-09)
+PASS _parse_route()'s returned dict has no 'callsign'/'callsign_icao' key and no value equal to the raw ICAO callsign string - the raw callsign is structurally absent, not just unused by the renderer (D-08)
+PASS airline_source_from_callsign() returns ('<name>', 'static') for a known static prefix, (None, None) for an unknown one, and (None, None) for the full 260827-hyy hostile-input battery, with no registry configured
+PASS after manual_resolutions.set_manual_registry_state_dir(tmp) with a ZZZ->'Zephyr Air' entry, airline_source_from_callsign('ZZZ1234') returns ('Zephyr Air', 'manual') and airline_from_callsign() returns 'Zephyr Air'; clearing the state dir restores (None, None)
+PASS a manual entry for a prefix already in the static table is never consulted (D-06): airline_source_from_callsign() still reports the static name and source 'static'; static_airline_name_for_prefix() returns the static name for that prefix, None for a manual-only prefix, and handles non-string/wrong-length input without raising
+PASS resolve_route() with a manual entry for a prefix absent from the static table and an adsbdb miss returns source 'manual' and an airline-only route whose airline_name is the operator's name and whose other five keys are None
+PASS a manual entry for a static-table prefix still yields 'airline_only' under an adsbdb miss (D-06), and adsbdb still wins by construction ('fresh_hit') even when a manual entry exists for that prefix
+PASS clear_resolved_unresolved_prefix() removes a manually-resolved prefix's entry and returns the prefix, a second call returns None, and a still-unresolved prefix's entry survives byte-identical (D-14)
+PASS clear_resolved_unresolved_prefix() returns None and mutates nothing for a non-dict registry, None, an int, an empty string, a bare 3-letter callsign, and a path-separator payload - one check covering the whole hostile-input sweep
+PASS the eleven 260921-v9c prefixes each resolve through airline_from_callsign() to their exact expected name (including TFV60HA and KAF001 as actually observed), the DJT correction seam rewrites 'Denver Jet' to 'La Compagnie' via correct_airline_name(), and DEF/QEM both resolve to None (QT-v9c-D-06 guard)
+enrich: 60/60 checks pass

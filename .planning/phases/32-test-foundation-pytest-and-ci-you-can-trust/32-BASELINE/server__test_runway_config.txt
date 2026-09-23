@@ -1,0 +1,16 @@
+PASS real fixture track_arrival_440cb1: -640 seeded with no prior state -> arriving
+PASS real fixture track_arrival_440cb1: first +48 flare reading holds arriving (real landing, not a bug)
+PASS real fixture track_arrival_440cb1: second +48 flare reading still holds arriving (real landing, not a bug)
+PASS +48 seeded with no prior confirmed state returns None (nothing to hold)
+PASS SYNTHETIC (A-02-02-01, no real departure observed): +200 seeded None -> departing (inclusive boundary)
+PASS SYNTHETIC (A-02-02-01, no real departure observed): +199 holds last confirmed state (just inside deadband)
+PASS real-data-backed boundary: -200 seeded None -> arriving (inclusive boundary)
+PASS real-data-backed boundary: -199 holds last confirmed state (just inside deadband)
+PASS None vertical_rate holds last confirmed state and never raises
+PASS 'ground' string vertical_rate holds last confirmed state and never raises
+PASS True (bool) vertical_rate holds last confirmed state, not read as int 1
+PASS dict vertical_rate holds last confirmed state and never raises
+PASS SYNTHETIC (A-02-02-01, no real departure observed): +2400 large climb -> departing
+PASS infer_from_flight() delegates on the flight dict's vertical_rate_fpm key
+PASS device_config.runway_label() returns an English label containing 'Runway ' and no 'Piste' for every RUNWAY_IDS member (D-11/A-29)
+runway-config: 15/15 checks pass

@@ -1,0 +1,39 @@
+PASS load_colour_rules() on a nonexistent state dir returns the empty registry shape without raising
+PASS load_colour_rules() on a file containing invalid JSON returns the empty registry shape
+PASS load_colour_rules() on a JSON list (non-dict top level) returns the empty registry shape
+PASS load_colour_rules() on {'callsign': 5} (non-dict kind value) returns the empty registry shape
+PASS load_colour_rules() normalises a lowercase callsign key to uppercase and round-trips a valid entry
+PASS load_colour_rules() normalises a lowercase hex key to uppercase on read
+colour_rules: 1 entry/entries will be dropped from /tmp/tmpwmuj67qj/colour_rules.json on the next write (malformed/unsafe, or beyond the 200-entry cap)
+colour_rules: 1 entry/entries will be dropped from /tmp/tmpkaqwlmhd/colour_rules.json on the next write (malformed/unsafe, or beyond the 200-entry cap)
+colour_rules: 1 entry/entries will be dropped from /tmp/tmp154wwp10/colour_rules.json on the next write (malformed/unsafe, or beyond the 200-entry cap)
+colour_rules: 1 entry/entries will be dropped from /tmp/tmph3rf03om/colour_rules.json on the next write (malformed/unsafe, or beyond the 200-entry cap)
+PASS load_colour_rules() drops a path-traversal-shaped callsign key, a 4-letter prefix, a non-hex hex key, and an unregistered theme_id
+PASS add_rule() returns ADD_OK_NEW and round-trips through load_colour_rules() with a non-empty created_at
+PASS add_rule() rejects an unrecognised kind with ADD_REJECTED_KIND
+PASS add_rule() rejects a 4-letter prefix and a 5-character hex value with ADD_REJECTED_KEY
+PASS add_rule() rejects an unregistered theme id with ADD_REJECTED_THEME
+PASS delete_rule() returns True once then False on a repeated call, without raising
+PASS rule_rows() returns (kind, value, theme_id, created_at) tuples ordered by kind then value, skipping a malformed entry
+PASS set_colour_rules_state_dir(None) clears the cache and resolve_effective_theme_id() falls through to the base theme
+colour_rules: 21 entry/entries will be dropped from /tmp/tmpoxbwvnug/colour_rules.json on the next write (malformed/unsafe, or beyond the 200-entry cap)
+PASS add_rule() rejects every hostile value in the sweep (write-side) and load_colour_rules() drops the same shapes written directly to disk (read-side), for all three kinds (T-15-01)
+PASS add_rule() distinguishes ADD_OK_NEW from ADD_OK_REPLACED (a replace is not growth) and enforces COLOUR_RULE_MAX_ENTRIES only against new keys (D-09)
+PASS no colour_rules.json.tmp file remains after a successful add_rule() or delete_rule() (atomicity proof)
+PASS 20 concurrent add_rule() calls for 20 distinct prefixes (ThreadingHTTPServer's real concurrency shape) all persist durably with no lost update and no stray .tmp file left behind (T-15-02)
+PASS resolver truth table row 1: no rule, theme_arriving is None, state 'arriving' -> base theme
+PASS resolver truth table row 2: no rule, theme_arriving set, state 'arriving' -> the override
+PASS resolver truth table row 3: no rule, theme_arriving set, state 'departing' -> base theme
+PASS resolver truth table row 4: a matching prefix rule, no override -> the rule's theme
+PASS resolver truth table row 5: a matching hex rule and a matching prefix rule -> the hex rule's theme
+PASS resolver truth table row 6: a matching callsign rule and a matching hex rule -> the callsign rule's theme
+PASS resolver truth table row 7: a matching rule of any kind AND theme_arriving set with state 'arriving' -> the rule's theme (a rule beats the override, D-09)
+PASS resolve_effective_theme_id() never raises for flight=None/{}/non-dict, a None callsign/hex, or a device_cfg with no theme_arriving key, falling through to the base theme
+PASS resolve_effective_theme_id() ignores a cached entry whose theme_id is not a member of device_config.THEMES rather than returning it (T-15-05)
+PASS resolve_effective_theme_id() D-02: a calendar_theme_id beats even a matching exact-callsign rule (the accepted consequence)
+PASS resolve_effective_theme_id() D-02: a calendar_theme_id beats a matching hex rule
+PASS resolve_effective_theme_id() D-02: a calendar_theme_id beats a matching prefix rule
+PASS resolve_effective_theme_id() D-02: a calendar_theme_id beats the arrivals override (theme_arriving) on an arriving state
+PASS resolve_effective_theme_id() is byte-for-byte identical whether calendar_theme_id is omitted or passed explicitly as None, across a matrix of rule/override configurations
+PASS resolve_effective_theme_id() ignores a calendar_theme_id that is not a member of device_config.THEMES, falling through to the matching rule rather than returning it or the base theme (T-16-TAMPER)
+colour_rules: 33/33 checks pass

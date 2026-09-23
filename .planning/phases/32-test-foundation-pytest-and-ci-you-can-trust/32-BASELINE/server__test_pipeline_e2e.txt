@@ -1,0 +1,15 @@
+poll_loop: hex=39d300 callsign=TVF23WV aircraft_type=B738 corroborated=None altitude_ft=450.0 confirmed_state=arriving render_state=arriving state_source=inferred route_source=airline_only unknown_prefix=None shown=39d300 pending=0 dropped=None battery_low=False panel_changed=True theme=white effective_theme=white tracked_runway=3 source_fault=False hold_exited=False
+PASS run_once(multi-aircraft fixture) writes panel.bin at exactly 960000 bytes
+PASS panel.bin bytes decompose into only the six legal nibble codes
+PASS byos_server.py setup->display returns a valid image_url and image_hash
+PASS downloaded image is 960000 bytes and SHA-256-verifies against image_hash
+poll_loop: hex=None callsign=None aircraft_type=None corroborated=None altitude_ft=None confirmed_state=arriving render_state=arriving state_source=held route_source=held unknown_prefix=None shown=39d300 pending=0 dropped=None battery_low=False panel_changed=False theme=white effective_theme=white tracked_runway=3 source_fault=False hold_exited=False
+PASS run_once(empty fixture) leaves panel.bin byte-identical (D-04)
+poll_loop: hex=39d300 callsign=TVF23WV aircraft_type=B738 corroborated=None altitude_ft=450.0 confirmed_state=arriving render_state=arriving state_source=inferred route_source=airline_only unknown_prefix=None shown=39d300 pending=0 dropped=None battery_low=False panel_changed=False theme=white effective_theme=white tracked_runway=3 source_fault=False hold_exited=False
+poll_loop: hex=39d300 callsign=TVF23WV aircraft_type=B738 corroborated=None altitude_ft=450.0 confirmed_state=arriving render_state=arriving state_source=inferred route_source=airline_only unknown_prefix=None shown=39d300 pending=0 dropped=None battery_low=True panel_changed=True theme=white effective_theme=white tracked_runway=3 source_fault=False hold_exited=False
+PASS a real authenticated poll carrying X-Battery-Mv:3400, followed by a run_once() cycle, changes the served panel.bin only inside the icon's byte columns/rows, and the packed ink nibble at (1520,70) matches whichever state run_once() actually reported
+poll_loop: hold_state=battery_empty until=None entered=True panel_changed=True battery_low=True theme=white tracked_runway=3 source_fault=False
+poll_loop: hold_state=battery_empty until=None entered=False panel_changed=False battery_low=True theme=white tracked_runway=3 source_fault=False
+poll_loop: hex=39d300 callsign=TVF23WV aircraft_type=B738 corroborated=None altitude_ft=450.0 confirmed_state=arriving render_state=arriving state_source=inferred route_source=airline_only unknown_prefix=None shown=39d300 pending=0 dropped=None battery_low=False panel_changed=True theme=white effective_theme=white tracked_runway=3 source_fault=False hold_exited=True
+PASS end to end through the real device protocol: a 3290 mV check-in followed by run_once() latches BATTERY EMPTY and serves its hash with sleep_s 3600; a second run_once() is a byte-identical hash-skip; a 4100 mV check-in's OWN reply anticipates recovery (sleep_s != 3600) before the next run_once() clears the park and serves a different hash
+pipeline-e2e: 7/7 checks pass

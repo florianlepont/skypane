@@ -1,0 +1,28 @@
+PASS load_manual_resolutions() on a nonexistent state dir returns {} without raising
+PASS load_manual_resolutions() on a file containing invalid JSON returns {}
+PASS load_manual_resolutions() on a JSON list (non-dict top level) returns {}
+manual_resolutions: 1 entry/entries will be dropped from /tmp/tmpm3xgoq0r/manual_resolutions.json on the next write (malformed/unsafe, or beyond the 200-entry cap)
+PASS load_manual_resolutions() drops an entry whose value is not a dict
+PASS load_manual_resolutions() normalises a lowercase key to uppercase and round-trips a valid entry
+manual_resolutions: 1 entry/entries will be dropped from /tmp/tmph3cj4okp/manual_resolutions.json on the next write (malformed/unsafe, or beyond the 200-entry cap)
+manual_resolutions: 1 entry/entries will be dropped from /tmp/tmprus07vo_/manual_resolutions.json on the next write (malformed/unsafe, or beyond the 200-entry cap)
+PASS load_manual_resolutions() drops a path-traversal-shaped key and a 4-letter key
+manual_resolutions: 1 entry/entries will be dropped from /tmp/tmpw783byj3/manual_resolutions.json on the next write (malformed/unsafe, or beyond the 200-entry cap)
+PASS load_manual_resolutions() drops a hand-edited entry whose airline_name slugs to a reserved key
+PASS add_entry() returns ADD_OK and round-trips through load_manual_resolutions() with a non-empty created_at
+PASS add_entry() rejects a 2-letter prefix with ADD_REJECTED_PREFIX
+PASS add_entry() rejects a whitespace-only name with ADD_REJECTED_NAME_EMPTY
+PASS add_entry() rejects a 101-char name with ADD_REJECTED_NAME_TOO_LONG
+PASS add_entry() rejects 'Generic Fallback' and 'Generic A320' with ADD_REJECTED_NAME_RESERVED
+PASS add_entry() rejects a new prefix at MANUAL_RESOLUTION_MAX_ENTRIES (ADD_REJECTED_FULL) but allows overwriting an existing one
+PASS delete_entry() returns True once then False on a repeated call, without raising
+PASS set_manual_registry_state_dir()/airline_name_for_prefix() cache round-trips and clears on reset to None
+PASS entry_rows() returns (prefix, airline_name, created_at) tuples sorted by prefix, skipping a malformed entry
+PASS delete_entry() leaves the override PNG on disk untouched (D-08), pinned to illustrations.override_path_for_key()
+PASS no manual_resolutions.json.tmp file remains after a successful add_entry() (atomicity proof)
+PASS 20 concurrent add_entry() calls for 20 distinct prefixes (ThreadingHTTPServer's real concurrency shape) all persist durably with no lost update and no stray .tmp file left behind (WR-02)
+PASS load_manual_resolutions() prints a one-line drop-count message whenever it silently rejects an entry or truncates at the cap (naming the real count in both cases) and prints nothing when nothing is dropped (WR-03)
+FAIL add_entry() returns ADD_FAILED (never raises) when its state dir cannot be created because the parent directory is read-only — CR-01's exact reproduction case (WR-11) - expected ADD_FAILED for an uncreatable state dir, got 'ok'
+FAIL delete_entry() returns False (never raises) when the state dir goes read-only mid-write, and the existing entry survives untouched since the write never happened — CR-01's mirror case for delete (WR-11) - expected False (never raises) when the state dir is read-only, got True
+PASS add_entry() rejects every name in the hostile-input sweep, leaving the registry empty
+manual_resolutions: 21/23 checks pass

@@ -1,0 +1,141 @@
+PASS unfold_ics_lines() rejoins a SPACE continuation with the marker removed and nothing else lost
+PASS unfold_ics_lines() rejoins a HTAB continuation with the marker removed and nothing else lost
+PASS unfold_ics_lines() folds three physical lines (a continuation of a continuation) into one logical line
+PASS unfold_ics_lines() round-trips a synthetic SUMMARY over 75 octets folded across two physical lines to its exact original value
+PASS unfold_ics_lines() on text whose very first line is a continuation does not raise and keeps that line as its own
+PASS unfold_ics_lines() unfolds the fixture's CRLF form to the identical list as its committed LF form
+PASS unfold_ics_lines() returns an empty list for non-string input (None, an int) without raising
+PASS split_property() on a parameter-bearing line yields the bare uppercased name and a value with no parameter residue
+PASS split_property() partitions on the FIRST colon only, keeping a value's own embedded colon intact
+PASS split_property() on a line with no colon at all returns (None, None, None) rather than raising
+PASS the fixture's own X-SKYPANE-FIXTURE-EXPECTED-ENTRIES property agrees with this harness's FIXTURE_EXPECTED_ENTRIES constant
+PASS parse_ics_events() on the committed fixture returns exactly FIXTURE_EXPECTED_ENTRIES entries
+PASS no entry parsed from the fixture carries a 19th-century timestamp - the two STATUS:CANCELLED placeholder events were dropped
+PASS no entry derives from the OFFD, CAHC or CPBL blocks - every route matches one of the four flight events and the count is exactly four
+PASS parse_ics_datetime() returns a float epoch for the bare-UTC form
+PASS parse_ics_datetime() returns None for a VALUE=DATE value, a TZID-qualified value, a lowercase-z value, an empty string, a non-string, and a calendrically impossible value
+PASS the TZID tripwire is rejected loudly (a non-zero date-form rejection count on stderr) while the entry count stays four and no eight-digit date leaks
+PASS parse_ics_events() never raises and returns an empty list for seven hostile bodies (empty, None, non-string, unterminated block, punctuation, no-colon lines, decoded random bytes)
+PASS parse_ics_events() on a body with more VEVENT blocks than CALENDAR_MAX_RAW_EXAMINED returns exactly CALENDAR_MAX_RAW_EXAMINED entries
+PASS UAT-02: a feed listing more than CALENDAR_MAX_ENTRIES historical VEVENTs before a small number of in-window ones still surfaces every in-window entry through parse_ics_events() + select_window_entries() - the exact real-world failure reproduced
+PASS every returned entry has exactly the five expected keys, and the serialised list carries no flight number, UID, or description text
+PASS D-01: writing and re-writing the calendar registry never touches colour_rules.json's content or bytes, and the two registries are distinct files
+PASS write_calendar_registry() replaces the whole file - a shorter second write leaves only that list, never a merge with the earlier one
+PASS write_calendar_registry([]) empties the registry rather than leaving the previous entries behind, with both timestamps still readable
+PASS select_window_entries() keeps an already-landed-earlier-today entry, a later-today entry and a 47h-ahead entry, drops one ended yesterday and one 49h ahead, sorted ascending, without mutating its input
+PASS select_window_entries() excludes an entry carrying a 19th-century timestamp for a present-day now
+PASS load_calendar_registry() on a file holding more than CALENDAR_MAX_ENTRIES well-formed entries returns exactly CALENDAR_MAX_ENTRIES of them and prints a drop-count warning on stderr
+PASS UAT-02: load_calendar_registry() on a raw entries list holding more than CALENDAR_MAX_ENTRIES out-of-window entries before a small number of in-window ones still surfaces every in-window entry - the exact real-world failure reproduced at the registry layer
+PASS UF-16-05 closure: _resolve_retention_now() resolves None, a bool, a non-numeric value, NaN/+-Infinity, and a finite-but-absurd value (1e300) all to a real convertible clock, so none of them can erase a populated registry through load_calendar_registry()
+PASS load_calendar_registry() drops every one of eight hostile entry shapes (non-dict, short, over-long, lowercase airport, 3-char airline, string timestamp, boolean timestamp, inverted time pair) and raises nothing
+PASS load_calendar_registry() degrades non-JSON bytes, a JSON array, a JSON string, and a dict whose entries is an integer all to the documented empty shape
+PASS calendar_fetch_is_due() returns the exact expected verdict for never-fetched, just-fetched, one-second-before/-after the interval, a future timestamp, a string, and a boolean - a broken feed must never be contacted on every 30-second cycle
+PASS the two persisted timestamps survive a round trip with distinct types (a number and an ISO string), and calendar_fetch_is_due() consults only last_attempt_at - changing last_synced_at alone never changes its verdict, changing last_attempt_at does
+PASS a distinctive token set in the calendar secret file appears in neither calendar_rules.json's bytes, the loaded dict's serialisation, nor anything printed to stderr during a round trip
+PASS _url_is_safe() refuses a non-https scheme (http, ftp, file, and a schemeless string)
+PASS _url_is_safe() refuses a URL with no hostname
+PASS _url_is_safe() refuses loopback (v4/v6), three private ranges, the link-local metadata address, and a reserved address
+PASS _url_is_safe() refuses a hostname that fails to resolve at all
+PASS _url_is_safe() refuses a hostname whose resolved addresses are a MIX of public and private - the DNS-rebinding case a hostname-only check would miss
+PASS _url_is_safe() accepts the same hostname when every resolved address is public
+PASS fetch_ics() refuses a redirect whose Location targets a loopback address, without ever fetching it
+PASS fetch_ics() returns nothing for a redirect response with no Location header
+PASS fetch_ics() resolves a relative Location against the current URL and re-validates it before following it
+PASS fetch_ics() gives up after CALENDAR_MAX_REDIRECTS + 1 transport calls rather than looping forever
+PASS fetch_ics() refuses a body one byte over CALENDAR_MAX_RESPONSE_BYTES
+PASS fetch_ics() refuses an oversized body even when it declares a Content-Length of 1 - the cap is on streamed bytes, never the declared length
+PASS fetch_ics() accepts a body exactly at CALENDAR_MAX_RESPONSE_BYTES
+PASS fetch_ics() returns nothing for a non-200 final status
+PASS fetch_ics() invokes the transport with CALENDAR_FETCH_TIMEOUT_S as the timeout argument by default
+PASS across seven distinct fetch_ics() failure paths - including a transport exception whose message is the full secret URL - neither the token, the host, the path, nor the query-parameter name reaches stderr
+PASS neither the calendar URL's token, host, path, nor query-parameter name appears in calendar_rules.json after a full successful refresh_calendar_registry() cycle
+PASS refresh_calendar_registry() makes no transport call and writes no last_attempt_at when the feature is unconfigured
+PASS refresh_calendar_registry() makes no transport call and prints nothing across twenty throttled cycles
+PASS eleven refresh_calendar_registry() calls spaced 30 seconds apart perform exactly one transport call
+PASS a failed refresh_calendar_registry() after a success moves last_attempt_at, leaves last_synced_at, and leaves the persisted entries unchanged
+PASS a successful refresh_calendar_registry() cycle writes a windowed parse of the committed fixture, matching what is then readable on disk
+PASS a successful fetch of a feed with nothing in the window reports FETCH_OK with an empty entry list, distinguished from a failure only by last_synced_at having moved
+PASS refresh_calendar_registry() never raises - an unwritable registry path, a punctuation body, a raising transport, and a redirect-looping transport all return a result code
+PASS match_calendar_theme() matches a departing detection whose route destination, airline and time all agree with an entry
+PASS match_calendar_theme() matches an arriving detection whose route origin, airline and time all agree with an entry
+PASS match_calendar_theme() does not match when only the far-end airport differs
+PASS match_calendar_theme() does not match when only the airline differs
+PASS match_calendar_theme() does not match when the time is just outside CALENDAR_MATCH_TOLERANCE_S
+PASS match_calendar_theme() matches when the time is just inside CALENDAR_MATCH_TOLERANCE_S
+PASS match_calendar_theme() direction symmetry: an arriving detection is never matched against an entry's departure-side far end
+PASS match_calendar_theme() direction symmetry: a departing detection is never matched against an entry's arrival-side far end
+PASS match_calendar_theme() derives the airline from callsign_iata at runtime - a designator no static table could contain still matches (CORRECTION 1)
+PASS match_calendar_theme() never matches an airline_only-shaped route (the production bug the field-presence test prevents)
+PASS match_calendar_theme() never matches a manual-shaped route - the same shape as airline_only, a different provenance
+PASS match_calendar_theme() never matches a None route (the miss case)
+PASS match_calendar_theme() matches a detection near the fixture's own first same-route (BBB-ORY) entry
+PASS match_calendar_theme() matches a detection near the fixture's own second same-route (BBB-ORY) entry
+PASS match_calendar_theme() matches neither of the fixture's own same-route entries when the detection sits midway, outside both tolerances
+PASS match_calendar_theme() returns the identical result whether the fixture's same-route entries are listed forward or reversed (determinism, not iteration order)
+PASS match_calendar_theme() returns no match when device_cfg carries no calendar_theme_id
+PASS match_calendar_theme() never returns a calendar_theme_id that is not a member of device_config.THEMES (T-16-TAMPER)
+PASS match_calendar_theme() never raises for a non-dict registry, non-list entries, malformed entries, a non-dict route, a non-dict device_cfg, a non-numeric now, or an unconfirmed render state
+PASS parse_ics_events() keeps a flight whose VEVENT contains a nested VALARM, and the nested component's properties never reach the parent entry (CR-01)
+PASS _normalise_calendar_entry() rejects NaN/Infinity timestamps while still accepting a finite entry (CR-02)
+PASS T-16-PRIV's own reproduction: an entry that ended ~10 days ago is absent from the RAW on-disk file after every one of three consecutive FAILING refresh_calendar_registry() cycles, and the returned registry matches the raw file on every cycle (D-04) - the verification the original goal check missed
+PASS a hand-written file mixing one out-of-window and one in-window entry loads to the in-window entry only, and the read does not rewrite the file (D-01/D-02)
+PASS a write containing a stale entry and a current entry puts only the current entry in the raw file (D-01/D-03)
+PASS for any list and any now, the loader's entries are exactly select_window_entries(list, now) - the anti-drift guard that goes red if a second window implementation ever appears (D-02)
+PASS save_calendar_url() passes 0o600 as os.open()'s own mode argument when creating its temporary file - not merely a file that happens to read 0o600 later - and the mode still reads 0o600 at the moment of the atomic rename (T-17-MODE)
+PASS save_calendar_url() never calls os.chmod() at all - the mode is set once, at file-creation time, never as a follow-up permission change (T-17-MODE)
+PASS save_calendar_url() writes mode 0600 under a process umask of 022
+PASS save_calendar_url() writes mode 0600 under a process umask of 027
+PASS save_calendar_url() leaves the destination at 0600 even when the rename lands on a pre-existing group-readable file (T-17-MODE)
+PASS calendar_secret_mode_is_unsafe() reports True for a file created through this codebase's ordinary umask-inheriting house idiom (0o644) and for 0o640/0o604/0o660, and False for 0o600/0o400 - the negative check proving the guard actually fires, not merely that the correct writer is correct (T-17-DRIFT)
+PASS calendar_secret_mode_is_unsafe() is a genuine bool False (is False, not merely falsy, never None) on a state dir with no secret file
+PASS save_calendar_url(CLEAR_CALENDAR_URL) removes the secret file, returns True, and returns True again when called a second time with the file already gone
+PASS save_calendar_url() erases the fetched registry - zero entries and both timestamps None - on setting a URL for the first time or replacing one with a different URL (D-05)
+PASS save_calendar_url(CLEAR_CALENDAR_URL) erases the fetched registry and removes the secret file in the same call (D-04)
+PASS save_calendar_url() returns False and leaves an existing secret file's bytes and mode, and a seeded registry, untouched for None, an empty string, a whitespace-only string and a non-string value
+PASS save_calendar_url() strips leading/trailing whitespace and a trailing newline, writing the bare URL with no trailing newline byte, at mode 0600
+PASS no file matching the temporary-name shape remains in state_dir after a successful write or a rejected call
+PASS passing the literal string 'CLEAR_CALENDAR_URL' takes the ordinary write branch, not the sentinel's clear branch (identity comparison only)
+PASS configured_calendar_url() returns exactly the value written through save_calendar_url(), and calendar_is_configured() is True (identity) for the same state_dir (D-03)
+PASS neither configured_calendar_url() nor calendar_is_configured() ever calls os.environ.get() - the check that would catch a resurrected environment read, with and without a secret file present (D-03)
+PASS configured_calendar_url() refuses a secret file whose permissions have drifted, and never opens it at all - proved by observing the file was not opened, not merely by observing the return value (D-02, T-17-DRIFT)
+PASS a secret file written through this codebase's ordinary umask-inheriting house idiom (plain open(path, 'w'), not save_calendar_url()'s explicit 0600) is refused end to end by configured_calendar_url() and calendar_is_configured() - the negative counterpart to F1, going through the accessor rather than the mode predicate alone
+PASS calendar_is_configured() returns a genuine bool - is True, is False, is False - across absent, configured, and permission-drifted secret files, never a truthy status string (D-08)
+PASS configured_calendar_url() strips a trailing newline from a hand-written secret file, returning the bare URL
+PASS refresh_calendar_registry(min_interval_s=0) bypasses the throttle and reaches the transport even when the recorded last attempt is well inside the standard interval, while the default (no interval argument) still honours the throttle (D-06)
+PASS save_calendar_url(CLEAR_CALENDAR_URL) returns False, not True, when os.remove() fails for a reason other than the file already being absent - a permission/immutable-flag/read-only-filesystem failure must never be reported as a successful disconnect (CR-02)
+PASS a companion disconnect arriving while a (simulated) concurrent poll cycle is mid-fetch cannot have its registry erase overwritten by that poll cycle's later write - the cross-process registry lock, not either in-process threading.Lock, is what is exercised here (CR-01; simulates two OS processes with two threads racing the real fcntl-based lock - see comment above)
+PASS save_calendar_url() replacing a connected calendar's URL leaves the previous calendar's already-fetched flights untouched when the new secret's write fails before ever reaching the registry erase (WR-01)
+PASS _normalise_calendar_url() rewrites a webcal scheme (any case) to https, leaves every other scheme and an unparseable value unchanged, and never raises on None (UAT)
+PASS fetch_ics() accepts a webcal:// URL - Apple Calendar's own share-link scheme - and the transport observes an https:// request (UAT)
+PASS the webcal:// rewrite does not weaken the address gate - fetch_ics() still refuses a webcal:// URL pointing at a private address, at loopback (literal IP and "localhost"), and at the cloud metadata address (UAT)
+PASS fetch_ics() still refuses a plain http:// URL - there is no webcal -> http downgrade path (UAT)
+PASS a redirect discovered while fetching a webcal:// URL (normalised to https:// first) is still re-validated per hop, refusing a Location that targets a loopback address (UAT)
+PASS save_calendar_url() stores a webcal:// value already rewritten to its https:// form, so the secret file never holds a webcal:// string (UAT)
+calendar_rules: 113/113 checks pass
+calendar_rules: parse_ics_events() dropped 7 event(s) (1 rejected for an unrecognised date form, 6 for another reason)
+calendar_rules: parse_ics_events() dropped 7 event(s) (1 rejected for an unrecognised date form, 6 for another reason)
+calendar_rules: parse_ics_events() dropped 7 event(s) (1 rejected for an unrecognised date form, 6 for another reason)
+calendar_rules: parse_ics_events() dropped 7 event(s) (1 rejected for an unrecognised date form, 6 for another reason)
+calendar_rules: load_calendar_registry() dropped 8 entries (malformed/unsafe, beyond the 5000-entry raw-examination ceiling, or beyond the 200-entry cap after windowing)
+calendar_rules: parse_ics_events() dropped 7 event(s) (1 rejected for an unrecognised date form, 6 for another reason)
+calendar_rules: refresh_calendar_registry() result=fetch_ok entries=4
+calendar_rules: refresh_calendar_registry() result=fetch_ok entries=0
+calendar_rules: refresh_calendar_registry() result=fetch_ok entries=0
+calendar_rules: parse_ics_events() dropped 7 event(s) (1 rejected for an unrecognised date form, 6 for another reason)
+calendar_rules: refresh_calendar_registry() result=fetch_ok entries=4
+calendar_rules: refresh_calendar_registry() result=fetch_failed entries=4
+calendar_rules: parse_ics_events() dropped 7 event(s) (1 rejected for an unrecognised date form, 6 for another reason)
+calendar_rules: refresh_calendar_registry() result=fetch_ok entries=4
+calendar_rules: refresh_calendar_registry() result=fetch_ok entries=0
+calendar_rules: refresh_calendar_registry() result=fetch_failed entries=0
+calendar_rules: refresh_calendar_registry() result=fetch_failed entries=0
+calendar_rules: fetch_ics() transport call failed: Exception
+calendar_rules: refresh_calendar_registry() result=fetch_failed entries=0
+calendar_rules: refresh_calendar_registry() result=fetch_failed entries=0
+calendar_rules: parse_ics_events() dropped 7 event(s) (1 rejected for an unrecognised date form, 6 for another reason)
+calendar_rules: refresh_calendar_registry() result=fetch_failed entries=0
+calendar_rules: refresh_calendar_registry() result=fetch_failed entries=0
+calendar_rules: refresh_calendar_registry() result=fetch_failed entries=0
+calendar_rules: refresh_calendar_registry() result=fetch_ok entries=0
+calendar_rules: parse_ics_events() dropped 7 event(s) (1 rejected for an unrecognised date form, 6 for another reason)
+calendar_rules: refresh_calendar_registry() result=fetch_ok entries=4

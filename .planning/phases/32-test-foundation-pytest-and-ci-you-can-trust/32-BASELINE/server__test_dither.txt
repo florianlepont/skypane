@@ -1,0 +1,8 @@
+PASS panel_palette_image() carries exactly PALETTE_RGB's 6 entries, unpadded
+PASS dither_to_full_panel_palette() on a hue-rich synthetic image yields indices that are a subset of {0,1,2,3,4,5}
+PASS a flat single-color RGB source quantizes to exactly that color's own index
+PASS dither_to_full_panel_palette() is deterministic for the same input image
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+PASS write_calibration_preview() writes exactly one palette-swatch PNG and returns its path
+PASS build_mood_background() no longer exists on server.plane.dither (D-21 retirement)
+dither: 6/6 checks pass
