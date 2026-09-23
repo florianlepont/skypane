@@ -2,7 +2,7 @@
 phase: 34
 slug: firmware-resilience-power-security-cleanup
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-09-23
 ---
