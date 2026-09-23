@@ -1,0 +1,58 @@
+SkyPane
+Copyright (c) 2026 Florian Lepont
+
+This repository contains works under more than one licence. The root
+LICENSE file (MIT) covers everything that is not listed below.
+
+Licence map
+-----------
+
+firmware/
+    Apache License 2.0 - see firmware/LICENSE and firmware/NOTICE.
+    Contains files vendored (some modified) from FlightPortrait,
+    Copyright (c) 2026 YODE PTE LTD, https://github.com/flightportrait/frame.
+    Per-file provenance: firmware/VENDOR.md.
+
+stub-server/byos_server.py
+    Apache License 2.0 (text in firmware/LICENSE). Vendored and modified
+    from FlightPortrait, Copyright (c) 2026 YODE PTE LTD.
+    Provenance: stub-server/VENDOR.md.
+
+server/assets/fonts/
+    Inter, Zilla Slab and PT Serif - SIL Open Font License 1.1. Licence
+    texts are vendored alongside the fonts. Provenance:
+    server/assets/fonts/VENDOR.md.
+
+server/assets/icons/plane-takeoff.*, plane-landing.*
+    Derived from Lucide - ISC License. Provenance:
+    server/assets/icons/VENDOR.md.
+
+server/assets/icons/aircraft-silhouette.*
+    CC0 / public domain. Provenance: server/assets/icons/VENDOR.md.
+
+server/assets/icons/illustrations/
+    AI-generated aircraft illustrations. Not covered by the MIT licence;
+    see the Trademarks section below and
+    server/assets/icons/illustrations/VENDOR.md.
+
+Trademarks
+----------
+
+Airline names, logos, wordmarks and liveries, and the insignia of state
+and military aircraft, that appear in the illustrations or in the code
+(for example Air France, Transavia, easyJet, the French Air Force) are
+trademarks or protected marks of their respective owners. They are used
+only to identify the aircraft being shown, in a non-commercial hobby
+project. SkyPane is not affiliated with, sponsored by or endorsed by any
+airline, airport operator, aircraft manufacturer or government body.
+
+"FlightPortrait" is the name of the upstream project SkyPane's firmware
+derives from; SkyPane is an independent project and is not endorsed by
+its authors.
+
+Data sources
+------------
+
+Aircraft positions come from adsb.fi and adsb.lol; route enrichment from
+adsbdb.com. Their terms, and how this project meets them, are in
+COMPLIANCE.md.

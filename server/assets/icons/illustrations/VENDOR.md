@@ -39,17 +39,24 @@ the vendored PNGs), but this `VENDOR.md` was never written until now.
   This was an explicitly **partial, named** delivery — see "Phase 3.1
   coverage" below for what shipped and what remains.
 - **Licensing rationale (D-09):** these are original, AI-generated
-  illustrations, not copied or scraped airline brand assets. AI
-  generation sidesteps the per-airline trademark/licensing constraint
-  that made Phase 2 reject real per-airline art and settle for a single
-  CC0 generic silhouette instead (see `server/assets/icons/VENDOR.md`'s
-  `aircraft-silhouette.svg` entry for that earlier decision). This is the
+  illustrations, not copied or scraped airline brand assets, so no
+  third-party *copyright* in a source image is being reproduced. That does
+  **not** settle *trademarks*: the files deliberately show real carrier
+  liveries, and since the D-23 waiver below many also show real wordmarks
+  and fuselage titles. Those names, logos and liveries — and the insignia
+  on state and military aircraft (French Air Force, Gendarmerie nationale,
+  government and royal flights) — belong to their respective owners however
+  the image was produced; AI generation does not sidestep that. (Corrected
+  2026-09-23, quick task `260923-9fe`: an earlier version of this entry
+  claimed it did.) They are used here only to identify which aircraft is on
+  the runway, in a non-commercial hobby project, and imply no affiliation
+  with or endorsement by any airline or state body — see the Trademarks
+  section of the top-level `NOTICE` and `README.md`. The images are the
   developer's own generation output, produced through a commercial image
-  tool under that tool's own usage terms — it has **not** been
-  independently rights-cleared or reviewed by counsel; it is treated as
-  acceptable for this hobby project's scope on the same basis Phase 2
-  already accepted for the CC0 silhouette, not as a stronger legal
-  guarantee than that.
+  tool under that tool's usage terms; they have **not** been independently
+  rights-cleared or reviewed by counsel. A rights holder who objects can
+  open an issue and the file will be replaced with its generic
+  aircraft-type fallback.
 - **Nose orientation:** `ILLUSTRATION_SOURCE_NOSE = "left"` is the
   set-wide convention (`server/plane/illustrations.py`). Verified by eye,
   per file, at hand-off time (Task 2's blocking checkpoint) — no code
