@@ -92,8 +92,13 @@ Files in `firmware/` that are not vendored from upstream at all:
   has no equivalent because its credentials arrive at runtime through BLE
   provisioning rather than a compiled-in header. Committed template for
   `main/secrets.h` (gitignored — see `firmware/.gitignore`), defining the
-  four `SKYPANE_`-prefixed macros this phase's `wifi.c`/`api_client.c` read:
-  `SKYPANE_WIFI_SSID`, `SKYPANE_WIFI_PASS`, `SKYPANE_API_BASE`, `SKYPANE_SETUP_SECRET`.
+  `SKYPANE_`-prefixed macros `wifi.c`/`api_client.c` read:
+  `SKYPANE_WIFI_SSID`, `SKYPANE_WIFI_PASS`, `SKYPANE_API_BASE`, and the
+  optional dev-only `SKYPANE_API_BASE_DEV`. The per-device enrolment
+  secret is not one of these macros — it is written directly into the
+  device's own `secret` NVS partition by `firmware/provision.sh`
+  (`main/enrol_secret.h`), so the compiled image is identical for every
+  device.
 - `main/battery_math.h` / `main/battery_math.c` — SkyPane-original, not
   vendored; upstream has no equivalent battery-telemetry path at all. A
   pure, saturating divider-ratio conversion (no I/O, no ESP-IDF headers,
