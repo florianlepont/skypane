@@ -1620,7 +1620,7 @@ Plans:
 4. No-change wake duration measured before/after on real hardware (DHCP, TLS, memtest) and logged
 5. byos refuses to re-enrol a known MAC; each device has its own secret
 
-**Plans:** 9/11 plans executed
+**Plans:** 10/11 plans executed
 
 Plans:
 - [x] 34-01-PLAN.md — Pure response validators (sleep_s cap, https rule, download gate) + discovery-based host-test runner
@@ -1632,7 +1632,7 @@ Plans:
 - [x] 34-07-PLAN.md — wake_guard (budget timer + task watchdog), panel driver errors/POF/light sleep, 8-sample battery read
 - [x] 34-08-PLAN.md — app_main/state_machine wiring: reset backoff, deadline, step tokens, timing line, fault hooks, static IP
 - [x] 34-09-PLAN.md — One keep-alive client per wake, budgeted download, best-effort TLS session across deep sleep
-- [ ] 34-10-PLAN.md — VENDOR.md + Log Line Contract CI check, hardware results template, end-to-end build gate
+- [x] 34-10-PLAN.md — VENDOR.md + Log Line Contract CI check, hardware results template, end-to-end build gate
 - [ ] 34-11-PLAN.md — Single hardware session (developer-run checkpoint) with captures and results
 
 ### Phase 35: Comment purge in English and dead code
