@@ -40,7 +40,6 @@ import os
 import re
 import subprocess
 import sys
-import time
 
 # --- Location -----------------------------------------------------------
 # This file lives directly inside the phase directory
@@ -100,7 +99,19 @@ def parse_baseline(text):
     total: the <total> from the LAST "<name>: <p>/<t> checks pass" line
     found (None if no such line exists).
     """
-    raise NotImplementedError("parse_baseline: RED phase stub, Task 1 implements this")
+    rows = []
+    total = None
+    for line in text.splitlines():
+        if line.startswith("PASS "):
+            rows.append(("PASS", line[len("PASS ") :]))
+            continue
+        if line.startswith("FAIL "):
+            rows.append(("FAIL", line[len("FAIL ") :]))
+            continue
+        m = SUMMARY_RE.match(line)
+        if m:
+            total = int(m.group("total"))
+    return rows, total
 
 
 def baseline_check_lines(text):
@@ -120,7 +131,12 @@ def label_matches(baseline_line, ledger_label):
     prefix of a longer check name (see the RED-phase self-test case
     proving "FAIL boomer - x" does not match label "boom").
     """
-    raise NotImplementedError("label_matches: RED phase stub, Task 1 implements this")
+    if baseline_line.startswith("PASS "):
+        return baseline_line[len("PASS ") :].rstrip() == ledger_label.rstrip()
+    if baseline_line.startswith("FAIL "):
+        rest = baseline_line[len("FAIL ") :]
+        return rest == ledger_label or rest.startswith(ledger_label + " - ")
+    return False
 
 
 # --- Ledger fragment escaping / parsing ----------------------------------
@@ -130,11 +146,11 @@ def escape_label(label):
     """Labels containing "|" are written escaped as "\\|" in a fragment's
     markdown table (a literal "|" would otherwise be read as a new
     column)."""
-    raise NotImplementedError("escape_label: RED phase stub, Task 1 implements this")
+    return label.replace("|", "\\|")
 
 
 def unescape_label(text):
-    raise NotImplementedError("unescape_label: RED phase stub, Task 1 implements this")
+    return text.replace("\\|", "|")
 
 
 def parse_fragment_rows(text):
@@ -148,7 +164,29 @@ def parse_fragment_rows(text):
     "|" unescaped inside label/target. Header and separator rows are
     skipped.
     """
-    raise NotImplementedError("parse_fragment_rows: RED phase stub, Task 1 implements this")
+    rows = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not (stripped.startswith("|") and stripped.endswith("|")):
+            continue
+        inner = stripped[1:-1]
+        cells = [c.strip() for c in re.split(r"(?<!\\)\|", inner)]
+        if len(cells) != 4:
+            continue
+        n = cells[0]
+        if n == "#":
+            continue  # header row
+        if re.fullmatch(r"-+", n):
+            continue  # "| --- | --- | --- | --- |" separator row
+        rows.append(
+            {
+                "n": n,
+                "label": unescape_label(cells[1]),
+                "disposition": cells[2],
+                "target": unescape_label(cells[3]),
+            }
+        )
+    return rows
 
 
 # --- Pure validation logic (the part --self-test exercises in-memory) ---
@@ -176,7 +214,59 @@ def validate_fragment(fragment_rows, baseline_lines, node_ids, harness_source, a
         (a contradiction: the ledger claims migration happened but the
         old harness idiom is still on disk)
     """
-    raise NotImplementedError("validate_fragment: RED phase stub, Task 1 implements this")
+    failures = []
+    if len(fragment_rows) != len(baseline_lines):
+        failures.append(
+            "row count mismatch: ledger has %d rows, baseline has %d checks"
+            % (len(fragment_rows), len(baseline_lines))
+        )
+
+    remaining = list(baseline_lines)
+    unmatched_rows = []
+    counts = {"ported": 0, "deleted": 0, "pending": 0}
+    for row in fragment_rows:
+        disp = row["disposition"]
+        if disp not in ("ported", "deleted", "pending"):
+            failures.append("row %r has an unknown disposition %r (must be ported/deleted/pending)" % (row["label"], disp))
+        elif disp == "ported":
+            counts["ported"] += 1
+            if row["target"] not in node_ids:
+                failures.append(
+                    "ported row %r targets node id %r, not found in `pytest --collect-only` output"
+                    % (row["label"], row["target"])
+                )
+        elif disp == "deleted":
+            counts["deleted"] += 1
+            if not row["target"].strip():
+                failures.append("deleted row %r has an empty reason" % (row["label"],))
+        else:  # pending
+            counts["pending"] += 1
+            if not allow_pending:
+                failures.append("row %r is pending and --allow-pending was not given" % (row["label"],))
+
+        match_index = None
+        for i, line in enumerate(remaining):
+            if label_matches(line, row["label"]):
+                match_index = i
+                break
+        if match_index is None:
+            unmatched_rows.append(row["label"])
+        else:
+            del remaining[match_index]
+
+    if unmatched_rows:
+        failures.append("ledger rows with no matching baseline check: %r" % (unmatched_rows,))
+    if remaining:
+        failures.append("baseline checks with no matching ledger row: %r" % (remaining,))
+
+    if (counts["ported"] or counts["deleted"]) and harness_source is not None:
+        if "EXPECTED_CHECK_COUNT" in harness_source or "def check(" in harness_source:
+            failures.append(
+                "harness source still contains EXPECTED_CHECK_COUNT or def check( "
+                "even though the fragment declares ported/deleted rows"
+            )
+
+    return failures, counts
 
 
 # --- Filesystem/subprocess glue (not exercised by --self-test) ----------
