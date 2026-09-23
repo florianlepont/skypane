@@ -1,0 +1,82 @@
+"""One pytest test per legacy companion harness - each still a standalone
+`check()`/`EXPECTED_CHECK_COUNT`/`main()` script (their migration is Phase
+33 scope), run as a real subprocess and asserted only on exit code, until
+Phase 33 rewrites them as native pytest tests. This module is what makes
+those 9 files reachable through `pytest -n auto` without pytest ever
+importing them directly as test modules - conftest.py's collect_ignore
+keeps them (and their shared helper module) out of collection so this file
+is the only path to them.
+"""
+
+import os
+import signal
+import subprocess
+import sys
+
+import pytest
+
+from skypane_test_support import LEGACY_COMPANION_HARNESSES, REPO_ROOT
+
+pytestmark = pytest.mark.legacy_harness
+
+_COMPANION_DIR = os.path.join(REPO_ROOT, "companion")
+
+
+@pytest.mark.parametrize(
+    "harness",
+    LEGACY_COMPANION_HARNESSES,
+    ids=[os.path.basename(h)[:-3] for h in LEGACY_COMPANION_HARNESSES],
+)
+def test_legacy_companion_harness_exits_zero(harness, tmp_path):
+    timeout_s = float(os.environ.get("HARNESS_TIMEOUT_S", "600"))
+    out_path = tmp_path / "output.log"
+
+    with open(out_path, "wb") as out_fh:
+        proc = subprocess.Popen(
+            [sys.executable, harness],
+            cwd=REPO_ROOT,
+            stdout=out_fh,
+            stderr=subprocess.STDOUT,
+            env=dict(os.environ),
+            # Own process group, same reason scripts/run_all_tests.py's own
+            # _run_one() uses one: a timeout must take down the harness AND
+            # any child server it spawned (companion/app.py,
+            # stub-server/byos_server.py), or that child is orphaned, still
+            # bound to its port.
+            start_new_session=True,
+        )
+        try:
+            returncode = proc.wait(timeout=timeout_s)
+            timed_out = False
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                proc.kill()
+            proc.wait()
+            returncode = proc.returncode
+            timed_out = True
+
+    output = out_path.read_bytes().decode(errors="replace")
+    last_lines = "\n".join(output.splitlines()[-200:])
+
+    if timed_out:
+        pytest.fail(
+            "%s did not exit within %.0fs, killed - last 200 lines:\n%s"
+            % (harness, timeout_s, last_lines)
+        )
+
+    assert returncode == 0, (
+        "%s exited %d - last 200 lines:\n%s" % (harness, returncode, last_lines)
+    )
+
+
+def test_legacy_harness_list_matches_disk():
+    on_disk = {
+        "companion/%s" % name
+        for name in os.listdir(_COMPANION_DIR)
+        if name.startswith("test_")
+        and name.endswith(".py")
+        and name not in ("test_legacy_harness_shim.py", "test_browser_ux_helpers.py")
+    }
+    assert on_disk == set(LEGACY_COMPANION_HARNESSES)

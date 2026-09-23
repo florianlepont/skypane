@@ -1,0 +1,61 @@
+PASS normalise_airline_key('Air Algérie') == 'air-algerie'
+PASS normalise_airline_key('Air Corsica') == 'air-corsica' (260827-kih)
+PASS normalise_airline_key('') / (None) / (42) all return None without raising
+PASS classify_aircraft_type() maps real designators onto all seven SHAPE_SLUGS
+PASS classify_aircraft_type() normalizes lowercase and leading/trailing whitespace
+PASS classify_aircraft_type() returns None for an unrecognized designator
+PASS classify_aircraft_type() returns None for falsy and non-string inputs (None, '', 0, 42, [], {}) without raising
+PASS classify_aircraft_type() returns None (never raises) for hostile path-separator/parent-dir inputs (T-03.1-03-01)
+PASS every _TYPE_SHAPE_BUCKETS value is a member of SHAPE_SLUGS and every key is uppercase ASCII 3-4 chars
+PASS select_illustration({'airline_name': 'Air France'}) returns the real air-france.png path
+PASS select_illustration({'airline_name': 'Vueling Airlines'}) returns the real vueling-airlines.png path
+PASS select_illustration() with an unknown airline returns the generic fallback path
+PASS select_illustration(None) returns the generic fallback path
+PASS select_illustration() with a route lacking airline_name returns the generic fallback path
+PASS select_illustration() with a non-string airline_name returns the generic fallback path
+PASS select_illustration() never raises across a battery of malformed inputs
+PASS select_illustration() returns None only when even the generic fallback file is absent
+PASS select_illustration() Tier 1 returns the airline-and-shape file when it exists
+PASS select_illustration() Tier 2 (D-06) returns the airline-only file when the shape file is absent
+PASS select_illustration() Tier 2 wins over Tier 3 when both an airline file and a matching generic-shape file exist
+PASS select_illustration() Tier 3 (D-07) returns the neutral shape file for an unrecognized airline with a known shape
+PASS select_illustration() Tier 3 also applies when route is None but a type is supplied
+PASS select_illustration() Tier 4 (D-08) returns the universal fallback when neither key resolves
+PASS select_illustration() Tier 4 also returns when the shape classifies but no generic-{shape}.png file exists
+PASS select_illustration() never raises for a hostile aircraft_type x malformed-route matrix, and no returned path escapes ILLUSTRATION_DIR (T-03.1-03-01)
+PASS illustration_path_for_key() rejects any key containing a path separator or parent-dir segment
+PASS generic_fallback_path() points at the real, vendored generic-fallback.png
+PASS validate_illustration_file() rejects a non-PNG file with a distinct message
+PASS validate_illustration_file() rejects a PNG with no alpha channel with a distinct message
+PASS validate_illustration_file() rejects a PNG whose alpha channel is fully opaque with a distinct message
+PASS validate_illustration_file() rejects a PNG narrower than the minimum width with a distinct message
+PASS validate_illustration_file() rejects a portrait PNG with a distinct message
+PASS validate_illustration_file() rejects a PNG whose pixel count exceeds the cap with a distinct message
+PASS validate_illustration_file() accepts the real, vendored air-france.png with zero problems
+PASS required_filenames() contains generic-fallback.png and every entry matches ^[a-z0-9-]+\.png$
+PASS every file in required_filenames() exists in the vendored set and passes validate_illustration_file()
+PASS target_filenames() contains one generic-{shape}.png per SHAPE_SLUGS plus the universal fallback, all matching ^[a-z0-9-]+\.png$
+PASS target_filenames() has no duplicate entries
+PASS every currently-vendored .png in ILLUSTRATION_DIR is a member of target_filenames() (widening the expected set did not orphan an existing asset)
+PASS required_filenames() is a subset of target_filenames() and still contains every baseline file
+PASS outstanding_filenames() is exactly target_filenames() minus the on-disk set, in target order
+PASS the four P-04 secondary variants appear in target_filenames() with the expected exact names, alongside their unsuffixed primaries
+PASS target_airline_names() contains the current-brand 'ASL Airlines France'/'Corsair'/'Air Corsica' strings, not the stale adsbdb-resolved names they replace (260827-kih, inverted from the 260827-hyy check)
+PASS target_airline_names()/target_filenames() carry 'KM Malta Airlines'/'TUIfly Belgium' and their derived filenames, and never 'Air Malta' or 'Jetairfly' (260827-jz6, QT-jz6-D-02 drift guard)
+PASS target_filenames() contains 'amelia.png'/'amelia-embraer.png' (delivered on disk) and totals 52 entries (260827-kih baseline, updated by 260827-lgt, a parallel Air Caraïbes livery-audit session, and quick task 260921-v9c's nine new primaries)
+PASS the four renamed illustration files (air-corsica/air-corsica-atr72/asl-airlines-france/corsair) exist on disk; the four superseded filenames they replace do not (260827-kih)
+PASS target_airline_names()/target_filenames() carry 'Air France Hop'/'KlasJet' (with 'Air France'/'Wizz Air' still present as distinct names) and the three new filenames (delivered on disk); the QT-lgt-D-01 Wizz Air Malta reuse guard holds - no Malta-specific Wizz entry exists in either list (260827-lgt)
+PASS target_variants_by_airline() returns 36 pairs in the same order as target_airline_names() (260921-v9c: 27 -> 36 via nine new primaries)
+PASS target_variants_by_airline()'s Air Caraïbes pair carries exactly ['a330', 'a350-1000', 'atr72'], in order
+PASS target_variants_by_airline()'s Air France pair (a single None-shape entry) carries an empty list, not [None]
+PASS no target_variants_by_airline() shape list contains None, and 'a350-1000' survives (not dropped by a SHAPE_SLUGS membership test)
+PASS target_variants_by_airline() is derived from _ILLUSTRATION_TARGETS directly (source assertion)
+PASS resolved_illustration_path() returns the override path when it exists, and the vendored path when it does not (260902-v26)
+PASS select_illustration(..., state_dir=tmp) returns the override path when one exists for that key; the same call with no state_dir still returns the vendored path (260902-v26)
+PASS select_illustration() Tier 1 override wins over the vendored Tier 1 file; an override for the bare Tier 2 airline key does not displace a vendored Tier 1 file - tier precedence is unchanged, only the per-tier source changes (260902-v26)
+PASS override_path_for_key() returns None for a battery of hostile keys, and select_illustration() with a state_dir never returns a path outside ILLUSTRATION_DIR or the override directory, across a hostile aircraft_type x malformed-route matrix (T-v26-01-01)
+PASS the vendored file's bytes are unchanged after a battery of override resolution calls (260902-v26, T-v26-01-02)
+PASS set_override_state_dir() round trip: setting it makes a bare select_illustration() call pick up the override; resetting to None restores the vendored path, and the reset is guaranteed by a finally block (260902-v26, T-v26-01-04)
+PASS target_filenames() contains all nine 260921-v9c filenames (delivered on disk), 'French Air Force' is a target_airline_names() member, and the deferred tenth file 'saudi-special-flight.png' is neither a target nor present on disk (QT-v9c-D-06 guard)
+PASS every airline in target_variants_by_airline() has an unsuffixed {slug}.png primary that is both a target_filenames() member and present on disk - protects the companion gallery card contract (airlines_page.py builds every card's <img src> from the primary key alone, 260921-v9c)
+illustrations: 60/60 checks pass

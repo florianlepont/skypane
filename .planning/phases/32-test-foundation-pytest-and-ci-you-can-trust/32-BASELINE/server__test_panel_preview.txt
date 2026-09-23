@@ -1,0 +1,24 @@
+PASS a drawn canvas, packed then unpacked, yields identical per-pixel index data
+PASS a canvas containing all six legal indices, including a mixed odd/even column pair, round-trips exactly
+PASS unpack_panel() on wrong-length input raises PanelDecodeError, never AssertionError/IndexError
+PASS unpack_panel() on the one illegal nibble code raises PanelDecodeError naming the offending code
+PASS panel_png_bytes() returns real, Pillow-decodable PNG bytes at the expected dimensions
+PASS panel_png_bytes(max_width=240) returns a proportionally resized thumbnail
+PASS read_panel_file() on a missing file returns None rather than raising
+PASS a row with two different legal indices at column 0 and column 1 round-trips without a high/low nibble swap
+PASS the full getdata() sequence (not a sampled subset) matches exactly for an all-six-indices canvas
+PASS a real production render.render_panel(None, 'empty') round-trips index-for-index against build_canvas()
+PASS the nearest-neighbour thumbnail's colour set is a strict subset of the full image's colour set
+panel-preview: 11/11 checks pass
+/home/user/skypane/server/test_panel_preview.py:98: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  original_data = list(canvas.getdata())
+/home/user/skypane/server/test_panel_preview.py:99: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  unpacked_data = list(unpacked.getdata())
+/home/user/skypane/server/test_panel_preview.py:121: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  if list(unpacked.getdata()) != list(canvas.getdata()):
+/home/user/skypane/server/test_panel_preview.py:253: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  original_data = list(canvas.getdata())
+/home/user/skypane/server/test_panel_preview.py:254: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  unpacked_data = list(unpacked.getdata())
+/home/user/skypane/server/test_panel_preview.py:275: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  if list(unpacked.getdata()) != list(expected_canvas.getdata()):

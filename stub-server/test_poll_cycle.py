@@ -1,61 +1,51 @@
 #!/usr/bin/env python3
-"""End-to-end poll-cycle contract harness for stub-server/byos_server.py.
+"""End-to-end poll-cycle contract tests for stub-server/byos_server.py.
 
-Stdlib-only (urllib.request, hashlib, json, subprocess, socket, time, os,
-sys, tempfile, shutil, importlib.util, datetime, zoneinfo), plus ONE
-project import added by quick task 260923-fr4: server.wake, used solely
-for the BATTERY EMPTY behaviour-parity check below. This harness is not
-itself vendored (byos_server.py is the vendored file the "never import
-server.*" rule protects), and every other cross-file check here already
-reads the project side as plain text (the drift guards below) rather than
-importing it - the one exception exists because read_battery_critical()'s
-two copies are deliberately NOT byte-identical (one references
-server.wake.BATTERY_CRITICAL_STATE_KEY, the other the literal string it
-equals), so behaviour, not source text, is what that one check proves
-equal. Generates a deterministic panel image with make_test_panel.py,
-launches byos_server.py as a subprocess on a free local port, and
+Generates a deterministic panel image with make_test_panel.py, launches
+byos_server.py as a real subprocess on a free local port (both under the
+non-loopback network guard via skypane_test_support.child_env()), and
 drives it through the full device-protocol contract documented in
 flightportrait/frame's docs/PROTOCOL.md at the pinned commit
-ce3335fc5e566bcc6ccd29966ec39bf5c5318f12 (sections 1, 2, 3 and 5):
-setup, the bearer-token auth gate, the display-response shape,
-download + SHA-256 + exact-size verification, the hash-skip
-optimisation, a served-image change, telemetry header echoing, the log
-endpoint, two hand-built malformed-response rejections, connection
-failure classification when the server is down, and (Phase 10, D-01)
-the quiet-hours-aware sleep_s extension: a drift guard pinning
-byos_server.py's vendored seconds_until_quiet_hours_end()/_HHMM_RE
-byte-for-byte equal to server/device_config.py's, unit coverage of
-read_quiet_hours()/quiet_hours_sleep_s() loaded directly via
-importlib.util (byos_server.py's module level is import-safe - constants
-and defs only, with main() behind an `if __name__ == "__main__"` guard),
-and integration coverage of the sleep_s extension and its fail-open
-contract over real HTTP. Phase 11 (D-01/D-03) adds unit coverage of
-read_wake_interval_s()'s fail-open contract (including the
-bool-is-an-int gotcha) and happy path, unit coverage of the configured
-wake interval layering under quiet_hours_sleep_s() without being
-re-clamped past WAKE_INTERVAL_MAX_S, and integration coverage of the
-configured value (and a below-floor rejection) reaching sleep_s over
-real HTTP. Phase 12 (D-01/D-05) adds unit coverage of
-read_display_enabled()'s fail-open contract, the flat 300s off-state
-sleep_s pin (display_off_sleep_s()), the display-off/quiet-hours
-overlap in both directions (D-05's sleep axis: the longest of the two
-wins), an on-state regression guard proving the new branch does not
-alter the pre-existing Phase 10/11 chain, and a lightweight parity
-check pinning DISPLAY_OFF_SLEEP_S numerically equal between this file
-and server/device_config.py. Quick task 260923-fr4 adds unit coverage of
-read_battery_critical()'s fail-open contract and its behaviour parity
-against server.wake.read_battery_critical(), unit coverage of
+ce3335fc5e566bcc6ccd29966ec39bf5c5318f12 (sections 1, 2, 3 and 5): setup,
+the bearer-token auth gate, the display-response shape, download +
+SHA-256 + exact-size verification, the hash-skip optimisation, a
+served-image change, telemetry header echoing, the log endpoint, two
+hand-built malformed-response rejections, connection failure
+classification when the server is down, and the quiet-hours-aware
+sleep_s extension (D-01): a drift guard pinning byos_server.py's
+vendored seconds_until_quiet_hours_end()/_HHMM_RE byte-for-byte equal
+to server/device_config.py's, unit coverage of read_quiet_hours()/
+quiet_hours_sleep_s() loaded directly via importlib.util (byos_server.py's
+module level is import-safe - constants and defs only, with main() behind
+an `if __name__ == "__main__"` guard), and integration coverage of the
+sleep_s extension and its fail-open contract over real HTTP. Also covers
+read_wake_interval_s()'s fail-open contract (including the bool-is-an-int
+gotcha) and happy path (D-01/D-03), the configured wake interval layering
+under quiet_hours_sleep_s() without being re-clamped past
+WAKE_INTERVAL_MAX_S, read_display_enabled()'s fail-open contract, the flat
+300s off-state sleep_s pin (display_off_sleep_s()), the display-off/
+quiet-hours overlap in both directions (D-05's sleep axis: the longest of
+the two wins), an on-state regression guard proving the off-state branch
+does not alter the pre-existing chain, a constant-parity check pinning
+DISPLAY_OFF_SLEEP_S numerically equal between this file and
+server/device_config.py, read_battery_critical()'s fail-open contract and
+its behaviour parity against server.wake.read_battery_critical(),
 battery_critical_sleep_s()'s parked/not-parked/recovery-anticipation
 decision and its composed-chain interaction with the display-off and
 quiet-hours pins, a constant-parity check for BATTERY_CRITICAL_SLEEP_S/
 BATTERY_CRITICAL_RECOVER_MV, and a live-HTTP integration pair (parked,
 then recovering) proving the pin over the real do_GET response.
 
-Exits 0 only when every check below passes; any failure (or exception -
-none is ever swallowed into a pass) exits 1.
-
-Usage:
-    python3 stub-server/test_poll_cycle.py
+The behaviour-parity check imports server.wake directly (the only
+project import in this file) - unlike byos_server.py itself (the
+vendored file this suite tests, which must never import server.*), this
+file is not vendored, and every other cross-file check here reads the
+project side as plain text (the drift guards) rather than importing it.
+This one check needs the REAL function, not a byte-identical source
+text, because read_battery_critical()'s two copies are deliberately NOT
+byte-identical (one references server.wake.BATTERY_CRITICAL_STATE_KEY,
+the other the literal string it equals) - so behaviour, not source
+text, is what it proves equal.
 """
 import hashlib
 import importlib.util
@@ -65,13 +55,14 @@ import shutil
 import socket
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
+
+import pytest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -81,39 +72,25 @@ DEVICE_CONFIG_MODULE_PATH = os.path.join(REPO_ROOT, "server", "device_config.py"
 POLL_LOOP_MODULE_PATH = os.path.join(REPO_ROOT, "server", "poll_loop.py")
 IMAGE_BYTES = 960000
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 46  # 12-03: +6 (display-off sleep pin: fail-open, flat pin, quiet-hours
-# overlap in both directions (unit + integration), on-state regression guard, and
-# DISPLAY_OFF_SLEEP_S parity)
-# Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die): +6
-# (read_battery_critical() fail-open, proven behaviour-identical to
-# server.wake.read_battery_critical() across the same fixture set;
-# battery_critical_sleep_s()'s parked/not-parked/recovery-anticipation
-# unit coverage; the composed chain beating the display-off pin and
-# yielding to a longer quiet-hours remainder; BATTERY_CRITICAL_SLEEP_S/
-# BATTERY_CRITICAL_RECOVER_MV constant parity against
-# server/device_config.py and server/poll_loop.py; and the parked/
-# recovering live-HTTP integration pair)
-#
-# The behaviour-parity check below is this harness's first import of a
-# server.* module - unlike byos_server.py itself (the vendored file this
-# harness tests, which must never import server.*), this harness is not
-# vendored and every other cross-file check here already reads the
-# project side as plain text (the drift guards) rather than importing it;
-# this one check needs the REAL function, not a byte-identical source
-# text, because read_battery_critical()'s two copies are deliberately NOT
-# byte-identical (one references BATTERY_CRITICAL_STATE_KEY, the other
-# the literal string it equals) - so behaviour, not text, is what must be
-# proven equal here.
+
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
-import server.wake as server_wake  # noqa: E402 - see the comment above
+
+# pyproject.toml's pythonpath puts test-support/ on sys.path for a normal
+# `pytest` invocation; the legacy-runner bridge below (MR-3) executes this
+# file directly instead, so the same directory is added here too.
+_TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
+if _TEST_SUPPORT_DIR not in sys.path:
+    sys.path.insert(0, _TEST_SUPPORT_DIR)
+
+import server.wake as server_wake  # noqa: E402 - see the module docstring
+from skypane_test_support import child_env  # noqa: E402
 
 
 def verify_panel_bytes(buf, expected_hash):
-    """Mirror the firmware verification rule (PROTOCOL.md section 2):
-
-    a buffer reaches the panel only when its length is exactly 960000
-    bytes AND its SHA-256 hex digest equals the hex portion of the
+    """Mirror the firmware verification rule (PROTOCOL.md section 2): a
+    buffer reaches the panel only when its length is exactly 960000 bytes
+    AND its SHA-256 hex digest equals the hex portion of the
     server-declared image_hash (which carries a "sha256:" prefix).
     """
     if len(buf) != IMAGE_BYTES:
@@ -233,17 +210,21 @@ def _extract_line(source_text, line_prefix):
 
 
 class Harness:
-    """Owns the fixture lifecycle: temp dir, free port, generated panel
-    image, and the byos_server.py subprocess. Never leaves an orphaned
-    server holding the port - callers must run stop_server() in a
-    finally block.
+    """Owns the byos_server.py subprocess lifecycle for a given state
+    directory (always a pytest tmp_path, never a self-managed
+    tempfile-created one - MR-5). Never leaves an orphaned server
+    holding the port - callers must run stop_server() in a finally
+    block. `env` defaults to child_env() (MR-9) so both the
+    make_test_panel.py and byos_server.py children run under the same
+    no-network guard as this pytest process.
     """
 
-    def __init__(self):
-        self.tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-")
+    def __init__(self, state_dir, env=None):
+        self.tmpdir = state_dir
         self.port = self._pick_free_port()
         self.image_path = os.path.join(self.tmpdir, "panel.bin")
         self.stdout_path = os.path.join(self.tmpdir, "server.stdout.log")
+        self.env = env if env is not None else child_env()
         self.proc = None
 
     @staticmethod
@@ -265,7 +246,7 @@ class Harness:
         out_path = out_path or self.image_path
         subprocess.run(
             [sys.executable, MAKE_PANEL_PATH, "--pattern", pattern, "--out", out_path],
-            check=True, capture_output=True, text=True,
+            check=True, capture_output=True, text=True, env=self.env,
         )
         return out_path
 
@@ -281,7 +262,7 @@ class Harness:
         try:
             self.proc = subprocess.Popen(
                 cmd,
-                stdout=stdout_fh, stderr=subprocess.STDOUT,
+                stdout=stdout_fh, stderr=subprocess.STDOUT, env=self.env,
             )
         finally:
             stdout_fh.close()  # child holds its own duplicated fd
@@ -318,976 +299,675 @@ class Harness:
         except OSError:
             return ""
 
-    def cleanup(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+@pytest.fixture(scope="module")
+def byos_module():
+    """byos_server.py loaded once via importlib.util - a pure module of
+    constants and defs, safely reused read-only across every unit test
+    below (MR-4: no test mutates it).
+    """
+    return load_byos_module()
 
 
-def main():
-    harness = Harness()
-    results = []
+# --- Unit: quiet-hours-aware sleep_s extension (D-01) --------------------
 
-    def check(name, fn):
-        try:
-            ok, reason = fn()
-        except Exception as exc:  # never let an exception be swallowed into a pass
-            ok, reason = False, "exception: %r" % (exc,)
-        results.append((name, ok))
-        if ok:
-            print("PASS %s" % name)
-        else:
-            print("FAIL %s - %s" % (name, reason))
 
+def test_quiet_hours_helpers_drift_guard_matches_device_config():
+    """seconds_until_quiet_hours_end() and _HHMM_RE are byte-for-byte identical between
+    server/device_config.py and stub-server/byos_server.py"""
+    with open(DEVICE_CONFIG_MODULE_PATH) as fh:
+        origin_text = fh.read()
+    with open(SERVER_PATH) as fh:
+        vendored_text = fh.read()
+
+    origin_fn = _extract_def_block(origin_text, "def seconds_until_quiet_hours_end(")
+    vendored_fn = _extract_def_block(vendored_text, "def seconds_until_quiet_hours_end(")
+    assert origin_fn is not None, "could not locate seconds_until_quiet_hours_end() in server/device_config.py"
+    assert vendored_fn is not None, "could not locate seconds_until_quiet_hours_end() in stub-server/byos_server.py"
+    assert origin_fn == vendored_fn, (
+        "seconds_until_quiet_hours_end() has drifted between server/device_config.py and "
+        "stub-server/byos_server.py - the two copies must stay byte-for-byte identical:\n"
+        "--- server/device_config.py ---\n%s\n"
+        "--- stub-server/byos_server.py ---\n%s" % (origin_fn, vendored_fn)
+    )
+
+    origin_re = _extract_line(origin_text, "_HHMM_RE = re.compile(")
+    vendored_re = _extract_line(vendored_text, "_HHMM_RE = re.compile(")
+    assert origin_re is not None and vendored_re is not None, (
+        "could not locate '_HHMM_RE = re.compile(' in one of the two files"
+    )
+    assert origin_re == vendored_re, (
+        "_HHMM_RE has drifted between server/device_config.py and stub-server/byos_server.py:\n"
+        "%r\nvs\n%r" % (origin_re, vendored_re)
+    )
+
+
+def test_read_quiet_hours_fail_open_never_raises(byos_module, tmp_path):
+    """read_quiet_hours() returns None and never raises for a missing, truncated, non-dict,
+    disabled, or badly-shaped device_config.json"""
+    tmpdir = str(tmp_path)
+    assert byos_module.read_quiet_hours(tmpdir) is None, "expected None for a missing device_config.json"
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+    cases = [
+        ("{truncated", "truncated JSON"),
+        ('["not", "a", "dict"]', "a non-dict (list) document"),
+        (json.dumps({"quiet_hours_enabled": False, "quiet_hours_start": "23:00",
+                     "quiet_hours_end": "07:00"}), "quiet_hours_enabled: false"),
+        (json.dumps({"quiet_hours_enabled": "yes", "quiet_hours_start": "23:00",
+                     "quiet_hours_end": "07:00"}), 'quiet_hours_enabled: "yes"'),
+        (json.dumps({"quiet_hours_enabled": True, "quiet_hours_start": "25:99",
+                     "quiet_hours_end": "07:00"}), 'quiet_hours_start: "25:99"'),
+        (json.dumps({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
+                     "quiet_hours_end": 7}), "quiet_hours_end: 7 (non-string)"),
+    ]
+    for raw, label in cases:
+        with open(cfg_path, "w") as fh:
+            fh.write(raw)
+        result = byos_module.read_quiet_hours(tmpdir)
+        assert result is None, "expected None for %s, got %r" % (label, result)
+
+
+def test_quiet_hours_sleep_s_extends_inside_window_and_flat_after(byos_module, tmp_path):
+    """quiet_hours_sleep_s() returns 28000 inside an enabled 23:00-07:00 window and the
+    unchanged base 300 once the window has ended"""
+    tmpdir = str(tmp_path)
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+    with open(cfg_path, "w") as fh:
+        json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
+                   "quiet_hours_end": "07:00"}, fh)
+    inside = byos_module.quiet_hours_sleep_s(
+        300, tmpdir, now=datetime.fromtimestamp(1700000000.0, timezone.utc))
+    assert inside == 28000, "expected 28000 inside the window, got %r" % (inside,)
+    past_end = byos_module.quiet_hours_sleep_s(
+        300, tmpdir, now=datetime.fromtimestamp(1700028800.0, timezone.utc))
+    assert past_end == 300, "expected 300 past the window's end, got %r" % (past_end,)
+
+
+def test_quiet_hours_sleep_s_never_shorter_than_base(byos_module, tmp_path):
+    """quiet_hours_sleep_s() never returns less than the base sleep, even when the base
+    already carries the device past the window's end"""
+    tmpdir = str(tmp_path)
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+    with open(cfg_path, "w") as fh:
+        json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
+                   "quiet_hours_end": "07:00"}, fh)
+    result = byos_module.quiet_hours_sleep_s(
+        86400, tmpdir, now=datetime.fromtimestamp(1700000000.0, timezone.utc))
+    assert result == 86400, "expected max(86400, 28000) == 86400, got %r" % (result,)
+
+
+# --- Unit: wake_interval_s delivery (D-01/D-03) ---------------------------
+
+
+def test_read_wake_interval_s_fail_open_never_raises(byos_module, tmp_path):
+    """read_wake_interval_s() returns the caller's default and never raises for a missing,
+    truncated, non-dict, key-absent, bool (true), string, float, or out-of-range
+    device_config.json"""
+    tmpdir = str(tmp_path)
+    assert byos_module.read_wake_interval_s(tmpdir, 300) == 300, "expected 300 for a missing device_config.json"
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+    cases = [
+        ("{truncated", "truncated JSON"),
+        ('["not", "a", "dict"]', "a non-dict (list) document"),
+        (json.dumps({"theme": "dark"}), "document with no wake_interval_s key"),
+        (json.dumps({"wake_interval_s": True}), "wake_interval_s: true (bool-is-an-int gotcha)"),
+        (json.dumps({"wake_interval_s": "120"}), 'wake_interval_s: "120" (string)'),
+        (json.dumps({"wake_interval_s": 120.5}), "wake_interval_s: 120.5 (float)"),
+        (json.dumps({"wake_interval_s": 30}), "wake_interval_s: 30 (below the 60s floor)"),
+        (json.dumps({"wake_interval_s": 59}), "wake_interval_s: 59 (one below the floor)"),
+        (json.dumps({"wake_interval_s": 3601}), "wake_interval_s: 3601 (one above the ceiling)"),
+    ]
+    for raw, label in cases:
+        with open(cfg_path, "w") as fh:
+            fh.write(raw)
+        result = byos_module.read_wake_interval_s(tmpdir, 300)
+        assert result == 300, "expected 300 (default) for %s, got %r" % (label, result)
+
+
+def test_read_wake_interval_s_happy_path(byos_module, tmp_path):
+    """read_wake_interval_s() returns 120 for a stored 120 and returns the inclusive bounds
+    60 and 3600 unchanged"""
+    tmpdir = str(tmp_path)
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+    for stored, expected in ((120, 120), (60, 60), (3600, 3600)):
+        with open(cfg_path, "w") as fh:
+            json.dump({"wake_interval_s": stored}, fh)
+        result = byos_module.read_wake_interval_s(tmpdir, 300)
+        assert result == expected, "expected %r for stored wake_interval_s=%r, got %r" % (expected, stored, result)
+
+
+def test_wake_interval_layers_under_quiet_hours_without_reclamping(byos_module, tmp_path):
+    """quiet_hours_sleep_s(read_wake_interval_s(...), ...) uses the configured 120 as its
+    base with quiet hours disabled, and still returns 28000 (> 3600) inside an active
+    quiet-hours window - the delivered value is deliberately not re-clamped"""
+    tmpdir = str(tmp_path)
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+    with open(cfg_path, "w") as fh:
+        json.dump({"wake_interval_s": 120}, fh)
+    disabled = byos_module.quiet_hours_sleep_s(
+        byos_module.read_wake_interval_s(tmpdir, 300), tmpdir)
+    assert disabled == 120, "expected the configured 120 with quiet hours disabled, got %r" % (disabled,)
+
+    with open(cfg_path, "w") as fh:
+        json.dump({"wake_interval_s": 120, "quiet_hours_enabled": True,
+                   "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}, fh)
+    inside_window = byos_module.quiet_hours_sleep_s(
+        byos_module.read_wake_interval_s(tmpdir, 300), tmpdir,
+        now=datetime.fromtimestamp(1700000000.0, timezone.utc))
+    assert inside_window == 28000, "expected 28000 inside the window, got %r" % (inside_window,)
+    assert inside_window > byos_module.WAKE_INTERVAL_MAX_S, (
+        "expected the delivered sleep_s (%r) to exceed WAKE_INTERVAL_MAX_S (%r) during an "
+        "active quiet-hours window - re-clamping here would strand the device waking hourly "
+        "through the window" % (inside_window, byos_module.WAKE_INTERVAL_MAX_S))
+
+
+# --- Unit: display-off sleep_s pin (D-01/D-05) ----------------------------
+
+
+def test_read_display_enabled_fail_open_never_raises(byos_module, tmp_path):
+    """read_display_enabled() returns True and never raises for a missing, truncated,
+    non-dict, key-absent, or non-bool (0, 1, "false", null) device_config.json, and a
+    real display_enabled:false survives as False"""
+    tmpdir = str(tmp_path)
+    assert byos_module.read_display_enabled(tmpdir) is True, "expected True for a missing device_config.json"
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+    cases = [
+        ("{truncated", "truncated JSON"),
+        ('["not", "a", "dict"]', "a non-dict (list) document"),
+        (json.dumps({"theme": "dark"}), "document with no display_enabled key"),
+        (json.dumps({"display_enabled": 0}), "display_enabled: 0 (int)"),
+        (json.dumps({"display_enabled": 1}), "display_enabled: 1 (int)"),
+        (json.dumps({"display_enabled": "false"}), 'display_enabled: "false" (string)'),
+        (json.dumps({"display_enabled": None}), "display_enabled: null"),
+    ]
+    for raw, label in cases:
+        with open(cfg_path, "w") as fh:
+            fh.write(raw)
+        result = byos_module.read_display_enabled(tmpdir)
+        assert result is True, "expected True (fail-open) for %s, got %r" % (label, result)
+    with open(cfg_path, "w") as fh:
+        json.dump({"display_enabled": False}, fh)
+    assert byos_module.read_display_enabled(tmpdir) is False, "expected a real display_enabled:false to survive as False"
+
+
+def test_display_off_flat_pin_is_300_regardless_of_base(byos_module, tmp_path):
+    """with display_enabled false and no quiet-hours window, quiet_hours_sleep_s(display_off_sleep_s(base, d), d)
+    is exactly 300 for base in 60, 300, 900 and 3600 (base=3600 proves the pin REPLACES rather than bounds the
+    configured interval)"""
+    tmpdir = str(tmp_path)
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+    with open(cfg_path, "w") as fh:
+        json.dump({"display_enabled": False}, fh)
+    for base in (60, 300, 900, 3600):
+        result = byos_module.quiet_hours_sleep_s(
+            byos_module.display_off_sleep_s(base, tmpdir), tmpdir)
+        assert result == 300, "expected 300 for base=%r, got %r" % (base, result)
+
+
+def test_display_off_and_quiet_hours_overlap_unit(byos_module, tmp_path):
+    """with the display off and quiet hours active, the served sleep_s is max(300, quiet_hours_remaining)
+    in both directions: 28000s of remaining window time wins over the 300s off-state pin, and the 300s pin
+    still floors the value when only 200s remain in the window - the device never wakes more often than
+    quiet hours alone would have made it"""
+    tmpdir = str(tmp_path)
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+    with open(cfg_path, "w") as fh:
+        json.dump({"display_enabled": False, "quiet_hours_enabled": True,
+                   "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}, fh)
+
+    # Well inside the window (23:30 entry -> 28000s remaining, verified
+    # independently against seconds_until_quiet_hours_end() during
+    # planning). The remaining time must win over the 300s off-state pin.
+    far_from_end = byos_module.quiet_hours_sleep_s(
+        byos_module.display_off_sleep_s(300, tmpdir), tmpdir,
+        now=datetime.fromtimestamp(1700000000.0, timezone.utc))
+    assert far_from_end == 28000, (
+        "expected the remaining 28000s to win over the 300s off-state pin, got %r - the off "
+        "state must never shorten a quiet-hours sleep" % (far_from_end,))
+
+    # Inside the window's last 200 seconds (below the 300s pin; window
+    # end epoch 1700028000.0, verified during planning). The 300s pin
+    # must win here - the device never sleeps for LESS than the
+    # off-state pin either.
+    close_to_end = byos_module.quiet_hours_sleep_s(
+        byos_module.display_off_sleep_s(300, tmpdir), tmpdir,
+        now=datetime.fromtimestamp(1700028000.0 - 200, timezone.utc))
+    assert close_to_end == 300, (
+        "expected the 300s off-state pin to win when only 200s remain in the quiet-hours "
+        "window, got %r" % (close_to_end,))
+
+
+def test_display_on_state_matches_preexisting_chain(byos_module, tmp_path):
+    """with display_enabled true, the composed sleep_s chain (including display_off_sleep_s())
+    equals the pre-existing Phase 10/11 quiet_hours_sleep_s(read_wake_interval_s(...)) chain
+    across all four combinations of window active/inactive and wake_interval_s set/unset - this
+    plan adds a branch, it does not alter the on-state behaviour"""
+    tmpdir = str(tmp_path)
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+    base_default = 300
+    window_now = datetime.fromtimestamp(1700000000.0, timezone.utc)
+    combos = [
+        ({"display_enabled": True}, None,
+         "no wake_interval_s, no window"),
+        ({"display_enabled": True, "wake_interval_s": 120}, None,
+         "wake_interval_s set, no window"),
+        ({"display_enabled": True, "quiet_hours_enabled": True,
+          "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"},
+         window_now, "no wake_interval_s, window active"),
+        ({"display_enabled": True, "wake_interval_s": 120,
+          "quiet_hours_enabled": True, "quiet_hours_start": "23:00",
+          "quiet_hours_end": "07:00"},
+         window_now, "wake_interval_s set, window active"),
+    ]
+    for cfg, now, label in combos:
+        with open(cfg_path, "w") as fh:
+            json.dump(cfg, fh)
+        kwargs = {"now": now} if now is not None else {}
+        preexisting = byos_module.quiet_hours_sleep_s(
+            byos_module.read_wake_interval_s(tmpdir, base_default), tmpdir, **kwargs)
+        composed = byos_module.quiet_hours_sleep_s(
+            byos_module.display_off_sleep_s(
+                byos_module.read_wake_interval_s(tmpdir, base_default), tmpdir),
+            tmpdir, **kwargs)
+        assert composed == preexisting, (
+            "on-state regression for %s: composed=%r, pre-existing chain=%r"
+            % (label, composed, preexisting))
+
+
+def test_display_off_sleep_s_constant_parity(byos_module):
+    """DISPLAY_OFF_SLEEP_S is numerically equal between server/device_config.py (read as plain
+    text, never imported) and the loaded stub-server/byos_server.py module"""
+    with open(DEVICE_CONFIG_MODULE_PATH) as fh:
+        origin_text = fh.read()
+    origin_line = _extract_line(origin_text, "DISPLAY_OFF_SLEEP_S = ")
+    assert origin_line is not None, "could not locate 'DISPLAY_OFF_SLEEP_S = ' in server/device_config.py"
+    origin_value = int(origin_line.split("=", 1)[1].strip().split()[0])
+    assert origin_value == byos_module.DISPLAY_OFF_SLEEP_S, (
+        "DISPLAY_OFF_SLEEP_S has drifted between server/device_config.py (%r) and "
+        "stub-server/byos_server.py (%r)" % (origin_value, byos_module.DISPLAY_OFF_SLEEP_S)
+    )
+
+
+# --- Unit: BATTERY EMPTY hold (battery-empty-screen-before-the-pack-die) --
+
+
+def test_read_battery_critical_fail_open_matches_server_wake(byos_module, tmp_path):
+    """read_battery_critical() degrades to False and never raises for a missing file, malformed
+    JSON, a non-dict payload, the string "true", the int 1, and a literal false, returns True
+    only for a literal JSON true, and matches server.wake.read_battery_critical() on every one
+    of those fixtures (behaviour parity)"""
+    tmpdir = str(tmp_path)
+    path = os.path.join(tmpdir, "poll_state.json")
+
+    def _both(label):
+        byos_result = byos_module.read_battery_critical(tmpdir)
+        server_result = server_wake.read_battery_critical(tmpdir)
+        assert byos_result == server_result, (
+            "%s: byos read_battery_critical()=%r != server.wake.read_battery_critical()=%r"
+            % (label, byos_result, server_result)
+        )
+        return byos_result
+
+    got = _both("a missing poll_state.json")
+    assert got is False, "a missing poll_state.json: expected False, got %r" % (got,)
+
+    cases = [
+        ("{not valid json", "malformed JSON"),
+        (json.dumps([1, 2, 3]), "a non-dict (list) payload"),
+        (json.dumps({"battery_critical_active": "true"}), 'a string "true"'),
+        (json.dumps({"battery_critical_active": 1}), "an int 1"),
+        (json.dumps({"battery_critical_active": False}), "a literal false"),
+    ]
+    for raw, label in cases:
+        with open(path, "w") as fh:
+            fh.write(raw)
+        got = _both(label)
+        assert got is False, "%s: expected False, got %r" % (label, got)
+
+    with open(path, "w") as fh:
+        json.dump({"battery_critical_active": True}, fh)
+    got = _both("a literal true")
+    assert got is True, "a literal JSON true: expected True, got %r" % (got,)
+
+
+def test_battery_critical_sleep_s_unit(byos_module, tmp_path):
+    """battery_critical_sleep_s(base, d, fresh_mv): not parked returns base unchanged for every
+    base; parked returns exactly BATTERY_CRITICAL_SLEEP_S (3600) for bases 60/300/3600; a fresh
+    reading of 3800 mV (at or above BATTERY_CRITICAL_RECOVER_MV) anticipates recovery and returns
+    base instead; and a fresh reading of 3500 mV or None stays parked"""
+    tmpdir = str(tmp_path)
+    path = os.path.join(tmpdir, "poll_state.json")
+
+    # Not parked: base wins for every base, regardless of the fresh reading.
+    for base in (60, 300, 3600):
+        got = byos_module.battery_critical_sleep_s(base, tmpdir, 3290)
+        assert got == base, "not parked: base=%r expected unchanged, got %r" % (base, got)
+
+    with open(path, "w") as fh:
+        json.dump({"battery_critical_active": True}, fh)
+
+    # Parked: exactly BATTERY_CRITICAL_SLEEP_S for every base - a flat
+    # replacement, not a max()/min() against the base.
+    for base in (60, 300, 3600):
+        got = byos_module.battery_critical_sleep_s(base, tmpdir, None)
+        assert got == byos_module.BATTERY_CRITICAL_SLEEP_S, (
+            "parked: base=%r expected BATTERY_CRITICAL_SLEEP_S (%r), got %r"
+            % (base, byos_module.BATTERY_CRITICAL_SLEEP_S, got)
+        )
+
+    # Recovery anticipation: a fresh reading at or above
+    # BATTERY_CRITICAL_RECOVER_MV wins over the parked pin even while
+    # the persisted latch is still True.
+    got = byos_module.battery_critical_sleep_s(300, tmpdir, 3800)
+    assert got == 300, "parked with fresh_battery_mv=3800 (recovering): expected base (300), got %r" % (got,)
+
+    # Below the recovery threshold, or unreported, stays parked.
+    for fresh_mv in (3500, None):
+        got = byos_module.battery_critical_sleep_s(300, tmpdir, fresh_mv)
+        assert got == byos_module.BATTERY_CRITICAL_SLEEP_S, (
+            "parked with fresh_battery_mv=%r: expected BATTERY_CRITICAL_SLEEP_S (%r), got %r"
+            % (fresh_mv, byos_module.BATTERY_CRITICAL_SLEEP_S, got)
+        )
+
+
+def test_battery_critical_composed_chain(byos_module, tmp_path):
+    """the composed sleep_s chain: parked with display_enabled=False yields exactly 3600s (the
+    parked pin beats the 300s off-state pin), and parked inside a quiet-hours window with more
+    than 3600s remaining yields the window's own remaining time (the longer pin always wins,
+    D-05's sleep axis extended)"""
+    tmpdir = str(tmp_path)
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+    poll_state_path = os.path.join(tmpdir, "poll_state.json")
+
+    # Parked AND display off: the 3600s parked pin beats the 300s
+    # display-off pin - composed inside it, per the documented nesting
+    # order.
+    with open(cfg_path, "w") as fh:
+        json.dump({"display_enabled": False}, fh)
+    with open(poll_state_path, "w") as fh:
+        json.dump({"battery_critical_active": True}, fh)
+    got = byos_module.quiet_hours_sleep_s(
+        byos_module.battery_critical_sleep_s(
+            byos_module.display_off_sleep_s(300, tmpdir), tmpdir, None),
+        tmpdir)
+    assert got == byos_module.BATTERY_CRITICAL_SLEEP_S, (
+        "parked with display_enabled=False: expected the 3600s parked pin to beat the 300s "
+        "off-state pin, got %r" % (got,)
+    )
+
+    # Parked inside a quiet-hours window with MORE than 3600s remaining
+    # (the same 23:00-07:00 window entered at 23:30, 28000s remaining):
+    # the window's remaining time wins over the 3600s parked pin.
+    os.remove(cfg_path)
+    now = datetime.fromtimestamp(1700000000.0, timezone.utc)
+    with open(cfg_path, "w") as fh:
+        json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
+                   "quiet_hours_end": "07:00"}, fh)
+    got = byos_module.quiet_hours_sleep_s(
+        byos_module.battery_critical_sleep_s(
+            byos_module.display_off_sleep_s(300, tmpdir), tmpdir, None),
+        tmpdir, now=now)
+    assert got == 28000, (
+        "parked inside a >3600s quiet-hours window: expected the window's remaining 28000s to "
+        "win over the 3600s parked pin, got %r" % (got,)
+    )
+
+
+def test_battery_critical_constant_parity(byos_module):
+    """BATTERY_CRITICAL_SLEEP_S is numerically equal between server/device_config.py and the
+    loaded stub-server/byos_server.py module, and BATTERY_CRITICAL_RECOVER_MV is numerically
+    equal between server/poll_loop.py and the loaded module - both read as plain text, never
+    imported"""
+    with open(DEVICE_CONFIG_MODULE_PATH) as fh:
+        device_config_text = fh.read()
+    with open(POLL_LOOP_MODULE_PATH) as fh:
+        poll_loop_text = fh.read()
+
+    sleep_line = _extract_line(device_config_text, "BATTERY_CRITICAL_SLEEP_S = ")
+    assert sleep_line is not None, "could not locate 'BATTERY_CRITICAL_SLEEP_S = ' in server/device_config.py"
+    sleep_value = int(sleep_line.split("=", 1)[1].strip().split()[0])
+    assert sleep_value == byos_module.BATTERY_CRITICAL_SLEEP_S, (
+        "BATTERY_CRITICAL_SLEEP_S has drifted between server/device_config.py (%r) and "
+        "stub-server/byos_server.py (%r)" % (sleep_value, byos_module.BATTERY_CRITICAL_SLEEP_S)
+    )
+
+    recover_line = _extract_line(poll_loop_text, "BATTERY_CRITICAL_RECOVER_MV = ")
+    assert recover_line is not None, "could not locate 'BATTERY_CRITICAL_RECOVER_MV = ' in server/poll_loop.py"
+    recover_value = int(recover_line.split("=", 1)[1].strip().split()[0])
+    assert recover_value == byos_module.BATTERY_CRITICAL_RECOVER_MV, (
+        "BATTERY_CRITICAL_RECOVER_MV has drifted between server/poll_loop.py (%r) and "
+        "stub-server/byos_server.py (%r)" % (recover_value, byos_module.BATTERY_CRITICAL_RECOVER_MV)
+    )
+
+
+# --- Standalone: validate_display_response() negative controls -----------
+
+
+def test_validate_display_response_rejects_sleep_s_zero():
+    """validate_display_response rejects sleep_s=0"""
+    bad = {"image_hash": "sha256:" + "a" * 64, "sleep_s": 0, "reset": False,
+           "image_url": "http://example.invalid/img/x.bin"}
+    assert not validate_display_response(bad), "validator accepted a hand-built response with sleep_s=0"
+
+
+def test_validate_display_response_rejects_uppercase_image_hash():
+    """validate_display_response rejects uppercase hex in image_hash"""
+    bad = {"image_hash": "sha256:" + "A" * 64, "sleep_s": 300, "reset": False,
+           "image_url": "http://example.invalid/img/x.bin"}
+    assert not validate_display_response(bad), (
+        "validator accepted a hand-built response with uppercase hex in image_hash"
+    )
+
+
+# --- Integration: the real device protocol over one long-lived server ----
+
+
+def test_device_protocol_end_to_end_over_real_http(tmp_path):
+    """Covers, in order, every old check this suite used to run against ONE
+    long-lived byos_server.py subprocess sharing state across the whole
+    scenario (a device_token issued once and reused, a served image hash
+    that later checks assert against, and a battery_state.json
+    persistence chain) - MR-4, these are not independently reorderable:
+
+    1. setup issues a 64-lowercase-hex device_token
+    2. setup rejects a body missing mac with 422
+    3. display poll with no Authorization header returns 401
+    4. display poll with an unissued bearer returns 401
+    5. display poll returns a valid response shape (incl. firmware:null and led_enabled:true)
+    6. download yields exactly 960000 bytes matching image_hash
+    7. verify_panel_bytes rejects a flipped byte
+    8. verify_panel_bytes rejects a one-byte truncation
+    9. a second poll of an unchanged image returns the same image_hash (hash-skip)
+    10. replacing the served image changes image_hash and the client re-downloads
+    11. telemetry headers are accepted and echoed to server stdout
+    12. log endpoint accepts a logs array and returns ok:true
+    13. default --image-url-scheme (http) is served in image_url
+    14. --image-url-scheme https serves image_url with https:// and an unchanged host/path/digest
+    15. an authenticated poll carrying a plausible X-Battery-Mv persists {battery_mv, received_at}
+        to battery_state.json, and a second poll with a different value overwrites it
+    16. 10 hostile/malformed X-Battery-Mv values all return 200 and persist nothing
+    17. a display poll with a bogus bearer token returns 401 and never writes battery_state.json
+    18. a device_config.json with led_enabled:false yields a 200 display response with led_enabled:false
+    19. a device_config.json with a hostile string led_enabled yields a 200 display response with led_enabled:true
+    20. a truncated/invalid device_config.json still yields a 200 display response with led_enabled:true
+        and passes validate_display_response()
+    21. a device_config.json with a currently-active quiet-hours window yields sleep_s in (300, 7200]
+    22. a hostile device_config.json still yields sleep_s exactly equal to the base --sleep (300)
+    23. a device_config.json with wake_interval_s:120 yields sleep_s exactly 120
+    24. a device_config.json with a below-floor wake_interval_s:30 yields sleep_s exactly 300
+    25. with display off and quiet hours active for a window ~1h from ending, sleep_s is strictly
+        greater than 300 (the composition-order negative control)
+    26. with poll_state.json's battery_critical_active latched True, a poll carrying X-Battery-Mv:3290
+        returns sleep_s exactly 3600 (the parked pin)
+    27. with the same latch, a poll carrying a recovering X-Battery-Mv:4100 returns the base sleep_s
+        (300), not the stale parked pin
+    28. a poll against a stopped server is classified as a failed wake, not a crash
+    """
+    tmpdir = str(tmp_path)
+    harness = Harness(tmpdir)
     try:
-        # Ordering note: this harness is written and run now, before
-        # byos_server.py or make_test_panel.py exist. It must fail - Task 2
-        # turns it green.
-        for required_path, label in (
-            (MAKE_PANEL_PATH, "stub-server/make_test_panel.py"),
-            (SERVER_PATH, "stub-server/byos_server.py"),
-        ):
-            if not os.path.exists(required_path):
-                print("FAIL harness setup - missing %s" % label)
-                print("poll-cycle: 0/%d checks pass" % EXPECTED_CHECK_COUNT)
-                return 1
-
-        ctx = {}
-        ctx["byos_module"] = load_byos_module()
-
-        # --- Task 2 (Phase 10, D-01): quiet-hours-aware sleep_s extension ---
-
-        # A. Drift guard (10-RESEARCH.md Pitfall 1): byos_server.py's
-        # vendored seconds_until_quiet_hours_end() and _HHMM_RE must stay
-        # byte-for-byte identical to server/device_config.py's. Both
-        # files are read as plain text - never imported - so this guard
-        # cannot itself breach the boundary it protects.
-        def _quiet_hours_drift_guard():
-            try:
-                with open(DEVICE_CONFIG_MODULE_PATH) as fh:
-                    origin_text = fh.read()
-            except OSError as exc:
-                return False, "could not read %s: %r" % (DEVICE_CONFIG_MODULE_PATH, exc)
-            with open(SERVER_PATH) as fh:
-                vendored_text = fh.read()
-
-            origin_fn = _extract_def_block(origin_text, "def seconds_until_quiet_hours_end(")
-            vendored_fn = _extract_def_block(vendored_text, "def seconds_until_quiet_hours_end(")
-            if origin_fn is None:
-                return False, "could not locate seconds_until_quiet_hours_end() in server/device_config.py"
-            if vendored_fn is None:
-                return False, "could not locate seconds_until_quiet_hours_end() in stub-server/byos_server.py"
-            if origin_fn != vendored_fn:
-                return False, (
-                    "seconds_until_quiet_hours_end() has drifted between "
-                    "server/device_config.py and stub-server/byos_server.py - "
-                    "the two copies must stay byte-for-byte identical:\n"
-                    "--- server/device_config.py ---\n%s\n"
-                    "--- stub-server/byos_server.py ---\n%s" % (origin_fn, vendored_fn)
-                )
-
-            origin_re = _extract_line(origin_text, "_HHMM_RE = re.compile(")
-            vendored_re = _extract_line(vendored_text, "_HHMM_RE = re.compile(")
-            if origin_re is None or vendored_re is None:
-                return False, "could not locate '_HHMM_RE = re.compile(' in one of the two files"
-            if origin_re != vendored_re:
-                return False, (
-                    "_HHMM_RE has drifted between server/device_config.py and "
-                    "stub-server/byos_server.py:\n%r\nvs\n%r" % (origin_re, vendored_re)
-                )
-            return True, ""
-        check(
-            "seconds_until_quiet_hours_end() and _HHMM_RE are byte-for-byte identical between "
-            "server/device_config.py and stub-server/byos_server.py",
-            _quiet_hours_drift_guard,
-        )
-
-        # B. Unit, fail-open: read_quiet_hours() returns None for every
-        # failure mode, never raises.
-        def _quiet_hours_fail_open_never_raises():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-qh-failopen-")
-            try:
-                if module.read_quiet_hours(tmpdir) is not None:
-                    return False, "expected None for a missing device_config.json"
-                cfg_path = os.path.join(tmpdir, "device_config.json")
-                cases = [
-                    ("{truncated", "truncated JSON"),
-                    ('["not", "a", "dict"]', "a non-dict (list) document"),
-                    (json.dumps({"quiet_hours_enabled": False, "quiet_hours_start": "23:00",
-                                 "quiet_hours_end": "07:00"}), "quiet_hours_enabled: false"),
-                    (json.dumps({"quiet_hours_enabled": "yes", "quiet_hours_start": "23:00",
-                                 "quiet_hours_end": "07:00"}), 'quiet_hours_enabled: "yes"'),
-                    (json.dumps({"quiet_hours_enabled": True, "quiet_hours_start": "25:99",
-                                 "quiet_hours_end": "07:00"}), 'quiet_hours_start: "25:99"'),
-                    (json.dumps({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
-                                 "quiet_hours_end": 7}), "quiet_hours_end: 7 (non-string)"),
-                ]
-                for raw, label in cases:
-                    with open(cfg_path, "w") as fh:
-                        fh.write(raw)
-                    result = module.read_quiet_hours(tmpdir)
-                    if result is not None:
-                        return False, "expected None for %s, got %r" % (label, result)
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "read_quiet_hours() returns None and never raises for a missing, truncated, non-dict, "
-            "disabled, or badly-shaped device_config.json",
-            _quiet_hours_fail_open_never_raises,
-        )
-
-        # C. Unit, sleep extension: quiet_hours_sleep_s() extends the base
-        # sleep inside the window and returns it unchanged past the end.
-        def _quiet_hours_sleep_extension():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-qh-extend-")
-            try:
-                cfg_path = os.path.join(tmpdir, "device_config.json")
-                with open(cfg_path, "w") as fh:
-                    json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
-                               "quiet_hours_end": "07:00"}, fh)
-                inside = module.quiet_hours_sleep_s(
-                    300, tmpdir, now=datetime.fromtimestamp(1700000000.0, timezone.utc))
-                if inside != 28000:
-                    return False, "expected 28000 inside the window, got %r" % (inside,)
-                past_end = module.quiet_hours_sleep_s(
-                    300, tmpdir, now=datetime.fromtimestamp(1700028800.0, timezone.utc))
-                if past_end != 300:
-                    return False, "expected 300 past the window's end, got %r" % (past_end,)
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "quiet_hours_sleep_s() returns 28000 inside an enabled 23:00-07:00 window and the "
-            "unchanged base 300 once the window has ended",
-            _quiet_hours_sleep_extension,
-        )
-
-        # D. Unit, never shorter than the base (D-01's Claude's-Discretion
-        # edge case): a base sleep already past the window's end wins.
-        def _quiet_hours_never_shorter_than_base():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-qh-neverbelow-")
-            try:
-                cfg_path = os.path.join(tmpdir, "device_config.json")
-                with open(cfg_path, "w") as fh:
-                    json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
-                               "quiet_hours_end": "07:00"}, fh)
-                result = module.quiet_hours_sleep_s(
-                    86400, tmpdir, now=datetime.fromtimestamp(1700000000.0, timezone.utc))
-                if result != 86400:
-                    return False, "expected max(86400, 28000) == 86400, got %r" % (result,)
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "quiet_hours_sleep_s() never returns less than the base sleep, even when the base "
-            "already carries the device past the window's end",
-            _quiet_hours_never_shorter_than_base,
-        )
-
-        # --- Task 2 (Phase 11, D-01/D-03): wake_interval_s delivery ------
-
-        # G. Unit, fail-open: read_wake_interval_s() returns the caller's
-        # default for every failure mode, never raises. Modelled on
-        # _quiet_hours_fail_open_never_raises() above. The JSON-`true` case
-        # is the regression guard for the bool-is-an-int gotcha
-        # (isinstance(True, int) is True in Python).
-        def _wake_interval_fail_open_never_raises():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-wi-failopen-")
-            try:
-                if module.read_wake_interval_s(tmpdir, 300) != 300:
-                    return False, "expected 300 for a missing device_config.json"
-                cfg_path = os.path.join(tmpdir, "device_config.json")
-                cases = [
-                    ("{truncated", "truncated JSON"),
-                    ('["not", "a", "dict"]', "a non-dict (list) document"),
-                    (json.dumps({"theme": "dark"}), "document with no wake_interval_s key"),
-                    (json.dumps({"wake_interval_s": True}), "wake_interval_s: true (bool-is-an-int gotcha)"),
-                    (json.dumps({"wake_interval_s": "120"}), 'wake_interval_s: "120" (string)'),
-                    (json.dumps({"wake_interval_s": 120.5}), "wake_interval_s: 120.5 (float)"),
-                    (json.dumps({"wake_interval_s": 30}), "wake_interval_s: 30 (below the 60s floor)"),
-                    (json.dumps({"wake_interval_s": 59}), "wake_interval_s: 59 (one below the floor)"),
-                    (json.dumps({"wake_interval_s": 3601}), "wake_interval_s: 3601 (one above the ceiling)"),
-                ]
-                for raw, label in cases:
-                    with open(cfg_path, "w") as fh:
-                        fh.write(raw)
-                    result = module.read_wake_interval_s(tmpdir, 300)
-                    if result != 300:
-                        return False, "expected 300 (default) for %s, got %r" % (label, result)
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "read_wake_interval_s() returns the caller's default and never raises for a missing, "
-            "truncated, non-dict, key-absent, bool (true), string, float, or out-of-range "
-            "device_config.json",
-            _wake_interval_fail_open_never_raises,
-        )
-
-        # H. Unit, happy path: an in-range int (including the two inclusive
-        # bounds) is returned unchanged.
-        def _wake_interval_happy_path():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-wi-happy-")
-            try:
-                cfg_path = os.path.join(tmpdir, "device_config.json")
-                for stored, expected in ((120, 120), (60, 60), (3600, 3600)):
-                    with open(cfg_path, "w") as fh:
-                        json.dump({"wake_interval_s": stored}, fh)
-                    result = module.read_wake_interval_s(tmpdir, 300)
-                    if result != expected:
-                        return False, "expected %r for stored wake_interval_s=%r, got %r" % (
-                            expected, stored, result)
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "read_wake_interval_s() returns 120 for a stored 120 and returns the inclusive bounds "
-            "60 and 3600 unchanged",
-            _wake_interval_happy_path,
-        )
-
-        # I. Unit, layering: the configured wake interval wins over the CLI
-        # default as quiet_hours_sleep_s()'s base, and an active quiet-hours
-        # window still extends the result past WAKE_INTERVAL_MAX_S (3600) -
-        # the delivered value is deliberately not re-clamped
-        # (11-RESEARCH.md Pitfall 4).
-        def _wake_interval_layers_under_quiet_hours():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-wi-layer-")
-            try:
-                cfg_path = os.path.join(tmpdir, "device_config.json")
-                with open(cfg_path, "w") as fh:
-                    json.dump({"wake_interval_s": 120}, fh)
-                disabled = module.quiet_hours_sleep_s(
-                    module.read_wake_interval_s(tmpdir, 300), tmpdir)
-                if disabled != 120:
-                    return False, "expected the configured 120 with quiet hours disabled, got %r" % (disabled,)
-                with open(cfg_path, "w") as fh:
-                    json.dump({"wake_interval_s": 120, "quiet_hours_enabled": True,
-                               "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}, fh)
-                inside_window = module.quiet_hours_sleep_s(
-                    module.read_wake_interval_s(tmpdir, 300), tmpdir,
-                    now=datetime.fromtimestamp(1700000000.0, timezone.utc))
-                if inside_window != 28000:
-                    return False, "expected 28000 inside the window, got %r" % (inside_window,)
-                if not (inside_window > module.WAKE_INTERVAL_MAX_S):
-                    return False, (
-                        "expected the delivered sleep_s (%r) to exceed WAKE_INTERVAL_MAX_S (%r) "
-                        "during an active quiet-hours window - re-clamping here would strand the "
-                        "device waking hourly through the window" % (inside_window, module.WAKE_INTERVAL_MAX_S))
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "quiet_hours_sleep_s(read_wake_interval_s(...), ...) uses the configured 120 as its "
-            "base with quiet hours disabled, and still returns 28000 (> 3600) inside an active "
-            "quiet-hours window - the delivered value is deliberately not re-clamped",
-            _wake_interval_layers_under_quiet_hours,
-        )
-
-        # --- Task 2 (Phase 12, D-01/D-05): display-off sleep_s pin --------
-
-        # J. Unit, fail-open: read_display_enabled() returns True for every
-        # failure mode, never raises. Modelled on
-        # _quiet_hours_fail_open_never_raises()/_wake_interval_fail_open_never_raises()
-        # above. A real `false` survives as False.
-        def _display_enabled_fail_open_never_raises():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-de-failopen-")
-            try:
-                if module.read_display_enabled(tmpdir) is not True:
-                    return False, "expected True for a missing device_config.json"
-                cfg_path = os.path.join(tmpdir, "device_config.json")
-                cases = [
-                    ("{truncated", "truncated JSON"),
-                    ('["not", "a", "dict"]', "a non-dict (list) document"),
-                    (json.dumps({"theme": "dark"}), "document with no display_enabled key"),
-                    (json.dumps({"display_enabled": 0}), "display_enabled: 0 (int)"),
-                    (json.dumps({"display_enabled": 1}), "display_enabled: 1 (int)"),
-                    (json.dumps({"display_enabled": "false"}), 'display_enabled: "false" (string)'),
-                    (json.dumps({"display_enabled": None}), "display_enabled: null"),
-                ]
-                for raw, label in cases:
-                    with open(cfg_path, "w") as fh:
-                        fh.write(raw)
-                    result = module.read_display_enabled(tmpdir)
-                    if result is not True:
-                        return False, "expected True (fail-open) for %s, got %r" % (label, result)
-                with open(cfg_path, "w") as fh:
-                    json.dump({"display_enabled": False}, fh)
-                if module.read_display_enabled(tmpdir) is not False:
-                    return False, "expected a real display_enabled:false to survive as False"
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "read_display_enabled() returns True and never raises for a missing, truncated, "
-            "non-dict, key-absent, or non-bool (0, 1, \"false\", null) device_config.json, and a "
-            "real display_enabled:false survives as False",
-            _display_enabled_fail_open_never_raises,
-        )
-
-        # K. Unit, the flat pin (D-01): with display_enabled false and no
-        # quiet-hours window, quiet_hours_sleep_s(display_off_sleep_s(base,
-        # d), d) is exactly 300 for every configured base, including one
-        # longer than 300. Serving LESS than the configured interval is the
-        # intended off-state behaviour here, not a max()/min() - a future
-        # reader "fixing" this into a max() must fail here.
-        def _display_off_flat_pin():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-de-pin-")
-            try:
-                cfg_path = os.path.join(tmpdir, "device_config.json")
-                with open(cfg_path, "w") as fh:
-                    json.dump({"display_enabled": False}, fh)
-                for base in (60, 300, 900, 3600):
-                    result = module.quiet_hours_sleep_s(
-                        module.display_off_sleep_s(base, tmpdir), tmpdir)
-                    if result != 300:
-                        return False, "expected 300 for base=%r, got %r" % (base, result)
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "with display_enabled false and no quiet-hours window, "
-            "quiet_hours_sleep_s(display_off_sleep_s(base, d), d) is exactly 300 for base in "
-            "60, 300, 900 and 3600 (base=3600 proves the pin REPLACES rather than bounds the "
-            "configured interval)",
-            _display_off_flat_pin,
-        )
-
-        # L. Unit, the overlap (D-05, sleep axis) - the check this phase
-        # exists to get right. With display_enabled false AND an enabled
-        # quiet-hours window active, drive the injected now= seam to
-        # produce two distinct cases: remaining well above 300 (a
-        # 23:00-07:00 window entered at 23:30, remaining 28000s) must
-        # deliver the remaining seconds, NOT 300; remaining below 300 (a
-        # now inside the window's last 200 seconds) must still deliver
-        # exactly 300. Property under test: with the display off, the
-        # device must never wake more often than quiet hours alone would
-        # have made it - this behaviour is not implied by either feature's
-        # own existing tests.
-        def _display_off_and_quiet_hours_overlap():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-de-overlap-")
-            try:
-                cfg_path = os.path.join(tmpdir, "device_config.json")
-                with open(cfg_path, "w") as fh:
-                    json.dump({"display_enabled": False, "quiet_hours_enabled": True,
-                               "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}, fh)
-
-                # Case 1: well inside the window (23:30 entry -> 28000s
-                # remaining, verified independently against
-                # seconds_until_quiet_hours_end() during planning). The
-                # remaining time must win over the 300s off-state pin.
-                far_from_end = module.quiet_hours_sleep_s(
-                    module.display_off_sleep_s(300, tmpdir), tmpdir,
-                    now=datetime.fromtimestamp(1700000000.0, timezone.utc))
-                if far_from_end != 28000:
-                    return False, (
-                        "expected the remaining 28000s to win over the 300s off-state pin, "
-                        "got %r - the off state must never shorten a quiet-hours sleep"
-                        % (far_from_end,))
-
-                # Case 2: inside the window's last 200 seconds (below the
-                # 300s pin; window end epoch 1700028000.0, verified during
-                # planning). The 300s pin must win here - the device never
-                # sleeps for LESS than the off-state pin either.
-                close_to_end = module.quiet_hours_sleep_s(
-                    module.display_off_sleep_s(300, tmpdir), tmpdir,
-                    now=datetime.fromtimestamp(1700028000.0 - 200, timezone.utc))
-                if close_to_end != 300:
-                    return False, (
-                        "expected the 300s off-state pin to win when only 200s remain in the "
-                        "quiet-hours window, got %r" % (close_to_end,))
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "with the display off and quiet hours active, the served sleep_s is "
-            "max(300, quiet_hours_remaining) in both directions: 28000s of remaining window time "
-            "wins over the 300s off-state pin, and the 300s pin still floors the value when only "
-            "200s remain in the window - the device never wakes more often than quiet hours "
-            "alone would have made it",
-            _display_off_and_quiet_hours_overlap,
-        )
-
-        # M. Unit, on-state regression guard: with display_enabled true, the
-        # composed chain (including display_off_sleep_s()) equals the
-        # pre-existing Phase 10/11 quiet_hours_sleep_s(read_wake_interval_s(...))
-        # chain in all four combinations of window active/inactive and
-        # wake_interval_s set/unset. This plan adds a branch; it must not
-        # move the on-state behaviour.
-        def _display_on_state_matches_preexisting_chain():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-de-onstate-")
-            try:
-                cfg_path = os.path.join(tmpdir, "device_config.json")
-                base_default = 300
-                window_now = datetime.fromtimestamp(1700000000.0, timezone.utc)
-                combos = [
-                    ({"display_enabled": True}, None,
-                     "no wake_interval_s, no window"),
-                    ({"display_enabled": True, "wake_interval_s": 120}, None,
-                     "wake_interval_s set, no window"),
-                    ({"display_enabled": True, "quiet_hours_enabled": True,
-                      "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"},
-                     window_now, "no wake_interval_s, window active"),
-                    ({"display_enabled": True, "wake_interval_s": 120,
-                      "quiet_hours_enabled": True, "quiet_hours_start": "23:00",
-                      "quiet_hours_end": "07:00"},
-                     window_now, "wake_interval_s set, window active"),
-                ]
-                for cfg, now, label in combos:
-                    with open(cfg_path, "w") as fh:
-                        json.dump(cfg, fh)
-                    kwargs = {"now": now} if now is not None else {}
-                    preexisting = module.quiet_hours_sleep_s(
-                        module.read_wake_interval_s(tmpdir, base_default), tmpdir, **kwargs)
-                    composed = module.quiet_hours_sleep_s(
-                        module.display_off_sleep_s(
-                            module.read_wake_interval_s(tmpdir, base_default), tmpdir),
-                        tmpdir, **kwargs)
-                    if composed != preexisting:
-                        return False, (
-                            "on-state regression for %s: composed=%r, pre-existing chain=%r"
-                            % (label, composed, preexisting))
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "with display_enabled true, the composed sleep_s chain (including "
-            "display_off_sleep_s()) equals the pre-existing Phase 10/11 "
-            "quiet_hours_sleep_s(read_wake_interval_s(...)) chain across all four combinations "
-            "of window active/inactive and wake_interval_s set/unset - this plan adds a branch, "
-            "it does not alter the on-state behaviour",
-            _display_on_state_matches_preexisting_chain,
-        )
-
-        # N. The constant parity check - the lighter sibling of
-        # _quiet_hours_drift_guard() above, purpose-built for a bare
-        # integer constant; do not fold this into the def-block guard.
-        # Reads server/device_config.py as plain text, never by import,
-        # since this harness sits on the vendored side.
-        def _display_off_sleep_s_constant_parity():
-            module = ctx["byos_module"]
-            try:
-                with open(DEVICE_CONFIG_MODULE_PATH) as fh:
-                    origin_text = fh.read()
-            except OSError as exc:
-                return False, "could not read %s: %r" % (DEVICE_CONFIG_MODULE_PATH, exc)
-            origin_line = _extract_line(origin_text, "DISPLAY_OFF_SLEEP_S = ")
-            if origin_line is None:
-                return False, "could not locate 'DISPLAY_OFF_SLEEP_S = ' in server/device_config.py"
-            origin_value = int(origin_line.split("=", 1)[1].strip().split()[0])
-            if origin_value != module.DISPLAY_OFF_SLEEP_S:
-                return False, (
-                    "DISPLAY_OFF_SLEEP_S has drifted between server/device_config.py (%r) and "
-                    "stub-server/byos_server.py (%r)" % (origin_value, module.DISPLAY_OFF_SLEEP_S)
-                )
-            return True, ""
-        check(
-            "DISPLAY_OFF_SLEEP_S is numerically equal between server/device_config.py (read as "
-            "plain text, never imported) and the loaded stub-server/byos_server.py module",
-            _display_off_sleep_s_constant_parity,
-        )
-
-        # --- Quick task 260923-fr4 (battery-empty-screen-before-the-pack-
-        # die): server/poll_loop.py's BATTERY EMPTY hold pins the device's
-        # check-in cadence to a fixed 3600s while parked, anticipating
-        # recovery within the very request that reports it. -------------
-
-        # O. Unit, fail-open + behaviour parity: read_battery_critical()
-        # degrades to False for every failure mode, never raises, and
-        # matches server.wake.read_battery_critical() field-by-field
-        # across the identical fixture set - the two copies are
-        # deliberately NOT byte-identical (see the module docstring), so
-        # behaviour, not source text, is what this check proves equal.
-        def _battery_critical_fail_open_matches_server_wake():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-bc-failopen-")
-            try:
-                path = os.path.join(tmpdir, "poll_state.json")
-
-                def _both(label):
-                    byos_result = module.read_battery_critical(tmpdir)
-                    server_result = server_wake.read_battery_critical(tmpdir)
-                    if byos_result != server_result:
-                        return None, (
-                            "%s: byos read_battery_critical()=%r != "
-                            "server.wake.read_battery_critical()=%r" % (label, byos_result, server_result)
-                        )
-                    return byos_result, None
-
-                got, err = _both("a missing poll_state.json")
-                if err:
-                    return False, err
-                if got is not False:
-                    return False, "a missing poll_state.json: expected False, got %r" % (got,)
-
-                cases = [
-                    ("{not valid json", "malformed JSON"),
-                    (json.dumps([1, 2, 3]), "a non-dict (list) payload"),
-                    (json.dumps({"battery_critical_active": "true"}), 'a string "true"'),
-                    (json.dumps({"battery_critical_active": 1}), "an int 1"),
-                    (json.dumps({"battery_critical_active": False}), "a literal false"),
-                ]
-                for raw, label in cases:
-                    with open(path, "w") as fh:
-                        fh.write(raw)
-                    got, err = _both(label)
-                    if err:
-                        return False, err
-                    if got is not False:
-                        return False, "%s: expected False, got %r" % (label, got)
-
-                with open(path, "w") as fh:
-                    json.dump({"battery_critical_active": True}, fh)
-                got, err = _both("a literal true")
-                if err:
-                    return False, err
-                if got is not True:
-                    return False, "a literal JSON true: expected True, got %r" % (got,)
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "read_battery_critical() degrades to False and never raises for a missing file, malformed "
-            "JSON, a non-dict payload, the string \"true\", the int 1, and a literal false, returns "
-            "True only for a literal JSON true, and matches server.wake.read_battery_critical() on "
-            "every one of those fixtures (behaviour parity)",
-            _battery_critical_fail_open_matches_server_wake,
-        )
-
-        # P. Unit: battery_critical_sleep_s()'s parked/not-parked/
-        # recovery-anticipation decision, in isolation.
-        def _battery_critical_sleep_s_unit():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-bc-sleep-")
-            try:
-                path = os.path.join(tmpdir, "poll_state.json")
-
-                # Not parked: base wins for every base, regardless of the
-                # fresh reading.
-                for base in (60, 300, 3600):
-                    got = module.battery_critical_sleep_s(base, tmpdir, 3290)
-                    if got != base:
-                        return False, "not parked: base=%r expected unchanged, got %r" % (base, got)
-
-                with open(path, "w") as fh:
-                    json.dump({"battery_critical_active": True}, fh)
-
-                # Parked: exactly BATTERY_CRITICAL_SLEEP_S for every base -
-                # a flat replacement, not a max()/min() against the base.
-                for base in (60, 300, 3600):
-                    got = module.battery_critical_sleep_s(base, tmpdir, None)
-                    if got != module.BATTERY_CRITICAL_SLEEP_S:
-                        return False, (
-                            "parked: base=%r expected BATTERY_CRITICAL_SLEEP_S (%r), got %r"
-                            % (base, module.BATTERY_CRITICAL_SLEEP_S, got)
-                        )
-
-                # Recovery anticipation: a fresh reading at or above
-                # BATTERY_CRITICAL_RECOVER_MV wins over the parked pin even
-                # while the persisted latch is still True.
-                got = module.battery_critical_sleep_s(300, tmpdir, 3800)
-                if got != 300:
-                    return False, (
-                        "parked with fresh_battery_mv=3800 (recovering): expected base (300), got %r"
-                        % (got,)
-                    )
-
-                # Below the recovery threshold, or unreported, stays parked.
-                for fresh_mv in (3500, None):
-                    got = module.battery_critical_sleep_s(300, tmpdir, fresh_mv)
-                    if got != module.BATTERY_CRITICAL_SLEEP_S:
-                        return False, (
-                            "parked with fresh_battery_mv=%r: expected BATTERY_CRITICAL_SLEEP_S (%r), "
-                            "got %r" % (fresh_mv, module.BATTERY_CRITICAL_SLEEP_S, got)
-                        )
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "battery_critical_sleep_s(base, d, fresh_mv): not parked returns base unchanged for every "
-            "base; parked returns exactly BATTERY_CRITICAL_SLEEP_S (3600) for bases 60/300/3600; a "
-            "fresh reading of 3800 mV (at or above BATTERY_CRITICAL_RECOVER_MV) anticipates recovery "
-            "and returns base instead; and a fresh reading of 3500 mV or None stays parked",
-            _battery_critical_sleep_s_unit,
-        )
-
-        # Q. Unit, the composed chain: parked beats the 300s display-off
-        # pin, and a longer quiet-hours remainder still wins over the
-        # 3600s parked pin (D-05's sleep axis, extended).
-        def _battery_critical_composed_chain():
-            module = ctx["byos_module"]
-            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-bc-chain-")
-            try:
-                cfg_path = os.path.join(tmpdir, "device_config.json")
-                poll_state_path = os.path.join(tmpdir, "poll_state.json")
-
-                # Parked AND display off: the 3600s parked pin beats the
-                # 300s display-off pin - composed inside it, per the
-                # documented nesting order.
-                with open(cfg_path, "w") as fh:
-                    json.dump({"display_enabled": False}, fh)
-                with open(poll_state_path, "w") as fh:
-                    json.dump({"battery_critical_active": True}, fh)
-                got = module.quiet_hours_sleep_s(
-                    module.battery_critical_sleep_s(
-                        module.display_off_sleep_s(300, tmpdir), tmpdir, None),
-                    tmpdir)
-                if got != module.BATTERY_CRITICAL_SLEEP_S:
-                    return False, (
-                        "parked with display_enabled=False: expected the 3600s parked pin to beat the "
-                        "300s off-state pin, got %r" % (got,)
-                    )
-
-                # Parked inside a quiet-hours window with MORE than 3600s
-                # remaining (the same 23:00-07:00 window entered at 23:30,
-                # 28000s remaining, verified independently against
-                # seconds_until_quiet_hours_end() during planning, reused
-                # from _display_off_and_quiet_hours_overlap() above): the
-                # window's remaining time wins over the 3600s parked pin.
-                os.remove(cfg_path)
-                now = datetime.fromtimestamp(1700000000.0, timezone.utc)
-                with open(cfg_path, "w") as fh:
-                    json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
-                               "quiet_hours_end": "07:00"}, fh)
-                got = module.quiet_hours_sleep_s(
-                    module.battery_critical_sleep_s(
-                        module.display_off_sleep_s(300, tmpdir), tmpdir, None),
-                    tmpdir, now=now)
-                if got != 28000:
-                    return False, (
-                        "parked inside a >3600s quiet-hours window: expected the window's remaining "
-                        "28000s to win over the 3600s parked pin, got %r" % (got,)
-                    )
-                return True, ""
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-        check(
-            "the composed sleep_s chain: parked with display_enabled=False yields exactly 3600s (the "
-            "parked pin beats the 300s off-state pin), and parked inside a quiet-hours window with "
-            "more than 3600s remaining yields the window's own remaining time (the longer pin always "
-            "wins, D-05's sleep axis extended)",
-            _battery_critical_composed_chain,
-        )
-
-        # R. Constant parity: BATTERY_CRITICAL_SLEEP_S against
-        # server/device_config.py's constant of the same name;
-        # BATTERY_CRITICAL_RECOVER_MV against server/poll_loop.py's - both
-        # read as plain text via _extract_line(), mirroring
-        # _display_off_sleep_s_constant_parity()'s own shape exactly.
-        def _battery_critical_constant_parity():
-            module = ctx["byos_module"]
-            try:
-                with open(DEVICE_CONFIG_MODULE_PATH) as fh:
-                    device_config_text = fh.read()
-            except OSError as exc:
-                return False, "could not read %s: %r" % (DEVICE_CONFIG_MODULE_PATH, exc)
-            try:
-                with open(POLL_LOOP_MODULE_PATH) as fh:
-                    poll_loop_text = fh.read()
-            except OSError as exc:
-                return False, "could not read %s: %r" % (POLL_LOOP_MODULE_PATH, exc)
-
-            sleep_line = _extract_line(device_config_text, "BATTERY_CRITICAL_SLEEP_S = ")
-            if sleep_line is None:
-                return False, "could not locate 'BATTERY_CRITICAL_SLEEP_S = ' in server/device_config.py"
-            sleep_value = int(sleep_line.split("=", 1)[1].strip().split()[0])
-            if sleep_value != module.BATTERY_CRITICAL_SLEEP_S:
-                return False, (
-                    "BATTERY_CRITICAL_SLEEP_S has drifted between server/device_config.py (%r) and "
-                    "stub-server/byos_server.py (%r)" % (sleep_value, module.BATTERY_CRITICAL_SLEEP_S)
-                )
-
-            recover_line = _extract_line(poll_loop_text, "BATTERY_CRITICAL_RECOVER_MV = ")
-            if recover_line is None:
-                return False, "could not locate 'BATTERY_CRITICAL_RECOVER_MV = ' in server/poll_loop.py"
-            recover_value = int(recover_line.split("=", 1)[1].strip().split()[0])
-            if recover_value != module.BATTERY_CRITICAL_RECOVER_MV:
-                return False, (
-                    "BATTERY_CRITICAL_RECOVER_MV has drifted between server/poll_loop.py (%r) and "
-                    "stub-server/byos_server.py (%r)" % (recover_value, module.BATTERY_CRITICAL_RECOVER_MV)
-                )
-            return True, ""
-        check(
-            "BATTERY_CRITICAL_SLEEP_S is numerically equal between server/device_config.py and the "
-            "loaded stub-server/byos_server.py module, and BATTERY_CRITICAL_RECOVER_MV is numerically "
-            "equal between server/poll_loop.py and the loaded module - both read as plain text, never "
-            "imported",
-            _battery_critical_constant_parity,
-        )
-
         harness.generate_panel("palette")
         harness.start_server(sleep_s=300)
 
         # 1. Setup: POST /device/v1/setup returns 200 + a 64-lowercase-hex device_token.
-        def _setup_ok():
-            status, _, body = http_request(
-                harness.base_url() + "/device/v1/setup", method="POST",
-                json_body={"mac": "aa:bb:cc:dd:ee:01", "hw_rev": "poll-cycle-harness"})
-            if status != 200:
-                return False, "expected 200, got %d (%r)" % (status, body[:200])
-            obj = json.loads(body.decode())
-            token = obj.get("device_token")
-            if not isinstance(token, str) or len(token) != 64 or \
-                    any(c not in "0123456789abcdef" for c in token):
-                return False, "device_token not 64 lowercase hex chars: %r" % (token,)
-            ctx["token"] = token
-            return True, ""
-        check("setup issues a 64-lowercase-hex device_token", _setup_ok)
+        status, _, body = http_request(
+            harness.base_url() + "/device/v1/setup", method="POST",
+            json_body={"mac": "aa:bb:cc:dd:ee:01", "hw_rev": "poll-cycle-harness"})
+        assert status == 200, "expected 200, got %d (%r)" % (status, body[:200])
+        obj = json.loads(body.decode())
+        token = obj.get("device_token")
+        assert isinstance(token, str) and len(token) == 64 and \
+            all(c in "0123456789abcdef" for c in token), (
+                "device_token not 64 lowercase hex chars: %r" % (token,))
 
         # 2. Setup rejects a malformed body (no mac key) with 422.
-        def _setup_missing_mac():
-            status, _, _ = http_request(
-                harness.base_url() + "/device/v1/setup", method="POST",
-                json_body={"hw_rev": "poll-cycle-harness"})
-            if status != 422:
-                return False, "expected 422 for a body missing mac, got %d" % status
-            return True, ""
-        check("setup rejects a body missing mac with 422", _setup_missing_mac)
+        status, _, _ = http_request(
+            harness.base_url() + "/device/v1/setup", method="POST",
+            json_body={"hw_rev": "poll-cycle-harness"})
+        assert status == 422, "expected 422 for a body missing mac, got %d" % status
 
         # 3. Auth gate: no Authorization header -> 401.
-        def _auth_missing_header():
-            status, _, _ = http_request(harness.base_url() + "/device/v1/display", method="GET")
-            if status != 401:
-                return False, "expected 401 with no Authorization header, got %d" % status
-            return True, ""
-        check("display poll with no Authorization header returns 401", _auth_missing_header)
+        status, _, _ = http_request(harness.base_url() + "/device/v1/display", method="GET")
+        assert status == 401, "expected 401 with no Authorization header, got %d" % status
 
         # 4. Auth gate: a bearer that was never issued -> 401.
-        def _auth_unknown_bearer():
-            status, _, _ = http_request(
-                harness.base_url() + "/device/v1/display", method="GET",
-                headers={"Authorization": "Bearer " + "0" * 64})
-            if status != 401:
-                return False, "expected 401 with an unissued bearer, got %d" % status
-            return True, ""
-        check("display poll with an unissued bearer returns 401", _auth_unknown_bearer)
+        status, _, _ = http_request(
+            harness.base_url() + "/device/v1/display", method="GET",
+            headers={"Authorization": "Bearer " + "0" * 64})
+        assert status == 401, "expected 401 with an unissued bearer, got %d" % status
 
         # 5. Display shape: 200 + image_hash/sleep_s/reset/image_url/firmware:null.
-        def _display_shape():
-            status, _, body = http_request(
-                harness.base_url() + "/device/v1/display", method="GET",
-                headers={"Authorization": "Bearer %s" % ctx["token"]})
-            if status != 200:
-                return False, "expected 200, got %d" % status
-            obj = json.loads(body.decode())
-            if not validate_display_response(obj):
-                return False, "response failed validate_display_response: %r" % (obj,)
-            if obj.get("firmware") is not None:
-                return False, "expected firmware:null in Phase 1, got %r" % (obj.get("firmware"),)
-            if obj.get("led_enabled") is not True:
-                return False, "expected led_enabled:true, got %r" % (obj.get("led_enabled"),)
-            ctx["image_hash_full"] = obj["image_hash"]
-            ctx["image_url"] = obj["image_url"]
-            return True, ""
-        check("display poll returns a valid response shape (incl. firmware:null and led_enabled:true)", _display_shape)
+        status, _, body = http_request(
+            harness.base_url() + "/device/v1/display", method="GET",
+            headers={"Authorization": "Bearer %s" % token})
+        assert status == 200, "expected 200, got %d" % status
+        obj = json.loads(body.decode())
+        assert validate_display_response(obj), "response failed validate_display_response: %r" % (obj,)
+        assert obj.get("firmware") is None, "expected firmware:null in Phase 1, got %r" % (obj.get("firmware"),)
+        assert obj.get("led_enabled") is True, "expected led_enabled:true, got %r" % (obj.get("led_enabled"),)
+        image_hash_full = obj["image_hash"]
+        image_url = obj["image_url"]
 
         # 6. Download: the image URL yields exactly 960000 bytes matching the hash.
-        def _download():
-            image_url = ctx.get("image_url")
-            if not image_url:
-                return False, "no image_url captured from the display poll"
-            status, _, buf = http_request(image_url, method="GET")
-            if status != 200:
-                return False, "download status %d" % status
-            if not verify_panel_bytes(buf, ctx.get("image_hash_full")):
-                return False, "downloaded buffer failed verify_panel_bytes (len=%d)" % len(buf)
-            ctx["image_bytes"] = buf
-            return True, ""
-        check("download yields exactly 960000 bytes matching image_hash", _download)
+        status, _, buf = http_request(image_url, method="GET")
+        assert status == 200, "download status %d" % status
+        assert verify_panel_bytes(buf, image_hash_full), (
+            "downloaded buffer failed verify_panel_bytes (len=%d)" % len(buf))
+        image_bytes = buf
 
         # 7. Integrity gate: a flipped byte is rejected by verify_panel_bytes.
-        def _integrity_gate():
-            buf = ctx.get("image_bytes")
-            expected_hash = ctx.get("image_hash_full")
-            if buf is None:
-                return False, "no downloaded buffer available from the previous check"
-            tampered = bytearray(buf)
-            tampered[0] ^= 0xFF
-            if verify_panel_bytes(bytes(tampered), expected_hash):
-                return False, "verify_panel_bytes accepted a buffer with one flipped byte"
-            if not verify_panel_bytes(buf, expected_hash):
-                return False, "the untampered original unexpectedly failed verification"
-            return True, ""
-        check("verify_panel_bytes rejects a flipped byte", _integrity_gate)
+        tampered = bytearray(image_bytes)
+        tampered[0] ^= 0xFF
+        assert not verify_panel_bytes(bytes(tampered), image_hash_full), (
+            "verify_panel_bytes accepted a buffer with one flipped byte")
+        assert verify_panel_bytes(image_bytes, image_hash_full), (
+            "the untampered original unexpectedly failed verification")
 
         # 8. Size gate: a one-byte truncation is rejected by verify_panel_bytes.
-        def _size_gate():
-            buf = ctx.get("image_bytes")
-            expected_hash = ctx.get("image_hash_full")
-            if buf is None:
-                return False, "no downloaded buffer available from the previous check"
-            truncated = buf[:-1]
-            if verify_panel_bytes(truncated, expected_hash):
-                return False, "verify_panel_bytes accepted a one-byte-truncated buffer"
-            return True, ""
-        check("verify_panel_bytes rejects a one-byte truncation", _size_gate)
+        truncated = image_bytes[:-1]
+        assert not verify_panel_bytes(truncated, image_hash_full), (
+            "verify_panel_bytes accepted a one-byte-truncated buffer")
 
-        # 9. Hash-skip: a second poll returns the same image_hash; the simulated
-        #    client skips the download entirely (no download call is made below).
-        def _hash_skip():
-            status, _, body = http_request(
-                harness.base_url() + "/device/v1/display", method="GET",
-                headers={"Authorization": "Bearer %s" % ctx["token"]})
-            if status != 200:
-                return False, "expected 200 on the second poll, got %d" % status
-            obj = json.loads(body.decode())
-            if not validate_display_response(obj):
-                return False, "second poll response failed validation: %r" % (obj,)
-            if obj["image_hash"] != ctx.get("image_hash_full"):
-                return False, "image_hash changed on an unchanged served image: %r vs %r" % (
-                    obj["image_hash"], ctx.get("image_hash_full"))
-            return True, ""
-        check("a second poll of an unchanged image returns the same image_hash (hash-skip)", _hash_skip)
+        # 9. Hash-skip: a second poll returns the same image_hash; the
+        # simulated client skips the download entirely (no download call
+        # is made below).
+        status, _, body = http_request(
+            harness.base_url() + "/device/v1/display", method="GET",
+            headers={"Authorization": "Bearer %s" % token})
+        assert status == 200, "expected 200 on the second poll, got %d" % status
+        obj = json.loads(body.decode())
+        assert validate_display_response(obj), "second poll response failed validation: %r" % (obj,)
+        assert obj["image_hash"] == image_hash_full, (
+            "image_hash changed on an unchanged served image: %r vs %r" % (obj["image_hash"], image_hash_full))
 
-        # 10. Image change: replacing the served file changes image_hash on the
-        #     next poll, and the simulated client downloads again.
-        def _image_change():
-            quadrants_path = harness.generate_panel(
-                "quadrants", out_path=os.path.join(harness.tmpdir, "panel_quadrants.bin"))
-            shutil.copyfile(quadrants_path, harness.image_path)
-            status, _, body = http_request(
-                harness.base_url() + "/device/v1/display", method="GET",
-                headers={"Authorization": "Bearer %s" % ctx["token"]})
-            if status != 200:
-                return False, "expected 200 after swapping the served image, got %d" % status
-            obj = json.loads(body.decode())
-            if not validate_display_response(obj):
-                return False, "post-swap response failed validation: %r" % (obj,)
-            if obj["image_hash"] == ctx.get("image_hash_full"):
-                return False, "image_hash did not change after the served image was replaced"
-            dstatus, _, dbuf = http_request(obj["image_url"], method="GET")
-            if dstatus != 200:
-                return False, "re-download after image change returned status %d" % dstatus
-            if not verify_panel_bytes(dbuf, obj["image_hash"]):
-                return False, "re-downloaded buffer failed verify_panel_bytes after image change"
-            ctx["image_hash_full"] = obj["image_hash"]
-            ctx["image_bytes"] = dbuf
-            return True, ""
-        check("replacing the served image changes image_hash and the client re-downloads", _image_change)
+        # 10. Image change: replacing the served file changes image_hash
+        # on the next poll, and the simulated client downloads again.
+        quadrants_path = harness.generate_panel(
+            "quadrants", out_path=os.path.join(harness.tmpdir, "panel_quadrants.bin"))
+        shutil.copyfile(quadrants_path, harness.image_path)
+        status, _, body = http_request(
+            harness.base_url() + "/device/v1/display", method="GET",
+            headers={"Authorization": "Bearer %s" % token})
+        assert status == 200, "expected 200 after swapping the served image, got %d" % status
+        obj = json.loads(body.decode())
+        assert validate_display_response(obj), "post-swap response failed validation: %r" % (obj,)
+        assert obj["image_hash"] != image_hash_full, "image_hash did not change after the served image was replaced"
+        dstatus, _, dbuf = http_request(obj["image_url"], method="GET")
+        assert dstatus == 200, "re-download after image change returned status %d" % dstatus
+        assert verify_panel_bytes(dbuf, obj["image_hash"]), (
+            "re-downloaded buffer failed verify_panel_bytes after image change")
+        image_hash_full = obj["image_hash"]
 
-        # 11. Telemetry: a poll carrying battery/RSSI/firmware/boot-reason headers
-        #     still returns 200, and the server echoes those values to stdout.
-        def _telemetry():
-            status, _, _ = http_request(
-                harness.base_url() + "/device/v1/display", method="GET",
-                headers={
-                    "Authorization": "Bearer %s" % ctx["token"],
-                    "X-Battery-Mv": "3941",
-                    "X-Rssi": "-61",
-                    "X-Fw-Version": "0.1.0-poll-cycle",
-                    "X-Boot-Reason": "rtc",
-                })
-            if status != 200:
-                return False, "expected 200 on a telemetry-carrying poll, got %d" % status
-            time.sleep(0.3)  # let the child's line-buffered stdout flush
-            log_text = harness.read_stdout()
-            for needle in ("3941", "-61", "0.1.0-poll-cycle", "rtc"):
-                if needle not in log_text:
-                    return False, "telemetry value %r not found in server stdout" % needle
-            return True, ""
-        check("telemetry headers are accepted and echoed to server stdout", _telemetry)
+        # 11. Telemetry: a poll carrying battery/RSSI/firmware/boot-reason
+        # headers still returns 200, and the server echoes those values
+        # to stdout.
+        status, _, _ = http_request(
+            harness.base_url() + "/device/v1/display", method="GET",
+            headers={
+                "Authorization": "Bearer %s" % token,
+                "X-Battery-Mv": "3941",
+                "X-Rssi": "-61",
+                "X-Fw-Version": "0.1.0-poll-cycle",
+                "X-Boot-Reason": "rtc",
+            })
+        assert status == 200, "expected 200 on a telemetry-carrying poll, got %d" % status
+        time.sleep(0.3)  # let the child's line-buffered stdout flush
+        log_text = harness.read_stdout()
+        for needle in ("3941", "-61", "0.1.0-poll-cycle", "rtc"):
+            assert needle in log_text, "telemetry value %r not found in server stdout" % needle
 
         # 12. Log endpoint: POST /device/v1/log with a logs array returns 200, ok:true.
-        def _log_endpoint():
+        status, _, body = http_request(
+            harness.base_url() + "/device/v1/log", method="POST",
+            headers={"Authorization": "Bearer %s" % token},
+            json_body={"logs": [{"message": "poll-cycle harness check", "level": "warn"}]})
+        assert status == 200, "expected 200, got %d" % status
+        obj = json.loads(body.decode())
+        assert obj.get("ok") is True, "expected ok:true in the /device/v1/log response, got %r" % (obj,)
+
+        # 13. Scheme default: with the server started at its default (no
+        # --image-url-scheme passed), image_url begins with http://.
+        assert image_url.startswith("http://"), (
+            "expected default image_url to start with http://, got %r" % (image_url,))
+
+        # 14. Scheme flag: a server started with --image-url-scheme https
+        # serves an image_url beginning with https://, with the rest of
+        # the URL (host, /img/ path, digest) unchanged apart from the
+        # scheme - so the flag cannot be satisfied by an unrelated URL
+        # rewrite.
+        https_state_dir = os.path.join(tmpdir, "https-harness")
+        os.makedirs(https_state_dir)
+        https_harness = Harness(https_state_dir)
+        try:
+            https_harness.generate_panel("palette")
+            https_harness.start_server(sleep_s=300, image_url_scheme="https")
             status, _, body = http_request(
-                harness.base_url() + "/device/v1/log", method="POST",
-                headers={"Authorization": "Bearer %s" % ctx["token"]},
-                json_body={"logs": [{"message": "poll-cycle harness check", "level": "warn"}]})
-            if status != 200:
-                return False, "expected 200, got %d" % status
+                https_harness.base_url() + "/device/v1/setup", method="POST",
+                json_body={"mac": "aa:bb:cc:dd:ee:02", "hw_rev": "poll-cycle-harness"})
+            assert status == 200, "https-scheme setup expected 200, got %d" % status
+            https_token = json.loads(body.decode())["device_token"]
+            status, _, body = http_request(
+                https_harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % https_token})
+            assert status == 200, "https-scheme display poll expected 200, got %d" % status
             obj = json.loads(body.decode())
-            if obj.get("ok") is not True:
-                return False, "expected ok:true in the /device/v1/log response, got %r" % (obj,)
-            return True, ""
-        check("log endpoint accepts a logs array and returns ok:true", _log_endpoint)
+            assert validate_display_response(obj), "https-scheme response failed validation: %r" % (obj,)
+            https_url = obj["image_url"]
+            assert https_url.startswith("https://"), (
+                "expected image_url to start with https://, got %r" % (https_url,))
+            # Compare host (not port - each harness instance binds its own
+            # free port by design) and the /img/<digest>.bin path: only
+            # the scheme should differ.
+            https_parts = urllib.parse.urlsplit(https_url)
+            default_parts = urllib.parse.urlsplit(image_url)
+            assert https_parts.hostname == default_parts.hostname, (
+                "expected identical host, got %r vs %r" % (https_parts.hostname, default_parts.hostname))
+            assert https_parts.path == default_parts.path, (
+                "expected identical digest path, got %r vs %r" % (https_parts.path, default_parts.path))
+        finally:
+            https_harness.stop_server()
 
-        # 13. Response validation, negative: sleep_s=0 is rejected.
-        def _validator_rejects_zero_sleep():
-            bad = {"image_hash": "sha256:" + "a" * 64, "sleep_s": 0, "reset": False,
-                   "image_url": "http://example.invalid/img/x.bin"}
-            if validate_display_response(bad):
-                return False, "validator accepted a hand-built response with sleep_s=0"
-            return True, ""
-        check("validate_display_response rejects sleep_s=0", _validator_rejects_zero_sleep)
-
-        # 14. Response validation, negative: uppercase hex in image_hash is rejected.
-        def _validator_rejects_uppercase_hash():
-            bad = {"image_hash": "sha256:" + "A" * 64, "sleep_s": 300, "reset": False,
-                   "image_url": "http://example.invalid/img/x.bin"}
-            if validate_display_response(bad):
-                return False, "validator accepted a hand-built response with uppercase hex in image_hash"
-            return True, ""
-        check("validate_display_response rejects uppercase hex in image_hash", _validator_rejects_uppercase_hash)
-
-        # 15. Scheme default: with the server started at its default (no
-        #     --image-url-scheme passed), image_url begins with http://.
-        def _image_url_scheme_default():
-            image_url = ctx.get("image_url")
-            if not image_url:
-                return False, "no image_url captured from the display poll"
-            if not image_url.startswith("http://"):
-                return False, "expected default image_url to start with " \
-                    "http://, got %r" % (image_url,)
-            return True, ""
-        check("default --image-url-scheme (http) is served in image_url", _image_url_scheme_default)
-
-        # 16. Scheme flag: a server started with --image-url-scheme https
-        #     serves an image_url beginning with https://, with the rest
-        #     of the URL (host, /img/ path, digest) unchanged apart from
-        #     the scheme - so the flag cannot be satisfied by an
-        #     unrelated URL rewrite.
-        def _image_url_scheme_https():
-            https_harness = Harness()
-            try:
-                https_harness.generate_panel("palette")
-                https_harness.start_server(sleep_s=300, image_url_scheme="https")
-                status, _, body = http_request(
-                    https_harness.base_url() + "/device/v1/setup", method="POST",
-                    json_body={"mac": "aa:bb:cc:dd:ee:02", "hw_rev": "poll-cycle-harness"})
-                if status != 200:
-                    return False, "https-scheme setup expected 200, got %d" % status
-                token = json.loads(body.decode())["device_token"]
-                status, _, body = http_request(
-                    https_harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % token})
-                if status != 200:
-                    return False, "https-scheme display poll expected 200, got %d" % status
-                obj = json.loads(body.decode())
-                if not validate_display_response(obj):
-                    return False, "https-scheme response failed validation: %r" % (obj,)
-                https_url = obj["image_url"]
-                if not https_url.startswith("https://"):
-                    return False, "expected image_url to start with https://, got %r" % (https_url,)
-                default_url = ctx.get("image_url")
-                if not default_url:
-                    return False, "no default-scheme image_url captured to compare against"
-                # Compare host (not port - each harness instance binds its
-                # own free port by design, see Harness._pick_free_port) and
-                # the /img/<digest>.bin path: only the scheme should differ.
-                https_parts = urllib.parse.urlsplit(https_url)
-                default_parts = urllib.parse.urlsplit(default_url)
-                if https_parts.hostname != default_parts.hostname:
-                    return False, "expected identical host, got %r vs %r" % (
-                        https_parts.hostname, default_parts.hostname)
-                if https_parts.path != default_parts.path:
-                    return False, "expected identical digest path, got %r vs %r" % (
-                        https_parts.path, default_parts.path)
-                return True, ""
-            finally:
-                https_harness.stop_server()
-                https_harness.cleanup()
-        check("--image-url-scheme https serves image_url with https:// and an unchanged host/path/digest", _image_url_scheme_https)
-
-        # --- Task 2 (05-02, DEVICE-04): X-Battery-Mv validation/persistence ---
+        # --- X-Battery-Mv validation/persistence (DEVICE-04) ------------
 
         def _battery_state_path():
             return os.path.join(harness.tmpdir, "battery_state.json")
@@ -1299,446 +979,289 @@ def main():
             except (OSError, ValueError):
                 return None
 
-        # 17. Check A - happy path: an authenticated poll carrying a
-        # plausible X-Battery-Mv still returns 200, and battery_state.json
-        # appears with {"battery_mv": <int>, "received_at": <float>}. A
-        # second poll with a different value overwrites it.
-        def _battery_happy_path_persists_and_overwrites():
+        # 15. Happy path: an authenticated poll carrying a plausible
+        # X-Battery-Mv still returns 200, and battery_state.json appears
+        # with {"battery_mv": <int>, "received_at": <float>}. A second
+        # poll with a different value overwrites it.
+        status, _, _ = http_request(
+            harness.base_url() + "/device/v1/display", method="GET",
+            headers={"Authorization": "Bearer %s" % token, "X-Battery-Mv": "3487"})
+        assert status == 200, "expected 200 on a battery-carrying poll, got %d" % status
+        time.sleep(1.0)  # allow the child process's write to land
+        state = _read_battery_state()
+        assert isinstance(state, dict) and state.get("battery_mv") == 3487, (
+            "battery_state.json after the first poll = %r, expected battery_mv=3487" % (state,))
+        assert isinstance(state.get("received_at"), float), (
+            "battery_state.json's received_at is %r, expected a float" % (state.get("received_at"),))
+
+        status, _, _ = http_request(
+            harness.base_url() + "/device/v1/display", method="GET",
+            headers={"Authorization": "Bearer %s" % token, "X-Battery-Mv": "3402"})
+        assert status == 200, "expected 200 on the second battery-carrying poll, got %d" % status
+        time.sleep(1.0)
+        state2 = _read_battery_state()
+        assert isinstance(state2, dict) and state2.get("battery_mv") == 3402, (
+            "battery_state.json after the second poll = %r, expected battery_mv=3402 (overwrite)" % (state2,))
+
+        # 16. Hostile and malformed values are ignored, never persisted,
+        # never fatal: every one of these returns 200, and after all of
+        # them the previously persisted value (3402) is still exactly
+        # what it was - no rewrite, no new file, no 5xx, no traceback in
+        # the server's stdout.
+        hostile_values = [
+            "abc", "-1", "3500.5", "  3500  ", "3500; rm -rf /", "99999", "0", "",
+            "3" * 400,
+            "٣٥٠٠",  # Arabic-Indic "3500"
+        ]
+        before = _read_battery_state()
+        assert isinstance(before, dict) and before.get("battery_mv") == 3402, (
+            "setup failure: expected battery_mv=3402 persisted from the happy-path check, got %r" % (before,))
+        for raw in hostile_values:
+            # http.client's putheader() latin-1-encodes a str header
+            # value and raises UnicodeEncodeError for the Arabic-Indic
+            # case - not a server-side rejection, a client-side encode
+            # error that would never let the hostile poll reach the
+            # server at all. Send pre-encoded UTF-8 bytes instead: bytes
+            # header values pass through putheader() unmodified, so the
+            # server actually receives (and must reject) the raw hostile
+            # bytes, exactly as a hostile device would send them.
             status, _, _ = http_request(
                 harness.base_url() + "/device/v1/display", method="GET",
-                headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": "3487"})
-            if status != 200:
-                return False, "expected 200 on a battery-carrying poll, got %d" % status
-            time.sleep(1.0)  # allow the child process's write to land
-            state = _read_battery_state()
-            if not isinstance(state, dict) or state.get("battery_mv") != 3487:
-                return False, "battery_state.json after the first poll = %r, expected battery_mv=3487" % (state,)
-            if not isinstance(state.get("received_at"), float):
-                return False, "battery_state.json's received_at is %r, expected a float" % (state.get("received_at"),)
+                headers={"Authorization": "Bearer %s" % token, "X-Battery-Mv": raw.encode("utf-8")})
+            assert status == 200, "hostile X-Battery-Mv=%r: expected 200, got %d" % (raw, status)
+        time.sleep(0.5)
+        log_text = harness.read_stdout()
+        assert "Traceback" not in log_text, "server stdout contains a traceback after a hostile-value battery poll"
+        after = _read_battery_state()
+        assert after == before, "battery_state.json changed after a battery of hostile values: %r -> %r" % (before, after)
 
-            status, _, _ = http_request(
-                harness.base_url() + "/device/v1/display", method="GET",
-                headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": "3402"})
-            if status != 200:
-                return False, "expected 200 on the second battery-carrying poll, got %d" % status
-            time.sleep(1.0)
-            state2 = _read_battery_state()
-            if not isinstance(state2, dict) or state2.get("battery_mv") != 3402:
-                return False, "battery_state.json after the second poll = %r, expected battery_mv=3402 (overwrite)" % (state2,)
-            return True, ""
-        check(
-            "an authenticated poll carrying a plausible X-Battery-Mv persists {battery_mv, received_at} to "
-            "battery_state.json, and a second poll with a different value overwrites it",
-            _battery_happy_path_persists_and_overwrites,
-        )
+        # 17. The write barrier sits behind auth: a poll with a bogus
+        # bearer token and a plausible X-Battery-Mv returns 401 and
+        # leaves battery_state.json unchanged.
+        before = _read_battery_state()
+        status, _, _ = http_request(
+            harness.base_url() + "/device/v1/display", method="GET",
+            headers={"Authorization": "Bearer " + "f" * 64, "X-Battery-Mv": "3400"})
+        assert status == 401, "expected 401 for a bogus bearer token, got %d" % status
+        time.sleep(0.5)
+        after = _read_battery_state()
+        assert after == before, "battery_state.json changed after an unauthenticated poll: %r -> %r" % (before, after)
 
-        # 18. Check B - hostile and malformed values are ignored, never
-        # persisted, never fatal: every one of these returns 200, and after
-        # all of them the previously persisted value (3402, from Check A) is
-        # still exactly what it was - no rewrite, no new file, no 5xx, no
-        # traceback in the server's stdout.
-        def _battery_hostile_values_never_persisted():
-            hostile_values = [
-                "abc", "-1", "3500.5", "  3500  ", "3500; rm -rf /", "99999", "0", "",
-                "3" * 400,
-                "٣٥٠٠",  # Arabic-Indic "3500"
-            ]
-            before = _read_battery_state()
-            if not isinstance(before, dict) or before.get("battery_mv") != 3402:
-                return False, "setup failure: expected battery_mv=3402 persisted from Check A, got %r" % (before,)
-            for raw in hostile_values:
-                # http.client's putheader() latin-1-encodes a str header
-                # value and raises UnicodeEncodeError for the Arabic-Indic
-                # case - not a server-side rejection, a client-side encode
-                # error that would never let the hostile poll reach the
-                # server at all. Send pre-encoded UTF-8 bytes instead: bytes
-                # header values pass through putheader() unmodified, so the
-                # server actually receives (and must reject) the raw hostile
-                # bytes, exactly as a hostile device would send them.
-                status, _, _ = http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": raw.encode("utf-8")})
-                if status != 200:
-                    return False, "hostile X-Battery-Mv=%r: expected 200, got %d" % (raw, status)
-            time.sleep(0.5)
-            log_text = harness.read_stdout()
-            if "Traceback" in log_text:
-                return False, "server stdout contains a traceback after a hostile-value battery poll"
-            after = _read_battery_state()
-            if after != before:
-                return False, "battery_state.json changed after a battery of hostile values: %r -> %r" % (before, after)
-            return True, ""
-        check(
-            "10 hostile/malformed X-Battery-Mv values (non-digit, negative, float, whitespace, injection, "
-            "out-of-range, the '0' unknown sentinel, empty, oversized, non-ASCII digits) all return 200 and "
-            "persist nothing - the previously persisted value survives byte-identical",
-            _battery_hostile_values_never_persisted,
-        )
-
-        # 19. Check C - the write barrier sits behind auth: a poll with a
-        # bogus bearer token and a plausible X-Battery-Mv returns 401 and
-        # leaves battery_state.json unchanged (T-05-02-05).
-        def _battery_write_barrier_sits_behind_auth():
-            before = _read_battery_state()
-            status, _, _ = http_request(
-                harness.base_url() + "/device/v1/display", method="GET",
-                headers={"Authorization": "Bearer " + "f" * 64, "X-Battery-Mv": "3400"})
-            if status != 401:
-                return False, "expected 401 for a bogus bearer token, got %d" % status
-            time.sleep(0.5)
-            after = _read_battery_state()
-            if after != before:
-                return False, "battery_state.json changed after an unauthenticated poll: %r -> %r" % (before, after)
-            return True, ""
-        check(
-            "a display poll with a bogus bearer token returns 401 and never writes battery_state.json "
-            "(the write barrier sits strictly behind bearer_ok())",
-            _battery_write_barrier_sits_behind_auth,
-        )
-
-        # 20-22. read_led_enabled() checks (Phase 06.2, T-06.2-01/T-06.2-03).
+        # --- read_led_enabled() checks (Phase 06.2, T-06.2-01/T-06.2-03) --
         # Each writes its own device_config.json fixture directly into
         # harness.tmpdir (the harness already passes --state-dir there),
-        # polls /device/v1/display, and removes the fixture in a finally
-        # block so no later check observes it. byos_server.py reads the
-        # file per-request, so no server restart is needed.
+        # polls /device/v1/display, and removes the fixture afterward so
+        # no later check observes it. byos_server.py reads the file
+        # per-request, so no server restart is needed.
 
         def _device_config_fixture_path():
             return os.path.join(harness.tmpdir, "device_config.json")
 
-        # 20. A document whose led_enabled is JSON false yields a 200 whose
-        # response field is exactly False. This is the ONLY check that
-        # exercises the real read path - the pre-existing _display_shape
-        # assertion (check 5) passes identically whether the read works or
-        # is broken and always falls through to the default
-        # (06.2-RESEARCH.md Pitfall 3), so it is not coverage for this
-        # feature.
-        def _led_enabled_false_from_shared_config():
-            fixture_path = _device_config_fixture_path()
-            with open(fixture_path, "w") as fh:
-                json.dump({"led_enabled": False}, fh)
-            try:
-                status, _, body = http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"]})
-                if status != 200:
-                    return False, "expected 200, got %d" % status
-                obj = json.loads(body.decode())
-                if obj.get("led_enabled") is not False:
-                    return False, "expected led_enabled:false, got %r" % (obj.get("led_enabled"),)
-                return True, ""
-            finally:
-                if os.path.exists(fixture_path):
-                    os.remove(fixture_path)
-        check(
-            "a device_config.json with led_enabled:false yields a 200 display response with led_enabled:false",
-            _led_enabled_false_from_shared_config,
-        )
+        # 18. A document whose led_enabled is JSON false yields a 200
+        # whose response field is exactly False.
+        fixture_path = _device_config_fixture_path()
+        with open(fixture_path, "w") as fh:
+            json.dump({"led_enabled": False}, fh)
+        try:
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % token})
+            assert status == 200, "expected 200, got %d" % status
+            obj = json.loads(body.decode())
+            assert obj.get("led_enabled") is False, "expected led_enabled:false, got %r" % (obj.get("led_enabled"),)
+        finally:
+            os.remove(fixture_path)
 
-        # 21. A document whose led_enabled is a hostile string yields a 200
-        # whose response field is True.
-        def _led_enabled_hostile_string_falls_back_to_true():
-            fixture_path = _device_config_fixture_path()
-            with open(fixture_path, "w") as fh:
-                json.dump({"led_enabled": "off"}, fh)
-            try:
-                status, _, body = http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"]})
-                if status != 200:
-                    return False, "expected 200, got %d" % status
-                obj = json.loads(body.decode())
-                if obj.get("led_enabled") is not True:
-                    return False, "expected led_enabled:true (fail-open), got %r" % (obj.get("led_enabled"),)
-                return True, ""
-            finally:
-                if os.path.exists(fixture_path):
-                    os.remove(fixture_path)
-        check(
-            "a device_config.json with a hostile string led_enabled yields a 200 display response with led_enabled:true",
-            _led_enabled_hostile_string_falls_back_to_true,
-        )
+        # 19. A document whose led_enabled is a hostile string yields a
+        # 200 whose response field is True.
+        with open(fixture_path, "w") as fh:
+            json.dump({"led_enabled": "off"}, fh)
+        try:
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % token})
+            assert status == 200, "expected 200, got %d" % status
+            obj = json.loads(body.decode())
+            assert obj.get("led_enabled") is True, (
+                "expected led_enabled:true (fail-open), got %r" % (obj.get("led_enabled"),))
+        finally:
+            os.remove(fixture_path)
 
-        # 22. A truncated/invalid JSON document yields a 200 whose response
-        # field is True and which still satisfies validate_display_response().
-        def _led_enabled_malformed_json_falls_back_to_true():
-            fixture_path = _device_config_fixture_path()
-            with open(fixture_path, "w") as fh:
-                fh.write("{not valid json")
-            try:
-                status, _, body = http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"]})
-                if status != 200:
-                    return False, "expected 200, got %d" % status
-                obj = json.loads(body.decode())
-                if not validate_display_response(obj):
-                    return False, "response failed validate_display_response: %r" % (obj,)
-                if obj.get("led_enabled") is not True:
-                    return False, "expected led_enabled:true (fail-open), got %r" % (obj.get("led_enabled"),)
-                return True, ""
-            finally:
-                if os.path.exists(fixture_path):
-                    os.remove(fixture_path)
-        check(
-            "a truncated/invalid device_config.json still yields a 200 display response with led_enabled:true and passes validate_display_response()",
-            _led_enabled_malformed_json_falls_back_to_true,
-        )
+        # 20. A truncated/invalid JSON document yields a 200 whose
+        # response field is True and which still satisfies
+        # validate_display_response().
+        with open(fixture_path, "w") as fh:
+            fh.write("{not valid json")
+        try:
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % token})
+            assert status == 200, "expected 200, got %d" % status
+            obj = json.loads(body.decode())
+            assert validate_display_response(obj), "response failed validate_display_response: %r" % (obj,)
+            assert obj.get("led_enabled") is True, (
+                "expected led_enabled:true (fail-open), got %r" % (obj.get("led_enabled"),))
+        finally:
+            os.remove(fixture_path)
 
-        # E. Integration, over real HTTP: a device_config.json whose window
-        # is guaranteed active right now must extend sleep_s past the
-        # harness's own base --sleep value.
-        def _quiet_hours_integration_active_window_extends_sleep():
-            fixture_path = _device_config_fixture_path()
-            now_paris = datetime.now(ZoneInfo("Europe/Paris"))
-            start_hm = (now_paris - timedelta(hours=1)).strftime("%H:%M")
-            end_hm = (now_paris + timedelta(hours=1)).strftime("%H:%M")
-            with open(fixture_path, "w") as fh:
-                json.dump({"quiet_hours_enabled": True, "quiet_hours_start": start_hm,
-                           "quiet_hours_end": end_hm}, fh)
-            try:
-                status, _, body = http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"]})
-                if status != 200:
-                    return False, "expected 200, got %d" % status
-                obj = json.loads(body.decode())
-                if not validate_display_response(obj):
-                    return False, "response failed validate_display_response: %r" % (obj,)
-                sleep_s = obj.get("sleep_s")
-                if not (300 < sleep_s <= 7200):
-                    return False, "expected sleep_s in (300, 7200], got %r" % (sleep_s,)
-                return True, ""
-            finally:
-                if os.path.exists(fixture_path):
-                    os.remove(fixture_path)
-        check(
-            "a device_config.json with a currently-active quiet-hours window yields a 200 display "
-            "response whose sleep_s is strictly greater than the base --sleep (300) and no greater "
-            "than 7200",
-            _quiet_hours_integration_active_window_extends_sleep,
-        )
+        # 21. Integration, over real HTTP: a device_config.json whose
+        # window is guaranteed active right now must extend sleep_s past
+        # the harness's own base --sleep value.
+        now_paris = datetime.now(ZoneInfo("Europe/Paris"))
+        start_hm = (now_paris - timedelta(hours=1)).strftime("%H:%M")
+        end_hm = (now_paris + timedelta(hours=1)).strftime("%H:%M")
+        with open(fixture_path, "w") as fh:
+            json.dump({"quiet_hours_enabled": True, "quiet_hours_start": start_hm,
+                       "quiet_hours_end": end_hm}, fh)
+        try:
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % token})
+            assert status == 200, "expected 200, got %d" % status
+            obj = json.loads(body.decode())
+            assert validate_display_response(obj), "response failed validate_display_response: %r" % (obj,)
+            sleep_s = obj.get("sleep_s")
+            assert 300 < sleep_s <= 7200, "expected sleep_s in (300, 7200], got %r" % (sleep_s,)
+        finally:
+            os.remove(fixture_path)
 
-        # F. Integration, hostile config: a corrupted quiet-hours document
-        # must never take down the always-on /display handler - sleep_s
-        # degrades to exactly the unchanged base value.
-        def _quiet_hours_hostile_config_fails_open():
-            fixture_path = _device_config_fixture_path()
-            with open(fixture_path, "w") as fh:
-                json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "'; DROP",
-                           "quiet_hours_end": None}, fh)
-            try:
-                status, _, body = http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"]})
-                if status != 200:
-                    return False, "expected 200, got %d" % status
-                obj = json.loads(body.decode())
-                if obj.get("sleep_s") != 300:
-                    return False, "expected sleep_s exactly 300 (fail-open), got %r" % (obj.get("sleep_s"),)
-                return True, ""
-            finally:
-                if os.path.exists(fixture_path):
-                    os.remove(fixture_path)
-        check(
-            "a hostile device_config.json (non-HH:MM quiet_hours_start, null quiet_hours_end) still "
-            "yields a 200 display response with sleep_s exactly equal to the base --sleep (300)",
-            _quiet_hours_hostile_config_fails_open,
-        )
+        # 22. Integration, hostile config: a corrupted quiet-hours
+        # document must never take down the always-on /display handler -
+        # sleep_s degrades to exactly the unchanged base value.
+        with open(fixture_path, "w") as fh:
+            json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "'; DROP",
+                       "quiet_hours_end": None}, fh)
+        try:
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % token})
+            assert status == 200, "expected 200, got %d" % status
+            obj = json.loads(body.decode())
+            assert obj.get("sleep_s") == 300, "expected sleep_s exactly 300 (fail-open), got %r" % (obj.get("sleep_s"),)
+        finally:
+            os.remove(fixture_path)
 
-        # G. Integration, over real HTTP against the running harness (which
-        # started with --sleep 300): a device_config.json with an in-range
-        # wake_interval_s is delivered as sleep_s, not the harness's base.
-        def _wake_interval_integration_delivers_configured_value():
-            fixture_path = _device_config_fixture_path()
-            with open(fixture_path, "w") as fh:
-                json.dump({"wake_interval_s": 120}, fh)
-            try:
-                status, _, body = http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"]})
-                if status != 200:
-                    return False, "expected 200, got %d" % status
-                obj = json.loads(body.decode())
-                if not validate_display_response(obj):
-                    return False, "response failed validate_display_response: %r" % (obj,)
-                if obj.get("sleep_s") != 120:
-                    return False, "expected sleep_s exactly 120, got %r" % (obj.get("sleep_s"),)
-                return True, ""
-            finally:
-                if os.path.exists(fixture_path):
-                    os.remove(fixture_path)
-        check(
-            "a device_config.json with wake_interval_s:120 yields a 200 display response with "
-            "sleep_s exactly 120 - not the harness's base --sleep (300)",
-            _wake_interval_integration_delivers_configured_value,
-        )
+        # 23. Integration, over real HTTP: a device_config.json with an
+        # in-range wake_interval_s is delivered as sleep_s, not the
+        # harness's base.
+        with open(fixture_path, "w") as fh:
+            json.dump({"wake_interval_s": 120}, fh)
+        try:
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % token})
+            assert status == 200, "expected 200, got %d" % status
+            obj = json.loads(body.decode())
+            assert validate_display_response(obj), "response failed validate_display_response: %r" % (obj,)
+            assert obj.get("sleep_s") == 120, "expected sleep_s exactly 120, got %r" % (obj.get("sleep_s"),)
+        finally:
+            os.remove(fixture_path)
 
-        # H. Integration, negative twin: a below-floor stored value never
-        # reaches the wire - it degrades to the fail-open CLI default.
-        def _wake_interval_integration_below_floor_falls_back_to_default():
-            fixture_path = _device_config_fixture_path()
-            with open(fixture_path, "w") as fh:
-                json.dump({"wake_interval_s": 30}, fh)
-            try:
-                status, _, body = http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"]})
-                if status != 200:
-                    return False, "expected 200, got %d" % status
-                obj = json.loads(body.decode())
-                if not validate_display_response(obj):
-                    return False, "response failed validate_display_response: %r" % (obj,)
-                if obj.get("sleep_s") != 300:
-                    return False, "expected sleep_s exactly 300 (fail-open default), got %r" % (obj.get("sleep_s"),)
-                return True, ""
-            finally:
-                if os.path.exists(fixture_path):
-                    os.remove(fixture_path)
-        check(
-            "a device_config.json with a below-floor wake_interval_s:30 yields a 200 display "
-            "response with sleep_s exactly 300 (the fail-open CLI default), and still passes "
-            "validate_display_response()",
-            _wake_interval_integration_below_floor_falls_back_to_default,
-        )
+        # 24. Integration, negative twin: a below-floor stored value
+        # never reaches the wire - it degrades to the fail-open CLI
+        # default.
+        with open(fixture_path, "w") as fh:
+            json.dump({"wake_interval_s": 30}, fh)
+        try:
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % token})
+            assert status == 200, "expected 200, got %d" % status
+            obj = json.loads(body.decode())
+            assert validate_display_response(obj), "response failed validate_display_response: %r" % (obj,)
+            assert obj.get("sleep_s") == 300, (
+                "expected sleep_s exactly 300 (fail-open default), got %r" % (obj.get("sleep_s"),))
+        finally:
+            os.remove(fixture_path)
 
-        # I. Integration, over real HTTP: the display-off/quiet-hours
-        # overlap (D-05, sleep axis), exercised through the actual do_GET
-        # /device/v1/display response construction rather than a direct
-        # function call - unlike the unit-level overlap check above, this
-        # one is sensitive to the composition ORDER as wired inside
-        # byos_server.py's inlined sleep_s expression, and is the check the
-        # composition-order negative control below targets. With
-        # display_enabled false and an enabled quiet-hours window still far
-        # from ending (~1h remaining, well above the 300s off-state pin),
-        # the served sleep_s must reflect the remaining window time, NOT
-        # collapse to the flat 300s pin.
-        def _display_off_and_quiet_hours_overlap_integration():
-            fixture_path = _device_config_fixture_path()
-            now_paris = datetime.now(ZoneInfo("Europe/Paris"))
-            start_hm = (now_paris - timedelta(hours=1)).strftime("%H:%M")
-            end_hm = (now_paris + timedelta(hours=1)).strftime("%H:%M")
-            with open(fixture_path, "w") as fh:
-                json.dump({"display_enabled": False, "quiet_hours_enabled": True,
-                           "quiet_hours_start": start_hm, "quiet_hours_end": end_hm}, fh)
-            try:
-                status, _, body = http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"]})
-                if status != 200:
-                    return False, "expected 200, got %d" % status
-                obj = json.loads(body.decode())
-                if not validate_display_response(obj):
-                    return False, "response failed validate_display_response: %r" % (obj,)
-                sleep_s = obj.get("sleep_s")
-                if not (300 < sleep_s <= 7200):
-                    return False, (
-                        "expected sleep_s in (300, 7200] (the remaining window time, not the "
-                        "flat 300s off-state pin), got %r - display_off_sleep_s() may be nested "
-                        "outside quiet_hours_sleep_s() instead of inside it" % (sleep_s,))
-                return True, ""
-            finally:
-                if os.path.exists(fixture_path):
-                    os.remove(fixture_path)
-        check(
-            "with display_enabled false and quiet hours enabled for a window still ~1h from "
-            "ending, a live GET /device/v1/display response's sleep_s is strictly greater than "
-            "300 (the remaining window time wins over the flat off-state pin, D-05's sleep "
-            "axis) - this is the check the composition-order negative control targets",
-            _display_off_and_quiet_hours_overlap_integration,
-        )
+        # 25. Integration, over real HTTP: the display-off/quiet-hours
+        # overlap (D-05, sleep axis), exercised through the actual
+        # do_GET /device/v1/display response construction rather than a
+        # direct function call - sensitive to the composition ORDER as
+        # wired inside byos_server.py's inlined sleep_s expression. With
+        # display_enabled false and an enabled quiet-hours window still
+        # far from ending (~1h remaining, well above the 300s off-state
+        # pin), the served sleep_s must reflect the remaining window
+        # time, NOT collapse to the flat 300s pin.
+        now_paris = datetime.now(ZoneInfo("Europe/Paris"))
+        start_hm = (now_paris - timedelta(hours=1)).strftime("%H:%M")
+        end_hm = (now_paris + timedelta(hours=1)).strftime("%H:%M")
+        with open(fixture_path, "w") as fh:
+            json.dump({"display_enabled": False, "quiet_hours_enabled": True,
+                       "quiet_hours_start": start_hm, "quiet_hours_end": end_hm}, fh)
+        try:
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % token})
+            assert status == 200, "expected 200, got %d" % status
+            obj = json.loads(body.decode())
+            assert validate_display_response(obj), "response failed validate_display_response: %r" % (obj,)
+            sleep_s = obj.get("sleep_s")
+            assert 300 < sleep_s <= 7200, (
+                "expected sleep_s in (300, 7200] (the remaining window time, not the flat 300s "
+                "off-state pin), got %r - display_off_sleep_s() may be nested outside "
+                "quiet_hours_sleep_s() instead of inside it" % (sleep_s,))
+        finally:
+            os.remove(fixture_path)
 
-        # J. Integration, live HTTP (quick task 260923-fr4): with
-        # poll_state.json's battery_critical_active latched True in the
-        # harness's own --state-dir, a GET /device/v1/display carrying a
+        # 26. Integration, live HTTP: with poll_state.json's
+        # battery_critical_active latched True in the harness's own
+        # --state-dir, a GET /device/v1/display carrying a
         # still-critical X-Battery-Mv reading (3290, below
-        # BATTERY_CRITICAL_RECOVER_MV) returns sleep_s exactly 3600 - the
-        # parked pin, over the real do_GET response construction.
-        def _battery_critical_integration_parked():
-            poll_state_path = os.path.join(harness.tmpdir, "poll_state.json")
-            with open(poll_state_path, "w") as fh:
-                json.dump({"battery_critical_active": True}, fh)
-            try:
-                status, _, body = http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": "3290"})
-                if status != 200:
-                    return False, "expected 200, got %d" % status
-                obj = json.loads(body.decode())
-                if not validate_display_response(obj):
-                    return False, "response failed validate_display_response: %r" % (obj,)
-                if obj.get("sleep_s") != 3600:
-                    return False, "expected sleep_s exactly 3600 while parked, got %r" % (obj.get("sleep_s"),)
-                return True, ""
-            finally:
-                if os.path.exists(poll_state_path):
-                    os.remove(poll_state_path)
-        check(
-            "with poll_state.json's battery_critical_active latched True, a live GET "
-            "/device/v1/display carrying X-Battery-Mv:3290 returns sleep_s exactly 3600 (the parked "
-            "pin)",
-            _battery_critical_integration_parked,
-        )
+        # BATTERY_CRITICAL_RECOVER_MV) returns sleep_s exactly 3600 -
+        # the parked pin, over the real do_GET response construction.
+        poll_state_path = os.path.join(harness.tmpdir, "poll_state.json")
+        with open(poll_state_path, "w") as fh:
+            json.dump({"battery_critical_active": True}, fh)
+        try:
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % token, "X-Battery-Mv": "3290"})
+            assert status == 200, "expected 200, got %d" % status
+            obj = json.loads(body.decode())
+            assert validate_display_response(obj), "response failed validate_display_response: %r" % (obj,)
+            assert obj.get("sleep_s") == 3600, "expected sleep_s exactly 3600 while parked, got %r" % (obj.get("sleep_s"),)
+        finally:
+            os.remove(poll_state_path)
 
-        # K. Integration, live HTTP, the recovery-anticipation twin: the
+        # 27. Integration, live HTTP, the recovery-anticipation twin: the
         # SAME latched-True poll_state.json, but this poll's own
         # X-Battery-Mv reports recovery (4100, at or above
         # BATTERY_CRITICAL_RECOVER_MV) - the response must NOT hand out
         # the stale 3600s pin; sleep_s falls back to the harness's base
         # --sleep value (300) instead.
-        def _battery_critical_integration_recovering():
-            poll_state_path = os.path.join(harness.tmpdir, "poll_state.json")
-            with open(poll_state_path, "w") as fh:
-                json.dump({"battery_critical_active": True}, fh)
-            try:
-                status, _, body = http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": "4100"})
-                if status != 200:
-                    return False, "expected 200, got %d" % status
-                obj = json.loads(body.decode())
-                if not validate_display_response(obj):
-                    return False, "response failed validate_display_response: %r" % (obj,)
-                if obj.get("sleep_s") != 300:
-                    return False, (
-                        "expected sleep_s exactly 300 (the base value, recovery anticipated) with a "
-                        "recovering X-Battery-Mv:4100, got %r" % (obj.get("sleep_s"),)
-                    )
-                return True, ""
-            finally:
-                if os.path.exists(poll_state_path):
-                    os.remove(poll_state_path)
-        check(
-            "with poll_state.json's battery_critical_active still latched True, a live GET "
-            "/device/v1/display carrying a recovering X-Battery-Mv:4100 returns the base sleep_s "
-            "(300), not the stale 3600s parked pin - recovery is anticipated within THIS request",
-            _battery_critical_integration_recovering,
-        )
+        with open(poll_state_path, "w") as fh:
+            json.dump({"battery_critical_active": True}, fh)
+        try:
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % token, "X-Battery-Mv": "4100"})
+            assert status == 200, "expected 200, got %d" % status
+            obj = json.loads(body.decode())
+            assert validate_display_response(obj), "response failed validate_display_response: %r" % (obj,)
+            assert obj.get("sleep_s") == 300, (
+                "expected sleep_s exactly 300 (the base value, recovery anticipated) with a "
+                "recovering X-Battery-Mv:4100, got %r" % (obj.get("sleep_s"),)
+            )
+        finally:
+            os.remove(poll_state_path)
 
-        # 25. Failure classification: with the server stopped, a display poll
-        #     raises a connection error that the harness classifies as a
-        #     failed wake rather than crashing.
-        def _failure_classification():
-            harness.stop_server()
-            try:
-                http_request(
-                    harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx.get("token", "0" * 64)},
-                    timeout=3)
-            except (urllib.error.URLError, ConnectionError, OSError) as exc:
-                return True, "classified as a failed wake: %r" % (exc,)
-            return False, "expected a connection error against a stopped server, request succeeded instead"
-        check("a poll against a stopped server is classified as a failed wake, not a crash", _failure_classification)
+        # 28. Failure classification: with the server stopped, a display
+        # poll raises a connection error that the harness classifies as
+        # a failed wake rather than crashing.
+        harness.stop_server()
+        try:
+            http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % token},
+                timeout=3)
+            raise AssertionError("expected a connection error against a stopped server, request succeeded instead")
+        except (urllib.error.URLError, ConnectionError, OSError):
+            pass  # classified as a failed wake, not a crash
 
     finally:
         harness.stop_server()
-        harness.cleanup()
-
-    total = len(results)
-    passed = sum(1 for _, ok in results if ok)
-    print("poll-cycle: %d/%d checks pass" % (passed, total))
-    return 0 if (passed == total and total == EXPECTED_CHECK_COUNT) else 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

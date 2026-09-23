@@ -1,0 +1,186 @@
+PASS render_panel(flight, 'departing', route) packs to exactly 960000 bytes with only legal nibbles
+PASS render_panel(flight, 'arriving', route) packs to exactly 960000 bytes with only legal nibbles
+PASS departing render's dominant nibble is 0x1 (White) - D-01 White default theme background
+PASS arriving render's dominant nibble is also 0x1 (White) - D-01's single shared field colour for both states, not a copy-paste duplicate of the departing check above
+PASS departing render contains White (text/frame) and Black (real illustration livery) nibbles - D-25 full-color compositing
+PASS departing render's nibble set is a subset of the 6 legal Spectra 6 codes
+PASS empty-state render is White-dominant and contains at least one Black nibble
+PASS rendering the same flight+route twice produces byte-identical output (determinism)
+PASS departing and arriving renders of the same flight differ in bytes (state changes output)
+PASS the main illustration's opaque pixels are byte-identical between departing and arriving renders (D-24: never mirrored by state)
+PASS draw_illustration()/_resize_illustration() have no mirror/flip parameter (D-24)
+PASS draw_illustration() with a soft/gradient alpha source never produces an illegal in-between palette index (Pitfall 2 regression), and returns .rect (full placement) plus .content (tight painted bbox) as distinct boxes
+PASS a route whose airline_name has no vendored file falls back to generic-fallback.png and renders different bytes than a route with real art
+PASS departing render draws the top-left 'DEPARTING' label and the top-right runway tag, both tracked glyph-by-glyph, label first then tag
+PASS the state label's first glyph sits at the MARGIN inset and the top-right tag's first glyph is positioned so its tracked run ends flush at WIDTH - MARGIN (D-26, spike 002a)
+PASS draw_frame() draws a thin outline at the ~2.5%%-of-width inset (D-26)
+PASS departing main flight text is '{identifier} to {destination_city}' / '{airline_name} · {type_label}' (D-10 tier 1)
+PASS arriving main flight text is '{identifier} from {origin_city}' (D-10 tier 1, lowercase sentence text)
+PASS a full enrichment miss (route=None) draws 'Unknown flight' and ROUTE_FALLBACK_TEXT, never the raw callsign (D-08/D-10 tier 4)
+PASS a supplied previous_flight/previous_route renders its own real two-line text block
+PASS no drawn text contains a 'PREVIOUS ·' prefix (D-26: explicitly removed after the live sketch pass)
+PASS the previous flight's text block is drawn right-aligned (anchor='ra', D-26)
+PASS omitting previous_flight/previous_route renders a genuinely different (single-flight) panel
+PASS every active-state text role uses PTSerif-Bold.ttf (D-06); the empty-state heading keeps PTSerif-Bold.ttf and EMPTY_BODY_FONT keeps PTSerif-Regular.ttf
+PASS PREVIOUS_LINE2_FONT's size is 20px (D-11) with its overflow floor unchanged
+PASS the White theme's active-state roles request only PTSerif-Regular.ttf, never Bold (08-06 on-glass correction)
+PASS every one of the 11 registry themes requests only its own declared weight (08-06 on-glass correction, widened same session)
+PASS _paint_text_backing() no longer exists on server.plane.render (D-05)
+PASS no rectangle filled with the state's own background index is painted, on any registered theme, in either active state (D-05)
+PASS a genuinely long destination/origin city name (Santiago de Compostela) shrinks via fit_text_size() without crashing, drawn in full
+PASS _flight_line2_text() renders the airline name alone for an unlabelled (unrecognized) type designator
+PASS _flight_line2_text() renders the airline name alone for aircraft_type=None
+PASS _flight_line2_text() renders the airline name alone when aircraft_type is omitted entirely
+PASS the P-01 presentation-only airline alias renders the current brand name; a non-aliased airline is unchanged
+PASS _flight_line2_text() never raises across a battery of malformed routes x hostile aircraft types, and always returns a string
+PASS the longest real airline name combined with the longest type label still renders without tripping _assert_within_canvas
+PASS rendering with a main flight carrying a type calls select_illustration() with that exact type
+PASS a main + previous flight makes two select_illustration() calls, each receiving its own flight's type (no crossover)
+PASS previous_flight=None still completes without raising and never fabricates a type for the omitted previous card
+PASS server/plane/render.py's comment-stripped source contains no stroke_width/stroke_fill text-outline usage
+PASS a corrupt (byte-garbage) illustration file degrades to the generic fallback instead of raising out of render_panel()
+PASS an oversized illustration is rejected on its PNG header, before any pixel data is decoded
+PASS when the selected illustration and the generic fallback are both undecodable, the render skips the illustration and still returns a valid panel
+PASS an airline-only route (adsbdb miss, prefix-resolved 'easyJet') omits line 1 entirely and draws only the airline name, never the raw callsign or ROUTE_FALLBACK_TEXT (D-08/D-10 tier 3)
+PASS an airline-only Transavia France + B738 route composes line 2 as '{airline} · {type label}' exactly like a full hit, line 1 omitted entirely, never the raw callsign or a to/from clause (D-08/D-10 tier 3)
+PASS illustrations.select_illustration() on an airline-only Transavia France route resolves to 'transavia-france.png' - the airline's own art, not the generic fallback
+PASS a route already corrected by enrich.correct_airline_name() renders its current brand name via _flight_line2_text(), and display_airline_name() is a no-op on the already-corrected string (260827-kih)
+PASS _flight_line1_text() tier 1 (identifier + city) returns the exact '{identifier} to|from {city}' string for both states (D-10)
+PASS _flight_line1_text() tier 2 (city known, no identifier) returns the title-case direction word and city, with no identifier, for both states (D-10)
+PASS _flight_line1_text() tier 3 (airline known, no city, no identifier) returns an empty string - the sentinel meaning line 1 is omitted (D-10)
+PASS _flight_line1_text() tier 4 (nothing resolved) returns the fixed string 'Unknown flight' for both route=None and a dict with no airline name, identical for both states (D-10)
+PASS no drawn text on either card contains the raw callsign or hex, across all four content-ladder tiers (D-08 end-to-end guard)
+PASS _flight_line1_text() degrades a tier rather than raising for hostile route shapes (non-string/empty/whitespace identifier, non-dict route)
+PASS build_canvas() with no battery kwarg is pixel-identical to battery_low=False for departing/arriving/empty (default-off, no regression)
+PASS battery_low=True differs from battery_low=False only inside the icon bounding box (64,1514,115,1536), for departing/arriving (with a real previous-flight card on the canvas) and empty
+PASS with battery_low=True, the body outline corner/fill/nub read as the state's own ink (EMPTY_INK for the empty state), while the hollow interior right of the fill still reads as the state's background
+PASS battery icon size constants are a uniform round(original * 0.7) reduction of the former spacing-scale values (260828-0qo on-glass correction) with the stroke never dropping below FRAME_STROKE_PX, position constants (BATTERY_ICON_LEFT/BOTTOM) unchanged, the nub centred to within one pixel, and a total bounding box of (64,1514,115,1536)
+PASS the main flight text sits exactly MAIN_TEXT_GAP_PX below the aircraft's last actually-painted pixel row, identically for illustrations whose transparent bottom padding differs by over 100px (illustration-crop-text-margin: no full-rectangle anchoring)
+PASS the previous flight text sits exactly PREVIOUS_TEXT_GAP_PX below its aircraft's last actually-painted pixel row, identically across illustrations with very different transparent bottom padding
+PASS _opaque_bbox() measures the hard-thresholded paste mask, never a naive Image.getbbox() - the soft drop-shadow band (alpha 1..127) that is never painted must not count as content
+PASS draw_illustration() returns a placement whose .content is strictly contained in .rect, with a strictly higher bottom edge, for real vendored art (structural guard against restoring full-rectangle anchoring)
+PASS the main illustration's VISIBLE horizontal midpoint sits on the canvas centre (within rounding) for files with sharply different left/right padding asymmetry - centred by painted pixels, not by rectangle
+PASS the previous aircraft's visible right edge lands exactly on the main aircraft's visible right edge, and the previous text right-aligns to that same shared line minus the D-12 optical offset, for two files with very different right padding
+PASS the previous card's two text lines share one anchor x, equal to the previous aircraft's measured opaque right edge minus PREVIOUS_TEXT_LEFT_OFFSET_PX (D-12)
+PASS the main card's text lines stay centred on the canvas midpoint with anchor='ma', unaffected by the previous card's optical offset (D-12)
+PASS an airline-only route on the main card omits line 1 entirely, promoting line 2 to line 1's y-position, with no empty-string draw call (D-10 tier 3)
+PASS an airline-only route on the previous card omits its own line 1, promoting line 2 to line 1's y-position using the previous card's own gap constant, with no empty-string draw call (D-10 tier 3) - the check that catches the change implemented in only one of the two functions
+PASS both cards independently omit line 1 and promote line 2 on a simultaneous airline-only render, without interfering with each other (D-10 tier 3)
+PASS the previous card's VISIBLE vertical midpoint sits on the PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC line (within rounding) across illustrations with very different top/bottom padding - no per-file vertical drift
+PASS render_panel() with no theme_id is byte-identical to an explicit default theme_id (CFG-01)
+PASS build_canvas(theme_id='white') matches the no-theme default (D-01), and every other registered theme genuinely differs from it - none is a silent no-op
+PASS build_canvas(theme_id='not-a-theme') produces the default theme's canvas rather than raising
+PASS build_canvas(flight, 'nonsense-state') still raises ValueError naming departing/arriving/empty
+PASS _assert_legal_palette() (run internally by build_canvas()) passes for every registered theme
+PASS for every registered theme, in both departing and arriving states, a real two-flight panel's dominant nibble is that theme's own background (D-01/D-02 - the flat-field guard rail against a large livery area)
+PASS render.state_ink_index() agrees with device_config.theme_ink_index() for every registered theme, in both departing and arriving states (D-02)
+PASS runway_tag_text() with no argument returns exactly TOP_RIGHT_TAG_TEXT (default render unchanged)
+PASS runway_tag_text('06-24')/('02-20') return the strings from device_config.RUNWAYS
+PASS runway_tag_text('unknown') returns the default runway's tag rather than raising
+PASS build_canvas(None, 'empty', runway_id=...) draws that runway's heading as a tracked label, including the longest of the three, and passes the safe-box assertion
+PASS build_canvas(flight, 'departing', runway_id='06-24') draws that runway's tag glyph-by-glyph, passing the within-canvas assertion
+PASS render_panel(..., source_fault=False) is byte-identical to the same call without the argument
+PASS render_panel(..., source_fault=True) differs from the same call with the flag false
+PASS the source-fault badge is drawn on both the active canvas and the empty canvas (visible in every state)
+PASS the badge caption text is absent from a normal render (source_fault defaults to False)
+PASS _assert_legal_palette() (run internally by build_canvas()) passes with the badge drawn, in both active states, the empty state, and every theme
+PASS a fault-badged departing render still satisfies _assert_legal_palette() for the default theme (proven via build_canvas(), not a re-implementation)
+PASS draw_source_fault_badge()'s bounding box stays inside the drawn frame
+PASS the source-fault badge's caption respects its theme's declared weight, same as every other active-state role (code-review WR-01)
+PASS the source-fault badge's exclamation-mark dot paints a visible multi-pixel area, not a single point (code-review WR-02)
+PASS all three runway ids combined with the single theme id render without error across both active states (theme-addition regression guard)
+PASS the D-26 outline is genuinely absent from a real build_canvas() render - every sampled point on the former frame band reads the state's own background index or its dithered White speckle, in both active states
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+wrote preview /tmp/tmp4ki8ten7.png
+PASS --airline/--city CLI flags reach the rendered captions (render.main(), D-04)
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+wrote preview /tmp/tmppnaxbxa2.png
+PASS --no-route still overrides --airline/--city ('Unknown flight', ROUTE_FALLBACK_TEXT, never the raw callsign)
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+wrote /tmp/tmp3ekh8yzm/palette-swatches.png
+PASS --calibration-preview writes exactly one file (palette-swatches.png, D-13)
+PASS combining --no-route with --out prints the skypane-poll.timer restart reminder (T-07-01-01)
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+wrote preview /tmp/tmprqrq50tt.png
+PASS the default CLI preview (no forcing flags) draws a tier-1 line containing the preview route's real identifier (D-10 tier 1)
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+wrote preview /tmp/tmpn3vp4uvo.png
+PASS --no-identifier forces the default preview into tier 2 (title-case direction + city, no identifier) (D-10 tier 2)
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+wrote preview /tmp/tmpabz35tdv.png
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+wrote preview /tmp/tmp0xhpq2f2.png
+PASS --no-identifier combined with --no-route still produces tier 4, and combined with --preview-airline-only still produces tier 3 with no line 1 - both are no-ops (D-10)
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+wrote preview /tmp/tmph1csc97r.png
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+wrote preview /tmp/tmpeo18okjz.png
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+wrote preview /tmp/tmp2d3a5l74.png
+WARNING: preview colours are nominal render-internal RGB triples (D-P2-03) - not a colour-accurate preview of the physical panel.
+wrote preview /tmp/tmp8sabkvuz.png
+PASS no CLI path at any of the four content-ladder tiers draws the raw callsign passed via --callsign (D-08 CLI-level guard)
+    (D-12 spread: previous-card right-padding by file {'Air France': 5, 'Vueling Airlines': 6, 'Chalair Aviation': 7, 'Twin Jet': 5, 'LOT Polish Airlines': 12, 'Air Caraïbes': 11})
+    (D-12 verdict: right-padding spread is 7px across the sample, widest at 'LOT Polish Airlines' (12px) - no per-file outlier large enough to threaten the anchor/safe-box invariants above, both of which held for every sampled file)
+PASS the previous card's D-12 optical offset holds its shared-anchor and safe-box invariants across six airline illustrations with deliberately different airframe silhouettes (narrowbody x2, turboprop, small twin, regional jet, widebody) - not just the single pair it was tuned against
+PASS LABEL_TRACKING_PX == 6 and draw_tracked_text()/_tracked_text_width()/_tracked_text_bbox() exist with the original commit's public/private naming split
+PASS _tracked_text_width() arithmetic holds for empty/single-char/multi-char/zero-tracking, derived from font.getlength() rather than hardcoded pixel numbers
+PASS draw_tracked_text() issues one text draw per character at anchor='la', with inter-glyph advance == font.getlength(previous_char) + tracking, returning the x immediately after the last glyph's advance
+PASS every consecutive pair of glyph origins within the state-label and runway-tag runs differs by exactly font.getlength(previous_char) + LABEL_TRACKING_PX
+PASS the tracked top row builds without an AssertionError and the computed tag start x is >= 0 for every registered runway id, both active states, and a flat and a dithered theme
+PASS for a full two-flight active render with source_fault=True, the main card's line 1, the previous card's line 1, and the source-fault caption are each still drawn as one whole-string call, and the total single-character draw count equals exactly len(label_text) + len(tag_text)
+PASS every registered band theme (PHASE9-1) renders via build_canvas() in both departing and arriving states without exception
+PASS draw_diagonal_band() paints only {IDX_WHITE, band_idx} on a fresh White canvas, flat and dithered
+PASS a band theme's top labels are genuinely split into a merged state-label/airport-code run (e.g. 'DEPARTING FROM ORY') and a standalone runway-tag run (e.g. 'RWY 3'), both derived from runway_tag_text().partition(' · ') (PHASE9-3)
+PASS a non-band theme's (white, the default) top labels remain exactly STATE_LABEL_TEXT and the FULL runway tag, unsplit - both draw_top_labels()'s own default (called with no band_theme argument) and _build_active_canvas()'s wiring genuinely preserve today's behaviour
+PASS the default (white) theme's canvas is byte-identical to before this phase (getdata()/getcolors() computed fresh, and 'white' itself is confirmed not a band theme)
+PASS every one of the 11 pre-band themes' full two-flight render is pixel-identical whether _build_active_canvas()'s band_idx=band_idx wiring runs (always None) or draw_main_text_block()/draw_previous_text_block() are called with no band_idx argument at all (PHASE9-4/PHASE9-6 regression guard)
+PASS a band theme's main card draws the big-number line as route['callsign_iata'] verbatim and the tracked route line as _flight_line1_text()'s real remainder, upper-cased (tier 1); and draws only the promoted airline·type line, with no number/dash/tracked-route draw at all, for a tier-3 (airline-only) route (PHASE9-4)
+PASS a band theme's main-card anchor='ma' draws (the number line and the airline·type line) all share exactly one x-coordinate - center_x is computed once per block, never recomputed per line (round-15 fix, PHASE9-4)
+PASS every registered band theme's main card text samples as IDX_WHITE (never IDX_BLACK) inside its own drawn bboxes - the round-13 ink swap, widened on real glass to every band colour, is proven by actual pixel colour, not by absence of an exception (PHASE9-5)
+PASS the previous card's drawn text bboxes never overlap the diagonal band's own rightmost extent, at any registered band theme, in a full two-flight render (PHASE9-6 clearance guard)
+PASS every registered band theme's full two-flight composition (three-tier main + previous card text, plus the source-fault badge when present) stays _assert_legal_palette()-legal across both active states (PHASE9-4/PHASE9-5/PHASE9-6 full sweep)
+PASS the main illustration's VISIBLE vertical centre sits on one fixed canvas line (within MAIN_VERTICAL_DRIFT_TOLERANCE_PX) across all vendored files, instead of drifting with each file's own transparent top padding (illustration-crop-text-margin's missed sixth anchor)
+PASS render_panel(None, 'quiet_hours', quiet_hours_until='07:00') packs to exactly 960000 bytes, dominated by the dimmed Black field, with at least one White nibble (D-05/D-06, as revised on glass in 12-06)
+PASS every pixel index in build_canvas(None, 'quiet_hours', quiet_hours_until='07:00') is one of the six legal palette indices
+PASS build_canvas(None, 'quiet_hours', ...) is pixel-identical across different theme_id values (theme is ignored for this screen)
+PASS build_canvas(None, 'quiet_hours', quiet_hours_until=None) and quiet_hours_until='' both render without raising and differ from quiet_hours_until='07:00' (heading-only degradation, T-10-02-01)
+PASS battery_low=True changes the quiet-hours canvas relative to battery_low=False (10-RESEARCH.md A2)
+PASS source_fault=True changes the quiet-hours canvas relative to source_fault=False (10-RESEARCH.md A2)
+PASS build_canvas()'s source lists the 'quiet_hours' dispatch branch before the 'empty' dispatch branch
+PASS render.main() via build_parser() with ['--state', 'quiet_hours', '--quiet-hours-until', '07:00', '--out', <path>] returns 0 and writes exactly IMAGE_BYTES bytes
+PASS band_blue_field/band_red_field each render via build_canvas() in both active states with the state's own background index (never White) provably the single most common index on the panel, stated explicitly rather than merely implied by the absence of an exception
+PASS build_canvas(None, 'display_off', theme_id=...) renders the dimmed Black/White field (DIMMED_FIELD_IDX dominant, no third index), carrying the heading and body, byte-identical across the full THEME_IDS registry (D-03 as revised on glass in 12-06)
+PASS build_canvas(None, 'display_off') is provably distinct from build_canvas(None, 'empty') and build_canvas(None, 'quiet_hours', ...) - all three pass flight=None, so a reordered dispatch branch is otherwise silent (the exact trap plan 10-02 documented)
+PASS build_canvas(None, 'display_off', quiet_hours_until='07:00') is byte-identical to the call without it - no return-time value can reach this screen (D-04)
+PASS DISPLAY_OFF_HEADING_TEXT == 'DISPLAY OFF' and DISPLAY_OFF_BODY_TEXT == the locked body string, asserted by exact equality (D-04)
+PASS battery_low=True and source_fault=True each change the display-off canvas independently, and both may be set at once, mirroring the equivalent quiet-hours checks
+PASS build_canvas(None, 'display_off', ...) uses only legal palette indices and passes every internal _assert_in_safe_box() check across all four battery_low/source_fault combinations (neither / battery only / fault only / both)
+PASS BATTERY_EMPTY_HEADING_TEXT == 'BATTERY EMPTY' and BATTERY_EMPTY_BODY_LINES == the two locked authored sentences, asserted by exact equality
+PASS build_canvas(None, 'battery_empty') calls render._build_dimmed_hold_canvas exactly once, with draw_empty_battery_icon, EMPTY_BATTERY_ICON_HEIGHT_PX, BATTERY_EMPTY_HEADING_TEXT, BATTERY_EMPTY_BODY_LINES, source_fault=False and battery_low=False
+PASS build_canvas(None, 'battery_empty') and build_canvas(None, 'display_off') are byte-identical in the top and bottom 400 rows (the same dithered field) and provably distinct overall (the centred glyph/label/body differs)
+PASS draw_empty_battery_icon() returns EMPTY_BATTERY_ICON_HEIGHT_PX (== MOON_ICON_DIAMETER_PX), draws an ink bounding box exactly EMPTY_BATTERY_ICON_HEIGHT_PX tall and EMPTY_BATTERY_ICON_WIDTH_PX wide, a POWER_ICON_STROKE_PX-long ink run at body mid-height from the left edge, a hollow body centre, and only the field/ink indices anywhere on the canvas
+PASS build_canvas(None, 'battery_empty', ...) bytes are byte-stable regardless of source_fault, battery_low or theme_id - the hash the whole parked episode relies on staying constant
+PASS build_canvas(None, 'battery_empty') uses only IDX_BLACK/IDX_WHITE, dominated by DIMMED_FIELD_IDX (Black) - the same dimmed-field family rule as DISPLAY OFF and QUIET HOURS
+render: 140/140 checks pass
+/home/user/skypane/server/test_render.py:523: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  dep_px = list(dep_canvas.crop(bbox).getdata())
+/home/user/skypane/server/test_render.py:524: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  arr_px = list(arr_canvas.crop(bbox).getdata())
+render: skipping illustration /tmp/tmp41zlqyck.png - header unreadable (UnidentifiedImageError)
+render: skipping illustration /tmp/tmpkapbwu_3.png - 42000000 pixels exceeds the 40000000-pixel cap
+render: skipping illustration /tmp/tmp0410s0me.png - header unreadable (UnidentifiedImageError)
+/home/user/skypane/server/test_render.py:2170: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  if list(default_canvas.getdata()) != list(white_canvas.getdata()):
+/home/user/skypane/server/test_render.py:2172: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  default_data = list(default_canvas.getdata())
+/home/user/skypane/server/test_render.py:2177: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  if default_data == list(other_canvas.getdata()):
+/home/user/skypane/server/test_render.py:2194: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  if list(default_canvas.getdata()) != list(unknown_canvas.getdata()):
+/home/user/skypane/server/test_render.py:3210: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  default_data = list(default_canvas.getdata())
+/home/user/skypane/server/test_render.py:3211: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  white_data = list(white_canvas.getdata())
+/home/user/skypane/server/test_render.py:3268: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  if list(canvas_wired.getdata()) != list(canvas_unwired.getdata()):

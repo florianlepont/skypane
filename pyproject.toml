@@ -7,7 +7,9 @@
 
 [tool.ruff]
 # Applies repo-wide: server/, stub-server/, adsb-test/.
-target-version = "py311"
+# py314 (D-A4, phase 32): production is Ubuntu 26.04's distro python3,
+# which is 3.14 - moved up from py311 alongside CI's setup-python bump.
+target-version = "py314"
 
 [tool.ruff.lint]
 # Correctness-focused families only, selected explicitly rather than left
@@ -42,6 +44,53 @@ select = ["E4", "E7", "E9", "F"]
 # style, so the rule is suppressed here with this rationale rather than
 # the working code being rearranged to satisfy it.
 ignore = ["E402"]
+
+[tool.pytest.ini_options]
+# Phase 32 (32-01, TST-01). No [project] table exists in this file (see the
+# header comment above) and none is needed for pytest configuration -
+# [tool.pytest.ini_options] is pytest's own documented way to configure
+# itself from pyproject.toml without one.
+minversion = "9.0"
+
+# server/ has no __init__.py (server/test_*.py runs both as a package
+# member and as a direct script - see the E402 bootstrap comment above),
+# so the default "prepend" import mode would silently pollute sys.path
+# with server/'s own directory the first time two same-named test modules
+# existed anywhere in the tree. importlib mode imports each test module by
+# its fully qualified name instead, with no sys.path mutation.
+addopts = [
+    "--import-mode=importlib",
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+    "-p", "no:legacypath",
+    # Non-loopback network guard (T-32-01-01/02): pytest-socket in
+    # allow-hosts mode only replaces socket.socket.connect - it does NOT
+    # patch socket.getaddrinfo/gethostbyname (verified against the
+    # installed pytest_socket 0.8.1 source, 32-PLAN.md planner findings),
+    # so a non-loopback DNS lookup is NOT blocked by these two flags
+    # alone. conftest.py's autouse _block_non_loopback_dns fixture closes
+    # that gap with its own guarded_resolvers(). --allow-unix-socket keeps
+    # AF_UNIX connects working (CONTEXT.md requirement); loopback servers
+    # (companion/app.py, stub-server/byos_server.py under test) stay
+    # reachable via --allow-hosts.
+    "--disable-socket",
+    "--allow-unix-socket",
+    "--allow-hosts=127.0.0.1,::1,localhost",
+]
+testpaths = ["server", "stub-server", "companion", "test-support"]
+# test-support/ holds the shared test contracts every later plan imports
+# as `import skypane_test_support` - both "." (repo root, so
+# `import server.plane.detect` resolves the same way production code
+# expects) and "test-support" need to be on sys.path before collection.
+pythonpath = [".", "test-support"]
+markers = [
+    "legacy_harness: a hand-rolled companion harness run as one subprocess until Phase 33",
+    "slow: takes more than a few seconds",
+]
+# An xfail that unexpectedly passes is worth knowing about immediately,
+# not silently tolerated.
+xfail_strict = true
 
 [tool.coverage.run]
 # Parallel data files: the suite is 24 independent processes

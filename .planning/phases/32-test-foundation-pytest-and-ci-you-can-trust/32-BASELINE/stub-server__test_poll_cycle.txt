@@ -1,0 +1,47 @@
+PASS seconds_until_quiet_hours_end() and _HHMM_RE are byte-for-byte identical between server/device_config.py and stub-server/byos_server.py
+PASS read_quiet_hours() returns None and never raises for a missing, truncated, non-dict, disabled, or badly-shaped device_config.json
+PASS quiet_hours_sleep_s() returns 28000 inside an enabled 23:00-07:00 window and the unchanged base 300 once the window has ended
+PASS quiet_hours_sleep_s() never returns less than the base sleep, even when the base already carries the device past the window's end
+PASS read_wake_interval_s() returns the caller's default and never raises for a missing, truncated, non-dict, key-absent, bool (true), string, float, or out-of-range device_config.json
+PASS read_wake_interval_s() returns 120 for a stored 120 and returns the inclusive bounds 60 and 3600 unchanged
+PASS quiet_hours_sleep_s(read_wake_interval_s(...), ...) uses the configured 120 as its base with quiet hours disabled, and still returns 28000 (> 3600) inside an active quiet-hours window - the delivered value is deliberately not re-clamped
+PASS read_display_enabled() returns True and never raises for a missing, truncated, non-dict, key-absent, or non-bool (0, 1, "false", null) device_config.json, and a real display_enabled:false survives as False
+PASS with display_enabled false and no quiet-hours window, quiet_hours_sleep_s(display_off_sleep_s(base, d), d) is exactly 300 for base in 60, 300, 900 and 3600 (base=3600 proves the pin REPLACES rather than bounds the configured interval)
+PASS with the display off and quiet hours active, the served sleep_s is max(300, quiet_hours_remaining) in both directions: 28000s of remaining window time wins over the 300s off-state pin, and the 300s pin still floors the value when only 200s remain in the window - the device never wakes more often than quiet hours alone would have made it
+PASS with display_enabled true, the composed sleep_s chain (including display_off_sleep_s()) equals the pre-existing Phase 10/11 quiet_hours_sleep_s(read_wake_interval_s(...)) chain across all four combinations of window active/inactive and wake_interval_s set/unset - this plan adds a branch, it does not alter the on-state behaviour
+PASS DISPLAY_OFF_SLEEP_S is numerically equal between server/device_config.py (read as plain text, never imported) and the loaded stub-server/byos_server.py module
+PASS read_battery_critical() degrades to False and never raises for a missing file, malformed JSON, a non-dict payload, the string "true", the int 1, and a literal false, returns True only for a literal JSON true, and matches server.wake.read_battery_critical() on every one of those fixtures (behaviour parity)
+PASS battery_critical_sleep_s(base, d, fresh_mv): not parked returns base unchanged for every base; parked returns exactly BATTERY_CRITICAL_SLEEP_S (3600) for bases 60/300/3600; a fresh reading of 3800 mV (at or above BATTERY_CRITICAL_RECOVER_MV) anticipates recovery and returns base instead; and a fresh reading of 3500 mV or None stays parked
+PASS the composed sleep_s chain: parked with display_enabled=False yields exactly 3600s (the parked pin beats the 300s off-state pin), and parked inside a quiet-hours window with more than 3600s remaining yields the window's own remaining time (the longer pin always wins, D-05's sleep axis extended)
+PASS BATTERY_CRITICAL_SLEEP_S is numerically equal between server/device_config.py and the loaded stub-server/byos_server.py module, and BATTERY_CRITICAL_RECOVER_MV is numerically equal between server/poll_loop.py and the loaded module - both read as plain text, never imported
+PASS setup issues a 64-lowercase-hex device_token
+PASS setup rejects a body missing mac with 422
+PASS display poll with no Authorization header returns 401
+PASS display poll with an unissued bearer returns 401
+PASS display poll returns a valid response shape (incl. firmware:null and led_enabled:true)
+PASS download yields exactly 960000 bytes matching image_hash
+PASS verify_panel_bytes rejects a flipped byte
+PASS verify_panel_bytes rejects a one-byte truncation
+PASS a second poll of an unchanged image returns the same image_hash (hash-skip)
+PASS replacing the served image changes image_hash and the client re-downloads
+PASS telemetry headers are accepted and echoed to server stdout
+PASS log endpoint accepts a logs array and returns ok:true
+PASS validate_display_response rejects sleep_s=0
+PASS validate_display_response rejects uppercase hex in image_hash
+PASS default --image-url-scheme (http) is served in image_url
+PASS --image-url-scheme https serves image_url with https:// and an unchanged host/path/digest
+PASS an authenticated poll carrying a plausible X-Battery-Mv persists {battery_mv, received_at} to battery_state.json, and a second poll with a different value overwrites it
+PASS 10 hostile/malformed X-Battery-Mv values (non-digit, negative, float, whitespace, injection, out-of-range, the '0' unknown sentinel, empty, oversized, non-ASCII digits) all return 200 and persist nothing - the previously persisted value survives byte-identical
+PASS a display poll with a bogus bearer token returns 401 and never writes battery_state.json (the write barrier sits strictly behind bearer_ok())
+PASS a device_config.json with led_enabled:false yields a 200 display response with led_enabled:false
+PASS a device_config.json with a hostile string led_enabled yields a 200 display response with led_enabled:true
+PASS a truncated/invalid device_config.json still yields a 200 display response with led_enabled:true and passes validate_display_response()
+PASS a device_config.json with a currently-active quiet-hours window yields a 200 display response whose sleep_s is strictly greater than the base --sleep (300) and no greater than 7200
+PASS a hostile device_config.json (non-HH:MM quiet_hours_start, null quiet_hours_end) still yields a 200 display response with sleep_s exactly equal to the base --sleep (300)
+PASS a device_config.json with wake_interval_s:120 yields a 200 display response with sleep_s exactly 120 - not the harness's base --sleep (300)
+PASS a device_config.json with a below-floor wake_interval_s:30 yields a 200 display response with sleep_s exactly 300 (the fail-open CLI default), and still passes validate_display_response()
+PASS with display_enabled false and quiet hours enabled for a window still ~1h from ending, a live GET /device/v1/display response's sleep_s is strictly greater than 300 (the remaining window time wins over the flat off-state pin, D-05's sleep axis) - this is the check the composition-order negative control targets
+PASS with poll_state.json's battery_critical_active latched True, a live GET /device/v1/display carrying X-Battery-Mv:3290 returns sleep_s exactly 3600 (the parked pin)
+PASS with poll_state.json's battery_critical_active still latched True, a live GET /device/v1/display carrying a recovering X-Battery-Mv:4100 returns the base sleep_s (300), not the stale 3600s parked pin - recovery is anticipated within THIS request
+PASS a poll against a stopped server is classified as a failed wake, not a crash
+poll-cycle: 46/46 checks pass

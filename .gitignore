@@ -33,6 +33,8 @@ __pycache__/
 .ruff_cache/
 .coverage
 .coverage.*
+# Phase 32 (32-01): pytest's own cache directory (last-failed, cache/*).
+.pytest_cache/
 
 # --- ESP-IDF build output at root scope ---
 # firmware/.gitignore already covers build/ and build-*/ relative to
