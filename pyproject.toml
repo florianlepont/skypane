@@ -93,18 +93,28 @@ markers = [
 xfail_strict = true
 
 [tool.coverage.run]
-# Parallel data files: the suite is 24 independent processes
-# (scripts/run-all-tests.sh / scripts/run_all_tests.py), each of which
-# needs its own data file before `coverage combine` merges them. These
-# processes now run CONCURRENTLY (one worker per CPU by default) rather
-# than sequentially — parallel mode's one-data-file-per-process design is
-# precisely what makes that concurrency safe; a shared single data file
-# written by simultaneous processes would corrupt itself. Do NOT also set
-# `append` — coverage.py rejects that combination outright ("Can't append
-# to data files in parallel mode"), confirmed live (M2). Parallel mode
-# already gives each process its own file; append is the alternative to
-# it, not a companion.
+# Parallel data files: the suite runs as pytest-xdist workers (one per CPU
+# by default, `scripts/run-all-tests.sh`'s `-n auto`) PLUS every
+# subprocess a test itself launches (byos_server.py, companion/app.py, the
+# legacy companion harnesses run through companion/test_legacy_harness_shim.py)
+# — each of those processes needs its own data file before pytest-cov's
+# end-of-session `coverage combine` merges them. Do NOT also set `append`
+# — coverage.py rejects that combination outright ("Can't append to data
+# files in parallel mode"), confirmed live (M2). Parallel mode already
+# gives each process its own file; append is the alternative to it, not a
+# companion.
 parallel = true
+
+# 32-13-PLAN.md (TST-09 part 1): coverage.py's own subprocess-measurement
+# mechanism (added 7.10; already satisfied by the pinned coverage 7.16.1).
+# pytest-cov 7+ removed its prior `.pth`-file auto-injection for
+# subprocess coverage, so this is the only supported mechanism left —
+# without it, every subprocess-launched child (byos_server.py,
+# companion/app.py, and the legacy companion harnesses) measures at a
+# permanent 0%, exactly the situation the old `omit` entries below existed
+# to paper over. `patch = ["subprocess"]` implies `parallel = true` (kept
+# explicit above for its own documentation value).
+patch = ["subprocess"]
 
 # Source-scoped to this project's own three code directories so library
 # internals (Pillow, requests, stdlib) are never counted toward the

@@ -45,8 +45,9 @@ def test_legacy_companion_harness_exits_zero(harness, tmp_path):
             # without asking for the fake fails loudly instead of silently
             # succeeding.
             env=child_env(),
-            # Own process group, same reason scripts/run_all_tests.py's own
-            # _run_one() uses one: a timeout must take down the harness AND
+            # Own process group, same reason the prior hand-rolled test
+            # runner's own _run_one() (retired by 32-13-PLAN.md) used one:
+            # a timeout must take down the harness AND
             # any child server it spawned (companion/app.py,
             # stub-server/byos_server.py), or that child is orphaned, still
             # bound to its port.
