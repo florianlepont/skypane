@@ -1,87 +1,57 @@
 #!/usr/bin/env bash
-# SkyPane — repeatable code-push to an already-provisioned VPS
-# (run deploy/provision.sh once first). Run from the repository root on
-# your laptop, not on the VPS.
+# SkyPane — ship one git SHA's committed tree to an already-provisioned
+# VPS and run its own activate.sh there (SEC-05, D-09).
+#
+# Run from the repository root on your laptop or CI runner, not on the
+# VPS. deploy/provision.sh must have run there once first.
 #
 # Usage:
 #   deploy/deploy.sh <ssh-target>
-#   deploy/deploy.sh root@203.0.113.10
 #   deploy/deploy.sh ubuntu@203.0.113.10
 #
-# SSH_TARGET may log in directly as root, OR as any other user with
-# passwordless sudo (e.g. Ubuntu cloud images, which disable direct root
-# SSH by default but grant the default user NOPASSWD sudo). Every remote
-# step that touches /opt/skypane (owned by the dedicated `skypane`
-# service user, not the SSH login user) or manages systemd/journald runs
-# through `sudo` so this works either way. `sudo` must be installed and
-# passwordless for SSH_TARGET's login user on the remote host - a
-# password prompt has no tty to answer over a non-interactive `ssh host
-# "sudo ..."` call and will hang/fail.
+# SSH_TARGET logs in as `ubuntu` (or any other non-root user with
+# passwordless sudo) — never as the root account directly (SEC-08,
+# D-08). Every remote step runs through `sudo` so it works the same way
+# regardless of which non-root login the target uses.
 #
-# Rsyncs server/, stub-server/, and companion/ to the VPS, reinstalls
-# pinned Python requirements only if requirements.txt changed, restarts
-# the byos and companion services, starts the poll timer (idempotent if
-# already running), and prints the last few journald lines for all three
-# units so a bad deploy is visible immediately. Never touches
-# deploy/skypane.env - that file is created once, by hand, directly on the
-# VPS (deploy/README.md), and lives outside the server/, stub-server/, and
-# companion/ directories this script rsyncs.
+# Why `git archive`: it streams exactly the tree that is actually
+# committed at HEAD — no local edits, no untracked files, no state/,
+# venv/ or skypane.env, ever leave this machine (T-37-30). The receiving
+# side extracts it into a fresh, per-SHA "incoming" directory; every
+# other decision — staging into releases/<sha>, the atomic `current`
+# swap, service restarts, verification probes, and automatic rollback on
+# failure — belongs to deploy/activate.sh, which runs entirely on the
+# VPS as root. This script only relays activate.sh's own exit status
+# (`set -euo pipefail` plus ssh's exit-code propagation), so a failed
+# activation turns this script red too, and so the CI job.
 set -euo pipefail
 
-APP_ROOT="/opt/skypane"
-SSH_TARGET="${1:?usage: deploy/deploy.sh <ssh-target>, e.g. deploy/deploy.sh root@203.0.113.10}"
+SSH_TARGET="${1:?usage: deploy/deploy.sh <ssh-target>, e.g. deploy/deploy.sh ubuntu@203.0.113.10}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${HERE}/.." && pwd)"
 
-echo "==> Syncing server/ to ${SSH_TARGET}:${APP_ROOT}/server/"
-# --rsync-path runs the *remote* rsync as the skypane service user via
-# sudo, so files land already owned by skypane:skypane regardless of
-# whether SSH_TARGET logs in as root or as a sudo-capable non-root user -
-# a plain rsync would otherwise try to write as the SSH login user into a
-# directory tree owned by skypane and fail with permission denied.
-rsync -az --delete --rsync-path="sudo -u skypane rsync" \
-    --exclude '.venv' --exclude 'state' --exclude '__pycache__' \
-    --exclude '*.pyc' --exclude 'skypane.env' \
-    "${REPO_ROOT}/server/" "${SSH_TARGET}:${APP_ROOT}/server/"
+SHA="$(git -C "${REPO_ROOT}" rev-parse HEAD)"
 
-echo "==> Syncing stub-server/ to ${SSH_TARGET}:${APP_ROOT}/stub-server/"
-rsync -az --delete --rsync-path="sudo -u skypane rsync" \
-    --exclude '__pycache__' --exclude '*.pyc' --exclude 'skypane.env' \
-    "${REPO_ROOT}/stub-server/" "${SSH_TARGET}:${APP_ROOT}/stub-server/"
-
-echo "==> Syncing companion/ to ${SSH_TARGET}:${APP_ROOT}/companion/"
-rsync -az --delete --rsync-path="sudo -u skypane rsync" \
-    --exclude '__pycache__' --exclude '*.pyc' --exclude 'skypane.env' \
-    "${REPO_ROOT}/companion/" "${SSH_TARGET}:${APP_ROOT}/companion/"
-
-echo "==> Syncing adsb-test/runway3.json (production geofence config, not a test fixture -"
-echo "    server/poll_loop.py's --geofence flag and detect.load_geofence() need this file"
-echo "    at runtime for every poll cycle) to ${SSH_TARGET}:${APP_ROOT}/config/runway3.json"
-rsync -az --rsync-path="sudo -u skypane rsync" \
-    "${REPO_ROOT}/adsb-test/runway3.json" "${SSH_TARGET}:${APP_ROOT}/config/runway3.json"
-
-echo "==> Checking whether requirements.txt changed"
-LOCAL_HASH="$(sha256sum "${REPO_ROOT}/server/requirements.txt" | awk '{print $1}')"
-REMOTE_HASH="$(ssh "${SSH_TARGET}" "sudo cat ${APP_ROOT}/.requirements.sha256 2>/dev/null || true")"
-if [ "${LOCAL_HASH}" != "${REMOTE_HASH}" ]; then
-    echo "    requirements.txt (hash-locked) changed - reinstalling into the venv"
-    ssh "${SSH_TARGET}" "sudo -u skypane ${APP_ROOT}/venv/bin/pip install --require-hashes --quiet -r ${APP_ROOT}/server/requirements.txt && echo '${LOCAL_HASH}' | sudo -u skypane tee ${APP_ROOT}/.requirements.sha256 >/dev/null"
-else
-    echo "    requirements.txt (hash-locked) unchanged - skipping pip install"
+if [ -n "$(git -C "${REPO_ROOT}" status --porcelain)" ]; then
+    echo "==> WARNING: working tree has uncommitted changes - only the" \
+        "committed tree at ${SHA} ships, nothing else" >&2
 fi
 
-echo "==> Fixing ownership after rsync (defensive no-op - rsync above already writes as skypane via sudo)"
-ssh "${SSH_TARGET}" "sudo chown -R skypane:skypane ${APP_ROOT}/server ${APP_ROOT}/stub-server ${APP_ROOT}/companion"
+INCOMING="/opt/skypane/releases/.incoming-${SHA}"
 
-echo "==> Restarting skypane-byos.service and skypane-companion.service, starting skypane-poll.timer"
-ssh "${SSH_TARGET}" "sudo systemctl restart skypane-byos.service && sudo systemctl restart skypane-companion.service && sudo systemctl start skypane-poll.timer"
+echo "==> Streaming the committed tree at ${SHA} to ${SSH_TARGET}:${INCOMING}"
+# server/state/** is excluded even though it is (mostly) untracked,
+# because server/state/.gitignore itself is a tracked file and would
+# otherwise be the one server/state/ entry that leaks into the archive.
+git -C "${REPO_ROOT}" archive --format=tar "${SHA}" -- \
+    server stub-server companion deploy adsb-test/runway3.json \
+    ':(exclude)server/state/**' \
+    | ssh "${SSH_TARGET}" "sudo install -d -m 0755 /opt/skypane/releases \
+        && sudo rm -rf '${INCOMING}' \
+        && sudo install -d -m 0755 '${INCOMING}' \
+        && sudo tar -x -C '${INCOMING}'"
 
-echo "==> Recent journald output"
-echo "--- skypane-byos ---"
-ssh "${SSH_TARGET}" "sudo journalctl -u skypane-byos --no-pager -n 10"
-echo "--- skypane-poll ---"
-ssh "${SSH_TARGET}" "sudo journalctl -u skypane-poll --no-pager -n 10"
-echo "--- skypane-companion ---"
-ssh "${SSH_TARGET}" "sudo journalctl -u skypane-companion --no-pager -n 10"
+echo "==> Running activate.sh on ${SSH_TARGET} for ${SHA}"
+ssh "${SSH_TARGET}" "sudo bash '${INCOMING}/deploy/activate.sh' '${SHA}' '${INCOMING}'"
 
 echo "==> Deploy complete."
