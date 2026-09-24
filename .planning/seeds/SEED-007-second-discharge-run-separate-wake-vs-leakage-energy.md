@@ -26,6 +26,8 @@ decisions:
 1. Whether a higher-capacity battery pack is worth buying at all — it
    would help enormously if leakage dominates and barely at all if
    per-wake cost dominates.
+   (2026-09-24: the pack-size decision itself now lives in SEED-008,
+   which weighs wake interval and pack capacity together.)
 2. Whether `PROJECT.md`'s deferred solar-charging question — explicitly
    gated on "real battery life and frame placement... known" — can now be
    revisited with confidence, or still can't.
