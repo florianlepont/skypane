@@ -149,6 +149,14 @@ jobs:
       - name: Lint (blocking — rule set lives in pyproject.toml)
         run: server/.venv/bin/ruff check .
 
+      - name: Shellcheck deploy scripts
+        # shellcheck is preinstalled on the ubuntu-24.04 runner image
+        # (37-RESEARCH.md Standard Stack). It reads each file's own
+        # shebang, so the bash scripts and the POSIX-sh Mac scripts under
+        # deploy/backup/mac/ are each checked against the right dialect
+        # with no --shell override needed.
+        run: find deploy -name '*.sh' -print0 | xargs -0 shellcheck
+
       - name: Score systemd units (offline, fail above 2.0)
         # Independent of deploy/tests/test_units.py's own offline-score
         # test (which skips when systemd-analyze --offline is
