@@ -415,7 +415,7 @@ VPS's own state is actually lost or corrupted):
 
 | Date | Archive | Result |
 |------|---------|--------|
-| _(filled in by Plan 37-10's rehearsal checkpoint)_ | | |
+| 2026-09-24 | skypane-state-20260924T200731Z.tar.gz | integrity_check ok; restored into a scratch dir on the Mac and served by a local companion: flight history, Health, Display/Device settings, uploaded illustrations and the gallery all present. No gap found. |
 
 ## Verifying the deployment
 

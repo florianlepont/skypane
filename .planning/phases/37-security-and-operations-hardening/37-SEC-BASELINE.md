@@ -182,3 +182,12 @@ Done 2026-09-24 ~20:18 UTC.
 - Companion Health page (FR): card "Sauvegarde hors serveur" green,
   "Sauvegarde hors serveur à jour", "Dernière sauvegarde hors serveur :
   22:07 (il y a 12 min)" — the snapshot time (Paris), not the pull time.
+
+## Restore rehearsal (CP-10)
+
+Done 2026-09-24 by the developer on the Mac: newest pulled archive
+`skypane-state-20260924T200731Z.tar.gz` extracted into a `mktemp -d` scratch
+directory, `PRAGMA integrity_check` ok, local companion on 127.0.0.1:8650
+against that directory showed production flight history, Health, Display
+and Device settings, uploaded illustrations and the gallery ("tout est là").
+Recorded in `deploy/README.md` → "Rehearsal log". ROADMAP SC-3 met.
