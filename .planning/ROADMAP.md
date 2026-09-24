@@ -1605,7 +1605,7 @@ Plans:
 4. The suite passes as root and writes nothing outside `tmp_path`
 5. Closing parity: all 2018 pre-migration checks accounted for; coverage ≥ the pre-migration figure
 
-**Plans:** 9/33 plans executed
+**Plans:** 10/33 plans executed
 
 Plans:
 **Wave 1**
@@ -1625,7 +1625,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 33-06-PLAN.md — view_pages part 02 (W3)
+- [x] 33-06-PLAN.md — view_pages part 02 (W3)
 - [ ] 33-10-PLAN.md — config_page part 02 (W3)
 - [ ] 33-15-PLAN.md — companion_app part 02 — /nonexistent literals, flash deck, JS contracts (W3)
 - [ ] 33-20-PLAN.md — quiet_wake on pytest-playwright (W3)
