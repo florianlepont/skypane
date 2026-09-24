@@ -9,31 +9,17 @@ check()/EXPECTED_CHECK_COUNT harness like companion/test_companion_app.py.
 Section 1 is pure in-process unit coverage of companion/auth.py. Section
 2 is HTTP integration coverage proving the same property end to end
 against a real companion/app.py subprocess: failed logins from one IP
-never lock another (ROADMAP SC-1), and --bind (SEC-01/D-22).
+never lock another (ROADMAP SC-1), and --bind (SEC-01/D-22). The
+subprocess itself, and the HTTP client that talks to it, come from
+companion/conftest.py's app_server/make_app_server fixtures and
+test-support/companion_app_server.py (Phase 33, TST-10) — this module
+owns no subprocess-launching code of its own.
 """
-import http.client
-import os
 import socket
-import subprocess
-import sys
-import time
-from urllib.parse import urlencode, urlsplit
+import urllib.parse
 
+import companion_app_server
 from companion import app, auth
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.dirname(HERE)
-if REPO_ROOT not in sys.path:
-    sys.path.insert(0, REPO_ROOT)
-_TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
-if _TEST_SUPPORT_DIR not in sys.path:
-    sys.path.insert(0, _TEST_SUPPORT_DIR)
-
-from skypane_test_support import FakeProviders, child_env  # noqa: E402
-
-APP_PATH = os.path.join(HERE, "app.py")
-TEST_PASSWORD = "companion-throttle-test-password-please-ignore"
-STARTUP_DEADLINE_S = 10.0
 
 
 class _FakeClock:
@@ -150,118 +136,39 @@ def test_login_throttle_key_is_the_bare_address_for_ipv4():
 
 
 # --- Section 2: HTTP integration, real companion/app.py subprocess ------
+#
+# app_server/make_app_server (companion/conftest.py) are function-scoped
+# on purpose: LOGIN_THROTTLE is a process-global singleton inside
+# companion/app.py, so two tests sharing one server would see each
+# other's failed-login counts.
 
-def _pick_free_port():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-    finally:
-        s.close()
-
-
-class _CompanionServer:
-    """Owns a companion/app.py subprocess: a free port, an isolated temp
-    state directory, startup readiness polling, and clean teardown —
-    mirrors companion/test_companion_app.py's own Harness class. A fresh
-    instance per lockout test, deliberately never shared: LOGIN_THROTTLE
-    is a process-global singleton, so two tests sharing one server would
-    see each other's failed-login counts.
+def _post_login(server, password, xff=None):
+    """POST /login and return just the status code — the HTTP status is
+    all these tests need. An X-Forwarded-For header, when given, spoofs
+    the client IP companion/app.py's LOGIN_THROTTLE keys on.
     """
-
-    def __init__(self, state_dir, extra_args=()):
-        self.state_dir = str(state_dir)
-        self.port = _pick_free_port()
-        self.stdout_path = os.path.join(self.state_dir, "app.stdout.log")
-        self.proc = None
-        self.extra_args = list(extra_args)
-
-    def base_url(self):
-        return "http://127.0.0.1:%d" % self.port
-
-    def start(self):
-        env = child_env(
-            dict(os.environ), fake_providers=FakeProviders(), state_dir=self.state_dir)
-        env[auth.PASSWORD_ENV_VAR] = TEST_PASSWORD
-        cmd = [
-            sys.executable, APP_PATH,
-            "--port", str(self.port),
-            "--state-dir", self.state_dir,
-        ] + self.extra_args
-        with open(self.stdout_path, "w") as stdout_fh:
-            self.proc = subprocess.Popen(
-                cmd, stdout=stdout_fh, stderr=subprocess.STDOUT, env=env)
-
-        deadline = time.time() + STARTUP_DEADLINE_S
-        while time.time() < deadline:
-            if self.proc.poll() is not None:
-                raise RuntimeError(
-                    "companion/app.py exited early (code %s) before accepting "
-                    "connections" % self.proc.returncode)
-            try:
-                with socket.create_connection(("127.0.0.1", self.port), timeout=0.5):
-                    return
-            except OSError:
-                time.sleep(0.1)
-        raise RuntimeError(
-            "companion/app.py did not start listening within %.0fs" % STARTUP_DEADLINE_S)
-
-    def read_stdout(self):
-        with open(self.stdout_path) as fh:
-            return fh.read()
-
-    def stop(self):
-        if self.proc is None:
-            return
-        if self.proc.poll() is None:
-            self.proc.terminate()
-            try:
-                self.proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.proc.kill()
-                self.proc.wait(timeout=5)
-        self.proc = None
+    status, _, _ = companion_app_server.http_request(
+        server.url("/login"), method="POST",
+        data=urllib.parse.urlencode({"password": password}).encode(),
+        extra_headers={"X-Forwarded-For": xff} if xff is not None else None)
+    return status
 
 
-def _post_login(base_url, password, xff=None, timeout=10):
-    """POST /login with http.client (never follows redirects) and return
-    just the status code — the httpS status is all these tests need.
-    """
-    parts = urlsplit(base_url)
-    conn = http.client.HTTPConnection(parts.hostname, parts.port, timeout=timeout)
-    try:
-        body = urlencode({"password": password}).encode()
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        if xff is not None:
-            headers["X-Forwarded-For"] = xff
-        conn.request("POST", "/login", body=body, headers=headers)
-        resp = conn.getresponse()
-        resp.read()
-        return resp.status
-    finally:
-        conn.close()
-
-
-def test_five_wrong_passwords_from_one_ip_lock_only_that_ip(tmp_path):
-    server = _CompanionServer(tmp_path)
-    server.start()
-    try:
-        attacker_xff = "203.0.113.5"
-        victim_xff = "198.51.100.7"
-        for _ in range(auth.LOGIN_FAILURE_LIMIT):
-            status = _post_login(server.base_url(), "wrong-password", xff=attacker_xff)
-            assert status in (401, 429)
-        # The lockout has now engaged for the attacker's key.
-        status = _post_login(server.base_url(), "wrong-password", xff=attacker_xff)
-        assert status == 429
-        # A different X-Forwarded-For, same server, logs in normally (SC-1).
-        status = _post_login(server.base_url(), TEST_PASSWORD, xff=victim_xff)
-        assert status == 303
-        # The attacker's own key is still locked, even with the right password.
-        status = _post_login(server.base_url(), TEST_PASSWORD, xff=attacker_xff)
-        assert status == 429
-    finally:
-        server.stop()
+def test_five_wrong_passwords_from_one_ip_lock_only_that_ip(app_server):
+    attacker_xff = "203.0.113.5"
+    victim_xff = "198.51.100.7"
+    for _ in range(auth.LOGIN_FAILURE_LIMIT):
+        status = _post_login(app_server, "wrong-password", xff=attacker_xff)
+        assert status in (401, 429)
+    # The lockout has now engaged for the attacker's key.
+    status = _post_login(app_server, "wrong-password", xff=attacker_xff)
+    assert status == 429
+    # A different X-Forwarded-For, same server, logs in normally (SC-1).
+    status = _post_login(app_server, companion_app_server.TEST_PASSWORD, xff=victim_xff)
+    assert status == 303
+    # The attacker's own key is still locked, even with the right password.
+    status = _post_login(app_server, companion_app_server.TEST_PASSWORD, xff=attacker_xff)
+    assert status == 429
 
 
 def test_build_parser_bind_default_and_override():
@@ -269,12 +176,8 @@ def test_build_parser_bind_default_and_override():
     assert app.build_parser().parse_args(["--bind", "127.0.0.1"]).bind == "127.0.0.1"
 
 
-def test_bind_127_accepts_a_loopback_connection_and_names_it_at_startup(tmp_path):
-    server = _CompanionServer(tmp_path, extra_args=["--bind", "127.0.0.1"])
-    server.start()
-    try:
-        with socket.create_connection(("127.0.0.1", server.port), timeout=2):
-            pass
-        assert "127.0.0.1" in server.read_stdout()
-    finally:
-        server.stop()
+def test_bind_127_accepts_a_loopback_connection_and_names_it_at_startup(make_app_server):
+    server = make_app_server(extra_args=["--bind", "127.0.0.1"])
+    with socket.create_connection(("127.0.0.1", server.port), timeout=2):
+        pass
+    assert "127.0.0.1" in server.read_stdout()
