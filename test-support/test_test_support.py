@@ -144,7 +144,9 @@ def test_child_guard_ignores_loopback_proxy():
     # A loopback proxy would tunnel the request past both guards if it
     # were honoured (the client would only resolve/connect 127.0.0.1:9 and
     # fail with a ConnectionError); install_child_network_guard() must
-    # strip it so the real host's DNS lookup is what gets blocked.
+    # strip it so the real host's DNS lookup is what gets blocked. Plain
+    # http:// so the result never depends on the environment's CA bundle
+    # (a proxied http:// request is tunnelled through the proxy all the same).
     env = dict(os.environ)
     env.update({var: "http://127.0.0.1:9" for var in sts.PROXY_ENV_VARS})
     env[sts.NO_NETWORK_ENV_VAR] = "1"
@@ -156,7 +158,7 @@ def test_child_guard_ignores_loopback_proxy():
         [
             sys.executable,
             "-c",
-            "import requests; requests.get('https://api.adsbdb.com/v0/callsign/AFR1234', timeout=5)",
+            "import requests; requests.get('http://api.adsbdb.com/v0/callsign/AFR1234', timeout=5)",
         ],
         env=env,
         cwd=REPO_ROOT,
