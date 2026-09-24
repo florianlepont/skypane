@@ -1277,7 +1277,13 @@ def test_the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press(new_con
                 "  const radius = parseFloat(radiusRaw);"
                 "  const samples = [];"
                 "  const t0 = performance.now();"
-                "  while (performance.now() - t0 < args.durationMs) {"
+                # Sample until BOTH the window and the sample count are
+                # met (capped at maxMs): under a loaded CI runner
+                # requestAnimationFrame can drop below 25 fps, and a fixed
+                # 400ms loop then collects too few frames to prove anything.
+                "  while ((performance.now() - t0 < args.durationMs"
+                "          || samples.length < args.minSamples)"
+                "         && performance.now() - t0 < args.maxMs) {"
                 "    const hr = handle.getBoundingClientRect();"
                 "    const dr = dial.getBoundingClientRect();"
                 "    const hcx = hr.left + hr.width / 2;"
@@ -1305,7 +1311,8 @@ def test_the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press(new_con
                 "          samples: samples, windowMs: windowMs};"
                 "}",
                 {"handleSel": _handle_sel("quiet_hours_start"),
-                 "dialSel": QUIET_DIAL_SEL, "durationMs": 400})
+                 "dialSel": QUIET_DIAL_SEL, "durationMs": 400,
+                 "minSamples": 10, "maxMs": 5000})
 
             page.mouse.up()
             after_value = page.input_value(
