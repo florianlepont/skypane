@@ -357,6 +357,24 @@ CATALOG = {
         "derniers jours : %d dans la cadence, %d en retard, %d manquants, "
         "%d sans relevé.",
 
+    # --- Off-box backup card (SEC-04, D-07/D-23, 37-02-PLAN.md) -----------
+    "Off-box backup": "Sauvegarde hors serveur",
+    "Off-box backup up to date": "Sauvegarde hors serveur à jour",
+    "Off-box backup overdue": "Sauvegarde hors serveur en retard",
+    "Last off-box backup": "Dernière sauvegarde hors serveur",
+    # D-09: a real U+00A0 between the number and "jours", the same rule
+    # this module's own docstring states for every quantity string.
+    "No off-box backup in the last 3 days.":
+        "Aucune sauvegarde hors serveur depuis 3 jours.",
+    "No off-box backup has been pulled yet.":
+        "Aucune sauvegarde hors serveur n’a encore été récupérée.",
+    # layout.concise_timestamp_html()'s own `fallback` parameter — this
+    # card's one non-quantity, non-page-specific string, added here
+    # rather than as a second layout.py-level catalogue entry because
+    # this is its only call site across the app (grep confirms no
+    # other page passes a `fallback=i18n.t("never")` call).
+    "never": "jamais",
+
     # --- Degrade-not-raise fallback --------------------------------------
     "Health history is temporarily unavailable — check the companion "
     "service logs.":

@@ -32,13 +32,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Executing Phase 33
+status: Ready to execute
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 93%
+  [█████████░] 86%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -52,7 +52,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 33 — companion-tests-on-pytest-behaviour-over-source-text
+**Current focus:** Phase 33 — companion-tests-on-pytest-behaviour-over-source-text (Phase 37 wave A merged to main in #107)
 
 ## Current Position
 
@@ -453,6 +453,13 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 32 P13 | 40m | 3 tasks | 22 files |
 | Phase 32 P14 | 10min | 2 tasks | 2 files |
 | Phase 32 P15 | 35min | 2 tasks | 6 files |
+| Phase 37 P01 | 25min | 2 tasks | 5 files |
+| Phase 37 P02 | 12min | 2 tasks | 4 files |
+| Phase 37 P03 | 13min | 3 tasks | 12 files |
+| Phase 37 P04 | 15min | 3 tasks | 8 files |
+| Phase 37-security-and-operations-hardening P05 | 17min | 2 tasks | 6 files |
+| Phase 37-security-and-operations-hardening P06 | 16min | 3 tasks | 5 files |
+| Phase 37 P07 | 35min | 3 tasks | 9 files |
 | Phase 33 P01 | 16min | 2 tasks | 22 files |
 | Phase 33 P02 | 17min | 3 tasks | 7 files |
 | Phase 33 P03 | 28min | 3 tasks | 8 files |
@@ -882,6 +889,22 @@ Recent decisions affecting current work:
 - [Phase 32]: actions/cache pinned via git ls-remote --tags (api.github.com unreachable this session) to v6.1.0 / 55cc8345863c7cc4c66a329aec7e433d2d1c52a9
 - [Phase 32]: 32-15: fail_under raised from 83 to 88 (measured floor, no margin, per TST-09), measured non-root on both CI's CPython 3.14.0rc2 and the repo's 3.11.15 dev venv (identical 88.11%).
 - [Phase 32]: 32-15: coverage measured as a non-root user (runuser -u nobody), not root, to match GitHub CI's non-root runner and avoid under-counting 3 permission-bit tests that skip under root.
+- [Phase 37]: LoginThrottle read-only methods never touch or create table entries — only record_failure/record_success can insert, so a status check alone cannot grow the bounded table
+- [Phase 37]: Legacy check()-style throttle tests ported to the keyed API in place rather than migrated to pytest — test_companion_app.py's own migration is Phase 33 scope, not 37-01's
+- [Phase 37]: 37-02: offbox_state/offbox appended as the last parameter to overall_severity()/collect_anomalies(), matching the existing append-only widening pattern (coverage_state, source_fault) so every pre-existing call site is unaffected
+- [Phase 37]: 37-02: one shared _offbox_anomaly_text(offbox) helper feeds both collect_anomalies() (banner) and _offbox_section_html() (inline warn paragraph), so the Health off-box card and the anomaly banner can never read different words for the same state
+- [Phase 37]: 37-03: deploy/render_caddyfile.sh is the one shared anchored Caddyfile renderer; units moved to /opt/skypane/current paths ahead of the release-layout cutover
+- [Phase 37]: 37-03: pyproject.toml [tool.coverage.run] source gained deploy/backup ahead of Plan 37-04, following the plan's own instruction
+- [Phase 37-04]: history.db kept outside the allow-list, snapshotted via sqlite3.Connection.backup() rather than treated as just another include file
+- [Phase 37-04]: Backup archive partials use a .partial- NAME PREFIX (matching RESEARCH.md's own archives/.partial-* wording) so an interrupted run's leftovers are trivially recognisable and prunable
+- [Phase 37-04]: Mac pull script's retention loop reads from temp files via redirection, never a pipe into while read, to avoid the POSIX-sh subshell variable-scoping trap
+- [Phase 37-04]: 12-month retention cutoff tries BSD date -v-11m first (macOS/production), falling back to GNU date -d (Linux/CI), one function tried in order
+- [Phase 37-05]: post_origin_ok() checks Sec-Fetch-Site before Origin, rejects both cross-site and same-site (catches a sibling *.nip.io host SameSite=Strict cannot distinguish), and allows header-less requests since they still need the session cookie
+- [Phase 37-05]: _forbidden_page() is a separate helper from _not_found_page(), kept apart so Phase 40's route-table refactor can relocate the do_POST() gate independently
+- [Phase 37]: 37-06: fake-root shell testing for activate.sh/deploy.sh — every VPS path is an overridable variable, exercised via PATH-prepended Python stubs for systemctl/curl/caddy/runuser/journalctl/chown, proving SC-4 (a deploy leaving a unit inactive fails and rolls back) with no VPS and no root
+- [Phase 37]: 37-06: activate.sh's own prerequisite check (BACKUP_ROOT/{archives,pulled}) intentionally refuses to change anything on the current production VPS until Plan 37-07's provision.sh has run there — do not approve a production deploy between merging 37-06 and the Plan 37-09 cutover
+- [Phase 37]: SSH hardening drop-in is validated with sshd -t before every reload, with automatic restore-on-failure — A bad drop-in must never reach a running sshd (T-37-33); harden_sshd.sh writes the file to its final path (sshd -t only reads installed *.conf files), backs up any previous drop-in first, and restores it or removes a new one on validation failure before ever calling systemctl
+- [Phase 37]: provision.sh narrows directory ownership instead of a blanket recursive chown — Replaced chown -R skypane:skypane /opt/skypane with three purpose-scoped ownership statements (root:skypane 0750 on /opt/skypane, root:root 0755 on releases/, skypane:skypane only on state/) so releases/venv stay out of the service user's write reach even on a second provisioning run
 - [Phase 33]: Reused 32-ledger-check.py's architecture unchanged and extended it for staged migration, rather than rewriting from scratch (per 33-RESEARCH.md's recommendation)
 - [Phase 33]: Ledger check_one() treats a harness's own new modules (companion/test_<stem>_NN.py) as part of that harness for collection-error purposes, not only its original legacy path — staged migration means a harness's checked surface spans more than one file at a time
 - [Phase 33]: Left /nonexistent/definitely-not-here (created by the root-run baseline capture) in place instead of force-deleting it — session safety tooling blocks rm -rf on it; 33-25 fixes the root cause with a tmp_path-scoped path

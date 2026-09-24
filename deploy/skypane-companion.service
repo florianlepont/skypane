@@ -2,10 +2,14 @@
 Description=SkyPane companion configuration web interface (companion/app.py)
 # Caddy is the only thing that should ever reach this - see deploy/Caddyfile
 # (reverse_proxy 127.0.0.1:${SKYPANE_COMPANION_PORT}) and deploy/provision.sh
-# (ufw denies the companion port from outside). companion/app.py itself
-# binds 0.0.0.0 - the same discipline skypane-byos.service documents for
-# stub-server/byos_server.py - so the loopback restriction is enforced at
-# the firewall/reverse-proxy layer instead of in the app.
+# (ufw denies the companion port from outside). Unlike skypane-byos.service,
+# this process binds 127.0.0.1 only (--bind, companion/app.py) rather than
+# 0.0.0.0, so the loopback restriction is enforced twice over: by the
+# firewall/reverse-proxy layer and by the socket itself (SEC-06, D-22). No
+# systemd IP address allow-list filter is used here - this service makes
+# its own outbound calls (calendar ICS fetch, ntfy notifications,
+# /poll-now running a poll cycle in-process), and systemd's IP address
+# filtering directives apply to both directions.
 #
 # Separate process (D-03): this is a distinct service from both
 # skypane-byos.service (device protocol) and skypane-poll.service (the
@@ -21,21 +25,56 @@ User=skypane
 Group=skypane
 EnvironmentFile=/opt/skypane/skypane.env
 WorkingDirectory=/opt/skypane
-ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/companion/app.py \
+ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/current/companion/app.py \
     --port ${SKYPANE_COMPANION_PORT} \
     --state-dir ${SKYPANE_STATE_DIR} \
-    --geofence /opt/skypane/config/runway3.json
+    --geofence /opt/skypane/current/adsb-test/runway3.json \
+    --bind 127.0.0.1
 Restart=always
 RestartSec=5
 
-# Hardening - cheap and unconditional for a single-purpose unprivileged
-# service. ReadWritePaths is scoped to the state directory only; everything
-# else the process might touch is read-only or private.
+# Hardening - the release-layout code path (/opt/skypane/current/...,
+# Plan 37-05/37-06) is the only place this process can execute from, and
+# everything below narrows what a compromised interpreter could still do
+# even with that code. ReadWritePaths stays scoped to the state directory
+# only - every other filesystem write is refused by ProtectSystem=strict.
+# UMask=0027 is safe here: this process only ever creates files inside the
+# setgid state/ directory (0640/2750 by construction, provision.sh), and
+# no process anywhere reads state as "other" - the one cross-user access
+# (caddy's own access log) is an explicit mode 660 on a file this service
+# never writes. ProtectProc=invisible additionally hides every other
+# user's /proc entries (and this service's own argv) from anyone who is
+# not root or this unit's own user. RestrictAddressFamilies keeps AF_UNIX
+# (glibc's NSS/resolver lookups use it, needed for the outbound calls
+# above) alongside the IPv4/IPv6 sockets this HTTP server and its outbound
+# clients need.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/skypane/state
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateDevices=true
+DevicePolicy=closed
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+UMask=0027
 
 [Install]
 WantedBy=multi-user.target

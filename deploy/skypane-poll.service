@@ -4,7 +4,9 @@ Description=SkyPane poll cycle (detect -> infer -> enrich -> render -> atomic sw
 # the timer from firing again - systemd's default behaviour (a failed
 # oneshot unit does not disable its triggering timer) already gives us
 # this for free; the error just goes to journald and the previously
-# rendered panel.bin keeps being served by skypane-byos.service.
+# rendered panel.bin keeps being served by skypane-byos.service. No
+# systemd IP address allow-list filter here (SEC-06, D-18): this process
+# makes outbound calls to the ADS-B providers on every cycle.
 After=network-online.target
 Wants=network-online.target
 
@@ -14,15 +16,42 @@ User=skypane
 Group=skypane
 EnvironmentFile=/opt/skypane/skypane.env
 WorkingDirectory=/opt/skypane
-ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/server/poll_loop.py \
+ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/current/server/poll_loop.py \
     --once \
     --state-dir ${SKYPANE_STATE_DIR} \
-    --geofence /opt/skypane/config/runway3.json \
+    --geofence /opt/skypane/current/adsb-test/runway3.json \
     --caddy-log ${SKYPANE_CADDY_ACCESS_LOG}
 
-# Hardening - same posture as skypane-byos.service.
+# Hardening - same posture as skypane-byos.service/skypane-companion.service
+# (see their own comments for the full rationale): the release-layout code
+# path is the only place this process can execute from, ReadWritePaths
+# stays scoped to the state directory, UMask=0027 matches the setgid
+# state/ directory's own permissions, and ProtectProc=invisible hides this
+# service's argv (and everyone else's) from other users.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/skypane/state
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateDevices=true
+DevicePolicy=closed
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+UMask=0027

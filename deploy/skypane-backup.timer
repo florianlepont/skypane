@@ -1,0 +1,16 @@
+[Unit]
+Description=Run skypane-backup.service nightly
+
+[Timer]
+# 03:15 UTC is a quiet hour for the frame (no operator interaction
+# expected) and comfortably clear of the 30s poll cadence contention
+# window. Persistent=true means a VPS reboot or a job that was skipped
+# while the box was down still catches up on the next boot, rather than
+# silently waiting a full day for the next scheduled fire.
+OnCalendar=*-*-* 03:15:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+Unit=skypane-backup.service
+
+[Install]
+WantedBy=timers.target

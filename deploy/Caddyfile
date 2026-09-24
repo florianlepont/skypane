@@ -45,6 +45,15 @@
 203-0-113-10.nip.io {
     reverse_proxy 127.0.0.1:8642
 
+    # HSTS is a browser (user-agent) policy, not something the firmware
+    # reads: esp_http_client only calls esp_http_client_fetch_headers for
+    # the content length (firmware/main/api_client.c) and never inspects
+    # this header, so adding it to the device block is harmless (SEC-02,
+    # D-15). No `preload` (this hostname is not submitted to any preload
+    # list) and no `includeSubDomains` (this host has no subdomains of its
+    # own to cover).
+    header Strict-Transport-Security "max-age=31536000"
+
     # Structured per-request access log to a durable file, not stdout
     # (changed in 06-11-PLAN.md — this is the load-bearing edit that makes
     # CFG-03's battery history possible). The device sends its battery
@@ -93,6 +102,10 @@
 
 config-203-0-113-10.nip.io {
     reverse_proxy 127.0.0.1:8643
+
+    # Same HSTS policy as the device block above (SEC-02, D-15): no
+    # preload, no includeSubDomains.
+    header Strict-Transport-Security "max-age=31536000"
 
     # Console stream is fine here: the companion interface has no
     # durable-telemetry requirement of its own (unlike the block above),
