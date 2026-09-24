@@ -9,6 +9,7 @@ is the only path to them.
 """
 
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -20,6 +21,22 @@ from skypane_test_support import LEGACY_COMPANION_HARNESSES, REPO_ROOT, child_en
 pytestmark = pytest.mark.legacy_harness
 
 _COMPANION_DIR = os.path.join(REPO_ROOT, "companion")
+
+# The browser harnesses exit 0 after printing a line starting "SKIP " when
+# Playwright is missing or Chromium cannot launch - without this, that
+# vacuous exit 0 would read as ~90 browser checks passing.
+_HARNESS_SKIP_LINE = re.compile(r"(?m)^SKIP .*$")
+
+
+def _browser_required():
+    """True in CI (GitHub sets CI=true) or with SKYPANE_REQUIRE_BROWSER=1:
+    there, a harness that could not launch Chromium is a failure, not a
+    skip. Locally it stays a visible pytest skip.
+    """
+    return (
+        os.environ.get("SKYPANE_REQUIRE_BROWSER") == "1"
+        or os.environ.get("CI", "").lower() == "true"
+    )
 
 
 @pytest.mark.parametrize(
@@ -77,6 +94,15 @@ def test_legacy_companion_harness_exits_zero(harness, tmp_path):
     assert returncode == 0, (
         "%s exited %d - last 200 lines:\n%s" % (harness, returncode, last_lines)
     )
+
+    skip_line = _HARNESS_SKIP_LINE.search(output)
+    if skip_line:
+        if _browser_required():
+            pytest.fail(
+                "%s skipped itself, but CI / SKYPANE_REQUIRE_BROWSER=1 requires "
+                "it to run - last 200 lines:\n%s" % (harness, last_lines)
+            )
+        pytest.skip("%s: %s" % (harness, skip_line.group(0)))
 
 
 def test_legacy_harness_list_matches_disk():

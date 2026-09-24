@@ -132,6 +132,12 @@ jobs:
         run: server/.venv/bin/ruff check .
 
       - name: Run full test suite with coverage threshold
+        # SKYPANE_REQUIRE_BROWSER: a browser harness that cannot launch
+        # Chromium fails the shim here instead of exiting 0 as a "SKIP"
+        # (companion/test_legacy_harness_shim.py; CI=true has the same
+        # effect, this just makes the requirement explicit).
+        env:
+          SKYPANE_REQUIRE_BROWSER: "1"
         run: ./scripts/run-all-tests.sh
 
       - name: Check vendored-asset attribution completeness
