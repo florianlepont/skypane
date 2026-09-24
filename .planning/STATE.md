@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
+status: executing
 stopped_at: Completed 32-15-PLAN.md
-last_updated: "2026-09-23T18:13:12.454Z"
-last_activity: 2026-09-23
+last_updated: "2026-09-24T08:38:35.229Z"
+last_activity: 2026-09-24
 progress:
   total_phases: 53
   completed_phases: 41
-  total_plans: 314
+  total_plans: 347
   completed_plans: 292
   percent: 77
 ---
@@ -32,7 +32,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Phase complete — ready for verification
+status: Ready to execute
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
@@ -177,7 +177,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-23
+Last activity: 2026-09-24
 Last activity: 2026-09-23 — Phase 34 executing: plans 34-01..34-10 done (34-01..34-09 merged in PR #102); waiting on 34-11, the single developer-run hardware session (hardware/PHASE34-HARDWARE-SESSION.md).
 Last activity: 2026-09-23 — Phase 34 planned (firmware track of the code-audit remediation): 11 plans in 5 waves, the last one the single developer-run hardware session; ready for /gsd-execute-phase 34.
 Last activity: 2026-09-23 - Completed quick task 260923-fr4: server-side BATTERY EMPTY hold screen (≤3300 mV latch, 3700 mV recovery, 3600 s parked cadence), styled like DISPLAY OFF / QUIET HOURS.
