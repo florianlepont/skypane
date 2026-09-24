@@ -1,0 +1,50 @@
+PASS contrast_ratio('#E8622C', '#FBF9F6') reproduces the audit's published 3.22
+PASS contrast_ratio('#E8622C', '#F3EEE7') reproduces the audit's published 2.93
+PASS contrast_ratio('#D2521F', '#FBF9F6') reproduces the audit's published 4.02
+PASS contrast_ratio('#FF8A5C', '#0D0F14') reproduces the audit's published 8.25
+PASS contrast_ratio('B13F16', 'FFFFFF') reproduces the audit's published 5.85
+PASS contrast_ratio('#B13F16', '#F7F4EF') reproduces the audit's published 5.33
+PASS contrast_ratio('#B13F16', '#EEE8DE') reproduces the audit's published 4.80
+PASS contrast_ratio('#FF9B73', '#0C0F14') reproduces the audit's published 9.31
+PASS light: accent text/link on canvas meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS light: accent on primary surface / active nav meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS light: accent on secondary/sidebar surface meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS light: primary-button label on accent fill meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS light: body text on canvas meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS light: body text on card surface meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS dark: accent text/link on canvas meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS dark: accent on primary surface meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS dark: accent on secondary/sidebar surface meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS dark: primary-button label on accent fill meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS dark: body text on card surface meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS light: muted detail text on card surface meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS dark: muted detail text on card surface meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS light: body text on secondary/sidebar surface meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS dark: body text on secondary/sidebar surface meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS light: --color-accent is perceptually separated from --color-status-ok (dE76 >= 28)
+PASS light: --color-accent is perceptually separated from --color-status-warn (dE76 >= 28)
+PASS light: --color-accent is perceptually separated from --color-status-error (dE76 >= 28)
+PASS dark: --color-accent is perceptually separated from --color-status-ok (dE76 >= 28)
+PASS dark: --color-accent is perceptually separated from --color-status-warn (dE76 >= 28)
+PASS dark: --color-accent is perceptually separated from --color-status-error (dE76 >= 28)
+PASS light: --color-status-ok and --color-status-warn are perceptually separated (dE76 >= 28) — the regularity grid paints them as adjacent cells with nothing but colour between them
+PASS light: --color-status-ok and --color-status-error are perceptually separated (dE76 >= 28) — the regularity grid paints them as adjacent cells with nothing but colour between them
+PASS light: --color-status-warn and --color-status-error are perceptually separated (dE76 >= 28) — the regularity grid paints them as adjacent cells with nothing but colour between them
+PASS dark: --color-status-ok and --color-status-warn are perceptually separated (dE76 >= 28) — the regularity grid paints them as adjacent cells with nothing but colour between them
+PASS dark: --color-status-ok and --color-status-error are perceptually separated (dE76 >= 28) — the regularity grid paints them as adjacent cells with nothing but colour between them
+PASS dark: --color-status-warn and --color-status-error are perceptually separated (dE76 >= 28) — the regularity grid paints them as adjacent cells with nothing but colour between them
+PASS light: --color-accent and --color-status-error are hue-separated (>= 24 deg)
+PASS dark: --color-accent and --color-status-error are hue-separated (>= 24 deg)
+PASS light: the dE76 floor rejects the superseded error colour #DC2626 (guard against a decorative threshold)
+PASS light: the hue floor rejects the superseded error colour #DC2626 (guard against a decorative threshold)
+PASS dark: the dE76 floor rejects the superseded error colour #F87171 (guard against a decorative threshold)
+PASS dark: the hue floor rejects the superseded error colour #F87171 (guard against a decorative threshold)
+PASS light: --color-status-error meets WCAG AA UI-component contrast (>= 3:1) on every light surface
+PASS dark: --color-status-error meets WCAG AA UI-component contrast (>= 3:1) on every dark surface
+PASS hue_separation() takes the shorter arc, including across the 0/360 wrap point
+PASS dark: warn-coloured headline on card surface meets WCAG AA normal-text contrast (>= 4.5:1)
+PASS light: warn-coloured headline on card surface correctly falls below WCAG AA normal-text contrast, confirming style.css's non-colour status-warn fallback is required
+PASS the status-warn-on-card pair is present in contrast_check.STATUS_WARN_ON_CARD_PAIRS for both themes
+PASS light: the login field's error border (--color-status-error) meets WCAG AA UI-component contrast (>= 3:1) against BOTH colours adjacent to it — the field's own fill and the login card's surface
+PASS dark: the login field's error border (--color-status-error) meets WCAG AA UI-component contrast (>= 3:1) against BOTH colours adjacent to it — the field's own fill and the login card's surface
+contrast-check: 49/49 checks pass
