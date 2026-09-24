@@ -32,13 +32,19 @@
 #     leaves every shipped path identical (a docs-only push never deploys
 #     itself), and otherwise FAILS the job — as does any error reading
 #     the tip — so a guard decision is never a silently green skip.
-#   - `paths-ignore` on both triggers: a docs-only change (`**/*.md`,
-#     `.planning/**`, `.claude/**`, `LICENSE`) no longer runs this job at
-#     all. This is safe specifically because `main` has NO branch
-#     protection and NO required status checks configured in this
-#     repository — a skipped run blocks nothing. Deliberately does NOT
-#     ignore `hardware/**` or `adsb-test/**`: `ruff check .` lints the
-#     Python in both, so excluding them would silence a real lint gate.
+#   - A `paths` filter with `!` exclusions on both triggers (ordered:
+#     a later positive pattern re-includes what an earlier `!` excluded):
+#     a docs-only change (`**/*.md`, `.planning/**`, `.claude/**`,
+#     `LICENSE`) no longer runs this job at all — EXCEPT the Markdown the
+#     suite itself reads, re-included by name: the 06.6.3-CONTEXT.md,
+#     20-UI-SPEC.md and 21-UI-SPEC.md files the legacy companion
+#     harnesses assert on, and `server/assets/**/VENDOR.md`, which
+#     `check-attribution.sh` checks. A new test that reads another doc
+#     must add it here too. Skipping is safe specifically because `main`
+#     has NO branch protection and NO required status checks configured
+#     in this repository — a skipped run blocks nothing. Deliberately does
+#     NOT exclude `hardware/**` or `adsb-test/**`: `ruff check .` lints
+#     the Python in both, so excluding them would silence a real lint gate.
 #   - `timeout-minutes` on every job: no job can ever consume GitHub's
 #     6-hour default, whether from a genuinely hung step or a runner-side
 #     stall.
@@ -53,17 +59,29 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - '.planning/**'
-      - '.claude/**'
-      - 'LICENSE'
+    paths:
+      - '**'
+      - '!**/*.md'
+      - '!.planning/**'
+      - '!.claude/**'
+      - '!LICENSE'
+      # Re-included: docs the suite itself reads (see header comment).
+      - '.planning/phases/06.6.3-companion-per-page-redesign-config-health-history-airlines-p/06.6.3-CONTEXT.md'
+      - '.planning/phases/20-companion-suggestions-from-the-audit-french-localisation-liv/20-UI-SPEC.md'
+      - '.planning/phases/21-companion-feedback-round-3-frame-controls-up-front-home-with/21-UI-SPEC.md'
+      - 'server/assets/**/VENDOR.md'
   pull_request:
-    paths-ignore:
-      - '**/*.md'
-      - '.planning/**'
-      - '.claude/**'
-      - 'LICENSE'
+    paths:
+      - '**'
+      - '!**/*.md'
+      - '!.planning/**'
+      - '!.claude/**'
+      - '!LICENSE'
+      # Re-included: docs the suite itself reads (see header comment).
+      - '.planning/phases/06.6.3-companion-per-page-redesign-config-health-history-airlines-p/06.6.3-CONTEXT.md'
+      - '.planning/phases/20-companion-suggestions-from-the-audit-french-localisation-liv/20-UI-SPEC.md'
+      - '.planning/phases/21-companion-feedback-round-3-frame-controls-up-front-home-with/21-UI-SPEC.md'
+      - 'server/assets/**/VENDOR.md'
 
 # Least privilege for the workflow's GITHUB_TOKEN: read the repository,
 # nothing else. (The repo default is already read-only; declaring it here
@@ -176,7 +194,7 @@ jobs:
         # in-flight rsync — this step decides before anything is shipped:
         #   - this commit is still the tip of main: deploy;
         #   - main moved on, but only to commits that leave every shipped
-        #     path identical (e.g. a docs-only push `paths-ignore` never
+        #     path identical (e.g. a docs-only push the `paths` filter never
         #     runs CI for, so it would never deploy itself): deploying
         #     this commit is deploying the tip, so deploy;
         #   - main moved on and changed shipped files: FAIL the job. The
