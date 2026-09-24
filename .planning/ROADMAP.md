@@ -1685,11 +1685,11 @@ Plans:
 4. A deploy that leaves a unit inactive fails the CI job; units and Caddyfile are deployed
 5. `systemd-analyze security` score recorded before/after; byos reachable on loopback only; no secret in `ps`
 
-**Plans:** 1/11 plans executed
+**Plans:** 2/11 plans executed
 
 Plans:
 - [x] 37-01-PLAN.md — Wave A — SEC-01 per-client-IP login throttle, plus the companion `--bind` flag (D-22)
-- [ ] 37-02-PLAN.md — Wave A — off-box backup freshness on the companion Health page, warn nav dot (SEC-04, D-07, D-23)
+- [x] 37-02-PLAN.md — Wave A — off-box backup freshness on the companion Health page, warn nav dot (SEC-04, D-07, D-23)
 - [ ] 37-03-PLAN.md — Wave A — HSTS + shared Caddyfile renderer, hardened units on `/opt/skypane/current` + backup timer, `ci.yml` secrets via `env:` + offline `systemd-analyze` gate (SEC-02/05/06/07)
 - [ ] 37-04-PLAN.md — Wave A — backup machinery: nightly snapshot (gallery/ included, D-24), forced-command gate, Mac pull script + launchd (SEC-04)
 - [ ] 37-05-PLAN.md — Wave A — SEC-03 `Origin`/`Sec-Fetch-Site` check on every POST
