@@ -127,3 +127,53 @@ def served_css_rules(server):
     served stylesheet structurally instead of reading it from disk.
     """
     return css_rules(served_stylesheet(server))
+
+
+def strip_js_line_and_block_comments(js):
+    """`js` with its `//` line comments and `/* */` block comments blanked
+    out, leaving every string/template literal untouched — unlike
+    `companion_markup.strip_js_comments_and_strings()`, which erases
+    string literals too and is therefore unusable for a check that needs
+    to find a quoted selector, attribute name or constant value inside a
+    served script. Mirrors the legacy harness's own long-standing
+    `_js_code_without_comments()` idiom (a check over served JS strips
+    comments — never the strings the check is actually looking for —
+    because a comment can quote the very token a check counts, while a
+    string literal IS the token some checks count).
+    """
+    out = []
+    i, n = 0, len(js)
+    in_string = None
+    while i < n:
+        ch = js[i]
+        if in_string:
+            out.append(ch)
+            if ch == "\\" and i + 1 < n:
+                out.append(js[i + 1])
+                i += 2
+                continue
+            if ch == in_string:
+                in_string = None
+            i += 1
+            continue
+        two = js[i:i + 2]
+        if two == "/*":
+            end = js.find("*/", i + 2)
+            end = len(js) if end == -1 else end + 2
+            out.append(" ")
+            i = end
+            continue
+        if two == "//":
+            end = js.find("\n", i)
+            end = len(js) if end == -1 else end
+            out.append(" ")
+            i = end
+            continue
+        if ch in ("\"", "'", "`"):
+            in_string = ch
+            out.append(ch)
+            i += 1
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
