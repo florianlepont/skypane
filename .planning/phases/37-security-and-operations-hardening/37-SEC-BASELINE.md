@@ -110,6 +110,13 @@ After the deploy:
 - Browser checks confirmed by the developer: login, Poll now, save a
   setting, theme preview, Health (off-box card shows "never" in warn, as
   expected before CP-8/CP-9); cortege opens normally.
+- `readlink /opt/skypane/current` (with sudo) =
+  `/opt/skypane/releases/e18c5ef923f30428a94fa03df307afc9cd68b9e4`; GET
+  `https://<device-host>/device/v1/display` → 401, GET
+  `https://skypane.algernon.ovh/login` → 200.
+- Cortege health checked from outside: `https://cortege.algernon.ovh/v1/health`
+  → 200 `{"status":"ok","service":"cortege-api"}`,
+  `https://cortege-files.algernon.ovh/minio/health/live` → 200.
 - No hardening directive had to be reverted.
 
 ## Deliberate failed deploy (CP-5)
