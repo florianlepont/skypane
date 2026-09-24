@@ -2,10 +2,11 @@
 companion service (D-01/D-02, 06-CONTEXT.md).
 
 There are no per-user accounts: a single shared password protects the
-entire site uniformly (D-02). This module is stdlib-only (hashlib, hmac,
-http.cookies, os, time, secrets) — it must never import Pillow, sqlite3,
-or anything under server/, matching this project's stdlib-first
-discipline (06-RESEARCH.md).
+entire site uniformly (D-02). This module is stdlib-only (collections,
+hashlib, hmac, http.cookies, ipaddress, os, time, secrets,
+urllib.parse) — it must never import Pillow, sqlite3, or anything
+under server/, matching this project's stdlib-first discipline
+(06-RESEARCH.md).
 
 Constants:
 
@@ -44,13 +45,16 @@ is lost on restart exactly like everything else in this module — that
 is acceptable for one household (19-CONTEXT.md D-16), not a general
 session store.
 """
+import collections
 import hashlib
 import hmac
+import ipaddress
 import os
 import secrets
 import threading
 import time
 from http.cookies import SimpleCookie
+from urllib.parse import urlsplit
 
 PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"
 SESSION_TTL_S = 12 * 3600
@@ -298,59 +302,239 @@ def parse_cookies(header_value):
     return {name: morsel.value for name, morsel in jar.items()}
 
 
+def client_ip(peer, xff):
+    """The address that identifies a caller for login-throttle purposes.
+
+    `X-Forwarded-For` is only trusted when the TCP peer itself is
+    loopback — that is Caddy, the only reverse proxy in front of this
+    service, and Caddy overwrites (never appends to) a client-supplied
+    XFF value. Any other peer is talking to this process directly (dev/
+    LAN use, or a future misconfiguration), so a header it could set
+    itself must never be trusted: the peer address is the identity.
+    When XFF is trusted, its right-most entry is used — that is the
+    hop Caddy itself appended, never a value an upstream client wrote.
+    An unparsable peer or XFF value falls back to the peer string as
+    given, so a malformed header can never turn into an exception on
+    the request path.
+    """
+    try:
+        parsed_peer = ipaddress.ip_address(peer)
+    except ValueError:
+        return peer
+    mapped = getattr(parsed_peer, "ipv4_mapped", None)
+    peer_is_loopback = parsed_peer.is_loopback or (
+        mapped is not None and mapped.is_loopback)
+    if peer_is_loopback and xff:
+        candidate = xff.split(",")[-1].strip()
+        if candidate:
+            try:
+                return str(ipaddress.ip_address(candidate))
+            except ValueError:
+                pass
+    return str(parsed_peer)
+
+
+def login_throttle_key(peer, xff):
+    """The LoginThrottle bucket key for a request: client_ip(), with an
+    IPv6 result collapsed to its /64 network so a single host cannot buy
+    itself unlimited fresh buckets out of its own /64 allocation.
+    """
+    ip = client_ip(peer, xff)
+    try:
+        parsed = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip
+    if parsed.version == 6:
+        return str(ipaddress.ip_network(ip + "/64", strict=False))
+    return ip
+
+
 class LoginThrottle:
-    """A process-global (not per-session) failed-login guard.
+    """A failed-login guard keyed on the caller's address (client_ip()/
+    login_throttle_key() above), not a single process-global counter.
 
-    D-01/D-02 mean there are no distinct users on this site, so a
-    per-session counter would be trivially defeated by opening a second
-    tab — the same reasoning 06-RESEARCH.md's Pitfall 8 applies to the
-    CFG-07 poll-trigger cooldown applies here to login attempts. This is
-    a courtesy guard for a single-user personal tool, not a defence
-    against a distributed attacker; the real strength of this site's
-    auth is the length of the operator-generated shared secret.
+    D-01/D-02 mean there are no distinct user accounts on this site, so
+    a per-session counter would be trivially defeated by opening a
+    second tab — the same reasoning 06-RESEARCH.md's Pitfall 8 applies
+    to the CFG-07 poll-trigger cooldown applies here. A single shared
+    global counter, however, has the opposite problem: one stranger's
+    wrong guesses lock out the site's real owner. Keying on the caller's
+    address gives each address its own bucket, so failures from one
+    address never lock another, while still sharing one lockout window
+    per address — this remains a courtesy guard for a single-user
+    personal tool, not a defence against a distributed attacker; the
+    real strength of this site's auth is the length of the
+    operator-generated shared secret.
 
-    Per-IP throttling was considered (19-CONTEXT.md Deferred Ideas) and
-    deliberately deferred — the global counter stays, because there is
-    one shared password and no notion of distinct clients worth
-    tracking separately.
+    The bucket table (`collections.OrderedDict`, key -> [failures,
+    locked_until, last_seen]) is bounded by `max_entries`: without a
+    cap, an attacker spraying distinct source addresses could grow the
+    table without limit. On an insert that would exceed the cap,
+    entries that are both unlocked and idle for longer than the lockout
+    window are dropped first (they are almost certainly done mattering)
+    and, if that alone is not enough, the least-recently-touched entries
+    are evicted next, regardless of lock state. A spraying attacker can
+    thereby evict and reset their own locked bucket, but never anyone
+    else's — an accepted trade for bounded memory.
     """
 
-    def __init__(self, limit=LOGIN_FAILURE_LIMIT, lockout_s=LOGIN_LOCKOUT_S):
+    def __init__(self, limit=LOGIN_FAILURE_LIMIT, lockout_s=LOGIN_LOCKOUT_S,
+                 max_entries=4096, clock=time.time):
         self._limit = limit
         self._lockout_s = lockout_s
-        self._failures = 0
-        self._locked_until = 0.0
+        self._max_entries = max_entries
+        self._clock = clock
+        self._entries = collections.OrderedDict()
         # WR-03 (19-REVIEW.md): this instance is a single process-global
         # object shared across every request thread under
-        # ThreadingHTTPServer (see the class docstring above), so
-        # _failures/_locked_until must not be read-then-written by two
-        # threads at once. Mirrors _REVOKED_LOCK's own precedent a few
-        # functions above in this same file.
+        # ThreadingHTTPServer (see the class docstring above), so the
+        # table must not be read-then-written by two threads at once.
+        # Mirrors _REVOKED_LOCK's own precedent a few functions above in
+        # this same file.
         self._lock = threading.Lock()
 
-    def record_failure(self):
+    def _evict_locked(self):
+        # Must be called with self._lock already held.
+        if len(self._entries) < self._max_entries:
+            return
+        now = self._clock()
+        for key in list(self._entries.keys()):
+            if len(self._entries) < self._max_entries:
+                break
+            failures, locked_until, last_seen = self._entries[key]
+            unlocked = now >= locked_until
+            stale = (now - last_seen) > self._lockout_s
+            if unlocked and stale:
+                del self._entries[key]
+        while len(self._entries) >= self._max_entries:
+            self._entries.popitem(last=False)
+
+    def _touch_locked(self, key):
+        # Must be called with self._lock already held. Returns the
+        # mutable [failures, locked_until, last_seen] entry for key,
+        # creating it (evicting first if the table is full) and moving
+        # it to the most-recently-seen end.
+        if key in self._entries:
+            self._entries.move_to_end(key)
+            return self._entries[key]
+        self._evict_locked()
+        entry = [0, 0.0, self._clock()]
+        self._entries[key] = entry
+        return entry
+
+    def record_failure(self, key):
         # A-32/D-15: once the previous lockout window has fully elapsed,
         # a new failure must start a fresh count rather than re-arming
         # the lockout from an already-saturated counter — otherwise one
         # stray wrong password per window keeps the lockout permanent.
         # Contract: five fresh failures per window, never permanent.
         with self._lock:
-            if self._failures >= self._limit and time.time() >= self._locked_until:
-                self._failures = 0
-            self._failures += 1
-            if self._failures >= self._limit:
-                self._locked_until = time.time() + self._lockout_s
+            entry = self._touch_locked(key)
+            now = self._clock()
+            failures = entry[0]
+            if failures >= self._limit and now >= entry[1]:
+                failures = 0
+            failures += 1
+            entry[0] = failures
+            if failures >= self._limit:
+                entry[1] = now + self._lockout_s
+            entry[2] = now
 
-    def record_success(self):
+    def record_success(self, key):
         with self._lock:
-            self._failures = 0
-            self._locked_until = 0.0
+            entry = self._touch_locked(key)
+            entry[0] = 0
+            entry[1] = 0.0
+            entry[2] = self._clock()
 
-    def locked_out(self):
+    def locked_out(self, key):
         with self._lock:
-            return time.time() < self._locked_until
+            entry = self._entries.get(key)
+            if entry is None:
+                return False
+            return self._clock() < entry[1]
 
-    def seconds_remaining(self):
+    def seconds_remaining(self, key):
         with self._lock:
-            remaining = self._locked_until - time.time()
+            entry = self._entries.get(key)
+            if entry is None:
+                return 0
+            remaining = entry[1] - self._clock()
         return int(remaining) if remaining > 0 else 0
+
+
+# SEC-03 (37-05-PLAN.md Task 1, D-16, T-37-22/T-37-23): defence in depth
+# on top of SameSite=Strict (A-33/D-16 above), not a replacement for it.
+# SameSite=Strict already stops a cross-site browser navigation or fetch
+# from carrying the session cookie at all in every browser that honours
+# it; this check exists for the two things that discipline alone does not
+# cover — a browser that predates SameSite=Strict enforcement, and a
+# same-site sibling host (another name under the same registrable domain,
+# e.g. a second *.nip.io label) that SameSite=Strict itself does NOT
+# distinguish from this site (T-37-23). Fetch Metadata's Sec-Fetch-Site
+# header names that distinction directly ("cross-site" vs "same-site" vs
+# "same-origin"), so it is checked first and rejects both.
+#
+# Header-less requests are allowed on purpose (T-37-24, accepted): a
+# request carrying neither Sec-Fetch-Site nor Origin still needs a valid
+# session cookie to do anything, and refusing it here would only break
+# non-browser and older-browser clients for no security gain — the
+# accepted risk is an old browser's cross-site POST reaching the gate
+# with SameSite=Strict already having stripped its cookie, not a
+# meaningfully more permissive request.
+#
+# Comparing Origin against Host (rather than a hardcoded hostname) is
+# sound specifically because this is a same-process comparison of two
+# request headers a well-behaved client sets independently: a browser
+# always sets Origin to the page's own origin and Host to the request's
+# real target, and an attacker page can set neither on the victim's
+# behalf. Caddy passes Host through unchanged by default, so this holds
+# identically in production (behind Caddy) and in a bare-loopback test.
+_ORIGIN_DEFAULT_PORT = {"https": "443", "http": "80"}
+
+
+def post_origin_ok(headers):
+    """True when `headers` (any mapping with a `.get()` keyed by the
+    exact header names browsers send — `http.server`'s own per-request
+    `self.headers` is already case-insensitive on lookup, and a plain
+    test dict simply uses those same names) describes a POST this
+    service should accept; False when it looks cross-site and must be
+    rejected with a 403 before any routing or form read (see
+    companion/app.py's `do_POST()`).
+
+    Rule, in order:
+    1. `Sec-Fetch-Site: cross-site` or `same-site` -> reject (T-37-22/
+       T-37-23) — checked first because it is the most specific signal a
+       modern browser sends, and it is what catches a same-site sibling
+       host Origin/Host comparison alone would not.
+    2. No `Origin` header at all -> allow (header-less clients, T-37-24).
+    3. `Origin: null` -> reject (an opaque origin — a sandboxed iframe, a
+       data: URL, or a redirect chain — is never this site's own origin).
+    4. Otherwise, `Origin`'s netloc must equal `Host`, compared
+       case-insensitively with each side's own default port (443 for
+       https, 80 for http) stripped so `https://h` and `https://h:443`
+       compare equal to a bare `Host: h`. A present `Origin` with no
+       `Host` at all is rejected rather than treated as unverifiable.
+    """
+    sfs = headers.get("Sec-Fetch-Site")
+    if sfs is not None and sfs.strip().lower() in ("cross-site", "same-site"):
+        return False
+
+    origin = headers.get("Origin")
+    if origin is None:
+        return True
+    if origin == "null":
+        return False
+
+    parsed = urlsplit(origin)
+    netloc = (parsed.hostname or "").lower()
+    if parsed.port is not None and str(parsed.port) != _ORIGIN_DEFAULT_PORT.get(parsed.scheme):
+        netloc = "%s:%d" % (netloc, parsed.port)
+
+    host = (headers.get("Host") or "").lower()
+    for suffix in (":443", ":80"):
+        if host.endswith(suffix):
+            host = host[: -len(suffix)]
+            break
+
+    return bool(host) and netloc == host

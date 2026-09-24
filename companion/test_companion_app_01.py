@@ -177,30 +177,31 @@ def test_parse_cookies_multi_and_malformed():
 def test_login_throttle_allows_locks_and_resets():
     """LoginThrottle allows attempts up to its limit, locks out, then resets on success"""
     throttle = auth.LoginThrottle(limit=3, lockout_s=60)
+    key = "203.0.113.5"
     for _ in range(2):
-        assert not throttle.locked_out()
-        throttle.record_failure()
-    throttle.record_failure()  # the 3rd failure reaches the limit
-    assert throttle.locked_out()
-    assert throttle.seconds_remaining() > 0
-    throttle.record_success()
-    assert not throttle.locked_out()
+        assert not throttle.locked_out(key)
+        throttle.record_failure(key)
+    throttle.record_failure(key)  # the 3rd failure reaches the limit
+    assert throttle.locked_out(key)
+    assert throttle.seconds_remaining(key) > 0
+    throttle.record_success(key)
+    assert not throttle.locked_out(key)
 
 
 def test_login_throttle_self_releases_with_zero_length_window():
     """LoginThrottle with a zero-length window releases itself and a post-window failure
     starts a fresh count (A-32/D-15)"""
-    # A-32/D-15: with lockout_s=0 the window elapses immediately, so no
-    # real sleep is needed to exercise "a lockout releases itself." The
-    # regression this pins: a naive fix that only checks the failure
-    # count (not the elapsed window) would re-arm the lockout on this
-    # 4th failure instead of starting a fresh count.
+    # With lockout_s=0 the window elapses immediately. The regression this
+    # pins: a fix that only checks the failure count (not the elapsed
+    # window) would re-arm the lockout on this 4th failure instead of
+    # starting a fresh count.
     throttle = auth.LoginThrottle(limit=3, lockout_s=0)
+    key = "203.0.113.5"
     for _ in range(3):
-        throttle.record_failure()
-    assert not throttle.locked_out()
-    throttle.record_failure()
-    assert not throttle.locked_out(), (
+        throttle.record_failure(key)
+    assert not throttle.locked_out(key)
+    throttle.record_failure(key)
+    assert not throttle.locked_out(key), (
         "one post-window failure should count as 1 of 3 toward a fresh lockout, "
         "not immediately re-arm it")
 
@@ -208,17 +209,16 @@ def test_login_throttle_self_releases_with_zero_length_window():
 def test_login_throttle_self_releases_with_real_window():
     """LoginThrottle with a real lockout_s releases itself once the window elapses and a
     post-window failure starts a fresh count (A-32/D-15)"""
-    # Same property as above, but with a real non-zero lockout_s, proven
-    # by rewinding _locked_until into the past — there is no clock
-    # injection point on LoginThrottle.
-    throttle = auth.LoginThrottle(limit=3, lockout_s=60)
+    clock = [1000.0]
+    throttle = auth.LoginThrottle(limit=3, lockout_s=60, clock=lambda: clock[0])
+    key = "203.0.113.5"
     for _ in range(3):
-        throttle.record_failure()
-    assert throttle.locked_out()
-    throttle._locked_until = time.time() - 1  # simulate the window elapsing
-    assert not throttle.locked_out()
-    throttle.record_failure()
-    assert not throttle.locked_out(), (
+        throttle.record_failure(key)
+    assert throttle.locked_out(key)
+    clock[0] += 61  # the window elapses
+    assert not throttle.locked_out(key)
+    throttle.record_failure(key)
+    assert not throttle.locked_out(key), (
         "one post-window failure should count as 1 of 3 toward a fresh lockout, "
         "not immediately re-arm it")
 

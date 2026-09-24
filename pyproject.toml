@@ -78,7 +78,7 @@ addopts = [
     "--allow-unix-socket",
     "--allow-hosts=127.0.0.1,::1,localhost",
 ]
-testpaths = ["server", "stub-server", "companion", "test-support"]
+testpaths = ["server", "stub-server", "companion", "test-support", "deploy"]
 # test-support/ holds the shared test contracts every later plan imports
 # as `import skypane_test_support` - both "." (repo root, so
 # `import server.plane.detect` resolves the same way production code
@@ -127,12 +127,15 @@ patch = ["subprocess"]
 # saves nothing — that is a failed run anyway.
 sigterm = true
 
-# Source-scoped to this project's own three code directories so library
+# Source-scoped to this project's own code directories so library
 # internals (Pillow, requests, stdlib) are never counted toward the
 # measurement — an unscoped run makes any threshold meaningless
 # (04-RESEARCH.md Pitfall 3). "companion" added 06-11 alongside the six
-# new harnesses that exercise it.
-source = ["server", "stub-server", "companion"]
+# new harnesses that exercise it. "deploy/backup" added in 37-03 for the
+# nightly snapshot job and pull gate (Plan 37-04); deploy/tests/ itself
+# and deploy/render_caddyfile.sh (a shell script, not measured by
+# coverage.py) are deliberately not listed here.
+source = ["server", "stub-server", "companion", "deploy/backup"]
 
 omit = [
     # The measuring instrument, not the thing being measured.
