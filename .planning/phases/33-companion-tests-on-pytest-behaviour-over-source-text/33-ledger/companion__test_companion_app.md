@@ -4,56 +4,56 @@ Baseline: `companion__test_companion_app.txt`, 320 checks
 
 | # | Old check label | Disposition | New node id / reason |
 | --- | --- | --- | --- |
-| 1 | password_ok() accepts the correct password and rejects a wrong one | pending | |
-| 2 | password_ok() raises AuthNotConfigured when the password env var is unset | pending | |
-| 3 | verify_session_token(issue_session_token()) is True | pending | |
-| 4 | verify_session_token() returns False for five malformed inputs without raising | pending | |
-| 5 | flipping a single hex character of a valid signature invalidates the token | pending | |
-| 6 | session_set_cookie_header() carries HttpOnly/Secure/SameSite=Strict/Path | pending | |
-| 7 | SKYPANE_COMPANION_INSECURE_COOKIES=1 drops Secure from both cookie builders while HttpOnly/SameSite=Strict/Path survive (A-34/D-17) | pending | |
-| 8 | SKYPANE_COMPANION_INSECURE_COOKIES="true" fails closed - Secure stays on (A-34/D-17) | pending | |
-| 9 | deploy/skypane.env.example documents SKYPANE_COMPANION_INSECURE_COOKIES (A-34/D-17) | pending | |
-| 10 | logout_set_cookie_header() expires the cookie immediately | pending | |
-| 11 | parse_cookies() returns each cookie by name and never raises on a bad header | pending | |
-| 12 | LoginThrottle allows attempts up to its limit, locks out, then resets on success | pending | |
-| 13 | LoginThrottle with a zero-length window releases itself and a post-window failure starts a fresh count (A-32/D-15) | pending | |
-| 14 | LoginThrottle with a real lockout_s releases itself once the window elapses and a post-window failure starts a fresh count (A-32/D-15) | pending | |
-| 15 | a forged token signed with a different secret is rejected | pending | |
-| 16 | a hand-built token expired by one second is rejected despite a correct signature | pending | |
-| 17 | issued tokens verify within this process, but a raw-password-keyed signature (the old scheme) does not - the signing key is genuinely derived (A-33/D-16) | pending | |
-| 18 | revoke(token) then is_revoked(token) is True, a never-issued token is False, and a malformed token passed to revoke() raises nothing (A-33/D-16) | pending | |
-| 19 | a revoked token is pruned out of the revocation set once its own expiry passes (A-33/D-16, T-19-14: the set stays bounded) | pending | |
-| 20 | AuthNotConfigured's message never contains the configured password value | pending | |
-| 21 | escape_html() escapes all five HTML-special characters | pending | |
-| 22 | escape_html() coerces None to an empty string and non-strings to their string form | pending | |
-| 23 | page_shell() renders one document with lang/viewport/stylesheet/title/a nav link for every NAV_TABS route | pending | |
-| 24 | the sub-960px nav link matching `active` carries a distinguishing class and aria-current, the others carry neither (retargeted from the retired dropdown nav onto the tab bar, 22-14-PLAN.md Task 2) | pending | |
-| 25 | page_shell() splices the flash banner in directly below page_header()'s title, and FLASH_SLOT_MARKER never reaches the rendered document | pending | |
-| 26 | page_shell() still renders the flash banner in its original slot for a body with no FLASH_SLOT_MARKER (the pre-page_header() fallback path) | pending | |
-| 27 | an anomaly banner (banner=) is unaffected by the flash-slot move and still renders in its existing pre-body slot | pending | |
-| 28 | page_shell() reflects the supplied UI theme; ui_theme_from_cookie() falls back to auto | pending | |
-| 29 | status_dot() encodes the state as a fixed class, escapes the label, falls back to warn | pending | |
-| 30 | data_table() escapes every header/cell and emits the empty-state block for zero rows | pending | |
-| 31 | data_table() wraps its <table> in a horizontally-scrollable container | pending | |
-| 32 | sidebar_nav() renders every NAV_TABS link with exactly one active | pending | |
-| 33 | sidebar_nav() matches no tab and stays script-free for a hostile active value | pending | |
-| 34 | layout.NAV_TABS holds exactly 6 entries, in order home/display/flights/airlines/health/device | pending | |
-| 35 | a rendered authenticated page contains exactly six sidebar nav links and exactly six tab-bar links, with exactly one marked active in each, and the hamburger dropdown holds zero destination links (retargeted from the dropdown onto the tab bar, 22-14-PLAN.md Task 2) | pending | |
-| 36 | the eye glyph (icon-nav-preview) is still a whitelist member and icon_html() returns non-empty markup for it, even though its nav-slug mapping was removed | pending | |
-| 37 | stat_tile() maps status to a fixed class with an accent fallback, escapes the caption, and passes content_html through unmodified | pending | |
-| 38 | card_status_class() maps status to base_class + a fixed suffix for the three whitelisted states, and falls back to the empty string (not an accent class) for None or an unrecognised status — the divergence from stat_tile()'s own fallback (quick task 260902-gjj, ISSUE 2) | pending | |
-| 39 | page_shell() wraps header+sidebar+main in .dashboard-shell with both nav landmarks (sidebar + tab bar, and exactly one when there is no tab bar) and both theme-form copies present | pending | |
-| 40 | page_shell()'s skip link target carries tabindex="-1" so it actually receives focus | pending | |
-| 41 | page_shell()'s output contains no unescaped script tag for an escaped hostile body | pending | |
-| 42 | layout.ICON_IDS has exactly twenty-three unique members, each a symbol id in ICON_DEFS_HTML and vice versa | pending | |
-| 43 | icon_html() returns markup for every whitelisted id and '' for an unknown/empty/None/hostile id | pending | |
-| 44 | stat_tile() is byte-identical with icon omitted and places a valid icon before the caption text | pending | |
-| 45 | page_shell() emits exactly one sprite (one <defs, twenty-three <symbol) before dashboard-shell, no inline styles | pending | |
-| 46 | the icon/icon-defs/STAT_TILE_ICON_CLASS class names all appear in companion/static/style.css | pending | |
-| 47 | every heading role (h1/h2/h3/legend/.text-heading) shares one serif rule except the one named, asserted nested card-title sans exception (D-09), and `legend` does not override its weight | pending | |
-| 48 | --font-serif never reaches table, body, mono, nav-link or stat-tile-caption rules (D-03's headings-only boundary; D-13 retired the caption's own former serif exception) | pending | |
-| 49 | mobile dropdown nav link keeps its restored 44px/Body-size tap target while the desktop sidebar link stays at its D-05 32px/Label-size compaction (260902-qkm) | pending | |
-| 50 | there is exactly one error-signal colour token (--color-status-error), no --color-destructive duplicate | pending | |
+| 1 | password_ok() accepts the correct password and rejects a wrong one | ported | companion/test_companion_app_01.py::test_password_ok_correct_and_wrong |
+| 2 | password_ok() raises AuthNotConfigured when the password env var is unset | ported | companion/test_companion_app_01.py::test_password_ok_unconfigured_fails_closed |
+| 3 | verify_session_token(issue_session_token()) is True | ported | companion/test_companion_app_01.py::test_issue_and_verify_round_trip |
+| 4 | verify_session_token() returns False for five malformed inputs without raising | ported | companion/test_companion_app_01.py::test_verify_rejects_five_malformed_inputs |
+| 5 | flipping a single hex character of a valid signature invalidates the token | ported | companion/test_companion_app_01.py::test_verify_rejects_flipped_signature |
+| 6 | session_set_cookie_header() carries HttpOnly/Secure/SameSite=Strict/Path | ported | companion/test_companion_app_01.py::test_session_cookie_header_carries_security_flags |
+| 7 | SKYPANE_COMPANION_INSECURE_COOKIES=1 drops Secure from both cookie builders while HttpOnly/SameSite=Strict/Path survive (A-34/D-17) | ported | companion/test_companion_app_01.py::test_insecure_cookies_flag_drops_secure_but_keeps_other_flags |
+| 8 | SKYPANE_COMPANION_INSECURE_COOKIES="true" fails closed - Secure stays on (A-34/D-17) | ported | companion/test_companion_app_01.py::test_insecure_cookies_flag_fails_closed_on_other_values |
+| 9 | deploy/skypane.env.example documents SKYPANE_COMPANION_INSECURE_COOKIES (A-34/D-17) | ported | companion/test_companion_app_01.py::test_env_example_documents_insecure_cookies_flag |
+| 10 | logout_set_cookie_header() expires the cookie immediately | ported | companion/test_companion_app_01.py::test_logout_cookie_expires_immediately |
+| 11 | parse_cookies() returns each cookie by name and never raises on a bad header | ported | companion/test_companion_app_01.py::test_parse_cookies_multi_and_malformed |
+| 12 | LoginThrottle allows attempts up to its limit, locks out, then resets on success | ported | companion/test_companion_app_01.py::test_login_throttle_allows_locks_and_resets |
+| 13 | LoginThrottle with a zero-length window releases itself and a post-window failure starts a fresh count (A-32/D-15) | ported | companion/test_companion_app_01.py::test_login_throttle_self_releases_with_zero_length_window |
+| 14 | LoginThrottle with a real lockout_s releases itself once the window elapses and a post-window failure starts a fresh count (A-32/D-15) | ported | companion/test_companion_app_01.py::test_login_throttle_self_releases_with_real_window |
+| 15 | a forged token signed with a different secret is rejected | ported | companion/test_companion_app_01.py::test_forged_token_different_secret_rejected |
+| 16 | a hand-built token expired by one second is rejected despite a correct signature | ported | companion/test_companion_app_01.py::test_hand_built_expired_token_rejected |
+| 17 | issued tokens verify within this process, but a raw-password-keyed signature (the old scheme) does not - the signing key is genuinely derived (A-33/D-16) | ported | companion/test_companion_app_01.py::test_tokens_signed_with_derived_key_not_raw_password |
+| 18 | revoke(token) then is_revoked(token) is True, a never-issued token is False, and a malformed token passed to revoke() raises nothing (A-33/D-16) | ported | companion/test_companion_app_01.py::test_revoke_then_is_revoked_round_trip |
+| 19 | a revoked token is pruned out of the revocation set once its own expiry passes (A-33/D-16, T-19-14: the set stays bounded) | ported | companion/test_companion_app_01.py::test_revoked_token_pruned_once_it_expires |
+| 20 | AuthNotConfigured's message never contains the configured password value | ported | companion/test_companion_app_01.py::test_auth_not_configured_message_omits_password |
+| 21 | escape_html() escapes all five HTML-special characters | ported | companion/test_companion_app_01.py::test_escape_html_all_special_chars |
+| 22 | escape_html() coerces None to an empty string and non-strings to their string form | ported | companion/test_companion_app_01.py::test_escape_html_non_string_inputs |
+| 23 | page_shell() renders one document with lang/viewport/stylesheet/title/a nav link for every NAV_TABS route | ported | companion/test_companion_app_01.py::test_page_shell_document_shape |
+| 24 | the sub-960px nav link matching `active` carries a distinguishing class and aria-current, the others carry neither (retargeted from the retired dropdown nav onto the tab bar, 22-14-PLAN.md Task 2) | ported | companion/test_companion_app_01.py::test_page_shell_marks_only_the_active_sub960_nav_link |
+| 25 | page_shell() splices the flash banner in directly below page_header()'s title, and FLASH_SLOT_MARKER never reaches the rendered document | ported | companion/test_companion_app_01.py::test_flash_banner_spliced_below_page_header_marker_never_leaks |
+| 26 | page_shell() still renders the flash banner in its original slot for a body with no FLASH_SLOT_MARKER (the pre-page_header() fallback path) | ported | companion/test_companion_app_01.py::test_flash_banner_fallback_slot_when_body_has_no_marker |
+| 27 | an anomaly banner (banner=) is unaffected by the flash-slot move and still renders in its existing pre-body slot | ported | companion/test_companion_app_01.py::test_anomaly_banner_unaffected_by_the_flash_slot_move |
+| 28 | page_shell() reflects the supplied UI theme; ui_theme_from_cookie() falls back to auto | ported | companion/test_companion_app_01.py::test_theme_resolution |
+| 29 | status_dot() encodes the state as a fixed class, escapes the label, falls back to warn | ported | companion/test_companion_app_01.py::test_status_dot_states |
+| 30 | data_table() escapes every header/cell and emits the empty-state block for zero rows | ported | companion/test_companion_app_01.py::test_data_table_escapes_and_empty_state |
+| 31 | data_table() wraps its <table> in a horizontally-scrollable container | ported | companion/test_companion_app_01.py::test_data_table_wrapped_for_horizontal_scroll |
+| 32 | sidebar_nav() renders every NAV_TABS link with exactly one active | ported | companion/test_companion_app_01.py::test_sidebar_nav_renders_all_tabs_with_one_active |
+| 33 | sidebar_nav() matches no tab and stays script-free for a hostile active value | ported | companion/test_companion_app_01.py::test_sidebar_nav_escapes_hostile_active |
+| 34 | layout.NAV_TABS holds exactly 6 entries, in order home/display/flights/airlines/health/device | ported | companion/test_companion_app_01.py::test_nav_tabs_shrunk_to_four_settled_order |
+| 35 | a rendered authenticated page contains exactly six sidebar nav links and exactly six tab-bar links, with exactly one marked active in each, and the hamburger dropdown holds zero destination links (retargeted from the dropdown onto the tab bar, 22-14-PLAN.md Task 2) | ported | companion/test_companion_app_01.py::test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each |
+| 36 | the eye glyph (icon-nav-preview) is still a whitelist member and icon_html() returns non-empty markup for it, even though its nav-slug mapping was removed | ported | companion/test_companion_app_01.py::test_eye_glyph_survives_nav_shrink |
+| 37 | stat_tile() maps status to a fixed class with an accent fallback, escapes the caption, and passes content_html through unmodified | ported | companion/test_companion_app_01.py::test_stat_tile_status_classes_caption_escape_and_content_passthrough |
+| 38 | card_status_class() maps status to base_class + a fixed suffix for the three whitelisted states, and falls back to the empty string (not an accent class) for None or an unrecognised status — the divergence from stat_tile()'s own fallback (quick task 260902-gjj, ISSUE 2) | ported | companion/test_companion_app_01.py::test_card_status_class_whitelist_and_empty_fallback |
+| 39 | page_shell() wraps header+sidebar+main in .dashboard-shell with both nav landmarks (sidebar + tab bar, and exactly one when there is no tab bar) and both theme-form copies present | ported | companion/test_companion_app_01.py::test_page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme |
+| 40 | page_shell()'s skip link target carries tabindex="-1" so it actually receives focus | ported | companion/test_companion_app_01.py::test_page_shell_skip_link_target_is_focusable |
+| 41 | page_shell()'s output contains no unescaped script tag for an escaped hostile body | ported | companion/test_companion_app_01.py::test_page_shell_escapes_hostile_body |
+| 42 | layout.ICON_IDS has exactly twenty-three unique members, each a symbol id in ICON_DEFS_HTML and vice versa | ported | companion/test_companion_app_01.py::test_icon_sprite_integrity |
+| 43 | icon_html() returns markup for every whitelisted id and '' for an unknown/empty/None/hostile id | ported | companion/test_companion_app_01.py::test_icon_html_whitelist_enforcement |
+| 44 | stat_tile() is byte-identical with icon omitted and places a valid icon before the caption text | ported | companion/test_companion_app_01.py::test_stat_tile_backcompat_and_icon_slot |
+| 45 | page_shell() emits exactly one sprite (one <defs, twenty-three <symbol) before dashboard-shell, no inline styles | ported | companion/test_companion_app_01.py::test_page_shell_emits_sprite_once_no_inline_styles |
+| 46 | the icon/icon-defs/STAT_TILE_ICON_CLASS class names all appear in companion/static/style.css | ported | companion/test_companion_app_01.py::test_icon_classes_styled_in_served_stylesheet |
+| 47 | every heading role (h1/h2/h3/legend/.text-heading) shares one serif rule except the one named, asserted nested card-title sans exception (D-09), and `legend` does not override its weight | ported | companion/test_companion_app_01.py::test_heading_roles_share_one_serif_rule_with_named_nested_exception |
+| 48 | --font-serif never reaches table, body, mono, nav-link or stat-tile-caption rules (D-03's headings-only boundary; D-13 retired the caption's own former serif exception) | ported | companion/test_companion_app_01.py::test_serif_never_reaches_dense_or_tabular_content |
+| 49 | mobile dropdown nav link keeps its restored 44px/Body-size tap target while the desktop sidebar link stays at its D-05 32px/Label-size compaction (260902-qkm) | ported | companion/test_companion_app_01.py::test_mobile_nav_link_and_sidebar_link_geometries_stay_diverged |
+| 50 | there is exactly one error-signal colour token (--color-status-error), no --color-destructive duplicate | ported | companion/test_companion_app_01.py::test_exactly_one_error_signal_colour_token |
 | 51 | the Health notification dot appears inside the Health sidebar link and on the tab bar's More summary — one per nav renderer — when health_alert='error', nowhere when None/omitted, and never on another link (retargeted from the dropdown, 22-14-PLAN.md Task 2) | pending | |
 | 52 | input.visually-hidden/select.visually-hidden clears the 44px touch-target floor off hidden form controls, and the global input/select rule still declares both 44px minimums for every other field | pending | |
 | 53 | layout.page_shell(..., health_alert='warn') also renders the notification dot, using dot--warn rather than dot--error | pending | |
@@ -282,8 +282,8 @@ Baseline: `companion__test_companion_app.txt`, 320 checks
 | 276 | POST /airlines/resolve re-validates the prefix against the live unresolved-prefix registry on write (D-11): a well-shaped but unregistered prefix writes nothing and gets the stale flash; the identical POST succeeds once the prefix is a live registry member | pending | |
 | 277 | each add_entry() rejection reaches its own distinct flash key and persists nothing (empty/too-long/reserved names, and the registry cap); the D-03 branch: a brand-new name redirects with resolve= (Step B offered) while a name already covered by existing artwork redirects without it | pending | |
 | 278 | POST /airlines/manual-resolutions/{prefix}/delete removes the registry entry, leaves the override PNG on disk (D-08), and redirects to /airlines with no flash; a second identical POST is a no-op that also redirects without an error flash; a malformed prefix 404s without touching the registry | pending | |
-| 279 | POST /airlines/resolve redirects with the manual_save_failed flash key (never a dropped connection) when add_entry() cannot write because the state dir is read-only — the exact failure mode CR-01 fixed, exercised end to end (WR-11) - expected the manual_save_failed flash key when add_entry() fails to write, got '/airlines?resolve=FLD&flash=manual_resolved' | pending | |
-| 280 | POST /airlines/manual-resolutions/{prefix}/delete redirects with the manual_delete_failed flash key, leaving the entry in place, when delete_entry() cannot write because the state dir is read-only (WR-11) - expected the manual_delete_failed flash key when delete_entry() fails to write, got '/airlines' | pending | |
+| 279 | POST /airlines/resolve redirects with the manual_save_failed flash key (never a dropped connection) when add_entry() cannot write because the state dir is read-only — the exact failure mode CR-01 fixed, exercised end to end (WR-11) - expected the manual_save_failed flash key when add_entry() fails to write, got '/airlines?resolve=FLD&flash=manual_resolved' | ported | companion/test_companion_app_01.py::test_resolve_post_redirects_manual_save_failed_when_state_dir_is_read_only |
+| 280 | POST /airlines/manual-resolutions/{prefix}/delete redirects with the manual_delete_failed flash key, leaving the entry in place, when delete_entry() cannot write because the state dir is read-only (WR-11) - expected the manual_delete_failed flash key when delete_entry() fails to write, got '/airlines' | ported | companion/test_companion_app_01.py::test_delete_post_redirects_manual_delete_failed_when_state_dir_is_read_only |
 | 281 | unauthenticated POSTs to /settings/rules/add and /settings/rules/{kind}/{value}/delete both redirect to /login and write no colour_rules.json — the state dir is unchanged, not only the status code | pending | |
 | 282 | the rules add form and each delete form sit outside <form id=SETTINGS_FORM_ID> (D-10): neither carries the settings form's id nor a form= attribute pointing at it, and a rule add followed by an unrelated settings-form save leaves both the rule and every device-config setting intact (15-VALIDATION.md row 10) | pending | |
 | 283 | raw URL-encoded no-JS POSTs to the rules add route (15-VALIDATION.md row 11): a first add flashes rule_added, a second add for the same key (case-insensitive input) flashes rule_replaced and echoes the normalised key back, and the registry holds exactly one entry with the second theme | pending | |
@@ -325,3 +325,24 @@ Baseline: `companion__test_companion_app.txt`, 320 checks
 | 319 | the nav landmark's aria-label ("Primary navigation") and the theme picker's three segment labels ("Auto"/"Light"/"Dark") round-trip to French under i18n.t_lang(..., 'fr') and to their original English text under i18n.t_lang(..., 'en') (D-06/B16) | pending | |
 | 320 | the site-wide editorial floor (CFG-79): every non-exempt .section-caption element on all six authenticated routes, in both English and French, over a real running server, is at most 12 whitespace-split words; the route list is proven equal to test_browser_ux.py's own VIEW_TRANSITION_ROUTES; CAPTION_FLOOR_EXEMPTIONS (config_page.ASPECT_CAPTION_EXEMPTIONS, imported not re-listed) is skipped exactly its own length per language across the whole site; per-route and site-wide caption-count minimums guard against a narrowed selector passing vacuously; and the apply-timing sentence (read from frame_state.py's own DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN constants) never renders outside the Frame strip's own markup slice, proven to fire inside it at least once (29-06-PLAN.md Task 3) | pending | |
 
+
+### Part 01 (plan 33-14)
+
+Rows 1-50 (part 01, original `check()` calls #1-#50) plus the two out-of-order
+WR-11 rows (279-280, pulled forward per 33-MIGRATION-RULES.md rubric T) are
+`ported` to `companion/test_companion_app_01.py`.
+
+Rubric codes: 46 B (calls `companion.auth`/`companion.layout` directly and
+asserts on the return value/HTTP outcome), 4 C (rows 46-49 fetch the served
+stylesheet via `served_stylesheet()` and assert on `companion_markup.
+css_rules()`/`declarations_for()`/`rules_with_selector()` instead of reading
+`companion/static/style.css` from disk; row 50 asserts on `css_rules()`
+directly). No deletions in this slice.
+
+New modules: `companion/test_companion_app_01.py` (52 tests: 50 ported checks
+plus the 2 WR-11 checks share this same part-01 module rather than a
+separate file), `companion/test_companion_app_helpers.py` (calendar-
+transport fakes, public-hostname fake, poll-state seeding helper — not yet
+consumed by part 01's own tests except the WR-11 pair's seeding helper;
+front-loaded for 33-15..33-18's calendar-sync and manual-resolution
+sections).

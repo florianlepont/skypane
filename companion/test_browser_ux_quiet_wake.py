@@ -43,10 +43,16 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
+# test-support/ (companion_app_server, for LegacyHarness) - this file runs
+# as a standalone script, never through pytest, so conftest.py's own
+# sys.path insert never runs for it.
+_TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
+if _TEST_SUPPORT_DIR not in sys.path:
+    sys.path.insert(0, _TEST_SUPPORT_DIR)
 
 from companion import auth  # noqa: E402
 from companion.pages import config_page  # noqa: E402
-from companion.test_companion_app import Harness  # noqa: E402
+from companion_app_server import LegacyHarness as Harness  # noqa: E402
 from server import device_config  # noqa: E402
 # 31-03-PLAN.md Task 1: shared constants and helpers live in
 # companion.test_browser_ux_helpers (31-01-PLAN.md Task 3), so this file
@@ -221,11 +227,11 @@ def main():
                         cookies = [{"name": auth.UI_LANG_COOKIE_NAME,
                                     "value": lang, "url": base_url}]
                         saved[(lang, "start")] = _persist_without_js(
-                            browser, base_url, "/display", "quiet_hours_start",
+                            browser.new_context, base_url, "/display", "quiet_hours_start",
                             "21:45", read_start, viewport=VIEWPORT_MIN_SUPPORTED,
                             cookies=cookies)
                         saved[(lang, "end")] = _persist_without_js(
-                            browser, base_url, "/display", "quiet_hours_end",
+                            browser.new_context, base_url, "/display", "quiet_hours_end",
                             "06:15", read_end, viewport=VIEWPORT_MIN_SUPPORTED,
                             cookies=cookies)
                     after = _quiet_hours_on_disk()
@@ -245,7 +251,7 @@ def main():
                     # asserting only the enabled half is the "renders and
                     # does nothing" defect. 25-02's helper owns both.
                     gate = _assert_js_gate(
-                        browser, base_url, "/display", QUIET_HANDLES_SEL,
+                        browser.new_context, base_url, "/display", QUIET_HANDLES_SEL,
                         viewport=VIEWPORT_MIN_SUPPORTED)
 
                     # AND THE ARC IS PRESENT IN BOTH — which is what makes
@@ -253,7 +259,7 @@ def main():
                     # absence. A check that skipped it would let a later
                     # refactor move the whole drawing behind the gate
                     # unnoticed, and nothing else here would object.
-                    with _no_js_page(browser, base_url, "/display",
+                    with _no_js_page(browser.new_context, base_url, "/display",
                                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
                         # MEASURED, NOT COUNTED. locator.count() counts
                         # elements in the DOM whatever their box is, so
@@ -718,7 +724,7 @@ def main():
                         saved_minutes = (
                             config_page.quiet_window_minute_of_day(saved[0]),
                             config_page.quiet_window_minute_of_day(saved[1]))
-                        with _no_js_page(browser, base_url, "/display",
+                        with _no_js_page(browser.new_context, base_url, "/display",
                                          viewport=VIEWPORT_MIN_SUPPORTED) as no_js_page:
                             dash_attr = no_js_page.get_attribute(QUIET_ARC_SEL, "stroke-dasharray")
                             transform_attr = no_js_page.get_attribute(QUIET_ARC_SEL, "transform")
@@ -1537,7 +1543,7 @@ def main():
                         cookies = [{"name": auth.UI_LANG_COOKIE_NAME,
                                     "value": lang, "url": base_url}]
                         saved[lang] = _persist_without_js(
-                            browser, base_url, "/device", "wake_interval_s",
+                            browser.new_context, base_url, "/device", "wake_interval_s",
                             "900", _wake_interval_on_disk,
                             viewport=VIEWPORT_MIN_SUPPORTED, cookies=cookies)
                     recorded["persisted"] = {
@@ -1559,7 +1565,7 @@ def main():
                     #    asserting only the enabled half is the "renders
                     #    and does nothing" defect.
                     gate = _assert_js_gate(
-                        browser, base_url, "/device", WAKE_SLIDER_SEL,
+                        browser.new_context, base_url, "/device", WAKE_SLIDER_SEL,
                         viewport=VIEWPORT_MIN_SUPPORTED)
                     recorded["gate"] = gate
 
@@ -1570,7 +1576,7 @@ def main():
                     #    whatever their box is, so it passes against a
                     #    gauge moved behind the gate, which is the exact
                     #    refactor this clause exists to notice.
-                    with _no_js_page(browser, base_url, "/device",
+                    with _no_js_page(browser.new_context, base_url, "/device",
                                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
                         boxes = {}
                         texts = {}
@@ -1629,7 +1635,7 @@ def main():
                         doc["wake_interval_s"] = 30
                         with open(config_path, "w", encoding="utf-8") as fh:
                             json.dump(doc, fh)
-                        with _no_js_page(browser, base_url, "/device",
+                        with _no_js_page(browser.new_context, base_url, "/device",
                                          viewport=VIEWPORT_MIN_SUPPORTED) as page:
                             below_value = page.get_attribute(WAKE_NUMBER_SEL, "value")
                             below_ranges = page.locator(WAKE_RANGE_SEL).count()
@@ -1650,7 +1656,7 @@ def main():
                         # half that matters: the page is still usable
                         # with a below-floor value on disk.
                         corrected = _persist_without_js(
-                            browser, base_url, "/device", "wake_interval_s", "1200",
+                            browser.new_context, base_url, "/device", "wake_interval_s", "1200",
                             _wake_interval_on_disk, viewport=VIEWPORT_MIN_SUPPORTED,
                             restore=False)
                         recorded["corrected"] = (corrected["set"], corrected["stored"])

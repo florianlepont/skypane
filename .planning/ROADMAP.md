@@ -1605,7 +1605,7 @@ Plans:
 4. The suite passes as root and writes nothing outside `tmp_path`
 5. Closing parity: all 2018 pre-migration checks accounted for; coverage ≥ the pre-migration figure
 
-**Plans:** 3/33 plans executed
+**Plans:** 10/33 plans executed
 
 Plans:
 **Wave 1**
@@ -1616,16 +1616,16 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 33-04-PLAN.md — contrast_check + i18n rewritten in place (W2)
-- [ ] 33-05-PLAN.md — view_pages part 01 + helpers (W2)
-- [ ] 33-09-PLAN.md — config_page part 01 + helpers; aspect-repin self-read deleted (W2)
-- [ ] 33-14-PLAN.md — companion_app part 01 + helpers; WR-11 chmod pair root-safe (W2)
-- [ ] 33-19-PLAN.md — Browser helpers rewired + health_drawings on pytest-playwright; legacy importers repointed (W2)
-- [ ] 33-25-PLAN.md — status_pages part 01 + helpers; anomaly_active /nonexistent fix (W2)
+- [x] 33-04-PLAN.md — contrast_check + i18n rewritten in place (W2)
+- [x] 33-05-PLAN.md — view_pages part 01 + helpers (W2)
+- [x] 33-09-PLAN.md — config_page part 01 + helpers; aspect-repin self-read deleted (W2)
+- [x] 33-14-PLAN.md — companion_app part 01 + helpers; WR-11 chmod pair root-safe (W2)
+- [x] 33-19-PLAN.md — Browser helpers rewired + health_drawings on pytest-playwright; legacy importers repointed (W2)
+- [x] 33-25-PLAN.md — status_pages part 01 + helpers; anomaly_active /nonexistent fix (W2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 33-06-PLAN.md — view_pages part 02 (W3)
+- [x] 33-06-PLAN.md — view_pages part 02 (W3)
 - [ ] 33-10-PLAN.md — config_page part 02 (W3)
 - [ ] 33-15-PLAN.md — companion_app part 02 — /nonexistent literals, flash deck, JS contracts (W3)
 - [ ] 33-20-PLAN.md — quiet_wake on pytest-playwright (W3)

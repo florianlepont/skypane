@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 33-03-PLAN.md
-last_updated: "2026-09-24T09:49:39.193Z"
+stopped_at: Completed 33-06-PLAN.md
+last_updated: "2026-09-24T13:24:58.553Z"
 last_activity: 2026-09-24
 progress:
   total_phases: 53
   completed_phases: 41
   total_plans: 347
-  completed_plans: 295
-  percent: 85
+  completed_plans: 302
+  percent: 87
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -58,7 +58,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 Phase: 33 (companion-tests-on-pytest-behaviour-over-source-text) — EXECUTING
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
-Plan: 4 of 33
+Plan: 11 of 33
 
 **23-10 executed (2026-09-13), wave 8 (depends on 23-01, 23-02, 23-09) — D3's remainder: the selection scale and wash fade, the theme-preview crossfade, both `<dialog>` entrances via `@starting-style`, and skeletons at final size.** **The one `@supports selector(:has(*))` block is still exactly one**, which the plan named as its single largest risk, and the way through was one sentence written into the stylesheet where the next editor will look: a transition is a property of the ELEMENT, not of the state, so declared on the base rule of `.theme-chip`/`.theme-chip__body`/`.runway-card` it animates the live `:has(input:checked)` treatment and the server-rendered `--selected` fallback identically, from one declaration, and no second feature query is needed. Both halves are asserted inside a SINGLE check function — the transitions exist outside the query AND the query contains no `transition` at all — so "helpfully" moving one inside fails exactly once rather than twice. The arithmetic comment, every border width, both dashed markers and the `:has(input:checked):hover` restore rule are untouched: the `style.css` diff for Task 1 is **111 insertions, 0 deletions**. **The decision that mattered most was refusing to loosen a tolerance.** `transform: scale(1.02)` is what makes selection free of T6 by construction, but `getBoundingClientRect()` reports the box AFTER transforms, so 22-15's still-green three-equal-outer-widths assertion failed by 1.9px and its equal-tops assertion by ~1px **on a correct build**. Shrinking the scale until it squeaked under the 1px tolerance would have been passing by luck and would have let a test choose the design; deleting the assertion would have retired the check T6 was closed with. Instead the read neutralises `transform` (and `transition` first, or it catches the 180ms unwind mid-flight) and the same check now asserts that **exactly one of the three cards really is scaled** — neutralising a thing you have not proven exists is how a check quietly becomes one that also passes when the feature is gone. The new chip check reads `offsetWidth/offsetHeight/offsetLeft/offsetTop` throughout, which is transform-independent by definition; **that layout-box-versus-visual-box distinction is the pattern worth carrying forward.** **Task 3 found a real, pre-existing ~500px layout shift.** Home's frame picture reserved its box correctly at 360px and reserved *nothing* at 1280px: measured **2 × 2** before the render arrived and **380 × 506** after. `width: auto` on an image with no content yet leaves it an intrinsic size of ZERO however well known its ratio is — the `width="600" height="800"` attributes supply a ratio, and a ratio alone resolves nothing without a definite size in one axis; mobile escaped only because `width: 100%` is definite. Fixed with `width: min(100%, calc(60vh * 3 / 4))` — the same 60vh cap the `max-height` states, written as a definite width — plus an explicit `aspect-ratio: 3 / 4` so the reservation no longer depends on the shape of whatever bytes arrive (and, because the universal reset makes every box border-box, so the width resolves to exactly the cap rather than the cap minus the hairline). **A flaky harness run was chased rather than reruns-until-green:** the crossfade could stall invisible on the discarded theme — `transitionend` only arrives if a transition actually RAN, and a class removed and re-added without an intervening style recalculation (an image `load` and a click in the same frame) transitions nothing. Reproduced at **4 stalls in 14 runs**, fixed by consulting the computed opacity before waiting, **0 in 14** after. **The skeleton deliberately does NOT shimmer, and the reasoning is in `style.css` rather than only in the summary**: the only placement where a pure-CSS skeleton auto-hides on load is the image's own `background-image` (painted above the backing, below the decoded bitmap), and that is exactly the placement where `skypane-pulse` — which cycles opacity, an element property — would go on breathing the decoded picture forever on a page left open all day. Overlays behind are covered from frame one; overlays in front can never learn the image arrived; a JS toggle would need a fourteenth script and route. Four keyframes stay four. **Both dialogs arrive through ONE `@starting-style` rule** (History's `.lightbox` and the Airlines gallery's `.lightbox--wide` are the same component under two classes) and the close is one-directional, with `display`/`allow-discrete` banned by a harness check rather than by a comment, following 23-08's precedent — a modal that has not reached `display: none` is an invisible sheet in the top layer. `::backdrop` is deliberately unanimated: the global reduce override matches `*, *::before, *::after`, and `::backdrop` is none of them. **Ten mutations, all quoted**, and one taught something: adding `allow-discrete` left the viewport-centre hit test returning FALSE (the closed dialog had left the top layer and sat in normal flow) while `display: block` and a 307,965px² box both caught it — a check built on the hit test alone would have passed the defect. **Four checks failed the vacuity question**, three of mine and one inherited: the crossfade check passed on the CUT until a mid-flight sample was added; the neutralised T6 read needed the "exactly one is scaled" clause; `before == after` is satisfied by `2x2 == 2x2` so the reserved box needed a floor; and `.lightbox[open] {` legitimately occurs twice on a correct file because `@starting-style` repeats its selector. **Three self-inflicted grep traps**, all the warned-about class: my own JS comment containing `setTimeout` answered my own timer ban (fixed by comment-stripping), backticks in my JS prose reddened the standing no-backtick rule, and `grep -c '@starting-style'` now returns 7 raw against **2** comment-stripped blocks / **1** dialog entrance / **2** dialogs served — recorded, not adjusted. Two pre-existing checks retargeted IN PLACE: the runway T6/B9 measurement, and 22-01's Cancel/T8 preview assertions (a synchronous read became a bounded `wait_for_function`, because the swap now lands one `var(--motion-fast)` after the click). `dirty-state.js` was NOT edited — the whole adaptation happened on the `theme-preview.js` side, as the plan directed. The browser fixture's 8×8 stand-in render became the **600 × 800** the markup itself declares, because an image whose loaded ratio is 1:1 against a 3:4 promise makes a layout-shift measurement meaningless. Counts re-derived by RUNNING: `config-page` 239→240, `view-pages` 152→153, `browser-ux` 50→54; `companion-app` and `status-pages` unmoved; `run-all-tests.sh` at exactly the documented 5-check root-sandbox baseline **verified by failing check NAMES**, coverage 93%. **`CFG-32` deliberately NOT ticked — 23-11 closes it.**
 
@@ -456,6 +456,13 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 33 P01 | 16min | 2 tasks | 22 files |
 | Phase 33 P02 | 17min | 3 tasks | 7 files |
 | Phase 33 P03 | 28min | 3 tasks | 8 files |
+| Phase 33 P04 | 25min | 3 tasks | 4 files |
+| Phase 33 P05 | 55min | 3 tasks | 4 files |
+| Phase 33 P09 | 13min | 3 tasks | 4 files |
+| Phase 33 P14 | 17min | 3 tasks | 4 files |
+| Phase 33 P19 | 37min | 3 tasks | 7 files |
+| Phase 33 P25 | 14min | 3 tasks | 4 files |
+| Phase 33 P06 | 35min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -881,6 +888,22 @@ Recent decisions affecting current work:
 - [Phase 33]: Left companion/test_legacy_harness_shim.py::test_legacy_harness_list_matches_disk failing after this plan (new native test_*.py modules aren't in the hand-listed legacy set); fixing it belongs to sibling wave-1 plan 33-03 per file ownership in 33-MIGRATION-RULES.md
 - [Phase 33]: companion_markup.py's CSS/HTML/JS parsers are stdlib-only and brace/string-aware from the ground up, replacing every source-text idiom migration plans 33-04..33-31 would otherwise reimplement per-file — Proven against the real 10,689-line companion/static/style.css (585 rules, 4 keyframes, 33 :root custom props, ~22ms parse) as well as its own unit tests, so later plans can trust it on the real stylesheet, not just synthetic fixtures
 - [Phase 33]: test_suite_guards.py's guard exempts companion/test_browser_ux_helpers.py (three unconverted browser.new_context() calls) rather than fixing or force-passing it — Converting them means threading 33-02's guarded new_context fixture through every one of test_browser_ux.py's own call sites — real behavioural plumbing 33-19 owns per 33-03-PLAN.md Task 2's own explicit instruction, not a same-plan rename
+- [Phase 33]: test_contrast_check.py's live token pairs (and its one color-mix composite) are fetched from a running server's served stylesheet via custom_properties()/declarations_for(), never hard-coded hex literals copying style.css
+- [Phase 33]: test_i18n.py's four ast/regex source-completeness scans (D-08 Checks 1/2/5/6) are deleted rather than rewritten, since none has an observable runtime consequence without reading production source text; replaced by 3 catalogue self-consistency checks plus the already-existing real French page renders
+- [Phase 33]: History's _row_block() stays in companion/test_view_pages.py (not the helpers module) - still-legacy sections after 33-05's cut call it dozens of times. — Setup that later checks still need per 33-MIGRATION-RULES.md section 1.
+- [Phase 33]: companion_markup's exact-attribute-value selector can't hold a space (e.g. class="data table--flights"); Node.find_all(tag, attrs={...}) or find_all(cls=...) is the escape hatch, not a toolkit change. — Discovered while porting view-pages part 01 to structural parse_html() assertions; reusable by 33-06/07/08.
+- [Phase 33]: companion/test_config_page_helpers.py carries only write_device_config() (part 01's one shared cross-check helper) - not _python_identifiers() (an ast/tokenize helper only still-legacy sections call) or _temporary_registry()/_runway_entry() (single-use within part 01, kept local to the new test module)
+- [Phase 33]: Replaced two literal state_dir="/tmp" values in the config-page part-01 checks with tmp_path - config_page.render()'s live-preview helper opens a real history_db under state_dir, so the literal was a real write-outside-tmp_path surface, not just a style mismatch (T-33-09-02)
+- [Phase 33]: _ASPECT_RETIRED_MARKUP_TOKENS/_aspect_usage_row_bounds() stay in companion/test_config_page.py rather than moving to the helpers module - a dozen still-legacy checks further down main() still call them directly, per 33-MIGRATION-RULES.md section 1
+- [Phase 33]: companion_app chain: calendar-transport/public-hostname/seeding test doubles front-loaded into test_companion_app_helpers.py in 33-14, ahead of 33-15..33-18's calendar-sync/manual-resolution sections that need them
+- [Phase 33]: 33-19: only the two page-independent RING_PAGES checks (ring paint, ring viewBox) were split via pytest.mark.parametrize; the other 9 health-drawings checks keep an internal loop because their final assertion compares values across loop iterations (theme-differs, width-parity), which xdist's no-cross-test-dependency rule would otherwise require extra plumbing to preserve
+- [Phase 33]: 33-19: shared browser-context-opening helpers (test_browser_ux_helpers.py) take a make_context factory parameter instead of a raw browser object, so one helper module serves both the guarded pytest-playwright new_context fixture and a still-legacy harness's own bound browser.new_context method with the same call shape
+- [Phase 33]: 33-25: _battery_section() arity guard rewritten as a direct call instead of inspect.signature(), since test_suite_guards.py's G2 rule bans any inspect.* attribute access in a migrated companion test module
+- [Phase 33]: 33-25: the pulled-forward anomaly_active() root-safety check folds its 'missing state_dir' and 'empty directory' cases into one assertion shape, since a tmp_path subpath is always writable (unlike a root-owned host path) and both now take the identical os.makedirs-succeeds code path
+- [Phase 33]: detail_row_block()/table_markup() joined the shared companion/test_view_pages_helpers.py (33-07/08 need the identical legacy-file locators), while the byte-identity-focused _row_markup() stayed local to test_view_pages_02.py to avoid overloading 33-05's Node-returning row_block() contract
+- [Phase 33]: The three lightbox DOM-contract token tuples and _NEW_VIEW_PANEL_ATTR_NAMES were re-declared inside test_view_pages_02.py rather than the shared helpers module, confirmed by grep to be used exclusively by this slice, and deleted from the legacy file
+- [Phase 33]: CSS checks use companion_markup.declarations_for() uniformly, including the two @media (min-width: 960px)-scoped reveal-rule checks via its at_rules= parameter, rather than a raw regex/brace-match over served stylesheet text
+- [Phase 33]: A JS check needing string-literal-preserving comment stripping (image.src = "") uses a new local strip_js_line_and_block_comments() helper instead of companion_markup.strip_js_comments_and_strings(), which would also erase the empty-string literal being searched for
 
 ### Pending Todos
 
@@ -997,8 +1020,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-24T09:49:39.131Z
-Stopped at: Completed 33-03-PLAN.md
+Last session: 2026-09-24T13:24:58.494Z
+Stopped at: Completed 33-06-PLAN.md
 
 Resume file: 
 
