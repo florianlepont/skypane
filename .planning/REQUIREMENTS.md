@@ -208,7 +208,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [ ] **SEC-03**: `Origin`/`Sec-Fetch-Site` check on every POST
 - [ ] **SEC-04**: Nightly `sqlite3 .backup` + off-box copy; README corrected
 - [ ] **SEC-05**: Release dir + symlink swap (or timer stopped); post-deploy `systemctl is-active` + HTTP probes fail the job; units/Caddyfile deployed with `daemon-reload`
-- [x] **SEC-06**: `CapabilityBoundingSet=`, `PrivateDevices`, `ProtectKernel*`, `RestrictAddressFamilies`, `SystemCallFilter=@system-service`, `UMask=0027`; byos `--bind 127.0.0.1` + `IPAddressDeny=any`/`IPAddressAllow=localhost`
+- [ ] **SEC-06**: `CapabilityBoundingSet=`, `PrivateDevices`, `ProtectKernel*`, `RestrictAddressFamilies`, `SystemCallFilter=@system-service`, `UMask=0027`; byos `--bind 127.0.0.1` + `IPAddressDeny=any`/`IPAddressAllow=localhost`
 - [ ] **SEC-07**: Secret via env; env file `root:root 600`; secret passed through `env:`
 - [ ] **SEC-08**: `sshd_config.d/00-skypane.conf`, `PermitRootLogin no`, validated
 - [ ] **EFF-01**: `encode zstd gzip`; validators + 304; static bytes cached in memory
@@ -403,7 +403,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-03 | Phase 37 | Pending |
 | SEC-04 | Phase 37 | Pending |
 | SEC-05 | Phase 37 | Pending |
-| SEC-06 | Phase 37 | Complete |
+| SEC-06 | Phase 37 | Pending |
 | SEC-07 | Phase 37 | Pending |
 | SEC-08 | Phase 37 | Pending |
 | EFF-01 | Phase 38 | Pending |
