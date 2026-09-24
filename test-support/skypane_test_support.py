@@ -16,6 +16,7 @@ import copy
 import ipaddress
 import json
 import os
+import re
 import socket
 import urllib.parse
 
@@ -385,7 +386,10 @@ def child_env(base=None, *, fake_providers=None, state_dir=None):
 
 # --- Legacy companion harnesses (pytest shim until Phase 33) -----------
 
-LEGACY_COMPANION_HARNESSES = (
+# The pre-Phase-33 set of hand-rolled companion harnesses. Frozen -
+# never grows (33-MIGRATION-RULES.md section 1): every migration plan
+# moves check()s OUT of one of these paths, it never adds a new one.
+ORIGINAL_COMPANION_HARNESSES = (
     "companion/test_companion_app.py",
     "companion/test_config_page.py",
     "companion/test_contrast_check.py",
@@ -397,12 +401,49 @@ LEGACY_COMPANION_HARNESSES = (
     "companion/test_browser_ux_quiet_wake.py",
 )
 
-# Same list, plus the one helper module the browser harnesses import
-# (not itself a runnable harness) - pytest must never try to collect
-# either group as test modules in their own right.
-LEGACY_COMPANION_COLLECT_IGNORE = LEGACY_COMPANION_HARNESSES + (
-    "companion/test_browser_ux_helpers.py",
-)
+_EXPECTED_CHECK_COUNT_RE = re.compile(r"^EXPECTED_CHECK_COUNT\s*=")
+
+
+def legacy_companion_harnesses():
+    """The still-legacy subset of `ORIGINAL_COMPANION_HARNESSES`: a path
+    is legacy exactly while it both exists under `REPO_ROOT` and still
+    contains a line starting `EXPECTED_CHECK_COUNT` (33-MIGRATION-
+    RULES.md section 1). Reads TEST files only, never production source.
+
+    Derived from disk rather than hand-edited, so every migration plan
+    that finishes a harness shrinks this set for free, in the same
+    commit that removes that harness's `EXPECTED_CHECK_COUNT` line - no
+    plan ever edits a shared list, so parallel migration plans never
+    collide here.
+    """
+    legacy = []
+    for relpath in ORIGINAL_COMPANION_HARNESSES:
+        full_path = os.path.join(REPO_ROOT, relpath)
+        if not os.path.exists(full_path):
+            continue
+        with open(full_path, encoding="utf-8") as fh:
+            if any(_EXPECTED_CHECK_COUNT_RE.match(line) for line in fh):
+                legacy.append(relpath)
+    return tuple(legacy)
+
+
+# Computed once at import time - every later `LEGACY_COMPANION_HARNESSES`
+# reader (the shim, conftest.py's collect_ignore, test_suite_guards.py)
+# sees the same disk-derived snapshot for the life of the process.
+LEGACY_COMPANION_HARNESSES = legacy_companion_harnesses()
+
+# The one shared helper module the browser harnesses import - not itself
+# a runnable harness, so it is never in ORIGINAL_COMPANION_HARNESSES and
+# legacy_companion_harnesses() never returns it. 33-19 empties this
+# tuple when it converts test_browser_ux_helpers.py to a native pytest
+# module (until then it also carries its own ALWAYS_EXEMPT entry in
+# companion/test_suite_guards.py, for a different reason - unconverted
+# browser.new_context() calls, not collection).
+LEGACY_HELPER_MODULES = ("companion/test_browser_ux_helpers.py",)
+
+# Same list, plus LEGACY_HELPER_MODULES - pytest must never try to
+# collect either group as test modules in their own right.
+LEGACY_COMPANION_COLLECT_IGNORE = LEGACY_COMPANION_HARNESSES + LEGACY_HELPER_MODULES
 
 
 # --- Root-safety skip -----------------------------------------------------

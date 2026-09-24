@@ -27,3 +27,6 @@ pytest==9.1.1
 pytest-xdist==3.8.0
 pytest-cov==7.1.0
 pytest-socket==0.8.1
+# pytest fixtures (`page`, `browser`) for the companion browser tests;
+# dev-only, never deployed.
+pytest-playwright==0.9.0
