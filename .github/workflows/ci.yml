@@ -28,8 +28,10 @@
 #     *pending* one. To stop a reviewer approving a queued deploy whose
 #     commit `main` has already moved past, the deploy job's first step
 #     compares its own `github.sha` against the current tip of `main` via
-#     `git ls-remote` and skips the SSH/rsync steps (with a `::notice::`)
-#     when they differ.
+#     `git ls-remote`: it deploys when they match or when the newer tip
+#     leaves every shipped path identical (a docs-only push never deploys
+#     itself), and otherwise FAILS the job — as does any error reading
+#     the tip — so a guard decision is never a silently green skip.
 #   - `paths-ignore` on both triggers: a docs-only change (`**/*.md`,
 #     `.planning/**`, `.claude/**`, `LICENSE`) no longer runs this job at
 #     all. This is safe specifically because `main` has NO branch
@@ -144,8 +146,9 @@ jobs:
     # Own group, separate from `test`'s (see header comment above).
     # cancel-in-progress: false means a running deploy is never killed
     # mid-rsync; a newer queued deploy still supersedes an older *pending*
-    # one. The "Skip if stale" step below is what stops a reviewer
-    # approving an already-superseded queued run from shipping old code.
+    # one. The "Refuse to deploy if main has moved on" step below is what
+    # stops a reviewer approving an already-superseded run from shipping
+    # old code — by failing loudly, never by skipping with a green job.
     concurrency:
       group: production-deploy
       cancel-in-progress: false
@@ -160,23 +163,43 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Skip if this commit is no longer the tip of main
+      - name: Refuse to deploy if main has moved on to different shipped code
         # A reviewer can sit on the approval gate long enough for a later
         # push to move `main` past this run's commit. Rather than cancel
         # this (possibly already-running) job — which could kill an
-        # in-flight rsync — the remaining steps individually no-op instead.
-        id: fresh
+        # in-flight rsync — this step decides before anything is shipped:
+        #   - this commit is still the tip of main: deploy;
+        #   - main moved on, but only to commits that leave every shipped
+        #     path identical (e.g. a docs-only push `paths-ignore` never
+        #     runs CI for, so it would never deploy itself): deploying
+        #     this commit is deploying the tip, so deploy;
+        #   - main moved on and changed shipped files: FAIL the job. The
+        #     newer commit deploys itself if its own tests pass; if they
+        #     fail, production deliberately stays on the last deployed
+        #     code — either way the red run says this approval shipped
+        #     nothing, instead of a green run that silently skipped.
+        # Any error (ls-remote/fetch failure, unreadable tip) fails the job
+        # too: an error must never look like a successful skip.
         run: |
+          set -euo pipefail
           latest="$(git ls-remote origin refs/heads/main | cut -f1)"
-          if [ "${latest}" != "${{ github.sha }}" ]; then
-            echo "stale=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Skipping deploy: ${{ github.sha }} is no longer the tip of main (now ${latest})."
+          if ! [[ "${latest}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Could not read the tip of main (got '${latest}'); refusing to deploy."
+            exit 1
+          fi
+          if [ "${latest}" = "${GITHUB_SHA}" ]; then
+            exit 0
+          fi
+          git fetch --quiet --depth=1 origin "${latest}"
+          if git diff --quiet "${GITHUB_SHA}" "${latest}" -- \
+              server stub-server companion adsb-test/runway3.json deploy; then
+            echo "::notice::main moved to ${latest}, but shipped files are identical to ${GITHUB_SHA}; deploying."
           else
-            echo "stale=false" >> "$GITHUB_OUTPUT"
+            echo "::error::Not deploying ${GITHUB_SHA}: main is now ${latest}, which changes shipped files. That commit's own run deploys it once its tests pass."
+            exit 1
           fi
 
       - name: Load deployment SSH key into agent
-        if: steps.fresh.outputs.stale != 'true'
         uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # v0.10.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
@@ -186,7 +209,6 @@ jobs:
         # answers is trust-on-first-use on every single run and accepts
         # an impostor host silently. The expected key comes from its own
         # dedicated secret instead, written straight into known_hosts.
-        if: steps.fresh.outputs.stale != 'true'
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
@@ -196,5 +218,4 @@ jobs:
       - name: Deploy
         # The only deploy action. deploy/deploy.sh owns every bit of the
         # rsync/pip/systemd-restart logic; nothing is reimplemented here.
-        if: steps.fresh.outputs.stale != 'true'
         run: ./deploy/deploy.sh "${{ secrets.DEPLOY_SSH_TARGET }}"
