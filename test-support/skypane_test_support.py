@@ -173,6 +173,12 @@ DEFAULT_RESPONSES = {
 }
 
 
+def _is_requests_exception_class(obj):
+    return isinstance(obj, type) and issubclass(
+        obj, requests.exceptions.RequestException
+    )
+
+
 class FakeResponse:
     """Stands in for a requests.Response: only the surface
     detect.query_provider()/enrich.default_transport() actually use.
@@ -281,6 +287,19 @@ class FakeProviders:
         way a parent process can observe what a CHILD process's own
         FakeProviders instance actually served.
         """
+        for name, exc in self._failures.items():
+            # Reject up front what from_file() would refuse in the child,
+            # so the error lands in the test rather than as a child that
+            # crashes at interpreter start.
+            if not (
+                _is_requests_exception_class(type(exc))
+                and getattr(requests.exceptions, type(exc).__name__, None)
+                is type(exc)
+            ):
+                raise ValueError(
+                    "cannot serialise %s failure %r: only requests.exceptions "
+                    "classes survive the process boundary" % (name, exc)
+                )
         spec = {
             "responses": {
                 name: {"status": status, "body": body}
@@ -309,12 +328,12 @@ class FakeProviders:
             # Only ever reconstruct a real requests exception class - never
             # an arbitrary name out of a file a test wrote, even though
             # that file is test-controlled, not attacker-controlled.
-            if not hasattr(requests.exceptions, error_name):
+            exc_cls = getattr(requests.exceptions, error_name, None)
+            if not _is_requests_exception_class(exc_cls):
                 raise ValueError(
                     "refusing to reconstruct unknown requests.exceptions "
                     "class %r" % (error_name,)
                 )
-            exc_cls = getattr(requests, error_name)
             fake.fail(name, exc_cls(entry["message"]))
         fake.calls_log_path = path + ".calls.jsonl"
         return fake

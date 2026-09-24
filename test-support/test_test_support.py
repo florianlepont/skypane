@@ -230,6 +230,41 @@ def test_fake_providers_cross_process(fake_providers, tmp_path):
     assert len(adsbfi_calls) == 1
 
 
+@pytest.mark.parametrize(
+    "exc",
+    [
+        requests.exceptions.SSLError("tls"),
+        requests.exceptions.ProxyError("proxy"),
+        requests.exceptions.ChunkedEncodingError("chunked"),
+        requests.exceptions.ReadTimeout("slow"),
+    ],
+)
+def test_fake_providers_failure_round_trips_through_file(tmp_path, exc):
+    fake = sts.FakeProviders()
+    fake.fail("adsbfi", exc)
+    spec_path = fake.to_file(str(tmp_path / "fake-providers.json"))
+
+    reloaded = sts.FakeProviders.from_file(spec_path)
+    with pytest.raises(type(exc)):
+        reloaded.get("https://opendata.adsb.fi/api/v2/lat/0/lon/0/dist/1")
+
+
+def test_fake_providers_to_file_rejects_non_requests_failure(tmp_path):
+    fake = sts.FakeProviders()
+    fake.fail("adsbfi", ValueError("not a requests error"))
+    with pytest.raises(ValueError, match="cannot serialise"):
+        fake.to_file(str(tmp_path / "fake-providers.json"))
+
+
+def test_fake_providers_from_file_rejects_non_exception_name(tmp_path):
+    spec_path = tmp_path / "fake-providers.json"
+    spec_path.write_text(
+        json.dumps({"failures": {"adsbfi": {"error": "BaseHTTPError", "message": "x"}}})
+    )
+    with pytest.raises(ValueError, match="refusing to reconstruct"):
+        sts.FakeProviders.from_file(str(spec_path))
+
+
 # --- FakeResponse -----------------------------------------------------
 
 
