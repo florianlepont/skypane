@@ -118,7 +118,3 @@ def test_missing_browser_skips_locally(tmp_path):
     assert rc == 0
     assert "1 skipped" in output
     assert "could not launch" in output
-
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-v"]))

@@ -8,8 +8,6 @@ import os
 import textwrap
 import urllib.parse
 
-import pytest
-
 import companion_app_server
 from companion import auth
 from skypane_test_support import NO_NETWORK_ENV_VAR, TEST_SUPPORT_DIR
@@ -221,7 +219,3 @@ def test_legacy_harness_still_matches_original_behaviour():
         harness.stop()
         harness.cleanup()
     assert not os.path.exists(harness.state_dir)
-
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-v"]))
