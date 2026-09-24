@@ -121,9 +121,19 @@ def test_same_origin_quick_switch_and_settings_save_still_work(app_server, page,
     switch = page.locator(
         '[aria-labelledby="%s"]' % app.layout.QUICK_SWITCH_SCREEN_LABEL_ID)
     switch.wait_for(state="visible")
-    switch.click()
+    # Wait on the POST's own response rather than a fixed sleep: under a
+    # loaded parallel run the server subprocess can take seconds to answer.
+    with page.expect_response(
+            lambda resp: resp.request.method == "POST"
+            and app.QUICK_DISPLAY_ROUTE in resp.url,
+            timeout=30000) as response_info:
+        switch.click()
+    assert response_info.value.status < 400, (
+        "the same-origin quick-switch POST was refused with %d — the SEC-03 "
+        "gate must allow a matching Origin + Sec-Fetch-Site: same-origin "
+        "request" % response_info.value.status)
 
-    deadline = time.time() + 5.0
+    deadline = time.time() + 10.0
     changed = False
     while time.time() < deadline:
         if (device_config.load_device_config(app_server.state_dir)["display_enabled"]
@@ -132,9 +142,8 @@ def test_same_origin_quick_switch_and_settings_save_still_work(app_server, page,
             break
         time.sleep(0.05)
     assert changed, (
-        "the quick-switch fetch POST did not change display_enabled on "
-        "disk within 5s on the same origin — the SEC-03 gate must allow "
-        "a matching Origin + Sec-Fetch-Site: same-origin request")
+        "the accepted same-origin quick-switch POST did not change "
+        "display_enabled on disk")
 
     # (b) a normal Settings form save — companion/
     # test_browser_ux_helpers.py's own operate-submit-reload-verify
