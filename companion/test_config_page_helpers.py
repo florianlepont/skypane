@@ -100,6 +100,18 @@ def rules_row_segment(rendered):
     return rendered[start:end]
 
 
+CALENDAR_BASE_CTX = {
+    "device_config": {"theme": "white", "tracked_runway": "3"},
+    "poll_cooldown_remaining": 0,
+    "now": "2026-09-07T09:12:04+00:00",
+}
+"""33-12-PLAN.md: the render() context every Calendar-card check in this
+chain's parts 04/05 starts from, overridden per check with
+calendar_configured/calendar_last_synced_at/etc. Ported here (rather than
+re-derived per part) since 33-13's own remaining Calendar checks (further
+down the legacy harness's main()) need the identical base context."""
+
+
 def strip_js_line_and_block_comments(js):
     """Strips `//` line comments and `/* */` block comments from `js`
     WITHOUT touching string/template literals — unlike
