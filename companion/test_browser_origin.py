@@ -111,7 +111,7 @@ def test_cross_origin_form_post_is_rejected_and_device_config_unchanged(app_serv
 
 # --- Scenario 2: same-origin forms and the quick-switch fetch still work -
 
-def test_same_origin_quick_switch_and_settings_save_still_work(app_server, page, browser):
+def test_same_origin_quick_switch_and_settings_save_still_work(app_server, page, new_context):
     _login(page, app_server.base_url())
     page.goto(app_server.base_url() + app.layout.HOME_ROUTE)
 
@@ -140,11 +140,10 @@ def test_same_origin_quick_switch_and_settings_save_still_work(app_server, page,
     # test_browser_ux_helpers.py's own operate-submit-reload-verify
     # helper, scripts blocked: a genuine native <form> POST, the other
     # shape a same-origin POST can take. It opens its own scripts-blocked
-    # context on the shared `browser` handle (guard rule G10 exempts
-    # companion/test_browser_ux_helpers.py itself, not this file — this
-    # file never calls browser.new_context()/new_page() directly).
+    # context through the guarded `new_context` factory from
+    # companion/conftest.py.
     result = _persist_without_js(
-        browser, app_server.base_url(), app.layout.DEVICE_ROUTE,
+        new_context, app_server.base_url(), app.layout.DEVICE_ROUTE,
         config_page.WAKE_INTERVAL_FIELD_NAME, "600",
         lambda: device_config.load_device_config(app_server.state_dir)["wake_interval_s"],
         restore=False)
