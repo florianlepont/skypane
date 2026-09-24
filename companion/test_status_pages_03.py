@@ -51,7 +51,8 @@ Every other check in this module calls `companion.pages.health_page`/
 directly, in-process.
 """
 import os
-from datetime import timedelta
+import re
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -61,6 +62,7 @@ from companion.pages import health_page
 import companion.test_status_pages_helpers as shp
 import companion.wake as wake
 from companion_app_server import served_asset, served_stylesheet
+from companion_markup import css_rules, custom_properties, declarations_for, parse_html, rules_with_selector
 from server import device_config, history_db
 
 
@@ -963,3 +965,872 @@ def test_registry_resolve_link_pairs_desktop_and_mobile_and_escapes_hostile_inpu
         "expected no raw hostile prefix anywhere in the rendered page")
     assert "<x>" not in rendered_hostile, (
         "expected the hostile prefix's angle bracket to never reach the output raw")
+
+
+# ==========================================================================
+# Health still gains no form/state-changing control (phase 13 D-10, T-13-13)
+# ==========================================================================
+
+
+def _render_health_normal(state_dir):
+    now = shp.now()
+    shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
+    shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    return health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+
+
+def _render_health_anomaly(state_dir):
+    now = shp.now()
+    shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
+    shp.seed_meta(state_dir, **{
+        history_db.META_LAST_PIPELINE_RUN: shp.ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
+    return health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+
+
+def _render_health_source_fault(state_dir):
+    shp.seed_meta(state_dir, **{history_db.META_SOURCE_FAULT: "True"})
+    return health_page.render(shp.ctx(state_dir))
+
+
+def _render_health_empty(state_dir):
+    return health_page.render(shp.ctx(state_dir))
+
+
+_HEALTH_RENDER_STATES = {
+    "normal": _render_health_normal,
+    "anomaly": _render_health_anomaly,
+    "source_fault": _render_health_source_fault,
+    "empty": _render_health_empty,
+}
+
+
+@pytest.mark.parametrize("state_name", sorted(_HEALTH_RENDER_STATES))
+def test_health_still_has_no_form_and_no_button_in_any_state(tmp_path, state_name):
+    """companion/pages/health_page.py's render() emits zero <form> and zero <button> elements in
+    every seeded state (normal, anomaly, source-fault, empty) — Health still gains no
+    state-changing (form-submitting) control (phase 13 D-10, T-13-13; rewritten from a
+    health_page.py source-text grep onto the parsed rendered output, TST-12 rubric S, by
+    33-27-PLAN.md — the legacy check's own "exactly one '<button' occurrence" was a docstring
+    mention in the SOURCE, never rendered markup: health_page.render() returns a content
+    fragment only, with no shared nav chrome, so the true rendered contract has no allowed
+    exception at all)"""
+    state_dir = str(tmp_path)
+    rendered = _HEALTH_RENDER_STATES[state_name](state_dir)
+    doc = parse_html(rendered)
+    assert doc.find_all("form") == [], (
+        "expected zero <form> elements in the %r state, found %r"
+        % (state_name, doc.find_all("form")))
+    assert doc.find_all("button") == [], (
+        "expected zero <button> elements in the %r state, found %r"
+        % (state_name, doc.find_all("button")))
+
+
+def test_quick_260902_gjj_muted_captions_compose_section_caption(tmp_path, css_text):
+    """the battery heading's sibling caption <p> (retargeted from the retired trailing <span>,
+    29-06-PLAN.md Task 1/CFG-84) and the Unresolved-prefixes read-only note both compose
+    section-caption with their existing sizing class, and style.css's .section-caption still declares
+    exactly one property at the file's single 70% muted strength (quick task 260902-gjj, ISSUE 1)"""
+    # quick task 260902-gjj (ISSUE 1): pins the markup pair (both fragments
+    # compose `section-caption` onto their existing sizing class) AND the
+    # single muted strength together — so a future edit cannot satisfy the
+    # markup half while quietly forking a second muted value.
+    #
+    # 29-06-PLAN.md Task 1 (CFG-84): the battery heading's own trailing
+    # <span> this check used to locate is gone (superseded); the caption
+    # now lives in a SIBLING <p> immediately after </h2>, and that is what
+    # this check locates instead.
+    state_dir = str(tmp_path)
+    rendered = health_page.render(shp.ctx(state_dir))
+    heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(_battery_section_heading())
+    heading_at = rendered.index(heading_marker)
+    after_heading = rendered[heading_at + len(heading_marker):]
+    assert after_heading.startswith('<p class="text-label section-caption">'), (
+        "expected the battery heading's sibling caption <p> to compose text-label with "
+        "section-caption immediately after </h2>, got %r" % after_heading[:80])
+
+    # phase 13 (D-10): the reworded note contains apostrophes, which
+    # escape_html() renders as &#x27; — locate the escaped form, not the
+    # raw Python literal.
+    note_at = rendered.index(layout.escape_html(health_page._READ_ONLY_NOTE))
+    note_open = rendered.rindex("<p", 0, note_at)
+    note_tag = rendered[note_open:rendered.index(">", note_open) + 1]
+    assert 'class="text-body section-caption"' in note_tag, (
+        "expected the read-only note's own <p> to compose text-body with section-caption, got %r"
+        % note_tag)
+
+    decls = declarations_for(css_text, ".section-caption")
+    assert len(decls) == 1 and decls.get("color") == (
+        "color-mix(in srgb, var(--color-text) 70%, transparent)"), (
+        "expected .section-caption to still declare exactly one property, the file's single "
+        "70%% muted color-mix, got %r" % decls)
+
+
+def test_migrated_cards_have_independent_failure_isolation(tmp_path):
+    """corrupting only the database leaves the registry card rendering while the stats card degrades, and
+    vice versa (D-11)"""
+    # D-11: the registry read (poll_loop.load_poll_state(), a filesystem/
+    # JSON failure mode) and the stats read (_safe_query(), a SQLite
+    # failure mode) must degrade independently — corrupting one source
+    # must never take down the other card.
+    db_broken = str(tmp_path / "db-broken")
+    with history_db.open_db(db_broken):
+        pass
+    dbs = [f for f in os.listdir(db_broken) if f.endswith(".db")]
+    assert dbs, "expected a database file to have been created"
+    with open(os.path.join(db_broken, dbs[0]), "wb") as fh:
+        fh.write(b"not a sqlite file at all")
+    shp.seed_unresolved_prefixes(db_broken, {
+        "ABC": {"count": 2, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
+    })
+    rendered = health_page.render(shp.ctx(db_broken))
+    assert "ABC" in rendered, (
+        "expected the registry rows to still render when only the database is broken")
+    assert health_page.HEALTH_UNAVAILABLE_TEXT in rendered, (
+        "expected the stats card to show the unavailable copy when the database is broken")
+
+    registry_broken = str(tmp_path / "registry-broken")
+    now = shp.now()
+    shp.seed_runway_events(registry_broken, [{"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
+    poll_state_path = os.path.join(registry_broken, "poll_state.json")
+    with open(poll_state_path, "w") as fh:
+        fh.write("not valid json {")
+    rendered2 = health_page.render(shp.ctx(registry_broken, now_value=shp.iso(now)))
+    assert "100.0% resolved" in rendered2, (
+        "expected the resolution-rate stats to still render when only the registry file is malformed")
+    assert health_page._NO_GAPS_HEADING in rendered2, (
+        "expected the registry to degrade to its empty/no-gaps state, not crash the page")
+
+
+def test_read_health_inputs_keeps_stats_separate(tmp_path):
+    """_read_health_inputs() carries exactly nine keys — device_config and registry_rows now join it for
+    severity's sake (19-05-PLAN.md Task 3/D-05) — while the stats read alone stays a separate call in
+    render() (D-11)"""
+    inputs = health_page._read_health_inputs(str(tmp_path), shp.iso(shp.now()))
+    expected_keys = {
+        "device_health", "pipeline_ts", "last_detection", "source_fault_raw",
+        "trend_rows", "daily_rows", "corroboration_counts",
+        "device_config", "registry_rows",
+    }
+    assert set(inputs.keys()) == expected_keys, (
+        "expected _read_health_inputs() to carry exactly these nine keys, got %r"
+        % (set(inputs.keys()),))
+    assert not any("stat" in k for k in inputs.keys()), (
+        "D-11: the stats read must stay a separate call in render(), not join this dict")
+
+
+def test_battery_section_keeps_everything_after_the_move(tmp_path):
+    """the battery-trend section keeps its own status modifier (retargeted from the retired badge, quick
+    task 260902-gjj), readout, and single script tag after moving out of the grid"""
+    state_dir = str(tmp_path)
+    base = shp.now()
+    readings = [
+        (shp.iso(base - timedelta(minutes=1)), 4200),
+        (shp.iso(base), 4190),
+    ]
+    shp.seed_device_health(state_dir, readings)
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(base)))
+    assert ">%s<" % _battery_section_heading() in rendered, (
+        "expected the battery heading's own text inside an <h2>")
+    assert "battery-trend-section--ok" in rendered, (
+        "expected the battery-trend section's own healthy status modifier to survive the move")
+    assert health_page.BATTERY_READOUT_ID in rendered, "expected the readout element id to survive the move"
+    assert rendered.count("<script") == 1, (
+        "expected exactly one <script occurrence, got %d" % rendered.count("<script"))
+    assert health_page.BATTERY_TREND_SCRIPT_SRC in rendered, (
+        "expected BATTERY_TREND_SCRIPT_SRC in the rendered <script src>")
+    # Slice to the battery section's own boundaries (its own matching
+    # </section>, not "rest of the page") — the surviving tiles elsewhere
+    # on the page would otherwise make a whole-tail "no stat-tile" search
+    # trivially fail.
+    section_start = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+    section_end = rendered.index("</section>", section_start) + len("</section>")
+    section_html = rendered[section_start:section_end]
+    assert "stat-tile" not in section_html, "the battery-trend section must carry no stat-tile class"
+
+
+def test_battery_heading_is_short_and_precision_lives_in_a_sibling_caption(tmp_path):
+    """the battery-trend heading carries ONLY its short fixed text (no inline precision span),
+    immediately followed by a sibling <p class="text-label section-caption"> carrying
+    _battery_trend_caption()'s own text, itself followed by the chart/table body —
+    index(h2) < index(caption) < index(body) (29-06-PLAN.md Task 1, CFG-84)"""
+    # 29-06-PLAN.md Task 1 (CFG-84): the <h2> must carry ONLY its short,
+    # fixed, window-derived text (no inline precision span), and the
+    # precision _battery_trend_caption() computes must live in a SIBLING
+    # <p class="text-label section-caption"> immediately after </h2>,
+    # itself followed by the chart/table body.
+    state_dir = str(tmp_path)
+    base = shp.now()
+    readings = [
+        (shp.iso(base - timedelta(minutes=1)), 4200),
+        (shp.iso(base), 4190),
+    ]
+    shp.seed_device_health(state_dir, readings)
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(base)))
+
+    heading_text = _battery_section_heading()
+    precision_text = health_page._battery_trend_caption(
+        [{"ts": shp.iso(base - timedelta(minutes=1)), "battery_mv": 4200},
+         {"ts": shp.iso(base), "battery_mv": 4190}],
+        None)
+    heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(heading_text)
+    assert heading_marker in rendered, "expected the fixed heading marker %r, got none" % (heading_marker,)
+    assert layout.escape_html(precision_text) not in rendered[
+        rendered.index(heading_marker):rendered.index(heading_marker) + len(heading_marker)], (
+        "the heading itself must not carry the precision text")
+
+    heading_at = rendered.index(heading_marker)
+    caption_marker = '<p class="text-label section-caption">%s</p>' % layout.escape_html(precision_text)
+    caption_at = rendered.index(caption_marker)
+    assert heading_at < caption_at, "expected the heading to precede its sibling caption"
+    assert not rendered[heading_at + len(heading_marker):caption_at].strip(), (
+        "expected the caption <p> to sit IMMEDIATELY after </h2>, found intervening markup %r"
+        % rendered[heading_at + len(heading_marker):caption_at])
+
+    # The chart/table body (the <details class="readings-disclosure"> that
+    # always renders, chart or no chart) follows the caption.
+    body_at = rendered.index('<details class="readings-disclosure"', caption_at)
+    assert caption_at < body_at, "expected the caption to precede the chart/table body"
+
+
+def test_battery_heading_equals_template_times_window_in_both_languages(tmp_path):
+    """the battery-trend heading's rendered text equals i18n.t_lang(BATTERY_SECTION_HEADING_TEMPLATE,
+    lang) % (BATTERY_TREND_WINDOW_DAYS // 30) in both English and French — a relationship against
+    the real constants, not a typed literal (29-06-PLAN.md Task 1, CFG-84)"""
+    # 29-06-PLAN.md Task 1 (CFG-84): a RELATIONSHIP against the real
+    # constants, never a typed "Batterie · 3 mois" literal — proven in both
+    # languages so a future edit to either the template or
+    # BATTERY_TREND_WINDOW_DAYS is caught here rather than only in English.
+    state_dir = str(tmp_path)
+    for lang in ("en", "fr"):
+        try:
+            prefs.set_request_prefs(lang=lang)
+            rendered = health_page.render(shp.ctx(state_dir))
+        finally:
+            prefs.set_request_prefs(lang="en")
+        expected = i18n.t_lang(health_page.BATTERY_SECTION_HEADING_TEMPLATE, lang) % (
+            health_page.BATTERY_TREND_WINDOW_DAYS // 30)
+        marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(expected)
+        assert marker in rendered, (
+            "%s: expected the heading to equal i18n.t_lang(BATTERY_SECTION_HEADING_TEMPLATE, lang) "
+            "%% (BATTERY_TREND_WINDOW_DAYS // 30) == %r, marker %r not found" % (lang, expected, marker))
+
+
+def test_battery_trend_caption_all_three_branches_render_in_sibling_caption(tmp_path):
+    """all three _battery_trend_caption() branches (usable daily series, no rows at all, sub-two-day
+    raw series) render their own exact text inside the sibling caption <p>, never inside the
+    heading (29-06-PLAN.md Task 1, CFG-84)"""
+    base = datetime(2026, 9, 10, 12, 0, 0, tzinfo=timezone.utc)
+
+    def _caption_paragraph(rendered):
+        heading_text = _battery_section_heading()
+        heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(heading_text)
+        after = rendered[rendered.index(heading_marker) + len(heading_marker):]
+        m = re.match(r'<p class="text-label section-caption">(.*?)</p>', after)
+        assert m is not None, "expected a sibling caption <p> immediately after </h2>"
+        return m.group(1)
+
+    # Branch 1: a usable daily series (>= 2 Paris-day buckets) — the
+    # 3-month/daily-average framing.
+    daily_dir = str(tmp_path / "daily")
+    readings = []
+    for day, mv in enumerate((4000, 4100, 4200)):
+        readings.append((shp.iso(base - timedelta(days=day)), mv))
+    shp.seed_device_health(daily_dir, readings)
+    rendered = health_page.render(shp.ctx(daily_dir, now_value=shp.iso(base)))
+    expected = layout.escape_html(i18n.t("Last 3 months, daily average"))
+    assert _caption_paragraph(rendered) == expected, (
+        "daily-series branch: expected caption %r" % expected)
+
+    # Branch 2: no rows at all (and the DB-unavailable case, which shares
+    # the same 3-month framing) — an empty state dir.
+    empty_dir = str(tmp_path / "empty")
+    rendered = health_page.render(shp.ctx(empty_dir, now_value=shp.iso(base)))
+    expected = layout.escape_html(i18n.t("Last 3 months, daily average"))
+    assert _caption_paragraph(rendered) == expected, "no-rows branch: expected caption %r" % expected
+
+    # Branch 3: a sub-two-day raw series (the day-1 fallback) — the real
+    # reading count, never BATTERY_TREND_LIMIT.
+    sameday_dir = str(tmp_path / "sameday")
+    sameday_readings = [
+        (shp.iso(base - timedelta(minutes=2)), 4200),
+        (shp.iso(base - timedelta(minutes=1)), 4190),
+        (shp.iso(base), 4180),
+    ]
+    shp.seed_device_health(sameday_dir, sameday_readings)
+    rendered = health_page.render(shp.ctx(sameday_dir, now_value=shp.iso(base)))
+    expected = layout.escape_html(i18n.t("Latest %d readings") % len(sameday_readings))
+    assert _caption_paragraph(rendered) == expected, "sub-two-day branch: expected caption %r" % expected
+
+
+def test_battery_readout_precedes_chart_class_list_and_live_region(tmp_path, battery_trend_js):
+    """the battery readout precedes the chart and the script tag inside the battery-trend section, carries
+    its single expected class plus role="status" plus both value/detail spans, and battery-trend.js
+    still looks it up by id (quick task 260901-tsa finding D, retargeted by quick task 260901-uzi
+    finding 3)"""
+    # quick task 260901-tsa (finding D): the readout is now the section's
+    # scannable headline number, ahead of the chart.
+    state_dir = str(tmp_path)
+    base = shp.now()
+    readings = [
+        (shp.iso(base - timedelta(minutes=1)), 4200),
+        (shp.iso(base), 4190),
+    ]
+    shp.seed_device_health(state_dir, readings)
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(base)))
+    section_start = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+    section_end = rendered.index("</section>", section_start) + len("</section>")
+    section_html = rendered[section_start:section_end]
+
+    readout_open = section_html.index('<p id="%s"' % health_page.BATTERY_READOUT_ID)
+    readout_tag_close = section_html.index(">", readout_open) + 1
+    readout_tag = section_html[readout_open:readout_tag_close]
+    readout_close = section_html.index("</p>", readout_open) + len("</p>")
+    readout_html = section_html[readout_open:readout_close]
+    # The sparkline SVG is distinguishable from the section heading's icon
+    # <svg class="icon"> by its own '<svg class="sparkline__canvas"'
+    # opening — the heading icon carries no such class.
+    sparkline_at = section_html.index('<svg class="sparkline__canvas"')
+    script_at = section_html.index("<script")
+    assert readout_open < sparkline_at < script_at, (
+        "expected the readout to precede the sparkline, and the sparkline to precede the script "
+        "tag, inside the battery-trend section")
+
+    assert 'class="battery-readout"' in readout_tag, (
+        "expected the readout's class list to be exactly 'battery-readout', got %r" % readout_tag)
+    assert 'role="status"' in readout_tag, "expected role=\"status\" on the readout"
+    assert 'battery-readout__value' in readout_html, "expected the readout's value span inside the readout"
+    assert 'battery-readout__detail' in readout_html, "expected the readout's detail span inside the readout"
+
+    assert health_page.BATTERY_READOUT_ID in battery_trend_js, (
+        "expected battery-trend.js to still look up BATTERY_READOUT_ID's literal value — that "
+        "property is what makes the reposition safe")
+
+
+def test_battery_section_class_is_styled_in_stylesheet(css_text):
+    """health_page.BATTERY_SECTION_CLASS is guarded against silent drift from companion/static/style.css"""
+    assert rules_with_selector(css_text, "." + health_page.BATTERY_SECTION_CLASS), (
+        "companion/static/style.css no longer styles BATTERY_SECTION_CLASS")
+
+
+_CARD_STATUS_COMPONENTS = ("battery-trend-section", "page-section")
+_CARD_STATUS_LEVELS = ("ok", "warn", "error")
+
+
+def test_quick_260902_gjj_card_status_borders_render_correct_modifiers(tmp_path, css_text):
+    """the battery-trend and Unresolved-prefixes cards each carry the status modifier
+    layout.card_status_class() derives from battery_status()/coverage_status()'s own real return
+    value on the same rows, the Resolution-statistics card carries none, and style.css declares all
+    three doubled-form status rules for both card components (quick task 260902-gjj, ISSUE 2)"""
+    # quick task 260902-gjj (ISSUE 2): a real rendered page, with a seeded
+    # battery drop (battery_status() -> "warn") and a seeded non-empty
+    # registry (coverage_status() -> "warn"), proves the battery-trend and
+    # Unresolved-prefixes cards each carry the modifier layout.card_status_
+    # class() derives from the SAME function, and that the Resolution-
+    # statistics card carries none. Each section is located by its own
+    # heading constant, never a document-wide substring search.
+    state_dir = str(tmp_path)
+    now = shp.now()
+    readings = [
+        (shp.iso(now - timedelta(minutes=1)), 4200),
+        (shp.iso(now), 4200 - health_page.BATTERY_DROP_WARN_MV),
+    ]
+    shp.seed_device_health(state_dir, readings)
+    shp.seed_unresolved_prefixes(state_dir, {
+        "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
+                "example_callsign": "ABC123"},
+    })
+    # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics card is now
+    # omitted entirely when its window holds zero rows — seed one so the
+    # card (and its "no status modifier" assertion below) still renders.
+    shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+
+    battery_state = health_page.battery_status([
+        {"ts": shp.iso(now), "battery_mv": readings[1][1]},
+        {"ts": shp.iso(now - timedelta(minutes=1)), "battery_mv": readings[0][1]},
+    ])
+    assert battery_state == "warn", "expected the seeded battery fixture to compute a warn verdict (D-05 demotion)"
+    battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+    battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
+    expected_battery_modifier = layout.card_status_class(health_page.BATTERY_SECTION_CLASS, battery_state)
+    assert expected_battery_modifier in battery_tag, (
+        "expected the battery-trend section's own tag to carry %r, got %r"
+        % (expected_battery_modifier, battery_tag))
+
+    coverage_state = health_page.coverage_status([("ABC", 1, "", "", "")])
+    assert coverage_state == "warn", "expected the seeded registry fixture to compute a warn verdict"
+    registry_heading_at = rendered.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
+    registry_open = rendered.rindex('<section class="', 0, registry_heading_at)
+    registry_tag = rendered[registry_open:rendered.index(">", registry_open) + 1]
+    expected_registry_modifier = layout.card_status_class("page-section", coverage_state)
+    assert expected_registry_modifier in registry_tag, (
+        "expected the Unresolved-prefixes section's own tag to carry %r, got %r"
+        % (expected_registry_modifier, registry_tag))
+    assert "page-section--nested" in registry_tag, (
+        "expected the registry card to keep its pre-existing nested modifier")
+
+    stats_heading_at = rendered.index(">%s</h2>" % health_page.STATS_SECTION_HEADING)
+    stats_open = rendered.rindex('<section class="', 0, stats_heading_at)
+    stats_tag = rendered[stats_open:rendered.index(">", stats_open) + 1]
+    assert stats_tag == '<section class="page-section page-section--nested">', (
+        "expected the Resolution-statistics card to carry no status modifier at all (it computes "
+        "no verdict), got %r" % stats_tag)
+
+    for comp in _CARD_STATUS_COMPONENTS:
+        for status in _CARD_STATUS_LEVELS:
+            sel = ".%s.%s--%s" % (comp, comp, status)
+            decls = declarations_for(css_text, sel)
+            border_top = decls.get("border-top", "")
+            assert "var(--color-status-%s)" % status in border_top and "3px" in border_top, (
+                "expected the doubled-form status rule %r's border-top to declare a 3px border "
+                "in var(--color-status-%s), got %r" % (sel, status, decls))
+
+
+def _rule_index(rules, selector):
+    for index, rule in enumerate(rules):
+        if selector in rule.selectors:
+            return index
+    raise AssertionError("no rule found with selector %r" % (selector,))
+
+
+_CARD_STATUS_HOVER_ORDER_COMPONENTS = (
+    ("battery-trend-section", ("ok", "warn", "error")),
+    ("page-section", ("ok", "warn", "error")),
+    ("stat-tile", ("ok", "warn", "error", "accent")),
+)
+_HOVER_SELECTOR = {
+    "battery-trend-section": ".battery-trend-section:hover",
+    "page-section": ".page-section:hover",
+    "stat-tile": ".stat-tile:not(.frame-strip):hover",
+}
+
+
+def test_card_status_modifiers_survive_hover_source_order(css_text):
+    """every card-status modifier selector (battery-trend-section, page-section, and — quick task
+    260902-gjj Task 3 — stat-tile) sits after that component's own :hover/:focus-within rule in
+    the served stylesheet's rule order, so the status border survives hover and keyboard focus
+    rather than losing to the hover shorthand"""
+    # quick task 260902-gjj (ISSUE 2, extended by Task 3 to cover .stat-
+    # tile): the load-bearing fact every card-status-border rule depends
+    # on — each doubled-form status modifier selector must sit AFTER that
+    # component's own ":hover, :focus-within" rule in the stylesheet's rule
+    # order, or the hover rule's `border-color: transparent`/`border-*-
+    # color: transparent` shorthand (equal specificity, later rule wins)
+    # silently erases the status colour the moment the card is hovered or
+    # a keyboard user focuses a chart point inside it.
+    rules = css_rules(css_text)
+    for comp, statuses in _CARD_STATUS_HOVER_ORDER_COMPONENTS:
+        hover_index = _rule_index(rules, _HOVER_SELECTOR[comp])
+        for status in statuses:
+            sel = ".%s.%s--%s" % (comp, comp, status)
+            sel_index = _rule_index(rules, sel)
+            assert sel_index > hover_index, (
+                "%r must come after %r in the stylesheet's rule order, or hovering/focusing the "
+                "card erases its status border" % (sel, _HOVER_SELECTOR[comp]))
+
+
+def test_quick_260902_gjj_dot_removal_scoped_not_global(tmp_path):
+    """the battery-trend and Unresolved-prefixes cards render no dot-label anywhere inside their own
+    boundaries, the Corroboration tile's three dots survive untouched (proving the removal is scoped,
+    not global), and BATTERY_STATUS_LABEL/_battery_badge_block are both gone via hasattr, never a
+    source grep (quick task 260902-gjj, ISSUE 2)"""
+    # quick task 260902-gjj (ISSUE 2): proves the two dot removals are
+    # SCOPED to the battery-trend and Unresolved-prefixes cards, not a
+    # global regression that happens to also strip the three surviving
+    # Corroboration dots. Without the third (positive) assertion below,
+    # the first two (negative) assertions would pass even if status_dot()
+    # itself had been broken everywhere.
+    state_dir = str(tmp_path)
+    now = shp.now()
+    readings = [
+        (shp.iso(now - timedelta(minutes=1)), 4200),
+        (shp.iso(now), 4200 - health_page.BATTERY_DROP_WARN_MV),
+    ]
+    shp.seed_device_health(state_dir, readings)
+    shp.seed_unresolved_prefixes(state_dir, {
+        "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
+                "example_callsign": "ABC123"},
+    })
+    shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "corroborated": True}])
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+
+    battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+    battery_close = rendered.index("</section>", battery_open) + len("</section>")
+    battery_slice = rendered[battery_open:battery_close]
+    assert "dot-label" not in battery_slice, (
+        "the battery-trend card must render no dot-label — its own badge is retired")
+
+    registry_heading_at = rendered.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
+    registry_open = rendered.rindex('<section class="', 0, registry_heading_at)
+    registry_close = rendered.index("</section>", registry_open) + len("</section>")
+    registry_slice = rendered[registry_open:registry_close]
+    assert "dot-label" not in registry_slice, (
+        "the Unresolved-prefixes card must render no dot-label — its own dot is retired")
+
+    # 19-06-PLAN.md Task 2 (D-06): the tile's visible caption is now the
+    # plain-language CORROBORATION_TILE_LABEL, not the literal
+    # "Corroboration" (which now only survives as this tile's caption_title
+    # tooltip).
+    corrob_at = rendered.index(">%s<" % layout.escape_html(health_page.CORROBORATION_TILE_LABEL))
+    corrob_open = rendered.rindex('<div class="stat-tile ', 0, corrob_at)
+    corrob_close = rendered.index("</div>", corrob_open) + len("</div>")
+    corrob_slice = rendered[corrob_open:corrob_close]
+    assert "dot-label" in corrob_slice, (
+        "expected the Corroboration tile's own dots to survive untouched — this check must fail "
+        "if status_dot() itself breaks, not only if the two removals are wrong")
+
+    assert not hasattr(health_page, "BATTERY_STATUS_LABEL"), (
+        "expected health_page to no longer define the retired BATTERY_STATUS_LABEL")
+    assert not hasattr(health_page, "_battery_badge_block"), (
+        "expected health_page to no longer define the retired _battery_badge_block")
+
+
+def test_quick_260901_tsa_css_dom_contract_guard(css_text):
+    """style.css's .section-intro / .section-intro > p / .stat-tile__value .mono / .battery-readout rules
+    each carry their load-bearing declaration, and .mono precedes .battery-readout in the
+    stylesheet's rule order (quick task 260901-tsa)"""
+    # quick task 260901-tsa (Check 5): the cross-file guard for every new/
+    # edited style.css rule this task's markup depends on.
+    expectations = (
+        (".section-intro", "display", "flex"),
+        (".section-intro > p", "margin", "0"),
+        (".stat-tile__value .mono", "font-weight", "inherit"),
+        (".battery-readout", "font-weight", "var(--weight-semibold)"),
+    )
+    for selector, prop, expected_value in expectations:
+        decls = declarations_for(css_text, selector)
+        assert decls.get(prop) == expected_value, (
+            "expected %r's %r declaration to be %r, got %r" % (selector, prop, expected_value, decls))
+
+    # The one source-order fact the Emphasis promotion actually rests on:
+    # .mono's rule must precede .battery-readout's rule, since the
+    # promotion wins by SOURCE ORDER (a later same-specificity rule), not
+    # by selector specificity.
+    rules = css_rules(css_text)
+    assert _rule_index(rules, ".mono") < _rule_index(rules, ".battery-readout"), (
+        "expected .mono's rule to precede .battery-readout's — moving .battery-readout above "
+        ".mono would silently return the readout to regular weight")
+
+
+def test_dashboard_grid_stretches_same_row_tiles(css_text):
+    """style.css's .dashboard-grid declares an explicit cross-axis stretch (the UXA-06 reversal) and no
+    longer declares start, and .dashboard-shell's own separate start-aligned declaration (D-21's sticky
+    sidebar) is the file's only remaining one (quick task 260901-uzi finding 1)"""
+    # quick task 260901-uzi Task 4 (Check 1): finding 1's stylesheet guard.
+    # .dashboard-grid must declare the stretch alignment (the UXA-06
+    # reversal) and must not declare the start alignment, and the file's
+    # only remaining start-aligned declaration must be the desktop
+    # .dashboard-shell rule's own.
+    grid_decls = declarations_for(css_text, ".dashboard-grid")
+    assert grid_decls.get("align-items") == "stretch", (
+        "expected .dashboard-grid to declare align-items: stretch — a start-aligned .dashboard-"
+        "grid returns the ragged-height tiles the developer measured (107.7 / 261.8 / 140.4px in "
+        "one row), got %r" % grid_decls)
+
+    start_count = sum(
+        1 for rule in css_rules(css_text) for prop, value in rule.declarations
+        if prop == "align-items" and value == "start")
+    assert start_count == 1, (
+        "expected exactly one remaining align-items: start declaration in the whole stylesheet, "
+        "got %d" % start_count)
+
+    shell_decls = declarations_for(
+        css_text, ".dashboard-shell", at_rules=("@media (min-width: 960px)",))
+    assert shell_decls.get("align-items") == "start", (
+        "expected the one remaining align-items: start to be inside .dashboard-shell — D-21's "
+        "sticky sidebar needs it; a different selector holding it would mean the UXA-06 reversal "
+        "missed something")
+
+
+def test_data_table_th_has_symmetric_nonzero_padding(css_text):
+    """style.css's .data-table th declares a symmetric, non-zero vertical padding via the two-value shorthand
+    (quick task 260902-dng bug 2, closes 260901-uzi Finding 5 candidate (a))"""
+    # quick task 260902-dng (bug 2): pins both halves of the contract so a
+    # future edit cannot silently return the top to zero (reintroducing the
+    # opaque-background-starts-at-the-glyph-tops defect) or drift the top
+    # and bottom values apart. Parses the declaration's own VALUE rather
+    # than string-matching the whole rule body, so this check survives an
+    # unrelated reformat of the rule.
+    decls = declarations_for(css_text, ".data-table th")
+    assert "padding-top" not in decls and "padding-bottom" not in decls, (
+        "expected the two-value shorthand form, not separate padding-top/padding-bottom "
+        "declarations")
+    padding = decls.get("padding")
+    assert padding is not None, "expected a `padding` declaration inside `.data-table th`"
+    parts = padding.split()
+    assert len(parts) == 2, (
+        "expected a two-value (vertical horizontal) padding shorthand, got %r" % (padding,))
+    top_raw, _horizontal = parts
+    assert top_raw.endswith("px") and top_raw[:-2].isdigit(), (
+        "expected the top/bottom padding value to be a bare px literal, got %r" % top_raw)
+    top_px = int(top_raw[:-2])
+    assert top_px > 0, (
+        "expected a non-zero top padding on .data-table th — zero top padding is the real "
+        "mechanism behind the sticky header's opaque background starting exactly at the glyph "
+        "tops")
+
+
+def test_nested_heading_tier_promoted_to_sans_semibold_emphasis_role(tmp_path, css_text):
+    """exactly the two migrated cards carry page-section--nested (located by their own heading constants),
+    the source-fault block never carries it even when it renders, both .section-intro headings are
+    untouched, and style.css's nested-heading rule — promoted by 06.6.4.1.1 D-09's deliberate second
+    reversal — declares the sans family, the Body size (16px) and the semibold weight explicitly (plus
+    its retained 260902-bl2 bottom margin), sitting below a .text-heading section-heading tier confirmed
+    still 22px/regular at the token level too (quick task 260901-uzi finding 4, Check 2; reverted by
+    quick task 260902-iag; re-promoted by 06.6.4.1.1 plan 02 Task 2)"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
+    shp.seed_meta(state_dir, **{history_db.META_SOURCE_FAULT: "True"})
+    # 22-03-PLAN.md Task 2 (B3): seed one runway event so both migrated
+    # cards still render, unrelated to what this check is actually about.
+    shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+
+    assert rendered.count("page-section--nested") == 2, (
+        "expected exactly two page-section--nested occurrences (the two migrated cards), got %d"
+        % rendered.count("page-section--nested"))
+
+    for heading in (health_page.UNRESOLVED_SECTION_HEADING, health_page.STATS_SECTION_HEADING):
+        heading_marker = ">%s</h2>" % heading
+        heading_at = rendered.index(heading_marker)
+        section_open = rendered.rindex('<section class="', 0, heading_at)
+        section_tag = rendered[section_open:rendered.index(">", section_open) + 1]
+        assert "page-section--nested" in section_tag, (
+            "expected the <section> carrying %r to declare page-section--nested, got %r"
+            % (heading, section_tag))
+
+    assert '<section class="page-section banner banner--anomaly">' in rendered, (
+        "expected the source-fault block itself to render for this fixture")
+    assert 'class="page-section banner banner--anomaly page-section--nested"' not in rendered, (
+        "the source-fault block must never carry page-section--nested")
+
+    for section_id, heading in (
+            (health_page.SCREEN_SECTION_ID, health_page.SCREEN_SECTION_HEADING),
+            (health_page.SERVER_DATA_SECTION_ID, health_page.SERVER_DATA_SECTION_HEADING)):
+        intro_marker = '<h2 id="%s" class="text-heading">%s</h2>' % (section_id, layout.escape_html(heading))
+        assert intro_marker in rendered, "expected %r's own .section-intro heading to be unmodified" % heading
+
+    nested_decls = declarations_for(css_text, ".page-section--nested > h2")
+    assert ".battery-trend-section > h2" in next(
+        rule.selectors for rule in css_rules(css_text) if ".page-section--nested > h2" in rule.selectors), (
+        "expected the promoted rule's selector list to still cover .battery-trend-section > h2")
+    assert nested_decls.get("margin-bottom") == "var(--space-md)", (
+        "expected the promoted rule to still declare its retained 260902-bl2 bottom margin — a "
+        "missing bottom margin means this re-promotion over-reached and took the independently-"
+        "justified spacing fix with it, got %r" % nested_decls)
+    assert nested_decls.get("font-family") == "var(--font-ui)", (
+        "expected the nested-heading rule to declare font-family: var(--font-ui) — D-09's second "
+        "reversal moves this tier onto the sans Emphasis role, got %r" % nested_decls)
+    assert nested_decls.get("font-size") == "var(--font-body-size)", (
+        "expected the nested-heading rule to declare font-size: var(--font-body-size) (16px) — "
+        "the same Emphasis-role size .stat-tile__value already uses, not a new fifth size, got %r"
+        % nested_decls)
+    assert nested_decls.get("font-weight") == "var(--weight-semibold)", (
+        "expected the nested-heading rule to declare font-weight: var(--weight-semibold) — a "
+        "font-weight missing here means the D-09 re-promotion did not land, got %r" % nested_decls)
+
+    heading_decls = declarations_for(css_text, ".text-heading")
+    assert heading_decls.get("font-size") == "var(--font-heading-size)", (
+        "expected .text-heading to still declare --font-heading-size — the section heading tier "
+        "this nested title now sits below has no fallback of its own, got %r" % heading_decls)
+    assert heading_decls.get("font-weight") == "var(--weight-regular)", (
+        "expected .text-heading to stay --weight-regular — the section-heading tier must stay "
+        "regular so the semibold nested card title below it reads as a distinct third tier, not "
+        "more of the same weight, got %r" % heading_decls)
+    tokens = custom_properties(css_text, ":root")
+    assert tokens.get("--font-heading-size") == "22px", (
+        "expected --font-heading-size to be 22px in :root — D-10 grew the section heading tier "
+        "from 20px to 22px as part of the same ladder this rule is the bottom rung of, got %r"
+        % tokens)
+
+
+def test_stat_tile_caption_joins_the_unified_label_voice(css_text):
+    """style.css's .stat-tile__caption converges on the one unified 12px uppercase label voice (D-13) — sans
+    family, 12px size, semibold weight, uppercase transform and 0.06em tracking all declared explicitly,
+    with no serif token named anywhere in its rule body — while .stat-tile__value keeps its own untouched
+    D-09 Emphasis-role size/weight, the nested card title stays on its own D-09-second-reversal sans-
+    semibold Body-size declarations, the shared h1/h2/h3/legend/.text-heading serif rule keeps its regular
+    weight, and the token table reads 14/16/22px (supersedes quick task 260902-dng Task 3's semibold
+    promotion and quick task 260902-iag Task 2's reversal of it — 06.6.4.1.1 plan 02 Task 3)"""
+    # 06.6.4.1.1 (D-13, plan 02 Task 3): the caption converges, together
+    # with .data-table th, .data-card__label, .filter-bar__count,
+    # .banner__pill and .airline-card__chip, on the one unified label
+    # voice: sans, 12px, semibold, uppercase, 0.06em tracking.
+    caption_decls = declarations_for(css_text, ".stat-tile__caption")
+    assert caption_decls.get("font-family") == "var(--font-ui)", (
+        "expected .stat-tile__caption to declare font-family: var(--font-ui) — D-13 retires the "
+        "serif Label-role exception this caption used to be, got %r" % caption_decls)
+    assert all("var(--font-serif)" not in value for value in caption_decls.values()), (
+        "expected .stat-tile__caption's rule body to no longer name the serif token at all — a "
+        "serif reference reappearing here is the retired Label-role exception returning, got %r"
+        % caption_decls)
+    assert caption_decls.get("font-size") == "12px", (
+        "expected .stat-tile__caption to declare font-size: 12px — the unified label voice's own "
+        "size, got %r" % caption_decls)
+    assert caption_decls.get("font-weight") == "var(--weight-semibold)", (
+        "expected .stat-tile__caption to declare font-weight: var(--weight-semibold) — one of the "
+        "unified label voice's four properties, got %r" % caption_decls)
+    assert caption_decls.get("text-transform") == "uppercase", (
+        "expected .stat-tile__caption to declare text-transform: uppercase — one of the unified "
+        "label voice's four properties, got %r" % caption_decls)
+    assert caption_decls.get("letter-spacing") == "0.06em", (
+        "expected .stat-tile__caption to declare letter-spacing: 0.06em — one of the unified "
+        "label voice's four properties, got %r" % caption_decls)
+
+    value_decls = declarations_for(css_text, ".stat-tile__value")
+    assert value_decls.get("font-size") == "var(--font-body-size)", (
+        "expected .stat-tile__value to stay on the Body size (16px) — Finding 4's own contract, "
+        "got %r" % value_decls)
+    assert value_decls.get("font-weight") == "var(--weight-semibold)", (
+        "expected .stat-tile__value to stay semibold — Finding 4's own contract, got %r" % value_decls)
+
+    # 06.6.4.1.1 (D-09, plan 02 Task 2): the nested card title's demotion —
+    # reverted by quick task 260902-iag — is re-promoted a second time,
+    # deliberately, as the bottom rung of the full type ladder.
+    nested_decls = declarations_for(css_text, ".page-section--nested > h2")
+    assert nested_decls.get("font-size") == "var(--font-body-size)", (
+        "expected the nested card title to declare font-size: var(--font-body-size) (16px) — "
+        "D-09's second reversal promotes it onto the sans Emphasis role, got %r" % nested_decls)
+    assert nested_decls.get("font-weight") == "var(--weight-semibold)", (
+        "expected the nested card title to declare font-weight: var(--weight-semibold) — D-09's "
+        "second reversal promotes it onto the sans Emphasis role, got %r" % nested_decls)
+
+    heading_decls = declarations_for(css_text, ".text-heading")
+    assert heading_decls.get("font-weight") == "var(--weight-regular)", (
+        "expected the shared heading rule to stay regular weight — the section heading and the "
+        "reverted nested card title both inherit this, and neither should ever carry its own "
+        "weight override again, got %r" % heading_decls)
+
+    # Token values themselves, so this check fails loudly (not silently)
+    # if a future edit changes what 14/16/22 actually mean.
+    tokens = custom_properties(css_text, ":root")
+    for name, expected in (
+            ("--font-label-size", "14px"),
+            ("--font-body-size", "16px"),
+            ("--font-heading-size", "22px")):
+        assert tokens.get(name) == expected, "expected %s to be %s in :root, got %r" % (name, expected, tokens)
+
+
+def _margin_bottom_token_px(css_text, selector, tokens):
+    """The `var(--token)` name referenced by `selector`'s `margin-bottom`
+    (or the last `var()` in a `margin` shorthand), and that token's own
+    `:root` value as an int px count — both derived from `declarations_
+    for()`'s already-structurally-extracted declaration VALUE, never from
+    a second raw scan of the stylesheet text."""
+    decls = declarations_for(css_text, selector)
+    value = decls.get("margin-bottom") or decls.get("margin")
+    assert value is not None, "expected %r to declare margin-bottom (or margin)" % (selector,)
+    match = re.search(r"var\(--([a-z0-9-]+)\)", value)
+    assert match is not None, "expected %r's margin declaration to reference a var() token, got %r" % (
+        selector, value)
+    token_name = "--" + match.group(1)
+    token_value = tokens.get(token_name)
+    assert token_value is not None and token_value.endswith("px"), (
+        "expected %r to resolve to a real px token value in :root, got %r" % (token_name, token_value))
+    return token_name, int(token_value[:-2])
+
+
+def test_two_tier_hierarchy_carried_by_layout_not_type(tmp_path, css_text):
+    """Health's two-tier hierarchy (D-10 section headings vs. the cards nested inside them) still reads
+    apart with no font-size or font-weight distinction between the tiers: every level-2 heading (Battery
+    trend, Unresolved prefixes, Resolution statistics) sits inside a bordered card <section>, both level-1
+    headings (Screen, Server & data) sit inside the plain .section-intro row with no card class, a
+    .dashboard-grid always intervenes between a level-1 heading and the first level-2 card in its own
+    section, and the four spacing tiers that now carry the distinction stay strictly ordered against
+    their real :root token values — in both the empty and seeded state (quick task 260902-iag Task 3)"""
+    # quick task 260902-iag Task 3: with font-size no longer distinguishing
+    # Health's two structural tiers, this check pins the mechanism that
+    # replaced it — containment and spacing, read from the real rendered
+    # DOM and the real cascade, not asserted from memory.
+    for seeded in (False, True):
+        state_dir = str(tmp_path / ("seeded-%s" % seeded))
+        now = shp.now()
+        if seeded:
+            shp.seed_device_health(state_dir, [
+                (shp.iso(now - timedelta(minutes=3)), 4200),
+                (shp.iso(now - timedelta(minutes=1)), 4190),
+            ])
+            shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
+            shp.seed_unresolved_prefixes(state_dir, {
+                "JAF": {"count": 4, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
+                        "example_callsign": "JAF412"},
+            })
+        rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+
+        for section_id, heading in (
+                (health_page.SCREEN_SECTION_ID, health_page.SCREEN_SECTION_HEADING),
+                (health_page.SERVER_DATA_SECTION_ID, health_page.SERVER_DATA_SECTION_HEADING)):
+            marker = '<h2 id="%s" class="text-heading">%s</h2>' % (section_id, layout.escape_html(heading))
+            marker_at = rendered.index(marker)
+            wrapper_open = rendered.rindex('<div class="', 0, marker_at)
+            wrapper_tag = rendered[wrapper_open:rendered.index(">", wrapper_open) + 1]
+            assert "section-intro" in wrapper_tag, (
+                "seeded=%s: expected %r's <h2> to sit inside the plain .section-intro row, got "
+                "wrapper %r" % (seeded, heading, wrapper_tag))
+            assert "page-section" not in wrapper_tag and "battery-trend-section" not in wrapper_tag, (
+                "seeded=%s: %r's own wrapper must carry no card class, got %r" % (seeded, heading, wrapper_tag))
+
+        # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics card is now
+        # omitted entirely (no heading at all) when its window holds zero
+        # rows.
+        headings_to_check = [
+            _battery_section_heading(),
+            health_page.UNRESOLVED_SECTION_HEADING,
+        ]
+        if seeded:
+            headings_to_check.append(health_page.STATS_SECTION_HEADING)
+        else:
+            assert health_page.STATS_SECTION_HEADING not in rendered, (
+                "seeded=False: expected the empty Resolution-statistics section to be entirely "
+                "absent (B3, 22-03-PLAN.md Task 2)")
+        for heading in headings_to_check:
+            heading_marker_at = rendered.index(">%s" % heading)
+            section_open = rendered.rindex('<section class="', 0, heading_marker_at)
+            section_tag = rendered[section_open:rendered.index(">", section_open) + 1]
+            assert (
+                "page-section--nested" in section_tag
+                or health_page.BATTERY_SECTION_CLASS in section_tag), (
+                "seeded=%s: expected %r's enclosing <section> to carry a card class "
+                "(page-section--nested or %s), got %r"
+                % (seeded, heading, health_page.BATTERY_SECTION_CLASS, section_tag))
+
+        # Adjacency: a .dashboard-grid always sits between a level-1
+        # heading's own .section-intro row and the first level-2 card in
+        # that same section — the two tiers are never immediately adjacent
+        # on screen.
+        screen_intro_at = rendered.index('id="%s"' % health_page.SCREEN_SECTION_ID)
+        screen_intro_close = rendered.index("</div>", screen_intro_at) + len("</div>")
+        after_screen_intro = rendered[screen_intro_close:screen_intro_close + 40]
+        assert after_screen_intro.startswith('<div class="dashboard-grid">'), (
+            "seeded=%s: expected a .dashboard-grid immediately after the Screen section-intro "
+            "row, got %r" % (seeded, after_screen_intro))
+        server_intro_at = rendered.index('id="%s"' % health_page.SERVER_DATA_SECTION_ID)
+        server_intro_close = rendered.index("</div>", server_intro_at) + len("</div>")
+        after_server_intro = rendered[server_intro_close:server_intro_close + 40]
+        assert after_server_intro.startswith('<div class="dashboard-grid">'), (
+            "seeded=%s: expected a .dashboard-grid immediately after the Server & data "
+            "section-intro row, got %r" % (seeded, after_server_intro))
+
+    # Stylesheet half: the four spacing values that now carry the
+    # hierarchy, read from their own rules by selector and asserted to
+    # form the strictly ordered set the layout inspection derived —
+    # section-transition > same-section card-to-card > heading-to-content
+    # inside a card > a section-intro heading's own rhythm — against
+    # :root's real token values.
+    tokens = custom_properties(css_text, ":root")
+    section_token, section_gap = _margin_bottom_token_px(css_text, ".battery-trend-section", tokens)
+    card_token, card_gap = _margin_bottom_token_px(css_text, ".page-section", tokens)
+    grid_token, grid_gap = _margin_bottom_token_px(css_text, ".dashboard-grid", tokens)
+    head_token, head_gap = _margin_bottom_token_px(css_text, ".page-section--nested > h2", tokens)
+    intro_token, intro_gap = _margin_bottom_token_px(css_text, ".text-heading", tokens)
+
+    assert card_gap == grid_gap, (
+        "expected .page-section and .dashboard-grid to share one same-section card-to-card value "
+        "(%s=%dpx vs %s=%dpx) — the pair 260902-ep7 pinned" % (card_token, card_gap, grid_token, grid_gap))
+    assert section_gap > card_gap > head_gap > intro_gap, (
+        "expected the layout hierarchy's four spacing tiers to stay strictly ordered "
+        "(section-transition %dpx > card-to-card %dpx > heading-to-content %dpx > section-intro "
+        "rhythm %dpx) — this ordering is what now carries the two-tier hierarchy quick task "
+        "260902-iag removed the type-scale distinction from"
+        % (section_gap, card_gap, head_gap, intro_gap))
