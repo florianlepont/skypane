@@ -29,9 +29,12 @@ xdist worker ever sees another test's leftover on-disk state.
 import pytest
 
 from companion import auth
+from server import device_config
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
-    _assert_hit_target, _login, _set_ui_theme, seed_state_dir,
+    _assert_hit_target, _bar_text, _click_control, _commit_field,
+    _guard_armed, _login, _no_js_page, _save_via_bar, _set_ui_theme,
+    _wait_for_bar, _wait_for_bar_hidden, seed_state_dir,
 )
 
 pytestmark = pytest.mark.browser
@@ -576,5 +579,830 @@ def test_health_filter_count_and_clear_share_one_line_at_390px(new_context, serv
                 "on .mono, got %r" % (clock_class,))
         if page.viewport_size["width"] != 390:
             raise AssertionError("expected the measurement to be taken at 390px")
+    finally:
+        context.close()
+
+
+def test_the_no_js_floor_holds_for_health(new_context, server):
+    """with scripts blocked Health renders in full — all four tiles with their
+    label/verdict/detail slots each exactly once, the registry filter bar and
+    Clear, the unresolved-prefix rows, and a per-row Resolve action that actually
+    navigates to the Airlines resolve surface (D-09's floor asserted at this
+    plan's own commit, 22-12-PLAN.md Task 3)"""
+    # D-09 asks the floor to hold THROUGHOUT the phase, so it is asserted
+    # at THIS plan's own commit rather than deferred to the phase-closing
+    # sweep. This plan rebuilds every tile body, restructures a table's
+    # cells and re-wraps a filter bar — all server-rendered, and all of
+    # it must therefore be complete with scripts blocked.
+    with _no_js_page(new_context, server.base_url(), "/health") as page:
+        tiles = page.eval_on_selector_all(".stat-tile", "els => els.length")
+        if tiles != 4:
+            raise AssertionError(
+                "expected all four Health tiles to render with scripts blocked, "
+                "got %d" % (tiles,))
+        # Every tile is complete, not merely present.
+        slots = page.eval_on_selector_all(
+            ".stat-tile",
+            "els => els.map(el => ["
+            "  el.querySelectorAll(':scope > .stat-tile__caption').length,"
+            "  el.querySelectorAll("
+            "    ':scope > .widget-verdict, :scope > .stat-tile__value,"
+            "     :scope > .empty-state > .empty-state__heading').length,"
+            "  el.querySelectorAll("
+            "    ':scope > .widget-detail, :scope > .empty-state >"
+            "     .empty-state__body').length])")
+        for index, slot in enumerate(slots):
+            if slot != [1, 1, 1]:
+                raise AssertionError(
+                    "expected tile %d to render its label/verdict/detail slots "
+                    "exactly once each with scripts blocked, got %r"
+                    % (index, slot))
+        if not page.query_selector(".filter-bar [data-filter-input]"):
+            raise AssertionError("expected the registry filter bar with scripts blocked")
+        if not page.query_selector("[data-filter-clear]"):
+            raise AssertionError("expected the Clear control with scripts blocked")
+        # The table OR its card fallback — whichever the viewport
+        # resolves to — must be present, and the Resolve action reachable
+        # from it.
+        rows = page.eval_on_selector_all(
+            "table.data-table--registry tbody tr, ul.data-cards > li", "els => els.length")
+        if rows < 1:
+            raise AssertionError(
+                "expected the unresolved-prefix rows (table or card fallback) with "
+                "scripts blocked, got %d" % (rows,))
+        # `:visible` matters: this card list and this table are BOTH in
+        # the DOM at every width (the `.data-cards ~ .data-table-wrap`
+        # toggle is CSS-only, by design, so the no-JS path has both), and
+        # the card list renders first. The reachable one is whichever the
+        # viewport actually shows — which is the thing "reachable without
+        # scripts" means.
+        resolve = page.locator('a[href^="/airlines?resolve="]:visible').first
+        if resolve.count() == 0:
+            raise AssertionError(
+                "expected the per-row Resolve action to be reachable with scripts "
+                "blocked")
+        href = resolve.get_attribute("href")
+        with page.expect_navigation():
+            resolve.click()
+        if "/airlines" not in page.url or "resolve=" not in page.url:
+            raise AssertionError(
+                "expected the Resolve link (%r) to navigate to the Airlines "
+                "resolve surface with scripts blocked, got %r" % (href, page.url))
+
+
+# ----------------------------------------------------------------
+# 22-01-PLAN.md Task 3 (D-01/D-02, B1/T1/T8): the four checks this whole
+# plan exists to make possible. Each one saves a real setting through the
+# real UI, so each gets its own function-scoped, seeded server.
+# ----------------------------------------------------------------
+
+def test_display_reveal_and_persist_across_all_field_kinds(page, make_app_server):
+    """Display: a theme chip, a runway card and a quiet-hours time field each commit
+    via change, REVEAL the bar, and PERSIST to DISK once Enregistrer is clicked
+    (form=-attached radio and time-input field kinds — the Enable-display checkbox
+    this check also covered is retired outright by 22-05-PLAN.md Task 1,
+    X1/D-04/D-12.1; retargeted from the retired auto-save onto the restored bar by
+    28-10-PLAN.md Task 1, CFG-77/CFG-78)"""
+    # 28-10-PLAN.md Task 1 (CFG-77/CFG-78): RETARGETED from auto-save onto
+    # the restored bar — the pre-27-04 name is genuinely honest again: a
+    # committed edit REVEALS the bar (never a click before that) and only
+    # Enregistrer PERSISTS it (never a click-free auto-save). Its real
+    # value (three cross-DOM form=-attached field KINDS — radio-as-chip,
+    # radio-as-card, time input — each genuinely committing, revealing
+    # the bar, and persisting once saved) survives unchanged.
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    base_url = server.base_url()
+    _login(page, base_url)
+    theme_ids = device_config.THEME_IDS
+    runway_ids = device_config.RUNWAY_IDS
+
+    def on_disk():
+        return device_config.load_device_config(server.tmpdir)
+
+    # 1. Theme chip (Frame colours card, form=-attached, rendered as a
+    # sibling of <form id="settings-form">).
+    page.goto(base_url + "/display")
+    target_theme = theme_ids[1]
+    theme_sel = 'input[name="theme"][value="%s"]' % target_theme
+    _click_control(page, theme_sel)
+    _wait_for_bar(page)
+    _save_via_bar(page)
+    if on_disk()["theme"] != target_theme:
+        raise AssertionError(
+            "expected the theme chip's committed value to reach disk, got %r"
+            % (on_disk()["theme"],))
+
+    # 2. Runway card (also a sibling of the form).
+    target_runway = runway_ids[1]
+    runway_sel = 'input[name="tracked_runway"][value="%s"]' % target_runway
+    _click_control(page, runway_sel)
+    _wait_for_bar(page)
+    _save_via_bar(page)
+    if str(on_disk()["tracked_runway"]) != str(target_runway):
+        raise AssertionError(
+            "expected the runway card's committed value to reach disk, got %r"
+            % (on_disk()["tracked_runway"],))
+
+    # 3. Enable-display checkbox — RETIRED outright by 22-05-PLAN.md
+    # Task 1 (X1/D-04/D-12.1): the Frame strip is now the ONLY on/off
+    # control for the screen, so this settings page no longer renders a
+    # display_enabled checkbox for the B1 regression to cover here at
+    # all. No replacement checkbox exists on Display any more (Quiet
+    # hours' own on/off checkbox is retired the same way) — the
+    # remaining two field kinds below (radio, time input) still prove
+    # the cross-DOM form= delegation this check exists for.
+
+    # 4. Quiet-hours time field (a sibling of the form). .fill()
+    # dispatches `input` only (Playwright's own documented contract) —
+    # never `change` — so _commit_field() fires the real `change` a blur
+    # would, which is the exact commit the bar's own document-level
+    # listener is waiting for.
+    quiet_sel = 'input[name="quiet_hours_start"]'
+    page.fill(quiet_sel, "22:15")
+    _commit_field(page, quiet_sel)
+    _wait_for_bar(page)
+    _save_via_bar(page)
+    if str(on_disk()["quiet_hours_start"]) != "22:15":
+        raise AssertionError(
+            "expected the quiet-hours time field's committed value to reach "
+            "disk, got %r" % (on_disk()["quiet_hours_start"],))
+
+
+def test_device_reveal_and_persist_stays_in_step_with_display(page, make_app_server):
+    """Device: the wake-interval field commits via change, REVEALS the bar, and
+    PERSISTS to DISK once Enregistrer is clicked, proving the two scopes stay in
+    step (B1) — witnessed by the wake-interval field since the Diagnostic LED
+    stopped being a Save-governed control (retargeted in place by 23-07-PLAN.md
+    Task 2, D2/CFG-36; retargeted from the retired auto-save onto the restored bar
+    by 28-10-PLAN.md Task 1, CFG-77/CFG-78)"""
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    base_url = server.base_url()
+    _login(page, base_url)
+    # 23-07-PLAN.md Task 2 (D2/CFG-36, X1/D-04): RETARGETED IN PLACE from
+    # the Diagnostic LED checkbox to the wake-interval field. The LED is
+    # no longer a Save-governed control at all — it is a role="switch"
+    # applying instantly over /quick/led. 28-10-PLAN.md Task 1
+    # (CFG-77/CFG-78): retargeted AGAIN, from auto-save onto the
+    # restored bar — the wake-interval field commits via change, REVEALS
+    # the bar, and PERSISTS to DISK once Enregistrer is clicked, exactly
+    # like Display's own fields, proving the two scopes still stay in
+    # step.
+    page.goto(base_url + "/device")
+    wake_sel = 'input[name="wake_interval_s"]'
+    before = page.eval_on_selector(wake_sel, "el => el.value")
+    target = "1800" if before != "1800" else "3600"
+    page.fill(wake_sel, target)
+    _commit_field(page, wake_sel)
+    _wait_for_bar(page)
+    _save_via_bar(page)
+    stored = device_config.load_device_config(server.tmpdir)["wake_interval_s"]
+    if str(stored) != target:
+        raise AssertionError(
+            "expected the edited wake interval to reach disk, got %r" % (stored,))
+    # And the LED switch, which is NOT part of that form, must be unmoved
+    # by the save — the whole point of T-23-25.
+    led_state = page.eval_on_selector(
+        '[data-quick-region] button[role="switch"]',
+        "el => el.getAttribute('aria-checked')")
+    if led_state not in ("true", "false"):
+        raise AssertionError(
+            "expected the Device page to render an LED switch with a real "
+            "aria-checked, got %r" % (led_state,))
+
+
+def test_the_bar_hides_once_script_proves_live_then_reveals_on_edit_and_saves(page, make_app_server):
+    """the bar (the single [data-static-save-fallback] Save affordance, relocated
+    inside it, never a second button) is server-rendered VISIBLE — the no-JS
+    floor — and hides IMMEDIATELY once script proves itself live; an edit
+    REVEALS it again, naming the changed section via [data-dirty-count]; and
+    clicking its own Save persists to disk through a real navigation — the
+    INVERSE of 27-03-PLAN.md Task 2 (CFG-64) and 27-04-PLAN.md Task 4
+    (CFG-63)'s own retired polarity, which this check's former name asserted
+    (D-01/CFG-64/CFG-77/CFG-78, retargeted onto the restored bar by
+    28-10-PLAN.md Task 2)"""
+    # 28-10-PLAN.md Task 2 (CFG-77/CFG-78): RETARGETED — the polarity
+    # this check asserted is INVERTED, not a mechanical swap.
+    # 27-03-PLAN.md Task 2 (CFG-64) and 27-04-PLAN.md Task 4 (CFG-63)
+    # both asserted the fallback Save button stayed HIDDEN before AND
+    # after an edit, because neither of their models had a visible save
+    # affordance to reveal (auto-save's own bar never returned; CFG-64's
+    # fallback button was purely a scripts-blocked floor with nothing
+    # left to click). 28-08-PLAN.md restored the bar as the SAME element
+    # (`[data-static-save-fallback]`, relocated inside the bar's own
+    # markup rather than duplicated) — server-rendered VISIBLE now,
+    # because the bar's own visible state IS the no-JS floor; hidden by
+    # script the instant script proves itself live (dirty-state.js's own
+    # `bar.hidden = true` at init, before any listener is attached);
+    # revealed again the instant a real edit exists. This is the exact
+    # clause a future reader would "correct" back to the retired
+    # polarity — written down here so they do not.
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    base_url = server.base_url()
+    _login(page, base_url)
+
+    page.goto(base_url + "/display")
+    bar = page.locator("[data-dirty-bar]")
+    # 1. Script has proven itself live: the bar hides at init, on a page
+    #    with no edits at all.
+    if bar.is_visible():
+        raise AssertionError(
+            "expected the bar to be HIDDEN immediately once script runs on "
+            "a fresh load — dirty-state.js's own bar.hidden = true at init, "
+            "the no-JS-floor polarity this check exists to pin down")
+
+    theme_ids = device_config.THEME_IDS
+    target = theme_ids[2]
+    _click_control(page, 'input[name="theme"][value="%s"]' % target)
+    # 2. An edit REVEALS the bar — the opposite of the retired contract,
+    #    which asserted nothing on the page was ever supposed to show a
+    #    save affordance again.
+    _wait_for_bar(page)
+    count_text = _bar_text(page)
+    if not count_text:
+        raise AssertionError(
+            "expected [data-dirty-count] to name the changed section once "
+            "the bar reveals, got an empty string")
+
+    # 3. Clicking the bar's own Save persists to disk through a real
+    #    navigation.
+    _save_via_bar(page)
+    stored = device_config.load_device_config(server.tmpdir)["theme"]
+    if stored != target:
+        raise AssertionError(
+            "expected the theme edit to reach disk once the bar's own Save "
+            "is clicked, got %r" % (stored,))
+
+
+def test_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit(page, server):
+    """the leave-guard stays armed for a field that has been edited but never fired
+    change (the bar already visible and already naming the section, the
+    restored model's no-silent-phase clause — strictly more than the retired
+    save-status region ever asserted); the guard STAYS ARMED, not disarmed, the
+    instant change commits the edit, because a committed-but-unsaved change is
+    exactly what the restored guard exists to warn about; and Annuler is the
+    guard's own exit, disarming it and hiding the bar (the re-arm-after-Cancel
+    clause is 28-11-PLAN.md's own check, not duplicated here) (D-10,
+    <restored_guard_semantics>, retargeted from the retired auto-save's own
+    inverted disarm-on-commit contract by 28-10-PLAN.md Task 2, CFG-77/CFG-78;
+    27-04-PLAN.md Task 4, CFG-63)"""
+    # 28-10-PLAN.md Task 2 (CFG-77/CFG-78): REWRITTEN, not a mechanical
+    # swap — the assertion this check made is INVERTED by the
+    # restoration, and half its subject (the save-status region) is
+    # deleted outright.
+    #
+    # 27-04-PLAN.md Task 4 (D-10/CFG-63) asserted the guard DISARMED the
+    # instant a change COMMITTED — correct under auto-save, where a
+    # committed change was already saved and there was nothing left to
+    # warn about. Under the restored bar (<restored_guard_semantics> in
+    # 28-10-PLAN.md), a committed-but-unsaved change is EXACTLY what the
+    # guard exists to warn about — it stays armed until Enregistrer or
+    # Annuler. Asserting the old disarm-on-commit clause here would
+    # prove the retired contract, not the current one.
+    #
+    # The save-status-silent clause is gone with the region itself;
+    # replaced by the equivalent-or-stronger bar clause below — the
+    # restored model has no silent phase at all, since the bar is
+    # already visible and already naming the section the instant the
+    # edit is merely TYPED, before any commit.
+    #
+    # The re-arm-after-Cancel clause (a NEW edit after Annuler re-arming
+    # the guard) is 28-11-PLAN.md's own check — not duplicated here; see
+    # that plan's leave-guard re-arm check for the clause this one
+    # deliberately stops short of.
+    #
+    # This check never clicks Enregistrer, only Annuler — nothing it
+    # does reaches disk, so it shares the module's read-only server.
+    base_url = server.base_url()
+    _login(page, base_url)
+    page.goto(base_url + "/device")
+
+    # a. Fresh load: disarmed.
+    if _guard_armed(page):
+        raise AssertionError("expected the leave-guard to start disarmed on a clean page load")
+
+    wake_sel = 'input[name="wake_interval_s"]'
+    before = page.eval_on_selector(wake_sel, "el => el.value")
+    target = "1800" if before != "1800" else "3600"
+
+    # b. TYPE without committing — `input` fires per keystroke; `change`
+    #    does not fire until focus leaves the field. This is the
+    #    uncommitted state, and it is still true, at equal strength,
+    #    after this restoration.
+    page.eval_on_selector(wake_sel, "el => el.focus()")
+    page.keyboard.press("ControlOrMeta+A")
+    page.keyboard.type(target)
+    if page.eval_on_selector(wake_sel, "el => el.value") != target:
+        raise AssertionError(
+            "expected the typed value to be held by the field before any commit")
+    if not _guard_armed(page):
+        raise AssertionError(
+            "expected the leave-guard to be armed for an edited-but-uncommitted "
+            "field (D-10) — countDifferences() > 0 the moment a keystroke "
+            "differs, never waiting for change")
+    # The equivalent-or-stronger replacement for the deleted silent-region
+    # clause: the restored model has NO silent phase — the bar is already
+    # visible and [data-dirty-count] already names the section even
+    # before this edit commits.
+    _wait_for_bar(page)
+    if not _bar_text(page):
+        raise AssertionError(
+            "expected [data-dirty-count] to already name the changed section "
+            "for a merely-typed, uncommitted edit — the restored model has no "
+            "silent phase, which is strictly more than the retired region ever "
+            "asserted")
+
+    # c. COMMIT it — blur fires `change`. Under the restored semantics
+    #    the guard STAYS ARMED: a committed-but-unsaved change is
+    #    exactly what it exists to warn about.
+    page.keyboard.press("Tab")
+    if not _guard_armed(page):
+        raise AssertionError(
+            "expected the leave-guard to STAY ARMED the instant change "
+            "commits the edit — a committed change is unsaved until "
+            "Enregistrer, not the retired auto-save contract where a commit "
+            "disarmed the guard because it was already persisted")
+    stored = device_config.load_device_config(server.tmpdir)["wake_interval_s"]
+    if str(stored) == target:
+        raise AssertionError(
+            "the committed value already reached disk with no Save click — "
+            "this check's own premise (unsaved-but-committed) does not hold")
+
+    # d. Click Annuler: the guard DISARMS and the bar hides.
+    page.click("[data-dirty-cancel]")
+    _wait_for_bar_hidden(page)
+    if _guard_armed(page):
+        raise AssertionError("expected the leave-guard to disarm once Annuler is clicked")
+
+
+# --- 28-11-PLAN.md Task 3 (CFG-77): the leave-guard's re-arm-after-Cancel
+# clause — the one nothing in the phase proves. The check above
+# (28-10-PLAN.md Task 2) proves armed-on-typed-edit,
+# stays-armed-through-commit and disarmed-by-Cancel, and stops there BY
+# DESIGN (its own comment names this one). CFG-77's own binding wording:
+# "does not disarm the leave-guard permanently... kept exactly where
+# CFG-63's own carve-out already put it" (.planning/REQUIREMENTS.md).
+# `git show 6dea46a`'s own header names the historical defect this
+# records: a naive Cancel handler sets suppressGuard = true once and
+# never clears it, leaving the guard dead for the rest of the page's
+# life while steps 1-3 below alone would still pass against that exact
+# defect. This check never clicks Enregistrer either, so it too shares
+# the module's read-only server.
+def test_the_leave_guard_re_arms_after_a_new_edit_following_cancel(page, server):
+    """the leave-guard's re-arm-after-Cancel clause — CFG-77's own 'does not
+    disarm the leave-guard permanently... kept exactly where CFG-63's own
+    carve-out already put it' — has executable coverage for the first time:
+    fresh load (disarmed) -> edit (armed) -> Annuler (disarmed) -> a NEW edit
+    (RE-ARMED, the clause nothing else in this phase proves, and exactly the
+    defect a Cancel handler that sets suppressGuard=true once and never clears
+    it reproduces) -> a second Annuler (disarmed again, so a one-shot re-arm
+    cannot pass); reuses the existing _guard_armed() beforeunload probe
+    throughout — never a second one (CFG-77, 28-11-PLAN.md Task 3;
+    complements 28-10-PLAN.md Task 2's own armed-on-typed-edit/stays-armed-
+    through-commit/disarmed-by-Cancel check, which deliberately stops short of
+    this clause)"""
+    base_url = server.base_url()
+    _login(page, base_url)
+    page.goto(base_url + "/display")
+
+    # 1. Fresh load: disarmed, bar hidden.
+    if _guard_armed(page):
+        raise AssertionError("expected the leave-guard to start disarmed on a clean page load")
+    _wait_for_bar_hidden(page)
+
+    runway_sel = 'input[name="tracked_runway"]'
+    current_runway = page.eval_on_selector("%s:checked" % runway_sel, "el => el.value")
+    first_target = next(r for r in device_config.RUNWAY_IDS if r != current_runway)
+    second_target = next(
+        r for r in device_config.RUNWAY_IDS
+        if r != current_runway and r != first_target)
+
+    # 2. Edit a field: armed, bar visible. Kept minimal on purpose — the
+    #    check above already proves the typed-vs-committed distinction;
+    #    this step is only the precondition steps 3-5 need.
+    _click_control(page, '%s[value="%s"]' % (runway_sel, first_target))
+    if not _guard_armed(page):
+        raise AssertionError("expected the leave-guard to arm for a real edit")
+    _wait_for_bar(page)
+
+    # 3. Click Annuler: disarmed, bar hides.
+    page.click("[data-dirty-cancel]")
+    _wait_for_bar_hidden(page)
+    if _guard_armed(page):
+        raise AssertionError("expected the leave-guard to disarm once Annuler is clicked")
+
+    # 4. THE WHOLE POINT. A NEW edit that FOLLOWS a Cancel must RE-ARM
+    #    the guard — nothing else in this phase proves it, and it is
+    #    exactly what a naive `suppressGuard = true` (set once in the
+    #    Cancel handler, never cleared) gets wrong, while steps 1-3
+    #    above alone would still pass against that defect.
+    _click_control(page, '%s[value="%s"]' % (runway_sel, second_target))
+    if not _guard_armed(page):
+        raise AssertionError(
+            "expected the leave-guard to RE-ARM for an edit that follows a "
+            "Cancel — CFG-77's own 'does not disarm the leave-guard "
+            "permanently... kept exactly where CFG-63's own carve-out "
+            "already put it', and exactly the defect a Cancel handler that "
+            "sets suppressGuard=true once and never clears it reproduces")
+    _wait_for_bar(page)
+
+    # 5. A SECOND Annuler disarms again — a re-arm that can only happen
+    #    once is the same defect wearing a different number.
+    page.click("[data-dirty-cancel]")
+    _wait_for_bar_hidden(page)
+    if _guard_armed(page):
+        raise AssertionError("expected the leave-guard to disarm on a SECOND Annuler too")
+
+
+def test_strip_switch_applies_without_the_leave_guard_while_other_navigation_still_warns(
+        page, make_app_server):
+    """activating a Frame strip switch with unsaved Display edits present applies over
+    fetch WITHOUT navigating, leaves the leave-guard ARMED for the edit still in
+    the form and the switch still pressable, and raises no dialog, while a plain
+    nav-link navigation with the same unsaved edit still raises one (22-05-PLAN.md
+    Task 3, D-04; retargeted in place by 23-07-PLAN.md Task 1, which is what took
+    the navigation away)"""
+    # 22-05-PLAN.md Task 3 (D-04): a real browser proof, not a read of
+    # dirty-state.js's private suppressGuard variable. Chromium
+    # (headless, under Playwright) surfaces a beforeunload guard's own
+    # preventDefault() as a real `dialog` event of type "beforeunload" -
+    # confirmed experimentally against a minimal fixture before this
+    # check was written - so listening for that event and asserting its
+    # presence/absence is a genuine, non-cosmetic behavioural probe.
+    #
+    # This check flips a real setting (display_enabled) through the
+    # strip's own quick-switch endpoint, so it gets its own
+    # function-scoped server.
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    base_url = server.base_url()
+    _login(page, base_url)
+    page.goto(base_url + "/display")
+    dialogs = []
+    page.on("dialog", lambda d: (dialogs.append(d.type), d.accept()))
+
+    # 23-07-PLAN.md Task 1 (D2/CFG-36): RETARGETED IN PLACE, and made
+    # strictly stronger. This check used to assert the switch NAVIGATES.
+    # D2 is the decision that it no longer does: the flip lands under
+    # the finger and the POST goes out over fetch, so there is no
+    # unload at all and the dialog this check is about cannot fire for
+    # a mechanical reason.
+    #
+    # That would make the original assertion vacuous, so it is replaced
+    # by the property that actually matters now and that the original
+    # could not reach: after the switch has applied, the leave-guard
+    # must still be ARMED for the unsaved edit that is still sitting in
+    # the form. That is the real hazard the conversion introduced —
+    # dirty-state.js disarms its guard for any [data-quick-switch]
+    # submit, and on a page whose form was already dirty nothing would
+    # ever re-arm it. quick-switch.js listens in the capture phase and
+    # stops propagation precisely so that listener never runs for a
+    # submission that is not happening.
+    #
+    # 27-04-PLAN.md Task 4 (CFG-63): a radio commits (fires change) the
+    # instant it is clicked, which now means auto-save begins and the
+    # guard disarms again a moment later — a radio click can no longer
+    # hold this check's own "unsaved edit" precondition open. Focusing
+    # and TYPING would not survive either: clicking the switch button
+    # shifts DOM focus away from the field, which BLURS it and fires
+    # the very `change` that would commit and auto-save it before the
+    # assertion below even runs. countDifferences() (the guard's own
+    # predicate) reads the field's LIVE value against the load-time
+    # snapshot and needs no event at all to see a difference, so the
+    # value is set directly with no focus taken and no event
+    # dispatched — nothing to blur, nothing to commit.
+    quiet_sel = 'input[name="quiet_hours_start"]'
+    page.eval_on_selector(quiet_sel, "el => { el.value = '04:44'; }")
+    if not _guard_armed(page):
+        raise AssertionError(
+            "control: the leave-guard was not armed before the switch was "
+            "touched, so the assertion below would prove nothing")
+    before = device_config.load_device_config(server.tmpdir)["display_enabled"]
+    switch_sel = 'form[action="/quick/display"] button[type="submit"]'
+    with page.expect_response(
+            lambda r: r.url.split("?")[0] == base_url + "/quick/display"):
+        page.click(switch_sel)
+    page.wait_for_timeout(400)
+    if dialogs:
+        raise AssertionError(
+            "expected NO beforeunload dialog when activating the strip's own "
+            "switch with unsaved edits present, got %r" % (dialogs,))
+    after = device_config.load_device_config(server.tmpdir)["display_enabled"]
+    if after == before:
+        raise AssertionError("expected the strip switch's own change to persist")
+    if page.url.split("?")[0] != base_url + "/display":
+        raise AssertionError(
+            "expected the switch to apply WITHOUT navigating (D2), but the "
+            "page moved to %r" % (page.url,))
+    if not _guard_armed(page):
+        raise AssertionError(
+            "the leave-guard was left DISARMED after a switch applied on a "
+            "page that still holds an unsaved edit — dirty-state.js disarms "
+            "for any [data-quick-switch] submit and re-arms only on the next "
+            "edit, so a form that was already dirty would lose its guard for "
+            "the rest of the page's life (D2/CFG-36, 23-07-PLAN.md Task 1)")
+    # The switch must also still be pressable: a submit-guard that
+    # disabled it on the way out would leave a dead control on a page
+    # that never reloads.
+    if page.eval_on_selector(switch_sel, "el => el.disabled"):
+        raise AssertionError(
+            "the switch was left disabled after applying — with no navigation "
+            "to replace the page, a disabled switch stays disabled forever")
+
+    # Reset: reload, make the SAME kind of unsaved edit again, then
+    # navigate away by a plain nav link - no [data-quick-switch] form
+    # involved at all - and the guard must still warn. Same focus-free
+    # value set as above, for the same reason: clicking the nav link
+    # would blur a FOCUSED field and commit it before the navigation's
+    # own beforeunload check ever runs.
+    page.goto(base_url + "/display")
+    dialogs[:] = []
+    page.eval_on_selector(quiet_sel, "el => { el.value = '05:55'; }")
+    with page.expect_navigation():
+        page.click('a[href="/"]')
+    if "beforeunload" not in dialogs:
+        raise AssertionError(
+            "expected a PLAIN navigation with the same unsaved edit to still "
+            "raise the beforeunload dialog, got %r" % (dialogs,))
+
+
+def test_three_runway_cards_share_one_line_at_390px(new_context, server):
+    """at 390px the three runway cards report one shared line (equal tops), equal
+    heights, and BOTH their border-excluded and their outer widths equal within
+    1px at a border total of exactly 2.0 each - 22-10's stated T6 allowance for
+    the selected card's 2px border is deleted, closed by 22-15-PLAN.md Task 1 -
+    and each still clears 44x44 - never a 2 + 1 orphan (B9, 22-10-PLAN.md Task 2)
+    - with the transform neutralised for the read and EXACTLY ONE card proven to
+    carry 23-10's selection scale"""
+    # B9 (22-AUDIT.md, 22-10-PLAN.md Task 2). The measured defect was a
+    # 2 + 1 orphan at 390px: 150x150, 150x150, then a lone 308x217. Only
+    # a real layout engine can see this, which is why it lives here and
+    # not in a string-comparison harness.
+    context = new_context(viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/display")
+        page.wait_for_load_state("networkidle")
+        # 23-10-PLAN.md Task 1 (D3/CFG-32): the selected card now also
+        # carries a `transform: scale(...)` — the "selection answers"
+        # clause. A transform IS reflected in getBoundingClientRect(),
+        # which reports the VISUAL box, and is NOT reflected in the
+        # layout box. T6 and B9 are both statements about the LAYOUT box
+        # (a border that grew a flex item and pushed its siblings; a
+        # card that wrapped onto its own line), so the transform is
+        # neutralised for the duration of the measurement — with its own
+        # transition neutralised first, or the read below would catch
+        # the 180ms unwind mid-flight and measure a value that is
+        # neither the scaled nor the unscaled box.
+        #
+        # Neutralising it is only honest if the scale is really there,
+        # so the real computed transform is captured BEFORE the
+        # override and asserted below: exactly one of the three cards
+        # must be scaled (the selected one), and the other two must not
+        # be. That pairing is what keeps this check from passing for a
+        # build that dropped the scale entirely.
+        boxes = page.evaluate(
+            "() => [...document.querySelectorAll('.runway-card')]"
+            ".map(e => { const live = getComputedStyle(e).transform; "
+            "e.style.transition = 'none'; e.style.transform = 'none'; "
+            "const b = e.getBoundingClientRect(); "
+            "const s = getComputedStyle(e); "
+            "const bw = parseFloat(s.borderLeftWidth) "
+            "+ parseFloat(s.borderRightWidth); "
+            "e.style.removeProperty('transform'); "
+            "e.style.removeProperty('transition'); "
+            "return {w: b.width, inner: b.width - bw, border: bw, "
+            "h: b.height, top: b.top, left: b.left, live: live}; })")
+        if len(boxes) != 3:
+            raise AssertionError("expected 3 runway cards, got %d" % len(boxes))
+        scaled = [b["live"] for b in boxes if b["live"] not in ("none", "")]
+        if len(scaled) != 1:
+            raise AssertionError(
+                "expected EXACTLY ONE of the three runway cards to carry the "
+                "selection scale (D3's 'selecting a card answers with a small "
+                "scale'), got %r — this measurement neutralises the transform to "
+                "read the LAYOUT box, so it is only meaningful while the "
+                "transform genuinely exists"
+                % ([b["live"] for b in boxes],))
+
+        tops = [b["top"] for b in boxes]
+        if max(tops) - min(tops) > 0.5:
+            raise AssertionError(
+                "expected all three cards on ONE line (equal tops), got %r - a "
+                "2 + 1 orphan is exactly B9's defect" % (tops,))
+        heights = [b["h"] for b in boxes]
+        if max(heights) - min(heights) > 0.5:
+            raise AssertionError("expected three equal card heights, got %r" % (heights,))
+        lefts = sorted(b["left"] for b in boxes)
+        if lefts != [b["left"] for b in sorted(boxes, key=lambda b: b["left"])]:
+            raise AssertionError("expected three distinct columns")
+
+        # B9's "equal within 1px" is asserted on the cards' BORDER-EXCLUDED
+        # widths, which is what "three equal columns" actually means and
+        # what the flex rule controls - AND, since 22-15-PLAN.md Task 1
+        # closed T6, on their outer widths too.
+        #
+        # 22-10-PLAN.md's STATED EXCEPTION IS DELETED HERE. It read: the
+        # cards' outer widths are not equal within 1px, because the saved
+        # card carries `.runway-card--selected`'s 2px border against its
+        # siblings' 1px and `box-sizing: border-box` does not hold the
+        # OUTER box of a `flex: 1 1 0` item (measured 98.67 against
+        # 96.66/96.67 at 390px). It named 22-15-PLAN.md as the plan that
+        # removes it. That plan holds every selected-state border
+        # constant at 1px and carries selection on `box-shadow: inset 0
+        # 0 0 2px`, which occupies no layout space, so `inner` and `w`
+        # have converged and the allowance is gone: plain equality on
+        # BOTH, and every card's own border total must now be exactly
+        # 2.0 (1px per side) with no second value permitted.
+        inners = [b["inner"] for b in boxes]
+        if max(inners) - min(inners) > 1.0:
+            raise AssertionError(
+                "expected three equal card widths within 1px once each card's own "
+                "border is excluded, got %r (outer %r)"
+                % (inners, [b["w"] for b in boxes]))
+        outers = [b["w"] for b in boxes]
+        if max(outers) - min(outers) > 1.0:
+            raise AssertionError(
+                "expected three equal card OUTER widths within 1px now that T6 is "
+                "closed - a selected card must be the same size as its siblings, "
+                "got %r (inner %r)" % (outers, inners))
+        borders = sorted({round(b["border"], 2) for b in boxes})
+        if borders != [2.0]:
+            raise AssertionError(
+                "expected every card's border total to be exactly 2.0 (1px per "
+                "side) in every selection state - T6 moved the 2px accent signal "
+                "to an inset ring, got border totals %r" % (borders,))
+        # Touch target, confirmed by measurement rather than assumed: the
+        # cards get narrower, and the hidden radio's register entry is
+        # exempt BY DELEGATION to this wrapping <label>, so the label
+        # itself must still clear 44px in BOTH axes.
+        for b in boxes:
+            if b["w"] < 44 or b["h"] < 44:
+                raise AssertionError(
+                    "every runway card must stay >=44x44 for the hidden radio's "
+                    "exempt-by-delegation touch-target entry, got %r" % (b,))
+    finally:
+        context.close()
+
+
+def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, server):
+    """at 390px selecting a palette chip ANSWERS - the chip's border-colour changes
+    to the accent, an inset accent ring (box-shadow) appears, and the
+    .palette-chip__name wash changes - while its own LAYOUT box (offsetWidth/
+    Height/Left/Top), the grid's own box and EVERY chip's position inside it are
+    plain-equal before and after, so T6 cannot recur through the selection signal
+    (D3/CFG-32, 23-10-PLAN.md Task 1; re-pointed to .palette-chip and narrowed off
+    the scale/transition clauses 30-07-PLAN.md deliberately did not add, by
+    30-08-PLAN.md Task 2, CFG-85)"""
+    # 23-10-PLAN.md Task 1 (D3/CFG-32). Two statements that only a real
+    # layout engine can make together:
+    #
+    #   1. Selection ANSWERS - the chip scales, and its body's wash
+    #      fades in over var(--motion-fast) rather than cutting.
+    #   2. Selection moves NO layout box - T6's defect (a selected card
+    #      a different size from its siblings, measured at 98.67px
+    #      against 96.66px at 390px) cannot recur through a transform,
+    #      and this is the measurement that says so rather than the
+    #      reasoning that assumes it.
+    #
+    # The box is read through offsetWidth/offsetHeight/offsetLeft/
+    # offsetTop, NOT getBoundingClientRect(): the offset* family reports
+    # the LAYOUT box and is transform-independent by definition, which
+    # is exactly the distinction this check exists to prove. Plain
+    # equality, no tolerance - these are integers from the same element
+    # measured twice.
+    #
+    # POSITIONS ARE MEASURED RELATIVE TO THE CHIP GRID, not to the page,
+    # and that is a correction this check needed rather than a
+    # convenience: selecting a chip makes the form dirty, and 23-09's
+    # save bar replaces the section's own inline fallback Save button
+    # when it arrives, which removes a real 36px from the page ABOVE
+    # this card (measured: every chip moved from y=1608 to y=1572). That
+    # is another plan's intended behaviour, it happens whichever chip is
+    # clicked, and a page-absolute assertion would report it as this
+    # plan's layout shift. The statement that belongs here is that
+    # nothing inside the grid moved, and every chip in the grid is
+    # measured, not just the clicked one.
+    #
+    # 30-08-PLAN.md Task 2 (CFG-85): re-pointed from the retired
+    # [data-usage-panel-target]/label.theme-chip departures panel to
+    # details.usage-row[data-usage="departures"]/label.palette-chip. The
+    # "answers with a scale" half of this check's ORIGINAL property does
+    # NOT survive the rebuild — confirmed directly against style.css
+    # (30-07-PLAN.md Task 1's own comment): the selected .palette-chip's
+    # :has(input:checked) rule adds exactly three consequences
+    # (border-colour, inset box-shadow ring, the .palette-chip__name
+    # wash) and NO transform/transition, a DELIBERATE, already-recorded
+    # 30-07 decision ("a fourth [treatment] would also need a new
+    # transition declared on this component's own base rule, out of
+    # this plan's scope"). Restating a scale/transition-duration
+    # assertion the real CSS no longer produces would make this check
+    # permanently red for a reason that is not a defect, so the
+    # property actually proved here is the one that DOES still hold:
+    # selection paints instantly via border/box-shadow/wash, and — the
+    # half that matters for T6 — moves no layout box at all, since
+    # box-shadow is `inset` and only the border's COLOUR (never its
+    # width) changes.
+    #
+    # This check clicks a radio but never Enregistrer, so nothing here
+    # reaches disk and it shares the module's read-only server.
+    context = new_context(viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/display")
+        page.wait_for_load_state("networkidle")
+
+        probe = (
+            "() => {"
+            "const row = document.querySelector("
+            "'details.usage-row[data-usage=\"departures\"]');"
+            "if (!row) return {error: 'no departures row'};"
+            "const chips = [...row.querySelectorAll('label.palette-chip')]"
+            ".filter(c => c.querySelector('input[type=radio]'));"
+            "if (chips.length < 2) return {error: 'chips: ' + chips.length};"
+            "const target = chips.find("
+            "c => !c.querySelector('input[type=radio]').checked);"
+            "if (!target) return {error: 'every chip is already checked'};"
+            "const grid = target.closest('.palette');"
+            "if (!grid) return {error: 'no .palette'};"
+            "const read = e => { const s = getComputedStyle(e);"
+            "const name = e.querySelector('.palette-chip__name');"
+            "const ns = name ? getComputedStyle(name) : null;"
+            "return {w: e.offsetWidth, h: e.offsetHeight,"
+            " left: e.offsetLeft - grid.offsetLeft,"
+            " top: e.offsetTop - grid.offsetTop,"
+            " borderColor: s.borderColor, boxShadow: s.boxShadow,"
+            " wash: ns ? ns.backgroundColor : null}; };"
+            "return {value: target.querySelector('input[type=radio]').value,"
+            " chip: read(target),"
+            " grid: {w: grid.offsetWidth, h: grid.offsetHeight},"
+            " all: chips.map(c => { const r = read(c);"
+            " return [r.w, r.h, r.left, r.top]; })};"
+            "}")
+        before = page.evaluate(probe)
+        if before.get("error"):
+            raise AssertionError(
+                "could not find an unchecked palette chip: %s" % (before["error"],))
+        value = before["value"]
+        _click_control(
+            page,
+            'details.usage-row[data-usage="departures"] '
+            'label.palette-chip input[type=radio][value="%s"]' % value)
+        # No transition to wait out any more (see the comment above) - a
+        # short settle for the change event/repaint is still cheap
+        # insurance.
+        page.wait_for_timeout(200)
+        after = page.evaluate(
+            probe.replace(
+                "const target = chips.find("
+                "c => !c.querySelector('input[type=radio]').checked);",
+                "const target = chips.find("
+                "c => c.querySelector('input[type=radio]').value === "
+                + repr(value).replace("'", '"') + ");"))
+        if after.get("error"):
+            raise AssertionError("could not re-find the clicked chip: %s" % (after["error"],))
+
+        # --- 1. the answer is real -------------------
+        if before["chip"]["boxShadow"] not in ("none", ""):
+            raise AssertionError(
+                "expected an UNSELECTED palette chip to carry no box-shadow, got "
+                "%r" % (before["chip"]["boxShadow"],))
+        if after["chip"]["boxShadow"] in ("none", ""):
+            raise AssertionError(
+                "expected the newly-selected chip to carry the accent inset ring "
+                "(30-07-PLAN.md Task 1: box-shadow inset 0 0 0 2px), got %r - a "
+                "chip that switches state with no visible signal at all is the "
+                "behaviour this check exists to catch" % (after["chip"]["boxShadow"],))
+        if before["chip"]["borderColor"] == after["chip"]["borderColor"]:
+            raise AssertionError(
+                "expected the selected chip's border-colour to change to the "
+                "accent, both read %r" % (after["chip"]["borderColor"],))
+        if before["chip"]["wash"] == after["chip"]["wash"]:
+            raise AssertionError(
+                "expected the selected chip's .palette-chip__name wash to change "
+                "on selection, both read %r" % (after["chip"]["wash"],))
+
+        # --- 2. and nothing moved --------------------
+        for key in ("w", "h", "left", "top"):
+            if before["chip"][key] != after["chip"][key]:
+                raise AssertionError(
+                    "the chip's own LAYOUT box changed on selection: %s went from "
+                    "%r to %r. T6's defect was exactly this (98.67px against "
+                    "96.66px at 390px); a border-colour/inset-shadow selection "
+                    "signal must change no layout box at all"
+                    % (key, before["chip"][key], after["chip"][key]))
+        if before["grid"] != after["grid"]:
+            raise AssertionError(
+                "the chip grid's own layout box changed on selection: %r -> %r"
+                % (before["grid"], after["grid"]))
+        if before["all"] != after["all"]:
+            moved = [
+                (i, b, a) for i, (b, a)
+                in enumerate(zip(before["all"], after["all"])) if b != a]
+            raise AssertionError(
+                "chips MOVED inside the grid when one of them was selected - "
+                "siblings shifting is the visible half of T6, and it is exactly "
+                "what a border-width or padding-based selection signal does. "
+                "[index, before [w,h,left,top], after]: %r" % (moved,))
     finally:
         context.close()
