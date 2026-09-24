@@ -10,7 +10,7 @@ progress:
   total_phases: 53
   completed_phases: 41
   total_plans: 347
-  completed_plans: 302
+  completed_plans: 303
   percent: 87
 ---
 
@@ -470,6 +470,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 33 P19 | 37min | 3 tasks | 7 files |
 | Phase 33 P25 | 14min | 3 tasks | 4 files |
 | Phase 33 P06 | 35min | 3 tasks | 4 files |
+| Phase 33 P10 | 29min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -927,6 +928,7 @@ Recent decisions affecting current work:
 - [Phase 33]: The three lightbox DOM-contract token tuples and _NEW_VIEW_PANEL_ATTR_NAMES were re-declared inside test_view_pages_02.py rather than the shared helpers module, confirmed by grep to be used exclusively by this slice, and deleted from the legacy file
 - [Phase 33]: CSS checks use companion_markup.declarations_for() uniformly, including the two @media (min-width: 960px)-scoped reveal-rule checks via its at_rules= parameter, rather than a raw regex/brace-match over served stylesheet text
 - [Phase 33]: A JS check needing string-literal-preserving comment stripping (image.src = "") uses a new local strip_js_line_and_block_comments() helper instead of companion_markup.strip_js_comments_and_strings(), which would also erase the empty-string literal being searched for
+- [Phase 33]: 33-10: config-page part 02 (checks #34-#84) migrated to companion/test_config_page_02.py as 56 pytest tests; C/J-classified style.css/JS reads converted to served_stylesheet()/served_asset() plus companion_markup structural parsing instead of disk opens; EXPECTED_CHECK_COUNT shrunk 243 to 192
 
 ### Pending Todos
 
