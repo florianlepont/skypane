@@ -1562,6 +1562,7 @@ Plans:
 **Depends on:** Phase 31
 
 **Success criteria:**
+
 1. `pytest -n auto` runs every migrated server/stub-server test; the migration ledger accounts for every pre-migration check (ported, or deleted with a reason)
 2. A test opening a non-loopback socket fails; `/poll-now` tests use the fake provider
 3. CI runs on the production Python version and runs the firmware host tests
@@ -1573,6 +1574,7 @@ Plans:
 **Wave structure:** W1 infra + baselines (32-01, 32-02) → W2 harness migrations, /poll-now fake provider, hash-locks (32-03 … 32-12, disjoint files) → W3 runner retirement + ledger assembly, CI (32-13, 32-14) → W4 coverage floor + docs (32-15)
 
 Plans:
+
 - [x] 32-01-PLAN.md — pytest/xdist/cov/pytest-socket dev deps, pytest config, ruff py314, root conftest, cross-process network guard, fake providers, companion legacy-harness shim
 - [x] 32-02-PLAN.md — pre-migration baseline transcripts of the 15 server-side harnesses, migration-ledger scaffold and checker
 - [x] 32-03-PLAN.md — migrate dither, runway_config, notify, panel_preview, pipeline_e2e
@@ -1596,16 +1598,85 @@ Plans:
 **Depends on:** Phase 32
 
 **Success criteria:**
+
 1. All 24 former harnesses are pytest modules; `scripts/run-all-tests.sh` is a thin pytest wrapper
 2. A missing browser fails CI instead of passing
 3. No test reads a source file as text, asserts on a comment, or opens a `.planning/` file
 4. The suite passes as root and writes nothing outside `tmp_path`
 5. Closing parity: all 2018 pre-migration checks accounted for; coverage ≥ the pre-migration figure
 
-**Plans:** 0 plans
+**Plans:** 33 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 33 to break down)
+**Wave 1**
+
+- [ ] 33-01-PLAN.md — Ledger tool (staged-migration rule) + 9 browser-verified baselines + all-pending fragments (W1)
+- [ ] 33-02-PLAN.md — pytest-playwright lock, shared app-server fixture/support module, missing-browser policy, loopback browser guard (W1)
+- [ ] 33-03-PLAN.md — Structural HTML/CSS/JS helpers, TST-10/12/13/14 AST guard, disk-derived legacy set (W1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 33-04-PLAN.md — contrast_check + i18n rewritten in place (W2)
+- [ ] 33-05-PLAN.md — view_pages part 01 + helpers (W2)
+- [ ] 33-09-PLAN.md — config_page part 01 + helpers; aspect-repin self-read deleted (W2)
+- [ ] 33-14-PLAN.md — companion_app part 01 + helpers; WR-11 chmod pair root-safe (W2)
+- [ ] 33-19-PLAN.md — Browser helpers rewired + health_drawings on pytest-playwright; legacy importers repointed (W2)
+- [ ] 33-25-PLAN.md — status_pages part 01 + helpers; anomaly_active /nonexistent fix (W2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 33-06-PLAN.md — view_pages part 02 (W3)
+- [ ] 33-10-PLAN.md — config_page part 02 (W3)
+- [ ] 33-15-PLAN.md — companion_app part 02 — /nonexistent literals, flash deck, JS contracts (W3)
+- [ ] 33-20-PLAN.md — quiet_wake on pytest-playwright (W3)
+- [ ] 33-26-PLAN.md — status_pages part 02 (W3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 33-07-PLAN.md — view_pages part 03 — served-JS contracts (W4)
+- [ ] 33-11-PLAN.md — config_page part 03 (W4)
+- [ ] 33-16-PLAN.md — companion_app part 03 (W4)
+- [ ] 33-21-PLAN.md — browser_ux part 01; aspect-repin self-read deleted (W4)
+- [ ] 33-27-PLAN.md — status_pages part 03 (W4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 33-08-PLAN.md — view_pages part 04; legacy file deleted (W5)
+- [ ] 33-12-PLAN.md — config_page part 04 — UI-SPEC reads removed (W5)
+- [ ] 33-17-PLAN.md — companion_app part 04 (W5)
+- [ ] 33-22-PLAN.md — browser_ux part 02 (W5)
+- [ ] 33-28-PLAN.md — status_pages part 04 — .planning/ticket-ID reads deleted (W5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 33-13-PLAN.md — config_page part 05; legacy file deleted (W6)
+- [ ] 33-18-PLAN.md — companion_app part 05; legacy file deleted (W6)
+- [ ] 33-23-PLAN.md — browser_ux part 03 (W6)
+- [ ] 33-29-PLAN.md — status_pages part 05 (W6)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 33-24-PLAN.md — browser_ux part 04; legacy monolith deleted (W7)
+- [ ] 33-30-PLAN.md — status_pages part 06 (W7)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 33-31-PLAN.md — status_pages part 07; legacy file deleted (W8)
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 33-32-PLAN.md — Retire shim/legacy lists/collect_ignore/LegacyHarness, strict guard, CI paths + docs (W9)
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
+- [ ] 33-33-PLAN.md — Assemble ledger + closing parity (2018), coverage gate, root + non-root proof, CI green (W10)
+
+**Cross-cutting constraints:**
+
+- Every source-text / CSS-text check in the slice is rewritten as behaviour, parsed DOM or served CSS, or deleted with a coded reason
+- The shrunk legacy harness's EXPECTED_CHECK_COUNT equals the pending rows, and it still passes through the shim
+- The shrunk legacy harness's single EXPECTED_CHECK_COUNT equals the pending rows
+- The shrunk legacy harness still passes through the shim in a real browser, and its EXPECTED_CHECK_COUNT equals the pending rows
 
 ### Phase 34: Firmware — resilience, power, security, cleanup
 
@@ -1614,6 +1685,7 @@ Plans:
 **Depends on:** Phase 31 (independent of 32–33 — parallel firmware track)
 
 **Success criteria:**
+
 1. Simulated brownout/panic → backoff sleep, not an immediate retry; a hung wake is bounded by the global deadline
 2. A 401 from the server leads to re-enrolment on the next wake, with no reflash
 3. Validation helpers and the sleep decision covered by host tests that run in CI
@@ -1623,6 +1695,7 @@ Plans:
 **Plans:** 10/11 plans executed
 
 Plans:
+
 - [x] 34-01-PLAN.md — Pure response validators (sleep_s cap, https rule, download gate) + discovery-based host-test runner
 - [x] 34-02-PLAN.md — Pure reset-reason, wake-deadline, sleep-decision and battery-averaging helpers with host tests
 - [x] 34-03-PLAN.md — byos per-device enrolment registry, devices_cli.py, registry tests, deploy migration
@@ -1642,6 +1715,7 @@ Plans:
 **Depends on:** Phase 33 (tests no longer assert on comments) and Phase 34 (firmware settled)
 
 **Success criteria:**
+
 1. Comment ratio measured before/after per file; `style.css` shipped size reported
 2. No plan/ticket reference in any comment (CI guard green, mutation-proven)
 3. English-only rule written in CLAUDE.md and CONTRIBUTING.md
@@ -1650,6 +1724,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 35 to break down)
 
 ### Phase 36: State integrity and device protocol
@@ -1659,6 +1734,7 @@ Plans:
 **Depends on:** Phase 35
 
 **Success criteria:**
+
 1. The concurrent-save reproduction (two processes × 200 saves) runs with zero exceptions and zero lost updates
 2. One `atomic_write` helper; no fixed `.tmp` name left in the tree
 3. `/img/<unknown sha>` → 404; a panel swap mid-wake no longer fails SHA verification
@@ -1668,6 +1744,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 36 to break down)
 
 ### Phase 37: Security and operations hardening
@@ -1679,6 +1756,7 @@ Plans:
 **Dependency correction (2026-09-23, agreed with the developer):** Phase 37 no longer depends on Phase 36 as a whole. Wave A depends only on Phase 32 (new tests are pytest tests on Phase 32's fixtures): SEC-01 per-IP login throttle, SEC-02 HSTS, SEC-03 `Origin`/`Sec-Fetch-Site` check on POST, SEC-04 nightly off-box backups (pulled over SSH by the developer's Mac) with a rehearsed restore and README correction, SEC-05 atomic deploy + post-deploy health check + units/Caddyfile deployed with `daemon-reload`, SEC-06 systemd hardening except byos binding, SEC-07 env file `root:root 600` and `DEPLOY_HOST_KEY` via `env:`, SEC-08 SSH drop-in `00-skypane.conf` + `PermitRootLogin no` + `sshd -t`. Wave B depends on Phase 36 (which modifies `stub-server/byos_server.py`): byos `--bind 127.0.0.1` + `IPAddressDeny`/`IPAddressAllow` (SEC-06 remainder) and the byos secret moved off the command line (SEC-07 remainder).
 
 **Success criteria:**
+
 1. Failed logins from one IP never lock another
 2. HSTS present; a cross-origin POST is rejected
 3. A restore from the nightly backup is rehearsed once and documented
@@ -1707,6 +1785,7 @@ Plans:
 **Depends on:** Phase 36
 
 **Success criteria:**
+
 1. Page weight (transferred bytes) and request time measured before/after on every route
 2. Second page load returns 304s for static files
 3. SQLite connections per page request: 1; per poll cycle: 1
@@ -1715,6 +1794,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 38 to break down)
 
 ### Phase 39: Server architecture — run_once split, state store, shared modules
@@ -1724,6 +1804,7 @@ Plans:
 **Depends on:** Phase 38
 
 **Success criteria:**
+
 1. No function in `server/` over 80 code lines; `run_once` complexity measured before/after
 2. The companion no longer imports `server.poll_loop`
 3. Quiet hours, battery-critical and battery-curve logic exist once
@@ -1732,6 +1813,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 39 to break down)
 
 ### Phase 40: Companion architecture — routes, pages, templates, i18n keys
@@ -1741,6 +1823,7 @@ Plans:
 **Depends on:** Phase 38
 
 **Success criteria:**
+
 1. Every route declared once in a table; a test proves every non-public route requires a session
 2. No companion file over ~1500 lines; no function over 80 code lines
 3. No duplicated CSS selector; no hard-coded colour outside tokens
@@ -1749,6 +1832,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 40 to break down)
 
 ### Phase 41: Docs, repository hygiene and closing re-audit
@@ -1758,6 +1842,7 @@ Plans:
 **Depends on:** Phases 32–40
 
 **Success criteria:**
+
 1. Every doc claim flagged in DOC-01 corrected and re-checked
 2. Every ID in the audit ledger marked closed with its evidence (commit / test)
 3. A fresh audit pass finds no regression of a closed item
@@ -1765,4 +1850,5 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 41 to break down)
