@@ -2786,13 +2786,18 @@ def main():
             import companion.i18n as i18n_module
             from companion import frame_state
 
-            # --- THE ONE COUNTING RULE, duplicated from test_config_page.py's
-            # own nested _caption_word_count_text() (not a module-level
-            # importable symbol there — it lives inside that file's main()
-            # — so it cannot be imported; the block below extracts its REAL
-            # source text via ast, execs it in isolation, and proves this
-            # duplicate agrees with it on a real fixture string before any
-            # of the checks below trust it). ---
+            # --- THE ONE COUNTING RULE, duplicated from
+            # test_config_page_05.py's own module-level
+            # _caption_word_count_text() (33-13-PLAN.md retired the legacy
+            # companion/test_config_page.py this used to point at — that
+            # module's own copy lived inside main() and had to be
+            # extracted via ast/exec because it was not importable; the
+            # part-05 pytest module's copy is a plain top-level function,
+            # but this file keeps the same ast-extract-and-exec technique
+            # rather than importing it directly, since this harness runs
+            # as a standalone script and test_config_page_05.py's own
+            # imports (companion_app_server, from test-support/) are not
+            # on sys.path outside a pytest run). ---
             def _caption_word_count_text(fragment):
                 stripped = re.sub(r"<[^>]*>", "", fragment)
                 text = html.unescape(stripped).strip()
@@ -2800,7 +2805,7 @@ def main():
                     text = text[2:]
                 return re.sub(r"\s+", " ", text).strip()
 
-            tcp_path = os.path.join(HERE, "test_config_page.py")
+            tcp_path = os.path.join(HERE, "test_config_page_05.py")
             with open(tcp_path, encoding="utf-8") as fh:
                 tcp_source = fh.read()
             tcp_tree = ast.parse(tcp_source, filename=tcp_path)
@@ -2811,13 +2816,13 @@ def main():
                     break
             if tcp_func_node is None:
                 return False, (
-                    "expected companion/test_config_page.py to still define "
+                    "expected companion/test_config_page_05.py to still define "
                     "_caption_word_count_text — this file's own duplicate has "
                     "nothing to be pinned equal to")
             tcp_func_source = ast.get_source_segment(tcp_source, tcp_func_node)
             tcp_namespace = {"re": re, "html": html}
             exec(  # noqa: S102 — the extracted source is our own test file's, never external input
-                compile(tcp_func_source, "<test_config_page._caption_word_count_text>", "exec"),
+                compile(tcp_func_source, "<test_config_page_05._caption_word_count_text>", "exec"),
                 tcp_namespace)
             tcp_caption_word_count_text = tcp_namespace["_caption_word_count_text"]
             fixture = '  — Hello   "World"&#x27;s <b>caption</b>  '
@@ -2825,7 +2830,7 @@ def main():
             if mine != theirs:
                 return False, (
                     "this file's counting-rule duplicate disagrees with "
-                    "test_config_page.py's own _caption_word_count_text on "
+                    "test_config_page_05.py's own _caption_word_count_text on "
                     "fixture %r: got %r here, %r there — the two would measure "
                     "the site inconsistently" % (fixture, mine, theirs))
 
