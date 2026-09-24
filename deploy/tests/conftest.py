@@ -22,6 +22,15 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _DEPLOY_DIR = _REPO_ROOT / "deploy"
 
+HOST_CADDYFILE = (
+    "# host Caddyfile shared with another project\n"
+    "cortege.example.net {\n"
+    "    reverse_proxy 127.0.0.1:9000\n"
+    "}\n"
+    "\n"
+    "import sites/*.caddy\n"
+)
+
 
 def _write_fake_smoke_script(path):
     """A minimal stand-in for companion/app.py, server/poll_loop.py and
@@ -84,10 +93,13 @@ def fake_root(tmp_path):
     caddy_dir = root / "etc" / "caddy"
     caddy_dir.mkdir(parents=True)
     caddyfile = caddy_dir / "Caddyfile"
-    # Sentinel "live" content: a real deploy always renders a genuinely
-    # different file (real hostnames + HSTS), so any test asserting "the
-    # live Caddyfile is unchanged" can compare against this exact string.
-    caddyfile.write_text("# live sentinel Caddyfile — never rendered by a test\nlive-placeholder {\n}\n")
+    # The host Caddyfile is shared with another project on the real VPS:
+    # an unrelated site block plus the one import line SkyPane relies on.
+    # activate.sh must never write it, so tests compare it byte for byte
+    # against this exact content.
+    caddyfile.write_text(HOST_CADDYFILE)
+    sites_dir = caddy_dir / "sites"
+    sites_dir.mkdir()
 
     backup_gate_dir = root / "usr" / "local" / "lib" / "skypane"
     backup_gate_dir.mkdir(parents=True)
@@ -142,6 +154,10 @@ def fake_root(tmp_path):
         unit_dir=unit_dir,
         caddy_dir=caddy_dir,
         caddyfile=caddyfile,
+        host_caddyfile_text=HOST_CADDYFILE,
+        sites_dir=sites_dir,
+        site_file=sites_dir / "skypane.caddy",
+        site_file_prev=sites_dir / ".skypane.caddy.prev",
         backup_gate_dir=backup_gate_dir,
         backup_root=backup_root,
         env_file=env_file,
@@ -300,6 +316,7 @@ def run_activate(fake_root, stub_bin):
                 "ENV_FILE": str(fake_root.env_file),
                 "SYSTEMD_UNIT_DIR": str(fake_root.unit_dir),
                 "CADDYFILE": str(fake_root.caddyfile),
+                "CADDY_SITES_DIR": str(fake_root.sites_dir),
                 "BACKUP_GATE_DIR": str(fake_root.backup_gate_dir),
                 "BACKUP_ROOT": str(fake_root.backup_root),
                 "KEEP_RELEASES": "5",
