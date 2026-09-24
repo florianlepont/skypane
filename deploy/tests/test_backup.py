@@ -171,6 +171,8 @@ class TestArchiveMembers:
         _seed_minimal_state(state_dir)
         (state_dir / "surprise.json").write_text("{}")
         (state_dir / "panel.bin").write_bytes(b"bin")
+        rotated = "caddy-access-2026-09-12T04-16-18.345-size.log.gz"
+        (state_dir / rotated).write_bytes(b"gz")
 
         rc = skypane_backup.main(["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)])
         assert rc == 0
@@ -179,6 +181,7 @@ class TestArchiveMembers:
         assert "surprise.json" in out
         assert "skypane_backup: not in include list: surprise.json" in out
         assert "panel.bin" not in out
+        assert rotated not in out
 
         archive_path = archive_dir / _archive_names(archive_dir)[0]
         members = _members(archive_path)
