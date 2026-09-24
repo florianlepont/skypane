@@ -34,16 +34,15 @@ _COMPANION_DIR = os.path.join(REPO_ROOT, "companion")
 # or run legacy-shaped code on purpose - neither is itself proof of
 # anything the guard exists to prove.
 #
-# companion/test_browser_ux_helpers.py additionally carries three direct
-# `browser.new_context(...)` calls (G10) predating the guarded
-# `new_context` fixture (33-02) - converting them means threading that
-# fixture through every one of test_browser_ux.py's own call sites, real
-# behavioural plumbing rather than a rename, so it stays exempt here
-# until 33-19 converts it (33-03-PLAN.md Task 2).
+# companion/test_browser_ux_helpers.py is NOT exempt: 33-19-PLAN.md Task 1
+# converted its three direct `browser.new_context(...)` calls (G10) into a
+# `make_context` factory argument (the guarded `new_context` fixture for a
+# pytest caller; a still-legacy harness's own `browser.new_context` bound
+# method until it migrates), so the guard now scans it like any other
+# non-legacy module.
 ALWAYS_EXEMPT = frozenset({
     "companion/test_suite_guards.py",
     "companion/test_legacy_harness_shim.py",
-    "companion/test_browser_ux_helpers.py",
 })
 
 

@@ -32,15 +32,16 @@ mismatch: a missing OPTIONAL capability is a skip, not a red build.
 Security constraint, enforced by this file's own code, not only stated
 here: every check below navigates ONLY to `Harness.base_url()` — a
 `127.0.0.1:<ephemeral-port>` URL naming the exact subprocess this file
-itself launched via `companion.test_companion_app.Harness`. No external
+itself launched via `companion_app_server.LegacyHarness`. No external
 URL is ever constructed or navigated to anywhere in this file.
 
-Reuses `companion.test_companion_app.Harness` for the subprocess-under-
+Reuses `companion_app_server.LegacyHarness` for the subprocess-under-
 test rather than inventing a second subprocess pattern (22-RESEARCH.md
-Pattern 3): free port via `socket.bind(("127.0.0.1", 0))`, an isolated
-`tempfile.mkdtemp()` state directory, a real `companion/app.py`
-subprocess, a startup readiness poll, and a `stop()` that `terminate()`s
-then `kill()`s.
+Pattern 3): a free loopback port, an isolated `tempfile.mkdtemp()` state
+directory, a real `companion/app.py` subprocess, a startup readiness
+poll, and a `stop()` that SIGTERMs then SIGKILLs the process group
+(33-19-PLAN.md Task 1: repointed from the retired copy of `Harness` the
+companion-app harness used to export).
 
 `seed_state_dir()` below reproduces 22-AUDIT.md's own methodology
 fixture (36 runway events over 17h, ~40 days of battery history, 3
@@ -93,9 +94,16 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
+# test-support/ (companion_app_server, for LegacyHarness/TEST_PASSWORD) -
+# this file runs as a standalone script (server/.venv/bin/python3
+# companion/test_browser_ux.py), never through pytest, so conftest.py's
+# own sys.path insert never runs for it.
+_TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
+if _TEST_SUPPORT_DIR not in sys.path:
+    sys.path.insert(0, _TEST_SUPPORT_DIR)
 
 from companion import auth, i18n, layout  # noqa: E402
-from companion.test_companion_app import Harness, TEST_PASSWORD  # noqa: E402
+from companion_app_server import LegacyHarness as Harness, TEST_PASSWORD  # noqa: E402
 from companion.pages import (  # noqa: E402
     airlines_page, config_page, history_page)
 from server import device_config, history_db  # noqa: E402
@@ -420,7 +428,7 @@ EXPECTED_CHECK_COUNT = 26
 # assertion would be a flakiness generator, while the condition guarding
 # the at-rule is deterministic and is exactly the property that gets got
 # wrong. Mutation-tested, both of them, and both mutations were chosen to
-# leave companion/test_companion_app.py's source-level motion guard GREEN
+# leave the companion-app harness's source-level motion guard GREEN
 # (271/273 throughout) so these two are proven to do the work unaided.
 # "Simplifying" the sidebar's selector to the bare `nav` element took the
 # first red at 27/28, reporting the name, the count, the route and the
@@ -1887,7 +1895,7 @@ def main():
                     # cells and re-wraps a filter bar — all server-
                     # rendered, and all of it must therefore be complete
                     # with scripts blocked.
-                    with _no_js_page(browser, harness.base_url(), "/health") as page:
+                    with _no_js_page(browser.new_context, harness.base_url(), "/health") as page:
                         tiles = page.eval_on_selector_all(".stat-tile", "els => els.length")
                         if tiles != 4:
                             return False, (
@@ -3365,7 +3373,7 @@ def main():
                     # (never a dead control), no gutter is reserved for
                     # it, and the form still signs in.
                     with _no_js_page(
-                            browser, harness.base_url(), "/login", sign_in=False) as page:
+                            browser.new_context, harness.base_url(), "/login", sign_in=False) as page:
                         if page.locator("[data-login-reveal]").is_visible():
                             return False, (
                                 "with scripts blocked the toggle must stay hidden — a "
@@ -5113,7 +5121,7 @@ def main():
                         # same viewport, same cookie, same sign-in, same
                         # landing route.
                         with _no_js_page(
-                                browser, base_url, "/health",
+                                browser.new_context, base_url, "/health",
                                 viewport=VIEWPORT_MIN_SUPPORTED,
                                 cookies=[{
                                     "name": auth.UI_LANG_COOKIE_NAME,
@@ -5208,7 +5216,7 @@ def main():
                     # shipped code path exactly as a server-rendered one
                     # will. The SERVER half (an expired countdown renders
                     # the waiting wording with no JS at all) is pinned in
-                    # companion/test_companion_app.py instead, where the
+                    # the companion-app harness instead, where the
                     # renderer can be called directly.
                     base_url = harness.base_url()
                     for lang in ("en", "fr"):
@@ -5692,7 +5700,7 @@ def main():
                     # scripts blocked, exactly as B1 did with them on.
                     base_url = harness.base_url()
                     for lang in ("en", "fr"):
-                        with _no_js_page(browser, base_url, "/display",
+                        with _no_js_page(browser.new_context, base_url, "/display",
                                          viewport=VIEWPORT_MIN_SUPPORTED) as page:
                             page.context.add_cookies([{
                                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
@@ -6084,7 +6092,7 @@ def main():
                     )
                     for lang in ("en", "fr"):
                         for route, field, selector in switches:
-                            with _no_js_page(browser, base_url, route,
+                            with _no_js_page(browser.new_context, base_url, route,
                                              viewport=VIEWPORT_MIN_SUPPORTED) as page:
                                 page.context.add_cookies([{
                                     "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
@@ -6656,7 +6664,7 @@ def main():
                     # And with no script at all, at the same 360px floor.
                     # The disclosure is native, so this is not a fallback
                     # path that could rot — it is the same control.
-                    with _no_js_page(browser, harness.base_url(), "/flights",
+                    with _no_js_page(browser.new_context, harness.base_url(), "/flights",
                                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
                         card = page.locator("li.history-card").first
                         card.wait_for(state="visible")
@@ -6923,7 +6931,7 @@ def main():
                     # Save is VISIBLE, has a real box, and still saves.
                     base_url = harness.base_url()
                     for lang in ("en", "fr"):
-                        with _no_js_page(browser, base_url, "/display",
+                        with _no_js_page(browser.new_context, base_url, "/display",
                                          viewport=VIEWPORT_MIN_SUPPORTED) as page:
                             page.context.add_cookies([{
                                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
@@ -7133,7 +7141,7 @@ def main():
                     base_url = harness.base_url()
                     heights = {}
                     for viewport in (VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
-                        seen = _display_page_height(browser, base_url, viewport)
+                        seen = _display_page_height(browser.new_context, base_url, viewport)
                         heights[viewport["width"]] = seen["height"]
                         print(
                             "        [25-06 T1] Display document height at %dpx: "
@@ -7207,7 +7215,7 @@ def main():
                     # saves in English" is not the D-09 floor.
                     for lang in ("en", "fr"):
                         seen[lang] = _persist_without_js(
-                            browser, base_url, "/display", "theme", target, read_back,
+                            browser.new_context, base_url, "/display", "theme", target, read_back,
                             viewport=VIEWPORT_MIN_SUPPORTED,
                             cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
                                       "value": lang, "url": base_url}])
@@ -7235,7 +7243,7 @@ def main():
                     # its own row is OPEN (departures) or CLOSED
                     # (calendar) at load.
                     n_themes = len(device_config.THEME_IDS)
-                    with _no_js_page(browser, base_url, "/display",
+                    with _no_js_page(browser.new_context, base_url, "/display",
                                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
                         # calendar_theme_id's own group also carries the
                         # leading "Same as departures" radio (D-09) - one
@@ -7308,7 +7316,7 @@ def main():
                         seen = {}
                         for lang in ("en", "fr"):
                             seen[lang] = _persist_without_js(
-                                browser, base_url, "/display", "theme_arriving", target,
+                                browser.new_context, base_url, "/display", "theme_arriving", target,
                                 read_back, viewport=VIEWPORT_MIN_SUPPORTED,
                                 cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
                                           "value": lang, "url": base_url}])
@@ -7336,7 +7344,7 @@ def main():
                         # whether its own row is CLOSED (arrivals, the
                         # default) or OPEN (departures).
                         n_themes = len(device_config.THEME_IDS)
-                        with _no_js_page(browser, base_url, "/display",
+                        with _no_js_page(browser.new_context, base_url, "/display",
                                          viewport=VIEWPORT_MIN_SUPPORTED) as page:
                             # theme_arriving's own group also carries the
                             # leading "Same as departures" radio (D-09) -
@@ -7668,7 +7676,7 @@ def main():
                             harness.tmpdir).get("calendar_theme_id")
 
                     for lang in ("en", "fr"):
-                        with _no_js_page(browser, base_url, "/display",
+                        with _no_js_page(browser.new_context, base_url, "/display",
                                          viewport=VIEWPORT_MIN_SUPPORTED) as page:
                             page.context.add_cookies([{
                                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
@@ -7999,7 +8007,7 @@ def main():
                     # not the D-09 floor.
                     for lang in ("en", "fr"):
                         seen[lang] = _persist_without_js(
-                            browser, base_url, "/display", "tracked_runway",
+                            browser.new_context, base_url, "/display", "tracked_runway",
                             target, read_back, viewport=VIEWPORT_MIN_SUPPORTED,
                             cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
                                       "value": lang, "url": base_url}])
@@ -8023,7 +8031,7 @@ def main():
                     # ABOVE — never before, and never in its place. A
                     # rendering can never stand in for the save this
                     # check just proved.
-                    with _no_js_page(browser, base_url, "/display",
+                    with _no_js_page(browser.new_context, base_url, "/display",
                                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
                         submit = page.locator(
                             "[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
@@ -9187,7 +9195,7 @@ def main():
                                     "() => { const f = document.querySelector("
                                     "'[data-resolve-fallback]'); if (f) f.hidden = false; }")
                             gate = _assert_js_gate(
-                                browser, artwork_harness.base_url(), ARTWORK_ROUTE,
+                                browser.new_context, artwork_harness.base_url(), ARTWORK_ROUTE,
                                 FALLBACK_ZONE, viewport=VIEWPORT_MIN_SUPPORTED,
                                 prepare=unhide_fallback)
                             if gate["blocked"]["candidates"] != 0:
@@ -9202,7 +9210,7 @@ def main():
                                     "the fixture already has stored artwork for %r, so an upload "
                                     "could not be told from the state before it" % ARTWORK_KEY)
                             seen = _upload_without_js(
-                                browser, artwork_harness.base_url(), ARTWORK_ROUTE,
+                                browser.new_context, artwork_harness.base_url(), ARTWORK_ROUTE,
                                 "#%s" % airlines_page.MANUAL_UPLOAD_INPUT_ID,
                                 "#%s button[type=\"submit\"]" % airlines_page.MANUAL_UPLOAD_FORM_ID,
                                 art_path, _stored_artwork, ARTWORK_SERVE,

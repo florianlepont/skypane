@@ -463,6 +463,13 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 33 P01 | 16min | 2 tasks | 22 files |
 | Phase 33 P02 | 17min | 3 tasks | 7 files |
 | Phase 33 P03 | 28min | 3 tasks | 8 files |
+| Phase 33 P04 | 25min | 3 tasks | 4 files |
+| Phase 33 P05 | 55min | 3 tasks | 4 files |
+| Phase 33 P09 | 13min | 3 tasks | 4 files |
+| Phase 33 P14 | 17min | 3 tasks | 4 files |
+| Phase 33 P19 | 37min | 3 tasks | 7 files |
+| Phase 33 P25 | 14min | 3 tasks | 4 files |
+| Phase 33 P06 | 35min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -904,6 +911,22 @@ Recent decisions affecting current work:
 - [Phase 33]: Left companion/test_legacy_harness_shim.py::test_legacy_harness_list_matches_disk failing after this plan (new native test_*.py modules aren't in the hand-listed legacy set); fixing it belongs to sibling wave-1 plan 33-03 per file ownership in 33-MIGRATION-RULES.md
 - [Phase 33]: companion_markup.py's CSS/HTML/JS parsers are stdlib-only and brace/string-aware from the ground up, replacing every source-text idiom migration plans 33-04..33-31 would otherwise reimplement per-file — Proven against the real 10,689-line companion/static/style.css (585 rules, 4 keyframes, 33 :root custom props, ~22ms parse) as well as its own unit tests, so later plans can trust it on the real stylesheet, not just synthetic fixtures
 - [Phase 33]: test_suite_guards.py's guard exempts companion/test_browser_ux_helpers.py (three unconverted browser.new_context() calls) rather than fixing or force-passing it — Converting them means threading 33-02's guarded new_context fixture through every one of test_browser_ux.py's own call sites — real behavioural plumbing 33-19 owns per 33-03-PLAN.md Task 2's own explicit instruction, not a same-plan rename
+- [Phase 33]: test_contrast_check.py's live token pairs (and its one color-mix composite) are fetched from a running server's served stylesheet via custom_properties()/declarations_for(), never hard-coded hex literals copying style.css
+- [Phase 33]: test_i18n.py's four ast/regex source-completeness scans (D-08 Checks 1/2/5/6) are deleted rather than rewritten, since none has an observable runtime consequence without reading production source text; replaced by 3 catalogue self-consistency checks plus the already-existing real French page renders
+- [Phase 33]: History's _row_block() stays in companion/test_view_pages.py (not the helpers module) - still-legacy sections after 33-05's cut call it dozens of times. — Setup that later checks still need per 33-MIGRATION-RULES.md section 1.
+- [Phase 33]: companion_markup's exact-attribute-value selector can't hold a space (e.g. class="data table--flights"); Node.find_all(tag, attrs={...}) or find_all(cls=...) is the escape hatch, not a toolkit change. — Discovered while porting view-pages part 01 to structural parse_html() assertions; reusable by 33-06/07/08.
+- [Phase 33]: companion/test_config_page_helpers.py carries only write_device_config() (part 01's one shared cross-check helper) - not _python_identifiers() (an ast/tokenize helper only still-legacy sections call) or _temporary_registry()/_runway_entry() (single-use within part 01, kept local to the new test module)
+- [Phase 33]: Replaced two literal state_dir="/tmp" values in the config-page part-01 checks with tmp_path - config_page.render()'s live-preview helper opens a real history_db under state_dir, so the literal was a real write-outside-tmp_path surface, not just a style mismatch (T-33-09-02)
+- [Phase 33]: _ASPECT_RETIRED_MARKUP_TOKENS/_aspect_usage_row_bounds() stay in companion/test_config_page.py rather than moving to the helpers module - a dozen still-legacy checks further down main() still call them directly, per 33-MIGRATION-RULES.md section 1
+- [Phase 33]: companion_app chain: calendar-transport/public-hostname/seeding test doubles front-loaded into test_companion_app_helpers.py in 33-14, ahead of 33-15..33-18's calendar-sync/manual-resolution sections that need them
+- [Phase 33]: 33-19: only the two page-independent RING_PAGES checks (ring paint, ring viewBox) were split via pytest.mark.parametrize; the other 9 health-drawings checks keep an internal loop because their final assertion compares values across loop iterations (theme-differs, width-parity), which xdist's no-cross-test-dependency rule would otherwise require extra plumbing to preserve
+- [Phase 33]: 33-19: shared browser-context-opening helpers (test_browser_ux_helpers.py) take a make_context factory parameter instead of a raw browser object, so one helper module serves both the guarded pytest-playwright new_context fixture and a still-legacy harness's own bound browser.new_context method with the same call shape
+- [Phase 33]: 33-25: _battery_section() arity guard rewritten as a direct call instead of inspect.signature(), since test_suite_guards.py's G2 rule bans any inspect.* attribute access in a migrated companion test module
+- [Phase 33]: 33-25: the pulled-forward anomaly_active() root-safety check folds its 'missing state_dir' and 'empty directory' cases into one assertion shape, since a tmp_path subpath is always writable (unlike a root-owned host path) and both now take the identical os.makedirs-succeeds code path
+- [Phase 33]: detail_row_block()/table_markup() joined the shared companion/test_view_pages_helpers.py (33-07/08 need the identical legacy-file locators), while the byte-identity-focused _row_markup() stayed local to test_view_pages_02.py to avoid overloading 33-05's Node-returning row_block() contract
+- [Phase 33]: The three lightbox DOM-contract token tuples and _NEW_VIEW_PANEL_ATTR_NAMES were re-declared inside test_view_pages_02.py rather than the shared helpers module, confirmed by grep to be used exclusively by this slice, and deleted from the legacy file
+- [Phase 33]: CSS checks use companion_markup.declarations_for() uniformly, including the two @media (min-width: 960px)-scoped reveal-rule checks via its at_rules= parameter, rather than a raw regex/brace-match over served stylesheet text
+- [Phase 33]: A JS check needing string-literal-preserving comment stripping (image.src = "") uses a new local strip_js_line_and_block_comments() helper instead of companion_markup.strip_js_comments_and_strings(), which would also erase the empty-string literal being searched for
 
 ### Pending Todos
 

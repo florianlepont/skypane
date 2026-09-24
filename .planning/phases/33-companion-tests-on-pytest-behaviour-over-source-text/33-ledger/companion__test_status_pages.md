@@ -4,43 +4,43 @@ Baseline: `companion__test_status_pages.txt`, 317 checks
 
 | # | Old check label | Disposition | New node id / reason |
 | --- | --- | --- | --- |
-| 1 | render() shows two distinct, separately-labelled freshness signals | pending | |
-| 2 | staleness_status() returns ok/warn/error at the right boundaries, warn for a never-seen signal | pending | |
-| 3 | wake.device_staleness_thresholds() floors at (300, 1200), multiplies at a 5-minute cadence, and falls back to the floors for None (19-05-PLAN.md D-05/A-23) | pending | |
-| 4 | wake.device_staleness_thresholds() guarantees warn_s < error_s for every input | pending | |
-| 5 | wake.env_sleep_s() reads SKYPANE_SLEEP_S unclamped (no [60, 3600] range check) and degrades to None for unset/empty/non-numeric/non-positive values | pending | |
-| 6 | wake.effective_wake_interval_s() prefers the screen-off cadence, otherwise a configured wake_interval_s, and degrades to None for a missing config | pending | |
-| 7 | companion/wake.py's source never mentions the pages package or app.py | pending | |
-| 8 | layout.absolute_and_relative() covers every documented case: ordering, Z-suffix parsing, default/explicit fallback, unparseable-timestamp degradation, missing now_ts | pending | |
-| 9 | health_page's private timestamp helpers are gone (a move, not a copy) and the Device row still renders the absolute-plus-relative format, now as a parenthesised <time data-relative> element | pending | |
-| 10 | a stale device and a fresh pipeline read as independent per-tile modifiers (error vs ok) on their own wrappers, not a blended verdict, with only the dots that legitimately remain still healthy | pending | |
-| 11 | the Device and Pipeline tiles carry their freshness label exactly once (caption only) plus exactly one Emphasis-role verdict and exactly one muted detail slot holding the mono timestamp, with zero stat-tile__value and no leftover dot-label (quick task 260901-tsa finding C, retargeted by 22-12-PLAN.md Task 1's X8 anatomy) | pending | |
-| 12 | zero battery rows render the good-news empty state and no sparkline | pending | |
-| 13 | Health's battery section draws exactly one ring whose drawn fraction — recovered from its own emitted radius and dash array — equals the percentage the readout beside it PRINTS; the <h2> still carries no glyph, battery_sparkline_svg()'s own output carries no ring class, and a device with no reading renders no ring at all rather than an empty one (CFG-40) | pending | |
-| 14 | three battery rows render the full trend (not just the latest value) and exactly one <svg> with exactly n - 1 trend-line segments (260902-ep7: retargeted from the retired single-<polyline> marker) | pending | |
-| 15 | Battery Trend's Timestamp column shows the D-09 concise format (full ISO demoted to title), matching the Device/pipeline rows, and _battery_section() stays single-argument | pending | |
-| 16 | the readings table is collapsed behind a closed-by-default disclosure, and the chart precedes it (D-08) | pending | |
-| 17 | the Battery trend heading shows the default 3-month window framing on an empty render (260902-l0b, retargeted from the retired D-10 'Latest 20 readings' label) | pending | |
-| 18 | a multi-day seeded render plots the three DAILY AVERAGES (never any raw reading value) as points, keeps every raw reading visible in the disclosure table, and names the 3-month window (260902-l0b) | pending | |
-| 19 | a same-day (fewer than two calendar days) seeded render still produces a chart and a readout, captioned honestly as readings rather than the 3-month window — the day-1 regression guard (260902-l0b) | pending | |
-| 20 | the Battery trend caption is mode-honest across three renders — empty (3-month default), multi-day (3-month, daily average), and same-day (readings count) (260902-l0b) | pending | |
-| 21 | the anomaly banner names the real failing category (a disagreement), not only the generic fallback text (UXA-06) | pending | |
-| 22 | _anomaly_category_text() lower-cases ordinary mid-sentence phrases but never a leading acronym (no 'aDS-B') | pending | |
-| 23 | _anomaly_category_labels() returns one period-stripped label per anomaly, distinct from collect_anomalies()'s own full literal sentences (D-07) | pending | |
-| 24 | _anomaly_banner_html() reproduces layout.anomaly_banner()'s exact severity-to-class/role mapping, and carries one banner__pill per anomaly plus the accessible ANOMALY_BANNER_TEXT tail (D-07) | pending | |
-| 25 | a two-anomaly fixture renders exactly two banner__pill elements inside one banner element on the real page (D-07) | pending | |
-| 26 | Corroboration's three rows stay compact (dot/label/count only) and their explanations move into a closed-by-default disclosure (D-08) | pending | |
-| 27 | _corroboration_section()'s second return value (the disagreement flag) is unchanged by the D-08 disclosure rewrite | pending | |
-| 28 | no corroboration row's explanation leaks a bare decision-ID parenthetical (UXA-05) | pending | |
-| 29 | the Device check-in and ADS-B pipeline rows render via the D-09 concise timestamp format | pending | |
-| 30 | Health's D-12 reversal: a live data-loaded-at timestamp survives, page_header() is called exactly once, and the retired stale-view banner marker/copy and manual Refresh-link class are gone from both the rendered page and the module itself (260902-chc) | pending | |
-| 31 | Battery trend renders a healthy status-coloured card border on a normal trend, in place of the retired status_dot() badge (D-01 reversal, quick task 260902-gjj) | pending | |
-| 32 | an empty/single-reading battery trend renders an ok badge and no anomaly banner (Assumption A1 regression guard) | pending | |
-| 33 | a real battery drop drives both the card's own error border (retargeted from the retired badge, quick task 260902-gjj) and the banner; the detail copy is no longer rendered | pending | |
-| 34 | an unhealthy fixture renders the anomaly banner with zero <ul/<li list markup inside its own element slice (retargeted from a page-wide ban by quick task 260903-ghy, to stop it colliding with a legitimate .data-cards list elsewhere on the page) | pending | |
-| 35 | with all four D-14 signals unhealthy, none of collect_anomalies()'s four item strings is rendered | pending | |
-| 36 | battery_sparkline_svg() emits no url(, <image, or <script — no external reference at all | pending | |
-| 37 | battery_sparkline_svg() emits per-point interactive hit targets with data-mv/data-ts/<title>, in chronological order, with roving tabindex on the latest point only | pending | |
+| 1 | render() shows two distinct, separately-labelled freshness signals | ported | companion/test_status_pages_01.py::test_render_shows_two_distinct_freshness_labels |
+| 2 | staleness_status() returns ok/warn/error at the right boundaries, warn for a never-seen signal | ported | companion/test_status_pages_01.py::test_staleness_status_boundaries |
+| 3 | wake.device_staleness_thresholds() floors at (300, 1200), multiplies at a 5-minute cadence, and falls back to the floors for None (19-05-PLAN.md D-05/A-23) | ported | companion/test_status_pages_01.py::test_device_staleness_thresholds_floors_and_multipliers |
+| 4 | wake.device_staleness_thresholds() guarantees warn_s < error_s for every input | ported | companion/test_status_pages_01.py::test_device_staleness_thresholds_warn_always_under_error |
+| 5 | wake.env_sleep_s() reads SKYPANE_SLEEP_S unclamped (no [60, 3600] range check) and degrades to None for unset/empty/non-numeric/non-positive values | ported | companion/test_status_pages_01.py::test_env_sleep_s_reads_unclamped_and_degrades |
+| 6 | wake.effective_wake_interval_s() prefers the screen-off cadence, otherwise a configured wake_interval_s, and degrades to None for a missing config | ported | companion/test_status_pages_01.py::test_effective_wake_interval_s_precedence |
+| 7 | companion/wake.py's source never mentions the pages package or app.py | ported | companion/test_status_pages_01.py::test_wake_module_never_imports_pages_or_app |
+| 8 | layout.absolute_and_relative() covers every documented case: ordering, Z-suffix parsing, default/explicit fallback, unparseable-timestamp degradation, missing now_ts | ported | companion/test_status_pages_01.py::test_layout_absolute_and_relative_covers_every_documented_case |
+| 9 | health_page's private timestamp helpers are gone (a move, not a copy) and the Device row still renders the absolute-plus-relative format, now as a parenthesised <time data-relative> element | ported | companion/test_status_pages_01.py::test_health_page_timestamp_helpers_promoted_not_duplicated |
+| 10 | a stale device and a fresh pipeline read as independent per-tile modifiers (error vs ok) on their own wrappers, not a blended verdict, with only the dots that legitimately remain still healthy | ported | companion/test_status_pages_01.py::test_independent_thresholds_one_warn_one_ok |
+| 11 | the Device and Pipeline tiles carry their freshness label exactly once (caption only) plus exactly one Emphasis-role verdict and exactly one muted detail slot holding the mono timestamp, with zero stat-tile__value and no leftover dot-label (quick task 260901-tsa finding C, retargeted by 22-12-PLAN.md Task 1's X8 anatomy) | ported | companion/test_status_pages_01.py::test_device_pipeline_tiles_have_no_duplicated_label |
+| 12 | zero battery rows render the good-news empty state and no sparkline | ported | companion/test_status_pages_01.py::test_battery_empty_state_no_sparkline |
+| 13 | Health's battery section draws exactly one ring whose drawn fraction — recovered from its own emitted radius and dash array — equals the percentage the readout beside it PRINTS; the <h2> still carries no glyph, battery_sparkline_svg()'s own output carries no ring class, and a device with no reading renders no ring at all rather than an empty one (CFG-40) | ported | companion/test_status_pages_01.py::test_battery_ring_agrees_with_its_own_readout |
+| 14 | three battery rows render the full trend (not just the latest value) and exactly one <svg> with exactly n - 1 trend-line segments (260902-ep7: retargeted from the retired single-<polyline> marker) | ported | companion/test_status_pages_01.py::test_battery_trend_shows_all_readings_and_one_sparkline |
+| 15 | Battery Trend's Timestamp column shows the D-09 concise format (full ISO demoted to title), matching the Device/pipeline rows, and _battery_section() stays single-argument | ported | companion/test_status_pages_01.py::test_battery_trend_timestamps_show_concise_format |
+| 16 | the readings table is collapsed behind a closed-by-default disclosure, and the chart precedes it (D-08) | ported | companion/test_status_pages_01.py::test_battery_readings_collapsed_behind_closed_disclosure_after_chart |
+| 17 | the Battery trend heading shows the default 3-month window framing on an empty render (260902-l0b, retargeted from the retired D-10 'Latest 20 readings' label) | ported | companion/test_status_pages_01.py::test_battery_trend_heading_shows_d10_window_label |
+| 18 | a multi-day seeded render plots the three DAILY AVERAGES (never any raw reading value) as points, keeps every raw reading visible in the disclosure table, and names the 3-month window (260902-l0b) | ported | companion/test_status_pages_01.py::test_battery_chart_plots_daily_averages_not_raw_readings |
+| 19 | a same-day (fewer than two calendar days) seeded render still produces a chart and a readout, captioned honestly as readings rather than the 3-month window — the day-1 regression guard (260902-l0b) | ported | companion/test_status_pages_01.py::test_battery_chart_falls_back_to_raw_series_on_day_one |
+| 20 | the Battery trend caption is mode-honest across three renders — empty (3-month default), multi-day (3-month, daily average), and same-day (readings count) (260902-l0b) | ported | companion/test_status_pages_01.py::test_battery_caption_is_mode_honest_across_renders |
+| 21 | the anomaly banner names the real failing category (a disagreement), not only the generic fallback text (UXA-06) | ported | companion/test_status_pages_01.py::test_anomaly_banner_names_real_categories_not_generic_only |
+| 22 | _anomaly_category_text() lower-cases ordinary mid-sentence phrases but never a leading acronym (no 'aDS-B') | ported | companion/test_status_pages_01.py::test_anomaly_categories_never_lowercase_a_leading_acronym |
+| 23 | _anomaly_category_labels() returns one period-stripped label per anomaly, distinct from collect_anomalies()'s own full literal sentences (D-07) | ported | companion/test_status_pages_01.py::test_anomaly_category_labels_are_pill_text_not_full_sentences |
+| 24 | _anomaly_banner_html() reproduces layout.anomaly_banner()'s exact severity-to-class/role mapping, and carries one banner__pill per anomaly plus the accessible ANOMALY_BANNER_TEXT tail (D-07) | ported | companion/test_status_pages_01.py::test_anomaly_banner_html_matches_layout_anomaly_banner_severity_mapping |
+| 25 | a two-anomaly fixture renders exactly two banner__pill elements inside one banner element on the real page (D-07) | ported | companion/test_status_pages_01.py::test_anomaly_banner_renders_one_pill_per_anomaly_on_the_page |
+| 26 | Corroboration's three rows stay compact (dot/label/count only) and their explanations move into a closed-by-default disclosure (D-08) | ported | companion/test_status_pages_01.py::test_corroboration_rows_compact_explanations_in_closed_disclosure |
+| 27 | _corroboration_section()'s second return value (the disagreement flag) is unchanged by the D-08 disclosure rewrite | ported | companion/test_status_pages_01.py::test_corroboration_section_disagreement_flag_unchanged |
+| 28 | no corroboration row's explanation leaks a bare decision-ID parenthetical (UXA-05) | ported | companion/test_status_pages_01.py::test_corroboration_copy_has_no_decision_id_leak |
+| 29 | the Device check-in and ADS-B pipeline rows render via the D-09 concise timestamp format | ported | companion/test_status_pages_01.py::test_device_and_pipeline_rows_use_concise_timestamp_format |
+| 30 | Health's D-12 reversal: a live data-loaded-at timestamp survives, page_header() is called exactly once, and the retired stale-view banner marker/copy and manual Refresh-link class are gone from both the rendered page and the module itself (260902-chc) | ported | companion/test_status_pages_01.py::test_health_pill_reversal_guard |
+| 31 | Battery trend renders a healthy status-coloured card border on a normal trend, in place of the retired status_dot() badge (D-01 reversal, quick task 260902-gjj) | ported | companion/test_status_pages_01.py::test_battery_section_healthy_card_border_on_normal_trend |
+| 32 | an empty/single-reading battery trend renders an ok badge and no anomaly banner (Assumption A1 regression guard) | ported | companion/test_status_pages_01.py::test_battery_empty_history_ok_badge_no_anomaly_banner |
+| 33 | a real battery drop drives both the card's own error border (retargeted from the retired badge, quick task 260902-gjj) and the banner; the detail copy is no longer rendered | ported | companion/test_status_pages_01.py::test_battery_drop_drives_badge_and_banner_detail_copy_not_rendered |
+| 34 | an unhealthy fixture renders the anomaly banner with zero <ul/<li list markup inside its own element slice (retargeted from a page-wide ban by quick task 260903-ghy, to stop it colliding with a legitimate .data-cards list elsewhere on the page) | ported | companion/test_status_pages_01.py::test_anomaly_detail_list_markup_is_gone |
+| 35 | with all four D-14 signals unhealthy, none of collect_anomalies()'s four item strings is rendered | ported | companion/test_status_pages_01.py::test_none_of_the_four_anomaly_item_strings_render |
+| 36 | battery_sparkline_svg() emits no url(, <image, or <script — no external reference at all | ported | companion/test_status_pages_01.py::test_sparkline_has_no_external_reference |
+| 37 | battery_sparkline_svg() emits per-point interactive hit targets with data-mv/data-ts/<title>, in chronological order, with roving tabindex on the latest point only | ported | companion/test_status_pages_01.py::test_sparkline_svg_has_per_point_interactive_markup |
 | 38 | battery_sparkline_svg() emits exactly four aria-hidden axis-label text nodes carrying the FIXED SPARKLINE_Y_MIN_MV/SPARKLINE_Y_MAX_MV values (not the fixture's own real min/max), with every prior no-external-reference guarantee intact (D-09, retargeted by 19-05-PLAN.md Task 2/D-04) | pending | |
 | 39 | battery_sparkline_svg() draws a flat series (every value identical) at one consistent y level, never pinned to the canvas edge by a collapsed min==max range (19-05-PLAN.md Task 2/D-04, A-22) | pending | |
 | 40 | battery_sparkline_svg() draws a small (15mV) wiggle as a small y movement, well under a tenth of the fixed range's full excursion — not a cliff spanning the whole canvas (19-05-PLAN.md Task 2/D-04, A-22) | pending | |
@@ -154,7 +154,7 @@ Baseline: `companion__test_status_pages.txt`, 317 checks
 | 148 | the battery readout carries its id, role="status", both value/detail spans and a humanised visible detail with the machine-precise ISO only in the tooltip, every chart hit target carries data-when, and battery-trend.js's shipped source still reads that attribute, both span classes, and the readout's id literal (quick task 260901-uzi finding 3, Check 4) | pending | |
 | 149 | style.css's .mono reach-through covers both .stat-tile__value and .battery-readout in one rule, and .battery-readout__detail carries the Label size, the regular weight and the file's existing 70% muted strength (quick task 260901-uzi finding 3, Check 5) | pending | |
 | 150 | anomaly_active() and the anomaly banner's presence agree in both directions, across healthy and unhealthy fixtures | pending | |
-| 151 | anomaly_active() runs on every page render and must never raise — missing/empty/file/corrupt-db inputs all degrade safely - expected False for a non-existent state_dir path | pending | |
+| 151 | anomaly_active() runs on every page render and must never raise — missing/empty/file/corrupt-db inputs all degrade safely - expected False for a non-existent state_dir path | ported | companion/test_status_pages_01.py::test_anomaly_active_never_raises_on_hostile_inputs |
 | 152 | battery and corroboration section-builder markup (dot, table, svg) survives the stat-tile reframe untouched | pending | |
 | 153 | Health's three Health-signal icons are tile-only (device, pipeline, corroboration, all whitelisted and tile-tinted) and no Health <h2> — empty or seeded render — carries a glyph any more; health_page.ICON_BATTERY is gone from the module namespace (quick task 260902-j8w) | pending | |
 | 154 | the D-12 reversal (260902-chc) is written down at both prose sites it touches — freshness.js's own header and D-12's own CONTEXT.md entry — each carrying the house SUPERSEDED token and naming this quick task, with D-12's original wording intact | pending | |
@@ -322,3 +322,28 @@ Baseline: `companion__test_status_pages.txt`, 317 checks
 | 316 | GET /health, GET /airlines and GET /history all return 200 with their own page heading against a real running service, /health's real HTTP response body carries the page purpose, both section descriptions, no duplicated freshness label, the auto-refresh pill (hidden) and zero stale-banner markers, the nested modifier twice, the prose modifier once, both readout spans, no raw ISO in the readout's own slice, and the desc-class cells at their expected count after the Resolution-statistics heading, /airlines' real HTTP response body carries zero occurrences of the retired per-card replace class, exactly one lightbox replace form and one action="" and one file input, and at least one un-busted replace-action trigger attribute, /history's real HTTP response body carries zero occurrences of the replace-form class, replace-action attribute, enctype or file input (quick task 260903-btu Task 5a), and the real served stylesheet (STYLE_ROUTE) carries the description-column rule, the demotion rule's new bottom margin and the prose rhythm rule's selector, and the real served freshness script (FRESHNESS_SCRIPT_ROUTE) carries the interval constant, the visibility-change listener, the [data-loaded-at]/[data-refresh-pill] attribute hooks, carries zero occurrences of the deleted data-pause-text/wireToggle pause-branch hooks (D-18), and every health_page.REFRESH_SWAP_SELECTORS entry verbatim (quick task 260901-tsa; extended in place by quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick task 260902-chc, quick task 260903-btu Task 5a, 19-09-PLAN.md Task 3, and 21-02-PLAN.md Task 2) | pending | |
 | 317 | GET /illustration/{key}.png against a real running service serves normalized bytes that differ from the raw vendored file and decode to illustration_normalize.ILLUSTRATION_TARGET_SIZE, and an unknown key still 404s | pending | |
 
+
+### Part 01 (plan 33-25)
+
+Rows 1-37 (part 01, original `check()` calls #1-#37) plus one out-of-order
+row (151, `anomaly_active()`'s root-unsafe degrade-safely check, pulled forward
+per 33-MIGRATION-RULES.md rubric T) are `ported` to
+`companion/test_status_pages_01.py`.
+
+Rubric codes: 34 B/D (calls `companion.pages.health_page`/`companion.wake`/
+`companion.layout` directly and asserts on the return value or the rendered
+HTML — battery ring/chart/hit-target checks parse the SVG structurally via
+`companion_markup.parse_html()` instead of regex over the raw string), 1 S
+(row 7, `companion/wake.py`'s import boundary — rewritten as a `child_env()`
+subprocess `sys.modules` probe instead of a source grep), 1 T (row 151, the
+pulled-forward `anomaly_active()` check — every "missing state_dir" input now
+uses a `tmp_path` subpath instead of a fixed absolute path outside the repo
+production code could create as root, closing T-33-25-01 and the status-pages
+half of 32-REVIEW.md IN-05). No deletions in this slice.
+
+New module: `companion/test_status_pages_01.py` (38 tests: 37 ported part-01
+checks plus the 1 pulled-forward `anomaly_active()` check).
+`companion/test_status_pages_helpers.py` is new too (seeding helpers this
+part barely uses beyond `seed_device_health`/`seed_meta`/`seed_runway_events`
+and `stat_tile_slices` — front-loaded for 33-26..33-31's later sections, same
+precedent as 33-14's `test_companion_app_helpers.py`).
