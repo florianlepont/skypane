@@ -23,10 +23,10 @@ Pre-phase units: `deploy/skypane-*.service` at `9d38c21` (main before Phase 37).
 
 | Unit | Before (CP-1) | After (CP-6) |
 |------|---------------|--------------|
-| skypane-byos.service | 8.3 EXPOSED | |
-| skypane-companion.service | 8.3 EXPOSED | |
-| skypane-poll.service | 8.3 EXPOSED | |
-| skypane-backup.service | — (new) | |
+| skypane-byos.service | 8.3 EXPOSED | 1.5 OK |
+| skypane-companion.service | 8.3 EXPOSED | 1.5 OK |
+| skypane-poll.service | 8.3 EXPOSED | 1.5 OK |
+| skypane-backup.service | — (new) | 0.8 SAFE |
 
 ## Live Caddyfile diff (CP-1)
 
@@ -142,3 +142,24 @@ Run 2026-09-24 ~20:02 UTC from the laptop with a throwaway local commit
 ## Wave B (CP-11)
 
 _Pending CP-11 (Plan 37-11, after Phase 36)._
+
+## Off-box backup pull key (CP-8)
+
+Done 2026-09-24 ~20:10 UTC.
+- Dedicated ed25519 key generated on the Mac (`~/.ssh/skypane_backup_ed25519`,
+  comment `skypane-backup-pull@mac`); public half installed with
+  `install-backup-key.sh` (a first attempt with a mangled pasted line was
+  correctly rejected by the key regex; the second was fed from the `.pub` file).
+  `/var/lib/skypane-backup/.ssh` 755 root:root, `authorized_keys` 644 root:root.
+- `skypane-backup.service` run by hand twice: archives
+  `skypane-state-20260924T200545Z.tar.gz` (9 014 744 B) and
+  `skypane-state-20260924T200731Z.tar.gz`, each with `.sha256`, mode 640
+  `skypane:skypane-backup`. Timer next run 2026-09-25 ~03:17 UTC.
+- Journal drift line: `caddy-access-2026-09-12T04-16-18.345-size.log.gz`
+  (Caddy's own rotated-log name) — regenerable, now in `KNOWN_EXCLUDED`
+  (`caddy-access-*.log*`) so it is no longer reported.
+- From the Mac with the pull key: `list` → both archives with size and
+  sha256; `cat /opt/skypane/skypane.env` → `backup_gate: unsupported command`
+  exit 2; `get ../../../opt/skypane/skypane.env` → `invalid or unknown
+  archive` exit 2; no command / no tty → `backup_gate: no command given`
+  exit 2. The key can list and fetch archives and nothing else.

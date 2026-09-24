@@ -61,6 +61,8 @@ KNOWN_EXCLUDED = (
     "panel.bin",
     "theme_previews",
     "caddy-access.log*",
+    # Caddy names rotated logs caddy-access-<timestamp>.log[.gz].
+    "caddy-access-*.log*",
     "history.db",
     "history.db-wal",
     "history.db-shm",
