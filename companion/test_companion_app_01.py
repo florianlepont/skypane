@@ -21,12 +21,19 @@ import hashlib
 import hmac
 import html
 import os
+import re
 import time
+import urllib.parse
 
 import pytest
 
 import companion.auth as auth
 import companion.layout as layout
+import companion.test_companion_app_helpers as cah
+from companion_app_server import http_request, login, served_stylesheet
+from companion_markup import css_rules, declarations_for, rules_with_selector
+from server.plane import manual_resolutions
+from skypane_test_support import requires_non_root
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
 
@@ -39,6 +46,17 @@ def _password_configured(monkeypatch):
     exactly this env var assignment/restore.
     """
     monkeypatch.setenv(auth.PASSWORD_ENV_VAR, TEST_PASSWORD)
+
+
+@pytest.fixture(scope="module")
+def served_css(module_app_server_factory):
+    """The stylesheet `companion/app.py` actually serves — the 5 checks
+    at the end of this module that used to read `companion/static/
+    style.css` from disk instead fetch it once, read-only, from a
+    running server.
+    """
+    server = module_app_server_factory(fake_providers=True)
+    return served_stylesheet(server)
 
 
 def _sign_with_secret(payload, secret):
@@ -421,3 +439,459 @@ def test_status_dot_states():
     unknown_markup = layout.status_dot("not-a-real-state", "<b>hi</b>")
     assert "dot--warn" in unknown_markup, "expected an unrecognised state to fall back to the warn class"
     assert "<b>" not in unknown_markup, "expected the label to be escaped"
+
+
+def test_data_table_escapes_and_empty_state():
+    """data_table() escapes every header/cell and emits the empty-state block for zero rows"""
+    table_markup = layout.data_table(["Name", "<x>"], [["<b>a</b>", "1"]])
+    assert "<b>a</b>" not in table_markup and "<x>" not in table_markup
+    empty_markup = layout.data_table(["Name"], [])
+    assert "<table" not in empty_markup, "expected the empty-state block instead of a <table> for zero rows"
+
+
+def test_data_table_wrapped_for_horizontal_scroll():
+    """data_table() wraps its <table> in a horizontally-scrollable container"""
+    # 2026-08-28 mobile-cropping fix: a wide table (History's timestamp/
+    # callsign/hex/airline/type columns, Airlines' unresolved-prefix
+    # table) must scroll horizontally on a phone viewport instead of
+    # overflowing past it uncropped.
+    table_markup = layout.data_table(["A", "B"], [["1", "2"]])
+    assert '<div class="data-table-wrap">' in table_markup
+
+
+def test_sidebar_nav_renders_all_tabs_with_one_active():
+    """sidebar_nav() renders every NAV_TABS link with exactly one active"""
+    markup = layout.sidebar_nav("flights")
+    assert 'aria-label="Primary navigation"' in markup
+    for route, label in layout.NAV_TABS:
+        assert route in markup and label in markup
+    assert markup.count("sidebar-link--active") == 1
+
+
+def test_sidebar_nav_escapes_hostile_active():
+    """sidebar_nav() matches no tab and stays script-free for a hostile active value"""
+    markup = layout.sidebar_nav("<script>alert(1)</script>")
+    assert "<script>" not in markup
+    assert markup.count("sidebar-link--active") == 0
+
+
+def test_nav_tabs_shrunk_to_four_settled_order():
+    """layout.NAV_TABS holds exactly 6 entries, in order home/display/flights/airlines/health/device"""
+    # 06.6.4.1-08 (D-22): NAV_TABS shrinks from five entries to four -
+    # Preview is retired, its whole content absorbed into History
+    # (06.6.4.1-05). Order matters: every nav renderer walks NAV_TABS in
+    # this exact order. Phase 18: six tabs in two groups - the everyday
+    # four, then the two under the "Advanced" label - flattened in that
+    # order.
+    assert len(layout.NAV_TABS) == 6
+    expected_routes = ("/", "/display", "/flights", "/airlines", "/health", "/device")
+    actual_routes = tuple(route for route, _ in layout.NAV_TABS)
+    assert actual_routes == expected_routes
+
+
+def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
+    """a rendered authenticated page contains exactly six sidebar nav links and exactly six
+    tab-bar links, with exactly one marked active in each, and the hamburger dropdown holds
+    zero destination links (retargeted from the dropdown onto the tab bar, 22-14-PLAN.md
+    Task 2)"""
+    # RETARGETED IN PLACE, STRICTLY NARROWER (22-14-PLAN.md Task 2,
+    # X9/D-10): the sub-960px half counted the dropdown's six links; the
+    # dropdown now holds preferences and the tab bar holds destinations.
+    # The count and the exactly-one-active assertion are unchanged; what
+    # they are counted over moved.
+    sidebar_markup = layout.sidebar_nav("flights")
+    sidebar_link_count = sidebar_markup.count('<a class="sidebar-link')
+    assert sidebar_link_count == 6
+    assert sidebar_markup.count("sidebar-link--active") == 1
+
+    doc = layout.page_shell(
+        title="T", active="flights", body="<p>b</p>",
+        device_config={"display_enabled": True, "quiet_hours_enabled": False})
+    bar_start = doc.index('<nav class="tab-bar"')
+    bar = doc[bar_start:doc.index("</nav>", bar_start)]
+    bar_link_count = (
+        bar.count('<a class="tab-bar__link')
+        + bar.count('<a class="mobile-nav__link'))
+    assert bar_link_count == 6
+    assert bar.count("tab-bar__link--active") == 1
+
+    # And the dropdown now holds ZERO destination links - this is the
+    # ~420px page shove X9 measured, removed.
+    panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
+    panel = doc[panel_start:doc.index("</header>")]
+    assert panel.count('<a class="mobile-nav__link') == 0, (
+        "expected the dropdown panel to hold no destination links at all")
+    assert "mobile-nav__nav" not in panel, (
+        "expected the dropdown's own navigation landmark to be removed, not emptied")
+    for route, _label in layout.NAV_TABS:
+        if route == layout.HOME_ROUTE:
+            # The state reminder is still a link to Home on a non-Home
+            # page - that is nav_status_html()'s own contract, not a
+            # destination menu entry.
+            continue
+        assert ('href="%s"' % route) not in panel, (
+            "expected no destination href (%r) left in the dropdown panel" % route)
+
+
+def test_eye_glyph_survives_nav_shrink():
+    """the eye glyph (icon-nav-preview) is still a whitelist member and icon_html() returns
+    non-empty markup for it, even though its nav-slug mapping was removed"""
+    # 06.6.4.1-08 (D-22): "icon-nav-preview" (the eye glyph) stays in the
+    # ICON_IDS whitelist even though NAV_ICON_IDS no longer maps a
+    # "preview" slug to it - companion/pages/history_page.py's View-panel
+    # trigger is its sole remaining consumer.
+    assert "icon-nav-preview" in layout.ICON_IDS
+    markup = layout.icon_html("icon-nav-preview")
+    assert markup and "<svg" in markup
+
+
+def test_stat_tile_status_classes_caption_escape_and_content_passthrough():
+    """stat_tile() maps status to a fixed class with an accent fallback, escapes the caption,
+    and passes content_html through unmodified"""
+    for status, expected_class in (
+        ("ok", "stat-tile--ok"),
+        ("warn", "stat-tile--warn"),
+        ("error", "stat-tile--error"),
+    ):
+        markup = layout.stat_tile("c", "x", status)
+        assert expected_class in markup, "expected %r to map to %r" % (status, expected_class)
+    assert "stat-tile--accent" in layout.stat_tile("c", "x")
+    assert "stat-tile--accent" in layout.stat_tile("c", "x", "not-a-real-state")
+    assert "<b>" not in layout.stat_tile("<b>hi</b>", "x"), "expected the caption to be escaped"
+    dot_markup = layout.status_dot("ok", "All good")
+    tile_markup = layout.stat_tile("Device", dot_markup, "ok")
+    assert "dot--ok" in tile_markup, "expected content_html to reach the output unmodified"
+
+
+def test_card_status_class_whitelist_and_empty_fallback():
+    """card_status_class() maps status to base_class + a fixed suffix for the three whitelisted
+    states, and falls back to the empty string (not an accent class) for None or an
+    unrecognised status — the divergence from stat_tile()'s own fallback (quick task
+    260902-gjj, ISSUE 2)"""
+    # quick task 260902-gjj (ISSUE 2): card_status_class()'s own
+    # contract, following stat_tile()'s check above in shape - the three
+    # whitelisted mappings, and the empty string (not an accent fallback
+    # class) for both None and an unrecognised status, per that
+    # function's own documented divergence from stat_tile()'s accent
+    # fallback.
+    for status, expected_class in (
+        ("ok", "page-section--ok"),
+        ("warn", "page-section--warn"),
+        ("error", "page-section--error"),
+    ):
+        got = layout.card_status_class("page-section", status)
+        assert got == expected_class, "expected %r to map to %r, got %r" % (status, expected_class, got)
+    assert layout.card_status_class("page-section", None) == ""
+    assert layout.card_status_class("page-section", "not-a-real-state") == ""
+    assert layout.card_status_class("battery-trend-section", "ok") == "battery-trend-section--ok", (
+        "expected base_class to be reused verbatim in the modifier's own prefix")
+
+
+def test_page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme():
+    """page_shell() wraps header+sidebar+main in .dashboard-shell with both nav landmarks
+    (sidebar + tab bar, and exactly one when there is no tab bar) and both theme-form copies
+    present"""
+    rendered = layout.page_shell(title="Health", active="health", body="<p>b</p>")
+    for needle in (
+        '<div class="dashboard-shell">',
+        '<aside class="dashboard-sidebar">',
+        '<main class="page-content dashboard-main" id="main-content" tabindex="-1">',
+    ):
+        assert needle in rendered, "expected %r in the rendered shell" % needle
+    # 06.6.1-05: two nav landmarks now exist - sidebar_nav() and the
+    # hamburger dropdown's _mobile_nav_html() - deliberately sharing the
+    # same "Primary navigation" aria-label; CSS alone decides which is
+    # visible at a given width, so both are always in the DOM.
+    #
+    # RETARGETED IN PLACE, STRICTLY NARROWER (22-14-PLAN.md Task 2,
+    # X9/D-10): the sub-960px landmark moved from the dropdown to the
+    # bottom tab bar, so the PAIR is now sidebar + tab bar and the count
+    # is asserted on a render that has a tab bar. A page with no device
+    # config (the 404) carries exactly ONE landmark, never an empty
+    # second one.
+    with_bar = layout.page_shell(
+        title="Health", active="health", body="<p>b</p>",
+        device_config={"display_enabled": True, "quiet_hours_enabled": False})
+    assert with_bar.count('aria-label="Primary navigation"') == 2, (
+        "expected exactly two Primary navigation landmarks (sidebar + tab bar)")
+    assert rendered.count('aria-label="Primary navigation"') == 1, (
+        "a page with no device config renders no tab bar, so it must expose exactly one "
+        "navigation landmark - never an empty second one")
+    assert rendered.count('id="%s"' % layout.MOBILE_NAV_ID) == 1, "expected exactly one dropdown panel"
+    assert rendered.count('action="/ui-theme"') == 2, "expected both theme-form copies posting to /ui-theme"
+
+
+def test_page_shell_skip_link_target_is_focusable():
+    """page_shell()'s skip link target carries tabindex="-1" so it actually receives focus"""
+    # CR-01: the skip link's href="#main-content" target must itself be
+    # focusable (tabindex="-1") or activating the link scrolls the
+    # viewport without moving keyboard focus, per the HTML
+    # fragment-navigation focusing steps (WCAG SCR28/G1).
+    rendered = layout.page_shell(title="Health", active="health", body="<p>b</p>")
+    assert '<a class="skip-link" href="#main-content">Skip to content</a>' in rendered
+    assert 'id="main-content" tabindex="-1"' in rendered
+
+
+def test_page_shell_escapes_hostile_body():
+    """page_shell()'s output contains no unescaped script tag for an escaped hostile body"""
+    escaped_hostile_body = layout.escape_html("<script>alert(1)</script>")
+    rendered = layout.page_shell(title="Health", active="health", body=escaped_hostile_body)
+    assert "<script>" not in rendered
+
+
+# --- 06.6.1-04 Task 1: icon sprite, whitelisted builder, stat_tile() icon slot ---
+
+
+def test_icon_sprite_integrity():
+    """layout.ICON_IDS has exactly twenty-three unique members, each a symbol id in
+    ICON_DEFS_HTML and vice versa"""
+    # 06.6.3: the whitelist grew from ten to fourteen members
+    # (icon-check/icon-copy/icon-refresh/icon-search, D-05/D-23/D-12/
+    # D-20). quick task 260903-df3 grew it again, fourteen to fifteen
+    # (icon-upload, the Airlines lightbox replace zone's glyph).
+    # 22-14-PLAN.md Task 1 (X9/D-10) grows it from twenty-one to
+    # twenty-two (icon-more, the bottom tab bar's "More" cell).
+    # 28-01-PLAN.md (CFG-76) grows it again, 22 -> 23 (icon-gear,
+    # #site-nav-toggle's new glyph).
+    assert len(layout.ICON_IDS) == 23
+    assert len(set(layout.ICON_IDS)) == 23, "expected ICON_IDS to have no duplicates"
+    symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
+    assert sorted(symbol_ids) == sorted(layout.ICON_IDS), (
+        "sprite symbol ids %r do not match ICON_IDS %r" % (symbol_ids, layout.ICON_IDS))
+    assert layout.ICON_DEFS_HTML.count("<symbol") == 23
+    assert 'stroke="currentColor"' in layout.ICON_DEFS_HTML
+    assert 'fill="#' not in layout.ICON_DEFS_HTML, "a hard-coded hex fill would defeat the per-status tint"
+
+
+def test_icon_html_whitelist_enforcement():
+    """icon_html() returns markup for every whitelisted id and '' for an unknown/empty/None/
+    hostile id"""
+    for icon_id in layout.ICON_IDS:
+        out = layout.icon_html(icon_id)
+        assert out and "<use" in out, "expected non-empty <use markup for %r, got %r" % (icon_id, out)
+    for bad in ("not-an-icon", "", None):
+        assert layout.icon_html(bad) == ""
+    hostile = '"><script>alert(1)</script>'
+    assert layout.icon_html(hostile) == ""
+    assert hostile not in layout.icon_html(hostile), "a hostile id string must never reach icon_html()'s output"
+
+
+def test_stat_tile_backcompat_and_icon_slot():
+    """stat_tile() is byte-identical with icon omitted and places a valid icon before the
+    caption text"""
+    default_call = layout.stat_tile("c", "x")
+    explicit_none = layout.stat_tile("c", "x", None)
+    assert default_call == explicit_none
+    assert "<svg" not in default_call, "expected no <svg when icon is omitted"
+    valid_icon = layout.ICON_IDS[0]
+    with_icon = layout.stat_tile("Cap", "<p>y</p>", "ok", icon=valid_icon)
+    assert with_icon.count("<svg") == 1, "expected exactly one <svg when a valid icon is supplied"
+    assert layout.STAT_TILE_ICON_CLASS in with_icon, "expected the tint class on the tile's icon"
+    assert "stat-tile--ok" in with_icon, "expected the status class to still be present"
+    assert with_icon.index("<svg") < with_icon.index("Cap"), (
+        "expected the icon markup to precede the caption text")
+
+
+def test_page_shell_emits_sprite_once_no_inline_styles():
+    """page_shell() emits exactly one sprite (one <defs, twenty-three <symbol) before
+    dashboard-shell, no inline styles"""
+    doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+    assert doc.count("<defs") == 1
+    # 22-14-PLAN.md Task 1 (X9/D-10): twenty-one -> twenty-two
+    # (icon-more). 28-01-PLAN.md (CFG-76): 22 -> 23 (icon-gear).
+    assert doc.count("<symbol") == 23
+    assert doc.index("icon-defs") < doc.index("dashboard-shell"), (
+        "expected the sprite to precede the dashboard-shell div")
+    assert ' style="' not in doc, "page_shell() must emit no inline styles"
+
+
+# --- heading-color-consistency debug session -------------------------
+#
+# D-03's serif-headings contract used to be an allow-list in a style.css
+# comment. These checks make the contract executable in both directions
+# — every heading role IS serif, and no dense/tabular role IS NOT — over
+# the stylesheet companion/app.py actually serves, via companion_markup's
+# structural CSS parser rather than a raw-text/comment search.
+
+
+def test_heading_roles_share_one_serif_rule_with_named_nested_exception(served_css):
+    """every heading role (h1/h2/h3/legend/.text-heading) shares one serif rule except the
+    one named, asserted nested card-title sans exception (D-09), and `legend` does not
+    override its weight"""
+    # The single rule that grants the serif family: h1/h2/h3/legend/
+    # .text-heading all resolve font-family/font-weight through
+    # declarations_for()'s own "last rule wins, same at-rule context"
+    # merge, which mirrors the browser's real cascade for same-
+    # specificity selectors. `legend` also carries its own DEDICATED
+    # rule later in the file (font-size/padding only) — if that rule
+    # ever restated font-weight, declarations_for()'s merge would surface
+    # the override here, which is exactly the D-09/CR-adjacent regression
+    # this check exists to catch (both selectors are bare `legend`,
+    # (0,0,1) specificity, so the later rule wins at equal specificity).
+    for selector in ("h1", "h2", "h3", "legend", ".text-heading"):
+        declarations = declarations_for(served_css, selector)
+        assert declarations.get("font-family") == "var(--font-serif)", (
+            "expected %r to resolve font-family to var(--font-serif), got %r"
+            % (selector, declarations.get("font-family")))
+        assert declarations.get("font-weight") == "var(--weight-regular)", (
+            "expected %r to resolve font-weight to var(--weight-regular) — a later "
+            "same-specificity rule may be overriding it, got %r"
+            % (selector, declarations.get("font-weight")))
+    # 06.6.4.1.1-04 Task 2 (D-09): the shared rule above grants serif to
+    # every heading role, and there is exactly one documented, asserted
+    # exception - the nested card-title selector ("Battery trend",
+    # "Unresolved prefixes", "Resolution statistics"), deliberately
+    # demoted to the sans --font-ui voice at 16px semibold.
+    nested = declarations_for(served_css, ".page-section--nested > h2")
+    assert nested.get("font-family") == "var(--font-ui)", (
+        "expected the nested card-title exception to resolve font-family to var(--font-ui) "
+        "(D-09's sans override)")
+
+
+def test_serif_never_reaches_dense_or_tabular_content(served_css):
+    """--font-serif never reaches table, body, mono, nav-link or stat-tile-caption rules
+    (D-03's headings-only boundary; D-13 retired the caption's own former serif exception)"""
+    # D-03's other half: serif is headings-only. Body, tables, form
+    # controls, nav links and mono content stay on --font-ui. Guards
+    # against the rejected "serif partout" option creeping back in one
+    # rule at a time. `.stat-tile__caption` (D-13) was this file's one
+    # named Label-role serif exception until D-13 retired it in favour of
+    # the unified sans 12px label voice - it is listed here now so that
+    # retirement cannot silently reverse without a deliberate edit to
+    # this check.
+    forbidden_selectors = (
+        ".data-table", ".cell-primary", ".cell-secondary", ".mono", ".text-body",
+        ".sidebar-link", ".mobile-nav__link", ".stat-tile__caption")
+    for selector in forbidden_selectors:
+        for rule in rules_with_selector(served_css, selector):
+            for _prop, value in rule.declarations:
+                assert "--font-serif" not in value, (
+                    "%s applies --font-serif; serif is a headings-only treatment (D-03), "
+                    "never dense/tabular content" % selector)
+
+
+def test_mobile_nav_link_and_sidebar_link_geometries_stay_diverged(served_css):
+    """mobile dropdown nav link keeps its restored 44px/Body-size tap target while the desktop
+    sidebar link stays at its D-05 32px/Label-size compaction (260902-qkm)"""
+    # 260902-qkm: D-05 (06.6.4-04) reached .mobile-nav__link by mistake -
+    # the mobile dropdown is the phone's only nav, with no desktop
+    # compactness argument to trade against, while .sidebar-link is
+    # structurally desktop-only (hidden below 960px). The two renderings
+    # are deliberately different sizes and neither may drift into the
+    # other.
+    mobile = declarations_for(served_css, ".mobile-nav__link")
+    assert mobile.get("min-height") == "44px", (
+        ".mobile-nav__link lost its restored min-height: 44px tap target (260902-qkm)")
+    assert mobile.get("font-size") == "var(--font-body-size)", (
+        ".mobile-nav__link's font size drifted off var(--font-body-size) (260902-qkm)")
+
+    sidebar = declarations_for(served_css, ".sidebar-link")
+    assert sidebar.get("height") == "32px", (
+        ".sidebar-link's D-05 32px desktop compaction was reverted - it is structurally "
+        "desktop-only and should stay compact, unlike the mobile dropdown link")
+    assert sidebar.get("font-size") == "var(--font-label-size)", (
+        ".sidebar-link's font size drifted off var(--font-label-size)")
+
+
+def test_icon_classes_styled_in_served_stylesheet(served_css):
+    """the icon/icon-defs/STAT_TILE_ICON_CLASS class names all appear in companion/static/
+    style.css"""
+    rules = css_rules(served_css)
+    all_selectors = " ".join(sel for rule in rules for sel in rule.selectors)
+    for cls in ("icon-defs", "icon", layout.STAT_TILE_ICON_CLASS):
+        assert cls in all_selectors, "expected class %r to be styled in the served stylesheet" % cls
+
+
+def test_exactly_one_error_signal_colour_token(served_css):
+    """there is exactly one error-signal colour token (--color-status-error), no
+    --color-destructive duplicate"""
+    # --color-destructive and --color-status-error held identical values
+    # in all four token blocks while being used interchangeably for one
+    # concept, so "change the error colour" silently meant "change two
+    # tokens in four places". The duplicate is gone; this keeps it gone.
+    for rule in css_rules(served_css):
+        for prop, value in rule.declarations:
+            assert prop != "--color-destructive" and "--color-destructive" not in value, (
+                "--color-destructive is back; it duplicated --color-status-error exactly and "
+                "is the reason the two could drift. Use --color-status-error")
+
+
+# ==========================================================================
+# Out-of-order pull (33-MIGRATION-RULES.md rubric T): the two root-unsafe
+# WR-11 os.chmod checks from the still-legacy manual-resolution section
+# (original lines ~10315-10412), so companion/test_companion_app.py runs
+# green as root from this plan onward (32-REVIEW.md IN-05).
+# ==========================================================================
+
+
+@requires_non_root
+def test_resolve_post_redirects_manual_save_failed_when_state_dir_is_read_only(make_app_server):
+    """POST /airlines/resolve redirects with the manual_save_failed flash key (never a
+    dropped connection) when add_entry() cannot write because the state dir is read-only —
+    the exact failure mode CR-01 fixed, exercised end to end (WR-11)"""
+    # WR-11: FLASH_KEY_MANUAL_SAVE_FAILED was added specifically because
+    # add_entry() can return ADD_FAILED on an unwritable state dir - CR-01
+    # fixed the bug that made that path raise instead (a dropped
+    # connection, no flash at all); this proves the flash key itself is
+    # actually reached end to end.
+    server = make_app_server(fake_providers=True)
+    cookie = login(server)
+    cah.seed_unresolved_prefixes(server.state_dir, {
+        "FLD": {
+            "count": 1, "first_seen": "2026-01-01T00:00:00+00:00",
+            "last_seen": "2026-01-01T00:00:00+00:00", "example_callsign": "FLD100",
+        },
+    })
+
+    os.chmod(server.state_dir, 0o500)
+    try:
+        resolve_data = urllib.parse.urlencode(
+            {"prefix": "FLD", "airline_name": "Unwritable Air"}).encode()
+        status, headers, _ = http_request(
+            server.base_url() + "/airlines/resolve", method="POST", data=resolve_data,
+            cookie=cookie)
+    finally:
+        os.chmod(server.state_dir, 0o700)
+
+    assert status == 303, "expected a 303 redirect even on a write failure, got %d" % status
+    location = headers.get("Location", "")
+    assert "flash=manual_save_failed" in location, (
+        "expected the manual_save_failed flash key when add_entry() fails to write, got %r"
+        % location)
+    assert "resolve=FLD" in location, (
+        "expected the redirect to carry resolve=FLD so the operator lands back on the form, "
+        "got %r" % location)
+    registry_after = manual_resolutions.load_manual_resolutions(server.state_dir)
+    assert "FLD" not in registry_after, "expected nothing persisted after a failed write"
+
+
+@requires_non_root
+def test_delete_post_redirects_manual_delete_failed_when_state_dir_is_read_only(make_app_server):
+    """POST /airlines/manual-resolutions/{prefix}/delete redirects with the
+    manual_delete_failed flash key, leaving the entry in place, when delete_entry() cannot
+    write because the state dir is read-only (WR-11)"""
+    # WR-11's mirror case: FLASH_KEY_MANUAL_DELETE_FAILED for
+    # delete_entry() returning False after a genuine write failure
+    # (never for an already-absent prefix, which is a silent no-op by
+    # design).
+    server = make_app_server(fake_providers=True)
+    cookie = login(server)
+    add_result = manual_resolutions.add_entry(server.state_dir, "DLF", "Undeletable Air")
+    assert add_result == manual_resolutions.ADD_OK, (
+        "test setup failure: add_entry() returned %r" % (add_result,))
+
+    os.chmod(server.state_dir, 0o500)
+    try:
+        status, headers, _ = http_request(
+            server.base_url() + "/airlines/manual-resolutions/DLF/delete", method="POST",
+            cookie=cookie)
+    finally:
+        os.chmod(server.state_dir, 0o700)
+
+    assert status == 303, "expected a 303 redirect even on a write failure, got %d" % status
+    location = headers.get("Location", "")
+    assert "flash=manual_delete_failed" in location, (
+        "expected the manual_delete_failed flash key when delete_entry() fails to write, "
+        "got %r" % location)
+    registry_after = manual_resolutions.load_manual_resolutions(server.state_dir)
+    assert "DLF" in registry_after, "expected the entry to survive a failed delete_entry() write"
