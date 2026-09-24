@@ -106,11 +106,20 @@ def test_legacy_companion_harness_exits_zero(harness, tmp_path):
 
 
 def test_legacy_harness_list_matches_disk():
+    # SEC-01 (37-01-PLAN.md): test_login_throttle.py is the first native
+    # pytest test module under companion/, collected directly by pytest
+    # rather than run through this shim — it is exempted here the same
+    # way test_browser_ux_helpers.py (a shared helper, not a harness in
+    # its own right) already is.
     on_disk = {
         "companion/%s" % name
         for name in os.listdir(_COMPANION_DIR)
         if name.startswith("test_")
         and name.endswith(".py")
-        and name not in ("test_legacy_harness_shim.py", "test_browser_ux_helpers.py")
+        and name not in (
+            "test_legacy_harness_shim.py",
+            "test_browser_ux_helpers.py",
+            "test_login_throttle.py",
+        )
     }
     assert on_disk == set(LEGACY_COMPANION_HARNESSES)

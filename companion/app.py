@@ -14,12 +14,15 @@ exemption list also decides the caching scope on byte-served responses
 must never be advertised to a shared/intermediary cache as storable, so
 the two lists are not allowed to silently drift apart.
 
-This service binds all interfaces (0.0.0.0), exactly like
-`stub-server/byos_server.py` already does in production — loopback
-restriction is enforced at the firewall/reverse-proxy layer (ufw + Caddy)
-rather than in the app, matching `deploy/skypane-byos.service`'s own
-documented discipline (plan 06-11 adds the matching ufw deny for this
-service's own port).
+This service binds `--bind` (default `0.0.0.0`, matching every prior
+release and LAN/dev use); production's `deploy/skypane-companion.service`
+passes `--bind 127.0.0.1` (SEC-01/D-22), because Caddy is the only
+intended client and this process itself makes outbound calls (poll
+trigger, calendar fetch, ntfy) — a systemd IP filter cannot express
+"outbound anywhere, inbound loopback only", which is why
+`stub-server/byos_server.py` (no outbound calls) uses that filter
+instead. The plan 06-11 ufw deny for this service's own port stays in
+place as defence in depth regardless of `--bind`.
 
 This service never writes the poll pipeline's own persisted flight-state
 file — `server.poll_loop.run_once()` is that file's one legitimate writer
@@ -684,7 +687,10 @@ _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
 # analogue) — D-01/D-02 mean there are no distinct users for a per-session
-# counter to key on.
+# counter to key on. Keyed per client IP and bounded (SEC-01,
+# auth.LoginThrottle/auth.login_throttle_key()): failed logins from one
+# address never lock another, and the bucket table cannot grow without
+# limit under a spray of source addresses.
 LOGIN_THROTTLE = auth.LoginThrottle()
 
 # Same process-global-singleton shape as LOGIN_THROTTLE above (UXA-15):
@@ -1847,9 +1853,10 @@ class Handler(BaseHTTPRequestHandler):
         # mechanism companion/pages/config_page.py's poll_trigger_
         # section() and companion/static/poll-cooldown.js established
         # (06.6-02 D-01), reused rather than re-derived. The remaining
-        # figure is LOGIN_THROTTLE.seconds_remaining()'s own output,
-        # serialised here; it is never computed from a client clock, and
-        # no throttling constant crosses to the client.
+        # figure is LOGIN_THROTTLE.seconds_remaining(key)'s own output
+        # for the caller's own bucket, serialised here; it is never
+        # computed from a client clock, and no throttling constant
+        # crosses to the client.
         form_attrs = ""
         if locked:
             form_attrs = (
@@ -3050,6 +3057,16 @@ class Handler(BaseHTTPRequestHandler):
 
     # --- POST --------------------------------------------------------------
 
+    def _login_throttle_key(self):
+        """SEC-01: the one place this handler derives a LoginThrottle
+        bucket key, so every LOGIN_THROTTLE call site below uses the
+        identical derivation (`auth.login_throttle_key()`, trusting
+        X-Forwarded-For only from a loopback peer — Caddy in
+        production).
+        """
+        return auth.login_throttle_key(
+            self.client_address[0], self.headers.get("X-Forwarded-For"))
+
     def _handle_login_post(self):
         # 06.6.2-07 (UXA-03/T-06.6.2-12): read and validate `next` before
         # the lockout/password checks so it survives every branch below
@@ -3057,18 +3074,19 @@ class Handler(BaseHTTPRequestHandler):
         # must not lose the originally-requested destination.
         form = self.read_form()
         next_route = _validated_next_route(form.get("next"))
-        if LOGIN_THROTTLE.locked_out():
-            remaining = LOGIN_THROTTLE.seconds_remaining()
+        throttle_key = self._login_throttle_key()
+        if LOGIN_THROTTLE.locked_out(throttle_key):
+            remaining = LOGIN_THROTTLE.seconds_remaining(throttle_key)
             return self.send_html(429, self._render_login_page(
                 lockout_seconds=remaining, next_route=next_route))
         submitted = form.get("password", "")
         if auth.password_ok(submitted):
-            LOGIN_THROTTLE.record_success()
+            LOGIN_THROTTLE.record_success(throttle_key)
             token = auth.issue_session_token()
             return self.redirect(
                 next_route or HOME_ROUTE,
                 set_cookie=auth.session_set_cookie_header(token))
-        LOGIN_THROTTLE.record_failure()
+        LOGIN_THROTTLE.record_failure(throttle_key)
         return self.send_html(401, self._render_login_page(
             # 22-08-PLAN.md Task 3 (D-06/B16): translated HERE, at the
             # literal call site — see _login_body()'s own docstring for
@@ -3630,6 +3648,13 @@ def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument(
+        "--bind",
+        default="0.0.0.0",
+        help="Address to listen on. Production passes 127.0.0.1 because "
+             "Caddy is the only intended client (SEC-01/D-22); the "
+             "default keeps LAN/dev use working unchanged.",
+    )
+    parser.add_argument(
         "--state-dir",
         default=poll_loop.DEFAULT_STATE_DIR,
         help="Directory holding the poll pipeline's own state (default: "
@@ -3662,8 +3687,9 @@ def main():
     sys.stdout.reconfigure(line_buffering=True)
 
     Handler.args = args
-    server = ThreadingHTTPServer(("0.0.0.0", args.port), Handler)
-    print("companion: serving on port %d (state_dir=%s)" % (args.port, args.state_dir))
+    server = ThreadingHTTPServer((args.bind, args.port), Handler)
+    print("companion: serving on %s:%d (state_dir=%s)" % (
+        args.bind, args.port, args.state_dir))
     server.serve_forever()
 
 

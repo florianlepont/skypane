@@ -1745,19 +1745,22 @@ def main():
             _parse_cookies_multi_and_malformed)
 
         def _login_throttle_allows_locks_and_resets():
+            # SEC-01 (37-01-PLAN.md Task 2): ported to the keyed API — a
+            # bare key stands in for the caller's address here.
             throttle = auth.LoginThrottle(limit=3, lockout_s=60)
+            key = "203.0.113.5"
             for _ in range(2):
-                if throttle.locked_out():
+                if throttle.locked_out(key):
                     return False, "should not be locked out before reaching the failure limit"
-                throttle.record_failure()
-            throttle.record_failure()  # the 3rd failure reaches the limit
-            if not throttle.locked_out():
-                return False, "expected locked_out() True after reaching the failure limit"
-            if throttle.seconds_remaining() <= 0:
-                return False, "expected seconds_remaining() > 0 while locked out"
-            throttle.record_success()
-            if throttle.locked_out():
-                return False, "expected record_success() to clear the lockout"
+                throttle.record_failure(key)
+            throttle.record_failure(key)  # the 3rd failure reaches the limit
+            if not throttle.locked_out(key):
+                return False, "expected locked_out(key) True after reaching the failure limit"
+            if throttle.seconds_remaining(key) <= 0:
+                return False, "expected seconds_remaining(key) > 0 while locked out"
+            throttle.record_success(key)
+            if throttle.locked_out(key):
+                return False, "expected record_success(key) to clear the lockout"
             return True, ""
         check(
             "LoginThrottle allows attempts up to its limit, locks out, then resets on success",
@@ -1771,12 +1774,13 @@ def main():
             # re-arm the lockout on this 4th failure instead of starting
             # a fresh count.
             throttle = auth.LoginThrottle(limit=3, lockout_s=0)
+            key = "203.0.113.5"
             for _ in range(3):
-                throttle.record_failure()
-            if throttle.locked_out():
-                return False, "expected locked_out() False once the zero-length window has passed"
-            throttle.record_failure()
-            if throttle.locked_out():
+                throttle.record_failure(key)
+            if throttle.locked_out(key):
+                return False, "expected locked_out(key) False once the zero-length window has passed"
+            throttle.record_failure(key)
+            if throttle.locked_out(key):
                 return False, (
                     "one post-window failure should count as 1 of 3 toward a fresh "
                     "lockout, not immediately re-arm it")
@@ -1788,21 +1792,22 @@ def main():
 
         def _login_throttle_self_releases_with_real_window():
             # Same property as above, but with a real non-zero lockout_s,
-            # proven by rewinding _locked_until into the past (mirroring
-            # how _login_throttle_allows_locks_and_resets already drives
-            # this class purely through its public methods plus direct
-            # attribute access for time-travel, since there is no clock
-            # injection point on LoginThrottle).
-            throttle = auth.LoginThrottle(limit=3, lockout_s=60)
+            # proven with an injected clock (SEC-01, 37-01-PLAN.md Task
+            # 2: LoginThrottle now takes clock=..., so this no longer
+            # needs to reach into a private attribute to fake time
+            # passing).
+            clock = [1000.0]
+            throttle = auth.LoginThrottle(limit=3, lockout_s=60, clock=lambda: clock[0])
+            key = "203.0.113.5"
             for _ in range(3):
-                throttle.record_failure()
-            if not throttle.locked_out():
-                return False, "expected locked_out() True immediately after the 3rd failure"
-            throttle._locked_until = time.time() - 1  # simulate the window elapsing
-            if throttle.locked_out():
-                return False, "expected locked_out() False once the window has elapsed"
-            throttle.record_failure()
-            if throttle.locked_out():
+                throttle.record_failure(key)
+            if not throttle.locked_out(key):
+                return False, "expected locked_out(key) True immediately after the 3rd failure"
+            clock[0] += 61  # simulate the window elapsing
+            if throttle.locked_out(key):
+                return False, "expected locked_out(key) False once the window has elapsed"
+            throttle.record_failure(key)
+            if throttle.locked_out(key):
                 return False, (
                     "one post-window failure should count as 1 of 3 toward a fresh "
                     "lockout, not immediately re-arm it")
