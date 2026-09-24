@@ -156,3 +156,27 @@ def seed_unresolved_prefixes(state_dir, registry):
     membership set `unresolved_row_for_prefix()` reads.
     """
     poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": registry})
+
+
+def encode_multipart(
+        payload, boundary=b"SkyPaneTestBoundary7Q2vpH",
+        filename="upload.png", field_name="file", content_type="image/png"):
+    """Hand-build a single-file `multipart/form-data` body (quick task
+    260902-v26's own helper, renamed without its leading underscore now
+    that 33-15..33-18 all need it): this module deliberately does not
+    import a multipart-encoding library, matching
+    `companion.app.parse_single_uploaded_file()`'s own zero-third-party-
+    dependency discipline. Returns `(body_bytes, content_type_header)`.
+    """
+    boundary_str = boundary.decode("ascii")
+    header = (
+        'Content-Disposition: form-data; name="%s"; filename="%s"\r\n'
+        'Content-Type: %s\r\n\r\n'
+    ) % (field_name, filename, content_type)
+    body = (
+        b"--" + boundary + b"\r\n"
+        + header.encode("utf-8")
+        + payload
+        + b"\r\n--" + boundary + b"--\r\n"
+    )
+    return body, "multipart/form-data; boundary=%s" % boundary_str

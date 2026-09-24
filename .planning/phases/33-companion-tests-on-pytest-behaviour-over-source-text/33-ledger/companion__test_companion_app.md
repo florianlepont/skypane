@@ -54,78 +54,78 @@ Baseline: `companion__test_companion_app.txt`, 320 checks
 | 48 | --font-serif never reaches table, body, mono, nav-link or stat-tile-caption rules (D-03's headings-only boundary; D-13 retired the caption's own former serif exception) | ported | companion/test_companion_app_01.py::test_serif_never_reaches_dense_or_tabular_content |
 | 49 | mobile dropdown nav link keeps its restored 44px/Body-size tap target while the desktop sidebar link stays at its D-05 32px/Label-size compaction (260902-qkm) | ported | companion/test_companion_app_01.py::test_mobile_nav_link_and_sidebar_link_geometries_stay_diverged |
 | 50 | there is exactly one error-signal colour token (--color-status-error), no --color-destructive duplicate | ported | companion/test_companion_app_01.py::test_exactly_one_error_signal_colour_token |
-| 51 | the Health notification dot appears inside the Health sidebar link and on the tab bar's More summary — one per nav renderer — when health_alert='error', nowhere when None/omitted, and never on another link (retargeted from the dropdown, 22-14-PLAN.md Task 2) | pending | |
-| 52 | input.visually-hidden/select.visually-hidden clears the 44px touch-target floor off hidden form controls, and the global input/select rule still declares both 44px minimums for every other field | pending | |
-| 53 | layout.page_shell(..., health_alert='warn') also renders the notification dot, using dot--warn rather than dot--error | pending | |
-| 54 | nav-dropdown.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/fetch/XHR/timers/innerHTML/document.write/eval) — standing constraints on the file | pending | |
-| 55 | the hamburger toggle carries type=button/id/aria-expanded=false/aria-controls and the fixed accessible label (never a close-verb variant), and the panel never renders open | pending | |
-| 56 | the dropdown panel holds the state reminder, then the language and theme switches and Sign out, in that order — and zero destination links (retargeted in place from the retired six-link menu, 22-14-PLAN.md Task 2) | pending | |
-| 57 | companion.app.NAV_SCRIPT_ROUTE, layout's nav DOM-contract literals, nav-dropdown.js and style.css all agree with each other and with a rendered document | pending | |
-| 58 | with JavaScript disabled the dropdown panel stays unclipped in the DOM (the collapsed look is a CSS max-height constraint, not a hidden attribute or display:none), every nav link stays reachable in the tab bar with its Advanced group behind a native <details> needing no script, and the server-rendered <html> tag carries no .js marker class (retargeted onto the tab bar, 22-14-PLAN.md Task 2) | pending | |
-| 59 | nav-dropdown.js adds the .js marker class before its dropdown element lookup and implements the hidden-attribute/transitionend/reduced-motion state machine, matched by style.css's .js-scoped clipping rules | pending | |
-| 60 | the bottom tab bar renders five cells fed by the ONE shared _nav_links() iteration — its destinations equal the sidebar's in NAV_TABS order, the four everyday routes are tab links and the Advanced group is a native <details> sheet, exactly one aria-current="page" sits on the real link (never on the <summary>), the More summary wears the active pill on an Advanced page, it carries the shared Primary-navigation landmark name, and the whole bar carries no script hook (X9/D-10, 22-14-PLAN.md Task 1) | pending | |
-| 61 | the tab bar renders from the authenticated shell only and only with a device config — never on the login shell, never on the 404 — and the <body> clearance marker appears exactly when the bar does (X9/D-10, 22-14-PLAN.md Task 1) | pending | |
-| 62 | parse_single_uploaded_file() returns the payload for a well-formed single-part body, even when the part header declares a traversal-shaped filename (never read) | pending | |
-| 63 | parse_single_uploaded_file() returns None for a two-part body — this route accepts exactly one file part and nothing else | pending | |
-| 64 | parse_single_uploaded_file() returns None for a non-multipart media type | pending | |
-| 65 | parse_single_uploaded_file() returns None when the boundary parameter is missing | pending | |
-| 66 | parse_single_uploaded_file() returns None for an empty body | pending | |
-| 67 | parse_single_uploaded_file() returns None when the part has no header/body separator | pending | |
-| 68 | parse_single_uploaded_file() returns None for a None content_type | pending | |
-| 69 | parse_single_uploaded_file() returns None for an empty file part payload | pending | |
-| 70 | env_wake_interval_default() covers its whole input space (unset, empty, non-numeric, whitespace-padded, in-range and out-of-range including deploy/skypane.env.example's shipped below-floor SKYPANE_SLEEP_S=30) and never raises | pending | |
-| 71 | page_context() threads wake_interval_env_default from the real environment read: 900 when SKYPANE_SLEEP_S=900, and always present (never conditionally omitted) as None when unset | pending | |
-| 72 | preview_png_bytes() returns a 320x120 PNG for every id in device_config.THEME_IDS | pending | |
-| 73 | the 18 themes' previews have pairwise-distinct mean RGB at the crop/size used (proves the crop box discriminates themes, D-07) | pending | |
-| 74 | THEME_PREVIEW_CROP_BOX keeps THEME_PREVIEW_SIZE's exact 8:3 ratio and cuts no ink band at either edge - every caption glyph is outside it and the main illustration band is inside it whole, measured against a real render (B6, 22-10-PLAN.md Task 2) | pending | |
-| 75 | preview_png_bytes() returns byte-identical output across two calls for the same theme (the scene is fixed, D-06 — nothing time- or data-dependent leaks in) | pending | |
-| 76 | cache_path() returns None for a traversal-shaped id, an unknown id, and a falsy state_dir (boundary guard, T-v26-01-01 discipline) | pending | |
-| 77 | cached_preview_bytes() on a cold state dir creates the cache file and returns the same bytes preview_png_bytes() would | pending | |
-| 78 | a second cached_preview_bytes() call for the same theme is served from the file on disk, not re-rendered | pending | |
-| 79 | preview_signature() changes when THEME_PREVIEW_CACHE_VERSION changes (the manual escape hatch for a render-geometry change the signature can't otherwise see) | pending | |
-| 80 | cache_path() with no event returns a stable, deterministic filename that differs from the same theme's live-event filename (which contains the event id) — the existing 2-argument call site (the chip grid) keeps working unmodified, D-23 | pending | |
-| 81 | cache_path() gives two different event ids two different paths, and the same event id twice the same path (D-23/Pitfall 7) | pending | |
-| 82 | cache_path() degrades a non-integer or hostile event id to the same sample path as no event at all, never reaching the filename (T-20-14) | pending | |
-| 83 | preview_png_bytes(theme_id, live_event=row) returns a well-formed PNG for a full runway_events row and for a row missing half its fields (partial rows never raise, D-23) | pending | |
-| 84 | cached_preview_bytes() with no live_event still creates the cache file and returns exactly what preview_png_bytes(theme_id) returns, unchanged by this task (D-23) | pending | |
-| 85 | cached_preview_bytes() keys its cache on the live event's row id: a repeat request for the SAME event serves the on-disk file unchanged (no re-render), and a NEWER event is a cache miss rather than the stale first render (D-23/Pitfall 7) | pending | |
-| 86 | _illustration_filenames() is the per-request union of the static target set and server-persisted manual keys: None and an empty state dir both equal the static set exactly, a seeded manual entry adds exactly one filename, and an entry whose stored name yields no usable key contributes nothing (D-09) | pending | |
-| 87 | every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six UI-SPEC deck strings resolve byte for byte through _resolve_flash_text(), an unknown key still resolves to None, and no FLASH_MESSAGES value carries a runtime placeholder except the cooldown, rule_replaced, calendar_connected and calendar_connect_ok keys (Phase 15 D-10 widened this in place, not loosened; Phase 17 plan 04 and 20-09-PLAN.md Task 2 each widen it again for the same reason) | pending | |
-| 88 | page_context() on a request carrying ?resolve=XYZ returns that raw value under resolve_prefix and a dict under manual_resolutions reflecting a seeded entry; every key companion/pages/__init__.py documents is actually present in ctx | pending | |
-| 89 | the battery millivolt constants are defined in exactly one companion module (companion/battery.py) plus server/poll_loop.py's documented private copy, no other module defines a second battery_percent()/battery_fraction(), and no module outside those two names either endpoint pair together — the legacy linear 4200/3300 pair or the SEED-006 curve's own 4112/2946 pair — with comments and docstrings stripped first, so the prose that explains the rule can neither satisfy nor break it (CFG-39, T-24-03, quick 260923-gaf) | pending | |
-| 90 | companion.battery.BATTERY_DISCHARGE_CURVE is strictly increasing in both columns, runs 0..100, every knot round-trips through battery_percent(), the end-knot clamps are exact, the SEED-006 anchor values hold, NaN is refused, and LOW_BATTERY_DISPLAY_MV is 3540 and sits strictly between the sparkline's fixed range and above BATTERY_LOW_THRESHOLD_MV (SEED-006, quick 260923-gaf) | pending | |
-| 91 | companion.battery and server.poll_loop's independently-maintained battery-percentage copies (D-27) agree on their curve table, their FULL/EMPTY endpoints, and their output for every integer millivolt value from 2800 to 4400, a few non-integer floats, and a hostile input set — a drift here is exactly T-gaf-02 (SEED-006, quick 260923-gaf) | pending | |
-| 92 | no string literal in companion/draw.py or any companion/pages/*.py module carries a colour value into emitted SVG markup — docstrings excluded, so a paragraph explaining the rule cannot break the scan (CFG-39 contract rule 3) | pending | |
-| 93 | every <rect>/<circle>/<line>/<path>/<polygon>/<polyline>/<ellipse> emitted by companion/draw.py or a page module carries a class attribute or an explicit fill/stroke — a shape with neither paints SVG-default black and is invisible in one of the two themes (CFG-39 contract rule 4) | pending | |
-| 94 | every class name companion/draw.py can emit (DRAWING_CLASSES, its own constants) resolves to at least one selector in companion/static/style.css, matched on a selector boundary so `.drawing-axis` is not reported as resolved by `.drawing-axis-label` (CFG-39) | pending | |
-| 95 | companion/draw.py imports no page module, nothing from the server package and not companion/layout.py — read off the module's abstract syntax tree, which carries no comment and no docstring at all, so the paragraph stating the rule cannot satisfy it and a dotted module name survives intact (CFG-39) | pending | |
-| 96 | every companion/draw.py emitter returns complete markup with no script tag, no external reference and no inline style, and refuses an attribute carrying one — the no-JS floor (D-09) is why this phase server-renders its SVG | pending | |
-| 97 | companion/draw.py escapes every interpolated value through its one escape() helper — all five dangerous characters, in element content and in attribute values alike, with no 'this value is always safe' exception (T-24-01) | pending | |
-| 98 | companion/draw.py's scales clamp into their caller-supplied FIXED domain and pin at exactly the floor and ceiling positions, usable_pairs() drops a row's label with the row itself, and no helper raises on None/a bool/a negative/a string/a NaN (T-24-04, D-04/A-22) | pending | |
-| 99 | draw.ring_gauge() is ONE size-parameterised emitter whose size moves the radius AND the stroke width (never a CSS-only small variant), draws no value arc at all at 0 and a complete dash-free circle at 1, draws half its own emitted circumference at 0.5, gives every arc an explicit fill route and a class with no colour literal, carries a viewBox plus intrinsic width/height and aria-hidden, and never raises (CFG-40, T-24-04-A) | pending | |
-| 100 | unauthenticated GET / redirects to /login carrying that route as ?next= | pending | |
-| 101 | unauthenticated GET /display redirects to /login carrying that route as ?next= | pending | |
-| 102 | unauthenticated GET /flights redirects to /login carrying that route as ?next= | pending | |
-| 103 | unauthenticated GET /airlines redirects to /login carrying that route as ?next= | pending | |
-| 104 | unauthenticated GET /health redirects to /login carrying that route as ?next= | pending | |
-| 105 | unauthenticated GET /device redirects to /login carrying that route as ?next= | pending | |
-| 106 | unauthenticated GET /settings (a retired page route) redirects to /login without ?next= | pending | |
-| 107 | unauthenticated GET /history (a retired page route) redirects to /login without ?next= | pending | |
-| 108 | unauthenticated GET /preview (the retired Preview page's redirect source) redirects to /login without page content (D-22 removed it from NAV_TABS, so no ?next= is carried — it lands on /login, not /history, proving the redirect branch keeps its own session gate) | pending | |
-| 109 | unauthenticated GET /preview.png now returns 404 (not a 303 to /login) — the route's session-gated branch is gone, so the request falls through to do_GET's deliberately ungated unknown-path handler | pending | |
-| 110 | unauthenticated GET of a gallery image route redirects to /login without page content (not a NAV_TABS route, so no ?next= is carried) | pending | |
-| 111 | unauthenticated POST /settings redirects to /login (the write route is not a tab, so no ?next=) | pending | |
-| 112 | unauthenticated POST /poll-now redirects to /login without page content (not a NAV_TABS route, so no ?next= is carried) | pending | |
-| 113 | GET /static/style.css succeeds without a session, returns a CSS content type, and stays shared-cacheable (public, max-age=300) — this route is a deliberate D-02 gate exemption with no per-user content | pending | |
-| 114 | GET /static/battery-trend.js succeeds without a session and returns a JavaScript content type | pending | |
-| 115 | GET /static/nav-dropdown.js succeeds without a session, returns a JavaScript content type, and serves the real file | pending | |
-| 116 | GET /static/dirty-state.js succeeds without a session and returns a shared-cacheable JavaScript content type | pending | |
-| 117 | GET /static/list-filter.js succeeds without a session and returns a shared-cacheable JavaScript content type | pending | |
-| 118 | GET /static/copy-button.js succeeds without a session and returns a shared-cacheable JavaScript content type | pending | |
-| 119 | GET /static/freshness.js succeeds without a session and returns a shared-cacheable JavaScript content type | pending | |
-| 120 | companion.app.py's 4 new *_SCRIPT_ROUTE constants equal companion/layout.py's 4 new *_SCRIPT_SRC constants, and page_shell() emits a <script> tag for each | pending | |
-| 121 | copy-button.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), reads its on-success feedback text from each button's own data-copied-text attribute, and the removed hardcoded "Copied" literal survives only as the one documented fallback (D-06) | pending | |
-| 122 | dirty-state.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/XHR), contains NO fetch( any more, reads all seven of the bar's own data-dirty-* attributes, and each restored hardcoded literal survives only as its own documented fallback (CFG-77/CFG-78, 28-08-PLAN.md Task 3) | pending | |
+| 51 | the Health notification dot appears inside the Health sidebar link and on the tab bar's More summary — one per nav renderer — when health_alert='error', nowhere when None/omitted, and never on another link (retargeted from the dropdown, 22-14-PLAN.md Task 2) | ported | companion/test_companion_app_02.py::test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar |
+| 52 | input.visually-hidden/select.visually-hidden clears the 44px touch-target floor off hidden form controls, and the global input/select rule still declares both 44px minimums for every other field | ported | companion/test_companion_app_02.py::test_hidden_form_control_floor_and_global_floor_both_survive |
+| 53 | layout.page_shell(..., health_alert='warn') also renders the notification dot, using dot--warn rather than dot--error | ported | companion/test_companion_app_02.py::test_health_nav_notification_dot_warn_severity |
+| 54 | nav-dropdown.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/fetch/XHR/timers/innerHTML/document.write/eval) — standing constraints on the file | ported | companion/test_companion_app_02.py::test_nav_dropdown_script_es5_safe_and_side_effect_free |
+| 55 | the hamburger toggle carries type=button/id/aria-expanded=false/aria-controls and the fixed accessible label (never a close-verb variant), and the panel never renders open | ported | companion/test_companion_app_02.py::test_toggle_aria_contract_and_fixed_label |
+| 56 | the dropdown panel holds the state reminder, then the language and theme switches and Sign out, in that order — and zero destination links (retargeted in place from the retired six-link menu, 22-14-PLAN.md Task 2) | ported | companion/test_companion_app_02.py::test_dropdown_contents_and_order |
+| 57 | companion.app.NAV_SCRIPT_ROUTE, layout's nav DOM-contract literals, nav-dropdown.js and style.css all agree with each other and with a rendered document | ported | companion/test_companion_app_02.py::test_three_file_nav_dom_contract_guard |
+| 58 | with JavaScript disabled the dropdown panel stays unclipped in the DOM (the collapsed look is a CSS max-height constraint, not a hidden attribute or display:none), every nav link stays reachable in the tab bar with its Advanced group behind a native <details> needing no script, and the server-rendered <html> tag carries no .js marker class (retargeted onto the tab bar, 22-14-PLAN.md Task 2) | ported | companion/test_companion_app_02.py::test_dropdown_survives_with_javascript_disabled |
+| 59 | nav-dropdown.js adds the .js marker class before its dropdown element lookup and implements the hidden-attribute/transitionend/reduced-motion state machine, matched by style.css's .js-scoped clipping rules | ported | companion/test_companion_app_02.py::test_nav_dropdown_js_progressive_enhancement_state_machine |
+| 60 | the bottom tab bar renders five cells fed by the ONE shared _nav_links() iteration — its destinations equal the sidebar's in NAV_TABS order, the four everyday routes are tab links and the Advanced group is a native <details> sheet, exactly one aria-current="page" sits on the real link (never on the <summary>), the More summary wears the active pill on an Advanced page, it carries the shared Primary-navigation landmark name, and the whole bar carries no script hook (X9/D-10, 22-14-PLAN.md Task 1) | ported | companion/test_companion_app_02.py::test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration |
+| 61 | the tab bar renders from the authenticated shell only and only with a device config — never on the login shell, never on the 404 — and the <body> clearance marker appears exactly when the bar does (X9/D-10, 22-14-PLAN.md Task 1) | ported | companion/test_companion_app_02.py::test_tab_bar_is_absent_from_the_login_shell_and_the_404 |
+| 62 | parse_single_uploaded_file() returns the payload for a well-formed single-part body, even when the part header declares a traversal-shaped filename (never read) | ported | companion/test_companion_app_02.py::test_parser_happy_path_ignores_traversal_filename |
+| 63 | parse_single_uploaded_file() returns None for a two-part body — this route accepts exactly one file part and nothing else | ported | companion/test_companion_app_02.py::test_parser_two_parts_returns_none |
+| 64 | parse_single_uploaded_file() returns None for a non-multipart media type | ported | companion/test_companion_app_02.py::test_parser_urlencoded_media_type_returns_none |
+| 65 | parse_single_uploaded_file() returns None when the boundary parameter is missing | ported | companion/test_companion_app_02.py::test_parser_missing_boundary_returns_none |
+| 66 | parse_single_uploaded_file() returns None for an empty body | ported | companion/test_companion_app_02.py::test_parser_empty_body_returns_none |
+| 67 | parse_single_uploaded_file() returns None when the part has no header/body separator | ported | companion/test_companion_app_02.py::test_parser_missing_header_body_separator_returns_none |
+| 68 | parse_single_uploaded_file() returns None for a None content_type | ported | companion/test_companion_app_02.py::test_parser_none_content_type_returns_none |
+| 69 | parse_single_uploaded_file() returns None for an empty file part payload | ported | companion/test_companion_app_02.py::test_parser_empty_payload_returns_none |
+| 70 | env_wake_interval_default() covers its whole input space (unset, empty, non-numeric, whitespace-padded, in-range and out-of-range including deploy/skypane.env.example's shipped below-floor SKYPANE_SLEEP_S=30) and never raises | ported | companion/test_companion_app_02.py::test_env_wake_interval_default_full_input_space |
+| 71 | page_context() threads wake_interval_env_default from the real environment read: 900 when SKYPANE_SLEEP_S=900, and always present (never conditionally omitted) as None when unset | ported | companion/test_companion_app_02.py::test_page_context_threads_wake_interval_env_default |
+| 72 | preview_png_bytes() returns a 320x120 PNG for every id in device_config.THEME_IDS | ported | companion/test_companion_app_02.py::test_theme_preview_bytes_open_as_320x120_rgb_png_for_every_theme |
+| 73 | the 18 themes' previews have pairwise-distinct mean RGB at the crop/size used (proves the crop box discriminates themes, D-07) | ported | companion/test_companion_app_02.py::test_theme_preview_means_pairwise_distinct |
+| 74 | THEME_PREVIEW_CROP_BOX keeps THEME_PREVIEW_SIZE's exact 8:3 ratio and cuts no ink band at either edge - every caption glyph is outside it and the main illustration band is inside it whole, measured against a real render (B6, 22-10-PLAN.md Task 2) | ported | companion/test_companion_app_02.py::test_theme_preview_crop_keeps_8_3_and_excludes_every_caption_glyph |
+| 75 | preview_png_bytes() returns byte-identical output across two calls for the same theme (the scene is fixed, D-06 — nothing time- or data-dependent leaks in) | ported | companion/test_companion_app_02.py::test_theme_preview_bytes_stable_across_calls |
+| 76 | cache_path() returns None for a traversal-shaped id, an unknown id, and a falsy state_dir (boundary guard, T-v26-01-01 discipline) | ported | companion/test_companion_app_02.py::test_theme_preview_cache_path_rejects_unsafe_and_falsy_inputs |
+| 77 | cached_preview_bytes() on a cold state dir creates the cache file and returns the same bytes preview_png_bytes() would | ported | companion/test_companion_app_02.py::test_theme_preview_cached_bytes_cold_cache_creates_file |
+| 78 | a second cached_preview_bytes() call for the same theme is served from the file on disk, not re-rendered | ported | companion/test_companion_app_02.py::test_theme_preview_cached_bytes_second_call_serves_from_disk |
+| 79 | preview_signature() changes when THEME_PREVIEW_CACHE_VERSION changes (the manual escape hatch for a render-geometry change the signature can't otherwise see) | ported | companion/test_companion_app_02.py::test_theme_preview_signature_changes_with_cache_version |
+| 80 | cache_path() with no event returns a stable, deterministic filename that differs from the same theme's live-event filename (which contains the event id) — the existing 2-argument call site (the chip grid) keeps working unmodified, D-23 | ported | companion/test_companion_app_02.py::test_theme_preview_cache_path_no_event_is_stable_and_distinct_from_live |
+| 81 | cache_path() gives two different event ids two different paths, and the same event id twice the same path (D-23/Pitfall 7) | ported | companion/test_companion_app_02.py::test_theme_preview_cache_path_distinct_event_ids_distinct_paths |
+| 82 | cache_path() degrades a non-integer or hostile event id to the same sample path as no event at all, never reaching the filename (T-20-14) | ported | companion/test_companion_app_02.py::test_theme_preview_cache_path_hostile_event_id_degrades_to_sample |
+| 83 | preview_png_bytes(theme_id, live_event=row) returns a well-formed PNG for a full runway_events row and for a row missing half its fields (partial rows never raise, D-23) | ported | companion/test_companion_app_02.py::test_theme_preview_png_bytes_live_event_full_and_partial_row |
+| 84 | cached_preview_bytes() with no live_event still creates the cache file and returns exactly what preview_png_bytes(theme_id) returns, unchanged by this task (D-23) | ported | companion/test_companion_app_02.py::test_theme_preview_cached_bytes_no_event_unchanged |
+| 85 | cached_preview_bytes() keys its cache on the live event's row id: a repeat request for the SAME event serves the on-disk file unchanged (no re-render), and a NEWER event is a cache miss rather than the stale first render (D-23/Pitfall 7) | ported | companion/test_companion_app_02.py::test_theme_preview_cached_bytes_live_event_keyed_by_id |
+| 86 | _illustration_filenames() is the per-request union of the static target set and server-persisted manual keys: None and an empty state dir both equal the static set exactly, a seeded manual entry adds exactly one filename, and an entry whose stored name yields no usable key contributes nothing (D-09) | ported | companion/test_companion_app_02.py::test_illustration_filenames_union_contract |
+| 87 | every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six UI-SPEC deck strings resolve byte for byte through _resolve_flash_text(), an unknown key still resolves to None, and no FLASH_MESSAGES value carries a runtime placeholder except the cooldown, rule_replaced, calendar_connected and calendar_connect_ok keys (Phase 15 D-10 widened this in place, not loosened; Phase 17 plan 04 and 20-09-PLAN.md Task 2 each widen it again for the same reason) | ported | companion/test_companion_app_02.py::test_flash_manual_keys_complete_and_byte_identical |
+| 88 | page_context() on a request carrying ?resolve=XYZ returns that raw value under resolve_prefix and a dict under manual_resolutions reflecting a seeded entry; every key companion/pages/__init__.py documents is actually present in ctx | ported | companion/test_companion_app_02.py::test_page_context_supplies_resolve_prefix_and_manual_resolutions |
+| 89 | the battery millivolt constants are defined in exactly one companion module (companion/battery.py) plus server/poll_loop.py's documented private copy, no other module defines a second battery_percent()/battery_fraction(), and no module outside those two names either endpoint pair together — the legacy linear 4200/3300 pair or the SEED-006 curve's own 4112/2946 pair — with comments and docstrings stripped first, so the prose that explains the rule can neither satisfy nor break it (CFG-39, T-24-03, quick 260923-gaf) | deleted | S: asserted source text via a tokenize scan across every companion/server *.py file for a duplicate battery constant/function definition (banned, guard G2); the real failure mode this guards against — the two homes disagreeing about a percentage for the same reading — is covered behaviourally by row 91 (test_battery_estimate_parity_between_companion_and_server) |
+| 90 | companion.battery.BATTERY_DISCHARGE_CURVE is strictly increasing in both columns, runs 0..100, every knot round-trips through battery_percent(), the end-knot clamps are exact, the SEED-006 anchor values hold, NaN is refused, and LOW_BATTERY_DISPLAY_MV is 3540 and sits strictly between the sparkline's fixed range and above BATTERY_LOW_THRESHOLD_MV (SEED-006, quick 260923-gaf) | ported | companion/test_companion_app_02.py::test_battery_discharge_curve_is_well_formed |
+| 91 | companion.battery and server.poll_loop's independently-maintained battery-percentage copies (D-27) agree on their curve table, their FULL/EMPTY endpoints, and their output for every integer millivolt value from 2800 to 4400, a few non-integer floats, and a hostile input set — a drift here is exactly T-gaf-02 (SEED-006, quick 260923-gaf) | ported | companion/test_companion_app_02.py::test_battery_estimate_parity_between_companion_and_server |
+| 92 | no string literal in companion/draw.py or any companion/pages/*.py module carries a colour value into emitted SVG markup — docstrings excluded, so a paragraph explaining the rule cannot break the scan (CFG-39 contract rule 3) | ported | companion/test_companion_app_02.py::test_draw_emitters_carry_no_colour_literal_and_every_shape_has_a_fill_route |
+| 93 | every <rect>/<circle>/<line>/<path>/<polygon>/<polyline>/<ellipse> emitted by companion/draw.py or a page module carries a class attribute or an explicit fill/stroke — a shape with neither paints SVG-default black and is invisible in one of the two themes (CFG-39 contract rule 4) | ported | companion/test_companion_app_02.py::test_draw_emitters_carry_no_colour_literal_and_every_shape_has_a_fill_route |
+| 94 | every class name companion/draw.py can emit (DRAWING_CLASSES, its own constants) resolves to at least one selector in companion/static/style.css, matched on a selector boundary so `.drawing-axis` is not reported as resolved by `.drawing-axis-label` (CFG-39) | ported | companion/test_companion_app_02.py::test_every_drawing_class_resolves_in_the_served_stylesheet |
+| 95 | companion/draw.py imports no page module, nothing from the server package and not companion/layout.py — read off the module's abstract syntax tree, which carries no comment and no docstring at all, so the paragraph stating the rule cannot satisfy it and a dotted module name survives intact (CFG-39) | ported | companion/test_companion_app_02.py::test_draw_module_imports_no_page_and_no_server |
+| 96 | every companion/draw.py emitter returns complete markup with no script tag, no external reference and no inline style, and refuses an attribute carrying one — the no-JS floor (D-09) is why this phase server-renders its SVG | ported | companion/test_companion_app_02.py::test_draw_module_emits_no_script_and_no_external_reference |
+| 97 | companion/draw.py escapes every interpolated value through its one escape() helper — all five dangerous characters, in element content and in attribute values alike, with no 'this value is always safe' exception (T-24-01) | ported | companion/test_companion_app_02.py::test_draw_module_escapes_every_interpolated_value |
+| 98 | companion/draw.py's scales clamp into their caller-supplied FIXED domain and pin at exactly the floor and ceiling positions, usable_pairs() drops a row's label with the row itself, and no helper raises on None/a bool/a negative/a string/a NaN (T-24-04, D-04/A-22) | ported | companion/test_companion_app_02.py::test_draw_module_scales_clamp_and_never_raise |
+| 99 | draw.ring_gauge() is ONE size-parameterised emitter whose size moves the radius AND the stroke width (never a CSS-only small variant), draws no value arc at all at 0 and a complete dash-free circle at 1, draws half its own emitted circumference at 0.5, gives every arc an explicit fill route and a class with no colour literal, carries a viewBox plus intrinsic width/height and aria-hidden, and never raises (CFG-40, T-24-04-A) | ported | companion/test_companion_app_02.py::test_ring_gauge_is_one_emitter_whose_size_drives_the_geometry |
+| 100 | unauthenticated GET / redirects to /login carrying that route as ?next= | ported | companion/test_companion_app_02.py::test_unauth_get_nav_tab_redirects_to_login_with_next[home] |
+| 101 | unauthenticated GET /display redirects to /login carrying that route as ?next= | ported | companion/test_companion_app_02.py::test_unauth_get_nav_tab_redirects_to_login_with_next[display] |
+| 102 | unauthenticated GET /flights redirects to /login carrying that route as ?next= | ported | companion/test_companion_app_02.py::test_unauth_get_nav_tab_redirects_to_login_with_next[flights] |
+| 103 | unauthenticated GET /airlines redirects to /login carrying that route as ?next= | ported | companion/test_companion_app_02.py::test_unauth_get_nav_tab_redirects_to_login_with_next[airlines] |
+| 104 | unauthenticated GET /health redirects to /login carrying that route as ?next= | ported | companion/test_companion_app_02.py::test_unauth_get_nav_tab_redirects_to_login_with_next[health] |
+| 105 | unauthenticated GET /device redirects to /login carrying that route as ?next= | ported | companion/test_companion_app_02.py::test_unauth_get_nav_tab_redirects_to_login_with_next[device] |
+| 106 | unauthenticated GET /settings (a retired page route) redirects to /login without ?next= | ported | companion/test_companion_app_02.py::test_unauth_get_retired_page_route_redirects_to_login_without_next[settings] |
+| 107 | unauthenticated GET /history (a retired page route) redirects to /login without ?next= | ported | companion/test_companion_app_02.py::test_unauth_get_retired_page_route_redirects_to_login_without_next[history] |
+| 108 | unauthenticated GET /preview (the retired Preview page's redirect source) redirects to /login without page content (D-22 removed it from NAV_TABS, so no ?next= is carried — it lands on /login, not /history, proving the redirect branch keeps its own session gate) | ported | companion/test_companion_app_02.py::test_unauth_get_preview_redirects_to_login_without_next |
+| 109 | unauthenticated GET /preview.png now returns 404 (not a 303 to /login) — the route's session-gated branch is gone, so the request falls through to do_GET's deliberately ungated unknown-path handler | ported | companion/test_companion_app_02.py::test_preview_png_unauth_404_not_login_redirect |
+| 110 | unauthenticated GET of a gallery image route redirects to /login without page content (not a NAV_TABS route, so no ?next= is carried) | ported | companion/test_companion_app_02.py::test_unauth_get_gallery_image_redirects_to_login_without_next |
+| 111 | unauthenticated POST /settings redirects to /login (the write route is not a tab, so no ?next=) | ported | companion/test_companion_app_02.py::test_unauth_post_settings_redirects_to_login_without_next |
+| 112 | unauthenticated POST /poll-now redirects to /login without page content (not a NAV_TABS route, so no ?next= is carried) | ported | companion/test_companion_app_02.py::test_unauth_post_poll_now_redirects_to_login_without_next |
+| 113 | GET /static/style.css succeeds without a session, returns a CSS content type, and stays shared-cacheable (public, max-age=300) — this route is a deliberate D-02 gate exemption with no per-user content | ported | companion/test_companion_app_02.py::test_stylesheet_public |
+| 114 | GET /static/battery-trend.js succeeds without a session and returns a JavaScript content type | ported | companion/test_companion_app_02.py::test_battery_trend_script_public |
+| 115 | GET /static/nav-dropdown.js succeeds without a session, returns a JavaScript content type, and serves the real file | ported | companion/test_companion_app_02.py::test_nav_dropdown_script_public |
+| 116 | GET /static/dirty-state.js succeeds without a session and returns a shared-cacheable JavaScript content type | ported | companion/test_companion_app_02.py::test_static_script_public_and_cacheable[dirty-state.js] |
+| 117 | GET /static/list-filter.js succeeds without a session and returns a shared-cacheable JavaScript content type | ported | companion/test_companion_app_02.py::test_static_script_public_and_cacheable[list-filter.js] |
+| 118 | GET /static/copy-button.js succeeds without a session and returns a shared-cacheable JavaScript content type | ported | companion/test_companion_app_02.py::test_static_script_public_and_cacheable[copy-button.js] |
+| 119 | GET /static/freshness.js succeeds without a session and returns a shared-cacheable JavaScript content type | ported | companion/test_companion_app_02.py::test_static_script_public_and_cacheable[freshness.js] |
+| 120 | companion.app.py's 4 new *_SCRIPT_ROUTE constants equal companion/layout.py's 4 new *_SCRIPT_SRC constants, and page_shell() emits a <script> tag for each | ported | companion/test_companion_app_02.py::test_four_new_static_routes_dom_contract_guard |
+| 121 | copy-button.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), reads its on-success feedback text from each button's own data-copied-text attribute, and the removed hardcoded "Copied" literal survives only as the one documented fallback (D-06) | ported | companion/test_companion_app_02.py::test_copy_button_script_es5_safe_reads_data_copied_text |
+| 122 | dirty-state.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/XHR), contains NO fetch( any more, reads all seven of the bar's own data-dirty-* attributes, and each restored hardcoded literal survives only as its own documented fallback (CFG-77/CFG-78, 28-08-PLAN.md Task 3) | ported | companion/test_companion_app_02.py::test_dirty_state_script_es5_safe_reads_seven_dirty_bar_attributes |
 | 123 | dirty-state.js animates the restored bar's own count element and never its word: exactly one text write site, gated on the text having genuinely changed, written before the class is added, spending the stylesheet's existing .is-fading-in rule through a remove/reflow/re-add with no interval/rAF anywhere — so the role="status" bar announces each change once and never a partial word (CFG-77/CFG-78, 28-08-PLAN.md Task 3; retargets 27-04-PLAN.md Task 2's own status-region version back onto the count element, restoring 23-09-PLAN.md Task 1/D3/CFG-32's original subject) | pending | |
 | 124 | freshness.js stays ES5-safe and keeps the standing HTML-writing-sink ban (no let/const/arrow/backtick/innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/location.reload/XHR), while fetch(/setTimeout/setInterval are its own single, deliberate, reviewed exception to the sibling scripts' ban list (D-02) — and it actually uses the safe DOMParser/replaceChild/credentials-scoped mechanism this exception was granted for, not merely permitted to | pending | |
 | 125 | freshness.js contains no URL-taking navigation form (an assignment to location.href, or a call to location.assign/location.replace/window.open) while still reading window.location.href as its fetch argument — the fetch target can never be influenced by injected markup (19-09-PLAN.md Task 3, D-02/T-19-33) | pending | |
@@ -346,3 +346,78 @@ transport fakes, public-hostname fake, poll-state seeding helper — not yet
 consumed by part 01's own tests except the WR-11 pair's seeding helper;
 front-loaded for 33-15..33-18's calendar-sync and manual-resolution
 sections).
+
+### Part 02 (plan 33-15)
+
+Rows 51-122 (part 02, original `check()` calls #51-#113 by the plan's own
+source-line count — the loop-generated route checks each own a distinct
+ledger row per iteration, which is why the ledger's own row range is 72
+long rather than 63) are `ported` to `companion/test_companion_app_02.py`,
+except row 89 which is `deleted`.
+
+Rubric codes: 58 B (calls a production function/module directly, or makes
+an HTTP request against a real `companion/app.py` server, and asserts on
+the outcome), 3 C (rows 52, 94 fetch the served stylesheet and assert on
+`companion_markup.declarations_for()`/`css_rules()`; row 51 also reads the
+served stylesheet for two substring checks), 5 J (rows 54, 59 fetch
+`nav-dropdown.js` via `served_asset()`; row 57 fetches both `nav-dropdown.js`
+and the served stylesheet; rows 121-122 fetch `copy-button.js`/
+`dirty-state.js`), 1 S rewritten as a subprocess-import check (row 95:
+`companion/draw.py`'s import graph is now proven by importing it fresh in a
+child process and asserting on `sys.modules`, per 33-MIGRATION-RULES.md's
+own rubric-S technique, instead of `ast.parse()`-ing its source), 2 S
+consolidated into one narrower behaviour test (rows 92-93: both point at
+`test_draw_emitters_carry_no_colour_literal_and_every_shape_has_a_fill_route`,
+which proves the same two properties — no colour literal, every shape
+carries a fill route — over `companion/draw.py`'s own emitter output rather
+than scanning every string literal in `companion/draw.py` **and every
+`companion/pages/*.py` module** via `tokenize`; the narrower scope is a
+deliberate reduction, recorded in this plan's SUMMARY), 1 deletion.
+
+Row 89 (`_battery_estimate_has_exactly_one_home`) is `deleted`: it scanned
+every `companion`/`server` `*.py` file's tokens (via `tokenize`, banned by
+guard G2) for a second definition of the battery millivolt constants/
+percentage functions — a structural anti-duplication guard with no directly
+observable HTTP/DOM consequence of its own. The actual failure mode it
+exists to prevent — `companion.battery` and `server.poll_loop`'s two
+independently-maintained copies disagreeing about a percentage for the same
+reading — is fully covered behaviourally by row 91
+(`test_battery_estimate_parity_between_companion_and_server`), which this
+plan also ports unchanged.
+
+RESEARCH assumption A3 (row 87's flash-deck check): does `_resolve_flash_
+text()` ever create a directory for a missing `state_dir`? No — reading
+`companion/app.py`'s source directly (not as a test assertion, as part of
+this plan's own investigation), the function only ever *reads* `state_dir`
+(via `poll_cooldown_remaining()`'s `history_db.open_db()` and `calendar_
+rules.load_calendar_registry()`), and only for two OTHER flash keys
+(`FLASH_KEY_POLL_COOLDOWN` and `FLASH_KEY_CALENDAR_CONNECTED`/`FLASH_KEY_
+CALENDAR_CONNECT_OK`) neither of which the six `FLASH_KEY_MANUAL_*` deck
+keys or an unknown key ever reach (the per-key branch returns before either
+is called). `companion/test_companion_app_02.py::test_flash_manual_keys_
+complete_and_byte_identical` proves this by measurement: it asserts a
+`tmp_path` absent subpath still does not exist after every
+`_resolve_flash_text()` call in the test.
+
+New module: `companion/test_companion_app_02.py` (70 tests: two of part
+02's original 72 ledger rows, 92-93, consolidated into one test; six of the
+72 rows are covered by two parametrized tests carrying more than one
+original row each — rows 100-105 by `test_unauth_get_nav_tab_redirects_
+to_login_with_next` (6 parametrize ids), rows 106-107 by `test_unauth_get_
+retired_page_route_redirects_to_login_without_next` (2 ids), and rows
+116-119 by `test_static_script_public_and_cacheable` (4 ids)).
+`companion/test_companion_app_helpers.py` gains `encode_multipart()` (the
+legacy harness's own `_encode_multipart()`, renamed without its leading
+underscore — it is still used by several still-legacy checks later in
+`companion/test_companion_app.py`, so the ORIGINAL definition stays there
+too; this plan's own multipart-parser checks call the shared helpers-module
+copy instead).
+
+`companion/test_companion_app.py`'s Section 3 (`companion/app.py`) keeps
+three pieces of shared plumbing that sat textually inside this plan's own
+slice but are called by name from several still-legacy checks further down
+`main()`: the main()-level `import companion.app as app_module`, and the
+two closure factories `_unauth_redirects_to_login()`/`_static_script_
+public()`. These are explicitly NOT "closures only this plan's checks
+used" (33-MIGRATION-RULES.md section 1) and were restored verbatim after
+the shrink; see this plan's SUMMARY.
