@@ -87,6 +87,7 @@ pythonpath = [".", "test-support"]
 markers = [
     "legacy_harness: a hand-rolled companion harness run as one subprocess until Phase 33",
     "slow: takes more than a few seconds",
+    "browser: drives a real Chromium through pytest-playwright (needs playwright install --only-shell chromium)",
 ]
 # An xfail that unexpectedly passes is worth knowing about immediately,
 # not silently tolerated.
