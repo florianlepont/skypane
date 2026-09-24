@@ -5,7 +5,6 @@ subprocess lifecycle, process-group teardown, the no-network child
 environment, the fake-providers plumbing, and the in-process variant.
 """
 import os
-import socket
 import textwrap
 import urllib.parse
 
@@ -87,11 +86,21 @@ _FAKE_APP_SRC = textwrap.dedent("""\
 
 
 def _process_alive(pid):
+    """True if `pid` exists and is not a zombie. A zombie still responds
+    to os.kill(pid, 0) (it stays in the process table until its parent
+    reaps it), so a plain kill(pid, 0) probe would read a just-terminated
+    grandchild — reparented to init once its own parent (the fake app)
+    was killed — as still "alive" for however long init takes to reap it.
+    """
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
+        with open("/proc/%d/stat" % pid) as fh:
+            content = fh.read()
+    except FileNotFoundError:
         return False
-    return True
+    # The state character is the first field after the command name,
+    # which is parenthesised and may itself contain spaces.
+    state = content.rsplit(")", 1)[1].split()[0]
+    return state != "Z"
 
 
 def test_stop_kills_the_whole_process_group_including_a_grandchild(tmp_path, monkeypatch):
@@ -155,17 +164,33 @@ def test_make_app_server_seed_runs_before_start(make_app_server):
     assert seen == [server.state_dir]
 
 
-def test_app_server_in_process_serves_login_and_restores_password_env(
-        app_server_in_process, monkeypatch):
-    """app_server_in_process serves /login and restores the password env
-    var after teardown.
+def test_app_server_in_process_serves_login_and_restores_password_env(tmp_path):
+    """app_server_in_process (exercised here via InProcessAppServer
+    directly, so a pre-existing env value can be planted before its
+    constructor runs) serves /login while it is up, and restores the
+    password env var to whatever it was before, once stopped.
     """
-    monkeypatch.delenv(auth.PASSWORD_ENV_VAR, raising=False)
-    server = app_server_in_process
+    sentinel = "sentinel-password-should-be-restored"
+    os.environ[auth.PASSWORD_ENV_VAR] = sentinel
+    try:
+        server = companion_app_server.InProcessAppServer(str(tmp_path / "state"))
+        try:
+            assert os.environ.get(auth.PASSWORD_ENV_VAR) == companion_app_server.TEST_PASSWORD
+            status, _, _ = companion_app_server.get(server, "/login")
+            assert status == 200
+        finally:
+            server.stop()
+        assert os.environ.get(auth.PASSWORD_ENV_VAR) == sentinel
+    finally:
+        os.environ.pop(auth.PASSWORD_ENV_VAR, None)
 
-    status, _, _ = companion_app_server.get(server, "/login")
+
+def test_app_server_in_process_fixture_serves_login(app_server_in_process):
+    """The app_server_in_process fixture itself (not just the underlying
+    class) is a working, gettable server.
+    """
+    status, _, _ = companion_app_server.get(app_server_in_process, "/login")
     assert status == 200
-    assert os.environ.get(auth.PASSWORD_ENV_VAR) == companion_app_server.TEST_PASSWORD
 
 
 def test_served_stylesheet_and_asset(app_server):
