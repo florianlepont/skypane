@@ -19,7 +19,18 @@ This is NOT a harness: it has no EXPECTED_CHECK_COUNT, no check()
 closure, no main(), and must never be added to
 companion/test_legacy_harness_shim.py's LEGACY_COMPANION_HARNESSES list
 — it has no entry point and no check counter of its own; it exists only
-to be imported.
+to be imported. `__test__ = False` tells pytest the same thing directly:
+this module is collected (it no longer depends on a legacy harness that
+collect_ignore excludes), but it holds no test functions of its own for
+pytest to run.
+
+33-19-PLAN.md Task 1: every helper that opens a browser context now takes
+a `make_context` factory argument instead of reaching for a `browser`
+object's own `.new_context()` directly (guard G10) — a pytest caller
+passes `companion/conftest.py`'s guarded `new_context` fixture, and the
+two still-legacy harnesses below pass their own `browser.new_context`
+bound method until they migrate. Both call styles are the same shape: a
+zero-or-more-kwargs callable returning a context.
 """
 import contextlib
 import math
@@ -28,14 +39,24 @@ import re
 import sys
 from datetime import datetime, timedelta, timezone
 
+__test__ = False
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
+# test-support/ (companion_app_server, for TEST_PASSWORD) — mirrors
+# companion/conftest.py's own bootstrap, so the still-legacy script
+# harnesses that import this module directly (never through pytest, so
+# conftest.py's own sys.path insert never runs for them) still find it.
+_TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
+if _TEST_SUPPORT_DIR not in sys.path:
+    sys.path.insert(0, _TEST_SUPPORT_DIR)
+
 from companion import layout  # noqa: E402
-from companion.test_companion_app import TEST_PASSWORD  # noqa: E402
 from companion.pages import config_page  # noqa: E402
+from companion_app_server import TEST_PASSWORD  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import colour_rules, manual_resolutions  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
@@ -188,9 +209,15 @@ def _login(page, base_url):
 
 
 @contextlib.contextmanager
-def _no_js_page(browser, base_url, route, viewport=None, sign_in=True,
+def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
                 cookies=None):
     """A scripts-blocked browser context, signed in, landed on `route`.
+
+    `make_context` is a context-factory callable — pytest-playwright's own
+    guarded `new_context` fixture for a pytest caller, or a still-legacy
+    harness's own `browser.new_context` bound method — never a `browser`
+    object itself (guard G10: only the guarded fixture may call
+    `browser.new_context()` directly).
 
     The one place in this file that blocks scripts. Three checks each
     spelled this sequence out by hand (Health, the two settings pages,
@@ -225,7 +252,7 @@ def _no_js_page(browser, base_url, route, viewport=None, sign_in=True,
     this file already follows by hand.
     """
     extra = {} if viewport is None else {"viewport": viewport}
-    context = browser.new_context(java_script_enabled=False, **extra)
+    context = make_context(java_script_enabled=False, **extra)
     try:
         if cookies:
             context.add_cookies(cookies)
@@ -876,7 +903,7 @@ _READ_FIELD_PROBE = (
     "}")
 
 
-def _persist_without_js(browser, base_url, route, field, value, read_back,
+def _persist_without_js(make_context, base_url, route, field, value, read_back,
                         viewport=None, restore=True, shows_back=True,
                         cookies=None):
     """Operate a native control with scripts blocked, submit the real
@@ -945,19 +972,19 @@ def _persist_without_js(browser, base_url, route, field, value, read_back,
     """
     before = read_back()
     result = _persist_once(
-        browser, base_url, route, field, value, read_back, viewport,
+        make_context, base_url, route, field, value, read_back, viewport,
         shows_back, cookies)
     result["before"] = before
     result["restored"] = None
     if restore and before is not None and str(before) != str(value):
         back = _persist_once(
-            browser, base_url, route, field, str(before), read_back, viewport,
+            make_context, base_url, route, field, str(before), read_back, viewport,
             shows_back, cookies)
         result["restored"] = back["stored"]
     return result
 
 
-def _upload_without_js(browser, base_url, route, input_selector, submit_selector,
+def _upload_without_js(make_context, base_url, route, input_selector, submit_selector,
                        source_path, read_back, serve_path, viewport=None,
                        cookies=None):
     """`_persist_without_js()`'s FILE-INPUT VARIANT, added by 25-07 and
@@ -1010,7 +1037,7 @@ def _upload_without_js(browser, base_url, route, input_selector, submit_selector
     the real state directory, exactly as in the field case.
     """
     before = read_back()
-    with _no_js_page(browser, base_url, route, viewport=viewport,
+    with _no_js_page(make_context, base_url, route, viewport=viewport,
                      cookies=cookies) as page:
         found = page.locator(input_selector).count()
         if found != 1:
@@ -1048,13 +1075,13 @@ def _upload_without_js(browser, base_url, route, input_selector, submit_selector
     return result
 
 
-def _persist_once(browser, base_url, route, field, value, read_back, viewport,
+def _persist_once(make_context, base_url, route, field, value, read_back, viewport,
                   shows_back, cookies=None):
     """One operate-submit-reload-verify pass. Split out only so
     `_persist_without_js()`'s restore step is the SAME sequence as its
     measurement rather than a second, hand-written one.
     """
-    with _no_js_page(browser, base_url, route, viewport=viewport,
+    with _no_js_page(make_context, base_url, route, viewport=viewport,
                      cookies=cookies) as page:
         seen = page.evaluate(_OPERATE_PROBE, {"field": field, "value": value})
         error = seen.get("error")
@@ -1690,7 +1717,7 @@ _ACTIVE_PROBE = (
     "}")
 
 
-def _assert_js_gate(browser, base_url, route, selector, viewport=None,
+def _assert_js_gate(make_context, base_url, route, selector, viewport=None,
                     prepare=None, arm=None, tab_budget=None):
     """Prove a `.js`-gated wrapper in BOTH directions: it occupies no
     space and holds nothing a keyboard can reach when scripts are
@@ -1750,7 +1777,7 @@ def _assert_js_gate(browser, base_url, route, selector, viewport=None,
     """
     probe_args = {"selector": selector,
                   "focusable": _FOCUSABLE_CANDIDATE_SELECTOR}
-    with _no_js_page(browser, base_url, route, viewport=viewport) as page:
+    with _no_js_page(make_context, base_url, route, viewport=viewport) as page:
         if prepare is not None:
             prepare(page)
         seen = page.evaluate(_GATE_BOX_PROBE, probe_args)
@@ -1794,7 +1821,7 @@ def _assert_js_gate(browser, base_url, route, selector, viewport=None,
                    "tab_steps": steps, "tabbable_on_page": seen["tabbable"]}
 
     extra = {} if viewport is None else {"viewport": viewport}
-    context = browser.new_context(**extra)
+    context = make_context(**extra)
     try:
         page = context.new_page()
         _login(page, base_url)
@@ -1918,7 +1945,7 @@ _DISPLAY_HEIGHT_PROBE = (
     "})")
 
 
-def _display_page_height(browser, base_url, viewport):
+def _display_page_height(make_context, base_url, viewport):
     """Display's full rendered document height at `viewport`, with the
     instrument proved to be pointed at Display.
 
@@ -1936,7 +1963,7 @@ def _display_page_height(browser, base_url, viewport):
     report a page nobody with a default browser ever sees, and would
     move for reasons that have nothing to do with this plan.
     """
-    context = browser.new_context(viewport=viewport)
+    context = make_context(viewport=viewport)
     try:
         page = context.new_page()
         _login(page, base_url)

@@ -434,12 +434,13 @@ LEGACY_COMPANION_HARNESSES = legacy_companion_harnesses()
 
 # The one shared helper module the browser harnesses import - not itself
 # a runnable harness, so it is never in ORIGINAL_COMPANION_HARNESSES and
-# legacy_companion_harnesses() never returns it. 33-19 empties this
-# tuple when it converts test_browser_ux_helpers.py to a native pytest
-# module (until then it also carries its own ALWAYS_EXEMPT entry in
-# companion/test_suite_guards.py, for a different reason - unconverted
-# browser.new_context() calls, not collection).
-LEGACY_HELPER_MODULES = ("companion/test_browser_ux_helpers.py",)
+# legacy_companion_harnesses() never returns it. Emptied by 33-19-PLAN.md
+# Task 1, which converted test_browser_ux_helpers.py to a pytest-usable
+# module (__test__ = False, no more direct browser.new_context() calls):
+# it is collected like any other companion/test_*.py module now, and
+# `__test__ = False` alone is what keeps pytest from running it as a test
+# module.
+LEGACY_HELPER_MODULES = ()
 
 # Same list, plus LEGACY_HELPER_MODULES - pytest must never try to
 # collect either group as test modules in their own right.
