@@ -16,10 +16,12 @@ and assert on `companion_markup.css_rules()`/`declarations_for()`.
 """
 import pytest
 
+import companion.layout as layout
+import companion.prefs as prefs
 import companion.test_view_pages_helpers as vp
-from companion.pages import history_page
+from companion.pages import health_page, history_page
 from companion_app_server import served_stylesheet
-from companion_markup import css_rules, parse_html
+from companion_markup import css_rules, declarations_for, parse_html
 from server import device_config
 from server.plane import render as panel_render
 
@@ -314,3 +316,322 @@ def test_merged_cell_classes_agree_with_stylesheet(tmp_path, served_css):
     ):
         assert doc.select('[class="%s"]' % name), (
             "expected class %r to appear in the rendered History page" % name)
+
+
+def test_timestamp_column_absolute_and_relative(tmp_path):
+    """History's Timestamp column/mobile primary line read through layout.concise_timestamp_html(), format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key"""
+    seeded_ts = "2026-08-28T13:58:02+00:00"
+    three_min_later = "2026-08-28T14:01:02+00:00"
+    vp.seed_runway_events(tmp_path, [
+        {"ts": seeded_ts, "hex": "d9", "callsign": "TS1"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path, now=three_min_later))
+    expected = layout.concise_timestamp_html(seeded_ts, three_min_later)
+    assert expected in rendered
+
+    # A one-argument format_event_row() call degrades to the raw stored
+    # timestamp, unchanged.
+    one_arg = history_page.format_event_row({"ts": seeded_ts})
+    assert one_arg["ts"] == seeded_ts
+
+    # A row with no stored timestamp produces an empty Timestamp cell.
+    no_ts = history_page.format_event_row({}, three_min_later)
+    assert no_ts["ts"] == ""
+
+    # render(ctx) with no "now" key still renders without raising and
+    # still shows a relative suffix (falls back to
+    # history_db.utc_now_iso()).
+    rendered_no_now = history_page.render({"state_dir": str(tmp_path)})
+    doc = parse_html(rendered_no_now)
+    times = doc.select("time[data-relative]")
+    assert any(t.text().endswith(" ago") for t in times), (
+        "expected a relative-age suffix even when ctx carries no 'now' key")
+
+
+def test_history_timestamps_carry_a_relative_time_element(tmp_path):
+    """History's Timestamp cells carry layout.concise_timestamp_html()'s new <time data-relative> element through data_table()'s raw_columns — as real markup, never double-escaped — with its text and its instant both intact (23-03, D14/CFG-34)"""
+    seeded_ts = "2026-08-28T13:58:02+00:00"
+    three_min_later = "2026-08-28T14:01:02+00:00"
+    vp.seed_runway_events(tmp_path, [
+        {"ts": seeded_ts, "hex": "d9", "callsign": "TS1"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path, now=three_min_later))
+    doc = parse_html(rendered)
+    # 23-08-PLAN.md Task 1: Flights joined the refresh loop, so the
+    # header now carries its own <time data-relative> freshness clock -
+    # narrow the search to the card list so this check keeps measuring
+    # the ROW's own age, not the header's render-instant clock.
+    assert doc.select("[data-refresh-clock]")
+    cards = doc.select_one('[class="history-cards"]')
+    assert not cards.select("[data-refresh-clock]")
+    times = cards.select("time[data-relative]")
+    assert times, "expected a <time data-relative> element in the rendered History row list"
+    match = times[0]
+    assert "&lt;time" not in rendered
+    assert match.text() == layout.relative_age_text(
+        layout.age_seconds(seeded_ts, three_min_later))
+    assert layout.age_seconds(match.attrs.get("datetime"), three_min_later) == 180
+
+
+def test_corroboration_copy_agrees_with_health_page():
+    """history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS on status key-by-key and on visible label for True/False; History's shortened 'None' label is the documented short form and its _CORROBORATION_TITLES tooltip equals Health's own full label exactly; the single-source 'None' state is pinned by name on each side (History 'ok', Health the neutral 'off'), is never a failure in either table, and carries a visible label distinct from 'Both agree' (quick task 260902-w4t UIR-04, retargeted by 22-12-PLAN.md Task 1's X8)"""
+    health_rows = {
+        stored: (status, label)
+        for stored, label, status, _explanation in health_page._CORROBORATION_ROWS
+    }
+    history_labels = history_page._CORROBORATION_LABELS
+    history_titles = history_page._CORROBORATION_TITLES
+
+    assert set(health_rows) == {"True", "None", "False"}
+    assert set(history_labels) == {"True", "None", "False"}
+
+    # Statuses must agree key-by-key for True and False - History's
+    # desktop table deliberately keeps "ok" for None (21-UI-SPEC/D-15),
+    # while Health's None moved to the neutral "off" token (22-UI-SPEC.md
+    # §5 contract 4), so that key is pinned by name below instead.
+    for key in ("True", "False"):
+        assert history_labels[key][0] == health_rows[key][0]
+        assert history_labels[key][1] == health_rows[key][1]
+
+    assert history_labels["None"][1] == "Single-source"
+    assert history_titles.get("None") == health_rows["None"][1]
+
+    assert history_labels["None"][0] == "ok"
+    assert health_rows["None"][0] == "off"
+    for status in (history_labels["None"][0], health_rows["None"][0]):
+        assert status not in ("warn", "error")
+    # X8's own safety clause: colour is not the only signal.
+    assert health_rows["None"][1] != health_rows["True"][1]
+
+
+def test_status_dot_title_backward_compatible_and_escaped():
+    """layout.status_dot()'s 2-arg output is unchanged, an explicit title=None is byte-identical to omitting it, and a truthy title renders as an escaped title attribute (quick task 260902-w4t, UIR-04)"""
+    two_arg = layout.status_dot("ok", "All good")
+    assert "title=" not in two_arg
+    three_arg_equivalent = layout.status_dot("ok", "All good", None)
+    assert three_arg_equivalent == two_arg
+    titled = layout.status_dot("ok", "All good", "Long form")
+    assert 'title="Long form"' in titled
+    hostile = layout.status_dot("ok", "All good", "<script>evil()</script>")
+    assert "<script>" not in hostile
+    assert "&lt;script&gt;" in hostile
+
+
+def test_status_dot_visually_hide_label_defaults_false_byte_identical():
+    """layout.status_dot()'s visually_hide_label keyword defaults to False with a byte-identical return value, and True adds the visually-hidden class to the label span while leaving its text/title unchanged (21-03-PLAN.md Task 1, D-15)"""
+    without_keyword = layout.status_dot("ok", "All good", "A tooltip")
+    explicit_false = layout.status_dot("ok", "All good", "A tooltip", visually_hide_label=False)
+    assert explicit_false == without_keyword
+    assert 'class="dot-label"' in without_keyword
+    hidden = layout.status_dot("ok", "All good", "A tooltip", visually_hide_label=True)
+    assert 'class="dot-label visually-hidden"' in hidden
+    assert 'title="A tooltip"' in hidden
+    assert ">All good<" in hidden
+
+
+def test_corroboration_none_row_shows_short_label_with_tooltip(tmp_path):
+    """a 'None' (single-source) row's Corroboration cell shows the short visible label with the long form only in a title attribute, in both the desktop and mobile renderings (quick task 260902-w4t, UIR-04)"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "cn01", "callsign": "CORNONE",
+         "corroborated": None},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path))
+    tr_block = vp.row_block(rendered, "tr", 0)
+    li_block = vp.row_block(rendered, "li", 0)
+    assert tr_block is not None and li_block is not None
+    long_form = history_page._CORROBORATION_TITLES["None"]
+    for block in (tr_block, li_block):
+        # find_all(cls=...) does token membership, so this matches the
+        # desktop span's "dot-label visually-hidden" as well as the
+        # mobile card's plain "dot-label".
+        label_node = block.find_all("span", cls="dot-label")[0]
+        assert label_node.text() == "Single-source"
+        assert any(n.attrs.get("title") == long_form for n in block.select("*"))
+        assert "(uncorroborated)" not in block.text()
+
+
+def test_desktop_corroboration_cell_dot_only_no_visible_word(tmp_path):
+    """the desktop Corroboration cell renders the dot only, with the visible word hidden via visually-hidden (not deleted); the mobile card's own Corroboration <dd> still shows the word (21-03-PLAN.md Task 1, D-15/D-16)"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "cdo01", "callsign": "CDOTONLY",
+         "corroborated": "True"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path))
+    tr_block = vp.row_block(rendered, "tr", 0)
+    li_block = vp.row_block(rendered, "li", 0)
+    assert tr_block is not None and li_block is not None
+    assert tr_block.find_all(attrs={"class": "dot-label visually-hidden"})
+    assert "Both agree" in tr_block.text()
+    assert not li_block.find_all(attrs={"class": "dot-label visually-hidden"})
+    assert "Both agree" in li_block.text()
+
+
+def test_when_and_flight_cells_each_carry_one_primary_one_secondary(tmp_path):
+    """the desktop When and Flight cells each carry exactly one cell-primary span and one cell-secondary span (21-03-PLAN.md Task 1, D-15)"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "wf01", "callsign": "WHENFLT",
+         "aircraft_type": "A320", "airline": "AFR"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path))
+    tr_block = vp.row_block(rendered, "tr", 0)
+    assert tr_block is not None
+    tds = tr_block.select("td")
+    assert len(tds) >= 2
+    when_cell, flight_cell = tds[0], tds[1]
+    for cell in (when_cell, flight_cell):
+        assert len(cell.find_all(cls="cell-primary")) == 1
+        assert len(cell.find_all(cls="cell-secondary")) == 1
+
+
+def test_data_table_wrap_scroll_edge_affordance_css(served_css):
+    """.data-table-wrap declares both background-attachment values (local covers, scroll shadows) and style.css introduces no pointer-events-blocking overlay (quick task 260902-w4t, UIR-04)"""
+    base = declarations_for(served_css, ".data-table-wrap")
+    assert "background-attachment" in base
+    assert "local" in base["background-attachment"]
+    assert "scroll" in base["background-attachment"]
+    assert "pointer-events" not in base
+    override = declarations_for(served_css, ".page-section .data-table-wrap")
+    assert "pointer-events" not in override
+
+
+def test_filter_bar_markers_present_once(tmp_path):
+    """History's filter bar carries exactly one data-filter-input/-count/-clear/-empty marker each"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "fb01", "callsign": "FB1"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path))
+    doc = parse_html(rendered)
+    for marker in (
+        "data-filter-input", "data-filter-count", "data-filter-clear", "data-filter-empty",
+    ):
+        assert len(doc.select("[%s]" % marker)) == 1, "expected exactly one %r marker" % marker
+
+
+def test_filter_input_carries_safari_autofill_suppression_attributes(tmp_path):
+    """History's search filter input carries autocomplete=off/spellcheck=false/autocapitalize=characters (Safari contact-autofill suppression)"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "fb01", "callsign": "FB1"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path))
+    doc = parse_html(rendered)
+    filter_input = doc.select_one("[data-filter-input]")
+    assert filter_input.attrs.get("autocomplete") == "off"
+    assert filter_input.attrs.get("spellcheck") == "false"
+    assert filter_input.attrs.get("autocapitalize") == "characters"
+
+
+def test_filter_count_template_attribute_english_and_french(tmp_path):
+    """History's filter bar carries data-filter-count-template="%d of %d shown" under the default language and the French "%d sur %d affichés" under lang='fr' (D-06)"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FC1"},
+    ])
+    rendered_en = history_page.render(vp.history_ctx(tmp_path))
+    doc_en = parse_html(rendered_en)
+    template_en = doc_en.select_one("[data-filter-count-template]")
+    assert template_en.attrs.get("data-filter-count-template") == "%d of %d shown"
+
+    prefs.set_request_prefs(lang="fr")
+    try:
+        rendered_fr = history_page.render(vp.history_ctx(tmp_path))
+    finally:
+        prefs.set_request_prefs(lang="en")
+    doc_fr = parse_html(rendered_fr)
+    template_fr = doc_fr.select_one("[data-filter-count-template]")
+    assert template_fr.attrs.get("data-filter-count-template") == "%d sur %d affichés"
+
+
+def test_filter_bar_count_and_clear_wrap_as_one_group(tmp_path, served_css):
+    """History's filter count and Clear control render as siblings inside one .filter-bar__meta group whose page-agnostic rule declares flex/centre/nowrap/auto-left-margin, with no page-scoped fork of the converged [data-filter-clear] rule anywhere (B11, 22-09-PLAN.md Task 3 — a regression of Phase 18's A-18)"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "fm01", "callsign": "FILTMETA"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path))
+    doc = parse_html(rendered)
+    group = doc.select_one('[class="filter-bar__meta"]')
+    assert group.select("[data-filter-count]")
+    assert group.select("[data-filter-clear]")
+    assert len(doc.select("[data-filter-clear]")) == 1
+
+    rules = css_rules(served_css)
+    meta_rule_count = sum(1 for rule in rules if ".filter-bar__meta" in rule.selectors)
+    assert meta_rule_count == 1, "expected exactly one .filter-bar__meta rule, never a per-page variant"
+    decls = declarations_for(served_css, ".filter-bar__meta")
+    assert decls.get("display") == "flex"
+    assert decls.get("align-items") == "center"
+    assert decls.get("white-space") == "nowrap"
+    assert decls.get("margin-left") == "auto"
+    joined = " ".join("%s:%s" % item for item in decls.items())
+    assert "flight" not in joined and "history" not in joined
+
+    forks = [
+        sel for rule in rules for sel in rule.selectors
+        if "[data-filter-clear]" in sel
+        and any(kw in sel for kw in ("flight", "airline", "health", "registry"))
+    ]
+    assert not forks, "expected no page-scoped fork of the converged [data-filter-clear] rule, found %r" % (forks,)
+
+
+def test_clear_control_shared_attribute_contract(tmp_path, served_css):
+    """the Clear control's shared [data-filter-clear] contract holds: History renders the attribute, style.css styles it by attribute, and no class-keyed rule competes"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "ca01", "callsign": "CA1"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path))
+    doc = parse_html(rendered)
+    assert doc.select("[data-filter-clear]")
+
+    rules = css_rules(served_css)
+    assert any("[data-filter-clear]" in sel for rule in rules for sel in rule.selectors)
+    for rule in rules:
+        selector_text = ", ".join(rule.selectors)
+        if "[data-filter-clear]" in selector_text:
+            continue
+        if "clear" in selector_text.lower():
+            decls_text = " ".join("%s: %s" % (k, v) for k, v in rule.declarations)
+            assert "background: none" not in decls_text, (
+                "found a class-keyed Clear-control rule outside [data-filter-clear]: %r"
+                % (selector_text,))
+            assert "text-decoration: underline" not in decls_text, (
+                "found a class-keyed Clear-control rule outside [data-filter-clear]: %r"
+                % (selector_text,))
+
+
+def test_filter_text_attribute_on_both_representations(tmp_path):
+    """a real flight's data-filter-text attribute (lowercased escaped callsign+hex) appears on both the desktop <tr> and the mobile <li>"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "3944F0", "callsign": "AFR123"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path))
+    doc = parse_html(rendered)
+    assert len(doc.find_all(attrs={"data-filter-text": "afr123 3944f0"})) == 2
+
+
+def test_desktop_flight_cell_carries_no_copy_buttons(tmp_path):
+    """the desktop Flight cell contains zero copy buttons (21-03-PLAN.md Task 1, D-15 - they move into the Task 2 detail row instead)"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "cd01", "callsign": "CDONE"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path))
+    doc = parse_html(rendered)
+    tds = doc.select("tbody td")
+    flight_td = next(td for td in tds if "CDONE" in td.text())
+    assert not flight_td.select("[data-copy-value]")
+
+
+def test_detail_row_pairs_with_summary_row_by_aria_controls_and_id(tmp_path):
+    """each summary row gets exactly one sibling detail row, matched by aria-controls/id, with no hidden attribute and no inline style (the no-JS floor), and every row-toggle starts aria-expanded="false" (21-03-PLAN.md Task 2, D-15/R-12)"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "dr01", "callsign": "DETAIL1"},
+        {"ts": "2026-08-27T10:01:00+00:00", "hex": "dr02", "callsign": "DETAIL2"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path))
+    doc = parse_html(rendered)
+    detail_trs = doc.select('tr[class="flight-detail-row"]')
+    assert len(detail_trs) == 2, "expected exactly 2 detail rows (one per summary row)"
+    for index in (0, 1):
+        assert doc.select('[aria-controls="flight-detail-%d"]' % index)
+        assert doc.select('[id="flight-detail-%d"]' % index)
+    for tag in detail_trs:
+        assert "hidden" not in tag.attrs
+        assert "style" not in tag.attrs
+    assert len(doc.select('[aria-expanded="false"]')) >= 2
