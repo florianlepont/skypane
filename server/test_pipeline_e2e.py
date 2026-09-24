@@ -200,14 +200,21 @@ def byos_server_factory(tmp_path):
             state_dir.mkdir()
             state_dir = str(state_dir)
         harness = BYOSHarness(image_path, state_dir)
-        harness.start()
+        # Registered BEFORE start(): start() can raise after Popen() (early
+        # exit, or never listening), and a timed-out child is still alive.
         harnesses.append(harness)
+        harness.start()
         return harness
 
     yield _start
 
     for harness in harnesses:
-        harness.stop()
+        try:
+            harness.stop()
+        except Exception:
+            # Never let one failed stop() leave the remaining servers running.
+            if harness.proc is not None:
+                harness.proc.kill()
 
 
 def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fake_providers, byos_server_factory):
