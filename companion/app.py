@@ -14,12 +14,15 @@ exemption list also decides the caching scope on byte-served responses
 must never be advertised to a shared/intermediary cache as storable, so
 the two lists are not allowed to silently drift apart.
 
-This service binds all interfaces (0.0.0.0), exactly like
-`stub-server/byos_server.py` already does in production — loopback
-restriction is enforced at the firewall/reverse-proxy layer (ufw + Caddy)
-rather than in the app, matching `deploy/skypane-byos.service`'s own
-documented discipline (plan 06-11 adds the matching ufw deny for this
-service's own port).
+This service binds `--bind` (default `0.0.0.0`, matching every prior
+release and LAN/dev use); production's `deploy/skypane-companion.service`
+passes `--bind 127.0.0.1` (SEC-01/D-22), because Caddy is the only
+intended client and this process itself makes outbound calls (poll
+trigger, calendar fetch, ntfy) — a systemd IP filter cannot express
+"outbound anywhere, inbound loopback only", which is why
+`stub-server/byos_server.py` (no outbound calls) uses that filter
+instead. The plan 06-11 ufw deny for this service's own port stays in
+place as defence in depth regardless of `--bind`.
 
 This service never writes the poll pipeline's own persisted flight-state
 file — `server.poll_loop.run_once()` is that file's one legitimate writer
@@ -684,7 +687,10 @@ _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
 # analogue) — D-01/D-02 mean there are no distinct users for a per-session
-# counter to key on.
+# counter to key on. Keyed per client IP and bounded (SEC-01,
+# auth.LoginThrottle/auth.login_throttle_key()): failed logins from one
+# address never lock another, and the bucket table cannot grow without
+# limit under a spray of source addresses.
 LOGIN_THROTTLE = auth.LoginThrottle()
 
 # Same process-global-singleton shape as LOGIN_THROTTLE above (UXA-15):
@@ -773,6 +779,13 @@ LOGIN_REVEAL_SHOWN_GLYPH = "○"
 # pre-escaped markup.
 NOT_FOUND_TITLE = "Page not found."
 NOT_FOUND_PURPOSE_TEXT = "The page you requested doesn't exist or may have moved."
+
+# SEC-03 (37-05-PLAN.md Task 1, D-16, T-37-22..T-37-25): do_POST()'s own
+# Origin/Sec-Fetch-Site gate's 403 body — see _forbidden_page() below.
+FORBIDDEN_TITLE = "Request refused"
+FORBIDDEN_PURPOSE_TEXT = (
+    "This request came from another site, so it was refused. Open SkyPane "
+    "directly and try again.")
 
 
 def _validated_next_route(candidate):
@@ -1757,6 +1770,36 @@ class Handler(BaseHTTPRequestHandler):
             title=i18n.t("Not Found"), active="", body=body,
             ui_theme=self._resolved_ui_theme(), health_alert=health_alert)
 
+    def _forbidden_page(self):
+        """The shared 403 body for do_POST()'s Origin/Sec-Fetch-Site gate
+        (SEC-03, 37-05-PLAN.md Task 1, D-16, T-37-22..T-37-25) — the ONE
+        response every rejected cross-site POST gets, login included.
+
+        Byte-for-byte the same shape as `_not_found_page()` immediately
+        above (same reasons apply verbatim: pre-auth safe, resolves lang
+        from the cookie/Accept-Language since this renders before any
+        session check could run, and threads `health_alert` through
+        `self._is_authenticated()` only — never leaking Health's state to
+        an unauthenticated caller). Kept as a single helper, deliberately
+        not folded into `_not_found_page()`, so a later route-table
+        refactor (Phase 40, CMP-01) can relocate this gate without also
+        having to split the two response bodies apart first.
+        """
+        prefs.set_request_prefs(lang=self._lang_from_request())
+        health_alert = None
+        if self._is_authenticated():
+            health_state = health_page.safe_health_state(
+                self.args.state_dir, history_db.utc_now_iso())
+            health_alert = health_state["severity"] if health_state else "ok"
+        body = (
+            layout.page_header(i18n.t(FORBIDDEN_TITLE), purpose=i18n.t(FORBIDDEN_PURPOSE_TEXT))
+            + '<p class="text-body"><a href="%s">%s</a></p>'
+            % (HOME_ROUTE, layout.escape_html(i18n.t("Back to Home")))
+        )
+        return layout.page_shell(
+            title=i18n.t(FORBIDDEN_TITLE), active="", body=body,
+            ui_theme=self._resolved_ui_theme(), health_alert=health_alert)
+
     def _login_body(self, error=None, lockout_seconds=None, next_route=None):
         """The login card's inner markup — 06.6.2-07 (UXA-03).
 
@@ -1847,9 +1890,10 @@ class Handler(BaseHTTPRequestHandler):
         # mechanism companion/pages/config_page.py's poll_trigger_
         # section() and companion/static/poll-cooldown.js established
         # (06.6-02 D-01), reused rather than re-derived. The remaining
-        # figure is LOGIN_THROTTLE.seconds_remaining()'s own output,
-        # serialised here; it is never computed from a client clock, and
-        # no throttling constant crosses to the client.
+        # figure is LOGIN_THROTTLE.seconds_remaining(key)'s own output
+        # for the caller's own bucket, serialised here; it is never
+        # computed from a client clock, and no throttling constant
+        # crosses to the client.
         form_attrs = ""
         if locked:
             form_attrs = (
@@ -3050,6 +3094,16 @@ class Handler(BaseHTTPRequestHandler):
 
     # --- POST --------------------------------------------------------------
 
+    def _login_throttle_key(self):
+        """SEC-01: the one place this handler derives a LoginThrottle
+        bucket key, so every LOGIN_THROTTLE call site below uses the
+        identical derivation (`auth.login_throttle_key()`, trusting
+        X-Forwarded-For only from a loopback peer — Caddy in
+        production).
+        """
+        return auth.login_throttle_key(
+            self.client_address[0], self.headers.get("X-Forwarded-For"))
+
     def _handle_login_post(self):
         # 06.6.2-07 (UXA-03/T-06.6.2-12): read and validate `next` before
         # the lockout/password checks so it survives every branch below
@@ -3057,18 +3111,19 @@ class Handler(BaseHTTPRequestHandler):
         # must not lose the originally-requested destination.
         form = self.read_form()
         next_route = _validated_next_route(form.get("next"))
-        if LOGIN_THROTTLE.locked_out():
-            remaining = LOGIN_THROTTLE.seconds_remaining()
+        throttle_key = self._login_throttle_key()
+        if LOGIN_THROTTLE.locked_out(throttle_key):
+            remaining = LOGIN_THROTTLE.seconds_remaining(throttle_key)
             return self.send_html(429, self._render_login_page(
                 lockout_seconds=remaining, next_route=next_route))
         submitted = form.get("password", "")
         if auth.password_ok(submitted):
-            LOGIN_THROTTLE.record_success()
+            LOGIN_THROTTLE.record_success(throttle_key)
             token = auth.issue_session_token()
             return self.redirect(
                 next_route or HOME_ROUTE,
                 set_cookie=auth.session_set_cookie_header(token))
-        LOGIN_THROTTLE.record_failure()
+        LOGIN_THROTTLE.record_failure(throttle_key)
         return self.send_html(401, self._render_login_page(
             # 22-08-PLAN.md Task 3 (D-06/B16): translated HERE, at the
             # literal call site — see _login_body()'s own docstring for
@@ -3450,7 +3505,17 @@ class Handler(BaseHTTPRequestHandler):
     # D-17 (21-01-PLAN.md Task 1): _handle_mode_post() is deleted along
     # with the rest of the simple-mode mechanism it fed.
 
+    # SEC-03 (37-05-PLAN.md Task 1, D-16, T-37-22..T-37-25): the
+    # Origin/Sec-Fetch-Site gate runs as the very first statement of
+    # do_POST(), before urlsplit()/routing and before any read_form() —
+    # so it covers LOGIN_ROUTE and every route below uniformly, and a
+    # route added later here is covered automatically without editing
+    # this gate. Defence in depth on top of SameSite=Strict (see
+    # auth.post_origin_ok()'s own docstring for why both layers exist).
     def do_POST(self):
+        if not auth.post_origin_ok(self.headers):
+            return self.send_html(403, self._forbidden_page())
+
         parsed = urlsplit(self.path)
         path = parsed.path
 
@@ -3630,6 +3695,13 @@ def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument(
+        "--bind",
+        default="0.0.0.0",
+        help="Address to listen on. Production passes 127.0.0.1 because "
+             "Caddy is the only intended client (SEC-01/D-22); the "
+             "default keeps LAN/dev use working unchanged.",
+    )
+    parser.add_argument(
         "--state-dir",
         default=poll_loop.DEFAULT_STATE_DIR,
         help="Directory holding the poll pipeline's own state (default: "
@@ -3662,8 +3734,9 @@ def main():
     sys.stdout.reconfigure(line_buffering=True)
 
     Handler.args = args
-    server = ThreadingHTTPServer(("0.0.0.0", args.port), Handler)
-    print("companion: serving on port %d (state_dir=%s)" % (args.port, args.state_dir))
+    server = ThreadingHTTPServer((args.bind, args.port), Handler)
+    print("companion: serving on %s:%d (state_dir=%s)" % (
+        args.bind, args.port, args.state_dir))
     server.serve_forever()
 
 

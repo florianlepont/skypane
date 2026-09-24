@@ -4,7 +4,8 @@
 20-01-PLAN.md Task 1), and — as of 22-08-PLAN.md Task 1 (D-06/B16) —
 every flash-banner template in companion/app.py's FLASH_MESSAGES dict
 and the two pre-session <title> literals ("Not Found", the login
-shell's "Login - %s").
+shell's "Login - %s"). 37-05-PLAN.md Task 1 (SEC-03) adds the 403
+page's two strings, the same pre-session shape as the 404 page above.
 
 One sibling module of the companion/i18n_fr package (see that
 package's __init__.py for the auto-merge/duplicate-key contract this
@@ -64,6 +65,12 @@ CATALOG = {
     # NOT_FOUND_TITLE above (that one is the page heading's longer
     # sentence); the literal was "Not Found" (22-08-PLAN.md Task 1).
     "Not Found": "Introuvable",
+
+    # --- 403 page (companion/app.py's _forbidden_page(), FORBIDDEN_TITLE
+    #     / FORBIDDEN_PURPOSE_TEXT) — SEC-03 (37-05-PLAN.md Task 1) -----
+    "Request refused": "Requête refusée",
+    "This request came from another site, so it was refused. Open SkyPane directly and try again.":
+        "Cette requête venait d’un autre site, elle a donc été refusée. Ouvrez SkyPane directement et réessayez.",
 
     # --- Shared footer control (companion/layout.py's
     #     _logout_form_html()) -----------------------------------------

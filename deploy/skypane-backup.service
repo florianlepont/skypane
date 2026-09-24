@@ -1,0 +1,59 @@
+[Unit]
+Description=SkyPane nightly off-box-ready state snapshot (deploy/backup/skypane_backup.py)
+# Triggered by skypane-backup.timer at 03:15 UTC. Takes a consistent
+# sqlite3 .backup snapshot of history.db plus an include-list copy of the
+# other irreplaceable files under /opt/skypane/state (SEC-04), and writes
+# a dated tar.gz + .sha256 into the local archive directory below. This
+# job never leaves the VPS - the off-box copy is a separate pull, over
+# SSH, initiated by the developer's Mac through the forced-command gate
+# at /usr/local/lib/skypane/backup_gate.py (Plan 37-04), never pushed
+# from here.
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=skypane
+Group=skypane
+WorkingDirectory=/opt/skypane
+ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/current/deploy/backup/skypane_backup.py \
+    --state-dir /opt/skypane/state \
+    --archive-dir /var/lib/skypane-backup/archives \
+    --keep 14
+
+# Hardening - same posture as the other three units (see
+# skypane-byos.service's own comment for the full rationale on the shared
+# directives). This job needs no network at all (PrivateNetwork=true,
+# RestrictAddressFamilies=AF_UNIX only - AF_UNIX stays for sqlite3's own
+# use of local sockets/NSS, never a real network call) and writes to two
+# directories: the state directory (opening a WAL database for a
+# consistent .backup snapshot needs write access to its -shm file even
+# for what is conceptually a read) and the archive directory this
+# service's own output lands in.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/skypane/state /var/lib/skypane-backup/archives
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateDevices=true
+DevicePolicy=closed
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+PrivateNetwork=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+UMask=0027
