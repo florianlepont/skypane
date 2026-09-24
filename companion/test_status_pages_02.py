@@ -1106,3 +1106,621 @@ def test_sparkline_daily_point_label_names_day_and_average_count():
     assert "average" in newest.lower(), "expected the newest point's label to say it is a daily average: %r" % newest
     oldest = whens[0]
     assert re.search(r"\b1 reading\b", oldest), "expected a single-reading day to read singular ('1 reading', not '1 readings'): %r" % oldest
+
+
+def test_sparkline_density_rule_suppresses_dots_only_above_threshold():
+    """the density rule suppresses cosmetic dots only at/above the derived
+    threshold (every hit target still reachable, at the reduced radius),
+    survives untouched just below it, and a below-threshold non-daily call
+    stays byte-for-byte what it is today (260902-l0b)"""
+    threshold_names = [name for name in dir(health_page) if "DENSE" in name]
+    assert threshold_names, "expected a named, documented DENSE* density-threshold constant, not a literal in the loop"
+    threshold = max(
+        getattr(health_page, name) for name in threshold_names
+        if isinstance(getattr(health_page, name), int) and getattr(health_page, name) > 10)
+
+    dense_rows = [
+        {"ts": "2026-06-%02d" % ((i % 28) + 1), "battery_mv": 4000 + i}
+        for i in range(threshold + 5)]
+    dense_svg = health_page.battery_sparkline_svg(dense_rows, now="2026-09-02T12:00:00+00:00", daily=True)
+    assert health_page.SPARKLINE_DOT_CLASS not in dense_svg, "expected no cosmetic dots above the density threshold"
+    assert dense_svg.count(health_page.SPARKLINE_HIT_CLASS) == len(dense_rows), (
+        "expected every point to keep its own hit target above the density threshold")
+    assert 'r="8"' not in dense_svg, "expected the reduced dense hit radius above the threshold, not the normal r=\"8\""
+    assert dense_svg.count(health_page.SPARKLINE_LINE_CLASS) == len(dense_rows) - 1, (
+        "expected the thin trend line to still carry one segment per adjacent pair above the threshold")
+
+    just_under_rows = [
+        {"ts": "2026-06-%02d" % ((i % 28) + 1), "battery_mv": 4000 + i}
+        for i in range(threshold - 1)]
+    just_under_svg = health_page.battery_sparkline_svg(just_under_rows, now="2026-09-02T12:00:00+00:00", daily=True)
+    assert health_page.SPARKLINE_DOT_CLASS in just_under_svg, "expected cosmetic dots to survive just below the density threshold"
+    assert 'r="8"' in just_under_svg, "expected the normal, full-size hit radius just below the density threshold"
+
+    sparse_rows = [{"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4200 - i * 10} for i in range(3)]
+    sparse_svg = health_page.battery_sparkline_svg(sparse_rows)
+    assert health_page.SPARKLINE_DOT_CLASS in sparse_svg, "a below-threshold, non-daily call must keep its cosmetic dots (regression guard)"
+    assert 'r="8"' in sparse_svg, "a below-threshold, non-daily call must keep its normal hit radius (regression guard)"
+    assert re.search(r">\d{2}:\d{2}<", sparse_svg), "a below-threshold, non-daily call must keep its clock endpoint labels (regression guard)"
+
+
+def test_battery_readout_seeded_with_latest_reading_not_placeholder(tmp_path, monkeypatch):
+    """the battery readout's initial markup equals the humanised (value,
+    when) pair the latest reading's own helper builds, split across its
+    value/detail spans, and the retired placeholder prompt no longer
+    appears (D-09, quick task 260901-uzi finding 3)"""
+    # health_page._battery_section() deliberately computes its own `now`
+    # via history_db.utc_now_iso() (06.6-01, D-02) rather than accepting
+    # the render() ctx's injected `now`, so the real wall clock is what
+    # actually humanises the readout's "ago" text. Pinning
+    # history_db.utc_now_iso() to `base` for the duration of this render()
+    # call makes the two `now` values identical by construction.
+    state_dir = str(tmp_path)
+    base = shp.now()
+    readings = [
+        (shp.iso(base - timedelta(minutes=1)), 4200),
+        (shp.iso(base), 4190),
+    ]
+    shp.seed_device_health(state_dir, readings)
+    monkeypatch.setattr(history_db, "utc_now_iso", lambda: shp.iso(base))
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(base)))
+    value_text, when_text = health_page._battery_reading_parts(4190, shp.iso(base), shp.iso(base))
+    # 22-06-PLAN.md Task 2 (D-05, B4): the detail span's title is when_text
+    # itself (a full Europe/Paris local timestamp), never the raw ISO —
+    # and the span carries the .time-value role (22-04-PLAN.md, C5).
+    expected_inner = (
+        '<span class="battery-readout__value mono">%s</span>'
+        '<span class="battery-readout__detail time-value" title="%s"> — %s</span>'
+    ) % (
+        health_page.escape_html(value_text),
+        health_page.escape_html(when_text),
+        health_page.escape_html(when_text),
+    )
+    readout_start = rendered.index('id="%s"' % health_page.BATTERY_READOUT_ID)
+    readout_tag_end = rendered.index(">", readout_start)
+    readout_text_end = rendered.index("</p>", readout_tag_end)
+    readout_inner = rendered[readout_tag_end + 1:readout_text_end]
+    assert readout_inner == expected_inner, (
+        "expected the readout's inner markup to equal the humanised (value, when) pair built by "
+        "_battery_reading_parts(), got %r" % (readout_inner,))
+    assert "Tap or hover a point" not in rendered, (
+        "did not expect the retired BATTERY_READOUT_PLACEHOLDER prompt text anywhere on the page")
+
+
+def test_battery_reading_parts_value_carries_the_percentage_estimate():
+    """_battery_reading_parts()'s value text leads with a '≈ NN%' estimate
+    ahead of the exact millivolt figure, for a numeric reading
+    battery.battery_percent() can estimate (D-01/A-19)"""
+    value_text, _when_text = health_page._battery_reading_parts(
+        3750, "2026-09-11T10:00:00+00:00", "2026-09-11T10:05:00+00:00")
+    assert value_text.startswith("≈"), "expected the value text to start with the estimate's ≈ marker, got %r" % value_text
+    assert "%" in value_text, "expected a percentage sign in the value text, got %r" % value_text
+    assert "3750 mV" in value_text, "expected the exact millivolt figure to survive as a substring, got %r" % value_text
+
+
+def test_battery_reading_parts_value_has_no_estimate_when_percent_is_none():
+    """_battery_reading_parts()'s value text stays a bare millivolt figure,
+    with no ≈ marker, when battery.battery_percent() cannot estimate the
+    reading (D-01/A-19)"""
+    # battery.battery_percent(0) returns None (the non-positive guard) —
+    # the value text must fall back to the bare millivolt figure, with no
+    # stray "≈", rather than raising on a reading the estimate cannot be
+    # computed for.
+    value_text, _when_text = health_page._battery_reading_parts(
+        0, "2026-09-11T10:00:00+00:00", "2026-09-11T10:05:00+00:00")
+    assert "≈" not in value_text, "expected no ≈ marker when battery.battery_percent() returns None, got %r" % value_text
+    assert value_text == "0 mV", "expected the bare millivolt figure with no estimate, got %r" % value_text
+
+
+# ==========================================================================
+# 22-06-PLAN.md Task 2 (D-05, B4): layout.local_clock_text() is the only
+# formatter for a visible battery time — the readout, every sparkline
+# point's tooltip/aria-label/data-when, and the axis clock labels all
+# read Paris local text, and the literal " UTC" appears nowhere in the
+# rendered page.
+# ==========================================================================
+
+
+def test_axis_clock_label_is_paris_local_not_utc():
+    """_axis_clock_label() renders Europe/Paris local time, not the
+    unconverted UTC clock (D-05, B4): 22:30 UTC in September prints
+    '00:30', not '22:30'"""
+    # 22:30 UTC in September (CEST, Europe/Paris = UTC+2) is 00:30 the
+    # NEXT Paris day.
+    clock = health_page._axis_clock_label("2026-09-02T22:30:00+00:00")
+    assert clock == "00:30", "expected the Paris-local clock '00:30', got %r" % clock
+
+
+def test_axis_day_label_names_the_paris_day():
+    """_axis_day_label() names the Europe/Paris calendar day an instant
+    falls on, not its UTC day (D-05, D-12.3)"""
+    # Same instant as above: 22:30 UTC on 2026-09-02 is 00:30 Paris on
+    # 2026-09-03 — the axis day label must name the LATER day.
+    day = health_page._axis_day_label("2026-09-02T22:30:00+00:00")
+    assert day == "3 Sep", "expected the Paris day label '3 Sep', got %r" % day
+
+
+def test_sparkline_point_title_aria_data_when_are_one_string():
+    """a sparkline point's <title>, aria-label and data-when carry the SAME
+    string — one formatted value, never three independently-derived ones
+    (D-05, B4)"""
+    rows = [
+        {"ts": "2026-09-11T22:30:00+00:00", "battery_mv": 4100},
+        {"ts": "2026-09-12T10:00:00+00:00", "battery_mv": 4050},
+    ]
+    svg = health_page.battery_sparkline_svg(rows, now="2026-09-12T12:00:00+00:00")
+    hit_start = svg.rindex('class="%s"' % health_page.SPARKLINE_HIT_CLASS)
+    tag_end = svg.index(">", hit_start)
+    tag = svg[hit_start:tag_end + 1]
+    title_match = re.search(r"<title>([^<]*)</title>", svg[tag_end:])
+    aria_match = re.search(r'aria-label="([^"]*)"', tag)
+    when_match = re.search(r'data-when="([^"]*)"', tag)
+    assert title_match and aria_match and when_match, "expected a title, aria-label and data-when on the latest hit target"
+    assert title_match.group(1) == aria_match.group(1) == when_match.group(1), (
+        "expected the tooltip, aria-label and data-when to carry the same string, got title=%r "
+        "aria-label=%r data-when=%r" % (title_match.group(1), aria_match.group(1), when_match.group(1)))
+    assert "UTC" not in when_match.group(1), "expected zero occurrences of 'UTC' in a sparkline point's data-when"
+
+
+def test_health_page_has_zero_utc_literal_in_either_language(tmp_path):
+    """a seeded Health page renders zero occurrences of the literal ' UTC'
+    in either English or French (D-05, B4)"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_device_health(state_dir, [
+        (shp.iso(now - timedelta(days=2)), 4200),
+        (shp.iso(now - timedelta(days=1)), 4150),
+        (shp.iso(now), 4100),
+    ])
+    try:
+        prefs.set_request_prefs(lang="en")
+        en_rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+        prefs.set_request_prefs(lang="fr")
+        fr_rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    finally:
+        prefs.set_request_prefs(lang="en")
+    for lang_name, rendered in (("EN", en_rendered), ("FR", fr_rendered)):
+        assert " UTC" not in rendered, "expected zero ' UTC' occurrences in the %s-rendered Health page" % lang_name
+
+
+# ==========================================================================
+# 22-06-PLAN.md Task 3 (D-05, B4): the client-side hover swap reads only
+# pre-formatted server text (no date parsing/formatting of its own, and
+# no raw-ISO fallback), and concise_timestamp_html()'s title is a local
+# full timestamp, never the raw ISO.
+# ==========================================================================
+
+
+def test_battery_trend_js_has_no_client_side_date_math(battery_trend_js):
+    """battery-trend.js contains no client-side date parsing or formatting
+    (new Date(), toISOString, getHours, getMinutes), sets title to the
+    pre-formatted 'when' text rather than the raw ts, and its fallback no
+    longer shows a raw ISO string (D-05, B4)"""
+    js_source = battery_trend_js
+    assert not re.search(r"new Date\(|toISOString|getHours|getMinutes", js_source), (
+        "expected zero client-side date-parsing/formatting calls in battery-trend.js")
+    assert 'setAttribute("title", ts)' not in js_source, "expected the raw-ts title write to be gone"
+    assert 'setAttribute("title", when)' in js_source, "expected the hover swap to set title to the pre-formatted 'when' text"
+    assert 'mv + " mV — " + ts' not in js_source, "expected the raw-ISO fallback line to be gone"
+
+
+def test_concise_timestamp_html_title_is_a_full_local_timestamp_not_raw_iso():
+    """concise_timestamp_html()'s title is a full Europe/Paris local
+    timestamp ('D Mon HH:MM'), never the raw ISO string and never a 'UTC'
+    suffix (D-05, B4)"""
+    now_iso = "2026-09-12T12:00:00+00:00"
+    ts = "2026-09-11T22:30:00+00:00"  # 00:30 Paris the NEXT day (CEST)
+    rendered = layout.concise_timestamp_html(ts, now_iso)
+    assert ts not in rendered, "expected zero occurrences of the raw ISO string in concise_timestamp_html()'s output"
+    title_match = re.search(r'title="([^"]*)"', rendered)
+    assert title_match is not None, "expected a title attribute"
+    assert re.search(r"^\d{1,2} \w+ \d{2}:\d{2}$", title_match.group(1)), (
+        "expected a full 'D Mon HH:MM' local timestamp in the title, got %r" % title_match.group(1))
+    assert "UTC" not in rendered, "expected zero occurrences of 'UTC' in concise_timestamp_html()'s output"
+
+
+def test_seeded_render_shows_both_the_estimate_and_the_millivolt_figure(tmp_path):
+    """a seeded health_page.render() call's battery-readout__value span
+    carries both the '≈' estimate and the ' mV' millivolt figure
+    (D-01/A-19)"""
+    state_dir = str(tmp_path)
+    base = shp.now()
+    shp.seed_device_health(state_dir, [
+        (shp.iso(base - timedelta(minutes=1)), 4200),
+        (shp.iso(base), 3750),
+    ])
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(base)))
+    readout_start = rendered.index('id="%s"' % health_page.BATTERY_READOUT_ID)
+    value_start = rendered.index('class="battery-readout__value mono"', readout_start)
+    value_tag_end = rendered.index(">", value_start) + 1
+    value_end = rendered.index("</span>", value_tag_end)
+    value_html = rendered[value_tag_end:value_end]
+    assert "≈" in value_html, "expected the ≈ estimate marker inside the readout's value span"
+    assert " mV" in value_html, "expected the millivolt figure inside the readout's value span"
+
+
+# --- D-03/A-21 (19-01-PLAN.md Task 3): text verdicts on the Device/ --------
+# Pipeline/Corroboration stat tiles (WCAG 1.4.1)
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("age_s", "expected_state"),
+    [(0, "ok"), (_DEFAULT_DEVICE_WARN_S + 60, "warn"), (_DEFAULT_DEVICE_ERROR_S + 60, "error")],
+    ids=["ok", "warn", "error"])
+def test_device_tile_verdict_matches_state_at_each_severity(tmp_path, age_s, expected_state):
+    """the Device tile's widget-verdict paragraph matches DEVICE_STATE_TEXT
+    at each of the three severities a real health_page.render() call can
+    produce (D-03/A-21)"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_device_health(state_dir, [(shp.iso(now - timedelta(seconds=age_s)), 4200)])
+    shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+        health_page.DEVICE_STATE_TEXT[expected_state])
+    tile_slice = _tile_slice_by_caption(rendered, health_page.DEVICE_FRESHNESS_LABEL)
+    assert expected_verdict_html in tile_slice, (
+        "expected the Device tile's verdict paragraph for state %r, got tile %r" % (expected_state, tile_slice))
+
+
+@pytest.mark.parametrize(
+    ("age_s", "expected_state"),
+    [(0, "ok"), (health_page.STALE_PIPELINE_WARN_S + 30, "warn"), (health_page.STALE_PIPELINE_ERROR_S + 30, "error")],
+    ids=["ok", "warn", "error"])
+def test_pipeline_tile_verdict_matches_state_at_each_severity(tmp_path, age_s, expected_state):
+    """the Pipeline tile's widget-verdict paragraph matches
+    PIPELINE_STATE_TEXT at each of the three severities a real
+    health_page.render() call can produce (D-03/A-21)"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
+    shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now - timedelta(seconds=age_s))})
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+        health_page.PIPELINE_STATE_TEXT[expected_state])
+    tile_slice = _tile_slice_by_caption(rendered, health_page.PIPELINE_FRESHNESS_LABEL)
+    assert expected_verdict_html in tile_slice, (
+        "expected the Pipeline tile's verdict paragraph for state %r, got tile %r" % (expected_state, tile_slice))
+
+
+@pytest.mark.parametrize(
+    ("corroborated", "expected_state"), [(True, "ok"), (False, "warn")],
+    ids=["agree", "disagree"])
+def test_corroboration_tile_verdict_matches_disagreement_state(tmp_path, corroborated, expected_state):
+    """the Corroboration tile's widget-verdict paragraph matches
+    CORROBORATION_STATE_TEXT for both the agreement and disagreement
+    states a real health_page.render() call can produce (D-03/A-21)"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
+    shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "corroborated": corroborated}])
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+        health_page.CORROBORATION_STATE_TEXT[expected_state])
+    tile_slice = _tile_slice_by_caption(rendered, "Corroboration")
+    assert expected_verdict_html in tile_slice, (
+        "expected the Corroboration tile's verdict paragraph for state %r, got tile %r" % (expected_state, tile_slice))
+
+
+def test_resolution_rate_tile_carries_no_verdict(tmp_path):
+    """the Resolution-rate tile deliberately carries no widget-verdict
+    paragraph (D-03/A-21)"""
+    # The Resolution-rate tile is the one deliberate exception: it is
+    # passed status=None and has no status function of its own, so
+    # inventing a verdict word for it would assert a judgement this page
+    # does not make.
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
+    shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    tile_slice = _tile_slice_by_caption(rendered, health_page.RESOLUTION_RATE_LABEL)
+    assert "widget-verdict" not in tile_slice, (
+        "expected the Resolution-rate tile to carry no widget-verdict paragraph, got tile %r" % (tile_slice,))
+
+
+# --- 22-12-PLAN.md Task 1 (X8/C1): one tile anatomy ------------------------
+#
+# The Emphasis slot is ONE element per tile, but two class names can
+# legitimately carry it: a verdict word (three tiles) and a figure (the
+# Resolution-rate tile, which D-03/A-21 forbids from making a judgement).
+# The empty form is a third, and is the compact empty_state()'s own
+# heading. The muted detail slot is the same two-way split.
+_EMPHASIS_SLOT_CLASSES = (
+    'class="%s"' % health_page._TILE_VERDICT_CLASS,
+    'class="stat-tile__value"',
+    'class="empty-state__heading text-body"',
+)
+_DETAIL_SLOT_CLASSES = (
+    'class="%s"' % health_page._TILE_DETAIL_CLASS,
+    'class="empty-state__body text-label section-caption"',
+)
+
+
+@pytest.mark.parametrize("seed", [True, False], ids=["seeded", "fresh"])
+def test_one_tile_anatomy_across_every_health_tile(tmp_path, seed):
+    """every .stat-tile on a rendered Health page — seeded and on a fresh
+    install alike — carries exactly one label, exactly one Emphasis-role
+    element, exactly one muted detail slot, in that fixed order, and no
+    22px serif heading anywhere inside it (X8/C1, 22-12-PLAN.md Task 1)"""
+    # X8: "three server cards, three anatomies". Walks EVERY .stat-tile on
+    # a rendered page and asserts the four slots in their fixed order.
+    state_dir = str(tmp_path)
+    now = shp.now()
+    if seed:
+        shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
+        shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+        shp.seed_runway_events(state_dir, [
+            {"ts": shp.iso(now), "hex": "abc001", "route_source": "fresh_hit", "corroborated": True},
+            {"ts": shp.iso(now), "hex": "abc002", "route_source": "manual", "corroborated": None},
+        ])
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    tiles = shp.stat_tile_slices(rendered)
+    assert len(tiles) == 4, "expected exactly 4 .stat-tile elements on Health, got %d" % len(tiles)
+    for tile in tiles:
+        captions = tile.count('class="text-label stat-tile__caption"')
+        assert captions == 1, "expected exactly one label slot per tile, got %d in %r" % (captions, tile[:200])
+        emphasis = [tile.index(token) for token in _EMPHASIS_SLOT_CLASSES if token in tile]
+        assert len(emphasis) == 1 and sum(tile.count(token) for token in _EMPHASIS_SLOT_CLASSES) == 1, (
+            "expected exactly one Emphasis-role element per tile — the 'double bold verdict' X8 "
+            "removed is two — got %r" % (tile,))
+        detail = [tile.index(token) for token in _DETAIL_SLOT_CLASSES if token in tile]
+        assert len(detail) == 1 and sum(tile.count(token) for token in _DETAIL_SLOT_CLASSES) == 1, (
+            "expected exactly one muted detail slot per tile, got %r" % (tile,))
+        caption_at = tile.index('class="text-label stat-tile__caption"')
+        assert caption_at < emphasis[0] < detail[0], (
+            "expected the label/verdict/detail slots in that fixed order, got offsets %d/%d/%d in %r"
+            % (caption_at, emphasis[0], detail[0], tile))
+        # C1/X8: never a 22px serif heading inside a tile whose own caption
+        # is 12px.
+        assert "text-heading" not in tile, "expected no serif .text-heading inside any .stat-tile, got %r" % (tile,)
+
+
+@pytest.mark.parametrize(
+    ("lang", "agree_label", "single_label"),
+    [("en", "Both agree", "Only one saw it"), ("fr", "Les deux concordent", "Une seule l’a vu")])
+def test_only_one_saw_it_is_neutral_and_still_distinct(tmp_path, lang, agree_label, single_label):
+    """Health's 'Only one saw it' corroboration row renders the neutral
+    dot--off with its own distinct visible dot-label while 'Both agree'
+    keeps dot--ok — in both languages, and never a warn dot — so the two
+    states are readable with colour vision entirely absent (X8 /
+    22-UI-SPEC.md §5 contract 4, 22-12-PLAN.md Task 1)"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
+    shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    shp.seed_runway_events(state_dir, [
+        {"ts": shp.iso(now), "hex": "abc001", "corroborated": True},
+        {"ts": shp.iso(now), "hex": "abc002", "corroborated": None},
+    ])
+    try:
+        prefs.set_request_prefs(lang=lang)
+        rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    finally:
+        prefs.set_request_prefs(lang="en")
+    tile = _tile_slice_by_caption(
+        rendered, health_page.CORROBORATION_TILE_LABEL if lang == "en" else "Corroboration")
+    single_row = '<span class="dot dot--off"></span><span class="dot-label">%s</span>' % single_label
+    assert single_row in tile, (
+        "expected the single-source row to render the neutral dot with its own visible label "
+        "(%s), got tile %r" % (lang, tile))
+    agree_row = '<span class="dot dot--ok"></span><span class="dot-label">%s</span>' % agree_label
+    assert agree_row in tile, "expected 'Both agree' to keep the ok dot (%s), got tile %r" % (lang, tile)
+    assert agree_label != single_label, "expected the two labels to differ (%s)" % (lang,)
+    assert '<span class="dot dot--ok"></span><span class="dot-label">%s' % single_label not in tile, (
+        "expected the single-source row NEVER to take the ok dot again (%s)" % (lang,))
+    assert "dot--warn" not in tile, (
+        "expected no warn dot in a tile with no disagreement (%s) — a neutral state must not be "
+        "escalated instead of de-escalated" % (lang,))
+
+
+def test_empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
+    """layout.empty_state()'s two-argument output is byte-identical to its
+    pre-compact form (proven against the literal markup AND against
+    data_table()'s own real no-rows caller), an explicit compact=False
+    matches it, and compact=True renders its own modifier plus the 16px
+    sans / 14px muted pair through the empty state's own class names, still
+    escaped (C1/T-22-44, 22-12-PLAN.md Task 1)"""
+    # T-22-44: the compact variant must not be able to change an existing
+    # caller. The default form's expected markup is written out as a
+    # LITERAL here, copied from the pre-change function, so this check
+    # fails even if layout.empty_state() and the expectation are edited
+    # together.
+    heading, body = "No data yet.", "Nothing to show here yet."
+    expected_default = (
+        '<div class="empty-state">'
+        '<p class="empty-state__heading text-heading">No data yet.</p>'
+        '<p class="empty-state__body text-body">Nothing to show here yet.</p>'
+        "</div>")
+    assert layout.empty_state(heading, body) == expected_default, (
+        "expected the two-argument empty_state() output to be byte-identical to its pre-compact "
+        "form, got %r" % (layout.empty_state(heading, body),))
+    assert layout.empty_state(heading, body, compact=False) == expected_default, (
+        "expected an explicit compact=False to be byte-identical too")
+    # The default form is what data_table()'s own no-rows fallback emits —
+    # an existing caller, proven rather than asserted.
+    assert layout.data_table(["A"], []) == expected_default, (
+        "expected data_table()'s no-rows fallback (a real existing caller) to render the "
+        "unchanged default empty state, got %r" % (layout.data_table(["A"], []),))
+    compact = layout.empty_state(heading, body, compact=True)
+    assert compact != expected_default, "expected compact=True to render a different block"
+    assert "text-heading" not in compact, "expected the compact form to carry no 22px serif .text-heading, got %r" % (compact,)
+    assert 'class="empty-state empty-state--compact"' in compact, "expected the compact form to carry its own modifier class"
+    assert 'class="empty-state__heading text-body"' in compact, "expected the compact heading on the Emphasis role's own size class"
+    assert 'class="empty-state__body text-label section-caption"' in compact, (
+        "expected the compact body at the label size and the 70% muted strength")
+    assert "widget-verdict" not in compact and "widget-detail" not in compact, (
+        "expected the compact form to reach its treatment through its OWN class names — borrowing "
+        ".widget-verdict would break the Resolution-rate tile's D-03/A-21 no-verdict pin on its "
+        "own empty branch")
+    # Escaping is unchanged on both paths.
+    hostile = layout.empty_state("<b>h</b>", "<i>b</i>", compact=True)
+    assert "<b>" not in hostile and "<i>" not in hostile, "expected the compact form to escape both arguments"
+
+
+def test_health_in_tile_empty_states_are_compact_and_card_ones_are_not(tmp_path):
+    """on a fresh install Health's two IN-TILE empty states (Corroboration,
+    Resolution rate) use the compact form while its two full-width card
+    empty states (Battery trend, Unresolved prefixes) keep the default
+    22px serif one (C1/X8, 22-12-PLAN.md Task 1)"""
+    # C1: the compact form belongs to the two empty states that land
+    # INSIDE a .stat-tile. The two full-width card empty states on the
+    # same page keep the default form — the variant is a tile fix, not a
+    # page-wide restyle.
+    state_dir = str(tmp_path)
+    now = shp.now()
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    tiles = shp.stat_tile_slices(rendered)
+    in_tile = [tile for tile in tiles if "empty-state" in tile]
+    assert len(in_tile) == 2, (
+        "expected exactly two in-tile empty states on a fresh install (Corroboration and "
+        "Resolution rate), got %d" % (len(in_tile),))
+    for tile in in_tile:
+        assert "empty-state--compact" in tile, "expected every in-tile empty state to use the compact form"
+    # ...and the full-card ones are untouched.
+    outside = rendered
+    for tile in tiles:
+        outside = outside.replace(tile, "")
+    default_blocks = outside.count('<div class="empty-state">')
+    assert default_blocks == 2, (
+        "expected the two full-width card empty states (Battery trend, Unresolved prefixes) to "
+        "keep the default form, got %d" % (default_blocks,))
+    assert "empty-state--compact" not in outside, (
+        "expected no compact empty state outside a .stat-tile — the variant is a tile fix, not a "
+        "page-wide restyle")
+
+
+_RESOLUTION_SINGULAR_CASES = [
+    (1, "en", "over the last %d days, 1 event" % health_page.RESOLUTION_WINDOW_DAYS, "1 events"),
+    (1, "fr", "au cours des %d derniers jours, 1 événement" % health_page.RESOLUTION_WINDOW_DAYS,
+     "1 événements"),
+    (2, "en", "over the last %d days, 2 events" % health_page.RESOLUTION_WINDOW_DAYS, None),
+    (2, "fr", "au cours des %d derniers jours, 2 événements" % health_page.RESOLUTION_WINDOW_DAYS, None),
+]
+
+
+@pytest.mark.parametrize(
+    ("total", "lang", "expected", "forbidden"), _RESOLUTION_SINGULAR_CASES,
+    ids=["total=1-en", "total=1-fr", "total=2-en", "total=2-fr"])
+def test_resolution_detail_line_has_a_singular_form(tmp_path, total, lang, expected, forbidden):
+    """the Resolution-rate tile's detail line has a singular form, so a
+    window holding exactly one detection never reads '1 events' /
+    '1 événements', in both languages (D-06/B16/CFG-29, 22-12-PLAN.md Task 1)"""
+    # D-06/B16, CFG-29: the LAST plural on this page with no singular form
+    # — a window holding exactly one detection read "over the last 30
+    # days, 1 events".
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_runway_events(state_dir, [
+        {"ts": shp.iso(now), "hex": "abc%03d" % index, "route_source": "fresh_hit"}
+        for index in range(total)])
+    try:
+        prefs.set_request_prefs(lang=lang)
+        rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    finally:
+        prefs.set_request_prefs(lang="en")
+    assert expected in rendered, "expected %r for total=%d in %s" % (expected, total, lang)
+    if forbidden is not None:
+        assert forbidden not in rendered, "expected no %r anywhere for total=%d in %s" % (forbidden, total, lang)
+
+
+def test_resolution_detail_templates_have_french_catalogue_entries():
+    """the Resolution-rate tile's singular and plural detail templates both
+    exist as separate constants with their own French catalogue entries —
+    never a runtime "add an s" (D-06/B16/CFG-29, 22-12-PLAN.md Task 1)"""
+    for template in (health_page._RESOLUTION_DETAIL_TEMPLATE, health_page._RESOLUTION_DETAIL_SINGULAR_TEMPLATE):
+        assert health_page.i18n.t_lang(template, "fr") != template, (
+            "expected %r to have its own French catalogue entry" % (template,))
+
+
+def test_state_text_dicts_have_expected_key_sets():
+    """DEVICE_STATE_TEXT has exactly ok/warn/error/off (widened by
+    22-04-PLAN.md Task 3 for the frame's own held state), PIPELINE_STATE_TEXT
+    has exactly ok/warn/error/off (B2, 22-03-PLAN.md Task 1) and
+    CORROBORATION_STATE_TEXT has exactly ok/warn (it has no error state)
+    (D-03/A-21)"""
+    # 22-04-PLAN.md Task 3 (D-03/CFG-26): DEVICE_STATE_TEXT gains the
+    # fourth "off" key (frame_state.STATE_HELD's own neutral device_state);
+    # CORROBORATION_STATE_TEXT is deliberately unwidened.
+    assert set(health_page.DEVICE_STATE_TEXT) == {"ok", "warn", "error", "off"}, (
+        "expected DEVICE_STATE_TEXT's keys to be exactly ok/warn/error/off, got %r" % (set(health_page.DEVICE_STATE_TEXT),))
+    assert set(health_page.PIPELINE_STATE_TEXT) == {"ok", "warn", "error", "off"}, (
+        "expected PIPELINE_STATE_TEXT's keys to be exactly ok/warn/error/off, got %r" % (set(health_page.PIPELINE_STATE_TEXT),))
+    assert set(health_page.CORROBORATION_STATE_TEXT) == {"ok", "warn"}, (
+        "expected CORROBORATION_STATE_TEXT's keys to be exactly ok/warn, got %r" % (set(health_page.CORROBORATION_STATE_TEXT),))
+
+
+# ==========================================================================
+# 22-03-PLAN.md Task 1 (B2): a real neutral never-ran pipeline state, and
+# a verdict-free pipeline_detail_html for Home.
+# ==========================================================================
+
+
+def test_pipeline_never_ran_renders_neutral_no_warn_no_banner(tmp_path):
+    """a genuinely never-ran pipeline (no META_LAST_PIPELINE_RUN, no
+    META_LAST_DETECTION) renders the neutral verdict with the existing
+    dot--off class, zero dot--warn, zero battery-fallback text, no second
+    detail line, and no anomaly banner when the device is healthy (B2,
+    22-03-PLAN.md Task 1)"""
+    # A pipeline that has genuinely never run renders the neutral "No
+    # detection yet" verdict — proven against a real health_page.render()
+    # call, with the device seeded healthy so only the pipeline signal is
+    # under test.
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    tile_slice = _tile_slice_by_caption(rendered, health_page.PIPELINE_FRESHNESS_LABEL)
+    expected_verdict_html = (
+        '<p class="text-body widget-verdict">'
+        '<span class="dot dot--off"></span>%s</p>'
+        % health_page.escape_html(health_page.PIPELINE_STATE_TEXT["off"]))
+    assert expected_verdict_html in tile_slice, "expected the never-ran neutral verdict paragraph, got tile %r" % (tile_slice,)
+    assert "dot--warn" not in tile_slice, "expected zero dot--warn occurrences in a never-ran pipeline tile"
+    assert layout.escape_html("no reading yet") not in tile_slice, "expected zero battery-fallback occurrences in a never-ran pipeline tile"
+    assert health_page.LAST_DETECTION_LABEL not in tile_slice, (
+        "expected no second 'Last aircraft detected' line in a never-ran pipeline tile — "
+        "last_detection is falsy by definition here, so that line would always render the "
+        "battery fallback")
+    assert health_page.ANOMALY_BANNER_TEXT not in rendered, "expected no anomaly banner for a never-ran pipeline with a healthy device"
+
+
+def test_pipeline_never_ran_renders_neutral_in_french(tmp_path):
+    """the same never-ran pipeline tile reads in French — 'Aucune détection
+    pour l’instant.', dot--off, zero dot--warn, zero French battery-
+    fallback text (B2, 22-03-PLAN.md Task 1)"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
+    try:
+        prefs.set_request_prefs(lang="fr")
+        rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    finally:
+        prefs.set_request_prefs(lang="en")
+    tile_slice = _tile_slice_by_caption(rendered, "Dernière mise à jour des données de vol")
+    assert "Aucune détection pour l’instant." in tile_slice, "expected the French never-ran verdict text in the pipeline tile"
+    assert "dot--warn" not in tile_slice, "expected zero dot--warn occurrences in a never-ran pipeline tile under French"
+    assert "aucune mesure pour l’instant" not in tile_slice, "expected zero French battery-fallback occurrences in a never-ran pipeline tile"
+
+
+def test_compute_health_state_carries_pipeline_detail_html_never_ran(tmp_path):
+    """compute_health_state()'s pipeline_detail_html key, for a never-ran
+    pipeline, is the bare PIPELINE_NEVER_RAN_DETAIL_TEXT sentence — no
+    widget-verdict class, no PIPELINE_STATE_TEXT verdict text — embedded
+    once inside pipeline_html (B2, 22-03-PLAN.md Task 1)"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    state = health_page.compute_health_state(state_dir, now=shp.iso(now))
+    assert "pipeline_detail_html" in state, "expected a pipeline_detail_html key on compute_health_state()'s dict"
+    detail_only = state["pipeline_detail_html"]
+    assert "widget-verdict" not in detail_only, "expected pipeline_detail_html to carry no widget-verdict class"
+    for verdict_text in health_page.PIPELINE_STATE_TEXT.values():
+        assert verdict_text not in detail_only, (
+            "expected pipeline_detail_html to carry no PIPELINE_STATE_TEXT verdict text, found %r" % (verdict_text,))
+    expected = health_page.escape_html(i18n.t(health_page.PIPELINE_NEVER_RAN_DETAIL_TEXT))
+    assert detail_only == expected, (
+        "expected pipeline_detail_html to equal the never-ran detail sentence exactly, got %r" % (detail_only,))
+    assert detail_only in state["pipeline_html"], (
+        "expected pipeline_detail_html to be the exact verdict-free fragment embedded inside pipeline_html")
