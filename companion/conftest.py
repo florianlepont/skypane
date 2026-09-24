@@ -101,3 +101,99 @@ def app_server_in_process(tmp_path):
     server = companion_app_server.InProcessAppServer(str(tmp_path / "state"))
     yield server
     server.stop()
+
+
+# --- Missing-browser policy and loopback-only browser guard (TST-11) -----
+
+def _browser_required():
+    """True in CI (GitHub sets CI=true) or with SKYPANE_REQUIRE_BROWSER=1:
+    there, a harness that could not launch Chromium is a failure, not a
+    skip. Locally it stays a visible pytest skip. Exact semantics of
+    companion/test_legacy_harness_shim.py's own _browser_required().
+    """
+    return (
+        os.environ.get("SKYPANE_REQUIRE_BROWSER") == "1"
+        or os.environ.get("CI", "").lower() == "true"
+    )
+
+
+@pytest.fixture(scope="session")
+def browser(browser_type, browser_type_launch_args):
+    """Overrides pytest-playwright's own session-scoped `browser` fixture
+    (built on its `launch_browser`/`browser_type`/`browser_type_launch_args`
+    chain): a missing/unlaunchable Chromium is a hard pytest.fail() when a
+    browser is required (CI / SKYPANE_REQUIRE_BROWSER=1), and a visible
+    pytest.skip() otherwise — it never passes silently (RESEARCH Pitfall 3).
+    Do not pass --browser-channel (33-RESEARCH.md): the default resolution
+    matches the --only-shell-installed binary.
+    """
+    try:
+        b = browser_type.launch(**browser_type_launch_args)
+    except Exception as exc:
+        if _browser_required():
+            pytest.fail(
+                "Chromium could not launch (CI / SKYPANE_REQUIRE_BROWSER=1): %r"
+                % (exc,))
+        pytest.skip(
+            "Chromium could not launch: %r - run "
+            "`playwright install --only-shell chromium`" % (exc,))
+    yield b
+    b.close()
+
+
+# Requests continued through the loopback-only guard without inspection:
+# data:/blob:/about: never reach a real network, and the loopback hosts
+# are companion/app.py's own AppServer instances a browser test drives.
+_ALWAYS_ALLOWED_SCHEMES = ("data", "blob", "about")
+_ALWAYS_ALLOWED_HOSTS = ("127.0.0.1", "localhost", "::1")
+
+
+def _make_route_guard(blocked):
+    def handler(route, request):
+        from urllib.parse import urlsplit
+
+        parsed = urlsplit(request.url)
+        if parsed.scheme in _ALWAYS_ALLOWED_SCHEMES or (
+                parsed.hostname in _ALWAYS_ALLOWED_HOSTS):
+            route.continue_()
+            return
+        blocked.append(request.url)
+        route.abort()
+
+    return handler
+
+
+@pytest.fixture
+def blocked_requests():
+    """The per-test list of non-loopback URLs the browser guard aborted.
+    A test that deliberately triggers one of these must .clear() it
+    before the test ends, or the new_context teardown below fails the
+    test naming the recorded URL(s).
+    """
+    return []
+
+
+@pytest.fixture
+def new_context(new_context, blocked_requests):
+    """Overrides pytest-playwright's own function-scoped `new_context`
+    factory fixture. The plugin's own `context`/`page` fixtures are built
+    on `new_context`, so both are covered by this override too
+    (T-33-02-02). Every context this factory returns gets a route guard
+    that continues loopback/data/blob/about requests and aborts
+    everything else, recording the aborted URL in `blocked_requests`.
+    Guard rule G10: a test that needs an extra viewport/context calls
+    THIS fixture (`new_context(viewport=...)`), never
+    `browser.new_context(...)` directly — only this fixture installs the
+    guard.
+    """
+    def factory(**kwargs):
+        ctx = new_context(**kwargs)
+        ctx.route("**/*", _make_route_guard(blocked_requests))
+        return ctx
+
+    yield factory
+
+    if blocked_requests:
+        pytest.fail(
+            "browser test made non-loopback request(s), blocked: %r"
+            % (blocked_requests,))
