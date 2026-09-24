@@ -34,12 +34,12 @@ after the SSH hardening step has run.
 | `skypane-poll.service` / `skypane-poll.timer` | A `Type=oneshot` unit invoking `server/poll_loop.py --once`, fired every 30s by the timer |
 | `skypane-companion.service` | Runs `companion/app.py` as the `skypane` user, bound to loopback — the companion configuration web interface (06-11-PLAN.md) |
 | `skypane-backup.service` / `.timer` | Nightly (03:15 UTC) oneshot snapshot of `/opt/skypane/state` into `/var/lib/skypane-backup/archives` — see "Backups" below |
-| `Caddyfile` | Reverse-proxies the public hostname to `127.0.0.1:8642` (device protocol) and a second hostname to `127.0.0.1:8643` (companion interface; `config-<public-host>` by default, or its own domain), both with Caddy's automatic Let's Encrypt HTTPS and HSTS |
-| `render_caddyfile.sh` | The one anchored, hostname-validated Caddyfile renderer both `activate.sh` and a first-time `provision.sh` run share |
-| `provision.sh` | Idempotent first-run setup on a fresh Ubuntu VPS: service user, packages, root-owned venv and `releases/`, the `skypane-backup` user/directories, ufw, SSH hardening |
+| `Caddyfile` | Template for SkyPane's own Caddy site file, `/etc/caddy/sites/skypane.caddy` (site blocks only, imported by the shared host Caddyfile — see "Caddy layout" below). Reverse-proxies the public hostname to `127.0.0.1:8642` (device protocol) and a second hostname to `127.0.0.1:8643` (companion interface; `config-<public-host>` by default, or its own domain), both with Caddy's automatic Let's Encrypt HTTPS and HSTS |
+| `render_caddyfile.sh` | The one anchored, hostname-validated renderer `activate.sh` uses to turn `Caddyfile` into `/etc/caddy/sites/skypane.caddy` |
+| `provision.sh` | Idempotent first-run setup on a fresh Ubuntu VPS: service user, packages, root-owned venv and `releases/`, `/etc/caddy/sites/`, the `skypane-backup` user/directories, ufw, SSH hardening |
 | `harden_sshd.sh` | Writes and validates the `/etc/ssh/sshd_config.d/00-skypane.conf` drop-in (SEC-08); called by `provision.sh`, never with its failure swallowed |
 | `deploy.sh` | Ships exactly one git SHA's committed tree (`git archive \| ssh`) to the VPS and runs that release's own `activate.sh` there |
-| `activate.sh` | Runs on the VPS as root: stages the release, installs units and the rendered Caddyfile, swaps `current` atomically, restarts services, probes every unit and both HTTP(S) surfaces, and rolls back automatically on any failure |
+| `activate.sh` | Runs on the VPS as root: stages the release, installs units and SkyPane's Caddy site file (never the shared host Caddyfile), swaps `current` atomically, restarts services, probes every unit and both HTTP(S) surfaces, and rolls back automatically on any failure |
 | `backup/skypane_backup.py` | The nightly snapshot job itself (runs as `skypane`, invoked by `skypane-backup.service`) |
 | `backup/backup_gate.py` | The forced-command gate (`list` / `get NAME` / `ack NAME`) installed for the `skypane-backup` SSH key |
 | `backup/install-backup-key.sh` | Installs the Mac's pull key into `skypane-backup`'s `authorized_keys` with the forced command |
@@ -100,13 +100,86 @@ sudo ./deploy/provision.sh <public-host> skypane.algernon.ovh
 ```
 
 `provision.sh` prepares the machine only — the service user, a root-owned
-`releases/` directory and Python venv, the `skypane-backup` pull user and
-its directories, ufw, and the SSH hardening drop-in below. It does **not**
-install the systemd units or render the Caddyfile any more: `deploy.sh`'s
-`activate.sh` does that on every deploy, so the units and the Caddyfile
-always match whatever code is actually running (see "Ship the code"
-below). It is idempotent — re-run it after editing `provision.sh` or
+`releases/` directory and Python venv, the `/etc/caddy/sites/` directory
+(root:root 0755), the `skypane-backup` pull user and its directories, ufw,
+and the SSH hardening drop-in below. It does **not** install the systemd
+units or render SkyPane's Caddy site file: `deploy.sh`'s `activate.sh`
+does that on every deploy, so the units and the site file always match whatever code is actually running (see "Ship the code"
+below). It never edits the host `/etc/caddy/Caddyfile` either — that file
+is shared with other sites (see "Caddy layout" below) — and prints a
+reminder instead if the one-time `import sites/*.caddy` line is still
+missing. It is idempotent — re-run it after editing `provision.sh` or
 `harden_sshd.sh` themselves to apply the change.
+
+## Caddy layout (host Caddyfile shared with other projects)
+
+The VPS's Caddy also serves another project (`cortege.algernon.ovh`,
+`cortege-files.algernon.ovh`), so `/etc/caddy/Caddyfile` is **not**
+SkyPane's file and no SkyPane script ever writes it:
+
+| Path | Owner | Written by |
+|------|-------|-----------|
+| `/etc/caddy/Caddyfile` | shared host config: global options, other projects' sites, one `import sites/*.caddy` line | hand-edited by the operator only |
+| `/etc/caddy/sites/skypane.caddy` | SkyPane's two site blocks (device + companion) | `activate.sh`, on every deploy |
+| `/etc/caddy/sites/.skypane.caddy.prev` | the previous site file, for restore/rollback | `activate.sh` (the leading dot and `.prev` suffix keep it out of the `*.caddy` import glob) |
+
+The host Caddyfile needs exactly one line, added once by hand (a relative
+`import` resolves against `/etc/caddy/`; `import /etc/caddy/sites/*.caddy`
+works too):
+
+```caddyfile
+import sites/*.caddy
+```
+
+`activate.sh` refuses to deploy — before touching anything — if that line
+or `/etc/caddy/sites/` is missing, with a message pointing here. On every
+deploy it renders `sites/skypane.caddy`, and if the result differs from
+the file already there it backs up the old one, moves the new one in,
+and validates the **whole** host config
+(`caddy validate --config /etc/caddy/Caddyfile`). A validation failure
+restores the previous site file (or removes the new one if there was
+none) and stops before the release swap; Caddy is only reloaded after the
+swap, and an unchanged site file means no reload at all.
+
+### One-time migration of an existing host
+
+A host provisioned before this layout still carries SkyPane's two site
+blocks inline in `/etc/caddy/Caddyfile`. Migrate it once, by hand, before
+the first release-layout deploy:
+
+```bash
+ssh ubuntu@<vps-ip>
+sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.pre37    # backup first
+sudo install -d -o root -g root -m 0755 /etc/caddy/sites   # provision.sh also does this
+sudoedit /etc/caddy/Caddyfile
+#   - delete SkyPane's two site blocks (the device host and the companion
+#     host, e.g. skypane.algernon.ovh) - leave every other block alone
+#   - add the line:  import sites/*.caddy
+# Do NOT reload Caddy yet: until activate.sh writes sites/skypane.caddy,
+# a reload would drop SkyPane's sites.
+```
+
+Then run the first deploy (`deploy/deploy.sh ubuntu@<vps-ip>` or the CI
+workflow): `activate.sh` writes `/etc/caddy/sites/skypane.caddy`,
+validates the whole host config and reloads Caddy. Afterwards check both
+SkyPane and the other project still answer:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://<public-host>/device/v1/display   # expect 401
+curl -sI https://cortege.algernon.ovh | head -1   # expect its usual status line
+```
+
+To revert the migration, put the old host file back and reload:
+
+```bash
+ssh ubuntu@<vps-ip> "sudo cp /etc/caddy/Caddyfile.pre37 /etc/caddy/Caddyfile \
+    && sudo rm -f /etc/caddy/sites/skypane.caddy \
+    && sudo systemctl reload caddy"
+```
+
+The restored `.pre37` file carries SkyPane's blocks inline and no import
+line; `skypane.caddy` is removed too so a later re-added import line can
+never define the same site addresses twice (Caddy refuses to load that).
 
 **SSH hardening runs as part of this step.** `provision.sh` calls
 `harden_sshd.sh`, which writes `/etc/ssh/sshd_config.d/00-skypane.conf`
@@ -130,8 +203,9 @@ sudo sshd -T | grep -Ei '^(permitrootlogin|passwordauthentication|kbdinteractive
 To change the companion or device hostname later, edit
 `SKYPANE_PUBLIC_HOST`/`SKYPANE_COMPANION_HOST` in `/opt/skypane/skypane.env`
 on the VPS and run `deploy/deploy.sh ubuntu@<vps-ip>` again — `activate.sh`
-re-renders and validates the Caddyfile from those values on every deploy,
-so there is no longer a Caddyfile to hand-edit. Users log in again once,
+re-renders `/etc/caddy/sites/skypane.caddy` from those values and
+validates it on every deploy, so there is no SkyPane Caddy config to
+hand-edit. Users log in again once,
 since the session cookie belongs to the old hostname.
 
 ## Write the real env file (once, by hand, on the VPS)
@@ -226,10 +300,11 @@ files, never `state/`, `.venv/` or `skypane.env`) into
   read-only to everyone else), byte-compiles it, and re-installs
   `server/requirements.txt` only if its hash changed since the last
   deploy.
-- Renders and validates the Caddyfile from `SKYPANE_PUBLIC_HOST`/
-  `SKYPANE_COMPANION_HOST` in `skypane.env` (`caddy validate`) and
-  installs every `deploy/skypane-*.service`/`.timer` unit — **units and
-  the Caddyfile are installed on every deploy**, not just the first one,
+- Renders SkyPane's own site file, `/etc/caddy/sites/skypane.caddy`, from
+  `SKYPANE_PUBLIC_HOST`/`SKYPANE_COMPANION_HOST` in `skypane.env`,
+  validates the whole host config with it (`caddy validate`) and installs
+  every `deploy/skypane-*.service`/`.timer` unit — **units and the site
+  file are installed on every deploy**, not just the first one,
   so they can never silently drift from the code that shipped them.
 - Atomically swaps `/opt/skypane/current` (a symlink) to point at the new
   release and restarts `skypane-byos`/`skypane-companion`/
@@ -238,16 +313,18 @@ files, never `state/`, `.venv/` or `skypane.env`) into
   HTTPS-through-Caddy request for both the device and companion
   endpoints (checking for the `Strict-Transport-Security` header too).
   If any probe fails within 30 seconds, it automatically swaps `current`
-  back to the previous release, reinstalls that release's units and
-  Caddyfile, restarts and re-probes, prints the failing unit's last 50
+  back to the previous release, reinstalls that release's units, restores
+  the previous `sites/skypane.caddy` (the host Caddyfile is never
+  touched), restarts and re-probes, prints the failing unit's last 50
   journal lines, and exits non-zero — so a bad deploy never leaves the
   broken code running, and the CI job goes red.
 - Prunes old releases, keeping the 5 most recent (`current` and the
   previous release are never pruned, even if that leaves more than 5).
 - Before any of the above, checks that `deploy/provision.sh` has already
   run on this box (`skypane.env` exists, the venv has a `python3`, and
-  `/var/lib/skypane-backup/{archives,pulled}` exist) — refusing to touch
-  anything if not.
+  `/var/lib/skypane-backup/{archives,pulled}` exist) and that the host
+  Caddyfile carries the `import sites/*.caddy` line with
+  `/etc/caddy/sites/` present — refusing to touch anything if not.
 
 **Manual rollback:** normally you don't need one — a failing deploy rolls
 itself back automatically. To deliberately revert to an already-deployed,
