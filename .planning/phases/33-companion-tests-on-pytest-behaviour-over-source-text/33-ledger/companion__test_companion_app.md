@@ -181,95 +181,95 @@ Baseline: `companion__test_companion_app.txt`, 320 checks
 | 175 | companion.battery.battery_life_estimate() is TOTAL over six series shapes (empty, one row, two flat rows, falling, RISING, and a newest row with a None reading) and never states a figure the data cannot support: a charged device's rising slope returns days_remaining=None rather than a negative or infinite lifetime, a flat series returns None, a series at or below the curve's bottom knot floors at zero, a series above the curve's top knot with falling millivolts but no measurable state-of-charge drop reports FALLING with days_remaining=None, the 'no reading' and 'not enough history' states are DIFFERENT named values, the falling series' figure is recomputed in STATE-OF-CHARGE space via battery_fraction() (SEED-006, quick 260923-gaf) rather than by millivolt extrapolation, and the relative cadence factor is available in all six shapes and doubles exactly when the proposed cadence doubles (CFG-49, 25-01-PLAN.md Task 3) | ported | companion/test_companion_app_03.py::test_battery_life_estimate_is_total_and_never_claims_what_it_cannot |
 | 176 | companion/battery.py imports nothing from companion.pages and nothing from the server package — an ast scan of the real module, not its docstring's claim (D-27/CFG-49, 25-01-PLAN.md Task 3) | ported | companion/test_companion_app_03.py::test_battery_module_imports_neither_a_page_module_nor_the_server_package |
 | 177 | every control in _NO_JS_CONTROL_REGISTRY holds its value in a native <input>/<select> the server renders unconditionally, associated with the form that posts it, with EVERY element carrying its wrapper attribute also carrying the .js-gate class — and the machine that judges that is proven non-vacuous against four fixtures built from real group-builder output: one correct control it must accept, and three it must reject (a field name nothing renders, a wrapper rendered outside the gate, and a value held by a div instead of a native input) (CFG-46/D-09, 25-01-PLAN.md Task 4) | ported | companion/test_companion_app_03.py::test_no_js_control_contract_holds_for_every_registered_control |
-| 178 | layout.JS_GATE_CLASS resolves to a real selector in companion/static/style.css on a SELECTOR BOUNDARY — the class a page module writes and the rule that hides it pinned as one name, because a rename on either side alone renders a script-only affordance permanently with scripts blocked (CFG-46/D-09, 25-01-PLAN.md Task 4) | pending | |
-| 179 | companion/static/style.css honours the phase's motion budget: every @keyframes name is defined exactly once, every animation reference resolves to a block in the same file, every animation duration comes from a var(--motion-*) token rather than a bare literal, the live prefers-reduced-motion reduce/no-preference block counts equal EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS/EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS, and neither interpolate-size nor calc-size() appears — all measured on COMMENT-STRIPPED source, because this stylesheet's comments quote every token the check counts (D3/CFG-32, 23-01-PLAN.md Task 2) | pending | |
-| 180 | GET /static/login-card.js succeeds without a session and returns a shared-cacheable JavaScript content type | pending | |
-| 181 | login-card.js stays ES5-safe and sink-free (no let/const/arrow/backtick/innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), carries the reveal contract (addEventListener/querySelector/getAttribute/data-login-reveal/aria-pressed/the class-at-load modifier) and duplicates no server-side throttling constant (X3, T-22-46/T-22-49) | pending | |
-| 182 | layout.LOGIN_CARD_SCRIPT_SRC equals companion.app.LOGIN_CARD_SCRIPT_ROUTE | pending | |
-| 183 | a rendered login page contains exactly ONE <script occurrence, the deferred LOGIN_CARD_SCRIPT_SRC tag, with no inline script and no nonce — login_shell() emitted zero script tags before this plan (X3, 22-13-PLAN.md Task 2) | pending | |
-| 184 | the server-rendered show-password toggle carries the hidden attribute, type="button", aria-pressed="false", both translated accessible names and .copy-btn's own icon-only geometry — and the field's padding modifier is NOT server-rendered (X3, the no-JS floor by construction) | pending | |
-| 185 | a login POST with the wrong password re-renders the form with the exact copy and sets no cookie | pending | |
-| 186 | a login POST with the right password sets a cookie with HttpOnly/Secure/SameSite=Strict and redirects to / (Home) | pending | |
-| 187 | an unauthenticated GET /health redirects with ?next=%2Fhealth, and logging in with that next value returns the user to /health, not /settings | pending | |
-| 188 | a login POST with the correct password and next='https://evil.example' redirects to the / (Home) fallback, never to the crafted value (T-06.6.2-12) | pending | |
-| 189 | a login POST with the correct password and next='//evil.example' redirects to the / (Home) fallback, never to the crafted value (T-06.6.2-12) | pending | |
-| 190 | GET /login?next=/nonexistent-route (not a real NAV_TABS member) renders the plain login form with no hidden next input | pending | |
-| 191 | GET /login (no session) is rendered by the dedicated login_shell(), not page_shell() — no sidebar/mobile-nav markup, autocomplete present | pending | |
-| 192 | GET /login with no error renders the stacked card (a .login-form with a .login-form__input and a bare page-title brand mark, no glyph, no sprite) and carries NEITHER aria-invalid NOR aria-describedby — never aria-invalid="false" — with style.css carrying the field/primary/error-border rules it had none of before (X3, 22-13-PLAN.md Task 1) | pending | |
-| 193 | a wrong-password login render carries aria-invalid="true", aria-describedby="login-error" and a role="alert" message in the existing .field-error text-label treatment, rendered between the field and the primary (X3, 22-UI-SPEC.md §5 contract 5) | pending | |
-| 194 | a locked-out login render puts the server-computed lockout sentence in the SAME .field-error text-label role=alert treatment under the field, with aria-describedby but deliberately no aria-invalid (X3, one error voice) | pending | |
-| 195 | page_shell() and login_shell() both emit lang="en" (D-01/UXA-09 language-policy regression guard) | pending | |
-| 196 | authenticated GET / returns 200 and contains its own 'Home' heading | pending | |
-| 197 | authenticated GET /display returns 200 and contains its own 'Display' heading | pending | |
-| 198 | authenticated GET /flights returns 200 and contains its own 'Flights' heading | pending | |
-| 199 | authenticated GET /airlines returns 200 and contains its own 'Airlines' heading | pending | |
-| 200 | authenticated GET /health returns 200 and contains its own 'Health' heading | pending | |
-| 201 | authenticated GET /device returns 200 and contains its own 'Device' heading | pending | |
-| 202 | authenticated GET /preview (the retired Preview page route) redirects to /flights (D-22, retargeted by phase 18) | pending | |
-| 203 | authenticated GET /settings (a pre-phase-18 page route) redirects to /display with a fixed literal target | pending | |
-| 204 | authenticated GET /history (a pre-phase-18 page route) redirects to /flights with a fixed literal target | pending | |
-| 205 | authenticated GET /preview carrying an arbitrary query string (including a next=-shaped and an https://evil.example-shaped value) still redirects to the identical /flights location — no request value influences the target | pending | |
-| 206 | authenticated GET /config (the retired settings path) returns 404 — D-26 declines a redirect since this is a fresh URL at inception, not a deprecated bookmark | pending | |
-| 207 | an authenticated POST /settings redirects to /display (the default return page) carrying a flash query | pending | |
-| 208 | a POST /settings with a valid theme change and an empty quiet_hours_start returns 200, shows the newly-picked theme still selected, shows the quiet-hours field error, carries no flash banner, and persists nothing on disk (D-07/A-25) | pending | |
-| 209 | authenticated GET / renders the rebuilt Home page (D-01/D-04/D-05) with the Frame strip's two switch forms, three stat-tile elements, the picture/recent-flights row, and the recent-flights list under the grouped Advanced navigation, carrying none of the retired Quick-actions card or Poll form | pending | |
-| 210 | POST /quick/display with state=off then state=on flips display_enabled on disk and redirects to Display (D-16) with the matching flash; a crafted state value redirects with quick_failed and writes nothing | pending | |
-| 211 | POST /quick/quiet-hours with state=on then state=off flips quiet_hours_enabled on disk, redirects to Display (D-16) with the matching flash, and never touches display_enabled | pending | |
-| 212 | POST /quick/display honours return_to (/ or /display), falls back to Display for a hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and the invalid-state early return honours return_to too (D-01/R-02) | pending | |
-| 213 | POST /quick/quiet-hours honours return_to (/ or /display), falls back to Display for a hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and the invalid-state early return honours return_to too (D-01/R-02) | pending | |
-| 214 | POST /quick/display and POST /quick/quiet-hours answer a form post with exactly today's 303-and-flash and a request carrying the fetch header with a 204, empty body and no Location — the same write either way, and a crafted state value is never a 204 (D2/CFG-36, T-23-26, 23-07-PLAN.md Task 1) | pending | |
-| 215 | POST /quick/led stores one explicit led_enabled keyword and carries every other flag forward, redirects to /device with its own flash for a form post, answers 204 with an empty body for a fetch, redirects with the generic failure flash and writes nothing for a crafted state, falls back to /device for every non-member return_to, and is not reachable by GET at all (D2/CFG-36, T-23-23/T-23-24/T-23-25, 23-07-PLAN.md Task 2) | pending | |
-| 216 | unauthenticated POST /quick/led redirects to /login without page content | pending | |
-| 217 | unauthenticated POST /quick/display redirects to /login without page content | pending | |
-| 218 | a scoped POST /settings (scope=display / scope=device) persists only its own page's groups, carries the other page's checkbox state forward instead of flipping it off, redirects to the page it came from, and never honours a crafted return_to | pending | |
-| 219 | GET /display and GET /device split the settings groups per companion/screens.py (20-07 moved Runway/Calendar/the rules editor to Display, D-10/D-11), each carrying its hidden scope/return_to fields and the screen-type caption; Manual refresh lives on Device only | pending | |
-| 220 | every HTML response (an authenticated page and the login page alike) carries Cache-Control: no-store, so the back button and shared caches never replay a page after sign-out | pending | |
-| 221 | an authenticated HTML response carries a Content-Security-Policy header equal (string equality, not substring) to companion.app.CONTENT_SECURITY_POLICY | pending | |
-| 222 | the CSP's script-src directive is 'self' with no 'unsafe-inline' anywhere in it (Task 1 removed the app's last two inline <script> elements, so no exception is needed) | pending | |
-| 223 | a 303 redirect response (the unauthenticated bounce to /login) carries all four hardening headers, including the CSP — before this plan redirect() sent none of them | pending | |
-| 224 | the static CSS response (the send_bytes() path) also carries the CSP header | pending | |
-| 225 | POST /ui-theme with no session cookie redirects to /login and does not set a ui_theme cookie (T-19-04: an unauthenticated caller cannot set another visitor's UI theme) | pending | |
-| 226 | POST /logout with no session cookie redirects to /login (T-19-04: gating a logout costs a signed-out caller nothing) | pending | |
-| 227 | POST /ui-lang with ui_lang=fr/en sets the sp_ui_lang cookie (HttpOnly, SameSite=Strict) and redirects to the referring tab; ui_lang=de sets no cookie | pending | |
-| 228 | POST /ui-lang with no session cookie redirects to /login and does not set a sp_ui_lang cookie (T-20-01) | pending | |
-| 229 | POST /ui-mode with a valid session now takes the unknown-route 404 path (D-17, the route/handler/dispatch line are deleted together) | pending | |
-| 230 | a cookie-free GET (session cookie only, no sp_ui_lang) with Accept-Language: fr-FR,fr;q=0.9 renders <html lang="fr"; with Accept-Language: en-GB renders <html lang="en" (D-03) | pending | |
-| 231 | the sp_ui_lang cookie beats Accept-Language when both are present (D-03) | pending | |
-| 232 | #site-nav-toggle renders icon-gear (never icon-hamburger), its aria-label is NAV_TOGGLE_LABEL translated through i18n's real per-request path in both EN and FR, and the panel it opens still holds the language/theme switches and Sign out with zero page-navigation links (CFG-76) | pending | |
-| 233 | authenticated GET /device pre-fills Wake interval with SKYPANE_SLEEP_S=900 when nothing is stored, and a stored wake_interval_s=120 always wins over that environment value | pending | |
-| 234 | authenticated GET /device degrades a below-floor SKYPANE_SLEEP_S=30 (the shipped deploy/skypane.env.example value) to the placeholder empty state, never a value attribute the form could not submit | pending | |
-| 235 | GET /login?next=/display (a real NAV_TABS member) renders a hidden next field carrying /display, surviving the round trip | pending | |
-| 236 | app.SETTINGS_ROUTE and config_page.SETTINGS_ROUTE agree, NAV_TABS opens with HOME_ROUTE, and NAV_ICON_IDS' keys equal the nav route slugs one-to-one | pending | |
-| 237 | the nav tuple, the page-titles dict, and the slug-to-icon map all agree in size and key set, and the settings page module's own route constant is the nav tuple's first route — a standing guard against silent drift when the route set changes again | pending | |
-| 238 | POST /logout clears the session cookie (Max-Age=0) | pending | |
-| 239 | replaying the exact session cookie after Sign out is rejected (A-33: revoked server-side, not just cleared client-side) | pending | |
-| 240 | GET /logout no longer accepts the request (404) — D-11 closes the GET-triggered logout hole | pending | |
-| 241 | a tab request after logout (no cookie presented) is refused again | pending | |
-| 242 | an unknown path returns 404 with the exact 'Page not found.' copy | pending | |
-| 243 | an authenticated 404 opens with the shared page_header() (page-title, not text-heading) and shows the Health nav dot when state is seeded error | pending | |
-| 244 | an UNAUTHENTICATED 404 renders no health-dot markup under the same seeded error state — the leak guard for the two pre-auth call sites (_serve_stylesheet, _serve_script_file) | pending | |
-| 245 | authenticated GET /preview.png returns 404 with the exact 'Page not found.' copy even with a real 960,000-byte panel.bin present — the route is gone, not empty | pending | |
-| 246 | an authenticated gallery image is never advertised as storable by a shared/intermediary cache (WR-02) | pending | |
-| 247 | a gallery request with parent-directory segments returns 404 | pending | |
-| 248 | a gallery request with an absolute path returns 404 | pending | |
-| 249 | a gallery request with a null byte returns 404 | pending | |
-| 250 | the canary file placed one level above the gallery directory never appears in any traversal response | pending | |
-| 251 | an authenticated GET /illustration/air-france.png returns 200, image/png, and a non-empty body | pending | |
-| 252 | an authenticated GET for an illustration key not in the membership set returns 404 | pending | |
-| 253 | authenticated GET requests for adversarial illustration paths (path traversal) all return 404 with no file content | pending | |
-| 254 | an unauthenticated GET /illustration/air-france.png redirects to /login, never returns image bytes | pending | |
-| 255 | GET /illustration/{key}.png for a manual key: 404 with no registry entry, 404 with an entry but no override file, and 200/image/png once both exist | pending | |
-| 256 | Pitfall 3's warning sign made executable: POST /illustration/{key}.png for a manual key that was never registered returns 404 and writes nothing to the override directory; once the key is registered via add_entry(), the identical POST succeeds | pending | |
-| 257 | an authenticated GET /theme-preview/{id}.png returns 200, image/png, and a real PNG body for every id in device_config.THEME_IDS — no theme is unreachable | pending | |
-| 258 | an authenticated GET for a theme id not in the membership set returns the same 404 page an unknown runway/illustration id produces | pending | |
-| 259 | authenticated GET requests for adversarial theme-preview paths (path traversal) all return 404 with no file content | pending | |
-| 260 | an unauthenticated GET /theme-preview/white.png redirects to /login, never returns image bytes | pending | |
-| 261 | GET /theme-preview/white.png?live=1 with no runway_events row at all still returns 200/image/png (the sample-scene fallback, D-23) | pending | |
-| 262 | GET /theme-preview/white.png?live=1 with a seeded runway_events row returns 200/image/png, and a second request for the same latest event is served from the cache without growing the cache directory (D-23/Pitfall 7) | pending | |
-| 263 | inserting a NEWER runway_events row changes both the served live-preview bytes and the cache file it comes from — a newer flight is a cache miss, never a stale hit served forever (D-23/Pitfall 7) | pending | |
-| 264 | GET /theme-preview/nope.png?live=1 returns the same 404 an unknown theme id always returns — the membership test still runs before any query is even parsed | pending | |
-| 265 | ?live=0 and a missing ?live query both serve the sample variant, never the live one, even with a runway_events row present (D-23) | pending | |
-| 266 | uploading a real PNG over real HTTP to a real companion/app.py subprocess changes what GET /illustration/air-france.png serves, even with a traversal-shaped declared filename in the part header | pending | |
+| 178 | layout.JS_GATE_CLASS resolves to a real selector in companion/static/style.css on a SELECTOR BOUNDARY — the class a page module writes and the rule that hides it pinned as one name, because a rename on either side alone renders a script-only affordance permanently with scripts blocked (CFG-46/D-09, 25-01-PLAN.md Task 4) | ported | companion/test_companion_app_04.py::test_js_gate_class_resolves_to_a_real_selector_on_a_boundary |
+| 179 | companion/static/style.css honours the phase's motion budget: every @keyframes name is defined exactly once, every animation reference resolves to a block in the same file, every animation duration comes from a var(--motion-*) token rather than a bare literal, the live prefers-reduced-motion reduce/no-preference block counts equal EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS/EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS, and neither interpolate-size nor calc-size() appears — all measured on COMMENT-STRIPPED source, because this stylesheet's comments quote every token the check counts (D3/CFG-32, 23-01-PLAN.md Task 2) | ported | companion/test_companion_app_04.py::test_style_css_honours_the_motion_budget |
+| 180 | GET /static/login-card.js succeeds without a session and returns a shared-cacheable JavaScript content type | ported | companion/test_companion_app_04.py::test_login_card_script_public |
+| 181 | login-card.js stays ES5-safe and sink-free (no let/const/arrow/backtick/innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), carries the reveal contract (addEventListener/querySelector/getAttribute/data-login-reveal/aria-pressed/the class-at-load modifier) and duplicates no server-side throttling constant (X3, T-22-46/T-22-49) | ported | companion/test_companion_app_04.py::test_login_card_script_es5_safe_and_no_html_write |
+| 182 | layout.LOGIN_CARD_SCRIPT_SRC equals companion.app.LOGIN_CARD_SCRIPT_ROUTE | ported | companion/test_companion_app_04.py::test_login_card_script_route_src_agree |
+| 183 | a rendered login page contains exactly ONE <script occurrence, the deferred LOGIN_CARD_SCRIPT_SRC tag, with no inline script and no nonce — login_shell() emitted zero script tags before this plan (X3, 22-13-PLAN.md Task 2) | ported | companion/test_companion_app_04.py::test_login_page_emits_exactly_one_script_tag |
+| 184 | the server-rendered show-password toggle carries the hidden attribute, type="button", aria-pressed="false", both translated accessible names and .copy-btn's own icon-only geometry — and the field's padding modifier is NOT server-rendered (X3, the no-JS floor by construction) | ported | companion/test_companion_app_04.py::test_login_reveal_toggle_is_server_hidden_and_named |
+| 185 | a login POST with the wrong password re-renders the form with the exact copy and sets no cookie | ported | companion/test_companion_app_04.py::test_login_wrong_password |
+| 186 | a login POST with the right password sets a cookie with HttpOnly/Secure/SameSite=Strict and redirects to / (Home) | ported | companion/test_companion_app_04.py::test_login_correct_password |
+| 187 | an unauthenticated GET /health redirects with ?next=%2Fhealth, and logging in with that next value returns the user to /health, not /settings | ported | companion/test_companion_app_04.py::test_deep_link_return_round_trip |
+| 188 | a login POST with the correct password and next='https://evil.example' redirects to the / (Home) fallback, never to the crafted value (T-06.6.2-12) | ported | companion/test_companion_app_04.py::test_open_redirect_rejected[https://evil.example] |
+| 189 | a login POST with the correct password and next='//evil.example' redirects to the / (Home) fallback, never to the crafted value (T-06.6.2-12) | ported | companion/test_companion_app_04.py::test_open_redirect_rejected[//evil.example] |
+| 190 | GET /login?next=/nonexistent-route (not a real NAV_TABS member) renders the plain login form with no hidden next input | ported | companion/test_companion_app_04.py::test_login_get_with_unrecognised_next_carries_no_hidden_field |
+| 191 | GET /login (no session) is rendered by the dedicated login_shell(), not page_shell() — no sidebar/mobile-nav markup, autocomplete present | ported | companion/test_companion_app_04.py::test_login_page_uses_dedicated_login_shell |
+| 192 | GET /login with no error renders the stacked card (a .login-form with a .login-form__input and a bare page-title brand mark, no glyph, no sprite) and carries NEITHER aria-invalid NOR aria-describedby — never aria-invalid="false" — with style.css carrying the field/primary/error-border rules it had none of before (X3, 22-13-PLAN.md Task 1) | ported | companion/test_companion_app_04.py::test_login_clean_render_carries_no_error_association |
+| 193 | a wrong-password login render carries aria-invalid="true", aria-describedby="login-error" and a role="alert" message in the existing .field-error text-label treatment, rendered between the field and the primary (X3, 22-UI-SPEC.md §5 contract 5) | ported | companion/test_companion_app_04.py::test_login_error_render_is_programmatically_associated |
+| 194 | a locked-out login render puts the server-computed lockout sentence in the SAME .field-error text-label role=alert treatment under the field, with aria-describedby but deliberately no aria-invalid (X3, one error voice) | ported | companion/test_companion_app_04.py::test_login_lockout_render_shares_the_one_error_voice |
+| 195 | page_shell() and login_shell() both emit lang="en" (D-01/UXA-09 language-policy regression guard) | ported | companion/test_companion_app_04.py::test_both_shells_agree_on_document_language |
+| 196 | authenticated GET / returns 200 and contains its own 'Home' heading | ported | companion/test_companion_app_04.py::test_authenticated_tab_returns_200_with_its_own_heading[/-Home] |
+| 197 | authenticated GET /display returns 200 and contains its own 'Display' heading | ported | companion/test_companion_app_04.py::test_authenticated_tab_returns_200_with_its_own_heading[/display-Display] |
+| 198 | authenticated GET /flights returns 200 and contains its own 'Flights' heading | ported | companion/test_companion_app_04.py::test_authenticated_tab_returns_200_with_its_own_heading[/flights-Flights] |
+| 199 | authenticated GET /airlines returns 200 and contains its own 'Airlines' heading | ported | companion/test_companion_app_04.py::test_authenticated_tab_returns_200_with_its_own_heading[/airlines-Airlines] |
+| 200 | authenticated GET /health returns 200 and contains its own 'Health' heading | ported | companion/test_companion_app_04.py::test_authenticated_tab_returns_200_with_its_own_heading[/health-Health] |
+| 201 | authenticated GET /device returns 200 and contains its own 'Device' heading | ported | companion/test_companion_app_04.py::test_authenticated_tab_returns_200_with_its_own_heading[/device-Device] |
+| 202 | authenticated GET /preview (the retired Preview page route) redirects to /flights (D-22, retargeted by phase 18) | ported | companion/test_companion_app_04.py::test_preview_redirects_to_flights |
+| 203 | authenticated GET /settings (a pre-phase-18 page route) redirects to /display with a fixed literal target | ported | companion/test_companion_app_04.py::test_legacy_page_route_redirects_with_a_fixed_literal_target[/settings-/display] |
+| 204 | authenticated GET /history (a pre-phase-18 page route) redirects to /flights with a fixed literal target | ported | companion/test_companion_app_04.py::test_legacy_page_route_redirects_with_a_fixed_literal_target[/history-/flights] |
+| 205 | authenticated GET /preview carrying an arbitrary query string (including a next=-shaped and an https://evil.example-shaped value) still redirects to the identical /flights location — no request value influences the target | ported | companion/test_companion_app_04.py::test_preview_redirect_ignores_query_string |
+| 206 | authenticated GET /config (the retired settings path) returns 404 — D-26 declines a redirect since this is a fresh URL at inception, not a deprecated bookmark | ported | companion/test_companion_app_04.py::test_old_settings_path_404s_authenticated |
+| 207 | an authenticated POST /settings redirects to /display (the default return page) carrying a flash query | ported | companion/test_companion_app_04.py::test_settings_post_redirects_to_display_with_flash |
+| 208 | a POST /settings with a valid theme change and an empty quiet_hours_start returns 200, shows the newly-picked theme still selected, shows the quiet-hours field error, carries no flash banner, and persists nothing on disk (D-07/A-25) | ported | companion/test_companion_app_04.py::test_rejected_settings_save_rerenders_200_with_input_and_error_persists_nothing |
+| 209 | authenticated GET / renders the rebuilt Home page (D-01/D-04/D-05) with the Frame strip's two switch forms, three stat-tile elements, the picture/recent-flights row, and the recent-flights list under the grouped Advanced navigation, carrying none of the retired Quick-actions card or Poll form | ported | companion/test_companion_app_04.py::test_home_page_renders_widgets |
+| 210 | POST /quick/display with state=off then state=on flips display_enabled on disk and redirects to Display (D-16) with the matching flash; a crafted state value redirects with quick_failed and writes nothing | ported | companion/test_companion_app_04.py::test_quick_display_toggle_round_trip |
+| 211 | POST /quick/quiet-hours with state=on then state=off flips quiet_hours_enabled on disk, redirects to Display (D-16) with the matching flash, and never touches display_enabled | ported | companion/test_companion_app_04.py::test_quick_quiet_hours_toggle_round_trip |
+| 212 | POST /quick/display honours return_to (/ or /display), falls back to Display for a hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and the invalid-state early return honours return_to too (D-01/R-02) | ported | companion/test_companion_app_04.py::test_quick_display_honours_return_to |
+| 213 | POST /quick/quiet-hours honours return_to (/ or /display), falls back to Display for a hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and the invalid-state early return honours return_to too (D-01/R-02) | ported | companion/test_companion_app_04.py::test_quick_quiet_hours_honours_return_to |
+| 214 | POST /quick/display and POST /quick/quiet-hours answer a form post with exactly today's 303-and-flash and a request carrying the fetch header with a 204, empty body and no Location — the same write either way, and a crafted state value is never a 204 (D2/CFG-36, T-23-26, 23-07-PLAN.md Task 1) | ported | companion/test_companion_app_04.py::test_quick_routes_answer_204_for_a_fetch_and_303_for_a_form |
+| 215 | POST /quick/led stores one explicit led_enabled keyword and carries every other flag forward, redirects to /device with its own flash for a form post, answers 204 with an empty body for a fetch, redirects with the generic failure flash and writes nothing for a crafted state, falls back to /device for every non-member return_to, and is not reachable by GET at all (D2/CFG-36, T-23-23/T-23-24/T-23-25, 23-07-PLAN.md Task 2) | ported | companion/test_companion_app_04.py::test_quick_led_route_saves_redirects_and_negotiates |
+| 216 | unauthenticated POST /quick/led redirects to /login without page content | ported | companion/test_companion_app_04.py::test_unauth_post_quick_led_redirects_to_login |
+| 217 | unauthenticated POST /quick/display redirects to /login without page content | ported | companion/test_companion_app_04.py::test_unauth_post_quick_display_redirects_to_login |
+| 218 | a scoped POST /settings (scope=display / scope=device) persists only its own page's groups, carries the other page's checkbox state forward instead of flipping it off, redirects to the page it came from, and never honours a crafted return_to | ported | companion/test_companion_app_04.py::test_scoped_settings_save_carries_other_page_forward |
+| 219 | GET /display and GET /device split the settings groups per companion/screens.py (20-07 moved Runway/Calendar/the rules editor to Display, D-10/D-11), each carrying its hidden scope/return_to fields and the screen-type caption; Manual refresh lives on Device only | ported | companion/test_companion_app_04.py::test_display_and_device_pages_split_the_groups |
+| 220 | every HTML response (an authenticated page and the login page alike) carries Cache-Control: no-store, so the back button and shared caches never replay a page after sign-out | ported | companion/test_companion_app_04.py::test_html_pages_are_no_store |
+| 221 | an authenticated HTML response carries a Content-Security-Policy header equal (string equality, not substring) to companion.app.CONTENT_SECURITY_POLICY | ported | companion/test_companion_app_04.py::test_authenticated_html_carries_exact_csp |
+| 222 | the CSP's script-src directive is 'self' with no 'unsafe-inline' anywhere in it (Task 1 removed the app's last two inline <script> elements, so no exception is needed) | ported | companion/test_companion_app_04.py::test_csp_script_src_strict_no_unsafe_inline |
+| 223 | a 303 redirect response (the unauthenticated bounce to /login) carries all four hardening headers, including the CSP — before this plan redirect() sent none of them | ported | companion/test_companion_app_04b.py::test_redirect_carries_four_hardening_headers |
+| 224 | the static CSS response (the send_bytes() path) also carries the CSP header | ported | companion/test_companion_app_04b.py::test_static_css_response_carries_csp |
+| 225 | POST /ui-theme with no session cookie redirects to /login and does not set a ui_theme cookie (T-19-04: an unauthenticated caller cannot set another visitor's UI theme) | ported | companion/test_companion_app_04b.py::test_ui_theme_post_without_session_redirects_to_login |
+| 226 | POST /logout with no session cookie redirects to /login (T-19-04: gating a logout costs a signed-out caller nothing) | ported | companion/test_companion_app_04b.py::test_logout_post_without_session_redirects_to_login |
+| 227 | POST /ui-lang with ui_lang=fr/en sets the sp_ui_lang cookie (HttpOnly, SameSite=Strict) and redirects to the referring tab; ui_lang=de sets no cookie | ported | companion/test_companion_app_04b.py::test_ui_lang_post_round_trip |
+| 228 | POST /ui-lang with no session cookie redirects to /login and does not set a sp_ui_lang cookie (T-20-01) | ported | companion/test_companion_app_04b.py::test_ui_lang_post_without_session_redirects_to_login |
+| 229 | POST /ui-mode with a valid session now takes the unknown-route 404 path (D-17, the route/handler/dispatch line are deleted together) | ported | companion/test_companion_app_04b.py::test_post_to_the_deleted_display_mode_route_with_session_now_404s |
+| 230 | a cookie-free GET (session cookie only, no sp_ui_lang) with Accept-Language: fr-FR,fr;q=0.9 renders <html lang="fr"; with Accept-Language: en-GB renders <html lang="en" (D-03) | ported | companion/test_companion_app_04b.py::test_accept_language_resolves_html_lang_with_no_cookie |
+| 231 | the sp_ui_lang cookie beats Accept-Language when both are present (D-03) | ported | companion/test_companion_app_04b.py::test_ui_lang_cookie_beats_accept_language |
+| 232 | #site-nav-toggle renders icon-gear (never icon-hamburger), its aria-label is NAV_TOGGLE_LABEL translated through i18n's real per-request path in both EN and FR, and the panel it opens still holds the language/theme switches and Sign out with zero page-navigation links (CFG-76) | ported | companion/test_companion_app_04b.py::test_the_nav_toggle_wears_the_gear_and_opens_the_same_panel |
+| 233 | authenticated GET /device pre-fills Wake interval with SKYPANE_SLEEP_S=900 when nothing is stored, and a stored wake_interval_s=120 always wins over that environment value | ported | companion/test_companion_app_04b.py::test_wake_interval_env_prefill_and_on_disk_precedence |
+| 234 | authenticated GET /device degrades a below-floor SKYPANE_SLEEP_S=30 (the shipped deploy/skypane.env.example value) to the placeholder empty state, never a value attribute the form could not submit | ported | companion/test_companion_app_04b.py::test_wake_interval_below_floor_env_degrades_to_placeholder |
+| 235 | GET /login?next=/display (a real NAV_TABS member) renders a hidden next field carrying /display, surviving the round trip | ported | companion/test_companion_app_04b.py::test_login_get_with_settings_next_carries_hidden_field |
+| 236 | app.SETTINGS_ROUTE and config_page.SETTINGS_ROUTE agree, NAV_TABS opens with HOME_ROUTE, and NAV_ICON_IDS' keys equal the nav route slugs one-to-one | ported | companion/test_companion_app_04b.py::test_settings_route_and_icon_map_cross_module_contract |
+| 237 | the nav tuple, the page-titles dict, and the slug-to-icon map all agree in size and key set, and the settings page module's own route constant is the nav tuple's first route — a standing guard against silent drift when the route set changes again | ported | companion/test_companion_app_04b.py::test_nav_page_titles_icon_route_standing_contract_guard |
+| 238 | POST /logout clears the session cookie (Max-Age=0) | ported | companion/test_companion_app_04b.py::test_logout_clears_cookie_and_a_replayed_or_absent_cookie_is_refused_afterward |
+| 239 | replaying the exact session cookie after Sign out is rejected (A-33: revoked server-side, not just cleared client-side) | ported | companion/test_companion_app_04b.py::test_logout_clears_cookie_and_a_replayed_or_absent_cookie_is_refused_afterward |
+| 240 | GET /logout no longer accepts the request (404) — D-11 closes the GET-triggered logout hole | ported | companion/test_companion_app_04b.py::test_logout_clears_cookie_and_a_replayed_or_absent_cookie_is_refused_afterward |
+| 241 | a tab request after logout (no cookie presented) is refused again | ported | companion/test_companion_app_04b.py::test_logout_clears_cookie_and_a_replayed_or_absent_cookie_is_refused_afterward |
+| 242 | an unknown path returns 404 with the exact 'Page not found.' copy | ported | companion/test_companion_app_04b.py::test_unknown_path_404 |
+| 243 | an authenticated 404 opens with the shared page_header() (page-title, not text-heading) and shows the Health nav dot when state is seeded error | ported | companion/test_companion_app_04b.py::test_authenticated_404_uses_page_header_and_shows_health_dot |
+| 244 | an UNAUTHENTICATED 404 renders no health-dot markup under the same seeded error state — the leak guard for the two pre-auth call sites (_serve_stylesheet, _serve_script_file) | ported | companion/test_companion_app_04b.py::test_unauthenticated_404_never_leaks_health_state |
+| 245 | authenticated GET /preview.png returns 404 with the exact 'Page not found.' copy even with a real 960,000-byte panel.bin present — the route is gone, not empty | ported | companion/test_companion_app_04b.py::test_preview_png_404_even_with_real_panel |
+| 246 | an authenticated gallery image is never advertised as storable by a shared/intermediary cache (WR-02) | ported | companion/test_companion_app_04b.py::test_gallery_response_is_never_shared_cacheable |
+| 247 | a gallery request with parent-directory segments returns 404 | ported | companion/test_companion_app_04b.py::test_gallery_traversal_and_canary_never_leaks |
+| 248 | a gallery request with an absolute path returns 404 | ported | companion/test_companion_app_04b.py::test_gallery_traversal_and_canary_never_leaks |
+| 249 | a gallery request with a null byte returns 404 | ported | companion/test_companion_app_04b.py::test_gallery_traversal_and_canary_never_leaks |
+| 250 | the canary file placed one level above the gallery directory never appears in any traversal response | ported | companion/test_companion_app_04b.py::test_gallery_traversal_and_canary_never_leaks |
+| 251 | an authenticated GET /illustration/air-france.png returns 200, image/png, and a non-empty body | ported | companion/test_companion_app_04b.py::test_illustration_real_key_returns_png |
+| 252 | an authenticated GET for an illustration key not in the membership set returns 404 | ported | companion/test_companion_app_04b.py::test_illustration_unknown_key_404 |
+| 253 | authenticated GET requests for adversarial illustration paths (path traversal) all return 404 with no file content | ported | companion/test_companion_app_04b.py::test_illustration_traversal_key_404 |
+| 254 | an unauthenticated GET /illustration/air-france.png redirects to /login, never returns image bytes | ported | companion/test_companion_app_04b.py::test_illustration_unauthenticated_redirects_to_login |
+| 255 | GET /illustration/{key}.png for a manual key: 404 with no registry entry, 404 with an entry but no override file, and 200/image/png once both exist | ported | companion/test_companion_app_04b.py::test_illustration_manual_key_read_path_states |
+| 256 | Pitfall 3's warning sign made executable: POST /illustration/{key}.png for a manual key that was never registered returns 404 and writes nothing to the override directory; once the key is registered via add_entry(), the identical POST succeeds | ported | companion/test_companion_app_04b.py::test_illustration_manual_key_post_unregistered_then_registered |
+| 257 | an authenticated GET /theme-preview/{id}.png returns 200, image/png, and a real PNG body for every id in device_config.THEME_IDS — no theme is unreachable | ported | companion/test_companion_app_04b.py::test_theme_preview_real_key_returns_png_for_every_theme |
+| 258 | an authenticated GET for a theme id not in the membership set returns the same 404 page an unknown runway/illustration id produces | ported | companion/test_companion_app_04b.py::test_theme_preview_unknown_key_404 |
+| 259 | authenticated GET requests for adversarial theme-preview paths (path traversal) all return 404 with no file content | ported | companion/test_companion_app_04b.py::test_theme_preview_traversal_key_404 |
+| 260 | an unauthenticated GET /theme-preview/white.png redirects to /login, never returns image bytes | ported | companion/test_companion_app_04b.py::test_theme_preview_unauthenticated_redirects_to_login |
+| 261 | GET /theme-preview/white.png?live=1 with no runway_events row at all still returns 200/image/png (the sample-scene fallback, D-23) | ported | companion/test_companion_app_04b.py::test_theme_preview_live_branch_cache_and_fallback_behaviour |
+| 262 | GET /theme-preview/white.png?live=1 with a seeded runway_events row returns 200/image/png, and a second request for the same latest event is served from the cache without growing the cache directory (D-23/Pitfall 7) | ported | companion/test_companion_app_04b.py::test_theme_preview_live_branch_cache_and_fallback_behaviour |
+| 263 | inserting a NEWER runway_events row changes both the served live-preview bytes and the cache file it comes from — a newer flight is a cache miss, never a stale hit served forever (D-23/Pitfall 7) | ported | companion/test_companion_app_04b.py::test_theme_preview_live_branch_cache_and_fallback_behaviour |
+| 264 | GET /theme-preview/nope.png?live=1 returns the same 404 an unknown theme id always returns — the membership test still runs before any query is even parsed | ported | companion/test_companion_app_04b.py::test_theme_preview_live_branch_cache_and_fallback_behaviour |
+| 265 | ?live=0 and a missing ?live query both serve the sample variant, never the live one, even with a runway_events row present (D-23) | ported | companion/test_companion_app_04b.py::test_theme_preview_live_branch_cache_and_fallback_behaviour |
+| 266 | uploading a real PNG over real HTTP to a real companion/app.py subprocess changes what GET /illustration/air-france.png serves, even with a traversal-shaped declared filename in the part header | ported | companion/test_companion_app_04b.py::test_illustration_upload_round_trip_replaces_served_bytes |
 | 267 | the overridden air-france render and the vueling-airlines render (the same source image) come out of the identical illustration_normalize pipeline (D-03) | pending | |
 | 268 | the upload was written to {state_dir}/illustration_overrides/air-france.png, and nothing else was created in that directory | pending | |
 | 269 | the vendored server/assets/icons/illustrations/air-france.png file is provably byte-identical (hash, size, and mtime) after a successful upload | pending | |
@@ -499,3 +499,79 @@ adjacent to this part's slice but still called by `/static/login-card.js`'s
 own still-legacy check further down `main()` — was confirmed present
 (never touched) by re-running `ruff check` on the shrunk file (0 F821
 undefined-name errors) before committing.
+
+### Part 04 (plan 33-17)
+
+89 rows (178-266), all `ported`, into two new modules:
+`companion/test_companion_app_04.py` (rows 178-222, 45 tests) and
+`companion/test_companion_app_04b.py` (rows 223-266, 34 tests — three
+stateful/sequential check clusters consolidated into one atomic test
+each, see below). Rubric-code split (one dominant code per row, since
+several rows mix an HTTP/status assertion with a markup substring):
+70 B (HTTP status/header/cookie/on-disk-config assertions — the large
+majority: every login POST/GET flow, every NAV_TABS/redirect/settings/
+quick-toggle/illustration/theme-preview check that reads a response's
+status, headers or `device_config.load_device_config()`), 15 D (rendered-
+HTML substring/structure assertions — the login card's markup, the split
+Display/Device settings groups, the rebuilt Home page, the D-03 language-
+resolution/nav-toggle-gear checks, the two 404 page-header/health-dot
+checks), 3 C (`layout.JS_GATE_CLASS`'s selector-boundary check and the
+motion budget, both read via `css_rules()`/regex over `served_stylesheet()`
+rather than a disk read; the login-page clean-render check's three CSS-
+rule-existence assertions, via `rules_with_selector()`), and 1 J
+(login-card.js's ES5-safe/sink-free contract, via `served_asset()`). No
+rows are `deleted`: every original check's real behaviour survives.
+
+No S-rubric rewrites in this part — no check here used `inspect`/`ast`/
+`tokenize` over production source. The one rename named in the plan's own
+hotspot section: row 190 (`GET /login?next=/nonexistent-route...`) now
+uses `next=/no-such-route` — behaviour unchanged (neither is a real
+NAV_TABS member, so both take the "no hidden next field" branch), and the
+new module carries no `/nonexistent` literal anywhere, including its own
+docstring (`grep -cE "/nonexistent|open\(|tempfile"` on
+`test_companion_app_04.py` is 0).
+
+Three stateful/sequential clusters are consolidated (several old checks
+map to one new node id, 33-MIGRATION-RULES.md section 3): rows 238-241
+(logout clears the cookie; a replayed cookie is rejected; GET /logout
+404s; a post-logout tab request with no cookie is refused) all land on
+`test_logout_clears_cookie_and_a_replayed_or_absent_cookie_is_refused_afterward`,
+since running them against the module's shared read-only server would
+end that server's one shared session for every other test. Rows 247-250
+(three gallery path-traversal payloads plus the canary-never-leaks check)
+land on `test_gallery_traversal_and_canary_never_leaks`. Rows 261-265 (the
+`?live=1` sample-fallback/cache-reuse/newer-event/unknown-theme/zero-or-
+missing-query sequence) land on
+`test_theme_preview_live_branch_cache_and_fallback_behaviour`, since each
+step's assertion depends on the previous step's own mutation (no
+`runway_events` row, then one, then a newer one) — the exact ordering
+xdist gives no test the right to assume.
+
+The upload round trip (row 266, the LAST anchor) and the two manual-
+resolution-key checks (rows 255-256) each get their own fresh, function-
+scoped `make_app_server(fake_providers=True)` server rather than the
+module's shared one, per the plan's own hotspot note — they write real
+files into `illustration_overrides/`.
+
+`companion/test_companion_app.py` shrunk further: `EXPECTED_CHECK_COUNT`
+141 -> 52; part 04's 89 checks, their private closures, and the now-
+unused `_theme_cache_dir()` helper are removed from `main()`. The first
+of the section's two logins (`session_cookie = _login(harness)`,
+originally at the top of the authenticated block) is also removed as
+dead code — every check that used to sit between it and the "re-
+authenticate" login further down is gone, so nothing reads that first
+session any more before the second login overwrites the same variable;
+the second login's own comment is updated to say so, since it is now the
+section's only login rather than a re-authentication. The illustration-
+upload check's own setup (the pre-upload GET, the multipart POST, and
+populating `_illustration_pre_upload_render`) stays as bare, un-checked
+setup code — confirmed still read directly, by name, by the next still-
+legacy check (`_illustration_override_uses_same_normalization_pipeline`,
+row 267, 33-18/part 05's own territory) and by three more checks after it
+that need the override file the upload just wrote. The stale-pipeline-run
+seed and the `gallery/` directory `os.makedirs()` (both migrated-away
+rows' own setup) are removed outright — confirmed by grep that no
+still-legacy check past row 266 reads either. Re-verified: the shrunk
+harness runs 52/52 standalone and through
+`companion/test_legacy_harness_shim.py -k companion_app`, and `ruff
+check` on the shrunk file is clean (0 F821 undefined-name errors).
