@@ -366,6 +366,26 @@ BATTERY_EMPTY_BODY_LINES = (
 )
 BATTERY_EMPTY_BODY_TEXT = " ".join(BATTERY_EMPTY_BODY_LINES)
 
+# Quick task 260924-u7n (DEVICE-06, .planning/seeds/on-device-fault-icon.md):
+# the NO CONNECTION hold screen's locked English copy - same fixed-string
+# convention as DISPLAY_OFF_*/BATTERY_EMPTY_* (a joined-form *_BODY_TEXT
+# kept purely for the locked-copy equality-check convention those two set).
+# This screen is unique among the four: the server never renders it - the
+# firmware draws it entirely on its own (firmware/tools/gen_fault_screen.py
+# bakes this exact copy into firmware/main/fault_screen_mask.h at build
+# time), so changing either sentence here requires regenerating that header
+# or server/test_fault_screen_mask.py's drift test fails. English per the
+# locked panel-copy decision; the second sentence stays true because the
+# device retries on its own backoff schedule (app_main.c's fail_and_sleep())
+# and the server's real picture returns automatically on the first healthy
+# wake after recovery - no user action required.
+NO_CONNECTION_HEADING_TEXT = "NO CONNECTION"
+NO_CONNECTION_BODY_LINES = (
+    "The frame can't reach its server.",
+    "It will try again on its own.",
+)
+NO_CONNECTION_BODY_TEXT = " ".join(NO_CONNECTION_BODY_LINES)
+
 # --- The dimmed hold composition (revised on real glass, 12-06 session) ---------
 # Shared by the two "resting on purpose" screens, DISPLAY OFF and QUIET HOURS,
 # and drawn by one routine (_build_dimmed_hold_canvas()) so the two share
@@ -2048,6 +2068,44 @@ def _build_battery_empty_canvas():
     )
 
 
+def _build_no_connection_canvas(flat=False):
+    """Build the NO CONNECTION hold canvas (quick task 260924-u7n, DEVICE-06):
+    the fourth sibling of DISPLAY OFF / QUIET HOURS / BATTERY EMPTY, drawn
+    through the same shared `_build_hold_canvas()` composition those three
+    go through (dimmed field, glyph, tracked label, rule, body) rather than
+    a bespoke layout.
+
+    Unlike its three siblings, this function is never reached by
+    `build_canvas()` - it is deliberately not dispatched from there at
+    all. The whole reason this screen exists is that the device could not
+    reach the server, so the server can never be the one to render it; the
+    device draws it entirely on its own, in firmware, from a generated
+    ink mask (`firmware/tools/gen_fault_screen.py` ->
+    `firmware/main/fault_screen_mask.h`) this function's flat output feeds.
+    This function is that mask's one source of truth on the Python side.
+
+    `flat` (default `False`) selects between the two callers this function
+    actually has: the server-side render tests exercise the normal
+    `dithered=True` path (matching what a human would see on glass if this
+    screen were ever rendered server-side, which it never is in
+    production), while `gen_fault_screen.py` calls `flat=True` to get a
+    flat two-colour (`DIMMED_FIELD_IDX`/`DIMMED_INK`) canvas with no dither
+    noise, so its ink-mask extraction (`pixel == IDX_WHITE`) is exact - the
+    firmware reproduces the dithered field itself, on-device, from the
+    same integer Floyd-Steinberg spec `gen_fault_screen.py`'s own Python
+    port implements (see that module's docstring for the shared spec).
+    """
+    return _build_hold_canvas(
+        draw_alert_icon,
+        ALERT_ICON_HEIGHT_PX,
+        NO_CONNECTION_HEADING_TEXT,
+        NO_CONNECTION_BODY_LINES,
+        DIMMED_FIELD_IDX,
+        DIMMED_INK,
+        not flat,
+    )
+
+
 # --- Display-off power glyph (Phase 12, 12-06 on-glass session) --------------
 # Drawn from primitives like every other panel mark (draw_battery_icon,
 # draw_source_fault_badge) - no vendored asset, so nothing to attribute.
@@ -2210,6 +2268,60 @@ def draw_empty_battery_icon(draw, center_x, top_y, ink_idx):
         width=EMPTY_BATTERY_ICON_STROKE_PX,
     )
     return EMPTY_BATTERY_ICON_HEIGHT_PX
+
+
+# --- No-connection alert glyph (quick task 260924-u7n, DEVICE-06) -----------
+# Same shape family as `draw_source_fault_badge()`'s small triangular alert
+# mark (outline triangle + exclamation stroke + dot), scaled up to the
+# 76px-tall hold-glyph family instead of CFG-05's small inline badge size -
+# resolving the seed's "same glyph for CFG-05 and DEVICE-06?" open question
+# as yes, at hold-glyph scale. `draw_source_fault_badge()` itself is left
+# untouched (its pixels are covered by existing tests); this is a sibling
+# glyph, not a shared call.
+#
+# ALERT_ICON_STROKE_PX matches POWER_ICON_STROKE_PX (Bold-class, 8px) - the
+# same "thin white strokes drown in dither noise" finding that set every
+# other dimmed-hold glyph's stroke width applies here too.
+ALERT_ICON_HEIGHT_PX = 76
+ALERT_ICON_WIDTH_PX = 88
+ALERT_ICON_STROKE_PX = POWER_ICON_STROKE_PX
+
+
+def draw_alert_icon(draw, center_x, top_y, ink_idx):
+    """Draw the no-connection alert mark centred on `center_x`, its apex at
+    `top_y`, and return the glyph's total height so the caller's
+    vertical-centring arithmetic can account for it exactly like every
+    other `draw_*_icon()` here.
+
+    An outline triangle (apex at top-centre, base at the glyph's bottom
+    edge, drawn with `ImageDraw.polygon(..., width=ALERT_ICON_STROKE_PX)`
+    - Pillow 12.3's polygon outline width support), an exclamation stroke
+    (a vertical `ALERT_ICON_STROKE_PX`-wide line from 0.35 to 0.65 of the
+    glyph's height, kept inside the triangle's interior clear of the
+    outline), and a round dot at 0.8 of the height, drawn as a filled
+    ellipse rather than a zero-length `ImageDraw.line()` - a degenerate
+    segment paints only a single pixel regardless of `width`, which is
+    exactly the WR-02 regression `draw_source_fault_badge()`'s own
+    docstring records (code-review `08-REVIEW.md`). Only `ink_idx` is ever
+    used, matching every other `draw_*_icon()` here.
+    """
+    half_w = ALERT_ICON_WIDTH_PX / 2.0
+    apex = (center_x, top_y)
+    base_left = (center_x - half_w, top_y + ALERT_ICON_HEIGHT_PX - 1)
+    base_right = (center_x + half_w, top_y + ALERT_ICON_HEIGHT_PX - 1)
+    draw.polygon([apex, base_left, base_right], outline=ink_idx, width=ALERT_ICON_STROKE_PX)
+
+    stroke_top = top_y + ALERT_ICON_HEIGHT_PX * 0.35
+    stroke_bottom = top_y + ALERT_ICON_HEIGHT_PX * 0.65
+    draw.line([(center_x, stroke_top), (center_x, stroke_bottom)], fill=ink_idx, width=ALERT_ICON_STROKE_PX)
+
+    dot_r = 5
+    dot_y = top_y + ALERT_ICON_HEIGHT_PX * 0.8
+    draw.ellipse(
+        [(center_x - dot_r, dot_y - dot_r), (center_x + dot_r, dot_y + dot_r)],
+        fill=ink_idx,
+    )
+    return ALERT_ICON_HEIGHT_PX
 
 
 def _build_hold_canvas(glyph_draw, glyph_height, label_text, sentences, field_idx, ink, dithered, source_fault=False, battery_low=False):

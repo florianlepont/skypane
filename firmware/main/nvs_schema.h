@@ -33,7 +33,13 @@
 #define FP_NVS_DEVICE_TOKEN "dev_token"
 
 /* Last successfully blitted image hash, "sha256:<hex>" — compared
- * against the server's next `image_hash` to decide the hash-skip. */
+ * against the server's next `image_hash` to decide the hash-skip. May
+ * also hold FP_FAULT_SCREEN_HASH ("fault:no-connection",
+ * fault_screen.h) after app_main.c's DEVICE-06 fault screen was drawn
+ * (quick task 260924-u7n) — that sentinel is deliberately never shaped
+ * like a real "sha256:<64 hex>" server hash, so the first healthy poll
+ * after recovery can never mistake it for one and always redraws the
+ * real picture. */
 #define FP_NVS_IMAGE_HASH "image_hash"
 
 /* Consecutive-failure counter driving fp_backoff_seconds(n). Lives in

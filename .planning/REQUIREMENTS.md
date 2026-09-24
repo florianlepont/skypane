@@ -234,7 +234,7 @@ Deferred 2026-08-26 (Phase 3 discuss-phase) — user confirmed via SenseCraft th
 
 Seed idea, deferred 2026-08-27 (explore session) — the device-local half of the fault-icon idea explored alongside the Companion Configuration Web Interface (CFG-05, now promoted to Phase 6 — see v1 Requirements above). This half stays deferred: it's technically independent of the web interface (no dependency on CFG-03 existing) and covers the harder case where the device can't reach the server at all, so no server-rendered image can carry an alert. Full design rationale in `.planning/seeds/on-device-fault-icon.md`.
 
-- **DEVICE-06**: When the device has failed to reach the server for 2+ consecutive poll attempts (`backoff_n >= 2`), it renders a small local fallback screen (solid fill + pre-baked alert icon) directly in firmware via the existing `fp_panel_draw()` call, without needing a successful server round-trip
+- [x] **DEVICE-06**: When the device has failed to reach the server for 2+ consecutive poll attempts (`backoff_n >= 2`), it renders a small local fallback screen (solid fill + pre-baked alert icon) directly in firmware via the existing `fp_panel_draw()` call, without needing a successful server round-trip — done in quick task 260924-u7n (2026-09-24): dithered-field NO CONNECTION hold screen + CFG-05 alert glyph, drawn by firmware; see `.planning/quick/260924-u7n-device-06-local-no-connection-fault-scre/`
 
 ## Out of Scope
 

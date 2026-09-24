@@ -33,23 +33,36 @@
  * `fp_diag`-tagged lines are diagnostics outside that contract.
  */
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "esp_system.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 
+#include "api_client.h"
 #include "battery.h"
+#include "epd13in3e.h"
+#include "fault_screen.h"
 #include "led.h"
 #include "nvs_schema.h"
+#include "nvs_util.h"
 #include "panel.h"
 #include "reset_reason.h"
 #include "sleep_decision.h"
 #include "state_machine.h"
 #include "wake_guard.h"
 #include "wifi.h"
+
+/* fp_fault_screen_render()'s buffer contract must match the panel's own
+ * byte count exactly - if either side's dimensions ever drift, this
+ * catches it at compile time rather than as a corrupted blit on real
+ * glass. */
+_Static_assert(FP_FAULT_SCREEN_BYTES == EPD_BYTES, "fault screen buffer size must match EPD_BYTES");
 
 /* reset_reason.h's FP_RST_* enum mirrors esp_reset_reason_t
  * (ESP-IDF v5.3.1, components/esp_system/include/esp_system.h)
@@ -150,6 +163,71 @@ static void log_wake_timing(void)
              s_timing.display_ms, s_timing.download_ms, s_timing.draw_ms);
 }
 
+/* Quick task 260924-u7n (DEVICE-06): draws the firmware-local NO
+ * CONNECTION hold screen on the 2nd+ consecutive failure of an
+ * allow-listed comm/data step - see fault_screen.h for the full design
+ * rationale and fp_fault_screen_should_draw()'s exact gate.
+ *
+ * No new NVS key is needed for the once-per-outage sentinel: reusing
+ * FP_NVS_IMAGE_HASH does two jobs at once. First, comparing it against
+ * FP_FAULT_SCREEN_HASH before drawing is what suppresses a redraw on
+ * every subsequent failing wake during the same outage (T-u7n-01).
+ * Second, because FP_FAULT_SCREEN_HASH is never of the "sha256:<64 hex>"
+ * shape a real server hash takes (validate.c; T-u7n-04), the first
+ * healthy poll after recovery can never mistake it for the server's own
+ * hash - state_machine.c's hash-skip compares against whatever value is
+ * already in FP_NVS_IMAGE_HASH, and a real server hash will always
+ * differ from this sentinel, so the real picture is guaranteed to
+ * download and blit on that first healthy wake, not be skipped.
+ *
+ * fp_panel_draw() may itself light-sleep up to CONFIG_FP_MAX_GUARD_WAIT_S
+ * waiting out the panel's refresh spacing (panel_guard.h) - accepted
+ * here exactly as it is on the healthy-poll path in state_machine.c.
+ *
+ * Never calls fp_wake_checkpoint() anywhere in this path: that function
+ * can call on_wake_deadline(), which calls fail_and_sleep() again - this
+ * helper is only ever reached FROM fail_and_sleep(), so that re-entrancy
+ * must never be possible here. */
+static void maybe_draw_fault_screen(const char *step, uint8_t next_backoff_n)
+{
+    char last_hash[80] = "";
+    bool already_shown =
+        fp_nvs_get_str(FP_NVS_IMAGE_HASH, last_hash, sizeof(last_hash)) == ESP_OK &&
+        strcmp(last_hash, FP_FAULT_SCREEN_HASH) == 0;
+
+    if (!fp_fault_screen_should_draw(step, next_backoff_n, already_shown)) {
+        return;
+    }
+
+    /* Radio down before the panel, same rule as state_machine.c's
+     * healthy-poll path. fp_api_release() is safe/idempotent with no
+     * open session (api_client.c: it only acts if its static handle is
+     * non-NULL). */
+    fp_api_release();
+    fp_wifi_stop();
+
+    uint8_t *buf = heap_caps_malloc(FP_FAULT_SCREEN_BYTES, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) {
+        ESP_LOGW("fp_diag", "fault screen skipped: no PSRAM");
+        return;
+    }
+
+    fp_fault_screen_render(buf, fp_wake_feed);
+    esp_err_t err = fp_panel_draw(buf);
+    heap_caps_free(buf);
+
+    if (err == ESP_OK) {
+        fp_nvs_set_str(FP_NVS_IMAGE_HASH, FP_FAULT_SCREEN_HASH);
+        ESP_LOGI("fp_diag", "fault screen drawn step=%s backoff_n=%u", step, next_backoff_n);
+    } else if (err == ESP_ERR_TIMEOUT || err == ESP_ERR_INVALID_STATE) {
+        /* Deferred by the panel guard, not a failure (PROTOCOL.md §3) -
+         * do NOT write the sentinel, so the next failing wake retries. */
+        ESP_LOGI("fp_diag", "fault screen deferred err=%s", esp_err_to_name(err));
+    } else {
+        ESP_LOGW("fp_diag", "fault screen failed err=%s", esp_err_to_name(err));
+    }
+}
+
 /* The single failure exit: decides the backoff sleep plan (persisting
  * FP_NVS_BACKOFF_N via its own NVS handle - callable from
  * on_wake_deadline(), a bare function pointer with no access to
@@ -174,6 +252,7 @@ static void __attribute__((noreturn)) fail_and_sleep(const char *step)
     ESP_LOGW(TAG, "poll fail step=%s backoff_n=%u sleep_s=%" PRIu32, step,
              backoff_n, plan.sleep_s);
     log_wake_timing();
+    maybe_draw_fault_screen(step, plan.next_backoff_n);
     enter_deep_sleep(plan.sleep_s);
 }
 
