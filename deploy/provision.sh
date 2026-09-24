@@ -11,9 +11,11 @@
 # root:root 600 ownership of skypane.env, the dedicated skypane-backup
 # pull user and its directories (SEC-04, D-05), SSH hardening (SEC-08),
 # and the OS packages/firewall. It does NOT install systemd unit files or
-# render the Caddyfile any more - deploy/activate.sh (Plan 37-06) does
-# that on every deploy, so units and the Caddyfile always match the code
-# actually running (D-11). Run this once before the first deploy, and
+# render SkyPane's Caddy site file - deploy/activate.sh (Plan 37-06) does
+# that on every deploy, so units and the site file always match the code
+# actually running (D-11). It also never edits the host Caddyfile: that
+# file is shared with other projects on the same VPS, so the one-time
+# `import sites/*.caddy` line is added by hand (deploy/README.md). Run this once before the first deploy, and
 # again after any change to this script itself.
 #
 # Usage:
@@ -45,6 +47,8 @@ BACKUP_USER="skypane-backup"
 BACKUP_HOME="/var/lib/skypane-backup"
 PUBLIC_HOST="${1:-}"
 COMPANION_HOST="${2:-}"
+CADDY_SITES_DIR="/etc/caddy/sites"
+HOST_CADDYFILE="/etc/caddy/Caddyfile"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -168,6 +172,11 @@ install -d -o root -g root -m 0755 "${BACKUP_HOME}/.ssh"
 install -d -o "${APP_USER}" -g "${BACKUP_USER}" -m 2750 "${BACKUP_HOME}/archives"
 install -d -o "${BACKUP_USER}" -g "${BACKUP_USER}" -m 0755 "${BACKUP_HOME}/pulled"
 
+echo "==> Creating SkyPane's Caddy site directory"
+# activate.sh writes only ${CADDY_SITES_DIR}/skypane.caddy; the shared host
+# Caddyfile imports the directory's *.caddy files.
+install -d -o root -g root -m 0755 "${CADDY_SITES_DIR}"
+
 echo "==> Enabling and starting Caddy"
 # Units and the Caddyfile itself are installed by deploy/activate.sh on
 # every deploy (D-11) - caddy's own package-provided unit just needs to
@@ -204,6 +213,12 @@ else
     echo "    SKYPANE_COMPANION_HOST by hand before the first deploy."
 fi
 echo "    Set SKYPANE_OFFBOX_MARKER=${BACKUP_HOME}/pulled/last-pull"
+if ! grep -Eq '^[[:space:]]*import[[:space:]]+(sites|/etc/caddy/sites)/\*\.caddy[[:space:]]*(#.*)?$' "${HOST_CADDYFILE}" 2>/dev/null; then
+    echo "    ${HOST_CADDYFILE} does not import ${CADDY_SITES_DIR} yet. It is shared with"
+    echo "    other sites, so this script leaves it alone - add this line to it by hand"
+    echo "    (deploy/README.md, \"Caddy layout\") before the first deploy:"
+    echo "        import sites/*.caddy"
+fi
 echo "    Then, from your laptop: deploy/deploy.sh ubuntu@<host> — it ships the code,"
-echo "    installs the units and the rendered Caddyfile, swaps them in atomically,"
+echo "    installs the units and ${CADDY_SITES_DIR}/skypane.caddy, swaps them in atomically,"
 echo "    and starts every service (deploy/activate.sh, SEC-05)."
