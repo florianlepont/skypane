@@ -89,12 +89,14 @@ fi
 
 FAILED=0
 NEWEST=""
-while IFS=' ' read -r name size sha; do
+while IFS=' ' read -r name _size sha; do
     [ -z "$name" ] && continue
     if ! printf '%s\n' "$name" | grep -Eq "$ARCHIVE_RE"; then
         continue
     fi
-    if [ -z "$NEWEST" ] || [ "$name" \> "$NEWEST" ]; then
+    # POSIX test has no string ordering; archive names sort lexically in
+    # time order, so the later of the two is the last line of `sort`.
+    if [ -z "$NEWEST" ] || [ "$(printf '%s\n%s\n' "$NEWEST" "$name" | sort | tail -n 1)" = "$name" ]; then
         NEWEST="$name"
     fi
     if [ -f "$DEST/$name" ]; then
@@ -134,7 +136,9 @@ fi
 # "Mac side"). Names sort lexically = chronologically, so
 # `sort -r | tail -n +31` finds the deletion candidates without ever
 # relying on a GNU-only negative head line count.
-ls "$DEST" 2>/dev/null | grep -E "$ARCHIVE_RE" | sort -r | tail -n +31 > "$WORKDIR/prune-candidates.txt" || true
+for f in "$DEST"/*; do
+    [ -f "$f" ] && printf '%s\n' "${f##*/}"
+done | grep -E "$ARCHIVE_RE" | sort -r | tail -n +31 > "$WORKDIR/prune-candidates.txt" || true
 if [ -s "$WORKDIR/prune-candidates.txt" ]; then
     sort "$WORKDIR/prune-candidates.txt" > "$WORKDIR/prune-candidates-asc.txt"
     CUTOFF=$(cutoff_month)

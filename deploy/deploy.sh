@@ -43,6 +43,9 @@ echo "==> Streaming the committed tree at ${SHA} to ${SSH_TARGET}:${INCOMING}"
 # server/state/** is excluded even though it is (mostly) untracked,
 # because server/state/.gitignore itself is a tracked file and would
 # otherwise be the one server/state/ entry that leaks into the archive.
+# SC2029: INCOMING is expanded locally on purpose; it is a fixed path built
+# from a hex SHA, so it needs no remote-side quoting beyond the single quotes.
+# shellcheck disable=SC2029
 git -C "${REPO_ROOT}" archive --format=tar "${SHA}" -- \
     server stub-server companion deploy adsb-test/runway3.json \
     ':(exclude)server/state/**' \
@@ -52,6 +55,7 @@ git -C "${REPO_ROOT}" archive --format=tar "${SHA}" -- \
         && sudo tar -x -C '${INCOMING}'"
 
 echo "==> Running activate.sh on ${SSH_TARGET} for ${SHA}"
+# shellcheck disable=SC2029
 ssh "${SSH_TARGET}" "sudo bash '${INCOMING}/deploy/activate.sh' '${SHA}' '${INCOMING}'"
 
 echo "==> Deploy complete."
