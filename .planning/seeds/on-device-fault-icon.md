@@ -1,6 +1,6 @@
 ---
 title: On-screen fault icon for comm/data outages, pointing to the web interface
-status: partially-fulfilled
+status: fulfilled
 trigger_condition: >
   Revisit once the companion web interface (CFG-01..04) work starts, since
   CFG-05 depends on it existing as the destination the icon points users
@@ -9,7 +9,82 @@ trigger_condition: >
   outages become a real pain point before the web interface exists.
 planted_date: 2026-08-27
 resolved_date: 2026-09-02
+fulfilled_date: 2026-09-24
 ---
+
+## Fully fulfilled 2026-09-24
+
+The device-local half (DEVICE-06), left open by the 2026-09-02 partial
+close-out below, shipped in quick task `260924-u7n`
+(`.planning/quick/260924-u7n-device-06-local-no-connection-fault-scre/`).
+Both halves of this seed are now built.
+
+**What shipped.** A firmware-local NO CONNECTION hold screen, drawn with
+zero server round-trip:
+
+- `server/plane/render.py` gained the artwork source of truth: the
+  `NO_CONNECTION_HEADING_TEXT`/`NO_CONNECTION_BODY_LINES` locked copy, a
+  `draw_alert_icon()` glyph, and `_build_no_connection_canvas()` — going
+  through the exact same shared `_build_hold_canvas()` composition
+  DISPLAY OFF/QUIET HOURS/BATTERY EMPTY already use, so it reads as a
+  fourth sibling rather than a bespoke screen. `build_canvas()`
+  deliberately never dispatches it — the server can only ever fail to
+  reach a device during an outage that, by definition, also stops any
+  server-rendered image from reaching that device.
+- `firmware/tools/gen_fault_screen.py` renders that composition flat,
+  extracts its ink mask, and generates the committed
+  `firmware/main/fault_screen_mask.h` — a ~24 KB packed mask, not a
+  960 KB pre-rendered image (the app partition is only 2.4 MB), with a
+  Python port of the on-device dither used only to produce a
+  firmware-equivalent preview PNG.
+  `server/test_fault_screen_mask.py` proves the committed header can
+  never silently drift from the generator.
+- `firmware/main/fault_screen.c`/`.h` (pure C11, no ESP-IDF dependency)
+  reproduce that exact dither spec on-device and stamp the mask,
+  triggered by `fp_fault_screen_should_draw()`: true only when
+  `next_backoff_n >= 2` (post-increment — the seed's own `backoff_n >= 2`
+  rule, resolved as "the 2nd consecutive failure"), the failed step is
+  one of an explicit allow-list (`wifi`, `http`, `status`, `json`,
+  `auth`, `enrol`, `secret`, `config`, `download`, `verify`), and the
+  screen has not already been drawn for this outage. `blit`, `reset` and
+  `deadline` are deliberately excluded: `blit` because the panel itself
+  just failed, `reset` because an abnormal reset can be a brownout
+  mid-blit and redrawing risks looping the same fault, `deadline`
+  because the wake budget is already spent. Wired into
+  `firmware/main/app_main.c`'s `fail_and_sleep()`, after the `poll fail
+  step=` Log Line Contract line (untouched) and the NVS backoff update,
+  before `enter_deep_sleep()`.
+- **Sentinel/recovery mechanism**: no new NVS key — the screen is drawn
+  once per outage by reusing `FP_NVS_IMAGE_HASH` with a sentinel value
+  (`"fault:no-connection"`) that is deliberately never shaped like a real
+  `"sha256:<64 hex>"` server hash. That does two jobs at once: it
+  suppresses a redraw on every subsequent failing wake during the same
+  outage, and it guarantees the first healthy poll after recovery always
+  re-downloads and blits the real server picture, since a real server
+  hash can never equal the sentinel it's being compared against.
+
+**Open questions resolved:**
+
+- *Whether CFG-05's badge glyph and DEVICE-06's local fallback icon
+  should be the same glyph* — **yes**, at hold-glyph scale. `draw_alert_icon()`
+  is the same outline-triangle-plus-exclamation shape family as
+  `draw_source_fault_badge()`'s small inline badge, scaled up to the
+  76 px hold-glyph family every other dimmed-hold screen's glyph uses,
+  rather than reused as a literal shared function (the two badges differ
+  in size and context, so they stay sibling implementations, not one
+  shared call).
+- *Whether `backoff_n` resets/re-triggers cleanly across the local-fallback
+  path* — **yes, verified**: `fp_sleep_decide()` resets the failure
+  counter to 0 on the first healthy wake regardless of which path
+  produced the previous failures, and that same healthy poll overwrites
+  the `FP_NVS_IMAGE_HASH` sentinel with the real server hash. A future
+  outage therefore always needs two fresh consecutive failures before
+  this screen reappears — there is no stale-counter or stale-sentinel
+  state that could either suppress a real future outage's screen or draw
+  it prematurely.
+
+Everything below this section and above "## Context" is the 2026-09-02
+partial close-out, kept unchanged as history.
 
 ## Partially fulfilled 2026-09-02
 
