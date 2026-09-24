@@ -289,3 +289,50 @@ class TestErrorHandling:
         assert len(lines) == 1
         assert missing in lines[0]
         assert "Traceback" not in out
+
+
+class TestFailureAndCleanupPaths:
+    def test_symlink_inside_included_dir_is_never_archived(self, tmp_path):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        included = state_dir / skypane_backup.INCLUDE_DIRS[0]
+        included.mkdir()
+        (included / "real.txt").write_text("kept")
+        os.symlink("/etc/hostname", included / "escape")
+        assert skypane_backup.backup(str(state_dir), str(archive_dir), keep=3) == 0
+        (name,) = _archive_names(archive_dir)
+        members = _members(archive_dir / name)
+        assert "%s/real.txt" % skypane_backup.INCLUDE_DIRS[0] in members
+        assert "%s/escape" % skypane_backup.INCLUDE_DIRS[0] not in members
+
+    def test_unreadable_history_db_fails_cleanly_without_partial(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        (state_dir / "history.db").write_bytes(b"this is not a sqlite database" * 100)
+        assert skypane_backup.backup(str(state_dir), str(archive_dir), keep=3) == 1
+        assert "snapshot failed" in capsys.readouterr().out
+        assert os.listdir(archive_dir) == []
+
+    def test_prune_removes_orphan_checksums_and_leftover_partials(self, tmp_path):
+        archive_dir = tmp_path / "archives"
+        archive_dir.mkdir()
+        orphan = "skypane-state-20260101T000000Z.tar.gz.sha256"
+        leftover = ".partial-skypane-state-20260102T000000Z.tar.gz"
+        (archive_dir / orphan).write_text("x")
+        (archive_dir / leftover).write_text("x")
+        (archive_dir / "unrelated.txt").write_text("x")
+        skypane_backup._prune(str(archive_dir), keep=3)
+        assert sorted(os.listdir(archive_dir)) == ["unrelated.txt"]
+
+    def test_main_reports_unexpected_errors_as_one_line(self, tmp_path, monkeypatch, capsys):
+        def boom(*_args):
+            raise OSError("disk gone")
+        monkeypatch.setattr(skypane_backup, "backup", boom)
+        rc = skypane_backup.main([
+            "--state-dir", str(tmp_path / "state"),
+            "--archive-dir", str(tmp_path / "archives"),
+        ])
+        assert rc == 1
+        assert capsys.readouterr().out.strip() == "skypane_backup: OSError: disk gone"
