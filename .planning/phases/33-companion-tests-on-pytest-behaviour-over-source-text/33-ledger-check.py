@@ -1,34 +1,70 @@
 #!/usr/bin/env python3
-"""Migration ledger tool for Phase 32 (32-CONTEXT.md "Migration ledger",
-32-RESEARCH.md Pattern 1). One tool, three jobs, all driven by the same
-per-harness baseline transcript + ledger fragment pair:
+"""Migration ledger tool for Phase 33 (33-CONTEXT.md "Migration ledger and
+parity", 33-MIGRATION-RULES.md sections 0, 1 and 4). Extends
+32-ledger-check.py's architecture (baseline transcript -> ledger fragment
+-> validate_fragment() pure matching -> --assemble concatenation) for a
+STAGED migration: the 9 companion harnesses migrate across several plans
+each, so a harness's ledger fragment legitimately has `pending` rows even
+mid-migration. The rule this tool enforces is that a fragment's pending-row
+count always equals the shrunk legacy harness's own remaining
+`EXPECTED_CHECK_COUNT` - every check is always accounted for as either
+still-legacy or already-ported, never both, never neither.
 
-  --capture     run each of the 15 server-side harnesses standalone under
-                the CURRENT (pre-migration) interpreter and record its own
-                PASS/FAIL transcript to 32-BASELINE/<key>.txt, then
-                (re)write 32-BASELINE/INDEX.md. Never grep source for
-                `check(` call sites - some checks are loop-emitted, so the
-                only reliable ground truth is the harness's own stdout
-                (32-RESEARCH.md Pitfall 1).
+  --capture       run each of the 9 companion harnesses standalone under the
+                  CURRENT (pre-migration) interpreter and record its own
+                  PASS/FAIL transcript to 33-BASELINE/<key>.txt, then
+                  (re)write 33-BASELINE/INDEX.md. Never grep source for
+                  `check(` call sites - some checks are loop-emitted, so the
+                  only reliable ground truth is the harness's own stdout.
+                  The 3 browser harnesses need a real Chromium
+                  (PLAYWRIGHT_BROWSERS_PATH is inherited from the caller's
+                  environment); a transcript with a `SKIP ` line, with zero
+                  PASS/FAIL lines, or whose PASS+FAIL count disagrees with
+                  its own printed total is REJECTED (kept on disk with a
+                  `.rejected` suffix, non-zero exit) - a browser harness that
+                  silently SKIPped must never read as a real baseline run.
+
+  --scaffold [harness...|--all] [--force]
+                  write 33-ledger/<key>.md for each named harness (or all 9,
+                  with --all) with every baseline row set to `pending`, an
+                  empty target. Refuses to overwrite an existing fragment
+                  unless --force is given.
+
+  --add-check <harness> <label> --source <sha>
+                  record a check added to a harness AFTER its baseline was
+                  captured (33-MIGRATION-RULES.md section 0: a Phase 37
+                  merge landing a new legacy check() call on a harness that
+                  is still legacy). Appends `PASS <label>` to
+                  33-BASELINE/<key>.addendum.txt, preceded by a
+                  `# added after audit baseline: <sha>` comment line, and
+                  appends a `pending` row to that harness's fragment.
+                  Prints a reminder to bump the legacy EXPECTED_CHECK_COUNT.
 
   <harness> ... / --all (default)
-                for each named harness (or all 15), load its baseline
-                transcript and its ledger fragment (32-ledger/<key>.md,
-                written by the plan that migrates that harness) and prove
-                every baseline check is accounted for: mapped 1:1 to a
-                real pytest node id ("ported"), or explicitly "deleted"
-                with a non-empty reason, or "pending" (only counts as
-                mapped with --allow-pending).
+                  for each named harness (or all 9), load its baseline
+                  transcript (+ addendum, if any) and its ledger fragment
+                  (33-ledger/<key>.md, written by --scaffold and flipped by
+                  the plans that migrate that harness) and prove every
+                  baseline check is accounted for: mapped 1:1 to a real
+                  pytest node id ("ported"), explicitly "deleted" with a
+                  non-empty reason, or "pending" (only counts as mapped with
+                  --allow-pending, and only when the pending count equals
+                  the shrunk legacy harness's own remaining
+                  EXPECTED_CHECK_COUNT - the staged-migration rule).
 
-  --assemble    requires every one of the 15 fragments to pass --check,
-                then concatenates them into 32-MIGRATION-LEDGER.md with a
-                summary table and grand totals. Run once, by 32-13.
+  --assemble      requires every one of the 9 fragments to pass --check with
+                  zero pending rows, then concatenates them into
+                  33-MIGRATION-LEDGER.md (keeping that file's own scaffolded
+                  header verbatim up to its `<!-- fragments -->` marker
+                  line) with a summary table and grand totals. Run once, by
+                  33-33. Also prints `phase33_total=<n>` on stdout.
 
-  --self-test   runs the pure parsing/matching/validation logic against
-                in-memory strings (no filesystem, no subprocess) and
-                exits 0 only if every case in this file's own docstring
-                claims holds. RED before the logic below is implemented,
-                GREEN after.
+  --self-test     runs the pure parsing/matching/validation logic against
+                  in-memory strings (no filesystem, no subprocess) and
+                  exits 0 only if every case in this file's own docstring
+                  claims holds, plus the staged-migration cases 33-01 added
+                  on top of 32's. RED before the logic below is
+                  implemented, GREEN after.
 
 Stdlib only. Runnable as `server/.venv/bin/python3 <this file> ...` from
 anywhere - the repo root and phase directory are both located from
@@ -43,33 +79,31 @@ import sys
 
 # --- Location -----------------------------------------------------------
 # This file lives directly inside the phase directory
-# (.planning/phases/32-test-foundation-.../32-ledger-check.py). Three
+# (.planning/phases/33-companion-tests-.../33-ledger-check.py). Three
 # dirname() calls walk phase-dir -> phases -> .planning -> repo root.
 PHASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(PHASE_DIR)))
-BASELINE_DIR = os.path.join(PHASE_DIR, "32-BASELINE")
-LEDGER_DIR = os.path.join(PHASE_DIR, "32-ledger")
-LEDGER_FILE = os.path.join(PHASE_DIR, "32-MIGRATION-LEDGER.md")
+BASELINE_DIR = os.path.join(PHASE_DIR, "33-BASELINE")
+LEDGER_DIR = os.path.join(PHASE_DIR, "33-ledger")
+LEDGER_FILE = os.path.join(PHASE_DIR, "33-MIGRATION-LEDGER.md")
 
-# --- The 15 server-side harnesses (32-CONTEXT.md TST-02 scope) ---------
-# Mirrors scripts/run_all_tests.py's own HARNESSES list (the server-side
-# subset of it), which this migration eventually retires.
+# --- The 9 companion harnesses (33-CONTEXT.md TST-10/TST-11 scope) ------
+BROWSER_HARNESSES = {
+    "companion/test_browser_ux_health_drawings.py",
+    "companion/test_browser_ux_quiet_wake.py",
+    "companion/test_browser_ux.py",
+}
+
 HARNESSES = [
-    "server/test_calendar_rules.py",
-    "server/test_colour_rules.py",
-    "server/test_config_history.py",
-    "server/test_dither.py",
-    "server/test_enrich.py",
-    "server/test_illustrations.py",
-    "server/test_manual_resolutions.py",
-    "server/test_notify.py",
-    "server/test_panel_preview.py",
-    "server/test_pipeline_e2e.py",
-    "server/test_plane_detection.py",
-    "server/test_poll_loop.py",
-    "server/test_render.py",
-    "server/test_runway_config.py",
-    "stub-server/test_poll_cycle.py",
+    "companion/test_contrast_check.py",
+    "companion/test_i18n.py",
+    "companion/test_view_pages.py",
+    "companion/test_config_page.py",
+    "companion/test_companion_app.py",
+    "companion/test_status_pages.py",
+    "companion/test_browser_ux_health_drawings.py",
+    "companion/test_browser_ux_quiet_wake.py",
+    "companion/test_browser_ux.py",
 ]
 
 
@@ -81,11 +115,12 @@ def harness_key(harness):
 
 # --- Baseline transcript parsing ----------------------------------------
 # Every harness prints "PASS <label>" or "FAIL <label> - <reason>" per
-# check (server/test_dither.py:39-48 is the canonical minimal example) and
-# ends with "<name>: <passed>/<total> checks pass". A harness with an
-# early-abort summary line mid-file (server/test_config_history.py:1660)
-# prints more than one such line - the LAST one is authoritative.
-SUMMARY_RE = re.compile(r"^(?P<name>.+): (?P<passed>\d+)/(?P<total>\d+) checks pass\s*$")
+# check and ends with "<name>: <passed>/<total> checks pass". A harness
+# with an early-abort summary line mid-file prints more than one such line
+# - the LAST one is authoritative. companion/test_i18n.py is the one
+# outlier: its summary line is "<passed>/<total> checks pass" with NO
+# "<name>: " prefix at all, so that group is optional.
+SUMMARY_RE = re.compile(r"^(?:(?P<name>.+): )?(?P<passed>\d+)/(?P<total>\d+) checks pass\s*$")
 
 
 def parse_baseline(text):
@@ -118,6 +153,61 @@ def baseline_check_lines(text):
     """The raw PASS/FAIL lines only, in source order - what --check
     matches ledger fragment rows against."""
     return [line for line in text.splitlines() if line.startswith("PASS ") or line.startswith("FAIL ")]
+
+
+def combine_baseline_and_addendum(baseline_lines, addendum_text):
+    """The transcript's own PASS/FAIL lines, followed by the addendum
+    file's PASS lines (33-MIGRATION-RULES.md section 0: a check added to a
+    still-legacy harness after the baseline was captured, recorded by
+    `--add-check`). A line in the addendum starting with "#" is a comment
+    (e.g. "# added after audit baseline: <sha>") and is ignored. Pure -
+    takes the already-parsed baseline lines and the addendum's raw text (or
+    None if there is no addendum file), so --self-test can exercise it
+    in-memory."""
+    if not addendum_text:
+        return list(baseline_lines)
+    combined = list(baseline_lines)
+    for line in addendum_text.splitlines():
+        if line.startswith("#"):
+            continue
+        if line.startswith("PASS "):
+            combined.append(line)
+    return combined
+
+
+def load_baseline_lines(key):
+    """Filesystem wrapper: reads 33-BASELINE/<key>.txt and, if present,
+    33-BASELINE/<key>.addendum.txt, and combines them via
+    combine_baseline_and_addendum()."""
+    baseline_path = os.path.join(BASELINE_DIR, key + ".txt")
+    with open(baseline_path) as f:
+        transcript_text = f.read()
+    lines = baseline_check_lines(transcript_text)
+    addendum_path = os.path.join(BASELINE_DIR, key + ".addendum.txt")
+    addendum_text = None
+    if os.path.isfile(addendum_path):
+        with open(addendum_path) as f:
+            addendum_text = f.read()
+    return combine_baseline_and_addendum(lines, addendum_text)
+
+
+def validate_transcript(stdout):
+    """Does a freshly captured transcript look like a real run? Returns
+    None when it does, or a human-readable rejection reason otherwise.
+    Rejects: a line starting "SKIP " (a browser harness that gave up
+    without a real Chromium must never read as a real baseline - it exits
+    0 and looks superficially like success); zero PASS/FAIL lines; or a
+    PASS+FAIL count that disagrees with the transcript's own last
+    "checks pass" summary line (the harness aborted early)."""
+    for line in stdout.splitlines():
+        if line.startswith("SKIP "):
+            return "transcript contains a line starting 'SKIP ' (the harness did not really run)"
+    rows, total = parse_baseline(stdout)
+    if not rows:
+        return "transcript has zero PASS/FAIL lines"
+    if total is None or len(rows) != total:
+        return "PASS+FAIL count (%d) does not match the transcript's own printed total (%r)" % (len(rows), total)
+    return None
 
 
 def label_matches(baseline_line, ledger_label):
@@ -192,6 +282,22 @@ def parse_fragment_rows(text):
 # --- Pure validation logic (the part --self-test exercises in-memory) ---
 
 
+def remaining_legacy_count(source):
+    """The int from the LAST line matching `^EXPECTED_CHECK_COUNT\\s*=\\s*(\\d+)`
+    in a legacy harness's source, or None if no such line exists (or
+    `source` itself is None: the legacy file no longer exists). A legacy
+    harness has exactly one authoritative EXPECTED_CHECK_COUNT assignment
+    (33-MIGRATION-RULES.md section 1) but this takes the LAST match rather
+    than assuming that, matching parse_baseline()'s own "last one wins"
+    convention for early-abort summary lines."""
+    if source is None:
+        return None
+    matches = re.findall(r"^EXPECTED_CHECK_COUNT\s*=\s*(\d+)", source, re.MULTILINE)
+    if not matches:
+        return None
+    return int(matches[-1])
+
+
 def validate_fragment(fragment_rows, baseline_lines, node_ids, harness_source, allow_pending):
     """Does a parsed ledger fragment fully and correctly account for a
     harness's baseline transcript? Pure function - no filesystem, no
@@ -209,10 +315,13 @@ def validate_fragment(fragment_rows, baseline_lines, node_ids, harness_source, a
       - a "ported" row's target is absent from node_ids
       - a "deleted" row has an empty target (reason)
       - a "pending" row exists and allow_pending is False
-      - the harness source still contains "EXPECTED_CHECK_COUNT" or
-        "def check(" while the fragment declares ported/deleted rows
-        (a contradiction: the ledger claims migration happened but the
-        old harness idiom is still on disk)
+      - staged-migration consistency (33-MIGRATION-RULES.md section 1):
+        if any row is pending, `harness_source` must not be None (the
+        legacy harness must still exist) and its `remaining_legacy_count`
+        must equal the pending-row count; if zero rows are pending,
+        `harness_source` must be None or contain neither
+        "EXPECTED_CHECK_COUNT" nor "def check(" (a fully-migrated harness
+        leaves no legacy idiom behind)
     """
     failures = []
     if len(fragment_rows) != len(baseline_lines):
@@ -259,11 +368,22 @@ def validate_fragment(fragment_rows, baseline_lines, node_ids, harness_source, a
     if remaining:
         failures.append("baseline checks with no matching ledger row: %r" % (remaining,))
 
-    if (counts["ported"] or counts["deleted"]) and harness_source is not None:
+    pending = counts["pending"]
+    if pending > 0:
+        if harness_source is None:
+            failures.append("legacy harness missing while %d rows pending" % pending)
+        else:
+            remaining = remaining_legacy_count(harness_source)
+            if remaining != pending:
+                failures.append(
+                    "legacy harness still runs %s checks (remaining EXPECTED_CHECK_COUNT) "
+                    "but ledger has %d pending rows" % (remaining, pending)
+                )
+    elif harness_source is not None:
         if "EXPECTED_CHECK_COUNT" in harness_source or "def check(" in harness_source:
             failures.append(
                 "harness source still contains EXPECTED_CHECK_COUNT or def check( "
-                "even though the fragment declares ported/deleted rows"
+                "even though the fragment declares zero pending rows"
             )
 
     return failures, counts
@@ -277,10 +397,11 @@ def collect_node_ids_and_errors():
     error_files, returncode). Parses stdout even on a non-zero exit code,
     because a sibling plan may be mid-edit on another file in the same
     working tree - a collection error in a file OTHER than the harness
-    being checked is the caller's problem to warn about, not to fail on.
+    being checked (and its own new modules) is the caller's problem to
+    warn about, not to fail on.
     """
     proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", "server", "stub-server"],
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", "companion", "test-support"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -319,9 +440,7 @@ def check_one(harness, allow_pending, verbose=True):
     if not os.path.isfile(baseline_path):
         fail("no baseline transcript at %s (run --capture first)" % baseline_path)
         return result
-    with open(baseline_path) as f:
-        baseline_text = f.read()
-    lines = baseline_check_lines(baseline_text)
+    lines = load_baseline_lines(key)
     result["baseline_count"] = len(lines)
 
     fragment_path = os.path.join(LEDGER_DIR, key + ".md")
@@ -335,16 +454,27 @@ def check_one(harness, allow_pending, verbose=True):
 
     node_ids, error_files, _rc = collect_node_ids_and_errors()
     norm_harness = os.path.normpath(harness)
-    other_errors = {e for e in error_files if os.path.normpath(e) != norm_harness}
-    harness_has_error = any(os.path.normpath(e) == norm_harness for e in error_files)
+    # The harness's own new modules (companion/test_<stem>_NN.py, part of a
+    # staged migration's chain) count as "this harness" for error purposes
+    # too - a collection error there is this check's problem, not a
+    # sibling plan's.
+    stem_key = key.split("__", 1)[-1]  # "companion__test_status_pages" -> "test_status_pages"
+    own_prefix = "companion/%s" % stem_key
+
+    def is_own_file(path):
+        norm = os.path.normpath(path).replace(os.sep, "/")
+        return norm == norm_harness or (norm.startswith(own_prefix) and norm.endswith(".py"))
+
+    own_errors = {e for e in error_files if is_own_file(e)}
+    other_errors = {e for e in error_files if not is_own_file(e)}
     if other_errors and verbose:
         print(
             "WARNING: pytest --collect-only reported collection errors in other files "
             "(a sibling plan may be mid-edit): %r" % sorted(other_errors),
             file=sys.stderr,
         )
-    if harness_has_error:
-        fail("pytest --collect-only itself failed to collect this harness")
+    if own_errors:
+        fail("pytest --collect-only itself failed to collect this harness or its own modules: %r" % sorted(own_errors))
         return result
 
     harness_path = os.path.join(REPO_ROOT, harness)
@@ -369,6 +499,27 @@ def check_one(harness, allow_pending, verbose=True):
     return result
 
 
+def get_chromium_executable_path():
+    """The Chromium executable path pytest-playwright would launch, or
+    "n/a" if playwright isn't importable or no browser is installed at all
+    (a bare `sync_playwright().start().chromium.executable_path` reports
+    the path even when the underlying binary is missing on disk, so this
+    is a "would launch from here", not a "definitely launches" check -
+    good enough for INDEX.md provenance)."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        return "n/a"
+    try:
+        p = sync_playwright().start()
+        try:
+            return p.chromium.executable_path
+        finally:
+            p.stop()
+    except Exception:
+        return "n/a"
+
+
 def write_index(rows):
     python_version = sys.version.split()[0]
     euid = os.geteuid() if hasattr(os, "geteuid") else "n/a"
@@ -379,6 +530,8 @@ def write_index(rows):
     except Exception:
         git_rev = "unknown"
     timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "n/a")
+    chromium_path = get_chromium_executable_path()
 
     lines = [
         "# Baseline capture index",
@@ -387,6 +540,8 @@ def write_index(rows):
         "Python version: %s" % python_version,
         "euid: %s" % euid,
         "Capture commit: %s" % git_rev,
+        "PLAYWRIGHT_BROWSERS_PATH: %s" % browsers_path,
+        "Chromium executable path: %s" % chromium_path,
         "",
         "| Harness | Transcript | PASS | FAIL | Total | Exit code | Summary line |",
         "| --- | --- | ---: | ---: | ---: | --- | --- |",
@@ -446,6 +601,18 @@ def cmd_capture(args):
             stdout = (exc.stdout or "") + (exc.stderr or "")
             exit_code = "TIMEOUT(900s)"
 
+        rejection = validate_transcript(stdout)
+        if rejection is not None:
+            rejected_path = out_path + ".rejected"
+            with open(rejected_path, "w") as f:
+                f.write(stdout)
+            print(
+                "REJECTED %s: %s (transcript kept at %s, not %s)"
+                % (harness, rejection, rejected_path, out_path),
+                file=sys.stderr,
+            )
+            return 1
+
         with open(out_path, "w") as f:
             f.write(stdout)
 
@@ -480,45 +647,119 @@ def cmd_capture(args):
     return 0
 
 
+def cmd_scaffold(args):
+    targets = HARNESSES if args.all else args.harnesses
+    if not targets:
+        print("no harnesses given (name one or more, or pass --all)", file=sys.stderr)
+        return 1
+    os.makedirs(LEDGER_DIR, exist_ok=True)
+    for harness in targets:
+        key = harness_key(harness)
+        baseline_path = os.path.join(BASELINE_DIR, key + ".txt")
+        if not os.path.isfile(baseline_path):
+            print(
+                "no baseline transcript for %s at %s (run --capture first)" % (harness, baseline_path),
+                file=sys.stderr,
+            )
+            return 1
+        fragment_path = os.path.join(LEDGER_DIR, key + ".md")
+        if os.path.isfile(fragment_path) and not args.force:
+            print("refusing to overwrite existing fragment %s (use --force)" % fragment_path, file=sys.stderr)
+            return 1
+
+        lines = load_baseline_lines(key)
+        out = [
+            "# Ledger: %s" % harness,
+            "",
+            "Baseline: `%s.txt`, %d checks" % (key, len(lines)),
+            "",
+            "| # | Old check label | Disposition | New node id / reason |",
+            "| --- | --- | --- | --- |",
+        ]
+        for i, line in enumerate(lines, start=1):
+            label = line[len("PASS ") :] if line.startswith("PASS ") else line[len("FAIL ") :]
+            out.append("| %d | %s | pending | |" % (i, escape_label(label)))
+        out.append("")
+        with open(fragment_path, "w") as f:
+            f.write("\n".join(out) + "\n")
+        print("wrote %s (%d pending rows)" % (fragment_path, len(lines)))
+    return 0
+
+
+def cmd_add_check(args):
+    harness, label = args.add_check
+    if not args.source:
+        print("--add-check requires --source <sha>", file=sys.stderr)
+        return 1
+    key = harness_key(harness)
+    os.makedirs(BASELINE_DIR, exist_ok=True)
+    addendum_path = os.path.join(BASELINE_DIR, key + ".addendum.txt")
+    with open(addendum_path, "a") as f:
+        f.write("# added after audit baseline: %s\n" % args.source)
+        f.write("PASS %s\n" % label)
+
+    fragment_path = os.path.join(LEDGER_DIR, key + ".md")
+    existing_rows = 0
+    if os.path.isfile(fragment_path):
+        with open(fragment_path) as f:
+            existing_rows = len(parse_fragment_rows(f.read()))
+    with open(fragment_path, "a") as f:
+        f.write("| %d | %s | pending | |\n" % (existing_rows + 1, escape_label(label)))
+
+    print("added pending row #%d for %r to %s" % (existing_rows + 1, label, fragment_path))
+    print(
+        "REMINDER: bump %s's legacy EXPECTED_CHECK_COUNT so it still equals its pending-row count"
+        % harness
+    )
+    return 0
+
+
 def cmd_assemble(_args):
     results = [check_one(h, allow_pending=False) for h in HARNESSES]
     if not all(r["ok"] for r in results):
         print("cannot assemble: one or more fragments failed --check (see above)", file=sys.stderr)
         return 1
 
-    lines = [
-        "# Phase 32 Migration Ledger",
-        "",
-        "Generated by `32-ledger-check.py --assemble`. Do not hand-edit; re-run `--assemble` instead.",
-        "",
-        "## Format",
-        "",
-        "Each fragment lives at `32-ledger/<key>.md`, one per harness, with the header",
-        "`# Ledger: <harness>`, a `Baseline:` line naming the transcript and its check count, then a table:",
-        "",
-        "| # | Old check label | Disposition | New node id / reason |",
-        "| --- | --- | --- | --- |",
-        "",
-        "Disposition is one of `ported`, `deleted`, `pending`. A `|` inside a label is escaped as `\\|`.",
-        "",
-        "## Summary",
-        "",
-        "| Harness | Baseline | Ported | Deleted | Fragment |",
-        "| --- | ---: | ---: | ---: | --- |",
-    ]
-    grand_baseline = grand_ported = grand_deleted = 0
+    header_lines = []
+    if os.path.isfile(LEDGER_FILE):
+        with open(LEDGER_FILE) as f:
+            existing = f.read()
+        marker = "<!-- fragments -->"
+        idx = existing.find(marker)
+        if idx != -1:
+            header_lines = existing[: idx + len(marker)].splitlines()
+    if not header_lines:
+        header_lines = ["# Phase 33 Migration Ledger", "", "<!-- fragments -->"]
+
+    lines = list(header_lines)
+    lines.append("")
+    lines.append("## Summary")
+    lines.append("")
+    lines.append("| Harness | Baseline | Addendum | Ported | Deleted | Fragment |")
+    lines.append("| --- | ---: | ---: | ---: | ---: | --- |")
+    grand_baseline = grand_addendum = grand_ported = grand_deleted = 0
     for harness, result in zip(HARNESSES, results):
         key = harness_key(harness)
+        addendum_path = os.path.join(BASELINE_DIR, key + ".addendum.txt")
+        addendum_count = 0
+        if os.path.isfile(addendum_path):
+            with open(addendum_path) as f:
+                addendum_count = sum(1 for line in f if line.startswith("PASS "))
         counts = result["counts"]
+        baseline_only = result["baseline_count"] - addendum_count
         lines.append(
-            "| %s | %d | %d | %d | `32-ledger/%s.md` |"
-            % (harness, result["baseline_count"], counts["ported"], counts["deleted"], key)
+            "| %s | %d | %d | %d | %d | `33-ledger/%s.md` |"
+            % (harness, baseline_only, addendum_count, counts["ported"], counts["deleted"], key)
         )
-        grand_baseline += result["baseline_count"]
+        grand_baseline += baseline_only
+        grand_addendum += addendum_count
         grand_ported += counts["ported"]
         grand_deleted += counts["deleted"]
     lines.append("")
-    lines.append("Grand totals: %d baseline checks, %d ported, %d deleted." % (grand_baseline, grand_ported, grand_deleted))
+    lines.append(
+        "Grand totals: %d baseline checks, %d addendum checks, %d ported, %d deleted."
+        % (grand_baseline, grand_addendum, grand_ported, grand_deleted)
+    )
     lines.append("")
     for harness, result in zip(HARNESSES, results):
         lines.append("## %s" % harness)
@@ -529,6 +770,7 @@ def cmd_assemble(_args):
     with open(LEDGER_FILE, "w") as f:
         f.write("\n".join(lines) + "\n")
     print("wrote %s" % LEDGER_FILE)
+    print("phase33_total=%d" % (grand_baseline + grand_addendum))
     return 0
 
 
@@ -810,14 +1052,22 @@ def run_self_tests():
 
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("harnesses", nargs="*", help="harness paths to check (default: all 15)")
+    parser.add_argument("harnesses", nargs="*", help="harness paths to check/scaffold (default: all 9)")
     parser.add_argument("--capture", action="store_true", help="capture pre-migration baseline transcripts")
-    parser.add_argument("--force", action="store_true", help="with --capture, overwrite an existing transcript")
-    parser.add_argument("--all", action="store_true", help="explicit alias for the default (check all 15)")
+    parser.add_argument("--force", action="store_true", help="with --capture/--scaffold, overwrite an existing file")
+    parser.add_argument("--all", action="store_true", help="explicit alias for the default (check/scaffold all 9)")
     parser.add_argument(
         "--allow-pending", action="store_true", help="a 'pending' ledger row counts as mapped (used by staged migrations)"
     )
-    parser.add_argument("--assemble", action="store_true", help="assemble all 15 fragments into the migration ledger")
+    parser.add_argument("--assemble", action="store_true", help="assemble all 9 fragments into the migration ledger")
+    parser.add_argument("--scaffold", action="store_true", help="write all-pending ledger fragments for the given harnesses")
+    parser.add_argument(
+        "--add-check",
+        nargs=2,
+        metavar=("HARNESS", "LABEL"),
+        help="record a check added to HARNESS after its baseline was captured",
+    )
+    parser.add_argument("--source", help="commit sha for --add-check (required)")
     parser.add_argument("--self-test", action="store_true", help="run the pure-logic self-tests and exit")
     return parser
 
@@ -828,6 +1078,10 @@ def main(argv=None):
         return run_self_tests()
     if args.capture:
         return cmd_capture(args)
+    if args.scaffold:
+        return cmd_scaffold(args)
+    if args.add_check:
+        return cmd_add_check(args)
     if args.assemble:
         return cmd_assemble(args)
     return cmd_check(args)
