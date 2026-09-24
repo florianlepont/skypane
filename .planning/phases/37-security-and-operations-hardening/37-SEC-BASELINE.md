@@ -121,7 +121,23 @@ After the deploy:
 
 ## Deliberate failed deploy (CP-5)
 
-_Pending CP-5 (Plan 37-09)._
+Run 2026-09-24 ~20:02 UTC from the laptop with a throwaway local commit
+`e6385cd` (companion unit given `--no-such-flag`, never pushed):
+- `activate.sh` staged, installed units, swapped `current`, restarted; the
+  companion exited with `unrecognized arguments: --no-such-flag`
+  (status=2/INVALIDARGUMENT, systemd restart loop) and the probe reported
+  `probe failed: unit:skypane-companion.service`.
+- `==> Rolling back to releases/e18c5ef…` → `rollback complete`;
+  **`deploy-exit=1`** (non-zero, so a CI deploy would be red).
+- After: `current` = `releases/e18c5ef923f30428a94fa03df307afc9cd68b9e4`
+  (identical to before), byos / companion / poll.timer / caddy all
+  `active`, and `grep -c -- --no-such-flag` on the installed companion unit
+  = **0** (previous units reinstalled). Throwaway branch deleted locally.
+- Cosmetic follow-up: the failure journal tail prints each unit's last 50
+  lines regardless of age (the poll timer's go back to August); a
+  `--since` bound would make it shorter. The final status line names the
+  last probe that ran (`byos-loopback(000000)`, taken during the restart)
+  rather than the one that failed first.
 
 ## Wave B (CP-11)
 
