@@ -109,3 +109,9 @@ None - no external service configuration required.
 ---
 *Phase: 33-companion-tests-on-pytest-behaviour-over-source-text*
 *Completed: 2026-09-24*
+
+## Self-Check: PASSED
+
+All claimed files found on disk (`33-ledger-check.py`, `33-BASELINE/INDEX.md`,
+`33-MIGRATION-LEDGER.md`, this summary) and all 4 commit hashes (`a8cb602`, `3655cc9`,
+`06280eb`, `8098cff`) found in `git log --oneline --all`.
