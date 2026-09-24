@@ -259,7 +259,7 @@ echo "Register on the local stub server:"
 echo "  python3 stub-server/devices_cli.py --state-dir <state-dir> add --mac ${MAC} --secret-sha256 ${HASH} --replace"
 echo ""
 echo "Register on the VPS:"
-echo "  ssh <ssh-target> \"sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/stub-server/devices_cli.py --state-dir /opt/skypane/state add --mac ${MAC} --secret-sha256 ${HASH} --replace\""
+echo "  ssh <ssh-target> \"sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/devices_cli.py --state-dir /opt/skypane/state add --mac ${MAC} --secret-sha256 ${HASH} --replace\""
 echo ""
 echo "Note: re-running this script generates a NEW secret for ${MAC}, so the" \
      "registry entry must be replaced - that is why --replace is in both" \
