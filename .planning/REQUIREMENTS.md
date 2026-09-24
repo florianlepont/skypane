@@ -203,12 +203,12 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [ ] **INT-12**: Injected clock; lock released during fetch
 - [ ] **INT-13**: Updated
 - [ ] **INT-14**: Pin the resolved IP for the connection (or correct the claim)
-- [ ] **SEC-01**: Per-client-IP throttle (trusted `X-Forwarded-For` from loopback Caddy)
+- [x] **SEC-01**: Per-client-IP throttle (trusted `X-Forwarded-For` from loopback Caddy)
 - [ ] **SEC-02**: `Strict-Transport-Security`
 - [ ] **SEC-03**: `Origin`/`Sec-Fetch-Site` check on every POST
 - [ ] **SEC-04**: Nightly `sqlite3 .backup` + off-box copy; README corrected
 - [ ] **SEC-05**: Release dir + symlink swap (or timer stopped); post-deploy `systemctl is-active` + HTTP probes fail the job; units/Caddyfile deployed with `daemon-reload`
-- [ ] **SEC-06**: `CapabilityBoundingSet=`, `PrivateDevices`, `ProtectKernel*`, `RestrictAddressFamilies`, `SystemCallFilter=@system-service`, `UMask=0027`; byos `--bind 127.0.0.1` + `IPAddressDeny=any`/`IPAddressAllow=localhost`
+- [x] **SEC-06**: `CapabilityBoundingSet=`, `PrivateDevices`, `ProtectKernel*`, `RestrictAddressFamilies`, `SystemCallFilter=@system-service`, `UMask=0027`; byos `--bind 127.0.0.1` + `IPAddressDeny=any`/`IPAddressAllow=localhost`
 - [ ] **SEC-07**: Secret via env; env file `root:root 600`; secret passed through `env:`
 - [ ] **SEC-08**: `sshd_config.d/00-skypane.conf`, `PermitRootLogin no`, validated
 - [ ] **EFF-01**: `encode zstd gzip`; validators + 304; static bytes cached in memory
@@ -398,12 +398,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INT-12 | Phase 36 | Pending |
 | INT-13 | Phase 36 | Pending |
 | INT-14 | Phase 36 | Pending |
-| SEC-01 | Phase 37 | Pending |
+| SEC-01 | Phase 37 | Complete |
 | SEC-02 | Phase 37 | Pending |
 | SEC-03 | Phase 37 | Pending |
 | SEC-04 | Phase 37 | Pending |
 | SEC-05 | Phase 37 | Pending |
-| SEC-06 | Phase 37 | Pending |
+| SEC-06 | Phase 37 | Complete |
 | SEC-07 | Phase 37 | Pending |
 | SEC-08 | Phase 37 | Pending |
 | EFF-01 | Phase 38 | Pending |
