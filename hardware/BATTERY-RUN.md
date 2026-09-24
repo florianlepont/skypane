@@ -284,12 +284,23 @@ Task 2 analysis.*
   Reconciliation` in the eventual Task 3 write-up, which will need to
   proceed on two independent cycle-count witnesses (nominal from elapsed
   span, and observed polls in `device_health`) instead of three.
-- `boot_count_end`: **pending** — the developer was away from the device
-  when the pack depleted and has not yet reconnected USB to read the
-  post-mortem wake line. Recorded honestly rather than guessed; see
-  `## Cycle Count Reconciliation` below, which proceeds on the two
-  witnesses available (nominal from elapsed span, observed polls in
-  `device_health`) rather than the three D-07 originally specified.
+- `boot_count_end`: **9337** — read 2026-09-24 off the console
+  (`I (756) skypane: wake reason=power-on boot_count=9337`), captured via
+  a race-attach script (the port only exists while the device is awake,
+  so a plain `firmware/monitor.sh` started after plugging in reliably
+  missed the first lines — the same "appears then disappears" timing
+  issue `hardware/BRINGUP-LOG.md`'s `## First-Boot Capture` section
+  already documents). `wake reason=power-on` confirms a genuine cold
+  boot, not a wake from RTC. **Not usable for a delta**, though: this
+  counter is cumulative since the device's very first flash, not reset
+  per run, and `boot_count_start` (the value immediately before the
+  cable was pulled on 2026-09-02) was never captured — see `## Cycle
+  Count Reconciliation` below, which proceeds on the two witnesses
+  available (nominal from elapsed span, observed polls in
+  `device_health`) rather than the three D-07 originally specified. This
+  reading does confirm one thing worth recording: the NVS boot counter
+  survived a full depletion to 2946 mV intact, with no corruption or
+  reset to zero.
 - wall-clock disconnect time: 2026-09-02T12:55:00+00:00 (14:55 CEST,
   developer-reported) — corroborated by the server-side record: the last
   charging-plateau reading was 4122 mV at 12:58:13, and the first clearly
@@ -352,7 +363,7 @@ nominal formula, not in this run's inputs.
 |---|---|---|
 | Nominal (elapsed / interval_s) | 3554.02 | `1,066,206 s / 300 s` |
 | Observed (server log) | **3252** | `device_health` rows via `from-history-db`; this is what `mAh/cycle` divides by, per D-07 |
-| Device NVS boot-counter delta | **not available** | `boot_count_start` was never read (Task 2 gap, disclosed above); `boot_count_end` is pending the developer's physical reconnection |
+| Device NVS boot-counter delta | **not computable** | `boot_count_end=9337` was read 2026-09-24, but `boot_count_start` was never read (Task 2 gap, disclosed above) — the counter is cumulative across the device's whole lifetime, not scoped to this run, so a single endpoint cannot be diffed into a cycle count |
 
 Coverage (observed/nominal) is **0.915** — diagnosed above as real
 per-cycle wake overhead inflating the true average interval to ~328 s,
@@ -361,9 +372,12 @@ not as lost polls. The headline division uses the **observed** count
 cycles rather than a theoretical one. Ordinarily this run would also
 reconcile against the device's own boot-counter delta as a third,
 independent witness; that check cannot be performed this run because
-neither endpoint of it was captured (Task 2's disclosed gap on the
-open end, physical distance on the close end) — recorded as a real
-limitation of this specific run, not smoothed over.
+the opening endpoint was never captured (Task 2's disclosed gap) —
+recorded as a real limitation of this specific run, not smoothed over.
+The closing endpoint alone (9337) is still worth having: it confirms
+the NVS boot counter survived a full depletion to 2946 mV without
+corruption or reset, which is itself a small piece of evidence that
+the device's flash-backed state is robust across a hard power loss.
 
 ## Discharge Trend
 
@@ -495,13 +509,21 @@ projection band (days) for candidate wake intervals - lower bound assumes all dr
   at that time) and reached a stable ~4120 mV charge plateau by
   ~12:34-12:39 UTC the same day — roughly 2h50 to visible plateau, USB
   left connected throughout per the protocol.
-- **Recharge time and pack post-depletion condition:** **pending** —
-  the developer was away from the device when the pack depleted; both
-  items await the physical reconnection described in 05-01-PLAN.md's
-  Task 3 (inspect for swelling/heat/smell *before* recharging; do not
-  recharge if any is present).
-- **Post-mortem wake reason and clean-recovery-without-reflash
-  confirmation:** **pending**, same physical step.
+- **Pack post-depletion condition:** inspected 2026-09-24 before any
+  recharge attempt, per the protocol's own safety requirement — the
+  developer confirmed the pack looked and felt normal (no swelling, no
+  heat, no smell). Recharge was then started; the exact recharge
+  duration was not tracked to the minute (this project's own convention
+  only requires the *inspection* to gate the recharge, not a timed
+  measurement of it).
+- **Post-mortem wake reason:** confirmed `power-on` (the console line
+  quoted under `## Measured Inputs`' `boot_count_end` entry), exactly as
+  expected for a board with no power at all until reconnection.
+- **Clean-recovery-without-reflash confirmation:** confirmed — the
+  device reconnected to Wi-Fi and resumed normal polling (subsequent
+  wake cycles observed serving `poll ok sleep_s=3600 hash_skip=1`, its
+  now-configured production wake interval per Phase 25's web-configurable
+  setting) with no reflash of any kind.
 - **Anomalies from the check-in table:** none beyond the coverage
   figure already diagnosed above; no restart, outage, or interruption
   was otherwise flagged by either the developer's own checks or the

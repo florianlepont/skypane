@@ -17,7 +17,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **DEVICE-03**: Device wakes on a schedule, polls the server over HTTPS, downloads and displays a new image if available, then returns to deep sleep, with exponential backoff on failure
 - [x] **DEVICE-04**: User can see a low-battery indicator on the frame when the battery is running low
-- [ ] **DEVICE-05**: Device runs on battery power only (no wall power, no solar) for v1
+- [x] **DEVICE-05**: Device runs on battery power only (no wall power, no solar) for v1
 
 ### Companion Configuration Web Interface
 
@@ -262,7 +262,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLANE-03 | Phase 2 | Complete |
 | DEVICE-03 | Phase 1 | Complete |
 | DEVICE-04 | Phase 5 | Complete |
-| DEVICE-05 | Phase 5 | In Progress (05-01 Task 1 of 3 done) |
+| DEVICE-05 | Phase 5 | Complete (05-01, all 3 tasks — MEASURED verdict 2026-09-15, 0.923 mAh/cycle, closed 2026-09-24 with physical post-mortem confirmation; see `hardware/BATTERY-RUN.md`) |
 | CFG-01 | Phase 6 | Complete (06-07) |
 | CFG-03 | Phase 6 | Complete (06-08, deployed 06-11) |
 | CFG-04 | Phase 6 | Pending (not yet planned) |
