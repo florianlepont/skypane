@@ -23,11 +23,17 @@ _PULL_SCRIPT = _REPO_ROOT / "deploy" / "backup" / "mac" / "skypane-backup-pull.s
 _INSTALL_SCRIPT = _REPO_ROOT / "deploy" / "backup" / "mac" / "install-launchagent.sh"
 _GATE = _REPO_ROOT / "deploy" / "backup" / "backup_gate.py"
 
+# Like real ssh, the fake forwards (here: drains) its stdin unless -n is
+# given - a pull loop that feeds `while read` from a file must not let
+# ssh swallow the rest of that file.
 _FAKE_SSH = """#!/bin/sh
 last=""
+no_stdin=0
 for arg in "$@"; do
+    [ "$arg" = "-n" ] && no_stdin=1
     last="$arg"
 done
+[ "$no_stdin" -eq 1 ] || cat >/dev/null
 case "$last" in
   list)
     if [ -n "${FAKE_SSH_LIST_FAIL_COUNT:-}" ] && [ "${FAKE_SSH_LIST_FAIL_COUNT:-0}" -gt 0 ]; then

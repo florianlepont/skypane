@@ -45,8 +45,11 @@ log() {
     printf '==> %s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1"
 }
 
+# -n: ssh must never read this script's stdin - inside the `while read`
+# loop below that stdin is the archive list, and a forwarded stdin would
+# swallow every line after the first fetch.
 ssh_cmd() {
-    ssh -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=20 \
+    ssh -n -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=20 \
         -o ServerAliveInterval=15 -i "$KEY" "$TARGET" "$1"
 }
 
