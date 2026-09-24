@@ -89,7 +89,28 @@ reviewers = florianlepont**, no wait timer, administrators cannot bypass.
 
 ## Services under sandbox (CP-4)
 
-_Pending CP-4 (Plan 37-09)._
+Cutover done 2026-09-24 (~19:55 UTC) by approving the CI deploy of main
+`e18c5ef` (green). Before it, the shared host Caddyfile was migrated once:
+backup `/etc/caddy/Caddyfile.pre37`; new host file = `import sites/*.caddy` +
+the two unchanged cortege blocks (SkyPane's two inline blocks removed).
+
+After the deploy:
+- `skypane-byos`, `skypane-companion`, `skypane-poll.timer`, `caddy`,
+  `skypane-backup.timer`: all `active`.
+- Ports: companion `127.0.0.1:8643` only (`--bind 127.0.0.1` in its argv);
+  byos still `0.0.0.0:8642` (Wave B).
+- HSTS `max-age=31536000` on both hosts. (`curl -I` returns 501: the stdlib
+  servers do not implement HEAD; GET is what the device and browsers use.)
+- Cross-origin `POST /login` with `Origin: https://evil.example` → **403**.
+- Poll cycles every 30 s complete under the sandbox (`Deactivated
+  successfully`); current state `hold_state=battery_empty` — the frame's own
+  battery is flat, unrelated to the cutover.
+- `/etc/caddy/sites/` holds only `skypane.caddy`; cortege still answers
+  (`cortege` 404 / `cortege-files` 400 from the apps themselves, no 502).
+- Browser checks confirmed by the developer: login, Poll now, save a
+  setting, theme preview, Health (off-box card shows "never" in warn, as
+  expected before CP-8/CP-9); cortege opens normally.
+- No hardening directive had to be reverted.
 
 ## Deliberate failed deploy (CP-5)
 
