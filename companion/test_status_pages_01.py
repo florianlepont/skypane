@@ -1,11 +1,16 @@
 """Part 01 of the `companion/test_status_pages.py` migration chain
-(33-25-PLAN.md): the original harness's `check()` calls #1-#19, covering
-`companion/pages/health_page.py`'s two freshness signals (Device/
-Pipeline), `companion/wake.py`'s staleness-threshold/env/effective-
-interval contract and its import boundary, `companion/layout.py`'s
-`absolute_and_relative()` timestamp helper, and the Battery section's
-ring/trend/disclosure/caption behaviour through the day-1 raw-series
-fallback.
+(33-25-PLAN.md): the original harness's `check()` calls #1-#37 — all of
+Section 1 (`companion/pages/health_page.py`'s two freshness signals,
+`companion/wake.py`'s staleness-threshold/env/effective-interval
+contract and import boundary, `companion/layout.py`'s
+`absolute_and_relative()` timestamp helper, the Battery section's ring/
+trend/disclosure/caption behaviour through the day-1 raw-series
+fallback and the mode-honest caption sweep, the D-07 anomaly-category/
+pill/banner contract, the D-08 Corroboration disclosure, the D-09
+concise-timestamp rows, the 260902-chc D-12 reversal guard, the
+badge-to-card-border retargets, the retired anomaly-detail-list guards,
+and `battery_sparkline_svg()`'s own external-reference and per-point
+interactive-markup contract).
 
 One check is pulled forward out of order (33-MIGRATION-RULES.md's rubric
 T): the root-unsafe `anomaly_active()` degrade-safely check, originally
@@ -496,3 +501,440 @@ def test_anomaly_active_never_raises_on_hostile_inputs(tmp_path):
     regular_file.write_bytes(b"")
     assert health_page.anomaly_active(str(regular_file)) is False, (
         "expected False for a state_dir that is a regular file, not a directory")
+
+
+def test_battery_caption_is_mode_honest_across_renders(tmp_path):
+    """the Battery trend caption is mode-honest across three renders — empty
+    (3-month default), multi-day (3-month, daily average), and same-day (readings
+    count) (260902-l0b)"""
+    empty_dir = tmp_path / "empty"
+    multiday_dir = tmp_path / "multiday"
+    sameday_dir = tmp_path / "sameday"
+    for d in (empty_dir, multiday_dir, sameday_dir):
+        d.mkdir()
+    base = shp.now()
+
+    empty_rendered = health_page.render(shp.ctx(str(empty_dir), now_value=shp.iso(base)))
+    assert "Last 3 months" in empty_rendered, "expected the default 3-month framing on an empty render"
+
+    multiday_readings = [
+        (shp.iso(base - timedelta(days=1)), 4100),
+        (shp.iso(base - timedelta(days=2)), 4200),
+    ]
+    shp.seed_device_health(str(multiday_dir), multiday_readings)
+    multiday_rendered = health_page.render(shp.ctx(str(multiday_dir), now_value=shp.iso(base)))
+    assert "Last 3 months" in multiday_rendered, "expected the 3-month framing when the daily series is on screen"
+
+    sameday_readings = [
+        (shp.iso(base - timedelta(minutes=1)), 4200),
+        (shp.iso(base), 4190),
+    ]
+    shp.seed_device_health(str(sameday_dir), sameday_readings)
+    sameday_rendered = health_page.render(shp.ctx(str(sameday_dir), now_value=shp.iso(base)))
+    assert ("Latest %d readings" % len(sameday_readings)) in sameday_rendered, (
+        "expected the readings-count framing on the same-day fallback")
+    assert "Last 3 months" not in sameday_rendered, (
+        "the same-day fallback must not claim the 3-month framing")
+
+
+# ==========================================================================
+# D-07: the anomaly banner's category naming / pill markup
+# ==========================================================================
+
+
+def test_anomaly_banner_names_real_categories_not_generic_only(tmp_path):
+    """the anomaly banner names the real failing category (a disagreement), not
+    only the generic fallback text (UXA-06)"""
+    now = shp.now()
+    shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
+    shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    shp.seed_runway_events(str(tmp_path), [
+        {"ts": shp.iso(now), "hex": "abc123", "corroborated": False}])
+    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    assert "Data sources disagreed" in rendered, "expected the anomaly banner to name the real failing category"
+    assert health_page.ANOMALY_BANNER_TEXT in rendered, (
+        "expected ANOMALY_BANNER_TEXT to remain present as the banner's fallback tail")
+    assert 'class="banner__pill"' in rendered, (
+        "expected the anomaly banner to render banner__pill markup for the pill-based category naming")
+
+
+def test_anomaly_categories_never_lowercase_a_leading_acronym():
+    """_anomaly_category_text() lower-cases ordinary mid-sentence phrases but never
+    a leading acronym (no 'aDS-B')"""
+    # Driven through the real collect_anomalies() strings, in the real
+    # order, rather than hand-written fixtures — so the check cannot
+    # drift away from the copy it is protecting. 19-06 (D-06) rewrote
+    # every collect_anomalies() literal into plain language, so none of
+    # the real strings begins with an acronym any more; the real strings
+    # now prove the ordinary mid-sentence lower-casing, and a
+    # hand-written acronym-led fixture keeps the guard itself under test.
+    anomalies = health_page.collect_anomalies(
+        device_state="warn", pipeline_state="warn",
+        battery_state="ok", disagreement_warn=True)
+    text = health_page._anomaly_category_text(anomalies)
+    assert "flight data is stale" in text and "data sources disagreed" in text, (
+        "expected the real non-first phrases to be lower-cased mid-sentence, got %r" % (text,))
+
+    acronym = health_page._anomaly_category_text(
+        ["Device check-in is stale.",
+         "ADS-B sources disagreed on the selected aircraft recently."])
+    assert "aDS-B" not in acronym and "ADS-B sources" in acronym, (
+        "a leading acronym was lower-cased for mid-sentence joining, producing %r" % (acronym,))
+
+    # The guard must be narrow: an ordinary sentence-initial word in a
+    # non-first position still lower-cases, or the joined clause reads
+    # as a run of sentences again.
+    ordinary = health_page._anomaly_category_text(
+        ["Device check-in is stale.",
+         "Battery dropped abnormally."])
+    assert "battery dropped abnormally" in ordinary, (
+        "expected an ordinary non-acronym phrase to still be lower-cased mid-sentence, got %r" % (ordinary,))
+
+
+def test_anomaly_category_labels_are_pill_text_not_full_sentences():
+    """_anomaly_category_labels() returns one period-stripped label per anomaly,
+    distinct from collect_anomalies()'s own full literal sentences (D-07)"""
+    anomalies = health_page.collect_anomalies(
+        device_state="error", pipeline_state="error",
+        battery_state="ok", disagreement_warn=False)
+    labels = health_page._anomaly_category_labels(anomalies)
+    assert len(labels) == len(anomalies), (
+        "expected one label per anomaly, got %d labels for %d anomalies" % (len(labels), len(anomalies)))
+    for label, anomaly in zip(labels, anomalies):
+        assert label != anomaly, (
+            "expected a pill label to differ from collect_anomalies()'s full literal sentence, got %r" % (label,))
+        assert not label.endswith("."), "expected a pill label's trailing period to be stripped, got %r" % (label,)
+
+
+def test_anomaly_banner_html_matches_layout_anomaly_banner_severity_mapping():
+    """_anomaly_banner_html() reproduces layout.anomaly_banner()'s exact
+    severity-to-class/role mapping, and carries one banner__pill per anomaly plus
+    the accessible ANOMALY_BANNER_TEXT tail (D-07)"""
+    anomalies = ["Device check-in is stale."]
+    error_banner = health_page._anomaly_banner_html("error", anomalies)
+    assert 'class="banner banner--anomaly"' in error_banner and 'role="alert"' in error_banner, (
+        "expected error severity to render banner--anomaly + role=\"alert\"")
+    warn_banner = health_page._anomaly_banner_html("warn", anomalies)
+    assert 'class="banner banner--warn"' in warn_banner and 'role="status"' in warn_banner, (
+        "expected warn severity to render banner--warn + role=\"status\"")
+    assert warn_banner.count('class="banner__pill"') == 1, (
+        "expected exactly one banner__pill for a single-anomaly fixture")
+    assert health_page.ANOMALY_BANNER_TEXT in warn_banner, (
+        "expected ANOMALY_BANNER_TEXT to remain present as the banner's accessible tail")
+
+
+def test_anomaly_banner_renders_one_pill_per_anomaly_on_the_page(tmp_path):
+    """a two-anomaly fixture renders exactly two banner__pill elements inside one
+    banner element on the real page (D-07)"""
+    now = shp.now()
+    shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
+    shp.seed_meta(str(tmp_path), **{
+        history_db.META_LAST_PIPELINE_RUN: shp.ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
+    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    assert rendered.count('<div class="banner ') == 1, "expected exactly one banner element"
+    assert rendered.count('class="banner__pill"') == 2, (
+        "expected exactly two banner__pill elements for this two-anomaly fixture "
+        "(stale device + stale pipeline), got %d" % rendered.count('class="banner__pill"'))
+
+
+# ==========================================================================
+# D-08: Corroboration's compact rows + closed-by-default explanations
+# ==========================================================================
+
+
+def test_corroboration_rows_compact_explanations_in_closed_disclosure(tmp_path):
+    """Corroboration's three rows stay compact (dot/label/count only) and their
+    explanations move into a closed-by-default disclosure (D-08)"""
+    now = shp.now()
+    shp.seed_runway_events(str(tmp_path), [
+        {"ts": shp.iso(now), "hex": "abc123", "corroborated": True},
+        {"ts": shp.iso(now), "hex": "def456", "corroborated": None},
+        {"ts": shp.iso(now), "hex": "ghi789", "corroborated": False},
+    ])
+    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
+        assert explanation in rendered, "expected explanation %r to survive somewhere in the rendered page" % explanation
+    details_start = rendered.index('<details class="readings-disclosure"')
+    compact_rows_html = rendered[:details_start]
+    for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
+        assert explanation not in compact_rows_html, (
+            "expected the compact corroboration rows to no longer carry the explanation "
+            "clause inline: %r" % explanation)
+    details_tag = rendered[details_start:]
+    details_open_tag = details_tag[:details_tag.index(">") + 1]
+    assert " open" not in details_open_tag, "expected the corroboration disclosure to be closed by default"
+    assert "<dl>" in rendered and "<dt>" in rendered and "<dd>" in rendered, (
+        "expected the disclosure's explanations to render as a <dl> of <dt>/<dd> pairs")
+
+
+def test_corroboration_section_disagreement_flag_unchanged():
+    """_corroboration_section()'s second return value (the disagreement flag) is
+    unchanged by the D-08 disclosure rewrite"""
+    _, has_disagreement = health_page._corroboration_section({"True": 1, "None": 0, "False": 2})
+    assert has_disagreement is True, "expected the disagreement flag to be True when the False bucket is non-zero"
+    _, no_disagreement = health_page._corroboration_section({"True": 1, "None": 2, "False": 0})
+    assert no_disagreement is False, "expected the disagreement flag to be False when the False bucket is zero"
+
+
+def test_corroboration_copy_has_no_decision_id_leak():
+    """no corroboration row's explanation leaks a bare decision-ID parenthetical
+    (UXA-05)"""
+    for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
+        assert "(D-" not in explanation, (
+            "found a decision-ID leak in a corroboration row's explanation: %r" % explanation)
+
+
+# ==========================================================================
+# D-09: concise timestamps; 260902-chc's D-12 reversal
+# ==========================================================================
+
+
+def test_device_and_pipeline_rows_use_concise_timestamp_format(tmp_path):
+    """the Device check-in and ADS-B pipeline rows render via the D-09 concise
+    timestamp format"""
+    now = shp.now()
+    shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
+    shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    assert rendered.count('<span class="mono" title=') >= 2, (
+        "expected at least two concise_timestamp_html() spans (Device + Pipeline rows)")
+
+
+def test_health_pill_reversal_guard(tmp_path):
+    """Health's D-12 reversal: a live data-loaded-at timestamp survives,
+    page_header() is called exactly once, and the retired stale-view banner
+    marker/copy and manual Refresh-link class are gone from both the rendered
+    page and the module itself (260902-chc)"""
+    # 260902-chc: D-12's manual Refresh link + stale-view banner pattern
+    # is reversed for Health. This check pins the reversal's own
+    # rendered result and positively asserts both retired literals are
+    # truly gone — a later refactor cannot silently un-reverse it either.
+    now_iso = shp.iso(shp.now())
+    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=now_iso))
+    assert rendered.count("data-loaded-at") == 1, "expected exactly one data-loaded-at attribute"
+    assert ('data-loaded-at="%s"' % now_iso) in rendered, (
+        "expected data-loaded-at to carry the real, request-scoped now ISO value")
+    assert rendered.count('<h1 class="page-title"') == 1, "expected page_header() to be called exactly once"
+    assert "data-stale-banner" not in rendered, (
+        "expected the retired stale-view banner marker to be gone from the rendered page")
+    assert "may be out of date" not in rendered, (
+        "expected the retired stale-view banner's copy to be gone from the rendered page")
+    assert "freshness-refresh" not in rendered, (
+        "expected the retired manual Refresh link's class to be gone from the rendered page")
+    assert not hasattr(health_page, "_STALE_VIEW_BANNER_HTML"), (
+        "expected health_page to no longer define the retired _STALE_VIEW_BANNER_HTML constant")
+
+
+# ==========================================================================
+# The badge-to-card-border retargets (quick task 260902-gjj)
+# ==========================================================================
+
+
+def test_battery_section_healthy_card_border_on_normal_trend(tmp_path):
+    """Battery trend renders a healthy status-coloured card border on a normal
+    trend, in place of the retired status_dot() badge (D-01 reversal, quick task
+    260902-gjj)"""
+    now = shp.now()
+    readings = [
+        (shp.iso(now - timedelta(minutes=1)), 4200),
+        (shp.iso(now), 4190),
+    ]
+    shp.seed_device_health(str(tmp_path), readings)
+    shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+    battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
+    assert "battery-trend-section--ok" in battery_tag, (
+        "expected the battery-trend section's own tag to carry the ok status modifier, got %r"
+        % battery_tag)
+    assert rendered.count("dot--ok") == 0 and "dot--warn" not in rendered and "dot--error" not in rendered, (
+        "expected zero dot classes of any colour in this fixture")
+    for label, expect_class in (
+            (health_page.DEVICE_FRESHNESS_LABEL, "stat-tile--ok"),
+            (health_page.PIPELINE_FRESHNESS_LABEL, "stat-tile--ok")):
+        at = rendered.index(label)
+        tile_open = rendered.rindex('<div class="stat-tile ', 0, at)
+        tile_tag = rendered[tile_open:rendered.index(">", tile_open)]
+        assert expect_class in tile_tag, (
+            "expected the %r tile's wrapper to carry %r, got %r" % (label, expect_class, tile_tag))
+
+
+def test_battery_empty_history_ok_badge_no_anomaly_banner(tmp_path):
+    """an empty/single-reading battery trend renders an ok badge and no anomaly
+    banner (Assumption A1 regression guard)"""
+    # 06.5-RESEARCH.md Pitfall 2: the empty-history branch must stay "ok"
+    # (Assumption A1), or a freshly-provisioned device with zero readings
+    # would display "A battery reading shows an abnormal drop." —
+    # factually wrong copy. This is a permanent regression guard.
+    markup, state = health_page._battery_section([])
+    assert state == "ok", "expected _battery_section([]) to return state 'ok', got %r" % (state,)
+    assert "No battery readings yet." in markup, "expected the empty-history empty-state heading in the markup"
+    assert "dot--error" not in markup and "dot--warn" not in markup and "dot--ok" not in markup, (
+        "did not expect any status-dot class in the empty-history markup — the badge is retired")
+
+    # Page-level proof: a fresh device with one healthy battery reading
+    # never surfaces the abnormal-drop anomaly or its banner.
+    now = shp.now()
+    shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
+    shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    assert "dot--error" not in rendered, "did not expect an error status class with a single battery reading"
+    battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+    battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
+    assert "battery-trend-section--ok" in battery_tag, (
+        "expected the battery-trend section's own tag to carry the ok status modifier with a "
+        "single, healthy battery reading, got %r" % battery_tag)
+    assert health_page.ANOMALY_BANNER_TEXT not in rendered, (
+        "did not expect the anomaly banner with a single, healthy battery reading")
+    assert "Battery dropped abnormally." not in rendered, (
+        "did not expect the abnormal-drop copy with a single battery reading")
+
+
+def test_battery_drop_drives_badge_and_banner_detail_copy_not_rendered(tmp_path):
+    """a real battery drop drives both the card's own error border (retargeted
+    from the retired badge, quick task 260902-gjj) and the banner; the detail copy
+    is no longer rendered"""
+    now = shp.now()
+    readings = [
+        (shp.iso(now - timedelta(minutes=1)), 4200),
+        (shp.iso(now), 4200 - health_page.BATTERY_DROP_WARN_MV),
+    ]
+    shp.seed_device_health(str(tmp_path), readings)
+    shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+    battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
+    assert "battery-trend-section--warn" in battery_tag, (
+        "expected the battery-trend section's own tag to carry the warn status modifier for a "
+        "drop >= BATTERY_DROP_WARN_MV (demoted from error, D-05), got %r" % battery_tag)
+    count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
+    assert count == 1, "expected the anomaly banner copy exactly once, found %d" % count
+    assert "Battery dropped abnormally." not in rendered, (
+        "the abnormal-drop detail copy must no longer be rendered on the page")
+    assert health_page.collect_anomalies("ok", "ok", "error", False) == ["Battery dropped abnormally."], (
+        "collect_anomalies() must still compute the abnormal-drop item directly")
+
+
+# ==========================================================================
+# The retired anomaly-detail-list markup
+# ==========================================================================
+
+
+def test_anomaly_detail_list_markup_is_gone(tmp_path):
+    """an unhealthy fixture renders the anomaly banner with zero <ul/<li list
+    markup inside its own element slice (retargeted from a page-wide ban by quick
+    task 260903-ghy, to stop it colliding with a legitimate .data-cards list
+    elsewhere on the page)"""
+    now = shp.now()
+    shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
+    shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    banner_at = rendered.index('<div class="banner ')
+    banner_end = rendered.index("</div>", banner_at) + len("</div>")
+    banner_slice = rendered[banner_at:banner_end]
+    assert banner_slice.count("<ul") == 0, "expected zero <ul occurrences inside the anomaly banner"
+    assert banner_slice.count("<li") == 0, "expected zero <li occurrences inside the anomaly banner"
+    count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
+    assert count == 1, "expected the anomaly banner copy exactly once, found %d" % count
+
+
+def test_none_of_the_four_anomaly_item_strings_render(tmp_path):
+    """with all four D-14 signals unhealthy, none of collect_anomalies()'s four
+    item strings is rendered"""
+    now = shp.now()
+    # Trip all four D-14 signals at once: stale device, stale pipeline,
+    # an abnormal battery drop, and a disagreement within the
+    # corroboration window.
+    shp.seed_device_health(str(tmp_path), [
+        (shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4200),
+        (shp.ago(_DEFAULT_DEVICE_ERROR_S + 30), 4200 - health_page.BATTERY_DROP_WARN_MV),
+    ])
+    shp.seed_meta(str(tmp_path), **{
+        history_db.META_LAST_PIPELINE_RUN: shp.ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
+    shp.seed_runway_events(str(tmp_path), [
+        {"ts": shp.iso(now), "hex": "abc123", "corroborated": False}])
+    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    expected_items = health_page.collect_anomalies("error", "error", "error", True)
+    assert len(expected_items) == 4, "expected collect_anomalies() to return all four items, got %r" % (expected_items,)
+    count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
+    assert count == 1, "expected the anomaly banner copy exactly once, found %d" % count
+    for item in expected_items:
+        assert item not in rendered, "anomaly item copy leaked into the rendered page: %r" % item
+
+
+# ==========================================================================
+# battery_sparkline_svg(): external-reference ban and per-point hit targets
+# ==========================================================================
+
+
+def test_sparkline_has_no_external_reference():
+    """battery_sparkline_svg() emits no url(, <image, or <script — no external
+    reference at all"""
+    # This check's scope is narrower than it first appears — it exercises
+    # only battery_sparkline_svg()'s own return value, which never gains
+    # a script/url/image reference no matter how much interactive markup
+    # a point carries.
+    rows = [
+        {"ts": "t1", "battery_mv": 4200},
+        {"ts": "t2", "battery_mv": 4100},
+        {"ts": "t3", "battery_mv": 4050},
+    ]
+    svg = health_page.battery_sparkline_svg(rows)
+    for forbidden in ("url(", "<image", "<script"):
+        assert forbidden not in svg, "found forbidden %r in the sparkline SVG" % forbidden
+
+
+def test_sparkline_svg_has_per_point_interactive_markup():
+    """battery_sparkline_svg() emits per-point interactive hit targets with
+    data-mv/data-ts/<title>, in chronological order, with roving tabindex on the
+    latest point only"""
+    rows = [
+        {"ts": "2024-01-03T00:00:00", "battery_mv": 4050},
+        {"ts": "2024-01-02T00:00:00", "battery_mv": 4100},
+        {"ts": "2024-01-01T00:00:00", "battery_mv": 4200},
+    ]
+    svg = health_page.battery_sparkline_svg(rows)
+    doc = parse_html(svg)
+
+    hits = doc.find_all("circle", cls=health_page.SPARKLINE_HIT_CLASS)
+    assert len(hits) == 3, "expected exactly 3 hit-target circles, got %d" % len(hits)
+
+    # 24-05-PLAN.md Task 2 (CFG-41): the newest plotted point is marked
+    # with a non-cosmetic mark (survives the density rule that suppresses
+    # cosmetic dots) — one drawn marker per point, the last of them the
+    # mark, is what "every point is drawn" always meant.
+    dots = doc.find_all("circle", cls=health_page.SPARKLINE_DOT_CLASS)
+    marks = doc.find_all("circle", cls=health_page.SPARKLINE_MARK_CLASS)
+    assert (len(dots), len(marks)) == (2, 1), (
+        "expected 3 drawn markers for 3 points — 2 cosmetic dots plus 1 mark on the newest — "
+        "got %d dots / %d marks" % (len(dots), len(marks)))
+
+    assert sum(1 for h in hits if "data-mv" in h.attrs) == 3, "expected exactly 3 data-mv attributes"
+    assert sum(1 for h in hits if "data-ts" in h.attrs) == 3, "expected exactly 3 data-ts attributes"
+    assert len(doc.find_all("title")) == 3, "expected exactly 3 <title elements"
+
+    # 06.6.3-04 (D-13/UXA-11): roving tabindex — exactly one hit target
+    # is a normal Tab stop (the chronologically-latest point), the rest
+    # are removed from the natural Tab order.
+    tabindex_0 = [h for h in hits if h.attrs.get("tabindex") == "0"]
+    tabindex_neg1 = [h for h in hits if h.attrs.get("tabindex") == "-1"]
+    assert len(tabindex_0) == 1, (
+        "expected exactly 1 tabindex=\"0\" hit target (roving tabindex), got %d" % len(tabindex_0))
+    assert len(tabindex_neg1) == 2, "expected exactly 2 tabindex=\"-1\" hit targets, got %d" % len(tabindex_neg1)
+
+    lines = doc.find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
+    assert len(lines) == 2, "expected exactly 2 trend-line segments (n - 1 for 3 points), got %d" % len(lines)
+
+    for row in rows:
+        mv = row["battery_mv"]
+        assert any(h.attrs.get("data-mv") == str(mv) for h in hits), (
+            "expected battery_mv=%d to appear inside a data-mv attribute" % mv)
+
+    ordered_ts = ["2024-01-01T00:00:00", "2024-01-02T00:00:00", "2024-01-03T00:00:00"]
+    assert [h.attrs.get("data-ts") for h in hits] == ordered_ts, (
+        "expected timestamps in chronological (oldest-first) document order, matching the "
+        "trend line's own left-to-right ordering")
+
+    by_ts = {h.attrs.get("data-ts"): h for h in hits}
+    assert by_ts[ordered_ts[-1]].attrs.get("tabindex") == "0", (
+        "expected the chronologically-latest point's hit target to carry tabindex=\"0\"")
