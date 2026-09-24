@@ -51,11 +51,11 @@ Live hostnames from `skypane.env`: `SKYPANE_PUBLIC_HOST=vps-1440bce3.vps.ovh.net
 
 | Directive | Before (CP-1) | After (CP-3) |
 |-----------|---------------|--------------|
-| permitrootlogin | prohibit-password | |
-| passwordauthentication | **yes** | |
-| kbdinteractiveauthentication | no | |
-| pubkeyauthentication | yes | |
-| maxauthtries | 6 | |
+| permitrootlogin | prohibit-password | no |
+| passwordauthentication | **yes** | no |
+| kbdinteractiveauthentication | no | no |
+| pubkeyauthentication | yes | yes |
+| maxauthtries | 6 | 3 |
 
 Before: `/etc/ssh/sshd_config.d/` holds `50-cloud-init.conf` (root 600) and
 `60-cloudimg-settings.conf`. Password authentication is **on** in production
@@ -67,21 +67,77 @@ finding, confirmed live). `00-skypane.conf` sorts before it and fixes this.
 
 | Path | Before (CP-1) | After (CP-3) |
 |------|---------------|--------------|
-| /opt/skypane | 750 skypane:skypane | |
-| /opt/skypane/skypane.env | not read (stat ran without sudo) | |
-| /opt/skypane/venv | not read (stat ran without sudo) | |
+| /opt/skypane | 750 skypane:skypane | 750 root:skypane |
+| /opt/skypane/skypane.env | not read (stat ran without sudo) | 600 root:root |
+| /opt/skypane/venv | not read (stat ran without sudo) | 755 root:root |
+
+CP-3 (2026-09-24): `provision.sh` ran to completion with session 1 open.
+`sshd -t` passed; a second session as `ubuntu@` logged in (`LOGIN-OK`) and
+`root@` was refused (`Permission denied (publickey)`). Also after CP-3:
+`releases/` 755 root:root, `archives/` 2750 skypane:skypane-backup,
+`pulled/` 755 skypane-backup:skypane-backup, `skypane-backup` not in group
+`skypane`, `SKYPANE_OFFBOX_MARKER` present once in `skypane.env`, byos /
+companion / poll.timer / caddy all `active`.
 
 ## GitHub deploy target (CP-2)
 
-_Pending CP-2._
+Done 2026-09-24 by the developer: `DEPLOY_SSH_TARGET` set to `ubuntu@<vps>` as an
+**environment secret of `production`** (the environment page lists only that
+one secret; the key and host-key secrets resolve from elsewhere, as the
+successful 2026-09-23 12:20 deploy proves). Protection rules: **Required
+reviewers = florianlepont**, no wait timer, administrators cannot bypass.
 
 ## Services under sandbox (CP-4)
 
-_Pending CP-4 (Plan 37-09)._
+Cutover done 2026-09-24 (~19:55 UTC) by approving the CI deploy of main
+`e18c5ef` (green). Before it, the shared host Caddyfile was migrated once:
+backup `/etc/caddy/Caddyfile.pre37`; new host file = `import sites/*.caddy` +
+the two unchanged cortege blocks (SkyPane's two inline blocks removed).
+
+After the deploy:
+- `skypane-byos`, `skypane-companion`, `skypane-poll.timer`, `caddy`,
+  `skypane-backup.timer`: all `active`.
+- Ports: companion `127.0.0.1:8643` only (`--bind 127.0.0.1` in its argv);
+  byos still `0.0.0.0:8642` (Wave B).
+- HSTS `max-age=31536000` on both hosts. (`curl -I` returns 501: the stdlib
+  servers do not implement HEAD; GET is what the device and browsers use.)
+- Cross-origin `POST /login` with `Origin: https://evil.example` → **403**.
+- Poll cycles every 30 s complete under the sandbox (`Deactivated
+  successfully`); current state `hold_state=battery_empty` — the frame's own
+  battery is flat, unrelated to the cutover.
+- `/etc/caddy/sites/` holds only `skypane.caddy`; cortege still answers
+  (`cortege` 404 / `cortege-files` 400 from the apps themselves, no 502).
+- Browser checks confirmed by the developer: login, Poll now, save a
+  setting, theme preview, Health (off-box card shows "never" in warn, as
+  expected before CP-8/CP-9); cortege opens normally.
+- `readlink /opt/skypane/current` (with sudo) =
+  `/opt/skypane/releases/e18c5ef923f30428a94fa03df307afc9cd68b9e4`; GET
+  `https://<device-host>/device/v1/display` → 401, GET
+  `https://skypane.algernon.ovh/login` → 200.
+- Cortege health checked from outside: `https://cortege.algernon.ovh/v1/health`
+  → 200 `{"status":"ok","service":"cortege-api"}`,
+  `https://cortege-files.algernon.ovh/minio/health/live` → 200.
+- No hardening directive had to be reverted.
 
 ## Deliberate failed deploy (CP-5)
 
-_Pending CP-5 (Plan 37-09)._
+Run 2026-09-24 ~20:02 UTC from the laptop with a throwaway local commit
+`e6385cd` (companion unit given `--no-such-flag`, never pushed):
+- `activate.sh` staged, installed units, swapped `current`, restarted; the
+  companion exited with `unrecognized arguments: --no-such-flag`
+  (status=2/INVALIDARGUMENT, systemd restart loop) and the probe reported
+  `probe failed: unit:skypane-companion.service`.
+- `==> Rolling back to releases/e18c5ef…` → `rollback complete`;
+  **`deploy-exit=1`** (non-zero, so a CI deploy would be red).
+- After: `current` = `releases/e18c5ef923f30428a94fa03df307afc9cd68b9e4`
+  (identical to before), byos / companion / poll.timer / caddy all
+  `active`, and `grep -c -- --no-such-flag` on the installed companion unit
+  = **0** (previous units reinstalled). Throwaway branch deleted locally.
+- Cosmetic follow-up: the failure journal tail prints each unit's last 50
+  lines regardless of age (the poll timer's go back to August); a
+  `--since` bound would make it shorter. The final status line names the
+  last probe that ran (`byos-loopback(000000)`, taken during the restart)
+  rather than the one that failed first.
 
 ## Wave B (CP-11)
 
