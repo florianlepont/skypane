@@ -49,6 +49,8 @@ notification dot) — it exists specifically so no nav renderer has to
 import a page module, the constraint `companion/pages/__init__.py`
 states.
 """
+import os
+import re
 import sqlite3
 from datetime import date, datetime, timedelta, timezone  # 24-07-PLAN.md
 # Task 2: `date` joins the three for the regularity grid's own window walk,
@@ -114,6 +116,25 @@ STALE_PIPELINE_WARN_S = 180  # 3 minutes — 6x the 30s cadence; one missed
 # cycle is ordinary jitter, six in a row is not.
 STALE_PIPELINE_ERROR_S = 900  # 15 minutes — 30x the cadence; well past
 # "the systemd timer is having a rough moment."
+
+# --- Off-box backup freshness (SEC-04, D-07/D-23, 37-02-PLAN.md) ----------
+#
+# Each successful pull of the VPS's nightly snapshot to the developer's Mac
+# (deploy/backup/backup_gate.py's `ack`, plan 37-04) leaves a one-line
+# marker file named by this env var. OFFBOX_MARKER_ENV_VAR is read here
+# (the marker's one reader) rather than in companion/app.py, matching
+# STALE_PIPELINE_WARN_S's own "the constant lives beside the code that
+# uses it" placement above.
+OFFBOX_MARKER_ENV_VAR = "SKYPANE_OFFBOX_MARKER"
+OFFBOX_WARN_S = 3 * 86400  # D-07's 3-day threshold: one missed nightly
+# pull is ordinary (the Mac was asleep, or launchd's wake catch-up has not
+# fired yet), three means the Mac pull or the VPS backup job has actually
+# stopped.
+# The marker contract (shared with backup_gate.py's `ack`, RESEARCH.md
+# §SEC-04 "The marker holds the archive name"): one archive name matching
+# this pattern, plus an optional trailing newline — never a raw timestamp,
+# so the same file also proves the acked archive actually exists.
+_OFFBOX_MARKER_RE = re.compile(r"^skypane-state-(\d{8}T\d{6}Z)\.tar\.gz$")
 
 # Device check-in: unlike the pipeline, this is genuinely tunable — the
 # device's own effective wake cadence, which can be set on Settings or
@@ -933,6 +954,53 @@ def staleness_status(age_seconds, warn_s, error_s):
     if age_seconds >= warn_s:
         return "warn"
     return "ok"
+
+
+def offbox_backup_status(now):
+    """The off-box backup freshness signal (SEC-04, D-07/D-23), read from
+    `os.environ` (see this function's own body) on EVERY call — never
+    resolved once and cached at import time, so a deployment that sets
+    the env var after this module has already been imported (or a test
+    that changes
+    it between two calls) is still seen.
+
+    Returns `None` when the env var is unset or empty — D-07's "no new
+    page for a deployment that has not configured this yet" contract: the
+    caller renders no card and folds no state into severity at all in
+    that case (`compute_health_state()`'s own "ok" default for a `None`
+    result — see its docstring).
+
+    Otherwise returns `{"state": "ok"|"warn", "snapshot_ts": <ISO str or
+    None>}`. `state` is capped at "warn" (D-23: the file gate went
+    dark, not the flight-data pipeline) by passing `error_s=float("inf")`
+    to `staleness_status()` above — an error_s that can never be reached.
+
+    Never raises (T-37-07): a missing file, a path-traversal-shaped
+    name, empty content, binary garbage or a file far larger than any
+    real marker is a T-37-06 tampering surface, not a crash surface — any
+    `OSError`/`ValueError` (the parent of `UnicodeDecodeError`) reading or
+    parsing the marker degrades to `{"state": "warn", "snapshot_ts":
+    None}`, the same shape as "never pulled". At most 256 bytes are ever
+    read, so a 10 kB file costs one bounded read, not a full-file load.
+    """
+    marker_path = os.environ.get(OFFBOX_MARKER_ENV_VAR)
+    if not marker_path:
+        return None
+    try:
+        with open(marker_path, "rb") as handle:
+            raw = handle.read(256)
+        text = raw.decode("ascii").strip()
+        match = _OFFBOX_MARKER_RE.match(text)
+        if not match:
+            return {"state": "warn", "snapshot_ts": None}
+        snapshot_dt = datetime.strptime(
+            match.group(1), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+    except (OSError, ValueError):
+        return {"state": "warn", "snapshot_ts": None}
+    snapshot_ts = snapshot_dt.isoformat()
+    age = layout.age_seconds(snapshot_ts, now)
+    state = staleness_status(age, OFFBOX_WARN_S, float("inf"))
+    return {"state": state, "snapshot_ts": snapshot_ts}
 
 
 def battery_trend_rows(conn):
@@ -1970,9 +2038,27 @@ def corroboration_status(counts):
     }
 
 
+def _offbox_anomaly_text(offbox):
+    """The single anomaly sentence for a non-ok `offbox` status (SEC-04,
+    D-07), or `None` when `offbox` is `None` (unset) or already `"ok"`.
+
+    Shared by `collect_anomalies()` (decides whether the sentence
+    appears in the banner) and `_offbox_section_html()` (renders the
+    identical sentence inline in the warn card) so the two can never
+    read different words for the same state — one definition, two
+    consumers, the same discipline `PIPELINE_STATE_TEXT` already follows
+    for its own verdict/anomaly pair.
+    """
+    if offbox is None or offbox["state"] == "ok":
+        return None
+    if offbox["snapshot_ts"] is None:
+        return i18n.t("No off-box backup has been pulled yet.")
+    return i18n.t("No off-box backup in the last 3 days.")
+
+
 def collect_anomalies(
     device_state, pipeline_state, battery_state, disagreement_warn,
-    coverage_state="ok", source_fault=False,
+    coverage_state="ok", source_fault=False, offbox=None,
 ):
     """A list of short, human-readable strings — one per non-healthy
     condition among the signals this page tracks. An empty list means
@@ -2003,6 +2089,15 @@ def collect_anomalies(
     keeps working unchanged. Two more literal strings join the original
     four — this is A-23's third half: `anomaly_active()`/
     `health_severity()` now report on two more real signals than before.
+
+    SEC-04, D-07/D-23, 37-02-PLAN.md: `offbox` (the exact dict
+    `offbox_backup_status()` returns, or `None`) is a THIRD fully-
+    defaulted parameter, appended after `source_fault` the same way
+    `coverage_state`/`source_fault` were appended after the original
+    four — every existing call site is unaffected. `None` or a
+    `"state": "ok"` dict appends nothing; `_offbox_anomaly_text()`
+    (shared with `_offbox_section_html()`, see its own docstring) is
+    what decides the sentence.
     """
     # D-05, 20-03-PLAN.md Task 3: each literal is wrapped in i18n.t()
     # at the append site — the literal itself (what every pinned
@@ -2033,12 +2128,15 @@ def collect_anomalies(
         anomalies.append(i18n.t("Some airlines are unidentified."))
     if source_fault:
         anomalies.append(i18n.t("All data sources failed."))
+    offbox_text = _offbox_anomaly_text(offbox)
+    if offbox_text:
+        anomalies.append(offbox_text)
     return anomalies
 
 
 def overall_severity(
     device_state, pipeline_state, battery_state, disagreement_warn,
-    coverage_state="ok", source_fault=False,
+    coverage_state="ok", source_fault=False, offbox_state="ok",
 ):
     """Derive one "ok"/"warn"/"error" severity from the same signals
     `collect_anomalies()` tracks — the precedence table UXA-14's own
@@ -2053,8 +2151,14 @@ def overall_severity(
            "error".
         3. Otherwise "warn": if any of the three states equals "warn",
            or `disagreement_warn` is true, or `coverage_state` equals
-           "warn", the overall severity is "warn".
+           "warn", or `offbox_state` equals "warn", the overall
+           severity is "warn".
         4. Otherwise "ok".
+
+    SEC-04, D-07/D-23, 37-02-PLAN.md: `offbox_state` can NEVER push this
+    function to "error" — it has no membership in the step-2 states
+    tuple, by design (D-23: a stale/never-pulled off-box backup is a
+    warning, not a page-wide error). It joins step 3 only.
 
     D-05/A-23, 19-05-PLAN.md: `coverage_state` and `source_fault` are two
     new, fully-defaulted keyword parameters (signature widening, never a
@@ -2087,7 +2191,10 @@ def overall_severity(
     states = (device_state, pipeline_state, battery_state)
     if "error" in states:
         return "error"
-    if "warn" in states or disagreement_warn or coverage_state == "warn":
+    if (
+        "warn" in states or disagreement_warn or coverage_state == "warn"
+        or offbox_state == "warn"
+    ):
         return "warn"
     return "ok"
 
@@ -2176,19 +2283,35 @@ def compute_health_state(state_dir, now=None):
     # docstrings for the precedence this adds.
     coverage_state = coverage_status(inputs["registry_rows"])
     source_fault = _meta_flag_true(inputs["source_fault_raw"])
+    # SEC-04, D-07/D-23, 37-02-PLAN.md: read exactly once per request,
+    # here — never inside overall_severity()/collect_anomalies()/render()
+    # independently, which would risk two different reads (and therefore
+    # two different verdicts) disagreeing within the same response, the
+    # same "one snapshot, every consumer reuses it" discipline WR-04's
+    # own docstring above states for this whole function.
+    offbox = offbox_backup_status(now)
+    offbox_state = offbox["state"] if offbox is not None else "ok"
     severity = overall_severity(
         device_state, pipeline_state, battery_state, disagreement_warn,
-        coverage_state=coverage_state, source_fault=source_fault)
+        coverage_state=coverage_state, source_fault=source_fault,
+        offbox_state=offbox_state)
     # UXA-06/D-18: threaded through to render() so _anomaly_banner_html()
     # can name the real failing category or categories rather than
     # recomputing collect_anomalies() a second time from scratch.
     anomalies = collect_anomalies(
         device_state, pipeline_state, battery_state, disagreement_warn,
-        coverage_state=coverage_state, source_fault=source_fault)
+        coverage_state=coverage_state, source_fault=source_fault,
+        offbox=offbox)
     return {
         "now": now,
         "source_fault_raw": inputs["source_fault_raw"],
         "registry_rows": inputs["registry_rows"],
+        # SEC-04, D-07: the exact offbox_backup_status() result (or
+        # None when SKYPANE_OFFBOX_MARKER is unset) — render() reuses
+        # this to build the card rather than reading the marker a
+        # second time per request (the same "os.environ.get() read once
+        # here" contract offbox_backup_status()'s own docstring states).
+        "offbox": offbox,
         # CFG-43: the cadence the Device tile's own thresholds were
         # derived from, published so render()'s regularity grid judges
         # its cells against that one value and can say which it was.

@@ -111,6 +111,9 @@ def test_legacy_harness_list_matches_disk():
     # rather than run through this shim — it is exempted here the same
     # way test_browser_ux_helpers.py (a shared helper, not a harness in
     # its own right) already is.
+    #
+    # SEC-04 (37-02-PLAN.md): test_health_offbox.py is a second native
+    # pytest test module, exempted for the identical reason.
     on_disk = {
         "companion/%s" % name
         for name in os.listdir(_COMPANION_DIR)
@@ -120,6 +123,7 @@ def test_legacy_harness_list_matches_disk():
             "test_legacy_harness_shim.py",
             "test_browser_ux_helpers.py",
             "test_login_throttle.py",
+            "test_health_offbox.py",
         )
     }
     assert on_disk == set(LEGACY_COMPANION_HARNESSES)
