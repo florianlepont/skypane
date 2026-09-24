@@ -24,6 +24,13 @@
 #                                                    # shim until Phase 33
 #   scripts/run-all-tests.sh -k dither -- -x     # extra args go to pytest
 #                                                 # (e.g. -k, a path, -x)
+#
+# Coverage gate: `fail_under` is a whole-suite floor, so it is enforced
+# only on a run with NO extra arguments (what CI runs). Any extra argument
+# (-k, a path, -x, ...) adds `--cov-fail-under=0` before your arguments:
+# a subset still reports coverage but never fails on the gate. To enforce
+# a floor on a run with arguments anyway, pass it explicitly, e.g.
+# `scripts/run-all-tests.sh -x --cov-fail-under=88` (the later flag wins).
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,4 +65,10 @@ if [ -z "${COVERAGE_CORE:-}" ]; then
     fi
 fi
 
-exec "${PYTHON}" -m pytest -n "${JOBS:-auto}" --cov --cov-report=term-missing:skip-covered --durations=15 "$@"
+gate_args=()
+if [ "$#" -gt 0 ]; then
+    echo "==> Extra pytest arguments given: coverage gate disabled for this run (full-suite floor)"
+    gate_args=(--cov-fail-under=0)
+fi
+
+exec "${PYTHON}" -m pytest -n "${JOBS:-auto}" --cov --cov-report=term-missing:skip-covered --durations=15 ${gate_args[@]+"${gate_args[@]}"} "$@"
