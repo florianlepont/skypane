@@ -1,42 +1,32 @@
-#!/usr/bin/env python3
-"""Contract harness for companion/contrast_check.py (06.6.2-CONTEXT.md
-D-14, UXA-04).
+"""Behaviour tests for companion/contrast_check.py's WCAG contrast and
+signal-separation math, run against the colour tokens companion/app.py
+actually SERVES over HTTP — never against companion/static/style.css
+opened from disk.
 
-Covers: contrast_ratio() reproducing 06.6.1-UX-AUDIT.md's own published
-contrast numbers exactly (formula fidelity), and every real light/dark
-text-on-surface token pair companion/static/style.css actually uses for
-normal text or a primary-button label meeting WCAG AA (>= 4.5:1) — a
-permanent regression suite, not a one-off script. Final hex literals are
-hard-coded here rather than read from the CSS file dynamically, so a
-future accidental token change is caught as a real regression.
+Two kinds of check:
 
-Section 3 (heading-color-consistency debug session) covers SIGNAL
-SEPARATION, a different guarantee from contrast: that --color-accent
-cannot be mistaken for any --color-status-* colour at a glance. That
-guarantee existed for three phases as prose in style.css naming only the
-accent-vs-warn pair, and nothing measured it — which is exactly how
-06.6.2's WCAG-AA accent darkening (#E8622C -> #B13F16) moved the accent
-to within dE76 22.9 / 15.9 degrees of --color-status-error #DC2626 with
-all 16 contrast checks still green, producing an app where the primary
-"Save settings" button and the "something is wrong" banner edge read as
-the same brick red. Contrast and separation are orthogonal: two colours
-can have near-identical contrast against a shared background while being
-the same hue.
+- Formula fidelity: contrast_ratio()/hue_separation() reproduce a fixed
+  set of hand-verified numbers exactly. These fixtures are historical
+  reference values (some superseded by later token changes) and are
+  hard-coded on purpose — they test the FORMULA, not the current
+  stylesheet.
+- Live tokens: every real light/dark colour pair the app actually ships
+  (text-on-surface contrast, accent-vs-status signal separation) is
+  measured against the `:root` custom properties fetched from a running
+  server, via `served_stylesheet()` and `companion_markup.custom_properties()`.
+  A future accidental token change fails these tests directly, because
+  they read the value that shipped, not a copy of it.
 
-Stdlib-only (os, sys). No pytest.
-
-Usage:
-    server/.venv/bin/python3 companion/test_contrast_check.py
+Section 3 covers SIGNAL SEPARATION, a different guarantee from contrast:
+that the accent colour cannot be mistaken for any status colour at a
+glance. See companion/contrast_check.py's own module docstring for the
+regression history this section exists to prevent.
 """
-import os
-import sys
+import re
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.dirname(HERE)
-if REPO_ROOT not in sys.path:
-    sys.path.insert(0, REPO_ROOT)
+import pytest
 
-from companion.contrast_check import (  # noqa: E402
+from companion.contrast_check import (
     MIN_SIGNAL_HUE_SEPARATION,
     MIN_SIGNAL_PERCEPTUAL_DISTANCE,
     STATUS_WARN_ON_CARD_PAIRS,
@@ -46,479 +36,300 @@ from companion.contrast_check import (  # noqa: E402
     hue_separation,
     perceptual_distance,
 )
+from companion_app_server import served_stylesheet
+from companion_markup import custom_properties, declarations_for
 
-# quick task 260901-uzi: +2 (the .battery-readout__detail muted-on-
-# card-surface pair, light and dark) — this task's Task 3 added the
-# rule and, per its own read_first, checked whether this exact pair was
-# already pinned; it was not, so it is added here rather than shipping
-# an under-contrast trailing detail unguarded.
-EXPECTED_CHECK_COUNT = 36
+_DARK_AT_RULE = ("@media (prefers-color-scheme: dark)",)
 
-# 20-04-PLAN.md Task 3: +3 (the warn-on-card-surface pair — one check
-# per theme, plus one asserting the pair is present in
-# contrast_check.STATUS_WARN_ON_CARD_PAIRS so a future token edit cannot
-# silently drop it unguarded).
-EXPECTED_CHECK_COUNT = 39
-
-# 21-04-PLAN.md Task 2 (D-03): +2 (the nav state reminder's own text
-# pairing — full-strength body text on the secondary/sidebar surface,
-# light and dark). 39 + 2 = 41, recomputed directly against the real
-# on-disk check(...) call count at execution time (41/41 pass), not
-# trusted from arithmetic alone.
-EXPECTED_CHECK_COUNT = 41
-
-# 22-13-PLAN.md Task 1 (X3): +2 (Section 5 — the login field's
-# error-coloured border measured against BOTH colours adjacent to it,
-# one check per theme). Measured: light 5.16 against the field fill
-# (#EEE8DE) and 6.29 against the card surface (#FFFFFF); dark 5.93 and
-# 6.53 — every one past WCAG_AA_UI_COMPONENT (3.0), so the border ships
-# rather than being dropped. 41 + 2 = 43, recomputed directly against
-# the real on-disk check(...) call count at execution time (43/43 pass),
-# not trusted from arithmetic alone.
-EXPECTED_CHECK_COUNT = 43
-
-# 24-07-PLAN.md Task 1 (CFG-43): +6 (Section 3 — the three status tokens
-# separated from EACH OTHER, three pairs per theme). The check-in
-# regularity grid is the first surface in this app where all three are
-# painted side by side with nothing but colour between them; everywhere
-# else a status colour appears alone beside its own word, which is why
-# this pair set had no reason to exist until now. Measured at the shipped
-# palette, the closest pair is light warn/error at dE76 55.3. 43 + 6 =
-# 49, recomputed directly against the real on-disk check(...) call count
-# at execution time (49/49 pass), not trusted from arithmetic alone.
-EXPECTED_CHECK_COUNT = 49
+_STATUS_TOKENS = {
+    "ok": "--color-status-ok",
+    "warn": "--color-status-warn",
+    "error": "--color-status-error",
+}
 
 
-def main():
-    results = []
+@pytest.fixture(scope="module")
+def served_css(module_app_server_factory):
+    """The stylesheet companion/app.py actually serves, fetched once for
+    every test in this module (read-only: nothing here mutates server
+    state)."""
+    server = module_app_server_factory()
+    return served_stylesheet(server)
 
-    def check(name, fn):
-        try:
-            ok, reason = fn()
-        except Exception as exc:  # never let an exception be swallowed into a pass
-            ok, reason = False, "exception: %r" % (exc,)
-        results.append((name, ok))
-        if ok:
-            print("PASS %s" % name)
-        else:
-            print("FAIL %s - %s" % (name, reason))
 
-    # ==================================================================
-    # Section 1: formula fidelity — contrast_ratio() reproduces
-    # 06.6.1-UX-AUDIT.md's own published numbers exactly (the same
-    # fixtures proven in companion/contrast_check.py's own Task 1
-    # <verify>, now as permanent regression checks).
-    # ==================================================================
-
-    def _make_formula_check(hex_a, hex_b, expected):
-        def _check():
-            got = round(contrast_ratio(hex_a, hex_b), 2)
-            if got != expected:
-                return False, (
-                    "contrast_ratio(%r, %r) = %.2f, expected %.2f"
-                    % (hex_a, hex_b, got, expected))
-            return True, ""
-        return _check
-
-    for hex_a, hex_b, expected in (
-        ("#E8622C", "#FBF9F6", 3.22),
-        ("#E8622C", "#F3EEE7", 2.93),
-        ("#D2521F", "#FBF9F6", 4.02),
-        ("#FF8A5C", "#0D0F14", 8.25),
-        ("B13F16", "FFFFFF", 5.85),
-        ("#B13F16", "#F7F4EF", 5.33),
-        ("#B13F16", "#EEE8DE", 4.80),
-        ("#FF9B73", "#0C0F14", 9.31),
-    ):
-        check(
-            "contrast_ratio(%r, %r) reproduces the audit's published %.2f" % (hex_a, hex_b, expected),
-            _make_formula_check(hex_a, hex_b, expected))
-
-    # ==================================================================
-    # Section 2: live token-pair contrast — every real light/dark
-    # text-on-surface pair companion/static/style.css actually uses for
-    # normal text or a primary-button label meets WCAG AA. Hex literals
-    # are hard-coded (not read from the CSS file), so a future
-    # accidental token change is caught as a real regression, not
-    # silently re-validated against its own new (possibly broken) value.
-    # ==================================================================
-
-    def _make_live_pair_check(label, fg, bg):
-        def _check():
-            ratio = contrast_ratio(fg, bg)
-            if ratio < WCAG_AA_NORMAL_TEXT:
-                return False, (
-                    "%s: contrast_ratio(%r, %r) = %.2f, below WCAG_AA_NORMAL_TEXT (%.1f)"
-                    % (label, fg, bg, ratio, WCAG_AA_NORMAL_TEXT))
-            return True, ""
-        return _check
-
-    live_pairs = (
-        # Light mode
-        ("light: accent text/link on canvas", "#B13F16", "#F7F4EF"),
-        ("light: accent on primary surface / active nav", "#B13F16", "#FFFFFF"),
-        ("light: accent on secondary/sidebar surface", "#B13F16", "#EEE8DE"),
-        ("light: primary-button label on accent fill", "#FFFFFF", "#B13F16"),
-        ("light: body text on canvas", "#17191F", "#F7F4EF"),
-        # 06.6.4-03 (D-04): every banner and card now renders text on
-        # --color-dominant (the card surface), not just canvas/secondary
-        # — pinned so a future token change fails here, not on inspection.
-        ("light: body text on card surface", "#17191F", "#FFFFFF"),
-        # Dark mode
-        ("dark: accent text/link on canvas", "#FF8A5C", "#0C0F14"),
-        ("dark: accent on primary surface", "#FF8A5C", "#151922"),
-        ("dark: accent on secondary/sidebar surface", "#FF8A5C", "#1C222D"),
-        ("dark: primary-button label on accent fill", "#151922", "#FF8A5C"),
-        ("dark: body text on card surface", "#F1F3F6", "#151922"),
-        # quick task 260901-uzi: .battery-readout__detail's muted trailing
-        # text (this file's existing 70% color-mix strength) composited
-        # over --color-dominant, the card surface it renders on — not
-        # already covered by the pairs above, which are either full-
-        # strength body text or a different muted context.
-        ("light: muted detail text on card surface", "#5D5E62", "#FFFFFF"),
-        ("dark: muted detail text on card surface", "#AFB2B6", "#151922"),
-        # 21-04-PLAN.md Task 2 (D-03): the nav's state reminder
-        # (.nav-status) — full-strength body text on the sidebar
-        # surface, the same pairing .sidebar-link's own unmodified
-        # colour rule already relies on site-wide. Not already covered
-        # above: "accent on secondary/sidebar surface" is a DIFFERENT
-        # foreground colour (accent, not body text) on this same
-        # background.
-        ("light: body text on secondary/sidebar surface", "#17191F", "#EEE8DE"),
-        ("dark: body text on secondary/sidebar surface", "#F1F3F6", "#1C222D"),
-    )
-    for label, fg, bg in live_pairs:
-        check(
-            "%s meets WCAG AA normal-text contrast (>= 4.5:1)" % label,
-            _make_live_pair_check(label, fg, bg))
-
-    # ==================================================================
-    # Section 3: signal separation — --color-accent must be
-    # distinguishable from every --color-status-* colour, in both
-    # themes. See this module's docstring for why contrast checks alone
-    # could not catch the accent/error collision this section exists to
-    # prevent. Hex literals are hard-coded for the same reason as
-    # Section 2: a token change must surface here as a regression, not
-    # be silently re-validated against its own new value.
-    # ==================================================================
-
-    THEMES = (
-        ("light", "#B13F16", {
-            "ok": "#16A34A", "warn": "#D97706", "error": "#BE123C"}),
-        ("dark", "#FF8A5C", {
-            "ok": "#4ADE80", "warn": "#FBBF24", "error": "#FB7185"}),
-    )
-
-    def _make_distance_check(accent, status_hex):
-        def _check():
-            distance = perceptual_distance(accent, status_hex)
-            if distance < MIN_SIGNAL_PERCEPTUAL_DISTANCE:
-                return False, (
-                    "perceptual_distance(%r, %r) = %.1f, below "
-                    "MIN_SIGNAL_PERCEPTUAL_DISTANCE (%.1f) — these two read "
-                    "as the same signal at a glance"
-                    % (accent, status_hex, distance,
-                       MIN_SIGNAL_PERCEPTUAL_DISTANCE))
-            return True, ""
-        return _check
-
-    for theme, accent, statuses in THEMES:
-        for status_name in ("ok", "warn", "error"):
-            check(
-                "%s: --color-accent is perceptually separated from "
-                "--color-status-%s (dE76 >= %.0f)"
-                % (theme, status_name, MIN_SIGNAL_PERCEPTUAL_DISTANCE),
-                _make_distance_check(accent, statuses[status_name]))
-
-    # 24-07-PLAN.md Task 1 (CFG-43): the three status tokens must also be
-    # separated FROM EACH OTHER, not only from the accent — and until the
-    # check-in regularity grid there was no surface where that mattered.
-    # Everywhere else in this app a status colour appears ALONE beside
-    # its own word: one tile border, one dot with its label, one section
-    # edge. The grid is the first drawing where all three are painted
-    # side by side as squares of colour and the colour is the only thing
-    # telling one cell from the next, so "can these two be told apart as
-    # different signals" becomes a question about this pair set for the
-    # first time. Asserted rather than assumed, which is this file's own
-    # standing instruction: a contrast-clean token change can still
-    # collide as a signal, which is exactly how the accent/error
-    # collision happened.
-    #
-    # Measured at the shipped palette: the closest pair in either theme
-    # is light warn/error at dE76 55.3, comfortably past the floor — so
-    # this section ships green and its job is to stay that way through a
-    # future palette edit, not to report a defect today.
-    for theme, _accent, statuses in THEMES:
-        for first, second in (("ok", "warn"), ("ok", "error"), ("warn", "error")):
-            check(
-                "%s: --color-status-%s and --color-status-%s are perceptually "
-                "separated (dE76 >= %.0f) — the regularity grid paints them as "
-                "adjacent cells with nothing but colour between them"
-                % (theme, first, second, MIN_SIGNAL_PERCEPTUAL_DISTANCE),
-                _make_distance_check(statuses[first], statuses[second]))
-
-    # The accent-vs-error pair additionally clears the hue floor. It is
-    # the only pair held to this: accent and error are the same colour
-    # family (both saturated red-oranges), so hue angle is the only
-    # channel left to separate them — see MIN_SIGNAL_HUE_SEPARATION's
-    # own comment in companion/contrast_check.py.
-    def _make_hue_check(accent, status_hex):
-        def _check():
-            separation = hue_separation(accent, status_hex)
-            if separation < MIN_SIGNAL_HUE_SEPARATION:
-                return False, (
-                    "hue_separation(%r, %r) = %.1f deg, below "
-                    "MIN_SIGNAL_HUE_SEPARATION (%.1f deg)"
-                    % (accent, status_hex, separation,
-                       MIN_SIGNAL_HUE_SEPARATION))
-            return True, ""
-        return _check
-
-    for theme, accent, statuses in THEMES:
-        check(
-            "%s: --color-accent and --color-status-error are hue-separated "
-            "(>= %.0f deg)" % (theme, MIN_SIGNAL_HUE_SEPARATION),
-            _make_hue_check(accent, statuses["error"]))
-
-    # Discrimination guards. A threshold everything passes proves
-    # nothing — these assert that the two floors above actually REJECT
-    # the exact values that shipped the bug (#DC2626 light / #F87171
-    # dark). If either of these four checks ever starts failing, the
-    # floors have been loosened to the point of being decorative.
-    SUPERSEDED_ERROR = (("light", "#B13F16", "#DC2626"),
-                        ("dark", "#FF8A5C", "#F87171"))
-
-    def _make_rejects_distance_check(accent, superseded):
-        def _check():
-            distance = perceptual_distance(accent, superseded)
-            if distance >= MIN_SIGNAL_PERCEPTUAL_DISTANCE:
-                return False, (
-                    "the dE76 floor no longer rejects the superseded error "
-                    "colour %r (dE76 %.1f vs floor %.1f) — the threshold has "
-                    "been loosened past the defect it exists to catch"
-                    % (superseded, distance, MIN_SIGNAL_PERCEPTUAL_DISTANCE))
-            return True, ""
-        return _check
-
-    def _make_rejects_hue_check(accent, superseded):
-        def _check():
-            separation = hue_separation(accent, superseded)
-            if separation >= MIN_SIGNAL_HUE_SEPARATION:
-                return False, (
-                    "the hue floor no longer rejects the superseded error "
-                    "colour %r (%.1f deg vs floor %.1f deg)"
-                    % (superseded, separation, MIN_SIGNAL_HUE_SEPARATION))
-            return True, ""
-        return _check
-
-    for theme, accent, superseded in SUPERSEDED_ERROR:
-        check(
-            "%s: the dE76 floor rejects the superseded error colour %s "
-            "(guard against a decorative threshold)" % (theme, superseded),
-            _make_rejects_distance_check(accent, superseded))
-        check(
-            "%s: the hue floor rejects the superseded error colour %s "
-            "(guard against a decorative threshold)" % (theme, superseded),
-            _make_rejects_hue_check(accent, superseded))
-
-    # --color-status-error is painted as a fill (.dot--error), a 3px top
-    # border (.stat-tile--error), a 4px left edge (.banner--anomaly) and
-    # an icon stroke (.stat-tile--error .stat-tile__icon) — all
-    # non-text graphics, so WCAG_AA_UI_COMPONENT (3.0) is the applicable
-    # bar, not 4.5. Worth pinning because the superseded #DC2626 scored
-    # only 3.96 against these same light surfaces: it cleared this bar
-    # but would have failed as text, a trap the replacement removes.
-    SURFACES = {
-        "light": ("#F7F4EF", "#FFFFFF", "#EEE8DE"),
-        "dark": ("#0C0F14", "#151922", "#1C222D"),
+@pytest.fixture(scope="module")
+def theme_tokens(served_css):
+    """The app's `:root` custom properties as actually served: the base
+    block (light/default) and the `prefers-color-scheme: dark` override
+    block, keyed by property name (e.g. "--color-accent")."""
+    return {
+        "light": custom_properties(served_css, ":root"),
+        "dark": custom_properties(served_css, ":root", at_rules=_DARK_AT_RULE),
     }
 
-    def _make_error_signal_contrast_check(theme, error_hex):
-        def _check():
-            for surface in SURFACES[theme]:
-                ratio = contrast_ratio(error_hex, surface)
-                if ratio < WCAG_AA_UI_COMPONENT:
-                    return False, (
-                        "contrast_ratio(%r, %r) = %.2f, below "
-                        "WCAG_AA_UI_COMPONENT (%.1f)"
-                        % (error_hex, surface, ratio, WCAG_AA_UI_COMPONENT))
-            return True, ""
-        return _check
 
-    for theme, _accent, statuses in THEMES:
-        check(
-            "%s: --color-status-error meets WCAG AA UI-component contrast "
-            "(>= 3:1) on every %s surface" % (theme, theme),
-            _make_error_signal_contrast_check(theme, statuses["error"]))
-
-    # Formula fidelity for hue_separation()'s wrap-around, the one piece
-    # of arithmetic in the new functions that is easy to get wrong: hue
-    # is a circle, so a crimson near 350 and a red near 10 are 20 apart,
-    # not 340. Without this the floors above would silently pass any
-    # pair straddling 0.
-    def _hue_separation_wraps_around_zero():
-        for hex_a, hex_b, expected in (
-                # Pure-channel fixtures only (0x00/0xFF), so every
-                # expected value is exact and the check can never fail
-                # on a rounding artefact instead of a real regression.
-                ("#FF0000", "#FF0000", 0.0),      # identical, hue 0
-                ("#FF0000", "#00FF00", 120.0),    # hue 0 vs 120
-                ("#FF0000", "#00FFFF", 180.0),    # maximal, opposite
-                ("#FF00FF", "#FF0000", 60.0),     # 300 vs 0 — crosses 0/360
-                ("#FFFF00", "#FF00FF", 120.0),    # 60 vs 300 — crosses 0/360
-        ):
-            got = round(hue_separation(hex_a, hex_b), 1)
-            if got != expected:
-                return False, (
-                    "hue_separation(%r, %r) = %.1f, expected %.1f"
-                    % (hex_a, hex_b, got, expected))
-        return True, ""
-    check(
-        "hue_separation() takes the shorter arc, including across the "
-        "0/360 wrap point",
-        _hue_separation_wraps_around_zero)
-
-    # ==================================================================
-    # Section 4 (20-04-PLAN.md Task 3): the warn-coloured "Expected
-    # since" headline's own contrast gate. Unlike Section 2's live_pairs
-    # (every entry there is required to PASS WCAG AA), this pair's own
-    # two per-theme checks assert the ACTUAL measured verdict in each
-    # theme — dark clears WCAG_AA_NORMAL_TEXT, light does not — because
-    # that asymmetry is exactly what justifies style.css's own
-    # non-colour fallback (.status-card__headline--warn stays on
-    # --color-text in both themes rather than shipping
-    # --color-status-warn as body text). Weakening either check to
-    # merely assert "some ratio was computed" would make this section
-    # decorative; asserting the known pass/fail split is what keeps it a
-    # real regression guard, mirroring the file's own SUPERSEDED_ERROR
-    # "guard against a decorative threshold" checks above.
-    # ==================================================================
-
-    def _find_pair(theme):
-        for pair_theme, fg, bg in STATUS_WARN_ON_CARD_PAIRS:
-            if pair_theme == theme:
-                return fg, bg
-        return None, None
-
-    def _make_warn_on_card_pass_check(theme):
-        def _check():
-            fg, bg = _find_pair(theme)
-            if fg is None:
-                return False, "no %s entry in STATUS_WARN_ON_CARD_PAIRS" % theme
-            ratio = contrast_ratio(fg, bg)
-            if ratio < WCAG_AA_NORMAL_TEXT:
-                return False, (
-                    "%s: contrast_ratio(%r, %r) = %.2f, below WCAG_AA_NORMAL_TEXT (%.1f)"
-                    % (theme, fg, bg, ratio, WCAG_AA_NORMAL_TEXT))
-            return True, ""
-        return _check
-
-    def _make_warn_on_card_fail_check(theme):
-        def _check():
-            fg, bg = _find_pair(theme)
-            if fg is None:
-                return False, "no %s entry in STATUS_WARN_ON_CARD_PAIRS" % theme
-            ratio = contrast_ratio(fg, bg)
-            if ratio >= WCAG_AA_NORMAL_TEXT:
-                return False, (
-                    "%s: contrast_ratio(%r, %r) = %.2f, no longer below "
-                    "WCAG_AA_NORMAL_TEXT (%.1f) — the non-colour fallback on "
-                    ".status-card__headline--warn may no longer be justified; "
-                    "re-check before reverting to a warn-coloured headline"
-                    % (theme, fg, bg, ratio, WCAG_AA_NORMAL_TEXT))
-            return True, ""
-        return _check
-
-    check(
-        "dark: warn-coloured headline on card surface meets WCAG AA "
-        "normal-text contrast (>= 4.5:1)",
-        _make_warn_on_card_pass_check("dark"))
-    check(
-        "light: warn-coloured headline on card surface correctly falls "
-        "below WCAG AA normal-text contrast, confirming style.css's "
-        "non-colour status-warn fallback is required",
-        _make_warn_on_card_fail_check("light"))
-
-    def _warn_on_card_pair_is_present_in_the_table():
-        themes_present = {theme for theme, _fg, _bg in STATUS_WARN_ON_CARD_PAIRS}
-        if themes_present != {"light", "dark"}:
-            return False, (
-                "expected STATUS_WARN_ON_CARD_PAIRS to carry exactly light "
-                "and dark entries, got %r" % (themes_present,))
-        return True, ""
-    check(
-        "the status-warn-on-card pair is present in "
-        "contrast_check.STATUS_WARN_ON_CARD_PAIRS for both themes",
-        _warn_on_card_pair_is_present_in_the_table)
-
-    # ==================================================================
-    # Section 5 (22-13-PLAN.md Task 1, X3 / 22-UI-SPEC.md §3.2): the
-    # login field's error BORDER.
-    #
-    # `.login-form__input[aria-invalid="true"]` paints
-    # --color-status-error as a control border — a non-text graphic, so
-    # WCAG_AA_UI_COMPONENT (3.0) is the applicable bar, not 4.5. The
-    # border must be distinguishable from the two colours physically
-    # adjacent to it: the field's own --color-secondary fill on the
-    # inside, and the login card's --color-dominant surface on the
-    # outside. (--color-canvas is NOT adjacent to this border — the
-    # login card sits between the field and the page — so it is
-    # deliberately not listed, unlike Section 3's deliberately broad
-    # every-surface sweep for the dot/rail/edge consumers.)
-    #
-    # 22-UI-SPEC.md §3.2 binds this gate to .status-card__headline--warn's
-    # own precedent: if it failed, the border would be DROPPED and the
-    # threshold left alone. It passes comfortably in both themes, so the
-    # border ships — see companion/static/style.css's own rule comment,
-    # which records the same measurements.
-    #
-    # The pairs are listed HERE rather than promoted into
-    # companion/contrast_check.py the way STATUS_WARN_ON_CARD_PAIRS was:
-    # that module is outside 22-13-PLAN.md's files_modified, and a named
-    # constant is what its own precedent uses for a pair whose measured
-    # verdict is ASYMMETRIC across themes and therefore load-bearing on
-    # the shipped CSS. This pair passes in both themes, so nothing in
-    # style.css is conditional on the numbers.
-    LOGIN_FIELD_ERROR_BORDER_PAIRS = (
-        # theme, the border colour, the colour it must be told apart from
-        ("light", "#BE123C", "#EEE8DE"),   # --color-status-error vs the field fill
-        ("light", "#BE123C", "#FFFFFF"),   # --color-status-error vs the card surface
-        ("dark", "#FB7185", "#1C222D"),
-        ("dark", "#FB7185", "#151922"),
-    )
-
-    def _make_login_border_check(theme):
-        def _check():
-            pairs = [(fg, bg) for pair_theme, fg, bg
-                     in LOGIN_FIELD_ERROR_BORDER_PAIRS if pair_theme == theme]
-            if len(pairs) != 2:
-                return False, (
-                    "expected exactly the two adjacent-colour pairs for the %s "
-                    "theme (field fill and card surface), got %d" % (theme, len(pairs)))
-            for fg, bg in pairs:
-                ratio = contrast_ratio(fg, bg)
-                if ratio < WCAG_AA_UI_COMPONENT:
-                    return False, (
-                        "%s: contrast_ratio(%r, %r) = %.2f, below "
-                        "WCAG_AA_UI_COMPONENT (%.1f) — drop the border from "
-                        ".login-form__input[aria-invalid=\"true\"] rather than "
-                        "weakening this threshold (22-UI-SPEC.md §3.2)"
-                        % (theme, fg, bg, ratio, WCAG_AA_UI_COMPONENT))
-            return True, ""
-        return _check
-
-    for _theme in ("light", "dark"):
-        check(
-            "%s: the login field's error border (--color-status-error) meets WCAG AA "
-            "UI-component contrast (>= 3:1) against BOTH colours adjacent to it — the "
-            "field's own fill and the login card's surface" % _theme,
-            _make_login_border_check(_theme))
-
-    total = len(results)
-    passed = sum(1 for _, ok in results if ok)
-    print("contrast-check: %d/%d checks pass" % (passed, total))
-    return 0 if (passed == total and total == EXPECTED_CHECK_COUNT) else 1
+def _hex_to_rgb(hex_color):
+    stripped = hex_color.lstrip("#")
+    return tuple(int(stripped[i:i + 2], 16) for i in (0, 2, 4))
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+def _alpha_composite(fg_hex, alpha_pct, bg_hex):
+    """The colour a browser paints for `color: color-mix(in srgb, fg
+    <alpha_pct>%, transparent)` text sitting on an opaque `bg_hex`
+    background: color-mix() against `transparent` yields fg at alpha
+    `alpha_pct` unchanged in its own RGB channels (mixing toward alpha 0
+    at the same colour cancels out); the browser then composites that
+    semi-transparent colour over the background beneath it, which is a
+    plain per-channel alpha blend.
+    """
+    a = alpha_pct / 100.0
+    fg = _hex_to_rgb(fg_hex)
+    bg = _hex_to_rgb(bg_hex)
+    return "#%02X%02X%02X" % tuple(round(a * f + (1 - a) * b) for f, b in zip(fg, bg))
+
+
+_COLOR_MIX_PERCENT_RE = re.compile(r"(\d+(?:\.\d+)?)%")
+
+
+def _color_mix_percentage(declaration_value):
+    """The percentage out of a `color-mix(in srgb, var(...) NN%,
+    transparent)` declaration value."""
+    match = _COLOR_MIX_PERCENT_RE.search(declaration_value)
+    assert match, "expected a percentage in %r" % (declaration_value,)
+    return float(match.group(1))
+
+
+# ==========================================================================
+# Formula fidelity: contrast_ratio() reproduces a fixed set of
+# hand-verified numbers exactly, independent of whatever style.css ships
+# today.
+# ==========================================================================
+
+_FORMULA_FIXTURES = (
+    ("#E8622C", "#FBF9F6", 3.22),
+    ("#E8622C", "#F3EEE7", 2.93),
+    ("#D2521F", "#FBF9F6", 4.02),
+    ("#FF8A5C", "#0D0F14", 8.25),
+    ("B13F16", "FFFFFF", 5.85),
+    ("#B13F16", "#F7F4EF", 5.33),
+    ("#B13F16", "#EEE8DE", 4.80),
+    ("#FF9B73", "#0C0F14", 9.31),
+)
+
+
+@pytest.mark.parametrize(
+    "hex_a, hex_b, expected", _FORMULA_FIXTURES,
+    ids=["%s-%s" % (a, b) for a, b, _ in _FORMULA_FIXTURES])
+def test_contrast_ratio_reproduces_a_known_value(hex_a, hex_b, expected):
+    assert round(contrast_ratio(hex_a, hex_b), 2) == expected
+
+
+def test_hue_separation_takes_the_shorter_arc_across_the_wrap_point():
+    # Pure-channel fixtures only (0x00/0xFF), so every expected value is
+    # exact and this can never fail on a rounding artefact instead of a
+    # real regression.
+    for hex_a, hex_b, expected in (
+            ("#FF0000", "#FF0000", 0.0),      # identical, hue 0
+            ("#FF0000", "#00FF00", 120.0),    # hue 0 vs 120
+            ("#FF0000", "#00FFFF", 180.0),    # maximal, opposite
+            ("#FF00FF", "#FF0000", 60.0),     # 300 vs 0 — crosses 0/360
+            ("#FFFF00", "#FF00FF", 120.0)):   # 60 vs 300 — crosses 0/360
+        assert round(hue_separation(hex_a, hex_b), 1) == expected
+
+
+# ==========================================================================
+# Live tokens: every real light/dark text-on-surface pair the app ships
+# meets WCAG AA, measured against the token the server actually sent.
+# ==========================================================================
+
+_LIVE_PAIRS = (
+    ("light", "accent text/link on canvas", "--color-accent", "--color-canvas"),
+    ("light", "accent on primary surface / active nav", "--color-accent", "--color-dominant"),
+    ("light", "accent on secondary/sidebar surface", "--color-accent", "--color-secondary"),
+    ("light", "primary-button label on accent fill", "--color-on-accent", "--color-accent"),
+    ("light", "body text on canvas", "--color-text", "--color-canvas"),
+    ("light", "body text on card surface", "--color-text", "--color-dominant"),
+    ("dark", "accent text/link on canvas", "--color-accent", "--color-canvas"),
+    ("dark", "accent on primary surface", "--color-accent", "--color-dominant"),
+    ("dark", "accent on secondary/sidebar surface", "--color-accent", "--color-secondary"),
+    ("dark", "primary-button label on accent fill", "--color-on-accent", "--color-accent"),
+    ("dark", "body text on card surface", "--color-text", "--color-dominant"),
+    ("light", "body text on secondary/sidebar surface", "--color-text", "--color-secondary"),
+    ("dark", "body text on secondary/sidebar surface", "--color-text", "--color-secondary"),
+)
+
+
+@pytest.mark.parametrize(
+    "theme, label, fg_token, bg_token", _LIVE_PAIRS,
+    ids=["%s-%s" % (theme, label) for theme, label, _, _ in _LIVE_PAIRS])
+def test_live_token_pair_meets_wcag_aa_normal_text(theme, label, fg_token, bg_token, theme_tokens):
+    fg = theme_tokens[theme][fg_token]
+    bg = theme_tokens[theme][bg_token]
+    ratio = contrast_ratio(fg, bg)
+    assert ratio >= WCAG_AA_NORMAL_TEXT, (
+        "%s: %s: contrast_ratio(%r, %r) = %.2f, below WCAG_AA_NORMAL_TEXT (%.1f)"
+        % (theme, label, fg, bg, ratio, WCAG_AA_NORMAL_TEXT))
+
+
+@pytest.mark.parametrize("theme", ("light", "dark"))
+def test_muted_detail_text_on_card_surface_meets_wcag_aa_normal_text(theme, theme_tokens, served_css):
+    """.battery-readout__detail's own muted-text strength (a `color-mix()`
+    of --color-text against the card surface it renders on) still clears
+    WCAG AA once actually composited over --color-dominant."""
+    declarations = declarations_for(served_css, ".battery-readout__detail")
+    percentage = _color_mix_percentage(declarations["color"])
+    text = theme_tokens[theme]["--color-text"]
+    card = theme_tokens[theme]["--color-dominant"]
+    composited = _alpha_composite(text, percentage, card)
+    ratio = contrast_ratio(composited, card)
+    assert ratio >= WCAG_AA_NORMAL_TEXT, (
+        "%s: contrast_ratio(%r, %r) = %.2f, below WCAG_AA_NORMAL_TEXT (%.1f)"
+        % (theme, composited, card, ratio, WCAG_AA_NORMAL_TEXT))
+
+
+# ==========================================================================
+# Signal separation: --color-accent must be distinguishable from every
+# --color-status-* colour, and the three status colours from each other,
+# in both themes.
+# ==========================================================================
+
+@pytest.mark.parametrize("theme", ("light", "dark"))
+@pytest.mark.parametrize("status_name", ("ok", "warn", "error"))
+def test_accent_is_perceptually_separated_from_status(status_name, theme, theme_tokens):
+    accent = theme_tokens[theme]["--color-accent"]
+    status = theme_tokens[theme][_STATUS_TOKENS[status_name]]
+    distance = perceptual_distance(accent, status)
+    assert distance >= MIN_SIGNAL_PERCEPTUAL_DISTANCE, (
+        "%s: perceptual_distance(accent, %s) = %.1f, below "
+        "MIN_SIGNAL_PERCEPTUAL_DISTANCE (%.1f) — these two read as the "
+        "same signal at a glance"
+        % (theme, status_name, distance, MIN_SIGNAL_PERCEPTUAL_DISTANCE))
+
+
+@pytest.mark.parametrize("theme", ("light", "dark"))
+@pytest.mark.parametrize("first, second", (("ok", "warn"), ("ok", "error"), ("warn", "error")))
+def test_status_colours_are_perceptually_separated_from_each_other(first, second, theme, theme_tokens):
+    """The check-in regularity grid paints all three status colours as
+    adjacent cells with nothing but colour between them — the first
+    surface in this app where that pairing matters."""
+    a = theme_tokens[theme][_STATUS_TOKENS[first]]
+    b = theme_tokens[theme][_STATUS_TOKENS[second]]
+    distance = perceptual_distance(a, b)
+    assert distance >= MIN_SIGNAL_PERCEPTUAL_DISTANCE, (
+        "%s: perceptual_distance(%s, %s) = %.1f, below "
+        "MIN_SIGNAL_PERCEPTUAL_DISTANCE (%.1f)"
+        % (theme, first, second, distance, MIN_SIGNAL_PERCEPTUAL_DISTANCE))
+
+
+@pytest.mark.parametrize("theme", ("light", "dark"))
+def test_accent_and_error_are_hue_separated(theme, theme_tokens):
+    """Accent and error are the same colour family (both saturated
+    red-oranges), so hue angle is the only channel left to separate them —
+    the only pair held to this additional floor."""
+    accent = theme_tokens[theme]["--color-accent"]
+    error = theme_tokens[theme]["--color-status-error"]
+    separation = hue_separation(accent, error)
+    assert separation >= MIN_SIGNAL_HUE_SEPARATION, (
+        "%s: hue_separation(accent, error) = %.1f deg, below "
+        "MIN_SIGNAL_HUE_SEPARATION (%.1f deg)"
+        % (theme, separation, MIN_SIGNAL_HUE_SEPARATION))
+
+
+# A threshold everything passes proves nothing — these assert that the
+# two floors above actually REJECT the exact values that shipped a real
+# accent/error collision. If either of these ever starts failing, the
+# floors have been loosened to the point of being decorative.
+_SUPERSEDED_ERROR = (("light", "#DC2626"), ("dark", "#F87171"))
+
+
+@pytest.mark.parametrize("theme, superseded", _SUPERSEDED_ERROR)
+def test_perceptual_distance_floor_rejects_the_superseded_error_colour(theme, superseded, theme_tokens):
+    accent = theme_tokens[theme]["--color-accent"]
+    distance = perceptual_distance(accent, superseded)
+    assert distance < MIN_SIGNAL_PERCEPTUAL_DISTANCE, (
+        "the dE76 floor no longer rejects the superseded error colour %r "
+        "(dE76 %.1f vs floor %.1f) — the threshold has been loosened past "
+        "the defect it exists to catch"
+        % (superseded, distance, MIN_SIGNAL_PERCEPTUAL_DISTANCE))
+
+
+@pytest.mark.parametrize("theme, superseded", _SUPERSEDED_ERROR)
+def test_hue_floor_rejects_the_superseded_error_colour(theme, superseded, theme_tokens):
+    accent = theme_tokens[theme]["--color-accent"]
+    separation = hue_separation(accent, superseded)
+    assert separation < MIN_SIGNAL_HUE_SEPARATION, (
+        "the hue floor no longer rejects the superseded error colour %r "
+        "(%.1f deg vs floor %.1f deg)" % (superseded, separation, MIN_SIGNAL_HUE_SEPARATION))
+
+
+# --color-status-error is painted as a fill, a border, an edge and an
+# icon stroke — all non-text graphics, so WCAG_AA_UI_COMPONENT (3.0) is
+# the applicable bar, not 4.5.
+@pytest.mark.parametrize("theme", ("light", "dark"))
+def test_status_error_meets_ui_component_contrast_on_every_surface(theme, theme_tokens):
+    error = theme_tokens[theme]["--color-status-error"]
+    for bg_token in ("--color-canvas", "--color-dominant", "--color-secondary"):
+        bg = theme_tokens[theme][bg_token]
+        ratio = contrast_ratio(error, bg)
+        assert ratio >= WCAG_AA_UI_COMPONENT, (
+            "%s: contrast_ratio(error, %s) = %.2f, below "
+            "WCAG_AA_UI_COMPONENT (%.1f)" % (theme, bg_token, ratio, WCAG_AA_UI_COMPONENT))
+
+
+# ==========================================================================
+# The warn-coloured "Expected since" headline's own contrast gate. Unlike
+# the live pairs above (every one required to PASS), this pair's own
+# per-theme checks assert the ACTUAL measured verdict — dark clears WCAG
+# AA, light does not — because that asymmetry is exactly what justifies
+# style.css's own non-colour fallback for that headline.
+# ==========================================================================
+
+def _find_warn_on_card_pair(theme):
+    for pair_theme, fg, bg in STATUS_WARN_ON_CARD_PAIRS:
+        if pair_theme == theme:
+            return fg, bg
+    raise LookupError("no %s entry in STATUS_WARN_ON_CARD_PAIRS" % theme)
+
+
+def test_warn_coloured_headline_on_card_surface_meets_contrast_in_dark_mode():
+    fg, bg = _find_warn_on_card_pair("dark")
+    ratio = contrast_ratio(fg, bg)
+    assert ratio >= WCAG_AA_NORMAL_TEXT, (
+        "dark: contrast_ratio(%r, %r) = %.2f, below WCAG_AA_NORMAL_TEXT (%.1f)"
+        % (fg, bg, ratio, WCAG_AA_NORMAL_TEXT))
+
+
+def test_warn_coloured_headline_on_card_surface_correctly_fails_contrast_in_light_mode():
+    fg, bg = _find_warn_on_card_pair("light")
+    ratio = contrast_ratio(fg, bg)
+    assert ratio < WCAG_AA_NORMAL_TEXT, (
+        "light: contrast_ratio(%r, %r) = %.2f, no longer below "
+        "WCAG_AA_NORMAL_TEXT (%.1f) — the non-colour status-warn fallback "
+        "may no longer be justified; re-check before reverting to a "
+        "warn-coloured headline" % (fg, bg, ratio, WCAG_AA_NORMAL_TEXT))
+
+
+def test_status_warn_on_card_pair_is_present_for_both_themes():
+    themes_present = {theme for theme, _fg, _bg in STATUS_WARN_ON_CARD_PAIRS}
+    assert themes_present == {"light", "dark"}
+
+
+# ==========================================================================
+# The login field's error BORDER: a non-text graphic (WCAG_AA_UI_COMPONENT,
+# 3.0), distinguishable from both colours physically adjacent to it — the
+# field's own fill (--color-secondary) and the login card's own surface
+# (--color-dominant).
+# ==========================================================================
+
+@pytest.mark.parametrize("theme", ("light", "dark"))
+def test_login_field_error_border_meets_contrast_against_adjacent_colours(theme, theme_tokens):
+    border = theme_tokens[theme]["--color-status-error"]
+    for bg_token in ("--color-secondary", "--color-dominant"):
+        bg = theme_tokens[theme][bg_token]
+        ratio = contrast_ratio(border, bg)
+        assert ratio >= WCAG_AA_UI_COMPONENT, (
+            "%s: contrast_ratio(border, %s) = %.2f, below "
+            "WCAG_AA_UI_COMPONENT (%.1f) — drop the border from "
+            ".login-form__input[aria-invalid=\"true\"] rather than "
+            "weakening this threshold"
+            % (theme, bg_token, ratio, WCAG_AA_UI_COMPONENT))
