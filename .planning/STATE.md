@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 32-10-PLAN.md
-last_updated: "2026-09-23T16:23:42.556Z"
+status: verifying
+stopped_at: Completed 32-15-PLAN.md
+last_updated: "2026-09-23T18:13:12.454Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 53
-  completed_phases: 40
+  completed_phases: 41
   total_plans: 314
-  completed_plans: 277
-  percent: 75
+  completed_plans: 292
+  percent: 77
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -32,13 +32,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Ready to execute
+status: Phase complete — ready for verification
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 88%
+  [█████████░] 93%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -58,7 +58,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 Phase: 32 (test-foundation-pytest-and-ci-you-can-trust) — EXECUTING
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
-Plan: 11 of 15
+Plan: 15 of 15
 
 **23-10 executed (2026-09-13), wave 8 (depends on 23-01, 23-02, 23-09) — D3's remainder: the selection scale and wash fade, the theme-preview crossfade, both `<dialog>` entrances via `@starting-style`, and skeletons at final size.** **The one `@supports selector(:has(*))` block is still exactly one**, which the plan named as its single largest risk, and the way through was one sentence written into the stylesheet where the next editor will look: a transition is a property of the ELEMENT, not of the state, so declared on the base rule of `.theme-chip`/`.theme-chip__body`/`.runway-card` it animates the live `:has(input:checked)` treatment and the server-rendered `--selected` fallback identically, from one declaration, and no second feature query is needed. Both halves are asserted inside a SINGLE check function — the transitions exist outside the query AND the query contains no `transition` at all — so "helpfully" moving one inside fails exactly once rather than twice. The arithmetic comment, every border width, both dashed markers and the `:has(input:checked):hover` restore rule are untouched: the `style.css` diff for Task 1 is **111 insertions, 0 deletions**. **The decision that mattered most was refusing to loosen a tolerance.** `transform: scale(1.02)` is what makes selection free of T6 by construction, but `getBoundingClientRect()` reports the box AFTER transforms, so 22-15's still-green three-equal-outer-widths assertion failed by 1.9px and its equal-tops assertion by ~1px **on a correct build**. Shrinking the scale until it squeaked under the 1px tolerance would have been passing by luck and would have let a test choose the design; deleting the assertion would have retired the check T6 was closed with. Instead the read neutralises `transform` (and `transition` first, or it catches the 180ms unwind mid-flight) and the same check now asserts that **exactly one of the three cards really is scaled** — neutralising a thing you have not proven exists is how a check quietly becomes one that also passes when the feature is gone. The new chip check reads `offsetWidth/offsetHeight/offsetLeft/offsetTop` throughout, which is transform-independent by definition; **that layout-box-versus-visual-box distinction is the pattern worth carrying forward.** **Task 3 found a real, pre-existing ~500px layout shift.** Home's frame picture reserved its box correctly at 360px and reserved *nothing* at 1280px: measured **2 × 2** before the render arrived and **380 × 506** after. `width: auto` on an image with no content yet leaves it an intrinsic size of ZERO however well known its ratio is — the `width="600" height="800"` attributes supply a ratio, and a ratio alone resolves nothing without a definite size in one axis; mobile escaped only because `width: 100%` is definite. Fixed with `width: min(100%, calc(60vh * 3 / 4))` — the same 60vh cap the `max-height` states, written as a definite width — plus an explicit `aspect-ratio: 3 / 4` so the reservation no longer depends on the shape of whatever bytes arrive (and, because the universal reset makes every box border-box, so the width resolves to exactly the cap rather than the cap minus the hairline). **A flaky harness run was chased rather than reruns-until-green:** the crossfade could stall invisible on the discarded theme — `transitionend` only arrives if a transition actually RAN, and a class removed and re-added without an intervening style recalculation (an image `load` and a click in the same frame) transitions nothing. Reproduced at **4 stalls in 14 runs**, fixed by consulting the computed opacity before waiting, **0 in 14** after. **The skeleton deliberately does NOT shimmer, and the reasoning is in `style.css` rather than only in the summary**: the only placement where a pure-CSS skeleton auto-hides on load is the image's own `background-image` (painted above the backing, below the decoded bitmap), and that is exactly the placement where `skypane-pulse` — which cycles opacity, an element property — would go on breathing the decoded picture forever on a page left open all day. Overlays behind are covered from frame one; overlays in front can never learn the image arrived; a JS toggle would need a fourteenth script and route. Four keyframes stay four. **Both dialogs arrive through ONE `@starting-style` rule** (History's `.lightbox` and the Airlines gallery's `.lightbox--wide` are the same component under two classes) and the close is one-directional, with `display`/`allow-discrete` banned by a harness check rather than by a comment, following 23-08's precedent — a modal that has not reached `display: none` is an invisible sheet in the top layer. `::backdrop` is deliberately unanimated: the global reduce override matches `*, *::before, *::after`, and `::backdrop` is none of them. **Ten mutations, all quoted**, and one taught something: adding `allow-discrete` left the viewport-centre hit test returning FALSE (the closed dialog had left the top layer and sat in normal flow) while `display: block` and a 307,965px² box both caught it — a check built on the hit test alone would have passed the defect. **Four checks failed the vacuity question**, three of mine and one inherited: the crossfade check passed on the CUT until a mid-flight sample was added; the neutralised T6 read needed the "exactly one is scaled" clause; `before == after` is satisfied by `2x2 == 2x2` so the reserved box needed a floor; and `.lightbox[open] {` legitimately occurs twice on a correct file because `@starting-style` repeats its selector. **Three self-inflicted grep traps**, all the warned-about class: my own JS comment containing `setTimeout` answered my own timer ban (fixed by comment-stripping), backticks in my JS prose reddened the standing no-backtick rule, and `grep -c '@starting-style'` now returns 7 raw against **2** comment-stripped blocks / **1** dialog entrance / **2** dialogs served — recorded, not adjusted. Two pre-existing checks retargeted IN PLACE: the runway T6/B9 measurement, and 22-01's Cancel/T8 preview assertions (a synchronous read became a bounded `wait_for_function`, because the swap now lands one `var(--motion-fast)` after the click). `dirty-state.js` was NOT edited — the whole adaptation happened on the `theme-preview.js` side, as the plan directed. The browser fixture's 8×8 stand-in render became the **600 × 800** the markup itself declares, because an image whose loaded ratio is 1:1 against a 3:4 promise makes a layout-shift measurement meaningless. Counts re-derived by RUNNING: `config-page` 239→240, `view-pages` 152→153, `browser-ux` 50→54; `companion-app` and `status-pages` unmoved; `run-all-tests.sh` at exactly the documented 5-check root-sandbox baseline **verified by failing check NAMES**, coverage 93%. **`CFG-32` deliberately NOT ticked — 23-11 closes it.**
 
@@ -448,6 +448,11 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 32 P08 | 55min | 1 tasks | 2 files |
 | Phase 32 P09 | 70min | 1 tasks | 2 files |
 | Phase 32 P10 | ~120min | 1 tasks | 2 files |
+| Phase 32 P11 | 50min | 2 tasks | 2 files |
+| Phase 32 P12 | 20min | 2 tasks | 6 files |
+| Phase 32 P13 | 40m | 3 tasks | 22 files |
+| Phase 32 P14 | 10min | 2 tasks | 2 files |
+| Phase 32 P15 | 35min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -855,6 +860,16 @@ Recent decisions affecting current work:
 - [Phase 32]: AST-guided mechanical transform ported 124/140 test_render.py checks automatically; 16 ctx/tempfile-using checks hand-written; one control-flow bug (nested early return True inside except block) found and fixed
 - [Phase 32]: Consolidated poll_loop test_poll_loop.py checks 1-5 (two-deep flight history, genuinely sequential cumulative state) into one pytest node id per MR-4
 - [Phase 32]: Extended test_poll_loop.py's autouse network stub to depend on fake_providers, closing a real gap where checks omitting an injected snapshot reached the live ADS-B detection network path
+- [Phase 32]: 32-11: Harness.start() (companion/test_companion_app.py) builds its subprocess env via child_env(fake_providers=FakeProviders(), state_dir=self.tmpdir); a new check reads the child's fake-provider call log to prove /poll-now's run_once() queried adsbfi/adsblol, not the real network.
+- [Phase 32]: 32-11: companion/test_legacy_harness_shim.py launches every legacy companion harness with child_env() (guard only, no global fake providers) - a harness that reaches a real provider without opting into the fake still fails loudly. All 9 harnesses pass unaffected.
+- [Phase ?]: Hash-lock server/requirements.txt and server/requirements-dev.txt for Python 3.14/x86_64 Linux via uv pip compile --generate-hashes (TST-08); deploy/deploy.sh now installs with --require-hashes
+- [Phase ?]: Tamper-verification against pip --require-hashes must flip every hash in a requirement's block, not just the first, since pip accepts a match against any listed hash (multi-artifact support)
+- [Phase 32]: Retired scripts/run_all_tests.py; scripts/run-all-tests.sh is now a thin pytest -n auto --cov wrapper and the coverage gate lives in pytest-cov via pyproject.toml fail_under=83 — pytest-cov 7 removed .pth-based subprocess coverage injection; coverage.py's own patch=["subprocess"] (>=7.10) is the only supported mechanism, proven live by non-zero coverage on companion/pages/*.py in the combined report
+- [Phase 32]: firmware.yml host-test step relocated (not duplicated) from Phase 34's build job into a new host-tests job, per plan 32-14
+- [Phase 32]: ci.yml deploy concurrency uses cancel-in-progress: false plus a git ls-remote stale-commit guard instead of cancelling a running deploy
+- [Phase 32]: actions/cache pinned via git ls-remote --tags (api.github.com unreachable this session) to v6.1.0 / 55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+- [Phase 32]: 32-15: fail_under raised from 83 to 88 (measured floor, no margin, per TST-09), measured non-root on both CI's CPython 3.14.0rc2 and the repo's 3.11.15 dev venv (identical 88.11%).
+- [Phase 32]: 32-15: coverage measured as a non-root user (runuser -u nobody), not root, to match GitHub CI's non-root runner and avoid under-counting 3 permission-bit tests that skip under root.
 
 ### Pending Todos
 
@@ -971,8 +986,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-23T16:23:42.490Z
-Stopped at: Completed 32-10-PLAN.md
+Last session: 2026-09-23T18:13:12.390Z
+Stopped at: Completed 32-15-PLAN.md
 
 Resume file: 
 

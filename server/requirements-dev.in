@@ -1,0 +1,29 @@
+# SkyPane — dev/CI dependency sources (direct pins only).
+#
+# Superset of the runtime lock: includes requirements.in so the compiled
+# server/requirements-dev.txt is ONE file CI installs with
+# --require-hashes, rather than two separately-compiled hash files that
+# could disagree on transitive pins. deploy/deploy.sh never references
+# this file or its compiled lock — production only ever installs
+# server/requirements.txt.
+#
+# To regenerate server/requirements-dev.txt (and the runtime lock), run
+# scripts/lock-deps.sh. Never hand-edit the hashes in the compiled lock.
+-r requirements.in
+
+# Lint.
+ruff==0.16.8
+# Coverage measurement/gate (pytest-cov bridges to this).
+coverage==7.16.1
+# Browser driver companion/test_browser_ux.py uses to prove defects a
+# string-comparison harness can't see. Dev-only: deploy/deploy.sh installs
+# server/requirements.txt only, so a browser driver never reaches the VPS.
+playwright==1.63.0
+# pytest migration (Phase 32, TST-01/TST-03): pytest is the test
+# runner/discovery/assertions, pytest-xdist parallelises across worker
+# processes, pytest-cov bridges pytest to coverage.py above, and
+# pytest-socket is the non-loopback network guard every test runs under.
+pytest==9.1.1
+pytest-xdist==3.8.0
+pytest-cov==7.1.0
+pytest-socket==0.8.1

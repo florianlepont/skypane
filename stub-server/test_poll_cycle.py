@@ -1277,6 +1277,3 @@ def test_device_protocol_end_to_end_over_real_http(tmp_path):
     finally:
         harness.stop_server()
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

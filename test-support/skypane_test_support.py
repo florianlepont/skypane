@@ -36,6 +36,30 @@ FAKE_PROVIDER_ENV_VAR = "SKYPANE_TEST_FAKE_PROVIDER"
 
 ALLOWED_HOSTS = ("127.0.0.1", "::1", "localhost")
 
+# An HTTP(S) client honouring any of these connects only to the proxy
+# (loopback in a sandbox or behind a local corporate proxy) and lets the
+# proxy resolve and reach the real host - so neither the DNS guard nor
+# the connect() guard below ever sees the real destination. Every place
+# the guard is installed strips them first.
+PROXY_ENV_VARS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
+
+
+def strip_proxy_env(env=None):
+    """Remove every PROXY_ENV_VARS entry from `env` (os.environ by
+    default) in place, and return it.
+    """
+    env = os.environ if env is None else env
+    for var in PROXY_ENV_VARS:
+        env.pop(var, None)
+    return env
+
 
 class NetworkAccessBlocked(RuntimeError):
     """Raised by a guarded_resolvers() function for any DNS lookup whose
@@ -112,10 +136,12 @@ def install_child_network_guard():
     disabled socket module could not even bind a listening
     ThreadingHTTPServer) plus DNS resolution restricted the same way
     (guarded_resolvers(), since socket_allow_hosts() alone does not patch
-    getaddrinfo/gethostbyname).
+    getaddrinfo/gethostbyname). Proxy env vars are stripped first, before
+    any application code can read them (see PROXY_ENV_VARS).
     """
     from pytest_socket import socket_allow_hosts
 
+    strip_proxy_env()
     socket_allow_hosts(list(ALLOWED_HOSTS), allow_unix_socket=True)
     resolvers = guarded_resolvers()
     socket.getaddrinfo = resolvers["getaddrinfo"]
@@ -145,6 +171,12 @@ DEFAULT_RESPONSES = {
     "airplaneslive": (200, {"ac": []}),
     "adsbdb": (404, {"response": "unknown callsign"}),
 }
+
+
+def _is_requests_exception_class(obj):
+    return isinstance(obj, type) and issubclass(
+        obj, requests.exceptions.RequestException
+    )
 
 
 class FakeResponse:
@@ -255,6 +287,19 @@ class FakeProviders:
         way a parent process can observe what a CHILD process's own
         FakeProviders instance actually served.
         """
+        for name, exc in self._failures.items():
+            # Reject up front what from_file() would refuse in the child,
+            # so the error lands in the test rather than as a child that
+            # crashes at interpreter start.
+            if not (
+                _is_requests_exception_class(type(exc))
+                and getattr(requests.exceptions, type(exc).__name__, None)
+                is type(exc)
+            ):
+                raise ValueError(
+                    "cannot serialise %s failure %r: only requests.exceptions "
+                    "classes survive the process boundary" % (name, exc)
+                )
         spec = {
             "responses": {
                 name: {"status": status, "body": body}
@@ -283,12 +328,12 @@ class FakeProviders:
             # Only ever reconstruct a real requests exception class - never
             # an arbitrary name out of a file a test wrote, even though
             # that file is test-controlled, not attacker-controlled.
-            if not hasattr(requests.exceptions, error_name):
+            exc_cls = getattr(requests.exceptions, error_name, None)
+            if not _is_requests_exception_class(exc_cls):
                 raise ValueError(
                     "refusing to reconstruct unknown requests.exceptions "
                     "class %r" % (error_name,)
                 )
-            exc_cls = getattr(requests, error_name)
             fake.fail(name, exc_cls(entry["message"]))
         fake.calls_log_path = path + ".calls.jsonl"
         return fake
@@ -313,9 +358,10 @@ def child_env(base=None, *, fake_providers=None, state_dir=None):
     no-network var, TEST_SUPPORT_DIR prepended to PYTHONPATH (so
     sitecustomize.py is found and imported at child interpreter startup),
     and, optionally, a fake-provider instruction the child's own
-    sitecustomize.py installs before any application code runs.
+    sitecustomize.py installs before any application code runs. Proxy
+    env vars are dropped (see PROXY_ENV_VARS).
     """
-    env = dict(base if base is not None else os.environ)
+    env = strip_proxy_env(dict(base if base is not None else os.environ))
     env[NO_NETWORK_ENV_VAR] = "1"
     existing = env.get("PYTHONPATH")
     env["PYTHONPATH"] = os.pathsep.join(

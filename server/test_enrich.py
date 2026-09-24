@@ -1042,6 +1042,3 @@ def test_v9c_eleven_new_prefixes_and_djt_correction_and_exclusions():
     got_qem = enrich.airline_from_callsign("QEM123")
     assert got_qem is None, "airline_from_callsign('QEM123') = %r, expected None (QT-v9c-D-06 guard)" % (got_qem,)
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

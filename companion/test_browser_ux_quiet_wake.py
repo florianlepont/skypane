@@ -20,8 +20,9 @@ origin this file itself created.
 
 Follows the same conventions as every sibling harness: a `check(name,
 fn)` helper with the same result-collecting shape, a module-level
-`EXPECTED_CHECK_COUNT`, and a `main()` returning 0 or 1 — so
-`scripts/run_all_tests.py` needs zero special-casing for this file.
+`EXPECTED_CHECK_COUNT`, and a `main()` returning 0 or 1 — so the pytest
+legacy-harness shim (companion/test_legacy_harness_shim.py, 32-13-PLAN.md)
+needs zero special-casing for this file.
 
 Two skip gates, both returning exit 0 with a printed `SKIP` line naming
 THIS file (not its parent) and the exact remedy — never a failure:

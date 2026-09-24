@@ -1887,6 +1887,3 @@ def test_next_wake_status_battery_critical_pins_3600s():
         pytest.fail("next_wake_status(battery_critical=True)'s next_wake_iso = %r, expected %r (check-in + 3600s)"
             % (next_iso, expected_next))
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

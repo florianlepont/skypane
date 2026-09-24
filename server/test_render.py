@@ -3610,6 +3610,3 @@ def test_battery_empty_black_white_black_dominant():
     if max(counts, key=counts.get) != render.DIMMED_FIELD_IDX:
         pytest.fail("battery_empty canvas is not dominated by its own field index %r" % (render.DIMMED_FIELD_IDX,))
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

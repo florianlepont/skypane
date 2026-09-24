@@ -129,6 +129,47 @@ def test_child_without_guard_env_is_inert():
     assert result.stdout.strip() == "method_descriptor"
 
 
+def test_proxy_env_is_stripped_in_process():
+    leaked = [var for var in sts.PROXY_ENV_VARS if var in os.environ]
+    assert leaked == []
+
+
+def test_child_env_strips_proxy_vars():
+    base = {var: "http://127.0.0.1:9" for var in sts.PROXY_ENV_VARS}
+    env = child_env(base)
+    assert [var for var in sts.PROXY_ENV_VARS if var in env] == []
+
+
+def test_child_guard_ignores_loopback_proxy():
+    # A loopback proxy would tunnel the request past both guards if it
+    # were honoured (the client would only resolve/connect 127.0.0.1:9 and
+    # fail with a ConnectionError); install_child_network_guard() must
+    # strip it so the real host's DNS lookup is what gets blocked. Plain
+    # http:// so the result never depends on the environment's CA bundle
+    # (a proxied http:// request is tunnelled through the proxy all the same).
+    env = dict(os.environ)
+    env.update({var: "http://127.0.0.1:9" for var in sts.PROXY_ENV_VARS})
+    env[sts.NO_NETWORK_ENV_VAR] = "1"
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = os.pathsep.join(
+        [sts.TEST_SUPPORT_DIR] + ([existing] if existing else [])
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import requests; requests.get('http://api.adsbdb.com/v0/callsign/AFR1234', timeout=5)",
+        ],
+        env=env,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode != 0
+    assert "NetworkAccessBlocked" in result.stderr, result.stderr
+
+
 # --- Provider-host drift guard --------------------------------------------
 
 
@@ -189,6 +230,41 @@ def test_fake_providers_cross_process(fake_providers, tmp_path):
     logged = sts.FakeProviders.read_calls_log(spec_path)
     adsbfi_calls = [c for c in logged if c["provider"] == "adsbfi"]
     assert len(adsbfi_calls) == 1
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        requests.exceptions.SSLError("tls"),
+        requests.exceptions.ProxyError("proxy"),
+        requests.exceptions.ChunkedEncodingError("chunked"),
+        requests.exceptions.ReadTimeout("slow"),
+    ],
+)
+def test_fake_providers_failure_round_trips_through_file(tmp_path, exc):
+    fake = sts.FakeProviders()
+    fake.fail("adsbfi", exc)
+    spec_path = fake.to_file(str(tmp_path / "fake-providers.json"))
+
+    reloaded = sts.FakeProviders.from_file(spec_path)
+    with pytest.raises(type(exc)):
+        reloaded.get("https://opendata.adsb.fi/api/v2/lat/0/lon/0/dist/1")
+
+
+def test_fake_providers_to_file_rejects_non_requests_failure(tmp_path):
+    fake = sts.FakeProviders()
+    fake.fail("adsbfi", ValueError("not a requests error"))
+    with pytest.raises(ValueError, match="cannot serialise"):
+        fake.to_file(str(tmp_path / "fake-providers.json"))
+
+
+def test_fake_providers_from_file_rejects_non_exception_name(tmp_path):
+    spec_path = tmp_path / "fake-providers.json"
+    spec_path.write_text(
+        json.dumps({"failures": {"adsbfi": {"error": "BaseHTTPError", "message": "x"}}})
+    )
+    with pytest.raises(ValueError, match="refusing to reconstruct"):
+        sts.FakeProviders.from_file(str(spec_path))
 
 
 # --- FakeResponse -----------------------------------------------------

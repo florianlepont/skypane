@@ -93,18 +93,38 @@ markers = [
 xfail_strict = true
 
 [tool.coverage.run]
-# Parallel data files: the suite is 24 independent processes
-# (scripts/run-all-tests.sh / scripts/run_all_tests.py), each of which
-# needs its own data file before `coverage combine` merges them. These
-# processes now run CONCURRENTLY (one worker per CPU by default) rather
-# than sequentially — parallel mode's one-data-file-per-process design is
-# precisely what makes that concurrency safe; a shared single data file
-# written by simultaneous processes would corrupt itself. Do NOT also set
-# `append` — coverage.py rejects that combination outright ("Can't append
-# to data files in parallel mode"), confirmed live (M2). Parallel mode
-# already gives each process its own file; append is the alternative to
-# it, not a companion.
+# Parallel data files: the suite runs as pytest-xdist workers (one per CPU
+# by default, `scripts/run-all-tests.sh`'s `-n auto`) PLUS every
+# subprocess a test itself launches (byos_server.py, companion/app.py, the
+# legacy companion harnesses run through companion/test_legacy_harness_shim.py)
+# — each of those processes needs its own data file before pytest-cov's
+# end-of-session `coverage combine` merges them. Do NOT also set `append`
+# — coverage.py rejects that combination outright ("Can't append to data
+# files in parallel mode"), confirmed live (M2). Parallel mode already
+# gives each process its own file; append is the alternative to it, not a
+# companion.
 parallel = true
+
+# 32-13-PLAN.md (TST-09 part 1): coverage.py's own subprocess-measurement
+# mechanism (added 7.10; already satisfied by the pinned coverage 7.16.1).
+# pytest-cov 7+ removed its prior `.pth`-file auto-injection for
+# subprocess coverage, so this is the only supported mechanism left —
+# without it, every subprocess-launched child (byos_server.py,
+# companion/app.py, and the legacy companion harnesses) measures at a
+# permanent 0%, exactly the situation the old `omit` entries below existed
+# to paper over. `patch = ["subprocess"]` implies `parallel = true` (kept
+# explicit above for its own documentation value).
+patch = ["subprocess"]
+
+# 32-REVIEW WR-02: coverage.py only writes a process's data file at a
+# normal interpreter exit unless `sigterm` is set, and every long-lived
+# child above (byos_server.py, companion/app.py) is stopped with
+# `proc.terminate()` — SIGTERM. Without this, those children saved
+# nothing and their HTTP request-handling code measured as unreached
+# (byos_server.py: 50% without, 91% with, on stub-server/test_poll_cycle.py
+# alone). A child killed with SIGKILL (a legacy harness timeout) still
+# saves nothing — that is a failed run anyway.
+sigterm = true
 
 # Source-scoped to this project's own three code directories so library
 # internals (Pillow, requests, stdlib) are never counted toward the
@@ -118,48 +138,30 @@ omit = [
     "server/test_*.py",
     "stub-server/test_*.py",
     "companion/test_*.py",
-    # Structurally unmeasurable: test_poll_cycle.py exercises these two
-    # scripts by launching them as a **child process** (subprocess), which
-    # an uninstrumented coverage run cannot observe from the parent
-    # process. Leaving them in would permanently pin ~180 statements at 0%
-    # and turn the threshold into noise (M5).
-    "stub-server/byos_server.py",
-    "stub-server/make_test_panel.py",
-    # 06-11: companion/app.py is the exact same structural shape as the two
-    # stub-server entries above — every companion/test_*.py harness drives
-    # it as a real, uninstrumented **subprocess** (a genuinely-running
-    # ThreadingHTTPServer on a free local port, the only way to prove D-02's
-    # whole-site auth gate over a real HTTP round trip), never imports it
-    # and calls its route handlers in-process. Left in scope, its ~320
-    # statements measure at ~21% (only module-level code — constants, the
-    # argument parser — executed by the handful of test files that import
-    # `companion.app` for those, never a route body), which would silently
-    # drag total coverage down for a reason that has nothing to do with an
-    # actual regression, exactly the M5 finding this omit list already
-    # documents for stub-server/byos_server.py. Every route this file
-    # dispatches to is itself fully covered in-process via the individual
-    # companion/pages/*.py modules' own harnesses.
-    "companion/app.py",
 ]
 
 [tool.coverage.report]
-# Threshold: 83. Derivation (06-11): measured 87% production-only coverage
-# under exactly this source/omit scope (server + stub-server + companion;
-# harnesses, the two subprocess-launched stub scripts, and
-# companion/app.py — itself subprocess-launched by every companion
-# harness, same M5 reasoning — all omitted), across all 15 harnesses via
-# scripts/run-all-tests.sh's parallel-mode + combine invocation, measured
-# 2026-08-28. 83 sits 4 points below the measurement — the same margin
-# discipline as the prior derivation (75, 4 points below a 79% measurement
-# under the smaller pre-phase-6 scope): tight enough that a genuine
-# regression trips it, loose enough that a legitimate refactor shifting a
-# few statements doesn't red-line the build and train the habit of
-# bypassing the gate. This is a floor to ratchet upward as coverage
-# improves, not a ceiling, and it only ever moves up — phase 6's own new
-# code (companion/pages/*.py, server/device_config.py, server/history_db.py,
-# server/panel_preview.py) measured well above the old 75 floor, so the
-# threshold is ratcheted up rather than left at its pre-phase-6 value to
-# accommodate it. Changing the `source` or `omit` lists above invalidates
-# this number — it stops meaning what it was measured to mean the moment
-# the scope changes.
-fail_under = 83
+# Threshold: 93. Derivation (32-REVIEW WR-02, re-measuring 32-15's TST-09
+# floor): measured 93.35% total coverage once `sigterm = true` (above) let
+# every SIGTERM-stopped child (companion/app.py, stub-server/byos_server.py)
+# actually save its data — 32-15's 88.11% was measured without it, so it
+# mostly reflected in-process imports, not those servers' HTTP
+# request-handling code. Same source/omit scope (server + stub-server +
+# companion; only the three test_*.py globs above omitted), all 777 tests
+# passing, via `./scripts/run-all-tests.sh` (a full run, no extra
+# arguments, so the gate applies) run as a non-root user (`runuser -u
+# nobody`, matching GitHub CI's non-root runner — root ignores
+# read-only-directory permission bits, which changes 3 tests' pass/skip
+# outcome) on CPython 3.14.0rc2 (a scratch venv built from
+# server/requirements-dev.txt with --require-hashes; the CI interpreter),
+# measured 2026-09-24. 93 is the measured total rounded down with no
+# margin — the floor equals the measurement exactly, not a discount below
+# it, per TST-09's decision (a legitimate refactor that shifts a few
+# statements is expected to nudge this number in a future plan, not be
+# absorbed by slack). This is a floor to ratchet upward as coverage
+# improves, never downward, and only moves when someone re-measures and
+# raises it — changing the `source` or `omit` lists above, or the
+# `[tool.coverage.run]` subprocess settings, invalidates this number
+# outright, since it stops describing what was actually measured the
+# moment the scope changes.
+fail_under = 93

@@ -17,8 +17,6 @@ first, value second.
 import os
 import sys
 
-import pytest
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 
@@ -100,6 +98,3 @@ def test_build_mood_background_no_longer_exists_on_server_plane_dither():
         "dither.build_mood_background() still exists - D-21 retired it, this must be dead code left behind"
     )
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

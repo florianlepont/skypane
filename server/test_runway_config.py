@@ -152,6 +152,3 @@ def test_runway_labels_are_english_with_no_piste_vocabulary():
         assert "Runway " in label, "runway_label(%r) = %r does not contain 'Runway '" % (runway_id, label)
         assert "Piste" not in label, "runway_label(%r) = %r still carries French 'Piste' vocabulary" % (runway_id, label)
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

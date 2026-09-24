@@ -14,8 +14,6 @@ import string
 import sys
 import threading
 
-import pytest
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 
@@ -481,6 +479,3 @@ def test_tampered_calendar_theme_id_ignored(tmp_path):
     finally:
         c.set_colour_rules_state_dir(None)
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

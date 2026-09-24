@@ -205,6 +205,3 @@ def test_no_redirect_handler_refuses_a_302_to_an_internal_address_and_never_fetc
         "to never be fetched: %r" % (internal_target, calls)
     )
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

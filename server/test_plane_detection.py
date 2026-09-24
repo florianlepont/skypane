@@ -1112,6 +1112,3 @@ def test_diagnostics_distinguishes_all_failed_from_no_selection(geofence, monkey
         diagnostics2.get("failed"),
     )
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

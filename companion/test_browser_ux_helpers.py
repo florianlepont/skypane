@@ -17,8 +17,9 @@ no config edit (RESEARCH.md Pitfall 3).
 
 This is NOT a harness: it has no EXPECTED_CHECK_COUNT, no check()
 closure, no main(), and must never be added to
-scripts/run_all_tests.py's HARNESSES list — it has no entry point and
-no check counter of its own; it exists only to be imported.
+companion/test_legacy_harness_shim.py's LEGACY_COMPANION_HARNESSES list
+— it has no entry point and no check counter of its own; it exists only
+to be imported.
 """
 import contextlib
 import math

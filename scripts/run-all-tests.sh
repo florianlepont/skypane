@@ -1,20 +1,36 @@
 #!/usr/bin/env bash
 # SkyPane — the single entry point for the whole test suite.
 #
-# This is a thin wrapper: the harness list, concurrency, per-harness
-# timeout and reporting logic now live in run_all_tests.py alongside this
-# script — that logic outgrew what bash could do cleanly, so it moved to
-# Python (stdlib only) while this file kept owning the stable
-# PYTHON-interpreter contract CI and README both depend on. Plan 04-04's
-# CI workflow calls this script rather than restating the file list, and
-# plan 04-05's README tells contributors to run the same thing — one list,
-# one place, no drift between local and CI.
+# A thin wrapper over `pytest -n auto --cov`: pytest itself (via
+# pytest-xdist) owns discovery, parallelism and reporting, and pytest-cov
+# owns the coverage gate (`[tool.coverage.report] fail_under` in
+# pyproject.toml). Phase 32 (32-13-PLAN.md) retired the prior hand-rolled
+# Python orchestrator this script used to exec into (its own HARNESSES
+# list, worker pool and hand-run `coverage combine`/`report` calls) now
+# that pytest
+# discovers every migrated server/stub-server test plus the legacy
+# companion harnesses (still run as one pytest test per harness via
+# companion/test_legacy_harness_shim.py, until Phase 33 migrates them
+# too) — one command, no drift between what CI runs and what a
+# contributor runs locally. This file still owns the stable
+# PYTHON-interpreter contract CI and README both depend on.
 #
 # Usage:
 #   scripts/run-all-tests.sh
 #   PYTHON=/some/other/python3 scripts/run-all-tests.sh
 #   JOBS=1 scripts/run-all-tests.sh              # old serial behaviour
-#   HARNESS_TIMEOUT_S=120 scripts/run-all-tests.sh
+#   HARNESS_TIMEOUT_S=120 scripts/run-all-tests.sh  # read by the legacy
+#                                                    # companion pytest
+#                                                    # shim until Phase 33
+#   scripts/run-all-tests.sh -k dither -- -x     # extra args go to pytest
+#                                                 # (e.g. -k, a path, -x)
+#
+# Coverage gate: `fail_under` is a whole-suite floor, so it is enforced
+# only on a run with NO extra arguments (what CI runs). Any extra argument
+# (-k, a path, -x, ...) adds `--cov-fail-under=0` before your arguments:
+# a subset still reports coverage but never fails on the gate. To enforce
+# a floor on a run with arguments anyway, pass it explicitly, e.g.
+# `scripts/run-all-tests.sh -x --cov-fail-under=88` (the later flag wins).
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,9 +40,35 @@ cd "${REPO_ROOT}"
 PYTHON="${PYTHON:-${REPO_ROOT}/server/.venv/bin/python3}"
 if [ ! -x "${PYTHON}" ]; then
     echo "ERROR: interpreter not found or not executable: ${PYTHON}" >&2
-    echo "       Create the venv first: python3 -m venv server/.venv && server/.venv/bin/pip install -r server/requirements.txt -r server/requirements-dev.txt" >&2
+    echo "       Create the venv first: python3 -m venv server/.venv && server/.venv/bin/pip install --require-hashes -r server/requirements-dev.txt" >&2
     echo "       Or set PYTHON to point at a provisioned interpreter (e.g. CI's own venv)." >&2
     exit 1
 fi
 
-exec "${PYTHON}" "${HERE}/run_all_tests.py" "$@"
+echo "==> Clearing stale coverage data files from any previous run"
+rm -f "${REPO_ROOT}"/.coverage "${REPO_ROOT}"/.coverage.*
+
+# coverage.py reads [tool.coverage.run] from pyproject.toml, including
+# `patch = ["subprocess"]` (which implies `parallel = true`) — each
+# pytest-xdist worker, and every subprocess a test itself launches
+# (byos_server.py, companion/app.py, the legacy companion harnesses),
+# writes its own .coverage.* data file; pytest-cov combines them all at
+# the end of the session.
+if [ -z "${COVERAGE_CORE:-}" ]; then
+    py_minor="$("${PYTHON}" -c 'import sys; print(1 if sys.version_info >= (3, 12) else 0)')"
+    if [ "${py_minor}" = "1" ]; then
+        # Measured by the prior hand-rolled runner (retired 32-13): tracing
+        # overhead essentially vanishes on 3.12+'s sysmon core. Left alone on older
+        # interpreters where sysmon doesn't exist; an explicit
+        # COVERAGE_CORE from the caller always wins over this default.
+        export COVERAGE_CORE=sysmon
+    fi
+fi
+
+gate_args=()
+if [ "$#" -gt 0 ]; then
+    echo "==> Extra pytest arguments given: coverage gate disabled for this run (full-suite floor)"
+    gate_args=(--cov-fail-under=0)
+fi
+
+exec "${PYTHON}" -m pytest -n "${JOBS:-auto}" --cov --cov-report=term-missing:skip-covered --durations=15 ${gate_args[@]+"${gate_args[@]}"} "$@"

@@ -2143,6 +2143,3 @@ def test_save_calendar_url_stores_the_normalised_form(tmp_path):
     if cr.configured_calendar_url(tmp) != "https://example.invalid/feed.ics":
         pytest.fail("expected configured_calendar_url() to return the normalised https:// form")
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

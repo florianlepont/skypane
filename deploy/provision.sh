@@ -60,13 +60,14 @@ chown -R "${APP_USER}:${APP_USER}" "${APP_ROOT}"
 
 echo "==> Installing Python 3 and python3-venv"
 # Installs whatever python3 + python3-venv the distro's own repos ship
-# (server/README.md records the development target as CPython 3.12, but
+# (the project targets the distro python3 - 3.14 on Ubuntu 26.04 - but
 # nothing in server/requirements.txt is version-pinned to it - Pillow
 # 12.3.0 and requests 2.34.2 are both pure-python/wheel-portable across
-# recent CPython 3.x). Pinning the package name to python3.12 breaks on
-# any Ubuntu release that ships a newer default (e.g. 26.04 ships 3.14
-# as python3/python3-venv, with no python3.12 package in its repos at
-# all) - using the generic package name tracks whatever the OS provides.
+# recent CPython 3.x). Pinning the package name to a specific minor
+# version breaks on any Ubuntu release that ships a newer default (e.g.
+# 26.04 ships 3.14 as python3/python3-venv, with no python3.12 package in
+# its repos at all) - using the generic package name tracks whatever the
+# OS provides.
 apt-get update -qq
 apt-get install -y python3 python3-venv
 

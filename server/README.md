@@ -10,34 +10,38 @@ rendered panel on a schedule.
 
 ## Setup
 
-Create the virtualenv and install the two pinned dependencies:
+Create the virtualenv and install the two pinned runtime dependencies,
+with hashes enforced:
 
 ```bash
 python3 -m venv server/.venv
-server/.venv/bin/pip install -r server/requirements.txt
+server/.venv/bin/pip install --require-hashes -r server/requirements.txt
 ```
 
-`Pillow==12.3.0` and `requests==2.34.2` are the only two dependencies
-(pinned versions re-verified against PyPI at execution time — see
-`server/fixtures/README.md` and `02-RESEARCH.md`'s Package Legitimacy Audit
-for why no third-party package needed a human-verify gate). Any additional
-package must go through the same legitimacy check before entering
-`requirements.txt`.
+`Pillow==12.3.0` and `requests==2.34.2` are the only two runtime
+dependencies (pinned versions re-verified against PyPI at execution time
+— see `server/fixtures/README.md` and `02-RESEARCH.md`'s Package
+Legitimacy Audit for why no third-party package needed a human-verify
+gate). Any additional package must go through the same legitimacy check
+before entering `requirements.in` (then re-locked with
+`scripts/lock-deps.sh`).
 
 ## Running the tests
 
-Every `server/test_*.py` is a stdlib-only, directly-executable harness (no
-pytest — see `stub-server/test_poll_cycle.py` for the established project
-convention). Run each from the repository root so relative fixture/geofence
-paths resolve:
+Tests run under pytest, from the repository root so relative
+fixture/geofence paths resolve. Install the dev superset first (adds
+pytest, pytest-xdist, pytest-cov and friends on top of the runtime pins):
 
 ```bash
-server/.venv/bin/python3 server/test_plane_detection.py
-server/.venv/bin/python3 server/test_pipeline_e2e.py
+server/.venv/bin/pip install --require-hashes -r server/requirements-dev.txt
+server/.venv/bin/python3 -m pytest server/test_plane_detection.py
+server/.venv/bin/python3 -m pytest server/test_pipeline_e2e.py
 ```
 
-Both harnesses import Pillow (transitively, via the render pipeline) and so
-must run under `server/.venv`'s interpreter, not the bare system `python3`.
+Or run the whole suite (server, stub-server, companion) the way CI does:
+`./scripts/run-all-tests.sh`. Both harnesses above import Pillow
+(transitively, via the render pipeline) and so must run under
+`server/.venv`'s interpreter, not the bare system `python3`.
 
 ## Poll cadence
 

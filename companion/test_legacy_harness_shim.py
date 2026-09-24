@@ -9,17 +9,34 @@ is the only path to them.
 """
 
 import os
+import re
 import signal
 import subprocess
 import sys
 
 import pytest
 
-from skypane_test_support import LEGACY_COMPANION_HARNESSES, REPO_ROOT
+from skypane_test_support import LEGACY_COMPANION_HARNESSES, REPO_ROOT, child_env
 
 pytestmark = pytest.mark.legacy_harness
 
 _COMPANION_DIR = os.path.join(REPO_ROOT, "companion")
+
+# The browser harnesses exit 0 after printing a line starting "SKIP " when
+# Playwright is missing or Chromium cannot launch - without this, that
+# vacuous exit 0 would read as ~90 browser checks passing.
+_HARNESS_SKIP_LINE = re.compile(r"(?m)^SKIP .*$")
+
+
+def _browser_required():
+    """True in CI (GitHub sets CI=true) or with SKYPANE_REQUIRE_BROWSER=1:
+    there, a harness that could not launch Chromium is a failure, not a
+    skip. Locally it stays a visible pytest skip.
+    """
+    return (
+        os.environ.get("SKYPANE_REQUIRE_BROWSER") == "1"
+        or os.environ.get("CI", "").lower() == "true"
+    )
 
 
 @pytest.mark.parametrize(
@@ -37,9 +54,17 @@ def test_legacy_companion_harness_exits_zero(harness, tmp_path):
             cwd=REPO_ROOT,
             stdout=out_fh,
             stderr=subprocess.STDOUT,
-            env=dict(os.environ),
-            # Own process group, same reason scripts/run_all_tests.py's own
-            # _run_one() uses one: a timeout must take down the harness AND
+            # 32-11-PLAN.md Task 2 (TST-03): every legacy companion harness,
+            # and every process it starts (their own Harness classes copy
+            # this env), runs under the no-network guard. Fake providers are
+            # NOT enabled here - only test_companion_app.py's own Harness
+            # enables them (Task 1) - so a harness that reaches a provider
+            # without asking for the fake fails loudly instead of silently
+            # succeeding.
+            env=child_env(),
+            # Own process group, same reason the prior hand-rolled test
+            # runner's own _run_one() (retired by 32-13-PLAN.md) used one:
+            # a timeout must take down the harness AND
             # any child server it spawned (companion/app.py,
             # stub-server/byos_server.py), or that child is orphaned, still
             # bound to its port.
@@ -69,6 +94,15 @@ def test_legacy_companion_harness_exits_zero(harness, tmp_path):
     assert returncode == 0, (
         "%s exited %d - last 200 lines:\n%s" % (harness, returncode, last_lines)
     )
+
+    skip_line = _HARNESS_SKIP_LINE.search(output)
+    if skip_line:
+        if _browser_required():
+            pytest.fail(
+                "%s skipped itself, but CI / SKYPANE_REQUIRE_BROWSER=1 requires "
+                "it to run - last 200 lines:\n%s" % (harness, last_lines)
+            )
+        pytest.skip("%s: %s" % (harness, skip_line.group(0)))
 
 
 def test_legacy_harness_list_matches_disk():

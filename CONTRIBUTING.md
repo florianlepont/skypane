@@ -7,8 +7,21 @@ may take a few days, but issues and pull requests are welcome.
 
 - For anything bigger than a small fix, please open an issue first so we
   can agree on the approach.
+- Set up `server/.venv` on Python 3.14 and install the dev dependencies
+  with hashes enforced:
+  ```bash
+  python3 -m venv server/.venv
+  server/.venv/bin/pip install --require-hashes -r server/requirements-dev.txt
+  ```
 - Run `./scripts/run-all-tests.sh` and `server/.venv/bin/ruff check .`
-  before opening a pull request; CI runs the same commands.
+  before opening a pull request; CI runs the same commands. To run a
+  subset, use pytest directly:
+  `server/.venv/bin/python3 -m pytest <path> -k <expr>`.
+- Tests must not touch the network — pytest-socket fails any test that
+  opens a non-loopback socket. Use the `fake_providers` fixture in place
+  of a real ADS-B/adsbdb call, and write only under `tmp_path`.
+- Dependency changes go in `server/requirements*.in`, then regenerate the
+  hash-locked `.txt` files with `scripts/lock-deps.sh`.
 - Security problems go through private reporting, not issues — see
   [`SECURITY.md`](./SECURITY.md).
 

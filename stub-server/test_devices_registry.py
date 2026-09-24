@@ -43,6 +43,8 @@ import time
 import urllib.error
 import urllib.request
 
+from skypane_test_support import child_env
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SERVER_PATH = os.path.join(HERE, "byos_server.py")
 CLI_PATH = os.path.join(HERE, "devices_cli.py")
@@ -104,7 +106,7 @@ class Harness:
         self.proc = None
         subprocess.run(
             [sys.executable, MAKE_PANEL_PATH, "--pattern", "palette", "--out", self.image_path],
-            check=True, capture_output=True, text=True,
+            check=True, capture_output=True, text=True, env=child_env(),
         )
 
     @staticmethod
@@ -141,7 +143,7 @@ class Harness:
         if extra_args:
             cmd += extra_args
         try:
-            self.proc = subprocess.Popen(cmd, stdout=stdout_fh, stderr=subprocess.STDOUT)
+            self.proc = subprocess.Popen(cmd, stdout=stdout_fh, stderr=subprocess.STDOUT, env=child_env())
         finally:
             stdout_fh.close()  # child holds its own duplicated fd
 
@@ -184,7 +186,7 @@ class Harness:
 def _run_cli(state_dir, *args):
     result = subprocess.run(
         [sys.executable, CLI_PATH, "--state-dir", state_dir] + list(args),
-        capture_output=True, text=True,
+        capture_output=True, text=True, env=child_env(),
     )
     return result.returncode, result.stdout, result.stderr
 

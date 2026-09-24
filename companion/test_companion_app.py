@@ -59,6 +59,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
+# 32-11-PLAN.md Task 1 (TST-03): test-support/ on sys.path so this harness
+# works standalone (server/.venv/bin/python3 companion/test_companion_app.py),
+# not only when launched through companion/test_legacy_harness_shim.py's own
+# child_env(), which already puts test-support/ on PYTHONPATH.
+_TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
+if _TEST_SUPPORT_DIR not in sys.path:
+    sys.path.insert(0, _TEST_SUPPORT_DIR)
 
 from companion import auth, draw, layout, theme_preview  # noqa: E402
 from companion.pages import airlines_page, config_page, health_page  # noqa: E402
@@ -71,6 +78,7 @@ from server.plane import manual_resolutions  # noqa: E402
 # real 1200x1600 render's own ink bands rather than restating a constant.
 from server.plane import render  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
+from skypane_test_support import FakeProviders, child_env  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -903,6 +911,11 @@ EXPECTED_CHECK_COUNT = 317
 # RUNNING (319/319 pass).
 EXPECTED_CHECK_COUNT = 319
 
+# 32-11-PLAN.md Task 1 (TST-03): +1 — the first poll trigger's run_once()
+# is now proven served by the fake ADS-B providers via their call log.
+# 319 + 1 = 320.
+EXPECTED_CHECK_COUNT = 320
+
 # ==========================================================================
 # 25-01-PLAN.md Task 4 (CFG-46/D-09) — THE NO-JS CONTROL CONTRACT, AS A
 # REGISTRY A LATER PLAN APPENDS ONE ROW TO.
@@ -1246,8 +1259,22 @@ class Harness:
     def state_path(self, *parts):
         return os.path.join(self.tmpdir, *parts)
 
+    def fake_provider_calls(self):
+        """The fake ADS-B/adsbdb providers' call log for THIS harness's
+        child - what companion/app.py's run_once() actually queried,
+        proving a /poll-now cycle was served by the fake, not the real
+        network (32-11-PLAN.md Task 1, TST-03).
+        """
+        return FakeProviders.read_calls_log(
+            os.path.join(self.tmpdir, "fake-providers.json"))
+
     def start(self):
-        env = dict(os.environ)
+        # 32-11-PLAN.md Task 1 (TST-03): every companion/app.py child this
+        # harness starts runs under the no-network guard and serves
+        # ADS-B/adsbdb from a fresh FakeProviders() (default empty-traffic
+        # responses) rather than reaching the real providers.
+        env = child_env(
+            dict(os.environ), fake_providers=FakeProviders(), state_dir=self.tmpdir)
         env[auth.PASSWORD_ENV_VAR] = TEST_PASSWORD
         stdout_fh = open(self.stdout_path, "w")
         cmd = [
@@ -10781,6 +10808,24 @@ def main():
             "a first poll trigger redirects with the poll_triggered flash key",
             _poll_trigger_first_call)
 
+        # 32-11-PLAN.md Task 1 (TST-03): the check above proves the HTTP
+        # contract; this one proves run_once() itself never reached the
+        # real adsb.fi/adsb.lol - read straight from the fake provider's
+        # own JSONL call log, written by the harness's child interpreter.
+        def _poll_trigger_first_call_served_by_fake_providers():
+            calls = harness.fake_provider_calls()
+            providers_called = {call["provider"] for call in calls}
+            missing = {"adsbfi", "adsblol"} - providers_called
+            if missing:
+                return False, (
+                    "expected the fake provider's call log to show both "
+                    "adsbfi and adsblol queried by the first poll trigger's "
+                    "run_once(), missing %r - full log: %r" % (missing, calls))
+            return True, ""
+        check(
+            "the first poll trigger's run_once() was served by the fake ADS-B providers (adsbfi and adsblol called, no live network)",
+            _poll_trigger_first_call_served_by_fake_providers)
+
         def _poll_trigger_cooldown_same_session():
             status, headers, _ = http_request(base + "/poll-now", method="POST", cookie=session_cookie)
             if status != 303:
@@ -11782,8 +11827,14 @@ def main():
                         calendar_harness.base_url() + "/settings", method="POST",
                         data=urllib.parse.urlencode({"calendar_url": url}).encode(),
                         cookie=session)
-                status, headers, _b = http_request(
-                    calendar_harness.base_url() + "/poll-now", method="POST", cookie=session)
+                # 32-11-PLAN.md Task 1 (TST-03): this harness runs
+                # companion/app.py's server in a thread of THIS process, so
+                # run_once() sees a plain monkeypatch of requests.get -
+                # FakeProviders().installed() rather than child_env(),
+                # which is for a subprocess child's own interpreter.
+                with FakeProviders().installed():
+                    status, headers, _b = http_request(
+                        calendar_harness.base_url() + "/poll-now", method="POST", cookie=session)
                 if status != 303:
                     return False, "expected a 303 redirect, got %d" % status
                 location = headers.get("Location", "")

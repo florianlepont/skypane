@@ -1,0 +1,12 @@
+# SkyPane — runtime dependency sources (direct pins only).
+#
+# Production is stdlib + Pillow + requests only (CLAUDE.md constraint,
+# server/README.md). deploy/deploy.sh installs the compiled lock
+# (server/requirements.txt) exclusively — never this file directly, and
+# never server/requirements-dev.txt.
+#
+# To regenerate server/requirements.txt (and the dev lock) after editing
+# this file, run scripts/lock-deps.sh. Never hand-edit the hashes in the
+# compiled lock.
+Pillow==12.3.0
+requests==2.34.2
