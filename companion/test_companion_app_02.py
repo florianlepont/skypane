@@ -27,22 +27,30 @@ two consolidated into a single narrower behaviour test scoped to
 `companion/draw.py`'s own emitters).
 """
 import json
+import math
 import os
 import re
+import subprocess
+import sys
+import urllib.parse
 
 import pytest
 from PIL import Image
 
 import companion.app as app_module
+import companion.draw as draw
 import companion.layout as layout
 import companion.test_companion_app_helpers as cah
 import companion.theme_preview as theme_preview
-from companion_app_server import served_asset, served_stylesheet
-from companion_markup import declarations_for
+from companion.pages import health_page
+from companion_app_server import http_request, served_asset, served_stylesheet
+from companion_markup import css_rules, declarations_for
 from server import device_config
 from server.plane import illustrations as server_illustrations
 from server.plane import manual_resolutions
 from server.plane import render
+import server.poll_loop as poll_loop
+from skypane_test_support import REPO_ROOT, child_env
 
 
 @pytest.fixture(scope="module")
@@ -997,3 +1005,603 @@ def test_page_context_supplies_resolve_prefix_and_manual_resolutions(tmp_path):
         assert key in ctx, (
             "expected the always-present ctx key %r to actually be present in "
             "page_context()'s return" % (key,))
+
+
+# ==========================================================================
+# Section 2.8: the drawing contract (CFG-39, 24-01-PLAN.md Task 4) —
+# companion/draw.py, companion/battery.py, server/poll_loop.py's D-27
+# private copy, and the served stylesheet.
+#
+# The original harness's `_battery_estimate_has_exactly_one_home()` check
+# scans every companion/server *.py source file's tokens (via `tokenize`,
+# banned by guard G2) for a second definition of the battery constants/
+# functions — a structural anti-duplication guard with no directly
+# observable HTTP/DOM consequence of its own. It is DELETED here (rubric
+# S): the actual failure mode it exists to prevent — two homes disagreeing
+# about a percentage for the same reading — is fully covered behaviourally
+# by test_battery_estimate_parity_between_companion_and_server() below.
+#
+# `_no_colour_literal_in_emitted_markup()` and `_every_drawn_shape_has_a_
+# fill_route()` similarly scanned every string literal in companion/draw.py
+# AND every companion/pages/*.py module via the same tokenize-based
+# helper. Both are PORTED, narrowed to companion/draw.py's own emitters
+# (rubric S: rewritten as a behaviour test over the markup those emitters
+# actually return, consolidated into one test since they inspect the same
+# sample markup for two related properties) — see this plan's SUMMARY for
+# the narrowing this drops (companion/pages/*.py's own literal SVG markup
+# is not scanned here).
+# ==========================================================================
+
+
+def test_battery_discharge_curve_is_well_formed():
+    """companion.battery.BATTERY_DISCHARGE_CURVE is strictly increasing in both columns, runs
+    0..100, every knot round-trips through battery_percent(), the end-knot clamps are exact,
+    the SEED-006 anchor values hold, NaN is refused, and LOW_BATTERY_DISPLAY_MV is 3540 and
+    sits strictly between the sparkline's fixed range and above BATTERY_LOW_THRESHOLD_MV
+    (SEED-006, quick 260923-gaf)"""
+    from companion import battery as battery_module
+
+    curve = battery_module.BATTERY_DISCHARGE_CURVE
+    mvs = [pair[0] for pair in curve]
+    pcts = [pair[1] for pair in curve]
+    assert mvs == sorted(set(mvs)) and len(set(mvs)) == len(mvs), (
+        "BATTERY_DISCHARGE_CURVE's millivolt column is not strictly increasing: %r" % (mvs,))
+    assert pcts == sorted(set(pcts)) and len(set(pcts)) == len(pcts), (
+        "BATTERY_DISCHARGE_CURVE's percent column is not strictly increasing: %r" % (pcts,))
+    assert pcts[0] == 0, "expected the curve's first knot to read 0%%, got %r" % (pcts[0],)
+    assert pcts[-1] == 100, "expected the curve's last knot to read 100%%, got %r" % (pcts[-1],)
+    for mv, pct in curve:
+        got = battery_module.battery_percent(mv)
+        assert got == pct, (
+            "knot (%r, %r) did not round-trip: battery_percent(%r) == %r" % (mv, pct, mv, got))
+    assert battery_module.battery_percent(4200) == 100 and battery_module.battery_percent(2900) == 0, (
+        "expected battery_percent() to clamp at 4200 -> 100 and 2900 -> 0")
+    assert (battery_module.battery_fraction(battery_module.BATTERY_FULL_MV) == 1.0
+            and battery_module.battery_fraction(battery_module.BATTERY_EMPTY_MV) == 0.0), (
+        "expected battery_fraction() to be EXACTLY 1.0/0.0 at the end knots")
+    anchors = {
+        4200: 100, 4112: 100, 4050: 94, 4020: 92, 4000: 90, 3900: 67,
+        3800: 47, 3750: 38, 3690: 32, 3600: 25, 3540: 20, 3500: 15,
+        3400: 9, 3300: 6, 3200: 4, 3100: 3, 3000: 1, 2946: 0, 2900: 0,
+    }
+    for mv, expected in anchors.items():
+        got = battery_module.battery_percent(mv)
+        assert got == expected, "battery_percent(%r) == %r, expected %r (SEED-006 anchor)" % (mv, got, expected)
+    assert battery_module.battery_fraction(float("nan")) is None, "expected battery_fraction(nan) to return None"
+    assert battery_module.LOW_BATTERY_DISPLAY_MV == 3540, (
+        "expected LOW_BATTERY_DISPLAY_MV == 3540, got %r" % (battery_module.LOW_BATTERY_DISPLAY_MV,))
+    assert battery_module.battery_percent(battery_module.LOW_BATTERY_DISPLAY_MV) == (
+        battery_module.LOW_BATTERY_DISPLAY_PERCENT), (
+        "expected battery_percent(LOW_BATTERY_DISPLAY_MV) == LOW_BATTERY_DISPLAY_PERCENT")
+    assert (health_page.SPARKLINE_Y_MIN_MV < battery_module.LOW_BATTERY_DISPLAY_MV
+            < health_page.SPARKLINE_Y_MAX_MV), (
+        "expected LOW_BATTERY_DISPLAY_MV strictly inside the sparkline's fixed range")
+    assert poll_loop.BATTERY_LOW_THRESHOLD_MV < battery_module.LOW_BATTERY_DISPLAY_MV, (
+        "expected poll_loop.BATTERY_LOW_THRESHOLD_MV < LOW_BATTERY_DISPLAY_MV, pinning the "
+        "relationship the module's own comment states")
+
+
+def test_battery_estimate_parity_between_companion_and_server():
+    """companion.battery and server.poll_loop's independently-maintained battery-percentage
+    copies (D-27) agree on their curve table, their FULL/EMPTY endpoints, and their output
+    for every integer millivolt value from 2800 to 4400, a few non-integer floats, and a
+    hostile input set — a drift here is exactly T-gaf-02 (SEED-006, quick 260923-gaf)"""
+    from companion import battery as battery_module
+
+    assert battery_module.BATTERY_DISCHARGE_CURVE == poll_loop._NOTIFY_BATTERY_DISCHARGE_CURVE, (
+        "companion.battery.BATTERY_DISCHARGE_CURVE != poll_loop._NOTIFY_BATTERY_DISCHARGE_CURVE "
+        "— the D-27 duplicate has drifted")
+    assert battery_module.BATTERY_FULL_MV == poll_loop._NOTIFY_BATTERY_FULL_MV, (
+        "BATTERY_FULL_MV != _NOTIFY_BATTERY_FULL_MV")
+    assert battery_module.BATTERY_EMPTY_MV == poll_loop._NOTIFY_BATTERY_EMPTY_MV, (
+        "BATTERY_EMPTY_MV != _NOTIFY_BATTERY_EMPTY_MV")
+    inputs = list(range(2800, 4401)) + [3540.5, 3999.9, 4111.99]
+    for value in inputs:
+        companion_out = battery_module.battery_percent(value)
+        server_out = poll_loop._battery_percent_estimate(value)
+        assert companion_out == server_out, (
+            "the two homes disagree at %r: companion.battery.battery_percent() == %r, "
+            "poll_loop._battery_percent_estimate() == %r" % (value, companion_out, server_out))
+    hostile = (None, "x", "", "3700", 0, -1, True, float("nan"), float("inf"), float("-inf"))
+    for value in hostile:
+        companion_out = battery_module.battery_percent(value)
+        server_out = poll_loop._battery_percent_estimate(value)
+        assert companion_out == server_out, (
+            "the two homes disagree on hostile input %r: companion returned %r, server "
+            "returned %r" % (value, companion_out, server_out))
+
+
+_DRAWING_CONTRACT_SAMPLES = (
+    lambda: draw.rect(draw.DRAWING_AXIS_CLASS, 0, "100%", 1, 4),
+    lambda: draw.line(draw.DRAWING_LINE_CLASS, "0.00%", "1.00%", "2.00%", "3.00%"),
+    lambda: draw.circle(draw.DRAWING_MARK_CLASS, "50.00%", "50.00%", 3),
+    lambda: draw.path(draw.DRAWING_LINE_CLASS, "M0 0 L10 10", attrs={"fill": "none"}),
+    lambda: draw.percent_canvas(draw.DRAWING_CANVAS_CLASS, "", label="chart"),
+    lambda: draw.unit_canvas(draw.DRAWING_FIGURE_CLASS, "", 48, 48, hidden=True),
+    lambda: draw.ring_gauge(0.5, 72),
+)
+
+_SHAPE_ELEMENT = re.compile(r"<(rect|circle|line|path|polygon|polyline|ellipse)\b([^>]*)")
+_COLOUR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(")
+
+
+def test_draw_emitters_carry_no_colour_literal_and_every_shape_has_a_fill_route():
+    """companion/draw.py's own emitters never return a colour literal, and every
+    <rect>/<circle>/<line>/<path>/<polygon>/<polyline>/<ellipse> they emit carries a class
+    attribute or an explicit fill/stroke — a shape with neither paints SVG-default black and
+    is invisible in one of the two themes (CFG-39 contract rules 3/4, narrowed here to
+    companion/draw.py's own emitters — see this plan's SUMMARY)"""
+    for build in _DRAWING_CONTRACT_SAMPLES:
+        markup = build()
+        found = _COLOUR_LITERAL.search(markup)
+        assert found is None, (
+            "%r emitted the colour %r — a colour decided in Python is correct in ONE theme. "
+            "Every drawn shape takes its colour from a class bound to a theme token" % (markup, found))
+        for match in _SHAPE_ELEMENT.finditer(markup):
+            attributes = match.group(2)
+            assert "class=" in attributes or "fill=" in attributes or "stroke=" in attributes, (
+                "%r emits a <%s> with neither a class nor an explicit fill/stroke — it takes "
+                "the SVG default fill, which is black" % (markup, match.group(1)))
+
+
+def test_every_drawing_class_resolves_in_the_served_stylesheet(served_css):
+    """every class name companion/draw.py can emit (DRAWING_CLASSES, its own constants)
+    resolves to at least one selector in the served stylesheet, matched on a selector
+    boundary so `.drawing-axis` is not reported as resolved by `.drawing-axis-label`
+    (CFG-39)"""
+    all_selectors = [selector for rule in css_rules(served_css) for selector in rule.selectors]
+    for class_name in draw.DRAWING_CLASSES:
+        # A boundary match against each parsed SELECTOR string (not the
+        # whole stylesheet text): `.drawing-axis` is a substring of
+        # `.drawing-axis-label`, and a plain `in` test would report every
+        # one of them as resolved on the strength of one selector.
+        pattern = re.compile(r"\.%s(?![-\w])" % re.escape(class_name))
+        assert any(pattern.search(selector) for selector in all_selectors), (
+            "companion/draw.py can emit class %r and the served stylesheet carries no "
+            "selector for it — a class that exists in Python and nowhere in CSS paints "
+            "NOTHING at all" % (class_name,))
+
+
+def test_draw_module_imports_no_page_and_no_server():
+    """companion/draw.py imports no page module, nothing from the server package and not
+    companion/layout.py — proven by importing it fresh in a subprocess and inspecting
+    sys.modules, never by reading its source (33-MIGRATION-RULES.md rubric S; guard G2 bans
+    ast/tokenize introspection of production code)"""
+    script = (
+        "import json, sys\n"
+        "import companion.draw\n"
+        "banned = sorted(\n"
+        "    m for m in sys.modules\n"
+        "    if m == 'companion.layout' or m.startswith('companion.pages')\n"
+        "    or m.startswith('server')\n"
+        ")\n"
+        "print(json.dumps(banned))\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script], env=child_env(), cwd=REPO_ROOT,
+        capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    banned = json.loads(result.stdout.strip().splitlines()[-1])
+    assert banned == [], (
+        "importing companion.draw pulled %r into sys.modules — a geometry module must not "
+        "depend on the server package, a page module or companion/layout.py" % (banned,))
+
+
+def test_draw_module_emits_no_script_and_no_external_reference():
+    """every companion/draw.py emitter returns complete markup with no script tag, no
+    external reference and no inline style, and refuses an attribute carrying one — the
+    no-JS floor (D-09) is why this phase server-renders its SVG"""
+    samples = [
+        draw.rect(draw.DRAWING_AXIS_CLASS, 0, "100%", 1, 4),
+        draw.line(draw.DRAWING_LINE_CLASS, "0.00%", "1.00%", "2.00%", "3.00%"),
+        draw.circle(draw.DRAWING_MARK_CLASS, "50.00%", "50.00%", 3),
+        draw.path(draw.DRAWING_LINE_CLASS, "M0 0 L10 10", attrs={"fill": "none"}),
+        draw.title("a reading"),
+        draw.label_span("4200 mV"),
+        draw.percent_canvas(draw.DRAWING_CANVAS_CLASS, "", label="chart"),
+        draw.unit_canvas(draw.DRAWING_FIGURE_CLASS, "", 48, 48, hidden=True),
+    ]
+    for markup in samples:
+        for banned in ("<script", "url(", "href=", "src=", "onload", "<image", "javascript:", "style="):
+            assert banned not in markup, (
+                "companion/draw.py emitted %r, which contains %r — a drawing that needs a "
+                "script, an external reference or an inline style has left the no-JS floor "
+                "(D-09) or the app's script-src 'self' policy" % (markup, banned))
+    for attempt, label in (
+            ({"fill": "url(#gradient)"}, "an external reference"),
+            ({"href": "/static/x.svg"}, "a loaded reference"),
+            ({"style": "fill: currentColor"}, "an inline style")):
+        with pytest.raises(ValueError):
+            draw.rect(draw.DRAWING_AXIS_CLASS, 0, 0, 1, 1, attrs=attempt)
+        # pytest.raises() above already fails with "DID NOT RAISE" if
+        # companion/draw.py accepted `label` instead of refusing it.
+        assert label
+
+
+def test_draw_module_escapes_every_interpolated_value():
+    """companion/draw.py escapes every interpolated value through its one escape() helper —
+    all five dangerous characters, in element content and in attribute values alike, with no
+    'this value is always safe' exception (T-24-01)"""
+    hostile = "<img src=x>&\"'"
+    escaped = draw.escape(hostile)
+    for character, entity in (
+            ("<", "&lt;"), (">", "&gt;"), ("&", "&amp;"), ('"', "&quot;"), ("'", "&#x27;")):
+        assert entity in escaped, "draw.escape() left %r unescaped: %r" % (character, escaped)
+    assert "<img" not in escaped, "draw.escape() let a tag through: %r" % (escaped,)
+    assert draw.escape(None) == "", "draw.escape(None) must be the empty string, got %r" % (draw.escape(None),)
+    for markup, origin in (
+            (draw.title(hostile), "title()"),
+            (draw.label_span(hostile), "label_span()"),
+            (draw.percent_canvas(draw.DRAWING_CANVAS_CLASS, "", label=hostile), "percent_canvas(label=)"),
+            (draw.circle(draw.DRAWING_MARK_CLASS, 0, 0, 3, attrs={"data-when": 'a"b&c'}), "circle(attrs=)")):
+        assert "<img" not in markup and 'a"b' not in markup, (
+            "draw.%s did not route its value through escape(): %r" % (origin, markup))
+    assert "&quot;" in draw.circle(draw.DRAWING_MARK_CLASS, 0, 0, 3, attrs={"data-when": 'a"b&c'}), (
+        "an attribute value reached the markup unescaped")
+
+
+def test_draw_module_scales_clamp_and_never_raise():
+    """companion/draw.py's scales clamp into their caller-supplied FIXED domain and pin at
+    exactly the floor and ceiling positions, usable_pairs() drops a row's label with the row
+    itself, and no helper raises on None/a bool/a negative/a string/a NaN (T-24-04,
+    D-04/A-22)"""
+    low, high, inset = 3000, 4200, 3.75
+    assert draw.percent_y(low - 1, low, high, inset) == draw.percent_y(low, low, high, inset), (
+        "percent_y() below the domain floor must pin at exactly the floor")
+    assert draw.percent_y(high + 1, low, high, inset) == draw.percent_y(high, low, high, inset), (
+        "percent_y() above the domain ceiling must pin at exactly the ceiling")
+    assert draw.percent_y(high, low, high, 0.0) == 0.0, "percent_y() must invert for SVG's downward y axis"
+    assert draw.percent_y(low, low, high, 0.0) == 100.0, "percent_y() must place the domain floor at the bottom"
+    assert draw.percent_x(-1, 6) == 0.0 and draw.percent_x(99, 6) == 100.0, (
+        "percent_x() must pin an out-of-range index at exactly 0/100")
+    assert draw.percent_x(0, 1) == 0.0, "percent_x() must not divide by zero for a one-point series"
+    assert draw.unit_circle_dash_array(0.0, 10).split()[0] == "0.0000", (
+        "a zero-fraction ring must draw no arc at all")
+    assert draw.unit_circle_dash_array(5, 10) == draw.unit_circle_dash_array(1.0, 10), (
+        "a fraction above 1 must pin at a full ring, never wrap")
+    rows = [{"battery_mv": None, "ts": "unusable-newest"},
+            {"battery_mv": 3900, "ts": "real-newest"},
+            {"battery_mv": True, "ts": "a-bool-is-not-a-reading"},
+            {"battery_mv": 3800, "ts": "older"}]
+    pairs = draw.usable_pairs(rows, "battery_mv")
+    assert [value for value, _row in pairs] == [3800, 3900], (
+        "usable_pairs() must keep only usable readings, chronologically: %r" % (pairs,))
+    assert pairs[-1][1]["ts"] == "real-newest", (
+        "a dropped row must drop its own label — the last pair's label source is %r" % (pairs[-1][1]["ts"],))
+    for hostile in (None, True, False, -1, 0, "", "abc", {}, [], float("nan")):
+        draw.percent_x(hostile, hostile)
+        draw.percent_y(hostile, 3000, 4200, hostile)
+        draw.percent_attr(hostile)
+        draw.unit_circle_dash_array(hostile, hostile)
+        draw.unit_point_on_circle(hostile, hostile, hostile, hostile)
+        draw.usable_pairs(hostile, "battery_mv")
+        draw.escape(hostile)
+        draw.is_number(hostile)
+
+
+def _ring_arc(markup, class_name):
+    # An EXACT class-attribute match, not a substring test: this file has
+    # been bitten by `.drawing-axis` matching inside `.drawing-axis-label`,
+    # and the same trap is one rename away here.
+    for element in re.findall(r"<circle[^>]*/>", markup):
+        if re.search(r'class="%s"' % re.escape(class_name), element):
+            return element
+    return None
+
+
+def _ring_attr(element, name):
+    found = re.search(r'\b%s="([^"]*)"' % re.escape(name), element or "")
+    return found.group(1) if found else None
+
+
+def test_ring_gauge_is_one_emitter_whose_size_drives_the_geometry():
+    """draw.ring_gauge() is ONE size-parameterised emitter whose size moves the radius AND
+    the stroke width (never a CSS-only small variant), draws no value arc at all at 0 and a
+    complete dash-free circle at 1, draws half its own emitted circumference at 0.5, gives
+    every arc an explicit fill route and a class with no colour literal, carries a viewBox
+    plus intrinsic width/height and aria-hidden, and never raises (CFG-40, T-24-04-A)"""
+    for constant in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
+        assert constant in draw.DRAWING_CLASSES, (
+            "the ring's class %r is not in draw.DRAWING_CLASSES, so the class-resolution "
+            "guard never checks it against style.css" % (constant,))
+
+    large = draw.ring_gauge(0.5, 72)
+    small = draw.ring_gauge(0.5, 36)
+
+    for name in ("r", "stroke-width"):
+        big_value = _ring_attr(_ring_arc(large, draw.DRAWING_RING_VALUE_CLASS), name)
+        small_value = _ring_attr(_ring_arc(small, draw.DRAWING_RING_VALUE_CLASS), name)
+        assert big_value is not None and small_value is not None, (
+            "the ring's value arc carries no %r attribute at one of the two sizes (%r / %r)"
+            % (name, big_value, small_value))
+        assert big_value != small_value, (
+            "two sizes emitted the same %r (%r) — the size parameter is not driving the "
+            "geometry, which is the CSS-only 'small variant' CFG-40 forbids" % (name, big_value))
+
+    empty = draw.ring_gauge(0.0, 72)
+    assert _ring_arc(empty, draw.DRAWING_RING_VALUE_CLASS) is None, (
+        "a fraction of 0 emitted a value arc — a zero-length dash renders as a dot under a "
+        "round cap, so empty would read as a few percent")
+    assert _ring_arc(empty, draw.DRAWING_RING_TRACK_CLASS) is not None, (
+        "a fraction of 0 must still draw the full track")
+
+    full_arc = _ring_arc(draw.ring_gauge(1.0, 72), draw.DRAWING_RING_VALUE_CLASS)
+    assert full_arc is not None, "a fraction of 1 emitted no value arc at all"
+    assert _ring_attr(full_arc, "stroke-dasharray") is None, (
+        "a fraction of 1 emitted a dash pattern (%r) — a complete circle is emitted "
+        "complete, so no rounding of the circumference can leave a seam at 100%%"
+        % (_ring_attr(full_arc, "stroke-dasharray"),))
+
+    half_arc = _ring_arc(draw.ring_gauge(0.5, 72), draw.DRAWING_RING_VALUE_CLASS)
+    dash = _ring_attr(half_arc, "stroke-dasharray")
+    radius = _ring_attr(half_arc, "r")
+    assert dash is not None and radius is not None, (
+        "the half-full ring carries no dash array / radius: %r" % (half_arc,))
+    drawn = float(dash.split()[0])
+    circumference = 2 * math.pi * float(radius)
+    assert abs(drawn - circumference / 2) <= 0.01, (
+        "the half-full ring draws %.4f of its own %.4f circumference, not half" % (drawn, circumference))
+
+    for markup, label in ((large, "0.5"), (empty, "0.0"), (draw.ring_gauge(1.0, 72), "1.0")):
+        for element in re.findall(r"<circle[^>]*/>", markup):
+            assert re.search(r'(?<![-\w])fill="none"', element), (
+                "a ring arc at fraction %s carries no explicit fill=\"none\": %r — a stroked "
+                "shape with no fill route takes the SVG default black" % (label, element))
+            assert re.search(r'class="[^"]+"', element), "a ring arc at fraction %s carries no class: %r" % (label, element)
+        literals = re.findall(r"#[0-9a-fA-F]{3,8}|rgb\(", markup)
+        assert not literals, (
+            "the ring emitted colour literals %r at fraction %s — every colour comes from a "
+            "class bound to a theme token" % (literals, label))
+
+    for markup, centre in ((large, "36.00"), (small, "18.00")):
+        arc = _ring_arc(markup, draw.DRAWING_RING_VALUE_CLASS)
+        expected = "rotate(-90 %s %s)" % (centre, centre)
+        assert _ring_attr(arc, "transform") == expected, (
+            "the value arc's transform is %r, not %r — that one attribute is what puts the "
+            "arc's start at twelve o'clock and leaves it running clockwise"
+            % (_ring_attr(arc, "transform"), expected))
+
+    opening = large[:large.index(">") + 1]
+    for name in ("viewBox", "width", "height"):
+        assert _ring_attr(opening, name) is not None, (
+            "the ring's <svg> carries no %r — with neither a size attribute nor a CSS rule "
+            "an <svg> renders at the SVG default 300x150 and blows the layout apart" % (name,))
+    assert 'aria-hidden="true"' in opening, (
+        "the ring must be aria-hidden: the percentage is already text beside it at both "
+        "call sites, so a labelled graphic would be read twice")
+
+    for hostile in (None, True, False, -0.5, 1.5, float("nan"), "", "abc", {}, []):
+        junk = draw.ring_gauge(hostile, 72)
+        draw.ring_gauge(0.5, hostile)
+        assert _ring_arc(junk, draw.DRAWING_RING_TRACK_CLASS) is not None, (
+            "the fraction %r produced no track at all: %r" % (hostile, junk))
+    assert _ring_arc(draw.ring_gauge(-0.5, 72), draw.DRAWING_RING_VALUE_CLASS) is None, (
+        "a negative fraction must pin at empty, drawing no value arc")
+    assert draw.ring_gauge(1.5, 72) == draw.ring_gauge(1.0, 72), (
+        "a fraction above 1 must pin at exactly a full ring, never wrap")
+
+
+# ==========================================================================
+# Section 3: companion/app.py (plan 06-05) — a real companion/app.py
+# subprocess, driven with companion_app_server.http_request() instead of
+# the legacy Harness. Tolerates the ADS-B aggregators being unreachable in
+# this sandboxed environment — none of these checks depends on a flight
+# being detected.
+# ==========================================================================
+
+
+def _expected_next_login_location(next_route):
+    return "/login?next=%s" % urllib.parse.quote(next_route, safe="") if next_route else "/login"
+
+
+@pytest.mark.parametrize(
+    "path", ["/", "/display", "/flights", "/airlines", "/health", "/device"],
+    ids=["home", "display", "flights", "airlines", "health", "device"])
+def test_unauth_get_nav_tab_redirects_to_login_with_next(app02_server, path):
+    """unauthenticated GET {path} redirects to /login carrying that route as ?next="""
+    status, headers, body = http_request(app02_server.base_url() + path)
+    assert status == 303, "expected 303, got %d" % status
+    assert headers.get("Location") == _expected_next_login_location(path), (
+        "expected a redirect to %r, got %r" % (_expected_next_login_location(path), headers.get("Location")))
+    assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
+
+
+@pytest.mark.parametrize("path", ["/settings", "/history"], ids=["settings", "history"])
+def test_unauth_get_retired_page_route_redirects_to_login_without_next(app02_server, path):
+    """unauthenticated GET {path} (a retired page route) redirects to /login without ?next=
+    (Phase 18: the retired page routes keep their session gate but, no longer being NAV_TABS
+    members, carry no ?next=)"""
+    status, headers, body = http_request(app02_server.base_url() + path)
+    assert status == 303, "expected 303, got %d" % status
+    assert headers.get("Location") == "/login", (
+        "expected a redirect to '/login', got %r" % (headers.get("Location"),))
+    assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
+
+
+def test_unauth_get_preview_redirects_to_login_without_next(app02_server):
+    """unauthenticated GET /preview (the retired Preview page's redirect source) redirects to
+    /login without page content (D-22 removed it from NAV_TABS, so no ?next= is carried — it
+    lands on /login, not /history, proving the redirect branch keeps its own session gate)"""
+    status, headers, body = http_request(app02_server.base_url() + "/preview")
+    assert status == 303, "expected 303, got %d" % status
+    assert headers.get("Location") == "/login", (
+        "expected a redirect to '/login', got %r" % (headers.get("Location"),))
+    assert not body
+
+
+def test_preview_png_unauth_404_not_login_redirect(app02_server):
+    """unauthenticated GET /preview.png now returns 404 (not a 303 to /login) — the route's
+    session-gated branch is gone, so the request falls through to do_GET's deliberately
+    ungated unknown-path handler"""
+    # Quick task 260903-c4o retired the /preview.png route entirely, so an
+    # unauthenticated request no longer reaches a require_session() check
+    # at all — it falls through to do_GET's unknown-path handler, which
+    # is deliberately ungated (every other unknown path already 404s
+    # pre-auth). The ungated 404 leaks nothing beyond "this route does
+    # not exist", exactly like every other unknown path.
+    status, _headers, body = http_request(app02_server.base_url() + "/preview.png")
+    assert status == 404, "expected 404 for unauthenticated GET /preview.png, got %d" % status
+    assert b"Page not found." in body, "expected the exact 404 copy in the response body"
+
+
+def test_unauth_get_gallery_image_redirects_to_login_without_next(app02_server):
+    """unauthenticated GET of a gallery image route redirects to /login without page content
+    (not a NAV_TABS route, so no ?next= is carried)"""
+    status, headers, body = http_request(app02_server.base_url() + "/gallery/whatever.png")
+    assert status == 303, "expected 303, got %d" % status
+    assert headers.get("Location") == "/login"
+    assert not body
+
+
+def test_unauth_post_settings_redirects_to_login_without_next(app02_server):
+    """unauthenticated POST /settings redirects to /login (the write route is not a tab, so
+    no ?next=)"""
+    data = urllib.parse.urlencode({"ui_theme": "sky"}).encode()
+    status, headers, body = http_request(app02_server.base_url() + "/settings", method="POST", data=data)
+    assert status == 303, "expected 303, got %d" % status
+    assert headers.get("Location") == "/login"
+    assert not body
+
+
+def test_unauth_post_poll_now_redirects_to_login_without_next(app02_server):
+    """unauthenticated POST /poll-now redirects to /login without page content (not a
+    NAV_TABS route, so no ?next= is carried)"""
+    status, headers, body = http_request(app02_server.base_url() + "/poll-now", method="POST")
+    assert status == 303, "expected 303, got %d" % status
+    assert headers.get("Location") == "/login"
+    assert not body
+
+
+def test_stylesheet_public(app02_server):
+    """GET /static/style.css succeeds without a session, returns a CSS content type, and
+    stays shared-cacheable (public, max-age=300) — this route is a deliberate D-02 gate
+    exemption with no per-user content"""
+    status, headers, body = http_request(app02_server.base_url() + "/static/style.css")
+    assert status == 200, "expected 200, got %d" % status
+    assert "text/css" in headers.get("Content-Type", ""), (
+        "expected a text/css content type, got %r" % headers.get("Content-Type", ""))
+    assert body, "expected a non-empty stylesheet body"
+    cache_control = headers.get("Cache-Control", "")
+    directives = [part.strip() for part in cache_control.split(",")]
+    assert "public" in directives, (
+        "expected a shared-cacheable (public) Cache-Control scope, got %r" % cache_control)
+    assert "max-age=300" in directives, (
+        "expected a 300-second max-age on the stylesheet's Cache-Control header, got %r" % cache_control)
+
+
+def test_battery_trend_script_public(app02_server):
+    """GET /static/battery-trend.js succeeds without a session and returns a JavaScript
+    content type"""
+    status, headers, body = http_request(app02_server.base_url() + "/static/battery-trend.js")
+    assert status == 200, "expected 200, got %d" % status
+    assert "text/javascript" in headers.get("Content-Type", ""), (
+        "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
+    assert body, "expected a non-empty script body"
+    assert "max-age=300" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+
+
+def test_nav_dropdown_script_public(app02_server):
+    """GET /static/nav-dropdown.js succeeds without a session, returns a JavaScript content
+    type, and serves the real file"""
+    status, headers, body = http_request(app02_server.base_url() + "/static/nav-dropdown.js")
+    assert status == 200, "expected 200, got %d" % status
+    assert "text/javascript" in headers.get("Content-Type", ""), (
+        "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
+    assert b"site-nav-toggle" in body, (
+        "expected the toggle-id literal in the served body, proving the real file was served")
+
+
+@pytest.mark.parametrize(
+    "route", [
+        "/static/dirty-state.js", "/static/list-filter.js",
+        "/static/copy-button.js", "/static/freshness.js",
+    ],
+    ids=["dirty-state.js", "list-filter.js", "copy-button.js", "freshness.js"])
+def test_static_script_public_and_cacheable(app02_server, route):
+    """GET {route} succeeds without a session and returns a shared-cacheable JavaScript
+    content type (06.6.3: four more pre-auth static scripts, same shape as the
+    nav-dropdown.js check above)"""
+    status, headers, body = http_request(app02_server.base_url() + route)
+    assert status == 200, "expected 200, got %d" % status
+    assert "text/javascript" in headers.get("Content-Type", ""), (
+        "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
+    assert body, "expected a non-empty script body"
+    assert "max-age=300" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+
+
+def test_four_new_static_routes_dom_contract_guard():
+    """companion.app.py's 4 new *_SCRIPT_ROUTE constants equal companion/layout.py's 4 new
+    *_SCRIPT_SRC constants, and page_shell() emits a <script> tag for each"""
+    # Cross-file-equality half, mirroring test_three_file_nav_dom_contract_guard()'s own
+    # pattern: each new companion.app.py *_SCRIPT_ROUTE constant must equal its matching
+    # companion/layout.py *_SCRIPT_SRC constant, and page_shell() must emit a
+    # <script src="..."> tag for each.
+    pairs = (
+        (app_module.DIRTY_STATE_SCRIPT_ROUTE, layout.DIRTY_STATE_SCRIPT_SRC),
+        (app_module.LIST_FILTER_SCRIPT_ROUTE, layout.LIST_FILTER_SCRIPT_SRC),
+        (app_module.COPY_BUTTON_SCRIPT_ROUTE, layout.COPY_BUTTON_SCRIPT_SRC),
+        (app_module.FRESHNESS_SCRIPT_ROUTE, layout.FRESHNESS_SCRIPT_SRC),
+    )
+    for route_const, src_const in pairs:
+        assert route_const == src_const, "script route drift: %r vs %r" % (route_const, src_const)
+    doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+    for _route_const, src_const in pairs:
+        assert ('<script src="%s" defer></script>' % src_const) in doc, (
+            "expected a deferred <script> tag for %r" % src_const)
+
+
+def test_copy_button_script_es5_safe_reads_data_copied_text(app02_server):
+    """copy-button.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/
+    insertAdjacentHTML/document.write/eval/fetch/XHR), reads its on-success feedback text
+    from each button's own data-copied-text attribute, and the removed hardcoded "Copied"
+    literal survives only as the one documented fallback (D-06)"""
+    src = served_asset(app02_server, "/static/copy-button.js")
+    assert src.count('"use strict"') == 1, (
+        "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
+    banned = (
+        "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+        "insertAdjacentHTML", "document.write", "eval(", "fetch(", "XMLHttpRequest")
+    for token in banned:
+        assert token not in src, "copy-button.js must not contain %r" % token
+    required = ("textContent", "addEventListener", "getAttribute")
+    for token in required:
+        assert token in src, "expected %r in copy-button.js" % token
+    assert "data-copied-text" in src, "expected copy-button.js to read data-copied-text"
+    # D-06: the removed hardcoded literal survives ONLY as the documented
+    # fallback — exactly one occurrence of the quoted string, on the
+    # FALLBACK_FEEDBACK_TEXT declaration itself.
+    assert src.count('"Copied"') == 1, (
+        "expected exactly one \"Copied\" literal (the documented fallback), got %d" % src.count('"Copied"'))
+
+
+def test_dirty_state_script_es5_safe_reads_seven_dirty_bar_attributes(app02_server):
+    """dirty-state.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/
+    insertAdjacentHTML/document.write/eval/XHR), contains NO fetch( any more, reads all seven
+    of the bar's own data-dirty-* attributes, and each restored hardcoded literal survives
+    only as its own documented fallback (CFG-77/CFG-78, 28-08-PLAN.md Task 3)"""
+    src = served_asset(app02_server, "/static/dirty-state.js")
+    assert src.count('"use strict"') == 1, (
+        "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
+    banned = (
+        "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+        "insertAdjacentHTML", "document.write", "eval(", "XMLHttpRequest", "fetch(")
+    for token in banned:
+        assert token not in src, "dirty-state.js must not contain %r" % token
+    required = ("textContent", "addEventListener", "getAttribute", "querySelector")
+    for token in required:
+        assert token in src, "expected %r in dirty-state.js" % token
+    for attr in (
+            "data-dirty-changed-suffix", "data-dirty-and", "data-dirty-list-and",
+            "data-dirty-unsaved-singular", "data-dirty-unsaved-plural",
+            "data-dirty-saving", "data-dirty-initial-text"):
+        assert attr in src, "expected dirty-state.js to read %r" % attr
+    # D-06: each restored hardcoded word survives ONLY as its own
+    # documented fallback literal, never a second inline occurrence
+    # elsewhere in the file.
+    for literal in (
+            '" changed"', '" and "', '", and "', '"1 unsaved change"',
+            '" unsaved changes"', '"Saving…"', '"Unsaved changes"'):
+        assert src.count(literal) == 1, (
+            "expected exactly one %s literal (the fallback), got %d" % (literal, src.count(literal)))
