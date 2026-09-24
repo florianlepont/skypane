@@ -111,44 +111,6 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [x] **CFG-85**: Aspect is one tile — the "Frame colours" card and the separate "Calendar" card are replaced by ONE tile holding the live preview, three usage rows (Départs, Arrivées, Vols du calendrier) each showing ONE swatch and the theme name, a wrapping palette grid of the 18 themes drawn as their own shape without the aircraft under the open row (no strip, no scrollbar, no pagers, no dot row, no disclosure), the calendar's connection folded under its own row, and "Règles par vol" as a secondary row disclosing the existing list and add form; the direction (accordion vs. segments) is decided by the developer on two `/gsd-sketch` variants BEFORE planning; the no-JS control contract holds (native radios cross-submitting via `form="settings-form"`, server-rendered preview for the saved theme, every row open with scripts blocked), the CSP is untouched, no new script file, no new custom property, colour literal, family or size; proven by the value read back from disk after an operate-submit round trip with scripts blocked at 360 px in both languages, by the preview following hover/focus and the selected swatch following the live radio state, and by every retired carousel rule grepped for a surviving consumer before deletion
 - [x] **CFG-86**: Display's page height at 390 px is measured by the registered instrument before and after Phase 30 and reported against X6's 2 600 px target with the delta stated — the target is never restated to fit the result
 
-## v2 Requirements
-
-Deferred to future release. Tracked but not in current roadmap.
-
-### RER (Orly-Ville)
-
-Deferred 2026-08-11 — user-requested scope reduction so v1 ships single-view (plane-only). Was Phase 3; that phase was removed from ROADMAP.md (see git history) and its full RER context is recoverable there when v2 planning starts.
-
-- **RER-01**: User can see line, destination, and minutes-until-departure for the next 2+ RER trains from Orly-Ville
-- **RER-02**: User can see a "leave by" cue combining the next train's countdown with a fixed walk-time buffer
-- **RER-03**: User can see a disruption banner on the RER view during a service disruption on the line
-
-### View Switching
-
-Deferred 2026-08-11 alongside RER — meaningless in v1 with only one view. Revisit once a second view (RER or otherwise) exists in v2.
-
-Superseded 2026-08-27 (explore session): the frame is meant to stay wall-mounted, so a physical button is impractical for routine interaction. View switching moves to the companion web interface (see CFG-01/CFG-02 below) instead. The physical button — not yet wired to any hardware (`firmware/main/app_main.c`'s wake-reason switch has a "button" case solely to exercise the log contract; the comment there states plainly "No button is wired up in Phase 1") — is reserved for debug/maintenance functions only (e.g. forcing an immediate poll, resetting Wi-Fi provisioning), not user-facing view control.
-
-- **DEVICE-01**: User can switch between the plane view and the RER view via the companion web interface (CFG-02) — not a physical button
-- **DEVICE-02**: Switching views triggers a fresh data poll for the newly selected view, not a stale cached image
-- **CFG-02**: User can switch between available views (plane/RER) via the web interface, superseding the physical-button view-switch concept in DEVICE-01. **Moved back here from v1 (2026-08-27, `/gsd-discuss-phase 6`)** — inert with nothing to switch to until a second view exists; revisit once RER (or another view) is actually built.
-
-### Messaging
-
-- **MSG-01**: User can send a short message from a companion phone app that appears on the frame, delivered via the frame's next poll — the device never accepts inbound pushes, matching the poll-only security model
-
-### Personal Photo Background
-
-Deferred 2026-08-26 (Phase 3 discuss-phase) — user confirmed via SenseCraft that this panel renders dithered/photographic content well, so this is technically viable, but the user chose to keep Phase 3's scope to the aircraft illustration only and defer the background itself to v2.
-
-- **VIS-01**: User can set a personal photo (e.g. of the install location) as the plane view's background, rendered with dithering instead of the current full-bleed solid state-color field
-
-### On-Device Fault Fallback
-
-Seed idea, deferred 2026-08-27 (explore session) — the device-local half of the fault-icon idea explored alongside the Companion Configuration Web Interface (CFG-05, now promoted to Phase 6 — see v1 Requirements above). This half stays deferred: it's technically independent of the web interface (no dependency on CFG-03 existing) and covers the harder case where the device can't reach the server at all, so no server-rendered image can carry an alert. Full design rationale in `.planning/seeds/on-device-fault-icon.md`.
-
-- [x] **DEVICE-06**: When the device has failed to reach the server for 2+ consecutive poll attempts (`backoff_n >= 2`), it renders a small local fallback screen (solid fill + pre-baked alert icon) directly in firmware via the existing `fp_panel_draw()` call, without needing a successful server round-trip — done in quick task 260924-u7n (2026-09-24): dithered-field NO CONNECTION hold screen + CFG-05 alert glyph, drawn by firmware; see `.planning/quick/260924-u7n-device-06-local-no-connection-fault-scre/`
-
 ### Audit remediation (2026-09-23 code audit)
 
 Added 2026-09-23. Whole-repository code audit; the developer asked for every finding, low severity included, to be remediated inside v1.0 (Phases 32–41). Full evidence (file:line) and decisions D-A1..D-A6 in `.planning/audits/2026-09-23-code-audit.md`; each requirement below is that ledger row's remediation.
@@ -235,6 +197,44 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [ ] **DOC-01**: All docs aligned with the code as it stands after phases 32–40
 - [ ] **DOC-02**: Log gzipped in the tree (no history rewrite, D-A6); unused asset removed from the deploy; completed v1.0 phases archived via `/gsd-cleanup` at milestone close
 - [ ] **DOC-03**: Re-audit: every ID in this ledger verified against the code and marked closed
+
+## v2 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### RER (Orly-Ville)
+
+Deferred 2026-08-11 — user-requested scope reduction so v1 ships single-view (plane-only). Was Phase 3; that phase was removed from ROADMAP.md (see git history) and its full RER context is recoverable there when v2 planning starts.
+
+- **RER-01**: User can see line, destination, and minutes-until-departure for the next 2+ RER trains from Orly-Ville
+- **RER-02**: User can see a "leave by" cue combining the next train's countdown with a fixed walk-time buffer
+- **RER-03**: User can see a disruption banner on the RER view during a service disruption on the line
+
+### View Switching
+
+Deferred 2026-08-11 alongside RER — meaningless in v1 with only one view. Revisit once a second view (RER or otherwise) exists in v2.
+
+Superseded 2026-08-27 (explore session): the frame is meant to stay wall-mounted, so a physical button is impractical for routine interaction. View switching moves to the companion web interface (see CFG-01/CFG-02 below) instead. The physical button — not yet wired to any hardware (`firmware/main/app_main.c`'s wake-reason switch has a "button" case solely to exercise the log contract; the comment there states plainly "No button is wired up in Phase 1") — is reserved for debug/maintenance functions only (e.g. forcing an immediate poll, resetting Wi-Fi provisioning), not user-facing view control.
+
+- **DEVICE-01**: User can switch between the plane view and the RER view via the companion web interface (CFG-02) — not a physical button
+- **DEVICE-02**: Switching views triggers a fresh data poll for the newly selected view, not a stale cached image
+- **CFG-02**: User can switch between available views (plane/RER) via the web interface, superseding the physical-button view-switch concept in DEVICE-01. **Moved back here from v1 (2026-08-27, `/gsd-discuss-phase 6`)** — inert with nothing to switch to until a second view exists; revisit once RER (or another view) is actually built.
+
+### Messaging
+
+- **MSG-01**: User can send a short message from a companion phone app that appears on the frame, delivered via the frame's next poll — the device never accepts inbound pushes, matching the poll-only security model
+
+### Personal Photo Background
+
+Deferred 2026-08-26 (Phase 3 discuss-phase) — user confirmed via SenseCraft that this panel renders dithered/photographic content well, so this is technically viable, but the user chose to keep Phase 3's scope to the aircraft illustration only and defer the background itself to v2.
+
+- **VIS-01**: User can set a personal photo (e.g. of the install location) as the plane view's background, rendered with dithering instead of the current full-bleed solid state-color field
+
+### On-Device Fault Fallback
+
+Seed idea, deferred 2026-08-27 (explore session) — the device-local half of the fault-icon idea explored alongside the Companion Configuration Web Interface (CFG-05, now promoted to Phase 6 — see v1 Requirements above). This half stays deferred: it's technically independent of the web interface (no dependency on CFG-03 existing) and covers the harder case where the device can't reach the server at all, so no server-rendered image can carry an alert. Full design rationale in `.planning/seeds/on-device-fault-icon.md`.
+
+- [x] **DEVICE-06**: When the device has failed to reach the server for 2+ consecutive poll attempts (`backoff_n >= 2`), it renders a small local fallback screen (solid fill + pre-baked alert icon) directly in firmware via the existing `fp_panel_draw()` call, without needing a successful server round-trip — done in quick task 260924-u7n (2026-09-24): dithered-field NO CONNECTION hold screen + CFG-05 alert glyph, drawn by firmware; see `.planning/quick/260924-u7n-device-06-local-no-connection-fault-scre/`
 
 ## Out of Scope
 
