@@ -1605,12 +1605,12 @@ Plans:
 4. The suite passes as root and writes nothing outside `tmp_path`
 5. Closing parity: all 2018 pre-migration checks accounted for; coverage ≥ the pre-migration figure
 
-**Plans:** 33 plans
+**Plans:** 1/33 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 33-01-PLAN.md — Ledger tool (staged-migration rule) + 9 browser-verified baselines + all-pending fragments (W1)
+- [x] 33-01-PLAN.md — Ledger tool (staged-migration rule) + 9 browser-verified baselines + all-pending fragments (W1)
 - [ ] 33-02-PLAN.md — pytest-playwright lock, shared app-server fixture/support module, missing-browser policy, loopback browser guard (W1)
 - [ ] 33-03-PLAN.md — Structural HTML/CSS/JS helpers, TST-10/12/13/14 AST guard, disk-derived legacy set (W1)
 

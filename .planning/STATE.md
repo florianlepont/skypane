@@ -10,7 +10,7 @@ progress:
   total_phases: 53
   completed_phases: 41
   total_plans: 347
-  completed_plans: 299
+  completed_plans: 300
   percent: 77
 ---
 
@@ -460,6 +460,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 37-security-and-operations-hardening P05 | 17min | 2 tasks | 6 files |
 | Phase 37-security-and-operations-hardening P06 | 16min | 3 tasks | 5 files |
 | Phase 37 P07 | 35min | 3 tasks | 9 files |
+| Phase 33 P01 | 16min | 2 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -893,6 +894,9 @@ Recent decisions affecting current work:
 - [Phase 37]: 37-06: activate.sh's own prerequisite check (BACKUP_ROOT/{archives,pulled}) intentionally refuses to change anything on the current production VPS until Plan 37-07's provision.sh has run there — do not approve a production deploy between merging 37-06 and the Plan 37-09 cutover
 - [Phase 37]: SSH hardening drop-in is validated with sshd -t before every reload, with automatic restore-on-failure — A bad drop-in must never reach a running sshd (T-37-33); harden_sshd.sh writes the file to its final path (sshd -t only reads installed *.conf files), backs up any previous drop-in first, and restores it or removes a new one on validation failure before ever calling systemctl
 - [Phase 37]: provision.sh narrows directory ownership instead of a blanket recursive chown — Replaced chown -R skypane:skypane /opt/skypane with three purpose-scoped ownership statements (root:skypane 0750 on /opt/skypane, root:root 0755 on releases/, skypane:skypane only on state/) so releases/venv stay out of the service user's write reach even on a second provisioning run
+- [Phase 33]: Reused 32-ledger-check.py's architecture unchanged and extended it for staged migration, rather than rewriting from scratch (per 33-RESEARCH.md's recommendation)
+- [Phase 33]: Ledger check_one() treats a harness's own new modules (companion/test_<stem>_NN.py) as part of that harness for collection-error purposes, not only its original legacy path — staged migration means a harness's checked surface spans more than one file at a time
+- [Phase 33]: Left /nonexistent/definitely-not-here (created by the root-run baseline capture) in place instead of force-deleting it — session safety tooling blocks rm -rf on it; 33-25 fixes the root cause with a tmp_path-scoped path
 
 ### Pending Todos
 
