@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  SkyPane off-box backup pull LaunchAgent (SEC-04, D-04). Installed by
+  install-launchagent.sh, which substitutes @SCRIPT_PATH@/@LOG_PATH@ with
+  absolute paths (plist values are never tilde-expanded by launchd).
+
+  StartCalendarInterval fires once daily at 09:30 local time; RunAtLoad
+  additionally runs the script on every login/reboot, which is what
+  covers a Mac that was powered off at 09:30 - launchd's own
+  StartCalendarInterval only coalesces a SINGLE missed run at wake from
+  sleep, its documentation says nothing about a run missed because the
+  machine was off [CITED: launchd.plist(5)]. The pull script is
+  idempotent either way (skypane-backup-pull.sh's own header comment).
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.skypane.backup-pull</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>@SCRIPT_PATH@</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>@LOG_PATH@</string>
+    <key>StandardErrorPath</key>
+    <string>@LOG_PATH@</string>
+</dict>
+</plist>
