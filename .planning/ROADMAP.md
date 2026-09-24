@@ -1602,10 +1602,42 @@ Plans:
 4. The suite passes as root and writes nothing outside `tmp_path`
 5. Closing parity: all 2018 pre-migration checks accounted for; coverage ≥ the pre-migration figure
 
-**Plans:** 0 plans
+**Plans:** 33 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 33 to break down)
+- [ ] 33-01-PLAN.md — Ledger tool (staged-migration rule) + 9 browser-verified baselines + all-pending fragments (W1)
+- [ ] 33-02-PLAN.md — pytest-playwright lock, shared app-server fixture/support module, missing-browser policy, loopback browser guard (W1)
+- [ ] 33-03-PLAN.md — Structural HTML/CSS/JS helpers, TST-10/12/13/14 AST guard, disk-derived legacy set (W1)
+- [ ] 33-04-PLAN.md — contrast_check + i18n rewritten in place (W2)
+- [ ] 33-05-PLAN.md — view_pages part 01 + helpers (W2)
+- [ ] 33-06-PLAN.md — view_pages part 02 (W3)
+- [ ] 33-07-PLAN.md — view_pages part 03 — served-JS contracts (W4)
+- [ ] 33-08-PLAN.md — view_pages part 04; legacy file deleted (W5)
+- [ ] 33-09-PLAN.md — config_page part 01 + helpers; aspect-repin self-read deleted (W2)
+- [ ] 33-10-PLAN.md — config_page part 02 (W3)
+- [ ] 33-11-PLAN.md — config_page part 03 (W4)
+- [ ] 33-12-PLAN.md — config_page part 04 — UI-SPEC reads removed (W5)
+- [ ] 33-13-PLAN.md — config_page part 05; legacy file deleted (W6)
+- [ ] 33-14-PLAN.md — companion_app part 01 + helpers; WR-11 chmod pair root-safe (W2)
+- [ ] 33-15-PLAN.md — companion_app part 02 — /nonexistent literals, flash deck, JS contracts (W3)
+- [ ] 33-16-PLAN.md — companion_app part 03 (W4)
+- [ ] 33-17-PLAN.md — companion_app part 04 (W5)
+- [ ] 33-18-PLAN.md — companion_app part 05; legacy file deleted (W6)
+- [ ] 33-19-PLAN.md — Browser helpers rewired + health_drawings on pytest-playwright; legacy importers repointed (W2)
+- [ ] 33-20-PLAN.md — quiet_wake on pytest-playwright (W3)
+- [ ] 33-21-PLAN.md — browser_ux part 01; aspect-repin self-read deleted (W4)
+- [ ] 33-22-PLAN.md — browser_ux part 02 (W5)
+- [ ] 33-23-PLAN.md — browser_ux part 03 (W6)
+- [ ] 33-24-PLAN.md — browser_ux part 04; legacy monolith deleted (W7)
+- [ ] 33-25-PLAN.md — status_pages part 01 + helpers; anomaly_active /nonexistent fix (W2)
+- [ ] 33-26-PLAN.md — status_pages part 02 (W3)
+- [ ] 33-27-PLAN.md — status_pages part 03 (W4)
+- [ ] 33-28-PLAN.md — status_pages part 04 — .planning/ticket-ID reads deleted (W5)
+- [ ] 33-29-PLAN.md — status_pages part 05 (W6)
+- [ ] 33-30-PLAN.md — status_pages part 06 (W7)
+- [ ] 33-31-PLAN.md — status_pages part 07; legacy file deleted (W8)
+- [ ] 33-32-PLAN.md — Retire shim/legacy lists/collect_ignore/LegacyHarness, strict guard, CI paths + docs (W9)
+- [ ] 33-33-PLAN.md — Assemble ledger + closing parity (2018), coverage gate, root + non-root proof, CI green (W10)
 
 ### Phase 34: Firmware — resilience, power, security, cleanup
 
