@@ -114,6 +114,9 @@ def test_legacy_harness_list_matches_disk():
     #
     # SEC-04 (37-02-PLAN.md): test_health_offbox.py is a second native
     # pytest test module, exempted for the identical reason.
+    #
+    # SEC-03 (37-05-PLAN.md Task 1): test_post_origin.py (HTTP
+    # integration) is exempted for the same reason.
     on_disk = {
         "companion/%s" % name
         for name in os.listdir(_COMPANION_DIR)
@@ -124,6 +127,7 @@ def test_legacy_harness_list_matches_disk():
             "test_browser_ux_helpers.py",
             "test_login_throttle.py",
             "test_health_offbox.py",
+            "test_post_origin.py",
         )
     }
     assert on_disk == set(LEGACY_COMPANION_HARNESSES)

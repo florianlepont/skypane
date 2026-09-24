@@ -780,6 +780,13 @@ LOGIN_REVEAL_SHOWN_GLYPH = "○"
 NOT_FOUND_TITLE = "Page not found."
 NOT_FOUND_PURPOSE_TEXT = "The page you requested doesn't exist or may have moved."
 
+# SEC-03 (37-05-PLAN.md Task 1, D-16, T-37-22..T-37-25): do_POST()'s own
+# Origin/Sec-Fetch-Site gate's 403 body — see _forbidden_page() below.
+FORBIDDEN_TITLE = "Request refused"
+FORBIDDEN_PURPOSE_TEXT = (
+    "This request came from another site, so it was refused. Open SkyPane "
+    "directly and try again.")
+
 
 def _validated_next_route(candidate):
     """Validate a caller-supplied `next` redirect target (a GET query
@@ -1761,6 +1768,36 @@ class Handler(BaseHTTPRequestHandler):
             # entry for this exact string (unrelated to NOT_FOUND_TITLE's
             # own, already-translated one).
             title=i18n.t("Not Found"), active="", body=body,
+            ui_theme=self._resolved_ui_theme(), health_alert=health_alert)
+
+    def _forbidden_page(self):
+        """The shared 403 body for do_POST()'s Origin/Sec-Fetch-Site gate
+        (SEC-03, 37-05-PLAN.md Task 1, D-16, T-37-22..T-37-25) — the ONE
+        response every rejected cross-site POST gets, login included.
+
+        Byte-for-byte the same shape as `_not_found_page()` immediately
+        above (same reasons apply verbatim: pre-auth safe, resolves lang
+        from the cookie/Accept-Language since this renders before any
+        session check could run, and threads `health_alert` through
+        `self._is_authenticated()` only — never leaking Health's state to
+        an unauthenticated caller). Kept as a single helper, deliberately
+        not folded into `_not_found_page()`, so a later route-table
+        refactor (Phase 40, CMP-01) can relocate this gate without also
+        having to split the two response bodies apart first.
+        """
+        prefs.set_request_prefs(lang=self._lang_from_request())
+        health_alert = None
+        if self._is_authenticated():
+            health_state = health_page.safe_health_state(
+                self.args.state_dir, history_db.utc_now_iso())
+            health_alert = health_state["severity"] if health_state else "ok"
+        body = (
+            layout.page_header(i18n.t(FORBIDDEN_TITLE), purpose=i18n.t(FORBIDDEN_PURPOSE_TEXT))
+            + '<p class="text-body"><a href="%s">%s</a></p>'
+            % (HOME_ROUTE, layout.escape_html(i18n.t("Back to Home")))
+        )
+        return layout.page_shell(
+            title=i18n.t(FORBIDDEN_TITLE), active="", body=body,
             ui_theme=self._resolved_ui_theme(), health_alert=health_alert)
 
     def _login_body(self, error=None, lockout_seconds=None, next_route=None):
@@ -3468,7 +3505,17 @@ class Handler(BaseHTTPRequestHandler):
     # D-17 (21-01-PLAN.md Task 1): _handle_mode_post() is deleted along
     # with the rest of the simple-mode mechanism it fed.
 
+    # SEC-03 (37-05-PLAN.md Task 1, D-16, T-37-22..T-37-25): the
+    # Origin/Sec-Fetch-Site gate runs as the very first statement of
+    # do_POST(), before urlsplit()/routing and before any read_form() —
+    # so it covers LOGIN_ROUTE and every route below uniformly, and a
+    # route added later here is covered automatically without editing
+    # this gate. Defence in depth on top of SameSite=Strict (see
+    # auth.post_origin_ok()'s own docstring for why both layers exist).
     def do_POST(self):
+        if not auth.post_origin_ok(self.headers):
+            return self.send_html(403, self._forbidden_page())
+
         parsed = urlsplit(self.path)
         path = parsed.path
 

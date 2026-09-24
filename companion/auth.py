@@ -3,9 +3,10 @@ companion service (D-01/D-02, 06-CONTEXT.md).
 
 There are no per-user accounts: a single shared password protects the
 entire site uniformly (D-02). This module is stdlib-only (collections,
-hashlib, hmac, http.cookies, ipaddress, os, time, secrets) — it must
-never import Pillow, sqlite3, or anything under server/, matching this
-project's stdlib-first discipline (06-RESEARCH.md).
+hashlib, hmac, http.cookies, ipaddress, os, time, secrets,
+urllib.parse) — it must never import Pillow, sqlite3, or anything
+under server/, matching this project's stdlib-first discipline
+(06-RESEARCH.md).
 
 Constants:
 
@@ -53,6 +54,7 @@ import secrets
 import threading
 import time
 from http.cookies import SimpleCookie
+from urllib.parse import urlsplit
 
 PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"
 SESSION_TTL_S = 12 * 3600
@@ -459,3 +461,80 @@ class LoginThrottle:
                 return 0
             remaining = entry[1] - self._clock()
         return int(remaining) if remaining > 0 else 0
+
+
+# SEC-03 (37-05-PLAN.md Task 1, D-16, T-37-22/T-37-23): defence in depth
+# on top of SameSite=Strict (A-33/D-16 above), not a replacement for it.
+# SameSite=Strict already stops a cross-site browser navigation or fetch
+# from carrying the session cookie at all in every browser that honours
+# it; this check exists for the two things that discipline alone does not
+# cover — a browser that predates SameSite=Strict enforcement, and a
+# same-site sibling host (another name under the same registrable domain,
+# e.g. a second *.nip.io label) that SameSite=Strict itself does NOT
+# distinguish from this site (T-37-23). Fetch Metadata's Sec-Fetch-Site
+# header names that distinction directly ("cross-site" vs "same-site" vs
+# "same-origin"), so it is checked first and rejects both.
+#
+# Header-less requests are allowed on purpose (T-37-24, accepted): a
+# request carrying neither Sec-Fetch-Site nor Origin still needs a valid
+# session cookie to do anything, and refusing it here would only break
+# non-browser and older-browser clients for no security gain — the
+# accepted risk is an old browser's cross-site POST reaching the gate
+# with SameSite=Strict already having stripped its cookie, not a
+# meaningfully more permissive request.
+#
+# Comparing Origin against Host (rather than a hardcoded hostname) is
+# sound specifically because this is a same-process comparison of two
+# request headers a well-behaved client sets independently: a browser
+# always sets Origin to the page's own origin and Host to the request's
+# real target, and an attacker page can set neither on the victim's
+# behalf. Caddy passes Host through unchanged by default, so this holds
+# identically in production (behind Caddy) and in a bare-loopback test.
+_ORIGIN_DEFAULT_PORT = {"https": "443", "http": "80"}
+
+
+def post_origin_ok(headers):
+    """True when `headers` (any mapping with a `.get()` keyed by the
+    exact header names browsers send — `http.server`'s own per-request
+    `self.headers` is already case-insensitive on lookup, and a plain
+    test dict simply uses those same names) describes a POST this
+    service should accept; False when it looks cross-site and must be
+    rejected with a 403 before any routing or form read (see
+    companion/app.py's `do_POST()`).
+
+    Rule, in order:
+    1. `Sec-Fetch-Site: cross-site` or `same-site` -> reject (T-37-22/
+       T-37-23) — checked first because it is the most specific signal a
+       modern browser sends, and it is what catches a same-site sibling
+       host Origin/Host comparison alone would not.
+    2. No `Origin` header at all -> allow (header-less clients, T-37-24).
+    3. `Origin: null` -> reject (an opaque origin — a sandboxed iframe, a
+       data: URL, or a redirect chain — is never this site's own origin).
+    4. Otherwise, `Origin`'s netloc must equal `Host`, compared
+       case-insensitively with each side's own default port (443 for
+       https, 80 for http) stripped so `https://h` and `https://h:443`
+       compare equal to a bare `Host: h`. A present `Origin` with no
+       `Host` at all is rejected rather than treated as unverifiable.
+    """
+    sfs = headers.get("Sec-Fetch-Site")
+    if sfs is not None and sfs.strip().lower() in ("cross-site", "same-site"):
+        return False
+
+    origin = headers.get("Origin")
+    if origin is None:
+        return True
+    if origin == "null":
+        return False
+
+    parsed = urlsplit(origin)
+    netloc = (parsed.hostname or "").lower()
+    if parsed.port is not None and str(parsed.port) != _ORIGIN_DEFAULT_PORT.get(parsed.scheme):
+        netloc = "%s:%d" % (netloc, parsed.port)
+
+    host = (headers.get("Host") or "").lower()
+    for suffix in (":443", ":80"):
+        if host.endswith(suffix):
+            host = host[: -len(suffix)]
+            break
+
+    return bool(host) and netloc == host
