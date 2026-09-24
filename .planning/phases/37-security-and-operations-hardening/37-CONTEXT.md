@@ -107,6 +107,17 @@ pre-empt them.
   the Caddyfile rendered with the real hostnames from `skypane.env`
   (`SKYPANE_PUBLIC_HOST`, `SKYPANE_COMPANION_HOST`), validated with
   `caddy validate` before `systemctl reload caddy`.
+  - **Deviation (2026-09-24):** the production `/etc/caddy/Caddyfile` is
+    shared with another project (cortege.algernon.ovh,
+    cortege-files.algernon.ovh — CP-1, 37-SEC-BASELINE.md "Live Caddyfile
+    diff"), so replacing it on deploy would take that project down.
+    Developer decision: SkyPane owns only `/etc/caddy/sites/skypane.caddy`,
+    imported by the host Caddyfile through one hand-added
+    `import sites/*.caddy` line. `activate.sh` renders and installs that
+    file, validates the whole host config, and never writes the host
+    Caddyfile; rollback restores only the site file. The one-time
+    migration (back up to `Caddyfile.pre37`, remove SkyPane's inline
+    blocks, add the import line) is part of the CP-4 cutover (37-09).
 - **D-12:** Moving production from the current in-place layout to the
   release layout is a one-time, human-supervised cutover checkpoint.
 - **D-13:** TST-06 (Phase 32) owns CI concurrency groups; Phase 37 does not
