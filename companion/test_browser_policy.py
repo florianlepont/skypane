@@ -85,6 +85,10 @@ def _run_probe(tmp_path, *, require_browser):
     env["PYTHONPATH"] = os.pathsep.join(
         [REPO_ROOT] + ([existing_pythonpath] if existing_pythonpath else []))
     env["PLAYWRIGHT_BROWSERS_PATH"] = str(empty_browsers_dir)
+    # The probe runs from tmp_path, where pyproject.toml's relative `omit`
+    # patterns do not resolve; measured under coverage's subprocess patch it
+    # would record every test_*.py as unexecuted and sink the suite total.
+    env.pop("COVERAGE_PROCESS_CONFIG", None)
     if require_browser:
         env["CI"] = "true"
     else:
