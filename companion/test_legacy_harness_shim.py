@@ -16,7 +16,12 @@ import sys
 
 import pytest
 
-from skypane_test_support import LEGACY_COMPANION_HARNESSES, REPO_ROOT, child_env
+from skypane_test_support import (
+    LEGACY_COMPANION_HARNESSES,
+    ORIGINAL_COMPANION_HARNESSES,
+    REPO_ROOT,
+    child_env,
+)
 
 pytestmark = pytest.mark.legacy_harness
 
@@ -105,35 +110,55 @@ def test_legacy_companion_harness_exits_zero(harness, tmp_path):
         pytest.skip("%s: %s" % (harness, skip_line.group(0)))
 
 
-def test_legacy_harness_list_matches_disk():
-    # SEC-01 (37-01-PLAN.md): test_login_throttle.py is the first native
-    # pytest test module under companion/, collected directly by pytest
-    # rather than run through this shim — it is exempted here the same
-    # way test_browser_ux_helpers.py (a shared helper, not a harness in
-    # its own right) already is.
-    #
-    # SEC-04 (37-02-PLAN.md): test_health_offbox.py is a second native
-    # pytest test module, exempted for the identical reason.
-    #
-    # SEC-03 (37-05-PLAN.md Task 1): test_post_origin.py (HTTP
-    # integration) is exempted for the same reason.
-    #
-    # SEC-03 (37-05-PLAN.md Task 2): test_browser_origin.py is the first
-    # native pytest Playwright test in this repository — collected
-    # directly by pytest rather than routed through this shim's own
-    # subprocess-per-legacy-harness path — exempted for the same reason.
-    on_disk = {
-        "companion/%s" % name
-        for name in os.listdir(_COMPANION_DIR)
-        if name.startswith("test_")
-        and name.endswith(".py")
-        and name not in (
-            "test_legacy_harness_shim.py",
-            "test_browser_ux_helpers.py",
-            "test_login_throttle.py",
-            "test_health_offbox.py",
-            "test_post_origin.py",
-            "test_browser_origin.py",
-        )
-    }
-    assert on_disk == set(LEGACY_COMPANION_HARNESSES)
+_NON_LEGACY_MARKERS = ("EXPECTED_CHECK_COUNT", "def check(", "def main(")
+
+
+def test_legacy_set_is_consistent_with_disk():
+    """LEGACY_COMPANION_HARNESSES (derived from disk by
+    skypane_test_support.legacy_companion_harnesses()) stays trustworthy:
+    every legacy path is real, a harness a migration plan already
+    finished leaves no legacy marker behind, and no new
+    companion/test_*.py file hides a fresh legacy-style harness the shim
+    and companion/test_suite_guards.py's exemption set would never see.
+    """
+    # (a) every legacy path exists.
+    for relpath in LEGACY_COMPANION_HARNESSES:
+        assert os.path.exists(os.path.join(REPO_ROOT, relpath)), (
+            "%s is in LEGACY_COMPANION_HARNESSES but missing from disk" % (relpath,))
+
+    legacy = set(LEGACY_COMPANION_HARNESSES)
+
+    # (b) every ORIGINAL_COMPANION_HARNESSES entry that is NOT legacy is
+    # either gone from disk (the chain's last plan deletes it outright)
+    # or free of every legacy marker - a migration plan that finishes a
+    # harness must not leave EXPECTED_CHECK_COUNT/check()/main() behind
+    # for a later run to mistake as still-legacy.
+    for relpath in ORIGINAL_COMPANION_HARNESSES:
+        if relpath in legacy:
+            continue
+        full_path = os.path.join(REPO_ROOT, relpath)
+        if not os.path.exists(full_path):
+            continue
+        with open(full_path, encoding="utf-8") as fh:
+            source = fh.read()
+        for marker in _NON_LEGACY_MARKERS:
+            assert marker not in source, (
+                "%s is no longer legacy but still contains %r" % (relpath, marker))
+
+    # (c) no companion/test_*.py outside the 9 originals hides a new
+    # legacy-style file - a new file could otherwise carry
+    # EXPECTED_CHECK_COUNT without ever being tracked by the shim or the
+    # guard's exemption set.
+    originals = set(ORIGINAL_COMPANION_HARNESSES)
+    for name in os.listdir(_COMPANION_DIR):
+        if not (name.startswith("test_") and name.endswith(".py")):
+            continue
+        relpath = "companion/%s" % (name,)
+        if relpath in originals:
+            continue
+        with open(os.path.join(_COMPANION_DIR, name), encoding="utf-8") as fh:
+            for line in fh:
+                assert not line.startswith("EXPECTED_CHECK_COUNT"), (
+                    "%s is not one of the 9 original harnesses but has a line starting "
+                    "EXPECTED_CHECK_COUNT - a new legacy-style file must not hide here"
+                    % (relpath,))

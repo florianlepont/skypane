@@ -10,8 +10,8 @@ progress:
   total_phases: 53
   completed_phases: 41
   total_plans: 347
-  completed_plans: 300
-  percent: 77
+  completed_plans: 302
+  percent: 87
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -461,6 +461,8 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 37-security-and-operations-hardening P06 | 16min | 3 tasks | 5 files |
 | Phase 37 P07 | 35min | 3 tasks | 9 files |
 | Phase 33 P01 | 16min | 2 tasks | 22 files |
+| Phase 33 P02 | 17min | 3 tasks | 7 files |
+| Phase 33 P03 | 28min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -897,6 +899,11 @@ Recent decisions affecting current work:
 - [Phase 33]: Reused 32-ledger-check.py's architecture unchanged and extended it for staged migration, rather than rewriting from scratch (per 33-RESEARCH.md's recommendation)
 - [Phase 33]: Ledger check_one() treats a harness's own new modules (companion/test_<stem>_NN.py) as part of that harness for collection-error purposes, not only its original legacy path — staged migration means a harness's checked surface spans more than one file at a time
 - [Phase 33]: Left /nonexistent/definitely-not-here (created by the root-run baseline capture) in place instead of force-deleting it — session safety tooling blocks rm -rf on it; 33-25 fixes the root cause with a tmp_path-scoped path
+- [Phase 33]: AppServer.start() creates its own state_dir (os.makedirs) rather than requiring callers to pre-create it, so the plain app_server fixture can pass a tmp_path subpath that does not exist yet
+- [Phase 33]: Proved AppServer.stop()'s killpg-based grandchild teardown with a synthetic fake_app.py script (companion/app.py itself never spawns a subprocess), rather than only asserting the source calls killpg
+- [Phase 33]: Left companion/test_legacy_harness_shim.py::test_legacy_harness_list_matches_disk failing after this plan (new native test_*.py modules aren't in the hand-listed legacy set); fixing it belongs to sibling wave-1 plan 33-03 per file ownership in 33-MIGRATION-RULES.md
+- [Phase 33]: companion_markup.py's CSS/HTML/JS parsers are stdlib-only and brace/string-aware from the ground up, replacing every source-text idiom migration plans 33-04..33-31 would otherwise reimplement per-file — Proven against the real 10,689-line companion/static/style.css (585 rules, 4 keyframes, 33 :root custom props, ~22ms parse) as well as its own unit tests, so later plans can trust it on the real stylesheet, not just synthetic fixtures
+- [Phase 33]: test_suite_guards.py's guard exempts companion/test_browser_ux_helpers.py (three unconverted browser.new_context() calls) rather than fixing or force-passing it — Converting them means threading 33-02's guarded new_context fixture through every one of test_browser_ux.py's own call sites — real behavioural plumbing 33-19 owns per 33-03-PLAN.md Task 2's own explicit instruction, not a same-plan rename
 
 ### Pending Todos
 
