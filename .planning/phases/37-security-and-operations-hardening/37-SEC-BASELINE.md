@@ -163,3 +163,31 @@ Done 2026-09-24 ~20:10 UTC.
   exit 2; `get ../../../opt/skypane/skypane.env` → `invalid or unknown
   archive` exit 2; no command / no tty → `backup_gate: no command given`
   exit 2. The key can list and fetch archives and nothing else.
+
+## Mac pull agent and Health freshness (CP-9)
+
+Done 2026-09-24 ~20:18 UTC.
+- LaunchAgent `com.skypane.backup-pull` installed with
+  `install-launchagent.sh`; first run (RunAtLoad, 20:09) fetched and acked
+  only the older of the two archives. Root cause: `ssh` inside the
+  `while read` loop inherited the loop's stdin (the archive list) and
+  swallowed the remaining lines. Fixed with `ssh -n` (PR #116, test fake
+  ssh now drains stdin like the real one and reproduced the bug first).
+- After reinstalling the fixed script and `launchctl kickstart`: the log
+  shows `fetching skypane-state-20260924T200731Z.tar.gz` → `verified` →
+  `acked skypane-state-20260924T200731Z.tar.gz` → `completed`; both
+  archives present under `~/Library/Application Support/SkyPane/backups/`;
+  VPS marker `/var/lib/skypane-backup/pulled/last-pull` =
+  `skypane-state-20260924T200731Z.tar.gz`; `last exit code = 0`.
+- Companion Health page (FR): card "Sauvegarde hors serveur" green,
+  "Sauvegarde hors serveur à jour", "Dernière sauvegarde hors serveur :
+  22:07 (il y a 12 min)" — the snapshot time (Paris), not the pull time.
+
+## Restore rehearsal (CP-10)
+
+Done 2026-09-24 by the developer on the Mac: newest pulled archive
+`skypane-state-20260924T200731Z.tar.gz` extracted into a `mktemp -d` scratch
+directory, `PRAGMA integrity_check` ok, local companion on 127.0.0.1:8650
+against that directory showed production flight history, Health, Display
+and Device settings, uploaded illustrations and the gallery ("tout est là").
+Recorded in `deploy/README.md` → "Rehearsal log". ROADMAP SC-3 met.
