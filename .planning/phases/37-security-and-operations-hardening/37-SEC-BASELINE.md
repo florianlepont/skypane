@@ -23,10 +23,10 @@ Pre-phase units: `deploy/skypane-*.service` at `9d38c21` (main before Phase 37).
 
 | Unit | Before (CP-1) | After (CP-6) |
 |------|---------------|--------------|
-| skypane-byos.service | 8.3 EXPOSED | |
-| skypane-companion.service | 8.3 EXPOSED | |
-| skypane-poll.service | 8.3 EXPOSED | |
-| skypane-backup.service | — (new) | |
+| skypane-byos.service | 8.3 EXPOSED | 1.5 OK |
+| skypane-companion.service | 8.3 EXPOSED | 1.5 OK |
+| skypane-poll.service | 8.3 EXPOSED | 1.5 OK |
+| skypane-backup.service | — (new) | 0.8 SAFE |
 
 ## Live Caddyfile diff (CP-1)
 
