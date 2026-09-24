@@ -39,6 +39,8 @@ import os
 import re
 import sys
 
+import pytest
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
@@ -71,11 +73,1098 @@ from companion.test_browser_ux_helpers import (  # noqa: E402
     seed_state_dir,
 )
 
-# 31-03-PLAN.md Task 1: 9 checks — the complete 25-04/25-05 quiet-hours
-# dial and wake-interval slider series — moved verbatim out of
-# companion/test_browser_ux.py, re-derived by RUNNING this file, never
-# by arithmetic.
-EXPECTED_CHECK_COUNT = 9
+# 33-20-PLAN.md Task 1 (TST-11): the first five of the file's nine checks
+# (the complete 25-04 quiet-hours dial series) are native pytest-playwright
+# tests below, each with its own function-scoped server — every one of them
+# drives the dial through a real save, so no two may share a server
+# (33-MIGRATION-RULES.md section 2). The remaining four (25-05's
+# wake-interval slider series, plus the dial's own held-press check) stay
+# in this file's legacy main() until 33-20-PLAN.md Task 2 finishes the
+# migration.
+
+pytestmark = pytest.mark.browser
+
+
+@pytest.fixture
+def server(make_app_server):
+    """A fresh, function-scoped companion/app.py server for each of the
+    pytest checks below: every one of them drives the quiet-hours dial
+    through a real save, so no two of them may share a server
+    (33-MIGRATION-RULES.md section 2)."""
+    return make_app_server(seed=seed_state_dir, fake_providers=True)
+
+
+QUIET_DIAL_SEL = ".quiet-dial"
+QUIET_ARC_SEL = ".quiet-dial__arc"
+QUIET_HANDLES_SEL = ".quiet-dial__handles"
+QUIET_READOUT_SEL = ".quiet-dial__readout"
+
+
+def _quiet_hours_on_disk(state_dir):
+    config = device_config.load_device_config(state_dir)
+    return (config["quiet_hours_start"], config["quiet_hours_end"])
+
+
+# Set both ends through the real UI and save, so every
+# arrangement this file measures is reached the way a
+# visitor reaches it. Raises on failure.
+def _set_window(page, base_url, state_dir, start, end):
+    # 28-10-PLAN.md Task 1 (CFG-77/CFG-78): RETARGETED from
+    # auto-save onto the restored bar — commits reveal the
+    # bar; only a click on its own Save persists. MEASURED,
+    # not assumed: Playwright's own .fill() dispatches
+    # `input` only (its documented contract), never
+    # `change` — the trigger the bar's own document-level
+    # listener needs — so _commit_field() fires the real
+    # event a blur would, on each field, the same way
+    # value-controls.js's own notify() does for a
+    # drag/keyboard interaction.
+    #
+    # IDEMPOTENT, and now a REAL requirement rather than a
+    # borrowed convenience: under the bar, disk only ever
+    # moves via an explicit Save (never a bare `change`
+    # any more), so a caller's own drag/preset work
+    # in-between two _set_window() calls no longer keeps
+    # disk (and therefore the next fresh load's own
+    # snapshot) drifting on its own — reload here can
+    # genuinely already match the requested (start, end),
+    # and filling both fields with their own current
+    # values fires no DIFFERENCE at all, so the bar never
+    # reveals and _wait_for_bar() below would time out
+    # waiting for one that correctly never comes (the
+    # exact failure mode _set_interval()'s own identical
+    # guard, below, already documents for its own field).
+    page.goto(base_url + "/display")
+    if _quiet_hours_on_disk(state_dir) == (start, end):
+        return
+    page.fill('input[name="quiet_hours_start"]', start)
+    _commit_field(page, 'input[name="quiet_hours_start"]')
+    page.fill('input[name="quiet_hours_end"]', end)
+    _commit_field(page, 'input[name="quiet_hours_end"]')
+    _wait_for_bar(page)
+    _save_via_bar(page)
+    stored = _quiet_hours_on_disk(state_dir)
+    if stored != (start, end):
+        raise AssertionError(
+            "setting the window to %r through the UI stored %r"
+            % ((start, end), stored))
+    page.goto(base_url + "/display")
+
+
+# Every rule this component adds is a plain paint or a
+# placement, so nothing here transitions today — but the
+# theme switch starts transitions elsewhere on the page,
+# and 25-03 already lost a paint measurement to an
+# interpolation frame read at a guessed instant. This is
+# the browser's OWN "it has finished" signal, never a
+# timer: an element with nothing running returns an empty
+# list and resolves at once.
+_SETTLE_DIAL = (
+    "async () => {"
+    "  const els = [...document.querySelectorAll("
+    "    '.quiet-dial, .quiet-dial *')];"
+    "  await Promise.all(els.flatMap("
+    "    e => e.getAnimations().map("
+    "      a => a.finished.catch(() => {}))));"
+    "  return els.length;"
+    "}")
+
+
+def test_the_quiet_window_still_saves_with_scripts_blocked_through_the_dial(new_context, server):
+    """the quiet window still SAVES with scripts blocked through the dial — both
+    ends set natively, submitted through the real form, re-read FROM DISK
+    after a fresh GET and restored the same way, at 360px and in BOTH shipped
+    languages; the gated handle layer has zero height and no keyboard can
+    reach into it with scripts blocked while it occupies space with them; and
+    the server-drawn ARC, the readout, both time inputs, B14's two 24h
+    siblings and the three presets are all present on the scripts-blocked
+    page, asserted after the save so none of them can stand in for it
+    (D-09/CFG-48, 25-04-PLAN.md Task 4)"""
+    base_url = server.base_url()
+    before = _quiet_hours_on_disk(server.tmpdir)
+
+    def read_start():
+        return _quiet_hours_on_disk(server.tmpdir)[0]
+
+    def read_end():
+        return _quiet_hours_on_disk(server.tmpdir)[1]
+
+    # BOTH ENDS AND BOTH SHIPPED LANGUAGES. The UI
+    # language is a cookie the first rendered document
+    # already has to honour, and "it saves in English" is
+    # not the D-09 floor.
+    saved = {}
+    for lang in ("en", "fr"):
+        cookies = [{"name": auth.UI_LANG_COOKIE_NAME,
+                    "value": lang, "url": base_url}]
+        saved[(lang, "start")] = _persist_without_js(
+            new_context, base_url, "/display", "quiet_hours_start",
+            "21:45", read_start, viewport=VIEWPORT_MIN_SUPPORTED,
+            cookies=cookies)
+        saved[(lang, "end")] = _persist_without_js(
+            new_context, base_url, "/display", "quiet_hours_end",
+            "06:15", read_end, viewport=VIEWPORT_MIN_SUPPORTED,
+            cookies=cookies)
+    after = _quiet_hours_on_disk(server.tmpdir)
+    if after != before:
+        raise AssertionError(
+            "the scripts-blocked saves left the window at %r; it started at "
+            "%r — a harness that changes a real setting is a test that edits "
+            "its neighbours' subject" % (after, before))
+    for key, result in saved.items():
+        if str(result["stored"]) != str(result["set"]):
+            raise AssertionError(
+                "%s: %s did not reach disk, it reads %r"
+                % (key, result["field"], result["stored"]))
+
+    # THE GATE, IN BOTH DIRECTIONS. Asserting only the
+    # blocked half passes against a gate stuck shut;
+    # asserting only the enabled half is the "renders and
+    # does nothing" defect. 25-02's helper owns both.
+    gate = _assert_js_gate(
+        new_context, base_url, "/display", QUIET_HANDLES_SEL,
+        viewport=VIEWPORT_MIN_SUPPORTED)
+
+    # AND THE ARC IS PRESENT IN BOTH — which is what makes
+    # this dial's fallback a FEATURE rather than an
+    # absence. A check that skipped it would let a later
+    # refactor move the whole drawing behind the gate
+    # unnoticed, and nothing else here would object.
+    with _no_js_page(new_context, base_url, "/display",
+                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+        # MEASURED, NOT COUNTED. locator.count() counts
+        # elements in the DOM whatever their box is, so
+        # it passes against an arc moved behind the gate
+        # — the exact refactor this clause exists to
+        # notice. The verdict is the rendered box.
+        blocked_arc = page.locator(QUIET_ARC_SEL).count()
+        blocked_arc_box = (
+            page.locator(QUIET_ARC_SEL).bounding_box()
+            if blocked_arc else None)
+        blocked_readout = page.locator(QUIET_READOUT_SEL).inner_text()
+        blocked_inputs = page.locator(
+            'input[name="quiet_hours_start"], '
+            'input[name="quiet_hours_end"]').count()
+        blocked_presets = page.locator("[data-quiet-preset]").count()
+        blocked_siblings = page.locator(
+            ".field-inline-value").count()
+    if blocked_arc != 1:
+        raise AssertionError(
+            "the quiet arc is not drawn with scripts blocked (%d found) — the "
+            "ring is SERVER-drawn and only the dragging is script"
+            % blocked_arc)
+    if not blocked_arc_box or blocked_arc_box["width"] <= 0 \
+            or blocked_arc_box["height"] <= 0:
+        raise AssertionError(
+            "the quiet arc is in the scripts-blocked document but occupies no "
+            "space (%r) — rendered is not drawn, and an arc behind the gate is "
+            "the refactor this clause exists to notice" % (blocked_arc_box,))
+    if blocked_inputs != 2 or blocked_presets != 3:
+        raise AssertionError(
+            "with scripts blocked the card renders %d time input(s) and %d "
+            "preset(s); it owes two and three"
+            % (blocked_inputs, blocked_presets))
+    if blocked_siblings < 2:
+        raise AssertionError(
+            "B14's visible 24h siblings are missing with scripts blocked "
+            "(%d found) — a browser in en-US renders the stored 23:00 as "
+            "'11:00 PM' beside a preset labelled 'Night (23:00-07:00)'"
+            % blocked_siblings)
+    if ":" not in blocked_readout:
+        raise AssertionError(
+            "the scripts-blocked readout says %r — the saved window has to be "
+            "legible without a script" % blocked_readout)
+    _ = gate
+
+
+def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server):
+    """dragging a quiet-hours handle changes its own native <input type="time">,
+    moves the announcement ON THE HANDLE rather than on the wrapper, REVEALS the
+    bar and PERSISTS to disk once Enregistrer is clicked; one ArrowRight
+    moves exactly one stated step and End/Home reach 23:59 and 00:00 with zero
+    pointer events fired and the recorder proving itself; and a preset click moves
+    BOTH handles, which is what proves the two native inputs are the one source
+    of truth (the arc/caption AGREEMENT claim this check used to also carry is
+    superseded by
+    _the_arc_the_handles_and_the_caption_agree_after_an_interaction(), CFG-71,
+    27-02-PLAN.md Task 4) (CFG-48, 25-04-PLAN.md Task 4; retargeted from the
+    retired auto-save onto the restored bar by 28-10-PLAN.md Task 1,
+    CFG-77/CFG-78)"""
+    base_url = server.base_url()
+    before = _quiet_hours_on_disk(server.tmpdir)
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    recorded = {}
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+        _set_window(page, base_url, server.tmpdir, "23:00", "07:00")
+
+        # 1. THE DRAG. Aimed at six o'clock on the ring,
+        # which is 12:00 — a point this check can compute
+        # without trusting the control's own arithmetic.
+        #
+        # SCROLLED TO THE MIDDLE OF THE VIEWPORT FIRST,
+        # for `_hit_area()`'s own recorded reason: at
+        # 360px this page is long and its tab bar is
+        # fixed to the bottom, so a coordinate gesture
+        # taken wherever the page happened to be scrolled
+        # is a gesture that lands somewhere else.
+        page.eval_on_selector(
+            QUIET_DIAL_SEL, "el => el.scrollIntoView({block: 'center'})")
+        box = page.evaluate(
+            "sel => { const r = document.querySelector(sel)"
+            "  .getBoundingClientRect();"
+            "  return [r.left + r.width / 2, r.top + r.height / 2,"
+            "          r.width, r.height]; }", QUIET_DIAL_SEL)
+        grip = page.evaluate(
+            "sel => { const r = document.querySelector(sel)"
+            "  .getBoundingClientRect();"
+            "  return [r.left + r.width / 2, r.top + r.height / 2]; }",
+            _handle_sel("quiet_hours_start"))
+        page.mouse.move(grip[0], grip[1])
+        page.mouse.down()
+        # The steering script focuses the handle it
+        # captured, so this is the page's own answer to
+        # "did the press reach the control", and it turns
+        # a silent no-op into a named diagnostic.
+        if not page.evaluate(
+                "sel => document.activeElement"
+                "  === document.querySelector(sel)",
+                _handle_sel("quiet_hours_start")):
+            page.mouse.up()
+            raise AssertionError(
+                "a pointer-down at the start handle's own centre (%r, dial box "
+                "%r) did not reach the steering script — nothing below measured "
+                "a drag" % (grip, box))
+        page.mouse.move(box[0], box[1] + box[3] / 2 - 8, steps=8)
+        page.mouse.up()
+        dragged = page.input_value('input[name="quiet_hours_start"]')
+        recorded["dragged_to"] = dragged
+        if dragged != "12:00":
+            raise AssertionError(
+                "dragging the start handle to six o'clock on the ring put %r "
+                "into quiet_hours_start; the bottom of a 24h dial is 12:00"
+                % dragged)
+        # THE ANNOUNCEMENT FOLLOWED THE DRAG, AND IT IS
+        # THE HANDLE THAT CARRIES IT. A wrapper holding
+        # role="slider" while the <button> inside takes
+        # the focus announces the saved value forever.
+        announced = page.get_attribute(
+            _handle_sel("quiet_hours_start"), "aria-valuetext")
+        if announced != dragged:
+            raise AssertionError(
+                "the handle announces %r while its own input now holds %r — a "
+                "screen-reader visitor is being told the value it had before "
+                "the drag" % (announced, dragged))
+        if page.get_attribute(
+                '[data-value-field="quiet_hours_start"]',
+                "aria-valuenow") is not None:
+            raise AssertionError(
+                "the wrapper carries aria-valuenow; the element a keyboard "
+                "visitor lands on is the button inside it, and two elements "
+                "announcing one value is how the stale one gets read")
+        # 28-10-PLAN.md Task 1 (CFG-77/CFG-78): RETARGETED
+        # from auto-save onto the restored bar — a control
+        # that changes a value without notify()'s own real
+        # `change` event would lose the edit silently
+        # (value-controls.js's own notify() comment: "the
+        # bubbling notification dirty-state.js's delegated
+        # document-level listener is waiting for" —
+        # unchanged by this plan), so the drag REVEALING
+        # the bar is still the proof the event fired; the
+        # edit only reaches disk once Enregistrer is
+        # clicked.
+        _wait_for_bar(page)
+        _save_via_bar(page)
+        recorded["dragged_stored"] = _quiet_hours_on_disk(server.tmpdir)[0]
+        if recorded["dragged_stored"] != "12:00":
+            raise AssertionError(
+                "the dragged value did not reach disk; it reads %r"
+                % (recorded["dragged_stored"],))
+        page.goto(base_url + "/display")
+        if page.input_value('input[name="quiet_hours_start"]') != "12:00":
+            raise AssertionError("the reloaded page does not show the dragged value")
+
+        # 2. THE KEYBOARD ALONE, with the pointer-free
+        # claim MEASURED rather than promised. One
+        # ArrowRight is one step, and the step is stated.
+        _set_window(page, base_url, server.tmpdir, "23:00", "07:00")
+        keyed = _operate_with_keyboard(
+            page, _handle_sel("quiet_hours_start"), ["ArrowRight"])
+        after_key = page.input_value('input[name="quiet_hours_start"]')
+        recorded["after_arrow"] = after_key
+        if after_key != "23:15":
+            raise AssertionError(
+                "one ArrowRight moved the start from 23:00 to %r; the stated "
+                "step is %d minutes" % (after_key, 15))
+        if keyed["pointer_events"]:
+            raise AssertionError("a pointer event fired during the keyboard sequence")
+        # HOME AND END REACH THE DAY'S OWN ENDS.
+        page.keyboard.press("End")
+        recorded["after_end"] = page.input_value(
+            'input[name="quiet_hours_start"]')
+        if recorded["after_end"] != "23:59":
+            raise AssertionError(
+                "End put %r into the start field; the day's last minute is "
+                "23:59" % (recorded["after_end"],))
+        page.keyboard.press("Home")
+        recorded["after_home"] = page.input_value(
+            'input[name="quiet_hours_start"]')
+        if recorded["after_home"] != "00:00":
+            raise AssertionError(
+                "Home put %r into the start field" % (recorded["after_home"],))
+
+        # 3. A PRESET MOVES BOTH HANDLES — the cheapest
+        # available proof that the two native inputs are
+        # the ONE source of truth: the presets write into
+        # those fields and know nothing about this
+        # control. (27-02-PLAN.md Task 4, CFG-71: what
+        # used to live here as sections 3-4 — this
+        # endpoint-only "the handles moved" claim and a
+        # separate "the readout names the window" claim —
+        # is SUPERSEDED by
+        # _the_arc_the_handles_and_the_caption_agree_
+        # after_an_interaction() below, which asserts
+        # agreement across all four surfaces after both a
+        # drag AND a preset, rather than four endpoint
+        # checks that can each be individually right
+        # while the page as a whole lies. This clause
+        # stays, narrowed to what it alone still proves:
+        # a preset is a SILENT script write with no
+        # event of its own, so it is a distinct code path
+        # from a drag and worth its own cheap proof that
+        # both handles still follow it.
+        _set_window(page, base_url, server.tmpdir, "12:00", "13:00")
+        fractions = page.evaluate(
+            "() => [...document.querySelectorAll('[data-value-control]')]"
+            "  .map(e => e.style.getPropertyValue('--value-fraction'))")
+        page.locator(
+            '[data-preset-start="08:00"]').click()
+        moved = page.evaluate(
+            "() => [...document.querySelectorAll('[data-value-control]')]"
+            "  .map(e => e.style.getPropertyValue('--value-fraction'))")
+        recorded["preset_fractions"] = (fractions, moved)
+        if len(moved) != 2 or moved == fractions:
+            raise AssertionError(
+                "a preset click left the handles at %r (they were at %r) — the "
+                "presets write into the two time inputs, so a handle driven BY "
+                "those inputs moves for free; one that did not is holding a "
+                "value of its own" % (moved, fractions))
+        if moved[0] == fractions[0] or moved[1] == fractions[1]:
+            raise AssertionError(
+                "a preset click moved only one handle: %r -> %r"
+                % (fractions, moved))
+        # RESTORED THROUGH THE SAME UI SEQUENCE, never
+        # a direct write to the state directory — a
+        # harness that changes a real setting is a test
+        # that edits its neighbours' subject.
+        _set_window(page, base_url, server.tmpdir, before[0], before[1])
+        if _quiet_hours_on_disk(server.tmpdir) != before:
+            raise AssertionError(
+                "this check left the window at %r; it started at %r"
+                % (_quiet_hours_on_disk(server.tmpdir), before))
+        _ = recorded
+    finally:
+        # Best effort only, and deliberately silent: a
+        # restore that raised here would mask the failure
+        # it is cleaning up after. The happy path asserts
+        # the restore above.
+        try:
+            _set_window(page, base_url, server.tmpdir, before[0], before[1])
+        except Exception:
+            pass
+        context.close()
+
+
+def _quiet_surfaces(page, where):
+    """The four surfaces `_assert_surfaces_agree()` decodes
+    for `page`, closed over the CURRENT `where` label so
+    every raised AssertionError names which path (drag or
+    preset, which theme) produced it.
+    """
+    def native_inputs():
+        return (
+            config_page.quiet_window_minute_of_day(
+                page.input_value('input[name="quiet_hours_start"]')),
+            config_page.quiet_window_minute_of_day(
+                page.input_value('input[name="quiet_hours_end"]')),
+        )
+
+    def handles_aria_valuenow():
+        return (
+            int(page.get_attribute(
+                _handle_sel("quiet_hours_start"), "aria-valuenow")),
+            int(page.get_attribute(
+                _handle_sel("quiet_hours_end"), "aria-valuenow")),
+        )
+
+    def arc_resolved_geometry():
+        return _quiet_arc_minutes(page, where)
+
+    def caption_text():
+        return _quiet_caption_minutes(page, where)
+
+    # An ORDERED mapping, so a disagreement's message lists
+    # the four surfaces in the same order a reader would
+    # look at the card: the fields, then the handles, then
+    # the drawing, then the sentence under it.
+    return {
+        "the two native <input type=\"time\"> fields": native_inputs,
+        "the two handles' aria-valuenow": handles_aria_valuenow,
+        "the arc's resolved geometry": arc_resolved_geometry,
+        "the caption's text": caption_text,
+    }
+
+
+def test_the_arc_the_handles_and_the_caption_agree_after_an_interaction(new_context, server):
+    """THE arc/handles/caption agreement check (CFG-62/CFG-71/D-32,
+    27-02-PLAN.md Task 4): in BOTH themes, after dragging the end handle to
+    reach the developer's own recorded window (08:00→18:00) AND, in the
+    same check, after pressing a preset (23:00→07:00, the wrap through
+    midnight) from wherever the drag left it, all FOUR surfaces — the two
+    native <input type="time"> fields, the two handles' aria-valuenow, the
+    arc's RESOLVED geometry (read back through getComputedStyle, not the
+    static attribute), and the caption's own text — decode to the SAME
+    canonical (start_minute, end_minute) pair, which equals what the
+    interaction requested and differs from what was there before; AND, after
+    the same preset click, each B14 twin's own live .hidden property matches
+    this browser's resolved hour12 (CFG-80, 29-04-PLAN.md Task 3, folded into
+    this existing check rather than a new one so EXPECTED_CHECK_COUNT does not
+    move for an assertion this worktree has never run); separately, with
+    scripts blocked, the arc still carries both presentation attributes and
+    they still decode to whatever window is actually saved on disk — under
+    auto-save that is the preset's own commit, read fresh rather than assumed
+    (27-04-PLAN.md Task 4, CFG-63)"""
+    base_url = server.base_url()
+    before_on_disk = _quiet_hours_on_disk(server.tmpdir)
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    recorded = {}
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+
+        # A KNOWN, DETERMINISTIC STARTING WINDOW —
+        # 08:00-23:00 — chosen so the drag below only has
+        # to move the END handle to reach the developer's
+        # own recording (08:00-18:00): the start is
+        # already right. _set_window() saves and reloads,
+        # so this is real, on-disk state exactly like
+        # every neighbouring dial check reaches it.
+        #
+        # 27-04-PLAN.md Task 4 (CFG-63): SUPERSEDES this
+        # paragraph's own former "once, before the loop,
+        # not inside it" instruction — that reasoning
+        # depended on "neither the drag nor the preset
+        # below ever clicks Save", which auto-save makes
+        # FALSE: both value-controls.js's own notify()
+        # (the drag) and dirty-state.js's preset handler
+        # now fire a real `change` that saves to disk
+        # immediately, same as every other committing
+        # interaction in this app. So the baseline is
+        # reset INSIDE the loop instead, once per theme,
+        # or the second iteration would start from
+        # whatever the FIRST iteration's own preset left
+        # on disk (23:00-07:00) rather than the known
+        # 08:00-23:00 this check's own arithmetic assumes.
+        for theme in UI_THEMES_EXPLICIT:
+            _set_window(page, base_url, server.tmpdir, "08:00", "23:00")
+            _set_ui_theme(page, theme)
+
+            # 1. THE DRAG PATH. Aimed at nine o'clock on the
+            # ring, which is 18:00 — the same
+            # scroll-into-view-first, box-relative aiming
+            # test_dragging_and_keying_a_quiet_hours_handle_reach_disk()
+            # above already uses and for the same reason
+            # (the page is long and its tab bar is fixed to
+            # the bottom at this viewport).
+            page.eval_on_selector(
+                QUIET_DIAL_SEL, "el => el.scrollIntoView({block: 'center'})")
+            box = page.evaluate(
+                "sel => { const r = document.querySelector(sel)"
+                "  .getBoundingClientRect();"
+                "  return [r.left + r.width / 2, r.top + r.height / 2,"
+                "          r.width, r.height]; }", QUIET_DIAL_SEL)
+            grip = page.evaluate(
+                "sel => { const r = document.querySelector(sel)"
+                "  .getBoundingClientRect();"
+                "  return [r.left + r.width / 2, r.top + r.height / 2]; }",
+                _handle_sel("quiet_hours_end"))
+            page.mouse.move(grip[0], grip[1])
+            page.mouse.down()
+            if not page.evaluate(
+                    "sel => document.activeElement"
+                    "  === document.querySelector(sel)",
+                    _handle_sel("quiet_hours_end")):
+                page.mouse.up()
+                raise AssertionError(
+                    "%s: a pointer-down at the end handle's own centre (%r, dial "
+                    "box %r) did not reach the steering script"
+                    % (theme, grip, box))
+            page.mouse.move(box[0] - box[2] / 2 + 8, box[1], steps=8)
+            page.mouse.up()
+            dragged_end = page.input_value('input[name="quiet_hours_end"]')
+            recorded["%s/dragged_end" % theme] = dragged_end
+            if dragged_end != "18:00":
+                raise AssertionError(
+                    "%s: dragging the end handle to nine o'clock on the ring put "
+                    "%r into quiet_hours_end; nine o'clock on this 24h dial is "
+                    "18:00" % (theme, dragged_end))
+
+            requested_drag = (8 * 60, 18 * 60)
+            before_drag = (8 * 60, 23 * 60)
+            agreed_drag = _assert_surfaces_agree(
+                page, _quiet_surfaces(page, "%s theme, drag path" % theme),
+                requested_drag, before_drag,
+                "%s theme, drag path" % theme)
+            recorded["%s/drag" % theme] = agreed_drag
+
+            # 2. THE PRESET PATH, from wherever the drag
+            # above left the pair. Both paths were reported
+            # working for the handles and broken for the
+            # arc, so both belong to the SAME agreement
+            # assertion — two separate checks would
+            # re-create the very split this phase exists to
+            # close.
+            page.locator('[data-preset-start="23:00"]').click()
+            requested_preset = (23 * 60, 7 * 60)
+            agreed_preset = _assert_surfaces_agree(
+                page, _quiet_surfaces(page, "%s theme, preset path" % theme),
+                requested_preset, requested_drag,
+                "%s theme, preset path" % theme)
+            recorded["%s/preset" % theme] = agreed_preset
+
+            # 29-04-PLAN.md Task 3 (CFG-80), added to
+            # THIS existing check rather than as a new
+            # `check(...)` call — folded in per the
+            # plan's own instruction not to move this
+            # file's EXPECTED_CHECK_COUNT for an
+            # assertion nobody in this worktree could
+            # verify (playwright is not installed here;
+            # this whole file reports SKIPPED, never a
+            # pass, until it is). A FIFTH surface, after
+            # the same preset click the four above just
+            # agreed on: each twin's OWN visibility must
+            # match the browser's own resolved hour
+            # cycle — hidden when it is unambiguously
+            # 24h, visible otherwise — read from the
+            # live DOM's `.hidden` property, never from
+            # the served HTML (which is a SEPARATE,
+            # runnable proof in test_config_page.py).
+            resolved_hour12 = page.evaluate(
+                "() => { try { return new Intl.DateTimeFormat("
+                "undefined, {hour: 'numeric'})"
+                ".resolvedOptions().hour12; } catch (e) { return null; } }")
+            expect_hidden = resolved_hour12 is False
+            for field in ("quiet_hours_start", "quiet_hours_end"):
+                twin_hidden = page.eval_on_selector(
+                    'input[name="%s"] ~ [%s]'
+                    % (field, config_page.QUIET_NORMALISED_TIME_ATTR),
+                    "el => el.hidden")
+                if twin_hidden != expect_hidden:
+                    raise AssertionError(
+                        "%s theme, preset path: this browser's own resolved "
+                        "hour12 is %r (expected twin hidden=%r) but %s's "
+                        "normalised-time twin is hidden=%r — a false negative "
+                        "here (hidden=True on a browser that in fact paints "
+                        "12h) reopens the exact defect B14 exists to prevent"
+                        % (theme, resolved_hour12, expect_hidden, field,
+                           twin_hidden))
+            recorded["%s/twin_visibility" % theme] = (
+                resolved_hour12, expect_hidden)
+
+        # 3. THE SCRIPTS-BLOCKED HALF. 27-04-PLAN.md
+        # (CFG-63): SUPERSEDES this paragraph's own former
+        # claim that neither interaction above reaches
+        # disk — under auto-save, the PRESET path's own
+        # commit is the last thing either loop iteration
+        # does, so disk now holds whatever that preset
+        # last wrote (23:00-07:00), not the 08:00-23:00
+        # baseline. `saved` below is read FRESH, right
+        # here, so it already reflects that correctly —
+        # only this comment's account was stale. A FRESH,
+        # scripts-blocked load must still draw whatever
+        # window is actually saved, from the presentation
+        # attributes alone.
+        saved = _quiet_hours_on_disk(server.tmpdir)
+        saved_minutes = (
+            config_page.quiet_window_minute_of_day(saved[0]),
+            config_page.quiet_window_minute_of_day(saved[1]))
+        with _no_js_page(new_context, base_url, "/display",
+                         viewport=VIEWPORT_MIN_SUPPORTED) as no_js_page:
+            dash_attr = no_js_page.get_attribute(QUIET_ARC_SEL, "stroke-dasharray")
+            transform_attr = no_js_page.get_attribute(QUIET_ARC_SEL, "transform")
+            if not dash_attr or not transform_attr:
+                raise AssertionError(
+                    "scripts-blocked: the arc is missing stroke-dasharray/"
+                    "transform (%r, %r) — the no-JS floor requires the server-"
+                    "drawn presentation attributes to be present with no script "
+                    "running at all" % (dash_attr, transform_attr))
+            static_minutes = _quiet_arc_minutes(
+                no_js_page, "scripts-blocked, no .js override in force")
+        recorded["scripts_blocked"] = (saved, static_minutes)
+        if static_minutes != saved_minutes:
+            raise AssertionError(
+                "scripts-blocked: the arc's presentation attributes decode to %r, "
+                "but the saved window on disk is %r (%r) — the server-rendered arc "
+                "must stay authoritative for the saved value with no script "
+                "running at all" % (static_minutes, saved_minutes, saved))
+
+        # RESTORED THROUGH THE SAME UI SEQUENCE, never a
+        # direct write to the state directory.
+        _set_window(page, base_url, server.tmpdir, before_on_disk[0], before_on_disk[1])
+        if _quiet_hours_on_disk(server.tmpdir) != before_on_disk:
+            raise AssertionError(
+                "this check left the window at %r; it started at %r"
+                % (_quiet_hours_on_disk(server.tmpdir), before_on_disk))
+        _ = recorded
+    finally:
+        try:
+            _set_window(page, base_url, server.tmpdir, before_on_disk[0], before_on_disk[1])
+        except Exception:
+            pass
+        context.close()
+
+
+def test_the_dial_caption_keeps_its_form_after_every_interaction_kind(new_context, server):
+    """the dial caption keeps the SAME FORM the server emits at load after EACH
+    of a drag, a keyboard step, a typed field edit and a preset click (CFG-73
+    Bug A, 28-03-PLAN.md Task 3): after every one, the caption's two "HH:MM"
+    tokens decode to what the interaction requested, its duration segment is
+    NON-EMPTY and equals the wrapped-difference computation worded from the
+    page's own layout.DURATION_ATTRS (never a hardcoded unit literal), and the
+    whole caption's structural shape (separators, spacing, token order)
+    matches the server-rendered reference captured before any interaction — in
+    BOTH shipped languages, with the preset step crossing midnight"""
+    # 28-03-PLAN.md Task 3 (CFG-73 Bug A): the developer's
+    # own report was that the caption reverts to a raw,
+    # blank-duration form after EVERY interaction, not
+    # just a drag — so this check drives all FOUR kinds
+    # (drag, keyboard, typed field edit, preset), in this
+    # order, on the SAME page, and reads the caption's
+    # ACTUAL DISPLAYED TEXT after each one.
+    base_url = server.base_url()
+    before = _quiet_hours_on_disk(server.tmpdir)
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    recorded = {}
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+        for lang in ("en", "fr"):
+            context.add_cookies([{
+                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                "url": base_url}])
+            # A KNOWN, DETERMINISTIC STARTING WINDOW,
+            # reset EVERY language pass for the identical
+            # reason 27-02-PLAN.md Task 4's own agreement
+            # check resets inside its loop: auto-save
+            # means the second language pass would
+            # otherwise start from whatever the FIRST
+            # pass's own preset left on disk.
+            _set_window(page, base_url, server.tmpdir, "08:00", "23:00")
+
+            # THE REFERENCE SHAPE — captured from the
+            # server-rendered page, BEFORE any
+            # interaction, on THIS language pass.
+            reference_text = page.locator(
+                _QUIET_READOUT_SELECTOR).text_content()
+            reference_shape = _quiet_caption_shape(reference_text)
+            recorded["%s/reference" % lang] = reference_text
+
+            def _assert_after(requested, kind):
+                caption_text = page.locator(
+                    _QUIET_READOUT_SELECTOR).text_content()
+                decoded = _quiet_caption_minutes(
+                    page, "%s/%s" % (lang, kind))
+                if decoded != requested:
+                    return (
+                        "%s/%s: the caption decodes to %r; the interaction "
+                        "requested %r" % (lang, kind, decoded, requested))
+                duration_text = _quiet_duration_span_text(
+                    page, "%s/%s" % (lang, kind))
+                if not duration_text:
+                    return (
+                        "%s/%s: the duration segment is EMPTY after this "
+                        "interaction — this is the exact regression the "
+                        "developer reported" % (lang, kind))
+                expected_duration = _expected_quiet_duration_text(
+                    page, requested, "%s/%s" % (lang, kind))
+                if duration_text != expected_duration:
+                    return (
+                        "%s/%s: the duration segment reads %r; the wrapped-"
+                        "difference computation, worded from the page's own "
+                        "layout.DURATION_ATTRS, expects %r"
+                        % (lang, kind, duration_text, expected_duration))
+                shape = _quiet_caption_shape(caption_text)
+                if shape != reference_shape:
+                    return (
+                        "%s/%s: the caption's FORM changed — the server-"
+                        "rendered reference is %r (shape %r), the live caption "
+                        "after this interaction is %r (shape %r)"
+                        % (lang, kind, reference_text, reference_shape,
+                           caption_text, shape))
+                return None
+
+            # 1. DRAG the end handle to nine o'clock,
+            # which is 18:00 — the same aiming
+            # test_the_arc_the_handles_and_the_caption_agree_after_an_interaction()
+            # above uses.
+            page.eval_on_selector(
+                QUIET_DIAL_SEL,
+                "el => el.scrollIntoView({block: 'center'})")
+            box = page.evaluate(
+                "sel => { const r = document.querySelector(sel)"
+                "  .getBoundingClientRect();"
+                "  return [r.left + r.width / 2, r.top + r.height / 2,"
+                "          r.width, r.height]; }", QUIET_DIAL_SEL)
+            grip = page.evaluate(
+                "sel => { const r = document.querySelector(sel)"
+                "  .getBoundingClientRect();"
+                "  return [r.left + r.width / 2, r.top + r.height / 2]; }",
+                _handle_sel("quiet_hours_end"))
+            page.mouse.move(grip[0], grip[1])
+            page.mouse.down()
+            if not page.evaluate(
+                    "sel => document.activeElement"
+                    "  === document.querySelector(sel)",
+                    _handle_sel("quiet_hours_end")):
+                page.mouse.up()
+                raise AssertionError(
+                    "%s: a pointer-down at the end handle's own centre did not "
+                    "reach the steering script" % lang)
+            page.mouse.move(box[0] - box[2] / 2 + 8, box[1], steps=8)
+            page.mouse.up()
+            requested_drag = (8 * 60, 18 * 60)
+            problem = _assert_after(requested_drag, "drag")
+            if problem:
+                raise AssertionError(problem)
+
+            # 2. KEYBOARD: one ArrowRight on the START
+            # handle — QUIET_DIAL_HANDLE_STEP is 15
+            # minutes.
+            _operate_with_keyboard(
+                page, _handle_sel("quiet_hours_start"), ["ArrowRight"])
+            requested_keyboard = (8 * 60 + 15, 18 * 60)
+            problem = _assert_after(requested_keyboard, "keyboard step")
+            if problem:
+                raise AssertionError(problem)
+
+            # 3. TYPED FIELD EDIT: the `.fill()` shape,
+            # committed the same way `_set_window()`
+            # commits each field.
+            page.fill('input[name="quiet_hours_end"]', "19:00")
+            _commit_field(page, 'input[name="quiet_hours_end"]')
+            requested_typed = (8 * 60 + 15, 19 * 60)
+            problem = _assert_after(requested_typed, "typed field edit")
+            if problem:
+                raise AssertionError(problem)
+
+            # 4. PRESET CLICK — a silent script write
+            # with no event of its own, and the ONE
+            # interaction kind here that crosses
+            # midnight (23:00 -> 07:00), so the wrapped-
+            # difference duration computation is
+            # genuinely exercised, not merely stated.
+            page.locator('[data-preset-start="23:00"]').click()
+            requested_preset = (23 * 60, 7 * 60)
+            problem = _assert_after(requested_preset, "preset click")
+            if problem:
+                raise AssertionError(problem)
+
+        _set_window(page, base_url, server.tmpdir, before[0], before[1])
+        if _quiet_hours_on_disk(server.tmpdir) != before:
+            raise AssertionError(
+                "this check left the window at %r; it started at %r"
+                % (_quiet_hours_on_disk(server.tmpdir), before))
+        _ = recorded
+    finally:
+        try:
+            _set_window(page, base_url, server.tmpdir, before[0], before[1])
+        except Exception:
+            pass
+        context.close()
+
+
+def test_the_dial_meets_its_floors_at_360px_in_both_themes(new_context, server):
+    """the quiet dial meets its floors at 360px — BOTH handles clear the 44px
+    touch target by real hit-testing in THEIR OWN container with the window's
+    ends far apart AND close together, with the overlapping case measured and
+    its document-order z-rule confirmed (the end handle grabbable, the start
+    handle still focusable); the drawing measures its emitter's own declared size by
+    getBoundingClientRect rather than clientWidth, computes display:block, is
+    centred in its card and captioned by a centred readout with no top margin;
+    the four anchor hours each sit on their own axis; the page does not scroll
+    sideways; and the paint is a FLOOR not a ceiling — the day and the window
+    are different colours, the labels that orient it are weaker than it is, the grip
+    has an edge, and every one of the five
+    differs between the two themes (CFG-48/CFG-52, 25-04-PLAN.md Task 4)"""
+    base_url = server.base_url()
+    before = _quiet_hours_on_disk(server.tmpdir)
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    recorded = {}
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+
+        # 1. THE HIT TARGETS, IN THIS CONTROL'S OWN
+        # CONTAINER. A class-level measurement is worth
+        # nothing here: 25-02 measured `.copy-btn`'s
+        # declared 44x44 at a real 34x26 because its
+        # neighbours covered the ::before that synthesises
+        # it. Two windows: ends far apart (the control)
+        # and ends close together (the real test).
+        # WHY "CLOSE" IS FOUR HOURS AND NOT FIFTEEN
+        # MINUTES, stated rather than tuned: two 44px
+        # targets on ONE ring cannot both clear the floor
+        # at every separation, and that is geometry, not
+        # a defect to fix. Each target is a 46px box, so
+        # neither may intrude within 22px of the other's
+        # centre — which needs about 45px between the two
+        # centres on one axis, and in the worst (45°)
+        # orientation that is 45*sqrt(2) of chord. On
+        # this 176px ring (radius 78) that is about 3h12;
+        # on the 128px ring this control started as it
+        # was about 4h49, which is what moved the size.
+        # Four hours is inside the reachable band with
+        # room to spare and is a window a person really
+        # sets. The genuinely overlapping case is
+        # measured below, and answered by a decision.
+        for label, (start, end) in (("far", ("23:00", "07:00")),
+                                    ("close", ("23:00", "03:00"))):
+            _set_window(page, base_url, server.tmpdir, start, end)
+            for field in ("quiet_hours_start", "quiet_hours_end"):
+                seen = _assert_hit_target(
+                    page, _handle_sel(field),
+                    "the %s handle with the window's ends %s apart"
+                    % (field, label))
+                recorded["%s/%s" % (label, field)] = (
+                    seen["visual"], seen["hit"], seen["reach"])
+
+        # AND THE OVERLAP CASE, RECORDED RATHER THAN
+        # ASSERTED AWAY. There is deliberately no minimum
+        # separation in the VALUE — a zero-length window
+        # is a real, defined state that
+        # server.device_config's own arithmetic calls
+        # never-active, and refusing it here would make a
+        # state reachable by typing unreachable by
+        # dragging. What happens instead is a decision:
+        # z-order is DOCUMENT order, the end handle is
+        # emitted second, so the END handle wins a
+        # pointer-down in the overlap. That is sufficient
+        # rather than arbitrary — moving either end
+        # separates the pair, and the start handle stays
+        # its own tab stop whatever it is painted under.
+        _set_window(page, base_url, server.tmpdir, "23:00", "23:15")
+        overlap = _assert_hit_target(
+            page, _handle_sel("quiet_hours_end"),
+            "the end handle with the two ends 15 minutes apart")
+        recorded["overlap/quiet_hours_end"] = (
+            overlap["visual"], overlap["hit"])
+        try:
+            _hit_area(page, _handle_sel("quiet_hours_start"))
+            recorded["overlap/quiet_hours_start"] = "reachable"
+        except AssertionError as exc:
+            recorded["overlap/quiet_hours_start"] = "occluded"
+            if "hit-tests to" not in str(exc):
+                raise AssertionError(
+                    "the start handle failed the overlap measurement for a "
+                    "reason other than the stated z-order: %s" % exc) from exc
+        focusable = page.evaluate(
+            "sel => { const el = document.querySelector(sel);"
+            "  el.focus(); return document.activeElement === el; }",
+            _handle_sel("quiet_hours_start"))
+        if not focusable:
+            raise AssertionError(
+                "with the two ends overlapping, the start handle cannot take "
+                "focus — the stated escape from an overlap is that it stays "
+                "its own tab stop whatever it is painted under")
+
+        # 2. THE GEOMETRY, MEASURED WITH
+        # getBoundingClientRect AND NOT clientWidth.
+        # clientWidth rounds to an integer and can fail a
+        # correct drawing; this control's own card carries
+        # no scale, but the rule is the file's.
+        _set_window(page, base_url, server.tmpdir, "23:00", "07:00")
+        geometry = page.evaluate(
+            "args => {"
+            "  const dial = document.querySelector(args.dial);"
+            "  const svg = dial.querySelector('svg');"
+            "  const parent = dial.parentElement;"
+            "  const pr = parent.getBoundingClientRect();"
+            "  const ps = getComputedStyle(parent);"
+            "  const dr = dial.getBoundingClientRect();"
+            "  const readout = document.querySelector(args.readout);"
+            "  const rs = getComputedStyle(readout);"
+            "  const range = document.createRange();"
+            "  range.selectNodeContents(readout);"
+            "  const tr = range.getBoundingClientRect();"
+            "  const rr = readout.getBoundingClientRect();"
+            "  const hours = {};"
+            "  for (const h of ['0', '6', '12', '18']) {"
+            "    const el = document.querySelector("
+            "      '.quiet-dial__hour--' + h);"
+            "    if (!el) { hours[h] = null; continue; }"
+            "    const b = el.getBoundingClientRect();"
+            "    hours[h] = [b.left + b.width / 2 - (dr.left + dr.width / 2),"
+            "                b.top + b.height / 2 - (dr.top + dr.height / 2)];"
+            "  }"
+            "  return {"
+            "    dial: [dr.width, dr.height],"
+            "    svgDisplay: getComputedStyle(svg).display,"
+            "    dialCentre: dr.left + dr.width / 2,"
+            "    contentCentre: pr.left + parseFloat(ps.paddingLeft)"
+            "      + (pr.width - parseFloat(ps.paddingLeft)"
+            "         - parseFloat(ps.paddingRight)) / 2,"
+            "    readoutMargins: [rs.marginTop, rs.marginBottom],"
+            "    readoutTextCentre: tr.left + tr.width / 2,"
+            "    readoutBoxCentre: rr.left + rr.width / 2,"
+            "    hours: hours};"
+            "}", {"dial": QUIET_DIAL_SEL, "readout": QUIET_READOUT_SEL})
+        recorded["geometry"] = geometry
+        width, height = geometry["dial"]
+        drawn = config_page.QUIET_DIAL_SIZE
+        if abs(width - drawn) > 0.5 or abs(height - drawn) > 0.5:
+            raise AssertionError(
+                "the dial measures %.2fx%.2f; its emitter draws a %dpx canvas "
+                "and the handles are thrown out to a radius derived from it"
+                % (width, height, drawn))
+        if geometry["svgDisplay"] != "block":
+            raise AssertionError(
+                "the ring computes display:%s — a replaced-inline <svg> sits on "
+                "a text baseline and leaves a descender gap under a drawing "
+                "that has already ended" % geometry["svgDisplay"])
+        if abs(geometry["dialCentre"] - geometry["contentCentre"]) > 2:
+            raise AssertionError(
+                "the dial's centre is %.2f and its card's content centre is "
+                "%.2f — a drawing captioned by a centred readout has to be "
+                "centred itself"
+                % (geometry["dialCentre"], geometry["contentCentre"]))
+        if geometry["readoutMargins"][0] != "0px":
+            raise AssertionError(
+                "the readout computes margin-top:%s — a <p>'s own 1em margin "
+                "opens a gap between a picture and its caption"
+                % geometry["readoutMargins"][0])
+        if geometry["readoutMargins"][1] == "0px":
+            raise AssertionError(
+                "the readout computes no bottom margin, so it sits hard against "
+                "the preset row under it")
+        if abs(geometry["readoutTextCentre"]
+               - geometry["readoutBoxCentre"]) > 1:
+            raise AssertionError(
+                "the readout's text is not centred in its own box (%.2f against "
+                "%.2f) — a left-aligned caption under a centred drawing reads "
+                "as a stray sentence"
+                % (geometry["readoutTextCentre"],
+                   geometry["readoutBoxCentre"]))
+
+        # 3. THE FOUR ANCHOR HOURS ARE WHERE THEY CLAIM TO
+        # BE. Each is placed by its own edge and then
+        # pulled back by half of itself; dropping either
+        # half puts a numeral off its own axis, which no
+        # string assertion can see.
+        for hour, (want_dx, want_dy) in (
+                ("0", (0, -1)), ("6", (1, 0)),
+                ("12", (0, 1)), ("18", (-1, 0))):
+            offset = geometry["hours"][hour]
+            if offset is None:
+                raise AssertionError("the %s label is missing from the dial" % hour)
+            dx, dy = offset
+            along = dx if want_dx else dy
+            across = dy if want_dx else dx
+            if (want_dx or want_dy) > 0 and along < 20:
+                raise AssertionError(
+                    "the %s label sits %.2f along its own axis from the dial's "
+                    "centre; it belongs on the far side" % (hour, along))
+            if (want_dx or want_dy) < 0 and along > -20:
+                raise AssertionError(
+                    "the %s label sits %.2f along its own axis from the dial's "
+                    "centre; it belongs on the far side" % (hour, along))
+            if abs(across) > 4:
+                raise AssertionError(
+                    "the %s label is %.2fpx off the axis it is meant to be "
+                    "centred on — the half-of-itself pull-back is not being "
+                    "applied" % (hour, across))
+
+        # 4. NO SIDEWAYS PAGE SCROLL at the narrowest
+        # supported screen. 24-02's helper, not a second
+        # convention about what "the page" means.
+        message = _assert_no_page_overflow(
+            page, "the quiet dial on /display",
+            VIEWPORT_MIN_SUPPORTED["width"])
+        if message:
+            raise AssertionError(message)
+        recorded["page"] = page.evaluate(
+            "() => [document.documentElement.scrollWidth,"
+            "       document.documentElement.clientWidth]")
+
+        # 5. THE PAINT, IN BOTH THEMES, AS A FLOOR AND NOT
+        # ONLY A CEILING. "Not the SVG default" passes
+        # against a ring where the day and the window are
+        # the same flat grey; the floor is that they are
+        # two different paints and that each differs
+        # between the themes.
+        samples = {
+            "day": (".quiet-dial__day", "stroke"),
+            "arc": (".quiet-dial__arc", "stroke"),
+            "hour": (".quiet-dial__hour", "color"),
+            "grip": (".quiet-dial__handle", "background-color"),
+            "grip-edge": (".quiet-dial__handle", "border-top-color"),
+        }
+        paints = []
+        for measured in _in_both_themes(page):
+            if not page.evaluate(_SETTLE_DIAL):
+                raise AssertionError(
+                    "%s: nothing matched the settle probe, so nothing below "
+                    "measured anything" % (measured["theme"],))
+            sample = {}
+            for name, (selector, prop) in samples.items():
+                seen = _computed_paint(page, selector, props=(prop,))
+                if prop in seen["svg_default"]:
+                    raise AssertionError(
+                        "%s: the %s shape's %s is %r, indistinguishable from "
+                        "the SVG initial value — it takes no colour from the "
+                        "stylesheet at all"
+                        % (measured["theme"], name, prop, seen[prop]))
+                sample[name] = seen[prop]
+            if sample["day"] == sample["arc"]:
+                raise AssertionError(
+                    "%s: the whole day and the quiet window paint identically "
+                    "(%r) — the ring shows nothing"
+                    % (measured["theme"], sample["arc"]))
+            if sample["arc"] == sample["hour"]:
+                raise AssertionError(
+                    "%s: the quiet window and the hour labels that orient it "
+                    "paint identically (%r) — the labels are context and must "
+                    "not compete with the reading"
+                    % (measured["theme"], sample["arc"]))
+            if sample["grip"] == sample["grip-edge"]:
+                raise AssertionError(
+                    "%s: the handle's fill and its edge are the same colour "
+                    "(%r), so the grip is a flat dot with no edge"
+                    % (measured["theme"], sample["grip"]))
+            paints.append((measured["theme"], sample))
+        if len(paints) != 2:
+            raise AssertionError(
+                "expected a measurement in each theme, got %d" % len(paints))
+        light, dark = paints[0][1], paints[1][1]
+        for name in sorted(samples):
+            if light[name] == dark[name]:
+                raise AssertionError(
+                    "the %s paint is %r in BOTH themes — it is not coming from "
+                    "a token that inverts, so one of the two themes is wrong"
+                    % (name, light[name]))
+        recorded["paints"] = paints
+        _set_window(page, base_url, server.tmpdir, before[0], before[1])
+        if _quiet_hours_on_disk(server.tmpdir) != before:
+            raise AssertionError(
+                "this check left the window at %r; it started at %r"
+                % (_quiet_hours_on_disk(server.tmpdir), before))
+    finally:
+        # Best effort only — see the neighbouring check.
+        try:
+            _set_window(page, base_url, server.tmpdir, before[0], before[1])
+        except Exception:
+            pass
+        context.close()
 
 
 def main():
@@ -136,10 +1225,11 @@ def main():
                 # hit test and cascade answer at 360px in both themes.
                 # ----------------------------------------------------------
 
+                # 33-20-PLAN.md Task 1: only QUIET_DIAL_SEL is still used
+                # below (by the one dial check not yet ported) — the other
+                # three sibling selectors this comment block used to name
+                # left with the checks Task 1 moved to module level.
                 QUIET_DIAL_SEL = ".quiet-dial"
-                QUIET_ARC_SEL = ".quiet-dial__arc"
-                QUIET_HANDLES_SEL = ".quiet-dial__handles"
-                QUIET_READOUT_SEL = ".quiet-dial__readout"
 
                 def _quiet_hours_on_disk():
                     config = device_config.load_device_config(harness.tmpdir)
@@ -208,1023 +1298,6 @@ def main():
                     "  return els.length;"
                     "}")
 
-                def _the_window_still_saves_with_scripts_blocked_through_the_dial():
-                    base_url = harness.base_url()
-                    before = _quiet_hours_on_disk()
-
-                    def read_start():
-                        return _quiet_hours_on_disk()[0]
-
-                    def read_end():
-                        return _quiet_hours_on_disk()[1]
-
-                    # BOTH ENDS AND BOTH SHIPPED LANGUAGES. The UI
-                    # language is a cookie the first rendered document
-                    # already has to honour, and "it saves in English" is
-                    # not the D-09 floor.
-                    saved = {}
-                    for lang in ("en", "fr"):
-                        cookies = [{"name": auth.UI_LANG_COOKIE_NAME,
-                                    "value": lang, "url": base_url}]
-                        saved[(lang, "start")] = _persist_without_js(
-                            browser.new_context, base_url, "/display", "quiet_hours_start",
-                            "21:45", read_start, viewport=VIEWPORT_MIN_SUPPORTED,
-                            cookies=cookies)
-                        saved[(lang, "end")] = _persist_without_js(
-                            browser.new_context, base_url, "/display", "quiet_hours_end",
-                            "06:15", read_end, viewport=VIEWPORT_MIN_SUPPORTED,
-                            cookies=cookies)
-                    after = _quiet_hours_on_disk()
-                    if after != before:
-                        return False, (
-                            "the scripts-blocked saves left the window at %r; it started at "
-                            "%r — a harness that changes a real setting is a test that edits "
-                            "its neighbours' subject" % (after, before))
-                    for key, result in saved.items():
-                        if str(result["stored"]) != str(result["set"]):
-                            return False, (
-                                "%s: %s did not reach disk, it reads %r"
-                                % (key, result["field"], result["stored"]))
-
-                    # THE GATE, IN BOTH DIRECTIONS. Asserting only the
-                    # blocked half passes against a gate stuck shut;
-                    # asserting only the enabled half is the "renders and
-                    # does nothing" defect. 25-02's helper owns both.
-                    gate = _assert_js_gate(
-                        browser.new_context, base_url, "/display", QUIET_HANDLES_SEL,
-                        viewport=VIEWPORT_MIN_SUPPORTED)
-
-                    # AND THE ARC IS PRESENT IN BOTH — which is what makes
-                    # this dial's fallback a FEATURE rather than an
-                    # absence. A check that skipped it would let a later
-                    # refactor move the whole drawing behind the gate
-                    # unnoticed, and nothing else here would object.
-                    with _no_js_page(browser.new_context, base_url, "/display",
-                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
-                        # MEASURED, NOT COUNTED. locator.count() counts
-                        # elements in the DOM whatever their box is, so
-                        # it passes against an arc moved behind the gate
-                        # — the exact refactor this clause exists to
-                        # notice. The verdict is the rendered box.
-                        blocked_arc = page.locator(QUIET_ARC_SEL).count()
-                        blocked_arc_box = (
-                            page.locator(QUIET_ARC_SEL).bounding_box()
-                            if blocked_arc else None)
-                        blocked_readout = page.locator(QUIET_READOUT_SEL).inner_text()
-                        blocked_inputs = page.locator(
-                            'input[name="quiet_hours_start"], '
-                            'input[name="quiet_hours_end"]').count()
-                        blocked_presets = page.locator("[data-quiet-preset]").count()
-                        blocked_siblings = page.locator(
-                            ".field-inline-value").count()
-                    if blocked_arc != 1:
-                        return False, (
-                            "the quiet arc is not drawn with scripts blocked (%d found) — the "
-                            "ring is SERVER-drawn and only the dragging is script"
-                            % blocked_arc)
-                    if not blocked_arc_box or blocked_arc_box["width"] <= 0 \
-                            or blocked_arc_box["height"] <= 0:
-                        return False, (
-                            "the quiet arc is in the scripts-blocked document but occupies no "
-                            "space (%r) — rendered is not drawn, and an arc behind the gate is "
-                            "the refactor this clause exists to notice" % (blocked_arc_box,))
-                    if blocked_inputs != 2 or blocked_presets != 3:
-                        return False, (
-                            "with scripts blocked the card renders %d time input(s) and %d "
-                            "preset(s); it owes two and three"
-                            % (blocked_inputs, blocked_presets))
-                    if blocked_siblings < 2:
-                        return False, (
-                            "B14's visible 24h siblings are missing with scripts blocked "
-                            "(%d found) — a browser in en-US renders the stored 23:00 as "
-                            "'11:00 PM' beside a preset labelled 'Night (23:00-07:00)'"
-                            % blocked_siblings)
-                    if ":" not in blocked_readout:
-                        return False, (
-                            "the scripts-blocked readout says %r — the saved window has to be "
-                            "legible without a script" % blocked_readout)
-                    _ = gate
-                    return True, ""
-                check(
-                    "the quiet window still SAVES with scripts blocked through the dial — both "
-                    "ends set natively, submitted through the real form, re-read FROM DISK "
-                    "after a fresh GET and restored the same way, at 360px and in BOTH shipped "
-                    "languages; the gated handle layer has zero height and no keyboard can "
-                    "reach into it with scripts blocked while it occupies space with them; and "
-                    "the server-drawn ARC, the readout, both time inputs, B14's two 24h "
-                    "siblings and the three presets are all present on the scripts-blocked "
-                    "page, asserted after the save so none of them can stand in for it "
-                    "(D-09/CFG-48, 25-04-PLAN.md Task 4)",
-                    _the_window_still_saves_with_scripts_blocked_through_the_dial)
-
-                def _dragging_and_keying_a_handle_reach_disk():
-                    base_url = harness.base_url()
-                    before = _quiet_hours_on_disk()
-                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-                    recorded = {}
-                    try:
-                        page = context.new_page()
-                        _login(page, base_url)
-                        _set_window(page, base_url, "23:00", "07:00")
-
-                        # 1. THE DRAG. Aimed at six o'clock on the ring,
-                        # which is 12:00 — a point this check can compute
-                        # without trusting the control's own arithmetic.
-                        #
-                        # SCROLLED TO THE MIDDLE OF THE VIEWPORT FIRST,
-                        # for `_hit_area()`'s own recorded reason: at
-                        # 360px this page is long and its tab bar is
-                        # fixed to the bottom, so a coordinate gesture
-                        # taken wherever the page happened to be scrolled
-                        # is a gesture that lands somewhere else.
-                        page.eval_on_selector(
-                            QUIET_DIAL_SEL, "el => el.scrollIntoView({block: 'center'})")
-                        box = page.evaluate(
-                            "sel => { const r = document.querySelector(sel)"
-                            "  .getBoundingClientRect();"
-                            "  return [r.left + r.width / 2, r.top + r.height / 2,"
-                            "          r.width, r.height]; }", QUIET_DIAL_SEL)
-                        grip = page.evaluate(
-                            "sel => { const r = document.querySelector(sel)"
-                            "  .getBoundingClientRect();"
-                            "  return [r.left + r.width / 2, r.top + r.height / 2]; }",
-                            _handle_sel("quiet_hours_start"))
-                        page.mouse.move(grip[0], grip[1])
-                        page.mouse.down()
-                        # The steering script focuses the handle it
-                        # captured, so this is the page's own answer to
-                        # "did the press reach the control", and it turns
-                        # a silent no-op into a named diagnostic.
-                        if not page.evaluate(
-                                "sel => document.activeElement"
-                                "  === document.querySelector(sel)",
-                                _handle_sel("quiet_hours_start")):
-                            page.mouse.up()
-                            return False, (
-                                "a pointer-down at the start handle's own centre (%r, dial box "
-                                "%r) did not reach the steering script — nothing below measured "
-                                "a drag" % (grip, box))
-                        page.mouse.move(box[0], box[1] + box[3] / 2 - 8, steps=8)
-                        page.mouse.up()
-                        dragged = page.input_value('input[name="quiet_hours_start"]')
-                        recorded["dragged_to"] = dragged
-                        if dragged != "12:00":
-                            return False, (
-                                "dragging the start handle to six o'clock on the ring put %r "
-                                "into quiet_hours_start; the bottom of a 24h dial is 12:00"
-                                % dragged)
-                        # THE ANNOUNCEMENT FOLLOWED THE DRAG, AND IT IS
-                        # THE HANDLE THAT CARRIES IT. A wrapper holding
-                        # role="slider" while the <button> inside takes
-                        # the focus announces the saved value forever.
-                        announced = page.get_attribute(
-                            _handle_sel("quiet_hours_start"), "aria-valuetext")
-                        if announced != dragged:
-                            return False, (
-                                "the handle announces %r while its own input now holds %r — a "
-                                "screen-reader visitor is being told the value it had before "
-                                "the drag" % (announced, dragged))
-                        if page.get_attribute(
-                                '[data-value-field="quiet_hours_start"]',
-                                "aria-valuenow") is not None:
-                            return False, (
-                                "the wrapper carries aria-valuenow; the element a keyboard "
-                                "visitor lands on is the button inside it, and two elements "
-                                "announcing one value is how the stale one gets read")
-                        # 28-10-PLAN.md Task 1 (CFG-77/CFG-78): RETARGETED
-                        # from auto-save onto the restored bar — a control
-                        # that changes a value without notify()'s own real
-                        # `change` event would lose the edit silently
-                        # (value-controls.js's own notify() comment: "the
-                        # bubbling notification dirty-state.js's delegated
-                        # document-level listener is waiting for" —
-                        # unchanged by this plan), so the drag REVEALING
-                        # the bar is still the proof the event fired; the
-                        # edit only reaches disk once Enregistrer is
-                        # clicked.
-                        _wait_for_bar(page)
-                        _save_via_bar(page)
-                        recorded["dragged_stored"] = _quiet_hours_on_disk()[0]
-                        if recorded["dragged_stored"] != "12:00":
-                            return False, (
-                                "the dragged value did not reach disk; it reads %r"
-                                % (recorded["dragged_stored"],))
-                        page.goto(base_url + "/display")
-                        if page.input_value('input[name="quiet_hours_start"]') != "12:00":
-                            return False, "the reloaded page does not show the dragged value"
-
-                        # 2. THE KEYBOARD ALONE, with the pointer-free
-                        # claim MEASURED rather than promised. One
-                        # ArrowRight is one step, and the step is stated.
-                        _set_window(page, base_url, "23:00", "07:00")
-                        keyed = _operate_with_keyboard(
-                            page, _handle_sel("quiet_hours_start"), ["ArrowRight"])
-                        after_key = page.input_value('input[name="quiet_hours_start"]')
-                        recorded["after_arrow"] = after_key
-                        if after_key != "23:15":
-                            return False, (
-                                "one ArrowRight moved the start from 23:00 to %r; the stated "
-                                "step is %d minutes" % (after_key, 15))
-                        if keyed["pointer_events"]:
-                            return False, "a pointer event fired during the keyboard sequence"
-                        # HOME AND END REACH THE DAY'S OWN ENDS.
-                        page.keyboard.press("End")
-                        recorded["after_end"] = page.input_value(
-                            'input[name="quiet_hours_start"]')
-                        if recorded["after_end"] != "23:59":
-                            return False, (
-                                "End put %r into the start field; the day's last minute is "
-                                "23:59" % (recorded["after_end"],))
-                        page.keyboard.press("Home")
-                        recorded["after_home"] = page.input_value(
-                            'input[name="quiet_hours_start"]')
-                        if recorded["after_home"] != "00:00":
-                            return False, (
-                                "Home put %r into the start field" % (recorded["after_home"],))
-
-                        # 3. A PRESET MOVES BOTH HANDLES — the cheapest
-                        # available proof that the two native inputs are
-                        # the ONE source of truth: the presets write into
-                        # those fields and know nothing about this
-                        # control. (27-02-PLAN.md Task 4, CFG-71: what
-                        # used to live here as sections 3-4 — this
-                        # endpoint-only "the handles moved" claim and a
-                        # separate "the readout names the window" claim —
-                        # is SUPERSEDED by
-                        # _the_arc_the_handles_and_the_caption_agree_
-                        # after_an_interaction() below, which asserts
-                        # agreement across all four surfaces after both a
-                        # drag AND a preset, rather than four endpoint
-                        # checks that can each be individually right
-                        # while the page as a whole lies. This clause
-                        # stays, narrowed to what it alone still proves:
-                        # a preset is a SILENT script write with no
-                        # event of its own, so it is a distinct code path
-                        # from a drag and worth its own cheap proof that
-                        # both handles still follow it.
-                        _set_window(page, base_url, "12:00", "13:00")
-                        fractions = page.evaluate(
-                            "() => [...document.querySelectorAll('[data-value-control]')]"
-                            "  .map(e => e.style.getPropertyValue('--value-fraction'))")
-                        page.locator(
-                            '[data-preset-start="08:00"]').click()
-                        moved = page.evaluate(
-                            "() => [...document.querySelectorAll('[data-value-control]')]"
-                            "  .map(e => e.style.getPropertyValue('--value-fraction'))")
-                        recorded["preset_fractions"] = (fractions, moved)
-                        if len(moved) != 2 or moved == fractions:
-                            return False, (
-                                "a preset click left the handles at %r (they were at %r) — the "
-                                "presets write into the two time inputs, so a handle driven BY "
-                                "those inputs moves for free; one that did not is holding a "
-                                "value of its own" % (moved, fractions))
-                        if moved[0] == fractions[0] or moved[1] == fractions[1]:
-                            return False, (
-                                "a preset click moved only one handle: %r -> %r"
-                                % (fractions, moved))
-                        # RESTORED THROUGH THE SAME UI SEQUENCE, never
-                        # a direct write to the state directory — a
-                        # harness that changes a real setting is a test
-                        # that edits its neighbours' subject.
-                        _set_window(page, base_url, before[0], before[1])
-                        if _quiet_hours_on_disk() != before:
-                            return False, (
-                                "this check left the window at %r; it started at %r"
-                                % (_quiet_hours_on_disk(), before))
-                        _ = recorded
-                        return True, ""
-                    finally:
-                        # Best effort only, and deliberately silent: a
-                        # restore that raised here would mask the failure
-                        # it is cleaning up after. The happy path asserts
-                        # the restore above.
-                        try:
-                            _set_window(page, base_url, before[0], before[1])
-                        except Exception:
-                            pass
-                        context.close()
-                check(
-                    "dragging a quiet-hours handle changes its own native <input type=\"time\">, "
-                    "moves the announcement ON THE HANDLE rather than on the wrapper, REVEALS the "
-                    "bar and PERSISTS to disk once Enregistrer is clicked; one ArrowRight "
-                    "moves exactly one stated step and End/Home reach 23:59 and 00:00 with zero "
-                    "pointer events fired and the recorder proving itself; and a preset click moves "
-                    "BOTH handles, which is what proves the two native inputs are the one source "
-                    "of truth (the arc/caption AGREEMENT claim this check used to also carry is "
-                    "superseded by "
-                    "_the_arc_the_handles_and_the_caption_agree_after_an_interaction(), CFG-71, "
-                    "27-02-PLAN.md Task 4) (CFG-48, 25-04-PLAN.md Task 4; retargeted from the "
-                    "retired auto-save onto the restored bar by 28-10-PLAN.md Task 1, "
-                    "CFG-77/CFG-78)",
-                    _dragging_and_keying_a_handle_reach_disk)
-
-                # ----------------------------------------------------------
-                # 27-02-PLAN.md Task 4 (CFG-62/CFG-71/D-32): THE ONE CHECK
-                # that D17 shipped without. Three correct halves — the arc
-                # asserted correct SERVER-SIDE for the saved value, the
-                # handles asserted to MOVE, the value asserted to PERSIST —
-                # and nothing ever asserted that the arc agrees with the
-                # handles AFTER an interaction. Not four endpoint checks:
-                # ONE check whose subject is agreement between all four
-                # surfaces, covering BOTH the drag path and the preset
-                # path, using 27-01's own `_assert_surfaces_agree()`.
-                # ----------------------------------------------------------
-
-                def _quiet_surfaces(page, where):
-                    """The four surfaces `_assert_surfaces_agree()` decodes
-                    for `page`, closed over the CURRENT `where` label so
-                    every raised AssertionError names which path (drag or
-                    preset, which theme) produced it.
-                    """
-                    def native_inputs():
-                        return (
-                            config_page.quiet_window_minute_of_day(
-                                page.input_value('input[name="quiet_hours_start"]')),
-                            config_page.quiet_window_minute_of_day(
-                                page.input_value('input[name="quiet_hours_end"]')),
-                        )
-
-                    def handles_aria_valuenow():
-                        return (
-                            int(page.get_attribute(
-                                _handle_sel("quiet_hours_start"), "aria-valuenow")),
-                            int(page.get_attribute(
-                                _handle_sel("quiet_hours_end"), "aria-valuenow")),
-                        )
-
-                    def arc_resolved_geometry():
-                        return _quiet_arc_minutes(page, where)
-
-                    def caption_text():
-                        return _quiet_caption_minutes(page, where)
-
-                    # An ORDERED mapping, so a disagreement's message lists
-                    # the four surfaces in the same order a reader would
-                    # look at the card: the fields, then the handles, then
-                    # the drawing, then the sentence under it.
-                    return {
-                        "the two native <input type=\"time\"> fields": native_inputs,
-                        "the two handles' aria-valuenow": handles_aria_valuenow,
-                        "the arc's resolved geometry": arc_resolved_geometry,
-                        "the caption's text": caption_text,
-                    }
-
-                def _the_arc_the_handles_and_the_caption_agree_after_an_interaction():
-                    base_url = harness.base_url()
-                    before_on_disk = _quiet_hours_on_disk()
-                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-                    recorded = {}
-                    try:
-                        page = context.new_page()
-                        _login(page, base_url)
-
-                        # A KNOWN, DETERMINISTIC STARTING WINDOW —
-                        # 08:00-23:00 — chosen so the drag below only has
-                        # to move the END handle to reach the developer's
-                        # own recording (08:00-18:00): the start is
-                        # already right. _set_window() saves and reloads,
-                        # so this is real, on-disk state exactly like
-                        # every neighbouring dial check reaches it.
-                        #
-                        # 27-04-PLAN.md Task 4 (CFG-63): SUPERSEDES this
-                        # paragraph's own former "once, before the loop,
-                        # not inside it" instruction — that reasoning
-                        # depended on "neither the drag nor the preset
-                        # below ever clicks Save", which auto-save makes
-                        # FALSE: both value-controls.js's own notify()
-                        # (the drag) and dirty-state.js's preset handler
-                        # now fire a real `change` that saves to disk
-                        # immediately, same as every other committing
-                        # interaction in this app. So the baseline is
-                        # reset INSIDE the loop instead, once per theme,
-                        # or the second iteration would start from
-                        # whatever the FIRST iteration's own preset left
-                        # on disk (23:00-07:00) rather than the known
-                        # 08:00-23:00 this check's own arithmetic assumes.
-                        for theme in UI_THEMES_EXPLICIT:
-                            _set_window(page, base_url, "08:00", "23:00")
-                            _set_ui_theme(page, theme)
-
-                            # 1. THE DRAG PATH. Aimed at nine o'clock on the
-                            # ring, which is 18:00 — the same
-                            # scroll-into-view-first, box-relative aiming
-                            # `_dragging_and_keying_a_handle_reach_disk()`
-                            # above already uses and for the same reason
-                            # (the page is long and its tab bar is fixed to
-                            # the bottom at this viewport).
-                            page.eval_on_selector(
-                                QUIET_DIAL_SEL, "el => el.scrollIntoView({block: 'center'})")
-                            box = page.evaluate(
-                                "sel => { const r = document.querySelector(sel)"
-                                "  .getBoundingClientRect();"
-                                "  return [r.left + r.width / 2, r.top + r.height / 2,"
-                                "          r.width, r.height]; }", QUIET_DIAL_SEL)
-                            grip = page.evaluate(
-                                "sel => { const r = document.querySelector(sel)"
-                                "  .getBoundingClientRect();"
-                                "  return [r.left + r.width / 2, r.top + r.height / 2]; }",
-                                _handle_sel("quiet_hours_end"))
-                            page.mouse.move(grip[0], grip[1])
-                            page.mouse.down()
-                            if not page.evaluate(
-                                    "sel => document.activeElement"
-                                    "  === document.querySelector(sel)",
-                                    _handle_sel("quiet_hours_end")):
-                                page.mouse.up()
-                                return False, (
-                                    "%s: a pointer-down at the end handle's own centre (%r, dial "
-                                    "box %r) did not reach the steering script"
-                                    % (theme, grip, box))
-                            page.mouse.move(box[0] - box[2] / 2 + 8, box[1], steps=8)
-                            page.mouse.up()
-                            dragged_end = page.input_value('input[name="quiet_hours_end"]')
-                            recorded["%s/dragged_end" % theme] = dragged_end
-                            if dragged_end != "18:00":
-                                return False, (
-                                    "%s: dragging the end handle to nine o'clock on the ring put "
-                                    "%r into quiet_hours_end; nine o'clock on this 24h dial is "
-                                    "18:00" % (theme, dragged_end))
-
-                            requested_drag = (8 * 60, 18 * 60)
-                            before_drag = (8 * 60, 23 * 60)
-                            agreed_drag = _assert_surfaces_agree(
-                                page, _quiet_surfaces(page, "%s theme, drag path" % theme),
-                                requested_drag, before_drag,
-                                "%s theme, drag path" % theme)
-                            recorded["%s/drag" % theme] = agreed_drag
-
-                            # 2. THE PRESET PATH, from wherever the drag
-                            # above left the pair. Both paths were reported
-                            # working for the handles and broken for the
-                            # arc, so both belong to the SAME agreement
-                            # assertion — two separate checks would
-                            # re-create the very split this phase exists to
-                            # close.
-                            page.locator('[data-preset-start="23:00"]').click()
-                            requested_preset = (23 * 60, 7 * 60)
-                            agreed_preset = _assert_surfaces_agree(
-                                page, _quiet_surfaces(page, "%s theme, preset path" % theme),
-                                requested_preset, requested_drag,
-                                "%s theme, preset path" % theme)
-                            recorded["%s/preset" % theme] = agreed_preset
-
-                            # 29-04-PLAN.md Task 3 (CFG-80), added to
-                            # THIS existing check rather than as a new
-                            # `check(...)` call — folded in per the
-                            # plan's own instruction not to move this
-                            # file's EXPECTED_CHECK_COUNT for an
-                            # assertion nobody in this worktree could
-                            # verify (playwright is not installed here;
-                            # this whole file reports SKIPPED, never a
-                            # pass, until it is). A FIFTH surface, after
-                            # the same preset click the four above just
-                            # agreed on: each twin's OWN visibility must
-                            # match the browser's own resolved hour
-                            # cycle — hidden when it is unambiguously
-                            # 24h, visible otherwise — read from the
-                            # live DOM's `.hidden` property, never from
-                            # the served HTML (which is a SEPARATE,
-                            # runnable proof in test_config_page.py).
-                            resolved_hour12 = page.evaluate(
-                                "() => { try { return new Intl.DateTimeFormat("
-                                "undefined, {hour: 'numeric'})"
-                                ".resolvedOptions().hour12; } catch (e) { return null; } }")
-                            expect_hidden = resolved_hour12 is False
-                            for field in ("quiet_hours_start", "quiet_hours_end"):
-                                twin_hidden = page.eval_on_selector(
-                                    'input[name="%s"] ~ [%s]'
-                                    % (field, config_page.QUIET_NORMALISED_TIME_ATTR),
-                                    "el => el.hidden")
-                                if twin_hidden != expect_hidden:
-                                    return False, (
-                                        "%s theme, preset path: this browser's own resolved "
-                                        "hour12 is %r (expected twin hidden=%r) but %s's "
-                                        "normalised-time twin is hidden=%r — a false negative "
-                                        "here (hidden=True on a browser that in fact paints "
-                                        "12h) reopens the exact defect B14 exists to prevent"
-                                        % (theme, resolved_hour12, expect_hidden, field,
-                                           twin_hidden))
-                            recorded["%s/twin_visibility" % theme] = (
-                                resolved_hour12, expect_hidden)
-
-                        # 3. THE SCRIPTS-BLOCKED HALF. 27-04-PLAN.md
-                        # (CFG-63): SUPERSEDES this paragraph's own former
-                        # claim that neither interaction above reaches
-                        # disk — under auto-save, the PRESET path's own
-                        # commit is the last thing either loop iteration
-                        # does, so disk now holds whatever that preset
-                        # last wrote (23:00-07:00), not the 08:00-23:00
-                        # baseline. `saved` below is read FRESH, right
-                        # here, so it already reflects that correctly —
-                        # only this comment's account was stale. A FRESH,
-                        # scripts-blocked load must still draw whatever
-                        # window is actually saved, from the presentation
-                        # attributes alone.
-                        saved = _quiet_hours_on_disk()
-                        saved_minutes = (
-                            config_page.quiet_window_minute_of_day(saved[0]),
-                            config_page.quiet_window_minute_of_day(saved[1]))
-                        with _no_js_page(browser.new_context, base_url, "/display",
-                                         viewport=VIEWPORT_MIN_SUPPORTED) as no_js_page:
-                            dash_attr = no_js_page.get_attribute(QUIET_ARC_SEL, "stroke-dasharray")
-                            transform_attr = no_js_page.get_attribute(QUIET_ARC_SEL, "transform")
-                            if not dash_attr or not transform_attr:
-                                return False, (
-                                    "scripts-blocked: the arc is missing stroke-dasharray/"
-                                    "transform (%r, %r) — the no-JS floor requires the server-"
-                                    "drawn presentation attributes to be present with no script "
-                                    "running at all" % (dash_attr, transform_attr))
-                            static_minutes = _quiet_arc_minutes(
-                                no_js_page, "scripts-blocked, no .js override in force")
-                        recorded["scripts_blocked"] = (saved, static_minutes)
-                        if static_minutes != saved_minutes:
-                            return False, (
-                                "scripts-blocked: the arc's presentation attributes decode to %r, "
-                                "but the saved window on disk is %r (%r) — the server-rendered arc "
-                                "must stay authoritative for the saved value with no script "
-                                "running at all" % (static_minutes, saved_minutes, saved))
-
-                        # RESTORED THROUGH THE SAME UI SEQUENCE, never a
-                        # direct write to the state directory.
-                        _set_window(page, base_url, before_on_disk[0], before_on_disk[1])
-                        if _quiet_hours_on_disk() != before_on_disk:
-                            return False, (
-                                "this check left the window at %r; it started at %r"
-                                % (_quiet_hours_on_disk(), before_on_disk))
-                        _ = recorded
-                        return True, ""
-                    finally:
-                        try:
-                            _set_window(page, base_url, before_on_disk[0], before_on_disk[1])
-                        except Exception:
-                            pass
-                        context.close()
-                check(
-                    "THE arc/handles/caption agreement check (CFG-62/CFG-71/D-32, "
-                    "27-02-PLAN.md Task 4): in BOTH themes, after dragging the end handle to "
-                    "reach the developer's own recorded window (08:00→18:00) AND, in the "
-                    "same check, after pressing a preset (23:00→07:00, the wrap through "
-                    "midnight) from wherever the drag left it, all FOUR surfaces — the two "
-                    "native <input type=\"time\"> fields, the two handles' aria-valuenow, the "
-                    "arc's RESOLVED geometry (read back through getComputedStyle, not the "
-                    "static attribute), and the caption's own text — decode to the SAME "
-                    "canonical (start_minute, end_minute) pair, which equals what the "
-                    "interaction requested and differs from what was there before; AND, after "
-                    "the same preset click, each B14 twin's own live .hidden property matches "
-                    "this browser's resolved hour12 (CFG-80, 29-04-PLAN.md Task 3, folded into "
-                    "this existing check rather than a new one so EXPECTED_CHECK_COUNT does not "
-                    "move for an assertion this worktree has never run); separately, "
-                    "with scripts blocked, the arc still carries both presentation attributes "
-                    "and they still decode to whatever window is actually saved on disk — under "
-                    "auto-save that is the preset's own commit, read fresh rather than assumed "
-                    "(27-04-PLAN.md Task 4, CFG-63)",
-                    _the_arc_the_handles_and_the_caption_agree_after_an_interaction)
-
-                def _the_dial_caption_keeps_its_form_after_every_interaction_kind():
-                    # 28-03-PLAN.md Task 3 (CFG-73 Bug A): the developer's
-                    # own report was that the caption reverts to a raw,
-                    # blank-duration form after EVERY interaction, not
-                    # just a drag — so this check drives all FOUR kinds
-                    # (drag, keyboard, typed field edit, preset), in this
-                    # order, on the SAME page, and reads the caption's
-                    # ACTUAL DISPLAYED TEXT after each one.
-                    base_url = harness.base_url()
-                    before = _quiet_hours_on_disk()
-                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-                    recorded = {}
-                    try:
-                        page = context.new_page()
-                        _login(page, base_url)
-                        for lang in ("en", "fr"):
-                            context.add_cookies([{
-                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
-                                "url": base_url}])
-                            # A KNOWN, DETERMINISTIC STARTING WINDOW,
-                            # reset EVERY language pass for the identical
-                            # reason 27-02-PLAN.md Task 4's own agreement
-                            # check resets inside its loop: auto-save
-                            # means the second language pass would
-                            # otherwise start from whatever the FIRST
-                            # pass's own preset left on disk.
-                            _set_window(page, base_url, "08:00", "23:00")
-
-                            # THE REFERENCE SHAPE — captured from the
-                            # server-rendered page, BEFORE any
-                            # interaction, on THIS language pass.
-                            reference_text = page.locator(
-                                _QUIET_READOUT_SELECTOR).text_content()
-                            reference_shape = _quiet_caption_shape(reference_text)
-                            recorded["%s/reference" % lang] = reference_text
-
-                            def _assert_after(requested, kind):
-                                caption_text = page.locator(
-                                    _QUIET_READOUT_SELECTOR).text_content()
-                                decoded = _quiet_caption_minutes(
-                                    page, "%s/%s" % (lang, kind))
-                                if decoded != requested:
-                                    return (
-                                        "%s/%s: the caption decodes to %r; the interaction "
-                                        "requested %r" % (lang, kind, decoded, requested))
-                                duration_text = _quiet_duration_span_text(
-                                    page, "%s/%s" % (lang, kind))
-                                if not duration_text:
-                                    return (
-                                        "%s/%s: the duration segment is EMPTY after this "
-                                        "interaction — this is the exact regression the "
-                                        "developer reported" % (lang, kind))
-                                expected_duration = _expected_quiet_duration_text(
-                                    page, requested, "%s/%s" % (lang, kind))
-                                if duration_text != expected_duration:
-                                    return (
-                                        "%s/%s: the duration segment reads %r; the wrapped-"
-                                        "difference computation, worded from the page's own "
-                                        "layout.DURATION_ATTRS, expects %r"
-                                        % (lang, kind, duration_text, expected_duration))
-                                shape = _quiet_caption_shape(caption_text)
-                                if shape != reference_shape:
-                                    return (
-                                        "%s/%s: the caption's FORM changed — the server-"
-                                        "rendered reference is %r (shape %r), the live caption "
-                                        "after this interaction is %r (shape %r)"
-                                        % (lang, kind, reference_text, reference_shape,
-                                           caption_text, shape))
-                                return None
-
-                            # 1. DRAG the end handle to nine o'clock,
-                            # which is 18:00 — the same aiming
-                            # `_the_arc_the_handles_and_the_caption_
-                            # agree_after_an_interaction()` above uses.
-                            page.eval_on_selector(
-                                QUIET_DIAL_SEL,
-                                "el => el.scrollIntoView({block: 'center'})")
-                            box = page.evaluate(
-                                "sel => { const r = document.querySelector(sel)"
-                                "  .getBoundingClientRect();"
-                                "  return [r.left + r.width / 2, r.top + r.height / 2,"
-                                "          r.width, r.height]; }", QUIET_DIAL_SEL)
-                            grip = page.evaluate(
-                                "sel => { const r = document.querySelector(sel)"
-                                "  .getBoundingClientRect();"
-                                "  return [r.left + r.width / 2, r.top + r.height / 2]; }",
-                                _handle_sel("quiet_hours_end"))
-                            page.mouse.move(grip[0], grip[1])
-                            page.mouse.down()
-                            if not page.evaluate(
-                                    "sel => document.activeElement"
-                                    "  === document.querySelector(sel)",
-                                    _handle_sel("quiet_hours_end")):
-                                page.mouse.up()
-                                return False, (
-                                    "%s: a pointer-down at the end handle's own centre did not "
-                                    "reach the steering script" % lang)
-                            page.mouse.move(box[0] - box[2] / 2 + 8, box[1], steps=8)
-                            page.mouse.up()
-                            requested_drag = (8 * 60, 18 * 60)
-                            problem = _assert_after(requested_drag, "drag")
-                            if problem:
-                                return False, problem
-
-                            # 2. KEYBOARD: one ArrowRight on the START
-                            # handle — QUIET_DIAL_HANDLE_STEP is 15
-                            # minutes.
-                            _operate_with_keyboard(
-                                page, _handle_sel("quiet_hours_start"), ["ArrowRight"])
-                            requested_keyboard = (8 * 60 + 15, 18 * 60)
-                            problem = _assert_after(requested_keyboard, "keyboard step")
-                            if problem:
-                                return False, problem
-
-                            # 3. TYPED FIELD EDIT: the `.fill()` shape,
-                            # committed the same way `_set_window()`
-                            # commits each field.
-                            page.fill('input[name="quiet_hours_end"]', "19:00")
-                            _commit_field(page, 'input[name="quiet_hours_end"]')
-                            requested_typed = (8 * 60 + 15, 19 * 60)
-                            problem = _assert_after(requested_typed, "typed field edit")
-                            if problem:
-                                return False, problem
-
-                            # 4. PRESET CLICK — a silent script write
-                            # with no event of its own, and the ONE
-                            # interaction kind here that crosses
-                            # midnight (23:00 -> 07:00), so the wrapped-
-                            # difference duration computation is
-                            # genuinely exercised, not merely stated.
-                            page.locator('[data-preset-start="23:00"]').click()
-                            requested_preset = (23 * 60, 7 * 60)
-                            problem = _assert_after(requested_preset, "preset click")
-                            if problem:
-                                return False, problem
-
-                        _set_window(page, base_url, before[0], before[1])
-                        if _quiet_hours_on_disk() != before:
-                            return False, (
-                                "this check left the window at %r; it started at %r"
-                                % (_quiet_hours_on_disk(), before))
-                        _ = recorded
-                        return True, ""
-                    finally:
-                        try:
-                            _set_window(page, base_url, before[0], before[1])
-                        except Exception:
-                            pass
-                        context.close()
-                check(
-                    "the dial caption keeps the SAME FORM the server emits at load after EACH "
-                    "of a drag, a keyboard step, a typed field edit and a preset click (CFG-73 "
-                    "Bug A, 28-03-PLAN.md Task 3): after every one, the caption's two \"HH:MM\" "
-                    "tokens decode to what the interaction requested, its duration segment is "
-                    "NON-EMPTY and equals the wrapped-difference computation worded from the "
-                    "page's own layout.DURATION_ATTRS (never a hardcoded unit literal), and the "
-                    "whole caption's structural shape (separators, spacing, token order) "
-                    "matches the server-rendered reference captured before any interaction — in "
-                    "BOTH shipped languages, with the preset step crossing midnight",
-                    _the_dial_caption_keeps_its_form_after_every_interaction_kind)
-
-                def _the_dial_meets_its_floors_at_360px_in_both_themes():
-                    base_url = harness.base_url()
-                    before = _quiet_hours_on_disk()
-                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-                    recorded = {}
-                    try:
-                        page = context.new_page()
-                        _login(page, base_url)
-
-                        # 1. THE HIT TARGETS, IN THIS CONTROL'S OWN
-                        # CONTAINER. A class-level measurement is worth
-                        # nothing here: 25-02 measured `.copy-btn`'s
-                        # declared 44x44 at a real 34x26 because its
-                        # neighbours covered the ::before that synthesises
-                        # it. Two windows: ends far apart (the control)
-                        # and ends close together (the real test).
-                        # WHY "CLOSE" IS FOUR HOURS AND NOT FIFTEEN
-                        # MINUTES, stated rather than tuned: two 44px
-                        # targets on ONE ring cannot both clear the floor
-                        # at every separation, and that is geometry, not
-                        # a defect to fix. Each target is a 46px box, so
-                        # neither may intrude within 22px of the other's
-                        # centre — which needs about 45px between the two
-                        # centres on one axis, and in the worst (45°)
-                        # orientation that is 45*sqrt(2) of chord. On
-                        # this 176px ring (radius 78) that is about 3h12;
-                        # on the 128px ring this control started as it
-                        # was about 4h49, which is what moved the size.
-                        # Four hours is inside the reachable band with
-                        # room to spare and is a window a person really
-                        # sets. The genuinely overlapping case is
-                        # measured below, and answered by a decision.
-                        for label, (start, end) in (("far", ("23:00", "07:00")),
-                                                    ("close", ("23:00", "03:00"))):
-                            _set_window(page, base_url, start, end)
-                            for field in ("quiet_hours_start", "quiet_hours_end"):
-                                seen = _assert_hit_target(
-                                    page, _handle_sel(field),
-                                    "the %s handle with the window's ends %s apart"
-                                    % (field, label))
-                                recorded["%s/%s" % (label, field)] = (
-                                    seen["visual"], seen["hit"], seen["reach"])
-
-                        # AND THE OVERLAP CASE, RECORDED RATHER THAN
-                        # ASSERTED AWAY. There is deliberately no minimum
-                        # separation in the VALUE — a zero-length window
-                        # is a real, defined state that
-                        # server.device_config's own arithmetic calls
-                        # never-active, and refusing it here would make a
-                        # state reachable by typing unreachable by
-                        # dragging. What happens instead is a decision:
-                        # z-order is DOCUMENT order, the end handle is
-                        # emitted second, so the END handle wins a
-                        # pointer-down in the overlap. That is sufficient
-                        # rather than arbitrary — moving either end
-                        # separates the pair, and the start handle stays
-                        # its own tab stop whatever it is painted under.
-                        _set_window(page, base_url, "23:00", "23:15")
-                        overlap = _assert_hit_target(
-                            page, _handle_sel("quiet_hours_end"),
-                            "the end handle with the two ends 15 minutes apart")
-                        recorded["overlap/quiet_hours_end"] = (
-                            overlap["visual"], overlap["hit"])
-                        try:
-                            _hit_area(page, _handle_sel("quiet_hours_start"))
-                            recorded["overlap/quiet_hours_start"] = "reachable"
-                        except AssertionError as exc:
-                            recorded["overlap/quiet_hours_start"] = "occluded"
-                            if "hit-tests to" not in str(exc):
-                                return False, (
-                                    "the start handle failed the overlap measurement for a "
-                                    "reason other than the stated z-order: %s" % exc)
-                        focusable = page.evaluate(
-                            "sel => { const el = document.querySelector(sel);"
-                            "  el.focus(); return document.activeElement === el; }",
-                            _handle_sel("quiet_hours_start"))
-                        if not focusable:
-                            return False, (
-                                "with the two ends overlapping, the start handle cannot take "
-                                "focus — the stated escape from an overlap is that it stays "
-                                "its own tab stop whatever it is painted under")
-
-                        # 2. THE GEOMETRY, MEASURED WITH
-                        # getBoundingClientRect AND NOT clientWidth.
-                        # clientWidth rounds to an integer and can fail a
-                        # correct drawing; this control's own card carries
-                        # no scale, but the rule is the file's.
-                        _set_window(page, base_url, "23:00", "07:00")
-                        geometry = page.evaluate(
-                            "args => {"
-                            "  const dial = document.querySelector(args.dial);"
-                            "  const svg = dial.querySelector('svg');"
-                            "  const parent = dial.parentElement;"
-                            "  const pr = parent.getBoundingClientRect();"
-                            "  const ps = getComputedStyle(parent);"
-                            "  const dr = dial.getBoundingClientRect();"
-                            "  const readout = document.querySelector(args.readout);"
-                            "  const rs = getComputedStyle(readout);"
-                            "  const range = document.createRange();"
-                            "  range.selectNodeContents(readout);"
-                            "  const tr = range.getBoundingClientRect();"
-                            "  const rr = readout.getBoundingClientRect();"
-                            "  const hours = {};"
-                            "  for (const h of ['0', '6', '12', '18']) {"
-                            "    const el = document.querySelector("
-                            "      '.quiet-dial__hour--' + h);"
-                            "    if (!el) { hours[h] = null; continue; }"
-                            "    const b = el.getBoundingClientRect();"
-                            "    hours[h] = [b.left + b.width / 2 - (dr.left + dr.width / 2),"
-                            "                b.top + b.height / 2 - (dr.top + dr.height / 2)];"
-                            "  }"
-                            "  return {"
-                            "    dial: [dr.width, dr.height],"
-                            "    svgDisplay: getComputedStyle(svg).display,"
-                            "    dialCentre: dr.left + dr.width / 2,"
-                            "    contentCentre: pr.left + parseFloat(ps.paddingLeft)"
-                            "      + (pr.width - parseFloat(ps.paddingLeft)"
-                            "         - parseFloat(ps.paddingRight)) / 2,"
-                            "    readoutMargins: [rs.marginTop, rs.marginBottom],"
-                            "    readoutTextCentre: tr.left + tr.width / 2,"
-                            "    readoutBoxCentre: rr.left + rr.width / 2,"
-                            "    hours: hours};"
-                            "}", {"dial": QUIET_DIAL_SEL, "readout": QUIET_READOUT_SEL})
-                        recorded["geometry"] = geometry
-                        width, height = geometry["dial"]
-                        drawn = config_page.QUIET_DIAL_SIZE
-                        if abs(width - drawn) > 0.5 or abs(height - drawn) > 0.5:
-                            return False, (
-                                "the dial measures %.2fx%.2f; its emitter draws a %dpx canvas "
-                                "and the handles are thrown out to a radius derived from it"
-                                % (width, height, drawn))
-                        if geometry["svgDisplay"] != "block":
-                            return False, (
-                                "the ring computes display:%s — a replaced-inline <svg> sits on "
-                                "a text baseline and leaves a descender gap under a drawing "
-                                "that has already ended" % geometry["svgDisplay"])
-                        if abs(geometry["dialCentre"] - geometry["contentCentre"]) > 2:
-                            return False, (
-                                "the dial's centre is %.2f and its card's content centre is "
-                                "%.2f — a drawing captioned by a centred readout has to be "
-                                "centred itself"
-                                % (geometry["dialCentre"], geometry["contentCentre"]))
-                        if geometry["readoutMargins"][0] != "0px":
-                            return False, (
-                                "the readout computes margin-top:%s — a <p>'s own 1em margin "
-                                "opens a gap between a picture and its caption"
-                                % geometry["readoutMargins"][0])
-                        if geometry["readoutMargins"][1] == "0px":
-                            return False, (
-                                "the readout computes no bottom margin, so it sits hard against "
-                                "the preset row under it")
-                        if abs(geometry["readoutTextCentre"]
-                               - geometry["readoutBoxCentre"]) > 1:
-                            return False, (
-                                "the readout's text is not centred in its own box (%.2f against "
-                                "%.2f) — a left-aligned caption under a centred drawing reads "
-                                "as a stray sentence"
-                                % (geometry["readoutTextCentre"],
-                                   geometry["readoutBoxCentre"]))
-
-                        # 3. THE FOUR ANCHOR HOURS ARE WHERE THEY CLAIM TO
-                        # BE. Each is placed by its own edge and then
-                        # pulled back by half of itself; dropping either
-                        # half puts a numeral off its own axis, which no
-                        # string assertion can see.
-                        for hour, (want_dx, want_dy) in (
-                                ("0", (0, -1)), ("6", (1, 0)),
-                                ("12", (0, 1)), ("18", (-1, 0))):
-                            offset = geometry["hours"][hour]
-                            if offset is None:
-                                return False, "the %s label is missing from the dial" % hour
-                            dx, dy = offset
-                            along = dx if want_dx else dy
-                            across = dy if want_dx else dx
-                            if (want_dx or want_dy) > 0 and along < 20:
-                                return False, (
-                                    "the %s label sits %.2f along its own axis from the dial's "
-                                    "centre; it belongs on the far side" % (hour, along))
-                            if (want_dx or want_dy) < 0 and along > -20:
-                                return False, (
-                                    "the %s label sits %.2f along its own axis from the dial's "
-                                    "centre; it belongs on the far side" % (hour, along))
-                            if abs(across) > 4:
-                                return False, (
-                                    "the %s label is %.2fpx off the axis it is meant to be "
-                                    "centred on — the half-of-itself pull-back is not being "
-                                    "applied" % (hour, across))
-
-                        # 4. NO SIDEWAYS PAGE SCROLL at the narrowest
-                        # supported screen. 24-02's helper, not a second
-                        # convention about what "the page" means.
-                        message = _assert_no_page_overflow(
-                            page, "the quiet dial on /display",
-                            VIEWPORT_MIN_SUPPORTED["width"])
-                        if message:
-                            return False, message
-                        recorded["page"] = page.evaluate(
-                            "() => [document.documentElement.scrollWidth,"
-                            "       document.documentElement.clientWidth]")
-
-                        # 5. THE PAINT, IN BOTH THEMES, AS A FLOOR AND NOT
-                        # ONLY A CEILING. "Not the SVG default" passes
-                        # against a ring where the day and the window are
-                        # the same flat grey; the floor is that they are
-                        # two different paints and that each differs
-                        # between the themes.
-                        samples = {
-                            "day": (".quiet-dial__day", "stroke"),
-                            "arc": (".quiet-dial__arc", "stroke"),
-                            "hour": (".quiet-dial__hour", "color"),
-                            "grip": (".quiet-dial__handle", "background-color"),
-                            "grip-edge": (".quiet-dial__handle", "border-top-color"),
-                        }
-                        paints = []
-                        for measured in _in_both_themes(page):
-                            if not page.evaluate(_SETTLE_DIAL):
-                                return False, (
-                                    "%s: nothing matched the settle probe, so nothing below "
-                                    "measured anything" % (measured["theme"],))
-                            sample = {}
-                            for name, (selector, prop) in samples.items():
-                                seen = _computed_paint(page, selector, props=(prop,))
-                                if prop in seen["svg_default"]:
-                                    return False, (
-                                        "%s: the %s shape's %s is %r, indistinguishable from "
-                                        "the SVG initial value — it takes no colour from the "
-                                        "stylesheet at all"
-                                        % (measured["theme"], name, prop, seen[prop]))
-                                sample[name] = seen[prop]
-                            if sample["day"] == sample["arc"]:
-                                return False, (
-                                    "%s: the whole day and the quiet window paint identically "
-                                    "(%r) — the ring shows nothing"
-                                    % (measured["theme"], sample["arc"]))
-                            if sample["arc"] == sample["hour"]:
-                                return False, (
-                                    "%s: the quiet window and the hour labels that orient it "
-                                    "paint identically (%r) — the labels are context and must "
-                                    "not compete with the reading"
-                                    % (measured["theme"], sample["arc"]))
-                            if sample["grip"] == sample["grip-edge"]:
-                                return False, (
-                                    "%s: the handle's fill and its edge are the same colour "
-                                    "(%r), so the grip is a flat dot with no edge"
-                                    % (measured["theme"], sample["grip"]))
-                            paints.append((measured["theme"], sample))
-                        if len(paints) != 2:
-                            return False, (
-                                "expected a measurement in each theme, got %d" % len(paints))
-                        light, dark = paints[0][1], paints[1][1]
-                        for name in sorted(samples):
-                            if light[name] == dark[name]:
-                                return False, (
-                                    "the %s paint is %r in BOTH themes — it is not coming from "
-                                    "a token that inverts, so one of the two themes is wrong"
-                                    % (name, light[name]))
-                        recorded["paints"] = paints
-                        _set_window(page, base_url, before[0], before[1])
-                        if _quiet_hours_on_disk() != before:
-                            return False, (
-                                "this check left the window at %r; it started at %r"
-                                % (_quiet_hours_on_disk(), before))
-                        return True, ""
-                    finally:
-                        # Best effort only — see the neighbouring check.
-                        try:
-                            _set_window(page, base_url, before[0], before[1])
-                        except Exception:
-                            pass
-                        context.close()
-                check(
-                    "the quiet dial meets its floors at 360px — BOTH handles clear the 44px "
-                    "touch target by real hit-testing in THEIR OWN container with the window's "
-                    "ends far apart AND close together, with the overlapping case measured and "
-                    "its document-order z-rule confirmed (the end handle grabbable, the start "
-                    "handle still focusable); the drawing measures its emitter's own declared size by "
-                    "getBoundingClientRect rather than clientWidth, computes display:block, is "
-                    "centred in its card and captioned by a centred readout with no top margin; "
-                    "the four anchor hours each sit on their own axis; the page does not scroll "
-                    "sideways; and the paint is a FLOOR not a ceiling — the day and the window "
-                    "are different colours, the labels that orient it are weaker than it is, the grip "
-                    "has an edge, and every one of the five "
-                    "differs between the two themes (CFG-48/CFG-52, 25-04-PLAN.md Task 4)",
-                    _the_dial_meets_its_floors_at_360px_in_both_themes)
 
                 # ----------------------------------------------------------
                 # 28-02-PLAN.md Task 2 (CFG-73, Bug B): THE check the bug's
@@ -2072,7 +2145,13 @@ def main():
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
     print("browser-ux-quiet-wake: %d/%d checks pass" % (passed, total))
-    return 0 if (passed == total and total == EXPECTED_CHECK_COUNT) else 1
+    # 33-20-PLAN.md Task 1: this legacy runner now covers only the four
+    # checks not yet ported (Task 2 finishes the migration and deletes
+    # this function), so the count it checks against is no longer the
+    # file's own EXPECTED_CHECK_COUNT (gone, along with the checks it
+    # counted, per 33-MIGRATION-RULES.md section 1's disk-derived legacy
+    # detection).
+    return 0 if passed == total else 1
 
 
 if __name__ == "__main__":
