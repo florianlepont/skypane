@@ -53,15 +53,39 @@ from pathlib import Path
 import pytest
 
 import companion.i18n as i18n
+import companion.i18n_fr as i18n_fr
+import companion.layout as layout
 import companion.prefs as prefs
 import companion.test_config_page_helpers as cp
 from companion import app as companion_app
-from companion import frame_state
+from companion import battery, frame_state
 from companion.layout import escape_html
 from companion.pages import config_page
-from companion_app_server import get, http_request, login
+from companion_app_server import get, http_request, login, served_asset, served_stylesheet
+from companion_markup import css_rules, declarations_for
 from server import device_config, history_db
 from server.plane import calendar_rules
+
+
+@pytest.fixture(scope="module")
+def app(module_app_server_factory):
+    """A read-only companion/app.py server this module's checks fetch the
+    served stylesheet/JS assets from, instead of opening them from disk
+    (TST-12)."""
+    return module_app_server_factory()
+
+
+@pytest.fixture(scope="module")
+def served_css(app):
+    """The stylesheet companion/app.py actually serves."""
+    return served_stylesheet(app)
+
+
+@pytest.fixture(scope="module")
+def value_controls_js(app):
+    """companion/static/value-controls.js's served text, fetched over
+    HTTP instead of opened from disk (TST-12)."""
+    return served_asset(app, "/static/value-controls.js")
 
 
 # ======================================================================
@@ -816,3 +840,752 @@ def test_the_current_badge_reads_a_server_rendered_translated_attribute():
         prefs.set_request_prefs(lang="en")
     assert ('%s="Actuel"' % attr) in fr_rendered
     assert ('%s="Current"' % attr) not in fr_rendered
+
+
+# ------------------------------------------------------------------
+# 30-07-PLAN.md Task 3 (T12/C1): structural CSS checks over the SERVED
+# stylesheet (33-FOLLOWUPS.md F-01: declarations_for()/css_rules(),
+# never a raw index/substring scan).
+# ------------------------------------------------------------------
+
+def test_segmented_control_resets_label_margin_and_panel_legend_retired(served_css):
+    """the rule-kind segmented control (config_page.py's 'Match by' <div class="theme-form">,
+    unaffected by CFG-85) keeps its own global label-margin reset and 28px row height (T12), and
+    .frame-colours__panel-legend is confirmed retired outright rather than repointed - the usage
+    panels and their <legend> elements are gone, the rule-add form's own segmented control never
+    had a <legend> to begin with, and this genuinely NARROWS the serif boundary's own documented
+    non-serif-exception set by one (C1, 30-07-PLAN.md Task 3)"""
+    decls = declarations_for(served_css, '.theme-form input[type="radio"] + label')
+    assert decls.get("margin-bottom") == "0", (
+        "'.theme-form input[type=\"radio\"] + label' must reset the global label rule's own "
+        "margin-bottom (T12), got %r" % (decls,))
+    assert decls.get("height") == "28px", (
+        "'.theme-form input[type=\"radio\"] + label' must keep its own 28px row height (T12), "
+        "got %r" % (decls,))
+
+    for rule in css_rules(served_css):
+        for selector in rule.selectors:
+            assert ".frame-colours__panel-legend" not in selector, (
+                "expected .frame-colours__panel-legend to be retired from style.css entirely - "
+                "its own usage panels and <legend> elements no longer render anywhere on the "
+                "page; found selector %r" % (selector,))
+
+
+def test_the_rules_add_form_is_one_left_aligned_centre_aligned_row(served_css):
+    """the rules add-form renders as one left-aligned, centre-aligned flex ROW (X6/C4) - the
+    flex-direction: column it never reset, not an auto margin, is what pushed 'Add rule' to the
+    far right (22-10-PLAN.md Task 1)"""
+    decls = declarations_for(served_css, ".rule-add-form--inline")
+    assert decls.get("flex-direction") == "row", (
+        "'.rule-add-form--inline' must reset .rule-add-form's own flex-direction: column, got %r"
+        % (decls,))
+    assert decls.get("align-items") == "center", (
+        "'.rule-add-form--inline' must centre-align its four separate controls (C4), got %r"
+        % (decls,))
+    joined = " ".join(decls.values())
+    assert "flex-end" not in joined, "'.rule-add-form--inline' must not keep the flex-end cross-axis alignment"
+    assert decls.get("margin-left") != "auto", "'.rule-add-form--inline' must declare no auto left margin"
+
+
+# --- 22-10-PLAN.md Task 2 (B9, B14, B15, B7/C3) -------------------
+
+_TASK2_BASE_CTX = {
+    "device_config": {
+        "display_enabled": True, "quiet_hours_enabled": True,
+        "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
+    },
+    "poll_cooldown_remaining": 0,
+}
+
+
+def test_each_time_input_carries_the_site_language_and_a_visible_24h_sibling():
+    """each <input type="time"> carries the site language and a visible sibling showing the
+    normalised 24h value (never a placeholder, never a title), in both languages (B14,
+    22-10-PLAN.md Task 2)"""
+    rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+    for name, value in (("quiet_hours_start", "22:00"), ("quiet_hours_end", "06:00")):
+        needle = '<input type="time" name="%s" value="%s"' % (name, value)
+        assert needle in rendered, "expected %r in the rendered Display page" % (needle,)
+        idx = rendered.index(needle)
+        tail = rendered[idx:idx + 400]
+        assert 'lang="en"' in tail, "%s must carry the site language as lang= (B14)" % name
+        sibling = config_page._normalised_time_html(value)
+        assert sibling in tail, (
+            "%s must be followed by a VISIBLE sibling showing the normalised 24h value (B14)" % name)
+        input_tag = rendered[idx:rendered.index(">", idx)]
+        assert "placeholder=" not in input_tag and "title=" not in input_tag, (
+            "%s must carry neither a placeholder nor a title (B14)" % name)
+
+    prefs.set_request_prefs(lang="fr")
+    try:
+        fr_rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+    finally:
+        prefs.set_request_prefs(lang="en")
+    assert 'lang="fr"' in fr_rendered, "expected a French render to set lang=\"fr\" on its time inputs"
+    assert 'type="time" name="quiet_hours_start" value="22:00" required lang="en"' not in fr_rendered
+
+
+def test_style_css_carries_b9_b15_and_b7_geometry_rules(served_css):
+    """style.css carries B9's zero-basis runway card (with .runway-row still wrapping for its
+    second consumer), B15's content-width left-aligned calendar button with its accent kept, and
+    B7/C3's active-segment hover restore at the register's own 12% accent wash (22-10-PLAN.md
+    Task 2)"""
+    css = served_css
+
+    runway_card = declarations_for(css, ".runway-card")
+    assert runway_card.get("flex") == "1 1 0", ".runway-card must take a zero flex basis (B9)"
+    assert runway_card.get("min-width") == "0", ".runway-card must take no minimum width (B9)"
+    joined = " ".join(runway_card.values())
+    assert "150px" not in joined and "140px" not in joined, (
+        ".runway-card must not keep the 150px basis / 140px floor that wrapped 2 + 1")
+
+    runway_row = declarations_for(css, ".runway-row")
+    assert runway_row.get("flex-wrap") != "nowrap", (
+        ".runway-row must keep flex-wrap: wrap - quiet_hours_group()'s preset row shares this "
+        "class and must still be allowed to wrap")
+
+    b15 = declarations_for(css, '.rule-add-form:not(.rule-add-form--inline) > button[type="submit"]')
+    assert b15.get("align-self") == "flex-start", "the calendar button must opt out of the column's stretch (B15)"
+    assert b15.get("width") == "auto", "the calendar button must declare an automatic width (B15)"
+    joined_b15 = " ".join(b15.values())
+    for banned in ("100%", "block", "flex: 1"):
+        assert banned not in joined_b15, "the calendar button must declare no full-width treatment, found %r" % (banned,)
+
+    b7 = declarations_for(css, ".theme-form .theme-option--active:hover")
+    assert b7.get("background") == "color-mix(in srgb, var(--color-accent) 12%, transparent)", (
+        "expected the register's own 12%% accent wash, not a new percentage, got %r" % (b7,))
+    assert b7.get("color") == "var(--color-accent)", "expected the active segment's accent text to be restored"
+    partner = declarations_for(css, ".theme-form .theme-option:not(.theme-option--active):hover")
+    assert partner, "expected the :not()-scoped non-active hover rule to still exist"
+
+
+# --- 22-10-PLAN.md Task 3 (B8, B17) -------------------------------
+
+def test_send_a_test_lives_inside_the_notifications_card_via_the_form_idiom():
+    """'Send a test' renders inside the Notifications card and reaches its own EMPTY sibling
+    <form> through the cross-DOM form= idiom's fifth consumer - no control renders between two
+    cards, and the form keeps its own action (B8, 22-10-PLAN.md Task 3)"""
+    card = config_page.notifications_group(True, False, False)
+    button = '<button type="submit" form="notifications-test">%s</button>' % escape_html(
+        config_page.NOTIFICATIONS_TEST_BUTTON_TEXT)
+    assert button in card, "expected the test button INSIDE the Notifications card (B8)"
+    assert card.rstrip().endswith("</div>"), "expected the card to still close its own wrapper last"
+
+    section = config_page.notifications_test_section()
+    expected_form = (
+        '<form method="post" action="/settings/notifications/test" '
+        'id="notifications-test" class="notifications-test-form"></form>')
+    assert section == expected_form, (
+        "expected notifications_test_section() to render an EMPTY form carrying the button's "
+        "form= id, got %r" % (section,))
+    assert "<button" not in section, "the sibling form must hold no control of its own (B8)"
+
+    rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DEVICE)
+    assert rendered.count('form="notifications-test"') == 1
+    assert rendered.count('id="notifications-test"') == 1
+    assert "</form><form" in rendered.replace("\n", ""), (
+        "expected the empty test form to render immediately after the settings form, with no "
+        "orphaned control between the two cards (B8)")
+    card_end = rendered.index('id="notifications-test"')
+    assert rendered.index('form="notifications-test"') < card_end, (
+        "expected the button to render BEFORE the empty form, inside its card")
+    assert config_page.NOTIFICATIONS_TEST_ROUTE in rendered
+
+
+def test_the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input(served_css):
+    """the wake-interval field puts its label on its own line above a content-sized input (8ch
+    with a 96px minimum, no height declared so the 44px touch-target floor is untouched) with
+    the unit as a sibling label (B17, 22-10-PLAN.md Task 3)"""
+    rendered = config_page.wake_interval_group(300)
+    label = '<label for="%s">%s</label>' % (
+        config_page.WAKE_INTERVAL_INPUT_ID, escape_html(config_page.i18n.t("Wake interval (seconds)")))
+    assert label in rendered, "expected the label to be its own element above the control (B17)"
+    assert "</label><input" in rendered, "expected the input to be the label's SIBLING, not its child (B17)"
+    unit = (
+        '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
+        % config_page.WAKE_INTERVAL_UNIT_LABEL)
+    assert unit in rendered, "expected the unit as a sibling label, not a placeholder (B17)"
+    input_tag = rendered[rendered.index('<input type="number"'):]
+    input_tag = input_tag[:input_tag.index(">") + 1]
+    assert 'placeholder="%s"' % config_page.WAKE_INTERVAL_PLACEHOLDER_TEXT in input_tag
+    assert "title=" not in input_tag, "the unit must not be carried as a title on the control (B17)"
+
+    decls = declarations_for(served_css, '.config-form input[name="wake_interval_s"]')
+    assert decls.get("width") == "8ch", "expected a character-based width (B17)"
+    assert decls.get("min-width") == "96px", "expected a pixel minimum (B17)"
+    assert "height" not in decls, (
+        "expected NO height - the global input/select 44px min-height is the touch-target "
+        "register's 'kept' entry for <input type=\"number\">")
+
+
+def test_the_calendar_status_detail_has_a_singular_form():
+    """the Calendar status detail has a singular form, so a feed holding exactly one flight
+    never reads '1 upcoming flights', in both languages (D-06/B16/CFG-29, 22-10-PLAN.md Task 3 -
+    found by 22-08, landed here because this plan owns config_page.py)"""
+    synced = "2026-09-13T09:00:00+00:00"
+    now = "2026-09-13T09:05:00+00:00"
+
+    def detail_for(count):
+        row_body_html, _disconnect_form_html = config_page._calendar_connection_html(
+            True, False, synced, None, now, count)
+        return row_body_html
+
+    one = detail_for(1)
+    assert "1 upcoming flights" not in one, "expected a singular form for exactly one upcoming flight"
+    assert escape_html(config_page.CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE.split(" ·")[0]) in one
+    for count in (0, 2, 7):
+        many = detail_for(count)
+        assert "%d upcoming flights" % count in many, "expected the plural form at a count of %d" % count
+
+    prefs.set_request_prefs(lang="fr")
+    try:
+        fr_one = detail_for(1)
+        fr_many = detail_for(3)
+    finally:
+        prefs.set_request_prefs(lang="en")
+    assert "1 vol à venir" in fr_one, "expected the French singular form"
+    assert "3 vols à venir" in fr_many, "expected the French plural form"
+
+
+# --- 23-06-PLAN.md Task 2 (D1/CFG-35) -----------------------------
+
+def _display_ctx(tmp_path, now=None):
+    ctx = {
+        "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True,
+                          "wake_interval_s": 900, "display_enabled": True},
+        "state_dir": str(tmp_path), "poll_cooldown_remaining": 0,
+        "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+    }
+    if now is not None:
+        ctx["now"] = now
+    return ctx
+
+
+def test_the_display_scope_refreshes_itself_from_the_same_builder(tmp_path):
+    """the Display scope renders layout.freshness_line_html()'s own output verbatim with
+    exactly one data-loaded-at and one data-refresh-pill, declares its own swap regions, carries
+    its page key on <body>, and renders no freshness marker at all when the caller has no render
+    instant (D1/CFG-35, 23-06-PLAN.md Task 2)"""
+    now = "2026-08-27T12:00:00+00:00"
+    rendered = config_page.render(_display_ctx(tmp_path, now), scope=config_page.SCOPE_DISPLAY)
+    built = layout.freshness_line_html(now)
+    assert built in rendered, (
+        "expected the Display scope's freshness line to be layout.freshness_line_html()'s own "
+        "output verbatim")
+    for attr, want in (("data-loaded-at", 1), ("data-refresh-pill", 1)):
+        assert rendered.count(attr) == want, (
+            "expected exactly %d %s on the Display scope, got %d" % (want, attr, rendered.count(attr)))
+    assert layout.REFRESH_PAGE_DISPLAY in layout.REFRESH_SWAP_SELECTORS_BY_PAGE, (
+        "expected the Display scope to declare its own swap regions")
+    shell = layout.page_shell(title="Display", active=layout.REFRESH_PAGE_DISPLAY, body=rendered)
+    assert ('%s="%s"' % (layout.REFRESH_PAGE_ATTR, layout.REFRESH_PAGE_DISPLAY)) in shell, (
+        "expected the Display document to carry its own page key on <body>")
+    bare = config_page.render(_display_ctx(tmp_path), scope=config_page.SCOPE_DISPLAY)
+    assert "data-loaded-at" not in bare, (
+        "expected no freshness marker at all when the caller has no render instant")
+
+
+def test_the_display_form_is_untouched_by_the_refresh_loop(tmp_path):
+    """no Display swap region names a form, a dirty marker or a save control, and the settings
+    form, its cross-DOM form= attachment and the fallback Save all still render with the
+    freshness line above them in the page header - a swap landing on this page's form is the P0
+    Phase 22 existed to fix (B1/D1, 23-06-PLAN.md Task 2)"""
+    now = "2026-08-27T12:00:00+00:00"
+    rendered = config_page.render(_display_ctx(tmp_path, now), scope=config_page.SCOPE_DISPLAY)
+    for selector in layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_DISPLAY]:
+        for banned in ("form", config_page.SETTINGS_FORM_ID, "dirty", "save"):
+            assert banned not in selector, (
+                "the Display scope declares the swap region %r, which names %r" % (selector, banned))
+    assert (
+        ('<form class="config-form" method="post" id="%s"' % config_page.SETTINGS_FORM_ID) in rendered
+        or ('id="%s"' % config_page.SETTINGS_FORM_ID) in rendered
+    ), "expected the settings form to still render on the Display scope"
+    assert ('form="%s"' % config_page.SETTINGS_FORM_ID) in rendered, (
+        "expected the cross-DOM form= attachment B1 depends on to survive")
+    assert config_page.STATIC_SAVE_FALLBACK_ATTR in rendered, (
+        "expected the fallback Save button to stay reachable")
+    header_at = rendered.index("page-header__freshness")
+    form_at = rendered.index('id="%s"' % config_page.SETTINGS_FORM_ID)
+    assert header_at < form_at, (
+        "expected the freshness line in the page header, above the settings form")
+
+
+# ------------------------------------------------------------------
+# 25-05-PLAN.md Task 1 (CFG-49): D18's two gauges, server-rendered.
+# ------------------------------------------------------------------
+
+def _battery_series(*pairs):
+    return [{"ts": ts, "battery_mv": mv, "reading_count": 3} for ts, mv in pairs]
+
+
+_FALLING = _battery_series(("2026-09-01", 4100), ("2026-09-04", 3800), ("2026-09-07", 3600))
+_FALLING_ONE_DAY_LEFT = _battery_series(("2026-09-05", 3600), ("2026-09-07", 3400))
+_RISING = _battery_series(("2026-09-01", 3400), ("2026-09-04", 3700), ("2026-09-07", 4100))
+_ONE_DAY_SPAN = _battery_series(("2026-09-06", 4100), ("2026-09-07", 3900))
+_EMPTY = []
+
+
+def test_the_two_gauges_claim_exactly_what_the_data_supports():
+    """the freshness gauge states a BOUND ("at most", rounded UP) naming the same whole minutes
+    the interval implies at the band's minimum, its maximum and in between; the battery gauge
+    prints an absolute figure ONLY when companion/battery.py's own estimate supports one -
+    recomputed from the estimator, singular and plural both - and renders the NAMED "not enough
+    history yet" sentence with no number at all for a rising, a one-day and an empty series;
+    neither gauge renders without a usable interval, D-07's echo is honoured only where it is
+    usable, and the screen-off cadence is stated (CFG-49, 25-05-PLAN.md Task 1)"""
+    min_s = device_config.WAKE_INTERVAL_MIN_S
+    max_s = device_config.WAKE_INTERVAL_MAX_S
+
+    bound_words = config_page.WAKE_FRESHNESS_TEXT.split(layout.VALUE_CONTROL_TEXT_TOKEN)[0].strip()
+    assert "at most" in bound_words, (
+        "the freshness wording %r does not say 'at most' before its quantity"
+        % config_page.WAKE_FRESHNESS_TEXT)
+    for seconds, minutes in ((min_s, 1), (max_s, 60), (600, 10), (90, 2), (1800, 30)):
+        said = config_page.wake_freshness_text(seconds)
+        assert bound_words in said, "wake_freshness_text(%d) = %r drops the bound" % (seconds, said)
+        numbers = re.findall(r"\d+", said)
+        assert numbers == [str(minutes)], (
+            "wake_freshness_text(%d) names %r; %d seconds is %d whole minutes (rounded UP)"
+            % (seconds, numbers, seconds, minutes))
+
+    estimate = battery.battery_life_estimate(_FALLING, 600, 600)
+    days = estimate["days_remaining"]
+    assert estimate["trend"] == battery.LIFE_TREND_FALLING and isinstance(days, int), (
+        "the falling fixture no longer produces a figure (%r)" % (estimate,))
+    said = config_page.wake_battery_observed_text(600, _FALLING)
+    assert str(days) in re.findall(r"\d+", said), (
+        "the battery sentence %r does not carry battery_life_estimate()'s own figure (%d days)"
+        % (said, days))
+    assert "≈" in said, (
+        "the battery sentence %r drops the ≈ honesty marker" % said)
+
+    one_day = battery.battery_life_estimate(_FALLING_ONE_DAY_LEFT, 600, 600)
+    assert one_day["days_remaining"] == 1, (
+        "the one-day fixture reports %r days" % (one_day["days_remaining"],))
+    singular = config_page.wake_battery_observed_text(600, _FALLING_ONE_DAY_LEFT)
+    assert singular == i18n.t(config_page.WAKE_BATTERY_DAY_TEXT).replace(
+        layout.VALUE_CONTROL_TEXT_TOKEN, "1"), (
+        "a one-day estimate renders %r rather than the singular wording" % singular)
+
+    unknown = i18n.t(config_page.WAKE_BATTERY_UNKNOWN_TEXT)
+    for name, rows in (("rising", _RISING), ("a one-day span", _ONE_DAY_SPAN), ("no history", _EMPTY)):
+        said = config_page.wake_battery_observed_text(600, rows)
+        assert said == unknown, "with %s the battery sentence reads %r" % (name, said)
+        assert not re.search(r"\d", said), "with %s the battery sentence carries a number (%r)" % (name, said)
+
+    for absent in (None, 0, True, "", "300"):
+        assert config_page.wake_gauge_interval_s(absent) is None, (
+            "wake_gauge_interval_s(%r) resolved to an interval" % (absent,))
+    assert config_page.wake_gauges_html(None, _FALLING) == "", "the gauges rendered with no interval to describe"
+    for out_of_band in (min_s - 1, max_s + 1):
+        assert config_page.wake_gauge_interval_s(out_of_band) is None, (
+            "wake_gauge_interval_s(%d) accepted a value outside [%d, %d]" % (out_of_band, min_s, max_s))
+
+    assert config_page.wake_gauge_interval_s(600, {"wake_interval_s": "900"}) == 900, (
+        "a rejected save's echoed 900 is not what the gauges describe")
+    for junk in ("7", "", "abc", "99999", "60.5", None):
+        assert config_page.wake_gauge_interval_s(600, {"wake_interval_s": junk}) is None, (
+            "an echoed %r produced a gauge subject" % (junk,))
+
+    off = config_page.wake_screen_off_text()
+    assert layout.duration_text(device_config.DISPLAY_OFF_SLEEP_S) in off, (
+        "the screen-off clause %r does not name device_config.DISPLAY_OFF_SLEEP_S" % (off,))
+    card = config_page.wake_gauges_html(600, _FALLING)
+    assert escape_html(off) in card, (
+        "the rendered gauges do not carry the screen-off clause")
+
+
+def test_wake_battery_text_reads_the_estimate_through_the_qualified_battery_module(monkeypatch):
+    """no days-remaining arithmetic exists anywhere under companion/pages/ - the estimate is
+    called QUALIFIED off companion.battery, and every quantity template this card adds carries
+    the "#" mark rather than a format artefact and has a French sibling (CFG-49/D-27,
+    25-05-PLAN.md Task 1, quick 260923-gaf)
+
+    Rewritten from the retired `_python_identifiers()` tokenize-over-source scan and the
+    `ast.parse()` unqualified-import check (both banned outright by guard G2) into a behavioural
+    proof: `config_page` never binds `battery_life_estimate` into its own namespace (a `not
+    hasattr()` check - the same technique rubric S recommends for "retired symbol gone" - proving
+    no unqualified `from companion.battery import battery_life_estimate` ever ran), and patching
+    `companion.battery.battery_life_estimate` itself changes what
+    `wake_battery_observed_text()` reports, byte for byte - which only holds if `config_page`
+    reads the function off the QUALIFIED module object on every call rather than a name bound
+    once at import time.
+    """
+    assert not hasattr(config_page, "battery_life_estimate"), (
+        "config_page.py must never bind battery_life_estimate() into its own namespace - the "
+        "estimate has exactly one home (companion.battery), and an unqualified import would "
+        "create a second, independently-driftable copy that patching the module alone could "
+        "not catch")
+
+    sentinel = {"trend": battery.LIFE_TREND_FALLING, "days_remaining": 4321}
+
+    def fake_estimate(rows, wake_interval_s, screen_off_sleep_s):
+        return sentinel
+
+    monkeypatch.setattr(battery, "battery_life_estimate", fake_estimate)
+    said = config_page.wake_battery_observed_text(600, _FALLING)
+    assert "4321" in said, (
+        "expected wake_battery_observed_text() to report the PATCHED estimate's own figure - if "
+        "config_page held its own bound copy of battery_life_estimate, patching the module "
+        "would have no effect here")
+
+    for template in (config_page.WAKE_FRESHNESS_TEXT, config_page.WAKE_BATTERY_DAY_TEXT,
+                     config_page.WAKE_BATTERY_DAYS_TEXT, config_page.WAKE_BATTERY_INSTEAD_TEXT):
+        assert layout.VALUE_CONTROL_TEXT_TOKEN in template, (
+            "the template %r carries no %r" % (template, layout.VALUE_CONTROL_TEXT_TOKEN))
+        for artefact in ("%s", "{}"):
+            assert artefact not in template, (
+                "the template %r carries %r, a format artefact companion/test_i18n.py's Check "
+                "3 scans every French render for" % (template, artefact))
+        assert template in i18n_fr.CATALOG, "the template %r has no French sibling" % template
+
+
+# ------------------------------------------------------------------
+# 27-06-PLAN.md Task 3 (CFG-67): the three texts, cut against
+# 27-01-SUMMARY.md's own recorded baselines (measured 360px, rendered,
+# both languages).
+# ------------------------------------------------------------------
+
+_DAYS_FIGURE_PATTERN = re.compile(r"≈\s*\d+\s*(?:day|days|jour|jours)\b")
+
+
+def _html_region_text(fragment):
+    stripped = re.sub(r"<[^>]*>", "", fragment)
+    return re.sub(r"\s+", " ", html.unescape(stripped)).strip()
+
+
+def test_wake_interval_caption_is_shortened_in_both_languages():
+    """the wake-interval caption (#wake-interval-caption) is materially shorter than
+    27-01-SUMMARY.md's recorded 220-char baseline in BOTH languages - the mechanism and
+    apply-timing sentences are cut, the derived "(next wake ≈ ...)" suffix (a real
+    timestamp, not an invented figure) is untouched (CFG-67, 27-06-PLAN.md Task 3)"""
+    baseline = 220
+    for lang in ("en", "fr"):
+        prefs.set_request_prefs(lang=lang)
+        try:
+            rendered = config_page.wake_interval_group(300, next_wake_clock="31 Jul 08:05")
+        finally:
+            prefs.set_request_prefs(lang="en")
+        m = re.search(
+            r'<p class="text-label section-caption" id="%s">(.*?)</p>'
+            % re.escape(config_page.WAKE_INTERVAL_SECTION_CAPTION_ID), rendered)
+        assert m, "%s: #%s is missing from wake_interval_group()'s own markup" % (
+            lang, config_page.WAKE_INTERVAL_SECTION_CAPTION_ID)
+        text = _html_region_text(m.group(1))
+        assert len(text) < baseline, (
+            "%s: #%s renders %d character(s), against a recorded baseline of %d. It reads %r"
+            % (lang, config_page.WAKE_INTERVAL_SECTION_CAPTION_ID, len(text), baseline, text))
+
+
+def test_wake_gauges_are_shortened_and_battery_refusal_survives_in_both_languages():
+    """the two wake gauges (.wake-gauge) are materially shorter than 27-01-SUMMARY.md's recorded
+    254-char combined baseline in BOTH languages, and the insufficient-history state still
+    prints NO absolute battery figure - asserted about the SAME reading the length is measured
+    from, with the forbidden pattern scoped to the days-claim shape itself so it does not
+    false-positive on an unrelated ≈-bearing timestamp (D18's honesty contract, CFG-67,
+    27-06-PLAN.md Task 3)"""
+    baseline = 254
+    for lang in ("en", "fr"):
+        prefs.set_request_prefs(lang=lang)
+        try:
+            rendered = config_page.wake_gauges_html(300)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        segments = re.findall(r'<p class="[^"]*\bwake-gauge\b[^"]*"[^>]*>(.*?)</p>', rendered, re.S)
+        assert len(segments) == 2, "%s: expected 2 .wake-gauge elements, found %d" % (lang, len(segments))
+        text = " ".join(_html_region_text(seg) for seg in segments)
+        text = re.sub(r"\s+", " ", text).strip()
+        assert len(text) < baseline, (
+            "%s: .wake-gauge renders %d character(s), against a recorded baseline of %d. It "
+            "reads %r" % (lang, len(text), baseline, text))
+        found = _DAYS_FIGURE_PATTERN.search(text)
+        assert not found, (
+            "%s: .wake-gauge did get shorter but the insufficient-history state now matches "
+            "%r at %r - a shorter sentence that starts claiming a figure this frame's own "
+            "history cannot support is a regression" % (lang, _DAYS_FIGURE_PATTERN.pattern, found))
+
+
+def test_quiet_hours_caption_is_shortened_and_carries_no_delay_sentence():
+    """the Quiet hours paragraph (#quiet-hours-caption) is materially shorter than
+    27-01-SUMMARY.md's recorded 188-char baseline in BOTH languages, and renders as EXACTLY
+    QUIET_HOURS_SECTION_CAPTION's own translated text with no delay sentence appended at all any
+    more - quiet_hours_group() no longer accepts a delay_sentence keyword (CFG-79, 29-05-PLAN.md
+    Task 2, narrowing CFG-67's 27-06-PLAN.md Task 3 cut)"""
+    baseline = 188
+    for lang in ("en", "fr"):
+        prefs.set_request_prefs(lang=lang)
+        try:
+            rendered = config_page.quiet_hours_group("23:00", "07:00")
+        finally:
+            prefs.set_request_prefs(lang="en")
+        m = re.search(
+            r'<p class="text-label section-caption" id="%s">(.*?)</p>'
+            % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), rendered)
+        assert m, "%s: #%s is missing from quiet_hours_group()'s own markup" % (
+            lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID)
+        text = _html_region_text(m.group(1))
+        assert len(text) < baseline, (
+            "%s: #%s renders %d character(s), against a recorded baseline of %d. It reads %r"
+            % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, len(text), baseline, text))
+        expected = i18n.t_lang(config_page.QUIET_HOURS_SECTION_CAPTION, lang)
+        assert text == expected, (
+            "%s: #%s expected to render as EXACTLY %r (no appended delay sentence), got %r"
+            % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, expected, text))
+
+
+_GAUGE_ADDITION_CASES = [
+    ("saved-in-band", 600, None, ' value="600"', True),
+    ("stored-below-floor", 30, None, "", False),
+    ("stored-above-ceiling", device_config.WAKE_INTERVAL_MAX_S + 1, None, "", False),
+    ("never-set", None, None, "", False),
+    ("rejected-save-raw-echo", 600, {"wake_interval_s": "7"}, ' value="7"', False),
+    ("rejected-save-echoing-usable-value", 600, {"wake_interval_s": "900"}, ' value="900"', True),
+]
+
+
+@pytest.mark.parametrize(
+    "name,current,submitted,value_attr,owes_gauges", _GAUGE_ADDITION_CASES,
+    ids=[case[0] for case in _GAUGE_ADDITION_CASES])
+def test_the_gauges_are_an_addition_and_the_number_input_is_untouched(
+        name, current, submitted, value_attr, owes_gauges):
+    """the two gauges are an ADDITION: across five argument shapes (in band, stored below the
+    60s floor, stored above the ceiling, never set, and a rejected save's raw echo) the
+    <input type="number"> is byte-identical to its pre-plan output - same id, name, min, max and
+    placeholder, the value attribute present exactly when the guard admits it and absent
+    otherwise (an out-of-range value blocks submission of the ENTIRE form) - with B17's label
+    still above it, the unit sibling still immediately after it, the error block still attached,
+    and both gauges appended after all of them (CFG-49/D-07/B17, 25-05-PLAN.md Task 1)"""
+    min_s = device_config.WAKE_INTERVAL_MIN_S
+    max_s = device_config.WAKE_INTERVAL_MAX_S
+    expected_head = (
+        '<input type="number" id="%s" name="wake_interval_s" min="%d" max="%d" placeholder="%s"'
+        % (escape_html(config_page.WAKE_INTERVAL_INPUT_ID), min_s, max_s,
+           escape_html(i18n.t(config_page.WAKE_INTERVAL_PLACEHOLDER_TEXT))))
+    markup = config_page.wake_interval_group(current, submitted=submitted, battery_rows=_FALLING)
+    tag = re.search(r'<input type="number"[^>]*>', markup)
+    assert tag, "%s: no <input type=\"number\"> at all" % name
+    element = tag.group(0)
+    assert element.startswith(expected_head), (
+        "%s: the number input is no longer byte-identical to its pre-plan output.\n  expected "
+        "it to start %r\n  got %r" % (name, expected_head, element))
+    if value_attr:
+        assert value_attr in element, "%s: expected %r in %s" % (name, value_attr, element)
+    if not value_attr:
+        assert " value=" not in element, (
+            "%s: the number input carries a value attribute - an out-of-range value fails "
+            "HTML5 constraint validation" % name)
+    label = '<label for="%s">%s</label>' % (
+        escape_html(config_page.WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t("Wake interval (seconds)")))
+    unit = ('<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
+            % escape_html(config_page.WAKE_INTERVAL_UNIT_LABEL))
+    assert label in markup and unit in markup, "%s: the B17 label or the unit sibling changed" % name
+    assert markup.index(label) < markup.index(element), "%s: the label is no longer ABOVE the control (B17)" % name
+    assert markup.index(unit) == markup.index(element) + len(element), (
+        "%s: the unit sibling no longer sits immediately after the input" % name)
+    gauge_at = markup.find('id="%s"' % config_page.WAKE_GAUGE_FRESHNESS_ID)
+    if owes_gauges:
+        assert gauge_at != -1, "%s: the gauges did not render" % name
+    else:
+        assert gauge_at == -1, "%s: a gauge rendered for a value the field itself refuses to show" % name
+    if gauge_at != -1:
+        assert gauge_at >= markup.index(unit), (
+            "%s: a gauge renders BEFORE the control it describes" % name)
+
+
+def test_the_gauges_error_block_still_attaches_with_the_gauges_after_it():
+    """the error block still attaches to the field, with the gauges after it (CFG-49/D-07/B17,
+    25-05-PLAN.md Task 1) - the second half of the six-shape check above, split out because it
+    exercises a distinct fixture (an `errors` dict) rather than a seventh parametrize case"""
+    with_error = config_page.wake_interval_group(
+        600, errors={"wake_interval_s": "Enter a whole number of seconds."},
+        submitted={"wake_interval_s": "900"}, battery_rows=_FALLING)
+    error_block = re.search(r'<p class="field-error[^"]*" id="wake-interval-s-error"', with_error)
+    assert error_block, "the field error block no longer renders"
+    gauge_at = with_error.find('id="%s"' % config_page.WAKE_GAUGE_BATTERY_ID)
+    assert gauge_at != -1, "the gauges did not render beside a rejected save's usable echo"
+    assert gauge_at >= error_block.start(), (
+        "a gauge renders between the input and its own error message")
+
+
+# ------------------------------------------------------------------
+# 25-05-PLAN.md Task 2 (CFG-49/CFG-52): the gated range, and the seam it
+# shares with the one script.
+# ------------------------------------------------------------------
+
+def test_the_range_is_gated_nameless_and_bounded_by_device_config():
+    """the wake-interval range is NAMELESS (a named one would post a second value for the same
+    setting and the last to arrive would win), carries no role="slider" on top of a native
+    slider, takes its min/max from server.device_config rather than a literal, steps by exactly
+    the minute both gauges speak in, has its own accessible name and describes itself by the two
+    gauges, renders ONLY inside 25-01's .js gate and only when there is a saved interval to
+    start from, and nothing on the card is a live region (CFG-49/CFG-52/T-25-05-D, 25-05-PLAN.md
+    Task 2)"""
+    markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
+    tag = re.search(r'<input type="range"[^>]*>', markup)
+    assert tag, "no <input type=\"range\"> renders on the card"
+    element = tag.group(0)
+    assert not re.search(r"\bname=", element), (
+        "the range carries a name (%s) - it would post a second value for the same setting" % element)
+    assert "role=" not in element, "the range carries a role (%s)" % element
+    for attr, expected in (("min", device_config.WAKE_INTERVAL_MIN_S),
+                           ("max", device_config.WAKE_INTERVAL_MAX_S),
+                           ("step", config_page.WAKE_SLIDER_STEP_S),
+                           ("value", 600)):
+        assert ('%s="%d"' % (attr, expected)) in element, "the range's %s is not %d - %s" % (attr, expected, element)
+    assert config_page.WAKE_SLIDER_STEP_S == config_page.WAKE_GAUGE_SECONDS_PER_MINUTE, (
+        "the slider steps by %d s while the gauges speak in %d-second minutes"
+        % (config_page.WAKE_SLIDER_STEP_S, config_page.WAKE_GAUGE_SECONDS_PER_MINUTE))
+    for needed in ('aria-label="%s"' % escape_html(i18n.t(config_page.WAKE_SLIDER_LABEL)),
+                   'aria-describedby="%s %s"' % (config_page.WAKE_GAUGE_FRESHNESS_ID,
+                                                 config_page.WAKE_GAUGE_BATTERY_ID)):
+        assert needed in element, "the range is missing %r - %s" % (needed, element)
+    assert i18n.t(config_page.WAKE_SLIDER_LABEL) != i18n.t("Wake interval (seconds)"), (
+        "the range and the number input share one accessible name")
+    for tag_match in re.finditer(r"<[a-zA-Z][-\w]*\b[^>]*>", markup):
+        text = tag_match.group(0)
+        if layout.VALUE_CONTROL_ATTR not in text:
+            continue
+        assert layout.JS_GATE_CLASS in text, (
+            "an element carries %s outside the %r gate: %s" % (layout.VALUE_CONTROL_ATTR, layout.JS_GATE_CLASS, text))
+    gate_at = markup.find(layout.JS_GATE_CLASS)
+    gate_end = markup.find("</div>", gate_at)
+    assert gate_at != -1 and gate_at < markup.index(element) < gate_end, (
+        "the range is rendered outside the gated wrapper")
+    assert markup.count('<input type="range"') == 1, "the card renders %d ranges" % markup.count('<input type="range"')
+    for banned in ("aria-live", 'role="status"'):
+        assert banned not in markup, "the wake-interval card carries %r" % banned
+    empty = config_page.wake_interval_group(None, battery_rows=_FALLING)
+    assert "<input type=\"range\"" not in empty and layout.VALUE_CONTROL_ATTR not in empty, (
+        "a range renders with no saved interval")
+
+
+def test_the_readout_seam_this_card_declares_is_the_one_the_script_reads(value_controls_js):
+    """the readout seam is pinned from BOTH sides: every attribute this card emits is named in
+    companion/static/value-controls.js and vice versa, every readout describes the field the
+    form actually posts, the script takes the same CEILING the server does (a floor would print
+    a bound that is false), all three gesture listeners stand aside for a wrapper holding a
+    native mirror (without which preventDefault cancels the thumb drag), the relative clause's
+    base is the saved interval so it renders EMPTY until something else is proposed, and no
+    readout template contains the days wording at all (CFG-49/T-25-05-C, 25-05-PLAN.md Task 2)
+
+    Fetched over HTTP (served_asset()), never opened from disk (TST-12); comments stripped with
+    `strip_js_line_and_block_comments()` (preserves string/template literals, unlike
+    `companion_markup.strip_js_comments_and_strings()`, which the quoted-literal searches below
+    depend on).
+    """
+    markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
+    script = cp.strip_js_line_and_block_comments(value_controls_js)
+    for attr in (layout.VALUE_CONTROL_INPUT_ATTR, layout.VALUE_CONTROL_READOUT_ATTR,
+                 layout.VALUE_CONTROL_READOUT_TEXT_ATTR, layout.VALUE_CONTROL_READOUT_SCALE_ATTR,
+                 layout.VALUE_CONTROL_READOUT_BASE_ATTR):
+        assert attr in markup, "the card emits no %r" % attr
+        assert ('"%s"' % attr) in script, (
+            "value-controls.js never names %r - the markup's own attribute would be read by "
+            "nothing" % attr)
+    for match in re.finditer(r'%s="([^"]*)"' % re.escape(layout.VALUE_CONTROL_READOUT_ATTR), markup):
+        assert match.group(1) == config_page.WAKE_INTERVAL_FIELD_NAME, (
+            "a readout describes %r, which is not the field this form posts (%r)"
+            % (match.group(1), config_page.WAKE_INTERVAL_FIELD_NAME))
+    assert "Math.ceil(value / scale)" in script, (
+        "value-controls.js does not take the CEILING of value/scale - the server does")
+    assert "function steeredHere(wrapper)" in script, (
+        "value-controls.js has no mirror guard")
+    for listener in ("keydown", "pointerdown", "pointermove"):
+        block = script[script.index('document.addEventListener("%s"' % listener):]
+        block = block[:block.index("});")]
+        assert "steeredHere(wrapper)" in block, (
+            "value-controls.js's %s listener does not stand aside for a wrapper with a mirror" % listener)
+    base = re.search(r'%s="(\d+)"' % re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR), markup)
+    assert base and int(base.group(1)) == 600, (
+        "the relative readout's base is not the saved interval")
+    span = re.search(
+        r'<span %s="[^"]*"[^>]*></span>' % re.escape(layout.VALUE_CONTROL_READOUT_ATTR), markup)
+    assert span, "the relative clause is not EMPTY at the saved value"
+    days_words = [i18n.t(config_page.WAKE_BATTERY_DAYS_TEXT), i18n.t(config_page.WAKE_BATTERY_DAY_TEXT)]
+    for match in re.finditer(
+            r'%s="([^"]*)"' % re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR), markup):
+        template = html.unescape(match.group(1))
+        for wording in days_words:
+            stem = wording.split(layout.VALUE_CONTROL_TEXT_TOKEN)[-1].strip()
+            assert not (stem and stem in template), (
+                "a readout template carries the days wording (%r)" % template)
+
+
+# 30-03-PLAN.md Task 1 (CFG-85) / 27-07-PLAN.md Task 1 (CFG-68): the two
+# closing structural proofs over the whole rendered Display page.
+
+def test_the_display_page_carries_exactly_one_radio_set_per_theme_field():
+    """the whole rendered Display page carries exactly len(device_config.THEME_IDS) radios
+    named 'theme' - ONE set, computed from the registry at check time, re-homed from the
+    retiring carousel's own equivalent guard so the page can never show one setting in two
+    disagreeing places (CFG-85, 30-03-PLAN.md Task 1)"""
+    page = config_page.render({
+        "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+        "poll_cooldown_remaining": 0,
+    }, scope=config_page.SCOPE_DISPLAY)
+    theme_count = len(device_config.THEME_IDS)
+    posted = len(re.findall(r'<input type="radio" name="theme" ', page))
+    assert posted == theme_count, (
+        "the Display page renders %d radios named 'theme', expected exactly %d"
+        % (posted, theme_count))
+
+
+def test_the_rendered_settings_page_carries_no_duplicate_id():
+    """the rendered Display page carries no duplicate id anywhere - asserted as page-wide id
+    uniqueness (THE property the THEME_CAROUSEL_STRIP_ID trap violates), never as 'the carousel
+    ids I expect differ', with a failure message naming the duplicated id and how many times it
+    appeared (CFG-68, 27-07-PLAN.md Task 1)"""
+    page = config_page.render({
+        "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+        "poll_cooldown_remaining": 0,
+    }, scope=config_page.SCOPE_DISPLAY)
+    ids = re.findall(r'\bid="([^"]*)"', page)
+    assert ids, "found no id=\"...\" attributes at all on the rendered Display page"
+    seen = {}
+    for value in ids:
+        seen[value] = seen.get(value, 0) + 1
+    duplicates = {value: count for value, count in seen.items() if count > 1}
+    if duplicates:
+        dup_id, dup_count = sorted(duplicates.items())[0]
+        pytest.fail(
+            "id=%r appears %d times on the rendered Display page - every id-based lookup "
+            "resolves to the FIRST match silently, so a duplicate id is not cosmetic"
+            % (dup_id, dup_count))
+
+
+# --- 27-03-PLAN.md Task 1 (CFG-64) -------------------------------
+
+def test_the_native_submit_is_emitted_unconditionally_on_every_render(tmp_path):
+    """the native submit carrying STATIC_SAVE_FALLBACK_ATTR is emitted UNCONDITIONALLY - AND
+    every one of the three scopes (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE) renders it exactly
+    once, across every extra keyword shape render() accepts, so there is no code path, past or
+    future, that can omit the no-JS save floor (CFG-64, 27-03-PLAN.md Task 1)
+
+    Rewritten from the retired `ast.parse()` proof over render()'s own source (banned outright
+    by guard G2: no ast/tokenize over production code) into a purely behavioural one: render()
+    is called across every scope AND across the extra keyword shapes it accepts (errors,
+    submitted, neither), and every one of those renderings must carry the fallback exactly once
+    - never zero (the no-JS save floor missing) and never two-or-more (a second, competing save
+    control). This is a WIDER behavioural net than the retired source scan alone established: a
+    proof that ONE particular return statement is unconditional says nothing about whether some
+    OTHER, unexercised code path could still omit the attribute, whereas calling every code path
+    this page's own public contract actually exposes and counting the occurrence on EACH is the
+    direct, observable form of the same claim.
+    """
+    base_ctx = {
+        "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+        "state_dir": str(tmp_path), "poll_cooldown_remaining": 0,
+    }
+    render_kwargs = [
+        {},
+        {"errors": {"wake_interval_s": "bad"}, "submitted": {"wake_interval_s": "x"}},
+        {"errors": {}, "submitted": {}},
+    ]
+    for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
+        for kwargs in render_kwargs:
+            rendered = config_page.render(base_ctx, scope=scope, **kwargs)
+            count = rendered.count(config_page.STATIC_SAVE_FALLBACK_ATTR)
+            assert count == 1, (
+                "expected exactly one %r occurrence on scope=%r kwargs=%r, found %d - the "
+                "native submit must render unconditionally, once, on every code path"
+                % (config_page.STATIC_SAVE_FALLBACK_ATTR, scope, kwargs, count))
