@@ -65,3 +65,21 @@ chmod pattern does not actually exist in `test_status_pages.py`
 `tempfile`-generated definitely-nonexistent path, or cleaning the stale
 sandbox directory, is Phase 33 scope alongside the other `run-all-
 tests.sh`-under-root gaps already tracked above).
+
+## 37-04: `shellcheck` not installed in this sandbox
+
+**Found during:** 37-04 Task 3 verification (`command -v shellcheck`).
+
+**What:** the plan's own verify step for `deploy/backup/mac/*.sh`
+conditionally runs `shellcheck --shell=sh` only if the binary is present
+and no-ops otherwise. It is absent here, so only `sh -n`/`dash -n` (POSIX
+syntax) ran locally.
+
+**Why out of scope:** the plan itself documents that "the shellcheck lint
+runs in CI via Plan 37-07's step" — installing shellcheck in this sandbox
+is not this plan's job, and CI's own dedicated step (a later plan) is the
+actual gate.
+
+**Action:** none taken. `sh -n` and `dash -n` both confirmed clean on
+`deploy/backup/mac/skypane-backup-pull.sh` and
+`deploy/backup/mac/install-launchagent.sh`.
