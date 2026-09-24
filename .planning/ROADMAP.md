@@ -1605,7 +1605,7 @@ Plans:
 4. The suite passes as root and writes nothing outside `tmp_path`
 5. Closing parity: all 2018 pre-migration checks accounted for; coverage ≥ the pre-migration figure
 
-**Plans:** 8/33 plans executed
+**Plans:** 9/33 plans executed
 
 Plans:
 **Wave 1**
@@ -1621,7 +1621,7 @@ Plans:
 - [x] 33-09-PLAN.md — config_page part 01 + helpers; aspect-repin self-read deleted (W2)
 - [x] 33-14-PLAN.md — companion_app part 01 + helpers; WR-11 chmod pair root-safe (W2)
 - [x] 33-19-PLAN.md — Browser helpers rewired + health_drawings on pytest-playwright; legacy importers repointed (W2)
-- [ ] 33-25-PLAN.md — status_pages part 01 + helpers; anomaly_active /nonexistent fix (W2)
+- [x] 33-25-PLAN.md — status_pages part 01 + helpers; anomaly_active /nonexistent fix (W2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
