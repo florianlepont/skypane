@@ -1,0 +1,35 @@
+PASS t_lang('Home', 'fr') == 'Accueil'
+PASS t_lang('Home', 'en') == 'Home'
+PASS t_lang() degrades a missing key to the English source unchanged
+PASS t() follows prefs.set_request_prefs(lang='fr') and back
+PASS prefs.set_request_prefs(lang='de') resolves to 'en'
+PASS i18n_fr.CATALOG contains every key defined in common.py
+PASS i18n_fr.CATALOG contains every key defined in nav.py
+PASS every CATALOG value is a str and differs from its English key
+PASS companion/i18n.py and companion/prefs.py import neither companion.pages nor server
+PASS D-08 Check 1: every scanned page-module string is a companion.i18n_fr.CATALOG key (ast-based, source-only scan)
+PASS D-08 Check 2: every companion.i18n_fr.CATALOG key is produced by the D-05 module scan, server/notify.py's own bodies, or a documented exception
+POST /login
+GET /
+PASS D-08 Check 3: Home renders in French (GET /, lang=fr)
+GET /display
+PASS D-08 Check 3: Display renders in French (GET /display, lang=fr)
+GET /device
+PASS D-08 Check 3: Device renders in French (GET /device, lang=fr)
+GET /flights
+PASS D-08 Check 3: Flights renders in French (GET /flights, lang=fr)
+GET /airlines
+PASS D-08 Check 3: Airlines renders in French (GET /airlines, lang=fr)
+GET /health
+PASS D-08 Check 3: Health renders in French (GET /health, lang=fr)
+GET /login
+PASS D-08 Check 3: the login page renders in French
+GET /this-route-does-not-exist
+PASS D-08 Check 3: the 404 page renders in French
+POST /settings/calendar/disconnect
+PASS D-08 Check 3: the calendar-disconnect confirmation page renders in French
+PASS D-08 Check 4 (D-09): every CATALOG value uses the typographic apostrophe, never a straight quote
+PASS D-08 Check 4 (D-09): every CATALOG value uses U+00A0 (not a plain space) before ':'/';'/'?'/'!'
+PASS D-08 Check 5: every literal title=/alt=/aria-label=/placeholder= attribute value scanned from the D-05 module set is a companion.i18n_fr.CATALOG key (ast-based, source-only scan; a dynamically-filled attribute is proven by Check 1's own i18n.t() call-argument tracing instead)
+PASS D-08 Check 6: every genuine English fallback literal scanned from companion/static/*.js (var ALL_CAPS = "..."; ... || "...") is a companion.i18n_fr.CATALOG key (regex-based, boundary stated in this file's own header comment and above _scan_all_js_files_for_fallback_literals())
+24/24 checks pass
