@@ -46,8 +46,10 @@ from companion import auth, i18n, layout
 from companion.pages import config_page, history_page
 from server import device_config, history_db
 from companion.test_browser_ux_helpers import (
-    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED,
-    _login, _no_js_page, seed_state_dir,
+    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
+    _assert_hit_target, _assert_no_page_overflow, _click_control,
+    _display_page_height, _in_both_themes, _login, _no_js_page,
+    _persist_without_js, _save_via_bar, _wait_for_bar, seed_state_dir,
 )
 
 pytestmark = pytest.mark.browser
@@ -1012,5 +1014,831 @@ def test_a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened(new_cont
                 "the refresh, got %d — the class and the announced state are "
                 "written in one place precisely so they cannot drift"
                 % seen["expanded"])
+    finally:
+        context.close()
+
+
+def test_a_refresh_never_interrupts_or_undoes_the_filter(new_context, server):
+    """a refresh never interrupts the filter and never undoes it: with the caret in
+    the box the loop issues ZERO requests (counted, against a control proving the
+    same trigger does fetch with focus moved off), and the swap that then happens
+    leaves the typed query applied — same visible rows, same live count, same input
+    value — because the server renders the list unfiltered (D7/CFG-37, 23-08-PLAN.md
+    Task 3)"""
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        _login(page, base_url)
+        page.goto(base_url + "/flights")
+        page.wait_for_load_state("networkidle")
+        requests = _count_document_requests(page, base_url + "/flights")
+
+        query = page.eval_on_selector(
+            "tr[data-flight-row]", "el => el.getAttribute('data-filter-text')")
+        if not query:
+            raise AssertionError(
+                "expected the first rendered row to carry a non-empty "
+                "data-filter-text to filter by — with none, this check has "
+                "nothing to type")
+        page.click("[data-filter-input]")
+        page.type("[data-filter-input]", query)
+        visible = page.evaluate(
+            "() => [...document.querySelectorAll('tr[data-flight-row]')]"
+            ".filter(el => !el.hidden).length")
+        if visible != 1:
+            raise AssertionError(
+                "expected the query to narrow the table to one row before "
+                "anything else is measured, got %d" % visible)
+        count_text = page.eval_on_selector("[data-filter-count]", "el => el.textContent")
+
+        before = requests()
+        _force_refresh(page)
+        page.wait_for_timeout(REFRESH_SETTLE_MS)
+        if requests() != before:
+            raise AssertionError(
+                "the loop fetched while the caret was in the filter box — "
+                "userIsInteracting() exists so a half-typed query is never "
+                "swapped out from under the person typing it (%d request(s))"
+                % (requests() - before))
+
+        page.evaluate("() => document.activeElement.blur()")
+        before = requests()
+        _force_refresh(page)
+        page.wait_for_timeout(REFRESH_SETTLE_MS)
+        if requests() == before:
+            raise AssertionError(
+                "control: the same trigger issued no request with focus off the "
+                "input either — this page's loop is not running, so phase 1 "
+                "proved nothing")
+
+        visible = page.evaluate(
+            "() => [...document.querySelectorAll('tr[data-flight-row]')]"
+            ".filter(el => !el.hidden).length")
+        if visible != 1:
+            raise AssertionError(
+                "a refresh handed back %d visible rows under a query that "
+                "matches one — the server renders the list unfiltered, so a swap "
+                "that is not followed by a re-filter silently undoes what the "
+                "reader asked for" % visible)
+        if page.eval_on_selector(
+                "[data-filter-count]", "el => el.textContent") != count_text:
+            raise AssertionError(
+                "the live count reverted to the server's own unfiltered sentence "
+                "after a refresh, expected it to still read %r" % (count_text,))
+        if page.eval_on_selector("[data-filter-input]", "el => el.value") != query:
+            raise AssertionError("the typed query itself did not survive the refresh")
+    finally:
+        context.close()
+
+
+def test_a_collapsed_detail_row_cannot_be_reached_by_keyboard(new_context, server):
+    """a COLLAPSED Flights detail row lets none of its own controls take focus — the
+    deliberate display:none end state, asked as the keyboard question directly —
+    against a control phase proving the same controls ARE reachable once the row is
+    open, and the opening really animates grid-template-rows on a grid wrapper at
+    --motion-fast (D3/CFG-32, T-23-32, 23-08-PLAN.md Task 3)"""
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        _login(page, base_url)
+        page.goto(base_url + "/flights")
+        toggle = page.locator("[data-row-toggle]").first
+        toggle.wait_for(state="visible")
+        detail_id = toggle.get_attribute("aria-controls")
+
+        probe = (
+            "(id) => {"
+            "  const row = document.getElementById(id);"
+            "  const kids = [...row.querySelectorAll("
+            "    'a[href], button, input, select, textarea, [tabindex]')];"
+            "  const reached = [];"
+            "  kids.forEach(el => { el.focus();"
+            "    if (document.activeElement === el) reached.push("
+            "      el.tagName + '.' + (el.className || ''));"
+            "    el.blur(); });"
+            "  return {kids: kids.length, reached: reached};"
+            "}")
+        seen = page.evaluate(probe, detail_id)
+        if not seen["kids"]:
+            raise AssertionError(
+                "expected the seeded detail row to contain focusable controls "
+                "(its copy buttons) — with none, this check measures nothing")
+        if seen["reached"]:
+            raise AssertionError(
+                "a COLLAPSED detail row let %d of its %d controls take focus "
+                "(%r) — a row held present at zero height is still in the tab "
+                "order and still in the accessibility tree, so a keyboard user "
+                "walks into a row nobody can see (T-23-32)"
+                % (len(seen["reached"]), seen["kids"], seen["reached"]))
+
+        toggle.click()
+        seen = page.evaluate(probe, detail_id)
+        if not seen["reached"]:
+            raise AssertionError(
+                "control: an OPEN detail row's %d controls were still "
+                "unreachable — so the assertion above is about the page being "
+                "empty, not about the row being closed" % seen["kids"])
+
+        style = page.eval_on_selector(
+            "#" + detail_id + " .flight-detail-row__reveal",
+            "el => [getComputedStyle(el).display,"
+            " getComputedStyle(el).transitionProperty,"
+            " getComputedStyle(el).transitionDuration]")
+        if style[0] != "grid":
+            raise AssertionError(
+                "expected the reveal wrapper to be a grid, got %r" % (style[0],))
+        if "grid-template-rows" not in style[1]:
+            raise AssertionError(
+                "expected grid-template-rows to be the transitioned property, "
+                "got %r — a guessed max-height either clips tall content or "
+                "animates through empty space, and interpolate-size is "
+                "Chromium-only" % (style[1],))
+        if style[2] != "0.18s":
+            raise AssertionError(
+                "expected the reveal to spend --motion-fast (180ms), got %r"
+                % (style[2],))
+    finally:
+        context.close()
+
+
+def test_a_phone_card_opens_from_a_tap_anywhere_with_and_without_scripts(new_context, server):
+    """a phone card at 360px opens from a tap on its own face away from every
+    control, through the native disclosure it already contained, with its summary
+    box covering the whole card and no control nested inside it — and it does the
+    same with SCRIPTS BLOCKED, where no detail row is collapsed and the live-script
+    class the height animation is keyed on is absent (D7/CFG-37, CFG-38,
+    23-08-PLAN.md Task 3)"""
+    base_url = server.base_url()
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+        page.goto(base_url + "/flights")
+        card = page.locator("li.history-card").first
+        card.wait_for(state="visible")
+        details = card.locator("details.history-card__details")
+        if details.evaluate("el => el.open"):
+            raise AssertionError(
+                "expected the card to start closed — with it open this check "
+                "cannot tell a tap that worked from a card that was never shut")
+        boxes = page.evaluate(
+            "() => {"
+            "  const li = document.querySelector('li.history-card');"
+            "  const s = li.querySelector('summary.history-card__summary');"
+            "  const a = li.getBoundingClientRect();"
+            "  const b = s.getBoundingClientRect();"
+            "  return [a.width, b.width, a.top, b.top];"
+            "}")
+        if boxes[1] < boxes[0] - 2.5:
+            raise AssertionError(
+                "the card's summary is %spx wide inside a %spx card — a tap on "
+                "the rim between them lands on nothing, which reads as a broken "
+                "control rather than as a boundary" % (boxes[1], boxes[0]))
+        card.locator(".history-card__secondary").click()
+        if not details.evaluate("el => el.open"):
+            raise AssertionError(
+                "a tap on the card's own face away from every control did not "
+                "open it — D7 asks for a card you tap anywhere, through the "
+                "native disclosure it already contained")
+        nested = page.eval_on_selector(
+            "summary.history-card__summary",
+            "el => el.querySelectorAll('a[href], button').length")
+        if nested:
+            raise AssertionError(
+                "expected no control nested inside the card's summary, found %d"
+                % nested)
+    finally:
+        context.close()
+
+    with _no_js_page(new_context, base_url, "/flights",
+                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+        card = page.locator("li.history-card").first
+        card.wait_for(state="visible")
+        details = card.locator("details.history-card__details")
+        if details.evaluate("el => el.open"):
+            raise AssertionError("expected the scripts-blocked card to start closed too")
+        card.locator(".history-card__secondary").click()
+        if not details.evaluate("el => el.open"):
+            raise AssertionError(
+                "the phone card did not open with scripts blocked — the whole "
+                "point of building this on the <details> the card already had is "
+                "that it needs no script (CFG-38)")
+        collapsed = page.evaluate(
+            "() => document.querySelectorAll("
+            "'.flight-detail-row--collapsed').length")
+        if collapsed:
+            raise AssertionError(
+                "%d detail row(s) are collapsed on a page with no script — the "
+                "collapsing class has exactly one writer and it cannot run here "
+                "(D-15, locked)" % collapsed)
+        live = page.evaluate(
+            "() => document.documentElement.className.indexOf("
+            "'flight-rows-live') !== -1")
+        if live:
+            raise AssertionError(
+                "the live-script class is on <html> with no script running — the "
+                "height animation is keyed on it precisely so a scripts-blocked "
+                "page animates nothing")
+
+
+# ===========================================================================
+# 23-09-PLAN.md Task 3 (D3/CFG-32): the save bar's own dirty-count, its
+# every-field save, and its scripts-blocked fallback.
+# ===========================================================================
+
+def test_the_dirty_count_arrives_and_moves_only_when_the_word_does(new_context, server):
+    """[data-dirty-count] ARRIVES rather than appearing, and stays silent for
+    anything that is not a genuine change: clicking an ALREADY-CHECKED radio writes
+    nothing (the surviving control-phase idea from the retired save-status region —
+    MEASURED live to fire no native change at all, never reaching updateBar()); a
+    REAL change writes the section's own name EXACTLY ONCE, read off the bar's own
+    data-* attributes never hardcoded in English, and carries the changed-value
+    class; and changing to a SECOND, DIFFERENT theme inside the identical
+    data-dirty-section wrapper — a real change that resolves to the textually
+    IDENTICAL label — writes nothing further, which is setCountText()'s own
+    changed-text gate genuinely exercised (a same-value re-click, tried first, never
+    reaches the listener at all and so cannot prove the gate) — a new phase this
+    check gains over its retired predecessor (D3/CFG-32, 23-09-PLAN.md Task 3;
+    retargeted from the retired save-status region onto the restored bar by
+    28-10-PLAN.md Task 2, CFG-77/CFG-78)"""
+    context = new_context()
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        _login(page, base_url)
+        page.goto(base_url + "/display")
+        current_theme = page.eval_on_selector(
+            'input[name="theme"]:checked', "el => el.value")
+        theme_target, theme_target2 = [
+            t for t in device_config.THEME_IDS if t != current_theme][:2]
+
+        page.evaluate(
+            "() => {"
+            " window.__countWords = [];"
+            " var el = document.querySelector('[data-dirty-count]');"
+            " new MutationObserver(function () {"
+            "   window.__countWords.push(el.textContent);"
+            " }).observe(el, {childList: true, characterData: true,"
+            "                 subtree: true});"
+            "}")
+
+        _click_control(page, 'input[name="theme"][value="%s"]' % current_theme)
+        page.wait_for_timeout(150)
+        after_noop = page.evaluate("() => window.__countWords.slice()")
+        if after_noop:
+            raise AssertionError(
+                "re-clicking the ALREADY-selected theme wrote to "
+                "[data-dirty-count]: %r — a click that changed no value must not "
+                "announce one" % (after_noop,))
+
+        expected_label = page.evaluate(
+            "() => {"
+            " var field = document.querySelector('input[name=\"theme\"]');"
+            " var wrapper = field.closest('[data-dirty-section]');"
+            " var bar = document.querySelector('[data-dirty-bar]');"
+            " return wrapper.getAttribute('data-dirty-section')"
+            "   + bar.getAttribute('data-dirty-changed-suffix');"
+            "}")
+        _click_control(page, 'input[name="theme"][value="%s"]' % theme_target)
+        _wait_for_bar(page)
+        words = page.evaluate("() => window.__countWords.slice()")
+        if len(words) != 1:
+            raise AssertionError(
+                "expected exactly ONE text mutation to [data-dirty-count] for a "
+                "real change, got %r" % (words,))
+        if words[0] != expected_label:
+            raise AssertionError(
+                "expected [data-dirty-count] to read %r after the real change, "
+                "got %r" % (expected_label, words[0]))
+        if "is-fading-in" not in (
+                page.locator("[data-dirty-count]").get_attribute("class") or ""):
+            raise AssertionError(
+                "expected [data-dirty-count] to carry the changed-value class "
+                "after a real change")
+
+        _click_control(page, 'input[name="theme"][value="%s"]' % theme_target2)
+        page.wait_for_timeout(150)
+        after_second = page.evaluate("() => window.__countWords.slice()")
+        if after_second != words:
+            raise AssertionError(
+                "changing to a DIFFERENT theme inside the same section wrote a "
+                "new mutation to [data-dirty-count]: %r became %r — the two "
+                "renders are textually IDENTICAL, so a write here is "
+                "setCountText()'s own changed-text gate failing to suppress a "
+                "no-op text assignment" % (words, after_second))
+    finally:
+        context.close()
+
+
+def test_the_bars_save_persists_every_field_never_only_the_touched_one(new_context, make_app_server):
+    """the bar's own Save persists EVERY field to disk, never only the touched one:
+    reading the FULL on-disk config before and after a single-field
+    (tracked_runway) save, in both languages, and asserting the two dicts differ in
+    EXACTLY the one key touched — a STRONGER surface than the retired request-body
+    capture, since a server that posts the whole form but only writes the touched
+    key would still pass that check and fail this one (T-27-04-D, CFG-36's own
+    hazard; retargeted from the request body onto disk by 28-10-PLAN.md Task 3,
+    CFG-77/CFG-78; 27-04-PLAN.md Task 4, CFG-63; supersedes the retired Save-button
+    relabel check, T14's deferred label, 23-09-PLAN.md Task 3/D3/CFG-32)"""
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    base_url = server.base_url()
+    for lang in ("en", "fr"):
+        context = new_context()
+        try:
+            page = context.new_page()
+            _login(page, base_url)
+            context.add_cookies([{
+                "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+            before = device_config.load_device_config(server.tmpdir)
+            target = next(
+                r for r in device_config.RUNWAY_IDS
+                if str(r) != str(before["tracked_runway"]))
+
+            page.goto(base_url + "/display")
+            _click_control(page, 'input[name="tracked_runway"][value="%s"]' % target)
+            _wait_for_bar(page)
+            _save_via_bar(page)
+
+            after = device_config.load_device_config(server.tmpdir)
+            if str(after["tracked_runway"]) != str(target):
+                raise AssertionError(
+                    "lang=%s: the save did not persist — expected "
+                    "tracked_runway %r, got %r"
+                    % (lang, target, after["tracked_runway"]))
+            changed_keys = [k for k in before if before[k] != after.get(k)]
+            if changed_keys != ["tracked_runway"]:
+                raise AssertionError(
+                    "lang=%s: saving ONE field (tracked_runway) changed %r on "
+                    "disk — a save that clobbers an untouched field is CFG-36's "
+                    "own hazard; before=%r after=%r"
+                    % (lang, changed_keys, before, after))
+        finally:
+            context.close()
+
+
+def test_with_no_script_the_fallback_save_is_the_only_way(new_context, make_app_server):
+    """with scripts blocked at 360px, in BOTH languages, the fallback Save is
+    VISIBLE with a real box and still saves to disk — B1's floor re-asserted after
+    the bar and both its former liveness markers are retired outright (B1/CFG-38,
+    23-09-PLAN.md Task 3; retargeted by 27-04-PLAN.md Task 4, CFG-63)"""
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    base_url = server.base_url()
+    for lang in ("en", "fr"):
+        with _no_js_page(new_context, base_url, "/display",
+                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+            page.context.add_cookies([{
+                "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+            # The relocated Save's entrance animation runs regardless of
+            # scripts, so reduced motion is requested here to avoid
+            # clicking a button that is still translating into place.
+            page.emulate_media(reduced_motion="reduce")
+            page.goto(base_url + "/display")
+            if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
+                raise AssertionError("expected the measurement at the 360px contract floor")
+            fallback = page.locator("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
+            if fallback.count() != 1:
+                raise AssertionError(
+                    "lang=%s: expected exactly one fallback Save, got %d — with "
+                    "no script it is the ONLY way to save this page"
+                    % (lang, fallback.count()))
+            if not fallback.is_visible():
+                raise AssertionError(
+                    "lang=%s: the fallback Save is rendered but not visible — "
+                    "which is precisely the shape B1 took, and a check that only "
+                    "asked whether it EXISTS would have passed through it"
+                    % (lang,))
+            box = fallback.bounding_box()
+            if not box or box["width"] <= 0 or box["height"] <= 0:
+                raise AssertionError(
+                    "lang=%s: the fallback Save has no box at 360px (%r)"
+                    % (lang, box))
+            current = device_config.load_device_config(server.tmpdir)["theme"]
+            target = next(t for t in device_config.THEME_IDS if t != current)
+            page.eval_on_selector(
+                'input[name="theme"][value="%s"]' % target, "el => el.checked = true")
+            fallback.wait_for(state="visible")
+            with page.expect_navigation():
+                fallback.click()
+            saved = device_config.load_device_config(server.tmpdir)["theme"]
+            if saved != target:
+                raise AssertionError(
+                    "lang=%s: a Display save did not persist through the "
+                    "fallback Save with scripts blocked at 360px — expected "
+                    "theme %r, got %r. This is the P0 Phase 22 existed to fix"
+                    % (lang, target, saved))
+
+
+# ===========================================================================
+# 27-05-PLAN.md Task 3 (CFG-66): the retired schematic runway map's
+# replacement relationship — the map is gone, the radios and the
+# photographs are not.
+# ===========================================================================
+
+def test_the_map_is_gone_the_radios_and_photographs_remain_and_meet_their_floor(new_context, server):
+    """CFG-66: the map is gone, the radios and the photographs are not — asserted as
+    ONE relationship rather than three separate facts: zero .runway-map elements
+    resolve on /display, exactly RUNWAY_IDS' own count of tracked_runway radios and
+    of .runway-card__image photographs still resolve, the runway row does not
+    scroll the page sideways at 360px, and every runway card clears the 44px
+    hit-target floor in ITS OWN container at 360px in BOTH themes — measured, not
+    assumed, now that the map strip no longer provides the box (CFG-66/D-32/
+    T-27-05-B, retiring CFG-47's three checks named in 27-05-SUMMARY.md)"""
+    base_url = server.base_url()
+    ids = device_config.RUNWAY_IDS
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+        page.goto(base_url + "/display")
+
+        maps = page.locator(".runway-card .runway-map").count()
+        if maps != 0:
+            raise AssertionError(
+                "expected ZERO .runway-map elements on /display after CFG-66's "
+                "removal, found %d — the drawing is supposed to be gone" % (maps,))
+        radios = page.locator('input[name="tracked_runway"]').count()
+        if radios != len(ids):
+            raise AssertionError(
+                "expected %d tracked_runway radios, found %d — the map coming "
+                "out must not take the control it was wrapped around with it"
+                % (len(ids), radios))
+        photos = page.locator(".runway-card .runway-card__image").count()
+        if photos != len(ids):
+            raise AssertionError(
+                "expected %d runway photographs (.runway-card__image), found %d "
+                "— the developer objected to the drawn map, not to the "
+                "pictures, and this relationship must also fail if they vanish"
+                % (len(ids), photos))
+
+        message = _assert_no_page_overflow(
+            page, "the runway row on /display", VIEWPORT_MIN_SUPPORTED["width"])
+        if message:
+            raise AssertionError(message)
+
+        themes_measured = []
+        for state in _in_both_themes(page):
+            for index in range(len(ids)):
+                selector = ".runway-row > .runway-card:nth-child(%d)" % (index + 1)
+                _assert_hit_target(
+                    page, selector,
+                    "the runway card %d of %d on /display in the %s theme, "
+                    "now that its map is gone"
+                    % (index + 1, len(ids), state["theme"]))
+            themes_measured.append(state["theme"])
+        if len(themes_measured) != 2:
+            raise AssertionError(
+                "expected a hit-target measurement in each of two themes, got "
+                "%d (%r)" % (len(themes_measured), themes_measured))
+    finally:
+        context.close()
+
+
+THEME_PREVIEW_SEL = ".theme-live-preview__image"
+
+
+# ===========================================================================
+# 25-06-PLAN.md Task 1 (CFG-50): Display's own recorded page height.
+# ===========================================================================
+
+def test_displays_page_height_is_recorded_at_both_phone_widths(new_context, server):
+    """Display's full rendered document height is recorded at 390px and at 360px by
+    one instrument — proved to be pointed at the authenticated Display page (its
+    Aspect heading AND a full THEME_IDS-sized departures radiogroup, never merely
+    'a page rendered'), at the width the caller asked for, and taller than the
+    viewport — asserting NO target, because the number IS the criterion and 25-06
+    states in its own SUMMARY whether it is met, and no cross-width relationship
+    either, because the obvious one (narrower cannot be shorter) was MEASURED FALSE
+    on this page before the plan changed anything (CFG-50, 25-06-PLAN.md Task 1)"""
+    base_url = server.base_url()
+    heights = {}
+    for viewport in (VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
+        seen = _display_page_height(new_context, base_url, viewport)
+        heights[viewport["width"]] = seen["height"]
+        print(
+            "        [25-06 T1] Display document height at %dpx: "
+            "%d px (client %dx%d, %d theme radios)"
+            % (viewport["width"], seen["height"],
+               seen["clientWidth"], seen["clientHeight"], seen["themeRadios"]))
+    # NO TARGET IS ASSERTED HERE, DELIBERATELY, and no cross-width
+    # relationship either — the obvious one (narrower cannot be shorter)
+    # was measured FALSE on this page (a stack of independently-rounding
+    # cards) before any of this phase's markup existed.
+    if not heights:
+        raise AssertionError("no viewport was measured at all")
+
+
+# ===========================================================================
+# 25-06-PLAN.md Task 4 (CFG-50/D-09) and 27-07-PLAN.md Task 2 (CFG-68):
+# the theme/arrivals scripts-blocked save floors, narrowed by
+# 30-03-PLAN.md Task 3 (CFG-85).
+# ===========================================================================
+
+def test_the_theme_still_saves_with_scripts_blocked(new_context, make_app_server):
+    """the theme still SAVES with scripts blocked, at 360px and in BOTH shipped
+    languages — operated natively by field name, submitted through the real form,
+    re-read FROM DISK after a fresh GET and restored the same way (CFG-50/D-09/
+    CFG-85, 25-06-PLAN.md Task 4, narrowed by 30-03-PLAN.md Task 3)"""
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    base_url = server.base_url()
+
+    def read_back():
+        return device_config.load_device_config(server.tmpdir)["theme"]
+
+    before = read_back()
+    target = next(t for t in device_config.THEME_IDS if t != before)
+    seen = {}
+    for lang in ("en", "fr"):
+        seen[lang] = _persist_without_js(
+            new_context, base_url, "/display", "theme", target, read_back,
+            viewport=VIEWPORT_MIN_SUPPORTED,
+            cookies=[{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+    after = read_back()
+    if str(after) != str(before):
+        raise AssertionError(
+            "the scripts-blocked save left the theme at %r, it started at %r — "
+            "a harness that changes a real setting edits its neighbours' "
+            "subject" % (after, before))
+    for lang, result in seen.items():
+        if str(result["stored"]) != str(target):
+            raise AssertionError(
+                "lang=%s: the theme did not reach disk, it reads %r"
+                % (lang, result["stored"]))
+        if str(result["restored"]) != str(before):
+            raise AssertionError(
+                "lang=%s: the restore leg did not put %r back, disk reads %r"
+                % (lang, before, result["restored"]))
+
+    n_themes = len(device_config.THEME_IDS)
+    with _no_js_page(new_context, base_url, "/display",
+                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+        for field, usage, state, expected in (
+                ("theme", "departures", "open", n_themes),
+                ("calendar_theme_id", "calendar", "closed", n_themes + 1)):
+            count = page.eval_on_selector_all(
+                'input[name="%s"]' % field, "els => els.length")
+            if count != expected:
+                raise AssertionError(
+                    "with scripts blocked, expected %d radios named %r (the "
+                    "%s row's own palette, %s by default) with no script "
+                    "involvement in rendering it - found %d"
+                    % (expected, field, usage, state, count))
+
+
+def test_arrivals_still_saves_with_scripts_blocked(new_context, make_app_server):
+    """the arrivals grid still SAVES with scripts blocked, at 360px and in BOTH
+    shipped languages — operated natively by field name, submitted through the real
+    form, re-read FROM DISK after a fresh GET and restored the same way (seeded
+    through the validated save_device_config() API rather than a raw file write,
+    since theme_arriving's own None state would otherwise defeat the shared
+    helper's stored-is-None save-floor guard) (CFG-68/CFG-85, 27-07-PLAN.md Task 2,
+    narrowed by 30-03-PLAN.md Task 3)"""
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    base_url = server.base_url()
+
+    def read_back():
+        return device_config.load_device_config(server.tmpdir).get("theme_arriving")
+
+    original_arriving = read_back()
+    current_theme = device_config.load_device_config(server.tmpdir)["theme"]
+    seed = next(t for t in device_config.THEME_IDS if t != current_theme)
+    device_config.save_device_config(server.tmpdir, theme_arriving=seed)
+    before = read_back()
+    if before != seed:
+        raise AssertionError(
+            "the seeded theme_arriving did not read back as written: %r" % (before,))
+    target = next(t for t in device_config.THEME_IDS if t != before)
+
+    try:
+        seen = {}
+        for lang in ("en", "fr"):
+            seen[lang] = _persist_without_js(
+                new_context, base_url, "/display", "theme_arriving", target,
+                read_back, viewport=VIEWPORT_MIN_SUPPORTED,
+                cookies=[{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+        after = read_back()
+        if str(after) != str(before):
+            raise AssertionError(
+                "the scripts-blocked save left theme_arriving at %r, it "
+                "started (seeded) at %r — a harness that changes a real "
+                "setting edits its neighbours' subject" % (after, before))
+        for lang, result in seen.items():
+            if str(result["stored"]) != str(target):
+                raise AssertionError(
+                    "lang=%s: theme_arriving did not reach disk, it reads %r"
+                    % (lang, result["stored"]))
+            if str(result["restored"]) != str(before):
+                raise AssertionError(
+                    "lang=%s: the restore leg did not put %r back, disk "
+                    "reads %r" % (lang, before, result["restored"]))
+
+        n_themes = len(device_config.THEME_IDS)
+        with _no_js_page(new_context, base_url, "/display",
+                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+            for field, usage, state, expected in (
+                    ("theme_arriving", "arrivals", "closed", n_themes + 1),
+                    ("theme", "departures", "open", n_themes)):
+                count = page.eval_on_selector_all(
+                    'input[name="%s"]' % field, "els => els.length")
+                if count != expected:
+                    raise AssertionError(
+                        "with scripts blocked, expected %d radios named %r "
+                        "(the %s row's own palette, %s by default) with no "
+                        "script involvement in rendering it - found %d"
+                        % (expected, field, usage, state, count))
+    finally:
+        if original_arriving is None:
+            device_config.save_device_config(
+                server.tmpdir, theme_arriving=device_config.CLEAR_THEME_ARRIVING)
+        else:
+            device_config.save_device_config(server.tmpdir, theme_arriving=original_arriving)
+        final = read_back()
+        if final != original_arriving:
+            raise AssertionError(
+                "restoring theme_arriving failed: wanted %r, disk reads %r"
+                % (original_arriving, final))
+
+
+# ===========================================================================
+# 30-08-PLAN.md Task 2 (CFG-85): the palette preview's keyboard/hover/
+# focus behaviour, over the static wrapping grid the carousel was
+# rebuilt into.
+# ===========================================================================
+
+def test_keying_the_palette_moves_the_preview(new_context, server):
+    """arrow-keying the departures palette's native radiogroup (no click at all)
+    still moves the checked selection, and the live preview still follows it via
+    theme-preview.js's own delegated change listener, settled fully opaque - the one
+    property _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview
+    proved that survives a static wrapping grid with no strip/scroll/pager to key
+    through (_ASPECT_REPIN_LEDGER, 30-08-PLAN.md Task 2, CFG-85)"""
+    context = new_context(viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        _login(page, base_url)
+        page.goto(base_url + "/display")
+        page.wait_for_load_state("networkidle")
+
+        checked_value = page.eval_on_selector(
+            'details.usage-row[data-usage="departures"] '
+            'input[name="theme"]:checked', "el => el.value")
+        page.focus(
+            'details.usage-row[data-usage="departures"] '
+            'input[name="theme"][value="%s"]' % checked_value)
+        page.keyboard.press("ArrowDown")
+        page.wait_for_timeout(200)
+        new_value = page.eval_on_selector(
+            'details.usage-row[data-usage="departures"] '
+            'input[name="theme"]:checked', "el => el.value")
+        if new_value == checked_value:
+            raise AssertionError(
+                "ArrowDown inside the departures palette's native radiogroup "
+                "did not move the checked selection off %r" % (checked_value,))
+        expected_src = page.eval_on_selector(
+            'details.usage-row[data-usage="departures"] '
+            'input[name="theme"][value="%s"]' % new_value,
+            "el => el.closest('.palette-chip').getAttribute('data-preview-src')")
+        try:
+            page.wait_for_function(
+                "args => { var img = document.querySelector(args.sel);"
+                " return !!img && img.getAttribute('src') === args.expected"
+                " && parseFloat(getComputedStyle(img).opacity) === 1; }",
+                arg={"sel": THEME_PREVIEW_SEL, "expected": expected_src},
+                timeout=3000)
+        except Exception:
+            live_src = page.eval_on_selector(
+                THEME_PREVIEW_SEL, "el => el.getAttribute('src')")
+            raise AssertionError(
+                "expected the live preview to settle on %r (the newly "
+                "ArrowDown-selected chip's own data-preview-src), fully opaque, "
+                "after keying the palette with no click at all - it reads %r"
+                % (expected_src, live_src))
+    finally:
+        context.close()
+
+
+def test_the_preview_follows_hover_and_focus_and_selects_nothing(new_context, server):
+    """hovering or keyboard-focusing an unchecked palette chip previews that chip's
+    own theme in the ONE live preview, writing NO radio's checked state and NO value
+    on disk; moving the pointer/focus away reverts the preview to the checked
+    chip's own src; hovering straight from chip A to chip B never passes through
+    the checked selection's own src in between (observed via a live
+    MutationObserver on the preview's src attribute), settling on B; and the value
+    on disk is unchanged start to finish - the genuinely new interaction this phase
+    adds, with no existing hover/focus precedent to re-key (30-RESEARCH.md
+    Pitfall 4, _ASPECT_REPIN_LEDGER, 30-08-PLAN.md Task 1+2, CFG-85)"""
+    context = new_context(viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        _login(page, base_url)
+        page.goto(base_url + "/display")
+        page.wait_for_load_state("networkidle")
+
+        def read_back():
+            return device_config.load_device_config(server.tmpdir)["theme"]
+
+        def preview_src():
+            return page.eval_on_selector(THEME_PREVIEW_SEL, "el => el.getAttribute('src')")
+
+        def checked_value():
+            return page.eval_on_selector(
+                'details.usage-row[data-usage="departures"] '
+                'input[name="theme"]:checked', "el => el.value")
+
+        def chip_label_selector(value):
+            return (
+                'details.usage-row[data-usage="departures"] '
+                'label.palette-chip:has('
+                'input[type=radio][value="%s"])' % value)
+
+        def chip_selector(value):
+            return (
+                'details.usage-row[data-usage="departures"] '
+                'label.palette-chip input[type=radio][value="%s"]' % value)
+
+        def wait_for_src(expected):
+            page.wait_for_function(
+                "args => { var img = document.querySelector(args.sel);"
+                " return !!img && img.getAttribute('src') === args.expected; }",
+                arg={"sel": THEME_PREVIEW_SEL, "expected": expected},
+                timeout=3000)
+
+        before_disk = read_back()
+        chips = page.evaluate(
+            "() => [...document.querySelectorAll("
+            "'details.usage-row[data-usage=\"departures\"] "
+            "label.palette-chip')]"
+            ".map(c => ({value: c.querySelector('input[type=radio]').value,"
+            " checked: c.querySelector('input[type=radio]').checked,"
+            " src: c.getAttribute('data-preview-src')}))")
+        checked_chip = next((c for c in chips if c["checked"]), None)
+        unchecked = [c for c in chips if not c["checked"]]
+        if checked_chip is None or len(unchecked) < 2:
+            raise AssertionError(
+                "expected one checked departures chip and at least 2 unchecked "
+                "siblings to hover, got checked=%r unchecked=%d"
+                % (checked_chip, len(unchecked)))
+        chip_a, chip_b = unchecked[0], unchecked[1]
+
+        page.hover(chip_label_selector(chip_a["value"]))
+        wait_for_src(chip_a["src"])
+        if checked_value() != checked_chip["value"]:
+            raise AssertionError(
+                "hovering an unchecked chip changed the CHECKED radio from %r "
+                "to %r - a preview must never become a selection"
+                % (checked_chip["value"], checked_value()))
+        if read_back() != before_disk:
+            raise AssertionError("hovering an unchecked chip changed the value ON DISK")
+
+        page.hover("body", position={"x": 2, "y": 2})
+        wait_for_src(checked_chip["src"])
+
+        page.focus(chip_selector(chip_a["value"]))
+        wait_for_src(chip_a["src"])
+        if checked_value() != checked_chip["value"]:
+            raise AssertionError(
+                "keyboard-focusing an unchecked chip changed the CHECKED radio "
+                "from %r to %r" % (checked_chip["value"], checked_value()))
+        page.eval_on_selector(chip_selector(chip_a["value"]), "el => el.blur()")
+        wait_for_src(checked_chip["src"])
+
+        page.hover(chip_label_selector(chip_a["value"]))
+        wait_for_src(chip_a["src"])
+        page.evaluate(
+            "sel => { var img = document.querySelector(sel);"
+            " window.__paletteHoverFrames = [];"
+            " window.__paletteHoverObserver = new MutationObserver("
+            "   function () {"
+            "     window.__paletteHoverFrames.push(img.getAttribute('src'));"
+            "   });"
+            " window.__paletteHoverObserver.observe("
+            "   img, {attributes: true, attributeFilter: ['src']}); }",
+            THEME_PREVIEW_SEL)
+        page.hover(chip_label_selector(chip_b["value"]))
+        wait_for_src(chip_b["src"])
+        page.wait_for_timeout(200)
+        frames = page.evaluate(
+            "() => { window.__paletteHoverObserver.disconnect();"
+            " return window.__paletteHoverFrames; }")
+        if checked_chip["src"] in frames:
+            raise AssertionError(
+                "hovering directly from chip A to chip B passed THROUGH the "
+                "checked selection's own src %r before settling on chip B's own "
+                "%r - frames observed: %r"
+                % (checked_chip["src"], chip_b["src"], frames))
+        final_src = preview_src()
+        if final_src != chip_b["src"]:
+            raise AssertionError(
+                "expected the preview to end on chip B's own src %r after "
+                "hovering straight from chip A to chip B, got %r"
+                % (chip_b["src"], final_src))
+
+        if read_back() != before_disk:
+            raise AssertionError(
+                "the value on disk changed over the course of this check - "
+                "hovering/focusing must never write a selection")
     finally:
         context.close()
