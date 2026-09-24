@@ -51,11 +51,11 @@ Live hostnames from `skypane.env`: `SKYPANE_PUBLIC_HOST=vps-1440bce3.vps.ovh.net
 
 | Directive | Before (CP-1) | After (CP-3) |
 |-----------|---------------|--------------|
-| permitrootlogin | prohibit-password | |
-| passwordauthentication | **yes** | |
-| kbdinteractiveauthentication | no | |
-| pubkeyauthentication | yes | |
-| maxauthtries | 6 | |
+| permitrootlogin | prohibit-password | no |
+| passwordauthentication | **yes** | no |
+| kbdinteractiveauthentication | no | no |
+| pubkeyauthentication | yes | yes |
+| maxauthtries | 6 | 3 |
 
 Before: `/etc/ssh/sshd_config.d/` holds `50-cloud-init.conf` (root 600) and
 `60-cloudimg-settings.conf`. Password authentication is **on** in production
@@ -67,9 +67,17 @@ finding, confirmed live). `00-skypane.conf` sorts before it and fixes this.
 
 | Path | Before (CP-1) | After (CP-3) |
 |------|---------------|--------------|
-| /opt/skypane | 750 skypane:skypane | |
-| /opt/skypane/skypane.env | not read (stat ran without sudo) | |
-| /opt/skypane/venv | not read (stat ran without sudo) | |
+| /opt/skypane | 750 skypane:skypane | 750 root:skypane |
+| /opt/skypane/skypane.env | not read (stat ran without sudo) | 600 root:root |
+| /opt/skypane/venv | not read (stat ran without sudo) | 755 root:root |
+
+CP-3 (2026-09-24): `provision.sh` ran to completion with session 1 open.
+`sshd -t` passed; a second session as `ubuntu@` logged in (`LOGIN-OK`) and
+`root@` was refused (`Permission denied (publickey)`). Also after CP-3:
+`releases/` 755 root:root, `archives/` 2750 skypane:skypane-backup,
+`pulled/` 755 skypane-backup:skypane-backup, `skypane-backup` not in group
+`skypane`, `SKYPANE_OFFBOX_MARKER` present once in `skypane.env`, byos /
+companion / poll.timer / caddy all `active`.
 
 ## GitHub deploy target (CP-2)
 
