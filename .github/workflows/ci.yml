@@ -215,8 +215,12 @@ jobs:
             exit 0
           fi
           git fetch --quiet --depth=1 origin "${latest}"
+          # Markdown is excluded: the `paths` filter never runs CI for a
+          # Markdown-only push, so such a push can never deploy itself and
+          # must not block this one (it changes no runtime behaviour).
           if git diff --quiet "${GITHUB_SHA}" "${latest}" -- \
-              server stub-server companion adsb-test/runway3.json deploy; then
+              server stub-server companion adsb-test/runway3.json deploy \
+              ':(exclude,glob)**/*.md'; then
             echo "::notice::main moved to ${latest}, but shipped files are identical to ${GITHUB_SHA}; deploying."
           else
             echo "::error::Not deploying ${GITHUB_SHA}: main is now ${latest}, which changes shipped files. That commit's own run deploys it once its tests pass."
