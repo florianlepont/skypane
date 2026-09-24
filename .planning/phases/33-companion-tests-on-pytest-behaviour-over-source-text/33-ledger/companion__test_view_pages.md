@@ -4,43 +4,43 @@ Baseline: `companion__test_view_pages.txt`, 169 checks
 
 | # | Old check label | Disposition | New node id / reason |
 | --- | --- | --- | --- |
-| 1 | an empty database renders the flight-history empty-state copy and no <table | pending | |
-| 2 | three seeded runway events render one row each, newest first | pending | |
-| 3 | a known aircraft-type designator renders its friendly label (case-insensitive) | pending | |
-| 4 | an aircraft type absent from the display-label table renders the raw designator, not an empty cell | pending | |
-| 5 | a row with no airline and no route renders the same fallback wording server.plane.render.py uses (read from the module) | pending | |
-| 6 | timestamp, callsign and hex columns carry monospace CSS classes | pending | |
-| 7 | a callsign containing angle brackets renders escaped | pending | |
-| 8 | a state directory that cannot hold a database renders the health-unavailable copy without raising | pending | |
-| 9 | companion/pages/history_page.py never imports the stdlib html module directly | pending | |
-| 10 | companion/pages/history_page.py never redefines _TYPE_DISPLAY_LABELS locally | pending | |
-| 11 | History opens with the shared layout.page_header() component, not a bare <h1> | pending | |
-| 12 | History's flight table gains the .data-table-wrap horizontal-scroll wrapper Airlines/Health already have, without disturbing the Corroboration status dot | pending | |
-| 13 | History renders exactly the 5 data headers in history_page._HEADERS plus a sixth, visually-hidden 'Details' toggle-column header, all in order, with no standalone Hex/Airline/Runway/Type/Callsign/Timestamp column (21-03-PLAN.md Task 1, D-15) | pending | |
-| 14 | the runway value the dropped desktop Runway column used to show survives in the <tr title="..."> attribute and, unchanged, in the mobile card's More details (A-36/D-19) | pending | |
-| 15 | the .data-table-wrap scroller is focusable (tabindex="0") and carries a non-empty aria-label naming what it scrolls (A-36/D-19) | pending | |
-| 16 | the desktop When cell shows a local clock primary line plus a STACKED relative-age secondary line, with no title attribute carrying the full ISO string any more (21-03-PLAN.md Task 1, D-15) | pending | |
-| 17 | the Flight cell's callsign and its airline/aircraft-type secondary line both appear inside the same <td>, and the hex value is not visible in the desktop table (21-03-PLAN.md Task 1, D-15) | pending | |
-| 18 | the merged Callsign/Hex and Type/Airline cells stay on one line - no <br>, no block-level child | pending | |
-| 19 | hostile values in both merged cells (Callsign/Hex, Type/Airline) render escaped | pending | |
-| 20 | history_page's CELL_PRIMARY_CLASS/CELL_SECONDARY_CLASS/CELL_SEPARATOR_CLASS all appear in style.css and in the rendered page | pending | |
-| 21 | History's Timestamp column/mobile primary line read through layout.concise_timestamp_html(), format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key | pending | |
-| 22 | History's Timestamp cells carry layout.concise_timestamp_html()'s new <time data-relative> element through data_table()'s raw_columns — as real markup, never double-escaped — with its text and its instant both intact (23-03, D14/CFG-34) | pending | |
-| 23 | history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS on status key-by-key and on visible label for True/False; History's shortened 'None' label is the documented short form and its _CORROBORATION_TITLES tooltip equals Health's own full label exactly; the single-source 'None' state is pinned by name on each side (History 'ok', Health the neutral 'off'), is never a failure in either table, and carries a visible label distinct from 'Both agree' (quick task 260902-w4t UIR-04, retargeted by 22-12-PLAN.md Task 1's X8) | pending | |
-| 24 | layout.status_dot()'s 2-arg output is unchanged, an explicit title=None is byte-identical to omitting it, and a truthy title renders as an escaped title attribute (quick task 260902-w4t, UIR-04) | pending | |
-| 25 | layout.status_dot()'s visually_hide_label keyword defaults to False with a byte-identical return value, and True adds the visually-hidden class to the label span while leaving its text/title unchanged (21-03-PLAN.md Task 1, D-15) | pending | |
-| 26 | a 'None' (single-source) row's Corroboration cell shows the short visible label with the long form only in a title attribute, in both the desktop and mobile renderings (quick task 260902-w4t, UIR-04) | pending | |
-| 27 | the desktop Corroboration cell renders the dot only, with the visible word hidden via visually-hidden (not deleted); the mobile card's own Corroboration <dd> still shows the word (21-03-PLAN.md Task 1, D-15/D-16) | pending | |
-| 28 | the desktop When and Flight cells each carry exactly one cell-primary span and one cell-secondary span (21-03-PLAN.md Task 1, D-15) | pending | |
-| 29 | .data-table-wrap declares both background-attachment values (local covers, scroll shadows) and style.css introduces no pointer-events-blocking overlay (quick task 260902-w4t, UIR-04) | pending | |
-| 30 | History's filter bar carries exactly one data-filter-input/-count/-clear/-empty marker each | pending | |
-| 31 | History's search filter input carries autocomplete=off/spellcheck=false/autocapitalize=characters (Safari contact-autofill suppression) | pending | |
-| 32 | History's filter bar carries data-filter-count-template="%d of %d shown" under the default language and the French "%d sur %d affichés" under lang='fr' (D-06) | pending | |
-| 33 | History's filter count and Clear control render as siblings inside one .filter-bar__meta group whose page-agnostic rule declares flex/centre/nowrap/auto-left-margin, with no page-scoped fork of the converged [data-filter-clear] rule anywhere (B11, 22-09-PLAN.md Task 3 — a regression of Phase 18's A-18) | pending | |
-| 34 | the Clear control's shared [data-filter-clear] contract holds: History renders the attribute, style.css styles it by attribute, and no class-keyed rule competes | pending | |
-| 35 | a real flight's data-filter-text attribute (lowercased escaped callsign+hex) appears on both the desktop <tr> and the mobile <li> | pending | |
-| 36 | the desktop Flight cell contains zero copy buttons (21-03-PLAN.md Task 1, D-15 - they move into the Task 2 detail row instead) | pending | |
-| 37 | each summary row gets exactly one sibling detail row, matched by aria-controls/id, with no hidden attribute and no inline style (the no-JS floor), and every row-toggle starts aria-expanded="false" (21-03-PLAN.md Task 2, D-15/R-12) | pending | |
+| 1 | an empty database renders the flight-history empty-state copy and no <table | ported | companion/test_view_pages_01.py::test_empty_database_renders_empty_state_no_table |
+| 2 | three seeded runway events render one row each, newest first | ported | companion/test_view_pages_01.py::test_three_events_render_newest_first |
+| 3 | a known aircraft-type designator renders its friendly label (case-insensitive) | ported | companion/test_view_pages_01.py::test_known_aircraft_type_friendly_label |
+| 4 | an aircraft type absent from the display-label table renders the raw designator, not an empty cell | ported | companion/test_view_pages_01.py::test_unknown_aircraft_type_raw_designator |
+| 5 | a row with no airline and no route renders the same fallback wording server.plane.render.py uses (read from the module) | ported | companion/test_view_pages_01.py::test_no_airline_no_route_matches_render_fallback |
+| 6 | timestamp, callsign and hex columns carry monospace CSS classes | ported | companion/test_view_pages_01.py::test_mono_columns_present |
+| 7 | a callsign containing angle brackets renders escaped | ported | companion/test_view_pages_01.py::test_hostile_callsign_escaped |
+| 8 | a state directory that cannot hold a database renders the health-unavailable copy without raising | ported | companion/test_view_pages_01.py::test_unreadable_db_degrades_without_raising |
+| 9 | companion/pages/history_page.py never imports the stdlib html module directly | ported | companion/test_view_pages_01.py::test_history_page_never_imports_html_module_directly |
+| 10 | companion/pages/history_page.py never redefines _TYPE_DISPLAY_LABELS locally | ported | companion/test_view_pages_01.py::test_history_page_never_redefines_type_display_labels_locally |
+| 11 | History opens with the shared layout.page_header() component, not a bare <h1> | ported | companion/test_view_pages_01.py::test_history_opens_with_shared_page_header |
+| 12 | History's flight table gains the .data-table-wrap horizontal-scroll wrapper Airlines/Health already have, without disturbing the Corroboration status dot | ported | companion/test_view_pages_01.py::test_history_table_wrapped_for_horizontal_scroll_dot_survives |
+| 13 | History renders exactly the 5 data headers in history_page._HEADERS plus a sixth, visually-hidden 'Details' toggle-column header, all in order, with no standalone Hex/Airline/Runway/Type/Callsign/Timestamp column (21-03-PLAN.md Task 1, D-15) | ported | companion/test_view_pages_01.py::test_six_columns_named_and_ordered |
+| 14 | the runway value the dropped desktop Runway column used to show survives in the <tr title="..."> attribute and, unchanged, in the mobile card's More details (A-36/D-19) | ported | companion/test_view_pages_01.py::test_runway_survives_in_row_title_and_mobile_details |
+| 15 | the .data-table-wrap scroller is focusable (tabindex="0") and carries a non-empty aria-label naming what it scrolls (A-36/D-19) | ported | companion/test_view_pages_01.py::test_scroller_focusable_and_named |
+| 16 | the desktop When cell shows a local clock primary line plus a STACKED relative-age secondary line, with no title attribute carrying the full ISO string any more (21-03-PLAN.md Task 1, D-15) | ported | companion/test_view_pages_01.py::test_desktop_when_cell_clock_primary_relative_age_secondary |
+| 17 | the Flight cell's callsign and its airline/aircraft-type secondary line both appear inside the same <td>, and the hex value is not visible in the desktop table (21-03-PLAN.md Task 1, D-15) | ported | companion/test_view_pages_01.py::test_merged_flight_cell_carries_callsign_airline_and_type |
+| 18 | the merged Callsign/Hex and Type/Airline cells stay on one line - no <br>, no block-level child | ported | companion/test_view_pages_01.py::test_merged_cells_stay_one_line |
+| 19 | hostile values in both merged cells (Callsign/Hex, Type/Airline) render escaped | ported | companion/test_view_pages_01.py::test_merged_cell_hostile_values_escaped |
+| 20 | history_page's CELL_PRIMARY_CLASS/CELL_SECONDARY_CLASS/CELL_SEPARATOR_CLASS all appear in style.css and in the rendered page | ported | companion/test_view_pages_01.py::test_merged_cell_classes_agree_with_stylesheet |
+| 21 | History's Timestamp column/mobile primary line read through layout.concise_timestamp_html(), format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key | ported | companion/test_view_pages_01.py::test_timestamp_column_absolute_and_relative |
+| 22 | History's Timestamp cells carry layout.concise_timestamp_html()'s new <time data-relative> element through data_table()'s raw_columns — as real markup, never double-escaped — with its text and its instant both intact (23-03, D14/CFG-34) | ported | companion/test_view_pages_01.py::test_history_timestamps_carry_a_relative_time_element |
+| 23 | history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS on status key-by-key and on visible label for True/False; History's shortened 'None' label is the documented short form and its _CORROBORATION_TITLES tooltip equals Health's own full label exactly; the single-source 'None' state is pinned by name on each side (History 'ok', Health the neutral 'off'), is never a failure in either table, and carries a visible label distinct from 'Both agree' (quick task 260902-w4t UIR-04, retargeted by 22-12-PLAN.md Task 1's X8) | ported | companion/test_view_pages_01.py::test_corroboration_copy_agrees_with_health_page |
+| 24 | layout.status_dot()'s 2-arg output is unchanged, an explicit title=None is byte-identical to omitting it, and a truthy title renders as an escaped title attribute (quick task 260902-w4t, UIR-04) | ported | companion/test_view_pages_01.py::test_status_dot_title_backward_compatible_and_escaped |
+| 25 | layout.status_dot()'s visually_hide_label keyword defaults to False with a byte-identical return value, and True adds the visually-hidden class to the label span while leaving its text/title unchanged (21-03-PLAN.md Task 1, D-15) | ported | companion/test_view_pages_01.py::test_status_dot_visually_hide_label_defaults_false_byte_identical |
+| 26 | a 'None' (single-source) row's Corroboration cell shows the short visible label with the long form only in a title attribute, in both the desktop and mobile renderings (quick task 260902-w4t, UIR-04) | ported | companion/test_view_pages_01.py::test_corroboration_none_row_shows_short_label_with_tooltip |
+| 27 | the desktop Corroboration cell renders the dot only, with the visible word hidden via visually-hidden (not deleted); the mobile card's own Corroboration <dd> still shows the word (21-03-PLAN.md Task 1, D-15/D-16) | ported | companion/test_view_pages_01.py::test_desktop_corroboration_cell_dot_only_no_visible_word |
+| 28 | the desktop When and Flight cells each carry exactly one cell-primary span and one cell-secondary span (21-03-PLAN.md Task 1, D-15) | ported | companion/test_view_pages_01.py::test_when_and_flight_cells_each_carry_one_primary_one_secondary |
+| 29 | .data-table-wrap declares both background-attachment values (local covers, scroll shadows) and style.css introduces no pointer-events-blocking overlay (quick task 260902-w4t, UIR-04) | ported | companion/test_view_pages_01.py::test_data_table_wrap_scroll_edge_affordance_css |
+| 30 | History's filter bar carries exactly one data-filter-input/-count/-clear/-empty marker each | ported | companion/test_view_pages_01.py::test_filter_bar_markers_present_once |
+| 31 | History's search filter input carries autocomplete=off/spellcheck=false/autocapitalize=characters (Safari contact-autofill suppression) | ported | companion/test_view_pages_01.py::test_filter_input_carries_safari_autofill_suppression_attributes |
+| 32 | History's filter bar carries data-filter-count-template="%d of %d shown" under the default language and the French "%d sur %d affichés" under lang='fr' (D-06) | ported | companion/test_view_pages_01.py::test_filter_count_template_attribute_english_and_french |
+| 33 | History's filter count and Clear control render as siblings inside one .filter-bar__meta group whose page-agnostic rule declares flex/centre/nowrap/auto-left-margin, with no page-scoped fork of the converged [data-filter-clear] rule anywhere (B11, 22-09-PLAN.md Task 3 — a regression of Phase 18's A-18) | ported | companion/test_view_pages_01.py::test_filter_bar_count_and_clear_wrap_as_one_group |
+| 34 | the Clear control's shared [data-filter-clear] contract holds: History renders the attribute, style.css styles it by attribute, and no class-keyed rule competes | ported | companion/test_view_pages_01.py::test_clear_control_shared_attribute_contract |
+| 35 | a real flight's data-filter-text attribute (lowercased escaped callsign+hex) appears on both the desktop <tr> and the mobile <li> | ported | companion/test_view_pages_01.py::test_filter_text_attribute_on_both_representations |
+| 36 | the desktop Flight cell contains zero copy buttons (21-03-PLAN.md Task 1, D-15 - they move into the Task 2 detail row instead) | ported | companion/test_view_pages_01.py::test_desktop_flight_cell_carries_no_copy_buttons |
+| 37 | each summary row gets exactly one sibling detail row, matched by aria-controls/id, with no hidden attribute and no inline style (the no-JS floor), and every row-toggle starts aria-expanded="false" (21-03-PLAN.md Task 2, D-15/R-12) | ported | companion/test_view_pages_01.py::test_detail_row_pairs_with_summary_row_by_aria_controls_and_id |
 | 38 | the rendered Flights table carries zero visible More/Plus/Less/Moins button labels and exactly one icon-only toggle button per row, each carrying a translated aria-label that swaps with its state and names the picture reachable inside (22-09-PLAN.md Task 1, X5) | pending | |
 | 39 | in the RENDERED Flights page no <tr> carries aria-expanded and every aria-expanded occurrence sits on a <button> (22-09-PLAN.md Task 1, X5 — the state never moves onto the row element) | pending | |
 | 40 | style.css's new .row-toggle rule block reuses .copy-btn's icon-only pattern verbatim (same 22x22 box, same radius, the same ::before inset synthesizing 44x44, the same 14px glyph) and introduces no new size literal; the pointer cursor is keyed only on the class flight-rows.js adds at load (22-09-PLAN.md Task 1, X5) | pending | |
@@ -174,3 +174,21 @@ Baseline: `companion__test_view_pages.txt`, 169 checks
 | 168 | a real authenticated GET of /airlines renders the dialog's replace, delete and upload-zone forms with no query string at all, and a leftover ?edit=1 in a bookmark renders identically — against a real running service, proving the removed query parameter has no reader anywhere in the real request path (CFG-81, 29-01-PLAN.md) | pending | |
 | 169 | both <dialog>s arrive through ONE @starting-style entrance on .lightbox[open] — fading and zooming from opacity 0 over var(--motion-fast), reaching History's lightbox and the Airlines gallery's wide variant from a single rule, with `display`/`allow-discrete` deliberately absent so close() ends the dialog outright rather than leaving an invisible click-swallowing sheet over the page (T-23-36), and with ::backdrop unanimated because the global reduced-motion override cannot reach it (D3/CFG-32, 23-10-PLAN.md Task 2) | pending | |
 
+
+### Part 01 (plan 33-05)
+
+37 checks migrated to `companion/test_view_pages_01.py` (helpers in
+`companion/test_view_pages_helpers.py`). Rubric codes: B x 10 (render()
+calls and their output, or pure-Python behaviour with no rendering at
+all), D x 21 (structural regex-over-rendered-HTML rewritten as
+`companion_markup.parse_html()`/`select()`/`find_all()`, several through
+the shared `row_block()` helper), C x 4 (checks that opened
+`companion/static/style.css` from disk rewritten over
+`served_stylesheet()` + `css_rules()`/`declarations_for()`), S x 2
+(source-text scans - "never imports html", "never redefines
+_TYPE_DISPLAY_LABELS" - rewritten as `getattr()`/`hasattr()` identity
+checks with no file read). 0 deleted - every check in this slice had a
+direct behavioural or parsed-DOM equivalent. New module:
+`companion/test_view_pages_01.py` (37 tests). Legacy
+`companion/test_view_pages.py` shrinks from `EXPECTED_CHECK_COUNT = 169`
+to `EXPECTED_CHECK_COUNT = 132` (132/132 still pass standalone).
