@@ -73,7 +73,11 @@ finding, confirmed live). `00-skypane.conf` sorts before it and fixes this.
 
 ## GitHub deploy target (CP-2)
 
-_Pending CP-2._
+Done 2026-09-24 by the developer: `DEPLOY_SSH_TARGET` set to `ubuntu@<vps>` as an
+**environment secret of `production`** (the environment page lists only that
+one secret; the key and host-key secrets resolve from elsewhere, as the
+successful 2026-09-23 12:20 deploy proves). Protection rules: **Required
+reviewers = florianlepont**, no wait timer, administrators cannot bypass.
 
 ## Services under sandbox (CP-4)
 
