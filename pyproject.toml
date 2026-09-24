@@ -116,6 +116,16 @@ parallel = true
 # explicit above for its own documentation value).
 patch = ["subprocess"]
 
+# 32-REVIEW WR-02: coverage.py only writes a process's data file at a
+# normal interpreter exit unless `sigterm` is set, and every long-lived
+# child above (byos_server.py, companion/app.py) is stopped with
+# `proc.terminate()` — SIGTERM. Without this, those children saved
+# nothing and their HTTP request-handling code measured as unreached
+# (byos_server.py: 50% without, 91% with, on stub-server/test_poll_cycle.py
+# alone). A child killed with SIGKILL (a legacy harness timeout) still
+# saves nothing — that is a failed run anyway.
+sigterm = true
+
 # Source-scoped to this project's own three code directories so library
 # internals (Pillow, requests, stdlib) are never counted toward the
 # measurement — an unscoped run makes any threshold meaningless
@@ -131,24 +141,27 @@ omit = [
 ]
 
 [tool.coverage.report]
-# Threshold: 88. Derivation (32-15, TST-09): measured 88.11% total coverage
-# with `patch = ["subprocess"]` (companion/app.py, stub-server/byos_server.py
-# and stub-server/make_test_panel.py now measured in-scope, no longer
-# omitted) under this source/omit scope (server + stub-server + companion;
-# only the three test_*.py globs above omitted), all 768 tests passing, via
-# `./scripts/run-all-tests.sh --cov-report=term-missing` run as a non-root
-# user (matching GitHub CI's non-root runner — root ignores read-only-
-# directory permission bits, which changes 3 tests' pass/skip outcome
-# without moving the coverage total). Identical 88.11% on both CPython
-# 3.14.0rc2 (a scratch venv built from server/requirements-dev.txt with
-# --require-hashes; the CI interpreter) and this repo's CPython 3.11.15
-# server/.venv, measured 2026-09-23. 88 is the measured total rounded down
-# with no margin — the floor equals the measurement exactly, not a discount
-# below it, per TST-09's decision (a legitimate refactor that shifts a few
+# Threshold: 93. Derivation (32-REVIEW WR-02, re-measuring 32-15's TST-09
+# floor): measured 93.35% total coverage once `sigterm = true` (above) let
+# every SIGTERM-stopped child (companion/app.py, stub-server/byos_server.py)
+# actually save its data — 32-15's 88.11% was measured without it, so it
+# mostly reflected in-process imports, not those servers' HTTP
+# request-handling code. Same source/omit scope (server + stub-server +
+# companion; only the three test_*.py globs above omitted), all 777 tests
+# passing, via `./scripts/run-all-tests.sh` (a full run, no extra
+# arguments, so the gate applies) run as a non-root user (`runuser -u
+# nobody`, matching GitHub CI's non-root runner — root ignores
+# read-only-directory permission bits, which changes 3 tests' pass/skip
+# outcome) on CPython 3.14.0rc2 (a scratch venv built from
+# server/requirements-dev.txt with --require-hashes; the CI interpreter),
+# measured 2026-09-24. 93 is the measured total rounded down with no
+# margin — the floor equals the measurement exactly, not a discount below
+# it, per TST-09's decision (a legitimate refactor that shifts a few
 # statements is expected to nudge this number in a future plan, not be
 # absorbed by slack). This is a floor to ratchet upward as coverage
 # improves, never downward, and only moves when someone re-measures and
-# raises it — changing the `source` or `omit` lists above invalidates this
-# number outright, since it stops describing what was actually measured the
+# raises it — changing the `source` or `omit` lists above, or the
+# `[tool.coverage.run]` subprocess settings, invalidates this number
+# outright, since it stops describing what was actually measured the
 # moment the scope changes.
-fail_under = 88
+fail_under = 93
