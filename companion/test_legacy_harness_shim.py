@@ -117,6 +117,11 @@ def test_legacy_harness_list_matches_disk():
     #
     # SEC-03 (37-05-PLAN.md Task 1): test_post_origin.py (HTTP
     # integration) is exempted for the same reason.
+    #
+    # SEC-03 (37-05-PLAN.md Task 2): test_browser_origin.py is the first
+    # native pytest Playwright test in this repository — collected
+    # directly by pytest rather than routed through this shim's own
+    # subprocess-per-legacy-harness path — exempted for the same reason.
     on_disk = {
         "companion/%s" % name
         for name in os.listdir(_COMPANION_DIR)
@@ -128,6 +133,7 @@ def test_legacy_harness_list_matches_disk():
             "test_login_throttle.py",
             "test_health_offbox.py",
             "test_post_origin.py",
+            "test_browser_origin.py",
         )
     }
     assert on_disk == set(LEGACY_COMPANION_HARNESSES)
