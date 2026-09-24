@@ -76,7 +76,7 @@ from datetime import timedelta
 
 import pytest
 
-from companion import i18n, layout
+from companion import i18n, illustration_normalize, layout
 from companion.i18n_fr import health as i18n_fr_health
 from companion.pages import airlines_page, health_page, history_page
 import companion.test_status_pages_helpers as shp
@@ -742,3 +742,610 @@ def test_health_tile_icons_are_tile_only_and_no_heading_carries_a_glyph(tmp_path
 # document under the planning tree for the same pair beside the original decision's wording — plan
 # history prose recorded in a header comment and a planning document, with no rendered or served
 # behaviour behind either assertion (TST-12 rubric P/J).
+
+
+# ==========================================================================
+# The auto-refresh pill's markup/stylesheet contracts, the fetch-and-swap
+# loop's own contract, and the pipeline tile's second line
+# ==========================================================================
+
+
+def test_freshness_js_carries_the_refresh_loop_contract(freshness_js):
+    """freshness.js's shipped source carries the loop's own contract — a named interval constant
+    inside the 30-60s band, both halves of pause (setInterval+clearInterval) and visibility
+    (visibilitychange+document.hidden), the double-start guard, and the retired reload form gone
+    entirely while fetch(/DOMParser/replaceChild/importNode are required present as this file's
+    own reviewed exception to the forbidden-sink/no-URL-taking-navigation-form/ES5-safe-subset
+    disciplines, which otherwise still hold unchanged"""
+    js = freshness_js
+    m = re.search(r"AUTO_REFRESH_INTERVAL_MS\s*=\s*(\d+)", js)
+    assert m, "expected AUTO_REFRESH_INTERVAL_MS to be a named constant"
+    interval_ms = int(m.group(1))
+    assert 30000 <= interval_ms <= 60000, (
+        "interval %d ms falls outside the developer's chosen 30-60s band" % interval_ms)
+
+    assert "setInterval" in js and "clearInterval" in js, (
+        "expected both setInterval and clearInterval — the pause half of the loop")
+    assert "visibilitychange" in js and "document.hidden" in js, (
+        "expected both a visibilitychange listener and a document.hidden read")
+    assert "intervalHandle !== null" in js, (
+        "expected the double-start guard (a no-op start when a handle already exists)")
+    assert "location.reload" not in js, "expected the retired reload form to be gone entirely"
+
+    for sink in ("innerHTML", "outerHTML", "insertAdjacentHTML",
+                 "document.write", "eval(", "XMLHttpRequest"):
+        assert sink not in js, "forbidden sink discipline broken: %r found in freshness.js" % sink
+    for nav in ("location.href =", "location.assign", "location.replace", "window.open"):
+        assert nav not in js, "URL-taking navigation form found in freshness.js: %r" % nav
+    for token in ("let ", "const ", "=>", "`"):
+        assert token not in js, "ES5-safe subset broken: %r found in freshness.js" % token
+    for required in ("setInterval", "fetch(", "DOMParser", "replaceChild", "importNode"):
+        assert required in js, "expected %r to be present in freshness.js" % required
+
+
+def test_auto_refresh_pill_markup_contract_holds_seeded_and_fresh(tmp_path):
+    """The auto-refresh pill's markup contract (marker attribute, inline element, hidden-by-
+    default, live data-loaded-at exactly once page-wide, the pill-copy constant's own value,
+    inside .page-header, preceding the purpose sentence) holds on a real render both seeded and on
+    a fresh state directory with no readings at all — proven unconditional, not coupled to the
+    battery chart's own render branch"""
+    for label, seed_readings in (("seeded", True), ("fresh/no-readings", False)):
+        state_dir = tmp_path / ("seeded" if seed_readings else "fresh")
+        state_dir.mkdir()
+        state_dir = str(state_dir)
+        now = shp.now()
+        if seed_readings:
+            shp.seed_device_health(state_dir, [
+                (shp.iso(now - timedelta(minutes=1)), 4200),
+                (shp.iso(now), 4190),
+            ])
+        now_iso = shp.iso(now)
+        rendered = health_page.render(shp.ctx(state_dir, now_iso))
+        assert rendered.count("data-refresh-pill") == 1, (
+            "%s state: expected exactly one pill marker attribute" % label)
+        start = rendered.index("data-refresh-pill")
+        tag = rendered[rendered.rindex("<", 0, start):rendered.index(">", start) + 1]
+        assert tag.startswith("<span"), (
+            "%s state: expected the pill to be an inline <span>, got %r" % (label, tag[:40]))
+        assert " hidden" in tag, (
+            "%s state: expected the pill to carry the bare hidden attribute" % label)
+        assert ('data-loaded-at="%s"' % now_iso) in rendered, (
+            "%s state: expected data-loaded-at to carry the real now value" % label)
+        assert rendered.count("data-loaded-at") == 1, (
+            "%s state: expected exactly one data-loaded-at, page-wide" % label)
+        assert health_page.REFRESH_PILL_TEXT in rendered, (
+            "%s state: expected the pill copy constant's own value in the rendered page" % label)
+        header_start = rendered.index('<div class="page-header">')
+        header_end = rendered.index("</div>", header_start) + len("</div>")
+        assert "data-refresh-pill" in rendered[header_start:header_end], (
+            "%s state: expected the pill inside the .page-header div" % label)
+        purpose_at = rendered.index(layout.escape_html(health_page.PAGE_PURPOSE_TEXT))
+        assert start < purpose_at, (
+            "%s state: expected the pill to precede the purpose sentence" % label)
+
+
+def test_refresh_pill_stylesheet_contract(css_text):
+    """style.css's .refresh-pill / .refresh-pill[hidden] / pill-scoped icon rules each carry
+    their load-bearing declaration — the [hidden] override hides by visibility with no display
+    value at all — .banner__pill still precedes .refresh-pill in source order, and the pill is
+    taken out of .page-header's block flow entirely via a .page-header-scoped absolute-position
+    rule rather than kept in flow with a reserved line box"""
+    pill_decls = declarations_for(css_text, ".refresh-pill")
+    assert pill_decls.get("display") == "inline-flex", (
+        "expected .refresh-pill to declare an inline-level flex display")
+
+    hidden_decls = declarations_for(css_text, ".refresh-pill[hidden]")
+    assert hidden_decls.get("visibility") == "hidden", (
+        "expected .refresh-pill[hidden] to hide by visibility — without this override the "
+        "pill's own display declaration beats the user-agent [hidden] rule")
+    assert "display" not in hidden_decls, (
+        "expected .refresh-pill[hidden] to declare no display value at all")
+
+    assert rules_with_selector(css_text, ".refresh-pill .icon"), (
+        "expected a pill-scoped icon-size override — .icon is 20px, the pill is 20px tall")
+
+    rules = css_rules(css_text)
+    assert _rule_index(rules, ".banner__pill") < _rule_index(rules, ".refresh-pill"), (
+        "expected .banner__pill to still precede .refresh-pill in source order")
+
+    header_decls = declarations_for(css_text, ".page-header")
+    assert header_decls.get("position") == "relative", (
+        "expected .page-header to establish a containing block for the out-of-flow pill")
+
+    scoped_decls = declarations_for(css_text, ".page-header .refresh-pill")
+    assert scoped_decls.get("position") == "absolute", (
+        "expected .page-header .refresh-pill to be positioned absolutely")
+    assert "top" in scoped_decls and "right" in scoped_decls, (
+        "expected .page-header .refresh-pill to declare explicit top/right offsets")
+
+
+def test_pipeline_tile_second_line_renders_last_detection_timestamp(tmp_path):
+    """The pipeline tile's new second line renders META_LAST_DETECTION's timestamp byte-
+    identically to concise_timestamp_html(), reusing the existing muted text-label/section-caption
+    tier — never battery-readout__detail, whose class name would collide with the
+    BATTERY_READOUT_ID absence guards"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    now_iso = shp.iso(now)
+    detection_iso = shp.iso(now - timedelta(minutes=5))
+    shp.seed_meta(state_dir, **{
+        history_db.META_LAST_PIPELINE_RUN: now_iso,
+        history_db.META_LAST_DETECTION: detection_iso,
+    })
+    rendered = health_page.render(shp.ctx(state_dir, now_iso))
+    expected_detail = layout.concise_timestamp_html(detection_iso, now_iso)
+    assert rendered.count(expected_detail) == 1, (
+        "expected the pipeline tile's second line to render concise_timestamp_html() "
+        "byte-identically for the seeded META_LAST_DETECTION value exactly once")
+    assert health_page.LAST_DETECTION_LABEL in rendered, (
+        "expected the second line's label text in the rendered page")
+    assert 'class="stat-tile__meta text-label section-caption"' in rendered, (
+        "expected the second line to reuse the existing muted text-label/section-caption tier")
+    second_line_slice = rendered.split('<p class="stat-tile__meta')[1].split("</p>")[0]
+    assert "battery-readout" not in second_line_slice, (
+        "expected the second line's own markup to carry no 'battery-readout' substring")
+
+
+def test_pipeline_tile_second_line_falls_back_honestly_when_no_detection(tmp_path):
+    """The pipeline tile's second line renders its honest no-reading-yet fallback when
+    META_LAST_DETECTION is absent, never an empty element or a dangling label"""
+    state_dir = str(tmp_path)
+    now_iso = shp.iso(shp.now())
+    shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: now_iso})
+    rendered = health_page.render(shp.ctx(state_dir, now_iso))
+    fallback_html = layout.escape_html("no reading yet")
+    second_line_start = rendered.index('<p class="stat-tile__meta text-label section-caption">')
+    second_line_end = rendered.index("</p>", second_line_start) + len("</p>")
+    second_line = rendered[second_line_start:second_line_end]
+    assert fallback_html in second_line, (
+        "expected the pipeline tile's second line to render the honest fallback when "
+        "META_LAST_DETECTION is absent")
+    assert health_page.LAST_DETECTION_LABEL in second_line, (
+        "expected the second line's label to still render alongside the fallback")
+
+
+def test_health_header_renders_the_persistent_freshness_note(tmp_path):
+    """Health's header renders an honest 'Updated HH:MM' clock — server-rendered as the text of a
+    <time data-relative> element, never the ladder's zero bucket, so the value is true with
+    scripts blocked and live with them (no relative-age suffix, the full Europe/Paris local
+    timestamp — never the raw ISO — in the clock span's title) beside the unchanged hidden refresh
+    pill and NO Pause/Resume toggle (zero data-refresh-toggle/data-pause-text/data-resume-text,
+    zero <button>), all inside one block-level .page-header__freshness wrapper that is the
+    .page-header's next child right after the <h1>, in prefix/clock/pill source order"""
+    state_dir = str(tmp_path)
+    now_iso = shp.iso(shp.now())
+    rendered = health_page.render(shp.ctx(state_dir, now_iso))
+
+    prefix = layout.escape_html(health_page.FRESHNESS_PREFIX_TEXT)
+    assert prefix in rendered, "expected the honest 'Updated ' prefix text in the rendered page"
+    assert health_page.FRESHNESS_PREFIX_TEXT == "Updated "
+
+    assert '<p class="page-header__freshness' in rendered, (
+        "expected a block-level .page-header__freshness wrapper")
+    wrapper_start = rendered.index('<p class="page-header__freshness')
+    wrapper_end = rendered.index("</p>", wrapper_start) + len("</p>")
+    wrapper_slice = rendered[wrapper_start:wrapper_end]
+    assert "data-refresh-pill" in wrapper_slice, (
+        "expected the hidden refresh pill inside the freshness wrapper")
+
+    outside = re.sub(r"<time [^>]*data-relative[^>]*>.*?</time>", "", wrapper_slice, flags=re.S)
+    assert " ago" not in outside and "il y a" not in outside, (
+        "expected every relative age inside .page-header__freshness to be a live "
+        "<time data-relative> element")
+    assert wrapper_slice.count("data-relative") == 1, (
+        "expected exactly one <time data-relative> element inside .page-header__freshness")
+
+    inside = re.search(r"<time [^>]*data-relative[^>]*>(.*?)</time>", wrapper_slice, flags=re.S)
+    assert inside is not None, "expected the freshness value to BE a <time data-relative> element"
+    for lang in ("en", "fr"):
+        assert inside.group(1) != layout.escape_html(layout.relative_age_text(0, lang=lang)), (
+            "the server must not render the ladder's zero bucket as this element's own text")
+    assert " ago" not in inside.group(1) and "il y a" not in inside.group(1), (
+        "the server renders a relative age where the no-JS floor needs a value that stays true")
+
+    assert wrapper_slice.count("data-refresh-clock") == 1, (
+        "expected exactly one data-refresh-clock span")
+    clock_at = wrapper_slice.index("data-refresh-clock")
+    clock_tag = wrapper_slice[
+        wrapper_slice.rindex("<", 0, clock_at):wrapper_slice.index(">", clock_at) + 1]
+    expected_title = layout.escape_html(health_page._full_local_timestamp_text(now_iso))
+    assert ('title="%s"' % expected_title) in clock_tag, (
+        "expected the clock span's title to carry the full Europe/Paris local timestamp")
+    assert now_iso not in clock_tag, (
+        "expected the raw ISO instant NOT to survive verbatim in the clock span's title")
+
+    for needle in ("data-refresh-toggle", "data-pause-text", "data-resume-text"):
+        assert needle not in wrapper_slice, (
+            "expected zero occurrences of %r inside .page-header__freshness" % needle)
+    assert "<button" not in wrapper_slice, "expected no <button> inside .page-header__freshness"
+
+    prefix_at = wrapper_slice.index(prefix)
+    assert prefix_at < clock_at < wrapper_slice.index("data-refresh-pill"), (
+        "expected prefix, then clock, then pill in that source order")
+
+    header_start = rendered.index('<div class="page-header">')
+    header_end = rendered.index("</div>", header_start) + len("</div>")
+    assert wrapper_start >= header_start and wrapper_end <= header_end, (
+        "expected the freshness wrapper inside the .page-header div")
+    header_slice = rendered[header_start:header_end]
+    title_end = header_slice.index("</h1>") + len("</h1>")
+    between = header_slice[title_end:]
+    assert between.startswith('<p class="page-header__freshness'), (
+        "expected the freshness wrapper to be .page-header's next block-level child right "
+        "after the <h1>")
+
+    pill_at = rendered.index("data-refresh-pill")
+    pill_tag = rendered[rendered.rindex("<", 0, pill_at):rendered.index(">", pill_at) + 1]
+    assert pill_tag.startswith("<span"), "expected the pill to still be an inline <span>"
+    assert " hidden" in pill_tag, "expected the pill to still carry the bare hidden attribute"
+    assert ('data-loaded-at="%s"' % now_iso) in rendered, (
+        "expected data-loaded-at to still carry the real now value")
+
+
+# ==========================================================================
+# Four one-line UI-regression fixes, two spacing-pair guards, the <summary>
+# accent rule
+# ==========================================================================
+
+
+def test_uir_03_07_12_13_one_line_fixes_hold_together(tmp_path, css_text):
+    """The four UIR-03/07/12/13 one-line fixes hold together: .banner wraps with a nowrap
+    .banner__label rendered on the anomaly banner's lead span, .banner__pill gains min-width: 0
+    while keeping flex: none and its source position before .refresh-pill, .airline-card__image
+    gains height: auto alongside its surviving aspect-ratio, the .data-table--prose first-column
+    nowrap rule exists after the base rule, and the rendered Battery trend heading's sibling
+    caption follows immediately with no leading em dash of its own"""
+    banner_decls = declarations_for(css_text, ".banner")
+    assert banner_decls.get("flex-wrap") == "wrap", "expected .banner to declare flex-wrap: wrap"
+
+    label_decls = declarations_for(css_text, ".banner__label")
+    assert label_decls.get("white-space") == "nowrap", (
+        "expected .banner__label to declare white-space: nowrap")
+
+    pill_decls = declarations_for(css_text, ".banner__pill")
+    assert pill_decls.get("min-width") == "0", "expected .banner__pill to declare min-width: 0"
+    assert pill_decls.get("flex") == "none", "expected .banner__pill to still declare flex: none"
+    rules = css_rules(css_text)
+    assert _rule_index(rules, ".banner__pill") < _rule_index(rules, ".refresh-pill"), (
+        "expected .banner__pill to still precede .refresh-pill in source order")
+
+    image_decls = declarations_for(css_text, ".airline-card__image")
+    assert image_decls.get("height") == "auto", (
+        "expected .airline-card__image to declare height: auto")
+    expected_aspect_ratio = "%d / %d" % illustration_normalize.ILLUSTRATION_TARGET_SIZE
+    assert image_decls.get("aspect-ratio") == expected_aspect_ratio, (
+        "expected .airline-card__image to declare aspect-ratio: %s" % expected_aspect_ratio)
+
+    assert rules_with_selector(css_text, ".data-table--prose th:first-child"), (
+        "expected a .data-table--prose th:first-child rule")
+    assert (_rule_index(rules, ".data-table--prose")
+            < _rule_index(rules, ".data-table--prose th:first-child")), (
+        "expected the .data-table--prose :first-child nowrap rule to follow the base rule")
+    nowrap_decls = declarations_for(css_text, ".data-table--prose th:first-child")
+    assert nowrap_decls.get("white-space") == "nowrap", (
+        "expected the .data-table--prose :first-child rule to declare white-space: nowrap")
+
+    banner_dir = tmp_path / "banner"
+    banner_dir.mkdir()
+    rendered = health_page.render(shp.ctx(str(banner_dir)))
+    assert ('class="banner banner--warn"' in rendered
+            or 'class="banner banner--anomaly"' in rendered), (
+        "expected a fresh empty state dir to render an anomaly banner")
+    banner_at = rendered.index('<div class="banner ')
+    assert 'class="banner__label"' in rendered[banner_at:], (
+        "expected the banner's lead span to carry class=\"banner__label\"")
+    label_open = rendered.index('<span class="banner__label">', banner_at)
+    label_close = rendered.index("</span>", label_open)
+    label_text = rendered[label_open:label_close]
+    assert re.search(r">\d+ (warning|error)s?:\Z", label_text), (
+        "expected the count-and-noun lead text inside the banner__label span")
+    assert rendered.find("<span>", banner_at, label_open) == -1, (
+        "expected no bare <span> lead ahead of the banner__label span")
+
+    caption_dir = tmp_path / "caption"
+    caption_dir.mkdir()
+    rendered2 = health_page.render(shp.ctx(str(caption_dir)))
+    heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(
+        _battery_section_heading())
+    after_heading = rendered2[rendered2.index(heading_marker) + len(heading_marker):]
+    caption_open = '<p class="text-label section-caption">'
+    assert after_heading.startswith(caption_open), (
+        "expected the battery heading's sibling caption <p> to follow </h2> immediately")
+    caption_text_start = after_heading[len(caption_open):]
+    assert not caption_text_start.startswith("—") and not caption_text_start.startswith(" —"), (
+        "expected the sibling caption to carry no leading em dash of its own")
+
+
+def test_dashboard_grid_and_battery_trend_section_keep_their_two_role_spacing_split(css_text):
+    """The two-role spacing split holds as a pair: .dashboard-grid's margin-bottom equals
+    .page-section's own same-section card-to-card value (var(--space-lg)), while
+    .battery-trend-section's section-transition margin-bottom stays the larger, untouched
+    var(--space-2xl)"""
+    grid_mb = declarations_for(css_text, ".dashboard-grid").get("margin-bottom")
+    page_section_mb = declarations_for(css_text, ".page-section").get("margin-bottom")
+    trend_mb = declarations_for(css_text, ".battery-trend-section").get("margin-bottom")
+
+    assert grid_mb == page_section_mb, (
+        "expected .dashboard-grid's margin-bottom (%r) to equal .page-section's own "
+        "same-section card-to-card value (%r)" % (grid_mb, page_section_mb))
+    assert trend_mb != grid_mb, (
+        "expected .battery-trend-section's section-transition margin-bottom (%r) to stay "
+        "LARGER than .dashboard-grid's card-to-card margin-bottom (%r)" % (trend_mb, grid_mb))
+    assert grid_mb == "var(--space-lg)", (
+        "expected .dashboard-grid to use the --space-lg token by name, got %r" % (grid_mb,))
+    assert trend_mb == "var(--space-2xl)", (
+        "expected .battery-trend-section's margin-bottom to stay var(--space-2xl), got %r"
+        % (trend_mb,))
+
+
+def test_desktop_padding_and_mobile_density_pair_holds_together(css_text):
+    """The desktop-padding/mobile-density pair holds together: .page-section, .theme-status and
+    .battery-trend-section all still declare padding: var(--space-md) in their own base rules, and
+    one shared rule inside the @media (min-width: 960px) block raises all three to padding:
+    var(--space-lg)"""
+    selectors = (".page-section", ".theme-status", ".battery-trend-section")
+    for selector in selectors:
+        decls = declarations_for(css_text, selector)
+        assert decls.get("padding") == "var(--space-md)", (
+            "expected %r's base rule to still declare padding: var(--space-md)" % (selector,))
+
+    media = ("@media (min-width: 960px)",)
+    rule = _rule_with_selectors(css_rules(css_text), selectors, at_rules=media)
+    assert rule is not None, (
+        "expected a single rule covering .page-section, .theme-status and "
+        ".battery-trend-section inside the @media (min-width: 960px) block")
+    assert dict(rule.declarations).get("padding") == "var(--space-lg)", (
+        "expected the shared @media (min-width: 960px) rule to declare padding: var(--space-lg)")
+
+
+def test_bare_summary_rule_declares_the_accent_colour(css_text):
+    """The bare summary rule declares var(--color-accent) — the file's own accent-reservation
+    list explaining the broadening lives in the stylesheet's header comment, which carries no
+    rendered behaviour of its own and is not asserted here (TST-12 rubric C)"""
+    summary_decls = declarations_for(css_text, "summary")
+    assert summary_decls.get("color") == "var(--color-accent)", (
+        "expected the bare summary rule to declare the accent colour")
+
+
+# ==========================================================================
+# The interaction-skip guard, and the fetch-and-swap loop's cross-file
+# contracts (one registry, one page key, three skip rules, the new-row diff)
+# ==========================================================================
+
+
+def test_interaction_skip_guard_cross_file_contract(tmp_path, freshness_js):
+    """The interaction-skip guard's cross-file contract: a fixture rich enough to actually render
+    a disclosure, a filter input and a chart hit target, and freshness.js's shipped source still
+    checks for a focused INPUT/SUMMARY and health_page.SPARKLINE_HIT_CLASS's own literal value but
+    no longer checks for an open <details> at all"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_device_health(state_dir, [
+        (shp.iso(now - timedelta(minutes=1)), 4200),
+        (shp.iso(now), 4190),
+    ])
+    shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    shp.seed_unresolved_prefixes(state_dir, {
+        "ABC": {"count": 2, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
+                "example_callsign": "ABC123"},
+    })
+    shp.seed_runway_events(state_dir, [
+        {"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
+    rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
+    assert "<details" in rendered, "expected at least one <details> disclosure to actually render"
+    assert "data-filter-input" in rendered, (
+        "expected the registry filter input to actually render")
+    assert health_page.SPARKLINE_HIT_CLASS in rendered, (
+        "expected the battery chart's hit-target class to actually render")
+
+    js = freshness_js
+    assert "details[open]" not in js, (
+        "freshness.js must not check for an open <details> disclosure any more")
+    for tag_literal in ("INPUT", "SUMMARY"):
+        assert tag_literal in js, (
+            "freshness.js no longer names %r among the focusable elements it skips on"
+            % tag_literal)
+    assert health_page.SPARKLINE_HIT_CLASS in js, (
+        "freshness.js no longer references SPARKLINE_HIT_CLASS's own literal value")
+
+
+def test_swap_selectors_pinned_both_directions(freshness_js):
+    """Every layout.REFRESH_SWAP_SELECTORS_BY_PAGE entry, on every page key, appears verbatim in
+    freshness.js, and freshness.js never carries a .sparkline-hit selector literal, a
+    [data-filter-input] reference, or a details[...] selector — the three regions this loop must
+    never swap"""
+    js = freshness_js
+    for page_key, selectors in sorted(layout.REFRESH_SWAP_SELECTORS_BY_PAGE.items()):
+        for selector in selectors:
+            assert selector in js, (
+                "expected layout.REFRESH_SWAP_SELECTORS_BY_PAGE[%r] entry %r verbatim in "
+                "freshness.js" % (page_key, selector))
+    assert ".sparkline-hit\"" not in js and ".sparkline-hit'" not in js, (
+        "freshness.js must never carry a .sparkline-hit selector literal — swapping the "
+        "sparkline would leave battery-trend.js permanently dead")
+    assert "[data-filter-input]" not in js, (
+        "freshness.js must never reference [data-filter-input] — swapping the registry filter "
+        "would leave list-filter.js permanently dead")
+    assert "details[" not in js, (
+        "freshness.js must never carry a details[...] selector literal as a swap target")
+
+
+def test_swap_registry_has_one_definition_site_and_one_key_set(freshness_js):
+    """The swap registry has ONE definition site (health_page.REFRESH_SWAP_SELECTORS resolves
+    from layout.REFRESH_SWAP_SELECTORS_BY_PAGE and is that same object, with Health's five regions
+    in their existing order) and ONE key set (the script's registry keys equal the Python's, in
+    both directions), with every selector appearing exactly once per registry entry in the
+    script's comment-stripped code and the registry actually read"""
+    registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
+    assert hasattr(health_page, "REFRESH_SWAP_SELECTORS"), (
+        "expected health_page.REFRESH_SWAP_SELECTORS to survive as a name — every existing "
+        "reader and every shipped pin resolves through it")
+    assert health_page.REFRESH_SWAP_SELECTORS is registry[layout.REFRESH_PAGE_HEALTH], (
+        "expected health_page.REFRESH_SWAP_SELECTORS to BE the registry's Health entry, not a "
+        "copy of it — a copy is a second definition site with extra steps")
+    assert health_page.REFRESH_SWAP_SELECTORS == (
+        ".dashboard-grid",
+        "div.banner--anomaly, div.banner--warn",
+        "section.banner",
+        ".page-header__freshness",
+        'a[href="/health"]'), (
+        "Health's five regions, in their existing order, are unchanged by the move")
+
+    js = freshness_js
+    block = re.search(r"var SWAP_SELECTORS_BY_PAGE = \{(.*?)\n  \};", js, flags=re.S)
+    assert block is not None, (
+        "expected a single var SWAP_SELECTORS_BY_PAGE = { ... }; registry block in freshness.js")
+    js_keys = set(re.findall(r'"([a-z][a-z0-9-]*)":', block.group(1)))
+    py_keys = set(registry)
+    assert js_keys == py_keys, (
+        "freshness.js's registry keys and layout.REFRESH_SWAP_SELECTORS_BY_PAGE's are not the "
+        "same set — only in Python: %r; only in the script: %r"
+        % (sorted(py_keys - js_keys), sorted(js_keys - py_keys)))
+
+    code = shp.strip_js_line_and_block_comments(js)
+    expected_hits = {}
+    for selectors in registry.values():
+        for selector in selectors:
+            expected_hits[selector] = expected_hits.get(selector, 0) + 1
+    for selector, want in sorted(expected_hits.items()):
+        got = code.count(selector)
+        assert got == want, (
+            "the selector %r appears %d time(s) in freshness.js's own code (comments "
+            "stripped), expected %d" % (selector, got, want))
+    assert code.count("SWAP_SELECTORS_BY_PAGE") >= 2, (
+        "SWAP_SELECTORS_BY_PAGE is declared in freshness.js but never read")
+
+
+def test_page_key_is_server_rendered_and_gates_the_loop(freshness_js):
+    """The swap registry is selected by a page key the SERVER renders on <body> — present for
+    every registry key and for a page with no entry at all — and freshness.js reads that
+    attribute and resolves it with an own-property test, so an unknown key is a no-op rather than
+    an inherited Object property"""
+    code = shp.strip_js_line_and_block_comments(freshness_js)
+    assert layout.REFRESH_PAGE_ATTR in code, (
+        "freshness.js never reads the page key attribute — the page key is how one loop "
+        "serves three pages")
+    assert "hasOwnProperty" in code, (
+        "expected freshness.js to resolve the page key with an own-property test")
+
+    for page_key in sorted(layout.REFRESH_SWAP_SELECTORS_BY_PAGE):
+        doc = layout.page_shell(title="T", active=page_key, body="<p>b</p>")
+        marker = '%s="%s"' % (layout.REFRESH_PAGE_ATTR, page_key)
+        body_at = doc.index("<body")
+        body_tag = doc[body_at:doc.index(">", body_at) + 1]
+        assert marker in body_tag, (
+            "expected the page key on the <body> tag itself (never inside a swap target)")
+
+    no_entry_key = layout.nav_slug(layout.AIRLINES_ROUTE)
+    assert no_entry_key not in layout.REFRESH_SWAP_SELECTORS_BY_PAGE, (
+        "this clause needs a page that declares NO swap regions")
+    doc = layout.page_shell(title="T", active=no_entry_key, body="<p>b</p>")
+    assert ('%s="%s"' % (layout.REFRESH_PAGE_ATTR, no_entry_key)) in doc, (
+        "expected every authenticated document to carry its own page key, including pages "
+        "that declare no swap regions")
+
+
+def test_freshness_loop_knows_three_things_it_must_not_repaint(freshness_js):
+    """freshness.js knows three things it must not repaint: swapNodes() keeps its unchanged-
+    region and focused-region skips and gains a per-region pending skip, and tick() stands the
+    whole cycle down while dirty-state.js's own window.SkyPaneDirtyState.hasUncommittedEdits()
+    reports unsaved edits — with the interval, ladder, ceiling, in-flight guard and
+    redirect:manual all untouched"""
+    js = freshness_js
+    code = shp.strip_js_line_and_block_comments(js)
+    swap_at = code.index("function swapNodes(")
+    swap_body = code[swap_at:code.index("\n  }", swap_at)]
+    assert "isEqualNode" in swap_body and "contains" in swap_body, (
+        "expected the unchanged-region and focused-region skips to survive untouched")
+
+    assert ('var PENDING_ATTR = "%s";' % layout.REFRESH_PENDING_ATTR) in code, (
+        "expected freshness.js to name layout.REFRESH_PENDING_ATTR in its own constant")
+    assert "PENDING_ATTR" in swap_body or "PENDING_SELECTOR" in swap_body, (
+        "expected swapNodes() to skip a region marked pending")
+
+    tick_at = code.index("function tick(")
+    tick_body = code[tick_at:code.index("\n  }", tick_at)]
+    assert "unsavedEdits" in tick_body or "UnsavedEdits" in tick_body, (
+        "expected tick() itself to stand the whole cycle down while the settings form has "
+        "unsaved edits")
+    assert "PENDING_ATTR" not in tick_body and "PENDING_SELECTOR" not in tick_body, (
+        "the pending skip is PER REGION, not per tick")
+
+    assert "SkyPaneDirtyState" in code, (
+        "expected the dirty-form gate to read window.SkyPaneDirtyState")
+    edits_at = code.index("function unsavedEdits(")
+    edits_body = code[edits_at:code.index("\n  }", edits_at)]
+    assert "hasUncommittedEdits" in edits_body, (
+        "expected the gate itself to call SkyPaneDirtyState.hasUncommittedEdits()")
+
+    for needle in ("AUTO_REFRESH_INTERVAL_MS = 45000", "RETRY_CEILING_MS = 600000",
+                   "RETRY_BASE_MS", "inFlight", "failAndRetry()", "isEqualNode",
+                   'redirect: "manual"'):
+        assert needle in js, "expected %r to survive untouched" % (needle,)
+
+
+def test_flights_swap_registry_entry_covers_and_excludes_the_right_regions():
+    """Flights' swap registry entry covers the phone card list, the desktop table, the live count
+    and the freshness line, EXCLUDES every element list-filter.js captures once at load (the
+    input, Clear, the empty state and the set hooks), nests no entry inside another, and is keyed
+    by nav_slug()'s own value"""
+    registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
+    assert layout.REFRESH_PAGE_FLIGHTS in registry, (
+        "expected Flights to declare its own swap regions")
+    flights = registry[layout.REFRESH_PAGE_FLIGHTS]
+    assert layout.REFRESH_PAGE_FLIGHTS == layout.nav_slug(layout.FLIGHTS_ROUTE), (
+        "expected the Flights key to be nav_slug()'s own value, never a second vocabulary")
+    for needle in ("history-cards", "data-table-wrap", "data-filter-count"):
+        assert any(needle in selector for selector in flights), (
+            "expected Flights' swap regions to cover %r" % (needle,))
+    assert ".page-header__freshness" in flights, (
+        "expected Flights' freshness line to be a swap target, like Home's and Health's")
+    for forbidden in ("data-filter-input", "data-filter-clear", "data-filter-empty",
+                      "data-filter-set"):
+        for selector in flights:
+            assert forbidden not in selector, (
+                "Flights' swap regions name %r (%r) — list-filter.js captures that element "
+                "once at load, so replacing it leaves the filter permanently dead"
+                % (forbidden, selector))
+    for outer in flights:
+        for inner in flights:
+            assert outer is inner or not inner.startswith(outer + " "), (
+                "Flights' regions %r and %r are nested — a swap can detach a node another "
+                "entry is about to replace" % (outer, inner))
+
+
+def test_freshness_new_row_highlight_is_a_diff_never_a_first_paint(freshness_js):
+    """freshness.js's new-row highlight is a DIFF over server-rendered row identity: its two
+    cross-file literals equal layout.REFRESH_ROW_ID_ATTR/REFRESH_NEW_ROW_CLASS, the known set is
+    populated from the page as first rendered rather than empty, the diff runs from applySwap()
+    and from nowhere else, resolves the set with an own-property test, applies one class through
+    classList and never removes it, and writes no markup"""
+    code = shp.strip_js_line_and_block_comments(freshness_js)
+    for name, value in (("ROW_ID_ATTR", layout.REFRESH_ROW_ID_ATTR),
+                        ("NEW_ROW_CLASS", layout.REFRESH_NEW_ROW_CLASS)):
+        assert ('var %s = "%s";' % (name, value)) in code, (
+            "expected freshness.js to name layout.REFRESH_%s in its own constant" % name)
+    assert "function markNewRows(" in code, (
+        "expected freshness.js to carry the new-row diff as its own function")
+    assert code.count("markNewRows(") == 2, (
+        "expected exactly one definition and one call of markNewRows() — the diff belongs to "
+        "the swap and to nothing else")
+    apply_at = code.index("function applySwap(")
+    apply_body = code[apply_at:code.index("\n  }", apply_at)]
+    assert "markNewRows(" in apply_body, (
+        "expected applySwap() to run the diff AFTER the regions are replaced")
+    init_at = code.index("var knownRowIds")
+    init_line = code[init_at:code.index("\n", init_at)]
+    assert "collectRowIds()" in init_line, (
+        "expected the known-identity set to be populated from the page as first rendered")
+    mark_at = code.index("function markNewRows(")
+    mark_body = code[mark_at:code.index("\n  }", mark_at)]
+    assert "hasOwnProperty" in mark_body, (
+        "expected the diff to test the known set with an own-property test")
+    assert "classList.add" in mark_body, (
+        "expected the highlight to be applied as a class on an existing node")
+    assert not ("NEW_ROW_CLASS" in code and "classList.remove(NEW_ROW_CLASS" in code), (
+        "expected nothing to remove the highlight class")
+    for sink in ("innerHTML", "insertAdjacentHTML", "document.write", "outerHTML"):
+        assert sink not in mark_body, (
+            "expected the diff to use no markup-writing DOM sink, found %r" % (sink,))
