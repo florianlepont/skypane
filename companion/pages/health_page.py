@@ -4331,6 +4331,62 @@ def _read_health_inputs(state_dir, now):
     }
 
 
+def _offbox_section_html(offbox, now):
+    """The "Off-box backup" nested page-section (SEC-04, D-07/D-23) —
+    heading, status dot, last-backup timestamp and all — or the empty
+    string when `offbox` is `None` (SKYPANE_OFFBOX_MARKER unset: no new
+    page, no new card, for a deployment that has not configured this
+    yet, D-07's own scope boundary).
+
+    Same nested-card shape `render()`'s registry card already builds
+    (`page-section page-section--nested` plus `layout.card_status_class()`'s
+    optional status modifier) — one more reader of that one pattern, not
+    a second one. Appended to `server_data_section_html` after the
+    registry card and before `_stats_section_html()` (this function's own
+    call site in `render()`).
+
+    `offbox` is the exact dict `compute_health_state()` already computed
+    (via `offbox_backup_status()`) and threaded through `ctx["health_
+    state"]["offbox"]` — read here, never re-read from the marker a
+    second time per request.
+    """
+    if offbox is None:
+        return ""
+    state = offbox["state"]
+    modifier = layout.card_status_class("page-section", state)
+    card_class = "page-section page-section--nested" + (
+        (" " + modifier) if modifier else "")
+    label = (
+        i18n.t("Off-box backup up to date") if state == "ok"
+        else i18n.t("Off-box backup overdue"))
+    # D-09: concise_timestamp_html() already returns pre-escaped-safe
+    # markup — wrapping it in escape_html() a second time would
+    # double-encode it and print the raw tags as visible text (the same
+    # pitfall _pipeline_section()'s own comment documents).
+    last_backup_html = (
+        '<p>%s %s</p>'
+        % (
+            escape_html(_label_colon(i18n.t("Last off-box backup"))),
+            layout.concise_timestamp_html(
+                offbox["snapshot_ts"], now, fallback=i18n.t("never")),
+        )
+    )
+    warn_html = ""
+    anomaly_text = _offbox_anomaly_text(offbox)
+    if anomaly_text:
+        warn_html = '<p class="text-body">%s</p>' % escape_html(anomaly_text)
+    return (
+        '<section class="%s"><h2 class="text-heading">%s</h2>'
+        '<p class="text-body">%s</p>%s%s</section>'
+    ) % (
+        card_class,
+        escape_html(i18n.t("Off-box backup")),
+        layout.status_dot(state, label),
+        last_backup_html,
+        warn_html,
+    )
+
+
 def _stats_section_html(stats):
     """The "How well we name flights" nested page-section — heading,
     card and all — or the empty string.
@@ -4596,6 +4652,12 @@ def render(ctx):
         + '<section class="%s"><h2 class="text-heading">%s</h2>%s</section>' % (
             registry_class, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)),
             _registry_section(registry_rows, now))
+        # SEC-04, D-07/D-23, 37-02-PLAN.md: the off-box backup card, or
+        # the empty string when SKYPANE_OFFBOX_MARKER is unset — see
+        # _offbox_section_html()'s own docstring. Reuses the exact
+        # offbox_backup_status() result compute_health_state() already
+        # computed, never a second read of the marker per request.
+        + _offbox_section_html(state.get("offbox"), now)
         # 22-03-PLAN.md Task 2 (B3): the stats card is now conditionally
         # omitted entirely when empty — see _stats_section_html()'s own
         # docstring for the "no status modifier" rule (quick task

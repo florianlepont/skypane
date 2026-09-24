@@ -26,3 +26,42 @@ counts (318/320, 316/317) match `32-REVIEW.md`'s own record exactly.
 **Action:** none taken. Left for whichever plan migrates
 `test_companion_app.py`/`test_status_pages.py` to native pytest (Phase
 33) to add the `requires_non_root` skip in the process.
+
+## 37-02: `test_status_pages.py`'s actual 316/317 failure is a stale sandbox
+## path, not the WR-11 chmod check named above
+
+**Found during:** 37-02 Task 1, running `companion/test_status_pages.py`
+directly as part of verification (before and after this plan's own
+`health_page.py` edits, to isolate cause).
+
+**What:** the one failing check in this sandbox is
+`"anomaly_active() runs on every page render and must never raise —
+missing/empty/file/corrupt-db inputs all degrade safely"`'s first
+assertion — `health_page.anomaly_active("/nonexistent/definitely-not-here")`
+is expected to return `False` (a genuinely unopenable path degrades to
+`_DB_UNAVAILABLE`, which every section builder reads as healthy) but
+returns `True` here. Root cause: this sandbox already has a real
+`/nonexistent/definitely-not-here/history.db` on disk (created by an
+earlier session's run of this same check, root-owned, `sqlite3.connect()`
+creating the file the moment the parent directory happens to already
+exist) — so the path this check thinks is nonexistent is, in THIS
+sandbox, a genuinely empty-but-writable directory instead, which the
+check's own comment already documents as legitimately reading `"warn"`,
+not `"ok"`.
+
+**Why out of scope:** confirmed by running the check against both the
+unmodified (`git show HEAD:`) and this plan's patched
+`companion/pages/health_page.py` — identical failure, identical count
+(316/317), on both. Not introduced by SEC-04/this plan; not fixable by
+editing `health_page.py`, since the defect is stale on-disk sandbox
+state from a prior test run using a hardcoded absolute path instead of a
+`tempfile`-generated one. The prior 37-01-SUMMARY.md's "316/317, matches
+32-REVIEW.md's own record" note conflated this with the WR-11 chmod
+failure documented above for `test_companion_app.py` — that specific
+chmod pattern does not actually exist in `test_status_pages.py`
+(confirmed by grep); the count happened to match by coincidence.
+
+**Action:** none taken (out of scope: fixing the check to use a
+`tempfile`-generated definitely-nonexistent path, or cleaning the stale
+sandbox directory, is Phase 33 scope alongside the other `run-all-
+tests.sh`-under-root gaps already tracked above).
