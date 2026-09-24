@@ -211,7 +211,21 @@ def test_provision_sh_creates_release_layout_dir():
 def test_provision_sh_no_longer_installs_units_or_caddyfile():
     text = _provision_text()
     assert "/etc/systemd/system/skypane-" not in text
-    assert "/etc/caddy/Caddyfile" not in text
+    # The host Caddyfile is shared with other projects: provision.sh may
+    # only read it (to print a reminder), never write it.
+    assert 'HOST_CADDYFILE="/etc/caddy/Caddyfile"' in text
+    for line in text.splitlines():
+        code = line.split("#", 1)[0] if not line.lstrip().startswith("echo") else ""
+        if "HOST_CADDYFILE" in code or "/etc/caddy/Caddyfile" in code:
+            assert not re.search(r">\s*\S*(HOST_CADDYFILE|/etc/caddy/Caddyfile)", code), line
+            assert not re.search(r"\b(cp|mv|install|tee|sed -i|rm)\b", code), line
+
+
+def test_provision_sh_creates_caddy_sites_dir_root_owned_0755():
+    text = _provision_text()
+    assert 'CADDY_SITES_DIR="/etc/caddy/sites"' in text
+    assert 'install -d -o root -g root -m 0755 "${CADDY_SITES_DIR}"' in text
+    assert "import sites/*.caddy" in text
 
 
 def test_provision_sh_creates_backup_user_with_sh_shell_never_in_skypane_group():

@@ -1,5 +1,14 @@
 # SkyPane — Caddy reverse proxy + automatic HTTPS.
 #
+# This template renders SkyPane's OWN site file,
+# /etc/caddy/sites/skypane.caddy (deploy/render_caddyfile.sh, run by
+# deploy/activate.sh on every deploy). The host's /etc/caddy/Caddyfile is
+# shared with other projects on the same VPS and imports this file through
+# a one-time `import sites/*.caddy` line; SkyPane never writes the host
+# file. Keep this template to site blocks only — no global options block
+# (`{ ... }` at the top), which Caddy only accepts at the start of the host
+# Caddyfile, not inside an imported file.
+#
 # Terminates TLS on :443 for the public hostname below and reverse-proxies
 # everything to byos_server.py, which listens on 127.0.0.1:8642 and is
 # never reachable directly from outside (ufw denies the app port -
@@ -19,19 +28,19 @@
 #
 # Example: a VPS with IP 203.0.113.10 uses the hostname
 # 203-0-113-10.nip.io below. Replace with the real VPS IP, dashes in place
-# of dots, at provisioning time (deploy/provision.sh writes this file with
-# the real value substituted — see deploy/README.md).
+# of dots, through SKYPANE_PUBLIC_HOST in skypane.env (activate.sh renders
+# the real value in on every deploy — see deploy/README.md).
 #
 # To swap in a real owned domain later: change the site address on the
 # line below to the domain (e.g. frame.example.com), point an A record at
-# this VPS's IP, and reload Caddy (`systemctl reload caddy`). Nothing else
+# this VPS's IP, and redeploy (activate.sh reloads Caddy). Nothing else
 # in this file, or in skypane-byos.service, needs to change — Caddy
 # re-requests a certificate for whatever hostname the site block names.
 #
 # Two site blocks now exist (06-11-PLAN.md, D-05): the device-protocol
 # block below, and a second block for the companion configuration web
 # interface, prefixed "config-" by default (e.g. config-203-0-113-10.nip.io;
-# provision.sh's optional second argument replaces this line with any
+# SKYPANE_COMPANION_HOST in skypane.env replaces this line with any
 # other hostname, such as a domain of its own). nip.io
 # accepts an arbitrary label before the IP-encoding suffix, so the second
 # name needs no DNS configuration of its own — it resolves to the same IP

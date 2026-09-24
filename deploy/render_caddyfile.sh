@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
-# SkyPane — render deploy/Caddyfile's two placeholder site blocks into a
-# real Caddyfile using the operator's actual hostnames.
+# SkyPane — render deploy/Caddyfile's two placeholder site blocks into
+# SkyPane's own Caddy site file using the operator's actual hostnames.
+#
+# The output is not a whole Caddyfile: it is the snippet installed as
+# /etc/caddy/sites/skypane.caddy and pulled into the host's shared
+# /etc/caddy/Caddyfile by its `import sites/*.caddy` line (the host file
+# also serves other projects and is never written by SkyPane). It must
+# therefore contain site blocks only — a global options block is only
+# legal at the very top of the host file.
 #
 # Runs on the VPS as root, from deploy/activate.sh (Plan 37-06), which
-# writes the result to /etc/caddy/Caddyfile.new before validating and
-# swapping it in. deploy/provision.sh's first-run installer uses the same
-# anchored substitution inline; this script is the one shared
-# implementation both call, so the render logic exists in exactly one
-# place (SEC-05, D-11).
+# stages the result next to the site file, moves it into place, and
+# validates the whole host config with it before swapping the release.
+# This script is the one render implementation, so the substitution
+# logic exists in exactly one place (SEC-05, D-11).
 #
 # Usage:
 #   deploy/render_caddyfile.sh <template> <public-host> <companion-host> > out

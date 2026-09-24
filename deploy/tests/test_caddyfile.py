@@ -152,3 +152,17 @@ def test_missing_template_fails_cleanly():
     result = _render("pub.example.org", "cfg.example.org", template=_REPO_ROOT / "deploy" / "does-not-exist")
     assert result.returncode != 0
     assert result.stdout == ""
+
+
+def test_rendered_output_is_an_importable_site_snippet():
+    # The output is imported into the shared host Caddyfile through
+    # `import sites/*.caddy`; a global options block (a bare `{` opening
+    # at column 0) is only legal at the top of the host file and would
+    # break every site on the box, not just SkyPane's.
+    r = _render("pub.example.org", "cfg.example.org")
+    assert r.returncode == 0, r.stderr
+    code_lines = [ln for ln in r.stdout.splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
+    assert code_lines, "rendered snippet is empty"
+    assert not any(ln.strip() == "{" for ln in code_lines if not ln.startswith((" ", "\t")))
+    assert not any(ln.startswith("import ") for ln in code_lines)
+    assert set(_site_blocks(r.stdout)) == {"pub.example.org", "cfg.example.org"}

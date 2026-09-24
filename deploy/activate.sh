@@ -9,13 +9,22 @@
 #
 # Flow: stage the release -> install/reinstall dependencies if their hash
 # changed -> byte-compile -> smoke-test the release's own scripts ->
-# render and validate a candidate Caddyfile -> install units and swap
-# `current` atomically (ln -sfn + mv -T) -> restart services and reload
-# Caddy only if its config actually changed -> probe every unit and both
+# render SkyPane's own Caddy site file and validate the whole host config
+# with it in place -> install units and swap `current` atomically
+# (ln -sfn + mv -T) -> restart services and reload Caddy only if the site
+# file actually changed -> probe every unit and both
 # HTTP(S) surfaces. Any failure rolls the swap back to the previous
 # release (if one exists) and always exits non-zero, so a bad deploy
 # leaves a red CI job and the previously-working release still serving
 # traffic (T-37-26).
+#
+# The host's /etc/caddy/Caddyfile is shared with other projects on the
+# same VPS, so this script only ever reads and validates it — it never
+# writes it. SkyPane owns exactly one file, ${CADDY_SITE_FILE}
+# (/etc/caddy/sites/skypane.caddy), which the host Caddyfile pulls in via
+# a one-time `import sites/*.caddy` line (deploy/README.md). Backup and
+# staging copies live in the same directory under leading-dot names that
+# do not end in `.caddy`, so the import glob never loads them.
 #
 # Every system path below is an overridable variable, not hard-coded, so
 # this whole flow can be exercised against a fake root in CI
@@ -40,6 +49,8 @@ VENV="${VENV:-${SKYPANE_ROOT}/venv}"
 ENV_FILE="${ENV_FILE:-${SKYPANE_ROOT}/skypane.env}"
 SYSTEMD_UNIT_DIR="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
 CADDYFILE="${CADDYFILE:-/etc/caddy/Caddyfile}"
+CADDY_SITES_DIR="${CADDY_SITES_DIR:-/etc/caddy/sites}"
+CADDY_SITE_FILE="${CADDY_SITE_FILE:-${CADDY_SITES_DIR}/skypane.caddy}"
 BACKUP_GATE_DIR="${BACKUP_GATE_DIR:-/usr/local/lib/skypane}"
 BACKUP_ROOT="${BACKUP_ROOT:-/var/lib/skypane-backup}"
 KEEP_RELEASES="${KEEP_RELEASES:-5}"
@@ -48,8 +59,17 @@ SKYPANE_ACTIVATE_ALLOW_NONROOT="${SKYPANE_ACTIVATE_ALLOW_NONROOT:-0}"
 
 RELEASE_DIR="${SKYPANE_ROOT}/releases/${SHA}"
 CURRENT_LINK="${SKYPANE_ROOT}/current"
-CADDYFILE_NEW="${CADDYFILE}.new"
+SITE_FILE_NAME="$(basename "${CADDY_SITE_FILE}")"
+SITE_FILE_NEW="${CADDY_SITES_DIR}/.${SITE_FILE_NAME}.new"
+SITE_FILE_PREV="${CADDY_SITES_DIR}/.${SITE_FILE_NAME}.prev"
+# CADDY_REPLACED: the site file on disk was changed by this run.
+# SITE_HAD_PREV: a site file existed before this run (SITE_FILE_PREV
+# holds it). CADDY_RELOADED: Caddy has been told about the change — before
+# that point a failure must put the old file back so the next unrelated
+# reload does not pick up an unvalidated or unreleased config.
 CADDY_REPLACED=0
+SITE_HAD_PREV=0
+CADDY_RELOADED=0
 
 echo "==> Root guard"
 if [ "${SKYPANE_ACTIVATE_ALLOW_NONROOT}" != "1" ] && [ "$(id -u)" -ne 0 ]; then
@@ -73,6 +93,16 @@ if [ ! -x "${VENV}/bin/python3" ]; then
 fi
 if [ ! -d "${BACKUP_ROOT}/archives" ] || [ ! -d "${BACKUP_ROOT}/pulled" ]; then
     echo "activate.sh: ${BACKUP_ROOT}/{archives,pulled} not found — run deploy/provision.sh first" >&2
+    exit 1
+fi
+if [ ! -d "${CADDY_SITES_DIR}" ]; then
+    echo "activate.sh: ${CADDY_SITES_DIR} not found — run deploy/provision.sh first" >&2
+    exit 1
+fi
+if [ ! -f "${CADDYFILE}" ] \
+    || ! grep -Eq '^[[:space:]]*import[[:space:]]+(sites|/etc/caddy/sites)/\*\.caddy[[:space:]]*(#.*)?$' "${CADDYFILE}"; then
+    echo "activate.sh: ${CADDYFILE} does not import SkyPane's site file —" \
+        "add 'import sites/*.caddy' to /etc/caddy/Caddyfile (see deploy/README.md)" >&2
     exit 1
 fi
 
@@ -141,13 +171,48 @@ if ! "${VENV}/bin/python3" "${RELEASE_DIR}/companion/app.py" --help >/dev/null 2
     exit 1
 fi
 
-echo "==> Rendering and validating the Caddyfile"
+restore_site_file() {
+    if [ "${SITE_HAD_PREV}" = "1" ]; then
+        mv -f "${SITE_FILE_PREV}" "${CADDY_SITE_FILE}"
+    else
+        rm -f "${CADDY_SITE_FILE}"
+    fi
+    CADDY_REPLACED=0
+}
+
+# Invoked only through the EXIT trap below.
+# shellcheck disable=SC2317
+on_exit() {
+    local _rc=$?
+    rm -f "${SITE_FILE_NEW}"
+    if [ "${_rc}" -ne 0 ] && [ "${CADDY_REPLACED}" = "1" ] && [ "${CADDY_RELOADED}" != "1" ]; then
+        restore_site_file || :
+    fi
+}
+trap on_exit EXIT
+
+echo "==> Rendering SkyPane's Caddy site file and validating the host config"
 "${RELEASE_DIR}/deploy/render_caddyfile.sh" "${RELEASE_DIR}/deploy/Caddyfile" \
-    "${SKYPANE_PUBLIC_HOST}" "${SKYPANE_COMPANION_HOST}" > "${CADDYFILE_NEW}"
-if ! runuser -u caddy -- caddy validate --config "${CADDYFILE_NEW}" --adapter caddyfile; then
-    rm -f "${CADDYFILE_NEW}"
-    echo "activate.sh: Caddyfile validation failed - not swapping" >&2
-    exit 1
+    "${SKYPANE_PUBLIC_HOST}" "${SKYPANE_COMPANION_HOST}" > "${SITE_FILE_NEW}"
+chmod 0644 "${SITE_FILE_NEW}"
+if cmp -s "${SITE_FILE_NEW}" "${CADDY_SITE_FILE}" 2>/dev/null; then
+    echo "    ${CADDY_SITE_FILE} unchanged - no Caddy reload needed"
+    rm -f "${SITE_FILE_NEW}"
+else
+    if [ -f "${CADDY_SITE_FILE}" ]; then
+        cp -p "${CADDY_SITE_FILE}" "${SITE_FILE_PREV}"
+        SITE_HAD_PREV=1
+    fi
+    mv -f "${SITE_FILE_NEW}" "${CADDY_SITE_FILE}"
+    CADDY_REPLACED=1
+    # The site file is only meaningful inside the host config that imports
+    # it (another project's blocks, global options), so the whole host
+    # Caddyfile is what gets validated, not the snippet on its own.
+    if ! runuser -u caddy -- caddy validate --config "${CADDYFILE}" --adapter caddyfile; then
+        restore_site_file
+        echo "activate.sh: Caddy config validation failed - site file restored, not swapping" >&2
+        exit 1
+    fi
 fi
 
 # prev is read *before* the swap below, so both the rollback path and the
@@ -185,13 +250,9 @@ systemctl restart skypane-companion.service
 systemctl restart skypane-poll.timer
 systemctl start skypane-backup.timer
 
-if ! cmp -s "${CADDYFILE_NEW}" "${CADDYFILE}" 2>/dev/null; then
-    CADDY_REPLACED=1
-    [ -f "${CADDYFILE}" ] && cp "${CADDYFILE}" "${CADDYFILE}.prev"
-    mv "${CADDYFILE_NEW}" "${CADDYFILE}"
+if [ "${CADDY_REPLACED}" = "1" ]; then
+    CADDY_RELOADED=1
     systemctl reload caddy
-else
-    rm -f "${CADDYFILE_NEW}"
 fi
 
 probe_once() {
@@ -272,8 +333,12 @@ if [ "${PROBE_OK}" != "1" ]; then
     done
     systemctl daemon-reload
 
-    if [ "${CADDY_REPLACED}" = "1" ] && [ -f "${CADDYFILE}.prev" ]; then
-        mv "${CADDYFILE}.prev" "${CADDYFILE}"
+    # Only SkyPane's own site file is restored; the shared host Caddyfile
+    # was never written. With no earlier site file (the first
+    # release-layout deploy), the new one stays: the previous release has
+    # no other way to be served over HTTPS.
+    if [ "${CADDY_REPLACED}" = "1" ] && [ "${SITE_HAD_PREV}" = "1" ]; then
+        restore_site_file
         systemctl reload caddy || :
     fi
 
