@@ -6,6 +6,7 @@ environment, the fake-providers plumbing, and the in-process variant.
 """
 import os
 import textwrap
+import time
 import urllib.parse
 
 import companion_app_server
@@ -121,6 +122,11 @@ def test_stop_kills_the_whole_process_group_including_a_grandchild(tmp_path, mon
     server.stop()
 
     assert not _process_alive(pid)
+    # stop() waits for its direct child only; the grandchild got the same
+    # group SIGTERM but exits asynchronously, so give it a bounded moment.
+    deadline = time.monotonic() + 5
+    while _process_alive(grandchild_pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
     assert not _process_alive(grandchild_pid)
 
 

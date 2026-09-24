@@ -20,6 +20,7 @@ checks) — this module is created now, ahead of its first use, so the
 later parts of this same chain (the calendar-sync and manual-resolution
 sections) never have to duplicate these doubles a second time.
 """
+import re
 import socket
 from datetime import datetime, timedelta, timezone
 
@@ -180,3 +181,17 @@ def encode_multipart(
         + b"\r\n--" + boundary + b"--\r\n"
     )
     return body, "multipart/form-data; boundary=%s" % boundary_str
+
+
+def strip_js_line_and_block_comments(js):
+    """Strips `//` line comments and `/* */` block comments from `js` WITHOUT touching string/
+    template literals — unlike `companion_markup.strip_js_comments_and_strings()`, which a check
+    asserting on a quoted token (e.g. a `var NAME = "literal";` declaration) cannot use, since
+    that would also erase the quoted literal the check is looking for. Operates on served JS text
+    (fetched over HTTP), never a file opened from disk. Mirrors `companion/test_view_pages_
+    helpers.py`'s/`companion/test_config_page_helpers.py`'s own helper of the same name exactly
+    (33-10/33-view chains) — each migration chain owns its own copy rather than sharing one
+    across harnesses (33-MIGRATION-RULES.md section 2 forbids editing another chain's helpers).
+    """
+    without_block = re.sub(r"/\*.*?\*/", "", js, flags=re.DOTALL)
+    return re.sub(r"//[^\n]*", "", without_block)
