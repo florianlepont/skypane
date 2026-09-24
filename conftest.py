@@ -24,6 +24,12 @@ import skypane_test_support  # noqa: E402
 # must never import them directly as test modules in their own right.
 collect_ignore = list(skypane_test_support.LEGACY_COMPANION_COLLECT_IGNORE)
 
+# A loopback HTTP(S) proxy in the environment would tunnel a request past
+# both the DNS guard and pytest-socket's connect() guard (the client only
+# ever resolves and connects to the proxy). Stripped at import time so
+# every xdist worker, and every child that inherits os.environ, is covered.
+skypane_test_support.strip_proxy_env()
+
 
 @pytest.fixture(autouse=True)
 def _block_non_loopback_dns(request, monkeypatch):

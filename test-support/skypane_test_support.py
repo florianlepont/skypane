@@ -36,6 +36,30 @@ FAKE_PROVIDER_ENV_VAR = "SKYPANE_TEST_FAKE_PROVIDER"
 
 ALLOWED_HOSTS = ("127.0.0.1", "::1", "localhost")
 
+# An HTTP(S) client honouring any of these connects only to the proxy
+# (loopback in a sandbox or behind a local corporate proxy) and lets the
+# proxy resolve and reach the real host - so neither the DNS guard nor
+# the connect() guard below ever sees the real destination. Every place
+# the guard is installed strips them first.
+PROXY_ENV_VARS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
+
+
+def strip_proxy_env(env=None):
+    """Remove every PROXY_ENV_VARS entry from `env` (os.environ by
+    default) in place, and return it.
+    """
+    env = os.environ if env is None else env
+    for var in PROXY_ENV_VARS:
+        env.pop(var, None)
+    return env
+
 
 class NetworkAccessBlocked(RuntimeError):
     """Raised by a guarded_resolvers() function for any DNS lookup whose
@@ -112,10 +136,12 @@ def install_child_network_guard():
     disabled socket module could not even bind a listening
     ThreadingHTTPServer) plus DNS resolution restricted the same way
     (guarded_resolvers(), since socket_allow_hosts() alone does not patch
-    getaddrinfo/gethostbyname).
+    getaddrinfo/gethostbyname). Proxy env vars are stripped first, before
+    any application code can read them (see PROXY_ENV_VARS).
     """
     from pytest_socket import socket_allow_hosts
 
+    strip_proxy_env()
     socket_allow_hosts(list(ALLOWED_HOSTS), allow_unix_socket=True)
     resolvers = guarded_resolvers()
     socket.getaddrinfo = resolvers["getaddrinfo"]
@@ -313,9 +339,10 @@ def child_env(base=None, *, fake_providers=None, state_dir=None):
     no-network var, TEST_SUPPORT_DIR prepended to PYTHONPATH (so
     sitecustomize.py is found and imported at child interpreter startup),
     and, optionally, a fake-provider instruction the child's own
-    sitecustomize.py installs before any application code runs.
+    sitecustomize.py installs before any application code runs. Proxy
+    env vars are dropped (see PROXY_ENV_VARS).
     """
-    env = dict(base if base is not None else os.environ)
+    env = strip_proxy_env(dict(base if base is not None else os.environ))
     env[NO_NETWORK_ENV_VAR] = "1"
     existing = env.get("PYTHONPATH")
     env["PYTHONPATH"] = os.pathsep.join(

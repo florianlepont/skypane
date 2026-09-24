@@ -129,6 +129,45 @@ def test_child_without_guard_env_is_inert():
     assert result.stdout.strip() == "method_descriptor"
 
 
+def test_proxy_env_is_stripped_in_process():
+    leaked = [var for var in sts.PROXY_ENV_VARS if var in os.environ]
+    assert leaked == []
+
+
+def test_child_env_strips_proxy_vars():
+    base = {var: "http://127.0.0.1:9" for var in sts.PROXY_ENV_VARS}
+    env = child_env(base)
+    assert [var for var in sts.PROXY_ENV_VARS if var in env] == []
+
+
+def test_child_guard_ignores_loopback_proxy():
+    # A loopback proxy would tunnel the request past both guards if it
+    # were honoured (the client would only resolve/connect 127.0.0.1:9 and
+    # fail with a ConnectionError); install_child_network_guard() must
+    # strip it so the real host's DNS lookup is what gets blocked.
+    env = dict(os.environ)
+    env.update({var: "http://127.0.0.1:9" for var in sts.PROXY_ENV_VARS})
+    env[sts.NO_NETWORK_ENV_VAR] = "1"
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = os.pathsep.join(
+        [sts.TEST_SUPPORT_DIR] + ([existing] if existing else [])
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import requests; requests.get('https://api.adsbdb.com/v0/callsign/AFR1234', timeout=5)",
+        ],
+        env=env,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode != 0
+    assert "NetworkAccessBlocked" in result.stderr, result.stderr
+
+
 # --- Provider-host drift guard --------------------------------------------
 
 
