@@ -615,7 +615,7 @@ def test_theme_preview_means_pairwise_distinct():
     for theme_id in device_config.THEME_IDS:
         payload = theme_preview.preview_png_bytes(theme_id)
         img = Image.open(io.BytesIO(payload)).convert("RGB").resize((1, 1))
-        means.append(next(iter(img.getdata())))
+        means.append(img.getpixel((0, 0)))
     assert len(set(means)) == len(means), (
         "expected 18 pairwise-distinct mean RGB values, got %r" % (means,))
 
