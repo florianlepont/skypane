@@ -3,7 +3,8 @@ id: SEED-008
 status: dormant
 planted: 2026-09-15
 planted_during: Phase 5 (05-low-battery-indicator) — DEVICE-05 battery discharge run, Task 3 write-up
-trigger_when: when relevant
+trigger_when: "Milestone v1.1 — earmarked by the developer on 2026-09-24, together with SEED-007, SEED-008 and SEED-009."
+target_milestone: v1.1
 scope: unknown
 ---
 
@@ -68,7 +69,7 @@ on the 3000 mAh pack) still holds for the new cell chemistry.
 
 ## When to Surface
 
-**Trigger:** When SEED-007's second discharge measurement (separating
+**Trigger:** milestone v1.1 (earmarked 2026-09-24 with SEED-007, SEED-008 and SEED-009). Originally: When SEED-007's second discharge measurement (separating
 per-wake energy from standing leakage) lands, or at the next milestone
 scan regardless — the two are related but this one can proceed on
 DEVICE-05's existing data alone if SEED-007 hasn't been picked up yet.

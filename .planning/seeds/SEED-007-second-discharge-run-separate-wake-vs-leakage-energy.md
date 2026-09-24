@@ -3,7 +3,8 @@ id: SEED-007
 status: dormant
 planted: 2026-09-15
 planted_during: Phase 5 (05-low-battery-indicator) — DEVICE-05 battery discharge run, Task 3 write-up
-trigger_when: when relevant
+trigger_when: "Milestone v1.1 — earmarked by the developer on 2026-09-24, together with SEED-007, SEED-008 and SEED-009."
+target_milestone: v1.1
 scope: unknown
 ---
 
@@ -34,7 +35,7 @@ decisions:
 
 ## When to Surface
 
-**Trigger:** when relevant
+**Trigger:** milestone v1.1 (earmarked 2026-09-24 with SEED-007, SEED-008 and SEED-009).
 
 This seed will also surface during `/gsd-new-milestone` when the milestone scope matches.
 

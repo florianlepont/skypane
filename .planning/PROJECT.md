@@ -40,6 +40,19 @@ Glancing at the frame tells you, in real time, whether you'll make the next RER 
 - RER view and physical button view-switching — deferred to v2 (2026-08-11); v1 ships as a single-view (plane-only) device
 - Status LEDs, on-device settings/menu UI, gate/terminal/check-in fields, push notifications to phone, animated transitions — anti-features that would make the frame read as a gadget rather than ambient art
 
+## Next Milestone (planned): v1.1
+
+Earmarked by the developer on 2026-09-24, to be opened with
+`/gsd-new-milestone` once v1.0 (including the audit remediation,
+Phases 32–41) is complete. Scope seeds:
+
+- **SEED-007** — second discharge run, to separate per-wake energy from
+  deep-sleep leakage.
+- **SEED-008** — choose the real field wake interval together with the
+  battery pack (keep the 3000 mAh pack or move to a bigger one).
+- **SEED-009** — remote firmware update (OTA), which the ESP32-S3 and the
+  existing partition table already allow.
+
 ## Context
 
 - **Reference project**: [flightportrait/frame](https://github.com/flightportrait/frame) — 13.3" E Ink Spectra 6 display (1200×1600, color), ESP32-S3 (reTerminal E1004 or XIAO ESP32-S3 Plus + EE02 driver board), microSD for offline images, BLE Security 2 provisioning, exponential-backoff polling (caps at 6h), SHA-256 verified downloads, persistent error logging, 3-endpoint HTTPS polling protocol (`docs/PROTOCOL.md`), reference Python server included. The device never accepts incoming connections — poll-only, no open ports.
