@@ -1,30 +1,12 @@
-"""Part 03 of the `companion/test_config_page.py` migration chain
-(33-11-PLAN.md): the original harness's `check()` calls #85-#145, covering
-handle_post()'s field-level `errors` dict (19-07-PLAN.md), the retired
-LED-route/helper-symbol guards, runway-image detection and
-runway_fieldset() image emission, several cross-file DOM-contract guards
-between config_page.py and its two static assets (dirty-state.js,
-style.css), the theme-chip grid's markup/selection-state contract
-(including the live `:has(input:checked)` treatment and its saved-but-
-unchecked "Current" badge), the arrivals/calendar theme override's
-clearable contract, and the Aspect card's own accordion shape and its
-per-flight rules editor markup.
-
-Every check calls `companion.pages.config_page`'s own functions directly,
-in-process, against a `tmp_path`-backed state directory — this slice
-still needs no running `companion/app.py` server for its handle_post()/
-render() checks. The checks that used to read `companion/static/style.css`
-or a served JS asset (`dirty-state.js`, `theme-preview.js`) from disk
-instead fetch them from a running `companion/app.py`
-(`module_app_server_factory` + `served_stylesheet()`/`served_asset()`)
-and assert on `companion_markup`'s parsed CSS structure or the served
-text itself — never a file opened from disk (TST-12). Two checks
-(STATIC_SAVE_FALLBACK_ATTR / the retired `.save-status` region) assert
-that NO rule selector anywhere references the retired token, using
-`companion_markup.css_rules()` over the served stylesheet rather than a
-raw index scan, per this plan's own hotspot. Runtime state files this
-slice writes under `tmp_path` (never production source) are read back
-with `pathlib.Path.read_bytes()`.
+"""Tests handle_post()'s field-level `errors` dict, the retired LED-route/
+helper-symbol guards, runway-image detection and runway_fieldset() image
+emission, cross-file DOM-contract guards between config_page.py and its
+static assets (dirty-state.js, style.css), the theme-chip grid's markup/
+selection-state contract, the arrivals/calendar theme override's
+clearable contract, and the Aspect card's accordion shape and per-flight
+rules editor markup. Some checks fetch style.css or a served JS asset
+from a running companion/app.py server rather than reading a file from
+disk.
 """
 import re
 from pathlib import Path
@@ -51,8 +33,7 @@ from server.plane import colour_rules
 @pytest.fixture(scope="module")
 def app(module_app_server_factory):
     """A read-only companion/app.py server this module's checks fetch the
-    served stylesheet/JS assets from, instead of opening them from disk
-    (TST-12)."""
+    served stylesheet/JS assets from, instead of opening them from disk."""
     return module_app_server_factory()
 
 
@@ -65,26 +46,25 @@ def served_css(app):
 @pytest.fixture(scope="module")
 def dirty_state_js(app):
     """companion/static/dirty-state.js's served text, fetched over HTTP
-    instead of opened from disk (TST-12)."""
+    instead of opened from disk."""
     return served_asset(app, "/static/dirty-state.js")
 
 
 @pytest.fixture(scope="module")
 def theme_preview_js(app):
     """companion/static/theme-preview.js's served text, fetched over HTTP
-    instead of opened from disk (TST-12)."""
+    instead of opened from disk."""
     return served_asset(app, "/static/theme-preview.js")
 
 
 # ======================================================================
-# Section 1: 19-07-PLAN.md Task 1-3 (D-07/A-25) - handle_post()'s new
-# optional `errors` dict parameter.
+# Section 1: handle_post()'s optional `errors` dict parameter.
 # ======================================================================
 
 def test_handle_post_wake_interval_empty_or_absent_leaves_unchanged(tmp_path):
     """after a save that stored wake_interval_s 120, a later submission with wake_interval_s as
     the empty string, and another with the key absent entirely, both return the saved flash key
-    and leave the stored value at 120 (11-RESEARCH.md Open Question 2)"""
+    and leave the stored value at 120"""
     tmpdir = str(tmp_path)
     ctx = {"state_dir": tmpdir}
     seed_flash = config_page.handle_post({"wake_interval_s": "120"}, ctx)
@@ -200,9 +180,9 @@ def test_local_quiet_hours_regex_agrees_with_save_device_config(tmp_path):
     """config_page._QUIET_HOURS_TIME_RE agrees with server.device_config.save_device_config()'s
     own HH:MM shape gate over the table ""/"7:00"/"07:00"/"24:00"/"abc"/"23:59"/"00:00"
 
-    19-07-PLAN.md Task 1: this module's own local HH:MM shape gate (_QUIET_HOURS_TIME_RE) is a
+    This module's own local HH:MM shape gate (_QUIET_HOURS_TIME_RE) is a
     UX pre-check only - save_device_config()'s identical gate stays authoritative. This pins the
-    two never silently drifting apart, over the exact table the plan names.
+    two never silently drifting apart, over the exact table above.
     """
     tmpdir = str(tmp_path)
     for candidate in ("", "7:00", "07:00", "24:00", "abc", "23:59", "00:00"):
@@ -218,8 +198,8 @@ def test_local_quiet_hours_regex_agrees_with_save_device_config(tmp_path):
 
 
 # ======================================================================
-# Section 2: 19-07-PLAN.md Task 2 (D-07/A-25) - render() repopulates
-# every control from a rejected save's own submission.
+# Section 2: render() repopulates every control from a rejected save's
+# own submission.
 # ======================================================================
 
 _TASK2_BASE_CTX = {
@@ -249,15 +229,14 @@ def test_render_wake_interval_error_shows_message_value_and_aria():
     assert rendered.count("msg") == 1, (
         "expected the error message to render exactly once, got %d" % rendered.count("msg"))
     assert 'value="7"' in rendered, "expected the submitted value 7 to be echoed back into the input"
-    # 22-10-PLAN.md Task 3 (B17): retargeted in place for the new id=.
     input_match = re.search(
         r'<input type="number" id="[^"]*" name="wake_interval_s"[^>]*>', rendered)
     assert input_match, "expected the wake_interval_s input to still be present"
     assert 'aria-invalid="true"' in input_match.group(0), "expected aria-invalid=\"true\" on the errored input"
     describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
     assert describedby_match, "expected an aria-describedby attribute on the errored input"
-    # 19-11-PLAN.md Task 3 (D-12/A-30): the value is a SPACE-SEPARATED list
-    # (the hint id first, then the error id), not a single id.
+    # The value is a SPACE-SEPARATED list (the hint id first, then the
+    # error id), not a single id.
     ids = describedby_match.group(1).split(" ")
     assert len(ids) == 2, "expected exactly two space-separated ids (hint, then error), got %r" % (ids,)
     assert ids[0] == config_page.WAKE_INTERVAL_SECTION_CAPTION_ID, (
@@ -269,7 +248,7 @@ def test_render_wake_interval_error_shows_message_value_and_aria():
 
 def test_render_submitted_theme_id_checked_even_when_differs_from_stored():
     """a submitted theme id is rendered as the CHECKED radio even when it differs from the
-    stored theme (D-07 repopulation)"""
+    stored theme"""
     rendered = config_page.render(
         dict(_TASK2_BASE_CTX, device_config={"theme": "white", "tracked_runway": "3"}),
         submitted={"theme": "black"}, scope=config_page.SCOPE_DISPLAY)
@@ -293,8 +272,6 @@ def test_render_both_quiet_hours_time_inputs_carry_required():
 def test_calendar_connection_url_error_never_echoes_the_submitted_secret():
     """_calendar_connection_html(..., errors={"calendar_url": "msg"}) renders the error message
     under the field while the write-only field itself still carries no value attribute at all
-    (D-07/T-19-12/D-13, retargeted after _calendar_connection_html()'s retirement,
-    30-06-PLAN.md Task 3)
 
     The write-only calendar_url field's own `errors` parameter now lives directly on
     _calendar_connection_html() - it never accepts `submitted` at all (nothing to repopulate:
@@ -321,8 +298,8 @@ def test_style_css_styles_field_error(served_css):
 
 
 # ======================================================================
-# Section 3: 19-07-PLAN.md Task 3 (D-07/A-25) - the legacy no-errors-arg
-# contract is intact even for a rejected save.
+# Section 3: the legacy no-errors-arg contract is intact even for a
+# rejected save.
 # ======================================================================
 
 def test_handle_post_rejected_save_without_errors_arg_still_returns_save_failed(tmp_path):
@@ -335,13 +312,12 @@ def test_handle_post_rejected_save_without_errors_arg_still_returns_save_failed(
 
 
 # ======================================================================
-# Section 4: 06.6.4.1-07 (D-05) - the retired separate LED route/helper
-# symbols stay gone; quick task 260901-re6 Task 3 - five retired helper
-# constants stay gone too.
+# Section 4: the retired separate LED route/helper symbols stay gone;
+# five retired helper constants stay gone too.
 # ======================================================================
 
 def test_render_has_no_action_pointing_at_retired_led_route():
-    """render() emits no action pointing at the retired separate LED form path (D-05)
+    """render() emits no action pointing at the retired separate LED form path
 
     The LED group is merged into the single settings form - render() must never emit a second,
     independently-submittable <form action="/config-led"> at all. The separate POST /config-led
@@ -360,7 +336,7 @@ def test_render_has_no_action_pointing_at_retired_led_route():
 
 def test_config_page_exposes_no_retired_led_symbols():
     """companion.pages.config_page exposes neither led_fieldset, led_section, nor
-    handle_led_post (all three retired, D-05)"""
+    handle_led_post (all three retired)"""
     for name in ("led_fieldset", "led_section", "handle_led_post"):
         assert not hasattr(config_page, name), (
             "expected config_page to expose no %r attribute" % name)
@@ -368,8 +344,7 @@ def test_config_page_exposes_no_retired_led_symbols():
 
 def test_config_page_exposes_no_retired_helper_or_description_symbols():
     """companion.pages.config_page exposes none of THEME_HELPER_TEXT/THEME_SECTION_DESCRIPTION/
-    RUNWAY_HELPER_TEXT/RUNWAY_SECTION_DESCRIPTION/LED_HELPER_TEXT (all five retired, quick task
-    260901-re6)"""
+    RUNWAY_HELPER_TEXT/RUNWAY_SECTION_DESCRIPTION/LED_HELPER_TEXT (all five retired)"""
     retired = (
         "THEME_HELPER_TEXT", "THEME_SECTION_DESCRIPTION",
         "RUNWAY_HELPER_TEXT", "RUNWAY_SECTION_DESCRIPTION",
@@ -380,9 +355,8 @@ def test_config_page_exposes_no_retired_helper_or_description_symbols():
 
 
 # ======================================================================
-# Section 5: runway-image existence detection (Task 1, D-03) - each check
-# uses its own tmp_path image_dir and never touches the real
-# companion/static/ (06.4-RESEARCH.md Pitfall 1).
+# Section 5: runway-image existence detection - each check uses its own
+# tmp_path image_dir and never touches the real companion/static/.
 # ======================================================================
 
 def test_runway_images_available_empty_dir_yields_empty_set(tmp_path):
@@ -404,7 +378,7 @@ def test_runway_images_available_missing_dir_yields_empty_set_no_raise(tmp_path)
 
     The path is a never-created subpath of tmp_path (not a directory that is created and then
     removed): the property under test is that a MISSING directory never raises, and writing
-    nothing at all under tmp_path is the more direct way to prove that (TST-13).
+    nothing at all under tmp_path is the more direct way to prove that.
     """
     nonexistent = tmp_path / "does-not-exist"
     result = companion_app.runway_images_available(image_dir=str(nonexistent))
@@ -422,9 +396,8 @@ def test_runway_images_available_bounded_by_registry_not_directory_listing(tmp_p
 
 
 # ======================================================================
-# Section 6: runway_fieldset() image emission (Task 2, D-01/D-03) - unit
-# checks against the string output only, no filesystem/subprocess
-# involved.
+# Section 6: runway_fieldset() image emission - unit checks against the
+# string output only, no filesystem/subprocess involved.
 # ======================================================================
 
 def test_runway_fieldset_emits_img_only_for_available_runway():
@@ -439,7 +412,7 @@ def test_runway_fieldset_emits_img_only_for_available_runway():
 
 def test_runway_fieldset_graceful_fallback_no_images():
     """runway_fieldset(images_available=set()) renders zero <img tags and all three
-    number/heading labels (D-03 graceful fallback)"""
+    number/heading labels (graceful fallback)"""
     rendered = config_page.runway_fieldset("3", set())
     assert "<img" not in rendered, "expected zero <img occurrences with an empty images_available set"
     assert rendered.count('name="tracked_runway"') == 3, "expected all three runway radios still present"
@@ -470,20 +443,19 @@ def test_render_forwards_ctx_runway_images_key():
 # ======================================================================
 # Section 7: cross-file DOM-contract guards between config_page.py's
 # constants and the two static assets that read them by literal value,
-# dirty-state.js and style.css (06.6.4.1 Task 3, D-03/D-04/D-06).
+# dirty-state.js and style.css.
 # ======================================================================
 
 def test_dirty_state_js_delegates_change_and_input_at_document_level_and_has_no_forbidden_syntax(dirty_state_js):
     """dirty-state.js references DIRTY_SECTION_ATTR again (dirtySectionLabels() restored) but
     carries neither the retired dirty-ready nor dirty-shown marker, delegates BOTH change AND
     input at document level gated on e.target.form === form with no surviving
-    form.addEventListener("change"/"input" registration (B1), and contains none of
-    innerHTML/let /const /=>/backtick (CFG-77/CFG-78, 28-08-PLAN.md Task 3)
+    form.addEventListener("change"/"input" registration, and contains none of
+    innerHTML/let /const /=>/backtick
 
-    28-08-PLAN.md Task 3 restores dirtySectionLabels()'s own [data-dirty-section] reader and the
-    dual change/input delegation (6dea46a's own pre-27-04 shape). The dirty-ready/dirty-shown
-    MARKERS do NOT return - this restoration's own clearance mechanism is :has(.dirty-bar),
-    which needs no script-written marker class.
+    dirtySectionLabels() restores its own [data-dirty-section] reader and the dual change/input
+    delegation. The dirty-ready/dirty-shown MARKERS do NOT return - this restoration's own
+    clearance mechanism is :has(.dirty-bar), which needs no script-written marker class.
     """
     source = dirty_state_js
     assert config_page.DIRTY_SECTION_ATTR in source, (
@@ -512,8 +484,7 @@ def test_live_preview_crossfades_through_one_class_shared_by_css_and_js(served_c
     .theme-live-preview__image--swapping class carries the opacity-0 half, theme-preview.js
     drives that same class literal from transitionend and the image's own load/error (never a
     timer) while consulting the computed opacity so a swap can never wait on a transition that
-    never runs, and T8's window.SkyPaneLivePreview.refresh() survives (D3/CFG-32,
-    23-10-PLAN.md Task 2)
+    never runs, and T8's window.SkyPaneLivePreview.refresh() survives
 
     The mechanism must be EVENT-DRIVEN, never timed: a crossfade on a timer is the specific way
     this goes wrong (the swap and the fade drift apart, and the preview settles on whichever the
@@ -644,8 +615,7 @@ def _assert_one_has_feature_query_block(css):
 def test_style_css_carries_no_hide_rule_for_static_save_fallback_attr(served_css):
     """style.css carries NO rule selector referencing STATIC_SAVE_FALLBACK_ATTR any more - the
     hide rule is retired outright, its button now the restored bar's own visible Save - while
-    the B1/P0 contract and the dated 27-03/28-08 SUPERSEDED paragraphs all survive in writing
-    (CFG-77/CFG-78, 28-08-PLAN.md Task 2)
+    the older SUPERSEDED paragraphs all survive in writing
 
     The button STATIC_SAVE_FALLBACK_ATTR's hide rule used to target is now the restored bar's
     own visible Save (relocated by Task 1) and its visibility is the bar's OWN `hidden`
@@ -667,9 +637,9 @@ def test_style_css_carries_no_rule_for_the_retired_save_status_region(served_css
     """style.css carries no live RULE selector for the retired .save-status auto-save status
     region while the comment prose narrating its own retirement survives verbatim - the
     .save-status half of the orphan-rule clause the STATIC_SAVE_FALLBACK_ATTR check above does
-    not already cover (CFG-78, 28-09-PLAN.md Task 1)
+    not already cover
 
-    `.save-status` (27-04-PLAN.md, CFG-63) - the retired auto-save status region's own selector -
+    `.save-status` - the retired auto-save status region's own selector -
     is deleted outright, not relocated. Uses `css_rules()` over the SERVED stylesheet, checking
     every rule's own selector list, so a comment merely mentioning the class can never trip
     this. The comment-prose clause of the label is not asserted: a comment renders nothing.
@@ -690,9 +660,9 @@ def test_style_css_carries_theme_status_runway_row_and_settings_checkbox_selecto
     surface + 160px width, accent border, 56px preview band) - the selectors config_page.py's new
     markup depends on
 
-    quick task 260901-qif / 06.6.4.1.1-05: no Python constant carries these class-name literals,
-    so they are asserted directly here, structurally via declarations_for() over the served
-    stylesheet rather than a raw index-plus-window scan.
+    No Python constant carries these class-name literals, so they are asserted directly here,
+    structurally via declarations_for() over the served stylesheet rather than a raw
+    index-plus-window scan.
     """
     css = served_css
 
@@ -713,9 +683,8 @@ def test_style_css_carries_theme_status_runway_row_and_settings_checkbox_selecto
         "expected .settings-checkbox input[type=\"checkbox\"]'s rule body to clear the global "
         "rule's min-height, got %r" % (checkbox_decls,))
 
-    # 06.6.4.1.1-05: the fourth cross-file guard, covering the new
-    # .theme-chip* selectors theme_fieldset()'s D-01 chip-grid markup
-    # depends on.
+    # A cross-file guard covering the .theme-chip* selectors the chip-grid
+    # markup depends on.
     chip_grid = declarations_for(css, ".theme-chip-grid")
     assert chip_grid.get("display") == "flex", (
         "expected .theme-chip-grid's rule body to set display: flex, got %r" % (chip_grid,))
@@ -752,9 +721,7 @@ def test_theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme(
 
 def test_theme_chip_swatch_dots_carry_real_palette_hex_values():
     """every theme chip carries exactly two .theme-chip__dot swatches whose inline background
-    values equal _palette_hex() computed from that theme's own departing_index/arriving_index
-    (06.6.4.1.1-05, retargeted onto _theme_chip_grid_html() directly by 21-05-PLAN.md Task 1 D-06
-    once theme_fieldset() is retired)"""
+    values equal _palette_hex() computed from that theme's own departing_index/arriving_index"""
     rendered = config_page._theme_chip_grid_html("theme", "white")
     assert rendered.count("theme-chip__dot") == len(device_config.THEME_IDS) * 2, (
         "expected exactly %d .theme-chip__dot occurrences (2 per theme), got %d"
@@ -772,8 +739,7 @@ def test_theme_chip_swatch_dots_carry_real_palette_hex_values():
 def test_theme_chip_radio_hidden_and_check_glyph_present_on_every_chip():
     """every theme chip's radio carries class="visually-hidden" (never display:none) and every
     chip carries a .theme-chip__check glyph with visually-hidden "Selected" text, present on all
-    chips regardless of selection (06.6.4.1.1-05, retargeted onto _theme_chip_grid_html()
-    directly by 21-05-PLAN.md Task 1 D-06 once theme_fieldset() is retired)
+    chips regardless of selection
 
     The radio is visually-hidden (never display:none), so keyboard/no-JS selection keeps working
     natively.
@@ -794,16 +760,14 @@ def test_theme_chip_radio_hidden_and_check_glyph_present_on_every_chip():
 
 
 # ======================================================================
-# Section 9: 15-04-PLAN.md (D-04/D-05) - the arrivals-override control,
-# its revealed second chip grid, and handle_post()'s clearable-checkbox
-# contract (15-VALIDATION.md row 7).
+# Section 9: the arrivals-override control, its revealed second chip
+# grid, and handle_post()'s clearable-checkbox contract.
 # ======================================================================
 
 def test_aspect_arrivals_row_carries_leading_option_no_checkbox():
     """the arrivals row carries a leading Same-as-departures option submitting the empty string
     (class="leading-option", form=settings-form), and no checkbox-based override control exists
-    anywhere on the page (D-06/D-09, 30-05-PLAN.md Task 1, replacing the retired
-    _frame_colours_arrivals_grid_carries_leading_chip_no_checkbox)
+    anywhere on the page
 
     This control used to be a checkbox; the empty-string radio is what keeps the clear signal
     honest now.
@@ -827,8 +791,7 @@ def test_aspect_arrivals_override_preselects_the_override_not_same_as_departures
     """a stored theme_arriving override pre-selects the OVERRIDE (not Same-as-departures, not the
     departures theme) in the arrivals row, names the override's own label in the row's summary
     meta, and leaves the calendar row's own Same-as-departures state unaffected in the same
-    render (D-06/D-09, 30-05-PLAN.md Task 1, replacing the retired
-    _frame_colours_arrivals_override_preselects_the_override_not_same_as_departures)
+    render
 
     Locates the arrivals row by its own data-usage attribute (never
     COLOUR_USAGE_PANEL_TARGET_ATTR, retired), and asserts the calendar row is unaffected in the
@@ -868,8 +831,7 @@ def test_aspect_arrivals_override_preselects_the_override_not_same_as_departures
 
 
 def test_handle_post_theme_arriving_valid_id_persists_chosen_id(tmp_path):
-    """handle_post with a valid theme_arriving id persists it, with no checkbox field involved
-    (D-06/D-09, retargeted from the retired arrivals-override checkbox)"""
+    """handle_post with a valid theme_arriving id persists it, with no checkbox field involved"""
     tmpdir = str(tmp_path)
     ctx = {"state_dir": tmpdir}
     flash_key = config_page.handle_post(
@@ -885,8 +847,7 @@ def test_handle_post_theme_arriving_valid_id_persists_chosen_id(tmp_path):
 
 
 def test_handle_post_theme_arriving_empty_string_clears_previous_override(tmp_path):
-    """handle_post with theme_arriving='' clears a previously-set override back to None (D-06/
-    D-09, retargeted from the retired arrivals-override checkbox's own absence)"""
+    """handle_post with theme_arriving='' clears a previously-set override back to None"""
     tmpdir = str(tmp_path)
     ctx = {"state_dir": tmpdir}
     config_page.handle_post(
@@ -909,7 +870,7 @@ def test_handle_post_theme_arriving_empty_string_clears_previous_override(tmp_pa
 
 def test_handle_post_calendar_theme_id_empty_string_saves_as_none(tmp_path):
     """handle_post with calendar_theme_id='' saves and reads back as None, mirroring
-    theme_arriving's own empty-string clear signal (D-06/D-09)
+    theme_arriving's own empty-string clear signal
 
     calendar_theme_id never had a checkbox, so once its gate exempts "", the existing
     pass-through plus normalise_calendar_theme_id("")'s own documented None-degrade already does
@@ -941,8 +902,7 @@ def test_handle_post_calendar_theme_id_empty_string_saves_as_none(tmp_path):
 def test_handle_post_crafted_non_member_theme_and_calendar_values_still_rejected(tmp_path, field, payload):
     """handle_post still rejects a crafted non-member theme_arriving/calendar_theme_id value (a
     plain invalid id, a bare space, a near-miss uppercase/trailing-space variant) and writes
-    nothing - the empty-string exemption does not widen the gate to anything else
-    (D-09/Pitfall 1)"""
+    nothing - the empty-string exemption does not widen the gate to anything else"""
     tmpdir = str(tmp_path)
     cp.write_device_config(tmpdir, "black", "3")
     before = Path(device_config.device_config_path(tmpdir)).read_bytes()
@@ -961,7 +921,7 @@ def test_handle_post_crafted_non_member_theme_and_calendar_values_still_rejected
 def test_handle_post_nonmember_theme_arriving_rejected(tmp_path, payload):
     """handle_post with a non-member theme_arriving (a plain invalid id, a path-traversal-shaped
     payload, and a SQL-shaped payload) rejects the whole submission and writes nothing - '' is
-    explicitly exempted from this rejection (D-09)"""
+    explicitly exempted from this rejection"""
     tmpdir = str(tmp_path)
     cp.write_device_config(tmpdir, "black", "3")
     before = Path(device_config.device_config_path(tmpdir)).read_bytes()
@@ -976,7 +936,7 @@ def test_handle_post_nonmember_theme_arriving_rejected(tmp_path, payload):
 
 def test_handle_post_theme_arriving_partial_post_still_carries_other_fields(tmp_path):
     """a post carrying only theme_arriving still carries the existing theme/runway forward
-    unchanged (retargeted from the retired arrivals-override checkbox, D-09)"""
+    unchanged"""
     tmpdir = str(tmp_path)
     cp.write_device_config(tmpdir, "black", "06-24")
     ctx = {"state_dir": tmpdir}
@@ -992,10 +952,9 @@ def test_handle_post_theme_arriving_partial_post_still_carries_other_fields(tmp_
 
 
 def test_theme_arriving_clearable_contract_full_round_trip(tmp_path):
-    """the clearable contract (15-VALIDATION.md row 7): a save with a chosen arrivals theme
+    """the clearable contract: a save with a chosen arrivals theme
     persists it, then a save with theme_arriving='' clears it back to None while every other
-    setting survives unchanged (D-06/D-09, retargeted from the retired arrivals-override
-    checkbox's own absence)
+    setting survives unchanged
 
     Named so a failure says plainly that the empty-string clear signal stopped working.
     """
@@ -1036,11 +995,8 @@ def test_theme_arriving_clearable_contract_full_round_trip(tmp_path):
 def test_settings_page_has_zero_fieldsets_and_five_dirty_sections():
     """the rendered Settings page contains no <fieldset> and no <legend>, and exactly five
     data-dirty-section groups (Runway/Diagnostic LED/Quiet hours/Wake interval/Notifications -
-    Theme's own entry retired along with theme_fieldset(), 21-05-PLAN.md Task 1 D-06; Calendar's
-    own entry retired from this legacy scope by 21-07-PLAN.md Task 1 D-13/Pitfall 2; Display's
-    own entry retired outright by 22-05-PLAN.md Task 1 X1/D-04/D-12.1)
+    Theme, Calendar and Display each have no entry on this legacy scope)
 
-    06.6.4.1.1-05: the rendered Settings page contains no <fieldset and no <legend anywhere - so
     dirty-state.js's section-aware walk still finds each group as one addressable unit.
     """
     rendered = config_page.render({
@@ -1055,18 +1011,16 @@ def test_settings_page_has_zero_fieldsets_and_five_dirty_sections():
 
 
 # ======================================================================
-# Section 10: 06.6.4.1.1-06 / quick task 260904-bbi / 22-15-PLAN.md
-# Task 1 (T6) / 23-10-PLAN.md Task 1 (D3/CFG-32) - the selected-card
-# visual treatment, live vs. saved-but-not-live, style.css structural
-# checks fetched from the served stylesheet rather than opened from disk.
+# Section 10: the selected-card visual treatment, live vs.
+# saved-but-not-live, style.css structural checks fetched from the served
+# stylesheet rather than opened from disk.
 # ======================================================================
 
 def test_selected_runway_card_and_theme_chip_carry_a_background_wash(served_css):
     """both .runway-card--selected and .theme-chip--selected .theme-chip__body carry a
     12%-accent background wash (color-mix), matching .theme-form .theme-option--active's
     established active-state idiom, added alongside (not replacing) their check glyph and their
-    now-constant 1px border, whose 2px accent signal moved to an inset ring (06.6.4.1.1-06,
-    retargeted by 22-15-PLAN.md Task 1 for T6)
+    now-constant 1px border, whose 2px accent signal moved to an inset ring
 
     The developer reported that, across the whole site, the selected element was "very hard to
     see" - a border-only + check-glyph treatment was too subtle at density.
@@ -1099,20 +1053,20 @@ def test_selected_runway_card_and_theme_chip_carry_a_background_wash(served_css)
 
 
 def test_strong_selected_treatment_is_keyed_to_the_live_checked_radio(served_css):
-    """the strong selected-card treatment (border, wash, check glyph, and a D-03a hover restore)
+    """the strong selected-card treatment (border, wash, check glyph, and a hover restore)
     is keyed to live :has(input:checked) state inside one @supports selector(:has(*)) block, for
     both .theme-chip and .runway-card, with every pre-existing --selected fallback rule surviving
-    verbatim (quick task 260904-bbi) - and, since 23-10-PLAN.md Task 1 (D3/CFG-32), selection
-    ANSWERS: a fast transition naming the transform, the border colour, the shadow and the wash
-    is declared on each selectable surface's BASE rule, the live rules and their --selected
-    fallbacks carry the SAME scale, saved-but-not-live clears it, and the ONE feature-query block
-    declares no transition at all - asserted together so moving one inside fails once
+    verbatim - and selection ANSWERS: a fast transition naming the transform, the border colour,
+    the shadow and the wash is declared on each selectable surface's BASE rule, the live rules
+    and their --selected fallbacks carry the SAME scale, saved-but-not-live clears it, and the
+    ONE feature-query block declares no transition at all - asserted together so moving one
+    inside fails once
 
-    quick task 260904-bbi: the developer found that the strong "this is your selection" treatment
-    followed the SAVED config, not the user's LIVE choice, because every selected-state rule keyed
-    off the server-computed --selected class alone. Also proves the D-03a hover guard (which would
-    otherwise clear the newly-checked chip's border) is answered with a positive restore rule
-    rather than a re-scoped guard.
+    The strong "this is your selection" treatment used to follow the SAVED config, not the
+    user's LIVE choice, because every selected-state rule keyed off the server-computed
+    --selected class alone. Also proves the hover guard (which would otherwise clear the
+    newly-checked chip's border) is answered with a positive restore rule rather than a
+    re-scoped guard.
     """
     css = served_css
     _assert_one_has_feature_query_block(css)
@@ -1158,7 +1112,7 @@ def test_strong_selected_treatment_is_keyed_to_the_live_checked_radio(served_css
     ):
         _declared(css, selector)
 
-    # SELECTION ANSWERS (D3/CFG-32). A `transition` is a property of the
+    # SELECTION ANSWERS. A `transition` is a property of the
     # ELEMENT, not of the state: declared on the BASE rule, outside the
     # feature query, it animates the property however the state is
     # reached - live `:has(input:checked)` inside the query, and the
@@ -1232,8 +1186,7 @@ def test_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable
     every declaration was dead for a phase and a half), and the selected-chip mechanism is
     re-keyed from the retired 'input:checked + .frame-colours__row' sibling selector to
     .palette-chip:has(input:checked) inside the file's one @supports selector(:has(*)) block,
-    carrying the accent border, inset ring, 12%% wash and check-glyph declarations (T6,
-    30-07-PLAN.md Task 3)"""
+    carrying the accent border, inset ring, 12%% wash and check-glyph declarations"""
     css = served_css
 
     # (a) T2/T15: button[type="submit"] and button.calendar-disconnect-btn
@@ -1269,11 +1222,10 @@ def test_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable
 def test_calendar_fusion_css_retired_from_the_stylesheet(served_css):
     """style.css carries neither retired Calendar-card fusion selector
     (.page-section:has(+ .calendar-disconnect-form), .calendar-disconnect-form) anywhere
-    (D-13/R-08/Pitfall 2)
 
     Both retired fusion rules must be gone from the real stylesheet, not merely dead-but-present
     - a plan that deletes the merged card's separate-siblings markup while leaving this CSS
-    behind would ship dead rules that no longer match anything (Pitfall 2).
+    behind would ship dead rules that no longer match anything.
     """
     retired = re.compile(r"\.calendar-disconnect-form(?![-\w])")
     for rule in css_rules(served_css):
@@ -1288,8 +1240,7 @@ def test_saved_but_unchecked_card_degrades_to_a_quiet_current_marker(served_css)
     ring with its wash/check glyph cleared and a "Current" ::after tag whose text is read from
     the server-rendered, translated data-current-label attribute (exactly 2 occurrences
     site-wide, zero hard-coded English declarations, zero French copy in the stylesheet), reusing
-    the established muted-text strength rather than inventing a new one (quick task 260904-bbi;
-    retargeted by 22-10-PLAN.md Task 1, T10)
+    the established muted-text strength rather than inventing a new one
 
     The server-rendered --selected class is demoted from driving the strong treatment to an
     honest, quiet "this is what is saved" marker once it is no longer the live choice.
@@ -1352,7 +1303,7 @@ def test_saved_but_unchecked_card_degrades_to_a_quiet_current_marker(served_css)
 def test_style_css_carries_section_caption_and_the_restored_dirty_bar_rules(served_css):
     """style.css declares .section-caption (70% muted color-mix) AND the restored .dirty-bar -
     fixed-positioned at both breakpoints, its [hidden] override and its Cancel button's own
-    quiet-wash override all present (CFG-77/CFG-78, 28-08-PLAN.md Task 2)"""
+    quiet-wash override all present"""
     css = served_css
 
     caption = _declared(css, ".section-caption")
@@ -1380,10 +1331,10 @@ def test_style_css_carries_section_caption_and_the_restored_dirty_bar_rules(serv
 
 
 def test_skypane_bar_arrive_keyframes_is_referenced_again_by_the_restored_bar(served_css):
-    """the @keyframes skypane-bar-arrive block - kept deliberately orphaned by 27-04 specifically
+    """the @keyframes skypane-bar-arrive block - kept deliberately orphaned specifically
     so a future restoration would not need to move the file's pinned @keyframes count - is
     REFERENCED again by the restored .dirty-bar base rule's own animation: declaration, reused
-    rather than reinvented (CFG-77/CFG-78, 28-08-PLAN.md Task 2)"""
+    rather than reinvented"""
     css = served_css
     blocks = at_rule_blocks(css).count("@keyframes skypane-bar-arrive")
     assert blocks == 1, (
@@ -1414,7 +1365,7 @@ def test_dirty_state_js_is_network_free_again_with_one_named_timer_exception(dir
     requestAnimationFrame anywhere) with exactly ONE setTimeout in the whole file - a literal
     setTimeout(fn, 0) sitting INSIDE the form's own reset-event handler, never cancelling that
     event's own default action - and the file's header states both the standing constraint AND
-    this one named exception in the same breath (CFG-77/CFG-78, 28-08-PLAN.md Task 3)
+    this one named exception in the same breath
 
     setTimeout is permitted EXACTLY ONCE, and pinned STRUCTURALLY, not by count alone: the single
     occurrence must be a setTimeout(fn, 0) - a literal zero delay, never a duration - scheduled
@@ -1466,10 +1417,8 @@ def test_dirty_state_js_is_network_free_again_with_one_named_timer_exception(dir
 
 
 # ======================================================================
-# Section 11: 15-05-PLAN.md Task 3 (D-10, D-11, 15-VALIDATION.md row 10)
-# - the per-flight colour-rules editor's markup/copy checks, relocated
-# into the Aspect card's own "Per-flight rules" usage panel by
-# 21-05/30-05-PLAN.md.
+# Section 11: the per-flight colour-rules editor's markup/copy checks,
+# relocated into the Aspect card's own "Per-flight rules" usage panel.
 # ======================================================================
 
 def test_aspect_card_full_shape_checklist():
@@ -1477,8 +1426,7 @@ def test_aspect_card_full_shape_checklist():
     after the Look section intro, its four accordion rows' data-usage values in COLOUR_USAGES'
     own locked order, exactly one row open (departures), only the last row secondary, exactly one
     .palette grid per theme row and none in the rules row, zero occurrences of any retired
-    mechanism's markup, and no section-caption paragraph immediately after the heading (CFG-85,
-    30-05-PLAN.md Task 1, replacing the retired _frame_colours_card_full_shape_checklist)"""
+    mechanism's markup, and no section-caption paragraph immediately after the heading"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
@@ -1532,7 +1480,7 @@ def test_aspect_card_full_shape_checklist():
 
     # The <h2> immediately inside the card is ASPECT_HEADING at
     # ASPECT_HEADING_ID, and the element right after it is NOT a
-    # section-caption paragraph - the no-caption half of CFG-85.
+    # section-caption paragraph.
     heading_needle = '<h2 class="text-heading" id="%s">%s</h2>' % (
         config_page.ASPECT_HEADING_ID, escape_html(i18n.t(config_page.ASPECT_HEADING)))
     assert heading_needle in rendered, "expected the Aspect <h2> at ASPECT_HEADING_ID"
@@ -1545,8 +1493,7 @@ def test_aspect_card_full_shape_checklist():
 def test_rules_row_renders_inside_aspect_after_form():
     """render() places the Aspect card, holding the rules row, after the settings </form> and
     before the Calendar card, with every theme/theme_arriving/calendar_theme_id radio still
-    carrying form=settings-form (Phase 15 D-10, replacing the retired
-    _rules_section_renders_inside_frame_colours_after_form)
+    carrying form=settings-form
 
     The rules row holds real <form> elements (the add form), and HTML forbids a nested <form>, so
     the whole Aspect card must be a sibling of #settings-form while every theme radio still
@@ -1591,8 +1538,8 @@ def test_rules_section_empty_state_then_list_once_a_rule_exists(tmp_path):
     rendered = config_page.render(empty_ctx, scope=config_page.SCOPE_DISPLAY)
     rules_segment = cp.rules_row_segment(rendered)
     assert config_page.RULES_EMPTY_HEADING in rules_segment, "expected the empty-state heading with no rules"
-    # 20-09-PLAN.md Task 3 (D-15c/d): the retired table/card split is
-    # gone outright - a plain .rule-list, never a table.
+    # The retired table/card split is gone outright - a plain .rule-list,
+    # never a table.
     assert "rule-list" not in rules_segment and "<table" not in rules_segment, (
         "expected no list markup in the empty-state branch")
 
@@ -1650,8 +1597,7 @@ def test_rules_list_orders_most_specific_first_then_alphabetically(tmp_path):
 def test_aspect_rules_copy_appears_escaped_verbatim():
     """every rules-editor copy string - heading, caption, field labels, kind labels/titles,
     empty-state heading/body, and the How-rules-combine disclosure - appears escaped-verbatim,
-    matching 20-UI-SPEC.md's Copywriting Contract byte for byte (30-05-PLAN.md Task 3, replacing
-    the retired _rules_copy_appears_escaped_verbatim)"""
+    matching the Copywriting Contract byte for byte"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
@@ -1677,15 +1623,14 @@ def test_aspect_rules_copy_appears_escaped_verbatim():
 
 
 def test_aspect_rules_row_label_locked_verbatim():
-    """the rules row label equals 21-UI-SPEC.md's locked "Per-flight rules" text exactly, and its
+    """the rules row label equals the locked "Per-flight rules" text exactly, and its
     empty-state meta reads FRAME_COLOURS_RULES_EMPTY_META's real value, never ROADMAP's own
-    paraphrase (D-06/D-07, 30-05-PLAN.md Task 2, replacing the retired
-    _frame_colours_rules_row_label_locked_verbatim)
+    paraphrase
 
     Keeps the original lock - FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_RULES] is still exactly
-    "Per-flight rules" - and adds a second lock 30-UI-SPEC.md's own copy table corrects: the
-    rules row's empty-state meta must read FRAME_COLOURS_RULES_EMPTY_META's real value ("No rules
-    yet"), never a plausible-sounding paraphrase.
+    "Per-flight rules" - and adds a second lock: the rules row's empty-state meta must read
+    FRAME_COLOURS_RULES_EMPTY_META's real value ("No rules yet"), never a plausible-sounding
+    paraphrase.
     """
     assert config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_RULES] == "Per-flight rules", (
         "expected the rules row label to equal the locked \"Per-flight rules\" text exactly, "
