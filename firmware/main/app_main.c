@@ -8,8 +8,9 @@
  * SkyPane - wake dispatcher.
  *
  * On every wake: turn on the bring-up LED, arm the whole-wake budget
- * timer and task watchdog, init NVS, let the panel guard account for
- * elapsed awake/sleep time, increment the boot counter, and classify why
+ * timer and task watchdog, let the panel guard account for elapsed
+ * awake/sleep time, init NVS (an unusable NVS sleeps a fixed interval
+ * instead, nvs_boot.h), increment the boot counter, and classify why
  * the chip last reset. An abnormal reset (panic, either watchdog,
  * brownout, power glitch, CPU lockup) means the previous wake never
  * reached deep sleep on its own, so this wake backs off instead of
@@ -47,8 +48,10 @@
 #include "api_client.h"
 #include "battery.h"
 #include "epd13in3e.h"
+#include "fault_inject.h"
 #include "fault_screen.h"
 #include "led.h"
+#include "nvs_boot.h"
 #include "nvs_schema.h"
 #include "nvs_util.h"
 #include "panel.h"
@@ -78,6 +81,11 @@ _Static_assert((int)ESP_RST_DEEPSLEEP == FP_RST_DEEPSLEEP, "reset_reason.h enum 
 _Static_assert((int)ESP_RST_BROWNOUT == FP_RST_BROWNOUT, "reset_reason.h enum drift");
 _Static_assert((int)ESP_RST_PWR_GLITCH == FP_RST_PWR_GLITCH, "reset_reason.h enum drift");
 _Static_assert((int)ESP_RST_CPU_LOCKUP == FP_RST_CPU_LOCKUP, "reset_reason.h enum drift");
+
+/* nvs_boot.h mirrors these ESP-IDF error codes for the same reason. */
+_Static_assert(ESP_OK == FP_NVS_ERR_OK, "nvs_boot.h error code drift");
+_Static_assert(ESP_ERR_NVS_NO_FREE_PAGES == FP_NVS_ERR_NO_FREE_PAGES, "nvs_boot.h error code drift");
+_Static_assert(ESP_ERR_NVS_NEW_VERSION_FOUND == FP_NVS_ERR_NEW_VERSION_FOUND, "nvs_boot.h error code drift");
 
 static const char *TAG = "skypane";
 
@@ -256,6 +264,20 @@ static void __attribute__((noreturn)) fail_and_sleep(const char *step)
     enter_deep_sleep(plan.sleep_s);
 }
 
+/* The failure exit for an unusable NVS at boot. Unlike fail_and_sleep()
+ * it has no counter to read or persist and draws no fault screen
+ * (fault_screen.h), so it sleeps the fixed fp_nvs_fail_sleep_s() and
+ * logs backoff_n=0. The radio has not started on this path. */
+static void __attribute__((noreturn)) nvs_fail_and_sleep(const char *step, esp_err_t err)
+{
+    uint32_t sleep_s = fp_nvs_fail_sleep_s();
+    ESP_LOGE("fp_boot", "nvs unusable err=%s", esp_err_to_name(err));
+    ESP_LOGW(TAG, "poll fail step=%s backoff_n=%u sleep_s=%" PRIu32, step,
+             0u, sleep_s);
+    log_wake_timing();
+    enter_deep_sleep(sleep_s);
+}
+
 /* Registered with fp_wake_guard_start(): called when the whole-wake
  * budget expires. Must not return (wake_guard.h's fp_wake_expired_fn
  * contract) - fail_and_sleep() never does. */
@@ -278,21 +300,34 @@ void app_main(void)
      * recovery included. */
     fp_wake_guard_start(on_wake_deadline);
 
-    /* Never recover NVS by erasing the whole partition on an ordinary
-     * error - only on the two specific "the partition itself is
-     * unusable" codes below. */
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
-        err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(err);
-
+    /* RTC memory only, no NVS: done first so the panel guard's timing
+     * holds on the NVS failure path below too. */
     fp_panel_on_boot();
 
+    /* Never recover NVS by erasing the whole partition on an ordinary
+     * error, and never abort on a failure: an abort reboots at once and
+     * would hot-loop on a partition that keeps failing (nvs_boot.h). */
+    esp_err_t err = nvs_flash_init();
+    if (fp_fault_inject_nvs()) {
+        err = ESP_FAIL;
+    }
+    fp_nvs_boot_action_t nvs_action = fp_nvs_init_action((int)err, false);
+    if (nvs_action == FP_NVS_BOOT_ERASE_AND_RETRY) {
+        err = nvs_flash_erase();
+        if (err == ESP_OK) {
+            err = nvs_flash_init();
+        }
+        nvs_action = fp_nvs_init_action((int)err, true);
+    }
+    if (nvs_action != FP_NVS_BOOT_READY) {
+        nvs_fail_and_sleep("nvs", err);
+    }
+
     nvs_handle_t nvs;
-    ESP_ERROR_CHECK(nvs_open(FP_NVS_NAMESPACE, NVS_READWRITE, &nvs));
+    err = nvs_open(FP_NVS_NAMESPACE, NVS_READWRITE, &nvs);
+    if (err != ESP_OK) {
+        nvs_fail_and_sleep("nvs", err);
+    }
     uint32_t boot_count = nvs_increment_boot_count(nvs);
     nvs_commit(nvs);
     nvs_close(nvs);

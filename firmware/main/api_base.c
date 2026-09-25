@@ -4,6 +4,7 @@
 
 #include <ctype.h>
 #include <string.h>
+#include <strings.h>
 
 int fp_api_base_normalize(const char *raw, char *out, size_t cap)
 {

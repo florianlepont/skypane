@@ -1,0 +1,78 @@
+serving /tmp/skypane-lan/panel.bin on port 8642 — point the frame at http://<this-host>:8642
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=power-on X-Rssi=-39 X-Battery-Mv=4020
+GET /device/v1/display
+GET /img/62360cd776079f772fc78a53692418edd645d9d190d28b6613e8fcd1fde0c424.bin
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-44 X-Battery-Mv=4026
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-41 X-Battery-Mv=4020
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-39 X-Battery-Mv=4024
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-41 X-Battery-Mv=4024
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-41 X-Battery-Mv=4024
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-40 X-Battery-Mv=4026
+GET /device/v1/display
+GET /img/f7581d2c607ed6d5b343f7ae29f4c079e899731a417413ea5ef6be1f1313fb30.bin
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-42 X-Battery-Mv=4026
+GET /device/v1/display
+GET /img/62360cd776079f772fc78a53692418edd645d9d190d28b6613e8fcd1fde0c424.bin
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-39 X-Battery-Mv=4026
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-41 X-Battery-Mv=4030
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-42 X-Battery-Mv=4026
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-41 X-Battery-Mv=4030
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-42 X-Battery-Mv=4034
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-42 X-Battery-Mv=4030
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-40 X-Battery-Mv=4030
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-43 X-Battery-Mv=4034
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-42 X-Battery-Mv=4034
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-44 X-Battery-Mv=4032
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-43 X-Battery-Mv=4036
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-43 X-Battery-Mv=4034
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-44 X-Battery-Mv=4034
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-44 X-Battery-Mv=4034
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=power-on X-Rssi=-43 X-Battery-Mv=4036
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=power-on X-Rssi=-44 X-Battery-Mv=4034
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-40 X-Battery-Mv=4036
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-44 X-Battery-Mv=4038
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-44 X-Battery-Mv=4040
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-43 X-Battery-Mv=4040
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-41 X-Battery-Mv=4040
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=power-on X-Rssi=-45 X-Battery-Mv=4042
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-44 X-Battery-Mv=4044
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-46 X-Battery-Mv=4042
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-33 X-Battery-Mv=4042
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=other X-Rssi=-36 X-Battery-Mv=4044
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=other X-Rssi=-35 X-Battery-Mv=4048
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=other X-Rssi=-36 X-Battery-Mv=4050
+GET /device/v1/display
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=rtc X-Rssi=-33 X-Battery-Mv=4048
+GET /device/v1/display

@@ -1,6 +1,8 @@
 ---
 id: SEED-009
-status: dormant
+status: promoted
+promoted_date: 2026-09-25
+promoted_to: "Phase 42 (ROADMAP.md)"
 planted: 2026-09-24
 planted_during: "v1.0 audit remediation (Phases 32–41), after Phase 34 (firmware)"
 trigger_when: "Milestone v1.1 — earmarked by the developer on 2026-09-24, together with SEED-007 and SEED-008."

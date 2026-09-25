@@ -130,21 +130,21 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **TST-13**: Permission tests skip under euid 0; every path inside `tmp_path`
 - [x] **TST-14**: `run_all_tests.py` and all check counts retired; pytest discovery; `scripts/run-all-tests.sh` becomes a thin pytest wrapper
 - [x] **TST-15**: Closing parity: every one of the 2018 pre-migration checks accounted for in the ledger; coverage ≥ pre-migration figure
-- [ ] **FW-01**: Reset reason checked at boot → increment `FP_NVS_BACKOFF_N` and sleep; `epd_init` returns errors
-- [ ] **FW-02**: Whole-wake deadline (one-shot `esp_timer` → deep sleep with backoff) and a real WDT; comment corrected
-- [ ] **FW-03**: 401/403 clears `FP_NVS_DEVICE_TOKEN`; next wake re-enrols; distinct error code
-- [ ] **FW-04**: Cap at 86400 s; above → JSON error
-- [ ] **FW-05**: Checked and mapped to the right `step=`
-- [ ] **FW-06**: Response validation (hash, URL, `sleep_s`, `led_enabled`, token), size/SHA gate and the sleep decision extracted into pure helpers with host tests
-- [ ] **FW-07**: https-only in production builds; custom bundle with the ISRG roots only
-- [ ] **FW-08**: Per-device enrolment secret; byos refuses re-enrolment of a known MAC
-- [ ] **FW-09**: `CONFIG_LWIP_DHCP_RESTORE_LAST_IP`, no ARP check (or static IP); measured on hardware
-- [ ] **FW-10**: One keep-alive client for display + image; TLS session tickets in RTC memory; wake duration logged (diagnostic line, Log Line Contract untouched); overhead explained
-- [ ] **FW-11**: Read once before Wi-Fi, 8-sample average
-- [ ] **FW-12**: `CONFIG_SPIRAM_MEMTEST=n`; shorter row wait if the datasheet allows; timed light sleep during the spacing wait
-- [ ] **FW-13**: Use `fp_api_base_normalize` or delete; delete dead code; drop orphan symbols; rollback disabled until OTA exists
-- [ ] **FW-14**: One helper each
-- [ ] **FW-15**: Derived from `git describe`
+- [x] **FW-01**: Reset reason checked at boot → increment `FP_NVS_BACKOFF_N` and sleep; `epd_init` returns errors
+- [x] **FW-02**: Whole-wake deadline (one-shot `esp_timer` → deep sleep with backoff) and a real WDT; comment corrected
+- [x] **FW-03**: 401/403 clears `FP_NVS_DEVICE_TOKEN`; next wake re-enrols; distinct error code
+- [x] **FW-04**: Cap at 86400 s; above → JSON error
+- [x] **FW-05**: Checked and mapped to the right `step=`
+- [x] **FW-06**: Response validation (hash, URL, `sleep_s`, `led_enabled`, token), size/SHA gate and the sleep decision extracted into pure helpers with host tests
+- [x] **FW-07**: https-only in production builds; custom bundle with the ISRG roots only
+- [x] **FW-08**: Per-device enrolment secret; byos refuses re-enrolment of a known MAC
+- [x] **FW-09**: `CONFIG_LWIP_DHCP_RESTORE_LAST_IP`, no ARP check (or static IP); measured on hardware
+- [x] **FW-10**: One keep-alive client for display + image; TLS session tickets in RTC memory; wake duration logged (diagnostic line, Log Line Contract untouched); overhead explained
+- [x] **FW-11**: Read once before Wi-Fi, 8-sample average
+- [x] **FW-12**: `CONFIG_SPIRAM_MEMTEST=n`; shorter row wait if the datasheet allows; timed light sleep during the spacing wait
+- [x] **FW-13**: Use `fp_api_base_normalize` or delete; delete dead code; drop orphan symbols; rollback disabled until OTA exists
+- [x] **FW-14**: One helper each
+- [x] **FW-15**: Derived from `git describe`
 - [ ] **HYG-01**: Keep what the code does, the *why* and invariants; drop plan/ticket history
 - [ ] **HYG-02**: Same purge in CSS and JS
 - [ ] **HYG-03**: Same purge
@@ -363,21 +363,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TST-13 | Phase 33 | Complete |
 | TST-14 | Phase 33 | Complete |
 | TST-15 | Phase 33 | Complete |
-| FW-01 | Phase 34 | Pending |
-| FW-02 | Phase 34 | Pending |
-| FW-03 | Phase 34 | Pending |
-| FW-04 | Phase 34 | Pending |
-| FW-05 | Phase 34 | Pending |
-| FW-06 | Phase 34 | Pending |
-| FW-07 | Phase 34 | Pending |
-| FW-08 | Phase 34 | Pending |
-| FW-09 | Phase 34 | Pending |
-| FW-10 | Phase 34 | Pending |
-| FW-11 | Phase 34 | Pending |
-| FW-12 | Phase 34 | Pending |
-| FW-13 | Phase 34 | Pending |
-| FW-14 | Phase 34 | Pending |
-| FW-15 | Phase 34 | Pending |
+| FW-01 | Phase 34 | Complete |
+| FW-02 | Phase 34 | Complete |
+| FW-03 | Phase 34 | Complete |
+| FW-04 | Phase 34 | Complete |
+| FW-05 | Phase 34 | Complete |
+| FW-06 | Phase 34 | Complete |
+| FW-07 | Phase 34 | Complete |
+| FW-08 | Phase 34 | Complete |
+| FW-09 | Phase 34 | Complete |
+| FW-10 | Phase 34 | Complete |
+| FW-11 | Phase 34 | Complete |
+| FW-12 | Phase 34 | Complete |
+| FW-13 | Phase 34 | Complete |
+| FW-14 | Phase 34 | Complete |
+| FW-15 | Phase 34 | Complete |
 | HYG-01 | Phase 35 | In progress (server group done) |
 | HYG-02 | Phase 35 | Pending |
 | HYG-03 | Phase 35 | Pending |

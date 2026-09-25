@@ -1,6 +1,6 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
-/* Fault triggers for the four CONFIG_SKYPANE_FAULT_INJECT_* choices
+/* Fault triggers for the five CONFIG_SKYPANE_FAULT_INJECT_* choices
  * other than NONE — see fault_inject.h for why this file compiles to
  * nothing when NONE is selected. Bench-only: never reachable from a
  * production build. */
@@ -25,10 +25,27 @@ static const char *TAG = "fp_fault";
 #define FP_FAULT_NAME "int_wdt"
 #elif CONFIG_SKYPANE_FAULT_INJECT_SLOW_WAKE
 #define FP_FAULT_NAME "slow_wake"
+#elif CONFIG_SKYPANE_FAULT_INJECT_NVS
+#define FP_FAULT_NAME "nvs"
 #endif
+
+bool fp_fault_inject_nvs(void)
+{
+#if CONFIG_SKYPANE_FAULT_INJECT_NVS
+    ESP_LOGE(TAG, "SKYPANE-FAULT-INJECT %s", FP_FAULT_NAME);
+    return true;
+#else
+    return false;
+#endif
+}
 
 void fp_fault_inject_point(void)
 {
+#if CONFIG_SKYPANE_FAULT_INJECT_NVS
+    /* The NVS fault fires at boot (fp_fault_inject_nvs()); a wake that
+     * reaches Wi-Fi has nothing left to inject. */
+    return;
+#endif
     ESP_LOGE(TAG, "SKYPANE-FAULT-INJECT %s", FP_FAULT_NAME);
 
 #if CONFIG_SKYPANE_FAULT_INJECT_PANIC

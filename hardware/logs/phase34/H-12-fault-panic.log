@@ -1,0 +1,762 @@
+I (498) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1468) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1478) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (1528) skypane: image unchanged, skipping download[0m
+[0;32mI (1528) fp_api: http connects=1 first_connect_ms=17 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (1528) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (1528) fp_diag: wake timing total_ms=1217 wifi_ms=1137 setup_ms=0 display_ms=39 download_ms=0 draw_ms=0[0m
+I (1528) wifi:state: run -> init (0x0)
+I (1538) wifi:pm stop, total sleep time: 844486 us / 1070356 us
+
+I (1538) wifi:<ba-del>idx:0, tid:0
+I (1538) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (1648) wifi:flush txq
+I (1648) wifi:stop sw txq
+I (1648) wifi:lmac stop hw txq
+I (1648) wifi:Deinit lldesc rx mblock:10
+[0;32mI (1658) skypane: sleep enter sleep_s=30[0m
+I (1456) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1476) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (1856) skypane: image unchanged, skipping download[0m
+[0;32mI (1856) fp_api: http connects=1 first_connect_ms=363 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (1856) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (1856) fp_diag: wake timing total_ms=1553 wifi_ms=1129 setup_ms=0 display_ms=382 download_ms=0 draw_ms=0[0m
+I (1856) wifi:state: run -> init (0x0)
+I (1876) wifi:pm stop, total sleep time: 1140689 us / 1421396 us
+
+I (1876) wifi:<ba-del>idx:0, tid:0
+I (1876) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (1926) wifi:flush txq
+I (1926) wifi:stop sw txq
+I (1926) wifi:lmac stop hw txq
+I (1926) wifi:Deinit lldesc rx mblock:10
+[0;32mI (1936) skypane: sleep enter sleep_s=30[0m
+I (506) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1466) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1476) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (1526) skypane: image unchanged, skipping download[0m
+[0;32mI (1526) fp_api: http connects=1 first_connect_ms=36 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (1536) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (1536) fp_diag: wake timing total_ms=1227 wifi_ms=1129 setup_ms=0 display_ms=56 download_ms=0 draw_ms=0[0m
+I (1536) wifi:state: run -> init (0x0)
+I (1546) wifi:pm stop, total sleep time: 886587 us / 1086909 us
+
+I (1546) wifi:<ba-del>idx:0, tid:0
+I (1546) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (1576) wifi:flush txq
+I (1576) wifi:stop sw txq
+I (1576) wifi:lmac stop hw txq
+I (1576) wifi:Deinit lldesc rx mblock:10
+[0;32mI (1586) skypane: sleep enter sleep_s=30[0m
+I (456) wifi:pm start, type: 1
+
+I (456) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (466) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (526) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1466) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1476) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (2146) skypane: image unchanged, skipping download[0m
+[0;32mI (2146) fp_api: http connects=1 first_connect_ms=641 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (2146) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (2146) fp_diag: wake timing total_ms=1841 wifi_ms=1138 setup_ms=0 display_ms=662 download_ms=0 draw_ms=0[0m
+I (2146) wifi:state: run -> init (0x0)
+I (2156) wifi:pm stop, total sleep time: 1406256 us / 1691285 us
+
+I (2156) wifi:<ba-del>idx:0, tid:0
+I (2156) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (2196) wifi:flush txq
+I (2196) wifi:stop sw txq
+I (2196) wifi:lmac stop hw txq
+I (2196) wifi:Deinit lldesc rx mblock:10
+[0;32mI (2206) skypane: sleep enter sleep_s=30[0m
+I (526) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1466) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1476) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (1516) skypane: image unchanged, skipping download[0m
+[0;32mI (1516) fp_api: http connects=1 first_connect_ms=18 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (1516) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (1516) fp_diag: wake timing total_ms=1211 wifi_ms=1131 setup_ms=0 display_ms=38 download_ms=0 draw_ms=0[0m
+I (1516) wifi:state: run -> init (0x0)
+I (1526) wifi:pm stop, total sleep time: 862340 us / 1072911 us
+
+I (1526) wifi:<ba-del>idx:0, tid:0
+I (1526) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (1556) wifi:flush txq
+I (1556) wifi:stop sw txq
+I (1556) wifi:lmac stop hw txq
+I (1556) wifi:Deinit lldesc rx mblock:10
+[0;32mI (1566) skypane: sleep enter sleep_s=30[0m
+I (406) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (406) wifi:state: init -> auth (0xb0)
+I (426) wifi:state: auth -> assoc (0x0)
+I (446) wifi:state: assoc -> run (0x10)
+I (456) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (456) wifi:security: WPA2-PSK, phy: bgn, rssi: -46
+I (456) wifi:pm start, type: 1
+
+I (456) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (456) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (556) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1466) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1486) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+I (597) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1567) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1597) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+I (4317) wifi:<ba-add>idx:1 (ifx:0, <wifi-bssid>), tid:5, ssn:0, winSize:64
+[0;32mI (4317) fp_wifi: clock set via SNTP[0m
+[0;32mI (4377) skypane: image unchanged, skipping download[0m
+[0;32mI (4377) fp_api: http connects=1 first_connect_ms=43 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (4387) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (4387) fp_diag: wake timing total_ms=4076 wifi_ms=3975 setup_ms=0 display_ms=60 download_ms=0 draw_ms=0[0m
+I (4387) wifi:state: run -> init (0x0)
+I (4397) wifi:pm stop, total sleep time: 3377759 us / 3842881 us
+
+I (4397) wifi:<ba-del>idx:0, tid:0
+I (4397) wifi:<ba-del>idx:1, tid:5
+I (4397) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (4437) wifi:flush txq
+I (4437) wifi:stop sw txq
+I (4437) wifi:lmac stop hw txq
+I (4437) wifi:Deinit lldesc rx mblock:10
+[0;32mI (4447) skypane: sleep enter sleep_s=30[0m
+I (486) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1456) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1466) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (1996) skypane: image unchanged, skipping download[0m
+[0;32mI (1996) fp_api: http connects=1 first_connect_ms=503 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (1996) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (1996) fp_diag: wake timing total_ms=1689 wifi_ms=1127 setup_ms=0 display_ms=521 download_ms=0 draw_ms=0[0m
+I (1996) wifi:state: run -> init (0x0)
+I (2006) wifi:pm stop, total sleep time: 1188589 us / 1550790 us
+
+I (2006) wifi:<ba-del>idx:0, tid:0
+I (2006) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (2046) wifi:flush txq
+I (2046) wifi:stop sw txq
+I (2046) wifi:lmac stop hw txq
+I (2046) wifi:Deinit lldesc rx mblock:10
+[0;32mI (2056) skypane: sleep enter sleep_s=30[0m
+I (426) wifi:state: auth -> assoc (0x0)
+I (446) wifi:state: assoc -> run (0x10)
+I (456) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (456) wifi:security: WPA2-PSK, phy: bgn, rssi: -46
+I (456) wifi:pm start, type: 1
+
+I (456) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (456) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (556) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1466) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1476) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (1936) skypane: image unchanged, skipping download[0m
+[0;32mI (1936) fp_api: http connects=1 first_connect_ms=435 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (1936) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (1936) fp_diag: wake timing total_ms=1630 wifi_ms=1138 setup_ms=0 display_ms=451 download_ms=0 draw_ms=0[0m
+I (1936) wifi:state: run -> init (0x0)
+I (1946) wifi:pm stop, total sleep time: 1204220 us / 1482121 us
+
+I (1946) wifi:<ba-del>idx:0, tid:0
+I (1946) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (1976) wifi:flush txq
+I (1976) wifi:stop sw txq
+I (1976) wifi:lmac stop hw txq
+I (1976) wifi:Deinit lldesc rx mblock:10
+[0;32mI (1986) skypane: sleep enter sleep_s=30[0m
+I (496) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1456) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1466) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (1756) skypane: image unchanged, skipping download[0m
+[0;32mI (1756) fp_api: http connects=1 first_connect_ms=262 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (1756) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (1756) fp_diag: wake timing total_ms=1450 wifi_ms=1128 setup_ms=0 display_ms=281 download_ms=0 draw_ms=0[0m
+I (1756) wifi:state: run -> init (0x0)
+I (1766) wifi:pm stop, total sleep time: 1059831 us / 1304349 us
+
+I (1766) wifi:<ba-del>idx:0, tid:0
+I (1766) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (1796) wifi:flush txq
+I (1796) wifi:stop sw txq
+I (1796) wifi:lmac stop hw txq
+I (1796) wifi:Deinit lldesc rx mblock:10
+[0;32mI (1806) skypane: sleep enter sleep_s=30[0m
+I (406) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (406) wifi:state: init -> auth (0xb0)
+I (426) wifi:state: auth -> assoc (0x0)
+I (436) wifi:state: assoc -> run (0x10)
+I (466) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (466) wifi:security: WPA2-PSK, phy: bgn, rssi: -41
+I (466) wifi:pm start, type: 1
+
+I (466) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (466) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (556) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x15 (USB_UART_CHIP_RESET),boot:0x21 (DOWNLOAD(USB/UART0))
+Saved PC:0x4037cb9e
+waiting for download
+À       À[0;32mI (210) esp_image: segment 4: paddr=0010d1a8 vaddr=4037ebcc size=0ef44h ( 61252) load[0m
+[0;32mI (224) esp_image: segment 5: paddr=0011c0f4 vaddr=50000000 size=00c8ch (  3212) load[0m
+[0;32mI (225) esp_image: segment 6: paddr=0011cd88 vaddr=600fe000 size=00100h (   256) load[0m
+[0;32mI (226) esp_image: segment 7: paddr=0011ce90 vaddr=600fe100 size=00008h (     8) load[0m
+[0;32mI (237) boot: Loaded app from partition at offset 0x20000[0m
+[0;32mI (238) boot: Disabling RNG early entropy source...[0m
+[0;32mI (239) octal_psram: vendor id    : 0x0d (AP)[0m
+[0;32mI (239) octal_psram: dev id       : 0x02 (generation 3)[0m
+[0;32mI (239) octal_psram: density      : 0x03 (64 Mbit)[0m
+[0;32mI (239) octal_psram: good-die     : 0x01 (Pass)[0m
+[0;32mI (240) octal_psram: Latency      : 0x01 (Fixed)[0m
+[0;32mI (240) octal_psram: VCC          : 0x01 (3V)[0m
+[0;32mI (240) octal_psram: SRF          : 0x01 (Fast Refresh)[0m
+[0;32mI (240) octal_psram: BurstType    : 0x01 (Hybrid Wrap)[0m
+[0;32mI (241) octal_psram: BurstLen     : 0x01 (32 Byte)[0m
+[0;32mI (241) octal_psram: Readlatency  : 0x02 (10 cycles@Fixed)[0m
+[0;32mI (241) octal_psram: DriveStrength: 0x00 (1/1)[0m
+[0;32mI (242) MSPI Timing: PSRAM timing tuning index: 4[0m
+[0;32mI (242) esp_psram: Found 8MB PSRAM device[0m
+[0;32mI (243) esp_psram: Speed: 80MHz[0m
+[0;32mI (243) cpu_start: Multicore app[0m
+[0;32mI (252) cpu_start: Pro cpu start user code[0m
+[0;32mI (252) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (252) app_init: Application information:[0m
+[0;32mI (252) app_init: Project name:     skypane[0m
+[0;32mI (253) app_init: App version:      e8d293c-dev[0m
+[0;32mI (253) app_init: Compile time:     Sep 25 2026 10:23:40[0m
+[0;32mI (253) app_init: ELF file SHA256:  8bce6b35f...[0m
+[0;32mI (253) app_init: ESP-IDF:          v5.3.1[0m
+[0;32mI (253) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (254) efuse_init: Max chip rev:     v0.99 [0m
+[0;32mI (254) efuse_init: Chip rev:         v0.2[0m
+[0;32mI (254) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (254) heap_init: At 3FCA8690 len 00041080 (260 KiB): RAM[0m
+[0;32mI (255) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[0;32mI (255) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[0;32mI (255) heap_init: At 600FE108 len 00001EE0 (7 KiB): RTCRAM[0m
+[0;32mI (256) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator[0m
+[0;32mI (257) spi_flash: detected chip: generic[0m
+[0;32mI (257) spi_flash: flash io: dio[0m
+[0;33mW (257) spi_flash: Detected size(16384k) larger than the size in the binary image header(8192k). Using the size in the binary image header.[0m
+[0;32mI (258) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (259) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (260) main_task: Started on CPU0[0m
+[0;32mI (270) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations[0m
+[0;32mI (270) main_task: Calling app_main()[0m
+[0;32mI (270) gpio: GPIO[21]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (300) skypane: wake reason=other boot_count=9598[0m
+[0;32mI (300) fp_boot: reset reason=usb[0m
+[0;32mI (300) gpio: GPIO[6]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (310) fp_batt: battery mv=4044 pin_mv=2022[0m
+[0;32mI (310) pp: pp rom version: e7ae62f[0m
+[0;32mI (310) net80211: net80211 rom version: e7ae62f[0m
+I (320) wifi:wifi driver task: 3fcbcbac, prio:23, stack:6656, core=0
+I (330) wifi:wifi firmware version: ccaebfa
+I (330) wifi:wifi certification version: v7.0
+I (330) wifi:config NVS flash: enabled
+I (330) wifi:config nano formating: disabled
+I (330) wifi:Init data frame dynamic rx buffer num: 32
+I (330) wifi:Init static rx mgmt buffer num: 5
+I (330) wifi:Init management short buffer num: 32
+I (330) wifi:Init static tx buffer num: 16
+I (330) wifi:Init tx cache buffer num: 32
+I (330) wifi:Init static tx FG buffer num: 2
+I (330) wifi:Init static rx buffer size: 1600
+I (330) wifi:Init static rx buffer num: 10
+I (330) wifi:Init dynamic rx buffer num: 32
+[0;32mI (330) wifi_init: rx ba win: 6[0m
+[0;32mI (330) wifi_init: accept mbox: 6[0m
+[0;32mI (330) wifi_init: tcpip mbox: 32[0m
+[0;32mI (330) wifi_init: udp mbox: 6[0m
+[0;32mI (330) wifi_init: tcp mbox: 6[0m
+[0;32mI (330) wifi_init: tcp tx win: 5760[0m
+[0;32mI (330) wifi_init: tcp rx win: 5760[0m
+[0;32mI (330) wifi_init: tcp mss: 1440[0m
+[0;32mI (330) wifi_init: WiFi IRAM OP enabled[0m
+[0;32mI (330) wifi_init: WiFi RX IRAM OP enabled[0m
+W (330) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+[0;32mI (330) phy_init: phy_version 680,a6008b2,Jun  4 2024,16:41:10[0m
+I (370) wifi:mode : sta (94:a9:90:cf:80:08)
+I (370) wifi:enable tsf
+I (380) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (380) wifi:state: init -> auth (0xb0)
+I (460) wifi:state: auth -> assoc (0x0)
+I (470) wifi:state: assoc -> run (0x10)
+I (490) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (490) wifi:security: WPA2-PSK, phy: bgn, rssi: -35
+I (490) wifi:pm start, type: 1
+
+I (490) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (490) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (530) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1490) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1500) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (2150) skypane: image unchanged, skipping download[0m
+[0;32mI (2150) fp_api: http connects=1 first_connect_ms=623 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (2150) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (2150) fp_diag: wake timing total_ms=1881 wifi_ms=1198 setup_ms=0 display_ms=641 download_ms=0 draw_ms=0[0m
+I (2150) wifi:state: run -> init (0x0)
+I (2160) wifi:pm stop, total sleep time: 1319285 us / 1665265 us
+
+I (2160) wifi:<ba-del>idx:0, tid:0
+I (2160) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (2190) wifi:flush txq
+I (2190) wifi:stop sw txq
+I (2190) wifi:lmac stop hw txq
+I (2190) wifi:Deinit lldesc rx mblock:10
+[0;32mI (2200) skypane: sleep enter sleep_s=30[0m
+I (477) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (477) wifi:security: WPA2-PSK, phy: bgn, rssi: -35
+I (477) wifi:pm start, type: 1
+
+I (477) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (477) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (537) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x15 (USB_UART_CHIP_RESET),boot:0x21 (DOWNLOAD(USB/UART0))
+Saved PC:0x4037cb9e
+waiting for download
+À       À[0;32mI (210) esp_image: segment 4: paddr=0010d1a8 vaddr=4037ebcc size=0ef44h ( 61252) load[0m
+[0;32mI (224) esp_image: segment 5: paddr=0011c0f4 vaddr=50000000 size=00c8ch (  3212) load[0m
+[0;32mI (225) esp_image: segment 6: paddr=0011cd88 vaddr=600fe000 size=00100h (   256) load[0m
+[0;32mI (226) esp_image: segment 7: paddr=0011ce90 vaddr=600fe100 size=00008h (     8) load[0m
+[0;32mI (237) boot: Loaded app from partition at offset 0x20000[0m
+[0;32mI (238) boot: Disabling RNG early entropy source...[0m
+[0;32mI (239) octal_psram: vendor id    : 0x0d (AP)[0m
+[0;32mI (239) octal_psram: dev id       : 0x02 (generation 3)[0m
+[0;32mI (239) octal_psram: density      : 0x03 (64 Mbit)[0m
+[0;32mI (239) octal_psram: good-die     : 0x01 (Pass)[0m
+[0;32mI (240) octal_psram: Latency      : 0x01 (Fixed)[0m
+[0;32mI (240) octal_psram: VCC          : 0x01 (3V)[0m
+[0;32mI (240) octal_psram: SRF          : 0x01 (Fast Refresh)[0m
+[0;32mI (241) octal_psram: BurstType    : 0x01 (Hybrid Wrap)[0m
+[0;32mI (241) octal_psram: BurstLen     : 0x01 (32 Byte)[0m
+[0;32mI (241) octal_psram: Readlatency  : 0x02 (10 cycles@Fixed)[0m
+[0;32mI (241) octal_psram: DriveStrength: 0x00 (1/1)[0m
+[0;32mI (242) MSPI Timing: PSRAM timing tuning index: 5[0m
+[0;32mI (243) esp_psram: Found 8MB PSRAM device[0m
+[0;32mI (243) esp_psram: Speed: 80MHz[0m
+[0;32mI (243) cpu_start: Multicore app[0m
+[0;32mI (252) cpu_start: Pro cpu start user code[0m
+[0;32mI (252) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (252) app_init: Application information:[0m
+[0;32mI (253) app_init: Project name:     skypane[0m
+[0;32mI (253) app_init: App version:      e8d293c-dev[0m
+[0;32mI (253) app_init: Compile time:     Sep 25 2026 10:23:40[0m
+[0;32mI (253) app_init: ELF file SHA256:  8bce6b35f...[0m
+[0;32mI (253) app_init: ESP-IDF:          v5.3.1[0m
+[0;32mI (254) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (254) efuse_init: Max chip rev:     v0.99 [0m
+[0;32mI (254) efuse_init: Chip rev:         v0.2[0m
+[0;32mI (254) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (254) heap_init: At 3FCA8690 len 00041080 (260 KiB): RAM[0m
+[0;32mI (255) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[0;32mI (255) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[0;32mI (255) heap_init: At 600FE108 len 00001EE0 (7 KiB): RTCRAM[0m
+[0;32mI (256) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator[0m
+[0;32mI (257) spi_flash: detected chip: generic[0m
+[0;32mI (257) spi_flash: flash io: dio[0m
+[0;33mW (257) spi_flash: Detected size(16384k) larger than the size in the binary image header(8192k). Using the size in the binary image header.[0m
+[0;32mI (258) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (259) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (260) main_task: Started on CPU0[0m
+[0;32mI (270) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations[0m
+[0;32mI (270) main_task: Calling app_main()[0m
+[0;32mI (270) gpio: GPIO[21]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (300) skypane: wake reason=other boot_count=9600[0m
+[0;32mI (300) fp_boot: reset reason=usb[0m
+[0;32mI (300) gpio: GPIO[6]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (310) fp_batt: battery mv=4048 pin_mv=2024[0m
+[0;32mI (310) pp: pp rom version: e7ae62f[0m
+[0;32mI (310) net80211: net80211 rom version: e7ae62f[0m
+I (320) wifi:wifi driver task: 3fcbcbac, prio:23, stack:6656, core=0
+I (330) wifi:wifi firmware version: ccaebfa
+I (330) wifi:wifi certification version: v7.0
+I (330) wifi:config NVS flash: enabled
+I (330) wifi:config nano formating: disabled
+I (330) wifi:Init data frame dynamic rx buffer num: 32
+I (330) wifi:Init static rx mgmt buffer num: 5
+I (330) wifi:Init management short buffer num: 32
+I (330) wifi:Init static tx buffer num: 16
+I (330) wifi:Init tx cache buffer num: 32
+I (330) wifi:Init static tx FG buffer num: 2
+I (330) wifi:Init static rx buffer size: 1600
+I (330) wifi:Init static rx buffer num: 10
+I (330) wifi:Init dynamic rx buffer num: 32
+[0;32mI (330) wifi_init: rx ba win: 6[0m
+[0;32mI (330) wifi_init: accept mbox: 6[0m
+[0;32mI (330) wifi_init: tcpip mbox: 32[0m
+[0;32mI (330) wifi_init: udp mbox: 6[0m
+[0;32mI (330) wifi_init: tcp mbox: 6[0m
+[0;32mI (330) wifi_init: tcp tx win: 5760[0m
+[0;32mI (330) wifi_init: tcp rx win: 5760[0m
+[0;32mI (330) wifi_init: tcp mss: 1440[0m
+[0;32mI (330) wifi_init: WiFi IRAM OP enabled[0m
+[0;32mI (330) wifi_init: WiFi RX IRAM OP enabled[0m
+W (330) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+[0;32mI (330) phy_init: phy_version 680,a6008b2,Jun  4 2024,16:41:10[0m
+I (370) wifi:mode : sta (94:a9:90:cf:80:08)
+I (370) wifi:enable tsf
+I (380) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (390) wifi:state: init -> auth (0xb0)
+I (520) wifi:state: auth -> assoc (0x0)
+I (530) wifi:state: assoc -> run (0x10)
+I (540) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (540) wifi:security: WPA2-PSK, phy: bgn, rssi: -34
+I (550) wifi:pm start, type: 1
+
+I (550) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (550) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (600) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1550) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1560) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (6460) fp_wifi: clock set via SNTP[0m
+[0;32mI (6890) skypane: image unchanged, skipping download[0m
+[0;32mI (6890) fp_api: http connects=1 first_connect_ms=414 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (6900) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (6900) fp_diag: wake timing total_ms=6626 wifi_ms=6154 setup_ms=0 display_ms=431 download_ms=0 draw_ms=0[0m
+I (6900) wifi:state: run -> init (0x0)
+I (6910) wifi:pm stop, total sleep time: 5722625 us / 6359941 us
+
+I (6910) wifi:<ba-del>idx:0, tid:0
+I (6910) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (6940) wifi:flush txq
+I (6940) wifi:stop sw txq
+I (6940) wifi:lmac stop hw txq
+I (6940) wifi:Deinit lldesc rx mblock:10
+[0;32mI (6950) skypane: sleep enter sleep_s=30[0m
+I (447) wifi:state: auth -> assoc (0x0)
+I (457) wifi:state: assoc -> run (0x10)
+I (467) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (467) wifi:security: WPA2-PSK, phy: bgn, rssi: -33
+I (477) wifi:pm start, type: 1
+
+I (477) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (477) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (477) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x15 (USB_UART_CHIP_RESET),boot:0x21 (DOWNLOAD(USB/UART0))
+Saved PC:0x4037cb9e
+waiting for download
+À       À[0;32mI (210) esp_image: segment 4: paddr=0010d1a8 vaddr=4037ebcc size=0ef44h ( 61252) load[0m
+[0;32mI (224) esp_image: segment 5: paddr=0011c0f4 vaddr=50000000 size=00c8ch (  3212) load[0m
+[0;32mI (225) esp_image: segment 6: paddr=0011cd88 vaddr=600fe000 size=00100h (   256) load[0m
+[0;32mI (226) esp_image: segment 7: paddr=0011ce90 vaddr=600fe100 size=00008h (     8) load[0m
+[0;32mI (237) boot: Loaded app from partition at offset 0x20000[0m
+[0;32mI (238) boot: Disabling RNG early entropy source...[0m
+[0;32mI (239) octal_psram: vendor id    : 0x0d (AP)[0m
+[0;32mI (239) octal_psram: dev id       : 0x02 (generation 3)[0m
+[0;32mI (239) octal_psram: density      : 0x03 (64 Mbit)[0m
+[0;32mI (239) octal_psram: good-die     : 0x01 (Pass)[0m
+[0;32mI (240) octal_psram: Latency      : 0x01 (Fixed)[0m
+[0;32mI (240) octal_psram: VCC          : 0x01 (3V)[0m
+[0;32mI (240) octal_psram: SRF          : 0x01 (Fast Refresh)[0m
+[0;32mI (240) octal_psram: BurstType    : 0x01 (Hybrid Wrap)[0m
+[0;32mI (241) octal_psram: BurstLen     : 0x01 (32 Byte)[0m
+[0;32mI (241) octal_psram: Readlatency  : 0x02 (10 cycles@Fixed)[0m
+[0;32mI (241) octal_psram: DriveStrength: 0x00 (1/1)[0m
+[0;32mI (242) MSPI Timing: PSRAM timing tuning index: 5[0m
+[0;32mI (242) esp_psram: Found 8MB PSRAM device[0m
+[0;32mI (243) esp_psram: Speed: 80MHz[0m
+[0;32mI (243) cpu_start: Multicore app[0m
+[0;32mI (252) cpu_start: Pro cpu start user code[0m
+[0;32mI (252) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (252) app_init: Application information:[0m
+[0;32mI (252) app_init: Project name:     skypane[0m
+[0;32mI (253) app_init: App version:      e8d293c-dev[0m
+[0;32mI (253) app_init: Compile time:     Sep 25 2026 10:23:40[0m
+[0;32mI (253) app_init: ELF file SHA256:  8bce6b35f...[0m
+[0;32mI (253) app_init: ESP-IDF:          v5.3.1[0m
+[0;32mI (253) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (253) efuse_init: Max chip rev:     v0.99 [0m
+[0;32mI (254) efuse_init: Chip rev:         v0.2[0m
+[0;32mI (254) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (254) heap_init: At 3FCA8690 len 00041080 (260 KiB): RAM[0m
+[0;32mI (254) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[0;32mI (255) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[0;32mI (255) heap_init: At 600FE108 len 00001EE0 (7 KiB): RTCRAM[0m
+[0;32mI (255) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator[0m
+[0;32mI (257) spi_flash: detected chip: generic[0m
+[0;32mI (257) spi_flash: flash io: dio[0m
+[0;33mW (257) spi_flash: Detected size(16384k) larger than the size in the binary image header(8192k). Using the size in the binary image header.[0m
+[0;32mI (258) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (259) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (259) main_task: Started on CPU0[0m
+[0;32mI (269) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations[0m
+[0;32mI (269) main_task: Calling app_main()[0m
+[0;32mI (269) gpio: GPIO[21]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (299) skypane: wake reason=other boot_count=9602[0m
+[0;32mI (299) fp_boot: reset reason=usb[0m
+[0;32mI (299) gpio: GPIO[6]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (309) fp_batt: battery mv=4050 pin_mv=2025[0m
+[0;32mI (309) pp: pp rom version: e7ae62f[0m
+[0;32mI (309) net80211: net80211 rom version: e7ae62f[0m
+I (319) wifi:wifi driver task: 3fcbcbac, prio:23, stack:6656, core=0
+I (329) wifi:wifi firmware version: ccaebfa
+I (329) wifi:wifi certification version: v7.0
+I (329) wifi:config NVS flash: enabled
+I (329) wifi:config nano formating: disabled
+I (329) wifi:Init data frame dynamic rx buffer num: 32
+I (329) wifi:Init static rx mgmt buffer num: 5
+I (329) wifi:Init management short buffer num: 32
+I (329) wifi:Init static tx buffer num: 16
+I (329) wifi:Init tx cache buffer num: 32
+I (329) wifi:Init static tx FG buffer num: 2
+I (329) wifi:Init static rx buffer size: 1600
+I (329) wifi:Init static rx buffer num: 10
+I (329) wifi:Init dynamic rx buffer num: 32
+[0;32mI (329) wifi_init: rx ba win: 6[0m
+[0;32mI (329) wifi_init: accept mbox: 6[0m
+[0;32mI (329) wifi_init: tcpip mbox: 32[0m
+[0;32mI (329) wifi_init: udp mbox: 6[0m
+[0;32mI (329) wifi_init: tcp mbox: 6[0m
+[0;32mI (329) wifi_init: tcp tx win: 5760[0m
+[0;32mI (329) wifi_init: tcp rx win: 5760[0m
+[0;32mI (329) wifi_init: tcp mss: 1440[0m
+[0;32mI (329) wifi_init: WiFi IRAM OP enabled[0m
+[0;32mI (329) wifi_init: WiFi RX IRAM OP enabled[0m
+W (329) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+[0;32mI (329) phy_init: phy_version 680,a6008b2,Jun  4 2024,16:41:10[0m
+I (369) wifi:mode : sta (94:a9:90:cf:80:08)
+I (369) wifi:enable tsf
+I (389) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (389) wifi:state: init -> auth (0xb0)
+I (459) wifi:state: auth -> assoc (0x0)
+I (479) wifi:state: assoc -> run (0x10)
+I (489) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (489) wifi:security: WPA2-PSK, phy: bgn, rssi: -34
+I (489) wifi:pm start, type: 1
+
+I (489) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (489) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (499) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (509) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+I (539) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+[0;32mI (2759) fp_wifi: clock set via SNTP[0m
+[0;32mI (3269) skypane: image unchanged, skipping download[0m
+[0;32mI (3279) fp_api: http connects=1 first_connect_ms=494 tls_offered=0 tls_saved_len=0[0m
+[0;32mI (3279) skypane: poll ok sleep_s=30 hash_skip=1[0m
+[0;32mI (3279) fp_diag: wake timing total_ms=3007 wifi_ms=2456 setup_ms=0 display_ms=509 download_ms=0 draw_ms=0[0m
+I (3279) wifi:state: run -> init (0x0)
+I (3289) wifi:pm stop, total sleep time: 2283118 us / 2792536 us
+
+I (3289) wifi:<ba-del>idx:0, tid:0
+I (3289) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (3319) wifi:flush txq
+I (3319) wifi:stop sw txq
+I (3319) wifi:lmac stop hw txq
+I (3319) wifi:Deinit lldesc rx mblock:10
+[0;32mI (3329) skypane: sleep enter sleep_s=30[0m
+I (527) wifi:state: auth -> assoc (0x0)
+I (537) wifi:state: assoc -> run (0x10)
+I (557) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (557) wifi:security: WPA2-PSK, phy: bgn, rssi: -33
+I (557) wifi:pm start, type: 1
+
+I (557) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (557) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (587) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1557) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1577) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (3247) fp_wifi: clock set via SNTP[0m
+[0;31mE (3247) fp_fault: SKYPANE-FAULT-INJECT panic[0m
+
+abort() was called at PC 0x4200c70f on core 0
+
+
+Backtrace: 0x40375f02:0x3fcaded0 0x4037ff25:0x3fcadef0 0x40388b95:0x3fcadf10 0x4200c70f:0x3fcadf80 0x4200ad5b:0x3fcadfa0 0x4200a2ab:0x3fcae380 0x420ac223:0x3fcae3d0 0x40380a75:0x3fcae400
+
+
+
+
+ELF file SHA256: fd5754435
+
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x29 (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40375e3c
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2810,len:0x178c
+load:0x403c8700,len:0x4
+load:0x403c8704,len:0xc10
+load:0x403cb700,len:0x2dc0
+entry 0x403c8904
+[0;32mI (26) boot: ESP-IDF v5.3.1 2nd stage bootloader[0m
+[0;32mI (26) boot: compile time Sep 25 2026 10:23:44[0m
+[0;32mI (26) boot: Multicore bootloader[0m
+[0;32mI (27) boot: chip revision: v0.2[0m
+[0;32mI (27) boot.esp32s3: Boot SPI Speed : 80MHz[0m
+[0;32mI (27) boot.esp32s3: SPI Mode       : DIO[0m
+[0;32mI (27) boot.esp32s3: SPI Flash Size : 8MB[0m
+[0;32mI (27) boot: Enabling RNG early entropy source...[0m
+[0;32mI (28) boot: Partition Table:[0m
+[0;32mI (28) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (28) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (28) boot:  1 otadata          OTA data         01 00 0000f000 00002000[0m
+[0;32mI (29) boot:  2 phy_init         RF data          01 01 00011000 00001000[0m
+[0;32mI (29) boot:  3 nvs_keys         NVS keys         01 04 00012000 00001000[0m
+[0;32mI (30) boot:  4 secret           WiFi data        01 02 00013000 00003000[0m
+[0;32mI (30) boot:  5 factory          factory app      00 00 00020000 00250000[0m
+[0;32mI (30) boot:  6 ota_0            OTA app          00 10 00270000 00250000[0m
+[0;32mI (31) boot:  7 ota_1            OTA app          00 11 004c0000 00250000[0m
+[0;32mI (31) boot: End of partition table[0m
+[0;32mI (32) boot: Defaulting to factory image[0m
+[0;32mI (32) esp_image: segment 0: paddr=00020020 vaddr=3c0b0020 size=30230h (197168) map[0m
+[0;32mI (68) esp_image: segment 1: paddr=00050258 vaddr=3fc9dc00 size=0522ch ( 21036) load[0m
+[0;32mI (72) esp_image: segment 2: paddr=0005548c vaddr=40374000 size=0ab8ch ( 43916) load[0m
+[0;32mI (82) esp_image: segment 3: paddr=00060020 vaddr=42000020 size=ad1b8h (709048) map[0m
+[0;32mI (210) esp_image: segment 4: paddr=0010d1e0 vaddr=4037eb8c size=0ef84h ( 61316) load[0m
+[0;32mI (224) esp_image: segment 5: paddr=0011c16c vaddr=50000000 size=00c8ch (  3212) load[0m
+[0;32mI (225) esp_image: segment 6: paddr=0011ce00 vaddr=600fe000 size=00100h (   256) load[0m
+[0;32mI (225) esp_image: segment 7: paddr=0011cf08 vaddr=600fe100 size=00008h (     8) load[0m
+[0;32mI (237) boot: Loaded app from partition at offset 0x20000[0m
+[0;32mI (237) boot: Disabling RNG early entropy source...[0m
+[0;32mI (238) octal_psram: vendor id    : 0x0d (AP)[0m
+[0;32mI (238) octal_psram: dev id       : 0x02 (generation 3)[0m
+[0;32mI (239) octal_psram: density      : 0x03 (64 Mbit)[0m
+[0;32mI (239) octal_psram: good-die     : 0x01 (Pass)[0m
+[0;32mI (239) octal_psram: Latency      : 0x01 (Fixed)[0m
+[0;32mI (239) octal_psram: VCC          : 0x01 (3V)[0m
+[0;32mI (240) octal_psram: SRF          : 0x01 (Fast Refresh)[0m
+[0;32mI (240) octal_psram: BurstType    : 0x01 (Hybrid Wrap)[0m
+[0;32mI (240) octal_psram: BurstLen     : 0x01 (32 Byte)[0m
+[0;32mI (240) octal_psram: Readlatency  : 0x02 (10 cycles@Fixed)[0m
+[0;32mI (241) octal_psram: DriveStrength: 0x00 (1/1)[0m
+[0;32mI (242) MSPI Timing: PSRAM timing tuning index: 5[0m
+[0;32mI (242) esp_psram: Found 8MB PSRAM device[0m
+[0;32mI (242) esp_psram: Speed: 80MHz[0m
+[0;32mI (242) cpu_start: Multicore app[0m
+[0;32mI (252) cpu_start: Pro cpu start user code[0m
+[0;32mI (252) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (252) app_init: Application information:[0m
+[0;32mI (252) app_init: Project name:     skypane[0m
+[0;32mI (252) app_init: App version:      059774e-dev-panic[0m
+[0;32mI (252) app_init: Compile time:     Sep 25 2026 14:57:21[0m
+[0;32mI (253) app_init: ELF file SHA256:  fd5754435...[0m
+[0;32mI (253) app_init: ESP-IDF:          v5.3.1[0m
+[0;32mI (253) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (253) efuse_init: Max chip rev:     v0.99 [0m
+[0;32mI (253) efuse_init: Chip rev:         v0.2[0m
+[0;32mI (254) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (254) heap_init: At 3FCA8690 len 00041080 (260 KiB): RAM[0m
+[0;32mI (254) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[0;32mI (255) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[0;32mI (255) heap_init: At 600FE108 len 00001EE0 (7 KiB): RTCRAM[0m
+[0;32mI (255) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator[0m
+[0;32mI (256) spi_flash: detected chip: generic[0m
+[0;32mI (257) spi_flash: flash io: dio[0m
+[0;33mW (257) spi_flash: Detected size(16384k) larger than the size in the binary image header(8192k). Using the size in the binary image header.[0m
+[0;32mI (258) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (259) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (259) main_task: Started on CPU0[0m
+[0;32mI (269) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations[0m
+[0;32mI (269) main_task: Calling app_main()[0m
+[0;32mI (269) gpio: GPIO[21]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (299) skypane: wake reason=other boot_count=9609[0m
+[0;32mI (299) fp_boot: reset reason=panic[0m
+[0;33mW (299) skypane: poll fail step=reset backoff_n=1 sleep_s=600[0m
+[0;32mI (299) fp_diag: wake timing total_ms=26 wifi_ms=0 setup_ms=0 display_ms=0 download_ms=0 draw_ms=0[0m
+[0;32mI (299) skypane: sleep enter sleep_s=600[0m
+I (1456) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1486) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;31mE (1486) fp_fault: SKYPANE-FAULT-INJECT panic[0m
+
+abort() was called at PC 0x4200c70f on core 0
+
+
+Backtrace: 0x40375f02:0x3fcaded0 0x4037ff25:0x3fcadef0 0x40388b95:0x3fcadf10 0x4200c70f:0x3fcadf80 0x4200ad5b:0x3fcadfa0 0x4200a2ab:0x3fcae380 0x420ac223:0x3fcae3d0 0x40380a75:0x3fcae400
+
+
+
+
+ELF file SHA256: fd5754435
+
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x29 (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40375e3c
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2810,len:0x178c
+load:0x403c8700,len:0x4
+load:0x403c8704,len:0xc10
+load:0x403cb700,len:0x2dc0
+entry 0x403c8904
+[0;32mI (26) boot: ESP-IDF v5.3.1 2nd stage bootloader[0m
+[0;32mI (26) boot: compile time Sep 25 2026 10:23:44[0m
+[0;32mI (26) boot: Multicore bootloader[0m
+[0;32mI (27) boot: chip revision: v0.2[0m
+[0;32mI (27) boot.esp32s3: Boot SPI Speed : 80MHz[0m
+[0;32mI (27) boot.esp32s3: SPI Mode       : DIO[0m
+[0;32mI (27) boot.esp32s3: SPI Flash Size : 8MB[0m
+[0;32mI (27) boot: Enabling RNG early entropy source...[0m
+[0;32mI (28) boot: Partition Table:[0m
+[0;32mI (28) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (28) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (29) boot:  1 otadata          OTA data         01 00 0000f000 00002000[0m
+[0;32mI (29) boot:  2 phy_init         RF data          01 01 00011000 00001000[0m
+[0;32mI (29) boot:  3 nvs_keys         NVS keys         01 04 00012000 00001000[0m
+[0;32mI (30) boot:  4 secret           WiFi data        01 02 00013000 00003000[0m
+[0;32mI (30) boot:  5 factory          factory app      00 00 00020000 00250000[0m
+[0;32mI (31) boot:  6 ota_0            OTA app          00 10 00270000 00250000[0m
+[0;32mI (31) boot:  7 ota_1            OTA app          00 11 004c0000 00250000[0m
+[0;32mI (32) boot: End of partition table[0m
+[0;32mI (32) boot: Defaulting to factory image[0m
+[0;32mI (32) esp_image: segment 0: paddr=00020020 vaddr=3c0b0020 size=30230h (197168) map[0m
+[0;32mI (68) esp_image: segment 1: paddr=00050258 vaddr=3fc9dc00 size=0522ch ( 21036) load[0m
+[0;32mI (72) esp_image: segment 2: paddr=0005548c vaddr=40374000 size=0ab8ch ( 43916) load[0m
+[0;32mI (82) esp_image: segment 3: paddr=00060020 vaddr=42000020 size=ad1b8h (709048) map[0m
+[0;32mI (210) esp_image: segment 4: paddr=0010d1e0 vaddr=4037eb8c size=0ef84h ( 61316) load[0m
+[0;32mI (224) esp_image: segment 5: paddr=0011c16c vaddr=50000000 size=00c8ch (  3212) load[0m
+[0;32mI (225) esp_image: segment 6: paddr=0011ce00 vaddr=600fe000 size=00100h (   256) load[0m
+[0;32mI (225) esp_image: segment 7: paddr=0011cf08 vaddr=600fe100 size=00008h (     8) load[0m
+[0;32mI (237) boot: Loaded app from partition at offset 0x20000[0m
+[0;32mI (237) boot: Disabling RNG early entropy source...[0m
+[0;32mI (238) octal_psram: vendor id    : 0x0d (AP)[0m
+[0;32mI (239) octal_psram: dev id       : 0x02 (generation 3)[0m
+[0;32mI (239) octal_psram: density      : 0x03 (64 Mbit)[0m
+[0;32mI (239) octal_psram: good-die     : 0x01 (Pass)[0m
+[0;32mI (239) octal_psram: Latency      : 0x01 (Fixed)[0m
+[0;32mI (240) octal_psram: VCC          : 0x01 (3V)[0m
+[0;32mI (240) octal_psram: SRF          : 0x01 (Fast Refresh)[0m
+[0;32mI (240) octal_psram: BurstType    : 0x01 (Hybrid Wrap)[0m
+[0;32mI (241) octal_psram: BurstLen     : 0x01 (32 Byte)[0m
+[0;32mI (241) octal_psram: Readlatency  : 0x02 (10 cycles@Fixed)[0m
+[0;32mI (241) octal_psram: DriveStrength: 0x00 (1/1)[0m
+[0;32mI (242) MSPI Timing: PSRAM timing tuning index: 5[0m
+[0;32mI (242) esp_psram: Found 8MB PSRAM device[0m
+[0;32mI (242) esp_psram: Speed: 80MHz[0m
+[0;32mI (243) cpu_start: Multicore app[0m
+[0;32mI (252) cpu_start: Pro cpu start user code[0m
+[0;32mI (252) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (252) app_init: Application information:[0m
+[0;32mI (252) app_init: Project name:     skypane[0m
+[0;32mI (252) app_init: App version:      059774e-dev-panic[0m
+[0;32mI (253) app_init: Compile time:     Sep 25 2026 14:57:21[0m
+[0;32mI (253) app_init: ELF file SHA256:  fd5754435...[0m
+[0;32mI (253) app_init: ESP-IDF:          v5.3.1[0m
+[0;32mI (253) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (254) efuse_init: Max chip rev:     v0.99 [0m
+[0;32mI (254) efuse_init: Chip rev:         v0.2[0m
+[0;32mI (254) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (254) heap_init: At 3FCA8690 len 00041080 (260 KiB): RAM[0m
+[0;32mI (255) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[0;32mI (255) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[0;32mI (255) heap_init: At 600FE108 len 00001EE0 (7 KiB): RTCRAM[0m
+[0;32mI (256) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator[0m
+[0;32mI (257) spi_flash: detected chip: generic[0m
+[0;32mI (257) spi_flash: flash io: dio[0m
+[0;33mW (257) spi_flash: Detected size(16384k) larger than the size in the binary image header(8192k). Using the size in the binary image header.[0m
+[0;32mI (258) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (259) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (260) main_task: Started on CPU0[0m
+[0;32mI (270) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations[0m
+[0;32mI (270) main_task: Calling app_main()[0m
+[0;32mI (270) gpio: GPIO[21]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (300) skypane: wake reason=other boot_count=9611[0m
+[0;32mI (300) fp_boot: reset reason=panic[0m
+[0;33mW (300) skypane: poll fail step=reset backoff_n=2 sleep_s=1200[0m
+[0;32mI (300) fp_diag: wake timing total_ms=26 wifi_ms=0 setup_ms=0 display_ms=0 download_ms=0 draw_ms=0[0m
+[0;32mI (300) skypane: sleep enter sleep_s=1200[0m

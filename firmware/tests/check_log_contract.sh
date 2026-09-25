@@ -53,24 +53,31 @@ grep -qF 'blit ok bytes=960000 sha256_ok=1' "${STATE_MACHINE}" \
 #          b) state_machine.c's other direct *fail_step_out assignments
 #             (covers the ternary "verify"/"download" line, and "wifi"/
 #             "blit")
-#          c) the literal steps app_main.c's fail_and_sleep() is called
-#             with ("reset", "deadline", "json")
+#          c) the literal steps app_main.c's fail_and_sleep() and
+#             nvs_fail_and_sleep() are called with ("reset", "deadline",
+#             "json", "nvs")
 TOKENS=$(
     {
         grep -oE 'return "[a-z]+"' "${STATE_MACHINE}" | grep -oE '"[a-z]+"'
         grep 'fail_step_out =' "${STATE_MACHINE}" | grep -oE '"[a-z]+"'
-        grep -oE 'fail_and_sleep\("[a-z]+"\)' "${APP_MAIN}" | grep -oE '"[a-z]+"'
+        grep -oE 'fail_and_sleep\("[a-z]+"[,)]' "${APP_MAIN}" | grep -oE '"[a-z]+"'
     } | tr -d '"' | sort -u
 )
 
 [ -n "${TOKENS}" ] || fail "no step= tokens extracted - check the extraction patterns"
 
-VENDOR_ROW=$(grep 'poll fail step=' "${VENDOR}" || true)
-[ -n "${VENDOR_ROW}" ] || fail "VENDOR.md has no 'poll fail step=' line"
+# Exact match against the table row's <a|b|c> list, so a token cannot
+# pass by appearing as a substring of some other word in VENDOR.md.
+VENDOR_STEPS=$(
+    grep -F 'poll fail step=<' "${VENDOR}" \
+        | sed -n 's/.*poll fail step=<\([^>]*\)>.*/\1/p' \
+        | head -n1 | sed 's/\\|/ /g; s/|/ /g'
+)
+[ -n "${VENDOR_STEPS}" ] || fail "VENDOR.md has no 'poll fail step=<...>' row"
 
 for token in ${TOKENS}; do
-    case "${VENDOR_ROW}" in
-        *"${token}"*) ;;
+    case " ${VENDOR_STEPS} " in
+        *" ${token} "*) ;;
         *) fail "step token '${token}' is not documented in VENDOR.md's poll fail step= row" ;;
     esac
 done
