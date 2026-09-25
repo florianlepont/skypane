@@ -166,4 +166,14 @@ omit = [
 # `[tool.coverage.run]` subprocess settings, invalidates this number
 # outright, since it stops describing what was actually measured the
 # moment the scope changes.
+#
+# Re-measured 2026-09-25 (33-33, after the companion tests moved to
+# pytest), same method: a full `./scripts/run-all-tests.sh` as `nobody`
+# (euid 65534) on CPython 3.14.0rc2, in a scratch venv built from
+# server/requirements-dev.txt with --require-hashes. 2594 passed, 0 skipped,
+# TOTAL 93.38% (9830 statements, 651 missed). The pre-migration tree
+# (d2c53a0) measured the same way gives 93.35%. The floor rounded down is
+# still 93, so the gate stays at 93. A root run of the same tree on the dev
+# venv (CPython 3.11) gives 93.26%, because the 5 requires_non_root tests
+# skip under euid 0.
 fail_under = 93
