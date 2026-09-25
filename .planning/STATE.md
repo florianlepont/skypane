@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 35-13-PLAN.md
-last_updated: "2026-09-25T15:55:39.759Z"
+stopped_at: Phase 42 context gathered
+last_updated: "2026-09-25T20:12:12.012Z"
 last_activity: 2026-09-25
 progress:
-  total_phases: 53
+  total_phases: 54
   completed_phases: 43
-  total_plans: 369
+  total_plans: 376
   completed_plans: 349
-  percent: 81
+  percent: 80
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -1151,12 +1151,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-25T15:55:39.686Z
-Stopped at: Completed 35-13-PLAN.md
+Last session: 2026-09-25T20:12:11.924Z
+Stopped at: Phase 42 context gathered
 
 Resume file: 
 
-None
+.planning/phases/42-remote-firmware-update-over-the-air-ota-promoted-from-seed-0/42-CONTEXT.md
 
 - `/gsd-execute-phase 33` continuation ran plan `33-22` (Wave 5, browser_ux part 02) after the original executor was killed by a container restart post-task-commits, pre-verification. This session verified both existing task commits (`6f556e4`, `72340ee`) against every one of the plan's acceptance criteria rather than redoing the migration (no gap found), then re-ran the full verification chain from `33-MIGRATION-RULES.md` section 5 plus the full unscoped suite from scratch: `companion/test_browser_ux_02.py` 43/43 passed under `SKYPANE_REQUIRE_BROWSER=1`, the shrunk legacy shim 1/1, `test_suite_guards.py`/`test-support` 101/101, `ruff check .` clean, ledger check `75/75 baseline checks mapped (36 ported, 1 deleted, 38 pending)`, and the full suite (`companion test-support server stub-server deploy`) at 2085 passed / 5 skipped / 0 failed.
 - `companion/test_browser_ux.py`'s `EXPECTED_CHECK_COUNT` is now 38 (down from 57); 36/75 of the file's original checks are ported, 1 deleted, 38 remain across parts 03-04.
