@@ -1,28 +1,14 @@
-"""Part 04 (first half) of the `companion/test_config_page.py` migration chain
-(33-12-PLAN.md): the original harness's `check()` calls #146-#187, covering
-the rules-editor's suggestion chips and its two "always full, never
-collapsed" disclosures, and the whole Calendar card's render()/handle_post()
-contract - status verdict/detail across every branch (not configured,
-pending, fetch-failed, synced, unparseable, drifted), the phase-20/21
-specification copy-fidelity pins, forbidden-vocabulary and secret-
-containment guards, the calendar row's own palette/selection-state, and
-handle_post()'s calendar_theme_id/connect/disconnect/replace resolution
-(including the single most important check in this plan, D-07's
-empty-field-no-checkbox no-op regression).
+"""Tests the rules-editor's suggestion chips and its two "always full,
+never collapsed" disclosures, and the whole Calendar card's render()/
+handle_post() contract - status verdict/detail across every branch,
+copy-fidelity pins, forbidden-vocabulary and secret-containment guards,
+the calendar row's own palette/selection-state, and handle_post()'s
+calendar_theme_id/connect/disconnect/replace resolution.
 
-Every check calls `companion.pages.config_page`'s own functions directly,
-in-process, against a `tmp_path`-backed state directory when it needs one on
-disk at all - no running `companion/app.py` server is needed for this slice.
-
-The two checks that used to read the phase 20/21 companion suggestions
-specification documents out of the repository's own planning history
-(TST-12's own named hotspot for this plan, D-14a..c) are rewritten as
-`test_calendar_copy_fidelity_locked_to_the_phase_20_wording` and
-`test_calendar_merged_button_copy_locked_to_the_phase_21_wording`: the
-historically-approved copy is pinned as a literal Python string inside the
-test itself (never a read of any planning document at test time), and the
-assertions prove `config_page.py`'s live constant still equals that literal
-AND that the text still reaches a real render.
+The copy-fidelity checks pin the historically-approved wording as a
+literal Python string inside the test itself (never a read of any
+planning document at test time), and assert config_page.py's live
+constant still equals that literal AND that the text reaches a render.
 """
 import html
 import pathlib
@@ -42,9 +28,9 @@ from server.plane import calendar_rules, colour_rules
 
 
 def _calendar_status_parts(rendered):
-    """The .status-row verdict/detail pair a Calendar-status check reads
-    (20-09-PLAN.md Task 1, D-14b) - layout.status_row()'s own two spans,
-    never a bare <p class="calendar-status"> (retired)."""
+    """The .status-row verdict/detail pair a Calendar-status check reads -
+    layout.status_row()'s own two spans, never a bare
+    <p class="calendar-status"> (retired)."""
     match = re.search(
         r'<span class="status-row__verdict">(.*?)</span>'
         r'<span class="status-row__detail">(.*?)</span>',
@@ -67,7 +53,7 @@ _CALENDAR_GROUP_STATES = (
 
 def _calendar_connection_call(configured, drift, last_synced_at):
     """_calendar_connection_html() returns a (row_body_html, disconnect_form_html) tuple - the row
-    body nests inside a <details>, the disconnect <form> must not (30-PATTERNS.md). Every check
+    body nests inside a <details>, the disconnect <form> must not. Every check
     below treats the two joined as one string, exactly matching the retired calendar-card
     builder's own shape."""
     return "".join(config_page._calendar_connection_html(
@@ -77,7 +63,7 @@ def _calendar_connection_call(configured, drift, last_synced_at):
 
 def test_rules_suggestion_chips_present_with_data_and_absent_with_no_events(tmp_path):
     """up to five suggestion chips render with data-kind/data-value from recent runway events, and
-    none render when there are no events (D-15e)"""
+    none render when there are no events"""
     tmpdir = str(tmp_path)
     with history_db.open_db(tmpdir) as conn:
         history_db.record_runway_event(
@@ -105,10 +91,10 @@ def test_rules_suggestion_chips_present_with_data_and_absent_with_no_events(tmp_
 
 def test_plain_render_carries_both_disclosures_in_full_never_collapsed():
     """a plain Display render always carries the full 'How rules combine' and Calendar 'How it
-    works' <details> disclosures, never a collapsed one-sentence variant (D-17)
+    works' <details> disclosures, never a collapsed one-sentence variant
 
-    D-17 (21-01-PLAN.md Task 2): the display mode that used to collapse both disclosures to one
-    plain sentence is deleted outright.
+    The display mode that used to collapse both disclosures to one plain sentence is deleted
+    outright.
     """
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
@@ -125,7 +111,7 @@ def test_plain_render_carries_both_disclosures_in_full_never_collapsed():
     calendar_segment = rendered[calendar_start:calendar_end]
     assert escape_html(config_page.CALENDAR_HOW_IT_WORKS_SUMMARY) in calendar_segment, (
         "expected the full Calendar 'How it works' <details> disclosure")
-    # D-17: neither collapsed one-sentence variant may appear anywhere in the rendered body -
+    # Neither collapsed one-sentence variant may appear anywhere in the rendered body -
     # their exact punctuation never occurs as a substring of the full <details> body text above,
     # so this is an unambiguous check, not a coincidental prefix match.
     assert "It only colours a flight already on screen." not in rendered, (
@@ -150,7 +136,7 @@ def test_rules_section_carries_no_dirty_section_attr():
 
 def test_rules_french_render_shows_french_row_label_and_button():
     """a French Display render of the Frame colours card's rules row/panel shows 'Règles par vol'
-    and 'Ajouter la règle' (D-05, retargeted from the retired Flight-colours heading)"""
+    and 'Ajouter la règle'"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
@@ -167,7 +153,7 @@ def test_rules_french_render_shows_french_row_label_and_button():
 
 def test_calendar_status_not_configured_is_exclusive():
     """with no calendar configured, render() emits the 'Not connected' verdict with an empty
-    detail (D-14b)"""
+    detail"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
     verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
     assert verdict == _CALENDAR_NOT_CONNECTED_ESCAPED, (
@@ -177,7 +163,7 @@ def test_calendar_status_not_configured_is_exclusive():
 
 def test_calendar_status_configured_pending_is_exclusive():
     """with a calendar configured and no fetch attempt recorded yet, render() emits the
-    'Connected' verdict with an empty detail (D-14b)"""
+    'Connected' verdict with an empty detail"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
     verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
     assert verdict == _CALENDAR_CONNECTED_ESCAPED, "expected the 'Connected' verdict, got %r" % (verdict,)
@@ -187,7 +173,7 @@ def test_calendar_status_configured_pending_is_exclusive():
 
 def test_calendar_status_configured_fetch_failed_is_exclusive():
     """with a calendar configured, an attempt recorded, and no usable sync, render() emits the
-    mapped 'The feed could not be read' detail - never an exception's own text (D-14b/T-20-30)"""
+    mapped 'The feed could not be read' detail - never an exception's own text"""
     ctx = dict(
         cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None,
         calendar_last_attempt_at=1893456000.0)
@@ -200,7 +186,7 @@ def test_calendar_status_configured_fetch_failed_is_exclusive():
 def test_calendar_status_configured_synced_is_exclusive_with_relative_age():
     """with a calendar configured and a last_synced_at present, render() emits the 'Connected'
     verdict with a detail carrying the entry count and a relative-age fragment, never a bare ISO
-    string (D-14b)"""
+    string"""
     ctx = dict(
         cp.CALENDAR_BASE_CTX, calendar_configured=True,
         calendar_last_synced_at="2026-09-07T09:00:00+00:00", calendar_entry_count=12)
@@ -212,7 +198,7 @@ def test_calendar_status_configured_synced_is_exclusive_with_relative_age():
 
 def test_calendar_status_unparseable_synced_falls_back_to_no_detail():
     """with a calendar configured and a last_synced_at that is present but unparseable, the empty
-    detail is used rather than a fabricated time (D-14b)"""
+    detail is used rather than a fabricated time"""
     ctx = dict(
         cp.CALENDAR_BASE_CTX, calendar_configured=True,
         calendar_last_synced_at="not-a-real-timestamp")
@@ -223,13 +209,12 @@ def test_calendar_status_unparseable_synced_falls_back_to_no_detail():
 
 def test_calendar_copy_fidelity_locked_to_the_phase_20_wording():
     """the status detail template, the fetch-failed sentence, the Connect button text, and the
-    Replace-URL disclosure summary are each locked to the phase 20 wording verbatim, so a
-    paraphrase fails rather than merely looking different (D-14a..c)
+    Replace-URL disclosure summary are each locked to the historically-approved wording verbatim,
+    so a paraphrase fails rather than merely looking different
 
-    Copy fixed by the Phase 20 Companion Suggestions round (D-14a..c). The four literal constants
-    below are the historically-approved wording; the assertions prove config_page.py's own
-    constants still equal them verbatim AND that they actually reach a real render, not merely
-    exist as an unused module attribute.
+    The four literal constants below are the historically-approved wording; the assertions prove
+    config_page.py's own constants still equal them verbatim AND that they actually reach a real
+    render, not merely exist as an unused module attribute.
     """
     assert config_page.CALENDAR_STATUS_DETAIL_TEMPLATE == "%d upcoming flights · checked %s"
     assert config_page.CALENDAR_STATUS_FETCH_FAILED_DETAIL == "The feed could not be read"
@@ -258,12 +243,10 @@ def test_calendar_copy_fidelity_locked_to_the_phase_20_wording():
 
 
 def test_calendar_merged_button_copy_locked_to_the_phase_21_wording():
-    """the merged card's own two new short button-text constants (the connected-state Replace
-    button, the small grey Disconnect button) are each locked to the phase 21 wording verbatim
-    (D-13/D-14)
-
-    Copy fixed by the Phase 21 Companion Feedback Round 3 (D-13/D-14), matching the discipline
-    `test_calendar_copy_fidelity_locked_to_the_phase_20_wording` established for the phase-20
+    """the merged card's own two short button-text constants (the connected-state Replace
+    button, the small grey Disconnect button) are each locked to the historically-approved
+    wording verbatim, matching the discipline
+    `test_calendar_copy_fidelity_locked_to_the_phase_20_wording` established for the earlier
     strings.
     """
     assert config_page.CALENDAR_REPLACE_BUTTON_TEXT == "Replace"
@@ -303,8 +286,7 @@ def test_calendar_forbidden_vocabulary_absent():
 def test_calendar_secret_never_reaches_render_function(tmp_path):
     """with the calendar secret file holding a URL carrying a distinctive token, render() emits
     the masked host + ellipsis fragment but never the token, the path segment, the query-
-    parameter name, or the whole raw URL (T-16-SECRET, extended by 21-07-PLAN.md Task 2 for the
-    new masked-URL line, D-14/R-10)"""
+    parameter name, or the whole raw URL"""
     token = "sk1-distinctive-token-2rv9"
     host = "private-crew-calendar.example.internal"
     path = "feeds/roster-export"
@@ -326,9 +308,8 @@ def test_calendar_secret_never_reaches_render_function(tmp_path):
 
 def test_calendar_no_preview_no_count_in_rendered_page(tmp_path):
     """a populated calendar registry (real-shaped routes/airline codes) never surfaces any
-    airport code or airline code, while the status row's own entry count DOES appear (D-14b;
-    the phase 16 specification's D-01 code-isolation half carried forward, its
-    count-prohibition half retired)"""
+    airport code or airline code, while the status row's own entry count DOES appear (the
+    code-isolation half carried forward, the count-prohibition half retired)"""
     tmpdir = str(tmp_path)
     entries = [
         {"airline_iata": "AF", "origin_iata": "ORY", "destination_iata": "TLS",
@@ -355,24 +336,23 @@ def test_calendar_no_preview_no_count_in_rendered_page(tmp_path):
     for code_pattern in (r"\bORY\b", r"\bTLS\b", r"\bNCE\b", r"\bLHR\b", r"\bAF\b", r"\bBA\b"):
         assert not re.search(code_pattern, rendered), (
             "expected no calendar-derived code matching %r anywhere on the rendered page" % (code_pattern,))
-    # D-14b (this plan's own status row) deliberately DOES show a derived flight count now - the
+    # The status row deliberately DOES show a derived flight count now - the
     # old prohibition on a count is retired; only the specific airport/airline codes stay
-    # forbidden (the phase 16 specification's own D-01 isolation, unaffected).
+    # forbidden (code isolation, unaffected).
     assert re.search(r"\b3\s+upcoming\s+flights?\b", rendered.lower()), (
         "expected the D-14b status detail's own flight-count phrase")
 
 
 def test_calendar_d01_registry_entries_never_appear_in_rules_list(tmp_path):
     """with both a populated calendar registry and one hand-added colour rule, the rendered
-    rules list shows exactly the manual rule and no calendar-sourced row (16-VALIDATION.md
-    registry row, D-01)"""
+    rules list shows exactly the manual rule and no calendar-sourced row"""
     tmpdir = str(tmp_path)
     entries = [
         {"airline_iata": "AF", "origin_iata": "ORY", "destination_iata": "TLS",
          "start_at": 1893456000.0, "end_at": 1893459600.0},
     ]
-    # This check's subject is D-01 isolation from the rules list, not retention - see the
-    # comment in the previous check for why `now` brackets the 2030-dated fixture entry.
+    # This check's subject is calendar-entry isolation from the rules list, not retention - see
+    # the comment in the previous check for why `now` brackets the 2030-dated fixture entry.
     now = 1893456000.0
     assert calendar_rules.write_calendar_registry(
         tmpdir, entries, None, "2026-09-07T09:00:00+00:00", now=now), (
@@ -395,8 +375,7 @@ def test_calendar_d01_registry_entries_never_appear_in_rules_list(tmp_path):
 
 def test_aspect_calendar_row_palette_populated_in_order():
     """the calendar row's palette carries one leading Same-as-departures option plus exactly one
-    entry per registered theme, in registry order, with no id attribute of its own (D-06/D-09,
-    30-05-PLAN.md Task 1)
+    entry per registered theme, in registry order, with no id attribute of its own
 
     The calendar row's palette is a real role="radiogroup", populated in registry order with
     name="calendar_theme_id", carrying no id attribute - the no-id clause is load-bearing:
@@ -425,12 +404,12 @@ def test_aspect_calendar_row_palette_populated_in_order():
 
 def test_calendar_theme_chip_grid_saved_value_is_checked():
     """with a saved calendar_theme_id, that chip's radio carries checked and no other
-    calendar_theme_id radio (including the leading 'Same as departures' chip) does (D-06/D-09)"""
+    calendar_theme_id radio (including the leading 'Same as departures' chip) does"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
     ctx["device_config"] = dict(ctx["device_config"], calendar_theme_id="black")
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    # D-12 fix (20-REVIEW.md verification gap): every calendar_theme_id radio also carries a
-    # form="settings-form" attribute between class="visually-hidden" and checked.
+    # Every calendar_theme_id radio also carries a form="settings-form"
+    # attribute between class="visually-hidden" and checked.
     checked_ids = re.findall(
         r'name="calendar_theme_id" value="([^"]*)" class="visually-hidden" form="settings-form" checked',
         rendered)
@@ -440,10 +419,9 @@ def test_calendar_theme_chip_grid_saved_value_is_checked():
 
 def test_calendar_theme_chip_grid_same_as_departures_checked_when_unset():
     """with no saved calendar_theme_id, only the leading 'Same as departures' chip is checked -
-    never the chip matching the currently-selected base theme (D-06/D-09, replacing the retired
-    pre-D-09 default-to-base-theme behaviour)
+    never the chip matching the currently-selected base theme
 
-    R-07's own new semantics: an unset calendar_theme_id checks the leading "Same as departures"
+    An unset calendar_theme_id checks the leading "Same as departures"
     chip (submitting the empty string), never the chip matching the base theme itself.
     """
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
@@ -480,11 +458,10 @@ def test_handle_post_calendar_theme_id_valid_persists_and_carries_forward(tmp_pa
 def test_handle_post_calendar_theme_id_adversarial_rejected(tmp_path, payload):
     """handle_post with a non-member calendar_theme_id (a plain invalid id, a path-traversal-
     shaped payload, and a SQL-shaped payload) rejects the whole submission and writes nothing -
-    '' is explicitly exempted from this rejection (D-09)
+    '' is explicitly exempted from this rejection
 
-    21-05-PLAN.md Task 2 (D-09/R-07): "" is retargeted OUT of this adversarial list - it is now
-    the Aspect card's own legitimate "Same as departures" clear signal, covered by its own
-    dedicated round-trip check above.
+    "" is not on this adversarial list - it is the Aspect card's own legitimate "Same as
+    departures" clear signal, covered by its own dedicated round-trip check above.
     """
     tmpdir = str(tmp_path)
     cp.write_device_config(tmpdir, "black", "3")
@@ -515,8 +492,7 @@ def test_handle_post_calendar_theme_id_absent_leaves_unchanged(tmp_path):
 
 def test_calendar_connect_field_never_carries_value_in_either_state():
     """the write-only calendar_url field renders in the merged _calendar_connection_html()'s own
-    markup for both the connected and not-connected states and never carries a value attribute
-    (D-13/D-14, retargeted after calendar_connect_section()'s retirement)"""
+    markup for both the connected and not-connected states and never carries a value attribute"""
     for configured in (False, True):
         rendered = _calendar_connection_call(configured, False, None)
         assert 'name="calendar_url"' in rendered, (
@@ -529,8 +505,7 @@ def test_calendar_connect_field_never_carries_value_in_either_state():
 def test_calendar_connect_wraps_in_details_only_when_configured():
     """the merged _calendar_connection_html() wraps its connect form in <details
     class=calendar-url-disclosure> 'Replace the feed URL' only when configured, and renders it
-    unwrapped, posting to CALENDAR_CONNECT_ROUTE, when not (D-13/D-14, retargeted after
-    calendar_connect_section()'s retirement)"""
+    unwrapped, posting to CALENDAR_CONNECT_ROUTE, when not"""
     # The merged card ALSO always renders a second, unrelated <details> ("How it works") in every
     # state, so this check scans for the Replace disclosure's own specific class rather than a
     # bare "<details" substring, which would always be true now.
@@ -549,8 +524,7 @@ def test_calendar_connect_wraps_in_details_only_when_configured():
 def test_calendar_containment_at_the_renderer_five_needles(tmp_path):
     """the merged _calendar_connection_html(), called directly rather than through render(),
     never emits the token, host, path segment, query-parameter name, or whole URL of a configured
-    calendar, even though it now also renders the connect/replace form and the disconnect button
-    (T-17-SECRET, retargeted after calendar_connect_section()'s retirement)"""
+    calendar, even though it now also renders the connect/replace form and the disconnect button"""
     token = "sk1-distinctive-token-9fq2"
     host = "private-roster-calendar.example.internal"
     path = "feeds/duty-export"
@@ -568,7 +542,7 @@ def test_calendar_containment_at_the_renderer_five_needles(tmp_path):
 
 def test_calendar_disconnect_checkbox_never_appears_in_calendar_connection():
     """_calendar_connection_html() renders no calendar_disconnect checkbox in any of its four
-    states (D-08/A-26: disconnecting is now its own standalone form, not an in-form checkbox)"""
+    states (disconnecting is its own standalone form, not an in-form checkbox)"""
     for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
         rendered = _calendar_connection_call(configured, drift, last_synced_at)
         assert 'name="calendar_disconnect"' not in rendered, (
@@ -580,8 +554,7 @@ def test_calendar_disconnect_form_appears_only_when_expected():
     """the merged _calendar_connection_html() renders its disconnect form only when the calendar
     is connected or drifted, posting to CALENDAR_DISCONNECT_ROUTE with a hidden, empty, data-
     confirm-field-carrying confirm field, alongside a visible small Disconnect button cross-
-    submitting via form= (D-08/A-26/D-14, retargeted after calendar_disconnect_section()'s
-    retirement)"""
+    submitting via form="""
     for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
         rendered = _calendar_connection_call(configured, drift, last_synced_at)
         has_form = (
@@ -614,9 +587,8 @@ def test_calendar_disconnect_form_appears_only_when_expected():
 def test_look_supersection_carries_exactly_one_dirty_section_named_aspect():
     """Display's Look supersection carries exactly ONE data-dirty-section card (named 'Aspect'),
     in both the connected and not-connected states - down from the two ('Aspect'/'Calendar') it
-    carried before the calendar's connection block folded into the Aspect card's own Calendar row
-    (CFG-85, replacing the retired data-dirty-section="Calendar" count check, whose own property
-    this merge changes rather than merely relocates)"""
+    carried before the calendar's connection block folded into the Aspect card's own Calendar
+    row"""
     for configured in (False, True):
         ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=configured, calendar_last_synced_at=None)
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
@@ -636,7 +608,7 @@ def test_look_supersection_carries_exactly_one_dirty_section_named_aspect():
 def test_calendar_connection_never_nests_a_form_inside_another_in_either_state():
     """the merged _calendar_connection_html()'s own return value (the card plus its data-only
     disconnect-form sibling) never nests one <form> inside another, in any of its four
-    distinguishable states (D-13/Pitfall 2)"""
+    distinguishable states"""
     for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
         rendered = _calendar_connection_call(configured, drift, last_synced_at)
         depth = 0
@@ -661,7 +633,7 @@ def test_calendar_connection_placement_inside_aspect_after_display_form_close_wi
     palette, after the settings form's own closing tag and the Aspect card's own heading, still
     under the Aspect card's own dirty-section tracking attribute - with the Disconnect button
     inside the row and the disconnect form OUTSIDE the card, the button's form= naming that exact
-    sibling (CFG-85, replacing the retired _calendar_placement_after_display_form_close_with_dirty_attr)
+    sibling
 
     Asserts the RELATIONSHIP rather than the endpoints separately - a check that only asserted
     all pieces existed would pass even if the button pointed at nothing.
@@ -698,8 +670,7 @@ def test_calendar_connection_placement_inside_aspect_after_display_form_close_wi
 def test_calendar_row_no_inline_js_and_palette_cross_submits_form():
     """the calendar row renders no inline event-handler attribute and no <script> tag, and every
     calendar_theme_id radio in its palette cross-submits into the settings form via
-    form=settings-form (CFG-85, replacing the retired calendar-card no-inline-JS/chip-grid
-    cross-submits check)"""
+    form=settings-form"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     calendar_start, calendar_end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_CALENDAR)
@@ -719,8 +690,7 @@ def test_calendar_row_no_inline_js_and_palette_cross_submits_form():
 
 def test_calendar_disconnect_confirm_page_posts_back_with_confirm_preset():
     """calendar_disconnect_confirm_page() renders a form posting to CALENDAR_DISCONNECT_ROUTE
-    with the confirm field pre-set to the accepted value, plus a plain cancel link to Display
-    (D-08/A-26, retargeted from Device by 20-07-PLAN.md Task 1/D-11)"""
+    with the confirm field pre-set to the accepted value, plus a plain cancel link to Display"""
     rendered = config_page.calendar_disconnect_confirm_page({})
     expected_form = (
         '<form method="post" action="%s">'
@@ -732,7 +702,7 @@ def test_calendar_disconnect_confirm_page_posts_back_with_confirm_preset():
     )
     assert expected_form in rendered, (
         "expected the confirm page's form to post to the same route with the confirm field pre-set")
-    # Calendar moved from Device to Display (20-07-PLAN.md Task 1, D-11), so the cancel link
+    # Calendar moved from Device to Display, so the cancel link
     # points back to the page the disconnect action itself lives on.
     assert 'href="%s"' % layout.DISPLAY_ROUTE in rendered, "expected a cancel link back to the Display page"
     assert "<fieldset" not in rendered and "<legend" not in rendered, (
@@ -741,9 +711,7 @@ def test_calendar_disconnect_confirm_page_posts_back_with_confirm_preset():
 
 def test_calendar_disconnect_form_is_not_inside_settings_form_on_display_scope():
     """on the Display scope, the calendar disconnect form's opening tag appears after the
-    settings form's own closing tag - it is a sibling, never a descendant (D-08/A-26, retargeted
-    from Device by 20-07-PLAN.md Task 1/D-11, and again by 21-07-PLAN.md Task 1/D-14 for the
-    id-first attribute order)"""
+    settings form's own closing tag - it is a sibling, never a descendant"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     settings_form_close = rendered.find("</form>")
@@ -759,7 +727,7 @@ def test_calendar_disconnect_form_is_not_inside_settings_form_on_display_scope()
 def test_calendar_connect_form_appears_before_the_runway_card_on_display_scope():
     """on the Display scope, the calendar connect/replace form's own <form> opening tag renders
     immediately after the Calendar row and strictly before the Runway card's own radio input,
-    never after the whole page's groups (Polish fix 4, D-14c)"""
+    never after the whole page's groups"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     calendar_row_index = rendered.index('data-usage="%s"' % config_page.COLOUR_USAGE_CALENDAR)
@@ -772,8 +740,7 @@ def test_calendar_connect_form_appears_before_the_runway_card_on_display_scope()
 
 def test_calendar_disconnect_form_absent_when_not_configured_or_on_device_scope():
     """the disconnect form is absent when the calendar is neither configured nor drifted, and
-    absent from the Device scope, which never renders the Calendar group at all (D-08/A-26,
-    retargeted from Display by 20-07-PLAN.md Task 1/D-11)"""
+    absent from the Device scope, which never renders the Calendar group at all"""
     not_connected_ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
     display_rendered = config_page.render(not_connected_ctx, scope=config_page.SCOPE_DISPLAY)
     assert config_page.CALENDAR_DISCONNECT_ROUTE not in display_rendered, (
@@ -787,7 +754,7 @@ def test_calendar_disconnect_form_absent_when_not_configured_or_on_device_scope(
 def test_calendar_status_drift_is_exclusive_and_precedes_not_configured():
     """with the stored calendar link's permissions drifted, render() emits the 'Not connected'
     verdict with the drift detail sentence - the drift branch, checked before 'not configured',
-    still wins (D-02 ordering, D-14b)"""
+    still wins"""
     ctx = dict(
         cp.CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None, calendar_drift=True)
     verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
@@ -799,7 +766,7 @@ def test_calendar_status_drift_is_exclusive_and_precedes_not_configured():
 
 def test_calendar_status_drift_names_remedy_and_nothing_forbidden():
     """the permission-drift status string names the remedy (paste the feed URL again) and names
-    no path separator, filename, or part of a URL (D-02, 17-CONTEXT.md prohibitions)"""
+    no path separator, filename, or part of a URL"""
     text = config_page.CALENDAR_STATUS_PERMISSION_UNSAFE
     assert "/" not in text and "\\" not in text, "expected no path separator in the drift status string"
     assert ".json" not in text and ".ics" not in text and "calendar_rules" not in text, (
@@ -810,7 +777,7 @@ def test_calendar_status_drift_names_remedy_and_nothing_forbidden():
 
 
 def test_handle_post_empty_calendar_field_with_no_checkbox_is_a_no_op_across_two_unrelated_saves(tmp_path):
-    """the single most important check in this plan (D-07): a form that changes an unrelated
+    """the single most important check in this family: a form that changes an unrelated
     setting and carries an empty calendar_url field with no checkbox, submitted twice in a row
     via handle_post(), leaves a configured calendar and its fetched entries completely untouched
 
@@ -838,7 +805,7 @@ def test_handle_post_empty_calendar_field_with_no_checkbox_is_a_no_op_across_two
 
 def test_handle_post_disconnect_clears_url_and_registry(tmp_path):
     """handle_post with the disconnect checkbox at its expected value succeeds, disconnects the
-    calendar, and empties its fetched-entries registry (D-04)"""
+    calendar, and empties its fetched-entries registry"""
     tmpdir = str(tmp_path)
     cp.write_device_config(tmpdir, "black", "3")
     assert calendar_rules.save_calendar_url(tmpdir, "https://example.invalid/feed.ics") is True
@@ -858,7 +825,7 @@ def test_handle_post_disconnect_clears_url_and_registry(tmp_path):
 
 def test_handle_post_replace_url_stores_new_value_and_clears_registry(tmp_path):
     """handle_post with a different non-empty URL stores the new URL and clears the previous
-    calendar's fetched-entries registry (D-05)"""
+    calendar's fetched-entries registry"""
     tmpdir = str(tmp_path)
     cp.write_device_config(tmpdir, "black", "3")
     assert calendar_rules.save_calendar_url(tmpdir, "https://example.invalid/old.ics") is True
@@ -879,7 +846,7 @@ def test_handle_post_replace_url_stores_new_value_and_clears_registry(tmp_path):
 def test_handle_post_contradiction_rejects_whole_save_including_unrelated_field(tmp_path):
     """handle_post with a non-empty URL together with the disconnect checkbox, plus a changed
     unrelated setting, rejects the whole save - neither the calendar nor the unrelated setting is
-    written (D-07 contradiction, all-or-nothing)"""
+    written (contradiction, all-or-nothing)"""
     tmpdir = str(tmp_path)
     cp.write_device_config(tmpdir, "black", "3")
     assert calendar_rules.save_calendar_url(tmpdir, "https://example.invalid/feed.ics") is True
