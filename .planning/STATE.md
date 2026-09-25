@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 33-33-PLAN.md
+status: completed
+stopped_at: Phase 33 complete (verification passed 9/9)
 last_updated: "2026-09-25T03:21:49.497Z"
 last_activity: 2026-09-25
 progress:
@@ -56,7 +56,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 33 (companion-tests-on-pytest-behaviour-over-source-text) — COMPLETE (33/33 plans; ready for verification)
+Phase: 33 (companion-tests-on-pytest-behaviour-over-source-text) — COMPLETE (33/33 plans, verification passed 9/9 after the TST-13 gap closure)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Plan: 33 of 33
 
