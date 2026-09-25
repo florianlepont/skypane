@@ -1,71 +1,48 @@
 #!/usr/bin/env python3
-"""Minimal-but-real panel renderer for the plane view (PLANE-01/02/03).
+"""Panel renderer for the plane view: departure and arrival cards for the
+watched runway, plus an empty state.
 
 Every draw call goes directly onto a "P"-mode canvas with an integer
 palette-index fill, never an RGB tuple and never an RGB compose-then-
-quantize step for flat fills (02-RESEARCH.md Architecture Pattern 1) - this
-is the mechanism that satisfies the "disable anti-aliasing" rule for free
-everywhere except the real per-airline illustrations below, which are
-deliberately full-color and dithered (D-25).
+quantize step for flat fills - this keeps anti-aliasing off everywhere
+except the real per-airline illustrations, which are deliberately
+full-color and dithered.
 
-Phase 3, final confirmed layout (D-21/D-24/D-25/D-26/D-27, 03-CONTEXT.md
-addenda 2-3) - supersedes every earlier Phase-3 iteration (the dithered
-mood background, quiet-zone text compositing, the single mirrored flat
-silhouette, Zilla Slab):
+Layout:
 
-- **D-21**: the active-state background is a flat single-color fill
-  (`panel_format.new_canvas(bg_idx)`) - no dithered gradient. The old
-  `server.plane.dither.build_mood_background()` recipe was retired; only
-  `dither.dither_to_full_panel_palette()` (the full-6-color illustration
-  quantizer) survives from that module.
-- **D-24**: aircraft illustrations are never mirrored. Every vendored
-  illustration file is nose-left by convention
-  (`illustrations.ILLUSTRATION_SOURCE_NOSE`) and is drawn exactly as
-  vendored, in both departing and arriving states - real, detailed,
-  full-color art does not mirror convincingly the way the old flat CC0
-  silhouette did (confirmed via a real on-glass-preview A/B test this
-  session). The background color and the state label text are the only
-  remaining departing/arriving cues.
-- **D-25/D-26**: two real flight cards on one canvas - the current
-  detection (large, upper-center) and the immediately-preceding detection
-  (smaller, bottom-right, right-aligned to the main illustration's own
-  right edge). Both use their own real per-airline illustration file
+- The active-state background is a flat single-color fill
+  (`panel_format.new_canvas(bg_idx)`) - no dithered gradient.
+- Aircraft illustrations are never mirrored. Every vendored illustration
+  file is nose-left by convention (`illustrations.ILLUSTRATION_SOURCE_NOSE`)
+  and is drawn exactly as vendored, in both departing and arriving states -
+  real, detailed, full-color art does not mirror convincingly. The
+  background color and the state label text are the only remaining
+  departing/arriving cues.
+- Two real flight cards share one canvas: the current detection (large,
+  upper-center) and the immediately-preceding detection (smaller,
+  bottom-right, right-aligned to the main illustration's own right edge).
+  Both use their own real per-airline illustration file
   (`illustrations.select_illustration()`), full-color, Floyd-Steinberg-
   dithered to the panel's 6-color palette via
   `dither.dither_to_full_panel_palette()` - never simplified to a flat
-  silhouette. No quiet-zone rectangles anywhere: D-21's flat background
-  needs no protection against text sitting on a dithered pixel.
-- **D-27 (superseded by Phase 8's D-06, see below)**: every text role used
-  PT Serif Regular, not Bold. Phase 7's on-glass checkpoint confirmed
-  Regular legible at every role, on real glass, before and after the
-  text-backing-plate fix (`hardware/BRINGUP-LOG.md`). Phase 8 then
-  switched every active-state role to Bold anyway, for an unrelated
-  reason: D-06 removed the backing plate itself (D-05), and the heavier
-  Bold stroke is what takes over that plate's legibility job against the
-  dithered background - see `server/assets/fonts/VENDOR.md`'s PT Serif
-  entry for the full supersession record and plan 08-06 for this phase's
-  own on-glass re-check of the new weight.
+  silhouette. No quiet-zone rectangles anywhere: the flat background needs
+  no protection against text sitting on a dithered pixel.
+- Every text role uses PT Serif Bold, except on the White theme (never
+  dithered), where Regular is substituted because Bold's only job -
+  resisting dithered speckle - does not apply there.
 
-**Colour and CFG-01 (D-09/D-10/D-11, 06-CONTEXT.md)**: the panel's
-DEPARTING/ARRIVING background and ink colours have never been calibrated
-against real glass - they are the same on-screen-only-confirmed values
-D-21 recorded (`server/panel_format.py`'s "confirmed against on-screen
-previews only" note). Phase 7's on-glass session is the first place that
-calibration actually happens. CFG-01 therefore ships a theme picker whose
-registry (`server/device_config.py`'s `THEMES`) now holds five entries -
-`white` (the default), `black`, `yellow`, `red`, and `sky` (Phase 8 plan
-08-01) - added as a single `THEMES` dict entry per theme in
-`server/device_config.py`, exactly the single-dict-entry extension this
-paragraph originally promised, with no change to this module at all.
+**Colour**: the panel's DEPARTING/ARRIVING background and ink colours are
+on-screen-confirmed values (`server/panel_format.py`'s "confirmed against
+on-screen previews only" note), not yet calibrated against real glass. A
+theme picker selects between the registry entries in
+`server/device_config.py`'s `THEMES` (`white` is the default).
 
-The old 64px "inviolable" SAFE_BOX margin (Phase 2) is still enforced for
-the top-row labels, which D-26 explicitly pins to that same MARGIN inset.
-It is deliberately **not** enforced for the frame, the illustrations, or
-the flight text blocks below them: D-26's live-approved layout puts the
-decorative frame at a tighter ~2.5%-of-width inset (~30px), inside the old
-64px band. This has only been confirmed against on-screen preview PNGs, not
-against the real physical bezel - an open item for Wave 4's on-glass
-checkpoint, alongside the PT Serif Regular legibility check above.
+The 64px SAFE_BOX margin is enforced for the top-row labels, pinned to the
+MARGIN inset. It is deliberately **not** enforced for the frame, the
+illustrations, or the flight text blocks below them, which sit at a
+tighter ~2.5%-of-width inset (~30px), inside the 64px band. This has only
+been confirmed against on-screen preview PNGs, not against the real
+physical bezel.
 
 Usage (manual QA):
     server/.venv/bin/python3 server/plane/render.py --state empty --out /tmp/panel.bin
@@ -74,9 +51,9 @@ Usage (manual QA):
     server/.venv/bin/python3 server/plane/render.py --state departing --callsign AF1380 \
         --previous-callsign VY1234 --out /tmp/panel.bin --preview /tmp/panel.preview.png
 
-Reproducible on-glass forcing commands (Phase 7, 07-01 D-04/D-13), so a
-verification session never needs a hand-built dict or an inline Python
-snippet typed on a production host:
+Reproducible on-glass forcing commands, so a verification session never
+needs a hand-built dict or an inline Python snippet typed on a production
+host:
     server/.venv/bin/python3 server/plane/render.py --state arriving --callsign AFR56XX \
         --airline "Compagnie Nationale Royale Air Maroc Express" \
         --city "Santiago de Compostela-Rosalia de Castro" --preview /tmp/longname.png
@@ -105,53 +82,36 @@ from server import panel_format as pf
 from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_RED, IDX_WHITE, IDX_YELLOW, WIDTH, HEIGHT
 from server.plane import dither, enrich, illustrations, runway_config
 
-# --- UI-SPEC Spacing Scale (02-UI-SPEC.md, unchanged since Revision 1) ----
+# --- Spacing scale ---------------------------------------------------------
 SPACE_XS = 8
 SPACE_SM = 16
 SPACE_MD = 32
 SPACE_LG = 64
 
-# MARGIN is the top-row labels' inset (D-26: "the existing MARGIN (64px)
-# inset, not the frame's own 2.5% inset - they sit inside the frame, not
-# on it"). See the module docstring for why this is no longer enforced as
-# a blanket "inviolable" margin for every element the way it was in Phase 2.
+# MARGIN is the top-row labels' inset. See the module docstring for why
+# this is not a blanket margin for every element.
 MARGIN = SPACE_LG
 SAFE_BOX = (MARGIN, MARGIN, WIDTH - MARGIN, HEIGHT - MARGIN)  # (64, 64, 1136, 1536)
 
-# --- Typography (D-20/D-27, supersedes 02/03's Inter -> Zilla Slab chain) --
+# --- Typography --------------------------------------------------------
 FONT_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "fonts")
 )
 PT_SERIF_REGULAR = os.path.join(FONT_DIR, "PTSerif-Regular.ttf")
 PT_SERIF_BOLD = os.path.join(FONT_DIR, "PTSerif-Bold.ttf")
 
-# D-26's exact confirmed sizes, per role. (font_path, size, weight) - weight
-# is documentation only (the path already selects the correct static weight
-# file). Phase 8 (dated 2026-08-31, D-06): every active-state role's *base*
-# weight is Bold, not Regular - the functional replacement for the removed
-# text-backing-plate (`_paint_text_backing()`, deleted this same phase -
-# see D-05): the heavier stroke is what carries legibility against a
-# dithered state background. The spike
-# (`.planning/spikes/001-panel-theme-colours/README.md`) confirmed Bold
-# legible at every size on the panel, including the smallest caption
-# (`PREVIOUS_LINE2_FONT`). A stroke outline (at 1/2/3px widths) and an
-# offset drop-shadow were both built and both read as legible in that
-# spike, and were both rejected by the developer on visual grounds before
-# font weight was tried - recorded here so a future reader does not
-# re-litigate either without new information.
+# Confirmed sizes per role. (font_path, size, weight) - weight is
+# documentation only (the path already selects the correct static weight
+# file). Every active-state role's *base* weight is Bold: the heavier
+# stroke is what carries legibility against a dithered state background.
 #
-# On-glass correction (08-06, same date): Bold read as needlessly heavy on
-# the White theme's flat field, where Bold's only job - resisting dithered
-# speckle - never applies (White is never dithered). `_role_font()` /
-# `_role_fit_text_size()` below substitute Regular for these role tuples'
-# path specifically when `bg_idx == IDX_WHITE`; every dithered theme
-# (confirmed on Sky) keeps Bold. These tuples themselves stay the Bold
-# specification - the dithered-theme case - and are never read directly by
+# `_role_font()` / `_role_fit_text_size()` below substitute Regular for
+# these role tuples' path specifically when `bg_idx == IDX_WHITE`, because
+# Bold's only job - resisting dithered speckle - never applies there (White
+# is never dithered); every dithered theme keeps Bold. These tuples
+# themselves stay the Bold specification and are never read directly by
 # the draw_*() functions below; always go through `_role_font()` /
 # `_role_fit_text_size()`, which resolve the weight from `bg_idx`.
-# MAIN_LINE1_FONT's size also dropped 44 -> 40 on the same on-glass pass,
-# independent of the weight question - confirmed too large at 44 regardless
-# of weight, and this reduction applies to every theme.
 STATE_LABEL_FONT = (PT_SERIF_BOLD, 20, 700)
 TOP_TAG_FONT = (PT_SERIF_BOLD, 18, 700)
 MAIN_LINE1_FONT = (PT_SERIF_BOLD, 40, 700)
@@ -163,20 +123,12 @@ EMPTY_BODY_FONT = (PT_SERIF_REGULAR, 40, 400)
 
 # Letter-spacing (tracking) applied to the top row's two smallest text roles
 # (STATE_LABEL_FONT, TOP_TAG_FONT) via draw_tracked_text() in
-# draw_top_labels() - spike 002a's validated finding (the "tracked-6px"
-# variant, chosen over 4 other candidates in a real 5-way visual
-# comparison), independently re-confirming Phase 3's own removed
-# LABEL_TRACKING_PX (D-15, deleted by commit 73a6eb2's two-flight poster
-# redesign because that redesign changed the zone, not because 6px failed).
-# Screen-preview-validated only - never checked against real Spectra 6 ink
-# at any point in this project's history (hardware/BRINGUP-LOG.md has no
-# mention of tracking, even though this same technique shipped once before
-# in Phase 2/3). On-glass check remains OPEN per D-13.
+# draw_top_labels(). Screen-preview-validated only - never checked against
+# real Spectra 6 ink.
 LABEL_TRACKING_PX = 6
 
-# Phase 9 PHASE9-3: band-theme top-label direction word, ported verbatim
-# from spike 003's `_MERGED_LABEL_DIRECTION` (round 11's correction to
-# rounds 7/9). Only consulted by `draw_top_labels()` when `band_theme=True`.
+# Band-theme top-label direction word. Only consulted by draw_top_labels()
+# when `band_theme=True`.
 _BAND_TOP_LABEL_DIRECTION = {
     runway_config.STATE_DEPARTING: "FROM",
     runway_config.STATE_ARRIVING: "TO",
@@ -189,31 +141,28 @@ MAIN_LINE1_MIN_SIZE = 28
 MAIN_LINE2_MIN_SIZE = 16
 PREVIOUS_LINE1_MIN_SIZE = 18
 PREVIOUS_LINE2_MIN_SIZE = 12
-# CFG-12: the empty-state heading is now runway-dependent
-# (empty_heading_text()) and therefore not a fixed, pre-measured string -
-# it gets the same fit_text_size() shrink treatment as the long
-# route/airline text above, floored well above illegibility. All three
-# registry headings ("Watching Runway 3" / "06-24" / "02-20") are
+# The empty-state heading is runway-dependent (empty_heading_text()) and
+# therefore not a fixed, pre-measured string - it gets the same
+# fit_text_size() shrink treatment as the long route/airline text above,
+# floored well above illegibility. All three registry headings are
 # deliberately short, so this floor is not expected to bind in practice -
 # it exists only as a guard rail should a longer heading ever be added.
 EMPTY_HEADING_MIN_SIZE = 48
 _FIT_STEP_PX = 2
 
-# --- Colour section (state-scoped, unchanged since 02-UI-SPEC.md Revision
-# 2) - keyed by runway_config's STATE_* constants (not bare string
-# literals) so the two modules cannot drift apart. --------------------------
+# --- Colour (state-scoped) - keyed by runway_config's STATE_* constants
+# (not bare string literals) so the two modules cannot drift apart. --------
 #
-# CFG-01 (06-CONTEXT.md D-09/D-10/D-11): STATE_BACKGROUND/STATE_INK are
-# retained below as module-level constants, redefined from the default
-# theme's own server/device_config.py registry entry, ONLY because
-# server/test_render.py's pre-existing checks read them directly. New code
-# must never read these two dicts directly - call
+# STATE_BACKGROUND/STATE_INK are retained below as module-level constants,
+# redefined from the default theme's own server/device_config.py registry
+# entry, ONLY because server/test_render.py's pre-existing checks read them
+# directly. New code must never read these two dicts directly - call
 # state_background_index()/state_ink_index() instead, which resolve
 # through device_config.THEMES, the single registry the companion Config
 # page's picker also reads. Do not delete these constants - their values
-# are computed directly from `device_config.DEFAULT_THEME_ID` (Phase 8:
-# "white", not the original "sky") at import time, so they always agree
-# with whatever the registry currently calls the default.
+# are computed directly from `device_config.DEFAULT_THEME_ID` at import
+# time, so they always agree with whatever the registry currently calls
+# the default.
 STATE_BACKGROUND = {
     runway_config.STATE_DEPARTING: device_config.theme_background_index(
         runway_config.STATE_DEPARTING, device_config.DEFAULT_THEME_ID
@@ -234,15 +183,15 @@ STATE_LABEL_TEXT = {
 
 def state_background_index(state, theme_id=device_config.DEFAULT_THEME_ID):
     """Return the background palette index for `state` ("departing" or
-    "arriving") under `theme_id`, the CFG-01 theme registry key. `theme_id`
-    is normalised through `device_config.normalise_theme_id()` first, so an
-    unrecognised, hostile, or stale theme id silently degrades to the
-    default theme (T-06-06-01) rather than ever reaching a dict lookup - an
-    unrecognised *theme* is forgiving. `state` is intentionally NOT
-    normalised the same way: an unknown state is a real caller-bug detector
-    and must stay loud - every caller in this module only ever reaches this
-    function after `_build_active_canvas()`'s own `state not in
-    STATE_BACKGROUND` guard has already validated it.
+    "arriving") under `theme_id`. `theme_id` is normalised through
+    `device_config.normalise_theme_id()` first, so an unrecognised,
+    hostile, or stale theme id silently degrades to the default theme
+    rather than ever reaching a dict lookup - an unrecognised *theme* is
+    forgiving. `state` is intentionally NOT normalised the same way: an
+    unknown state is a real caller-bug detector and must stay loud - every
+    caller in this module only ever reaches this function after
+    `_build_active_canvas()`'s own `state not in STATE_BACKGROUND` guard
+    has already validated it.
     """
     theme_id = device_config.normalise_theme_id(theme_id)
     return device_config.theme_background_index(state, theme_id)
@@ -260,12 +209,11 @@ def state_ink_index(state, theme_id=device_config.DEFAULT_THEME_ID):
 
 
 def runway_tag_text(runway_id=device_config.DEFAULT_RUNWAY_ID):
-    """Return the CFG-12 top-right tag string for `runway_id`, normalised
+    """Return the top-right tag string for `runway_id`, normalised
     through `device_config.normalise_runway_id()` first so an unrecognised,
     hostile, or stale runway id silently degrades to the default runway's
-    tag rather than raising (T-06-06-01) - matching
-    state_background_index()'s "unrecognised registry id is forgiving"
-    contract.
+    tag rather than raising - matching state_background_index()'s
+    "unrecognised registry id is forgiving" contract.
     """
     runway_id = device_config.normalise_runway_id(runway_id)
     return device_config.runway_tag_text(runway_id)
@@ -277,36 +225,30 @@ def empty_heading_text(runway_id=device_config.DEFAULT_RUNWAY_ID):
     return device_config.runway_empty_heading(runway_id)
 
 
-# CFG-12 (06-CONTEXT.md): EMPTY_HEADING_TEXT/TOP_RIGHT_TAG_TEXT are
-# retained below as module-level constants, redefined from the default
-# runway's own device_config.py registry entry, ONLY because
-# server/test_render.py's pre-existing checks read them directly. New code
-# must never read these two constants directly - call
-# empty_heading_text()/runway_tag_text() instead.
+# EMPTY_HEADING_TEXT/TOP_RIGHT_TAG_TEXT are retained below as module-level
+# constants, redefined from the default runway's own device_config.py
+# registry entry, ONLY because server/test_render.py's pre-existing checks
+# read them directly. New code must never read these two constants
+# directly - call empty_heading_text()/runway_tag_text() instead.
 EMPTY_HEADING_TEXT = empty_heading_text(device_config.DEFAULT_RUNWAY_ID)
 
 # The empty state's own already-established ink (its heading and body copy
 # both already used the bare IDX_BLACK literal) - named so the battery icon
-# can share "each state's own ink" structurally, not by comment (05-UI-SPEC.md
-# resolved discretion item: battery icon renders in all three states,
-# including empty, since a low-battery reading is a device-health fact
-# independent of whether an aircraft is currently detected).
+# can share "each state's own ink" structurally, not by comment. The
+# battery icon renders in all three states, including empty, since a
+# low-battery reading is a device-health fact independent of whether an
+# aircraft is currently detected.
 #
-# The empty state is deliberately NOT theme-dependent (CFG-01): it is always
+# The empty state is deliberately NOT theme-dependent: it is always
 # White/Black, so this stays a bare constant rather than resolving through
-# state_ink_index(). The CFG-05 source-fault badge shares it for the same
-# reason.
+# state_ink_index(). The source-fault badge shares it for the same reason.
 EMPTY_INK = IDX_BLACK
-# 12-06 on-glass session: the developer read the empty screen on the panel and
-# asked for the break to fall before "the display", not wherever the measured
-# width lands (which orphaned "one is." on its own line) - and then, seeing
-# the em dash left dangling at the end of the first line, for the dash to go:
-# two sentences, a full stop each. This is the one copy change the session
-# made (the original "yet — the display" dates from Phase 2). The two
-# sentences are the authored lines; EMPTY_BODY_TEXT is their joined form, the
-# single string the copy is asserted against. The builder wraps each sentence
-# on its own, so the break is honoured while the width safety net still
-# catches a line that cannot fit.
+# Two authored sentences, each a full stop, the break falling before "the
+# display" rather than wherever the measured width happens to land.
+# EMPTY_BODY_TEXT is their joined form, the single string the copy is
+# asserted against. The builder wraps each sentence on its own, so the
+# break is honoured while the width safety net still catches a line that
+# cannot fit.
 EMPTY_BODY_LINES = (
     "No aircraft detected yet.",
     "The display updates the moment one is.",
@@ -315,50 +257,42 @@ EMPTY_BODY_TEXT = " ".join(EMPTY_BODY_LINES)
 TOP_RIGHT_TAG_TEXT = runway_tag_text(device_config.DEFAULT_RUNWAY_ID)
 ROUTE_FALLBACK_TEXT = "Route unavailable"
 
-# D-05/D-06 (10-UI-SPEC.md Panel Screen Copywriting Contract): the
-# scheduled-quiet-hours screen's locked English copy - all-caps heading,
-# "Back at HH:MM" body, matching every other panel string
-# (DEPARTING/ARRIVING, ORY · RWY 3). Do not localise to French despite the
-# developer's own French working example during the discussion.
+# The scheduled-quiet-hours screen's locked English copy - all-caps
+# heading, "Back at HH:MM" body, matching every other panel string
+# (DEPARTING/ARRIVING, ORY · RWY 3). Do not localise; every other panel
+# string is English.
 QUIET_HOURS_HEADING_TEXT = "QUIET HOURS"
 QUIET_HOURS_BODY_TEMPLATE = "Back at %s"
 
-# D-03/D-04 (12-CONTEXT.md, 12-UI-SPEC.md Panel Screen Copywriting Contract):
-# the remote display-off screen's locked English copy. Unlike
-# QUIET_HOURS_BODY_TEMPLATE above, this body is a plain string constant, not
-# a `%`-template - a manual toggle has no end time, so there is no value to
-# interpolate, and D-04 forbids inventing one (no "Back at HH:MM", no
-# countdown, no duration). The copy also deliberately withholds any of the
-# fault vocabulary SOURCE_FAULT_TEXT below already owns ("unavailable",
-# "error", "offline", "disconnected") - this is an intentional operator
-# action, not a genuine fault, and blurring the two is exactly the ambiguity
-# D-03 rejected the blank-field option to avoid. Do not localise; every
-# other panel string is English.
+# The remote display-off screen's locked English copy. Unlike
+# QUIET_HOURS_BODY_TEMPLATE above, this body is a plain string constant,
+# not a `%`-template - a manual toggle has no end time, so there is no
+# value to interpolate (no "Back at HH:MM", no countdown, no duration).
+# The copy also deliberately withholds any of the fault vocabulary
+# SOURCE_FAULT_TEXT below already owns ("unavailable", "error", "offline",
+# "disconnected") - this is an intentional operator action, not a genuine
+# fault, and blurring the two would be ambiguous. Do not localise.
 DISPLAY_OFF_HEADING_TEXT = "DISPLAY OFF"
-# 12-06 on-glass session: the developer read the screen on real ink and asked
-# for the break to fall after "page." rather than wherever the measured width
-# happens to land. The two sentences are the authored lines; DISPLAY_OFF_BODY_TEXT
-# stays the joined form so the locked-copy contract (D-04) is still one string to
-# assert against, byte-identical to what 12-02 shipped. _build_display_off_canvas()
-# wraps each sentence individually, so the semantic break is honoured while the
-# width safety net still catches a line that cannot fit.
+# Two authored sentences, the break falling after "page." rather than
+# wherever the measured width happens to land. DISPLAY_OFF_BODY_TEXT stays
+# the joined form so the locked copy is still one string to assert
+# against. _build_display_off_canvas() wraps each sentence individually,
+# so the semantic break is honoured while the width safety net still
+# catches a line that cannot fit.
 DISPLAY_OFF_BODY_LINES = (
     "Switched off from the companion page.",
     "Turn it back on there anytime.",
 )
 DISPLAY_OFF_BODY_TEXT = " ".join(DISPLAY_OFF_BODY_LINES)
 
-# 260923-fr4 (battery-empty-screen-before-the-pack-die): the BATTERY EMPTY
-# hold screen's locked English copy, following DISPLAY_OFF_HEADING_TEXT/
-# DISPLAY_OFF_BODY_LINES' own convention exactly - a fixed-string sibling,
-# not a %-template (there is no return time for a flat pack, same reasoning
-# as D-03/D-04's display-off body). Two authored sentences, joined form kept
-# for locked-copy equality checks, matching DISPLAY_OFF_BODY_TEXT's own
-# convention. English per the locked panel-copy decision; deliberately no
-# fault vocabulary ("unavailable", "error", "offline", "disconnected") - a
-# flat battery is expected, not a malfunction - and the second sentence
-# stays true because poll_loop resumes the frame on its own once a
-# recovering reading arrives, with no user action beyond charging.
+# The BATTERY EMPTY hold screen's locked English copy, following
+# DISPLAY_OFF_HEADING_TEXT/DISPLAY_OFF_BODY_LINES' own convention exactly -
+# a fixed-string sibling, not a %-template (there is no return time for a
+# flat pack). Deliberately no fault vocabulary ("unavailable", "error",
+# "offline", "disconnected") - a flat battery is expected, not a
+# malfunction - and the second sentence stays true because poll_loop
+# resumes the frame on its own once a recovering reading arrives, with no
+# user action beyond charging.
 BATTERY_EMPTY_HEADING_TEXT = "BATTERY EMPTY"
 BATTERY_EMPTY_BODY_LINES = (
     "Charge the frame over USB-C.",
@@ -366,19 +300,17 @@ BATTERY_EMPTY_BODY_LINES = (
 )
 BATTERY_EMPTY_BODY_TEXT = " ".join(BATTERY_EMPTY_BODY_LINES)
 
-# Quick task 260924-u7n (DEVICE-06, .planning/seeds/on-device-fault-icon.md):
-# the NO CONNECTION hold screen's locked English copy - same fixed-string
-# convention as DISPLAY_OFF_*/BATTERY_EMPTY_* (a joined-form *_BODY_TEXT
-# kept purely for the locked-copy equality-check convention those two set).
-# This screen is unique among the four: the server never renders it - the
-# firmware draws it entirely on its own (firmware/tools/gen_fault_screen.py
-# bakes this exact copy into firmware/main/fault_screen_mask.h at build
-# time), so changing either sentence here requires regenerating that header
-# or server/test_fault_screen_mask.py's drift test fails. English per the
-# locked panel-copy decision; the second sentence stays true because the
-# device retries on its own backoff schedule (app_main.c's fail_and_sleep())
-# and the server's real picture returns automatically on the first healthy
-# wake after recovery - no user action required.
+# The NO CONNECTION hold screen's locked English copy - same fixed-string
+# convention as DISPLAY_OFF_*/BATTERY_EMPTY_*. This screen is unique among
+# the four: the server never renders it - the firmware draws it entirely
+# on its own (firmware/tools/gen_fault_screen.py bakes this exact copy
+# into firmware/main/fault_screen_mask.h at build time), so changing
+# either sentence here requires regenerating that header or
+# server/test_fault_screen_mask.py's drift test fails. The second sentence
+# stays true because the device retries on its own backoff schedule
+# (app_main.c's fail_and_sleep()) and the server's real picture returns
+# automatically on the first healthy wake after recovery - no user action
+# required.
 NO_CONNECTION_HEADING_TEXT = "NO CONNECTION"
 NO_CONNECTION_BODY_LINES = (
     "The frame can't reach its server.",
@@ -386,35 +318,27 @@ NO_CONNECTION_BODY_LINES = (
 )
 NO_CONNECTION_BODY_TEXT = " ".join(NO_CONNECTION_BODY_LINES)
 
-# --- The dimmed hold composition (revised on real glass, 12-06 session) ---------
-# Shared by the two "resting on purpose" screens, DISPLAY OFF and QUIET HOURS,
-# and drawn by one routine (_build_dimmed_hold_canvas()) so the two share
-# their art direction by construction rather than by copy.
+# --- The dimmed hold composition ------------------------------------------
+# Shared by the two "resting on purpose" screens, DISPLAY OFF and QUIET
+# HOURS, and drawn by one routine (_build_dimmed_hold_canvas()) so the two
+# share their art direction by construction rather than by copy.
 #
-# Origin: the developer read 12-02's DISPLAY OFF - flat White, 72px Bold
-# heading, the same shape as QUIET HOURS - on the panel and asked for
-# something more elegant. Five compositions were sketched with these
-# primitives and the developer chose a blend of two: the editorial typography
-# of one (a glyph, then a tracked label in the frame's own label voice over a
-# short hairline rule, then the body) on the dimmed field of the other (Black
-# dithered toward White, the Grey theme's own on-glass-validated recipe, white
-# ink). Validated on real Spectra 6 glass on all three named points: the field
-# reads as a soft even grey, the Regular white body holds at 40px, and the
-# Bold-class label, rule and glyph are crisp. The developer then asked for
-# QUIET HOURS to be reworked in the same direction.
+# The composition: a glyph, then a tracked label in the frame's own label
+# voice over a short hairline rule, then the body, on a dimmed field
+# (Black dithered toward White, the Grey theme's own recipe, white ink).
+# Validated on real Spectra 6 glass: the field reads as a soft even grey,
+# the Regular white body holds at 40px, and the Bold-class label, rule and
+# glyph are crisp.
 #
 # The field is the load-bearing choice, and it makes the hold screens a
 # system: DARK means the frame is resting on purpose (off, quiet hours);
 # WHITE means it is working (the empty state, the flight boards). The two
-# dark screens then tell apart by glyph - power ring versus crescent - which
-# carries further across a room than two bold headings ever did. This is a
-# deliberate revision of 12-CONTEXT.md D-03's "same shape as quiet hours"
-# default, taken by choice at the developer's request on glass, not by way of
-# the UI-SPEC's escalation ladder.
+# dark screens then tell apart by glyph - power ring versus crescent -
+# which carries further across a room than two bold headings ever did.
 #
-# Bold for the label, not Regular: thin white strokes drown in dither noise,
-# which is why the Grey theme itself ships `weight: bold`. The body is Regular
-# at 40px (EMPTY_BODY_FONT) - confirmed legible on glass in the 12-06 session.
+# Bold for the label, not Regular: thin white strokes drown in dither
+# noise, which is why the Grey theme itself ships `weight: bold`. The body
+# is Regular at 40px (EMPTY_BODY_FONT) - confirmed legible on glass.
 DIMMED_FIELD_IDX = IDX_BLACK
 DIMMED_INK = IDX_WHITE
 DIMMED_LABEL_FONT = (PT_SERIF_BOLD, 40, 700)
@@ -424,116 +348,72 @@ DIMMED_RULE_HEIGHT_PX = 4
 DIMMED_BODY_FONT = EMPTY_BODY_FONT
 DIMMED_BODY_LINE_GAP_PX = 6
 
-# CFG-05 (D-06 seed .planning/seeds/on-device-fault-icon.md): the source-
-# fault alert badge's caption - short, English (D-23), and pointing at the
-# companion page, which is where an all-sources-down outage is actually
-# diagnosed (06-UI-SPEC.md). SOURCE_FAULT_GLYPH_PX is deliberately small -
-# see draw_source_fault_badge()'s own docstring for why the badge's area
-# must stay small enough that _assert_legal_palette()'s background-
-# dominance assertion still holds.
+# The source-fault alert badge's caption - short, English, and pointing at
+# the companion page, which is where an all-sources-down outage is
+# actually diagnosed. SOURCE_FAULT_GLYPH_PX is deliberately small - see
+# draw_source_fault_badge()'s own docstring for why the badge's area must
+# stay small enough that _assert_legal_palette()'s background-dominance
+# assertion still holds.
 SOURCE_FAULT_TEXT = "ADS-B source unavailable — check the companion page"
 SOURCE_FAULT_GLYPH_PX = 28
 
-# --- D-26 frame + layout geometry -------------------------------------------
+# --- Frame + layout geometry ------------------------------------------
 FRAME_INSET_FRAC = 0.025  # ~2.5% of canvas WIDTH, inset from every edge
 FRAME_STROKE_PX = 2
 
 MAIN_ILLUSTRATION_WIDTH_FRAC = 0.87  # of the inner (post-frame-inset) canvas width
-# Of canvas height. Corrected from MAIN_ILLUSTRATION_TOP_FRAC (0.30 - a
-# fraction applied to the SOURCE RECTANGLE's top, computed before the file
-# was even loaded) to a fraction of the PAINTED CONTENT's centre - quick task
-# 260902-req, the sixth position anchor the illustration-crop-text-margin
-# debug session missed (that session converted the other five: main
-# horizontal centring, the previous card's right-alignment and vertical
-# centring, and both text blocks' vertical gaps). Top transparent padding
-# spans 6-124px across the 43 vendored files (spread 118px), so the
-# rectangle-top anchor put the aircraft's visible vertical centre anywhere
-# from y=621.0 (air-caraibes-atr72.png) to y=741.5 (generic-a330.png) - a
-# 120.5px drift purely by which airline was flying, the developer's reported
-# "inconsistent aircraft centering". 0.4006 is the fraction at which
-# air-france.png - 03-UI-SPEC.md's own confirmed reference render - lands on
-# the exact same row it did before (visible centre 641.0 either way), so the
-# approved on-glass look is preserved while the per-file drift is removed
-# (post-fix spread 0.5px, measured across all 43 files). SIZING still
-# derives from `.rect` (unchanged - see the sizing note on the previous
-# card's own placement, `_build_active_canvas()` below); only POSITION now
+# Of canvas height. This is a fraction of the illustration's PAINTED
+# CONTENT centre, not its source rectangle: top transparent padding varies
+# per vendored file (6-124px across the illustration set), so anchoring on
+# the rectangle top would drift the aircraft's visible vertical centre by
+# over 100px depending purely on which airline is flying. Anchoring on
+# painted-pixel centre keeps every illustration file landing on the same
+# row (sub-pixel spread, measured across the full illustration set).
+# SIZING still derives from `.rect` (see the sizing note on the previous
+# card's own placement, `_build_active_canvas()` below); only POSITION
 # follows painted pixels.
 MAIN_ILLUSTRATION_CENTER_Y_FRAC = 0.4006
 MAIN_LINE_GAP_PX = 8  # gap between main line 1's bottom and line 2's top
 
 PREVIOUS_ILLUSTRATION_WIDTH_FRAC = 0.57  # of the MAIN illustration's own rendered width
-# Of canvas height. Corrected 0.76 -> 0.7528 when the previous card's vertical
-# centring moved from its source rectangle to its painted pixels: because the
-# drop-shadow band makes bottom padding always exceed top padding, centring the
-# rectangle put the visible aircraft 5.5-28.5px ABOVE this line, always high,
-# by a per-file amount. 0.7528 is the fraction at which the sketch-era
-# vueling-airlines.png render lands on the exact same row it did before
-# (prev_top = 1118 either way), so the confirmed D-26 composition is preserved
-# while the per-file drift is removed.
+# Of canvas height. Anchored on the previous card's painted-pixel centre
+# rather than its source rectangle: the drop-shadow band makes bottom
+# padding always exceed top padding, so centring the rectangle would push
+# the visible aircraft consistently high by a per-file amount.
 PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC = 0.7528
 PREVIOUS_LINE_GAP_PX = 34  # line 2's top below line 1's own TOP (not bottom)
 
-# D-12 (Phase 8 08-04): the previous card's two text lines are right-aligned
-# this many pixels LEFT of the aircraft's measured opaque right edge
-# (prev_placement.content[2]) - an intentional optical correction on top of
-# a measurement that was already exact, not a fix to the measurement itself.
-# Direct pixel instrumentation confirmed the unshifted anchor lands exactly
-# on the measured opaque right edge with zero delta - the anchor was never
-# wrong. The correction compensates for a human-perception effect instead:
-# the aircraft's rightmost painted pixel typically sits on a thin raked
-# tail-fin tip, not on the visual mass of the fuselage the eye actually
-# anchors on, so text right-aligned to the true edge reads as floating
-# slightly right of where the aircraft "is". Tuned live with the developer
-# from 15px (`.planning/spikes/001-panel-theme-colours/renders/
-# 96-prev-text-nudged-left-15px.png`, rejected as not quite enough) to 20px
-# (`97-prev-text-nudged-left-20px.png`, confirmed). Tuned against one
-# illustration file only - plan 08-05 does a wider spot-check and plan
-# 08-06 confirms it on real glass.
+# The previous card's two text lines are right-aligned this many pixels
+# LEFT of the aircraft's measured opaque right edge
+# (prev_placement.content[2]) - an intentional optical correction, not a
+# fix to the measurement itself. The aircraft's rightmost painted pixel
+# typically sits on a thin raked tail-fin tip, not on the visual mass of
+# the fuselage the eye actually anchors on, so text right-aligned to the
+# true edge reads as floating slightly right of where the aircraft "is".
 PREVIOUS_TEXT_LEFT_OFFSET_PX = 20
 
-# --- Aircraft-to-text gaps (debug session illustration-crop-text-margin) ----
-# Both constants are measured from the illustration's OPAQUE-PIXEL bottom edge
-# (`IllustrationPlacement.content`), never from the source PNG's full rectangle.
-#
-# WHY THIS CHANGED. D-26 originally specified `MAIN_TEXT_OVERLAP_PX = 20` as a
-# "deliberate slight overlap", justified by "the vendored illustration files
-# have no transparent bottom padding of their own, confirmed via
-# Image.getbbox()". That justification measured the wrong quantity, and the
-# constant never overlapped anything. Every vendored file carries a soft
-# drop-shadow band (alpha 1..127) below the aircraft. `Image.getbbox()` counts
-# those faint pixels as content; `draw_illustration()` hard-thresholds them away
-# (`p > 127`, for the unrelated 03-RESEARCH.md Pitfall 2 reason) and never
-# paints one of them. Measured across all 43 vendored files, the two disagree by
-# a 5..261px band, and the resulting real aircraft-to-text gap ranged from 17px
-# to 154px depending purely on which airline was flying - the reported bug.
-#
-# HOW THE VALUES ARE DERIVED. Both are the real, measured gap in the exact
-# render the developer confirmed during the D-26 sketch pass, recomputed against
-# the pixels that are actually painted. The sketch used render.py's own CLI
-# preview defaults (`_PREVIEW_ROUTE` Air France, `_PREVIEW_PREVIOUS_ROUTE`
-# Vueling Airlines); both files at commit 73a6eb2 report a naive
-# `Image.getbbox()` bottom padding of exactly 0, which is how the false claim
-# arose:
-#   main:     air-france.png       resized to 992px wide -> 74px opaque bottom
-#             padding; approved gap = 74 - 20 (the old overlap) = 54px
-#   previous: vueling-airlines.png resized to 565px wide -> 25px opaque bottom
-#             padding; approved gap = 25 + 22 (the old gap)    = 47px
-# So the confirmed look is preserved; only its per-file variance is removed.
+# --- Aircraft-to-text gaps ---------------------------------------------
+# Both constants are measured from the illustration's OPAQUE-PIXEL bottom
+# edge (`IllustrationPlacement.content`), never from the source PNG's full
+# rectangle: every vendored file carries a soft drop-shadow band
+# (alpha 1..127) below the aircraft, which `draw_illustration()`
+# hard-thresholds away (`p > 127`) and never paints. Measuring from the
+# full rectangle instead would let the real aircraft-to-text gap vary by
+# over 100px purely by which airline is flying, since the drop-shadow
+# band's size differs per vendored file.
 MAIN_TEXT_GAP_PX = 54  # main text top = main illustration's OPAQUE bottom + this
 PREVIOUS_TEXT_GAP_PX = 47  # previous text top = its OPAQUE bottom + this
 
-# --- Phase 9 PHASE9-1: diagonal band geometry, ported verbatim from spike
-# 003-diagonal-band-theme's `draw_reference_band()`. Measured from the
-# developer's reference image via per-row pixel scanning + linear
-# regression (spike round 2/11), confirmed final at round 15 ("oui !",
-# .planning/spikes/003-diagonal-band-theme/README.md). A trapezoid, not a
-# parallelogram: the top and bottom edges span different fractions of the
-# canvas width. `BAND_SHIFT_FRAC` is the reference's own unshifted, as-
-# measured position (0.0) - round 11 found that splitting the top-right tag
-# (see `_BAND_TOP_LABEL_DIRECTION`/`draw_top_labels()` below) already clears
-# both the shorter tag and the below-illustration text with margin, so no
-# extra shift is needed. `BAND_BOT_LEFT_FRAC` is floored at 0.0 as a defensive
-# guard against a future negative shift walking the polygon off-canvas.
+# --- Diagonal band geometry ---------------------------------------------
+# Measured from the reference image via per-row pixel scanning + linear
+# regression. A trapezoid, not a parallelogram: the top and bottom edges
+# span different fractions of the canvas width. `BAND_SHIFT_FRAC` is the
+# reference's own unshifted, as-measured position (0.0) - splitting the
+# top-right tag (see `_BAND_TOP_LABEL_DIRECTION`/`draw_top_labels()`
+# below) already clears both the shorter tag and the below-illustration
+# text with margin, so no extra shift is needed. `BAND_BOT_LEFT_FRAC` is
+# floored at 0.0 as a defensive guard against a future negative shift
+# walking the polygon off-canvas.
 BAND_SHIFT_FRAC = 0.0
 BAND_TOP_LEFT_FRAC = 0.5818 + BAND_SHIFT_FRAC
 BAND_TOP_RIGHT_FRAC = 0.8523 + BAND_SHIFT_FRAC
@@ -542,23 +422,18 @@ BAND_BOT_RIGHT_FRAC = 0.4772 + BAND_SHIFT_FRAC
 
 
 def draw_diagonal_band(canvas, band_idx, dithered=False):
-    """Paint the Phase 9 diagonal trapezoid band directly onto `canvas`, in
+    """Paint the diagonal trapezoid band directly onto `canvas`, in
     `band_idx`'s colour - flat or dithered ~40% toward White depending on
     `dithered`. `band_idx` must be one of the 6 legal `panel_format.IDX_*`
     values (never a bare integer), so `_assert_legal_palette()` downstream
     stays satisfied.
 
     MUST be called before any text/illustration drawing, so the band sits
-    behind everything else on the canvas - matching D-24's already-proven
-    "illustrations occlude the band naturally" behaviour from the spike.
+    behind everything else on the canvas and illustrations occlude it
+    naturally.
 
-    Geometry is measured from the developer's reference image and confirmed
-    final at spike round 15 - see the `BAND_*_FRAC` constants above for the
-    full provenance. This is a verbatim, renamed port of the spike's
-    `draw_reference_band()`: no geometry or drawing-logic change, just moving
-    it from a monkeypatch into a real production function that operates
-    directly on the caller's canvas (no return value - the caller already
-    holds the canvas reference).
+    Geometry is measured from the reference image - see the `BAND_*_FRAC`
+    constants above.
     """
     w, h = canvas.size
     poly = [
@@ -594,27 +469,22 @@ def _band_center_x(canvas_y, w):
     same linear interpolation `draw_diagonal_band()`'s own polygon corners
     already use), so this is a function of `y`, not a constant.
 
-    Verbatim port of spike 003-diagonal-band-theme's `_band_center_x()`
-    (round 12, confirmed final at round 15 - see
-    `.planning/spikes/003-diagonal-band-theme/README.md`). Callers must
-    compute this ONCE per text block, at the block's top y, and reuse that
-    single value for every line - round 12 introduced a since-fixed bug
-    where recomputing this per line produced a visibly staggered column
-    instead of one aligned centre (round 15's fix, see
+    Callers must compute this ONCE per text block, at the block's top y,
+    and reuse that single value for every line - recomputing it per line
+    produces a visibly staggered column instead of one aligned centre (see
     `draw_main_text_block()`'s band branch).
     """
     left_x, right_x = _band_edges(canvas_y, w)
     return (left_x + right_x) / 2
 
 
-# --- D-04/D-06/D-07 battery-low icon geometry (05-UI-SPEC.md, 05-02-PLAN.md)
-# The two POSITION constants (LEFT/BOTTOM) still derive from MARGIN, unchanged
-# since 05-02. The four SIZE constants are a uniform round(original * 0.7)
-# reduction of their former spacing-scale values - a live on-glass correction
-# (260828-0qo, quick task) applied after the developer saw the original
-# (72x32-nominal) glyph on the real Spectra 6 panel and judged it too large.
-# Total bounding box is now (64, 1514, 115, 1536) - see draw_battery_icon()'s
-# docstring for the full geometry derivation.
+# --- Battery-low icon geometry ------------------------------------------
+# The two POSITION constants (LEFT/BOTTOM) derive from MARGIN. The four
+# SIZE constants are a uniform round(original * 0.7) reduction of their
+# former spacing-scale values, after the original (72x32-nominal) glyph
+# read too large on the real Spectra 6 panel. Total bounding box is
+# (64, 1514, 115, 1536) - see draw_battery_icon()'s docstring for the full
+# geometry derivation.
 BATTERY_ICON_LEFT = MARGIN  # 64 - same left inset as the top-row labels
 BATTERY_ICON_BOTTOM = HEIGHT - MARGIN  # 1536 - same bottom inset, mirrored
 BATTERY_ICON_BODY_W = 45  # round(SPACE_LG * 0.7) = round(64 * 0.7) = round(44.8)
@@ -626,7 +496,7 @@ BATTERY_ICON_NUB_H = 11  # round(SPACE_SM * 0.7) = round(16 * 0.7) = round(11.2)
 BATTERY_ICON_STROKE_PX = 2  # round(3 * 0.7) = round(2.1); now equal to FRAME_STROKE_PX,
 # held there as the e-ink legibility floor - the reduction stops here rather
 # than continuing toward an illegible 1px hairline.
-BATTERY_ICON_FILL_FRAC = 0.22  # bespoke: a fixed "low" glyph, not a live gauge (05-UI-SPEC.md) - unchanged, a ratio not a pixel size
+BATTERY_ICON_FILL_FRAC = 0.22  # bespoke: a fixed "low" glyph, not a live gauge - a ratio, not a pixel size
 
 _font_cache = {}
 
@@ -659,10 +529,7 @@ def _tracked_text_width(font, text, tracking):
     """Return the total rendered advance of `text` at `font`, with `tracking`
     extra pixels inserted between every pair of adjacent glyphs (never after
     the last one - a single glyph carries no trailing tracking). 0.0 for an
-    empty string. Ported verbatim from commit 73a6eb2^ (deleted by that
-    commit's two-flight poster redesign because the redesign changed the
-    zone, not because tracking failed - see LABEL_TRACKING_PX's provenance
-    comment above).
+    empty string.
     """
     if not text:
         return 0.0
@@ -671,19 +538,17 @@ def _tracked_text_width(font, text, tracking):
 
 def draw_tracked_text(draw, xy, text, font, fill, tracking=0):
     """Draw `text` glyph-by-glyph with `tracking` extra pixels of advance
-    between each glyph - Pillow has no native letter-spacing/tracking API,
-    per 02-UI-SPEC.md's Typography note. `xy` is the top-left origin of the
-    first glyph; callers wanting right- or centre-aligned tracked text
-    should pre-compute the block width with `_tracked_text_width()` and
-    offset `xy` accordingly. Returns the x-coordinate immediately after the
-    last glyph drawn (`start_x + _tracked_text_width(...) + tracking`).
+    between each glyph - Pillow has no native letter-spacing/tracking API.
+    `xy` is the top-left origin of the first glyph; callers wanting right-
+    or centre-aligned tracked text should pre-compute the block width with
+    `_tracked_text_width()` and offset `xy` accordingly. Returns the
+    x-coordinate immediately after the last glyph drawn
+    (`start_x + _tracked_text_width(...) + tracking`).
 
-    Ported verbatim from commit 73a6eb2^, with one deliberate difference:
-    `anchor="la"` is now passed explicitly on each glyph draw. The original
-    relied on Pillow's implicit default (which is "la" for horizontal text,
-    so this is behaviourally identical) - explicit here because the test
-    harness spies on the anchor kwarg, and leaving it implicit would make
-    that assertion read `None`.
+    `anchor="la"` is passed explicitly on each glyph draw because the test
+    harness spies on the anchor kwarg, and leaving it implicit (Pillow's
+    default for horizontal text is already "la") would make that assertion
+    read `None`.
     """
     x, y = xy
     for ch in text:
@@ -695,8 +560,7 @@ def draw_tracked_text(draw, xy, text, font, fill, tracking=0):
 def _tracked_text_bbox(font, xy, text, tracking):
     """`draw.textbbox()`'s counterpart for tracked text: `ImageDraw.textbbox()`
     measures an untracked run and would under-report the width of a tracked
-    one, so `_assert_within_canvas()` must be fed this instead. Ported
-    verbatim from commit 73a6eb2^.
+    one, so `_assert_within_canvas()` must be fed this instead.
     """
     x, y = xy
     width = _tracked_text_width(font, text, tracking)
@@ -755,10 +619,9 @@ def _assert_in_safe_box(bbox, label):
 def _assert_within_canvas(bbox, label):
     """Looser guard rail than _assert_in_safe_box(): only asserts the
     element does not fall off the 1200x1600 canvas entirely. Used for the
-    frame, the illustrations, and the flight text blocks below them - D-26's
-    live-approved layout deliberately sits some of these inside the old
-    64px SAFE_BOX band (see the module docstring's "not yet verified
-    against the real physical bezel" note).
+    frame, the illustrations, and the flight text blocks below them, which
+    deliberately sit inside the old 64px SAFE_BOX band (see the module
+    docstring's "not yet verified against the real physical bezel" note).
     """
     left, top, right, bottom = bbox
     assert left >= 0 and top >= 0 and right <= WIDTH and bottom <= HEIGHT, (
@@ -788,9 +651,9 @@ def _wrap_text(font, text, max_width):
 
 
 def draw_frame(canvas, ink_idx):
-    """D-26: a thin `ink_idx`-coloured rectangle outline, `FRAME_STROKE_PX`
-    wide, inset `FRAME_INSET_FRAC` of the canvas width from every edge.
-    Returns the frame's own bounding box.
+    """A thin `ink_idx`-coloured rectangle outline, `FRAME_STROKE_PX` wide,
+    inset `FRAME_INSET_FRAC` of the canvas width from every edge. Returns
+    the frame's own bounding box.
     """
     inset = round(WIDTH * FRAME_INSET_FRAC)
     box = (inset, inset, WIDTH - inset, HEIGHT - inset)
@@ -799,29 +662,28 @@ def draw_frame(canvas, ink_idx):
 
 
 def draw_source_fault_badge(canvas, ink_idx, weight="bold"):
-    """CFG-05: draw a small triangular alert glyph (outline + exclamation
-    stroke) with `SOURCE_FAULT_TEXT` beside it, bottom-centre inside the
-    frame `draw_frame()` returns. Uses `ink_idx` only - `ImageDraw.polygon()`
-    and `ImageDraw.line()` calls, never a new palette index - so the badge
-    can never introduce an illegal index regardless of the active theme.
-    The badge's combined bounding box (glyph + caption) is deliberately
-    small, so `_assert_legal_palette()`'s "bg_idx is the single most common
-    index" dominance assertion still holds for every state and theme; a
-    later enlargement of this badge is a conscious decision, not an
-    accident inherited from this implementation.
+    """Draw a small triangular alert glyph (outline + exclamation stroke)
+    with `SOURCE_FAULT_TEXT` beside it, bottom-centre inside the frame
+    `draw_frame()` returns. Uses `ink_idx` only - `ImageDraw.polygon()` and
+    `ImageDraw.line()` calls, never a new palette index - so the badge can
+    never introduce an illegal index regardless of the active theme. The
+    badge's combined bounding box (glyph + caption) is deliberately small,
+    so `_assert_legal_palette()`'s "bg_idx is the single most common index"
+    dominance assertion still holds for every state and theme; a later
+    enlargement of this badge is a conscious decision, not an accident
+    inherited from this implementation.
 
     Driven only by `poll_loop.py`'s all-providers-failed classification
     (derived from `detect.poll_current_aircraft()`'s diagnostics dict) -
     see `render_panel()`'s own docstring for the rule that makes this
-    requirement correct rather than a false-alarm trap (T-06-06-02,
-    `.planning/seeds/on-device-fault-icon.md`).
+    requirement correct rather than a false-alarm trap.
 
-    `weight` (Phase 8 code-review WR-01): the caption is an active-state
-    text role like any other, so it must resolve its PT Serif weight from
-    the active theme via `_role_font()` rather than hardcoding Bold - the
-    same "très agressif on White" on-glass finding that made every other
-    role theme-conditional applies here too. Defaults to `"bold"` only
-    because `_build_empty_canvas()`'s call site is deliberately not
+    `weight`: the caption is an active-state text role like any other, so
+    it must resolve its PT Serif weight from the active theme via
+    `_role_font()` rather than hardcoding Bold - Bold reads as needlessly
+    heavy on the White theme, the same reason every other role is
+    theme-conditional. Defaults to `"bold"` only because
+    `_build_empty_canvas()`'s call site is deliberately not
     theme-dependent (it already mixes weights on its own heading/body
     text) and passes that literal explicitly rather than relying on the
     default; `_build_active_canvas()` passes its own resolved `weight`.
@@ -871,7 +733,7 @@ def draw_source_fault_badge(canvas, ink_idx, weight="bold"):
     )
     # A zero-length ImageDraw.line() paints a single pixel regardless of
     # `width` - Pillow doesn't expand a degenerate segment - so the dot is
-    # drawn as a small filled ellipse instead (code-review WR-02).
+    # drawn as a small filled ellipse instead.
     dot_r = 2
     dot_y = top + glyph_size * 0.8
     draw.ellipse(
@@ -884,22 +746,21 @@ def draw_source_fault_badge(canvas, ink_idx, weight="bold"):
 
 
 def draw_battery_icon(canvas, draw, ink_idx):
-    """D-04/D-06: a bottom-left battery glyph - a hollow outlined body with a
-    small solid terminal nub and a left-aligned solid partial fill,
-    signalling a fixed "low" reading rather than a live gauge. Own dedicated
-    bottom-left zone (D-05) - the one area of the locked two-flight layout
-    with no existing element, and the visual counterweight to the
-    bottom-right previous-flight card; never reuses, displaces, or resizes
-    the top-left state label or the top-right runway tag (CFG-12 made that
-    tag runway-dependent; this icon's zone is unaffected either way). It is
-    also horizontally clear of the CFG-05 source-fault badge, which is
-    centred on the same bottom band - see draw_source_fault_badge().
+    """A bottom-left battery glyph - a hollow outlined body with a small
+    solid terminal nub and a left-aligned solid partial fill, signalling a
+    fixed "low" reading rather than a live gauge. Own dedicated
+    bottom-left zone - the one area of the locked two-flight layout with
+    no existing element, and the visual counterweight to the bottom-right
+    previous-flight card; never reuses, displaces, or resizes the top-left
+    state label or the top-right runway tag. It is also horizontally clear
+    of the source-fault badge, which is centred on the same bottom band -
+    see draw_source_fault_badge().
 
     All geometry derives from the BATTERY_ICON_* module constants (the two
     position constants from MARGIN, the four size constants from a uniform
-    0.7 reduction of their former spacing-scale values - 260828-0qo) - no ad
-    hoc magic numbers. Draws three flat integer-palette-index rectangles: the
-    body as a BATTERY_ICON_STROKE_PX-wide outline, the nub filled solid, and
+    0.7 reduction of their former spacing-scale values) - no ad hoc magic
+    numbers. Draws three flat integer-palette-index rectangles: the body
+    as a BATTERY_ICON_STROKE_PX-wide outline, the nub filled solid, and
     the fill box filled solid - square corners, no rounded-rectangle
     primitive, no antialiasing parameters. These box tuples are Pillow's
     inclusive corner coordinates, matching draw_frame()'s own convention: the
@@ -926,9 +787,9 @@ def draw_battery_icon(canvas, draw, ink_idx):
     fill = (interior_left, interior_top, interior_left + fill_w, interior_bottom)
 
     total = (BATTERY_ICON_LEFT, body_top, nub_right, BATTERY_ICON_BOTTOM)
-    # Looser canvas guard, not the strict safe-box guard (05-UI-SPEC.md): this
-    # element sits inside the old 64px band's bottom-left corner
-    # deliberately, exactly like the frame and both illustrations already do.
+    # Looser canvas guard, not the strict safe-box guard: this element sits
+    # inside the old 64px band's bottom-left corner deliberately, exactly
+    # like the frame and both illustrations already do.
     _assert_within_canvas(total, "battery icon")
 
     draw.rectangle(body, outline=ink_idx, width=BATTERY_ICON_STROKE_PX)
@@ -937,37 +798,15 @@ def draw_battery_icon(canvas, draw, ink_idx):
     return total
 
 
-# A small solid backing-plate rectangle used to be painted behind every text
-# run here (added Phase 7 07-01, after the state background became a
-# dithered lighten-toward-White blend and its scattered White speckle
-# visibly hurt legibility right behind white-ink text - a real on-glass
-# finding, not a style choice). Phase 8 (D-05) removes that mechanism
-# entirely, on every theme, substituting nothing: the plate itself is a
-# taste target the developer wanted gone, and D-06's font-weight switch (see
-# the typography block above) takes over its legibility job with a heavier
-# stroke instead. A stroke outline (1/2/3px) and an offset drop-shadow were
-# both spiked as replacements and both read as legible, but both were
-# rejected by the developer on visual grounds before font weight was tried
-# - see `.planning/spikes/001-panel-theme-colours/README.md` and
-# `server/assets/fonts/VENDOR.md`'s PT Serif supersession note for the full
-# record, so neither is re-litigated here without new information.
-
-
 def draw_top_labels(
     canvas, state, ink_idx, bg_idx, weight, runway_id=device_config.DEFAULT_RUNWAY_ID, band_theme=False
 ):
-    """D-26 top row: the state label (top-left) and the CFG-12 runway tag
-    (top-right, `runway_tag_text(runway_id)`), at the small sizes D-26
-    confirmed (20px/18px, unchanged), both at the existing `MARGIN` inset
-    (inside the frame, not on it). Both roles are drawn with
-    `LABEL_TRACKING_PX` (6px) of letter-spacing via `draw_tracked_text()` -
-    spike 002a's validated finding, independently re-confirming Phase 3's
-    own removed `LABEL_TRACKING_PX` (D-15). This is **screen-preview-
-    validated only** - tracking has never been checked against real
-    Spectra 6 ink at any point in this project's history
-    (`hardware/BRINGUP-LOG.md` has no mention of it, even though the same
-    technique shipped once before in Phase 2/3); an on-glass check remains
-    OPEN under this project's D-13 precedent.
+    """Top row: the state label (top-left) and the runway tag (top-right,
+    `runway_tag_text(runway_id)`), at the confirmed small sizes (20px/18px),
+    both at the existing `MARGIN` inset (inside the frame, not on it). Both
+    roles are drawn with `LABEL_TRACKING_PX` (6px) of letter-spacing via
+    `draw_tracked_text()`. This is **screen-preview-validated only** -
+    tracking has never been checked against real Spectra 6 ink.
 
     The runway tag is right-anchored, but tracked text has no Pillow
     `anchor="ra"` equivalent (tracking is applied glyph-by-glyph by hand) -
@@ -977,8 +816,7 @@ def draw_top_labels(
     `weight` (`device_config.theme_weight()`'s return value) selects each
     role's PT Serif weight via `_role_font()` - not derivable from `bg_idx`
     alone, since the same index can back both a Regular and a Bold theme
-    (08-06 on-glass finding, widened same session; see `_role_weight_path()`).
-    `bg_idx` itself is retained per D-05's original note here - still no
+    (see `_role_weight_path()`). `bg_idx` itself is retained - still no
     direct use in this function beyond being available to callers/future
     roles.
 
@@ -993,7 +831,7 @@ def draw_top_labels(
     margin at `BAND_SHIFT_FRAC=0.0` (no shift needed). Both halves are
     derived from `runway_tag_text(runway_id)`'s real return value via
     `.partition(" · ")` - never a hardcoded "ORY"/"RWY 3" literal, so a
-    future runway selection (CFG-12, "06-24"/"02-20") splits correctly too.
+    future runway selection ("06-24"/"02-20") splits correctly too.
     """
     draw = ImageDraw.Draw(canvas)
     label_font = _role_font(STATE_LABEL_FONT, weight)
@@ -1012,13 +850,13 @@ def draw_top_labels(
     # font glyph metrics can carry a 1-2px negative left/right bearing at
     # these small sizes (e.g. PT Serif's "A" at 20px), which would fail a
     # pixel-exact 64px boundary despite the text visually sitting exactly
-    # at MARGIN as D-26 specifies - see the module docstring's note on why
-    # the old "inviolable" SAFE_BOX is not enforced pixel-exactly here.
+    # at MARGIN - see the module docstring's note on why the old
+    # "inviolable" SAFE_BOX is not enforced pixel-exactly here.
     #
     # Both bbox measurements below use _tracked_text_bbox(), not
     # draw.textbbox(): the latter measures an untracked run and would
     # under-report a tracked one's width, silently stopping the guard from
-    # protecting anything (T-njw-02).
+    # protecting anything.
     label_bbox = _tracked_text_bbox(label_font, (MARGIN, MARGIN), label_text, LABEL_TRACKING_PX)
     _assert_within_canvas(label_bbox, "state label")
     draw_tracked_text(draw, (MARGIN, MARGIN), label_text, label_font, ink_idx, tracking=LABEL_TRACKING_PX)
@@ -1032,13 +870,12 @@ def draw_top_labels(
 
 def _illustration_over_pixel_cap(path):
     """Render-path counterpart of `illustrations.validate_illustration_file()`'s
-    header-first pixel cap (T-03-03-01 / T-03.1-05-01): return `True` when
-    `path`'s PNG header declares more than `illustrations.ILLUSTRATION_MAX_PIXELS`
-    pixels, or when the header cannot even be read (missing, garbage,
-    unreadable) - a file this plan's caller should move past rather than
-    attempt to decode. `Image.open()` is lazy - it parses the header
-    without decoding pixel data - which is the whole point: this check
-    never triggers a full decode.
+    header-first pixel cap: return `True` when `path`'s PNG header declares
+    more than `illustrations.ILLUSTRATION_MAX_PIXELS` pixels, or when the
+    header cannot even be read (missing, garbage, unreadable) - a file the
+    caller should move past rather than attempt to decode. `Image.open()`
+    is lazy - it parses the header without decoding pixel data - which is
+    the whole point: this check never triggers a full decode.
 
     Deliberately checks only the pixel count, not
     `validate_illustration_file()`'s other vendor-time quality rules
@@ -1061,13 +898,8 @@ def _load_illustration_safely(path, target_w):
     `illustrations.generic_fallback_path()` - and returning `None` once the
     ladder is exhausted. Never raises, for any input, including `None`.
 
-    This restores the degradation ladder 03-03-PLAN.md's must-have and
-    threat T-03-03-02 specified, whose original home
-    (`draw_silhouette()`'s enclosing try/except) was removed by the
-    D-25/D-26 two-flight redesign and never replaced (03-VERIFICATION.md).
-    The last resort is no longer a redrawn silhouette but D-08's
-    `generic-fallback.png`, and then "no illustration at all" - matching
-    the already-correct missing-directory degradation.
+    The last resort is `generic-fallback.png`, and then "no illustration
+    at all" - matching the already-correct missing-directory degradation.
 
     `_load_illustration_safely(None, w)` behaves exactly as today's
     `select_illustration()` returning `None` did end to end: the generic
@@ -1157,23 +989,23 @@ def _resize_illustration(path, target_w):
 
 ILLUSTRATION_ALPHA_THRESHOLD = 127
 """Alpha strictly greater than this is painted; anything at or below it is
-discarded entirely. Named (not inlined twice) so `_threshold_alpha()` and every
-opaque-bbox measurement provably use one number - a drift between "what we
-paint" and "what we measure" is precisely the bug the debug session
-`illustration-crop-text-margin` diagnosed."""
+discarded entirely. Named (not inlined twice) so `_threshold_alpha()` and
+every opaque-bbox measurement provably use one number - a drift between
+"what we paint" and "what we measure" would make the aircraft-to-text gap
+vary per illustration file."""
 
 
 def _threshold_alpha(resized_rgba):
     """Return `resized_rgba`'s alpha channel hard-thresholded to strictly
     binary (0 or 255) at `ILLUSTRATION_ALPHA_THRESHOLD`.
 
-    03-RESEARCH.md Pitfall 2 (verified live): a soft/gradient alpha mask
-    blends palette INDEX INTEGERS during paste(), not colors, and produces
-    illegal in-between indices - so the mask handed to paste() must be
-    strictly binary. Every vendored illustration also carries a soft
-    drop-shadow band (alpha 1..127) below the aircraft, which this threshold
-    discards; `_opaque_bbox()` therefore measures against this same mask so
-    layout and painting can never disagree about where the aircraft ends.
+    A soft/gradient alpha mask blends palette INDEX INTEGERS during
+    paste(), not colors, and produces illegal in-between indices - so the
+    mask handed to paste() must be strictly binary. Every vendored
+    illustration also carries a soft drop-shadow band (alpha 1..127) below
+    the aircraft, which this threshold discards; `_opaque_bbox()`
+    therefore measures against this same mask so layout and painting can
+    never disagree about where the aircraft ends.
     """
     return resized_rgba.getchannel("A").point(
         lambda p: 255 if p > ILLUSTRATION_ALPHA_THRESHOLD else 0
@@ -1188,10 +1020,9 @@ def _opaque_bbox(resized_rgba):
     NOT `Image.getbbox()` on the RGBA image or on the raw alpha channel: both
     of those count the soft drop-shadow band (alpha 1..127) that the paste
     threshold erases, which is exactly the mismatch that made the
-    aircraft-to-text gap vary per airline (debug session
-    `illustration-crop-text-margin`). For six vendored files - air-france.png
-    among them - the raw-alpha bbox reports a bottom padding of exactly 0 while
-    the real painted padding is 82..174px.
+    aircraft-to-text gap vary per airline. For six vendored files -
+    air-france.png among them - the raw-alpha bbox reports a bottom padding
+    of exactly 0 while the real painted padding is 82..174px.
 
     Returns `None` when nothing at all would be painted (a fully transparent or
     entirely sub-threshold image); callers must fall back to the full
@@ -1291,14 +1122,12 @@ def draw_illustration(canvas, resized_rgba, left, top):
     """Composite an already-resized real illustration (from
     `_resize_illustration()`) onto `canvas` at (`left`, `top`). Full-color,
     dithered to the panel's real 6-color palette via
-    `dither.dither_to_full_panel_palette()` - unlike the retired flat-
-    silhouette path this replaces, the illustration keeps its real livery
-    colors (D-25). D-24: never mirrored - the caller always passes the
-    vendored file exactly as resized, regardless of departing/arriving
-    state.
+    `dither.dither_to_full_panel_palette()`, keeping its real livery
+    colors. Never mirrored - the caller always passes the vendored file
+    exactly as resized, regardless of departing/arriving state.
 
-    The alpha channel is hard-thresholded to strictly binary before paste()
-    (`_threshold_alpha()`, 03-RESEARCH.md Pitfall 2).
+    The alpha channel is hard-thresholded to strictly binary before
+    paste() (`_threshold_alpha()`).
 
     Returns an `IllustrationPlacement` carrying BOTH the full placement
     rectangle and the tight bbox of the pixels actually painted - see that
@@ -1323,18 +1152,14 @@ def draw_illustration(canvas, resized_rgba, left, top):
 
 
 def _flight_line1_text(flight, state, route):
-    """D-08/D-09/D-10's four-tier content ladder for the main line, evaluated
-    strictly in this order, returning on the first match. The raw ADS-B
-    ICAO callsign is never reachable at any tier (D-08) - an earlier draft
-    of this ladder kept a bare-callsign floor below tier 4 and the
-    developer explicitly asked for it removed, even from the fallback
-    cases (`.planning/spikes/001-panel-theme-colours/README.md`, steps
-    11-13).
+    """Four-tier content ladder for the main line, evaluated strictly in
+    this order, returning on the first match. The raw ADS-B ICAO callsign
+    is never reachable at any tier, even in the fallback cases.
 
-    - **Tier 1** - `route`'s `callsign_iata` (D-09) and
+    - **Tier 1** - `route`'s `callsign_iata` and
       `enrich.city_for_state(route, state)` are both usable: returns
       `"{identifier} to|from {city}"`, lowercase direction word (ordinary
-      sentence text, not the old tracked-caps Label-role prefix).
+      sentence text, not the tracked-caps Label-role prefix).
     - **Tier 2** - a city is known but no identifier: returns
       `"To|From {city}"`, TITLE-case direction word. The casing differs
       from tier 1 deliberately: tier 1's word sits mid-sentence after an
@@ -1348,15 +1173,10 @@ def _flight_line1_text(flight, state, route):
       in both functions, since they position line 2 from opposite edges of
       line 1 (bottom vs. top).
     - **Tier 4** - `route` is `None`, is not a dict, or carries no airline
-      name either: returns the fixed string `"Unknown flight"` (D-10,
-      revised on-glass during plan 08-06's verification session - the
-      original TITLE-case state word duplicated the all-caps
-      DEPARTING/ARRIVING top-left label, a different element this
-      function does not touch, so it carried no information the label
-      didn't already show). Identical text for both states - the
-      top-left label is what distinguishes departing from arriving here.
-      Line 2 independently falls to `ROUTE_FALLBACK_TEXT` in this case,
-      unchanged existing behaviour.
+      name either: returns the fixed string `"Unknown flight"`. Identical
+      text for both states - the top-left label is what distinguishes
+      departing from arriving here. Line 2 independently falls to
+      `ROUTE_FALLBACK_TEXT` in this case, unchanged existing behaviour.
 
     Residual ordering note: a route carrying an identifier but no city
     falls through tier 1 and lands on tier 3 if it has an airline, or tier
@@ -1409,11 +1229,10 @@ def _flight_line1_text(flight, state, route):
 
 
 # Friendly human-readable labels for the ICAO type designators detect.py's
-# aircraft_type field can carry (03.1-02), closing D-26's original
-# `{airline} · {aircraft_type}` brief with a legible label rather than a raw
-# code (P-02: neo/MAX variants are named explicitly, not collapsed to the
-# base family - more informative, cosmetic, and reversible per CONTEXT.md's
-# Claude's Discretion). Covers every designator in
+# aircraft_type field can carry, so `{airline} · {aircraft_type}` shows a
+# legible label rather than a raw code (neo/MAX variants are named
+# explicitly, not collapsed to the base family - more informative). Covers
+# every designator in
 # illustrations._TYPE_SHAPE_BUCKETS; a designator present in that bucket
 # table but absent here is allowed and simply renders the airline name
 # alone via _flight_line2_text()'s fallback - not every ICAO code needs a
@@ -1442,12 +1261,11 @@ _TYPE_DISPLAY_LABELS = {
     "A359": "A350-900", "A35K": "A350-1000",
 }
 
-# P-01: a presentation-only display alias for the one carrier that
-# rebranded in 2013.
+# A presentation-only display alias for the one carrier that rebranded in
+# 2013.
 #
-# SUPERSEDED (quick task 260827-kih, 2026-08-27, QT-kih-D-08): this entry
-# is retained unchanged as a defensive no-op, not as the live presentation
-# path. `enrich.correct_airline_name()` now corrects this carrier's
+# Retained unchanged as a defensive no-op, not as the live presentation
+# path: `enrich.correct_airline_name()` now corrects this carrier's
 # `airline_name` upstream, inside `lookup_route()`'s single seam - every
 # route that reaches `_flight_line2_text()` through the normal
 # `enrich.resolve_route()` path already carries the corrected string "Air
@@ -1455,16 +1273,15 @@ _TYPE_DISPLAY_LABELS = {
 # It stays only for a hand-built route dict (e.g. a test fixture, or a
 # future caller that bypasses `enrich.py` entirely) that still carries the
 # literal upstream string "CCM Airlines" - display_airline_name() still
-# resolves that correctly. No rendering logic, table value, or existing
-# check was altered by this session.
+# resolves that correctly.
 _AIRLINE_DISPLAY_ALIASES = {
     "CCM Airlines": "Air Corsica",
 }
 
 
 def display_airline_name(airline_name):
-    """Return the presentation-only display name for `airline_name` (P-01):
-    the aliased brand name when one exists, otherwise `airline_name`
+    """Return the presentation-only display name for `airline_name`: the
+    aliased brand name when one exists, otherwise `airline_name`
     unchanged. Returns `airline_name` unchanged for any non-string or
     falsy value. Never raises.
     """
@@ -1474,26 +1291,26 @@ def display_airline_name(airline_name):
 
 
 def _flight_line2_text(route, aircraft_type=None):
-    """`"{airline} · {friendly type label}"`, closing D-26's original brief
-    now that real per-flight type data exists (detect.py's `aircraft_type`
-    field, 03.1-02) and a type-to-shape classifier exists to size the art
-    (illustrations.classify_aircraft_type(), 03.1-03). The displayed
-    airline name is resolved through `display_airline_name()` (P-01) - a
-    presentation-only alias that never reaches illustration selection.
+    """`"{airline} · {friendly type label}"`, using real per-flight type
+    data (detect.py's `aircraft_type` field) and a type-to-shape
+    classifier to size the art (illustrations.classify_aircraft_type()).
+    The displayed airline name is resolved through
+    `display_airline_name()` - a presentation-only alias that never
+    reaches illustration selection.
 
     Falls back to the display name alone when `aircraft_type` is missing
     or has no friendly label in `_TYPE_DISPLAY_LABELS` - an unlabelled or
     absent type never fabricates a label and never renders an empty
     separator. Falls back to `ROUTE_FALLBACK_TEXT` only when no route was
     supplied, or the supplied route has no airline name at all - regardless
-    of what type was detected. Since quick task 260827-hyy (D-06), that
-    condition is strictly narrower than "adsbdb missed": a route may be
-    airline-only (`enrich.resolve_route()`'s `"airline_only"` source /
+    of what type was detected. That condition is strictly narrower than
+    "adsbdb missed": a route may be airline-only
+    (`enrich.resolve_route()`'s `"airline_only"` source /
     `enrich.airline_only_route()` - adsbdb had nothing, but the callsign's
     ICAO prefix identified the carrier) and still carry a real
     `airline_name`, in which case this function composes `"{airline} ·
     {type label}"` exactly as it would for a full adsbdb hit.
-    `ROUTE_FALLBACK_TEXT` now fires only when *neither* enrichment source
+    `ROUTE_FALLBACK_TEXT` fires only when *neither* enrichment source
     produced an airline.
 
     Never raises for a non-dict route, a non-string airline name, or a
@@ -1513,30 +1330,22 @@ def _flight_line2_text(route, aircraft_type=None):
     return "%s" % (display_name,)
 
 
-# --- Phase 9 PHASE9-4/PHASE9-5: band-only main-card text roles, ported
-# verbatim from spike 003-diagonal-band-theme's FLIGHT_NUMBER_FONT/
-# ROUTE_LINE_FONT/AIRLINE_LINE_FONT/DASH_W/DASH_GAP (round 15, "oui !").
+# --- Band-only main-card text roles ---------------------------------
 # Declared weight ("700"/"400" in the tuple) is never read directly -
 # `_role_font()` resolves the real weight from the active theme's `weight`
-# field (all 5 band themes register `weight: "regular"`, per this plan's
-# own `<interfaces>` note), same mechanism every other active-state role
-# already uses.
+# field, same mechanism every other active-state role already uses.
 BAND_MAIN_NUMBER_FONT = (PT_SERIF_BOLD, 56, 700)
 BAND_MAIN_ROUTE_FONT = (PT_SERIF_REGULAR, 22, 400)
 BAND_MAIN_AIRLINE_FONT = (PT_SERIF_REGULAR, 20, 400)
 BAND_MAIN_DASH_W = 48
 BAND_MAIN_DASH_GAP = 10
 
-# Real Spectra 6 glass (Phase 9 09-04 on-glass session, long-name stress
-# test reusing Phase 7's own "Compagnie Nationale Royale Air Maroc
-# Express" / "Santiago de Compostela-Rosalia de Castro" fixture): unlike
-# every other active-state text role, the three band roles above were
-# fixed-size - no fit_text_size()-style shrink-to-fit - and a long
-# airline/city name overflowed. Explicit, in-session developer
-# instruction to add the same shrink-to-fit mechanism the rest of the
-# panel already has, not just a blanket size reduction. Min sizes chosen
-# at roughly the same ~70% floor MAIN_LINE1_FONT/MAIN_LINE2_FONT already
-# use (40/28, 22/16).
+# Unlike every other active-state text role, the three band roles above
+# were fixed-size - no fit_text_size()-style shrink-to-fit - and a long
+# airline/city name overflowed on real glass. They use the same
+# shrink-to-fit mechanism the rest of the panel already has. Min sizes
+# chosen at roughly the same ~70% floor MAIN_LINE1_FONT/MAIN_LINE2_FONT
+# already use (40/28, 22/16).
 BAND_MAIN_NUMBER_MIN_SIZE = 40
 BAND_MAIN_ROUTE_MIN_SIZE = 16
 BAND_MAIN_AIRLINE_MIN_SIZE = 14
@@ -1560,26 +1369,25 @@ def _role_fit_tracked_text_size(role_spec, text, tracking, max_width, min_size, 
 
 
 def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight, band_idx=None):
-    """D-26 main flight text: two centred lines starting `MAIN_TEXT_GAP_PX`
+    """Main flight text: two centred lines starting `MAIN_TEXT_GAP_PX`
     below the main illustration's OPAQUE bottom edge
-    (`main_placement.content[3]`) - the aircraft's last actually-painted pixel
-    row, not the bottom of its source rectangle.
+    (`main_placement.content[3]`) - the aircraft's last actually-painted
+    pixel row, not the bottom of its source rectangle.
 
-    Anchoring to `main_placement.rect` instead is the bug debug session
-    `illustration-crop-text-margin` fixed: the rectangle's bottom sits 37-174px
-    below the aircraft depending on which file is drawn, so the visible gap
-    ranged from 17px to 154px across the vendored set. Reading `.content` makes
+    Anchoring to `main_placement.rect` instead would vary the gap by
+    37-174px depending on which file is drawn, since the rectangle
+    includes each file's own transparent padding. Reading `.content` makes
     the gap a constant by construction. See `MAIN_TEXT_GAP_PX` for how its
-    value is derived from the render D-26 actually confirmed.
+    value is derived.
 
-    D-10 tier 3 (Phase 8 08-04): when `_flight_line1_text()` returns `""`
-    (the sentinel meaning line 1 is omitted), no font is computed for it, no
-    bbox is computed or asserted, and nothing is drawn - line 2 is promoted
-    into line 1's slot instead, starting at the same
-    `main_placement.content[3] + MAIN_TEXT_GAP_PX` expression line 1's own
-    `top_y` would have used. The returned pair's first slot is `None` in
-    that case; both call sites already discard the return value, and `None`
-    is more honest than an invented empty bbox.
+    When `_flight_line1_text()` returns `""` (the sentinel meaning line 1
+    is omitted), no font is computed for it, no bbox is computed or
+    asserted, and nothing is drawn - line 2 is promoted into line 1's slot
+    instead, starting at the same `main_placement.content[3] +
+    MAIN_TEXT_GAP_PX` expression line 1's own `top_y` would have used. The
+    returned pair's first slot is `None` in that case; both call sites
+    already discard the return value, and `None` is more honest than an
+    invented empty bbox.
 
     `main_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
@@ -1587,18 +1395,16 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     `weight` (`device_config.theme_weight()`'s return value) selects each
     line's PT Serif weight via `_role_fit_text_size()` - not derivable
     from `bg_idx` alone, since the same index can back both a Regular and
-    a Bold theme (08-06 on-glass finding, widened same session; see
-    `_role_weight_path()`). `bg_idx` itself is retained per D-05's
-    original note here.
+    a Bold theme (see `_role_weight_path()`). `bg_idx` itself is retained
+    for callers/future roles.
 
-    `band_idx` (Phase 9 PHASE9-4/PHASE9-5): `None` for every one of the 11
-    pre-Phase-9 themes (`_build_active_canvas()` only ever passes a real
-    value for a registered band theme) - in that case this function's body
-    is untouched, byte-identical to before this phase. For a band theme,
-    this instead draws the spike's validated three-tier hierarchy (big
-    identifier / dash rule / tracked route line / airline·type line)
-    centred INSIDE the band, in the band's own contrast ink on the black
-    band (round 13's fix) and the theme's plain `ink_idx` everywhere else.
+    `band_idx`: `None` for every non-band theme (`_build_active_canvas()`
+    only ever passes a real value for a registered band theme) - in that
+    case this function's body draws the plain (non-band) layout. For a
+    band theme, this instead draws a three-tier hierarchy (big identifier
+    / dash rule / tracked route line / airline·type line) centred INSIDE
+    the band, in the band's own contrast ink on the black band and the
+    theme's plain `ink_idx` everywhere else.
     """
     if band_idx is None:
         draw = ImageDraw.Draw(canvas)
@@ -1628,14 +1434,11 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
         return line1_bbox, line2_bbox
     else:
         draw = ImageDraw.Draw(canvas)
-        # Round 13's black-band-only white-ink override, widened on real
-        # Spectra 6 glass (Phase 9 09-04 on-glass session): the spike's
-        # screen preview said black text stayed legible on Blue/Green/Red
-        # bands, but real ink disagreed for every one of them - Blue,
-        # Green, and Red were each confirmed on real glass to need the
-        # same white-ink override Black always had. With every registered
-        # band colour needing it, this is now unconditional for any band
-        # theme rather than an enumerated list of ink_idx exceptions.
+        # White-ink override for every band theme: screen previews suggest
+        # black text stays legible on some band colours, but real Spectra
+        # 6 ink disagrees for all of them, so this is unconditional for
+        # any band theme rather than an enumerated list of ink_idx
+        # exceptions.
         effective_ink = IDX_WHITE
 
         line1_full = _flight_line1_text(flight, state, route)
@@ -1644,9 +1447,8 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
         identifier_raw = route.get("callsign_iata") if isinstance(route, dict) else None
         identifier = identifier_raw.strip() if isinstance(identifier_raw, str) and identifier_raw.strip() else None
 
-        # Same 3-way split as the spike's patched_draw_main_text_block()
-        # (round 11-15): classify from the real content ladder's own output,
-        # never a separate re-derivation.
+        # Classify from the real content ladder's own output, never a
+        # separate re-derivation.
         if line1_full == "":
             number_text, tracked_text, plain_text = None, None, line2_full
         elif identifier and line1_full.startswith(identifier + " "):
@@ -1665,19 +1467,18 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
         route_font = _role_fit_tracked_text_size(BAND_MAIN_ROUTE_FONT, tracked_text or "", LABEL_TRACKING_PX, band_safe_width, BAND_MAIN_ROUTE_MIN_SIZE, weight)
         airline_font = _role_fit_text_size(BAND_MAIN_AIRLINE_FONT, plain_text, band_safe_width, BAND_MAIN_AIRLINE_MIN_SIZE, weight)
 
-        # Round 15's fix: center_x is computed ONCE and reused for every
-        # line below - never recomputed per line (round 12's confirmed
-        # bug; see _band_center_x()'s own docstring). Extended on real
-        # Spectra 6 glass (Phase 9 09-04 session): anchoring that one
-        # computation at the block's TOP left the lower line(s)
-        # increasingly offset from the band's true centreline, since the
-        # trapezoid drifts left as y increases - the number line (top)
-        # looked centred but the route/airline lines beneath it visibly
-        # didn't. Measuring the block's full vertical extent first (a
+        # center_x is computed ONCE and reused for every line below -
+        # never recomputed per line (see _band_center_x()'s own
+        # docstring). Anchoring that one computation at the block's TOP
+        # left the lower line(s) increasingly offset from the band's true
+        # centreline, since the trapezoid drifts left as y increases -
+        # the number line (top) looked centred but the route/airline
+        # lines beneath it visibly didn't. Measuring the block's full
+        # vertical extent first (a
         # dry-run pass, x-position irrelevant to the resulting heights)
         # and anchoring center_x at the block's MIDPOINT instead spreads
-        # that drift evenly across all three lines rather than
-        # concentrating it at the bottom.
+        # the trapezoid's leftward drift-with-y evenly across all three
+        # lines rather than concentrating it at the bottom.
         y = main_placement.content[3] + MAIN_TEXT_GAP_PX
         measure_y = y
         if number_text:
@@ -1692,11 +1493,10 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
         center_x = _band_center_x((y + block_bottom_y) / 2, WIDTH)
         first_bbox = None
 
-        # Real Spectra 6 glass (Phase 9 09-04 on-glass session, long-name
-        # stress test): white ink is only visible ON the band - a line
-        # fit merely to SAFE_BOX's width can still be wider than the band
-        # itself at its own y, so its overhang lands on the plain White
-        # field and silently vanishes (white-on-white), not a hard clip.
+        # White ink is only visible ON the band - a line fit merely to
+        # SAFE_BOX's width can still be wider than the band itself at its
+        # own y, so its overhang lands on the plain White field and
+        # silently vanishes (white-on-white), not a hard clip.
         # Each line is re-fit here against the band's own width at ITS
         # actual y (band_left/band_right, not the shared center_x's own
         # local band width) before drawing - center_x itself still stays
@@ -1743,57 +1543,54 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
         return first_bbox, plain_bbox
 
 
-# --- Phase 9 PHASE9-6: band-only previous-card text roles, ported
-# verbatim from spike 003-diagonal-band-theme's PREV_NUMBER_FONT/
-# PREV_ROUTE_FONT/PREV_AIRLINE_FONT/PREV_DASH_W/PREV_DASH_GAP (round 15,
-# "oui !") - the same right-aligned three-tier hierarchy as the main card,
-# at the previous card's existing ~57% scale.
+# --- Band-only previous-card text roles ---------------------------------
+# The same right-aligned three-tier hierarchy as the main card, at the
+# previous card's existing ~57% scale.
 BAND_PREV_NUMBER_FONT = (PT_SERIF_BOLD, 32, 700)
 BAND_PREV_ROUTE_FONT = (PT_SERIF_REGULAR, 16, 400)
 BAND_PREV_AIRLINE_FONT = (PT_SERIF_REGULAR, 14, 400)
 BAND_PREV_DASH_W = 16
 BAND_PREV_DASH_GAP = 6
 
-# Same real-glass long-name finding and the same explicit developer
-# instruction as BAND_MAIN_*_MIN_SIZE above - the previous card's band
-# roles were equally fixed-size with no shrink-to-fit.
+# Same real-glass long-name finding as BAND_MAIN_*_MIN_SIZE above - the
+# previous card's band roles were equally fixed-size with no
+# shrink-to-fit.
 BAND_PREV_NUMBER_MIN_SIZE = 23
 BAND_PREV_ROUTE_MIN_SIZE = 12
 BAND_PREV_AIRLINE_MIN_SIZE = 10
 
 
 def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight, band_idx=None):
-    """D-26 previous flight text: two right-aligned lines. Line 1 starts
+    """Previous flight text: two right-aligned lines. Line 1 starts
     `PREVIOUS_TEXT_GAP_PX` below the previous illustration's OPAQUE bottom edge
     (`prev_placement.content[3]`), for the same reason
     `draw_main_text_block()` uses `.content` - the source rectangle's bottom
-    sits 21-99px below the aircraft at this card's scale, which made the gap
-    vary from 43px to 121px across the vendored set.
+    sits 21-99px below the aircraft at this card's scale, which would make
+    the gap vary by up to 78px across the vendored set otherwise.
 
     Horizontal alignment uses `prev_placement.content[2]` MINUS
-    `PREVIOUS_TEXT_LEFT_OFFSET_PX` (D-12, Phase 8 08-04) - the previous
-    aircraft's visible right edge, which `_build_active_canvas()` has already
-    placed on the MAIN aircraft's visible right edge, nudged left by a fixed,
-    developer-confirmed optical correction (see that constant's own comment
-    for why the raw measured edge is not itself the bug). So the main
-    aircraft, the previous aircraft and this text block all still share one
-    visible reference line, offset by that one constant. Reading `.rect[2]`
-    instead of `.content[2]` would put the text 3-17px right of the aircraft
-    it belongs to, varying per file (pass 2 of the debug session) - a
-    separate, unrelated defect from the D-12 offset applied on top of it.
+    `PREVIOUS_TEXT_LEFT_OFFSET_PX` - the previous aircraft's visible right
+    edge, which `_build_active_canvas()` has already placed on the MAIN
+    aircraft's visible right edge, nudged left by a fixed optical
+    correction (see that constant's own comment for why the raw measured
+    edge is not itself the bug). So the main aircraft, the previous
+    aircraft and this text block all still share one visible reference
+    line, offset by that one constant. Reading `.rect[2]` instead of
+    `.content[2]` would put the text 3-17px right of the aircraft it
+    belongs to, varying per file - a separate, unrelated defect from the
+    left-offset correction applied on top of it.
 
-    Line 2 starts `PREVIOUS_LINE_GAP_PX` below line 1's own TOP, not its bottom
-    (D-26's tighter confirmed stacking). No `PREVIOUS ·` prefix - explicitly
-    removed after the live sketch pass.
+    Line 2 starts `PREVIOUS_LINE_GAP_PX` below line 1's own TOP, not its
+    bottom (a tighter confirmed stacking). No `PREVIOUS ·` prefix.
 
-    D-10 tier 3 (Phase 8 08-04): when `_flight_line1_text()` returns `""`
-    (line 1 omitted), no font is computed for it, no bbox is computed or
-    asserted, and nothing is drawn - line 2 is promoted into line 1's slot,
-    starting at this function's OWN `prev_placement.content[3] +
-    PREVIOUS_TEXT_GAP_PX` expression (not `draw_main_text_block()`'s
-    equivalent - the two functions position line 2 from opposite edges of
-    line 1 and must not share a helper for this, see that function's own
-    docstring). The returned pair's first slot is `None` in that case.
+    When `_flight_line1_text()` returns `""` (line 1 omitted), no font is
+    computed for it, no bbox is computed or asserted, and nothing is
+    drawn - line 2 is promoted into line 1's slot, starting at this
+    function's OWN `prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX`
+    expression (not `draw_main_text_block()`'s equivalent - the two
+    functions position line 2 from opposite edges of line 1 and must not
+    share a helper for this, see that function's own docstring). The
+    returned pair's first slot is `None` in that case.
 
     `prev_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
@@ -1801,18 +1598,16 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     `weight` (`device_config.theme_weight()`'s return value) selects each
     line's PT Serif weight via `_role_fit_text_size()` - not derivable
     from `bg_idx` alone, since the same index can back both a Regular and
-    a Bold theme (08-06 on-glass finding, widened same session; see
-    `_role_weight_path()`). `bg_idx` itself is retained per D-05's
-    original note here.
+    a Bold theme (see `_role_weight_path()`). `bg_idx` itself is retained
+    for callers/future roles.
 
-    `band_idx` (Phase 9 PHASE9-6): `None` for every one of the 11
-    pre-Phase-9 themes - in that case this function's body is untouched,
-    byte-identical to before this phase. For a band theme, this instead
-    draws the spike's validated three-tier hierarchy, right-aligned at
-    this card's existing scale, in its unchanged position - the band
-    never reaches this card's text at any candidate geometry (spike round
-    6), so unlike the main card there is no ink override here: this card
-    always draws in the caller's plain `ink_idx`, even for band_black.
+    `band_idx`: `None` for every non-band theme - in that case this
+    function's body draws the plain (non-band) layout. For a band theme,
+    this instead draws a three-tier hierarchy, right-aligned at this
+    card's existing scale, in its unchanged position - the band never
+    reaches this card's text at any candidate geometry, so unlike the
+    main card there is no ink override here: this card always draws in
+    the caller's plain `ink_idx`, even for band_black.
     """
     if band_idx is None:
         draw = ImageDraw.Draw(canvas)
@@ -1897,33 +1692,34 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
 
 def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False, battery_low=False):
     """Build the empty-state canvas ("Watching Runway 3" by default; the
-    heading follows `runway_id` since CFG-12).
+    heading follows `runway_id`).
 
-    Reworked in Phase 12's 12-06 on-glass session onto the shared hold
-    composition (`_build_hold_canvas()`, white variant): the runway mark, a
-    tracked Bold label, a short rule, then the body - the same shape as the
-    dimmed DISPLAY OFF and QUIET HOURS screens, on a white field because the
-    frame is working here, not resting.
+    Uses the shared hold composition (`_build_hold_canvas()`, white
+    variant): the runway mark, a tracked Bold label, a short rule, then
+    the body - the same shape as the dimmed DISPLAY OFF and QUIET HOURS
+    screens, on a white field because the frame is working here, not
+    resting.
 
-    `battery_low` (D-04/D-06): when True, draws the bottom-left battery-low
-    icon in EMPTY_INK - a low-battery reading is a device-health fact
-    independent of whether an aircraft is currently detected, so the icon
-    renders here too.
+    `battery_low`: when True, draws the bottom-left battery-low icon in
+    EMPTY_INK - a low-battery reading is a device-health fact independent
+    of whether an aircraft is currently detected, so the icon renders
+    here too.
 
-    `source_fault` (CFG-05): when True, draws the bottom-centre source-fault
+    `source_fault`: when True, draws the bottom-centre source-fault
     badge, also in EMPTY_INK. The two indicators are independent and may
     both be shown at once - they occupy horizontally disjoint parts of the
     same bottom band.
     """
-    # 12-06 on-glass session: the shared hold composition, white variant - the
-    # runway mark, then the heading as a tracked label in the frame's label
-    # voice. The label is upper-cased at draw time only: EMPTY_HEADING_TEXT and
-    # empty_heading_text() are untouched, so the locked copy and CFG-12's
-    # runway-dependent heading both stand. Every registered runway id fits the
-    # 40px tracked label inside the safe box (the helper asserts it), so the
-    # fit_text_size() shrink the 72px heading used to need is no longer
-    # exercised here - a longer future runway label would trip that assert at
-    # test time rather than shrink silently, which is the right failure.
+    # The shared hold composition, white variant - the runway mark, then
+    # the heading as a tracked label in the frame's label voice. The
+    # label is upper-cased at draw time only: EMPTY_HEADING_TEXT and
+    # empty_heading_text() are untouched, so the locked copy and the
+    # runway-dependent heading both stand. Every registered runway id fits
+    # the 40px tracked label inside the safe box (the helper asserts it),
+    # so the fit_text_size() shrink the 72px heading used to need is no
+    # longer exercised here - a longer future runway label would trip
+    # that assert at test time rather than shrink silently, which is the
+    # right failure.
     return _build_hold_canvas(
         draw_runway_icon,
         RUNWAY_ICON_HEIGHT_PX,
@@ -1938,19 +1734,15 @@ def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=
 
 
 def _build_quiet_hours_canvas(quiet_hours_until=None, source_fault=False, battery_low=False):
-    """Build the scheduled-quiet-hours canvas (D-05/D-06): a dedicated,
-    deliberate exception to the project's "no on-screen status text" rule,
-    drawn once by poll_loop.py (plan 10-04) at the poll that first detects
-    window entry.
+    """Build the scheduled-quiet-hours canvas: a dedicated, deliberate
+    exception to the project's "no on-screen status text" rule, drawn
+    once by poll_loop.py at the poll that first detects window entry.
 
-    Shipped by 10-02 as a near-verbatim copy of `_build_empty_canvas()`
-    (10-UI-SPEC.md's "mirror the empty state exactly" default: flat White,
-    Bold heading), then reworked on real glass in Phase 12's 12-06 session
-    onto the shared dimmed hold composition (`_build_dimmed_hold_canvas()`,
+    Uses the shared dimmed hold composition (`_build_dimmed_hold_canvas()`,
     see the DIMMED_* constants): a dithered dark field, white ink, the
     crescent as its mark, a tracked Bold label over a short rule, then the
-    body. The rework makes the two "resting on purpose" screens - this one
-    and DISPLAY OFF - a matched pair that differ by glyph, and leaves the
+    body. This makes the two "resting on purpose" screens - this one and
+    DISPLAY OFF - a matched pair that differ by glyph, and leaves the
     empty state as the one white hold screen, since the frame is working
     there. `theme_id` and `runway_id` are both ignored - this screen is
     always the same White/Black composition regardless of the configured
@@ -1959,21 +1751,19 @@ def _build_quiet_hours_canvas(quiet_hours_until=None, source_fault=False, batter
     `quiet_hours_until` is expected to be the "HH:MM" local (Europe/Paris)
     wall-clock end time string produced by
     `device_config.seconds_until_quiet_hours_end()`. When it is missing,
-    empty, or not a string (T-10-02-01), the body line is omitted entirely
-    rather than ever drawing the literal text "Back at None" - the heading
-    then centres alone, the same "an element exists visually only when it
-    has real information to show" discipline 03-CONTEXT.md D-25 established
-    and 05-CONTEXT.md D-06 reused for the battery icon.
+    empty, or not a string, the body line is omitted entirely rather than
+    ever drawing the literal text "Back at None" - the heading then
+    centres alone, the same "an element exists visually only when it has
+    real information to show" discipline the battery icon also follows.
 
-    `battery_low`/`source_fault` (D-04/D-06, CFG-05) match
-    `_build_empty_canvas()`'s own precedent: both indicators are
-    device/server-health facts independent of this screen's content, drawn
-    in DIMMED_INK (white) since the 12-06 rework.
+    `battery_low`/`source_fault` match `_build_empty_canvas()`'s own
+    precedent: both indicators are device/server-health facts independent
+    of this screen's content, drawn in DIMMED_INK (white).
     """
-    # 12-06 on-glass session: reworked onto the shared dimmed composition, the
-    # crescent as its mark. The missing-return-time branch (D-05/D-06) is
-    # preserved exactly: no `quiet_hours_until` means no body and no body
-    # spacing, never a placeholder, never an exception.
+    # The shared dimmed composition, the crescent as its mark. The
+    # missing-return-time branch is preserved exactly: no
+    # `quiet_hours_until` means no body and no body spacing, never a
+    # placeholder, never an exception.
     if isinstance(quiet_hours_until, str) and quiet_hours_until:
         sentences = (QUIET_HOURS_BODY_TEMPLATE % quiet_hours_until,)
     else:
@@ -1989,20 +1779,16 @@ def _build_quiet_hours_canvas(quiet_hours_until=None, source_fault=False, batter
 
 
 def _build_display_off_canvas(source_fault=False, battery_low=False):
-    """Build the remote display-off canvas (D-03/D-04, 12-UI-SPEC.md): a
-    dedicated, deliberate exception to the project's "no on-screen status
-    text" rule, drawn once by poll_loop.py (plan 12-04) at the poll that
-    first enters the off hold state.
+    """Build the remote display-off canvas: a dedicated, deliberate
+    exception to the project's "no on-screen status text" rule, drawn
+    once by poll_loop.py at the poll that first enters the off hold
+    state.
 
-    Shipped by 12-02 as a near-verbatim copy of `_build_quiet_hours_canvas()`
-    (flat White, Bold heading), then revised on real glass in the 12-06
-    session - see the DIMMED_* constants above for the composition and the
-    reasoning. Now: the shared dimmed hold composition
-    (`_build_dimmed_hold_canvas()` - a dithered dark field over
-    DIMMED_FIELD_IDX, the Grey theme's recipe, white ink, the power ring, a
-    tracked Bold label over a short rule, then the two authored body lines),
-    the whole block vertically centred with the same formula the sibling
-    screens use.
+    Uses the shared dimmed hold composition (`_build_dimmed_hold_canvas()`
+    - a dithered dark field over DIMMED_FIELD_IDX, the Grey theme's
+    recipe, white ink, the power ring, a tracked Bold label over a short
+    rule, then the two authored body lines), the whole block vertically
+    centred with the same formula the sibling screens use.
     `theme_id` and `runway_id` are both ignored - this screen is always the
     same White/Black composition regardless of the configured theme, exactly
     like the empty state and the quiet-hours screen.
@@ -2011,20 +1797,20 @@ def _build_display_off_canvas(source_fault=False, battery_low=False):
     parameter and no missing-value branch: DISPLAY_OFF_BODY_TEXT is a fixed
     constant with no interpolated value, so the body is always drawn -
     there is no "value is missing" case to handle because there is no
-    value at all (D-03/D-04). The body string is meaningfully longer than
-    the quiet-hours screen's one-liner and is expected to wrap; the wrap is
+    value at all. The body string is meaningfully longer than the
+    quiet-hours screen's one-liner and is expected to wrap; the wrap is
     decided by `_wrap_text()` against `safe_width`, never assumed to be a
     single line.
 
-    `battery_low`/`source_fault` (D-04/D-06, CFG-05) match
+    `battery_low`/`source_fault` match
     `_build_empty_canvas()`'s/`_build_quiet_hours_canvas()`'s own
     precedent: both indicators are device/server-health facts independent
     of this screen's content - drawn in DIMMED_INK (white), the only ink
     that reads on the dimmed field.
     """
-    # 12-06 on-glass session: the shared dimmed composition, the power ring as
-    # its mark. Each authored sentence is passed separately so the break falls
-    # after "page." rather than wherever the measured width lands (the helper
+    # The shared dimmed composition, the power ring as its mark. Each
+    # authored sentence is passed separately so the break falls after
+    # "page." rather than wherever the measured width lands (the helper
     # still wraps each one, so a line that cannot fit is broken, never spilled).
     return _build_dimmed_hold_canvas(
         draw_power_icon,
@@ -2037,19 +1823,18 @@ def _build_display_off_canvas(source_fault=False, battery_low=False):
 
 
 def _build_battery_empty_canvas():
-    """Build the BATTERY EMPTY hold canvas (quick task 260923-fr4): the
-    server's own answer to the 2026-09-14 depletion run, where the panel
-    froze mid-transition at about 2946 mV instead of ending on a screen that
-    says anything (`hardware/BATTERY-RUN.md`). poll_loop.py latches this
-    state once the reported pack voltage crosses BATTERY_CRITICAL_MV and
-    parks the frame here - see poll_loop.py's `apply_battery_critical_hysteresis`
-    for the 3300/3700 hysteresis and byos_server.py's `battery_critical_sleep_s`
+    """Build the BATTERY EMPTY hold canvas: a screen that ends a battery
+    depletion run on a state that says something, rather than the panel
+    freezing mid-transition. poll_loop.py latches this state once the
+    reported pack voltage crosses BATTERY_CRITICAL_MV and parks the frame
+    here - see poll_loop.py's `apply_battery_critical_hysteresis` for the
+    3300/3700 hysteresis and byos_server.py's `battery_critical_sleep_s`
     for the hourly check-in pin.
 
-    Goes through the shared `_build_dimmed_hold_canvas()` composition, per
-    the user's explicit instruction: never a bespoke layout, always the same
-    family as DISPLAY OFF and QUIET HOURS (dithered dark field, white ink,
-    glyph, tracked label, rule, body).
+    Goes through the shared `_build_dimmed_hold_canvas()` composition:
+    never a bespoke layout, always the same family as DISPLAY OFF and
+    QUIET HOURS (dithered dark field, white ink, glyph, tracked label,
+    rule, body).
 
     Unlike its siblings, `theme_id`, `battery_low` and `source_fault` are
     not accepted here at all - `build_canvas()` dispatches this state before
@@ -2069,11 +1854,11 @@ def _build_battery_empty_canvas():
 
 
 def _build_no_connection_canvas(flat=False):
-    """Build the NO CONNECTION hold canvas (quick task 260924-u7n, DEVICE-06):
-    the fourth sibling of DISPLAY OFF / QUIET HOURS / BATTERY EMPTY, drawn
-    through the same shared `_build_hold_canvas()` composition those three
-    go through (dimmed field, glyph, tracked label, rule, body) rather than
-    a bespoke layout.
+    """Build the NO CONNECTION hold canvas: the fourth sibling of
+    DISPLAY OFF / QUIET HOURS / BATTERY EMPTY, drawn through the same
+    shared `_build_hold_canvas()` composition those three go through
+    (dimmed field, glyph, tracked label, rule, body) rather than a
+    bespoke layout.
 
     Unlike its three siblings, this function is never reached by
     `build_canvas()` - it is deliberately not dispatched from there at
@@ -2106,17 +1891,16 @@ def _build_no_connection_canvas(flat=False):
     )
 
 
-# --- Display-off power glyph (Phase 12, 12-06 on-glass session) --------------
+# --- Display-off power glyph --------------------------------------------
 # Drawn from primitives like every other panel mark (draw_battery_icon,
 # draw_source_fault_badge) - no vendored asset, so nothing to attribute.
 #
 # The universal power mark rather than a moon or "Zzz", which is what "sleep"
 # suggests first: QUIET HOURS is literally the night/curfew screen, so a
-# night-register glyph would pull DISPLAY OFF toward the one screen step A
-# exists to keep it distinct from. The power mark says "off" without borrowing
-# that vocabulary. Weighed explicitly with the developer mid-session, and kept
-# through the dimmed-field revision at the developer's request - in white ink,
-# where its 8px stroke is Bold-class and safe against the dither.
+# night-register glyph would pull DISPLAY OFF toward the one screen it
+# exists to keep distinct from. The power mark says "off" without
+# borrowing that vocabulary - in white ink, where its 8px stroke is
+# Bold-class and safe against the dither.
 POWER_ICON_DIAMETER_PX = 76
 POWER_ICON_STROKE_PX = 8
 POWER_ICON_GAP_DEGREES = 64  # the ring's opening, centred on 12 o'clock
@@ -2154,7 +1938,7 @@ def draw_power_icon(draw, center_x, top_y, ink_idx):
     return POWER_ICON_BAR_RISE_PX + POWER_ICON_DIAMETER_PX
 
 
-# --- Quiet-hours crescent glyph (12-06 on-glass session) ---------------------
+# --- Quiet-hours crescent glyph ------------------------------------------
 # The moon belongs here, not on DISPLAY OFF: QUIET HOURS is the curfew screen,
 # so the night register is its own. Same 76px footprint and the same
 # Bold-class white as the power ring, so the two dark screens sit as a pair
@@ -2210,7 +1994,7 @@ def draw_moon_icon(draw, center_x, top_y, ink_idx):
     return MOON_ICON_DIAMETER_PX
 
 
-# --- Battery-empty glyph (quick task 260923-fr4) -----------------------------
+# --- Battery-empty glyph --------------------------------------------------
 # An upright hollow battery, chosen over the horizontal draw_battery_icon()
 # form (the bottom-left low-battery badge) because a 76px-tall family glyph
 # drawn horizontally would run about 150px wide - heavier than the power ring
@@ -2270,14 +2054,12 @@ def draw_empty_battery_icon(draw, center_x, top_y, ink_idx):
     return EMPTY_BATTERY_ICON_HEIGHT_PX
 
 
-# --- No-connection alert glyph (quick task 260924-u7n, DEVICE-06) -----------
+# --- No-connection alert glyph -------------------------------------------
 # Same shape family as `draw_source_fault_badge()`'s small triangular alert
 # mark (outline triangle + exclamation stroke + dot), scaled up to the
-# 76px-tall hold-glyph family instead of CFG-05's small inline badge size -
-# resolving the seed's "same glyph for CFG-05 and DEVICE-06?" open question
-# as yes, at hold-glyph scale. `draw_source_fault_badge()` itself is left
-# untouched (its pixels are covered by existing tests); this is a sibling
-# glyph, not a shared call.
+# 76px-tall hold-glyph family instead of the small inline badge size.
+# `draw_source_fault_badge()` itself is left untouched (its pixels are
+# covered by existing tests); this is a sibling glyph, not a shared call.
 #
 # ALERT_ICON_STROKE_PX matches POWER_ICON_STROKE_PX (Bold-class, 8px) - the
 # same "thin white strokes drown in dither noise" finding that set every
@@ -2300,10 +2082,9 @@ def draw_alert_icon(draw, center_x, top_y, ink_idx):
     glyph's height, kept inside the triangle's interior clear of the
     outline), and a round dot at 0.8 of the height, drawn as a filled
     ellipse rather than a zero-length `ImageDraw.line()` - a degenerate
-    segment paints only a single pixel regardless of `width`, which is
-    exactly the WR-02 regression `draw_source_fault_badge()`'s own
-    docstring records (code-review `08-REVIEW.md`). Only `ink_idx` is ever
-    used, matching every other `draw_*_icon()` here.
+    segment paints only a single pixel regardless of `width`, the same
+    reason `draw_source_fault_badge()`'s own docstring records. Only
+    `ink_idx` is ever used, matching every other `draw_*_icon()` here.
     """
     half_w = ALERT_ICON_WIDTH_PX / 2.0
     apex = (center_x, top_y)
@@ -2338,18 +2119,18 @@ def _build_hold_canvas(glyph_draw, glyph_height, label_text, sentences, field_id
 
     Three screens draw through here, and the field is what sorts them:
     DISPLAY OFF and QUIET HOURS are dimmed (the frame is resting on
-    purpose), the empty state is white (the frame is working). The 12-06
-    on-glass session gave all three the same composition so they read as
-    one family, and left the field to say which kind of screen it is.
+    purpose), the empty state is white (the frame is working). All three
+    share one composition so they read as one family, and the field says
+    which kind of screen it is.
 
     The width of the tracked label is summed glyph-by-glyph the way
     draw_tracked_text() advances, so the block is centred on what will be
     drawn. Every part joins the same total the centring divides, so adding a
     part moves the whole block, never the text alone.
 
-    `battery_low`/`source_fault` (D-04/D-06, CFG-05) follow the sibling
-    screens' precedent - device/server-health facts independent of the
-    screen's content - drawn in the screen's own `ink`.
+    `battery_low`/`source_fault` follow the sibling screens' precedent -
+    device/server-health facts independent of the screen's content -
+    drawn in the screen's own `ink`.
     """
     canvas = dither.dithered_state_background(field_idx) if dithered else pf.new_canvas(field_idx)
     draw = ImageDraw.Draw(canvas)
@@ -2419,13 +2200,12 @@ def _build_dimmed_hold_canvas(glyph_draw, glyph_height, label_text, sentences, s
     )
 
 
-# --- Empty-state runway glyph (12-06 on-glass session) -----------------------
-# The developer, seeing the empty screen right after the two dimmed ones on
-# the panel, asked for it to get the same treatment and a mark of its own.
-# Its subject is the runway being watched, so the mark is a runway seen from
-# above: a strip with a dashed centreline and a threshold bar at each end,
-# drawn from rectangles like every other panel mark. Same 76px height as the
-# power ring and the crescent, so the three glyphs sit at one scale.
+# --- Empty-state runway glyph ---------------------------------------------
+# The empty screen's subject is the runway being watched, so the mark is a
+# runway seen from above: a strip with a dashed centreline and a
+# threshold bar at each end, drawn from rectangles like every other panel
+# mark. Same 76px height as the power ring and the crescent, so the three
+# glyphs sit at one scale.
 RUNWAY_ICON_HEIGHT_PX = 76
 RUNWAY_ICON_WIDTH_PX = 48
 RUNWAY_ICON_STROKE_PX = 4
@@ -2475,15 +2255,12 @@ _LEGAL_PANEL_INDICES = {IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX
 def _assert_legal_palette(canvas, bg_idx):
     """Guard rail: every index anywhere on the panel is one of the 6 legal
     Spectra 6 panel indices, and `bg_idx` (the state's flat background
-    fill, D-21) is the single most common index on the panel.
+    fill) is the single most common index on the panel.
 
-    This replaces 03-02's spatially-scoped `_assert_palette_contract()`
-    (retired along with the dithered mood background and quiet-zone text
-    compositing it protected): a real illustration's own livery colors may
-    now legitimately use every other legal index anywhere on the canvas, so
-    there is no more "only {bg_idx, IDX_WHITE} outside one bbox" contract to
-    check - just "no illegal index anywhere, and the flat field is
-    provably dominant."
+    A real illustration's own livery colors may legitimately use every
+    other legal index anywhere on the canvas, so the contract is just "no
+    illegal index anywhere, and the flat field is provably dominant" - not
+    a spatially-scoped check.
     """
     colors = canvas.getcolors()
     idx_set = {value for _count, value in colors} if colors else set()
@@ -2509,13 +2286,13 @@ def _build_active_canvas(
 ):
     """Build the departing/arriving two-flight poster canvas.
 
-    `battery_low` (D-04/D-06): when True, draws the bottom-left battery-low
-    icon in the state's own ink after the previous-flight card, before the
+    `battery_low`: when True, draws the bottom-left battery-low icon in
+    the state's own ink after the previous-flight card, before the
     closing palette guard rail.
 
-    `source_fault` (CFG-05): when True, draws the bottom-centre source-fault
+    `source_fault`: when True, draws the bottom-centre source-fault
     badge in that same ink. Both indicators resolve their ink through the
-    active theme's `state_ink_index()` (CFG-01), so neither can introduce an
+    active theme's `state_ink_index()`, so neither can introduce an
     index outside the current theme's palette.
     """
     if state not in STATE_BACKGROUND:
@@ -2523,20 +2300,19 @@ def _build_active_canvas(
     bg_idx = state_background_index(state, theme_id=theme_id)
     fg_idx = state_ink_index(state, theme_id=theme_id)
 
-    # Phase 8 08-06 on-glass session: whether the background is dithered
-    # and which weight the text roles use are both properties of the
-    # active theme (`device_config.theme_dithered()`/`theme_weight()`),
-    # resolved once here and threaded through - see THEMES' own module
-    # comment in device_config.py for the full on-glass rationale and why
-    # neither is a fixed function of bg_idx alone.
+    # Whether the background is dithered and which weight the text roles
+    # use are both properties of the active theme
+    # (`device_config.theme_dithered()`/`theme_weight()`), resolved once
+    # here and threaded through - see THEMES' own module comment in
+    # device_config.py for why neither is a fixed function of bg_idx alone.
     normalised_theme_id = device_config.normalise_theme_id(theme_id)
     theme_dithered = device_config.theme_dithered(normalised_theme_id)
     weight = device_config.theme_weight(normalised_theme_id)
 
-    # Phase 9 PHASE9-1/PHASE9-3: whether this theme carries a diagonal band,
-    # and that band's own colour/dither flag, resolved once here (same
-    # pattern as theme_dithered/weight just above) and threaded through to
-    # the band-dispatch and draw_top_labels() calls below. `band_idx`/
+    # Whether this theme carries a diagonal band, and that band's own
+    # colour/dither flag, resolved once here (same pattern as
+    # theme_dithered/weight just above) and threaded through to the
+    # band-dispatch and draw_top_labels() calls below. `band_idx`/
     # `band_dithered_flag` are only meaningful when `is_band_theme` is True -
     # theme_band_index()/theme_band_dithered() are absent-key-safe and would
     # otherwise return None/False for a non-band theme, but the ternaries
@@ -2545,42 +2321,38 @@ def _build_active_canvas(
     band_idx = device_config.theme_band_index(normalised_theme_id) if is_band_theme else None
     band_dithered_flag = device_config.theme_band_dithered(normalised_theme_id) if is_band_theme else False
 
-    # D-21 gave a flat single-color background field, but Phase 7 07-01's
-    # on-glass session found the raw Blue/Green ink too dark/saturated at
-    # full-panel coverage - reopened per that plan's own scope note. A
-    # dithered blend toward White (dither.dithered_state_background()) is
-    # the only way to visually lighten a fixed physical ink; bg_idx stays
-    # the dominant index. Phase 8 08-06 on-glass session: this treatment is
-    # no longer universal - a theme with `dithered: False` (every "pure"
-    # colour, confirmed on real glass to need no lightening) gets a flat
-    # fill instead (`panel_format.new_canvas()`), matching what the empty
-    # state and the White theme have always used.
+    # A dithered blend toward White (dither.dithered_state_background())
+    # is the only way to visually lighten a fixed physical ink for themes
+    # whose raw ink reads too dark/saturated at full-panel coverage;
+    # bg_idx stays the dominant index. This treatment is not universal -
+    # a theme with `dithered: False` (every "pure" colour, confirmed on
+    # real glass to need no lightening) gets a flat fill instead
+    # (`panel_format.new_canvas()`), matching what the empty state and
+    # the White theme have always used.
     canvas = dither.dithered_state_background(bg_idx) if theme_dithered else pf.new_canvas(bg_idx)
 
-    # Phase 9 PHASE9-1: for a band theme, paint the diagonal band immediately
-    # after the background fill and before anything else, so it sits behind
-    # every subsequent draw (top labels, illustrations, text) - matching
-    # D-24's already-proven "illustrations occlude the band naturally"
-    # behaviour from the spike. No-op for every non-band theme.
+    # For a band theme, paint the diagonal band immediately after the
+    # background fill and before anything else, so it sits behind every
+    # subsequent draw (top labels, illustrations, text) and illustrations
+    # occlude it naturally. No-op for every non-band theme.
     if is_band_theme:
         draw_diagonal_band(canvas, band_idx, dithered=band_dithered_flag)
 
-    # D-26's thin outline is no longer drawn (removed 2026-08-28 by developer
-    # request, quick task 260828-k5r). FRAME_INSET_FRAC deliberately survives
-    # below as pure layout geometry feeding inner_width, and
-    # draw_source_fault_badge() independently derives its own bottom anchor
-    # from the same constant. The helper itself, draw_frame, is retained but
-    # no longer called from this render path.
+    # The thin frame outline is no longer drawn. FRAME_INSET_FRAC
+    # deliberately survives below as pure layout geometry feeding
+    # inner_width, and draw_source_fault_badge() independently derives
+    # its own bottom anchor from the same constant. The helper itself,
+    # draw_frame, is retained but no longer called from this render path.
 
-    # D-26 top row: state label top-left, CFG-12 runway tag top-right, both
-    # at the existing MARGIN inset (inside the frame, not on it).
-    # `band_theme=is_band_theme` (PHASE9-3): band themes get the merged
+    # Top row: state label top-left, runway tag top-right, both at the
+    # existing MARGIN inset (inside the frame, not on it).
+    # `band_theme=is_band_theme`: band themes get the merged
     # state-label/airport-code + short runway-tag split; every other theme
     # keeps today's unsplit pair (draw_top_labels()'s default is False).
     draw_top_labels(canvas, state, fg_idx, bg_idx, weight, runway_id=runway_id, band_theme=is_band_theme)
 
-    # D-25/D-26 main flight: the current detection's real per-airline
-    # illustration, always nose-left (D-24 - no mirroring).
+    # Main flight: the current detection's real per-airline illustration,
+    # always nose-left (no mirroring).
     inner_width = WIDTH * (1 - 2 * FRAME_INSET_FRAC)
     main_w = round(inner_width * MAIN_ILLUSTRATION_WIDTH_FRAC)
 
@@ -2588,60 +2360,56 @@ def _build_active_canvas(
     main_placement = None
     main_resized = _load_illustration_safely(main_path, main_w)
     if main_resized is not None:
-        # D-26 centres the main illustration on both axes. Centre the pixels
-        # that are actually painted, not the source rectangle - horizontally
-        # via `_left_for_centered_content()`, and (quick task 260902-req)
-        # vertically via `_top_for_centered_content()` - the exact helper the
-        # previous card below already uses. main_top can only be computed
-        # here, after main_resized exists: `_top_for_centered_content()`
-        # reads the resized image's own opaque bbox, so it cannot run against
-        # an unloaded source rectangle the way the old MAIN_ILLUSTRATION_TOP_
-        # FRAC arithmetic did.
+        # Centres the main illustration on both axes: the pixels that are
+        # actually painted, not the source rectangle - horizontally via
+        # `_left_for_centered_content()`, and vertically via
+        # `_top_for_centered_content()` - the exact helper the previous
+        # card below already uses. main_top can only be computed here,
+        # after main_resized exists: `_top_for_centered_content()` reads
+        # the resized image's own opaque bbox.
         main_left = _left_for_centered_content(main_resized, WIDTH / 2)
         main_top = _top_for_centered_content(main_resized, HEIGHT * MAIN_ILLUSTRATION_CENTER_Y_FRAC)
         main_placement = draw_illustration(canvas, main_resized, main_left, main_top)
-        # The full placement rectangle, not `.content`: this is a "does the
-        # element fall off the canvas" guard, so the conservative geometric
-        # footprint is the right thing to bound - unchanged by the
-        # illustration-crop-text-margin fix.
+        # The full placement rectangle, not `.content`: this is a "does
+        # the element fall off the canvas" guard, so the conservative
+        # geometric footprint is the right thing to bound.
         _assert_within_canvas(main_placement.rect, "main aircraft illustration")
         draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx, bg_idx, weight, band_idx=band_idx)
 
-    # D-25/D-26 previous flight: a real second flight card - the detection
+    # Previous flight: a real second flight card - the detection
     # immediately preceding this one (poll_loop.py's two-deep history).
     # Same nose-left convention as the main illustration, no mirroring.
     if previous_flight is not None and main_placement is not None:
         prev_path = illustrations.select_illustration(previous_route, (previous_flight or {}).get("aircraft_type"))
         # SIZE derives from the main illustration's full RENDERED width
-        # (`.rect`), which is what 03-UI-SPEC.md's documented "992 x 0.57 =
-        # 565px" comes from. Deliberately still `.rect` and not `.content`,
-        # re-decided with horizontal centring explicitly in scope: `.rect`'s
-        # width is a constant 992 for every file, so this card's size is stable.
-        # Deriving it from the main illustration's opaque width (933-984px)
-        # would make the PREVIOUS card's size depend on which airline is in the
-        # MAIN slot - the same previous aircraft would render up to 5% larger
-        # or smaller depending on what flew before it. That is a new per-file
-        # coupling, and strictly worse than the ~28px visible-width variation
-        # it would remove. Sizing stays stable; only POSITION follows the
-        # painted pixels.
+        # (`.rect`), not `.content`: `.rect`'s width is a constant 992 for
+        # every file, so this card's size is stable. Deriving it from the
+        # main illustration's opaque width (933-984px) would make the
+        # PREVIOUS card's size depend on which airline is in the MAIN
+        # slot - the same previous aircraft would render up to 5% larger
+        # or smaller depending on what flew before it. That is a new
+        # per-file coupling, and strictly worse than the ~28px
+        # visible-width variation it would remove. Sizing stays stable;
+        # only POSITION follows the painted pixels.
         main_rect = main_placement.rect
         prev_w = round((main_rect[2] - main_rect[0]) * PREVIOUS_ILLUSTRATION_WIDTH_FRAC)
         prev_resized = _load_illustration_safely(prev_path, prev_w)
         if prev_resized is not None:
             # POSITION, by contrast, is anchored to painted pixels on both
-            # axes: the previous aircraft's visible right edge lands exactly on
-            # the main aircraft's visible right edge (D-26: "right-aligned to
-            # the main illustration's own right edge" - which the eye reads as
-            # the aircraft's edge, not its padding's), and its visible vertical
-            # midpoint lands on PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC.
+            # axes: the previous aircraft's visible right edge lands
+            # exactly on the main aircraft's visible right edge
+            # (right-aligned to the main illustration's own right edge,
+            # which the eye reads as the aircraft's edge, not its
+            # padding's), and its visible vertical midpoint lands on
+            # PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC.
             prev_left = _left_for_right_aligned_content(prev_resized, main_placement.content[2])
             prev_top = _top_for_centered_content(prev_resized, HEIGHT * PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC)
             prev_placement = draw_illustration(canvas, prev_resized, prev_left, prev_top)
             _assert_within_canvas(prev_placement.rect, "previous aircraft illustration")
             draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx, bg_idx, weight, band_idx=band_idx)
 
-    # CFG-05: the source-fault badge, drawn last so it sits on top of
-    # everything else, using the state's own resolved ink index.
+    # The source-fault badge, drawn last so it sits on top of everything
+    # else, using the state's own resolved ink index.
     if source_fault:
         draw_source_fault_badge(canvas, fg_idx, weight=weight)
 
@@ -2668,67 +2436,65 @@ def build_canvas(
 
     `route` is the normalised dict produced by either
     `server.plane.enrich.lookup_route()` (a full route: airline + origin +
-    destination) or, since quick task 260827-hyy,
-    `server.plane.enrich.airline_only_route()` (D-03/D-06: airline name
-    only, the four city/IATA fields `None`) - `poll_loop.py` chooses between
-    them via `server.plane.enrich.resolve_route()`. `route` is `None` on a
-    full enrichment miss (neither source resolved anything) or for the
-    empty state.
+    destination) or `server.plane.enrich.airline_only_route()` (airline
+    name only, the four city/IATA fields `None`) - `poll_loop.py` chooses
+    between them via `server.plane.enrich.resolve_route()`. `route` is
+    `None` on a full enrichment miss (neither source resolved anything) or
+    for the empty state.
 
-    `previous_flight`/`previous_route`/`previous_state` (D-25/D-26) are the
-    detection immediately preceding `flight`, or all None if none exists
-    yet (e.g. the very first detection since the state directory was last
-    empty) - the previous flight card is simply omitted in that case.
-    Ignored for the empty state, which has no flight to enrich.
+    `previous_flight`/`previous_route`/`previous_state` are the detection
+    immediately preceding `flight`, or all None if none exists yet (e.g.
+    the very first detection since the state directory was last empty) -
+    the previous flight card is simply omitted in that case. Ignored for
+    the empty state, which has no flight to enrich.
 
-    `theme_id` (CFG-01) selects the DEPARTING/ARRIVING background and ink
-    colours from `server/device_config.py`'s `THEMES` registry; an
-    unrecognised id degrades to the default theme rather than raising.
-    Ignored for the empty state, which is always White/Black.
+    `theme_id` selects the DEPARTING/ARRIVING background and ink colours
+    from `server/device_config.py`'s `THEMES` registry; an unrecognised id
+    degrades to the default theme rather than raising. Ignored for the
+    empty state, which is always White/Black.
 
-    `runway_id` (CFG-12) selects the top-right tag and (for the empty
-    state) the heading text from `device_config`'s `RUNWAYS` registry; an
+    `runway_id` selects the top-right tag and (for the empty state) the
+    heading text from `device_config`'s `RUNWAYS` registry; an
     unrecognised id degrades to the default runway rather than raising.
 
-    `source_fault` (CFG-05) draws a small alert badge pointing at the
-    companion page when true. It must be set only when every ADS-B source
-    the server queries has failed (`poll_loop.py`'s classification of
+    `source_fault` draws a small alert badge pointing at the companion
+    page when true. It must be set only when every ADS-B source the
+    server queries has failed (`poll_loop.py`'s classification of
     `detect.poll_current_aircraft()`'s diagnostics dict) - never merely
     because no aircraft was selected, which is Orly's ordinary quiet state
-    and firing on it is exactly the false-alarm trap
-    `.planning/seeds/on-device-fault-icon.md` rejects.
+    and firing on it would be a false alarm.
 
-    `battery_low` (D-04/D-06): when True, draws the bottom-left
-    battery-low icon - in every one of the three states, including empty.
-    Independent of `source_fault`; both may be true at once.
+    `battery_low`: when True, draws the bottom-left battery-low icon - in
+    every one of the three states, including empty. Independent of
+    `source_fault`; both may be true at once.
 
-    `quiet_hours_until` (D-05/D-06): when `state == "quiet_hours"`, the
-    "HH:MM" local (Europe/Paris) wall-clock end-of-window string shown as
-    "Back at HH:MM"; a missing/empty/non-string value omits the body line
-    instead of raising (T-10-02-01). `theme_id`, `runway_id`, `route`, and
-    the three `previous_*` arguments are all ignored for this state - it is
-    always a flat White/Black screen with no flight to enrich, exactly like
-    the empty state ignores `theme_id`. It is also ignored entirely when
-    `state == "display_off"` (12-CONTEXT.md D-03/D-04): the display-off
-    branch below never forwards it, even when a caller has one in hand from
-    a shared hold-branch call site that also serves quiet-hours - dropping
-    the argument here is what guarantees no return-time string can ever
-    reach the off screen, no matter what the caller passes.
+    `quiet_hours_until`: when `state == "quiet_hours"`, the "HH:MM" local
+    (Europe/Paris) wall-clock end-of-window string shown as "Back at
+    HH:MM"; a missing/empty/non-string value omits the body line instead
+    of raising. `theme_id`, `runway_id`, `route`, and the three
+    `previous_*` arguments are all ignored for this state - it is always
+    a flat White/Black screen with no flight to enrich, exactly like the
+    empty state ignores `theme_id`. It is also ignored entirely when
+    `state == "display_off"`: the display-off branch below never forwards
+    it, even when a caller has one in hand from a shared hold-branch call
+    site that also serves quiet-hours - dropping the argument here is
+    what guarantees no return-time string can ever reach the off screen,
+    no matter what the caller passes.
 
-    `state == "display_off"` (12-CONTEXT.md D-03/D-04): a dedicated,
-    always-White/Black screen with the locked "DISPLAY OFF" heading and a
-    fixed body constant - no `theme_id`, `runway_id`, `route`,
-    `previous_*`, or `quiet_hours_until` value reaches it, exactly like the
-    quiet-hours and empty states ignore `theme_id`.
+    `state == "display_off"`: a dedicated, always-White/Black screen with
+    the locked "DISPLAY OFF" heading and a fixed body constant - no
+    `theme_id`, `runway_id`, `route`, `previous_*`, or
+    `quiet_hours_until` value reaches it, exactly like the quiet-hours and
+    empty states ignore `theme_id`.
 
-    `state == "battery_empty"` (quick task 260923-fr4): the top-priority
-    hold, dispatched before every other state check below. A dedicated,
-    always-White/Black screen with the locked "BATTERY EMPTY" heading -
-    `theme_id`, `runway_id`, `route`, `previous_*`, `source_fault`,
-    `battery_low` and `quiet_hours_until` are all ignored, not merely
-    unused: the image's bytes must stay byte-stable for the whole parked
-    episode (poll_loop.py's hourly check-in relies on the hash never
-    changing), and a badge or theme toggling mid-episode would break that.
+    `state == "battery_empty"`: the top-priority hold, dispatched before
+    every other state check below. A dedicated, always-White/Black screen
+    with the locked "BATTERY EMPTY" heading - `theme_id`, `runway_id`,
+    `route`, `previous_*`, `source_fault`, `battery_low` and
+    `quiet_hours_until` are all ignored, not merely unused: the image's
+    bytes must stay byte-stable for the whole parked episode
+    (poll_loop.py's hourly check-in relies on the hash never changing),
+    and a badge or theme toggling mid-episode would break that.
     """
     if state == "battery_empty":
         return _build_battery_empty_canvas()
@@ -2771,12 +2537,10 @@ def render_panel(
 
     `route`/`previous_flight`/`previous_route`/`previous_state`/`theme_id`/
     `runway_id`/`source_fault`/`battery_low`/`quiet_hours_until` are passed
-    straight through to build_canvas() (D-25/D-26, CFG-01, CFG-12, CFG-05,
-    D-04/D-06, D-05/D-06) - see build_canvas()'s own docstring for the full
-    contract of each, including what `route` may now be (a full route or,
-    since quick task 260827-hyy, an airline-only route), `battery_low`'s
-    per-state behaviour, and `quiet_hours_until`'s "quiet_hours"-only
-    contract.
+    straight through to build_canvas() - see build_canvas()'s own
+    docstring for the full contract of each, including what `route` may
+    be (a full route or an airline-only route), `battery_low`'s per-state
+    behaviour, and `quiet_hours_until`'s "quiet_hours"-only contract.
     """
     canvas = build_canvas(
         flight,
@@ -2794,13 +2558,13 @@ def render_panel(
     return pf.pack_panel(canvas)
 
 
-# Manual-QA-only sample routes (02-04, extended D-26) - server/plane/render.py's
-# CLI has no live enrichment lookup of its own (that's poll_loop.py's job);
-# these are plausible-looking hits so `--preview` without `--no-route` shows
-# the resolved-route text layout rather than always previewing the fallback.
-# `callsign_iata` (Phase 8 08-04, D-10 tier 1) is a synthetic sample value in
-# both dicts, in each route's own airline's real IATA prefix - not a real
-# adsbdb-resolved identifier - so a plain preview exercises tier 1 end to end.
+# Manual-QA-only sample routes - server/plane/render.py's CLI has no live
+# enrichment lookup of its own (that's poll_loop.py's job); these are
+# plausible-looking hits so `--preview` without `--no-route` shows the
+# resolved-route text layout rather than always previewing the fallback.
+# `callsign_iata` is a synthetic sample value in both dicts, in each
+# route's own airline's real IATA prefix - not a real adsbdb-resolved
+# identifier - so a plain preview exercises tier 1 end to end.
 _PREVIEW_ROUTE = {
     "airline_name": "Air France",
     "origin_iata": "ORY",
@@ -2923,8 +2687,8 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
 
     if args.calibration_preview:
-        # D-13: a standalone diagnostic action, not mixed with a panel
-        # render - no --state/--out/--preview handling below is reached.
+        # A standalone diagnostic action, not mixed with a panel render -
+        # no --state/--out/--preview handling below is reached.
         for path in dither.write_calibration_preview(args.calibration_preview):
             print("wrote %s" % path)
         return 0
@@ -2934,23 +2698,24 @@ def main(argv=None):
     previous_flight = None
     previous_route = None
     previous_state = None
-    # D-05/D-06: the quiet-hours state has no flight to enrich, exactly
-    # like empty - test membership against the two real aircraft states
-    # rather than a second negative list (`!= "empty"`) that a future third
-    # non-flight state would have to be remembered into.
+    # The quiet-hours state has no flight to enrich, exactly like empty -
+    # test membership against the two real aircraft states rather than a
+    # second negative list (`!= "empty"`) that a future third non-flight
+    # state would have to be remembered into.
     if args.state in (runway_config.STATE_DEPARTING, runway_config.STATE_ARRIVING):
         flight = {"hex": args.hex, "callsign": args.callsign}
-        # D-06 preview takes precedence over --no-route when both are given
-        # (documented in --preview-airline-only's own help text above).
+        # --preview-airline-only takes precedence over --no-route when both
+        # are given (documented in --preview-airline-only's own help text
+        # above).
         if args.preview_airline_only:
             route = enrich.airline_only_route(_PREVIEW_ROUTE["airline_name"])
         elif args.no_route:
             route = None
         else:
             route = _PREVIEW_ROUTE
-        # D-10 tier 2 (Phase 8 08-04): --no-identifier strips callsign_iata
-        # so a departing/arriving preview forces tier 2. No-op when route is
-        # already None (--no-route won, nothing to strip) or when it is the
+        # --no-identifier strips callsign_iata so a departing/arriving
+        # preview forces tier 2. No-op when route is already None
+        # (--no-route won, nothing to strip) or when it is the
         # airline-only route (--preview-airline-only won; that route's
         # callsign_iata is already None and it has no cities regardless, so
         # stripping it again changes nothing). Never mutates _PREVIEW_ROUTE
@@ -2958,8 +2723,8 @@ def main(argv=None):
         if args.no_identifier and route is not None:
             route = dict(route)
             route["callsign_iata"] = None
-        # D-04 (Phase 7 07-01): --airline/--city override _PREVIEW_ROUTE's own
-        # fields so a long/real name is a flag rather than a hand-built dict.
+        # --airline/--city override _PREVIEW_ROUTE's own fields so a
+        # long/real name is a flag rather than a hand-built dict.
         # --no-route continues to win over both - route is already None above
         # and stays None here. Never mutates _PREVIEW_ROUTE itself.
         if route is not None and (args.airline or args.city):
@@ -3008,15 +2773,10 @@ def main(argv=None):
         digest = hashlib.sha256(data).hexdigest()
         print("wrote %s (%d bytes, state=%s)" % (args.out, len(data), args.state))
         print("sha256 %s" % digest)
-        # T-07-01-01: a forced render's most common failure is a human
-        # forgetting to restart skypane-poll.timer afterward - the tool
-        # doing the forcing is the right place to say so. (Phase 8 08-05:
-        # this reminder previously named a pre-rename unit that does not
-        # exist on the deployed host - a legacy unit under that old name
-        # was found running and failing on the VPS during Phase 7 and had
-        # to be stopped and disabled (.planning/STATE.md), so the stale
-        # name was not merely outdated, it was actively misleading. The
-        # real unit is deploy/skypane-poll.timer.)
+        # A forced render's most common failure is a human forgetting to
+        # restart skypane-poll.timer afterward - the tool doing the
+        # forcing is the right place to say so. The unit is
+        # deploy/skypane-poll.timer.
         if args.airline or args.city or args.no_route:
             print(
                 "REMINDER: this panel is SYNTHETIC (--airline/--city/--no-route was used) - "
