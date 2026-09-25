@@ -714,6 +714,21 @@ def cmd_add_check(args):
     return 0
 
 
+FRAGMENTS_MARKER = "<!-- fragments -->"
+
+
+def ledger_header_lines(existing):
+    """The hand-written header of the ledger: every line up to and including
+    the first line that is exactly the fragments marker. A marker quoted
+    inside prose (e.g. "above the `<!-- fragments -->` marker") is not the
+    marker. Returns [] when no marker line exists."""
+    lines = existing.splitlines()
+    for i, line in enumerate(lines):
+        if line.strip() == FRAGMENTS_MARKER:
+            return lines[: i + 1]
+    return []
+
+
 def cmd_assemble(_args):
     results = [check_one(h, allow_pending=False) for h in HARNESSES]
     if not all(r["ok"] for r in results):
@@ -723,11 +738,7 @@ def cmd_assemble(_args):
     header_lines = []
     if os.path.isfile(LEDGER_FILE):
         with open(LEDGER_FILE) as f:
-            existing = f.read()
-        marker = "<!-- fragments -->"
-        idx = existing.find(marker)
-        if idx != -1:
-            header_lines = existing[: idx + len(marker)].splitlines()
+            header_lines = ledger_header_lines(f.read())
     if not header_lines:
         header_lines = ["# Phase 33 Migration Ledger", "", "<!-- fragments -->"]
 
@@ -802,6 +813,15 @@ def run_self_tests():
         except Exception as exc:  # a raising stub is a RED failure, not a crash
             checks[0] += 1
             failures.append("%s raised %r" % (name, exc))
+
+    def case_ledger_header_lines_skips_quoted_marker():
+        text = "# L\nprose above the `<!-- fragments -->` marker\nmore\n<!-- fragments -->\nold body\n"
+        got = ledger_header_lines(text)
+        expect(
+            got == ["# L", "prose above the `<!-- fragments -->` marker", "more", "<!-- fragments -->"],
+            "ledger_header_lines must stop at the marker LINE, not a quoted marker: got %r" % (got,),
+        )
+        expect(ledger_header_lines("# L\nno marker\n") == [], "no marker line -> []")
 
     def case_parse_baseline():
         rows, total = parse_baseline("PASS a\nFAIL b - boom\nnoise\nx: 1/2 checks pass")
@@ -1035,6 +1055,7 @@ def run_self_tests():
         ("validate_fragment zero pending ok / leftover fails", case_validate_fragment_zero_pending_ok_and_leftover_fails),
         ("combine_baseline_and_addendum", case_combine_baseline_and_addendum),
         ("validate_transcript rejects SKIP and empty", case_validate_transcript_rejects_skip_and_empty),
+        ("ledger_header_lines skips a quoted marker", case_ledger_header_lines_skips_quoted_marker),
     ]:
         run_case(name, fn)
 
