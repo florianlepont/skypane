@@ -1,54 +1,10 @@
-"""Part 03 of the `companion/test_status_pages.py` migration chain
-(33-27-PLAN.md): the original harness's `check()` calls #86-#139 — the
-continuation of Section 1 (`companion/pages/health_page.py`'s contract):
-`compute_health_state()`'s never-ran-pipeline detail fragment, the
-D-05/A-23 `overall_severity()`/`collect_anomalies()` widened precedence
-table and its device-cadence pinning, the anomaly-banner/source-fault/
-degrade-not-raise trio, Health's page-header/two-section/section-intro
-shape, the Server & data grid's tile-count/nesting invariants, the
-Resolution-rate tile and B3's "count every row, bucket the unknown as
-Other" fix, the registry card's filter bar/read-only note/Resolve-link
-pair, the battery-trend section's post-move heading/caption/readout
-contract (quick tasks 260901-tsa/260901-uzi/260902-gjj/260902-ep7/
-29-06-PLAN.md), the card-status-border doubled-form/hover-source-order
-mechanism, the nested-card-heading-tier/label-voice CSS contracts
-(06.6.4.1.1 D-09/D-13), and the D-10 two-tier-hierarchy-carried-by-layout
-closing check.
+"""Companion status-page tests: compute_health_state()'s never-ran-pipeline
+detail, overall_severity()'s widened precedence table, Health's page-header
+shape, the Server & data grid, the Resolution-rate tile, the registry card,
+and the battery-trend section's post-move contract.
 
-Two checks in this slice read production source/CSS/JS from disk in the
-legacy harness (TST-12 rubric S/J) and are ported here differently:
-
-- `_health_page_never_imports_html_module()`'s raw `health_page.py` read
-  (grepping for a literal `import html` line) becomes `not hasattr(
-  health_page, "html")` — a bare `import html` binds the name `html`
-  directly into the module's own namespace, so this is a real behavioural
-  proof, not a source-text read.
-- `_health_still_has_no_form_and_exactly_one_button_literal()`'s raw
-  `health_page.py` read (counting `"<form"`/`"<button"` occurrences in
-  the SOURCE, which is why the legacy count was "1" — a docstring
-  mention, never rendered markup) is rewritten as a rendered/parsed
-  check (TST-12 rubric S, `<slice>`'s named rewrite): Health is rendered
-  in four seeded states (normal, anomaly, source-fault, empty) and the
-  parsed tree is asserted to contain zero `<form>` and zero `<button>`
-  elements in every one of them — `health_page.render()` returns a
-  content fragment only (no shared nav chrome), so this is the page's
-  own true contract, not an artefact of what the shared layout adds
-  elsewhere.
-- `_cross_file_contract_drift_guard()`'s raw `battery-trend.js` read
-  becomes `served_asset()` against a running `companion/app.py` (the
-  `battery_trend_js` fixture below), per rubric J.
-
-Every CSS check in this slice (rubric C) fetches the stylesheet
-`companion/app.py` actually serves and asserts on it structurally via
-`companion_markup.css_rules()`/`declarations_for()`/`rules_with_selector()`
-— never a regex/substring probe over the raw served text (33-FOLLOWUPS.md
-F-01) — using the same single module-scoped read-only server 33-26
-established (`_module_server`/`css_text`/`battery_trend_js`), since none
-of the checks below mutate server state.
-
-Every other check in this module calls `companion.pages.health_page`/
-`companion.layout`/`companion.i18n`/`companion.prefs`/`companion.wake`
-directly, in-process.
+CSS/JS checks fetch served bytes from a running companion/app.py; everything
+else calls health_page/layout/i18n/prefs/wake directly, in-process.
 """
 import os
 import re
@@ -109,8 +65,7 @@ def _tile_slice_by_caption(rendered, caption):
 
 def test_compute_health_state_carries_pipeline_detail_html_has_run(tmp_path):
     """compute_health_state()'s pipeline_detail_html key, once the pipeline has run at least once,
-    is verdict-free and embedded once inside pipeline_html, mirroring device_detail_html (B2,
-    22-03-PLAN.md Task 1)"""
+    is verdict-free and embedded once inside pipeline_html, mirroring device_detail_html"""
     state_dir = str(tmp_path)
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.ago(120)})
     state = health_page.compute_health_state(state_dir, now=shp.iso(shp.now()))
@@ -128,8 +83,7 @@ def test_compute_health_state_carries_pipeline_detail_html_has_run(tmp_path):
 
 def test_collect_anomalies_and_overall_severity_treat_pipeline_off_as_healthy():
     """collect_anomalies()/overall_severity() treat pipeline_state='off' (never ran) exactly like
-    'ok' — never an anomaly, never a warn — while a genuinely stale pipeline_state still is (B2,
-    22-03-PLAN.md Task 1)"""
+    'ok' — never an anomaly, never a warn — while a genuinely stale pipeline_state still is"""
     assert health_page.collect_anomalies("ok", "off", "ok", False) == [], (
         "expected collect_anomalies() to treat pipeline_state='off' as no anomaly (B2)")
     assert health_page.overall_severity("ok", "off", "ok", False) == "ok", (
@@ -152,7 +106,7 @@ def test_collect_anomalies_and_overall_severity_treat_pipeline_off_as_healthy():
 
 def test_single_reading_still_no_chart_no_readout_no_script(tmp_path):
     """battery_sparkline_svg() still returns '' for fewer than two numeric readings, and the page emits neither
-    a readout element nor a chart script tag (D-09 regression guard)"""
+    a readout element nor a chart script tag (regression guard)"""
     assert health_page.battery_sparkline_svg([{"ts": "t1", "battery_mv": 4200}]) == "", (
         "expected battery_sparkline_svg() to return '' for a single-row input")
     state_dir = str(tmp_path)
@@ -236,15 +190,13 @@ def test_cross_file_contract_drift_guard(tmp_path, battery_trend_js):
 
 
 def test_battery_drop_flags_anomaly_gentle_decline_does_not():
-    """a large consecutive-reading drop flags a battery warning (demoted from error, D-05); a gentle
+    """a large consecutive-reading drop flags a battery warning (demoted from error); a gentle
     monotonic decline does not"""
     # battery_status() takes newest-first rows (matching battery_trend_rows()'s/
     # recent_device_health()'s own ordering) — t2 (newer) sorts before t1 (older)
-    # in both fixtures below.
-    #
-    # 19-05-PLAN.md Task 3 (D-05/A-23): a >= BATTERY_DROP_WARN_MV drop is a
-    # "warn", demoted from "error" (a single sampling artefact must not paint
-    # the whole page as an outage).
+    # in both fixtures below. A >= BATTERY_DROP_WARN_MV drop is a "warn",
+    # demoted from "error" (a single sampling artefact must not paint the
+    # whole page as an outage).
     drop_rows = [
         {"ts": "t2", "battery_mv": 4200 - health_page.BATTERY_DROP_WARN_MV},
         {"ts": "t1", "battery_mv": 4200},
@@ -261,15 +213,15 @@ def test_battery_drop_flags_anomaly_gentle_decline_does_not():
 
 
 # ==========================================================================
-# 19-05-PLAN.md Task 3 (D-05/A-23): overall_severity()'s widened
-# precedence table, and collect_anomalies()'s two matching new items
+# overall_severity()'s widened precedence table, and collect_anomalies()'s
+# two matching new items
 # ==========================================================================
 
 
 def test_overall_severity_widened_precedence_table():
     """overall_severity()'s widened 6-input precedence table: source_fault wins outright, error states
     win next, then warn states/disagreement_warn/coverage_state=='warn', with the 4-argument call
-    staying byte-for-byte backward compatible (19-05-PLAN.md Task 3/D-05)"""
+    staying byte-for-byte backward compatible"""
     # The full 6-input precedence table, including the 4-argument
     # backward-compatible call (the two new keyword parameters both
     # default, so an existing 4-argument caller's behaviour is
@@ -295,7 +247,7 @@ def test_overall_severity_widened_precedence_table():
 
 
 def test_overall_severity_acceptance_criteria_literal():
-    """overall_severity()'s plan-cited acceptance triple: ('ok', 'error', 'warn') (19-05-PLAN.md Task 3)"""
+    """overall_severity()'s plan-cited acceptance triple: ('ok', 'error', 'warn')"""
     # The plan's own acceptance-criteria one-liner, run as a check rather
     # than only a shell command.
     results = (
@@ -308,7 +260,7 @@ def test_overall_severity_acceptance_criteria_literal():
 
 def test_source_fault_alone_produces_error_registry_alone_produces_warn(tmp_path):
     """compute_health_state() folds an active source_fault_raw alone into error severity, a non-empty
-    registry alone into warn severity, and stays ok when both are clear (19-05-PLAN.md Task 3/D-05)"""
+    registry alone into warn severity, and stays ok when both are clear"""
     now = shp.now()
 
     state_dir = str(tmp_path / "source-fault-alone")
@@ -344,7 +296,7 @@ def test_source_fault_alone_produces_error_registry_alone_produces_warn(tmp_path
 
 def test_collect_anomalies_two_new_items():
     """collect_anomalies()'s two new items (source_fault, coverage_state) appear only when their own
-    input is unhealthy, and a fully healthy 4-argument call still returns none (19-05-PLAN.md Task 3)"""
+    input is unhealthy, and a fully healthy 4-argument call still returns none"""
     assert "All data sources failed." in health_page.collect_anomalies(
         "ok", "ok", "ok", False, source_fault=True), (
         "expected the source_fault item to appear when source_fault=True")
@@ -357,18 +309,11 @@ def test_collect_anomalies_two_new_items():
 
 def test_device_staleness_pinned_from_both_directions_by_cadence(tmp_path, monkeypatch):
     """a device last seen 400 seconds ago is 'warn' at a 30s wake cadence but 'ok' at a 3600s cadence,
-    pinned from both directions through the real compute_health_state() pipeline (19-05-PLAN.md
-    Task 3/D-05, A-23)"""
-    # A device last seen 400 seconds ago is "warn" at a 30s cadence (400 >
-    # the 300s floor: 3 * 30 = 90, floored up to 300) but "ok" at a 3600s
-    # cadence (400 < 3 * 3600 = 10800) — the A-23 defect, pinned from both
-    # directions against the real compute_health_state() pipeline. The 30s
-    # cadence is deployed via SKYPANE_SLEEP_S (device_config.save_device_
-    # config()'s own wake_interval_s validation enforces [60, 3600] — 30 can
-    # only reach effective_wake_interval_s() via the env fallback, exactly
-    # like the real shipped SKYPANE_SLEEP_S=30 deployment); the 3600s cadence
-    # is deployed via a seeded device_config.json, at the top of that same
-    # valid range.
+    pinned from both directions through the real compute_health_state() pipeline"""
+    # 400s > the 300s floor (3 * 30s), so it reads "warn" at a 30s cadence,
+    # but 400s < 3 * 3600s, so it reads "ok" at a 3600s cadence. The 30s
+    # cadence is deployed via SKYPANE_SLEEP_S (the env fallback); the
+    # 3600s cadence via a seeded device_config.json.
     now = shp.now()
 
     state_dir = str(tmp_path / "cadence-env-30")
@@ -445,7 +390,7 @@ def test_unreadable_database_degrades_without_raising(tmp_path):
 
 
 def test_source_fault_set_shows_landing_explanation(tmp_path):
-    """with the source-fault meta key set, the CFG-05 landing explanation appears"""
+    """with the source-fault meta key set, the landing explanation appears"""
     state_dir = str(tmp_path)
     shp.seed_meta(state_dir, **{history_db.META_SOURCE_FAULT: "True"})
     rendered = health_page.render(shp.ctx(state_dir))
@@ -454,7 +399,7 @@ def test_source_fault_set_shows_landing_explanation(tmp_path):
 
 
 def test_source_fault_unset_hides_landing_explanation(tmp_path):
-    """with the source-fault meta key unset, the CFG-05 landing explanation is absent"""
+    """with the source-fault meta key unset, the landing explanation is absent"""
     rendered = health_page.render(shp.ctx(str(tmp_path)))
     assert health_page.SOURCE_FAULT_HEADING not in rendered, (
         "did not expect the CFG-05 landing explanation with no source-fault flag set")
@@ -462,7 +407,7 @@ def test_source_fault_unset_hides_landing_explanation(tmp_path):
 
 def test_health_page_never_imports_html_module():
     """companion/pages/health_page.py never imports the stdlib html module directly"""
-    # TST-12 rubric S rewrite: a bare `import html` binds the name `html`
+    # rewrite: a bare `import html` binds the name `html`
     # directly into health_page's own module namespace, so hasattr() is a
     # real behavioural proof of the same fact the legacy check's source
     # grep asserted — never a source-text read.
@@ -472,7 +417,7 @@ def test_health_page_never_imports_html_module():
 
 def test_health_page_opens_with_shared_page_header(tmp_path):
     """Health opens with the shared layout.page_header() component, not a bare <h1>"""
-    # 06.6.2-04 (D-16): Health's top-level heading now goes through
+    # 06.6.2-04 (): Health's top-level heading now goes through
     # layout.page_header() instead of an independent bare <h1>.
     state_dir = str(tmp_path)
     now = shp.now()
@@ -485,13 +430,10 @@ def test_health_page_opens_with_shared_page_header(tmp_path):
 
 
 def test_health_page_purpose_sentence_present_after_refresh(tmp_path):
-    """Health's .page-header carries a one-sentence purpose after the auto-refresh pill (quick task
-    260901-tsa, finding A; retargeted in place by 260902-chc)"""
-    # quick task 260901-tsa (finding A): PAGE_PURPOSE_TEXT reaches
-    # layout.page_header()'s `purpose` parameter, renders inside
-    # .page-header, and — per that component's own reordered emission
-    # (Task 1) — follows the Refresh link, matching the validated sketch's
-    # own DOM order.
+    """Health's .page-header carries a one-sentence purpose after the auto-refresh pill"""
+    # PAGE_PURPOSE_TEXT reaches layout.page_header()'s `purpose`
+    # parameter, renders inside .page-header, and follows the Refresh
+    # link, matching the validated sketch's own DOM order.
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -505,10 +447,10 @@ def test_health_page_purpose_sentence_present_after_refresh(tmp_path):
     header_slice = rendered[header_start:header_end]
     assert escaped_purpose in header_slice, (
         "expected the purpose sentence inside the .page-header div, not elsewhere on the page")
-    # 260902-chc: retargeted from the retired "freshness-refresh" link
-    # class onto the pill's own marker attribute — the ordering property
-    # this check tests (the header's action slot precedes the purpose
-    # sentence) is unchanged by that reversal.
+    # Retargeted from the retired "freshness-refresh" link class onto the
+    # pill's own marker attribute — the ordering property this check
+    # tests (the header's action slot precedes the purpose sentence) is
+    # unchanged by that reversal.
     refresh_at = rendered.index("data-refresh-pill")
     purpose_at = rendered.index(escaped_purpose)
     assert refresh_at < purpose_at, (
@@ -518,10 +460,10 @@ def test_health_page_purpose_sentence_present_after_refresh(tmp_path):
 
 def test_health_page_two_id_anchored_sections_correct_order_no_overview(tmp_path):
     """Health's body is two id-anchored sections (Screen, then Server & data), and the old 'Overview' heading
-    is gone (D-10)"""
-    # 06.6.4.1-04 (D-10): Health's body is now two id-anchored sections,
-    # Screen then Server & data, replacing the single "Overview" heading +
-    # one dashboard-grid shape.
+    is gone"""
+    # Health's body is two id-anchored sections, Screen then Server &
+    # data, replacing the single "Overview" heading + one dashboard-grid
+    # shape.
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -538,10 +480,10 @@ def test_health_page_two_id_anchored_sections_correct_order_no_overview(tmp_path
     assert rendered.index(screen_heading) < rendered.index(server_data_heading), (
         "expected the Screen section to precede the Server & data section")
     assert rendered.count('<h2 id="') == 2, "expected exactly two id-anchored <h2> elements"
-    # quick task 260902-gjj: the section's own class attribute also carries
-    # a status modifier (BATTERY_SECTION_CLASS + "--ok"/"--warn"/"--error"),
-    # so the bare class-name substring appears TWICE inside that one
-    # attribute — the open-tag prefix counts sections, not substrings.
+    # The section's own class attribute also carries a status modifier
+    # (BATTERY_SECTION_CLASS + "--ok"/"--warn"/"--error"), so the bare
+    # class-name substring appears TWICE inside that one attribute — the
+    # open-tag prefix counts sections, not substrings.
     assert rendered.count('<section class="%s' % health_page.BATTERY_SECTION_CLASS) == 1, (
         "expected exactly one battery-trend section, got %d"
         % rendered.count('<section class="%s' % health_page.BATTERY_SECTION_CLASS))
@@ -553,12 +495,10 @@ def test_health_page_two_id_anchored_sections_correct_order_no_overview(tmp_path
 
 def test_health_page_section_intros_pair_heading_with_description(tmp_path):
     """each of Health's two section headings is paired, in its own baseline-aligned .section-intro wrapper,
-    with its own muted description (quick task 260901-tsa, finding B)"""
-    # quick task 260901-tsa (finding B): each section's <h2> is now paired
-    # with its own muted description inside a .section-intro wrapper.
+    with its own muted description"""
     # Slices each wrapper individually (rather than searching the whole
-    # page) so the check cannot pass by finding the right description next
-    # to the wrong heading.
+    # page) so the check cannot pass by finding the right description
+    # next to the wrong heading.
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -600,7 +540,7 @@ def test_health_page_section_intros_pair_heading_with_description(tmp_path):
 def test_server_data_grid_holds_three_tiles_migrated_cards_outside_grid(tmp_path):
     """the Screen section's dashboard-grid holds exactly one tile, the Server & data dashboard-grid holds
     exactly three, the two migrated cards render as nested page-section elements outside both, and the
-    source-fault block never carries that modifier (D-11/finding E, quick task 260901-uzi finding 4)"""
+    source-fault block never carries that modifier (finding E, finding 4)"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -612,9 +552,9 @@ def test_server_data_grid_holds_three_tiles_migrated_cards_outside_grid(tmp_path
     shp.seed_unresolved_prefixes(state_dir, registry)
     shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    # quick task 260901-tsa (finding E): the Screen section now also wraps
-    # its own single Device tile in a dashboard-grid, so the page carries
-    # TWO dashboard-grid divs, not one.
+    # The Screen section now also wraps its own single Device tile in a
+    # dashboard-grid, so the page carries TWO dashboard-grid divs, not
+    # one.
     assert rendered.count('<div class="dashboard-grid">') == 2, (
         "expected exactly two dashboard-grid divs (Screen's single-tile grid + Server & data's "
         "three-tile grid), got %d" % rendered.count('<div class="dashboard-grid">'))
@@ -640,10 +580,10 @@ def test_server_data_grid_holds_three_tiles_migrated_cards_outside_grid(tmp_path
         "expected exactly one stat-tile occurrence inside the Screen section's dashboard-grid, "
         "got %d" % screen_grid_slice.count('class="stat-tile '))
 
-    # quick task 260902-gjj (ISSUE 2): the registry card's class attribute
-    # now also carries a status modifier (coverage_status()'s own
-    # "--ok"/"--warn"), so the closing quote no longer immediately follows
-    # "page-section--nested" — this open-ended prefix still finds it, and
+    # The registry card's class attribute now also carries a status
+    # modifier (coverage_status()'s own "--ok"/"--warn"), so the closing
+    # quote no longer immediately follows "page-section--nested" — this
+    # open-ended prefix still finds it, and
     # the slice-and-check below confirms which card it found.
     first_section_open = rendered.index('<section class="page-section page-section--nested')
     first_section_close = rendered.index("</section>", first_section_open) + len("</section>")
@@ -675,7 +615,7 @@ def test_server_data_grid_holds_three_tiles_migrated_cards_outside_grid(tmp_path
 
 def test_resolution_rate_tile_renders_percentage_and_window(tmp_path):
     """the Resolution-rate tile renders the resolved percentage and the window/event-count line for a seeded
-    fixture, and the no-stats empty state for an empty one (D-10/D-11)"""
+    fixture, and the no-stats empty state for an empty one """
     state_dir = str(tmp_path / "seeded")
     now = shp.now()
     events = []
@@ -690,9 +630,9 @@ def test_resolution_rate_tile_renders_percentage_and_window(tmp_path):
 
     state_dir_empty = str(tmp_path / "empty")
     rendered_empty = health_page.render(shp.ctx(state_dir_empty))
-    # 22-03-PLAN.md Task 2 (B3): the no-stats copy is now the windowed
-    # heading, interpolated with RESOLUTION_WINDOW_DAYS — never the retired
-    # "No resolution data yet." literal.
+    # The no-stats copy is now the windowed heading, interpolated with
+    # RESOLUTION_WINDOW_DAYS — never the retired "No resolution data
+    # yet." literal.
     expected_heading = health_page._NO_STATS_HEADING % health_page.RESOLUTION_WINDOW_DAYS
     assert expected_heading in rendered_empty, (
         "expected the no-stats empty-state heading with zero resolution history")
@@ -700,7 +640,7 @@ def test_resolution_rate_tile_renders_percentage_and_window(tmp_path):
 
 def test_registry_card_keeps_filter_bar_note_and_non_button_clear(tmp_path):
     """the migrated Unresolved-prefixes card keeps its filter bar, read-only note, and non-button Clear
-    control (D-12)"""
+    control"""
     state_dir = str(tmp_path)
     registry = {
         "ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
@@ -710,12 +650,10 @@ def test_registry_card_keeps_filter_bar_note_and_non_button_clear(tmp_path):
     for marker in ("data-filter-input", "data-filter-count", "data-filter-clear", "data-filter-empty"):
         assert marker in rendered, (
             "expected the migrated filter bar's %r marker to survive the move" % marker)
-    # phase 13 (D-10) reworded this note to include an apostrophe
-    # ("row's" — 19-06-PLAN.md Task 3, D-06 dropped the note's second
-    # apostrophe, "prefix's", along with the word "prefix" itself), which
-    # escape_html()'s quote=True mode renders as &#x27; — compare against
-    # the escaped form, matching this module's own single-escaping-choke-
-    # point discipline, not the raw Python literal.
+    # The note was reworded to include an apostrophe ("row's") and drop
+    # its second apostrophe ("prefix's") along with the word "prefix"
+    # itself, which escape_html()'s quote=True mode renders as &#x27; —
+    # compare against the escaped form, not the raw Python literal.
     assert layout.escape_html(health_page._READ_ONLY_NOTE) in rendered, (
         "expected the read-only note to survive the move verbatim (escaped)")
     section_start = rendered.index(
@@ -727,19 +665,13 @@ def test_registry_card_keeps_filter_bar_note_and_non_button_clear(tmp_path):
 
 def test_read_only_note_reworded_to_point_at_airlines_not_the_runbook(tmp_path):
     """the read-only note is reworded to name Airlines as the resolution surface, no longer points at
-    the manual runbook (phase 13 D-10), no longer says 'prefix' in either half (19-06-PLAN.md
-    Task 3, D-06), and (29-06-PLAN.md Task 2, CFG-79) is now split into a short visible sentence
-    plus its moved instruction inside a readings-disclosure"""
-    # phase 13 (D-10): the note now tells the operator where resolution
-    # happens (the Airlines page, via the per-row Resolve link) instead of
-    # pointing at the old manual runbook.
-    #
-    # 29-06-PLAN.md Task 2 (CFG-79): the note is now split. `_READ_ONLY_
-    # NOTE` (the visible sentence) carries only "This list is read-only
-    # here."; the Airlines-pointing instruction now lives in `_READ_ONLY_
-    # NOTE_DETAIL`, moved verbatim into the card's own <details
-    # class="readings-disclosure"> — both must render, the visible one
-    # outside it, the detail one inside it.
+    the manual runbook, no longer says 'prefix' in either half, and is now split into a short
+    visible sentence plus its moved instruction inside a readings-disclosure"""
+    # The note now points at the Airlines page's per-row Resolve link
+    # instead of the old manual runbook, and is split: `_READ_ONLY_NOTE`
+    # (visible) carries "This list is read-only here."; the Airlines
+    # instruction lives in `_READ_ONLY_NOTE_DETAIL`, inside a
+    # <details class="readings-disclosure">.
     old_note_closing_phrase = "following the existing coverage-gap runbook."
     expected_visible = "This list is read-only here."
     expected_detail = (
@@ -774,11 +706,11 @@ def test_read_only_note_reworded_to_point_at_airlines_not_the_runbook(tmp_path):
 
 def test_source_rows_gains_fifth_manual_entry(tmp_path):
     """_SOURCE_ROWS has a fifth 'manual' entry, resolution_stats() folds a seeded 'manual' route_source
-    count into the total and a labelled row, and render() shows a 'Manual' row (phase 13 D-02)"""
-    # phase 13 (D-02): _SOURCE_ROWS gains a fifth "manual" tuple so the
-    # resolution-rate breakdown never folds a hand-resolved prefix into the
-    # "airline_only" bucket, whose gloss says the static prefix table did
-    # the work.
+    count into the total and a labelled row, and render() shows a 'Manual' row"""
+    # _SOURCE_ROWS gains a fifth "manual" tuple so the resolution-rate
+    # breakdown never folds a hand-resolved prefix into the
+    # "airline_only" bucket, whose gloss says the static prefix table
+    # did the work.
     assert len(health_page._SOURCE_ROWS) == 5, (
         "expected exactly 5 _SOURCE_ROWS entries, got %d" % len(health_page._SOURCE_ROWS))
     assert health_page._SOURCE_ROWS[4][0] == "manual", (
@@ -805,15 +737,14 @@ def test_source_rows_gains_fifth_manual_entry(tmp_path):
 
 
 # ==========================================================================
-# 22-03-PLAN.md Task 2 (B3): count every row, bucket the unknown as
-# "other", and stop rendering an empty "How well we name flights" card
+# Count every row, bucket the unknown as "other", and stop rendering an
+# empty "How well we name flights" card
 # ==========================================================================
 
 
 def test_resolution_stats_counts_unknown_route_source_as_other(tmp_path):
     """resolution_stats() counts a NULL and an unrecognised route_source into one 'Other' bucket,
-    the total equals every row in the window, and render() shows the 'Other' row (B3,
-    22-03-PLAN.md Task 2)"""
+    the total equals every row in the window, and render() shows the 'Other' row"""
     # A NULL route_source (the field simply omitted, which
     # record_runway_event() stores as NULL) and an explicit unrecognised
     # string both land in the "Other" bucket, and the total counts every
@@ -844,7 +775,7 @@ def test_resolution_stats_counts_unknown_route_source_as_other(tmp_path):
 
 def test_resolution_stats_known_sources_alone_gain_no_other_row(tmp_path):
     """resolution_stats() with only known route_source values renders exactly the five _SOURCE_ROWS
-    rows and no 'Other' row — byte-identical to before this task (B3, 22-03-PLAN.md Task 2)"""
+    rows and no 'Other' row — byte-identical to before this task"""
     # With rows whose route_source is one of the five known values, the
     # counts (and the absence of an 'Other' row) are unchanged from today —
     # an ordinary render is byte-identical to before this task.
@@ -865,7 +796,7 @@ def test_resolution_stats_known_sources_alone_gain_no_other_row(tmp_path):
 
 def test_stats_section_absent_when_empty_both_languages(tmp_path):
     """the empty 'How well we name flights' section is entirely absent from the rendered page in
-    both English and French — never a heading over an empty body (B3, 22-03-PLAN.md Task 2)"""
+    both English and French — never a heading over an empty body"""
     # With zero rows in the window, the whole "How well we name flights"
     # section is absent from the rendered HTML — not a heading with an
     # empty body — in both languages.
@@ -885,7 +816,7 @@ def test_stats_section_absent_when_empty_both_languages(tmp_path):
 
 def test_resolution_rate_tile_shows_36_rows_never_no_events(tmp_path):
     """with 36 seeded rows (30 known, 6 with a NULL route_source) the resolution-rate tile shows a
-    non-zero count for all 36, never the empty-state copy (B3, 22-03-PLAN.md Task 2)"""
+    non-zero count for all 36, never the empty-state copy"""
     # The audit's own seed (36 runway events over 17h) is exactly the kind
     # of fixture the pre-fix bug would have silently undercounted if any of
     # those rows carried an unrecognised route_source — reproduced here
@@ -908,7 +839,7 @@ def test_resolution_rate_tile_shows_36_rows_never_no_events(tmp_path):
 
 def test_no_stats_heading_derives_from_window_constant_not_hard_coded():
     """_NO_STATS_HEADING is an unformatted %d template with no hard-coded window literal, and
-    interpolates RESOLUTION_WINDOW_DAYS at its one call site (B3, 22-03-PLAN.md Task 2)"""
+    interpolates RESOLUTION_WINDOW_DAYS at its one call site"""
     # The empty copy names the window and derives the number from
     # RESOLUTION_WINDOW_DAYS, never a hard-coded "30" in the string itself.
     assert "%d" in health_page._NO_STATS_HEADING, (
@@ -923,8 +854,8 @@ def test_no_stats_heading_derives_from_window_constant_not_hard_coded():
 def test_registry_resolve_link_pairs_desktop_and_mobile_and_escapes_hostile_input(tmp_path):
     """the registry's per-row Resolve link is paired identically (href/aria-label) across the desktop
     table and mobile card, with distinct visible text per representation, and a hostile prefix renders
-    fully escaped in both (phase 13 D-10, T-13-05)"""
-    # phase 13 (D-10): each registry row's Resolve link is emitted twice —
+    fully escaped in both (phase 13)"""
+    # phase 13 (): each registry row's Resolve link is emitted twice —
     # once in the desktop <tr>'s sixth <td>, once in the mobile card's
     # .data-card__action block — sharing the identical href/aria-label,
     # differing only in visible link text.
@@ -968,7 +899,7 @@ def test_registry_resolve_link_pairs_desktop_and_mobile_and_escapes_hostile_inpu
 
 
 # ==========================================================================
-# Health still gains no form/state-changing control (phase 13 D-10, T-13-13)
+# Health still gains no form/state-changing control (phase 13)
 # ==========================================================================
 
 
@@ -1008,9 +939,9 @@ _HEALTH_RENDER_STATES = {
 def test_health_still_has_no_form_and_no_button_in_any_state(tmp_path, state_name):
     """companion/pages/health_page.py's render() emits zero <form> and zero <button> elements in
     every seeded state (normal, anomaly, source-fault, empty) — Health still gains no
-    state-changing (form-submitting) control (phase 13 D-10, T-13-13; rewritten from a
-    health_page.py source-text grep onto the parsed rendered output, TST-12 rubric S, by
-    33-27-PLAN.md — the legacy check's own "exactly one '<button' occurrence" was a docstring
+    state-changing (form-submitting) control (phase 13, ; rewritten from a
+    health_page.py source-text grep onto the parsed rendered output, by
+     — the legacy check's own "exactly one '<button' occurrence" was a docstring
     mention in the SOURCE, never rendered markup: health_page.render() returns a content
     fragment only, with no shared nav chrome, so the true rendered contract has no allowed
     exception at all)"""
@@ -1026,19 +957,14 @@ def test_health_still_has_no_form_and_no_button_in_any_state(tmp_path, state_nam
 
 
 def test_quick_260902_gjj_muted_captions_compose_section_caption(tmp_path, css_text):
-    """the battery heading's sibling caption <p> (retargeted from the retired trailing <span>,
-    29-06-PLAN.md Task 1/CFG-84) and the Unresolved-prefixes read-only note both compose
+    """the battery heading's sibling caption <p> (retargeted from the retired trailing <span>)
+    and the Unresolved-prefixes read-only note both compose
     section-caption with their existing sizing class, and style.css's .section-caption still declares
-    exactly one property at the file's single 70% muted strength (quick task 260902-gjj, ISSUE 1)"""
-    # quick task 260902-gjj (ISSUE 1): pins the markup pair (both fragments
-    # compose `section-caption` onto their existing sizing class) AND the
-    # single muted strength together — so a future edit cannot satisfy the
-    # markup half while quietly forking a second muted value.
-    #
-    # 29-06-PLAN.md Task 1 (CFG-84): the battery heading's own trailing
-    # <span> this check used to locate is gone (superseded); the caption
-    # now lives in a SIBLING <p> immediately after </h2>, and that is what
-    # this check locates instead.
+    exactly one property at the file's single 70% muted strength"""
+    # Pins the markup pair AND the single muted strength together, so a
+    # future edit cannot satisfy one half while forking the other. The
+    # caption now lives in a SIBLING <p> immediately after </h2>, not the
+    # heading's own retired trailing <span>.
     state_dir = str(tmp_path)
     rendered = health_page.render(shp.ctx(state_dir))
     heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(_battery_section_heading())
@@ -1048,7 +974,7 @@ def test_quick_260902_gjj_muted_captions_compose_section_caption(tmp_path, css_t
         "expected the battery heading's sibling caption <p> to compose text-label with "
         "section-caption immediately after </h2>, got %r" % after_heading[:80])
 
-    # phase 13 (D-10): the reworded note contains apostrophes, which
+    # phase 13 (): the reworded note contains apostrophes, which
     # escape_html() renders as &#x27; — locate the escaped form, not the
     # raw Python literal.
     note_at = rendered.index(layout.escape_html(health_page._READ_ONLY_NOTE))
@@ -1067,11 +993,11 @@ def test_quick_260902_gjj_muted_captions_compose_section_caption(tmp_path, css_t
 
 def test_migrated_cards_have_independent_failure_isolation(tmp_path):
     """corrupting only the database leaves the registry card rendering while the stats card degrades, and
-    vice versa (D-11)"""
-    # D-11: the registry read (poll_loop.load_poll_state(), a filesystem/
-    # JSON failure mode) and the stats read (_safe_query(), a SQLite
-    # failure mode) must degrade independently — corrupting one source
-    # must never take down the other card.
+    vice versa"""
+    # The registry read (poll_loop.load_poll_state(), a filesystem/JSON
+    # failure mode) and the stats read (_safe_query(), a SQLite failure
+    # mode) must degrade independently — corrupting one source must never
+    # take down the other card.
     db_broken = str(tmp_path / "db-broken")
     with history_db.open_db(db_broken):
         pass
@@ -1103,8 +1029,8 @@ def test_migrated_cards_have_independent_failure_isolation(tmp_path):
 
 def test_read_health_inputs_keeps_stats_separate(tmp_path):
     """_read_health_inputs() carries exactly nine keys — device_config and registry_rows now join it for
-    severity's sake (19-05-PLAN.md Task 3/D-05) — while the stats read alone stays a separate call in
-    render() (D-11)"""
+    severity's sake — while the stats read alone stays a separate call in
+    render()"""
     inputs = health_page._read_health_inputs(str(tmp_path), shp.iso(shp.now()))
     expected_keys = {
         "device_health", "pipeline_ts", "last_detection", "source_fault_raw",
@@ -1120,7 +1046,7 @@ def test_read_health_inputs_keeps_stats_separate(tmp_path):
 
 def test_battery_section_keeps_everything_after_the_move(tmp_path):
     """the battery-trend section keeps its own status modifier (retargeted from the retired badge, quick
-    task 260902-gjj), readout, and single script tag after moving out of the grid"""
+    task), readout, and single script tag after moving out of the grid"""
     state_dir = str(tmp_path)
     base = shp.now()
     readings = [
@@ -1152,12 +1078,11 @@ def test_battery_heading_is_short_and_precision_lives_in_a_sibling_caption(tmp_p
     """the battery-trend heading carries ONLY its short fixed text (no inline precision span),
     immediately followed by a sibling <p class="text-label section-caption"> carrying
     _battery_trend_caption()'s own text, itself followed by the chart/table body —
-    index(h2) < index(caption) < index(body) (29-06-PLAN.md Task 1, CFG-84)"""
-    # 29-06-PLAN.md Task 1 (CFG-84): the <h2> must carry ONLY its short,
-    # fixed, window-derived text (no inline precision span), and the
-    # precision _battery_trend_caption() computes must live in a SIBLING
-    # <p class="text-label section-caption"> immediately after </h2>,
-    # itself followed by the chart/table body.
+    index(h2) < index(caption) < index(body)"""
+    # The <h2> must carry ONLY its short, fixed, window-derived text (no
+    # inline precision span); the precision _battery_trend_caption()
+    # computes lives in a SIBLING <p class="text-label section-caption">
+    # immediately after </h2>, itself followed by the chart/table body.
     state_dir = str(tmp_path)
     base = shp.now()
     readings = [
@@ -1195,11 +1120,11 @@ def test_battery_heading_is_short_and_precision_lives_in_a_sibling_caption(tmp_p
 def test_battery_heading_equals_template_times_window_in_both_languages(tmp_path):
     """the battery-trend heading's rendered text equals i18n.t_lang(BATTERY_SECTION_HEADING_TEMPLATE,
     lang) % (BATTERY_TREND_WINDOW_DAYS // 30) in both English and French — a relationship against
-    the real constants, not a typed literal (29-06-PLAN.md Task 1, CFG-84)"""
-    # 29-06-PLAN.md Task 1 (CFG-84): a RELATIONSHIP against the real
-    # constants, never a typed "Batterie · 3 mois" literal — proven in both
-    # languages so a future edit to either the template or
-    # BATTERY_TREND_WINDOW_DAYS is caught here rather than only in English.
+    the real constants, not a typed literal"""
+    # A RELATIONSHIP against the real constants, never a typed
+    # "Batterie · 3 mois" literal, proven in both languages so a future
+    # edit to either the template or BATTERY_TREND_WINDOW_DAYS is caught
+    # here rather than only in English.
     state_dir = str(tmp_path)
     for lang in ("en", "fr"):
         try:
@@ -1218,7 +1143,7 @@ def test_battery_heading_equals_template_times_window_in_both_languages(tmp_path
 def test_battery_trend_caption_all_three_branches_render_in_sibling_caption(tmp_path):
     """all three _battery_trend_caption() branches (usable daily series, no rows at all, sub-two-day
     raw series) render their own exact text inside the sibling caption <p>, never inside the
-    heading (29-06-PLAN.md Task 1, CFG-84)"""
+    heading"""
     base = datetime(2026, 9, 10, 12, 0, 0, tzinfo=timezone.utc)
 
     def _caption_paragraph(rendered):
@@ -1265,10 +1190,9 @@ def test_battery_trend_caption_all_three_branches_render_in_sibling_caption(tmp_
 def test_battery_readout_precedes_chart_class_list_and_live_region(tmp_path, battery_trend_js):
     """the battery readout precedes the chart and the script tag inside the battery-trend section, carries
     its single expected class plus role="status" plus both value/detail spans, and battery-trend.js
-    still looks it up by id (quick task 260901-tsa finding D, retargeted by quick task 260901-uzi
-    finding 3)"""
-    # quick task 260901-tsa (finding D): the readout is now the section's
-    # scannable headline number, ahead of the chart.
+    still looks it up by id"""
+    # The readout is now the section's scannable headline number, ahead
+    # of the chart.
     state_dir = str(tmp_path)
     base = shp.now()
     readings = [
@@ -1320,13 +1244,11 @@ def test_quick_260902_gjj_card_status_borders_render_correct_modifiers(tmp_path,
     """the battery-trend and Unresolved-prefixes cards each carry the status modifier
     layout.card_status_class() derives from battery_status()/coverage_status()'s own real return
     value on the same rows, the Resolution-statistics card carries none, and style.css declares all
-    three doubled-form status rules for both card components (quick task 260902-gjj, ISSUE 2)"""
-    # quick task 260902-gjj (ISSUE 2): a real rendered page, with a seeded
-    # battery drop (battery_status() -> "warn") and a seeded non-empty
-    # registry (coverage_status() -> "warn"), proves the battery-trend and
-    # Unresolved-prefixes cards each carry the modifier layout.card_status_
-    # class() derives from the SAME function, and that the Resolution-
-    # statistics card carries none. Each section is located by its own
+    three doubled-form status rules for both card components"""
+    # A real rendered page, with a seeded battery drop and a seeded
+    # non-empty registry, proves the battery-trend and Unresolved-
+    # prefixes cards each carry the modifier layout.card_status_class()
+    # derives from the SAME function. Each section is located by its own
     # heading constant, never a document-wide substring search.
     state_dir = str(tmp_path)
     now = shp.now()
@@ -1339,9 +1261,9 @@ def test_quick_260902_gjj_card_status_borders_render_correct_modifiers(tmp_path,
         "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
                 "example_callsign": "ABC123"},
     })
-    # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics card is now
-    # omitted entirely when its window holds zero rows — seed one so the
-    # card (and its "no status modifier" assertion below) still renders.
+    # The Resolution-statistics card is omitted entirely when its window
+    # holds zero rows — seed one so the card (and its "no status
+    # modifier" assertion below) still renders.
     shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
 
@@ -1406,18 +1328,14 @@ _HOVER_SELECTOR = {
 
 
 def test_card_status_modifiers_survive_hover_source_order(css_text):
-    """every card-status modifier selector (battery-trend-section, page-section, and — quick task
-    260902-gjj Task 3 — stat-tile) sits after that component's own :hover/:focus-within rule in
-    the served stylesheet's rule order, so the status border survives hover and keyboard focus
-    rather than losing to the hover shorthand"""
-    # quick task 260902-gjj (ISSUE 2, extended by Task 3 to cover .stat-
-    # tile): the load-bearing fact every card-status-border rule depends
-    # on — each doubled-form status modifier selector must sit AFTER that
-    # component's own ":hover, :focus-within" rule in the stylesheet's rule
-    # order, or the hover rule's `border-color: transparent`/`border-*-
-    # color: transparent` shorthand (equal specificity, later rule wins)
-    # silently erases the status colour the moment the card is hovered or
-    # a keyboard user focuses a chart point inside it.
+    """every card-status modifier selector (battery-trend-section, page-section, and stat-tile) sits
+    after that component's own :hover/:focus-within rule in the served stylesheet's rule order, so
+    the status border survives hover and keyboard focus rather than losing to the hover shorthand"""
+    # The load-bearing fact every card-status-border rule depends on:
+    # each doubled-form status modifier selector must sit AFTER that
+    # component's own ":hover, :focus-within" rule, or the hover rule's
+    # `border-color: transparent` shorthand (equal specificity, later
+    # rule wins) silently erases the status colour on hover or focus.
     rules = css_rules(css_text)
     for comp, statuses in _CARD_STATUS_HOVER_ORDER_COMPONENTS:
         hover_index = _rule_index(rules, _HOVER_SELECTOR[comp])
@@ -1433,13 +1351,12 @@ def test_quick_260902_gjj_dot_removal_scoped_not_global(tmp_path):
     """the battery-trend and Unresolved-prefixes cards render no dot-label anywhere inside their own
     boundaries, the Corroboration tile's three dots survive untouched (proving the removal is scoped,
     not global), and BATTERY_STATUS_LABEL/_battery_badge_block are both gone via hasattr, never a
-    source grep (quick task 260902-gjj, ISSUE 2)"""
-    # quick task 260902-gjj (ISSUE 2): proves the two dot removals are
-    # SCOPED to the battery-trend and Unresolved-prefixes cards, not a
-    # global regression that happens to also strip the three surviving
-    # Corroboration dots. Without the third (positive) assertion below,
-    # the first two (negative) assertions would pass even if status_dot()
-    # itself had been broken everywhere.
+    source grep"""
+    # Proves the two dot removals are SCOPED to the battery-trend and
+    # Unresolved-prefixes cards, not a global regression that also strips
+    # the three surviving Corroboration dots. Without the third
+    # (positive) assertion below, the first two would pass even if
+    # status_dot() itself had been broken everywhere.
     state_dir = str(tmp_path)
     now = shp.now()
     readings = [
@@ -1467,10 +1384,9 @@ def test_quick_260902_gjj_dot_removal_scoped_not_global(tmp_path):
     assert "dot-label" not in registry_slice, (
         "the Unresolved-prefixes card must render no dot-label — its own dot is retired")
 
-    # 19-06-PLAN.md Task 2 (D-06): the tile's visible caption is now the
-    # plain-language CORROBORATION_TILE_LABEL, not the literal
-    # "Corroboration" (which now only survives as this tile's caption_title
-    # tooltip).
+    # The tile's visible caption is the plain-language
+    # CORROBORATION_TILE_LABEL, not the literal "Corroboration" (which
+    # only survives as this tile's caption_title tooltip).
     corrob_at = rendered.index(">%s<" % layout.escape_html(health_page.CORROBORATION_TILE_LABEL))
     corrob_open = rendered.rindex('<div class="stat-tile ', 0, corrob_at)
     corrob_close = rendered.index("</div>", corrob_open) + len("</div>")
@@ -1488,9 +1404,9 @@ def test_quick_260902_gjj_dot_removal_scoped_not_global(tmp_path):
 def test_quick_260901_tsa_css_dom_contract_guard(css_text):
     """style.css's .section-intro / .section-intro > p / .stat-tile__value .mono / .battery-readout rules
     each carry their load-bearing declaration, and .mono precedes .battery-readout in the
-    stylesheet's rule order (quick task 260901-tsa)"""
-    # quick task 260901-tsa (Check 5): the cross-file guard for every new/
-    # edited style.css rule this task's markup depends on.
+    stylesheet's rule order"""
+    # The cross-file guard for every new/edited style.css rule this
+    # markup depends on.
     expectations = (
         (".section-intro", "display", "flex"),
         (".section-intro > p", "margin", "0"),
@@ -1513,11 +1429,10 @@ def test_quick_260901_tsa_css_dom_contract_guard(css_text):
 
 
 def test_dashboard_grid_stretches_same_row_tiles(css_text):
-    """style.css's .dashboard-grid declares an explicit cross-axis stretch (the UXA-06 reversal) and no
-    longer declares start, and .dashboard-shell's own separate start-aligned declaration (D-21's sticky
-    sidebar) is the file's only remaining one (quick task 260901-uzi finding 1)"""
-    # quick task 260901-uzi Task 4 (Check 1): finding 1's stylesheet guard.
-    # .dashboard-grid must declare the stretch alignment (the UXA-06
+    """style.css's .dashboard-grid declares an explicit cross-axis stretch (the reversal) and no
+    longer declares start, and .dashboard-shell's own separate start-aligned declaration (sticky
+    sidebar) is the file's only remaining one"""
+    # .dashboard-grid must declare the stretch alignment (the
     # reversal) and must not declare the start alignment, and the file's
     # only remaining start-aligned declaration must be the desktop
     # .dashboard-shell rule's own.
@@ -1543,14 +1458,11 @@ def test_dashboard_grid_stretches_same_row_tiles(css_text):
 
 
 def test_data_table_th_has_symmetric_nonzero_padding(css_text):
-    """style.css's .data-table th declares a symmetric, non-zero vertical padding via the two-value shorthand
-    (quick task 260902-dng bug 2, closes 260901-uzi Finding 5 candidate (a))"""
-    # quick task 260902-dng (bug 2): pins both halves of the contract so a
-    # future edit cannot silently return the top to zero (reintroducing the
-    # opaque-background-starts-at-the-glyph-tops defect) or drift the top
-    # and bottom values apart. Parses the declaration's own VALUE rather
-    # than string-matching the whole rule body, so this check survives an
-    # unrelated reformat of the rule.
+    """style.css's .data-table th declares a symmetric, non-zero vertical padding via the two-value shorthand"""
+    # Pins both halves of the contract so a future edit cannot silently
+    # return the top to zero (reintroducing the opaque-background-starts-
+    # at-the-glyph-tops defect) or drift the top and bottom values apart.
+    # Parses the declaration's own VALUE, not the whole rule body.
     decls = declarations_for(css_text, ".data-table th")
     assert "padding-top" not in decls and "padding-bottom" not in decls, (
         "expected the two-value shorthand form, not separate padding-top/padding-bottom "
@@ -1573,17 +1485,15 @@ def test_data_table_th_has_symmetric_nonzero_padding(css_text):
 def test_nested_heading_tier_promoted_to_sans_semibold_emphasis_role(tmp_path, css_text):
     """exactly the two migrated cards carry page-section--nested (located by their own heading constants),
     the source-fault block never carries it even when it renders, both .section-intro headings are
-    untouched, and style.css's nested-heading rule — promoted by 06.6.4.1.1 D-09's deliberate second
-    reversal — declares the sans family, the Body size (16px) and the semibold weight explicitly (plus
-    its retained 260902-bl2 bottom margin), sitting below a .text-heading section-heading tier confirmed
-    still 22px/regular at the token level too (quick task 260901-uzi finding 4, Check 2; reverted by
-    quick task 260902-iag; re-promoted by 06.6.4.1.1 plan 02 Task 2)"""
+    untouched, and style.css's nested-heading rule declares the sans family, the Body size (16px)
+    and the semibold weight explicitly (plus its retained bottom margin), sitting below a
+    .text-heading section-heading tier confirmed still 22px/regular at the token level too"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     shp.seed_meta(state_dir, **{history_db.META_SOURCE_FAULT: "True"})
-    # 22-03-PLAN.md Task 2 (B3): seed one runway event so both migrated
-    # cards still render, unrelated to what this check is actually about.
+    # Seed one runway event so both migrated cards still render,
+    # unrelated to what this check is actually about.
     shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
 
@@ -1646,17 +1556,16 @@ def test_nested_heading_tier_promoted_to_sans_semibold_emphasis_role(tmp_path, c
 
 
 def test_stat_tile_caption_joins_the_unified_label_voice(css_text):
-    """style.css's .stat-tile__caption converges on the one unified 12px uppercase label voice (D-13) — sans
+    """style.css's .stat-tile__caption converges on the one unified 12px uppercase label voice — sans
     family, 12px size, semibold weight, uppercase transform and 0.06em tracking all declared explicitly,
     with no serif token named anywhere in its rule body — while .stat-tile__value keeps its own untouched
-    D-09 Emphasis-role size/weight, the nested card title stays on its own D-09-second-reversal sans-
-    semibold Body-size declarations, the shared h1/h2/h3/legend/.text-heading serif rule keeps its regular
-    weight, and the token table reads 14/16/22px (supersedes quick task 260902-dng Task 3's semibold
-    promotion and quick task 260902-iag Task 2's reversal of it — 06.6.4.1.1 plan 02 Task 3)"""
-    # 06.6.4.1.1 (D-13, plan 02 Task 3): the caption converges, together
-    # with .data-table th, .data-card__label, .filter-bar__count,
-    # .banner__pill and .airline-card__chip, on the one unified label
-    # voice: sans, 12px, semibold, uppercase, 0.06em tracking.
+    Emphasis-role size/weight, the nested card title stays on its own sans-semibold Body-size
+    declarations, the shared h1/h2/h3/legend/.text-heading serif rule keeps its regular weight, and
+    the token table reads 14/16/22px"""
+    # The caption converges, together with .data-table th,
+    # .data-card__label, .filter-bar__count, .banner__pill and
+    # .airline-card__chip, on the one unified label voice: sans, 12px,
+    # semibold, uppercase, 0.06em tracking.
     caption_decls = declarations_for(css_text, ".stat-tile__caption")
     assert caption_decls.get("font-family") == "var(--font-ui)", (
         "expected .stat-tile__caption to declare font-family: var(--font-ui) — D-13 retires the "
@@ -1685,8 +1594,7 @@ def test_stat_tile_caption_joins_the_unified_label_voice(css_text):
     assert value_decls.get("font-weight") == "var(--weight-semibold)", (
         "expected .stat-tile__value to stay semibold — Finding 4's own contract, got %r" % value_decls)
 
-    # 06.6.4.1.1 (D-09, plan 02 Task 2): the nested card title's demotion —
-    # reverted by quick task 260902-iag — is re-promoted a second time,
+    # The nested card title's demotion is re-promoted a second time,
     # deliberately, as the bottom rung of the full type ladder.
     nested_decls = declarations_for(css_text, ".page-section--nested > h2")
     assert nested_decls.get("font-size") == "var(--font-body-size)", (
@@ -1732,17 +1640,17 @@ def _margin_bottom_token_px(css_text, selector, tokens):
 
 
 def test_two_tier_hierarchy_carried_by_layout_not_type(tmp_path, css_text):
-    """Health's two-tier hierarchy (D-10 section headings vs. the cards nested inside them) still reads
+    """Health's two-tier hierarchy (section headings vs. the cards nested inside them) still reads
     apart with no font-size or font-weight distinction between the tiers: every level-2 heading (Battery
     trend, Unresolved prefixes, Resolution statistics) sits inside a bordered card <section>, both level-1
     headings (Screen, Server & data) sit inside the plain .section-intro row with no card class, a
     .dashboard-grid always intervenes between a level-1 heading and the first level-2 card in its own
     section, and the four spacing tiers that now carry the distinction stay strictly ordered against
-    their real :root token values — in both the empty and seeded state (quick task 260902-iag Task 3)"""
-    # quick task 260902-iag Task 3: with font-size no longer distinguishing
-    # Health's two structural tiers, this check pins the mechanism that
-    # replaced it — containment and spacing, read from the real rendered
-    # DOM and the real cascade, not asserted from memory.
+    their real :root token values — in both the empty and seeded state"""
+    # With font-size no longer distinguishing Health's two structural
+    # tiers, this check pins the mechanism that replaced it — containment
+    # and spacing, read from the real rendered DOM and cascade, not
+    # asserted from memory.
     for seeded in (False, True):
         state_dir = str(tmp_path / ("seeded-%s" % seeded))
         now = shp.now()
@@ -1771,7 +1679,7 @@ def test_two_tier_hierarchy_carried_by_layout_not_type(tmp_path, css_text):
             assert "page-section" not in wrapper_tag and "battery-trend-section" not in wrapper_tag, (
                 "seeded=%s: %r's own wrapper must carry no card class, got %r" % (seeded, heading, wrapper_tag))
 
-        # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics card is now
+        # Task 2 (B3): the Resolution-statistics card is now
         # omitted entirely (no heading at all) when its window holds zero
         # rows.
         headings_to_check = [
