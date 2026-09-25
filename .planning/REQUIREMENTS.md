@@ -21,7 +21,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Companion Configuration Web Interface
 
-Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected by the user over four sibling seeds (AeroDataBox destination lookup, local RTL-SDR backup, presence-adaptive poll cadence, and the standalone device-local fault-icon fallback DEVICE-06, which stays deferred in v2 below). Originated 2026-08-26 (`/gsd-discuss-phase 3`) as an unscoped seed idea, then expanded across two 2026-08-27 explore sessions to also cover view switching, device health/battery status, airline-coverage monitoring, and a server-side fault icon — rather than three separate mechanisms (a button, a push channel, and manual log-grepping).
+Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected by the user over four sibling seeds (AeroDataBox destination lookup, local RTL-SDR backup, presence-adaptive poll cadence, and the standalone device-local fault-icon fallback DEVICE-06, which stayed deferred in v2 below until quick task 260924-u7n shipped it on 2026-09-24). Originated 2026-08-26 (`/gsd-discuss-phase 3`) as an unscoped seed idea, then expanded across two 2026-08-27 explore sessions to also cover view switching, device health/battery status, airline-coverage monitoring, and a server-side fault icon — rather than three separate mechanisms (a button, a push channel, and manual log-grepping).
 
 **Scope widened again during `/gsd-discuss-phase 6` (2026-08-27):** CFG-02 (view switching) was removed from this phase — there's still nothing to switch to until a second view exists, so it moved back to v2's "View Switching" section below. In its place, the user asked to add seven new capabilities to this same phase: a flight-history log, a manual poll trigger, airline-resolution statistics, a dark/light theme for the page itself, a live render preview, a gallery of recent renders, and runway selection (CFG-06 through CFG-12 below — CFG-12 was raised mid-discussion, after the rest of this section was already written). See `06-CONTEXT.md` for the full discussion record.
 
@@ -2123,7 +2123,7 @@ not CFG-74's machinery surviving in any form. Clauses (a), (b) and (d)
 have no successor anywhere in this phase, because the mechanism they would
 have wrapped (a fetch that can fail silently) no longer exists.
 
-RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.
+RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted — shipped from there by quick task 260924-u7n (2026-09-24) and verified on glass 2026-09-25.
 
 **Coverage:**
 
