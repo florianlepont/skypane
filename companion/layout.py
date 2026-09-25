@@ -94,24 +94,18 @@ def nav_slug(route):
 
 
 # The exact literals companion/static/nav-dropdown.js looks up via
-# getElementById()/classList. Duplicated here rather than imported — a
-# Python module cannot import a JS file — so a drift between the two
-# silently stops the menu opening, with no automated signal from either
-# file in isolation. A DOM-contract guard reads the JS source, the
+# getElementById()/classList. Duplicated here since a Python module
+# cannot import a JS file; a DOM-contract guard reads the JS source, the
 # stylesheet and the rendered page, and requires all three to agree.
 NAV_TOGGLE_ID = "site-nav-toggle"
 MOBILE_NAV_ID = "mobile-nav"
 MOBILE_NAV_OPEN_CLASS = "mobile-nav--open"
 
-# The fixed accessible name for the hamburger toggle button. State is
-# communicated entirely through aria-expanded — the correct ARIA
-# disclosure pattern; swapping this label to a close verb on open would
-# change the announced name under the user mid-interaction. Do not vary it
-# by state.
-# Renamed from "Open menu": the panel this toggle controls no longer
-# holds a menu of pages — the bottom tab bar owns destinations now, and
-# what remains behind the hamburger is the state reminder plus language,
-# theme and Sign out.
+# The fixed accessible name for the hamburger toggle button; state is
+# communicated entirely through aria-expanded, so this must not vary by
+# state. Renamed from "Open menu": the panel no longer holds a menu of
+# pages — the bottom tab bar owns destinations now, and what remains is
+# the state reminder plus language, theme and Sign out.
 NAV_TOGGLE_LABEL = "Account and preferences"
 
 # Must equal companion/app.py's NAV_SCRIPT_ROUTE exactly. Duplicated
@@ -173,25 +167,19 @@ RELATIVE_TIME_SCRIPT_SRC = "/static/relative-time.js"
 # already live on three different pages.
 QUICK_SWITCH_SCRIPT_SRC = "/static/quick-switch.js"
 # Must equal companion/app.py's VALUE_CONTROLS_SCRIPT_ROUTE exactly, same
-# contract as above. Registered on the shell because its known consumers
-# (quiet-hours dial, wake-interval slider) live on different settings
-# pages and the set is expected to grow; its guard returns before
-# touching a page with no [data-value-control] wrapper.
-#
-# This is the only script the value-controls feature needs: five
-# controls share one clamp/round/keyboard model rather than duplicating
-# it per control.
+# contract as above; its guard returns before touching a page with no
+# [data-value-control] wrapper.
+
+# The only script the value-controls feature needs: five controls share
+# one clamp/round/keyboard model rather than duplicating it per control.
 VALUE_CONTROLS_SCRIPT_SRC = "/static/value-controls.js"
 
 # The registration seam value-controls.js reads, defined here so a page
-# module never types the attribute name and a rename cannot drift from
-# the script (a harness asserts the served script body names every one
-# of them). A control opts in entirely by attribute, so there is no
-# per-control JavaScript.
-#
-# The wrapper is a LAYER, never the control: the value is always held by
-# the native <input>/<select> named by VALUE_CONTROL_FIELD_ATTR, which
-# the server renders unconditionally.
+# module never types the attribute name (a harness asserts the served
+# script body names each one). A control opts in entirely by attribute.
+
+# The wrapper is a layer, never the control: the value is always held by
+# the native <input>/<select> named by VALUE_CONTROL_FIELD_ATTR.
 VALUE_CONTROL_ATTR = "data-value-control"
 VALUE_CONTROL_FIELD_ATTR = "data-value-field"
 # The id of the form that input belongs to. Load-bearing: this app's
@@ -218,41 +206,33 @@ VALUE_CONTROL_TEXT_TOKEN = "#"
 VALUE_CONTROL_GEOMETRY_ATTR = "data-value-geometry"
 
 # The codec between the NUMBER value-controls.js steers and the TEXT the
-# native input holds. Absent, the number is written straight in, for a
-# numeric input. VALUE_CONTROL_FORMAT_CLOCK makes the script read/write
-# "HH:MM" instead: an <input type="time"> silently discards anything
-# else, so a minute count written in empties the field the form posts,
-# with no error anywhere.
+# native input holds. Absent, the number is written straight in.
+# VALUE_CONTROL_FORMAT_CLOCK makes the script read/write "HH:MM" instead:
+# an <input type="time"> silently discards anything else, emptying the
+# field with no error.
 VALUE_CONTROL_FORMAT_ATTR = "data-value-format"
 VALUE_CONTROL_FORMAT_CLOCK = "clock"
 
-# THE MIRROR is a native control inside the wrapper that carries the
-# same value as the field and posts nothing — an `<input type="range">`
-# with no `name`, so it cannot submit.
-#
-# A native range input already has the keyboard model this script
-# implements (arrows, Page, Home/End), native aria-valuenow, native
-# touch dragging and a platform-native thumb. role="slider" must NOT be
-# added — the element already has those semantics, and a redundant role
-# is a double-role error.
-#
-# A wrapper carrying a mirror gets no preventDefault and no steering
-# from this file's own gesture handlers: preventDefault() on a
-# pointerdown over a native range cancels the browser's own thumb drag,
-# and a keydown handler that both prevents default and steps the value
-# would move the control twice per arrow press. The script's job with a
-# mirror is only to sync.
+# The mirror is a native control inside the wrapper, carrying the same
+# value as the field and posting nothing — an `<input type="range">`
+# with no `name`.
+
+# It already has the keyboard model this script implements, native
+# aria-valuenow and touch dragging; role="slider" must not be added,
+# since the element already has those semantics.
+
+# A wrapper carrying a mirror gets no preventDefault or steering from
+# this file's own handlers, since a native range already drags itself;
+# the script's job with a mirror is only to sync.
 VALUE_CONTROL_INPUT_ATTR = "data-value-input"
 
-# A READOUT is an element whose whole text is a sentence about the
-# value, rendered by the server and rewritten by the script as the
-# value moves. It carries the field's own name so it can live anywhere
-# in the document — it is not gated, since it must be correct with
-# scripts blocked.
-#
-# The sentence is server-rendered and already translated, like
-# VALUE_CONTROL_TEXT_ATTR above: no copy lives in the script, so a
-# French reader can never be dropped into English by moving a slider.
+# A readout is an element whose whole text is a sentence about the
+# value, rendered by the server and rewritten by the script. It carries
+# the field's own name so it can live anywhere — not gated, since it
+# must be correct with scripts blocked.
+
+# The sentence is server-rendered and already translated: no copy lives
+# in the script, so a French reader is never dropped into English.
 VALUE_CONTROL_READOUT_ATTR = "data-value-readout"
 VALUE_CONTROL_READOUT_TEXT_ATTR = "data-value-readout-text"
 # What the value is divided by before substitution, rounded up (60 for
@@ -273,24 +253,18 @@ VALUE_CONTROL_READOUT_BASE_ATTR = "data-value-readout-base"
 # a second element, for the same reason.
 VALUE_CONTROL_READOUT_FORMAT_ATTR = "data-value-readout-format"
 
-# The painted position has no constant here, deliberately: it travels
-# on the `--value-fraction` custom property, written by the server once
-# and rewritten by value-controls.js on every steer. A CSS custom
-# property's name begins with two hyphens, which
-# companion/test_i18n.py's untranslated-copy scan misreads as
-# user-facing text — measured, and it fails. The name lives inline in
-# the one markup template that emits it, in value-controls.js's own
-# FRACTION_PROPERTY, and in style.css; a harness pins all three to one
-# string.
+# The painted position has no constant here: it travels on the
+# `--value-fraction` custom property, server-written once and rewritten
+# by value-controls.js on every steer. Its name fails
+# companion/test_i18n.py's untranslated-copy scan (a leading `--`), so it
+# lives inline in the markup, the script and style.css — pinned equal.
 
 # The class companion/static/style.css hides by default and reveals
 # under `.js`. Defined here so a page module never types it, and pinned
-# by a harness against both the stylesheet and the no-JS control
-# contract's own registry.
-#
-# The class goes on the gated element itself, never on an ancestor:
-# "carries the class" is checkable from rendered markup without parsing
-# the whole tree.
+# against both the stylesheet and the no-JS control contract's registry.
+
+# The class goes on the gated element itself, never an ancestor: that
+# is checkable from rendered markup without parsing the whole tree.
 JS_GATE_CLASS = "js-gate"
 
 UI_THEME_CHOICES = ("auto", "light", "dark")
@@ -303,12 +277,9 @@ QUICK_STATE_ON = "on"
 QUICK_STATE_OFF = "off"
 
 # The eleven QUICK_ACTION_* constants, moved here byte-identical from
-# config_page.py: frame_strip_html() below is the one write site for
-# both switch cells, and home_page.py needs these from a shared module
-# too. Every English value is unchanged, so every French catalogue
-# entry in companion/i18n_fr/display.py keeps resolving — the
-# catalogue is keyed by English string, not by which module defines the
-# constant.
+# config_page.py, so home_page.py can share them too. Every English
+# value is unchanged, so every French catalogue entry keeps resolving —
+# it is keyed by English string, not by which module holds the constant.
 QUICK_ACTION_SCREEN_LABEL = "Screen"
 QUICK_ACTION_ON_TEXT = "On"
 QUICK_ACTION_OFF_TEXT = "Off"
@@ -317,29 +288,24 @@ QUICK_ACTION_SWITCH_OFF_BUTTON = "Switch off"
 QUICK_ACTION_QUIET_LABEL = "Quiet hours"
 QUICK_ACTION_QUIET_ON_TEMPLATE = "On — %s to %s"
 QUICK_ACTION_QUIET_OFF_TEXT = "Off"
-# These four action wordings are no longer rendered markup: they used
-# to be the switch button's own visible text ("Switch off"/"Éteindre"),
-# which a role="switch" control may not be named by — a name that reads
-# as an action contradicts aria-checked. The button is now named by the
-# setting via aria-labelledby; these constants survive only as names
+# These four action wordings are no longer rendered markup: a
+# role="switch" control may not be named by an action ("Switch off"
+# contradicts aria-checked), so the button is now named by the setting
+# via aria-labelledby. The constants survive only as names
 # test_status_pages.py asserts are no longer rendered.
 QUICK_ACTION_QUIET_TURN_ON_BUTTON = "Turn on"
 QUICK_ACTION_QUIET_TURN_OFF_BUTTON = "Turn off"
 
-# THE NO-JS FLOOR HERE IS STRUCTURAL, NOT ADDITIVE. Each switch IS the
-# <form> that already shipped: a real POST to its own /quick/* route
-# with a `state` field and a `return_to` hidden field the server
-# whitelists by membership. companion/static/quick-switch.js intercepts
-# the submit of a control that already works; remove the script and
-# the button still posts, the server still saves. `role="switch"` and
-# `aria-checked` are rendered here, from the saved value, so the
-# accessible state is correct on a scripts-blocked page too.
-# The attribute the script marks its own unconfirmed control with —
-# freshness.js's swap already skips a region carrying or containing
-# it. Not a "data-quick-switch-*" name: `data-quick-switch` is the
-# form's own handshake attribute and a shipped check counts its
-# occurrences, so a child attribute containing it as a substring would
-# inflate that count.
+# The no-JS floor here is structural, not additive: each switch IS the
+# <form> that already shipped, POSTing to its own /quick/* route with a
+# `state` field; remove quick-switch.js and the button still posts, the
+# server still saves. `role="switch"`/`aria-checked` render from the
+# saved value, so the accessible state is correct with no script too.
+
+# The attribute the script marks its own unconfirmed control with;
+# freshness.js's swap skips a region carrying it. Not a
+# "data-quick-switch-*" name: a shipped check counts `data-quick-switch`
+# occurrences, and a substring match would inflate that count.
 QUICK_SWITCH_CONTROL_ATTR = "data-quick-control"
 # The element the script marks pending: the whole cell/card holding
 # the switch, so the region freshness.js would otherwise repaint is
@@ -360,51 +326,36 @@ QUICK_SWITCH_SCREEN_STATE_ID = "quick-switch-screen-state"
 QUICK_SWITCH_QUIET_LABEL_ID = "quick-switch-quiet-label"
 QUICK_SWITCH_QUIET_STATE_ID = "quick-switch-quiet-state"
 # The failure announcement, byte-identical to companion/app.py's own
-# FLASH_MESSAGES[FLASH_KEY_QUICK_FAILED] — the same generic sentence
-# this app already shows when a quick action fails, so neither reader
-# is told a status code or anything else the server knows. layout.py
-# may not import companion/app.py, so the English literal is
-# duplicated here, keyed by English string in the French catalogue
+# FLASH_MESSAGES[FLASH_KEY_QUICK_FAILED]: neither reader is told a
+# status code or anything else the server knows. layout.py may not
+# import companion/app.py, so the English literal is duplicated here,
 # like the QUICK_ACTION_* constants above.
 QUICK_SWITCH_FAILED_TEXT = "Couldn't change that — please try again."
 QUICK_SWITCH_FAILED_ATTR = "data-quick-failed-text"
 QUICK_TOAST_ATTR = "data-quick-toast"
-# QUICK_ACTION_APPLIES_SENTENCE is no longer used by frame_strip_html():
-# the one computed delay sentence below (companion/frame_state.py's
-# DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN, resolved from the same state
-# result the headline reads) replaces the old static per-control
-# caption. The retired text survives only as DELAY_UNKNOWN's own
-# wording (see _FRAME_DELAY_UNKNOWN_TEXT below, kept byte-identical on
-# purpose). The constant itself stays defined because config_page.py
-# still references it directly.
+# No longer used by frame_strip_html(): the one computed delay
+# sentence below (frame_state.py's DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN)
+# replaces this old static caption. It survives as DELAY_UNKNOWN's own
+# wording (_FRAME_DELAY_UNKNOWN_TEXT below) and stays defined because
+# config_page.py still references it directly.
 QUICK_ACTION_APPLIES_SENTENCE = "Applies the next time the frame wakes up."
 
-# The strip's own heading. Byte-identical English value to
-# home_page.FRAME_ROW_LABEL ("Frame") — both resolve through the same
-# companion/i18n_fr/home.py catalogue entry, since the catalogue is
-# keyed by the English string, not by which constant/module holds it.
-# A second, separately named constant is required because layout.py
-# may never import a page module.
+# The strip's own heading, byte-identical to home_page.FRAME_ROW_LABEL
+# ("Frame") — both resolve through the same i18n catalogue entry, keyed
+# by English string. A second, separately named constant is required
+# because layout.py may never import a page module.
 FRAME_STRIP_HEADING = "Frame"
 
-# NEXT_UPDATE_TEMPLATE/EXPECTED_SINCE_TEMPLATE are retired as
-# independently-named constants — companion/frame_state.py's
-# HEADLINE_DUE/HEADLINE_HELD/HEADLINE_LATE are now the one canonical
-# registry of this copy, and frame_strip_html() below calls
-# frame_state.resolve_state()/headline_template() to decide which
-# applies; this module never re-derives that decision.
-#
-# The six _FRAME_*_TEXT constants below exist only because this is a
-# scanned module: companion/test_i18n.py's AST scan proves a string is
-# alive by tracing a real `i18n.t(SOME_MODULE_CONSTANT)` call site in a
-# fixed list of files, and cannot follow an imported module's
-# attribute access (`frame_state.HEADLINE_DUE`) — frame_state.py is
-# not itself in that scanned list yet. Keep every value here
-# byte-identical to its frame_state.py counterpart, and select among
-# them by comparing
-# frame_state.headline_template()/delay_sentence_template()'s own
-# return value, so the DECISION stays sourced from that module; only
-# the wording's scanner-visible home is local.
+# frame_state.py's HEADLINE_DUE/HEADLINE_HELD/HEADLINE_LATE are the
+# one canonical registry of this copy; frame_strip_html() below calls
+# frame_state.resolve_state()/headline_template() to pick between them,
+# never re-deriving that decision.
+
+# The six _FRAME_*_TEXT constants exist only because
+# companion/test_i18n.py's AST scan proves a string alive by tracing a
+# local `i18n.t(CONSTANT)` call, and cannot follow an attribute access.
+# Kept byte-identical to their frame_state.py counterparts; only the
+# wording's scanner-visible home is local.
 _FRAME_HEADLINE_DUE_TEXT = "Next update ≈ %s"
 _FRAME_HEADLINE_HELD_TEXT = "Next wake around %s · quiet hours"
 _FRAME_HEADLINE_LATE_TEXT = "Expected since %s"
@@ -417,18 +368,13 @@ _FRAME_DELAY_HELD_TEXT = "Applies when quiet hours end, around %s."
 _FRAME_DELAY_UNKNOWN_TEXT = QUICK_ACTION_APPLIES_SENTENCE
 
 # The quiet cell's caption link, appended to the same
-# `delay_caption_html` slot the switch cells already share — never a
-# new slot, never a per-page fork. The link text is scanner-visible
-# for the identical reason the six _FRAME_*_TEXT constants above are:
-# a local, byte-identical copy rather than a cross-module attribute
-# read.
+# `delay_caption_html` slot the switch cells share — never a new slot.
+# The link text is scanner-visible for the same reason the six
+# _FRAME_*_TEXT constants above are: a local, byte-identical copy.
 _FRAME_QUIET_SCHEDULE_LINK_TEXT = "Change the schedule"
-# Byte-identical to config_page.py's own
-# QUIET_HOURS_GROUP_HEADING_ID — duplicated, never imported, for the
-# same "a page module may never import another page module" reason
-# QUICK_ACTION_QUIET_LABEL and its ten siblings above are local copies
-# rather than a cross-module read. The two constants must be kept
-# byte-identical by hand; a harness proves it.
+# Byte-identical to config_page.py's own QUIET_HOURS_GROUP_HEADING_ID
+# — duplicated, never imported, since a page module may never import
+# another. Kept byte-identical by hand; a harness proves it.
 _FRAME_QUIET_SCHEDULE_TARGET_ID = "quiet-hours-group-heading"
 
 # The frame's held state reuses the app's existing neutral "off" dot
@@ -441,21 +387,15 @@ _FRAME_DOT_CLASS_BY_STATE = {
     frame_state.STATE_LATE: "dot--warn",
 }
 
-# "off" is a fourth, additive entry — never a fourth colour and never
-# a fifth dot. `.dot--off` has been in companion/static/style.css
-# since phase 21, defined as "a neutral, everyday state ... never a
-# problem"; until now the only way to reach it was to hand-build the
-# span (health_page.py's `_pipeline_section()` still does). Adding the
-# entry here means `status_dot("off", label)` now renders the neutral
-# dot plus its normal visible `.dot-label`, matching the shape of its
-# siblings.
-#
-# Additive by construction: no pre-existing caller of status_dot(),
-# status_row() or _health_alert_markup() passes "off", so every one
-# of them is byte-identical to before. `_DEFAULT_STATUS_DOT_CLASS`
-# still resolves an unrecognised state to the warn class, exercised
-# by test_companion_app.py's own "not-a-real-state" fallback check —
-# "off" is now a recognised state rather than an arbitrary one.
+# "off" is a fourth, additive entry — never a fourth colour. `.dot--off`
+# is defined in companion/static/style.css as "a neutral, everyday
+# state ... never a problem"; `status_dot("off", label)` now renders it
+# with its normal visible `.dot-label`, matching its siblings' shape.
+
+# Additive by construction: no pre-existing caller passes "off", so
+# every one is byte-identical to before. `_DEFAULT_STATUS_DOT_CLASS`
+# still resolves an unrecognised state to the warn class; "off" is now
+# a recognised state rather than an arbitrary one.
 _STATUS_DOT_CLASSES = {
     "ok": "dot--ok",
     "warn": "dot--warn",
@@ -544,17 +484,14 @@ ICON_IDS = ICON_IDS + (
 )
 
 # One shared inline sprite, emitted once per document by page_shell().
-# `display: none` still lets every <use href="#icon-..."> reference
-# below resolve correctly — this sprite must never move inside a
-# conditionally rendered region: a <use> referencing a symbol that isn't
-# in the DOM at all (not merely hidden) resolves to nothing.
-#
+# This sprite must never move inside a conditionally rendered region: a
+# <use> referencing a symbol that isn't in the DOM at all (not merely
+# hidden via `display: none`) resolves to nothing.
+
 # Each symbol carries fill="none"/stroke="currentColor" so a single CSS
-# `color` property drives the whole glyph, with no second colour mapping
-# to keep in sync. The four tile icons use a 20x20 viewBox; the hamburger
-# uses 24x24. Every glyph is built from plain <path>/<line>/<rect>/
-# <circle> primitives — legible outline shapes, not detailed
-# illustration.
+# `color` property drives the whole glyph. The four tile icons use a
+# 20x20 viewBox; the hamburger uses 24x24 — plain <path>/<line>/<rect>/
+# <circle> primitives, not detailed illustration.
 ICON_DEFS_HTML = (
     '<svg class="icon-defs" aria-hidden="true" focusable="false">'
     "<defs>"
@@ -763,22 +700,17 @@ HEALTH_ALERT_SUFFIX_TEXT = " — attention needed"
 
 
 def icon_html(icon_id, size=20, extra_class=""):
-    """A `<svg>` referencing one symbol from ICON_DEFS_HTML via `<use>`, or the
-    empty string when `icon_id` is not a member of ICON_IDS.
+    """A `<svg>` referencing one symbol from ICON_DEFS_HTML via `<use>`, or
+    "" when `icon_id` is not a member of ICON_IDS.
 
-    This is a whitelist, not a sanitiser: `icon_id` becomes a `#`-prefixed
-    fragment identifier inside a `<use href="...">` attribute, and an id
-    that reached the output unchecked would be an attacker-influenceable
-    fragment reference. An unrecognised id fails visibly-but-safely — a
-    missing icon, not a dangling or injectable reference.
-
-    The explicit `width`/`height` attributes are belt-and-braces against
-    companion/static/style.css's `.icon` sizing rule being lost or
-    overridden: an `<svg>` with neither renders at the SVG default 300x150.
-
-    `aria-hidden="true"` is unconditional: every icon in this app sits
-    beside its own visible text label, so the icon is decorative and
-    announcing it would duplicate the label.
+    A whitelist, not a sanitiser: `icon_id` becomes a fragment identifier
+    inside `<use href="...">`, so an unchecked id would be an
+    attacker-influenceable reference; an unrecognised id fails
+    visibly-but-safely (a missing icon) instead. `width`/`height` guard
+    against companion/static/style.css's `.icon` rule being lost (an
+    `<svg>` with neither renders at the SVG default 300x150).
+    `aria-hidden="true"` is unconditional: every icon sits beside its own
+    visible text label, so announcing it would duplicate the label.
     """
     if icon_id not in ICON_IDS:
         return ""
@@ -844,11 +776,10 @@ def age_seconds(ts, now_ts):
 
 
 # The French unit-suffix table relative_age_text()'s French branch
-# consumes below, in the same "fixed dict, membership lookup,
-# documented fallback" shape _STATUS_DOT_CLASSES already uses. Kept
-# complete (all four English unit letters) even though the "s" entry
-# is never actually reached (the seconds bucket always short-circuits
-# to "à l'instant" before consulting this table).
+# consumes, in the same "fixed dict, membership lookup, documented
+# fallback" shape _STATUS_DOT_CLASSES uses. Kept complete even though
+# "s" is never reached (the seconds bucket short-circuits to
+# "à l'instant" first).
 _AGE_UNIT_SUFFIX_FR = {
     "s": "s",
     "m": "min",
@@ -916,18 +847,15 @@ def relative_future_text(seconds_ahead, lang=None):
     ladder relative_age_text() above reads backwards, over the same
     _age_bucket() boundaries.
 
-    This function is FORMATTING, never a verdict: it says how long remains
-    until an instant somebody else computed, never "late"/"held"/"due" —
-    those words are frame_state's and stay server-rendered.
+    This function is formatting, never a verdict: it says how long
+    remains until an instant somebody else computed, never
+    "late"/"held"/"due" — those words are frame_state's. A `seconds_ahead`
+    that has already elapsed resolves to the zero bucket, never a
+    negative number or a past-tense string.
 
-    A `seconds_ahead` that has already elapsed resolves to the zero bucket
-    via _age_bucket()'s own clamp, never a negative number or a past-tense
-    string.
-
-    `lang` is the same trailing keyword every sibling here carries. French
-    collapses the sub-minute bucket the way the past form does, into "in a
-    moment"; both strings live in companion/i18n_fr/health.py, read through
-    i18n.t_lang() and never duplicated as a module literal.
+    `lang` is the same trailing keyword every sibling carries. French
+    collapses the sub-minute bucket into "in a moment"; both strings live
+    in companion/i18n_fr/health.py, read through i18n.t_lang().
     """
     value, unit = _age_bucket(seconds_ahead)
     if lang is None:
@@ -964,22 +892,19 @@ def duration_text(seconds, lang=None):
 
 # companion/static/relative-time.js rewrites every <time data-relative>
 # element once a second, so the four bucket wordings must exist
-# client-side, in the reader's own language. Rendered onto <body> by
-# page_shell() and read back with getAttribute() — several of these
-# elements sit inside freshness.js's swap targets, and <body> is never
-# swapped.
-#
+# client-side. Rendered onto <body> by page_shell() and read back with
+# getAttribute(), since several of these elements sit inside
+# freshness.js's swap targets.
+
 # One complete wording per bucket per direction, so the script carries no
-# language logic: it substitutes a quantity into a string and stops. "#"
-# is the quantity's place, not "%s": these strings reach the browser as
-# attribute values, and companion/test_i18n.py's Check 3 scans every
-# French render for a stray "%s"/"%d"/"{}" — "#" is not one.
-#
-# These are not a second ladder: they are the same ladder's own output
-# with the number lifted out, and test_companion_app.py asserts each
-# wording, filled with the quantity _age_bucket() picks, equals
-# relative_age_text()/relative_future_text()'s own return value for
-# every bucket, in both languages.
+# language logic. "#" is the quantity's place, not "%s": these reach the
+# browser as attribute values, and companion/test_i18n.py's Check 3 scans
+# every French render for a stray "%s"/"%d"/"{}" — "#" is not one.
+
+# Not a second ladder: the same ladder's own output with the number
+# lifted out. test_companion_app.py asserts each wording, filled with the
+# quantity _age_bucket() picks, equals relative_age_text()'s/
+# relative_future_text()'s own return value, in both languages.
 RELATIVE_QUANTITY_MARK = "#"
 RELATIVE_PAST_SECONDS_TEXT = "#s ago"
 RELATIVE_PAST_MINUTES_TEXT = "#m ago"
@@ -1055,19 +980,16 @@ def relative_copy_attrs(lang=None):
 # companion/static/value-controls.js's quiet-hours readout needs a LIVE
 # duration after a drag/keyboard step/edit, which never round-trips
 # through the server: these wordings are duration_text()'s own output
-# with the number lifted back out, so the script carries no language
-# logic.
-#
-# One complete wording per bucket, reusing RELATIVE_QUANTITY_MARK ("#"):
-# these strings reach the browser as attribute values, and
-# companion/test_i18n.py's Check 3 scans every French render for a stray
-# "%s"/"%d"/"{}"; "#" is not one. The French U+00A0 between number and
-# unit lives in the i18n_fr catalogue entry, not in this module.
-#
+# with the number lifted back out.
+
+# One complete wording per bucket, reusing RELATIVE_QUANTITY_MARK ("#")
+# for the same attribute-value scanning reason above. The French U+00A0
+# between number and unit lives in the i18n_fr catalogue entry, not in
+# this module.
+
 # All four buckets ship even though a quiet window's arithmetic can
 # never reach "d": "s" is reachable (a zero-length window is real), and
-# a ladder with a hole in it is one somebody falls through the day a
-# caller changes.
+# a ladder with a hole in it is one somebody falls through later.
 DURATION_SECONDS_TEXT = "#s"
 DURATION_MINUTES_TEXT = "#m"
 DURATION_HOURS_TEXT = "#h"
@@ -1089,17 +1011,13 @@ def _machine_instant(parsed):
     """`parsed` as a machine-readable Europe/Paris ISO-8601 instant at
     seconds precision, or "" when it cannot be produced.
 
-    This is the value `relative_time_html()` puts in a `datetime`
-    attribute. It is deliberately NOT the raw stored string: no raw,
-    unconverted timestamp reaches the page, and two shipped checks
-    assert exactly that over `concise_timestamp_html()`'s output — so
-    the attribute carries the same instant, converted onto the one
-    timezone this app speaks, offset included. An offset is what makes
-    it unambiguous to the script that will read it.
+    The value `relative_time_html()` puts in a `datetime` attribute —
+    never the raw stored string: it carries the same instant converted
+    onto the one timezone this app speaks, offset included, so the
+    script reading it is unambiguous.
 
-    A naive datetime is taken as UTC, matching `local_clock_text()`'s
-    own convention and `history_db.utc_now_iso()`'s own output. Never
-    raises: an input that cannot be converted returns "", and the
+    A naive datetime is taken as UTC, matching `local_clock_text()`'s own
+    convention. Never raises: an unconvertible input returns "", and the
     caller renders plain text rather than an element with an empty
     attribute.
     """
@@ -1114,27 +1032,16 @@ def _machine_instant(parsed):
 def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None,
                        countdown=False, static_text=None):
     """`<time datetime="<instant>" data-relative><relative age></time>` — the
-    app's one relative-time element.
+    app's one relative-time element. Callers interpolate the return value
+    verbatim, never re-escaping it (already escaped here); the no-JS
+    rendering is the complete server text, no ticker needed. Returns the
+    escaped `fallback` when `ts` is falsy, escaped `ts` on parse failure.
 
-    The visible text is relative_age_text()'s or relative_future_text()'s
-    return value; `datetime` carries the machine-readable instant,
-    `data-relative` is the ticker's hook. No other class or state word goes
-    in the element.
-
-    RAW-MARKUP-PRODUCING: callers interpolate the return value verbatim,
-    never re-escaping it, and place it only in data_table()'s raw_columns
-    parameter or in already-safe markup. The instant and text are escaped
-    here internally, so the no-JS rendering (the complete server text, with
-    no ticker) is already correct.
-
-    Returns the escaped `fallback` when `ts` is falsy, and the escaped `ts`
-    on a parse failure — never raising, and never an invented instant.
-
-    `countdown` marks the element as counting toward a future instant;
-    once it passes it reads RELATIVE_WAITING_TEXT instead of becoming an
-    age. `static_text` renders fixed text instead of the ladder's output,
-    for the one case where the SERVER rendering must stay true with no
-    ticker running (e.g. an absolute clock rather than a duration).
+    `countdown` counts toward a future instant, reading
+    RELATIVE_WAITING_TEXT once it passes rather than becoming an age.
+    `static_text` renders fixed text instead of the ladder's output, for
+    the one case where the server rendering must stay true with no
+    ticker (e.g. an absolute clock rather than a duration).
     """
     if not ts:
         return escape_html(fallback)
@@ -1162,22 +1069,19 @@ def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None,
 
 def absolute_and_relative(ts, now_ts, fallback="no reading yet", lang=None):
     """`"<ts> (<relative age> ago)"` — the house "absolute + relative"
-    timestamp format, shared by every caller.
-
-    Returns `fallback` when `ts` is falsy; returns `ts` unchanged (absolute
-    only) when age_seconds() cannot parse either side — never raising.
+    timestamp format, shared by every caller. Returns `fallback` when
+    `ts` is falsy; returns `ts` unchanged (absolute only) when
+    age_seconds() cannot parse either side — never raising.
 
     The return value is plain, unescaped text, the same contract
-    status_dot()'s `label` carries: every caller must escape it directly or
-    hand it to a builder that already escapes each cell (e.g. data_table()).
-
-    Absolute-first ordering (ISO string first, relative age in
-    parentheses) is this app's canonical convention and must not be
-    reversed.
+    status_dot()'s `label` carries: every caller must escape it directly
+    or hand it to a builder that already escapes (e.g. data_table()).
+    Absolute-first ordering (ISO string, then relative age in
+    parentheses) is canonical and must not be reversed.
 
     `lang` defaults to `None`, resolved via relative_age_text()'s own
-    prefs.current_lang() default; an explicit `lang` threads through for a
-    caller with no request context (e.g. a server-side notification body).
+    default; an explicit `lang` threads through for a caller with no
+    request context (e.g. a server-side notification body).
     """
     if not ts:
         return fallback
@@ -1187,37 +1091,27 @@ def absolute_and_relative(ts, now_ts, fallback="no reading yet", lang=None):
     return "%s (%s)" % (ts, relative_age_text(age, lang=lang))
 
 
-# A `now_parsed` guaranteed to fall on a different Europe/Paris calendar
-# day than any real timestamp this app renders, forcing
-# local_clock_text()'s cross-day "D Mon HH:MM" branch — this is how
-# concise_timestamp_html()'s `title` below is built as a full local
-# timestamp, reusing local_clock_text() itself rather than a second,
-# competing implementation.
+# A `now_parsed` guaranteed to fall on a different calendar day than
+# any real timestamp, forcing local_clock_text()'s cross-day "D Mon
+# HH:MM" branch — how concise_timestamp_html()'s `title` below becomes a
+# full local timestamp, reusing local_clock_text() rather than a second
+# implementation.
 _FULL_TIMESTAMP_SENTINEL_NOW = datetime(1970, 1, 1, tzinfo=ZoneInfo("UTC"))
 
 
 def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
     """`<span class="mono" title="<D Mon HH:MM local>"><HH:MM local>
-    (<relative>)</span>` — the concise-timestamp-by-default format. The
-    visible text is local_clock_text()'s Europe/Paris clock plus
-    relative_age_text()'s suffix, preserving absolute_and_relative()'s
-    absolute-first ordering. The `title` attribute is always a full,
-    day-qualified local timestamp, forced by local_clock_text()'s
-    cross-day branch — never the raw ISO string.
+    (<relative>)</span>` — the concise-timestamp-by-default format,
+    absolute-first per absolute_and_relative()'s ordering. `title` is
+    always a full, day-qualified local timestamp, never the raw ISO
+    string.
 
-    RAW-MARKUP-PRODUCING: callers interpolate the return value verbatim,
-    never re-escaping it, and place it only in data_table()'s raw_columns
-    parameter or in already-safe markup.
-
-    Returns the escaped `fallback` when `ts` is falsy. When `ts` fails to
-    parse, returns a span with the raw value in both the title and
-    visible-text slots rather than raising.
-
-    absolute_and_relative() is not superseded by this function: it
-    remains the right choice for any plain-text-only call site.
-
-    `lang` defaults to `None`, resolved via local_clock_text()'s/
-    relative_age_text()'s own prefs.current_lang() default.
+    Callers interpolate the return value verbatim, never re-escaping it.
+    Returns the escaped `fallback` when `ts` is falsy; on a parse
+    failure, returns a span with the raw value in both slots rather than
+    raising. absolute_and_relative() remains the right choice for any
+    plain-text-only call site. `lang` defaults to `None`, resolved via
+    local_clock_text()'s/relative_age_text()'s own default.
     """
     if not ts:
         return escape_html(fallback)
@@ -1227,12 +1121,11 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
         return '<span class="mono" title="%s">%s</span>' % (
             escape_html(ts), escape_html(ts))
     full_local = local_clock_text(parsed, _FULL_TIMESTAMP_SENTINEL_NOW, lang=lang)
-    # The parenthesised relative half is relative_time_html()'s element
-    # rather than a bare escaped string, so every surface reading through
-    # this function inherits the convention automatically. The parentheses
-    # stay OUTSIDE the element: they are this format's punctuation, not part
-    # of the age, so the ticker rewriting the element's text does not have
-    # to reproduce them.
+    # The parenthesised relative half is relative_time_html()'s element,
+    # not a bare escaped string, so every caller inherits the convention.
+    # The parentheses stay OUTSIDE the element — punctuation, not part of
+    # the age — so the ticker rewriting the element's text need not
+    # reproduce them.
     return '<span class="mono" title="%s">%s (%s)</span>' % (
         escape_html(full_local),
         escape_html(local_clock_text(parsed, parse_iso(now_ts), lang=lang)),
@@ -1342,30 +1235,20 @@ def _nav_groups(active):
 # There are exactly two live nav renderers, sidebar_nav() and
 # _mobile_nav_html() below, both fed by _nav_links() above. A
 # horizontally-scrollable nav strip used to render here; real-device
-# testing found the pattern hid most tabs behind an undiscoverable
-# swipe, so it was replaced rather than repaired — see
-# companion/static/style.css's own header comment for the flexbox
-# history.
+# testing found it hid most tabs behind an undiscoverable swipe, so it
+# was replaced rather than repaired.
 
 
 def _health_alert_markup(severity):
     """The Health nav-tab notification dot plus its visually-hidden
     screen-reader suffix, built once so every nav renderer shares one
-    markup source for it.
+    markup source. `severity` is "warn" or "error"; the dot class comes
+    from the same `_STATUS_DOT_CLASSES` dict status_dot() uses.
 
-    `severity` is "warn" or "error" — this function is only called when
-    the caller has already checked severity is not "ok"/falsy. The dot
-    class is looked up via the same `_STATUS_DOT_CLASSES` dict
-    status_dot() uses, so a warning-only Health state draws `dot--warn`
-    rather than always the maximal `dot--error` treatment.
-
-    Appends a visually-hidden text suffix rather than an `aria-label` on
-    the link: an `aria-label` would replace the link's accessible name,
-    dropping the word "Health"; an appended span adds to it instead.
-
-    The absence of this markup is deliberately the all-clear signal:
-    nothing is rendered when everything is fine, so there is no "all
-    good" chrome to ignore.
+    Appends a visually-hidden text suffix rather than an `aria-label`:
+    an `aria-label` would replace the link's accessible name, dropping
+    the word "Health". The absence of this markup is the all-clear
+    signal: nothing renders when everything is fine.
     """
     dot_class = _STATUS_DOT_CLASSES.get(severity, _DEFAULT_STATUS_DOT_CLASS)
     return (
@@ -1389,34 +1272,19 @@ NAV_STATUS_SEPARATOR_TEXT = " · "
 
 def nav_status_html(device_config, active=None):
     """The nav's state-only reminder: one shared body, called by both
-    sidebar_nav() and _mobile_nav_html() below, so the two nav copies can
-    never disagree about the frame's current Screen/Quiet-hours state.
+    sidebar_nav() and _mobile_nav_html(), reading the same `device_config`
+    fields frame_strip_html() reads, so all three can never disagree.
+    Returns "" when `device_config` is falsy.
 
-    Reads the same two `device_config` fields frame_strip_html() reads
-    (display_enabled/quiet_hours_enabled), so the strip and this reminder
-    can never disagree either.
+    A plain `<a href="/">` — no form, no button, no script. Its
+    `aria-label` states where it goes, since the two dot+word segments
+    alone do not read as a destination; every value crosses
+    escape_html(), every string crosses i18n.t().
 
-    Returns "" when `device_config` is falsy (no request context —
-    login, 404, any pre-session page).
-
-    A plain `<a href="/">` — no form, no button, no script: the nav shows
-    a state reminder, not actions. The visible text is two dot+word
-    segments ("Screen on · Quiet hours off"); the link's own
-    `aria-label` states where it goes, since the visible text alone does
-    not read as a destination. Every value crosses escape_html(); every
-    string crosses i18n.t().
-
-    `active`: when it equals Home's own slug, this renders a `<span>`
-    with no `href` at all, whose `aria-label` names only the state — on
-    Home the link would promise navigation to a page the user already
-    occupies. Everywhere else it stays the existing `<a href="/">`. The
-    Home variant's `aria-label` is composed from the same two translated
-    state strings the visible segments interpolate, so the announced
-    name and the rendered text cannot drift.
-
-    Each segment is wrapped in its own `.nav-status__segment` span so
-    companion/static/style.css can give it `white-space: nowrap`: the
-    line may break between the two segments, never inside one.
+    `active`: on Home's own slug, renders a `<span>` with no `href`
+    instead, since a link there would promise navigation to the page
+    already occupied; its `aria-label` reuses the same translated
+    strings the segments show, so the two cannot drift.
     """
     if not device_config:
         return ""
@@ -1458,26 +1326,18 @@ def nav_status_html(device_config, active=None):
 
 def sidebar_nav(active, health_alert=None, device_config=None):
     """The vertical Primary-navigation landmark shown by page_shell()'s
-    dashboard sidebar column at desktop width.
-
-    Renders NAV_TABS via the shared _nav_links() helper; companion/static/
-    style.css's 960px media query decides which of sidebar_nav()/
-    _mobile_nav_html() is visible at a given width — this function has no
-    opinion on visibility.
+    dashboard sidebar column at desktop width. Renders NAV_TABS via the
+    shared _nav_links() helper; the 960px CSS media query, not this
+    function, decides whether sidebar_nav() or _mobile_nav_html() is
+    visible.
 
     `health_alert` is `None`/`"ok"` for no dot, or `"warn"`/`"error"` to
-    append _health_alert_markup() after the label text of the Health link
-    only. The markup is already-built safe HTML, interpolated verbatim
-    like status_dot()'s output elsewhere.
+    append _health_alert_markup() after the Health link's label only,
+    interpolated verbatim as already-built safe HTML. The active link's
+    `<a>` carries `aria-current="page"` — never the inactive links.
 
-    Each link is prefixed with its NAV_ICON_IDS-mapped icon. The active
-    link's `<a>` carries `aria-current="page"` — never the inactive links
-    — so exactly one link at a time announces "current page" to assistive
-    tech.
-
-    `device_config` threads straight to nav_status_html(), whose reminder
-    markup is prepended before this function's `<nav>`. `None` (no request
-    context) renders no reminder at all.
+    `device_config` threads to nav_status_html(), whose reminder markup
+    is prepended before this function's `<nav>`; `None` renders none.
     """
     parts = []
     for group_label, group_links in _nav_groups(active):
@@ -1540,15 +1400,14 @@ TAB_BAR_MORE_ICON_ID = "icon-more"
 TAB_BAR_BODY_CLASS = "has-tab-bar"
 
 # companion/static/freshness.js shows a visible neutral badge when its
-# refresh loop is retrying or deliberately idle, instead of stopping
-# dead and silently. The badge is built client-side, so its two strings
-# are server-rendered onto `<body>` here and read with getAttribute().
-#
-# They live on `<body>` rather than on the pill: the freshness wrapper
-# the pill sits in is a freshness.js swap target, and an attribute
-# there would be replaced out from under the script on every
-# successful refresh.
-#
+# refresh loop is retrying or idle, instead of stopping dead. The badge
+# is built client-side, so its two strings are server-rendered onto
+# <body> and read with getAttribute().
+
+# They live on <body> rather than on the pill: the pill's freshness
+# wrapper is a swap target, and an attribute there would be replaced out
+# from under the script on every refresh.
+
 # Emitted unconditionally, like the deferred scripts below: most pages
 # carry no refresh loop, and the attributes are inert there.
 REFRESH_PAUSED_TEXT = "Paused"
@@ -1559,19 +1418,15 @@ REFRESH_PAUSED_ATTR = "data-refresh-paused-text"
 REFRESH_RECONNECTING_ATTR = "data-refresh-reconnecting-text"
 
 
-# companion/static/freshness.js used to carry a hard-coded selector
-# list, duplicated and pinned equal elsewhere — three hand-maintained
-# copies is the shape this codebase has already learned not to build:
-# they agree on the day they are written and drift silently
-# afterwards.
-#
-# One mapping here, one page key rendered on <body> by page_shell()
-# below, and one object literal in the script mirroring this. The
-# cross-file agreement is pinned entry-for-entry and key-for-key by
-# companion/test_status_pages.py, in both directions.
-#
-# The keys are nav_slug()'s own values, never a second vocabulary:
-# page_shell() already receives exactly this string as `active`.
+# freshness.js used to carry a hard-coded selector list, duplicated and
+# pinned equal elsewhere — three hand-maintained copies is a shape this
+# codebase has learned not to build: they drift silently after the day
+# they are written.
+
+# One mapping here, one page key rendered on <body>, and one object
+# literal in the script mirroring this, pinned entry-for-entry and
+# key-for-key by companion/test_status_pages.py in both directions. The
+# keys are nav_slug()'s own values, never a second vocabulary.
 REFRESH_PAGE_ATTR = "data-refresh-page"
 REFRESH_PAGE_HOME = nav_slug(HOME_ROUTE)
 REFRESH_PAGE_DISPLAY = nav_slug(DISPLAY_ROUTE)
@@ -1579,16 +1434,13 @@ REFRESH_PAGE_HEALTH = nav_slug(HEALTH_ROUTE)
 REFRESH_PAGE_FLIGHTS = nav_slug(FLIGHTS_ROUTE)
 
 # The two cross-file literals the new-row highlight is built on,
-# duplicated into companion/static/freshness.js rather than imported
-# — a static asset is not a Python module — and pinned equal by
+# duplicated into freshness.js rather than imported, and pinned equal by
 # companion/test_status_pages.py.
-#
+
 # REFRESH_ROW_ID_ATTR carries a stable identity for the EVENT a row
-# describes, not the row's position in this render: a highlight keyed
-# to position would light up every row below an insertion the moment
-# one arrived at the top, the opposite of the intended signal.
-# companion/pages/history_page.py renders this from the runway_events
-# row's own primary key.
+# describes, not its position: a highlight keyed to position would light
+# up every row below an insertion. Rendered from the runway_events row's
+# own primary key.
 REFRESH_ROW_ID_ATTR = "data-flight-id"
 # The class freshness.js adds to a row whose identity was not in the
 # set it knew before the swap. One-shot by construction: the node it
@@ -1596,73 +1448,47 @@ REFRESH_ROW_ID_ATTR = "data-flight-id"
 # node entirely.
 REFRESH_NEW_ROW_CLASS = "is-new-row"
 
-# The marker a region carries while it holds an OPTIMISTIC control
-# whose server confirmation has not arrived. The swap skips any region
-# containing it, since the swap would otherwise repaint a flip the
-# user just made with the server's older answer, making the control
-# appear to bounce back. Duplicated into freshness.js rather than
-# imported, and pinned by companion/test_status_pages.py like every
-# other cross-file literal here.
+# The marker a region carries while it holds an OPTIMISTIC control whose
+# server confirmation has not arrived. The swap skips it, since
+# repainting with the server's older answer would make the control
+# appear to bounce back. Duplicated into freshness.js, pinned by
+# companion/test_status_pages.py.
 REFRESH_PENDING_ATTR = "data-pending"
 
-# The single, greppable definition of every DOM region
-# companion/static/freshness.js swaps wholesale, replacing each node
-# with its own equivalent from a fetched copy of the same page.
-# Duplicated rather than imported — freshness.js is a static asset,
-# not a Python module. Any change to the script's own registry must
-# change this mapping too.
-#
-# HEALTH: deliberately excludes the sparkline <svg>/.sparkline-hit,
-# the registry card and its filter bar, and every <details>
-# disclosure — swapping any of those would leave battery-trend.js's
-# chart or list-filter.js's filter permanently dead (each captures its
-# DOM once, with no re-init hook), or would silently discard an
-# in-progress filter query.
-#
-# `a[href="/health"]` — not a ".dot"/".nav-notification" selector —
-# is the nav-severity swap target on purpose: the severity dot only
-# exists in the DOM when severity is "warn"/"error", so a dot-only
-# selector would have nothing to replace when severity newly clears.
-# The whole nav link is always present in both documents, so swapping
-# it whole keeps the swap correct across every severity transition.
-#
-# HOME: the four regions that actually change between polls, plus the
-# freshness line. The recent-flights SECTION, not its <ul>, is the
-# target so the empty-state-to-list transition is covered too (a node
-# present on only one side is never swapped).
-# Deliberately not nested: no entry here contains another, so no swap
-# can detach a node another entry is about to replace.
-#
-# FLIGHTS: the two renderings of the list — the phone `<ul
-# class="history-cards">` and the desktop `.data-table-wrap` — plus
-# the live count and the freshness line. Both renderings, not
-# whichever the current breakpoint shows: both are always in the DOM,
-# and a swap that replaced only one would leave the other showing an
-# older list after a resize.
-#
-# Deliberately excluded: companion/static/list-filter.js resolves
-# four elements exactly once at load and holds those references for
-# the life of the page. Replacing any one of them detaches the node
-# the script is still writing to, so the filter goes silently dead and
-# an in-progress query is discarded. `[data-filter-count]` IS here,
-# unlike its siblings, because the script now looks it up fresh on
-# every keystroke.
-#
-# The rows themselves were never captured — list-filter.js queries
-# `[data-filter-text]` fresh on every input event — so swapping them
-# costs it nothing. What a swap does cost is the filter's applied
-# state, since the server renders the list unfiltered: list-filter.js
-# re-runs its filter when the loop announces a swap, keeping a typed
-# query applied across a refresh.
-#
-# Deliberately NOT nested: no entry here contains another.
-#
-# DISPLAY: deliberately the strip and the freshness line and nothing
-# else — this asymmetry with Home is a decision, not an omission.
-# Everything else on that page is a form, and a form is the one thing
-# a swap must never touch: replacing a fieldset under a half-typed
-# value discards it silently. The dirty-form stand-down in
-# freshness.js is the second belt on the same braces.
+# The single, greppable definition of every DOM region freshness.js
+# swaps wholesale, replacing each node with its fetched equivalent.
+# Duplicated rather than imported — freshness.js is a static asset, not
+# a Python module.
+
+# HEALTH: excludes the sparkline, the registry card/filter bar and every
+# <details> — swapping any would leave battery-trend.js's chart or
+# list-filter.js's filter permanently dead (each captures its DOM once).
+
+# `a[href="/health"]`, not a ".dot" selector, is the nav-severity target:
+# the severity dot only exists in the DOM for "warn"/"error", so a
+# dot-only selector would have nothing to replace when severity clears.
+
+# HOME: the regions that change between polls, plus the freshness line.
+# The recent-flights SECTION, not its <ul>, is the target so the
+# empty-state-to-list transition is covered too. Not nested.
+
+# FLIGHTS: both renderings of the list (phone cards, desktop table) plus
+# the count and freshness line — a swap replacing only one would leave
+# the other stale after a resize.
+
+# Deliberately excluded: list-filter.js resolves four elements once at
+# load and holds those references; replacing any detaches the node it
+# writes to, silently killing the filter. `[data-filter-count]` is here
+# since the script now looks it up fresh on every keystroke.
+
+# The rows themselves were never captured (list-filter.js queries them
+# fresh), so swapping them costs nothing; the filter's applied state
+# does need list-filter.js to re-run after a swap, since the server
+# renders the list unfiltered.
+
+# DISPLAY: only the strip and freshness line — a deliberate asymmetry
+# with Home. Everything else on that page is a form, and a swap must
+# never touch a form: it would discard a half-typed value silently.
 REFRESH_SWAP_SELECTORS_BY_PAGE = {
     REFRESH_PAGE_HOME: (
         ".page-header__freshness",
@@ -1688,13 +1514,10 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         ".data-table-wrap",
         "[data-filter-count]",
         # The Show-more nav's own `href` advances by one page on every
-        # render, so a background refresh that skipped this region would
-        # leave a stale href on screen — clicking it would silently
-        # re-request the page the visitor is already on. Declaring it here is
-        # also why _show_more_html() renders an empty <nav> rather than
-        # nothing when there is no more to show: the registry-witness check
-        # requires every declared region to be findable in every rendered
-        # page.
+        # render; a skipped refresh would leave a stale href on screen.
+        # Declaring it here is also why _show_more_html() renders an
+        # empty <nav> rather than nothing: the registry-witness check
+        # requires every declared region findable in every rendered page.
         ".flights-more",
     ),
 }
@@ -1978,32 +1801,28 @@ def freshness_line_html(now, lang=None):
         return ""
     # escape_html() is required on `now`: i18n.t(REFRESH_PILL_TEXT) is not
     # pre-escaped.
-    #
-    # No ARIA role on the pill: a live region announces on content mutation, not
-    # on visibility, and the page load is already announced as a navigation.
-    # Known gap: a reload while a screen reader has focus on the body resets its
-    # virtual cursor.
+
+    # No ARIA role on the pill: a live region announces on content
+    # mutation, not visibility. Known gap: a reload while a screen
+    # reader has focus resets its virtual cursor.
     pill_html = (
         '<span class="refresh-pill" data-refresh-pill data-loaded-at="%s" hidden>%s%s</span>'
         % (escape_html(now), icon_html("icon-refresh"), escape_html(i18n.t(REFRESH_PILL_TEXT))))
     # Server-rendered static and neutral; the breathing motion is a class
-    # freshness.js adds/removes, so a scripts-blocked page shows a still dot
-    # beside a static age.
-    # `.dot--off` carries no verdict colour — a loop's live/paused state is not a
-    # device verdict — and is aria-hidden since the Paused/Reconnecting badge
-    # beside it already announces the real state.
+    # freshness.js adds/removes, so a scripts-blocked page shows a still
+    # dot beside a static age. `.dot--off` carries no verdict colour —
+    # a loop's live/paused state is not a device verdict.
     dot_html = (
         '<span class="dot dot--off" %s aria-hidden="true"></span>'
         % REFRESH_LIVE_DOT_ATTR)
-    # The clock is local_clock_text() with `now_parsed` set to the same instant,
-    # forcing its same-day "HH:MM" branch. The full Europe/Paris timestamp stays
-    # on the span's `title` via _full_local_timestamp_text(); `data-loaded-at` on
-    # the pill carries the machine-readable instant freshness.js actually reads —
+    # The clock is local_clock_text() with `now_parsed` set to the same
+    # instant, forcing its same-day "HH:MM" branch. `data-loaded-at` on
+    # the pill carries the machine-readable instant freshness.js reads;
     # the `title` is tooltip only.
-    #
-    # `.time-value`, not `.mono`: monospace is reserved for identifiers (callsign,
-    # ICAO24 hex), not a wall-clock time. `.time-value` keeps tabular numerals so
-    # the digits hold their column as the clock ticks.
+
+    # `.time-value`, not `.mono`: monospace is reserved for identifiers,
+    # not a wall-clock time; `.time-value` keeps tabular numerals so the
+    # digits hold their column as the clock ticks.
     _now_parsed = parse_iso(now)
     _clock_text = (
         local_clock_text(_now_parsed, now_parsed=_now_parsed)
@@ -2012,14 +1831,13 @@ def freshness_line_html(now, lang=None):
         '<span class="time-value" data-refresh-clock title="%s">%s</span>'
         % (escape_html(full_local_timestamp_text(now)),
            relative_time_html(now, now, static_text=_clock_text)))
-    # One block-level wrapper for prefix+clock+pill: `.page-header` is a block
-    # box, and a bare inline pill span forces an anonymous block box, producing an
-    # extra gap. The descendant selector `.page-header .refresh-pill` still
-    # matches through the wrapper.
-    #
+    # One block-level wrapper for prefix+clock+pill: `.page-header` is a
+    # block box, and a bare inline pill span would force an anonymous
+    # block box, producing an extra gap.
+
     # This element is a REFRESH_SWAP_SELECTORS_BY_PAGE entry: freshness.js
-    # replaces it wholesale, so a render-time value is honest only until the next
-    # swap.
+    # replaces it wholesale, so a render-time value is honest only until
+    # the next swap.
     freshness_html = (
         '<p class="page-header__freshness text-label">%s%s%s%s</p>'
         % (dot_html, escape_html(i18n.t(FRESHNESS_PREFIX_TEXT)),
@@ -2090,11 +1908,10 @@ def page_shell(
     banner_html = banner or ""
 
     # `body` is an opaque pre-built string, so page_header() leaves
-    # FLASH_SLOT_MARKER as a literal splice point directly below the header. A
-    # page built on page_header() gets the marker replaced and `flash_html`
-    # cleared; a page without page_header() (login, 404) keeps its old
-    # before-body slot untouched. The unconditional second replace() below strips
-    # any leftover marker so it never reaches the browser.
+    # FLASH_SLOT_MARKER as a literal splice point below the header. A page
+    # built on page_header() gets the marker replaced and `flash_html`
+    # cleared; other pages keep their old before-body slot. The second
+    # replace() below strips any leftover marker unconditionally.
     if FLASH_SLOT_MARKER in body:
         body = body.replace(FLASH_SLOT_MARKER, flash_html, 1)
         flash_html = ""
@@ -2113,17 +1930,15 @@ def page_shell(
         '<a class="skip-link" href="#%s">Skip to content</a>'
         % SKIP_LINK_TARGET_ID)
 
-    # <aside> precedes <header> in source order: at desktop width, where CSS
-    # hides the header, a keyboard user tabs into the sidebar nav first, with no
-    # invisible stop before it. Both nav copies stay in the DOM always; only the
-    # 960px CSS media query decides which is visible (no inline styles, no hidden
-    # attribute, no ARIA hint), so exactly one navigation landmark is ever
-    # exposed to the accessibility tree.
-    #
-    # ICON_DEFS_HTML is emitted once per document, right after <body>: the
-    # sprite's one definition site. The theme form renders once in the sidebar
-    # and once in the hamburger dropdown (from the same theme_form_html string),
-    # never a third time in the header.
+    # <aside> precedes <header> in source order: at desktop width, where
+    # CSS hides the header, a keyboard user tabs into the sidebar nav
+    # first. Both nav copies stay in the DOM always; only the 960px CSS
+    # media query decides which is visible, so exactly one navigation
+    # landmark is ever exposed to the accessibility tree.
+
+    # ICON_DEFS_HTML is emitted once per document, right after <body>.
+    # The theme form renders once in the sidebar and once in the
+    # hamburger dropdown, never a third time in the header.
     return (
         "<!DOCTYPE html>\n"
         '<html lang="%s" data-ui-theme="%s">\n'
@@ -2151,20 +1966,19 @@ def page_shell(
         "%s\n%s\n%s\n"
         "</main>\n"
         "</div>\n"
-        # The tab bar sits outside and after .dashboard-shell, a sibling rather than
-        # a descendant of the scrolled content column, so its `position: fixed` box
-        # is not nested inside the shell's own stacking/overflow context. `""` on a
-        # page with no bar, emitting a bare newline like the flash slot does.
+        # The tab bar sits outside .dashboard-shell, a sibling rather than
+        # a descendant of the scrolled content column, so its
+        # `position: fixed` box is not nested inside the shell's own
+        # stacking context. `""` on a page with no bar, like the flash slot.
         "%s\n"
-        # The optimistic switch's failure announcement: rendered empty, once per
-        # document, never hidden. A live region added at announce time is one screen
-        # readers often miss, so it exists from load and only its text changes;
-        # role="alert" implies aria-live="assertive" for a failure the user is
-        # waiting on.
-        #
-        # The one script-only surface here, and additive: with no script there is no
-        # fetch, so there is no failure to report beyond the server's own flash on
-        # the page a 303 lands on.
+        # The optimistic switch's failure announcement: rendered empty,
+        # once per document, never hidden — a live region added at
+        # announce time is one screen readers often miss. role="alert"
+        # implies aria-live="assertive" for a failure the user awaits.
+
+        # The one script-only surface here, and additive: with no script
+        # there is no fetch, so nothing here can fail beyond what the
+        # server's own flash already reports.
         '<div class="quick-toast" %s role="alert"></div>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
@@ -2311,21 +2125,17 @@ def status_dot(state, label, title=None, visually_hide_label=False):
 def stat_tile(caption, content_html, status=None, icon=None, caption_title=None):
     """A status-coloured dashboard card wrapping already-built markup.
 
-    `caption` is escaped here. `content_html` is the caller's own already-safe
-    markup and is interpolated verbatim with no re-escaping — re-encoding it
-    here would double-encode already-escaped tags. `status` maps to one of
-    three fixed CSS class suffixes; an unrecognised value falls back to the
-    neutral class rather than emitting an arbitrary class name.
+    `caption` is escaped here. `content_html` is the caller's own
+    already-safe markup, interpolated verbatim with no re-escaping —
+    re-encoding it would double-encode already-escaped tags. `status`
+    maps to one of three fixed CSS class suffixes; an unrecognised value
+    falls back to the neutral class rather than an arbitrary class name.
 
-    `icon` is a whitelisted id from ICON_IDS, not markup, passed to icon_html()
-    — this function's only route to raw HTML besides `content_html`. When
-    falsy or unknown, the caption renders exactly as before this parameter
-    existed.
-
-    `caption_title` is an attribute value, not markup: escaped through the
-    same escape_html() call as `caption`, and added as `title="..."` on the
-    caption label — a household reader sees the plain label, the technical
-    term stays one hover away.
+    `icon` is a whitelisted ICON_IDS id, not markup, passed to
+    icon_html() — this function's only other route to raw HTML.
+    `caption_title` is an attribute value, escaped through the same
+    escape_html() call as `caption`, and added as `title="..."` on the
+    caption label.
     """
     css_class = "stat-tile " + _STAT_TILE_BORDER_CLASSES.get(
         status, _DEFAULT_STAT_TILE_CLASS)
@@ -2344,24 +2154,16 @@ def stat_tile(caption, content_html, status=None, icon=None, caption_title=None)
 
 
 def quick_switch_html(action, return_to, is_on, label_id, state_id, form_id=None):
-    """One real `role="switch"` control, shared verbatim by the Frame strip's
-    Screen and Quiet hours switches and the Device page's Diagnostic LED, so
-    their markup, ARIA and posts cannot drift apart.
+    """One real `role="switch"` control, shared verbatim by the Frame
+    strip's two switches and the Device page's Diagnostic LED, so their
+    markup, ARIA and posts cannot drift. `return_to` is written escaped;
+    the server validates it against a whitelist before redirecting.
 
-    `action`/`return_to` are written escaped into the form; the server
-    validates `return_to` by membership against a whitelist before using it as
-    a redirect — this function has no opinion on validity.
-
-    `is_on` is the SAVED value: it sets `aria-checked` and the posted `state`,
-    always the OPPOSITE of `is_on` — with scripts blocked, a switch must post
-    the flip, not re-assert its current state. The accessible name is the
-    setting (`label_id`); `state_id` describes the current state and may be a
-    space-separated id list. Track and thumb are `aria-hidden` presentational.
-
-    `form_id` is for the one caller whose switch cannot contain its own form
-    (nested forms are invalid HTML): this renders the button only, attached
-    via `form=`, with the caller rendering the matching empty `<form>` as a
-    sibling.
+    `is_on` is the saved value: it sets `aria-checked` and the posted
+    `state`, always the opposite — with scripts blocked, a switch must
+    post the flip, not re-assert its state. `form_id` is for the one
+    caller whose switch cannot contain its own form (nested forms are
+    invalid HTML): renders the button only, attached via `form=`.
     """
     button_html = (
         '<button type="submit" class="switch" role="switch" aria-checked="%s"'
@@ -2450,38 +2252,29 @@ def _frame_strip_cell_html(extra_class, label_row_html, state_row_html, caption_
 def frame_strip_html(ctx, return_to, next_wake_iso=None):
     """The "Frame" strip: one shared body, called identically by
     home_page.render() and config_page.render()'s Display scope, so both
-    pages' switches and next-update headline can never disagree.
+    pages' switches and headline can never disagree. `return_to` is
+    written escaped; the server validates it against a route whitelist
+    before using it as a redirect target.
 
-    `device_config` fallback defaults are duplicated here rather than imported
-    (this module does not import from server/). `return_to` is written
-    escaped; the server validates it against a route whitelist before using it
-    as a redirect target.
-
-    Renders no update cell when no next-wake data is available. Three states
-    share one dot vocabulary: due `.dot--ok`, held the neutral `.dot--off`,
-    late `.dot--warn`, the warn signal carried by wording and dot, never text
-    colour.
-
-    Both switch forms carry `data-quick-switch`, the hook
-    companion/static/dirty-state.js keys its leave-guard on — do not delete it
-    as apparently unused.
-
-    Every interpolated value crosses escape_html(); every string crosses
-    i18n.t().
+    Renders no update cell when no next-wake data is available. Three
+    states share one dot vocabulary: due `.dot--ok`, held the neutral
+    `.dot--off`, late `.dot--warn`, the warn signal carried by wording
+    and dot, never text colour. Both switch forms carry
+    `data-quick-switch`, the hook companion/static/dirty-state.js keys
+    its leave-guard on — do not delete it as apparently unused. Every
+    value crosses escape_html(); every string crosses i18n.t().
     """
     device_cfg = ctx.get("device_config") or {}
     now_value = ctx.get("now")
 
     # The one state resolution: wake.next_wake_status(), against the same
-    # (last_checkin_ts, device_config) pair every caller already used to
-    # compute `next_wake_iso` above — calling it again here is not a second,
-    # disagreeing computation (see this function's own docstring).
-    #
-    # `battery_critical` is the battery-empty latch, read once per request by
-    # page_context() — never a second read of poll_state.json here. Without
-    # it, a parked frame would cross the warn threshold every wake cycle and
-    # the strip would wrongly announce "late" for a frame that is deliberately
-    # resting on a flat battery.
+    # pair every caller already used to compute `next_wake_iso` above —
+    # not a second, disagreeing computation.
+
+    # `battery_critical` is the battery-empty latch, read once per
+    # request by page_context() — never a second read here. Without it,
+    # a parked frame would cross the warn threshold every wake cycle and
+    # wrongly announce "late" on a flat battery.
     resolved_next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
         ctx.get("last_checkin_ts"), device_cfg, battery_critical=ctx.get("battery_critical", False))
     resolved_state = frame_state.resolve_state(
@@ -2541,11 +2334,11 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
         + quick_switch_html(
             "/quick/quiet-hours", return_to, is_quiet_on,
             QUICK_SWITCH_QUIET_LABEL_ID, QUICK_SWITCH_QUIET_STATE_ID))
-    # The one write site for the Quiet hours caption link: appended to a COPY
-    # of the shared delay sentence, never to `delay_caption_html` itself, which
-    # is also the Screen cell's own caption. Always a real `<a href>`, including
-    # when `return_to` is already DISPLAY_ROUTE — a same-page fragment link
-    # still works with no script.
+    # The one write site for the Quiet hours caption link: appended to a
+    # copy of the shared delay sentence, never to `delay_caption_html`
+    # itself, which is also the Screen cell's own caption. Always a real
+    # `<a href>`, even when `return_to` is already DISPLAY_ROUTE — a
+    # same-page fragment link still works with no script.
     quiet_schedule_link_html = '<a class="text-link frame-strip__schedule-link" href="%s#%s">%s</a>' % (
         DISPLAY_ROUTE, _FRAME_QUIET_SCHEDULE_TARGET_ID,
         escape_html(i18n.t(_FRAME_QUIET_SCHEDULE_LINK_TEXT)))
@@ -2579,17 +2372,15 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
         update_state_row_html = (
             '<p class="%s"><span class="dot %s"></span>%s</p>'
         ) % (headline_class, dot_class, headline_text)
-        # The countdown, in the cell's caption row beside — never inside — the
-        # headline. It is formatting and decides nothing: the instant comes from
-        # wake.next_wake_status() and the state word from frame_state.resolve_state(),
-        # both already computed above. companion/static/relative-time.js advances the
-        # duration without ever re-deciding whether the frame is due, held or late —
-        # computing lateness in two places is what caused a prior false alarm.
-        #
-        # `countdown=True` keeps it a countdown after its instant passes, reading
-        # the translated waiting wording rather than silently turning into an age —
-        # a late frame reads "Expected since 14:32 / waiting…", never "2m ago",
-        # which would be a second, quieter lateness claim beside the headline's.
+        # The countdown, beside — never inside — the headline. It is
+        # formatting and decides nothing: the instant and state word both
+        # come from calls already made above; relative-time.js advances
+        # the duration without re-deciding due/held/late.
+
+        # `countdown=True` keeps it a countdown after its instant passes,
+        # reading the waiting wording rather than silently becoming an
+        # age: "Expected since 14:32 / waiting…", never "2m ago" — a
+        # second, quieter lateness claim beside the headline's.
         countdown_html = (
             '<p class="text-label section-caption">%s</p>'
             % relative_time_html(resolved_next_wake_iso, now_value, countdown=True))
@@ -2628,24 +2419,16 @@ def card_status_class(base_class, status):
 
 def status_row(label, verdict, detail, state):
     """`<div class="status-row status-row--ok|warn|error">`: one shared row
-    primitive (dot + optional label + verdict + detail), used by Home's status
-    card and the Calendar status row alike.
-
-    `label` is optional: a falsy value omits the `<span>` entirely, not just
-    its text. `verdict` and `detail` must carry two different pieces of
-    information — a state word versus a freshness/detail clause — never the
-    same sentence rendered twice.
+    primitive (dot + optional label + verdict + detail), used by Home's
+    status card and the Calendar status row alike. `label` falsy omits
+    the `<span>` entirely, not just its text.
 
     `state` maps through the same `_STATUS_DOT_CLASSES` fallback
-    status_dot()/stat_tile() use for the dot, and through
-    card_status_class()'s whitelist for the outer modifier — never a bare
-    interpolation of an unvalidated `state`: an unrecognised value degrades to
-    the default dot and no outer modifier, rather than an
-    attacker-influenceable class name. `verdict`, `detail` and `label` are all
-    escaped here.
-
-    The caller is responsible for translating `label`/`verdict`/`detail`
-    through i18n.t() before calling this; status_row() itself calls no t().
+    status_dot()/stat_tile() use, and through card_status_class()'s
+    whitelist for the outer modifier — never a bare interpolation, so an
+    unrecognised value degrades to the default dot rather than an
+    attacker-influenceable class name. `verdict`/`detail`/`label` are
+    escaped here; the caller translates them through i18n.t() first.
     """
     dot_class = _STATUS_DOT_CLASSES.get(state, _DEFAULT_STATUS_DOT_CLASS)
     modifier = card_status_class("status-row", state)
@@ -2686,23 +2469,17 @@ def section_intro_html(section_id, heading, description):
 
 
 def empty_state(heading, body, compact=False):
-    """The escaped two-part empty-state block used for the flight log, the
-    gallery, and the unresolved-prefix list.
+    """The escaped two-part empty-state block used for the flight log,
+    the gallery, and the unresolved-prefix list.
 
-    `compact` is a keyword-with-default whose falsy value is byte-identical to
-    this function's pre-existing output. Why it exists: an empty state
-    rendered inside a `.stat-tile` put a 22px serif heading inside a card
-    whose own caption is 12px, an inverted type hierarchy. The compact form
-    drops the heading to the Emphasis role (16px sans semibold) and the body
-    to the label size — reusing the established bottom type rung rather than
-    inventing a new tier.
-
-    Those are the same two treatments a filled tile's verdict and detail rows
-    wear, so a compact empty state occupies exactly those slots' rhythm. It
-    reaches them through its own class names rather than borrowing
-    `.widget-verdict`/`.widget-detail`: an empty state's heading is not a
-    verdict, and a pinned test asserts the Resolution-rate tile carries no
-    `.widget-verdict` anywhere.
+    `compact` falsy is byte-identical to this function's pre-existing
+    output. Why it exists: an empty state inside a `.stat-tile` put a
+    22px serif heading inside a card whose own caption is 12px, an
+    inverted hierarchy. Compact drops the heading to the Emphasis role
+    and the body to the label size, matching a filled tile's verdict and
+    detail rows through its own class names, never by borrowing
+    `.widget-verdict`/`.widget-detail` — an empty state's heading is not
+    a verdict.
     """
     if compact:
         return (
@@ -2720,31 +2497,19 @@ def empty_state(heading, body, compact=False):
 
 
 def page_header(title, purpose=None, freshness_html=None, action_html=None):
-    """The shared page-header component every authenticated page's render()
-    opens with, in place of a bare <h1>.
+    """The shared page-header component every authenticated page's
+    render() opens with, in place of a bare <h1>. This exact signature
+    and parameter order is called across many page modules — do not
+    rename or reorder.
 
-    THIS SIGNATURE IS A CONTRACT: page_header(title, purpose=None,
-    freshness_html=None, action_html=None) is called by this exact name and
-    parameter order across many page modules — do not rename or reorder these
-    parameters.
+    `title`/`purpose` are escaped here. `freshness_html`/`action_html`,
+    when truthy, are the caller's own already-safe markup, interpolated
+    verbatim with no escape_html() call — callers must escape any
+    user-influenced data before passing it through either parameter.
 
-    `title` is escaped and wrapped in `<h1 class="page-title">`. `purpose`,
-    when truthy, is escaped and rendered as `<p class="page-header__purpose
-    text-body">`.
-
-    `freshness_html` and `action_html`, when truthy, are the caller's own
-    already-safe markup, interpolated verbatim with no escape_html() call —
-    re-encoding either here would double-encode already-escaped tags. Callers
-    are responsible for escaping any user-influenced data before passing it
-    through either parameter.
-
-    The blocks are concatenated title, then freshness/action, then purpose
-    last; this ordering is separate from the signature contract above and may
-    change independently.
-
-    The returned string ends with FLASH_SLOT_MARKER, appended after the
-    closing `</div>` — not a signature change. page_shell() is the marker's
-    only consumer.
+    Blocks concatenate title, then freshness/action, then purpose last.
+    The returned string ends with FLASH_SLOT_MARKER, which page_shell()
+    is the only consumer of.
     """
     purpose_html = (
         '<p class="page-header__purpose text-body">%s</p>' % escape_html(purpose)
@@ -2766,32 +2531,19 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None):
 def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), prose=False,
                modifier=None):
     """A header row plus alternating body rows, every value escaped.
+    Returns empty_state()'s output instead of an empty table when `rows`
+    is empty. `mono_columns` names zero-based indices that get the
+    monospace class.
+    `raw_columns` names indices whose value is already-safe, pre-built
+    HTML, interpolated without escape_html() — only place the output of
+    a builder that already escapes internally, never a bare string: that
+    reopens the XSS-shaped defect this module's escaping discipline
+    otherwise closes. `desc_columns` names indices that get the
+    description-role class; all three name sets are orthogonal.
 
-    `mono_columns` names zero-based column indices that get the monospace
-    class (callsigns, hex codes, timestamps). Returns empty_state()'s output
-    instead of an empty table when `rows` is empty.
-
-    `raw_columns` names column indices whose cell value is ALREADY-SAFE,
-    pre-built HTML, interpolated without a call to escape_html() — every other
-    column is escaped as before. Only place the output of a builder that
-    already escapes internally (e.g. concise_timestamp_html(), status_dot())
-    in a raw_columns cell, never a bare string: doing so reopens an
-    XSS-shaped defect this module's single-escaping-choke-point discipline
-    otherwise closes.
-
-    `desc_columns` names column indices that get the description-role class
-    (`desc`), for prose columns rendered in the muted secondary strength.
-    `mono_columns`, `raw_columns` and `desc_columns` are mutually orthogonal
-    and may safely name the same index.
-
-    `prose` adds the modifier class `data-table--prose`, releasing a table
-    from the shared no-wrap/no-crop floor for columns holding full sentences
-    rather than short values.
-
-    `modifier` appends one additional `data-table--<modifier>` class; pass the
-    bare stem ("readings"), never the full class name — the `data-table--`
-    prefix is added here so every modifier is spelled the same way in the
-    stylesheet.
+    `prose` releases a table from the shared no-wrap/no-crop floor, for
+    full-sentence columns. `modifier` appends one `data-table--<modifier>`
+    class; pass the bare stem, never the full class name.
     """
     if not rows:
         return empty_state("No data yet.", "Nothing to show here yet.")
