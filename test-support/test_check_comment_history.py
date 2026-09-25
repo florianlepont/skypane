@@ -69,7 +69,8 @@ D_ID_SAMPLES = ["D-06", "D-A3", "D-34-03", "D-1", "D-123"]
 @pytest.mark.parametrize("sample", D_ID_SAMPLES)
 def test_d_id_pattern_positive(sample):
     text = "// decision %s applies here" % sample
-    assert "d-id" in _hit_names(text), "did not flag %r" % sample
+    matched = [m for name, m in _hits(text) if name == "d-id"]
+    assert sample in matched, "did not flag the full id %r, got %r" % (sample, matched)
 
 
 ALLOWLISTED_PREFIXES = [
