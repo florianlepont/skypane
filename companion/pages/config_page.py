@@ -1,172 +1,99 @@
-"""companion/pages/config_page.py — CFG-01 (theme picker), CFG-12 (runway
-picker), and CFG-07's "Trigger poll now" control (06-CONTEXT.md).
-
-Both `render()` and `handle_post()` are real and live as of this plan
-(06-07): the Theme and Runway fieldsets render from `server.device_config`'s
-own registries with the current values pre-selected, and a POST validates
-both fields against those same registries — server-side — before ever
-calling `device_config.save_device_config()`. The "Trigger poll now"
-control below is unrelated plumbing owned by companion/app.py (plan
-06-05): its POST /poll-now target, cooldown gate, and in-process
-server.poll_loop.run_once() call all live there, not here — this module
-only renders the button/copy for it.
+"""The Settings page: theme/runway/LED/quiet-hours/wake-interval/
+calendar/notifications controls, rendered and validated against
+`server.device_config`'s own registries, plus the per-flight
+colour-rules editor and the manual "Trigger poll now" control (its
+route, cooldown gate and poll trigger are owned by companion/app.py;
+this module only renders its button/copy).
 """
-import collections  # 25-04-PLAN.md Task 1 (CFG-48): QuietWindowSpan, the
-# named triple the quiet dial's duration text and its drawn sweep are
-# BOTH read off, so the words and the picture cannot disagree.
+import collections
 import re
-from datetime import timedelta  # 25-05-PLAN.md Task 1 (CFG-49): the
-# battery sentence's own look-back window, the same shape health_page's
-# _cutoff_iso() uses for the identical read.
+from datetime import timedelta
 from urllib.parse import urlsplit
 
-from companion import i18n  # D-05, 20-07-PLAN.md Task 1: the Display page's
-# three supersection headings/intros render through i18n.t() (Task 3
-# widens this to every user-visible string in this file).
+from companion import i18n
 from companion import theme_preview
-from companion import battery  # 25-05-PLAN.md Task 1 (CFG-49): the ONE
-# battery estimator (references/data-density.md's two-allow-listed-homes
-# rule). Imported as a MODULE and called qualified — a bare
-# `from companion.battery import battery_life_estimate` would make the
-# estimate read as this page's own, which is the drift 19-01 created
-# that module to prevent.
-from companion import draw  # 25-04-PLAN.md Task 2 (CFG-48): the shared
-# SVG geometry/emission primitives the quiet-hours dial's shapes come
-# from (27-05-PLAN.md Task 2, CFG-66, retired the runway map's own use
-# of this import). stdlib-only by its own contract, so importing it
-# here adds no dependency edge this module did not already have.
+# The one battery estimator, imported as a module and called qualified
+# — a bare `from companion.battery import battery_life_estimate` would
+# make the estimate read as this page's own.
+from companion import battery
+from companion import draw
 from companion.layout import escape_html
 import companion.layout as layout
-# 22-05-PLAN.md Task 2 (D-04) added `from companion import frame_state`
-# here: the Frame strip (companion/layout.py, 22-04-PLAN.md) and this
-# module's own Quiet hours caption both read frame_state.
-# delay_sentence_template() from the SAME wake.next_wake_status()
-# triple, so the two could never disagree.
-#
-# 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: that import is DELETED —
-# this module no longer computes a delay sentence of its own at all
-# (see quiet_hours_group()'s own docstring for the full account); the
-# Frame strip is now the ONLY reader of frame_state in this codebase's
-# render path, and it lives in companion/layout.py, not here. Confirmed
-# unused by grep before deleting: every remaining "frame_state" text in
-# this module is prose, in a comment or docstring, not executable code.
-from companion import prefs  # 22-10-PLAN.md Task 2 (B14): the resolved
-# site language, set as `lang` on both native time inputs.
+from companion import prefs
 from companion import screens
 from companion import wake
-# 20-07-PLAN.md Task 3 (D-36): the former EDIT_QUERY_PARAM import (19-12-
-# PLAN.md Task 2's Device-page "Edit artwork" link) is gone along with
-# that link itself — 20-10 renders the replacement "Change pictures"
-# button directly on airlines_page.py, which already owns
-# EDIT_QUERY_PARAM; nothing here needs it any more.
-#
-# 20-09-PLAN.md Task 3 (D-15c): the former DELETE_BUTTON_TEXT import
-# (airlines_page.py's "Delete") is gone too — the rebuilt rule row's own
-# Remove button carries its own distinct copy (RULE_REMOVE_BUTTON_TEXT
-# below), matching the UI-SPEC copy table's own "Remove"/"Retirer"
-# wording rather than reusing the airlines gallery's "Delete".
-#
-# 20-09-PLAN.md Task 1 (D-15e): history_db.recent_runway_events() is the
-# same call home_page._recent_flights() already makes (companion/pages/
-# __init__.py forbids importing that page module directly, so this is a
-# second, independent import of the same shared server-side helper, not
-# a page-to-page import).
+# history_db.recent_runway_events() is a second, independent call to
+# the same helper home_page._recent_flights() uses — page modules never
+# import each other directly.
 from server import device_config, history_db, panel_format
 from server.plane import calendar_rules, colour_rules
 
-# The single definition of this route prefix in the repository (06.4).
-# companion/app.py rebinds it (RUNWAY_IMAGE_ROUTE_PREFIX =
-# config_page.RUNWAY_IMAGE_ROUTE_PREFIX) rather than re-typing the
-# literal, exactly as it already does for the FLASH_KEY_* constants —
-# app.py imports this module, so the reverse import would be a cycle.
+# The single definition of this route prefix. companion/app.py rebinds
+# it (RUNWAY_IMAGE_ROUTE_PREFIX = config_page.RUNWAY_IMAGE_ROUTE_PREFIX)
+# rather than re-typing the literal — app.py imports this module, so
+# the reverse import would be a cycle.
 RUNWAY_IMAGE_ROUTE_PREFIX = "/runway-image/"
 RUNWAY_IMAGE_ALT_TEMPLATE = "Airport diagram for %s"
 
-# 06.6.4.1.1-05: same one-definition-site discipline as
-# RUNWAY_IMAGE_ROUTE_PREFIX above, with the definition site inverted —
-# the mechanism module (companion/theme_preview.py) owns the prefix and
-# alt-text template here, not this emitter module, because both this
-# module and companion/app.py need to rebind the same constant. The
-# literal is still typed exactly once in the repository, in
-# theme_preview.py.
+# Same one-definition-site discipline as RUNWAY_IMAGE_ROUTE_PREFIX
+# above, with the definition site inverted: companion/theme_preview.py
+# owns the prefix and alt-text template, since both this module and
+# companion/app.py need to rebind the same constant.
 THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
 THEME_PREVIEW_ALT_TEMPLATE = theme_preview.THEME_PREVIEW_ALT_TEMPLATE
 
-# 20-11-PLAN.md Task 2 (D-22..D-24, 20-UI-SPEC.md Section Anatomy H/copy
-# table E): the live preview's own alt text and caption strings, and its
-# `<img>` width/height — taken from the render pipeline's real served
-# dimensions (theme_preview.THEME_PREVIEW_SIZE), never a CSS
-# `aspect-ratio` guess (matching the chip grid's own UIR-07-informed
-# discipline). The live preview shares the identical crop/size the chip
-# grid's own `<img>` uses — only the rendered SCENE differs (the last
-# real runway event instead of the fixed fixture).
+# The live preview's `<img>` width/height come from the render
+# pipeline's real served dimensions, never a CSS aspect-ratio guess. It
+# shares the chip grid's crop/size; only the rendered scene differs
+# (the last real runway event instead of the fixed fixture).
 THEME_LIVE_PREVIEW_WIDTH, THEME_LIVE_PREVIEW_HEIGHT = theme_preview.THEME_PREVIEW_SIZE
 THEME_LIVE_PREVIEW_ALT_TEMPLATE = "Live preview of the %s theme"
 THEME_LIVE_PREVIEW_CAPTION_WITH_FLIGHT_TEMPLATE = "Preview with your last flight: %s"
 THEME_LIVE_PREVIEW_CAPTION_SAMPLE = "Preview with a sample flight"
 
-# The single definition of this route in the repository (06.6.4.1, D-05/
-# D-26). companion/app.py rebinds its own SETTINGS_ROUTE constant to this
-# value rather than re-typing the literal (06.6.4.1-07), mirroring
-# RUNWAY_IMAGE_ROUTE_PREFIX's own rebinding discipline above — app.py
-# imports this module, so the reverse import would be a cycle. The old
-# "/config" path is retired: it 404s by design, no redirect (D-26).
+# The single definition of this route. companion/app.py rebinds its own
+# SETTINGS_ROUTE constant to this value rather than re-typing the
+# literal. The old "/config" path is retired: it 404s by design, no
+# redirect.
 SETTINGS_ROUTE = "/settings"
 
-# quick task 260901-re6: this value is interpolated twice — once as the
-# settings <form>'s id, once as the dirty-bar save button's form
-# attribute — and the two must never be re-typed as literals, because a
-# mismatch produces a Save button that looks correct in markup and
-# silently submits nothing. Same one-definition-site discipline as
-# RUNWAY_IMAGE_ROUTE_PREFIX/SETTINGS_ROUTE above.
+# Interpolated twice — the settings <form>'s id and the dirty-bar save
+# button's form attribute — and the two must never be re-typed as
+# literals, since a mismatch would produce a Save button that looks
+# correct in markup and silently submits nothing.
 SETTINGS_FORM_ID = "settings-form"
 
-# --- Phase 18 (companion audit / UX refactor): page scopes -------------
-#
-# The one settings form used to render every group on a single
-# "/settings" page. It now renders as two pages sharing the same POST
+# The one settings form renders as two pages sharing the same POST
 # route and the same handle_post(): the everyday "Display" page (theme,
 # quiet hours, screen on/off) and the advanced "Device" page (runway,
 # diagnostic LED, wake interval, calendar, colour rules, manual
 # refresh). Which groups land on which page is declared per screen type
 # in companion/screens.py, not hard-coded here.
 #
-# `render(ctx)` with no scope keeps rendering the whole legacy page —
-# every group, in the historical order — so existing harness checks
-# against the full form stay meaningful. companion/app.py never uses
-# that scope for a live route any more.
+# `render(ctx)` with no scope renders the whole legacy page, every
+# group, for existing harness checks against the full form;
+# companion/app.py never uses that scope for a live route.
 SCOPE_ALL = "all"
 SCOPE_DISPLAY = "display"
 SCOPE_DEVICE = "device"
 SCOPES = (SCOPE_ALL, SCOPE_DISPLAY, SCOPE_DEVICE)
 
 # Hidden form fields a scoped page submits so handle_post() knows which
-# groups were on the page (absent checkbox => "leave unchanged" for a
-# group that was never rendered, never "switch it off") and where to
+# groups were on the page (absent checkbox => leave unchanged for a
+# group that was never rendered, never switch it off) and where to
 # redirect back to.
 SCOPE_FIELD_NAME = "scope"
 RETURN_TO_FIELD_NAME = "return_to"
 
 DISPLAY_PAGE_TITLE = "Display"
-# 20-07-PLAN.md Task 1 (D-12): the Display page now carries every
-# everyday group (Look/What it watches/When it is on), so its purpose
-# sentence widens from "how the frame looks" to the whole page's scope.
 DISPLAY_PAGE_PURPOSE = "Everything about what the frame shows and when."
 DEVICE_PAGE_TITLE = "Device"
-# 29-05-PLAN.md Task 1 (CFG-79): shortened from 14 words to 7 — the
-# "nothing here needs changing day to day" reassurance is a REASON
-# clause (why the page's contents don't matter day to day), not a fact
-# about what the page contains, and CFG-79's floor cuts reason clauses
-# on sight. What survives is the one thing this sentence is actually
-# for: naming the page's SUBJECT.
 DEVICE_PAGE_PURPOSE = "Hardware, data and diagnostics for the frame."
 SCREEN_CAPTION_TEMPLATE = "Screen: %s"
 
-# 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C): the
-# three headed supersections Display's own groups render under, in this
-# locked order. Each heading/intro pair is rendered through the shared
-# section-intro helper layout.py promoted from health_page.py's own
-# former private copy (20-03-PLAN.md).
+# The three headed supersections Display's own groups render under, in
+# this locked order. Each heading/intro pair renders through the shared
+# section-intro helper in layout.py.
 DISPLAY_LOOK_SECTION_ID = "display-look"
 DISPLAY_LOOK_HEADING = "Look"
 DISPLAY_LOOK_INTRO = (
@@ -178,19 +105,11 @@ DISPLAY_WATCHES_INTRO = "— which Orly runway the frame is watching."
 DISPLAY_ON_SECTION_ID = "display-on"
 DISPLAY_ON_HEADING = "When it is on"
 DISPLAY_ON_INTRO = "— when the screen is lit and when it stays quiet."
-# 28-04-PLAN.md Task 1 (CFG-72): Device's own two supersections, the same
-# `section_intro_html()` shape as the three above — "When it wakes" over
-# Wake interval alone, "How it tells you" over Diagnostic LED and
-# Notifications together. The LED/Notifications pairing is a real shared
-# subject, not a bucket invented so a wrapper class would have somewhere
-# to live: both cards are the frame's SIGNALLING channels — the LED
-# reports what the device is doing on the device itself, notifications
-# report it on the reader's phone. A third supersection, "When you
-# can't wait", introduces the fourth Device card (Manual refresh / Poll,
-# built outside `builders` entirely — see `poll_section_html` below) on
-# its own: it is the one Device control that acts immediately rather
-# than on a schedule, the manual counterpart to "When it wakes", and a
-# one-card supersection has precedent in "What it watches" above.
+# Device's own two supersections, the same section_intro_html() shape
+# as the three above. The LED/Notifications pairing is a real shared
+# subject: both cards are the frame's signalling channels — the LED
+# reports on the device itself, notifications report on the reader's
+# phone.
 DEVICE_WAKES_SECTION_ID = "device-wakes"
 DEVICE_WAKES_HEADING = "When it wakes"
 DEVICE_WAKES_INTRO = "— how often the frame wakes up to fetch a new picture."
@@ -199,157 +118,75 @@ DEVICE_TELLS_HEADING = "How it tells you"
 DEVICE_TELLS_INTRO = "— the light on the frame and the alerts on your phone."
 DEVICE_POLL_SECTION_ID = "device-poll"
 DEVICE_POLL_HEADING = "When you can't wait"
-# 29-05-PLAN.md Task 1 (CFG-79): shortened from 14 words to 6 — "instead
-# of waiting for the next wake" is the apply-timing idea in disguise
-# (it is restating what NOT triggering this control means), and CFG-79
-# reserves that idea for the Frame strip alone. What survives names
-# what the control DOES, distinct on purpose from POLL_SECTION_CAPTION
-# below (which names the control itself, not its effect) — an intro
-# and its one card's caption saying the same thing at two levels is
-# 27-06's own CFG-65 finding, and this cut keeps them apart rather than
-# merging them.
 DEVICE_POLL_INTRO = "— fetch a new picture right now."
-# 19-12-PLAN.md Task 2 (D-23): the conditional screen-type <select> — an
-# element id (not a class) because its own <label> targets it via `for`.
+# An element id, not a class, since its own <label> targets it via for=.
 SCREEN_SELECTOR_ID = "screen-id-selector"
 SCREEN_SELECTOR_LABEL_TEXT = "Screen type"
 
-# 30-04-PLAN.md Task 1 (CFG-85): "Aspect" — the one merged card that
-# replaces `_frame_colours_card_html()`'s four-row `colour_usage`
-# radiogroup + four usage panels with a native `<details name=
-# "aspect-rows">` accordion (30-02/30-03-PLAN.md laid the palette
-# renderers and the coverage-gap ledgers this task now spends). The
-# `colour_usage` FIELD is retired outright — no radiogroup selects
-# which row is SHOWING any more, because a grouped `<details>` set is
-# mutually exclusive by construction, natively, with zero script. The
-# `COLOUR_USAGE_*` values below survive as `data-usage` attribute
-# values on the four rows (and as this card's own internal branch
-# keys) — a purely presentational label, never submitted to
-# handle_post() — entirely distinct from the three underlying SAVED
-# field names (theme/theme_arriving/calendar_theme_id) each row's own
-# palette still posts through via `form="settings-form"`.
+# "Aspect": the one merged card, a native `<details name="aspect-rows">`
+# accordion over four rows. No radiogroup selects which row is showing
+# — a grouped `<details>` set is mutually exclusive by construction,
+# with zero script. The COLOUR_USAGE_* values below are a purely
+# presentational label (a `data-usage` attribute and this card's own
+# branch keys), never submitted to handle_post() — distinct from the
+# three saved field names (theme/theme_arriving/calendar_theme_id)
+# each row's own palette posts through via form="settings-form".
 ASPECT_HEADING = "Aspect"
 ASPECT_HEADING_ID = "aspect-heading"
 COLOUR_USAGE_DEPARTURES = "departures"
 COLOUR_USAGE_ARRIVALS = "arrivals"
 COLOUR_USAGE_CALENDAR = "calendar"
 COLOUR_USAGE_RULES = "rules"
-# Locked order (D-07) — every row-building loop below walks this exact
-# tuple, so the row order and the no-JS floor's stacked-panel order can
-# never drift apart.
+# Locked order: every row-building loop below walks this exact tuple,
+# so the row order and the no-JS floor's stacked-panel order can never
+# drift apart.
 COLOUR_USAGES = (
     COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR,
     COLOUR_USAGE_RULES)
-# 30-04-PLAN.md Task 1 (CFG-85): the name predates the Aspect rename
-# (it named the retired "Frame colours" card's own four rows) and is
-# kept deliberately — 30-UI-SPEC.md's Copywriting Contract cites all
-# four of its values by this exact constant name, and renaming it
-# would churn the French catalogue and every consumer for zero
-# behaviour change.
 FRAME_COLOURS_ROW_LABELS = {
     COLOUR_USAGE_DEPARTURES: "Departures",
     COLOUR_USAGE_ARRIVALS: "Arrivals",
     COLOUR_USAGE_CALENDAR: "Calendar flights",
     COLOUR_USAGE_RULES: "Per-flight rules",
 }
-# 30-02-PLAN.md Task 2 (CFG-85): the grouped-<details> `name` attribute
-# value every one of the four Aspect accordion rows shares (native
-# grouped-disclosure, one-open-at-a-time with zero script) — ONE
-# constant so the four rows and every check that addresses them agree,
-# rather than four literals that can drift apart.
+# The grouped-<details> `name` attribute value every one of the four
+# Aspect accordion rows shares (native grouped disclosure,
+# one-open-at-a-time with zero script) — one constant so the four rows
+# agree rather than four literals that can drift apart.
 ASPECT_ROWS_GROUP_NAME = "aspect-rows"
-# 30-02-PLAN.md Task 2 (CFG-85): the closed-row `<summary>` format —
-# "{row label} — {theme label}", e.g. "Departures — Red" — joining two
-# ALREADY-translated strings with an em dash. The em dash is
-# punctuation, not copy, so this template itself carries no French
-# entry (test_i18n.py's own scan excludes it: stripping its two `%s`
-# format specs leaves no letters). Defined once, per 30-UI-SPEC.md's own
-# copy table note that this format "must live once rather than four
-# times".
+# The closed-row <summary> format, e.g. "Departures — Red", joining two
+# already-translated strings with an em dash. The em dash is
+# punctuation, not copy, so this template carries no French entry.
 ASPECT_ROW_SUMMARY_TEMPLATE = "%s — %s"
-# 22-10-PLAN.md Task 1 (X6): the one-line legend that names every chip's
-# two `.theme-chip__dot` swatches, rendered ONCE UNDER each grid rather
-# than once per chip — 22-AUDIT.md X6's "two unexplained square swatches
-# per chip/row" is a naming defect, not a density one, so the fix is a
-# single line of text, not eighteen.
+# The one-line legend naming every chip's two .theme-chip__dot
+# swatches, rendered once under each grid rather than once per chip.
 #
-# COPY DEVIATION, recorded here rather than in a commit message so it
-# survives: 22-UI-SPEC.md §2's X6 row prescribes the literal copy
-# "Background · Ink" / "Fond · Encre". That copy names the wrong two
-# values. The dots are `_palette_hex(theme["departing_index"])` and
+# The dots are `_palette_hex(theme["departing_index"])` and
 # `_palette_hex(theme["arriving_index"])` — the ink a theme paints a
-# DEPARTURE and an ARRIVAL in. A theme's background is not drawn as a
-# dot at all, and its `ink_index` (a real, separate THEMES key) is not
-# either. Shipping the spec's copy would have replaced two unexplained
-# swatches with two mislabelled ones, which is a worse defect than the
-# one X6 reports. The words chosen instead are the usage panels' own
-# labels above, so the legend and the panel a user is looking at name
-# the same two things.
-#
-# 27-07-PLAN.md Task 3 (CFG-70): "Departures · Arrivals" — a middle dot
-# between the two words, the SAME separator the disclosure elsewhere on
-# this card would use to name two genuinely different things — reads as
-# a promise that the two dots are two different colours. They are not:
-# every one of the eighteen themes has `departing_index ==
-# arriving_index` (measured while writing `_theme_carousel_html()`,
-# 25-06-PLAN.md Task 2, and unchanged since), so the two dots are always
-# the same ink. A middle-dot legend over two identical swatches is X6's
-# OWN "unexplained swatches" defect wearing different words: it now
-# explains a distinction the registry does not carry. The copy is
-# joined into ONE phrase instead — no separator, naming what the single
-# shared colour is FOR rather than implying two colours to tell apart.
-# `companion/test_config_page.py`'s own check computes the expected
-# label count FROM THE REGISTRY at check time (never a restated
-# literal), so if a future theme ever does give departures and arrivals
-# different inks, that check starts demanding two labels again and
-# fails against this one-phrase copy until it is split back apart.
+# departure and an arrival in, never the background. Every theme has
+# `departing_index == arriving_index`, so the two dots are always the
+# same ink; a middle-dot separator ("Departures · Arrivals") would
+# read as a promise of two different colours that the registry does
+# not carry, so the copy is one phrase naming what the shared colour is
+# for. `test_config_page.py` computes the expected label count from the
+# registry at check time, never a restated literal.
 THEME_CHIP_SWATCH_LEGEND = "Departures & arrivals"
-# 22-10-PLAN.md Task 1 (T10/B16/D-06): the "Current" badge's own text.
-# It used to be a hard-coded English `content: "Current"` literal inside
-# companion/static/style.css (twice), which no catalogue can reach; it is
-# now server-rendered onto the saved chip/card as `data-current-label`
-# and read back by `content: attr(data-current-label)`. The pseudo-element
-# itself is unchanged — see that rule's own four-point justification for
-# why this is not a <span>.
+# The "Current" badge's own text, server-rendered onto the saved
+# chip/card as `data-current-label` and read back by
+# `content: attr(data-current-label)` in style.css.
 CURRENT_BADGE_LABEL = "Current"
-# The attribute the badge's `content: attr(...)` reads. Written as
-# literal text at both the markup site below and in style.css, matching
-# this file's established convention for a cross-file attribute contract
-# (see CALENDAR_DISCONNECT_FORM_ID's own comment) — the constant exists
-# so test_config_page.py can reference the name without retyping it.
+# The attribute the badge's content: attr(...) reads. Written as
+# literal text at both the markup site below and in style.css.
 CURRENT_BADGE_ATTR = "data-current-label"
 
-# 30-04-PLAN.md Task 1 (CFG-85): the carousel this comment block used
-# to introduce (D5's scroll-snap strip, its two pagers, its dots row
-# and its "See all themes" disclosure) is RETIRED OUTRIGHT — the
-# accordion's own wrapping palette grid (30-UI-SPEC.md: "no strip, no
-# overflow-x, no scrollbar, no pager buttons, no dot row, no <details>
-# disclosure wrapping it") replaces it, and nothing on the page reads
-# THEME_CAROUSEL_STRIP_ID*/_WRAPPER_ATTR/_PAGER_*/_SUMMARY/
-# _DISCLOSURE_BODY_TEMPLATE/_PREV_LABEL/_NEXT_LABEL or
-# COLOUR_USAGE_PANEL_ATTR/_TARGET_ATTR any more — grepped whole-repo
-# for a surviving consumer before deletion, per ROADMAP's own carried
-# discipline for this phase. `_theme_carousel_html()`/
-# `_frame_colours_row_html()`/`_frame_colours_usage_panel_html()` (the
-# builders that read these) are retired in the same commit, below.
-# D-09/R-07: the leading "Same as departures" chip Arrivals/Calendar's
-# own grids gain, submitting the empty string (the clear signal
-# handle_post() now maps to device_config.CLEAR_THEME_ARRIVING/None,
-# Task 2) — reused verbatim as both the chip's own label and the row's
-# own "no override" meta text (21-UI-SPEC.md §D copy table).
+# The leading "Same as departures" chip Arrivals/Calendar's own grids
+# gain, submitting the empty string (the clear signal handle_post()
+# maps to device_config.CLEAR_THEME_ARRIVING/None) — reused verbatim as
+# both the chip's own label and the row's own "no override" meta text.
 SAME_AS_DEPARTURES_LABEL = "Same as departures"
-# D-07: the rules row's own meta text — singular/plural/empty, mirroring
-# this file's own %d-template convention elsewhere (e.g.
-# POLL_COOLDOWN_HELPER_TEXT's "{n}" — this one uses a plain %d instead,
-# matching 21-UI-SPEC.md's own copy table literally).
 FRAME_COLOURS_RULES_COUNT_SINGULAR = "1 rule"
 FRAME_COLOURS_RULES_COUNT_PLURAL_TEMPLATE = "%d rules"
 FRAME_COLOURS_RULES_EMPTY_META = "No rules yet"
-# 20-07-PLAN.md Task 3 (D-36): the Device page's own artwork-editing
-# link and its former builder function are deleted outright — the
-# developer did not understand it. See airlines_page.py, where 20-10
-# renders the replacement "Change pictures" button at the top of the
-# gallery instead.
 
 
 def scope_groups(scope, screen_id=None):
@@ -363,18 +200,9 @@ def scope_groups(scope, screen_id=None):
         return tuple(screen["everyday_groups"])
     if scope == SCOPE_DEVICE:
         return tuple(screen["advanced_groups"])
-    # 20-11-PLAN.md Task 1 (D-26): screens.GROUP_NOTIFICATIONS joins this
-    # legacy tuple too — every registered group must appear somewhere in
-    # SCOPE_ALL's fixed order, since render()/handle_post()'s own tests
-    # pin the invariant that the two live scopes' groups are disjoint and
-    # their union equals this tuple's own set exactly.
-    #
-    # 22-05-PLAN.md Task 1 (D-12.2): screens.GROUP_DISPLAY is removed from
-    # this hand-maintained tuple in the SAME commit that removes it from
-    # companion/screens.py's own registry — leaving it here even one
-    # commit longer would fail the pinned
-    # _scope_groups_follow_the_screen_registry union invariant
-    # immediately, which is the point of that check.
+    # Every registered group must appear somewhere in this fixed tuple:
+    # a test pins the invariant that the two live scopes' groups are
+    # disjoint and their union equals this tuple's own set exactly.
     return (
         screens.GROUP_THEME, screens.GROUP_RUNWAY, screens.GROUP_LED,
         screens.GROUP_QUIET_HOURS, screens.GROUP_WAKE_INTERVAL,
@@ -402,812 +230,272 @@ def submitted_return_route(form):
         return value
     return layout.DISPLAY_ROUTE
 
-# The sole accepted submitted value for the LED checkbox (D-01) — shared
-# by led_group()'s markup and handle_post()'s validator so the two can
-# never drift apart.
+# The sole accepted submitted value for each checkbox — shared by the
+# group's own markup and handle_post()'s validator so the two can never
+# drift apart.
 LED_CHECKBOX_VALUE = "on"
-
-# The sole accepted submitted value for the Quiet hours enable checkbox
-# (10-05-PLAN.md), mirroring LED_CHECKBOX_VALUE's own rationale exactly:
-# shared by quiet_hours_group()'s markup and handle_post()'s validator so
-# the two can never drift apart.
 QUIET_HOURS_CHECKBOX_VALUE = "on"
-
-# The sole accepted submitted value for the Display enable checkbox
-# (12-UI-SPEC.md), mirroring LED_CHECKBOX_VALUE's/QUIET_HOURS_CHECKBOX_VALUE's
-# own rationale exactly: shared by display_group()'s markup and
-# handle_post()'s validator so the two can never drift apart.
 DISPLAY_CHECKBOX_VALUE = "on"
 
-# 21-05-PLAN.md Task 1 (D-06..D-12): the arrivals-theme-override
-# checkbox and its five own constants (the checkbox's accepted
-# submitted value, its toggle element id, the revealed grid's own CSS
-# hook, its locked label copy, and the direction label above that
-# grid) are all retired outright — D-09 replaces the whole apparatus
-# with a "Same as departures" leading chip inside the Frame colours
-# card's arrivals usage panel, which submits the empty string instead
-# of gating a second grid's visibility behind a checkbox. See
-# _frame_colours_card_html() below.
-
-# quick task 260901-re6: each settings group used to render a description
-# sentence above its control (THEME_SECTION_DESCRIPTION/
-# RUNWAY_SECTION_DESCRIPTION, D-02 06.6.4.1) AND a helper sentence below
-# it (THEME_HELPER_TEXT/RUNWAY_HELPER_TEXT/LED_HELPER_TEXT) — Theme and
-# Runway rendered both, LED escaped the doubling but kept its lone
-# paragraph un-muted and positioned after its control instead of before.
-# All five of those constants are retired outright. Each group now
-# carries exactly one caption, rendered once, directly under the group
-# heading and before the control, styled as a single muted sentence via
-# a CSS modifier class in companion/static/style.css. The LED group is
-# the odd one out only in that it never had a pair to merge — its single
-# paragraph is reworded and relocated, not merged with anything.
-#
-# quick task 260901-s5o: a fourth caption, POLL_SECTION_CAPTION, joins
-# the three above. Poll was never part of the description/helper merge
-# those three came out of — it is a `<section class="page-section">`,
-# not a `.theme-status` group, and had no paragraph of its own to merge.
-# It was simply skipped, leaving the page's fourth section as the only
-# one with a bare heading. This caption is new copy, validated against
-# the Settings Save Bar Sketch, not merged from anything. Unlike the
-# other three, it is consumed by a two-branch renderer
-# (poll_trigger_section()), so it must be interpolated on both branches
-# or it would silently vanish for the whole cooldown window.
-# Quick task 260921-n2n Task 3: the developer's 2026-09-21 tour quoted
-# this caption as his example of useless descriptive text. Phase 27's
-# CFG-66 removed the runway diagram outright, but this caption still
-# described it — the two schematic-drawing clauses a prior revision
-# added here (see git history for the exact wording, deliberately not
-# quoted again) had been describing a picture that no longer exists
-# since CFG-66 shipped. The one-caption-per-section rule above still
-# holds: this stays ONE caption, shortened in place rather than
-# replaced by a second paragraph. What survived THAT cut was the three
-# facts that were always true independent of any drawing — which
-# runway, and that the change applies on the next scheduled poll, not
-# immediately — which is also why this caption used to read
-# consistently with LED_SECTION_CAPTION below it, which ended on that
-# identical clause.
-#
-# 29-05-PLAN.md Task 1 (CFG-79), 2026-09-21: that consistency is now
-# consistency in the WRONG direction. "Applies on the next scheduled
-# poll" is CFG-79's own named example of a mechanism/apply-timing
-# clause repeated under a card when the Frame strip already carries it
-# once per page (companion/layout.py's frame_strip_html(), the delay
-# caption both the Screen and Quiet-hours switch cells share) — the
-# developer's own quoted tour example ("il y a trop de texte descriptif
-# qui servent à rien") is this exact caption. BOTH captions lose the
-# clause here, not just this one: the "consistency" quick task 260921-
-# n2n recorded between them survives as "both keep exactly one fact,
-# their own control's subject", not as a shared trailing sentence. What
-# remains of this caption is one fact: which runway. 14 words -> 6.
 RUNWAY_SECTION_CAPTION = "Which Orly runway the device watches."
-# 29-05-PLAN.md Task 1 (CFG-79): 20 words -> 8. Two clauses cut, both
-# for the same reason as RUNWAY_SECTION_CAPTION above: "not visible
-# from the wall side" is a reason clause (why the placement doesn't
-# matter), not a fact about the control, and the closing "Applies on
-# the next scheduled poll" is the apply-timing clause the Frame strip
-# already carries once per page. What remains names the one fact this
-# caption is actually for: when the LED lights up.
 LED_SECTION_CAPTION = "Lit only during the device's brief wake window."
 
-# 19-11-PLAN.md Task 3 (D-12/A-30): stable DOM ids for the group headings
-# a radiogroup's aria-labelledby points at, and for each hint paragraph
-# an aria-describedby points at — constants here, never a literal at a
-# render site, matching this file's own convention (see e.g.
-# RUNWAY_IMAGE_ROUTE_PREFIX above). Only the groups that actually gain
-# `role="radiogroup"` (the two theme chip grids and the runway row) get
-# a *_GROUP_HEADING_ID; every hint below gets a *_CAPTION_ID/*_HINT_ID
-# regardless, since a hint can describe a single-control field too (a
-# checkbox, a time/number input, a <select>) with no radiogroup at all.
+# Stable DOM ids for the group headings a radiogroup's aria-labelledby
+# points at, and for each hint paragraph an aria-describedby points at.
+# Only the groups that gain role="radiogroup" (the two theme chip grids
+# and the runway row) get a *_GROUP_HEADING_ID; every hint gets a
+# *_CAPTION_ID/*_HINT_ID regardless, since a hint can describe a
+# single-control field too.
 RUNWAY_SECTION_CAPTION_ID = "runway-caption"
 RUNWAY_GROUP_HEADING_ID = "runway-group-heading"
 LED_SECTION_CAPTION_ID = "led-caption"
 POLL_SECTION_HEADING = "Manual refresh"
-# 29-05-PLAN.md Task 1 (CFG-79): shortened from 14 words to 5 —
-# "instead of waiting for the next scheduled one" is the apply-timing
-# idea again, this time framed as what NOT triggering this control
-# means, and CFG-79 cuts it for the identical reason DEVICE_POLL_INTRO
-# above does. What survives names the CONTROL (a poll cycle), distinct
-# from DEVICE_POLL_INTRO's own surviving text, which names the
-# control's EFFECT (a new picture) — the supersection intro and this
-# one card's caption still say two different things at two levels,
-# matching 27-06's own CFG-65 finding that a merge here would be wrong.
 POLL_SECTION_CAPTION = "Trigger an immediate poll cycle."
-# D-05 (06.6.4.1): the LED group's new user-facing heading, once it moves
-# from its own <fieldset>/<legend> into a sibling <h2>-headed group of
-# the merged form — see led_group() below.
 LED_SECTION_HEADING = "Diagnostic LED"
 
-# 10-05-PLAN.md / 10-UI-SPEC.md Copywriting Contract, superseded by
-# 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the "could now be hours away"
-# duration caveat this caption used to restate directly is retired along
-# with its own on/off checkbox below - the Frame strip is now the ONLY
-# on/off control, so this caption states enable-by-schedule semantics
-# instead (the schedule below is what the strip's switch turns on and
-# off). 22-05-PLAN.md Task 2 appends the one computed delay sentence
-# (companion/frame_state.py) as this caption's second sentence, replacing
-# the retired "which may now be hours away" wording with a real, computed
-# time rather than a fixed literal.
+# The Frame strip is the only quiet-hours on/off control; this caption
+# states enable-by-schedule semantics rather than an on/off state.
 QUIET_HOURS_SECTION_HEADING = "Quiet hours"
-# 27-06-PLAN.md Task 3 (CFG-67): shortened from 27-01-SUMMARY.md's
-# measured 188-char baseline (this caption plus its own computed delay
-# sentence, appended at render time by quiet_hours_group() — see that
-# function's own caption_html construction below, unchanged at the
-# time). The cut was scoped to THIS explanatory sentence alone: "— the
-# Frame strip's Quiet hours switch is what turns it on and off" (the
-# mechanism clause) is dropped; "Pauses the frame's wake, poll and
-# display cycle during the schedule below" (what the schedule DOES) is
-# kept, and the appended delay sentence — computed state, not
-# explanation — was untouched by that edit entirely.
-#
-# 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: the SECOND sentence this
-# comment's own previous paragraph left untouched is now gone
-# completely — not shortened, removed. The Frame strip renders the
-# identical computed sentence in its own Quiet-hours switch cell on
-# both Home and Display (companion/layout.py's frame_strip_html()), and
-# 27-08-PLAN.md's CFG-69 already made that cell LINK to this card's own
-# heading — so the page's one home for "applies at the next wake" was
-# already the strip, and appending it here too was a second, redundant
-# copy of the same fact, which is precisely what CFG-79 forbids ("said
-# in exactly one place per page"). This caption is now, and stays, the
-# ONE sentence below — see quiet_hours_group()'s own docstring for the
-# full account of what else this removal took with it (the
-# `delay_sentence` parameter, and the two scanner-visibility copies
-# immediately below).
 QUIET_HOURS_SECTION_CAPTION = (
     "Pauses the frame's wake, poll and display cycle during the "
     "schedule below.")
-# 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
-# comment above.
 QUIET_HOURS_SECTION_CAPTION_ID = "quiet-hours-caption"
-# 27-08-PLAN.md Task 1 (CFG-69): the card's own heading id, the same
-# "id on the group's <h2>" convention RUNWAY_GROUP_HEADING_ID already
-# uses (runway_group() below) — added here because nothing on this card
-# carried a stable id before this task. `DIRTY_SECTION_ATTR` (still
-# emitted on this same card's wrapper) is not it: that is a `data-*`
-# attribute 27-04 left in place for reasons unrelated to navigation, and
-# a `data-*` attribute is not a fragment an `<a href="#...">` can ever
-# resolve to. This is the Frame strip's own link target (companion/
-# layout.py's frame_strip_html(), 27-08 Task 2) — a fragment identifier
-# naming the card a reader is sent to, not a new control and not a
-# change to anything that posts.
+# The card's own heading id: the Frame strip's Quiet-hours switch cell
+# links here as a fragment target, not a new control.
 QUIET_HOURS_GROUP_HEADING_ID = "quiet-hours-group-heading"
 
-# 22-05-PLAN.md Task 2 (D-04) added scanner-visibility copies of two of
-# companion/frame_state.py's three delay-sentence constants here — byte-
-# identical to frame_state.DELAY_DUE/DELAY_HELD, matching companion/
-# layout.py's own 22-04-PLAN.md Task 1 precedent exactly (that module's
-# own docstring/summary calls this pattern out by name). They existed
-# because the D-05 AST i18n completeness scan (companion/test_i18n.py)
-# can trace a same-file top-level scalar used directly as an i18n.t()
-# argument, but not an imported module's attribute access read through
-# a local variable — render()'s own `quiet_hours_delay_template` was
-# exactly such a local variable.
-#
-# 29-05-PLAN.md Task 2 (CFG-79), 2026-09-21: DELETED. Once
-# quiet_hours_group() stopped rendering a delay sentence at all (see
-# QUIET_HOURS_SECTION_CAPTION's own comment above), these two copies had
-# no reader anywhere in this module — `render()`'s own computation that
-# used to produce their translated text is deleted at the same call
-# site, below. Deleting them does not orphan either CATALOG key:
-# companion/layout.py's OWN `_FRAME_DELAY_DUE_TEXT`/`_FRAME_DELAY_HELD_
-# TEXT` aliases (byte-identical text, 22-04-PLAN.md) already make both
-# keys scanner-visible from that module's own `i18n.t()` calls in
-# frame_strip_html() — the harness is the arbiter here, not judgement,
-# and companion/test_i18n.py stayed 24/24 after this deletion.
-
-# 19-10-PLAN.md (D-14/S-04): three one-tap presets, client-side only - no
-# server change (see quiet_hours_group()'s docstring). The Night preset's
-# start/end are sourced from server.device_config's own shipped defaults
-# rather than retyped literals, so the preset and the default can never
-# drift apart. Ranges use a real U+2013 en dash, matching this module's
-# real-Unicode punctuation convention (see its em dashes elsewhere) —
-# still true of the START/END constants below even though the hours are
-# no longer PRINTED anywhere (29-04-PLAN.md Task 1, CFG-80): a preset
-# still WRITES this exact pair into the two time fields, and that is
-# unchanged.
+# The Night preset's start/end are sourced from device_config's own
+# shipped defaults rather than retyped literals, so the preset and the
+# default can never drift apart.
 QUIET_HOURS_PRESET_NIGHT_START = device_config.DEFAULT_QUIET_HOURS_START
 QUIET_HOURS_PRESET_NIGHT_END = device_config.DEFAULT_QUIET_HOURS_END
-# 29-04-PLAN.md Task 1 (CFG-80): SHORTENED to bare labels — "Night
-# (23:00–07:00)" is gone, replaced by "Night" alone. The hours these
-# buttons set are already spoken, once, by quiet_dial_readout_html()'s
-# own caption directly above this row ("23:00 → 07:00 · 8h"); repeating
-# them on a button was the developer's own "pas très joli" complaint
-# (29-CONTEXT.md) — four surfaces spelling one value. The 20-07-PLAN.md
-# %s-templated form this superseded is gone along with it: there is no
-# longer a device-specific time baked into a button label at all, so the
-# "translate the template before substituting" reasoning that form
-# needed no longer applies to this pair.
-#
-# QUIET_HOURS_PRESET_NIGHT_START/_END and _WORKDAY_START/_END below are
-# UNCHANGED by this cut — they still feed the buttons' own
-# data-preset-start/data-preset-end attributes and still come from
-# server.device_config's own shipped defaults, so nothing about what a
-# preset WRITES changes, only what its own button prints.
 QUIET_HOURS_PRESET_NIGHT_LABEL = "Night"
 QUIET_HOURS_PRESET_WORKDAY_START = "08:00"
 QUIET_HOURS_PRESET_WORKDAY_END = "18:00"
 QUIET_HOURS_PRESET_WORKDAY_LABEL = "Day"
-# "Always on": this preset UNCHECKS the enable checkbox and leaves
-# both times untouched - "off" means the curfew is disabled while the
-# configured window stays intact, the pre-configure-before-enabling
-# behaviour quiet_hours_group()'s own docstring already locks. Expressed
-# via a distinct data-preset-enabled="0" attribute rather than
-# overloading the time attributes with a sentinel value. The trailing
-# "(off)" clause is dropped by the same 29-04-PLAN.md cut as the other
-# two labels — the preset's own data-preset-enabled="0" attribute is
-# still what does the work; the label only ever named it a second time.
+# "Always on" unchecks the enable checkbox and leaves both times
+# untouched, via a distinct data-preset-enabled="0" attribute rather
+# than overloading the time attributes with a sentinel value.
 QUIET_HOURS_PRESET_ALWAYS_ON_LABEL = "Always on"
 QUIET_HOURS_PRESET_ATTR = "data-quiet-preset"
 
-# 11-UI-SPEC.md Copywriting Contract, locked verbatim (D-05). The caption's
-# closing sentence deliberately reuses the same "Applies on the next
-# scheduled poll" clause every sibling caption ends on (D-06 — no new
-# apply-timing mechanism exists for this field either). The placeholder is
-# a legitimate empty state (D-07: "never explicitly set"), not an error
-# state — it names the fallback behavior instead of showing a fabricated
-# number.
 WAKE_INTERVAL_SECTION_HEADING = "Wake interval"
-# 27-06-PLAN.md Task 3 (CFG-67): shortened from 27-01-SUMMARY.md's
-# measured 220-char baseline — the mechanism sentence ("How often the
-# frame wakes to poll for updates.") and the apply-timing sentence
-# ("Applies on the next scheduled poll.") are both cut; the derived
-# "(next wake ≈ ...)" suffix _with_next_wake() appends already states
-# the apply timing with a real timestamp, making the generic sentence
-# redundant. What is kept is the one sentence a reader needs to ACT:
-# what a shorter/longer number trades off.
-#
-# 29-05-PLAN.md Task 1 (CFG-79), 2026-09-21: cut again, 19 words -> 6,
-# in the audit's own shape ("Plus court : données plus fraîches,
-# batterie plus sollicitée." — 2026-09-17 audit, P1). This is NOT a
-# fact lost: the "longer means more battery life" half this sentence
-# used to spell out is exactly what THE TWO GAUGES below (CFG-49,
-# 25-05-PLAN.md Task 1) already state, in both directions, with real
-# measured numbers — WAKE_FRESHNESS_TEXT's own "at most # min later"
-# and battery.battery_life_estimate()'s own day count. A caption naming
-# the trade-off in prose right above two gauges that COMPUTE it is the
-# redundant half; the gauges are the reference material, so nothing
-# here needed moving into a disclosure.
 WAKE_INTERVAL_SECTION_CAPTION = "Shorter: fresher data, more battery drain."
 WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
-# 22-10-PLAN.md Task 3 (B17): the unit, rendered as a SIBLING beside the
-# number input — never a placeholder (the field already has one, and a
-# placeholder vanishes the moment a value is typed) and never text inside
-# the control (a number input has no such affordance).
-#
-# NOT routed through i18n.t(), and the reason is stated rather than
-# assumed: "s" is the SI symbol for a second, which is the same symbol in
-# French. It is a unit symbol, not prose — the same "data, not
-# translated" call RULE_SUGGESTIONS_LABEL's neighbouring separator
-# already makes (20-UI-SPEC.md Copywriting Contract §A). Routing it
-# through the catalogue would need a FR entry whose value equalled its
-# key, which companion/test_i18n.py rejects outright, by design. The
-# unit's meaning is carried for assistive technology by the field's own
-# label ("Wake interval (seconds)"), which IS translated; this span is
-# aria-hidden precisely because that label already says it.
+# The unit, rendered as a sibling beside the number input (never a
+# placeholder, which vanishes once a value is typed). Not routed
+# through i18n.t(): "s" is the SI symbol for a second, the same symbol
+# in French, so it is a unit symbol, not prose. aria-hidden, since the
+# field's own translated label already says "seconds".
 WAKE_INTERVAL_UNIT_LABEL = "s"
-# The id the wake-interval label points at, now that the label is its own
-# element above the control rather than a wrapper around it (B17).
 WAKE_INTERVAL_INPUT_ID = "wake-interval-s"
-# 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
-# comment above.
 WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
 
-# --- 25-05-PLAN.md Task 1 (CFG-49): THE TWO GAUGES --------------------
-#
-# The wake interval is a trade-off the card never showed either side of:
-# a smaller number means the frame notices a plane sooner AND that the
-# battery empties sooner. These two sentences are those two sides, and
-# the interesting thing about them is that ONLY ONE OF THEM CAN BE
-# HONEST TODAY.
-#
-# FRESHNESS is true by construction, as long as it says "at most". The
-# frame learns about a plane at its next wake, so a plane that passes
-# one instant after a wake shows up one whole interval later and no
-# later than that. State it as a BOUND and it is the interval restated
-# the way a person experiences it; drop the "at most" and it becomes a
-# claim about TYPICAL behaviour, which nothing in this project measures.
-#
-# BATTERY LIFE cannot state an absolute figure from first principles,
-# and this is the constraint the whole card is built around. Computing
-# "≈ 38 days remaining" needs a per-wake energy cost, and this project
-# still has NO PER-WAKE ENERGY COST. DEVICE-05 ran (hardware/
-# BATTERY-RUN.md) and is the source of companion/battery.py's
-# BATTERY_DISCHARGE_CURVE (SEED-006, quick 260923-gaf), but it measured
-# a single wake cadence and left the per-wake versus standing-leakage
-# split unresolved. A number invented from an assumed cost, printed next
-# to a control a person will act on, is exactly the dishonest state
-# Phase 22 spent a whole phase removing. So the figure here comes out of
-# companion/battery.py's `battery_life_estimate()`, which derives it
-# from this device's OWN OBSERVED discharge slope or refuses to derive
-# it at all — and when it refuses, WAKE_BATTERY_UNKNOWN_TEXT is a real
-# rendered state, not a blank.
-#
-# NO DAYS-REMAINING ARITHMETIC LIVES IN THIS MODULE. Every figure below
-# is `battery.battery_life_estimate()`'s own return, called QUALIFIED
-# (`references/data-density.md`: a bare `from companion.battery import
-# ...` makes the estimator read as the page's own). 19-01 created that
-# module to stop exactly this drift.
-# The name the form posts this setting under, in ONE place: the number
-# input's own `name`, the gauges' `data-value-readout`, the slider's
-# `data-value-field` and the no-JS control contract's registry row all
-# have to be the same string, and three of those four are attributes a
-# string comparison would never catch drifting.
+# The wake interval trades off freshness against battery life. Only one
+# side can be stated honestly today: freshness is true by construction
+# as long as it says "at most" (the frame learns about a plane at its
+# next wake, so it appears at most one interval later). Battery life
+# has no first-principles formula (no per-wake energy cost is known),
+# so its figure comes from `battery.battery_life_estimate()`'s own
+# observed discharge slope, or the named "not enough history" state
+# when it refuses to derive one — never an invented number.
 WAKE_INTERVAL_FIELD_NAME = "wake_interval_s"
 WAKE_GAUGE_CLASS = "wake-gauge"
 WAKE_GAUGE_FRESHNESS_ID = "wake-gauge-freshness"
 WAKE_GAUGE_BATTERY_ID = "wake-gauge-battery"
-# The gauges speak in minutes; the field holds seconds. One name, so the
-# ceiling division below and the scale attribute the script reads are
-# provably the same number.
 WAKE_GAUGE_SECONDS_PER_MINUTE = 60
-# How much history the battery sentence is allowed to look back over.
-# Deliberately SHORTER than health_page's own 3-month trend window: this
-# sentence says "recent", and a slope measured from a point three months
-# and one charge ago is not recent behaviour. Two weeks is comfortably
-# more than battery.LIFE_MIN_OBSERVED_SPAN_DAYS and still recent enough
-# for the word to be true.
+# Deliberately shorter than health_page's own 3-month trend window:
+# this sentence says "recent", and two weeks is comfortably more than
+# battery.LIFE_MIN_OBSERVED_SPAN_DAYS while staying recent.
 WAKE_BATTERY_WINDOW_DAYS = 14
-# THE QUANTITY'S PLACE IS "#", never "%s"/"%d"/"{}" — every template
-# below reaches the browser as an ATTRIBUTE VALUE on a rendered page
-# (companion/static/value-controls.js substitutes into it live), and
-# companion/test_i18n.py's Check 3 scans every French render for a stray
-# format artefact. layout.VALUE_CONTROL_TEXT_TOKEN and
-# layout.RELATIVE_QUANTITY_MARK both record that lesson; this is the
-# third consumer of it, and a check asserts every template here carries
-# that exact token.
-#
-# THE UNIT IS "min" AND THE QUANTITY IS WHOLE MINUTES, which keeps these
-# sentences free of a plural form in both languages and free of the
-# s/m/h/d ladder: the configured band is 60..3600 s, which is 1..60 min,
-# so the unit never changes mid-sweep. layout.duration_text() is the
-# app's one ladder and is used below for the ONE fixed cadence that is
-# not the field's own value (the screen-off one), where no live update
-# has to reproduce it in a second language of source.
-# 27-06-PLAN.md Task 3 (CFG-67): shortened from 27-01-SUMMARY.md's
-# measured 254-char combined baseline (this template + the battery
-# templates below). "at most" is UNCHANGED — it is the whole claim, not
-# decoration (WAKE_FRESHNESS_TEXT's own check in test_config_page.py
-# pins it) — only the trailing "after it passes" mechanism clause is
-# cut in favour of the shorter, equally exact "later".
+# The quantity's place is "#", never "%s"/"%d"/"{}": every template
+# below reaches the browser as an attribute value value-controls.js
+# substitutes into live, and a check scans every French render for a
+# stray format artefact.
 WAKE_FRESHNESS_TEXT = (
     "A plane reaches the frame at most # min later.")
-# The two absolute-figure wordings. Only ever rendered when
-# battery.battery_life_estimate() says the OBSERVED history supports a
-# figure, and carrying this app's own "≈" honesty marker (the battery
-# percentage already wears it) plus the source of the claim, so it can
-# never be read as a datasheet number. 27-06-PLAN.md Task 3 (CFG-67):
-# "at this interval" is cut (the sentence sits directly beside the
-# interval control it is about); "from this frame's own recent
-# readings" — the honesty attribution itself — is UNCHANGED.
+# Carries this app's own "≈" honesty marker plus the source of the
+# claim, so it is never read as a datasheet number.
 WAKE_BATTERY_DAY_TEXT = (
     "≈ # day of battery left, from this frame's own recent readings.")
 WAKE_BATTERY_DAYS_TEXT = (
     "≈ # days of battery left, from this frame's own recent readings.")
-# THE NAMED "NOT ENOUGH HISTORY YET" STATE. A rendered sentence, never a
-# blank and never a zero: a card that silently drops the battery half
-# whenever it cannot compute one reads as a card that has nothing to say
-# about battery at all. 27-06-PLAN.md Task 3 (CFG-67): the trailing
-# reason clause ("— this frame has never measured what one wake costs")
-# is cut; the refusal itself ("Not enough battery history yet to say
-# how long a charge lasts") is UNCHANGED — this is D18's honesty
-# contract and this task shortens wording, never conditions.
 WAKE_BATTERY_UNKNOWN_TEXT = (
     "Not enough battery history yet to say how long a charge lasts.")
-# The clause that keeps BOTH sentences from over-claiming: neither the
-# bound nor the battery figure is in force while the screen is off,
-# because device_config.DISPLAY_OFF_SLEEP_S is pinned independently of
-# this field then (server/wake.py's effective_wake_interval_s(),
-# precedence rule 1). A visitor who has turned the screen off would
-# otherwise read a claim that does not apply to their frame. 27-06-
-# PLAN.md Task 3 (CFG-67): ", whatever this is set to" is cut — "instead"
-# already carries the override; the cadence itself stays named.
+# Neither the bound nor the battery figure applies while the screen is
+# off, since DISPLAY_OFF_SLEEP_S is pinned independently of this field
+# then.
 WAKE_BATTERY_SCREEN_OFF_TEXT = (
     "While the screen is off, the frame wakes every %s instead.")
-# The RELATIVE half, and the only half companion/static/value-controls.js
-# may recompute while the slider moves. It names TWO CADENCES and no
-# ratio: it is arithmetic on the two cadences and nothing else, which is
-# the one thing battery.battery_life_estimate()'s `relative_factor`
-# docstring is emphatic can be said honestly on day one — and it is
-# carefully NOT a multiplier on the lifetime, which those two would only
-# be if every joule this device spends went into waking.
-#
-# "%d" is the SAVED cadence, written in server-side and fixed for the
-# life of the page; "#" is the proposed one, which is the only thing
-# that moves and therefore the only thing the script substitutes.
+# The relative half, and the only half value-controls.js may recompute
+# while the slider moves: two cadences, never a ratio (which would only
+# be a valid multiplier on lifetime if every joule went into waking).
+# "%d" is the saved cadence (server-side, fixed for the page); "#" is
+# the proposed one, the only thing the script substitutes.
 WAKE_BATTERY_INSTEAD_TEXT = (
     "This setting wakes the frame every # min instead of every %d min.")
 
-# --- 25-05-PLAN.md Task 2 (CFG-49/CFG-52): the gated range -----------
 WAKE_SLIDER_CLASS = "wake-slider"
 WAKE_SLIDER_INPUT_CLASS = "wake-slider__input"
-# One minute, which is WAKE_INTERVAL_MIN_S itself and the unit both
-# gauges speak in — so every position the slider can reach is a whole
-# number of minutes and neither sentence ever has to round.
 WAKE_SLIDER_STEP_S = 60
-# The range's own accessible name. It needs one of its own: the number
-# input's label ("Wake interval (seconds)") names THAT control, and two
-# controls sharing one accessible name is how a screen-reader visitor
-# loses track of which of them they are on.
+# Its own accessible name: the number input's label names that
+# control, and two controls sharing one name loses a screen-reader
+# visitor track of which they are on.
 WAKE_SLIDER_LABEL = "Wake interval slider"
 
-# 20-11-PLAN.md Task 1 (D-26/D-28, 20-UI-SPEC.md Section Anatomy J/copy
-# table G): the Notifications group's own copy — a Device-only sixth
-# sibling of LED/Wake interval inside <form id="{SETTINGS_FORM_ID}">,
-# built against led_group()'s exact fieldset-free idiom.
 NOTIFICATIONS_SECTION_HEADING = "Notifications"
-# 29-05-PLAN.md Task 1 (CFG-79): shortened from 15 words to 9. Nothing
-# lost: the two triggers this sentence used to spell out by name
-# ("the battery runs low", "the frame stops checking in") are the exact
-# two checkboxes rendered immediately below (NOTIFICATIONS_BATTERY_
-# LABEL = "Battery low", NOTIFICATIONS_SILENT_LABEL = "Frame silent") —
-# the caption naming both again in prose was a third surface for the
-# same two facts. What survives says there ARE two kinds of alert,
-# generically, and the checkboxes name them specifically.
 NOTIFICATIONS_SECTION_CAPTION = "Get a push alert about battery or connection issues."
 NOTIFICATIONS_SECTION_CAPTION_ID = "notifications-caption"
-# D-26 amended (20-CONTEXT.md's Resolutions): write-only, like the
-# calendar feed URL — never rendered back, not partially masked. The
-# status row reports only whether a URL is stored (T-20-12).
+# Write-only, like the calendar feed URL — never rendered back, not
+# partially masked. The status row reports only whether a URL is stored.
 NOTIFICATIONS_STATUS_CONFIGURED_VERDICT = "Configured"
 NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT = "Not configured"
 NOTIFICATIONS_URL_FIELD_LABEL = "Push topic URL"
-# 29-05-PLAN.md Task 1 (CFG-79): 26 words -> 9. This hint carried real
-# reference material CFG-79's own rule says must be MOVED, not deleted:
-# where the value is stored, that it is never shown back, and that
-# pasting a new one replaces the old. That sentence survives verbatim
-# in meaning as NOTIFICATIONS_URL_HOW_IT_WORKS_BODY below, reached
-# through the same inline "How it works" <details> pattern
-# CALENDAR_HOW_IT_WORKS_SUMMARY/_BODY already use (config_page.py's
-# calendar_group()) — the identical summary label, reused rather than
-# a second one invented for an identical disclosure shape. What stays
-# visible here is the one thing a reader needs BEFORE they act: what
-# to paste.
 NOTIFICATIONS_URL_HINT = "Paste your ntfy.sh topic URL (or a self-hosted one)."
 NOTIFICATIONS_URL_HINT_ID = "notifications-url-hint"
-# 29-05-PLAN.md Task 1 (CFG-79): the storage/replacement sentence moved
-# out of NOTIFICATIONS_URL_HINT above, into the "How it works"
-# disclosure body rendered by notifications_group() below — same
-# wording, new home, nothing lost.
 NOTIFICATIONS_URL_HOW_IT_WORKS_BODY = (
     "Stored on the server and never shown back here — pasting a new "
     "one replaces the old.")
 NOTIFICATIONS_REPLACE_URL_SUMMARY = "Replace the URL"
-# A shape bound against an absurd paste, matching CALENDAR_URL_MAX_LEN's
-# own established rationale exactly — the one arbiter of an acceptable
-# topic URL stays server/notify.py's send-time _url_is_safe() gate, not
-# a second definition here.
+# A shape bound against an absurd paste; the arbiter of an acceptable
+# topic URL stays server/notify.py's send-time gate, not this bound.
 NOTIFICATIONS_URL_MAX_LEN = 2048
 NOTIFICATIONS_BATTERY_LABEL = "Battery low"
 NOTIFICATIONS_SILENT_LABEL = "Frame silent"
 NOTIFICATIONS_TEST_BUTTON_TEXT = "Send a test"
-# The sole accepted submitted value for each checkbox (D-01), mirroring
-# LED_CHECKBOX_VALUE/QUIET_HOURS_CHECKBOX_VALUE/DISPLAY_CHECKBOX_VALUE's
-# own rationale exactly: shared by notifications_group()'s markup and
-# handle_post()'s validator so the two can never drift apart.
 NOTIFICATIONS_BATTERY_CHECKBOX_VALUE = "on"
 NOTIFICATIONS_SILENT_CHECKBOX_VALUE = "on"
-# companion/app.py rebinds this rather than retyping the literal,
-# mirroring CALENDAR_CONNECT_ROUTE's own rebinding convention (app.py
-# imports this module, so the reverse import would be a cycle). Unlike
-# the calendar Connect route, this one is a pure immediate action with
-# no field of its own to validate — see _handle_notifications_test_
-# post()'s own docstring in companion/app.py.
 NOTIFICATIONS_TEST_ROUTE = "/settings/notifications/test"
 ERROR_NOTIFICATIONS_URL_TOO_LONG = "That link is too long."
 
-# 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): DISPLAY_SECTION_HEADING,
-# DISPLAY_SECTION_CAPTION and DISPLAY_SECTION_CAPTION_ID (12-UI-SPEC.md's
-# former Copywriting Contract, D-02, 12-CONTEXT.md) are retired outright
-# along with display_group() below - the Frame strip is now the ONLY
-# on/off control for the screen, and its own caption (companion/layout.py,
-# 22-04-PLAN.md) is the one place that states when the change lands,
-# computed from companion/frame_state.py rather than a fixed "within
-# about 5 minutes" literal the audit could not substantiate (22-RESEARCH.md).
-# DISPLAY_CHECKBOX_VALUE (above) stays defined: handle_post() still
-# validates an explicit legacy/crafted display_enabled value against it.
-
-# 20-07-PLAN.md Task 2 (D-19): the Screen on/off and Quiet hours routes
-# the strip's switches still post to. Home's own (module-private, on
-# the Home page) route constants are byte-for-byte duplicates, never
-# imported (a page module may never import another page module,
-# companion/pages/__init__.py's own boundary). The instant-switch
-# `<form>`s' own action attributes are written as literal path text,
-# not a `%s` interpolation of these constants (this file's own
-# acceptance gate greps the literal form-action text) — but the two
-# constants stay defined here, equal to those same paths, for
-# companion/test_config_page.py's own checks to reference without
-# retyping either path a third time.
-#
-# 21-04-PLAN.md Task 1 (D-01/D-02/R-01): the eleven constants naming
-# the switches' own labels/state text/button text, and the markup
-# blocks that used to build each switch, both moved out of this
-# module entirely — the shared strip helper in companion/layout.py is
-# now their one write site, since the Screen/Quiet-hours instant switches render in the
-# shared Frame strip at the top of Home and Display, not inside these
-# two scheduled-controls cards any more.
+# The Screen on/off and Quiet hours routes the Frame strip's switches
+# post to. Home's own route constants are byte-for-byte duplicates,
+# never imported: a page module may never import another page module.
 QUICK_DISPLAY_ROUTE = "/quick/display"
 QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
 
-# Read elsewhere, not just here — this module's existing
-# duplicated-not-imported must-equal discipline (matches
-# OPEN_CLASS/MOBILE_NAV_OPEN_CLASS's own precedent): DIRTY_SECTION_ATTR
-# is read by companion/static/dirty-state.js (D-32's PLACEHOLDER doc
-# comment below explains its current, narrower use), and STATIC_SAVE_
-# FALLBACK_ATTR is read by a `.js`-gated rule in companion/static/
-# style.css (`.js [data-static-save-fallback] { display: none; }`,
-# landed by 06.6.4.1-01). Neither file imports this module — the values
-# must be kept equal by hand.
-#
-# 27-04-PLAN.md (D-06/CFG-63): DIRTY_SECTION_ATTR's own former READER —
-# dirty-state.js's dirtySectionLabels(), which built the retired dirty
-# bar's "Runway and Quiet hours changed" copy — is deleted along with
-# the bar. The attribute itself is left standing, unread by any script
-# today: every wrapper below still marks the settings groups a reader
-# (sighted or not) can already see as one visual unit, which is true
-# independent of whatever save model sits on top, and re-threading every
-# one of its seven emission sites to remove it is no part of what this
-# plan was asked to change.
-#
-# SUPERSEDED by 28-08-PLAN.md (CFG-77/CFG-78), 2026-09-16: both
-# paragraphs above described a state that held for one phase, not a
-# permanent fact — the developer asked for the dirty bar back, twice
-# confirmed (ROADMAP.md's Phase 28 addendum, "CFG-63 reversed"), having
-# seen real Safari Network tab evidence that the auto-save fetch it
-# replaced worked correctly the whole time. DIRTY_SECTION_ATTR's reader
-# is restored: dirty-state.js's dirtySectionLabels() is back, and it is
-# once again what walks every wrapper below to build the bar's
-# section-naming copy. STATIC_SAVE_FALLBACK_ATTR's own reader also
-# changes — the `.js`-hide rule this comment names is deleted
-# (28-08-PLAN.md Task 2), because the button it used to hide is now the
-# restored bar's own visible Save, relocated into the bar's markup below
-# with a `form="%s"` attribute rather than hidden by CSS. Both constants
-# keep their pre-existing values; only the mechanism reading them moved.
+# DIRTY_SECTION_ATTR is read by companion/static/dirty-state.js;
+# STATIC_SAVE_FALLBACK_ATTR names the native fallback Save button.
+# Neither static file imports this module, so the values must be kept
+# equal by hand.
 DIRTY_SECTION_ATTR = "data-dirty-section"
 STATIC_SAVE_FALLBACK_ATTR = "data-static-save-fallback"
 
-# 28-08-PLAN.md (CFG-77), 2026-09-16: the seven words dirty-state.js's
-# updateBar()/dirtySectionLabels() carry as translated data-* attributes
-# on the bar itself — restored verbatim (constant names, English values
-# and French catalogue entries alike) from their pre-27-04 shape at
-# commit 6dea46a, because 27-04 deleted them along with the bar it
-# removed and the developer has now asked for that bar back. Same
-# data-*-attribute-with-an-English-fallback idiom as quick-switch.js's
-# own data-quick-failed-text: each constant's own English value is also
-# dirty-state.js's documented `|| "English fallback"` literal, so the
-# two can never silently disagree about what a bar rendered WITHOUT the
-# attribute says.
+# The words dirty-state.js's updateBar()/dirtySectionLabels() carry as
+# translated data-* attributes on the save bar. Each constant's own
+# English value is also dirty-state.js's documented `|| "English
+# fallback"` literal, so the two can never silently disagree about what
+# the bar renders without the attribute.
 #
-# DIRTY_BAR_INITIAL_TEXT's ROLE CHANGED from its pre-27-04 shape, and
-# this is the plan's most important non-obvious decision, stated here
-# too: it is no longer [data-dirty-count]'s server-rendered SEED. The
-# bar itself is no longer server-rendered `hidden` (Task 1's no-JS-floor
-# inversion — see render()'s own comment at the bar's emission site), so
-# seeding the count span with this text would announce a false "Unsaved
-# changes" claim, via `role="status"`, to every scripts-blocked visitor
-# on every page load before they have touched anything. It is carried
-# as a data-* attribute only, for dirty-state.js to write when — and
-# only when — countDifferences() actually finds one. A future reader
-# re-seeding the span with this constant's own value reintroduces
-# exactly the bug this restoration refused to ship.
+# DIRTY_BAR_INITIAL_TEXT is carried only as a data-* attribute, never
+# used to seed [data-dirty-count]'s markup: the bar itself renders
+# visible (not `hidden`), so seeding the count span with this text
+# would announce a false "Unsaved changes" claim via `role="status"` on
+# every page load before anything changed. dirty-state.js writes it
+# only once it actually finds a difference.
 DIRTY_BAR_INITIAL_TEXT = "Unsaved changes"
 DIRTY_CHANGED_SUFFIX = " changed"
 DIRTY_AND = " and "
 DIRTY_LIST_AND = ", and "
 DIRTY_UNSAVED_SINGULAR = "1 unsaved change"
 DIRTY_UNSAVED_PLURAL = " unsaved changes"
-# 28-08-PLAN.md: this constant's PRODUCER changes back from the
-# now-removed auto-save status region's own progress constant to this
-# restored name — the English value and the French catalogue entry it
-# maps to ("Enregistrement…") are byte-identical, so the move changes
-# nothing a reader ever sees.
-#
 # The ellipsis is the single U+2026 character, matching this module's
-# own "Polling…" and layout.py's "Reconnecting…" — never three periods.
+# "Polling…" and layout.py's "Reconnecting…" — never three periods.
 DIRTY_SAVING_TEXT = "Saving…"
 
-# 27-04-PLAN.md Task 3 (D-04/D-06/CFG-63): the auto-save status region's
-# two translated words, replacing the seven the retired dirty bar used
-# to carry (DIRTY_BAR_INITIAL_TEXT, DIRTY_CHANGED_SUFFIX, DIRTY_AND,
-# DIRTY_LIST_AND, DIRTY_UNSAVED_SINGULAR, DIRTY_UNSAVED_PLURAL and
-# DIRTY_SAVING_TEXT — all deleted with dirty_bar_html() itself). Same
-# data-*-attribute-with-an-English-fallback idiom as the bar's own words
-# were, and as quick-switch.js's data-quick-failed-text still is: each
-# constant's own English value is also dirty-state.js's documented
-# fallback literal, so the two can never silently disagree about what a
-# region rendered WITHOUT the attribute says.
-#
-# SUPERSEDES this module's former "There is deliberately no 'Saved'
-# counterpart" paragraph (D-04/D-06, pre-27-04): that reasoning held
-# only while saving WAS a full-document POST — the region reporting the
-# finished state does not exist any more by the time a real navigation
-# lands. Saving is no longer a navigation at all (27-04-PLAN.md Task 2's
-# fetch-based auto-save); the region that said "Enregistrement…" is
-# still the region on screen when the fetch resolves, so it is now the
-# right place to say "Enregistré" too, and no second source of truth is
-# introduced by doing so — the word is written by the same page that
-# already holds the value, from the same response that already confirms
-# it landed.
-#
-# SUPERSEDED IN TURN by 28-08-PLAN.md (CFG-77/CFG-78), 2026-09-16: the
-# developer rejected the auto-save MODEL this whole region existed to
-# report on, not just its missing feedback — real Safari Network tab
-# evidence showed the fetch-based save worked correctly the entire time
-# (ROADMAP.md's Phase 28 addendum). Saving is a real navigation again,
-# so the region's own premise ("no navigation left to report a finished
-# state after") is gone. The region's own attribute constant, its two
-# text-word constants, and _save_status_region_html() itself, are
-# DELETED — along with the "Saved"/"Enregistré" catalogue entry the
-# progress-word constant above was the only producer of.
-# "Saving…"/"Enregistrement…" SURVIVES: DIRTY_SAVING_TEXT (above) is its
-# new, restored producer — the same constant that
-# produced it before 27-04 ever ran, with the identical English value
-# and the identical French translation.
-
-# Matches 06-UI-SPEC.md's Copywriting Contract "Poll-trigger cooldown"
-# row verbatim (D-17); "{n}" is filled in with a server-computed
-# remaining-seconds figure, never anything client-supplied. This text is
-# intentionally the *button-adjacent* copy shown while the trigger is
-# disabled — a separate rendering site from companion/app.py's own
-# FLASH_MESSAGES entry for the same event (the post-redirect flash
-# banner), not a shared constant, since a page module must never import
-# companion/app.py (that would be a cycle: app.py already imports this
-# module).
+# "{n}" is filled in with a server-computed remaining-seconds figure,
+# never anything client-supplied. This is the button-adjacent copy
+# shown while the trigger is disabled — a separate rendering site from
+# companion/app.py's own FLASH_MESSAGES entry for the same event, since
+# a page module must never import companion/app.py.
 POLL_COOLDOWN_HELPER_TEXT = "Poll triggered recently — try again in {n}s."
 
-# DOM ids the D-01 live countdown script (companion/static/
-# poll-cooldown.js as of 19-04-PLAN.md/D-18) hooks with
-# document.getElementById() — shared between poll_trigger_section()'s
-# markup and the script so the two can never drift apart.
+# DOM ids the live countdown script (poll-cooldown.js) hooks with
+# document.getElementById(), shared with poll_trigger_section()'s
+# markup so the two can never drift apart.
 POLL_TRIGGER_BUTTON_ID = "poll-trigger-btn"
 POLL_COOLDOWN_TEXT_ID = "poll-cooldown-text"
 
-# UXA-15: the enabled (zero-cooldown) branch's button label while a
-# submit is pending, swapped in by companion/static/poll-cooldown.js
-# (19-04-PLAN.md/D-18) via the button's data-submit-pending attribute.
-# Cosmetic only — companion/app.py's _POLL_LOCK is the actual
-# correctness boundary, this is purely the immediate-feedback
-# affordance.
+# The enabled (zero-cooldown) branch's button label while a submit is
+# pending. Cosmetic only: companion/app.py's _POLL_LOCK is the actual
+# correctness boundary.
 POLL_SUBMIT_PENDING_TEXT = "Polling…"
 
-# The placeholder the client substitutes the live second count into. The
-# countdown reuses POLL_COOLDOWN_HELPER_TEXT with this token standing in
-# for the "{n}" slot precisely so the ticking copy stays word-identical to
-# the static, server-rendered copy above and to companion/app.py's
-# FLASH_MESSAGES[FLASH_KEY_POLL_COOLDOWN] post-redirect banner. The copy
-# exists in one place (this constant) and is formatted twice — once with
-# a real integer for the no-JS render, once with this token for the
-# script template — never rewritten or duplicated.
+# The placeholder the client substitutes the live second count into, so
+# the ticking copy stays word-identical to the static, server-rendered
+# copy and to the post-redirect flash banner.
 POLL_COOLDOWN_TEMPLATE_TOKEN = "__N__"
 
-# The four flash keys this module's handle_post() can return, defined
-# here — the single source of truth companion/app.py's own flash-key
-# constants and FLASH_MESSAGES dict reference, per this plan's Task 2
-# ("the key strings exist in exactly one place"). Values match
-# companion/app.py's pre-existing FLASH_KEY_* string literals exactly, so
-# a redirect's ?flash= query parameter round-trips through
-# app.py's FLASH_MESSAGES lookup unchanged.
+# The flash keys this module's handle_post() can return — the single
+# source of truth companion/app.py's own flash-key constants and
+# FLASH_MESSAGES dict reference.
 FLASH_SAVED = "saved"
 FLASH_SAVE_FAILED = "save_failed"
 FLASH_POLL_TRIGGERED = "poll_triggered"
 FLASH_POLL_COOLDOWN = "poll_cooldown"
-# Distinct from FLASH_SAVE_FAILED (2026-08-28 fix): a run_once() exception
-# inside POST /poll-now used to redirect with FLASH_SAVE_FAILED, showing
-# "Couldn't save settings" for a failure that has nothing to do with
-# saving settings — confusing and actively misleading about what broke.
+# Distinct from FLASH_SAVE_FAILED: a run_once() exception inside
+# POST /poll-now must not show "Couldn't save settings" for a failure
+# unrelated to saving settings.
 FLASH_POLL_FAILED = "poll_failed"
-# Distinct from FLASH_POLL_COOLDOWN (UXA-15 fix): the cooldown key means
-# "wait, you already triggered one recently" (a stale, seconds-old fact
-# checked against history_db). This key means "a poll is executing on
-# this exact request, right now, in another thread" — companion/app.py's
-# non-blocking `_POLL_LOCK.acquire(blocking=False)` failing is the only
-# thing that ever produces it, closing the TOCTOU window where two
-# requests arriving before the first finishes could both observe zero
+# Distinct from FLASH_POLL_COOLDOWN: this key means a poll is executing
+# on this exact request right now, in another thread —
+# `_POLL_LOCK.acquire(blocking=False)` failing is the only producer,
+# closing the window where two requests could both observe zero
 # cooldown and both call `poll_loop.run_once()`.
 FLASH_POLL_ALREADY_RUNNING = "poll_already_running"
 
-# Phase 15 D-10/D-11 (15-05-PLAN.md): the per-flight colour-rules editor's
-# route constants, mirroring how airlines_page.py owns RESOLVE_ROUTE/
-# MANUAL_DELETE_ROUTE_PREFIX/_SUFFIX and companion/app.py rebinds them
-# rather than re-typing the literals. Add and delete are immediate POSTs
-# on their own routes, outside SETTINGS_ROUTE and the settings form's
-# unsaved-changes dirty bar — a rule is a one-step immediate act, not a
+# The per-flight colour-rules editor's routes. Add and delete are
+# immediate POSTs on their own routes, outside SETTINGS_ROUTE and the
+# settings form's dirty bar — a rule is a one-step immediate act, not a
 # pending edit.
 RULES_ADD_ROUTE = "/settings/rules/add"
 RULES_DELETE_ROUTE_PREFIX = "/settings/rules/"
 RULES_DELETE_ROUTE_SUFFIX = "/delete"
 
-# 19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect action's own
-# route, following RULES_ADD_ROUTE's exact naming/rebinding convention
-# immediately above — companion/app.py rebinds this rather than
-# retyping the literal, since app.py imports this module (the reverse
-# import would be a cycle). An immediate, session-gated POST outside
-# SETTINGS_ROUTE and the settings form's dirty bar, for the identical
-# reason a colour rule's add/delete are: this is a one-step act, not a
-# pending settings edit.
+# An immediate, session-gated POST outside SETTINGS_ROUTE and the
+# settings form's dirty bar: a one-step act, not a pending settings edit.
 CALENDAR_DISCONNECT_ROUTE = "/settings/calendar/disconnect"
 
-# 20-09-PLAN.md Task 3 (D-15a..e): renamed from "Per-flight colour
-# rules" — caption through t() at the render site. The old precedence/
-# replace-on-add sentence moves into a <details> disclosure
-# (RULES_HOW_RULES_COMBINE_*, below). D-17 (21-01-PLAN.md Task 2): that
-# disclosure no longer has a collapsed one-sentence variant — it always
-# renders in full. 21-05-PLAN.md Task 1 (D-06/D-10): the standalone
-# "Flight colours" card and its own heading constant are retired
-# outright — this content now renders inside the Frame colours
-# card's own "Per-flight rules" usage panel, named by that panel's own
-# <legend>, never by a second heading of its own. The caption survives,
-# unchanged, as the panel's own lead-in sentence.
 RULES_SECTION_CAPTION = "Give one flight, one aircraft or one airline its own theme."
 RULES_HOW_RULES_COMBINE_SUMMARY = "How rules combine"
 RULES_HOW_RULES_COMBINE_BODY = (
     "The most specific match wins — a flight rule beats an aircraft "
     "rule, which beats an airline rule — and adding a key that's "
     "already in use replaces the existing rule for it.")
-# D-17 (21-01-PLAN.md Task 2): the one-sentence collapsed disclosure
-# variant is deleted along with the display mode that selected it —
-# the "How rules combine" <details> below always renders in full now.
-# D-15b: the segmented "Match by" control's own visually-hidden group
-# label — kept distinct from each segment's own visible text
-# (RULE_KIND_LABELS) and technical title (RULE_KIND_TITLES) below.
 RULE_KIND_FIELD_LABEL = "Match by"
 RULE_VALUE_FIELD_LABEL = "Value"
 RULE_ADD_BUTTON_TEXT = "Add rule"
-# D-15b: the plain-language segment labels shown to everyone — used by
-# BOTH the add form's segment text and the rule-row kind badge, so the
-# two can never disagree (mirrors 15-UI-SPEC.md's own "never abbreviated
-# differently in the list than in the form" rule, carried over verbatim
-# for the new wording).
+# The plain-language segment labels, used by both the add form's
+# segment text and the rule-row kind badge, so the two can never
+# disagree.
 RULE_KIND_LABELS = {
     colour_rules.RULE_KIND_CALLSIGN: "Flight",
     colour_rules.RULE_KIND_HEX: "Aircraft",
     colour_rules.RULE_KIND_PREFIX: "Airline",
 }
-# D-15b: "the technical term kept as each option's title" — a SEPARATE
-# mapping from RULE_KIND_LABELS above, read only for each segment's own
-# `title` attribute, never shown as the visible label text. Phase 15's
-# original wording, unchanged.
+# A separate mapping from RULE_KIND_LABELS above, read only for each
+# segment's own title attribute, never shown as the visible label text.
 RULE_KIND_TITLES = {
     colour_rules.RULE_KIND_CALLSIGN: "Callsign",
     colour_rules.RULE_KIND_HEX: "ICAO24 hex",
     colour_rules.RULE_KIND_PREFIX: "Callsign prefix",
 }
-# D-15b: per-segment placeholders ("AFR1234"/"3944F2"/"AFR") are a
-# progressive enhancement no script in this phase implements — this
-# section ships no new client-side script at all (20-UI-SPEC.md
-# Structural Note 5's native-radio resolution) — deliberately omitted,
-# not forgotten. One static placeholder covers the always-valid default
-# kind (callsign).
 RULE_VALUE_PLACEHOLDER = "AFR1234"
 RULES_EMPTY_HEADING = "No flight colours yet."
 RULES_EMPTY_BODY = (
     "Add one above to give a flight, aircraft or airline its own theme.")
-# D-15c: distinct from airlines_page.DELETE_BUTTON_TEXT ("Delete") —
-# this list's own Remove button, per the UI-SPEC copy table's own
-# wording, no longer the airlines gallery's "Delete".
 RULE_REMOVE_BUTTON_TEXT = "Remove"
-# D-15e: the suggestion chips' own label prefix — the joined callsign
-# list itself is data, never translated (matches the flight one-liner
-# separator's own "data, not translated" precedent, 20-UI-SPEC.md
-# Copywriting Contract §A).
+# The suggestion chips' own label prefix; the joined callsign list
+# itself is data, never translated.
 RULE_SUGGESTIONS_LABEL = "Recent:"
-# aria-labelledby targets for the two radiogroups the add form carries —
-# the segmented "Match by" control and the compact theme-chip grid.
+# aria-labelledby targets for the two radiogroups the add form carries.
 RULE_KIND_HEADING_ID = "rule-kind-heading"
 RULE_THEME_HEADING_ID = "rule-theme-heading"
-# D-15c (LOCKED): the Remove form's own native-confirm question — kept
-# despite 20-UI-SPEC.md's Destructive-confirmations table proposing to
-# drop it as an immediately-reversible action (re-adding the same key
-# restores it); D-15c's own locked text wins over that proposal. This is
-# a one-line change (drop the data-confirm attribute below) if the
-# developer later prefers the spec's reading.
 RULE_REMOVE_CONFIRM_QUESTION = "Remove this rule?"
 
-# The seven flash keys this module's rule-add/rule-delete routes (owned by
-# companion/app.py, Task 2) can produce, defined here for the identical
-# reason FLASH_SAVED/FLASH_SAVE_FAILED/etc. above are: companion/app.py
-# rebinds each under its own FLASH_KEY_RULE_* name and owns the message
-# text/ARIA role, mirroring the FLASH_MANUAL_* rebinding pattern
-# airlines_page.py already establishes.
+# The flash keys this module's rule-add/rule-delete routes (owned by
+# companion/app.py) can produce; app.py rebinds each under its own
+# FLASH_KEY_RULE_* name and owns the message text/ARIA role.
 FLASH_RULE_ADDED = "rule_added"
 FLASH_RULE_REPLACED = "rule_replaced"
 FLASH_RULE_KEY_INVALID = "rule_key_invalid"
@@ -1216,179 +504,80 @@ FLASH_RULE_SAVE_FAILED = "rule_save_failed"
 FLASH_RULE_DELETED = "rule_deleted"
 FLASH_RULE_DELETE_FAILED = "rule_delete_failed"
 
-# Phase 16 (16-05-PLAN.md, 16-UI-SPEC.md Copywriting Contract) - verbatim,
-# do not paraphrase. Every string below is written against
-# .planning/ROADMAP.md's Phase 16 measured finding 3: on the one measured
-# duty day, none of the calendar owner's three flights were among the
-# frame's 201 detections. This feature can only colour a flight that
-# happens to be the one currently on screen - it does not track, watch,
-# follow, monitor, notify, or know a flight is happening independently of
-# what is on screen, and no string here may imply otherwise.
-#
-# 30-06-PLAN.md Task 1 (CFG-85), 2026-09-22: CALENDAR_SECTION_HEADING,
-# CALENDAR_HEADING_ID and CALENDAR_CAPTION are RETIRED here — the
-# calendar's connection block no longer renders its own
-# `<div class="page-section">` with its own `<h2>`/caption; it folds
-# directly into the Calendar usage row inside the Aspect card
-# (`_calendar_connection_html()`, below), which already has its own
-# `<h2 class="text-heading" id="aspect-heading">Aspect</h2>` naming the
-# whole card. Real call-site counts before this deletion (git grep,
-# code files only): CALENDAR_SECTION_HEADING 8 total mentions / 2 real
-# reads (both inside `calendar_group()`'s own now-deleted card_html
-# string); CALENDAR_HEADING_ID 4 total / 1 real read (same string);
-# CALENDAR_CAPTION 11 total / 1 real read (same string). Zero surviving
-# consumers after this commit.
+# This feature can only colour a flight that happens to be the one
+# currently on screen — it does not track, watch, follow, monitor,
+# notify, or know a flight is happening independently of what is on
+# screen, and no string below may imply otherwise.
 CALENDAR_HOW_IT_WORKS_SUMMARY = "How it works"
 CALENDAR_HOW_IT_WORKS_BODY = (
     "It can only colour a flight that happens to be on screen — it "
     "does not track or announce anything on its own. Applies on the "
     "frame's next scheduled poll, not immediately.")
-# D-17 (21-01-PLAN.md Task 2): the one-sentence collapsed disclosure
-# variant is deleted along with the display mode that selected it —
-# the "How it works" <details> below always renders in full now.
-# D-14b: the status-row verdict/detail pair replaces the old, one-piece
-# CALENDAR_STATUS_* sentences this plan retires. "Not connected" covers
-# both the never-configured and the permission-drifted states — a
-# drifted stored link is not usably connected either (D-02).
+# "Not connected" covers both the never-configured and the
+# permission-drifted states — a drifted stored link is not usably
+# connected either.
 CALENDAR_STATUS_CONNECTED_VERDICT = "Connected"
 CALENDAR_STATUS_NOT_CONNECTED_VERDICT = "Not connected"
-# 22-10-PLAN.md Task 3 (D-06/B16/CFG-29): the singular form. This string
-# used to read "1 upcoming flights" whenever the feed held exactly one.
-# 22-08-PLAN.md found it and deliberately left it because that plan does
-# not own this file; this plan does, so it lands here. Selection follows
-# this file's own established shape (FRAME_COLOURS_RULES_COUNT_SINGULAR /
-# _PLURAL_TEMPLATE): singular at exactly 1, plural otherwise.
 CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE = "1 upcoming flight · checked %s"
 CALENDAR_STATUS_DETAIL_TEMPLATE = "%d upcoming flights · checked %s"
-# D-14b/T-20-30: a fixed dict keyed on a category DERIVED from existing
-# fields (last_attempt_at newer than any usable last_synced_at) — never
-# the fetch's own caught exception text, which server/plane/
-# calendar_rules.py does not persist anywhere this module could read it
-# from in the first place.
+# A fixed dict keyed on a category derived from existing fields
+# (last_attempt_at newer than any usable last_synced_at) — never the
+# fetch's own caught exception text, which is not persisted anywhere
+# this module could read it from.
 CALENDAR_STATUS_FETCH_FAILED_DETAIL = "The feed could not be read"
 
-# D-14c: the Connect/Replace mini-form's own copy — its own dedicated
-# route (CALENDAR_CONNECT_ROUTE below) means this action never shares a
-# flash key or a validation path with the settings Save button.
 CALENDAR_CONNECT_BUTTON_TEXT = "Connect calendar"
 CALENDAR_REPLACE_URL_SUMMARY = "Replace the feed URL"
-# 21-07-PLAN.md Task 1 (D-14, Structural Note 6): the SAME form/route
-# posts the URL field in both states, but the button reads shorter once
-# a feed is already stored — "Connect calendar" only ever applies to a
-# first-time paste. Two constants, not one text swapped in place, so
-# each stays a plain, greppable literal like every other button label
-# in this module.
+# The same form/route posts the URL field in both states, but the
+# button reads shorter once a feed is already stored — "Connect
+# calendar" only ever applies to a first-time paste.
 CALENDAR_REPLACE_BUTTON_TEXT = "Replace"
-# 20-09-PLAN.md Task 2 (D-14c): companion/app.py rebinds this rather
-# than retyping the literal, mirroring CALENDAR_DISCONNECT_ROUTE's own
-# rebinding convention immediately above (app.py imports this module,
-# so the reverse import would be a cycle).
 CALENDAR_CONNECT_ROUTE = "/settings/calendar/connect"
 
-# Phase 17 plan 03 (D-01/D-02/D-07) — Claude's-discretion wording, final
-# once written, matching the locked Phase 16 register above: plain,
-# honest, no surveillance verb, no promise the frame cannot keep. The
-# file the URL is stored in is never named anywhere below — the
-# developer pushed back explicitly on being shown implementation
-# mechanics without being told they were mechanics (17-CONTEXT.md
-# Specifics).
+# Plain, honest wording: no surveillance verb, no promise the frame
+# cannot keep. The file the URL is stored in is never named below.
 CALENDAR_URL_FIELD_LABEL = "Calendar feed URL"
 CALENDAR_URL_HINT = (
     "Your calendar's private iCal link. Stored on the server and never "
     "shown back here — pasting a new one replaces the old.")
 CALENDAR_URL_HINT_ID = "calendar-url-hint"
 
-# 29-05-PLAN.md Task 3 (CFG-79), 2026-09-21: the editorial floor this
-# plan and 29-06 together enforce is site-wide EXCEPT Display's Aspect
-# section — ROADMAP.md's Phase 30 entry states in full that it rebuilds
-# this card from scratch and owns its copy, including deleting "both
-# intro sentences" itself (CFG-79's own rule applied to that card BY
-# that phase, since this phase excludes it).
-#
-# 30-04-PLAN.md Task 1 (CFG-85), 2026-09-22, CORRECTS the "expected to
-# become empty" prediction this comment used to make: 30-RESEARCH.md
-# read this tuple directly (not from ROADMAP's prose) and found FOUR
-# members, not two exemptions-per-caption as the retiring text implied.
-# `FRAME_COLOURS_CAPTION` — the one caption this plan's own card
-# rebuild deletes — is removed here, in the SAME commit that deletes
-# the constant itself. `CALENDAR_CAPTION` is NOT touched by this plan:
-# `calendar_group()` keeps rendering its own, separate card, unchanged,
-# until 30-06-PLAN.md folds its body into the Calendar accordion row
-# and deletes that caption too. `DISPLAY_LOOK_INTRO` (the "Look"
-# supersection intro, a different card's concern entirely) and
-# `CALENDAR_URL_HINT` (22 words, deliberately over the floor — 30-UI-
-# SPEC.md itself says "do not shorten it") are NEVER touched by Phase
-# 30 at all and remain permanent members of this tuple, not a step on
-# the way to zero.
-#
-# The tuple lives HERE, in the page module, rather than in the test
-# harness: the exemption is a property of the page's own copy, worth
-# reviewing beside the strings it exempts rather than as a second,
-# harness-side list that could silently drift from this one. A future
-# plan naming a new exemption must argue it here, in this comment, not
-# merely add a line to a test file.
-#
-# 30-06-PLAN.md Task 1 (CFG-85), 2026-09-22: `CALENDAR_CAPTION` is
-# removed here, in the SAME commit that deletes the constant itself
-# (the calendar's connection block no longer has its own caption once
-# it folds into the Calendar usage row) — narrowing this tuple to its
-# two PERMANENT members, `DISPLAY_LOOK_INTRO` and `CALENDAR_URL_HINT`.
-# THIS TUPLE DOES NOT EMPTY THIS PHASE, and never will: those two are
-# deliberate, standing carve-outs (a different card's own intro; a
-# hint sentence 30-UI-SPEC.md explicitly says never to shorten), not a
-# debt any later plan owes. Do not try to reach zero.
+# The Aspect card's copy floor exempts these two: DISPLAY_LOOK_INTRO
+# (a different card's own intro) and CALENDAR_URL_HINT (its wording is
+# never to be shortened). Kept here, beside the strings they exempt,
+# rather than in a second harness-side list that could drift from this
+# one.
 ASPECT_CAPTION_EXEMPTIONS = (
     DISPLAY_LOOK_INTRO,
     CALENDAR_URL_HINT,
 )
-# 21-07-PLAN.md Task 1 (D-14): the merged card's own small grey button
-# reads the short "Disconnect" — never the long checkbox-era sentence a
-# now-retired constant used to carry (that sentence survives, unchanged,
-# as the confirmation page's own fuller copy below; only the button
-# label shortened). A cross-DOM `form=` attribute (CALENDAR_DISCONNECT_
-# FORM_ID) is what lets this button submit a <form> that is never its
-# own DOM ancestor — the same idiom the dirty bar's own Save button
-# already uses for the identical HTML-forms-can't-nest reason.
+# A cross-DOM form= attribute (CALENDAR_DISCONNECT_FORM_ID) lets this
+# button submit a <form> that is never its own DOM ancestor.
 CALENDAR_DISCONNECT_BUTTON_TEXT = "Disconnect"
 CALENDAR_DISCONNECT_FORM_ID = "calendar-disconnect-form"
-# Matches the shape of LED_CHECKBOX_VALUE/QUIET_HOURS_CHECKBOX_VALUE/
-# DISPLAY_CHECKBOX_VALUE and the now-retired arrivals-override
-# checkbox's own former value above. 19-11-PLAN.md
-# (D-08/A-26): the checkbox markup that used to submit this value is
-# retired, but the value itself is NOT — submitted_calendar_signal()'s
-# gates 1-3 below still compare a submitted calendar_disconnect field
-# against it, kept deliberately reachable for a hostile client crafting
-# that field into a /settings POST (19-RESEARCH.md Pitfall 7). The
-# dedicated CALENDAR_DISCONNECT_ROUTE below never reads this value at
-# all — it always means "disconnect", once its own confirm gate passes.
+# submitted_calendar_signal()'s gates still compare a submitted
+# calendar_disconnect field against this value, kept deliberately
+# reachable for a hostile client crafting that field into a /settings
+# POST. The dedicated CALENDAR_DISCONNECT_ROUTE never reads this value
+# at all — it always means "disconnect", once its own confirm gate
+# passes.
 CALENDAR_DISCONNECT_CHECKBOX_VALUE = "on"
 
-# 19-11-PLAN.md Task 1 (D-08/A-26): the dedicated disconnect route's own
-# confirm gate — the single definition site the markup (the merged
-# calendar_group()'s own disconnect form/calendar_disconnect_confirm_
-# page() below), the client-side misclick guard (companion/static/
-# confirm-submit.js, Task 2), and the handler
-# (companion/app.py's _handle_calendar_disconnect_post()) all read,
-# rather than each retyping the field name/accepted value as a literal.
-# Deliberately a different field name from calendar_disconnect above —
-# the two routes' confirm semantics must never be conflated: this field
-# means "the confirmation step passed", that one meant "the in-form
-# checkbox was ticked".
+# The dedicated disconnect route's own confirm gate — the single
+# definition site the markup, the client-side misclick guard
+# (confirm-submit.js) and the handler all read. Deliberately a
+# different field name from calendar_disconnect above: this field means
+# "the confirmation step passed", that one meant "the checkbox was
+# ticked".
 CALENDAR_DISCONNECT_CONFIRM_FIELD = "confirm"
 CALENDAR_DISCONNECT_CONFIRM_VALUE = "yes"
-# The question companion/static/confirm-submit.js passes to
-# window.confirm() (a misclick guard only — see that file's own header
-# comment) — carried to the browser via the merged calendar_group()'s
-# own disconnect form's data-confirm attribute, never duplicated in the
-# script itself.
+# The question confirm-submit.js passes to window.confirm() (a
+# misclick guard only), carried via the disconnect form's data-confirm
+# attribute, never duplicated in the script itself.
 CALENDAR_DISCONNECT_CONFIRM_QUESTION = (
     "Disconnect this calendar and delete the flights it supplied?")
-# The server-rendered two-step confirmation page's own copy
-# (calendar_disconnect_confirm_page() below) — what a no-JS or
-# CSP-blocked browser sees instead of the native dialog above. States
-# the same consequence in a full sentence, since there is no button
-# label length constraint here the way there is on the standalone
-# button.
+# What a no-JS or CSP-blocked browser sees instead of the native dialog
+# above, on the server-rendered two-step confirmation page.
 CALENDAR_DISCONNECT_CONFIRM_HEADING = "Disconnect calendar?"
 CALENDAR_DISCONNECT_CONFIRM_SENTENCE = (
     "This disconnects your calendar and deletes the flights it "
@@ -1396,67 +585,42 @@ CALENDAR_DISCONNECT_CONFIRM_SENTENCE = (
     "paste the feed URL again to reconnect.")
 CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT = "Disconnect calendar"
 CALENDAR_DISCONNECT_CANCEL_TEXT = "Cancel"
-# D-02's fourth status state: the one string in this interface permitted
-# to reference "the server", because it is the one case where the
-# operator has to act there. Names no path, no filename, no part of the
-# URL. Deliberately carries no apostrophe/quote/ampersand — calendar_
-# group() interpolates every status string through escape_html(), and a
-# literal-substring check against the raw constant (this module's own
-# Task 1 verification) would otherwise be comparing against a character
-# escape_html() rewrites (the same apostrophe-escaping surprise plan
-# 17-02 recorded for CALENDAR_STATUS_NOT_CONFIGURED).
+# The one string in this interface permitted to reference "the server",
+# since this is the one case where the operator has to act there.
+# Names no path, filename or part of the URL.
 CALENDAR_STATUS_PERMISSION_UNSAFE = (
     "Connected, but ignored — its saved link on the server became "
     "readable beyond this frame. Paste the feed URL again below to "
     "store it safely.")
 # A shape bound against an absurd paste, not a definition of an
-# acceptable URL. The single arbiter of whether a URL is acceptable
-# stays the existing server-side safety gate (calendar_rules._url_is_
-# safe()) and the fetch itself; a second definition here would drift
-# from that one and start refusing feeds the fetch would accept.
+# acceptable URL. The arbiter of whether a URL is acceptable stays the
+# server-side safety gate and the fetch itself.
 CALENDAR_URL_MAX_LEN = 2048
 
-# Phase 17 plan 04 (D-06/D-09): the four flash keys the save-triggered
-# immediate sync can produce, defined here for the identical reason
-# FLASH_SAVED/FLASH_POLL_TRIGGERED/etc. above are — companion/app.py
-# rebinds each under its own FLASH_KEY_CALENDAR_* name and owns the
-# message text/ARIA role, mirroring that same rebinding pattern exactly.
+# The flash keys the save-triggered immediate sync can produce;
+# companion/app.py rebinds each under its own FLASH_KEY_CALENDAR_* name.
 FLASH_CALENDAR_CONNECTED = "calendar_connected"
 FLASH_CALENDAR_SYNC_FAILED = "calendar_sync_failed"
 FLASH_CALENDAR_DISCONNECTED = "calendar_disconnected"
 FLASH_CALENDAR_SYNC_DEFERRED = "calendar_sync_deferred"
-# 20-09-PLAN.md Task 2 (D-14c): the two outcomes only
-# POST /settings/calendar/connect can produce — companion/app.py rebinds
-# both, mirroring the four rebindings immediately above. The failure
-# path reuses FLASH_CALENDAR_SYNC_FAILED itself rather than earning a
-# third calendar failure message (this task's own explicit instruction:
-# "the existing sync-failure flash key").
+# The two outcomes only POST /settings/calendar/connect can produce.
+# The failure path reuses FLASH_CALENDAR_SYNC_FAILED rather than a
+# third calendar failure message.
 FLASH_CALENDAR_CONNECT_OK = "calendar_connect_ok"
 FLASH_CALENDAR_CONNECT_INVALID = "calendar_connect_invalid"
 
-# 20-11-PLAN.md Task 1 (D-26): the two outcomes POST /settings/
-# notifications/test can produce — companion/app.py rebinds both,
-# mirroring FLASH_CALENDAR_CONNECT_OK/_INVALID's own rebinding pattern
-# immediately above.
+# The two outcomes POST /settings/notifications/test can produce.
 FLASH_NOTIFICATIONS_TEST_OK = "notifications_test_ok"
 FLASH_NOTIFICATIONS_TEST_FAILED = "notifications_test_failed"
 
 
 def _field_error_html(errors, field, control_id):
-    """D-07 (19-07-PLAN.md Task 2): the empty string when `field` carries
-    no message in `errors` (which is `None` or `{}` for every render()
-    call this plan does not itself add — every existing call site keeps
-    emitting nothing here), otherwise a single `role="alert"` paragraph
-    rendered immediately after the offending control:
-    `<p class="field-error text-label" id="{control_id}-error"
-    role="alert">{escaped message}</p>`. `control_id` need not match any
-    real DOM `id` already on the control — it exists solely to build a
-    stable anchor id that `_field_error_attrs()` below points
-    `aria-describedby` at from that SAME control, so the message is
-    programmatically associated, not merely visually adjacent. The
-    message is interpolated through `escape_html()`, this file's
-    universal escaping choke point, matching every other dynamic string
-    in this module (T-19-26: never into a script or style context).
+    """"" when `field` carries no message in `errors`, otherwise a
+    single `role="alert"` paragraph rendered after the offending
+    control. `control_id` need not match a real DOM id on the control —
+    it only builds the stable anchor id `_field_error_attrs()` points
+    `aria-describedby` at, so the message is programmatically
+    associated with the control, not merely visually adjacent.
     """
     message = errors.get(field) if errors else None
     if not message:
@@ -1467,14 +631,10 @@ def _field_error_html(errors, field, control_id):
 
 
 def _describedby_attr(*ids):
-    """19-11-PLAN.md Task 3 (D-12/A-30): the single builder of every
-    `aria-describedby` attribute fragment this file emits. Drops every
-    falsy id — so a caller can pass a hint id and an error id (which is
-    often `None`/`""`) side by side with no conditional of its own — and
-    joins the survivors with ONE space, in the order given (this file's
-    own convention below is always hint first, then error). Returns the
-    empty string when no id survives, so no control this file renders
-    ever emits a bare `aria-describedby=""`.
+    """The single builder of every `aria-describedby` fragment this
+    file emits. Drops every falsy id and joins the survivors with one
+    space, in the order given (hint first, then error). Returns "" when
+    no id survives, so no control ever emits a bare `aria-describedby=""`.
     """
     present = [control_id for control_id in ids if control_id]
     if not present:
@@ -1482,34 +642,21 @@ def _describedby_attr(*ids):
     return ' aria-describedby="%s"' % escape_html(" ".join(present))
 
 
-# 19-12-PLAN.md Task 3 (D-13): the suffix template appended to a
-# caption's own "Applies on the next scheduled poll" clause when the
+# The suffix appended to a caption's own apply-timing clause when the
 # next-wake value is known — never baked into the caption constant
-# itself (D-13 says "where the value is known", so the caption must
-# read exactly as it does today when it is not).
+# itself, so the caption reads unchanged when the value is not known.
 NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE = " (next wake ≈ %s)"
 
 
 def _with_next_wake(caption, next_wake_clock):
-    """`caption` unchanged when `next_wake_clock` is falsy (D-13: no
-    placeholder, no "unknown" — the caption reads exactly as it did
-    before this plan); otherwise `caption` plus
-    `NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE % next_wake_clock`, appended at
-    RENDER time. The single implementation every caption site below
-    uses, so none hand-concatenates its own suffix.
+    """`caption` unchanged when `next_wake_clock` is falsy — no
+    placeholder, no "unknown" — otherwise `caption` plus
+    `NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE % next_wake_clock`. The single
+    implementation every caption site below uses.
 
-    `DISPLAY_SECTION_CAPTION` deliberately never calls this: it states
-    its own honest ~5-minute screen-off latency instead of the generic
-    "next scheduled poll" clause (12-CONTEXT.md D-01), and appending a
-    wake-interval-derived figure there would contradict that sentence —
-    see `render()`'s own comment at that group for the same exception.
-
-    20-07-PLAN.md Task 3 (D-05): `caption` is translated by the CALLER
-    (every call site below passes `i18n.t(SOME_CAPTION_CONSTANT)`) — this
-    function only translates its OWN suffix template, and does so BEFORE
-    substituting `next_wake_clock` into it, matching this codebase's
-    established "%-template translated first, formatted second" pattern
-    (health_page.py's SOURCE_FAULT_BODY_TEMPLATE, 20-03-PLAN.md).
+    `caption` is translated by the caller; this function only
+    translates its own suffix template, before substituting
+    `next_wake_clock` into it.
     """
     if not next_wake_clock:
         return caption
@@ -1518,31 +665,18 @@ def _with_next_wake(caption, next_wake_clock):
 
 def _field_error_attrs(errors, field, control_id, hint_id=None):
     """The ARIA attribute fragment for the control `_field_error_html()`
-    above just built an error anchor for, folding in an optional
-    `hint_id` (19-11-PLAN.md Task 3, D-12/A-30) via `_describedby_attr()`
-    above — hint first, then the error id, matching that helper's own
-    documented order. `hint_id` defaults to `None` so every pre-Task-3
-    call site (which never passed it) keeps emitting byte-identical
-    output: with no error and no hint, this still returns `""`.
+    built an error anchor for, folding in an optional `hint_id` via
+    `_describedby_attr()` — hint first, then the error id.
 
-    Three shapes, depending on what's present:
-      - no error, no `hint_id`: `""` (unchanged since 19-07-PLAN.md).
-      - no error, a `hint_id`: ` aria-describedby="{hint_id}"` alone —
-        no `aria-invalid`, since there is nothing invalid to report.
-      - an error (`hint_id` present or not): ` aria-invalid="true"`
-        plus a combined `aria-describedby` naming the hint (if given)
-        and `{control_id}-error` (`_field_error_html()`'s own anchor
-        id), in that order.
+    Three shapes: no error and no hint -> `""`; no error, a hint ->
+    ` aria-describedby="{hint_id}"` alone; an error (hint or not) ->
+    ` aria-invalid="true"` plus a combined `aria-describedby`.
 
-    Applied to controls that have exactly one natural DOM element to
-    decorate (a text/number/time input, a checkbox, or a `<select>`);
-    the three radio-group fields (theme, theme_arriving, tracked_runway)
-    render their error message the same way but skip this attribute
-    fragment entirely — no single native input in a same-named radio
-    group is uniquely "the" control to describe, and (Task 3) their
-    hint linking instead lands on the `role="radiogroup"` CONTAINER via
-    a direct `_describedby_attr(hint_id)` call at each of those two call
-    sites, never through this function.
+    Applied to controls with exactly one natural DOM element to
+    decorate; the three radio-group fields render their error the same
+    way but skip this fragment entirely, since no single native input
+    in a same-named radio group is uniquely "the" control to describe
+    — their hint links to the `role="radiogroup"` container instead.
     """
     has_error = bool(errors and errors.get(field))
     error_id = ("%s-error" % control_id) if has_error else None
@@ -1553,14 +687,11 @@ def _field_error_attrs(errors, field, control_id, hint_id=None):
 
 
 def _submitted_or_current(submitted, field, current):
-    """This file's explicit-`is None` fallback idiom (see the
-    current_wake_interval_s comment inside render() below), applied to a
-    rejected save's repopulation: `submitted[field]` when `field` is
-    PRESENT in `submitted` — an empty string is a meaningful submitted
-    value, never treated as absent — else `current`. `submitted` is
-    `None` for every render() call that is not re-rendering a rejected
-    save (nothing to repopulate from, so `current` — the on-disk/ctx
-    value — always wins). Never `or`.
+    """`submitted[field]` when `field` is present in `submitted` — an
+    empty string is a meaningful submitted value, never treated as
+    absent — else `current`. `submitted` is `None` for every render()
+    call that is not re-rendering a rejected save, so `current` always
+    wins then. Never `or`.
     """
     if submitted is not None and field in submitted:
         return submitted[field]
@@ -1569,22 +700,15 @@ def _submitted_or_current(submitted, field, current):
 
 def _submitted_checkbox_checked(submitted, field, checked_value, current_checked):
     """The rendered `checked` state for one of the absent-means-False
-    checkbox fields (led_enabled/quiet_hours_enabled/display_enabled/
-    the two Notifications checkboxes) on a rejected save's re-render.
+    checkbox fields on a rejected save's re-render.
 
-    When a real submission happened (`submitted is not None` — always a
-    dict, even an empty one, once a POST reaches this module:
-    companion/app.py's `read_form()` never returns `None`), an absent
-    field means unchecked — the identical absent-means-False semantics
-    `handle_post()` itself just applied to the same submission — and a
-    present-but-wrong value still renders unchecked (the field's own
-    error message is what reports the problem, never a bogus stuck-on
-    box). `submitted is None` (every ordinary page-load render(), never
-    a rejected-save re-render) falls back to `current_checked`
-    untouched — this is why `render()` below must NOT collapse a `None`
-    `submitted` to `{}`: doing so would make every ordinary page load
-    render every checkbox in this family unchecked, since an ordinary
-    load never real-submits any of them either.
+    When a real submission happened (`submitted is not None`), an
+    absent field means unchecked, and a present-but-wrong value also
+    renders unchecked (the field's own error message reports the
+    problem, never a bogus stuck-on box). `submitted is None` (an
+    ordinary page-load render, never a rejected-save re-render) falls
+    back to `current_checked` untouched — this is why `render()` must
+    not collapse a `None` `submitted` to `{}`.
     """
     if submitted is None:
         return bool(current_checked)
@@ -1592,10 +716,9 @@ def _submitted_checkbox_checked(submitted, field, checked_value, current_checked
 
 
 def _palette_hex(index):
-    """`#RRGGBB`, computed from `server.panel_format.PALETTE_RGB`'s flat
-    int list at palette index `index` — never a hardcoded hex literal, so
-    a future re-tuning of the physical panel ink (07-01-PLAN.md's own
-    real-glass Blue/Green correction precedent) automatically updates
+    """`#RRGGBB`, computed from `panel_format.PALETTE_RGB`'s flat int
+    list at palette index `index` — never a hardcoded hex literal, so a
+    future re-tuning of the physical panel ink automatically updates
     every swatch that calls this helper.
     """
     r, g, b = panel_format.PALETTE_RGB[index * 3: index * 3 + 3]
@@ -1603,40 +726,13 @@ def _palette_hex(index):
 
 
 def _palette_swatch_html(theme_id, extra_class=""):
-    """30-02-PLAN.md Task 1 (CFG-85): the app's first CSS-drawn,
-    non-photographic themed swatch — one outer `<span class=
-    "palette-swatch">` filled with `_palette_hex(departing_index)`, plus
-    an OPTIONAL child `<span class="palette-swatch__band">` carrying
-    `_palette_hex(band_index)`. This function reads ONLY those two
-    registry keys — `departing_index` and `band_index` — and NOTHING
-    ELSE: never `arriving_index` (18/18 registered themes have
-    `departing_index == arriving_index`, the already-recorded Phase 25
-    finding that is this swatch's own reason to be ONE swatch, not the
-    retired two-dot `.theme-chip__dot` pair), never `dithered`, never
-    `band_dithered`, never `ink_index`, never `weight`.
-
-    Reading only those two keys makes TWO corrections to the
-    developer-approved sketch's own transcribed registry moot by
-    construction, rather than by remembering them:
-    1. `band_blue_light`/`band_green_light` carry a separate
-       `band_dithered` key, not `dithered: True` (the sketch's JS table
-       marked both `dithered: true`) — irrelevant here, since this
-       function never reads either dithered key.
-    2. The sketch's `paintSwatch()` applied `opacity: 0.72` to dithered
-       themes; 30-UI-SPEC.md's Swatch Rendering Contract states the
-       opposite ("renders their flat ink colour... no dither texture at
-       44-64px") — this function never emits an `opacity` style at all.
-
-    The band child is emitted IFF `"band_index" in theme` AND
-    `theme["band_index"] != theme["departing_index"]` — both halves
-    load-bearing: the second is what keeps `band_blue_field`/
-    `band_red_field` solid rather than faking a two-tone band the real
-    panel paints as one colour (those two themes have
-    `departing_index == band_index` in the live registry).
-
-    The band child's geometry (`top: 33%; height: 34%`) is a stylesheet
-    rule (plan 30-07), never inline — only the two colours are
-    server-computed here.
+    """A CSS-drawn, non-photographic themed swatch: one outer
+    `<span class="palette-swatch">` filled with
+    `_palette_hex(departing_index)`, plus an optional child band span
+    carrying `_palette_hex(band_index)` when it differs from
+    `departing_index` — keeping a same-index theme's band solid rather
+    than faking a two-tone band the real panel paints as one colour.
+    Its geometry is a stylesheet rule; only the two colours compute here.
     """
     theme = device_config.THEMES[theme_id]
     hex_fill = _palette_hex(theme["departing_index"])
@@ -1652,29 +748,19 @@ def _palette_swatch_html(theme_id, extra_class=""):
 
 
 def _palette_chip_html(field_name, theme_id, selected, radio_form_id=None):
-    """30-02-PLAN.md Task 2 (CFG-85): one palette entry — a `<label
-    class="palette-chip">` wrapping a visually-hidden native radio, this
-    theme's own `_palette_swatch_html()` (no `<img>`, no photo, no
-    `theme-preview` route call per chip), and a caption. Mirrors
-    `_theme_chip_grid_html()`'s hidden-radio-inside-`<label>` idiom (same
-    four field names, same `form=` cross-submit seam) but drops the
-    `<img>`, the two `.theme-chip__dot` spans and the swatch legend
-    entirely — there is now ONE swatch per theme (`departing_index ==
-    arriving_index` for all 18 registered themes), so there is nothing
-    left for a two-dot legend to name.
+    """One palette entry: a `<label class="palette-chip">` wrapping a
+    visually-hidden native radio, this theme's own
+    `_palette_swatch_html()` (no `<img>`, no per-chip preview route
+    call), and a caption.
 
-    THE ATTRIBUTE THAT MUST NOT BE DROPPED: `data-preview-src` on the
-    `<label>` itself — `theme-preview.js` (D-24) resolves the live
-    preview source off the CHANGED radio input's `parentNode`. Dropping
-    it silently stops the live preview from following selection.
+    `data-preview-src` on the `<label>` must not be dropped:
+    `theme-preview.js` resolves the live preview source off the
+    changed radio input's `parentNode`; dropping it silently stops the
+    live preview from following selection.
 
-    Deliberately does NOT emit the `--selected` server class or
-    `CURRENT_BADGE_ATTR` "Current" badge `_theme_chip_grid_html()`
-    carries — those belong to the big photo chip's quiet saved-state
-    marker; this chip's selected state is the live `:has(input:checked)`
-    treatment (plan 30-07), which is what the accent-reservation list's
-    re-keyed entry already covers. A third selected-state signal on one
-    control would be redundant.
+    No `--selected` server class or "Current" badge here: this chip's
+    selected state is the live `:has(input:checked)` treatment, so a
+    second, server-rendered signal would be redundant.
     """
     form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
     escaped_id = escape_html(theme_id)
@@ -1705,18 +791,15 @@ def _palette_chip_html(field_name, theme_id, selected, radio_form_id=None):
 def _palette_grid_html(
         field_name, selected_theme_id, radio_form_id=None, leading_html="",
         labelled_by=""):
-    """30-02-PLAN.md Task 2 (CFG-85): the wrapping 18-entry palette grid
-    — `<div class="palette" role="radiogroup">`, looping
-    `device_config.THEME_IDS` in registry order (never a literal list,
-    never a re-sort) and interpolating `leading_html` BEFORE the 18
-    chips, so a caller can prepend `_same_as_departures_chip_html()`'s
-    output unchanged.
+    """The wrapping palette grid: `<div class="palette" role=
+    "radiogroup">`, looping `device_config.THEME_IDS` in registry
+    order and interpolating `leading_html` before the chips, so a
+    caller can prepend `_same_as_departures_chip_html()`'s output
+    unchanged.
 
-    No `id` attribute: this function has three call sites on one page
-    (departures/arrivals/calendar), and an `id` emitted inside a
-    multi-call renderer is the exact trap `_theme_carousel_html()`'s own
-    docstring records (CFG-68) — a second call would either collide or
-    silently go un-controlled by anything.
+    No `id` attribute: this function has three call sites on one page,
+    and an `id` emitted inside a multi-call renderer would either
+    collide or go un-controlled by anything.
     """
     labelled_by_html = ' aria-labelledby="%s"' % escape_html(labelled_by) if labelled_by else ""
     chips = [
@@ -1730,26 +813,11 @@ def _palette_grid_html(
 
 
 def _usage_row_summary_html(usage, theme_id, meta_text=None):
-    """30-02-PLAN.md Task 2 (CFG-85): one Aspect accordion row's
-    `<summary>` — the row's swatch, then a `<span class="usage-row__
-    name">` carrying the translated row label, wrapping a NESTED `<span
-    class="usage-row__meta">` — 30-UI-SPEC.md's Typography table's own
-    "trailing detail" tier (14px, muted) — so the two segments can carry
-    different weight/size while the row still reads, visually and to
-    assistive tech, as one continuous phrase: "{row label} — {meta}".
-
-    That em-dash join is computed from `ASPECT_ROW_SUMMARY_TEMPLATE`
-    ("%s — %s") EXACTLY ONCE per call — never a second, hand-typed em
-    dash — and then sliced back into its own "— {meta}" tail for the
-    nested meta span, so the dash itself has exactly one source even
-    though it renders inside a different element than the row label.
-
-    `meta_text`, when omitted, is derived from
-    `i18n.t(device_config.theme_label(theme_id))` — the row's own
-    currently-selected/saved theme name. The Rules row passes its own
-    `meta_text` explicitly (the translated rule count / empty-state
-    string) and its own `theme_id=None` — it has no single theme of its
-    own to swatch, so no swatch element renders at all for that row.
+    """One Aspect accordion row's `<summary>`: the row's swatch, then a
+    name span wrapping a nested meta span, "{row label} — {meta}". The
+    em-dash join is computed once from `ASPECT_ROW_SUMMARY_TEMPLATE`,
+    then sliced back into the meta span's own tail, so the dash has one
+    source. `meta_text`, when omitted, defaults to the saved theme name.
     """
     if meta_text is None:
         meta_text = i18n.t(device_config.theme_label(theme_id))
@@ -1774,89 +842,16 @@ def _usage_row_summary_html(usage, theme_id, meta_text=None):
 def _theme_chip_grid_html(
         field_name, selected_theme_id, extra_class="", extra_attr="", chip_extra_class="",
         radio_form_id=None, leading_chip_html=""):
-    """Phase 15 D-05: the ONE chip-grid renderer, called once per usage
-    panel inside the Frame colours card (21-05-PLAN.md Task 1, D-06..
-    D-12) — departures (`field_name="theme"`), arrivals
-    (`field_name="theme_arriving"`), calendar flights
-    (`field_name="calendar_theme_id"`) and the rule-add form
-    (`field_name="rule_theme_id"`). They differ ONLY in the radio
-    group's `name`, which chip is marked `checked`/`--selected`, this
-    grid's own wrapper class/attribute, and (arrivals/calendar) a
-    leading non-theme chip — everything else (the hidden-radio
-    selectable-card idiom, the `/theme-preview/{id}.png` source, the
-    `_palette_hex()` swatch dots, the check glyph) is one shared
-    definition.
+    """The one chip-grid renderer, called once per usage panel
+    (departures, arrivals, calendar, rule-add). Call sites differ only
+    in the radio group's `name`, the checked chip, the wrapper
+    class/attribute, and an optional `leading_chip_html` fragment
+    (typically "Same as departures", submitting an empty string).
 
-    21-05-PLAN.md Task 1 (D-09, Structural Note 3): `leading_chip_html`
-    is a fourth, additive, purely-interpolated seam — a pre-built HTML
-    fragment (typically one "Same as departures" chip submitting the
-    empty string) inserted before the loop over `device_config.
-    THEME_IDS`. Defaults to `""`, so every call that omits it (the
-    departures grid, the rule-add form's own compact grid) renders
-    byte-identical to before this addition.
-
-    20-09-PLAN.md Task 1/3 (D-14d/D-15b): `chip_extra_class` is a THIRD,
-    independent seam — distinct from `extra_class` (the grid wrapper's
-    own modifier) — applied to EVERY chip's own `<label>` class
-    attribute. This is what actually shrinks each chip to the compact
-    104px geometry (`companion/static/style.css`'s `.theme-chip--compact`
-    rules key off the CHIP's own class, per 20-UI-SPEC.md §G's markup:
-    "N .theme-chip.theme-chip--compact entries") — the grid-level
-    `theme-chip-grid--compact` modifier alone has no chip-shrinking rule
-    of its own and would silently do nothing without this.
-
-    20-11-PLAN.md Task 2 (D-24): every chip's own `<label>` ALSO gains one
-    new attribute naming the theme's own live-render path (the exact
-    attribute name `companion/static/theme-preview.js`, 20-08, already
-    reads off the changed radio input's parent `<label>`). Added
-    additively, on every grid this function renders (the compact variant
-    included, D-24's own "additive" instruction): the script's own guard
-    clause returns early on any page with no `.theme-live-preview`, so a
-    page that only has the compact grid (Calendar, the rules add-form)
-    inherits the new attribute harmlessly. The chip's own `<img>` src is
-    UNCHANGED — still the fixed, non-live preview, still lazily loaded —
-    only the new attribute is added; the live theme preview's own image
-    (a sibling element `theme_fieldset()` renders above the grid) is
-    what that new attribute is ever read to update.
-
-    D-12 fix (20-REVIEW.md verification gap): `radio_form_id`, when
-    given, adds an explicit `form="{radio_form_id}"` attribute to every
-    radio input this grid renders — the SAME `form=` idiom
-    `runway_fieldset()`'s own radios and `display_group()`/
-    `quiet_hours_group()`'s scheduled inputs already use (Polish fix 4,
-    D-19/Pitfall 1), so this grid keeps posting through the physical
-    settings form even when `render()` renders its enclosing card as a
-    sibling of that form rather than a literal descendant. Defaults to
-    `None` (no attribute at all, byte-identical to before this fix) —
-    Theme's own two always-in-form grids and the rule-add-form's grid
-    never pass it.
-
-    25-06-PLAN.md Task 2 (CFG-50): the DEPARTURES call site now passes a
-    second grid-level modifier (`theme-chip-grid--strip`) and an `id`,
-    and `_theme_carousel_html()` wraps what this function returns. THIS
-    FUNCTION IS UNCHANGED BY THAT — the carousel is a presentation
-    around its output, deliberately not a sixth seam and emphatically
-    not a fork: four call sites share this function, and a second
-    renderer is exactly how the arrivals grid and the departures grid
-    come to disagree about what a selected chip looks like.
-
-    27-07-PLAN.md Task 2 (CFG-68): ARRIVALS AND CALENDAR NOW FOLD THE
-    SAME WAY, each with its OWN strip id from `_theme_carousel_html()`'s
-    now-required `strip_id` argument (Task 1) — the brief names exactly
-    "arrivals, departures, calendar flights", so this is not the
-    research's four-grid scope but the brief's three-grid one. Only the
-    RULE-ADD FORM'S GRID stays unconverted, and that is a recorded scope
-    decision rather than an oversight for a later reader to "finish": it
-    lives inside the "règles par vol" view the brief explicitly defers
-    as too vague to plan against, and wrapping a control inside a view
-    that is about to be redesigned would spend work twice — see that
-    call site's own comment for the ground, PROVISIONAL and one more
-    call to this same helper away if the developer wants it folded too.
-    Three carousels share the file's ONE `@supports selector(:has(*))`
-    block (a `:has()` rule scoped per-`.theme-carousel` instance, not
-    one rule per carousel — see that rule's own comment in style.css),
-    so this does NOT multiply that risk by three; it was written and
-    measured to stay at exactly one block.
+    `chip_extra_class` shrinks every chip to compact geometry; the
+    grid-level `extra_class` alone has no chip-shrinking rule.
+    `radio_form_id`, when given, adds `form=` to every radio, so the
+    grid posts through the settings form even rendered as its sibling.
     """
     form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
     chips = []
@@ -1867,22 +862,16 @@ def _theme_chip_grid_html(
         current_attr_html = ""
         if selected:
             chip_class += " theme-chip--selected"
-            # 22-10-PLAN.md Task 1 (T10): emitted ONLY on the saved chip,
-            # because `.theme-chip--selected:not(:has(input:checked))::after`
-            # is the only selector that can ever read it. A translated
-            # constant, escaped at its attribute site like every other
-            # attribute on this page — never user input (T-22-35).
+            # Emitted only on the saved chip: only
+            # `.theme-chip--selected:not(:has(input:checked))::after`
+            # ever reads it.
             current_attr_html = ' %s="%s"' % (
                 CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
         if chip_extra_class:
             chip_class += " " + chip_extra_class
         theme = device_config.THEMES[theme_id]
-        # Polish fix 5 (D-05): device_config.theme_label()'s registry
-        # text ("White", "Band Blue Field", …) is translated at THIS
-        # display site via i18n.t() — the ids themselves (theme_id)
-        # never change, and server/device_config.py's own English
-        # THEMES["label"] values stay untranslated at the source
-        # (companion/i18n_fr/registry.py supplies the French entries).
+        # device_config.theme_label()'s registry text is translated at
+        # this display site; the theme id itself never changes.
         label = i18n.t(device_config.theme_label(theme_id))
         escaped_id = escape_html(theme_id)
         departing_hex = _palette_hex(theme["departing_index"])
@@ -1890,15 +879,10 @@ def _theme_chip_grid_html(
         chips.append(
             '<label class="%s" data-preview-src="%s%s.png?live=1"%s>'
             '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
-            # 23-10-PLAN.md Task 3 (D3/CFG-32): background-COLOR, not
-            # the `background` shorthand it used to be. Same rendered
-            # placeholder, same value, and the change is load-bearing:
-            # the shorthand resets background-image to none, and an
-            # inline style beats every author rule, so style.css's
-            # skeleton sheen for this band was unreachable while this
-            # said `background`. The band's own box is already reserved
-            # (width: 100%, height: 56px, both definite), so this is the
-            # decoration half only.
+            # background-color, not the background shorthand: the
+            # shorthand resets background-image to none, and an inline
+            # style beats every author rule, making style.css's
+            # skeleton sheen for this band unreachable otherwise.
             '<img class="theme-chip__preview" src="%s%s.png" alt="%s" '
             'width="320" height="120" loading="lazy" style="background-color:%s">'
             '<span class="theme-chip__body">'
@@ -1926,78 +910,30 @@ def _theme_chip_grid_html(
     if extra_class:
         grid_class = grid_class + " " + extra_class
     attr_html = (" %s" % extra_attr) if extra_attr else ""
-    # 22-10-PLAN.md Task 1 (X6): the swatch legend, one line UNDER the
-    # grid and OUTSIDE it — outside so it is not a child of the element
-    # carrying `role="radiogroup"`, where a stray non-radio child would
-    # be announced inside the group.
-    #
-    # It carries `.text-label section-caption`'s exact declaration set
-    # and no class of its own. A legend under a CONTROL is not the
-    # section's caption: `references/settings-page-patterns.md`'s
-    # one-caption-per-section rule is about the caption that follows a
-    # section HEADING, and each usage panel's own caption (the rules
-    # panel's `RULES_SECTION_CAPTION`) is untouched by this. Stating that
-    # here rather than leaving a reviewer to infer it.
+    # The swatch legend is one line under the grid and outside it, so
+    # it is not a child of the element carrying role="radiogroup",
+    # where a stray non-radio child would be announced inside the group.
     legend_html = '<p class="text-label section-caption">%s</p>' % escape_html(
         i18n.t(THEME_CHIP_SWATCH_LEGEND))
     return '<div class="%s"%s>%s%s</div>%s' % (
         grid_class, attr_html, leading_chip_html, "".join(chips), legend_html)
 
 
-# 30-04-PLAN.md Task 1 (CFG-85): `_theme_carousel_html(grid_html,
-# strip_id)` is RETIRED OUTRIGHT. It rendered D5's scroll-snap strip
-# (a presentation wrapped around `_theme_chip_grid_html()`'s output),
-# its dots row and its "See all themes" full-grid disclosure with two
-# gated pagers — the whole mechanism 30-UI-SPEC.md's Structural
-# Contract names as gone: "no strip, no overflow-x, no scrollbar, no
-# pager buttons, no dot row, no <details> disclosure wrapping it".
-# `_aspect_card_html()` below replaces every one of its three call
-# sites (departures/arrivals/calendar) with `_palette_grid_html()`
-# (30-02-PLAN.md), the wrapping, always-visible 18-entry grid that
-# needs none of this. Pre-delete consumer grep (repo-wide, before this
-# commit): 4 hits, all inside `_frame_colours_card_html()` itself
-# (also retired below) — zero surviving consumers.
 def _theme_live_preview_html(current_theme_id, state_dir, extra_class=""):
-    """The `<figure class="theme-live-preview">` the Frame colours
-    card (21-05-PLAN.md Task 1) renders as the left column of its own
-    two-column layout (D-22..D-24, 20-11-PLAN.md Task 2, 20-UI-SPEC.md
-    Section Anatomy H/copy table E; 21-UI-SPEC.md §D). `extra_class`
-    (additive, defaulting to `""`) lets the one live call site add its
-    own `frame-colours__preview` layout modifier without a second,
-    duplicated figure builder.
+    """The Aspect card's live preview figure. The `<img src>` is the
+    saved theme's live preview route (`current_theme_id`,
+    membership-tested against `device_config.THEMES`), the one eagerly-
+    loaded image on this page. Without JavaScript it never changes;
+    `theme-preview.js` swaps it on chip selection.
 
-    The `<img src>` is `{THEME_PREVIEW_ROUTE_PREFIX}{theme_id}.png?live=1`
-    for the SAVED theme (`current_theme_id`, membership-tested against
-    `device_config.THEMES` before ever reaching a path component —
-    T-20-14, the same discipline `theme_fieldset()`'s own single-theme
-    branch already applies), eagerly loaded (the one eagerly-loaded
-    image on this page — every chip's own preview stays lazily loaded)
-    and explicit `width`/`height` from the render pipeline's real
-    served dimensions (`theme_preview.THEME_PREVIEW_SIZE`), never a
-    CSS `aspect-ratio` guess. Without JavaScript this `<img>` never
-    changes — `companion/static/theme-preview.js` (20-08) is what swaps
-    it on chip selection; the server-rendered `src` here IS D-24's
-    documented no-JS floor.
-
-    The caption reads the most recent runway event's callsign through
-    the SAME connection helper `_rule_suggestion_chips_html()` already
-    uses (`history_db.open_db()`/`recent_runway_events(limit=1)`) —
-    never a second, independently-opened connection this page does not
-    already make — degrading to the sample-flight wording on absolutely
-    any exception (a missing/locked history.db, no rows at all), never
-    raising and never a 500. This read never affects the `<img>` itself:
-    the `?live=1` route resolves the event server-side on its own, so a
-    failed read here only changes which caption sentence renders.
-    `state_dir` may be falsy (matching every other optional-state_dir
-    call site in this file, e.g. `runway_fieldset()`'s own `ctx.get(
-    "runway_images")` pattern) — this degrades to the sample caption
-    exactly like a genuine read failure would.
+    The caption reads the most recent runway event's callsign, using
+    the same connection helper `_rule_suggestion_chips_html()` uses,
+    degrading to the sample-flight wording on any exception or a falsy
+    `state_dir` — never raising, never a 500.
     """
     live_theme_id = (
         current_theme_id if current_theme_id in device_config.THEMES
         else device_config.DEFAULT_THEME_ID)
-    # Polish fix 5 (D-05): translated at this display site, same as
-    # _theme_chip_grid_html()'s own label above.
     label = i18n.t(device_config.theme_label(live_theme_id))
     callsign = None
     if state_dir:
@@ -2031,26 +967,14 @@ def _theme_live_preview_html(current_theme_id, state_dir, extra_class=""):
 
 
 def _same_as_departures_chip_html(field_name, checked, radio_form_id=None):
-    """21-05-PLAN.md Task 1 (D-09): the leading, non-theme chip
-    Arrivals'/Calendar's own rows prepend to their palette grid via
-    `_palette_grid_html()`'s `leading_html` seam (30-02-PLAN.md) —
-    submits the EMPTY STRING for `field_name` (R-07's clear signal),
-    never a real theme id.
+    """The leading, non-theme chip Arrivals'/Calendar's own rows
+    prepend to their palette grid via `_palette_grid_html()`'s
+    `leading_html` seam — submits the empty string for `field_name`
+    (the clear signal), never a real theme id.
 
-    30-04-PLAN.md Task 1 (CFG-85), RESTYLED per 30-UI-SPEC.md's
-    Structural Contract and the plan's own `<locked_markup_contract>`:
-    class `leading-option` (was `theme-chip theme-chip--placeholder`),
-    inner name span `leading-option__name` (was `theme-chip__name`
-    inside `theme-chip__body`). The RADIO ITSELF — its `name`, its
-    empty-string `value`, its `form=` attribute, its `checked` logic —
-    is BYTE-IDENTICAL to before this restyle: that is the mechanism the
-    no-JS control contract depends on, and 30-UI-SPEC.md explicitly
-    forbids regressing it to the sketch's script-dependent `<button
-    aria-pressed>`. The `CURRENT_BADGE_ATTR` "Current" badge emission is
-    DROPPED (also per the locked contract) — the live `:has(input:
-    checked)` treatment plan 30-07 adds to `.leading-option` is the one
-    selected-state signal this control needs; a second, server-rendered
-    one would be two sources of truth for one state.
+    No "Current" badge here: the live `:has(input:checked)` treatment
+    on `.leading-option` is the one selected-state signal this control
+    needs; a second, server-rendered one would be two sources of truth.
     """
     form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
     return (
@@ -2067,24 +991,15 @@ def _same_as_departures_chip_html(field_name, checked, radio_form_id=None):
 
 
 def _usage_row_html(usage, summary_html, body_html, is_open=False, extra_class=""):
-    """30-04-PLAN.md Task 1 (CFG-85): one Aspect accordion row —
-    `<details class="usage-row{ extra_class}" name="{ASPECT_ROWS_
-    GROUP_NAME}" data-usage="{usage}"{ open}>{summary_html}{body_html}
-    </details>`. The row is a container ONLY: `summary_html` (built by
-    `_usage_row_summary_html()`, 30-02-PLAN.md) and `body_html` (a
-    caller-built fragment — a palette grid plus its field error, or the
-    rules row's own list/add-form/how-combine stack) arrive already
-    built, so `_aspect_card_html()`'s own call site can show all four
-    rows' shapes side by side rather than hiding them inside four
-    branches here.
+    """One Aspect accordion row. The row is a container only:
+    `summary_html` and `body_html` arrive already built by the caller,
+    so `_aspect_card_html()` can show all four rows' shapes side by
+    side rather than hiding them inside branches here.
 
     Grouped `<details name="...">` is native, mutually-exclusive-by-
     construction accordion behaviour — zero script, zero server-side
-    "which row is open" state beyond `is_open` itself, which is a
-    property of ONE row (row 1/Departures ships `open`; the other three
-    never do — see `<two_recorded_deviations>` item 2 in this plan for
-    why "every row open" is met by a stronger property instead of the
-    literal, browser-impossible reading).
+    "which row is open" state beyond `is_open` (Departures ships
+    `open`; the other three never do).
     """
     row_class = "usage-row"
     if extra_class:
@@ -2105,54 +1020,27 @@ def _aspect_card_html(
         errors=None, submitted=None, state_dir=None,
         calendar_configured=False, calendar_drift=False, calendar_last_synced_at=None,
         calendar_last_attempt_at=None, now=None, calendar_entry_count=0):
-    """30-04-PLAN.md Task 1 (CFG-85): "Aspect" — the ONE tile that
-    replaces `_frame_colours_card_html()`'s four-row `colour_usage`
-    radiogroup + four usage panels with a native `<details name=
-    "aspect-rows">` accordion: one live preview above four grouped
-    `_usage_row_html()` rows, in `COLOUR_USAGES`' own locked order
-    (departures/arrivals/calendar/rules).
-
-    30-06-PLAN.md Task 1 (CFG-85), 2026-09-22: THE CALENDAR ROW'S
-    CONNECTION BLOCK IS NOW HERE. `calendar_group()` is retired outright
-    — its body (status row, connect/replace/disconnect, "How it works")
-    is built by `_calendar_connection_html()` (below) and threaded into
-    the Calendar row directly beneath its palette and field error, per
-    30-UI-SPEC.md's Structural Contract row 3 and §6 (no third "Gérer"
-    wrapper — see that function's own docstring). The six new keyword
-    parameters above (`calendar_configured`/`calendar_drift`/
-    `calendar_last_synced_at`/`calendar_last_attempt_at`/`now`/
-    `calendar_entry_count`) carry the exact names `calendar_group()`'s
-    own call site in `render()` already used for its local variables —
-    this is a merge, not a re-interface. `errors`/`submitted`/
-    `state_dir` were already this function's own parameters (they
-    repopulate the theme palettes on a rejected save) and now double as
-    `_calendar_connection_html()`'s own arguments of the same names —
-    the calendar URL field's own error/submitted-echo behaviour is
-    unchanged by the merge.
-
-    `errors`/`submitted` repopulate the three palette grids from a
-    rejected save exactly like the retired `_frame_colours_card_html()`
-    did; `departures_safe_id` (and its arrivals/calendar equivalents)
-    keep an unregistered stored/submitted theme id from ever reaching
-    `device_config.THEMES[...]`, carried verbatim from that function.
+    """"Aspect": the one tile with a native accordion, one live preview
+    above four grouped `_usage_row_html()` rows in `COLOUR_USAGES`'
+    locked order. `_calendar_connection_html()` builds the calendar
+    row's connection block. `errors`/`submitted`/`state_dir`
+    repopulate the theme palettes on a rejected save.
+    `departures_safe_id` (and its equivalents) keep an unregistered
+    theme id from ever reaching `device_config.THEMES[...]`.
     """
     effective_theme_id = _submitted_or_current(submitted, "theme", current_theme_id)
-    # 30-04-PLAN.md's own <locked_markup_contract>: the live preview is
-    # keyed off `effective_theme_id` (the same repopulation value every
-    # palette grid below uses), not the bare saved `current_theme_id` —
-    # on an ordinary page load (`submitted is None`) the two are
-    # identical, so this changes nothing there; only a rejected save's
-    # re-render can tell the two apart.
+    # The live preview is keyed off effective_theme_id (the same
+    # repopulation value every palette grid below uses), not the bare
+    # saved current_theme_id, so a rejected save's re-render shows the
+    # submitted theme, not the stored one.
     live_preview_html = _theme_live_preview_html(
         effective_theme_id, state_dir, extra_class="aspect-card__preview")
 
-    # `departures_safe_id` is `_frame_colours_card_html()`'s own guard,
-    # carried verbatim: an unregistered stored/submitted theme id never
-    # reaches `device_config.THEMES[...]` — it resolves to
-    # `DEFAULT_THEME_ID` before any swatch or label is computed. Also
-    # the fallback swatch/label source for Arrivals/Calendar's own
-    # "Same as departures" state, computed once here rather than at
-    # each of those two call sites.
+    # An unregistered stored/submitted theme id never reaches
+    # device_config.THEMES[...] — it resolves to DEFAULT_THEME_ID
+    # before any swatch or label is computed. Also the fallback
+    # swatch/label source for Arrivals/Calendar's own "Same as
+    # departures" state.
     departures_safe_id = (
         effective_theme_id if effective_theme_id in device_config.THEMES
         else device_config.DEFAULT_THEME_ID)
@@ -2207,15 +1095,11 @@ def _aspect_card_html(
             else departures_safe_id)
         calendar_meta = i18n.t(device_config.theme_label(calendar_safe_id))
         calendar_swatch_id = calendar_safe_id
-    # 30-06-PLAN.md Task 1 (CFG-85): the calendar's connection block —
-    # status row, masked-URL/Replace/Disconnect actions, "How it works"
-    # — nests directly beneath this row's palette and field error, per
-    # 30-UI-SPEC.md's Structural Contract row 3 ("directly beneath the
-    # palette, not behind any further disclosure"). The disconnect
-    # `<form>` returned alongside it is NOT part of the row body — it is
-    # a sibling fragment of the whole `.aspect-card` div, concatenated
-    # onto this function's own return value below (Pattern 2,
-    # 30-PATTERNS.md; matches `calendar_group()`'s own retired shape).
+    # The calendar's connection block nests directly beneath this row's
+    # palette and field error. The disconnect form returned alongside
+    # it is not part of the row body: it is a sibling fragment of the
+    # whole .aspect-card div, concatenated onto this function's own
+    # return value below.
     calendar_connection_row_html, calendar_disconnect_form_html = _calendar_connection_html(
         calendar_configured, calendar_drift, calendar_last_synced_at,
         calendar_last_attempt_at, now, calendar_entry_count,
@@ -2230,25 +1114,14 @@ def _aspect_card_html(
         + _field_error_html(errors, "calendar_theme_id", "calendar-theme")
         + calendar_connection_row_html)
 
-    # D-10: the rules row's own body — the existing rule list (or the
-    # empty state), the existing add form (its own <form>, a legal
-    # descendant of this <details> since neither is a <form>) and the
-    # existing suggestion chips (add-affordances, useless beside a
-    # list, so both now sit INSIDE a nested `<details class="rule-add">`
-    # disclosure the sketch/30-UI-SPEC.md's row-4 paragraph calls for),
-    # and the "How rules combine" disclosure OUTSIDE the rule-add
-    # disclosure — it explains the LIST, not the form. Every inner
-    # piece is unchanged from `_frame_colours_card_html()`; only the
-    # wrapping shape (one more nested disclosure) is new.
+    # The rules row's body: the rule list (or empty state), the add
+    # form and the suggestion chips sit inside a nested
+    # <details class="rule-add"> disclosure; "How rules combine" sits
+    # outside it, since it explains the list, not the form.
     registry = ctx.get("colour_rules")
     if not isinstance(registry, dict):
         registry = {kind: {} for kind in colour_rules.RULE_KINDS}
     rule_rows = colour_rules.rule_rows(registry)
-    # RULES_SECTION_CAPTION stays: it is not one of the two captions
-    # CFG-85 deletes outright (the former FRAME_COLOURS_CAPTION,
-    # 30-04-PLAN.md, and CALENDAR_CAPTION, 30-06-PLAN.md — see
-    # ASPECT_CAPTION_EXEMPTIONS above) and already meets CFG-79's word
-    # floor on its own.
     rules_caption_html = '<p class="text-label section-caption">%s</p>' % escape_html(
         i18n.t(RULES_SECTION_CAPTION))
     rules_how_combine_html = (
@@ -2269,13 +1142,8 @@ def _aspect_card_html(
             rules_meta = i18n.t(FRAME_COLOURS_RULES_COUNT_SINGULAR)
         else:
             rules_meta = i18n.t(FRAME_COLOURS_RULES_COUNT_PLURAL_TEMPLATE) % rule_count
-    # The rule-add disclosure's own <summary> reuses RULE_ADD_BUTTON_
-    # TEXT rather than inventing a new summary string — 30-UI-SPEC.md's
-    # copy table adds no such string, and new copy outside the approved
-    # contract is not this plan's to invent. FLAGGED FOR THE DEVELOPER
-    # in the SUMMARY: the disclosure and its own submit button then read
-    # the same words ("Add rule" / "Ajouter la règle"), which is honest
-    # but worth a look.
+    # The rule-add disclosure's <summary> reuses RULE_ADD_BUTTON_TEXT
+    # rather than inventing a new summary string.
     rule_add_html = (
         '<details class="rule-add"><summary>%s</summary>%s%s</details>'
     ) % (
@@ -2302,129 +1170,26 @@ def _aspect_card_html(
         live_preview_html,
         rows_html,
     )
-    # 30-06-PLAN.md Task 1 (CFG-85), Pattern 2 (30-PATTERNS.md): the
-    # disconnect `<form>` is a data-only sibling of the WHOLE
-    # `.aspect-card` div, never nested inside it or inside the Calendar
-    # `<details>` row — matching `calendar_group()`'s own retired
-    # `card_html + disconnect_form_html` shape exactly.
+    # The disconnect form is a data-only sibling of the whole
+    # .aspect-card div, never nested inside it or the Calendar row.
     return card_html + calendar_disconnect_form_html
 
 
 def runway_fieldset(
         current_runway_id, images_available=(), errors=None, submitted=None,
         next_wake_clock=None):
-    """D-05: one selectable `.runway-card` per `device_config.RUNWAYS`
-    entry (exactly three today), in registry order — the entire card
-    (`<label>`) is the hit target, wrapping a visually-hidden (never
-    `display:none`) native radio input so keyboard/no-JS selection still
-    works natively. `current_runway_id` marks the matching card
-    `runway-card--selected`, computed server-side from the same
-    membership comparison the radio's own `checked` attribute uses —
-    never a client-side `:has()` CSS trick.
+    """One selectable `.runway-card` per `device_config.RUNWAYS` entry.
+    The entire card (`<label>`) is the hit target, wrapping a
+    visually-hidden (never `display:none`) native radio so keyboard/
+    no-JS selection still works. An `<img>` renders when `runway_id` is
+    a member of `images_available`.
 
-    Each card also carries a `runway-card__check` icon-check glyph,
-    present in every card's markup — CSS shows it only on the selected
-    card via the `runway-card--selected` modifier, so no second
-    server-side conditional is needed for the icon itself.
-
-    When `runway_id` is a member of `images_available` (the
-    `ctx["runway_images"]` set companion/app.py computes — this module
-    never touches the filesystem itself), an `<img>` pointing at the
-    session-gated `/runway-image/{id}.png` route is also rendered.
-    `images_available` defaults to `()` — "no images available" — the
-    safe D-03 fallback, which is also what every pre-06.4 single-argument
-    call site still gets. The single muted `RUNWAY_SECTION_CAPTION`
-    sentence (quick task 260901-re6) renders once, directly under the
-    heading, before the card list.
-
-    The whole return value is wrapped in a single `<div class="theme-status"
-    data-dirty-section="Runway">` — the same wrapping idiom
-    `theme_fieldset()`'s read-only branch already uses, reused verbatim
-    (D-01, 06.6.4.1): the group used to return five flat top-level
-    siblings (an `<h2>`, N cards, a `<p>`) with no container at all, which
-    was the actual root cause of Settings' broken Runway layout once it
-    sat inside a two-column grid. That grid is now deleted, but the
-    wrapper stays — it is what makes this group, like Theme and the new
-    LED group, a single top-level element `dirty-state.js`'s
-    `data-dirty-section` walk can address as one unit, and what carries
-    the caption paragraph (`RUNWAY_SECTION_CAPTION`) directly under the
-    `<h2 class="text-heading">Runway</h2>` heading.
-    The group is named by that `<h2>`, not a `<legend>`, because D-04/D-05
-    (06.6.3) already dropped the `<fieldset>` wrapper from both the Theme
-    and Runway groups, and a `<legend>` outside a `<fieldset>` is invalid
-    markup with no accessible group semantics — `<h2 class="text-heading">`
-    is the role the Poll section and the new LED group both use too, so
-    every group in this form reads at one consistent heading level.
-
-    The cards themselves are further wrapped in a nested `<div
-    class="runway-row">` (quick task 260901-qif), sitting directly after
-    the caption paragraph — only the cards go in, the `<h2>` and the `<p>`
-    stay outside it. Nothing renders after the row closes (quick task
-    260901-re6 retired the trailing helper paragraph that used to sit
-    there — the two-paragraph shape this docstring used to describe is
-    gone). The cards used to be bare siblings of the heading and both
-    paragraphs inside `.theme-status`, so each block-level card took a
-    full line and the group rendered as three stacked full-width bars
-    instead of the validated row-of-three. The row is a layout container
-    only — it carries no visual treatment of its own, and the cards keep
-    theirs.
-
-    19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
-    defaulted) let a rejected save repopulate the selected card from the
-    submission and render `tracked_runway`'s error message once, after
-    the card row. `tracked_runway` is a membership-test field, like
-    `theme` above — no single radio in the group gains
-    `aria-invalid`/`aria-describedby`, for the identical reason
-    `theme_fieldset()`'s own docstring already gives.
-
-    19-11-PLAN.md Task 3 (D-12/A-30): the `.runway-row` wrapper itself
-    gains `role="radiogroup"` plus `aria-labelledby` (pointing at this
-    group's own `<h2>`, `RUNWAY_GROUP_HEADING_ID`) and `aria-describedby`
-    (pointing at `RUNWAY_SECTION_CAPTION_ID`'s hint) — the identical
-    compatible-with-zero-`<fieldset>` pattern `theme_fieldset()` applies
-    to its two chip grids, for the identical reason (see that function's
-    own Task 3 docstring paragraph and this file's standing
-    fieldset-free-design rationale above).
-
-    Polish fix 4 (D-14c): each radio now also carries an explicit
-    `form="{SETTINGS_FORM_ID}"` attribute — the SAME `form=` idiom
-    `display_group()`/`quiet_hours_group()` already use for their own
-    scheduled inputs (D-19/Pitfall 1). On the legacy SCOPE_ALL render
-    (where this group is still a literal descendant of
-    `<form id="{SETTINGS_FORM_ID}">`), the attribute is a harmless
-    no-op — the browser's explicit `form=` association resolves to the
-    exact enclosing form either way. On the Display scope, `render()`
-    now renders this group as a SIBLING of `<form id="{SETTINGS_FORM_
-    ID}">` (never nested inside it), which is what lets the merged
-    Calendar card's own connect/replace `<form>` (21-07-PLAN.md Task 1)
-    sit between the Calendar card and this group in document order
-    without ever nesting one `<form>` inside another.
-
-    27-05-PLAN.md Task 2 (CFG-66) RETIRED the schematic map 25-03
-    (CFG-47) drew into each card: the developer's own review found it
-    taught him nothing his own paper schematics did not already
-    ("Je comprends pas l'intérêt de ces cartes des pistes, elles
-    représentent la même chose que mes schémas."). The map was a drawing
-    wrapped around a native radiogroup that already worked, so removing
-    it changed NOTHING about the control: the three radios keep their
-    `name`, their `value`s, their `class="visually-hidden"` (never
-    `display: none`, which would drop them from the tab order and break
-    keyboard selection), their `form=` association and their `checked`
-    computation; the row keeps `role="radiogroup"`, `aria-labelledby`
-    and `aria-describedby` with the same ids. This group ships ZERO
-    JavaScript and needs none of 25-01's `.js` gate, exactly as it did
-    with the map — a control that needed no enhancement before still
-    needs none.
-
-    THE PHOTOGRAPHS STAY, AND STAY WHERE THEY WERE. `images_available`
-    is untouched, the session-gated `/runway-image/{id}.png` route is
-    untouched, and the three PNGs on disk are untouched. The `<img>`
-    keeps its existing slot below the card's number, so
-    `.runway-card__image`'s own rule and the two-of-three availability
-    behaviour need no edit at all — the map and the photograph always
-    answered different questions (where this runway is, and what it
-    looks like), and removing the former leaves the latter's slot exactly
-    where it was.
+    Named by an `<h2>` rather than a `<legend>`, since a `<legend>`
+    outside a `<fieldset>` has no accessible group semantics; the
+    `.runway-row` wrapper carries `role="radiogroup"` instead.
+    `errors`/`submitted` repopulate the selected card on a rejected
+    save. Each radio carries an explicit `form=` attribute so the group
+    keeps posting even when rendered as a form sibling.
     """
     effective_runway_id = _submitted_or_current(
         submitted, "tracked_runway", current_runway_id)
@@ -2434,16 +1199,10 @@ def runway_fieldset(
         checked = " checked" if selected else ""
         card_class = (
             "runway-card runway-card--selected" if selected else "runway-card")
-        # 22-10-PLAN.md Task 1 (T10): the badge's own translated text,
-        # emitted only on the saved card — the same contract
-        # _theme_chip_grid_html() above documents.
+        # Emitted only on the saved card.
         current_attr_html = (
             ' %s="%s"' % (CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
             if selected else "")
-        # Polish fix 5 (D-05): device_config.runway_label()'s registry
-        # text ("Runway 3 (07/25)", …) is translated at this display
-        # site via i18n.t() — the id (runway_id) itself never changes;
-        # companion/i18n_fr/registry.py supplies the French entries.
         label = i18n.t(device_config.runway_label(runway_id))
         escaped_id = escape_html(runway_id)
         image_html = ""
@@ -2494,76 +1253,20 @@ def runway_fieldset(
 
 
 def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=None):
-    """The Diagnostic LED settings group (D-05, 06.6.4.1): a sibling of the
-    Theme and Runway groups inside the single merged `<form
-    action="{SETTINGS_ROUTE}">`, wrapped in the same `.theme-status`
-    container idiom those two groups use — the `theme-status` class name
-    is reused verbatim, not a third wrapper class invented for this group.
+    """The Diagnostic LED settings group: a sibling of Theme and
+    Runway in the merged settings form, with no `<fieldset>`/`<legend>`
+    (named by an `<h2>` instead) and no `role="radiogroup"` (a single
+    checkbox gets `aria-describedby` instead).
 
-    Deliberately carries no `<fieldset>`/`<legend>` of its own, unlike
-    the retired pre-06.6.4.1 `led_fieldset()`/`led_section()` pair
-    (removed 06.6.4.1-07, D-05: their own separate `POST /config-led`
-    route no longer exists either). The old `<fieldset>` existed because
-    the LED control used to live in its own independently-submittable
-    `<form>`, and a `<legend>` only has accessible-name semantics inside
-    a `<fieldset>`. Now that this group
-    is a sibling of two `<h2>`-headed groups in one single-column stack
-    (Theme's and Runway's own `<fieldset>` wrappers were already dropped
-    by D-04/D-05 in 06.6.3), it is named the same way they are — an `<h2
-    class="text-heading">` — so all three groups read at one consistent
-    heading level, matching the Poll section's own heading role.
-
-    19-11-PLAN.md Task 3 (D-12/A-30): this checkbox has exactly one
-    natural DOM element, so it needs no `role="radiogroup"` of its own
-    (unlike Theme's two chip grids and the Runway row) — but the
-    fieldset-free design this whole file follows stands on the same
-    reasoning stated here and at `theme_fieldset()`'s/
-    `runway_fieldset()`'s own Task 3 paragraphs: D-12 supplies missing
-    group semantics via ARIA attributes (`aria-describedby` here,
-    `role="radiogroup"` + `aria-labelledby` there) rather than ever
-    reaching for a literal `<fieldset>`/`<legend>`.
-
-    quick task 260901-re6: `LED_SECTION_CAPTION` is a single muted
-    caption, styled and positioned identically to Theme's and Runway's
-    own captions — directly under the heading, before the control. It
-    used to render as an un-muted `<p class="text-label">` AFTER the
-    `<label>` instead, which this task fixes; the docstring previously
-    asserted it "already renders directly under the heading here", which
-    was never true of the shipped markup and is the reason this position
-    drift went unnoticed.
-
-    The `<label>` carries `class="settings-checkbox"` (quick task
-    260901-qif; a rename of this group's own original checkbox-
-    normalization class, by 10-05-PLAN.md Task 2, once the Quiet hours
-    group became a second consumer of the identical pattern): unclassed,
-    it fell through to the global `input, select`
-    rule written for text inputs and selects, painting an oversized 44x44
-    filled, bordered, rounded box instead of a normal small checkbox. The
-    class scopes a normalization rule that shrinks the checkbox to its
-    native 16px size while relocating the 44px touch-target floor onto
-    this label — the input's own `type`/`name`/`value`/`checked`
-    attribute sequence is untouched.
-
-    19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
-    defaulted) let a rejected save repopulate this checkbox's `checked`
-    state from the submission (absent-means-unchecked, matching
-    `handle_post()`'s own resolution of this exact field) and render its
-    "unexpected switch value" error, anchored on the checkbox itself.
-
-    19-11-PLAN.md Task 3 (D-12/A-30): this checkbox — a single-control
-    group, unlike Theme/Runway's radio groups above — gains
-    `aria-describedby` pointing at `LED_SECTION_CAPTION_ID`'s hint
-    directly, via `_field_error_attrs()`'s own `hint_id` parameter;
-    combined with any error id in one space-separated value (hint
-    first), never a second, competing `aria-describedby`.
+    The `<label>` carries `class="settings-checkbox"`: unclassed, it
+    would fall through to the global `input, select` rule and paint an
+    oversized filled box. `errors`/`submitted` repopulate this
+    checkbox's `checked` state from a rejected save.
     """
     is_on = current_led_enabled is True
     error_html = _field_error_html(errors, "led_enabled", "led-enabled")
-    # D-12/A-30's hint-then-error order, preserved across the conversion.
-    # The switch describes itself with its own state span first, then the
-    # group's caption (the hint the checkbox used to carry through
-    # _field_error_attrs()'s hint_id), then the error anchor when there
-    # is one — three ids on one attribute, never one overwriting another.
+    # Hint-then-error order: the switch's own state span, then the
+    # group's caption hint, then the error anchor when there is one.
     described_by = QUICK_LED_STATE_ID + " " + LED_SECTION_CAPTION_ID
     if errors and errors.get("led_enabled"):
         described_by = described_by + " led-enabled-error"
@@ -2596,24 +1299,16 @@ QUICK_LED_STATE_ID = "quick-switch-led-state"
 
 
 def quick_led_form_html(current_led_enabled):
-    """The Diagnostic LED switch's own empty `<form>`, a sibling of
-    `<form id="{SETTINGS_FORM_ID}">` — `led_group()` renders inside the
-    settings form, and a `<form>` can never nest inside another, so the
-    button reaches this element across the DOM via
-    `form="{QUICK_LED_FORM_ID}"`.
-
-    `return_to` is `layout.DEVICE_ROUTE`; `companion/app.py` validates
-    it by membership before using it as a redirect target — this
-    function has no opinion on validity.
+    """The Diagnostic LED switch's own empty `<form>`, a sibling of the
+    settings form: `led_group()` renders inside it, and a `<form>` can
+    never nest inside another, so the button reaches this element
+    across the DOM via `form="{QUICK_LED_FORM_ID}"`.
 
     The posted `state` is the opposite of the stored one, so a press
     with scripts blocked switches the LED rather than re-asserting its
-    current state; `companion/static/quick-switch.js` keeps that field
-    inverted after an optimistic flip.
-
-    `data-quick-switch` is the handshake both `dirty-state.js` and
-    `quick-switch.js` key on — not apparently-unused from this module's
-    perspective.
+    current state; `quick-switch.js` keeps that field inverted after an
+    optimistic flip. `data-quick-switch` is the handshake both
+    `dirty-state.js` and `quick-switch.js` key on.
     """
     next_state = (
         layout.QUICK_STATE_OFF if current_led_enabled is True else layout.QUICK_STATE_ON)
@@ -2670,23 +1365,15 @@ def quiet_window_minute_of_day(value):
 
 
 def quiet_window_span(start_hm, end_hm):
-    """The quiet window as a `QuietWindowSpan`, or `None` when either end
-    does not parse. Never raises.
+    """The quiet window as a `QuietWindowSpan`, or `None` when either
+    end does not parse. Never raises. Always forward from `start_hm`,
+    through midnight if necessary (a modulo, not a subtraction): 23:00
+    to 07:00 is 480 minutes, and 07:00 to 23:00 is its complement, 960.
 
-    Always forward from `start_hm`, through midnight if necessary (a
-    modulo, not a subtraction): 23:00 to 07:00 is 480 minutes, and
-    07:00 to 23:00 is its complement, 960.
-
-    Equal start and end is a zero-length window, not a whole day —
+    Equal start and end is a zero-length window, not a whole day,
     matching `server.device_config.seconds_until_quiet_hours_end()`'s
-    own contract, since `(end - start) % 1440` is 0 for that input. A
-    24-hour window is therefore unreachable through two HH:MM values:
-    the only pair whose forward distance could be 1440 is the equal
-    pair already claimed by zero, so the largest expressible window is
-    1439 minutes, matching the dial's own `aria-valuemax`.
-
-    An unparseable end renders nothing (`None`, never a zero span,
-    which would draw a real empty window and claim one is configured).
+    contract — the largest expressible window is therefore 1439
+    minutes, matching the dial's own `aria-valuemax`.
     """
     start = quiet_window_minute_of_day(start_hm)
     end = quiet_window_minute_of_day(end_hm)
@@ -2700,27 +1387,14 @@ def quiet_window_span(start_hm, end_hm):
 
 
 def _normalised_time_html(value):
-    """The normalised 24h value rendered as a visible sibling beside a
-    native `<input type="time">`.
+    """The normalised 24h value rendered as a visible, `aria-hidden`
+    sibling beside a native `<input type="time">`, since a native time
+    control formats from the browser's own locale (e.g. "23:00" as
+    "11:00 PM" in en-US) with no way to tell it matches a preset.
 
-    A native time control formats itself from the browser's own locale,
-    so an en-US browser renders the stored "23:00" as "11:00 PM" —
-    directly beside a preset button labelled "Night (23:00-07:00)". One
-    value, two notations, with no way to tell they are the same without
-    showing the stored 24h text.
-
-    `aria-hidden`: the input's own value is already announced natively
-    by the control itself; repeating it would announce the same value
-    twice with no added information.
-
-    Renders nothing for a falsy/unparseable value rather than
-    fabricating one. The value is already server-validated by
-    `handle_post()`; this only echoes it back.
-
-    The span also carries `QUIET_NORMALISED_TIME_ATTR`, a stable hook
-    `value-controls.js` reads to decide whether to hide it on a browser
-    that is already unambiguous — server-visible, script-hidden, so a
-    scripts-blocked or forced-12h browser always keeps the fallback.
+    Renders nothing for a falsy/unparseable value. The span carries
+    `QUIET_NORMALISED_TIME_ATTR`, a hook `value-controls.js` reads to
+    hide it on a browser that is already unambiguous.
     """
     if not value or not _HHMM_RE.match(str(value)):
         return ""
@@ -2808,34 +1482,14 @@ _QUIET_DIAL_TWELVE_OCLOCK_DEG = -90.0
 
 def quiet_dial_svg(span):
     """The 24h ring as one `<svg>`: a full-circumference day, plus the
-    quiet arc when `span` describes one. Never raises.
+    quiet arc when `span` describes one. Never raises; server-drawn, so
+    a scripts-blocked visitor still sees the saved window correctly.
 
-    Server-drawn: with scripts blocked the visitor still sees a correct
-    picture of the saved window — only dragging the handle is script.
-
-    `span` is `quiet_window_span()`'s return value, which already
-    decided the wrap; this function does no window arithmetic of its
-    own. No arc at all for `span is None` or a zero-length window — a
-    zero-length dash would render as a dot under a round cap, reading
-    as "a few minutes" rather than "no window".
-
-    The dash route, not an arc path: an arc `<path>` whose sweep is the
-    whole circle is degenerate in SVG and draws nothing. This control
-    cannot reach a full turn (see `quiet_window_span()`), and the dash
-    route needs no large-arc-flag reasoning or trigonometry.
-
-    `fill="none"` is a presentation attribute on both shapes: a stroked
-    circle with no fill takes the format's default black. `stroke-width`
-    is a presentation attribute too, deliberately not a stylesheet
-    declaration, since any CSS stroke-width would beat it and flatten
-    the geometry the constants above derive.
-
-    The `.js`-scoped override of this circle's `stroke-dasharray`/
-    `transform` reads the same `QUIET_DIAL_RADIUS` via a custom
-    property rather than a `pathLength="1"` attribute: a headless
-    measurement showed `pathLength="1"` painting a second, spurious
-    dash, because it reinterprets the saved-value dasharray on a second,
-    rescaled coordinate system.
+    No arc for `span is None` or a zero-length window: a zero-length
+    dash would render as a dot, reading as "a few minutes" rather than
+    "no window". `fill="none"`/`stroke-width` are presentation
+    attributes, deliberately not stylesheet declarations, since a CSS
+    rule would beat them and flatten the derived geometry.
     """
     centre = QUIET_DIAL_SIZE // 2
     shapes = [draw.circle(QUIET_DIAL_DAY_CLASS, centre, centre, QUIET_DIAL_RADIUS, attrs={
@@ -2868,22 +1522,12 @@ def quiet_dial_svg(span):
 
 def quiet_dial_html(span, handles_html=""):
     """The ring and its four anchor-hour labels, as one positioned block.
-
-    The labels are HTML outside the `<svg>`, not `<text>` inside it,
-    since a viewBox must contain the bounding box of any text drawn
-    inside it, and keeping labels out of the canvas makes that defect
-    unreachable by construction while keeping them at a constant CSS
-    size instead of scaling with the box.
-
-    `handles_html` is the `.js`-gated handle layer, empty when there is
-    none, rendered last so document order is paint order.
-
-    This `<div>` is the pair seam's shared ancestor: the two handles'
-    fractions and their derived sweep publish here, under the property
-    name `QUIET_DIAL_PAIR_ATTR` names, computed from the same `span`
-    triple `quiet_dial_svg()` draws from so the CSS-driven and
-    presentation-attribute geometry never disagree. `span is None`
-    publishes no pair, since there is no window to publish one for.
+    Labels are HTML outside the `<svg>`, not `<text>` inside it, so a
+    viewBox never has to contain drawn text, and they stay a constant
+    CSS size. `handles_html` renders last (document order is paint
+    order). This `<div>` is the pair seam's shared ancestor: the
+    handles' fractions publish here, from the same `span` triple
+    `quiet_dial_svg()` draws from, so the two geometries never disagree.
     """
     hours_html = "".join(
         '<span class="text-label %s %s" aria-hidden="true">%02d</span>' % (
@@ -2950,33 +1594,16 @@ def quiet_dial_handle_fraction(minute):
 
 
 def quiet_dial_handles_html(start_hm, end_hm):
-    """The two drag handles, each in its own `.js`-gated wrapper.
+    """The two drag handles, each in its own `.js`-gated wrapper: a
+    real `<button type="button">` (never a bare `<div>`, and never a
+    plain `<button>`, which would default to form submit on Enter).
 
-    Each handle is a real `<button type="button">`, never a bare `<div>`
-    — focusable and announced with no extra ARIA. `type="button"`
-    because a bare `<button>` in a form defaults to submit, and a
-    handle that posted the settings form on Enter would save on a
-    keystroke meant to adjust a value.
-
-    Driven from the two native inputs, never from state of its own: the
-    server renders each handle from the same value the matching input
-    holds, and value-controls.js re-reads that input on every steer —
-    which is why the existing presets already move the handles with no
-    code of their own.
-
-    No handle at all for an end that does not parse, matching the
-    omit-don't-fabricate rule `_normalised_time_html()`/`quiet_dial_svg()`
-    follow.
-
-    No minimum separation between the two ends: a zero-length window is
-    a real, defined state, and refusing it here would make a state
-    reachable by typing unreachable by dragging. Z-order is document
-    order (the end handle is emitted second, so it sits on top with no
-    `z-index`), so the end handle wins a pointer-down where they
-    overlap; moving it separates the pair, after which both are
-    independently grabbable again. `test_browser_ux.py` measures both
-    handles at the width where the shared 44px hit targets stop
-    overlapping (about 94 minutes on this ring).
+    Driven from the two native inputs, never from state of its own, so
+    the existing presets already move the handles with no code of
+    their own. No handle for an end that does not parse. No minimum
+    separation between the two ends (a zero-length window is a real
+    state); z-order is document order, so the end handle wins a
+    pointer-down where they overlap, and moving it separates the pair.
     """
     handles = []
     for value, field, label, pair_property in (
@@ -3030,30 +1657,18 @@ _QUIET_DIAL_DURATION_TEXTS = (
 
 def quiet_dial_readout_html(start_hm, end_hm, span):
     """"23:00 → 07:00 · 8h" — the window in words, or "" when `span` is
-    None.
-
-    `aria-hidden="true"`: both time inputs already announce their own
-    values natively, so repeating them here would say the same thing
-    twice. Not a `role="status"`/`aria-live` region either: dragging a
-    handle fires continuously, and a live region would re-announce the
-    identical phrase on every step — the focused handle's own
-    `aria-valuetext` is the debounced announcement path.
+    None. `aria-hidden="true"`, not a live region: dragging fires
+    continuously, and the focused handle's own `aria-valuetext` is
+    already the debounced announcement path.
 
     The duration comes from `layout.duration_text()`, this app's one
-    length-of-time ladder, rather than a second boundary set invented
-    here — coarse by construction (a 90-minute window reads "1h"), which
-    is acceptable since the two exact endpoints are printed beside it.
-
-    Three children, not one text node, so the sentence can follow the
-    pair the way the arc does. The two endpoint spans carry the
-    `data-value-readout` seam (named by the field whose handle moves
-    them) with `data-value-readout-format="clock"`, so
-    `value-controls.js` substitutes zero-padded "HH:MM" through the same
-    codec the native time input uses. The duration span carries all four
-    `layout.DURATION_ATTRS`, each filled with `i18n.t()` of the matching
-    wording, so the client substitutes a quantity into whichever bucket
-    applies with no language logic of its own — its own visible,
-    server-rendered content stays `layout.duration_text(span.minutes * 60)`.
+    length-of-time ladder, coarse by construction (a 90-minute window
+    reads "1h"). Three children, not one text node: the two endpoint
+    spans carry the `data-value-readout` seam so `value-controls.js`
+    can substitute "HH:MM" client-side; the duration span carries all
+    four `layout.DURATION_ATTRS` translated wordings, so the client
+    substitutes a quantity into the right bucket with no language logic
+    of its own.
     """
     if span is None:
         return ""
@@ -3086,31 +1701,16 @@ def quiet_dial_readout_html(start_hm, end_hm, span):
 
 
 def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
-    """The Quiet hours settings card: a sibling of
-    `<form id="{SETTINGS_FORM_ID}">`, never a literal descendant. Both
-    time inputs keep submitting with the shared Save via a
-    `form="{SETTINGS_FORM_ID}"` attribute on each.
+    """The Quiet hours settings card: a sibling of the settings form,
+    never a literal descendant; both time inputs submit via `form=`.
 
-    Controls render in this order: heading, caption, dial, readout, the
-    three presets, then Start and End (side by side in a two-column
-    grid, next to the dial they mirror). Neither time input is ever
-    `disabled`: they stay fully interactive whether or not Quiet hours
-    is currently on, so a user can pre-configure a window either way —
-    the Frame strip is the only control for turning it on or off, and
-    `handle_post()` already treats an absent checkbox as unchanged.
-
-    The three presets are a client-side-only affordance: `type="button"`
-    elements carrying `data-preset-start`/`data-preset-end` attributes
-    that `dirty-state.js` reads and writes into the two time fields,
-    inert (never submitting) with no script.
-
-    `errors`/`submitted` repopulate both time controls and their error
-    messages on a rejected save. Both inputs also carry a `required`
-    attribute as a client-side convenience only; the server-side HH:MM
-    gate in `handle_post()` is the real control.
-
-    The `<h2>` carries `id="{QUIET_HOURS_GROUP_HEADING_ID}"`, a
-    fragment target for the Frame strip's own Quiet hours caption link.
+    Neither time input is ever `disabled`: they stay interactive
+    whether or not Quiet hours is on, since the Frame strip is the only
+    on/off control. The three presets are client-side-only
+    `type="button"` elements dirty-state.js writes into the two time
+    fields, inert with no script. `errors`/`submitted` repopulate both
+    controls; the server-side HH:MM gate in `handle_post()` is the real
+    validation.
     """
     # The group's single hint links to both time inputs (there is no
     # separate per-field hint for Start vs End).
@@ -3204,19 +1804,11 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
 
 def wake_gauge_interval_s(current_wake_interval_s, submitted=None):
     """The interval the two gauges describe, as an int inside
-    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]`, or `None` when there is
-    no such value — in which case nothing renders at all, matching this
-    file's omit-don't-fabricate rule.
-
-    Honours the echo rule where it can: on a rejected save `submitted`
-    carries the raw typed string, and the gauges describe that rather
-    than the stored value, so the picture and the field never disagree
-    on the screen where a mistake is being fixed. But a raw submission
-    is also where out-of-range values live ("7", "99999", "abc"), so an
-    echo outside the valid range still renders no gauge.
-
-    Total by construction: a non-string, a non-numeric string, a float
-    string, a bool and `None` all resolve to `None` and nothing raises.
+    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]`, or `None` (nothing
+    renders). On a rejected save, echoes the raw submitted string
+    rather than the stored value so the gauges match the field being
+    fixed — but an out-of-range echo ("7", "99999") still renders no
+    gauge. Total by construction: never raises.
     """
     if submitted is not None and "wake_interval_s" in submitted:
         raw = submitted["wake_interval_s"]
@@ -3263,20 +1855,12 @@ def wake_freshness_text(interval_s):
 
 
 def wake_battery_observed_text(interval_s, battery_rows=None):
-    """The battery half: an absolute figure only when this frame's own
-    observed history supports one, and the named "not enough history
-    yet" sentence in every other case. `""` when there is no interval.
-
-    The figure is `battery.battery_life_estimate()`'s, never computed
-    here: this function only chooses between a singular and a plural
-    wording. Four of that estimator's five named trends carry no figure
-    at all (no reading, not enough history, a rising series — a
-    positive slope divides to a negative or infinite lifetime — and a
-    flat one), and all four land on the same honest sentence here.
-
-    `battery_rows` is a daily-average series in `history_db.py`'s row
-    shape; `None`/`()` is the ordinary state of a fresh deployment and
-    produces the unknown sentence rather than an empty card.
+    """The battery half: an absolute figure only when observed history
+    supports one, else the named "not enough history yet" sentence;
+    `""` when there is no interval. The figure is
+    `battery.battery_life_estimate()`'s, never computed here — this
+    only picks singular vs. plural wording. `battery_rows` defaults to
+    `()`, the ordinary state of a fresh deployment.
     """
     if interval_s is None:
         return ""
@@ -3310,24 +1894,16 @@ def wake_screen_off_text():
 
 
 def wake_battery_relative_template(saved_interval_s):
-    """The relative clause's template, with the saved cadence already
-    written into it and `#` left standing for the proposed one — or `""`
-    when there is no usable saved cadence to compare against.
-
-    "This setting wakes the frame every # min instead of every 10 min."
-
-    Two whole cadences named in full, not a ratio: a ratio needs a
-    decimal mark, and French writes it with a comma, so recomputing a
-    ratio client-side would either print an English decimal on a French
-    page or need the mark handed over as an attribute. Two integers
-    need neither, and the saved cadence is baked in server-side (fixed
-    for the life of the page), leaving only the proposed one as the
-    script's one substitution.
+    """The relative clause's template, saved cadence already written
+    in and `#` standing for the proposed one — `""` with no usable
+    saved cadence. "This setting wakes the frame every # min instead of
+    every 10 min." — two whole cadences, not a ratio, since a ratio
+    needs a decimal mark that differs between English and French.
 
     Routed through `battery.battery_life_estimate()`'s
-    `relative_factor` for its guard, not for a number: that function
-    already refuses a bool, non-numeric, non-positive or absurd cadence,
-    and a clause built on a cadence it would refuse is about nothing.
+    `relative_factor` for its guard: a clause built on a cadence that
+    function would refuse (bool, non-numeric, non-positive) is about
+    nothing.
     """
     estimate = battery.battery_life_estimate(
         (), saved_interval_s, saved_interval_s)
@@ -3338,19 +1914,11 @@ def wake_battery_relative_template(saved_interval_s):
 
 def wake_battery_relative_text(proposed_interval_s, saved_interval_s):
     """The relative clause as the server would render it for a given
-    proposal — `""` when the two cadences are the same, which is what
-    every real page render produces (the server always renders the
-    saved interval against itself, and echoing "every 10 min instead of
-    every 10 min" would be noise).
-
-    This is nonetheless a real function with a real return: it is the
-    one definition of this sentence in Python, and `test_browser_ux.py`
-    drives the slider in a browser and compares the script's own output
-    against it.
-
-    It never carries a days figure: that half comes from observed
-    history and is server-rendered once, deliberately unreachable from
-    script, so a script that could recompute it could also invent one.
+    proposal — `""` when the two cadences are equal, the case every
+    real page render produces. The one definition of this sentence in
+    Python; `test_browser_ux.py` compares the script's own live output
+    against it. Never carries a days figure: that half stays
+    server-rendered, deliberately unreachable from script.
     """
     template = wake_battery_relative_template(saved_interval_s)
     if not template:
@@ -3399,20 +1967,11 @@ def _wake_battery_cutoff_iso(now):
 
 
 def wake_gauges_html(interval_s, battery_rows=None):
-    """The two gauges, as two muted sentences — or `""` when there is no
-    interval for them to describe.
-
-    Server-rendered and outside the `.js` gate entirely: with scripts
-    blocked a visitor can still type an interval, read what it means,
-    and save it. Only the slider is gated, since a slider with no
-    script is a control that drags and shows nothing. Rendering these
-    server-side also gives the script something to update rather than
-    create, so a failed script leaves correct sentences, not empty ones.
-
-    Neither is a live region: they change on every step of a drag, and
-    an `aria-live` region would re-announce the same phrase
-    continuously. The range announces itself natively and points at
-    these two via `aria-describedby`.
+    """The two gauges, as two muted sentences — `""` when there is no
+    interval. Server-rendered, outside the `.js` gate: a script only
+    updates these, never creates them, so a failed script leaves
+    correct sentences. Neither is a live region — they'd re-announce
+    continuously during a drag; the range announces itself natively.
     """
     if interval_s is None:
         return ""
@@ -3447,28 +2006,18 @@ def wake_gauges_html(interval_s, battery_rows=None):
 
 
 def wake_slider_html(interval_s):
-    """The range input, inside the `.js` gate — or `""` when there is
-    no saved interval for it to start from.
+    """The range input, inside the `.js` gate — `""` when there is no
+    saved interval to start from.
 
     Carries no `name`: a named range would post a second value for
-    `wake_interval_s` on every save, and whichever arrived last would
-    win silently. The `<input type="number">` above is the only control
-    on this card that posts; this one only writes into it through
-    `value-controls.js`.
+    `wake_interval_s`, and whichever arrived last would win silently.
+    The `<input type="number">` is the only control on this card that
+    posts; this one only writes into it via `value-controls.js`.
 
-    No `role="slider"` either: a native range input already exposes
-    slider semantics and the keyboard model value-controls.js
-    implements by hand for a `<div>` handle, so adding the role would
-    be a double-role error. It gets an `aria-label` and an
-    `aria-describedby` pointing at the two gauges.
-
-    Gated, since a range with no script is a control that drags and
-    shows nothing; the two gauges and the number input are not gated,
-    since a visitor with scripts blocked can still type and save one.
-
-    `min`/`max` come from `device_config`, never re-typed, so this
-    control can never accept what `save_device_config()`'s own
-    server-side re-check would reject.
+    Gated, since a range with no script drags and shows nothing; the
+    gauges and number input are not gated. `min`/`max` come from
+    `device_config`, never re-typed, so this control can never accept
+    what `save_device_config()`'s own server-side re-check would reject.
     """
     if interval_s is None:
         return ""
@@ -3496,35 +2045,18 @@ def wake_slider_html(interval_s):
 
 def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, next_wake_clock=None,
                         battery_rows=None):
-    """The Wake interval settings group. Unlike `quiet_hours_group()`,
-    this group has no checkbox gate: a plain `<label>` wraps a single
-    `<input type="number">`, not `class="settings-checkbox"`, which
-    normalises a checkbox and would mis-size a text-like input.
+    """The Wake interval settings group: a plain `<label>` wraps a
+    single `<input type="number">` (no checkbox gate, unlike
+    `quiet_hours_group()`). `min`/`max` come from `device_config`
+    rather than re-typed literals.
 
-    `min`/`max` are read from `device_config` rather than re-typed, so
-    they can never drift apart from `save_device_config()`'s own
-    server-side re-check.
-
-    The `value` attribute is emitted only when `current_wake_interval_s`
-    is an `int`, not a `bool`, within `[WAKE_INTERVAL_MIN_S,
-    WAKE_INTERVAL_MAX_S]`; otherwise none is emitted and the placeholder
-    carries the empty state. An out-of-range `value` on a native numeric
-    input fails HTML5 constraint validation and blocks submission of
-    the whole form, not just this field — a live risk, since
-    `deploy/skypane.env.example` ships `SKYPANE_SLEEP_S=30`, below the
-    60s floor, as the pre-fill fallback.
-
-    On a rejected save (`submitted` carries this field), the raw
-    submitted string is echoed back verbatim, deliberately bypassing
-    the in-range/non-bool-int guard above, since that guard exists only
-    for the ordinary ctx-sourced int — a rejected value like "7" would
-    otherwise silently lose the echo the user needs to see. Native
-    HTML5 min/max validation still applies on the next submit attempt.
-
-    `battery_rows` is the daily-average series the battery gauge
-    derives from, `()` by default. The two gauges append after the
-    error block rather than interleaving with it, since they describe
-    what the setting means and read after the control that sets it.
+    The `value` attribute is emitted only for an in-range, non-bool
+    int; otherwise the placeholder carries the empty state — an
+    out-of-range `value` fails HTML5 constraint validation and blocks
+    the whole form's submission. On a rejected save the raw submitted
+    string is echoed back verbatim instead, bypassing that guard so the
+    user sees what they typed. `battery_rows` feeds the battery gauge,
+    which appends after the error block.
     """
     if submitted is not None and "wake_interval_s" in submitted:
         raw_submitted = submitted["wake_interval_s"]
@@ -3586,19 +2118,13 @@ def notifications_group(
         errors=None, submitted=None):
     """The Notifications settings card (Device scope only): battery-low
     and frame-silent checkboxes plus a write-only push-topic URL field.
+    `configured` is a bare bool: the status row and the input (no
+    `value` attribute, ever) never reveal the stored secret.
 
-    `configured` is a bare bool, never the URL or a masked fragment of
-    it — the status row and the input (no `value` attribute, ever)
-    never reveal the stored secret, in either state.
-
-    The URL field waits on the page-wide Save like every other Device
-    field. Only "Send a test" (`notifications_test_section()`) is its
-    own immediate-POST form, a sibling of `#settings-form`, since an
-    immediate action must never nest inside the page-wide Save form.
-
-    `errors`/`submitted` repopulate both checkboxes and their error
-    messages on a rejected save; the URL field has nothing to
-    repopulate, being write-only.
+    The URL field waits on the page-wide Save; only "Send a test" is
+    its own immediate-POST form, a sibling of `#settings-form`, since
+    an immediate action must never nest inside the Save form.
+    `errors`/`submitted` repopulate both checkboxes on a rejected save.
     """
     status_html = layout.status_row(
         "",
@@ -3745,20 +2271,15 @@ def _calendar_connection_html(
     """Calendar's connection block inside the Aspect card's Calendar
     row: status, connect/replace form or masked URL, and the cross-DOM
     Disconnect button. Returns `(row_body_html, disconnect_form_html)`
-    — the disconnect form is returned separately because HTML forbids
-    nesting it inside the row's own connect/replace form; the caller
-    places each piece where it belongs.
+    separately, since HTML forbids nesting the disconnect form inside
+    the row's own connect/replace form.
 
-    The feed URL field is write-only: never a `value` attribute, and
-    only a masked `host + "…"` (`_masked_calendar_url()`) is shown once
-    connected. Drift (an unreadable stored link) is checked before
-    `configured`, since a drifted link already forces `configured`
-    False.
-
-    Disconnect posts an empty confirm field to a two-step,
-    server-rendered confirm page (`calendar_disconnect_confirm_page()`
-    below); the client-side `data-confirm` dialog is a misclick guard
-    only, never the real gate.
+    The feed URL field is write-only: never a `value` attribute, only a
+    masked `host + "…"` once connected. Drift is checked before
+    `configured`, since a drifted link already forces it False.
+    Disconnect posts an empty confirm field to a two-step, server-
+    rendered confirm page; the client-side `data-confirm` dialog is a
+    misclick guard only, never the real gate.
     """
     # Drift first: it already forces `configured` False, so checking
     # `not configured` first would make this branch unreachable.
@@ -3917,19 +2438,11 @@ def calendar_disconnect_confirm_page(ctx):
 
 def poll_trigger_section(cooldown_remaining):
     """The manual poll-trigger control: an enabled button, or a
-    native-disabled button with remaining-seconds copy while a cooldown
-    is active.
-
-    Emits zero `<script>` elements: the live countdown and
-    disable-on-submit behaviour live in `companion/static/
-    poll-cooldown.js`, driven by `data-*` attributes here, so the CSP
-    can require `script-src 'self'` with no inline/nonce exception.
-    Those affordances are UX only, never a trust boundary —
-    `_handle_poll_now()` independently re-checks the cooldown
-    server-side and serializes execution before ever polling.
-
-    The caption is computed once, above both branches, so it never
-    disappears for the whole cooldown window.
+    native-disabled button with remaining-seconds copy during a
+    cooldown. Emits zero `<script>` elements: the countdown lives in
+    `poll-cooldown.js`, driven by `data-*` attributes, UX only —
+    `_handle_poll_now()` re-checks the cooldown server-side regardless.
+    The caption is computed once, above both branches.
     """
     # `> 0`, not truthy: must agree with poll-cooldown.js's own
     # `remaining > 0` guard, or a negative value would disable the
@@ -4260,18 +2773,12 @@ def _device_groups_html(builders, groups):
 def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     """Render one settings page (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE).
 
-    `errors`/`submitted` are optional keyword parameters, passed
-    together only by a rejected save: `errors` is the dict
-    `handle_post()` filled, `submitted` is the raw form dict, threaded
-    into each group builder so a field can repopulate itself and show
-    its own error.
-
+    `errors`/`submitted` are passed together only by a rejected save,
+    threaded into each group builder so a field can repopulate itself.
     `submitted` is deliberately not defaulted to `{}`: `None` (an
-    ordinary page load) and an actual dict (a repopulated submission)
-    mean different things to `_submitted_checkbox_checked()` —
-    collapsing that distinction would render every checkbox unchecked
-    on every ordinary load, since an ordinary load never "submits" any
-    of them either.
+    ordinary load) and an actual dict mean different things to
+    `_submitted_checkbox_checked()` — collapsing them would render
+    every checkbox unchecked on every ordinary load.
     """
     if errors is None:
         errors = {}
@@ -4652,17 +3159,12 @@ def submitted_calendar_signal(form):
     An absent/empty URL with no checkbox resolves to carry-forward, not
     disconnect: the write-only URL field renders empty on every load
     regardless of state, so treating an ordinary save's empty
-    submission as "disconnect" would silently wipe the calendar on
-    every unrelated save.
+    submission as "disconnect" would silently wipe the calendar.
 
-    Never raises, and never itself persists — resolving the signal and
-    acting on it are separate steps, so the caller can gate persistence
-    behind other fields' validation first.
-
-    The in-form checkbox these gates interpret no longer renders
-    (disconnecting is its own route now), but a crafted request can
-    still send it, so the gates stay to keep `handle_post()`'s
-    all-or-nothing rejection covering that shape.
+    Never raises, and never itself persists. The in-form checkbox these
+    gates interpret no longer renders, but a crafted request can still
+    send it, so the gates stay to keep `handle_post()`'s all-or-nothing
+    rejection covering that shape.
     """
     # A page that never rendered the Calendar group cannot have meant
     # anything by the field's absence.
@@ -4686,33 +3188,23 @@ def submitted_calendar_signal(form):
 
 
 def handle_post(form, ctx, errors=None):
-    """Validate the submitted theme/runway/LED/quiet-hours/wake-interval/
-    display/calendar/notifications state against `device_config`'s own
-    registries and validators, then persist all fields in one
+    """Validate the submitted settings state against `device_config`'s
+    own registries and validators, then persist all fields in one
     `save_device_config()` call. Rejection is all-or-nothing: a crafted
-    or invalid value in any field aborts before any write, so the
-    on-disk state never falls out of sync with what the next page load
-    would redisplay.
+    or invalid value in any field aborts before any write.
 
     Every checkbox not rendered on the current scope resolves absent
-    -> `None` (leave unchanged), never `False` — a scope whose page
-    never had a control for a field must not silently turn it off on
-    an unrelated save. The two Notifications checkboxes are the
-    exception: their card is always in scope when rendered, so absent
-    there still means unchecked.
+    -> `None` (leave unchanged), never `False` — a scope with no control
+    for a field must not silently turn it off. The two Notifications
+    checkboxes are the exception, since their card is always in scope
+    when rendered.
 
-    `wake_interval_s` needs an explicit string-to-int conversion that
-    `quiet_hours_start`/`quiet_hours_end` deliberately skip: those two
-    are strings end-to-end in `device_config`, but the interval is an
-    int there.
-
-    `errors` is an optional dict, filled in place via `_note_error()`
-    so a real user error is reported at its own field instead of
-    falling through to the generic save-failed flash.
-
+    `wake_interval_s` needs a string-to-int conversion that the two
+    quiet-hours time fields skip, since those stay strings in
+    `device_config`. `errors`, if given, is filled via `_note_error()`.
     The calendar secret write is layered after the device-config write,
-    and only for the `set`/`clear` signals — `carry_forward` never
-    calls it, since every call erases the fetched calendar registry.
+    only for the `set`/`clear` signals, since `carry_forward` would
+    otherwise erase the fetched calendar registry.
     """
     state_dir = ctx["state_dir"]
     scope = submitted_scope(form)
