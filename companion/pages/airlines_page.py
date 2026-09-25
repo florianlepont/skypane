@@ -1,50 +1,13 @@
-"""companion/pages/airlines_page.py — an illustration gallery over the
-panel renderer's own airline art (D-13 through D-17, 06.6.4.1-CONTEXT.md),
-plus (phase 13, 13-04-PLAN.md) the operator-facing "resolve an
-unidentified flight" surface and its manual-resolutions management list.
+"""Illustration gallery for every airline the frame recognizes, plus the
+operator flow to resolve an unidentified flight and manage manual
+resolutions.
 
-The gallery itself is still presentation-only over exactly one public
-accessor, `server.plane.illustrations.target_variants_by_airline()` — it
-renders the full static curated list from `_ILLUSTRATION_TARGETS`, never
-a detection-history cross-reference, and opens no SQLite database
-connection of any kind (06.6.4.1's own D-17 non-goal, unchanged).
-
-Phase 13 narrowly supersedes the OLDER half of that same D-17 sentence
-("reads no poll state"): `unresolved_row_for_prefix()` reads
-`server.poll_loop.load_poll_state()` — read-only, exactly once per
-render, gated behind the presence of `ctx["resolve_prefix"]` — as its
-D-11 membership test against the live unresolved-callsign-prefix
-registry (13-CONTEXT.md D-11/D-12). This is a deliberate, narrow, new
-capability this phase adds, not a reopening of the 06.6.4.1 registry-
-migration this module still otherwise honours: no history-database
-module and no `sqlite3` import are added, and the unresolved-prefix
-registry table/statistics breakdown themselves are still rendered
-exactly once, by `health_page.py` alone (D-13 below).
-
-Since quick task 260902-req-02, this page's `<img>` tags are no longer a
-bare pointer at the raw vendored PNG: `companion/app.py`'s
-`Handler._serve_illustration_image()` now serves the file through
-`companion.illustration_normalize`, which re-centres every illustration's
-painted content into one shared frame. This module's own contribution to
-that fix is cosmetic-but-load-bearing — each `<img>` carries explicit
-`width`/`height` attributes matching `illustration_normalize`'s output
-size, imported (not hand-typed) from that module's module-level constants,
-so the browser reserves the right box before the image loads and the grid
-does not reflow as cards stream in (`loading="lazy"` alone does not
-prevent that; intrinsic dimensions do).
-
-The unresolved-callsign-prefix registry (formerly CFG-04) and the
-resolution-rate statistics breakdown (formerly CFG-08) that used to live
-on this page moved to `companion/pages/health_page.py` in this same
-phase (06.6.4.1, plan 04, D-11/D-12) — that is now the one page in the
-app that RENDERS them (D-13); this module still never shows that
-registry table or that statistics breakdown itself. This move is
-complete as of 06.6.4.1 plan 06 Task 3: this module still imports no
-history-database module and opens no SQLite connection of any kind.
-Phase 13 (13-04-PLAN.md Task 1) is the one addition to that otherwise-
-unchanged boundary: `import server.poll_loop as poll_loop`, used solely
-by `unresolved_row_for_prefix()`'s single read-only membership test —
-see that function's own docstring for the full D-11/D-12 reasoning.
+Renders the static curated list from
+`illustrations.target_variants_by_airline()`; opens no database.
+`unresolved_row_for_prefix()` makes one read-only membership check via
+`poll_loop.load_poll_state()`, gated on `ctx["resolve_prefix"]`. Each
+`<img>` carries `illustration_normalize`'s width/height constants so the
+browser reserves space before the image loads.
 """
 import html as html_module
 import os
@@ -58,24 +21,16 @@ import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
 from server.plane import illustrations
-# Phase 13 (D-01/D-06/D-11/D-12): `manual_resolutions` and `enrich` are the
-# runtime-writable-registry and provenance-seam modules the resolve section
-# below reads. `poll_loop` is imported the same way `health_page.py`
-# already imports it (`import server.poll_loop as poll_loop`) — that module
-# sanctions the crossing point, and `companion/pages/__init__.py` only
-# forbids a page module importing another page module, not this. None of
-# the three creates an import cycle: none of `manual_resolutions`, `enrich`
-# or `poll_loop` imports this page module.
+# manual_resolutions, enrich and poll_loop import this page module in
+# neither direction, so importing them here creates no cycle.
 from server.plane import manual_resolutions
 from server.plane import enrich
 import server.poll_loop as poll_loop
 
-# D-15: this page's illustration image route mirrors companion/app.py's
-# own ILLUSTRATION_IMAGE_ROUTE_PREFIX exactly — duplicated, not imported,
-# since app.py imports this module (the reverse import would be a
-# cycle). Same duplicated-not-imported discipline this codebase already
-# uses for its static-script route constants; pinned by a cross-module
-# equality check in companion/test_status_pages.py.
+# Mirrors companion/app.py's own ILLUSTRATION_IMAGE_ROUTE_PREFIX,
+# duplicated rather than imported since app.py imports this module (the
+# reverse import would cycle); pinned by a cross-module equality check
+# in companion/test_status_pages.py.
 ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
 
 GALLERY_PURPOSE_TEXT = (
@@ -83,85 +38,37 @@ GALLERY_PURPOSE_TEXT = (
 
 CARD_IMAGE_ALT_TEMPLATE = "%s illustration"
 
-# 19-08-PLAN.md Task 1 (D-21/A-38): the coverage-gap cards' own explained
-# strip, byte-identical-style copy convention to health_page.py's
-# SOURCE_FAULT_HEADING/SOURCE_FAULT_BODY (a module-level string constant,
-# escaped exactly once at _gap_strip_html()'s own single interpolation
-# point). Before this, the gap cards sat at the head of the curated
-# artwork grid with no heading at all, reading as broken artwork rather
-# than a call to action.
 GAP_STRIP_HEADING = "Unidentified airlines"
-# 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 8. The
-# dropped clause ("The frame saw these callsigns but doesn't know the
-# airline") restated what GAP_STRIP_HEADING already says; nothing this
-# card's own instruction depends on is lost.
 GAP_STRIP_BODY = "Tap a callsign below to name its airline."
 
-# quick task 260902-tli: the click-to-enlarge lightbox. This gallery
-# reuses History's already-shipped `<dialog>` lightbox and the document-
-# level click delegation companion/static/panel-lookup.js already
-# performs, rather than inventing a second mechanism — that script keys
-# on getElementById("panel-lookup-dialog") and a data-view-panel-src
-# ancestor walk, and two pages never render simultaneously, so reusing
-# its id and attribute names here creates no duplicate-id condition and
-# needs no script change of any kind. The five names below are
-# duplicated from companion/pages/history_page.py and from
-# panel-lookup.js's own literals, not imported — a page module has no
-# import path to a sibling page module (companion/pages/__init__.py's
-# boundary) and none at all to a static script — and a cross-module
-# equality guard in companion/test_view_pages.py pins all four
-# dialog/attribute constants against history_page.py's own values, so a
-# drift here would fail loudly instead of leaving the trigger silently
-# inert.
+# Reuses History's shared <dialog> lightbox and panel-lookup.js's click
+# delegation. These five names are duplicated (not imported) from
+# history_page.py and panel-lookup.js — a page module cannot import a
+# sibling page or a static script — and a cross-module guard in
+# test_view_pages.py pins them against history_page.py's values.
 LIGHTBOX_DIALOG_ID = "panel-lookup-dialog"
 _VIEW_PANEL_SRC_ATTR = "data-view-panel-src"
 _VIEW_PANEL_CAPTION_ATTR = "data-view-panel-caption"
 _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
 
-# quick task 260903-btu: unlike the four names above, these two have no
-# history_page counterpart — History's own dialog deliberately renders
-# neither a replace form nor this attribute, so they must never be added
-# to test_view_pages.py's _airlines_lightbox_constants_match_history()
-# pairs tuple (doing so would fail with an AttributeError, and worse,
-# would push this project toward giving History an upload form). Both
-# literals are, like the four above, duplicated into
-# companion/static/panel-lookup.js rather than imported — one
-# getAttribute() literal, one querySelector() literal — and
-# LIGHTBOX_REPLACE_FORM_CLASS is additionally duplicated into
-# companion/static/style.css's selector. A page module has no import
-# path to a static asset, the same duplicated-not-imported discipline
-# the four constants above already document; a cross-file guard in
-# companion/test_view_pages.py pins all of this (quick task 260903-btu
-# Task 4). quick task 260903-df3: the same "no history_page counterpart,
-# never add to that pairs tuple" rule extends to
-# LIGHTBOX_REPLACE_ZONE_CLASS, REPLACE_HINT_CLASS and REPLACE_ICON_CLASS
-# below — three more names with no history_page twin.
+# Unlike the five names above, these have no history_page.py
+# counterpart and must never be added to test_view_pages.py's
+# cross-module comparison — duplicated (not imported) into
+# panel-lookup.js and style.css, the same discipline as above.
 _VIEW_PANEL_REPLACE_ACTION_ATTR = "data-view-panel-replace-action"
 LIGHTBOX_REPLACE_FORM_CLASS = "lightbox__replace"
 
-# quick task 260903-df3: three more class constants, in this file's own
-# `.lightbox__replace*` BEM-ish convention, for the framed action zone
-# that wraps the form's contents. Each is, like STAT_TILE_ICON_CLASS in
-# companion/layout.py, duplicated (not imported) into
-# companion/static/style.css's selectors — a page module has no import
-# path to a static asset — and a cross-file guard in
-# companion/test_status_pages.py pins the pair. Unlike
-# LIGHTBOX_REPLACE_FORM_CLASS above, none of these three appears in
-# companion/static/panel-lookup.js — the script does not know about them
-# and must not be taught to; it only ever looks up the form itself by
+# Three more class constants for the framed replace-action zone,
+# duplicated (not imported) into style.css only — panel-lookup.js does
+# not use them and must not be taught to; it looks up the form only by
 # LIGHTBOX_REPLACE_FORM_CLASS.
 LIGHTBOX_REPLACE_ZONE_CLASS = "lightbox__replace-zone"
 REPLACE_HINT_CLASS = "lightbox__replace-hint"
 REPLACE_ICON_CLASS = "lightbox__replace-icon"
 
-# Phase 14 (14-02-PLAN.md Task 1, 14-UI-SPEC.md § Interaction Contract
-# "Attribute vocabulary"): the eleven new `data-view-panel-*` names
-# every trigger's widened vocabulary carries, joining the four existing
-# _VIEW_PANEL_*_ATTR constants above. Every one of these is read by
-# companion/static/panel-lookup.js only from plan 14-05 onward — until
-# then they are server-rendered vocabulary the script does not yet
-# consume, classified into companion/test_view_pages.py's
-# _LIGHTBOX_RENDER_ONLY_TOKENS tuple by this same plan's Task 3.
+# The eleven data-view-panel-* attributes every trigger's vocabulary
+# carries. Some are render-only until panel-lookup.js consumes them,
+# classified in test_view_pages.py's _LIGHTBOX_RENDER_ONLY_TOKENS.
 _VIEW_PANEL_HEADING_ATTR = "data-view-panel-heading"
 _VIEW_PANEL_MODE_ATTR = "data-view-panel-mode"
 _VIEW_PANEL_MANUAL_ATTR = "data-view-panel-manual"
@@ -174,132 +81,66 @@ _VIEW_PANEL_UPLOAD_ACTION_ATTR = "data-view-panel-upload-action"
 _VIEW_PANEL_DELETE_ACTION_ATTR = "data-view-panel-delete-action"
 _VIEW_PANEL_MANUAL_NOTE_ATTR = "data-view-panel-manual-note"
 
-# Value vocabularies (14-UI-SPEC.md § Interaction Contract): no
-# mode/manual string is ever a bare literal at a call site.
+# Value vocabularies: no mode/manual string is ever a bare literal at a
+# call site.
 _VIEW_PANEL_MODE_ART = "art"
 _VIEW_PANEL_MODE_GAP = "gap"
 _VIEW_PANEL_MODE_NEEDS_ARTWORK = "needs-artwork"
 _VIEW_PANEL_MANUAL_ACTIVE = "active"
 _VIEW_PANEL_MANUAL_SUPERSEDED = "superseded"
 
-# Phase 14 dialog element classes (14-UI-SPEC.md § Component Inventory
-# "New CSS" table — plan 14-03 adds the actual CSS rules; this plan only
-# declares the constants and wires them into markup).
 LIGHTBOX_HEADING_CLASS = "lightbox__heading"
 LIGHTBOX_MANUAL_NOTE_CLASS = "lightbox__manual-note"
 LIGHTBOX_RESOLVE_NAME_CLASS = "lightbox__resolve-name"
 LIGHTBOX_DELETE_CLASS = "lightbox__delete"
 
-# 22-11-PLAN.md Task 1 (B5): the dialog's single action row — the quiet
-# Close on the left, the primary on the right, on ONE line. Before this
-# the Save button sat inside `.lightbox__resolve-name` and Close was the
-# dialog's own last child, so the two stacked as two block rows.
-#
-# The primary is lifted OUT of the form and re-attached to it with the
-# native `form="<id>"` attribute — the same mechanism 22-10 used to
-# re-home "Send a test" into the Notifications card (B8), and the same
-# one `config_page.py`'s `#settings-form` has used since B1. That is why
-# the form needs an id at all. The no-JS fallback section keeps its
-# submit INSIDE its own form (`_resolve_name_form_html()`'s
-# `include_submit`), so nothing about the scriptless floor changes.
+# The dialog's single action row: Close on the left, the primary action
+# on the right. The primary button is lifted out of its form and
+# re-attached via the native form="<id>" attribute, so the no-JS
+# fallback's own submit can stay inside its own form
+# (_resolve_name_form_html()'s include_submit).
 LIGHTBOX_ACTIONS_CLASS = "lightbox__actions"
 MANUAL_RESOLVE_FORM_ID = "manual-resolve-form"
 
-# Promoted from bare literals already used below (existing values
-# unchanged) so this phase's guard can pin them and no second literal
-# source of truth survives.
 RESOLVE_UPLOAD_ZONE_CLASS = "resolve-upload-zone"
 RESOLVE_CONTEXT_CLASS = "resolve-context"
 
-# =====================================================================
-# 25-07-PLAN.md Task 1 (CFG-51/D19): the drag-and-drop affordance and
-# the framing preview, layered OVER the two upload forms below without
-# changing either of them.
-#
-# The whole point of this vocabulary is that it steers an affordance,
-# never a parser. A drop assigns the dropped File to the form's own
-# `<input type="file">` through a DataTransfer, so the bytes travel the
-# identical path a picked file travels: companion/app.py's 4 MB
-# pre-read cap, its `parse_single_uploaded_file()` filename discard and
-# `companion/illustration_normalize.py`'s crop all apply unchanged,
-# with no second upload path to keep in step.
-#
-# Three clauses the D19 audit asked for are deliberately NOT built, each
-# for a stated reason (25-RESEARCH.md Decision 5, restated in
-# 25-07-SUMMARY.md so a later developer can reverse any of them
-# knowingly):
-#   * NO client-side canvas crop. `companion/illustration_normalize.py`'s
-#     own docstring records that a SECOND, differently-thresholded
-#     measurement silently drifting from the first is the debug session
-#     that created it, and forbids that module ever becoming a second
-#     implementation. A canvas crop in the browser is that same second
-#     implementation, in a language the server cannot check, on a
-#     machine it cannot trust.
-#   * NO progress bar. companion/static/submit-guard.js already disables
-#     a form's submit button app-wide on submit; a 4 MB cap against a
-#     household server needs the word "Uploading…", not
-#     XMLHttpRequest.upload.onprogress.
-#   * NO hover-only aircraft types. Hover is unreachable by touch — the
-#     ground CFG-28 already used when it moved this app's tooltips
-#     behind copy controls.
-#
-# Every name below is duplicated (not imported) into
-# companion/static/style.css and companion/static/panel-lookup.js — a
-# page module has no import path to a static asset — and cross-file
-# guards in companion/test_status_pages.py pin the pairs.
+# Drag-and-drop affordance and framing preview, layered over the
+# existing upload forms: a drop assigns the file to the form's own
+# <input type="file"> via DataTransfer, so bytes travel the same
+# validated path as a picked file. Names are duplicated into
+# style.css/panel-lookup.js and pinned by cross-file guards.
 UPLOAD_DROP_CLASS = "upload-drop"
-# The wrapper attribute 25-01's _NO_JS_CONTROL_REGISTRY registers this
-# control under, and the one companion/static/panel-lookup.js finds the
-# zones by. It is carried by the SAME element as layout.JS_GATE_CLASS,
-# never by an ancestor — see that constant's own comment for why.
+# Carried by the same element as layout.JS_GATE_CLASS, never by an
+# ancestor, and used by the no-JS control registry to find each zone.
 UPLOAD_DROP_ATTR = "data-upload-drop"
-# The id of the file input a drop writes into. Named explicitly rather
-# than discovered by walking the DOM: panel-lookup.js is written to an
-# ES5-safe subset with no Element.closest(), and getElementById() of a
-# server-rendered id is exact where an ancestor walk is a guess.
+# id of the file input a drop writes into, looked up by
+# getElementById() rather than a DOM walk (panel-lookup.js avoids
+# Element.closest()).
 UPLOAD_DROP_INPUT_ATTR = "data-upload-drop-input"
-# companion/app.py's own MAX_ILLUSTRATION_UPLOAD_BYTES, rendered into
-# the page rather than retyped in JavaScript — see _max_upload_bytes().
+# companion/app.py's own upload byte cap, rendered here rather than
+# retyped in JavaScript — see _max_upload_bytes().
 UPLOAD_DROP_MAX_BYTES_ATTR = "data-upload-drop-max-bytes"
-# The three refusal messages, server-rendered ALREADY TRANSLATED. The
-# script writes no copy of its own (25-01's value-controls.js set this
-# precedent): an English sentence invented inside a .js file is a string
-# companion/test_i18n.py's Check 6 can only catch by accident, and a
-# French visitor would read it in English.
+# The three refusal messages, already translated server-side — the
+# script never invents its own copy.
 UPLOAD_DROP_TYPE_ERROR_ATTR = "data-upload-drop-type-error"
 UPLOAD_DROP_SIZE_ERROR_ATTR = "data-upload-drop-size-error"
 UPLOAD_DROP_MULTIPLE_ERROR_ATTR = "data-upload-drop-multiple-error"
-# The drag-over state, set and removed by panel-lookup.js. An ATTRIBUTE
-# rather than a `:hover` rule, and that is the whole point: a state that
-# exists only under `:hover` is invisible on a phone, which is where
-# people most want the card to answer them (CFG-28's own ground).
+# Drag-over state, set by panel-lookup.js. An attribute rather than
+# :hover, since :hover is invisible on touch.
 UPLOAD_DROP_ACTIVE_ATTR = "data-upload-drop-active"
 UPLOAD_DROP_PREVIEW_CLASS = "upload-drop__preview"
 UPLOAD_DROP_IMAGE_CLASS = "upload-drop__image"
 UPLOAD_DROP_NOTE_CLASS = "upload-drop__note"
 UPLOAD_DROP_MESSAGE_CLASS = "upload-drop__message"
-# The preview box's aspect ratio travels on the `--upload-preview-ratio`
-# custom property, written inline by _upload_drop_html() and read by
-# style.css. That NAME is deliberately an inline literal inside the
-# markup string rather than a module constant, following config_page.py's
-# own `--value-fraction` precedent (25-04): companion/test_i18n.py's D-05
-# scan treats a top-level string constant as page copy, and a leading
-# "--" is the one shape its lowercase-identifier exclusion cannot match.
-# Its VALUE is computed from companion/illustration_normalize.py's own
-# output frame, never typed as a literal, so the reserved box and the
-# frame the server actually produces cannot drift.
+# --upload-preview-ratio is written inline (never a style.css literal)
+# so its value comes from illustration_normalize's own output frame
+# rather than a retyped number.
 
-# The copy. "Framed", never "look": the preview shows the whole chosen
-# image inside the frame it will occupy (object-fit: contain), and the
-# server may still crop differently — it is the only authority on that.
-# Promising a visitor what the result will LOOK like is precisely the
-# promise a client-side canvas would have had to keep.
+# "Framed" not "look": shows the whole image inside the frame it will
+# occupy; the server may still crop differently and is the only
+# authority on that.
 UPLOAD_DROP_HINT_TEXT = "Or drag an image onto this card."
-# 29-06-PLAN.md Task 2 (CFG-79): shortened from 14 words to 8. "The
-# server does the final crop" is a mechanism clause, not something the
-# reader needs to act on the preview — it is dropped, not moved,
-# because it names an implementation detail with no reader-facing
-# consequence.
 UPLOAD_PREVIEW_CAPTION_TEXT = "Framing preview — how it will be framed."
 UPLOAD_PREVIEW_ALT_TEXT = "Framing preview of the image you chose"
 UPLOAD_DROP_TYPE_ERROR_TEXT = "Only PNG images can be dropped here."
@@ -308,151 +149,69 @@ UPLOAD_DROP_SIZE_ERROR_TEMPLATE = "That image is larger than the %d MB limit."
 
 ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
 
-# quick task 260902-tli: went through two rounds of live developer
-# feedback. Originally named the normalized frame size in the copy
-# itself ("Shown at the shared 900x263 frame..."), which real testing
-# found meaningless. The reworded, more user-facing version ("This is
-# the same artwork the physical panel draws...") was ALSO rejected on
-# the same live pass — the developer's call was that no caption is
-# wanted here at all, unlike History's own note, which explains a real
-# possible discrepancy (a stale render) an Airlines illustration never
-# has. So this is the empty string, not a sentence — the element must
-# still exist (panel-lookup.js's shared guard clause requires
-# .lightbox__note to be present or the whole click handler never
-# attaches, for this page or History's), but style.css's
-# `.lightbox__note:empty { display: none; }` collapses it to no visible
-# space. history_page.LIGHTBOX_NOTE's own naming is kept for the
-# constant despite carrying no text, so a future non-empty note needs
-# only a value change here, not a markup change.
+# Empty by design: panel-lookup.js's shared guard clause requires
+# .lightbox__note to exist or its click handler never attaches;
+# style.css collapses an empty note to no visible space.
 LIGHTBOX_NOTE = ""
 LIGHTBOX_ARIA_LABEL = "Airline illustration"
 
-# quick task 260902-v26: the three flash keys `Handler._handle_illustration_
-# replace()` (companion/app.py) can redirect with, defined here — not in
-# app.py — for the identical reason companion/pages/config_page.py owns
-# its own FLASH_SAVED/FLASH_SAVE_FAILED/etc. literals (see that module's
-# own comment): app.py already imports this page module, so the reverse
-# import would be a cycle. app.py rebinds these under FLASH_KEY_* names,
-# adds their copy to FLASH_MESSAGES, and their ARIA role to FLASH_ROLES,
-# mirroring config_page.py's own FLASH_* rebinding pattern exactly.
+# Flash keys are defined here, not in app.py, because app.py already
+# imports this module — the reverse import would cycle. app.py rebinds
+# them under FLASH_KEY_* names and adds their copy/ARIA role.
 FLASH_ILLUSTRATION_REPLACED = "illustration_replaced"
-# "Rejected" means the upload was read and parsed but is not an
-# acceptable illustration (not an image, too small, not landscape, no
-# transparency, or the request was over the size cap) — a normal,
-# expected outcome of validation, not a server malfunction.
+# Upload was read and parsed but rejected (not an image, too small, not
+# landscape, no transparency, or over the size cap) — an expected
+# validation outcome, not a server failure.
 FLASH_ILLUSTRATION_REJECTED = "illustration_rejected"
-# Distinct from FLASH_ILLUSTRATION_REJECTED: this key means something
-# unexpected happened server-side while storing an otherwise-acceptable
-# upload (a filesystem error, an unexpected Pillow failure after
-# validation already passed) — mirrors FLASH_SAVE_FAILED's own
-# genuine-server-failure framing in config_page.py.
+# Unlike REJECTED: something unexpected happened server-side while
+# storing an otherwise-acceptable upload.
 FLASH_ILLUSTRATION_REPLACE_FAILED = "illustration_replace_failed"
 
-# Phase 13 (D-11/D-12/D-13, 13-04-PLAN.md Task 1): the resolve-flow flash
-# keys. Same reasoning as the FLASH_ILLUSTRATION_* block above (app.py
-# already imports this page module, so the reverse import would be a
-# cycle) — companion/app.py (plan 13-06) rebinds these under FLASH_KEY_*
-# names and adds their copy/ARIA role, mirroring the existing
-# FLASH_ILLUSTRATION_* rebinding pattern exactly.
 FLASH_MANUAL_RESOLVED = "manual_resolved"
 FLASH_MANUAL_NAME_EMPTY = "manual_name_empty"
 FLASH_MANUAL_NAME_TOO_LONG = "manual_name_too_long"
 FLASH_MANUAL_NAME_RESERVED = "manual_name_reserved"
 FLASH_MANUAL_PREFIX_STALE = "manual_prefix_stale"
 FLASH_MANUAL_REGISTRY_FULL = "manual_registry_full"
-# Planner addition, not in 13-UI-SPEC.md's Full Copy Deck:
-# `manual_resolutions.add_entry()` returns ADD_FAILED on an unwritable
-# state dir and never raises. Without this key, that failure would
-# redirect with no message at all, and 13-CONTEXT.md's governing
-# constraint is that the operator is never silently misled. Mirrors
-# FLASH_ILLUSTRATION_REPLACE_FAILED's own genuine-server-failure-vs-
-# validation-rejection framing exactly.
+# add_entry() returns ADD_FAILED on an unwritable state dir and never
+# raises; without this key that failure would redirect with no message.
 FLASH_MANUAL_SAVE_FAILED = "manual_save_failed"
-# Same justification as FLASH_MANUAL_SAVE_FAILED above, for
-# `manual_resolutions.delete_entry()` returning `False` after a write
-# failure (as opposed to `False` for an unknown/malformed prefix, which
-# needs no flash — the row is simply already gone).
+# Same reasoning as FLASH_MANUAL_SAVE_FAILED, for delete_entry()
+# returning False after a write failure.
 FLASH_MANUAL_DELETE_FAILED = "manual_delete_failed"
 
-# Phase 14 (14-02-PLAN.md Task 1, closing 13-UAT.md's gap G-01): a name
-# the operator genuinely typed but which manual_resolutions.py's own
-# key-slugger cannot turn into a usable illustration key (e.g. a name
-# that slugs to the empty string). (a) This key is declared here,
-# beside every other manual flash key this module owns, but is wired
-# into companion/app.py's FLASH_KEY_* rebinding and FLASH_MESSAGES/
-# FLASH_ROLES by plan 14-07, not by this plan. (b) It closes
-# 13-UAT.md's G-01, where such a name was reported back to the operator
-# as though they had submitted an EMPTY name (FLASH_MANUAL_NAME_EMPTY)
-# — technically accurate about the downstream failure mode, but false
-# about what the operator actually did, which 13-CONTEXT.md's governing
-# constraint (never silently mislead the operator) forbids. (c) It is a
-# deliberate, recorded extension of 14-UI-SPEC.md's Copywriting
-# Contract, whose Error-state row scoped this phase to "no new flash
-# key" before 14-CONTEXT.md's Deferred Ideas elevated G-01 into this
-# phase's scope. Declaring it here and wiring it in 14-07 (a different
-# wave) is what lets G-01 be fixed without two plans contending for
-# this file in the same wave.
+# A name the operator typed but that manual_resolutions.py's slugger
+# cannot turn into a usable key (e.g. it slugs to the empty string).
 FLASH_MANUAL_NAME_UNUSABLE = "manual_name_unusable"
 
-# Deleting a manual resolution deliberately produces NO success flash:
-# 13-UI-SPEC.md's Full Copy Deck has none, and the row disappearing from
-# the management list (Task 2) is the confirmation. Only the failure path
-# above speaks.
+# Deleting a manual resolution produces no success flash: the row
+# disappearing from the management list is the confirmation.
 
-# Phase 13 (D-11/D-12/D-13): route constants for the resolve flow,
-# duplicated-not-imported exactly as ILLUSTRATION_ROUTE_PREFIX already is
-# above (companion/app.py imports this module, so the reverse import
-# would be a cycle) — pinned by a cross-module equality check in
-# companion/test_status_pages.py (plan 13-06).
 RESOLVE_ROUTE = "/airlines/resolve"
 MANUAL_DELETE_ROUTE_PREFIX = "/airlines/manual-resolutions/"
 MANUAL_DELETE_ROUTE_SUFFIX = "/delete"
 AIRLINES_ROUTE = "/airlines"
 RESOLVE_QUERY_PARAM = "resolve"
 
-# Phase 14 (14-04-PLAN.md, D-06): the gap block's threshold and cap —
-# both locked numeric values from D-06's own text, not a discretion
-# call. A prefix must be seen at least GAP_BLOCK_THRESHOLD times before
-# it earns a gap card at all, and at most GAP_BLOCK_CAP gap cards ever
-# render, head of grid, regardless of how many prefixes clear the
-# threshold (see _gap_overflow_html() for what happens to the rest).
+# A prefix needs at least GAP_BLOCK_THRESHOLD sightings to earn a gap
+# card; at most GAP_BLOCK_CAP cards ever render (see
+# _gap_overflow_html() for the rest).
 GAP_BLOCK_THRESHOLD = 3
 GAP_BLOCK_CAP = 12
 
-# Phase 13 copy constants, byte-identical to 13-UI-SPEC.md's Full Copy
-# Deck (real U+2014 em dashes, real U+2019 apostrophes, matching every
-# other string in this module).
-#
-# 19-08-PLAN.md Task 2 (D-21/A-38): a deliberate supersession, not
-# drift. The Phase 13 Copy Deck put the resolve flow's entry point on
-# Health — at the time, that page was the only place a coverage gap
-# was ever surfaced. Phase 18 moved the everyday entry point onto
-# Airlines' own gap cards (19-08-PLAN.md Task 1's strip is the current
-# home for them), so "Back to Health" started returning a household
-# member to a page they never visited on the common path. This link
-# now names and targets Airlines instead.
 RESOLVE_BACK_LINK_TEXT = "← Back to Airlines"
 RESOLVE_STALE_BODY = (
     "That coverage gap isn’t there anymore — it may already be "
     "resolved. See Health for the complete list of current gaps.")
 RESOLVE_HEADING = "Resolve an unidentified flight"
-# Phase 14 (14-02-PLAN.md Task 1, D-01) reworded this template in place,
-# replacing its Phase 13 wording: one template with no callsign clause,
-# so it stays true on the CR-02 row-gone path where no sighting data
-# survives. This wording is what discharges D-01's obligation that the
-# dialog state the per-prefix scope at the moment of acting.
-# 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 10 —
-# "once you save a name" is dropped as conditional framing; the
-# consequence itself ("will show as this airline") is what the reader
-# needs and is kept.
+# No callsign clause: this template must stay true even when no
+# sighting data survives for the prefix (the row-gone fallback path).
 RESOLVE_CAPTION_TEMPLATE = (
     "Every flight using prefix %s will show as this airline.")
 RESOLVE_CONTEXT_LABELS = (
     "Prefix", "First seen", "Last seen", "Times seen", "Example callsign")
-# Phase 14 (14-02-PLAN.md Task 1): the five per-<dd> hook classes
-# 14-UI-SPEC.md's Component Inventory requires, a 5-tuple aligned 1:1
-# with RESOLVE_CONTEXT_LABELS above so the two can only ever be zipped,
-# never mismatched.
+# 5-tuple aligned 1:1 with RESOLVE_CONTEXT_LABELS so the two can only
+# ever be zipped, never mismatched.
 RESOLVE_CONTEXT_DD_CLASSES = (
     "resolve-context__prefix",
     "resolve-context__first-seen",
@@ -461,189 +220,93 @@ RESOLVE_CONTEXT_DD_CLASSES = (
     "resolve-context__callsign",
 )
 NAME_LABEL_TEXT = "Airline name"
-# 29-06-PLAN.md Task 2 (CFG-79): shortened from 23 words to 6 — the
-# instruction alone survives; the "so this reuses it instead of asking
-# for a new upload" explanation is dropped (no existing disclosure
-# sits beside this inline form field to move it into, and the
-# instruction itself is self-sufficient without it).
 NAME_HINT_TEXT = "Start typing — pick a suggestion."
 SAVE_BUTTON_TEXT = "Save airline name"
 STEP_B_HEADING_TEMPLATE = "Add an illustration for %s"
-# 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 9 — keeps
-# the state ("Saved") and the one action (add artwork, or skip);
-# drops the "doesn't have artwork yet" reason clause as restating what
-# STEP_B_HEADING_TEMPLATE's own heading already implies.
 STEP_B_CAPTION = "Saved — add artwork below, or skip for now."
 STEP_B_SKIP_TEXT = "Skip — I’ll add artwork later"
-# Planner addition, not in 13-UI-SPEC.md's Full Copy Deck: the fourth
-# reachable state (a bookmark or a Back press landing on a prefix that is
-# still listed as a gap but is already fully resolved — a manual entry
-# names an airline that already has artwork). The deck enumerated three
-# states; this is the fourth. Saying "that gap isn't there anymore" here
-# (RESOLVE_STALE_BODY) would be false, and false is the one thing
-# 13-CONTEXT.md forbids.
+# Fourth reachable state: a bookmark or Back press lands on a prefix
+# that's still listed as a gap but is already fully resolved.
+# RESOLVE_STALE_BODY would be false here.
 RESOLVE_ALREADY_DONE_TEMPLATE = (
     "%s is already named for this prefix and has artwork — nothing "
     "more to do here.")
 
 MANUAL_NAME_INPUT_ID = "manual-airline-name"
 MANUAL_UPLOAD_INPUT_ID = "manual-illustration-input"
-# 25-07-PLAN.md Task 1 (CFG-51): the upload form's own id, suffixed by
-# the SAME `id_suffix` its input already carries — the discipline
-# _resolve_upload_form_html()'s docstring states, applied to the one
-# thing this plan adds that names an id. It exists so 25-01's
-# _NO_JS_CONTROL_REGISTRY can declare this control's form association
-# ("enclosing", verified against a real authenticated render) rather
-# than guess it; nothing submits through it that did not submit before,
-# and the form's method/enctype/action are untouched.
+# Suffixed by the same id_suffix its input carries, so the no-JS
+# control registry can declare the form association rather than guess
+# it.
 MANUAL_UPLOAD_FORM_ID = "manual-illustration-form"
 MANUAL_DATALIST_ID = "known-airlines"
 
-# Phase 13 (13-04-PLAN.md Task 2, D-06/D-07). Phase 14 plan 14-06 Task 2
-# retired the standalone management table these constants used to serve
-# (MANUAL_SECTION_HEADING/_CAPTION, MANUAL_EMPTY_HEADING/_BODY,
-# MANUAL_RESOLUTION_HEADERS, ADD_ARTWORK_LINK_TEXT,
-# SUPERSEDED_MARKER_TITLE, SUPERSEDED_CAPTION, SUPERSEDED_STATUS_CLASS —
-# all deleted as genuinely unreferenced once that table's six rendering
-# functions were). SUPERSEDED_MARKER_TEXT and DELETE_BUTTON_TEXT survive
-# below: the chip (`_airline_card_html()`) and the shared delete form
-# (`_manual_delete_form_html()`) still consume them.
+# SUPERSEDED_MARKER_TEXT and DELETE_BUTTON_TEXT are still consumed by
+# _airline_card_html()'s chip and _manual_delete_form_html()'s shared
+# form.
 SUPERSEDED_MARKER_TEXT = "Superseded"
 DELETE_BUTTON_TEXT = "Delete"
 
-# Phase 14 (14-02-PLAN.md Task 1, 14-UI-SPEC.md's Full Copy Deck): new
-# copy for the gap card, the dialog's manual-state chip/note, the
-# shared delete form's caption, the gap-overflow line and the
-# manual-resolutions summary line. Every constant here is read by both
-# the no-JS fallback and the dialog's static markup, through the shared
-# rendering functions plan 14-02's Task 2 introduces.
 GAP_CARD_ARIA_TEMPLATE = "Resolve prefix %s — example callsign %s"
 MANUAL_CHIP_ACTIVE_TEXT = "Resolved by hand"
-# 29-06-PLAN.md Task 2 (CFG-79): shortened from 13 words to 12 —
-# "only" dropped as the single word needed to clear the floor; every
-# other word is load-bearing (what deleting does, and does not, affect).
 MANUAL_DELETE_CAPTION = (
     "Deleting removes this manual name — any uploaded artwork stays in place.")
-# %s arity: prefix, built-in name, operator's name, built-in name again.
-#
-# 29-06-PLAN.md Task 2 (CFG-79): DELIBERATELY EXEMPT from the editorial
-# floor, argued rather than left to look like an oversight. This is not
-# a description of a control — it is a STATUS MESSAGE naming a real
-# conflict state (which airline a prefix now resolves to, and that a
-# manual name was superseded by it), the same "status/error message,
-# not a caption" distinction plan 29-05 draws for
-# wake_gauges_html()'s computed readouts. Its VALUE is computed here
-# and written client-side (panel-lookup.js) into the dialog's own
-# `<p class="%s text-body">` element (LIGHTBOX_MANUAL_NOTE_CLASS,
-# "lightbox__manual-note") — that element's static server-rendered
-# markup is always empty; grep confirms LIGHTBOX_MANUAL_NOTE_CLASS
-# never composes with "section-caption" anywhere in this module, so
-# Task 3's site-wide floor selector (which matches only
-# `.section-caption` elements) never reaches it. It needs no
-# exemption-list entry either — structural non-membership is enough.
-# Shortening it would cost the reader the one thing they need at
-# exactly the moment it renders: which two names are in conflict and
-# what happens next. Left unchanged, byte-for-byte.
+# %s arity: prefix, built-in name, operator's own name, built-in name
+# again. A status message about a real naming conflict, not a caption
+# — LIGHTBOX_MANUAL_NOTE_CLASS never composes with the site-wide
+# caption-length selector.
 MANUAL_SUPERSEDED_NOTE_TEMPLATE = (
     "SkyPane’s built-in list now recognizes prefix %s as “%s” — its "
     "entry wins over the name you gave it (“%s”), so that artwork is "
     "no longer shown. Add artwork for “%s” below, or delete this "
     "entry.")
-# Two constants, not one: only the tail is the <a>'s own text; their
-# concatenation must equal 14-UI-SPEC.md's single deck string
-# byte-for-byte (asserted in plan 14-04's own harness check).
+# Two constants because only the tail is the <a>'s own text; their
+# concatenation must equal the copy deck's single string byte-for-byte.
 MANUAL_OVERFLOW_TEMPLATE = "%d other unresolved prefixes — "
 MANUAL_OVERFLOW_LINK_TEXT = "see the full list"
-# With-superseded and no-superseded forms (D-11) — %d arity: manual
-# count, then superseded count (with-superseded form only).
+# With-superseded and no-superseded forms; %d arity is manual count
+# then superseded count.
 MANUAL_SUMMARY_TEMPLATE = "%d manual resolutions, %d superseded"
 MANUAL_SUMMARY_TEMPLATE_NONE = "%d manual resolutions"
-# D-06/B16 (22-11-PLAN.md Task 2): the singular halves of the pair above.
-# A household member with exactly one hand-named airline used to read
-# "1 manual resolutions". These are the Airlines half of CFG-29's plural
-# sweep, which 22-08 could not take because it does not own this module
-# and 22-10 already took for the Calendar card the same way (a
-# ..._SINGULAR sibling with its own French entry, never a runtime
-# pluralisation rule — French and English do not agree on where the
-# boundary falls, so each language's catalogue owns its own string).
-# CFG-29 stays UNCHECKED after this plan: health_page.py's own plurals
-# are plan 22-12's, and the requirement is not met until both land.
+# Singular variants avoid "1 manual resolutions" — French and English
+# don't agree on the plural boundary, so each language's catalogue
+# owns its own singular string.
 MANUAL_SUMMARY_TEMPLATE_SINGULAR = "%d manual resolution, %d superseded"
 MANUAL_SUMMARY_TEMPLATE_NONE_SINGULAR = "%d manual resolution"
 
-# quick task 260902-v26 (D-04 is explicitly a negative requirement: no
-# revert-to-original control is in scope, anywhere, for this feature).
-# The replace-image control's own copy, each its own module-level
-# constant so the harness can assert against the constant rather than a
-# duplicated literal.
-#
-# quick task 260903-btu: REPLACE_SUMMARY_TEMPLATE and
-# REPLACE_LABEL_TEMPLATE (both %s-airline-name templates) are gone. The
-# shared lightbox that now hosts this form is emitted once per page, so
-# at render time there is no single airline name to interpolate into
-# either template's %s slot — and the dialog already names the airline
-# through its own caption (written from data-view-panel-caption at click
-# time), so a generic label sitting directly under that caption reads
-# unambiguously. REPLACE_LABEL_TEXT replaces both: it absorbs the job
-# the old <summary> used to do (naming the action), since there is no
-# <summary> disclosure any more. REPLACE_BUTTON_TEXT carries over
-# byte-identical — already-approved copy whose meaning still fits
-# exactly. REPLACE_INPUT_ID is now a single static id, correct and
-# sufficient since exactly one file input exists on the whole page — the
-# old per-key id derivation has nothing left to disambiguate.
+# No revert-to-original control is in scope for this feature.
 REPLACE_LABEL_TEXT = "Replace this illustration"
 REPLACE_BUTTON_TEXT = "Upload"
+# A single static id: exactly one file input exists on the page, so
+# there's nothing to disambiguate.
 REPLACE_INPUT_ID = "airline-replace-input"
-# 25-07-PLAN.md Task 1 (CFG-51): the replace form's own id. A single
-# static id, for the identical reason REPLACE_INPUT_ID above is one —
-# this form is emitted exactly once per page, so there is nothing to
-# disambiguate and no `id_suffix` parameter to add. (Contrast
-# _manual_delete_form_html(), which names no id at all and must not
-# grow a suffix parameter it does not need.)
+# Single static id, for the same reason REPLACE_INPUT_ID is one: this
+# form renders exactly once per page.
 REPLACE_FORM_ID = "airline-replace-form"
 
-# quick task 260903-df3: forward-looking guidance, stating the app's own
-# real validation rule before the upload rather than only after it — the
-# positive twin of companion/app.py's FLASH_KEY_ILLUSTRATION_REJECTED
-# ("Couldn't use that image — upload a transparent PNG that's at least
-# 1200 pixels wide and landscape (wider than tall)."). Keep the two
-# describing the same rule if either ever changes. This copy must contain
-# none of the words revert/reset/restore/undo/original — D-04's
-# no-revert-control membership scan in test_status_pages.py treats any of
-# them inside this form as a failure.
+# Must not contain revert/reset/restore/undo/original — a no-revert-
+# control scan in test_status_pages.py checks this form for those words.
 REPLACE_HINT_TEXT = "Transparent PNG, at least 1200px wide, landscape."
 
-# variant_chip_label()'s two shape-domain patterns. An alphanumeric type
-# code is a letter prefix immediately followed by digits, optionally with
-# a hyphenated numeric suffix ("a320", "atr72", "a330", "b737",
-# "a350-1000"). Anything else is a word-form manufacturer shape
-# ("embraer", "beechcraft1900d") — see variant_chip_label()'s own
-# docstring for the domain-mismatch trap neither pattern may fall into.
+# variant_chip_label()'s two shape-domain patterns: an alphanumeric
+# type code is a letter prefix immediately followed by digits,
+# optionally with a hyphenated numeric suffix; anything else is a
+# word-form manufacturer shape.
 _TYPE_CODE_RE = re.compile(r"^[a-z]+\d[\d-]*$")
 _WORD_MODEL_RE = re.compile(r"^([a-z]+)(\d.*)$")
 
 
 def variant_chip_label(shape):
-    """Display transform for one fleet-variant chip
-    (06.6.4.1-UI-SPEC.md §7.1). `shape` is a free-text filename suffix
-    from `_ILLUSTRATION_TARGETS`, reached only through
-    `illustrations.target_variants_by_airline()` — e.g. `"a350-1000"` —
-    a DIFFERENT domain from `illustrations.SHAPE_SLUGS`' seven-member
-    ICAO-type classification.
-
-    TRAP: this function must never validate `shape` against
-    `SHAPE_SLUGS` membership before deciding how (or whether) to render
-    it — `"a350-1000"` is a real, live entry that such a check would
-    silently drop, since it is not itself a `SHAPE_SLUGS` member (only
-    its un-suffixed `"a350"` root is). The branch below is derived from
-    the shape string's own form, never from that tuple.
+    """Display transform for one fleet-variant chip. `shape` is a
+    free-text filename suffix from `_ILLUSTRATION_TARGETS`, a different
+    domain from `illustrations.SHAPE_SLUGS`'s ICAO-type classification
+    — this function must never validate `shape` against `SHAPE_SLUGS`
+    membership, since values like `"a350-1000"` are real but not
+    members themselves.
 
     An alphanumeric type code upper-cases verbatim (`"a320"` ->
-    `"A320"`, `"atr72"` -> `"ATR72"`, `"a330"` -> `"A330"`, `"b737"` ->
-    `"B737"`, `"a350-1000"` -> `"A350-1000"`). A word-form manufacturer
-    shape title-cases instead (`"embraer"` -> `"Embraer"`), splitting a
-    trailing digit-led model number into its own word
-    (`"beechcraft1900d"` -> `"Beechcraft 1900D"`).
+    `"A320"`); a word-form manufacturer shape title-cases, splitting a
+    trailing digit-led model number (`"beechcraft1900d"` ->
+    `"Beechcraft 1900D"`).
     """
     if not isinstance(shape, str) or not shape:
         return ""
@@ -658,29 +321,13 @@ def variant_chip_label(shape):
 
 def _illustration_cache_buster(key, state_dir):
     """Return a `"?v={mtime}"` query suffix for `key`'s override file, or
-    the empty string when there is no `state_dir` or no override exists
-    yet (quick task 260902-v26).
+    `""` when there's no `state_dir` or no override yet.
 
-    Why this is needed at all: the illustration route
-    (`companion/app.py`'s `Handler._serve_illustration_image()`, via
-    `Handler.send_bytes(..., cache_seconds=300)`) serves `Cache-Control:
-    private, max-age=300`. Without a URL change, a freshly-replaced image
-    would keep showing the stale, pre-upload image in the developer's
-    browser for up to five minutes after a successful upload — reading as
-    "the upload didn't work" rather than as a cache artifact. Keying the
-    suffix on the override file's own mtime means the URL changes exactly
-    when the bytes change, and never otherwise: rendering this page again
-    before the next upload reproduces the identical suffix, so the
-    browser's cache is otherwise left alone.
-
-    Resolved through `illustrations.override_path_for_key(key, state_dir)`
-    — the one place the state_dir/override-dirname join lives
-    (T-v26-01-01) — never rebuilt here, and `ILLUSTRATION_OVERRIDE_DIRNAME`
-    is never reached for directly. Wrapped in `try`/`except` so a vanished
-    or unreadable file (a race with a concurrent upload, a permissions
-    error) degrades to no cache buster rather than raising — the same
-    never-raises posture `companion/app.py`'s `runway_images_available()`
-    documents for its own per-request `os.path.isfile()` probe.
+    The illustration route serves `Cache-Control: private, max-age=300`;
+    keying the suffix on the override file's mtime means the URL changes
+    exactly when the bytes change, so a browser cache doesn't show a
+    stale image for up to five minutes after a replace. Degrades to no
+    cache buster on a vanished or unreadable file rather than raising.
     """
     if not state_dir:
         return ""
@@ -695,76 +342,29 @@ def _illustration_cache_buster(key, state_dir):
 
 
 def _max_upload_bytes():
-    """`companion/app.py`'s `MAX_ILLUSTRATION_UPLOAD_BYTES` — the cap the
-    route enforces BEFORE the request body is read — read from that
+    """companion/app.py's `MAX_ILLUSTRATION_UPLOAD_BYTES`, read from that
     module rather than retyped here.
 
-    Imported inside the function on purpose, and this is not stylistic:
-    `companion/app.py` imports THIS module at its own import time, so a
-    module-level import would be a cycle. By the time any page is
-    rendered `companion.app` is fully loaded, so the lookup is a
-    dictionary hit.
-
-    Retyping the number instead would create exactly the shape
-    `companion/illustration_normalize.py`'s docstring forbids for the
-    crop: a second copy of one measurement, free to drift from the
-    first. The client-side refusal this value feeds is a COURTESY that
-    saves a round trip — the server's own pre-read cap is unchanged and
-    is the only gate — but a courtesy that disagrees with the gate is
-    worse than no courtesy at all.
+    Imported inside the function because companion/app.py imports this
+    module at import time; a module-level import would cycle. The
+    client-side cap this feeds is a courtesy only — the server's own
+    pre-read cap is the actual gate.
     """
     from companion.app import MAX_ILLUSTRATION_UPLOAD_BYTES
     return MAX_ILLUSTRATION_UPLOAD_BYTES
 
 
 def _upload_drop_html(input_id):
-    """25-07-PLAN.md Task 1 (CFG-51/D19): the drag-and-drop affordance
-    and framing preview for the file input with id `input_id`, wrapped
-    in 25-01's `.js` gate.
+    """Drag-and-drop affordance and framing preview for the file input
+    `input_id`, wrapped in `layout.JS_GATE_CLASS` so a blocked-script
+    visitor sees exactly today's form. One definition, three call sites,
+    so drop zones cannot render differently in two places.
 
-    One definition, three call sites — both copies of
-    `_resolve_upload_form_html()` and the single
-    `_lightbox_replace_form_html()` — because a drop zone rendered twice
-    from two definitions is two drop zones that can disagree.
-
-    GATED, AND THE GATE CLASS IS ON THIS ELEMENT ITSELF. A drop target
-    that cannot receive a drop must not advertise one: with scripts
-    blocked `layout.JS_GATE_CLASS`'s `display: none` removes this
-    subtree from the layout AND from the tab order, and the visitor sees
-    exactly today's form. The class sits on the same element as
-    `UPLOAD_DROP_ATTR` so "is this wrapper gated?" is an exact question
-    about one tag rather than a question about its ancestry — 25-01's
-    `_NO_JS_CONTROL_REGISTRY` checks precisely that, on EVERY element
-    carrying the attribute.
-
-    THE PREVIEW BOX RESERVES ITS BOX BEFORE ANY IMAGE EXISTS, at the
-    aspect ratio `companion/illustration_normalize.py` actually
-    produces — `ILLUSTRATION_TARGET_WIDTH / ILLUSTRATION_TARGET_HEIGHT`,
-    already imported at the top of this module for the gallery's own
-    `<img>` dimensions, never a second hand-typed ratio. The value rides
-    in on an inline `--upload-preview-ratio` custom property rather than
-    a literal in `style.css`, which is the only way a stylesheet with no
-    import path to Python can hold a number Python owns.
-    (`config_page.py`'s own `style="--value-fraction: …"` is this
-    phase's precedent, and the app's Content-Security-Policy already
-    allows `style-src 'unsafe-inline'` for the theme swatches.) The rule
-    in `style.css` deliberately gives that property NO fallback value: a
-    fallback would quietly keep the box the right shape if this
-    attribute ever stopped being rendered, which is the same masking
-    trap a `:has()` fallback plays on a first-paint measurement.
-
-    NO `<div>` ANYWHERE IN THIS MARKUP, and that is load-bearing:
-    `companion/test_status_pages.py`'s replace-zone contract matches
-    `<div class="lightbox__replace-zone">.*?</div>` NON-GREEDILY, so a
-    nested `<div>` inside that zone would truncate its capture and make
-    a correct page fail a check about element order. `<section>`,
-    `<figure>` and `<p>` say more about this markup anyway.
-
-    The refusal messages are rendered here, already translated, and the
-    script only ever copies one of them into `textContent`. It writes no
-    copy of its own — the property 25-01's `value-controls.js`
-    established and the reason `companion/i18n_fr/common.py` needed no
-    change for that file either.
+    The preview box reserves its aspect ratio via an inline
+    `--upload-preview-ratio` property — the only way a stylesheet with
+    no import path to Python can hold that number. No `<div>` in this
+    markup: `test_status_pages.py`'s replace-zone regex matches
+    non-greedily and a nested `<div>` would truncate it.
     """
     max_bytes = _max_upload_bytes()
     size_message = i18n.t(UPLOAD_DROP_SIZE_ERROR_TEMPLATE) % (max_bytes // (1024 * 1024))
@@ -795,65 +395,15 @@ def _upload_drop_html(input_id):
 
 
 def _lightbox_replace_form_html():
-    """The replace-image control (originally quick task 260902-v26,
-    relocated here by quick task 260903-btu): a plain, JavaScript-free
-    upload form, wired to plan 02's `POST /illustration/{key}.png` route
-    (`companion/app.py`'s `Handler._handle_illustration_replace()`),
-    living inside the shared click-to-enlarge lightbox rather than under
-    each grid card. Takes no arguments and is emitted exactly once per
-    page by `_lightbox_html()` — there is no longer a per-card copy to
-    parametrise.
+    """The replace-image control: a plain, JavaScript-free upload form
+    wired to `POST /illustration/{key}.png`, living inside the shared
+    lightbox and emitted once per page.
 
-    `action=""` is a real, present placeholder attribute, never omitted:
-    `companion/static/panel-lookup.js` overwrites it on every trigger
-    click with that card's own `_VIEW_PANEL_REPLACE_ACTION_ATTR` value,
-    writing an existing attribute rather than creating one. With
-    JavaScript unavailable, this placeholder means "submit to the
-    current page's own URL", i.e. `POST /airlines` — a route this app's
-    POST dispatch does not handle and answers with a 404. That is a
-    clean, harmless degradation (no write to a wrong key, no
-    unauthenticated path) and is deliberately accepted rather than
-    engineered around, matching this codebase's existing JS-free-
-    degradation posture (`list-filter.js`'s early return,
-    `panel-lookup.js`'s own guards). No JavaScript submit logic exists
-    anywhere here: this stays a real native multipart POST that
-    navigates the browser away and closes the dialog by page reload.
-
-    `accept="image/png"` below is a browser-side file-picker hint only,
-    never trusted server-side: plan 02's route decides what an image is
-    by parsing the real PNG header, and this attribute exists purely to
-    save the developer scrolling past their photo library.
-
-    Renders no revert/reset/restore-original control (D-04) — a
-    deliberate scope decision, not an omission. The vendored original is
-    never modified by this feature and stays recoverable (by deleting the
-    override file), but no user-facing revert is in scope for this task.
-
-    None of `REPLACE_LABEL_TEXT`, `REPLACE_BUTTON_TEXT`,
-    `REPLACE_HINT_TEXT` or `REPLACE_INPUT_ID` interpolates any external
-    value, so no `escape_html()` call is needed here — unlike the retired
-    per-card version, nothing hostile can reach this function's output.
-
-    quick task 260903-df3: this changed presentation only — a
-    `LIGHTBOX_REPLACE_ZONE_CLASS` wrapper `<div>` around the label/hint/
-    input/button (Option 2, "Framed action area") replaces the old
-    cramped inline divider row. The form's own opening tag (class,
-    `method`, `enctype`, `action=""`) and every existing child element's
-    own attributes are byte-identical to before — the zone is a styling
-    wrapper, not a markup or route change. The upload glyph is produced
-    only via `layout.icon_html("icon-upload", ...)`; this module hand-rolls
-    no glyph markup of its own.
-
-    25-07-PLAN.md Task 1 (CFG-51/D19): two additions, neither of which
-    touches what this form posts. The form gained an `id`
-    (`REPLACE_FORM_ID`), so 25-01's no-JS control registry can DECLARE
-    this control's form association rather than guess it; and
-    `_upload_drop_html()`'s gated drop affordance is appended as the
-    zone's last child. The `<input type="file">`, the `<button
-    type="submit">`, `method`, `enctype`, the `action=""` placeholder
-    and the hint text are byte-identical to their pre-25-07 output. The
-    drop zone contains no `<div>` — see `_upload_drop_html()`'s own
-    docstring for why that is load-bearing here specifically.
+    `action=""` is a real, present placeholder — panel-lookup.js
+    overwrites it on each trigger click with that card's own action URL;
+    with JavaScript unavailable it submits to the current page (a 404),
+    a clean, harmless degradation. `accept="image/png"` is a browser-side
+    hint only; the route validates by parsing the real PNG header.
     """
     icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
     return (
@@ -882,53 +432,22 @@ def _lightbox_replace_form_html():
     )
 
 
-# 22-11-PLAN.md Task 1 (D-05, B5): strips every tag from
-# `layout.concise_timestamp_html()`'s markup so the SAME call that
-# renders the no-JS path can also fill a `data-*` attribute. Deliberately
-# a tag-stripper over that one function's own output, never a second
-# date formatter — see `_seen_attribute_text()` below.
+# A tag-stripper over layout.concise_timestamp_html()'s own markup, so
+# the same call that renders the no-JS path can also fill a data-*
+# attribute — never a second date formatter.
 _MARKUP_TAG_RE = re.compile(r"<[^>]*>")
 
 
 def _seen_attribute_text(value, now):
     """The Paris-local text `data-view-panel-first-seen`/`-last-seen`
-    carry (D-05, B5) — byte-for-byte the same string the no-JS path's own
-    `<dd>` renders as its visible text, because it is derived from that
-    path's own single formatter call rather than composed a second time.
+    carry — the same string the no-JS `<dd>` renders, derived from that
+    one formatter call rather than composed a second time.
 
-    B5's defect was that these two attributes carried the RAW registry
-    ISO string ("2026-09-09T15:49:27+00:00") while
-    `_resolve_context_html()` beside them already formatted the identical
-    value through `layout.concise_timestamp_html()`. `panel-lookup.js`
-    can only ever `textContent`-copy whatever the attribute holds, so the
-    dialog showed machine time to a household member while the page
-    underneath showed "15:49 (2d ago)". The two were described as "a
-    deliberate, documented asymmetry" in `_gap_card_html()`'s own
-    docstring; D-05 overrules that — `layout.local_clock_text()` is the
-    only formatter for visible times, and the dialog's text is visible
-    time.
-
-    Mechanism: call `layout.concise_timestamp_html(value, now,
-    fallback="")` — literally the same call, with the same arguments, the
-    no-JS path makes — and strip its `<span class="mono" title="...">`
-    wrapper. The two paths therefore cannot drift: there is exactly one
-    formatting call shape in this module, and this function consumes its
-    output rather than reproducing it. Do NOT replace this with a
-    hand-composed `local_clock_text() + relative_age_text()` pair; that
-    is a second implementation and is precisely what B5 was.
-
-    The `title` attribute's own full-timestamp text is discarded with the
-    tag it lives on: it is a hover affordance the dialog's plain text
-    node has no way to carry, and the visible text is the contract.
-
-    `html.unescape()` runs after the strip because
-    `concise_timestamp_html()` escapes its own visible text; the caller
-    escapes exactly once again at its attribute interpolation site, so
-    the value crosses `escape_html()` at its attribute site exactly as
-    the raw value did (T-22-38). Returns `""` for a falsy `value`, the
-    same empty-attribute state every other optional `data-view-panel-*`
-    value uses. Never raises — `concise_timestamp_html()` itself never
-    does.
+    Strips the `<span>` wrapper off `layout.concise_timestamp_html(value,
+    now, fallback="")`; do not hand-compose a second formatter, which can
+    drift from this one. `html.unescape()` runs first since the source is
+    pre-escaped; the caller escapes once more at its own attribute site.
+    Returns `""` for a falsy `value`; never raises.
     """
     markup = layout.concise_timestamp_html(value, now, fallback="")
     return html_module.unescape(_MARKUP_TAG_RE.sub("", markup))
@@ -936,70 +455,26 @@ def _seen_attribute_text(value, now):
 
 def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None,
                        now=None):
-    """One `.airline-card` (06.6.4.1-UI-SPEC.md §7.1): an image pointing
-    at the session-gated `/illustration/{key}.png` route, wrapped in a
-    `.airline-card__zoom` click-to-enlarge trigger (quick task
-    260902-tli), the airline's name, and one chip per fleet-type variant
-    — the chips container is omitted entirely (not rendered empty) when
-    `shapes` is empty. Every interpolated value — the key inside the
-    URL, the name, each chip label, and the alt text — goes through
-    `escape_html()` exactly once, at the point of interpolation
-    (T-06.6.4.1-05). Returns the empty string (skips the card, never
-    crashes) for an airline whose normalised key comes back falsy,
-    mirroring `illustrations.target_filenames()`'s own documented skip
-    discipline.
+    """One `.airline-card`: an image behind a click-to-enlarge trigger, the
+    airline's name, and one chip per fleet-type variant. Every value is
+    escaped exactly once, at its point of interpolation. Returns `""` for
+    an airline whose normalised key is falsy.
 
-    `index` becomes the card's `data-filter-group` value (D-16/D-20):
-    this page renders one representation per airline (no mobile-card
-    pairing like History), but `companion/static/list-filter.js` counts
-    distinct groups rather than raw elements, so every filterable card
-    still needs its own group. `data-filter-text` carries the lower-cased
-    airline name, escaped before interpolation into the attribute — the
-    same discipline the old registry rows applied to their prefix value.
-
-    `state_dir` (quick task 260902-v26, default `None`): threaded down
-    from `render(ctx)` only to resolve `_illustration_cache_buster()`. It
-    changes nothing else — the vendored-fallback image URL, with no
-    override present, is byte-identical to what this function produced
-    before this parameter existed. (Quick task 260903-btu: this
-    parameter no longer also feeds a per-card replace form — the shared
-    lightbox's single form is not built here at all.)
-
-    `manual_info` (Phase 14, 14-06-PLAN.md Task 1, D-08/D-10/D-12
-    fallback reachability): either `None` (today's plain curated card —
-    byte-identical output to before this parameter existed) or the
-    three-tuple `(prefix, superseded, needs_artwork)` — the exact
-    trailing three fields of one `_manual_resolution_rows()` row, sliced
-    by the caller (`render()`) and consumed here, never recomputed
-    (RESEARCH.md Pitfall 6). When present: the trigger becomes a real
-    `<a href="/airlines?resolve={prefix}">` (the trigger-tag
-    generalisation, UI-SPEC's Page Composition), the chip list gains
-    "Resolved by hand"/"Superseded", `data-filter-text` gains the
-    matching invisible token, and the full `data-view-panel-*`
-    attribute vocabulary is populated per UI-SPEC's Interaction
-    Contract. A superseded card's `mode`/image always reflect the
-    BUILT-IN airline's own current state (UI-SPEC Autonomous Decision
-    3) — the built-in name's own single provenance lookup below (see
-    that call site) exists purely to interpolate the built-in name into
-    `MANUAL_SUPERSEDED_NOTE_TEMPLATE`, never to re-derive the
-    `superseded` boolean itself.
+    `index` becomes `data-filter-group`; `state_dir` resolves the
+    illustration cache buster. `manual_info`, when present, is the
+    `(prefix, superseded, needs_artwork)` triple sliced by the caller,
+    turning the trigger into a resolve link with the manual-state chip.
     """
     key = illustrations.normalise_airline_key(airline_name)
     if not key:
         return ""
-    # Built once, interpolated into both the <img src> and the zoom
-    # trigger's data-view-panel-src below (plus, since quick task
-    # 260902-v26, the cache-busting suffix appended to both — see
-    # _illustration_cache_buster()), so the two can never drift apart into
-    # pointing at different images.
+    # Built once and reused for both the <img src> and the zoom
+    # trigger's data-view-panel-src, plus the cache-busting suffix, so
+    # the two cannot point at different images.
     image_url = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
-    # This zoom trigger's own _VIEW_PANEL_REPLACE_ACTION_ATTR below
-    # (quick task 260903-btu) deliberately uses this UN-busted image_url,
-    # not busted_image_url — a query string on a POST target is
-    # pointless and would make that attribute and data-view-panel-src
-    # look gratuitously different for no reason. image_url is already
-    # escaped once above; do not escape it again when interpolating it
-    # below, which would double-encode.
+    # The replace-action attribute deliberately uses the un-busted
+    # image_url — a query string on a POST target is pointless. Already
+    # escaped once above; do not escape it again here.
     busted_image_url = image_url + _illustration_cache_buster(key, state_dir)
     image_html = (
         '<img class="airline-card__image" src="%s" '
@@ -1010,11 +485,9 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
         escape_html(i18n.t(CARD_IMAGE_ALT_TEMPLATE) % airline_name),
     )
-    # Phase 14 (14-06-PLAN.md Task 1): derive every manual-info-dependent
-    # attribute value once, here, from the sliced (prefix, superseded,
-    # needs_artwork) triple alone — never re-derived from a second call
-    # to enrich/illustrations beyond the one static-name lookup below
-    # (RESEARCH.md Pitfall 6).
+    # Every manual-info-dependent value is derived once here from the
+    # sliced (prefix, superseded, needs_artwork) triple, never
+    # re-derived from a second lookup.
     has_manual = manual_info is not None
     prefix = superseded = needs_artwork = None
     if has_manual:
@@ -1023,12 +496,9 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     mode = (
         _VIEW_PANEL_MODE_NEEDS_ARTWORK if (has_manual and needs_artwork)
         else _VIEW_PANEL_MODE_ART)
-    # Phase 18 (audit, high): a manually-resolved airline with no artwork
-    # yet used to emit an <img> whose src 404s — the browser painted the
-    # alt text as a broken, link-styled image. Render the same dashed
-    # placeholder a gap card uses instead, and hand the dialog an empty
-    # src so it hides its image too (panel-lookup.js's own empty-src
-    # branch).
+    # A manually-resolved airline with no artwork yet would otherwise
+    # render an <img> whose src 404s; use the same dashed placeholder a
+    # gap card uses, and an empty src so the dialog hides its image too.
     if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
         image_html = '<span class="airline-card__placeholder" aria-hidden="true"></span>'
         busted_image_url = ""
@@ -1049,21 +519,14 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
 
     manual_note_value = ""
     if has_manual and superseded:
-        # This function's one sanctioned provenance lookup — fetching the
-        # built-in airline's own display name for the template's
-        # interpolation, never re-deriving the `superseded` boolean
-        # itself (that stays sourced from `manual_info`).
+        # The one sanctioned provenance lookup: the built-in airline's
+        # display name for the note template — never re-derives the
+        # `superseded` boolean itself.
         built_in_name = enrich.static_airline_name_for_prefix(prefix) or ""
         escaped_built_in_name = escape_html(built_in_name)
-        # RESEARCH.md Pitfall 6's own boundary is about the three
-        # BOOLEANS (superseded/needs_artwork and the count they derive)
-        # — this function's `airline_name` argument here is already the
-        # CARD's display name, which for a superseded card is the
-        # built-in name itself (D-10), never the operator's own
-        # originally-typed name the note's third %s slot must name
-        # ("the name you gave it"). That raw stored string lives only in
-        # the registry entry, so it is fetched once here — a plain
-        # value read, not a re-derivation of either boolean.
+        # For a superseded card, `airline_name` is already the built-in
+        # name; the operator's own originally-typed name for the note
+        # comes from the stored registry entry instead.
         stored_entry = manual_resolutions.load_manual_resolutions(state_dir).get(prefix) or {}
         operator_name = stored_entry.get("airline_name") or airline_name
         manual_note_value = i18n.t(MANUAL_SUPERSEDED_NOTE_TEMPLATE) % (
@@ -1076,44 +539,22 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         gap_row = unresolved_row_for_prefix(state_dir, prefix)
         if gap_row is not None:
             _, gap_count, gap_first_seen, gap_last_seen, _gap_callsign = gap_row
-            # 22-11-PLAN.md Task 1 (D-05, B5): FORMATTED Paris-local text,
-            # never the raw registry ISO — see _seen_attribute_text().
+            # Formatted Paris-local text, never the raw registry ISO —
+            # see _seen_attribute_text().
             first_seen_value = escape_html(_seen_attribute_text(gap_first_seen, now))
             last_seen_value = escape_html(_seen_attribute_text(gap_last_seen, now))
             count_value = escape_html(gap_count)
 
-    # D-01's per-prefix scope sentence is a raw-gap-only concept — these
+    # The per-prefix scope sentence is a raw-gap-only concept; these
     # cards already show a resolved name.
     scope_value = ""
 
-    # quick task 260902-tli: wraps the image in a real <button> (not the
-    # <img> itself) — this codebase's a11y discipline (the global
-    # :focus-visible floor, aria-labelled icon buttons elsewhere) makes a
-    # non-focusable click target the wrong choice, and panel-lookup.js's
-    # click delegation walks ancestors from the event target, so a click
-    # on the inner image still resolves to this button. The aria-label
-    # deliberately overrides the inner image's alt for the button's own
-    # accessible name, so a screen reader announces the action ("Enlarge
-    # ... illustration"), not just the picture.
-    #
-    # Phase 14 (14-02-PLAN.md Task 3, 14-UI-SPEC.md's Interaction
-    # Contract "Correctness rule"): every trigger carries the full
-    # fifteen-attribute data-view-panel-* vocabulary, not just the four
-    # this card actually uses. A plain curated art card sets
-    # mode="art" and leaves the other ten new attributes present but
-    # EMPTY rather than omitted — an omitted attribute is precisely how
-    # a stale value from the previous click would leak onto this one,
-    # since panel-lookup.js's `attr || ""` idiom (plan 14-05) copies
-    # every attribute on every open.
-    #
-    # Phase 14 (14-06-PLAN.md Task 1, UI-SPEC's Trigger-tag
-    # generalisation): a card carrying a resolve prefix becomes a real
-    # `<a href="/airlines?resolve={prefix}">` instead — the no-JS
-    # fallback's own `?resolve={prefix}` page section can then already
-    # serve it, exactly like a raw gap card. Every `data-view-panel-*`
-    # attribute and the `aria-label` are otherwise identical between the
-    # two tag variants; only the outer tag name and the presence of
-    # `href` differ.
+    # A real <button>, not the <img>, is the click target for keyboard
+    # focus; panel-lookup.js's delegation still resolves an image click to
+    # it. Every trigger carries the full data-view-panel-* vocabulary, with
+    # unused attributes left empty rather than omitted, since an omitted
+    # attribute is how a stale value could leak from a previous click. A
+    # resolve-prefix card becomes a real <a href="?resolve={prefix}"> instead.
     if resolve_prefix_value:
         opening_tag = '<a href="%s?%s=%s" class="airline-card__zoom" ' % (
             AIRLINES_ROUTE, RESOLVE_QUERY_PARAM, resolve_prefix_value)
@@ -1121,15 +562,10 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     else:
         opening_tag = '<button type="button" class="airline-card__zoom" '
         closing_tag = "</button>"
-    # X7 (22-11-PLAN.md Task 2): built ONCE, into a variable, because the
-    # edit-mode Replace control below is a second trigger for the very
-    # same dialog and must carry the identical fifteen-attribute
-    # vocabulary. `panel-lookup.js`'s `attr || ""` idiom copies every
-    # attribute on every open, so a second trigger carrying a SUBSET
-    # would blank the dialog's mode and forms — the exact stale/empty
-    # leak 14-UI-SPEC.md's "Correctness rule" exists to prevent. Two
-    # triggers sharing one interpolation cannot drift; two hand-written
-    # attribute lists could.
+    # Built once into a variable: the edit-mode Replace control below is
+    # a second trigger for the same dialog and must carry an identical
+    # vocabulary, or panel-lookup.js's attr-copy idiom would blank the
+    # dialog's mode and forms on that second trigger.
     panel_attrs = (
         '%s="%s" %s="%s" %s="%s" %s="%s" '
         '%s="%s" %s="%s" %s="%s" %s="%s" '
@@ -1184,44 +620,15 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
 
 def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_name=None,
                        now=None):
-    """Wrap one `_airline_card_html()` card per `(airline_name, shapes)`
-    pair in the `.illustration-grid` container (06.6.4.1-UI-SPEC.md
-    §7.1, companion/static/style.css from plan 01). Skips (renders
-    nothing for) any pair whose card comes back empty. `state_dir`
-    (quick task 260902-v26, default `None`) is threaded straight through
-    to every card — see `_airline_card_html()`'s own docstring.
+    """Wraps one `_airline_card_html()` card per `(airline_name, shapes)`
+    pair in the `.illustration-grid` container; skips a pair whose card
+    comes back empty.
 
-    `gap_cards_html` (14-04-PLAN.md, D-04/D-05): already-rendered gap
-    cards' markup (`render()`'s own `"".join(_gap_card_html(...) for
-    ...)` call), prepended inside this same `.illustration-grid`
-    wrapper, ahead of the curated cards — one function still owns the
-    grid's outer markup, matching this module's "one render function"
-    discipline. Defaults to `""` so every existing call site (and every
-    existing test calling this function positionally with two arguments)
-    keeps rendering byte-identical output with no gap block at all.
-
-    19-08-PLAN.md Task 1 (D-21/A-38): this parameter's only caller,
-    `render()`, stopped passing it as of this plan — the gap cards now
-    live in their own explained `_gap_strip_html()` strip above the
-    filter bar, never inside this curated artwork grid. The parameter
-    itself is retained rather than removed, for the same 46-call-site
-    backward-compatibility reason stated above; a future caller must
-    not reintroduce gap cards into this grid — pass them to
-    `_gap_strip_html()` instead.
-
-    `now` (22-11-PLAN.md Task 1, D-05/B5): `render()`'s own `ctx["now"]`,
-    threaded to every card purely as `_seen_attribute_text()`'s second
-    argument, so a needs-artwork card's `data-view-panel-first-seen`/
-    `-last-seen` carry the same Paris-local text the no-JS path renders.
-    Defaults to `None` like every other optional parameter here.
-
-    `manual_info_by_name` (14-06-PLAN.md Task 1, D-08/D-10): an optional
-    dict mapping an airline's display name to its own
-    `(prefix, superseded, needs_artwork)` triple — `render()`'s own
-    lookup table, built once there from `_manual_resolution_rows()`,
-    never recomputed here. Defaults to `None` (treated as `{}`) so every
-    existing call site keeps rendering byte-identical output with no
-    manual-resolution state on any card.
+    `gap_cards_html` (default `""`) is prepended inside the same wrapper —
+    kept only for call-site parity; a caller should use
+    `_gap_strip_html()` instead. `manual_info_by_name` maps a display name
+    to its `(prefix, superseded, needs_artwork)` triple, built once by
+    `render()`.
     """
     manual_info_by_name = manual_info_by_name or {}
     cards = "".join(
@@ -1233,77 +640,16 @@ def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_
 
 
 def _gap_rows_for_grid(state_dir, manual_registry=None):
-    """The gap block's own source, sort, threshold and cap (D-04, D-05,
-    D-06): every prefix in the live unresolved-callsign-prefix registry
-    with `count >= GAP_BLOCK_THRESHOLD`, sorted `(-count, prefix)`, split
-    into `(shown, overflow_count)` where `shown` is at most
-    `GAP_BLOCK_CAP` rows and `overflow_count` is how many eligible rows
-    the cap hides.
+    """Eligible gap rows: every prefix in the live unresolved-callsign-prefix
+    registry with `count >= GAP_BLOCK_THRESHOLD`, sorted `(-count, prefix)`,
+    capped at `GAP_BLOCK_CAP` shown rows. Never raises.
 
-    Reads `poll_loop.load_poll_state(state_dir)`'s own
-    `unresolved_prefixes` dict directly — this module already imports
-    `poll_loop` for `unresolved_row_for_prefix()` above — duplicating
-    `health_page.unresolved_rows()`'s own malformed-entry-skip discipline
-    and sort key byte for byte (skip a non-dict entry, skip a non-int or
-    bool `count`, sort by count descending then prefix ascending) rather
-    than importing it: a page module has no import path to a sibling
-    page module (companion/pages/__init__.py's boundary), the same
-    duplicated-not-imported discipline this module already applies to
-    its own route constants (RESEARCH.md's Don't-Hand-Roll table).
-
-    Returns rows in the exact five-field shape `unresolved_row_for_
-    prefix()` already returns them (`prefix, count, first_seen,
-    last_seen, example_callsign`), so a future caller can treat both
-    functions' rows identically. Never raises — a falsy `state_dir` (this
-    function, unlike `unresolved_row_for_prefix()`, is called
-    unconditionally by `render()`, not gated behind a truthy
-    `resolve_prefix`) or a missing/unreadable poll state both yield
-    `([], 0)` rather than crashing a page render, mirroring
-    `_illustration_cache_buster()`'s own no-`state_dir` short-circuit.
-
-    14-08 on-glass fix (2026-09-06, D-13/D-14 real-browser check): skips
-    any prefix that already has a `manual_resolutions.json` entry, even
-    though `poll_state.json`'s own `unresolved_prefixes` still lists it —
-    the two files are updated by different owners on different
-    schedules (the companion writes the manual entry immediately;
-    `server/poll_loop.py`'s D-14 cleanup only clears the gap entry on
-    the device's *next* wake-and-poll cycle, exactly what the save
-    confirmation flash tells the operator: "the frame will pick it up
-    next time it wakes and polls"). Without this exclusion, saving a
-    name for a still-unresolved gap rendered TWO `data-view-panel-
-    resolve-prefix="{prefix}"` elements simultaneously for one wake
-    (the stale gap card plus the new manual/needs-artwork card) —
-    confirmed live in a real browser — and `panel-lookup.js`'s
-    `document.querySelector()` auto-open (a single-match lookup, by
-    design, since exactly one match is the invariant every other mode
-    relies on) silently grabbed whichever rendered first in DOM order
-    (the gap card, since D-05 sorts gaps to the head of the grid),
-    reopening the dialog on the wrong (Step A) form after the operator
-    had just completed Step A. The manual registry is authoritative the
-    moment a name is saved — this function's OWN eligibility list is
-    the right and only place to encode that, not a client-side
-    disambiguation panel-lookup.js would have no principled way to make
-    (it has no way to know which of two matches is "newer").
-
-    `manual_registry` (code review fix, 2026-09-06, WR-02): optional,
-    defaults to `None`. When omitted, this function loads it fresh via
-    `manual_resolutions.load_manual_resolutions(state_dir)` exactly as
-    before — preserving the standalone-callable shape
-    `companion/test_status_pages.py`'s own direct calls already rely
-    on. `render()` instead passes in the SAME registry dict it already
-    resolved for `_manual_resolution_rows()` a few lines below this
-    function's own call site, rather than letting this function load
-    it a second, independent time. Two independent reads of
-    `manual_resolutions.json` within one `ThreadingHTTPServer` request
-    (this function's own internal read, plus `render()`'s separate
-    read for the manual-card injection logic) opened a narrow race: a
-    concurrent write landing between the two could reproduce, within
-    that single request, the exact "prefix missing from both blocks"
-    failure this function's own D-13/D-14 fix above was written to
-    close. One read per render, threaded through, closes it —
-    matching this codebase's own repeatedly-stated "single read per
-    cycle" discipline (`poll_loop.py`'s own comment on this exact
-    principle).
+    Skips a prefix with a manual resolution entry already: the poll state
+    and the manual registry update on different schedules, so without this
+    exclusion a just-resolved prefix could render two resolve-prefix
+    elements, letting the dialog's single-match auto-open grab the stale
+    one. `manual_registry`, passed by `render()`, avoids a second read of
+    the same file.
     """
     if not state_dir:
         return [], 0
@@ -1338,72 +684,15 @@ def _gap_rows_for_grid(state_dir, manual_registry=None):
 
 
 def _gap_card_html(index, row, now=None):
-    """One coverage-gap card (D-01, D-02, D-04, D-05, D-12,
-    14-UI-SPEC.md's "Gap-card markup shape"): the whole `<a
-    class="airline-card">` element IS the click-to-resolve trigger — no
-    `<img>` at all (D-02: the placeholder is pure CSS,
-    `.airline-card__placeholder`, already styled by plan 14-03) and no
-    nested `.airline-card__zoom` button (D-12: "an `<a>` needs only
-    `preventDefault()`").
+    """One coverage-gap card: the whole `<a class="airline-card">` element is
+    itself the click-to-resolve trigger — no `<img>`, no nested button.
 
-    `row` is one of `_gap_rows_for_grid()`'s own five-field tuples
-    (`prefix, count, first_seen, last_seen, example_callsign`) — the
-    same shape `unresolved_row_for_prefix()` returns. `index` is this
-    card's position among the shown gap cards (0-based), used only to
-    build its `data-filter-group` value.
-
-    `escaped_prefix`/`escaped_callsign` are each computed exactly once
-    here and reused across every attribute/text site that needs them
-    (T-06.6.4.1-05, T-14-16) — never re-escaped. `data-view-panel-src`
-    and `data-view-panel-manual` both stay the empty string: a raw gap
-    has no image and no manual-resolution history yet (that state
-    belongs to plan 14-06's manual/superseded cards, not here).
-    `data-view-panel-count` carries the escaped raw registry count.
-    `data-view-panel-first-seen`/`-last-seen` used to carry the raw
-    registry ISO strings too, described here as "a deliberate,
-    documented asymmetry with the no-JS fallback's own concise
-    rendering, not a defect" — SUPERSEDED by 22-11-PLAN.md Task 1
-    (D-05, B5). It WAS the defect: `panel-lookup.js` textContent-copies
-    whatever the attribute carries, so the dialog showed a household
-    member "2026-09-09T15:49:27+00:00" while `_resolve_context_html()`
-    beside it already rendered the identical value as Paris local time.
-    Both now go through `_seen_attribute_text()`, which strips the tags
-    off the no-JS path's OWN `layout.concise_timestamp_html()` call
-    rather than formatting a second time — the markup-in-an-attribute
-    objection the old paragraph raised is what that stripper answers.
-
-    `now` (22-11-PLAN.md Task 1) is `render()`'s own `ctx["now"]`,
-    threaded here solely as that formatter's second argument. It
-    defaults to `None` for call-shape parity with every other optional
-    parameter in this module; a `None` here degrades exactly as the
-    no-JS path already degrades for the same input, which is the point —
-    the two paths agree in every state, not only the happy one.
-
-    `data-filter-group` is a string-prefixed `"gap%d"`, never a bare
-    integer, so it can never collide with the curated grid's own
-    `enumerate(pairs)` sequence sharing the same attribute name
-    (RESEARCH.md Pitfall 4, T-14-17).
-
-    Code review fix (2026-09-06, WR-03): `example_callsign` is a JSON
-    *value*, not a dict key like `prefix` — a hand-edited
-    `poll_state.json` can hold a number, list, or other non-string
-    there, and `_gap_rows_for_grid()`'s own `entry.get(...) or ""`
-    fallback does not catch it (a truthy non-string value passes
-    through unchanged). Every other use of these two values already
-    goes through `escape_html()`, which coerces via `str()` and never
-    raises — but the `.lower()` call below runs on the raw value
-    first, ahead of that safety net, and `.lower()` on a non-string
-    raises `AttributeError`, contradicting this function's own
-    "never raises" framing and crashing the whole `/airlines` render.
-    `prefix` itself needs no equivalent guard — it is a dict key
-    straight from `json.load()`, and JSON object keys are always
-    strings. `health_page.unresolved_rows()` carries the identical
-    unguarded `or ""` pattern for the same field, inherited from the
-    "byte for byte" duplication this function's own docstring already
-    describes — harmless there only because that page never calls a
-    string-only method on the value. Left unfixed there: out of this
-    phase's scope (a different page module, no `.lower()`-shaped risk
-    reachable in its own current code).
+    `row` is one of `_gap_rows_for_grid()`'s five-field tuples; `index`
+    becomes `data-filter-group` as `"gap%d"`, string-prefixed so it can't
+    collide with the curated grid's integer groups. `example_callsign` is
+    coerced to `str()` before `.lower()` runs on it, since a hand-edited
+    `poll_state.json` can hold a non-string value there and `.lower()`
+    would raise on it uncoerced.
     """
     prefix, count, first_seen, last_seen, example_callsign = row
     if not isinstance(example_callsign, str):
@@ -1440,21 +729,12 @@ def _gap_card_html(index, row, now=None):
 
 
 def _gap_overflow_html(overflow_count):
-    """The gap block's overflow line (D-07), rendered only when
-    `_gap_rows_for_grid()`'s own cap hides at least one eligible prefix
-    — `""` otherwise. `MANUAL_OVERFLOW_TEMPLATE`'s `%d` slot is
-    `overflow_count`; `MANUAL_OVERFLOW_LINK_TEXT` is the only text
-    wrapped by the `<a href="/health">` anchor — the trailing period
-    sits outside it, matching 14-UI-SPEC.md's Gap-block composition
-    literal exactly.
+    """Overflow line for the gap block, rendered only when
+    `_gap_rows_for_grid()`'s cap hid at least one eligible prefix.
 
-    19-08-PLAN.md Task 1 (D-21): this anchor still points at `/health`,
-    deliberately NOT retargeted to Airlines even though this line now
-    renders inside the Airlines-hosted `_gap_strip_html()` strip rather
-    than at the head of the artwork grid. The link exists to show the
-    prefixes the strip's own `GAP_BLOCK_CAP` hides, and only Health's
-    unresolved-prefix registry table lists every one of them — Airlines
-    itself has no equivalent full list to link to.
+    Links to `/health`, not `/airlines`, even though this line renders
+    inside Airlines' own gap strip: only Health's unresolved-prefix
+    registry table lists every hidden prefix.
     """
     if not overflow_count:
         return ""
@@ -1463,34 +743,15 @@ def _gap_overflow_html(overflow_count):
 
 
 def _gap_strip_html(gap_cards_html, overflow_html):
-    """D-21's (A-38) own explained home for the coverage-gap cards: a
-    real `<section class="page-section">` card carrying
-    `GAP_STRIP_HEADING`/`GAP_STRIP_BODY` (each escaped exactly once
-    here, matching `health_page.py`'s `SOURCE_FAULT_HEADING`/
-    `SOURCE_FAULT_BODY` module-level-string-constant convention) plus
-    `gap_cards_html` (already-safe markup from `render()`'s own
-    `"".join(_gap_card_html(...) for ...)` call — every value inside it
-    already passed `escape_html()` in `_gap_card_html()`, so it is
-    interpolated verbatim here, never re-escaped) inside its own
-    `.illustration-grid illustration-grid--gap` container, and
-    `overflow_html` (also already-safe, from `_gap_overflow_html()`)
-    after the cards.
+    """Wraps the coverage-gap cards in their own `<section class="page-section">`
+    with `GAP_STRIP_HEADING`/`GAP_STRIP_BODY`, matching
+    `health_page.py`'s heading/body constant convention.
 
-    Returns `""` when `gap_cards_html` is empty — a no-gaps render emits
-    no empty section at all, matching this codebase's "no chrome with
-    no data" rule. `overflow_html` alone can never make this non-empty:
-    `_gap_overflow_html()` only ever returns a non-empty string when
-    `_gap_rows_for_grid()`'s cap actually hid an eligible row, which
-    cannot happen without `gap_cards_html` itself also being non-empty.
-
-    Composed entirely from classes that already exist in
-    `companion/static/style.css` (`.page-section`, `.text-heading`,
-    `.text-label section-caption`, `.illustration-grid`) — plan 19-10
-    owns that stylesheet in this same wave and this plan must not touch
-    it; `illustration-grid--gap` is a bare modifier class carrying no
-    rule of its own, present only so a full-page-order check can find
-    the artwork grid's own exact `class="illustration-grid"` attribute
-    without also matching this strip's cards.
+    Returns `""` when `gap_cards_html` is empty — no empty section renders
+    with no data. `overflow_html` alone can never make this non-empty,
+    since `_gap_overflow_html()` only returns non-empty when
+    `_gap_rows_for_grid()`'s cap actually hid a row, which cannot happen
+    without `gap_cards_html` also being non-empty.
     """
     if not gap_cards_html:
         return ""
@@ -1510,91 +771,22 @@ def _gap_strip_html(gap_cards_html, overflow_html):
 
 
 def _lightbox_html():
-    """The single shared click-to-enlarge `<dialog>` (quick task
-    260902-tli), emitted once per page — never once per card — by
-    `render()`, only when at least one card actually carries a zoom
-    trigger. Mirrors `history_page._lightbox_html()` element-for-element
-    and class-for-class for its image/caption/note prefix (same order,
-    same three `lightbox__*` elements, same close-attribute button),
-    with the `lightbox--wide` class (the enlarged illustration needs
-    more room than History's 480px default) and this module's own
-    `LIGHTBOX_NOTE`, then (Phase 14, 14-02-PLAN.md Task 3) every
-    element the three view modes (art/gap/needs-artwork) plus the
-    orthogonal manual state (active/superseded) can need, all
-    server-rendered once through the same shared functions
-    `_resolve_section_html()` (the no-JS fallback) also calls —
-    Claude's Discretion #1, one definition per form, two call sites.
+    """The single shared click-to-enlarge `<dialog>`, emitted once per page
+    when at least one card carries a zoom trigger. Mirrors
+    `history_page._lightbox_html()`'s element order and classes, plus
+    `lightbox--wide` and this module's own `LIGHTBOX_NOTE`.
 
-    Element order inside the dialog: image, caption, note, heading,
-    manual-note, resolve-context, resolve-name form, resolve-upload
-    zone, replace form, delete form, then the `.lightbox__actions` row.
-    That row stays last so the dismissal affordance is the stable
-    bottom-most control and the tab order reads "look, act, dismiss" —
-    `panel-lookup.js` finds the close button by attribute, not by
-    position, so this order matters only to a human, never to the
-    script.
-
-    22-11-PLAN.md Task 1 (B5): that trailing row is new. Close used to
-    be the dialog's own bare last child while the resolve form's Save
-    sat inside the form above it, so the two painted as two stacked
-    block rows. They now share one row — the quiet Close on the left,
-    the primary Save on the right — with Save lifted out of the form and
-    re-attached by `form="manual-resolve-form-dialog"`. `.lightbox__
-    actions` is a layout row, not a new button family: both buttons keep
-    the element selectors they already matched.
-
-    The lifted Save is the ONLY control in the dialog whose visibility
-    `panel-lookup.js` must now keep in step with a form it no longer
-    encloses; the script does that by mirroring
-    `.lightbox__resolve-name`'s own `hidden` state rather than repeating
-    the mode test, so there is still exactly one mode table in that
-    file. The upload zone's, the replace form's and the delete form's
-    own submits all stay inside their framed zones, where their labels
-    ("Upload", "Delete") belong to the zone rather than to the dialog.
-
-    Every form here, including the replace form and the delete form, is
-    now unconditional (29-01-PLAN.md, CFG-81: the page-wide editing
-    mode this page used to have is deleted outright, and with it the
-    two-tier split a prior phase built into this dialog). Which of the
-    two artwork-editing forms is actually VISIBLE on a given open is
-    decided entirely client-side, by `companion/static/panel-lookup.js`
-    from the clicked trigger's own data attributes: it sets
-    `replaceForm.hidden` from whether the trigger's mode attribute
-    equals `"art"`, and `deleteForm.hidden` from whether the trigger's
-    manual attribute is non-empty. This function's job is only to make
-    sure both forms are always present in the document for that script
-    to find and show or hide — never to decide the visibility itself.
-
-    Every optional child here is a real, present placeholder — heading
-    and manual-note are emitted empty (their own `:empty` CSS collapse
-    rule is plan 14-03's job, not this function's); the resolve-context
-    `<dl>` is built from `row=None` (five empty `<dd>`s); the
-    resolve-name/resolve-upload/delete forms all carry `id_suffix=
-    "-dialog"` (or, for the id-less delete form, just `action=""`) so
-    their ids never collide with the no-JS fallback section's own
-    identically-shaped, unsuffixed ids when both render at once. No
-    element is emitted `hidden` from the server — the initial
-    visibility state is `panel-lookup.js`'s to set (plan 14-05), and
-    RESEARCH.md Pitfall 3 requires that state be final *before*
-    `showModal()` runs, a runtime ordering concern this function does
-    not own. Every optional form's own primary control keeps whatever
-    `autofocus` attribute the shared function itself emits — neither
-    stripped nor duplicated — so the no-JS fallback path's own focus
-    behaviour is untouched.
-
-    `companion/static/panel-lookup.js` writes the image src/alt, the
-    caption text, and the replace form's `action` attribute on click
-    today; this function only emits the static note and every form's
-    `action=""`/empty placeholder, none of which the script writes on
-    page load — only on the next click (and, from plan 14-05 onward,
-    every other attribute in the vocabulary too).
+    Every optional child is a real, present placeholder — empty rather
+    than omitted — so `panel-lookup.js` can find and fill it. Neither form
+    is emitted `hidden`: which of the replace/delete forms is visible on
+    a given open is decided entirely client-side from the trigger's data
+    attributes, never here.
     """
     resolve_context_html = _resolve_context_html(None, None, id_suffix="-dialog")
     resolve_name_html = _resolve_name_form_html("", "-dialog", include_submit=False)
     resolve_upload_html = _resolve_upload_form_html("", "-dialog")
-    # 29-01-PLAN.md (CFG-81): both forms are always in the document now.
-    # `panel-lookup.js` decides which one a given open shows — see this
-    # function's own docstring for the two attribute reads that do it.
+    # Both forms are always in the document; panel-lookup.js decides
+    # which one a given open shows — see this function's own docstring.
     replace_html = _lightbox_replace_form_html()
     delete_html = _manual_delete_form_html("")
     return (
@@ -1629,22 +821,12 @@ def _lightbox_html():
     )
 
 
-# D-16 (06.6.4.1-UI-SPEC.md §7.2): the gallery's filter-bar copy, driven
-# client-side by companion/static/list-filter.js's shared
+# Filter-bar copy, driven client-side by list-filter.js's shared
 # [data-filter-input]/[data-filter-count]/[data-filter-clear]/
-# [data-filter-empty] attribute contract — the same script History's own
-# _filter_bar_html() already consumes, no script change needed here.
-# Unlike the retired diagnostics page, this gallery carries no read-only
-# constraint, so the Clear control below is a real <button>, matching
-# History's variant rather than the old Airlines page's anchor-link one.
-#
-# Quick task 260921-p2w Task 1: hyphen removed from this value — see
-# history_page.py's own `_FILTER_INPUT_ID` comment for the full WebKit/
-# Safari contacts-autofill explanation.
+# [data-filter-empty] attribute contract. The Clear control is a real
+# <button> (not an anchor), since this gallery carries no read-only
+# constraint.
 _FILTER_INPUT_ID = "airlines_gallery_filter_input"
-# Phase 14 (14-02-PLAN.md Task 1) reworded this label in place: the
-# search behaviour genuinely broadens once gap cards are filterable by
-# callsign/prefix too (14-UI-SPEC.md Autonomous Decision #2).
 _FILTER_LABEL_TEXT = "Filter by airline or callsign"
 _FILTER_EMPTY_HEADING = "No matching airlines"
 _FILTER_EMPTY_BODY_TEMPLATE = (
@@ -1652,35 +834,15 @@ _FILTER_EMPTY_BODY_TEMPLATE = (
 
 
 def _filter_bar_html(total, summary_html=""):
-    """D-16's filter bar over the gallery — History's `<button
-    type="button" data-filter-clear>Clear</button>` variant
-    (06.6.4.1-UI-SPEC.md §7.2), not the old read-only Airlines page's
-    `<a href="#...">` variant: that anchor existed only because the old
-    diagnostics page was forbidden any button element (D-16, retired),
-    and this gallery carries no such constraint. Entirely inert without
-    JS — `companion/static/list-filter.js`'s own early-return guard
-    means the full unfiltered card grid underneath stays completely
+    """Filter bar over the gallery, entirely inert without JS —
+    list-filter.js's early-return guard leaves the full unfiltered grid
     usable if the script never loads.
 
-    `summary_html` (22-11-PLAN.md Task 2, X7): `_manual_summary_html()`'s
-    already-rendered control, or `""`. It belongs IN this bar because it
-    is a filter control — clicking it sets this bar's own input and
-    re-runs this bar's own `list-filter.js` `applyFilter()`; it was never
-    a caption, and rendering it as loose prose below the bar is what made
-    it unreadable as an action (X7). Placed after the field and before
-    the count/Clear group, so the bar reads left to right as "search,
-    then a shortcut, then how many matched and how to undo".
-
-    B11 (22-11-PLAN.md Task 3): the count and the Clear control are
-    siblings inside ONE `.filter-bar__meta` group — the SHARED element
-    plan 22-09 introduced on History, adopted verbatim here with no
-    per-page variant rule and no fork of the converged
-    `[data-filter-clear]` control (06.6.4 D-08). Two `nowrap` siblings in
-    a wrapping flex container never wrapped as a unit, which is how
-    Phase 18's A-18 came back at 390px with "Clear" alone on its own
-    line; one group is a single flex item and moves whole or not at all.
-    A second page-scoped variant is how A-18 came back the FIRST time —
-    do not add one here.
+    `summary_html` (`_manual_summary_html()`'s rendered control, or `""`)
+    sits inside this bar because it's a filter control: clicking it sets
+    the bar's own input and reruns `applyFilter()`. The count and Clear
+    control are siblings inside one `.filter-bar__meta` group so they wrap
+    as a unit rather than separately.
     """
     count_text = i18n.t("%d of %d shown") % (total, total)
     empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
@@ -1689,9 +851,8 @@ def _filter_bar_html(total, summary_html=""):
         '<label class="text-label" for="%s">%s</label>'
         '<div class="filter-bar__field">'
         "%s"
-        # Quick task 260921-n2n Task 1: same Safari contact-autofill fix as
-        # `history_page.py`'s `_filter_bar_html()` — see that file for the
-        # full explanation of the three attributes below.
+        # Same Safari contact-autofill fix as history_page.py's
+        # _filter_bar_html() — see that file for the attribute explanation.
         '<input type="search" id="%s" autocomplete="off" spellcheck="false" autocapitalize="characters" data-filter-input>'
         "</div>"
         "%s"
@@ -1716,50 +877,23 @@ def _filter_bar_html(total, summary_html=""):
     )
 
 
-# ---------------------------------------------------------------------
-# Phase 13 (13-04-PLAN.md Task 1): the conditional "resolve an
-# unidentified flight" section (D-03, D-10 through D-13).
-# ---------------------------------------------------------------------
-
-
 def unresolved_row_for_prefix(state_dir, prefix):
-    """D-11's whole membership test: is `prefix` a real, live member of
-    the unresolved-callsign-prefix registry right now? Public because
-    `companion/app.py`'s POST handler (plan 13-06) imports and re-runs
-    this exact function as its own D-11 check, rather than
-    re-implementing it — the read path (this function) and the write
-    path can never diverge.
+    """Is `prefix` a real, live member of the unresolved-callsign-prefix
+    registry right now? Public because companion/app.py's POST handler
+    re-runs this exact function as its own membership check, so the read
+    path and the write path can never diverge.
 
-    This is validate-then-join over a closed, server-written set — the
-    identical shape `illustrations.py`'s `_serve_illustration_image()`
-    already uses against its own closed filename set — applied here to
-    the unresolved-prefix registry, which is server-written from
-    genuinely detected ADS-B traffic rather than a fixed table. Every
-    displayed value comes from the tuple this function returns, never
-    from the caller's own raw query-string value (D-12).
+    Validate-then-join over a closed, server-written set: every displayed
+    value comes from the tuple this function returns, never from the
+    caller's raw query-string value. `prefix` is normalised
+    (`manual_resolutions.normalise_prefix()`) at this function's own
+    boundary — the one shared membership test, so normalising elsewhere
+    would risk disagreement for the same input.
 
-    WR-04 fix: `prefix` is normalised through
-    `manual_resolutions.normalise_prefix()` (strip + upper-case + shape
-    check) right here, at this function's own boundary, rather than by
-    each caller separately — this is the single D-11 membership test the
-    render path and the write path both share, so normalising anywhere
-    else would risk the two answering differently for the same input
-    again. Callers must pass the raw value through unmodified.
-
-    Reads through `poll_loop.load_poll_state(state_dir)` — never a direct
-    file open, never a re-derivation of `server/plane/enrich.py`'s own
-    registry-writer's shape logic — mirroring
-    `health_page.unresolved_rows()`'s exact field-handling discipline,
-    just for one prefix instead of every row. Returns `None` unless:
-    `prefix` normalises to a real 3-letter prefix
-    (`manual_resolutions.normalise_prefix()`), the `unresolved_prefixes`
-    value is a dict, the entry for it is itself a dict, and its `count`
-    is an `int` that is not a `bool`. Otherwise returns the five-tuple
-    `(prefix, count, first_seen, last_seen, example_callsign)` — `prefix`
-    here is the NORMALISED value, not necessarily byte-identical to the
-    argument — with the last three defaulting to `""`. Never raises — a
-    missing or unreadable poll state, or a hand-edited malformed entry,
-    yields `None` rather than crashing a page render.
+    Returns `None` unless the entry is a well-formed dict with an `int`,
+    non-`bool` `count`; otherwise the five-tuple `(prefix, count,
+    first_seen, last_seen, example_callsign)`, with `prefix` being the
+    normalised value. Never raises.
     """
     prefix = manual_resolutions.normalise_prefix(prefix)
     if prefix is None:
@@ -1784,33 +918,15 @@ def unresolved_row_for_prefix(state_dir, prefix):
 
 
 def _resolve_context_html(row, now, id_suffix=""):
-    """The five-row `<dl>` sighting-context block (its class is
-    RESOLVE_CONTEXT_CLASS) shared by Step A and Step B (D-12), and now
-    also by the dialog's static copy (14-UI-SPEC.md's Component
-    Inventory — one definition, two call sites): one `dt`/`dd` pair per
-    `RESOLVE_CONTEXT_LABELS` entry, each `<dd>` additionally carrying
-    its own hook class from `RESOLVE_CONTEXT_DD_CLASSES` in both call
-    modes, so the dialog's copy has stable JS hooks (plan 14-05) and the
-    two copies stay structurally identical.
+    """The five-row `<dl>` sighting-context block, shared by Step A, Step B
+    and the dialog's static copy — one definition, multiple call sites.
 
-    `row=None` (the dialog's own call) renders five empty `<dd>`s — the
-    placeholder copy `panel-lookup.js` fills at click time; `now` may
-    then safely also be `None`, since `layout.concise_timestamp_html()`
-    short-circuits on a falsy timestamp before ever touching `now`.
-
-    `id_suffix` is accepted for call-shape parity with the other three
-    shared rendering functions this module now has (the resolve-name
-    form, the resolve-upload form, the manual-delete form, below); this
-    particular `<dl>` emits no id-bearing child in either mode, so the
-    parameter has no effect on this function's own output today.
-
-    First seen/Last seen render through
-    `layout.concise_timestamp_html(value, now, fallback="")`, whose
-    return value is already-safe markup and is interpolated verbatim,
-    never re-escaped — the same discipline
-    `health_page._registry_row_html()` documents for its own identical
-    call. Every other value (the prefix, the count, the example
-    callsign) goes through `escape_html()` exactly once.
+    `row=None` (the dialog's call) renders five empty `<dd>`s, filled by
+    panel-lookup.js at click time; `now` may then also be `None`, since
+    `concise_timestamp_html()` short-circuits on a falsy timestamp first.
+    First seen/Last seen render through `concise_timestamp_html()`'s
+    already-safe markup, interpolated verbatim; every other value goes
+    through `escape_html()` exactly once.
     """
     del id_suffix  # accepted for signature parity only — see docstring.
     if row is None:
@@ -1839,19 +955,13 @@ def _resolve_context_html(row, now, id_suffix=""):
 
 
 def _known_airlines_datalist_html(id_suffix=""):
-    """D-13's whole mechanism, and it is native: a `<datalist>` offering
-    one `<option>` per `illustrations.target_airline_names()` (27 today),
-    each `value` escaped exactly once. Choosing a suggestion is what
-    guarantees the slug derived downstream from the stored name lands on
-    art the fallback ladder already ships; typing anything else stays
-    available for a genuinely new carrier. No script is involved and
-    none may be added.
+    """A native `<datalist>` offering one `<option>` per
+    `illustrations.target_airline_names()`, each `value` escaped once. No
+    script is involved.
 
-    `id_suffix` (Phase 14, 14-02-PLAN.md Task 2): appended to
-    `MANUAL_DATALIST_ID` so the no-JS fallback's copy (`id_suffix=""`,
-    byte-identical to Phase 13) and the dialog's copy
-    (`id_suffix="-dialog"`) never collide when both render at once
-    (14-UI-SPEC.md's "why two ids, not one").
+    `id_suffix` is appended to `MANUAL_DATALIST_ID` so the no-JS
+    fallback's copy and the dialog's copy never collide when both render
+    at once.
     """
     options = "".join(
         '<option value="%s">' % escape_html(name)
@@ -1861,61 +971,15 @@ def _known_airlines_datalist_html(id_suffix=""):
 
 
 def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True):
-    """Step A's name-entry form (D-11/D-12/D-13) — one definition, two
-    call sites (14-UI-SPEC.md's Component Inventory, Claude's
-    Discretion #1): `_resolve_section_html()` (the no-JS fallback) calls
-    this with the real prefix and `id_suffix=""` — every emitted id is
-    then byte-identical to what Phase 13's own inline block produced,
-    so no existing `<label for>` association or check breaks. The
-    dialog (`_lightbox_html()`) calls this with `prefix_value=""` and
-    `id_suffix="-dialog"` — `panel-lookup.js` fills the hidden prefix
-    input's own `.value` at click time.
+    """Step A's name-entry form — one definition, two call sites: the no-JS
+    fallback calls this with the real prefix and `id_suffix=""`; the
+    dialog calls it with `prefix_value=""` and `id_suffix="-dialog"`, since
+    panel-lookup.js fills the hidden prefix input at click time.
 
-    `id_suffix` is appended to `MANUAL_NAME_INPUT_ID` (in both the `id`
-    and `for` positions), to `MANUAL_RESOLVE_FORM_ID` (the `<form>`'s own
-    `id`, 22-11-PLAN.md Task 1) and threaded into `_known_airlines_
-    datalist_html()` (the `id`/`list` positions), so the two calls' ids
-    never collide inside the same DOM when the dialog and the fallback
-    section render simultaneously.
-
-    `include_submit` (22-11-PLAN.md Task 1, B5) is `True` for the no-JS
-    fallback — its submit stays inside its own form, exactly where it
-    has always been, so the scriptless floor is untouched. The dialog
-    passes `False` and emits the same button in its single
-    `.lightbox__actions` row instead, re-attached to this form by the
-    native `form="manual-resolve-form-dialog"` attribute. Without the
-    `<form>` `id` above that re-attachment is impossible, which is the
-    only reason the id exists.
-
-    `prefix_value` interpolates through `escape_html()` exactly once,
-    into the hidden `prefix` input's `value` — the dialog's own call
-    passes `""` here since the script overwrites that value at click
-    time, exactly like `_lightbox_replace_form_html()`'s own `action=""`
-    placeholder discipline.
-
-    The outer `<form>` carries `LIGHTBOX_RESOLVE_NAME_CLASS`
-    (`lightbox__resolve-name`) in both calls — a shared function cannot
-    render two different wrapper tags for the same output, and the
-    no-JS fallback simply carries a spacing class style.css only ever
-    selects from inside `.lightbox` (14-UI-SPEC.md's Component
-    Inventory "New CSS" table).
-
-    Plan 14-06-external gap-closure (2026-09-06, per 14-05-SUMMARY.md's
-    own documented "Known Limitations" finding): also emits an empty,
-    always-present `<p class="lightbox__resolve-scope"></p>` — the
-    element 14-UI-SPEC.md's Copy Deck names as `RESOLVE_CAPTION_
-    TEMPLATE`'s destination inside the dialog. `panel-lookup.js`
-    (plan 14-05, already finished) reads `data-view-panel-scope` from
-    every trigger and writes it into this exact class on every open;
-    until this element existed, that write had nowhere to land and
-    D-01's per-prefix scope sentence never appeared in the dialog. No
-    server-side text is put here — the value is always written
-    client-side — and it is emitted unconditionally (not gated on
-    `id_suffix`) so the shared function keeps one output shape at both
-    call sites; a permanently-empty paragraph in the no-JS fallback's
-    own copy is harmless (nothing reads it there, the fallback's own
-    separate `<p class="text-label section-caption">` already carries
-    the real text).
+    `id_suffix` keeps every emitted id unique between the two simultaneous
+    renders. `include_submit` is `True` for the no-JS fallback and `False`
+    for the dialog, whose submit lives in the shared `.lightbox__actions`
+    row, reattached via `form="manual-resolve-form-dialog"`.
     """
     name_input_id = MANUAL_NAME_INPUT_ID + id_suffix
     datalist_html = _known_airlines_datalist_html(id_suffix)
@@ -1943,6 +1007,8 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True):
         "%s"
         "%s"
         "</form>"
+        # A permanently empty resolve-scope paragraph: panel-lookup.js
+        # writes data-view-panel-scope into it client-side on every open.
     ) % (
         LIGHTBOX_RESOLVE_NAME_CLASS, MANUAL_RESOLVE_FORM_ID + id_suffix, RESOLVE_ROUTE,
         escape_html(prefix_value),
@@ -1952,39 +1018,15 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True):
 
 
 def _resolve_upload_form_html(action, id_suffix):
-    """Step B's upload-zone form (D-11/D-12/D-13) — one definition, two
-    call sites: `_resolve_section_html()` (the no-JS fallback) calls
-    this with the real `/illustration/{key}.png` action and
-    `id_suffix=""` (existing id `manual-illustration-input` unchanged).
-    The dialog calls this with `action=""` and `id_suffix="-dialog"`
-    (new id `manual-illustration-input-dialog`) — `panel-lookup.js`
-    overwrites `action` via `setAttribute`, exactly like the existing
-    replace form.
+    """Step B's upload-zone form — one definition, two call sites: the no-JS
+    fallback calls this with the real `/illustration/{key}.png` action and
+    `id_suffix=""`; the dialog calls it with `action=""` and
+    `id_suffix="-dialog"`, and panel-lookup.js overwrites `action` via
+    `setAttribute`.
 
-    `action=""` is a real, present placeholder attribute on the
-    dialog's call, never omitted — the same rule `_lightbox_replace_
-    form_html()`'s own docstring states, for the same reason (the
-    script overwrites an existing attribute rather than creating one).
-
-    The outer wrapper stays `RESOLVE_UPLOAD_ZONE_CLASS`
-    (`resolve-upload-zone`), already generic and already reused
-    byte-identical from Phase 13 — no `lightbox__*` class is added
-    here (unlike the resolve-name and manual-delete forms): this div's
-    own spacing is `.resolve-upload-zone`'s existing rule, shared
-    verbatim across all three consumers per 14-UI-SPEC.md's Component
-    Inventory.
-
-    25-07-PLAN.md Task 1 (CFG-51/D19): the form gained an `id`
-    (`MANUAL_UPLOAD_FORM_ID + id_suffix` — the id_suffix discipline
-    above, applied to the one new id this plan names), and
-    `_upload_drop_html()`'s gated drop affordance is appended as the
-    form's last child. The `<input type="file">`, the `<button
-    type="submit">`, `method`, `enctype`, the `action` (including the
-    dialog copy's empty placeholder) and the hint text are
-    byte-identical to their pre-25-07 output in BOTH copies. The drop
-    zone is placed inside the `<form>` rather than beside it because
-    what it writes into is that form's own input; it contains no
-    `<div>`, for the reason `_upload_drop_html()`'s docstring records.
+    `action=""` on the dialog's call is a real, present placeholder, never
+    omitted. The drop zone sits inside the `<form>`, since it writes into
+    that form's own input.
     """
     upload_input_id = MANUAL_UPLOAD_INPUT_ID + id_suffix
     icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
@@ -2013,22 +1055,13 @@ def _resolve_upload_form_html(action, id_suffix):
 
 
 def _manual_delete_form_html(action):
-    """The shared delete form (D-09 amendment, 2026-09-06) — one
-    definition, two call sites: `_resolve_section_html()`'s own two
-    entry-bearing branches (Step B, already-resolved) call this with
-    the real `_manual_delete_action(prefix)` URL; the dialog calls this
-    with `action=""`, and `panel-lookup.js` overwrites it via
-    `setAttribute`, exactly like the existing replace form.
+    """The shared delete form — one definition, two call sites: real pages
+    call this with `_manual_delete_action(prefix)`; the dialog calls it
+    with `action=""`, overwritten by panel-lookup.js via `setAttribute`.
 
-    Deliberately carries **no** `id_suffix` parameter, unlike the
-    resolve-name and resolve-upload forms above: its output names no
-    id at all — no `<label for>`, no `<input id>`,
-    no `<datalist>` — nothing that HTML requires to be document-unique,
-    so two copies of this exact markup can coexist on the page (dialog
-    + fallback) with zero collision risk. A future editor must not "fix"
-    this asymmetry by adding a suffix parameter it does not need
-    (14-UI-SPEC.md's Component Inventory states this reasoning
-    explicitly).
+    Carries no `id_suffix`: its output names no id at all, so two copies
+    (dialog + fallback) can coexist with zero collision risk. Do not add
+    one it doesn't need.
     """
     return (
         '<form class="%s" method="post" action="%s">'
@@ -2039,74 +1072,27 @@ def _manual_delete_form_html(action):
 
 
 def _resolve_section_html(ctx):
-    """The conditional resolve section (D-03, D-10 through D-13):
-    `""` when `ctx.get("resolve_prefix")` is falsy, otherwise one of the
-    server-derived states below. Every branch reads `state_dir`/`now`
-    from `ctx` but decides which state to render from server-side data
-    alone (`unresolved_row_for_prefix()`,
-    `manual_resolutions.load_manual_resolutions()`,
-    `illustrations.resolved_illustration_path()`) — never from the raw
-    `resolve_prefix` query-string value once past the first membership
-    check (D-12).
+    """The conditional resolve section: `""` when `ctx.get("resolve_prefix")`
+    is falsy; otherwise one of several states, decided from server-side
+    data alone, never from the raw query-string value past the first
+    membership check. Its markup comes from the shared rendering functions
+    above, as their no-JS-fallback call site (the dialog is their second).
 
-    Its markup now comes from the four shared rendering functions above
-    — the resolve-name form, the resolve-upload form, the
-    sighting-context block and the manual-delete form — this function
-    (the no-JS fallback) is their first call site; the shared dialog
-    (`_lightbox_html()`) is their second (14-UI-SPEC.md's Component
-    Inventory, Claude's Discretion #1). This function's own
-    four-branch derivation logic (the CR-02 fallthrough, the `prefix is
-    None` guard, the corrupt-key guard) is unchanged from Phase 13 —
-    only the markup emission moved into those shared functions.
-
-    CR-02 fix: `unresolved_row_for_prefix()` returning `None` no longer
-    means "render the stale sentence and stop". D-14's
-    `enrich.clear_resolved_unresolved_prefix()` deletes a prefix from the
-    LIVE gap registry on the very next poll cycle after it resolves —
-    including via a manual entry Step A itself just saved — so the gap
-    being gone is the *expected*, immediate outcome of a successful
-    Step A, not evidence there is nothing left to do. Losing the live
-    row must not also lose reachability of Step B (upload artwork) or of
-    D-07's delete-and-re-add correction path. When the row is absent,
-    this function instead re-validates `resolve_prefix` on its own
-    (`manual_resolutions.normalise_prefix()` — the identical D-11 shape
-    gate `unresolved_row_for_prefix()` itself applies, so this remains
-    validate-then-join over server-side state, never a query-string
-    value used unchecked) and falls through to the same manual-registry-
-    driven Step A/Step B/already-done derivation used when the row is
-    still live — the only difference is there is no sighting context
-    left to show (the gap entry that carried first-seen/last-seen/count
-    is gone), so `context_html` is the empty string on this path rather
-    than `_resolve_context_html()`'s `<dl>`. A prefix with neither a live
-    gap NOR a manual entry still renders the stale sentence — there is
-    genuinely nothing to resolve.
-
-    D-09 amendment (2026-09-06): the shared manual-delete form renders
-    in exactly the two branches below that have reached an `entry`
-    (Step B, already-resolved), and in neither of the two entry-less
-    branches
-    (stale/invalid, Step A) — the same rule the dialog encodes via
-    `manual` being `active`/`superseded`, i.e. whenever an entry exists.
-    One rule, two render sites, not two rules.
-
-    Step B's upload zone, the resolve-name form (Step A), and the
-    shared manual-delete form are all unconditional (29-01-PLAN.md,
-    CFG-81: the page-wide editing mode this page used to gate the
-    delete form behind is deleted outright). Unlike the dialog's own
-    delete-form placeholder (`_lightbox_html()`'s `action=""`, filled
-    in client-side per click), this function already has the real
-    prefix in hand, so it computes a real, server-derived action
-    (`_manual_delete_action(prefix)`) and renders whenever an entry
-    exists for that prefix — which is already what "D-09 amendment"
-    above means by "whenever an entry exists".
+    A missing live gap row does not mean "nothing to resolve": the
+    registry's own cleanup removes a resolved prefix from the live gap
+    registry on the next poll cycle, including one a manual entry itself
+    just resolved. This function re-validates the prefix and falls through
+    to the same manual-registry-driven derivation used when the row is
+    still live, with an empty sighting context. Only a prefix with neither
+    a live gap nor a manual entry shows the stale sentence. The
+    manual-delete form renders only for the two branches that reached a
+    stored entry.
     """
     prefix_raw = ctx.get("resolve_prefix")
     if not prefix_raw:
         return ""
     state_dir = ctx.get("state_dir")
     now = ctx.get("now")
-    # 19-08-PLAN.md Task 2 (D-21): AIRLINES_ROUTE, never a retyped "/health"
-    # literal — see RESOLVE_BACK_LINK_TEXT's own comment above for why.
     back_link = '<a class="text-label" href="%s">%s</a>' % (
         AIRLINES_ROUTE, i18n.t(RESOLVE_BACK_LINK_TEXT))
 
@@ -2129,12 +1115,10 @@ def _resolve_section_html(ctx):
 
     if entry is None:
         if row is None:
-            # No live gap AND no manual entry for this prefix: genuinely
-            # nothing to resolve here.
+            # Genuinely nothing to resolve: no live gap and no manual entry.
             body = '<p class="text-body">%s</p>' % i18n.t(RESOLVE_STALE_BODY)
             return '<div class="page-section" data-resolve-fallback>%s%s</div>' % (back_link, body)
-        # Step A — name not yet saved. No entry exists yet, so no
-        # delete form (D-09 amendment).
+        # Step A: name not yet saved, so no entry exists and no delete form.
         heading = '<h2 class="text-heading">%s</h2>' % i18n.t(RESOLVE_HEADING)
         caption = '<p class="text-label section-caption">%s</p>' % (
             i18n.t(RESOLVE_CAPTION_TEMPLATE) % escaped_prefix)
@@ -2142,30 +1126,26 @@ def _resolve_section_html(ctx):
         return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s</div>' % (
             back_link, heading, caption, context_html, form)
 
-    # Entry present. Recompute the key server-side from the *stored* name
-    # — never take a key from the query string, and never derive a slug
-    # locally (this module owns no slug logic of its own).
+    # Recompute the key from the stored name — never from the query
+    # string, and never re-derive the slug locally.
     airline_name = entry.get("airline_name")
     key = manual_resolutions.illustration_key_for_name(airline_name)
     if not key:
-        # A stored entry whose name no longer slugs is a corrupt-file
-        # case that must not render a form.
+        # Corrupt-file case: a stored name that no longer slugs must
+        # not render a form.
         body = '<p class="text-body">%s</p>' % i18n.t(RESOLVE_STALE_BODY)
         return '<div class="page-section" data-resolve-fallback>%s%s</div>' % (back_link, body)
 
     escaped_name = escape_html(airline_name)
     heading = '<h2 class="text-heading">%s</h2>' % (i18n.t(STEP_B_HEADING_TEMPLATE) % escaped_name)
-    # D-09 amendment: an entry exists past this point in every remaining
-    # branch, so the delete form is eligible to render in both of them —
-    # unconditionally now (29-01-PLAN.md, CFG-81).
+    # An entry exists past this point in every remaining branch, so the
+    # delete form is eligible in both.
     delete_form = _manual_delete_form_html(_manual_delete_action(prefix))
 
     if illustrations.resolved_illustration_path(key, state_dir) is None:
-        # Step B — name already saved, no artwork exists yet.
+        # Step B: name already saved, no artwork exists yet.
         caption = '<p class="text-label section-caption">%s</p>' % i18n.t(STEP_B_CAPTION)
         upload_action = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
-        # 21-06-PLAN.md Task 1 (D-19): uploading a picture is part of
-        # naming an airline again.
         upload_zone = _resolve_upload_form_html(upload_action, "")
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
             AIRLINES_ROUTE, i18n.t(STEP_B_SKIP_TEXT))
@@ -2179,12 +1159,6 @@ def _resolve_section_html(ctx):
     return '<div class="page-section" data-resolve-fallback>%s%s%s%s</div>' % (back_link, heading, body, delete_form)
 
 
-# ---------------------------------------------------------------------
-# Phase 13 (13-04-PLAN.md Task 2): the always-present manual-resolutions
-# management list (D-06, D-07, D-08).
-# ---------------------------------------------------------------------
-
-
 def _manual_delete_action(prefix):
     """The delete form's `action` attribute for `prefix`, built once here
     so the desktop `<tr>` and the mobile `<li>` can never diverge into
@@ -2195,28 +1169,13 @@ def _manual_delete_action(prefix):
 
 def _manual_resolution_rows(state_dir, registry):
     """`(prefix, airline_name, created_at, superseded, needs_artwork)`
-    tuples from an already-loaded `registry` dict, via
+    tuples from an already-loaded `registry`, via
     `manual_resolutions.entry_rows()` (prefix-ascending).
 
-    `superseded` is set from `enrich.static_airline_name_for_prefix(prefix)`
-    — D-06's oracle: the static table has caught up, so its entry wins at
-    runtime and the operator's uploaded art is no longer reachable under
-    this prefix. Nothing here mutates the registry — flagging is the
-    whole of D-06's UI obligation; repairing is delete-and-re-add.
-
-    `needs_artwork` (CR-02) is `True` for an ACTIVE (non-superseded)
-    entry whose stored name's illustration key currently has no
-    resolved artwork (`illustrations.resolved_illustration_path()`
-    returns `None`) — this is what drives a card's `needs-artwork` mode
-    (`_airline_card_html()`'s own `manual_info`-derived branch, phase
-    14 plan 14-06), the grid's own entry point into Step B now that a
-    resolved prefix's live-gap deep link (D-10/Health) can be gone
-    (D-14) before the operator ever uploads anything. Always `False`
-    for a superseded entry (the built-in table already owns that
-    prefix; uploading under the operator's own name would not change
-    what the frame displays) and for a name whose key no longer slugs
-    (corrupt-file defence, mirrors `_resolve_section_html()`'s own
-    guard).
+    `superseded` is set when the static table already has an entry for
+    `prefix`, whose entry wins at runtime; nothing here mutates the
+    registry. `needs_artwork` is `True` only for an active entry whose
+    stored name has no resolved artwork yet.
     """
     rows = []
     for prefix, airline_name, created_at in manual_resolutions.entry_rows(registry):
@@ -2230,48 +1189,23 @@ def _manual_resolution_rows(state_dir, registry):
 
 
 def _manual_summary_html(manual_rows):
-    """The D-11 summary that replaces the retired standalone management
-    table: `""` when `manual_rows` is empty (no chrome with no data —
-    not even a heading, UI-SPEC's Copywriting Contract), otherwise a
-    single clickable `<button>` naming the total count and, when at
-    least one entry is superseded, the superseded count too.
+    """The summary that replaces the retired standalone management table:
+    `""` when `manual_rows` is empty, otherwise a single clickable button
+    naming the total count and, if any entry is superseded, the
+    superseded count too.
 
-    X7 (22-11-PLAN.md Task 2): this used to render as a 12px bare
-    underlined link on its own line between the filter bar and the grid
-    — a real filter control drawn as body prose, which is why nobody
-    read it as clickable. It is now a real control INSIDE the filter
-    bar (`_filter_bar_html()`'s own slot), wearing `.airline-card__chip`
-    verbatim — the same label voice the cards' own chips wear, which is
-    the vocabulary this page already uses for "a small categorical
-    token". `.manual-summary` survives as a thin additive rule carrying
-    only the interactive hover; its old byte-for-byte copy of the
-    `[data-filter-clear]` property list is deleted, not forked.
-
-    `manual_rows` is `_manual_resolution_rows()`'s own already-computed
-    tuples — passed in by `render()`, never recomputed here (this
-    module's "consume, don't re-derive" discipline for that function's
-    three booleans, RESEARCH.md Pitfall 6). No `escape_html()` call is
-    needed on the interpolated counts themselves: both are integers
-    interpolated via `%d`, matching this module's existing discipline
-    for count-only cells (`_gap_overflow_html()`'s own identical
-    choice).
-
-    `data-filter-set="manual"` is read by `list-filter.js`'s plan-14-03
-    `[data-filter-set]` hook — clicking this button sets the filter
-    input's value to `"manual"` and re-runs the page's one existing
-    filter function, matching every card's own invisible `"manual"`
-    `data-filter-text` token (`_airline_card_html()`'s chip/filter-text
-    extension) — never a second filtering mechanism.
+    `manual_rows` is `_manual_resolution_rows()`'s own tuples, passed in by
+    `render()`, never recomputed here. `data-filter-set="manual"` is read
+    by list-filter.js's `[data-filter-set]` hook: clicking sets the filter
+    input to `"manual"` and reruns the existing filter function.
     """
     if not manual_rows:
         return ""
     total = len(manual_rows)
     superseded_count = sum(1 for row in manual_rows if row[3])
-    # D-06/B16 (22-11-PLAN.md Task 2): "1 manual resolutions" is gone.
     # The singular is chosen off `total`, the only count whose noun
     # inflects here — "%d superseded" is an adjective and reads correctly
-    # at every value in both languages, which is why there is no third
-    # and fourth template for it.
+    # at every value in both languages.
     singular = (total == 1)
     if superseded_count:
         template = (
@@ -2287,100 +1221,30 @@ def _manual_summary_html(manual_rows):
 
 
 def render(ctx):
-    """The Airlines page (D-13 through D-17, extended by phase 13's
-    D-03/D-06/D-07/D-10 through D-13, phase 14's coverage-gap grid,
-    manual-resolution absorption, and page-order reversal, and 19-08-
-    PLAN.md's D-21 explained-gap-strip rework): the page header, then
-    (19-08-PLAN.md Task 1, D-21) the "Unidentified airlines" gap strip —
-    its own explained `<section>`, emitted before everything else so a
-    household member sees it first — the D-16 filter bar, the D-11
-    manual-resolutions summary line (only when the registry has at
-    least one entry), one card per airline in `illustrations.
-    target_variants_by_airline()` order (plus any injected manual-only
-    card, D-08; the gap cards themselves no longer live in this grid,
-    per D-21), the shared click-to-enlarge lightbox dialog (quick task
-    260902-tli; its Replace/Delete forms always render, per 29-01-
-    PLAN.md/CFG-81), then (phase 14, moved from the top of the page) the
-    conditional resolve section. `ctx` is accepted for call-site parity
-    with every other page module's `render(ctx)` signature.
+    """The Airlines page: page header, then the filter bar (carrying the
+    manual-resolutions summary), one card per airline in
+    `illustrations.target_variants_by_airline()` order plus any injected
+    manual-only card, the "Unidentified airlines" gap strip, the shared
+    lightbox dialog, and the conditional resolve section.
 
-    Since quick task 260902-v26 this reads `state_dir` (used to resolve
-    each card's illustration-replace cache buster, see
-    `_illustration_cache_buster()`, by both phase-13 sections below as
-    their own state-dir source, and by `_gap_rows_for_grid()` above).
-    Phase 13 (13-04-PLAN.md) adds three more `ctx.get()` reads:
-    `resolve_prefix` (the `?resolve={prefix}` query value,
-    presence-gating `_resolve_section_html()`), `now` (threaded to every
-    rendered timestamp in both new sections), and `manual_resolutions`
-    (an already-loaded registry dict, this function's own preferred
-    source for `_manual_resolution_rows()` — plan 13-06 threads this in;
-    absent, it falls back to loading fresh from `state_dir`). Every one
-    of these four keys is read with `ctx.get()`, never `ctx[...]` —
-    `companion/test_view_pages.py`'s existing `render({})` call with a
-    literal empty dict must keep rendering the unchanged gallery, no gap
-    cards, no manual summary, no resolve section. This page still opens
-    no database.
-
-    The filter bar and the lightbox dialog both render whenever there is
-    at least one card of EITHER kind (gap or curated) — this codebase's
-    consistent "no chrome with no data" rule, widened here so a state
-    with gaps but zero curated pairs still gets its filter bar and
-    dialog. The manual-resolutions summary line has its own,
-    independent gate (`_manual_summary_html()` returns `""` on an empty
-    registry) and is never tied to the gallery having any cards — the
-    same "reference/cleanup material, not the page's purpose" framing
-    the retired management table's own empty state used to carry
-    (UI-SPEC Autonomous Decision 2).
-
-    29-02-PLAN.md (CFG-82) supersedes 19-08-PLAN.md's (D-21) "gap strip
-    first" ordering: the return expression's term order is now
-    page_header, filter_html, the gallery grid, gap_strip_html,
-    lightbox_html, resolve_html — the filter bar and the known-airline
-    gallery are the first two things under the title, and the
-    unidentified-prefix strip drops to a secondary position below the
-    gallery, still carrying its own `GAP_STRIP_HEADING`/`GAP_STRIP_BODY`
-    announcement so it stays a clearly-announced secondary section, just
-    no longer the page's first one. D-21's own reasoning — surfacing a
-    diagnostic list before anything else — is what this supersedes: on a
-    phone it put a diagnostic list ahead of the page's main content.
-    Resolving CFG-82's "any remaining editing affordance moves to a
-    clearly announced secondary section" (A2): 29-01-PLAN.md (CFG-81)
-    already deleted the one page-wide editing toggle this could have
-    named, so nothing needed relocating on that account. Of this
-    function's remaining terms, the manual-resolutions summary button
-    lives INSIDE the filter bar (a filter control, per the 22-11 comment
-    above `filter_html`'s assignment) and the resolve flow's own
-    controls render only under `?resolve=...`, never on the default
-    view — neither is "above the gallery" on the page this reorder
-    actually renders, so neither moved.
+    Reads `state_dir`, `now`, `resolve_prefix` and `manual_resolutions`
+    from `ctx` with `ctx.get()`, never `ctx[...]` — `render({})` must
+    still render the plain gallery. Opens no database; the filter bar and
+    lightbox render whenever at least one card exists, and the manual
+    summary has its own independent empty-registry gate.
     """
-    # ctx.get(), never ctx["state_dir"]: companion/test_view_pages.py:1365
-    # calls render({}) with a literal empty dict, and every other caller
-    # of this page (companion/app.py's page_context()) does supply
-    # state_dir, so this must stay tolerant of both.
+    # ctx.get(): test_view_pages.py calls render({}) with a literal
+    # empty dict, and every real caller supplies state_dir.
     state_dir = ctx.get("state_dir")
-    # 22-11-PLAN.md Task 1 (D-05, B5): the SAME `ctx["now"]` key
-    # `_resolve_section_html()` already reads for the no-JS path's own
-    # `layout.concise_timestamp_html()` calls — read once here and
-    # threaded into both card builders so the JS path's `data-*` text and
-    # the no-JS path's rendered text are produced from one value by one
-    # formatter, and therefore cannot disagree.
+    # Read once and threaded into every card builder, so the JS path's
+    # data-* text and the no-JS path's rendered text come from one value
+    # and cannot disagree.
     now = ctx.get("now")
     resolve_html = _resolve_section_html(ctx)
     pairs = illustrations.target_variants_by_airline()
 
-    # Phase 14 (14-06-PLAN.md Task 1, D-08/D-10/D-12 fallback
-    # reachability): the identical registry-loading fallback the retired
-    # management-table section used to use. `manual_rows` is
-    # `_manual_resolution_rows()`'s own tuples — consumed here, never
-    # re-derived, and reused as-is by `_manual_summary_html()` below
-    # (Task 2) rather than recomputed a second time.
-    #
-    # Code review fix (2026-09-06, WR-02): this registry load moved
-    # ABOVE `_gap_rows_for_grid()`'s own call, and its result is now
-    # threaded into that call, so one render() only ever reads
-    # manual_resolutions.json once — see that function's own
-    # docstring for the narrow same-request race this closes.
+    # Loaded once here and threaded into _gap_rows_for_grid() below, so
+    # one render() call reads manual_resolutions.json exactly once.
     registry = ctx.get("manual_resolutions")
     if registry is None:
         registry = manual_resolutions.load_manual_resolutions(state_dir) if state_dir else {}
@@ -2390,53 +1254,13 @@ def render(ctx):
     gap_cards_html = "".join(
         _gap_card_html(i, row, now=now) for i, row in enumerate(gap_shown))
     overflow_html = _gap_overflow_html(gap_overflow_count)
-    # 19-08-PLAN.md Task 1 (D-21/A-38): the gap strip is built here, from
-    # the same gap_cards_html/overflow_html this function has always
-    # computed — _gap_strip_html() itself decides whether that adds up
-    # to a real section or "" (no gaps at all).
     gap_strip_html = _gap_strip_html(gap_cards_html, overflow_html)
 
-    # manual_info_by_name maps a CARD's display name to its own
-    # (prefix, superseded, needs_artwork) triple. A superseded row's
-    # display name is the BUILT-IN airline's own name (D-10: the card
-    # that gains the chip/note is the one the frame actually renders
-    # under, which is already a curated card by construction — UI-SPEC's
-    # "a superseded entry needs no injection"), never the operator's own
-    # orphaned stored name. An active row's display name is its own
-    # stored `airline_name`, whether already curated or newly injected
-    # below. Only the FIRST occurrence of a given display name is kept
-    # (manual_rows arrive prefix-ascending, so lowest-prefix wins —
-    # UI-SPEC's documented "Known limitation").
-    # Code review fix (2026-09-06, WR-04): a manual entry only earns an
-    # injected card when its own stored name still resolves to a usable
-    # illustration key. `add_entry()` already requires
-    # `manual_resolutions.illustration_key_for_name()` to succeed before
-    # persisting, so this can never fail for a row at the moment it is
-    # written — the review raised a LATER-drift scenario instead: a
-    # future change to `illustrations.py`'s reserved-name list or
-    # slugging rules making an already-persisted name stop resolving.
-    #
-    # Traced through before applying this fix: `registry` (this
-    # function's own parameter, and `_gap_rows_for_grid()`'s
-    # `manual_registry` above — both always the SAME dict in `render()`,
-    # by construction) is only ever populated one way in this codebase,
-    # `manual_resolutions.load_manual_resolutions(state_dir)`
-    # (`companion/app.py`'s `page_context()` is the sole `ctx
-    # ["manual_resolutions"]` writer) — and that loader's own contract
-    # already re-validates `illustration_key_for_name()` on EVERY load,
-    # dropping any entry that fails it, "not only against one submitted
-    # through add_entry()". So the drift scenario the review named
-    # cannot actually reach this loop or `_gap_rows_for_grid()`'s own
-    # exclusion through any real path: the entry would already be gone
-    # from `registry` by the time either function sees it, and
-    # `_gap_rows_for_grid()`'s `if prefix in manual_registry` check is
-    # therefore already safe without a matching change there. This
-    # guard stays anyway as explicit defence in depth — the same
-    # posture `illustrations.py`'s own path-safety functions take
-    # ("so the boundary holds even if a future caller forgets") — for a
-    # hand-built or differently-sourced registry dict this loop cannot
-    # rule out forever, not because the reviewed scenario is reachable
-    # today.
+    # manual_info_by_name maps a card's display name to its own
+    # (prefix, superseded, needs_artwork) triple — a superseded row's name
+    # is the built-in airline's name, an active row's is its own stored
+    # name; only the first occurrence of a name is kept. An entry only
+    # earns an injected card when its stored name still resolves to a key.
     curated_names = {name for name, _shapes in pairs}
     manual_info_by_name = {}
     injected_pairs = []
@@ -2456,40 +1280,6 @@ def render(ctx):
 
     total = len(gap_shown) + len(pairs)
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
-    # Phase 14 (14-06-PLAN.md Task 2, D-11): UI-SPEC's binding
-    # top-to-bottom order is filter_bar, then manual-summary, then
-    # gap-overflow, then grid — the standalone management table
-    # (`_manual_resolutions_section_html()`, deleted this task) is gone;
-    # this one-line summary takes its place, reusing `manual_rows`
-    # computed above rather than recomputing it.
-    #
-    # 19-08-PLAN.md Task 1 (D-21/A-38) supersedes the ordering above in
-    # one respect: the gap strip now renders BEFORE filter_html (first
-    # thing on the page, per D-21), and overflow_html moved inside that
-    # strip — it no longer has a separate slot in this return
-    # expression. _gallery_grid_html() is called WITHOUT gap_cards_html
-    # (its own "" default), so the curated grid renders byte-identically
-    # to a no-gaps render today.
-    #
-    # 22-11-PLAN.md Task 2 (X7) supersedes it in a second respect: the
-    # summary no longer has a slot in this return expression either. It
-    # is a filter control, so it renders INSIDE the filter bar, passed to
-    # `_filter_bar_html()` below. Its own "no rows, no chrome" gate is
-    # unchanged (`_manual_summary_html()` still returns "" on an empty
-    # registry); it now additionally rides the filter bar's own
-    # cards-exist gate, which is not a real narrowing — `pairs` is
-    # `illustrations.target_variants_by_airline()`, never empty in this
-    # app, so a render with manual rows and no filter bar cannot occur.
-    #
-    # 29-02-PLAN.md (CFG-82) supersedes D-21's "gap strip first" placement
-    # in a third respect: `gap_strip_html` moves from the front of this
-    # return expression to just before `lightbox_html`, so the filter bar
-    # and the known-airline gallery are the first two things under the
-    # page title. This is a pure reorder of the same three already-built
-    # strings — `total`, `filter_html`'s gate expression and
-    # `lightbox_html`'s gate expression (both immediately above) are
-    # untouched. See render()'s own docstring for the superseded-in-place
-    # account and the resolved A2 decision.
     summary_html = _manual_summary_html(manual_rows)
     filter_html = _filter_bar_html(total, summary_html) if (pairs or gap_shown) else ""
     return (
