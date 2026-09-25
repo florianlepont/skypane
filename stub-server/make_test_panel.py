@@ -1,30 +1,21 @@
 #!/usr/bin/env python3
 """Deterministic Spectra 6 panel .bin generator for stub-server testing.
 
-Original to this repository (not vendored) - see stub-server/VENDOR.md.
-Stdlib-only. Produces a file in the exact PROTOCOL.md section 1 format:
+Original to this repository (not vendored). Stdlib-only. Produces a
+file in the exact PROTOCOL.md section 1 format: 960,000 bytes, no
+header, no compression, 1600 rows of 600 bytes each (1200 pixels/row,
+2 px/byte, LEFT pixel in the HIGH nibble: byte = (left_px << 4) |
+right_px), using only the six legal Spectra 6 nibble codes (0x0 black,
+0x1 white, 0x2 yellow, 0x3 red, 0x5 blue, 0x6 green).
 
-    - Exactly 960,000 bytes, no header, no compression.
-    - 1600 rows of 600 bytes each (1200 pixels/row, 2 px/byte).
-    - The LEFT pixel of each byte-pair occupies the HIGH nibble:
-      byte = (left_px << 4) | right_px.
-    - Only the six legal Spectra 6 nibble codes: 0x0 black, 0x1 white,
-      0x2 yellow, 0x3 red, 0x5 blue, 0x6 green.
+palette (default): six full-height 200px vertical bands, so a swapped
+nibble order or a wrong master/slave chip-select split is instantly
+visible on the glass. quadrants: four coloured quadrants inside a
+one-pixel black border, the second distinct test image for the stub
+server's hash-change check.
 
-Two patterns are supported:
-
-    palette (default) - six full-height vertical bands, 200 px wide
-        each, left to right: black, white, yellow, red, blue, green.
-        A correct blit shows six clean stripes; a swapped nibble order
-        or a wrong master/slave chip-select split is instantly visible
-        on the glass.
-
-    quadrants - four coloured quadrants (red, blue, green, yellow)
-        inside a one-pixel black border. Used as the second distinct
-        test image for the stub server's hash-change check.
-
-The same pattern always produces identical bytes, and therefore an
-identical SHA-256 digest - this generator has no randomness.
+No randomness: the same pattern always produces identical bytes and an
+identical SHA-256 digest.
 
 Usage:
     python3 make_test_panel.py --pattern palette --out /tmp/panel.bin
@@ -59,9 +50,8 @@ def build_palette():
 def _interior_row(left_code, right_code):
     """One interior row: col0 and col(WIDTH-1) are the black border,
     columns 1..WIDTH-2 split evenly between left_code and right_code.
-    WIDTH (1200) and the half-width (599 interior columns each side)
-    line up exactly on byte-pair boundaries, so no byte mixes border
-    with fill except the two edge bytes.
+    WIDTH (1200) lines up exactly on byte-pair boundaries, so no byte
+    mixes border with fill except the two edge bytes.
     """
     half = WIDTH // 2  # 600 — the left/right split lands exactly here
     row = bytearray(ROW_BYTES)

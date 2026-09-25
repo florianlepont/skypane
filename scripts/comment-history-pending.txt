@@ -172,8 +172,6 @@ hardware/logtools.py
 pyproject.toml
 scripts/check-attribution.sh
 scripts/lock-deps.sh
-stub-server/byos_server.py
-stub-server/test_poll_cycle.py
 test-support/companion_app_server.py
 test-support/companion_markup.py
 test-support/test_companion_markup.py

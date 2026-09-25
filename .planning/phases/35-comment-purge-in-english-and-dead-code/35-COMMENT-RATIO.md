@@ -84,3 +84,37 @@ SUMMARYs (35-02/35-03/35-04):
 | server/notify.py | 35.4% | Sits essentially at the guideline: remaining comments are almost entirely the SSRF-gate-reuse and redirect-refusal security invariants purge_rules require to survive. |
 | server/requirements-dev.in | 68.8% | Hash-comment dependency manifest, not Python code — nearly every line is a one-line why-comment explaining an install/lint/test package's purpose or dev-only scope; already history-free (3 -> 0 hits). |
 | server/requirements.in | 83.3% | Hash-comment dependency manifest never carried any history reference (0 hits before and after) — its comments explain the runtime-only dependency policy and the regeneration procedure, not project history. |
+
+## Group 3 — stub-server/
+
+Source plan: 35-07 (`byos_server.py`, `devices_cli.py`, `make_test_panel.py`,
+`test_devices_registry.py`, `test_poll_cycle.py`, `.gitignore`).
+`stub-server/README.md` and `stub-server/VENDOR.md` are markdown, out of
+scope for this phase (Phase 41), and carry no comment-syntax the tool
+extracts (0 in both before and after).
+
+| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
+|---|---:|---:|---:|---:|---:|
+| stub-server/.gitignore | 10 | 10 | 30.0% | 30.0% | 0 -> 0 |
+| stub-server/byos_server.py | 915 | 661 | 53.2% | 35.2% | 49 -> 0 |
+| stub-server/devices_cli.py | 132 | 132 | 22.7% | 22.7% | 0 -> 0 |
+| stub-server/make_test_panel.py | 120 | 110 | 41.7% | 36.4% | 0 -> 0 |
+| stub-server/test_devices_registry.py | 459 | 459 | 12.0% | 12.0% | 0 -> 0 |
+| stub-server/test_poll_cycle.py | 1279 | 1255 | 25.7% | 24.3% | 20 -> 0 |
+| **Group 3 total** | **2915** | **2627** | **32.7%** | **25.4%** | **69 -> 0** |
+
+The group total matches `35-BASELINE/INDEX.md`'s "before" row for group 3
+(6 files, 2915 lines, 33% ratio, 69 history hits) exactly, confirming every
+file the baseline counted is accounted for here.
+
+### Files still above the ~35% guideline
+
+Both files were re-read a second time hunting for restatement, scope talk
+and paraphrase; both dropped close to the guideline (52.2% -> 35.2% and
+41.7% -> 36.4%) before further compression risked cutting a genuine
+invariant.
+
+| File | After | Justification |
+|---|---:|---|
+| stub-server/byos_server.py | 35.2% | This is the device-protocol security surface the plan's own must_haves require to keep its why-comments (registry fail-closed vs. load_state()'s fail-open, timing-safe secret comparison, X-Battery-Mv input bounds, and four sleep_s composition functions whose nesting order is load-bearing and independently documented on each function). Sits essentially at the guideline after two compression passes. |
+| stub-server/make_test_panel.py | 36.4% | Small file (110 lines) whose comments are the non-obvious Spectra 6 nibble-packing byte math (which pixel occupies which nibble, why the half-width split lands exactly on a byte-pair boundary) — algorithmic why for bit-twiddling code, not restatement. |
