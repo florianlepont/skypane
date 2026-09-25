@@ -2963,3 +2963,15 @@ disposition cell is `deleted`, then count those whose next cell does not start w
   every ported target is a live, collected test.
 - Collected on 2026-09-25: **2593** tests in the whole suite, **1669** under `companion/`, and
   **126** of those are `[chromium]` browser tests.
+
+## CI evidence
+
+The green run is GitHub Actions CI run `36091447937` on PR #127. It checked head `667f6e6`, job "Lint, test, coverage, attribution", on Ubuntu with CPython 3.14.7 and running as a non-root user. In the run:
+
+- The pytest summary line is `================ 2598 passed, 73 warnings in 324.25s (0:05:24) =================`.
+- No test was skipped. The summary has no skipped count and the log has no `SKIPPED` line. Because the runner is non-root, the 5 `requires_non_root` tests ran too.
+- **127** `[chromium]` browser tests passed. That is the number collected at this commit, and every one of them passed on the runner:
+  - `SKYPANE_REQUIRE_BROWSER=1` is set;
+  - the Chromium headless shell was installed by the "Download the Chromium headless shell" step;
+  - the log lists the slowest `[chromium]` calls among the passed tests.
+- The coverage summary is `TOTAL 9839 651 93%`, which is `Required test coverage of 93.0% reached. Total coverage: 93.38%`. That matches the 93.35% measured before the migration and the 93.38% non-root measurement in 33-33.
