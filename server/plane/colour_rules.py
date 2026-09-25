@@ -2,44 +2,23 @@
 """The per-flight colour-rule registry plus the single effective-theme
 resolution function every render of a displayed flight goes through.
 
-This module imports `server.device_config` (for `THEMES` membership
-validation against a persisted or resolved theme id) plus stdlib only. It
-must NEVER import `server.plane.enrich`, `server.plane.detect`,
-`server.plane.illustrations`, `server.plane.manual_resolutions`,
-`server.plane.render`, or `server.plane.calendar_rules` —
-`poll_loop.py` already imports all of those plus this module, and the
-reverse direction would make `poll_loop -> colour_rules -> X -> poll_loop`
-a real import cycle. The calendar-beats-manual-rule precedence
-deliberately does not need this module to import `calendar_rules` to get
-that ordering: the calendar's chosen theme id arrives as the plain
-`calendar_theme_id` keyword argument on `resolve_effective_theme_id()`
-below, computed by the caller.
-Its callsign/prefix normalisers therefore deliberately DUPLICATE small
-primitives already defined in `enrich.py` (`normalise_callsign()`) and
-`manual_resolutions.py` (`normalise_prefix()`) rather than import them —
-the same layering choice `stub-server/byos_server.py` already makes for
-`seconds_until_quiet_hours_end()` across its own vendor boundary.
+Imports `server.device_config` plus stdlib only - must never import
+`enrich`/`detect`/`illustrations`/`manual_resolutions`/`render`/
+`calendar_rules`, since `poll_loop.py` already imports all of those plus
+this module (the reverse direction would cycle). Its callsign/prefix
+normalisers duplicate small primitives from `enrich.py`/
+`manual_resolutions.py` rather than import them, for the same reason.
 
-**Caching warning:** `set_colour_rules_state_dir()` and the cache
-`resolve_effective_theme_id()` reads through are for the once-per-cycle
-poll pipeline ONLY — a single `run_once()` invocation reads the registry
-once at cycle start via a process-global cache, exactly mirroring
-`illustrations.set_override_state_dir()` /
-`manual_resolutions.set_manual_registry_state_dir()`. `companion/` is a
-long-running `ThreadingHTTPServer`; every request must call
-`load_colour_rules(state_dir)` fresh instead, exactly as `page_context()`
-already does for `manual_resolutions.load_manual_resolutions(state_dir)`.
+**Caching:** `set_colour_rules_state_dir()`'s cache is for the
+once-per-cycle poll pipeline only. `companion/`'s long-running
+`ThreadingHTTPServer` must call `load_colour_rules(state_dir)` fresh per
+request instead.
 
-**Extensibility note:** a rule record is a dict (`{"theme_id": ...,
-"created_at": ...}`), deliberately not a bare theme-id string, so a future
-entry can carry fields not yet defined (a roster link, for instance). No
-such field is reserved, added, or read here — every rule today is purely
-manual, added and removed one at a time through the Settings UI.
+A rule record is a dict (`{"theme_id": ..., "created_at": ...}`), not a
+bare theme-id string, so a future entry can carry fields not yet defined.
 
-This file survives a redeploy because `deploy/deploy.sh` rsyncs `server/`
-with `--delete` while excluding `state` — like `manual_resolutions.json`
-and `device_config.json`, it lives at `{state_dir}/colour_rules.json`,
-never inside a git-tracked directory.
+Lives at `{state_dir}/colour_rules.json`, excluded from `deploy/deploy.sh`'s
+rsync so it survives a redeploy.
 """
 import json
 import os
@@ -51,54 +30,31 @@ from server import device_config
 
 COLOUR_RULES_FILENAME = "colour_rules.json"
 
-# A hard reject at the cap, never weakest-entry eviction, following
-# manual_resolutions.MANUAL_RESOLUTION_MAX_ENTRIES (200)'s precedent and
-# its same policy: this registry is authenticated-human-curated one entry
-# at a time, with no "weakest entry" concept to evict. This count is
-# summed ACROSS all three kinds, not per kind. This number is also what
-# companion/'s registry-full flash copy interpolates, so it and that copy
-# must agree.
+# Hard reject at the cap, never weakest-entry eviction: this registry is
+# authenticated-human-curated one entry at a time. Summed across all
+# three kinds, not per kind; must agree with companion/'s registry-full
+# flash copy.
 COLOUR_RULE_MAX_ENTRIES = 200
 
 RULE_KIND_CALLSIGN = "callsign"
 RULE_KIND_HEX = "hex"
 RULE_KIND_PREFIX = "prefix"
-# This tuple's order is load-bearing twice over: it is the
-# most-specific-wins resolution order (exact callsign > hex > prefix), and
-# it is rule_rows()'s sort order.
+# Order is load-bearing twice: most-specific-wins resolution order
+# (callsign > hex > prefix), and rule_rows()'s sort order.
 RULE_KINDS = (RULE_KIND_CALLSIGN, RULE_KIND_HEX, RULE_KIND_PREFIX)
 
 # The one render state the arrivals override applies to.
 ARRIVING_STATE = "arriving"
 
-# Three positive-allowlist regexes, each compiled once, each this
-# module's share of the defence against a hand-edited or corrupted file
-# smuggling a crafted key into a live comparison.
-#
-# Duplicates enrich.normalise_callsign()'s strip-and-upper transform plus
-# an eight-character real-world bound taken from enrich.py's own comment
-# ("real callsigns are at most eight characters", near its
-# _AIRLINE_PREFIX_SHAPE_RE).
-_CALLSIGN_RULE_RE = re.compile(r"^[A-Z0-9]{2,8}$")
-# New ground: no ICAO24 normaliser exists anywhere in this codebase today.
-# Canonicalises to UPPERCASE even though live ADS-B `hex` values arrive
-# lowercase (server/plane/detect.py's _normalise_selection() passes it
-# through raw and unvalidated) — the resolver below uppercases the live
-# value before ever looking it up.
-_HEX_RULE_RE = re.compile(r"^[0-9A-F]{6}$")
-# Duplicates manual_resolutions.normalise_prefix()'s gate exactly.
-_PREFIX_RE = re.compile(r"^[A-Z]{3}$")
+# Positive-allowlist regexes, defence against a hand-edited/corrupted
+# file smuggling a crafted key into a live comparison.
+_CALLSIGN_RULE_RE = re.compile(r"^[A-Z0-9]{2,8}$")  # mirrors enrich.normalise_callsign()
+_HEX_RULE_RE = re.compile(r"^[0-9A-F]{6}$")  # live ADS-B hex arrives lowercase
+_PREFIX_RE = re.compile(r"^[A-Z]{3}$")  # mirrors manual_resolutions.normalise_prefix()
 
-# Result constants returned by add_rule(). These are NOT flash keys —
-# companion/app.py maps them onto its own flash vocabulary; this module
-# must not know flashes exist.
-#
-# The ADD_OK_NEW/ADD_OK_REPLACED split is this module's one deliberate
-# divergence from manual_resolutions.py's single ADD_OK: the companion
-# must say "replaced" rather than "added", and computing that at
-# the HTTP layer would be a TOCTOU race against the write that just
-# happened — so it is computed here, inside the write lock, before the
-# mutation (see add_rule()'s `replacing` local).
+# Result constants for add_rule(). Not flash keys - companion/app.py maps
+# them onto its own vocabulary. ADD_OK_NEW/ADD_OK_REPLACED split lets the
+# companion say "replaced" vs "added" without a second, TOCTOU-prone read.
 ADD_OK_NEW = "ok_new"
 ADD_OK_REPLACED = "ok_replaced"
 ADD_REJECTED_KIND = "rejected_kind"
@@ -107,18 +63,12 @@ ADD_REJECTED_THEME = "rejected_theme"
 ADD_REJECTED_FULL = "rejected_full"
 ADD_FAILED = "failed"
 
-# add_rule()/delete_rule() are both a load-modify-write whole-file cycle,
-# and companion/app.py runs under ThreadingHTTPServer — a real deployment.
-# This single process-wide lock serialises the ENTIRE load-check-mutate-
-# write sequence per writer, not just the final os.replace(), so two
-# concurrent writers can never each load the registry before either has
-# written and silently lose one of their updates.
+# Serialises the entire load-check-mutate-write sequence per writer (not
+# just os.replace()), so two concurrent companion writers can never each
+# load before either has written and lose an update.
 _WRITE_LOCK = threading.Lock()
 
-# Process-scoped cache, mirroring illustrations.set_override_state_dir()/
-# manual_resolutions.set_manual_registry_state_dir(). A process that never
-# calls set_colour_rules_state_dir() sees the empty registry shape here —
-# exactly the same as when no rules have ever been persisted.
+# Process-scoped cache; unset means the empty registry shape.
 _cached_rules = {kind: {} for kind in RULE_KINDS}
 
 
@@ -128,19 +78,14 @@ def colour_rules_path(state_dir):
 
 
 def normalise_rule_kind(raw):
-    """Return the member of `RULE_KINDS` when `raw` is exactly one of
-    them, else `None`. Never raises.
-    """
+    """Member of `RULE_KINDS` matching `raw` exactly, else `None`. Never raises."""
     if isinstance(raw, str) and raw in RULE_KINDS:
         return raw
     return None
 
 
 def normalise_rule_callsign(raw):
-    """Strip and upper-case `raw`; return the canonical value only when it
-    matches `_CALLSIGN_RULE_RE` (two-to-eight uppercase alphanumerics),
-    else `None`. Never raises.
-    """
+    """Stripped/upper-cased `raw` when it matches `_CALLSIGN_RULE_RE`, else `None`. Never raises."""
     if not isinstance(raw, str) or not raw:
         return None
     candidate = raw.strip().upper()
@@ -150,10 +95,7 @@ def normalise_rule_callsign(raw):
 
 
 def normalise_rule_hex(raw):
-    """Strip and upper-case `raw`; return the canonical value only when it
-    matches `_HEX_RULE_RE` (exactly six uppercase hex digits), else
-    `None`. Never raises.
-    """
+    """Stripped/upper-cased `raw` when it matches `_HEX_RULE_RE`, else `None`. Never raises."""
     if not isinstance(raw, str) or not raw:
         return None
     candidate = raw.strip().upper()
@@ -163,10 +105,7 @@ def normalise_rule_hex(raw):
 
 
 def normalise_rule_prefix(raw):
-    """Strip and upper-case `raw`; return the canonical value only when it
-    matches `_PREFIX_RE` (exactly three uppercase letters), else `None`.
-    Never raises.
-    """
+    """Stripped/upper-cased `raw` when it matches `_PREFIX_RE`, else `None`. Never raises."""
     if not isinstance(raw, str) or not raw:
         return None
     candidate = raw.strip().upper()
@@ -176,13 +115,9 @@ def normalise_rule_prefix(raw):
 
 
 def normalise_rule_value(kind, raw):
-    """Dispatch to the per-kind normaliser above on a normalised `kind`;
-    an unknown kind returns `None`. Never raises.
-
-    This is the single entry point `add_rule()`, `load_colour_rules()`,
-    `delete_rule()` and `companion/app.py`'s delete route all use, so
-    there is exactly one definition of "a valid rule key" in the
-    codebase.
+    """Dispatch to the per-kind normaliser for a normalised `kind`; an
+    unknown kind returns `None`. The single definition of "a valid rule
+    key" every caller shares. Never raises.
     """
     normalised_kind = normalise_rule_kind(kind)
     if normalised_kind is None:
@@ -195,11 +130,9 @@ def normalise_rule_value(kind, raw):
 
 
 def normalise_rule_theme_id(raw):
-    """Return `raw` unchanged only when it is a string present in
-    `device_config.THEMES`, else `None`. Never raises, and never degrades
-    to `device_config.DEFAULT_THEME_ID` — an unrecognised theme id means
-    the rule is invalid and gets dropped, not silently retargeted at the
-    default.
+    """`raw` unchanged when it is a member of `device_config.THEMES`,
+    else `None` - never degrades to the default theme; an unrecognised
+    id makes the rule invalid, dropped rather than retargeted.
     """
     if isinstance(raw, str) and raw in device_config.THEMES:
         return raw
@@ -207,29 +140,12 @@ def normalise_rule_theme_id(raw):
 
 
 def load_colour_rules(state_dir):
-    """Read `{state_dir}/colour_rules.json`; never raises.
-
-    A missing file, an unreadable file, invalid JSON, or a non-dict top
-    level all yield the empty registry shape — a dict with all three
-    `RULE_KINDS` keys mapping to `{}` — so every caller can index by kind
-    without a `.get()` dance.
-
-    Entries are visited kind-by-kind in `RULE_KINDS` order, then in
-    `sorted()` key order within a kind, and each surviving entry is
-    rebuilt from scratch — never the parsed dict reused directly —
-    dropping any entry where `normalise_rule_value(kind, key)` is `None`,
-    the value is not a dict, `normalise_rule_theme_id(value.get("theme_id"))`
-    is `None`, or `value.get("created_at")` is not a string. This is
-    defence in depth against a hand-edited file: the same allowlist
-    `add_rule()` applies before persisting is re-applied here on every
-    read, and the same THEMES membership check `add_rule()` applies is
-    re-applied here too.
-
-    Stops once `COLOUR_RULE_MAX_ENTRIES` surviving entries have been
-    accumulated across all kinds, so a hand-edited oversized file cannot
-    make a page render or a poll cycle unbounded. When the raw
-    file held more entries than survived, prints (never raises) a
-    one-line warning naming the drop count.
+    """Read `{state_dir}/colour_rules.json`; never raises. A missing/
+    unreadable/invalid file yields the empty registry shape. Each
+    surviving entry is rebuilt from scratch, re-applying `add_rule()`'s
+    allowlist and THEMES check - defence in depth against a hand-edited
+    file. Stops at `COLOUR_RULE_MAX_ENTRIES` entries and prints (never
+    raises) a one-line warning naming the drop count.
     """
     try:
         with open(colour_rules_path(state_dir)) as fh:
@@ -285,33 +201,12 @@ def load_colour_rules(state_dir):
 
 def add_rule(state_dir, kind, value, theme_id, now=None):
     """Validate and persist one `(kind, value) -> theme_id` colour rule.
-    Returns one of the `ADD_*` module constants; never raises.
-
-    Validation order (the filesystem is touched only after every check
-    passes): `normalise_rule_kind()` -> `ADD_REJECTED_KIND`;
-    `normalise_rule_value()` -> `ADD_REJECTED_KEY`;
-    `normalise_rule_theme_id()` -> `ADD_REJECTED_THEME`.
-
-    Then `_WRITE_LOCK` is held across the entire load-check-mutate-write
-    sequence, not just the final replace. Inside the lock: the current
-    registry is loaded; `replacing` is computed as whether the normalised
-    value is already a key under that kind — this membership test is the
-    added-versus-replaced answer and is computed here, inside the lock,
-    before mutating — a second read outside the lock would be a TOCTOU
-    race against a concurrent writer. When not replacing and the total
-    entry count across all kinds is already at `COLOUR_RULE_MAX_ENTRIES`,
-    returns `ADD_REJECTED_FULL` (a replace is not growth, so re-adding an
-    existing key at the cap still succeeds).
-
-    `now` defaults to a timezone-aware UTC ISO-8601 string (seconds
-    precision), injectable so a harness can pin it. Writes with
-    `manual_resolutions.py`'s tmp-write-then-`os.replace()` idiom: the
-    temp filename embeds both `os.getpid()` and `threading.get_ident()`
-    so two concurrent companion writers can never interleave into the
-    same temp path. Any exception during the write is caught,
-    the stray temp file is removed if present, and `ADD_FAILED` is
-    returned rather than re-raised — the caller is an HTTP route handler
-    that needs a flash key, not a traceback.
+    Returns an `ADD_*` module constant; never raises. Validates kind,
+    value and theme_id before touching the filesystem, then holds
+    `_WRITE_LOCK` across the whole load-check-mutate-write sequence to
+    avoid a TOCTOU race on the added-vs-replaced decision. Rejects when
+    full unless replacing an existing key. Writes via tmp-then-`os.replace()`;
+    any write exception returns `ADD_FAILED` rather than raising.
     """
     normalised_kind = normalise_rule_kind(kind)
     if normalised_kind is None:
@@ -358,14 +253,10 @@ def add_rule(state_dir, kind, value, theme_id, now=None):
 
 
 def delete_rule(state_dir, kind, value):
-    """Remove `(kind, value)` from the registry at `state_dir`. Returns
-    `True` when an entry was removed, `False` otherwise (unknown kind,
-    malformed value, absent key, or a write failure). Idempotent, never
-    raises.
-
-    Same `_WRITE_LOCK` discipline and the same tmp-write-then-
-    `os.replace()` block with `except` cleanup as `add_rule()`, returning
-    `False` instead of `ADD_FAILED` on exception.
+    """Remove `(kind, value)` from the registry at `state_dir`. `True`
+    when removed, `False` otherwise (unknown kind, malformed value,
+    absent key, write failure). Idempotent, never raises; same
+    `_WRITE_LOCK`/tmp-write discipline as `add_rule()`.
     """
     normalised_kind = normalise_rule_kind(kind)
     if normalised_kind is None:
@@ -401,11 +292,9 @@ def delete_rule(state_dir, kind, value):
 
 
 def rule_rows(registry):
-    """Return `(kind, value, theme_id, created_at)` tuples from an
-    already-loaded registry, ordered by kind in `RULE_KINDS` order then by
-    value ascending, skipping any malformed entry. Never raises. This is
-    what the Settings rules list renders from, so its determinism is what
-    makes that list's markup testable.
+    """`(kind, value, theme_id, created_at)` tuples from an already-loaded
+    registry, ordered by kind then value, skipping malformed entries.
+    Never raises. What the Settings rules list renders from.
     """
     rows = []
     if not isinstance(registry, dict):
@@ -428,19 +317,9 @@ def rule_rows(registry):
 
 def set_colour_rules_state_dir(state_dir):
     """Set the process-wide cached registry `resolve_effective_theme_id()`
-    reads through, mirroring `illustrations.set_override_state_dir()` /
-    `manual_resolutions.set_manual_registry_state_dir()`.
-
-    Call once per poll cycle from `run_once()`, beside those two existing
-    calls, for the reason `poll_loop.py`'s own comment already gives for
-    `device_cfg`: a companion-side save landing mid-cycle must never split
-    one rendered panel across two configurations.
-
-    `state_dir` truthy -> cache `load_colour_rules(state_dir)`.
-    `state_dir` falsy (including `None`) -> cache the empty registry
-    shape. A process that never calls this setter sees an empty registry,
-    i.e. exactly today's behaviour, which is what keeps every existing
-    test unchanged.
+    reads through. Call once per poll cycle so a companion-side save
+    landing mid-cycle never splits one rendered panel across two
+    configurations. Falsy `state_dir` caches the empty registry shape.
     """
     global _cached_rules
     if state_dir:
@@ -467,31 +346,18 @@ def _rule_theme_from_cache(cache, kind, key):
 
 def resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=None):
     """The single resolver that decides what colour the panel is. Reads
-    `_cached_rules` only; never touches disk. Never raises; always
+    `_cached_rules` only, never touches disk. Never raises; always
     returns a member of `device_config.THEMES`.
 
-    Order: a membership-tested `calendar_theme_id` first, then the exact
-    callsign rule, then hex rule, then prefix rule, then the arrivals
-    override when and only when `state` equals `ARRIVING_STATE`, then
-    `device_cfg["theme"]`.
+    Order: `calendar_theme_id`, then exact callsign rule, hex rule,
+    prefix rule, then the arrivals override (only when `state ==
+    ARRIVING_STATE`), then `device_cfg["theme"]`. A calendar match
+    intentionally beats even an exact-callsign rule: a calendar entry
+    designates one specific flight, and that is the point of the feature.
 
-    Accepted consequence: a calendar match beats even an exact-callsign
-    rule, which is the narrowest thing an operator can write. Someone who
-    deliberately pins one callsign will find a calendar match overriding
-    it. This is intentional, because a calendar entry designates one
-    specific flight on one specific date, and the point of the feature is
-    that these flights stand out.
-
-    `calendar_theme_id` is computed by the CALLER — `poll_loop.py`, via
-    `calendar_rules.match_calendar_theme()` — and this function neither
-    imports nor knows about the calendar module, which is what preserves
-    its leaf-import contract while still putting the calendar first in
-    the order.
-
-    Ordering trap this module cannot enforce on its own: this function
-    must be called only where `render_state` and `current_flight` are
-    already settled, never hoisted beside `poll_loop`'s top-of-cycle
-    config read.
+    `calendar_theme_id` is computed by the caller (`poll_loop.py`, via
+    `calendar_rules.match_calendar_theme()`), preserving this module's
+    leaf-import contract.
     """
     if isinstance(calendar_theme_id, str) and calendar_theme_id in device_config.THEMES:
         return calendar_theme_id

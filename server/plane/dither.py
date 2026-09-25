@@ -3,21 +3,13 @@
 helper the per-airline illustration path (render.draw_illustration())
 consumes.
 
-Quantizes a Pillow "RGB" image against `panel_format.PALETTE_RGB` directly,
-in the canvas's own index order (`[Black, White, Yellow, Red, Blue, Green]`
-== `IDX_BLACK..IDX_GREEN`). The quantized image's local indices already ARE
-the canvas's real indices, so no `.point()` remap is ever applied here -
-adding one would risk silently scrambling colors.
-
-Padding the target palette to 256 entries is an active footgun (a zero
-filler entry can win nearest-neighbour matching for near-black source
-pixels) - `panel_palette_image()` below builds the palette image from
-exactly `PALETTE_RGB`'s 6 entries, nothing appended.
-
-The active-state background field is a flat single-color fill
-(`panel_format.new_canvas()`, drawn directly in render.py), not a
-dithered gradient - this module owns only the illustration-palette
-quantization and the (optional) dithered background lightening below.
+Quantizes against `panel_format.PALETTE_RGB` directly, in the canvas's
+own index order, so the quantized image's local indices already are the
+canvas's real indices - no `.point()` remap, which would risk silently
+scrambling colors. Padding the target palette to 256 entries is an
+active footgun (a zero filler entry can win nearest-neighbour matching
+for near-black pixels), so `panel_palette_image()` uses exactly
+`PALETTE_RGB`'s 6 entries.
 """
 from PIL import Image
 
@@ -26,20 +18,16 @@ from server import panel_format as pf
 WIDTH = pf.WIDTH
 HEIGHT = pf.HEIGHT
 
-# dithered_state_background() is pure - a flat field quantized through
-# Floyd-Steinberg against a fixed 2-entry palette is fully deterministic for
-# a given (bg_idx, lighten_fraction) - which is what makes memoizing it
-# sound. Callers draw onto the returned canvas with ImageDraw, so every
-# lookup MUST return a fresh .copy(); handing back the cached object itself
-# would let one render's drawing mutate the next render's background.
+# Pure and deterministic for a given (bg_idx, lighten_fraction), so
+# memoizing is sound. Every lookup MUST return a fresh .copy(): callers
+# draw onto the canvas, and the cached object must not be mutated.
 _STATE_BACKGROUND_CACHE = {}
 
 
 def panel_palette_image():
-    """Return a 1x1 "P" image whose palette is exactly panel_format's
-    6-entry PALETTE_RGB, with nothing appended. Padding this to 256 entries
-    is an active footgun: a zero filler entry can win nearest-neighbour
-    matching for near-black source pixels.
+    """1x1 "P" image whose palette is exactly PALETTE_RGB's 6 entries,
+    nothing appended (a 256-entry pad is an active footgun: a zero filler
+    entry can win nearest-neighbour matching for near-black pixels).
     """
     img = Image.new("P", (1, 1))
     img.putpalette(list(pf.PALETTE_RGB))
@@ -47,29 +35,20 @@ def panel_palette_image():
 
 
 def dither_to_full_panel_palette(source_rgb):
-    """Quantize `source_rgb` (a Pillow "RGB" image) against the panel's
-    full 6-color legal palette via Floyd-Steinberg dithering. No `.point()`
-    call, no remap: PALETTE_RGB's order already is IDX_BLACK..IDX_GREEN, so
-    the quantized image's local indices already are the canvas's real
-    indices.
+    """Quantize `source_rgb` against the panel's full 6-color palette via
+    Floyd-Steinberg dithering. No remap: PALETTE_RGB's order already is
+    IDX_BLACK..IDX_GREEN.
     """
     return source_rgb.quantize(palette=panel_palette_image(), dither=Image.FLOYDSTEINBERG)
 
 
 def dithered_state_background(bg_idx, lighten_fraction=0.4):
-    """Return a full WIDTHxHEIGHT "P"-mode canvas whose background field is
-    `bg_idx`'s ink lightened toward White via Floyd-Steinberg dithering,
-    rather than a flat fill (`panel_format.new_canvas()`).
-
-    At full-panel coverage the flat fill's raw ink (Blue/Green) reads
-    noticeably darker/more saturated on real glass than intended, and no
-    software value can change the physical ink itself - the only way to
-    visually lighten it is to dither a blend toward White.
-    `lighten_fraction` is the blend weight toward White (0 =
-    the flat fill's own color, 1 = pure White); keep it comfortably under
-    0.5 so `bg_idx` stays the dominant index on the resulting canvas
-    (`_assert_legal_palette()`'s dominance invariant in render.py) rather
-    than White outnumbering it.
+    """Full WIDTHxHEIGHT "P"-mode canvas: `bg_idx`'s ink lightened toward
+    White via Floyd-Steinberg dithering, since no software value can
+    change how dark the physical ink itself reads on real glass.
+    `lighten_fraction` is the blend weight toward White; keep it under
+    0.5 so `bg_idx` stays the dominant index (see
+    `_assert_legal_palette()` in render.py).
     """
     cache_key = (bg_idx, lighten_fraction)
     cached = _STATE_BACKGROUND_CACHE.get(cache_key)
@@ -84,25 +63,15 @@ def dithered_state_background(bg_idx, lighten_fraction=0.4):
     )
     flat_rgb = Image.new("RGB", (WIDTH, HEIGHT), blend)
 
-    # Quantize against ONLY {bg_idx's own ink, White} - never the full
-    # 6-color palette. Blue and Green, once both darkened, land close
-    # enough together in RGB space that the generic 6-color quantizer
-    # picks Blue as the nearest match for a lightened-Green target,
-    # leaving the arriving state's background almost entirely the wrong
-    # ink. A dedicated 2-entry palette makes that impossible regardless of
-    # how any other ink is tuned.
+    # Quantize against ONLY {bg_idx's own ink, White}, never the full
+    # 6-color palette: darkened Blue/Green land close enough in RGB space
+    # that the generic quantizer can pick the wrong one.
     two_color_palette = Image.new("P", (1, 1))
     two_color_palette.putpalette([r, g, b, 255, 255, 255])
     dithered = flat_rgb.quantize(palette=two_color_palette, dither=Image.FLOYDSTEINBERG)
 
-    # dithered's local indices are 0 (bg_idx's ink) / 1 (White) only - remap
-    # onto the canvas's real index space, then reattach the full panel
-    # palette so downstream index-fill drawing (ImageDraw with IDX_* fills)
-    # behaves exactly like a panel_format.new_canvas() canvas. Vectorised via
-    # translate() instead of a getdata()/putdata() Python-level remap: local
-    # index 0 -> bg_idx, local index 1 -> IDX_WHITE, everything else (never
-    # produced by a 2-entry-palette quantize, but table-complete regardless)
-    # -> 0.
+    # Remap local indices (0=bg_idx's ink, 1=White) onto the canvas's real
+    # index space via translate(), then reattach the full panel palette.
     remap = bytes([bg_idx, pf.IDX_WHITE] + [0] * 254)
     canvas = Image.frombytes("P", (WIDTH, HEIGHT), dithered.tobytes().translate(remap))
     canvas.putpalette(pf.padded_palette())
@@ -112,10 +81,9 @@ def dithered_state_background(bg_idx, lighten_fraction=0.4):
 
 
 def write_calibration_preview(out_dir):
-    """Write a six-swatch calibration PNG into `out_dir` for the on-glass
-    calibration pass: six equal horizontal bands, one per palette index in
-    index order, rendered from PALETTE_RGB - the band order is the
-    contract, not any label. Returns the list of written paths (one).
+    """Write a six-swatch calibration PNG into `out_dir`: one horizontal
+    band per palette index, in index order (the contract, not any
+    label). Returns the list of written paths (one).
     """
     import os
 

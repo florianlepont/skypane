@@ -1,41 +1,26 @@
 #!/usr/bin/env python3
 """Per-airline aircraft illustration selection.
 
-Selection keys off `route["airline_name"]`, which `enrich.lookup_route()`
-already returns - no separate enrichment call. Coverage combines two
-sources: `adsbdb`'s route lookup, and `enrich.airline_from_callsign()`'s
-independent fallback that resolves the airline directly from the
-callsign's ICAO prefix, so a rotating-callsign carrier (`EJU`/easyJet
-Europe and every other prefix in `enrich._ICAO_AIRLINE_PREFIXES`) reaches
-its own illustration via this module's Tier 1/2 selection even when
-adsbdb has nothing.
-
-This module makes no network call of its own; the illustration set is a
-hand-curated, static mapping, verified out of band against live adsbdb
-lookups and reference sources.
+Selection keys off `route["airline_name"]`. Coverage combines `adsbdb`'s
+route lookup with `enrich.airline_from_callsign()`'s ICAO-prefix
+fallback, so a rotating-callsign carrier reaches its own illustration
+even when adsbdb has nothing. No network call of its own; the
+illustration set is a hand-curated, static mapping.
 
 Filenames are derived from each carrier's real current name via
-`normalise_airline_key()`, never hand-typed - see `required_filenames()`.
-Where `adsbdb`'s crowdsourced database still resolves a pre-rebrand
-legal/trading name, or attributes an ICAO prefix to a different, defunct
-carrier, `enrich.py`'s `correct_airline_name()` /
-`apply_airline_name_correction()` reconcile the two before either the
-selection key or the caption text is computed - see that module for the
-live evidence behind each correction. A filename and a selection key that
-drift apart silently lose selection, with no error anywhere, no log line,
-no failing test; the correction seam is what keeps them from drifting.
+`normalise_airline_key()`. Where `adsbdb` still resolves a stale or
+wrong name, `enrich.py`'s `correct_airline_name()` reconciles it before
+selection - without that seam, a filename and a selection key could
+drift apart with no error, log line, or failing test.
 
-`_TYPE_SHAPE_BUCKETS` is a similarly hand-curated, static table
-classifying ICAO type designators into art-sizing shape buckets, used by
-`classify_aircraft_type()`. A designator missing from the table is not an
-error - it degrades to `None`, which `select_illustration()` treats as
-"no shape" and falls through to the next fallback tier.
+`_TYPE_SHAPE_BUCKETS` classifies ICAO type designators into art-sizing
+shape buckets (`classify_aircraft_type()`); a missing designator degrades
+to `None`, treated as "no shape" by `select_illustration()`.
 
-CLI: `--validate` checks every required illustration file exists and
-passes `validate_illustration_file()`; `--required`/`--targets`/
-`--outstanding` list the corresponding filename sets; `--strict-targets`
-(with `--validate`) also fails if any target file has not yet been
-handed off.
+CLI: `--validate` checks every required illustration file;
+`--required`/`--targets`/`--outstanding` list the corresponding filename
+sets; `--strict-targets` (with `--validate`) also fails on any
+outstanding target.
 """
 import os
 import re
@@ -98,27 +83,15 @@ _LIVE_RESOLVED_AIRLINES = [
 _COVERAGE_CHECK_CALLSIGN = "VOE8KA"
 _COVERAGE_CHECK_AIRLINE_NAME = "Volotea"
 
-# The full illustration target set. Each entry is
-# `(resolved_airline_name, shape_slug_or_None, note)`:
-#   - `resolved_airline_name` is a live-verified carrier name, never a
-#     guess - always the carrier's real current name (see the module
-#     docstring's correction-seam paragraph for how a stale adsbdb name is
-#     reconciled to it).
-#   - `shape` is `None` for the primary (unsuffixed) file - the numerically
-#     dominant type - or a SHAPE_SLUGS member for a secondary mixed-fleet
-#     variant.
-#   - `note` carries the verdict token (evidence strength, e.g.
-#     `[VERIFIED-CALLSIGN]`, `[CITED: ...]`, `[DEVELOPER-OBSERVED]`) so
-#     HANDOFF.md can be generated from this table rather than hand-written.
+# The full illustration target set: `(resolved_airline_name,
+# shape_slug_or_None, note)`. `resolved_airline_name` is always the
+# carrier's real current name (see module docstring's correction-seam
+# note). `shape` is `None` for the primary file, else a SHAPE_SLUGS
+# member for a secondary mixed-fleet variant. `note` carries the verdict
+# token (evidence strength) HANDOFF.md is generated from.
 #
-# easyJet is included on the strength of its UK-AOC `EZY` prefix, which
-# resolves live as `"easyJet"` - the Austrian-AOC `EJU` prefix (easyJet
-# Europe) remains a confirmed non-resolving carrier for which no file is
-# requested.
-#
-# The table is the canonical filename registry, even where adsbdb still
-# needs a future resolution-key audit before the art can be selected from
-# live traffic.
+# easyJet is included on its UK-AOC `EZY` prefix; the Austrian-AOC `EJU`
+# prefix (easyJet Europe) remains a confirmed non-resolving carrier.
 _ILLUSTRATION_TARGETS = [
     # --- Baseline: already-confirmed resolutions, primary files ---
     ("Air France", None, "D-03 baseline; [VERIFIED-CALLSIGN]"),
@@ -216,13 +189,8 @@ _ILLUSTRATION_TARGETS = [
         "(A320-family; A319 shares the file per the suffix rule). "
         "[VERIFIED-CALLSIGN]",
     ),
-    # --- Three carriers cross-checked against the official Paris Aéroport
-    # Orly airline list. HOP! Air France and KlasJet are new primaries
-    # below; Wizz Air Malta is deliberately NOT a new target here - see
-    # enrich._ICAO_AIRLINE_PREFIXES' WMT row: it reuses the already-
-    # vendored "Wizz Air" key, the same brand-consolidation precedent as
-    # EJU -> easyJet, so it costs zero new artwork and needs no entry in
-    # this table at all. ---
+    # Wizz Air Malta is deliberately absent: it reuses the vendored
+    # "Wizz Air" key (see enrich._ICAO_AIRLINE_PREFIXES' WMT row).
     (
         "Air France Hop",
         None,
@@ -335,13 +303,8 @@ _ILLUSTRATION_TARGETS = [
         "delivered directly to main (air-caraibes-atr72.png), merged in "
         "here rather than duplicated.",
     ),
-    # --- Nine additional primaries, all delivered with real art on
-    # arrival. Evidence class for every row below is the developer's own
-    # direct observation from photographs/screenshots reviewed offline -
-    # no adsbdb transcript and no fixture exists for any of these nine,
-    # the [DEVELOPER-OBSERVED] token (defined in HANDOFF.md). This is
-    # materially weaker evidence than every [VERIFIED-*]/[CITED: ...] row
-    # above, the same class as the KLJ row's confirmation in enrich.py. ---
+    # --- [DEVELOPER-OBSERVED] rows (defined in HANDOFF.md): direct
+    # observation, no adsbdb transcript - weaker evidence than [VERIFIED-*]. ---
     (
         "La Compagnie",
         None,
@@ -474,12 +437,10 @@ _ILLUSTRATION_TARGETS = [
 # directory via path construction.
 _UNSAFE_KEY_RE = re.compile(r"[\\/]|\.\.")
 
-# The seven base aircraft shapes classify_aircraft_type() classifies real
-# ICAO type designators into. Order is iteration-stable (target_
-# filenames()'s generic-{shape}.png block uses this exact order) but is not
-# a priority ranking. Character-for-character contract shared with the
-# filename convention (illustrations/{shape}.png) and with render.py's
-# caption labels - these seven strings must match everywhere.
+# The seven base aircraft shapes classify_aircraft_type() classifies into.
+# Order is iteration-stable (target_filenames() relies on it) but not a
+# priority ranking. Shared contract with the filename convention
+# (illustrations/{shape}.png) and render.py's caption labels.
 SHAPE_SLUGS = (
     "a320",
     "b737",
@@ -490,16 +451,9 @@ SHAPE_SLUGS = (
     "a350",
 )
 
-# ICAO type designator (uppercase) -> one of SHAPE_SLUGS. Hand-curated
-# from a user-verified fleet table plus ICAO Doc 8643 designators (some
-# entries are confirmed against live traffic, the rest are a first draft
-# from training knowledge) - same discipline as _LIVE_RESOLVED_AIRLINES
-# below: verified out of band, hardcoded, documented, never a live
-# lookup. A designator missing from this table degrades
-# classify_aircraft_type() to None, which select_illustration() treats as
-# "no shape" and falls through to the next fallback tier - a wrong or
-# missing entry degrades safely, it never raises and never fails closed
-# into an error.
+# ICAO type designator (uppercase) -> one of SHAPE_SLUGS. Hand-curated,
+# verified out of band, never a live lookup. A missing designator
+# degrades to None (treated as "no shape"), never raises.
 _TYPE_SHAPE_BUCKETS = {
     # A320 family: Air France, Vueling, Iberia, TAP, Transavia, easyJet,
     # Wizz Air, Volotea, ITA Airways, Tunisair, Pegasus, La Compagnie
@@ -559,21 +513,10 @@ def normalise_airline_key(airline_name):
 
 
 def classify_aircraft_type(icao_type):
-    """Return one of SHAPE_SLUGS for a known ICAO type designator, or
-    `None` for anything falsy, non-string, or unrecognized - mirrors
-    normalise_airline_key()'s never-raises discipline exactly. Pure, no
-    I/O.
-
-    `classify_aircraft_type("A20N")` -> `"a320"`
-    `classify_aircraft_type(" b38m ")` -> `"b737"`
-    `classify_aircraft_type("ZZZZ")`, `(None)`, `("")`, `(42)` -> `None`
-
-    This is a lookup against a fixed static table (_TYPE_SHAPE_BUCKETS)
-    whose values are all members of SHAPE_SLUGS - it never returns any
-    value derived from its argument. That is what makes a hostile
-    designator (e.g. containing a path separator or a parent-directory
-    sequence) unable to reach a filesystem path: the only strings this
-    function can ever produce are the seven hardcoded slugs, or None.
+    """One of SHAPE_SLUGS for a known ICAO type designator, else `None`.
+    Never raises. Always one of the seven hardcoded slugs or `None`,
+    never a value derived from the argument, so a hostile designator can
+    never reach a filesystem path.
     """
     if not isinstance(icao_type, str) or not icao_type:
         return None
@@ -581,10 +524,9 @@ def classify_aircraft_type(icao_type):
 
 
 def illustration_path_for_key(key):
-    """Join `ILLUSTRATION_DIR` and `key + ".png"`. Returns `None` if `key`
-    is falsy or contains a path separator or a parent-directory segment -
-    this is the boundary itself and must not rely on `normalise_airline_key`
-    already having made that impossible.
+    """Join `ILLUSTRATION_DIR` and `key + ".png"`. `None` if `key` is
+    falsy or contains a path separator or parent-directory segment - this
+    is the boundary itself, not reliant on callers already sanitising `key`.
     """
     if not key or _UNSAFE_KEY_RE.search(key):
         return None
@@ -596,43 +538,25 @@ def generic_fallback_path():
 
 
 # --- Override resolution -------------------------------------------------
-#
-# An uploaded replacement illustration must survive a redeploy, so it cannot
-# live inside the git-tracked ILLUSTRATION_DIR above: `deploy/deploy.sh`
-# rsyncs `server/` with `--delete` and excludes only `state`
-# (`server/state/.gitignore` is `*` + `!.gitignore` - fully gitignored).
-# `ILLUSTRATION_OVERRIDE_DIRNAME` is therefore a per-state-dir convention -
-# an override lives at `{state_dir}/illustration_overrides/{key}.png`, never
-# inside ILLUSTRATION_DIR - so it survives the exact deploy path that would
-# silently delete anything dropped straight into the vendored tree.
+# An uploaded replacement must survive a redeploy, so it cannot live
+# inside git-tracked ILLUSTRATION_DIR (`deploy/deploy.sh` rsyncs `server/`
+# with `--delete`, excluding only `state`). An override instead lives at
+# `{state_dir}/illustration_overrides/{key}.png`.
 ILLUSTRATION_OVERRIDE_DIRNAME = "illustration_overrides"
 
-# Process-scoped default state dir. `None` means "no override location
-# configured" - every resolver below then behaves exactly as it did before
-# this section existed. Set once per process via set_override_state_dir().
+# Process-scoped default; `None` means no override location configured.
 _override_state_dir = None
 
 
 def set_override_state_dir(state_dir):
-    """Set the process-wide default state dir the resolver functions below
-    fall back to when called without an explicit `state_dir=` argument.
+    """Set the process-wide default state dir the resolver functions
+    below fall back to when called without an explicit `state_dir=`.
 
     Exists because `select_illustration()` is called from deep inside
-    `render._build_active_canvas()`, a call chain that deliberately carries
-    no filesystem-location awareness (`state_dir` appears nowhere in
-    render.py). The alternative - threading a state_dir through
-    `render.build_canvas()`, `render.render_panel()`,
-    `render._build_active_canvas()`, and poll_loop's five `build_canvas()`
-    call sites - would push a deployment concern through three public
-    render signatures, and would silently invalidate
-    `server/test_render.py`'s existing two-argument `select_illustration`
-    monkeypatch lambdas (`lambda route, aircraft_type=None: ...`).
-
-    The process default is set once per process by the entrypoint that
-    already parses `--state-dir` (`poll_loop.run_once()`); the explicit
-    `state_dir=` parameter every resolver function below accepts stays the
-    primary, directly testable contract - this setter only exists for
-    callers, like the render call chain, that have no way to pass one
+    `render._build_active_canvas()`, which carries no filesystem-location
+    awareness. The explicit `state_dir=` parameter every resolver accepts
+    stays the primary, directly testable contract - this setter only
+    exists for callers, like the render call chain, that have no way to pass one
     directly. Passing `None` restores the vendored-only behaviour.
     """
     global _override_state_dir
@@ -640,12 +564,8 @@ def set_override_state_dir(state_dir):
 
 
 def override_dir_for_state_dir(state_dir=None):
-    """Return `{effective state dir}/ILLUSTRATION_OVERRIDE_DIRNAME`, or
-    `None` when there is no effective state dir - neither `state_dir` nor
-    the process default set via `set_override_state_dir()` is set. The
-    effective state dir is `state_dir` when given, else the process
-    default. Never creates the directory - this module is read-only with
-    respect to overrides.
+    """`{state_dir or process default}/ILLUSTRATION_OVERRIDE_DIRNAME`, or
+    `None` when neither is set. Never creates the directory.
     """
     effective = state_dir if state_dir is not None else _override_state_dir
     if not effective:
@@ -654,12 +574,9 @@ def override_dir_for_state_dir(state_dir=None):
 
 
 def override_path_for_key(key, state_dir=None):
-    """Join the override dir (see `override_dir_for_state_dir()`) and
-    `key + ".png"`. Returns `None` for a falsy key, for a key matching
-    `_UNSAFE_KEY_RE`, or when there is no effective override dir - this is
-    the boundary itself, exactly like `illustration_path_for_key()`'s is,
-    and must not rely on the caller having already validated the key
-    (T-v26-01-01).
+    """Join the override dir and `key + ".png"`. `None` for a falsy or
+    unsafe key (`_UNSAFE_KEY_RE`), or no effective override dir - this is
+    the boundary itself, not reliant on caller validation.
     """
     if not key or _UNSAFE_KEY_RE.search(key):
         return None
@@ -685,38 +602,21 @@ def resolved_illustration_path(key, state_dir=None):
 
 
 def select_illustration(route, aircraft_type=None, state_dir=None):
-    """Return the illustration path for `route` (a route dict, or `None`)
-    and `aircraft_type` (a raw ICAO type designator string, or `None`),
-    resolved through four fallback tiers, or `None` if not even the
-    generic fallback file exists. Never raises for any input, including a
-    non-dict `route`, a route whose `.get` raises, a non-string
-    `airline_name`, and a hostile `aircraft_type`.
+    """Illustration path for `route`/`aircraft_type`, resolved through
+    four fallback tiers, or `None` if not even the generic fallback
+    exists. Never raises.
 
-    Omitting `aircraft_type` reproduces this function's pre-03.1 behaviour
-    exactly: Tier 1 and Tier 3 both short-circuit on a `None` shape key,
-    so the call falls straight through to the historical Tier 2 -> Tier 4
-    path every existing caller and test already relies on.
+    Tier 1: `{airline}-{shape}.png` - exact airline+type match.
+    Tier 2: `{airline}.png` - airline's own illustration (brand identity
+        wins over exact type precision).
+    Tier 3: `generic-{shape}.png` - neutral, correct-shape illustration
+        for an unrecognised airline.
+    Tier 4: `generic-fallback.png` - universal fallback.
 
-    Tier 1: `{airline}-{shape}.png` - an exact airline+type match.
-    Tier 2: `{airline}.png` - the airline's own illustration when
-        no exact-shape file exists. Brand identity wins over exact type
-        precision here - a real flight is still instantly recognisable as
-        "that airline", which matters more on a glanceable frame than
-        showing the technically-correct silhouette.
-    Tier 3: `generic-{shape}.png` - a neutral, correct-shape
-        illustration for an airline this module doesn't recognise, rather
-        than the single undifferentiated universal fallback.
-    Tier 4: `generic-fallback.png` - the universal fallback, used when
-        neither the airline nor the shape resolves to anything on disk.
-
-    `state_dir`: optional. When given (or when `set_override_state_dir()`
-    has set a process default), each
-    tier above consults `{state_dir}/illustration_overrides/{key}.png`
-    first and the vendored file second, via `resolved_illustration_path()`.
-    Tier PRECEDENCE is unchanged - an override only ever replaces the
-    source of the tier whose own key it matches; it can never let a lower
-    tier win over a higher one. With no `state_dir` and no process default,
-    every tier resolves exactly as it did before this parameter existed.
+    `state_dir`: each tier consults `{state_dir}/illustration_overrides/
+    {key}.png` first, vendored file second, via
+    `resolved_illustration_path()`. Tier precedence is unaffected - an
+    override only replaces its own tier's source.
     """
     try:
         airline_name = route.get("airline_name") if isinstance(route, dict) else None
@@ -747,11 +647,8 @@ def select_illustration(route, aircraft_type=None, state_dir=None):
         if neutral is not None:
             return neutral
 
-    # Tier 4: neither airline nor shape resolves to anything on disk -
-    # the single universal fallback. The key is derived from
-    # GENERIC_FALLBACK_FILENAME rather than a second hardcoded literal,
-    # so resolved_illustration_path() reduces to
-    # generic_fallback_path()'s exact vendored path when no override exists.
+    # Tier 4: universal fallback. Key derived from GENERIC_FALLBACK_FILENAME
+    # rather than a second hardcoded literal.
     fallback_key = GENERIC_FALLBACK_FILENAME
     if fallback_key.endswith(".png"):
         fallback_key = fallback_key[: -len(".png")]
@@ -813,16 +710,10 @@ def validate_illustration_file(path):
 
 
 def target_airline_names():
-    """Return the distinct `resolved_airline_name` values of
-    `_ILLUSTRATION_TARGETS`, order-preserving and de-duplicated.
-
-    This is the drift guard `enrich.py`'s static ICAO-prefix-to-airline-name
-    table is checked against: this function's output must match, so
-    renaming or dropping an
-    illustration target without mirroring the change in the prefix table
-    fails the suite instead of silently producing a callsign-prefix
-    resolution that can never reach any art. Derived from
-    `_ILLUSTRATION_TARGETS` directly - never a second hardcoded list.
+    """Distinct `resolved_airline_name` values of `_ILLUSTRATION_TARGETS`,
+    order-preserving and de-duplicated. `enrich.py`'s ICAO-prefix table is
+    checked against this output, so a drift fails the suite instead of
+    silently orphaning a callsign-prefix resolution.
     """
     names = []
     for airline_name, _shape, _note in _ILLUSTRATION_TARGETS:
@@ -832,16 +723,11 @@ def target_airline_names():
 
 
 def target_filenames():
-    """Return the full illustration hand-off plan: one filename per
-    `_ILLUSTRATION_TARGETS` entry - derived through
-    `normalise_airline_key()`, never hand-typed - then one
-    `generic-{shape}.png` per `SHAPE_SLUGS` entry (in `SHAPE_SLUGS`
-    order), then the universal fallback. Order-preserving and de-duplicated.
-    Skips (does not crash on) any airline whose slug comes back `None`.
-
-    This is "the full plan" - what should eventually exist once the
-    illustration hand-off is complete. See `required_filenames()` for
-    "what must exist and validate right now".
+    """The full illustration hand-off plan: one filename per
+    `_ILLUSTRATION_TARGETS` entry, then one `generic-{shape}.png` per
+    `SHAPE_SLUGS`, then the universal fallback. Order-preserving and
+    de-duplicated. Contrast `required_filenames()` ("must exist right
+    now").
     """
     names = []
     for airline_name, shape, _note in _ILLUSTRATION_TARGETS:
@@ -861,24 +747,13 @@ def target_filenames():
 
 
 def target_variants_by_airline():
-    """Return one `(airline_name, [shape, ...])` pair per distinct airline
-    in `_ILLUSTRATION_TARGETS`, first-appearance order - the same order and
-    length `target_airline_names()` produces. Each airline's list collects
-    every non-`None` shape recorded for it, in `_ILLUSTRATION_TARGETS`
-    order; an airline with only a `None`-shape (primary-only) entry maps to
-    an empty list, never a list holding `None`. Derived from
-    `_ILLUSTRATION_TARGETS` directly - never a second hardcoded
-    airline-to-shape table.
+    """One `(airline_name, [shape, ...])` pair per distinct airline in
+    `_ILLUSTRATION_TARGETS`, first-appearance order. A primary-only
+    airline maps to an empty list, never `[None]`.
 
-    Trap: the shape strings returned here are free-text filename suffixes
-    (e.g. `"a350-1000"`), a different domain from `SHAPE_SLUGS`' seven-member
-    ICAO-type classification. A caller must NOT validate a variant against
-    `SHAPE_SLUGS` before displaying it - `"a350-1000"` is a real entry that
-    such a check would silently drop.
-
-    This is `companion/pages/airlines_page.py`'s sole entry point onto
-    `_ILLUSTRATION_TARGETS` - that module stays private, holding this
-    project's consistent "no cross-module private-name reach" pattern.
+    Shape strings are free-text filename suffixes (e.g. `"a350-1000"`), a
+    different domain from `SHAPE_SLUGS`' ICAO-type classification - never
+    validate a variant against `SHAPE_SLUGS`.
     """
     order = []
     shapes_by_name = {}
@@ -892,17 +767,11 @@ def target_variants_by_airline():
 
 
 def required_filenames():
-    """Return the immovable baseline - the original set (one filename per
-    live-resolved covered airline in `_LIVE_RESOLVED_AIRLINES`, plus the
-    generic fallback) - unioned with every `target_filenames()` entry that
-    already exists on disk, de-duplicated and order-preserving.
-
-    This function means "must exist and validate right now" - a newly
-    delivered file becomes enforced automatically the moment it lands on
-    disk, and deleting an already-vendored file still fails this
-    contract. `target_filenames()` means "the full plan". The split exists
-    so this harness and CI stay green while the illustration hand-off
-    proceeds, without any target ever being silently dropped.
+    """The immovable baseline (`_LIVE_RESOLVED_AIRLINES` filenames plus
+    the generic fallback) unioned with every `target_filenames()` entry
+    already on disk. Means "must exist and validate right now" - a newly
+    delivered file is enforced the moment it lands; contrast
+    `target_filenames()`'s "full plan".
     """
     names = []
     for _callsign, airline_name in _LIVE_RESOLVED_AIRLINES:
