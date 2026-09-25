@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 35-11-PLAN.md
-last_updated: "2026-09-25T14:45:14.389Z"
+last_updated: "2026-09-25T15:05:04.837Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 53
@@ -1022,6 +1022,7 @@ Recent decisions affecting current work:
 - [Phase 35]: health_page.py split for the purge at safe_health_state() (line 2337, the top-level def nearest the file's midpoint), lower half first then upper half, so each task's own line numbers stayed stable — Editing bottom-up within each half keeps earlier line numbers unaffected; splitting the file itself at its true midpoint keeps the two tasks balanced
 - [Phase 35]: battery_sparkline_svg() docstring kept at the security/contract-adjacent ~15-20 line band rather than force-fit to 8 lines — It documents a test-asserted no-external-reference guarantee and a non-obvious no-viewBox SVG percentage-coordinate scheme; each fact is independently load-bearing for a future edit to the chart
 - [Phase 35]: 35-11: used a line-range replacement script (apply_repl.py) instead of Edit's exact-string matching for the bulk of layout.py/draw.py's comment purge — at ~65%/64% original comment density, single-string Edit matches were impractical at this file size
+- [Phase 35]: 35-11 (second pass): orchestrator review found the first pass only stripped history IDs and left comment-block/docstring length and rhetoric uncapped; a follow-up pass mechanically enforced the plan's hard caps (docstring <=15 lines, comment block <=5 lines) across both files, cutting layout.py to 43.0% comments and draw.py to 44.9%
 
 ### Pending Todos
 
