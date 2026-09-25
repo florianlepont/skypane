@@ -41,6 +41,7 @@ In scope: INT-01..INT-14 as re-located below (`36-RESEARCH.md` has the current f
 - **byos** (`stub-server/byos_server.py`) keeps its "never import `server.*`" vendor boundary until Phase 39 (ARC-05) retires it: it gets one local `_atomic_write` with the same contract, used by its three writers (`save_state`, `save_registry` with mode 0600, `save_battery_state`). A behaviour-parity test (not a source-text drift guard) pins both helpers to the same observable contract. SUMMARY records the copy as a Phase 39 ARC-05 input.
 - **`deploy/backup/backup_gate.py`** must stay self-contained (runs as `/usr/bin/python3` outside the venv and the release): its fixed `.last-pull.tmp` becomes a local `mkstemp` in `pulled_dir`.
 - **`deploy/backup/skypane_backup.py`** is out of scope: its `.partial-<archive name>` files are unique per archive, written by a single timer-driven oneshot, and cleaned by its own prune step. Not a fixed `.tmp` name.
+- **`deploy/activate.sh`** (`.current.tmp` symlink swap at deploy time) is out of scope: a single deploy step, serialized by the CI deploy job's concurrency group, and not a state file. Success criterion 2 therefore applies to Python code.
 - Success criterion 2 is checked by grep in plan acceptance criteria and in verification, not by a test (tests assert behaviour, never source text).
 
 ### INT-03 — `save_device_config` (locked)
