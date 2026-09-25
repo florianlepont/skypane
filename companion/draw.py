@@ -156,7 +156,7 @@ def escape(value):
     return html.escape(value, quote=True)
 
 
-# --- the series, filtered exactly once --------------------------------
+# --- number validation, shared by every scheme below -------------------
 
 def is_number(value):
     """True for a real, finite int or float. False for None, a bool, a
@@ -171,33 +171,6 @@ def is_number(value):
     if value != value:  # NaN is the only value unequal to itself
         return False
     return value not in (_INFINITY, -_INFINITY)
-
-
-def usable_pairs(rows, value_key, newest_first=True):
-    """`[(value, row), ...]` in chronological order — one entry per row of
-    `rows` whose `value_key` is a usable number, paired with its own row.
-    Never raises; a non-iterable `rows` degrades to [].
-
-    One filtering pass so a dropped row cannot shift a later value onto
-    the wrong row's label. When the newest row has no usable value, the
-    last pair returned is the newest row that does. `rows` is newest-first
-    by default; pass `newest_first=False` for chronological input.
-    """
-    try:
-        ordered = list(rows)
-    except TypeError:
-        return []
-    if newest_first:
-        ordered.reverse()
-    pairs = []
-    for row in ordered:
-        try:
-            value = row.get(value_key)
-        except AttributeError:
-            continue
-        if is_number(value):
-            pairs.append((value, row))
-    return pairs
 
 
 # --- the percentage scheme (no viewBox) -------------------------------
@@ -454,20 +427,6 @@ def label_span(text, hidden=True):
     if hidden:
         attrs["aria-hidden"] = "true"
     return "<span%s>%s</span>" % (_attrs(attrs), escape(text))
-
-
-def label_grid(y_labels_html, canvas_html, x_labels_html):
-    """The grid wrapper that puts a time series' labels outside its
-    canvas: an auto-sized label column beside the canvas, a label row
-    below it.
-
-    Document order is the contract: the y-label column claims row 1, the
-    canvas auto-places beside it, the x-label row auto-places into row 2.
-    The canvas column is `minmax(0, 1fr)`, which is what lets it shrink
-    instead of forcing a horizontal scrollbar.
-    """
-    return '<div class="%s">%s%s%s</div>' % (
-        escape(DRAWING_GRID_CLASS), y_labels_html, canvas_html, x_labels_html)
 
 
 # --- the ring gauge: ONE emitter, every size ---------------------------

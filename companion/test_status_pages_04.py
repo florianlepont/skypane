@@ -631,8 +631,8 @@ def test_readout_typographic_split_stylesheet_guard(css_text):
 
 
 def test_anomaly_active_agrees_with_the_banner_both_directions(tmp_path):
-    """anomaly_active() and the anomaly banner's presence agree in both directions, across
-    healthy and unhealthy fixtures"""
+    """the nav-tab severity path and the anomaly banner's presence agree in both directions,
+    across healthy and unhealthy fixtures"""
     now = shp.now()
     fixtures = []
 
@@ -663,12 +663,18 @@ def test_anomaly_active_agrees_with_the_banner_both_directions(tmp_path):
     fixtures.append((battery_drop, shp.iso(now)))
 
     for state_dir, ts in fixtures:
-        verdict = health_page.anomaly_active(state_dir, ts)
+        # The live nav-tab severity path app.py's page_context() calls
+        # (health_page.safe_health_state()), reduced to the same "is
+        # there an anomaly" bool the retired anomaly_active() used to
+        # return directly.
+        state = health_page.safe_health_state(state_dir, ts)
+        severity = state["severity"] if state else "ok"
+        verdict = severity != "ok"
         rendered = health_page.render(shp.ctx(state_dir, ts))
         banner_present = health_page.ANOMALY_BANNER_TEXT in rendered
         assert verdict == banner_present, (
-            "anomaly_active()=%r disagreed with the banner's presence=%r for %r"
-            % (verdict, banner_present, state_dir))
+            "the severity path (%r)=%r disagreed with the banner's presence=%r for %r"
+            % (severity, verdict, banner_present, state_dir))
 
 
 def test_section_builder_markup_survives_the_stat_tile_reframe(tmp_path):

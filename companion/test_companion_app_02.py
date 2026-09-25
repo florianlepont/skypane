@@ -1253,9 +1253,8 @@ def test_draw_module_escapes_every_interpolated_value():
 
 def test_draw_module_scales_clamp_and_never_raise():
     """companion/draw.py's scales clamp into their caller-supplied FIXED domain and pin at
-    exactly the floor and ceiling positions, usable_pairs() drops a row's label with the row
-    itself, and no helper raises on None/a bool/a negative/a string/a NaN (T-24-04,
-    D-04/A-22)"""
+    exactly the floor and ceiling positions, and no helper raises on None/a bool/a negative/a
+    string/a NaN (T-24-04, D-04/A-22)"""
     low, high, inset = 3000, 4200, 3.75
     assert draw.percent_y(low - 1, low, high, inset) == draw.percent_y(low, low, high, inset), (
         "percent_y() below the domain floor must pin at exactly the floor")
@@ -1270,22 +1269,12 @@ def test_draw_module_scales_clamp_and_never_raise():
         "a zero-fraction ring must draw no arc at all")
     assert draw.unit_circle_dash_array(5, 10) == draw.unit_circle_dash_array(1.0, 10), (
         "a fraction above 1 must pin at a full ring, never wrap")
-    rows = [{"battery_mv": None, "ts": "unusable-newest"},
-            {"battery_mv": 3900, "ts": "real-newest"},
-            {"battery_mv": True, "ts": "a-bool-is-not-a-reading"},
-            {"battery_mv": 3800, "ts": "older"}]
-    pairs = draw.usable_pairs(rows, "battery_mv")
-    assert [value for value, _row in pairs] == [3800, 3900], (
-        "usable_pairs() must keep only usable readings, chronologically: %r" % (pairs,))
-    assert pairs[-1][1]["ts"] == "real-newest", (
-        "a dropped row must drop its own label — the last pair's label source is %r" % (pairs[-1][1]["ts"],))
     for hostile in (None, True, False, -1, 0, "", "abc", {}, [], float("nan")):
         draw.percent_x(hostile, hostile)
         draw.percent_y(hostile, 3000, 4200, hostile)
         draw.percent_attr(hostile)
         draw.unit_circle_dash_array(hostile, hostile)
         draw.unit_point_on_circle(hostile, hostile, hostile, hostile)
-        draw.usable_pairs(hostile, "battery_mv")
         draw.escape(hostile)
         draw.is_number(hostile)
 

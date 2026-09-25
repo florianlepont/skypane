@@ -457,10 +457,19 @@ def test_battery_chart_falls_back_to_raw_series_on_day_one(tmp_path):
 # ==========================================================================
 
 
+def _anomaly_active(state_dir, now=None):
+    # The live nav-tab severity path app.py's page_context() calls
+    # (health_page.safe_health_state()), reduced to the same "is there an
+    # anomaly" bool the retired anomaly_active() used to return directly.
+    state = health_page.safe_health_state(state_dir, now)
+    severity = state["severity"] if state else "ok"
+    return severity != "ok"
+
+
 def test_anomaly_active_never_raises_on_hostile_inputs(tmp_path):
-    """anomaly_active() runs on every page render and must never raise —
+    """the nav-tab severity path runs on every page render and must never raise —
     missing/empty/file/corrupt-db inputs all degrade safely"""
-    # anomaly_active() runs on every authenticated page render via
+    # The severity path runs on every authenticated page render via
     # page_context() (companion/app.py) — it may never fault a page that
     # has nothing to do with Health.
     #
@@ -477,12 +486,12 @@ def test_anomaly_active_never_raises_on_hostile_inputs(tmp_path):
     # presence — the property this check actually protects.
     for candidate in (tmp_path / "absent" / "nested", tmp_path / "empty"):
         candidate_str = str(candidate)
-        verdict = health_page.anomaly_active(candidate_str)
+        verdict = _anomaly_active(candidate_str)
         assert isinstance(verdict, bool), (
             "expected a bool (no raise) for %r, got %r" % (candidate_str, verdict))
         rendered = health_page.render(shp.ctx(candidate_str))
         assert verdict == (health_page.ANOMALY_BANNER_TEXT in rendered), (
-            "anomaly_active() disagreed with render()'s banner for %r" % candidate_str)
+            "the severity path disagreed with render()'s banner for %r" % candidate_str)
 
     # A database file that exists but is not a valid SQLite file: every
     # read maps to _DB_UNAVAILABLE, which every section builder treats
@@ -491,7 +500,7 @@ def test_anomaly_active_never_raises_on_hostile_inputs(tmp_path):
     dbs = [p for p in corrupt_db_dir.iterdir() if p.suffix == ".db"]
     assert dbs, "expected a database file to have been created by the loop above"
     dbs[0].write_bytes(b"not a sqlite file at all")
-    assert health_page.anomaly_active(str(corrupt_db_dir)) is False, (
+    assert _anomaly_active(str(corrupt_db_dir)) is False, (
         "expected False for a corrupt database, not a raise")
 
     # A state_dir path that is a regular file, not a directory:
@@ -499,7 +508,7 @@ def test_anomaly_active_never_raises_on_hostile_inputs(tmp_path):
     # existing non-directory path regardless of who runs the process.
     regular_file = tmp_path / "not-a-directory"
     regular_file.write_bytes(b"")
-    assert health_page.anomaly_active(str(regular_file)) is False, (
+    assert _anomaly_active(str(regular_file)) is False, (
         "expected False for a state_dir that is a regular file, not a directory")
 
 

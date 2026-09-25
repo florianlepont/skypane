@@ -6,7 +6,7 @@ component builder. The Device and Pipeline freshness signals are
 independent (different failure modes and data sources), never blended
 into one verdict. `_safe_query()` returns the `_DB_UNAVAILABLE` sentinel
 instead of raising, so each section degrades independently.
-`anomaly_active()` is this module's one public cross-page export, so no
+`safe_health_state()` is this module's one public cross-page export, so no
 nav renderer needs to import a page module.
 """
 import os
@@ -1013,9 +1013,9 @@ def collect_anomalies(
     """A list of short, human-readable strings, one per non-healthy
     signal. An empty list means no anomaly banner renders; only the
     list's emptiness is consumed, and it stays the canonical, greppable
-    definition of what counts as an anomaly. `anomaly_active()`/
-    `health_severity()` route through `overall_severity()` instead,
-    which derives severity from the same inputs.
+    definition of what counts as an anomaly. The nav-tab severity routes
+    through `overall_severity()` instead, which derives severity from the
+    same inputs.
     """
     anomalies = []
     # device_state/pipeline_state can be "off" (held frame / pipeline
@@ -1154,36 +1154,14 @@ def safe_health_state(state_dir, now=None):
     unlike the narrow `(sqlite3.Error, OSError)` catches elsewhere in
     this file: this function runs on every authenticated page render, so
     a raise here would 500 every page over a decorative nav dot.
-    `health_severity()` treats `None` as "ok" (fail closed — the Health
-    page itself still reports the real problem in full); `render()`
-    falls back to a fresh compute rather than a dict with missing keys.
+    Callers treat `None` as "ok" (fail closed — the Health page itself
+    still reports the real problem in full); `render()` falls back to a
+    fresh compute rather than a dict with missing keys.
     """
     try:
         return compute_health_state(state_dir, now)
     except Exception:
         return None
-
-
-def health_severity(state_dir, now=None):
-    """The `ctx["health_severity"]` source of truth: "ok"/"warn"/"error"
-    for `state_dir`. Threaded into `ctx` for every authenticated page so
-    the nav-tab dot and the anomaly banner draw from one value without a
-    nav renderer importing this page module. Routes through
-    `safe_health_state()`, keeping only the severity, so a second
-    reimplementation of the anomaly rules can never disagree with the
-    banner. A caller already holding a `safe_health_state()` result
-    should read `state["severity"]` directly instead.
-    """
-    state = safe_health_state(state_dir, now)
-    return state["severity"] if state else "ok"
-
-
-def anomaly_active(state_dir, now=None):
-    """`True` when the current severity for `state_dir` is not "ok". Thin
-    wrapper over `health_severity()` so the anomaly rules have exactly
-    one implementation.
-    """
-    return health_severity(state_dir, now) != "ok"
 
 
 def _starts_with_acronym(phrase):
@@ -2181,9 +2159,9 @@ def _check_in_key_html():
 
 
 def _read_health_inputs(state_dir, now):
-    """The reads `render()` and `anomaly_active()` both need, single-sourced
-    into one dict so the nav-tab dot and the page's own anomaly banner
-    can't disagree. `registry_rows` uses its own narrow
+    """The reads `render()` and `compute_health_state()` both need,
+    single-sourced into one dict so the nav-tab dot and the page's own
+    anomaly banner can't disagree. `registry_rows` uses its own narrow
     `(OSError, ValueError)` guard, a different failure mode from the
     SQLite reads below (`_safe_query()`), so a registry failure degrades
     only severity, not the other sections.
