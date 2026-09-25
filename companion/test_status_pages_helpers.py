@@ -1,22 +1,9 @@
 """Shared fixture-seeding and formatting helpers for the `companion/
-test_status_pages*.py` migration chain (33-25..33-31): `server/history_
-db.py` writers, a `server/poll_loop.py` seeding wrapper, a `server/plane/
-manual_resolutions.py` seeding wrapper, and a couple of small rendered-
-markup helpers several parts of the chain reuse. Not a test module
-itself — `__test__ = False` keeps pytest from ever collecting it
-directly, and `companion/test_suite_guards.py`'s G9 rule enforces that
-this marker is present.
-
-Deliberately excludes the legacy subprocess-lifecycle plumbing (`Harness`,
-`http_request`, `_NoRedirectHandler`) and any use of the standard-library
-temp-directory module: a migrated test that needs a real `companion/
-app.py` server gets one from `companion/conftest.py`'s `app_server`/
-`make_app_server`/`module_app_server_factory` fixtures instead, and every
-fixture below writes only into the `tmp_path` a test itself provides.
-The legacy harness's own raw-disk stylesheet reader is not carried
-forward either — `served_css_rules()` below is its TST-12 replacement,
-fetching the stylesheet the app actually serves and parsing it
-structurally instead.
+test_status_pages*.py` test family: `server/history_db.py` writers, a
+`server/poll_loop.py` seeding wrapper, a manual_resolutions.py seeding
+wrapper, and rendered-markup helpers several parts of the family reuse.
+Not a test module itself — `__test__ = False` keeps pytest from
+collecting it directly.
 """
 import re
 from datetime import datetime, timedelta, timezone

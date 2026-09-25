@@ -1,75 +1,10 @@
-"""Part 04 of the `companion/test_status_pages.py` migration chain
-(33-28-PLAN.md): the original harness's `check()` calls #140-#171 (minus
-the `anomaly_active("/nonexistent/...")` root-unsafe check, pulled forward
-into 33-25) — the nested-card heading-to-content rhythm allowlist and its
-two CSS rhythm rules, the Resolution-statistics table's `data-table--prose`
-opt-out and its Description-column muting (markup + builder + stylesheet),
-the registry's mobile `.data-cards` representation (completeness, the
-toggle contract, pairing with the desktop table, the stacked-cell/
-shortened-French-header fit) and the standing no-chrome-with-no-data rule,
-the battery readout's humanised detail and its typographic split, the
-`anomaly_active()`/banner-presence agreement, the stat-tile reframe and
-tile-icon survival guards, the auto-refresh pill's markup and stylesheet
-contracts, the pipeline tile's second line (present and absent), the
-persistent honest-clock freshness note, four one-line UI-regression fixes,
-two spacing-pair guards, the `<summary>` accent rule, and the fetch/swap
-loop's cross-file contracts (the interaction-skip guard, the swap-selector
-registry's one-definition/one-key-set proof, the server-rendered page key,
-the three things the loop must not repaint, Flights joining the loop, and
-the new-row highlight diff).
+"""Companion status-page tests: the nested-card heading rhythm, the
+Resolution-statistics table's prose opt-out, the registry's mobile card
+representation, the battery readout split, the auto-refresh pill, and the
+fetch/swap loop's cross-file contracts.
 
-One check in this slice, pinning that a reversal of an earlier auto-refresh
-decision is recorded in prose at both places it touches, is deleted rather
-than ported (TST-12 rubric P/J): it opened `companion/static/freshness.js`
-for a quick-task identifier and a house "SUPERSEDED" token, and separately
-opened a phase context document under the planning tree for the same pair
-beside the original decision's wording — plan-history prose in a header
-comment and a planning document, with no rendered or served behaviour
-behind either assertion.
-
-Two checks in this slice read a production `.py` source file for a text
-fragment with no observable consequence beyond a check this module already
-makes structurally (TST-12 rubric S), and drop that fragment: whether the
-swap-selector tuple is redefined a second time in `companion/pages/
-health_page.py` is already provable by identity (the module attribute
-either IS the registry's own object or it structurally is not, given
-Python never interns distinct tuple literals across modules), and whether
-`companion/layout.py`'s own comment explains an exclusion in prose is not
-something a served page or script can disagree with.
-
-One check's stylesheet half asserts on the file's own opening comment
-block (an "accent colour is reserved for these elements" list) rather
-than a rendered rule (rubric C); the comment-only clause is dropped and
-the rule-body clause it pairs with (a real declaration on a real
-selector) is kept.
-
-Every CSS check in this slice (rubric C) fetches the stylesheet
-`companion/app.py` actually serves and asserts on it structurally via
-`companion_markup.css_rules()`/`declarations_for()`/`rules_with_selector()`
-— never a regex/substring probe over the raw served text (33-FOLLOWUPS.md
-F-01) — reusing 33-26/33-27's single module-scoped read-only server
-(`_module_server`/`css_text`), since none of the checks below mutate
-server state. A source-order fact (one rule sitting before or after
-another) is proven by comparing each rule's INDEX in `css_rules()`'s
-ordered list, never by comparing string offsets in raw text.
-
-Every check in this slice that reads `companion/static/freshness.js` or
-`companion/static/battery-trend.js` (rubric J) fetches it with
-`served_asset()` instead of opening it from disk. Some of those checks
-need the file's own quoted string literals (a selector, an attribute
-name) intact, so this module's own `strip_js_line_and_block_comments()`
-helper (added to `companion/test_status_pages_helpers.py` for this chain
-— `companion_markup.strip_js_comments_and_strings()` erases string
-literals too, which this slice's checks cannot afford) blanks only the
-comments, mirroring the legacy harness's own `_js_code_without_comments()`
-idiom exactly. Whether a given check strips comments or reads the raw
-served text follows the SAME choice the legacy check itself made — no
-check in this slice changes what it looks for, only where it looks.
-
-Every other check in this module calls `companion.pages.health_page`/
-`companion.layout`/`companion.i18n`/`companion.i18n_fr.health`/
-`companion.illustration_normalize` directly, in-process, seeding fixtures
-under `tmp_path` via `companion.test_status_pages_helpers`.
+CSS/JS checks fetch served bytes from a running companion/app.py; everything
+else calls health_page/layout/i18n directly, in-process.
 """
 import re
 from datetime import timedelta
@@ -626,7 +561,7 @@ def test_readout_typographic_split_stylesheet_guard(css_text):
 
 
 # ==========================================================================
-# anomaly_active()/banner agreement, the stat-tile reframe, tile-icon survival
+# The nav-tab severity path/banner agreement, the stat-tile reframe, tile-icon survival
 # ==========================================================================
 
 
@@ -664,9 +599,8 @@ def test_anomaly_active_agrees_with_the_banner_both_directions(tmp_path):
 
     for state_dir, ts in fixtures:
         # The live nav-tab severity path app.py's page_context() calls
-        # (health_page.safe_health_state()), reduced to the same "is
-        # there an anomaly" bool the retired anomaly_active() used to
-        # return directly.
+        # (health_page.safe_health_state()), reduced to a single "is
+        # there an anomaly" bool.
         state = health_page.safe_health_state(state_dir, ts)
         severity = state["severity"] if state else "ok"
         verdict = severity != "ok"
@@ -740,14 +674,6 @@ def test_health_tile_icons_are_tile_only_and_no_heading_carries_a_glyph(tmp_path
         "expected exactly five <use occurrences on a seeded render (the same four plus "
         "icon-search in the unresolved-prefixes filter bar)")
     _headings_carry_no_glyph(seeded_rendered, 5)
-
-
-# The auto-refresh-reversal prose-recording check (pinning that the reversal is written down at
-# both prose sites it touches) is deleted, not ported. It opened companion/static/freshness.js for
-# a quick-task identifier and the house "SUPERSEDED" token, and separately opened a phase context
-# document under the planning tree for the same pair beside the original decision's wording — plan
-# history prose recorded in a header comment and a planning document, with no rendered or served
-# behaviour behind either assertion (TST-12 rubric P/J).
 
 
 # ==========================================================================
@@ -995,7 +921,7 @@ def test_health_header_renders_the_persistent_freshness_note(tmp_path):
 
 
 def test_uir_03_07_12_13_one_line_fixes_hold_together(tmp_path, css_text):
-    """The four UIR-03/07/12/13 one-line fixes hold together: .banner wraps with a nowrap
+    """The four one-line fixes hold together: .banner wraps with a nowrap
     .banner__label rendered on the anomaly banner's lead span, .banner__pill gains min-width: 0
     while keeping flex: none and its source position before .refresh-pill, .airline-card__image
     gains height: auto alongside its surviving aspect-ratio, the .data-table--prose first-column
@@ -1107,7 +1033,7 @@ def test_desktop_padding_and_mobile_density_pair_holds_together(css_text):
 def test_bare_summary_rule_declares_the_accent_colour(css_text):
     """The bare summary rule declares var(--color-accent) — the file's own accent-reservation
     list explaining the broadening lives in the stylesheet's header comment, which carries no
-    rendered behaviour of its own and is not asserted here (TST-12 rubric C)"""
+    rendered behaviour of its own and is not asserted here"""
     summary_decls = declarations_for(css_text, "summary")
     assert summary_decls.get("color") == "var(--color-accent)", (
         "expected the bare summary rule to declare the accent colour")
