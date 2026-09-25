@@ -124,12 +124,12 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **TST-07**: `--only-shell`, cache `~/.cache/ms-playwright`
 - [x] **TST-08**: Hash-pinned lock files for runtime and dev deps
 - [x] **TST-09**: Subprocess coverage (`patch = ["subprocess"]`), then raise `fail_under` to the measured floor
-- [ ] **TST-10**: Migrated to pytest; one app-server fixture replaces every copy
-- [ ] **TST-11**: pytest-playwright; a missing browser is a failure in CI; parallelised per test with xdist
-- [ ] **TST-12**: Each rewritten as a behaviour or parsed-DOM assertion, or deleted with a stated reason in the migration ledger. No test reads `.planning/` or asserts on comments
-- [ ] **TST-13**: Permission tests skip under euid 0; every path inside `tmp_path`
-- [ ] **TST-14**: `run_all_tests.py` and all check counts retired; pytest discovery; `scripts/run-all-tests.sh` becomes a thin pytest wrapper
-- [ ] **TST-15**: Closing parity: every one of the 2018 pre-migration checks accounted for in the ledger; coverage ≥ pre-migration figure
+- [x] **TST-10**: Migrated to pytest; one app-server fixture replaces every copy
+- [x] **TST-11**: pytest-playwright; a missing browser is a failure in CI; parallelised per test with xdist
+- [x] **TST-12**: Each rewritten as a behaviour or parsed-DOM assertion, or deleted with a stated reason in the migration ledger. No test reads `.planning/` or asserts on comments
+- [x] **TST-13**: Permission tests skip under euid 0; every path inside `tmp_path`
+- [x] **TST-14**: `run_all_tests.py` and all check counts retired; pytest discovery; `scripts/run-all-tests.sh` becomes a thin pytest wrapper
+- [x] **TST-15**: Closing parity: every one of the 2018 pre-migration checks accounted for in the ledger; coverage ≥ pre-migration figure
 - [ ] **FW-01**: Reset reason checked at boot → increment `FP_NVS_BACKOFF_N` and sleep; `epd_init` returns errors
 - [ ] **FW-02**: Whole-wake deadline (one-shot `esp_timer` → deep sleep with backoff) and a real WDT; comment corrected
 - [ ] **FW-03**: 401/403 clears `FP_NVS_DEVICE_TOKEN`; next wake re-enrols; distinct error code
@@ -357,12 +357,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TST-07 | Phase 32 | Complete |
 | TST-08 | Phase 32 | Complete |
 | TST-09 | Phase 32 | Complete |
-| TST-10 | Phase 33 | Pending |
-| TST-11 | Phase 33 | Pending |
-| TST-12 | Phase 33 | Pending |
-| TST-13 | Phase 33 | Pending |
-| TST-14 | Phase 33 | Pending |
-| TST-15 | Phase 33 | Pending |
+| TST-10 | Phase 33 | Complete |
+| TST-11 | Phase 33 | Complete |
+| TST-12 | Phase 33 | Complete |
+| TST-13 | Phase 33 | Complete |
+| TST-14 | Phase 33 | Complete |
+| TST-15 | Phase 33 | Complete |
 | FW-01 | Phase 34 | Pending |
 | FW-02 | Phase 34 | Pending |
 | FW-03 | Phase 34 | Pending |

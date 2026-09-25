@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 33-32-PLAN.md
-last_updated: "2026-09-25T02:31:47.999Z"
+status: verifying
+stopped_at: Completed 33-33-PLAN.md
+last_updated: "2026-09-25T03:21:49.497Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 53
-  completed_phases: 41
+  completed_phases: 42
   total_plans: 347
-  completed_plans: 334
-  percent: 96
+  completed_plans: 335
+  percent: 97
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -56,7 +56,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 33 (companion-tests-on-pytest-behaviour-over-source-text) — EXECUTING
+Phase: 33 (companion-tests-on-pytest-behaviour-over-source-text) — COMPLETE (33/33 plans; ready for verification)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Plan: 33 of 33
 
@@ -177,6 +177,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
+Last activity: 2026-09-25 - Completed 33-33-PLAN.md (Phase 33's closing plan, 33/33): migration ledger assembled (phase33_total=1250: 1238 ported, 12 deleted with rubric codes, 0 pending) with closing parity 769 + 1250 = 2019 = the audit's 2018 + 1 check added by 17d5bc7 (verified per harness against git); the assembler's marker-truncation bug fixed; coverage like for like (nobody, CPython 3.14, hash-locked venv) 93.38% vs the pre-migration tree's 93.35%, the one lost line (home_page.py arriving branch) re-covered by an HTTP behaviour test, fail_under stays 93; full suite as nobody 2594 passed/0 skipped and as root 2589 passed/5 requires_non_root skipped (93.26%), git status clean and /nonexistent unchanged after each; TST-10..TST-15 complete; follow-ups F-03 (Playwright driver temp dirs) and F-04 (coverage race on app.py:3617) opened, F-02 still open; Task 3 (push/PR/CI evidence) left to the orchestrator.
 Last activity: 2026-09-25 - Completed 33-32-PLAN.md: the legacy harness shim, legacy lists, collect_ignore, the legacy_harness marker and LegacyHarness retired; the guard scans every companion test module and test_no_legacy_runner_anywhere covers every test directory; F-01 resolved (served stylesheet checks parse the CSS via companion_markup, new rule_indices()/at_rule_blocks(), guard rule G11 bans regex/substring checks over served stylesheet text, G12 bans test-module-to-test-module imports); CI paths filter drops the .planning re-includes and re-includes deploy/README.md; runner, CLAUDE.md, README and CONTRIBUTING updated; stub-server/test_devices_registry.py on tmp_path; full suite 2588 passed/5 skipped/0 failed, coverage 93.23%.
 Last activity: 2026-09-25 - Completed 33-31-PLAN.md: status-pages part 07 (checks #293-#317, the chain's LAST slice: the tab bar's margin-fit/More-sheet/French-label/dropdown-max-height contracts, a structural style.css comment-terminator guard, the T3/T4 disclosure-marker/dead-sticky-claim sweep, freshness.js's backoff ladder and breathing-dot mechanism, the .resolve-context[hidden]/.flight-detail-row__grid CSS guards, the renamed hamburger-toggle label, the restored save-bar geometry, the Health-tile/Frame-strip agreement across all four lateness states, the shared quiet-schedule link, the two server-rendered switches and their optimistic-failure toast, the freshness line's live dot/ticking clock, and two end-to-end real-subprocess checks) migrated to companion/test_status_pages_07.py (25 pytest node ids); companion/test_status_pages.py — the LAST legacy companion harness — deleted outright; ledger 317/317 (313 ported, 4 deleted, 0 pending); 33-ledger-check.py --all confirms ALL 9 companion harnesses now fully migrated (0 pending everywhere); full suite 2569 passed/6 skipped/0 failed in 304s.
 Last activity: 2026-09-25 - Completed 33-30-PLAN.md: status-pages part 06 (checks #245-#292: the lightbox replace form, the D19 drag-and-drop upload affordance, the coverage-gap block, manual-resolution card states, the conditional resolve section, the manual-resolutions summary line, list-filter.js's [data-filter-set] hook, the phase 14 Component-Inventory CSS sweep, Frame-strip behaviour/CSS, and the bottom tab bar's CSS) migrated to companion/test_status_pages_06.py (46 pytest node ids, 2 checks deleted outright); legacy harness EXPECTED_CHECK_COUNT down to 25 (rows 293-317 remain for 33-31, the chain's closing plan).
@@ -499,6 +500,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 33 P30 | 70min | 3 tasks | 3 files |
 | Phase 33 P31 | 110min | 3 tasks | 3 files |
 | Phase 33 P32 | 30min | 5 tasks | 32 files |
+| Phase 33 P33 | 50min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -990,6 +992,8 @@ Recent decisions affecting current work:
 - [Phase 33]: 33-31: companion/test_status_pages.py deleted outright — the last legacy companion harness. All 9 companion harnesses are now fully migrated (33-ledger-check.py --all: 0 pending everywhere)
 - [Phase 33]: 33-32: served-stylesheet checks parse the CSS (companion_markup rule_indices()/at_rule_blocks()); guard rule G11 bans regex/substring checks over served stylesheet text, with one allowlisted raw-character scan pinned by a liveness test
 - [Phase 33]: 33-32: the CI paths filter re-includes only server/assets/**/VENDOR.md and deploy/README.md (read by deploy/tests/test_docs.py); no companion test reads a doc or .planning/
+- [Phase 33]: 33-33: coverage parity is judged like for like (nobody, CPython 3.14, hash-locked venv, full run, as the recorded 93.35% was); the pre-migration tree d2c53a0 re-measured at 93.35%, HEAD 93.38%, per-file diff shows one lost line, re-covered by a behaviour test; fail_under stays 93
+- [Phase 33]: 33-33: Task 3 (push, draft PR, CI evidence in the ledger) is left to the orchestrator, which owns pushes
 
 ### Pending Todos
 
@@ -1108,8 +1112,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-25T02:31:34.753Z
-Stopped at: Completed 33-32-PLAN.md
+Last session: 2026-09-25T03:21:49.438Z
+Stopped at: Completed 33-33-PLAN.md
 
 Resume file: 
 

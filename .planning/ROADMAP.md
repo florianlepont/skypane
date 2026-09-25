@@ -1605,7 +1605,7 @@ Plans:
 4. The suite passes as root and writes nothing outside `tmp_path`
 5. Closing parity: all 2018 pre-migration checks accounted for; coverage ≥ the pre-migration figure
 
-**Plans:** 32/33 plans executed
+**Plans:** 33/33 plans complete
 
 Plans:
 **Wave 1**
@@ -1669,7 +1669,7 @@ Plans:
 
 **Wave 10** *(blocked on Wave 9 completion)*
 
-- [ ] 33-33-PLAN.md — Assemble ledger + closing parity (2018), coverage gate, root + non-root proof, CI green (W10)
+- [x] 33-33-PLAN.md — Assemble ledger + closing parity (2018), coverage gate, root + non-root proof, CI green (W10)
 
 **Cross-cutting constraints:**
 
