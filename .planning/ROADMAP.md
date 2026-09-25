@@ -1895,7 +1895,7 @@ Plans:
 ### Phase 42: Remote firmware update over the air (OTA), promoted from SEED-009
 
 **Goal:** A firmware release reaches the frame on the wall without a USB cable: the server offers it, the device downloads it into the inactive slot, boots it on trial and keeps it only after a successful poll, and a bad image rolls back on its own. Promoted from `.planning/seeds/SEED-009-remote-firmware-update-ota.md` (feasibility, design sketch and breadcrumbs live there).
-**Requirements**: TBD (defined at `/gsd-discuss-phase 42`)
+**Requirements**: OTA-01, OTA-02, OTA-03, OTA-04, OTA-05, OTA-06, OTA-07, OTA-08, OTA-09, OTA-10, OTA-11, OTA-12 (decisions: `42-CONTEXT.md`)
 **Depends on:** Phase 41. The seed targets milestone v1.1. The developer asked on 2026-09-25 to launch it now, so it sits at the end of the current roadmap and runs after the v1.0 audit remediation, which still changes the firmware (Phase 35) and the device protocol (Phase 36).
 
 **Success criteria (draft, to be settled at discuss time):**

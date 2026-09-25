@@ -198,6 +198,23 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [ ] **DOC-02**: Log gzipped in the tree (no history rewrite, D-A6); unused asset removed from the deploy; completed v1.0 phases archived via `/gsd-cleanup` at milestone close
 - [ ] **DOC-03**: Re-audit: every ID in this ledger verified against the code and marked closed
 
+### Remote firmware update (Phase 42)
+
+Promoted from `.planning/seeds/SEED-009-remote-firmware-update-ota.md` on 2026-09-25. Decisions in `.planning/phases/42-remote-firmware-update-over-the-air-ota-promoted-from-seed-0/42-CONTEXT.md` (D-01..D-19).
+
+- [ ] **OTA-01**: `GET /device/v1/display` carries an optional firmware offer (version, URL, SHA-256, size) only when the operator has scheduled a release that differs from the device's reported `X-Fw-Version`, the release is at or above the version floor, and the battery-low alert is not active. Quiet hours and display off do not withhold it (D-01, D-06, D-11, D-12, D-13)
+- [ ] **OTA-02**: The device downloads an offered image with `esp_https_ota` over the existing ISRG-only trust store into the inactive OTA slot, checks size and SHA-256 against the offer, and verifies the image signature before the boot partition is switched (D-09)
+- [ ] **OTA-03**: App rollback is enabled. A new image marks itself valid only after one fully successful poll; a crash, watchdog reset or failed poll on a trial image boots the previous image; `factory` stays the last resort (D-09)
+- [ ] **OTA-04**: Release images are signed with ESP-IDF signed-app verification without hardware secure boot; no eFuse is burned. CI signs with a key held as a GitHub Actions secret; generating the key and its encrypted offline backup is a documented human procedure (D-09, D-10)
+- [ ] **OTA-05**: A software version floor: the server never offers, and the device never accepts, a release older than the first OTA-capable release (D-11)
+- [ ] **OTA-06**: The device refuses to start an update below the battery-low level it measures itself. A failed download, hash, signature or trial boot counts as one attempt and toward normal backoff; after three attempts the release is marked failed and the offer withdrawn (D-12, D-15)
+- [ ] **OTA-07**: The panel shows an "Updating…" screen for every update, including during quiet hours and with the display off; the next normal poll redraws what the current mode calls for (D-14)
+- [ ] **OTA-08**: A companion **Update** page, third entry of the Advanced nav group, shows the running version, the update state with its timestamp, a rollback warning, and every published release with its date and generated notes. Install asks for confirmation (with and without JS), a scheduled install can be cancelled until the device starts downloading, and any published release at or above the floor can be installed (D-02..D-07)
+- [ ] **OTA-09**: A push notification reports a successful update and a failed one (with the version the frame is back on), through `server/notify.py`, in English and French (D-08)
+- [ ] **OTA-10**: A git tag creates a release: CI builds with the tag as `PROJECT_VER`, signs, records version, SHA-256, size, date and the `firmware/` commits since the previous release; the reviewer-gated deploy job copies it into the state directory's firmware store; every release is kept (D-16, D-17, D-18)
+- [ ] **OTA-11**: A CI check that reaches the network fails when the production host's certificate chain no longer leads to a root in `firmware/main/certs` (D-19)
+- [ ] **OTA-12**: One hardware session proves, on the real frame: a signed update installs, an unsigned or tampered image is refused, a forced crash on a trial image rolls back, and recovery from `factory` works; recorded in `hardware/BRINGUP-LOG.md`
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -430,6 +447,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOC-01 | Phase 41 | Pending |
 | DOC-02 | Phase 41 | Pending |
 | DOC-03 | Phase 41 | Pending |
+| OTA-01 | Phase 42 | Pending |
+| OTA-02 | Phase 42 | Pending |
+| OTA-03 | Phase 42 | Pending |
+| OTA-04 | Phase 42 | Pending |
+| OTA-05 | Phase 42 | Pending |
+| OTA-06 | Phase 42 | Pending |
+| OTA-07 | Phase 42 | Pending |
+| OTA-08 | Phase 42 | Pending |
+| OTA-09 | Phase 42 | Pending |
+| OTA-10 | Phase 42 | Pending |
+| OTA-11 | Phase 42 | Pending |
+| OTA-12 | Phase 42 | Pending |
 
 ## Phase 23 coverage ledger (companion dynamism I — "Alive")
 
