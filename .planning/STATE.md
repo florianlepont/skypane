@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 35-07-PLAN.md
-last_updated: "2026-09-25T10:19:35.958Z"
+stopped_at: Completed 35-13-PLAN.md
+last_updated: "2026-09-25T15:55:39.759Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 53
   completed_phases: 42
   total_plans: 369
-  completed_plans: 341
+  completed_plans: 348
   percent: 79
 ---
 
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 92%
+  [█████████░] 94%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -58,7 +58,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 Phase: 35 (comment-purge-in-english-and-dead-code) — EXECUTING
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
-Plan: 8 of 22
+Plan: 14 of 22
 
 **23-10 executed (2026-09-13), wave 8 (depends on 23-01, 23-02, 23-09) — D3's remainder: the selection scale and wash fade, the theme-preview crossfade, both `<dialog>` entrances via `@starting-style`, and skeletons at final size.** **The one `@supports selector(:has(*))` block is still exactly one**, which the plan named as its single largest risk, and the way through was one sentence written into the stylesheet where the next editor will look: a transition is a property of the ELEMENT, not of the state, so declared on the base rule of `.theme-chip`/`.theme-chip__body`/`.runway-card` it animates the live `:has(input:checked)` treatment and the server-rendered `--selected` fallback identically, from one declaration, and no second feature query is needed. Both halves are asserted inside a SINGLE check function — the transitions exist outside the query AND the query contains no `transition` at all — so "helpfully" moving one inside fails exactly once rather than twice. The arithmetic comment, every border width, both dashed markers and the `:has(input:checked):hover` restore rule are untouched: the `style.css` diff for Task 1 is **111 insertions, 0 deletions**. **The decision that mattered most was refusing to loosen a tolerance.** `transform: scale(1.02)` is what makes selection free of T6 by construction, but `getBoundingClientRect()` reports the box AFTER transforms, so 22-15's still-green three-equal-outer-widths assertion failed by 1.9px and its equal-tops assertion by ~1px **on a correct build**. Shrinking the scale until it squeaked under the 1px tolerance would have been passing by luck and would have let a test choose the design; deleting the assertion would have retired the check T6 was closed with. Instead the read neutralises `transform` (and `transition` first, or it catches the 180ms unwind mid-flight) and the same check now asserts that **exactly one of the three cards really is scaled** — neutralising a thing you have not proven exists is how a check quietly becomes one that also passes when the feature is gone. The new chip check reads `offsetWidth/offsetHeight/offsetLeft/offsetTop` throughout, which is transform-independent by definition; **that layout-box-versus-visual-box distinction is the pattern worth carrying forward.** **Task 3 found a real, pre-existing ~500px layout shift.** Home's frame picture reserved its box correctly at 360px and reserved *nothing* at 1280px: measured **2 × 2** before the render arrived and **380 × 506** after. `width: auto` on an image with no content yet leaves it an intrinsic size of ZERO however well known its ratio is — the `width="600" height="800"` attributes supply a ratio, and a ratio alone resolves nothing without a definite size in one axis; mobile escaped only because `width: 100%` is definite. Fixed with `width: min(100%, calc(60vh * 3 / 4))` — the same 60vh cap the `max-height` states, written as a definite width — plus an explicit `aspect-ratio: 3 / 4` so the reservation no longer depends on the shape of whatever bytes arrive (and, because the universal reset makes every box border-box, so the width resolves to exactly the cap rather than the cap minus the hairline). **A flaky harness run was chased rather than reruns-until-green:** the crossfade could stall invisible on the discarded theme — `transitionend` only arrives if a transition actually RAN, and a class removed and re-added without an intervening style recalculation (an image `load` and a click in the same frame) transitions nothing. Reproduced at **4 stalls in 14 runs**, fixed by consulting the computed opacity before waiting, **0 in 14** after. **The skeleton deliberately does NOT shimmer, and the reasoning is in `style.css` rather than only in the summary**: the only placement where a pure-CSS skeleton auto-hides on load is the image's own `background-image` (painted above the backing, below the decoded bitmap), and that is exactly the placement where `skypane-pulse` — which cycles opacity, an element property — would go on breathing the decoded picture forever on a page left open all day. Overlays behind are covered from frame one; overlays in front can never learn the image arrived; a JS toggle would need a fourteenth script and route. Four keyframes stay four. **Both dialogs arrive through ONE `@starting-style` rule** (History's `.lightbox` and the Airlines gallery's `.lightbox--wide` are the same component under two classes) and the close is one-directional, with `display`/`allow-discrete` banned by a harness check rather than by a comment, following 23-08's precedent — a modal that has not reached `display: none` is an invisible sheet in the top layer. `::backdrop` is deliberately unanimated: the global reduce override matches `*, *::before, *::after`, and `::backdrop` is none of them. **Ten mutations, all quoted**, and one taught something: adding `allow-discrete` left the viewport-centre hit test returning FALSE (the closed dialog had left the top layer and sat in normal flow) while `display: block` and a 307,965px² box both caught it — a check built on the hit test alone would have passed the defect. **Four checks failed the vacuity question**, three of mine and one inherited: the crossfade check passed on the CUT until a mid-flight sample was added; the neutralised T6 read needed the "exactly one is scaled" clause; `before == after` is satisfied by `2x2 == 2x2` so the reserved box needed a floor; and `.lightbox[open] {` legitimately occurs twice on a correct file because `@starting-style` repeats its selector. **Three self-inflicted grep traps**, all the warned-about class: my own JS comment containing `setTimeout` answered my own timer ban (fixed by comment-stripping), backticks in my JS prose reddened the standing no-backtick rule, and `grep -c '@starting-style'` now returns 7 raw against **2** comment-stripped blocks / **1** dialog entrance / **2** dialogs served — recorded, not adjusted. Two pre-existing checks retargeted IN PLACE: the runway T6/B9 measurement, and 22-01's Cancel/T8 preview assertions (a synchronous read became a bounded `wait_for_function`, because the swap now lands one `var(--motion-fast)` after the click). `dirty-state.js` was NOT edited — the whole adaptation happened on the `theme-preview.js` side, as the plan directed. The browser fixture's 8×8 stand-in render became the **600 × 800** the markup itself declares, because an image whose loaded ratio is 1:1 against a 3:4 promise makes a layout-shift measurement meaningless. Counts re-derived by RUNNING: `config-page` 239→240, `view-pages` 152→153, `browser-ux` 50→54; `companion-app` and `status-pages` unmoved; `run-all-tests.sh` at exactly the documented 5-check root-sandbox baseline **verified by failing check NAMES**, coverage 93%. **`CFG-32` deliberately NOT ticked — 23-11 closes it.**
 
@@ -509,6 +509,12 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 35 P05 | 55min | 6 tasks | 15 files |
 | Phase 35 P06 | 20min | 2 tasks | 3 files |
 | Phase 35-comment-purge-in-english-and-dead-code P07 | ~40min | 2 tasks | 3 files |
+| Phase 35 P08 | ~2h | 2 tasks | 12 files |
+| Phase 35-comment-purge-in-english-and-dead-code P09 | 110min | 3 tasks | 1 files |
+| Phase 35 P10 | 150min | 3 tasks | 2 files |
+| Phase 35 P11 | several hours | 3 tasks | 2 files |
+| Phase 35 P12 | several hours | 2 tasks | 16 files |
+| Phase 35 P13 | ~35min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -1012,6 +1018,16 @@ Recent decisions affecting current work:
 - [Phase 35-06]: server/ group-2 same-code allow list: render.py + illustrations.py (argparse description=__doc__), poll_loop.py (argparse description=__doc__), test_render.py/test_config_history.py/test_illustrations.py (source-grep tests replaced with behaviour assertions)
 - [Phase 35-06]: Fixed a full-suite regression: stub-server/byos_server.py's vendored copy of seconds_until_quiet_hours_end() had drifted from server/device_config.py after 35-04's docstring purge, breaking the project's own drift-guard test; re-synced the docstring (function body unchanged)
 - [Phase 35-07]: byos_server.py and make_test_panel.py both read description=__doc__ for their argparse CLI, so group 3's same-code proof needs --allow for both (not 'no ALLOW' as the plan's own conventions text stated). — Matches the purge_bar's own runtime-__doc__ file list; confirmed devices_cli.py uses a literal description string, not __doc__, so it needs no --allow.
+- [Phase 35-08]: same-code for companion/app.py requires --allow companion/app.py (its argparse __doc__), matching the runtime-__doc__ precedent already used for illustrations.py and byos_server.py
+- [Phase 35-08]: auth.py's display-mode-cookie history comment was deleted outright rather than rewritten: the feature and its cookie are both gone, so there was no surviving why to keep
+- [Phase ?]: config_page.py chunked bottom-up at quick_led_form_html()/notifications_group() (~1/3, ~2/3); a second file-wide compression pass brought the ratio from ~40% to 34.5% after the per-chunk pass left every docstring within its own cap but the file above the ~35% target.
+- [Phase 35]: health_page.py split for the purge at safe_health_state() (line 2337, the top-level def nearest the file's midpoint), lower half first then upper half, so each task's own line numbers stayed stable — Editing bottom-up within each half keeps earlier line numbers unaffected; splitting the file itself at its true midpoint keeps the two tasks balanced
+- [Phase 35]: battery_sparkline_svg() docstring kept at the security/contract-adjacent ~15-20 line band rather than force-fit to 8 lines — It documents a test-asserted no-external-reference guarantee and a non-obvious no-viewBox SVG percentage-coordinate scheme; each fact is independently load-bearing for a future edit to the chart
+- [Phase 35]: 35-11: used a line-range replacement script (apply_repl.py) instead of Edit's exact-string matching for the bulk of layout.py/draw.py's comment purge — at ~65%/64% original comment density, single-string Edit matches were impractical at this file size
+- [Phase 35]: 35-11 (second pass): orchestrator review found the first pass only stripped history IDs and left comment-block/docstring length and rhetoric uncapped; a follow-up pass mechanically enforced the plan's hard caps (docstring <=15 lines, comment block <=5 lines) across both files, cutting layout.py to 43.0% comments and draw.py to 44.9%
+- [Phase ?]: companion/pages/__init__.py's module docstring is kept in full (70 lines) because the file's only content is the ctx-dict API contract every page module's render(ctx)/handle_post(form, ctx) relies on
+- [Phase ?]: i18n_fr/*.py module docstrings routinely exceed the 10-line cap because each states which keys are deliberately absent (a duplicate-key ValueError risk) plus the copy-style rule, both load-bearing for a future editor
+- [Phase 35]: HYG-05 delivered: health_severity(), anomaly_active(), usable_pairs(), label_grid() deleted as confirmed dead code; three oracle tests re-pointed to health_page.safe_health_state() — Group 4 (companion Python production) closed with 0 history hits and a minimal 3-file same-code allow list
 
 ### Pending Todos
 
@@ -1131,14 +1147,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-25T10:19:22.083Z
-Stopped at: Completed 35-07-PLAN.md
+Last session: 2026-09-25T15:55:39.686Z
+Stopped at: Completed 35-13-PLAN.md
 
 Resume file: 
 
 None
-
-**State at end of this session (2026-09-24, ~20:45) — 33-22 closed, continuation after container restart:**
 
 - `/gsd-execute-phase 33` continuation ran plan `33-22` (Wave 5, browser_ux part 02) after the original executor was killed by a container restart post-task-commits, pre-verification. This session verified both existing task commits (`6f556e4`, `72340ee`) against every one of the plan's acceptance criteria rather than redoing the migration (no gap found), then re-ran the full verification chain from `33-MIGRATION-RULES.md` section 5 plus the full unscoped suite from scratch: `companion/test_browser_ux_02.py` 43/43 passed under `SKYPANE_REQUIRE_BROWSER=1`, the shrunk legacy shim 1/1, `test_suite_guards.py`/`test-support` 101/101, `ruff check .` clean, ledger check `75/75 baseline checks mapped (36 ported, 1 deleted, 38 pending)`, and the full suite (`companion test-support server stub-server deploy`) at 2085 passed / 5 skipped / 0 failed.
 - `companion/test_browser_ux.py`'s `EXPECTED_CHECK_COUNT` is now 38 (down from 57); 36/75 of the file's original checks are ported, 1 deleted, 38 remain across parts 03-04.

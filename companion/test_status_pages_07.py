@@ -699,7 +699,11 @@ def test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn(tmp_
             "dot--warn", "dot--error", "stat-tile--warn",
             "status-card__headline--warn", "Expected since", "Attendu depuis"):
         assert warn_token not in rendered_health, "expected zero %r in a held Health render" % (warn_token,)
-    severity = health_page.health_severity(tmp, now=clock.isoformat())
+    # The live nav-tab severity path app.py's page_context() calls
+    # (health_page.safe_health_state()), matching the retired
+    # health_severity()'s own "None -> ok" fail-closed default.
+    health_state = health_page.safe_health_state(tmp, now=clock.isoformat())
+    severity = health_state["severity"] if health_state else "ok"
     assert severity == "ok", "expected the nav notification dot unlit (severity 'ok'), got %r" % (severity,)
 
     strip_ctx = _frame_strip_ctx(checkin.isoformat(), qh_config, clock.isoformat())

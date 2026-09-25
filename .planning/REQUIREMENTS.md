@@ -149,7 +149,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [ ] **HYG-02**: Same purge in CSS and JS
 - [ ] **HYG-03**: Same purge
 - [x] **HYG-04**: English-only rule for code, comments, docs and commits in CLAUDE.md and CONTRIBUTING.md
-- [ ] **HYG-05**: Deleted
+- [x] **HYG-05**: Deleted
 - [ ] **HYG-06**: Lint guard in CI rejecting plan/ticket IDs in comments (e.g. `\d{2}-\d{2}-PLAN`, `D-\d+`, `WR-\d+`)
 - [ ] **INT-01**: `fcntl.flock` on `state/poll.lock` around `run_once`
 - [ ] **INT-02**: One `atomic_write(path, data)` with unique temp names
@@ -382,7 +382,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HYG-02 | Phase 35 | Pending |
 | HYG-03 | Phase 35 | Pending |
 | HYG-04 | Phase 35 | Complete |
-| HYG-05 | Phase 35 | Pending |
+| HYG-05 | Phase 35 | Complete |
 | HYG-06 | Phase 35 | In progress (guard live; pending list removed by 35-22) |
 | INT-01 | Phase 36 | Pending |
 | INT-02 | Phase 36 | Pending |

@@ -1,37 +1,20 @@
 # -*- coding: utf-8 -*-
-"""companion/i18n_fr/airlines.py — French strings for the Airlines page
-(companion/pages/airlines_page.py, D-05), 20-10-PLAN.md.
+"""French strings for the Airlines page. Every key is the exact English
+source string a call site in companion/pages/airlines_page.py passes to
+companion.i18n.t(), including any "%s"/"%d" placeholder.
 
-One sibling module of the companion/i18n_fr package (see that
-package's __init__.py for the auto-merge/duplicate-key contract this
-module participates in). Every key here is the exact English source
-string a call site in companion/pages/airlines_page.py passes to
-companion.i18n.t() — including any "%s"/"%d" placeholder, unchanged.
+Some keys are deliberately absent here and reused from a sibling module
+instead ("Airlines", "%s illustration", "Delete", the resolve-context
+labels, the filter-bar copy) — the auto-merge package raises ValueError
+on a duplicate key across sibling modules.
 
-Deliberately absent (reused from a sibling module rather than
-redefined — the auto-merge package raises ValueError on a duplicate
-key across sibling modules, see companion/i18n_fr/__init__.py):
-- "Airlines" — companion/i18n_fr/nav.py already owns that exact key
-  (the nav label, "Compagnies").
-- "%s illustration" — companion/i18n_fr/home.py already owns that
-  exact key (the recent-flights thumbnail's own alt-text template,
-  byte-identical text, "Illustration %s").
-- "Delete" — companion/i18n_fr/display.py already owns that exact key
-  (the flight-colour-rules delete button, "Supprimer").
-- "Prefix" / "First seen" / "Last seen" / "Example callsign" —
-  companion/i18n_fr/health.py already owns these exact keys (the
-  unresolved-prefix registry table's own column labels).
-- "%d of %d shown" / "Clear" — companion/i18n_fr/health.py already
-  owns these exact keys (its own filter-bar copy).
-
-Copy follows D-09 (20-CONTEXT.md): sentence case, the typographic
-apostrophe (U+2019, never a straight quote), guillemets («…») for an
-embedded quotation rather than a straight or curly double-quote pair,
-and a non-breaking space (U+00A0) before ":" ";" "?" "!".
+Copy follows sentence case, the typographic apostrophe (U+2019, never a
+straight quote), guillemets («…») for an embedded quotation, and a
+non-breaking space (U+00A0) before ":" ";" "?" "!".
 """
 
 CATALOG = {
-    # --- Page header, gallery, cards (20-10-PLAN.md Task 2) -------------
+    # --- Page header, gallery, cards --------------------------------
     "Illustration reference for every airline this frame can recognize.":
         "Référence des illustrations pour chaque compagnie que le cadre "
         "peut reconnaître.",
@@ -50,10 +33,8 @@ CATALOG = {
         "Ajoutez une image pour « %s » ci-dessous, ou supprimez cette "
         "entrée.",
 
-    # --- The "Unidentified airlines" gap strip and its cards ------------
+    # --- The "Unidentified airlines" gap strip and its cards --------
     "Unidentified airlines": "Compagnies non identifiées",
-    # 29-06-PLAN.md Task 2 (CFG-79): shortened (the old 15-word English
-    # source and its French twin are both replaced, not left dead).
     "Tap a callsign below to name its airline.":
         "Touchez un indicatif ci-dessous pour nommer sa compagnie.",
     "Resolve prefix %s — example callsign %s":
@@ -62,43 +43,35 @@ CATALOG = {
     "see the full list": "voir la liste complète",
     "%d manual resolutions, %d superseded": "%d résolutions manuelles, %d remplacées",
     "%d manual resolutions": "%d résolutions manuelles",
-    # D-06/B16 (22-11-PLAN.md Task 2): the singular halves. French and
-    # English agree on where this boundary falls (both inflect at one),
-    # but each language still owns its own string rather than sharing a
-    # runtime rule — the convention 22-10 set for the Calendar card.
-    # CFG-29 stays open until health_page.py's own plurals land (22-12).
+    # The singular halves: French and English agree on where this
+    # boundary falls, but each language still owns its own string
+    # rather than sharing a runtime rule.
     "%d manual resolution, %d superseded": "%d résolution manuelle, %d remplacée",
     "%d manual resolution": "%d résolution manuelle",
 
-    # --- The gallery's filter bar (D-16) ---------------------------------
+    # --- The gallery's filter bar ------------------------------------
     "Filter by airline or callsign": "Filtrer par compagnie ou indicatif",
     "No matching airlines": "Aucune compagnie correspondante",
     "Try a different search, or Clear filter to see all %d airlines.":
         "Essayez une autre recherche, ou effacez le filtre pour voir les "
         "%d compagnies.",
 
-    # --- The "resolve an unidentified flight" section (D-03, D-10..D-13) --
+    # --- The "resolve an unidentified flight" section ----------------
     "← Back to Airlines": "← Retour à Compagnies",
     "That coverage gap isn’t there anymore — it may already be "
     "resolved. See Health for the complete list of current gaps.":
         "Cette lacune n’existe plus — elle est peut-être déjà résolue. "
         "Consultez État pour la liste complète des lacunes actuelles.",
     "Resolve an unidentified flight": "Identifier un vol non reconnu",
-    # 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 10 —
-    # "once you save a name" (conditional framing) dropped.
     "Every flight using prefix %s will show as this airline.":
         "Chaque vol utilisant le préfixe %s s’affichera sous cette "
         "compagnie.",
     "Times seen": "Nombre de vues",
     "Airline name": "Nom de la compagnie",
-    # 29-06-PLAN.md Task 2 (CFG-79): shortened from 23 words to 6 — the
-    # explanation clause dropped, the instruction alone survives.
     "Start typing — pick a suggestion.":
         "Commencez à taper — choisissez une suggestion.",
     "Save airline name": "Enregistrer le nom de la compagnie",
     "Add an illustration for %s": "Ajouter une illustration pour %s",
-    # 29-06-PLAN.md Task 2 (CFG-79): shortened from 15 words to 9 —
-    # keeps the state ("Saved") and the one action.
     "Saved — add artwork below, or skip for now.":
         "Enregistré — ajoutez une image ci-dessous, ou ignorez pour "
         "l’instant.",
@@ -108,26 +81,21 @@ CATALOG = {
         "%s est déjà nommée pour ce préfixe et a une image — rien de "
         "plus à faire ici.",
     "Choose an image": "Choisir une image",
-    # 29-06-PLAN.md Task 2 (CFG-79): shortened from 13 words to 12 —
-    # "only" dropped.
     "Deleting removes this manual name — any uploaded artwork stays in place.":
         "La suppression retire ce nom manuel — l’image reste en place.",
 
-    # --- The replace/upload forms' shared copy ---------------------------
+    # --- The replace/upload forms' shared copy ------------------------
     "Replace this illustration": "Remplacer cette illustration",
     "Upload": "Envoyer",
     "Transparent PNG, at least 1200px wide, landscape.":
         "PNG transparent, au moins 1200 px de large, au format paysage.",
 
-    # --- The drag-and-drop upload affordance (CFG-51/D19, 25-07 Task 1) --
+    # --- The drag-and-drop upload affordance --------------------------
     # "cadrée", never "à quoi elle ressemblera": the preview shows the
-    # frame the image will occupy, and the server alone decides the
-    # final crop — the same distinction the English copy makes, and the
-    # whole reason no canvas crop was built on the client.
+    # frame the image will occupy; the server alone decides the final
+    # crop, the same distinction the English copy makes.
     "Or drag an image onto this card.":
         "Ou glissez une image sur cette carte.",
-    # 29-06-PLAN.md Task 2 (CFG-79): shortened from 14 words to 8 — "The
-    # server does the final crop" (a mechanism clause) dropped.
     "Framing preview — how it will be framed.":
         "Aperçu du cadrage — comment elle sera cadrée.",
     "Framing preview of the image you chose":

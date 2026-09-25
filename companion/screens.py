@@ -1,23 +1,11 @@
-"""companion/screens.py — the companion's screen-type registry (phase 18).
+"""The companion's screen-type registry: lets Display/Device pages
+render *per screen type* instead of assuming one fixed frame. Each
+screen type declares which settings groups it supports, in which
+order; config_page.py's builders walk that declaration.
 
-SkyPane will eventually drive more than one kind of screen (the plane
-frame today; a RER departures board and others later), and each kind
-carries its own set of settings. This module is the seam that lets the
-Display and Device pages render *per screen type* instead of assuming
-"the one frame": every screen type declares which settings groups it
-supports, in which order, and the page builders in
-companion/pages/config_page.py walk that declaration rather than a
-hard-coded list.
-
-Today there is exactly one screen type and one physical device, and the
-on-disk device config (server/device_config.py) is still a single
-document, so the registry below is deliberately small: it changes how
-the pages are *composed*, not where the values live. When a second
-device arrives, the next step is a per-screen state directory (or a
-per-screen key in the config) selected by `screen_id` — this module is
-the one place that lookup will need to grow.
-
-Everything here is plain data plus one lookup helper; nothing renders.
+Today there is exactly one screen type and one physical device, so
+this stays small — it changes how pages are composed, not where
+values live. Plain data plus one lookup helper; nothing renders.
 """
 
 # Settings-group identifiers. config_page.py's builders are keyed on
@@ -31,37 +19,17 @@ GROUP_RUNWAY = "runway"
 GROUP_LED = "led"
 GROUP_WAKE_INTERVAL = "wake_interval"
 GROUP_CALENDAR = "calendar"
-# 20-11-PLAN.md Task 1 (D-26/D-28): the Notifications group — a Device-
-# page-only group (never everyday), positioned per D-10's list (LED,
-# wake interval, notifications, manual refresh). "Manual refresh" is not
-# a group in this registry (it is a plain `.page-section` `render()`
-# renders directly, gated by `has_manual_poll` below), so this tuple's
-# own trailing member is this one.
+# A Device-page-only group (never everyday). "Manual refresh" is not a
+# group in this registry (it is a plain `.page-section` `render()`
+# renders directly, gated by `has_manual_poll` below).
 GROUP_NOTIFICATIONS = "notifications"
 
-# Everyday groups render on the Display page; advanced groups on the
-# Device page. The split is a property of the GROUP, not of the screen
-# type: a screen type simply lists which groups it has.
-#
-# 20-07-PLAN.md Task 1 (D-10/D-11): Runway and Calendar move here from
-# ADVANCED_GROUPS — a household member finds every everyday setting on
-# Display now (Look/What it watches/When it is on), and Device keeps
-# only hardware, data and diagnostics groups. grep-confirmed (2026-09-11)
-# unused by any production code or test — kept here for documentation/
-# honesty only; these two module-level tuples gate nothing themselves,
-# unlike each screen type's own "everyday_groups"/"advanced_groups" keys
-# below, which config_page.scope_groups() actually reads.
-# 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): GROUP_DISPLAY is retired from
-# this tuple outright - the Frame strip is now the ONLY on/off control
-# for the screen (T-22-16), so no settings page renders a
-# display_enabled checkbox any more. The constant itself stays defined
-# (config_page.py's handle_post() still validates an explicit legacy/
-# crafted display_enabled value against it) but is listed in no screen
-# type's own group tuple below.
+# Documentation only — these two tuples gate nothing; each screen
+# type's own "everyday_groups"/"advanced_groups" below is what
+# config_page.scope_groups() reads. GROUP_DISPLAY is not listed: the
+# Frame strip is the only on/off control, but the constant stays
+# defined since handle_post() still validates a crafted value against it.
 EVERYDAY_GROUPS = (GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_QUIET_HOURS)
-# 20-11-PLAN.md Task 1 (D-26): GROUP_NOTIFICATIONS joins this documentation-
-# only tuple too, for the same "kept for honesty, gates nothing itself"
-# reason the comment above already states.
 ADVANCED_GROUPS = (GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_NOTIFICATIONS)
 
 DEFAULT_SCREEN_ID = "plane-frame"
@@ -72,39 +40,13 @@ SCREEN_TYPES = {
         "description": (
             "The e-ink frame showing the aircraft currently using the "
             "watched Orly runway."),
-        # Display-page groups, in render order (20-07-PLAN.md Task 1,
-        # D-10/D-11: Runway and Calendar joined this tuple this phase —
-        # the per-supersection grouping (Look/What it watches/When it is
-        # on) is config_page.render()'s own concern, but this order does
-        # not contradict it: theme and calendar under "Look", runway
-        # under "What it watches", quiet_hours under "When it is on").
-        #
-        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): GROUP_DISPLAY is gone from
-        # this tuple - the Frame strip is now the ONLY control for the
-        # screen's own on/off state, so "When it is on" renders only the
-        # Quiet hours schedule now (start/end/presets), no on/off card.
+        # Order doesn't dictate rendered order: config_page.render()
+        # groups these into its own supersections.
         "everyday_groups": (
             GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_QUIET_HOURS),
-        # Device-page groups, in render order. 20-11-PLAN.md Task 1
-        # (D-26/D-28): GROUP_NOTIFICATIONS joins after GROUP_WAKE_INTERVAL —
-        # D-10's list order is LED, wake interval, notifications, manual
-        # refresh, and "manual refresh" is rendered directly by render()'s
-        # own has_manual_poll branch below, never through this tuple.
-        # SUPERSEDED (28-04-PLAN.md Task 1, CFG-72): this tuple's own
-        # CONTENTS and iteration order are unchanged — config_page.py's
-        # Device render() branch no longer flat-joins it in listed order,
-        # though. `_device_groups_html()` now groups these three cards
-        # into two supersections ("When it wakes" over wake interval
-        # alone, "How it tells you" over LED and notifications together),
-        # so the RENDERED order is wake interval, LED, notifications,
-        # manual refresh — not D-10's original LED-first list. The
-        # second clause above — "manual refresh is rendered directly by
-        # render()'s own has_manual_poll branch, never through this
-        # tuple" — stays true and is unaffected by this change.
+        # "Manual refresh" is rendered directly by render()'s own
+        # has_manual_poll branch, never through this tuple.
         "advanced_groups": (GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_NOTIFICATIONS),
-        # Whether the Device page also shows the per-flight colour rules
-        # editor and the manual refresh ("poll now") control — both are
-        # plane-specific today.
         "has_colour_rules": True,
         "has_manual_poll": True,
     },

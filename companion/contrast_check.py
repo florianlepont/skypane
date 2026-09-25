@@ -1,54 +1,13 @@
-"""companion/contrast_check.py — pure-stdlib WCAG 2.1 SC 1.4.3 relative-
-luminance/contrast-ratio calculator for the SkyPane companion service
-(06.6.2-CONTEXT.md D-14, UXA-04).
+"""Pure-stdlib WCAG 2.1 SC 1.4.3 relative-luminance/contrast-ratio
+calculator, reproduced from the published spec
+(https://www.w3.org/TR/WCAG21/#dfn-relative-luminance,
+https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio). Zero imports,
+matching this project's zero-external-dependency discipline.
 
-This is the WCAG 2.1 Success Criterion 1.4.3 relative-luminance and
-contrast-ratio algorithm, reproduced from the published spec text
-(https://www.w3.org/TR/WCAG21/#dfn-relative-luminance and
-https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio) — verified in
-06.6.2-RESEARCH.md to reproduce 06.6.1-UX-AUDIT.md's own published
-contrast numbers exactly. No external tool, no network call, no
-third-party library: zero `import` statements in this module, matching
-this project's zero-external-dependency discipline (see companion/auth.py
-for the same house convention).
-
-Three functions:
-
-- `_linearize_channel(value_0_255)`: converts one 0-255 sRGB channel to
-  its linear-light value.
-- `relative_luminance(hex_color)`: the WCAG relative luminance of a hex
-  colour (accepts both "E8622C" and "#E8622C" — a leading "#" is
-  stripped, never required).
-- `contrast_ratio(hex_a, hex_b)`: the WCAG contrast ratio between two hex
-  colours, lighter-over-darker, always >= 1.0.
-
-Three named threshold constants so callers never hard-code a bare 4.5 or
-3.0 — companion/test_contrast_check.py imports all of these by name, and
-Phase 06.6.3's planner reads this module's function names as the literal
-contract for verifying its own new per-page token pairs.
-
-Since the heading-color-consistency debug session: three further
-functions and two thresholds cover *signal separation* rather than
-contrast. Contrast answers "can this be read against that background";
-separation answers "can these two colours be told apart as different
-signals at a glance" — a completely different question that this
-project's design direction has always asserted in prose
-(companion/static/style.css's header comment) and never once measured.
-That gap is what let 06.6.2's WCAG-AA accent darkening (#E8622C ->
-#B13F16) silently move --color-accent to within dE76 22.9 of
---color-status-error while every contrast check stayed green.
-
-- `hue_degrees(hex_color)`: the HSL hue angle (0-360) of a hex colour.
-- `hue_separation(hex_a, hex_b)`: the shortest angular distance between
-  two hues, 0-180 — so 350 and 10 are 20 apart, not 340.
-- `perceptual_distance(hex_a, hex_b)`: CIE76 dE in CIE L*a*b* (D65).
-  CIE76 rather than CIE2000 on purpose: this module's whole point is
-  zero imports and hand-verifiable arithmetic, and CIE76 is more than
-  precise enough to answer "are these two signal colours confusable",
-  which is the only question asked of it.
-
-Still zero `import` statements — every one of these is plain arithmetic
-(`** (1/3)` and `** 0.5` stand in for math.cbrt/math.sqrt).
+Also covers *signal separation* (hue/perceptual distance): a different
+question from contrast — "can two colours be told apart at a glance" —
+that once let an accent-colour darkening drift close to the
+status-error colour while every contrast check stayed green.
 """
 
 WCAG_AA_NORMAL_TEXT = 4.5
@@ -57,51 +16,23 @@ WCAG_AA_UI_COMPONENT = 3.0
 
 # --- Signal-separation floors ------------------------------------------
 #
-# The primary gate. Calibrated to the accent-vs-warn pair that 06.6.1's
-# design direction (D-04) explicitly examined and accepted as "these two
-# never read as the same signal at a glance": in light mode that pair
-# sits at dE76 28.6. So the floor is "every accent-vs-status pair must
-# be at least as distinguishable as the one pair the direction actually
-# validated". Applied to both themes and every status colour — this is
-# the rule that, had it existed, would have failed the moment 06.6.2
-# darkened the accent to #B13F16 (which put it at dE76 22.9 from the
-# then-current --color-status-error #DC2626).
+# Calibrated to the accent-vs-warn pair the design direction examined
+# and accepted as never reading as the same signal: dE76 28.6 in light
+# mode. Applied to every accent-vs-status pair, both themes.
 MIN_SIGNAL_PERCEPTUAL_DISTANCE = 28.0
 
-# The secondary gate, applied to the accent-vs-ERROR pair only —
-# deliberately not to accent-vs-warn, which would fail it at 16.3 and
-# is *supposed* to. The difference is real, not an exemption of
-# convenience: the warn amber is a different colour family from the
-# terracotta accent (golden/yellow vs red/orange) and is told apart by
-# chroma and value even at a close hue angle, which is the specific
-# trade D-04 examined. The error red is the SAME family as the accent —
-# both are saturated red-oranges — so hue angle is the only channel
-# left to separate them with, and a dE that clears the floor on
-# lightness alone would still leave two red things that read as one
-# signal. 24 degrees is comfortably past the ~16 degrees at which the
-# two collided.
+# Applied to accent-vs-ERROR only, not accent-vs-warn (which fails it
+# at 16.3 on purpose: warn is a different colour family, told apart by
+# chroma/value; error is the same red-orange family as accent, so hue
+# angle is the only separating channel left). 24° clears the ~16° where
+# the two once collided.
 MIN_SIGNAL_HUE_SEPARATION = 24.0
 
 # --- Named token pairs --------------------------------------------------
 #
-# 20-04-PLAN.md Task 3: the "Expected since" overdue headline is this
-# phase's one genuinely new use of a status colour as body text (every
-# earlier status use in this codebase is a dot, a border or a card edge —
-# never text). Named here, in the module itself, rather than only inline
-# in companion/test_contrast_check.py's own live_pairs tuple, so a future
-# --color-status-warn or --color-dominant token change is caught even by
-# a reader who never opens the test file — that file's own "the pair is
-# present in this table" check asserts membership against this constant
-# directly, per the module's docstring's own "extend, do not duplicate"
-# convention for callers sourcing token values from here.
-#
-# Measured at these exact hex literals (companion/static/style.css's own
-# :root values): light 3.19:1 — BELOW WCAG_AA_NORMAL_TEXT (4.5); dark
-# 10.54:1 — comfortably above it. The threshold was not weakened and no
-# new colour was introduced to pass it: style.css's own
-# .status-card__headline--warn stays on --color-text in both themes, and
-# the overdue state is carried by the wording and a leading warn dot
-# instead. See that rule's own comment for the full account.
+# The one status colour used as body text. Light mode measures 3.19:1,
+# below WCAG_AA_NORMAL_TEXT (4.5) — the overdue state is carried by
+# wording and a warn dot, not this text's own contrast.
 STATUS_WARN_ON_CARD_PAIRS = (
     ("light", "#D97706", "#FFFFFF"),
     ("dark", "#FBBF24", "#151922"),
@@ -211,15 +142,12 @@ def _lab(hex_color):
 
 
 def perceptual_distance(hex_a, hex_b):
-    """Return the CIE76 Delta-E between two hex colours.
-
-    Roughly: how different two colours look to a human, on a scale where
-    ~1 is the just-noticeable threshold for adjacent patches and the
-    tens are "obviously different colours". Used here to check that two
-    *signal* colours (accent vs a status colour) cannot be mistaken for
-    one another at a glance — a question WCAG contrast ratios say
-    nothing about, since two colours can have near-identical luminance
-    contrast against a shared background while being the same hue.
+    """Return the CIE76 Delta-E between two hex colours: ~1 is the
+    just-noticeable threshold, tens are "obviously different colours".
+    Checks that two *signal* colours cannot be mistaken for one another
+    at a glance — a question WCAG contrast ratios say nothing about,
+    since two colours can share luminance contrast while being the
+    same hue.
     """
     lab_a = _lab(hex_a)
     lab_b = _lab(hex_b)
