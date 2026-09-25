@@ -4,26 +4,21 @@
 # A thin wrapper over `pytest -n auto --cov`: pytest itself (via
 # pytest-xdist) owns discovery, parallelism and reporting, and pytest-cov
 # owns the coverage gate (`[tool.coverage.report] fail_under` in
-# pyproject.toml). Phase 32 (32-13-PLAN.md) retired the prior hand-rolled
-# Python orchestrator this script used to exec into (its own HARNESSES
-# list, worker pool and hand-run `coverage combine`/`report` calls) now
-# that pytest
-# discovers every migrated server/stub-server test plus the legacy
-# companion harnesses (still run as one pytest test per harness via
-# companion/test_legacy_harness_shim.py, until Phase 33 migrates them
-# too) — one command, no drift between what CI runs and what a
-# contributor runs locally. This file still owns the stable
+# pyproject.toml). pytest discovers every test: server/, stub-server/,
+# deploy/tests/, test-support/ and the companion suite, including its
+# pytest-playwright browser tests — one command, no drift between what CI
+# runs and what a contributor runs locally. This file owns the stable
 # PYTHON-interpreter contract CI and README both depend on.
 #
 # Usage:
 #   scripts/run-all-tests.sh
 #   PYTHON=/some/other/python3 scripts/run-all-tests.sh
-#   JOBS=1 scripts/run-all-tests.sh              # old serial behaviour
-#   HARNESS_TIMEOUT_S=120 scripts/run-all-tests.sh  # read by the legacy
-#                                                    # companion pytest
-#                                                    # shim until Phase 33
+#   JOBS=1 scripts/run-all-tests.sh              # serial run
 #   scripts/run-all-tests.sh -k dither -- -x     # extra args go to pytest
 #                                                 # (e.g. -k, a path, -x)
+#   SKYPANE_REQUIRE_BROWSER=1 scripts/run-all-tests.sh
+#                                                 # a missing Chromium fails
+#                                                 # instead of skipping
 #
 # Coverage gate: `fail_under` is a whole-suite floor, so it is enforced
 # only on a run with NO extra arguments (what CI runs). Any extra argument
@@ -51,8 +46,7 @@ rm -f "${REPO_ROOT}"/.coverage "${REPO_ROOT}"/.coverage.*
 # coverage.py reads [tool.coverage.run] from pyproject.toml, including
 # `patch = ["subprocess"]` (which implies `parallel = true`) — each
 # pytest-xdist worker, and every subprocess a test itself launches
-# (byos_server.py, companion/app.py, the legacy companion harnesses),
-# writes its own .coverage.* data file; pytest-cov combines them all at
+# (byos_server.py, companion/app.py), writes its own .coverage.* data file; pytest-cov combines them all at
 # the end of the session.
 if [ -z "${COVERAGE_CORE:-}" ]; then
     py_minor="$("${PYTHON}" -c 'import sys; print(1 if sys.version_info >= (3, 12) else 0)')"

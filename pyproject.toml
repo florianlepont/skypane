@@ -85,7 +85,6 @@ testpaths = ["server", "stub-server", "companion", "test-support", "deploy"]
 # expects) and "test-support" need to be on sys.path before collection.
 pythonpath = [".", "test-support"]
 markers = [
-    "legacy_harness: a hand-rolled companion harness run as one subprocess until Phase 33",
     "slow: takes more than a few seconds",
     "browser: drives a real Chromium through pytest-playwright (needs playwright install --only-shell chromium)",
 ]
@@ -96,8 +95,7 @@ xfail_strict = true
 [tool.coverage.run]
 # Parallel data files: the suite runs as pytest-xdist workers (one per CPU
 # by default, `scripts/run-all-tests.sh`'s `-n auto`) PLUS every
-# subprocess a test itself launches (byos_server.py, companion/app.py, the
-# legacy companion harnesses run through companion/test_legacy_harness_shim.py)
+# subprocess a test itself launches (byos_server.py, companion/app.py)
 # — each of those processes needs its own data file before pytest-cov's
 # end-of-session `coverage combine` merges them. Do NOT also set `append`
 # — coverage.py rejects that combination outright ("Can't append to data
@@ -111,7 +109,7 @@ parallel = true
 # pytest-cov 7+ removed its prior `.pth`-file auto-injection for
 # subprocess coverage, so this is the only supported mechanism left —
 # without it, every subprocess-launched child (byos_server.py,
-# companion/app.py, and the legacy companion harnesses) measures at a
+# companion/app.py) measures at a
 # permanent 0%, exactly the situation the old `omit` entries below existed
 # to paper over. `patch = ["subprocess"]` implies `parallel = true` (kept
 # explicit above for its own documentation value).
@@ -123,8 +121,8 @@ patch = ["subprocess"]
 # `proc.terminate()` — SIGTERM. Without this, those children saved
 # nothing and their HTTP request-handling code measured as unreached
 # (byos_server.py: 50% without, 91% with, on stub-server/test_poll_cycle.py
-# alone). A child killed with SIGKILL (a legacy harness timeout) still
-# saves nothing — that is a failed run anyway.
+# alone). A child killed with SIGKILL still saves nothing — that is a
+# failed run anyway.
 sigterm = true
 
 # Source-scoped to this project's own code directories so library
@@ -168,4 +166,14 @@ omit = [
 # `[tool.coverage.run]` subprocess settings, invalidates this number
 # outright, since it stops describing what was actually measured the
 # moment the scope changes.
+#
+# Re-measured 2026-09-25 (33-33, after the companion tests moved to
+# pytest), same method: a full `./scripts/run-all-tests.sh` as `nobody`
+# (euid 65534) on CPython 3.14.0rc2, in a scratch venv built from
+# server/requirements-dev.txt with --require-hashes. 2594 passed, 0 skipped,
+# TOTAL 93.38% (9830 statements, 651 missed). The pre-migration tree
+# (d2c53a0) measured the same way gives 93.35%. The floor rounded down is
+# still 93, so the gate stays at 93. A root run of the same tree on the dev
+# venv (CPython 3.11) gives 93.26%, because the 5 requires_non_root tests
+# skip under euid 0.
 fail_under = 93

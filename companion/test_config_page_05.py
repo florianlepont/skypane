@@ -146,19 +146,6 @@ _FLOOR_MIN_MEASURED = {"display": 10, "device": 6}
 _FLOOR_EXPECTED_SKIPS = {"display": len(config_page.ASPECT_CAPTION_EXEMPTIONS), "device": 0}
 
 
-def _caption_word_count_text(fragment):
-    """THE ONE COUNTING RULE this whole floor applies: strip tags, unescape HTML entities,
-    collapse internal whitespace, then strip a single leading em dash and its following space -
-    layout.section_intro_html()'s own intro sentences legitimately open with '- ', and that
-    leading mark is not a WORD by any reading of 'at most 12 words'.
-    """
-    stripped = re.sub(r"<[^>]*>", "", fragment)
-    text = html.unescape(stripped).strip()
-    if text.startswith("— "):
-        text = text[2:]
-    return re.sub(r"\s+", " ", text).strip()
-
-
 def _measured_section_captions(rendered):
     """Every `<p class="...">...</p>` element whose class list contains "section-caption" and no
     token beyond "text-label"/"section-caption" themselves - a plain editorial caption, never a
@@ -187,7 +174,7 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
     vacuous (CFG-79, 29-05-PLAN.md Task 3)"""
     exempt_by_lang = {
         lang: {
-            _caption_word_count_text(i18n.t_lang(text, lang))
+            cp.caption_word_count_text(i18n.t_lang(text, lang))
             for text in config_page.ASPECT_CAPTION_EXEMPTIONS
         }
         for lang in ("en", "fr")
@@ -212,7 +199,7 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
 
             skip_count = 0
             for _start, _end, fragment in captions:
-                text = _caption_word_count_text(fragment)
+                text = cp.caption_word_count_text(fragment)
                 if text in exempt_by_lang[lang]:
                     skip_count += 1
                     continue
@@ -231,7 +218,7 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
                 if strip_start != -1 else -1)
             outside_matches = []
             for start, _end, fragment in captions:
-                text = _caption_word_count_text(fragment)
+                text = cp.caption_word_count_text(fragment)
                 for template in apply_timing_templates:
                     translated = i18n.t_lang(template, lang)
                     if "%s" in translated:

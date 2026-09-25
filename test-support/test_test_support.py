@@ -282,28 +282,3 @@ def test_fake_response_raise_for_status_and_json():
     empty = FakeResponse(404, None)
     with pytest.raises(ValueError):
         empty.json()
-
-
-# --- legacy_companion_harnesses() ---------------------------------------
-
-
-def test_legacy_companion_harnesses_marker_presence_absence_and_missing_file(tmp_path, monkeypatch):
-    """legacy_companion_harnesses() reads REPO_ROOT/ORIGINAL_COMPANION_
-    HARNESSES from the module globals, so both can be monkeypatched to
-    point at a disposable fake tree: a harness with the
-    EXPECTED_CHECK_COUNT marker is legacy, one without it is not, and a
-    listed-but-missing path is not.
-    """
-    companion_dir = tmp_path / "companion"
-    companion_dir.mkdir()
-    (companion_dir / "test_with_marker.py").write_text("EXPECTED_CHECK_COUNT = 3\n")
-    (companion_dir / "test_without_marker.py").write_text("# no marker here\n")
-
-    monkeypatch.setattr(sts, "REPO_ROOT", str(tmp_path))
-    monkeypatch.setattr(sts, "ORIGINAL_COMPANION_HARNESSES", (
-        "companion/test_with_marker.py",
-        "companion/test_without_marker.py",
-        "companion/test_missing_entirely.py",
-    ))
-
-    assert sts.legacy_companion_harnesses() == ("companion/test_with_marker.py",)

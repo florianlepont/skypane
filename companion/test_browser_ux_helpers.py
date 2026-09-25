@@ -1,36 +1,16 @@
 #!/usr/bin/env python3
-"""companion/test_browser_ux_helpers.py — shared constants and helpers
-for companion/test_browser_ux.py and its split-off sibling harnesses
-(31-01-PLAN.md Task 2).
+"""Shared constants and helpers for the companion browser tests
+(companion/test_browser_ux_*.py): viewport constants, seed_state_dir(),
+the login/save/theme/keyboard/upload/geometry probe helpers, the
+quiet-hours arc decoders, _markup_inventory() and _handle_sel().
 
-Holds the module-level preamble relocated verbatim out of
-companion/test_browser_ux.py's own lines 998-3632 (viewport constants,
-seed_state_dir(), the login/save/theme/keyboard/upload/geometry probe
-helpers, the quiet-hours arc decoders, and _markup_inventory()) plus
-_handle_sel(), promoted from a main()-local def because it is called
-both from a block a sibling harness moves out of test_browser_ux.py and
-from a check that stays in test_browser_ux.py forever.
+This module holds no tests. `__test__ = False` tells pytest so directly,
+and it exists only to be imported.
 
-Deliberately named with a `test_` prefix so pyproject.toml's existing
-`companion/test_*.py` coverage-omit glob already covers this file with
-no config edit (RESEARCH.md Pitfall 3).
-
-This is NOT a harness: it has no EXPECTED_CHECK_COUNT, no check()
-closure, no main(), and must never be added to
-companion/test_legacy_harness_shim.py's LEGACY_COMPANION_HARNESSES list
-— it has no entry point and no check counter of its own; it exists only
-to be imported. `__test__ = False` tells pytest the same thing directly:
-this module is collected (it no longer depends on a legacy harness that
-collect_ignore excludes), but it holds no test functions of its own for
-pytest to run.
-
-33-19-PLAN.md Task 1: every helper that opens a browser context now takes
-a `make_context` factory argument instead of reaching for a `browser`
-object's own `.new_context()` directly (guard G10) — a pytest caller
-passes `companion/conftest.py`'s guarded `new_context` fixture, and the
-two still-legacy harnesses below pass their own `browser.new_context`
-bound method until they migrate. Both call styles are the same shape: a
-zero-or-more-kwargs callable returning a context.
+Every helper that opens a browser context takes a `make_context` factory
+argument instead of calling a `browser` object's `.new_context()`
+directly (guard G10): callers pass `companion/conftest.py`'s guarded
+`new_context` fixture, which installs the loopback-only route guard.
 """
 import contextlib
 import math
@@ -47,9 +27,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 # test-support/ (companion_app_server, for TEST_PASSWORD) — mirrors
-# companion/conftest.py's own bootstrap, so the still-legacy script
-# harnesses that import this module directly (never through pytest, so
-# conftest.py's own sys.path insert never runs for them) still find it.
+# companion/conftest.py's own bootstrap, so a direct import of this module
+# outside pytest still finds it.
 _TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
 if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
@@ -213,9 +192,8 @@ def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
                 cookies=None):
     """A scripts-blocked browser context, signed in, landed on `route`.
 
-    `make_context` is a context-factory callable — pytest-playwright's own
-    guarded `new_context` fixture for a pytest caller, or a still-legacy
-    harness's own `browser.new_context` bound method — never a `browser`
+    `make_context` is a context-factory callable — the guarded
+    `new_context` fixture from companion/conftest.py — never a `browser`
     object itself (guard G10: only the guarded fixture may call
     `browser.new_context()` directly).
 
@@ -403,8 +381,8 @@ def _commit_field(page, selector):
 
 # --- 24-02-PLAN.md (CFG-45): the three shared measurement helpers the
 # four drawing plans (24-04..24-08) each need, added BEFORE the drawings
-# rather than after them. Helpers only: this plan registers no check of
-# its own and EXPECTED_CHECK_COUNT is unchanged at 54.
+# rather than after them. Helpers only: this block registers no test of
+# its own.
 #
 # Why they are here at all. Until this block, this file — the only
 # harness in the repository that renders anything — had never once
@@ -776,8 +754,8 @@ def _assert_no_page_overflow(page, where, expected_width=None):
 
 # --- 25-02-PLAN.md (CFG-52): the four control-contract helpers the five
 # control plans (25-03..25-07) each need, written ONCE, before any of the
-# five controls exists. Helpers only: this plan registers no check of its
-# own and EXPECTED_CHECK_COUNT is unchanged at 65.
+# five controls exists. Helpers only: this block registers no test of its
+# own.
 #
 # Why they are here at all, and why the FIRST of them is the one that
 # matters. Phase 25 replaces five bare fields with richer controls, and

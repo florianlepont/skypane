@@ -1605,7 +1605,7 @@ Plans:
 4. The suite passes as root and writes nothing outside `tmp_path`
 5. Closing parity: all 2018 pre-migration checks accounted for; coverage ≥ the pre-migration figure
 
-**Plans:** 25/33 plans executed
+**Plans:** 33/33 plans complete
 
 Plans:
 **Wave 1**
@@ -1650,26 +1650,26 @@ Plans:
 **Wave 6** *(blocked on Wave 5 completion)*
 
 - [x] 33-13-PLAN.md — config_page part 05; legacy file deleted (W6)
-- [ ] 33-18-PLAN.md — companion_app part 05; legacy file deleted (W6)
-- [ ] 33-23-PLAN.md — browser_ux part 03 (W6)
-- [ ] 33-29-PLAN.md — status_pages part 05 (W6)
+- [x] 33-18-PLAN.md — companion_app part 05; legacy file deleted (W6)
+- [x] 33-23-PLAN.md — browser_ux part 03 (W6)
+- [x] 33-29-PLAN.md — status_pages part 05 (W6)
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 33-24-PLAN.md — browser_ux part 04; legacy monolith deleted (W7)
-- [ ] 33-30-PLAN.md — status_pages part 06 (W7)
+- [x] 33-24-PLAN.md — browser_ux part 04; legacy monolith deleted (W7)
+- [x] 33-30-PLAN.md — status_pages part 06 (W7)
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 33-31-PLAN.md — status_pages part 07; legacy file deleted (W8)
+- [x] 33-31-PLAN.md — status_pages part 07; legacy file deleted (W8)
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 33-32-PLAN.md — Retire shim/legacy lists/collect_ignore/LegacyHarness, strict guard, CI paths + docs (W9)
+- [x] 33-32-PLAN.md — Retire shim/legacy lists/collect_ignore/LegacyHarness, strict guard, CI paths + docs (W9)
 
 **Wave 10** *(blocked on Wave 9 completion)*
 
-- [ ] 33-33-PLAN.md — Assemble ledger + closing parity (2018), coverage gate, root + non-root proof, CI green (W10)
+- [x] 33-33-PLAN.md — Assemble ledger + closing parity (2018), coverage gate, root + non-root proof, CI green (W10)
 
 **Cross-cutting constraints:**
 

@@ -3,18 +3,17 @@ fails if a migrated companion test module reads a `.planning`/UI-SPEC
 file, reads a production source file as text, inspects source with
 `inspect`/`ast`/`tokenize`/`linecache`, reads a `__doc__`, redefines the
 shared `Harness`/`http_request`/`_NoRedirectHandler` machinery, writes
-outside `tmp_path` or uses a literal `/nonexistent` host path, runs
+outside `tmp_path` or uses a literal `/nonexistent` or system-temp host path, runs
 `os.chmod` outside a root-safety marker, still carries the legacy
-`EXPECTED_CHECK_COUNT`/`check()`/`main()` shape, or drives Playwright's
+`EXPECTED_CHECK_COUNT`/`check()`/`main()` shape, drives Playwright's
 `browser` fixture directly instead of the guarded `new_context`/`page`
-fixtures from `companion/conftest.py`.
+fixtures from `companion/conftest.py`, runs a regex, `in` test or str
+search over the served stylesheet's text instead of parsing it (G11), or
+imports another test module instead of a `*_helpers.py` module (G12).
 
-The guard is strict for every companion test module from day one. Its
-only exemption is the set of harnesses still in their pre-migration
-shape (detected from disk, not a hand list, so it shrinks automatically
-as each migration plan lands) plus this file and the shim that runs
-them - both scan the legacy shape on purpose and are the guard's own
-implementation, not a module the guard needs to prove anything about.
+The guard is strict: it scans every `companion/test_*.py` module and
+`companion/conftest.py`, with no exemption other than this file itself,
+which spells out the forbidden shapes on purpose as self-test samples.
 """
 
 import ast
@@ -23,56 +22,26 @@ import os
 
 import pytest
 
-import skypane_test_support
 from skypane_test_support import REPO_ROOT
 
 Violation = collections.namedtuple("Violation", ["rule", "lineno", "detail"])
 
 _COMPANION_DIR = os.path.join(REPO_ROOT, "companion")
 
-# This file and the shim that runs the still-legacy harnesses both scan
-# or run legacy-shaped code on purpose - neither is itself proof of
-# anything the guard exists to prove.
-#
-# companion/test_browser_ux_helpers.py is NOT exempt: 33-19-PLAN.md Task 1
-# converted its three direct `browser.new_context(...)` calls (G10) into a
-# `make_context` factory argument (the guarded `new_context` fixture for a
-# pytest caller; a still-legacy harness's own `browser.new_context` bound
-# method until it migrates), so the guard now scans it like any other
-# non-legacy module.
-ALWAYS_EXEMPT = frozenset({
-    "companion/test_suite_guards.py",
-    "companion/test_legacy_harness_shim.py",
-})
-
-
-def _legacy_companion_harnesses():
-    """The still-legacy companion harnesses, as a tuple of
-    ``"companion/test_x.py"`` paths. Prefers `skypane_test_support`'s
-    disk-derived `legacy_companion_harnesses()` (33-03-PLAN.md Task 3);
-    falls back to its pre-Task-3 hand list so this module works whether
-    Task 2 or Task 3 of this same plan has landed first in a given
-    process - both names mean exactly "companion harnesses still in
-    their legacy shape".
-    """
-    fn = getattr(skypane_test_support, "legacy_companion_harnesses", None)
-    if fn is not None:
-        return tuple(fn())
-    return tuple(skypane_test_support.LEGACY_COMPANION_HARNESSES)
+_GUARD_MODULE = "companion/test_suite_guards.py"
 
 
 def scanned_files():
     """Every `companion/test_*.py` module plus `companion/conftest.py`,
-    minus `ALWAYS_EXEMPT` and every still-legacy harness - the set the
-    guard actually enforces its rules against.
+    minus this guard module - the set the guard enforces its rules
+    against.
     """
-    candidates = sorted(
+    return sorted(
         os.path.join("companion", name)
         for name in os.listdir(_COMPANION_DIR)
         if name == "conftest.py" or (name.startswith("test_") and name.endswith(".py"))
+        if os.path.join("companion", name) != _GUARD_MODULE
     )
-    exempt = set(ALWAYS_EXEMPT) | set(_legacy_companion_harnesses())
-    return [path for path in candidates if path not in exempt]
 
 
 # --- G3 helpers: source-suffixed paths and __file__/HERE/REPO_ROOT-style
@@ -86,6 +55,17 @@ _RELEVANT_NAME_SUFFIXES = ("_DIR", "_ROOT")
 _FORBIDDEN_CLASS_NAMES = frozenset({"Harness", "_InProcessHarness", "_NoRedirectHandler"})
 
 _G2_MODULES = frozenset({"inspect", "ast", "tokenize", "linecache"})
+
+
+_HOST_TEMP_DIRS = ("/tmp", "/var/tmp", "/dev/shm")
+
+
+def _is_host_temp_path(value):
+    """A literal system temp dir, or a path inside one: a test that hands
+    it to production code (a state dir, a file path) writes on the host,
+    outside `tmp_path`.
+    """
+    return any(value == d or value.startswith(d + "/") for d in _HOST_TEMP_DIRS)
 
 
 def _is_route_or_url(value):
@@ -185,6 +165,11 @@ def _is_helpers_filename(filename):
     return os.path.basename(filename).endswith("_helpers.py")
 
 
+def _is_test_module_name(dotted):
+    last = dotted.rsplit(".", 1)[-1]
+    return last.startswith("test_") and not last.endswith("_helpers")
+
+
 def _has_module_level_test_false(tree):
     for node in tree.body:
         if isinstance(node, ast.Assign):
@@ -211,6 +196,8 @@ class _Scanner(ast.NodeVisitor):
             value = node.value
             if "/nonexistent" in value:
                 self._add(node, "G6", "/nonexistent literal: %r" % (value,))
+            if _is_host_temp_path(value):
+                self._add(node, "G6", "host temp path literal: %r" % (value,))
             if not _is_route_or_url(value) and (".planning" in value or "UI-SPEC" in value):
                 self._add(node, "G1", "planning/UI-SPEC string: %r" % (value,))
         self.generic_visit(node)
@@ -252,6 +239,24 @@ class _Scanner(ast.NodeVisitor):
         self._function_stack.append(node)
         self.generic_visit(node)
         self._function_stack.pop()
+
+    # G12: a test module importing another test module (shared code
+    # lives in a `*_helpers.py` module or in test-support/)
+    def visit_Import(self, node):
+        for alias in node.names:
+            if _is_test_module_name(alias.name):
+                self._add(node, "G12", "import %s" % (alias.name,))
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node):
+        module = node.module or ""
+        if _is_test_module_name(module):
+            self._add(node, "G12", "from %s import ..." % (module,))
+        else:
+            for alias in node.names:
+                if _is_test_module_name(alias.name):
+                    self._add(node, "G12", "from %s import %s" % (module, alias.name))
+        self.generic_visit(node)
 
     # G8 (EXPECTED_CHECK_COUNT)
     def visit_Assign(self, node):
@@ -331,10 +336,231 @@ class _Scanner(ast.NodeVisitor):
         return any(_mentions_requires_non_root(fn.decorator_list) for fn in self._function_stack)
 
 
+# --- G11: regex/substring checks over the served stylesheet's text -----
+#
+# A stylesheet check parses what the app serves (`companion_markup`'s
+# `css_rules` / `declarations_for` / `rules_with_selector` /
+# `custom_properties`), so a comment, a reordering or a whitespace change
+# can never make it pass or fail. G11 follows the text `served_stylesheet()`
+# returns (or the body of a GET of the style route) through assignments,
+# fixtures, string transforms, slices and calls to the module's own
+# functions, and flags any regex, `in` test or str search method over it.
+
+_CSS_TEXT_SOURCES = frozenset({"served_stylesheet"})
+_STYLE_ROUTE_FETCHERS = frozenset({"get", "http_request"})
+_STR_TRANSFORMS = frozenset({
+    "lower", "upper", "casefold", "strip", "lstrip", "rstrip", "replace",
+    "expandtabs", "translate", "removeprefix", "removesuffix", "decode",
+})
+_STR_SEARCHES = frozenset({
+    "count", "index", "rindex", "find", "rfind", "startswith", "endswith",
+    "split", "rsplit", "splitlines", "partition", "rpartition", "__contains__",
+})
+_RE_METHODS = frozenset({"search", "match", "fullmatch", "findall", "finditer", "sub", "subn", "split"})
+
+# (module, top-level function) -> why that one function may scan the
+# served stylesheet's raw characters.
+G11_ALLOWLIST = {
+    ("companion/test_status_pages_07.py", "test_style_css_carries_no_stray_comment_terminator"): (
+        "an unterminated or stray comment delimiter changes which rules exist at all, so a "
+        "parser reading the stylesheet cannot see the defect; only the raw served characters "
+        "show it"
+    ),
+}
+
+
+def _is_fixture_decorator(node):
+    target = node.func if isinstance(node, ast.Call) else node
+    return (isinstance(target, ast.Name) and target.id == "fixture") or (
+        isinstance(target, ast.Attribute) and target.attr == "fixture")
+
+
+def _names_in_target(target):
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return [name for elt in target.elts for name in _names_in_target(elt)]
+    if isinstance(target, ast.Starred):
+        return _names_in_target(target.value)
+    return []
+
+
+def _is_style_route_fetch(call):
+    func = call.func
+    name = func.id if isinstance(func, ast.Name) else (
+        func.attr if isinstance(func, ast.Attribute) else None)
+    if name not in _STYLE_ROUTE_FETCHERS:
+        return False
+    for sub in ast.walk(call):
+        if isinstance(sub, ast.Constant) and isinstance(sub.value, str) and sub.value.endswith("style.css"):
+            return True
+        if isinstance(sub, ast.Name) and "STYLE_ROUTE" in sub.id:
+            return True
+        if isinstance(sub, ast.Attribute) and "STYLE_ROUTE" in sub.attr:
+            return True
+    return False
+
+
+class _ServedCssTaint:
+    """Flow-insensitive taint analysis of one module for G11."""
+
+    def __init__(self, tree):
+        self.functions = {}
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                self.functions[node.name] = node
+            elif isinstance(node, ast.ClassDef):
+                for item in node.body:
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        self.functions["%s.%s" % (node.name, item.name)] = item
+        self.returns_css = set(_CSS_TEXT_SOURCES)
+        self.css_fixtures = set()
+        self.css_params = collections.defaultdict(set)
+        self.tainted = {}
+        self._solve()
+
+    def is_css(self, node, names):
+        if isinstance(node, ast.Name):
+            return node.id in names
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name):
+                if func.id in self.returns_css:
+                    return True
+                return func.id == "str" and bool(node.args) and self.is_css(node.args[0], names)
+            if isinstance(func, ast.Attribute):
+                if func.attr in _CSS_TEXT_SOURCES:
+                    return True
+                if func.attr in _STR_TRANSFORMS or func.attr in _STR_SEARCHES:
+                    return self.is_css(func.value, names)
+                is_re = (isinstance(func.value, ast.Name) and func.value.id == "re") or \
+                    func.attr in _RE_METHODS
+                if is_re:
+                    args = list(node.args) + [kw.value for kw in node.keywords]
+                    return any(self.is_css(a, names) for a in args)
+            return False
+        if isinstance(node, ast.Subscript):
+            return self.is_css(node.value, names)
+        if isinstance(node, ast.BinOp):
+            return self.is_css(node.left, names) or self.is_css(node.right, names)
+        if isinstance(node, ast.JoinedStr):
+            return any(isinstance(v, ast.FormattedValue) and self.is_css(v.value, names)
+                       for v in node.values)
+        if isinstance(node, ast.IfExp):
+            return self.is_css(node.body, names) or self.is_css(node.orelse, names)
+        if isinstance(node, ast.BoolOp):
+            return any(self.is_css(v, names) for v in node.values)
+        if isinstance(node, ast.NamedExpr):
+            return self.is_css(node.value, names)
+        return False
+
+    def _seed(self, key, fn):
+        params = [a.arg for a in fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs]
+        names = {p for p in params if p in self.css_fixtures}
+        names |= self.css_params[key]
+        return names
+
+    def _analyse(self, key, fn):
+        """One pass over `fn`; returns True when any shared fact grew."""
+        grew = False
+        names = self.tainted.get(key, set()) | self._seed(key, fn)
+        while True:
+            before = len(names)
+            for node in ast.walk(fn):
+                if isinstance(node, ast.Assign):
+                    if isinstance(node.value, ast.Call) and _is_style_route_fetch(node.value):
+                        for target in node.targets:
+                            if isinstance(target, ast.Tuple) and len(target.elts) == 3:
+                                names.update(_names_in_target(target.elts[2]))
+                            else:
+                                names.update(_names_in_target(target))
+                    elif self.is_css(node.value, names):
+                        for target in node.targets:
+                            names.update(_names_in_target(target))
+                elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
+                    if node.value is not None and self.is_css(node.value, names):
+                        names.update(_names_in_target(node.target))
+                elif isinstance(node, ast.NamedExpr):
+                    if self.is_css(node.value, names):
+                        names.update(_names_in_target(node.target))
+                elif isinstance(node, (ast.For, ast.AsyncFor, ast.comprehension)):
+                    if self.is_css(node.iter, names):
+                        names.update(_names_in_target(node.target))
+                elif isinstance(node, ast.withitem):
+                    if node.optional_vars is not None and self.is_css(node.context_expr, names):
+                        names.update(_names_in_target(node.optional_vars))
+            if len(names) == before:
+                break
+        self.tainted[key] = names
+
+        for node in ast.walk(fn):
+            if isinstance(node, (ast.Return, ast.Yield)) and node.value is not None:
+                if self.is_css(node.value, names) and key not in self.returns_css and "." not in key:
+                    self.returns_css.add(key)
+                    grew = True
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and \
+                    node.func.id in self.functions:
+                callee = self.functions[node.func.id]
+                params = [a.arg for a in callee.args.posonlyargs + callee.args.args]
+                hits = {params[i] for i, arg in enumerate(node.args)
+                        if i < len(params) and self.is_css(arg, names)}
+                hits |= {kw.arg for kw in node.keywords if kw.arg and self.is_css(kw.value, names)}
+                if not hits <= self.css_params[node.func.id]:
+                    self.css_params[node.func.id] |= hits
+                    grew = True
+        if key in self.returns_css and key not in self.css_fixtures and \
+                any(_is_fixture_decorator(d) for d in fn.decorator_list):
+            self.css_fixtures.add(key)
+            grew = True
+        return grew
+
+    def _solve(self):
+        changed = True
+        while changed:
+            changed = False
+            for key, fn in self.functions.items():
+                if self._analyse(key, fn):
+                    changed = True
+
+    def violations(self, filename, allowlist=None):
+        allowlist = G11_ALLOWLIST if allowlist is None else allowlist
+        found = []
+        for key, fn in self.functions.items():
+            if (filename, key) in allowlist:
+                continue
+            names = self.tainted.get(key, set())
+            for node in ast.walk(fn):
+                detail = self._sink(node, names)
+                if detail:
+                    found.append(Violation("G11", node.lineno, "%s over served stylesheet text" % detail))
+        return found
+
+    def _sink(self, node, names):
+        if isinstance(node, ast.Compare):
+            for op, right in zip(node.ops, node.comparators):
+                if isinstance(op, (ast.In, ast.NotIn)) and self.is_css(right, names):
+                    return "`in` test"
+            return None
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            return None
+        func = node.func
+        args = list(node.args) + [kw.value for kw in node.keywords]
+        if isinstance(func.value, ast.Name) and func.value.id == "re":
+            if any(self.is_css(a, names) for a in args):
+                return "re.%s()" % func.attr
+            return None
+        if func.attr in _STR_SEARCHES and self.is_css(func.value, names):
+            return ".%s()" % func.attr
+        if func.attr in _RE_METHODS and not self.is_css(func.value, names) and \
+                any(self.is_css(a, names) for a in args):
+            return "pattern.%s()" % func.attr
+        return None
+
+
 def scan_source(source, filename):
     """Every `Violation` in `source` (a companion test module's own text,
     read by the guard itself - never by the modules it scans). `filename`
-    is used only for a `*_helpers.py` name check (G9); `ast.parse`
+    is used for a `*_helpers.py` name check (G9) and the G11 allowlist; `ast.parse`
     receives it for accurate error messages.
     """
     tree = ast.parse(source, filename=filename)
@@ -345,6 +571,7 @@ def scan_source(source, filename):
     violations = scanner.violations
     if _is_helpers_filename(filename) and not _has_module_level_test_false(tree):
         violations.append(Violation("G9", 1, "*_helpers.py without module-level __test__ = False"))
+    violations.extend(_ServedCssTaint(tree).violations(filename))
     return violations
 
 
@@ -371,6 +598,10 @@ _POSITIVE_CASES = [
      "def http_request(url):\n    pass\n", None),
     ("G6", "nonexistent_path",
      'V = health_page.anomaly_active("/nonexistent/definitely-not-here")\n', None),
+    ("G6", "host_tmp_state_dir",
+     'CTX = {"state_dir": "/tmp", "poll_cooldown_remaining": 0}\n', None),
+    ("G6", "host_tmp_file_path",
+     'P = "/var/tmp/skypane/history.db"\n', None),
     ("G6", "tempfile_mkdtemp",
      'import tempfile\nD = tempfile.mkdtemp(prefix="x-")\n', None),
     ("G7", "chmod_without_marker",
@@ -389,6 +620,30 @@ _POSITIVE_CASES = [
      "ctx = browser.new_context()\n", None),
     ("G10", "sync_playwright_call",
      "with sync_playwright() as p:\n    pass\n", None),
+    ("G12", "import_sibling_test_module",
+     "import companion.test_config_page_05 as tcp05\n", None),
+    ("G12", "from_package_import_test_module",
+     "from companion import test_config_page_05\n", None),
+    ("G12", "from_test_module_import_name",
+     "from companion.test_config_page_05 import _helper\n", None),
+    ("G11", "re_search_over_served_stylesheet",
+     "def test_x(server):\n    css = served_stylesheet(server)\n    assert re.search(r'a', css)\n", None),
+    ("G11", "substring_via_css_fixture",
+     "@pytest.fixture\ndef served_css(app):\n    return served_stylesheet(app)\n\n\n"
+     "def test_x(served_css):\n    assert '.a {' in served_css\n", None),
+    ("G11", "index_after_a_string_transform",
+     "def test_x(server):\n    css = served_stylesheet(server).lower()\n    css.index('.a')\n", None),
+    ("G11", "count_over_a_slice",
+     "def test_x(server):\n    css = served_stylesheet(server)\n    css[10:].count('a')\n", None),
+    ("G11", "regex_inside_a_helper_given_served_css",
+     "def _body(css, selector):\n    return re.search(selector, css)\n\n\n"
+     "def test_x(server):\n    _body(served_stylesheet(server), '.a')\n", None),
+    ("G11", "compiled_pattern_over_comment_stripped_css",
+     "PAT = re.compile('a')\n\n\ndef test_x(server):\n"
+     "    stripped = re.sub('x', '', served_stylesheet(server))\n    PAT.findall(stripped)\n", None),
+    ("G11", "substring_over_style_route_body",
+     "def test_x(server):\n    status, headers, body = get(server, '/static/style.css')\n"
+     "    assert b'.a' in body\n", None),
 ]
 
 _NEGATIVE_CASES = [
@@ -405,9 +660,27 @@ _NEGATIVE_CASES = [
     ("tmp_path_probe_write",
      '(tmp_path / "test_probe.py").write_text("...")\n', None),
     ("chmod_with_requires_non_root_decorator",
-     "import os\n\n\n@requires_non_root\ndef test_x():\n    os.chmod(\"/tmp/x\", 0o644)\n", None),
+     "import os\n\n\n@requires_non_root\ndef test_x(tmp_path):\n    os.chmod(str(tmp_path / \"x\"), 0o644)\n", None),
+    ("tmp_path_state_dir_and_tmp_route",
+     'CTX = {"state_dir": str(tmp_path)}\nX = "/tmpl"\nY = "a/tmp/b"\n', None),
     ("helpers_with_test_false_marker",
      "__test__ = False\nX = 1\n", "companion/test_something_helpers.py"),
+    ("import_helpers_module",
+     "import companion.test_config_page_helpers as cp\n"
+     "from companion.test_browser_ux_helpers import seed_state_dir\n", None),
+    ("served_css_parsed_structurally",
+     "def test_x(server):\n    css = served_stylesheet(server)\n"
+     "    assert 'color' in declarations_for(css, '.a')\n"
+     "    for rule in css_rules(css):\n        assert not re.search('b', rule.selectors[0])\n", None),
+    ("served_js_substring",
+     "def test_x(server):\n    js = served_asset(server, '/static/a.js')\n    assert 'x' in js\n", None),
+    ("style_route_headers",
+     "def test_x(server):\n    status, headers, body = get(server, '/static/style.css')\n"
+     "    assert 'text/css' in headers['Content-Type']\n", None),
+    ("allowlisted_raw_character_scan",
+     "def test_style_css_carries_no_stray_comment_terminator(css_text):\n"
+     "    css_text = served_stylesheet(server)\n    css_text.startswith('*/', 0)\n",
+     "companion/test_status_pages_07.py"),
 ]
 
 
@@ -445,13 +718,60 @@ def test_module_obeys_behaviour_over_source_rules(relpath):
         "%s:%d %s %s" % (relpath, v.lineno, v.rule, v.detail) for v in violations)
 
 
-def test_exemption_set_is_only_legacy_harnesses():
-    originals = set(getattr(
-        skypane_test_support, "ORIGINAL_COMPANION_HARNESSES",
-        skypane_test_support.LEGACY_COMPANION_HARNESSES))
-    exempt = set(ALWAYS_EXEMPT) | set(_legacy_companion_harnesses())
-    for path in exempt:
-        assert path in ALWAYS_EXEMPT or path in originals, (
-            "%r is exempt from the guard but is neither one of the 9 original companion "
-            "harnesses nor in ALWAYS_EXEMPT - the exemption set may be growing silently"
-            % (path,))
+@pytest.mark.parametrize("relpath,function", sorted(G11_ALLOWLIST), ids=[f for _, f in sorted(G11_ALLOWLIST)])
+def test_g11_allowlist_entry_still_scans_raw_stylesheet_text(relpath, function):
+    """Each G11 allowlist entry names a function that really does scan the
+    served stylesheet's raw text, so a stale entry cannot linger and
+    silently exempt a later rewrite of that function.
+    """
+    with open(os.path.join(REPO_ROOT, relpath), encoding="utf-8") as fh:
+        tree = ast.parse(fh.read(), filename=relpath)
+    taint = _ServedCssTaint(tree)
+    assert function in taint.functions, "%s no longer defines %s" % (relpath, function)
+    unallowed = taint.violations(relpath, allowlist={})
+    fn = taint.functions[function]
+    inside = [v for v in unallowed if fn.lineno <= v.lineno <= fn.end_lineno]
+    assert inside, "%s::%s no longer scans raw stylesheet text; drop its allowlist entry" % (
+        relpath, function)
+
+
+def test_scanned_files_are_every_companion_test_module_but_the_guard():
+    """No companion test module is exempt from the guard except this one."""
+    on_disk = {
+        os.path.join("companion", name)
+        for name in os.listdir(_COMPANION_DIR)
+        if name.startswith("test_") and name.endswith(".py")
+    }
+    assert set(scanned_files()) == (on_disk - {_GUARD_MODULE}) | {"companion/conftest.py"}
+
+
+# The directories pytest collects tests from, each scanned for the
+# pre-pytest runner shape (G8): an EXPECTED_CHECK_COUNT counter, a
+# module-level check()/main(), or an `if __name__ == "__main__"` runner.
+_RUNNER_SCAN_DIRS = ("server", "stub-server", "test-support", "companion", "deploy/tests")
+
+
+def _test_files_under(reldir):
+    full_dir = os.path.join(REPO_ROOT, reldir)
+    return sorted(
+        os.path.join(reldir, name)
+        for name in os.listdir(full_dir)
+        if name.startswith("test_") and name.endswith(".py")
+    )
+
+
+def test_no_legacy_runner_anywhere():
+    """No test file in any collected directory keeps a hand-rolled runner:
+    pytest discovery is the only way a test runs.
+    """
+    offenders = []
+    for reldir in _RUNNER_SCAN_DIRS:
+        for relpath in _test_files_under(reldir):
+            if relpath == _GUARD_MODULE:
+                continue
+            with open(os.path.join(REPO_ROOT, relpath), encoding="utf-8") as fh:
+                source = fh.read()
+            for v in scan_source(source, relpath):
+                if v.rule == "G8":
+                    offenders.append("%s:%d %s" % (relpath, v.lineno, v.detail))
+    assert offenders == [], "\n".join(offenders)

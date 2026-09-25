@@ -123,6 +123,13 @@ passed straight through to pytest (e.g. `./scripts/run-all-tests.sh -k
 dither`). Firmware logic that doesn't need hardware has host tests:
 `firmware/tests/run_host_tests.sh`.
 
+The companion's browser tests use pytest-playwright and need the
+Chromium headless shell:
+`server/.venv/bin/python3 -m playwright install --only-shell chromium`.
+Locally, a missing browser shows up as a pytest skip with a reason; in CI,
+or with `SKYPANE_REQUIRE_BROWSER=1`, it fails the run. Run only the
+browser tests with `./scripts/run-all-tests.sh -m browser`.
+
 ## Firmware
 
 The firmware builds in a pinned ESP-IDF container, so no toolchain

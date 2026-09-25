@@ -37,7 +37,13 @@ from companion import app as companion_app
 from companion.layout import escape_html
 from companion.pages import config_page
 from companion_app_server import served_asset, served_stylesheet
-from companion_markup import css_rules, declarations_for
+from companion_markup import (
+    at_rule_blocks,
+    css_rules,
+    declarations_for,
+    rule_indices,
+    rules_with_selector,
+)
 from server import device_config
 from server.plane import colour_rules
 
@@ -604,6 +610,37 @@ def test_dirty_state_js_references_quiet_preset_attrs(dirty_state_js):
             "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,))
 
 
+# --- Stylesheet vocabulary for the selection-state checks below ---------
+
+_HAS_QUERY = ("@supports selector(:has(*))",)
+_ACCENT_WASH = "color-mix(in srgb, var(--color-accent) 12%, transparent)"
+_INSET_RING = "inset 0 0 0 2px var(--color-accent)"
+_MUTED_TEXT = "color-mix(in srgb, var(--color-text) 70%, transparent)"
+
+
+def _declared(css, selector, at_rules=()):
+    """`declarations_for()` for `selector` in exactly the `at_rules`
+    context, failing with a readable message when no rule declares it
+    there."""
+    decls = declarations_for(css, selector, at_rules=at_rules) if rules_with_selector(css, selector) else {}
+    assert decls, "expected style.css to declare %r in the at-rule context %r" % (selector, at_rules)
+    return decls
+
+
+def _assert_constant_border_and_inset_ring(decls, label):
+    assert decls.get("border-color") == "var(--color-accent)", (
+        "%s must recolour its constant 1px border to the accent, got %r" % (label, decls))
+    assert decls.get("box-shadow") == _INSET_RING, (
+        "%s must carry T6's inset accent ring, got %r" % (label, decls))
+    assert not decls.get("border", "").startswith("2px") and decls.get("border-width") != "2px", (
+        "%s must never declare a 2px border again (T6's layout shift), got %r" % (label, decls))
+
+
+def _assert_one_has_feature_query_block(css):
+    count = at_rule_blocks(css).count(_HAS_QUERY[0])
+    assert count == 1, "expected exactly one %s block, got %d" % (_HAS_QUERY[0], count)
+
+
 def test_style_css_carries_no_hide_rule_for_static_save_fallback_attr(served_css):
     """style.css carries NO rule selector referencing STATIC_SAVE_FALLBACK_ATTR any more - the
     hide rule is retired outright, its button now the restored bar's own visible Save - while
@@ -613,35 +650,17 @@ def test_style_css_carries_no_hide_rule_for_static_save_fallback_attr(served_css
     The button STATIC_SAVE_FALLBACK_ATTR's hide rule used to target is now the restored bar's
     own visible Save (relocated by Task 1) and its visibility is the bar's OWN `hidden`
     attribute, never a second, independent CSS hide mechanism for the same element. This check
-    asserts the RELATIONSHIP (no SELECTOR references it) rather than a raw text count - comments
-    MAY (indeed do) still name it in prose, recording the history.
+    asserts the RELATIONSHIP (no SELECTOR references it) over the parsed stylesheet. The
+    label's "survive in writing" clauses were about stylesheet comments, which render
+    nothing, so they are not asserted.
     """
-    source = served_css
-    assert config_page.STATIC_SAVE_FALLBACK_ATTR in source, (
-        "expected style.css to still mention STATIC_SAVE_FALLBACK_ATTR's literal value somewhere "
-        "(in prose, recording the history)")
-    for rule in css_rules(source):
+    for rule in css_rules(served_css):
         for selector in rule.selectors:
             assert config_page.STATIC_SAVE_FALLBACK_ATTR not in selector, (
                 "expected NO rule selector anywhere in style.css to still reference %r, but found "
                 "one - the hide rule this check used to require is retired outright "
                 "(28-08-PLAN.md Task 2, CFG-77/CFG-78); selector: %r"
                 % (config_page.STATIC_SAVE_FALLBACK_ATTR, selector))
-    # THE SUPERSEDED CONTRACT IS AMENDED IN WRITING, NOT ERASED: the
-    # original comment's own distinctive sentences must still be present.
-    for distinctive in (
-            "PROVEN its own replacement bar is actually live",
-            "turned out to still be element PRESENCE, not proven liveness (B1)",
-            "B1's proven-liveness fix"):
-        assert distinctive in source, (
-            "expected the ORIGINAL comment's own sentence %r to survive verbatim - the B1/P0 "
-            "contract must be superseded in writing, not deleted" % (distinctive,))
-    assert "27-03-PLAN.md" in source and "SUPERSEDED" in source, (
-        "expected a dated 27-03-PLAN.md paragraph stating the contract is SUPERSEDED, not merely "
-        "that the rule changed")
-    assert "28-08-PLAN.md Task 2" in source, (
-        "expected a dated 28-08-PLAN.md Task 2 paragraph stating the hide rule itself is now "
-        "retired - the button it hid became the bar's own visible Save")
 
 
 def test_style_css_carries_no_rule_for_the_retired_save_status_region(served_css):
@@ -652,15 +671,11 @@ def test_style_css_carries_no_rule_for_the_retired_save_status_region(served_css
 
     `.save-status` (27-04-PLAN.md, CFG-63) - the retired auto-save status region's own selector -
     is deleted outright, not relocated. Uses `css_rules()` over the SERVED stylesheet, checking
-    every rule's own selector list rather than a raw substring scan, so a comment merely
-    mentioning the class can never trip this.
+    every rule's own selector list, so a comment merely mentioning the class can never trip
+    this. The comment-prose clause of the label is not asserted: a comment renders nothing.
     """
-    source = served_css
-    assert "save-status" in source, (
-        "expected style.css to still mention save-status somewhere, in prose, narrating its own "
-        "retirement")
     save_status_re = re.compile(r"\.save-status\b")
-    for rule in css_rules(source):
+    for rule in css_rules(served_css):
         for selector in rule.selectors:
             assert not save_status_re.search(selector), (
                 "expected NO rule selector anywhere in style.css to still target .save-status - "
@@ -1056,47 +1071,31 @@ def test_selected_runway_card_and_theme_chip_carry_a_background_wash(served_css)
     The developer reported that, across the whole site, the selected element was "very hard to
     see" - a border-only + check-glyph treatment was too subtle at density.
     """
-    source = served_css
-    wash = "background: color-mix(in srgb, var(--color-accent) 12%, transparent);"
+    css = served_css
 
-    runway_selector = ".runway-card--selected {"
-    assert runway_selector in source, "expected style.css to still declare a .runway-card--selected rule"
-    idx = source.index(runway_selector)
-    window = source[idx:idx + 1600]
-    # T6 (22-15-PLAN.md Task 1): the border is constant at 1px and only
-    # recolours; the 2px accent signal moved to an inset ring, which
-    # occupies no layout space at all (a 2px border still widens the
-    # OUTER box of a flex: 1 1 0 card under box-sizing: border-box).
-    assert "border-color: var(--color-accent);" in window, (
-        ".runway-card--selected must recolour its constant 1px border to the accent")
-    assert "box-shadow: inset 0 0 0 2px var(--color-accent);" in window, (
-        ".runway-card--selected must carry T6's inset accent ring - the selection signal that "
-        "replaced the layout-shifting 2px border")
-    assert "border: 2px" not in window, (
-        ".runway-card--selected must never declare a 2px border again - that is T6, the 2px "
-        "layout shift this treatment exists to avoid")
-    assert wash in window, (
-        "expected .runway-card--selected to carry the same 12%-accent background wash "
-        ".theme-form .theme-option--active uses")
+    runway = _declared(css, ".runway-card--selected")
+    # T6: the border is constant at 1px and only recolours; the 2px
+    # accent signal moved to an inset ring, which occupies no layout
+    # space at all (a 2px border still widens the OUTER box of a
+    # flex: 1 1 0 card under box-sizing: border-box).
+    _assert_constant_border_and_inset_ring(runway, ".runway-card--selected")
+    assert runway.get("background") == _ACCENT_WASH, (
+        "expected .runway-card--selected to carry the same 12%%-accent background wash "
+        ".theme-form .theme-option--active uses, got %r" % (runway,))
 
     # .theme-chip--selected itself must stay border-only (no background) -
     # the wash must be scoped to .theme-chip__body only, so it never sits
     # behind the rendered preview band and tints it.
-    chip_selected_selector = ".theme-chip--selected {"
-    assert chip_selected_selector in source, "expected style.css to still declare a .theme-chip--selected rule"
-    idx = source.index(chip_selected_selector) + len(chip_selected_selector)
-    rule_body = source[idx:source.index("}", idx)]
-    assert "background:" not in rule_body, (
+    chip_selected = _declared(css, ".theme-chip--selected")
+    assert not {"background", "background-color"} & set(chip_selected), (
         "expected .theme-chip--selected itself to stay border-only - the wash must be scoped to "
-        ".theme-chip__body, not the whole chip (which would tint the preview band)")
+        ".theme-chip__body, not the whole chip (which would tint the preview band), got %r"
+        % (chip_selected,))
 
-    theme_chip_body_selector = ".theme-chip--selected .theme-chip__body {"
-    assert theme_chip_body_selector in source, "expected style.css to declare a %r rule" % (theme_chip_body_selector,)
-    idx = source.index(theme_chip_body_selector)
-    window = source[idx:idx + 200]
-    assert wash in window, (
-        "expected .theme-chip--selected .theme-chip__body to carry the same 12%-accent "
-        "background wash .theme-form .theme-option--active uses")
+    chip_body = _declared(css, ".theme-chip--selected .theme-chip__body")
+    assert chip_body.get("background") == _ACCENT_WASH, (
+        "expected .theme-chip--selected .theme-chip__body to carry the same 12%%-accent "
+        "background wash .theme-form .theme-option--active uses, got %r" % (chip_body,))
 
 
 def test_strong_selected_treatment_is_keyed_to_the_live_checked_radio(served_css):
@@ -1115,209 +1114,115 @@ def test_strong_selected_treatment_is_keyed_to_the_live_checked_radio(served_css
     otherwise clear the newly-checked chip's border) is answered with a positive restore rule
     rather than a re-scoped guard.
     """
-    source = served_css
+    css = served_css
+    _assert_one_has_feature_query_block(css)
 
-    supports_marker = "@supports selector(:has(*)) {"
-    assert source.count(supports_marker) == 1, (
-        "expected exactly one %r block (the live-selection-state one), got %d"
-        % (supports_marker, source.count(supports_marker)))
-    supports_idx = source.index(supports_marker)
+    def _live(selector):
+        return _declared(css, selector, at_rules=_HAS_QUERY)
 
-    wash = "background: color-mix(in srgb, var(--color-accent) 12%, transparent);"
+    _assert_constant_border_and_inset_ring(
+        _live(".theme-chip:has(input:checked)"), ".theme-chip:has(input:checked)")
+    assert _live(".theme-chip:has(input:checked) .theme-chip__body").get("background") == \
+        _ACCENT_WASH, ".theme-chip:has(input:checked) .theme-chip__body must carry the 12%-accent wash"
+    assert _live(".theme-chip:has(input:checked) .theme-chip__check").get("display") == \
+        "inline-flex", ".theme-chip:has(input:checked) .theme-chip__check must be shown"
 
-    def _rule_body(selector):
-        assert selector in source, "expected style.css to declare %r" % (selector,)
-        idx = source.index(selector)
-        assert idx > supports_idx, (
-            "expected %r to live inside the @supports selector(:has(*)) block" % (selector,))
-        return source[idx + len(selector):source.index("}", idx)]
+    # The hover clause used to require `box-shadow: none`, whose only job
+    # was to suppress the hover elevation shadow - once selection IS a
+    # box-shadow, `none` erases the ring the instant a pointer crosses a
+    # selected chip. The restore rule restates the ring instead.
+    for hover_selector in (".theme-chip:has(input:checked):hover",
+                           ".runway-card:has(input:checked):hover"):
+        hover = _live(hover_selector)
+        assert hover.get("border-color") == "var(--color-accent)", (
+            "%s must restore the accent border-color, got %r" % (hover_selector, hover))
+        assert hover.get("box-shadow") == _INSET_RING, (
+            "%s must RESTATE T6's inset ring rather than clearing the shadow, got %r"
+            % (hover_selector, hover))
 
-    def _assert_constant_border_and_inset_ring(body, label):
-        assert "border-color: var(--color-accent);" in body, (
-            "%s must recolour its constant 1px border to the accent" % (label,))
-        assert "box-shadow: inset 0 0 0 2px var(--color-accent);" in body, (
-            "%s must carry T6's inset accent ring" % (label,))
-        assert "border: 2px" not in body, (
-            "%s must never declare a 2px border again (T6's layout shift)" % (label,))
+    runway_live = _live(".runway-card:has(input:checked)")
+    _assert_constant_border_and_inset_ring(runway_live, ".runway-card:has(input:checked)")
+    assert runway_live.get("background") == _ACCENT_WASH, (
+        ".runway-card:has(input:checked) must carry the 12%-accent wash directly (no body wrapper)")
+    assert _live(".runway-card:has(input:checked) .runway-card__check").get("display") == \
+        "inline-flex", ".runway-card:has(input:checked) .runway-card__check must be shown"
 
-    body = _rule_body(".theme-chip:has(input:checked) {")
-    _assert_constant_border_and_inset_ring(body, ".theme-chip:has(input:checked)")
-
-    body = _rule_body(".theme-chip:has(input:checked) .theme-chip__body {")
-    assert wash in body, ".theme-chip:has(input:checked) .theme-chip__body must carry the 12%-accent wash"
-
-    body = _rule_body(".theme-chip:has(input:checked) .theme-chip__check {")
-    assert "display: inline-flex;" in body, ".theme-chip:has(input:checked) .theme-chip__check must be shown"
-
-    hover_selector = ".theme-chip:has(input:checked):hover,"
-    assert hover_selector in source, "expected a live-state hover restore selector for .theme-chip"
-    idx = source.index(hover_selector)
-    assert idx > supports_idx, "expected the .theme-chip live-state hover restore rule inside @supports"
-    window = source[idx:idx + 250]
-    assert "border-color: var(--color-accent);" in window, (
-        ".theme-chip:has(input:checked):hover must restore the accent border-color")
-    # T6 (22-15-PLAN.md Task 1): the hover clause used to require
-    # `box-shadow: none;`, whose only job was to suppress the hover
-    # elevation shadow - once selection IS a box-shadow, `none` erases
-    # the ring the instant a pointer crosses a selected chip.
-    assert "box-shadow: inset 0 0 0 2px var(--color-accent);" in window, (
-        ".theme-chip:has(input:checked):hover must RESTATE T6's inset ring, which suppresses "
-        "the hover elevation without erasing the selection signal")
-    assert "box-shadow: none;" not in window, (
-        ".theme-chip:has(input:checked):hover must not clear the shadow - that would erase T6's "
-        "selection ring on hover")
-
-    body = _rule_body(".runway-card:has(input:checked) {")
-    _assert_constant_border_and_inset_ring(body, ".runway-card:has(input:checked)")
-    assert wash in body, ".runway-card:has(input:checked) must carry the 12%-accent wash directly (no body wrapper)"
-
-    body = _rule_body(".runway-card:has(input:checked) .runway-card__check {")
-    assert "display: inline-flex;" in body, ".runway-card:has(input:checked) .runway-card__check must be shown"
-
-    hover_selector = ".runway-card:has(input:checked):hover,"
-    assert hover_selector in source, "expected a live-state hover restore selector for .runway-card"
-    idx = source.index(hover_selector)
-    assert idx > supports_idx, "expected the .runway-card live-state hover restore rule inside @supports"
-    window = source[idx:idx + 250]
-    assert "border-color: var(--color-accent);" in window, (
-        ".runway-card:has(input:checked):hover must restore the accent border-color")
-    assert "box-shadow: inset 0 0 0 2px var(--color-accent);" in window, (
-        ".runway-card:has(input:checked):hover must RESTATE T6's inset ring rather than clearing "
-        "the shadow")
-    assert "box-shadow: none;" not in window, (
-        ".runway-card:has(input:checked):hover must not clear the shadow - that would erase T6's "
-        "selection ring on hover")
-
-    # Fallback intact: all four pre-existing server-class rules must
-    # still exist verbatim.
+    # Fallback intact: every pre-existing server-class rule still exists
+    # outside the feature query.
     for selector in (
-        ".theme-chip--selected {",
-        ".theme-chip--selected .theme-chip__body {",
-        ".runway-card--selected {",
-        ".theme-chip--selected .theme-chip__check {",
-        ".runway-card--selected .runway-card__check {",
+        ".theme-chip--selected",
+        ".theme-chip--selected .theme-chip__body",
+        ".runway-card--selected",
+        ".theme-chip--selected .theme-chip__check",
+        ".runway-card--selected .runway-card__check",
     ):
-        assert selector in source, "expected the pre-existing fallback rule %r to survive verbatim" % (selector,)
+        _declared(css, selector)
 
-    # --- 23-10-PLAN.md Task 1 (D3/CFG-32): SELECTION ANSWERS -----------
-    # A `transition` is a property of the ELEMENT, not of the state.
-    # Declared on the BASE rule it animates the property however the
-    # state that changes it is reached - live `:has(input:checked)`
-    # inside the query, and the server-rendered `--selected` fallback
-    # outside it, from one declaration.
-    def _base_rule_body(selector):
-        # Newline-anchored, not a bare substring search: this selector's
-        # own text also occurs as a substring inside a more specific
-        # selector declared EARLIER in the file.
-        anchored = "\n" + selector
-        assert anchored in source, "expected style.css to declare the base rule %r" % (selector,)
-        idx = source.index(anchored)
-        assert idx < supports_idx, (
-            "expected the base rule %r to be declared BEFORE (outside) the one @supports "
-            "selector(:has(*)) block" % (selector,))
-        start = idx + len(anchored)
-        return source[start:source.index("}", start)]
-
-    def _assert_transition(body, label, properties):
-        assert "transition:" in body, (
-            "%s must declare the selection transition on its OWN base rule - a transition "
-            "declared on the base rule animates the property however the state is reached, "
-            "which is why the live :has() treatment needs no second feature query (D3, "
-            "23-10-PLAN.md Task 1)" % (label,))
-        decl = body[body.index("transition:"):]
-        decl = decl[:decl.index(";") + 1] if ";" in decl else decl
+    # SELECTION ANSWERS (D3/CFG-32). A `transition` is a property of the
+    # ELEMENT, not of the state: declared on the BASE rule, outside the
+    # feature query, it animates the property however the state is
+    # reached - live `:has(input:checked)` inside the query, and the
+    # server-rendered `--selected` fallback outside it.
+    for selector, properties in (
+        (".theme-chip", ("transform", "border-color", "box-shadow")),
+        (".theme-chip__body", ("background-color",)),
+        (".runway-card", ("transform", "border-color", "box-shadow", "background-color")),
+    ):
+        transition = _declared(css, selector).get("transition")
+        assert transition, (
+            "%s must declare the selection transition on its OWN base rule, outside the "
+            "feature query - a transition declared on the base rule animates the property "
+            "however the state is reached (D3, 23-10-PLAN.md Task 1)" % (selector,))
         for prop in properties:
-            assert prop in decl, (
+            assert prop in transition, (
                 "%s's transition must name %r - it is one of the properties that actually "
                 "changes on selection, and a property absent from the list switches instantly "
-                "(got %r)" % (label, prop, decl.strip()))
-        assert "var(--motion-fast)" in decl, (
-            "%s's transition must spend var(--motion-fast), the phase's REACTION token - a "
-            "selection is a state change the user just caused and is watching for confirmation "
-            "of (got %r)" % (label, decl.strip()))
-
-    for selector, properties in (
-        (".theme-chip {", ("transform", "border-color", "box-shadow")),
-        (".theme-chip__body {", ("background-color",)),
-        (".runway-card {", ("transform", "border-color", "box-shadow", "background-color")),
-    ):
-        body = _base_rule_body(selector)
-        _assert_transition(body, selector.rstrip(" {"), properties)
+                "(got %r)" % (selector, prop, transition))
+        assert "var(--motion-fast)" in transition, (
+            "%s's transition must spend var(--motion-fast), the phase's REACTION token (got %r)"
+            % (selector, transition))
 
     # The scale itself, and the fallback parity that is the whole reason
     # one transition declaration is enough: the live rule and the
     # --selected fallback must carry the SAME transform, or a browser
     # without :has() gets a differently-sized selected card.
-    def _scale_of(selector, inside):
-        assert selector in source, "expected style.css to declare %r" % (selector,)
-        idx = source.index(selector)
-        if inside:
-            assert idx > supports_idx, "expected %r to live inside the feature query" % (selector,)
-        else:
-            assert idx < supports_idx, "expected %r to live outside the feature query" % (selector,)
-        start = idx + len(selector)
-        body = source[start:source.index("}", start)]
-        match = re.search(r"transform:\s*scale\(([^)]+)\)", body)
-        assert match, (
-            "expected %r to carry the selection scale (`transform: scale(...)`) - the wash's "
-            "fade is the primary signal and the scale is its punctuation, and a transform "
-            "changes no layout box so T6 cannot recur through it" % (selector,))
-        return match.group(1).strip()
-
     scales = {}
-    for selector, inside in (
-        (".theme-chip:has(input:checked) {", True),
-        (".theme-chip--selected {", False),
-        (".runway-card:has(input:checked) {", True),
-        (".runway-card--selected {", False),
+    for selector, at_rules in (
+        (".theme-chip:has(input:checked)", _HAS_QUERY),
+        (".theme-chip--selected", ()),
+        (".runway-card:has(input:checked)", _HAS_QUERY),
+        (".runway-card--selected", ()),
     ):
-        scales[selector] = _scale_of(selector, inside)
+        transform = _declared(css, selector, at_rules=at_rules).get("transform", "")
+        match = re.fullmatch(r"scale\(([^)]+)\)", transform)
+        assert match, (
+            "expected %r to carry the selection scale (`transform: scale(...)`), got %r - a "
+            "transform changes no layout box so T6 cannot recur through it" % (selector, transform))
+        scales[selector] = match.group(1).strip()
     assert len(set(scales.values())) == 1, (
         "the live :has(input:checked) rules and their --selected fallbacks must carry the SAME "
-        "scale, or a browser without :has() renders a different-sized selected card - the "
-        "identical parity contract T6 already holds for the border and the ring, got %r" % (scales,))
+        "scale, or a browser without :has() renders a different-sized selected card, got %r"
+        % (scales,))
 
     # Saved-but-not-live must CLEAR the scale, exactly as it already
-    # clears the accent ring and the wash: a chip can be saved while its
-    # neighbour is the live choice, and two scaled chips would claim two
-    # selections.
+    # clears the accent ring and the wash: two scaled chips would claim
+    # two selections.
     for selector in (
-        ".theme-chip--selected:not(:has(input:checked)) {",
-        ".runway-card--selected:not(:has(input:checked)) {",
+        ".theme-chip--selected:not(:has(input:checked))",
+        ".runway-card--selected:not(:has(input:checked))",
     ):
-        assert selector in source, "expected style.css to declare %r" % (selector,)
-        start = source.index(selector) + len(selector)
-        body = source[start:source.index("}", start)]
-        assert "transform: none;" in body, (
-            "%s must clear the selection scale with `transform: none;` - it already clears the "
-            "accent ring and the wash for the same reason, and a saved-but-not-live chip that "
-            "stays scaled claims a selection it does not have" % (selector,))
+        assert _live(selector).get("transform") == "none", (
+            "%s must clear the selection scale with `transform: none` - a saved-but-not-live "
+            "chip that stays scaled claims a selection it does not have" % (selector,))
 
-    # And the block itself carries NO transition. Measured on
-    # comment-stripped source, because the paragraphs inside that block
-    # discuss the very word this scan counts.
-    stripped = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
-    assert stripped.count(supports_marker) == 1, (
-        "expected exactly one %r block in comment-stripped source, got %d"
-        % (supports_marker, stripped.count(supports_marker)))
-    open_idx = stripped.index(supports_marker) + len(supports_marker) - 1
-    depth = 0
-    close_idx = None
-    for pos in range(open_idx, len(stripped)):
-        if stripped[pos] == "{":
-            depth += 1
-        elif stripped[pos] == "}":
-            depth -= 1
-            if depth == 0:
-                close_idx = pos
-                break
-    assert close_idx is not None, "the @supports selector(:has(*)) block is never closed"
-    assert "transition" not in stripped[open_idx:close_idx], (
-        "the ONE @supports selector(:has(*)) block declares a `transition` - it must not. A "
-        "transition belongs on each selectable surface's BASE rule, where it animates the live "
-        ":has() treatment and the --selected fallback identically from one declaration; moving "
-        "it inside the query is the first step toward the second feature-query block Phase 15's "
-        "D-05 already had retired (D3, 23-10-PLAN.md Task 1)")
+    # And the block itself carries NO transition: it belongs on each
+    # selectable surface's BASE rule.
+    for rule in css_rules(css):
+        if _HAS_QUERY[0] in rule.at_rules:
+            for prop, value in rule.declarations:
+                assert "transition" not in prop and "transition" not in value, (
+                    "the ONE @supports selector(:has(*)) block declares a transition on %r - it "
+                    "must not (D3, 23-10-PLAN.md Task 1)" % (rule.selectors,))
 
 
 def test_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable_after_the_accordion_rebuild(served_css):
@@ -1329,55 +1234,36 @@ def test_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable
     .palette-chip:has(input:checked) inside the file's one @supports selector(:has(*)) block,
     carrying the accent border, inset ring, 12%% wash and check-glyph declarations (T6,
     30-07-PLAN.md Task 3)"""
-    source = served_css
+    css = served_css
 
-    # (a) T2/T15: the specificity RELATIONSHIP, not merely presence.
-    # button[type="submit"] and button.calendar-disconnect-btn are both
-    # (0,1,1) - equal specificity - so which one wins is decided by
-    # SOURCE ORDER alone.
-    submit_selector = 'button[type="submit"] {'
-    disconnect_selector = "button.calendar-disconnect-btn {"
-    assert submit_selector in source, "expected style.css to declare %r" % (submit_selector,)
-    assert disconnect_selector in source, (
-        "expected style.css to declare %r (element-qualified - a bare '.calendar-disconnect-btn' "
-        "is only (0,1,0) and loses to button[type=\"submit\"]'s (0,1,1) regardless of source "
-        "order)" % (disconnect_selector,))
-    submit_idx = source.index(submit_selector)
-    disconnect_idx = source.index(disconnect_selector)
-    assert disconnect_idx > submit_idx, (
-        "expected %r to appear AFTER %r in source order - at equal (0,1,1) specificity the LATER "
-        "rule wins, and this is the exact relationship that let the destructive control render "
-        "as the page's primary accent-filled CTA for a phase and a half"
-        % (disconnect_selector, submit_selector))
+    # (a) T2/T15: button[type="submit"] and button.calendar-disconnect-btn
+    # are both (0,1,1) - equal specificity - so SOURCE ORDER alone decides
+    # which one wins. A bare '.calendar-disconnect-btn' is only (0,1,0)
+    # and would lose regardless of order.
+    submit = rule_indices(css, 'button[type="submit"]', at_rules=())
+    disconnect = rule_indices(css, "button.calendar-disconnect-btn", at_rules=())
+    assert submit, 'expected style.css to declare a top-level button[type="submit"] rule'
+    assert disconnect, (
+        "expected style.css to declare a top-level, element-qualified "
+        "button.calendar-disconnect-btn rule")
+    assert min(disconnect) > max(submit), (
+        "expected every button.calendar-disconnect-btn rule to come AFTER every "
+        'button[type="submit"] rule - at equal (0,1,1) specificity the LATER rule wins, and '
+        "this is the exact relationship that let the destructive control render as the page's "
+        "primary accent-filled CTA for a phase and a half")
 
     # (b) T6, re-keyed: the palette chip's checked-state declarations
-    # must live inside the ONE @supports selector(:has(*)) block - the
-    # new selection mechanism, replacing the retired
-    # `input:checked + .frame-colours__row` sibling selector.
-    supports_marker = "@supports selector(:has(*)) {"
-    assert source.count(supports_marker) == 1, (
-        "expected exactly one %r block, got %d" % (supports_marker, source.count(supports_marker)))
-    supports_idx = source.index(supports_marker)
-
-    def _rule_body(selector):
-        assert selector in source, "expected style.css to declare %r" % (selector,)
-        idx = source.index(selector)
-        assert idx > supports_idx, (
-            "expected %r to live inside the @supports selector(:has(*)) block" % (selector,))
-        return source[idx + len(selector):source.index("}", idx)]
-
-    base_body = _rule_body(".palette-chip:has(input:checked) {")
-    assert "border-color: var(--color-accent);" in base_body, (
+    # live inside the ONE @supports selector(:has(*)) block.
+    _assert_one_has_feature_query_block(css)
+    chip = _declared(css, ".palette-chip:has(input:checked)", at_rules=_HAS_QUERY)
+    assert chip.get("border-color") == "var(--color-accent)", (
         ".palette-chip:has(input:checked) must recolour its own border to accent")
-    assert "box-shadow: inset 0 0 0 2px var(--color-accent);" in base_body, (
+    assert chip.get("box-shadow") == _INSET_RING, (
         ".palette-chip:has(input:checked) must carry the inset accent ring")
-
-    name_body = _rule_body(".palette-chip:has(input:checked) .palette-chip__name {")
-    assert "background: color-mix(in srgb, var(--color-accent) 12%, transparent);" in name_body, (
-        "expected the 12%% accent wash on .palette-chip__name")
-
-    check_body = _rule_body(".palette-chip:has(input:checked) .palette-chip__check {")
-    assert "display: inline-flex;" in check_body, "expected the check glyph to switch to inline-flex"
+    name = _declared(css, ".palette-chip:has(input:checked) .palette-chip__name", at_rules=_HAS_QUERY)
+    assert name.get("background") == _ACCENT_WASH, "expected the 12% accent wash on .palette-chip__name"
+    check = _declared(css, ".palette-chip:has(input:checked) .palette-chip__check", at_rules=_HAS_QUERY)
+    assert check.get("display") == "inline-flex", "expected the check glyph to switch to inline-flex"
 
 
 def test_calendar_fusion_css_retired_from_the_stylesheet(served_css):
@@ -1389,12 +1275,12 @@ def test_calendar_fusion_css_retired_from_the_stylesheet(served_css):
     - a plan that deletes the merged card's separate-siblings markup while leaving this CSS
     behind would ship dead rules that no longer match anything (Pitfall 2).
     """
-    source = served_css
-    for retired_selector in (
-            ".page-section:has(+ .calendar-disconnect-form)",
-            ".calendar-disconnect-form {"):
-        assert retired_selector not in source, (
-            "expected %r to be retired from style.css entirely" % (retired_selector,))
+    retired = re.compile(r"\.calendar-disconnect-form(?![-\w])")
+    for rule in css_rules(served_css):
+        for selector in rule.selectors:
+            assert not retired.search(selector), (
+                "expected the retired Calendar-card fusion selector to be gone from style.css, "
+                "found %r" % (selector,))
 
 
 def test_saved_but_unchecked_card_degrades_to_a_quiet_current_marker(served_css):
@@ -1408,68 +1294,57 @@ def test_saved_but_unchecked_card_degrades_to_a_quiet_current_marker(served_css)
     The server-rendered --selected class is demoted from driving the strong treatment to an
     honest, quiet "this is what is saved" marker once it is no longer the live choice.
     """
-    source = served_css
-    muted = "color-mix(in srgb, var(--color-text) 70%, transparent)"
+    css = served_css
+    rules = css_rules(css)
 
-    for prefix in (".theme-chip--selected:not(:has(input:checked))", ".runway-card--selected:not(:has(input:checked))"):
-        base_selector = prefix + " {"
-        assert base_selector in source, "expected style.css to declare %r" % (base_selector,)
-        idx = source.index(base_selector)
-        body = source[idx + len(base_selector):source.index("}", idx)]
-        assert "dashed" in body, "%r must use a dashed ring, not a solid one" % (base_selector,)
-        assert muted in body, "%r must use the established 70%%-muted-text colour, not a new strength" % (base_selector,)
-        assert "var(--color-accent)" not in body, (
-            "%r must be accent-free - the quiet marker signals 'saved', not 'selected'" % (base_selector,))
+    for selector in (".theme-chip--selected:not(:has(input:checked))",
+                     ".runway-card--selected:not(:has(input:checked))"):
+        joined = " ".join(_declared(css, selector, at_rules=_HAS_QUERY).values())
+        assert "dashed" in joined, "%r must use a dashed ring, not a solid one" % (selector,)
+        assert _MUTED_TEXT in joined, (
+            "%r must use the established 70%%-muted-text colour, not a new strength" % (selector,))
+        assert "var(--color-accent)" not in joined, (
+            "%r must be accent-free - the quiet marker signals 'saved', not 'selected'" % (selector,))
 
-    chip_body_selector = ".theme-chip--selected:not(:has(input:checked)) .theme-chip__body {"
-    assert chip_body_selector in source, "expected style.css to declare %r" % (chip_body_selector,)
-    idx = source.index(chip_body_selector)
-    window = source[idx:idx + 100]
-    assert "background: transparent;" in window, "%r must clear the wash back to transparent" % (chip_body_selector,)
+    chip_body = _declared(
+        css, ".theme-chip--selected:not(:has(input:checked)) .theme-chip__body", at_rules=_HAS_QUERY)
+    assert chip_body.get("background") == "transparent", "the quiet marker must clear the wash"
 
     for check_selector in (
-        ".theme-chip--selected:not(:has(input:checked)) .theme-chip__check {",
-        ".runway-card--selected:not(:has(input:checked)) .runway-card__check {",
+        ".theme-chip--selected:not(:has(input:checked)) .theme-chip__check",
+        ".runway-card--selected:not(:has(input:checked)) .runway-card__check",
     ):
-        assert check_selector in source, "expected style.css to declare %r" % (check_selector,)
-        idx = source.index(check_selector)
-        window = source[idx:idx + 100]
-        assert "display: none;" in window, "%r must hide the check glyph" % (check_selector,)
+        assert _declared(css, check_selector, at_rules=_HAS_QUERY).get("display") == "none", (
+            "%r must hide the check glyph" % (check_selector,))
 
-    # 22-10-PLAN.md Task 1 (T10): the badge's text used to be the
-    # hard-coded English literal `content: "Current";`, twice, in an app
-    # that ships in two languages. It is now `content:
-    # attr(data-current-label)`, with the translated string
-    # server-rendered onto the element.
-    current_literal = "content: attr(%s)" % config_page.CURRENT_BADGE_ATTR
-    assert source.count(current_literal) == 2, (
-        "expected exactly 2 occurrences of %r, got %d" % (current_literal, source.count(current_literal)))
-    hard_coded = 'content: "Current"'
-    # Comment-filtered deliberately, and this filter is load-bearing
-    # rather than convenient: the DECLARATION is gone, but the rule's own
-    # comment block still quotes `content: "Current"` while recording the
-    # justification for keeping a pseudo-element instead of a <span>.
-    declarations = "\n".join(
-        line for line in source.splitlines() if not line.lstrip().startswith(("*", "/")))
-    assert hard_coded not in declarations, (
-        "expected zero hard-coded English %r DECLARATIONS - T10 moves the badge's text to a "
-        "server-rendered, translated attribute" % (hard_coded,))
+    # T10: the badge's text used to be the hard-coded English literal
+    # `content: "Current"`, twice, in an app that ships in two languages.
+    # It is now `content: attr(data-current-label)`, with the translated
+    # string server-rendered onto the element.
+    current_value = "attr(%s)" % config_page.CURRENT_BADGE_ATTR
+    contents = [(rule.selectors, value) for rule in rules
+                for prop, value in rule.declarations if prop == "content"]
+    from_attr = [selectors for selectors, value in contents if value == current_value]
+    assert len(from_attr) == 2, (
+        "expected exactly 2 `content: %s` declarations, got %r" % (current_value, from_attr))
+    assert not [value for _, value in contents if value.strip("\"'") == "Current"], (
+        "expected zero hard-coded English `content: \"Current\"` declarations - T10 moves the "
+        "badge's text to a server-rendered, translated attribute")
 
     for after_selector in (
-        ".theme-chip--selected:not(:has(input:checked))::after {",
-        ".runway-card--selected:not(:has(input:checked))::after {",
+        ".theme-chip--selected:not(:has(input:checked))::after",
+        ".runway-card--selected:not(:has(input:checked))::after",
     ):
-        assert after_selector in source, "expected style.css to declare %r" % (after_selector,)
-        idx = source.index(after_selector)
-        window = source[idx:idx + 250]
-        assert current_literal in window, "%r must render the English 'Current' tag" % (after_selector,)
+        assert _declared(css, after_selector, at_rules=_HAS_QUERY).get("content") == current_value, (
+            "%r must render the translated 'Current' tag" % (after_selector,))
 
-    assert "actuel" not in source.lower(), (
-        "expected zero occurrences of the French word for 'current' - DP-2 requires English copy")
+    french = [value for rule in rules for _, value in rule.declarations if "actuel" in value.lower()]
+    assert not french, (
+        "expected zero French copy for 'current' in any declaration, got %r" % (french,))
 
-    muted_count = source.count(muted)
+    muted_count = sum(1 for rule in rules for _, value in rule.declarations if _MUTED_TEXT in value)
     assert muted_count >= 17, (
-        "expected the established 70%%-muted-text mix to appear at least 17 times (16 "
+        "expected the established 70%%-muted-text mix in at least 17 declarations (16 "
         "pre-existing plus the new quiet-marker rules), got %d - a new muted strength must not "
         "be invented" % (muted_count,))
 
@@ -1478,31 +1353,30 @@ def test_style_css_carries_section_caption_and_the_restored_dirty_bar_rules(serv
     """style.css declares .section-caption (70% muted color-mix) AND the restored .dirty-bar -
     fixed-positioned at both breakpoints, its [hidden] override and its Cancel button's own
     quiet-wash override all present (CFG-77/CFG-78, 28-08-PLAN.md Task 2)"""
-    source = served_css
+    css = served_css
 
-    caption_selector = ".section-caption {"
-    assert caption_selector in source, "expected style.css to declare a .section-caption rule"
-    idx = source.index(caption_selector)
-    window = source[idx:idx + 200]
-    assert "color-mix(in srgb, var(--color-text) 70%, transparent)" in window, (
-        "expected .section-caption's rule body to carry the 70% color-mix muted idiom")
+    caption = _declared(css, ".section-caption")
+    assert _MUTED_TEXT in " ".join(caption.values()), (
+        "expected .section-caption to carry the 70%% color-mix muted idiom, got %r" % (caption,))
 
-    # Three `.dirty-bar {` rule bodies: the base rule (flex row, entrance
+    # Three `.dirty-bar` rules: the base rule (flex row, entrance
     # animation - no position declared) plus one per breakpoint (each
-    # setting position: fixed with its own geometry). Assert the COUNT
-    # that actually carries position: fixed is exactly two - never zero
-    # (a breakpoint left position: static) and never three (the base
-    # rule itself should not be the one setting it).
-    dirty_bar_blocks = re.findall(r"\.dirty-bar \{[^}]*\}", source)
-    assert len(dirty_bar_blocks) == 3, (
-        "expected exactly three `.dirty-bar { ... }` rule bodies (the base rule plus one per "
-        "breakpoint), got %d" % len(dirty_bar_blocks))
-    fixed_count = sum(1 for block in dirty_bar_blocks if "position: fixed" in block)
-    assert fixed_count == 2, (
-        "expected exactly two of the three `.dirty-bar { ... }` rule bodies to set position: "
-        "fixed (one per breakpoint), got %d" % fixed_count)
-    assert ".dirty-bar[hidden]" in source, "expected the `.dirty-bar[hidden] { display: none; }` override to survive"
-    assert ".dirty-bar__cancel {" in source, "expected `.dirty-bar__cancel`'s own quiet-wash override to survive"
+    # setting position: fixed with its own geometry). Exactly two carry
+    # position: fixed - never zero (a breakpoint left position: static)
+    # and never three (the base rule itself should not set it).
+    dirty_bar_rules = rules_with_selector(css, ".dirty-bar")
+    assert len(dirty_bar_rules) == 3, (
+        "expected exactly three `.dirty-bar` rules (the base rule plus one per breakpoint), "
+        "got %r" % ([rule.at_rules for rule in dirty_bar_rules],))
+    fixed = [rule.at_rules for rule in dirty_bar_rules
+             if dict(rule.declarations).get("position") == "fixed"]
+    assert len(fixed) == 2 and () not in fixed, (
+        "expected exactly the two breakpoint `.dirty-bar` rules to set position: fixed, got %r"
+        % (fixed,))
+    assert _declared(css, ".dirty-bar[hidden]").get("display") == "none", (
+        "expected the `.dirty-bar[hidden] { display: none; }` override to survive")
+    assert _declared(css, ".dirty-bar__cancel"), (
+        "expected `.dirty-bar__cancel`'s own quiet-wash override to survive")
 
 
 def test_skypane_bar_arrive_keyframes_is_referenced_again_by_the_restored_bar(served_css):
@@ -1510,20 +1384,21 @@ def test_skypane_bar_arrive_keyframes_is_referenced_again_by_the_restored_bar(se
     so a future restoration would not need to move the file's pinned @keyframes count - is
     REFERENCED again by the restored .dirty-bar base rule's own animation: declaration, reused
     rather than reinvented (CFG-77/CFG-78, 28-08-PLAN.md Task 2)"""
-    source = served_css
-    keyframes_marker = "@keyframes skypane-bar-arrive {"
-    assert source.count(keyframes_marker) == 1, (
-        "expected exactly one %s block (still the same one, never duplicated), got %d"
-        % (keyframes_marker, source.count(keyframes_marker)))
-    assert "animation: skypane-bar-arrive" in source, (
-        "expected the restored .dirty-bar base rule to declare animation: skypane-bar-arrive "
-        "var(--motion-fast) ease-out - REUSING the block 27-04 deliberately kept orphaned for "
-        "exactly this restoration, rather than leaving the bar with no entrance or reinventing a "
-        "second block")
-    assert source.count("animation: skypane-bar-arrive") == 1, (
-        "expected exactly ONE rule to reference animation: skypane-bar-arrive, got %d - a second "
-        "consumer would be a genuinely new use this plan did not intend"
-        % source.count("animation: skypane-bar-arrive"))
+    css = served_css
+    blocks = at_rule_blocks(css).count("@keyframes skypane-bar-arrive")
+    assert blocks == 1, (
+        "expected exactly one @keyframes skypane-bar-arrive block (still the same one, never "
+        "duplicated), got %d" % (blocks,))
+    consumers = [
+        (rule.selectors, rule.at_rules)
+        for rule in css_rules(css)
+        for prop, value in rule.declarations
+        if prop in ("animation", "animation-name") and "skypane-bar-arrive" in value.split()
+    ]
+    assert consumers == [((".dirty-bar",), ())], (
+        "expected exactly ONE rule, the restored .dirty-bar base rule, to reference "
+        "skypane-bar-arrive - REUSING the block 27-04 kept orphaned for exactly this "
+        "restoration; got %r" % (consumers,))
 
 
 def test_dirty_state_js_has_no_hardcoded_section_names(dirty_state_js):

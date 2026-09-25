@@ -64,7 +64,7 @@ import companion.test_companion_app_helpers as cah
 from companion import battery as battery_module
 from companion.pages import airlines_page, config_page
 from companion_app_server import http_request, login, served_asset, served_stylesheet
-from companion_markup import css_rules, declarations_for
+from companion_markup import at_rule_blocks, css_rules, declarations_for
 from skypane_test_support import REPO_ROOT, child_env
 
 
@@ -1194,19 +1194,13 @@ def test_style_css_carries_exactly_one_has_feature_query_block(served_css):
     counted on COMMENT-STRIPPED source and on the opening brace — the raw five-line grep counts
     the four paragraphs that explain the rule (CFG-46, 25-01-PLAN.md Task 2)
 
-    A distinct feature-query BLOCK (not per-rule at-rule text) has no `companion_markup` API: the
-    parser records each rule's at-rule PRELUDE TEXT, which is identical for every rule already
-    inside today's one block and would be equally identical for a second, separately-nested
-    block — position information no `css_rules()` caller can recover. Counted instead over the
-    SERVED (HTTP-fetched) stylesheet, comment-stripped locally, never a disk read (F-01's own
-    sanctioned exception for a property genuinely inexpressible over `css_rules()`/
-    `declarations_for()`).
+    Counted as parsed at-rule blocks of the served stylesheet, so the comments that explain
+    the rule never count and a second, separate block with the same prelude does.
     """
-    stripped = re.sub(r"/\*.*?\*/", " ", served_css, flags=re.DOTALL)
-    blocks = re.findall(r"@supports\s+selector\(:has\(\*\)\)\s*\{", stripped)
-    assert len(blocks) == 1, (
-        "expected exactly ONE @supports selector(:has(*)) block in comment-stripped served "
-        "style.css, got %d" % len(blocks))
+    blocks = at_rule_blocks(served_css).count("@supports selector(:has(*))")
+    assert blocks == 1, (
+        "expected exactly ONE @supports selector(:has(*)) block in the served style.css, got %d"
+        % (blocks,))
 
 
 # ==========================================================================
