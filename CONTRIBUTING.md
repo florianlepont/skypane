@@ -33,6 +33,19 @@ may take a few days, but issues and pull requests are welcome.
 - Security problems go through private reporting, not issues — see
   [`SECURITY.md`](./SECURITY.md).
 
+## Code language and comments
+
+- Code, identifiers, comments, docstrings, docs and commit messages are in
+  English. The companion UI stays bilingual: English/French strings live in
+  `companion/i18n_fr/` and every user-facing string literal — leave those
+  alone.
+- A comment says what the code does when that is not obvious, and why:
+  invariants, security invariants, units, or a pointer to a spec.
+- Don't put a plan, ticket, decision, review or phase ID in a comment; that
+  history belongs in git and `.planning/`, not the code.
+- `scripts/check_comment_history.py check` enforces this in CI, and its
+  pending list only shrinks — don't add newly purged files back to it.
+
 ## Licence of contributions
 
 SkyPane is licensed under the AGPL-3.0, and its author also offers it

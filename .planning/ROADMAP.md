@@ -1721,13 +1721,13 @@ Plans:
 3. English-only rule written in CLAUDE.md and CONTRIBUTING.md
 4. Suite green with no behaviour change
 
-**Plans:** 22 plans (13 waves, one PR per directory group)
+**Plans:** 1/22 plans executed
 
 **Execution gates:** G-33 — 35-01 stops unless Phase 33 is complete on `main` and no test reads source files or comments. G-34 — 35-21 (firmware, last purge wave) stops unless 34-11 is complete on `main`. One writer per file per wave. Each group proves "no behaviour change" with a mechanical `same-code` check against its base, plus the full suite and ruff, and records the per-file comment ratio before and after.
 
 Plans:
 
-- [ ] 35-01-PLAN.md — Wave 1 — group 1 foundation: gate G-33, `scripts/check_comment_history.py` (check / ratio / same-code), mutation-proven guard with a ratchet list, CI step, baseline, English-only rule (HYG-04, HYG-06)
+- [x] 35-01-PLAN.md — Wave 1 — group 1 foundation: gate G-33, `scripts/check_comment_history.py` (check / ratio / same-code), mutation-proven guard with a ratchet list, CI step, baseline, English-only rule (HYG-04, HYG-06)
 - [ ] 35-02-PLAN.md — Wave 2 — server/plane part A (render, illustrations, colour_rules, dither, runway_config) (HYG-01)
 - [ ] 35-03-PLAN.md — Wave 2 — server/plane part B (calendar_rules, enrich, detect, manual_resolutions) (HYG-01)
 - [ ] 35-04-PLAN.md — Wave 2 — server top-level production modules (HYG-01, HYG-03)

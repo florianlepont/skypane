@@ -148,7 +148,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [ ] **HYG-01**: Keep what the code does, the *why* and invariants; drop plan/ticket history
 - [ ] **HYG-02**: Same purge in CSS and JS
 - [ ] **HYG-03**: Same purge
-- [ ] **HYG-04**: English-only rule for code, comments, docs and commits in CLAUDE.md and CONTRIBUTING.md
+- [x] **HYG-04**: English-only rule for code, comments, docs and commits in CLAUDE.md and CONTRIBUTING.md
 - [ ] **HYG-05**: Deleted
 - [ ] **HYG-06**: Lint guard in CI rejecting plan/ticket IDs in comments (e.g. `\d{2}-\d{2}-PLAN`, `D-\d+`, `WR-\d+`)
 - [ ] **INT-01**: `fcntl.flock` on `state/poll.lock` around `run_once`
@@ -381,9 +381,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HYG-01 | Phase 35 | Pending |
 | HYG-02 | Phase 35 | Pending |
 | HYG-03 | Phase 35 | Pending |
-| HYG-04 | Phase 35 | Pending |
+| HYG-04 | Phase 35 | Complete |
 | HYG-05 | Phase 35 | Pending |
-| HYG-06 | Phase 35 | Pending |
+| HYG-06 | Phase 35 | In progress (guard live; pending list removed by 35-22) |
 | INT-01 | Phase 36 | Pending |
 | INT-02 | Phase 36 | Pending |
 | INT-03 | Phase 36 | Pending |

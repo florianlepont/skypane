@@ -41,7 +41,17 @@ project pivoted to ADS-B detection of runway-3 traffic before v1.
 
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+### Language and comments
+
+- Code, identifiers, comments, docstrings, docs and commit messages are in
+  English.
+- The companion UI stays bilingual: English/French strings live in
+  `companion/i18n_fr/` and every user-facing string literal.
+- A comment says what the code does when that is not obvious, and why:
+  invariants, security invariants, units, pointers to a spec.
+- No plan, ticket, decision, review or phase IDs in comments. That history
+  lives in git and `.planning/`.
+- `scripts/check_comment_history.py check` enforces this in CI.
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->

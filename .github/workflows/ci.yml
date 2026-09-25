@@ -146,6 +146,11 @@ jobs:
       - name: Lint (blocking — rule set lives in pyproject.toml)
         run: server/.venv/bin/ruff check .
 
+      - name: Comment history guard
+        # Keeps history references out of comments; the pending list is a
+        # ratchet that only shrinks as files are purged.
+        run: server/.venv/bin/python scripts/check_comment_history.py check
+
       - name: Shellcheck deploy scripts
         # shellcheck is preinstalled on the ubuntu-24.04 runner image
         # (37-RESEARCH.md Standard Stack). It reads each file's own
