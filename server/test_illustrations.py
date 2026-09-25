@@ -610,11 +610,21 @@ def test_variants_no_none_and_a350_1000_survives():
     )
 
 
-def test_variants_derived_from_targets_no_second_table():
-    """target_variants_by_airline() is derived from _ILLUSTRATION_TARGETS directly (source assertion)"""
-    import inspect
-    source = inspect.getsource(ill.target_variants_by_airline)
-    assert "_ILLUSTRATION_TARGETS" in source, "target_variants_by_airline() source does not reference _ILLUSTRATION_TARGETS"
+def test_variants_derived_from_targets_no_second_table(monkeypatch):
+    """target_variants_by_airline() reflects _ILLUSTRATION_TARGETS directly, with no separate hardcoded table"""
+    fake_targets = [
+        ("Acme Air", None, "note"),
+        ("Acme Air", "a320", "note"),
+        ("Acme Air", "a350-1000", "note"),
+        ("Zephyr Jet", None, "note"),
+    ]
+    monkeypatch.setattr(ill, "_ILLUSTRATION_TARGETS", fake_targets)
+    got = ill.target_variants_by_airline()
+    expected = [("Acme Air", ["a320", "a350-1000"]), ("Zephyr Jet", [])]
+    assert got == expected, (
+        "target_variants_by_airline() did not reflect a monkeypatched _ILLUSTRATION_TARGETS: "
+        "got %r, expected %r" % (got, expected)
+    )
 
 
 # --- override resolution layer (D-01/D-02, quick task 260902-v26) ----------
