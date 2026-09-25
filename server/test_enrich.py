@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Contract tests for server/plane/enrich.py's adsbdb.com enrichment client
-(D-02, D-P2-05).
+"""Contract tests for server/plane/enrich.py's adsbdb.com enrichment client.
 
 The module under test itself imports `requests`, but every outbound HTTP
 call in this file is replaced with an injected fake transport (a callable
@@ -75,7 +74,7 @@ def _reset_manual_registry_state_dir():
     """Every check that touches manual_resolutions.set_manual_registry_state_dir()
     resets it in its own try/finally, but this belt-and-braces autouse
     fixture guarantees no leftover state dir survives into an unrelated
-    test even if a future edit drops that discipline (MR-4 independence).
+    test even if a future edit drops that discipline.
     """
     yield
     manual_resolutions.set_manual_registry_state_dir(None)
@@ -232,11 +231,11 @@ def test_sentence_case_lowercases_interior_particles():
 
 def test_primary_city_name_reduces_compound_municipality():
     """_primary_city_name() reduces a '/'-separated compound municipality name to its first segment, unchanged when there is no '/'."""
-    # Phase 9 09-04 on-glass finding: OurAirports/adsbdb list every commune
-    # an airport serves "/"-separated in its own municipality field
-    # (confirmed live against api.adsbdb.com - Toulon-Hyeres Airport's real
-    # municipality is "Toulon/Hyeres/Le Palyvestre", serving Orly) - no
-    # panel text role has room for the full compound name.
+    # OurAirports/adsbdb list every commune an airport serves
+    # "/"-separated in its own municipality field (confirmed live against
+    # api.adsbdb.com - Toulon-Hyeres Airport's real municipality is
+    # "Toulon/Hyeres/Le Palyvestre", serving Orly) - no panel text role
+    # has room for the full compound name.
     cases = {
         "Toulon/Hyeres/Le Palyvestre": "Toulon",
         "Toulouse/Blagnac": "Toulouse",
@@ -248,7 +247,7 @@ def test_primary_city_name_reduces_compound_municipality():
 
 
 def test_parse_route_applies_primary_city_name_to_both_cities(hit_body):
-    """_parse_route() applies _primary_city_name() to both origin_city and destination_city, not just one (D-09-style, Phase 9 09-04)."""
+    """_parse_route() applies _primary_city_name() to both origin_city and destination_city, not just one."""
     compound = copy.deepcopy(hit_body)
     compound["response"]["flightroute"]["origin"]["municipality"] = "Toulon/Hyeres/Le Palyvestre"
     compound["response"]["flightroute"]["destination"]["municipality"] = "Bordeaux/Merignac"
@@ -261,7 +260,7 @@ def test_parse_route_applies_primary_city_name_to_both_cities(hit_body):
 
 
 def test_unsafe_callsign_never_queried(hit_body):
-    """a callsign containing non-alphanumeric characters is rejected before the outbound request is built (T-02-04-02)."""
+    """a callsign containing non-alphanumeric characters is rejected before the outbound request is built."""
     cache = {}
     calls = []
     transport = make_transport(200, hit_body, calls=calls)
@@ -288,15 +287,14 @@ def test_normalise_callsign_edge_cases():
     assert enrich.normalise_callsign(None) is None, "expected None for a non-string input"
 
 
-# --- Quick task 260827-hyy: airline_from_callsign() / airline_only_route()
-# / resolve_route() - the ICAO-prefix fallback layered above the adsbdb
-# miss (D-01/D-02/D-03/D-04/D-05). ---------------------------------------
+# --- airline_from_callsign() / airline_only_route() / resolve_route() -
+# the ICAO-prefix fallback layered above the adsbdb miss. -----------------
 
 
 def test_airline_from_callsign_tvf():
     """airline_from_callsign('TVF16VB') returns 'Transavia France'."""
-    # TVF is the plan's headline case: Transavia France's stable ICAO
-    # prefix, resolved with zero network call.
+    # TVF is the headline case: Transavia France's stable ICAO prefix,
+    # resolved with zero network call.
     got = enrich.airline_from_callsign("TVF16VB")
     assert got == "Transavia France", "airline_from_callsign('TVF16VB') = %r, expected 'Transavia France'" % (got,)
 
@@ -378,7 +376,7 @@ def test_resolve_route_unknown_prefix_is_miss():
 
 
 def test_prefix_table_values_are_a_subset_of_illustration_targets():
-    """every value in enrich._ICAO_AIRLINE_PREFIXES is a member of illustrations.target_airline_names() (D-07 drift guard)."""
+    """every value in enrich._ICAO_AIRLINE_PREFIXES is a member of illustrations.target_airline_names() (drift guard)."""
     prefix_values = set(enrich._ICAO_AIRLINE_PREFIXES.values())
     target_names = set(illustrations.target_airline_names())
     missing = prefix_values - target_names
@@ -395,24 +393,24 @@ def test_prefix_table_keys_are_three_uppercase_letters():
 
 
 def test_airline_from_callsign_km_malta():
-    """airline_from_callsign('KMM466') returns 'KM Malta Airlines' (260827-jz6, real curled callsign)."""
+    """airline_from_callsign('KMM466') returns 'KM Malta Airlines' (real curled callsign)."""
     got = enrich.airline_from_callsign("KMM466")
     assert got == "KM Malta Airlines", "airline_from_callsign('KMM466') = %r, expected 'KM Malta Airlines'" % (got,)
 
 
 def test_airline_from_callsign_tuifly_belgium():
-    """airline_from_callsign('JAF7521') returns 'TUIfly Belgium' (260827-jz6, real curled callsign, QT-jz6-D-02 override)."""
+    """airline_from_callsign('JAF7521') returns 'TUIfly Belgium' (real curled callsign, deliberate override)."""
     got = enrich.airline_from_callsign("JAF7521")
     assert got == "TUIfly Belgium", "airline_from_callsign('JAF7521') = %r, expected 'TUIfly Belgium'" % (got,)
 
 
-# --- Quick task 260827-kih: enrich.correct_airline_name() /
-# apply_airline_name_correction() - the single prefix-scoped correction
-# seam applied inside lookup_route(). ---------------------------------
+# --- enrich.correct_airline_name() / apply_airline_name_correction() -
+# the single prefix-scoped correction seam applied inside
+# lookup_route(). -----------------------------------------------------
 
 
 def test_correct_airline_name_aia_to_amelia():
-    """correct_airline_name('AIA6412', 'Avies') returns 'Amelia' (260827-kih)."""
+    """correct_airline_name('AIA6412', 'Avies') returns 'Amelia'."""
     # The headline case: adsbdb's real recorded AIA6412 response attributes
     # the AIA prefix to "Avies" (a different, defunct Estonian carrier) -
     # correct_airline_name() corrects it to "Amelia".
@@ -421,7 +419,7 @@ def test_correct_airline_name_aia_to_amelia():
 
 
 def test_correct_airline_name_is_prefix_scoped():
-    """correct_airline_name('ZZZ1234', 'Avies') returns 'Avies' unchanged - a different prefix carrying the same string is never rewritten (QT-kih-D-01)."""
+    """correct_airline_name('ZZZ1234', 'Avies') returns 'Avies' unchanged - a different prefix carrying the same string is never rewritten."""
     got = enrich.correct_airline_name("ZZZ1234", "Avies")
     assert got == "Avies", (
         "correct_airline_name('ZZZ1234', 'Avies') = %r, expected 'Avies' unchanged (prefix-scoped, "
@@ -430,7 +428,7 @@ def test_correct_airline_name_is_prefix_scoped():
 
 
 def test_resolve_route_corrects_aia_fresh_then_cached(aia_hit_body):
-    """resolve_route('AIA6412', ...) corrects the real recorded AIA/Avies misattribution to 'Amelia' on both a fresh_hit and a cache_hit, while the cache entry itself keeps the raw upstream string (QT-kih-D-02)."""
+    """resolve_route('AIA6412', ...) corrects the real recorded AIA/Avies misattribution to 'Amelia' on both a fresh_hit and a cache_hit, while the cache entry itself keeps the raw upstream string."""
     cache = {}
     calls = []
     transport = make_transport(200, aia_hit_body, calls=calls)
@@ -450,13 +448,13 @@ def test_resolve_route_corrects_aia_fresh_then_cached(aia_hit_body):
 
 
 def test_airline_from_callsign_aia_amelia():
-    """airline_from_callsign('AIA6412') returns 'Amelia' (260827-kih, zero network call)."""
+    """airline_from_callsign('AIA6412') returns 'Amelia' (zero network call)."""
     got = enrich.airline_from_callsign("AIA6412")
     assert got == "Amelia", "airline_from_callsign('AIA6412') = %r, expected 'Amelia'" % (got,)
 
 
 def test_correction_table_agrees_with_prefix_table_and_targets():
-    """every _AIRLINE_NAME_CORRECTIONS row agrees with _ICAO_AIRLINE_PREFIXES and its corrected value is a target_airline_names() member (QT-kih-D-03 cross-table invariant)."""
+    """every _AIRLINE_NAME_CORRECTIONS row agrees with _ICAO_AIRLINE_PREFIXES and its corrected value is a target_airline_names() member (cross-table invariant)."""
     target_names = set(illustrations.target_airline_names())
     for (prefix, _stale), corrected in enrich._AIRLINE_NAME_CORRECTIONS.items():
         prefix_value = enrich._ICAO_AIRLINE_PREFIXES.get(prefix)
@@ -500,7 +498,7 @@ def test_correction_seam_never_raises_battery():
                 )
 
 
-# --- Quick task 260827-kih Task 2: the three stale-brand corrections
+# --- The three stale-brand corrections
 # (FPO/CRL/CCM) applied through the same seam. ------------------------
 
 
@@ -517,7 +515,7 @@ def _stubbed_hit_body(airline_name):
 
 
 def test_correct_airline_name_three_stale_brand_pairs():
-    """correct_airline_name() maps FPO/Europe Airpost -> ASL Airlines France, CRL/Corsairfly -> Corsair, CCM/CCM Airlines -> Air Corsica (260827-kih)."""
+    """correct_airline_name() maps FPO/Europe Airpost -> ASL Airlines France, CRL/Corsairfly -> Corsair, CCM/CCM Airlines -> Air Corsica."""
     cases = [
         ("FPO701", "Europe Airpost", "ASL Airlines France"),
         ("CRL8025", "Corsairfly", "Corsair"),
@@ -529,7 +527,7 @@ def test_correct_airline_name_three_stale_brand_pairs():
 
 
 def test_resolve_route_and_selection_for_three_stale_brand_carriers():
-    """resolve_route() corrects all three stale-brand carriers under their own prefix and leaves the same string untouched under an unrelated prefix; the corrected Air Corsica route selects the renamed air-corsica.png/air-corsica-atr72.png files (260827-kih)."""
+    """resolve_route() corrects all three stale-brand carriers under their own prefix and leaves the same string untouched under an unrelated prefix; the corrected Air Corsica route selects the renamed air-corsica.png/air-corsica-atr72.png files."""
     cases = [
         ("FPO701", "Europe Airpost", "ASL Airlines France"),
         ("CRL8025", "Corsairfly", "Corsair"),
@@ -567,36 +565,36 @@ def test_resolve_route_and_selection_for_three_stale_brand_carriers():
     )
 
 
-# --- Quick task 260827-lgt: HOP! Air France, Wizz Air Malta, KlasJet -
+# --- HOP! Air France, Wizz Air Malta, KlasJet -
 # three new prefix-table rows, cross-checked against the official Paris
 # Aeroport Orly airline list. ------------------------------------
 
 
 def test_airline_from_callsign_hop_air_france():
-    """airline_from_callsign('HOP4001') returns 'Air France Hop' (260827-lgt, real curled callsign)."""
+    """airline_from_callsign('HOP4001') returns 'Air France Hop' (real curled callsign)."""
     got = enrich.airline_from_callsign("HOP4001")
     assert got == "Air France Hop", "airline_from_callsign('HOP4001') = %r, expected 'Air France Hop'" % (got,)
 
 
 def test_airline_from_callsign_wizz_air_malta():
-    """airline_from_callsign('WMT3001') returns 'Wizz Air' (260827-lgt, real curled callsign WMT3001; adsbdb itself resolves 'Wizz Air Malta', QT-lgt-D-01 deliberate brand consolidation)."""
+    """airline_from_callsign('WMT3001') returns 'Wizz Air' (real curled callsign WMT3001; adsbdb itself resolves 'Wizz Air Malta', deliberate brand consolidation)."""
     got = enrich.airline_from_callsign("WMT3001")
     assert got == "Wizz Air", "airline_from_callsign('WMT3001') = %r, expected 'Wizz Air'" % (got,)
 
 
 def test_airline_from_callsign_klasjet():
-    """airline_from_callsign('KLJ123') returns 'KlasJet' (260827-lgt, KLJ123 is a SYNTHETIC shape-valid callsign - no real KLJ callsign was ever live-confirmed, QT-lgt-D-06)."""
+    """airline_from_callsign('KLJ123') returns 'KlasJet' (KLJ123 is a SYNTHETIC shape-valid callsign - no real KLJ callsign was ever live-confirmed)."""
     got = enrich.airline_from_callsign("KLJ123")
     assert got == "KlasJet", "airline_from_callsign('KLJ123') = %r, expected 'KlasJet'" % (got,)
 
 
 def test_no_correction_row_for_new_lgt_prefixes():
-    """no _AIRLINE_NAME_CORRECTIONS row exists whose prefix element is HOP, WMT or KLJ (QT-lgt-D-07 guard)."""
+    """no _AIRLINE_NAME_CORRECTIONS row exists whose prefix element is HOP, WMT or KLJ (guard)."""
     bad = [k for k in enrich._AIRLINE_NAME_CORRECTIONS if k[0] in ("HOP", "WMT", "KLJ")]
     assert not bad, "unexpected _AIRLINE_NAME_CORRECTIONS row(s) for HOP/WMT/KLJ: %r" % (bad,)
 
 
-# --- Quick task 260827-oz9: note_unresolved_prefix()/
+# --- note_unresolved_prefix()/
 # trim_unresolved_prefixes() - a pure, bounded, hostile-input-proof
 # unrecognized-ICAO-prefix recorder layered on top of resolve_route()'s
 # existing "miss" classification. -------------------------------------
@@ -676,7 +674,7 @@ def test_note_unresolved_prefix_hostile_input_battery():
 
 
 def test_trim_unresolved_prefixes_favours_recurrence():
-    """trim_unresolved_prefixes() evicts lowest-count-then-oldest-last-seen, so a recurring prefix survives a flood of one-off arrivals and the newer one-off wins the tie-break (QT-oz9-D-04)."""
+    """trim_unresolved_prefixes() evicts lowest-count-then-oldest-last-seen, so a recurring prefix survives a flood of one-off arrivals and the newer one-off wins the tie-break."""
     reg = {}
     for _ in range(5):
         enrich.note_unresolved_prefix("AAA1", reg, now="2020-01-01T00:00:00+00:00")
@@ -716,19 +714,17 @@ def test_note_unresolved_prefix_agrees_with_resolve_route():
     assert list(reg) == ["ZZQ"], "expected only 'ZZQ' in the registry, got %r" % (list(reg),)
 
 
-# --- Phase 8 plan 08-02 (D-09): callsign_iata threaded through
+# --- callsign_iata threaded through
 # _parse_route()/_route_from_entry()/airline_only_route(). This field is
 # adsbdb's IATA-formatted flight identifier (e.g. "AF1234") - reliable for
 # legacy/full-service carriers, where the ICAO and IATA callsigns denote
 # the same real published flight number, and not reliably meaningful for
-# rotating-callsign carriers (see
-# .planning/notes/adsbdb-callsign-lookup-legacy-vs-rotating.md) - these
-# tests pin its presence/optionality/persistence, not its universal
-# correctness. ---------------------------------------------------------
+# rotating-callsign carriers - these tests pin its
+# presence/optionality/persistence, not its universal correctness. -----
 
 
 def test_callsign_iata_parsed_from_real_hits(hit_body, aia_hit_body):
-    """_parse_route() reads callsign_iata from two real fixtures (TVF16VB -> 'TO16VB', AIA6412 -> 'U36412') (D-09)."""
+    """_parse_route() reads callsign_iata from two real fixtures (TVF16VB -> 'TO16VB', AIA6412 -> 'U36412')."""
     # Two distinct real fixtures, not one, so a hardcoded value could not
     # pass by accident.
     route_tvf = enrich._parse_route(hit_body)
@@ -746,7 +742,7 @@ def test_callsign_iata_parsed_from_real_hits(hit_body, aia_hit_body):
 
 
 def test_callsign_iata_optional_never_route_fatal(hit_body):
-    """callsign_iata is optional and never route-fatal: absent/empty/whitespace/non-string values all still resolve a full route with callsign_iata degraded to None (D-09, T-08-02-01/T-08-02-02)."""
+    """callsign_iata is optional and never route-fatal: absent/empty/whitespace/non-string values all still resolve a full route with callsign_iata degraded to None."""
     absent = copy.deepcopy(hit_body)
     del absent["response"]["flightroute"]["callsign_iata"]
     route = enrich._parse_route(absent)
@@ -766,7 +762,7 @@ def test_callsign_iata_optional_never_route_fatal(hit_body):
 
 
 def test_callsign_iata_cache_round_trip_parity(hit_body, aia_hit_body):
-    """a callsign resolved twice, the second time with no transport available, agrees on callsign_iata both on the plain hit path (TVF16VB) and the airline-name-correction path (AIA6412, Avies->Amelia) - proving both _route_from_entry() and apply_airline_name_correction()'s shallow copy preserve the field (D-09)."""
+    """a callsign resolved twice, the second time with no transport available, agrees on callsign_iata both on the plain hit path (TVF16VB) and the airline-name-correction path (AIA6412, Avies->Amelia) - proving both _route_from_entry() and apply_airline_name_correction()'s shallow copy preserve the field."""
     cache = {}
     transport = make_transport(200, hit_body)
     first = enrich.lookup_route("TVF16VB", cache, transport=transport)
@@ -800,7 +796,7 @@ def test_callsign_iata_cache_round_trip_parity(hit_body, aia_hit_body):
 
 
 def test_shape_parity_across_all_three_builders(hit_body):
-    """_parse_route(), _route_from_entry() and airline_only_route() all agree on one key set, derived from a real _parse_route() result rather than hardcoded (D-09)."""
+    """_parse_route(), _route_from_entry() and airline_only_route() all agree on one key set, derived from a real _parse_route() result rather than hardcoded."""
     parsed = enrich._parse_route(hit_body)
     assert parsed is not None, "setup failure: expected the real TVF16VB fixture to resolve a full route"
     expected_keys = set(parsed.keys())
@@ -819,7 +815,7 @@ def test_shape_parity_across_all_three_builders(hit_body):
 
 
 def test_raw_icao_callsign_never_smuggled_in(hit_body):
-    """_parse_route()'s returned dict has no 'callsign'/'callsign_icao' key and no value equal to the raw ICAO callsign string - the raw callsign is structurally absent, not just unused by the renderer (D-08)."""
+    """_parse_route()'s returned dict has no 'callsign'/'callsign_icao' key and no value equal to the raw ICAO callsign string - the raw callsign is structurally absent, not just unused by the renderer."""
     route = enrich._parse_route(hit_body)
     assert route is not None, "setup failure: expected the real TVF16VB fixture to resolve a full route"
     assert "callsign" not in route and "callsign_icao" not in route, (
@@ -836,14 +832,13 @@ def test_raw_icao_callsign_never_smuggled_in(hit_body):
         )
 
 
-# --- Phase 13 plan 13-03 (D-01/D-06): airline_source_from_callsign()/
-# static_airline_name_for_prefix() - the provenance-aware seam
-# airline_from_callsign() now wraps, and the manual-resolution registry's
-# entry point into enrich.py. --------------------------------------------
+# --- airline_source_from_callsign()/static_airline_name_for_prefix() -
+# the provenance-aware seam airline_from_callsign() now wraps, and the
+# manual-resolution registry's entry point into enrich.py. --------------
 
 
 def test_airline_source_from_callsign_static_path_parity():
-    """airline_source_from_callsign() returns ('<name>', 'static') for a known static prefix, (None, None) for an unknown one, and (None, None) for the full 260827-hyy hostile-input battery, with no registry configured."""
+    """airline_source_from_callsign() returns ('<name>', 'static') for a known static prefix, (None, None) for an unknown one, and (None, None) for the full hostile-input battery, with no registry configured."""
     got = enrich.airline_source_from_callsign("TVF16VB")
     assert got == ("Transavia France", "static"), (
         "airline_source_from_callsign('TVF16VB') = %r, expected ('Transavia France', 'static')" % (got,)
@@ -875,7 +870,7 @@ def test_airline_source_from_callsign_manual_path(tmp_path):
 
 
 def test_d06_collision_and_static_airline_name_for_prefix(tmp_path):
-    """a manual entry for a prefix already in the static table is never consulted (D-06): airline_source_from_callsign() still reports the static name and source 'static'; static_airline_name_for_prefix() returns the static name for that prefix, None for a manual-only prefix, and handles non-string/wrong-length input without raising."""
+    """a manual entry for a prefix already in the static table is never consulted: airline_source_from_callsign() still reports the static name and source 'static'; static_airline_name_for_prefix() returns the static name for that prefix, None for a manual-only prefix, and handles non-string/wrong-length input without raising."""
     result = manual_resolutions.add_entry(tmp_path, "TVF", "Some Operator Typo")
     assert result == manual_resolutions.ADD_OK, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
     manual_resolutions.set_manual_registry_state_dir(tmp_path)
@@ -904,8 +899,7 @@ def test_d06_collision_and_static_airline_name_for_prefix(tmp_path):
         assert got is None, "static_airline_name_for_prefix(%r) = %r, expected None" % (hostile, got)
 
 
-# --- Phase 13 plan 13-03 Task 2 (D-02): resolve_route()'s fifth "manual"
-# source. --------------------------------------------------
+# --- resolve_route()'s fifth "manual" source. --------------------------
 
 
 def test_resolve_route_manual_source(tmp_path):
@@ -926,7 +920,7 @@ def test_resolve_route_manual_source(tmp_path):
 
 
 def test_resolve_route_static_and_adsbdb_precedence_over_manual(hit_body, tmp_path):
-    """a manual entry for a static-table prefix still yields 'airline_only' under an adsbdb miss (D-06), and adsbdb still wins by construction ('fresh_hit') even when a manual entry exists for that prefix."""
+    """a manual entry for a static-table prefix still yields 'airline_only' under an adsbdb miss, and adsbdb still wins by construction ('fresh_hit') even when a manual entry exists for that prefix."""
     result = manual_resolutions.add_entry(tmp_path, "TVF", "Some Operator Typo")
     assert result == manual_resolutions.ADD_OK, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
     manual_resolutions.set_manual_registry_state_dir(tmp_path)
@@ -944,12 +938,12 @@ def test_resolve_route_static_and_adsbdb_precedence_over_manual(hit_body, tmp_pa
     assert source2 == "fresh_hit", "expected source 'fresh_hit' even with a manual entry present, got %r" % (source2,)
 
 
-# --- Phase 13 plan 13-03 Task 3 (D-14): clear_resolved_unresolved_prefix()
-# - note_unresolved_prefix()'s structural inverse. ---------------------
+# --- clear_resolved_unresolved_prefix() - note_unresolved_prefix()'s
+# structural inverse. ----------------------------------------------------
 
 
 def test_clear_resolved_unresolved_prefix_happy_path_and_idempotence(tmp_path):
-    """clear_resolved_unresolved_prefix() removes a manually-resolved prefix's entry and returns the prefix, a second call returns None, and a still-unresolved prefix's entry survives byte-identical (D-14)."""
+    """clear_resolved_unresolved_prefix() removes a manually-resolved prefix's entry and returns the prefix, a second call returns None, and a still-unresolved prefix's entry survives byte-identical."""
     result = manual_resolutions.add_entry(tmp_path, "ZZZ", "Zephyr Air")
     assert result == manual_resolutions.ADD_OK, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
     manual_resolutions.set_manual_registry_state_dir(tmp_path)
@@ -1006,7 +1000,7 @@ def test_clear_resolved_unresolved_prefix_hostile_input_sweep():
 
 
 def test_v9c_eleven_new_prefixes_and_djt_correction_and_exclusions():
-    """the eleven 260921-v9c prefixes each resolve through airline_from_callsign() to their exact expected name (including TFV60HA and KAF001 as actually observed), the DJT correction seam rewrites 'Denver Jet' to 'La Compagnie' via correct_airline_name(), and DEF/QEM both resolve to None (QT-v9c-D-06 guard)."""
+    """eleven new prefixes each resolve through airline_from_callsign() to their exact expected name (including TFV60HA and KAF001 as actually observed), the DJT correction seam rewrites 'Denver Jet' to 'La Compagnie' via correct_airline_name(), and DEF/QEM both resolve to None (guard)."""
     want = {
         "CAJ": "Air Caraïbes",
         "DJT": "La Compagnie",

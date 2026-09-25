@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 """End-to-end contract test: server/poll_loop.py's run_once() through the
-real stub-server/byos_server.py device protocol (PLANE-03, D-04).
+real stub-server/byos_server.py device protocol.
 
 poll_loop transitively imports Pillow via server.plane.render, so this
 module must be run under server/.venv's interpreter, not the bare system
 python3.
 
-This is ONE consolidated test function rather than seven independent
-ones (MR-4): every one of the seven old checks below shares the same
-`tmp_path` state directory and, from check 3 onward, the same served
-`panel.bin` - check 5 asserts the panel is unchanged from check 1's
-write, check 6's "re-detection, not a new one" depends on a flight
-already being on screen from check 1/5, and check 7's battery-empty park
-and recovery both read and write `poll_state.json`/`battery_state.json`
-in that same shared directory across three separate byos_server.py
-subprocesses. Splitting this into independent pytest tests would mean
-either reinventing that shared state per test (not what the original
-harness proves) or introducing inter-test ordering dependencies MR-4
-forbids - one node id, one docstring line per old check label, is the
-faithful translation.
+This is ONE consolidated test function rather than several independent
+ones: every one of the checks below shares the same `tmp_path` state
+directory and, from check 3 onward, the same served `panel.bin` - check
+5 asserts the panel is unchanged from check 1's write, check 6's
+"re-detection, not a new one" depends on a flight already being on
+screen from check 1/5, and check 7's battery-empty park and recovery
+both read and write `poll_state.json`/`battery_state.json` in that same
+shared directory across three separate byos_server.py subprocesses.
+Splitting this into independent pytest tests would mean either
+reinventing that shared state per test (not what the original harness
+proves) or introducing inter-test ordering dependencies - one node id,
+one docstring line per check, is the faithful translation.
 """
 import hashlib
 import importlib.util
@@ -52,8 +51,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 # pyproject.toml's pythonpath puts test-support/ on sys.path for a normal
-# `pytest` invocation; the legacy-runner bridge below (MR-3) executes this
-# file directly instead, so the same directory is added here too.
+# `pytest` invocation; the legacy-runner bridge below executes this file
+# directly instead, so the same directory is added here too.
 _TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
 if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
@@ -112,7 +111,7 @@ class BYOSHarness:
     """Owns a byos_server.py subprocess lifecycle for the download half of
     this test. Modeled on stub-server/test_poll_cycle.py's Harness class -
     free port, guaranteed teardown, never leaves an orphaned server
-    holding the port. `env` defaults to `child_env()` (MR-9) so the child
+    holding the port. `env` defaults to `child_env()` so the child
     interpreter carries the same no-network guard as this pytest process.
     """
 
@@ -226,7 +225,7 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
     2. panel.bin bytes decompose into only the six legal nibble codes
     3. byos_server.py setup->display returns a valid image_url and image_hash
     4. downloaded image is 960000 bytes and SHA-256-verifies against image_hash
-    5. run_once(empty fixture) leaves panel.bin byte-identical (D-04)
+    5. run_once(empty fixture) leaves panel.bin byte-identical
     6. a real authenticated poll carrying X-Battery-Mv:3400, followed by a run_once() cycle, changes the served panel.bin only inside the icon's byte columns/rows, and the packed ink nibble at (1520,70) matches whichever state run_once() actually reported
     7. end to end through the real device protocol: a 3290 mV check-in followed by run_once() latches BATTERY EMPTY and serves its hash with sleep_s 3600; a second run_once() is a byte-identical hash-skip; a 4100 mV check-in's OWN reply anticipates recovery (sleep_s != 3600) before the next run_once() clears the park and serves a different hash
 
@@ -289,7 +288,7 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
         "downloaded bytes failed SHA-256 verification against image_hash (len=%d)" % len(buf)
     )
 
-    # 5. D-04: run_once() with an empty geofence snapshot leaves the
+    # 5. run_once() with an empty geofence snapshot leaves the
     #    already-served panel.bin byte-identical - no waiting screen, no
     #    expiry.
     poll_loop.run_once(snapshot=empty_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
@@ -297,8 +296,8 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
         after_empty = fh.read()
     assert after_empty == panel_bytes, "panel.bin changed after an empty-snapshot cycle (violates D-04)"
 
-    # 6. Check E (05-02, DEVICE-04): the whole slice, end to end, through
-    # the real protocol. A second byos_server.py subprocess is started
+    # 6. The battery-icon slice, end to end. A second byos_server.py
+    # subprocess is started
     # against THIS SAME tmp_path (mirroring the real deployment's shared
     # SKYPANE_STATE_DIR - byos_server.py writes battery_state.json there,
     # poll_loop.py both reads it and serves panel.bin from the same
@@ -334,10 +333,10 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
         "panel.bin did not change after a real X-Battery-Mv:3400 poll followed by a run_once() cycle"
     )
 
-    # 260828-0qo: icon shrunk to 70% linear size, anchor unchanged. Row
-    # range is body_top..BATTERY_ICON_BOTTOM (1514..1536); byte columns
-    # are the icon's x-range (64..115) halved, since the packed panel is
-    # 4bpp (2px/byte): 64//2=32 .. 115//2=57.
+    # The icon is 70% linear size, anchor unchanged. Row range is
+    # body_top..BATTERY_ICON_BOTTOM (1514..1536); byte columns are the
+    # icon's x-range (64..115) halved, since the packed panel is 4bpp
+    # (2px/byte): 64//2=32 .. 115//2=57.
     row_bytes = 600
     icon_row_start, icon_row_end = 1514, 1536
     icon_byte_start, icon_byte_end = 32, 57
@@ -359,14 +358,11 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
     # inside the new fill rectangle (66, 1516, 75, 1534), so this probe
     # stays valid unchanged after the resize.
     #
-    # 08-01 (D-01): the battery icon's ink for a non-empty state is the
-    # ACTIVE theme's own ink index (render.py's docstring: the empty
-    # state is always White/Black regardless of theme) - this was
-    # hardcoded to nibble 0x1 (White) because the pre-Phase-8 default
-    # theme's ink was White for every active state. Now that
-    # DEFAULT_THEME_ID is "white" (ink_index=IDX_BLACK), that assumption
-    # no longer holds; derive the expectation from the theme run_once()
-    # actually used instead of a stale literal.
+    # The battery icon's ink for a non-empty state is the ACTIVE theme's
+    # own ink index (render.py's docstring: the empty state is always
+    # White/Black regardless of theme) - derive the expectation from the
+    # theme run_once() actually used instead of a hardcoded literal,
+    # since DEFAULT_THEME_ID's own ink_index can change.
     state = result_after.get("state")
     theme_id = result_after.get("theme", device_config.DEFAULT_THEME_ID)
     if state == "empty":
@@ -381,10 +377,9 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
         "for run_once()'s reported state=%r" % (actual_nibble, expected_nibble, state)
     )
 
-    # 7. Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die):
-    # the whole BATTERY EMPTY slice, end to end, through the real device
-    # protocol. A third byos_server.py subprocess is started against this
-    # same tmp_path, mirroring the real deployment's shared
+    # 7. The whole BATTERY EMPTY slice, end to end, through the real
+    # device protocol. A third byos_server.py subprocess is started
+    # against this same tmp_path, mirroring the real deployment's shared
     # SKYPANE_STATE_DIR exactly like check 6 above.
     park_harness = byos_server_factory(panel_path, state_dir=tmpdir)
     status, _, body = http_request(

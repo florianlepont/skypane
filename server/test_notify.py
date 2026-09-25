@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contract tests for server/notify.py (D-25/D-27, 20-02-PLAN.md Task 2).
+"""Contract tests for server/notify.py.
 
 Every test below injects its own fake `transport(url, title, body, timeout)`,
 mirroring `server/test_calendar_rules.py`'s own `make_calendar_transport()`
@@ -7,7 +7,7 @@ idiom (`fetch_ics(transport=...)`'s injection seam) - no test here ever
 makes a real network call, and the SSRF test additionally asserts the
 transport was never even invoked (a call counter staying at zero), pinning
 that `send_notification()`'s own `_url_is_safe()` gate runs BEFORE any
-attempt to reach the network (T-20-05).
+attempt to reach the network.
 """
 import io
 import os
@@ -153,7 +153,7 @@ def test_default_transport_builds_the_expected_request(monkeypatch):
             captured["timeout"] = timeout
             return _FakeNotifyResponse(200)
 
-    # CR-01 fix: default_notify_transport() now goes through
+    # default_notify_transport() goes through
     # `_NO_REDIRECT_OPENER.open()`, not `urllib.request.urlopen()` - patch
     # the module's opener itself rather than `urlopen`.
     monkeypatch.setattr(notify, "_NO_REDIRECT_OPENER", _FakeOpener())
@@ -168,9 +168,9 @@ def test_default_transport_builds_the_expected_request(monkeypatch):
 
 def test_no_redirect_handler_refuses_a_302_to_an_internal_address_and_never_fetches_it(monkeypatch):
     """default_notify_transport()'s _NoRedirectHandler refuses a 302 pointing at an internal address (169.254.169.254) outright - send_notification() returns False and the redirect target is never fetched."""
-    # CR-01 fix (20-REVIEW.md): default_notify_transport() must never
-    # automatically follow a redirect - a validated public HTTPS topic URL
-    # can still answer with a 3xx pointing at an internal address (e.g.
+    # default_notify_transport() must never automatically follow a
+    # redirect - a validated public HTTPS topic URL can still answer with
+    # a 3xx pointing at an internal address (e.g.
     # http://169.254.169.254/...). This drives the REAL
     # default_notify_transport()/_NO_REDIRECT_OPENER wiring, not an
     # injected fake transport (which would bypass the fix entirely) - a
