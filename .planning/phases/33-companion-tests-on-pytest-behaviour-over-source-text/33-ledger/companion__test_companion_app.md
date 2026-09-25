@@ -682,3 +682,17 @@ styled" is now a selector match over `css_rules()`; the `.js .mobile-nav` rules 
 `@keyframes` and reduced-motion `@media` blocks with `at_rule_blocks()` and checks every
 animation declaration outside those blocks through `css_rules()`, which retires the
 module's own brace-matching text helper.
+
+### Closing sweep (plan 33-32): one shared counting rule
+
+Row 320's secondary node id
+`test_caption_word_count_text_agrees_with_test_config_page_05s_own_copy` imported the sibling
+test module `companion.test_config_page_05` to compare two copies of the editorial floor's
+counting rule. The rule now lives once, as `caption_word_count_text()` in
+`companion/test_config_page_helpers.py`, and both modules import it, so the agreement check
+became a tautology. It is replaced by
+`companion/test_companion_app_05.py::test_caption_word_count_text_strips_markup_entities_and_one_leading_dash`
+(parametrised over the same four fixtures, with pinned expected outputs). Row 320 still points
+at its primary node id, `test_site_wide_editorial_floor_all_six_routes_both_languages`, which is
+unchanged. Guard rule G12 now forbids a test module importing another test module.
+

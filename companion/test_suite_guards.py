@@ -7,8 +7,9 @@ outside `tmp_path` or uses a literal `/nonexistent` host path, runs
 `os.chmod` outside a root-safety marker, still carries the legacy
 `EXPECTED_CHECK_COUNT`/`check()`/`main()` shape, drives Playwright's
 `browser` fixture directly instead of the guarded `new_context`/`page`
-fixtures from `companion/conftest.py`, or runs a regex, `in` test or str
-search over the served stylesheet's text instead of parsing it (G11).
+fixtures from `companion/conftest.py`, runs a regex, `in` test or str
+search over the served stylesheet's text instead of parsing it (G11), or
+imports another test module instead of a `*_helpers.py` module (G12).
 
 The guard is strict: it scans every `companion/test_*.py` module and
 `companion/conftest.py`, with no exemption other than this file itself,
@@ -153,6 +154,11 @@ def _is_helpers_filename(filename):
     return os.path.basename(filename).endswith("_helpers.py")
 
 
+def _is_test_module_name(dotted):
+    last = dotted.rsplit(".", 1)[-1]
+    return last.startswith("test_") and not last.endswith("_helpers")
+
+
 def _has_module_level_test_false(tree):
     for node in tree.body:
         if isinstance(node, ast.Assign):
@@ -220,6 +226,24 @@ class _Scanner(ast.NodeVisitor):
         self._function_stack.append(node)
         self.generic_visit(node)
         self._function_stack.pop()
+
+    # G12: a test module importing another test module (shared code
+    # lives in a `*_helpers.py` module or in test-support/)
+    def visit_Import(self, node):
+        for alias in node.names:
+            if _is_test_module_name(alias.name):
+                self._add(node, "G12", "import %s" % (alias.name,))
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node):
+        module = node.module or ""
+        if _is_test_module_name(module):
+            self._add(node, "G12", "from %s import ..." % (module,))
+        else:
+            for alias in node.names:
+                if _is_test_module_name(alias.name):
+                    self._add(node, "G12", "from %s import %s" % (module, alias.name))
+        self.generic_visit(node)
 
     # G8 (EXPECTED_CHECK_COUNT)
     def visit_Assign(self, node):
@@ -579,6 +603,12 @@ _POSITIVE_CASES = [
      "ctx = browser.new_context()\n", None),
     ("G10", "sync_playwright_call",
      "with sync_playwright() as p:\n    pass\n", None),
+    ("G12", "import_sibling_test_module",
+     "import companion.test_config_page_05 as tcp05\n", None),
+    ("G12", "from_package_import_test_module",
+     "from companion import test_config_page_05\n", None),
+    ("G12", "from_test_module_import_name",
+     "from companion.test_config_page_05 import _helper\n", None),
     ("G11", "re_search_over_served_stylesheet",
      "def test_x(server):\n    css = served_stylesheet(server)\n    assert re.search(r'a', css)\n", None),
     ("G11", "substring_via_css_fixture",
@@ -616,6 +646,9 @@ _NEGATIVE_CASES = [
      "import os\n\n\n@requires_non_root\ndef test_x():\n    os.chmod(\"/tmp/x\", 0o644)\n", None),
     ("helpers_with_test_false_marker",
      "__test__ = False\nX = 1\n", "companion/test_something_helpers.py"),
+    ("import_helpers_module",
+     "import companion.test_config_page_helpers as cp\n"
+     "from companion.test_browser_ux_helpers import seed_state_dir\n", None),
     ("served_css_parsed_structurally",
      "def test_x(server):\n    css = served_stylesheet(server)\n"
      "    assert 'color' in declarations_for(css, '.a')\n"

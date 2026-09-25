@@ -19,12 +19,9 @@ test" route, the retired display-mode-switch removal (rewritten as a
 `not hasattr()` battery — the tokens no longer appear anywhere in
 production code, confirmed by grep before writing this module), the
 flash/title/nav i18n round trips, and — the LAST anchor — the
-site-wide editorial floor (CFG-79), whose own cross-file counting-rule
-agreement check now calls `companion.test_config_page_05`'s
-`_caption_word_count_text()` directly (a plain import, never a
-disk-read/ast-extract of that module's source — 33-13-PLAN.md closed
-that chain, and the sequential-execution brief for this plan requires
-the cross-check be migrated as calling behaviour, not a source read).
+site-wide editorial floor (CFG-79), whose one counting rule,
+`caption_word_count_text()`, is shared with test_config_page_05.py
+through companion/test_config_page_helpers.py.
 
 The illustration-override tests below and the poll-trigger cooldown
 sequence each consolidate several old `check()` calls that shared ONE
@@ -43,9 +40,12 @@ import threading
 import time
 import urllib.parse
 
+import pytest
+
 import companion.i18n as i18n_module
 import companion.layout as layout
 import companion.test_companion_app_helpers as cah
+from companion.test_config_page_helpers import caption_word_count_text
 from companion import auth, frame_state
 from companion.pages import config_page
 from companion_app_server import http_request, login
@@ -1495,43 +1495,22 @@ def test_nav_and_theme_labels_round_trip_to_french_and_back():
 # ==========================================================================
 
 
-def _caption_word_count_text(fragment):
-    """The counting rule the legacy harness duplicated verbatim from
-    `companion/test_config_page.py` (retired by 33-13-PLAN.md). Kept as
-    its own copy here (rather than importing it) because it is the "mine"
-    half of the cross-check below — the whole point of that check is that
-    two independently-maintained copies agree.
-    """
-    stripped = re.sub(r"<[^>]*>", "", fragment)
-    text = html.unescape(stripped).strip()
-    if text.startswith("— "):
-        text = text[2:]
-    return re.sub(r"\s+", " ", text).strip()
-
-
-_CROSS_CHECK_FIXTURES = (
-    '  — Hello   "World"&#x27;s <b>caption</b>  ',
-    "Plain text with no markup at all",
-    '  <span>Nested <b>markup</b></span> — trailing  ',
-    "",
+_COUNTING_RULE_CASES = (
+    ('  — Hello   "World"&#x27;s <b>caption</b>  ', 'Hello "World"\'s caption'),
+    ("Plain text with no markup at all", "Plain text with no markup at all"),
+    ('  <span>Nested <b>markup</b></span> — trailing  ', "Nested markup — trailing"),
+    ("", ""),
 )
 
 
-def test_caption_word_count_text_agrees_with_test_config_page_05s_own_copy():
-    """this module's own counting-rule duplicate agrees with
-    companion.test_config_page_05's own _caption_word_count_text() on a small set of fixtures -
-    the two would otherwise measure the site inconsistently. Calls both implementations directly
-    (a plain import of the sibling test module, never a disk-read/ast-extract of its source -
-    33-13-PLAN.md closed the config_page chain and this plan's own brief requires the cross-check
-    be migrated as calling behaviour)"""
-    import companion.test_config_page_05 as tcp05
-
-    for fixture in _CROSS_CHECK_FIXTURES:
-        mine = _caption_word_count_text(fixture)
-        theirs = tcp05._caption_word_count_text(fixture)
-        assert mine == theirs, (
-            "this module's counting-rule duplicate disagrees with test_config_page_05.py's own "
-            "_caption_word_count_text on fixture %r: got %r here, %r there" % (fixture, mine, theirs))
+@pytest.mark.parametrize(
+    "fragment,expected", _COUNTING_RULE_CASES,
+    ids=["markup-entities-and-dash", "plain-text", "nested-markup-inner-dash", "empty"])
+def test_caption_word_count_text_strips_markup_entities_and_one_leading_dash(fragment, expected):
+    """the editorial floor's one counting rule, shared with test_config_page_05.py through
+    companion/test_config_page_helpers.py, strips tags, unescapes entities, drops a single
+    leading em dash and collapses whitespace - so both modules measure the site the same way"""
+    assert caption_word_count_text(fragment) == expected
 
 
 def _measured_section_captions(rendered):
@@ -1592,7 +1571,7 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # --- fetch every route x language over the real server ---
     exempt_by_lang = {
         lang: {
-            _caption_word_count_text(i18n_module.t_lang(text, lang))
+            caption_word_count_text(i18n_module.t_lang(text, lang))
             for text in CAPTION_FLOOR_EXEMPTIONS
         }
         for lang in ("en", "fr")
@@ -1638,7 +1617,7 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
             strip_bounds = _frame_strip_slice(rendered)
 
             for start, _end, fragment in captions:
-                text = _caption_word_count_text(fragment)
+                text = caption_word_count_text(fragment)
                 if text in exempt_by_lang[lang]:
                     skip_counts[lang] += 1
                     continue

@@ -19,7 +19,12 @@ against a `tmp_path`-backed state directory.
 own `main()` still uses its private originals for checks not yet
 migrated by parts 04/05 (33-12/33-13) — this module is their shared,
 reusable home so a later part imports rather than re-derives them.
+
+`caption_word_count_text()` is the one counting rule the site-wide
+editorial floor applies; both `test_config_page_05.py` and
+`test_companion_app_05.py` import it from here.
 """
+import html
 import json
 import os
 import re
@@ -123,3 +128,18 @@ def strip_js_line_and_block_comments(js):
     """
     without_block = re.sub(r"/\*.*?\*/", "", js, flags=re.DOTALL)
     return re.sub(r"//[^\n]*", "", without_block)
+
+
+def caption_word_count_text(fragment):
+    """THE ONE COUNTING RULE the editorial floor applies: strip tags,
+    unescape HTML entities, collapse internal whitespace, then strip a
+    single leading em dash and its following space -
+    layout.section_intro_html()'s own intro sentences legitimately open
+    with '- ', and that leading mark is not a WORD by any reading of 'at
+    most 12 words'.
+    """
+    stripped = re.sub(r"<[^>]*>", "", fragment)
+    text = html.unescape(stripped).strip()
+    if text.startswith("— "):
+        text = text[2:]
+    return re.sub(r"\s+", " ", text).strip()
