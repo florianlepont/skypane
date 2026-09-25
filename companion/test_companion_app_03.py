@@ -1,54 +1,14 @@
-"""Part 03 of the `companion/test_companion_app.py` migration chain
-(33-16-PLAN.md): the original harness's `check()` calls #123-#177 (by
-ledger row).
-
-Covers the second half of Section 3's static-script gauntlet: dirty-
-state.js's own animation contract, freshness.js/panel-lookup.js/flash-
-cleanup.js/poll-cooldown.js/confirm-submit.js/theme-preview.js/flight-
-rows.js/submit-guard.js/relative-time.js/quick-switch.js/value-controls.js
-(each script's public-route check, its ES5-safe/sink-free contract, its
-route/src cross-file agreement, and — where the original registered a
-deferred `<script>` tag — the page_shell() tag-count guard), the
-relative-time/duration wording ladders, the `.js` gate and shared control
-vocabulary in `companion/static/style.css`, `companion.battery`'s total
-life-estimate contract, and the executable `_NO_JS_CONTROL_REGISTRY`
-contract (25-01-PLAN.md Task 4).
-
-Two checks from the original slice read production source as text with
-no directly observable HTTP/DOM consequence, and are REWRITTEN per rubric
-S rather than ported as-is (see the ledger fragment's Part 03 note and
-this plan's SUMMARY):
-- `_relative_time_ladder_mirrors_layouts_own_boundaries` used the
-  `inspect` module's own source-introspection helper (banned by guard
-  G2) to read the three s/m/h/d boundaries out of the Python source.
-  Rewritten to DISCOVER those same boundaries behaviourally, by
-  bisecting over `layout._age_bucket()`'s own return value — the
-  boundaries are exactly as observable this way, and the check never
-  reads a line of source.
-- `_battery_module_imports_neither_a_page_module_nor_the_server_package`
-  used a syntax-tree walk (also banned by G2) over `companion/battery.py`'s
-  own source. Rewritten as a subprocess import + `sys.modules` check,
-  the same technique 33-15-PLAN.md's `test_draw_module_imports_no_page_
-  and_no_server` already established for the identical shape of check.
-
-One check (`_real_get_submit_guard_route_serves_one_shared_disable_on_
-submit_guard`) also used to open `companion/static/style.css` and
-`companion/app.py` from disk. The CSS half is rewritten over the served
-stylesheet's parsed rules (`companion_markup.css_rules()`), preserving
-source order without a text scan; the CSP half is rewritten as a real
-HTTP response header read (`companion.app.CONTENT_SECURITY_POLICY` is
-also the exact runtime value copied onto every response), which is
-strictly stronger than reading the Python literal that builds it.
-
-One check (`_exactly_one_has_feature_query_block_survives`) counts
-distinct `@supports selector(:has(*))` FEATURE-QUERY BLOCKS in the
-stylesheet — a boundary `companion_markup.css_rules()`'s per-rule
-`at_rules` tuples cannot distinguish from a second, identically-nested
-block, since the parser records at-rule PRELUDE TEXT, not block
-position. No structural API expresses this specific property, so it
-stays a regex count over the SERVED (HTTP-fetched) stylesheet, comment-
-stripped locally — never a disk read (F-01's own sanctioned exception
-for cases genuinely inexpressible over `css_rules()`/`declarations_for()`).
+"""Tests the second half of the static-script gauntlet: dirty-state.js's
+own animation contract, freshness.js/panel-lookup.js/flash-cleanup.js/
+poll-cooldown.js/confirm-submit.js/theme-preview.js/flight-rows.js/
+submit-guard.js/relative-time.js/quick-switch.js/value-controls.js
+(each script's public-route check, ES5-safe/sink-free contract, and
+route/src cross-file agreement), the relative-time/duration wording
+ladders, the `.js` gate and shared control vocabulary in
+`companion/static/style.css`, `companion.battery`'s total life-estimate
+contract, and the executable `_NO_JS_CONTROL_REGISTRY` contract. CSS
+checks read the served (HTTP-fetched), parsed stylesheet, never a file
+opened from disk.
 """
 import json
 import re
@@ -87,7 +47,7 @@ def served_css(app03_server):
 
 
 # ==========================================================================
-# dirty-state.js's own animation contract (CFG-77/CFG-78, 28-08-PLAN.md
+# dirty-state.js's own animation contract ( 
 # Task 3)
 # ==========================================================================
 
@@ -95,9 +55,9 @@ def served_css(app03_server):
 def test_dirty_state_animates_the_bars_own_count_element_and_never_its_word(app03_server):
     """dirty-state.js animates the restored bar's own count element and never its word: exactly
     one text write site, gated on the text having genuinely changed, written before the class is
-    added, spending the stylesheet's existing .is-fading-in rule through a remove/reflow/re-add
+    added, spending the stylesheet's existing.is-fading-in rule through a remove/reflow/re-add
     with no interval/rAF anywhere — so the role="status" bar announces each change once and
-    never a partial word (CFG-77/CFG-78, 28-08-PLAN.md Task 3)"""
+    never a partial word"""
     src = served_asset(app03_server, "/static/dirty-state.js")
 
     # ONE write site.
@@ -136,7 +96,7 @@ def test_dirty_state_animates_the_bars_own_count_element_and_never_its_word(app0
 
 
 # ==========================================================================
-# freshness.js (19-09-PLAN.md Task 3, D-02)
+# freshness.js 
 # ==========================================================================
 
 
@@ -144,7 +104,7 @@ def test_freshness_script_es5_safe_with_one_reviewed_sink_exception(app03_server
     """freshness.js stays ES5-safe and keeps the standing HTML-writing-sink ban (no let/const/
     arrow/backtick/innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/location.reload/
     XHR), while fetch(/setTimeout/setInterval are its own single, deliberate, reviewed exception
-    to the sibling scripts' ban list (D-02) — and it actually uses the safe DOMParser/
+    to the sibling scripts' ban list — and it actually uses the safe DOMParser/
     replaceChild/credentials-scoped mechanism this exception was granted for, not merely
     permitted to"""
     src = served_asset(app03_server, "/static/freshness.js")
@@ -166,7 +126,7 @@ def test_freshness_script_no_url_taking_navigation_form(app03_server):
     """freshness.js contains no URL-taking navigation form (an assignment to location.href, or a
     call to location.assign/location.replace/window.open) while still reading
     window.location.href as its fetch argument — the fetch target can never be influenced by
-    injected markup (19-09-PLAN.md Task 3, D-02/T-19-33)"""
+    injected markup"""
     src = served_asset(app03_server, "/static/freshness.js")
     forbidden_forms = (
         "location.href =", "location.assign", "location.replace", "window.open",
@@ -178,7 +138,7 @@ def test_freshness_script_no_url_taking_navigation_form(app03_server):
 
 
 # ==========================================================================
-# panel-lookup.js (06.6.4.1-02 Task 3, D-20)
+# panel-lookup.js 
 # ==========================================================================
 
 
@@ -198,7 +158,7 @@ def test_panel_lookup_script_es5_safe_and_no_html_write(app03_server):
     """panel-lookup.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/fetch/
     XHR/timers/innerHTML/document.write/eval), and never decides whether to open the dialog from
     viewport dimensions or device orientation (no matchMedia/innerWidth) — that gate is CSS-only,
-    on the Airlines trigger's own rule (quick task 260902-tli)"""
+    on the Airlines trigger's own rule"""
     src = served_asset(app03_server, "/static/panel-lookup.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -215,8 +175,7 @@ def test_panel_lookup_drop_handling_writes_the_forms_own_input_and_no_canvas(app
     dropped file to the form's own <input type="file"> through exactly one `new DataTransfer()`
     (so dropped and picked bytes travel one path, with one size cap and one parser), routes BOTH
     the drop and the picker through exactly one shared uploadRefusal() called exactly twice,
-    consults it BEFORE assigning, and refuses an untrusted drop event (CFG-51/D19,
-    25-07-PLAN.md Task 2)"""
+    consults it BEFORE assigning, and refuses an untrusted drop event"""
     src = served_asset(app03_server, "/static/panel-lookup.js")
     for token in ("getContext", "drawImage", "toBlob", "toDataURL",
                   "OffscreenCanvas", "createImageBitmap"):
@@ -250,8 +209,8 @@ def test_panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard(app0
     """the mandatory three-element guard appears exactly once and never mentions the optional
     replace-form lookup on its own line, that lookup's first occurrence in the source comes
     after the guard's, it appears exactly once, and the action-attribute setAttribute write
-    appears exactly 3 times (replace/resolve-upload/delete, phase 14 plan 14-05) — pinning the
-    single line that keeps History's lightbox alive (quick task 260903-btu)"""
+    appears exactly 3 times — pinning the
+    single line that keeps History's lightbox alive"""
     src = served_asset(app03_server, "/static/panel-lookup.js")
     guard_needle = "if (!image || !caption || !note)"
     assert src.count(guard_needle) == 1, (
@@ -277,7 +236,7 @@ def test_panel_lookup_script_route_src_agree():
 
 
 # ==========================================================================
-# flash-cleanup.js (quick task 260903-peo Task 4, UIR-19)
+# flash-cleanup.js 
 # ==========================================================================
 
 
@@ -296,8 +255,7 @@ def test_flash_cleanup_script_public(app03_server):
 def test_flash_cleanup_script_es5_safe_and_no_html_write(app03_server):
     """flash-cleanup.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/fetch/
     XHR/timers/innerHTML/document.write/eval), and uses history.replaceState with
-    location.search/location.pathname to strip a consumed ?flash= param (quick task 260903-peo,
-    UIR-19)"""
+    location.search/location.pathname to strip a consumed ?flash= param"""
     src = served_asset(app03_server, "/static/flash-cleanup.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -316,7 +274,7 @@ def test_flash_cleanup_script_route_src_agree():
 
 
 # ==========================================================================
-# poll-cooldown.js (19-04-PLAN.md Task 1, D-18/A-35)
+# poll-cooldown.js 
 # ==========================================================================
 
 
@@ -334,9 +292,7 @@ def test_poll_cooldown_script_public(app03_server):
 
 def test_poll_cooldown_script_es5_safe_and_no_html_write(app03_server):
     """poll-cooldown.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/
-    innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), and carries both the
-    D-01 countdown (textContent/removeAttribute/setInterval/clearInterval) and the UXA-15
-    disable-on-submit affordance (addEventListener)"""
+    innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), and carries both the countdown (textContent/removeAttribute/setInterval/clearInterval) and the disable-on-submit affordance (addEventListener)"""
     src = served_asset(app03_server, "/static/poll-cooldown.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -359,7 +315,7 @@ def test_poll_cooldown_script_route_src_agree():
 
 
 # ==========================================================================
-# confirm-submit.js (19-11-PLAN.md Task 2, D-08/A-26)
+# confirm-submit.js 
 # ==========================================================================
 
 
@@ -379,7 +335,7 @@ def test_confirm_submit_script_es5_safe_and_no_html_write(app03_server):
     """confirm-submit.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/
     innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/location.assign/
     location.replace), and carries the native confirm() step (addEventListener/preventDefault/
-    confirm() all present) (D-08/A-26)"""
+    confirm() all present)"""
     src = served_asset(app03_server, "/static/confirm-submit.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -400,7 +356,7 @@ def test_confirm_submit_script_route_src_agree():
 
 
 # ==========================================================================
-# theme-preview.js (20-08-PLAN.md Task 3, D-22..D-24/D-32)
+# theme-preview.js 
 # ==========================================================================
 
 
@@ -420,8 +376,7 @@ def test_theme_preview_script_es5_safe_and_no_html_write(app03_server):
     """theme-preview.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/
     innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers/a page-wide
     single-grid lookup), and carries the row->chip src-swap contract (addEventListener/
-    querySelector/getAttribute/data-preview-src/data-usage all present) (D-08/D-12/R-11,
-    extended by 21-05-PLAN.md Task 3 from D-22..D-24's own original single-grid version)"""
+    querySelector/getAttribute/data-preview-src/data-usage all present)"""
     src = served_asset(app03_server, "/static/theme-preview.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -445,7 +400,7 @@ def test_theme_preview_script_route_src_agree():
 
 def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
     """a rendered authenticated page contains exactly one theme-preview.js <script> tag and no
-    inline <script> without a src (D-32)"""
+    inline <script> without a src"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     expected_tag = '<script src="%s" defer></script>' % layout.THEME_PREVIEW_SCRIPT_SRC
     assert doc.count(expected_tag) == 1, (
@@ -455,7 +410,7 @@ def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
 
 
 # ==========================================================================
-# flight-rows.js (21-03-PLAN.md Task 2, D-15/R-12)
+# flight-rows.js 
 # ==========================================================================
 
 
@@ -475,7 +430,7 @@ def test_flight_rows_script_es5_safe_and_no_html_write(app03_server):
     """flight-rows.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/
     innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers), and carries the
     detail-row toggle contract (addEventListener/querySelectorAll/data-row-toggle/
-    flight-detail-row--collapsed/aria-expanded/aria-controls all present) (D-15/R-12)"""
+    flight-detail-row--collapsed/aria-expanded/aria-controls all present)"""
     src = served_asset(app03_server, "/static/flight-rows.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -499,7 +454,7 @@ def test_flight_rows_script_route_src_agree():
 
 def test_flight_rows_script_tag_exactly_once_and_no_bare_inline_script():
     """a rendered authenticated page contains exactly one flight-rows.js <script> tag and no
-    inline <script> without a src (D-15/R-12)"""
+    inline <script> without a src"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     expected_tag = '<script src="%s" defer></script>' % layout.FLIGHT_ROWS_SCRIPT_SRC
     assert doc.count(expected_tag) == 1, (
@@ -510,8 +465,7 @@ def test_flight_rows_script_tag_exactly_once_and_no_bare_inline_script():
 
 def test_real_get_flight_rows_route_serves_expected_body(app03_server):
     """a real GET of /static/flight-rows.js returns 200 with data-row-toggle and
-    flight-detail-row--collapsed present, and none of innerHTML/document.write/=>/ let / const
-    (21-03-PLAN.md Task 2)"""
+    flight-detail-row--collapsed present, and none of innerHTML/document.write/=>/ let / const"""
     text = served_asset(app03_server, "/static/flight-rows.js")
     for token in ("data-row-toggle", "flight-detail-row--collapsed"):
         assert token in text, "expected %r in the served flight-rows.js body" % token
@@ -525,7 +479,7 @@ def test_fifteen_deferred_scripts_before_closing_body():
     confirm-submit.js, theme-preview.js, flight-rows.js, submit-guard.js, relative-time.js,
     quick-switch.js and value-controls.js — and NOT login-card.js, which login_shell() alone
     emits, nor submit-guard.js/relative-time.js/quick-switch.js/value-controls.js on that login
-    shell, which still emits exactly one (retargeted in place by 25-01-PLAN.md Task 1)"""
+    shell, which still emits exactly one"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     body_close = doc.index("</body>")
     head = doc[:body_close]
@@ -570,8 +524,7 @@ def test_submit_guard_script_serves_shared_disable_on_submit_guard(app03_server,
     the browser has already built the form data set, which is what keeps the named theme/
     language submit buttons working), stands down when another listener cancelled the
     submission, skips the control poll-cooldown.js already owns, writes no label at all, reuses
-    the ONE existing button:disabled rule still ordered after button:active, and changes no CSP
-    (T14, 22-15-PLAN.md Task 3)"""
+    the ONE existing button:disabled rule still ordered after button:active, and changes no CSP"""
     text = served_asset(app03_server, "/static/submit-guard.js")
     for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
                    "=>", " let ", " const ", "`"):
@@ -622,7 +575,7 @@ def test_submit_guard_script_serves_shared_disable_on_submit_guard(app03_server,
 
 
 # ==========================================================================
-# relative-time.js (23-05-PLAN.md Task 1, D14/CFG-34)
+# relative-time.js 
 # ==========================================================================
 
 
@@ -642,8 +595,7 @@ def test_relative_time_script_es5_safe_and_no_html_write(app03_server):
     """relative-time.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/
     innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/setTimeout), carries the
     ticker contract (setInterval+clearInterval, visibilitychange+document.hidden, textContent,
-    data-relative, querySelectorAll, getAttribute) and no verdict vocabulary at all (D14/CFG-34,
-    23-05-PLAN.md Task 1)"""
+    data-relative, querySelectorAll, getAttribute) and no verdict vocabulary at all"""
     src = served_asset(app03_server, "/static/relative-time.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -673,7 +625,7 @@ def test_relative_time_script_route_src_agree():
 
 def test_relative_time_script_tag_exactly_once_and_no_bare_inline_script():
     """a rendered authenticated page contains exactly one relative-time.js <script> tag and no
-    inline <script> without a src (D-32)"""
+    inline <script> without a src"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     expected_tag = '<script src="%s" defer></script>' % layout.RELATIVE_TIME_SCRIPT_SRC
     assert doc.count(expected_tag) == 1, (
@@ -685,7 +637,7 @@ def test_relative_time_script_tag_exactly_once_and_no_bare_inline_script():
 def test_real_get_relative_time_route_serves_the_ticker(app03_server):
     """a real GET of /static/relative-time.js returns 200 with the served ticker body — the
     data-relative hook present, the visibility gate present, and none of innerHTML/document.write/
-    =>/ let / const  (23-05-PLAN.md Task 1)"""
+    =>/ let / const"""
     text = served_asset(app03_server, "/static/relative-time.js")
     for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
                    "=>", " let ", " const ", "`"):
@@ -727,9 +679,7 @@ def _age_bucket_boundaries(hi=200000, expected_count=3):
 def test_relative_time_ladder_mirrors_layouts_own_boundaries(app03_server):
     """relative-time.js's BUCKET_BOUNDARIES equals layout._age_bucket()'s own three boundaries,
     in order, with each number appearing exactly once in the script's code and the array actually
-    read (23-RESEARCH.md Pitfall 4, 23-05-PLAN.md Task 1)
-
-    layout._age_bucket()'s own three boundaries are DISCOVERED behaviourally, by bisecting over
+    read layout._age_bucket()'s own three boundaries are DISCOVERED behaviourally, by bisecting over
     its return value, rather than read out of its source via introspection (guard G2).
     """
     py_bounds = _age_bucket_boundaries()
@@ -755,8 +705,7 @@ def test_relative_time_wordings_equal_the_ladders_own_output(app03_server):
     """every one of relative-time.js's nine wordings, filled with the quantity
     layout._age_bucket() picks, EQUALS relative_age_text()/relative_future_text()'s own output
     for every bucket in both languages; the waiting phrase is translated; and every attribute
-    name reaches both the rendered <body> and the script that reads it (D14/CFG-34,
-    23-05-PLAN.md Task 1)"""
+    name reaches both the rendered <body> and the script that reads it"""
     samples = (
         (0, "seconds"), (240, "minutes"), (7200, "hours"), (172800, "days"))
     mark = layout.RELATIVE_QUANTITY_MARK
@@ -801,8 +750,7 @@ def test_relative_time_wordings_equal_the_ladders_own_output(app03_server):
 def test_duration_wordings_equal_the_ladders_own_output(app03_server):
     """every one of layout.DURATION_ATTRS' four wordings, filled with the quantity
     layout._age_bucket() picks, EQUALS layout.duration_text()'s own output for every bucket in
-    both languages, and every attribute name reaches value-controls.js (CFG-73 Bug A,
-    28-03-PLAN.md Task 3)"""
+    both languages, and every attribute name reaches value-controls.js"""
     samples = (
         (0, "seconds"), (240, "minutes"), (7200, "hours"), (172800, "days"))
     texts = (
@@ -830,7 +778,7 @@ def test_relative_time_html_countdown_keyword_is_marked_and_neutral():
     """layout.relative_time_html(countdown=True) marks the element, keeps the future form while
     the instant is ahead, reads the translated waiting wording once it has passed — never an age
     and never a warn/error/alert token — and the default rendering is byte-identical to the
-    element 23-03 shipped (D14/CFG-34, 23-05-PLAN.md Task 1)"""
+    element 23-03 shipped"""
     now = "2026-08-01T12:00:00+00:00"
     soon = "2026-08-01T12:04:00+00:00"
     gone = "2026-08-01T11:58:00+00:00"
@@ -858,7 +806,7 @@ def test_relative_time_html_countdown_keyword_is_marked_and_neutral():
 
 
 # ==========================================================================
-# quick-switch.js (23-07-PLAN.md Task 1, D2/CFG-36)
+# quick-switch.js 
 # ==========================================================================
 
 
@@ -880,7 +828,7 @@ def test_quick_switch_script_es5_safe_and_no_html_write(app03_server):
     navigation), carries the optimistic-switch contract (aria-checked, preventDefault,
     stopPropagation, textContent, credentials same-origin, redirect manual, X-Requested-With,
     encodeURIComponent) and reaches its rollback from BOTH terminal branches through the
-    ES3-safe bracket form (D2/CFG-36, 23-07-PLAN.md Task 1)"""
+    ES3-safe bracket form"""
     src = served_asset(app03_server, "/static/quick-switch.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -912,7 +860,7 @@ def test_quick_switch_script_route_src_agree():
 
 def test_quick_switch_script_tag_exactly_once_and_no_bare_inline_script():
     """a rendered authenticated page contains exactly one quick-switch.js <script> tag and no
-    inline <script> without a src (D-32)"""
+    inline <script> without a src"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     expected_tag = '<script src="%s" defer></script>' % layout.QUICK_SWITCH_SCRIPT_SRC
     assert doc.count(expected_tag) == 1, (
@@ -924,7 +872,7 @@ def test_quick_switch_script_tag_exactly_once_and_no_bare_inline_script():
 def test_real_get_quick_switch_route_serves_the_optimistic_switch(app03_server):
     """a real GET of /static/quick-switch.js returns 200 with the served optimistic-switch body —
     layout.REFRESH_PENDING_ATTR and layout.QUICK_SWITCH_FAILED_ATTR both named, and none of
-    innerHTML/document.write/=>/ let / const  (23-07-PLAN.md Task 1)"""
+    innerHTML/document.write/=>/ let / const"""
     text = served_asset(app03_server, "/static/quick-switch.js")
     for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
                    "=>", " let ", " const ", "`"):
@@ -941,7 +889,7 @@ def test_quick_switch_pending_marker_is_layouts_own_name(app03_server):
     """quick-switch.js's PENDING_ATTR, freshness.js's PENDING_ATTR and
     layout.REFRESH_PENDING_ATTR are the same attribute name — the setter, the skip and the Python
     that defines it, pinned in one place so a rename on any one side fails rather than silently
-    disabling the D1-races-D2 rule (T-23-26, 23-07-PLAN.md Task 1)"""
+    disabling the D1-races-D2 rule"""
     src = served_asset(app03_server, "/static/quick-switch.js")
     match = re.search(r'var PENDING_ATTR = "([^"]+)";', src)
     assert match, "expected quick-switch.js to declare `var PENDING_ATTR = \"...\";`"
@@ -954,8 +902,8 @@ def test_quick_switch_pending_marker_is_layouts_own_name(app03_server):
 
 
 # ==========================================================================
-# value-controls.js (25-01-PLAN.md Task 1, CFG-46; mirror clause
-# 25-05-PLAN.md Task 2)
+# value-controls.js ( Task 1; mirror clause
+# Task 2)
 # ==========================================================================
 
 
@@ -979,7 +927,7 @@ def test_value_controls_script_es5_safe_and_never_holds_the_value(app03_server):
     value — exactly one `.value` assignment, inside the one write helper, reached by exactly two
     callers (the native input the form posts, and the nameless MIRROR written only from inside
     paint(), strictly downstream of a read off that field), and at least one read of
-    `field.value` back (CFG-46, 25-01-PLAN.md Task 1; the mirror clause 25-05-PLAN.md Task 2)"""
+    `field.value` back"""
     src = served_asset(app03_server, "/static/value-controls.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -1026,7 +974,7 @@ def test_value_controls_script_route_src_agree():
 
 def test_value_controls_script_tag_exactly_once_and_no_bare_inline_script():
     """a rendered authenticated page contains exactly one value-controls.js <script> tag and no
-    inline <script> without a src (D-32, 25-01-PLAN.md Task 1)"""
+    inline <script> without a src"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     expected_tag = '<script src="%s" defer></script>' % layout.VALUE_CONTROLS_SCRIPT_SRC
     assert doc.count(expected_tag) == 1, (
@@ -1038,8 +986,7 @@ def test_value_controls_script_tag_exactly_once_and_no_bare_inline_script():
 def test_real_get_value_controls_route_serves_the_registration_seam(app03_server):
     """a real GET of /static/value-controls.js returns 200 with the served steering body — all
     FIFTEEN of layout's VALUE_CONTROL_* seam attributes named, and none of innerHTML/
-    insertAdjacentHTML/document.write/eval/=>/ let / const /backtick (CFG-46, 25-01-PLAN.md
-    Task 1)"""
+    insertAdjacentHTML/document.write/eval/=>/ let / const /backtick"""
     text = served_asset(app03_server, "/static/value-controls.js")
     for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
                    "=>", " let ", " const ", "`"):
@@ -1064,7 +1011,7 @@ def test_value_controls_wakes_the_save_bar_through_dirty_states_own_listener(app
     constructed identically in both its branches, whose name is dirty-state.js's own delegated
     document-level listener, pinned from both sides together with that listener's e.target.form
     filter, because a control that changes a value without waking the save bar silently loses the
-    user's edit (CFG-46, 25-01-PLAN.md Task 1)"""
+    user's edit"""
     src = served_asset(app03_server, "/static/value-controls.js")
     modern = re.findall(r'new window\.Event\("([a-z]+)"', src)
     legacy = re.findall(r'\.initEvent\("([a-z]+)"', src)
@@ -1089,8 +1036,8 @@ def test_value_controls_wakes_the_save_bar_through_dirty_states_own_listener(app
 
 
 # ==========================================================================
-# the .js gate and the shared control vocabulary (25-01-PLAN.md Task 2,
-# CFG-46/D-09) — every check below reads the SERVED, STRUCTURALLY PARSED
+# the.js gate and the shared control vocabulary ( Task 2,
+#) — every check below reads the SERVED, STRUCTURALLY PARSED
 # stylesheet (companion_markup.css_rules()/declarations_for()), never a
 # disk read or a regex/substring scan of the raw served text (F-01).
 # ==========================================================================
@@ -1100,7 +1047,7 @@ def test_js_gate_hides_by_default_and_reveals_under_js(served_css):
     """companion/static/style.css's `.js` gate hides by default (`.js-gate { display: none }` —
     out of the layout AND out of the tab order, never visibility or opacity) and reveals under
     `.js`, and no gate rule anywhere runs the reverse direction, which flashes a dead control on
-    every load and shows it permanently when a script fails (D-09/CFG-46, 25-01-PLAN.md Task 2)"""
+    every load and shows it permanently when a script fails"""
     base = declarations_for(served_css, ".js-gate")
     assert base.get("display") == "none", (
         "the default `.js-gate` rule declares display: %r — it must be `none`, so the gated "
@@ -1134,7 +1081,7 @@ def test_control_vocabulary_reuses_the_registered_hit_area_verbatim(served_css):
     and 44px recomputed from the declared box plus inset rather than restated),
     `.value-control`/`.value-control__handle` both carry `touch-action: none` so a touch drag is
     not claimed by the browser's own panning gesture, and not one added rule introduces a colour
-    literal (CFG-46, 25-01-PLAN.md Task 2)"""
+    literal"""
     source_body = declarations_for(served_css, ".copy-btn")
     shared_body = declarations_for(served_css, ".control-hit-area")
     for prop in ("width", "height", "padding", "position", "display",
@@ -1192,9 +1139,7 @@ def test_control_vocabulary_reuses_the_registered_hit_area_verbatim(served_css):
 def test_style_css_carries_exactly_one_has_feature_query_block(served_css):
     """companion/static/style.css still carries exactly ONE @supports selector(:has(*)) block,
     counted on COMMENT-STRIPPED source and on the opening brace — the raw five-line grep counts
-    the four paragraphs that explain the rule (CFG-46, 25-01-PLAN.md Task 2)
-
-    Counted as parsed at-rule blocks of the served stylesheet, so the comments that explain
+    the four paragraphs that explain the rule Counted as parsed at-rule blocks of the served stylesheet, so the comments that explain
     the rule never count and a second, separate block with the same prelude does.
     """
     blocks = at_rule_blocks(served_css).count("@supports selector(:has(*))")
@@ -1204,7 +1149,7 @@ def test_style_css_carries_exactly_one_has_feature_query_block(served_css):
 
 
 # ==========================================================================
-# the battery-life estimate (25-01-PLAN.md Task 3, CFG-49)
+# the battery-life estimate 
 # ==========================================================================
 
 
@@ -1216,10 +1161,8 @@ def test_battery_life_estimate_is_total_and_never_claims_what_it_cannot():
     the curve's bottom knot floors at zero, a series above the curve's top knot with falling
     millivolts but no measurable state-of-charge drop reports FALLING with days_remaining=None,
     the 'no reading' and 'not enough history' states are DIFFERENT named values, the falling
-    series' figure is recomputed in STATE-OF-CHARGE space via battery_fraction() (SEED-006, quick
-    260923-gaf) rather than by millivolt extrapolation, and the relative cadence factor is
-    available in all six shapes and doubles exactly when the proposed cadence doubles (CFG-49,
-    25-01-PLAN.md Task 3)"""
+    series' figure is recomputed in STATE-OF-CHARGE space via battery_fraction() rather than by millivolt extrapolation, and the relative cadence factor is
+    available in all six shapes and doubles exactly when the proposed cadence doubles"""
     current_s, proposed_s = 900, 1800
 
     def est(rows, proposed=proposed_s):
@@ -1343,8 +1286,7 @@ def test_battery_life_estimate_is_total_and_never_claims_what_it_cannot():
 def test_battery_module_imports_neither_a_page_module_nor_the_server_package():
     """companion/battery.py imports nothing from companion.pages and nothing from the server
     package — proven by importing it fresh in a subprocess and inspecting sys.modules, never by
-    reading its source (D-27/CFG-49, 25-01-PLAN.md Task 3; guard G2 bans a syntax-tree walk of
-    production code)"""
+    reading its source"""
     script = (
         "import json, sys\n"
         "import companion.battery\n"
@@ -1365,8 +1307,8 @@ def test_battery_module_imports_neither_a_page_module_nor_the_server_package():
 
 
 # ==========================================================================
-# the no-JS control contract, made EXECUTABLE (25-01-PLAN.md Task 4,
-# CFG-46/D-09)
+# the no-JS control contract, made EXECUTABLE ( Task 4,
+#)
 # ==========================================================================
 
 _NO_JS_CONTROL_REGISTRY = (
@@ -1388,7 +1330,7 @@ _NO_JS_CONTROL_REGISTRY = (
         "form_assoc": "attribute",
         "render": lambda: config_page.quiet_hours_group("23:00", "07:00"),
     },
-    # 30-03-PLAN.md Task 2 (CFG-85): the retired theme-carousel pagers row is DELETED OUTRIGHT,
+    # Task 2 : the retired theme-carousel pagers row is DELETED OUTRIGHT,
     # not repointed — see companion/test_companion_app.py's own (still-legacy, pre-33-16) history
     # for the argument. Kept out of this registry rather than repointed at markup that introduces
     # no `layout.JS_GATE_CLASS`-wrapped element at all.
@@ -1484,11 +1426,10 @@ def _no_js_control_violation(row, fetch_page):
 def test_no_js_control_contract_holds_for_every_registered_control(make_app_server):
     """every control in _NO_JS_CONTROL_REGISTRY holds its value in a native <input>/<select> the
     server renders unconditionally, associated with the form that posts it, with EVERY element
-    carrying its wrapper attribute also carrying the .js-gate class — and the machine that judges
+    carrying its wrapper attribute also carrying the.js-gate class — and the machine that judges
     that is proven non-vacuous against four fixtures built from real group-builder output: one
     correct control it must accept, and three it must reject (a field name nothing renders, a
-    wrapper rendered outside the gate, and a value held by a div instead of a native input)
-    (CFG-46/D-09, 25-01-PLAN.md Task 4)"""
+    wrapper rendered outside the gate, and a value held by a div instead of a native input)"""
     server = make_app_server(fake_providers=True)
     session = login(server)
     base = server.base_url()
