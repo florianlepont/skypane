@@ -361,3 +361,60 @@ proof at the group level and confirms it still holds after the merge with
 `git diff 8a8b8b4 origin/main --stat -- companion test-support`, empty).
 
 `check --paths <all 52 group-5 files>` reports 0 history hits.
+
+## Group 6 — companion static JS
+
+Source plan: 35-18 (all 17 `companion/static/*.js` files).
+
+| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
+|---|---:|---:|---:|---:|---:|
+| companion/static/battery-trend.js | 222 | 150 | 52.7% | 30.0% | 21 -> 0 |
+| companion/static/confirm-submit.js | 79 | 46 | 63.3% | 37.0% | 4 -> 0 |
+| companion/static/copy-button.js | 179 | 145 | 39.7% | 25.5% | 8 -> 0 |
+| companion/static/dirty-state.js | 726 | 368 | 65.0% | 31.0% | 47 -> 0 |
+| companion/static/flash-cleanup.js | 95 | 36 | 75.8% | 36.1% | 3 -> 0 |
+| companion/static/flight-rows.js | 281 | 195 | 52.7% | 31.8% | 9 -> 0 |
+| companion/static/freshness.js | 1073 | 599 | 60.1% | 28.7% | 83 -> 0 |
+| companion/static/list-filter.js | 240 | 142 | 60.0% | 32.4% | 18 -> 0 |
+| companion/static/login-card.js | 152 | 100 | 56.6% | 34.0% | 3 -> 0 |
+| companion/static/nav-dropdown.js | 225 | 147 | 57.3% | 34.7% | 8 -> 0 |
+| companion/static/panel-lookup.js | 691 | 488 | 50.5% | 31.1% | 46 -> 0 |
+| companion/static/poll-cooldown.js | 88 | 61 | 53.4% | 32.8% | 6 -> 0 |
+| companion/static/quick-switch.js | 340 | 214 | 57.4% | 32.2% | 5 -> 0 |
+| companion/static/relative-time.js | 379 | 253 | 53.8% | 30.8% | 6 -> 0 |
+| companion/static/submit-guard.js | 212 | 103 | 67.0% | 32.0% | 6 -> 0 |
+| companion/static/theme-preview.js | 422 | 247 | 61.4% | 34.0% | 31 -> 0 |
+| companion/static/value-controls.js | 1114 | 747 | 54.6% | 32.3% | 36 -> 0 |
+| **Group 6 total** | **6518** | **4041** | **57.3%** | **31.4%** | **340 -> 0** |
+
+The group total matches `35-BASELINE/INDEX.md`'s "before" row for group 6
+(17 files, 6518 lines, 57% ratio, 340 history hits) exactly.
+
+### Files still above the ~35% guideline
+
+Both are the group's smallest files, where a compact ≤8-line file header
+(what the script does, which page(s) it binds to, its progressive-
+enhancement contract) is a large fraction of a 36-46 line total — there is
+no per-comment restatement left to cut without dropping the security note
+(confirm-submit.js: the native `confirm()` dialog is a misclick guard, not
+an authorization boundary) or the DOM contract (flash-cleanup.js: the
+two-condition guard and the parameters the address-bar rewrite must keep).
+
+| File | After | Justification |
+|---|---:|---|
+| companion/static/confirm-submit.js | 37.0% | 46-line file; the header's security note (native `confirm()` is a misclick guard only, never the authorization boundary — that is server-side in the disconnect route) is load-bearing and cannot shrink further without losing the warning against relying on client-side confirmation for a destructive action. |
+| companion/static/flash-cleanup.js | 36.1% | 36-line file; the header and the one inline comment state the two-condition guard and which query parameters the address-bar rewrite must preserve (`?resolve=` on Airlines) — both genuine DOM/behaviour contracts, not restatement. |
+
+### same-code and check evidence
+
+`server/.venv/bin/python scripts/check_comment_history.py same-code --base
+ebe66f9 $(git ls-files 'companion/static/*.js')` exits 0 with no `--allow`
+for all 17 files. `check --paths $(git ls-files 'companion/static/*.js')`
+reports 0 history hits. `node --check` passes for all 17 files.
+`SKYPANE_REQUIRE_BROWSER=1 pytest companion -q -n auto -k browser` (139
+tests, which exercise these scripts in a real browser) passes.
+
+## Shipped JS bytes, companion/static/*.js (17 files)
+
+- Raw, before: 303536 bytes; after: 153483 bytes.
+- Gzip -9, before: 112307 bytes; after: 55831 bytes.
