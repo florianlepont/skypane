@@ -788,7 +788,8 @@ def main(argv=None):
 
     p_same = sub.add_parser("same-code", help="prove a revision pair differs only in comments")
     p_same.add_argument("--base", required=True)
-    p_same.add_argument("--allow", nargs="*", default=[])
+    p_same.add_argument("--allow", action="append", default=[],
+                        help="a path allowed to differ in code; repeat per path")
     p_same.add_argument("paths", nargs="*")
 
     args = parser.parse_args(argv)
