@@ -1,27 +1,13 @@
 #!/usr/bin/env python3
 """Server-side aircraft-illustration normalization for the companion
-Airlines gallery.
+Airlines gallery. Source files carry differently-sized padding, so
+rendering them raw gave an inconsistent card-for-card aspect ratio
+(2.97:1 to 4.98:1). Fixed by cropping each to its *painted* bbox and
+re-centring into one shared output frame.
 
-Every source file carries its own, differently-sized transparent
-padding around the painted aircraft, so rendering the raw PNG bytes
-verbatim at `width: 100%; height: auto` gave the gallery an
-inconsistent aspect ratio card-for-card: measured across the 43
-vendored files, the painted content's aspect ratio spans 2.97:1
-(`chalair-aviation.png`) to 4.98:1 (`amelia-embraer.png`).
-
-This module fixes that server-side, at the route, by cropping each
-source image to its *painted* content (not its raw alpha bbox — see
-`server.plane.render._opaque_bbox()`'s own docstring for why those
-differ), then re-centring that crop into one shared output frame every
-card renders into identically.
-
-Deliberate constraint: this module imports `server.plane.render`'s
-`_opaque_bbox()` / `_threshold_alpha()` (and, transitively,
-`ILLUSTRATION_ALPHA_THRESHOLD`) rather than reimplementing bbox
-detection or defining a second alpha-threshold constant, so the panel
-and the gallery can never silently drift on "where does the aircraft
-actually end". This module deliberately does not edit
-`server/plane/render.py` itself, only reads from it.
+Imports `server.plane.render._opaque_bbox()` rather than
+reimplementing bbox detection, so the panel and gallery can never
+silently drift on "where does the aircraft end".
 """
 import functools
 import io
@@ -31,72 +17,30 @@ from PIL import Image
 
 from server.plane import render as panel_render
 
-# Painted-content aspect ratios across all 43 vendored illustrations range
-# 2.97:1 (chalair-aviation) to 4.98:1 (amelia-embraer), median 3.42:1
-# (measured 2026-09-02 via server.plane.render._opaque_bbox() over every
-# file in server/assets/icons/illustrations/). Because every crop is scaled
-# to FIT INSIDE this box (never crop-to-fill — clipping a wingtip to fill a
-# frame is worse than the padding inconsistency this module fixes), the
-# choice of target ratio can never cause clipping; it only decides how much
-# transparent letterbox space each file gets. A target near the widest
-# ratio would letterbox every narrower file with dead horizontal space on
-# both sides; the measured median instead spreads that dead space evenly
-# across the whole distribution.
-#
-# The frame is 450 wide: the rendered `.airline-card__image` never exceeds
-# 325px wide on mobile or 224px on desktop, so a much larger frame is pure
-# oversampling. A srcset/multi-size mechanism was rejected as unneeded
-# complexity for that same reason. The height
-# is DERIVED from the median ratio, never independently chosen:
-# round(W * 263 / 900). An exact integer reproduction of the 900:263 ratio
-# is impossible below 900x263 itself, because gcd(900, 263) = 1 (263 is
-# prime) — so round(450 * 263 / 900) = round(131.5) = 132, and the
-# resulting 450/132 (3.4091:1) tracks the measured 3.4221:1 median to
-# within 0.4%. That 0.4% deviation only shifts how much transparent
-# letterbox each file gets; because every crop still fits INSIDE the frame,
-# it can never clip an aircraft.
+# Width 450: the card image maxes at 325px mobile / 224px desktop, so a
+# larger frame is pure oversampling. Height matches the vendored set's
+# median aspect ratio (3.42:1), never independently chosen: crops always
+# scale to fit inside this box (never crop-to-fill), so the ratio only
+# affects letterbox space, never clipping.
 ILLUSTRATION_TARGET_WIDTH = 450
 ILLUSTRATION_TARGET_HEIGHT = 132
 ILLUSTRATION_TARGET_SIZE = (ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT)
 
 
 def normalized_png_bytes(path):
-    """Return PNG bytes for the illustration at `path`, tight-cropped to its
-    opaque (painted) bbox — via `panel_render._opaque_bbox()`, the same
-    measurement `server/plane/render.py` paints against, never a
-    reimplementation of it. The whole source image is scaled (LANCZOS,
-    matching `panel_render._resize_illustration()`) so that its painted
-    content fits inside `ILLUSTRATION_TARGET_SIZE` preserving aspect
-    ratio, the opaque bbox is re-measured against that resized image (not
-    against the pre-resize crop — see the resize-order comment below),
-    and that tight region is pasted centred onto a fully transparent
-    canvas of exactly `ILLUSTRATION_TARGET_SIZE`.
-
-    A file whose opaque bbox comes back `None` (nothing painted above the
-    alpha threshold — a fully transparent or entirely sub-threshold image)
-    falls back to the whole source image instead of raising, mirroring
-    `panel_render.IllustrationPlacement`'s own documented `rect` fallback
-    for the same condition.
-
-    Every output has identical pixel dimensions
-    (`ILLUSTRATION_TARGET_SIZE`), so the caller never needs to special-case
-    a per-file size.
+    """Return PNG bytes for the illustration at `path`, resized (LANCZOS)
+    then tight-cropped to its opaque bbox (via
+    `panel_render._opaque_bbox()`, never reimplemented) and pasted
+    centred onto a transparent `ILLUSTRATION_TARGET_SIZE` canvas. A file
+    with no opaque bbox falls back to the whole image rather than
+    raising. Every output has identical pixel dimensions.
     """
     with Image.open(path) as source:
         rgba = source.convert("RGBA")
 
-    # Deliberately mirrors panel_render._resize_illustration()'s own shape:
-    # resize the WHOLE source image first (LANCZOS, full surrounding
-    # context on every edge), and only measure/crop to the opaque bbox
-    # AFTER that resize — never crop-then-resize. Cropping tight to the
-    # bbox before resizing starves LANCZOS of context exactly at the
-    # painted edge, which was measured (during this module's own test
-    # development) to shift the re-measured post-resize bbox by up to 2px
-    # on one side only, breaking the "centred within 1px" contract for a
-    # handful of files (air-europa.png among them). Resizing first, the
-    # way the panel itself does, does not have that problem: the only
-    # remaining source of offset error is the centring division's integer
-    # rounding, at most 0.5px per axis.
+    # Resize first, crop the bbox after — never crop-then-resize.
+    # Cropping tight before resizing starves LANCZOS of edge context,
+    # measured to shift the bbox by up to 2px on some files.
     src_w, src_h = rgba.size
     bbox = panel_render._opaque_bbox(rgba)
     content_w, content_h = (bbox[2] - bbox[0], bbox[3] - bbox[1]) if bbox is not None else (src_w, src_h)

@@ -1,43 +1,13 @@
 """The shared-password session gate for the SkyPane companion service.
 
-There are no per-user accounts: a single shared password protects the
-entire site uniformly. This module is stdlib-only (collections,
-hashlib, hmac, http.cookies, ipaddress, os, time, secrets,
-urllib.parse) — it must never import Pillow, sqlite3, or anything
-under server/, matching this project's stdlib-first discipline.
+No per-user accounts. Stdlib-only — must never import Pillow, sqlite3,
+or anything under server/.
 
-Constants:
-
-- PASSWORD_ENV_VAR ("SKYPANE_COMPANION_PASSWORD"): the environment
-  variable holding the shared password. The value is read from the
-  process environment only: this module never writes it to a file,
-  never emits it via print/logging, and never lets it reach an
-  exception message.
-
-- SESSION_TTL_S (12h): long enough that a single operator is not
-  re-prompted for a password during a normal working session, short
-  enough that a leaked cookie does not stay valid indefinitely. This
-  is a tunable, not an architectural commitment.
-
-- SESSION_COOKIE_NAME / UI_THEME_COOKIE_NAME: the two cookies this
-  service sets — the signed session token, and the UI theme preference
-  (read by companion/layout.py, never written by it).
-
-- LOGIN_FAILURE_LIMIT / LOGIN_LOCKOUT_S: LoginThrottle's failed-attempt
-  guard thresholds (see LoginThrottle below).
-
-Session tokens are stateless: `expiry.signature`, where `signature` is
-an HMAC-SHA256 of the decimal expiry timestamp (nanosecond-resolution,
-see `issue_session_token()`), keyed by a signing key *derived* from
-the shared password (see `_signing_key()` below) — never the raw
-password itself, so a leaked `(expiry, signature)` pair is not an
-offline password oracle. The one deliberate departure from a purely
-stateless design is the small in-memory revocation set below
-(`revoke()`/`is_revoked()`), consulted on Sign out: it is pruned by
-each entry's own embedded expiry on every access, so it cannot grow
-unbounded over the 12h `SESSION_TTL_S` window, and it is lost on
-restart exactly like everything else in this module — that is
-acceptable for one household, not a general session store.
+Session tokens are stateless: `expiry.signature`, HMAC-SHA256 keyed by
+a signing key *derived* from the password (`_signing_key()`), never the
+raw password — a leaked pair is not an offline password oracle. The
+in-memory revocation set below is the one stateful exception: pruned by
+expiry, lost on restart.
 """
 import collections
 import hashlib
@@ -54,33 +24,23 @@ PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"
 SESSION_TTL_S = 12 * 3600
 SESSION_COOKIE_NAME = "sp_session"
 UI_THEME_COOKIE_NAME = "sp_ui_theme"
-# The language per-browser cookie, added directly beside
-# UI_THEME_COOKIE_NAME — both share secure_cookie_flag() below, so the
-# Secure flag can never drift between them.
+# Shares secure_cookie_flag() with UI_THEME_COOKIE_NAME, so the Secure
+# flag can never drift between them.
 UI_LANG_COOKIE_NAME = "sp_ui_lang"
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_LOCKOUT_S = 300
 INSECURE_COOKIES_ENV_VAR = "SKYPANE_COMPANION_INSECURE_COOKIES"
 
-# A per-process random salt, generated once at import time, that never
-# leaves this process (never embedded in a cookie, never logged).
-# issue_session_token()/verify_session_token() mix it into the signing
-# key via _signing_key() below so that a leaked (expiry, signature)
-# pair cannot be used to brute-force the shared password offline — the
-# attacker would also need this salt, which they cannot get. A side
-# effect, explicitly accepted for one household: a process restart
-# regenerates the salt and therefore invalidates every outstanding
-# session.
+# Never leaves this process. Mixed into the signing key so a leaked
+# (expiry, signature) pair cannot brute-force the password offline. A
+# process restart regenerates it, invalidating every outstanding session.
 _PROCESS_SALT = secrets.token_bytes(32)
 
 
 def _signing_key():
-    """The HMAC signing key for session tokens: HMAC-as-KDF over the
-    shared password and this process's random salt. This is a
-    standard, well-understood construction, not a hand-rolled one —
-    deriving rather than reusing configured_password() directly is what
-    makes a leaked token's signature useless for guessing the password
-    offline.
+    """HMAC-as-KDF over the shared password and the process salt —
+    deriving rather than reusing the password directly makes a leaked
+    signature useless for guessing it offline.
     """
     return hmac.new(
         configured_password(), _PROCESS_SALT, hashlib.sha256).digest()
@@ -140,13 +100,9 @@ def is_revoked(token):
 
 
 class AuthNotConfigured(RuntimeError):
-    """Raised when PASSWORD_ENV_VAR is unset or empty.
-
-    A missing password must fail closed, never open — companion/app.py
-    turns this into a startup refusal, so the service can never come up
-    with authentication silently disabled. The message names only the
-    environment variable, never a value, and must never be re-worded to
-    interpolate the configured password.
+    """Raised when PASSWORD_ENV_VAR is unset or empty — fails closed
+    rather than starting with auth silently disabled. The message names
+    only the environment variable, never a value.
     """
 
 
@@ -165,13 +121,10 @@ def configured_password():
 
 
 def password_ok(submitted):
-    """Constant-time check of `submitted` against the configured password.
-
-    Never uses `==` — a plain string-equality comparison on a secret
-    leaks timing information proportional to the matching prefix length.
-    A non-string submission is coerced to an empty string rather than
-    raising, so a malformed login POST body degrades to "wrong password"
-    instead of a 500.
+    """Constant-time check of `submitted` against the configured
+    password. Never uses `==` — a plain comparison leaks timing
+    information proportional to the matching prefix length. A
+    non-string submission degrades to "wrong password", never a 500.
     """
     if not isinstance(submitted, str):
         submitted = ""
@@ -180,14 +133,9 @@ def password_ok(submitted):
 
 def issue_session_token():
     """Build and sign a fresh session token: "<expiry>.<hex signature>".
-
-    `expiry` is a nanosecond-resolution Unix timestamp (`time.time_ns()`),
-    not seconds: tokens are otherwise a pure function of (expiry,
-    signing key), so two logins landing in the same wall-clock second
-    would produce byte-identical tokens — meaning revoking one session's
-    token on Sign out could silently also revoke a different, still-
-    legitimate session issued in that same second. Nanosecond resolution
-    makes that collision practically impossible.
+    `expiry` is nanosecond-resolution: at second resolution, two logins
+    in the same second would share a token, so revoking one on Sign out
+    would silently revoke the other too.
     """
     expiry = str(time.time_ns() + SESSION_TTL_S * 1_000_000_000)
     signature = hmac.new(
@@ -224,20 +172,10 @@ def verify_session_token(value):
 
 
 def secure_cookie_flag():
-    """The `"; Secure"` cookie-attribute fragment, or `""`.
-
-    Caddy terminating TLS in front of this service is still the
-    production posture, and `Secure` stays on by default for exactly
-    that reason. This flag exists solely so a plain-http LAN or dev run
-    (no Caddy/TLS in front) is not silently, unwinnably bounced back to
-    /login on every login attempt, because a browser will never send a
-    Secure cookie back over plain http.
-
-    Read fresh from the environment on every call (matching
-    configured_password()'s own read-fresh idiom, so a systemd unit
-    change needs no code change), and fails closed: any value other
-    than exactly "1" — including "true", "yes", or an empty string —
-    leaves Secure ON.
+    """The `"; Secure"` cookie-attribute fragment, or `""`. On by
+    default (Caddy terminates TLS in production); the opt-out exists
+    only so a plain-http LAN/dev run isn't unwinnably bounced back to
+    /login. Read fresh every call; fails closed on anything but "1".
     """
     if os.environ.get(INSECURE_COOKIES_ENV_VAR) == "1":
         return ""
@@ -270,11 +208,9 @@ def logout_set_cookie_header():
 
 
 def parse_cookies(header_value):
-    """Parse a raw Cookie header into a plain {name: value} dict.
-
-    A missing or malformed header yields an empty dict rather than
-    raising — this must never be a code path an attacker can use to
-    trigger a 500 by sending a garbled Cookie header.
+    """Parse a raw Cookie header into a plain {name: value} dict. A
+    missing or malformed header yields an empty dict rather than
+    raising, never a 500 an attacker could trigger.
     """
     if not header_value:
         return {}
@@ -288,18 +224,10 @@ def parse_cookies(header_value):
 
 def client_ip(peer, xff):
     """The address that identifies a caller for login-throttle purposes.
-
-    `X-Forwarded-For` is only trusted when the TCP peer itself is
-    loopback — that is Caddy, the only reverse proxy in front of this
-    service, and Caddy overwrites (never appends to) a client-supplied
-    XFF value. Any other peer is talking to this process directly (dev/
-    LAN use, or a future misconfiguration), so a header it could set
-    itself must never be trusted: the peer address is the identity.
-    When XFF is trusted, its right-most entry is used — that is the
-    hop Caddy itself appended, never a value an upstream client wrote.
-    An unparsable peer or XFF value falls back to the peer string as
-    given, so a malformed header can never turn into an exception on
-    the request path.
+    `X-Forwarded-For` is trusted only when the TCP peer is loopback
+    (Caddy, the only reverse proxy here, overwrites rather than appends
+    to XFF); any other peer sets its own header, so is never trusted.
+    Falls back to the peer string on any unparsable value.
     """
     try:
         parsed_peer = ipaddress.ip_address(peer)
@@ -334,32 +262,17 @@ def login_throttle_key(peer, xff):
 
 
 class LoginThrottle:
-    """A failed-login guard keyed on the caller's address (client_ip()/
-    login_throttle_key() above), not a single process-global counter.
+    """A failed-login guard keyed on the caller's address, not a single
+    shared counter — one stranger's wrong guesses must not lock out the
+    site's real owner. A courtesy guard for a single-user tool, not a
+    defence against a distributed attacker; the real strength is the
+    shared secret's length.
 
-    There are no distinct user accounts on this site, so a per-session
-    counter would be trivially defeated by opening a second tab — the
-    same reasoning applies to the poll-trigger cooldown. A single
-    shared global counter, however, has the opposite problem: one
-    stranger's
-    wrong guesses lock out the site's real owner. Keying on the caller's
-    address gives each address its own bucket, so failures from one
-    address never lock another, while still sharing one lockout window
-    per address — this remains a courtesy guard for a single-user
-    personal tool, not a defence against a distributed attacker; the
-    real strength of this site's auth is the length of the
-    operator-generated shared secret.
-
-    The bucket table (`collections.OrderedDict`, key -> [failures,
-    locked_until, last_seen]) is bounded by `max_entries`: without a
-    cap, an attacker spraying distinct source addresses could grow the
-    table without limit. On an insert that would exceed the cap,
-    entries that are both unlocked and idle for longer than the lockout
-    window are dropped first (they are almost certainly done mattering)
-    and, if that alone is not enough, the least-recently-touched entries
-    are evicted next, regardless of lock state. A spraying attacker can
-    thereby evict and reset their own locked bucket, but never anyone
-    else's — an accepted trade for bounded memory.
+    The bucket table is bounded by `max_entries`: on an insert that
+    would exceed the cap, unlocked-and-idle entries are dropped first,
+    then least-recently-touched entries regardless of lock state. A
+    spraying attacker can evict and reset their own bucket, never
+    anyone else's.
     """
 
     def __init__(self, limit=LOGIN_FAILURE_LIMIT, lockout_s=LOGIN_LOCKOUT_S,
@@ -369,10 +282,8 @@ class LoginThrottle:
         self._max_entries = max_entries
         self._clock = clock
         self._entries = collections.OrderedDict()
-        # This instance is a single process-global object shared across
-        # every request thread under ThreadingHTTPServer, so the table
-        # must not be read-then-written by two threads at once. Mirrors
-        # _REVOKED_LOCK's own precedent above in this same file.
+        # Shared across every request thread under ThreadingHTTPServer;
+        # mirrors _REVOKED_LOCK's precedent above.
         self._lock = threading.Lock()
 
     def _evict_locked(self):
@@ -392,10 +303,8 @@ class LoginThrottle:
             self._entries.popitem(last=False)
 
     def _touch_locked(self, key):
-        # Must be called with self._lock already held. Returns the
-        # mutable [failures, locked_until, last_seen] entry for key,
-        # creating it (evicting first if the table is full) and moving
-        # it to the most-recently-seen end.
+        # Must be called with self._lock held. Returns the mutable
+        # [failures, locked_until, last_seen] entry, creating it if needed.
         if key in self._entries:
             self._entries.move_to_end(key)
             return self._entries[key]
@@ -405,11 +314,9 @@ class LoginThrottle:
         return entry
 
     def record_failure(self, key):
-        # Once the previous lockout window has fully elapsed, a new
-        # failure must start a fresh count rather than re-arming the
-        # lockout from an already-saturated counter — otherwise one
-        # stray wrong password per window keeps the lockout permanent.
-        # Contract: five fresh failures per window, never permanent.
+        # Once the lockout window has fully elapsed, a failure starts a
+        # fresh count rather than re-arming from a saturated counter —
+        # otherwise one stray guess per window keeps the lockout permanent.
         with self._lock:
             entry = self._touch_locked(key)
             now = self._clock()
@@ -445,58 +352,27 @@ class LoginThrottle:
         return int(remaining) if remaining > 0 else 0
 
 
-# Defence in depth on top of SameSite=Strict above, not a replacement
-# for it. SameSite=Strict already stops a cross-site browser navigation
-# or fetch from carrying the session cookie at all in every browser
-# that honours it; this check exists for the two things that discipline
-# alone does not cover — a browser that predates SameSite=Strict
-# enforcement, and a same-site sibling host (another name under the
-# same registrable domain, e.g. a second *.nip.io label) that
-# SameSite=Strict itself does not distinguish from this site. Fetch
-# Metadata's Sec-Fetch-Site header names that distinction directly
-# ("cross-site" vs "same-site" vs "same-origin"), so it is checked
-# first and rejects both.
-#
-# Header-less requests are allowed on purpose: a request carrying
-# neither Sec-Fetch-Site nor Origin still needs a valid session cookie
-# to do anything, and refusing it here would only break non-browser and
-# older-browser clients for no security gain — the accepted risk is an
-# old browser's cross-site POST reaching the gate with SameSite=Strict
-# already having stripped its cookie, not a meaningfully more
-# permissive request.
-#
-# Comparing Origin against Host (rather than a hardcoded hostname) is
-# sound specifically because this is a same-process comparison of two
-# request headers a well-behaved client sets independently: a browser
-# always sets Origin to the page's own origin and Host to the request's
-# real target, and an attacker page can set neither on the victim's
-# behalf. Caddy passes Host through unchanged by default, so this holds
-# identically in production (behind Caddy) and in a bare-loopback test.
+# Defence in depth on SameSite=Strict: catches pre-SameSite browsers
+# and same-site sibling hosts SameSite=Strict can't distinguish.
+# Header-less requests are allowed (no security gain blocking them).
+# Origin vs Host, not a hardcoded name: both are set independently by
+# a well-behaved client and unspoofable by an attacker page.
 _ORIGIN_DEFAULT_PORT = {"https": "443", "http": "80"}
 
 
 def post_origin_ok(headers):
-    """True when `headers` (any mapping with a `.get()` keyed by the
-    exact header names browsers send — `http.server`'s own per-request
-    `self.headers` is already case-insensitive on lookup, and a plain
-    test dict simply uses those same names) describes a POST this
-    service should accept; False when it looks cross-site and must be
-    rejected with a 403 before any routing or form read (see
-    companion/app.py's `do_POST()`).
+    """True when `headers` describes a POST this service should
+    accept; False when it looks cross-site (403 before any routing or
+    form read).
 
-    Rule, in order:
-    1. `Sec-Fetch-Site: cross-site` or `same-site` -> reject — checked
-       first because it is the most specific signal a modern browser
-       sends, and it is what catches a same-site sibling host Origin/
-       Host comparison alone would not.
-    2. No `Origin` header at all -> allow (header-less clients).
-    3. `Origin: null` -> reject (an opaque origin — a sandboxed iframe, a
-       data: URL, or a redirect chain — is never this site's own origin).
-    4. Otherwise, `Origin`'s netloc must equal `Host`, compared
-       case-insensitively with each side's own default port (443 for
-       https, 80 for http) stripped so `https://h` and `https://h:443`
-       compare equal to a bare `Host: h`. A present `Origin` with no
-       `Host` at all is rejected rather than treated as unverifiable.
+    1. `Sec-Fetch-Site: cross-site`/`same-site` -> reject (checked
+       first: the most specific signal, and what catches a same-site
+       sibling host).
+    2. No `Origin` header -> allow (header-less clients).
+    3. `Origin: null` -> reject (an opaque origin, never this site's own).
+    4. Otherwise `Origin`'s netloc must equal `Host`, default ports
+       stripped from both sides; a present `Origin` with no `Host` is
+       rejected.
     """
     sfs = headers.get("Sec-Fetch-Site")
     if sfs is not None and sfs.strip().lower() in ("cross-site", "same-site"):

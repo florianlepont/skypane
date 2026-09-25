@@ -1,25 +1,10 @@
 """The one per-request browser preference this package resolves:
-language.
+language. Page-independent, stdlib-only (contextvars).
 
-Sits beside auth.py, battery.py, layout.py, screens.py and wake.py in
-this same package — a shared, page-independent module, never living
-inside the per-tab pages sub-package itself (that sub-package's own
-"pages/__init__.py" states the rule: no page module imports another
-page module). Stdlib-only (the contextvars module); this file must
-never import anything under the pages sub-package, and must never
-import anything under the top-level "server" tree.
-
-ctx["lang"] is still published for page modules, per the pages
-sub-package's own documented ctx contract — this module is the layout
-layer's own read path for the same single per-request resolution,
-never a second one: companion/app.py's page_context() (and the
-pre-session login/404 render paths) call set_request_prefs() exactly
-once per request, and every reader (page modules via ctx, layout.py
-via this module directly) sees the identical resolved value.
-
-One set path, two read paths, no other mutation path — the same
-discipline auth.py's own module-level mutable state
-(LoginThrottle/_REVOKED) is guarded by.
+One set path (companion/app.py's page_context(), called once per
+request), two read paths (page modules via ctx, layout.py via this
+module directly), no other mutation path — same discipline auth.py's
+own module-level mutable state is guarded by.
 """
 import contextvars
 

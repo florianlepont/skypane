@@ -65,10 +65,14 @@ key-decisions:
     throttle bucket-eviction trade-off), cookie-flag reasoning (Secure/HttpOnly/SameSite),
     the WCAG 2.1 formula pointers in contrast_check.py, and the millivolt/percent units and
     curve-derivation math in battery.py — matching the plan's must_haves."
-  - "Every one of the twelve files sits above the ~35% ratio guideline after purge (see table
-    below); none needed a second compression pass beyond what is recorded here, because a
-    second read of each found only restatement/history left to cut, not genuine why-comments —
-    those were already compressed to one-line form in the same pass."
+  - "A second (tightening) pass, requested by the orchestrator after reviewing the first pass's
+    ratios as insufficiently compressed, applied hard per-block caps (module docstring ≤10
+    lines/≤15 for app.py's argparse text, function/class docstring ≤8 lines/≤15 for genuine
+    security or contract content, comment blocks ≤5 lines) and deleted every numbered
+    narration list, module tour, and 'sits beside'/who-consumes-list paragraph outright,
+    keeping only the load-bearing invariant sentence(s). app.py landed at 29.1%, auth.py at
+    34.4% (both under the ~35% target); every small module dropped further still, documented
+    per-file in the ratio table below."
 
 requirements-completed: []
 
@@ -189,52 +193,53 @@ poll-pipeline single-writer invariant, startup-refusal contract) is unchanged in
 compressed line-for-line by dropping history IDs. `python -m companion.app --help` still
 prints accurate usage text (verified below).
 
-## Comment ratios (before -> after)
+## Comment ratios (before -> pass 1 -> pass 2 tightened)
 
 Source: `35-BASELINE/ratio-before.tsv` (before) and `check_comment_history.py ratio` on this
-plan's own HEAD (after), once `same-code`/`check` both pass. The group-4 closing plan folds
-this table into `35-COMMENT-RATIO.md` alongside the rest of the companion-production group.
+plan's own HEAD (pass 1, then pass 2 after the orchestrator's tightening review). The group-4
+closing plan folds this table into `35-COMMENT-RATIO.md` alongside the rest of the
+companion-production group.
 
-| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
-|---|---:|---:|---:|---:|---:|
-| companion/__init__.py | 1 | 1 | 100.0% | 100.0% | 2 -> 0 |
-| companion/app.py | 3744 | 3027 | 57.2% | 47.1% | 457 -> 0 |
-| companion/auth.py | 540 | 522 | 51.7% | 50.0% | 43 -> 0 |
-| companion/battery.py | 457 | 433 | 63.0% | 61.0% | 31 -> 0 |
-| companion/contrast_check.py | 226 | 211 | 62.0% | 59.2% | 8 -> 0 |
-| companion/frame_state.py | 216 | 197 | 69.9% | 67.0% | 17 -> 0 |
-| companion/i18n.py | 42 | 41 | 66.7% | 65.9% | 4 -> 0 |
-| companion/illustration_normalize.py | 153 | 142 | 68.6% | 66.2% | 4 -> 0 |
-| companion/prefs.py | 59 | 45 | 76.3% | 68.9% | 5 -> 0 |
-| companion/screens.py | 139 | 114 | 68.4% | 61.4% | 26 -> 0 |
-| companion/theme_preview.py | 376 | 364 | 62.5% | 61.3% | 25 -> 0 |
-| companion/wake.py | 38 | 19 | 78.9% | 57.9% | 7 -> 0 |
-| **Group total** | **5991** | **5116** | **58.9%** | **49.3%** | **629 -> 0** |
+Pass 2 applied hard per-block caps (module docstring ≤10 lines, ≤15 for app.py's argparse
+`--help` text; function/class docstring ≤8 lines, ≤15 for genuine security/contract content;
+comment blocks ≤5 lines) and deleted module-tour/"sits beside"/who-consumes-list prose entirely,
+replacing numbered narration lists with the load-bearing invariant sentence(s) only.
 
-### Files still above the ~35% guideline
+| File | Lines before | Lines pass 1 | Lines pass 2 | Comment % before | Comment % pass 1 | Comment % pass 2 | History hits |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| companion/__init__.py | 1 | 1 | 1 | 100.0% | 100.0% | 100.0% | 0 |
+| companion/app.py | 3744 | 3027 | 2258 | 57.2% | 47.1% | **29.1%** | 0 |
+| companion/auth.py | 540 | 522 | 398 | 51.7% | 50.0% | **34.4%** | 0 |
+| companion/battery.py | 457 | 433 | 269 | 63.0% | 61.0% | 37.2% | 0 |
+| companion/contrast_check.py | 226 | 211 | 154 | 62.0% | 59.2% | 44.2% | 0 |
+| companion/frame_state.py | 216 | 197 | 102 | 69.9% | 67.0% | 36.3% | 0 |
+| companion/i18n.py | 42 | 41 | 29 | 66.7% | 65.9% | 51.7% | 0 |
+| companion/illustration_normalize.py | 153 | 142 | 86 | 68.6% | 66.2% | 44.2% | 0 |
+| companion/prefs.py | 59 | 45 | 30 | 76.3% | 68.9% | 53.3% | 0 |
+| companion/screens.py | 139 | 114 | 81 | 68.4% | 61.4% | 45.7% | 0 |
+| companion/theme_preview.py | 376 | 364 | 208 | 62.5% | 61.3% | 32.2% | 0 |
+| companion/wake.py | 38 | 19 | 19 | 78.9% | 57.9% | 57.9% | 0 |
+| **Group total** | **5991** | **5116** | **3635** | **58.9%** | **49.3%** | **34.5%** | **0** |
 
-Every file in this plan sits above the guideline. Two forces both push these twelve files
-higher than the group-2/group-3 precedents: (1) `app.py` and `auth.py` are the single largest
-concentration of documented security invariants in the whole codebase (auth, session, CSRF,
-throttling — the plan's own must_haves require every one of these to keep a one-line why), and
-(2) the other ten files are small (19-540 lines), and a short file with even one genuine
-multi-line invariant sits well above 35% by construction, matching this phase's own precedent
-for small files (`server/plane/runway_config.py` at 59.0% in group 2, `stub-server/
-make_test_panel.py` at 36.4% in group 3).
+Both target files land at or under the ~35% ceiling: `app.py` 29.1%, `auth.py` 34.4%. Every
+small module dropped substantially further (e.g. `frame_state.py` 67.0% -> 36.3%, `theme_preview.py`
+61.3% -> 32.2%, `screens.py` 61.4% -> 45.7%), each now "as low as its genuine content allows" —
+the remaining lines are per-function invariant sentences and named-constant units, not
+restatement, module tours or numbered body narration (all deleted in this pass).
 
-| File | After | Justification |
+### Files still above the ~35% guideline (pass 2)
+
+| File | Pass 2 | Justification |
 |---|---:|---|
-| companion/app.py | 47.1% | The companion service's entire route table and every POST handler's security reasoning — the whole-site auth gate exemption list, the CSP directive-by-directive rationale, the CSRF SameSite=Strict posture (stated once in full, pointed to by the other two occurrences after a restatement pass), and the two most complex handlers' ordered security-property lists (`_handle_illustration_replace()`'s six-step untrusted-upload defence, `_handle_settings_post()`'s process-local-vs-cross-process lock correction). Re-read twice hunting for restatement (the fifteen near-identical `_serve_*_script()` docstrings collapsed to one shared comment plus bare bodies, and a three-times-repeated CSRF paragraph collapsed to one full copy plus two pointers) before accepting the remainder as load-bearing. |
-| companion/auth.py | 50.0% | A small (522-line), pure security module by design: password hashing, constant-time comparison, HMAC-derived session-token signing, cookie-flag reasoning, login-throttle bucket eviction, and the CSRF Origin/Sec-Fetch-Site gate's four-rule order each earn their own why-comment, per this plan's own must_haves. |
-| companion/battery.py | 61.0% | A data/math-dense estimation module: the 14-knot millivolt-to-percent curve's derivation, the companion-display-vs-device-warning threshold distinction (two different numbers for two different jobs), and the no-per-wake-cost discharge-projection reasoning are all genuine units-and-measurement why, not restatement. |
-| companion/contrast_check.py | 59.2% | A pure-stdlib WCAG 2.1 implementation: the spec pointers (kept per this plan's own instruction), the three named threshold constants' calibration numbers, and the signal-separation-vs-contrast distinction are the file's entire content — there is very little code to dilute the comments against. |
-| companion/frame_state.py | 67.0% | A small (197-line) single-source-of-truth state machine: the three-state condition table and the three-branch delay-sentence contract exist specifically so every consumer (the Frame strip, Home, Health, every settings caption) reads the same computed state, and that "exactly one place decides this" invariant is the module's whole reason to exist. |
-| companion/i18n.py | 65.9% | A tiny (41-line) module: one real function (`t()`) and its test-only sibling, each documenting a genuine never-raise/degrade-to-English contract; a short file with two documented functions sits well above 35% by construction. |
-| companion/illustration_normalize.py | 66.2% | A geometry-math module: the crop-box derivation (why 450x132, why it is derived from a measured median ratio rather than typed), and the single-source-of-truth import constraint on `server.plane.render._opaque_bbox()` are genuine why, not restatement. |
-| companion/prefs.py | 68.9% | A tiny (45-line) module whose entire job is documenting one invariant: one set path, two read paths, no other mutation path — the same discipline auth.py's own module-level mutable state is held to. |
-| companion/screens.py | 61.4% | A small (114-line) registry module: the everyday-vs-advanced group split and the render-order comments document real page-composition decisions a future screen type must follow. |
-| companion/theme_preview.py | 61.3% | A cache/geometry module: the cache-key invalidation scheme (theme retune, crop-box change, cache-version escape hatch, live-event-id axis) and the crop-box pixel-geometry derivation (which rows are ink, why 390..840 clears every one of them) are both genuinely non-obvious and load-bearing. |
-| companion/wake.py | 57.9% | A 19-line re-export shim whose only job is explaining why it exists (a single import path to `server.wake`, so two readers of `companion.wake.*` can never come to believe there are two definitions of "late"); the docstring is the whole file's content. |
+| companion/battery.py | 37.2% | `battery_life_estimate()`'s docstring is kept at 14 lines (within the ≤15 security/contract exception) as the one place the output-field contract (which callers key off) is documented; the curve-derivation and threshold-distinction comments are each ≤5 lines. |
+| companion/contrast_check.py | 44.2% | A pure-stdlib WCAG 2.1 implementation with very little code to dilute against: the spec URL pointers (required to stay per the plan), three calibration-number comments and one signal-separation-vs-contrast distinction, all now ≤5-line blocks. |
+| companion/frame_state.py | 36.3% | A 102-line single-source-of-truth state machine; module docstring and all four docstrings are now ≤8 lines (module docstring in fact ≤6), holding only the state/delay contract sentences every consumer relies on. |
+| companion/i18n.py | 51.7% | A 29-line module: one real function and its test-only sibling, each with a short never-raise contract; two documented functions in a file this size cannot go lower without dropping the contract itself. |
+| companion/illustration_normalize.py | 44.2% | An 86-line geometry module: the crop-box derivation constant comment (5 lines) and the two function docstrings (≤8 and ≤5 lines) are the file's only comments. |
+| companion/prefs.py | 53.3% | A 30-line module whose only content is the one-set-path/two-read-path invariant; module docstring is 9 lines, at the small-file floor for stating it at all. |
+| companion/screens.py | 45.7% | An 81-line registry module: module docstring (8 lines) plus short per-group split/render-order comments, each ≤5 lines. |
+| companion/theme_preview.py | 32.2% | Now under 35% itself; kept for completeness — a cache/geometry module whose function docstrings were cut from 5 verbose paragraphs each to ≤8-line invariant statements. |
+| companion/wake.py | 57.9% | A 19-line re-export shim; unchanged from pass 1 (already at the tiny-file floor — the docstring explaining why the shim exists is the whole file's content, no numbered lists or module tour to cut). |
 | companion/__init__.py | 100.0% | A one-line file: a single docstring, no code at all. Ratio is not a meaningful signal at this size. |
 
 ## Decisions Made
@@ -256,11 +261,14 @@ make_test_panel.py` at 36.4% in group 3).
   retired display-mode switch used) entirely rather than rewriting it to a why, per the plan's
   own explicit scope instruction — there is no surviving why once the feature and its cookie
   are both gone.
-- Accepted all twelve files above the ~35% guideline after a first compression pass each,
-  documented per-file above, rather than continuing to cut: a second read of every file found
-  only restatement and repeated-paragraph content left to compress (already fixed above), never
-  a genuine why-comment that could be cut without violating this plan's own must_haves (keep
-  every auth/session/CSRF/throttle invariant, WCAG pointer, and unit).
+- Ran a second (tightening) pass after the orchestrator judged the first pass's ratios
+  insufficiently compressed: applied hard per-block line caps (module docstring ≤10/≤15 lines,
+  function/class docstring ≤8/≤15 lines, comment blocks ≤5 lines) file by file, deleting every
+  numbered narration list, module tour and "sits beside"/who-consumes-list paragraph outright
+  and keeping only the invariant sentence(s) a caller actually depends on. `app.py` (29.1%) and
+  `auth.py` (34.4%) now both land at or under the ~35% target; the nine small modules dropped
+  further still (documented per-file above) without losing any required security/WCAG/unit
+  why-comment.
 
 ## Deviations from Plan
 
