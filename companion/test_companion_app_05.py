@@ -1,35 +1,25 @@
-"""Part 05 of the `companion/test_companion_app.py` migration chain
-(33-18-PLAN.md): ledger rows 267-320 (fragment `33-ledger/companion__
-test_companion_app.md`) — the LAST plan of the chain.
-
-Continues `companion/test_companion_app_04b.py` (row 266, the LAST
-anchor of part 04, the real-PNG illustration upload round trip) with:
-the illustration override's own effects (the normalization pipeline,
-the exact-one-file write, the untouched vendored original, and
+"""Tests the illustration override's own effects (the normalization
+pipeline, the exact-one-file write, the untouched vendored original, and
 `select_illustration()`'s resolution), the illustration upload's
 rejection paths (non-image, oversized, unknown/traversal keys,
 unauthenticated), the manual-resolution `/airlines/resolve` and
 `/airlines/manual-resolutions/{prefix}/delete` routes, the colour-rules
 `/settings/rules/*` routes, the poll-trigger cooldown sequence and its
-distinct failure flash key (the `--geofence` hotspot), the concurrent
-`/poll-now` lock-serialization proof, the calendar save-triggered sync
-family (connect/disconnect routes, the throttle bypass, lock
-contention, the T-17-FLASH leak guard), the notifications "send a
-test" route, the retired display-mode-switch removal (rewritten as a
-`not hasattr()` battery — the tokens no longer appear anywhere in
-production code, confirmed by grep before writing this module), the
-flash/title/nav i18n round trips, and — the LAST anchor — the
-site-wide editorial floor (CFG-79), whose one counting rule,
+distinct failure flash key, the concurrent `/poll-now` lock-serialization
+proof, the calendar save-triggered sync family (connect/disconnect
+routes, the throttle bypass, lock contention, a flash leak guard), the
+notifications "send a test" route, a `not hasattr()` battery proving the
+retired display-mode-switch tokens no longer appear anywhere in
+production code, the flash/title/nav i18n round trips, and the
+site-wide editorial floor whose one counting rule,
 `caption_word_count_text()`, is shared with test_config_page_05.py
 through companion/test_config_page_helpers.py.
 
 The illustration-override tests below and the poll-trigger cooldown
-sequence each consolidate several old `check()` calls that shared ONE
-mutable harness in a fixed order into one atomic pytest test, following
-33-17-SUMMARY.md's own precedent (33-MIGRATION-RULES.md section 3:
-"several old checks may map to one node id when they are
-consolidated"). Every other check here is either fully independent (its
-own fresh `make_app_server`/`app_server_in_process`) or a module-level
+sequence each consolidate several checks that shared ONE mutable
+fixture in a fixed order into one atomic pytest test. Every other check
+here is either fully independent (its own fresh
+`make_app_server`/`app_server_in_process`) or a module-level
 behavioural proof with no server at all.
 """
 import html
@@ -62,23 +52,22 @@ _VENDORED_ILLUSTRATIONS_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "server", "assets", "icons", "illustrations")
 
-# 29-06-PLAN.md Task 3 (CFG-79): the site-wide caption-floor's own
-# exemption list, imported (never re-listed) exactly as the legacy
-# harness did at module scope.
+# The site-wide caption-floor's own exemption list, imported
+# (never re-listed) at module scope.
 CAPTION_FLOOR_EXEMPTIONS = config_page.ASPECT_CAPTION_EXEMPTIONS
 
 
 # ==========================================================================
 # The illustration override's own effects (ledger rows 267-270,
 # consolidated: all four read state produced by ONE upload, never each
-# other's mutations, matching 33-17-SUMMARY.md's own consolidation
+# other's mutations, matching 's own consolidation
 # precedent for a shared, fixed-order setup).
 # ==========================================================================
 
 
 def test_illustration_override_effects_after_a_real_upload(make_app_server):
     """the overridden air-france render and the vueling-airlines render (the same source image)
-    come out of the identical illustration_normalize pipeline (D-03); the upload was written to
+    come out of the identical illustration_normalize pipeline ; the upload was written to
     {state_dir}/illustration_overrides/air-france.png, and nothing else was created in that
     directory; the vendored server/assets/icons/illustrations/air-france.png file is provably
     byte-identical (hash, size, and mtime) after a successful upload; and select_illustration()
@@ -120,7 +109,7 @@ def test_illustration_override_effects_after_a_real_upload(make_app_server):
     assert override_status == 200 and vueling_status == 200, (
         "expected 200 for both routes, got %d/%d" % (override_status, vueling_status))
     if override_body != vueling_body:
-        # Fallback (D-03, documented in the plan 02 SUMMARY): if the
+        # Fallback : if the
         # store-time Pillow RGBA re-encode turns out not to be
         # byte-for-byte lossless against illustration_normalize's own
         # re-encode of the untouched vendored file, fall back to a
@@ -253,7 +242,7 @@ def test_illustration_unauthenticated_post_redirects_to_login_and_writes_nothing
 
 # ==========================================================================
 # POST /airlines/resolve and the manual-resolution delete route
-# (phase 13 plan 13-06 Task 3, D-03/D-07/D-08/D-11) — each test below
+# — each test below
 # spins up its own isolated make_app_server(), since these routes write
 # a real manual_resolutions.json/poll_state.json/override file.
 # ==========================================================================
@@ -294,7 +283,7 @@ def test_manual_resolve_and_delete_routes_require_auth_and_write_nothing(make_ap
 
 def test_manual_resolve_post_revalidates_prefix_against_live_registry(make_app_server):
     """POST /airlines/resolve re-validates the prefix against the live unresolved-prefix
-    registry on write (D-11): a well-shaped but unregistered prefix writes nothing and gets the
+    registry on write : a well-shaped but unregistered prefix writes nothing and gets the
     stale flash; the identical POST succeeds once the prefix is a live registry member"""
     server = make_app_server(fake_providers=True)
     base = server.base_url()
@@ -330,7 +319,7 @@ def test_manual_resolve_post_revalidates_prefix_against_live_registry(make_app_s
 
 def test_manual_resolve_post_rejection_mapping_and_d03_branch(make_app_server):
     """each add_entry() rejection reaches its own distinct flash key and persists nothing
-    (empty/too-long/reserved names, and the registry cap); the D-03 branch: a brand-new name
+    (empty/too-long/reserved names, and the registry cap); the branch: a brand-new name
     redirects with resolve= (Step B offered) while a name already covered by existing artwork
     redirects without it"""
     server = make_app_server(fake_providers=True)
@@ -367,7 +356,7 @@ def test_manual_resolve_post_rejection_mapping_and_d03_branch(make_app_server):
         registry = manual_resolutions.load_manual_resolutions(server.state_dir)
         assert prefix not in registry, "prefix %r: expected the rejected entry to NOT be persisted" % (prefix,)
 
-    # D-03 branch: run BEFORE the cap-fill below, since once the registry
+    # branch: run BEFORE the cap-fill below, since once the registry
     # is at its 200-entry cap no further distinct prefix can be added.
     _seed_gap("NEW")
     status, headers, _ = _resolve_post("NEW", "Totally Novel Airline")
@@ -412,7 +401,7 @@ def test_manual_resolve_post_rejection_mapping_and_d03_branch(make_app_server):
 
 def test_manual_resolution_delete_route_full_contract(make_app_server):
     """POST /airlines/manual-resolutions/{prefix}/delete removes the registry entry, leaves the
-    override PNG on disk (D-08), and redirects to /airlines with no flash; a second identical
+    override PNG on disk and redirects to /airlines with no flash; a second identical
     POST is a no-op that also redirects without an error flash; a malformed prefix 404s without
     touching the registry"""
     server = make_app_server(fake_providers=True)
@@ -455,7 +444,7 @@ def test_manual_resolution_delete_route_full_contract(make_app_server):
 
 # ==========================================================================
 # POST /settings/rules/add and POST /settings/rules/{kind}/{value}/delete
-# (Phase 15 D-10, D-11) — each test below spins up its own isolated
+# — each test below spins up its own isolated
 # make_app_server(), since these routes write a real colour_rules.json.
 # ==========================================================================
 
@@ -484,10 +473,10 @@ def test_rules_routes_require_auth_and_write_nothing(make_app_server):
 
 
 def test_rules_add_and_delete_forms_sit_outside_settings_form(make_app_server):
-    """the rules add form and each delete form sit outside <form id=SETTINGS_FORM_ID> (D-10):
+    """the rules add form and each delete form sit outside <form id=SETTINGS_FORM_ID> -
     neither carries the settings form's id nor a form= attribute pointing at it, and a rule add
     followed by an unrelated settings-form save leaves both the rule and every device-config
-    setting intact (15-VALIDATION.md row 10)"""
+    setting intact"""
     server = make_app_server(fake_providers=True)
     base = server.base_url()
     session = login(server)
@@ -529,7 +518,7 @@ def test_rules_add_and_delete_forms_sit_outside_settings_form(make_app_server):
 
 
 def test_rules_add_route_no_js_added_then_replaced(make_app_server):
-    """raw URL-encoded no-JS POSTs to the rules add route (15-VALIDATION.md row 11): a first add
+    """raw URL-encoded no-JS POSTs to the rules add route : a first add
     flashes rule_added, a second add for the same key (case-insensitive input) flashes
     rule_replaced and echoes the normalised key back, and the registry holds exactly one entry
     with the second theme"""
@@ -684,7 +673,7 @@ def test_rules_page_context_reads_fresh_per_request(make_app_server):
 # ==========================================================================
 # poll-trigger cooldown: server-global, not per-session (ledger rows
 # 287-290, consolidated: each step depends on the previous step's own
-# cooldown-timer mutation, matching 33-17-SUMMARY.md's own consolidation
+# cooldown-timer mutation, matching 's own consolidation
 # rule for a fixed-order sequence sharing one mutable server).
 # ==========================================================================
 
@@ -732,7 +721,7 @@ def test_poll_trigger_cooldown_sequence(make_app_server):
 # the relative default didn't resolve under its WorkingDirectory) must
 # redirect with the distinct poll_failed flash key, never the misleading
 # save_failed one. `tmp_path` supplies a guaranteed-absent path rather
-# than a literal `/nonexistent/...` string (T-33-18-01, guard G6).
+# than a literal `/nonexistent/...` string.
 def test_poll_trigger_failure_uses_distinct_flash_key(make_app_server, tmp_path):
     """a genuine poll-trigger failure redirects with the distinct poll_failed flash key, never
     save_failed"""
@@ -749,7 +738,7 @@ def test_poll_trigger_failure_uses_distinct_flash_key(make_app_server, tmp_path)
         "a poll-trigger failure must never reuse save_failed's misleading copy")
 
 
-# UXA-15: two genuinely overlapping threads issuing POST /poll-now
+# Two genuinely overlapping threads issuing POST /poll-now
 # against the same running server, on a session with zero cooldown, must
 # never both reach run_once() — the server-side _POLL_LOCK
 # (companion/app.py) is the correctness boundary.
@@ -788,9 +777,8 @@ def test_poll_now_concurrent_requests_serialize_on_the_lock(make_app_server):
 
 
 # ==========================================================================
-# Section 4 (phase 17 plan 04, D-06/D-09): the save-triggered immediate
-# calendar sync, its four outcomes, the throttle bypass, lock
-# contention, and the T-17-FLASH leak guard. Every test here uses the
+# The save-triggered immediate calendar sync, its four outcomes, the throttle bypass, lock
+# contention, and a URL-leak guard. Every test here uses the
 # `app_server_in_process` fixture (a real ThreadingHTTPServer in THIS
 # process, not a subprocess) because it needs to monkeypatch
 # `calendar_rules.default_calendar_transport` and `socket.getaddrinfo` —
@@ -801,7 +789,7 @@ def test_poll_now_concurrent_requests_serialize_on_the_lock(make_app_server):
 
 def test_calendar_connect_reports_plural_count(app_server_in_process):
     """saving a calendar feed with three in-window flights performs exactly one refresh call and
-    the rendered banner names the plural flight count (D-06)"""
+    the rendered banner names the plural flight count"""
     server = app_server_in_process
     session = login(server)
     calls = []
@@ -868,7 +856,7 @@ def test_calendar_connect_zero_entries_still_succeeds(app_server_in_process):
 
 def test_calendar_sync_failure_reports_generic_message_and_still_saves(app_server_in_process):
     """a failing fetch redirects with the single generic failure flash key, renders the exact
-    failure copy, and the URL is saved regardless (D-06)"""
+    failure copy, and the URL is saved regardless"""
     server = app_server_in_process
     session = login(server)
     hostname = "calendar-sync-failure.example"
@@ -898,10 +886,10 @@ def test_calendar_sync_failure_reports_generic_message_and_still_saves(app_serve
 
 
 def test_calendar_sync_failure_never_leaks_the_url(app_server_in_process):
-    """T-17-FLASH: a raised error whose message embeds the full URL never surfaces the token,
+    """a raised error whose message embeds the full URL never surfaces the token,
     path segment, query-parameter name, or whole URL in the Location header or any served
     response body — the served Settings page legitimately shows the masked host + ellipsis once
-    connected (D-14/R-10, extended by 21-07-PLAN.md Task 2)"""
+    connected"""
     server = app_server_in_process
     session = login(server)
     hostname = "leak-check-host.example"
@@ -931,7 +919,7 @@ def test_calendar_sync_failure_never_leaks_the_url(app_server_in_process):
 
 def test_calendar_disconnect_reports_deletion_and_erases_entries(app_server_in_process):
     """checking the disconnect box redirects with the disconnected flash key, and the calendar's
-    previously-fetched flights are actually erased from disk (D-04)"""
+    previously-fetched flights are actually erased from disk"""
     server = app_server_in_process
     session = login(server)
     hostname = "calendar-sync-disconnect.example"
@@ -962,8 +950,8 @@ def test_calendar_disconnect_reports_deletion_and_erases_entries(app_server_in_p
 
 
 # ==========================================================================
-# 19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect action's own
-# dedicated POST /settings/calendar/disconnect route — a bare/wrong-
+# The calendar disconnect action's own dedicated
+# POST /settings/calendar/disconnect route — a bare/wrong-
 # confirm POST renders the two-step confirmation page and erases
 # nothing; only confirm=yes disconnects; the route is session-gated
 # like every other state-changing route.
@@ -972,7 +960,7 @@ def test_calendar_disconnect_reports_deletion_and_erases_entries(app_server_in_p
 
 def test_calendar_disconnect_route_bare_post_renders_confirmation_and_touches_nothing(app_server_in_process):
     """a bare authenticated POST /settings/calendar/disconnect with no confirm field returns 200
-    with the confirmation copy and leaves the calendar connected (D-08/A-26)"""
+    with the confirmation copy and leaves the calendar connected"""
     server = app_server_in_process
     session = login(server)
     url = "https://bare-post.example/feed.ics?token=BAREPOSTTOKEN"
@@ -989,7 +977,7 @@ def test_calendar_disconnect_route_bare_post_renders_confirmation_and_touches_no
 
 def test_calendar_disconnect_route_confirm_maybe_renders_confirmation_and_touches_nothing(app_server_in_process):
     """an authenticated POST /settings/calendar/disconnect with confirm=maybe renders the
-    confirmation page rather than disconnecting anything (D-08/A-26)"""
+    confirmation page rather than disconnecting anything"""
     server = app_server_in_process
     session = login(server)
     url = "https://confirm-maybe.example/feed.ics?token=MAYBETOKEN"
@@ -1007,7 +995,7 @@ def test_calendar_disconnect_route_confirm_maybe_renders_confirmation_and_touche
 
 def test_calendar_disconnect_route_confirm_yes_disconnects(app_server_in_process):
     """an authenticated POST /settings/calendar/disconnect with confirm=yes 303-redirects with
-    the disconnected flash key and actually disconnects the calendar (D-08/A-26)"""
+    the disconnected flash key and actually disconnects the calendar"""
     server = app_server_in_process
     session = login(server)
     url = "https://confirm-yes.example/feed.ics?token=YESTOKEN"
@@ -1026,7 +1014,7 @@ def test_calendar_disconnect_route_confirm_yes_disconnects(app_server_in_process
 
 def test_calendar_disconnect_route_unauthenticated_redirects_to_login(app_server_in_process):
     """an unauthenticated POST /settings/calendar/disconnect (even with confirm=yes) redirects to
-    /login and writes nothing (D-08/A-26, T-19-41)"""
+    /login and writes nothing"""
     server = app_server_in_process
     url = "https://unauth-disconnect.example/feed.ics?token=UNAUTHTOKEN"
     calendar_rules.save_calendar_url(server.state_dir, url)
@@ -1042,20 +1030,19 @@ def test_calendar_disconnect_route_unauthenticated_redirects_to_login(app_server
 
 
 # ==========================================================================
-# 20-09-PLAN.md Task 2 (D-14c): the calendar connect action's own
+# Task 2 (D-14c): the calendar connect action's own
 # dedicated POST /settings/calendar/connect route — never through
-# config_page.handle_post()'s scope/in_scope machinery (T-20-11),
-# session-gated like every other state-changing route (T-20-10).
+# config_page.handle_post()'s scope/in_scope machinery 
+# session-gated like every other state-changing route.
 # ==========================================================================
 
 
 def test_calendar_connect_route_valid_url_persists_syncs_once_and_leaves_other_settings_alone(app_server_in_process):
     """a valid POST /settings/calendar/connect 303-redirects to Display with the
     calendar_connect_ok flash key, persists the URL, triggers exactly one registry refresh, and
-    leaves quiet_hours_enabled/display_enabled exactly as they were (D-14c, T-20-11 pinned
-    regression)"""
+    leaves quiet_hours_enabled/display_enabled exactly as they were"""
     server = app_server_in_process
-    # T-20-11's own pinned regression: seed Quiet hours and the screen ON,
+    # 's own pinned regression: seed Quiet hours and the screen ON,
     # connect a calendar, and assert both are STILL on afterwards.
     device_config.save_device_config(
         server.state_dir, quiet_hours_enabled=True, display_enabled=True)
@@ -1101,8 +1088,7 @@ def test_calendar_connect_route_invalid_url_rejects_and_persists_nothing(app_ser
 
 
 def test_calendar_connect_route_unauthenticated_redirects_to_login(app_server_in_process):
-    """an unauthenticated POST /settings/calendar/connect redirects to /login and writes nothing
-    (D-14c, T-20-10)"""
+    """an unauthenticated POST /settings/calendar/connect redirects to /login and writes nothing"""
     server = app_server_in_process
     status, headers, _b = http_request(
         server.base_url() + config_page.CALENDAR_CONNECT_ROUTE, method="POST",
@@ -1114,7 +1100,7 @@ def test_calendar_connect_route_unauthenticated_redirects_to_login(app_server_in
 
 
 # ==========================================================================
-# 20-11-PLAN.md Task 1 (D-26/T-20-13): "Send a test"'s own dedicated
+# Task 1 : "Send a test"'s own dedicated
 # POST /settings/notifications/test route — session-gated, reads the
 # topic URL from the stored config only, and never trusts a submitted
 # topic_url field.
@@ -1122,7 +1108,7 @@ def test_calendar_connect_route_unauthenticated_redirects_to_login(app_server_in
 
 
 def test_notifications_test_route_unauthenticated_redirects_to_login(app_server_in_process):
-    """an unauthenticated POST /settings/notifications/test redirects to /login (D-26, T-20-10)"""
+    """an unauthenticated POST /settings/notifications/test redirects to /login"""
     server = app_server_in_process
     status, headers, _b = http_request(
         server.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE, method="POST", data=b"")
@@ -1132,7 +1118,7 @@ def test_notifications_test_route_unauthenticated_redirects_to_login(app_server_
 
 def test_notifications_test_route_unconfigured_flashes_failure_and_never_calls_sender(app_server_in_process):
     """with no stored topic URL, POST /settings/notifications/test redirects with the
-    notifications_test_failed flash key and never calls notify.send_notification() (D-26)"""
+    notifications_test_failed flash key and never calls notify.send_notification()"""
     server = app_server_in_process
     session = login(server)
     calls = []
@@ -1159,7 +1145,7 @@ def test_notifications_test_route_unconfigured_flashes_failure_and_never_calls_s
 def test_notifications_test_route_configured_calls_sender_once_and_flashes_success(app_server_in_process):
     """with a stored topic URL, POST /settings/notifications/test calls
     notify.send_notification() exactly once with the stored URL and redirects with the
-    notifications_test_ok flash key (D-26)"""
+    notifications_test_ok flash key"""
     server = app_server_in_process
     stored_url = "https://ntfy.sh/skypane-test-topic-abc"
     device_config.save_device_config(
@@ -1189,7 +1175,7 @@ def test_notifications_test_route_configured_calls_sender_once_and_flashes_succe
 
 
 def test_notifications_test_route_sender_returning_false_flashes_failure(app_server_in_process):
-    """a sender returning False redirects with the notifications_test_failed flash key (D-26)"""
+    """a sender returning False redirects with the notifications_test_failed flash key"""
     server = app_server_in_process
     stored_url = "https://ntfy.sh/skypane-test-topic-def"
     device_config.save_device_config(
@@ -1212,7 +1198,7 @@ def test_notifications_test_route_sender_returning_false_flashes_failure(app_ser
 
 def test_notifications_test_route_ignores_a_submitted_topic_url_field(app_server_in_process):
     """a POST /settings/notifications/test carrying its own topic_url field is ignored in favour
-    of the stored one — the field is never read from the request body (T-20-13)"""
+    of the stored one — the field is never read from the request body"""
     server = app_server_in_process
     stored_url = "https://ntfy.sh/skypane-test-topic-ghi"
     device_config.save_device_config(
@@ -1239,7 +1225,7 @@ def test_notifications_test_route_ignores_a_submitted_topic_url_field(app_server
 
 
 def test_calendar_sync_bypasses_the_throttle_via_min_interval_zero(app_server_in_process):
-    """D-06's bypass, proven two ways: the behavioural half seeds a recorded attempt a minute ago
+    """ 's bypass, proven two ways: the behavioural half seeds a recorded attempt a minute ago
     (well inside the standard 1800s throttle) and confirms the save-triggered sync still fetches
     and still reports success; the wiring half spies on refresh_calendar_registry() itself to pin
     that config_page.handle_post()'s own call site passes min_interval_s=0 explicitly - not
@@ -1298,7 +1284,7 @@ def test_poll_modules_own_refresh_call_site_still_throttles(tmp_path):
 
 def test_calendar_sync_lock_contention_is_honest(app_server_in_process):
     """a save arriving while the poll lock is already held redirects with the deferred flash key,
-    performs no fetch, and still saves the URL (D-09)"""
+    performs no fetch, and still saves the URL"""
     server = app_server_in_process
     session = login(server)
     hostname = "calendar-sync-contention.example"
@@ -1401,13 +1387,11 @@ def test_calendar_save_does_not_touch_the_manual_poll_cooldown(app_server_in_pro
 
 
 # ==========================================================================
-# 21-01-PLAN.md Task 3 (D-17): the retired simple/full display-mode
-# switch. The original legacy check walked every *.py/*.js file under
-# companion/ looking for seven retired tokens as raw text — rubric S
-# (TST-12): rewritten here as a `not hasattr()` battery across the
-# modules that used to define them, since a whole-repo text grep has no
-# observable behaviour of its own. Confirmed by grepping the WHOLE repo
-# before writing this test that none of the identifier-shaped tokens
+# The retired simple/full display-mode switch: rewritten here as a
+# `not hasattr()` battery across the modules that used to define them,
+# since a whole-repo text grep has no observable behaviour of its own.
+# Confirmed by grepping the WHOLE repo before writing this test that
+# none of the identifier-shaped tokens
 # appear anywhere in production code any more (only as "simple_mode":
 # False fixture dict keys in unrelated test files, which are not this
 # retired symbol). The two non-identifier tokens (the "/ui-mode" route
@@ -1421,7 +1405,7 @@ def test_calendar_save_does_not_touch_the_manual_poll_cooldown(app_server_in_pro
 def test_no_companion_module_redefines_the_retired_display_mode_switch():
     """no companion.* module (app, auth, layout, prefs, or any companion.pages module) still
     defines any of the seven identifier-shaped tokens the retired simple/full display-mode
-    switch used to carry (D-17) — the route/cookie-name halves of the same removal are proven
+    switch used to carry — the route/cookie-name halves of the same removal are proven
     behaviourally by sibling tests, named above"""
     import companion.auth as auth_module
     import companion.prefs as prefs_module
@@ -1444,7 +1428,7 @@ def test_no_companion_module_redefines_the_retired_display_mode_switch():
 
 
 # ==========================================================================
-# Section 6 (22-08-PLAN.md Task 1/2, D-06/B16): round-trip checks for
+# Section 6 : round-trip checks for
 # every flash template, every page <title> and the nav/theme labels this
 # plan translates — i18n.t_lang(), never prefs.set_request_prefs(),
 # which would leak its ContextVar state into every test that runs after
@@ -1477,7 +1461,7 @@ def test_flash_and_title_strings_round_trip_to_french_and_back():
 def test_nav_and_theme_labels_round_trip_to_french_and_back():
     """the nav landmark's aria-label ("Primary navigation") and the theme picker's three segment
     labels ("Auto"/"Light"/"Dark") round-trip to French under i18n.t_lang(..., 'fr') and to their
-    original English text under i18n.t_lang(..., 'en') (D-06/B16)"""
+    original English text under i18n.t_lang(..., 'en')"""
     for text in ("Primary navigation", "Auto", "Light", "Dark"):
         en_result = i18n_module.t_lang(text, "en")
         assert en_result == text, (
@@ -1490,8 +1474,7 @@ def test_nav_and_theme_labels_round_trip_to_french_and_back():
 
 
 # ==========================================================================
-# 29-06-PLAN.md Task 3 (CFG-79): the site-wide editorial floor — the LAST
-# anchor of the whole companion_app chain.
+# The site-wide editorial floor.
 # ==========================================================================
 
 
@@ -1539,7 +1522,7 @@ def _frame_strip_slice(rendered):
 
 
 def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server):
-    """the site-wide editorial floor (CFG-79): every non-exempt .section-caption element on all
+    """the site-wide editorial floor : every non-exempt.section-caption element on all
     six authenticated routes, in both English and French, over a real running server, is at most
     12 whitespace-split words; the route list is proven equal to
     test_browser_ux_helpers.VIEW_TRANSITION_ROUTES (a plain import, never a source-text read);
@@ -1548,7 +1531,7 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     caption-count minimums guard against a narrowed selector passing vacuously; and the
     apply-timing sentence (read from frame_state.py's own DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN
     constants) never renders outside the Frame strip's own markup slice, proven to fire inside it
-    at least once (29-06-PLAN.md Task 3)"""
+    at least once"""
     import companion.test_browser_ux_helpers as browser_ux_helpers
 
     server = make_app_server(fake_providers=True)
@@ -1592,7 +1575,7 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
             rendered_by[(route, lang)] = rendered
 
     # Minimums re-derived by RUNNING this exact selector against a real
-    # render of each route (30-05-PLAN.md Task 3, CFG-85).
+    # render of each route.
     per_route_min = {
         layout.HOME_ROUTE: 1, layout.DISPLAY_ROUTE: 9, layout.FLIGHTS_ROUTE: 0,
         layout.AIRLINES_ROUTE: 1, layout.HEALTH_ROUTE: 3, layout.DEVICE_ROUTE: 6,
