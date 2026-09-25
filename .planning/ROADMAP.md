@@ -1721,11 +1721,34 @@ Plans:
 3. English-only rule written in CLAUDE.md and CONTRIBUTING.md
 4. Suite green with no behaviour change
 
-**Plans:** 0 plans
+**Plans:** 22 plans (13 waves, one PR per directory group)
+
+**Execution gates:** G-33 — 35-01 stops unless Phase 33 is complete on `main` and no test reads source files or comments. G-34 — 35-21 (firmware, last purge wave) stops unless 34-11 is complete on `main`. One writer per file per wave. Each group proves "no behaviour change" with a mechanical `same-code` check against its base, plus the full suite and ruff, and records the per-file comment ratio before and after.
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 35 to break down)
+- [ ] 35-01-PLAN.md — Wave 1 — group 1 foundation: gate G-33, `scripts/check_comment_history.py` (check / ratio / same-code), mutation-proven guard with a ratchet list, CI step, baseline, English-only rule (HYG-04, HYG-06)
+- [ ] 35-02-PLAN.md — Wave 2 — server/plane part A (render, illustrations, colour_rules, dither, runway_config) (HYG-01)
+- [ ] 35-03-PLAN.md — Wave 2 — server/plane part B (calendar_rules, enrich, detect, manual_resolutions) (HYG-01)
+- [ ] 35-04-PLAN.md — Wave 2 — server top-level production modules (HYG-01, HYG-03)
+- [ ] 35-05-PLAN.md — Wave 2 — server tests (HYG-01)
+- [ ] 35-06-PLAN.md — Wave 3 — close group 2 (server/): same-code, ratio, ratchet, PR
+- [ ] 35-07-PLAN.md — Wave 4 — group 3 stub-server/ purge and close (HYG-01, HYG-03)
+- [ ] 35-08-PLAN.md — Wave 5 — companion app.py, auth.py and small modules (HYG-01)
+- [ ] 35-09-PLAN.md — Wave 5 — companion pages/config_page.py (HYG-01)
+- [ ] 35-10-PLAN.md — Wave 5 — companion health and history pages (HYG-01)
+- [ ] 35-11-PLAN.md — Wave 5 — companion layout.py and draw.py (HYG-01)
+- [ ] 35-12-PLAN.md — Wave 5 — companion airlines/home pages, pages/__init__.py, i18n_fr comments only (HYG-01)
+- [ ] 35-13-PLAN.md — Wave 6 — HYG-05 dead code (re-checked on main) + close group 4 (HYG-05, HYG-01)
+- [ ] 35-14-PLAN.md — Wave 7 — companion browser test family (HYG-01)
+- [ ] 35-15-PLAN.md — Wave 7 — companion status_pages and view_pages tests (HYG-01)
+- [ ] 35-16-PLAN.md — Wave 7 — companion config_page/companion_app/other tests, companion conftest, test-support (HYG-01)
+- [ ] 35-17-PLAN.md — Wave 8 — close group 5 (companion tests)
+- [ ] 35-18-PLAN.md — Wave 9 — group 6 companion static JS purge and close (HYG-02)
+- [ ] 35-19-PLAN.md — Wave 10 — group 7 style.css purge by section, shipped size raw/gzip before/after (HYG-02)
+- [ ] 35-20-PLAN.md — Wave 11 — group 8 deploy/, scripts/, .github/, root config, adsb-test/, hardware/ (HYG-03, HYG-01)
+- [ ] 35-21-PLAN.md — Wave 12 — group 9 firmware behind gate G-34; SPDX/Apache headers and VENDOR.md provenance kept (HYG-03)
+- [ ] 35-22-PLAN.md — Wave 13 — phase close: ratchet removed, mutation proof on the final tree, final 35-COMMENT-RATIO.md (HYG-01..06)
 
 ### Phase 36: State integrity and device protocol
 
