@@ -2596,41 +2596,24 @@ QUICK_LED_STATE_ID = "quick-switch-led-state"
 
 
 def quick_led_form_html(current_led_enabled):
-    """The Diagnostic LED switch's own `<form method="post"
-    action="/quick/led">` (D2/CFG-36, 23-07-PLAN.md Task 2) — EMPTY, and
-    a sibling of `<form id="{SETTINGS_FORM_ID}">`.
+    """The Diagnostic LED switch's own empty `<form>`, a sibling of
+    `<form id="{SETTINGS_FORM_ID}">` — `led_group()` renders inside the
+    settings form, and a `<form>` can never nest inside another, so the
+    button reaches this element across the DOM via
+    `form="{QUICK_LED_FORM_ID}"`.
 
-    Exactly `notifications_test_section()`'s shape, for exactly its
-    reason: `led_group()` renders INSIDE the settings form, and a
-    `<form>` can never nest inside another `<form>` — a browser silently
-    drops the inner one, and the switch would then submit the SETTINGS
-    form instead. That is not a cosmetic failure: a fetch-driven partial
-    `POST /settings` is the precise shape T-23-25/D-12.1 is about. The
-    button therefore stays in the card and reaches this element across
-    the DOM through `form="{QUICK_LED_FORM_ID}"`, the same cross-DOM
-    idiom the save bar and the Send-a-test button already use.
+    `return_to` is `layout.DEVICE_ROUTE`; `companion/app.py` validates
+    it by membership before using it as a redirect target — this
+    function has no opinion on validity.
 
-    The action attribute is written as literal path text, not a `%s`
-    interpolation of a route constant, matching the established
-    convention of every other immediate-action form in this module
-    (this module's acceptance gate greps the literal form-action text).
+    The posted `state` is the opposite of the stored one, so a press
+    with scripts blocked switches the LED rather than re-asserting its
+    current state; `companion/static/quick-switch.js` keeps that field
+    inverted after an optimistic flip.
 
-    `return_to` is `layout.DEVICE_ROUTE`: the LED switch renders on the
-    Device page and nowhere else. `companion/app.py` validates it by
-    MEMBERSHIP against that route's own single-member whitelist before
-    ever using it as a redirect target (T-21-12/T-23-24) — this function
-    has no opinion on validity, exactly like `frame_strip_html()`.
-
-    The posted `state` is the OPPOSITE of the stored one, so a press with
-    scripts blocked switches the LED rather than re-asserting the state
-    it is already in. `companion/static/quick-switch.js` keeps that field
-    inverted after an optimistic flip; with the script absent, this
-    server-rendered value is the whole mechanism.
-
-    `data-quick-switch` is the D-04 handshake both
-    `companion/static/dirty-state.js` and
-    `companion/static/quick-switch.js` key on. Do not delete it as
-    apparently unused from this module's own perspective.
+    `data-quick-switch` is the handshake both `dirty-state.js` and
+    `quick-switch.js` key on — not apparently-unused from this module's
+    perspective.
     """
     next_state = (
         layout.QUICK_STATE_OFF if current_led_enabled is True else layout.QUICK_STATE_ON)
@@ -2647,35 +2630,21 @@ def quick_led_form_html(current_led_enabled):
     )
 
 
-# --- 25-04-PLAN.md Task 1 (CFG-48): the wrapping-midnight arithmetic ---
+# The quiet window always runs forward from start, through midnight if
+# necessary: 23:00 to 07:00 is eight hours going forward and sixteen
+# going the other way, and an `end - start` implementation would draw
+# the wrong one. The shipped default window is exactly this case.
 #
-# Settled BEFORE anything is drawn, because the defect it exists to
-# prevent is a picture that is confidently wrong: 23:00 to 07:00 is eight
-# hours going forward through midnight and sixteen going the other way,
-# and an `end - start` implementation draws the sixteen while the card
-# says eight. The shipped default window is exactly that case, so this is
-# not a boundary somebody might one day reach — it is the value the
-# device leaves the factory with.
-#
-# ONE PARSE DISCIPLINE, NOT TWO. `_normalised_time_html()` below already
-# owned an inline `^\d{2}:\d{2}$`; it is lifted to the constant here and
-# both read it, so a future loosening cannot apply to the text and not to
-# the geometry (or the reverse) — which would be a card whose printed 24h
-# sibling and whose drawn arc disagree about what a stored value means.
+# The same shape regex feeds both the text and the drawn geometry, so a
+# future loosening cannot apply to one and not the other.
 _HHMM_RE = re.compile(r"^\d{2}:\d{2}$")
 
 QUIET_WINDOW_MINUTES_PER_DAY = 24 * 60
 
-# `start_fraction` and `sweep_fraction` are turns of the ring, in the
-# convention companion/draw.py's `unit_point_on_circle()` and
-# `unit_circle_dash_array()` already share: 0 at twelve o'clock, growing
-# CLOCKWISE. `minutes` is the same span in whole minutes.
-#
-# The sweep is DERIVED FROM `minutes` inside the one function below and
-# nowhere else. That is the whole reason this is a named triple rather
-# than two separate helpers: a duration computed here and a sweep
-# computed at the drawing site is exactly how a card comes to print
-# "8h" beside an arc covering two thirds of the day.
+# `start_fraction`/`sweep_fraction` are turns of the ring (0 at twelve
+# o'clock, growing clockwise, matching companion/draw.py's circle
+# helpers); `minutes` is the same span in whole minutes, the single
+# source both a card's printed duration and its drawn arc read from.
 QuietWindowSpan = collections.namedtuple(
     "QuietWindowSpan", "start_fraction sweep_fraction minutes")
 
@@ -2684,17 +2653,13 @@ def quiet_window_minute_of_day(value):
     """`value` ("HH:MM") as whole minutes since local midnight, or `None`
     when it is not a real time of day. Never raises.
 
-    `None` IS THE "RENDER NOTHING" SIGNAL, matching
-    `_normalised_time_html()`'s own omit-don't-fabricate convention
-    directly below — an unset or unparseable stored window must draw no
-    arc at all rather than a plausible-looking one starting at midnight.
-    The values reaching here are already server-validated HH:MM by
-    `handle_post()`; this is the second gate, not the first.
+    `None` is the "render nothing" signal: an unset or unparseable
+    stored window must draw no arc rather than a plausible-looking one
+    starting at midnight. Values reaching here are already
+    server-validated by `handle_post()`; this is the second gate.
 
-    The shape regex alone is not enough and the range check is not
-    decoration: `^\\d{2}:\\d{2}$` accepts "99:99", which would become
-    minute 5,999 of a 1,440-minute day and send every fraction below off
-    the ring.
+    The shape regex alone is not enough: `^\\d{2}:\\d{2}$` accepts
+    "99:99", which would become minute 5,999 of a 1,440-minute day.
     """
     if not value or not _HHMM_RE.match(str(value)):
         return None
@@ -2706,39 +2671,22 @@ def quiet_window_minute_of_day(value):
 
 def quiet_window_span(start_hm, end_hm):
     """The quiet window as a `QuietWindowSpan`, or `None` when either end
-    does not parse. Never raises (T-25-04-C: an unparseable stored window
-    must not take the whole Display page down).
+    does not parse. Never raises.
 
-    ALWAYS FORWARD FROM `start_hm`, THROUGH MIDNIGHT IF NECESSARY, which
-    is a modulo and not a subtraction. 23:00 to 07:00 is 480 minutes;
-    07:00 to 23:00 is its complement, 960. Both are legitimate windows
-    and the pair is what proves direction is honoured rather than
-    accidentally symmetric.
+    Always forward from `start_hm`, through midnight if necessary (a
+    modulo, not a subtraction): 23:00 to 07:00 is 480 minutes, and
+    07:00 to 23:00 is its complement, 960.
 
-    THE THREE DEGENERATE CASES, STATED RATHER THAN DISCOVERED:
+    Equal start and end is a zero-length window, not a whole day —
+    matching `server.device_config.seconds_until_quiet_hours_end()`'s
+    own contract, since `(end - start) % 1440` is 0 for that input. A
+    24-hour window is therefore unreachable through two HH:MM values:
+    the only pair whose forward distance could be 1440 is the equal
+    pair already claimed by zero, so the largest expressible window is
+    1439 minutes, matching the dial's own `aria-valuemax`.
 
-      EQUAL START AND END IS A ZERO-LENGTH WINDOW, NOT A WHOLE DAY.
-      `server.device_config.seconds_until_quiet_hours_end()` is the
-      authority here and its docstring already settles it out loud: "when
-      `start_hm == end_hm` the window is zero-width and this always
-      returns `None` for every instant - a zero-width window is never
-      active, and that is intentional rather than a bug to 'fix' into an
-      always-active window." `(end - start) % 1440` returns 0 for that
-      input, so this function agrees with the server by construction
-      rather than by coincidence, and a check asserts the two agree on a
-      shared instant instead of pinning a number in isolation.
-
-      A 24-HOUR WINDOW IS UNREACHABLE THROUGH TWO HH:MM VALUES, and that
-      follows from the paragraph above rather than being a separate rule:
-      the only pair whose forward distance could be 1440 is a pair with
-      equal ends, and that pair is already spoken for as zero. The
-      largest window this control can express is therefore 1439 minutes
-      (23:59), which is what the dial's own `aria-valuemax` says too.
-
-      AN UNPARSEABLE END RENDERS NOTHING. `None` propagates out of
-      `quiet_window_minute_of_day()` and out of here; it is never a zero
-      span, because a zero span draws a real (empty) window and would
-      claim the device has one configured.
+    An unparseable end renders nothing (`None`, never a zero span,
+    which would draw a real empty window and claim one is configured).
     """
     start = quiet_window_minute_of_day(start_hm)
     end = quiet_window_minute_of_day(end_hm)
@@ -2752,49 +2700,27 @@ def quiet_window_span(start_hm, end_hm):
 
 
 def _normalised_time_html(value):
-    """B14 (22-AUDIT.md, 22-10-PLAN.md Task 2): the normalised 24h value
-    rendered as a VISIBLE sibling beside a native `<input type="time">`.
+    """The normalised 24h value rendered as a visible sibling beside a
+    native `<input type="time">`.
 
     A native time control formats itself from the browser's own locale,
-    so a browser in en-US renders the stored "23:00" as "11:00 PM" —
-    directly beside a preset button this same group labels
-    "Night (23:00-07:00)". One value, two notations, no way to tell they
-    are the same. The audit's fix is to SHOW the stored 24h text; this is
-    it.
+    so an en-US browser renders the stored "23:00" as "11:00 PM" —
+    directly beside a preset button labelled "Night (23:00-07:00)". One
+    value, two notations, with no way to tell they are the same without
+    showing the stored 24h text.
 
-    Not a placeholder (a time input never shows one) and not a `title`
-    (invisible until hovered, and unreachable by touch) — a real, visible
-    element, which is what the fix column asks for.
+    `aria-hidden`: the input's own value is already announced natively
+    by the control itself; repeating it would announce the same value
+    twice with no added information.
 
-    `aria-hidden`: the input's own value is already announced natively,
-    in the user's own notation, by the control itself. Repeating it in
-    the accessibility tree would announce the same value twice with no
-    added information. The visual duplication is the whole point of this
-    element and the aural duplication is not.
+    Renders nothing for a falsy/unparseable value rather than
+    fabricating one. The value is already server-validated by
+    `handle_post()`; this only echoes it back.
 
-    Renders nothing at all for a falsy/unparseable value rather than
-    fabricating one, matching this file's "omit, don't fabricate"
-    convention. The value is already server-validated HH:MM by
-    `handle_post()`; this only ever echoes it back.
-
-    29-04-PLAN.md Task 2 (CFG-80): the span now also carries
-    `QUIET_NORMALISED_TIME_ATTR`, a stable hook `companion/static/
-    value-controls.js` reads at load to decide whether to hide it. THIS
-    IS A MARKER, NOT A VISIBILITY CHANGE — the span renders exactly as
-    visible as it always has, with no `hidden` attribute, no `.js-gate`
-    class and no `style` of any kind. B14's own ground for this element
-    existing at all is UNCHANGED by that marker: a browser that forces a
-    12h rendering still needs the stored 24h text beside the field, and
-    nothing about that fact is being second-guessed here. What CFG-80
-    changes is only the element's DEFAULT VISIBILITY on a browser that is
-    ALREADY unambiguous — and it changes it in this specific direction,
-    server-visible, script-hidden, deliberately: the opposite direction
-    (`.js-gate`, hidden by default, revealed under `.js`) would delete
-    the fallback for exactly the scripts-blocked and forced-12h-browser
-    readers who need it most, which is the defect this whole element
-    exists to prevent. See `companion/static/value-controls.js`'s own
-    load-time pass for the strict, conservative condition under which the
-    hide actually happens.
+    The span also carries `QUIET_NORMALISED_TIME_ATTR`, a stable hook
+    `value-controls.js` reads to decide whether to hide it on a browser
+    that is already unambiguous — server-visible, script-hidden, so a
+    scripts-blocked or forced-12h browser always keeps the fallback.
     """
     if not value or not _HHMM_RE.match(str(value)):
         return ""
@@ -2803,108 +2729,63 @@ def _normalised_time_html(value):
     ) % (QUIET_NORMALISED_TIME_ATTR, escape_html(value))
 
 
-# --- 25-04-PLAN.md Task 2 (CFG-48): the server-drawn 24 h ring --------
-#
 # Class names as constants rather than literals at the emission site: a
-# class that exists in Python and nowhere in companion/static/style.css
-# paints nothing at all, and a check scans the EMITTED markup's classes
-# against the stylesheet for exactly that.
+# class that exists in Python and nowhere in style.css paints nothing,
+# and a check scans emitted markup against the stylesheet for exactly
+# that.
 QUIET_DIAL_CLASS = "quiet-dial"
 QUIET_DIAL_RING_CLASS = "quiet-dial__ring"
-# The full circumference: the whole 24 hours, always drawn.
 QUIET_DIAL_DAY_CLASS = "quiet-dial__day"
-# The quiet window itself, drawn on top of the day.
 QUIET_DIAL_ARC_CLASS = "quiet-dial__arc"
 QUIET_DIAL_HOUR_CLASS = "quiet-dial__hour"
 QUIET_DIAL_READOUT_CLASS = "quiet-dial__readout"
 
-# 29-04-PLAN.md Task 1 (CFG-80): the preset row's own container (a
-# segmented control, no longer `.runway-row` — see quiet_hours_group()'s
-# docstring for why) and the Start/End wrapper that lays the two time
-# fields out as one visual unit with the dial, rather than as two
-# stacked full-width lines. Same class-name-as-constant reasoning as the
-# dial's own classes above: a class that exists in Python and nowhere in
-# companion/static/style.css paints nothing, and a check scans the
-# emitted markup's classes against the stylesheet for exactly that.
 QUIET_PRESET_ROW_CLASS = "quiet-preset-row"
 QUIET_TIMES_ROW_CLASS = "quiet-times-row"
 
-# 29-04-PLAN.md Task 2 (CFG-80): the stable hook `_normalised_time_html()`
-# marks its own span with, so `companion/static/value-controls.js` can
-# find it and hide it — and ONLY it, never the wake-interval unit sibling
-# that shares `.field-inline-value` but carries no hook of its own (see
-# both functions' docstrings).
+# The stable hook _normalised_time_html() marks its own span with, so
+# value-controls.js can find and hide only it, never the wake-interval
+# unit sibling that shares .field-inline-value but carries no hook.
 QUIET_NORMALISED_TIME_ATTR = "data-normalised-time"
 
-# User units, and CSS pixels — the aspect-locked `unit_*` scheme
-# companion/draw.py documents, with an explicit intrinsic size so the
-# <svg> can never fall back to the format's own 300x150 default.
+# CSS pixels, with an explicit intrinsic size so the <svg> never falls
+# back to the format's own 300x150 default.
 QUIET_DIAL_SIZE = 176
-# Chosen so the arithmetic below lands on whole numbers: 176 - 14 - 3 = 78,
-# i.e. QUIET_DIAL_SIZE // 2 - QUIET_DIAL_STROKE // 2 - QUIET_DIAL_CLEARANCE.
-# A radius carrying a rounding tail would make every recomputed-from-the-
-# markup check invent a tolerance to hide it. (27-02-PLAN.md: this comment
-# used to read "64 - 7 - 3 = 54", a stale figure from before the ring grew
-# to its current 176px size — the arithmetic and the shipped radius were
-# always correct, only the comment beside them was not.)
+# 176 - 14 - 3 = 78 (SIZE // 2 - STROKE // 2 - CLEARANCE): chosen so the
+# radius lands on a whole number, since a rounding tail would make every
+# recomputed-from-markup check invent a tolerance to hide it.
 QUIET_DIAL_STROKE = 14
-# Clear space between the stroke's OUTER edge and the viewBox edge. A
-# stroked arc extends half its stroke width past the nominal radius,
-# which is the usual way a ring clips itself on its own box.
+# Clear space between the stroke's outer edge and the viewBox edge: a
+# stroked arc extends half its stroke width past the nominal radius.
 QUIET_DIAL_CLEARANCE = 3
 QUIET_DIAL_RADIUS = QUIET_DIAL_SIZE // 2 - QUIET_DIAL_STROKE // 2 - QUIET_DIAL_CLEARANCE
 
-# --- 27-02-PLAN.md Task 1/2 (CFG-62): THE PAIR SEAM's three property
-# names, decided here because every property name value-controls.js's
-# generic pair seam reads or writes is a SERVER decision — the same
-# reason FIELD_ATTR/GEOMETRY_ATTR/FORMAT_ATTR's values are decided in
-# companion/layout.py rather than invented in the script that consumes
-# them. `QUIET_DIAL_PAIR_ATTR`'s own VALUE is the name of the derived
-# sweep property — value-controls.js's `paintSweep()` writes the sweep
-# under whatever name the ancestor's own marker attribute carries, so
-# there is exactly one place this name is chosen.
+# The three property names value-controls.js's generic pair seam reads
+# or writes, decided here since every such name is a server decision.
 QUIET_DIAL_PAIR_ATTR = "data-value-pair"
 QUIET_DIAL_PAIR_PROPERTY_ATTR = "data-value-pair-property"
 
-# A DICT rather than three separate top-level ALL-CAPS names, and that
-# is not stylistic: a top-level string CONSTANT whose value begins with
-# "--" trips companion/test_i18n.py's D-05 scan — measured, running the
-# full suite after this task's first draft named them
-# QUIET_DIAL_START_FRACTION_PROPERTY et al. A leading "--" is not a
-# valid identifier start, so rule (a)'s lowercase-identifier exclusion
-# (which the FIELD_ATTR-shaped constants above all rely on) never
-# reaches it; companion/layout.py's own FRACTION_PROPERTY comment
-# already records this exact trap as the reason NO Python constant
-# exists there for "--value-fraction" at all. A DICT VALUE is scanned
-# under a narrower, SEPARATE exclusion (hyphenated-lowercase-identifier)
-# that DOES reach a leading "--" — companion/layout.py's own
-# `{"ok": "--ok", "warn": "--warn", "error": "--error"}` dict already
-# relies on exactly this path. So the one constant this plan's own
-# acceptance bar asks for ("the three property names exist as module
-# constants, not as literals at the call site") lives here, as three
-# dict values under one name, rather than as three names the scanner
-# cannot tell apart from prose.
+# A dict rather than three top-level string constants: a constant whose
+# value begins with "--" trips test_i18n.py's untranslated-string scan
+# (a leading "--" is not a valid identifier start, so the scanner's
+# bare-identifier exclusion never reaches it); a dict value is scanned
+# under a separate exclusion that does reach it.
 QUIET_DIAL_PAIR_PROPERTIES = {
     "start": "--quiet-start-fraction",
     "end": "--quiet-end-fraction",
     "sweep": "--quiet-sweep-fraction",
 }
 
-# The four anchor hours, and four rather than twenty-four on purpose.
-# These are the quarter turns: they are the only hours whose position a
-# reader resolves at a GLANCE rather than by counting round from one that
-# is labelled, and twenty-four labels on a 128px ring is illegible at the
-# 360px contract floor either way. 00 is the one that has to be there —
-# the whole defect this control's arithmetic exists to prevent is about
-# what happens at midnight, so midnight is marked.
+# Four anchor hours, not twenty-four: the quarter turns are the only
+# hours a reader resolves at a glance, and twenty-four labels on this
+# ring is illegible at the contract's minimum width. 00 is marked
+# because midnight is the case this control's arithmetic exists for.
 #
-# Each hour is PAIRED with the modifier class that places it rather than
-# templated from a single "quiet-dial__hour--%d" constant. That is not a
-# stylistic choice: companion/test_i18n.py strips a literal's format
-# specs before deciding whether it is a bare identifier, so the templated
-# form reads to the D-05 scanner as untranslated user-facing copy and
-# fails Check 1 — measured on this tree. A class name is not copy, and
-# the paired form is the shape that says so.
+# Each hour is paired with its own modifier class rather than templated
+# from one "quiet-dial__hour--%d" constant: test_i18n.py strips a
+# literal's format specs before checking whether it is a bare
+# identifier, so the templated form would read as untranslated
+# user-facing copy and fail that scan.
 QUIET_DIAL_LABELLED_HOURS = (
     (0, "quiet-dial__hour--0"),
     (6, "quiet-dial__hour--6"),
@@ -2912,82 +2793,49 @@ QUIET_DIAL_LABELLED_HOURS = (
     (18, "quiet-dial__hour--18"),
 )
 
-# "23:00 → 07:00 · 8h". No letters of its own (the duration's unit comes
-# from layout.duration_text(), which speaks both languages), so it needs
-# no catalogue entry — see quiet_dial_readout_html() below.
+# "23:00 → 07:00 · 8h". No letters of its own (the duration's unit
+# comes from layout.duration_text(), which speaks both languages), so
+# it needs no catalogue entry.
 QUIET_DIAL_READOUT_TEMPLATE = "%s → %s · %s"
 
-# A full turn in degrees, and the quarter turn that moves <circle>'s own
-# three-o'clock dash origin to twelve o'clock — the same correction
-# companion/draw.py's ring_gauge() applies, restated here because this
-# drawing additionally rotates by the window's own start.
+# A full turn in degrees, and the quarter turn that moves <circle>'s
+# three-o'clock dash origin to twelve o'clock (the same correction
+# draw.py's ring_gauge() applies, restated here since this drawing
+# additionally rotates by the window's own start).
 _QUIET_DIAL_FULL_TURN_DEG = 360.0
 _QUIET_DIAL_TWELVE_OCLOCK_DEG = -90.0
 
 
 def quiet_dial_svg(span):
-    """The 24 h ring as one `<svg>`: a full-circumference day, plus the
+    """The 24h ring as one `<svg>`: a full-circumference day, plus the
     quiet arc when `span` describes one. Never raises.
 
-    SERVER-DRAWN, AND THAT IS THE POINT OF THE WHOLE CONTROL. With
-    scripts blocked the visitor still sees a correct picture of the saved
-    window — only the DRAGGING is script, and only the dragging is behind
-    the `.js` gate. A dial whose arc needed a script would be a card that
-    renders an empty ring to anybody whose script failed.
+    Server-drawn: with scripts blocked the visitor still sees a correct
+    picture of the saved window — only dragging the handle is script.
 
-    `span` is `quiet_window_span()`'s return value, which already decided
-    the wrap; this function does no window arithmetic of its own and must
-    not grow any. The arc's sweep is `span.sweep_fraction` and its start
-    is `span.start_fraction`, both read straight off the one triple, so
-    the drawing cannot disagree with the duration printed beside it.
+    `span` is `quiet_window_span()`'s return value, which already
+    decided the wrap; this function does no window arithmetic of its
+    own. No arc at all for `span is None` or a zero-length window — a
+    zero-length dash would render as a dot under a round cap, reading
+    as "a few minutes" rather than "no window".
 
-    NO ARC AT ALL for `span is None` (nothing parseable is stored) and
-    for a zero-length window. Those are two different facts with the same
-    drawing, and that is correct: neither is a window, and neither may be
-    drawn as one. The empty-dash case is refused for
-    `ring_gauge()`'s own recorded reason — a zero-length dash renders as
-    a DOT under a round cap, so "no window" would read as "a few
-    minutes".
+    The dash route, not an arc path: an arc `<path>` whose sweep is the
+    whole circle is degenerate in SVG and draws nothing. This control
+    cannot reach a full turn (see `quiet_window_span()`), and the dash
+    route needs no large-arc-flag reasoning or trigonometry.
 
-    THE DASH ROUTE, NOT AN ARC PATH, again following `ring_gauge()`: an
-    arc <path> whose sweep is the whole circle is degenerate in SVG and
-    draws nothing. This control cannot reach a full turn (see
-    `quiet_window_span()`'s docstring), but the dash route also needs no
-    large-arc-flag reasoning and no trigonometry, and
-    `draw.unit_circle_dash_array()` already owns it.
+    `fill="none"` is a presentation attribute on both shapes: a stroked
+    circle with no fill takes the format's default black. `stroke-width`
+    is a presentation attribute too, deliberately not a stylesheet
+    declaration, since any CSS stroke-width would beat it and flatten
+    the geometry the constants above derive.
 
-    `aria-hidden="true" focusable="false"`, and hand-written rather than
-    `draw.unit_canvas()` for the one reason: that helper emits the
-    viewBox, the intrinsic size and `aria-hidden`, but not `focusable`.
-    Every SHAPE still comes from
-    draw.py's own primitives, so the escaping and the
-    refuse-a-paint-decided-in-Python guard apply to all of them.
-
-    Both shapes carry `fill="none"` as a presentation ATTRIBUTE: a
-    stroked circle with no fill declared takes the format's default
-    black, which is a filled black disc over the middle of the card.
-    `stroke-width` is a presentation attribute too, and deliberately not
-    a stylesheet declaration — a CSS stroke-width of any specificity
-    beats a presentation attribute, which would flatten the geometry the
-    constants above derive.
-
-    27-02-PLAN.md Task 2 (CFG-62): the `.js`-scoped stylesheet rule that
-    overrides this circle's `stroke-dasharray`/`transform` once script is
-    running reads the SAME `QUIET_DIAL_RADIUS` this function divides by
-    — via `--quiet-dial-radius`, the custom property the handle's own
-    transform already reads (companion/static/style.css) — rather than
-    a `pathLength="1"` attribute. `pathLength="1"` was tried first and
-    measured, not assumed, to be the wrong shape here: with this
-    circle's dasharray left in real user units (the STATED requirement
-    below — the presentation attribute is the saved value and the no-JS
-    floor, and must not change), adding `pathLength="1"` reinterprets
-    those same numbers on a SECOND, pathLength-scaled coordinate system
-    and a headless-browser measurement of this exact ring painted a
-    second, spurious dash on the far side of it. `stroke-dasharray`/
-    `transform` are UNCHANGED here either way: they are still the saved
-    value, computed the same way, and still what a scripts-blocked
-    visitor sees. See companion/static/style.css's own comment beside
-    the override rule for the full measurement.
+    The `.js`-scoped override of this circle's `stroke-dasharray`/
+    `transform` reads the same `QUIET_DIAL_RADIUS` via a custom
+    property rather than a `pathLength="1"` attribute: a headless
+    measurement showed `pathLength="1"` painting a second, spurious
+    dash, because it reinterprets the saved-value dasharray on a second,
+    rescaled coordinate system.
     """
     centre = QUIET_DIAL_SIZE // 2
     shapes = [draw.circle(QUIET_DIAL_DAY_CLASS, centre, centre, QUIET_DIAL_RADIUS, attrs={
@@ -3021,31 +2869,21 @@ def quiet_dial_svg(span):
 def quiet_dial_html(span, handles_html=""):
     """The ring and its four anchor-hour labels, as one positioned block.
 
-    THE LABELS ARE HTML OUTSIDE THE `<svg>`, NOT `<text>` INSIDE IT, and
-    that is structural rather than stylistic: companion/draw.py's
-    drawing contract owes a viewBox that contains the bounding box of any
-    text drawn inside it, and the only honest way to prove that in this
-    codebase is a real browser measurement. Keeping the labels out of the
-    canvas makes the defect unreachable by construction, and keeps them
-    at a constant CSS size instead of scaling with the box — the same
-    reason `draw.label_span()`'s own docstring gives.
+    The labels are HTML outside the `<svg>`, not `<text>` inside it,
+    since a viewBox must contain the bounding box of any text drawn
+    inside it, and keeping labels out of the canvas makes that defect
+    unreachable by construction while keeping them at a constant CSS
+    size instead of scaling with the box.
 
-    `handles_html` is the `.js`-gated handle layer (25-04 Task 3) and is
-    empty for every caller that has none. It is rendered LAST so document
-    order is paint order: the handles sit above the ring they steer.
+    `handles_html` is the `.js`-gated handle layer, empty when there is
+    none, rendered last so document order is paint order.
 
-    27-02-PLAN.md Task 2 (CFG-62): THE PAIR SEAM'S SHARED ANCESTOR. This
-    `<div>` is where the two handles' own fractions get published a
-    second time (see `quiet_dial_handles_html()`), and where their
-    derived sweep lands — `QUIET_DIAL_PAIR_ATTR`'s own VALUE names that
-    third property, so value-controls.js's generic pair seam writes it
-    under whatever name THIS FUNCTION chose, never a name of its own
-    invention. The three fractions are computed from the SAME `span`
-    triple `quiet_dial_svg()` draws from — no second window arithmetic
-    anywhere — so at rest the CSS-driven geometry and the presentation-
-    attribute geometry describe the identical picture. `span is None`
-    (nothing parseable stored) carries none of this: there is no pair to
-    publish for a window that does not exist.
+    This `<div>` is the pair seam's shared ancestor: the two handles'
+    fractions and their derived sweep publish here, under the property
+    name `QUIET_DIAL_PAIR_ATTR` names, computed from the same `span`
+    triple `quiet_dial_svg()` draws from so the CSS-driven and
+    presentation-attribute geometry never disagree. `span is None`
+    publishes no pair, since there is no window to publish one for.
     """
     hours_html = "".join(
         '<span class="text-label %s %s" aria-hidden="true">%02d</span>' % (
@@ -3066,42 +2904,27 @@ def quiet_dial_html(span, handles_html=""):
         escape_html(QUIET_DIAL_CLASS), pair_attrs, quiet_dial_svg(span), hours_html, handles_html)
 
 
-# --- 25-04-PLAN.md Task 3 (CFG-48): the two handles, gated ------------
-#
-# Everything below renders INSIDE 25-01's `.js` gate and nothing else
-# does. The ring, the readout, the three presets and both time inputs
-# all survive with scripts blocked; only the dragging is script, and
-# only the dragging is hidden when script does not run.
+# Everything below renders inside the `.js` gate; the ring, the
+# readout, the three presets and both time inputs all survive with
+# scripts blocked, and only the dragging is hidden without script.
 QUIET_DIAL_HANDLE_LAYER_CLASS = "quiet-dial__handles"
 QUIET_DIAL_HANDLE_CLASS = "quiet-dial__handle"
-# The box value-controls.js measures the pointer angle against. It is the
+# The box value-controls.js measures the pointer angle against: the
 # ring's own square, so the angle is measured about the ring's centre.
 QUIET_DIAL_HANDLE_TRACK_CLASS = "quiet-dial__handle-track"
 
-# The steering range, in minutes since local midnight.
-#
-# THE MAXIMUM IS 1439, NOT 1440, and the difference is a real one: 1440
-# would make 00:00 and "24:00" two values for one instant, and the End
-# key would write a time no <input type="time"> accepts. 1439 is 23:59 —
-# the last minute of the day — and `clampToStep()`'s round-then-clamp
-# order reaches it exactly even though it is not on a step boundary.
+# The steering range, in minutes since local midnight. The maximum is
+# 1439, not 1440: 1440 would make 00:00 and "24:00" the same instant
+# with two values, and the End key would write a time no
+# <input type="time"> accepts.
 QUIET_DIAL_HANDLE_MIN = 0
 QUIET_DIAL_HANDLE_MAX = QUIET_WINDOW_MINUTES_PER_DAY - 1
 
-# THE KEYBOARD MODEL, AND IT IS THE NATIVE <input type="range"> ONE
-# RATHER THAN A NEW INVENTION. value-controls.js owns it: arrows move one
-# step, Page keys move ten steps, Home and End go to the two ends. With
-# this step that is arrows ±15 min, Page ±150 min and Home/End to
-# 00:00/23:59.
-#
-# 25-04-PLAN.md's own behaviour line asked for Page ±60. It is ±150 here,
-# deliberately, because the same plan's binding constraint — "it must
-# match the native <input type="range"> model 25-05 will inherit" — is
-# the stronger of the two, and the two cannot both hold: ten steps of 15
-# minutes is 10.4% of the day, which is exactly what a native range
-# control's Page keys do. A per-control page size would have been a
-# second keyboard model on the second settings page, which is the drift
-# this phase's one script exists to prevent.
+# The native <input type="range"> keyboard model: arrows move one step,
+# Page keys move ten steps, Home/End go to the two ends. Ten steps of
+# 15 minutes is 10.4% of the day, matching a native range control's
+# Page-key proportion rather than a fixed value — a per-control page
+# size would be a second keyboard model on the second settings page.
 QUIET_DIAL_HANDLE_STEP = 15
 
 # The two ends, each with the field it steers and the accessible name
@@ -3116,17 +2939,12 @@ QUIET_DIAL_END_LABEL = "Quiet hours end"
 
 def quiet_dial_handle_fraction(minute):
     """`minute` as the 0..1 fraction of a turn the stylesheet positions
-    the handle from — and DELIBERATELY the same formula
-    value-controls.js's own `paint()` uses, `(value - min) / (max - min)`,
-    rather than the `minute / 1440` the arc is drawn from.
-
-    The two differ by at most 0.25 degrees (1439/1440 of a turn against
-    1439/1439 at the far end), which is a quarter of a pixel at this
-    ring's radius. Matching the script exactly is worth that: the server
-    paints the handle once and the script repaints it on every step, and
-    two formulas that agree in theory are how a handle comes to JUMP
-    imperceptibly on the first arrow press and then never quite line up
-    with the arc it is steering.
+    the handle from — deliberately the same formula value-controls.js's
+    `paint()` uses, `(value - min) / (max - min)`, rather than the
+    `minute / 1440` the arc is drawn from. The server paints the handle
+    once and the script repaints it on every step; using a formula that
+    only agrees in theory would make it jump imperceptibly on the first
+    arrow press and never quite line up with the arc again.
     """
     return minute / float(QUIET_DIAL_HANDLE_MAX)
 
@@ -3134,50 +2952,31 @@ def quiet_dial_handle_fraction(minute):
 def quiet_dial_handles_html(start_hm, end_hm):
     """The two drag handles, each in its own `.js`-gated wrapper.
 
-    EACH HANDLE IS A REAL `<button type="button">`, never a bare `<div>`.
-    A button is focusable, activatable and announced with no ARIA at all;
-    everything below only refines it. `type="button"` because a bare
-    `<button>` inside a form defaults to submit, and a handle that posted
-    the settings form on Enter would save on a keystroke meant to adjust
-    a value.
+    Each handle is a real `<button type="button">`, never a bare `<div>`
+    — focusable and announced with no extra ARIA. `type="button"`
+    because a bare `<button>` in a form defaults to submit, and a
+    handle that posted the settings form on Enter would save on a
+    keystroke meant to adjust a value.
 
-    DRIVEN FROM THE TWO NATIVE INPUTS, NEVER FROM STATE OF ITS OWN. The
-    server renders each handle's position from the same effective value
-    the matching input is populated with, and value-controls.js re-reads
-    that input on every steer. That is what makes the three existing
-    presets move the handles with no code at all — they already write
-    into these two fields — and it is the cheapest available proof that
-    there is one source of truth.
+    Driven from the two native inputs, never from state of its own: the
+    server renders each handle from the same value the matching input
+    holds, and value-controls.js re-reads that input on every steer —
+    which is why the existing presets already move the handles with no
+    code of their own.
 
-    NO HANDLE AT ALL for an end that does not parse: a handle at a
-    fabricated position claims a value that was never set, which is the
-    same omit-don't-fabricate rule `_normalised_time_html()` and
-    `quiet_dial_svg()` already follow.
+    No handle at all for an end that does not parse, matching the
+    omit-don't-fabricate rule `_normalised_time_html()`/`quiet_dial_svg()`
+    follow.
 
-    WHEN THE TWO ENDS ARE CLOSE ENOUGH TO OVERLAP, WHICH IS A DECISION
-    AND NOT AN EMERGENT BEHAVIOUR:
-
-      * There is NO minimum separation in the value. A zero-length window
-        is a real, defined state — `server.device_config`'s own
-        arithmetic calls it never-active and means it — and refusing it
-        here would make a state reachable by typing unreachable by
-        dragging, which is a worse card, not a safer one.
-      * Z-ORDER IS DOCUMENT ORDER, and document order is paint order in
-        HTML: the END handle is emitted second and therefore sits above
-        the start handle. Neither carries a `z-index`.
-      * SO THE END HANDLE WINS A POINTER-DOWN IN THE OVERLAP. That is
-        sufficient rather than arbitrary: recovering from an overlap
-        needs only ONE end to be draggable, and moving it separates the
-        pair, after which both are independently grabbable again. The
-        start handle is never unreachable meanwhile — it stays its own
-        tab stop whatever it is painted under, and both times stay
-        typable in the two native inputs below.
-      * The separation at which BOTH handles are independently grabbable
-        is a measured consequence of the shared 44px hit target rather
-        than a number chosen here: the targets stop overlapping at about
-        22px of chord, which on this ring is about 94 minutes.
-        companion/test_browser_ux.py measures both handles at a window
-        narrower than that and records the result.
+    No minimum separation between the two ends: a zero-length window is
+    a real, defined state, and refusing it here would make a state
+    reachable by typing unreachable by dragging. Z-order is document
+    order (the end handle is emitted second, so it sits on top with no
+    `z-index`), so the end handle wins a pointer-down where they
+    overlap; moving it separates the pair, after which both are
+    independently grabbable again. `test_browser_ux.py` measures both
+    handles at the width where the shared 44px hit targets stop
+    overlapping (about 94 minutes on this ring).
     """
     handles = []
     for value, field, label, pair_property in (
@@ -3207,11 +3006,9 @@ def quiet_dial_handles_html(start_hm, end_hm):
             layout.VALUE_CONTROL_GEOMETRY_ATTR,
             layout.VALUE_CONTROL_FORMAT_ATTR, escape_html(layout.VALUE_CONTROL_FORMAT_CLOCK),
             layout.VALUE_CONTROL_TEXT_ATTR, escape_html(layout.VALUE_CONTROL_TEXT_TOKEN),
-            # 27-02-PLAN.md Task 2 (CFG-62): THE PAIR SEAM. Names which of
-            # quiet_dial_html()'s ancestor properties this handle
-            # publishes its own fraction under — the ancestor itself is
-            # the nearest ancestor carrying QUIET_DIAL_PAIR_ATTR, found by
-            # value-controls.js's existing ancestorWith().
+            # Names which of quiet_dial_html()'s ancestor properties
+            # this handle publishes its fraction under; value-controls.js
+            # finds that ancestor via ancestorWith().
             QUIET_DIAL_PAIR_PROPERTY_ATTR, escape_html(pair_property),
             quiet_dial_handle_fraction(minute),
             escape_html(QUIET_DIAL_HANDLE_TRACK_CLASS), layout.VALUE_CONTROL_TRACK_ATTR,
@@ -3222,9 +3019,8 @@ def quiet_dial_handles_html(start_hm, end_hm):
     return "".join(handles)
 
 
-# 28-03-PLAN.md Task 1 (CFG-73 Bug A): layout.DURATION_ATTRS' own four
-# English wordings, in the SAME s/m/h/d order — quiet_dial_readout_html()
-# below zips this against that tuple so the attribute name and its
+# layout.DURATION_ATTRS' four English wordings, in the same s/m/h/d
+# order, zipped against that tuple below so an attribute name and its
 # translated wording are always written together.
 _QUIET_DIAL_DURATION_TEXTS = (
     layout.DURATION_SECONDS_TEXT, layout.DURATION_MINUTES_TEXT,
@@ -3233,106 +3029,31 @@ _QUIET_DIAL_DURATION_TEXTS = (
 
 
 def quiet_dial_readout_html(start_hm, end_hm, span):
-    """"23:00 → 07:00 · 8h" — the window in words, or nothing at all when
-    `span` is None.
+    """"23:00 → 07:00 · 8h" — the window in words, or "" when `span` is
+    None.
 
-    `aria-hidden="true"`, AND THAT IS THE SAME REASONING
-    `_normalised_time_html()` ABOVE ALREADY RECORDS, written out here so
-    a later reader does not "fix" it into a live region. Both time inputs
-    announce their own values natively, in the visitor's own notation;
-    repeating them here would say the same thing twice with nothing
-    added. The visual duplication is this element's whole job and the
-    aural duplication is not.
+    `aria-hidden="true"`: both time inputs already announce their own
+    values natively, so repeating them here would say the same thing
+    twice. Not a `role="status"`/`aria-live` region either: dragging a
+    handle fires continuously, and a live region would re-announce the
+    identical phrase on every step — the focused handle's own
+    `aria-valuetext` is the debounced announcement path.
 
-    IT IS SPECIFICALLY NOT A `role="status"` / `aria-live` REGION, and
-    that is CFG-52 rather than a preference. Dragging a handle fires
-    continuously, and a live region would re-announce the identical
-    phrase on every step — the exact defect Phase 23 hit with its three
-    switches. The focused handle's own `aria-valuetext` is the native,
-    debounced announcement path and it is enough.
+    The duration comes from `layout.duration_text()`, this app's one
+    length-of-time ladder, rather than a second boundary set invented
+    here — coarse by construction (a 90-minute window reads "1h"), which
+    is acceptable since the two exact endpoints are printed beside it.
 
-    The duration comes from `layout.duration_text()`, this app's ONE
-    length-of-time ladder, rather than a second set of boundaries
-    invented here. It is COARSE by construction — it names the largest
-    unit that fits, so a 90-minute window reads "1h" — and that is
-    accepted rather than worked around: the two exact endpoints are
-    printed immediately beside it, and a second duration ladder in a page
-    module is precisely the drift that ladder exists to prevent.
-
-    Escaped once, after formatting, matching this file's
-    "translate first, escape once" convention. Both times are already
-    known to be real HH:MM here (a `span` exists), so this escaping is
-    the convention holding rather than a live need — T-25-04-B.
-
-    27-02-PLAN.md Task 3 (CFG-62): THREE CHILDREN, NOT ONE TEXT NODE, so
-    the sentence can follow the pair the way the arc now does. AT REST
-    (this function's own return value, always) the visible text is
-    BYTE-IDENTICAL to what shipped before this task — the paragraph's
-    class and `aria-hidden` are unchanged and the three children,
-    concatenated with the same " → "/" · " connectors the old
-    single template used, spell out exactly the same sentence.
-
-    THE TWO ENDPOINTS carry the existing `data-value-readout` seam,
-    named by the field whose handle moves them (`quiet_hours_start`/
-    `quiet_hours_end`), with a bare token template — so they follow the
-    handles for free, through the shipped mechanism, substituting the
-    one number value-controls.js already reads back off each field.
-    Nothing here writes copy: the substituted value is a number, and the
-    template holding its place is server-rendered. **28-03-PLAN.md
-    Task 1 (CFG-73 Bug A)** additionally marks both endpoint spans
-    `data-value-readout-format="clock"` — the readout-scoped sibling of
-    the wrapper's own `data-value-format="clock"` — so
-    `value-controls.js`'s `paintReadouts()` substitutes zero-padded
-    "HH:MM" through the SAME codec the native time input already uses
-    (`numberToField()`'s own formatting body) rather than the raw
-    minute-of-day number it used to write.
-
-    THE DURATION CHILD — SUPERSEDED 28-03-PLAN.md Task 1 (CFG-73 Bug A).
-    Kept below, legible, because it explains a real decision this task
-    inverts on purpose rather than by accident:
-
-        "THE DURATION CHILD NEVER SHOWS A SCRIPT-COMPUTED SENTENCE, and
-        this is the honesty contract (D18's battery gauge, applied to a
-        different sentence) made structural rather than trusted: its own
-        `data-value-readout-text` is the EMPTY template. paintReadouts()'s
-        shipped substitution therefore always resolves to "" the moment
-        this element is next painted — whether or not the pair still
-        matches `data-value-readout-base` — which is deliberately the
-        SAFE side of the "blanks when equal to base" rule this seam was
-        built for (25-05-PLAN.md Task 2): that rule blanks a sentence
-        when nothing changed (a comparison against itself is noise) and
-        shows one once something did, which is the OPPOSITE of what a
-        duration that cannot be recomputed in script needs. An empty
-        template makes both of that rule's branches resolve to ""
-        rather than ever risking the SHOWN branch substituting a bare,
-        unrelated minute count where a duration phrase belongs.
-        `data-value-readout-base` is still recorded, both because a
-        later, smarter blank-only-when-different rule could read it and
-        because CFG-62's own acceptance bar asks for it; today it is
-        inert given the empty template, and that is written here rather
-        than left for a reader to have to prove. The server RE-RENDERS
-        the true figure on the very next load, which is the only path
-        back to a stated duration."
-
-    WHAT REPLACED IT: the developer's own report (28-CONTEXT.md,
-    CFG-73) is that the empty template's honesty came at too high a
-    cost — a permanently blank duration after any interaction reads as
-    "still buggy", not as honest. The fix is not to let the client
-    invent a sentence; it is to hand the client the SAME ladder's own
-    words, already translated, the way `relative-time.js`'s ticker has
-    carried its four bucket wordings since Phase 23. The duration span
-    below now carries all four `layout.DURATION_ATTRS`, each filled with
-    `i18n.t()` of the matching `layout.DURATION_*_TEXT` wording —
-    `value-controls.js` substitutes a quantity into whichever one
-    `_age_bucket()`'s own boundaries select and writes no language logic
-    of its own. `data-value-readout-base` stops being inert: the pair
-    seam it names is exactly what the client-side duration is computed
-    from. `data-value-readout-text` is no longer emitted on this span at
-    all — there is nothing left for it to hold an empty value for. The
-    span's own VISIBLE, server-rendered content is unchanged: still
-    `layout.duration_text(span.minutes * 60)`, still byte-identical to
-    what shipped before this task, so a fresh load or a scripts-blocked
-    page reads exactly as it always has.
+    Three children, not one text node, so the sentence can follow the
+    pair the way the arc does. The two endpoint spans carry the
+    `data-value-readout` seam (named by the field whose handle moves
+    them) with `data-value-readout-format="clock"`, so
+    `value-controls.js` substitutes zero-padded "HH:MM" through the same
+    codec the native time input uses. The duration span carries all four
+    `layout.DURATION_ATTRS`, each filled with `i18n.t()` of the matching
+    wording, so the client substitutes a quantity into whichever bucket
+    applies with no language logic of its own — its own visible,
+    server-rendered content stays `layout.duration_text(span.minutes * 60)`.
     """
     if span is None:
         return ""
@@ -3365,145 +3086,34 @@ def quiet_dial_readout_html(start_hm, end_hm, span):
 
 
 def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
-    """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md;
-    restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1; its own on/off
-    checkbox retired outright by 22-05-PLAN.md Task 1, X1/D-04/D-12.1):
-    this card is a SIBLING of `<form id="{SETTINGS_FORM_ID}">`, never a
-    literal descendant. Both time inputs keep submitting with the shared
-    Save via a `form="{SETTINGS_FORM_ID}"` attribute on each, the same
-    cross-DOM idiom Runway's own radios and the screen-type `<select>`
-    already use.
+    """The Quiet hours settings card: a sibling of
+    `<form id="{SETTINGS_FORM_ID}">`, never a literal descendant. Both
+    time inputs keep submitting with the shared Save via a
+    `form="{SETTINGS_FORM_ID}"` attribute on each.
 
-    Same `.theme-status` wrapper idiom, same `<h2 class="text-heading">`
-    naming as before this task (no `<fieldset>`/`<legend>`, for the
-    identical reason `led_group()`'s own docstring already documents).
+    Controls render in this order: heading, caption, dial, readout, the
+    three presets, then Start and End (side by side in a two-column
+    grid, next to the dial they mirror). Neither time input is ever
+    `disabled`: they stay fully interactive whether or not Quiet hours
+    is currently on, so a user can pre-configure a window either way —
+    the Frame strip is the only control for turning it on or off, and
+    `handle_post()` already treats an absent checkbox as unchanged.
 
-    Controls render in this locked order: heading, caption, the three
-    presets, then a "Start" `<input type="time">`, then an "End"
-    `<input type="time">`, each its own full-width line. They are
-    deliberately NOT wrapped in `.theme-status__row` or any other
-    side-by-side layout — 10-UI-SPEC.md rejects that explicitly, both to
-    avoid two native time pickers wrapping at a narrow (320-375px)
-    viewport and to stay consistent with 06.6.4.1 (D-01)'s removal of this
-    page's two-column grid.
+    The three presets are a client-side-only affordance: `type="button"`
+    elements carrying `data-preset-start`/`data-preset-end` attributes
+    that `dirty-state.js` reads and writes into the two time fields,
+    inert (never submitting) with no script.
 
-    29-04-PLAN.md Task 1 (CFG-80) SUPERSEDES the "each on its own
-    full-width line" clause above FOR START AND END SPECIFICALLY — the
-    sentence above is kept verbatim rather than deleted, per this file's
-    own SUPERSEDED-in-place convention, but it no longer describes what
-    ships. Four surfaces stacked full-width (the dial, the presets, Start,
-    End) is what made this card read as four separate controls for one
-    value rather than one control — the developer's own "pas très joli ce
-    composant" on the quiet-hours screenshot (29-CONTEXT.md). Start and
-    End now render side by side, as one visual unit with the dial, inside
-    a new `QUIET_TIMES_ROW_CLASS`-wrapped two-column grid. THE ORDER IS
-    UNCHANGED: presets still precede Start, Start still precedes End, in
-    document order inside that row — this is a LAYOUT change, not a
-    reordering, and the ring's own placement argument two paragraphs
-    below (25-04-PLAN.md Task 2) is untouched by it. `.theme-status__row`
-    is still never used by this card — the new side-by-side layout is a
-    dedicated grid, not that shared row class, so the "NOT wrapped in
-    `.theme-status__row`" sentence above stays true on its own narrow
-    terms even though the broader "each its own full-width line" premise
-    it once supported no longer holds.
+    `errors`/`submitted` repopulate both time controls and their error
+    messages on a rejected save. Both inputs also carry a `required`
+    attribute as a client-side convenience only; the server-side HH:MM
+    gate in `handle_post()` is the real control.
 
-    22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the `current_enabled`/
-    `quiet_hours_enabled` checkbox this function used to render here is
-    gone outright — the Frame strip is now the ONLY control for turning
-    Quiet hours on or off (T-22-16), matching Screen on/off's own fate
-    (`display_group()`, retired in the same commit). Neither time input
-    is ever given a `disabled` attribute tied to that on/off state — they
-    stay fully interactive regardless, resolving 10-RESEARCH.md's Open
-    Question 2 / Assumption A1 in the affirmative: a user can
-    pre-configure a window whether or not Quiet hours is currently on.
-    `handle_post()`'s own `quiet_hours_enabled` resolution is unaffected
-    by this markup change — it already treats an absent field as "leave
-    unchanged" (D-12.1), so removing this checkbox does not, by itself,
-    change what an unrelated settings save persists.
-
-    22-05-PLAN.md Task 2 (D-04) added a `delay_sentence` keyword here:
-    one fully i18n.t()-translated, already-clock-formatted sentence the
-    caller (`render()`) computed once from `wake.next_wake_status()`'s
-    own triple via `companion.frame_state.delay_sentence_template()`,
-    appended as the caption's own SECOND sentence.
-
-    29-05-PLAN.md Task 2 (CFG-79), 2026-09-21, REMOVES that keyword
-    outright rather than merely leaving it unrendered. The reasoning,
-    in full, because it is the one non-obvious call this function makes:
-    the Frame strip (companion/layout.py's `frame_strip_html()`) renders
-    the SAME computed sentence in its own Quiet-hours switch cell, on
-    both Home and Display, and 27-08-PLAN.md's CFG-69 additionally made
-    that strip cell LINK to this card's own heading
-    (`QUIET_HOURS_GROUP_HEADING_ID`). So the page's one home for the
-    apply-timing sentence was already the strip; appending it here too
-    made it a SECOND, independent copy of a fact the strip already
-    states — CFG-79's own rule ("applies at the next wake" is said in
-    exactly one place per page) names this exact shape as the thing to
-    cut. Between "stop rendering `delay_sentence` but keep the unused
-    parameter" and "delete the parameter and its call-site computation
-    outright", this function takes the second: a parameter nothing
-    renders is dead wiring this project's own review-feedback
-    discipline warns against carrying forward. `render()`'s own
-    computation of the value this parameter used to receive is deleted
-    at the same call site, since nothing else in this module consumed
-    it (confirmed by grep before deleting, not assumed) — see that
-    computation's own former site for the full account.
-
-    The caption is now `escape_html(i18n.t(QUIET_HOURS_SECTION_CAPTION))`
-    alone — one sentence, its own `id` unchanged (the `aria-describedby`
-    target both time inputs still point at via `_field_error_attrs(...,
-    hint_id=...)` below).
-
-    Every interpolated current value — the heading, the caption, and
-    both current times — is routed through `escape_html()`, matching
-    this file's universal escaping discipline.
-
-    19-07-PLAN.md Task 2 (D-07/A-25): `errors`/`submitted` (both fully
-    defaulted) let a rejected save repopulate both time controls from the
-    submission and render each field's own error message directly after
-    it. Both time inputs additionally gain a `required` attribute — a
-    client-side convenience only (D-07's explicit instruction); the
-    server-side HH:MM gate `handle_post()` runs before this render is
-    ever reached is the real control.
-
-    19-10-PLAN.md (D-14/S-04): three `type="button"` presets (Night, Day,
-    Always on) render between the caption and the Start input — a
-    CLIENT-SIDE affordance only, with NO server change. Each button
-    carries `data-preset-start`/`data-preset-end`/`data-preset-enabled`
-    attributes that `companion/static/dirty-state.js` reads and writes
-    into this same form's `quiet_hours_start`/`quiet_hours_end` fields
-    (and, when a `quiet_hours_enabled` element still exists in the DOM —
-    it no longer does on this page — the Always-on preset's own
-    `data-preset-enabled="0"`) — `handle_post()`'s validation of the two
-    time fields is completely untouched. On a no-JS browser the three
-    buttons are simply inert (they carry no `type="submit"`, so they
-    cannot even accidentally submit the form); both time inputs remain
-    fully usable either way, an acceptable degradation matching this
-    page's established graceful-degradation convention.
-
-    29-04-PLAN.md Task 1 (CFG-80): the three labels were "Night
-    (23:00–07:00)", "Work day (08:00–18:00)" and "Always on (off)" until
-    this task shortened them to bare "Night"/"Day"/"Always on" — the
-    hours a preset sets are already spoken, once, by
-    `quiet_dial_readout_html()`'s own caption directly above this row, so
-    repeating them on a button was a fourth surface for one value. The
-    row's own wrapper is no longer `.runway-row` (see below) — it is now
-    `QUIET_PRESET_ROW_CLASS`, styled as a segmented control with NO
-    selected state: these three buttons are momentary actions that WRITE
-    into the time fields, they are not a persistent choice, so there is
-    nothing to keep visually "selected" and this control reserves no new
-    accent.
-
-    27-08-PLAN.md Task 1 (CFG-69): the `<h2>` now carries
-    `id="{QUIET_HOURS_GROUP_HEADING_ID}"` — a fragment target for the
-    Frame strip's own Quiet hours caption link (companion/layout.py's
-    frame_strip_html(), Task 2 of the same plan), the same "id on the
-    group's own heading" convention `runway_group()` already uses. Not a
-    control and not part of anything that posts.
+    The `<h2>` carries `id="{QUIET_HOURS_GROUP_HEADING_ID}"`, a
+    fragment target for the Frame strip's own Quiet hours caption link.
     """
-    # 19-11-PLAN.md Task 3 (D-12/A-30): the group's single hint links to
-    # BOTH time inputs (there is no separate per-field hint for Start vs
-    # End) via `_field_error_attrs()`'s `hint_id` parameter.
+    # The group's single hint links to both time inputs (there is no
+    # separate per-field hint for Start vs End).
     effective_start = _submitted_or_current(submitted, "quiet_hours_start", current_start)
     start_error_attrs = _field_error_attrs(
         errors, "quiet_hours_start", "quiet-hours-start", hint_id=QUIET_HOURS_SECTION_CAPTION_ID)
@@ -3514,18 +3124,9 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
         errors, "quiet_hours_end", "quiet-hours-end", hint_id=QUIET_HOURS_SECTION_CAPTION_ID)
     end_error_html = _field_error_html(errors, "quiet_hours_end", "quiet-hours-end")
 
-    # 29-04-PLAN.md Task 1 (CFG-80): the preset row, now its OWN class
-    # (QUIET_PRESET_ROW_CLASS) rather than borrowing `.runway-row` —
-    # style.css gives it the same bordered-container-plus-borderless-
-    # segment idiom `.theme-form`/`.theme-option` already use for the
-    # language/theme footer switches, but with NO selected state (see
-    # this function's own docstring for why). `.runway-row` itself
-    # survives unchanged for the runway picker, its only remaining
-    # consumer; nothing here asserts its absence from this group's own
-    # output (unlike `.theme-status__row`, which a pinned check requires
-    # stay absent from this group specifically). The three buttons are
-    # bare `type="button"` elements with no new class, inheriting the
-    # existing quiet-button treatment (base `button` selector) untouched.
+    # The preset row is a segmented control with no selected state:
+    # these buttons are momentary actions that write into the time
+    # fields, not a persistent choice.
     preset_row_html = (
         '<div class="%s">'
         '<button type="button" %s data-preset-start="%s" data-preset-end="%s">%s</button>'
@@ -3544,46 +3145,20 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
         escape_html(i18n.t(QUIET_HOURS_PRESET_ALWAYS_ON_LABEL)),
     )
 
-    # 21-04-PLAN.md Task 1 (D-01/D-02): the instant switch that used to
-    # render here, above a hairline and the shared "applies on next
-    # wake" sentence, is gone — it now renders once, in the shared
-    # Frame strip at the top of Home and Display (the shared strip
-    # helper in companion/layout.py), never a second time in this card.
-    # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the scheduled on/off
-    # checkbox that used to render next is retired outright too — the
-    # presets, both time inputs and the Save button are unchanged.
-    # 29-05-PLAN.md Task 2 (CFG-79): the caption is now ONE sentence —
-    # see this function's own docstring for why the computed delay
-    # sentence that used to be appended here is gone rather than merely
-    # hidden. "Translate first, escape once" is unchanged: `caption_html`
-    # still holds translated, unescaped text, escaped once at the
-    # interpolation site below.
-    # 22-10-PLAN.md Task 2 (B14): the site's own resolved language, set
-    # on both <input type="time"> elements. `<html lang>` already carries
-    # it, but a native time control formats itself from the BROWSER's
-    # locale, not the document's — so this attribute is the standards-
-    # level request, and the visible sibling below is the fix that
-    # actually holds when a browser ignores it (a Chromium in en-US
-    # renders "11:00 PM" either way).
-    # 25-04-PLAN.md Task 2 (CFG-48): the server-drawn ring, rendered
-    # between the caption and the presets. WHERE IT GOES, AND WHY IT IS
-    # NOT A REORDERING: 10-UI-SPEC.md locks the order of the four
-    # CONTROLS — presets, then Start, then End (29-04-PLAN.md Task 1,
-    # CFG-80, supersedes only the "each on its own full-width line" half
-    # of that sentence; the ORDER itself is untouched) — and all four
-    # keep their positions and their adjacency. The ring is not a control;
-    # it is a picture of what is
-    # currently set, so it reads before the things that change it
-    # (what this is now, then how to change it), and putting it after
-    # the End field would separate the picture from the caption that
-    # introduces it while pushing it below the fold at 360px.
+    # `<html lang>` already carries the site's language, but a native
+    # time control formats itself from the browser's own locale, not
+    # the document's — this attribute is the standards-level request;
+    # `_normalised_time_html()` is the fallback that holds when a
+    # browser ignores it.
     #
-    # Drawn from the SAME effective values the two inputs are populated
-    # from, never from `current_start`/`current_end` directly. That is
-    # D-07's echo rule, which the inputs already follow: on a rejected
-    # save the arc must show what the visitor actually submitted, not
-    # what is stored, or the picture and the fields disagree on exactly
-    # the screen where a mistake is being fixed.
+    # The ring reads before the controls that change it (a picture of
+    # what is set, then how to change it), so it renders between the
+    # caption and the presets rather than after the fields.
+    #
+    # Drawn from the same effective values the two inputs are populated
+    # from, never from `current_start`/`current_end` directly, so on a
+    # rejected save the arc shows what was submitted, not what is
+    # stored.
     dial_span = quiet_window_span(effective_start, effective_end)
     dial_html = quiet_dial_html(
         dial_span, quiet_dial_handles_html(effective_start, effective_end))
@@ -3591,16 +3166,9 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
 
     site_lang = prefs.current_lang()
     caption_html = i18n.t(QUIET_HOURS_SECTION_CAPTION)
-    # 29-04-PLAN.md Task 1 (CFG-80): Start and End are now wrapped in ONE
-    # `QUIET_TIMES_ROW_CLASS` grid container, immediately after the
-    # preset row — so dial → readout → presets → times-row reads as one
-    # object. Each field gets its OWN unclassed `<div>` inside that grid
-    # (a genuine grid CELL, not a styling hook — it carries no class of
-    # its own and needs none), holding its `<label>` and its OWN error
-    # paragraph together: an error attaches to the field it is about and
-    # must never displace its sibling column, which is exactly what one
-    # cell per field guarantees under a two-column `grid-auto-flow: row`
-    # layout (the default) with two children instead of four.
+    # Each field gets its own unclassed grid cell holding its label and
+    # its own error paragraph together, so an error never displaces its
+    # sibling column under the two-column grid.
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading" id="%s">%s</h2>'
@@ -3637,25 +3205,15 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
 def wake_gauge_interval_s(current_wake_interval_s, submitted=None):
     """The interval the two gauges describe, as an int inside
     `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]`, or `None` when there is
-    no such value — in which case NOTHING this plan adds renders at all.
+    no such value — in which case nothing renders at all, matching this
+    file's omit-don't-fabricate rule.
 
-    THE SAME OMIT-DON'T-FABRICATE RULE THE `value` ATTRIBUTE BELOW
-    ALREADY FOLLOWS, and the same one `quiet_dial_handles_html()` applies
-    to a handle whose end does not parse: a gauge for a value that was
-    never set claims a fact about the frame that is not true (D-07), and
-    a slider pre-positioned at a fabricated point is worse still,
-    because dragging it saves that fabrication.
-
-    D-07's ECHO RULE IS HONOURED WHERE IT CAN BE, AND ONLY THERE. On a
-    rejected save `submitted` carries the raw string the visitor typed,
-    and the gauges describe THAT rather than the stored value — the
-    identical rule 25-04 applied to the quiet arc, for the identical
-    reason: on exactly the screen where a mistake is being fixed, the
-    picture and the field must not disagree. But a raw submission is
-    where the out-of-range values live ("7", "99999", "abc"), and a
-    gauge for 7 seconds would describe a cadence this device cannot be
-    configured to use. So an echo that is not a usable interval renders
-    no gauge rather than a gauge about nothing.
+    Honours the echo rule where it can: on a rejected save `submitted`
+    carries the raw typed string, and the gauges describe that rather
+    than the stored value, so the picture and the field never disagree
+    on the screen where a mistake is being fixed. But a raw submission
+    is also where out-of-range values live ("7", "99999", "abc"), so an
+    echo outside the valid range still renders no gauge.
 
     Total by construction: a non-string, a non-numeric string, a float
     string, a bool and `None` all resolve to `None` and nothing raises.
@@ -3677,20 +3235,14 @@ def wake_gauge_interval_s(current_wake_interval_s, submitted=None):
 
 
 def _wake_minutes(interval_s):
-    """`interval_s` as a whole number of minutes, ROUNDED UP.
+    """`interval_s` as a whole number of minutes, rounded up.
 
-    The ONE expression both gauges and companion/static/value-controls.js
-    read the minute count off — the script divides by the same scale the
-    markup hands it and takes the same ceiling, so the sentence and the
-    field cannot disagree by construction rather than by agreement.
-
-    Up rather than down, because both sentences are claims about a
-    BOUND: a 90-second cadence bounds the wait at a minute and a half,
-    and `90 // 60` would print "at most 1 min", which is FALSE. The
-    ceiling prints "at most 2 min", which is true and merely loose.
-    Every value this control can produce is a whole number of minutes
-    anyway (its step is a minute); the ceiling exists for the values
-    already ON DISK from before this control existed.
+    Both sentences are claims about a bound: a 90-second cadence bounds
+    the wait at a minute and a half, and `90 // 60` would print "at
+    most 1 min", which is false. The ceiling prints "at most 2 min",
+    true and merely loose. This control's own step is a whole minute;
+    the ceiling matters for values already on disk from before it
+    existed.
     """
     return -(-int(interval_s) // WAKE_GAUGE_SECONDS_PER_MINUTE)
 
@@ -3699,16 +3251,10 @@ def wake_freshness_text(interval_s):
     """"A plane reaches the frame at most 5 min after it passes." — the
     bound, or `""` when there is no interval to bound.
 
-    THE WORD "AT MOST" IS THE WHOLE SENTENCE. The frame learns about a
-    plane at its next wake, so a plane that passes one instant after a
-    wake appears one whole interval later and never later than that —
-    true for every interval, by construction. Drop those two words and
-    the same sentence becomes a claim about TYPICAL behaviour, which
-    nothing in this project measures.
-
-    The minute count is `_wake_minutes()`'s, shared with the relative
-    clause and with the script, so the sentence and the field cannot
-    disagree.
+    "At most" is the whole sentence: the frame learns about a plane at
+    its next wake, so a plane that passes one instant after a wake
+    appears one whole interval later and never later — true for every
+    interval, by construction, unlike a claim about typical behaviour.
     """
     if interval_s is None:
         return ""
@@ -3717,35 +3263,20 @@ def wake_freshness_text(interval_s):
 
 
 def wake_battery_observed_text(interval_s, battery_rows=None):
-    """The battery half: an absolute figure ONLY when this frame's own
+    """The battery half: an absolute figure only when this frame's own
     observed history supports one, and the named "not enough history
     yet" sentence in every other case. `""` when there is no interval.
 
-    NAMED FOR WHAT IT IS — a SENTENCE about the observed series, not a
-    life computation — and the name matters beyond taste. The first
-    draft was called `wake_battery_life_text()` and
-    `test_companion_app.py`'s one-home guard failed it by name:
-    *"companion/pages/config_page.py defines wake_battery_life_text() —
-    a second battery-LIFE computation"*. That guard is deliberately
-    blunt and it was right to object to the NAME; the answer is not to
-    allow-list the name (which would let a real second estimate in under
-    it later), it is to stop claiming to compute a lifetime. Nothing
-    here computes one: the only arithmetic in this function is choosing
-    between a singular and a plural wording.
+    The figure is `battery.battery_life_estimate()`'s, never computed
+    here: this function only chooses between a singular and a plural
+    wording. Four of that estimator's five named trends carry no figure
+    at all (no reading, not enough history, a rising series — a
+    positive slope divides to a negative or infinite lifetime — and a
+    flat one), and all four land on the same honest sentence here.
 
-    THE FIGURE IS `battery.battery_life_estimate()`'s, NEVER THIS
-    MODULE'S. There is no division anywhere in this file that could
-    produce a days-remaining number, deliberately, and a check scans
-    `companion/pages/` for one. Four of that function's five named
-    trends carry no figure at all (no reading, not enough history, a
-    RISING series — a charged device has a positive slope and dividing
-    by it yields a negative or infinite lifetime — and a flat one), and
-    all four land on the same honest sentence here.
-
-    `battery_rows` is a daily-average series in
-    `server/history_db.py`'s row shape; `None`/`()` is the ordinary
-    state of a fresh deployment and produces the unknown sentence rather
-    than an empty card.
+    `battery_rows` is a daily-average series in `history_db.py`'s row
+    shape; `None`/`()` is the ordinary state of a fresh deployment and
+    produces the unknown sentence rather than an empty card.
     """
     if interval_s is None:
         return ""
@@ -3764,53 +3295,39 @@ def wake_screen_off_text():
     """"While the screen is off the frame wakes every 5m instead,
     whatever this is set to."
 
-    Rendered unconditionally beside the battery sentence rather than
-    hidden behind a `display_enabled` read: the clause is true whichever
-    way that switch is set, and a qualifier that appears only once the
-    screen is already off is a qualifier nobody reads in time.
+    Rendered unconditionally beside the battery sentence, not gated on
+    `display_enabled`: the clause is true whichever way that switch is
+    set, and a qualifier shown only once the screen is off is one
+    nobody reads in time.
 
-    The cadence goes through `layout.duration_text()` — this app's ONE
-    duration ladder — because it is a fixed constant no script has to
-    reproduce. The two sentences above deliberately do not, for the
-    opposite reason: their number changes as the slider moves, and a
-    ladder that switches unit at an hour cannot be recomputed in the
-    browser without a second copy of it in JavaScript.
+    The cadence goes through `layout.duration_text()` since it is a
+    fixed constant; the two sentences above do not, since their number
+    changes as the slider moves and would need a second copy of the
+    ladder in JavaScript to recompute client-side.
     """
     return i18n.t(WAKE_BATTERY_SCREEN_OFF_TEXT) % layout.duration_text(
         device_config.DISPLAY_OFF_SLEEP_S)
 
 
 def wake_battery_relative_template(saved_interval_s):
-    """The relative clause's TEMPLATE, with the saved cadence already
+    """The relative clause's template, with the saved cadence already
     written into it and `#` left standing for the proposed one — or `""`
     when there is no usable saved cadence to compare against.
 
     "This setting wakes the frame every # min instead of every 10 min."
 
-    TWO CADENCES NAMED IN FULL, NOT A RATIO, and the reason is a
-    language one rather than a taste one. A ratio needs a decimal
-    ("≈ 1.5× more often"), a decimal needs a decimal MARK, and French
-    writes it with a comma — so a ratio recomputed in the browser would
-    either print an English decimal on a French page or need the mark
-    handed to the script as one more attribute. Two whole minute counts
-    need neither: they are integers in both languages, the "instead of"
-    says the direction without a second wording for each side, and the
-    reader does not have to remember what the saved value was in order
-    to read the sentence. The half-up/half-to-even rounding trap that a
-    shared decimal would have carried between Python and JavaScript
-    disappears with it.
+    Two whole cadences named in full, not a ratio: a ratio needs a
+    decimal mark, and French writes it with a comma, so recomputing a
+    ratio client-side would either print an English decimal on a French
+    page or need the mark handed over as an attribute. Two integers
+    need neither, and the saved cadence is baked in server-side (fixed
+    for the life of the page), leaving only the proposed one as the
+    script's one substitution.
 
-    THE SAVED CADENCE IS BAKED IN HERE, server-side, because it is fixed
-    for the life of the page: only the PROPOSED one moves, so only the
-    proposed one is left as the quantity mark. That is what keeps the
-    script to one substitution and keeps this sentence out of
-    JavaScript.
-
-    Routed through `battery.battery_life_estimate()`'s own
-    `relative_factor` for its GUARD rather than for a number: that
-    function already refuses a bool cadence, a non-numeric one, a
-    non-positive one and an absurd one, and a clause built on a cadence
-    it would have refused is a clause about nothing.
+    Routed through `battery.battery_life_estimate()`'s
+    `relative_factor` for its guard, not for a number: that function
+    already refuses a bool, non-numeric, non-positive or absurd cadence,
+    and a clause built on a cadence it would refuse is about nothing.
     """
     estimate = battery.battery_life_estimate(
         (), saved_interval_s, saved_interval_s)
@@ -3820,30 +3337,20 @@ def wake_battery_relative_template(saved_interval_s):
 
 
 def wake_battery_relative_text(proposed_interval_s, saved_interval_s):
-    """The relative clause as the SERVER would render it for a given
+    """The relative clause as the server would render it for a given
     proposal — `""` when the two cadences are the same, which is what
-    every real page render produces.
+    every real page render produces (the server always renders the
+    saved interval against itself, and echoing "every 10 min instead of
+    every 10 min" would be noise).
 
-    The clause exists for companion/static/value-controls.js to fill
-    while a drag is in flight; the server renders the saved interval
-    against itself, and "this setting wakes the frame every 10 min
-    instead of every 10 min" would be noise on every page load. `""`
-    rather than a hidden element, so there is nothing to un-hide and no
-    second visibility mechanism.
+    This is nonetheless a real function with a real return: it is the
+    one definition of this sentence in Python, and `test_browser_ux.py`
+    drives the slider in a browser and compares the script's own output
+    against it.
 
-    It is nonetheless a real function with a real return, because it is
-    the ONE definition of this sentence in Python: companion/
-    test_browser_ux.py drives the slider in a browser and compares the
-    script's own output against this, so "the script says what the
-    server would have said" is measured rather than assumed.
-
-    IT NEVER CARRIES A DAYS FIGURE, and that is the whole division of
-    labour with `wake_battery_observed_text()` above. This half is
-    arithmetic on two cadences and is therefore always available and
-    always live; the absolute half comes out of observed history and is
-    server-rendered once. A script that could recompute the absolute
-    half would be a script that could invent one — which is the defect
-    this split makes unreachable rather than merely unlikely.
+    It never carries a days figure: that half comes from observed
+    history and is server-rendered once, deliberately unreachable from
+    script, so a script that could recompute it could also invent one.
     """
     template = wake_battery_relative_template(saved_interval_s)
     if not template:
@@ -3860,17 +3367,12 @@ def wake_battery_relative_text(proposed_interval_s, saved_interval_s):
 def wake_battery_rows(state_dir, now=None):
     """`WAKE_BATTERY_WINDOW_DAYS` of daily battery averages for the
     battery sentence, or `()` on any read failure or absent state dir.
-
-    Never raises, matching `_rule_suggestion_chips_html()`'s and
-    `_theme_live_preview_html()`'s own fail-soft contract for the
-    identical class of read in this same module: a settings page that
-    500s because a battery history table could not be opened would be a
-    far worse defect than a card that says it has no history yet — which
-    is exactly what `wake_battery_observed_text()` renders from `()`.
+    Never raises: a settings page that 500s because a battery history
+    table could not be opened would be worse than a card that says it
+    has no history yet.
 
     Read here rather than threaded through `ctx`: this is the only card
-    in the app that needs the series, it renders on one scope of one
-    page, and `companion/app.py`'s `page_context()` runs on EVERY
+    that needs the series, and `page_context()` runs on every
     authenticated render.
     """
     if not state_dir:
@@ -3900,34 +3402,24 @@ def wake_gauges_html(interval_s, battery_rows=None):
     """The two gauges, as two muted sentences — or `""` when there is no
     interval for them to describe.
 
-    SERVER-RENDERED, AND OUTSIDE THE `.js` GATE ENTIRELY. This is the
-    same split 25-04's dial made: with scripts blocked a visitor can
-    still type an interval, still read what it means for freshness and
-    for battery, and still save it. Only the slider is gated, because a
-    slider with no script is a control that drags and shows nothing.
-    Rendering these server-side is also what gives the script something
-    to UPDATE rather than something to create — so a failed script
-    leaves correct sentences rather than empty ones.
+    Server-rendered and outside the `.js` gate entirely: with scripts
+    blocked a visitor can still type an interval, read what it means,
+    and save it. Only the slider is gated, since a slider with no
+    script is a control that drags and shows nothing. Rendering these
+    server-side also gives the script something to update rather than
+    create, so a failed script leaves correct sentences, not empty ones.
 
-    Both wear `.text-label .section-caption`, the app's existing muted
-    voice, and neither is a live region: they change on every step of a
-    drag, and an `aria-live` region here would re-announce the same
-    phrase continuously — the defect Phase 23 hit with its three
-    switches, and the same call 25-04 made for its readout (CFG-52). The
-    range announces itself natively instead, and points at these two by
-    `aria-describedby`.
+    Neither is a live region: they change on every step of a drag, and
+    an `aria-live` region would re-announce the same phrase
+    continuously. The range announces itself natively and points at
+    these two via `aria-describedby`.
     """
     if interval_s is None:
         return ""
-    # THE FRESHNESS SENTENCE IS ENTIRELY LIVE and the battery one is
-    # only PARTLY live, and that split is the honesty rule made
-    # structural. The freshness paragraph is itself the readout: its
-    # whole text is arithmetic on the value, so the script may rewrite
-    # all of it. The battery paragraph's figure came out of observed
-    # history, so the script may not touch it — only the trailing span,
-    # whose template names two cadences and contains no days figure at
-    # all. A script cannot become braver than the server was, because
-    # there is no template here through which it could.
+    # The freshness paragraph is entirely live (its whole text is
+    # arithmetic on the value); the battery paragraph's figure came
+    # from observed history, so only its trailing span (two cadences,
+    # no days figure) may be rewritten by script.
     return (
         '<p class="text-label section-caption %s" id="%s" %s="%s" %s="%s" %s="%d">%s</p>'
         '<p class="text-label section-caption %s" id="%s">%s %s '
@@ -3947,50 +3439,36 @@ def wake_gauges_html(interval_s, battery_rows=None):
         layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
         escape_html(wake_battery_relative_template(interval_s)),
         layout.VALUE_CONTROL_READOUT_SCALE_ATTR, WAKE_GAUGE_SECONDS_PER_MINUTE,
-        # THE BASE: the readout says nothing at all while the proposed
-        # value is the saved one, which is every page load and every
-        # scripts-blocked render.
+        # The base: the readout says nothing while the proposed value
+        # is still the saved one (every page load and no-JS render).
         layout.VALUE_CONTROL_READOUT_BASE_ATTR, interval_s,
         escape_html(wake_battery_relative_text(interval_s, interval_s)),
     )
 
 
 def wake_slider_html(interval_s):
-    """The range input, inside 25-01's `.js` gate — or `""` when there is
+    """The range input, inside the `.js` gate — or `""` when there is
     no saved interval for it to start from.
 
-    IT CARRIES NO `name`, AND THAT IS THE WHOLE DESIGN. "Why does this
-    input have no name" is exactly the question a later editor answers
-    wrongly by adding one, so: a named range would post a SECOND value
-    for `wake_interval_s` on every save, and whichever arrived last
-    would win, silently. The `<input type="number">` above is the only
-    control on this card that posts, and this one only ever writes into
-    it through companion/static/value-controls.js.
+    Carries no `name`: a named range would post a second value for
+    `wake_interval_s` on every save, and whichever arrived last would
+    win silently. The `<input type="number">` above is the only control
+    on this card that posts; this one only writes into it through
+    `value-controls.js`.
 
-    NO `role="slider"` EITHER. A native range input already exposes
-    slider semantics, a native `aria-valuenow` and the keyboard model
-    (arrows one step, Page ten, Home and End to the ends) that
-    value-controls.js implements by hand for a `<div>` handle — adding
-    the role on top is the classic double-role error. It gets an
-    `aria-label` naming it (the number input's own label already names
-    that control) and an `aria-describedby` pointing at the two gauges,
-    which is what makes the trade-off audible rather than only visible.
+    No `role="slider"` either: a native range input already exposes
+    slider semantics and the keyboard model value-controls.js
+    implements by hand for a `<div>` handle, so adding the role would
+    be a double-role error. It gets an `aria-label` and an
+    `aria-describedby` pointing at the two gauges.
 
-    GATED, because a range with no script is a control that drags and
-    shows the visitor nothing — 25-RESEARCH.md's "renders but does
-    nothing", in its purest form. The two gauges and the number input
-    are NOT gated: with scripts blocked a visitor still reads what the
-    interval means and still types and saves one.
+    Gated, since a range with no script is a control that drags and
+    shows nothing; the two gauges and the number input are not gated,
+    since a visitor with scripts blocked can still type and save one.
 
-    `min`/`max` come from `device_config`, never re-typed — the same
-    cross-file convention the number input already follows, so one
-    control can never accept what the other (and
-    `save_device_config()`'s own server-side re-check) rejects.
-
-    NO INITIAL `--value-fraction`, unlike 25-04's handles: a native
-    range paints its own thumb from its own value, so there is no
-    geometry here for the stylesheet to place. The property is still
-    written by the script's shared paint and is simply unused.
+    `min`/`max` come from `device_config`, never re-typed, so this
+    control can never accept what `save_device_config()`'s own
+    server-side re-check would reject.
     """
     if interval_s is None:
         return ""
@@ -4018,71 +3496,35 @@ def wake_slider_html(interval_s):
 
 def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, next_wake_clock=None,
                         battery_rows=None):
-    """The Wake interval settings group (11-UI-SPEC.md, 11-RESEARCH.md
-    Pattern 4): a fifth sibling of the Theme/Runway/Diagnostic LED/Quiet
-    hours groups inside the single merged `<form action="{SETTINGS_ROUTE}">`,
-    built against `led_group()`'s exact structure — same `.theme-status`
-    wrapper idiom, same `<h2 class="text-heading">` naming (no
-    `<fieldset>`/`<legend>`, for the identical reason `led_group()`'s own
-    docstring already documents: a `<legend>` only has accessible-name
-    semantics inside a `<fieldset>`, which these sibling groups
-    deliberately do not have). Unlike `quiet_hours_group()`, this group has
-    no checkbox gate — a plain `<label>` wraps a single
-    `<input type="number">`, this codebase's first (D-05), not
-    `class="settings-checkbox"` — that class normalises a checkbox and
-    would mis-size a text-like input; the global `input, select` rule
-    already supplies the 44px touch-target floor with no type-specific
-    override needed, exactly like `<input type="time">`'s own precedent.
+    """The Wake interval settings group. Unlike `quiet_hours_group()`,
+    this group has no checkbox gate: a plain `<label>` wraps a single
+    `<input type="number">`, not `class="settings-checkbox"`, which
+    normalises a checkbox and would mis-size a text-like input.
 
-    `min`/`max` are interpolated from `device_config.WAKE_INTERVAL_MIN_S`/
-    `WAKE_INTERVAL_MAX_S`, read from the module rather than re-typed as
-    literals, so the two can never drift apart from `save_device_config()`'s
-    own server-side re-check of the identical bounds.
+    `min`/`max` are read from `device_config` rather than re-typed, so
+    they can never drift apart from `save_device_config()`'s own
+    server-side re-check.
 
-    The `value` attribute is the one place this function does real work:
-    it is emitted only when `current_wake_interval_s` is an `int` that is
-    not a `bool` and falls within the inclusive
-    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` range; otherwise no
-    `value` attribute is emitted at all, and the placeholder
-    (`WAKE_INTERVAL_PLACEHOLDER_TEXT`) carries the empty state. Two
-    reasons this guard is load-bearing, not decorative: a fabricated
-    number would lie to the user about a setting that was never made
-    (D-07), and — more sharply — an out-of-range `value` on a native
-    numeric input fails HTML5 constraint validation, which blocks
-    submission of the *entire* Settings form, not just this field. That is
-    a live risk, not hypothetical: `deploy/skypane.env.example` currently
-    sets `SKYPANE_SLEEP_S=30`, below the 60s floor, and plan 11-04 feeds
-    that environment value in as the pre-fill fallback. The bool exclusion
-    is mandatory for the same reason it is everywhere else in this phase —
-    `isinstance(True, int)` is true in Python.
+    The `value` attribute is emitted only when `current_wake_interval_s`
+    is an `int`, not a `bool`, within `[WAKE_INTERVAL_MIN_S,
+    WAKE_INTERVAL_MAX_S]`; otherwise none is emitted and the placeholder
+    carries the empty state. An out-of-range `value` on a native numeric
+    input fails HTML5 constraint validation and blocks submission of
+    the whole form, not just this field — a live risk, since
+    `deploy/skypane.env.example` ships `SKYPANE_SLEEP_S=30`, below the
+    60s floor, as the pre-fill fallback.
 
-    The heading, the caption and the placeholder are routed through
-    `escape_html()`, matching this file's universal escaping discipline;
-    the numeric value needs no escaping because `%d` cannot emit anything
-    but digits and a sign.
+    On a rejected save (`submitted` carries this field), the raw
+    submitted string is echoed back verbatim, deliberately bypassing
+    the in-range/non-bool-int guard above, since that guard exists only
+    for the ordinary ctx-sourced int — a rejected value like "7" would
+    otherwise silently lose the echo the user needs to see. Native
+    HTML5 min/max validation still applies on the next submit attempt.
 
-    19-07-PLAN.md Task 2 (D-07): when a real submission is being
-    repopulated (`submitted is not None`) and it actually carries this
-    field, the RAW submitted string is echoed back verbatim (escaped),
-    deliberately bypassing the in-range/non-bool-int guard above — that
-    guard exists only for the ordinary ctx-sourced int
-    (`current_wake_interval_s`), never for a rejected save's own echoed
-    input. "7" is a string, not an int, and would otherwise never get a
-    `value` attribute at all, silently discarding exactly what D-07
-    requires be shown back to the user. Native HTML5 min/max constraint
-    validation still applies on the user's NEXT submit attempt (nothing
-    here suppresses it) — that is a feature, not a bug: it is what
-    prompts them to fix the value before it can be saved.
-
-    25-05-PLAN.md Task 1 (CFG-49): `battery_rows` is the daily-average
-    battery series the battery gauge is derived from, `()` by default —
-    every pre-existing call site keeps producing its previous output for
-    the input, the label, the unit sibling and the error block, which
-    are UNTOUCHED by this plan and asserted so. The two gauges are
-    APPENDED after the error block, never interleaved with it: they are
-    what the setting MEANS, so they read after the control that sets it,
-    and appending is also what makes "the rest of the card is
-    byte-identical" a structural fact rather than a careful edit.
+    `battery_rows` is the daily-average series the battery gauge
+    derives from, `()` by default. The two gauges append after the
+    error block rather than interleaving with it, since they describe
+    what the setting means and read after the control that sets it.
     """
     if submitted is not None and "wake_interval_s" in submitted:
         raw_submitted = submitted["wake_interval_s"]
@@ -4098,43 +3540,28 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
     error_attrs = _field_error_attrs(
         errors, "wake_interval_s", "wake-interval-s", hint_id=WAKE_INTERVAL_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "wake_interval_s", "wake-interval-s")
-    # ONE resolution of the gauges' and the slider's subject, so the
-    # three of them can never describe different values — and so
-    # "everything this plan adds renders together or not at all" is a
-    # property of the code rather than of three matching conditions.
+    # One resolution of the gauges' and the slider's subject, so the
+    # three can never describe different values.
     gauge_interval_s = wake_gauge_interval_s(current_wake_interval_s, submitted)
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        # 22-10-PLAN.md Task 3 (B17): the label is its own element ABOVE
-        # the control, pointing at it by `for=`, instead of wrapping it.
-        # A wrapping <label> put its text and the input on ONE line, which
-        # is why this field's input started at x=515 while every other
-        # Device field's started at x=361. This is the shape the
-        # Notifications topic-URL field (and every other field on this
-        # page) already uses.
+        # The label is its own element above the control (for=), not a
+        # wrapping <label> — a wrapping label put its text and the
+        # input on one line, misaligning this field against every
+        # sibling field on the page.
         '<label for="%s">%s</label>'
         '<input type="number" id="%s" name="wake_interval_s" min="%d" max="%d"'
         ' placeholder="%s"%s%s>'
-        # The unit as a SIBLING. aria-hidden because the label above
-        # already names the unit ("... (seconds)") - repeating it in the
-        # accessibility tree would announce the same fact twice, while the
-        # visible duplication is exactly the point for a sighted user
-        # reading a 96px-wide box. Same reasoning as
-        # _normalised_time_html()'s own sibling (B14).
+        # The unit as a sibling, aria-hidden: the label above already
+        # names the unit, so repeating it would announce the fact twice.
         '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
         "%s"
-        # 25-05-PLAN.md Tasks 1 and 2 (CFG-49): the gated slider and then
-        # the two gauges, APPENDED. Every element above this line is
-        # byte-identical to its pre-plan output, in all six argument
-        # shapes, and a check diffs them.
-        #
-        # The slider sits AFTER the field's own error message rather than
-        # between the two: an error has to read as attached to the
-        # control it is about, and a control inserted between them breaks
-        # that adjacency. The gauges come last because they are what the
-        # setting MEANS — the control first, its consequences after.
+        # The slider sits after the error message, not between it and
+        # the field, so the error stays adjacent to the control it is
+        # about. The gauges come last, since they describe what the
+        # setting means, after the control that sets it.
         "%s%s"
         "</div>"
     ) % (
