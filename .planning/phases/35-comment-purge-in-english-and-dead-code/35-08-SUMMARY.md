@@ -143,6 +143,8 @@ why-comment, in English, with all code byte-for-byte unchanged (AST-equal modulo
 
 1. **Task 1: Purge companion/app.py** - `113ad8a` (refactor)
 2. **Task 2: Purge auth.py and the small modules, then run the companion suite** - `c441a0e` (refactor)
+3. **Second pass: tighten comment/docstring compression to hard caps (orchestrator review)** -
+   `be2578f` (docs)
 
 **Plan metadata:** pending (final docs commit, this file + STATE.md/ROADMAP.md)
 
@@ -315,6 +317,15 @@ None - no external service configuration required.
   plan stayed on `claude/plan-phase-35` and did not push or open a PR.
 - **REQUIREMENTS.md:** HYG-01 intentionally left unmarked, per the executor's instructions,
   since it spans later groups (companion tests, companion JS, style.css) not yet purged.
+- **Second pass (tightening) same-code:** `same-code --base 059774e --allow companion/app.py`
+  over all twelve files -> exit 0; the same command with no `--allow` -> exit 1, differing only
+  on `companion/app.py`, confirming code stayed unchanged through the tightening edits.
+- **Second pass check:** `check --paths` over all twelve files -> 0 history hits.
+- **Second pass ruff:** `ruff check` over all twelve files -> "All checks passed!".
+- **Second pass pytest:** `pytest companion -q -n auto` -> 1545 passed, 129 skipped (same counts
+  as after the first pass), 0 failed.
+- **Second pass ratios:** `companion/app.py` 29.1%, `companion/auth.py` 34.4% (both at/under the
+  ~35% target); full per-file table above.
 
 ## Next Phase Readiness
 
@@ -344,3 +355,4 @@ files outstanding for later plans in this wave before the group-closing plan (35
 - `companion/theme_preview.py` — FOUND
 - Commit `113ad8a` (Task 1: purge companion/app.py) — FOUND
 - Commit `c441a0e` (Task 2: purge auth.py and the small modules) — FOUND
+- Commit `be2578f` (Second pass: tighten comment/docstring compression to hard caps) — FOUND
