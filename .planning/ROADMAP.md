@@ -1721,7 +1721,7 @@ Plans:
 3. English-only rule written in CLAUDE.md and CONTRIBUTING.md
 4. Suite green with no behaviour change
 
-**Plans:** 6/22 plans executed
+**Plans:** 7/22 plans executed
 
 **Execution gates:** G-33 — 35-01 stops unless Phase 33 is complete on `main` and no test reads source files or comments. G-34 — 35-21 (firmware, last purge wave) stops unless 34-11 is complete on `main`. One writer per file per wave. Each group proves "no behaviour change" with a mechanical `same-code` check against its base, plus the full suite and ruff, and records the per-file comment ratio before and after.
 
@@ -1733,7 +1733,7 @@ Plans:
 - [x] 35-04-PLAN.md — Wave 2 — server top-level production modules (HYG-01, HYG-03)
 - [x] 35-05-PLAN.md — Wave 2 — server tests (HYG-01)
 - [x] 35-06-PLAN.md — Wave 3 — close group 2 (server/): same-code, ratio, ratchet, PR
-- [ ] 35-07-PLAN.md — Wave 4 — group 3 stub-server/ purge and close (HYG-01, HYG-03)
+- [x] 35-07-PLAN.md — Wave 4 — group 3 stub-server/ purge and close (HYG-01, HYG-03)
 - [ ] 35-08-PLAN.md — Wave 5 — companion app.py, auth.py and small modules (HYG-01)
 - [ ] 35-09-PLAN.md — Wave 5 — companion pages/config_page.py (HYG-01)
 - [ ] 35-10-PLAN.md — Wave 5 — companion health and history pages (HYG-01)
