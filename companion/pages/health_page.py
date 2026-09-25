@@ -2335,25 +2335,14 @@ def compute_health_state(state_dir, now=None):
 
 
 def safe_health_state(state_dir, now=None):
-    """Fail-closed wrapper around `compute_health_state()` — `None` on
-    any unanticipated exception, never a raise.
-
-    Wrapped in a broad `except Exception`, a deliberate departure from
-    the narrow `(sqlite3.Error, OSError)` catches used elsewhere in this
-    file: `_safe_query()`'s narrow catch protects one *section* of one
-    page, whereas `page_context()` calls this function on **every**
-    authenticated page render, so an unanticipated raise here would turn
-    every page in the app into a 500 over a decorative nav dot —
-    exactly the reasoning `companion/app.py`'s
-    `runway_images_available()` already established for its own
-    never-raises contract in Phase 06.4. `None` (rather than a
-    partially-populated dict) is deliberate too: `health_severity()`
-    below treats it as "ok" (failing closed — a missing dot understates
-    a problem the Health page itself will still report in full, rather
-    than a crashed app reporting nothing at all), and `render()` treats
-    it as "no precomputed state available", falling back to its own
-    fresh `compute_health_state()` call rather than rendering from a
-    dict with missing keys.
+    """Fail-closed wrapper around `compute_health_state()`: `None` on any
+    unanticipated exception, never a raise. Broad `except Exception`,
+    unlike the narrow `(sqlite3.Error, OSError)` catches elsewhere in
+    this file: this function runs on every authenticated page render, so
+    a raise here would 500 every page over a decorative nav dot.
+    `health_severity()` treats `None` as "ok" (fail closed — the Health
+    page itself still reports the real problem in full); `render()`
+    falls back to a fresh compute rather than a dict with missing keys.
     """
     try:
         return compute_health_state(state_dir, now)
@@ -2362,51 +2351,33 @@ def safe_health_state(state_dir, now=None):
 
 
 def health_severity(state_dir, now=None):
-    """The `ctx["health_severity"]` source of truth — "ok"/"warn"/"error"
-    for `state_dir`, derived from the same four D-14 signals
-    `collect_anomalies()`/`overall_severity()` track. The cross-page
-    signal `companion/app.py`'s `page_context()` threads into `ctx` for
-    every authenticated page (the "runway_images" precedent, Phase
-    06.4), so the Health nav-tab notification dot and the anomaly banner
-    can be drawn from one value without any nav renderer importing this
-    page module (forbidden by `companion/pages/__init__.py`).
-
-    Routes its verdict through `safe_health_state()` (in turn
-    `compute_health_state()` and the exact same four section builders
-    `render()` calls), keeping only the severity and discarding the
-    markup — deliberate, not wasteful: it is what makes it structurally
-    impossible for the nav dot and the banner to disagree *when fed the
-    same precomputed state*, since a second, cheaper reimplementation of
-    the anomaly rules would be a second copy of them, and this module's
-    whole D-14 design rests on there being one. Callers that already
-    hold a `compute_health_state()`/`safe_health_state()` result (i.e.
-    `page_context()`) should read `state["severity"]` directly instead
-    of calling this function a second time — see WR-04.
+    """The `ctx["health_severity"]` source of truth: "ok"/"warn"/"error"
+    for `state_dir`. Threaded into `ctx` for every authenticated page so
+    the nav-tab dot and the anomaly banner draw from one value without a
+    nav renderer importing this page module. Routes through
+    `safe_health_state()`, keeping only the severity, so a second
+    reimplementation of the anomaly rules can never disagree with the
+    banner. A caller already holding a `safe_health_state()` result
+    should read `state["severity"]` directly instead.
     """
     state = safe_health_state(state_dir, now)
     return state["severity"] if state else "ok"
 
 
 def anomaly_active(state_dir, now=None):
-    """`True` when the current severity for `state_dir` is not "ok",
-    `False` otherwise — the boolean shape existing callers (including
-    test_status_pages.py's direct calls) already expect. Since 06.6.2-06
-    (UXA-14), this is a thin wrapper: it routes through
-    `health_severity()`/`overall_severity()` rather than directly
-    through `collect_anomalies()`, so this module's D-14 anomaly rules
-    have exactly one implementation, not two.
+    """`True` when the current severity for `state_dir` is not "ok". Thin
+    wrapper over `health_severity()` so the anomaly rules have exactly
+    one implementation.
     """
     return health_severity(state_dir, now) != "ok"
 
 
 def _starts_with_acronym(phrase):
-    """True when `phrase`'s first whitespace-delimited word carries a
-    capital letter somewhere after its first character — the signature
-    of an acronym or initialism ("ADS-B", "RER", "GPS") as opposed to an
-    ordinary sentence-initial word ("Device", "A", "Battery").
-
-    Used by `_anomaly_category_text()` to decide whether a phrase's
-    leading letter may be safely lower-cased for mid-sentence joining.
+    """True when `phrase`'s first word carries a capital letter after its
+    first character — an acronym ("ADS-B", "RER") rather than an
+    ordinary sentence-initial word ("Device"). Used by
+    `_anomaly_category_text()` to decide whether a phrase's leading
+    letter may be safely lower-cased for mid-sentence joining.
     """
     first_word = phrase.split(" ", 1)[0]
     return any(character.isupper() for character in first_word[1:])
@@ -2414,29 +2385,12 @@ def _starts_with_acronym(phrase):
 
 def _anomaly_category_text(anomalies):
     """A comma-joined, human-readable naming of `anomalies`
-    (`collect_anomalies()`'s own literal strings, in order) — UXA-06's
-    fix for the anomaly banner naming its real failing category or
-    categories instead of a generic "check the tiles below".
-
-    Each item's trailing period is dropped (`rstrip(".")`) so the
-    phrases read as one joined clause rather than a run of complete
-    sentences, and every item after the first has its leading letter
-    lower-cased to match normal mid-sentence capitalisation — the
-    first item keeps its original (sentence-initial) case. This is a
-    light, mechanical transformation of `collect_anomalies()`'s own
-    four literal strings (not an independently-maintained copy), so
-    the two can never drift apart.
-
-    The lower-casing skips any phrase whose first word is an acronym or
-    other already-capitalised proper noun. Two of `collect_anomalies()`'s
-    four literals begin with "ADS-B", and blindly lower-casing the first
-    character rendered them as the visible nonsense "aDS-B ..." in the
-    banner whenever such an item was not the first one listed. The test
-    is "does the first word contain a capital letter after its first
-    character" — true for "ADS-B", false for ordinary sentence-initial
-    words like "Device" or "A" — which needs no hard-coded list of
-    acronyms and so cannot go stale when a fifth anomaly string is
-    added.
+    (`collect_anomalies()`'s own literal strings, in order), so the
+    banner names its real failing category rather than a generic
+    message. Each item's trailing period is dropped, and every item
+    after the first is lower-cased for mid-sentence joining — except a
+    phrase whose first word is an acronym like "ADS-B", which would
+    otherwise mangle into "aDS-B".
     """
     phrases = []
     for index, anomaly in enumerate(anomalies):
@@ -2448,51 +2402,26 @@ def _anomaly_category_text(anomalies):
 
 
 def _anomaly_category_labels(anomalies):
-    """One short pill label per `anomalies` entry (`collect_anomalies()`'s
-    own literal strings, in order) — the pill-shaped counterpart to
-    `_anomaly_category_text()`'s comma-joined clause.
-
-    Reuses that function's trailing-period stripping (`rstrip(".")`) so
-    both derivations read the same source strings the same way, but
-    never lower-cases a label's leading letter: `_anomaly_category_text()`
-    only lower-cases non-first items so the joined clause reads as one
-    mid-sentence run, and its `_starts_with_acronym()` guard exists
-    solely to protect that lower-casing from mangling "ADS-B" into
-    "aDS-B". A pill is not mid-sentence text — every label keeps its
-    original, sentence-initial case, so there is nothing for that guard
-    to protect here; it needs no separate call in this function.
+    """One short pill label per `anomalies` entry, the pill-shaped
+    counterpart to `_anomaly_category_text()`'s comma-joined clause.
+    Strips the trailing period but never lower-cases: a pill is not
+    mid-sentence text, so it keeps its original, sentence-initial case.
     """
     return [anomaly.rstrip(".") for anomaly in anomalies]
 
 
 def _anomaly_banner_html(severity, anomalies):
-    """Build the D-07 anomaly banner directly, rather than routing
-    through `layout.anomaly_banner()`: that shared helper escapes its
-    whole message as one plain-text string, which is correct for a flat
-    banner but structurally incompatible with emitting one
-    `<span class="banner__pill">` per failing category alongside the
-    lead text. This is a deliberate local builder — not a duplication to
-    be "cleaned up" by re-routing through the shared helper later.
+    """Builds the anomaly banner directly rather than through
+    `layout.anomaly_banner()`: that helper escapes its whole message as
+    one plain-text string, incompatible with emitting one
+    `<span class="banner__pill">` per failing category.
 
-    Reproduces `layout.anomaly_banner()`'s exact class/role mapping:
-    `"error"` severity renders `banner--anomaly` / `role="alert"`;
-    anything else (in practice only `"warn"`) renders `banner--warn` /
-    `role="status"`.
-
-    Emits, as flex children of the `.banner` row: one escaped
-    `<span class="banner__label">` carrying the count-and-noun lead
-    ("N warning(s)"/"N error(s)") — `white-space: nowrap`, so the label
-    itself never breaks mid-phrase when `.banner` wraps at narrow
-    viewports (UIR-03) — one `<span class="banner__pill">` per
-    `_anomaly_category_labels()` entry, and finally a
-    `<span class="visually-hidden">` accessible tail
-    carrying `_anomaly_category_text()`'s own comma-joined clause plus
-    `ANOMALY_BANNER_TEXT` — the exact sentence this banner rendered
-    before pills existed. That tail is what keeps every existing
-    `ANOMALY_BANNER_TEXT in rendered` presence/count check in
-    test_status_pages.py passing unmodified, and gives a screen reader
-    one coherent sentence instead of a lead phrase followed by a run of
-    disconnected pill labels.
+    `"error"` severity renders `banner--anomaly`/`role="alert"`;
+    anything else renders `banner--warn`/`role="status"`. Emits a
+    nowrap count-and-noun label, one pill per category, and a
+    `<span class="visually-hidden">` tail carrying the original
+    comma-joined sentence — giving a screen reader one coherent
+    sentence instead of a lead phrase followed by disconnected pills.
     """
     css_class = "banner--anomaly" if severity == "error" else "banner--warn"
     role = "alert" if severity == "error" else "status"
@@ -2515,57 +2444,24 @@ def _unavailable_block():
     return '<p class="text-body">%s</p>' % escape_html(i18n.t(HEALTH_UNAVAILABLE_TEXT))
 
 
-# --- 22-12-PLAN.md Task 1 (X8, 22-UI-SPEC.md §2): ONE tile anatomy ------
-#
-# Every `.stat-tile` on this page renders the same four slots in the same
-# fixed order, and nothing else:
-#
-#   label    -> layout.stat_tile()'s own `.stat-tile__caption` (12px
-#               uppercase semibold, 0.06em, 70% muted) — the tile's
-#               caption argument, emitted by stat_tile() itself
-#   verdict  -> the Emphasis role (16px sans semibold), EXACTLY ONCE
-#   detail   -> the 70% muted strength, carrying DIFFERENT information
-#               from the verdict (when / how many / what value)
-#   link     -> optional
-#
-# This is not a new rule. It is `layout.status_row()`'s own documented
-# label/verdict/detail contract (D-21) applied to `.stat-tile`, and the
-# "verdict and detail must carry two DIFFERENT pieces of information"
-# clause is that primitive's own docstring, cited rather than restated.
-# 22-AUDIT.md's "double bold verdict" was a breach of it: the Device and
-# Pipeline tiles rendered the verdict paragraph at the Emphasis role AND
-# the timestamp under it at `.stat-tile__value`, which is the SAME
-# Emphasis role — two bold lines, one tile, so neither read as the
-# answer. The detail moves to `.widget-detail` (the muted half of the
-# verdict/detail pair companion/pages/home_page.py already composes), so
-# exactly one element per tile carries Emphasis.
-#
-# The Resolution-rate tile is the one deliberate exception to the WORD
-# "verdict" and not to the anatomy: D-03/A-21 established that it makes
-# no pass/fail judgement (`layout.stat_tile(..., None)`, no status
-# function exists for it), so inventing a verdict sentence for it would
-# assert something this page does not know. Its Emphasis slot carries
-# the FIGURE instead, keeping `.stat-tile__value`; the slot order, the
-# one-Emphasis-element rule and the muted detail are identical. Do not
-# "fix" that by giving it a `.widget-verdict` paragraph — that would
-# reverse D-03/A-21, and companion/test_status_pages.py pins its absence.
+# Every .stat-tile on this page renders the same four slots, in order:
+# label (stat_tile()'s own caption), verdict (Emphasis role, exactly
+# once), detail (muted, carrying different information from the
+# verdict), optional link. The Resolution-rate tile is the one
+# exception: it makes no pass/fail judgement (status=None, no status
+# function exists), so its Emphasis slot carries the figure instead of
+# a verdict sentence; do not give it a .widget-verdict paragraph.
 _TILE_VERDICT_CLASS = "text-body widget-verdict"
 _TILE_DETAIL_CLASS = "text-label widget-detail"
 
 
 def _tile_body(verdict_html, detail_html, link_html=""):
-    """Assemble one Health tile's verdict/detail/link slots in the fixed
-    order above. Both arguments are the caller's own ALREADY-SAFE markup
-    and are interpolated verbatim, never re-escaped — the same contract
-    `layout.stat_tile()`'s own `content_html` parameter documents (a
-    second `escape_html()` here would double-encode and print the tags).
-
-    The detail is a `<div>`, not a `<p>`, on purpose: the Pipeline tile's
-    detail is two lines (a timestamp plus "Last aircraft detected"), and
-    the Corroboration tile's detail is three rows plus a `<details>`
-    disclosure. Wrapping every tile's detail in one element regardless of
-    how many lines it holds is what makes "exactly one detail slot, in
-    third position" a machine-checkable property rather than a reading.
+    """Assembles one Health tile's verdict/detail/link slots in the fixed
+    order above. Both arguments are the caller's own already-safe
+    markup, interpolated verbatim, never re-escaped. The detail is a
+    `<div>`, not a `<p>`: some tiles' detail spans multiple lines or a
+    `<details>` disclosure, and wrapping all of them in one element
+    keeps "exactly one detail slot" a checkable property.
     """
     html = '<p class="%s">%s</p>' % (_TILE_VERDICT_CLASS, verdict_html)
     html += '<div class="%s">%s</div>' % (_TILE_DETAIL_CLASS, detail_html)
@@ -2575,27 +2471,13 @@ def _tile_body(verdict_html, detail_html, link_html=""):
 
 
 def _device_timestamp_only(device_health, now):
-    """The timestamp-only half of `_device_section()`'s own return
-    value — no verdict paragraph (D-17, 20-UI-SPEC.md Section Anatomy
-    A). Published on the health-state dict as `compute_health_state()`'s
-    `"device_detail_html"` key: Home's new status card (20-06) renders
-    its OWN Frame verdict from `home_page.FRAME_STATE_TEXT` and takes
-    only this detail-only fragment for `status_row()`'s `detail` slot,
-    so `DEVICE_STATE_TEXT`'s verdict sentence is never rendered twice
-    (20-RESEARCH.md Pitfall 3 — `health["device_html"]` already carries
-    it once, in `_device_section()`'s own verdict paragraph below).
-    Do NOT fix the duplication by editing either state-text dict's
-    wording; the fix is this detail-only sibling existing at all.
-
-    22-03-PLAN.md Task 1 (B2): `_pipeline_timestamp_only()` below is
-    this exact same pattern's sibling for the pipeline signal, published
-    as `"pipeline_detail_html"` — one pattern, two signals, not a device-
-    only mechanism. Home reads whichever verdict-free key matches the
-    tile it renders, never `device_html`/`pipeline_html` wholesale.
-
-    `_device_section()` is refactored below to call this helper for
-    its own second half, so the two outputs can never drift out of
-    sync with each other.
+    """The timestamp-only half of `_device_section()`'s return value, no
+    verdict paragraph. Published as `"device_detail_html"` on the
+    health-state dict: Home's status card renders its own Frame verdict
+    and takes only this fragment for its detail slot, so the verdict
+    sentence is never rendered twice. `_pipeline_timestamp_only()` is
+    the same pattern for the pipeline signal. `_device_section()` calls
+    this helper for its own second half, so the two outputs can't drift.
     """
     if device_health is _DB_UNAVAILABLE:
         return _unavailable_block()
@@ -2606,49 +2488,25 @@ def _device_timestamp_only(device_health, now):
 def _device_section(
         device_health, now, warn_s=None, error_s=None,
         next_wake_iso=None, effective_interval_s=None, hold_reason=None):
-    """D-05/A-23, 19-05-PLAN.md: `warn_s`/`error_s` are the device's own
-    cadence-derived staleness thresholds (`wake.device_staleness_
-    thresholds()`), computed once in `compute_health_state()` and
-    threaded through here — never recomputed independently, so the
-    Device tile and the anomaly banner it feeds can never disagree on
-    what "stale" means for this deployment. Both default to `None` so
-    every existing direct-call harness fixture (and any caller that
-    predates this task) keeps working unchanged: `None` degrades to
-    `wake.device_staleness_thresholds(None)`'s own bare floors, exactly
-    the retired STALE_DEVICE_WARN_S/STALE_DEVICE_ERROR_S replaced.
+    """`warn_s`/`error_s` are the device's cadence-derived staleness
+    thresholds (`wake.device_staleness_thresholds()`), computed once in
+    `compute_health_state()` and threaded through here, never recomputed
+    independently, so the Device tile and the anomaly banner it feeds
+    can't disagree on what "stale" means. Both default to `None`,
+    degrading to `wake.device_staleness_thresholds(None)`'s bare floors.
 
-    22-04-PLAN.md Task 3 (D-03/CFG-26, X2): `next_wake_iso`/
-    `effective_interval_s`/`hold_reason` are `wake.next_wake_status()`'s
-    own triple — the SAME one `companion/layout.py`'s `frame_strip_html()`
-    consumes — computed once in `compute_health_state()` and threaded
-    through here, never re-derived. `frame_state.resolve_state()` is the
-    ONE decision about whether the frame is due, held or late; this
-    function no longer makes that decision itself from raw age alone.
-    `device_staleness_thresholds()` is still the right primitive for the
-    underlying age arithmetic, so it is kept as the fallback used only
-    when `frame_state.resolve_state()` degrades to `STATE_UNKNOWN` — no
-    computed next-wake data at all (a legacy caller passing none of the
-    three new keyword arguments, or a device that has genuinely never
-    checked in) — exactly today's pre-this-task behaviour in that one
-    case, and none of today's existing direct-call fixtures pass these
-    three keywords, so they are unaffected by this change.
+    `next_wake_iso`/`effective_interval_s`/`hold_reason` are
+    `wake.next_wake_status()`'s triple, also computed once upstream.
+    `frame_state.resolve_state()` is the one decision about whether the
+    frame is due, held or late; `device_staleness_thresholds()` is kept
+    only as the fallback when that degrades to `STATE_UNKNOWN` (no
+    next-wake data at all).
 
-    A held frame is routed to the `"off"` device_state — the same
-    neutral, non-anomalous token the pipeline's own never-ran state
-    already uses (22-03-PLAN.md Task 1) — never `"warn"`/`"error"`, so it
-    can never light the nav notification dot (T-22-12). Held is bounded:
-    `frame_state.resolve_state()` itself only stays `STATE_HELD` while
-    the held-aware next wake plus its own grace window has not yet
-    elapsed, so a genuinely dead frame still reaches `STATE_LATE` (`"warn"`
-    here) once that window passes — held cannot suppress lateness
-    forever.
-
-    When a next-wake result IS known, this tile's own detail row shows
-    the SAME next-wake clock text the strip's headline shows — both
-    format the SAME `next_wake_iso` through `layout.local_clock_text()` —
-    rather than the raw last-check-in timestamp `_device_timestamp_only()`
-    still renders for Home's own `device_detail_html` (untouched by this
-    task; Home's own Frame row is plan 22-07's, not this one's).
+    A held frame routes to the neutral `"off"` device_state, never
+    `"warn"`/`"error"`, so it can't light the nav notification dot —
+    bounded, since `resolve_state()` only stays `STATE_HELD` until its
+    own grace window elapses, after which a dead frame reaches
+    `STATE_LATE`.
     """
     if device_health is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
@@ -2665,100 +2523,41 @@ def _device_section(
         state = _FRAME_STATE_TO_DEVICE_STATE[resolved_state]
         next_wake_parsed = layout.parse_iso(next_wake_iso)
         next_wake_clock = layout.local_clock_text(next_wake_parsed, now_parsed=layout.parse_iso(now))
-        # 22-12-PLAN.md Task 1 (X8): the `time-value--primary` modifier is
-        # dropped here, and only here. That modifier IS the Emphasis
-        # shape (body size, semibold) — correct on the Frame strip, where
-        # the next-wake clock is the cell's own headline (22-04-PLAN.md,
-        # C5), and wrong inside a tile that already carries a verdict in
-        # that role one line above: the two together were half of the
-        # "double bold verdict" X8 measured. The base `.time-value` role
-        # (label size, regular, tabular numerals) is the supporting-value
-        # shape its own style.css comment names, which is exactly this
-        # slot's job. The strip's own call site is untouched.
+        # The base .time-value role (not .time-value--primary, which is
+        # the Emphasis shape used on the Frame strip's own headline):
+        # this tile already carries a verdict in the Emphasis role above.
         detail = '<span class="time-value">%s</span>' % escape_html(next_wake_clock)
-    # quick task 260901-tsa (finding C): this used to be
-    # `status_dot(state, DEVICE_FRESHNESS_LABEL) + detail` — but
-    # stat_tile()'s own caption already renders DEVICE_FRESHNESS_LABEL,
-    # so the tile printed its own name twice, one line under the other:
-    # the caption row naming the signal, then the body row naming it
-    # again before the timestamp. The caption is the tile's title role
-    # and stays; the body's job is to answer it, so it is now caption +
-    # one `stat-tile__value` timestamp, matching the sibling
-    # Resolution-rate tile's own shape. Dropping the dot loses no state
-    # signal: render()'s stat_tile() call still receives this function's
-    # `state` return value and still paints the tile's status-coloured
-    # top border and tints its icon from it (D-12's colour carrier is
-    # unchanged), and collect_anomalies() still names a stale device in
-    # the anomaly banner's text. Keeping a dot while dropping only its
-    # text was considered and rejected: status_dot() always emits a
-    # dot-label span, so that would mean either an empty span or a
-    # second copy of its state->class mapping duplicated here.
+    # No status dot: stat_tile()'s own caption already names the signal
+    # (DEVICE_FRESHNESS_LABEL), so a body-row dot label would repeat it.
+    # The status-coloured border and icon tint still come from `state`,
+    # and collect_anomalies() still names a stale device in the banner.
     #
-    # D-03/A-21, 19-01-PLAN.md: a `widget-verdict` paragraph now sits
-    # ahead of the timestamp row, naming the verdict this tile's border
-    # colour alone used to carry. This is NOT a revival of the
-    # duplicated-label defect described above: the caption
-    # (DEVICE_FRESHNESS_LABEL) names the SIGNAL, this verdict states the
-    # JUDGEMENT on that signal, and the timestamp row gives the raw
-    # detail backing the judgement — three distinct rungs, not one
-    # repeated twice.
-    #
-    # D-09: concise_timestamp_html() already returns pre-escaped-safe
-    # markup — wrapping it in escape_html() a second time would
-    # double-encode it and print the raw tags as visible text.
-    #
-    # 20-03-PLAN.md Task 1 (D-17): the timestamp half is delegated to
-    # _device_timestamp_only() rather than recomputed here, so this
-    # tile's own detail row and the verdict-free "device_detail_html"
-    # fragment compute_health_state() publishes for Home can never
-    # drift apart.
-    #
-    # 22-12-PLAN.md Task 1 (X8): the verdict/detail pair is assembled by
-    # `_tile_body()` now (see its own comment block for the four-slot
-    # contract). The detail used to be a `<p class="stat-tile__value">`,
-    # i.e. the SAME Emphasis role the verdict above it already occupies —
-    # the "double bold verdict" the audit measured. It is the muted
-    # `.widget-detail` slot now; nothing about WHAT it says changed.
+    # The widget-verdict paragraph states the judgement on the signal;
+    # the timestamp row gives the raw detail backing it — distinct
+    # rungs, not a repeat of the caption.
     return _tile_body(
         escape_html(i18n.t(DEVICE_STATE_TEXT.get(state, DEVICE_STATE_TEXT["warn"]))),
         detail), state
 
 
 def _pipeline_never_ran(pipeline_ts, last_detection):
-    """True when the flight pipeline has produced no evidence at all —
-    no `META_LAST_PIPELINE_RUN` timestamp AND no `META_LAST_DETECTION`
-    ever recorded (B2, 22-03-PLAN.md Task 1) — as distinct from a
-    pipeline that has run before and has since gone stale or overdue.
-
-    Scoped to the pipeline signal alone, not promoted onto
-    `staleness_status()` itself: the device path's own "never checked
-    in" case is a different, real warning (a provisioned device that
-    stops reporting IS a problem), so `_device_section()` above is left
-    exactly as it was — only the pipeline has a second, stronger fact
-    available (a corroborating "was anything ever detected, at all"
-    signal) that lets it tell "never ran" apart from "overdue" before
-    `staleness_status()` ever runs.
+    """True when the flight pipeline has produced no evidence at all: no
+    `META_LAST_PIPELINE_RUN` timestamp and no `META_LAST_DETECTION` ever
+    recorded, as distinct from a pipeline that has run before and gone
+    stale. Scoped to the pipeline signal alone: the device's own "never
+    checked in" case is a different, real warning and is left untouched.
     """
     return not pipeline_ts and not last_detection
 
 
 def _pipeline_timestamp_only(pipeline_ts, last_detection, now):
-    """The verdict-free half of `_pipeline_section()`'s own return
-    value — mirrors `_device_timestamp_only()` (D-17) for the pipeline
-    signal. Published on the health-state dict as `compute_health_
-    state()`'s `"pipeline_detail_html"` key (22-03-PLAN.md Task 1, B2):
-    Home reads this instead of re-embedding `pipeline_html` wholesale,
-    so `PIPELINE_STATE_TEXT`'s verdict sentence is never rendered twice.
-    Do NOT fix any future duplication by editing `PIPELINE_STATE_TEXT`'s
-    wording — the fix is this detail-only sibling existing at all,
-    exactly the precedent `_device_timestamp_only()`'s own docstring
-    states.
-
-    When the pipeline has never run, this deliberately returns
-    `PIPELINE_NEVER_RAN_DETAIL_TEXT` rather than falling through to
-    `concise_timestamp_html(None, now)`'s own "no reading yet" fallback
-    — that fallback is the battery module's borrowed vocabulary leaking
-    into a tile that never mentions a reading (B2).
+    """The verdict-free half of `_pipeline_section()`'s return value,
+    mirroring `_device_timestamp_only()`. Published as
+    `"pipeline_detail_html"`: Home reads this instead of re-embedding
+    `pipeline_html` wholesale, so the verdict sentence is never rendered
+    twice. Returns `PIPELINE_NEVER_RAN_DETAIL_TEXT` when the pipeline has
+    never run, rather than falling through to
+    `concise_timestamp_html(None, now)`'s battery-vocabulary fallback.
     """
     if pipeline_ts is _DB_UNAVAILABLE:
         return _unavailable_block()
@@ -2771,137 +2570,49 @@ def _pipeline_section(pipeline_ts, last_detection, now):
     if pipeline_ts is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
     if _pipeline_never_ran(pipeline_ts, last_detection):
-        # 22-03-PLAN.md Task 1 (B2): a pipeline that has genuinely never
-        # run is a different fact from one that is merely overdue —
-        # staleness_status() maps age=None to "warn", which is still
-        # correct for the general "is this signal stale" utility (see
-        # _pipeline_never_ran()'s own docstring for why the device path
-        # is left untouched), but this branch has a stronger fact
-        # available before staleness_status() ever runs. "off" is the
-        # app's own existing token for a state that is genuinely not a
-        # problem (companion/static/style.css's own comment on
-        # `.dot--off`: "'off' is a neutral, everyday state ... never a
-        # problem") — reused here rather than inventing a new status
-        # token or a fifth dot colour. `_STAT_TILE_BORDER_CLASSES`
-        # (companion/layout.py) has no "off" entry, so this state falls
-        # through to its own documented neutral "stat-tile--accent"
-        # default border, and collect_anomalies()/overall_severity()
-        # below treat "off" exactly like "ok" — never a warn.
-        #
-        # The dot itself is hand-built (not layout.status_dot()).
-        # SUPERSEDED IN ITS REASONING, NOT IN ITS OUTPUT (22-12-PLAN.md
-        # Task 1): this comment used to say "status_dot()'s own
-        # state->class lookup has no 'off' entry either, and its
-        # documented fallback for an unrecognised state is the WARN class
-        # — calling it here would print the literal 'dot--warn' token
-        # this fix exists to remove". `layout._STATUS_DOT_CLASSES` DOES
-        # carry an "off" entry now (added for this page's own
-        # "Only one saw it" row, X8), so that hazard is gone. The markup
-        # stays hand-built anyway for a different, still-current reason:
-        # status_dot() always emits a second `.dot-label` span holding
-        # the label text, and this verdict's text is the paragraph's own
-        # content, not a dot label — routing it through status_dot() here
-        # would wrap the verdict sentence in a `.dot-label` span and
-        # change this tile's markup for no gain. The Corroboration rows
-        # below genuinely ARE dot+label pairs, which is why they call
-        # status_dot() and this does not.
+        # "off" is the app's existing token for a state that is not a
+        # problem: no "off" entry in _STAT_TILE_BORDER_CLASSES falls
+        # through to the neutral default border, and
+        # collect_anomalies()/overall_severity() treat "off" like "ok".
+        # The dot is hand-built rather than status_dot(): this verdict's
+        # text is the paragraph's own content, not a dot-label span.
         state = "off"
         verdict_html = (
             '<span class="dot dot--off"></span>%s'
             % escape_html(i18n.t(PIPELINE_STATE_TEXT["off"])))
         detail = _pipeline_timestamp_only(pipeline_ts, last_detection, now)
-        # No second "Last aircraft detected" line here: last_detection
-        # is falsy by this branch's own definition, and
-        # concise_timestamp_html(None, now)'s fallback is the exact
-        # battery-vocabulary leak (B2) this task removes — the single
-        # PIPELINE_NEVER_RAN_DETAIL_TEXT sentence above already says so
-        # honestly, without repeating it a second time in different
-        # words.
+        # No second "Last aircraft detected" line: last_detection is
+        # falsy by definition here, so PIPELINE_NEVER_RAN_DETAIL_TEXT
+        # above already says so without repeating it.
         return _tile_body(verdict_html, detail), state
     age = layout.age_seconds(pipeline_ts, now)
     state = staleness_status(age, STALE_PIPELINE_WARN_S, STALE_PIPELINE_ERROR_S)
-    # quick task 260901-tsa (finding C): same fix, same reasoning, as
-    # _device_section() above — see that function's comment for the
-    # full explanation of why dropping the dot is safe.
-    #
-    # D-03/A-21, 19-01-PLAN.md: same verdict-paragraph addition, same
-    # reasoning, as _device_section() above — this is not a revival of
-    # the duplicated-label defect quick task 260901-tsa's comment
-    # describes; the verdict answers the tile's caption rather than
-    # repeating it.
-    #
-    # D-09: concise_timestamp_html() already returns pre-escaped-safe
-    # markup — wrapping it in escape_html() a second time would
-    # double-encode it and print the raw tags as visible text.
     verdict = escape_html(
         i18n.t(PIPELINE_STATE_TEXT.get(state, PIPELINE_STATE_TEXT["warn"])))
-    # 22-03-PLAN.md Task 1: delegated to _pipeline_timestamp_only() —
-    # in this branch pipeline_ts is truthy, so it is byte-identical to
-    # the bare layout.concise_timestamp_html(pipeline_ts, now) call this
-    # replaces — so the two halves can never drift out of sync with
-    # each other, the same reasoning _device_section() already applies.
     detail = _pipeline_timestamp_only(pipeline_ts, last_detection, now)
-    # Quick task 260903-peo (UIR-14): a real second content line, not
-    # filler — `last_detection` is history_db.META_LAST_DETECTION, read
-    # inside the same atomic _read_health_inputs() snapshot pipeline_ts
-    # already comes from (they feed this one section builder together).
-    # Rendered unconditionally in THIS branch (pipeline_ts is truthy —
-    # the pipeline has run at least once), matching _device_section()'s
-    # own unconditional-render precedent above: concise_timestamp_html()
-    # returns its escaped bare-string fallback ("no reading yet") when
-    # last_detection is falsy, so a pipeline that has run but never
-    # detected an aircraft still gets an honest line, never an empty
-    # element or a dangling label. The genuinely-never-ran branch above
-    # is the one deliberate exception (22-03-PLAN.md Task 1, B2): there,
-    # last_detection is falsy BY DEFINITION, so this exact fallback
-    # would always fire — the battery-vocabulary leak this task removes
-    # — which is why that branch returns before reaching this line
-    # rather than rendering it and hiding the omission. `.stat-tile__meta`
-    # supplies only the spacing (no new type tier); `.section-caption` is
-    # the existing "quieter second line" muted-colour tier this reuses
-    # rather than inventing a new one — the same file-wide 70% color-mix
-    # strength the battery heading's trailing span and the
-    # Unresolved-prefixes read-only note already compose onto their own
-    # sizing class (quick task 260902-gjj, ISSUE 1). `.battery-readout__
-    # detail` was considered and rejected here specifically: its class
-    # name embeds the literal substring `battery-readout`, which two
-    # pre-existing regression guards (`_single_reading_still_no_chart_
-    # no_readout_no_script`, `_empty_battery_history_stays_script_free`)
-    # assert is ABSENT from the page whenever there is no battery
-    # reading — this tile renders unconditionally, so that reuse would
-    # fire those guards as false positives on every fresh install.
+    # last_detection is read inside the same atomic snapshot pipeline_ts
+    # comes from. Rendered unconditionally here (pipeline_ts is truthy):
+    # concise_timestamp_html() falls back to "no reading yet" when
+    # last_detection is falsy, giving an honest line either way. Not
+    # .battery-readout__detail: two regression guards assert that class
+    # is absent whenever there is no battery reading, and this tile
+    # renders unconditionally.
     detection_detail = layout.concise_timestamp_html(last_detection, now)
     detail_row = (
         '<p class="stat-tile__meta text-label section-caption">%s %s</p>'
         % (escape_html(_label_colon(i18n.t(LAST_DETECTION_LABEL))), detection_detail))
-    # 22-12-PLAN.md Task 1 (X8): both lines live INSIDE the one detail
-    # slot now, rather than the second one trailing the tile as a fourth
-    # top-level element. They were always one thing — the evidence
-    # backing this tile's verdict — and X8's anatomy has exactly one
-    # detail slot, so "how many lines of evidence" is a question about
-    # the slot's contents, never about the tile's shape. The
-    # `.stat-tile__meta` spacing rule and the `.section-caption` muted
-    # tier are both unchanged; `.widget-detail` declares its colour from
-    # the `--color-text` token rather than from `currentColor`, so
-    # nesting the two does not compound the muting.
+    # Both lines live inside the one detail slot: the tile anatomy has
+    # exactly one detail slot, so line count is the slot's content, not
+    # the tile's shape.
     return _tile_body(verdict, detail + detail_row), state
 
 
 def _latest_numeric_battery_reading(trend_rows):
-    """The chronologically-latest reading's own `(millivolts, timestamp)`
-    pair, scanning `trend_rows` (newest-first, `battery_trend_rows()`'s
-    own ordering) for the first row carrying a genuine int `battery_mv`
-    — the same numeric-only filter `battery_sparkline_svg()` applies,
-    applied here without needing that function's full chronological-
-    reversal/plotting pass. Returns `None` when no row qualifies; only
-    called on the branch where a chart already exists (`sparkline_html`
-    non-empty), so that branch always yields a real reading here too.
-
-    quick task 260901-uzi: this used to return a pre-formatted
-    "{value} mV — {ts}" label directly
-    (`_latest_numeric_battery_label()`, retired); it now stops one step
-    earlier, at the raw `(mv, ts)` pair, so the caller can build the
-    humanised value and detail parts via `_battery_reading_parts()`.
+    """The chronologically-latest reading's `(millivolts, timestamp)`
+    pair: scans `trend_rows` (newest-first) for the first row with a
+    genuine int `battery_mv`, the same numeric-only filter
+    `battery_sparkline_svg()` applies. Returns `None` when no row
+    qualifies.
     """
     for row in trend_rows:
         value = row.get("battery_mv")
@@ -2912,59 +2623,24 @@ def _latest_numeric_battery_reading(trend_rows):
 
 def _battery_readout_block(latest_reading, now):
     """The reserved-height readout line `companion/static/battery-trend.js`
-    writes into on hover/tap/keyboard reveal. D-09/§5.3: seeded by
-    default with `latest_reading`'s own humanised `(value, when)` pair
-    (`_battery_reading_parts()`) — the exact same helper
-    `battery_sparkline_svg()` uses per-point, so the resting text and the
-    hover/tap text are built identically BY CONSTRUCTION — rather than
-    the old static prompt (retired, `BATTERY_READOUT_PLACEHOLDER` no
-    longer exists). `role="status"` already implies a polite live
-    region, so no separate `aria-live` attribute is added.
+    writes into on hover/tap/keyboard reveal. Seeded by default with
+    `latest_reading`'s own humanised `(value, when)` pair
+    (`_battery_reading_parts()`), the same helper
+    `battery_sparkline_svg()` uses per-point, so resting and hover/tap
+    text are built identically. `role="status"` already implies a
+    polite live region, so no separate `aria-live` attribute is added.
 
-    quick task 260901-uzi (finding 3): the readout used to print the raw
-    ISO string inline — the one timestamp on this page that did not
-    follow the house humanised pattern, and read (the developer's own
-    words) as too bold, too big, not sober. It now reads as a scannable
-    figure plus a muted trailing detail, which is this page's own
-    validated sketch's `.battery-readout` treatment (the voltage
-    emphasised, the trailing detail muted).
+    The detail span's `title` carries `when_text` itself (a full local
+    timestamp plus relative age), matching the visible text exactly —
+    the same value shared everywhere, never a second independently
+    wrong one. `.time-value` sits on this stable wrapper span rather
+    than a nested child, because `reveal()` overwrites `textContent`,
+    never `class`, on every interaction.
 
-    D-05 (22-06-PLAN.md Task 2, B4): the detail span's `title` used to
-    carry the raw UTC ISO string — the one place on this page the "one
-    formatter" rule (`layout.local_clock_text()`) did not reach. It now
-    carries `when_text` itself: `_battery_reading_parts()` already builds
-    `when` as a full Europe/Paris local timestamp
-    (`_full_local_timestamp_text()`) plus the relative age, so the title
-    and the visible text are the SAME string, by construction, exactly
-    like each chart point's `<title>`/`aria-label`/`data-when` — one
-    right value, shared everywhere, rather than a second, independently
-    wrong one. The detail span also carries the `.time-value` role
-    (22-04-PLAN.md, C5): `battery-trend.js`'s `reveal()` overwrites this
-    span's `textContent` (never its `class` attribute) on every hover/
-    tap/keyboard move, so a class on the span itself survives every
-    interaction, but a NESTED child span would not — `.time-value` is
-    therefore applied to this stable wrapper rather than split into a
-    separate `.time-value__age` sibling for the relative-age clause;
-    `.battery-readout__detail`'s own pre-existing muted-colour rule
-    (identical 70% color-mix strength to `.time-value__age`) already
-    covers the whole string, relative age included.
-
-    Two spans, not one string, because `companion/static/
-    battery-trend.js`'s `reveal()` writes the value and detail parts
-    separately (quick task 260901-uzi reverses that file's own
-    260901-tsa non-goal — see battery-trend.js's own header comment for
-    why this task edits it after all): `battery-readout__value` (also
-    `mono`, matching the sparkline's own monospace digits) holds the
-    value part, `battery-readout__detail time-value` holds a separator
-    plus the "when" part. `mono` is gone from the outer `<p>`'s own class
-    list — style.css's `.mono` reach-through rule now targets
-    `.battery-readout .mono` directly, so the value span alone carries it.
-
-    Two things deliberately did NOT change with this move, and both
-    matter: `role="status"` is the live region `battery-trend.js`
-    announces every Left/Right/Home/End traversal through, and the
-    element is still found by `getElementById` — its position in the
-    document was never something that file depended on.
+    Two spans, not one string: `battery-trend.js`'s `reveal()` writes
+    the value and detail parts separately. `battery-readout__value`
+    (mono, matching the sparkline's digits) holds the value;
+    `battery-readout__detail time-value` holds the separator plus "when".
     """
     if latest_reading is None:
         value_text, when_text = "", ""
@@ -2981,46 +2657,26 @@ def _battery_readout_block(latest_reading, now):
         escape_html(when_text), escape_html(when_text))
 
 
-# 24-04-PLAN.md Task 2 (CFG-40): the LARGE ring's box side, in CSS
-# pixels. The number lives here and the small one lives in
-# home_page.py, because a single "sizes" table in draw.py would be one
-# rename away from reading as two named variants of one drawing — which
-# is the thing CFG-40 forbids. What must be shared is the EMITTER, and
-# it is: both pages call draw.ring_gauge(), and a change inside it moves
-# both rings.
-#
-# 72 against this card's own 312px content width at the 360px floor
-# leaves roughly 190px for the readout beside it, which still fits the
-# "≈ NN% · NNNN mV — D Mon HH:MM (Nx ago)" string on the same number of
-# lines its reserved min-height already allows for.
+# The large ring's box side, in CSS pixels; the small one lives in
+# home_page.py, kept separate rather than a shared "sizes" table, since
+# they are independent numbers, not variants of one drawing.
+# 72px against this card's 312px content width at the 360px floor still
+# leaves room for the readout beside it on the same reserved line count.
 BATTERY_RING_SIZE = 72
 
 
 def _battery_ring_html(latest_reading, state):
     """The battery ring for `latest_reading`, or "" when there is
-    nothing honest to draw.
+    nothing honest to draw: no reading, or one `companion/battery.py`
+    refuses (non-numeric or non-positive). An empty ring would read as
+    "0%", a false statement about a device that has simply not checked
+    in.
 
-    RETURNS "" RATHER THAN AN EMPTY RING when there is no reading, or
-    when the reading is one `companion/battery.py` refuses (non-numeric,
-    or non-positive — a broken sensor rather than a flat battery). An
-    empty ring reads as "0%", which is a false statement about a device
-    that has simply not checked in; `_status_tiles_html()` already
-    avoids the identical error by rendering a "no reading" verdict
-    instead of a zero.
-
-    THE RING AND THE READOUT BESIDE IT ARE ONE NUMBER IN TWO RENDERINGS.
-    The fraction handed to the emitter is the PRINTED PERCENTAGE divided
-    by 100 — not a second, finer-grained estimate — so the arc cannot
-    draw 43.4% while the text says 43%. `battery.battery_percent()` is
-    the app's ONE battery estimator (D-01/A-19, CFG-39) and this is a
-    second invocation of that same pure function on the same millivolt
-    value `_battery_reading_parts()` renders, never a second estimate;
-    companion/test_status_pages.py measures the two against each other
-    in the rendered page rather than trusting that sentence.
-
-    The colour comes from `state` — `battery_status()`'s verdict, which
-    this section has ALREADY computed for its own card edge — through
-    draw.status_class(). Never a second judgement about the same number.
+    The fraction handed to the emitter is the printed percentage divided
+    by 100, not a second finer-grained estimate, so the arc can't draw
+    43.4% while the text says 43%. The colour comes from `state`
+    (`battery_status()`'s verdict, already computed for the card edge)
+    through `draw.status_class()`, never a second judgement.
     """
     if not latest_reading:
         return ""
@@ -3033,18 +2689,11 @@ def _battery_ring_html(latest_reading, state):
 
 
 def _battery_readout_row_html(latest_reading, now, state):
-    """The readout, with the ring beside it when there is one.
-
-    With no ring this returns `_battery_readout_block()`'s own markup
-    UNWRAPPED and therefore byte-identical to what this section rendered
-    before the ring existed — the no-reading page is not a slightly
-    different page, it is the same page.
-
-    The ring comes first in document order because it is the thing the
-    eye lands on; `companion/static/battery-trend.js` finds the readout
-    by `getElementById` and has never depended on its position in the
-    document (its own docstring records that), so wrapping it costs
-    nothing there.
+    """The readout, with the ring beside it when there is one. With no
+    ring this returns `_battery_readout_block()`'s markup unwrapped, so
+    the no-reading page renders identically to before the ring existed.
+    The ring comes first in document order; `battery-trend.js` finds the
+    readout by `getElementById` and never depends on its position.
     """
     readout_html = _battery_readout_block(latest_reading, now)
     ring_html = _battery_ring_html(latest_reading, state)
@@ -3054,102 +2703,20 @@ def _battery_readout_row_html(latest_reading, now, state):
 
 
 def _battery_trend_section_html(battery_html, state, caption=None):
-    """Wrap `_battery_section()`'s already-built markup in the full-width
-    `BATTERY_SECTION_CLASS` card section (D-02) that replaces its old
-    240px-floor grid tile.
+    """Wraps `_battery_section()`'s already-built markup in the full-width
+    `BATTERY_SECTION_CLASS` card section.
 
-    `battery_html` is already-safe markup (an already-escaped table, an
-    SVG, a script tag) and is interpolated verbatim, with no call to
-    `escape_html()` — the same "already-built markup passes through
-    untransformed" contract `stat_tile()` and `_source_fault_block()`
-    already follow; re-escaping it here would double-encode and print the
-    raw tags as visible text instead of rendering them.
+    `battery_html` is already-safe markup (a pre-escaped table, an SVG,
+    a script tag), interpolated verbatim with no `escape_html()` call —
+    re-escaping would double-encode it and print raw tags as text.
 
-    SUPERSEDED (quick task 260902-j8w): this <h2> now emits only its
-    escaped heading text plus the trailing "— Latest N readings" caption
-    span — structurally identical to the `Unresolved prefixes` and
-    `Resolution statistics` headings elsewhere on this page. The
-    developer's own instruction was explicit: "supprime le logo de la
-    batterie, car c'est inconsistant avec le reste" (remove the battery
-    logo, it is inconsistent with the rest) — Health rendered exactly
-    five <h2> elements and this was the only one that carried a glyph.
-    This is a return to the validated Merged Health Sketch's own
-    direction rather than a departure from it: the sketch's `<defs>`
-    defines an `#icon-battery` glyph but its battery-trend section never
-    references it via `<use>` — every `<use>` in the sketch sits inside
-    a `.stat-tile__head`. The heading placement below was plan
-    06.6.1-04's own reading of D-02, not something the sketch itself
-    showed.
-
-    What the paragraph below used to say, kept readable as history: the
-    battery icon sat inside this <h2>, before the heading text, and
-    carried no tint class — deliberately asymmetric with the tile icons;
-    the icon inherited the heading's own colour through currentColor.
-    That also resolved a wording drift in 06.6.1-UI-SPEC.md's Layout
-    Contract (itself now further out of date): it says "each of the 4
-    Overview tiles" gains an icon, written before plan 06.6.1-03 moved
-    Battery trend out of the grid. All four Health signals carried their
-    icon — three on tiles, one here on the section heading — and the
-    icon set stayed at the contract's five. `06.6.1-VERIFICATION.md`'s
-    criterion 26 ("Battery trend heading carries the battery icon —
-    VERIFIED") is a completed phase's historical verification record and
-    is left as written; it now describes a superseded state.
-
-    quick task 260902-gjj (ISSUE 1): the trailing "— Latest N readings"
-    span now composes `section-caption` with its existing `text-label`
-    sizing class. `.text-label`/`.text-body` each supply a size and a
-    weight but no colour, so an element carrying only one of them
-    inherits full-strength `--color-text`; the muted strength for a
-    subtitle/caption role lives in `.section-caption` and is composed
-    onto the sizing class, never restated — `layout.section_intro_html()`
-    (promoted from this module's own former private copy by 20-03-
-    PLAN.md Task 1) is the precedent this follows (its own description
-    paragraph pairs `text-label section-caption` for the same reason).
-    `_registry_section()`'s read-only note applies the identical fix to
-    its own `text-body` paragraph; see that function's own comment.
-
-    quick task 260902-gjj (ISSUE 2): `state` is a deliberate signature
-    widening — this function now composes its own `<section>` class
-    attribute from `BATTERY_SECTION_CLASS` plus
-    `layout.card_status_class(BATTERY_SECTION_CLASS, state)`, so the
-    card's own top edge carries the same `battery_status()` verdict the
-    now-retired in-body badge used to (06.5-CONTEXT D-01's original
-    intent, restored — see this file's `battery-trend-section` comment
-    reversal in companion/static/style.css). Unlike `_battery_section()`'s
-    own single-argument call site (pinned by sibling phase 06.5's
-    automated gate, per that function's own comment), a grep confirms
-    nothing pins this function's arity, so the widening is safe. The
-    status signal lives on the section's own edge (this modifier class),
-    not on any icon — quick task 260902-j8w later removed the heading
-    icon entirely, so this is no longer even a tint-class question.
-
-    260902-l0b: `caption` is a deliberate signature widening — a third,
-    defaulted parameter, so the sole call site (`render()`, below) can
-    pass the mode-honest text `_battery_trend_caption()` computed, while
-    any caller or check still passing only two positional arguments keeps
-    working unchanged. `None` (the default) reproduces today's exact
-    "Latest N readings" string byte-for-byte, in the same voice this
-    function's own D-02/quick-task-260902-gjj widening used above.
-
-    SUPERSEDED (29-06-PLAN.md Task 1, CFG-84): the shape above — an
-    `<h2>` carrying its own escaped heading text plus a trailing
-    "— Latest N readings"/"— Last 3 months, daily average" `<span>` — is
-    itself now superseded. The 2026-09-17 audit's P2 named this heading
-    directly ("le titre... mérite d'être raccourci visuellement, par
-    exemple `Batterie · 3 mois`, avec la précision dans une légende"): a
-    heading carrying its own qualification reads as a long title, not as
-    a titled card. The `<h2>` now emits ONLY its own short, fixed,
-    window-derived text (`BATTERY_SECTION_HEADING_TEMPLATE` interpolated
-    with `BATTERY_TREND_WINDOW_DAYS // 30`, never a typed "3"); the
-    precision `_battery_trend_caption()` computes moves into a SIBLING
-    `<p class="text-label section-caption">` immediately after the
-    `</h2>` — the exact composition every other card's caption on this
-    site uses, and the one plan 29-05's (and this plan's own) floor
-    check measures. `_battery_trend_caption()` itself is untouched: its
-    three-case logic still decides what the sibling caption says, and
-    the `caption=None` default still reproduces the reading-count
-    fallback for any two-positional-argument caller. The four earlier
-    paragraphs above are kept readable as history, not deleted.
+    The `<h2>` carries only its short, fixed, window-derived heading
+    text; the caption `_battery_trend_caption()` computes (defaulting to
+    a "Latest N readings" fallback) sits in a sibling
+    `<p class="text-label section-caption">`, so the heading itself
+    never carries its own qualification. `state` composes
+    `layout.card_status_class()` onto the section's own class, so the
+    card's top edge carries `battery_status()`'s verdict.
     """
     modifier = layout.card_status_class(BATTERY_SECTION_CLASS, state)
     section_class = BATTERY_SECTION_CLASS + ((" " + modifier) if modifier else "")
@@ -3167,174 +2734,83 @@ def _battery_trend_section_html(battery_html, state, caption=None):
 
 
 def _battery_section(trend_rows, daily_rows=None):
-    """Return `(markup, state)` for the Battery trend tile.
-
-    `state` drives two independent consumers from one value: the
-    `status_dot()` badge rendered by this function, and
+    """Returns `(markup, state)` for the Battery trend tile. `state`
+    drives two independent consumers: the status modifier
+    `_battery_trend_section_html()` paints on the card edge, and
     `collect_anomalies()`'s abnormal-drop signal in `render()`.
 
-    260902-l0b: `daily_rows` (the 90-day daily-average series from
-    `battery_daily_rows()`) is a deliberate signature widening — a second,
-    defaulted keyword parameter, chosen specifically because it cannot
-    break the pinned single-argument call site
-    `test_status_pages.py`'s `_battery_trend_timestamps_show_concise_format()`
-    protects (06.5-02's own automated gate, retargeted onto the property
-    it actually meant — see that check's own comment). When
-    `_battery_daily_series_usable(daily_rows)` holds (at least two
-    Europe/Paris-day buckets), the chart plots the daily series; otherwise it falls back
-    to the same raw `trend_rows` series this function has always plotted.
+    `daily_rows` (the 90-day daily-average series) is a defaulted
+    keyword: when `_battery_daily_series_usable(daily_rows)` holds (at
+    least two Europe/Paris-day buckets), the chart plots the daily
+    series; otherwise it falls back to the raw `trend_rows` series, so a
+    freshly-deployed device with under two days of history still gets a
+    readout. The anomaly scan, the raw-readings disclosure table and the
+    readout always read `trend_rows`, never the daily series: averaging
+    a day's readings would hide the abnormal drop the scan exists to
+    catch.
 
-    This fallback is NOT a reduced first version of the feature — the
-    90-day daily chart is complete in this task and renders the moment
-    two calendar days of history exist. It exists because the
-    `if sparkline_html:` guard below gates BOTH the readout AND the
-    script tag together: with only one day bucket, plotting the daily
-    series would produce an empty sparkline, which without this fallback
-    would mean no readout either — a page strictly worse than today's for
-    a freshly-deployed device on day one. Everything else in this
-    function keeps the raw `trend_rows` series unchanged regardless of
-    which series the chart plots: the anomaly scan (`battery_status()`),
-    the raw-readings disclosure table, its "View N readings" summary, and
-    the readout (`_latest_numeric_battery_reading()`). Averaging a day's
-    readings is precisely the operation that would hide the abnormal drop
-    the anomaly scan exists to catch, so that one consumer must never see
-    the daily series.
-
-    The empty-history branch (`not trend_rows`) deliberately returns
-    `"ok"`, not `"warn"` — unlike Device/Pipeline's never-seen state,
-    which does map to `"warn"` via `staleness_status()`. Two reasons:
-    (1) precedent — `corroboration_status()` already maps its own
-    unknown state (`"None"`, single-source) to `"ok"`, on the rationale
-    that an absence of information is not a failure; a device that has
-    simply never reported a battery reading is the same shape of
-    unknown, not a staleness signal like Device/Pipeline's silence.
-    (2) a real coupling — `render()` passes this function's second
-    return value straight into `collect_anomalies()`, which appends the
-    literal copy "Battery dropped abnormally." for any
-    non-`"ok"` battery state. A `"warn"` here would make a freshly
-    provisioned deployment with zero readings display a banner
-    asserting an abnormal drop that never happened. Keeping `"ok"`
-    keeps one value honest for both consumers, so `render()` needs no
-    decoupling.
+    The empty-history branch returns `"ok"`, not `"warn"`: an absence of
+    readings is not a staleness signal like Device/Pipeline's silence,
+    and `render()` feeds this state straight into `collect_anomalies()`,
+    which would otherwise assert an abnormal drop that never happened
+    for a freshly provisioned deployment.
     """
     if trend_rows is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
     if not trend_rows:
-        # quick task 260902-gjj (ISSUE 2): no badge here any more — the
-        # card's own top edge carries this "ok" verdict instead, via
-        # _battery_trend_section_html()'s `state` argument.
         return layout.empty_state(
             i18n.t("No battery readings yet."),
             i18n.t(
                 "No battery telemetry recorded yet — check back after the "
                 "device's next poll.")), "ok"
     state = battery_status(trend_rows)
-    # 06.6-01 (D-02): now is computed locally, rather than threaded in as
-    # a parameter, because _battery_section()'s positional-arity gate
-    # (originally 06.5-02's exact single-argument pin, retargeted in
-    # place by 260902-l0b onto "stays callable with exactly one
-    # positional argument" once daily_rows joined this signature as a
-    # second, defaulted keyword parameter) protects the call site
-    # `battery_html, battery_state = _battery_section(trend_rows, ...)`.
-    # history_db.utc_now_iso() is the same call render() already makes
-    # for its own `now`.
     now = history_db.utc_now_iso()
-    # D-09: the Timestamp column is now already-safe raw HTML (the
-    # concise Europe/Paris "HH:MM (relative)" span, D-05, with a full
-    # local timestamp demoted to its `title` attribute, 22-06-PLAN.md
-    # Task 3) — raw_columns=(0,) tells data_table() not to
-    # re-escape it (that would double-encode and print the tags as
-    # visible text). mono_columns keeps only the numeric mV column
-    # monospaced; concise_timestamp_html()'s own <span class="mono">
-    # already carries the mono styling for column 0.
+    # The Timestamp column is already-safe raw HTML (a concise
+    # Europe/Paris span with the full timestamp demoted to `title`), so
+    # raw_columns=(0,) tells data_table() not to re-escape it.
     table_rows = [
         (layout.concise_timestamp_html(row.get("ts"), now, fallback=""), row.get("battery_mv"))
         for row in trend_rows
     ]
-    # Quick task 260913-cz6: `modifier="readings"` scopes the one
-    # stylesheet rule that releases THIS table from `.data-table`'s
-    # shared `min-width: max-content` no-crop floor. Measured cause: at
-    # a 390px viewport the floor sized this two-column table to 432px
-    # (FR) / 369px (EN) inside a 308px `.data-table-wrap`, because the
-    # Timestamp column's one-line form wanted 302px of ink on its own —
-    # so the wrap grew its own horizontal scrollbar while the PAGE stayed
-    # exactly 390px wide. See the rule's own comment in style.css for why
-    # releasing the floor is right for this table and was right to reject
-    # for the registry (22-12).
+    # modifier="readings" scopes the stylesheet rule that releases this
+    # table from .data-table's min-width: max-content no-crop floor: at
+    # 390px the floor sized this two-column table wider than its wrap.
     table_html = layout.data_table(
         [i18n.t("Timestamp"), i18n.t("Battery (mV)")], table_rows,
         mono_columns=(1,), raw_columns=(0,), modifier="readings")
-    # D-08: the raw readings table is collapsed behind a closed-by-default
-    # native <details> disclosure — no custom JS toggler needed.
+    # Collapsed behind a closed-by-default native <details> disclosure —
+    # no custom JS toggler needed.
     disclosure_html = (
         '<details class="readings-disclosure"><summary>%s</summary>%s</details>'
         % (
             escape_html(i18n.t("View %d reading%s") % (
                 len(trend_rows), "" if len(trend_rows) == 1 else "s")),
             table_html))
-    # 260902-l0b: the series the CHART plots — the daily series when it is
-    # usable, the raw series otherwise (the day-1 fallback). Everything
-    # above and below this line keeps working from trend_rows unchanged.
-    # One predicate (plot_daily) decides both the series AND the label
-    # mode passed to battery_sparkline_svg() below, so the two can never
-    # disagree about what is on screen.
+    # One predicate decides both the series and the label mode passed to
+    # battery_sparkline_svg(), so they can never disagree.
     plot_daily = _battery_daily_series_usable(daily_rows)
     plot_rows = daily_rows if plot_daily else trend_rows
-    # 22-12-PLAN.md Task 1: the chart's OWN redesign is deliberately NOT
-    # in this plan, and the omission is not an oversight. 22-AUDIT.md's
-    # X8 row names a gradient area fill, a marked last point, a
-    # 3.3-4.2 V range and a low-battery threshold line; 22-CONTEXT.md
-    # scopes every one of those to D8, Phase 23 (the dynamism half),
-    # and 22-UI-SPEC.md §6 lists them as out of scope here. This plan
-    # therefore changes the tiles AROUND the chart and leaves the chart
-    # itself byte-for-byte alone: no area fill, no point markers, no
-    # threshold line, no axis-range change. A future reader comparing
-    # the audit row against this file should read the gap as scheduled,
-    # not missed.
     sparkline_html = (
         battery_sparkline_svg(plot_rows, now=now, daily=plot_daily)
         if len(plot_rows) >= 2 else "")
-    # The script tag and readout element are emitted only when a chart
-    # actually exists (sparkline_html is non-empty) — a single-reading
-    # device, or one whose only rows have non-numeric millivolts, gets no
-    # chart and therefore no script, keeping "exactly one script tag, and
-    # zero on the empty/no-chart path" testable and true. The tag's own
-    # deferred-execution attribute is what makes a DOMContentLoaded
-    # wrapper unnecessary in the script.
+    # Script tag and readout emit only when a chart exists, keeping
+    # "exactly one script tag, zero on the empty path" testable.
     chart_block = ""
     if sparkline_html:
-        # quick task 260901-tsa (finding D): the readout now comes FIRST
-        # — ahead of the sparkline — matching the validated sketch's
-        # order (status chip, readout, chart). The script tag stays
-        # last regardless, so "exactly one script tag, and zero on the
-        # no-chart path" stays true unweakened.
         latest_reading = _latest_numeric_battery_reading(trend_rows)
-        # 24-04-PLAN.md Task 2 (CFG-40): the readout gained the ring
-        # beside it. With no drawable reading this is byte-identical to
-        # the _battery_readout_block() call it replaces.
         chart_block = (
             _battery_readout_row_html(latest_reading, now, state)
             + sparkline_html
             + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
-    # D-08: the chart (when present) comes before the collapsed table in
-    # both DOM and visual order.
-    #
-    # quick task 260902-gjj (ISSUE 2): the badge that used to lead this
-    # return value is retired (see the D-01 reversal record above
-    # BATTERY_STATUS_LABEL's old home) — this card's status is now
-    # carried entirely by _battery_trend_section_html()'s own status
-    # modifier, driven by `state` below.
+    # The chart, when present, comes before the collapsed table in both
+    # DOM and visual order.
     return chart_block + disclosure_html, state
 
 
 def _corroboration_details_html():
-    """The D-08 collapsed `<details class="readings-disclosure">` block
-    holding each `_CORROBORATION_ROWS` entry's full explanation — the
-    three always-visible rows above keep only the dot, label, and count;
-    the explanations move here, closed by default, matching the
-    existing `readings-disclosure` idiom (companion/static/style.css's
-    `.readings-disclosure` rule, landed for the battery readings table)
-    verbatim for this second use, so no new CSS is needed.
+    """A collapsed `<details class="readings-disclosure">` block holding
+    each `_CORROBORATION_ROWS` entry's full explanation, closed by
+    default: the same idiom the battery readings table already uses.
     """
     dl_items = "".join(
         "<dt>%s</dt><dd>%s</dd>" % (escape_html(i18n.t(label)), escape_html(i18n.t(explanation)))
@@ -3348,30 +2824,20 @@ def _corroboration_details_html():
 
 def _corroboration_section(counts):
     """`(tile_body_markup, disagreement_warn)` for the Corroboration tile.
-
-    22-12-PLAN.md Task 1 (X8): this builds the WHOLE tile body now,
-    verdict included, rather than returning only the rows and leaving
-    `render()` to prepend a verdict paragraph of its own. The verdict and
-    the three rows are one composition — the rows are the evidence the
-    verdict is drawn from — and splitting them across two modules is how
-    the three Health tiles drifted into three anatomies in the first
-    place. `render()` still derives the tile's own border colour from the
-    `disagreement_warn` flag returned here, so the word and the border
-    are still keyed on one value and cannot disagree (D-03/A-21).
+    Builds the whole tile body, verdict included, since the verdict and
+    the three rows are one composition. `render()` derives the tile's
+    border colour from the returned `disagreement_warn` flag, so word
+    and border are keyed on one value and cannot disagree.
     """
     if counts is _DB_UNAVAILABLE:
         return _unavailable_block(), False
     counts = counts or {}
     if not any(counts.values()):
-        # 22-12-PLAN.md Task 1 (C1/X8): the compact variant. This empty
-        # state renders INSIDE a `.stat-tile` whose own caption is 12px,
-        # and the default form's heading is a 22px serif `.text-heading`
-        # — the inverted hierarchy 22-AUDIT.md measured. The compact form
-        # emits the same `.widget-verdict` / `.widget-detail` pair
-        # `_tile_body()` does, so an empty Corroboration tile keeps the
-        # four-slot anatomy rather than becoming a fifth shape. It is
-        # therefore NOT wrapped in `_tile_body()` — that would produce a
-        # second verdict element.
+        # Compact variant: this renders inside a .stat-tile whose 12px
+        # caption inverts under the default form's 22px heading. Not
+        # wrapped in _tile_body() — that would add a second verdict
+        # element; the compact form already emits the same
+        # widget-verdict/widget-detail pair.
         return layout.empty_state(
             i18n.t("Nothing to compare yet."),
             i18n.t(
@@ -3382,10 +2848,6 @@ def _corroboration_section(counts):
     statuses = corroboration_status(counts)
     rows_html = []
     for key, label, _default_state, _explanation in _CORROBORATION_ROWS:
-        # `statuses["None"]` is "off" now (X8) — layout._STATUS_DOT_CLASSES
-        # gained that entry in the same task, so status_dot() renders the
-        # neutral dot plus its normal visible `.dot-label`. All three rows
-        # keep the identical markup shape; only the token differs.
         rows_html.append(
             '<p class="text-body">%s <span class="mono">%d</span></p>'
             % (
@@ -3403,15 +2865,9 @@ def _corroboration_section(counts):
 
 
 def _source_fault_block(source_fault_raw):
-    # quick task 260901-uzi (finding 4): deliberately NOT given the
-    # `page-section--nested` modifier the two migrated cards in render()
-    # carry. This block renders above both id-anchored sections, at the
-    # same structural level as their own section headings, not nested
-    # inside one — grouping it inside either section's nesting would
-    # misrepresent the single most severe state this page can show as one
-    # more subordinate card (quick task 260902-iag: the modifier itself no
-    # longer changes type, only heading-to-content rhythm, but the
-    # structural argument for keeping this block un-nested is unchanged).
+    # Not given page-section--nested: this block renders above both
+    # id-anchored sections, at the same structural level as their own
+    # headings, not nested inside one.
     if source_fault_raw is _DB_UNAVAILABLE:
         return ""
     if not _meta_flag_true(source_fault_raw):
@@ -3425,32 +2881,21 @@ def _source_fault_block(source_fault_raw):
     ) % (escape_html(i18n.t(SOURCE_FAULT_HEADING)), escape_html(body))
 
 
-# --- 06.6.4.1-04 (D-11/D-12): migrated Unresolved-prefixes registry
-# (CFG-04) and Resolution-statistics breakdown (CFG-08) — copied
-# verbatim (in logic) from companion/pages/airlines_page.py. D-11
-# explicitly warns against folding either read into
-# _read_health_inputs()'s single dict: the registry read below goes
-# through poll_loop.load_poll_state() (a filesystem/JSON failure mode,
-# never a _safe_query() call), and the stats read goes through this
-# module's own _safe_query() (a SQLite failure mode) — render() calls
-# both independently so one failing source degrades only its own card.
+# The unresolved-prefix registry read goes through
+# poll_loop.load_poll_state() (filesystem/JSON failure mode), and the
+# stats read goes through _safe_query() (SQLite failure mode) — render()
+# calls both independently so one failing source degrades only its own
+# card.
 
 
 def unresolved_rows(state_dir):
-    """The CFG-04 registry as a sorted list of
+    """The unresolved-prefix registry as a sorted list of
     `(prefix, count, first_seen, last_seen, example_callsign)` tuples,
-    read through `server.poll_loop.load_poll_state()`'s own
-    `unresolved_prefixes` key — never a direct file open, never a
-    re-derivation of `server/plane/enrich.py`'s own registry-writer's
-    shape logic.
-
-    Sorted by count descending, then prefix ascending, so the render
-    order is deterministic regardless of dict insertion order.
-
-    A registry entry whose value is not a dict, or whose `count` is not
-    an int, is skipped rather than raising — the registry is written by
-    production code but is also documented as hand-editable, so a bad
-    edit must degrade gracefully, not crash the page.
+    read through `server.poll_loop.load_poll_state()`'s
+    `unresolved_prefixes` key. Sorted by count descending, then prefix
+    ascending, for a deterministic render order. A malformed entry
+    (not a dict, or a non-int `count`) is skipped rather than raising:
+    the registry is hand-editable, so a bad edit must degrade gracefully.
     """
     state = poll_loop.load_poll_state(state_dir)
     registry = state.get("unresolved_prefixes")
@@ -3477,41 +2922,30 @@ def unresolved_rows(state_dir):
 
 def coverage_status(rows):
     """`"ok"` when the registry is empty (no coverage gaps), `"warn"`
-    when it has any entries — CFG-04's summary status dot.
+    when it has any entries.
     """
     return "ok" if not rows else "warn"
 
 
 def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
-    """CFG-08's windowed resolution-rate breakdown: `history_db.
-    route_source_counts()` bounded to the last `window_days`, mapped
-    onto `_SOURCE_ROWS`'s five documented categories — four from
-    `enrich.resolve_route()` plus phase 13's fifth, `"manual"`, for
-    prefixes the operator named by hand via the companion web
-    interface.
+    """Windowed resolution-rate breakdown: `history_db.
+    route_source_counts()` bounded to the last `window_days`, mapped onto
+    `_SOURCE_ROWS`'s five categories (four from `enrich.resolve_route()`
+    plus `"manual"`, for prefixes named by hand).
 
     The resolved percentage is the share of entries that produced any
-    usable airline or route — i.e. everything except `"miss"` — matching
-    the plan's own definition of "resolved" rather than a literal
-    full-route-only figure. Phase 2 measured this at roughly 52.6% real
-    traffic (server/plane/enrich.py's own docstring / 03.1 provenance),
-    so a figure in that region is an expected outcome, not a defect.
+    usable airline or route (everything except `"miss"`). Real traffic
+    measured around 52.6% (server/plane/enrich.py), so a figure in that
+    region is expected, not a defect.
 
     Returns `{"rows": [...], "total": N, "resolved_pct": float_or_None}`;
-    `resolved_pct` is `None` (and `rows` is empty) when `total` is zero —
-    guards the caller against a division by zero without it needing to
-    check separately.
+    `resolved_pct` is `None` when `total` is zero, guarding the caller
+    against a division by zero.
 
-    22-03-PLAN.md Task 2 (B3): `total` now counts EVERY row `history_db.
-    route_source_counts()` returns in the window, not only the five
-    `_SOURCE_ROWS` values — a NULL, empty or otherwise unrecognised
-    `route_source` used to vanish from both the total and the table,
-    which could make a window that genuinely holds events render as
-    though nothing had ever been recorded. Anything outside the five
-    known keys is folded into one additional `_OTHER_SOURCE_LABEL` row
-    instead (appended only when its count is non-zero, so an ordinary
-    render — every row already covered by `_SOURCE_ROWS` — is
-    byte-identical to before this task).
+    `total` counts every row `history_db.route_source_counts()` returns
+    in the window, not only the five `_SOURCE_ROWS` values: an
+    unrecognised `route_source` is folded into one `_OTHER_SOURCE_LABEL`
+    row instead, so it is not silently dropped from the total.
     """
     now_dt = now or datetime.now(timezone.utc)
     since = (now_dt - timedelta(days=window_days)).isoformat(timespec="seconds")
@@ -3523,12 +2957,8 @@ def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
 
     resolved = total - counts.get("miss", 0)
     resolved_pct = round((resolved / total) * 100, 1)
-    # 20-03-PLAN.md Task 3 (D-05): label/gloss are translated here, at
-    # the one place both _stats_cards_html() and _stats_table_html()
-    # read them from — every pinned check comparing row[0] against a
-    # literal English source string (e.g. "Manual") runs under the
-    # default English request, where i18n.t() degrades to the literal
-    # unchanged.
+    # label/gloss are translated here, the one place both
+    # _stats_cards_html() and _stats_table_html() read them from.
     rows = [
         (i18n.t(label), i18n.t(gloss), counts.get(source, 0))
         for source, label, gloss in _SOURCE_ROWS
@@ -3543,34 +2973,13 @@ def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
 
 
 def _registry_filter_bar_html(total):
-    """D-20's filter bar over the unresolved-prefix registry, only ever
-    rendered when there is data to filter (matches `_registry_section()`'s
-    own "no chrome with no data" rule, same as History's precedent).
-
-    22-12-PLAN.md Task 3 (B11): the count and the Clear control sit
-    inside ONE `.filter-bar__meta` group — the SHARED wrapper plan 22-09
-    added for Flights and plan 22-11 adopted verbatim for Airlines,
-    adopted here verbatim too. Health is the third and LAST of the three
-    filtered pages the audit measured, and this is Phase 18's A-18
-    regressing a second time: two `nowrap` siblings in a `flex-wrap:
-    wrap` container do not wrap as a unit — `nowrap` stops a break inside
-    each one, and nothing stopped the container breaking BETWEEN them, so
-    at 390px Clear dropped alone onto its own line. One group is a single
-    flex item and moves whole or not at all. No per-page variant is
-    added, and this page's Clear stays converged on the existing
-    `.filter-bar [data-filter-clear]` rule.
-
-    D-16 forbids a `<button>` element anywhere on the page this content
-    originated from — the clear control is therefore a plain link
-    element pointing at the filter input's own id rather than a
-    submit-type button. `companion/static/list-filter.js`'s
-    click-listener attachment (`document.querySelector
-    ("[data-filter-clear]")`) does not care which element carries the
-    attribute, and a fragment link to the input both scrolls to and
-    (per standard browser fragment-navigation behaviour) focuses it in
-    one action — a small UX bonus (ready to type the next query) that
-    also needs zero new CSS beyond the already-shipped `.filter-bar`
-    rules.
+    """Filter bar over the unresolved-prefix registry, only rendered when
+    there is data to filter. The count and Clear control share one
+    `.filter-bar__meta` flex item, since two `nowrap` siblings in a
+    `flex-wrap: wrap` container can still break apart from each other.
+    The clear control is a plain link (no `<button>` on this page)
+    pointing at the filter input's id, which both scrolls to and focuses
+    it via fragment navigation.
     """
     count_text = i18n.t("%d of %d shown") % (total, total)
     empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
@@ -3579,9 +2988,8 @@ def _registry_filter_bar_html(total):
         '<label class="text-label" for="%s">%s</label>'
         '<div class="filter-bar__field">'
         "%s"
-        # Quick task 260921-n2n Task 1: same Safari contact-autofill fix as
-        # `history_page.py`'s `_filter_bar_html()` — see that file for the
-        # full explanation of the three attributes below.
+        # autocomplete/spellcheck/autocapitalize: same Safari
+        # contact-autofill fix as history_page.py's _filter_bar_html().
         '<input type="search" id="%s" autocomplete="off" spellcheck="false" autocapitalize="characters" data-filter-input>'
         "</div>"
         '<div class="filter-bar__meta">'
@@ -3605,25 +3013,18 @@ def _registry_filter_bar_html(total):
     )
 
 
-# quick task 260903-ghy (UIR-11): promoted from `_registry_table_html()`'s
-# own local `headers` tuple — single-sourced so the table builder and the
-# mobile card builder can never disagree on a header word. Indices 1, 2, 3
-# and 4 ("Count", "First seen", "Last seen", "Example callsign") are read
-# directly by `_registry_cards_html()` for its field labels; index 0
-# ("Prefix") has no card-side label because the prefix value itself is
-# the card's primary line, exactly as it is the table's first column with
-# no separate label either.
-#
-# Phase 13 (D-10) APPENDS a sixth entry, "Resolve" — never inserted,
-# because the four index lookups above are positional and an insertion
-# would silently relabel every mobile card field.
+# Single-sourced so the table builder and the mobile card builder can't
+# disagree on a header word. Indices 1-4 are read directly by
+# _registry_cards_html() for its field labels; index 0 ("Prefix") has no
+# card-side label because the prefix is the card's primary line. "Resolve"
+# is always appended, never inserted, since those index lookups are
+# positional.
 _REGISTRY_HEADERS = ("Prefix", "Count", "First seen", "Last seen", "Example callsign", "Resolve")
 
-# Phase 13 (D-10): the per-row deep link to the Airlines resolve surface.
-# Both representations (_registry_row_html()'s <td> and
+# The per-row deep link to the Airlines resolve surface. Both
+# representations (_registry_row_html()'s <td> and
 # _registry_cards_html()'s .data-card__action block) build their anchor
-# from these same four constants, so the href/aria-label/text can never
-# drift apart between the two.
+# from these same constants, so href/aria-label/text can't drift apart.
 RESOLVE_LINK_HREF_TEMPLATE = "/airlines?resolve=%s"
 RESOLVE_LINK_ARIA_TEMPLATE = "Resolve prefix %s"
 RESOLVE_LINK_TEXT = "Resolve"
@@ -3633,58 +3034,32 @@ RESOLVE_CARD_LINK_TEXT = "Resolve this prefix"
 def _registry_filter_text(prefix):
     """The lowercased, escaped `data-filter-text` value shared by a
     registry `<tr>` (`_registry_row_html()`) and its paired
-    `<li class="data-card">` (`_registry_cards_html()`) — extracted into
-    one place, used by both, so the two representations' filter text can
-    never diverge.
+    `<li class="data-card">` (`_registry_cards_html()`), so the two
+    representations' filter text can never diverge.
     """
     return escape_html(prefix.lower() if isinstance(prefix, str) else str(prefix).lower())
 
 
-# 22-12-PLAN.md Task 2 (B12): the inline separator between a stacked
-# cell's two lines. `companion/pages/history_page.py` owns the same
-# constant for the Flights table, and `companion/pages/__init__.py`
-# forbids one page module importing another, so it is restated here
-# rather than imported. It is `display: none` inside this table (see the
-# `table.data-table--registry` rule in companion/static/style.css) for
-# the identical reason it is inside Flights': the two parts sit on
-# separate lines, so an inline middle dot has no role — but the markup
-# stays in the DOM so a future change that un-scopes the stacking rule
-# finds the separator still there.
+# Restated rather than imported from history_page.py: page modules may
+# not import each other. display: none inside this table's stacked
+# cells, but kept in the DOM in case a future change un-scopes the rule.
 _REGISTRY_CELL_SEPARATOR_TEXT = "·"
 
 
 def _registry_seen_cell_html(raw_ts, now):
-    """The First seen / Last seen cell's two STACKED lines — a
+    """The First seen / Last seen cell's two stacked lines: a
     Europe/Paris local clock primary line and a relative-age secondary
-    line — built exactly the way `history_page._when_cell_html()` builds
-    the Flights table's own When column (21-03-PLAN.md Task 1, D-15):
-    `layout.local_clock_text()` plus `layout.relative_age_text()` over
-    `layout.age_seconds()`, never `layout.concise_timestamp_html()`.
+    line, built the way `history_page._when_cell_html()` builds the
+    Flights table's When column.
 
-    Why this exists at all (22-12-PLAN.md Task 2, B12), decided by
-    HEADLESS MEASUREMENT rather than by eye, the same discipline that
-    settled the Flights table (`references/data-density.md`): at a
-    1280px viewport this table's `.data-table-wrap` has a clientWidth of
-    830px, and the table wanted 886px in English and 1026px in French.
-    `.data-table`'s `min-width: max-content` floor sizes every column to
-    its widest UNWRAPPED line, and these two columns' one-line form
-    ("1 août 08:00 (il y a 42 j)") measured 251px of ink each — 564px of
-    the 830px budget for two of six columns, which is why shortening the
-    French headers alone was measured to be arithmetically incapable of
-    fitting and the Flights stacked-cell precedent was needed here too.
-    Stacking makes each column's max-content width the WIDER of its two
-    lines instead of their concatenation.
+    At a 1280px viewport this table's wrap measures 830px, and the
+    one-line timestamp form measured 251px per column in French — too
+    wide for two of six columns to fit unwrapped, hence stacking.
 
-    Degrades exactly as `_when_cell_html()` does, and as this cell's own
-    previous `concise_timestamp_html(..., fallback="")` call did: a falsy
-    timestamp renders an empty cell, and an unparseable one renders the
-    raw value as a bare primary line with no secondary (a relative age is
-    undefined for a value that never parsed). Never raises.
-
-    The full day-qualified local timestamp the previous call site
-    demoted to a `title` is KEPT, on the primary span — Flights could
-    drop its own because D-15 moved the full timestamp into that table's
-    detail row, and this table has no detail row to move it to.
+    Degrades like `_when_cell_html()`: a falsy timestamp renders empty,
+    an unparseable one renders the raw value with no secondary line.
+    Never raises. The full local timestamp stays on the primary span's
+    `title`, since this table has no detail row to move it to.
     """
     if not raw_ts:
         return ""
@@ -3707,38 +3082,23 @@ def _registry_seen_cell_html(raw_ts, now):
 
 def _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now):
     """One `<tr>` for the unresolved-prefix registry table. First seen/
-    Last seen switch to `layout.concise_timestamp_html()` (D-09) — its
-    return value is already-safe markup and is interpolated verbatim,
-    never re-escaped, matching this module's single-escaping-choke-point
-    discipline for every other cell. `data-filter-text` (D-20/
-    T-06.6.3-12) carries the lowercased prefix, escaped before
-    interpolation into the attribute.
+    Last seen return already-safe markup from
+    `layout.concise_timestamp_html()`, interpolated verbatim, never
+    re-escaped. `data-filter-text` carries the lowercased, escaped
+    prefix.
 
-    Phase 13 (D-10) appends a sixth `<td>`: a plain `<a>` navigating to
-    `/airlines?resolve={prefix}` — never a submit-type control, so this
-    stays a navigation affordance only and Health remains read-only (the
-    link changes nothing on this page). The
-    prefix passes through `escape_html()` once for the `href` and once
-    for the `aria-label`, this module's usual single-escaping-choke-
-    point discipline. `_registry_cards_html()` below builds the mobile
-    equivalent from the exact same href/aria-label — the two
-    representations deliberately differ only in visible link text
-    (`RESOLVE_LINK_TEXT` here, `RESOLVE_CARD_LINK_TEXT` there).
+    Appends a sixth `<td>`: a plain `<a>` navigating to
+    `/airlines?resolve={prefix}`, never a submit-type control, so Health
+    stays read-only. `_registry_cards_html()` builds the mobile
+    equivalent from the same href/aria-label, differing only in visible
+    link text (`RESOLVE_LINK_TEXT` here, `RESOLVE_CARD_LINK_TEXT` there).
     """
     row_class = "row-alt" if index % 2 else "row"
-    # 22-12-PLAN.md Task 2 (B12): the desktop table's two timestamp cells
-    # are stacked now (see `_registry_seen_cell_html()` for the
-    # measurements that forced it). `_registry_cards_html()` below keeps
-    # calling `layout.concise_timestamp_html()` unchanged: the mobile
-    # card is a single-column layout with no width budget to protect, and
-    # its secondary line reads better as one sentence. The two
-    # representations therefore no longer share byte-identical markup for
-    # these two values, but they are still built from the SAME two
-    # formatters over the same `now` — `concise_timestamp_html()` is
-    # literally `local_clock_text()` plus `relative_age_text()` — so they
-    # cannot disagree about what either value IS, which is what that
-    # byte-identity was ever standing in for. companion/
-    # test_status_pages.py asserts the shared-formatter property directly.
+    # The desktop table's timestamp cells are stacked (see
+    # _registry_seen_cell_html()); the mobile card below keeps calling
+    # concise_timestamp_html() directly since it has no width budget to
+    # protect. Both still build from the same underlying formatters over
+    # the same `now`, so they cannot disagree about what a value is.
     first_seen_html = _registry_seen_cell_html(first_seen, now)
     last_seen_html = _registry_seen_cell_html(last_seen, now)
     escaped_prefix = escape_html(prefix)
@@ -3754,38 +3114,26 @@ def _registry_row_html(index, prefix, count, first_seen, last_seen, example_call
             resolve_href, resolve_aria, escape_html(i18n.t(RESOLVE_LINK_TEXT))),
     )
     filter_text = _registry_filter_text(prefix)
-    # data-filter-group (quick task 260903-ghy): this row now HAS a
-    # mobile-card pairing — _registry_cards_html() below emits one
-    # <li class="data-card"> per row, carrying this exact same integer.
-    # list-filter.js counts DISTINCT GROUPS, not raw elements, so this
-    # value must match the paired card's own data-filter-group exactly,
-    # or "N of N shown" silently doubles once every row has two DOM
-    # representations.
+    # data-filter-group must match the paired mobile card's value exactly:
+    # list-filter.js counts distinct groups, not raw elements, so a
+    # mismatch would double "N of N shown" once a row has two DOM forms.
     return '<tr class="%s" data-filter-text="%s" data-filter-group="%d">%s</tr>' % (
         row_class, filter_text, index, "".join(cells))
 
 
 def _registry_table_html(rows, now):
-    """The unresolved-prefix registry table, hand-rolled (not via
-    `layout.data_table()`) so each row can carry its own `data-filter-
-    text` attribute — `data_table()` has no per-row attribute hook, and
-    extending it with one would touch that builder's other call sites
-    for no benefit to any of them. This mirrors
-    `companion/pages/history_page.py::_history_table_html()`'s own
-    precedent for exactly the same reason, matching `data_table()`'s CSS
-    classes exactly for visual consistency.
+    """The unresolved-prefix registry table, hand-rolled rather than via
+    `layout.data_table()` so each row can carry its own `data-filter-text`
+    attribute (that builder has no per-row attribute hook). Matches
+    `data_table()`'s CSS classes for visual consistency.
     """
     header_cells = "".join("<th>%s</th>" % escape_html(i18n.t(h)) for h in _REGISTRY_HEADERS)
     body_rows = [
         _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now)
         for index, (prefix, count, first_seen, last_seen, example_callsign) in enumerate(rows)
     ]
-    # 22-12-PLAN.md Task 2 (B12): `data-table--registry` scopes the
-    # stacked-cell rule in companion/static/style.css to this one table,
-    # exactly as `data-table--flights` scopes Flights' own. It is an
-    # ADDITIVE modifier — the base `data-table` class and every rule
-    # keyed on it (including the `min-width: max-content` no-crop floor,
-    # which this table keeps) are unchanged.
+    # data-table--registry scopes the stacked-cell rule to this table,
+    # additively: the base data-table class and its rules are unchanged.
     return (
         '<div class="data-table-wrap">'
         '<table class="data-table data-table--registry">'
@@ -3797,43 +3145,20 @@ def _registry_table_html(rows, now):
 
 
 def _registry_cards_html(rows, now):
-    """(quick task 260903-ghy, UIR-11) Mobile two-line-plus-disclosure
-    representation of the unresolved-prefix registry — one
-    `<li class="data-card">` per row in the SAME `rows` list and the SAME
-    `now` value `_registry_table_html()` already receives (never a
-    second query, never a second `now`). Returns `""` for an empty list,
-    matching `_registry_table_html()`'s own no-chrome-with-no-data rule.
+    """Mobile two-line-plus-disclosure representation of the
+    unresolved-prefix registry: one `<li class="data-card">` per row.
+    Returns `""` for an empty list.
 
-    Per-table decision: this table's five columns are short comparison
-    values, and First seen/Last seen are meant to be read AGAINST each
-    other — a horizontal scroller that shows one of them at a time makes
-    that comparison impossible at 375px. Quick task 260902-w4t's
-    scroll-edge shadow on `.data-table-wrap` stays in force as this
-    table's desktop safety net; it is not this table's mobile answer.
-    The mobile shape is therefore a card per prefix: Prefix and Count at
-    rest on the primary line, Last seen at rest on the secondary line,
-    First seen and Example callsign one tap away inside a `<details>`
-    disclosure (History's own two-lines-at-rest card shape, so a large
-    registry does not become a many-screen page).
+    A horizontal scroller would show First seen/Last seen one at a time,
+    breaking the comparison they're meant to support, so the mobile shape
+    is a card per prefix instead: Prefix/Count and Last seen at rest,
+    First seen/Example callsign inside a `<details>` disclosure.
 
-    `data-filter-text`/`data-filter-group` are computed with the exact
-    same `_registry_filter_text()` helper and the same loop index
-    `_registry_row_html()` uses for the paired `<tr>` — the two can never
-    diverge. `layout.concise_timestamp_html(value, now, fallback="")` is
-    called identically to the `<tr>`'s own cell for the same value, so
-    the two representations' Last seen/First seen markup is
-    byte-identical (D-09).
-
-    Phase 13 (D-10): a `.data-card__action` block sits between the
-    secondary line and the `<details>` disclosure — visible at rest, not
-    behind a tap, since it is this card's one actionable affordance. Its
-    anchor carries the identical `href`/`aria-label` the paired `<tr>`'s
-    sixth `<td>` carries, built from the same `RESOLVE_LINK_HREF_TEMPLATE`/
-    `RESOLVE_LINK_ARIA_TEMPLATE` constants — the two representations
-    deliberately differ ONLY in visible link text (`RESOLVE_CARD_LINK_TEXT`
-    here, longer/self-contained since a mobile card is read standalone,
-    versus `RESOLVE_LINK_TEXT` on desktop where the row's own Prefix cell
-    already supplies context).
+    `data-filter-text`/`data-filter-group` use the same helper and loop
+    index as the paired `<tr>`, so the two representations can't diverge.
+    The action link's `href`/`aria-label` are identical to the row's own;
+    only the visible text differs (`RESOLVE_CARD_LINK_TEXT` here, longer
+    since a mobile card is read standalone).
     """
     if not rows:
         return ""
@@ -3885,39 +3210,13 @@ def _registry_cards_html(rows, now):
 
 
 def _registry_section(rows, now):
-    # quick task 260902-bl2 (bug 2): the validated Merged Health Sketch
-    # places this card's status dot inside its card-title row, as a
-    # space-between flex pair (the sketch's `.wide-card__caption` role).
-    # This function used to keep the dot as its own line below the
-    # heading instead, on the finding that the developer's complaint here
-    # was about spacing, not placement — the spacing is now the sketch's
-    # (see the `.page-section--nested > h2` rule's retained
-    # margin-bottom, style.css — quick task 260902-iag renamed what that
-    # rule does; the margin itself is unchanged). That earlier rejection
-    # is now partly obsolete: quick task 260902-gjj removes the dot
-    # entirely (see the D-01 reversal record above BATTERY_STATUS_LABEL's
-    # old home for the accessibility finding that licensed the removal
-    # for both this card and Battery trend), so there is no dot left to
-    # place in the card-title row either. The card's own top edge now
-    # carries this coverage_status() verdict instead, composed at this
-    # function's call site in render().
-    #
-    # quick task 260902-gjj (ISSUE 1): composes `section-caption` onto this
-    # note's existing `text-body` sizing class, the same fix
-    # `_battery_trend_section_html()` applies to its own trailing span —
-    # see that function's docstring for the full reasoning. Deliberately
-    # NOT switched to `text-label`: this is a full sentence of prose at
-    # Body size, and dropping it to Label size would be an unrequested
-    # size change that would also disagree with the sibling prose in this
-    # same card region.
-    #
-    # 29-06-PLAN.md Task 2 (CFG-79): _READ_ONLY_NOTE is now the short
-    # visible sentence alone; _READ_ONLY_NOTE_DETAIL — the instruction
-    # this note used to carry in the same paragraph — moves, unchanged
-    # in wording, into a new `<details class="readings-disclosure">`
-    # immediately after it, reusing the same collapsed-disclosure idiom
-    # and "More details" summary label the battery readings table and
-    # `_corroboration_details_html()` already use.
+    # No status dot in the card-title row: coverage_status() paints the
+    # card's own top edge instead, composed at this function's call site.
+    # section-caption composes onto text-body (Body size, matching the
+    # sibling prose in this region), not text-label. _READ_ONLY_NOTE is
+    # the short visible sentence; _READ_ONLY_NOTE_DETAIL moves into the
+    # <details> disclosure below, the same idiom the battery readings
+    # table and _corroboration_details_html() use.
     header_html = (
         '<p class="text-body section-caption">%s</p>'
         '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
@@ -3933,34 +3232,18 @@ def _registry_section(rows, now):
     filter_html = _registry_filter_bar_html(len(rows))
     cards_html = _registry_cards_html(rows, now)
     table_html = _registry_table_html(rows, now)
-    # Cards render before the table (quick task 260903-ghy) — style.css's
+    # Cards must render before the table: style.css's
     # `.data-cards ~ .data-table-wrap` sibling-combinator toggle depends
-    # on this exact DOM order; do not reorder these two calls.
+    # on this DOM order.
     return header_html + filter_html + cards_html + table_html
 
 
 def _stats_cards_html(rows):
-    """(quick task 260903-ghy, UIR-10) Mobile stacked-prose representation
-    of the Resolution-statistics table — one `<li class="data-card">` per
-    `(label, gloss, count)` triple in `rows`, the SAME `stats["rows"]`
-    list `_stats_table_html()` already has: no second data pass. Returns
-    `""` for an empty list, matching `_stats_table_html()`'s own
-    no-chrome-with-no-data rule for this card.
-
-    Per-table decision: a horizontal scroll affordance is the wrong
-    answer for THIS table specifically, not a stylistic preference —
-    `.data-table--prose`'s own comment in style.css already measured
-    1172px of content inside an 831px container for this exact table and
-    ruled that a column of full sentences must WRAP, not scroll.
-    Re-answering this table's mobile shape with a scroller would reinstate
-    the exact defect that rule was written to remove. The mobile shape is
-    therefore stacked: Source label and Count on the primary line, the
-    FULL, untruncated Description sentence as a full-width paragraph
-    beneath it — never a disclosure, never a truncation, because the
-    description IS the content of this table.
-
-    Every value goes through `escape_html()` — this module's single
-    escaping choke-point discipline, no exceptions.
+    """Mobile stacked-prose representation of the resolution-statistics
+    table: one `<li class="data-card">` per `(label, gloss, count)` in
+    `rows`. A column of full sentences must wrap, not scroll
+    (`.data-table--prose` in style.css), so the Description sentence
+    renders full and untruncated rather than behind a disclosure.
     """
     if not rows:
         return ""
@@ -3980,30 +3263,13 @@ def _stats_cards_html(rows):
 
 
 def _stats_table_html(stats):
-    """The resolution-statistics breakdown table, plus (quick task
-    260903-ghy, UIR-10) its `.data-cards` mobile sibling emitted BEFORE
-    it — style.css's `.data-cards ~ .data-table-wrap` sibling-combinator
-    toggle depends on that exact document order; do not reorder these two
-    calls. Returns the empty string when there is nothing to show (no
-    data yet, or the database is unavailable) — `_resolution_rate_tile_html()`
-    already carries that message once, and this card must not repeat it.
-
-    quick task 260901-uzi (finding 2): this is the only table in the app
-    whose Description column carries real prose (the `_SOURCE_ROWS`
-    glosses, up to full sentences), which is why it is the only one that
-    opts into `layout.data_table()`'s `prose` keyword. The
-    unresolved-prefix registry directly above it on the same page is
-    deliberately NOT opted in: its five columns hold short values whose
-    combined max-content width is bounded, and the wrapper absorbs it
-    exactly as designed.
-
-    quick task 260902-bl2 (bug 1): the same reason this is the only
-    table that opts out of the no-crop floor is the reason it is the
-    only one whose middle column opts into the `desc` column role — it
-    is the only table in the app whose cells hold prose rather than
-    values, and the validated sketch's own Resolution-statistics table
-    (`td.desc`) mutes exactly that column so the Source labels and
-    Counts stay the scannable part.
+    """The resolution-statistics breakdown table, with its `.data-cards`
+    mobile sibling emitted first (style.css's sibling-combinator toggle
+    depends on that order — do not reorder). Empty when there is nothing
+    to show: `_resolution_rate_tile_html()` already carries that message.
+    The only table whose Description column holds real prose, so it is
+    the only one opted into `layout.data_table()`'s `prose` keyword and
+    `desc` column role.
     """
     if stats is _DB_UNAVAILABLE or stats["total"] == 0:
         return ""
@@ -4013,40 +3279,23 @@ def _stats_table_html(stats):
 
 
 def _resolution_rate_tile_html(stats):
-    """The Resolution-rate `stat_tile()`'s content (UI-SPEC §5.5) — the
-    same two-line "figure" half the old Airlines page's promoted
-    headline built (`_resolved_headline_html()`, `airlines_page.py`
-    L292-313), reused verbatim rather than reworded, now living inside a
-    `stat_tile()` card instead of a bare page-header slot.
+    """The Resolution-rate stat_tile's content: a two-line figure inside
+    the tile card.
     """
     if stats is _DB_UNAVAILABLE:
         return _unavailable_block()
     if stats["total"] == 0:
-        # 22-03-PLAN.md Task 2 (B3): the heading is translated FIRST,
-        # then interpolated — the same order _FILTER_EMPTY_BODY_TEMPLATE
-        # already uses above — so the "%d" placeholder survives
-        # translation and RESOLUTION_WINDOW_DAYS never appears as a
-        # hard-coded literal in either language's catalogue entry.
-        # 22-12-PLAN.md Task 1 (C1/X8): the compact variant, for exactly
-        # the reason _corroboration_section() uses it — this block lands
-        # inside a `.stat-tile`, and the default form's 22px serif
-        # heading inside a 12px-captioned tile is the inverted hierarchy
-        # the audit measured. Not wrapped in `_tile_body()`: the compact
-        # empty state already occupies both slots itself, and this tile
-        # must carry no `.widget-verdict` at all (D-03/A-21).
+        # Translate the heading first, then interpolate, so the "%d"
+        # placeholder survives translation. Compact variant: this block
+        # lands inside a .stat-tile, whose 12px caption inverts under the
+        # default form's 22px heading. No .widget-verdict here — this
+        # tile makes no pass/fail judgement (status=None, no status
+        # function exists for it).
         return layout.empty_state(
             i18n.t(_NO_STATS_HEADING) % RESOLUTION_WINDOW_DAYS,
             i18n.t(_NO_STATS_BODY), compact=True)
-    # 22-12-PLAN.md Task 1 (X8): the four-slot anatomy, with ONE
-    # deliberate difference from its three siblings — the Emphasis slot
-    # holds the FIGURE, in `.stat-tile__value`, not a verdict word.
-    # D-03/A-21 established that this tile makes no pass/fail judgement
-    # (it is the one tile passed `status=None`, and no status function
-    # for it exists anywhere in this module), so a `.widget-verdict`
-    # paragraph here would assert a judgement the page cannot make;
-    # companion/test_status_pages.py pins its absence. Slot ORDER, the
-    # one-Emphasis-element rule and the muted detail are identical to the
-    # other three, which is what "one anatomy" means here.
+    # The Emphasis slot holds the figure (.stat-tile__value), not a
+    # verdict word, since this tile carries no pass/fail judgement.
     detail_template = (
         _RESOLUTION_DETAIL_SINGULAR_TEMPLATE if stats["total"] == 1
         else _RESOLUTION_DETAIL_TEMPLATE)
@@ -4062,42 +3311,22 @@ def _resolution_rate_tile_html(stats):
 
 
 def _check_in_regularity_cells(gap_rows, wake_interval_s, now):
-    """`(cells, counts, day_labels)` for the check-in regularity grid —
-    one entry per Europe/Paris calendar day of the CHECK_IN_WINDOW_DAYS
-    ending on `now`'s own day, oldest first (24-07-PLAN.md Task 2).
-
-    `gap_rows` is `history_db.check_in_gaps()`'s own output and is read,
-    never recomputed. `cells` is `draw.regularity_grid()`'s own
+    """`(cells, counts, day_labels)` for the check-in regularity grid: one
+    entry per Europe/Paris calendar day of CHECK_IN_WINDOW_DAYS ending on
+    `now`'s day, oldest first. `cells` is `draw.regularity_grid()`'s own
     `(state, title)` shape.
 
-    EVERY VERDICT IS `wake.classify_check_in_gap()`'s, INCLUDING THE
-    EMPTY ONES, and that is a property rather than a convenience: a day
-    the record says nothing about is passed to the classifier as a gap of
-    `None`, which it answers `CHECK_IN_UNKNOWN` for — so there is no
-    branch anywhere in this page that decides a day's colour, not even
-    for the absent case. One function decides what "late" means for this
-    deployment and it is the same one the Frame tile consumes.
+    Every verdict, including a day with no record (gap `None`), goes
+    through `wake.classify_check_in_gap()` — the same function the Frame
+    tile consumes — so no branch here decides a day's colour on its own.
+    A day is judged by its longest observed gap, not an average, so a
+    single long hole is not hidden by an otherwise-ordinary day.
 
-    A DAY IS JUDGED BY ITS LONGEST OBSERVED GAP. The alternative — an
-    average, or the newest gap — would hide exactly the event a reader
-    opens this page for: forty ordinary check-ins and one six-hour hole
-    is a day with a six-hour hole in it, and the cell's own title names
-    that duration so the colour is checkable rather than merely asserted.
-    `max()` over values the reader already computed is not a second
-    interval computation; nothing here subtracts two instants.
-
-    THE CALENDAR ARITHMETIC IS ORDINAL, and the day-offset type this
-    module imports for other purposes is deliberately not used here. The
-    reason is narrow: this function must contain no duration arithmetic
-    at all — a check reads its own source for exactly that, and it reads
-    it bluntly enough that this paragraph has to talk around the names it
-    bans — and walking a window of days by `date.toordinal()` /
-    `date.fromordinal()` is calendar arithmetic with no duration
-    anywhere in it. It is also correct across a DST boundary for free,
-    where adding a fixed number of seconds per day is not.
-
-    Never raises: an unparseable `now` falls back to the wall clock's own
-    Paris day, and a row of any other shape is skipped.
+    Calendar arithmetic is ordinal (`date.toordinal()`/`fromordinal()`),
+    with no duration arithmetic anywhere in this function — correct
+    across a DST boundary, where a fixed per-day second count is not.
+    Never raises: an unparseable `now` falls back to the wall clock's
+    Paris day, and a malformed row is skipped.
     """
     worst = {}
     for row in gap_rows or ():
@@ -4139,36 +3368,19 @@ def _check_in_regularity_cells(gap_rows, wake_interval_s, now):
 
 
 def _check_in_regularity_section_html(gap_rows, wake_interval_s, now):
-    """The whole "Check-in regularity" card: heading, the one-sentence
-    visible caption plus its disclosure, the grid, its two date labels
-    and the four-state key.
+    """The "Check-in regularity" card: heading, visible caption plus its
+    disclosure, the grid, its two date labels and the four-state key.
 
     `wake_interval_s` is `wake.effective_wake_interval_s()`'s answer for
-    the config in force RIGHT NOW, and the caption says so in as many
-    words. `None` — a deployment with no `wake_interval_s` and no
-    `SKYPANE_SLEEP_S` — is not silently replaced with a default: the
-    classifier degrades to `device_staleness_thresholds()`' bare floors
-    for it, and the caption names those floors instead of naming a
-    cadence nobody configured.
+    the config in force now. `None` (no `wake_interval_s`, no
+    `SKYPANE_SLEEP_S`) is not silently replaced: the classifier degrades
+    to `device_staleness_thresholds()`'s bare floors, and the caption
+    names those floors rather than a cadence nobody configured.
 
-    29-06-PLAN.md Task 2 (CFG-79): SUPERSEDES the former single joined
-    caption (`" ".join(clauses)` inside one `<p>`, up to four clauses,
-    roughly fifty words at its longest combination). The VISIBLE
-    caption is now `CHECK_IN_CAPTION_OBSERVED` alone; every other
-    clause this function used to append moves, byte-identical in
-    wording, into a `<details class="readings-disclosure">` rendered
-    immediately after it — the same collapsed-disclosure idiom
-    `_battery_section()`'s own readings table and
-    `_corroboration_details_html()` already use, reusing that idiom's
-    own "More details" summary label rather than inventing a second
-    one. The conditional logic that decides WHICH clauses apply is
-    unchanged: `CHECK_IN_CAPTION_EMPTY` only when nothing was observed;
-    `CHECK_IN_CAPTION_CADENCE` (with its duration substitution) or
-    `CHECK_IN_CAPTION_CADENCE_FALLBACK`, exactly as before; and
-    `CHECK_IN_CAPTION_NOT_PROOF` unconditionally, always last. See each
-    clause constant's own comment above for why this move costs nothing
-    — every clause still renders, in the same words, in the same
-    document, one tap away.
+    Only `CHECK_IN_CAPTION_OBSERVED` is visible; every other clause moves
+    into a `<details class="readings-disclosure">` immediately after it,
+    the same collapsed-disclosure idiom `_battery_section()` and
+    `_corroboration_details_html()` use.
     """
     if gap_rows is _DB_UNAVAILABLE:
         body = _unavailable_block()
@@ -4186,18 +3398,9 @@ def _check_in_regularity_section_html(gap_rows, wake_interval_s, now):
                 counts.get(wake.CHECK_IN_LATE, 0),
                 counts.get(wake.CHECK_IN_MISSING, 0),
                 counts.get(wake.CHECK_IN_UNKNOWN, 0)))
-        # The oldest label is read PAST anything the drawing dropped, so
-        # the two labels can only ever name cells that are on screen. The
-        # window is inside the emitter's own bound today, so `dropped` is
-        # 0 — this line is what keeps the labels honest if that ever
-        # stops being true, rather than a caption quietly naming a day
-        # the grid no longer draws.
+        # Read past anything the drawing dropped, so the two labels can
+        # only ever name cells that are on screen.
         oldest = labels[dropped] if dropped < len(labels) else labels[-1]
-        # 29-06-PLAN.md Task 2 (CFG-79): visible_caption is the ONLY
-        # clause the card's own <p class="text-label section-caption">
-        # carries now; disclosure_clauses holds every other clause this
-        # function used to fold into that same paragraph, in the exact
-        # same conditional order as before.
         visible_caption = i18n.t(CHECK_IN_CAPTION_OBSERVED)
         disclosure_clauses = []
         if not observed:
@@ -4226,14 +3429,8 @@ def _check_in_regularity_section_html(gap_rows, wake_interval_s, now):
             draw.label_span(oldest, hidden=False),
             draw.label_span(labels[-1], hidden=False),
             _check_in_key_html())
-    # A plain `.page-section` card and deliberately NOT
-    # `page-section--nested`. The nested modifier is carried by exactly
-    # the two cards migrated into Server & data, and three checks pin
-    # that count; this card is the Screen section's SECOND full-width
-    # card, and the first one (battery trend) carries its own class
-    # rather than that modifier too. Following the precedent already
-    # inside this section is the right call on its merits and leaves
-    # those three pins measuring what they were written to measure.
+    # Plain .page-section, not page-section--nested: that modifier is
+    # reserved for the two cards migrated into Server & data.
     return (
         '<section class="page-section">'
         '<h2 class="text-heading">%s</h2>%s</section>'
@@ -4241,16 +3438,10 @@ def _check_in_regularity_section_html(gap_rows, wake_interval_s, now):
 
 
 def _check_in_key_html():
-    """The grid's key: four swatches, four names, in the classifier's own
-    order from best to worst and then absence.
-
-    THE SWATCH TAKES THE CELL'S OWN CLASS, not a copy of its colour. The
-    `.drawing-cell--*` modifiers set `color` and nothing else, so the
-    same declaration paints the SVG cell (through `fill: currentColor`)
-    and this HTML swatch (through `background: currentColor`) — a key
-    that could disagree with the cells it explains is worse than no key.
-    The swatch is aria-hidden because the word beside it IS the reading;
-    a screen reader announcing a coloured box adds nothing.
+    """Legend for the regularity grid, in classifier order (best to worst,
+    then absence). The swatch takes the cell's own class rather than a
+    copied colour, so key and grid share one `currentColor` declaration
+    and cannot disagree. aria-hidden: the label text is the reading.
     """
     items = []
     for state in (wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE,
@@ -4267,43 +3458,12 @@ def _check_in_key_html():
 
 
 def _read_health_inputs(state_dir, now):
-    """The nine reads `render()` and `anomaly_active()` both need,
-    single-sourced into one dict.
-
-    `render()` and `anomaly_active()` must be looking at the same nine
-    values, or the Health nav-tab dot and the page's own anomaly banner
-    can disagree on screen — single-sourcing the *inputs* (not just the
-    section-builder calls that consume them) is what removes that whole
-    class of drift at the root, before it ever has a chance to appear.
-
-    260902-l0b: grew from five reads to six — `daily_rows` joins
-    `trend_rows` here, in the one atomic snapshot, because it is a
-    battery-health read consumed by the same section builder
-    (`_battery_section()`) from the same table (`device_health`) in the
-    same request. Quick task 260903-peo (UIR-14) grew it again, six to
-    seven: `last_detection` joins `pipeline_ts` here for the identical
-    reason — it feeds the same section builder (`_pipeline_section()`),
-    from the same table (`meta`), in the same request.
-
-    D-05/A-23, 19-05-PLAN.md: grew again, seven to nine — `device_config`
-    (`device_config.load_device_config()`, a never-raising config read,
-    consumed by `compute_health_state()` to derive the device's own
-    staleness thresholds) and `registry_rows` (the CFG-04 unresolved-
-    prefix registry, now consumed by `overall_severity()`/
-    `collect_anomalies()` via `coverage_status()`, in addition to its
-    pre-existing consumer, `render()`'s own registry card).
-
-    This PARTIALLY reopens D-11's original "does NOT reopen" boundary,
-    and says so explicitly rather than silently contradicting it:
-    `registry_rows` here is wrapped in its own narrow
-    `(OSError, ValueError)` guard (T-19-23) — a DIFFERENT failure mode
-    from every other key in this dict (SQLite, via `_safe_query()`) — so
-    a registry read failure degrades to "no gaps" for SEVERITY purposes
-    without taking down any other section, preserving the failure-mode
-    isolation `render()`'s own comment demands. `render()`'s registry
-    CARD still degrades independently too (see its own call site's
-    comment for why this key alone is read twice, by design, rather than
-    threading one value through both consumers).
+    """The reads `render()` and `anomaly_active()` both need, single-sourced
+    into one dict so the nav-tab dot and the page's own anomaly banner
+    can't disagree. `registry_rows` uses its own narrow
+    `(OSError, ValueError)` guard, a different failure mode from the
+    SQLite reads below (`_safe_query()`), so a registry failure degrades
+    only severity, not the other sections.
     """
     cutoff = _cutoff_iso(now, _CORROBORATION_WINDOW_DAYS)
     try:
@@ -4332,23 +3492,10 @@ def _read_health_inputs(state_dir, now):
 
 
 def _offbox_section_html(offbox, now):
-    """The "Off-box backup" nested page-section (SEC-04, D-07/D-23) —
-    heading, status dot, last-backup timestamp and all — or the empty
-    string when `offbox` is `None` (SKYPANE_OFFBOX_MARKER unset: no new
-    page, no new card, for a deployment that has not configured this
-    yet, D-07's own scope boundary).
-
-    Same nested-card shape `render()`'s registry card already builds
-    (`page-section page-section--nested` plus `layout.card_status_class()`'s
-    optional status modifier) — one more reader of that one pattern, not
-    a second one. Appended to `server_data_section_html` after the
-    registry card and before `_stats_section_html()` (this function's own
-    call site in `render()`).
-
-    `offbox` is the exact dict `compute_health_state()` already computed
-    (via `offbox_backup_status()`) and threaded through `ctx["health_
-    state"]["offbox"]` — read here, never re-read from the marker a
-    second time per request.
+    """The "Off-box backup" nested page-section, or the empty string when
+    `offbox` is `None` (SKYPANE_OFFBOX_MARKER unset). `offbox` is the
+    dict `compute_health_state()` already computed via
+    `offbox_backup_status()` — never re-read from the marker here.
     """
     if offbox is None:
         return ""
@@ -4359,10 +3506,8 @@ def _offbox_section_html(offbox, now):
     label = (
         i18n.t("Off-box backup up to date") if state == "ok"
         else i18n.t("Off-box backup overdue"))
-    # D-09: concise_timestamp_html() already returns pre-escaped-safe
-    # markup — wrapping it in escape_html() a second time would
-    # double-encode it and print the raw tags as visible text (the same
-    # pitfall _pipeline_section()'s own comment documents).
+    # concise_timestamp_html() returns pre-escaped markup; wrapping it in
+    # escape_html() again would double-encode it and print raw tags.
     last_backup_html = (
         '<p>%s %s</p>'
         % (
@@ -4388,75 +3533,33 @@ def _offbox_section_html(offbox, now):
 
 
 def _stats_section_html(stats):
-    """The "How well we name flights" nested page-section — heading,
-    card and all — or the empty string.
-
-    22-03-PLAN.md Task 2 (B3): omitted ENTIRELY (no heading, no
-    wrapper) when there is genuinely nothing in the window
-    (`stats["total"] == 0`), rather than the pre-existing bug of a
-    heading rendered unconditionally over `_stats_table_html()`'s own
-    empty string — a heading with no body beneath it. `stats is
-    _DB_UNAVAILABLE` is deliberately NOT folded into this omission: a
-    database read failure is a different, out-of-scope failure mode
-    (D-11's own independent-degradation contract for this card), left
-    exactly as it rendered before this task.
+    """The "How well we name flights" nested page-section, or the empty
+    string when the window is genuinely empty (`stats["total"] == 0`).
+    A DB-unavailable `stats` still renders: that is a different failure
+    mode from an empty window.
     """
     if stats is not _DB_UNAVAILABLE and stats["total"] == 0:
         return ""
-    # quick task 260902-gjj (ISSUE 2): this card deliberately gets NO
-    # status modifier — _stats_table_html() computes no verdict (it
-    # returns either the empty string or a plain data_table), and
-    # resolution_stats() returns counts and a percentage with no status
-    # field. No status function exists for this card anywhere in this
-    # module (confirmed from source, not assumed). Its neutral hairline
-    # is therefore the correct signal that it carries no pass/fail
-    # state — not an omission to "complete the pattern" with an accent
-    # border.
+    # No status modifier: resolution_stats() returns no verdict, so this
+    # card carries no pass/fail state — a neutral hairline is correct.
     return '<section class="page-section page-section--nested"><h2 class="text-heading">%s</h2>%s</section>' % (
         escape_html(i18n.t(STATS_SECTION_HEADING)), _stats_table_html(stats))
 
 
-# --- 260902-chc: D-12 reversal, recorded at the removal site ---------------
-#
-# SUPERSEDED — D-12 (06.6.3-CONTEXT.md) gave Health "an explicit Refresh
-# action plus a stale-view warning ... no automatic background polling",
-# reasoning that this "avoids new steady-state request volume and keeps
-# authoritative health severity server-computed only". After living with
-# that manual-refresh pattern in real use, the developer chose the
-# opposite for Health specifically: this page now refreshes itself on a
-# named-interval, visibility-gated timer — see companion/static/
-# freshness.js's own header for the mechanism decision (with the losing
-# option's genuine advantages named) and the fuller reversal record.
-#
-# The stale-view banner that used to render here (`_STALE_VIEW_BANNER_HTML`,
-# retired outright, not just hidden more often) is gone for a reason
-# beyond "the audit rule changed": its entire job was reporting that the
-# page had gone stale, and a page that refreshes itself cannot go stale —
-# the banner could only ever have become a lie if kept.
-#
-# What was actually traded away is D-12's request-volume half, and it is
-# bounded: freshness.js's tab-visibility gate means a backgrounded or
-# closed Health tab still produces zero requests, exactly as before.
-#
-# D-12's OTHER half — authoritative severity stays server-computed
-# only — is NOT reversed here; it is strengthened. A whole-page reload
-# regenerates every verdict server-side on every cycle, so no health
-# state is ever recomputed client-side, and freshness.js still computes
-# no health verdict of any kind — it only reveals a pill and reloads.
+# Health refreshes itself on a named-interval, visibility-gated timer (see
+# companion/static/freshness.js) rather than showing a stale-view banner:
+# a page that reloads itself cannot go stale. Severity stays computed
+# server-side only — the timer reveals a pill and reloads, nothing else.
 
 
 def render(ctx):
     state_dir = ctx["state_dir"]
     now = ctx.get("now") or history_db.utc_now_iso()
 
-    # WR-04: reuse the state page_context() already computed (via
-    # safe_health_state()) and threaded into ctx["health_state"] for
-    # every authenticated route, rather than re-deriving it from a
-    # second, non-atomic set of DB reads. Falls back to a fresh
-    # compute_health_state() call when ctx carries no precomputed state
-    # — e.g. a test or caller that builds ctx directly without going
-    # through page_context() — preserving this function's previous
-    # standalone behaviour for those callers.
+    # Reuse the state page_context() already computed via
+    # safe_health_state(), rather than re-deriving it from a second,
+    # non-atomic set of DB reads. Falls back to a fresh compute for a
+    # test or caller that builds ctx directly.
     state = ctx.get("health_state") or compute_health_state(state_dir, now)
     source_fault_raw = state["source_fault_raw"]
 
@@ -4472,86 +3575,44 @@ def render(ctx):
     banner_html = (
         _anomaly_banner_html(severity, anomalies) if severity != "ok" else "")
 
-    # D-11: the registry card's own read is deliberately independent of
-    # the stats read below — the registry read is a filesystem/JSON
-    # failure mode (poll_loop.load_poll_state(), inside
-    # unresolved_rows()), the stats read is a SQLite failure mode
-    # (_safe_query()); merging them would make one query's failure take
-    # down a card that used to fail independently on the page it came
-    # from.
-    #
-    # D-05/A-23, 19-05-PLAN.md: `_read_health_inputs()` now ALSO reads
-    # the registry (for severity's sake — see that function's own
-    # docstring), so `state["registry_rows"]` already carries this
-    # exact value whenever `state` is a real compute_health_state()
-    # result. Reused here rather than re-reading the registry a second
-    # time per request — the same "reuse the precomputed state, fall
-    # back to a fresh read" shape this function already uses for
-    # `health_state` itself, so a caller that builds `ctx["health_state"]`
-    # by hand (bypassing `_read_health_inputs()`) still gets a real
-    # registry card rather than a missing key.
+    # The registry read stays independent of the stats read below: the
+    # registry is a filesystem/JSON failure mode (unresolved_rows(), via
+    # poll_loop.load_poll_state()), stats is a SQLite failure mode
+    # (_safe_query()). Reuses state["registry_rows"] when already
+    # computed by _read_health_inputs(), else reads it fresh.
     registry_rows = state.get("registry_rows")
     if registry_rows is None:
         registry_rows = unresolved_rows(state_dir)
     stats = _safe_query(
         state_dir, lambda conn: resolution_stats(conn, RESOLUTION_WINDOW_DAYS))
 
-    # 24-07-PLAN.md Task 2 (CFG-43): the regularity grid's own read, made
-    # HERE and deliberately not in _read_health_inputs(). That dict
-    # exists so render() and anomaly_active() cannot see different
-    # values, and this read has no second consumer: the nav dot computes
-    # no verdict from it and never will, because the grid reports an
-    # observation rather than a fault. Putting it in the shared snapshot
-    # would charge every authenticated page in the app for a read only
-    # Health uses — the same reasoning, and the same shape, as the
-    # `stats` read directly above.
-    #
-    # The window is one day wider than the grid draws, because `since` is
-    # compared raw against a UTC-ish stored `ts` while the grid buckets
-    # by EUROPE/PARIS day: a Paris day begins an hour or two before the
-    # UTC one, so a cutoff exactly at the window's first day would drop
-    # that day's first hours. Extra rows outside the window simply bucket
-    # to days the grid does not draw.
+    # Not in _read_health_inputs(): the grid reports an observation, not
+    # a severity input, so it has no second consumer worth the shared read.
+    # Window is one day wider than the grid draws because `since` compares
+    # a UTC-ish stored `ts` against Europe/Paris day buckets: a Paris day
+    # begins before the UTC one, so a tighter cutoff would drop its first
+    # hours. Extra rows outside the window simply bucket to days not drawn.
     regularity_rows = _safe_query(
         state_dir,
         lambda conn: history_db.check_in_gaps(
             conn, since=_cutoff_iso(now, CHECK_IN_WINDOW_DAYS + 1)))
-    # Reuse the cadence compute_health_state() already resolved — the
-    # same "reuse the precomputed state, fall back to a fresh read" shape
-    # this function already uses for `health_state` itself and for
-    # `registry_rows`. Membership, not `.get()` with a default: `None` is
-    # a LEGITIMATE value here (a deployment whose cadence cannot be
-    # determined), and a default would turn a hand-built ctx's missing
-    # key into that same honest answer by accident.
+    # Membership, not `.get()` with a default: None is a legitimate value
+    # here (cadence cannot be determined), and a default would turn a
+    # hand-built ctx's missing key into that same honest answer by accident.
     if "wake_interval_s" in state:
         wake_interval_s = state["wake_interval_s"]
     else:
         wake_interval_s = wake.effective_wake_interval_s(
             device_config.load_device_config(state_dir))
 
-    # 19-06-PLAN.md Task 2 (D-06): DEVICE_FRESHNESS_LABEL is already
-    # plain language ("Device last checked in") — there is no genuine
-    # technical term to demote to a tooltip here, so no `caption_title`
-    # is passed, rather than inventing one.
     device_tile_html = layout.stat_tile(
         i18n.t(DEVICE_FRESHNESS_LABEL), device_html, device_state, icon=ICON_DEVICE)
 
-    # battery_state is still consumed above (collect_anomalies() still
-    # takes it), and (quick task 260902-gjj, ISSUE 2) it once again paints
-    # a status-coloured border — no longer a stat-tile border (D-02
-    # already moved this content out of .stat-tile), but the
-    # battery-trend section's own card-level top edge, via
-    # _battery_trend_section_html()'s new `state` argument below. A
-    # different mechanism reaching the same original intent D-01's own
-    # reference note expected.
-    # D-03/A-21, 19-01-PLAN.md: the Corroboration tile's verdict is keyed
-    # on the identical expression already passed as this tile's own
-    # `status` argument below, so the word and the border colour can
-    # never disagree. 22-12-PLAN.md Task 1 (X8): the verdict PARAGRAPH
-    # itself moved into `_corroboration_section()` (see that function's
-    # docstring) — this expression stays here because it is what paints
-    # the tile's border, and it is still the same one `disagreement_warn`
-    # flag on both sides, so the anti-disagreement property is unchanged.
+    # battery_state now paints the battery-trend card's top edge (see
+    # _battery_trend_section_html()'s `state` argument) rather than a
+    # stat-tile border. corroboration_state is the same expression that
+    # keys the Corroboration tile's verdict text, so word and border
+    # colour can't disagree.
     corroboration_state = "warn" if disagreement_warn else "ok"
     server_data_tiles_html = (
         layout.stat_tile(
@@ -4561,67 +3622,33 @@ def render(ctx):
             i18n.t(CORROBORATION_TILE_LABEL), corroboration_html,
             corroboration_state, icon=ICON_CORROBORATION,
             caption_title=i18n.t(CORROBORATION_TILE_TITLE))
-        # D-03/A-21: the Resolution-rate tile is the one deliberate
-        # exception — it is passed status=None and carries no
-        # pass/fail verdict anywhere in this module (no status function
-        # for it exists), so inventing a verdict word for it here would
-        # assert a judgement this page does not actually make. Its
-        # rendered figure stays exactly as it was before this task.
+        # Resolution-rate tile passes status=None: no status function
+        # exists for it, so it carries no pass/fail verdict.
         + layout.stat_tile(
             i18n.t(RESOLUTION_RATE_LABEL), _resolution_rate_tile_html(stats), None,
             caption_title=i18n.t(RESOLUTION_RATE_TITLE))
     )
 
-    # 23-06-PLAN.md Task 2 (D1/CFG-35): the whole freshness line — the
-    # neutral dot, the "Updated " prefix, the clock element and the
-    # hidden pill carrying data-loaded-at — is now built by
-    # companion/layout.py's freshness_line_html(). ONE definition site,
-    # three call sites (Health, Home, the Display scope), which is the
-    # same contract frame_strip_html() and sidebar_nav() already state in
-    # their own docstrings. Every word of this block's reasoning moved
-    # with it, unabridged: why the pill carries no ARIA role, why the dot
-    # is neutral and rendered still, why the clock and not an age is what
-    # the server writes, and why all of it sits in ONE block-level
-    # wrapper. This page's rendered output is byte-identical to what it
-    # was before the move.
+    # The freshness line (neutral dot, "Updated " prefix, clock, hidden
+    # data-loaded-at pill) is built once by layout.freshness_line_html()
+    # and shared with Home and the Display scope.
     freshness_html = layout.freshness_line_html(now)
 
-    # §5.2 (D-10): two id-anchored sections. Screen holds the
-    # Device-freshness tile wrapped in its own single-tile dashboard-grid
-    # (quick task 260901-tsa, finding E) plus the battery-trend section,
-    # exactly where it sat before. Screen used to skip the dashboard-grid
-    # wrapper on the premise that a single-tile grid row and a bare
-    # block-level tile render identically at full column width — that
-    # premise is true about WIDTH and is exactly why this ever shipped,
-    # but it silently omitted spacing: .dashboard-grid declares
-    # `margin-bottom: var(--space-2xl)` and .stat-tile declares no
-    # margin at all, so the standalone tile sat flush against the
-    # battery-trend card below it with zero gap, while the Server & data
-    # grid kept its 48px. The validated sketch itself wraps its own
-    # single Device tile in a dashboard-grid for the same reason. Server
-    # & data holds the three-tile grid, then the two migrated full-width
-    # cards (D-11: .page-section, never .stat-tile/.dashboard-grid —
-    # that container swap is the fix for the wide-table-in-a-240px-track
-    # failure mode, a different container and still correct, untouched
-    # by this edit).
+    # Two id-anchored sections. Screen wraps the Device tile in its own
+    # single-tile dashboard-grid for the margin-bottom a bare stat-tile
+    # lacks. Server & data holds the three-tile grid plus the two
+    # migrated full-width cards, wrapped in .page-section rather than
+    # .stat-tile/.dashboard-grid, which fits their wide tables.
     screen_section_html = (
         layout.section_intro_html(
             SCREEN_SECTION_ID, i18n.t(SCREEN_SECTION_HEADING), i18n.t(SCREEN_SECTION_DESCRIPTION))
         + '<div class="dashboard-grid">' + device_tile_html + '</div>'
         + _battery_trend_section_html(battery_html, battery_state, battery_caption)
-        # CFG-43: the regularity grid belongs to Screen and not to Server
-        # & data — it is a picture of what the FRAME did, drawn from the
-        # frame's own check-ins, and it sits under the Device tile whose
-        # definition of "late" it shares.
+        # The regularity grid belongs to Screen, not Server & data: it
+        # reflects the frame's own check-ins, under the Device tile
+        # whose definition of "late" it shares.
         + _check_in_regularity_section_html(regularity_rows, wake_interval_s, now)
     )
-    # quick task 260902-gjj (ISSUE 2): the registry card's own class
-    # attribute composes the same three pieces in the same order every
-    # harness lookup below expects — base, then the pre-existing nested
-    # modifier, then the new status modifier — so a literal-prefix lookup
-    # keyed on "page-section page-section--nested" still finds this card
-    # first (registry_class is built, never the stats card's literal,
-    # which stays exactly "page-section page-section--nested" below).
     registry_modifier = layout.card_status_class("page-section", coverage_status(registry_rows))
     registry_class = "page-section page-section--nested" + (
         (" " + registry_modifier) if registry_modifier else "")
@@ -4630,38 +3657,15 @@ def render(ctx):
             SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING),
             i18n.t(SERVER_DATA_SECTION_DESCRIPTION))
         + '<div class="dashboard-grid">' + server_data_tiles_html + '</div>'
-        # quick task 260901-uzi (finding 4): both migrated cards carry an
-        # additive `page-section--nested` modifier — they sit nested
-        # inside this section's own .section-intro heading, so their own
-        # <h2> is a subordinate tier, not a peer of it. SUPERSEDED by
-        # quick task 260902-iag: the modifier used to also demote that
-        # tier's type (style.css's `.page-section--nested > h2` rule set
-        # a smaller size and a heavier weight); the developer compared
-        # that demoted heading against Settings' own 20px heading and
-        # asked for the Settings match, so the rule now sets no
-        # typography at all — what the modifier buys today is the card's
-        # own heading-to-content rhythm (its retained margin-bottom), and
-        # the nesting relationship itself is expressed by the card's
-        # border/surface/padding, not by type. `_source_fault_block()`
-        # below is deliberately NOT given this modifier: it renders above
-        # both sections, at the same structural level as the section
-        # headings themselves, so grouping it inside either section's
-        # nesting would misrepresent the single most severe state this
-        # page can show as one more subordinate card — see that
-        # function's own class list.
+        # Both migrated cards carry an additive page-section--nested
+        # modifier: nested inside this section's own heading, so their
+        # <h2> is a subordinate tier. _source_fault_block() below is
+        # deliberately not nested: it renders above both sections, at
+        # the same structural level as the section headings.
         + '<section class="%s"><h2 class="text-heading">%s</h2>%s</section>' % (
             registry_class, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)),
             _registry_section(registry_rows, now))
-        # SEC-04, D-07/D-23, 37-02-PLAN.md: the off-box backup card, or
-        # the empty string when SKYPANE_OFFBOX_MARKER is unset — see
-        # _offbox_section_html()'s own docstring. Reuses the exact
-        # offbox_backup_status() result compute_health_state() already
-        # computed, never a second read of the marker per request.
         + _offbox_section_html(state.get("offbox"), now)
-        # 22-03-PLAN.md Task 2 (B3): the stats card is now conditionally
-        # omitted entirely when empty — see _stats_section_html()'s own
-        # docstring for the "no status modifier" rule (quick task
-        # 260902-gjj, ISSUE 2) this preserves unchanged.
         + _stats_section_html(stats)
     )
 
