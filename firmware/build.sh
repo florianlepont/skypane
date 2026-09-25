@@ -19,7 +19,7 @@
 # on top of the production defaults, so a dev image can never be confused
 # with, or accidentally reused as, a production one.
 #
-# SKYPANE_FAULT: none (default) | panic | task_wdt | int_wdt | slow_wake.
+# SKYPANE_FAULT: none (default) | panic | task_wdt | int_wdt | slow_wake | nvs.
 # Selects one SKYPANE_FAULT_INJECT_* Kconfig choice for bench verification
 # of the reset/backoff and deadline paths. Refused outside SKYPANE_PROFILE=dev
 # - a production image can never carry a fault hook.
@@ -46,9 +46,9 @@ case "${SKYPANE_PROFILE}" in
 esac
 
 case "${SKYPANE_FAULT}" in
-    none|panic|task_wdt|int_wdt|slow_wake) ;;
+    none|panic|task_wdt|int_wdt|slow_wake|nvs) ;;
     *)
-        echo "ERROR: SKYPANE_FAULT must be one of none|panic|task_wdt|int_wdt|slow_wake (got '${SKYPANE_FAULT}')" >&2
+        echo "ERROR: SKYPANE_FAULT must be one of none|panic|task_wdt|int_wdt|slow_wake|nvs (got '${SKYPANE_FAULT}')" >&2
         exit 2
         ;;
 esac

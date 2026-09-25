@@ -8,6 +8,7 @@ re_verification: null
 warnings:
   - id: W-1
     concern: "Persistent NVS failure at boot is a panic loop with no backoff"
+    resolved: "Fixed after verification: app_main.c no longer aborts on nvs_flash_init()/nvs_flash_erase()/nvs_open(). A pure helper (nvs_boot.c, host-tested by test_nvs_boot.c) erases only once on the two layout codes; any other failure logs `poll fail step=nvs backoff_n=0 sleep_s=300` and deep-sleeps a fixed 300 s (the first backoff step, since the counter lives in NVS) with the radio off and no fault screen. `nvs` is in VENDOR.md's Log Line Contract and check_log_contract.sh now matches step tokens exactly. Bench hook SKYPANE_FAULT=nvs added; not yet observed on hardware."
     detail: "app_main.c still uses ESP_ERROR_CHECK on nvs_flash_init()/nvs_open(). Both run before the abnormal-reset check, so an NVS partition that keeps failing with a code other than NO_FREE_PAGES/NEW_VERSION_FOUND panics on every boot (~0.3 s apart) and never reaches fail_and_sleep(). The radio never starts on that path, but the chip hot-loops until the battery is flat. This is outside the audit's FW-01 evidence (which named epd13in3e.c) and outside every success criterion, so it is not a blocker."
   - id: W-2
     concern: "Hardware doc cites a capture file that is not committed"
