@@ -8,11 +8,23 @@ trigger_condition: >
   independent and could be picked up earlier if device-communication
   outages become a real pain point before the web interface exists.
 planted_date: 2026-08-27
-resolved_date: 2026-09-02
+resolved_date: 2026-09-24
+partially_fulfilled_date: 2026-09-02
 fulfilled_date: 2026-09-24
+verified_on_glass: 2026-09-25
 ---
 
-## Fully fulfilled 2026-09-24
+## Fully fulfilled 2026-09-24 — verified on glass 2026-09-25
+
+**On-glass verification (2026-09-25, developer).** The firmware from
+`main` (PR #125) was flashed to the EE02 frame and an outage was
+provoked. The NO CONNECTION screen appeared on the panel, and once the
+connection was restored the real picture came back on its own. That is
+the last surface this seed left unverified: the host simulation (wake
+sequence through the real `fp_sleep_decide()` +
+`fp_fault_screen_should_draw()`, draw on the 2nd failure only, redraw of
+the real picture on recovery) and the C-vs-Python pixel comparison
+(0 differing pixels) had already passed on 2026-09-25.
 
 The device-local half (DEVICE-06), left open by the 2026-09-02 partial
 close-out below, shipped in quick task `260924-u7n`

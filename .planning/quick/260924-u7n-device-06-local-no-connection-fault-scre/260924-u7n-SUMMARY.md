@@ -140,6 +140,7 @@ Verified all created files exist and all recorded commit hashes are present in `
 
 - DEVICE-06 is complete and the on-device-fault-icon seed is fully fulfilled (both CFG-05 and DEVICE-06 halves shipped).
 - The real ESP-IDF build (and, eventually, a real-hardware bench verification of the fault screen appearing on glass after two forced Wi-Fi failures) is the one remaining unverified surface — left to CI's `firmware.yml` build job and a future hardware session, exactly as flagged above.
+- **Closed 2026-09-25:** CI's `firmware.yml` built the real EE02 image green on PR #125 and on `main`; the developer then flashed the frame and confirmed on glass that the NO CONNECTION screen appears during an outage and that the real picture comes back once the connection is restored. Nothing about this task remains unverified.
 
 ---
 *Phase: quick*

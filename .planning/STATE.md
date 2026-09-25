@@ -1043,6 +1043,7 @@ None yet.
 | fast | Closed Phase 24 in ROADMAP.md (9/9 plans ticked, all SUMMARYs present; CFG-39/CFG-42 stay deliberately unticked) and marked SEED-003 fulfilled (delivered by Phases 15-17) | 2026-09-23 | (this commit) | - |
 | fast | Abandoned Phase 26 ("App": ⌘K palette, shortcuts, guided first run, drawn empty states, share picture) at the developer's request before execution — 9 plans marked [~] in ROADMAP.md, CFG-53..61 DROPPED in REQUIREMENTS.md, files kept as history; progress frontmatter re-counted (41/42 phases, 267/268 plans) | 2026-09-23 | (this commit) | - |
 | fast | Moved the 82 audit-remediation requirements (TST/FW/HYG/INT/SEC/EFF/ARC/CMP/DOC) from REQUIREMENTS.md's v2 section into v1, matching phases 32-41's v1.0 scope; SEED-008 widened to weigh wake interval and a bigger battery pack together (constraints from BOM.md), SEED-007 cross-referenced | 2026-09-24 | (this commit) | - |
+| fast | Finished closing seed on-device-fault-icon: `resolved_date` moved to the real fulfilment date (2026-09-24), the developer's on-glass verification of 2026-09-25 (NO CONNECTION screen shown during an outage, real picture back on reconnection) recorded in the seed and in 260924-u7n's SUMMARY, the ops board's seed card flipped to Réalisée with DEVICE-06 dropped from its backlog, and REQUIREMENTS.md's two "DEVICE-06 stays deferred" sentences brought up to date. | 2026-09-25 | — | — |
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
