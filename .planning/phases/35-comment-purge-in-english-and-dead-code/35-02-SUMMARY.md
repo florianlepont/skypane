@@ -43,10 +43,16 @@ key-decisions:
     docstring change from Task 1). Ran the equivalent command with `--allow` placed after the
     positional paths instead; verified the corrected invocation returns 0 and that dropping --allow
     entirely still passes for colour_rules.py/dither.py/runway_config.py."
+  - "Orchestrator review requested a second tightening pass: docstrings compressed to a one-line
+    summary plus a compact contract, dropping scope talk and paraphrase (not just history IDs).
+    render.py 48.11%->29.14%, illustrations.py 34.48%->24.77%, colour_rules.py 43.94%->25.63%,
+    dither.py 52.55%->38.10%, runway_config.py 73.12%->59.02%. dither.py/runway_config.py stay above
+    35% because they are small files whose entire remaining content is a non-obvious Pillow footgun
+    or an asymmetric-evidence warning the purge_rules require to survive."
 
 requirements-completed: [HYG-01]
 
-duration: ~35min
+duration: ~55min
 completed: "2026-09-25"
 ---
 
@@ -103,46 +109,69 @@ combined).**
   `T-02-02-01`, `Phase 1`) rewritten to keep the deadband/hold-last-state contract and the asymmetric
   evidence warning (descend threshold real-data-backed, climb threshold provisional).
 
-**Verification.** `check --paths` reports 0 hits across all five files. `same-code` (run with
-`--allow` placed after the positional file list, to avoid the argparse pitfall documented below)
-returns 0 for all five, with `--allow` limited to `render.py`/`illustrations.py` — `colour_rules.py`,
-`dither.py` and `runway_config.py` pass with no `--allow` at all, confirming their code and every
-non-runtime-read docstring are byte-identical to base. `--help` on `illustrations.py`'s CLI still
-prints a real usage line built from the trimmed docstring. 260 tests across
+**Verification (after both passes).** `check --paths` reports 0 hits across all five files.
+`same-code` (run with `--allow` placed after the positional file list, to avoid the argparse
+pitfall documented below) returns 0 for all five, with `--allow` limited to
+`render.py`/`illustrations.py` — `colour_rules.py`, `dither.py` and `runway_config.py` pass with no
+`--allow` at all, confirming their code and every non-runtime-read docstring are byte-identical to
+base. `--help` on both `render.py`'s and `illustrations.py`'s CLIs still print a real usage line
+built from the trimmed docstring. 260 tests across
 `test_render.py`/`test_illustrations.py`/`test_colour_rules.py`/`test_dither.py`/`test_runway_config.py`
 pass, plus the full `pytest server -q -n auto` (717 passed, 3 pre-existing environment skips, 0
 failed). `ruff check server/plane/` is clean.
 
+**Task 3 — tightening pass (orchestrator review, no new plan task, same files).** The initial pass
+purged all history IDs but left many docstrings and comment blocks longer than necessary — some
+carrying real invariants at excessive length, some carrying pure narrative the ID-removal pass
+missed because it wasn't ID-shaped (e.g. "this rewrite never asked for", "a stated decision, not an
+accident", "Public (not `_build_canvas`) so callers - notably server/test_render.py's ... never
+have to reach into private render state", multi-paragraph "Residual ordering note" asides). Re-read
+every docstring and comment block in all five files a second time and rewrote each to a one-line
+summary plus a compact contract, deleting: why something was *not* done, scope/"this rewrite" talk,
+who calls a function or which test reads it, "deliberately"/"stated decision" justifications that
+only restate the code, and sentences that paraphrase the next lines. Real why (Pillow/hardware
+quirks, panel geometry constraints, security invariants, units) was kept, compressed to one
+sentence per invariant instead of a paragraph. See the ratio table below for the numeric result and
+the file-by-file justification for the two files still above the 35% guideline.
+
 ## Comment ratio, before -> after
 
-| File | Before | After | History hits before -> after |
-|------|--------|-------|-------------------------------|
-| server/plane/render.py | 52.14% | 48.11% | 312 -> 0 |
-| server/plane/illustrations.py | 43.50% | 34.48% | 93 -> 0 |
-| server/plane/colour_rules.py | 44.36% | 43.94% | 27 -> 0 |
-| server/plane/dither.py | 53.57% | 52.55% | 10 -> 0 |
-| server/plane/runway_config.py | 74.23% | 73.12% | 12 -> 0 |
+Two passes: an initial ID-removal pass, then a second tightening pass (orchestrator review) that
+compressed every docstring to a one-line summary plus a compact contract (non-obvious params,
+return, invariant — typically ≤ 8 lines, ≤ ~15 for a genuinely complex public function) and cut
+scope/"this rewrite" talk, who-calls-it/which-test-reads-it asides, "deliberately"/"stated
+decision" restatements, and paraphrases of the following code.
 
-Three files remain above the ~35% review-trigger threshold in 35-CONTEXT.md. Each carries dense
-why-comments and invariant/security-invariant documentation the purge_rules require to survive
-rather than be dropped:
+| File | Original | After pass 1 | After pass 2 (final) | History hits |
+|------|----------|--------------|------------------------|---------------|
+| server/plane/render.py | 52.14% | 48.11% | **29.14%** | 312 -> 0 |
+| server/plane/illustrations.py | 43.50% | 34.48% | **24.77%** | 93 -> 0 |
+| server/plane/colour_rules.py | 44.36% | 43.94% | **25.63%** | 27 -> 0 |
+| server/plane/dither.py | 53.57% | 52.55% | **38.10%** | 10 -> 0 |
+| server/plane/runway_config.py | 74.23% | 73.12% | **59.02%** | 12 -> 0 |
 
-- **runway_config.py (73.12%)** is a 93-line module whose entire value is a well-evidenced,
-  asymmetric-confidence decision (the descend threshold is real-flight-data-backed, the climb
-  threshold is symmetry-derived and unvalidated) — the docstring exists to keep a future reader from
-  treating both thresholds as equally trustworthy. Short files with one dense decision naturally sit
-  well above the ratio floor.
-- **dither.py (52.55%)** documents three non-obvious Pillow footguns (256-entry palette padding, a
-  `.point()` remap that would scramble palette indices, and the reason a full 6-color quantizer would
-  mis-classify a lightened Blue/Green as the wrong ink) that are exactly the kind of "why, not what"
-  the purge_rules protect.
-- **render.py (48.11%)** is the largest and most layout-dense file in the phase: every pixel-offset
-  constant (illustration centring fractions, text gaps, battery-icon geometry) carries a why-comment
-  explaining the specific visual defect it fixes (per-file drop-shadow padding varying the aircraft's
-  visible centre by 100+px, etc.) — dropping these would leave the next reader unable to tell a
-  load-bearing offset from an arbitrary one. The pre-purge ratio (52.14%) barely moved because the
-  bulk of each comment's line count was already why-content, not history; the purge mostly removed
-  short ID fragments embedded inside otherwise-necessary sentences.
+Three of five files are now comfortably under the ~35% review-trigger threshold in 35-CONTEXT.md
+(render.py, illustrations.py, colour_rules.py). Two stay above it even after the tightening pass,
+each for a specific, file-scoped reason rather than leftover verbosity:
+
+- **runway_config.py (59.02%, 61 lines)** is the smallest file in the set, and its whole content is
+  one well-evidenced, asymmetric-confidence decision: `DESCEND_THRESHOLD_FPM` is backed by a real
+  flight capture, `CLIMB_THRESHOLD_FPM` is symmetry-derived and never checked against a real climbing
+  track. That asymmetry warning is exactly the kind of correctness-critical why-comment the
+  purge_rules require to survive; compressing it further would let a future reader treat both
+  thresholds as equally trustworthy, which is the one thing this module's docstring exists to
+  prevent. A 61-line file with one paragraph of that density cannot mathematically sit under 35%
+  no matter how tight the prose is — the two remaining functions are one-line delegations with
+  one-line docstrings.
+- **dither.py (38.10%, 105 lines)** documents three distinct, non-obvious Pillow footguns (a
+  256-entry palette pad that can win nearest-neighbour matching for near-black pixels; a `.point()`
+  remap that would scramble already-correct indices; a full 6-color quantizer mis-classifying a
+  darkened Blue/Green as the wrong ink) across four short functions — each is a one-sentence
+  invariant, already compressed to a single line per occurrence in the second pass. The file is
+  small enough (105 lines) that four one-line invariants alone put it above 35%.
+
+Both files were re-checked for further compression during the tightening pass and found to already
+be at one line per invariant with no restated code, scope talk, or history narrative left to cut.
 
 ## Files Created/Modified
 
@@ -154,6 +183,10 @@ rather than be dropped:
 - `server/plane/colour_rules.py` - module docstring and ~10 comments/docstrings purged
 - `server/plane/dither.py` - module docstring and 4 comments/docstrings purged
 - `server/plane/runway_config.py` - module docstring and 1 docstring purged
+
+All five files were touched a second time in the tightening pass (commit 679e7f1): every remaining
+docstring and comment block compressed to a one-line summary plus a compact contract, dropping
+scope talk and paraphrase while keeping real why/invariant content. No code changed in either pass.
 
 ## Decisions Made
 
@@ -258,3 +291,4 @@ or group.
 - `server/plane/runway_config.py` — FOUND
 - Commit 032929f (Task 1: render.py) — FOUND
 - Commit 13100b3 (Task 2: illustrations/colour_rules/dither/runway_config) — FOUND
+- Commit 679e7f1 (Task 3: tightening pass, all five files) — FOUND

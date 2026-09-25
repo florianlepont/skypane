@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 35-02-PLAN.md
-last_updated: "2026-09-25T07:31:14.814Z"
+last_updated: "2026-09-25T07:48:24.935Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 53
@@ -502,7 +502,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 33 P32 | 30min | 5 tasks | 32 files |
 | Phase 33 P33 | 50min | 3 tasks | 8 files |
 | Phase 35 P01 | 25m | 3 tasks | 10 files |
-| Phase 35 P02 | 35min | 2 tasks | 5 files |
+| Phase 35 P02 | 55min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -998,6 +998,7 @@ Recent decisions affecting current work:
 - [Phase 33]: 33-33: Task 3 (push, draft PR, CI evidence in the ledger) is left to the orchestrator, which owns pushes
 - [Phase 35]: HYG-06 guard uses an explicit 27-prefix allowlist (never a generic [A-Z]+-\d+), no inline suppression pragma; the pending list is a ratchet each purge group shrinks and the last one deletes
 - [Phase 35]: render.py also reads description=__doc__ for its CLI; extended illustrations.py's --allow-for-docstring-change treatment to render.py too — 35-CONTEXT.md's runtime-__doc__ file list omitted render.py; purging its history-laden docstring for 0 check hits requires same-code --allow, matching the illustrations.py precedent
+- [Phase 35]: Second tightening pass on 35-02's five files compressed docstrings/comments to one-line summaries plus compact contracts — orchestrator review found the initial ID-removal pass left non-ID narrative and restated code at excessive length; render.py 48.11%->29.14%, illustrations.py 34.48%->24.77%, colour_rules.py 43.94%->25.63%, dither.py 52.55%->38.10%, runway_config.py 73.12%->59.02% (the last two stay above 35% for file-specific invariant-density reasons documented in 35-02-SUMMARY.md)
 
 ### Pending Todos
 
