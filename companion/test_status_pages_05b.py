@@ -1,58 +1,11 @@
-"""Part 05 of the `companion/test_status_pages.py` migration chain
-(33-29-PLAN.md), second half: the original harness's `check()` calls
-#209-#244 (36 of part 05's 73 checks) — `layout.relative_time_html()`'s
-`<time data-relative>` wrapping of the past/future ladders in both
-languages, Health's French rendering and its English byte-identity,
-device/pipeline timestamps fully localising, the French health catalogue,
-the Airlines gallery's page header, card count, image-source membership,
-per-airline chips, the search-filter bar (markers, Clear button, label/
-id pairing, Safari contact-autofill suppression, hyphen-free ids), the
-D-13/D-17 non-goal guards (no history-database import, no duplicate
-registry headers, no deleted diagnostics symbol), the click-to-enlarge
-lightbox (zoom-button attributes, the shared dialog, its stylesheet
-contract, the mobile button override's source order, the lightbox's
-max-width contract) and the illustration-replace form (trigger
-membership, method/enctype/action).
+"""Companion status-page tests: `layout.relative_time_html()`'s <time
+data-relative> wrapping, the French health catalogue, the Airlines
+gallery's header/card count/chips/search-filter bar and its non-goal
+guards, the click-to-enlarge lightbox, and the illustration-replace form.
 
-Two checks' ast-based source scans (TST-12 rubric S) are rewritten as
-rendered-page behaviour: the Safari autofill-suppression sweep and the
-hyphen-free-filter-id sweep both used to walk every `companion/pages/
-*.py` and `companion/app.py` module's AST for a string literal shaped
-like `<input type="search" ...>`, specifically so a FUTURE page adding a
-fourth filter bar could not evade a rendered-page-only check. Guard G2
-bans `ast`/`inspect`/`tokenize` introspection of production source in
-this suite, so that forward guard is not available to a pytest module
-the way it was to the legacy harness. What is ported instead: every
-`*_FILTER_INPUT_ID` constant this harness already imports is checked
-directly (a real production symbol, never source text) for a hyphen,
-and every currently-rendered `<input type="search">` — across the three
-pages this app renders one on today — is parsed structurally and
-checked for the three suppression attributes and a hyphen-free id. A
-later fourth filter bar not covered by these three renders is a known,
-narrower scope than the legacy check's static analysis provided; there
-is no forward-guarding mechanism available under TST-12 that does not
-itself read production source as text.
-
-One check's module-wide `.py` file scan (rubric S) for an import
-statement's text is rewritten as a runtime check of `airlines_page`'s
-own module namespace: which name IS bound there is a fact about
-`airlines_page.py`'s own import statements. This is deliberately NOT a
-`sys.modules`-membership check (33-25's `test_wake_module_never_
-imports_pages_or_app()` pattern) — `poll_loop`, which this module is
-required to import, itself imports `sqlite3`/`server.history_db`, so
-`sys.modules` would carry both regardless of what `airlines_page.py`'s
-own source says.
-
-Every CSS check in this half (rubric C) fetches the stylesheet
-`companion/app.py` actually serves and asserts on it structurally via
-`companion_markup.css_rules()`/`declarations_for()`/`rules_with_
-selector()` — never a regex/substring probe over the raw served text
-(33-FOLLOWUPS.md F-01) — reusing a module-scoped read-only server.
-
-Every other check in this module calls `companion.layout`/`companion.
-pages.airlines_page`/`companion.pages.health_page`/`companion.i18n_fr.
-health` directly, in-process, seeding fixtures under `tmp_path` via
-`companion.test_status_pages_helpers`.
+Filter-bar and CSS checks assert on rendered pages and the served
+stylesheet, never on production source text; everything else calls
+`companion.layout`/`companion.pages.airlines_page` directly, in-process.
 """
 import re
 from datetime import datetime, timedelta, timezone
@@ -106,7 +59,7 @@ def _rendered_pages_with_search_inputs(tmp_path):
     """Render every page this app renders an <input type="search"> on today —
     Compagnies' gallery filter, Health's registry filter (seeded so it
     appears) and Flights' history filter — and return their rendered HTML.
-    Rewritten from an ast-based module-wide source scan (TST-12 rubric S) to
+    Rewritten from an ast-based module-wide source scan to
     the rendered behaviour on the pages actually served."""
     tmp = str(tmp_path)
     airlines_rendered = airlines_page.render(shp.ctx(tmp))
@@ -122,8 +75,7 @@ def _rendered_pages_with_search_inputs(tmp_path):
 
 
 # ==========================================================================
-# layout.py's element convention for a relative time (23-03-PLAN.md
-# Task 1, D14/CFG-34)
+# layout.py's <time data-relative> element convention for a relative time
 # ==========================================================================
 
 
@@ -259,7 +211,7 @@ def test_relative_time_html_reads_a_future_instant_forwards():
 def test_concise_timestamp_htmls_relative_half_is_now_an_element():
     """layout.concise_timestamp_html()'s parenthesised relative half is now a
     <time data-relative> element, its text unchanged, with its outer mono span, its title,
-    its absolute-first ordering and its no-raw-ISO rule all untouched (23-03, D-09/D-05)"""
+    its absolute-first ordering and its no-raw-ISO rule all untouched (23-03)"""
     now_iso = "2026-09-12T12:00:00+00:00"
     ts = "2026-09-11T22:30:00+00:00"  # 00:30 Paris the NEXT day (CEST)
     rendered = layout.concise_timestamp_html(ts, now_iso)
@@ -281,14 +233,14 @@ def test_concise_timestamp_htmls_relative_half_is_now_an_element():
 
 # ==========================================================================
 # companion/pages/health_page.py rendered through t(), with its French
-# catalogue (D-05, 20-03-PLAN.md Task 3)
+# catalogue
 # ==========================================================================
 
 
 def test_health_page_renders_in_french(tmp_path):
     """health_page.render() under lang='fr' carries the French page title and at least three
     other French strings, and none of a short list of English source strings with distinct
-    French forms (D-05)"""
+    French forms """
     tmp = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(tmp, [(shp.ago(120), 3800)])
@@ -311,7 +263,7 @@ def test_health_page_renders_in_french(tmp_path):
 
 def test_health_page_renders_byte_identical_in_english(tmp_path):
     """health_page.render() under lang='en' (the default) is byte-for-byte unchanged for a
-    seeded state — pinned representative substrings (D-05)"""
+    seeded state — pinned representative substrings """
     tmp = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(tmp, [(shp.ago(120), 3800)])
@@ -368,8 +320,7 @@ def test_health_catalog_every_key_and_value_is_a_nonempty_str():
 
 
 # ==========================================================================
-# companion/pages/airlines_page.py — the illustration gallery (D-13
-# through D-17, 06.6.4.1 plan 06)
+# companion/pages/airlines_page.py — the illustration gallery
 # ==========================================================================
 
 
@@ -462,15 +413,15 @@ def test_gallery_filter_bar_carries_all_four_contract_markers_exactly_once(tmp_p
 
 
 def test_gallery_filter_clear_control_is_a_real_button(tmp_path):
-    """the gallery filter bar's Clear control is a real <button type="button"> (D-16 retired)"""
+    """the gallery filter bar's Clear control is a real <button type="button"> (retired)"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     assert '<button type="button" data-filter-clear>Clear</button>' in rendered
 
 
 def test_gallery_filter_label_for_matches_input_id(tmp_path):
     """the gallery filter label's for attribute equals the search input's id, and that id is
-    the hyphen-free value quick task 260921-p2w Task 1 pins (superseding the now-stale
-    06.6.4.1-UI-SPEC.md §7.2 row)"""
+    the hyphen-free value Task 1 pins (superseding the now-stale
+    06. §7.2 row)"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     assert airlines_page._FILTER_INPUT_ID == "airlines_gallery_filter_input", (
         "expected the hyphen-free input id pinned by quick task 260921-p2w Task 1, got %r"
@@ -507,8 +458,8 @@ def test_every_rendered_search_input_carries_safari_autofill_suppression_attribu
     registry filter (seeded so it appears) and Flights' history filter — carries
     autocomplete=off/spellcheck=false/autocapitalize=characters, so a fourth filter bar cannot
     reintroduce the Safari contact/phone-number autofill defect the developer photographed on
-    2026-09-21 (quick task 260921-n2n Task 4, rewritten from an ast-based source scan — TST-12
-    rubric S — to the rendered behaviour on every page known to render one today)"""
+    2026-09-21 (rewritten from an ast-based source scan to the rendered behaviour on every
+    page known to render one today)"""
     pages = _rendered_pages_with_search_inputs(tmp_path)
     total = 0
     for rendered in pages:
@@ -530,9 +481,8 @@ def test_no_filter_input_id_anywhere_in_the_app_contains_a_hyphen(tmp_path):
     """no *_FILTER_INPUT_ID constant value and no rendered <input type="search"> id, across
     every page this app renders one on, contains a hyphen — the documented WebKit/Safari
     trigger that offers the user's own Contacts phone numbers on a name-less type="search"
-    field even with autocomplete="off" set (quick task 260921-p2w Task 2, rewritten from an
-    ast-based source/tag scan — TST-12 rubric S — to a direct check of the real production
-    constants plus the rendered id each one produces)"""
+    field even with autocomplete="off" set (rewritten from an ast-based source/tag scan to a
+    direct check of the real production constants plus the rendered id each one produces)"""
     mechanism = (
         "WebKit/Safari renders a contacts icon inside a text input and offers phone numbers "
         "from the user's OWN Contacts card when the field's id contains a hyphen, ignoring "
@@ -576,16 +526,11 @@ def test_every_card_carries_distinct_filter_text_and_group(tmp_path):
 
 def test_airlines_page_imports_no_history_db_or_sqlite_but_does_import_poll_loop():
     """companion/pages/airlines_page.py imports no history-database module and no sqlite
-    module (D-17 non-goal: no detection-history cross-reference), and imports poll_loop
-    exactly the way phase 13's D-11 membership test deliberately supersedes the OLDER half of
-    that same non-goal"""
-    # TST-12 rubric S: rewritten from a source grep to a runtime check of
-    # airlines_page's own module namespace, which name IS bound there being
-    # a fact about airlines_page.py's own import statements — never a
-    # sys.modules-membership check, since poll_loop (which this module IS
-    # required to import, per the D-11 supersession below) itself imports
-    # sqlite3/history_db, which would taint sys.modules regardless of what
-    # airlines_page.py's own source says.
+    module (a non-goal: no detection-history cross-reference), and does import poll_loop"""
+    # A runtime check of airlines_page's own module namespace, which name
+    # IS bound there being a fact about its own import statements — never
+    # a sys.modules-membership check, since poll_loop (which this module
+    # IS required to import) itself imports sqlite3/history_db.
     import sqlite3
     import server.poll_loop as poll_loop_module
     from server import history_db
@@ -599,7 +544,7 @@ def test_airlines_page_imports_no_history_db_or_sqlite_but_does_import_poll_loop
 
 def test_airlines_page_no_longer_renders_registry_or_stats_headers(tmp_path):
     """the rendered Airlines gallery contains none of the migrated unresolved-prefix registry
-    or resolution-statistics table column headers (D-13 non-goal)"""
+    or resolution-statistics table column headers (non-goal)"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     for header in ("Prefix", "First seen", "Last seen", "Example callsign", "Source", "Description"):
         assert ("<th>%s</th>" % header) not in rendered, (
@@ -631,7 +576,7 @@ def test_airlines_page_module_exposes_no_deleted_diagnostics_symbol():
 
 
 # ==========================================================================
-# quick task 260902-tli: the click-to-enlarge lightbox
+# The click-to-enlarge lightbox
 # ==========================================================================
 
 
@@ -675,9 +620,9 @@ def test_airline_card_zoom_button_attrs_match_expected(tmp_path):
 def test_lightbox_dialog_renders_once_wide_with_own_note_text(tmp_path):
     """the shared lightbox dialog is emitted exactly once, carries both the lightbox and
     lightbox--wide classes plus all three lightbox__* elements and the close attribute, and
-    its note element renders empty (LIGHTBOX_NOTE is deliberately '' after two rounds of live
-    developer feedback rejected both the original and the reworded copy; the element still
-    exists for panel-lookup.js's shared guard clause) — quick task 260902-tli"""
+    its note element renders empty (LIGHTBOX_NOTE is deliberately '' after live developer
+    feedback rejected both the original and the reworded copy; the element still exists for
+    panel-lookup.js's shared guard clause)"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     dialog_count = rendered.count('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID)
     assert dialog_count == 1, "expected exactly one #%s dialog, got %d" % (
@@ -755,7 +700,7 @@ def test_lightbox_wide_max_width_matches_illustration_target_width(css_text):
 
 # ------------------------------------------------------------------------
 # The illustration-replace control, relocated from a per-card disclosure
-# into the shared lightbox by quick task 260903-btu.
+# into the shared lightbox.
 # ------------------------------------------------------------------------
 
 
