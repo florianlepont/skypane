@@ -5,6 +5,26 @@ Items found while executing the migration plans that the closing plans
 
 ## F-01: text-level assertions over the served stylesheet
 
+**Status: RESOLVED in 33-32, commit `807e9b2`.** Every regex, `in` test and
+str search over served stylesheet text in `companion/test_*.py` and the
+`*_helpers.py` modules was rewritten over `companion_markup`:
+`test_config_page_02.py`, `test_config_page_03.py`, `test_companion_app_02.py`,
+`test_companion_app_03.py` (the `@supports` count), `test_companion_app_04.py`
+(the motion budget and its brace-matching helper) and `test_view_pages_03.py`.
+`companion_markup` gained `rule_indices()` (source order) and
+`at_rule_blocks()` (countable at-rule blocks), each unit-tested. Guard rule
+G11 in `companion/test_suite_guards.py` follows served stylesheet text
+through assignments, fixtures, string transforms, slices and local helpers,
+and flags any regex, `in` test or str search over it; failing-sample
+self-tests prove it. The one allowlisted function is
+`test_status_pages_07.py::test_style_css_carries_no_stray_comment_terminator`,
+which must scan raw served characters, and a test fails if that entry ever
+stops matching a real raw-text scan. The comment-only sub-clauses of ledger
+rows 112-113 (config_page) were dropped under rubric C; every node id is
+unchanged.
+
+Original finding:
+
 33-CONTEXT.md (TST-12) says CSS checks parse the served stylesheet
 structurally, not with a regex over its text. Some migrated checks fetch
 `style.css` over HTTP (no disk read, so guard G-rules pass) but then assert
