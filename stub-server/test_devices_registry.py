@@ -2,13 +2,10 @@
 """Contract harness for byos_server.py's per-device enrolment registry and
 devices_cli.py, the operator CLI that manages it.
 
-Stdlib only. Every top-level test_* function below is a plain,
-pytest-discoverable test (plain `assert`, no return value, no fixture
-dependency) - each owns a self-contained Harness (free port, temp
---state-dir, a generated panel image) so it can run standalone under
-pytest or via the __main__ runner at the bottom of this file, which
-calls every test_* function, prints PASS/FAIL per check, and exits 1 on
-any failure.
+Every top-level test_* function below is a plain pytest test (plain
+`assert`, no return value) that takes pytest's `tmp_path` as its
+--state-dir - each server test owns a self-contained Harness (free port,
+that state dir, a generated panel image).
 
 Proves the enrolment rules:
     - a registered MAC presenting its own secret gets a fresh token, and
@@ -34,11 +31,9 @@ import hashlib
 import importlib.util
 import json
 import os
-import shutil
 import socket
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -92,14 +87,14 @@ def http_request(url, method="GET", headers=None, json_body=None, timeout=10):
 
 
 class Harness:
-    """Owns one byos_server.py subprocess: a free port, a temp
-    --state-dir, and a generated panel image. Callers must run stop()
-    (and cleanup()) in a finally block - never leaves an orphaned
-    server holding the port.
+    """Owns one byos_server.py subprocess: a free port, the caller's
+    tmp_path as --state-dir, and a generated panel image. Callers must
+    run stop() in a finally block - never leaves an orphaned server
+    holding the port.
     """
 
-    def __init__(self):
-        self.tmpdir = tempfile.mkdtemp(prefix="ink-devices-registry-")
+    def __init__(self, state_dir):
+        self.tmpdir = str(state_dir)
         self.port = self._pick_free_port()
         self.image_path = os.path.join(self.tmpdir, "panel.bin")
         self.stdout_path = os.path.join(self.tmpdir, "server.stdout.log")
@@ -179,9 +174,6 @@ class Harness:
         except OSError:
             return ""
 
-    def cleanup(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
-
 
 def _run_cli(state_dir, *args):
     result = subprocess.run(
@@ -193,8 +185,8 @@ def _run_cli(state_dir, *args):
 
 # --- Enrolment rules, proven over real HTTP -------------------------------
 
-def test_setup_with_registered_mac_and_matching_secret_issues_token_and_revokes_previous():
-    h = Harness()
+def test_setup_with_registered_mac_and_matching_secret_issues_token_and_revokes_previous(tmp_path):
+    h = Harness(tmp_path)
     try:
         h.register("aa:bb:cc:dd:ee:01", SECRET_A)
         h.start()
@@ -233,11 +225,10 @@ def test_setup_with_registered_mac_and_matching_secret_issues_token_and_revokes_
         assert status == 200, "the new token must authenticate"
     finally:
         h.stop()
-        h.cleanup()
 
 
-def test_setup_with_wrong_secret_returns_401_and_leaves_existing_token_working():
-    h = Harness()
+def test_setup_with_wrong_secret_returns_401_and_leaves_existing_token_working(tmp_path):
+    h = Harness(tmp_path)
     try:
         h.register("aa:bb:cc:dd:ee:02", SECRET_A)
         h.register("aa:bb:cc:dd:ee:03", SECRET_B)
@@ -276,11 +267,10 @@ def test_setup_with_wrong_secret_returns_401_and_leaves_existing_token_working()
             "the existing token must keep working after every failed re-enrolment attempt"
     finally:
         h.stop()
-        h.cleanup()
 
 
-def test_setup_with_unregistered_mac_returns_403_and_creates_no_state_entry():
-    h = Harness()
+def test_setup_with_unregistered_mac_returns_403_and_creates_no_state_entry(tmp_path):
+    h = Harness(tmp_path)
     try:
         h.start()  # nothing registered
         status, _, body = http_request(
@@ -292,11 +282,10 @@ def test_setup_with_unregistered_mac_returns_403_and_creates_no_state_entry():
             "an unregistered MAC's setup attempt must not create byos_state.json"
     finally:
         h.stop()
-        h.cleanup()
 
 
-def test_missing_registry_file_refuses_every_enrolment():
-    h = Harness()
+def test_missing_registry_file_refuses_every_enrolment(tmp_path):
+    h = Harness(tmp_path)
     try:
         assert not os.path.exists(h.registry_path())
         h.start()
@@ -307,11 +296,10 @@ def test_missing_registry_file_refuses_every_enrolment():
         assert status == 403, "a missing devices.json must refuse enrolment, got %d" % status
     finally:
         h.stop()
-        h.cleanup()
 
 
-def test_corrupt_registry_file_refuses_every_enrolment():
-    h = Harness()
+def test_corrupt_registry_file_refuses_every_enrolment(tmp_path):
+    h = Harness(tmp_path)
     try:
         h.register("aa:bb:cc:dd:ee:01", SECRET_A)
         with open(h.registry_path(), "w") as fh:
@@ -325,11 +313,10 @@ def test_corrupt_registry_file_refuses_every_enrolment():
             "a corrupt devices.json must fail closed, not fall back to open enrolment"
     finally:
         h.stop()
-        h.cleanup()
 
 
-def test_non_dict_registry_file_refuses_every_enrolment():
-    h = Harness()
+def test_non_dict_registry_file_refuses_every_enrolment(tmp_path):
+    h = Harness(tmp_path)
     try:
         h.register("aa:bb:cc:dd:ee:01", SECRET_A)
         with open(h.registry_path(), "w") as fh:
@@ -343,11 +330,10 @@ def test_non_dict_registry_file_refuses_every_enrolment():
             "a non-dict devices.json document must fail closed, got %d" % status
     finally:
         h.stop()
-        h.cleanup()
 
 
-def test_setup_with_a_malformed_mac_returns_422():
-    h = Harness()
+def test_setup_with_a_malformed_mac_returns_422(tmp_path):
+    h = Harness(tmp_path)
     try:
         h.start()
         for bad_mac in (12345, "zz:zz:zz:zz:zz:zz", "aabbccddeeff", "aa:bb:cc:dd:ee"):
@@ -357,11 +343,10 @@ def test_setup_with_a_malformed_mac_returns_422():
             assert status == 422, "mac=%r: expected 422, got %d" % (bad_mac, status)
     finally:
         h.stop()
-        h.cleanup()
 
 
-def test_uppercase_mac_in_body_matches_its_lowercase_registry_entry():
-    h = Harness()
+def test_uppercase_mac_in_body_matches_its_lowercase_registry_entry(tmp_path):
+    h = Harness(tmp_path)
     try:
         h.register("aa:bb:cc:dd:ee:01", SECRET_A)
         h.start()
@@ -373,11 +358,10 @@ def test_uppercase_mac_in_body_matches_its_lowercase_registry_entry():
             "an uppercase MAC must match its lowercase registry entry, got %d" % status
     finally:
         h.stop()
-        h.cleanup()
 
 
-def test_devices_json_never_contains_the_plaintext_secret():
-    h = Harness()
+def test_devices_json_never_contains_the_plaintext_secret(tmp_path):
+    h = Harness(tmp_path)
     try:
         h.register("aa:bb:cc:dd:ee:01", SECRET_A)
         h.start()
@@ -392,11 +376,10 @@ def test_devices_json_never_contains_the_plaintext_secret():
             "the plaintext enrolment secret must never appear in devices.json"
     finally:
         h.stop()
-        h.cleanup()
 
 
-def test_secret_flag_grants_nothing_to_an_unregistered_mac():
-    h = Harness()
+def test_secret_flag_grants_nothing_to_an_unregistered_mac(tmp_path):
+    h = Harness(tmp_path)
     try:
         h.start(extra_args=["--secret", "anything-at-all"])
         status, _, _ = http_request(
@@ -407,103 +390,70 @@ def test_secret_flag_grants_nothing_to_an_unregistered_mac():
             "the retired --secret flag must not grant enrolment to an unregistered MAC"
     finally:
         h.stop()
-        h.cleanup()
 
 
 # --- devices_cli.py -------------------------------------------------------
 
-def test_devices_cli_add_list_remove_round_trip():
-    tmpdir = tempfile.mkdtemp(prefix="ink-devices-cli-")
-    try:
-        secret_hash = _sha256_hex(SECRET_A)
-        code, _, err = _run_cli(
-            tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", secret_hash)
-        assert code == 0, "add failed: %s" % err
+def test_devices_cli_add_list_remove_round_trip(tmp_path):
+    tmpdir = str(tmp_path)
+    secret_hash = _sha256_hex(SECRET_A)
+    code, _, err = _run_cli(
+        tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", secret_hash)
+    assert code == 0, "add failed: %s" % err
 
-        code, out, _ = _run_cli(tmpdir, "list")
-        assert code == 0
-        assert "aa:bb:cc:dd:ee:01" in out
-        assert secret_hash not in out, "devices_cli.py list must never print the full hash"
+    code, out, _ = _run_cli(tmpdir, "list")
+    assert code == 0
+    assert "aa:bb:cc:dd:ee:01" in out
+    assert secret_hash not in out, "devices_cli.py list must never print the full hash"
 
-        code, _, err = _run_cli(tmpdir, "remove", "--mac", "aa:bb:cc:dd:ee:01")
-        assert code == 0, "remove failed: %s" % err
+    code, _, err = _run_cli(tmpdir, "remove", "--mac", "aa:bb:cc:dd:ee:01")
+    assert code == 0, "remove failed: %s" % err
 
-        module = load_byos_module()
-        registry = module.load_registry(tmpdir)
-        assert "aa:bb:cc:dd:ee:01" not in registry["devices"]
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
+    module = load_byos_module()
+    registry = module.load_registry(tmpdir)
+    assert "aa:bb:cc:dd:ee:01" not in registry["devices"]
 
 
-def test_devices_cli_add_rejects_a_malformed_mac_or_non_hex_hash():
-    tmpdir = tempfile.mkdtemp(prefix="ink-devices-cli-")
-    try:
-        code, _, _ = _run_cli(
-            tmpdir, "add", "--mac", "not-a-mac", "--secret-sha256", _sha256_hex(SECRET_A))
-        assert code != 0, "a malformed mac must be rejected"
+def test_devices_cli_add_rejects_a_malformed_mac_or_non_hex_hash(tmp_path):
+    tmpdir = str(tmp_path)
+    code, _, _ = _run_cli(
+        tmpdir, "add", "--mac", "not-a-mac", "--secret-sha256", _sha256_hex(SECRET_A))
+    assert code != 0, "a malformed mac must be rejected"
 
-        code, _, _ = _run_cli(
-            tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", "not-64-hex-chars")
-        assert code != 0, "a non-64-hex hash must be rejected"
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
+    code, _, _ = _run_cli(
+        tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", "not-64-hex-chars")
+    assert code != 0, "a non-64-hex hash must be rejected"
 
 
-def test_devices_cli_add_over_existing_mac_without_replace_exits_nonzero():
-    tmpdir = tempfile.mkdtemp(prefix="ink-devices-cli-")
-    try:
-        secret_hash = _sha256_hex(SECRET_A)
-        code, _, err = _run_cli(
-            tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", secret_hash)
-        assert code == 0, "first add failed: %s" % err
+def test_devices_cli_add_over_existing_mac_without_replace_exits_nonzero(tmp_path):
+    tmpdir = str(tmp_path)
+    secret_hash = _sha256_hex(SECRET_A)
+    code, _, err = _run_cli(
+        tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", secret_hash)
+    assert code == 0, "first add failed: %s" % err
 
-        code, _, _ = _run_cli(
-            tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", secret_hash)
-        assert code != 0, "re-adding an existing MAC without --replace must fail"
+    code, _, _ = _run_cli(
+        tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", secret_hash)
+    assert code != 0, "re-adding an existing MAC without --replace must fail"
 
-        code, _, err = _run_cli(
-            tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01",
-            "--secret-sha256", _sha256_hex(SECRET_B), "--replace")
-        assert code == 0, "--replace must allow overwriting an existing MAC: %s" % err
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
+    code, _, err = _run_cli(
+        tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01",
+        "--secret-sha256", _sha256_hex(SECRET_B), "--replace")
+    assert code == 0, "--replace must allow overwriting an existing MAC: %s" % err
 
 
-def test_devices_cli_revoke_token_removes_only_that_macs_token():
-    tmpdir = tempfile.mkdtemp(prefix="ink-devices-cli-")
-    try:
-        module = load_byos_module()
-        module.save_state(tmpdir, {"tokens": {
-            "aa:bb:cc:dd:ee:01": "token-one",
-            "aa:bb:cc:dd:ee:02": "token-two",
-        }})
-        code, _, err = _run_cli(tmpdir, "revoke-token", "--mac", "aa:bb:cc:dd:ee:01")
-        assert code == 0, "revoke-token failed: %s" % err
-        state = module.load_state(tmpdir)
-        assert "aa:bb:cc:dd:ee:01" not in state["tokens"], \
-            "revoke-token must remove the targeted MAC's token"
-        assert state["tokens"].get("aa:bb:cc:dd:ee:02") == "token-two", \
-            "revoke-token must leave every other MAC's token untouched"
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
+def test_devices_cli_revoke_token_removes_only_that_macs_token(tmp_path):
+    tmpdir = str(tmp_path)
+    module = load_byos_module()
+    module.save_state(tmpdir, {"tokens": {
+        "aa:bb:cc:dd:ee:01": "token-one",
+        "aa:bb:cc:dd:ee:02": "token-two",
+    }})
+    code, _, err = _run_cli(tmpdir, "revoke-token", "--mac", "aa:bb:cc:dd:ee:01")
+    assert code == 0, "revoke-token failed: %s" % err
+    state = module.load_state(tmpdir)
+    assert "aa:bb:cc:dd:ee:01" not in state["tokens"], \
+        "revoke-token must remove the targeted MAC's token"
+    assert state["tokens"].get("aa:bb:cc:dd:ee:02") == "token-two", \
+        "revoke-token must leave every other MAC's token untouched"
 
-
-if __name__ == "__main__":
-    test_functions = sorted(
-        (name, obj) for name, obj in list(globals().items())
-        if name.startswith("test_") and callable(obj)
-    )
-    passed = 0
-    for name, fn in test_functions:
-        try:
-            fn()
-        except AssertionError as exc:
-            print("FAIL %s - %s" % (name, exc))
-        except Exception as exc:  # never let an exception be swallowed into a pass
-            print("FAIL %s - exception: %r" % (name, exc))
-        else:
-            print("PASS %s" % name)
-            passed += 1
-    total = len(test_functions)
-    print("devices-registry: %d/%d checks pass" % (passed, total))
-    sys.exit(0 if passed == total else 1)

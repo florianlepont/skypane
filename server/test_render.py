@@ -39,7 +39,7 @@ if REPO_ROOT not in sys.path:
 import server.plane.render as render  # noqa: E402
 import server.panel_format as panel_format  # noqa: E402
 import server.plane.illustrations as illustrations  # noqa: E402
-from PIL import Image  # noqa: E402
+from PIL import Image, ImageDraw  # noqa: E402
 
 # 140 real Pillow renders (panel_format.WIDTH x HEIGHT canvases, several per
 # test) take a single worker over 10s (32-CONTEXT.md planner_notes) - marked
@@ -3610,3 +3610,141 @@ def test_battery_empty_black_white_black_dominant():
     if max(counts, key=counts.get) != render.DIMMED_FIELD_IDX:
         pytest.fail("battery_empty canvas is not dominated by its own field index %r" % (render.DIMMED_FIELD_IDX,))
 
+
+
+# 141. Quick task 260924-u7n (DEVICE-06), (1): the locked English copy
+# constants, asserted by exact equality (D-04's precedent, mirroring
+# test_battery_empty_copy_constants_match_locked_strings).
+def test_no_connection_copy_constants_match_locked_strings():
+    """NO_CONNECTION_HEADING_TEXT == 'NO CONNECTION' and NO_CONNECTION_BODY_LINES == the two locked authored sentences, asserted by exact equality"""
+    if render.NO_CONNECTION_HEADING_TEXT != "NO CONNECTION":
+        pytest.fail("NO_CONNECTION_HEADING_TEXT is %r, expected 'NO CONNECTION'" % (render.NO_CONNECTION_HEADING_TEXT,))
+    expected_lines = ("The frame can't reach its server.", "It will try again on its own.")
+    if render.NO_CONNECTION_BODY_LINES != expected_lines:
+        pytest.fail("NO_CONNECTION_BODY_LINES is %r, expected %r" % (render.NO_CONNECTION_BODY_LINES, expected_lines))
+
+
+# 142. Quick task 260924-u7n, (2): _build_no_connection_canvas() dispatches
+# through the shared _build_hold_canvas() composition exactly once, with
+# the right glyph/height/copy/field/ink, mirroring
+# test_battery_empty_dispatches_through_shared_dimmed_composition - a
+# recording wrapper around the seam itself rather than inferring the call
+# from pixels.
+def test_no_connection_dispatches_through_shared_hold_composition():
+    """render._build_no_connection_canvas() calls render._build_hold_canvas exactly once, with draw_alert_icon, ALERT_ICON_HEIGHT_PX, NO_CONNECTION_HEADING_TEXT, NO_CONNECTION_BODY_LINES, DIMMED_FIELD_IDX, DIMMED_INK and dithered=True by default"""
+    orig = render._build_hold_canvas
+    calls = []
+
+    def _spy(*args, **kwargs):
+        calls.append((args, kwargs))
+        return orig(*args, **kwargs)
+
+    render._build_hold_canvas = _spy
+    try:
+        render._build_no_connection_canvas()
+    finally:
+        render._build_hold_canvas = orig
+    if len(calls) != 1:
+        pytest.fail("_build_hold_canvas was called %d time(s), expected exactly 1" % (len(calls),))
+    args, kwargs = calls[0]
+    if len(args) < 7:
+        pytest.fail("_build_hold_canvas call had %d positional args, expected at least 7 "
+            "(glyph_draw, glyph_height, label_text, sentences, field_idx, ink, dithered)" % (len(args),))
+    glyph_draw, glyph_height, label_text, sentences, field_idx, ink, dithered = args[0:7]
+    if glyph_draw is not render.draw_alert_icon:
+        pytest.fail("glyph_draw was %r, expected render.draw_alert_icon" % (glyph_draw,))
+    if glyph_height != render.ALERT_ICON_HEIGHT_PX:
+        pytest.fail("glyph_height was %r, expected ALERT_ICON_HEIGHT_PX (%r)"
+            % (glyph_height, render.ALERT_ICON_HEIGHT_PX))
+    if label_text != render.NO_CONNECTION_HEADING_TEXT:
+        pytest.fail("label_text was %r, expected NO_CONNECTION_HEADING_TEXT" % (label_text,))
+    if sentences != render.NO_CONNECTION_BODY_LINES:
+        pytest.fail("sentences was %r, expected NO_CONNECTION_BODY_LINES" % (sentences,))
+    if field_idx != render.DIMMED_FIELD_IDX:
+        pytest.fail("field_idx was %r, expected DIMMED_FIELD_IDX" % (field_idx,))
+    if ink != render.DIMMED_INK:
+        pytest.fail("ink was %r, expected DIMMED_INK" % (ink,))
+    if dithered is not True:
+        pytest.fail("dithered was %r, expected True for the default (flat=False) call" % (dithered,))
+
+
+# 143. Quick task 260924-u7n, (3): the dithered canvas passes the same
+# legal-palette / black-dominant checks the other hold screens pass
+# (mirroring test_battery_empty_black_white_black_dominant); the flat
+# canvas (gen_fault_screen.py's own extraction input) contains only
+# {IDX_BLACK, IDX_WHITE}, with no dither noise.
+def test_no_connection_dithered_legal_palette_and_black_dominant():
+    """_build_no_connection_canvas() (dithered) uses only IDX_BLACK/IDX_WHITE, dominated by DIMMED_FIELD_IDX (Black)"""
+    canvas = render._build_no_connection_canvas()
+    colors = canvas.getcolors()
+    idx_set = {value for _count, value in colors} if colors else set()
+    bad = idx_set - {IDX_WHITE, IDX_BLACK}
+    if bad:
+        pytest.fail("no-connection canvas contains index(es) other than White/Black: %r" % (sorted(bad),))
+    if IDX_WHITE not in idx_set:
+        pytest.fail("no-connection canvas has no White pixels")
+    if IDX_BLACK not in idx_set:
+        pytest.fail("no-connection canvas has no Black pixels")
+    counts = {value: count for count, value in colors}
+    if max(counts, key=counts.get) != render.DIMMED_FIELD_IDX:
+        pytest.fail("no-connection canvas is not dominated by its own field index %r" % (render.DIMMED_FIELD_IDX,))
+
+
+def test_no_connection_flat_canvas_contains_only_black_and_white():
+    """_build_no_connection_canvas(flat=True) contains only {IDX_BLACK, IDX_WHITE} - no dither noise, since it exists purely for gen_fault_screen.py's ink-mask extraction"""
+    canvas = render._build_no_connection_canvas(flat=True)
+    colors = canvas.getcolors()
+    idx_set = {value for _count, value in colors} if colors else set()
+    bad = idx_set - {IDX_WHITE, IDX_BLACK}
+    if bad:
+        pytest.fail("flat no-connection canvas contains index(es) other than White/Black: %r" % (sorted(bad),))
+
+
+# 144. Quick task 260924-u7n, (4): build_canvas() never dispatches the
+# no-connection screen - a grep-level/inspect assertion on build_canvas's
+# own source, since the whole point of this screen is that only the
+# firmware ever draws it.
+def test_build_canvas_never_dispatches_no_connection_canvas():
+    """build_canvas()'s source never references _build_no_connection_canvas - this screen is drawn only by the firmware, never dispatched by the server"""
+    source = inspect.getsource(render.build_canvas)
+    if "_build_no_connection_canvas" in source:
+        pytest.fail("build_canvas() references _build_no_connection_canvas - this screen must never be server-dispatched")
+
+
+# 145. Quick task 260924-u7n, (5): draw_alert_icon returns its own height,
+# draws only the given ink index, and has inked pixels both above and
+# below the exclamation gap (i.e. the dot is actually present) - guarding
+# the WR-02 zero-length-line regression class draw_source_fault_badge's
+# own docstring records.
+def test_draw_alert_icon_returns_height_and_uses_only_given_ink():
+    """draw_alert_icon() returns ALERT_ICON_HEIGHT_PX, draws only ink_idx, and has inked pixels both above and below the exclamation gap (the dot is present, not a degenerate zero-length line)"""
+    canvas = panel_format.new_canvas(IDX_WHITE)
+    draw = ImageDraw.Draw(canvas)
+    top_y = 200
+    center_x = 600
+    returned = render.draw_alert_icon(draw, center_x, top_y, IDX_BLACK)
+    if returned != render.ALERT_ICON_HEIGHT_PX:
+        pytest.fail("draw_alert_icon returned %r, expected ALERT_ICON_HEIGHT_PX (%r)"
+            % (returned, render.ALERT_ICON_HEIGHT_PX))
+
+    colors = canvas.getcolors()
+    idx_set = {value for _count, value in colors} if colors else set()
+    stray = idx_set - {IDX_BLACK, IDX_WHITE}
+    if stray:
+        pytest.fail("canvas contains index(es) other than the field/ink pair: %r" % (sorted(stray),))
+
+    pixels = canvas.load()
+    gap_top = int(top_y + render.ALERT_ICON_HEIGHT_PX * 0.65) + 2
+    gap_bottom = int(top_y + render.ALERT_ICON_HEIGHT_PX * 0.8) - 8
+    above_stroke_y = int(top_y + render.ALERT_ICON_HEIGHT_PX * 0.5)
+    dot_y = int(top_y + render.ALERT_ICON_HEIGHT_PX * 0.8)
+
+    def _row_has_ink(y):
+        return any(pixels[x, y] == IDX_BLACK for x in range(center_x - 10, center_x + 10))
+
+    if not _row_has_ink(above_stroke_y):
+        pytest.fail("no ink found in the exclamation stroke region (above the gap)")
+    if not _row_has_ink(dot_y):
+        pytest.fail("no ink found at the dot's row - the dot must be a real filled ellipse, not a degenerate zero-length line")
+    if gap_top < gap_bottom and _row_has_ink((gap_top + gap_bottom) // 2):
+        pytest.fail("ink found inside the stroke/dot gap - stroke and dot should be visually separated")

@@ -6,11 +6,13 @@ needs instead of grepping served source text as a raw string.
 import pytest
 
 from companion_markup import (
+    at_rule_blocks,
     css_rules,
     custom_properties,
     declarations_for,
     keyframes,
     parse_html,
+    rule_indices,
     rules_with_selector,
     strip_js_comments_and_strings,
 )
@@ -146,6 +148,33 @@ def test_rules_with_selector_any_context():
     css = _CSS_MEDIA + " .x { color: blue }"
     matches = rules_with_selector(css, ".x")
     assert len(matches) == 2
+
+
+def test_rule_indices_give_source_order_optionally_per_context():
+    css = _CSS_MEDIA + " .x { color: blue } .later { color: green }"
+    assert rule_indices(css, "a") == [0]
+    assert rule_indices(css, ".x") == [1, 2]
+    assert rule_indices(css, ".x", at_rules=()) == [2]
+    assert rule_indices(css, ".x", at_rules=("@media (max-width: 959.98px)",)) == [1]
+    assert rule_indices(css, ".later") == [3]
+    assert rule_indices(css, ".absent") == []
+
+
+def test_at_rule_blocks_keep_repeats_nesting_and_ignore_comments():
+    css = (
+        "/* @supports selector(:has(*)) { a { b: c } } */ "
+        + _CSS_SUPPORTS + " " + _CSS_KEYFRAMES + " "
+        + "@media (min-width: 960px) { @supports selector(:has(*)) { .d { e: f } } } "
+        + _CSS_KEYFRAMES
+    )
+    assert at_rule_blocks(css) == [
+        "@supports selector(:has(*))",
+        "@keyframes k",
+        "@media (min-width: 960px)",
+        "@supports selector(:has(*))",
+        "@keyframes k",
+    ]
+    assert at_rule_blocks("a { b: c }") == []
 
 
 # --- JS --------------------------------------------------------------------

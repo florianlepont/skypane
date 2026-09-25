@@ -20,6 +20,14 @@ may take a few days, but issues and pull requests are welcome.
 - Tests must not touch the network — pytest-socket fails any test that
   opens a non-loopback socket. Use the `fake_providers` fixture in place
   of a real ADS-B/adsbdb call, and write only under `tmp_path`.
+- Companion tests start the app with the `app_server` / `make_app_server`
+  fixtures (`companion/conftest.py`) and use the helpers in
+  `test-support/companion_app_server.py` and
+  `test-support/companion_markup.py` to fetch and parse what it serves.
+- Tests assert behaviour: rendered HTML, the served CSS or JS parsed
+  structurally, or a real browser. They never read source files,
+  comments or `.planning/`; `companion/test_suite_guards.py` enforces
+  this.
 - Dependency changes go in `server/requirements*.in`, then regenerate the
   hash-locked `.txt` files with `scripts/lock-deps.sh`.
 - Security problems go through private reporting, not issues — see

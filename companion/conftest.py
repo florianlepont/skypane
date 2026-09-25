@@ -108,13 +108,32 @@ def app_server_in_process(tmp_path):
 def _browser_required():
     """True in CI (GitHub sets CI=true) or with SKYPANE_REQUIRE_BROWSER=1:
     there, a harness that could not launch Chromium is a failure, not a
-    skip. Locally it stays a visible pytest skip. Exact semantics of
-    companion/test_legacy_harness_shim.py's own _browser_required().
+    skip. Locally it stays a visible pytest skip.
     """
     return (
         os.environ.get("SKYPANE_REQUIRE_BROWSER") == "1"
         or os.environ.get("CI", "").lower() == "true"
     )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _playwright_driver_tmpdir(tmp_path_factory):
+    """Points TMPDIR at a session temp dir under pytest's basetemp for the
+    whole session. Playwright's Node driver inherits the environment when
+    pytest-playwright's session `playwright` fixture starts it, and makes
+    its per-launch `playwright-artifacts-*` / `playwright_chromiumdev_profile-*`
+    dirs under that TMPDIR — without this they land in the system /tmp
+    (33-FOLLOWUPS.md F-03). Autouse at session scope, so it is set up before
+    any requested session fixture, `playwright` included.
+    """
+    driver_tmp = str(tmp_path_factory.mktemp("playwright-driver-tmp"))
+    saved = os.environ.get("TMPDIR")
+    os.environ["TMPDIR"] = driver_tmp
+    yield driver_tmp
+    if saved is None:
+        os.environ.pop("TMPDIR", None)
+    else:
+        os.environ["TMPDIR"] = saved
 
 
 @pytest.fixture(scope="session")

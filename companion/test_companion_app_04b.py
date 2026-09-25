@@ -46,6 +46,7 @@ import companion.test_companion_app_helpers as cah
 from companion import auth
 from companion import theme_preview
 from companion_app_server import http_request, login
+from companion_markup import parse_html
 from server import device_config, history_db
 from server.plane import manual_resolutions
 
@@ -862,3 +863,42 @@ def test_illustration_upload_round_trip_replaces_served_bytes(make_app_server):
     assert post_body.startswith(PNG_SIGNATURE), (
         "expected the post-upload body to start with the PNG signature")
     assert post_body != pre_body, "expected the served bytes to change after a successful upload"
+
+
+# ==========================================================================
+# Home's recent-flights detail line over a real HTTP round trip: the
+# direction word is appended only for a departing or arriving row; any
+# other stored confirmed_state (or none at all) leaves the line as
+# airline and route alone, with no dangling separator.
+# ==========================================================================
+
+
+def test_home_recent_flights_detail_names_a_direction_only_when_known(make_app_server):
+    """GET / lists each recorded runway event under Recent flights with an "<airline> · <route>"
+    detail line that ends in "Departing" or "Arriving" for those two states, and carries no
+    direction part (and no trailing separator) for any other stored state or none at all"""
+    server = make_app_server(fake_providers=True)
+    session_cookie = login(server)
+    with history_db.open_db(server.state_dir) as conn:
+        for callsign, state, destination in (
+                ("AFR1001", "departing", "TLS"),
+                ("AFR1002", "arriving", "NCE"),
+                ("AFR1003", "confirmed", "LYS"),
+                ("AFR1004", None, "BOD")):
+            history_db.record_runway_event(
+                conn, hex=callsign.lower(), callsign=callsign, confirmed_state=state,
+                airline="Air France", origin="ORY", destination=destination)
+
+    status, _headers, body = http_request(server.base_url() + "/", cookie=session_cookie)
+    assert status == 200, "expected 200 for GET /, got %d" % status
+    details = {}
+    for item in parse_html(body.decode("utf-8")).select("li.recent-flight"):
+        callsign = item.select_one(".recent-flight__callsign").text()
+        details[callsign] = item.select_one(".recent-flight__detail").text()
+
+    assert details == {
+        "AFR1001": "Air France · ORY → TLS · Departing",
+        "AFR1002": "Air France · ORY → NCE · Arriving",
+        "AFR1003": "Air France · ORY → LYS",
+        "AFR1004": "Air France · ORY → BOD",
+    }, "unexpected Recent flights detail lines: %r" % (details,)

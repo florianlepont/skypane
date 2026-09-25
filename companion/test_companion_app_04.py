@@ -46,7 +46,7 @@ from companion import auth
 from companion.pages import config_page
 from companion_app_server import (
     TEST_PASSWORD, http_request, login, served_asset, served_stylesheet)
-from companion_markup import css_rules, rules_with_selector
+from companion_markup import at_rule_blocks, css_rules, rules_with_selector
 from server import device_config
 
 import companion.app as app_module
@@ -67,39 +67,6 @@ _ANIMATION_VALUE_KEYWORDS = frozenset((
     "jump-start", "jump-end", "jump-none", "jump-both", "start", "end",
     "inherit", "initial", "unset", "revert", "revert-layer",
 ))
-
-
-def _without_reduced_motion_blocks(css_source):
-    """`css_source` with every `@media (prefers-reduced-motion: ...)`
-    block (query and body) removed, by brace matching rather than by
-    regex. F-01-sanctioned exception (33-16-SUMMARY.md's own precedent):
-    distinguishing "how many `@keyframes` blocks share a name" and
-    "which animation duration is a bare literal" needs the RAW served
-    text, not `companion_markup.css_rules()`'s per-declaration view —
-    the check still never reads a file from disk, only the SERVED,
-    comment-stripped stylesheet.
-    """
-    out = ""
-    pos = 0
-    for match in re.finditer(r"@media[^{]*prefers-reduced-motion", css_source):
-        if match.start() < pos:
-            continue
-        open_brace = css_source.find("{", match.start())
-        if open_brace < 0:
-            continue
-        depth = 0
-        index = open_brace
-        while index < len(css_source):
-            if css_source[index] == "{":
-                depth += 1
-            elif css_source[index] == "}":
-                depth -= 1
-                if depth == 0:
-                    break
-            index += 1
-        out += css_source[pos:match.start()]
-        pos = index + 1
-    return out + css_source[pos:]
 
 
 @pytest.fixture(scope="module")
@@ -155,10 +122,15 @@ def test_style_css_honours_the_motion_budget(served_css):
     EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS/EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS, and
     neither interpolate-size nor calc-size() appears — all measured on COMMENT-STRIPPED source,
     because this stylesheet's comments quote every token the check counts (D3/CFG-32,
-    23-01-PLAN.md Task 2)"""
-    stripped = re.sub(r"/\*.*?\*/", "", served_css, flags=re.DOTALL)
+    23-01-PLAN.md Task 2)
 
-    names = re.findall(r"@keyframes\s+([A-Za-z_-][\w-]*)", stripped)
+    Measured over the parsed served stylesheet (`at_rule_blocks()` for the block counts,
+    `css_rules()` for the declarations), so a comment quoting a token never counts.
+    """
+    blocks = at_rule_blocks(served_css)
+
+    names = [block[len("@keyframes"):].strip() for block in blocks
+             if block.startswith("@keyframes ")]
     seen = []
     for name in names:
         assert name not in seen, (
@@ -166,42 +138,43 @@ def test_style_css_honours_the_motion_budget(served_css):
             "ONE shared definition per animation" % (name, names.count(name)))
         seen.append(name)
 
-    reduce_blocks = re.findall(r"@media[^{]*prefers-reduced-motion\s*:\s*reduce", stripped)
+    reduce_blocks = [block for block in blocks if block.startswith("@media")
+                     and re.search(r"prefers-reduced-motion\s*:\s*reduce", block)]
     assert len(reduce_blocks) == _EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS, (
         "the served stylesheet carries %d live `@media (prefers-reduced-motion: reduce)` "
         "block(s), expected %d" % (len(reduce_blocks), _EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS))
-    no_pref_blocks = re.findall(
-        r"@media[^{]*prefers-reduced-motion\s*:\s*no-preference", stripped)
+    no_pref_blocks = [block for block in blocks if block.startswith("@media")
+                      and re.search(r"prefers-reduced-motion\s*:\s*no-preference", block)]
     assert len(no_pref_blocks) == _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS, (
         "the served stylesheet carries %d live `@media (prefers-reduced-motion: "
         "no-preference)` wrapper(s), expected %d"
         % (len(no_pref_blocks), _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS))
 
-    live = _without_reduced_motion_blocks(stripped)
-    for match in re.finditer(r"(?<![\w-])(animation(?:-name|-duration)?)\s*:([^;}]*)", live):
-        prop, value = match.group(1), match.group(2).strip()
-        if prop in ("animation", "animation-name"):
-            idents = [
-                ident for ident in re.findall(r"(?<![\w-])(-?[A-Za-z_][\w-]*)", value)
-                if ident.lower() not in _ANIMATION_VALUE_KEYWORDS
-            ]
-            for ident in idents:
-                assert ident in names, (
-                    "`%s: %s` names %r, which no @keyframes block in the served stylesheet "
-                    "defines" % (prop, value, ident))
-            assert idents, "`%s: %s` resolves to no keyframes name at all" % (prop, value)
-        if prop in ("animation", "animation-duration"):
-            literal = re.search(r"(?<![\w-])\d+(?:\.\d+)?m?s(?![\w-])", value)
-            assert not literal and "var(--motion-" in value, (
-                "`%s: %s` takes its duration from %s — every animation duration must come "
-                "from var(--motion-fast) or var(--motion-slow)"
-                % (prop, value,
-                   ("the bare literal %r" % literal.group(0)) if literal else "no --motion-* token"))
-
-    for banned in ("interpolate-size", "calc-size("):
-        assert banned not in live, (
-            "the served stylesheet declares %r — Chromium-only and Baseline limited, use "
-            "grid-template-rows: 0fr -> 1fr instead" % (banned,))
+    live_rules = [rule for rule in css_rules(served_css)
+                  if not any("prefers-reduced-motion" in at_rule for at_rule in rule.at_rules)]
+    for rule in live_rules:
+        for prop, value in rule.declarations:
+            if prop in ("animation", "animation-name"):
+                idents = [
+                    ident for ident in re.findall(r"(?<![\w-])(-?[A-Za-z_][\w-]*)", value)
+                    if ident.lower() not in _ANIMATION_VALUE_KEYWORDS
+                ]
+                for ident in idents:
+                    assert ident in names, (
+                        "`%s: %s` names %r, which no @keyframes block in the served stylesheet "
+                        "defines" % (prop, value, ident))
+                assert idents, "`%s: %s` resolves to no keyframes name at all" % (prop, value)
+            if prop in ("animation", "animation-duration"):
+                literal = re.search(r"(?<![\w-])\d+(?:\.\d+)?m?s(?![\w-])", value)
+                assert not literal and "var(--motion-" in value, (
+                    "`%s: %s` takes its duration from %s — every animation duration must come "
+                    "from var(--motion-fast) or var(--motion-slow)"
+                    % (prop, value,
+                       ("the bare literal %r" % literal.group(0)) if literal else "no --motion-* token"))
+            for banned in ("interpolate-size", "calc-size("):
+                assert banned not in prop and banned not in value, (
+                    "the served stylesheet declares %r in %r — Chromium-only and Baseline "
+                    "limited, use grid-template-rows: 0fr -> 1fr instead" % (banned, rule.selectors))
 
 
 # ==========================================================================

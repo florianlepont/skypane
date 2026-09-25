@@ -209,19 +209,3 @@ def test_served_stylesheet_and_asset(app_server):
     js_text = companion_app_server.served_asset(app_server, "/static/battery-trend.js")
     assert isinstance(js_text, str)
     assert js_text
-
-
-def test_legacy_harness_still_matches_original_behaviour():
-    """LegacyHarness's no-arg constructor mirrors the original copied
-    Harness classes exactly enough that a still-legacy script harness can
-    swap one import line and keep working.
-    """
-    harness = companion_app_server.LegacyHarness()
-    try:
-        harness.start()
-        status, _, _ = companion_app_server.get(harness, "/login")
-        assert status == 200
-    finally:
-        harness.stop()
-        harness.cleanup()
-    assert not os.path.exists(harness.state_dir)

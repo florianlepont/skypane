@@ -378,6 +378,37 @@ strip/flash text (`companion/layout.py`, `companion/app.py`) — reads it
 from the same persisted latch before computing its own staleness
 threshold.
 
+**NO CONNECTION — the fourth hold screen, drawn by the device, not the
+server (DEVICE-06, quick task `260924-u7n`).** The three hold screens
+above share one property that breaks down exactly when it matters most:
+they are all server-rendered, so they need a successful poll to ever
+reach the panel. If the device cannot reach the server at all, the
+server can never bake an alert into anything. NO CONNECTION is the one
+hold screen the firmware draws entirely on its own, with zero server
+round-trip: `firmware/main/app_main.c`'s `fail_and_sleep()` calls
+`fp_fault_screen_should_draw()` (`firmware/main/fault_screen.h`) after
+its 2nd consecutive failure of an allow-listed comm/data step (`wifi`,
+`http`, `status`, `json`, `auth`, `enrol`, `secret`, `config`,
+`download`, `verify` — never `blit`/`reset`/`deadline`, which would risk
+looping or overrunning the wake budget), and, if it returns true,
+renders and blits the screen via a pure on-device integer
+Floyd-Steinberg dither of the same dark field the other three hold
+screens use, stamped with a small pre-baked ink mask
+(`firmware/main/fault_screen_mask.h`). It is drawn once per outage — a
+sentinel reusing `FP_NVS_IMAGE_HASH` (deliberately never shaped like a
+real `sha256:<hex>` server hash) suppresses every subsequent failing
+wake's redraw and guarantees the first healthy poll after recovery
+always re-downloads and blits the real server picture, since its hash
+can never match the sentinel. `server/plane/render.py`'s
+`_build_no_connection_canvas()` is the artwork's one source of truth —
+the same shared `_build_hold_canvas()` composition DISPLAY OFF/QUIET
+HOURS/BATTERY EMPTY go through, with its own alert-triangle glyph
+(`draw_alert_icon()`) — but `build_canvas()` never dispatches it; instead
+`firmware/tools/gen_fault_screen.py` renders it flat, extracts its ink
+mask, and generates the committed header, with a pytest drift test
+(`server/test_fault_screen_mask.py`) proving the two can never silently
+diverge.
+
 ## Deployment topology
 
 Production runs on a single always-on VPS (Ubuntu, provisioned by

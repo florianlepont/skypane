@@ -33,7 +33,7 @@ from companion import draw
 from companion.layout import escape_html
 from companion.pages import config_page
 from companion_app_server import served_asset, served_stylesheet
-from companion_markup import css_rules, declarations_for
+from companion_markup import css_rules, declarations_for, rule_indices
 from server import device_config
 
 
@@ -1211,9 +1211,10 @@ def test_the_handle_rides_the_ring_the_emitter_drew(served_css):
     # them declare `position` at equal (0,1,0) specificity, so the later
     # rule wins — and the one that must win is the absolute one, or the
     # handle stops being positioned against the ring at all.
-    hit_at = served_css.index(".control-hit-area {")
-    handle_at = served_css.index(".value-control__handle {")
-    assert handle_at >= hit_at, (
+    hit_at = rule_indices(served_css, ".control-hit-area", at_rules=())
+    handle_at = rule_indices(served_css, ".value-control__handle", at_rules=())
+    assert hit_at and handle_at, "expected both shared rules at the top level of style.css"
+    assert min(handle_at) > max(hit_at), (
         "the shared .value-control__handle rule now precedes the shared hit-area rule; "
         "both declare `position` at equal specificity, so the relative one would win and "
         "the handle would sit wherever the text flow put it")

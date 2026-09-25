@@ -1,7 +1,6 @@
 # Repo-root conftest.py: collected before any test file, so this is where
-# the shared contract from test-support/ (network guard, fake provider,
-# legacy-companion collection exclusion) is wired into every pytest run
-# regardless of which subdirectory it targets.
+# the shared contract from test-support/ (network guard, fake provider) is
+# wired into every pytest run regardless of which subdirectory it targets.
 import os
 import socket
 import sys
@@ -18,11 +17,6 @@ if _TEST_SUPPORT_DIR not in sys.path:
 import pytest  # noqa: E402
 
 import skypane_test_support  # noqa: E402
-
-# Legacy companion harnesses (and their shared helper module) are run
-# through companion/test_legacy_harness_shim.py as subprocesses - pytest
-# must never import them directly as test modules in their own right.
-collect_ignore = list(skypane_test_support.LEGACY_COMPANION_COLLECT_IGNORE)
 
 # A loopback HTTP(S) proxy in the environment would tunnel a request past
 # both the DNS guard and pytest-socket's connect() guard (the client only

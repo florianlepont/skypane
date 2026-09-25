@@ -385,3 +385,14 @@ moment the file is gone — no hand list needed editing. Baseline total:
 38 + 33 = 167 new pytest node ids across `test_view_pages_01.py`/`_02.py`/
 `_03.py`/`_04.py`, plus 2 consolidated into `test_companion_app_03.py`'s
 pre-existing identical coverage) — 0 pending.
+
+
+### Closing sweep (plan 33-32): structural stylesheet checks
+
+Rows 98, 100, 105, 112 and 113 kept their node ids but no longer assert with a regex, `in` test
+or str search over the served stylesheet's text (33-FOLLOWUPS.md F-01). Selector presence and
+absence go through `css_rules()` / `rules_with_selector()`; row 112's `grid-template-rows: 0fr`
+and `@starting-style` probes become one `declarations_for()` read of the reveal wrapper's
+`@starting-style` rule; rows 112 and 113 check the banned properties and the three
+reduced-motion blocks with `css_rules()` and `at_rule_blocks()`. Two unused text-level rule-body
+helpers were deleted from `companion/test_view_pages_03.py`.

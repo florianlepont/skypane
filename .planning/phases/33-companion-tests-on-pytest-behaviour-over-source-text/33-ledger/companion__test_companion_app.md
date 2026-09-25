@@ -270,60 +270,60 @@ Baseline: `companion__test_companion_app.txt`, 320 checks
 | 264 | GET /theme-preview/nope.png?live=1 returns the same 404 an unknown theme id always returns — the membership test still runs before any query is even parsed | ported | companion/test_companion_app_04b.py::test_theme_preview_live_branch_cache_and_fallback_behaviour |
 | 265 | ?live=0 and a missing ?live query both serve the sample variant, never the live one, even with a runway_events row present (D-23) | ported | companion/test_companion_app_04b.py::test_theme_preview_live_branch_cache_and_fallback_behaviour |
 | 266 | uploading a real PNG over real HTTP to a real companion/app.py subprocess changes what GET /illustration/air-france.png serves, even with a traversal-shaped declared filename in the part header | ported | companion/test_companion_app_04b.py::test_illustration_upload_round_trip_replaces_served_bytes |
-| 267 | the overridden air-france render and the vueling-airlines render (the same source image) come out of the identical illustration_normalize pipeline (D-03) | pending | |
-| 268 | the upload was written to {state_dir}/illustration_overrides/air-france.png, and nothing else was created in that directory | pending | |
-| 269 | the vendored server/assets/icons/illustrations/air-france.png file is provably byte-identical (hash, size, and mtime) after a successful upload | pending | |
-| 270 | select_illustration() given the harness's own state_dir resolves Air France to the override the real route just wrote; with no state_dir it still resolves to the vendored file | pending | |
-| 271 | POSTing a non-image payload is rejected with the rejection flash key and writes no override file | pending | |
-| 272 | POSTing a body over MAX_ILLUSTRATION_UPLOAD_BYTES is rejected, writes no override file, and the drain leaves the service healthy for the next request | pending | |
-| 273 | POSTing a valid payload to a key outside the membership set, and to three traversal-shaped paths, all 404 and write nothing to the override directory | pending | |
-| 274 | an unauthenticated POST /illustration/tunisair.png redirects to /login and writes no override file | pending | |
-| 275 | unauthenticated POSTs to /airlines/resolve and /airlines/manual-resolutions/{prefix}/delete both redirect to /login and write no manual_resolutions.json — the state dir is unchanged, not only the status code | pending | |
-| 276 | POST /airlines/resolve re-validates the prefix against the live unresolved-prefix registry on write (D-11): a well-shaped but unregistered prefix writes nothing and gets the stale flash; the identical POST succeeds once the prefix is a live registry member | pending | |
-| 277 | each add_entry() rejection reaches its own distinct flash key and persists nothing (empty/too-long/reserved names, and the registry cap); the D-03 branch: a brand-new name redirects with resolve= (Step B offered) while a name already covered by existing artwork redirects without it | pending | |
-| 278 | POST /airlines/manual-resolutions/{prefix}/delete removes the registry entry, leaves the override PNG on disk (D-08), and redirects to /airlines with no flash; a second identical POST is a no-op that also redirects without an error flash; a malformed prefix 404s without touching the registry | pending | |
+| 267 | the overridden air-france render and the vueling-airlines render (the same source image) come out of the identical illustration_normalize pipeline (D-03) | ported | companion/test_companion_app_05.py::test_illustration_override_effects_after_a_real_upload |
+| 268 | the upload was written to {state_dir}/illustration_overrides/air-france.png, and nothing else was created in that directory | ported | companion/test_companion_app_05.py::test_illustration_override_effects_after_a_real_upload |
+| 269 | the vendored server/assets/icons/illustrations/air-france.png file is provably byte-identical (hash, size, and mtime) after a successful upload | ported | companion/test_companion_app_05.py::test_illustration_override_effects_after_a_real_upload |
+| 270 | select_illustration() given the harness's own state_dir resolves Air France to the override the real route just wrote; with no state_dir it still resolves to the vendored file | ported | companion/test_companion_app_05.py::test_illustration_override_effects_after_a_real_upload |
+| 271 | POSTing a non-image payload is rejected with the rejection flash key and writes no override file | ported | companion/test_companion_app_05.py::test_illustration_non_image_upload_is_rejected |
+| 272 | POSTing a body over MAX_ILLUSTRATION_UPLOAD_BYTES is rejected, writes no override file, and the drain leaves the service healthy for the next request | ported | companion/test_companion_app_05.py::test_illustration_oversized_upload_is_rejected_and_connection_stays_healthy |
+| 273 | POSTing a valid payload to a key outside the membership set, and to three traversal-shaped paths, all 404 and write nothing to the override directory | ported | companion/test_companion_app_05.py::test_illustration_post_unknown_and_traversal_keys_returns_404 |
+| 274 | an unauthenticated POST /illustration/tunisair.png redirects to /login and writes no override file | ported | companion/test_companion_app_05.py::test_illustration_unauthenticated_post_redirects_to_login_and_writes_nothing |
+| 275 | unauthenticated POSTs to /airlines/resolve and /airlines/manual-resolutions/{prefix}/delete both redirect to /login and write no manual_resolutions.json — the state dir is unchanged, not only the status code | ported | companion/test_companion_app_05.py::test_manual_resolve_and_delete_routes_require_auth_and_write_nothing |
+| 276 | POST /airlines/resolve re-validates the prefix against the live unresolved-prefix registry on write (D-11): a well-shaped but unregistered prefix writes nothing and gets the stale flash; the identical POST succeeds once the prefix is a live registry member | ported | companion/test_companion_app_05.py::test_manual_resolve_post_revalidates_prefix_against_live_registry |
+| 277 | each add_entry() rejection reaches its own distinct flash key and persists nothing (empty/too-long/reserved names, and the registry cap); the D-03 branch: a brand-new name redirects with resolve= (Step B offered) while a name already covered by existing artwork redirects without it | ported | companion/test_companion_app_05.py::test_manual_resolve_post_rejection_mapping_and_d03_branch |
+| 278 | POST /airlines/manual-resolutions/{prefix}/delete removes the registry entry, leaves the override PNG on disk (D-08), and redirects to /airlines with no flash; a second identical POST is a no-op that also redirects without an error flash; a malformed prefix 404s without touching the registry | ported | companion/test_companion_app_05.py::test_manual_resolution_delete_route_full_contract |
 | 279 | POST /airlines/resolve redirects with the manual_save_failed flash key (never a dropped connection) when add_entry() cannot write because the state dir is read-only — the exact failure mode CR-01 fixed, exercised end to end (WR-11) - expected the manual_save_failed flash key when add_entry() fails to write, got '/airlines?resolve=FLD&flash=manual_resolved' | ported | companion/test_companion_app_01.py::test_resolve_post_redirects_manual_save_failed_when_state_dir_is_read_only |
 | 280 | POST /airlines/manual-resolutions/{prefix}/delete redirects with the manual_delete_failed flash key, leaving the entry in place, when delete_entry() cannot write because the state dir is read-only (WR-11) - expected the manual_delete_failed flash key when delete_entry() fails to write, got '/airlines' | ported | companion/test_companion_app_01.py::test_delete_post_redirects_manual_delete_failed_when_state_dir_is_read_only |
-| 281 | unauthenticated POSTs to /settings/rules/add and /settings/rules/{kind}/{value}/delete both redirect to /login and write no colour_rules.json — the state dir is unchanged, not only the status code | pending | |
-| 282 | the rules add form and each delete form sit outside <form id=SETTINGS_FORM_ID> (D-10): neither carries the settings form's id nor a form= attribute pointing at it, and a rule add followed by an unrelated settings-form save leaves both the rule and every device-config setting intact (15-VALIDATION.md row 10) | pending | |
-| 283 | raw URL-encoded no-JS POSTs to the rules add route (15-VALIDATION.md row 11): a first add flashes rule_added, a second add for the same key (case-insensitive input) flashes rule_replaced and echoes the normalised key back, and the registry holds exactly one entry with the second theme | pending | |
-| 284 | the rules add route's rejection paths: a malformed value for the selected kind flashes rule_key_invalid and writes nothing; a crafted kind and a crafted theme id each flash the generic rule_save_failed and write nothing; filling the registry to its cap and adding one more flashes rule_registry_full without persisting the at-cap entry | pending | |
-| 285 | POST /settings/rules/{kind}/{value}/delete removes the registry entry and flashes rule_deleted; a second identical delete of an already-absent entry is a no-op that redirects with no flash; a malformed kind segment and a malformed value segment each 404 without touching an unrelated existing entry | pending | |
-| 286 | a rule written directly to state_dir between two GETs of the Settings page appears in the second render — proving page_context() reads colour_rules fresh per request rather than through any process-scoped cache | pending | |
-| 287 | a first poll trigger redirects with the poll_triggered flash key | pending | |
-| 288 | the first poll trigger's run_once() was served by the fake ADS-B providers (adsbfi and adsblol called, no live network) | pending | |
-| 289 | an immediate second poll trigger redirects with the poll_cooldown flash key | pending | |
-| 290 | a fresh second-opener session is refused by the same cooldown (server-global, not per-session) | pending | |
-| 291 | a genuine poll-trigger failure redirects with the distinct poll_failed flash key, never save_failed | pending | |
-| 292 | two genuinely overlapping POST /poll-now requests: exactly one gets the poll_already_running flash key, proving the server-side _POLL_LOCK serializes execution | pending | |
-| 293 | saving a calendar feed with three in-window flights performs exactly one refresh call and the rendered banner names the plural flight count (D-06) | pending | |
-| 294 | saving a calendar feed with exactly one in-window flight pins the singular form ('1 flight', never '1 flights') | pending | |
-| 295 | a syntactically valid feed with nothing in the frame's window reports success with a 0 count, distinguishable from a failure | pending | |
-| 296 | a failing fetch redirects with the single generic failure flash key, renders the exact failure copy, and the URL is saved regardless (D-06) | pending | |
-| 297 | T-17-FLASH: a raised error whose message embeds the full URL never surfaces the token, path segment, query-parameter name, or whole URL in the Location header or any served response body — the served Settings page legitimately shows the masked host + ellipsis once connected (D-14/R-10, extended by 21-07-PLAN.md Task 2) | pending | |
-| 298 | checking the disconnect box redirects with the disconnected flash key, and the calendar's previously-fetched flights are actually erased from disk (D-04) | pending | |
-| 299 | a bare authenticated POST /settings/calendar/disconnect with no confirm field returns 200 with the confirmation copy and leaves the calendar connected (D-08/A-26) | pending | |
-| 300 | an authenticated POST /settings/calendar/disconnect with confirm=maybe renders the confirmation page rather than disconnecting anything (D-08/A-26) | pending | |
-| 301 | an authenticated POST /settings/calendar/disconnect with confirm=yes 303-redirects with the disconnected flash key and actually disconnects the calendar (D-08/A-26) | pending | |
-| 302 | an unauthenticated POST /settings/calendar/disconnect (even with confirm=yes) redirects to /login and writes nothing (D-08/A-26, T-19-41) | pending | |
-| 303 | a valid POST /settings/calendar/connect 303-redirects to Display with the calendar_connect_ok flash key, persists the URL, triggers exactly one registry refresh, and leaves quiet_hours_enabled/display_enabled exactly as they were (D-14c, T-20-11 pinned regression) | pending | |
-| 304 | an empty calendar_url on POST /settings/calendar/connect 303-redirects with the calendar_connect_invalid flash key and persists nothing (D-14c) | pending | |
-| 305 | an unauthenticated POST /settings/calendar/connect redirects to /login and writes nothing (D-14c, T-20-10) | pending | |
-| 306 | an unauthenticated POST /settings/notifications/test redirects to /login (D-26, T-20-10) | pending | |
-| 307 | with no stored topic URL, POST /settings/notifications/test redirects with the notifications_test_failed flash key and never calls notify.send_notification() (D-26) | pending | |
-| 308 | with a stored topic URL, POST /settings/notifications/test calls notify.send_notification() exactly once with the stored URL and redirects with the notifications_test_ok flash key (D-26) | pending | |
-| 309 | a sender returning False redirects with the notifications_test_failed flash key (D-26) | pending | |
-| 310 | a POST /settings/notifications/test carrying its own topic_url field is ignored in favour of the stored one — the field is never read from the request body (T-20-13) | pending | |
-| 311 | a save-triggered sync against a calendar with a 60s-old last_attempt_at still fetches and reports success, and refresh_calendar_registry() is called with min_interval_s=0 explicitly - not omitted, which a call-shape spy is the only thing that can actually distinguish here, since config_page.handle_post()'s own save_calendar_url() (17-01) already resets last_attempt_at to None on every set before this handler's own refresh call runs | pending | |
-| 312 | server/poll_loop.py's own refresh_calendar_registry() call shape (no min_interval_s override) still honours the standard throttle against the identical seeded state - the bypass is scoped to the new call site alone | pending | |
-| 313 | a save arriving while the poll lock is already held redirects with the deferred flash key, performs no fetch, and still saves the URL (D-09) | pending | |
-| 314 | after a save whose immediate fetch fails, the poll lock is still free - one failure never wedges a later manual poll trigger | pending | |
-| 315 | a settings save that changes only the theme, against an already-connected calendar, redirects with the ordinary saved key, performs no fetch, and leaves the calendar and its fetched entries untouched | pending | |
-| 316 | a calendar save immediately followed by a manual poll trigger does not hit the poll cooldown - the two mechanisms are independent | pending | |
-| 317 | no *.py module or *.js static script anywhere under companion/ (test_*.py harnesses excluded) reintroduces any part of the deleted simple/full display-mode switch (D-17) — six modules' worth of removal, pinned by one mechanical scan | pending | |
-| 318 | every companion.app.FLASH_MESSAGES template and every _PAGE_TITLES value, plus the 404's and login shell's own <title> literals, round-trip to French under i18n.t_lang(..., 'fr') and to their original English text under i18n.t_lang(..., 'en') | pending | |
-| 319 | the nav landmark's aria-label ("Primary navigation") and the theme picker's three segment labels ("Auto"/"Light"/"Dark") round-trip to French under i18n.t_lang(..., 'fr') and to their original English text under i18n.t_lang(..., 'en') (D-06/B16) | pending | |
-| 320 | the site-wide editorial floor (CFG-79): every non-exempt .section-caption element on all six authenticated routes, in both English and French, over a real running server, is at most 12 whitespace-split words; the route list is proven equal to test_browser_ux.py's own VIEW_TRANSITION_ROUTES; CAPTION_FLOOR_EXEMPTIONS (config_page.ASPECT_CAPTION_EXEMPTIONS, imported not re-listed) is skipped exactly its own length per language across the whole site; per-route and site-wide caption-count minimums guard against a narrowed selector passing vacuously; and the apply-timing sentence (read from frame_state.py's own DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN constants) never renders outside the Frame strip's own markup slice, proven to fire inside it at least once (29-06-PLAN.md Task 3) | pending | |
+| 281 | unauthenticated POSTs to /settings/rules/add and /settings/rules/{kind}/{value}/delete both redirect to /login and write no colour_rules.json — the state dir is unchanged, not only the status code | ported | companion/test_companion_app_05.py::test_rules_routes_require_auth_and_write_nothing |
+| 282 | the rules add form and each delete form sit outside <form id=SETTINGS_FORM_ID> (D-10): neither carries the settings form's id nor a form= attribute pointing at it, and a rule add followed by an unrelated settings-form save leaves both the rule and every device-config setting intact (15-VALIDATION.md row 10) | ported | companion/test_companion_app_05.py::test_rules_add_and_delete_forms_sit_outside_settings_form |
+| 283 | raw URL-encoded no-JS POSTs to the rules add route (15-VALIDATION.md row 11): a first add flashes rule_added, a second add for the same key (case-insensitive input) flashes rule_replaced and echoes the normalised key back, and the registry holds exactly one entry with the second theme | ported | companion/test_companion_app_05.py::test_rules_add_route_no_js_added_then_replaced |
+| 284 | the rules add route's rejection paths: a malformed value for the selected kind flashes rule_key_invalid and writes nothing; a crafted kind and a crafted theme id each flash the generic rule_save_failed and write nothing; filling the registry to its cap and adding one more flashes rule_registry_full without persisting the at-cap entry | ported | companion/test_companion_app_05.py::test_rules_add_route_rejection_paths |
+| 285 | POST /settings/rules/{kind}/{value}/delete removes the registry entry and flashes rule_deleted; a second identical delete of an already-absent entry is a no-op that redirects with no flash; a malformed kind segment and a malformed value segment each 404 without touching an unrelated existing entry | ported | companion/test_companion_app_05.py::test_rules_delete_route_full_contract |
+| 286 | a rule written directly to state_dir between two GETs of the Settings page appears in the second render — proving page_context() reads colour_rules fresh per request rather than through any process-scoped cache | ported | companion/test_companion_app_05.py::test_rules_page_context_reads_fresh_per_request |
+| 287 | a first poll trigger redirects with the poll_triggered flash key | ported | companion/test_companion_app_05.py::test_poll_trigger_cooldown_sequence |
+| 288 | the first poll trigger's run_once() was served by the fake ADS-B providers (adsbfi and adsblol called, no live network) | ported | companion/test_companion_app_05.py::test_poll_trigger_cooldown_sequence |
+| 289 | an immediate second poll trigger redirects with the poll_cooldown flash key | ported | companion/test_companion_app_05.py::test_poll_trigger_cooldown_sequence |
+| 290 | a fresh second-opener session is refused by the same cooldown (server-global, not per-session) | ported | companion/test_companion_app_05.py::test_poll_trigger_cooldown_sequence |
+| 291 | a genuine poll-trigger failure redirects with the distinct poll_failed flash key, never save_failed | ported | companion/test_companion_app_05.py::test_poll_trigger_failure_uses_distinct_flash_key |
+| 292 | two genuinely overlapping POST /poll-now requests: exactly one gets the poll_already_running flash key, proving the server-side _POLL_LOCK serializes execution | ported | companion/test_companion_app_05.py::test_poll_now_concurrent_requests_serialize_on_the_lock |
+| 293 | saving a calendar feed with three in-window flights performs exactly one refresh call and the rendered banner names the plural flight count (D-06) | ported | companion/test_companion_app_05.py::test_calendar_connect_reports_plural_count |
+| 294 | saving a calendar feed with exactly one in-window flight pins the singular form ('1 flight', never '1 flights') | ported | companion/test_companion_app_05.py::test_calendar_connect_reports_singular_count |
+| 295 | a syntactically valid feed with nothing in the frame's window reports success with a 0 count, distinguishable from a failure | ported | companion/test_companion_app_05.py::test_calendar_connect_zero_entries_still_succeeds |
+| 296 | a failing fetch redirects with the single generic failure flash key, renders the exact failure copy, and the URL is saved regardless (D-06) | ported | companion/test_companion_app_05.py::test_calendar_sync_failure_reports_generic_message_and_still_saves |
+| 297 | T-17-FLASH: a raised error whose message embeds the full URL never surfaces the token, path segment, query-parameter name, or whole URL in the Location header or any served response body — the served Settings page legitimately shows the masked host + ellipsis once connected (D-14/R-10, extended by 21-07-PLAN.md Task 2) | ported | companion/test_companion_app_05.py::test_calendar_sync_failure_never_leaks_the_url |
+| 298 | checking the disconnect box redirects with the disconnected flash key, and the calendar's previously-fetched flights are actually erased from disk (D-04) | ported | companion/test_companion_app_05.py::test_calendar_disconnect_reports_deletion_and_erases_entries |
+| 299 | a bare authenticated POST /settings/calendar/disconnect with no confirm field returns 200 with the confirmation copy and leaves the calendar connected (D-08/A-26) | ported | companion/test_companion_app_05.py::test_calendar_disconnect_route_bare_post_renders_confirmation_and_touches_nothing |
+| 300 | an authenticated POST /settings/calendar/disconnect with confirm=maybe renders the confirmation page rather than disconnecting anything (D-08/A-26) | ported | companion/test_companion_app_05.py::test_calendar_disconnect_route_confirm_maybe_renders_confirmation_and_touches_nothing |
+| 301 | an authenticated POST /settings/calendar/disconnect with confirm=yes 303-redirects with the disconnected flash key and actually disconnects the calendar (D-08/A-26) | ported | companion/test_companion_app_05.py::test_calendar_disconnect_route_confirm_yes_disconnects |
+| 302 | an unauthenticated POST /settings/calendar/disconnect (even with confirm=yes) redirects to /login and writes nothing (D-08/A-26, T-19-41) | ported | companion/test_companion_app_05.py::test_calendar_disconnect_route_unauthenticated_redirects_to_login |
+| 303 | a valid POST /settings/calendar/connect 303-redirects to Display with the calendar_connect_ok flash key, persists the URL, triggers exactly one registry refresh, and leaves quiet_hours_enabled/display_enabled exactly as they were (D-14c, T-20-11 pinned regression) | ported | companion/test_companion_app_05.py::test_calendar_connect_route_valid_url_persists_syncs_once_and_leaves_other_settings_alone |
+| 304 | an empty calendar_url on POST /settings/calendar/connect 303-redirects with the calendar_connect_invalid flash key and persists nothing (D-14c) | ported | companion/test_companion_app_05.py::test_calendar_connect_route_invalid_url_rejects_and_persists_nothing |
+| 305 | an unauthenticated POST /settings/calendar/connect redirects to /login and writes nothing (D-14c, T-20-10) | ported | companion/test_companion_app_05.py::test_calendar_connect_route_unauthenticated_redirects_to_login |
+| 306 | an unauthenticated POST /settings/notifications/test redirects to /login (D-26, T-20-10) | ported | companion/test_companion_app_05.py::test_notifications_test_route_unauthenticated_redirects_to_login |
+| 307 | with no stored topic URL, POST /settings/notifications/test redirects with the notifications_test_failed flash key and never calls notify.send_notification() (D-26) | ported | companion/test_companion_app_05.py::test_notifications_test_route_unconfigured_flashes_failure_and_never_calls_sender |
+| 308 | with a stored topic URL, POST /settings/notifications/test calls notify.send_notification() exactly once with the stored URL and redirects with the notifications_test_ok flash key (D-26) | ported | companion/test_companion_app_05.py::test_notifications_test_route_configured_calls_sender_once_and_flashes_success |
+| 309 | a sender returning False redirects with the notifications_test_failed flash key (D-26) | ported | companion/test_companion_app_05.py::test_notifications_test_route_sender_returning_false_flashes_failure |
+| 310 | a POST /settings/notifications/test carrying its own topic_url field is ignored in favour of the stored one — the field is never read from the request body (T-20-13) | ported | companion/test_companion_app_05.py::test_notifications_test_route_ignores_a_submitted_topic_url_field |
+| 311 | a save-triggered sync against a calendar with a 60s-old last_attempt_at still fetches and reports success, and refresh_calendar_registry() is called with min_interval_s=0 explicitly - not omitted, which a call-shape spy is the only thing that can actually distinguish here, since config_page.handle_post()'s own save_calendar_url() (17-01) already resets last_attempt_at to None on every set before this handler's own refresh call runs | ported | companion/test_companion_app_05.py::test_calendar_sync_bypasses_the_throttle_via_min_interval_zero |
+| 312 | server/poll_loop.py's own refresh_calendar_registry() call shape (no min_interval_s override) still honours the standard throttle against the identical seeded state - the bypass is scoped to the new call site alone | ported | companion/test_companion_app_05.py::test_poll_modules_own_refresh_call_site_still_throttles |
+| 313 | a save arriving while the poll lock is already held redirects with the deferred flash key, performs no fetch, and still saves the URL (D-09) | ported | companion/test_companion_app_05.py::test_calendar_sync_lock_contention_is_honest |
+| 314 | after a save whose immediate fetch fails, the poll lock is still free - one failure never wedges a later manual poll trigger | ported | companion/test_companion_app_05.py::test_calendar_sync_lock_is_released_after_a_failed_sync |
+| 315 | a settings save that changes only the theme, against an already-connected calendar, redirects with the ordinary saved key, performs no fetch, and leaves the calendar and its fetched entries untouched | ported | companion/test_companion_app_05.py::test_unrelated_settings_save_never_reaches_the_refresh_call |
+| 316 | a calendar save immediately followed by a manual poll trigger does not hit the poll cooldown - the two mechanisms are independent | ported | companion/test_companion_app_05.py::test_calendar_save_does_not_touch_the_manual_poll_cooldown |
+| 317 | no *.py module or *.js static script anywhere under companion/ (test_*.py harnesses excluded) reintroduces any part of the deleted simple/full display-mode switch (D-17) — six modules' worth of removal, pinned by one mechanical scan | ported | companion/test_companion_app_05.py::test_no_companion_module_redefines_the_retired_display_mode_switch |
+| 318 | every companion.app.FLASH_MESSAGES template and every _PAGE_TITLES value, plus the 404's and login shell's own <title> literals, round-trip to French under i18n.t_lang(..., 'fr') and to their original English text under i18n.t_lang(..., 'en') | ported | companion/test_companion_app_05.py::test_flash_and_title_strings_round_trip_to_french_and_back |
+| 319 | the nav landmark's aria-label ("Primary navigation") and the theme picker's three segment labels ("Auto"/"Light"/"Dark") round-trip to French under i18n.t_lang(..., 'fr') and to their original English text under i18n.t_lang(..., 'en') (D-06/B16) | ported | companion/test_companion_app_05.py::test_nav_and_theme_labels_round_trip_to_french_and_back |
+| 320 | the site-wide editorial floor (CFG-79): every non-exempt .section-caption element on all six authenticated routes, in both English and French, over a real running server, is at most 12 whitespace-split words; the route list is proven equal to test_browser_ux.py's own VIEW_TRANSITION_ROUTES; CAPTION_FLOOR_EXEMPTIONS (config_page.ASPECT_CAPTION_EXEMPTIONS, imported not re-listed) is skipped exactly its own length per language across the whole site; per-route and site-wide caption-count minimums guard against a narrowed selector passing vacuously; and the apply-timing sentence (read from frame_state.py's own DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN constants) never renders outside the Frame strip's own markup slice, proven to fire inside it at least once (29-06-PLAN.md Task 3) | ported | companion/test_companion_app_05.py::test_site_wide_editorial_floor_all_six_routes_both_languages |
 
 
 ### Part 01 (plan 33-14)
@@ -575,3 +575,124 @@ still-legacy check past row 266 reads either. Re-verified: the shrunk
 harness runs 52/52 standalone and through
 `companion/test_legacy_harness_shim.py -k companion_app`, and `ruff
 check` on the shrunk file is clean (0 F821 undefined-name errors).
+
+### Part 05 (plan 33-18) — chain closed
+
+Rows 267-320 (52 baseline checks, the LAST anchor of the whole
+companion_app chain) ported into `companion/test_companion_app_05.py`'s
+47 native pytest node ids — 52 `ported`, 0 `deleted`:
+
+- **Illustration override effects (rows 267-270, consolidated into ONE
+  node id):** the four checks all read state produced by the SAME real
+  upload (never each other's mutations), matching 33-17-SUMMARY.md's own
+  consolidation precedent for a fixed-order setup shared across several
+  old checks — the normalization-pipeline identity, the exact-one-file
+  write, the byte-identical vendored original, and
+  `select_illustration()`'s override/vendored resolution.
+- **Illustration upload rejection paths (rows 271-274):** non-image
+  payload, oversized payload, unknown/traversal keys, unauthenticated
+  POST — four independent node ids, each its own fresh
+  `make_app_server`.
+- **Manual-resolution routes (rows 275-278):** auth gate, live-registry
+  revalidation, the four rejection-flash/D-03-branch/cap-fill checks
+  consolidated as the legacy `main()` already grouped them, and the
+  delete route's full contract.
+- **Colour-rules routes (rows 281-286):** auth gate, form placement
+  outside `SETTINGS_FORM_ID`, add/replace, the rejection paths plus
+  registry cap, delete, and the fresh-per-request read.
+- **Poll-trigger cooldown sequence (rows 287-290, consolidated into ONE
+  node id):** first trigger + its fake-provider call-log proof,
+  immediate cooldown, and a fresh second-opener session refused by the
+  same server-global cooldown — the three steps share one mutable
+  server in a fixed order, exactly 33-17-SUMMARY.md's own consolidation
+  rule.
+- **The `--geofence` hotspot (row 291, T-33-18-01):** the poll-trigger
+  failure check now passes `make_app_server(extra_args=["--geofence",
+  str(tmp_path / "absent" / "no-such-geofence.json")])` instead of the
+  legacy literal `/nonexistent/no-such-geofence.json` string — the same
+  startup-failure behaviour, no literal host path guard G6 would flag.
+- **Concurrent `/poll-now` lock proof (row 292).**
+- **Calendar save-triggered sync family (rows 293-316):** every check
+  that used to build its own `_InProcessHarness()` now takes
+  `companion/conftest.py`'s `app_server_in_process` fixture directly —
+  connect/disconnect reporting, the dedicated disconnect/connect routes'
+  full auth/confirm contracts, the notifications "send a test" route,
+  the throttle-bypass spy, lock contention/release, and the two
+  independence proofs (an unrelated save never reaches the refresh call;
+  a calendar save never touches the manual poll cooldown). Row 312 (the
+  poll_loop-side throttle control) needed no server at all and no longer
+  uses `tempfile.TemporaryDirectory()` (guard G6): it takes pytest's own
+  `tmp_path` fixture instead.
+- **The retired display-mode-switch removal (row 317, rubric S):** the
+  legacy check walked every `*.py`/`*.js` file under `companion/` for
+  seven retired tokens as raw text. Rewritten as a `not hasattr()`
+  battery across every `companion.*` module the removal touched
+  (`app`, `auth`, `layout`, `prefs`, and every `companion.pages` module)
+  — confirmed by grepping the WHOLE repo before writing the rewrite that
+  none of the identifier-shaped tokens (`simple_mode`, `MODE_CHOICES`,
+  `DEFAULT_MODE`, `_MODE_CTX`, `UI_MODE_COOKIE_NAME`, `MODE_ROUTE`,
+  `sp_ui_mode`) remain anywhere in production code; the two
+  non-identifier tokens (the `/ui-mode` route, the `sp_ui_mode` cookie
+  name) are behavioural claims already covered by
+  `test_companion_app_04b.py`'s own 404/Accept-Language tests, named in
+  this test's own docstring.
+- **i18n round trips (rows 318-319).**
+- **The site-wide editorial floor (row 320, the LAST anchor, rubric S
+  for its own cross-file counting-rule check, split into TWO node
+  ids):** `test_caption_word_count_text_agrees_with_test_config_page_05s_own_copy`
+  proves this module's own `_caption_word_count_text()` duplicate agrees
+  with `companion.test_config_page_05`'s own copy across four fixtures,
+  by a plain `import companion.test_config_page_05` and calling both
+  functions directly — never the legacy check's disk-read + `ast.parse`
+  + `ast.get_source_segment()` + `exec()` extraction (guard G2 bans
+  `ast`/`tokenize`/`inspect`/`linecache` outright; 33-13-PLAN.md closed
+  the config_page chain, and this plan's own sequential-execution brief
+  required the cross-check be migrated as calling behaviour, never a
+  source read). `test_site_wide_editorial_floor_all_six_routes_both_
+  languages` carries the rest of the original check unchanged: the
+  route-list parity check reads `companion.test_browser_ux_helpers.
+  VIEW_TRANSITION_ROUTES` via a plain import (never the legacy check's
+  own `ast.parse()` of that file's source), then fetches all six routes
+  in both languages over a real server and re-applies every counting/
+  exemption/anti-vacuity floor unchanged. The ledger row points at this
+  primary node id; the split-off cross-check test is the second.
+
+Rubric-code split across this part's 52 baseline rows: 44 B (HTTP
+round-trip/module-call checks), 6 D (markup/regex-over-rendered-HTML
+checks: the rules-form-placement check and the five sub-checks inside
+the editorial floor's own measurement loop), 1 S rewritten as a
+`not hasattr()` battery (row 317), 1 S rewritten as calling behaviour
+(row 320's cross-check), 0 C, 0 J, 0 P, 0 R, 0 T, 0 deleted.
+
+**Chain closed.** `companion/test_companion_app.py` deleted outright
+(`git rm`): all 320 baseline checks are accounted for (319 `ported`
+across `companion/test_companion_app_01.py`..`_05.py`, 1 `deleted` —
+row 89, from an earlier plan in this chain — 0 `pending`).
+`33-ledger-check.py companion/test_companion_app.py` **WITHOUT**
+`--allow-pending` confirms 320/320.
+
+
+### Closing sweep (plan 33-32): structural stylesheet checks
+
+Rows 51, 52, 57, 59, 174 and 179 kept their node ids but no longer assert with a regex, `in`
+test or str search over the served stylesheet's text (33-FOLLOWUPS.md F-01). "Class X is
+styled" is now a selector match over `css_rules()`; the `.js .mobile-nav` rules and the
+`input.visually-hidden` floor-clearing rule are read with `declarations_for()`; row 174 counts
+`@supports selector(:has(*))` with `companion_markup.at_rule_blocks()`; row 179 counts
+`@keyframes` and reduced-motion `@media` blocks with `at_rule_blocks()` and checks every
+animation declaration outside those blocks through `css_rules()`, which retires the
+module's own brace-matching text helper.
+
+### Closing sweep (plan 33-32): one shared counting rule
+
+Row 320's secondary node id
+`test_caption_word_count_text_agrees_with_test_config_page_05s_own_copy` imported the sibling
+test module `companion.test_config_page_05` to compare two copies of the editorial floor's
+counting rule. The rule now lives once, as `caption_word_count_text()` in
+`companion/test_config_page_helpers.py`, and both modules import it, so the agreement check
+became a tautology. It is replaced by
+`companion/test_companion_app_05.py::test_caption_word_count_text_strips_markup_entities_and_one_leading_dash`
+(parametrised over the same four fixtures, with pinned expected outputs). Row 320 still points
+at its primary node id, `test_site_wide_editorial_floor_all_six_routes_both_languages`, which is
+unchanged. Guard rule G12 now forbids a test module importing another test module.
+

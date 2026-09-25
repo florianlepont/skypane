@@ -318,28 +318,3 @@ class InProcessAppServer:
             os.environ.pop(auth.PASSWORD_ENV_VAR, None)
         else:
             os.environ[auth.PASSWORD_ENV_VAR] = self._previous_password
-
-
-# --- Transition alias for still-legacy script harnesses only -------------
-
-class LegacyHarness(AppServer):
-    """A drop-in replacement for the 4 copied `Harness` classes' exact
-    no-argument-constructor shape, for use ONLY by a legacy
-    `check()`/`main()` harness that has not yet been migrated to a native
-    pytest module. Once 33-19 repoints the last legacy browser harness
-    away from importing `test_companion_app.Harness`, and no legacy
-    harness remains, this class is removed by the closing plan — it
-    exists purely to unblock deleting the duplicated `Harness`
-    definitions before every one of their callers has itself migrated.
-    """
-
-    def __init__(self):
-        import tempfile
-
-        super().__init__(
-            tempfile.mkdtemp(prefix="skypane-companion-"), fake_providers=True)
-
-    def cleanup(self):
-        import shutil
-
-        shutil.rmtree(self.state_dir, ignore_errors=True)

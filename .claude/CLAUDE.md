@@ -33,7 +33,7 @@ project pivoted to ADS-B detection of runway-3 traffic before v1.
 | Server | Python 3.14 (Ubuntu 26.04 distro python3), stdlib + Pillow + requests only (`server/requirements.txt`); poll loop is a systemd timer oneshot every 30 s; device protocol served by `stub-server/byos_server.py` (`skypane-byos.service`) |
 | Companion | stdlib `ThreadingHTTPServer` (`companion/app.py`), shared-password auth, English/French UI |
 | Hosting | OVH VPS-1, Ubuntu, Caddy for TLS, three systemd units — `deploy/README.md` |
-| Tests / CI | pytest + pytest-xdist + pytest-cov (`./scripts/run-all-tests.sh` wraps `pytest -n auto --cov`), a pytest-socket non-loopback guard, companion's remaining hand-rolled harnesses run through a pytest shim until Phase 33, ruff, coverage gate at the measured floor, Playwright headless shell, hash-locked `server/requirements*.txt`; GitHub Actions with a reviewer-gated production deploy and firmware host tests in `firmware.yml` |
+| Tests / CI | pytest + pytest-xdist + pytest-cov (`./scripts/run-all-tests.sh` wraps `pytest -n auto --cov`), a pytest-socket non-loopback guard, companion browser tests on pytest-playwright (a missing browser fails CI), shared companion app-server fixtures (`companion/conftest.py`, `test-support/companion_app_server.py`), a behaviour-over-source rule (tests assert served HTML/CSS/JS or a browser, never source text or `.planning/`; `companion/test_suite_guards.py` enforces it), ruff, coverage gate at the measured floor, Playwright headless shell, hash-locked `server/requirements*.txt`; GitHub Actions with a reviewer-gated production deploy and firmware host tests in `firmware.yml` |
 
 <!-- GSD:stack-end -->
 
