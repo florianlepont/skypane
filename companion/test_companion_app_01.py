@@ -1,21 +1,15 @@
-"""Part 01 of the `companion/test_companion_app.py` migration chain
-(33-14-PLAN.md): the original harness's `check()` calls #1-#50, covering
-`companion/auth.py`'s password/session-token/cookie/login-throttle
+"""Tests `companion/auth.py`'s password/session-token/cookie/login-throttle
 contract (Section 1) and `companion/layout.py`'s escaping/page-shell/
-nav/component-builder contract (Section 2), plus five checks that used
-to read `companion/static/style.css` from disk and now fetch it from a
-running `companion/app.py` (`module_app_server_factory` +
-`served_stylesheet()`), asserting on `companion_markup.css_rules()`/
-`declarations_for()`/`rules_with_selector()` instead.
+nav/component-builder contract (Section 2), plus five checks that fetch
+`companion/static/style.css` from a running `companion/app.py`
+(`module_app_server_factory` + `served_stylesheet()`), asserting on
+`companion_markup.css_rules()`/`declarations_for()`/`rules_with_selector()`
+instead of reading the file from disk.
 
 Every Section 1/2 check calls `companion.auth`/`companion.layout`'s own
 functions directly, in-process — none of this half of the slice needs a
-running `companion/app.py` server. Two checks pulled forward out of
-order (33-MIGRATION-RULES.md's rubric T, WR-11's own root-unsafe
-`os.chmod` pair from the still-legacy manual-resolution section, original
-lines ~10315-10412) are ported at the end of this module with
-`@requires_non_root`, so the legacy harness runs green as root from this
-plan onward (32-REVIEW.md IN-05).
+running `companion/app.py` server. Two checks run with
+`@requires_non_root`, so the suite runs green as root too.
 """
 import hashlib
 import hmac
@@ -129,7 +123,7 @@ def test_session_cookie_header_carries_security_flags():
 
 def test_insecure_cookies_flag_drops_secure_but_keeps_other_flags(monkeypatch):
     """SKYPANE_COMPANION_INSECURE_COOKIES=1 drops Secure from both cookie builders while
-    HttpOnly/SameSite=Strict/Path survive (A-34/D-17)"""
+    HttpOnly/SameSite=Strict/Path survive"""
     monkeypatch.setenv(auth.INSECURE_COOKIES_ENV_VAR, "1")
     session_header = auth.session_set_cookie_header(auth.issue_session_token())
     logout_header = auth.logout_set_cookie_header()
@@ -140,14 +134,14 @@ def test_insecure_cookies_flag_drops_secure_but_keeps_other_flags(monkeypatch):
 
 
 def test_insecure_cookies_flag_fails_closed_on_other_values(monkeypatch):
-    """SKYPANE_COMPANION_INSECURE_COOKIES="true" fails closed - Secure stays on (A-34/D-17)"""
+    """SKYPANE_COMPANION_INSECURE_COOKIES="true" fails closed - Secure stays on"""
     monkeypatch.setenv(auth.INSECURE_COOKIES_ENV_VAR, "true")
     header = auth.session_set_cookie_header(auth.issue_session_token())
     assert "Secure" in header, "expected Secure to remain on for a non-'1' value, got %r" % (header,)
 
 
 def test_env_example_documents_insecure_cookies_flag():
-    """deploy/skypane.env.example documents SKYPANE_COMPANION_INSECURE_COOKIES (A-34/D-17)"""
+    """deploy/skypane.env.example documents SKYPANE_COMPANION_INSECURE_COOKIES"""
     env_example_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "deploy", "skypane.env.example")
@@ -190,7 +184,7 @@ def test_login_throttle_allows_locks_and_resets():
 
 def test_login_throttle_self_releases_with_zero_length_window():
     """LoginThrottle with a zero-length window releases itself and a post-window failure
-    starts a fresh count (A-32/D-15)"""
+    starts a fresh count"""
     # With lockout_s=0 the window elapses immediately. The regression this
     # pins: a fix that only checks the failure count (not the elapsed
     # window) would re-arm the lockout on this 4th failure instead of
@@ -208,7 +202,7 @@ def test_login_throttle_self_releases_with_zero_length_window():
 
 def test_login_throttle_self_releases_with_real_window():
     """LoginThrottle with a real lockout_s releases itself once the window elapses and a
-    post-window failure starts a fresh count (A-32/D-15)"""
+    post-window failure starts a fresh count"""
     clock = [1000.0]
     throttle = auth.LoginThrottle(limit=3, lockout_s=60, clock=lambda: clock[0])
     key = "203.0.113.5"
@@ -239,9 +233,9 @@ def test_hand_built_expired_token_rejected():
 
 def test_tokens_signed_with_derived_key_not_raw_password():
     """issued tokens verify within this process, but a raw-password-keyed signature (the old
-    scheme) does not - the signing key is genuinely derived (A-33/D-16)"""
-    # A-33/D-16: two tokens issued in this process both verify - the
-    # derived signing key is stable within a process.
+    scheme) does not - the signing key is genuinely derived"""
+    # Two tokens issued in this process both verify - the derived
+    # signing key is stable within a process.
     token_a = auth.issue_session_token()
     token_b = auth.issue_session_token()
     assert auth.verify_session_token(token_a)
@@ -258,7 +252,7 @@ def test_tokens_signed_with_derived_key_not_raw_password():
 
 def test_revoke_then_is_revoked_round_trip():
     """revoke(token) then is_revoked(token) is True, a never-issued token is False, and a
-    malformed token passed to revoke() raises nothing (A-33/D-16)"""
+    malformed token passed to revoke() raises nothing"""
     token = auth.issue_session_token()
     # A different token string, not a second real session (which
     # issue_session_token()'s nanosecond-resolution expiry already makes
@@ -276,12 +270,11 @@ def test_revoke_then_is_revoked_round_trip():
 
 
 def test_revoked_token_pruned_once_it_expires():
-    """a revoked token is pruned out of the revocation set once its own expiry passes
-    (A-33/D-16, T-19-14: the set stays bounded)"""
+    """a revoked token is pruned out of the revocation set once its own expiry passes"""
     # revoke() stores (token -> expiry); once that expiry has passed, the
     # NEXT revoke()/is_revoked() call must prune the entry out of
     # auth._REVOKED, keeping the set bounded rather than growing for the
-    # lifetime of the process (T-19-14).
+    # lifetime of the process.
     token = auth.issue_session_token()
     auth.revoke(token)
     assert token in auth._REVOKED, "expected revoke() to store a not-yet-expired token"
@@ -343,8 +336,7 @@ def test_page_shell_document_shape():
 
 def test_page_shell_marks_only_the_active_sub960_nav_link():
     """the sub-960px nav link matching `active` carries a distinguishing class and
-    aria-current, the others carry neither (retargeted from the retired dropdown nav onto
-    the tab bar, 22-14-PLAN.md Task 2)"""
+    aria-current, the others carry neither"""
     rendered = layout.page_shell(
         title="Health", active="health", body="",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
@@ -374,7 +366,7 @@ def test_page_shell_marks_only_the_active_sub960_nav_link():
                 "expected a non-active link (%r) to not carry aria-current" % route)
 
 
-# --- 06.6.4.1.1-04 (D-17): flash banner moves below page_header() ---
+# --- 06.6.4.1.1-04 : flash banner moves below page_header() ---
 
 
 def test_flash_banner_spliced_below_page_header_marker_never_leaks():
@@ -477,10 +469,10 @@ def test_sidebar_nav_escapes_hostile_active():
 
 def test_nav_tabs_shrunk_to_four_settled_order():
     """layout.NAV_TABS holds exactly 6 entries, in order home/display/flights/airlines/health/device"""
-    # 06.6.4.1-08 (D-22): NAV_TABS shrinks from five entries to four -
+    # 06.6.4.1-08 : NAV_TABS shrinks from five entries to four -
     # Preview is retired, its whole content absorbed into History
     # (06.6.4.1-05). Order matters: every nav renderer walks NAV_TABS in
-    # this exact order. Phase 18: six tabs in two groups - the everyday
+    # this exact order. : six tabs in two groups - the everyday
     # four, then the two under the "Advanced" label - flattened in that
     # order.
     assert len(layout.NAV_TABS) == 6
@@ -492,13 +484,11 @@ def test_nav_tabs_shrunk_to_four_settled_order():
 def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
     """a rendered authenticated page contains exactly six sidebar nav links and exactly six
     tab-bar links, with exactly one marked active in each, and the hamburger dropdown holds
-    zero destination links (retargeted from the dropdown onto the tab bar, 22-14-PLAN.md
-    Task 2)"""
-    # RETARGETED IN PLACE, STRICTLY NARROWER (22-14-PLAN.md Task 2,
-    # X9/D-10): the sub-960px half counted the dropdown's six links; the
-    # dropdown now holds preferences and the tab bar holds destinations.
-    # The count and the exactly-one-active assertion are unchanged; what
-    # they are counted over moved.
+    zero destination links"""
+    # The sub-960px dropdown now holds preferences, not destinations, and
+    # the tab bar holds all six destination links instead. The count and
+    # the exactly-one-active assertion are unchanged; what they are
+    # counted over moved.
     sidebar_markup = layout.sidebar_nav("flights")
     sidebar_link_count = sidebar_markup.count('<a class="sidebar-link')
     assert sidebar_link_count == 6
@@ -536,7 +526,7 @@ def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
 def test_eye_glyph_survives_nav_shrink():
     """the eye glyph (icon-nav-preview) is still a whitelist member and icon_html() returns
     non-empty markup for it, even though its nav-slug mapping was removed"""
-    # 06.6.4.1-08 (D-22): "icon-nav-preview" (the eye glyph) stays in the
+    # 06.6.4.1-08 : "icon-nav-preview" (the eye glyph) stays in the
     # ICON_IDS whitelist even though NAV_ICON_IDS no longer maps a
     # "preview" slug to it - companion/pages/history_page.py's View-panel
     # trigger is its sole remaining consumer.
@@ -566,11 +556,10 @@ def test_stat_tile_status_classes_caption_escape_and_content_passthrough():
 def test_card_status_class_whitelist_and_empty_fallback():
     """card_status_class() maps status to base_class + a fixed suffix for the three whitelisted
     states, and falls back to the empty string (not an accent class) for None or an
-    unrecognised status — the divergence from stat_tile()'s own fallback (quick task
-    260902-gjj, ISSUE 2)"""
-    # quick task 260902-gjj (ISSUE 2): card_status_class()'s own
-    # contract, following stat_tile()'s check above in shape - the three
-    # whitelisted mappings, and the empty string (not an accent fallback
+    unrecognised status — the divergence from stat_tile()'s own fallback"""
+    # card_status_class()'s own contract, following stat_tile()'s check
+    # above in shape - the three whitelisted mappings, and the empty
+    # string (not an accent fallback
     # class) for both None and an unrecognised status, per that
     # function's own documented divergence from stat_tile()'s accent
     # fallback.
@@ -603,10 +592,9 @@ def test_page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme():
     # same "Primary navigation" aria-label; CSS alone decides which is
     # visible at a given width, so both are always in the DOM.
     #
-    # RETARGETED IN PLACE, STRICTLY NARROWER (22-14-PLAN.md Task 2,
-    # X9/D-10): the sub-960px landmark moved from the dropdown to the
-    # bottom tab bar, so the PAIR is now sidebar + tab bar and the count
-    # is asserted on a render that has a tab bar. A page with no device
+    # The sub-960px landmark moved from the dropdown to the bottom tab
+    # bar, so the PAIR is now sidebar + tab bar and the count is
+    # asserted on a render that has a tab bar. A page with no device
     # config (the 404) carries exactly ONE landmark, never an empty
     # second one.
     with_bar = layout.page_shell(
@@ -623,7 +611,7 @@ def test_page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme():
 
 def test_page_shell_skip_link_target_is_focusable():
     """page_shell()'s skip link target carries tabindex="-1" so it actually receives focus"""
-    # CR-01: the skip link's href="#main-content" target must itself be
+    # The skip link's href="#main-content" target must itself be
     # focusable (tabindex="-1") or activating the link scrolls the
     # viewport without moving keyboard focus, per the HTML
     # fragment-navigation focusing steps (WCAG SCR28/G1).
@@ -639,20 +627,17 @@ def test_page_shell_escapes_hostile_body():
     assert "<script>" not in rendered
 
 
-# --- 06.6.1-04 Task 1: icon sprite, whitelisted builder, stat_tile() icon slot ---
+# --- 06.6. Task 1: icon sprite, whitelisted builder, stat_tile() icon slot ---
 
 
 def test_icon_sprite_integrity():
     """layout.ICON_IDS has exactly twenty-three unique members, each a symbol id in
     ICON_DEFS_HTML and vice versa"""
-    # 06.6.3: the whitelist grew from ten to fourteen members
-    # (icon-check/icon-copy/icon-refresh/icon-search, D-05/D-23/D-12/
-    # D-20). quick task 260903-df3 grew it again, fourteen to fifteen
-    # (icon-upload, the Airlines lightbox replace zone's glyph).
-    # 22-14-PLAN.md Task 1 (X9/D-10) grows it from twenty-one to
-    # twenty-two (icon-more, the bottom tab bar's "More" cell).
-    # 28-01-PLAN.md (CFG-76) grows it again, 22 -> 23 (icon-gear,
-    # #site-nav-toggle's new glyph).
+    # The whitelist grew from ten to fourteen members
+    # (icon-check/icon-copy/icon-refresh/icon-search), then to fifteen
+    # (icon-upload, the Airlines lightbox replace zone's glyph), then to
+    # twenty-two (icon-more, the bottom tab bar's "More" cell), then to
+    # 23 (icon-gear, #site-nav-toggle's new glyph).
     assert len(layout.ICON_IDS) == 23
     assert len(set(layout.ICON_IDS)) == 23, "expected ICON_IDS to have no duplicates"
     symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
@@ -697,8 +682,8 @@ def test_page_shell_emits_sprite_once_no_inline_styles():
     dashboard-shell, no inline styles"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     assert doc.count("<defs") == 1
-    # 22-14-PLAN.md Task 1 (X9/D-10): twenty-one -> twenty-two
-    # (icon-more). 28-01-PLAN.md (CFG-76): 22 -> 23 (icon-gear).
+    # Task 1 : twenty-one -> twenty-two
+    # (icon-more). : 22 -> 23 (icon-gear).
     assert doc.count("<symbol") == 23
     assert doc.index("icon-defs") < doc.index("dashboard-shell"), (
         "expected the sprite to precede the dashboard-shell div")
@@ -707,7 +692,7 @@ def test_page_shell_emits_sprite_once_no_inline_styles():
 
 # --- heading-color-consistency debug session -------------------------
 #
-# D-03's serif-headings contract used to be an allow-list in a style.css
+# The serif-headings contract used to be an allow-list in a style.css
 # comment. These checks make the contract executable in both directions
 # — every heading role IS serif, and no dense/tabular role IS NOT — over
 # the stylesheet companion/app.py actually serves, via companion_markup's
@@ -716,7 +701,7 @@ def test_page_shell_emits_sprite_once_no_inline_styles():
 
 def test_heading_roles_share_one_serif_rule_with_named_nested_exception(served_css):
     """every heading role (h1/h2/h3/legend/.text-heading) shares one serif rule except the
-    one named, asserted nested card-title sans exception (D-09), and `legend` does not
+    one named, asserted nested card-title sans exception and `legend` does not
     override its weight"""
     # The single rule that grants the serif family: h1/h2/h3/legend/
     # .text-heading all resolve font-family/font-weight through
@@ -725,8 +710,8 @@ def test_heading_roles_share_one_serif_rule_with_named_nested_exception(served_c
     # specificity selectors. `legend` also carries its own DEDICATED
     # rule later in the file (font-size/padding only) — if that rule
     # ever restated font-weight, declarations_for()'s merge would surface
-    # the override here, which is exactly the D-09/CR-adjacent regression
-    # this check exists to catch (both selectors are bare `legend`,
+    # the override here, which is exactly the regression this check
+    # exists to catch (both selectors are bare `legend`,
     # (0,0,1) specificity, so the later rule wins at equal specificity).
     for selector in ("h1", "h2", "h3", "legend", ".text-heading"):
         declarations = declarations_for(served_css, selector)
@@ -737,8 +722,8 @@ def test_heading_roles_share_one_serif_rule_with_named_nested_exception(served_c
             "expected %r to resolve font-weight to var(--weight-regular) — a later "
             "same-specificity rule may be overriding it, got %r"
             % (selector, declarations.get("font-weight")))
-    # 06.6.4.1.1-04 Task 2 (D-09): the shared rule above grants serif to
-    # every heading role, and there is exactly one documented, asserted
+    # The shared rule above grants serif to every heading role, and
+    # there is exactly one documented, asserted
     # exception - the nested card-title selector ("Battery trend",
     # "Unresolved prefixes", "Resolution statistics"), deliberately
     # demoted to the sans --font-ui voice at 16px semibold.
@@ -749,13 +734,12 @@ def test_heading_roles_share_one_serif_rule_with_named_nested_exception(served_c
 
 
 def test_serif_never_reaches_dense_or_tabular_content(served_css):
-    """--font-serif never reaches table, body, mono, nav-link or stat-tile-caption rules
-    (D-03's headings-only boundary; D-13 retired the caption's own former serif exception)"""
-    # D-03's other half: serif is headings-only. Body, tables, form
+    """--font-serif never reaches table, body, mono, nav-link or stat-tile-caption rules"""
+    # Serif is headings-only. Body, tables, form
     # controls, nav links and mono content stay on --font-ui. Guards
     # against the rejected "serif partout" option creeping back in one
-    # rule at a time. `.stat-tile__caption` (D-13) was this file's one
-    # named Label-role serif exception until D-13 retired it in favour of
+    # rule at a time. `.stat-tile__caption` was this file's one
+    # named Label-role serif exception until retired it in favour of
     # the unified sans 12px label voice - it is listed here now so that
     # retirement cannot silently reverse without a deliberate edit to
     # this check.
@@ -772,8 +756,8 @@ def test_serif_never_reaches_dense_or_tabular_content(served_css):
 
 def test_mobile_nav_link_and_sidebar_link_geometries_stay_diverged(served_css):
     """mobile dropdown nav link keeps its restored 44px/Body-size tap target while the desktop
-    sidebar link stays at its D-05 32px/Label-size compaction (260902-qkm)"""
-    # 260902-qkm: D-05 (06.6.4-04) reached .mobile-nav__link by mistake -
+    sidebar link stays at its 32px/Label-size compaction"""
+    # A past fix reached .mobile-nav__link by mistake -
     # the mobile dropdown is the phone's only nav, with no desktop
     # compactness argument to trade against, while .sidebar-link is
     # structurally desktop-only (hidden below 960px). The two renderings
@@ -817,10 +801,9 @@ def test_exactly_one_error_signal_colour_token(served_css):
 
 
 # ==========================================================================
-# Out-of-order pull (33-MIGRATION-RULES.md rubric T): the two root-unsafe
-# WR-11 os.chmod checks from the still-legacy manual-resolution section
-# (original lines ~10315-10412), so companion/test_companion_app.py runs
-# green as root from this plan onward (32-REVIEW.md IN-05).
+# The two root-unsafe os.chmod checks from the manual-resolution
+# section, marked @requires_non_root so this module runs green as root
+# too.
 # ==========================================================================
 
 
@@ -828,12 +811,12 @@ def test_exactly_one_error_signal_colour_token(served_css):
 def test_resolve_post_redirects_manual_save_failed_when_state_dir_is_read_only(make_app_server):
     """POST /airlines/resolve redirects with the manual_save_failed flash key (never a
     dropped connection) when add_entry() cannot write because the state dir is read-only —
-    the exact failure mode CR-01 fixed, exercised end to end (WR-11)"""
-    # WR-11: FLASH_KEY_MANUAL_SAVE_FAILED was added specifically because
-    # add_entry() can return ADD_FAILED on an unwritable state dir - CR-01
-    # fixed the bug that made that path raise instead (a dropped
-    # connection, no flash at all); this proves the flash key itself is
-    # actually reached end to end.
+    the exact failure mode fixed, exercised end to end"""
+    # FLASH_KEY_MANUAL_SAVE_FAILED was added specifically because
+    # add_entry() can return ADD_FAILED on an unwritable state dir; this
+    # fixed a bug that made that path raise instead (a dropped
+    # connection, no flash at all), and this proves the flash key itself
+    # is actually reached end to end.
     server = make_app_server(fake_providers=True)
     cookie = login(server)
     cah.seed_unresolved_prefixes(server.state_dir, {
@@ -869,8 +852,8 @@ def test_resolve_post_redirects_manual_save_failed_when_state_dir_is_read_only(m
 def test_delete_post_redirects_manual_delete_failed_when_state_dir_is_read_only(make_app_server):
     """POST /airlines/manual-resolutions/{prefix}/delete redirects with the
     manual_delete_failed flash key, leaving the entry in place, when delete_entry() cannot
-    write because the state dir is read-only (WR-11)"""
-    # WR-11's mirror case: FLASH_KEY_MANUAL_DELETE_FAILED for
+    write because the state dir is read-only"""
+    # The mirror case: FLASH_KEY_MANUAL_DELETE_FAILED for
     # delete_entry() returning False after a genuine write failure
     # (never for an already-absent prefix, which is a silent no-op by
     # design).
