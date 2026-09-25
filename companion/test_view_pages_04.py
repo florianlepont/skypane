@@ -1,42 +1,10 @@
-"""Part 04 of the `companion/test_view_pages.py` migration chain
-(33-08-PLAN.md): the original harness's check() calls #135-#169, the
-chain's LAST slice — Home's French end-to-end render, the status card's
-localised health-state timestamps, the Frame/Flight-data tile verdict
-contracts, the CSS-only checks for the status grid/recent-flight time
-cell/thumbnail treatments, Home's degrade-with-nothing/battery-move
-contracts, the day band's own time-scale/night-window/crowding/class
-contracts (companion/draw.py) and its Home integration (Paris-day
-bucketing, quiet-hours shading, one extra history.db read), the hero
-composition proving the ring/band are fed by companion/draw.py's shared
-emitters rather than a forked copy, companion.wake/companion.frame_state's
-own resolution contracts, companion/frame_state.py's view-free boundary,
-and two end-to-end HTTP round trips (the retired /preview page, the
-Airlines dialog forms rendering unconditionally) plus the shared
-@starting-style lightbox entrance CSS contract.
+"""Companion view-page tests, last slice: Home's French render, the status
+card's localised timestamps, the Frame/Flight-data tile verdicts, Home's
+degrade-with-nothing contracts, the day band's contracts, and the hero
+composition's shared draw.py emitters.
 
-Every check calls `home_page.render()` / `frame_state`/`wake` functions
-directly, or drives a real `companion/app.py` over HTTP
-(`make_app_server`/`module_app_server_factory`), with a `tmp_path`-backed
-state directory. Checks that used to read `companion/static/style.css`
-from disk instead fetch it from a running server
-(`module_app_server_factory` + `served_stylesheet()`) and assert on
-`companion_markup`'s parsed CSS rules — never a file opened from disk
-(TST-12). Two checks that used to read `companion/frame_state.py` /
-`companion/battery.py` as text are rewritten per rubric S: the "never
-imports X" half becomes a subprocess-import + `sys.modules` proof (the
-same technique `companion/test_companion_app_03.py`'s own `battery`/
-`draw` import-boundary checks already established), and the "never names
-a CSS class literal" half becomes a scan of the module's own already-
-imported public string constants — the module's actual returned copy,
-never its source text. Two checks that used a syntax-tree walk
-(`inspect.getsource()`/`ast.parse()`, banned outright by guard G2) over
-`companion/pages/home_page.py` to prove "no forked ring/band markup" are
-trimmed to their surviving, already-behavioural assertions: the same
-property is proven MORE strongly by `test_breaking_a_shared_emitter_
-breaks_the_hero_with_the_page_it_borrowed_it_from` below, which mutates
-the shared emitter's own class constant and observes both pages move
-together — a forked copy could not do that. See the ledger fragment's
-Part 04 note for the full rubric accounting.
+Every check calls `home_page.render()` directly, or drives a real
+`companion/app.py` over HTTP; CSS checks assert on it structurally.
 """
 import os
 import re
@@ -74,7 +42,7 @@ _BAND_DAY_START = 1756000000
 def app(module_app_server_factory):
     """A read-only companion/app.py server this module's CSS-only checks
     fetch the served stylesheet from, instead of opening it from disk
-    (TST-12)."""
+    ."""
     return module_app_server_factory()
 
 
@@ -188,7 +156,7 @@ def _classes_inside_svg(markup, opening_class):
     return set(re.findall(r'class="([^"]*)"', svg.group(1)))
 
 
-# --- Home's fully-seeded French render (22-04..22-07-PLAN.md) ----------
+# --- Home's fully-seeded French render ----------
 
 def test_home_full_seeded_render_localises_to_french_without_leaking_english(tmp_path):
     """a fully-seeded Home render under lang='fr' shows the French page title, section
@@ -246,7 +214,7 @@ def test_home_status_card_localises_real_health_state_timestamps_under_french(tm
     lang='fr', fully localises the Frame/Flight-data rows' timestamps (no English month
     abbreviation or ' ago' survives) and the Flight-data row's detail is now a single,
     verdict-free clause — never joined with ' · ', never repeating Health's own verdict
-    wording (22-07-PLAN.md Task 1 B2 retarget)"""
+    wording"""
     now = "2026-09-12T00:00:00+00:00"
     device_ts = "2026-09-10T23:58:00+00:00"
     with history_db.open_db(tmp_path) as conn:
@@ -290,7 +258,7 @@ def test_home_status_card_localises_real_health_state_timestamps_under_french(tm
 def test_home_frame_tile_matches_strip_for_the_nightly_held_regression(tmp_path):
     """the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock 02:00
     Europe/Paris): Home's Frame tile and the strip render the SAME clock string, and zero
-    warn/error tokens appear anywhere on the page (X2, D-03/CFG-26)"""
+    warn/error tokens appear anywhere on the page (X2)"""
     paris = timezone(timedelta(hours=1))
     device_cfg = {
         "wake_interval_s": 900, "display_enabled": True,
@@ -419,7 +387,7 @@ def test_home_recent_flight_time_one_line_no_mono_class(tmp_path):
 
 
 # --- CSS-only checks: the served stylesheet's parsed rules, never a disk
-# read (TST-12) -----------------------------------------------------------
+# read -----------------------------------------------------------
 
 def test_home_status_grid_declares_align_items_stretch(served_css):
     """.home-status-grid's own CSS rule declares align-items: stretch (B2)"""
@@ -486,7 +454,7 @@ def test_home_full_render_has_quick_action_only_inside_strip_and_three_tiles(tmp
     """a rendered Home page carries no status-card__rows/home-hero markup, quick-action markup
     only inside .frame-strip (exactly two cells) and nowhere else, exactly three stat-tile
     elements labelled Frame/Battery/Flight data, and the Frame verdict sentence exactly once
-    (D-04/D-05)"""
+    """
     ctx = {
         "health_state": {"device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"},
         "device_config": {}, "state_dir": str(tmp_path / "absent" / "nested"),
@@ -514,7 +482,7 @@ def test_home_full_render_has_quick_action_only_inside_strip_and_three_tiles(tmp
 def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
     """the Frame strip's headline reads 'Next update ≈ HH:MM' for a future next-update,
     'Expected since HH:MM' in the warn treatment for a past one, and renders no headline at all
-    when either the check-in or the wake interval is unknown (D-01, moved from the deleted
+    when either the check-in or the wake interval is unknown (moved from the deleted
     _status_card_html())"""
     base_ctx = {
         "device_config": {"wake_interval_s": 900, "display_enabled": True},
@@ -557,7 +525,7 @@ def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
 
 def test_home_status_card_always_shows_health_link(tmp_path):
     """a default Home render always carries the status tiles section's 'See details on Health'
-    link (D-17, moved to _status_tiles_html() after _status_card_html()'s deletion)"""
+    link (moved to _status_tiles_html() after _status_card_html()'s deletion)"""
     ctx = {
         "health_state": {}, "device_config": {},
         "state_dir": str(tmp_path / "absent" / "nested"), "now": "2026-08-27T12:00:00+00:00",
@@ -588,19 +556,19 @@ def test_home_page_render_degrades_with_nothing():
 
 
 def test_battery_percent_moved_out_of_home_page():
-    """battery_percent() no longer exists on home_page after moving to companion/battery.py (D-01)"""
+    """battery_percent() no longer exists on home_page after moving to companion/battery.py"""
     assert not hasattr(home_page, "battery_percent"), (
         "expected home_page.battery_percent to be gone after the D-01 move")
 
 
-# --- 24-06-PLAN.md Task 1 (CFG-42): the day band's own time domain -----
+# --- Task 1 : the day band's own time domain -----
 
 def test_day_band_time_scale_places_by_when_not_by_index():
     """draw.percent_time() is a TIME scale and not the index scale beside it: midnight/midday/
     the day's final instant land at 0/50/100%, an hour is 1/24 of the band however many other
     instants are on it (so an outage draws as an outage), a DST day's own length is a parameter
     rather than a hardcoded 86400, and an instant outside the day is REJECTED rather than
-    clamped onto an edge where it would invent a check-in (CFG-42, T-24-06-A)"""
+    clamped onto an edge where it would invent a check-in"""
     day = draw.SECONDS_PER_DAY
     # Midnight, midday, and the day's own final instant.
     for offset, expected in ((0, 0.0), (day / 2.0, 50.0), (day, 100.0)):
@@ -609,7 +577,7 @@ def test_day_band_time_scale_places_by_when_not_by_index():
             "expected %+.1fs into the day at %.1f%%, got %r" % (offset, expected, got))
     # Outside the day is REJECTED, never positioned. A clamped instant
     # would put yesterday's check-in at this band's midnight and make
-    # today's drawing claim a check-in that never happened (T-24-06-A).
+    # today's drawing claim a check-in that never happened .
     for outside in (_BAND_DAY_START - 1, _BAND_DAY_START + day + 1):
         assert draw.percent_time(outside, _BAND_DAY_START) is None, (
             "expected an instant outside the day to be rejected, got %r for %r"
@@ -668,7 +636,7 @@ def test_day_band_night_window_shades_the_night_as_two_spans():
     """the day band renders a wrapping night window (22:00-07:00) as TWO shaded spans covering
     nine hours, one flush to 00:00 and one flush to 24:00 with midday left clear — never one
     inverted span that would shade the middle of the day — while a daytime window stays one
-    span and an absent/zero-width/out-of-day/malformed window shades nothing at all (CFG-42)"""
+    span and an absent/zero-width/out-of-day/malformed window shades nothing at all"""
     day = draw.SECONDS_PER_DAY
     hour_percent = 100.0 / 24
 
@@ -728,9 +696,9 @@ def test_day_band_collapses_crowded_marks_and_reports_exactly_how_many():
     """the day band collapses marks closer than its own stated minimum spacing and returns
     EXACTLY how many it hid — 48 marks at a 30-minute cadence with nothing collapsed, a
     60-second and a 1-second cadence both bounded by the band's width rather than the row
-    count (T-24-06-C), no two kept marks under the minimum apart, and an unplaceable instant
+    count, no two kept marks under the minimum apart, and an unplaceable instant
     counted too so a caption built from the number can never claim a total the drawing does
-    not reach (T-24-06-B)"""
+    not reach"""
     day = draw.SECONDS_PER_DAY
     spacing = draw.DAY_BAND_MIN_MARK_SPACING_PERCENT
     ceiling = int(100.0 / spacing) + 1
@@ -822,7 +790,7 @@ def test_day_band_emits_only_registered_classes_and_no_colour():
     """every class the day band emits is one of companion/draw.py's own named constants and is
     registered in DRAWING_CLASSES (so the stylesheet-resolution guard can see it), the markup
     carries no colour literal, no url() reference and no inline style, and a band supplied
-    with a label announces itself as a named group rather than being hidden (CFG-39/CFG-42)"""
+    with a label announces itself as a named group rather than being hidden"""
     markup, _ = draw.day_band(
         _BAND_DAY_START, draw.SECONDS_PER_DAY,
         [_band_hour(h) for h in (1, 5, 9, 13, 17, 21)],
@@ -847,15 +815,15 @@ def test_day_band_emits_only_registered_classes_and_no_colour():
     assert 'aria-hidden="true"' in unlabelled, "expected an unlabelled band to be hidden rather than an unnamed group"
 
 
-# --- 24-06-PLAN.md Task 2 (CFG-42): the day band on Home ----------------
+# --- Task 2 : the day band on Home ----------------
 
 def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     """Home's day band draws one mark per check-in at its PARIS clock position, captions the
     Paris day it shows and states the count as text; a day with no check-ins still renders the
     band and its frame with a caption naming the day (an absent section would read as an
     unbuilt feature, an empty band reads as no activity); and with history.db unreadable the
-    page renders with no band at all rather than an empty one claiming no check-ins (CFG-42,
-    T-24-06-D)"""
+    page renders with no band at all rather than an empty one claiming no check-ins (
+    )"""
     # Paris 14:00 on 2026-08-27 (CEST, UTC+2), so the band's day runs
     # 2026-08-26T22:00Z .. 2026-08-27T22:00Z.
     now = "2026-08-27T12:00:00+00:00"
@@ -902,7 +870,7 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     assert 'class="drawing-band"' in empty_section, "expected the band's own frame to render on an empty day"
     assert "2026-08-27" in empty_section, "expected the empty band's caption to name the day too"
 
-    # THE COLLAPSE, CAPTIONED (T-24-06-B). The band above drew three
+    # THE COLLAPSE, CAPTIONED . The band above drew three
     # well-separated marks and must NOT carry the merge sentence — a
     # caption that always admitted a collapse would be as untrue as one
     # that never did. A day at a one-minute cadence must carry it,
@@ -931,7 +899,7 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
         "is honest, only the COUNTING of marks is not")
 
     # NO DATABASE AT ALL: no band, no raise, a page that still renders
-    # (T-24-06-D).
+    # .
     #
     # The unreadable database is made unreadable by putting a DIRECTORY
     # where history.db belongs, not by chmod: this harness may run as
@@ -958,7 +926,7 @@ def test_home_day_band_shades_quiet_hours_only_when_configured(tmp_path):
     """Home's day band shades the CONFIGURED quiet-hours window — the default 23:00-07:00
     wrapping night window as two spans covering its eight hours, named in the caption — and
     with quiet hours disabled shades nothing and says nothing about them, while still drawing
-    the day's check-ins (CFG-42/D-03)"""
+    the day's check-ins"""
     now = "2026-08-27T12:00:00+00:00"
     checkins = ["2026-08-27T10:00:00+00:00"]
     hour = 100.0 / 24
@@ -1010,7 +978,7 @@ def test_home_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
     Paris is never behind UTC — and spans a real 25-hour Paris day so midday lands at 52.00%
     rather than the 54.17% a hardcoded 86400 would give; it costs render() exactly one
     history.db read more than the two it made before, measured, and the frame verdict still
-    appears exactly once (CFG-42/D-20)"""
+    appears exactly once"""
     now = "2026-08-27T12:00:00+00:00"
     # THE BOUNDARY THIS BREAKS AT IF IT BREAKS. Paris is UTC+1/+2 and so
     # never BEHIND UTC. 00:30 Paris is 22:30 UTC on the PREVIOUS day, so
@@ -1047,7 +1015,7 @@ def test_home_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
         "band, got %.2f%% — a hardcoded 86400 puts it at 54.17%% and leaves an hour of the "
         "band unreachable" % (dst_got,))
 
-    # ONE READ, REUSED (D-20), MEASURED. render() made two history.db
+    # ONE READ, REUSED, MEASURED. render() made two history.db
     # reads before this change; the band adds exactly one, and a band
     # that re-queried per section would show up here as three or more.
     read_ctx = _home_band_ctx(tmp_path / "reads", now, ["2026-08-27T10:00:00+00:00"])
@@ -1077,14 +1045,14 @@ def test_home_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
     assert len(verdicts) == 1, "expected exactly one frame verdict rendered on Home, got %r" % (verdicts,)
 
 
-# --- 24-08-PLAN.md Task 1 (CFG-44): D4's hero, assembled from calls -----
+# --- Task 1 : D4's hero, assembled from calls -----
 
 def test_home_top_is_one_composition_holding_the_ring_and_the_band(tmp_path):
     """Home's top is ONE composition: a single hero container holds the shared Frame strip
     (rendered once, unforked), the three status tiles carrying the battery ring, and the day
     band — the picture row stays outside it, the ring and the band each appear exactly once
     and both inside the hero, and the frame verdict still appears exactly once in BOTH
-    languages (CFG-44)
+    languages
 
     The legacy check also walked companion/pages/home_page.py's own source with
     inspect.getsource() to prove it names no battery-arithmetic literal and no bare
@@ -1106,9 +1074,9 @@ def test_home_top_is_one_composition_holding_the_ring_and_the_band(tmp_path):
     ctx["gallery_entries"] = ["2026-08-27T11-50-00+00-00.png"]
     rendered = home_page.render(ctx)
 
-    # ONE hero. Two containers would be the phase-20 collision back in a
-    # new costume (22-07 had to rename a second thing called "Frame" on
-    # this very page).
+    # ONE hero. Two containers would be an earlier naming collision back
+    # in a new costume — a second thing called "Frame" had to be
+    # renamed on this very page.
     opens = len(re.findall(
         r'<div class="[^"]*\b%s\b[^"]*">' % re.escape(home_page.HERO_CLASS), rendered))
     assert opens == 1, "expected exactly one hero container on Home, got %d" % (opens,)
@@ -1153,7 +1121,7 @@ def test_home_top_is_one_composition_holding_the_ring_and_the_band(tmp_path):
             "expected the %s INSIDE the hero — CFG-44's hero is the composition the drawings "
             "feed, not a container beside them" % (label,))
 
-    # THE RECORDED FIXED BUG (20-RESEARCH.md Pitfall 3), re-asked in BOTH
+    # THE RECORDED FIXED BUG (Pitfall 3), re-asked in BOTH
     # languages because a hero is precisely the shape that reintroduces
     # it and French is a separate string table that could disagree.
     for lang in ("en", "fr"):
@@ -1170,13 +1138,13 @@ def test_home_top_is_one_composition_holding_the_ring_and_the_band(tmp_path):
             prefs.set_request_prefs(lang="en")
 
 
-# --- 24-08-PLAN.md Task 2 (CFG-44): "fed by", proven --------------------
+# --- Task 2 : "fed by", proven --------------------
 
 def test_the_heros_ring_is_the_emitter_healths_ring_is(tmp_path):
     """the hero's battery ring is the same emitter Health's ring is — the two pages' rings
     carry one class vocabulary, computed from the markup rather than listed; the hero's day
     band draws three different shapes and not one; and every class either of them emits is a
-    constant companion/draw.py itself names (CFG-44)
+    constant companion/draw.py itself names
 
     The legacy check also walked home_page.py's OWN source (and this check's own source) with
     ast.parse()/inspect.getsource() looking for a restated drawing-class string literal —
@@ -1245,7 +1213,7 @@ def test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_
     hero and Health's readout change, neither keeping the original string (a hero built from
     its own copy would); the band emitter's own mutation reaches the hero and leaves Health
     byte-identical, proving the mutation is targeted rather than a global perturbation; and
-    both pages return to their pre-mutation markup (CFG-44)"""
+    both pages return to their pre-mutation markup"""
     now = "2026-08-27T12:00:00+00:00"
     ctx = _home_band_ctx(tmp_path / "link", now, [
         "2026-08-27T06:00:00+00:00",
@@ -1275,7 +1243,7 @@ def test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_
 
     # THE RING: one definition, two pages. A hero built from its own
     # copy would still carry the ORIGINAL class here while Health carried
-    # the sentinel — which is exactly the drift CFG-44 is about, and is
+    # the sentinel — which is exactly the drift is about, and is
     # invisible to any check that only looks at the markup as shipped.
     original, home_after, health_after = _mutated("DRAWING_RING_VALUE_CLASS")
     for label, before, after in (("the hero", home_before, home_after), ("Health", health_before, health_after)):
@@ -1305,16 +1273,16 @@ def test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_
     assert health_page.render(health_ctx) == health_before, "Health did not return to its pre-mutation markup"
 
 
-# --- 19-12-PLAN.md Task 3 (D-13/S-02): the "Next wake ≈ HH:MM" figure ---
+# --- Task 3 (S-02): the "Next wake ≈ HH:MM" figure ---
 
 def test_wake_next_wake_at_iso_contract():
     """wake.next_wake_at_iso()/next_wake_status() return None/(None, None, None) for a
     falsy/unparseable ts or an unknown interval, last_checkin + wake_interval_s for a
-    screen-on config, last_checkin + DISPLAY_OFF_SLEEP_S for a screen-off config (D-13's
+    screen-on config, last_checkin + DISPLAY_OFF_SLEEP_S for a screen-off config (
     screen-off rule), and the quiet-hours-active fixtures: a window opening during the base
     interval wins over the naive candidate, an enabled-but-nowhere-near-active window changes
     nothing, an active window beats a 300s screen-off cadence, and the richer accessor carries
-    the same effective interval and hold reason for every fixture above (D-03/CFG-26)"""
+    the same effective interval and hold reason for every fixture above"""
     # None for a falsy/unparseable ts, or no known interval.
     assert wake.next_wake_at_iso(None, {}) is None, "expected None for a falsy last_checkin_ts"
     assert wake.next_wake_at_iso("", {"wake_interval_s": 900}) is None, "expected None for an empty-string last_checkin_ts"
@@ -1328,7 +1296,7 @@ def test_wake_next_wake_at_iso_contract():
     got = wake.next_wake_at_iso(
         "2026-08-27T11:55:00+00:00", {"wake_interval_s": 900, "display_enabled": True})
     assert got == "2026-08-27T12:10:00+00:00", "expected last_checkin + wake_interval_s, got %r" % (got,)
-    # A screen-off config: last_checkin + DISPLAY_OFF_SLEEP_S, the D-13
+    # A screen-off config: last_checkin + DISPLAY_OFF_SLEEP_S, the
     # screen-off rule — wins over wake_interval_s regardless of its
     # value. Pre-existing fixture, pinned byte-identical for the same
     # reason.
@@ -1413,7 +1381,7 @@ def test_wake_next_wake_at_iso_contract():
         "hold_reason=None, got %r" % (status_off,))
 
 
-# --- 22-02-PLAN.md Task 2 (D-03/D-04): the one frame-state resolution and
+# --- Task 2 : the one frame-state resolution and
 # the one delay sentence -------------------------------------------------
 
 def test_frame_state_resolve_state_contract():
@@ -1423,7 +1391,7 @@ def test_frame_state_resolve_state_contract():
     headline_template()/delay_sentence_template() return the matching three-branch copy
     constants, and the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock
     02:00 Europe/Paris) resolves to STATE_HELD end to end through wake.next_wake_status()
-    (D-03/D-04, 22-UI-SPEC.md §3.3 binding rule 6)"""
+    (§3.3 binding rule 6)"""
     # No check-in recorded at all: unknown, no dot class claimed — this
     # module never returns a dot class in the first place.
     assert frame_state.resolve_state(None, None, None, "2026-01-15T12:00:00+00:00") == frame_state.STATE_UNKNOWN, (
@@ -1474,7 +1442,7 @@ def test_frame_state_resolve_state_contract():
     assert frame_state.delay_sentence_template(next_wake, interval_s, wake.HOLD_QUIET_HOURS) == frame_state.DELAY_HELD, (
         "expected DELAY_HELD when hold_reason is HOLD_QUIET_HOURS")
 
-    # --- The nightly regression (22-UI-SPEC.md §3.3 binding rule 6):
+    # --- The nightly regression (§3.3 binding rule 6):
     # quiet hours 23:00-07:00, last check-in 22:58, clock 02:00,
     # Europe/Paris (a non-DST date) — the resolved state must be
     # STATE_HELD, never STATE_LATE, end to end through
@@ -1497,7 +1465,7 @@ def test_frame_state_resolve_state_contract():
 
 
 def test_frame_state_is_view_free_and_localises_its_own_copy():
-    """companion/frame_state.py imports no layout module (view-free, D-03) and names no
+    """companion/frame_state.py imports no layout module (view-free) and names no
     CSS dot class among its own exposed copy constants, and each of its six copy constants
     round-trips through companion.i18n's French catalogue unchanged in English
 
@@ -1555,14 +1523,11 @@ def test_frame_state_is_view_free_and_localises_its_own_copy():
 
 
 # NOTE: "companion/battery.py imports neither companion.pages nor server"
-# (the original harness's next check) is NOT ported here — it is
-# IDENTICAL to companion/test_companion_app_03.py::
-# test_battery_module_imports_neither_a_page_module_nor_the_server_package
-# (same subprocess + sys.modules technique this plan's own
-# test_frame_state_is_view_free_and_localises_its_own_copy above
-# establishes independently, same claim). The ledger fragment points
-# this row at that existing test rather than duplicating it
-# (33-MIGRATION-RULES.md section 3).
+# is not a separate test here — it is IDENTICAL to
+# companion/test_companion_app_03.py::
+# test_battery_module_imports_neither_a_page_module_nor_the_server_package,
+# using the same subprocess + sys.modules technique
+# test_frame_state_is_view_free_and_localises_its_own_copy above uses.
 
 
 # --- End-to-end HTTP round trips -----------------------------------------
@@ -1608,7 +1573,7 @@ def test_airlines_dialog_forms_render_unconditionally_over_real_http(make_app_se
     """a real authenticated GET of /airlines renders the dialog's replace, delete and
     upload-zone forms with no query string at all, and a leftover ?edit=1 in a bookmark
     renders identically — against a real running service, proving the removed query
-    parameter has no reader anywhere in the real request path (CFG-81)"""
+    parameter has no reader anywhere in the real request path"""
     server = make_app_server(seed=_seed_view_pages_e2e_fixture)
     session_cookie = login(server)
     unconditional_tokens = (
@@ -1631,9 +1596,9 @@ def test_both_dialogs_arrive_through_one_starting_style_entrance(tmp_path, serve
     lightbox and the Airlines gallery's wide variant) are the same component under two
     classes, so the entrance is declared once and reaches both — with `display`/
     `allow-discrete` deliberately absent so close() ends the dialog outright rather than
-    leaving an invisible click-swallowing sheet over the page (T-23-36), and with
+    leaving an invisible click-swallowing sheet over the page, and with
     ::backdrop unanimated because the global reduced-motion override cannot reach it
-    (D3/CFG-32)"""
+    (D3)"""
     entrance_rules = [
         rule for rule in rules_with_selector(served_css, ".lightbox[open]")
         if rule.at_rules == ("@starting-style",)
