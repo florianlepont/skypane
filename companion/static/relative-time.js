@@ -14,11 +14,11 @@
  * The s/m/h/d bucket boundaries mirror companion/layout.py's
  * _age_bucket(); a cross-file check in companion/test_companion_app.py
  * fails if the two disagree. The wording itself is never mirrored:
- * every visible word is server-rendered onto <body>, translated, and
- * read back through getAttribute(); the constants below are English
- * no-attribute fallbacks only. "#" marks the quantity's place, not the
- * usual "%s"/"{}", since companion/test_i18n.py's Check 3 scans every
- * French render for a stray format artefact.
+ * every visible word is server-rendered onto <body>, already localised,
+ * and read back through getAttribute(); the constants below are
+ * English no-attribute fallbacks only. "#" marks the quantity's
+ * place, not the usual "%s"/"{}", since companion/test_i18n.py's
+ * Check 3 scans every French render for a stray format artefact.
  */
 (function () {
   "use strict";

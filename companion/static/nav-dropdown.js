@@ -101,8 +101,8 @@
       } else {
         window.requestAnimationFrame(function () {
           // Re-check isOpen(): a fast open-then-close, both synchronous
-          // before this frame runs, would otherwise let this stale
-          // callback re-open a panel already told to close.
+          // before this frame runs, would otherwise allow this stale
+          // callback to re-open a panel already told to close.
           if (isOpen()) {
             panel.classList.add(OPEN_CLASS);
           }
