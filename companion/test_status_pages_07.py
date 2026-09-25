@@ -1,60 +1,10 @@
-"""Part 07 of the `companion/test_status_pages.py` migration chain
-(33-31-PLAN.md): the original harness's final `check()` calls #293-#317 —
-the LAST slice of the whole status-pages chain (33-04..33-31). Covers the
-tab bar's own margin-fit/More-sheet/French-label/dropdown-max-height
-contracts, a structural style.css comment-terminator guard, the T3/T4
-disclosure-marker and dead-sticky-claim sweep, freshness.js's backoff
-ladder and breathing-dot mechanism, the `.resolve-context[hidden]` and
-`.flight-detail-row__grid` CSS guards, the renamed hamburger-toggle label,
-the restored save-bar geometry beside the tab bar's own untouched
-stacking, the Health-tile/Frame-strip agreement across all four
-lateness states, the shared quiet-schedule link, the two server-rendered
-switches and their optimistic-failure toast, the freshness line's live
-dot and ticking clock, and the two end-to-end (real subprocess) checks
-that close the file.
+"""Companion status-page tests, last slice: the tab bar's margin-fit/More-
+sheet/French-label contracts, freshness.js's backoff ladder and breathing-
+dot mechanism, the Health-tile/Frame-strip agreement, the two server-
+rendered switches, and two end-to-end checks.
 
-Every CSS check in this slice (rubric C) fetches the stylesheet
-`companion/app.py` actually serves and asserts on it structurally via
-`companion_markup.css_rules()`/`declarations_for()`/`rules_with_selector()`
-— never a regex/substring probe over the raw served text (33-FOLLOWUPS.md
-F-01) — using the same module-scoped read-only server this chain has used
-since 33-26 (`_module_server`/`css_text`). The two served-JS checks
-(`freshness.js`) fetch it via `served_asset()` and strip only comments
-with this chain's `strip_js_line_and_block_comments()`, never a disk read.
-
-One check (row 298, the stray-comment-terminator structural guard) scans
-the SERVED stylesheet's raw text rather than parsing it with
-`css_rules()`: the defect it guards against (an unterminated `/* */`
-comment silently swallowing the next rule) is exactly the shape a real
-CSS parser cannot see through either, so the scan is inherently over the
-character stream, not the parsed structure. It still never reads the file
-from disk — only the bytes `companion/app.py`'s STYLE_ROUTE actually
-serves.
-
-One check (row 299) drops the legacy check's own literal
-`css_source.count("@media (prefers-reduced-motion: reduce)") != 2`
-sub-clause (rubric C: `css_rules()` records each rule's ENCLOSING at-rule
-context, not a raw count of top-level at-rule block occurrences in the
-source, so this specific invariant has no structural equivalent). In its
-place, the check asserts the two SPECIFIC things that count actually
-protected: the one global `*, *::before, *::after` override exists under
-that media query, and the one `.js .mobile-nav` opt-out exists under it
-too, while `summary::before` (the marker this task's own change touches)
-carries no THIRD, redundant per-rule override under the same at-rule —
-the real behavioural content the magic number "2" stood in for.
-
-One check (row 309) drops the legacy check's own literal
-`css_source.count("dot--") != 9` sub-clause (rubric C): of the raw
-served-text's 9 substring occurrences of "dot--", 5 are prose inside
-COMMENTS (guard G1 already rules out comment text as a source of
-behaviour) and only 4 are real selectors. The structural replacement
-asserts the actual invariant the comment-polluted count stood in for:
-exactly four `.dot--*` modifier classes exist (ok/warn/error/off) and no
-fifth has been added.
-
-Every other check in this module calls `companion.layout`/`companion.
-pages.health_page`/`companion.pages.airlines_page`/`companion.i18n`/
-`companion.prefs` directly, in-process, seeding fixtures under `tmp_path`.
+CSS/JS checks fetch served bytes from companion/app.py; everything else
+calls companion.layout/companion.pages.health_page directly, in-process.
 """
 import io
 import re
@@ -106,7 +56,7 @@ def _frame_strip_ctx(last_checkin_ts, device_config_dict, now):
 
 
 # =============================================================================
-# 29-02-PLAN.md (CFG-82): the 2026-09-17 audit measured "Compagnies"
+# The 2026-09-17 audit measured "Compagnies"
 # (10 characters) needing 65px at .tab-bar__label's 11px size, against only
 # 62px available in a 78px cell once the pill's old 8px-per-side margin was
 # subtracted — the label truncated. This check re-derives every one of
@@ -121,8 +71,7 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
     tokens, leaves at least the longest NAV_GROUPS label's own required width (a measured
     6.5px/character advance derived from the 2026-09-17 audit's real 'Compagnies' figure, floored
     at that audit's own 65px) inside the tab cell at the app's 360px floor viewport, while
-    `.tab-bar__link`'s own 56px height and `flex: 1 1 0` width basis stay byte-identical (CFG-82,
-    29-02-PLAN.md)"""
+    `.tab-bar__link`'s own 56px height and `flex: 1 1 0` width basis stay byte-identical"""
     tokens = custom_properties(css_text, ":root")
     pill_decls = declarations_for(css_text, ".tab-bar__pill", at_rules=_TAB_BAR_MEDIA)
     margin_value = pill_decls.get("margin")
@@ -202,8 +151,8 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
 def test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row(css_text):
     """the More sheet opens upward from the fixed bar (absolute, bottom: 100%, right: 0) on the nav
     surface with the overlay shadow, reuses .mobile-nav__link's 44px/16px geometry rather than
-    restating it, and leaves .mobile-nav's in-flow flex-basis push-down untouched (X9/D-10,
-    22-14-PLAN.md Task 1). The legacy check's own stylesheet-comment assertion ("the stylesheet
+    restating it, and leaves .mobile-nav's in-flow flex-basis push-down untouched. The
+    legacy check's own stylesheet-comment assertion ("the stylesheet
     itself records why this is not a reversal of the rejected-overlay verdict") is dropped: guard
     G1 already rules out a CSS comment as a source of behaviour, and the geometry assertions below
     are what the comment was describing."""
@@ -229,7 +178,7 @@ def test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row(css_text):
 def test_french_tab_bar_labels_and_landmark():
     """under lang='fr' every tab-bar label reads French — Accueil / Affichage / Vols / Compagnies /
     Plus, with État and Appareil inside the More sheet — and the landmark name is
-    'Navigation principale' (B16/CFG-29, 22-14-PLAN.md Task 1)"""
+    'Navigation principale'"""
     device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     try:
         prefs.set_request_prefs(lang="fr")
@@ -255,7 +204,7 @@ def test_french_tab_bar_labels_and_landmark():
 def test_nav_status_is_a_span_on_home_and_a_link_everywhere_else():
     """the nav state reminder renders as a <span> with no href on Home, announcing ONLY the state,
     and stays an <a href="/" > with its destination-naming label everywhere else — in both nav
-    copies, each with its two nowrap segments (B10/D-04, 22-14-PLAN.md Task 2)"""
+    copies, each with its two nowrap segments"""
     home = layout.page_shell(
         title="Home", active="home", body="", ui_theme="auto",
         device_config=_NAV_STATUS_DEVICE_CFG)
@@ -289,7 +238,7 @@ def test_nav_status_is_a_span_on_home_and_a_link_everywhere_else():
         "expected the destination-naming label off Home")
 
     # The two segments are separate nowrap spans in both shapes, so the
-    # line can only ever break BETWEEN them (B10).
+    # line can only ever break BETWEEN them.
     for rendered, shape in ((home, "span"), (elsewhere, "link")):
         assert rendered.count('<span class="nav-status__segment">') == 4, (
             "expected two segments per nav copy in the %s shape, got %d"
@@ -301,7 +250,7 @@ def test_one_open_dropdown_max_height_and_no_dead_dropdown_nav_rule(css_text):
     165px of reduced French content at 390px — both the 420px and 640px values are gone, not
     re-tuned), the dropdown's dead nav selectors are deleted while .mobile-nav__link survives for
     the tab bar's sheet, and .nav-status is a wrapping flex row of nowrap segments whose hover
-    underline is anchor-scoped (T11/B10, 22-14-PLAN.md Task 2)"""
+    underline is anchor-scoped"""
     open_rules = rules_with_selector(css_text, ".js .mobile-nav--open")
     assert len(open_rules) == 1, (
         "T11: expected exactly ONE open-state dropdown rule in the whole file, got %d"
@@ -343,15 +292,15 @@ def test_one_open_dropdown_max_height_and_no_dead_dropdown_nav_rule(css_text):
 def test_style_css_carries_no_stray_comment_terminator(css_text):
     """companion/static/style.css carries zero stray comment terminators and ends outside a comment
     — the structural guard for a real parse-error class that drops whole rules while leaving the
-    source text a string-comparison harness reads as correct (22-14-PLAN.md Task 2, Rule 1).
+    source text a string-comparison harness reads as correct.
 
-    Added by 22-14-PLAN.md Task 2 after a real defect this plan found and fixed: an earlier plan
-    appended a note to an existing block comment AFTER that comment's own closing marker, leaving
-    a terminator with no opener — everything from it to the next brace then parsed as part of the
-    following selector, silently dropping the rule that follows. No parsed-rule assertion could
-    see this: the file still contains every declaration such a check asks about. The scan runs
-    over the SERVED stylesheet's raw character stream (never a disk read) because this is exactly
-    the shape a real CSS parser cannot see through either."""
+    Guards against a real defect this plan found and fixed: an earlier edit appended a note to an
+    existing block comment AFTER that comment's own closing marker, leaving a terminator with no
+    opener — everything from it to the next brace then parsed as part of the following selector,
+    silently dropping the rule that follows. No parsed-rule assertion could see this: the file
+    still contains every declaration such a check asks about. The scan runs over the SERVED
+    stylesheet's raw character stream (never a disk read) because this is exactly the shape a real
+    CSS parser cannot see through either."""
     pos = 0
     line = 1
     in_comment = False
@@ -388,7 +337,7 @@ def test_every_disclosure_has_a_marker_and_no_header_claims_to_stick(css_text):
     so a marker cannot narrow the cell, and with its own inverted rotation because that sheet opens
     upward — with the global reduced-motion override covering it and no redundant per-rule block
     added; and no .data-table-wrap th rule survives to claim sticky positioning a wrapper with no
-    height could never provide (T3/T4, 22-15-PLAN.md Task 1)"""
+    height could never provide"""
     # --- T3: the marker exists, and it rotates ------------------------
     marker = declarations_for(css_text, "summary::before")
     assert marker.get("content") == '""', "expected an explicit summary::before disclosure marker (T3)"
@@ -414,9 +363,9 @@ def test_every_disclosure_has_a_marker_and_no_header_claims_to_stick(css_text):
         "expected a CHILD combinator on the open-state rule — a descendant one rotates a parent "
         "disclosure's marker when a nested one opens (T3)")
 
-    # T3 reaches the tab bar's "More" summary too (22-UI-SPEC.md §3.1),
-    # where it is taken out of flow so a 6px marker cannot narrow a
-    # 78x56px cell's centred icon-and-label stack.
+    # The marker reaches the tab bar's "More" summary too, where it is
+    # taken out of flow so a 6px marker cannot narrow a 78x56px cell's
+    # centred icon-and-label stack.
     tab_marker = declarations_for(
         css_text, ".tab-bar__more > .tab-bar__link::before", at_rules=_TAB_BAR_MEDIA)
     assert tab_marker.get("position") == "absolute", (
@@ -464,7 +413,7 @@ def test_refresh_loop_retries_with_backoff_and_says_so_neutrally(freshness_js, c
     region holding focus, the state badge is .banner__pill with the NEUTRAL .dot--off and no warn
     token anywhere in the file, style.css carries the .banner__pill[hidden] display guard the badge
     depends on, and both strings render onto <body> in both languages matching the script's own
-    English fallbacks byte for byte (T13, 22-15-PLAN.md Task 2)"""
+    English fallbacks byte for byte"""
     code = shp.strip_js_line_and_block_comments(freshness_js)
 
     # --- the silent stop is gone from both failure paths ----------------
@@ -497,7 +446,7 @@ def test_refresh_loop_retries_with_backoff_and_says_so_neutrally(freshness_js, c
     for untouched in ("userIsInteracting", "visibilitychange", "AUTO_REFRESH_INTERVAL_MS = 45000"):
         assert untouched in code, "expected %r to survive T13 untouched" % (untouched,)
 
-    # --- neutral, never a warning (22-UI-SPEC.md §5 contract 9, T13 row) --
+    # --- neutral, never a warning ---
     assert 'dot.className = "dot dot--off";' in code, (
         "expected the loop-state badge's dot to be the neutral .dot--off — a browser that lost "
         "its connection is not a device fault")
@@ -539,7 +488,7 @@ def test_refresh_loop_retries_with_backoff_and_says_so_neutrally(freshness_js, c
 def test_resolve_context_hidden_guard_present_after_base_rule(css_text):
     """style.css declares .resolve-context[hidden] { display: none; } after the base rule —
     without it, an author display declaration beats the UA [hidden] rule and every ordinary
-    illustration's resolve-context block renders empty instead of hidden (quick task 260921-n2n
+    illustration's resolve-context block renders empty instead of hidden (
     Task 2)"""
     guard_rules = rules_with_selector(css_text, ".resolve-context[hidden]")
     assert len(guard_rules) == 1, (
@@ -558,9 +507,9 @@ def test_resolve_context_hidden_guard_present_after_base_rule(css_text):
 
 def test_flight_detail_row_grid_margin_never_shrinks_below_cfg70_floor(css_text):
     """style.css's .flight-detail-row__grid margin-bottom is at least 2x .copy-btn::before's own
-    inset magnitude — CFG-70's measured 22px hit-target floor made executable rather than a
-    comment; this is the check that would have failed had this quick task's own source data's
-    'reduce to var(--space-md)' suggestion been taken (quick task 260921-n2n Task 5)"""
+    inset magnitude — the measured 22px hit-target floor made executable rather than a
+    comment; this is the check that would have failed had this task's own source data's
+    'reduce to var(--space-md)' suggestion been taken"""
     tokens = custom_properties(css_text, ":root")
     grid_decls = declarations_for(css_text, ".flight-detail-row__grid")
     margin_value = grid_decls.get("margin")
@@ -584,7 +533,7 @@ def test_flight_detail_row_grid_margin_never_shrinks_below_cfg70_floor(css_text)
 def test_nav_toggle_label_now_describes_the_preferences_panel():
     """the hamburger toggle's accessible name describes the preferences panel it now opens
     ("Account and preferences" / "Compte et préférences"), and the retired "Open menu"
-    translation is deleted rather than orphaned (X9/D-10/B16, 22-14-PLAN.md Task 2)"""
+    translation is deleted rather than orphaned"""
     assert layout.NAV_TOGGLE_LABEL == "Account and preferences", (
         "expected the toggle to name what the panel now holds, got %r" % (layout.NAV_TOGGLE_LABEL,))
     assert layout.i18n.t_lang(layout.NAV_TOGGLE_LABEL, "fr") != layout.NAV_TOGGLE_LABEL, (
@@ -606,8 +555,7 @@ def test_save_bar_geometry_is_restored_and_the_tab_bar_stacking_survives(css_tex
     """the save bar's own sub-960px geometry and its z-index: 30 at both breakpoints are RESTORED —
     the .dirty-ready marker class is not (this restoration's own clearance mechanism is
     :has(.dirty-bar), which works with scripts blocked) — while the tab bar's own stacking value
-    (20) and its own content clearance are unmoved (D-10/T7, 22-14-PLAN.md Task 3; retired by
-    27-04-PLAN.md/CFG-63, restored by 28-08-PLAN.md Task 3/CFG-77/CFG-78)"""
+    (20) and its own content clearance are unmoved"""
     dirty_bar_rules = rules_with_selector(css_text, ".dirty-bar")
     assert dirty_bar_rules, "expected the restored .dirty-bar base rule to exist in style.css"
 
@@ -650,15 +598,15 @@ def test_save_bar_geometry_is_restored_and_the_tab_bar_stacking_survives(css_tex
 
 
 # =============================================================================
-# 22-04-PLAN.md Task 3 (D-03/CFG-26, X2): Health's Frame tile and the nav
-# notification dot read the SAME frame_state result the strip does — they
-# cannot disagree, because neither re-derives anything.
+# Health's Frame tile and the nav notification dot read the SAME
+# frame_state result the strip does — they cannot disagree, because
+# neither re-derives anything.
 # =============================================================================
 
 def _health_tile_clock_text(rendered_health):
     """The Frame tile's next-wake clock: moved out of the Emphasis
     .stat-tile__value paragraph into the muted detail slot, and dropped the
-    time-value--primary modifier with it (22-12-PLAN.md Task 1, X8)."""
+    time-value--primary modifier with it."""
     match = re.search(
         r'class="text-label widget-detail"><span class="time-value">'
         r'([^<]+)</span></div>',
@@ -676,7 +624,7 @@ def test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn(tmp_
     Paris), pinned as ONE named check: the strip renders the held copy with the neutral dot,
     Health's Frame tile renders the SAME clock time, the nav notification dot is unlit, and
     the rendered Health HTML carries zero warn/error dots, zero warn tile/headline modifiers
-    and neither 'Expected since' nor 'Attendu depuis' (X2, D-03/CFG-26)"""
+    and neither 'Expected since' nor 'Attendu depuis'"""
     qh_config = {
         "wake_interval_s": 900, "display_enabled": True,
         "quiet_hours_enabled": True,
@@ -700,8 +648,8 @@ def test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn(tmp_
             "status-card__headline--warn", "Expected since", "Attendu depuis"):
         assert warn_token not in rendered_health, "expected zero %r in a held Health render" % (warn_token,)
     # The live nav-tab severity path app.py's page_context() calls
-    # (health_page.safe_health_state()), matching the retired
-    # health_severity()'s own "None -> ok" fail-closed default.
+    # (health_page.safe_health_state()), which fails closed to "ok" for
+    # a None state.
     health_state = health_page.safe_health_state(tmp, now=clock.isoformat())
     severity = health_state["severity"] if health_state else "ok"
     assert severity == "ok", "expected the nav notification dot unlit (severity 'ok'), got %r" % (severity,)
@@ -711,8 +659,8 @@ def test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn(tmp_
     strip_clock = _strip_clock_text(rendered_strip)
     tile_clock = _health_tile_clock_text(rendered_health)
     assert strip_clock and tile_clock, "expected a time-value clock span in both the strip and the tile"
-    # 22-12-PLAN.md Task 1 (X8): the strip's headline keeps the Emphasis
-    # modifier; the tile's detail must not have it.
+    # The strip's headline keeps the Emphasis modifier; the tile's
+    # detail must not have it.
     assert "time-value--primary" in rendered_strip, "expected the strip's own headline to keep time-value--primary"
     assert "time-value--primary" not in rendered_health, (
         "expected zero time-value--primary on Health — the tile's clock is a muted detail, never "
@@ -725,7 +673,7 @@ def test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn(tmp_
 
 def test_health_inside_grace_window_tile_and_strip_agree_normal(tmp_path):
     """inside the grace window with no hold, the tile reports the normal ('ok') state and the
-    strip reports the due copy — they agree (22-UI-SPEC.md §3.3 rule 3)"""
+    strip reports the due copy — they agree"""
     device_cfg = {"wake_interval_s": 900, "display_enabled": True}
     # 11:00 + 900s = 11:15 due; 2x grace = 1800s -> still due until 11:45.
     checkin_iso = "2026-08-27T11:00:00+00:00"
@@ -812,7 +760,7 @@ def test_dot_modifier_classes_are_exactly_four_no_new_class_added(css_text):
 
 
 # =============================================================================
-# 27-08-PLAN.md Task 2 (CFG-69/D-23): the Frame strip is a SHARED
+# The Frame strip is a SHARED
 # component — one write site (layout.frame_strip_html()'s quiet cell)
 # feeding both Home and Display. The check that proves this is NOT "the
 # link exists on Home" plus a second, separate "the link exists on
@@ -847,7 +795,7 @@ def test_the_quiet_schedule_link_is_one_write_site_reaching_both_pages(tmp_path)
     """the quiet cell's caption link is present on BOTH Home's and Display's own real
     render() output, with the IDENTICAL href on both — asserted as one check whose failure
     names the page missing the link or the two hrefs when they differ, never two separate
-    per-page checks (CFG-69, D-23, 27-08-PLAN.md Task 2)"""
+    per-page checks"""
     tmp = str(tmp_path)
     now_iso = shp.iso(shp.now())
     home_ctx = _home_ctx(tmp, now_iso)
@@ -884,7 +832,7 @@ def test_the_quiet_schedule_link_is_one_write_site_reaching_both_pages(tmp_path)
         % rendered_display.count('frame-strip__schedule-link'))
 
 
-# --- 23-07-PLAN.md Task 1 (D2/CFG-36): the Frame strip's two switches
+# --- The Frame strip's two switches
 # become real role="switch" controls, SERVER-rendered from the saved
 # value. The role is not a promise the script keeps — it is a description
 # of what the button does with scripts blocked too, which is the whole
@@ -896,8 +844,7 @@ def test_the_strip_renders_two_server_rendered_switches():
     the SAVED value in both directions, named by the setting through aria-labelledby and
     described by the state span, over the unchanged <form>/state/return_to/data-quick-switch
     the server already acts on — with the retired action wording gone, both state wordings
-    present with exactly one hidden, and one pending-marker region per switch (D2/CFG-36, X1/D-04,
-    23-07-PLAN.md Task 1)"""
+    present with exactly one hidden, and one pending-marker region per switch"""
     now_iso = "2026-08-27T10:00:00+00:00"
     checkin_iso = "2026-08-27T09:55:00+00:00"
     # BOTH states, never one: an aria-checked hard-coded to "true"
@@ -992,7 +939,7 @@ def test_the_failure_toast_is_transient_translated_and_carries_no_internal():
     """the optimistic switch's failure copy is the app's own generic flash sentence, translated
     on <body> in both languages and carrying no status code, URL or server internal, and the
     shell renders exactly one EMPTY assertive live region for it — a transient toast, never
-    a permanent banner (D2/CFG-36, V7/T-23-27, 23-07-PLAN.md Task 1)"""
+    a permanent banner"""
     try:
         for lang in ("en", "fr"):
             prefs.set_request_prefs(lang=lang)
@@ -1029,8 +976,7 @@ def test_the_failure_toast_is_transient_translated_and_carries_no_internal():
         prefs.set_request_prefs(lang="en")
 
 
-# --- 23-05-PLAN.md Task 2 (D22's remainder, D14/CFG-34): the live
-# indicator tells the truth. Three checks: the dot's server-rendered
+# --- The live indicator tells the truth. Three checks: the dot's server-rendered
 # markup, the ticking age that replaces the frozen clock, and a served-JS
 # behaviour check proving the breathing class is toggled from the loop's
 # OWN state rather than from a second state machine beside it.
@@ -1038,7 +984,7 @@ def test_the_failure_toast_is_transient_translated_and_carries_no_internal():
 def test_health_freshness_line_carries_a_neutral_live_dot(tmp_path):
     """Health's freshness line carries exactly one neutral, aria-hidden live dot — the app's own
     off dot with no status or accent token and no breathing class at render time, because the
-    motion belongs to the loop that knows whether it is listening (D22, 23-05-PLAN.md Task 2)"""
+    motion belongs to the loop that knows whether it is listening"""
     tmp = str(tmp_path)
     rendered = health_page.render(shp.ctx(tmp, now_value=shp.iso(shp.now())))
     start = rendered.index('<p class="page-header__freshness')
@@ -1071,8 +1017,7 @@ def test_health_freshness_clock_is_a_ticking_age_over_the_loaded_at_instant(tmp_
     carries whose SERVER text is the clock — never the ladder's zero bucket, which is the
     frozen age A-20 removed — with the absolute timestamp still in the element's tooltip,
     exactly one data-loaded-at and one data-refresh-pill page-wide, and the wrapper still a
-    swap target (D22's remainder, 23-05-PLAN.md Task 2; the no-JS half retargeted in place
-    by 23-06-PLAN.md)"""
+    swap target"""
     tmp = str(tmp_path)
     now_iso = shp.iso(shp.now())
     rendered = health_page.render(shp.ctx(tmp, now_value=now_iso))
@@ -1112,7 +1057,7 @@ def test_health_freshness_clock_is_a_ticking_age_over_the_loaded_at_instant(tmp_
     assert rendered.count("data-refresh-pill") == 1, (
         "expected exactly one data-refresh-pill page-wide, got %d" % rendered.count("data-refresh-pill"))
     # Nothing lost: the full Europe/Paris local timestamp is still on the
-    # clock span's title (22-16's D-05/CFG-28 conversion), and the raw ISO
+    # clock span's title (22-16's / conversion), and the raw ISO
     # still does not survive.
     expected_title = layout.escape_html(health_page._full_local_timestamp_text(now_iso))
     assert ('title="%s"' % expected_title) in wrapper, (
@@ -1130,9 +1075,8 @@ def test_freshness_js_breathes_only_from_the_loops_own_state(freshness_js, css_t
     """freshness.js DERIVES the breathing class from its own interval handle and state badge in
     one function, called from exactly the four places its state already changes, carries no
     status vocabulary, leaves 22-15's retry ladder/ceiling/in-flight guard/targeted swap
-    untouched, and agrees with both the Python hook and the CSS rule (T-23-15, 23-05-PLAN.md
-    Task 2)"""
-    # T-23-15: a dot that breathes while the page is not actually
+    untouched, and agrees with both the Python hook and the CSS rule"""
+    # A dot that breathes while the page is not actually
     # listening is a lie the user has no way to check. The mitigation is
     # structural rather than careful — the class is DERIVED from the
     # loop's own two state variables inside one function, and that
@@ -1202,19 +1146,17 @@ def test_both_tabs_ok_end_to_end(make_app_server):
     the retired per-card replace class, exactly one lightbox replace form and one action="" and
     one file input, and at least one un-busted replace-action trigger attribute, /history's real
     HTTP response body carries zero occurrences of the replace-form class, replace-action attribute,
-    enctype or file input (quick task 260903-btu Task 5a), and the real served stylesheet
+    enctype or file input, and the real served stylesheet
     (STYLE_ROUTE) carries the description-column rule, the demotion rule's new bottom margin and the
     prose rhythm rule's selector, and the real served freshness script (FRESHNESS_SCRIPT_ROUTE)
     carries the interval constant, the visibility-change listener, the [data-loaded-at]/
     [data-refresh-pill] attribute hooks, carries zero occurrences of the deleted
-    data-pause-text/wireToggle pause-branch hooks (D-18), and every
-    health_page.REFRESH_SWAP_SELECTORS entry verbatim (quick task 260901-tsa; extended in place by
-    quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick task 260902-chc,
-    quick task 260903-btu Task 5a, 19-09-PLAN.md Task 3, and 21-02-PLAN.md Task 2)"""
+    data-pause-text/wireToggle pause-branch hooks, and every
+    health_page.REFRESH_SWAP_SELECTORS entry verbatim"""
 
     def _seed(state_dir):
         now = shp.now()
-        # quick task 260901-uzi Task 4: two readings, not one — the
+        # Two readings, not one — the
         # readout element and its chart only render when at least two
         # numeric battery rows exist; a single-reading fixture would make
         # the check below fail to find the readout at all, for a reason
@@ -1228,9 +1170,8 @@ def test_both_tabs_ok_end_to_end(make_app_server):
             "ABC": {"count": 2, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
                     "example_callsign": "ABC123"},
         })
-        # quick task 260901-uzi Task 4: a resolved runway event so
-        # resolution_stats()'s total is non-zero and _stats_table_html()
-        # actually renders a table.
+        # A resolved runway event so resolution_stats()'s total is
+        # non-zero and _stats_table_html() actually renders a table.
         shp.seed_runway_events(state_dir, [
             {"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
 
@@ -1239,10 +1180,9 @@ def test_both_tabs_ok_end_to_end(make_app_server):
 
     for path, heading in (
             ("/health", "Health"), ("/airlines", "Airlines"),
-            # quick task 260903-btu Task 5: /history added so the
-            # served-HTML twin of Task 4's render-level History guard
-            # runs against a real running service, not only an
-            # in-process render() call.
+            # /history added so the served-HTML twin of the render-level
+            # History guard above runs against a real running service,
+            # not only an in-process render() call.
             ("/flights", "Flights")):
         status, _headers, body = get(server, path, cookie=session_cookie)
         assert status == 200, "expected 200 for %s, got %d" % (path, status)
