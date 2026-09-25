@@ -1,43 +1,14 @@
 # -*- coding: utf-8 -*-
-"""companion/i18n_fr/calendar_group.py — French strings for the Calendar
-row's connection block (companion/pages/config_page.py's
-_calendar_connection_html(), 30-06-PLAN.md Task 2 — renamed from the
-now-retired calendar_group()/calendar_connect_section(), D-14a..d),
-20-09-PLAN.md Task 1.
+"""French strings for the Calendar row's connection block
+(companion/pages/config_page.py's _calendar_connection_html()).
 
-One sibling module of the companion/i18n_fr package (see that
-package's __init__.py for the auto-merge/duplicate-key contract this
-module participates in). Every key here is the exact English source
-string a call site in companion/pages/config_page.py passes to
-companion.i18n.t() — including any "%d"/"%s" placeholder shape,
-unchanged.
-
-Deliberately absent: "Calendar" (the card's own heading), "Calendar
-feed URL", its hint sentence, "Cancel", and every one of the disconnect
-action's own strings (checkbox label, confirm question/heading/
-sentence/button text) — all still defined in companion/i18n_fr/
-display.py from 20-07-PLAN.md, unchanged by this plan and still the
-exact strings the retained, unedited calendar_disconnect_section()/
-calendar_disconnect_confirm_page() call t() with (the auto-merge
-package raises ValueError on a duplicate key across sibling modules —
-see companion/i18n_fr/__init__.py). "Theme" is also absent — companion/
-i18n_fr/nav.py already owns that exact key.
-
-Copy follows D-09: sentence case, the typographic apostrophe (U+2019,
-never a straight quote), and a non-breaking space (U+00A0) before ":"
-";" "?" "!". Every value below matching 20-UI-SPEC.md's Copywriting
-Contract Section C/H is copied verbatim from that table.
+"Calendar", its feed-URL field/hint, "Cancel", "Theme" and the
+disconnect action's own strings are deliberately absent, defined
+instead in sibling modules the auto-merge package would otherwise
+reject as duplicate keys.
 """
 
 CATALOG = {
-    # 30-06-PLAN.md Task 2 (CFG-85), 2026-09-22: the card's one-line
-    # caption ("Flights from your calendar get their own colour on the
-    # frame.") is deleted in this same commit as its English source
-    # constant, CALENDAR_CAPTION — the connection block no longer has
-    # its own caption once it folds into the Calendar usage row, which
-    # carries no caption of its own either.
-
-    # --- "How it works" disclosure (D-14a) ------------------------------
     "How it works": "Comment ça marche",
     "It can only colour a flight that happens to be on screen — it "
     "does not track or announce anything on its own. Applies on the "
@@ -45,33 +16,13 @@ CATALOG = {
         "Il ne peut colorer qu’un vol déjà affiché à l’écran — il ne "
         "suit ni n’annonce rien de lui-même. S’applique lors de la "
         "prochaine vérification programmée du cadre, pas immédiatement.",
-
-    # --- The status row (D-14b) ------------------------------------------
     "Connected": "Connecté",
     "Not connected": "Non connecté",
-    # 22-10-PLAN.md Task 3 (D-06/B16/CFG-29): the singular form, added
-    # alongside the plural rather than replacing it — the call site picks
-    # between them on entry_count == 1.
     "1 upcoming flight · checked %s": "1 vol à venir · vérifié %s",
     "%d upcoming flights · checked %s": "%d vols à venir · vérifié %s",
     "The feed could not be read": "Impossible de lire le flux",
-
-    # --- The Connect/Replace mini-form (D-14c) --------------------------
     "Connect calendar": "Connecter le calendrier",
     "Replace the feed URL": "Remplacer l’URL du flux",
-
-    # --- D-13/D-14 (21-07-PLAN.md Task 1): the merged card's connected-
-    #     state Replace button (shorter than "Connect calendar" — it
-    #     never applies to a first-time paste) and the small grey
-    #     Disconnect button's own short label. The longer "Disconnect
-    #     calendar"/"Disconnect this calendar…" strings are untouched,
-    #     unchanged, and stay in companion/i18n_fr/display.py — they
-    #     still belong to the confirmation page alone. -----------------
     "Replace": "Remplacer",
     "Disconnect": "Déconnecter",
-
-    # D-17 (21-01-PLAN.md Task 2): the "How it works" disclosure's
-    # collapsed one-sentence French entry is deleted in this same
-    # commit as its English source constant in companion/pages/
-    # config_page.py — the display mode that selected it is gone.
 }

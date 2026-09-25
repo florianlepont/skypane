@@ -1,26 +1,13 @@
-"""companion/i18n_fr/ — the French translation catalogue package
-(D-01/D-04, 20-01-PLAN.md Task 1).
+"""The French translation catalogue package: one module per page, merged
+into a single CATALOG at import time.
 
-A package, not a single module, because this phase's plans run in
-parallel worktrees per wave and each page's own plan owns its own
-catalogue file — auto-discovery below means no plan ever has to edit
-a shared registration list, so no two plans in one wave can conflict
-over one.
-
-CATALOG is built once, at import time, by walking this package's own
-sibling modules with pkgutil.iter_modules() and merging each module's
-own CATALOG dict, keyed by the exact English source string (including
-any %s/%d placeholder) — mirroring server/device_config.py's
-THEMES/RUNWAYS "one registry, no framework" idiom, here flattened to
-one dict since the id here is the English string itself, not a short
-code.
-
-companion/i18n.py's t()/t_lang() are the intended readers of this
-dict; nothing else in this codebase should import CATALOG directly.
-
-Raises ValueError, naming the duplicated key, if two sibling modules
-define the same English key — merging silently would make one
-translation unreachable.
+CATALOG is built by walking this package's sibling modules with
+pkgutil.iter_modules() and merging each module's own CATALOG dict, keyed
+by the exact English source string (including any %s/%d placeholder).
+companion/i18n.py's t()/t_lang() are the intended readers; nothing else
+should import CATALOG directly. Raises ValueError, naming the
+duplicated key, if two sibling modules define the same English key —
+merging silently would make one translation unreachable.
 """
 import importlib
 import pkgutil

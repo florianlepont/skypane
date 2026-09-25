@@ -1,40 +1,19 @@
 # -*- coding: utf-8 -*-
-"""companion/i18n_fr/common.py — French strings for the login page, the
-404 page, the shared "Sign out" control (D-01/D-04/D-05,
-20-01-PLAN.md Task 1), and — as of 22-08-PLAN.md Task 1 (D-06/B16) —
-every flash-banner template in companion/app.py's FLASH_MESSAGES dict
-and the two pre-session <title> literals ("Not Found", the login
-shell's "Login - %s"). 37-05-PLAN.md Task 1 (SEC-03) adds the 403
-page's two strings, the same pre-session shape as the 404 page above.
+"""French strings for the login page, the 404 and 403 pages, the shared
+"Sign out" control, and every flash-banner template in
+companion/app.py's FLASH_MESSAGES dict. Every key is the exact English
+source string a call site in companion/app.py or companion/layout.py
+passes to companion.i18n.t(), including the "%d"/"%s"/"{n}"/"{s}"/
+"{key}" placeholder shape.
 
-One sibling module of the companion/i18n_fr package (see that
-package's __init__.py for the auto-merge/duplicate-key contract this
-module participates in). Every key here is the exact English source
-string a call site in companion/app.py or companion/layout.py passes
-to companion.i18n.t() — including the "%d"/"%s"/"{n}"/"{s}"/"{key}"
-placeholder shape, unchanged.
-
-Copy follows D-09: sentence case, the typographic apostrophe (U+2019,
-never a straight quote), and a non-breaking space (U+00A0) before
-":" ";" "?" "!".
-
-22-08-PLAN.md Task 1: two FLASH_MESSAGES values are deliberately
-ABSENT here — "Poll triggered recently — try again in {n}s." (already
-keyed in companion/i18n_fr/display.py, from the Frame strip's own
-poll-cooldown copy) and "Test notification sent."/"Couldn't reach
-that topic — check the URL." (already keyed in companion/i18n_fr/
-notifications.py, from the Notifications card's own "Send a test"
-outcomes) — the package's own auto-merge _build_catalog() raises
-ValueError on a duplicate key across sibling modules, and all three
-already have a live entry elsewhere, each predating this module's own
-FLASH_MESSAGES coverage. companion.i18n.t() resolves them from their
-existing home either way, since the merged CATALOG is one flat dict
-keyed by the English string regardless of which sibling module
-supplied it.
+Two FLASH_MESSAGES values are deliberately absent here — the Frame
+strip's poll-cooldown copy and the Notifications card's "Send a test"
+outcomes — already keyed in sibling modules; the auto-merge package
+raises ValueError on a duplicate key across sibling modules.
 """
 
 CATALOG = {
-    # --- Login page (companion/app.py's _login_body()) -----------------
+    # --- Login page ------------------------------------------------
     "Sign in to manage this device's settings.":
         "Connectez-vous pour gérer les réglages de cet appareil.",
     "Too many attempts — try again in %ds.":
@@ -43,43 +22,32 @@ CATALOG = {
     "Sign in": "Se connecter",
     "Incorrect password. Try again.":
         "Mot de passe incorrect. Réessayez.",
-    # 22-13-PLAN.md Task 2 (X3): the show-password toggle's two
-    # accessible names. The toggle is icon-only, so these are the ONLY
-    # names it ever has — an untranslated pair here would leave the
-    # control anonymous in French, not merely awkward.
+    # The show-password toggle's two accessible names. The toggle is
+    # icon-only, so these are the only names it ever has.
     "Show password": "Afficher le mot de passe",
     "Hide password": "Masquer le mot de passe",
 
-    # --- The login shell's own <title> (companion/layout.py's
-    #     login_shell(), 22-08-PLAN.md Task 1: the literal lives THERE,
-    #     not in app.py — verified live 2026-09-12) --------------------
+    # The login shell's own <title>.
     "Login": "Connexion",
 
-    # --- 404 page (companion/app.py's _not_found_page(), NOT_FOUND_TITLE
-    #     / NOT_FOUND_PURPOSE_TEXT) -----------------------------------
+    # --- 404 page ----------------------------------------------------
     "Page not found.": "Page introuvable.",
     "The page you requested doesn't exist or may have moved.":
         "La page demandée n’existe pas ou a peut-être été déplacée.",
     "Back to Home": "Retour à l’accueil",
-    # The 404 page's own <title> — a short form distinct from
-    # NOT_FOUND_TITLE above (that one is the page heading's longer
-    # sentence); the literal was "Not Found" (22-08-PLAN.md Task 1).
+    # The 404 page's own <title> — a short form distinct from the
+    # page heading's longer sentence above.
     "Not Found": "Introuvable",
 
-    # --- 403 page (companion/app.py's _forbidden_page(), FORBIDDEN_TITLE
-    #     / FORBIDDEN_PURPOSE_TEXT) — SEC-03 (37-05-PLAN.md Task 1) -----
+    # --- 403 page ------------------------------------------------------
     "Request refused": "Requête refusée",
     "This request came from another site, so it was refused. Open SkyPane directly and try again.":
         "Cette requête venait d’un autre site, elle a donc été refusée. Ouvrez SkyPane directement et réessayez.",
 
-    # --- Shared footer control (companion/layout.py's
-    #     _logout_form_html()) -----------------------------------------
+    # --- Shared footer control -----------------------------------------
     "Sign out": "Se déconnecter",
 
-    # --- Flash banners (companion/app.py's FLASH_MESSAGES, resolved
-    #     through _resolve_flash_text(), 22-08-PLAN.md Task 1: B16's
-    #     own finding — no FR catalogue carried a single FLASH string
-    #     before this plan) -------------------------------------------
+    # --- Flash banners ---------------------------------------------
     "Screen switched on — the frame will wake up and show a picture "
     "within about five minutes.":
         "Écran allumé — le cadre va se réveiller et afficher une image "
@@ -94,10 +62,9 @@ CATALOG = {
     "Quiet hours turned off — applies the next time the frame wakes up.":
         "Heures calmes désactivées — s’applique au prochain réveil du "
         "cadre.",
-    # 23-07-PLAN.md Task 2 (D2/CFG-36): the Diagnostic LED's own two
-    # outcomes, worded on the Quiet-hours pair above rather than the
-    # Screen pair — like quiet hours, the LED takes effect on the frame's
-    # next wake rather than within about five minutes.
+    # The Diagnostic LED's own two outcomes, worded on the quiet-hours
+    # pair above rather than the screen pair — the LED takes effect on
+    # the frame's next wake rather than within about five minutes.
     "Diagnostic LED turned on — applies the next time the frame wakes up.":
         "LED de diagnostic allumée — s’applique au prochain réveil du "
         "cadre.",
@@ -225,12 +192,9 @@ CATALOG = {
     "Paste a valid calendar feed URL to connect one.":
         "Collez une URL de flux de calendrier valide pour en "
         "connecter un.",
-    # T13 (22-15-PLAN.md Task 2, 22-UI-SPEC.md §1's copy table): the two
-    # neutral states companion/static/freshness.js's refresh loop can be
-    # in. Rendered onto <body> by companion/layout.py and read
-    # client-side; the English forms are also the script's own
-    # no-attribute fallbacks, which is why companion/test_i18n.py's
-    # Check 6 requires these entries from the JS side as well.
+    # The two neutral states freshness.js's refresh loop can be in,
+    # rendered onto <body> by companion/layout.py and read client-side;
+    # the English forms are also the script's own no-attribute fallbacks.
     "Paused": "En pause",
     "Reconnecting…": "Reconnexion…",
 }
