@@ -1605,7 +1605,7 @@ Plans:
 4. The suite passes as root and writes nothing outside `tmp_path`
 5. Closing parity: all 2018 pre-migration checks accounted for; coverage ≥ the pre-migration figure
 
-**Plans:** 27/33 plans executed
+**Plans:** 28/33 plans executed
 
 Plans:
 **Wave 1**
@@ -1652,7 +1652,7 @@ Plans:
 - [x] 33-13-PLAN.md — config_page part 05; legacy file deleted (W6)
 - [x] 33-18-PLAN.md — companion_app part 05; legacy file deleted (W6)
 - [x] 33-23-PLAN.md — browser_ux part 03 (W6)
-- [ ] 33-29-PLAN.md — status_pages part 05 (W6)
+- [x] 33-29-PLAN.md — status_pages part 05 (W6)
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
