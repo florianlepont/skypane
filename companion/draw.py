@@ -1,77 +1,12 @@
-"""companion/draw.py — the shared SVG geometry and emission primitives
-for every drawing the SkyPane companion service renders (CFG-39,
-24-01-PLAN.md Task 2).
+"""companion/draw.py: the shared SVG geometry and emission primitives for
+every drawing the SkyPane companion service renders.
 
-Phase 24 adds four drawings across five plans on top of the one this app
-already ships. Without a shared module that is five coordinate
-vocabularies, five escaping habits and five ways for a shape to end up
-invisible in one theme. This module is the one vocabulary; the executable
-half of the contract lives in companion/test_companion_app.py, which
-fails on a colour literal in emitted markup, on a drawn shape with no
-fill route, and on a class name emitted from here that resolves to no
-selector in companion/static/style.css.
-
-This module is stdlib-only, exactly as companion/battery.py's own
-docstring requires of itself and for the same reason. It must never
-import a page module, never import anything from the server package, and
-never import companion/layout.py — layout.py owns the page shell, nav,
-tiles and timestamps, and dragging that into a geometry module would make
-every drawing depend on the shell it is drawn inside.
-
-It does NOT import companion/battery.py either, though it would be
-allowed to. Geometry has no business knowing what it is plotting: the
-page module reads the battery estimate from companion/battery.py (the one
-home for it) and hands this module a fraction or a millivolt value with a
-domain. Keeping the dependency out means a drawing of something else
-entirely — a check-in gap, a regularity cell — calls exactly the same
-primitives with no battery-shaped concept in the way.
-
-Nothing here needs, produces or tolerates JavaScript. D-09's no-JS floor
-is why this whole phase server-renders its SVG: the drawing arrives
-complete in the first HTTP response, paints identically with scripts
-blocked, needs no measurement pass, and is unaffected by the app's
-`script-src 'self'` policy. No primitive in this module returns markup
-that a script has to finish.
-
-TWO COORDINATE SCHEMES LIVE HERE, AND A DRAWING MUST NEVER MIX THEM.
-They are two separately-named families of helpers rather than one family
-with a `use_viewbox=` flag, because a flag is precisely how the two get
-mixed inside one drawing:
-
-  `percent_*`  — the no-viewBox scheme this app already ships (see
-                 health_page.battery_sparkline_svg()). The <svg> carries
-                 no viewBox and no preserveAspectRatio, so 1 SVG user
-                 unit IS 1 CSS pixel: every position is a percentage in
-                 [0, 100] and every size (radius, stroke, tick) is an
-                 absolute CSS pixel at every container width. There is no
-                 scale factor anywhere to go wrong, labels live OUTSIDE
-                 the SVG as HTML in a CSS grid, and the drawing fills its
-                 card at 360 px without a scrollbar. Right for a
-                 card-filling time series.
-
-  `unit_*`     — the viewBox scheme, user units on a uniform scale.
-                 Right for an intrinsically aspect-locked mark (a ring
-                 gauge, a grid cell) whose proportions must not stretch.
-                 Its price is that strokes and any SVG text shrink with
-                 the box, and that the viewBox must contain the outermost
-                 label — so a drawing that can keep its labels outside
-                 the SVG should use the percentage scheme instead.
-
-A THIRD DOMAIN LIVES INSIDE THE FIRST SCHEME, and it is a domain rather
-than a third scheme: `percent_time()` emits percentages into the same
-no-viewBox canvas `percent_x()` does, so the two may share a drawing.
-What differs is what an x percentage MEANS — an index's share of a
-series, or an instant's position inside a named day. They are separately
-named for the same reason the two schemes are: an index scale
-distributes points evenly whenever they happened, so under it a six-hour
-outage draws as one ordinary step, and a flag on one helper is precisely
-how a drawing ends up measuring the wrong thing.
-
-Every value interpolated into emitted markup goes through `escape()`.
-There is no "this value is always safe" exception: the drawings in this
-phase carry timestamps, firmware strings and airline names out of
-history.db and into <title> elements, and a value that is safe today is
-a value nobody re-checks tomorrow.
+stdlib-only; never imports companion/layout.py, a page module, or the
+server package, so a drawing never depends on the shell it renders inside.
+Every SVG is server-rendered in full (no-JS floor). Two coordinate schemes
+live here, `percent_*` and `unit_*` (see each family's own docstring), and
+must never be mixed inside one drawing. Every value interpolated into
+emitted markup goes through `escape()`, without exception.
 """
 import html
 import math
@@ -124,7 +59,7 @@ DRAWING_MARK_CLASS = "drawing-mark"
 # An HTML label sitting outside the canvas in the grid above.
 DRAWING_AXIS_LABEL_CLASS = "drawing-axis-label"
 
-# The day band's three shapes (CFG-42). Three classes rather than one
+# The day band's three shapes. Three classes rather than one
 # with modifiers, because the three are three different KINDS of thing
 # and they take their colour from three different places: the frame is
 # the day itself (structural ink, faint), the shaded span is a
@@ -137,7 +72,7 @@ DRAWING_BAND_CLASS = "drawing-band"
 DRAWING_BAND_SPAN_CLASS = "drawing-band-span"
 DRAWING_BAND_MARK_CLASS = "drawing-band-mark"
 
-# The ring gauge's two arcs (CFG-40). Two classes, not one class with a
+# The ring gauge's two arcs. Two classes, not one class with a
 # modifier, because the two arcs take their colour from two different
 # places on purpose: the track is structural ink (--color-border, the
 # same token .drawing-axis uses) and the value arc is currentColor, so
@@ -148,7 +83,7 @@ DRAWING_BAND_MARK_CLASS = "drawing-band-mark"
 DRAWING_RING_TRACK_CLASS = "drawing-ring-track"
 DRAWING_RING_VALUE_CLASS = "drawing-ring-value"
 
-# The check-in regularity grid's cells (CFG-43). A base class carrying
+# The check-in regularity grid's cells. A base class carrying
 # the paint route and FOUR state modifiers — four, not three, and the
 # fourth is the reason this is not `status_class()` above with a spare
 # value bolted on. "I have no observation of this bucket" is a different
@@ -362,7 +297,7 @@ def percent_y(value, domain_min, domain_max, inset_percent=0.0):
     Three properties, each of which was paid for once already:
 
     The domain is a CONSTANT the caller supplies, never derived from the
-    series' own min/max (D-04/A-22). A scale that measures its own data
+    series' own min/max. A scale that measures its own data
     silently rescales when a reading goes out of range: a flat series
     pins to the bottom, a 15 mV wiggle stretches to fill the canvas and
     reads as a cliff. With a fixed domain a flat series draws flat and an
@@ -449,7 +384,7 @@ def percent_time(instant, day_start, day_seconds=SECONDS_PER_DAY):
     says "at or below this". Clamping is wrong for an INSTANT on a named
     day: pinning yesterday's check-in at 0% would make today's band
     claim a check-in at midnight that never happened, and a drawing that
-    invents data is worse than one that omits it (T-24-06-A). A caller
+    invents data is worse than one that omits it. A caller
     must therefore handle the None — which is also why a returned
     percentage can be trusted to be ON the band.
 
@@ -708,7 +643,7 @@ def label_grid(y_labels_html, canvas_html, x_labels_html):
 
 # --- the ring gauge: ONE emitter, every size ---------------------------
 #
-# CFG-40's requirement is not "a ring appears" — it is ONE emitter with
+# The requirement is not "a ring appears" — it is ONE emitter with
 # TWO call sites. The predictable failure is two functions that start
 # identical and drift: one gains a threshold marker, the other does not;
 # one is fixed at 4px stroke, the other at 2; six months later they
@@ -747,7 +682,7 @@ def ring_gauge(fraction, size, status_class=None):
     """A ring gauge: a full-circumference track plus a value arc, `size`
     CSS pixels square, drawn for `fraction` of a turn. Never raises.
 
-    THE ONE RING EMITTER (CFG-40). There is no `variant` parameter and
+    THE ONE RING EMITTER. There is no `variant` parameter and
     there must never be one — a variant name is how two drawings hide
     inside one function, and it would defeat the requirement this
     function exists to satisfy. What varies is `size`, and `size` moves
@@ -787,7 +722,7 @@ def ring_gauge(fraction, size, status_class=None):
       pages already follow for a missing reading.
 
     TOTALITY, because the fraction arrives from a stored integer
-    (T-24-04-A): None, a bool, a NaN, a string and a negative all pin at
+    None, a bool, a NaN, a string and a negative all pin at
     empty; anything above 1 pins at exactly a full ring and never wraps
     round to a second lap. An unusable or too-small `size` clamps to
     RING_MIN_SIZE. Nothing here raises.
@@ -854,7 +789,7 @@ def ring_gauge(fraction, size, status_class=None):
 
 # --- the day band: a day, drawn at its real width ----------------------
 #
-# CFG-42's drawing, and the only one in this phase whose x axis is TIME
+# The day band is the only drawing here whose x axis is TIME
 # rather than index (see `percent_time()` above for what that buys). It
 # is emitted in the percentage scheme: a no-viewBox canvas whose height
 # comes from CSS, percentage positions, absolute pixel sizes.
@@ -892,7 +827,7 @@ DAY_BAND_MARK_WIDTH_PX = 2
 # the constant exists to prevent. Three consequences a caller captions
 # from: two marks at the minimum sit 4.17px apart with 2.17px of clear
 # ground between them, the band can hold at most int(100 / 1.5) + 1 = 67
-# marks whatever the row count (T-24-06-C), and the finest interval it
+# marks whatever the row count, and the finest interval it
 # can resolve on a 24-hour day is 1.5% of it, about 22 minutes. A
 # 30-minute cadence is above that; a 60-second cadence is 1 440 instants
 # and most of them WILL be collapsed, which is what `day_band()` reports
@@ -918,11 +853,11 @@ def day_band(day_start, day_seconds, instants, window=None, label=None):
     over a band drawing 22 marks has told the reader they can count
     something they cannot, and a drawing that silently drops marks
     beside a caption claiming a total is the two halves of one lie
-    (T-24-06-B). Returning this is what lets the caption say something
+    Returning this is what lets the caption say something
     true instead.
 
     THE ELEMENT COUNT IS BOUNDED BY THE BAND'S WIDTH, NEVER BY THE ROW
-    COUNT (T-24-06-C): at most 67 marks leave this function however many
+    COUNT: at most 67 marks leave this function however many
     thousand rows a day holds, because the minimum spacing is what
     decides, and the frame and the spans are at most three more.
 
@@ -1004,7 +939,7 @@ def _day_band_mark_percents(day_start, day_seconds, instants):
 
     The rule is a single forward pass over the sorted positions, each
     compared against the LAST KEPT one rather than against its own
-    predecessor. The difference is not the T-24-06-C ceiling — that
+    predecessor. The difference is not the element-count ceiling — that
     ceiling holds under either comparison, because the positions are
     sorted, so a gap of at least the minimum to the immediate
     predecessor is also a gap of at least the minimum to every earlier
@@ -1047,7 +982,7 @@ def _day_band_mark_percents(day_start, day_seconds, instants):
 
 # --- the check-in regularity grid: one cell, one bucket ---------------
 #
-# CFG-43's drawing (24-07-PLAN.md Task 1), and the phase's one grid. It
+# The regularity grid: this module's other drawing. It
 # is emitted in the UNIT scheme rather than the percentage one, which is
 # the opposite choice from the day band immediately above, so the reason
 # is worth stating: a cell is an aspect-locked mark. Percentage geometry
@@ -1057,7 +992,7 @@ def _day_band_mark_percents(day_start, day_seconds, instants):
 # names exactly that distortion, and a grid of cells is the case it names.
 #
 # THE FOURTH STATE IS THE DRAWING'S SUBJECT, not an edge case it also
-# handles. 24-RESEARCH.md Risk 1: a log range `history_db.
+# handles. A log range `history_db.
 # ingest_caddy_battery_log()` missed leaves a hole in `device_health`
 # that no schema change can tell apart from a device that did not wake.
 # So a bucket the record says nothing about gets its own state, painted
@@ -1112,7 +1047,7 @@ CELL_GAP_PX = 3
 # direction this drawing must degrade in. A grid of sub-pixel cells is a
 # texture, not a chart.
 #
-# THE ROW COUNT IS WHAT BOUNDS THE ELEMENT COUNT (T-24-07-D). Columns are
+# THE ROW COUNT IS WHAT BOUNDS THE ELEMENT COUNT. Columns are
 # bounded by width; rows are not bounded by anything the geometry knows,
 # so a caller handing over a year of buckets would emit a year of rects.
 # Six rows of ten is 60 cells and about 170px tall — a drawing, not a
