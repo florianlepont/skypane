@@ -1,0 +1,26 @@
+Sep 25 10:03:34 vps-1440bce3 python3[1850229]:   telemetry: X-Fw-Version=e8d293c X-Boot-Reason=rtc X-Rssi=-39 X-Battery-Mv=3970
+Sep 25 10:03:34 vps-1440bce3 python3[1850229]: GET /device/v1/display
+Sep 25 10:03:34 vps-1440bce3 python3[1850229]: GET /img/3b47dfef15d685069ee2e881fd06e89d108b4ccbbe14ed7e44f6c748b4fae23f.bin
+Sep 25 10:05:23 vps-1440bce3 python3[1850229]:   telemetry: X-Fw-Version=e8d293c X-Boot-Reason=rtc X-Rssi=-40 X-Battery-Mv=3964
+Sep 25 10:05:23 vps-1440bce3 python3[1850229]: GET /device/v1/display
+Sep 25 10:05:24 vps-1440bce3 python3[1850229]: GET /img/5189ef14339f3042c79108b5506fbc4eb7cf9f356f2a94a39bce369072d3f26e.bin
+Sep 25 10:07:13 vps-1440bce3 python3[1850229]:   telemetry: X-Fw-Version=e8d293c X-Boot-Reason=rtc X-Rssi=-44 X-Battery-Mv=3970
+Sep 25 10:07:13 vps-1440bce3 python3[1850229]: GET /device/v1/display
+Sep 25 10:07:13 vps-1440bce3 python3[1850229]: GET /img/5426aa9f4a4bc7144f9c6fbfa8ec024255664a8d748f14940092af114f08837a.bin
+Sep 25 10:08:07 vps-1440bce3 python3[1850229]:   telemetry: X-Fw-Version=e8d293c X-Boot-Reason=power-on X-Rssi=-39 X-Battery-Mv=3972
+Sep 25 10:08:07 vps-1440bce3 python3[1850229]: GET /device/v1/display
+Sep 25 10:08:07 vps-1440bce3 python3[1850229]: GET /img/bcc176f6249eafb5e56531e190000fe9833f8a5dba7b26a01b053d195c022922.bin
+Sep 25 10:08:59 vps-1440bce3 systemd[1]: Stopping skypane-byos.service - SkyPane BYOS device-protocol server (stub-server/byos_server.py)...
+Sep 25 10:08:59 vps-1440bce3 systemd[1]: skypane-byos.service: Deactivated successfully.
+Sep 25 10:08:59 vps-1440bce3 systemd[1]: Stopped skypane-byos.service - SkyPane BYOS device-protocol server (stub-server/byos_server.py).
+Sep 25 10:08:59 vps-1440bce3 systemd[1]: Started skypane-byos.service - SkyPane BYOS device-protocol server (stub-server/byos_server.py).
+Sep 25 10:08:59 vps-1440bce3 python3[1854264]: serving /opt/skypane/state/panel.bin on port 8642 — point the frame at http://<this-host>:8642
+Sep 25 10:09:45 vps-1440bce3 python3[1854264]: GET /device/v1/display
+Sep 25 10:14:44 vps-1440bce3 python3[1854264]: setup: 94:a9:90:cf:80:08 enrolled (hw_rev=proto-ee02)
+Sep 25 10:14:44 vps-1440bce3 python3[1854264]: POST /device/v1/setup
+Sep 25 10:14:44 vps-1440bce3 python3[1854264]:   telemetry: X-Fw-Version=e8d293c X-Boot-Reason=rtc X-Rssi=-40 X-Battery-Mv=3972
+Sep 25 10:14:44 vps-1440bce3 python3[1854264]: GET /device/v1/display
+Sep 25 10:14:44 vps-1440bce3 python3[1854264]: GET /img/ce4e5c2079ab58fe6cc90258a841324c150de5b72b6c2ace747a11a9a3ad0e4f.bin
+Sep 25 10:16:22 vps-1440bce3 python3[1854264]:   telemetry: X-Fw-Version=e8d293c X-Boot-Reason=rtc X-Rssi=-40 X-Battery-Mv=3972
+Sep 25 10:16:22 vps-1440bce3 python3[1854264]: GET /device/v1/display
+Sep 25 10:16:22 vps-1440bce3 python3[1854264]: GET /img/160e1e17663c9939c9fd8f1dd07009973f4bfb9a65005ee863e1a969642e603e.bin

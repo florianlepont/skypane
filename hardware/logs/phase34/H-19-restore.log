@@ -1,0 +1,32 @@
+[0;32mI (36330) epd13in3e: refresh complete[0m
+[0;32mI (36440) fp_diag: fault screen drawn step=auth backoff_n=18[0m
+[0;32mI (36440) skypane: sleep enter sleep_s=21600[0m
+I (547) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1487) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1497) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (3697) fp_wifi: clock set via SNTP[0m
+[0;32mI (4957) esp-x509-crt-bundle: Certificate validated[0m
+[0;32mI (5977) fp_tls: TLS session saved (1167 bytes)[0m
+[0;32mI (5987) fp_api: setup accepted; device credential stored[0m
+[0;32mI (9387) fp_api: http connects=1 first_connect_ms=2029 tls_offered=0 tls_saved_len=1167[0m
+I (9387) wifi:state: run -> init (0x0)
+I (9407) wifi:pm stop, total sleep time: 4892261 us / 8928870 us
+
+I (9407) wifi:<ba-del>idx:0, tid:0
+I (9407) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (9447) wifi:flush txq
+I (9447) wifi:stop sw txq
+I (9447) wifi:lmac stop hw txq
+I (9447) wifi:Deinit lldesc rx mblock:10
+[0;32mI (9457) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (9457) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (9457) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (9457) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (9457) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (9457) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (40897) epd13in3e: refresh complete[0m
+[0;32mI (40997) skypane: blit ok bytes=960000 sha256_ok=1[0m
+[0;32mI (41007) skypane: refreshed to sha256:2866b8ce10871e02...[0m
+[0;32mI (41007) skypane: poll ok sleep_s=60 hash_skip=0[0m
+[0;32mI (41007) fp_diag: wake timing total_ms=40697 wifi_ms=3351 setup_ms=2287 display_ms=40 download_ms=3362 draw_ms=31539[0m
+[0;32mI (41007) skypane: sleep enter sleep_s=60[0m

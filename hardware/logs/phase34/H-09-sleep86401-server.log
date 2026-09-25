@@ -1,0 +1,3 @@
+serving /tmp/skypane-lan/panel.bin on port 8642 — point the frame at http://<this-host>:8642
+  telemetry: X-Fw-Version=e8d293c-dev X-Boot-Reason=power-on X-Rssi=-42 X-Battery-Mv=4018
+GET /device/v1/display

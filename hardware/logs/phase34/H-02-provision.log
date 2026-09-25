@@ -1,0 +1,80 @@
+I (1507) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1517) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (4437) fp_wifi: clock set via SNTP[0m
+[0;32mI (5747) esp-x509-crt-bundle: Certificate validated[0m
+[0;32mI (6407) fp_tls: TLS session saved (1167 bytes)[0m
+[0;32mI (10547) fp_api: http connects=1 first_connect_ms=1938 tls_offered=0 tls_saved_len=1167[0m
+I (10547) wifi:state: run -> init (0x0)
+I (10557) wifi:pm stop, total sleep time: 5278522 us / 10062732 us
+
+I (10557) wifi:<ba-del>idx:0, tid:0
+I (10557) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (10587) wifi:flush txq
+I (10587) wifi:stop sw txq
+I (10587) wifi:lmac stop hw txq
+I (10587) wifi:Deinit lldesc rx mblock:10
+[0;32mI (10597) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (10597) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (10597) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (10597) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (10597) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (10597) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (42007) epd13in3e: refresh complete[0m
+[0;32mI (42107) skypane: blit ok bytes=960000 sha256_ok=1[0m
+[0;32mI (42117) skypane: refreshed to sha256:1eea50f2a4433ef6...[0m
+[0;32mI (42117) skypane: poll ok sleep_s=60 hash_skip=0[0m
+[0;32mI (42117) fp_diag: wake timing total_ms=41806 wifi_ms=4091 setup_ms=0 display_ms=1976 download_ms=4129 draw_ms=31509[0m
+[0;32mI (42117) skypane: sleep enter sleep_s=60[0m
+I (466) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (466) wifi:security: WPA2-PSK, phy: bgn, rssi: -46
+I (466) wifi:pm start, type: 1
+
+I (466) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (466) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (566) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1476) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1486) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (1496) fp_tls: offering a saved TLS session (1167 bytes)[0m
+[0;32mI (1726) fp_tls: TLS session saved (1167 bytes)[0m
+[0;32mI (5366) fp_api: http connects=1 first_connect_ms=67 tls_offered=1 tls_saved_len=1167[0m
+I (5366) wifi:state: run -> init (0x0)
+I (5376) wifi:pm stop, total sleep time: 930805 us / 4901761 us
+
+I (5376) wifi:<ba-del>idx:0, tid:0
+I (5376) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (5416) wifi:flush txq
+I (5416) wifi:stop sw txq
+I (5416) wifi:lmac stop hw txq
+I (5416) wifi:Deinit lldesc rx mblock:10
+[0;32mI (5426) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (5426) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (5426) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (5426) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (5426) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (5426) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (36846) epd13in3e: refresh complete[0m
+[0;32mI (36946) skypane: blit ok bytes=960000 sha256_ok=1[0m
+[0;32mI (36956) skypane: refreshed to sha256:8cf8333f05cf4963...[0m
+[0;32mI (36956) skypane: poll ok sleep_s=60 hash_skip=0[0m
+[0;32mI (36956) fp_diag: wake timing total_ms=36646 wifi_ms=1149 setup_ms=0 display_ms=239 download_ms=3630 draw_ms=31519[0m
+[0;32mI (36956) skypane: sleep enter sleep_s=60[0m
+I (1466) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1486) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (1496) fp_tls: offering a saved TLS session (1167 bytes)[0m
+[0;32mI (1666) fp_tls: TLS session saved (1167 bytes)[0m
+[0;32mI (5336) fp_api: http connects=1 first_connect_ms=70 tls_offered=1 tls_saved_len=1167[0m
+I (5336) wifi:state: run -> init (0x0)
+I (5346) wifi:pm stop, total sleep time: 814635 us / 4884000 us
+
+I (5346) wifi:<ba-del>idx:0, tid:0
+I (5346) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (5376) wifi:flush txq
+I (5376) wifi:stop sw txq
+I (5376) wifi:lmac stop hw txq
+I (5376) wifi:Deinit lldesc rx mblock:10
+[0;32mI (5386) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (5386) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (5386) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (5386) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (5386) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (5386) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
