@@ -277,9 +277,9 @@ VALUE_CONTROL_READOUT_FORMAT_ATTR = "data-value-readout-format"
 # on the `--value-fraction` custom property, written by the server once
 # and rewritten by value-controls.js on every steer. A CSS custom
 # property's name begins with two hyphens, which
-# companion/test_i18n.py's D-05 scan reads as untranslated user-facing
-# copy — measured, and it fails. The name lives inline in the one
-# markup template that emits it, in value-controls.js's own
+# companion/test_i18n.py's untranslated-copy scan misreads as
+# user-facing text — measured, and it fails. The name lives inline in
+# the one markup template that emits it, in value-controls.js's own
 # FRACTION_PROPERTY, and in style.css; a harness pins all three to one
 # string.
 
@@ -369,111 +369,93 @@ QUICK_SWITCH_QUIET_STATE_ID = "quick-switch-quiet-state"
 QUICK_SWITCH_FAILED_TEXT = "Couldn't change that — please try again."
 QUICK_SWITCH_FAILED_ATTR = "data-quick-failed-text"
 QUICK_TOAST_ATTR = "data-quick-toast"
-# QUICK_ACTION_APPLIES_SENTENCE ("Applies the next time the frame wakes
-# up.") is no longer USED by frame_strip_html() as of 22-04-PLAN.md
-# Task 1 (D-04): it used to be a static per-control caption regardless
-# of state; the one computed delay sentence below — companion/
-# frame_state.py's DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN, resolved from the
-# SAME state result the headline reads — replaces it, and the retired
-# TEXT survives only as DELAY_UNKNOWN's own wording (the honest
-# no-check-in fallback; see _FRAME_DELAY_UNKNOWN_TEXT below, kept
-# byte-identical to this constant on purpose). The constant itself
-# stays defined (not deleted) because companion/pages/config_page.py
-# and companion/test_config_page.py — both owned by plan 22-05 in this
-# same wave — still reference it directly; that plan is the one that
-# retires the settings form's own remaining static-caption consumer and
-# this constant together, in its own commit.
+# QUICK_ACTION_APPLIES_SENTENCE is no longer used by frame_strip_html():
+# the one computed delay sentence below (companion/frame_state.py's
+# DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN, resolved from the same state
+# result the headline reads) replaces the old static per-control
+# caption. The retired text survives only as DELAY_UNKNOWN's own
+# wording (see _FRAME_DELAY_UNKNOWN_TEXT below, kept byte-identical on
+# purpose). The constant itself stays defined because config_page.py
+# still references it directly.
 QUICK_ACTION_APPLIES_SENTENCE = "Applies the next time the frame wakes up."
 
-# 21-04-PLAN.md Task 1 (D-01): the strip's own heading. Byte-identical
-# English value to home_page.FRAME_ROW_LABEL ("Frame") — both resolve
-# through the SAME companion/i18n_fr/home.py catalogue entry
-# ("Frame": "Cadre"), since the catalogue is keyed by the English
-# string, not by which constant/module holds it. A second, separately
-# named constant (rather than importing FRAME_ROW_LABEL) is required
-# because layout.py may never import a page module.
+# The strip's own heading. Byte-identical English value to
+# home_page.FRAME_ROW_LABEL ("Frame") — both resolve through the same
+# companion/i18n_fr/home.py catalogue entry, since the catalogue is
+# keyed by the English string, not by which constant/module holds it.
+# A second, separately named constant is required because layout.py
+# may never import a page module.
 FRAME_STRIP_HEADING = "Frame"
 
-# 22-04-PLAN.md Task 1 (D-03/CFG-26): NEXT_UPDATE_TEMPLATE/
-# EXPECTED_SINCE_TEMPLATE are retired as independently-named constants —
-# companion/frame_state.py's HEADLINE_DUE/HEADLINE_HELD/HEADLINE_LATE are
-# now the ONE canonical registry of this copy, and frame_strip_html()
-# below calls frame_state.resolve_state()/headline_template() to decide
-# which applies; this module never re-derives that decision.
+# NEXT_UPDATE_TEMPLATE/EXPECTED_SINCE_TEMPLATE are retired as
+# independently-named constants — companion/frame_state.py's
+# HEADLINE_DUE/HEADLINE_HELD/HEADLINE_LATE are now the one canonical
+# registry of this copy, and frame_strip_html() below calls
+# frame_state.resolve_state()/headline_template() to decide which
+# applies; this module never re-derives that decision.
 #
-# The six _FRAME_*_TEXT constants below exist ONLY because this is a
-# scanned module: companion/test_i18n.py's D-08 AST scan proves a string
-# is alive by tracing a real `i18n.t(SOME_MODULE_CONSTANT)` call site in
-# one of a fixed list of files, and that scan cannot follow an imported
-# module's attribute access (`frame_state.HEADLINE_DUE`) — frame_state.py
-# is not itself in that scanned list yet (a deliberate 22-02-PLAN.md
-# choice; plan 22-08 owns widening the scanner to include it, which will
-# make these six local copies redundant, not wrong). Until then, keep
-# every value here byte-identical to its frame_state.py counterpart —
-# never independently reworded — and select among them by comparing
-# frame_state.headline_template()/delay_sentence_template()'s own return
-# value, so the DECISION stays sourced from that module, not re-derived
-# here; only the wording's scanner-visible home is local.
+# The six _FRAME_*_TEXT constants below exist only because this is a
+# scanned module: companion/test_i18n.py's AST scan proves a string is
+# alive by tracing a real `i18n.t(SOME_MODULE_CONSTANT)` call site in a
+# fixed list of files, and cannot follow an imported module's
+# attribute access (`frame_state.HEADLINE_DUE`) — frame_state.py is
+# not itself in that scanned list yet. Keep every value here
+# byte-identical to its frame_state.py counterpart, and select among
+# them by comparing
+# frame_state.headline_template()/delay_sentence_template()'s own
+# return value, so the DECISION stays sourced from that module; only
+# the wording's scanner-visible home is local.
 _FRAME_HEADLINE_DUE_TEXT = "Next update ≈ %s"
 _FRAME_HEADLINE_HELD_TEXT = "Next wake around %s · quiet hours"
 _FRAME_HEADLINE_LATE_TEXT = "Expected since %s"
 _FRAME_DELAY_DUE_TEXT = "Applies at the next wake, around %s."
 _FRAME_DELAY_HELD_TEXT = "Applies when quiet hours end, around %s."
-# Byte-identical to QUICK_ACTION_APPLIES_SENTENCE above by construction
-# (same value, not a coincidence) — the retired static caption's own
-# TEXT survives as exactly this one computed branch's wording.
+# Byte-identical to QUICK_ACTION_APPLIES_SENTENCE above by
+# construction (same value, not a coincidence) — the retired static
+# caption's own text survives as exactly this one computed branch's
+# wording.
 _FRAME_DELAY_UNKNOWN_TEXT = QUICK_ACTION_APPLIES_SENTENCE
 
-# 27-08-PLAN.md Task 2 (CFG-69): the quiet cell's caption link, appended
-# to the SAME `delay_caption_html` slot the switch cells already share —
-# never a new slot, never a per-page fork (D-23; see frame_strip_html()
-# below). The link text is scanner-visible for the identical D-08 reason
-# the six _FRAME_*_TEXT constants above are: a local, byte-identical copy
-# rather than a cross-module attribute read.
+# The quiet cell's caption link, appended to the same
+# `delay_caption_html` slot the switch cells already share — never a
+# new slot, never a per-page fork. The link text is scanner-visible
+# for the identical reason the six _FRAME_*_TEXT constants above are:
+# a local, byte-identical copy rather than a cross-module attribute
+# read.
 _FRAME_QUIET_SCHEDULE_LINK_TEXT = "Change the schedule"
-# Byte-identical to companion/pages/config_page.py's own
-# QUIET_HOURS_GROUP_HEADING_ID (27-08-PLAN.md Task 1) — duplicated, never
-# imported, for the same "a page module may never import another page
-# module" reason QUICK_ACTION_QUIET_LABEL and its ten siblings above are
-# local copies rather than a cross-module read. The two constants must
-# be kept byte-identical by hand; a harness proves it (27-08-PLAN.md
-# Task 2's own check).
+# Byte-identical to config_page.py's own
+# QUIET_HOURS_GROUP_HEADING_ID — duplicated, never imported, for the
+# same "a page module may never import another page module" reason
+# QUICK_ACTION_QUIET_LABEL and its ten siblings above are local copies
+# rather than a cross-module read. The two constants must be kept
+# byte-identical by hand; a harness proves it.
 _FRAME_QUIET_SCHEDULE_TARGET_ID = "quiet-hours-group-heading"
 
 # The frame's held state reuses the app's existing neutral "off" dot
-# (companion/static/style.css's own comment: "a neutral, everyday state
-# ... never a problem") — never a new colour, never the warn dot
-# (22-UI-SPEC.md §3.3 rule 1). "late" is `.dot--warn`; there is no
-# fourth, "error" tier in the frame-state vocabulary any more (D-03
-# collapses the strip's old unconditional "any lateness is a warning"
-# behaviour into exactly three states).
+# — never a new colour, never the warn dot. "late" is `.dot--warn`;
+# there is no fourth, "error" tier in the frame-state vocabulary any
+# more.
 _FRAME_DOT_CLASS_BY_STATE = {
     frame_state.STATE_DUE: "dot--ok",
     frame_state.STATE_HELD: "dot--off",
     frame_state.STATE_LATE: "dot--warn",
 }
 
-# 22-12-PLAN.md Task 1 (X8, 22-UI-SPEC.md §5 contract 4): "off" is a
-# FOURTH, additive entry — never a fourth colour and never a fifth dot.
-# `.dot--off` has been in companion/static/style.css since phase 21
-# (D-03) and is defined there as "a neutral, everyday state ... never a
+# "off" is a fourth, additive entry — never a fourth colour and never
+# a fifth dot. `.dot--off` has been in companion/static/style.css
+# since phase 21, defined as "a neutral, everyday state ... never a
 # problem"; until now the only way to reach it was to hand-build the
-# span, which companion/pages/health_page.py's `_pipeline_section()`
-# does for exactly that reason (its own comment says so). Adding the
+# span (health_page.py's `_pipeline_section()` still does). Adding the
 # entry here means `status_dot("off", label)` now renders the neutral
-# dot plus its normal visible `.dot-label`, so Health's "Only one saw
-# it" row keeps the identical markup shape as its two siblings instead
-# of a hand-rolled copy of this function's output.
+# dot plus its normal visible `.dot-label`, matching the shape of its
+# siblings.
 #
-# Additive by construction: no pre-existing caller of `status_dot()`,
-# `status_row()` or `_health_alert_markup()` passes "off" (grep: every
-# `status_row()` call site in companion/pages/ passes "ok"/"warn"/
-# "error" only, and `severity` is never "off"), so every one of them is
-# byte-identical to before. `_DEFAULT_STATUS_DOT_CLASS` still resolves
-# an UNRECOGNISED state to the warn class, which is what
-# companion/test_companion_app.py's own "not-a-real-state" fallback
-# check exercises — that check is unaffected, "off" is now a
-# recognised state rather than an arbitrary one.
+# Additive by construction: no pre-existing caller of status_dot(),
+# status_row() or _health_alert_markup() passes "off", so every one
+# of them is byte-identical to before. `_DEFAULT_STATUS_DOT_CLASS`
+# still resolves an unrecognised state to the warn class, exercised
+# by test_companion_app.py's own "not-a-real-state" fallback check —
+# "off" is now a recognised state rather than an arbitrary one.
 _STATUS_DOT_CLASSES = {
     "ok": "dot--ok",
     "warn": "dot--warn",
@@ -489,9 +471,9 @@ _STAT_TILE_BORDER_CLASSES = {
 }
 _DEFAULT_STAT_TILE_CLASS = "stat-tile--accent"
 
-# quick task 260902-gjj (ISSUE 2): card_status_class()'s own whitelist,
-# kept as bare suffixes (not full class names) so the caller's own base
-# class never has to be typed twice.
+# card_status_class()'s own whitelist, kept as bare suffixes (not
+# full class names) so the caller's own base class never has to be
+# typed twice.
 _CARD_STATUS_SUFFIXES = {
     "ok": "--ok",
     "warn": "--warn",
@@ -861,14 +843,12 @@ def age_seconds(ts, now_ts):
         return None
 
 
-# D-07, 20-03-PLAN.md Task 2: the French unit-suffix table
-# relative_age_text()'s French branch consumes below, in the same
-# "fixed dict, membership lookup, documented fallback" shape
-# _STATUS_DOT_CLASSES already uses. Kept complete (all four English
-# unit letters) even though the "s" entry is never actually reached
-# (the seconds bucket always short-circuits to "à l'instant" before
-# consulting this table) — the same audit-by-grep discipline every
-# other fixed-vocabulary dict in this module follows.
+# The French unit-suffix table relative_age_text()'s French branch
+# consumes below, in the same "fixed dict, membership lookup,
+# documented fallback" shape _STATUS_DOT_CLASSES already uses. Kept
+# complete (all four English unit letters) even though the "s" entry
+# is never actually reached (the seconds bucket always short-circuits
+# to "à l'instant" before consulting this table).
 _AGE_UNIT_SUFFIX_FR = {
     "s": "s",
     "m": "min",
@@ -878,19 +858,16 @@ _AGE_UNIT_SUFFIX_FR = {
 
 
 def _age_bucket(age_seconds):
-    """The s/m/h/d bucket a whole number of seconds falls in, as a
-    `(value, unit_letter)` pair — and the ONLY place in this module the
-    three threshold boundaries are written down.
+    """The s/m/h/d bucket a whole number of seconds falls in, as a `(value,
+    unit_letter)` pair — the only place in this module the three
+    threshold boundaries are written down.
 
-    23-03-PLAN.md Task 1 extracted this out of `relative_age_text()`
-    below, unchanged, so the future form beside it can read the SAME
-    boundaries instead of restating them. "3m ago" and "in 3m" are one
-    ladder read in two directions: they must never be able to disagree
-    about where a bucket ends, and naming the boundaries once is what
-    makes that structural rather than a convention somebody has to
-    remember. The unit letters are the English suffixes themselves, so
-    the English branch formats straight from this pair and the French
-    branch maps them through `_AGE_UNIT_SUFFIX_FR` above.
+    "3m ago" and "in 3m" are one ladder read in two directions: they
+    must never disagree about where a bucket ends, so naming the
+    boundaries once here makes that structural. The unit letters are
+    the English suffixes themselves, so the English branch formats
+    straight from this pair and the French branch maps them through
+    _AGE_UNIT_SUFFIX_FR above.
 
     A negative input (clock skew, or an instant that has already
     elapsed) is clamped to 0 rather than read as a negative bucket —
@@ -971,7 +948,7 @@ def duration_text(seconds, lang=None):
     The third reading of one ladder: it names a cadence or a measured gap
     with no connector and no tense, unlike its two siblings which state an
     instant relative to now. Only the real U+00A0 between the number and
-    its unit (D-09) is added; the ladder and the French unit suffixes are
+    its unit is added; the ladder and the French unit suffixes are
     not restated.
 
     A negative or non-numeric input clamps to the zero bucket through
@@ -1113,17 +1090,18 @@ def _machine_instant(parsed):
     seconds precision, or "" when it cannot be produced.
 
     This is the value `relative_time_html()` puts in a `datetime`
-    attribute. It is deliberately NOT the raw stored string: D-05/B4's
-    rule is that no raw, unconverted timestamp reaches the page, and two
-    shipped checks assert exactly that over `concise_timestamp_html()`'s
-    output — so the attribute carries the same instant, converted onto
-    the one timezone this app speaks, offset included. An offset is what
-    makes it unambiguous to the script that will read it.
+    attribute. It is deliberately NOT the raw stored string: no raw,
+    unconverted timestamp reaches the page, and two shipped checks
+    assert exactly that over `concise_timestamp_html()`'s output — so
+    the attribute carries the same instant, converted onto the one
+    timezone this app speaks, offset included. An offset is what makes
+    it unambiguous to the script that will read it.
 
     A naive datetime is taken as UTC, matching `local_clock_text()`'s
     own convention and `history_db.utc_now_iso()`'s own output. Never
-    raises: an input that cannot be converted returns "", and the caller
-    renders plain text rather than an element with an empty attribute.
+    raises: an input that cannot be converted returns "", and the
+    caller renders plain text rather than an element with an empty
+    attribute.
     """
     try:
         if parsed.tzinfo is None:
@@ -1135,76 +1113,28 @@ def _machine_instant(parsed):
 
 def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None,
                        countdown=False, static_text=None):
-    """"<time datetime="<instant>" data-relative><relative age></time>" —
-    the app's ONE relative-time element (23-03-PLAN.md Task 1, D14/
-    CFG-34). Before this function the codebase rendered no `<time>`
-    element anywhere: every relative age was plain text baked into a
-    span at render time and frozen until something replaced the whole
-    region.
+    """`<time datetime="<instant>" data-relative><relative age></time>` — the
+    app's one relative-time element.
 
-    The visible text is `relative_age_text()`'s own return value for a
-    past instant and `relative_future_text()`'s for a future one — one
-    function, both directions, so plan 23-06's countdown has nothing to
-    add here. Neither string is re-derived: this is a wrapping, and if
-    the rendered text changes for any input the conversion is wrong.
+    The visible text is relative_age_text()'s or relative_future_text()'s
+    return value; `datetime` carries the machine-readable instant,
+    `data-relative` is the ticker's hook. No other class or state word goes
+    in the element.
 
-    `datetime` carries the machine-readable instant (`_machine_instant()`
-    above); `data-relative` is the hook plan 23-05's ticker queries.
-    Nothing else goes in the element — no class that carries meaning, no
-    state word. It is semantic, not presentational: a caller that wants
-    the `.time-value` role puts that class on its OWN wrapper, because
-    monospace stays reserved for identifiers (C5, Phase 22).
+    RAW-MARKUP-PRODUCING: callers interpolate the return value verbatim,
+    never re-escaping it, and place it only in data_table()'s raw_columns
+    parameter or in already-safe markup. The instant and text are escaped
+    here internally, so the no-JS rendering (the complete server text, with
+    no ticker) is already correct.
 
-    THE NO-JS FLOOR IS THIS FUNCTION'S OUTPUT, not an enhancement over
-    it. With scripts blocked the element reads exactly what the bare
-    text read before — the text is server-rendered and complete — and
-    the ticker is the layer added over it, never a prerequisite for it.
+    Returns the escaped `fallback` when `ts` is falsy, and the escaped `ts`
+    on a parse failure — never raising, and never an invented instant.
 
-    THIS IS A RAW-MARKUP-PRODUCING FUNCTION: callers interpolate the
-    return value verbatim — never re-escape it — and place it only in
-    data_table()'s raw_columns parameter, or directly in already-safe
-    markup (never in a data_table() column outside raw_columns). Both
-    the instant and the text are escaped here, at the interpolation
-    site, the same discipline `concise_timestamp_html()` below carries.
-
-    Returns the escaped `fallback` (a bare string, no markup — matching
-    `absolute_and_relative()`'s own no-markup fallback contract) when
-    `ts` is falsy, and the escaped `ts` when it, `now_ts` or the
-    conversion fails — never raising, and never an element carrying an
-    empty or invented instant, which reads as a correct time to a script
-    and is worse than no element at all.
-
-    `lang` is the same trailing keyword every sibling here carries: its
-    `None` resolves through `relative_age_text()`'s own
-    `prefs.current_lang()` default.
-
-    `countdown` (23-05-PLAN.md Task 1) marks the element as a COUNTDOWN
-    rather than an age: it adds `RELATIVE_COUNTDOWN_ATTR`, and once the
-    instant has passed the element reads `RELATIVE_WAITING_TEXT` instead
-    of turning into an age. A countdown that has run out is still a
-    countdown, and silently becoming "0s ago" would change what the
-    element is about halfway through its own life.
-    `companion/static/relative-time.js` reads the same marker and makes
-    exactly the same choice client-side, so the two never disagree and
-    the no-JS rendering of an expired countdown is already correct.
-    The default is False, which produces the byte-identical element
-    23-03 shipped. No page renders a countdown yet; plan 23-06's
-    next-wake line is its first consumer.
-
-    `static_text` (23-06-PLAN.md) renders THAT text instead of the
-    ladder's output, leaving the `datetime` attribute and the
-    `data-relative` hook exactly as they are — the element is still the
-    ticker's, and `companion/static/relative-time.js` replaces the text
-    with the live age on its first pass. It exists for one situation and
-    should be used in no other: a line whose SERVER rendering has to
-    stay true for a reader with no ticker to advance it. Health's
-    freshness line is that line — "Updated 0s ago" is true at load and
-    false a second later, which is 19-09/A-20's own frozen zero, while
-    "Updated 14:32" is true forever and becomes "Updated 3m ago" the
-    moment a script runs. THE CALLER IS ASSERTING THAT ITS TEXT IS TRUE
-    INDEPENDENT OF NOW: pass a clock or an absolute date, never a
-    duration. `None` is the default and produces the byte-identical
-    element 23-03 shipped.
+    `countdown` marks the element as counting toward a future instant;
+    once it passes it reads RELATIVE_WAITING_TEXT instead of becoming an
+    age. `static_text` renders fixed text instead of the ladder's output,
+    for the one case where the SERVER rendering must stay true with no
+    ticker running (e.g. an absolute clock rather than a duration).
     """
     if not ts:
         return escape_html(fallback)
@@ -1231,38 +1161,23 @@ def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None,
 
 
 def absolute_and_relative(ts, now_ts, fallback="no reading yet", lang=None):
-    """"<ts> (<relative age> ago)" — the house "absolute + relative"
-    timestamp format (D-02), already shipped on this page's Device
-    check-in and ADS-B pipeline rows and now shared for every caller.
+    """`"<ts> (<relative age> ago)"` — the house "absolute + relative"
+    timestamp format, shared by every caller.
 
-    Returns `fallback` when `ts` is falsy (None or empty string); returns
-    `ts` unchanged (absolute only, no relative suffix) when age_seconds()
-    cannot parse either side — an unparseable or missing `now_ts` — never
-    raising. This is a deliberate hardening over the pre-promotion
-    health_page.py path, where an empty-string `ts` would have reached
-    the relative-age helper as `None` and raised a TypeError mid-render.
+    Returns `fallback` when `ts` is falsy; returns `ts` unchanged (absolute
+    only) when age_seconds() cannot parse either side — never raising.
 
-    The return value is plain, unescaped text — the same contract
-    status_dot()'s `label` parameter already carries. Every caller must
-    keep escaping it: wrap it in escape_html() directly, or hand it to a
-    builder such as data_table() that already escapes every cell it is
-    given.
+    The return value is plain, unescaped text, the same contract
+    status_dot()'s `label` carries: every caller must escape it directly or
+    hand it to a builder that already escapes each cell (e.g. data_table()).
 
-    Absolute-first ordering (the ISO string first, the relative age in
-    parentheses) is this app's shipped, canonical convention and must
-    not be reversed — 06.3-UI-SPEC.md's Typography section shows a
-    relative-first example, but that is illustrative prose no 06.3 plan
-    task implements or depends on (06.6-RESEARCH.md Open Question 1).
+    Absolute-first ordering (ISO string first, relative age in
+    parentheses) is this app's canonical convention and must not be
+    reversed.
 
-    `lang` (Polish fix 2, mirroring local_clock_text()'s own trailing
-    keyword, D-07): `None` resolves via `relative_age_text()`'s own
-    `prefs.current_lang()` default, so every pre-existing call site
-    (passing only `ts`/`now_ts`) keeps its identical English output. An
-    explicit `lang` is threaded straight through to `relative_age_text()`
-    for a caller that needs a specific language regardless of the
-    current request's own ContextVar-resolved language — e.g. a
-    server-side notification body (D-28) rendered with no request
-    context to read from at all.
+    `lang` defaults to `None`, resolved via relative_age_text()'s own
+    prefs.current_lang() default; an explicit `lang` threads through for a
+    caller with no request context (e.g. a server-side notification body).
     """
     if not ts:
         return fallback
@@ -1272,65 +1187,37 @@ def absolute_and_relative(ts, now_ts, fallback="no reading yet", lang=None):
     return "%s (%s)" % (ts, relative_age_text(age, lang=lang))
 
 
-# 22-06-PLAN.md Task 3 (D-05, B4): a `now_parsed` guaranteed to fall on a
-# DIFFERENT Europe/Paris calendar day than any real timestamp this app
-# renders, so passing it to `local_clock_text()` forces that function's
-# own cross-day "D Mon HH:MM" branch — this is how `concise_timestamp_
-# html()`'s `title` below is built as a full local timestamp, reusing
-# `local_clock_text()` itself (the one visible-time formatter) rather
-# than a second, competing implementation.
+# A `now_parsed` guaranteed to fall on a different Europe/Paris calendar
+# day than any real timestamp this app renders, forcing
+# local_clock_text()'s cross-day "D Mon HH:MM" branch — this is how
+# concise_timestamp_html()'s `title` below is built as a full local
+# timestamp, reusing local_clock_text() itself rather than a second,
+# competing implementation.
 _FULL_TIMESTAMP_SENTINEL_NOW = datetime(1970, 1, 1, tzinfo=ZoneInfo("UTC"))
 
 
 def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
-    """"<span class="mono" title="<D Mon HH:MM local>"><HH:MM local> (<relative>)</span>"
-    — D-09's concise-timestamp-by-default format (06.6.3-UI-SPEC.md's New
-    Component Contracts). The visible text is `local_clock_text()`'s own
-    Europe/Paris clock (bare "HH:MM" on the same local day as `now_ts`,
-    "D Mon HH:MM" otherwise) plus the existing `relative_age_text()`
-    suffix, preserving `absolute_and_relative()`'s established
-    absolute-first ordering convention (do not reverse to
-    relative-first). The `title` attribute is a full local timestamp —
-    always day-qualified, via `local_clock_text()`'s own cross-day
-    branch forced by `_FULL_TIMESTAMP_SENTINEL_NOW` above — never the
-    raw ISO string.
+    """`<span class="mono" title="<D Mon HH:MM local>"><HH:MM local>
+    (<relative>)</span>` — the concise-timestamp-by-default format. The
+    visible text is local_clock_text()'s Europe/Paris clock plus
+    relative_age_text()'s suffix, preserving absolute_and_relative()'s
+    absolute-first ordering. The `title` attribute is always a full,
+    day-qualified local timestamp, forced by local_clock_text()'s
+    cross-day branch — never the raw ISO string.
 
-    Corrected under D-05/22-06-PLAN.md Task 3 (B4): this docstring used
-    to promise `"<HH:MM> UTC (<relative>)"` — a stale "UTC" suffix the
-    code below never actually emitted even before this task (the visible
-    text was already `local_clock_text()`'s Paris-local output) — and
-    the `title` WAS the raw, unconverted ISO string until this task. That
-    stale docstring is exactly what `companion/pages/health_page.py`'s
-    battery code copied when it built its own "HH:MM UTC (relative)"
-    readout by hand instead of calling this function (B4) — corrected
-    here rather than merely worked around at that one call site.
+    RAW-MARKUP-PRODUCING: callers interpolate the return value verbatim,
+    never re-escaping it, and place it only in data_table()'s raw_columns
+    parameter or in already-safe markup.
 
-    THIS IS A RAW-MARKUP-PRODUCING FUNCTION: callers interpolate the
-    return value verbatim — never re-escape it — and place it only in
-    data_table()'s new raw_columns parameter, or directly in
-    already-safe markup (never in a data_table() column outside
-    raw_columns).
+    Returns the escaped `fallback` when `ts` is falsy. When `ts` fails to
+    parse, returns a span with the raw value in both the title and
+    visible-text slots rather than raising.
 
-    Returns the escaped `fallback` (a bare string, no markup — matching
-    absolute_and_relative()'s own no-markup fallback contract) when `ts`
-    is falsy. When `ts` fails to parse (or age_seconds() cannot compute,
-    e.g. a mismatched now_ts), returns a span with the raw value in both
-    the title and visible-text slots rather than raising — there is
-    nothing to convert once parsing itself has failed, so this one
-    degrade path is unchanged by this task.
+    absolute_and_relative() is not superseded by this function: it
+    remains the right choice for any plain-text-only call site.
 
-    absolute_and_relative() is not deleted by this function's addition —
-    it remains the right choice for any plain-text-only call site (e.g.
-    Preview's no-panel caption); do not replace those call sites with
-    this function.
-
-    `lang` (Polish fix 2, mirroring local_clock_text()'s own trailing
-    keyword, D-07): `None` resolves via `local_clock_text()`'s/
-    `relative_age_text()`'s own `prefs.current_lang()` default, so every
-    pre-existing call site (passing only `ts`/`now_ts`) keeps its
-    identical English output — the French month table/relative-age
-    connector only apply when the CURRENT REQUEST's language is French
-    (or an explicit `lang="fr"` is passed here), never unconditionally.
+    `lang` defaults to `None`, resolved via local_clock_text()'s/
+    relative_age_text()'s own prefs.current_lang() default.
     """
     if not ts:
         return escape_html(fallback)
@@ -1340,16 +1227,12 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
         return '<span class="mono" title="%s">%s</span>' % (
             escape_html(ts), escape_html(ts))
     full_local = local_clock_text(parsed, _FULL_TIMESTAMP_SENTINEL_NOW, lang=lang)
-    # 23-03-PLAN.md Task 1 (D14/CFG-34): the parenthesised relative half
-    # is now relative_time_html()'s element rather than a bare escaped
-    # string, so every surface reading THROUGH this function inherits
-    # the convention without its own page module changing at all. The
-    # parentheses stay OUTSIDE the element: they are this format's
-    # punctuation, not part of the age, and the ticker that rewrites the
-    # element's text in plan 23-05 must not have to reproduce them. The
-    # outer span, its class, its title and the absolute-first ordering
-    # are untouched — reversing that ordering is not this plan's
-    # business (06.6-RESEARCH.md Open Question 1).
+    # The parenthesised relative half is relative_time_html()'s element
+    # rather than a bare escaped string, so every surface reading through
+    # this function inherits the convention automatically. The parentheses
+    # stay OUTSIDE the element: they are this format's punctuation, not part
+    # of the age, so the ticker rewriting the element's text does not have
+    # to reproduce them.
     return '<span class="mono" title="%s">%s (%s)</span>' % (
         escape_html(full_local),
         escape_html(local_clock_text(parsed, parse_iso(now_ts), lang=lang)),
@@ -1357,11 +1240,12 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
 
 
 def month_abbr(month, lang=None):
-    """Phase 21 polish: the language-aware abbreviated month name, for
-    callers that build their own "D Mon" labels (the Health battery
-    chart's X axis) — the same twelve-entry tables local_clock_text()
-    below selects between, exposed once instead of copied. `lang`
-    defaults to the request's resolved language; `month` is 1..12."""
+    """The language-aware abbreviated month name, for callers that build
+    their own "D Mon" labels (the Health battery chart's X axis) — the
+    same tables local_clock_text() below selects between, exposed once
+    instead of copied. `lang` defaults to the request's resolved
+    language; `month` is 1..12.
+    """
     if lang is None:
         lang = prefs.current_lang()
     table = _MONTH_ABBR_FR if lang == "fr" else _MONTH_ABBR
@@ -1369,19 +1253,15 @@ def month_abbr(month, lang=None):
 
 
 def local_clock_text(parsed, now_parsed=None, lang=None):
-    """`parsed` (an aware or naive datetime) rendered on LOCAL_TZ: "HH:MM"
-    when it falls on the same local day as `now_parsed` (or when no `now`
-    is supplied), otherwise "D Mon HH:MM". A naive datetime is taken as
-    UTC, matching history_db.utc_now_iso()'s own output. Never raises.
+    """`parsed` (aware or naive) rendered on LOCAL_TZ: "HH:MM" when it falls
+    on the same local day as `now_parsed` (or when no `now` is supplied),
+    otherwise "D Mon HH:MM". A naive datetime is taken as UTC. Never
+    raises.
 
-    `lang` (D-07, 20-03-PLAN.md Task 2) is a trailing keyword whose
-    `None` resolves to `prefs.current_lang()` — every pre-existing call
-    site passes only `parsed` (and, at most, `now_parsed` by keyword),
-    so the English month table (`_MONTH_ABBR`) and this function's
-    English output are unchanged. Under a French request, the month
-    abbreviation comes from `_MONTH_ABBR_FR` instead; the clock itself
-    stays 24-hour Europe/Paris in both languages — no locale module,
-    no `%p`, no change to the timezone handling.
+    `lang` defaults to `None`, resolved to prefs.current_lang(): under a
+    French request the month abbreviation comes from _MONTH_ABBR_FR
+    instead; the clock itself stays 24-hour Europe/Paris in both
+    languages.
     """
     try:
         if parsed.tzinfo is None:
@@ -1402,12 +1282,11 @@ def local_clock_text(parsed, now_parsed=None, lang=None):
 
 
 def ui_theme_from_cookie(cookies):
-    """Return the CFG-09 UI theme named by `cookies`, or "auto" when the
-    cookie is missing or holds a value outside UI_THEME_CHOICES.
+    """Return the UI theme named by `cookies`, or "auto" when the cookie is
+    missing or holds a value outside UI_THEME_CHOICES.
 
-    Membership test before use, mirroring the same discipline this
-    codebase already applies to theme/runway ids elsewhere (ASVS V5) —
-    a client-controlled cookie value is never trusted as-is.
+    Membership test before use: a client-controlled cookie value is never
+    trusted as-is.
     """
     if not isinstance(cookies, dict):
         return "auto"
@@ -1416,26 +1295,23 @@ def ui_theme_from_cookie(cookies):
 
 
 def _nav_links(active):
-    """Return one (is_active, escaped_route, escaped_label, slug) tuple
-    per NAV_TABS entry, in NAV_TABS order.
+    """Return one (is_active, escaped_route, escaped_label, slug) tuple per
+    NAV_TABS entry, in NAV_TABS order.
 
-    This is the single place NAV_TABS is iterated and its route/label
-    pair escaped; sidebar_nav() (vertical, >=960px) and _mobile_nav_html()
-    (hamburger dropdown, <960px, 06.6.1-05) both consume this (via
-    _nav_groups() below) instead of re-iterating NAV_TABS and
-    re-implementing the same escaping/active-state logic twice. The
-    unescaped route `slug` (06.6.1-04) is part of what this function
-    single-sources too, so a renderer can identify a specific link (e.g.
-    the Health nav-tab notification dot's target) without re-deriving
-    "which link is Health" from an already-escaped route string.
+    The single place NAV_TABS is iterated and its route/label pair
+    escaped; sidebar_nav() and _mobile_nav_html() both consume this (via
+    _nav_groups() below) instead of re-implementing the same
+    escaping/active-state logic twice. The unescaped `slug` lets a
+    renderer identify a specific link (e.g. the Health nav-tab
+    notification dot's target) without re-deriving it from an
+    already-escaped route string.
     """
     links = []
     for route, label in NAV_TABS:
         slug = nav_slug(route)
         is_active = slug == active
-        # D-05/D-09 (20-01-PLAN.md Task 3): the label is looked up
-        # through i18n.t() at render time — NAV_TABS/NAV_GROUPS keep
-        # their English values (D-01); escape_html() still wraps the
+        # The label is looked up through i18n.t() at render time — NAV_TABS/
+        # NAV_GROUPS keep their English values; escape_html() still wraps the
         # result, exactly like any other t() call site.
         links.append((is_active, escape_html(route), escape_html(i18n.t(label)), slug))
     return links
@@ -1444,17 +1320,13 @@ def _nav_links(active):
 def _nav_groups(active):
     """NAV_GROUPS in display order, each as (escaped_group_label, links)
     where `links` is the slice of _nav_links(active) belonging to that
-    group. Phase 18: the one place the group structure is walked, so the
-    sidebar and the dropdown can never disagree about which tab sits
-    under the "Advanced" label.
+    group. The one place the group structure is walked, so the sidebar
+    and the dropdown can never disagree about which tab sits under the
+    "Advanced" label.
 
-    D-17 (21-01-PLAN.md Task 1): the group whose label is
-    ADVANCED_GROUP_LABEL (Health, Device) used to be omitted entirely
-    in simple mode (D-30, 20-01-PLAN.md Task 3); that gate is deleted
-    along with simple mode itself — the Advanced group now renders on
-    every page for every request, like every other group. `/health`
-    and `/device` were always reachable by URL and stay session-gated
-    regardless (companion/pages/__init__.py's ctx contract).
+    The Advanced group (Health, Device) renders on every page for every
+    request; `/health` and `/device` were always reachable by URL and stay
+    session-gated regardless.
     """
     links = _nav_links(active)
     groups = []
@@ -1467,43 +1339,33 @@ def _nav_groups(active):
     return groups
 
 
-# 06.6.1-05 (D-06, superseding D-00): the horizontally-scrollable nav
-# strip's renderer used to live here. Real-device testing found the
-# pattern hid most tabs behind an undiscoverable swipe even after its own
-# flexbox sizing bug was fixed, so it was replaced rather than repaired a
-# second time — see companion/static/style.css's own header comment for
-# the full flexbox history. There are now exactly two live nav
-# renderers, sidebar_nav() and _mobile_nav_html() below, both fed by
-# _nav_links() above.
+# There are exactly two live nav renderers, sidebar_nav() and
+# _mobile_nav_html() below, both fed by _nav_links() above. A
+# horizontally-scrollable nav strip used to render here; real-device
+# testing found the pattern hid most tabs behind an undiscoverable
+# swipe, so it was replaced rather than repaired — see
+# companion/static/style.css's own header comment for the flexbox
+# history.
 
 
 def _health_alert_markup(severity):
     """The Health nav-tab notification dot plus its visually-hidden
-    screen-reader suffix (06.6.1-UI-SPEC.md's Layout Contract / D-02),
-    built once so both `_nav_html()`-style and `sidebar_nav()` renderers
-    share exactly one markup source for it — today only `sidebar_nav()`
-    calls this (the horizontal `_nav_html()` renderer is retired by plan
-    06.6.1-05 rather than gaining this markup itself).
+    screen-reader suffix, built once so every nav renderer shares one
+    markup source for it.
 
-    `severity` is `"warn"` or `"error"` — this function is only ever
-    called when the caller has already checked severity is not `"ok"`/
-    falsy (06.6.2-06, UXA-14). The dot class is looked up via the same
-    `_STATUS_DOT_CLASSES` dict `status_dot()` uses (reused, not
-    duplicated), so a warning-only Health state draws `dot--warn` rather
-    than always the maximal `dot--error` treatment.
+    `severity` is "warn" or "error" — this function is only called when
+    the caller has already checked severity is not "ok"/falsy. The dot
+    class is looked up via the same `_STATUS_DOT_CLASSES` dict
+    status_dot() uses, so a warning-only Health state draws `dot--warn`
+    rather than always the maximal `dot--error` treatment.
 
     Appends a visually-hidden text suffix rather than an `aria-label` on
-    the link: an `aria-label` would *replace* the link's accessible
-    name, so the announced text would become only the alert phrasing and
-    the word "Health" would be lost. An appended visually-hidden span
-    leaves the existing "Health" name intact and adds to it — this is
-    06.6.1-UI-SPEC.md's stated reason and a correctness point, not a
-    style preference.
+    the link: an `aria-label` would replace the link's accessible name,
+    dropping the word "Health"; an appended span adds to it instead.
 
-    The absence of this markup is deliberately the all-clear signal —
-    the same precedent the anomaly banner and CFG-05's source-fault
-    badge already set in this codebase: nothing is rendered when
-    everything is fine, so there is no "all good" chrome to ignore.
+    The absence of this markup is deliberately the all-clear signal:
+    nothing is rendered when everything is fine, so there is no "all
+    good" chrome to ignore.
     """
     dot_class = _STATUS_DOT_CLASSES.get(severity, _DEFAULT_STATUS_DOT_CLASS)
     return (
@@ -1517,69 +1379,44 @@ NAV_SCREEN_OFF_TEXT = "Screen off"
 NAV_QUIET_ON_TEXT = "Quiet hours on"
 NAV_QUIET_OFF_TEXT = "Quiet hours off"
 NAV_STATUS_ARIA_LABEL_TEXT = "Screen and quiet hours status — go to Home"
-# 22-14-PLAN.md Task 2 (B10, 22-UI-SPEC.md §5 contract 6): the middle dot
-# that separates the two state segments. Promoted out of the format
-# string to a named constant because the two segments are now
-# `white-space: nowrap` spans inside a wrapping flex row (the line may
-# break BETWEEN them, never inside one), so the separator is a sibling
-# of both rather than punctuation embedded in one of them.
+# The middle dot that separates the two state segments, promoted to a
+# named constant because the two segments are `white-space: nowrap`
+# spans inside a wrapping flex row (the line may break BETWEEN them,
+# never inside one), so the separator is a sibling of both rather than
+# punctuation embedded in one.
 NAV_STATUS_SEPARATOR_TEXT = " · "
 
 
 def nav_status_html(device_config, active=None):
-    """The nav's state-only reminder — D-03 (21-CONTEXT.md, R-03): one
-    shared body, called by BOTH `sidebar_nav()` and `_mobile_nav_html()`
-    below, so the two nav copies can never disagree about the frame's
-    current Screen/Quiet-hours state — the same "one function, two call
-    sites" contract `sidebar_nav()`'s own docstring already states for
-    `_nav_links()`.
+    """The nav's state-only reminder: one shared body, called by both
+    sidebar_nav() and _mobile_nav_html() below, so the two nav copies can
+    never disagree about the frame's current Screen/Quiet-hours state.
 
-    Reads the exact same two `device_config` fields `layout.frame_
-    strip_html()` reads (`display_enabled`/`quiet_hours_enabled`), so
-    the strip and this reminder can never disagree either — there is
-    only one source of truth for both.
+    Reads the same two `device_config` fields frame_strip_html() reads
+    (display_enabled/quiet_hours_enabled), so the strip and this reminder
+    can never disagree either.
 
-    Returns `""` when `device_config` is falsy — `None` means "no
-    request context available" (the login shell, a 404, any error
-    page rendered before a session exists), and degrades to no
-    reminder at all, matching `_health_alert_markup()`'s own documented
-    "absence is the correct signal, not merely convenient" contract.
+    Returns "" when `device_config` is falsy (no request context —
+    login, 404, any pre-session page).
 
-    A plain `<a href="/">` — no `<form>`, no `<button>`, no script
-    (D-03: "the nav shows a state reminder, not buttons" — the phase 18
-    audit finding that the nav must carry no actions). The visible text
-    is two dot+word segments ("Screen on · Quiet hours off"); the
-    link's own `aria-label` states where it goes, since the visible
-    text alone does not read as a link destination to a screen-reader
-    user. Every value crosses `escape_html()`; every string crosses
-    `i18n.t()` at its interpolation site.
+    A plain `<a href="/">` — no form, no button, no script: the nav shows
+    a state reminder, not actions. The visible text is two dot+word
+    segments ("Screen on · Quiet hours off"); the link's own
+    `aria-label` states where it goes, since the visible text alone does
+    not read as a destination. Every value crosses escape_html(); every
+    string crosses i18n.t().
 
-    `active` (22-14-PLAN.md Task 2, B10/D-04, 22-UI-SPEC.md §5 contract
-    6, keyword-with-default so no existing positional call site changes
-    meaning): the caller's own active-route slug. When it is Home's own
-    slug this renders a `<span>` with NO `href` at all, whose
-    `aria-label` names only the state — because on Home the link's
-    "— go to Home" label promised navigation the element could not
-    perform, which is the defect B10 names, and the wording is not what
-    is wrong with it. D-04's "the reminder stays only if it links
-    somewhere useful" is then satisfied by construction rather than by
-    copy: on Home it is not a link, so it cannot claim a destination the
-    user already occupies. Everywhere else it stays the existing
-    `<a href="/">` with its destination-naming label, byte-identical to
-    this function's own pre-22-14 output.
+    `active`: when it equals Home's own slug, this renders a `<span>`
+    with no `href` at all, whose `aria-label` names only the state — on
+    Home the link would promise navigation to a page the user already
+    occupies. Everywhere else it stays the existing `<a href="/">`. The
+    Home variant's `aria-label` is composed from the same two translated
+    state strings the visible segments interpolate, so the announced
+    name and the rendered text cannot drift.
 
-    The Home variant's `aria-label` is composed from the SAME two
-    translated state strings the visible segments interpolate, never a
-    second wording — so the announced name and the rendered text cannot
-    drift, and no new catalogue entry is introduced for a string that is
-    already on screen.
-
-    B10 also changes the two segments' SHAPE (not their text): each is
-    wrapped in its own `.nav-status__segment` span so
-    companion/static/style.css can give it `white-space: nowrap`. The
-    audit measured the old inline run wrapping mid-phrase ("Screen on ·
-    Quiet hours" / "on"; FR "Heures / calmes activées"); the line may
-    now break between the two segments, never inside one.
+    Each segment is wrapped in its own `.nav-status__segment` span so
+    companion/static/style.css can give it `white-space: nowrap`: the
+    line may break between the two segments, never inside one.
     """
     if not device_config:
         return ""
@@ -1623,41 +1460,24 @@ def sidebar_nav(active, health_alert=None, device_config=None):
     """The vertical Primary-navigation landmark shown by page_shell()'s
     dashboard sidebar column at desktop width.
 
-    Renders the same NAV_TABS route set as _nav_html() — via the shared
-    _nav_links() helper, so the two renderers can never drift — just in
-    a vertical arrangement. companion/static/style.css's 960px media
-    query decides which of the two copies is visible at a given
-    viewport width; this function has no opinion on visibility.
+    Renders NAV_TABS via the shared _nav_links() helper; companion/static/
+    style.css's 960px media query decides which of sidebar_nav()/
+    _mobile_nav_html() is visible at a given width — this function has no
+    opinion on visibility.
 
-    `health_alert` (06.6.1-04, keyword-with-default so no existing
-    positional call site changes meaning; 06.6.2-06/UXA-14 widened the
-    contract from a boolean to a severity string) is `None`/`"ok"` for
-    no dot, or `"warn"`/`"error"` to append `_health_alert_markup()`
-    (drawn with that exact severity) after the label text of the link
-    whose slug matches HEALTH_NAV_SLUG, and only that link. The markup
-    is already-built safe HTML and is interpolated verbatim, exactly
-    like status_dot()'s output is in other builders — it is not routed
-    through escape_html() again.
+    `health_alert` is `None`/`"ok"` for no dot, or `"warn"`/`"error"` to
+    append _health_alert_markup() after the label text of the Health link
+    only. The markup is already-built safe HTML, interpolated verbatim
+    like status_dot()'s output elsewhere.
 
-    06.6.2-05 (D-17/UXA-10): each link is prefixed with its
-    NAV_ICON_IDS-mapped icon (icon_html()'s own whitelist-fallback
-    contract makes an unrecognised slug render no icon rather than
-    raising — this cannot happen for a real NAV_TABS entry, but keeps
-    the call safe). The active link's `<a>` carries `aria-current="page"`
-    — never the inactive links — so exactly one link at a time announces
-    "current page" to assistive tech. The active-pill *visual* treatment
-    (background tint, radius) lives in companion/static/style.css's
-    `.sidebar-link--active` rule, not here; the class names themselves
-    are unchanged.
+    Each link is prefixed with its NAV_ICON_IDS-mapped icon. The active
+    link's `<a>` carries `aria-current="page"` — never the inactive links
+    — so exactly one link at a time announces "current page" to assistive
+    tech.
 
-    `device_config` (D-03, 21-04-PLAN.md Task 2, keyword-with-default
-    so no existing positional call site changes meaning): threaded
-    straight to `nav_status_html()`, whose own reminder markup is
-    prepended before this function's `<nav>` — i.e. between the brand
-    (`page_shell()`'s own `.sidebar-title` span) and the primary nav
-    list, exactly where 21-UI-SPEC.md §B places it. `None` (no request
-    context) renders no reminder at all, byte-identical to this
-    function's own pre-21-04 output.
+    `device_config` threads straight to nav_status_html(), whose reminder
+    markup is prepended before this function's `<nav>`. `None` (no request
+    context) renders no reminder at all.
     """
     parts = []
     for group_label, group_links in _nav_groups(active):
@@ -1677,9 +1497,9 @@ def sidebar_nav(active, health_alert=None, device_config=None):
             links.append(
                 '<a class="%s" href="%s"%s>%s%s%s</a>'
                 % (css_class, route, aria_current, icon, label, alert_html))
-        # Phase 18: an unlabelled group renders its links bare; a labelled
-        # group ("Advanced") wraps them in a .nav-group carrying a small
-        # uppercase label so the split reads at a glance.
+        # An unlabelled group renders its links bare; a labelled group
+        # ("Advanced") wraps them in a .nav-group carrying a small uppercase
+        # label so the split reads at a glance.
         if group_label:
             parts.append(
                 '<div class="nav-group nav-group--advanced">'
@@ -1691,23 +1511,19 @@ def sidebar_nav(active, health_alert=None, device_config=None):
         "%s"
         '<nav class="sidebar-nav" aria-label="%s">%s</nav>'
     ) % (
-        # 22-14-PLAN.md Task 2 (B10): `active` is threaded through so the
-        # reminder can drop its href on Home — one shared body, two call
-        # sites, one active-route argument, so the sidebar and the
-        # dropdown can still never disagree about its shape either.
+        # `active` is threaded through so the reminder can drop its href on
+        # Home — one shared body, two call sites, one active-route argument, so
+        # the sidebar and the dropdown can still never disagree about its shape
+        # either.
         nav_status_html(device_config, active=active),
-        # 22-08-PLAN.md Task 2 (D-06/B16): was the hard-coded literal
-        # "Primary navigation" — an untranslated accessible name for the
-        # one nav landmark exposed to the accessibility tree at any given
-        # viewport width (see this module's own comment on that exposure
-        # above _mobile_nav_html()).
+        # "Primary navigation" is the one nav landmark exposed to the
+        # accessibility tree at any given viewport width (see this module's own
+        # comment above _mobile_nav_html()).
         escape_html(i18n.t("Primary navigation")),
         "".join(parts))
 
 
-# --- 22-14-PLAN.md Task 1 (X9, D-10, 22-UI-SPEC.md §3.1) ---------------
-#
-# The bottom tab bar's "More" cell label. Sentence case, and NOT the
+# The bottom tab bar's "More" cell label. Sentence case, and not the
 # label voice — a nav destination is a destination, not a label, which
 # is why companion/static/style.css's `.tab-bar__label` declares no
 # uppercase and no tracking.
@@ -1717,32 +1533,24 @@ TAB_BAR_MORE_LABEL = "More"
 # icon_html()'s own fallback contract applies unchanged.
 TAB_BAR_MORE_ICON_ID = "icon-more"
 
-# The `<body>` marker page_shell() adds ONLY when the tab bar really
+# The `<body>` marker page_shell() adds only when the tab bar really
 # renders. companion/static/style.css scopes the sub-960px page-foot
-# clearance to it, so the 404 and the preview-image error pages — which
-# render no bar — reserve no space for one.
+# clearance to it, so pages that render no bar reserve no space for
+# one.
 TAB_BAR_BODY_CLASS = "has-tab-bar"
 
-# T13 (22-AUDIT.md, 22-UI-SPEC.md §1's copy table and §5 contract 9,
-# 22-15-PLAN.md Task 2). companion/static/freshness.js shows a visible
-# neutral badge when its refresh loop is retrying or deliberately idle,
-# instead of stopping dead and silently. The badge is built client-side
-# — the loop can be in either state long after the server's response was
-# written — so its two strings are server-rendered onto `<body>` here
-# and read with getAttribute(), the same attribute-with-English-fallback
-# idiom dirty-state.js and poll-cooldown.js already use.
+# companion/static/freshness.js shows a visible neutral badge when its
+# refresh loop is retrying or deliberately idle, instead of stopping
+# dead and silently. The badge is built client-side, so its two strings
+# are server-rendered onto `<body>` here and read with getAttribute().
 #
-# They live on `<body>` rather than on the pill, deliberately: the pill
-# itself is rendered by companion/pages/health_page.py, which this plan
-# does not own, and the freshness wrapper it sits in is one of
-# freshness.js's own swap targets — an attribute there would be replaced
-# out from under the script on every successful refresh. `<body>` is
-# never swapped.
+# They live on `<body>` rather than on the pill: the freshness wrapper
+# the pill sits in is a freshness.js swap target, and an attribute
+# there would be replaced out from under the script on every
+# successful refresh.
 #
-# Emitted unconditionally, exactly like the eleven deferred scripts
-# below: most pages carry no refresh loop at all and the attributes are
-# inert there, which is this file's established convention rather than
-# an oversight.
+# Emitted unconditionally, like the deferred scripts below: most pages
+# carry no refresh loop, and the attributes are inert there.
 REFRESH_PAUSED_TEXT = "Paused"
 REFRESH_RECONNECTING_TEXT = "Reconnecting…"
 
@@ -1751,148 +1559,110 @@ REFRESH_PAUSED_ATTR = "data-refresh-paused-text"
 REFRESH_RECONNECTING_ATTR = "data-refresh-reconnecting-text"
 
 
-# --- 23-06-PLAN.md Task 1 (D1/CFG-35): the swap registry --------------
+# companion/static/freshness.js used to carry a hard-coded selector
+# list, duplicated and pinned equal elsewhere — three hand-maintained
+# copies is the shape this codebase has already learned not to build:
+# they agree on the day they are written and drift silently
+# afterwards.
 #
-# companion/static/freshness.js used to carry one hard-coded list of
-# five selectors, duplicated in companion/pages/health_page.py and
-# pinned equal. D1 puts the same loop on Home and on the Display scope,
-# and three hand-maintained tuples is the shape scope_groups()'s own
-# SCOPE_ALL already taught this codebase not to build: they agree on the
-# day they are written and drift silently afterwards, with no signal
-# from any one of them alone.
-#
-# So: ONE mapping here, one page key rendered on <body> by page_shell()
+# One mapping here, one page key rendered on <body> by page_shell()
 # below, and one object literal in the script mirroring this. The
-# cross-file agreement is pinned entry-for-entry AND key-for-key by
-# companion/test_status_pages.py, in both directions — a key the script
-# carries and this mapping does not is the drift the one-tuple pin
-# structurally could not see.
+# cross-file agreement is pinned entry-for-entry and key-for-key by
+# companion/test_status_pages.py, in both directions.
 #
-# THE KEYS ARE nav_slug()'s OWN VALUES, never a second vocabulary:
-# page_shell() already receives exactly this string as `active`, so the
-# key has one definition site too (companion/app.py's _page_shell_for()
-# calls nav_slug(route) once for every authenticated page).
+# The keys are nav_slug()'s own values, never a second vocabulary:
+# page_shell() already receives exactly this string as `active`.
 REFRESH_PAGE_ATTR = "data-refresh-page"
 REFRESH_PAGE_HOME = nav_slug(HOME_ROUTE)
 REFRESH_PAGE_DISPLAY = nav_slug(DISPLAY_ROUTE)
 REFRESH_PAGE_HEALTH = nav_slug(HEALTH_ROUTE)
 REFRESH_PAGE_FLIGHTS = nav_slug(FLIGHTS_ROUTE)
 
-# 23-08-PLAN.md Task 1 (D7/CFG-37): the two cross-file literals the
-# new-row highlight is built on, duplicated into
-# companion/static/freshness.js rather than imported — a static asset is
-# not a Python module — and pinned equal by
-# companion/test_status_pages.py, exactly like REFRESH_PENDING_ATTR
-# above.
+# The two cross-file literals the new-row highlight is built on,
+# duplicated into companion/static/freshness.js rather than imported
+# — a static asset is not a Python module — and pinned equal by
+# companion/test_status_pages.py.
 #
 # REFRESH_ROW_ID_ATTR carries a stable identity for the EVENT a row
-# describes, and the word "event" is the whole of it. The Flights table
-# already numbers its detail rows `flight-detail-{n}` and groups its two
-# representations by `data-filter-group={n}`, but both of those are the
-# row's POSITION IN THIS RENDER — they pair a summary row with its own
-# detail row, which is all they were ever for. A highlight keyed to a
-# position would light up every row below an insertion the moment one
-# arrived at the top, which is the exact opposite of the signal D7 asks
-# for. companion/pages/history_page.py renders this from the
-# runway_events row's own primary key.
+# describes, not the row's position in this render: a highlight keyed
+# to position would light up every row below an insertion the moment
+# one arrived at the top, the opposite of the intended signal.
+# companion/pages/history_page.py renders this from the runway_events
+# row's own primary key.
 REFRESH_ROW_ID_ATTR = "data-flight-id"
-# The class freshness.js adds to a row whose identity was NOT in the set
-# it knew before the swap. One-shot by construction: nothing removes it,
-# because the node it lands on was itself just inserted and the next
-# swap replaces that node entirely.
+# The class freshness.js adds to a row whose identity was not in the
+# set it knew before the swap. One-shot by construction: the node it
+# lands on was itself just inserted, and the next swap replaces that
+# node entirely.
 REFRESH_NEW_ROW_CLASS = "is-new-row"
 
-# The marker a region carries while it holds an OPTIMISTIC control whose
-# server confirmation has not arrived (D1 races D2 — 23-RESEARCH.md's
-# own coupling). The swap skips any region containing it, because the
-# swap is the thing that would repaint a flip the user just made with
-# the server's older answer, making the control appear to bounce back.
-# Implemented in the swap by 23-06; plan 23-07 sets the attribute on its
-# own control and nothing else has to change. Duplicated into
-# freshness.js rather than imported — a static asset is not a Python
-# module — and pinned by companion/test_status_pages.py, exactly like
-# every other cross-file literal in this file.
+# The marker a region carries while it holds an OPTIMISTIC control
+# whose server confirmation has not arrived. The swap skips any region
+# containing it, since the swap would otherwise repaint a flip the
+# user just made with the server's older answer, making the control
+# appear to bounce back. Duplicated into freshness.js rather than
+# imported, and pinned by companion/test_status_pages.py like every
+# other cross-file literal here.
 REFRESH_PENDING_ATTR = "data-pending"
 
-# 19-09-PLAN.md (D-02), moved here in full by 23-06-PLAN.md Task 1: the
-# single, greppable definition of every DOM region
+# The single, greppable definition of every DOM region
 # companion/static/freshness.js swaps wholesale, replacing each node
 # with its own equivalent from a fetched copy of the same page.
-# Duplicated rather than imported — freshness.js is a static asset, not
-# a Python module — matching the BATTERY_READOUT_ID/SPARKLINE_HIT_CLASS
-# cross-file contract companion/pages/health_page.py carries. Any change
-# to the script's own registry must change this mapping too.
+# Duplicated rather than imported — freshness.js is a static asset,
+# not a Python module. Any change to the script's own registry must
+# change this mapping too.
 #
-# HEALTH (19-09-PLAN.md's own five, in their original order):
-# deliberately EXCLUDES the sparkline <svg>/.sparkline-hit, the registry
-# card and its filter bar, and every <details> disclosure — swapping any
-# of those would leave companion/static/battery-trend.js's chart or
-# companion/static/list-filter.js's filter permanently dead (each
-# captures its DOM once, with no re-init hook) or would silently discard
-# an in-progress filter query. See freshness.js's own header for the
-# fuller record of this trade.
+# HEALTH: deliberately excludes the sparkline <svg>/.sparkline-hit,
+# the registry card and its filter bar, and every <details>
+# disclosure — swapping any of those would leave battery-trend.js's
+# chart or list-filter.js's filter permanently dead (each captures its
+# DOM once, with no re-init hook), or would silently discard an
+# in-progress filter query.
 #
-# `a[href="/health"]` — not a ".dot"/".nav-notification" selector — is
-# the nav-severity swap target on purpose: the severity dot only exists
-# in the DOM when severity is "warn"/"error" (_health_alert_markup()
-# renders nothing at all for "ok"), so a dot-only selector would have
-# nothing to replace on the far more common transition where severity
-# newly clears. The whole nav link is always present in both documents
-# regardless of severity, in both nav renderings (sidebar_nav() and
-# _tab_bar_html()), so swapping it whole is what keeps the swap correct
-# across every severity transition, not just a fixed dot.
+# `a[href="/health"]` — not a ".dot"/".nav-notification" selector —
+# is the nav-severity swap target on purpose: the severity dot only
+# exists in the DOM when severity is "warn"/"error", so a dot-only
+# selector would have nothing to replace when severity newly clears.
+# The whole nav link is always present in both documents, so swapping
+# it whole keeps the swap correct across every severity transition.
 #
-# HOME (23-06-PLAN.md Task 2): the four regions that actually change
-# between polls, plus the freshness line. The strip is where the frame's
-# state is claimed and the tiles are what a glance reads; the picture is
-# the thing a new render produces; the recent-flights SECTION rather
-# than its <ul> is the target so the empty-state-to-list transition is
-# covered too (a node present on only one side is never swapped — see
-# freshness.js's own comment on that accepted cost). The freshness line
-# is here for the same reason it is on Health: it carries data-loaded-at
-# and the state badge the loop rebuilds inside it.
-# Deliberately NOT nested: no entry here contains another, so no swap
+# HOME: the four regions that actually change between polls, plus the
+# freshness line. The recent-flights SECTION, not its <ul>, is the
+# target so the empty-state-to-list transition is covered too (a node
+# present on only one side is never swapped).
+# Deliberately not nested: no entry here contains another, so no swap
 # can detach a node another entry is about to replace.
 #
-# FLIGHTS (23-08-PLAN.md Task 1, D7/CFG-37): the two renderings of the
-# list — the phone `<ul class="history-cards">` and the desktop
-# `.data-table-wrap` — plus the live count and the freshness line. Both
-# renderings, not whichever the current breakpoint shows: the CSS
-# sibling toggle decides which is visible, both are always in the DOM,
+# FLIGHTS: the two renderings of the list — the phone `<ul
+# class="history-cards">` and the desktop `.data-table-wrap` — plus
+# the live count and the freshness line. Both renderings, not
+# whichever the current breakpoint shows: both are always in the DOM,
 # and a swap that replaced only one would leave the other showing an
-# older list the moment a window was resized.
+# older list after a resize.
 #
-# WHAT IS DELIBERATELY OUT, and why it is the interesting half.
-# companion/static/list-filter.js resolves FOUR elements exactly once,
-# at load — the `[data-filter-input]` itself, `[data-filter-clear]`,
-# `[data-filter-empty]` and every `[data-filter-set]` — and holds those
-# references for the life of the page. Replacing any one of them detaches
-# the node the script is still writing to, so the filter goes silently
-# dead and an in-progress query is discarded with it. That is the same
-# trade Health's entry above records for the sparkline and the registry
-# card, and it is why `[data-filter-count]` IS here while its three
-# siblings are not: the count is the one the script now looks up fresh
-# on every keystroke, precisely so it could join this list.
+# Deliberately excluded: companion/static/list-filter.js resolves
+# four elements exactly once at load and holds those references for
+# the life of the page. Replacing any one of them detaches the node
+# the script is still writing to, so the filter goes silently dead and
+# an in-progress query is discarded. `[data-filter-count]` IS here,
+# unlike its siblings, because the script now looks it up fresh on
+# every keystroke.
 #
 # The rows themselves were never captured — list-filter.js queries
-# `[data-filter-text]` fresh on every input event, for its own
-# breakpoint reason — so swapping them costs that script nothing. What
-# a swap DOES cost is the filter's applied state, since the server
-# renders the list unfiltered: list-filter.js re-runs its one
-# applyFilter() when the loop announces a swap, which is what keeps a
-# typed query applied across a refresh.
+# `[data-filter-text]` fresh on every input event — so swapping them
+# costs it nothing. What a swap does cost is the filter's applied
+# state, since the server renders the list unfiltered: list-filter.js
+# re-runs its filter when the loop announces a swap, keeping a typed
+# query applied across a refresh.
 #
 # Deliberately NOT nested: no entry here contains another.
 #
-# DISPLAY (23-06-PLAN.md Task 2): deliberately the strip and the
-# freshness line and NOTHING ELSE — and this asymmetry with Home is a
-# decision, not an omission for a later reader to "complete".
-# Everything else on that page is a form, and a form is the one thing a
-# swap must never touch: replacing a fieldset under a half-typed value
-# discards it silently, and 22-01/B1 (that page rendered unsaveable) is
-# the defect of record for what goes wrong when this page's form is
-# treated as ordinary markup. The dirty-form stand-down in freshness.js
-# is the second belt on the same braces.
+# DISPLAY: deliberately the strip and the freshness line and nothing
+# else — this asymmetry with Home is a decision, not an omission.
+# Everything else on that page is a form, and a form is the one thing
+# a swap must never touch: replacing a fieldset under a half-typed
+# value discards it silently. The dirty-form stand-down in
+# freshness.js is the second belt on the same braces.
 REFRESH_SWAP_SELECTORS_BY_PAGE = {
     REFRESH_PAGE_HOME: (
         ".page-header__freshness",
@@ -1917,17 +1687,14 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         "ul.history-cards",
         ".data-table-wrap",
         "[data-filter-count]",
-        # 29-03-PLAN.md Task 1 (CFG-83): the Show-more nav's own `href`
-        # advances by one page on every render (history_page.py's
-        # `_show_more_html()`), so a background refresh that skipped
-        # this region would leave a STALE href on screen after the
-        # first swap — clicking it would silently re-request the page
-        # the visitor is already on instead of the next one. Declaring
-        # it here is also why `_show_more_html()` renders an EMPTY
-        # `<nav>` rather than nothing at all when there is no more to
-        # show: `test_view_pages.py`'s registry-witness check requires
-        # every declared region to be findable in every rendered page,
-        # including its single-row fixture where nothing remains.
+        # The Show-more nav's own `href` advances by one page on every
+        # render, so a background refresh that skipped this region would
+        # leave a stale href on screen — clicking it would silently
+        # re-request the page the visitor is already on. Declaring it here is
+        # also why _show_more_html() renders an empty <nav> rather than
+        # nothing when there is no more to show: the registry-witness check
+        # requires every declared region to be findable in every rendered
+        # page.
         ".flights-more",
     ),
 }
