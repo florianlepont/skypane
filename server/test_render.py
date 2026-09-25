@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Contract tests for server/plane/render.py's two-flight poster layout
-(D-21/D-24/D-25/D-26/D-27, 03-CONTEXT.md decisions_addendum_2/3).
+"""Contract tests for server/plane/render.py's two-flight poster layout.
 
 Runs under server/.venv's interpreter - render.py transitively imports
 Pillow, so the bare system python3 cannot collect this module.
@@ -41,18 +40,18 @@ import server.panel_format as panel_format  # noqa: E402
 import server.plane.illustrations as illustrations  # noqa: E402
 from PIL import Image, ImageDraw  # noqa: E402
 
-# 140 real Pillow renders (panel_format.WIDTH x HEIGHT canvases, several per
-# test) take a single worker over 10s (32-CONTEXT.md planner_notes) - marked
-# so a `-m "not slow"` run can skip this module deliberately, not by accident.
+# The real Pillow renders in this module (several per test) take a single
+# worker over 10s, so it is marked slow and a `-m "not slow"` run can skip
+# it deliberately, not by accident.
 pytestmark = pytest.mark.slow
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
 LEGAL_NIBBLES = {NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN}
 LEGAL_IDX = {IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN}
-# Bridges the two numbering schemes for the CFG-01 per-theme dominance check
-# (08-CONTEXT.md D-01/D-02) - mirrors panel_format.INDEX_TO_NIBBLE without
-# importing it, so this harness's expectations stay independently derived.
+# Bridges the two index/nibble numbering schemes independently of
+# panel_format.INDEX_TO_NIBBLE, so this harness's expectations stay
+# independently derived.
 IDX_TO_NIBBLE = {
     IDX_BLACK: NIBBLE_BLACK,
     IDX_WHITE: NIBBLE_WHITE,
@@ -68,10 +67,9 @@ TEST_PREVIOUS_FLIGHT = {"hex": "4a1b02", "callsign": "VLG6PD", "aircraft_type": 
 # A real resolved route (server/fixtures/adsbdb_hit_TVF16VB.json, already
 # sentence-cased per server.plane.enrich.to_sentence_case_city) - its
 # airline_name ("Transavia France") resolves to a real vendored
-# illustration file (transavia-france.png, added to HANDOFF.md 2026-08-26).
-# callsign_iata ("TO16VB", Phase 8 08-04, D-09/D-10) is the real value the
-# same fixture carries - not a synthetic value - so the default test render
-# exercises D-10 tier 1 with a genuinely real identifier.
+# illustration file (transavia-france.png). callsign_iata ("TO16VB") is
+# the real value the same fixture carries, not a synthetic value, so the
+# default test render exercises tier 1 with a genuinely real identifier.
 TEST_ROUTE = {
     "airline_name": "Transavia France",
     "origin_iata": "ORY",
@@ -80,9 +78,9 @@ TEST_ROUTE = {
     "destination_city": "Palma de Mallorca",
     "callsign_iata": "TO16VB",
 }
-# callsign_iata ("VY8163", Phase 8 08-04) is a synthetic IATA-format value
-# (Vueling's real IATA prefix, VY) - this route is hand-built, not from a
-# recorded fixture.
+# callsign_iata ("VY8163") is a synthetic IATA-format value (Vueling's
+# real IATA prefix, VY) - this route is hand-built, not from a recorded
+# fixture.
 TEST_PREVIOUS_ROUTE = {
     "airline_name": "Vueling Airlines",
     "origin_iata": "ORY",
@@ -93,11 +91,10 @@ TEST_PREVIOUS_ROUTE = {
 }
 
 # A genuinely long real destination city name and a genuinely long real
-# airline name, used to exercise fit_text_size()'s shrink path. callsign_iata
-# ("AT9051", Phase 8 08-04) is a synthetic IATA-format value (Royal Air
-# Maroc's real IATA prefix, AT) - without it, this stress check would
-# exercise a SHORTER string than before D-10 tier 1 prepends an identifier,
-# quietly weakening the existing guard rail.
+# airline name, used to exercise fit_text_size()'s shrink path.
+# callsign_iata ("AT9051") is a synthetic IATA-format value (Royal Air
+# Maroc's real IATA prefix, AT), needed because the tier-1 identifier
+# prefix would otherwise shorten the exercised string.
 TEST_LONG_ROUTE = {
     "airline_name": "Compagnie Nationale Royale Air Maroc Express",
     "origin_iata": "SCQ",
@@ -158,8 +155,8 @@ class _RectangleSpy:
     """Captures every ImageDraw.ImageDraw.rectangle() call made while
     building one canvas - list of (bounds, fill, outline, width). Mirrors
     `_TextSpy`'s monkeypatch-and-restore technique, applied to the
-    rectangle-drawing seam instead of the text-drawing one (D-05 regression
-    guard: proves no background-filled rectangle is painted behind text).
+    rectangle-drawing seam instead of the text-drawing one: proves no
+    background-filled rectangle is painted behind text.
     """
 
     def __init__(self, render_mod):
@@ -186,11 +183,11 @@ class _TextBBoxSpy:
     """Captures every ImageDraw.ImageDraw.textbbox() call's RETURN VALUE made
     while building one canvas - list of (text, xy, anchor, bbox). Mirrors
     `_TextSpy`'s monkeypatch-and-restore technique, applied to the
-    bbox-measurement seam instead of the draw seam (Phase 8 08-05 D-12
-    spot-check): lets a check read the actual measured bounding box a text
-    run received, without re-deriving `fit_text_size()`'s own font-fitting
-    logic independently - a re-derivation would go stale the moment that
-    logic changes and would silently stop protecting anything.
+    bbox-measurement seam instead of the draw seam: lets a check read the
+    actual measured bounding box a text run received, without re-deriving
+    `fit_text_size()`'s own font-fitting logic independently - a
+    re-derivation would go stale the moment that logic changes and would
+    silently stop protecting anything.
     """
 
     def __init__(self, render_mod):
@@ -295,9 +292,8 @@ def _forced_illustration_pair(render_mod, main_path, prev_path):
 
 def _write_garbage_png(tmp_path):
     """Create a file under tmp_path with a `.png` suffix that passes
-    os.path.isfile() but carries no valid PNG signature - matching
-    03-VERIFICATION.md's live repro of the crash 03-04-PLAN.md closes: a
-    file that exists on disk but is not decodable image data.
+    os.path.isfile() but carries no valid PNG signature - a file that
+    exists on disk but is not decodable image data.
     """
     path = tmp_path / "garbage.png"
     path.write_bytes(b"not a real PNG file - just a short run of garbage bytes 0123456789")
@@ -351,8 +347,7 @@ def _forced_illustration(render_mod, path, fallback_path=None):
 def departing_bytes():
     """render_panel(TEST_FLIGHT, 'departing', route=TEST_ROUTE)'s packed
     bytes, computed once per xdist worker for the several checks that only
-    read this render rather than build their own (MR-4/planner_notes:
-    "expensive shared renders are module-scoped fixtures").
+    read this render rather than build their own.
     """
     return render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
 
@@ -365,7 +360,6 @@ def arriving_bytes():
     return render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
 
 
-# 1-2. Both active states pack to exactly 960000 bytes with only legal nibble codes.
 def test_departing_packs_correctly(departing_bytes):
     """render_panel(flight, 'departing', route) packs to exactly 960000 bytes with only legal nibbles"""
     buf = departing_bytes
@@ -392,14 +386,12 @@ def test_arriving_packs_correctly(arriving_bytes):
 
 
 
-# 3-4. The flat background field is still the dominant nibble per state -
-# both states now share one field colour (White), the new default theme
-# (08-CONTEXT.md D-01). Two identical expectations below is deliberate,
-# not a copy-paste error: D-01's whole point is that DEPARTING vs.
-# ARRIVING is now carried by the label text alone, since the White theme
-# is single-colour across both states.
+# Both states share one field colour (White), the default theme's
+# background - so the two expectations below being identical is
+# deliberate, not a copy-paste error: DEPARTING vs. ARRIVING is carried
+# by the label text alone.
 def test_departing_dominant_is_white(departing_bytes):
-    """departing render's dominant nibble is 0x1 (White) - D-01 White default theme background"""
+    """departing render's dominant nibble is 0x1 (White), the default theme background"""
     dom = dominant_nibble(departing_bytes)
     if dom != NIBBLE_WHITE:
         pytest.fail("departing render's dominant nibble is 0x%x, expected 0x1 (White)" % dom)
@@ -409,7 +401,7 @@ def test_departing_dominant_is_white(departing_bytes):
 
 
 def test_arriving_dominant_is_white(arriving_bytes):
-    """arriving render's dominant nibble is also 0x1 (White) - D-01's single shared field colour for both states, not a copy-paste duplicate of the departing check above"""
+    """arriving render's dominant nibble is also 0x1 (White) - the single shared field colour for both states, not a copy-paste duplicate of the departing check above"""
     dom = dominant_nibble(arriving_bytes)
     if dom != NIBBLE_WHITE:
         pytest.fail("arriving render's dominant nibble is 0x%x, expected 0x1 (White)" % dom)
@@ -418,12 +410,8 @@ def test_arriving_dominant_is_white(arriving_bytes):
 
 
 
-# 5-6. A real illustration's full livery colors legitimately reach the
-# panel - D-25 supersedes the old "Black/Yellow/Red drop out of the
-# active states" reservation, which only held while the centrepiece was
-# a flat single-index silhouette fill.
 def test_departing_has_white_and_black_from_real_livery(departing_bytes):
-    """departing render contains White (text/frame) and Black (real illustration livery) nibbles - D-25 full-color compositing"""
+    """departing render contains White (text/frame) and Black (real illustration livery) nibbles from full-colour illustration compositing"""
     counts = nibble_counts(departing_bytes)
     if NIBBLE_WHITE not in counts:
         pytest.fail("departing render contains no White (0x1) nibble - no foreground content drawn")
@@ -441,7 +429,6 @@ def test_only_legal_indices_present(departing_bytes):
         pytest.fail("departing render contains illegal nibble(s): %r" % (sorted(bad),))
 
 
-# 7. Empty state is unchanged: White-dominant, at least one Black pixel.
 def test_empty_state_white_dominant_with_black():
     """empty-state render is White-dominant and contains at least one Black nibble"""
     buf = render.render_panel(None, "empty")
@@ -455,7 +442,6 @@ def test_empty_state_white_dominant_with_black():
         pytest.fail("empty render contains no Black (0x0) nibble - expected Black text")
 
 
-# 8. Determinism: rendering the same flight+route twice is byte-identical.
 def test_rendering_is_deterministic():
     """rendering the same flight+route twice produces byte-identical output (determinism)"""
     first = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
@@ -467,29 +453,24 @@ def test_rendering_is_deterministic():
 
 
 
-# 9. State actually changes the output.
 def test_departing_and_arriving_differ(departing_bytes, arriving_bytes):
     """departing and arriving renders of the same flight differ in bytes (state changes output)"""
     if departing_bytes == arriving_bytes:
         pytest.fail("departing and arriving renders of the same flight are byte-identical - state does not change output")
 
 
-# 10. D-24: illustrations are never mirrored. The main illustration's
-# own opaque pixels must be byte-identical between departing and
-# arriving renders of the same flight+route - only the background
-# color and text below/around it may differ by state.
 def test_illustration_not_mirrored_between_states():
-    """the main illustration's opaque pixels are byte-identical between departing and arriving renders (D-24: never mirrored by state)"""
+    """the main illustration's opaque pixels are byte-identical between departing and arriving renders - never mirrored by state"""
     path = illustrations.select_illustration(TEST_ROUTE)
     if path is None:
         pytest.fail("illustrations.select_illustration(TEST_ROUTE) returned None - no vendored file resolved")
     inner_width = panel_format.WIDTH * (1 - 2 * render.FRAME_INSET_FRAC)
     main_w = round(inner_width * render.MAIN_ILLUSTRATION_WIDTH_FRAC)
     resized = render._resize_illustration(path, main_w)
-    # quick task 260902-req: main_top now follows the PAINTED content's
-    # centre, same as `_build_active_canvas()` itself computes it, so
-    # this locally-derived bbox keeps lining up with where the real
-    # render actually places the illustration.
+    # main_top follows the PAINTED content's centre, same as
+    # `_build_active_canvas()` itself computes it, so this locally-derived
+    # bbox keeps lining up with where the real render actually places the
+    # illustration.
     main_top = render._top_for_centered_content(resized, panel_format.HEIGHT * render.MAIN_ILLUSTRATION_CENTER_Y_FRAC)
     left = (panel_format.WIDTH - resized.size[0]) // 2
     bbox = (left, main_top, left + resized.size[0], main_top + resized.size[1])
@@ -514,13 +495,8 @@ def test_illustration_not_mirrored_between_states():
         pytest.fail("%d of %d opaque illustration pixels differ between departing and arriving renders - illustration is being mirrored/recolored by state (D-24 violation)" % (mismatches, opaque_total))
 
 
-# 11. draw_illustration()/_resize_illustration() have no mirror/flip
-# parameter at all - a structural guard against D-24 being silently
-# reintroduced.
 def test_illustration_functions_have_no_mirror_param():
-    """draw_illustration()/_resize_illustration() have no mirror/flip parameter (D-24)"""
-    import inspect
-
+    """draw_illustration()/_resize_illustration() have no mirror/flip parameter - illustrations are never mirrored by state"""
     for fn_name in ("draw_illustration", "_resize_illustration"):
         fn = getattr(render, fn_name, None)
         if fn is None:
@@ -531,17 +507,13 @@ def test_illustration_functions_have_no_mirror_param():
             pytest.fail("%s() has a mirror/flip parameter %r - D-24 dropped mirroring entirely" % (fn_name, bad))
 
 
-# 12. D-25: a soft/gradient alpha source never leaks an illegal
-# in-between palette index onto the canvas (03-RESEARCH.md Pitfall 2) -
-# the alpha channel must be hard-thresholded before paste().
 def test_soft_alpha_illustration_stays_within_legal_palette():
     """draw_illustration() with a soft/gradient alpha source never produces an illegal in-between palette index (Pitfall 2 regression), and returns .rect (full placement) plus .content (tight painted bbox) as distinct boxes"""
     gradient = Image.new("RGBA", (40, 40))
     pixels = gradient.load()
     for y in range(40):
         for x in range(40):
-            # A soft horizontal alpha ramp over a solid Red-ish fill -
-            # exactly the shape 03-RESEARCH.md Pitfall 2 describes.
+            # A soft horizontal alpha ramp over a solid Red-ish fill.
             pixels[x, y] = (200, 30, 30, int(255 * x / 39))
     canvas = panel_format.new_canvas(IDX_BLUE)
     placement = render.draw_illustration(canvas, gradient, 10, 10)
@@ -563,8 +535,6 @@ def test_soft_alpha_illustration_stays_within_legal_palette():
         pytest.fail("a soft-alpha source produced illegal palette index(es) %r on the canvas - alpha must be hard-thresholded before paste()" % (sorted(illegal),))
 
 
-# 13. The illustration is genuinely selected from `route` - a different
-# airline_name changes which file gets composited, hence changes bytes.
 def test_different_airline_changes_the_rendered_bytes():
     """a route whose airline_name has no vendored file falls back to generic-fallback.png and renders different bytes than a route with real art"""
     fallback_route = {
@@ -580,12 +550,11 @@ def test_different_airline_changes_the_rendered_bytes():
         pytest.fail("rendering with TEST_ROUTE's real airline vs. an unvendored airline (falls back to generic-fallback.png) produced byte-identical panels")
 
 
-# 14-15. D-26/spike-002a top row: state label + runway tag, both tracked
-# glyph-by-glyph at LABEL_TRACKING_PX, near the MARGIN inset, in the
-# correct top corners. draw_top_labels() draws the label first and the
-# tag second (its own fixed draw order), so the single-character calls
-# captured at y == MARGIN can be reconstructed in call order without
-# needing to x-sort them.
+# The top row (state label + runway tag) is tracked glyph-by-glyph at
+# LABEL_TRACKING_PX, near the MARGIN inset. draw_top_labels() draws the
+# label first and the tag second (its own fixed draw order), so the
+# single-character calls captured at y == MARGIN can be reconstructed in
+# call order without needing to x-sort them.
 def test_departing_top_row_labels_present():
     """departing render draws the top-left 'DEPARTING' label and the top-right runway tag, both tracked glyph-by-glyph, label first then tag"""
     with _TextSpy(render) as spy:
@@ -601,7 +570,7 @@ def test_departing_top_row_labels_present():
 
 
 def test_top_labels_sit_at_the_margin_inset():
-    """the state label's first glyph sits at the MARGIN inset and the top-right tag's first glyph is positioned so its tracked run ends flush at WIDTH - MARGIN (D-26, spike 002a)"""
+    """the state label's first glyph sits at the MARGIN inset and the top-right tag's first glyph is positioned so its tracked run ends flush at WIDTH - MARGIN"""
     with _TextSpy(render) as spy:
         render.build_canvas(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
     top_row = [(t, xy, a) for t, xy, a in spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
@@ -633,9 +602,8 @@ def test_top_labels_sit_at_the_margin_inset():
         ))
 
 
-# 16. D-26 frame: a thin outline is present at the ~2.5%-of-width inset.
 def test_frame_outline_is_drawn():
-    """draw_frame() draws a thin outline at the ~2.5%%-of-width inset (D-26)"""
+    """draw_frame() draws a thin outline at the ~2.5%%-of-width inset"""
     canvas = panel_format.new_canvas(IDX_BLUE)
     box = render.draw_frame(canvas, IDX_WHITE)
     inset = round(panel_format.WIDTH * render.FRAME_INSET_FRAC)
@@ -647,11 +615,10 @@ def test_frame_outline_is_drawn():
         pytest.fail("sampled frame pixel at %r is index %r, expected IDX_WHITE" % ((panel_format.WIDTH // 2, inset), sample))
 
 
-# 17-19. Main flight text: "{identifier} to|from {city}" line 1 (D-10
-# tier 1), airline name line 2, no "PREVIOUS ·" prefix leaking onto the
-# main block.
+# Main flight text: "{identifier} to|from {city}" line 1, airline name
+# line 2, no "PREVIOUS ·" prefix leaking onto the main block.
 def test_departing_main_text_uses_lowercase_to():
-    """departing main flight text is '{identifier} to {destination_city}' / '{airline_name} · {type_label}' (D-10 tier 1)"""
+    """departing main flight text is '{identifier} to {destination_city}' / '{airline_name} · {type_label}'"""
     with _TextSpy(render) as spy:
         render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
     texts = [t for t, _xy, _anchor in spy.calls]
@@ -665,7 +632,7 @@ def test_departing_main_text_uses_lowercase_to():
 
 
 def test_arriving_main_text_uses_lowercase_from():
-    """arriving main flight text is '{identifier} from {origin_city}' (D-10 tier 1, lowercase sentence text)"""
+    """arriving main flight text is '{identifier} from {origin_city}', lowercase sentence text"""
     with _TextSpy(render) as spy:
         render.build_canvas(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
     texts = [t for t, _xy, _anchor in spy.calls]
@@ -675,7 +642,7 @@ def test_arriving_main_text_uses_lowercase_from():
 
 
 def test_enrichment_miss_shows_unknown_flight():
-    """a full enrichment miss (route=None) draws 'Unknown flight' and ROUTE_FALLBACK_TEXT, never the raw callsign (D-08/D-10 tier 4)"""
+    """a full enrichment miss (route=None) draws 'Unknown flight' and ROUTE_FALLBACK_TEXT, never the raw callsign"""
     with _TextSpy(render) as spy:
         render.build_canvas(TEST_FLIGHT, "departing", route=None)
     texts = [t for t, _xy, _anchor in spy.calls]
@@ -687,8 +654,8 @@ def test_enrichment_miss_shows_unknown_flight():
         pytest.fail("the raw callsign %r must never appear on a full enrichment miss (D-08), got %r" % (TEST_FLIGHT["callsign"], texts))
 
 
-# 20-22. D-25/D-26 previous flight card: present only when supplied, no
-# "PREVIOUS ·" prefix, right-aligned text, own real illustration.
+# Previous flight card: present only when supplied, no "PREVIOUS ·"
+# prefix, right-aligned text, own real illustration.
 def test_previous_flight_card_renders_its_own_text():
     """a supplied previous_flight/previous_route renders its own real two-line text block"""
     with _TextSpy(render) as spy:
@@ -707,7 +674,7 @@ def test_previous_flight_card_renders_its_own_text():
 
 
 def test_previous_flight_text_has_no_previous_prefix():
-    """no drawn text contains a 'PREVIOUS ·' prefix (D-26: explicitly removed after the live sketch pass)"""
+    """no drawn text contains a 'PREVIOUS ·' prefix"""
     with _TextSpy(render) as spy:
         render.build_canvas(
             TEST_FLIGHT, "departing", route=TEST_ROUTE,
@@ -720,7 +687,7 @@ def test_previous_flight_text_has_no_previous_prefix():
 
 
 def test_previous_flight_text_is_right_aligned():
-    """the previous flight's text block is drawn right-aligned (anchor='ra', D-26)"""
+    """the previous flight's text block is drawn right-aligned (anchor='ra')"""
     with _TextSpy(render) as spy:
         render.build_canvas(
             TEST_FLIGHT, "departing", route=TEST_ROUTE,
@@ -734,8 +701,6 @@ def test_previous_flight_text_is_right_aligned():
         pytest.fail("previous-flight text anchor is %r, expected 'ra' (right-aligned, D-26)" % (anchors[0],))
 
 
-# 23. No previous_flight supplied -> no previous-flight text at all
-# (the card is simply omitted, not drawn empty/placeholder).
 def test_no_previous_flight_omits_the_card():
     """omitting previous_flight/previous_route renders a genuinely different (single-flight) panel"""
     single = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
@@ -747,11 +712,8 @@ def test_no_previous_flight_omits_the_card():
         pytest.fail("a render with no previous_flight is byte-identical to one with a previous flight supplied - the card is not actually optional")
 
 
-# 24. PT Serif Bold (D-06) is the active weight for every active-state
-# text role; the empty state's heading keeps a Bold weight; EMPTY_BODY_FONT
-# is the one remaining active reference to the Regular file.
 def test_pt_serif_bold_is_the_active_weight():
-    """every active-state text role uses PTSerif-Bold.ttf (D-06); the empty-state heading keeps PTSerif-Bold.ttf and EMPTY_BODY_FONT keeps PTSerif-Regular.ttf"""
+    """every active-state text role uses PTSerif-Bold.ttf; the empty-state heading keeps PTSerif-Bold.ttf and EMPTY_BODY_FONT keeps PTSerif-Regular.ttf"""
     active_roles = ("STATE_LABEL_FONT", "TOP_TAG_FONT", "MAIN_LINE1_FONT", "MAIN_LINE2_FONT", "PREVIOUS_LINE1_FONT", "PREVIOUS_LINE2_FONT")
     for name in active_roles:
         if not hasattr(render, name):
@@ -765,27 +727,24 @@ def test_pt_serif_bold_is_the_active_weight():
         pytest.fail("EMPTY_BODY_FONT font path %r is not PTSerif-Regular.ttf - it is the one remaining active reference to the Regular file" % (render.EMPTY_BODY_FONT[0],))
 
 
-# 24b. PREVIOUS_LINE2_FONT's size grew from 16 to 20 (D-11); its overflow
-# floor is unchanged.
 def test_previous_line2_font_grew_to_20px():
-    """PREVIOUS_LINE2_FONT's size is 20px (D-11) with its overflow floor unchanged"""
+    """PREVIOUS_LINE2_FONT's size is 20px with its overflow floor unchanged"""
     if render.PREVIOUS_LINE2_FONT[1] != 20:
         pytest.fail("PREVIOUS_LINE2_FONT size is %r, expected 20 (D-11)" % (render.PREVIOUS_LINE2_FONT[1],))
     if render.PREVIOUS_LINE2_MIN_SIZE != 12:
         pytest.fail("PREVIOUS_LINE2_MIN_SIZE is %r, expected unchanged 12" % (render.PREVIOUS_LINE2_MIN_SIZE,))
 
 
-# 24c. Behavioural check, revised on-glass (08-06): the active weight is
-# theme-conditional, not universal. On the flat White theme (never
-# dithered), every active-state role must request PTSerif-Regular.ttf
-# and never PTSerif-Bold.ttf - Bold's whole job (resisting dithered
-# speckle) never applies there, and it read as needlessly heavy on
-# real ink. On a dithered theme (Sky), the original D-06 contract
-# holds: every role must request PTSerif-Bold.ttf and never Regular.
-# Monkeypatches render._font, the seam both the direct role-constant
-# lookups (draw_top_labels()) and fit_text_size() itself call through
-# via _role_font()/_role_fit_text_size(), so it captures every font
-# path actually requested.
+# The active weight is theme-conditional, not universal. On the flat
+# White theme (never dithered), every active-state role must request
+# PTSerif-Regular.ttf and never PTSerif-Bold.ttf - Bold's whole job
+# (resisting dithered speckle) never applies there, and it reads as
+# needlessly heavy on real ink. On a dithered theme (Sky), every role
+# must request PTSerif-Bold.ttf and never Regular. Monkeypatches
+# render._font, the seam both the direct role-constant lookups
+# (draw_top_labels()) and fit_text_size() itself call through via
+# _role_font()/_role_fit_text_size(), so it captures every font path
+# actually requested.
 def _spy_requested_font_paths(theme_id):
     requested_paths = []
     orig_font = render._font
@@ -814,7 +773,7 @@ def _spy_requested_font_paths(theme_id):
 def _spy_requested_font_paths_with_fault(theme_id):
     # Same spy idiom as _spy_requested_font_paths(), but with
     # source_fault=True so draw_source_fault_badge()'s caption font
-    # request is captured too (code-review WR-01's blind spot).
+    # request is captured too.
     requested_paths = []
     orig_font = render._font
 
@@ -833,7 +792,7 @@ def _spy_requested_font_paths_with_fault(theme_id):
 
 
 def test_white_theme_uses_only_regular_weight():
-    """the White theme's active-state roles request only PTSerif-Regular.ttf, never Bold (08-06 on-glass correction)"""
+    """the White theme's active-state roles request only PTSerif-Regular.ttf, never Bold"""
     requested_paths = _spy_requested_font_paths("white")
     if not requested_paths:
         pytest.fail("no font was requested at all - the spy did not capture anything")
@@ -845,13 +804,12 @@ def test_white_theme_uses_only_regular_weight():
         pytest.fail("PTSerif-Regular.ttf was never requested while rendering a White-theme active-state panel")
 
 
-# 24c-ii. Same behavioural contract, generalised across every registry
-# entry (Phase 8 08-06, widened same session: 5 themes -> 11, each with
-# its own `dithered`/`weight` pair - see device_config.THEMES' own
-# module comment). Each theme's requested font paths must match its
+# Same behavioural contract, generalised across every registry entry
+# (each with its own `dithered`/`weight` pair - see device_config.THEMES'
+# own module comment). Each theme's requested font paths must match its
 # own declared `theme_weight()` exactly - never the other weight.
 def test_every_theme_uses_only_its_declared_weight():
-    """every one of the 11 registry themes requests only its own declared weight (08-06 on-glass correction, widened same session)"""
+    """every one of the 11 registry themes requests only its own declared weight"""
     for theme_id in render.device_config.THEME_IDS:
         requested_paths = _spy_requested_font_paths(theme_id)
         if not requested_paths:
@@ -868,27 +826,25 @@ def test_every_theme_uses_only_its_declared_weight():
             pytest.fail("%r (declared weight %r): %s was never requested" % (theme_id, declared_weight, right_suffix))
 
 
-# 24d. The text-backing-plate helper (D-05) no longer exists on the
-# module at all - the removal is complete, not partial.
+# The text-backing-plate helper no longer exists on the module at all -
+# the removal is complete, not partial.
 def test_paint_text_backing_helper_is_gone():
-    """_paint_text_backing() no longer exists on server.plane.render (D-05)"""
+    """_paint_text_backing() no longer exists on server.plane.render"""
     if hasattr(render, "_paint_text_backing"):
         pytest.fail("server.plane.render still carries _paint_text_backing - D-05 requires its complete removal")
 
 
-# 24e. No rectangle filled with the state's own background index is ever
+# No rectangle filled with the state's own background index is ever
 # painted (i.e. no background-filled "backing plate" behind text, on any
 # theme). Captured via _RectangleSpy across every registered theme and
 # both active states - driven from the theme registry so a future sixth
 # theme is exercised automatically, matching the per-theme dominance
-# check's own pattern above. Observed set for a plain two-flight active
-# render (no battery-low icon, no source-fault badge): EMPTY - draw_frame()
-# is not called from this render path (removed 2026-08-28, quick task
-# 260828-k5r) and the text-backing-plate is now gone too, so this check
-# currently passes vacuously per-render and exists purely as a
-# regression guard against either being reintroduced.
+# check's own pattern above. draw_frame() is not called from this render
+# path and the text-backing-plate is gone too, so this currently passes
+# vacuously per-render and exists purely as a regression guard against
+# either being reintroduced.
 def test_no_background_filled_rectangle_behind_text_on_any_theme():
-    """no rectangle filled with the state's own background index is painted, on any registered theme, in either active state (D-05)"""
+    """no rectangle filled with the state's own background index is painted, on any registered theme, in either active state"""
     for theme_id in render.device_config.THEME_IDS:
         for state, prev_state in (("departing", "arriving"), ("arriving", "departing")):
             bg_idx = render.state_background_index(state, theme_id=theme_id)
@@ -902,9 +858,6 @@ def test_no_background_filled_rectangle_behind_text_on_any_theme():
                     pytest.fail("theme=%r state=%r: a rectangle at %r was filled with bg_idx=%r - a background-filled plate exists (D-05 regression)" % (theme_id, state, bounds, bg_idx))
 
 
-# 25. A genuinely long real destination/origin city+airline name
-# shrinks via fit_text_size() rather than breaching the canvas or
-# raising, and is still drawn in full (not truncated).
 def test_long_name_stress_case_shrinks_without_crashing():
     """a genuinely long destination/origin city name (Santiago de Compostela) shrinks via fit_text_size() without crashing, drawn in full"""
     try:
@@ -918,7 +871,6 @@ def test_long_name_stress_case_shrinks_without_crashing():
         pytest.fail("long origin-city line %r was not drawn in full (found %r) - the shrink path must fit the text, not truncate it" % (expected_line1, texts))
 
 
-# 26. An unlabelled designator renders the airline name alone.
 def test_unlabelled_type_renders_airline_alone():
     """_flight_line2_text() renders the airline name alone for an unlabelled (unrecognized) type designator"""
     result = render._flight_line2_text({"airline_name": "Air France"}, "ZZZZ")
@@ -926,7 +878,6 @@ def test_unlabelled_type_renders_airline_alone():
         pytest.fail("expected 'Air France' for an unlabelled designator, got %r" % (result,))
 
 
-# 27. A None type renders the airline name alone.
 def test_none_type_renders_airline_alone():
     """_flight_line2_text() renders the airline name alone for aircraft_type=None"""
     result = render._flight_line2_text({"airline_name": "Air France"}, None)
@@ -934,8 +885,6 @@ def test_none_type_renders_airline_alone():
         pytest.fail("expected 'Air France' for aircraft_type=None, got %r" % (result,))
 
 
-# 28. The one-argument call (aircraft_type omitted entirely) renders the
-# airline name alone.
 def test_one_argument_call_renders_airline_alone():
     """_flight_line2_text() renders the airline name alone when aircraft_type is omitted entirely"""
     result = render._flight_line2_text({"airline_name": "Air France"})
@@ -943,9 +892,6 @@ def test_one_argument_call_renders_airline_alone():
         pytest.fail("expected 'Air France' for the one-argument call, got %r" % (result,))
 
 
-# 29. The P-01 display alias: the one carrier with a display alias
-# renders under its current public brand while a non-aliased airline
-# is returned unchanged, and the alias never touches selection.
 def test_display_airline_name_applies_the_p01_alias_only_where_defined():
     """the P-01 presentation-only airline alias renders the current brand name; a non-aliased airline is unchanged"""
     if render.display_airline_name("CCM Airlines") != "Air Corsica":
@@ -957,8 +903,6 @@ def test_display_airline_name_applies_the_p01_alias_only_where_defined():
         pytest.fail("_flight_line2_text() with the CCM Airlines route did not render the P-01 alias: %r" % (aliased_line2,))
 
 
-# 30. Never-raises battery: malformed routes crossed with hostile
-# aircraft types must never raise, and the result is always a string.
 def test_flight_line2_text_never_raises_for_hostile_inputs():
     """_flight_line2_text() never raises across a battery of malformed routes x hostile aircraft types, and always returns a string"""
     malformed_routes = (None, {}, "not-a-dict", 42, ["a", "list"], {"airline_name": 12345})
@@ -973,9 +917,6 @@ def test_flight_line2_text_never_raises_for_hostile_inputs():
                 pytest.fail("_flight_line2_text(%r, %r) returned non-string %r" % (route, aircraft_type, result))
 
 
-# 31. TEST_LONG_ROUTE combined with the longest known type label still
-# fits without tripping _assert_within_canvas - the composed line 2 is
-# strictly longer than today's, exercising fit_text_size()'s shrink path.
 def test_long_name_plus_longest_label_fits_within_canvas():
     """the longest real airline name combined with the longest type label still renders without tripping _assert_within_canvas"""
     longest_type, longest_label = max(render._TYPE_DISPLAY_LABELS.items(), key=lambda kv: len(kv[1]))
@@ -986,8 +927,6 @@ def test_long_name_plus_longest_label_fits_within_canvas():
         pytest.fail("long airline name + longest type label (%r) raised an assertion: %r" % (longest_label, exc))
 
 
-# 32. Rendering a main flight carrying a type calls select_illustration()
-# with that exact type as the second argument.
 def test_select_illustration_receives_main_flights_type():
     """rendering with a main flight carrying a type calls select_illustration() with that exact type"""
     with _SelectIllustrationSpy(render) as spy:
@@ -1001,10 +940,6 @@ def test_select_illustration_receives_main_flights_type():
         pytest.fail("main-card select_illustration() call got route=%r, expected TEST_ROUTE" % (main_route,))
 
 
-# 33. A main + previous flight makes two select_illustration() calls,
-# each receiving its own flight's type - the previous card must never
-# receive the main flight's type (the specific bug this threading can
-# introduce).
 def test_select_illustration_calls_each_receive_their_own_flights_type():
     """a main + previous flight makes two select_illustration() calls, each receiving its own flight's type (no crossover)"""
     with _SelectIllustrationSpy(render) as spy:
@@ -1025,9 +960,6 @@ def test_select_illustration_calls_each_receive_their_own_flights_type():
         pytest.fail("select_illustration() calls got the wrong route pairing: %r" % (spy.calls,))
 
 
-# 34. previous_flight=None still completes without raising, and the
-# previous-card lookup (if made at all) never receives a non-None type
-# derived from a None flight.
 def test_no_previous_flight_never_raises_and_never_crosses_over():
     """previous_flight=None still completes without raising and never fabricates a type for the omitted previous card"""
     try:
@@ -1044,9 +976,6 @@ def test_no_previous_flight_never_raises_and_never_crosses_over():
             pytest.fail("a previous-card call with no previous_flight got an unexpected aircraft_type=%r" % (aircraft_type,))
 
 
-# 35. No text-outline arguments anywhere in the source (still a real
-# regression guard: Pillow's stroke_width/stroke_fill leak illegal
-# anti-aliased indices through blended stroke edges).
 def test_render_source_never_uses_text_outline_arguments():
     """server/plane/render.py's comment-stripped source contains no stroke_width/stroke_fill text-outline usage"""
     render_path = os.path.join(REPO_ROOT, "server", "plane", "render.py")
@@ -1060,9 +989,6 @@ def test_render_source_never_uses_text_outline_arguments():
 
 
 
-# 36. A corrupt (byte-garbage) illustration file degrades to the
-# generic fallback instead of raising out of render_panel() -
-# 03-VERIFICATION.md gap #1 / T-03-04-01.
 def test_corrupt_illustration_degrades_to_generic_fallback(tmp_path):
     """a corrupt (byte-garbage) illustration file degrades to the generic fallback instead of raising out of render_panel()"""
     garbage_path = _write_garbage_png(tmp_path)
@@ -1079,8 +1005,6 @@ def test_corrupt_illustration_degrades_to_generic_fallback(tmp_path):
 
 
 
-# 37. An oversized illustration is rejected on its PNG header, before
-# any pixel data is decoded - 03-VERIFICATION.md gap #2 / T-03-04-02.
 def test_oversized_illustration_rejected_on_header(tmp_path):
     """an oversized illustration is rejected on its PNG header, before any pixel data is decoded"""
     oversized_path = _write_oversized_png(tmp_path)
@@ -1104,9 +1028,6 @@ def test_oversized_illustration_rejected_on_header(tmp_path):
 
 
 
-# 38. When the selected illustration and the generic fallback are both
-# undecodable, the render skips the illustration entirely and still
-# returns a valid panel - the tail of the degradation ladder.
 def test_both_illustration_and_fallback_undecodable_still_renders(tmp_path):
     """when the selected illustration and the generic fallback are both undecodable, the render skips the illustration and still returns a valid panel"""
     garbage_path = _write_garbage_png(tmp_path)
@@ -1126,18 +1047,13 @@ def test_both_illustration_and_fallback_undecodable_still_renders(tmp_path):
         )
 
 
-# --- Quick task 260827-hyy: D-06's intermediate render state - an
-# airline-only route (adsbdb missed, the callsign's ICAO prefix
-# resolved the carrier) still shows the airline name and the airline's
-# own illustration; the destination stays genuinely unknown. ------------
+# An intermediate render state: an airline-only route (adsbdb missed, the
+# callsign's ICAO prefix resolved the carrier) still shows the airline
+# name and the airline's own illustration; the destination stays
+# genuinely unknown.
 
-# 39. EJU84YF (a confirmed adsbdb miss, easyJet Europe): line 1 is
-# omitted entirely (no to/from clause, no city, no raw callsign -
-# genuinely unknown, D-10 tier 3), line 2 is the resolved airline name
-# alone (no aircraft_type supplied), and ROUTE_FALLBACK_TEXT does not
-# appear anywhere - the airline-only case is not the same as a full miss.
 def test_airline_only_route_shows_airline_not_fallback_text():
-    """an airline-only route (adsbdb miss, prefix-resolved 'easyJet') omits line 1 entirely and draws only the airline name, never the raw callsign or ROUTE_FALLBACK_TEXT (D-08/D-10 tier 3)"""
+    """an airline-only route (adsbdb miss, prefix-resolved 'easyJet') omits line 1 entirely and draws only the airline name, never the raw callsign or ROUTE_FALLBACK_TEXT"""
     import server.plane.enrich as enrich
 
     airline_only_flight = {"hex": "440cb1", "callsign": "EJU84YF"}
@@ -1153,11 +1069,8 @@ def test_airline_only_route_shows_airline_not_fallback_text():
         pytest.fail("ROUTE_FALLBACK_TEXT must not appear when the airline is known (D-06), got %r" % (texts,))
 
 
-# 40. Transavia France + B738: line 2 composes exactly like a full hit
-# ("{airline} · {type label}"), while line 1 is omitted entirely -
-# no to/from clause, no city, no raw callsign fabricated from the prefix.
 def test_airline_only_route_composes_line2_like_a_full_hit():
-    """an airline-only Transavia France + B738 route composes line 2 as '{airline} · {type label}' exactly like a full hit, line 1 omitted entirely, never the raw callsign or a to/from clause (D-08/D-10 tier 3)"""
+    """an airline-only Transavia France + B738 route composes line 2 as '{airline} · {type label}' exactly like a full hit, line 1 omitted entirely, never the raw callsign or a to/from clause"""
     import server.plane.enrich as enrich
 
     flight = {"hex": "39de4a", "callsign": "TVF12ZW", "aircraft_type": "B738"}
@@ -1175,9 +1088,6 @@ def test_airline_only_route_composes_line2_like_a_full_hit():
             pytest.fail("found a to/from clause %r - the destination must stay genuinely unknown (D-06)" % (text,))
 
 
-# 41. This is the check that proves the todo's actual goal: the
-# airline-only route resolves to the airline's own illustration, not the
-# generic fallback.
 def test_airline_only_route_selects_the_airlines_own_illustration():
     """illustrations.select_illustration() on an airline-only Transavia France route resolves to 'transavia-france.png' - the airline's own art, not the generic fallback"""
     import server.plane.enrich as enrich
@@ -1188,13 +1098,13 @@ def test_airline_only_route_selects_the_airlines_own_illustration():
         pytest.fail("expected the airline's own illustration 'transavia-france.png', got %r" % (path,))
 
 
-# 42 (quick task 260827-kih). A route already corrected by
-# enrich.correct_airline_name() renders its current brand name in the
-# caption via _flight_line2_text(), and render.display_airline_name()
-# is a no-op on that already-corrected string (it has no P-01 alias of
-# its own to apply - the alias table only ever held "CCM Airlines").
+# A route already corrected by enrich.correct_airline_name() renders its
+# current brand name in the caption via _flight_line2_text(), and
+# render.display_airline_name() is a no-op on that already-corrected
+# string (it has no alias of its own to apply - the alias table only
+# ever held "CCM Airlines").
 def test_corrected_route_renders_current_brand_and_display_alias_is_noop():
-    """a route already corrected by enrich.correct_airline_name() renders its current brand name via _flight_line2_text(), and display_airline_name() is a no-op on the already-corrected string (260827-kih)"""
+    """a route already corrected by enrich.correct_airline_name() renders its current brand name via _flight_line2_text(), and display_airline_name() is a no-op on the already-corrected string"""
     import server.plane.enrich as enrich
 
     cache = {}
@@ -1223,13 +1133,12 @@ def test_corrected_route_renders_current_brand_and_display_alias_is_noop():
         pytest.fail("_flight_line2_text() on the corrected route must not render the stale upstream string: %r" % (line2,))
 
 
-# --- Phase 8 08-04 (D-08/D-09/D-10): _flight_line1_text()'s four-tier
-# content ladder, unit-level checks against the function directly plus
-# one end-to-end D-08 guard and one hostile-input battery. -------------
+# _flight_line1_text()'s four-tier content ladder: unit-level checks
+# against the function directly, plus one end-to-end guard and one
+# hostile-input battery.
 
-# 43. Tier 1 (identifier + city both known), both states, exact string.
 def test_tier1_identifier_and_city_both_known():
-    """_flight_line1_text() tier 1 (identifier + city) returns the exact '{identifier} to|from {city}' string for both states (D-10)"""
+    """_flight_line1_text() tier 1 (identifier + city) returns the exact '{identifier} to|from {city}' string for both states"""
     route = {
         "airline_name": "Air France", "origin_iata": "ORY", "origin_city": "Paris",
         "destination_iata": "JFK", "destination_city": "New York", "callsign_iata": "AF1234",
@@ -1243,10 +1152,8 @@ def test_tier1_identifier_and_city_both_known():
         pytest.fail("tier 1 arriving expected 'AF1234 from Paris', got %r" % (arriving,))
 
 
-# 44. Tier 2 (city known, no identifier), both states, title-case
-# direction word, no identifier anywhere in the result.
 def test_tier2_city_known_no_identifier():
-    """_flight_line1_text() tier 2 (city known, no identifier) returns the title-case direction word and city, with no identifier, for both states (D-10)"""
+    """_flight_line1_text() tier 2 (city known, no identifier) returns the title-case direction word and city, with no identifier, for both states"""
     route = {
         "airline_name": "Air France", "origin_iata": "ORY", "origin_city": "Paris",
         "destination_iata": "JFK", "destination_city": "New York", "callsign_iata": None,
@@ -1260,10 +1167,8 @@ def test_tier2_city_known_no_identifier():
         pytest.fail("tier 2 arriving expected 'From Paris', got %r" % (arriving,))
 
 
-# 45. Tier 3 (airline only, no city, no identifier) returns an empty
-# string - the sentinel meaning line 1 is omitted.
 def test_tier3_airline_only_returns_empty_string():
-    """_flight_line1_text() tier 3 (airline known, no city, no identifier) returns an empty string - the sentinel meaning line 1 is omitted (D-10)"""
+    """_flight_line1_text() tier 3 (airline known, no city, no identifier) returns an empty string - the sentinel meaning line 1 is omitted"""
     import server.plane.enrich as enrich
 
     route = enrich.airline_only_route("Ryanair")
@@ -1274,11 +1179,8 @@ def test_tier3_airline_only_returns_empty_string():
         pytest.fail("tier 3 (airline-only route) expected an empty string for both states, got %r/%r" % (departing, arriving))
 
 
-# 46. Tier 4 (nothing resolved) returns the fixed "Unknown flight"
-# string, for both route=None and a dict carrying no airline name
-# either, identical for both states.
 def test_tier4_nothing_resolved_returns_unknown_flight():
-    """_flight_line1_text() tier 4 (nothing resolved) returns the fixed string 'Unknown flight' for both route=None and a dict with no airline name, identical for both states (D-10)"""
+    """_flight_line1_text() tier 4 (nothing resolved) returns the fixed string 'Unknown flight' for both route=None and a dict with no airline name, identical for both states"""
     flight = {"hex": "cccccc", "callsign": "XYZ999"}
     no_airline_route = {
         "airline_name": None, "origin_iata": None, "origin_city": None,
@@ -1293,11 +1195,8 @@ def test_tier4_nothing_resolved_returns_unknown_flight():
             pytest.fail("tier 4 arriving expected 'Unknown flight' for route=%r, got %r" % (route, arriving))
 
 
-# 47. The D-08 guard, end-to-end: across all four tiers and both cards,
-# no drawn text anywhere on the panel contains the flight's raw callsign
-# or hex.
 def test_d08_no_raw_callsign_or_hex_anywhere_across_all_tiers():
-    """no drawn text on either card contains the raw callsign or hex, across all four content-ladder tiers (D-08 end-to-end guard)"""
+    """no drawn text on either card contains the raw callsign or hex, across all four content-ladder tiers (end-to-end guard)"""
     import server.plane.enrich as enrich
 
     main_flight = {"hex": "dddddd", "callsign": "MAINDISTINCT01", "aircraft_type": "B738"}
@@ -1322,8 +1221,6 @@ def test_d08_no_raw_callsign_or_hex_anywhere_across_all_tiers():
                     pytest.fail("raw callsign/hex %r leaked into drawn text %r at route=%r (D-08)" % (banned, text, route))
 
 
-# 48. Hostile route shapes degrade a tier instead of raising: a non-
-# string, empty, or whitespace-only identifier, and a non-dict route.
 def test_hostile_route_shapes_degrade_a_tier_without_raising():
     """_flight_line1_text() degrades a tier rather than raising for hostile route shapes (non-string/empty/whitespace identifier, non-dict route)"""
     flight = {"hex": "ffffff", "callsign": "HOSTILE1"}
@@ -1345,12 +1242,12 @@ def test_hostile_route_shapes_degrade_a_tier_without_raising():
                 pytest.fail("route=%r state=%r returned a non-string %r" % (route, state, result))
 
 
-# --- Task 1 (05-02, DEVICE-04): bottom-left battery-low icon -------------
-# BATTERY_ICON_BOX is computed from render's own constants (not restated
-# as a hand-written literal) exactly the way draw_battery_icon() derives
-# its own total bounding box - so this containment window can never go
-# stale relative to the BATTERY_ICON_* constants again. Check D below is
-# the one place that still pins the literal geometry values.
+# Bottom-left battery-low icon. BATTERY_ICON_BOX is computed from
+# render's own constants (not restated as a hand-written literal) exactly
+# the way draw_battery_icon() derives its own total bounding box - so
+# this containment window can never go stale relative to the
+# BATTERY_ICON_* constants again. Check D below is the one place that
+# still pins the literal geometry values.
 
 BATTERY_ICON_BOX = (
     render.BATTERY_ICON_LEFT,
@@ -1363,8 +1260,8 @@ BATTERY_ICON_BOX = (
 def _states_for_battery_checks():
     """(state, flight, kwargs) triples exercising all three render
     states - departing/arriving carry a real previous-flight card
-    (TEST_PREVIOUS_FLIGHT/TEST_PREVIOUS_ROUTE), per Task 1 Check B's
-    instruction that a real previous-flight card be on the canvas.
+    (TEST_PREVIOUS_FLIGHT/TEST_PREVIOUS_ROUTE) so a real one is on the
+    canvas.
     """
     return [
         ("departing", TEST_FLIGHT, dict(
@@ -1417,9 +1314,6 @@ def _diff_inside_outside(canvas_a, canvas_b, box):
     return inside, outside
 
 
-# 43. Check A - default-off and no regression: no battery kwarg and
-# battery_low=False produce pixel-identical canvases for all three
-# states (no pixel anywhere on the 1200x1600 canvas differs).
 def test_battery_default_off_matches_explicit_false():
     """build_canvas() with no battery kwarg is pixel-identical to battery_low=False for departing/arriving/empty (default-off, no regression)"""
     for state, flight, kwargs in _states_for_battery_checks():
@@ -1429,9 +1323,6 @@ def test_battery_default_off_matches_explicit_false():
             pytest.fail("state=%r: build_canvas() with no battery kwarg differs from battery_low=False" % (state,))
 
 
-# 44. Check B - conditional draw is spatially contained: battery_low=True
-# vs battery_low=False differ at >=1 pixel inside the icon bbox and 0
-# pixels outside it, for all three states.
 def test_battery_icon_conditional_draw_is_spatially_contained():
     """battery_low=True differs from battery_low=False only inside the icon bounding box (64,1514,115,1536), for departing/arriving (with a real previous-flight card on the canvas) and empty"""
     for state, flight, kwargs in _states_for_battery_checks():
@@ -1444,10 +1335,6 @@ def test_battery_icon_conditional_draw_is_spatially_contained():
             pytest.fail("state=%r: battery_low=True changed a pixel outside the icon box %r" % (state, BATTERY_ICON_BOX))
 
 
-# 45. Check C - per-state ink and hollow interior: the body outline
-# corner, the left-aligned fill interior, and the solid nub all read as
-# the state's own ink; the body interior right of the fill still reads
-# as the state's background - the glyph must read as mostly empty.
 def test_battery_icon_ink_and_hollow_interior():
     """with battery_low=True, the body outline corner/fill/nub read as the state's own ink (EMPTY_INK for the empty state), while the hollow interior right of the fill still reads as the state's background"""
     expectations = [
@@ -1471,14 +1358,8 @@ def test_battery_icon_ink_and_hollow_interior():
             pytest.fail("state=%r: pixel (95,1525) inside the body outline but right of the fill is %r, expected background %r" % (state, gap, bg_idx))
 
 
-# 46. Check D - size constants derive from a uniform 0.7 reduction of the
-# spacing scale (260828-0qo, live on-glass correction), the two position
-# constants are unchanged, the stroke never drops below the frame's own
-# weight, the nub is centred to within one pixel (the odd BODY_H-NUB_H
-# leftover puts it one pixel low, not a defect), and the total bounding
-# box is exactly (64, 1514, 115, 1536).
 def test_battery_icon_geometry_derives_from_spacing_scale():
-    """battery icon size constants are a uniform round(original * 0.7) reduction of the former spacing-scale values (260828-0qo on-glass correction) with the stroke never dropping below FRAME_STROKE_PX, position constants (BATTERY_ICON_LEFT/BOTTOM) unchanged, the nub centred to within one pixel, and a total bounding box of (64,1514,115,1536)"""
+    """battery icon size constants are a uniform round(original * 0.7) reduction of the former spacing-scale values, with the stroke never dropping below FRAME_STROKE_PX, position constants (BATTERY_ICON_LEFT/BOTTOM) unchanged, the nub centred to within one pixel, and a total bounding box of (64,1514,115,1536)"""
     if render.BATTERY_ICON_BODY_W != round(render.SPACE_LG * 0.7):
         pytest.fail("BATTERY_ICON_BODY_W is not round(SPACE_LG * 0.7)")
     if render.BATTERY_ICON_BODY_H != round(render.SPACE_MD * 0.7):
@@ -1511,21 +1392,15 @@ def test_battery_icon_geometry_derives_from_spacing_scale():
         pytest.fail("computed total bounding box %r != (64, 1514, 115, 1536)" % (total,))
 
 
-# --- Debug session illustration-crop-text-margin: the aircraft-to-text gap
-# must be a property of the LAYOUT, not of whichever airline is flying. ---
-#
-# Three real vendored files chosen for maximal spread in transparent bottom
-# padding, measured with the renderer's own alpha threshold at the main
-# card's 992px render width: 37px (thinnest in the set), 74px (air-france -
-# the file the D-26 sketch pass was tuned against), 174px (thickest in the
-# set). Under the old full-rectangle anchoring these three produced visible
-# gaps of 17px, 54px and 154px respectively - a 9.1x spread, which is the
-# bug the developer saw on the physical e-ink panel.
-#
-# These checks are deliberately illustration-file-agnostic: they assert the
-# gap is IDENTICAL across the three, never that any file lands on a
-# particular pixel row. Re-anchoring either text block to `.rect` would
-# fail them immediately, no matter how the constants were retuned.
+# The aircraft-to-text gap must be a property of the layout, not of
+# whichever airline is flying. Three real vendored files are chosen for
+# maximal spread in transparent bottom padding, measured with the
+# renderer's own alpha threshold at the main card's 992px render width:
+# 37px, 74px and 174px. These checks are deliberately
+# illustration-file-agnostic: they assert the gap is identical across the
+# three, never that any file lands on a particular pixel row.
+# Re-anchoring either text block to `.rect` would fail them immediately,
+# no matter how the constants were retuned.
 GAP_SPREAD_ILLUSTRATIONS = (
     "iberia-airlines.png",
     "air-france.png",
@@ -1578,8 +1453,6 @@ def _measured_gaps(basename):
     return main_y - main_opaque_bottom, prev_y - prev_opaque_bottom, main_pad, prev_pad
 
 
-# 47. The main block's gap is identical across illustrations whose
-# transparent bottom padding differs by >100px.
 def test_main_text_gap_is_constant_across_illustrations():
     """the main flight text sits exactly MAIN_TEXT_GAP_PX below the aircraft's last actually-painted pixel row, identically for illustrations whose transparent bottom padding differs by over 100px (illustration-crop-text-margin: no full-rectangle anchoring)"""
     measured = {name: _measured_gaps(name) for name in GAP_SPREAD_ILLUSTRATIONS}
@@ -1597,8 +1470,6 @@ def test_main_text_gap_is_constant_across_illustrations():
         pytest.fail("constant main gap is %dpx, expected MAIN_TEXT_GAP_PX (%d)" % (only, render.MAIN_TEXT_GAP_PX))
 
 
-# 48. Same guarantee for the previous-flight card, which consumes its own
-# draw_illustration() placement and has its own gap constant.
 def test_previous_text_gap_is_constant_across_illustrations():
     """the previous flight text sits exactly PREVIOUS_TEXT_GAP_PX below its aircraft's last actually-painted pixel row, identically across illustrations with very different transparent bottom padding"""
     measured = {name: _measured_gaps(name) for name in GAP_SPREAD_ILLUSTRATIONS}
@@ -1615,14 +1486,6 @@ def test_previous_text_gap_is_constant_across_illustrations():
         pytest.fail("constant previous gap is %dpx, expected PREVIOUS_TEXT_GAP_PX (%d)" % (only, render.PREVIOUS_TEXT_GAP_PX))
 
 
-# 49. The measurement itself must use the paste threshold, not a naive
-# Image.getbbox(). This is the specific mistake that caused the bug: every
-# vendored file carries a soft drop-shadow band (alpha 1..127) that
-# getbbox() counts as content and draw_illustration() erases. Six files -
-# air-france.png among them - report a naive bottom padding of exactly 0
-# while their real painted padding is 82-174px, which is how "the vendored
-# illustration files have no transparent bottom padding of their own" came
-# to be written down as a verified fact.
 def test_opaque_bbox_uses_the_paste_threshold_not_a_naive_getbbox():
     """_opaque_bbox() measures the hard-thresholded paste mask, never a naive Image.getbbox() - the soft drop-shadow band (alpha 1..127) that is never painted must not count as content"""
     path = _illustration_path("air-france.png")
@@ -1646,10 +1509,6 @@ def test_opaque_bbox_uses_the_paste_threshold_not_a_naive_getbbox():
             "must measure the same pixels" % (thresholded, painted))
 
 
-# 50. Structural guard on the return contract: for real vendored art the
-# two boxes must genuinely differ, so a future "simplification" that
-# returns the placement rectangle for both fields is caught here rather
-# than silently restoring per-airline gap drift.
 def test_placement_content_is_strictly_inside_its_rect():
     """draw_illustration() returns a placement whose .content is strictly contained in .rect, with a strictly higher bottom edge, for real vendored art (structural guard against restoring full-rectangle anchoring)"""
     path = _illustration_path("air-france.png")
@@ -1703,9 +1562,6 @@ def _render_two_cards(main_basename, prev_basename):
     return placements.placements[0], placements.placements[1], text.calls
 
 
-# 51. The main illustration's VISIBLE horizontal midpoint sits on the
-# canvas centre, for files whose left/right padding asymmetry differs
-# sharply. generic-beechcraft1900d.png was the worst offender at +7.5px.
 def test_main_illustration_is_centred_on_its_visible_pixels():
     """the main illustration's VISIBLE horizontal midpoint sits on the canvas centre (within rounding) for files with sharply different left/right padding asymmetry - centred by painted pixels, not by rectangle"""
     canvas_centre = panel_format.WIDTH / 2.0
@@ -1724,14 +1580,8 @@ def test_main_illustration_is_centred_on_its_visible_pixels():
             "the illustration is being centred by its source rectangle, not its painted pixels" % (worst, offsets))
 
 
-# 52. The previous aircraft's visible right edge lands exactly on the main
-# aircraft's visible right edge, and the previous text is right-aligned to
-# that same shared line. Pairing km-malta-airlines.png (main right padding
-# 29px) with transavia-france.png (previous right padding 3px) is the
-# worst case: rectangle-to-rectangle alignment left the two aircraft 26px
-# apart, and the text 3px off its own aircraft.
 def test_previous_card_and_text_align_to_the_main_aircrafts_visible_right_edge():
-    """the previous aircraft's visible right edge lands exactly on the main aircraft's visible right edge, and the previous text right-aligns to that same shared line minus the D-12 optical offset, for two files with very different right padding"""
+    """the previous aircraft's visible right edge lands exactly on the main aircraft's visible right edge, and the previous text right-aligns to that same shared line minus the optical offset, for two files with very different right padding"""
     main_placement, prev_placement, text_calls = _render_two_cards(
         "km-malta-airlines.png", "transavia-france.png")
     main_right = main_placement.content[2]
@@ -1756,14 +1606,8 @@ def test_previous_card_and_text_align_to_the_main_aircrafts_visible_right_edge()
             % (anchor_x, render.PREVIOUS_TEXT_LEFT_OFFSET_PX, expected_anchor_x))
 
 
-# 54. Both of the previous card's text lines share one anchor x, equal to
-# the previous aircraft's measured opaque right edge minus
-# PREVIOUS_TEXT_LEFT_OFFSET_PX (D-12). A different check from 52 above:
-# 52 pins line 1's anchor against a specific worst-case padding pair; this
-# one confirms line 1 and line 2 agree with EACH OTHER, using the default
-# illustration pairing.
 def test_previous_card_both_lines_share_one_anchor_at_the_optical_offset():
-    """the previous card's two text lines share one anchor x, equal to the previous aircraft's measured opaque right edge minus PREVIOUS_TEXT_LEFT_OFFSET_PX (D-12)"""
+    """the previous card's two text lines share one anchor x, equal to the previous aircraft's measured opaque right edge minus PREVIOUS_TEXT_LEFT_OFFSET_PX"""
     _main_placement, prev_placement, text_calls = _render_two_cards(
         "transavia-france.png", "vueling-airlines.png")
     prev_line1 = "%s from %s" % (TEST_PREVIOUS_ROUTE["callsign_iata"], TEST_PREVIOUS_ROUTE["origin_city"])
@@ -1779,11 +1623,8 @@ def test_previous_card_both_lines_share_one_anchor_at_the_optical_offset():
             "PREVIOUS_TEXT_LEFT_OFFSET_PX = %d" % (line1_x, expected_x))
 
 
-# 55. The main card is NOT offset - its lines stay centred on the canvas
-# midpoint with anchor='ma', unaffected by the previous card's D-12
-# correction.
 def test_main_card_text_remains_centred_not_offset():
-    """the main card's text lines stay centred on the canvas midpoint with anchor='ma', unaffected by the previous card's optical offset (D-12)"""
+    """the main card's text lines stay centred on the canvas midpoint with anchor='ma', unaffected by the previous card's optical offset"""
     with _TextSpy(render) as spy:
         render.build_canvas(
             TEST_FLIGHT, "departing", route=TEST_ROUTE,
@@ -1803,11 +1644,8 @@ def test_main_card_text_remains_centred_not_offset():
                 "not receive the previous card's optical offset (D-12)" % (text, xy[0], anchor, center_x))
 
 
-# 56. Tier-3 promotion on the main card: an airline-only route omits
-# line 1 entirely, promoting line 2 into the y-position line 1 would
-# have used, with no empty-string draw call.
 def test_tier3_promotion_on_main_card():
-    """an airline-only route on the main card omits line 1 entirely, promoting line 2 to line 1's y-position, with no empty-string draw call (D-10 tier 3)"""
+    """an airline-only route on the main card omits line 1 entirely, promoting line 2 to line 1's y-position, with no empty-string draw call"""
     import server.plane.enrich as enrich
 
     route = enrich.airline_only_route("Air France")
@@ -1831,12 +1669,8 @@ def test_tier3_promotion_on_main_card():
             "have used)" % (actual_y, expected_y))
 
 
-# 57. Tier-3 promotion on the previous card. Deliberately a separate
-# check from 56, not a parameterisation of it - this is the one that
-# catches the omitted-line fix being implemented in only one of the two
-# drawing functions.
 def test_tier3_promotion_on_previous_card():
-    """an airline-only route on the previous card omits its own line 1, promoting line 2 to line 1's y-position using the previous card's own gap constant, with no empty-string draw call (D-10 tier 3) - the check that catches the change implemented in only one of the two functions"""
+    """an airline-only route on the previous card omits its own line 1, promoting line 2 to line 1's y-position using the previous card's own gap constant, with no empty-string draw call - the check that catches the change implemented in only one of the two functions"""
     import server.plane.enrich as enrich
 
     prev_route = enrich.airline_only_route("Vueling Airlines")
@@ -1870,10 +1704,8 @@ def test_tier3_promotion_on_previous_card():
             % (actual_y, expected_y))
 
 
-# 58. Tier 3 on both cards simultaneously, confirming the two
-# independent branches compose without interfering.
 def test_tier3_on_both_cards_simultaneously():
-    """both cards independently omit line 1 and promote line 2 on a simultaneous airline-only render, without interfering with each other (D-10 tier 3)"""
+    """both cards independently omit line 1 and promote line 2 on a simultaneous airline-only render, without interfering with each other"""
     import server.plane.enrich as enrich
 
     main_route = enrich.airline_only_route("Air France")
@@ -1896,10 +1728,6 @@ def test_tier3_on_both_cards_simultaneously():
         pytest.fail("an empty-string draw call was made somewhere: %r" % (texts,))
 
 
-# 53. The previous card's VISIBLE vertical midpoint sits on the
-# PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC line. Because the drop-shadow band
-# makes bottom padding always exceed top padding, centring the rectangle
-# put every previous aircraft high, by 5.5-28.5px depending on the file.
 def test_previous_card_is_vertically_centred_on_its_visible_pixels():
     """the previous card's VISIBLE vertical midpoint sits on the PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC line (within rounding) across illustrations with very different top/bottom padding - no per-file vertical drift"""
     centre_line = panel_format.HEIGHT * render.PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC
@@ -1915,30 +1743,16 @@ def test_previous_card_is_vertically_centred_on_its_visible_pixels():
             % (centre_line, worst, offsets))
 
 
-# --- Plan 06-06: CFG-01 theme, CFG-12 runway, CFG-05 source-fault badge ---
-
-# 54. render_panel() with no theme_id is byte-identical to an explicit
-# default theme_id - the default path is genuinely unchanged.
 def test_theme_default_matches_no_theme_arg():
-    """render_panel() with no theme_id is byte-identical to an explicit default theme_id (CFG-01)"""
+    """render_panel() with no theme_id is byte-identical to an explicit default theme_id"""
     a = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
     b = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=render.device_config.DEFAULT_THEME_ID)
     if a != b:
         pytest.fail("render_panel() with no theme_id differs from an explicit default theme_id - CFG-01's default path must be byte-identical")
 
 
-# 55. build_canvas(theme_id="white") and build_canvas() with no theme
-# produce identical canvases (D-01: White is now the default) - AND
-# every OTHER registry theme genuinely differs from that default canvas
-# by canvas content alone. "sky" (the old two-tone Blue/Green pairing)
-# was retired outright in the same 08-06 on-glass session that widened
-# the registry to 11 single-colour entries - this check is generalised
-# across whatever THEME_IDS actually holds today rather than naming one
-# theme, so it can never again go stale if the registry's membership
-# changes. Without the loop half, this check would still pass even if
-# every non-white theme had been deleted from the registry entirely.
 def test_white_theme_canvas_matches_default_and_others_differ():
-    """build_canvas(theme_id='white') matches the no-theme default (D-01), and every other registered theme genuinely differs from it - none is a silent no-op"""
+    """build_canvas(theme_id='white') matches the no-theme default, and every other registered theme genuinely differs from it - none is a silent no-op"""
     default_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
     white_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id="white")
     if list(default_canvas.getdata()) != list(white_canvas.getdata()):
@@ -1952,8 +1766,6 @@ def test_white_theme_canvas_matches_default_and_others_differ():
             pytest.fail("build_canvas(theme_id=%r) is identical to the White default canvas - every registered theme must be genuinely distinct" % (theme_id,))
 
 
-# 56. An unrecognised theme id degrades to the default theme's canvas
-# rather than raising - an unknown theme is forgiving.
 def test_unknown_theme_degrades_to_default_canvas():
     """build_canvas(theme_id='not-a-theme') produces the default theme's canvas rather than raising"""
     default_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
@@ -1965,9 +1777,6 @@ def test_unknown_theme_degrades_to_default_canvas():
         pytest.fail("build_canvas(theme_id='not-a-theme') produced a canvas different from the default theme's")
 
 
-# 57. An unrecognised state still raises ValueError naming all three
-# legal states - an unknown state is a real caller-bug detector and
-# must stay loud even though an unknown theme is forgiving.
 def test_unknown_state_still_raises_naming_all_three_states():
     """build_canvas(flight, 'nonsense-state') still raises ValueError naming departing/arriving/empty"""
     try:
@@ -1983,24 +1792,14 @@ def test_unknown_state_still_raises_naming_all_three_states():
     pytest.fail("build_canvas(flight, 'sideways') did not raise - an unknown state must stay loud")
 
 
-# 58. _assert_legal_palette() (run internally by build_canvas()) still
-# passes for every registered theme.
 def test_legal_palette_holds_for_every_theme():
     """_assert_legal_palette() (run internally by build_canvas()) passes for every registered theme"""
     for theme_id in render.device_config.THEME_IDS:
         render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=theme_id)
 
 
-# 59. Per-theme dominant background across both active states (D-01/D-02).
-# For every registered theme and both departing/arriving, a real
-# two-flight panel's dominant nibble must be that theme's own background
-# for that state - the concrete answer to CONTEXT.md's flagged
-# uncertainty about whether background dominance survives on a flat
-# Black/Yellow/Red field against a large livery area. Driven from
-# THEME_IDS/theme_background_index() so a future sixth theme is
-# exercised automatically.
 def test_per_theme_dominant_background_holds_in_both_states():
-    """for every registered theme, in both departing and arriving states, a real two-flight panel's dominant nibble is that theme's own background (D-01/D-02 - the flat-field guard rail against a large livery area)"""
+    """for every registered theme, in both departing and arriving states, a real two-flight panel's dominant nibble is that theme's own background - the flat-field guard rail against a large livery area"""
     for theme_id in render.device_config.THEME_IDS:
         for state, previous_state in (("departing", "arriving"), ("arriving", "departing")):
             buf = render.render_panel(
@@ -2016,12 +1815,8 @@ def test_per_theme_dominant_background_holds_in_both_states():
                     % (theme_id, state, dom, expected_nibble))
 
 
-# 60. Ink index is the theme's own (D-02) - state_ink_index() must agree
-# with device_config.theme_ink_index() for every registered theme and
-# both active states, so a future per-state ink split cannot silently
-# bypass the registry.
 def test_ink_index_matches_theme_registry_for_every_theme():
-    """render.state_ink_index() agrees with device_config.theme_ink_index() for every registered theme, in both departing and arriving states (D-02)"""
+    """render.state_ink_index() agrees with device_config.theme_ink_index() for every registered theme, in both departing and arriving states"""
     for theme_id in render.device_config.THEME_IDS:
         expected = render.device_config.theme_ink_index(theme_id)
         for state in ("departing", "arriving"):
@@ -2031,16 +1826,12 @@ def test_ink_index_matches_theme_registry_for_every_theme():
                     % (state, theme_id, got, theme_id, expected))
 
 
-# 61. runway_tag_text() with no argument returns exactly the current
-# top-right tag string - the default render is unchanged.
 def test_runway_tag_text_default_matches_top_right_tag():
     """runway_tag_text() with no argument returns exactly TOP_RIGHT_TAG_TEXT (default render unchanged)"""
     if render.runway_tag_text() != render.TOP_RIGHT_TAG_TEXT:
         pytest.fail("runway_tag_text() != render.TOP_RIGHT_TAG_TEXT")
 
 
-# 62. runway_tag_text("06-24")/("02-20") return the strings from the
-# runway registry.
 def test_runway_tag_text_matches_registry_for_other_runways():
     """runway_tag_text('06-24')/('02-20') return the strings from device_config.RUNWAYS"""
     for runway_id in ("06-24", "02-20"):
@@ -2050,25 +1841,12 @@ def test_runway_tag_text_matches_registry_for_other_runways():
             pytest.fail("runway_tag_text(%r) = %r, expected %r" % (runway_id, got, expected))
 
 
-# 63. An unrecognised runway id degrades to the default runway's tag
-# rather than raising.
 def test_runway_tag_text_unknown_id_degrades_to_default():
     """runway_tag_text('unknown') returns the default runway's tag rather than raising"""
     if render.runway_tag_text("nope") != render.runway_tag_text():
         pytest.fail("runway_tag_text('nope') != runway_tag_text() - an unknown runway id must degrade to the default")
 
 
-# 64. build_canvas(None, "empty", runway_id=...) draws that runway's
-# heading - including the longest of the three registry headings - and
-# still passes the safe-box assertion. Retargeted in the 12-06 on-glass
-# session: the heading is now a tracked label drawn glyph-by-glyph via
-# draw_tracked_text() (upper-cased at draw time; empty_heading_text()
-# itself is unchanged), so the check reconstructs the single-glyph run
-# the way check 65 already does for the runway tag, instead of looking
-# for the whole string in one draw call. The fit_text_size() shrink path
-# no longer applies; the safe-box assert inside _build_hold_canvas() is
-# what now guards a runway label that could not fit, and it still runs
-# here on the longest registered id.
 def test_empty_canvas_draws_selected_runways_heading():
     """build_canvas(None, 'empty', runway_id=...) draws that runway's heading as a tracked label, including the longest of the three, and passes the safe-box assertion"""
     longest_runway_id = max(
@@ -2084,9 +1862,6 @@ def test_empty_canvas_draws_selected_runways_heading():
             "single-glyph draw run, got %r" % (expected, joined))
 
 
-# 65. build_canvas(flight, "departing", runway_id="06-24") draws that
-# runway's tag (tracked glyph-by-glyph), still passing the
-# within-canvas assertion.
 def test_active_canvas_draws_selected_runways_tag():
     """build_canvas(flight, 'departing', runway_id='06-24') draws that runway's tag glyph-by-glyph, passing the within-canvas assertion"""
     with _TextSpy(render) as spy:
@@ -2100,8 +1875,6 @@ def test_active_canvas_draws_selected_runways_tag():
         pytest.fail("reconstructed tag glyph run = %r, expected the runway 06-24 tag %r" % (joined_tag, expected_tag))
 
 
-# 66. render_panel(..., source_fault=False) is byte-identical to the
-# same call without the argument.
 def test_source_fault_false_matches_default():
     """render_panel(..., source_fault=False) is byte-identical to the same call without the argument"""
     a = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
@@ -2110,8 +1883,6 @@ def test_source_fault_false_matches_default():
         pytest.fail("render_panel(source_fault=False) differs from the default call")
 
 
-# 67. render_panel(..., source_fault=True) differs from the same call
-# with the flag false - the badge is genuinely drawn.
 def test_source_fault_true_differs_from_false():
     """render_panel(..., source_fault=True) differs from the same call with the flag false"""
     a = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE, source_fault=False)
@@ -2120,8 +1891,6 @@ def test_source_fault_true_differs_from_false():
         pytest.fail("render_panel(source_fault=True) is byte-identical to source_fault=False - the badge is not actually drawn")
 
 
-# 68. The fault badge is drawn on the active canvas and on the empty
-# canvas alike - visible whichever state the panel is in.
 def test_badge_caption_present_on_active_and_empty_canvases():
     """the source-fault badge is drawn on both the active canvas and the empty canvas (visible in every state)"""
     with _TextSpy(render) as spy_active:
@@ -2136,9 +1905,6 @@ def test_badge_caption_present_on_active_and_empty_canvases():
         pytest.fail("SOURCE_FAULT_TEXT missing from the empty-state text draws with source_fault=True")
 
 
-# 69. The badge caption is absent from a normal render (source_fault
-# defaults to False) - same text-draw spy idiom already used for the
-# top-right tag.
 def test_badge_caption_absent_from_a_normal_render():
     """the badge caption text is absent from a normal render (source_fault defaults to False)"""
     with _TextSpy(render) as spy:
@@ -2148,9 +1914,6 @@ def test_badge_caption_absent_from_a_normal_render():
         pytest.fail("SOURCE_FAULT_TEXT appeared in a normal render with no source_fault flag")
 
 
-# 70. _assert_legal_palette() (run internally by build_canvas()) still
-# passes with the badge drawn, in both active states, the empty state,
-# and every theme.
 def test_legal_palette_holds_with_badge_across_states_and_themes():
     """_assert_legal_palette() (run internally by build_canvas()) passes with the badge drawn, in both active states, the empty state, and every theme"""
     for theme_id in render.device_config.THEME_IDS:
@@ -2159,10 +1922,6 @@ def test_legal_palette_holds_with_badge_across_states_and_themes():
     render.build_canvas(None, "empty", source_fault=True)
 
 
-# 71. A fault-badged departing render still satisfies
-# _assert_legal_palette() for the default theme - proven by calling
-# build_canvas() (which runs the assertion internally), not by
-# re-implementing it.
 def test_fault_badged_departing_render_satisfies_legal_palette_via_build_canvas():
     """a fault-badged departing render still satisfies _assert_legal_palette() for the default theme (proven via build_canvas(), not a re-implementation)"""
     render.build_canvas(
@@ -2170,7 +1929,6 @@ def test_fault_badged_departing_render_satisfies_legal_palette_via_build_canvas(
     )
 
 
-# 72. The badge's bounding box stays inside the drawn frame.
 def test_badge_bbox_stays_inside_the_drawn_frame():
     """draw_source_fault_badge()'s bounding box stays inside the drawn frame"""
     canvas = panel_format.new_canvas(IDX_BLUE)
@@ -2182,13 +1940,8 @@ def test_badge_bbox_stays_inside_the_drawn_frame():
         pytest.fail("badge bbox %r is not contained within the frame bbox %r" % (badge_bbox, frame_box))
 
 
-# 73. Code-review WR-01: the badge caption is an active-state text role
-# like any other and must resolve its weight from the active theme, not
-# hardcode Bold - the same per-theme font-path spy check #24c-ii already
-# uses, now with source_fault=True so draw_source_fault_badge() is
-# actually exercised (it never was before this check existed).
 def test_badge_caption_uses_its_theme_declared_weight():
-    """the source-fault badge's caption respects its theme's declared weight, same as every other active-state role (code-review WR-01)"""
+    """the source-fault badge's caption respects its theme's declared weight, same as every other active-state role"""
     for theme_id in render.device_config.THEME_IDS:
         requested_paths = _spy_requested_font_paths_with_fault(theme_id)
         if not requested_paths:
@@ -2201,14 +1954,8 @@ def test_badge_caption_uses_its_theme_declared_weight():
                 theme_id, declared_weight, wrong_suffix, len(wrong_hits), wrong_hits))
 
 
-# 74. Code-review WR-02: a zero-length ImageDraw.line() paints exactly
-# one pixel regardless of `width` - Pillow does not expand a degenerate
-# segment - so the exclamation mark's dot must be drawn as a small
-# filled area (multiple pixels), not a single point. Uses the badge's
-# own returned bbox (`left` = combined_bbox[0]) rather than duplicating
-# its internal caption-width measurement.
 def test_badge_exclamation_dot_paints_more_than_one_pixel():
-    """the source-fault badge's exclamation-mark dot paints a visible multi-pixel area, not a single point (code-review WR-02)"""
+    """the source-fault badge's exclamation-mark dot paints a visible multi-pixel area, not a single point"""
     canvas = panel_format.new_canvas(IDX_BLUE)
     badge_bbox = render.draw_source_fault_badge(canvas, IDX_WHITE)
     left = badge_bbox[0]
@@ -2230,9 +1977,6 @@ def test_badge_exclamation_dot_paints_more_than_one_pixel():
             "dot, not a single point (code-review WR-02)" % (count, stroke_x, dot_y))
 
 
-# 73. All three runway ids combined with the single registered theme id
-# render without error across both active states - a small matrix, so
-# a future theme addition is immediately exercised.
 def test_runway_and_theme_matrix_combines_without_error():
     """all three runway ids combined with the single theme id render without error across both active states (theme-addition regression guard)"""
     for runway_id in render.device_config.RUNWAY_IDS:
@@ -2241,19 +1985,8 @@ def test_runway_and_theme_matrix_combines_without_error():
                 render.build_canvas(TEST_FLIGHT, state, route=TEST_ROUTE, runway_id=runway_id, theme_id=theme_id)
 
 
-# 74. The D-26 outline must be genuinely absent from a REAL build_canvas()
-# render - not just absent from a throwaway canvas draw_frame() is called
-# on directly (that's checks 16/70's job). Sample points are derived from
-# FRAME_INSET_FRAC/panel_format.WIDTH/HEIGHT, never hardcoded pixel
-# literals, so a future inset change can never make this check silently
-# vacuous. Every probe must be one of the state's own background index or
-# the dither.dithered_state_background() White speckle mixed into it
-# (Phase 7 07-01: the flat fill became a dithered lighten-toward-White
-# blend after the developer found it too dark on real glass) - draw_frame()
-# is never called on this path, so no third index can legitimately appear
-# here; that remains the strong claim this check makes.
 def test_no_frame_outline_on_real_active_renders():
-    """the D-26 outline is genuinely absent from a real build_canvas() render - every sampled point on the former frame band reads the state's own background index or its dithered White speckle, in both active states"""
+    """the frame outline is genuinely absent from a real build_canvas() render - every sampled point on the former frame band reads the state's own background index or its dithered White speckle, in both active states"""
     for state in ("departing", "arriving"):
         canvas = render.build_canvas(TEST_FLIGHT, state, route=TEST_ROUTE)
         inset = round(panel_format.WIDTH * render.FRAME_INSET_FRAC)
@@ -2278,11 +2011,8 @@ def test_no_frame_outline_on_real_active_renders():
 
 
 
-# 75. Phase 7 07-01 (D-04): --airline and --city reach the rendered
-# captions via render.main()'s CLI, following _TextSpy's monkeypatch
-# technique rather than rendering to a scratch canvas and comparing pixels.
 def test_cli_airline_and_city_flags_reach_captions(tmp_path):
-    """--airline/--city CLI flags reach the rendered captions (render.main(), D-04)"""
+    """--airline/--city CLI flags reach the rendered captions via render.main()"""
     preview_path = str(tmp_path / "preview.png")
     with _TextSpy(render) as spy:
         rc = render.main([
@@ -2303,10 +2033,6 @@ def test_cli_airline_and_city_flags_reach_captions(tmp_path):
 
 
 
-# 76. --no-route continues to win over --airline/--city when both are
-# given - "Unknown flight" (line 1, D-10 tier 4) and
-# ROUTE_FALLBACK_TEXT (line 2) render instead of either override, and
-# the raw callsign never appears (D-08).
 def test_cli_no_route_wins_over_airline_and_city(tmp_path):
     """--no-route still overrides --airline/--city ('Unknown flight', ROUTE_FALLBACK_TEXT, never the raw callsign)"""
     preview_path = str(tmp_path / "preview.png")
@@ -2333,10 +2059,8 @@ def test_cli_no_route_wins_over_airline_and_city(tmp_path):
 
 
 
-# 77. --calibration-preview writes exactly one file (palette-swatches.png)
-# into the given directory and exits 0 without rendering any panel.
 def test_calibration_preview_writes_exactly_one_file(tmp_path):
-    """--calibration-preview writes exactly one file (palette-swatches.png, D-13)"""
+    """--calibration-preview writes exactly one file (palette-swatches.png)"""
     tmp_dir = str(tmp_path)
     rc = render.main(["--calibration-preview", tmp_dir])
     if rc != 0:
@@ -2349,12 +2073,8 @@ def test_calibration_preview_writes_exactly_one_file(tmp_path):
 
 
 
-# 78. Combining a route override (--airline/--city/--no-route) with --out
-# prints the reminder line naming skypane-poll.timer (Phase 8 08-05: the
-# unit was previously misnamed after a pre-rename service) as the unit
-# that must be restarted afterward (T-07-01-01).
 def test_synthetic_reminder_printed_when_override_combined_with_out(tmp_path):
-    """combining --no-route with --out prints the skypane-poll.timer restart reminder (T-07-01-01)"""
+    """combining --no-route with --out prints the skypane-poll.timer restart reminder"""
     out_path = str(tmp_path / "out.bin")
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -2371,10 +2091,8 @@ def test_synthetic_reminder_printed_when_override_combined_with_out(tmp_path):
 
 
 
-# 79. The default preview (no forcing flags) draws a tier-1 line
-# containing the preview route's real identifier.
 def test_cli_default_preview_draws_tier1_with_identifier(tmp_path):
-    """the default CLI preview (no forcing flags) draws a tier-1 line containing the preview route's real identifier (D-10 tier 1)"""
+    """the default CLI preview (no forcing flags) draws a tier-1 line containing the preview route's real identifier"""
     preview_path = str(tmp_path / "preview.png")
     with _TextSpy(render) as spy:
         rc = render.main(["--state", "departing", "--preview", preview_path])
@@ -2389,9 +2107,8 @@ def test_cli_default_preview_draws_tier1_with_identifier(tmp_path):
 
 
 
-# 80. --no-identifier forces the default preview into tier 2.
 def test_cli_no_identifier_flag_forces_tier2(tmp_path):
-    """--no-identifier forces the default preview into tier 2 (title-case direction + city, no identifier) (D-10 tier 2)"""
+    """--no-identifier forces the default preview into tier 2 (title-case direction + city, no identifier)"""
     preview_path = str(tmp_path / "preview.png")
     with _TextSpy(render) as spy:
         rc = render.main(["--state", "departing", "--no-identifier", "--preview", preview_path])
@@ -2408,12 +2125,8 @@ def test_cli_no_identifier_flag_forces_tier2(tmp_path):
 
 
 
-# 81. --no-identifier combined with --no-route still produces tier 4,
-# and combined with --preview-airline-only still produces tier 3 with
-# no line 1 - the two no-op interactions, pinned so a later refactor
-# cannot make them raise.
 def test_cli_no_identifier_is_a_noop_with_no_route_and_airline_only(tmp_path):
-    """--no-identifier combined with --no-route still produces tier 4, and combined with --preview-airline-only still produces tier 3 with no line 1 - both are no-ops (D-10)"""
+    """--no-identifier combined with --no-route still produces tier 4, and combined with --preview-airline-only still produces tier 3 with no line 1 - both are no-ops"""
     tmp1_path = str(tmp_path / "no-route.png")
     tmp2_path = str(tmp_path / "airline-only.png")
     with _TextSpy(render) as spy_no_route:
@@ -2438,10 +2151,8 @@ def test_cli_no_identifier_is_a_noop_with_no_route_and_airline_only(tmp_path):
 
 
 
-# 82. The CLI-level D-08 counterpart of Task 1's library-level guard: no
-# CLI path at any of the four tiers draws the raw callsign.
 def test_cli_never_draws_raw_callsign_across_all_four_tiers(tmp_path):
-    """no CLI path at any of the four content-ladder tiers draws the raw callsign passed via --callsign (D-08 CLI-level guard)"""
+    """no CLI path at any of the four content-ladder tiers draws the raw callsign passed via --callsign"""
     combos = [
         [],  # tier 1, default
         ["--no-identifier"],  # tier 2
@@ -2459,11 +2170,9 @@ def test_cli_never_draws_raw_callsign_across_all_four_tiers(tmp_path):
             pytest.fail("the raw callsign 'DISTINCTCLI99' leaked into a drawn text with flags %r (D-08): %r" % (extra, texts))
 
 
-# --- Phase 8 08-05 Task 1: D-12's 20px optical offset (introduced by
-# 08-04), spot-checked across a deliberately diverse illustration sample
-# rather than just the single Air France / Vueling pair it was tuned
-# against - 08-CONTEXT.md D-12's own final bullet asks for exactly this.
-# ------------------------------------------------------------------
+# The previous card's optical offset, spot-checked across a deliberately
+# diverse illustration sample rather than just the single Air France /
+# Vueling pair it was tuned against.
 #
 # Six airline names, each confirmed (by reading illustrations.py's
 # `_ILLUSTRATION_TARGETS`/`_TYPE_SHAPE_BUCKETS` tables before hardcoding,
@@ -2487,18 +2196,8 @@ OFFSET_SPREAD_AIRLINES = (
 )
 
 
-# 83. For each sampled airline: both previous-card lines share one
-# anchor x equal to that aircraft's measured opaque right edge minus
-# PREVIOUS_TEXT_LEFT_OFFSET_PX (written against the constant, never a
-# literal); neither line's bbox crosses SAFE_BOX's left edge (the real
-# width-budget risk the offset introduces - narrower `available_width`
-# for `fit_text_size()`, not just the looser whole-canvas guard
-# `_assert_within_canvas()` already enforces); and the render completes
-# without raising. Also records each file's right-padding
-# (`rect[2] - content[2]`) so a genuine outlier - if one exists - is
-# named rather than silently absorbed.
 def test_previous_card_optical_offset_holds_across_diverse_illustration_sample():
-    """the previous card's D-12 optical offset holds its shared-anchor and safe-box invariants across six airline illustrations with deliberately different airframe silhouettes (narrowbody x2, turboprop, small twin, regional jet, widebody) - not just the single pair it was tuned against"""
+    """the previous card's optical offset holds its shared-anchor and safe-box invariants across six airline illustrations with deliberately different airframe silhouettes (narrowbody x2, turboprop, small twin, regional jet, widebody) - not just the single pair it was tuned against"""
     paddings = {}
     for airline_name, expected_filename, _airframe in OFFSET_SPREAD_AIRLINES:
         route = dict(TEST_PREVIOUS_ROUTE)
@@ -2559,9 +2258,6 @@ def test_previous_card_optical_offset_holds_across_diverse_illustration_sample()
     )
 
 
-# 102. Resurrected tracking helpers: constant value + the original
-# commit's public/private naming split (draw_tracked_text is public,
-# _tracked_text_width/_tracked_text_bbox are private).
 def test_label_tracking_constant_and_helpers_present():
     """LABEL_TRACKING_PX == 6 and draw_tracked_text()/_tracked_text_width()/_tracked_text_bbox() exist with the original commit's public/private naming split"""
     if render.LABEL_TRACKING_PX != 6:
@@ -2576,9 +2272,6 @@ def test_label_tracking_constant_and_helpers_present():
         pytest.fail("render._draw_tracked_text should not exist - draw_tracked_text is public")
 
 
-# 103. _tracked_text_width() arithmetic: empty / single-char / multi-char
-# / zero-tracking, derived from font.getlength() rather than hardcoded
-# pixel numbers.
 def test_tracked_text_width_arithmetic():
     """_tracked_text_width() arithmetic holds for empty/single-char/multi-char/zero-tracking, derived from font.getlength() rather than hardcoded pixel numbers"""
     font = render._role_font(render.TOP_TAG_FONT, "bold")
@@ -2602,9 +2295,6 @@ def test_tracked_text_width_arithmetic():
             % (text, got_zero, expected_zero))
 
 
-# 104. draw_tracked_text(): one text draw per character, each anchor='la',
-# inter-glyph advance == font.getlength(previous_char) + tracking, return
-# value is the x immediately after the last glyph's advance.
 def test_draw_tracked_text_glyph_by_glyph():
     """draw_tracked_text() issues one text draw per character at anchor='la', with inter-glyph advance == font.getlength(previous_char) + tracking, returning the x immediately after the last glyph's advance"""
     font = render._role_font(render.TOP_TAG_FONT, "bold")
@@ -2633,10 +2323,6 @@ def test_draw_tracked_text_glyph_by_glyph():
             % (end_x, x))
 
 
-# 105. Inter-glyph advance: every consecutive pair of glyph origins
-# within the state-label and runway-tag runs differs by exactly
-# font.getlength(previous_char) + LABEL_TRACKING_PX, derived from the
-# real font rather than a pixel literal.
 def test_top_row_inter_glyph_advance_matches_tracking():
     """every consecutive pair of glyph origins within the state-label and runway-tag runs differs by exactly font.getlength(previous_char) + LABEL_TRACKING_PX"""
     with _TextSpy(render) as spy:
@@ -2659,16 +2345,6 @@ def test_top_row_inter_glyph_advance_matches_tracking():
                     "(font.getlength(%r) + %d)" % (i, text, got_advance, expected_advance, prev_char, render.LABEL_TRACKING_PX))
 
 
-# 106. Overflow sweep: every registered runway id, both active states,
-# a flat (white) and a dithered (grey) theme - _assert_within_canvas()
-# must never raise, and the computed tag start x must be >= 0. Planning
-# measured the worst case at 901 across every combination, against the
-# plan's own "sky" example theme - "sky" was retired by Phase 8's
-# 5-entry-registry work (11 pure/light themes replaced it, no "sky" id
-# remains), so "grey" (currently the bold/dithered theme, per
-# device_config.theme_weight()) is substituted here as the equivalent
-# dithered-theme leg (Rule 1: the plan's context predates that
-# retirement).
 def test_top_row_tracking_stays_within_canvas_across_runways_themes_states():
     """the tracked top row builds without an AssertionError and the computed tag start x is >= 0 for every registered runway id, both active states, and a flat and a dithered theme"""
     for runway_id in render.device_config.RUNWAY_IDS:
@@ -2687,12 +2363,6 @@ def test_top_row_tracking_stays_within_canvas_across_runways_themes_states():
                         % (runway_id, theme_id, state, tag_x))
 
 
-# 107. Tracking containment: for a full two-flight active render, the
-# main card's line 1, the previous card's line 1, and the source-fault
-# caption are each still captured as a single whole-string draw, and
-# the total count of single-character draws equals exactly
-# len(label_text) + len(tag_text) - tracking has not leaked into any
-# other role.
 def test_tracking_confined_to_top_row_roles_only():
     """for a full two-flight active render with source_fault=True, the main card's line 1, the previous card's line 1, and the source-fault caption are each still drawn as one whole-string call, and the total single-character draw count equals exactly len(label_text) + len(tag_text)"""
     with _TextSpy(render) as spy:
@@ -2719,12 +2389,6 @@ def test_tracking_confined_to_top_row_roles_only():
         pytest.fail("source-fault caption %r not captured as a single whole-string draw" % (render.SOURCE_FAULT_TEXT,))
 
 
-# 108. Phase 9 PHASE9-1: every registered band theme's build_canvas()
-# call succeeds without exception, in both active states. Checks #58-60
-# already loop THEME_IDS generically and therefore already cover this
-# transitively - this loop exists to make band coverage explicit and
-# independently readable, and to fail loudly with the offending theme id
-# named if a band-specific regression ever slips past the generic loops.
 def test_band_themes_render_without_exception():
     """every registered band theme (PHASE9-1) renders via build_canvas() in both departing and arriving states without exception"""
     band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
@@ -2735,12 +2399,6 @@ def test_band_themes_render_without_exception():
             render.build_canvas(TEST_FLIGHT, state, route=TEST_ROUTE, theme_id=theme_id)
 
 
-# 109. draw_diagonal_band() paints only {IDX_WHITE, band_idx} on a fresh
-# White canvas, confined to the trapezoid region - one flat candidate
-# (IDX_BLUE, dithered=False) and one dithered candidate (IDX_GREEN,
-# dithered=True), using Image.getcolors() the same way
-# _assert_legal_palette() does internally, not a reimplementation of its
-# dominance/legality logic.
 def test_draw_diagonal_band_paints_only_legal_two_colour_set():
     """draw_diagonal_band() paints only {IDX_WHITE, band_idx} on a fresh White canvas, flat and dithered"""
     for band_idx, dithered in ((IDX_BLUE, False), (IDX_GREEN, True)):
@@ -2756,12 +2414,6 @@ def test_draw_diagonal_band_paints_only_legal_two_colour_set():
             ))
 
 
-# 110. Band-theme top labels are genuinely split: build a band-theme
-# canvas and reconstruct the top-row glyph run via _TextSpy, the same
-# idiom check #65 uses for runway-tag coverage. The expected strings are
-# derived from runway_tag_text()/STATE_LABEL_TEXT/_BAND_TOP_LABEL_DIRECTION
-# in the check itself, partitioned on " · " - never a hardcoded literal
-# duplicating the production split logic in two places.
 def test_band_theme_top_labels_are_split():
     """a band theme's top labels are genuinely split into a merged state-label/airport-code run (e.g. 'DEPARTING FROM ORY') and a standalone runway-tag run (e.g. 'RWY 3'), both derived from runway_tag_text().partition(' · ') (PHASE9-3)"""
     band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
@@ -2787,16 +2439,6 @@ def test_band_theme_top_labels_are_split():
         pytest.fail("reconstructed band-theme %r tag = %r, expected %r" % (theme_id, joined_tag, expected_tag))
 
 
-# 111. Non-band-theme top labels are unaffected. Two layers: (a) calls
-# `draw_top_labels()` DIRECTLY with no `band_theme` argument at all, so
-# this check genuinely exercises the parameter's own default rather than
-# `_build_active_canvas()`'s explicit `band_theme=is_band_theme` wiring
-# (which always passes the argument and would mask a wrong default) -
-# (b) the same _TextSpy reconstruction, run through build_canvas() with
-# the default theme (white), proving the wiring itself resolves to
-# unsplit for a real non-band theme too. Both must reconstruct exactly
-# STATE_LABEL_TEXT["departing"] on the left and the FULL
-# runway_tag_text() string on the right.
 def test_non_band_theme_top_labels_are_unsplit():
     """a non-band theme's (white, the default) top labels remain exactly STATE_LABEL_TEXT and the FULL runway tag, unsplit - both draw_top_labels()'s own default (called with no band_theme argument) and _build_active_canvas()'s wiring genuinely preserve today's behaviour"""
     label_text = render.STATE_LABEL_TEXT["departing"]
@@ -2829,13 +2471,6 @@ def test_non_band_theme_top_labels_are_unsplit():
         pytest.fail("build_canvas(theme_id='white') tag = %r, expected the FULL unsplit tag %r" % (wired_tag, full_tag))
 
 
-# 112. Non-band themes are pixel-identical to before this phase: the
-# default (White) canvas's getdata() length/content and getcolors() set,
-# each computed fresh every run (never a hardcoded pixel dump), match
-# between an explicit theme_id="white" call and the no-theme-id default
-# call - strengthening check #55's identity check into an explicit,
-# named "the band port did not touch the default path" regression guard,
-# plus a structural confirmation that "white" itself is not a band theme.
 def test_default_theme_canvas_unchanged_by_band_port():
     """the default (white) theme's canvas is byte-identical to before this phase (getdata()/getcolors() computed fresh, and 'white' itself is confirmed not a band theme)"""
     if render.device_config.theme_is_band("white"):
@@ -2854,16 +2489,6 @@ def test_default_theme_canvas_unchanged_by_band_port():
         pytest.fail("default/white canvas colour sets differ: %r vs %r" % (sorted(default_colors), sorted(white_colors)))
 
 
-# 113. Plan 09-03 non-band regression, both text blocks: a full
-# two-flight render, for every one of the 11 pre-band theme ids, is
-# pixel-identical whether `_build_active_canvas()`'s normal
-# `band_idx=band_idx` wiring runs (always `None` for a non-band theme)
-# or `draw_main_text_block()`/`draw_previous_text_block()` are called
-# with NO `band_idx` argument at all (their own default). Proves the
-# `band_idx=None` branch is genuinely a no-op wrapper around the
-# pre-this-plan body, using the real production illustration-placement
-# pipeline (via build_canvas() itself) rather than a hand-duplicated
-# reimplementation that could silently drift from it.
 def test_non_band_text_blocks_unaffected_by_band_idx_kwarg():
     """every one of the 11 pre-band themes' full two-flight render is pixel-identical whether _build_active_canvas()'s band_idx=band_idx wiring runs (always None) or draw_main_text_block()/draw_previous_text_block() are called with no band_idx argument at all (PHASE9-4/PHASE9-6 regression guard)"""
     non_band_ids = [t for t in render.device_config.THEME_IDS if not render.device_config.theme_is_band(t)]
@@ -2902,17 +2527,6 @@ def test_non_band_text_blocks_unaffected_by_band_idx_kwarg():
                 "wiring - the band_idx=None branch is not a byte-identical no-op wrapper" % (theme_id,))
 
 
-# 114. Tier-split content reuse, main card: for a tier-1 route
-# (TEST_ROUTE, real identifier + city), the big-number draw's text
-# equals route["callsign_iata"] exactly and the tracked route line -
-# reconstructed from consecutive single-character glyph draws not on
-# the top row (y != MARGIN), the same idiom check #65/#110 already use
-# for the top row itself - equals _flight_line1_text()'s real output
-# with the identifier prefix stripped and upper-cased, computed fresh
-# in this check. For a tier-3 route (enrich.airline_only_route(), no
-# identifier/city), no number and no tracked-route glyphs are drawn at
-# all - only the promoted airline·type line, as a single whole-string
-# draw.
 def test_band_main_card_tier_split_reuses_real_content():
     """a band theme's main card draws the big-number line as route['callsign_iata'] verbatim and the tracked route line as _flight_line1_text()'s real remainder, upper-cased (tier 1); and draws only the promoted airline·type line, with no number/dash/tracked-route draw at all, for a tier-3 (airline-only) route (PHASE9-4)"""
     import server.plane.enrich as enrich
@@ -2950,15 +2564,6 @@ def test_band_main_card_tier_split_reuses_real_content():
             % (line2_full_tier3,))
 
 
-# 115. Centring-once regression guard (round-15 bug, PHASE9-4): for a
-# tier-1 band render, every anchor="ma" draw call below the top row
-# (the number line and the promoted/plain airline·type line both use
-# this anchor) must land on the SAME x-coordinate - proving center_x
-# was computed once, at the block's top, and reused for every line,
-# never recomputed per line. Manually verified during this plan's own
-# development (not re-run automatically here) that reintroducing the
-# round-12 per-line recompute inside the plain_text branch alone makes
-# this check fail, and reverting makes it pass again.
 def test_band_center_x_computed_once_not_recomputed_per_line():
     """a band theme's main-card anchor='ma' draws (the number line and the airline·type line) all share exactly one x-coordinate - center_x is computed once per block, never recomputed per line (round-15 fix, PHASE9-4)"""
     with _TextSpy(render) as spy:
@@ -2973,21 +2578,6 @@ def test_band_center_x_computed_once_not_recomputed_per_line():
             % (len(xs), sorted(xs)))
 
 
-# 116. Black-band ink swap (round-13 fix, PHASE9-5): the main card's
-# drawn text pixels sample as IDX_WHITE inside band_black's render and
-# as IDX_BLACK inside another band theme's (band_red) render - by
-# actual sampled pixel colour, not by inference from an exception's
-# absence. band_black's own band FILL is itself IDX_BLACK, so a bare
-# "any IDX_BLACK pixel inside the bbox" probe would misfire on the
-# background, not just missing ink - this diffs a real render against
-# a text-suppressed render of the identical canvas (draw_main_text_block()
-# monkeypatched to a no-op) so only genuinely newly-painted ink pixels
-# are sampled, never the band's own background fill. Only
-# draw.textbbox()-measured bboxes are usable (the tracked route line's
-# own _tracked_text_bbox() bypasses ImageDraw.textbbox() entirely, so
-# _TextBBoxSpy never sees it) - the number line and the airline·type
-# line both go through draw.textbbox() and are sufficient to prove the
-# swap.
 def test_band_black_main_card_ink_swaps_to_white():
     """every registered band theme's main card text samples as IDX_WHITE (never IDX_BLACK) inside its own drawn bboxes - the round-13 ink swap, widened on real glass to every band colour, is proven by actual pixel colour, not by absence of an exception (PHASE9-5)"""
     orig_main = render.draw_main_text_block
@@ -3014,12 +2604,10 @@ def test_band_black_main_card_ink_swaps_to_white():
                         ink_values.add(with_pixels[x, y])
         return ink_values
 
-    # Round 13's black-band-only override widened to every band theme
-    # on real Spectra 6 glass (Phase 9 09-04 on-glass session): black
-    # text read poorly against Blue/Green/Red too, not just Black -
-    # every registered band theme's main card now draws in white ink,
-    # unconditionally. Proven by actual pixel colour for the full
-    # registered set, not by absence of an exception.
+    # Black text reads poorly against every band colour (Blue/Green/Red
+    # too, not just Black), so every registered band theme's main card
+    # draws in white ink, unconditionally. Proven by actual pixel colour
+    # for the full registered set, not by absence of an exception.
     band_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
     if len(band_ids) != 7:
         pytest.fail("expected exactly 7 registered band theme ids, found %d: %r" % (len(band_ids), band_ids))
@@ -3031,16 +2619,8 @@ def test_band_black_main_card_ink_swaps_to_white():
             pytest.fail("%s main card: newly-painted IDX_BLACK ink pixels found - ink swap incomplete" % theme_id)
 
 
-# 117. Previous-card band clearance: for a full two-flight
-# band_blue_light render (the widest dithered candidate), the band's
-# rightmost x at the previous card's own text y-range - computed via
-# the same linear interpolation _band_center_x() uses internally,
-# derived from BAND_TOP_RIGHT_FRAC/BAND_BOT_RIGHT_FRAC only, never a
-# hardcoded pixel literal - must sit to the LEFT of every previous-card
-# text bbox's left edge, for all registered band themes (the band's
-# shape is colour-independent; only its fill varies).
 def test_previous_card_never_collides_with_the_band():
-    """the previous card's drawn text bboxes never overlap the diagonal band's own rightmost extent, at any registered band theme, in a full two-flight render (PHASE9-6 clearance guard)"""
+    """the previous card's drawn text bboxes never overlap the diagonal band's own rightmost extent, at any registered band theme, in a full two-flight render"""
     band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
     if not band_theme_ids:
         pytest.fail("no band theme ids found in THEME_IDS")
@@ -3074,13 +2654,8 @@ def test_previous_card_never_collides_with_the_band():
                     "rightmost extent (%r) at that y" % (theme_id, bbox, left, band_right_at_top))
 
 
-# 118. Full legal-palette + dominance sweep: for all registered band
-# themes, both active states, with and without source_fault=True, build_canvas()
-# raises no AssertionError - _assert_legal_palette() (run internally)
-# holds with the full three-tier text and the source-fault badge both
-# present.
 def test_band_themes_full_composition_stays_palette_legal():
-    """every registered band theme's full two-flight composition (three-tier main + previous card text, plus the source-fault badge when present) stays _assert_legal_palette()-legal across both active states (PHASE9-4/PHASE9-5/PHASE9-6 full sweep)"""
+    """every registered band theme's full two-flight composition (three-tier main + previous card text, plus the source-fault badge when present) stays _assert_legal_palette()-legal across both active states"""
     band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
     if not band_theme_ids:
         pytest.fail("no band theme ids found in THEME_IDS")
@@ -3095,31 +2670,14 @@ def test_band_themes_full_composition_stays_palette_legal():
                 )
 
 
-# 119. The one anchor the illustration-crop-text-margin debug session
-# missed: the MAIN illustration's VISIBLE VERTICAL centre must be a
-# property of the LAYOUT, not of whichever airline is flying. Measured on
-# this branch, at the real render scale (main_w=992px), across all 43
-# vendored files under server/assets/icons/illustrations/: top
-# transparent padding spans 6-124px (spread 118px), so under the anchor
-# that applies a fraction of canvas height to the SOURCE RECTANGLE's top
-# (main_top = round(HEIGHT * MAIN_ILLUSTRATION_TOP_FRAC), computed before
-# the file is even loaded), the aircraft's visible vertical centre
-# drifted 120.5px - from 621.0 (air-caraibes-atr72.png) to 741.5
-# (generic-a330.png) on a 1600px-tall canvas. This is the developer's
-# reported "inconsistent aircraft centering".
-#
-# Deliberately asserts on the SPREAD across files, never on any file's
-# absolute position: absolute position is a design constant that gets
-# re-derived independently (03-UI-SPEC.md) - pinning an absolute value
-# here would force this check to be edited in lockstep with that
-# constant, which is exactly the "the test moved with the bug" failure
-# mode. The spread is the invariant that must hold no matter what the
-# constant becomes.
-#
-# main_w and the vertical anchor are both derived from render.py's own
-# constants/helpers, never hardcoded copies, so this keeps measuring the
-# real render path if that geometry moves.
-MAIN_VERTICAL_DRIFT_TOLERANCE_PX = 2  # pre-fix spread was 120.5px; see above
+# The main illustration's visible vertical centre must be a property of
+# the layout, not of which airline is flying, so this asserts on the
+# spread of that centre across every vendored illustration file - never
+# on any single file's absolute position, which is a design constant
+# defined elsewhere and would force this check into lockstep with it.
+# main_w and the vertical anchor are derived from render.py's own
+# constants/helpers, never hardcoded copies.
+MAIN_VERTICAL_DRIFT_TOLERANCE_PX = 2
 
 def test_main_illustration_vertical_centre_has_no_per_file_drift():
     """the main illustration's VISIBLE vertical centre sits on one fixed canvas line (within MAIN_VERTICAL_DRIFT_TOLERANCE_PX) across all vendored files, instead of drifting with each file's own transparent top padding (illustration-crop-text-margin's missed sixth anchor)"""
@@ -3138,11 +2696,10 @@ def test_main_illustration_vertical_centre_has_no_per_file_drift():
         bbox = render._opaque_bbox(resized)
         if bbox is None:
             continue  # documented fallback case (nothing painted) - not a failure
-        # quick task 260902-req: main_top now follows the painted
-        # content's centre (`_top_for_centered_content()`, the same
-        # helper `_build_active_canvas()` itself calls), not a fraction
-        # of the source rectangle's top - that is precisely the fix this
-        # check exists to pin.
+        # main_top follows the painted content's centre
+        # (`_top_for_centered_content()`, the same helper
+        # `_build_active_canvas()` itself calls), not a fraction of the
+        # source rectangle's top.
         main_top = render._top_for_centered_content(resized, center_y)
         centres[filename] = main_top + (bbox[1] + bbox[3]) / 2.0
     if len(centres) < 40:
@@ -3158,16 +2715,8 @@ def test_main_illustration_vertical_centre_has_no_per_file_drift():
             % (spread, len(centres), worst_low, centres[worst_low], worst_high, centres[worst_high]))
 
 
-# 120. Plan 10-02, Task 1 (1), retargeted in the 12-06 on-glass session:
-# the quiet-hours packed panel is exactly IMAGE_BYTES, dominated by its
-# own dimmed field (Black - render.DIMMED_FIELD_IDX, the Grey theme's
-# recipe), and contains at least one White nibble (the ink). 10-02 pinned
-# a White-dominant flat field with Black text; the on-glass revision moved
-# this screen onto the shared dimmed composition, so the check now pins
-# THAT. Retargeted, not relaxed: it still fails closed on the wrong
-# dominant index and on a canvas with no ink at all.
 def test_quiet_hours_packs_white_dominant_with_black():
-    """render_panel(None, 'quiet_hours', quiet_hours_until='07:00') packs to exactly 960000 bytes, dominated by the dimmed Black field, with at least one White nibble (D-05/D-06, as revised on glass in 12-06)"""
+    """render_panel(None, 'quiet_hours', quiet_hours_until='07:00') packs to exactly 960000 bytes, dominated by the dimmed Black field, with at least one White nibble"""
     buf = render.render_panel(None, "quiet_hours", quiet_hours_until="07:00")
     if len(buf) != panel_format.IMAGE_BYTES:
         pytest.fail("quiet-hours render is %d bytes, expected %d" % (len(buf), panel_format.IMAGE_BYTES))
@@ -3179,8 +2728,6 @@ def test_quiet_hours_packs_white_dominant_with_black():
         pytest.fail("quiet-hours render contains no White (0x1) nibble - expected White ink")
 
 
-# 121. Plan 10-02, Task 1 (2): every pixel index on the quiet-hours
-# canvas is one of the six legal palette indices.
 def test_quiet_hours_only_legal_indices():
     """every pixel index in build_canvas(None, 'quiet_hours', quiet_hours_until='07:00') is one of the six legal palette indices"""
     canvas = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00")
@@ -3191,8 +2738,6 @@ def test_quiet_hours_only_legal_indices():
         pytest.fail("quiet-hours canvas contains illegal palette index(es): %r" % (sorted(bad),))
 
 
-# 122. Plan 10-02, Task 1 (3): theme_id is ignored - the canvas is
-# pixel-identical for two different theme_id values.
 def test_quiet_hours_ignores_theme_id():
     """build_canvas(None, 'quiet_hours', ...) is pixel-identical across different theme_id values (theme is ignored for this screen)"""
     a = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", theme_id="white")
@@ -3201,12 +2746,8 @@ def test_quiet_hours_ignores_theme_id():
         pytest.fail("quiet-hours canvas differs between theme_id='white' and theme_id='blue' - theme_id must be ignored")
 
 
-# 123. Plan 10-02, Task 1 (4): a missing/non-string quiet_hours_until
-# renders the heading alone without raising, and differs from a real
-# HH:MM value's canvas (the body line is genuinely absent, never "Back
-# at None").
 def test_quiet_hours_missing_until_omits_body_without_raising():
-    """build_canvas(None, 'quiet_hours', quiet_hours_until=None) and quiet_hours_until='' both render without raising and differ from quiet_hours_until='07:00' (heading-only degradation, T-10-02-01)"""
+    """build_canvas(None, 'quiet_hours', quiet_hours_until=None) and quiet_hours_until='' both render without raising and differ from quiet_hours_until='07:00' (heading-only degradation)"""
     with_time = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00").tobytes()
     for missing_value in (None, ""):
         canvas = render.build_canvas(None, "quiet_hours", quiet_hours_until=missing_value)
@@ -3215,20 +2756,16 @@ def test_quiet_hours_missing_until_omits_body_without_raising():
                 "line was not actually omitted" % (missing_value,))
 
 
-# 124. Plan 10-02, Task 1 (5a): battery_low=True changes the canvas
-# relative to the same call with battery_low=False.
 def test_quiet_hours_battery_low_changes_canvas():
-    """battery_low=True changes the quiet-hours canvas relative to battery_low=False (10-RESEARCH.md A2)"""
+    """battery_low=True changes the quiet-hours canvas relative to battery_low=False"""
     off = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", battery_low=False)
     on = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", battery_low=True)
     if off.tobytes() == on.tobytes():
         pytest.fail("battery_low=True produced no pixel difference on the quiet-hours canvas")
 
 
-# 125. Plan 10-02, Task 1 (5b): source_fault=True changes the canvas
-# relative to the same call with source_fault=False.
 def test_quiet_hours_source_fault_changes_canvas():
-    """source_fault=True changes the quiet-hours canvas relative to source_fault=False (10-RESEARCH.md A2)"""
+    """source_fault=True changes the quiet-hours canvas relative to source_fault=False"""
     off = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", source_fault=False)
     on = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", source_fault=True)
     if off.tobytes() == on.tobytes():
@@ -3247,9 +2784,6 @@ def test_quiet_hours_state_wins_over_empty_when_flight_is_none():
 
 
 
-# 127. Plan 10-02, Task 2: the preview CLI renders the quiet-hours state
-# to a real IMAGE_BYTES-sized .bin via render.main()/build_parser() -
-# the path the deferred visual review actually depends on.
 def test_cli_renders_quiet_hours_state(tmp_path):
     """render.main() via build_parser() with ['--state', 'quiet_hours', '--quiet-hours-until', '07:00', '--out', <path>] returns 0 and writes exactly IMAGE_BYTES bytes"""
     out_path = os.path.join(str(tmp_path), "quiet-hours-cli.bin")
@@ -3265,24 +2799,6 @@ def test_cli_renders_quiet_hours_state(tmp_path):
         pytest.fail("%r is %d bytes, expected %d" % (out_path, size, panel_format.IMAGE_BYTES))
 
 
-# 128. Quick task 260905-e04: explicit dominance proof for the two new
-# tone-on-tone band themes (band_blue_field/band_red_field), both active
-# states. Check #108 already loops ALL band ids (these two included) and
-# proves "no exception" transitively - build_canvas() runs
-# _assert_legal_palette() internally on every render, so simply reaching
-# the line after the call already IS the guard's own verdict; an
-# AssertionError would have propagated and failed this check outright.
-# This check exists to re-state that verdict explicitly and independently
-# readably, in the check's own terms: read back canvas.getcolors() and
-# assert the state's OWN background index (resolved through
-# device_config.theme_background_index(), never hardcoded) is strictly
-# the most common index, AND that that background index is the theme's
-# own hue rather than White - the latter is what distinguishes these two
-# from every pre-existing (White-field) band theme, and is the thing a
-# regression would most plausibly break. Deliberately asserts the
-# ORDERING (background dominates), never the measured pixel-count
-# magnitudes recorded in the plan's F-2 - those are fixture- and
-# font-dependent and not a stable thing to pin.
 def test_tinted_field_band_themes_prove_dominance_explicitly():
     """band_blue_field/band_red_field each render via build_canvas() in both active states with the state's own background index (never White) provably the single most common index on the panel, stated explicitly rather than merely implied by the absence of an exception"""
     field_theme_ids = ("band_blue_field", "band_red_field")
@@ -3307,21 +2823,8 @@ def test_tinted_field_band_themes_prove_dominance_explicitly():
                     "pre-existing White-field band theme)" % (theme_id, state))
 
 
-# 129. Plan 12-02, Task 1, retargeted in the 12-06 on-glass session: the
-# display-off canvas is a dimmed field - Black dithered toward White, the
-# Grey theme's own recipe (render.DIMMED_FIELD_IDX) - whose only
-# indices are Black and White, carries the locked heading and body, and is
-# byte-identical across the FULL registered THEME_IDS set (D-03, as
-# revised on glass) - mirrors _quiet_hours_ignores_theme_id() but iterates
-# the real registry rather than spot-checking two ids, since this screen
-# must ignore theme_id entirely, not merely for one pair.
-#
-# The dominance assertion is retargeted, not relaxed: 12-02 pinned a
-# White-dominant flat field; the on-glass revision made the field itself
-# Black-dominant, so the check now pins THAT. It still fails closed on any
-# third index and on a field that is not the dominant one.
 def test_display_off_flat_white_black_across_all_themes():
-    """build_canvas(None, 'display_off', theme_id=...) renders the dimmed Black/White field (DIMMED_FIELD_IDX dominant, no third index), carrying the heading and body, byte-identical across the full THEME_IDS registry (D-03 as revised on glass in 12-06)"""
+    """build_canvas(None, 'display_off', theme_id=...) renders the dimmed Black/White field (DIMMED_FIELD_IDX dominant, no third index), carrying the heading and body, byte-identical across the full THEME_IDS registry"""
     theme_ids = list(render.device_config.THEME_IDS)
     if not theme_ids:
         pytest.fail("device_config.THEME_IDS is empty - nothing to iterate")
@@ -3350,12 +2853,8 @@ def test_display_off_flat_white_black_across_all_themes():
                 "theme_id must be ignored entirely" % (theme_id,))
 
 
-# 130. Plan 12-02, Task 3 (2): dispatch-ordering regression guard. All
-# three hold/empty states pass flight=None, so a reordered dispatch
-# branch is silent - this check proves the three canvases are provably
-# distinct from each other, not merely "didn't raise".
 def test_display_off_provably_distinct_from_empty_and_quiet_hours():
-    """build_canvas(None, 'display_off') is provably distinct from build_canvas(None, 'empty') and build_canvas(None, 'quiet_hours', ...) - all three pass flight=None, so a reordered dispatch branch is otherwise silent (the exact trap plan 10-02 documented)"""
+    """build_canvas(None, 'display_off') is provably distinct from build_canvas(None, 'empty') and build_canvas(None, 'quiet_hours', ...) - all three pass flight=None, so a reordered dispatch branch is otherwise silent"""
     off = render.build_canvas(None, "display_off").tobytes()
     empty = render.build_canvas(None, "empty").tobytes()
     quiet = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00").tobytes()
@@ -3369,10 +2868,8 @@ def test_display_off_provably_distinct_from_empty_and_quiet_hours():
             "structure, so a dispatch mix-up here would be silent too")
 
 
-# 131. Plan 12-02, Task 3 (3): quiet_hours_until never leaks into the
-# off screen (D-04) - byte-identical with or without it.
 def test_display_off_ignores_quiet_hours_until():
-    """build_canvas(None, 'display_off', quiet_hours_until='07:00') is byte-identical to the call without it - no return-time value can reach this screen (D-04)"""
+    """build_canvas(None, 'display_off', quiet_hours_until='07:00') is byte-identical to the call without it - no return-time value can reach this screen"""
     without = render.build_canvas(None, "display_off").tobytes()
     with_time = render.build_canvas(None, "display_off", quiet_hours_until="07:00").tobytes()
     if without != with_time:
@@ -3380,10 +2877,8 @@ def test_display_off_ignores_quiet_hours_until():
             "without quiet_hours_until - a return-time value leaked into the off screen (D-04)")
 
 
-# 132. Plan 12-02, Task 3 (4): the copy constants equal their locked
-# strings exactly (equality, not substring/absence - the stronger gate).
 def test_display_off_copy_constants_match_locked_strings():
-    """DISPLAY_OFF_HEADING_TEXT == 'DISPLAY OFF' and DISPLAY_OFF_BODY_TEXT == the locked body string, asserted by exact equality (D-04)"""
+    """DISPLAY_OFF_HEADING_TEXT == 'DISPLAY OFF' and DISPLAY_OFF_BODY_TEXT == the locked body string, asserted by exact equality"""
     if render.DISPLAY_OFF_HEADING_TEXT != "DISPLAY OFF":
         pytest.fail("DISPLAY_OFF_HEADING_TEXT is %r, expected 'DISPLAY OFF'" % (render.DISPLAY_OFF_HEADING_TEXT,))
     expected_body = "Switched off from the companion page. Turn it back on there anytime."
@@ -3391,9 +2886,6 @@ def test_display_off_copy_constants_match_locked_strings():
         pytest.fail("DISPLAY_OFF_BODY_TEXT is %r, expected %r" % (render.DISPLAY_OFF_BODY_TEXT, expected_body))
 
 
-# 133. Plan 12-02, Task 3 (5): battery_low/source_fault each change the
-# canvas independently and may both be set at once - mirroring
-# _quiet_hours_battery_low_changes_canvas()/_quiet_hours_source_fault_changes_canvas().
 def test_display_off_battery_and_fault_indicators_are_independent():
     """battery_low=True and source_fault=True each change the display-off canvas independently, and both may be set at once, mirroring the equivalent quiet-hours checks"""
     neither = render.build_canvas(None, "display_off", battery_low=False, source_fault=False).tobytes()
@@ -3408,13 +2900,6 @@ def test_display_off_battery_and_fault_indicators_are_independent():
         pytest.fail("battery_low=True, source_fault=True together did not produce a distinct canvas from each alone/neither")
 
 
-# 134. Plan 12-02, Task 3 (6): palette legality and safe-box compliance
-# hold across all four indicator combinations. Safe-box compliance is
-# proven by the absence of an AssertionError from
-# _assert_in_safe_box(), called internally by
-# _build_display_off_canvas() before every draw - reaching the return
-# below IS the guard's own verdict, stated explicitly here rather than
-# merely implied.
 def test_display_off_legal_palette_and_safe_box_across_indicator_combos():
     """build_canvas(None, 'display_off', ...) uses only legal palette indices and passes every internal _assert_in_safe_box() check across all four battery_low/source_fault combinations (neither / battery only / fault only / both)"""
     for battery_low in (False, True):
@@ -3430,9 +2915,6 @@ def test_display_off_legal_palette_and_safe_box_across_indicator_combos():
                     "index(es): %r" % (battery_low, source_fault, sorted(bad)))
 
 
-# 135. Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die),
-# (1): the locked English copy constants, asserted by exact equality
-# (D-04's precedent, mirroring _display_off_copy_constants_match_locked_strings).
 def test_battery_empty_copy_constants_match_locked_strings():
     """BATTERY_EMPTY_HEADING_TEXT == 'BATTERY EMPTY' and BATTERY_EMPTY_BODY_LINES == the two locked authored sentences, asserted by exact equality"""
     if render.BATTERY_EMPTY_HEADING_TEXT != "BATTERY EMPTY":
@@ -3442,11 +2924,6 @@ def test_battery_empty_copy_constants_match_locked_strings():
         pytest.fail("BATTERY_EMPTY_BODY_LINES is %r, expected %r" % (render.BATTERY_EMPTY_BODY_LINES, expected_lines))
 
 
-# 136. Quick task 260923-fr4, (2): build_canvas(None, "battery_empty")
-# goes through the shared _build_dimmed_hold_canvas() composition exactly
-# once, with the right glyph/height/copy and neither indicator set - a
-# recording wrapper around the seam itself, monkeypatch-and-restore like
-# every spy above, rather than inferring the call from pixels.
 def test_battery_empty_dispatches_through_shared_dimmed_composition():
     """build_canvas(None, 'battery_empty') calls render._build_dimmed_hold_canvas exactly once, with draw_empty_battery_icon, EMPTY_BATTERY_ICON_HEIGHT_PX, BATTERY_EMPTY_HEADING_TEXT, BATTERY_EMPTY_BODY_LINES, source_fault=False and battery_low=False"""
     orig = render._build_dimmed_hold_canvas
@@ -3483,10 +2960,6 @@ def test_battery_empty_dispatches_through_shared_dimmed_composition():
         pytest.fail("battery_low was %r, expected False" % (kwargs.get("battery_low"),))
 
 
-# 137. Quick task 260923-fr4, (3): BATTERY EMPTY and DISPLAY OFF share the
-# same dithered field by construction - byte-identical in the top and
-# bottom 400 rows, where neither screen's centred block reaches - and are
-# provably distinct overall (different glyph/label/body).
 def test_battery_empty_shares_dimmed_field_with_display_off():
     """build_canvas(None, 'battery_empty') and build_canvas(None, 'display_off') are byte-identical in the top and bottom 400 rows (the same dithered field) and provably distinct overall (the centred glyph/label/body differs)"""
     battery_bytes = render.build_canvas(None, "battery_empty").tobytes()
@@ -3501,14 +2974,6 @@ def test_battery_empty_shares_dimmed_field_with_display_off():
         pytest.fail("battery_empty is byte-identical to display_off overall - the centred block must differ")
 
 
-# 138. Quick task 260923-fr4, (4): draw_empty_battery_icon() geometry,
-# drawn in isolation on a fresh field/ink canvas - returns
-# EMPTY_BATTERY_ICON_HEIGHT_PX (== MOON_ICON_DIAMETER_PX), draws an ink
-# bounding box exactly EMPTY_BATTERY_ICON_HEIGHT_PX tall and
-# EMPTY_BATTERY_ICON_WIDTH_PX wide, a POWER_ICON_STROKE_PX-long ink run
-# at body mid-height from the left edge (an outline, not a fill), a
-# hollow body centre, and only the two supplied indices anywhere on the
-# canvas.
 def test_draw_empty_battery_icon_geometry():
     """draw_empty_battery_icon() returns EMPTY_BATTERY_ICON_HEIGHT_PX (== MOON_ICON_DIAMETER_PX), draws an ink bounding box exactly EMPTY_BATTERY_ICON_HEIGHT_PX tall and EMPTY_BATTERY_ICON_WIDTH_PX wide, a POWER_ICON_STROKE_PX-long ink run at body mid-height from the left edge, a hollow body centre, and only the field/ink indices anywhere on the canvas"""
     center_x, top_y = 200, 300
@@ -3560,10 +3025,6 @@ def test_draw_empty_battery_icon_geometry():
             "stay hollow so the dithered field shows through" % (center_value, IDX_BLACK))
 
 
-# 139. Quick task 260923-fr4, (5): the image must stay byte-stable for
-# the whole parked episode, so every hourly check-in byos serves is a
-# hash-skip - source_fault, battery_low and every THEME_IDS entry are
-# all ignored, not merely unused.
 def test_battery_empty_byte_stable_across_indicators_and_themes():
     """build_canvas(None, 'battery_empty', ...) bytes are byte-stable regardless of source_fault, battery_low or theme_id - the hash the whole parked episode relies on staying constant"""
     default = render.build_canvas(None, "battery_empty").tobytes()
@@ -3585,9 +3046,6 @@ def test_battery_empty_byte_stable_across_indicators_and_themes():
             pytest.fail("build_canvas(None, 'battery_empty', theme_id=%r) differs from the default call" % (theme_id,))
 
 
-# 140. Quick task 260923-fr4, (6): the canvas uses only IDX_BLACK/
-# IDX_WHITE, dominated by the dimmed field (Black), mirroring
-# _display_off_flat_white_black_across_all_themes's dominance assertion.
 def test_battery_empty_black_white_black_dominant():
     """build_canvas(None, 'battery_empty') uses only IDX_BLACK/IDX_WHITE, dominated by DIMMED_FIELD_IDX (Black) - the same dimmed-field family rule as DISPLAY OFF and QUIET HOURS"""
     canvas = render.build_canvas(None, "battery_empty")
@@ -3606,9 +3064,6 @@ def test_battery_empty_black_white_black_dominant():
 
 
 
-# 141. Quick task 260924-u7n (DEVICE-06), (1): the locked English copy
-# constants, asserted by exact equality (D-04's precedent, mirroring
-# test_battery_empty_copy_constants_match_locked_strings).
 def test_no_connection_copy_constants_match_locked_strings():
     """NO_CONNECTION_HEADING_TEXT == 'NO CONNECTION' and NO_CONNECTION_BODY_LINES == the two locked authored sentences, asserted by exact equality"""
     if render.NO_CONNECTION_HEADING_TEXT != "NO CONNECTION":
@@ -3618,12 +3073,6 @@ def test_no_connection_copy_constants_match_locked_strings():
         pytest.fail("NO_CONNECTION_BODY_LINES is %r, expected %r" % (render.NO_CONNECTION_BODY_LINES, expected_lines))
 
 
-# 142. Quick task 260924-u7n, (2): _build_no_connection_canvas() dispatches
-# through the shared _build_hold_canvas() composition exactly once, with
-# the right glyph/height/copy/field/ink, mirroring
-# test_battery_empty_dispatches_through_shared_dimmed_composition - a
-# recording wrapper around the seam itself rather than inferring the call
-# from pixels.
 def test_no_connection_dispatches_through_shared_hold_composition():
     """render._build_no_connection_canvas() calls render._build_hold_canvas exactly once, with draw_alert_icon, ALERT_ICON_HEIGHT_PX, NO_CONNECTION_HEADING_TEXT, NO_CONNECTION_BODY_LINES, DIMMED_FIELD_IDX, DIMMED_INK and dithered=True by default"""
     orig = render._build_hold_canvas
@@ -3662,11 +3111,6 @@ def test_no_connection_dispatches_through_shared_hold_composition():
         pytest.fail("dithered was %r, expected True for the default (flat=False) call" % (dithered,))
 
 
-# 143. Quick task 260924-u7n, (3): the dithered canvas passes the same
-# legal-palette / black-dominant checks the other hold screens pass
-# (mirroring test_battery_empty_black_white_black_dominant); the flat
-# canvas (gen_fault_screen.py's own extraction input) contains only
-# {IDX_BLACK, IDX_WHITE}, with no dither noise.
 def test_no_connection_dithered_legal_palette_and_black_dominant():
     """_build_no_connection_canvas() (dithered) uses only IDX_BLACK/IDX_WHITE, dominated by DIMMED_FIELD_IDX (Black)"""
     canvas = render._build_no_connection_canvas()
@@ -3694,10 +3138,6 @@ def test_no_connection_flat_canvas_contains_only_black_and_white():
         pytest.fail("flat no-connection canvas contains index(es) other than White/Black: %r" % (sorted(bad),))
 
 
-# 144. Quick task 260924-u7n, (4): build_canvas() never dispatches the
-# no-connection screen - a grep-level/inspect assertion on build_canvas's
-# own source, since the whole point of this screen is that only the
-# firmware ever draws it.
 def test_build_canvas_never_produces_the_no_connection_canvas():
     """build_canvas() never returns the same bytes as _build_no_connection_canvas() for any state it accepts - that screen is drawn only by the firmware, never dispatched by the server"""
     no_connection_bytes = render._build_no_connection_canvas().tobytes()
@@ -3716,11 +3156,6 @@ def test_build_canvas_never_produces_the_no_connection_canvas():
                 "server-dispatched" % (flight, state))
 
 
-# 145. Quick task 260924-u7n, (5): draw_alert_icon returns its own height,
-# draws only the given ink index, and has inked pixels both above and
-# below the exclamation gap (i.e. the dot is actually present) - guarding
-# the WR-02 zero-length-line regression class draw_source_fault_badge's
-# own docstring records.
 def test_draw_alert_icon_returns_height_and_uses_only_given_ink():
     """draw_alert_icon() returns ALERT_ICON_HEIGHT_PX, draws only ink_idx, and has inked pixels both above and below the exclamation gap (the dot is present, not a degenerate zero-length line)"""
     canvas = panel_format.new_canvas(IDX_WHITE)

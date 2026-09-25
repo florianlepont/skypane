@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Contract tests for server/device_config.py (the theme + tracked-runway
 registry and its validated, atomic JSON side-file) and server/history_db.py
-(the SQLite history store behind CFG-03's health trend, CFG-06's flight
-log, CFG-08's resolution statistics, and the Caddy access-log battery
-tailer), plus server/wake.py's battery-critical-aware wake scheduling
-(quick task 260923-fr4), which shares this harness because history_db.py's
-own module docstring forbids it from importing device_config, so the
-classifier and the battery-critical mirror both live beside
-device_staleness_thresholds() in wake.py instead.
+(the SQLite history store behind the health trend, the flight log, the
+resolution statistics, and the Caddy access-log battery tailer), plus
+server/wake.py's battery-critical-aware wake scheduling, which shares
+this harness because history_db.py's own module docstring forbids it
+from importing device_config, so the classifier and the battery-critical
+mirror both live beside device_staleness_thresholds() in wake.py instead.
 """
 import json
 import os
@@ -28,17 +27,17 @@ import server.panel_format as panel_format  # noqa: E402
 import server.history_db as history_db  # noqa: E402
 import server.wake as wake  # noqa: E402
 
-# Three consecutive device_health check-ins 30 minutes apart, shared by the
-# check_in_gaps() tests below (CFG-43).
+# Three consecutive device_health check-ins 30 minutes apart, shared by
+# the check_in_gaps() tests below.
 _GAP_T0 = "2026-09-02T10:00:00+00:00"
 _GAP_T1 = "2026-09-02T10:30:00+00:00"
 _GAP_T2 = "2026-09-02T11:00:00+00:00"
 
 
 def _caddy_log_line(uri, ts, headers):
-    """One Caddy JSON access-log line, per 06-RESEARCH.md Pattern 6's
-    assumed shape: the request's header map nests under `request.headers`,
-    each value a list of strings.
+    """One Caddy JSON access-log line, in the assumed shape: the request's
+    header map nests under `request.headers`, each value a list of
+    strings.
     """
     entry = {
         "ts": ts,
@@ -225,10 +224,9 @@ def test_theme_registry_shape_is_correct():
 
 def test_every_theme_is_single_colour():
     """every registered theme is single-colour (departing_index == arriving_index); the retired two-tone 'sky' theme is gone"""
-    # Phase 8 08-06 on-glass session: "sky" (the old two-tone
-    # Blue-departing/Green-arriving pairing) was retired outright -
-    # every registered theme is now single-colour, with no two-tone
-    # exception left to carve out.
+    # "sky" (the old two-tone Blue-departing/Green-arriving pairing) was
+    # retired outright - every registered theme is now single-colour,
+    # with no two-tone exception left to carve out.
     for theme_id, entry in device_config.THEMES.items():
         if entry["departing_index"] != entry["arriving_index"]:
             pytest.fail("theme %r is not single-colour: departing_index=%r arriving_index=%r" % (
@@ -242,9 +240,8 @@ def test_ink_contrast_pairing_is_correct():
     """every one of the 18 registered themes carries the exact background/ink pairing expected, pinned as an explicit id-to-(background,ink) mapping"""
     # Every entry's ink is whichever of Black/White contrasts with its
     # own background - black text on the lighter inks (White/Yellow/
-    # Yellow Light), white text everywhere else (08-06: the same
-    # contrast logic Phase 8 already established for White/Black/
-    # Yellow/Red, now applied uniformly to all 11 registered themes).
+    # Yellow Light), white text everywhere else, applied uniformly to
+    # every registered theme.
     expected = {
         "white": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
         "black": (panel_format.IDX_BLACK, panel_format.IDX_WHITE),
@@ -257,23 +254,20 @@ def test_ink_contrast_pairing_is_correct():
         "green_light": (panel_format.IDX_GREEN, panel_format.IDX_WHITE),
         "blue": (panel_format.IDX_BLUE, panel_format.IDX_WHITE),
         "blue_light": (panel_format.IDX_BLUE, panel_format.IDX_WHITE),
-        # Phase 9 (09-01): every band theme keeps the White base
-        # canvas/Black ink pairing - the band's own colour is a
-        # separate band_index field, never a base-canvas property
-        # (spike 003 round 15). NOTE: this uniform White-base/Black-ink
-        # claim covers only these 5 Phase 9 band ids - it stops being
-        # true of the band family AS A WHOLE the moment the two
-        # tone-on-tone `_field` ids below land (quick task 260905-e04).
+        # Every plain band theme keeps the White base canvas/Black ink
+        # pairing - the band's own colour is a separate band_index field,
+        # never a base-canvas property. This uniform White-base/Black-ink
+        # claim does not extend to the two tone-on-tone `_field` ids
+        # below.
         "band_blue": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
         "band_blue_light": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
         "band_green_light": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
         "band_red": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
         "band_black": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
-        # Quick task 260905-e04: these two copy their background/ink
-        # pairing from their `_light` tinted-field sibling instead
-        # (blue_light/red_light), not from the band family above - see
-        # THEMES' own module comment for why (ink_index never colours
-        # in-band text).
+        # These two copy their background/ink pairing from their `_light`
+        # tinted-field sibling instead (blue_light/red_light), not from
+        # the band family above - see THEMES' own module comment for why
+        # (ink_index never colours in-band text).
         "band_blue_field": (panel_format.IDX_BLUE, panel_format.IDX_WHITE),
         "band_red_field": (panel_format.IDX_RED, panel_format.IDX_WHITE),
     }
@@ -288,14 +282,13 @@ def test_ink_contrast_pairing_is_correct():
 
 
 def test_dithered_and_weight_contract_is_correct():
-    """every registered theme's base-canvas dithered/weight pair matches the on-glass-confirmed values, including Yellow Light's Regular exception, the 5 White-base band themes, and the 2 tinted-field band themes' blue_light/red_light-derived values"""
-    # Phase 8 08-06 on-glass session: every "pure" (undithered) colour
-    # confirmed Regular; every dithered colour confirmed Bold EXCEPT
-    # Yellow Light, the one exception (its dithered field is light/
+    """every registered theme's base-canvas dithered/weight pair matches the confirmed values, including Yellow Light's Regular exception, the plain White-base band themes, and the tinted-field band themes' blue_light/red_light-derived values"""
+    # Every "pure" (undithered) colour is Regular; every dithered colour
+    # is Bold except Yellow Light (its dithered field is light/
     # high-luminance enough that Regular stayed legible and was
-    # preferred) - see THEMES' own module comment for the full
-    # rationale. Pinned explicitly so a future reader cannot assume a
-    # blanket "dithered implies Bold" rule from the majority case.
+    # preferred) - see THEMES' own module comment for the full rationale.
+    # Pinned explicitly so a future reader cannot assume a blanket
+    # "dithered implies Bold" rule from the majority case.
     expected = {
         "white": (False, "regular"),
         "black": (False, "regular"),
@@ -308,13 +301,11 @@ def test_dithered_and_weight_contract_is_correct():
         "green_light": (True, "bold"),
         "blue": (False, "regular"),
         "blue_light": (True, "bold"),
-        # Phase 9 (09-01): every band theme's own base-canvas
-        # dithered/weight pair matches "white"'s exactly (undithered,
-        # Regular) - the band's own dithered treatment is a separate
-        # band_dithered field, checked by the new accessor checks below.
-        # NOTE: this uniform undithered/Regular claim covers only these
-        # 5 Phase 9 band ids - the two tone-on-tone `_field` ids below
-        # (quick task 260905-e04) instead copy blue_light/red_light's
+        # Every plain band theme's own base-canvas dithered/weight pair
+        # matches "white"'s exactly (undithered, Regular) - the band's
+        # own dithered treatment is a separate band_dithered field,
+        # checked by the accessor checks below. The two tone-on-tone
+        # `_field` ids below instead copy blue_light/red_light's
         # dithered=True/weight="bold" base-canvas pair, since dithering
         # is what produces their tinted field.
         "band_blue": (False, "regular"),
@@ -419,9 +410,9 @@ def test_theme_band_dithered_matches_registry_or_false():
 
 def test_tinted_field_band_themes_are_tone_on_tone():
     """band_blue_field/band_red_field are genuinely tone-on-tone (band_index equals departing_index equals arriving_index), dithered=True/band_dithered=False, and their base-canvas quadruple matches their tinted-field sibling's (blue_light/red_light) own registry row, read live rather than hardcoded"""
-    # Quick task 260905-e04: pins the actual tone-on-tone contract that
-    # makes band_blue_field/band_red_field what they are - no existing
-    # check above captures it. Deliberately derives each sibling's
+    # Pins the actual tone-on-tone contract that makes
+    # band_blue_field/band_red_field what they are - no existing check
+    # above captures it. Deliberately derives each sibling's
     # expected base-canvas values by READING THEMES["blue_light"]/
     # THEMES["red_light"] rather than hardcoding them, so that if either
     # sibling is ever re-tuned on glass, this check fails loudly instead
@@ -685,9 +676,8 @@ def test_clear_theme_arriving_sentinel_is_distinct_from_none_and_any_theme_id():
 
 def test_hand_written_hostile_theme_arriving_yields_none_never_default(tmp_path):
     """load_device_config() degrades a hand-written hostile theme_arriving (an unregistered string, a JSON int, or JSON null) to None, never to DEFAULT_THEME_ID"""
-    # The degrade proof (15-VALIDATION.md row 6): a hand-edited on-disk
-    # theme_arriving degrades to None on read, matching
-    # normalise_theme_arriving()'s own contract, and is a real
+    # A hand-edited on-disk theme_arriving degrades to None on read,
+    # matching normalise_theme_arriving()'s own contract, and is a real
     # save-then-hand-edit-then-load round trip against a temp state
     # dir - not a source grep.
     tmpdir = tmp_path
@@ -706,11 +696,10 @@ def test_hand_written_hostile_theme_arriving_yields_none_never_default(tmp_path)
 
 def test_pre_phase_14_file_has_no_theme_arriving_migration(tmp_path):
     """a device_config.json written before this phase (no theme_arriving key at all) loads every stored key unchanged, resolves theme_arriving to None, and is not rewritten on disk by load_device_config() - no migration"""
-    # The no-migration proof (15-VALIDATION.md row 6): a
-    # device_config.json written before this phase - one that has never
-    # carried theme_arriving at all - round-trips every stored key
-    # unchanged, resolves theme_arriving to None, and load_device_config()
-    # never rewrites the file to add the new key.
+    # A device_config.json written before theme_arriving existed - one
+    # that has never carried the key at all - round-trips every stored
+    # key unchanged, resolves theme_arriving to None, and
+    # load_device_config() never rewrites the file to add the new key.
     tmpdir = tmp_path
     path = device_config.device_config_path(tmpdir)
     pre_phase_14_doc = {
@@ -736,11 +725,10 @@ def test_pre_phase_14_file_has_no_theme_arriving_migration(tmp_path):
 
 def test_theme_arriving_three_state_write_contract(tmp_path):
     """save_device_config()'s theme_arriving honours its three-state contract end to end: set, carry-forward-on-omission, CLEAR_THEME_ARRIVING clears to None without disturbing theme, and a non-member value raises ValueError leaving the file byte-identical"""
-    # The three-state write proof (15-VALIDATION.md row 6): set,
-    # carry-forward-on-omission, CLEAR_THEME_ARRIVING clears to None
+    # set, carry-forward-on-omission, CLEAR_THEME_ARRIVING clears to None
     # without disturbing an unrelated key, and a non-member value raises
-    # ValueError leaving the file byte-identical - the full D-04/D-05
-    # contract in one real save/load sequence against a temp state dir.
+    # ValueError leaving the file byte-identical - the full contract in
+    # one real save/load sequence against a temp state dir.
     tmpdir = tmp_path
     path = device_config.device_config_path(tmpdir)
 
@@ -780,9 +768,9 @@ def test_theme_arriving_three_state_write_contract(tmp_path):
 
 def test_normalise_display_enabled_only_accepts_real_bools():
     """normalise_display_enabled() degrades int 0, int 1, 'true', 'on', an empty string, None, an empty list, and an empty dict to DEFAULT_DISPLAY_ENABLED, and returns both real booleans unchanged"""
-    # 12-01: the bool-is-an-int gotcha from the other direction -
+    # The bool-is-an-int gotcha from the other direction -
     # isinstance(0, bool) is False, so a JSON 0 is not a valid off value
-    # and must degrade to the fail-open DEFAULT_DISPLAY_ENABLED (D-09).
+    # and must degrade to the fail-open DEFAULT_DISPLAY_ENABLED.
     for hostile in (0, 1, "true", "on", "", None, [], {}, 1.0):
         got = device_config.normalise_display_enabled(hostile)
         if got is not device_config.DEFAULT_DISPLAY_ENABLED:
@@ -794,10 +782,10 @@ def test_normalise_display_enabled_only_accepts_real_bools():
 
 
 def test_hand_written_hostile_display_enabled_yields_true_but_false_survives(tmp_path):
-    """load_device_config() degrades a hand-written hostile display_enabled (0, "false", null, or a non-dict document) to True so a corrupted config can never darken the frame (D-09), while a legitimate display_enabled=false survives as False"""
-    # 12-01/D-09: a corrupted or hand-edited config must never be the
-    # reason a frame goes dark - every hostile on-disk shape degrades to
-    # True, while a legitimate False survives untouched.
+    """load_device_config() degrades a hand-written hostile display_enabled (0, "false", null, or a non-dict document) to True so a corrupted config can never darken the frame, while a legitimate display_enabled=false survives as False"""
+    # A corrupted or hand-edited config must never be the reason a frame
+    # goes dark - every hostile on-disk shape degrades to True, while a
+    # legitimate False survives untouched.
     tmpdir = tmp_path
     path = device_config.device_config_path(tmpdir)
     for bad_json, label in (
@@ -1022,11 +1010,11 @@ def test_save_device_config_rejects_unknown_screen_id_without_touching_file(tmp_
 
 def test_screen_id_absent_from_disk_resolves_to_default_with_no_migration(tmp_path):
     """a device_config.json written with no screen_id key loads with DEFAULT_SCREEN_ID and is never rewritten on read"""
-    # The no-migration proof, mirroring theme_arriving's own precedent
-    # above: a device_config.json written before D-23 - one that has
-    # never carried screen_id at all - resolves that key to
-    # DEFAULT_SCREEN_ID and load_device_config() never rewrites the
-    # file to add the new key.
+    # Mirrors theme_arriving's own no-migration precedent above: a
+    # device_config.json written before screen_id existed - one that has
+    # never carried that key at all - resolves it to DEFAULT_SCREEN_ID
+    # and load_device_config() never rewrites the file to add the new
+    # key.
     tmpdir = tmp_path
     path = device_config.device_config_path(tmpdir)
     pre_d23_doc = {
@@ -1146,23 +1134,22 @@ def test_save_notifications_rejects_every_malformed_shape(tmp_path):
 
 
 def test_saved_topic_url_never_appears_in_a_rejected_writes_bytes_or_this_modules_own_source():
-    """server/device_config.py introduces no print()/logging call for the notifications group, preserving this module's own print-free-by-design contract (T-20-12: a topic_url can never reach a log this module controls)"""
-    # T-20-12: this module stores topic_url verbatim in
-    # device_config.json (server/notify.py needs the real value to
-    # send a push, D-25's own boundary) - there is no separate
-    # config-history/audit log in this codebase for ANY field to
-    # hook into (confirmed by inspection: no sibling field - theme,
-    # led_enabled, the calendar URL in server/plane/calendar_rules.py
-    # - writes to any such log either). What IS real and pinned here
-    # is device_config.py's own "print-free by design" contract
-    # (this module's own top-of-file docstring): adding notifications
-    # introduces no new print()/logging call anywhere in this module,
-    # so a hostile or legitimate topic_url can never reach a log this
-    # module itself controls - the same proof
-    # server/test_calendar_rules.py's T-16-SECRET checks pin for the
-    # calendar feed URL, applied here by source inspection since this
-    # module (unlike calendar_rules.fetch_ics()) has no failure path
-    # that logs at all.
+    """server/device_config.py introduces no print()/logging call for the notifications group, preserving this module's own print-free-by-design contract - a topic_url can never reach a log this module controls"""
+    # This module stores topic_url verbatim in device_config.json
+    # (server/notify.py needs the real value to send a push) - there is
+    # no separate config-history/audit log in this codebase for any
+    # field to hook into (confirmed by inspection: no sibling field -
+    # theme, led_enabled, the calendar URL in
+    # server/plane/calendar_rules.py - writes to any such log either).
+    # What IS real and pinned here is device_config.py's own
+    # "print-free by design" contract (this module's own top-of-file
+    # docstring): adding notifications introduces no new print()/logging
+    # call anywhere in this module, so a hostile or legitimate topic_url
+    # can never reach a log this module itself controls - the same proof
+    # server/test_calendar_rules.py's own checks pin for the calendar
+    # feed URL, applied here by source inspection since this module
+    # (unlike calendar_rules.fetch_ics()) has no failure path that logs
+    # at all.
     src_path = os.path.join(REPO_ROOT, "server", "device_config.py")
     with open(src_path) as fh:
         src = fh.read()
@@ -1309,7 +1296,7 @@ def test_ingest_caddy_battery_log_is_idempotent(tmp_path):
 
 
 def test_daily_battery_averages_groups_excludes_and_bounds_correctly(tmp_path):
-    """daily_battery_averages() groups by Europe/Paris calendar day, rounds the mean, orders newest-first, honours since=, and excludes NULL-battery and unparseable-timestamp rows (22-06-PLAN.md Task 1)"""
+    """daily_battery_averages() groups by Europe/Paris calendar day, rounds the mean, orders newest-first, honours since=, and excludes NULL-battery and unparseable-timestamp rows"""
     tmpdir = tmp_path
     with history_db.open_db(tmpdir) as conn:
         if history_db.daily_battery_averages(conn) != []:
@@ -1320,7 +1307,7 @@ def test_daily_battery_averages_groups_excludes_and_bounds_correctly(tmp_path):
         # Europe/Paris (CEST, UTC+2, in September) so this check
         # isolates grouping/mean/order/exclusion from the DST-
         # spillover behaviour, which gets its own dedicated checks
-        # below (22-06-PLAN.md Task 1).
+        # below.
         day_dates = ["2026-09-02", "2026-09-01", "2026-08-31"]
         day_values = [[4000, 4100, 4200], [4001, 4101, 4201], [4002, 4102, 4202]]
         for day_date, values in zip(day_dates, day_values):
@@ -1361,13 +1348,13 @@ def test_daily_battery_averages_groups_excludes_and_bounds_correctly(tmp_path):
 
 
 def test_daily_battery_averages_buckets_by_paris_day_not_utc_day(tmp_path):
-    """daily_battery_averages(): a 01:30+02:00 reading buckets to its Europe/Paris day, and two same-Paris-day readings on different UTC days form ONE bucket (D-12.3, 22-06-PLAN.md Task 1)"""
+    """daily_battery_averages(): a 01:30+02:00 reading buckets to its Europe/Paris day, and two same-Paris-day readings on different UTC days form ONE bucket"""
     tmpdir = tmp_path
     with history_db.open_db(tmpdir) as conn:
-        # The plan's own example: 01:30 Paris local time (CEST,
-        # +02:00) is 23:30 UTC the PREVIOUS day. Under the old
-        # date(ts) (UTC) bucketing this landed on 2026-09-01; under
-        # Paris-day bucketing it must land on 2026-09-02.
+        # 01:30 Paris local time (CEST, +02:00) is 23:30 UTC the
+        # PREVIOUS day. Under UTC-date bucketing this would land on
+        # 2026-09-01; under Paris-day bucketing it must land on
+        # 2026-09-02.
         history_db.record_device_health(conn, "2026-09-02T01:30:00+02:00", battery_mv=4000)
         # A second reading on the SAME Paris day (2026-09-02) but a
         # DIFFERENT UTC day (23:00 Paris local == 21:00 UTC, same
@@ -1389,7 +1376,7 @@ def test_daily_battery_averages_buckets_by_paris_day_not_utc_day(tmp_path):
 
 
 def test_daily_battery_averages_crosses_the_march_dst_forward_transition(tmp_path):
-    """daily_battery_averages() buckets correctly across the CET-to-CEST March transition (the skipped hour), on the Paris day each reading actually fell on (D-12.3)"""
+    """daily_battery_averages() buckets correctly across the CET-to-CEST March transition (the skipped hour), on the Paris day each reading actually fell on"""
     # The last Sunday of March 2026 is 2026-03-29: clocks jump from
     # 02:00 CET straight to 03:00 CEST, skipping the 02:00-03:00 hour.
     # One reading before the jump (CET, +01:00) and one after it
@@ -1415,7 +1402,7 @@ def test_daily_battery_averages_crosses_the_march_dst_forward_transition(tmp_pat
 
 
 def test_daily_battery_averages_crosses_the_october_dst_back_transition(tmp_path):
-    """daily_battery_averages() buckets correctly across the CEST-to-CET October transition (the repeated hour), counting each instant once on the correct Paris day (D-12.3)"""
+    """daily_battery_averages() buckets correctly across the CEST-to-CET October transition (the repeated hour), counting each instant once on the correct Paris day"""
     # The last Sunday of October 2026 is 2026-10-25: clocks fall back
     # from 03:00 CEST to 02:00 CET, so 02:00-03:00 local happens
     # TWICE. One reading at 02:30 CEST (+02:00, fold=0) and one at
@@ -1466,7 +1453,7 @@ def test_check_in_gaps_returns_consecutive_intervals_oldest_first(tmp_path):
 
 
 def test_check_in_gaps_counts_a_null_battery_row_as_a_real_check_in(tmp_path):
-    """check_in_gaps() reads EVERY device_health row, including one whose battery_mv is NULL - a missing X-Battery-Mv header is not a missed wake (CFG-43)"""
+    """check_in_gaps() reads EVERY device_health row, including one whose battery_mv is NULL - a missing X-Battery-Mv header is not a missed wake"""
     # A device_health row with battery_mv NULL is a REAL check-in whose
     # X-Battery-Mv header was absent or unparseable. Applying the
     # `battery_mv IS NOT NULL` filter daily_battery_averages()
@@ -1527,7 +1514,7 @@ def test_check_in_gaps_degenerate_windows_return_empty_without_raising(tmp_path)
 
 
 def test_history_db_introduces_no_migration_mechanism():
-    """server/history_db.py still contains no ALTER TABLE and no PRAGMA user_version - the whole migration story remains CREATE TABLE IF NOT EXISTS on every connection (CFG-43)"""
+    """server/history_db.py still contains no ALTER TABLE and no PRAGMA user_version - the whole migration story remains CREATE TABLE IF NOT EXISTS on every connection"""
     src_path = os.path.join(REPO_ROOT, "server", "history_db.py")
     with open(src_path) as fh:
         src = fh.read()
@@ -1538,7 +1525,7 @@ def test_history_db_introduces_no_migration_mechanism():
 
 
 def test_classify_check_in_gap_boundaries_on_the_multiplier_path():
-    """classify_check_in_gap() is on-cadence below warn_s, late EXACTLY AT warn_s, still late below error_s and missing EXACTLY AT error_s, for a non-default 777 s cadence (CFG-43)"""
+    """classify_check_in_gap() is on-cadence below warn_s, late EXACTLY AT warn_s, still late below error_s and missing EXACTLY AT error_s, for a non-default 777 s cadence"""
     # 777 s is off both the 60/300 round numbers a hand-typed default
     # might resemble and the STALE_WARN_FLOOR_S=300 floor, so the
     # multiplier path - not the floor - is what fires. The boundaries
@@ -1627,11 +1614,11 @@ def test_classify_check_in_gap_reuses_the_one_threshold_function():
 
 
 def test_the_verdict_vocabulary_is_observed_never_honoured():
-    """the verdict vocabulary is four distinct observed terms and neither history_db.py nor wake.py uses the words 'honoured' or 'punctual' anywhere (24-RESEARCH.md Risk 1)"""
-    # 24-RESEARCH.md Risk 1: the data cannot support the phrase an
-    # "honoured-wake rate" names, even with a new column, because a
-    # rotation the ingest missed is indistinguishable from a missed
-    # wake. A name chosen here is the name every caption inherits.
+    """the verdict vocabulary is four distinct observed terms and neither history_db.py nor wake.py uses the words 'honoured' or 'punctual' anywhere"""
+    # The data cannot support the phrase an "honoured-wake rate" names,
+    # even with a new column, because a rotation the ingest missed is
+    # indistinguishable from a missed wake. A name chosen here is the
+    # name every caption inherits.
     verdicts = (
         wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE,
         wake.CHECK_IN_MISSING, wake.CHECK_IN_UNKNOWN,
@@ -1745,10 +1732,9 @@ def test_record_wake_epoch_writes_only_when_the_interval_changes(tmp_path):
 
 
 def test_nothing_under_companion_reads_the_epoch_table():
-    """no file under companion/ so much as mentions wake_epochs - the table accrues data for a later phase and nothing in phase 24 reads it (24-RESEARCH.md Risk 1, Option C)"""
-    # 24-RESEARCH.md Risk 1, Option C: if any plan lets a DRAWING read
-    # this table, the drawing goes back to being blank until the
-    # epochs accrue. No plan in phase 24 may read it.
+    """no file under companion/ so much as mentions wake_epochs - the table accrues data for a later phase and nothing here reads it"""
+    # If a drawing reads this table, the drawing goes back to being
+    # blank until the epochs accrue, so nothing may read it yet.
     offenders = []
     companion_root = os.path.join(REPO_ROOT, "companion")
     for dirpath, dirnames, filenames in os.walk(companion_root):
@@ -1783,7 +1769,7 @@ def test_effective_wake_interval_s_battery_critical_pins_and_wins():
     """effective_wake_interval_s(cfg, battery_critical=True) pins device_config.BATTERY_CRITICAL_SLEEP_S ahead of every other consideration, including display_enabled=False, and the default False leaves every existing result unchanged"""
     # battery_critical=True pins the parked cadence regardless of every
     # other field, including display_enabled=False, which would
-    # otherwise win (12-CONTEXT.md D-01).
+    # otherwise win.
     cfg_off = {"display_enabled": False, "wake_interval_s": 600}
     got = wake.effective_wake_interval_s(cfg_off, battery_critical=True)
     if got != device_config.BATTERY_CRITICAL_SLEEP_S:
