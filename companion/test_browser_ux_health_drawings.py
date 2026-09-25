@@ -1,36 +1,14 @@
 #!/usr/bin/env python3
-"""The SVG-drawing scenario group split out of `companion/test_browser_ux.py`
-(31-02-PLAN.md, D-04) into its own standalone harness, converted to native
-pytest-playwright tests by 33-19-PLAN.md Task 2 (TST-11).
+"""Browser checks for the SVG-drawing scenario group: the battery ring (Home + Health), the
+battery chart's area/line/threshold, the day band, the check-in regularity grid, and the
+Home hero that composes the ring and the band together.
 
-Covers the complete 24-04/24-06/24-07/24-08 drawings series: the battery
-ring (Home + Health), the battery chart's area/line/threshold, the day
-band, the check-in regularity grid, and the Home hero that composes the
-ring and the band together. These eleven checks were the first of D-04's
-two mandatory extractions and RESEARCH.md's rank-1 candidate — three of
-them already spun up their own isolated `Harness()` rather than reusing
-the shared one, so the original authors already treated this cluster as
-isolation-worthy, and their `_in_both_themes()` loops make their real
-wall-time share larger than their line-count share suggests.
-
-Every test below drives a real headless Chromium against a real
-`companion/app.py` subprocess, through the guarded `page`/`new_context`
-fixtures (`companion/conftest.py`), and never constructs or navigates to
-any URL outside `server.base_url()` / `band_server.base_url()` /
-`grid_server.base_url()` — all `127.0.0.1:<ephemeral-port>` origins the
-guarded fixtures themselves created. A missing/unlaunchable Chromium is a
-hard failure under CI / `SKYPANE_REQUIRE_BROWSER=1` (the `browser` fixture
-override in `companion/conftest.py`), never a silent skip.
-
-Three module-scoped, read-only servers replace the three isolated
-`Harness()` instances the legacy version of this file spun up per check:
-`server` (the shared 24-04/24-05 fixture), `band_server` (one day's worth
-of seeded check-ins, shared by the day-band and hero checks, which is
-exactly the set that used to call `_band_harness()`), and `grid_server`
-(three seeded days with distinct on-cadence/late/missing verdicts, shared
-by the two regularity-grid checks). None of the eleven tests below POSTs
-or otherwise mutates server state, so sharing a server per group is safe
-under xdist (33-MIGRATION-RULES.md section 2).
+Three module-scoped, read-only servers are shared across these checks: `server` (the shared
+battery ring/chart fixture), `band_server` (one day's worth of seeded check-ins, shared by
+the day-band and hero checks), and `grid_server` (three seeded days with distinct
+on-cadence/late/missing verdicts, shared by the two regularity-grid checks). None of the
+tests below POSTs or otherwise mutates server state, so sharing a server per group is safe
+under xdist.
 """
 import itertools
 import re
@@ -45,9 +23,6 @@ from companion.contrast_check import (
 )
 from companion.pages import health_page, home_page
 from server import device_config, history_db
-# 31-02-PLAN.md Task 1: shared constants and helpers live in
-# companion.test_browser_ux_helpers (31-01-PLAN.md Task 3), so this file
-# imports them rather than duplicating them.
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED,
     VIEWPORT_WIDTH_NARROW, _RING_INK_PROBE, _TILE_CONTENT_PROBE,
@@ -57,13 +32,8 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-# ===========================================================================
-# 24-04-PLAN.md Task 4 (CFG-40/CFG-45/D-09): the battery ring, measured
-# where it actually has to be correct — a real browser, both themes, the
-# narrowest supported screen, and with scripts off. Every one of these
-# uses 24-02's helpers rather than inventing a second mechanism for the
-# same job.
-# ===========================================================================
+# The battery ring, measured where it actually has to be correct: a real browser, both
+# themes, the narrowest supported screen, and with scripts off.
 
 RING_FIGURE = "svg.drawing__figure"
 RING_VALUE = "svg.drawing__figure .drawing-ring-value"
@@ -73,31 +43,24 @@ RING_PAGES = (("Home", "/"), ("Health", "/health"))
 
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
-    """The shared, read-only 22-AUDIT.md-methodology fixture the battery
-    ring and battery chart checks measure against — module-scoped because
-    every test in this group only GETs.
+    """The shared, read-only seeded fixture the battery ring and battery chart checks
+    measure against — module-scoped because every test in this group only GETs.
     """
     return module_app_server_factory(seed=seed_state_dir, fake_providers=True)
 
 
 @pytest.mark.parametrize("label,route", RING_PAGES, ids=[p[0] for p in RING_PAGES])
 def test_the_ring_paints_a_theme_token_in_both_themes(new_context, server, label, route):
-    """the battery ring's value arc resolves to a real theme token on BOTH pages in
-    BOTH themes — never the SVG default fill or stroke, never the same paint as
-    its own track, and never the same value in light and dark (CFG-40,
-    24-02's theme and computed-paint helpers)"""
-    # WHY A BROWSER AT ALL: a source scan can see that the arc carries
-    # class="drawing-ring-value". It cannot see what that class RESOLVES
-    # to. getComputedStyle has already run the cascade, resolved
-    # currentColor against the inherited colour and substituted the
-    # theme's custom property — so this is the only thing in the
-    # repository that can tell a token-painted shape from one that fell
-    # through to the SVG default.
-    #
-    # A drawing correct in light mode only is a defect, not a polish
-    # item. Both themes are sampled on this page, because the two rings
-    # are two sizes of one emitter and a single sample would not notice
-    # if only one of them inherited its colour.
+    """The battery ring's value arc resolves to a real theme token on both pages in both
+    themes: never the SVG default fill or stroke, never the same paint as its own track,
+    and never the same value in light and dark.
+    """
+    # A source scan can see that the arc carries class="drawing-ring-value"; it cannot see
+    # what that class resolves to. getComputedStyle has already run the cascade, resolved
+    # currentColor against the inherited colour and substituted the theme's custom property,
+    # so this is the only way to tell a token-painted shape from one that fell through to the
+    # SVG default. Both themes are sampled here, since the two rings are two sizes of one
+    # emitter and a single sample would not notice if only one of them inherited its colour.
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:
         page = context.new_page()
@@ -140,22 +103,16 @@ def test_the_ring_paints_a_theme_token_in_both_themes(new_context, server, label
 
 @pytest.mark.parametrize("label,route", RING_PAGES, ids=[p[0] for p in RING_PAGES])
 def test_the_rings_viewbox_contains_its_own_stroked_geometry(new_context, server, label, route):
-    """the battery ring's viewBox contains its own STROKED geometry on both pages — "
-    each arc's browser-reported bounding box, expanded by half its resolved
-    stroke width on every side, lies inside the box the emitter declared
-    (CFG-45, contract rule 5)"""
-    # CONTRACT RULE 5, MEASURED RATHER THAN DERIVED. A stroked arc extends
-    # half its stroke width beyond the nominal radius, which is the
-    # single most common way a ring gets clipped by its own box — and
-    # arithmetic on the emitter's constants would only re-derive what the
-    # emitter already believes. So the geometry comes back from the
-    # browser: getBBox() for the path's own box and the RESOLVED
-    # stroke-width from getComputedStyle, expanded by half on every side.
-    #
-    # getBBox() deliberately excludes the stroke (SVG 1.1 behaviour, and
-    # the option dictionary that would include it is exactly the thing
-    # whose support would have to be assumed) — so the half-stroke is
-    # added here, in the open, because that half-stroke IS the property
+    """The battery ring's viewBox contains its own stroked geometry on both pages: each
+    arc's browser-reported bounding box, expanded by half its resolved stroke width on
+    every side, lies inside the box the emitter declared.
+    """
+    # A stroked arc extends half its stroke width beyond the nominal radius, which is the
+    # single most common way a ring gets clipped by its own box, so the geometry comes back
+    # from the browser rather than from arithmetic on the emitter's constants: getBBox() for
+    # the path's own box and the resolved stroke-width from getComputedStyle, expanded by
+    # half on every side. getBBox() deliberately excludes the stroke (SVG 1.1 behaviour), so
+    # the half-stroke is added here, in the open, since that half-stroke is the property
     # under test.
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:
@@ -191,32 +148,19 @@ def test_the_rings_viewbox_contains_its_own_stroked_geometry(new_context, server
 
 
 def test_the_ring_costs_no_width_no_height_and_no_script(new_context, server):
-    """at the 360px floor the ring costs nothing it must not: neither page's body
-    scrolls sideways, Home's Battery tile stays exactly as tall as the Frame
-    tile beside it (measured against a neighbour, because 'all three equal' is
-    false at 360px and vacuous at 1280px), and both rings still render — and
-    still paint a dark-mode token — with scripts blocked through _no_js_page()
-    (CFG-45, D-09)"""
-    # THREE PROPERTIES THE RING COULD PLAUSIBLY BREAK, all at the 360px
-    # floor.
-    #
-    # THE TILE ASSERTION IS DELIBERATELY NOT "all three tiles are equal
-    # height", and that is the whole reason it is written this way.
-    # Measured on this tree BEFORE the ring existed: at 360px the three
-    # tiles are 111.59 / 111.59 / 131.19 — `.dashboard-grid` collapses to
-    # ONE COLUMN there, so each tile is its own grid row at its own
-    # intrinsic height, and the Data tile is legitimately taller because
-    # its detail wraps to a second line. An "all equal" assertion would
-    # simply be false. At 1280px, where the three DO share a row,
-    # `align-items: stretch` makes them equal no matter what, so "all
-    # equal" would be VACUOUS there. Neither width can carry the property
-    # this plan actually owes.
-    #
-    # What it owes is that the RING ADDED NO HEIGHT, and that is measured
-    # against the tile the ring did not touch: the Frame tile carries the
-    # same two text lines in the same box, so Battery's own content
-    # height must still equal it exactly. A ring stacked above the text
-    # instead of beside it fails here.
+    """At the 360px floor the ring costs nothing it must not: neither page's body scrolls
+    sideways, Home's Battery tile stays exactly as tall as the Frame tile beside it, and
+    both rings still render, and still paint a dark-mode token, with scripts blocked
+    through _no_js_page().
+    """
+    # The tile assertion is deliberately not "all three tiles are equal height": at 360px
+    # `.dashboard-grid` collapses to one column, so each tile is its own grid row at its own
+    # intrinsic height and a taller Data tile (its detail wraps to a second line) would make
+    # an "all equal" assertion false; at 1280px, where the three do share a row,
+    # `align-items: stretch` makes them equal regardless, so it would be vacuous there
+    # instead. What it owes is that the ring added no height, measured against the tile the
+    # ring did not touch: the Frame tile carries the same two text lines in the same box, so
+    # Battery's own content height must still equal it exactly.
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:
         page = context.new_page()
@@ -257,11 +201,9 @@ def test_the_ring_costs_no_width_no_height_and_no_script(new_context, server):
                 "rows carrying the same two text lines"
                 % (battery_tile["height"], frame_tile["height"]))
 
-        # D-09, THROUGH THE SHARED HELPER. The ring is complete markup in
-        # the first response, so it must arrive whole with scripts
-        # blocked — and asking through _no_js_page() is what makes this
-        # compose with the existing no-JS floor instead of being a
-        # second, private way to turn scripts off.
+        # The ring is complete markup in the first response, so it must arrive whole with
+        # scripts blocked; asking through _no_js_page() composes with the existing no-JS
+        # floor instead of being a second, private way to turn scripts off.
         for label, route in RING_PAGES:
             with _no_js_page(new_context, server.base_url(), route,
                              viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
@@ -284,11 +226,7 @@ def test_the_ring_costs_no_width_no_height_and_no_script(new_context, server):
         context.close()
 
 
-# ===========================================================================
-# 24-05-PLAN.md Task 3 (CFG-41/CFG-45/D-09): the battery chart's three
-# additions, measured where they have to be correct. The selectors are
-# literals here rather than imported constants, matching RING_VALUE above.
-# ===========================================================================
+# The battery chart's three additions, measured where they have to be correct.
 
 CHART_AREA = ".sparkline-area"
 CHART_LINE = ".sparkline-line"
@@ -297,23 +235,13 @@ CHART_THRESHOLD = ".sparkline-threshold"
 CHART_LEGEND = ".sparkline-legend"
 CHART_SWATCH = ".sparkline-swatch"
 
-# The area is a TRANSLUCENT fill, so its resolved `fill` is not what
-# lands on screen — what lands is that colour composited over the card
-# behind it at the resolved `fill-opacity`. Composite it here, in the
-# open, and compare the result against the card's own resolved
-# background through the app's OWN contrast formula
-# (companion/contrast_check.py, already the source of truth for every
-# colour pair this project pins).
-#
-# THE FLOOR IS 1.20:1, AND IT IS NOT WCAG's 3:1. That figure is for a UI
-# component a user must find and identify; this is a wash under a line
-# that already carries the data, and at 3:1 it would be a block of ink.
-# What it must not be is PRESENT BUT INVISIBLE — technically painted,
-# visually absent — which is this feature's specific failure mode.
-# Measured on this tree at the shipped 0.14: light 1.33:1, dark 1.50:1;
-# the 1.20 floor is first missed between fill-opacity 0.08 (1.17 light)
-# and 0.09 (1.20 light), so it bites at roughly two thirds of the shipped
-# value rather than sitting decoratively below it.
+# The area is a translucent fill, so its resolved `fill` is not what lands on screen: what
+# lands is that colour composited over the card behind it at the resolved `fill-opacity`.
+# Composited here and compared against the card's own resolved background through the app's
+# own contrast formula. The 1.20:1 floor is not WCAG's 3:1, which is for a UI component a
+# user must find and identify; this is a wash under a line that already carries the data,
+# and at 3:1 it would be a block of ink. What it must not be is present but invisible,
+# technically painted, visually absent.
 CHART_AREA_MIN_CONTRAST = 1.20
 
 
@@ -334,29 +262,18 @@ def _as_hex(text):
 
 
 def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(page, server):
-    """the battery chart's area, line, mark and threshold each resolve to a real theme
-    token in BOTH themes — never the SVG default, the area/line/mark sharing one
-    currentColor ink while the threshold deliberately does not, the legend's swatch
-    equal to the drawn threshold, and the area's COMPOSITE over the card clearing a
-    1.20:1 floor so it is visible and not merely painted (CFG-41/CFG-45, 24-05-PLAN.md
-    Task 3)"""
-    # Four shapes x two themes, resolved by the browser after the cascade
-    # has run — the only thing in this repository that can tell a shape
-    # painted by a token from a shape painted by the SVG default.
-    #
-    # Three DIFFERENT questions are asked, because "not the default"
-    # alone would be green for a shape that is the same in both themes,
-    # and "differs between themes" alone would be green for a shape
-    # painted the wrong colour consistently:
-    #   - the area, the line and the mark must resolve to the SAME ink,
-    #     because all three are currentColor and that IS the mechanism
-    #     CFG-45 asks for (the area is the line's own colour, so dark
-    #     mode is correct by the same route the line already is);
-    #   - the threshold must resolve to something ELSE, because a
-    #     judgement painted in the data's own ink is a judgement nobody
-    #     can see;
-    #   - every one of them must move when the theme does, or the token
-    #     is not reaching it at all.
+    """The battery chart's area, line, mark and threshold each resolve to a real theme token
+    in both themes: never the SVG default, the area/line/mark sharing one currentColor ink
+    while the threshold deliberately does not, the legend's swatch equal to the drawn
+    threshold, and the area's composite over the card clearing a 1.20:1 floor so it is
+    visible and not merely painted.
+    """
+    # Three different questions are asked, because "not the default" alone would be green for
+    # a shape that is the same in both themes, and "differs between themes" alone would be
+    # green for a shape painted the wrong colour consistently: the area, the line and the
+    # mark must resolve to the same ink, since all three are currentColor; the threshold must
+    # resolve to something else, since a judgement painted in the data's own ink is a
+    # judgement nobody can see; and every one of them must move when the theme does.
     _login(page, server.base_url())
     page.goto(server.base_url() + "/health")
     page.wait_for_selector(CHART_AREA)
@@ -427,28 +344,20 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
 
 
 def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(new_context, server):
-    """at the 360px floor the battery chart's additions cost nothing they must not: the
-    page body does not scroll sideways in EITHER language, the threshold's legend
-    overlaps none of the four axis labels and stays inside its card at the 10px
-    micro-label tier, its swatch measures a real 12x1 box (which an inline <span> could
-    not), the canvas keeps its share of the grid rather than being squeezed by a legend
-    that claimed the Y-label column, the mark's edge-hung ink stays inside the card,
-    and the area, mark, threshold and legend all still render — and still paint
-    dark-mode tokens — with scripts blocked (CFG-45, D-09, 24-05-PLAN.md Task 3)"""
-    # The 360px floor, in both languages, because French is the longer
-    # copy here ("Batterie faible — 3540 mV (≈ 20 %)") and this file
-    # already carries several checks that exist because French
-    # overflowed where English did not.
-    #
-    # WHAT THE LABEL-OVERLAP ASSERTION IS AND IS NOT. The legend sits in
-    # its own full-width grid row, so no overlap with the axis labels is
-    # STRUCTURAL rather than lucky — and that is precisely why the check
-    # is written as a box comparison instead of "the legend is in its own
-    # row": it keeps measuring the property that matters if the row is
-    # ever traded for the absolute positioning a third Y-axis tick would
-    # have needed. What it is NOT is the only thing measured here; the
-    # swatch's own box is, and that one is not structural at all (see
-    # below).
+    """At the 360px floor the battery chart's additions cost nothing they must not: the
+    page body does not scroll sideways in either language, the threshold's legend overlaps
+    none of the four axis labels and stays inside its card at the 10px micro-label tier,
+    its swatch measures a real 12x1 box (which an inline <span> could not), the canvas keeps
+    its share of the grid rather than being squeezed by a legend that claimed the Y-label
+    column, the mark's edge-hung ink stays inside the card, and the area, mark, threshold
+    and legend all still render, and still paint dark-mode tokens, with scripts blocked.
+    """
+    # The 360px floor, in both languages, since French is the longer copy here and this file
+    # already carries several checks that exist because French overflowed where English did
+    # not. The legend sits in its own full-width grid row, so no overlap with the axis labels
+    # is structural rather than lucky, hence the check is written as a box comparison instead
+    # of "the legend is in its own row": it keeps measuring the property that matters if the
+    # row is ever traded for absolute positioning.
     for lang in ("en", "fr"):
         context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
         try:
@@ -536,10 +445,9 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
                     "in %s at 360px the legend %r escapes its own card %r"
                     % (lang, legend, boxes["card"]))
 
-            # The mark is the one new shape drawn AT the canvas's own
-            # edge (cx=100%), so its radius hangs outside the plot area
-            # exactly as the existing dot and hit target already do. What
-            # must hold is that the card absorbs it.
+            # The mark is drawn at the canvas's own edge (cx=100%), so its radius hangs
+            # outside the plot area exactly as the existing dot and hit target already do.
+            # What must hold is that the card absorbs it.
             mark = boxes["mark"]
             if mark["r"] > boxes["card"]["r"] or mark["t"] < boxes["card"]["t"]:
                 raise AssertionError(
@@ -550,9 +458,8 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
         finally:
             context.close()
 
-    # D-09, through the shared helper: all three additions are
-    # server-rendered SVG and owe nothing to a script. Measured in the
-    # theme+no-JS combination most likely to be wrong.
+    # All three additions are server-rendered SVG and owe nothing to a script. Measured in
+    # the theme+no-JS combination most likely to be wrong.
     with _no_js_page(new_context, server.base_url(), "/health",
                      viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
         for label, selector in (("area", CHART_AREA), ("mark", CHART_MARK),
@@ -574,67 +481,48 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
                     "default" % (UI_THEMES_EXPLICIT[1], label, paint["svg_default"]))
 
 
-# ===========================================================================
-# 24-06-PLAN.md Task 3 (CFG-42): the day band.
+# The day band.
 #
-# THIS GROUP OWNS ITS OWN SERVER, and that is the only reason it costs a
-# second subprocess. The shared `server` fixture's device_health rows are
-# all BEFORE SEED_BASE_TS, so on any real wall clock the band's own Paris
-# day holds nothing and there is not one mark to measure. Seeding today's
-# rows into `server` itself would hand the battery chart's checks a 41st
-# day bucket they do not expect; an isolated server changes no other
-# check at all.
+# This group owns its own server, the only reason it costs a second subprocess: the shared
+# `server` fixture's device_health rows are all before SEED_BASE_TS, so on any real wall
+# clock the band's own Paris day holds nothing to measure, and seeding today's rows into
+# `server` itself would hand the battery chart's checks an unexpected extra day bucket.
 #
-# The seeded hours are FIXED Paris clock positions and some of them are
-# in the future relative to the wall clock when this runs. That is
-# deliberate: the band is a picture of a DAY, midnight to midnight, and
-# seeding by "hours before now" would make the mark count depend on what
-# time the suite happened to run. No production path writes a future
-# check-in.
-# ===========================================================================
+# The seeded hours are fixed Paris clock positions, deliberately including some in the
+# future relative to the wall clock when this runs: the band is a picture of a day, midnight
+# to midnight, and seeding by "hours before now" would make the mark count depend on when
+# the suite happened to run.
 
 BAND_SEED_PARIS_HOURS = (2, 8, 12, 18, 22)
 BAND_MARK = ".drawing-band-mark"
 BAND_FRAME = ".drawing-band"
 BAND_SPAN = ".drawing-band-span"
 BAND_SECTION = ".day-band"
-# The shaded span has to be tellable from the band's own surface, and
-# both are the SAME token at two strengths — so this is the one number
-# that says the 40% share in style.css is doing something. Shipped:
-# 1.246 light, 1.208 dark. The floor bites at roughly a 25% share
-# (measured: 1.15 is first missed between 40% and 25%), so it separates
-# the shipped value from a decorative one rather than sitting under
-# everything.
+# The shaded span and the band's own surface are the same token at two strengths, so this
+# floor is what says the shaded share in style.css is doing something rather than sitting
+# under everything decoratively.
 BAND_SPAN_MIN_CONTRAST = 1.15
-# The band's own frame against the card behind it. Faint by design — it
-# is the day, not the data — but a frame nobody can see is a band with no
-# extent, and the empty day would then render as literally nothing.
-# Shipped: 1.148 light, 1.106 dark.
+# The band's own frame against the card behind it. Faint by design (it is the day, not the
+# data), but a frame nobody can see is a band with no extent.
 BAND_FRAME_MIN_CONTRAST = 1.05
-# A mark crossing the shaded span is where most of a night's check-ins
-# land, and currentColor is what is meant to keep it readable there.
-# Shipped: 12.29 light, 11.84 dark, so the ordinary text floor is a long
-# way below and this asserts a property rather than a coincidence.
+# A mark crossing the shaded span is where most of a night's check-ins land, and currentColor
+# is what is meant to keep it readable there; the shipped ratio is far above this floor, so
+# it asserts a property rather than a coincidence.
 BAND_MARK_MIN_CONTRAST = 4.5
-# The height .day-band declares, and the reason this number is asserted
-# at all: it is a CSS-only value with no Python constant behind it, which
-# made it invisible to every check this plan wrote until a mutation found
-# it. Removing `--drawing-canvas-height: 24px` does not overflow, does
-# not move a mark, does not change a colour and does not fail anything —
-# the canvas simply takes .drawing__canvas's 160px default and the day
-# renders as a 6.7x taller BLOCK. That is the same shape of gap 24-05
-# found in its own `grid-column: 1 / -1`, and this is its assertion.
+# The height .day-band declares: a CSS-only value with no Python constant behind it, which
+# made it invisible to earlier checks until a mutation found it. Removing
+# `--drawing-canvas-height: 24px` does not overflow, move a mark or change a colour — the
+# canvas simply takes .drawing__canvas's 160px default and the day renders as a much taller
+# block, so this asserts the height directly.
 BAND_CANVAS_HEIGHT_PX = 24.0
 
 
 def _band_rgba(text):
-    """(r, g, b) 0-255 and alpha, from either of the two forms Chromium
-    answers with.
+    """(r, g, b) 0-255 and alpha, from either of the two forms Chromium answers with.
 
-    `color-mix()` resolves to `color(srgb 0.87 0.84 0.78 / 0.4)` —
-    components 0-1 — while a plain token resolves to `rgb(223, 215,
-    200)`. A single `[\\d.]+` scrape treats 0.87 as 0.87/255 of red and
-    silently composites near-black; the prefix is the only thing that
+    `color-mix()` resolves to `color(srgb 0.87 0.84 0.78 / 0.4)` (components 0-1) while a
+    plain token resolves to `rgb(223, 215, 200)`. A single `[\\d.]+` scrape treats 0.87 as
+    0.87/255 of red and silently composites near-black; the prefix is the only thing that
     says which scale the numbers are on.
     """
     numbers = [float(v) for v in re.findall(r"[\d.]+", text)]
@@ -666,23 +554,21 @@ def _seed_band(state_dir):
 
 @pytest.fixture(scope="module")
 def band_server(module_app_server_factory):
-    """One Paris day's worth of seeded check-ins, shared read-only by the
-    day-band checks and the hero checks (the hero is what used to call
-    the legacy `_band_harness()` a second time for its own two checks).
+    """One Paris day's worth of seeded check-ins, shared read-only by the day-band checks
+    and the hero checks.
     """
     return module_app_server_factory(seed=_seed_band, fake_providers=True)
 
 
 def test_the_day_bands_frame_span_and_marks_paint_real_tokens_in_both_themes(page, band_server):
-    """the day band's frame, shaded span and check-in marks each resolve to a real
-    theme token in BOTH themes and never the SVG default, all three move when
-    the theme does, the span clears a 1.15:1 floor against the band's own
-    surface (they are one token at two strengths, so 'not the default' says
-    nothing about whether they can be told apart), the frame clears 1.05:1
-    against its card so an empty day is not literally nothing, and a mark
-    crossing the span — which is where a night's check-ins land, and the
-    fixture is asserted to produce one — clears 4.5:1 over it
-    (CFG-42, 24-06-PLAN.md Task 3)"""
+    """The day band's frame, shaded span and check-in marks each resolve to a real theme
+    token in both themes and never the SVG default, all three move when the theme does, the
+    span clears a 1.15:1 floor against the band's own surface (they are one token at two
+    strengths, so "not the default" says nothing about whether they can be told apart), the
+    frame clears 1.05:1 against its card so an empty day is not literally nothing, and a
+    mark crossing the span, which is where a night's check-ins land and the fixture is
+    asserted to produce one, clears 4.5:1 over it.
+    """
     _login(page, band_server.base_url())
     page.goto(band_server.base_url() + layout.HOME_ROUTE)
     page.wait_for_selector(BAND_SECTION)
@@ -774,16 +660,15 @@ def test_the_day_bands_frame_span_and_marks_paint_real_tokens_in_both_themes(pag
 
 
 def test_the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_script(new_context, band_server):
-    """at the 360px floor the day band is a real drawing in BOTH languages: the
-    page body does not scroll sideways, every mark renders at least the 2px
-    draw.py declares (a mark emitted in absolute pixels into a CSS-sized canvas
-    has nothing in the markup guaranteeing it survives to paint), every mark
-    and span stays inside the canvas, the minimum mark spacing re-derived from
-    the canvas's MEASURED width still buys the 4px its comment claims, the
-    three hour labels sit at the band's own left edge, midpoint and right edge,
-    the canvas is the same width in both languages, and the whole band plus its
-    two shaded spans still render and still paint dark-mode tokens with scripts
-    blocked (CFG-42, D-09, 24-06-PLAN.md Task 3)"""
+    """At the 360px floor the day band is a real drawing in both languages: the page body
+    does not scroll sideways, every mark renders at least the 2px draw.py declares (a mark
+    emitted in absolute pixels into a CSS-sized canvas has nothing in the markup guaranteeing
+    it survives to paint), every mark and span stays inside the canvas, the minimum mark
+    spacing re-derived from the canvas's measured width still buys the 4px its comment
+    claims, the three hour labels sit at the band's own left edge, midpoint and right edge,
+    the canvas is the same width in both languages, and the whole band plus its two shaded
+    spans still render and still paint dark-mode tokens with scripts blocked.
+    """
     base_url = band_server.base_url()
     widths = {}
     for lang in ("en", "fr"):
@@ -822,11 +707,9 @@ def test_the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_scrip
                     "which overflows nothing and shows up nowhere else"
                     % (lang, canvas["h"], BAND_CANVAS_HEIGHT_PX))
 
-            # THE MEASUREMENT UNIQUE TO THIS DRAWING, and the one that
-            # catches a band which is structurally perfect and visually
-            # empty. A mark is emitted with an ABSOLUTE pixel width into
-            # a canvas sized by CSS, so nothing in the markup guarantees
-            # it survives to paint; a sub-pixel mark is not a mark.
+            # The measurement unique to this drawing, catching a band that is structurally
+            # perfect and visually empty: a mark is emitted with an absolute pixel width into
+            # a canvas sized by CSS, so nothing in the markup guarantees it survives to paint.
             if len(boxes["marks"]) != len(BAND_SEED_PARIS_HOURS):
                 raise AssertionError(
                     "in %s expected %d marks, got %d"
@@ -857,15 +740,11 @@ def test_the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_scrip
                         "the canvas (%.2f..%.2f)"
                         % (lang, index, span["l"], span["r"], canvas["l"], canvas["r"]))
 
-            # THE SPACING CONSTANT, RE-DERIVED FROM THE REAL WIDTH.
-            # draw.py's own comment records an arithmetic — 4px centre to
-            # centre, so two 2px marks keep clear ground between them —
-            # and its FIRST draft did that arithmetic against an
-            # estimated 330px band when the real one is 278px, which made
-            # every figure in it wrong. This is the assertion that stops
-            # the estimate and the layout drifting apart again: whatever
-            # the canvas measures, the minimum spacing must still buy the
-            # 4px.
+            # The spacing constant, re-derived from the real width: draw.py's own comment
+            # records an arithmetic of 4px centre to centre, so two 2px marks keep clear
+            # ground between them. This is the assertion that stops the estimate and the
+            # layout drifting apart: whatever the canvas measures, the minimum spacing must
+            # still buy the 4px.
             spacing_px = (draw.DAY_BAND_MIN_MARK_SPACING_PERCENT / 100.0 * canvas["w"])
             if spacing_px < 2 * draw.DAY_BAND_MARK_WIDTH_PX:
                 raise AssertionError(
@@ -878,10 +757,9 @@ def test_the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_scrip
                        spacing_px, 2 * draw.DAY_BAND_MARK_WIDTH_PX,
                        draw.DAY_BAND_MARK_WIDTH_PX))
 
-            # The hour labels are placed by the same scale the marks are:
-            # first flush left, last flush right, middle centred. A row
-            # that lost its flex context would stack them at the left and
-            # silently mislabel the whole band.
+            # The hour labels are placed by the same scale the marks are: first flush left,
+            # last flush right, middle centred. A row that lost its flex context would stack
+            # them at the left and silently mislabel the whole band.
             hours = boxes["hours"]
             if len(hours) != 3:
                 raise AssertionError(
@@ -912,8 +790,8 @@ def test_the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_scrip
             "French — the drawing's width must not depend on the copy beside "
             "it" % (widths["en"], widths["fr"]))
 
-    # D-09: server-rendered SVG owes nothing to a script, measured in the
-    # theme+no-JS combination most likely to be wrong.
+    # Server-rendered SVG owes nothing to a script, measured in the theme+no-JS combination
+    # most likely to be wrong.
     with _no_js_page(new_context, base_url, layout.HOME_ROUTE,
                      viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
         for label, selector, expected in (
@@ -934,83 +812,59 @@ def test_the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_scrip
                     % (UI_THEMES_EXPLICIT[1], label, paint["svg_default"]))
 
 
-# ===========================================================================
-# 24-07-PLAN.md Task 3 (CFG-43): the regularity grid.
+# The regularity grid.
 #
-# ITS OWN SERVER, for the day band's reason and one more. The shared
-# `server` fixture's newest device_health row is 40 days before
-# SEED_BASE_TS, so on any real wall clock the grid's 30-day window holds
-# nothing at all and every cell is the no-observation state — three of
-# the four states would never be painted, and every paint assertion below
-# would be measuring a colour the page does not actually use.
+# Its own server, for the day band's reason and one more: the shared `server` fixture's
+# newest device_health row is 40 days before SEED_BASE_TS, so on any real wall clock the
+# grid's 30-day window would hold nothing and every cell would be the no-observation state.
 #
-# THE FIXTURE HAS TO BE DENSE, and that is a property of the drawing
-# rather than a convenience. A day is judged by its LONGEST observed gap,
-# and the first gap ending on a day is the one from the previous day's
-# last check-in — so a day cannot read "on cadence" unless it is covered
-# end to end. At the fixture's 300s cadence (warn 900s, error 3600s) that
-# means a check-in at least every 15 minutes; 10 is used, which is a real
-# cadence this device ships with rather than one chosen to sit just
-# inside a threshold.
-# ===========================================================================
+# The fixture has to be dense, a property of the drawing rather than a convenience: a day is
+# judged by its longest observed gap, so a day cannot read "on cadence" unless it is covered
+# end to end. At the fixture's 300s cadence (warn 900s, error 3600s) that means a check-in at
+# least every 15 minutes; 10 is used, a real cadence this device ships with.
 
 GRID_SELECTOR = ".check-in-grid"
 GRID_CELL = ".drawing-cell"
 GRID_SWATCH = ".check-in-key__swatch"
 GRID_SEED_STEP_MINUTES = 10
-# The three seeded days, newest first, each with the verdict its own
-# hole produces. Day 1 (yesterday) has a 2-hour hole: past error. Day 2
-# has a 30-minute hole: past warn, short of error. Day 3 has none.
+# The three seeded days, newest first, each with the verdict its own hole produces. Day 1
+# (yesterday) has a 2-hour hole: past error. Day 2 has a 30-minute hole: past warn, short of
+# error. Day 3 has none.
 GRID_SEED_DAYS = (
     (1, 120, draw.DRAWING_CELL_MISSING_CLASS),
     (2, 30, draw.DRAWING_CELL_LATE_CLASS),
     (3, 0, draw.DRAWING_CELL_ON_CADENCE_CLASS),
 )
-# Today is seeded with nothing, so the fourth state is produced by the
-# same mechanism a real fresh deployment produces it with — an absence,
-# not a special value.
+# Today is seeded with nothing, so the fourth state is produced by the same mechanism a real
+# fresh deployment produces it with: an absence, not a special value.
 GRID_STATE_CLASSES = tuple(
     [c for _, _, c in GRID_SEED_DAYS] + [draw.DRAWING_CELL_NONE_CLASS])
-# The app's OWN signal-separation floor, not a number invented here: four
-# states that collapse to three in dark mode is precisely the "two
-# colours that read as one signal at a glance" defect that constant
-# exists for. Measured at the shipped palette, the closest pair in either
-# theme is light warn/error at dE76 55.3.
+# The app's own signal-separation floor: four states that collapse to three in dark mode is
+# precisely the "two colours that read as one signal at a glance" defect this constant
+# exists for.
 GRID_MIN_SEPARATION = MIN_SIGNAL_PERCEPTUAL_DISTANCE
-# The three verdicts are non-text graphics carrying meaning, so
-# WCAG_AA_UI_COMPONENT (3.0) is the bar — the same one
-# companion/test_contrast_check.py already holds --color-status-error to
-# on every surface. Measured: 3.30/3.19/6.29 light, 10.09/10.53/6.54
-# dark.
+# The three verdicts are non-text graphics carrying meaning, so WCAG_AA_UI_COMPONENT (3.0) is
+# the bar, the same one --color-status-error is already held to on every surface.
 GRID_MIN_VERDICT_CONTRAST = WCAG_AA_UI_COMPONENT
-# The no-observation cell is DELIBERATELY below that bar and this is the
-# number that says so out loud rather than leaving it unexamined. It is
-# structural ink (--color-border, the token .drawing-band's own frame
-# spends) because it is the ABSENCE of a verdict, and a day the record
-# says nothing about must not shout as loudly as one the record faults.
-# What it must still do is be visible at all: a cell nobody can see would
-# make an empty month render as blank card. Measured: 1.43 light, 1.34
-# dark, against a floor set just under the lower of the two. Its meaning
-# is carried in text three ways regardless — the key's own word, the
-# cell's title, and the caption — so colour is not the only route to it.
+# The no-observation cell is deliberately below that bar: it is structural ink
+# (--color-border) because it is the absence of a verdict, and a day the record says nothing
+# about must not shout as loudly as one the record faults. It must still be visible at all,
+# hence a floor set just under the shipped ratio. Its meaning is carried in text three ways
+# regardless (the key's own word, the cell's title, the caption), so colour is not the only
+# route to it.
 GRID_MIN_ABSENCE_CONTRAST = 1.25
 GRID_MIN_CELL_PX = draw.CELL_MIN_SIZE_PX
 GRID_SWATCH_PX = 12.0
-# Two CSS-only lengths with no Python constant behind them, which is
-# exactly what made 24-05's `grid-column` and 24-06's
-# `--drawing-canvas-height` invisible to every check their own plans
-# wrote. Both are var(--space-xs) = 4px: the clear ground under the
-# canvas before its date labels, and the clear ground between a key
-# swatch and the word it belongs to. Asserted here because a mutation
-# proved that without them nothing at all failed.
+# Two CSS-only lengths with no Python constant behind them, asserted here because a mutation
+# proved that without them nothing at all failed. Both are var(--space-xs) = 4px: the clear
+# ground under the canvas before its date labels, and the clear ground between a key swatch
+# and the word it belongs to.
 GRID_SCALE_GAP_PX = 4.0
 GRID_KEY_GAP_PX = 4.0
-# And the key's own two: var(--space-sm) = 8px of clear ground above the
-# whole key, and var(--space-md) = 16px between one labelled swatch and
-# the next. The second is measured at 1280px, where the four items sit
-# on one line; at 360px the key WRAPS (measured: without `flex-wrap` a
-# French swatch is squeezed from 12.00 to 9.03px), so a gap read there
-# would be reading a row break half the time.
+# The key's own two gaps: var(--space-sm) = 8px above the whole key, and var(--space-md) =
+# 16px between one labelled swatch and the next. The second is measured at 1280px, where the
+# four items sit on one line; at 360px the key wraps, so a gap read there would be reading a
+# row break half the time.
 GRID_KEY_TOP_GAP_PX = 8.0
 GRID_KEY_ITEM_GAP_PX = 16.0
 
@@ -1026,9 +880,8 @@ def _seed_grid(state_dir):
         minute = 0
         while minute < 24 * 60:
             rows.append(start + timedelta(minutes=minute))
-            # The hole sits mid-morning, well clear of both day
-            # boundaries, so it is this day's own gap and cannot be
-            # attributed to its neighbour.
+            # The hole sits mid-morning, well clear of both day boundaries, so it is this
+            # day's own gap and cannot be attributed to its neighbour.
             minute += (hole_minutes if minute == 8 * 60 and hole_minutes
                        else GRID_SEED_STEP_MINUTES)
     with history_db.open_db(state_dir) as conn:
@@ -1045,24 +898,20 @@ def grid_server(module_app_server_factory):
 
 
 def test_the_grids_four_states_stay_four_states_in_both_themes(page, grid_server):
-    """all FOUR of the regularity grid's cell states paint a real theme token in
-    BOTH themes and never the SVG default, all four move when the theme does,
-    each key swatch composites to exactly the colour of the cell it explains
-    (one `color` declaration, an SVG fill and an HTML background), the three
-    verdicts clear WCAG AA's 3:1 non-text bar against their card while the
-    no-observation state clears its own lower, deliberate 1.25:1 floor, and
-    every one of the six pairs stays past the app's own
-    MIN_SIGNAL_PERCEPTUAL_DISTANCE — four states that read as three in dark
-    mode is a defect no source scan can see (CFG-43, CFG-45, 24-07-PLAN.md
-    Task 3)"""
+    """All four of the regularity grid's cell states paint a real theme token in both themes
+    and never the SVG default, all four move when the theme does, each key swatch composites
+    to exactly the colour of the cell it explains (one `color` declaration, an SVG fill and
+    an HTML background), the three verdicts clear WCAG AA's 3:1 non-text bar against their
+    card while the no-observation state clears its own lower, deliberate 1.25:1 floor, and
+    every one of the six pairs stays past the app's own MIN_SIGNAL_PERCEPTUAL_DISTANCE.
+    """
     _login(page, grid_server.base_url())
     page.goto(grid_server.base_url() + "/health")
     page.wait_for_selector(GRID_SELECTOR)
     counts = {cls: page.locator(".%s" % cls).count() for cls in GRID_STATE_CLASSES}
-    # Every one of the four states must actually be on this page, or the
-    # measurements below are of colours the fixture never produced. The
-    # swatch in the key carries the same class, so each state is
-    # expected at least twice: one cell and one swatch.
+    # Every one of the four states must actually be on this page, or the measurements below
+    # are of colours the fixture never produced. The swatch in the key carries the same
+    # class, so each state is expected at least twice: one cell and one swatch.
     missing = [c for c, n in counts.items() if n < 2]
     if missing:
         raise AssertionError(
@@ -1111,10 +960,9 @@ def test_the_grids_four_states_stay_four_states_in_both_themes(page, grid_server
                     "in %s the %s cell composites to %s over the card's "
                     "%s for %.2f:1, under this check's %.2f:1 floor"
                     % (theme, cls, hex_value, card_hex, ratio, floor))
-        # THE FOUR STATES STAY FOUR. "Not the default" says nothing about
-        # whether two of them can be told apart, and a grid whose late
-        # and missing cells read as one colour in dark mode is unreadable
-        # while every source scan stays green.
+        # The four states stay four: "not the default" says nothing about whether two of
+        # them can be told apart, and a grid whose late and missing cells read as one colour
+        # in dark mode is unreadable while every source scan stays green.
         for first, second in itertools.combinations(GRID_STATE_CLASSES, 2):
             distance = perceptual_distance(resolved[first], resolved[second])
             if distance < GRID_MIN_SEPARATION:
@@ -1137,22 +985,20 @@ def test_the_grids_four_states_stay_four_states_in_both_themes(page, grid_server
 
 
 def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(new_context, grid_server):
-    """the regularity grid is a real drawing at the 360px floor in BOTH languages:
-    the page body does not scroll sideways, a Health card's content box still
-    measures the width draw.CARD_DRAWING_WIDTH_PX records, all 30 cells render
-    as one square at or above the 24px floor the bucket count is supposed to
-    come down for, every cell inks inside the viewBox, the wrapper is exactly
-    as wide as the canvas so the two date labels sit on the first and last
-    columns, the four key swatches keep their declared 12px box inside the
-    card, the geometry is identical in both languages, the whole grid still
-    paints dark-mode tokens with scripts blocked, and at 1280px and 320px the
-    wrapper and the canvas still agree with no page overflow and no stretched
-    cell (CFG-43, CFG-45, D-09, T-24-07-D, 24-07-PLAN.md Task 3)"""
+    """The regularity grid is a real drawing at the 360px floor in both languages: the page
+    body does not scroll sideways, a Health card's content box still measures the width
+    draw.CARD_DRAWING_WIDTH_PX records, all 30 cells render as one square at or above the
+    24px floor the bucket count is supposed to come down for, every cell inks inside the
+    viewBox, the wrapper is exactly as wide as the canvas so the two date labels sit on the
+    first and last columns, the four key swatches keep their declared 12px box inside the
+    card, the geometry is identical in both languages, the whole grid still paints dark-mode
+    tokens with scripts blocked, and at 1280px and 320px the wrapper and the canvas still
+    agree with no page overflow and no stretched cell.
+    """
     base_url = grid_server.base_url()
-    # The probe every width below runs: the grid's own boxes, in CSS
-    # pixels, read from the browser rather than derived from draw.py's
-    # constants — which is the whole point, since those constants are
-    # what is under test.
+    # The probe every width below runs: the grid's own boxes, in CSS pixels, read from the
+    # browser rather than derived from draw.py's constants, since those constants are what is
+    # under test.
     probe = (
         "() => { const r = el => { const b = el.getBoundingClientRect();"
         "  return {l: b.left, t: b.top, r: b.right, b: b.bottom,"
@@ -1193,11 +1039,9 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
                 raise AssertionError(message)
             seen = page.evaluate(probe)
             widths[lang] = seen["svg"]["w"]
-            # THE CONSTANT RE-DERIVED FROM THE REAL CARD, never assumed.
-            # draw.py's own CARD_DRAWING_WIDTH_PX records a measurement
-            # of exactly this box; 24-06 planned against an estimate that
-            # was 52px wrong, so the measurement and the constant are
-            # compared here rather than trusted in parallel.
+            # The constant re-derived from the real card, never assumed: draw.py's own
+            # CARD_DRAWING_WIDTH_PX records a measurement of exactly this box, so the
+            # measurement and the constant are compared here rather than trusted in parallel.
             if abs(seen["cardInner"] - draw.CARD_DRAWING_WIDTH_PX) > 0.51:
                 raise AssertionError(
                     "in %s a Health card's content box measures %.2fpx at "
@@ -1223,14 +1067,10 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
                 raise AssertionError(
                     "in %s the cells render between %.2f and %.2fpx — they "
                     "are meant to be one square" % (lang, smallest, widest))
-            # THE VIEWBOX CONTAINS ITS OWN INK. 24-07-PLAN.md left the
-            # containment proof owed by whichever label mechanism Task 1
-            # chose; it chose HTML spans OUTSIDE the canvas, so there is
-            # no SVG text to contain and the hard half of that question
-            # does not arise. The cells' own geometry is still measured
-            # here rather than skipped, because the grid is aspect-locked
-            # and a cell painted past the viewBox clips in one browser
-            # and not another.
+            # The viewBox contains its own ink. Labels are HTML spans outside the canvas, so
+            # there is no SVG text to contain, but the cells' own geometry is still measured
+            # here since the grid is aspect-locked and a cell painted past the viewBox clips
+            # in one browser and not another.
             box_w, box_h = seen["viewBox"]
             for x0, y0, x1, y1 in seen["inked"]:
                 if x0 < -0.01 or y0 < -0.01 or x1 > box_w + 0.01 or y1 > box_h + 0.01:
@@ -1238,11 +1078,9 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
                         "in %s a cell inks (%.2f, %.2f)-(%.2f, %.2f), "
                         "outside the %.2fx%.2f viewBox"
                         % (lang, x0, y0, x1, y1, box_w, box_h))
-            # ONE SCALE PLACES THE CELLS AND THE LABELS. The label row
-            # sizes itself from its wrapper, so the newest day's label
-            # only sits under the newest column while the wrapper is
-            # exactly as wide as the canvas — which is `width:
-            # max-content`'s entire job.
+            # One scale places the cells and the labels: the label row sizes itself from its
+            # wrapper, so the newest day's label only sits under the newest column while the
+            # wrapper is exactly as wide as the canvas.
             if abs(seen["wrap"]["w"] - seen["svg"]["w"]) > 0.51:
                 raise AssertionError(
                     "in %s the grid's wrapper is %.2fpx wide against a "
@@ -1271,8 +1109,8 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
                     "CSS-only length with no Python constant behind it is "
                     "exactly the kind this phase keeps finding unmeasured"
                     % (lang, scale[0]["t"] - seen["svg"]["b"], GRID_SCALE_GAP_PX))
-            # The key: four swatches at their declared size, inside the
-            # card, wrapped rather than overflowing.
+            # The key: four swatches at their declared size, inside the card, wrapped rather
+            # than overflowing.
             if len(seen["swatches"]) != len(GRID_STATE_CLASSES):
                 raise AssertionError(
                     "in %s the key carries %d swatches, expected %d"
@@ -1305,12 +1143,9 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
                         "not the %.0fpx the key declares — the second of "
                         "this drawing's two unbacked CSS lengths"
                         % (lang, word["l"] - swatch["r"], GRID_KEY_GAP_PX))
-                # A third declaration a first mutation found INERT to
-                # every assertion here: the swatch carries an explicit
-                # height, so the flex default cannot stretch it and
-                # `align-items: center` moves only where it sits on its
-                # own line. That is a visible property, so it is asserted
-                # rather than deleted.
+                # The swatch carries an explicit height, so the flex default cannot stretch
+                # it and `align-items: center` moves only where it sits on its own line —
+                # a visible property, so it is asserted rather than left implicit.
                 swatch_mid = (swatch["t"] + swatch["b"]) / 2
                 word_mid = (word["t"] + word["b"]) / 2
                 if abs(swatch_mid - word_mid) > 1.01:
@@ -1326,9 +1161,8 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
             "the grid is %.2fpx wide in English and %.2fpx in French — its "
             "geometry must not depend on the copy around it"
             % (widths["en"], widths["fr"]))
-    # AND WITH SCRIPTS BLOCKED. D-09's floor: the verdicts are computed in
-    # Python and the grid arrives complete, so this is the same drawing
-    # with the same colours and not a reduced one.
+    # With scripts blocked: the verdicts are computed in Python and the grid arrives
+    # complete, so this is the same drawing with the same colours and not a reduced one.
     with _no_js_page(new_context, base_url, "/health",
                      viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
         blocked.wait_for_selector(GRID_SELECTOR)
@@ -1354,15 +1188,11 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
             blocked, "/health with scripts blocked", VIEWPORT_MIN_SUPPORTED["width"])
         if message:
             raise AssertionError(message)
-    # THE TWO RESPONSIVE DECLARATIONS, each measured at the width where it
-    # is the one doing the work. At 1280 the card is far wider than the
-    # drawing, so `width: max-content` is what keeps the label row on the
-    # cells (asserted above at 360, where the two widths happen to
-    # coincide — so 360 alone could not tell the property from its
-    # absence). At 320, out of contract and still measured by this file,
-    # the canvas is wider than the card and `max-width`/`height: auto`
-    # are the only things between this drawing and a horizontal page
-    # scrollbar.
+    # The two responsive declarations, each measured at the width where it is the one doing
+    # the work. At 1280 the card is far wider than the drawing, so `width: max-content` is
+    # what keeps the label row on the cells. At 320, out of contract and still measured by
+    # this file, the canvas is wider than the card and `max-width`/`height: auto` are the
+    # only things between this drawing and a horizontal page scrollbar.
     for width in (VIEWPORT_DESKTOP["width"], VIEWPORT_WIDTH_NARROW):
         context = new_context(viewport={"width": width, "height": 844})
         try:
@@ -1412,51 +1242,41 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
             context.close()
 
 
-# ===========================================================================
-# 24-08-PLAN.md Task 3 (CFG-44/CFG-45/D-09): the hero.
+# The hero.
 #
-# REUSES `band_server` rather than a server of its own: it is the only
-# fixture in this group that seeds check-ins on the band's OWN Paris day,
-# which is what makes the hero's band a real drawing instead of an empty
-# frame — and it seeds a battery reading with them, so the ring renders
-# too. A hero measured over an empty band would pass every stacking
-# assertion below while showing nothing.
+# Reuses `band_server` rather than a server of its own: it is the only fixture in this group
+# that seeds check-ins on the band's own Paris day, which is what makes the hero's band a
+# real drawing instead of an empty frame, and it seeds a battery reading with them so the
+# ring renders too. A hero measured over an empty band would pass every stacking assertion
+# below while showing nothing.
 #
-# WHAT THIS ASKS THAT A SOURCE SCAN CANNOT. "The hero stacks at 360px
-# with its parts at full size" is a sentence about rendered boxes: the
-# markup is identical whether the ring measures 36px or has been scaled
-# to 12 by a flex context, and "fits by shrinking its parts" is a page
-# that passes an overflow check and fails the requirement.
-# The ring's BOX is the <svg> the emitter sized, never the value arc
-# inside it: the arc's own bounding rectangle is its diameter (30.24px at
-# this size), which is a true number about the wrong element and reads
-# as a shrunken ring. The arc selector is kept for the paint measurement,
-# where the arc IS the subject.
-# ===========================================================================
+# "The hero stacks at 360px with its parts at full size" is a sentence about rendered boxes:
+# the markup is identical whether the ring measures 36px or has been scaled to 12 by a flex
+# context, and "fits by shrinking its parts" is a page that passes an overflow check and
+# fails the requirement. The ring's box is the <svg> the emitter sized, never the value arc
+# inside it: the arc's own bounding rectangle is its diameter, a true number about the wrong
+# element that reads as a shrunken ring. The arc selector is kept for the paint measurement,
+# where the arc is the subject.
 
 HERO_RING_FIGURE = " svg.drawing__figure"
 HERO_RING = " .drawing-ring-value"
 HERO_BAND_CANVAS = " .day-band .drawing__canvas"
 HERO_BAND_MARK = " .drawing-band-mark"
 HERO_AFTER = ".home-columns.home-picture-row"
-# The two sizes the hero must NOT change, each chosen from the 360px
-# floor by the plan that emitted the drawing: 24-04's small ring
-# (home_page.BATTERY_RING_SIZE, read from the module rather than
-# restated) and 24-06's MEASURED 278px band canvas.
+# The two sizes the hero must not change, each chosen from the 360px floor by the plan that
+# emitted the drawing: the small ring (home_page.BATTERY_RING_SIZE) and the measured 278px
+# band canvas.
 #
-# 278 is pinned here as an equality and not as a floor, and that is the
-# point of it: draw.DAY_BAND_MIN_MARK_SPACING_PERCENT was re-derived from
-# this exact number, so a hero that narrowed the band would leave two
-# check-in marks closer than the 4px that derivation bought while
-# overflowing nothing and moving no other measurement in this file.
+# 278 is pinned here as an equality and not as a floor: draw.DAY_BAND_MIN_MARK_SPACING_PERCENT
+# was re-derived from this exact number, so a hero that narrowed the band would leave two
+# check-in marks closer than the 4px that derivation bought while overflowing nothing and
+# moving no other measurement in this file.
 HERO_BAND_CANVAS_WIDTH_PX = 278.0
-# The composition, as two numbers. The parts sit one --space-md apart
-# inside the container and the container sits one --space-lg above what
-# follows it: bound tighter than they are separated, which is the whole
-# of the claim that Home's top is ONE thing. Both are CSS-only values
-# with no Python constant behind them — the shape of gap 24-06 found in
-# `--drawing-canvas-height: 24px` and 24-05 in `grid-column: 1 / -1`,
-# each invisible to every source scan until a mutation went looking.
+# The composition, as two numbers. The parts sit one --space-md apart inside the container
+# and the container sits one --space-lg above what follows it: bound tighter than they are
+# separated, which is the whole of the claim that Home's top is one thing. Both are CSS-only
+# values with no Python constant behind them, invisible to every source scan until a mutation
+# went looking.
 HERO_INNER_GAP_PX = 16.0
 HERO_OUTER_GAP_PX = 24.0
 
@@ -1491,17 +1311,14 @@ def _hero_boxes(page, hero_selector):
 
 
 def _hero_stack_failure(seen, where):
-    """"" when the hero's children share one column with the declared
-    gap between them, or a finished sentence naming the measurement that
-    says otherwise.
+    """"" when the hero's children share one column with the declared gap between them, or
+    a finished sentence naming the measurement that says otherwise.
 
-    ONE COLUMN IS THREE PROPERTIES, not one. Equal lefts alone are
-    satisfied by three boxes drawn on top of each other; equal widths
-    alone by a row; so the vertical order is asserted too, and the gap
-    between consecutive children is asserted as an EQUALITY rather than a
-    minimum — a 40px gap is what a hero whose children kept their own
-    bottom margins would render, and it passes every "at least" a reader
-    would think to write.
+    One column is three properties, not one: equal lefts alone are satisfied by three boxes
+    drawn on top of each other, equal widths alone by a row, so the vertical order is
+    asserted too, and the gap between consecutive children is asserted as an equality rather
+    than a minimum, since a larger gap is what a hero whose children kept their own bottom
+    margins would render and would pass every "at least" a reader would think to write.
     """
     children = seen["children"]
     if len(children) < 3:
@@ -1542,17 +1359,15 @@ def _hero_stack_failure(seen, where):
 
 
 def test_the_hero_stacks_at_360px_with_its_parts_at_the_size_their_own_plans_chose(new_context, band_server):
-    """at the 360px floor D4's hero STACKS rather than shrinks, in both languages:
-    its three parts share one column with exactly the 16px one --space-md
-    declares between them and 24px below the group (bound tighter than it is
-    separated, asserted as equalities because a 40px gap is what parts keeping
-    their own margins render and passes every 'at least'), the battery ring
-    still renders at the 36px home_page.BATTERY_RING_SIZE declares and the day
-    band's canvas at the 278px draw.py's mark spacing was derived from, all
-    five seeded check-ins still draw, the page body does not scroll sideways,
-    the hero is the same width in both languages, and the ring and the band
-    paint real inverting tokens in BOTH themes through selectors scoped INSIDE
-    the hero (CFG-44, CFG-45, 24-08-PLAN.md Task 3)"""
+    """At the 360px floor the hero stacks rather than shrinks, in both languages: its three
+    parts share one column with exactly the 16px one --space-md declares between them and
+    24px below the group (bound tighter than it is separated, asserted as equalities), the
+    battery ring still renders at the 36px home_page.BATTERY_RING_SIZE declares and the day
+    band's canvas at the 278px draw.py's mark spacing was derived from, all five seeded
+    check-ins still draw, the page body does not scroll sideways, the hero is the same width
+    in both languages, and the ring and the band paint real inverting tokens in both themes
+    through selectors scoped inside the hero.
+    """
     hero_selector = "." + home_page.HERO_CLASS
     base_url = band_server.base_url()
     widths = {}
@@ -1578,16 +1393,13 @@ def test_the_hero_stacks_at_360px_with_its_parts_at_the_size_their_own_plans_cho
                 raise AssertionError(message)
             widths[lang] = seen["hero"]["w"]
 
-            # THE PARTS AT FULL SIZE. A composition that fits by scaling
-            # its parts down has passed the overflow check above and
-            # failed the requirement: at 12px the ring is a dot and the
-            # band is a texture.
+            # The parts at full size: a composition that fits by scaling its parts down has
+            # passed the overflow check above and failed the requirement. `ring` is the
+            # emitter's own <svg> box, not the value arc (see HERO_RING_FIGURE above).
             if seen["ring"] is None:
                 raise AssertionError(
                     "in %s the hero draws no battery ring at %dpx"
                     % (lang, VIEWPORT_MIN_SUPPORTED["width"]))
-            # `ring` is the emitter's own <svg> box — see HERO_RING_FIGURE
-            # above for why it is not the value arc.
             for axis, label in (("w", "wide"), ("h", "tall")):
                 if abs(seen["ring"][axis] - float(home_page.BATTERY_RING_SIZE)) > 0.51:
                     raise AssertionError(
@@ -1619,11 +1431,9 @@ def test_the_hero_stacks_at_360px_with_its_parts_at_the_size_their_own_plans_cho
                     "still a drawing of the day"
                     % (lang, len(seen["marks"]), len(BAND_SEED_PARIS_HOURS)))
 
-            # BOTH THEMES, SCOPED INSIDE THE HERO. The paint is 24-04's
-            # and 24-06's property; what is new here is the SCOPE — these
-            # selectors only match if the drawings really are the hero's
-            # children in a real DOM, which no string containment in a
-            # source scan can establish.
+            # Both themes, scoped inside the hero: these selectors only match if the
+            # drawings really are the hero's children in a real DOM, which no string
+            # containment in a source scan can establish.
             painted = {}
             for theme in UI_THEMES_EXPLICIT:
                 _set_ui_theme(page, theme)
@@ -1655,16 +1465,15 @@ def test_the_hero_stacks_at_360px_with_its_parts_at_the_size_their_own_plans_cho
 
 
 def test_the_heros_grouping_holds_at_both_widths_and_owes_nothing_to_a_script(new_context, band_server):
-    """the hero's grouping is the same composition at 360px and at 1280px — one
-    column with the same 16px inside and 24px below at both, no page overflow
-    at either — while the three status tiles inside it stack at the floor and
-    share one row on the desktop, so the stack is a FLOOR behaviour rather than
-    the only one; the band gets MORE room as the viewport grows, never less;
-    every one of Home's declared refresh-swap selectors still matches a real
-    element through the browser's own selector engine (a stale one stops the
-    live refresh silently); and with scripts blocked the hero's children keep
-    their lefts, widths and gaps and both drawings keep their boxes (CFG-44,
-    CFG-45, D-09, 24-08-PLAN.md Task 3)"""
+    """The hero's grouping is the same composition at 360px and at 1280px: one column with
+    the same 16px inside and 24px below at both, no page overflow at either, while the three
+    status tiles inside it stack at the floor and share one row on the desktop, so the stack
+    is a floor behaviour rather than the only one; the band gets more room as the viewport
+    grows, never less; every one of Home's declared refresh-swap selectors still matches a
+    real element through the browser's own selector engine (a stale one stops the live
+    refresh silently); and with scripts blocked the hero's children keep their lefts, widths
+    and gaps and both drawings keep their boxes.
+    """
     hero_selector = "." + home_page.HERO_CLASS
     home_regions = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_HOME]
     base_url = band_server.base_url()
@@ -1689,15 +1498,10 @@ def test_the_heros_grouping_holds_at_both_widths_and_owes_nothing_to_a_script(ne
                 raise AssertionError(message)
             measured[width] = seen
 
-            # THE REGISTRY, THROUGH A REAL SELECTOR ENGINE.
-            # companion/static/freshness.js reads these five selectors
-            # and swaps what they match; one that matches nothing fails
-            # SILENTLY — the page simply stops refreshing — and
-            # restructuring Home's DOM is exactly how that happens. Asked
-            # here rather than through the Flights-style witness literal
-            # on purpose: a witness is a SECOND transcription of the
-            # selector, and it can agree with the page while the selector
-            # itself disagrees.
+            # The registry, through a real selector engine: freshness.js reads these five
+            # selectors and swaps what they match, and one that matches nothing fails
+            # silently (the page simply stops refreshing), which restructuring Home's DOM is
+            # exactly how that happens.
             if not home_regions:
                 raise AssertionError(
                     "Home declares no refresh regions at all — with none, this measures nothing")
@@ -1713,12 +1517,9 @@ def test_the_heros_grouping_holds_at_both_widths_and_owes_nothing_to_a_script(ne
         finally:
             context.close()
 
-    # THE STACK IS A FLOOR, NOT THE ONLY BEHAVIOUR. The hero itself is
-    # one column at every width by design — a column of its own would
-    # have to put the band in it, and a one-third column is NARROWER
-    # than the 278px the band already gets at 360px. What changes with
-    # the viewport is the PARTS: the three status tiles stack at the
-    # floor and share one row on the desktop.
+    # The stack is a floor, not the only behaviour: the hero itself is one column at every
+    # width by design. What changes with the viewport is the parts: the three status tiles
+    # stack at the floor and share one row on the desktop.
     floor_tiles = measured[VIEWPORT_MIN_SUPPORTED["width"]]["tiles"]
     desk_tiles = measured[VIEWPORT_DESKTOP["width"]]["tiles"]
     if len(floor_tiles) != 3 or len(desk_tiles) != 3:
@@ -1746,12 +1547,11 @@ def test_the_heros_grouping_holds_at_both_widths_and_owes_nothing_to_a_script(ne
             % (floor_band["w"], VIEWPORT_MIN_SUPPORTED["width"],
                desk_band["w"], VIEWPORT_DESKTOP["width"]))
 
-    # D-09: the hero is server-rendered markup, so with scripts blocked
-    # it is not merely present — it is laid out identically. Compared as
-    # the hero's OWN geometry (each child's left, width and the gap to
-    # the next) rather than as absolute page positions, because the
-    # freshness line and the relative-time ticker above it are scripted
-    # and may legitimately reflow the header by a pixel.
+    # The hero is server-rendered markup, so with scripts blocked it is not merely present,
+    # it is laid out identically. Compared as the hero's own geometry (each child's left,
+    # width and the gap to the next) rather than as absolute page positions, since the
+    # freshness line and the relative-time ticker above it are scripted and may legitimately
+    # reflow the header by a pixel.
     with _no_js_page(new_context, base_url, layout.HOME_ROUTE,
                      viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
         blocked_seen = _hero_boxes(blocked, hero_selector)
