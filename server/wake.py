@@ -1,16 +1,12 @@
 """server/wake.py — the effective wake interval and the derived
-device-staleness thresholds shared across the SkyPane server and web
-app (D-05/A-23, 19-05-PLAN.md; D-13/S-02, a later plan's own second
-consumer; D-27, 20-02-PLAN.md — moved here from the web app's own
-wake module this phase).
+device-staleness thresholds shared across the SkyPane server and web app.
 
-D-27 (20-CONTEXT.md): this module lives under `server/` — not the
-web-app package — specifically so `server/poll_loop.py` can reuse the
-identical thresholds the web app's Health page already displays,
-without the server ever importing anything from that other package.
-The web app's own wake module is now a thin re-export shim over this
-module, kept so every existing call site and every pinned test
-importing it keeps working unmodified.
+This module lives under `server/` — not the web-app package —
+specifically so `server/poll_loop.py` can reuse the identical thresholds
+the web app's Health page already displays, without the server ever
+importing anything from that other package. The web app's own wake
+module is a thin re-export shim over this module, kept so every existing
+call site and every pinned test importing it keeps working unmodified.
 
 Sits beside server/device_config.py in this same package — a shared,
 leaf module. This module may import server.device_config for its
@@ -19,13 +15,13 @@ DISPLAY_OFF_SLEEP_S). It must never import anything from the web-app
 package — that package's own wake module is expected to import THIS
 module (the shim direction), so the reverse import would be circular.
 
-19-12-PLAN.md Task 3 (D-13/S-02) added `next_wake_at_iso()`, this
-module's second export and the one definition site of the "when will
-the frame next wake up" arithmetic Home and Device both display.
-Deliberately imports no view/formatting module, even though its
-return value is only ever fed to a clock-text formatter by a caller:
-this module stays free of any VIEW dependency, matching every other
-function here — each page module formats the ISO string itself.
+`next_wake_at_iso()` is this module's second export and the one
+definition site of the "when will the frame next wake up" arithmetic
+Home and Device both display. Deliberately imports no view/formatting
+module, even though its return value is only ever fed to a clock-text
+formatter by a caller: this module stays free of any view dependency,
+matching every other function here — each page module formats the ISO
+string itself.
 
 Stdlib-only (os, json, datetime), plus server.device_config.
 """
@@ -37,8 +33,7 @@ from server import device_config
 
 SLEEP_ENV_VAR = "SKYPANE_SLEEP_S"
 
-# Quick task 260923-fr4 (battery-empty-screen-before-the-pack-die): the
-# BATTERY EMPTY latch's key in poll_state.json. Lives here, in this leaf
+# The BATTERY EMPTY latch's key in poll_state.json. Lives here, in this leaf
 # module the companion can already import (rather than in poll_loop.py,
 # which the companion never imports), so both poll_loop.py (the single
 # writer, via apply_battery_critical_hysteresis()) and every reader below -
@@ -47,14 +42,14 @@ SLEEP_ENV_VAR = "SKYPANE_SLEEP_S"
 # companion's own ctx builder - name the same key.
 BATTERY_CRITICAL_STATE_KEY = "battery_critical_active"
 
-# D-05 (19-CONTEXT.md): warn after this many missed wakes, error after
-# this many, each multiplier applied to the device's own effective wake
-# interval and then floored (see device_staleness_thresholds() below).
+# Warn after this many missed wakes, error after this many, each
+# multiplier applied to the device's own effective wake interval and then
+# floored (see device_staleness_thresholds() below).
 MISSED_WAKES_WARN = 3
 MISSED_WAKES_ERROR = 12
 
-# D-05: the floors a very short cadence must never warn/error below — a
-# 30s cadence would otherwise warn after 90 seconds (3 * 30), which one
+# The floors a very short cadence must never warn/error below - a 30s
+# cadence would otherwise warn after 90 seconds (3 * 30), which one
 # dropped Wi-Fi association would trip constantly. Fixed at 5/20 minutes
 # regardless of how short the configured cadence is.
 STALE_WARN_FLOOR_S = 300
@@ -94,13 +89,13 @@ def env_sleep_s():
 
 
 def read_battery_critical(state_dir):
-    """Quick task 260923-fr4: True only when
-    `<state_dir>/poll_state.json`'s BATTERY_CRITICAL_STATE_KEY is
-    literally `True` — every failure (missing file, malformed JSON, a
-    non-dict payload, or a value under the key that is anything other
-    than the literal boolean `True`) returns False and never raises,
-    the identical fail-open shape stub-server/byos_server.py's own
-    `read_display_enabled()` already uses for device_config.json.
+    """True only when `<state_dir>/poll_state.json`'s
+    BATTERY_CRITICAL_STATE_KEY is literally `True` — every failure
+    (missing file, malformed JSON, a non-dict payload, or a value under
+    the key that is anything other than the literal boolean `True`)
+    returns False and never raises, the identical fail-open shape
+    stub-server/byos_server.py's own `read_display_enabled()` already uses
+    for device_config.json.
 
     server/poll_loop.py is the single writer of poll_state.json — its
     own `apply_battery_critical_hysteresis()` computes the latch exactly
@@ -130,8 +125,8 @@ def effective_wake_interval_s(device_cfg, battery_critical=False):
     tolerates all three and never raises.
 
     Precedence:
-      1. When `battery_critical` is True (quick task 260923-fr4: the
-         BATTERY EMPTY hold is active), the parked cadence
+      1. When `battery_critical` is True (the BATTERY EMPTY hold is
+         active), the parked cadence
          (`device_config.BATTERY_CRITICAL_SLEEP_S`) is pinned ahead of
          every other consideration — checked FIRST, before even
          `display_enabled=False` below, because a flat pack overrides
@@ -141,8 +136,8 @@ def effective_wake_interval_s(device_cfg, battery_critical=False):
       2. Otherwise, when `device_cfg.get("display_enabled")` is
          explicitly `False`, the screen-off cadence
          (`device_config.DISPLAY_OFF_SLEEP_S`) is pinned independently
-         of `wake_interval_s` (12-CONTEXT.md D-01) — checked next,
-         before `wake_interval_s`, because the display-off cadence
+         of `wake_interval_s` — checked next, before `wake_interval_s`,
+         because the display-off cadence
          overrides whatever `wake_interval_s` happens to be configured
          to.
       3. Otherwise, `device_cfg.get("wake_interval_s")` when it is a
@@ -178,14 +173,14 @@ def effective_wake_interval_s(device_cfg, battery_critical=False):
 
 def device_staleness_thresholds(wake_interval_s):
     """The `(warn_s, error_s)` pair `staleness_status()` consumes for
-    the Device tile, derived from the device's own wake cadence
-    (D-05/A-23): warn after `MISSED_WAKES_WARN` missed wakes, error
-    after `MISSED_WAKES_ERROR`, each floored at
+    the Device tile, derived from the device's own wake cadence: warn
+    after `MISSED_WAKES_WARN` missed wakes, error after
+    `MISSED_WAKES_ERROR`, each floored at
     `STALE_WARN_FLOOR_S`/`STALE_ERROR_FLOOR_S`.
 
     The floors exist because a 30s cadence would otherwise warn after
     90 seconds (3 * 30) — one dropped Wi-Fi association would trip that
-    constantly — so D-05 fixes the floor at 5/20 minutes regardless of
+    constantly — so the floor is fixed at 5/20 minutes regardless of
     how short the configured cadence is.
 
     `wake_interval_s` must be a positive int to use the multiplier
@@ -212,19 +207,18 @@ def device_staleness_thresholds(wake_interval_s):
     return (warn_s, error_s)
 
 
-# 24-03-PLAN.md Task 2 (CFG-43): the verdict vocabulary for one OBSERVED
-# interval between two consecutive device check-ins. Module constants, not
-# bare string literals, for the same reason HOLD_QUIET_HOURS above is one.
+# The verdict vocabulary for one observed interval between two consecutive
+# device check-ins. Module constants, not bare string literals, for the
+# same reason HOLD_QUIET_HOURS below is one.
 #
 # Every term here is observed, never claimed. There is deliberately no
 # term asserting the device KEPT a wake, and none asserting it was on time
-# as a matter of conduct rather than of record:
-# 24-RESEARCH.md Risk 1 shows that a log rotation `history_db.
-# ingest_caddy_battery_log()` missed leaves a hole in `device_health`
-# indistinguishable from a device that did not wake, and that NO schema
-# change recovers it. A verdict here is therefore a statement about the
-# RECORD of check-ins, never about the device's conduct — and the name is
-# the one every caption drawn from it will inherit.
+# as a matter of conduct rather than of record: a log rotation
+# `history_db.ingest_caddy_battery_log()` missed leaves a hole in
+# `device_health` indistinguishable from a device that did not wake, and
+# no schema change recovers it. A verdict here is therefore a statement
+# about the record of check-ins, never about the device's conduct — and
+# the name is the one every caption drawn from it will inherit.
 CHECK_IN_ON_CADENCE = "on_cadence"
 CHECK_IN_LATE = "late"
 CHECK_IN_MISSING = "missing"
@@ -286,31 +280,30 @@ def classify_check_in_gap(gap_s, wake_interval_s):
     return CHECK_IN_ON_CADENCE
 
 
-# 22-02-PLAN.md Task 1 (D-03/CFG-26): the hold-reason vocabulary. A
-# module constant, not a bare string literal, so every consumer (the
-# strip, the tiles, companion/frame_state.py) compares against the same
-# identity rather than each hand-typing "quiet_hours" and risking a typo
-# that silently never matches. `None` is the other legal value, meaning
-# "not held" — there is deliberately no second reason constant for a
-# screen that is merely off, because that case is already fully absorbed
-# into `effective_wake_interval_s()`'s own DISPLAY_OFF_SLEEP_S branch: a
+# The hold-reason vocabulary. A module constant, not a bare string
+# literal, so every consumer (the strip, the tiles,
+# companion/frame_state.py) compares against the same identity rather
+# than each hand-typing "quiet_hours" and risking a typo that silently
+# never matches. `None` is the other legal value, meaning "not held" —
+# there is deliberately no second reason constant for a screen that is
+# merely off, because that case is already fully absorbed into
+# `effective_wake_interval_s()`'s own DISPLAY_OFF_SLEEP_S branch: a
 # longer, but still perfectly ordinary, cadence. Only an active
-# quiet-hours window changes the STATE a consumer should render (D-03's
-# "held" state), so only it gets a reason.
+# quiet-hours window changes the state a consumer should render, so only
+# it gets a reason.
 HOLD_QUIET_HOURS = "quiet_hours"
 
 
 def next_wake_status(last_checkin_ts, device_cfg, battery_critical=False):
     """The `(next_wake_iso, effective_interval_s, hold_reason)` triple
-    every consumer of "when will the frame next wake" needs (D-03/
-    CFG-26, 22-02-PLAN.md Task 1): the strip's headline, the Home/Health
-    status tiles and every settings delay caption all read this ONE
-    result instead of each re-deriving their own — that is what makes
-    the disagreement X2 found ("Expected since 23:0x" beside "Checking
-    in normally") impossible by construction.
+    every consumer of "when will the frame next wake" needs: the strip's
+    headline, the Home/Health status tiles and every settings delay
+    caption all read this ONE result instead of each re-deriving their
+    own — that is what makes a disagreement like "Expected since 23:0x"
+    beside "Checking in normally" impossible by construction.
 
-    `battery_critical` (quick task 260923-fr4, default False so every
-    pre-existing call site is unaffected) is threaded straight through to
+    `battery_critical` (default False so every pre-existing call site is
+    unaffected) is threaded straight through to
     `effective_wake_interval_s()` below, which pins the parked
     `device_config.BATTERY_CRITICAL_SLEEP_S` cadence ahead of every other
     consideration when True — see that function's own docstring for the
@@ -384,8 +377,8 @@ def next_wake_status(last_checkin_ts, device_cfg, battery_critical=False):
     configured inside the 02:00-03:00 transition hour on the last Sunday
     of March or October can resolve up to an hour off for that one
     instant, twice a year — accepted there, accepted here for the same
-    reason (D-01's "never shorter than the base sleep" rule bounds the
-    worst case to one extra or one missing wake).
+    reason ("never shorter than the base sleep" bounds the worst case to
+    one extra or one missing wake).
     """
     if not last_checkin_ts:
         return None, None, None
@@ -421,18 +414,16 @@ def next_wake_status(last_checkin_ts, device_cfg, battery_critical=False):
 
 def next_wake_at_iso(last_checkin_ts, device_cfg, battery_critical=False):
     """The next time the device is expected to wake, as an ISO-8601 UTC
-    string, or `None` when it cannot be determined (D-13/S-02).
+    string, or `None` when it cannot be determined.
 
-    A thin wrapper over `next_wake_status()` (D-03/CFG-26,
-    22-02-PLAN.md Task 1) returning its ISO element only. Its name,
-    signature, None-cases and never-raise contract are all unchanged by
-    that extension, so `home_page.py:421` and `config_page.py:3109` keep
-    compiling and keep returning the same values for every
-    non-quiet-hours configuration; they migrate to the richer accessor
-    in their own plan, not here. `battery_critical` (quick task
-    260923-fr4, default False) is threaded straight through to
-    `next_wake_status()` for the identical reason that function's own
-    docstring gives.
+    A thin wrapper over `next_wake_status()` returning its ISO element
+    only. Its name, signature, None-cases and never-raise contract are all
+    unchanged by that extension, so every existing caller keeps compiling
+    and keeps returning the same values for every non-quiet-hours
+    configuration; they migrate to the richer accessor on their own
+    schedule, not here. `battery_critical` (default False) is threaded
+    straight through to `next_wake_status()` for the identical reason that
+    function's own docstring gives.
 
     Returns a plain ISO string, not formatted text — deliberately not
     run through any formatter here, since this module has no view

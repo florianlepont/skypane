@@ -4,10 +4,9 @@ This module and stub-server/make_test_panel.py must agree on WIDTH/HEIGHT/
 ROW_BYTES/IMAGE_BYTES and the six nibble codes - both encode the exact same
 docs/PROTOCOL.md section 1 wire format. stub-server/ is deliberately NOT
 imported from server/ here (the dependency direction would be backwards -
-stub-server/ is Phase 1's vendored device-facing reference server, server/
-is Phase 2's real rendering pipeline); the constants are duplicated instead,
-per 02-PATTERNS.md's explicit planner-discretion call. If either file's
-values ever drift, PROTOCOL.md is the tiebreaker.
+stub-server/ is a vendored device-facing reference server, server/ is the
+real rendering pipeline); the constants are duplicated instead. If either
+file's values ever drift, PROTOCOL.md is the tiebreaker.
 """
 
 WIDTH = 1200
@@ -26,42 +25,33 @@ GREEN = 0x6
 
 # --- Pillow palette bridge -------------------------------------------------
 #
-# D-P2-03 (locked, 02-01-PLAN.md): these sRGB triples are render-internal
-# only - nominal, approximate swatch colors that exist purely so Pillow's
-# "P"-mode ImageDraw has a palette to attach to, and so an optional
-# developer preview PNG (render.py --preview) is viewable on a normal
-# monitor. They NEVER cross the wire to the device. What the device
-# receives is exclusively the INDEX_TO_NIBBLE-mapped nibble codes above.
-# Real panel colour fidelity is verified on glass in plan 02-05, not here.
+# These sRGB triples are render-internal only - nominal, approximate swatch
+# colors that exist purely so Pillow's "P"-mode ImageDraw has a palette to
+# attach to, and so an optional developer preview PNG (render.py --preview)
+# is viewable on a normal monitor. They NEVER cross the wire to the
+# device. What the device receives is exclusively the
+# INDEX_TO_NIBBLE-mapped nibble codes above.
 #
-# Phase 3 D-13 (03-01-PLAN.md): indices 2/3 (yellow/red) are a community-
-# estimate approximation of the real Spectra 6 panel's muted inks - LOW
-# confidence, an interim step pending the on-glass calibration pass
-# recorded in hardware/BRINGUP-LOG.md (03-04).
+# Indices 2/3 (yellow/red) are a community-estimate approximation of the
+# real Spectra 6 panel's muted inks - low confidence, an interim step
+# pending further on-glass calibration.
 #
-# Phase 3 D-21 (03-CONTEXT.md, live-previewed and confirmed by the
-# developer against real rendered mockups this session): indices 4/5
-# (blue/green) were lightened from D-13's muted-ink values to a brighter,
-# more "sky"-like tone the developer asked for - but that confirmation was
-# monitor-only (in-chat PIL mockups), never checked against real glass.
-#
-# Phase 7 07-01 (hardware/BRINGUP-LOG.md, real on-glass photo + verbal
-# report): the real Spectra 6 ink for both blue and green renders visibly
-# darker and more muted than the D-21 sky-tone values - confirmed both by
-# the developer's direct description and a real photo of the six-band
-# calibration panel. Darkened/desaturated to approximate what the ink
-# actually looks like. This is still an approximate, no-colorimeter nudge
-# (same D-13 confidence level, not instrumentation-grade) - it makes the
-# monitor-side preview (and illustration-dithering colour matching) more
-# honest about the real ink, since the flat background fill itself is a
-# fixed physical ink colour no software value can change.
+# Indices 4/5 (blue/green) were tuned in two passes: first lightened to a
+# brighter, more "sky"-like tone confirmed only against monitor-side
+# mockups, then darkened again after a real on-glass photo showed the
+# actual ink renders visibly darker and more muted than any monitor
+# preview. The current values are still an approximate, no-colorimeter
+# nudge (same confidence level as yellow/red, not instrumentation-grade) -
+# they make the monitor-side preview (and illustration-dithering colour
+# matching) more honest about the real ink, since the flat background fill
+# itself is a fixed physical ink colour no software value can change.
 PALETTE_RGB = [
     0, 0, 0,        # index 0 -> nibble 0x0 black
     255, 255, 255,  # index 1 -> nibble 0x1 white
-    240, 224, 80,   # index 2 -> nibble 0x2 yellow (D-13 interim, confirmed close enough on-glass 07-01)
-    160, 32, 32,    # index 3 -> nibble 0x3 red (D-13 interim, confirmed close enough on-glass 07-01)
-    45, 95, 155,    # index 4 -> nibble 0x5 blue  (07-01: darkened further from (70,125,185) - developer reported real ink still more muted)
-    50, 105, 65,    # index 5 -> nibble 0x6 green (07-01: darkened further from (80,140,95) - developer reported real ink still more muted)
+    240, 224, 80,   # index 2 -> nibble 0x2 yellow (interim estimate, confirmed close enough on-glass)
+    160, 32, 32,    # index 3 -> nibble 0x3 red (interim estimate, confirmed close enough on-glass)
+    45, 95, 155,    # index 4 -> nibble 0x5 blue  (darkened further from (70,125,185) - real ink still more muted)
+    50, 105, 65,    # index 5 -> nibble 0x6 green (darkened further from (80,140,95) - real ink still more muted)
 ]
 
 # Pillow "P"-mode palette indices are contiguous from 0; the wire format's
@@ -107,8 +97,7 @@ def padded_palette():
 def new_canvas(bg_index):
     """Return a fresh "P"-mode (1200x1600) canvas, palette already applied,
     filled with bg_index. Callers draw directly onto this with integer
-    palette-index fills (02-RESEARCH.md Architecture Pattern 1) - never
-    compose in RGB and quantize afterward.
+    palette-index fills - never compose in RGB and quantize afterward.
     """
     from PIL import Image
 
@@ -121,8 +110,8 @@ def pack_panel(canvas):
     """Pack a "P"-mode (1200x1600) canvas into the exact 960,000-byte
     docs/PROTOCOL.md section 1 wire format: 1600 rows x 600 bytes, 2 px per
     byte, the LEFT pixel of each pair in the HIGH nibble
-    (byte = (left_nibble << 4) | right_nibble). 02-RESEARCH.md's verified
-    Architecture Pattern 3, copied here as render.py's shared packing step.
+    (byte = (left_nibble << 4) | right_nibble). render.py's shared packing
+    step.
 
     Vectorised (measured 0.085s -> ~0.003s per panel): a "P"-mode canvas's
     tobytes() is exactly one palette-index byte per pixel, row-major - the

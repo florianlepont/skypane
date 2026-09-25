@@ -1,28 +1,25 @@
 #!/usr/bin/env python3
-"""SQLite history store behind CFG-03's health trend, CFG-06's flight log,
-and CFG-08's resolution statistics, plus the Caddy access-log tailer that
-is the only permitted path to device battery telemetry (D-03,
-06-CONTEXT.md - `stub-server/byos_server.py` is vendored and must never be
-modified, even though it is the process that actually receives
-`X-Battery-Mv` per request).
+"""SQLite history store behind the health trend, the flight log, and
+resolution statistics, plus the Caddy access-log tailer that is the only
+permitted path to device battery telemetry - `stub-server/byos_server.py`
+is vendored and must never be modified, even though it is the process
+that actually receives `X-Battery-Mv` per request.
 
 Stdlib-only (`sqlite3`, `json`, `os`, `datetime`). This module must not
 import `device_config`, `server.plane.detect`, `server.plane.render`, or
 `server.poll_loop` - it is a leaf, like `server.device_config`.
 
-Cadence rule (Pitfall 1, 06-RESEARCH.md): `runway_events` rows are written
-only on a real transition - a new `hex`, a `confirmed_state` flip, or a
-`corroborated` flip - never once per 30-second poll cycle. The always-
-changing "when did the pipeline last run" signal belongs in the fixed-size
-`meta` table instead (see the `META_*` key constants below), so D-13's
-keep-forever retention does not turn into unbounded per-cycle row growth
-(T-06-01-04).
+Cadence rule: `runway_events` rows are written only on a real transition -
+a new `hex`, a `confirmed_state` flip, or a `corroborated` flip - never
+once per 30-second poll cycle. The always-changing "when did the pipeline
+last run" signal belongs in the fixed-size `meta` table instead (see the
+`META_*` key constants below), so keep-forever retention does not turn
+into unbounded per-cycle row growth.
 
-Concurrency (Pitfall 9): every connection this module opens sets
-`PRAGMA journal_mode=WAL` and `PRAGMA busy_timeout=5000`, so a concurrent
-write from the 30-second poll oneshot and a read from the long-running
-companion service wait briefly on a lock instead of raising
-"database is locked" (T-06-01-05).
+Concurrency: every connection this module opens sets `PRAGMA
+journal_mode=WAL` and `PRAGMA busy_timeout=5000`, so a concurrent write
+from the 30-second poll oneshot and a read from the long-running companion
+service wait briefly on a lock instead of raising "database is locked".
 """
 import contextlib
 import json
@@ -32,9 +29,8 @@ import sys
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-# Same repo-root sys.path bootstrap as server/poll_loop.py (lines 31-38),
-# so this file works both as `import server.history_db` and when executed
-# directly.
+# Same repo-root sys.path bootstrap as server/poll_loop.py, so this file
+# works both as `import server.history_db` and when executed directly.
 _HERE = os.path.dirname(os.path.abspath(__file__))  # server/
 _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
@@ -42,8 +38,8 @@ if _REPO_ROOT not in sys.path:
 
 HISTORY_DB_FILENAME = "history.db"
 
-# Fixed-size per-cycle signals (Pitfall 1) - constant storage regardless of
-# how many poll cycles run, unlike a hypothetical one-row-per-cycle table.
+# Fixed-size per-cycle signals - constant storage regardless of how many
+# poll cycles run, unlike a hypothetical one-row-per-cycle table.
 META_LAST_PIPELINE_RUN = "last_pipeline_run"
 META_LAST_DETECTION = "last_detection"
 META_SOURCE_FAULT = "source_fault"
@@ -72,11 +68,11 @@ _META_UPSERT_SQL = (
     "INSERT OR REPLACE INTO meta (key, value, updated_at) VALUES (?, ?, ?)"
 )
 
-# T-06-01-03: the only header names ever extracted from a Caddy access-log
-# line. Extraction always indexes into this fixed allowlist, one name at a
-# time - the header map is never copied wholesale - so a future Caddy
-# config that stops redacting Authorization/Cookie cannot leak a
-# credential into history.db.
+# The only header names ever extracted from a Caddy access-log line.
+# Extraction always indexes into this fixed allowlist, one name at a time -
+# the header map is never copied wholesale - so a future Caddy config that
+# stops redacting Authorization/Cookie cannot leak a credential into
+# history.db.
 _TELEMETRY_HEADER_ALLOWLIST = ("X-Fw-Version", "X-Boot-Reason", "X-Rssi", "X-Battery-Mv")
 
 DEVICE_DISPLAY_URI = "/device/v1/display"
@@ -99,12 +95,12 @@ def init_schema(conn):
     IF NOT EXISTS, so both the poll oneshot and the companion service can
     call this safely on every connection.
 
-    That last sentence is this project's ENTIRE migration story: there is
+    That last sentence is this project's entire migration story: there is
     no schema version stamp and no in-place table alteration anywhere in
     the tree (a pinned property - the harness greps this file for both).
-    It is why `wake_epochs` below could be added as a fourth TABLE at no
-    cost at all, and why the same data as a new COLUMN on `device_health`
-    could not have been (24-RESEARCH.md Risk 1, Options A and C).
+    It is why `wake_epochs` below could be added as a fourth table at no
+    cost at all, and why the same data as a new column on `device_health`
+    could not have been.
     """
     conn.execute(
         "CREATE TABLE IF NOT EXISTS runway_events ("
@@ -117,7 +113,7 @@ def init_schema(conn):
         # corroborated is stored as the TEXT of the three-state flag (the
         # string forms of true/false/none) - SQLite has no tri-state
         # boolean, and collapsing the unknown case into false would
-        # destroy exactly the signal D-15 wants surfaced.
+        # destroy that signal.
         "corroborated TEXT, "
         "route_source TEXT, "
         "airline TEXT, "
@@ -148,30 +144,28 @@ def init_schema(conn):
         "updated_at TEXT NOT NULL"
         ")"
     )
-    # 24-03-PLAN.md Task 3 (CFG-43). One row per CHANGE in the device's
-    # effective wake interval, and the instant that new interval took
-    # effect. Three things justify it, all three load-bearing:
+    # One row per CHANGE in the device's effective wake interval, and the
+    # instant that new interval took effect. Three things justify it, all
+    # three load-bearing:
     #
-    #   1. A NEW TABLE COSTS NO MIGRATION. This function runs on every
+    #   1. A new table costs no migration. This function runs on every
     #      connection from both processes (see its docstring), so the
     #      table simply exists on the next connect - for the poll oneshot
     #      and the long-lived companion alike, with no version stamp and
     #      no coordination between them.
-    #   2. A NEW COLUMN WOULD NOT HAVE BEEN FREE. Recording the same
+    #   2. A new column would not have been free. Recording the same
     #      thing as `device_health.expected_interval_s` would have
     #      required inventing this project's first SQLite migration
     #      mechanism, and getting it right for a database two processes
     #      open concurrently under WAL. That is why the epoch is a table
     #      and not a column.
-    #   3. NOTHING READS IT YET, deliberately. It exists so a LATER phase
-    #      can upgrade D20's metric from observed check-in regularity to a
-    #      genuine rate of wakes kept, over the window these epochs cover.
-    #      No drawing in phase 24 pretends they already exist; if any
-    #      drawing read this table it would be blank until the epochs
-    #      accrue, which is exactly the failure mode changing the metric
-    #      avoided (24-RESEARCH.md Risk 1, Option C).
+    #   3. Nothing reads it yet, deliberately. It exists so a later phase
+    #      can upgrade the check-in metric from observed check-in
+    #      regularity to a genuine rate of wakes kept, over the window
+    #      these epochs cover. No drawing reads this table yet; it would
+    #      simply be blank until the epochs accrue.
     #
-    # `wake_interval_s` is nullable ON PURPOSE: `wake.effective_wake_
+    # `wake_interval_s` is nullable on purpose: `wake.effective_wake_
     # interval_s()` legitimately returns None when the cadence cannot be
     # determined at all, and a NULL epoch records "from here, unknown"
     # rather than letting a future reader infer the previous interval
@@ -224,9 +218,9 @@ def record_runway_event(conn, **fields):
     (always stored as `str(value)` - "True"/"False"/"None" - never the raw
     Python object, so a hostile or malformed value can never reach SQL as
     anything but a parameterised text string). Every value is passed via a
-    `?` placeholder (T-06-01-02, ASVS V5) - never string-formatted into the
-    SQL text, so a callsign or airline name carrying HTML or a SQL quote is
-    stored and returned byte-identical, never executed.
+    `?` placeholder - never string-formatted into the SQL text, so a
+    callsign or airline name carrying HTML or a SQL quote is stored and
+    returned byte-identical, never executed.
     """
     ts = fields.get("ts") or utc_now_iso()
     values = []
@@ -253,19 +247,18 @@ def record_device_health(conn, ts, battery_mv=None, fw_version=None, boot_reason
 
 
 def record_wake_epoch(conn, ts, wake_interval_s):
-    """(24-03-PLAN.md Task 3, CFG-43) Record that the device's effective
-    wake interval became `wake_interval_s` at `ts` - but ONLY when that
-    differs from the newest row already stored. Returns the number of rows
-    actually inserted (0 or 1).
+    """Record that the device's effective wake interval became
+    `wake_interval_s` at `ts` - but only when that differs from the newest
+    row already stored. Returns the number of rows actually inserted
+    (0 or 1).
 
-    The dedupe is the whole point, and it is Pitfall 1's rule applied to a
-    fourth table: the caller is a `Type=oneshot` unit under a 30-second
-    timer, so roughly 2,880 cycles a day pass through here. An
-    unconditional insert would add 2,880 rows a day carrying no
-    information whatsoever; only a CHANGE is an epoch.
+    The dedupe is the whole point: the caller is a `Type=oneshot` unit
+    under a 30-second timer, so roughly 2,880 cycles a day pass through
+    here. An unconditional insert would add 2,880 rows a day carrying no
+    information whatsoever; only a change is an epoch.
 
     `wake_interval_s=None` (the cadence cannot be determined) is a
-    DISTINCT value, not a continuation: `None` following a stored 600
+    distinct value, not a continuation: `None` following a stored 600
     inserts, and `None` following a stored NULL does not. A later reader
     must not be told the frame was still on its old cadence when nothing
     said so.
@@ -278,7 +271,7 @@ def record_wake_epoch(conn, ts, wake_interval_s):
     interleave with itself; were a second writer ever added, the worst
     case is a duplicate epoch row, never a lost or corrupted one.
 
-    Nothing in phase 24 reads this table - see the schema comment in
+    Nothing reads this table yet - see the schema comment in
     `init_schema()` above for why it exists anyway.
     """
     newest = conn.execute(
@@ -392,9 +385,8 @@ def _paris_day_or_none(ts):
 
 
 def check_in_gaps(conn, since=None):
-    """(24-03-PLAN.md Task 1, CFG-43) The OBSERVED intervals between
-    consecutive `device_health` check-ins, oldest-first, one dict per
-    interval:
+    """The observed intervals between consecutive `device_health`
+    check-ins, oldest-first, one dict per interval:
 
         {"ts": <the later check-in's stored ts>,
          "from_ts": <the earlier check-in's stored ts>,
@@ -413,10 +405,10 @@ def check_in_gaps(conn, since=None):
     SQL through a `?` placeholder - the same `since` vocabulary and the
     same index-preserving shape `daily_battery_averages(conn, since=...)`
     uses, never a `date()` call wrapped around the left-hand side.  Like
-    every other `since` in this codebase it is a DISPLAY window, never a
-    retention bound: nothing is deleted (D-13).
+    every other `since` in this codebase it is a display window, never a
+    retention bound: nothing is deleted.
 
-    NO `battery_mv` FILTER, deliberately. A row whose `battery_mv` is NULL
+    No `battery_mv` filter, deliberately. A row whose `battery_mv` is NULL
     is a real check-in whose `X-Battery-Mv` header was absent or
     unparseable - `ingest_caddy_battery_log()` keeps one row per
     `/device/v1/display` access-log entry, not one per battery reading.
@@ -425,7 +417,7 @@ def check_in_gaps(conn, since=None):
     such a row into one long gap, inventing a missed wake out of a missing
     HTTP header.
 
-    ORDERED BY INGEST (`id`), not by `ts`. The SQL window predicate and
+    Ordered by ingest (`id`), not by `ts`. The SQL window predicate and
     ordering still run on `ts` so `idx_device_health_ts` is used, but the
     series is re-sorted by `id` in Python before intervals are taken,
     because `id` is assigned by `ingest_caddy_battery_log()` in the order
@@ -443,12 +435,12 @@ def check_in_gaps(conn, since=None):
     Fewer than two rows in the window bounds no interval at all and returns
     `[]`. Nothing here raises.
 
-    WHAT THIS READER CANNOT KNOW (24-RESEARCH.md Risk 1 - this travels with
-    the data, not only with whatever caption is drawn from it; it is also
-    why nothing here is named as a RATE OF WAKES THE DEVICE KEPT):
+    What this reader cannot know - this travels with the data, not only
+    with whatever caption is drawn from it; it is also why nothing here is
+    named as a rate of wakes the device kept:
 
-    - A LOG RANGE THE INGEST MISSED IS INDISTINGUISHABLE FROM A MISSED
-      WAKE. `ingest_caddy_battery_log()` recovers a rotate-in-place (it
+    - A log range the ingest missed is indistinguishable from a missed
+      wake. `ingest_caddy_battery_log()` recovers a rotate-in-place (it
       resets its offset to 0 when the file is shorter than the stored
       offset) but cannot recover a rotation that moved the old file away
       between two ingests: that range is simply gone, and the resulting
@@ -456,8 +448,8 @@ def check_in_gaps(conn, since=None):
       up. No schema change recovers it. Related: `meta.caddy_log_offset` is
       the only ingest state kept, so "no rows in this window" cannot be
       distinguished from "the ingest did not run in this window" either.
-    - `UNIQUE(ts, battery_mv)` CAN COLLAPSE TWO GENUINE CHECK-INS into one
-      row - but only when they share a whole second AND a millivolt
+    - `UNIQUE(ts, battery_mv)` can collapse two genuine check-ins into one
+      row - but only when they share a whole second and a millivolt
       reading. `device_config.WAKE_INTERVAL_MIN_S` is 60, so two real
       consecutive wakes are at least 60 seconds apart at any configurable
       cadence and cannot land in the same second: at any cadence this
@@ -504,9 +496,9 @@ def check_in_gaps(conn, since=None):
 
 
 def daily_battery_averages(conn, since=None):
-    """(22-06-PLAN.md Task 1) One row per Europe/Paris calendar day that has
-    at least one numeric battery reading, newest day first: `{"ts":
-    "YYYY-MM-DD", "battery_mv": <int>, "reading_count": <int>}`.
+    """One row per Europe/Paris calendar day that has at least one numeric
+    battery reading, newest day first: `{"ts": "YYYY-MM-DD", "battery_mv":
+    <int>, "reading_count": <int>}`.
 
     The key is deliberately named `ts`, not `day` - it makes these rows
     structurally interchangeable with `recent_device_health()`'s rows for
@@ -542,10 +534,10 @@ def daily_battery_averages(conn, since=None):
       average of nothing would then choke the `int(round(...))` cast), and
       `reading_count` needs to mean "readings that contributed to this
       average", not "rows recorded on this day".
-    - This is a read. D-13's keep-forever retention is untouched here or
-      anywhere - `since`, like `BATTERY_TREND_LIMIT` elsewhere in this
-      codebase, is a display window, never a retention bound. Nothing is
-      deleted.
+    - This is a read. This project's keep-forever retention is untouched
+      here or anywhere - `since`, like `BATTERY_TREND_LIMIT` elsewhere in
+      this codebase, is a display window, never a retention bound. Nothing
+      is deleted.
     - DST caveat, same accepted framing as `seconds_until_quiet_hours_end()`
       (`server/device_config.py`): there is no SQL fixed-offset modifier
       that is DST-correct for Europe/Paris (`date(ts, '+1 hours')` is wrong
@@ -599,14 +591,12 @@ def set_meta(conn, key, value):
     conn.commit()
 
 
-# --- Caddy battery-log tailer (Pattern 6, D-03) -----------------------------
+# --- Caddy battery-log tailer -----------------------------------------------
 #
-# Assumption A3 (06-RESEARCH.md): the exact JSON nesting of Caddy's logged
-# request headers below (`request.headers.<Header-Name>` as a list of
-# strings) is taken from Caddy's own documentation and has not been
-# confirmed against a real captured line on the live host - plan 06-12
-# confirms it there. Until then, a nesting mismatch degrades to "zero
-# readings ingested" (every line's `request`/`headers` lookup comes back
+# The exact JSON nesting of Caddy's logged request headers below
+# (`request.headers.<Header-Name>` as a list of strings) is taken from
+# Caddy's own documentation. A nesting mismatch degrades to "zero readings
+# ingested" (every line's `request`/`headers` lookup comes back
 # `None`/absent and is skipped), never to an exception.
 
 
@@ -619,8 +609,8 @@ def tail_caddy_battery_log(log_path, offset):
     skipped silently, as is any line whose request URI is not
     `DEVICE_DISPLAY_URI`. The four telemetry headers are extracted only by
     name from `_TELEMETRY_HEADER_ALLOWLIST` - the header map itself is
-    never copied wholesale (T-06-01-03) - and each header value is taken
-    as the first element of Caddy's list-of-strings representation. The
+    never copied wholesale - and each header value is taken as the first
+    element of Caddy's list-of-strings representation. The
     battery value is coerced to `int` inside a `try`, yielding `None` on
     failure rather than raising. The entry's own `ts` field is used when it
     is a string; converted when it is a float/int epoch; and falls back to

@@ -1,31 +1,28 @@
 #!/usr/bin/env python3
 """The mathematical inverse of `panel_format.pack_panel()`, plus a PNG
 encoder that turns the live `state_dir/panel.bin` into bytes an HTTP
-handler can write directly (CFG-10).
+handler can write directly.
 
-This module currently has no production caller — companion/app.py's
-`/preview.png` route, its only caller outside this file's own tests, was
-removed by quick task 260903-c4o in favour of the render gallery's
-existing full-resolution `/gallery/{name}.png` route — and it is kept on
-disk as tested infrastructure (`test_panel_preview.py`'s 11-check
-harness), not deleted.
+This module currently has no production caller - it was used by a
+companion preview route since replaced by the render gallery's
+full-resolution `/gallery/{name}.png` route - and it is kept on disk as
+tested infrastructure (`test_panel_preview.py`'s 11-check harness), not
+deleted.
 
 This module exists because `server/plane/render.py`'s `--preview` CLI flag
 renders a hardcoded sample flight - it cannot answer "what is on the panel
-right now" (06-RESEARCH.md Pattern 4 and its Anti-Patterns list explicitly
-reject wrapping `render.py --preview` for this purpose). The only source of
-truth for what the physical frame is currently displaying is the literal
-960,000 packed bytes that `poll_loop.py`'s `write_panel_atomic()` writes to
-`state_dir/panel.bin` and that `byos_server.py` serves to the device
-verbatim - so this module unpacks exactly those bytes instead.
+right now". The only source of truth for what the physical frame is
+currently displaying is the literal 960,000 packed bytes that
+`poll_loop.py`'s `write_panel_atomic()` writes to `state_dir/panel.bin`
+and that `byos_server.py` serves to the device verbatim - so this module
+unpacks exactly those bytes instead.
 
-Colour accuracy caveat (D-P2-03): the RGB values `panel_png_bytes()`
-produces come from `panel_format.PALETTE_RGB`, which D-P2-03 defines as
-nominal, render-internal swatch colours - not colour-accurate against real
-Spectra 6 glass. This module faithfully reproduces the *indices* on the
-wire (proven by the round-trip harness in `test_panel_preview.py`), but the
-resulting PNG is an index-accurate preview, not a colour-accurate one.
-Plan 06-09's Preview page surfaces this same caveat as caption copy.
+Colour accuracy caveat: the RGB values `panel_png_bytes()` produces come
+from `panel_format.PALETTE_RGB`, nominal render-internal swatch colours -
+not colour-accurate against real Spectra 6 glass. This module faithfully
+reproduces the *indices* on the wire (proven by the round-trip harness in
+`test_panel_preview.py`), but the resulting PNG is an index-accurate
+preview, not a colour-accurate one.
 
 This module is imported inside an HTTP request handler: it emits nothing
 to standard output and never writes to the filesystem (a stray console
@@ -38,10 +35,10 @@ import os
 import sys
 
 # Allow both `import server.panel_preview` (package import) and direct
-# script execution, matching server/poll_loop.py's own bootstrap
-# (poll_loop.py lines 31-38): sys.path[0] is server/ itself when this file
-# is executed directly, so the repo root must be added by hand before the
-# absolute `server.panel_format` import below can resolve.
+# script execution, matching server/poll_loop.py's own bootstrap:
+# sys.path[0] is server/ itself when this file is executed directly, so
+# the repo root must be added by hand before the absolute
+# `server.panel_format` import below can resolve.
 _HERE = os.path.dirname(os.path.abspath(__file__))  # server/
 _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
@@ -54,8 +51,8 @@ from server import panel_format
 # The single source of truth for nibble<->index mapping: derived by
 # inverting panel_format.INDEX_TO_NIBBLE, never by retyping the six pairs.
 # This one derivation is what makes silent drift between pack_panel() and
-# unpack_panel() impossible (T-06-03-02) - a future palette change that
-# edits INDEX_TO_NIBBLE automatically keeps this in sync.
+# unpack_panel() impossible - a future palette change that edits
+# INDEX_TO_NIBBLE automatically keeps this in sync.
 NIBBLE_TO_INDEX = {nibble: index for index, nibble in panel_format.INDEX_TO_NIBBLE.items()}
 
 
@@ -63,8 +60,8 @@ class PanelDecodeError(ValueError):
     """Raised when raw panel bytes cannot be turned into an image - wrong
     length or an illegal nibble code. Always this one typed exception,
     never AssertionError/IndexError, so the HTTP layer can catch a single
-    type and return 06-UI-SPEC.md's "temporarily unavailable" copy instead
-    of faulting on an unhandled exception (T-06-03-01).
+    type and return a "temporarily unavailable" response instead of
+    faulting on an unhandled exception.
     """
 
 
