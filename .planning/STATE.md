@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 35-14-PLAN.md
-last_updated: "2026-09-25T16:52:57.274Z"
+stopped_at: Completed 35-15-PLAN.md
+last_updated: "2026-09-25T20:22:59.080Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 53
   completed_phases: 42
   total_plans: 369
-  completed_plans: 349
+  completed_plans: 350
   percent: 79
 ---
 
@@ -58,7 +58,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 Phase: 35 (comment-purge-in-english-and-dead-code) — EXECUTING
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
-Plan: 15 of 22
+Plan: 16 of 22
 
 **23-10 executed (2026-09-13), wave 8 (depends on 23-01, 23-02, 23-09) — D3's remainder: the selection scale and wash fade, the theme-preview crossfade, both `<dialog>` entrances via `@starting-style`, and skeletons at final size.** **The one `@supports selector(:has(*))` block is still exactly one**, which the plan named as its single largest risk, and the way through was one sentence written into the stylesheet where the next editor will look: a transition is a property of the ELEMENT, not of the state, so declared on the base rule of `.theme-chip`/`.theme-chip__body`/`.runway-card` it animates the live `:has(input:checked)` treatment and the server-rendered `--selected` fallback identically, from one declaration, and no second feature query is needed. Both halves are asserted inside a SINGLE check function — the transitions exist outside the query AND the query contains no `transition` at all — so "helpfully" moving one inside fails exactly once rather than twice. The arithmetic comment, every border width, both dashed markers and the `:has(input:checked):hover` restore rule are untouched: the `style.css` diff for Task 1 is **111 insertions, 0 deletions**. **The decision that mattered most was refusing to loosen a tolerance.** `transform: scale(1.02)` is what makes selection free of T6 by construction, but `getBoundingClientRect()` reports the box AFTER transforms, so 22-15's still-green three-equal-outer-widths assertion failed by 1.9px and its equal-tops assertion by ~1px **on a correct build**. Shrinking the scale until it squeaked under the 1px tolerance would have been passing by luck and would have let a test choose the design; deleting the assertion would have retired the check T6 was closed with. Instead the read neutralises `transform` (and `transition` first, or it catches the 180ms unwind mid-flight) and the same check now asserts that **exactly one of the three cards really is scaled** — neutralising a thing you have not proven exists is how a check quietly becomes one that also passes when the feature is gone. The new chip check reads `offsetWidth/offsetHeight/offsetLeft/offsetTop` throughout, which is transform-independent by definition; **that layout-box-versus-visual-box distinction is the pattern worth carrying forward.** **Task 3 found a real, pre-existing ~500px layout shift.** Home's frame picture reserved its box correctly at 360px and reserved *nothing* at 1280px: measured **2 × 2** before the render arrived and **380 × 506** after. `width: auto` on an image with no content yet leaves it an intrinsic size of ZERO however well known its ratio is — the `width="600" height="800"` attributes supply a ratio, and a ratio alone resolves nothing without a definite size in one axis; mobile escaped only because `width: 100%` is definite. Fixed with `width: min(100%, calc(60vh * 3 / 4))` — the same 60vh cap the `max-height` states, written as a definite width — plus an explicit `aspect-ratio: 3 / 4` so the reservation no longer depends on the shape of whatever bytes arrive (and, because the universal reset makes every box border-box, so the width resolves to exactly the cap rather than the cap minus the hairline). **A flaky harness run was chased rather than reruns-until-green:** the crossfade could stall invisible on the discarded theme — `transitionend` only arrives if a transition actually RAN, and a class removed and re-added without an intervening style recalculation (an image `load` and a click in the same frame) transitions nothing. Reproduced at **4 stalls in 14 runs**, fixed by consulting the computed opacity before waiting, **0 in 14** after. **The skeleton deliberately does NOT shimmer, and the reasoning is in `style.css` rather than only in the summary**: the only placement where a pure-CSS skeleton auto-hides on load is the image's own `background-image` (painted above the backing, below the decoded bitmap), and that is exactly the placement where `skypane-pulse` — which cycles opacity, an element property — would go on breathing the decoded picture forever on a page left open all day. Overlays behind are covered from frame one; overlays in front can never learn the image arrived; a JS toggle would need a fourteenth script and route. Four keyframes stay four. **Both dialogs arrive through ONE `@starting-style` rule** (History's `.lightbox` and the Airlines gallery's `.lightbox--wide` are the same component under two classes) and the close is one-directional, with `display`/`allow-discrete` banned by a harness check rather than by a comment, following 23-08's precedent — a modal that has not reached `display: none` is an invisible sheet in the top layer. `::backdrop` is deliberately unanimated: the global reduce override matches `*, *::before, *::after`, and `::backdrop` is none of them. **Ten mutations, all quoted**, and one taught something: adding `allow-discrete` left the viewport-centre hit test returning FALSE (the closed dialog had left the top layer and sat in normal flow) while `display: block` and a 307,965px² box both caught it — a check built on the hit test alone would have passed the defect. **Four checks failed the vacuity question**, three of mine and one inherited: the crossfade check passed on the CUT until a mid-flight sample was added; the neutralised T6 read needed the "exactly one is scaled" clause; `before == after` is satisfied by `2x2 == 2x2` so the reserved box needed a floor; and `.lightbox[open] {` legitimately occurs twice on a correct file because `@starting-style` repeats its selector. **Three self-inflicted grep traps**, all the warned-about class: my own JS comment containing `setTimeout` answered my own timer ban (fixed by comment-stripping), backticks in my JS prose reddened the standing no-backtick rule, and `grep -c '@starting-style'` now returns 7 raw against **2** comment-stripped blocks / **1** dialog entrance / **2** dialogs served — recorded, not adjusted. Two pre-existing checks retargeted IN PLACE: the runway T6/B9 measurement, and 22-01's Cancel/T8 preview assertions (a synchronous read became a bounded `wait_for_function`, because the swap now lands one `var(--motion-fast)` after the click). `dirty-state.js` was NOT edited — the whole adaptation happened on the `theme-preview.js` side, as the plan directed. The browser fixture's 8×8 stand-in render became the **600 × 800** the markup itself declares, because an image whose loaded ratio is 1:1 against a 3:4 promise makes a layout-shift measurement meaningless. Counts re-derived by RUNNING: `config-page` 239→240, `view-pages` 152→153, `browser-ux` 50→54; `companion-app` and `status-pages` unmoved; `run-all-tests.sh` at exactly the documented 5-check root-sandbox baseline **verified by failing check NAMES**, coverage 93%. **`CFG-32` deliberately NOT ticked — 23-11 closes it.**
 
@@ -516,6 +516,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 35 P12 | several hours | 2 tasks | 16 files |
 | Phase 35 P13 | ~35min | 2 tasks | 9 files |
 | Phase 35 P14 | ~3h | 2 tasks | 9 files |
+| Phase 35 P15 | ~4h | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -1030,6 +1031,8 @@ Recent decisions affecting current work:
 - [Phase ?]: i18n_fr/*.py module docstrings routinely exceed the 10-line cap because each states which keys are deliberately absent (a duplicate-key ValueError risk) plus the copy-style rule, both load-bearing for a future editor
 - [Phase 35]: HYG-05 delivered: health_severity(), anomaly_active(), usable_pairs(), label_grid() deleted as confirmed dead code; three oracle tests re-pointed to health_page.safe_health_state() — Group 4 (companion Python production) closed with 0 history hits and a minimal 3-file same-code allow list
 - [Phase 35]: Browser test purge (35-14): followed the live glob (git ls-files 'companion/test_browser_*.py', 9 files) over the plan's stale files_modified list, which named a retired test_browser_ux.py and omitted test_browser_ux_03.py/_04.py added by Phase 33's file splits
+- [Phase 35]: 35-15: Split into 11 per-file commits instead of the plan's 2 tasks, so a mid-plan rate-limit interruption lost only in-progress work on one file — Smaller commits keep purge work durable across interruptions without losing a whole family's progress
+- [Phase 35]: 35-15: test_view_pages_helpers.py's comment ratio (39.1%) stays above the ~35% review-trigger guideline — Eight short helper functions each need their own why-paragraph; the ratio is structural, not unpurged history — the file had 0 guard hits before this plan touched it
 
 ### Pending Todos
 
@@ -1149,8 +1152,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-25T16:52:57.203Z
-Stopped at: Completed 35-14-PLAN.md
+Last session: 2026-09-25T20:22:59.016Z
+Stopped at: Completed 35-15-PLAN.md
 
 Resume file: 
 
