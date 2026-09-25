@@ -60,23 +60,38 @@ key-decisions:
     the comment for the purge - HOLD_QUIET_HOURS is defined later in the file, not
     earlier. A one-word accuracy fix bundled into the required rewrite, not a separate
     deviation."
+  - "Second tightening pass (orchestrator review, mirroring 35-02's own second pass):
+    the first pass's ID removal left docstrings/comments long relative to the ~35%
+    guideline (wake.py 70.67%, notify.py 58.62%, panel_format.py 63.43%, device_config.py
+    52.55%, poll_loop.py 50.55%). Compressed every docstring/comment to a summary line
+    plus a compact contract, deleting who-calls-it lists, cross-module tours, and
+    'deliberately'/'honest'/'never claimed' rhetoric that restated code, while keeping
+    one or two sentences of real why/invariant/units. Ratios: poll_loop.py -> 34.35%,
+    device_config.py -> 29.48%, history_db.py -> 28.94%, wake.py -> 37.31%, notify.py ->
+    35.38%, panel_format.py -> 50.51%, panel_preview.py -> 33.33%."
+  - "test_config_history.py::test_check_in_gaps_docstring_states_what_it_cannot_know
+    asserts history_db.check_in_gaps.__doc__ (introspected, not source-text-scanned)
+    contains specific substrings ('cannot know', 'rotat', 'unique(ts, battery_mv)', '60',
+    'x-battery-mv'). The tightening pass's first compression dropped the X-Battery-Mv
+    mention; the test failure caught it immediately and the docstring was restored to
+    keep that phrase while staying compact."
 
 requirements-completed: [HYG-01, HYG-03]
 
-duration: ~50min
+duration: ~90min
 completed: "2026-09-25"
 ---
 
 # Phase 35 Plan 04: Comment purge, server core modules Summary
 
 Purged plan/ticket/decision/review/quick-task-ID history from every comment and
-docstring in `server/poll_loop.py` (the pacing/hold-state/notification oneshot,
-1986 -> 1735 lines) plus six further server-core modules and the hash-comment
-`requirements-dev.in` file, rewriting each to keep only ordering constraints,
-failure-handling reasoning, schema/units/retention facts, and security invariants, in
-English, while leaving all code byte-for-byte unchanged (`same-code --base ee2737a`,
-no `--allow` needed anywhere except `poll_loop.py`'s runtime `__doc__` - see
-key-decisions).
+docstring in `server/poll_loop.py` (the pacing/hold-state/notification oneshot) plus
+six further server-core modules and the hash-comment `requirements-dev.in` file, then
+applied a second tightening pass (per orchestrator review) compressing every
+docstring/comment to a one-line summary plus a compact contract - poll_loop.py
+1986 -> 1307 lines, the steepest cut in the plan - while leaving all code byte-for-byte
+unchanged (`same-code --base ee2737a`, no `--allow` needed anywhere except
+`poll_loop.py`'s runtime `__doc__` - see key-decisions).
 
 ## What was built
 
@@ -147,85 +162,92 @@ task's explicit instruction: the pacing/hold-state algorithmic contract survives
   `requirements.in`, `server/.gitignore`, and `server/state/.gitignore` needed no edits
   - `check --paths` already reported 0 hits on all three.
 
-**Verification.** `check --paths` reports 0 hits across all eleven files.
-`same-code --base ee2737a` returns 0 for ten of the eleven files with no `--allow`;
-`poll_loop.py` needed `--allow server/poll_loop.py` because its module docstring is
-read at runtime via `argparse.ArgumentParser(description=__doc__)` (see key-decisions).
-`server/test_poll_loop.py` and `server/test_pipeline_e2e.py` (106 passed, 1 pre-existing
-root-euid skip) pass individually, and the full `pytest server -q -n auto` is green
-(717 passed, 3 pre-existing skips, 0 failed). `ruff check` is clean on every touched
-file. `git diff --stat -- server/requirements*.txt` is empty - the compiled locks are
-untouched.
+**Verification (both passes).** `check --paths` reports 0 hits across all eleven files
+after both the purge and the tightening pass. `same-code --base ee2737a` returns 0 for
+ten of the eleven files with no `--allow`; `poll_loop.py` needed
+`--allow server/poll_loop.py` throughout because its module docstring is read at
+runtime via `argparse.ArgumentParser(description=__doc__)` (see key-decisions).
+`server/test_poll_loop.py` and `server/test_pipeline_e2e.py` (106 passed, 1
+pre-existing root-euid skip) pass individually, and the full `pytest server -q -n auto`
+is green after the tightening pass (717 passed, 3 pre-existing skips, 0 failed - one
+transient failure during tightening, caught and fixed, see key-decisions). `ruff check`
+is clean on every touched file. `git diff --stat -- server/requirements*.txt` is
+empty - the compiled locks are untouched throughout.
 
-## Comment ratio, before -> after
+**Tightening pass (second pass, per orchestrator review).** The first pass removed
+every history ID but left docstrings and comment blocks long relative to the plan's
+~35% guideline (see the ratio table below for the delta). Applied the same compression
+discipline 35-02's own second pass established: every docstring cut to a one-line
+summary plus a compact contract (non-obvious params, return, invariant - typically
+≤8 lines, ≤~15 for a genuinely complex public function like `run_once()` or
+`next_wake_status()`); comment blocks over ~10 lines cut to the essential sentence(s);
+deleted who-calls-it/who-reads-it lists (e.g. wake.py's `BATTERY_CRITICAL_STATE_KEY`
+comment naming every reader module), cross-module tours, and "deliberately"/
+"honest"/"never claimed"-style rhetoric that restated the following code, while
+keeping one or two sentences of the real why (security invariant, hardware
+constraint, units, upstream quirk) per block. Re-verified `check --paths` (0 hits),
+`same-code` (still 0/passes, `--allow` still scoped to `poll_loop.py` only), `ruff
+check`, and the full `pytest server -q -n auto` suite after every file.
 
-| File | Original | After purge | History hits |
-|------|----------|-------------|---------------|
-| server/poll_loop.py | 56.80% | **50.55%** | 218 -> 0 |
-| server/device_config.py | 55.63% | **52.55%** | 113 -> 0 |
-| server/history_db.py | 47.03% | **46.28%** | 28 -> 0 |
-| server/wake.py | 71.27% | **70.67%** | 36 -> 0 |
-| server/notify.py | 60.38% | **58.62%** | 25 -> 0 |
-| server/panel_format.py | 66.21% | **63.43%** | 19 -> 0 |
-| server/panel_preview.py | 47.50% | **46.50%** | 7 -> 0 |
-| server/requirements-dev.in | n/a (hash-comment format, no ratio tool support) | n/a | 1 -> 0 |
+## Comment ratio, original -> after purge -> after tightening
 
-Five of the seven Python files stay above the ~35% review-trigger threshold. Each is
-justified for a distinct, file-scoped reason, mirroring 35-02/35-03's precedent of
-re-reading a second time specifically hunting for restatement, scope talk, and "who
-calls this" asides before accepting the number:
+| File | Original | After purge (1st pass) | After tightening (2nd pass) | History hits |
+|------|----------|------------------------|------------------------------|---------------|
+| server/poll_loop.py | 56.80% | 50.55% | **34.35%** | 218 -> 0 |
+| server/device_config.py | 55.63% | 52.55% | **29.48%** | 113 -> 0 |
+| server/history_db.py | 47.03% | 46.28% | **28.94%** | 28 -> 0 |
+| server/wake.py | 71.27% | 70.67% | **37.31%** | 36 -> 0 |
+| server/notify.py | 60.38% | 58.62% | **35.38%** | 25 -> 0 |
+| server/panel_format.py | 66.21% | 63.43% | **50.51%** | 19 -> 0 |
+| server/panel_preview.py | 47.50% | 46.50% | **33.33%** | 7 -> 0 |
+| server/requirements-dev.in | n/a (hash-comment format, no ratio tool support) | n/a | n/a | 1 -> 0 |
 
-- **poll_loop.py (50.55%, 1735 lines)** is the pacing/hold-state/notification
-  oneshot's entire orchestration surface: `run_once()` alone is ~950 lines with six
-  interacting subsystems (mechanism-C display pacing, three hold kinds with a priority
-  order, battery hysteresis at two thresholds, calendar theme matching with a
-  single-call-site invariant, enrichment-cache/unresolved-prefix bookkeeping, and
-  cross-branch history/notification write ordering). Nearly every remaining comment
-  states either an ordering constraint the function's own control flow does not make
-  obvious (e.g. why the calendar match must not be recomputed on a repaint) or a
-  failure-handling reason (why a database read failure must never abort a poll cycle).
-  Cutting further would remove the algorithmic contract itself, not restatement.
-- **device_config.py (52.55%, 1079 lines)** is the validated single source of truth for
-  every persisted device setting; nearly every function's docstring states a
-  validation-bound why (a three-state sentinel contract, a fail-open security
-  direction, a DST-correctness proof) that purge_rules explicitly require to survive
-  rather than be dropped.
-- **wake.py (70.67%, 433 lines)** is the highest-ratio file in this plan - a small
-  file (433 lines) whose entire content is precedence lists and staleness-threshold
-  derivations shared across the server and companion web app; `next_wake_status()`'s
-  quiet-hours-composition docstring alone documents a genuinely non-obvious two-call
-  algorithm (why the second `quiet_hours_status()` call is necessary, not optional)
-  that purge_rules classify as real algorithmic why, not restatement.
-- **notify.py (58.62%, 203 lines)** and **panel_format.py (63.43%, 134 lines)** are
-  both small files dominated by security/correctness invariants relative to their line
-  count: notify.py's SSRF-gate-reuse and redirect-refusal reasoning, and
-  panel_format.py's render-internal-vs-wire-format distinction plus the packed-byte
-  vectorisation proof in `pack_panel()`'s docstring (why the per-byte OR across the
-  whole buffer never carries a bit between output bytes).
+Four of the seven Python files now sit at or under the ~35% guideline
+(poll_loop.py, device_config.py, history_db.py, panel_preview.py). Three remain
+above, each for a specific, file-scoped reason re-verified after the tightening pass
+(re-read hunting for restatement, scope talk, and "who calls this" asides - none
+remained to cut without also cutting a genuine invariant):
 
-`history_db.py` (46.28%) and `panel_preview.py` (46.50%) sit closer to, though still
-above, the guideline; both are schema/format-fact-dense by nature (SQL table
-definitions, wire-format round-trip proofs) rather than history-narrative-dense, so the
-purge itself removed proportionally less relative to each file's total length.
+- **wake.py (37.31%, 201 lines)** is the highest-ratio file: a small module (201
+  lines) whose entire content is precedence lists and staleness-threshold derivations
+  shared across the server and companion web app. `next_wake_status()`'s docstring
+  alone documents a genuinely non-obvious two-call composition (why
+  `quiet_hours_status()` is called twice, not once) that purge_rules classify as real
+  algorithmic why, not restatement - it was compressed from 17 to 9 lines but cutting
+  further would drop the contract itself.
+- **notify.py (35.38%, 130 lines)** sits essentially at the guideline: a small file
+  whose remaining comments are almost entirely the SSRF-gate-reuse and
+  redirect-refusal security invariants (why `_NoRedirectHandler` refuses every hop
+  outright rather than re-validating a bounded chain) purge_rules require to survive.
+- **panel_format.py (50.51%, 99 lines)** is the smallest file in the plan (99 lines)
+  with the least further room to compress: its `PALETTE_RGB` data table carries
+  necessarily-brief per-entry hardware-calibration annotations (interim estimate vs.
+  on-glass-confirmed darkening), and `pack_panel()`'s docstring is a genuine
+  bit-manipulation correctness proof (why the per-byte OR across the whole buffer
+  never carries a bit between output bytes) - the same class of case 35-02's
+  tightening pass accepted for `dither.py` (38.10%) and `runway_config.py` (59.02%).
 
 ## Files Created/Modified
 
-- `server/poll_loop.py` - module docstring purged (its first line changed, `--allow`
-  needed for same-code - see key-decisions); ~90 inline comment blocks and the
-  `run_once()` docstring purged of history, ordering/failure-handling/format facts kept
+- `server/poll_loop.py` - module docstring purged then tightened (first line changed,
+  `--allow` needed for same-code - see key-decisions); ~90 inline comment blocks and
+  the `run_once()` docstring purged of history then compressed; 1986 -> 1307 lines
 - `server/device_config.py` - module docstring, `THEMES`/`RUNWAYS` registry comments,
   and every `normalise_*()`/`save_device_config()`/`load_device_config()` docstring
-  purged; validation-bound whys and the fail-open security note kept
-- `server/history_db.py` - module docstring and every writer/reader docstring purged;
-  schema, units and retention facts kept
-- `server/wake.py` - module docstring and every function docstring purged; a
-  pre-existing "HOLD_QUIET_HOURS above" -> corrected to "below" while rewriting (see
-  key-decisions)
-- `server/notify.py` - module docstring and every function docstring purged; SSRF-gate
-  and redirect-refusal security invariants kept and rewritten
+  purged then tightened; validation-bound whys and the fail-open security note kept;
+  1154 -> 726 lines
+- `server/history_db.py` - module docstring and every writer/reader docstring purged
+  then tightened; schema, units and retention facts kept; 723 -> 539 lines
+- `server/wake.py` - module docstring and every function docstring purged then
+  tightened; a pre-existing "HOLD_QUIET_HOURS above" -> corrected to "below" while
+  rewriting (see key-decisions); 442 -> 201 lines
+- `server/notify.py` - module docstring and every function docstring purged then
+  tightened; SSRF-gate and redirect-refusal security invariants kept; 212 -> 130 lines
 - `server/panel_format.py` - module docstring and the `PALETTE_RGB` colour-tuning
-  comment block compressed from three narrated phases to the two facts that matter
+  comment block compressed from three narrated phases to the two facts that matter,
+  then tightened further; 145 -> 99 lines
 - `server/panel_preview.py` - module docstring and class/function docstrings purged
+  then tightened; 160 -> 126 lines
 - `server/requirements-dev.in` - one comment rewritten to drop phase/prefix-id
   references
 
@@ -274,13 +296,31 @@ is real runtime `--help` text, missed by 35-CONTEXT.md's canonical list**
 - **Files modified:** `server/poll_loop.py`
 - **Commit:** 5308c6b (Task 1)
 
+**2. [Rule 1 - Bug] Tightening pass over-compressed `history_db.check_in_gaps()`'s
+docstring, dropping a substring a behaviour test asserts on**
+- **Found during:** the tightening pass, running `pytest server -q -n auto` after
+  rewriting `history_db.py`.
+- **Issue:** `test_config_history.py::test_check_in_gaps_docstring_states_what_it_cannot_know`
+  introspects `history_db.check_in_gaps.__doc__` directly (not a source-text scan) and
+  asserts it contains `"cannot know"`, `"rotat"`, `"unique(ts, battery_mv)"`, `"60"`,
+  and `"x-battery-mv"` - the last substring, explaining *why* `battery_mv` is
+  unfiltered, was dropped when the "No battery_mv filter" paragraph was compressed to
+  one sentence.
+- **Fix:** Restored the `X-Battery-Mv` header mention in that sentence while keeping
+  the rest of the compression, re-ran the test (green), then the full suite.
+- **Files modified:** `server/history_db.py`
+- **Commit:** f3a09fa (tightening pass)
+
 ---
 
-**Total deviations:** 1 auto-fixed (Rule 1: a gap in the phase's own canonical
-runtime-docstring list, corrected using the policy that list already establishes)
+**Total deviations:** 2 auto-fixed (Rule 1: a gap in the phase's own canonical
+runtime-docstring list; Rule 1: a test-caught over-compression, corrected within the
+same pass before committing)
 **Impact on plan:** No code change beyond the in-scope comment/docstring purge landed
 in any commit. The `--allow` usage is scoped to exactly one file's module docstring,
-matching the precedent 35-02 already set for the identical pattern.
+matching the precedent 35-02 already set for the identical pattern. The docstring test
+failure was caught and fixed before the tightening-pass commit landed, so no broken
+state was ever committed.
 
 ## Issues Encountered
 
@@ -314,3 +354,4 @@ scope) is now purged.
 - `server/panel_preview.py` — FOUND
 - Commit 5308c6b (Task 1: poll_loop.py) — FOUND
 - Commit e9a0acc (Task 2: server module group) — FOUND
+- Commit f3a09fa (tightening pass, per orchestrator review) — FOUND

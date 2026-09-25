@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 35-04-PLAN.md
-last_updated: "2026-09-25T08:39:44.077Z"
+last_updated: "2026-09-25T09:01:55.005Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 53
@@ -505,6 +505,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 35 P02 | 55min | 3 tasks | 5 files |
 | Phase 35 P03 | 90min | 2 tasks | 4 files |
 | Phase 35 P04 | 50min | 2 tasks | 8 files |
+| Phase 35 P04-tighten | 40min | 1 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -1003,6 +1004,7 @@ Recent decisions affecting current work:
 - [Phase 35]: Second tightening pass on 35-02's five files compressed docstrings/comments to one-line summaries plus compact contracts — orchestrator review found the initial ID-removal pass left non-ID narrative and restated code at excessive length; render.py 48.11%->29.14%, illustrations.py 34.48%->24.77%, colour_rules.py 43.94%->25.63%, dither.py 52.55%->38.10%, runway_config.py 73.12%->59.02% (the last two stay above 35% for file-specific invariant-density reasons documented in 35-02-SUMMARY.md)
 - [Phase 35]: Purged files stay above the 35% comment-ratio guideline; each file's density is justified per-file in 35-03-SUMMARY.md rather than compressed into genuine invariants
 - [Phase 35]: 35-04: poll_loop.py needs same-code --allow (real runtime __doc__ via argparse), missed by 35-CONTEXT.md's canonical list; handled per that section's own runtime-docstring policy, matching the illustrations.py/render.py precedent
+- [Phase 35]: 35-04 tightening pass: docstrings/comments compressed to summary+contract per orchestrator review, mirroring 35-02's second pass - poll_loop.py 50.55%->34.35%, device_config.py 52.55%->29.48%, history_db.py 46.28%->28.94%, wake.py 70.67%->37.31%, notify.py 58.62%->35.38%, panel_format.py 63.43%->50.51%, panel_preview.py 46.50%->33.33%
 
 ### Pending Todos
 
