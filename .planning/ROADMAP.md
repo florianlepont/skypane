@@ -1898,17 +1898,46 @@ Plans:
 **Requirements**: OTA-01, OTA-02, OTA-03, OTA-04, OTA-05, OTA-06, OTA-07, OTA-08, OTA-09, OTA-10, OTA-11, OTA-12 (decisions: `42-CONTEXT.md`)
 **Depends on:** Phase 41. The seed targets milestone v1.1. The developer asked on 2026-09-25 to launch it now, so it sits at the end of the current roadmap and runs after the v1.0 audit remediation, which still changes the firmware (Phase 35) and the device protocol (Phase 36).
 
-**Success criteria (draft, to be settled at discuss time):**
+**Success criteria:**
 
-1. `GET /device/v1/display` carries an optional `firmware` offer (version, HTTPS URL, SHA-256, size) only when the device's `X-Fw-Version` is older than the release assigned to it
-2. The device downloads the offer with `esp_https_ota` over the pinned-CA client into the inactive OTA slot and checks size and SHA-256 before it switches the boot partition
-3. App rollback is enabled; a new image marks itself valid only after one fully successful poll, and a forced crash on a trial image rolls back to the previous image on real hardware
-4. An update is deferred below a battery threshold, during quiet hours, with the display off, and never runs mid-blit; a failed download counts toward backoff
-5. CI builds the release artifact, and the companion shows each frame's running firmware version and lets the operator promote a release
-6. Decided with the developer before planning: automatic versus approved rollout, signed images (no eFuse burned) versus HTTPS + pinned CA + SHA-256, where the signing key lives, the battery threshold, and whether an OTA can ship a new CA bundle
+1. `GET /device/v1/display` carries an optional firmware offer (version, URL, SHA-256, size) only when the operator has scheduled a release that differs from the device's reported `X-Fw-Version`, at or above the version floor, and the battery-low alert is off. Quiet hours and display off do not hold it back (D-01, D-06, D-11, D-12, D-13)
+2. The device downloads the offer with `esp_https_ota` over the existing trust store into the inactive OTA slot, checks size and SHA-256, and accepts only an image signed with the project key; no eFuse is burned (D-09)
+3. App rollback is enabled; a new image marks itself valid after its first successful poll and before that wake's deep sleep, and a forced crash on a trial image rolls back to the previous image on real hardware
+4. The panel shows an "Updating…" screen for every update; three failed attempts mark the release failed and send a notification (D-14, D-15, D-08)
+5. A git tag produces a signed release that the reviewer-gated deploy copies to the VPS; the companion Update page shows the running version, state, rollback and history, and installs or cancels with confirmation (D-02..D-07, D-16..D-18)
+6. Release images hold no device credentials: Wi-Fi and server address come from the provisioned `secret` partition (D-20)
+7. A CI check fails when the production certificate chain no longer leads to a root in the firmware's trust store (D-19)
 
-**Plans:** 0 plans
+**Plans:** 16 plans (4 waves)
+
+**Execution gate:** G-41 — the first task of every wave-1 plan (42-01..42-06) stops with "blocked: Phase 41 not complete on main" unless Phase 41 is complete on `main`. 42-06 (device credentials out of the image) implements D-20, confirmed by the developer on 2026-09-25. One writer per file per wave.
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 42 to break down)
+**Wave 1**
+
+- [ ] 42-01-PLAN.md — Server release registry: publish/schedule/cancel, offer gate, outcome reconcile, Update view model [OTA-01, OTA-05, OTA-06, OTA-10]
+- [ ] 42-02-PLAN.md — Firmware pure OTA policy (battery/floor/start, image check, boot outcome, confirm rule) + offer validators [OTA-02, OTA-03, OTA-05, OTA-06]
+- [ ] 42-03-PLAN.md — Rollback + signed-app Kconfig confirmed in the pinned container, no-eFuse CI guard, release-tag PROJECT_VER, floor, SIGNING.md [OTA-03, OTA-04, OTA-05, OTA-10]
+- [ ] 42-04-PLAN.md — UPDATING hold screen: render.py composition, generated mask, shared on-device renderer [OTA-07]
+- [ ] 42-05-PLAN.md — Let's Encrypt chain guard: offline-tested checker + scheduled workflow [OTA-11]
+- [ ] 42-06-PLAN.md — Device credentials out of the image into the secret partition (enables CI-built releases) [OTA-10]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 42-07-PLAN.md — byos: firmware offer in /device/v1/display, /fw/<sha>.bin, device report [OTA-01, OTA-06, OTA-08]
+- [ ] 42-08-PLAN.md — Firmware OTA engine: esp_https_ota, read-back hash, boot check, confirm; offer parsing and X-Ota-Result [OTA-02, OTA-03, OTA-05, OTA-06]
+- [ ] 42-09-PLAN.md — Companion Update page (nav, status, rollback warning, history) EN/FR [OTA-08]
+- [ ] 42-10-PLAN.md — Poll-cycle reconcile + EN/FR installed/failed notifications [OTA-06, OTA-09]
+- [ ] 42-11-PLAN.md — Tag-triggered build/sign/verify/publish workflow + generated release manifest [OTA-04, OTA-10]
+- [ ] 42-12-PLAN.md — Signing key ceremony (human checkpoint), public key committed [OTA-04]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 42-13-PLAN.md — Wake wiring: OTA before hash-skip, UPDATING screen, confirm before deep sleep, OTA wake budget, VENDOR.md [OTA-02, OTA-03, OTA-06, OTA-07]
+- [ ] 42-14-PLAN.md — Companion Install (two-step confirm, no-JS) and Cancel; browser and mobile-fit proof [OTA-08]
+- [ ] 42-15-PLAN.md — Gated deploy imports releases into the state dir; firmware_cli; backup allow-list; README [OTA-10]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 42-16-PLAN.md — Hardware session (human checkpoint): one USB flash, signed install, unsigned/tampered/wrong-key refusal, crash rollback, factory recovery, eFuse unchanged [OTA-02, OTA-03, OTA-04, OTA-07, OTA-10, OTA-11, OTA-12]
