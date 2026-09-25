@@ -7,42 +7,19 @@ non-loopback network guard via skypane_test_support.child_env()), and
 drives it through the full device-protocol contract documented in
 flightportrait/frame's docs/PROTOCOL.md at the pinned commit
 ce3335fc5e566bcc6ccd29966ec39bf5c5318f12 (sections 1, 2, 3 and 5): setup,
-the bearer-token auth gate, the display-response shape, download +
-SHA-256 + exact-size verification, the hash-skip optimisation, a
-served-image change, telemetry header echoing, the log endpoint, two
-hand-built malformed-response rejections, connection failure
-classification when the server is down, and the quiet-hours-aware
-sleep_s extension (D-01): a drift guard pinning byos_server.py's
-vendored seconds_until_quiet_hours_end()/_HHMM_RE byte-for-byte equal
-to server/device_config.py's, unit coverage of read_quiet_hours()/
-quiet_hours_sleep_s() loaded directly via importlib.util (byos_server.py's
-module level is import-safe - constants and defs only, with main() behind
-an `if __name__ == "__main__"` guard), and integration coverage of the
-sleep_s extension and its fail-open contract over real HTTP. Also covers
-read_wake_interval_s()'s fail-open contract (including the bool-is-an-int
-gotcha) and happy path (D-01/D-03), the configured wake interval layering
-under quiet_hours_sleep_s() without being re-clamped past
-WAKE_INTERVAL_MAX_S, read_display_enabled()'s fail-open contract, the flat
-300s off-state sleep_s pin (display_off_sleep_s()), the display-off/
-quiet-hours overlap in both directions (D-05's sleep axis: the longest of
-the two wins), an on-state regression guard proving the off-state branch
-does not alter the pre-existing chain, a constant-parity check pinning
-DISPLAY_OFF_SLEEP_S numerically equal between this file and
-server/device_config.py, read_battery_critical()'s fail-open contract and
-its behaviour parity against server.wake.read_battery_critical(),
-battery_critical_sleep_s()'s parked/not-parked/recovery-anticipation
-decision and its composed-chain interaction with the display-off and
-quiet-hours pins, a constant-parity check for BATTERY_CRITICAL_SLEEP_S/
-BATTERY_CRITICAL_RECOVER_MV, and a live-HTTP integration pair (parked,
-then recovering) proving the pin over the real do_GET response.
+the bearer-token auth gate, the display-response shape, download and
+verification, the hash-skip optimisation, telemetry, the log endpoint,
+malformed-response rejections, connection-failure classification, and
+the quiet-hours/wake-interval/display-off/battery-critical sleep_s
+composition (unit, integration and constant-parity coverage - see each
+test's own docstring below for exactly what it proves).
 
-The behaviour-parity check imports server.wake directly (the only
-project import in this file) - unlike byos_server.py itself (the
-vendored file this suite tests, which must never import server.*), this
-file is not vendored, and every other cross-file check here reads the
-project side as plain text (the drift guards) rather than importing it.
-This one check needs the REAL function, not a byte-identical source
-text, because read_battery_critical()'s two copies are deliberately NOT
+The battery-critical behaviour-parity check imports server.wake
+directly (the only project import in this file) - unlike byos_server.py
+itself, which is vendored and must never import server.*. Every other
+cross-file check here reads the project side as plain text (the drift
+guards) instead. This one check needs the real function, not source
+text, because read_battery_critical()'s two copies are not
 byte-identical (one references server.wake.BATTERY_CRITICAL_STATE_KEY,
 the other the literal string it equals) - so behaviour, not source
 text, is what it proves equal.
@@ -82,8 +59,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 # pyproject.toml's pythonpath puts test-support/ on sys.path for a normal
-# `pytest` invocation; the legacy-runner bridge below (MR-3) executes this
-# file directly instead, so the same directory is added here too.
+# `pytest` invocation; the legacy-runner bridge below executes this file
+# directly instead, so the same directory is added here too.
 _TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
 if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
@@ -112,10 +89,10 @@ def validate_display_response(obj):
     lowercase hex chars, sleep_s is an integer in 1..4294967295, reset
     is a JSON boolean, and image_url is a non-empty http/https string.
 
-    The DEVICE-05 bring-up LED toggle (`led_enabled`) is deliberately
-    *not* validated here: the firmware treats it as optional (absent,
-    null or wrong-typed all resolve to enabled), and a mirror stricter
-    than the thing it mirrors would be worse than no mirror at all.
+    The bring-up LED toggle (`led_enabled`) is *not* validated here:
+    the firmware treats it as optional (absent, null or wrong-typed all
+    resolve to enabled), and a mirror stricter than the thing it
+    mirrors would be worse than no mirror at all.
     """
     if not isinstance(obj, dict):
         return False
@@ -217,11 +194,11 @@ def _extract_line(source_text, line_prefix):
 class Harness:
     """Owns the byos_server.py subprocess lifecycle for a given state
     directory (always a pytest tmp_path, never a self-managed
-    tempfile-created one - MR-5). Never leaves an orphaned server
-    holding the port - callers must run stop_server() in a finally
-    block. `env` defaults to child_env() (MR-9) so both the
-    make_test_panel.py and byos_server.py children run under the same
-    no-network guard as this pytest process.
+    tempfile-created one). Never leaves an orphaned server holding the
+    port - callers must run stop_server() in a finally block. `env`
+    defaults to child_env() so both the make_test_panel.py and
+    byos_server.py children run under the same no-network guard as
+    this pytest process.
     """
 
     def __init__(self, state_dir, env=None):
@@ -317,12 +294,12 @@ class Harness:
 def byos_module():
     """byos_server.py loaded once via importlib.util - a pure module of
     constants and defs, safely reused read-only across every unit test
-    below (MR-4: no test mutates it).
+    below (no test mutates it).
     """
     return load_byos_module()
 
 
-# --- Unit: quiet-hours-aware sleep_s extension (D-01) --------------------
+# --- Unit: quiet-hours-aware sleep_s extension ----------------------------
 
 
 def test_quiet_hours_helpers_drift_guard_matches_device_config():
@@ -409,7 +386,7 @@ def test_quiet_hours_sleep_s_never_shorter_than_base(byos_module, tmp_path):
     assert result == 86400, "expected max(86400, 28000) == 86400, got %r" % (result,)
 
 
-# --- Unit: wake_interval_s delivery (D-01/D-03) ---------------------------
+# --- Unit: wake_interval_s delivery ---------------------------------------
 
 
 def test_read_wake_interval_s_fail_open_never_raises(byos_module, tmp_path):
@@ -474,7 +451,7 @@ def test_wake_interval_layers_under_quiet_hours_without_reclamping(byos_module, 
         "through the window" % (inside_window, byos_module.WAKE_INTERVAL_MAX_S))
 
 
-# --- Unit: display-off sleep_s pin (D-01/D-05) ----------------------------
+# --- Unit: display-off sleep_s pin ----------------------------------------
 
 
 def test_read_display_enabled_fail_open_never_raises(byos_module, tmp_path):
@@ -552,9 +529,9 @@ def test_display_off_and_quiet_hours_overlap_unit(byos_module, tmp_path):
 
 def test_display_on_state_matches_preexisting_chain(byos_module, tmp_path):
     """with display_enabled true, the composed sleep_s chain (including display_off_sleep_s())
-    equals the pre-existing Phase 10/11 quiet_hours_sleep_s(read_wake_interval_s(...)) chain
-    across all four combinations of window active/inactive and wake_interval_s set/unset - this
-    plan adds a branch, it does not alter the on-state behaviour"""
+    equals the pre-existing quiet_hours_sleep_s(read_wake_interval_s(...)) chain across all
+    four combinations of window active/inactive and wake_interval_s set/unset - the off-state
+    branch does not alter on-state behaviour"""
     tmpdir = str(tmp_path)
     cfg_path = os.path.join(tmpdir, "device_config.json")
     base_default = 300
@@ -686,8 +663,7 @@ def test_battery_critical_sleep_s_unit(byos_module, tmp_path):
 def test_battery_critical_composed_chain(byos_module, tmp_path):
     """the composed sleep_s chain: parked with display_enabled=False yields exactly 3600s (the
     parked pin beats the 300s off-state pin), and parked inside a quiet-hours window with more
-    than 3600s remaining yields the window's own remaining time (the longer pin always wins,
-    D-05's sleep axis extended)"""
+    than 3600s remaining yields the window's own remaining time (the longer pin always wins)"""
     tmpdir = str(tmp_path)
     cfg_path = os.path.join(tmpdir, "device_config.json")
     poll_state_path = os.path.join(tmpdir, "poll_state.json")
@@ -776,11 +752,11 @@ def test_validate_display_response_rejects_uppercase_image_hash():
 
 
 def test_device_protocol_end_to_end_over_real_http(tmp_path):
-    """Covers, in order, every old check this suite used to run against ONE
-    long-lived byos_server.py subprocess sharing state across the whole
-    scenario (a device_token issued once and reused, a served image hash
-    that later checks assert against, and a battery_state.json
-    persistence chain) - MR-4, these are not independently reorderable:
+    """Drives ONE long-lived byos_server.py subprocess through every check
+    below, in order, sharing state across the whole scenario (a
+    device_token issued once and reused, a served image hash that later
+    checks assert against, and a battery_state.json persistence chain) -
+    the checks are not independently reorderable:
 
     1. setup issues a 64-lowercase-hex device_token
     2. setup rejects a body missing mac with 422
@@ -982,7 +958,7 @@ def test_device_protocol_end_to_end_over_real_http(tmp_path):
         finally:
             https_harness.stop_server()
 
-        # --- X-Battery-Mv validation/persistence (DEVICE-04) ------------
+        # --- X-Battery-Mv validation/persistence ------------------------
 
         def _battery_state_path():
             return os.path.join(harness.tmpdir, "battery_state.json")
@@ -1062,7 +1038,7 @@ def test_device_protocol_end_to_end_over_real_http(tmp_path):
         after = _read_battery_state()
         assert after == before, "battery_state.json changed after an unauthenticated poll: %r -> %r" % (before, after)
 
-        # --- read_led_enabled() checks (Phase 06.2, T-06.2-01/T-06.2-03) --
+        # --- read_led_enabled() checks -------------------------------------
         # Each writes its own device_config.json fixture directly into
         # harness.tmpdir (the harness already passes --state-dir there),
         # polls /device/v1/display, and removes the fixture afterward so
@@ -1190,10 +1166,10 @@ def test_device_protocol_end_to_end_over_real_http(tmp_path):
             os.remove(fixture_path)
 
         # 25. Integration, over real HTTP: the display-off/quiet-hours
-        # overlap (D-05, sleep axis), exercised through the actual
-        # do_GET /device/v1/display response construction rather than a
-        # direct function call - sensitive to the composition ORDER as
-        # wired inside byos_server.py's inlined sleep_s expression. With
+        # overlap, exercised through the actual do_GET
+        # /device/v1/display response construction rather than a direct
+        # function call - sensitive to the composition ORDER as wired
+        # inside byos_server.py's inlined sleep_s expression. With
         # display_enabled false and an enabled quiet-hours window still
         # far from ending (~1h remaining, well above the 300s off-state
         # pin), the served sleep_s must reflect the remaining window
