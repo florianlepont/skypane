@@ -1,24 +1,15 @@
 """Reusable non-plumbing test doubles for the `companion/test_companion_
-app*.py` migration chain (33-14..33-18): calendar-transport fakes, a
-public-hostname DNS fake, and a poll-state seeding helper. Not a test
-module itself — `__test__ = False` keeps pytest from ever collecting it
-directly, and `companion/test_suite_guards.py`'s G9 rule enforces that
-this marker is present.
+app*.py` family: calendar-transport fakes, a public-hostname DNS fake,
+and a poll-state seeding helper. Not a test module itself — `__test__ =
+False` keeps pytest from ever collecting it directly, and
+`companion/test_suite_guards.py`'s G9 rule enforces that this marker is
+present.
 
-Deliberately excludes the legacy subprocess-lifecycle plumbing (the
-harness class, its HTTP client, its non-redirect-following opener, its
-cookie/login helpers, and any use of the standard-library temp-directory
-module): a migrated test that needs a real `companion/app.py` server
-gets one from `companion/conftest.py`'s `app_server`/`make_app_server`/
+A test needing a real `companion/app.py` server gets one from
+`companion/conftest.py`'s `app_server`/`make_app_server`/
 `module_app_server_factory` fixtures and `test-support/companion_app_
 server.py`'s HTTP client instead — that plumbing is not a reusable test
-double, it is the fixture family every migrated module already shares.
-
-33-14 itself needs none of these (part 01's checks are all in-process
-`companion.auth`/`companion.layout` calls plus two served-stylesheet
-checks) — this module is created now, ahead of its first use, so the
-later parts of this same chain (the calendar-sync and manual-resolution
-sections) never have to duplicate these doubles a second time.
+double, it is the fixture family every module in this family shares.
 """
 import re
 import socket
@@ -153,8 +144,8 @@ def ics_body(entries):
 def seed_unresolved_prefixes(state_dir, registry):
     """Write `registry` as `poll_state.json`'s `unresolved_prefixes` value
     — mirrors `companion/test_status_pages.py`'s own helper of the same
-    name exactly (phase 13 plan 13-06), since that is the exact D-11
-    membership set `unresolved_row_for_prefix()` reads.
+    name exactly, since that is the exact membership set
+    `unresolved_row_for_prefix()` reads.
     """
     poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": registry})
 
@@ -162,10 +153,8 @@ def seed_unresolved_prefixes(state_dir, registry):
 def encode_multipart(
         payload, boundary=b"SkyPaneTestBoundary7Q2vpH",
         filename="upload.png", field_name="file", content_type="image/png"):
-    """Hand-build a single-file `multipart/form-data` body (quick task
-    260902-v26's own helper, renamed without its leading underscore now
-    that 33-15..33-18 all need it): this module deliberately does not
-    import a multipart-encoding library, matching
+    """Hand-build a single-file `multipart/form-data` body: this module
+    deliberately does not import a multipart-encoding library, matching
     `companion.app.parse_single_uploaded_file()`'s own zero-third-party-
     dependency discipline. Returns `(body_bytes, content_type_header)`.
     """
