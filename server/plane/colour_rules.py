@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""The per-flight colour-rule registry (D-07/D-08/D-09/D-12) plus the single
-effective-theme resolution function every render of a displayed flight
-goes through (D-13).
+"""The per-flight colour-rule registry plus the single effective-theme
+resolution function every render of a displayed flight goes through.
 
 This module imports `server.device_config` (for `THEMES` membership
 validation against a persisted or resolved theme id) plus stdlib only. It
 must NEVER import `server.plane.enrich`, `server.plane.detect`,
 `server.plane.illustrations`, `server.plane.manual_resolutions`,
-`server.plane.render`, or (phase 16) `server.plane.calendar_rules` —
+`server.plane.render`, or `server.plane.calendar_rules` —
 `poll_loop.py` already imports all of those plus this module, and the
 reverse direction would make `poll_loop -> colour_rules -> X -> poll_loop`
-a real import cycle (D-13). D-02's calendar-beats-manual-rule precedence
+a real import cycle. The calendar-beats-manual-rule precedence
 deliberately does not need this module to import `calendar_rules` to get
 that ordering: the calendar's chosen theme id arrives as the plain
 `calendar_theme_id` keyword argument on `resolve_effective_theme_id()`
@@ -31,12 +30,11 @@ long-running `ThreadingHTTPServer`; every request must call
 `load_colour_rules(state_dir)` fresh instead, exactly as `page_context()`
 already does for `manual_resolutions.load_manual_resolutions(state_dir)`.
 
-**D-02 extensibility note:** a rule record is a dict (`{"theme_id": ...,
+**Extensibility note:** a rule record is a dict (`{"theme_id": ...,
 "created_at": ...}`), deliberately not a bare theme-id string, so a future
-entry can carry fields this phase does not define (a roster link, for
-instance). No such field is reserved, added, or read here — every rule in
-this phase is purely manual, added and removed one at a time through the
-Settings UI.
+entry can carry fields not yet defined (a roster link, for instance). No
+such field is reserved, added, or read here — every rule today is purely
+manual, added and removed one at a time through the Settings UI.
 
 This file survives a redeploy because `deploy/deploy.sh` rsyncs `server/`
 with `--delete` while excluding `state` — like `manual_resolutions.json`
@@ -53,7 +51,7 @@ from server import device_config
 
 COLOUR_RULES_FILENAME = "colour_rules.json"
 
-# T-15-04: a hard reject at the cap, never weakest-entry eviction, following
+# A hard reject at the cap, never weakest-entry eviction, following
 # manual_resolutions.MANUAL_RESOLUTION_MAX_ENTRIES (200)'s precedent and
 # its same policy: this registry is authenticated-human-curated one entry
 # at a time, with no "weakest entry" concept to evict. This count is
@@ -65,15 +63,15 @@ COLOUR_RULE_MAX_ENTRIES = 200
 RULE_KIND_CALLSIGN = "callsign"
 RULE_KIND_HEX = "hex"
 RULE_KIND_PREFIX = "prefix"
-# This tuple's order is load-bearing twice over: it is D-09's
+# This tuple's order is load-bearing twice over: it is the
 # most-specific-wins resolution order (exact callsign > hex > prefix), and
 # it is rule_rows()'s sort order.
 RULE_KINDS = (RULE_KIND_CALLSIGN, RULE_KIND_HEX, RULE_KIND_PREFIX)
 
-# The one render state the arrivals override applies to (D-04/D-06).
+# The one render state the arrivals override applies to.
 ARRIVING_STATE = "arriving"
 
-# T-15-01's three positive-allowlist regexes, each compiled once, each this
+# Three positive-allowlist regexes, each compiled once, each this
 # module's share of the defence against a hand-edited or corrupted file
 # smuggling a crafted key into a live comparison.
 #
@@ -92,12 +90,12 @@ _HEX_RULE_RE = re.compile(r"^[0-9A-F]{6}$")
 _PREFIX_RE = re.compile(r"^[A-Z]{3}$")
 
 # Result constants returned by add_rule(). These are NOT flash keys —
-# companion/app.py (plan 15-05) maps them onto its own flash vocabulary;
-# this module must not know flashes exist.
+# companion/app.py maps them onto its own flash vocabulary; this module
+# must not know flashes exist.
 #
 # The ADD_OK_NEW/ADD_OK_REPLACED split is this module's one deliberate
-# divergence from manual_resolutions.py's single ADD_OK: D-09 requires the
-# companion to say "replaced" rather than "added", and computing that at
+# divergence from manual_resolutions.py's single ADD_OK: the companion
+# must say "replaced" rather than "added", and computing that at
 # the HTTP layer would be a TOCTOU race against the write that just
 # happened — so it is computed here, inside the write lock, before the
 # mutation (see add_rule()'s `replacing` local).
@@ -109,9 +107,8 @@ ADD_REJECTED_THEME = "rejected_theme"
 ADD_REJECTED_FULL = "rejected_full"
 ADD_FAILED = "failed"
 
-# WR-02-style fix, applied from day one here (T-15-02): add_rule()/
-# delete_rule() are both a load-modify-write whole-file cycle, and
-# companion/app.py runs under ThreadingHTTPServer — a real deployment.
+# add_rule()/delete_rule() are both a load-modify-write whole-file cycle,
+# and companion/app.py runs under ThreadingHTTPServer — a real deployment.
 # This single process-wide lock serialises the ENTIRE load-check-mutate-
 # write sequence per writer, not just the final os.replace(), so two
 # concurrent writers can never each load the registry before either has
@@ -121,7 +118,7 @@ _WRITE_LOCK = threading.Lock()
 # Process-scoped cache, mirroring illustrations.set_override_state_dir()/
 # manual_resolutions.set_manual_registry_state_dir(). A process that never
 # calls set_colour_rules_state_dir() sees the empty registry shape here —
-# exactly today's (pre-phase-14) behaviour.
+# exactly the same as when no rules have ever been persisted.
 _cached_rules = {kind: {} for kind in RULE_KINDS}
 
 
@@ -225,12 +222,12 @@ def load_colour_rules(state_dir):
     is `None`, or `value.get("created_at")` is not a string. This is
     defence in depth against a hand-edited file: the same allowlist
     `add_rule()` applies before persisting is re-applied here on every
-    read (T-15-01), and the same THEMES membership check `add_rule()`
-    applies is re-applied here too (T-15-05).
+    read, and the same THEMES membership check `add_rule()` applies is
+    re-applied here too.
 
     Stops once `COLOUR_RULE_MAX_ENTRIES` surviving entries have been
     accumulated across all kinds, so a hand-edited oversized file cannot
-    make a page render or a poll cycle unbounded (T-15-04). When the raw
+    make a page render or a poll cycle unbounded. When the raw
     file held more entries than survived, prints (never raises) a
     one-line warning naming the drop count.
     """
@@ -300,18 +297,18 @@ def add_rule(state_dir, kind, value, theme_id, now=None):
     registry is loaded; `replacing` is computed as whether the normalised
     value is already a key under that kind — this membership test is the
     added-versus-replaced answer and is computed here, inside the lock,
-    before mutating (D-09) — a second read outside the lock would be a
-    TOCTOU race against a concurrent writer. When not replacing and the
-    total entry count across all kinds is already at
-    `COLOUR_RULE_MAX_ENTRIES`, returns `ADD_REJECTED_FULL` (a replace is
-    not growth, so re-adding an existing key at the cap still succeeds).
+    before mutating — a second read outside the lock would be a TOCTOU
+    race against a concurrent writer. When not replacing and the total
+    entry count across all kinds is already at `COLOUR_RULE_MAX_ENTRIES`,
+    returns `ADD_REJECTED_FULL` (a replace is not growth, so re-adding an
+    existing key at the cap still succeeds).
 
     `now` defaults to a timezone-aware UTC ISO-8601 string (seconds
     precision), injectable so a harness can pin it. Writes with
     `manual_resolutions.py`'s tmp-write-then-`os.replace()` idiom: the
     temp filename embeds both `os.getpid()` and `threading.get_ident()`
     so two concurrent companion writers can never interleave into the
-    same temp path (T-15-02). Any exception during the write is caught,
+    same temp path. Any exception during the write is caught,
     the stray temp file is removed if present, and `ADD_FAILED` is
     returned rather than re-raised — the caller is an HTTP route handler
     that needs a flash key, not a traceback.
@@ -454,8 +451,8 @@ def set_colour_rules_state_dir(state_dir):
 
 def _rule_theme_from_cache(cache, kind, key):
     """Defensive nested lookup used only by `resolve_effective_theme_id()`
-    below — never raises regardless of `cache`'s shape (a tampered cache
-    dict is exactly what T-15-05's ninth harness check injects).
+    below — never raises regardless of `cache`'s shape, including a
+    tampered or malformed cache dict.
     """
     if key is None:
         return None
@@ -469,22 +466,21 @@ def _rule_theme_from_cache(cache, kind, key):
 
 
 def resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=None):
-    """The D-13 resolver — the only function in this phase that decides
-    what colour the panel is. Reads `_cached_rules` only; never touches
-    disk. Never raises; always returns a member of `device_config.THEMES`.
+    """The single resolver that decides what colour the panel is. Reads
+    `_cached_rules` only; never touches disk. Never raises; always
+    returns a member of `device_config.THEMES`.
 
-    Order (phase 16, D-02): a membership-tested `calendar_theme_id` first,
-    then the exact callsign rule, then hex rule, then prefix rule, then
-    the arrivals override when and only when `state` equals
-    `ARRIVING_STATE`, then `device_cfg["theme"]`.
+    Order: a membership-tested `calendar_theme_id` first, then the exact
+    callsign rule, then hex rule, then prefix rule, then the arrivals
+    override when and only when `state` equals `ARRIVING_STATE`, then
+    `device_cfg["theme"]`.
 
-    D-02's accepted consequence, in the developer's own terms: a calendar
-    match beats even an exact-callsign rule, which is the narrowest thing
-    an operator can write. Someone who deliberately pins one callsign will
-    find a calendar match overriding it. This was raised at decision time
-    and chosen anyway, because a calendar entry designates one specific
-    flight on one specific date, and the point of the feature is that
-    these flights stand out.
+    Accepted consequence: a calendar match beats even an exact-callsign
+    rule, which is the narrowest thing an operator can write. Someone who
+    deliberately pins one callsign will find a calendar match overriding
+    it. This is intentional, because a calendar entry designates one
+    specific flight on one specific date, and the point of the feature is
+    that these flights stand out.
 
     `calendar_theme_id` is computed by the CALLER — `poll_loop.py`, via
     `calendar_rules.match_calendar_theme()` — and this function neither
@@ -495,7 +491,7 @@ def resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=None
     Ordering trap this module cannot enforce on its own: this function
     must be called only where `render_state` and `current_flight` are
     already settled, never hoisted beside `poll_loop`'s top-of-cycle
-    config read — plan 15-03 owns that placement.
+    config read.
     """
     if isinstance(calendar_theme_id, str) and calendar_theme_id in device_config.THEMES:
         return calendar_theme_id
