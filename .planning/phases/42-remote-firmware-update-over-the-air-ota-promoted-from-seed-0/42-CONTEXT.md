@@ -81,6 +81,9 @@ A firmware release reaches the frame on the wall without a USB cable. CI builds 
   - The CA bundle is compiled into the app image, so a normal release is the delivery channel. There is no separate CA-update channel.
   - This check needs the network, so it cannot be a pytest test under the pytest-socket guard. It is a separate CI job or scheduled workflow.
 
+### Device credentials (decided 2026-09-25, after planning raised it)
+- **D-20:** **Device credentials move out of the firmware image.** Today `firmware/main/secrets.h` (gitignored) compiles the Wi-Fi SSID, the Wi-Fi password and `SKYPANE_API_BASE` into every image (`wifi.c`, `api_client.c`). A CI-built release could not join Wi-Fi, and injecting the credentials in CI would copy the Wi-Fi password into every published image, the VPS store and the nightly backups. The developer chose to store them in the existing `secret` NVS partition, written by `firmware/provision.sh`, as the enrolment secret already is, so every release image is identical and holds no secret. The real frame is re-provisioned over USB during the hardware session. The alternatives, injecting in CI or building releases on the developer's Mac, were rejected.
+
 ### Claude's Discretion
 - The offer's wire format inside `/device/v1/display`. The seed sketch has version, HTTPS URL, SHA-256 and size; add a signature field only if the scheme needs it outside the image.
 - How the device reports OTA progress and outcome: a new telemetry header, or `X-Boot-Reason` plus version change. Also where the server stores it. `history_db.device_health` already records `fw_version`, but only indirectly from Caddy logs.
