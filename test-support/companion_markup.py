@@ -3,10 +3,10 @@
 
 These helpers operate on SERVED bytes - text a test fetches over HTTP with
 `test-support/companion_app_server.py`'s `get()` / `served_stylesheet()` /
-`served_asset()` - never on a file opened from disk (TST-12). A migrated
-companion test asserts on the parsed structure, the resolved declaration,
-or the delivery contract of what the server actually sent, not on the
-source text that produced it.
+`served_asset()` - never on a file opened from disk. A companion test
+asserts on the parsed structure, the resolved declaration, or the
+delivery contract of what the server actually sent, not on the source
+text that produced it.
 
 Three independent pieces:
 
