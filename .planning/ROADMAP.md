@@ -1891,3 +1891,24 @@ Plans:
 Plans:
 
 - [ ] TBD (run /gsd-plan-phase 41 to break down)
+
+### Phase 42: Remote firmware update over the air (OTA), promoted from SEED-009
+
+**Goal:** A firmware release reaches the frame on the wall without a USB cable: the server offers it, the device downloads it into the inactive slot, boots it on trial and keeps it only after a successful poll, and a bad image rolls back on its own. Promoted from `.planning/seeds/SEED-009-remote-firmware-update-ota.md` (feasibility, design sketch and breadcrumbs live there).
+**Requirements**: TBD (defined at `/gsd-discuss-phase 42`)
+**Depends on:** Phase 41. The seed targets milestone v1.1. The developer asked on 2026-09-25 to launch it now, so it sits at the end of the current roadmap and runs after the v1.0 audit remediation, which still changes the firmware (Phase 35) and the device protocol (Phase 36).
+
+**Success criteria (draft, to be settled at discuss time):**
+
+1. `GET /device/v1/display` carries an optional `firmware` offer (version, HTTPS URL, SHA-256, size) only when the device's `X-Fw-Version` is older than the release assigned to it
+2. The device downloads the offer with `esp_https_ota` over the pinned-CA client into the inactive OTA slot and checks size and SHA-256 before it switches the boot partition
+3. App rollback is enabled; a new image marks itself valid only after one fully successful poll, and a forced crash on a trial image rolls back to the previous image on real hardware
+4. An update is deferred below a battery threshold, during quiet hours, with the display off, and never runs mid-blit; a failed download counts toward backoff
+5. CI builds the release artifact, and the companion shows each frame's running firmware version and lets the operator promote a release
+6. Decided with the developer before planning: automatic versus approved rollout, signed images (no eFuse burned) versus HTTPS + pinned CA + SHA-256, where the signing key lives, the battery threshold, and whether an OTA can ship a new CA bundle
+
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 42 to break down)
