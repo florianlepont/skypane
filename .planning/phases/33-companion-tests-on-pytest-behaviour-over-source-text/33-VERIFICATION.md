@@ -1,12 +1,13 @@
 ---
 phase: 33-companion-tests-on-pytest-behaviour-over-source-text
 verified: 2026-09-25T03:40:00Z
-status: gaps_found
-score: 8/9 must-haves verified
+status: passed
+score: 9/9 must-haves verified
+re_verified: 2026-09-25T04:30:00Z (gap closed in 3e15556)
 overrides_applied: 0
 gaps:
   - truth: "The suite passes as root and writes nothing outside tmp_path (SC4, TST-13)"
-    status: partial
+    status: closed
     reason: >-
       Root safety holds: the 5 requires_non_root tests skip under euid 0, and the root run passes.
       But companion/test_config_page_04b.py passes the literal host path "/tmp" as state_dir in
@@ -39,7 +40,7 @@ gaps:
 
 **Phase Goal:** The companion suite runs under pytest with one shared app-server fixture. Tests assert behaviour or parsed DOM, never source text, comments, CSS text or `.planning/` files. `run_all_tests.py`, its hand list and every `EXPECTED_CHECK_COUNT` are retired.
 **Verified:** 2026-09-25T03:40:00Z
-**Status:** gaps_found
+**Status:** passed (initially gaps_found; the one gap is closed, see Gap Closure below)
 **Re-verification:** No. This is the initial verification.
 
 ## Goal Achievement
@@ -137,3 +138,21 @@ Everything else holds up against the code:
 
 _Verified: 2026-09-25T03:40:00Z_
 _Verifier: Claude (gsd-verifier)_
+
+## Gap Closure (re-verification)
+
+The SC4 / TST-13 gap is closed in `3e15556`:
+
+- `companion/test_config_page_04b.py`: an autouse fixture gives every test a state dir under
+  `tmp_path` (module-level contexts included); no `"/tmp"` literal remains.
+- Guard G6 now flags a literal system temp dir (`/tmp`, `/var/tmp`, `/dev/shm`) or a path inside
+  one, with positive and negative self-tests. Run over the previous version of the module it
+  reports all 22 literals.
+- Proof on an empty `/tmp`: in a private mount namespace (`unshare -m`, tmpfs on `/tmp`, the
+  Chromium headless shell bind-mounted elsewhere), `SKYPANE_REQUIRE_BROWSER=1
+  ./scripts/run-all-tests.sh` gives 2593 passed, 5 skipped (`requires_non_root`), 0 failed,
+  coverage 93.24%; afterwards `/tmp` holds only `pytest-of-root` (pytest's basetemp), and
+  `git status --porcelain` is empty.
+- F-03 (Playwright driver temp dirs) was closed earlier in `908b0ef`; the same run confirms it.
+
+TST-13 stays marked complete in REQUIREMENTS.md, now with this evidence.
