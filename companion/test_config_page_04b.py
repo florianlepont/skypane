@@ -28,6 +28,9 @@ after_the_merge` (row 195, ported below) already counts by running render()
 and inspecting its output; the AST check added no coverage beyond that.
 """
 import re
+import sys
+
+import pytest
 
 import companion.layout as layout
 import companion.prefs as prefs
@@ -38,6 +41,20 @@ from companion.layout import escape_html
 from companion.pages import config_page
 from server import device_config
 from server.plane import colour_rules
+
+
+# Rendering the Display scope opens <state_dir>/history.db, so every render
+# and flash lookup below gets a per-test state dir under tmp_path, never a
+# host path. The module-level contexts are filled in per test too.
+STATE_DIR = None
+
+
+@pytest.fixture(autouse=True)
+def _per_test_state_dir(tmp_path, monkeypatch):
+    state_dir = str(tmp_path)
+    monkeypatch.setattr(sys.modules[__name__], "STATE_DIR", state_dir)
+    monkeypatch.setitem(_TASK2_BASE_CTX, "state_dir", state_dir)
+    monkeypatch.setitem(_TASK3_I18N_CTX, "state_dir", state_dir)
 
 
 def test_scope_groups_follow_the_screen_registry():
@@ -160,7 +177,7 @@ def test_display_render_carries_three_section_intros_in_locked_order():
     watches/When it is on order, and the Device scope renders exactly three of its own, in the
     locked When it wakes/How it tells you/When you can't wait order (D-12, retargeted by
     28-04-PLAN.md Task 1/CFG-72 from 'the Device scope renders none')"""
-    ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+    ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
     assert display.count("section-intro") == 3, (
@@ -187,7 +204,7 @@ def test_every_grouped_card_under_a_display_supersection_carries_nested_class():
     Quiet hours' theme-status--nested) now that the Calendar card's own separate
     page-section--nested wrapper is retired (D-12, CFG-85)"""
     ctx = {
-        "device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        "device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
         "calendar_configured": True, "calendar_last_synced_at": None,
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }
@@ -210,7 +227,7 @@ def test_display_h2_order_matches_the_merged_aspect_card_placement():
     - and every calendar_theme_id radio still carries a form="settings-form" attribute (CFG-85,
     replacing the retired _display_h2_order_matches_d12_after_calendar_placement_fix)"""
     ctx = {
-        "device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        "device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
         "calendar_configured": True, "calendar_last_synced_at": None,
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }
@@ -242,13 +259,13 @@ def test_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_af
     _title_form_inventory_classifies_every_h2_text_heading_on_both_routes)"""
     ctx_display = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
-        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
         "calendar_configured": True, "calendar_last_synced_at": None,
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }
     ctx_device = {
         "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-        "state_dir": "/tmp", "poll_cooldown_remaining": 5,
+        "state_dir": STATE_DIR, "poll_cooldown_remaining": 5,
     }
     display = config_page.render(ctx_display, scope=config_page.SCOPE_DISPLAY)
     device = config_page.render(ctx_device, scope=config_page.SCOPE_DEVICE)
@@ -317,7 +334,7 @@ def test_device_scope_wraps_all_four_settings_cards_with_the_nested_modifier():
     (CFG-72, 28-04-PLAN.md Task 2)"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
     }
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
     nested_theme_status = device.count('class="theme-status theme-status--nested"')
@@ -341,7 +358,7 @@ _TASK2_BASE_CTX = {
         "display_enabled": True, "quiet_hours_enabled": True,
         "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
     },
-    "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+    "state_dir": None, "poll_cooldown_remaining": 0,
 }
 
 
@@ -508,7 +525,7 @@ _TASK3_I18N_CTX = {
         "display_enabled": True, "quiet_hours_enabled": True,
         "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
     },
-    "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+    "state_dir": None, "poll_cooldown_remaining": 0,
     "calendar_configured": True, "calendar_last_synced_at": None,
     "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
 }
@@ -584,7 +601,7 @@ def test_device_render_carries_no_edit_artwork_markup_in_either_language():
         try:
             prefs.set_request_prefs(lang=lang)
             rendered = config_page.render(
-                {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0},
+                {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0},
                 scope=config_page.SCOPE_DEVICE)
         finally:
             prefs.set_request_prefs(lang="en")
@@ -621,7 +638,7 @@ def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
     the legacy render(ctx) carries no scope field; a hostile scope never reaches the markup
     (30-05-PLAN.md Task 2, replacing the retired
     _scoped_render_carries_hidden_fields_and_omits_other_groups)"""
-    ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+    ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
     legacy = config_page.render(ctx)
@@ -743,7 +760,7 @@ def test_screen_selector_renders_for_a_multi_member_registry():
 def test_render_carries_no_screen_selector_today():
     """render() at Display and Device scope contains no <select name="screen_id"> today (a
     single-member registry has no real choice to offer)"""
-    ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+    ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
     assert '<select name="screen_id"' not in display and '<select name="screen_id"' not in device, (
@@ -805,7 +822,7 @@ def test_screen_selector_renders_the_field_error_message():
 def test_neither_scope_renders_an_edit_artwork_link():
     """neither the Display nor the Device scope renders an Edit-artwork link or markup any more -
     the link and its builder are deleted outright (D-36)"""
-    ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+    ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
     href_fragment = "/airlines?edit=1"
@@ -839,9 +856,9 @@ def test_affected_captions_gain_the_suffix_only_when_known():
     known_ctx = {
         "device_config": {"wake_interval_s": 900, "display_enabled": True},
         "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
-        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
     }
-    unknown_ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+    unknown_ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     known_display = config_page.render(known_ctx, scope=config_page.SCOPE_DISPLAY)
     known_device = config_page.render(known_ctx, scope=config_page.SCOPE_DEVICE)
     unknown_display = config_page.render(unknown_ctx, scope=config_page.SCOPE_DISPLAY)
@@ -872,9 +889,9 @@ def test_device_header_shows_next_wake_line_when_known():
     known_ctx = {
         "device_config": {"wake_interval_s": 900, "display_enabled": True},
         "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
-        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
     }
-    unknown_ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+    unknown_ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     known_device = config_page.render(known_ctx, scope=config_page.SCOPE_DEVICE)
     assert "Next wake" in known_device and "≈ 14:10" in known_device, (
         "expected the Device header to carry a Next wake ≈ HH:MM line when known")
@@ -890,7 +907,7 @@ def test_quiet_hours_caption_and_flash_agree_on_the_due_branch():
     ctx = {
         "device_config": {"wake_interval_s": 900, "quiet_hours_enabled": False},
         "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
-        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
     }
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     expected_delay_fragment = escape_html("Applies at the next wake, around 14:10.")
@@ -909,7 +926,7 @@ def test_quiet_hours_caption_and_flash_agree_on_the_due_branch():
         "expected the Quiet hours card's OWN caption to carry NO delay sentence any more (CFG-79) "
         "- found it in %r" % (caption.group(1),))
     flash = companion_app._resolve_flash_text(
-        companion_app.FLASH_KEY_SAVED, "/tmp",
+        companion_app.FLASH_KEY_SAVED, STATE_DIR,
         last_checkin_ts=ctx["last_checkin_ts"], device_cfg=ctx["device_config"])
     assert flash == "Saved — applies at the next wake, around 14:10.", "expected the DUE flash text, got %r" % (flash,)
 
@@ -931,7 +948,7 @@ def test_quiet_hours_caption_and_flash_agree_on_the_held_branch():
     ctx = {
         "device_config": device_cfg,
         "last_checkin_ts": "2026-01-15T22:58:00+01:00", "now": "2026-01-16T02:00:00+01:00",
-        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
     }
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     expected_delay_fragment = escape_html("Applies when quiet hours end, around 07:00.")
@@ -950,7 +967,7 @@ def test_quiet_hours_caption_and_flash_agree_on_the_held_branch():
         "expected the Quiet hours card's OWN caption to carry NO delay sentence any more (CFG-79) "
         "- found it in %r" % (caption.group(1),))
     flash = companion_app._resolve_flash_text(
-        companion_app.FLASH_KEY_SAVED, "/tmp",
+        companion_app.FLASH_KEY_SAVED, STATE_DIR,
         last_checkin_ts=ctx["last_checkin_ts"], device_cfg=device_cfg)
     assert flash == "Saved — applies when quiet hours end, around 07:00.", "expected the HELD flash text, got %r" % (
         flash,)
@@ -961,7 +978,7 @@ def test_quiet_hours_caption_and_flash_agree_on_the_unknown_branch():
     (once per switch cell), the Quiet hours card's own caption carries NO delay sentence any more
     (29-05-PLAN.md Task 2, CFG-79), and the post-save flash still reads the UNKNOWN delay
     sentence, which names no time (D-04)"""
-    ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+    ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     expected_delay_fragment = escape_html("Applies the next time the frame wakes up.")
     strip_start = display.index('<div class="frame-strip stat-tile stat-tile--accent"')
@@ -978,6 +995,6 @@ def test_quiet_hours_caption_and_flash_agree_on_the_unknown_branch():
     assert expected_delay_fragment not in caption.group(1), (
         "expected the Quiet hours card's OWN caption to carry NO delay sentence any more (CFG-79) "
         "- found it in %r" % (caption.group(1),))
-    flash = companion_app._resolve_flash_text(companion_app.FLASH_KEY_SAVED, "/tmp")
+    flash = companion_app._resolve_flash_text(companion_app.FLASH_KEY_SAVED, STATE_DIR)
     assert flash == "Saved — applies the next time the frame wakes up.", "expected the UNKNOWN flash text, got %r" % (
         flash,)

@@ -3,7 +3,7 @@ fails if a migrated companion test module reads a `.planning`/UI-SPEC
 file, reads a production source file as text, inspects source with
 `inspect`/`ast`/`tokenize`/`linecache`, reads a `__doc__`, redefines the
 shared `Harness`/`http_request`/`_NoRedirectHandler` machinery, writes
-outside `tmp_path` or uses a literal `/nonexistent` host path, runs
+outside `tmp_path` or uses a literal `/nonexistent` or system-temp host path, runs
 `os.chmod` outside a root-safety marker, still carries the legacy
 `EXPECTED_CHECK_COUNT`/`check()`/`main()` shape, drives Playwright's
 `browser` fixture directly instead of the guarded `new_context`/`page`
@@ -55,6 +55,17 @@ _RELEVANT_NAME_SUFFIXES = ("_DIR", "_ROOT")
 _FORBIDDEN_CLASS_NAMES = frozenset({"Harness", "_InProcessHarness", "_NoRedirectHandler"})
 
 _G2_MODULES = frozenset({"inspect", "ast", "tokenize", "linecache"})
+
+
+_HOST_TEMP_DIRS = ("/tmp", "/var/tmp", "/dev/shm")
+
+
+def _is_host_temp_path(value):
+    """A literal system temp dir, or a path inside one: a test that hands
+    it to production code (a state dir, a file path) writes on the host,
+    outside `tmp_path`.
+    """
+    return any(value == d or value.startswith(d + "/") for d in _HOST_TEMP_DIRS)
 
 
 def _is_route_or_url(value):
@@ -185,6 +196,8 @@ class _Scanner(ast.NodeVisitor):
             value = node.value
             if "/nonexistent" in value:
                 self._add(node, "G6", "/nonexistent literal: %r" % (value,))
+            if _is_host_temp_path(value):
+                self._add(node, "G6", "host temp path literal: %r" % (value,))
             if not _is_route_or_url(value) and (".planning" in value or "UI-SPEC" in value):
                 self._add(node, "G1", "planning/UI-SPEC string: %r" % (value,))
         self.generic_visit(node)
@@ -585,6 +598,10 @@ _POSITIVE_CASES = [
      "def http_request(url):\n    pass\n", None),
     ("G6", "nonexistent_path",
      'V = health_page.anomaly_active("/nonexistent/definitely-not-here")\n', None),
+    ("G6", "host_tmp_state_dir",
+     'CTX = {"state_dir": "/tmp", "poll_cooldown_remaining": 0}\n', None),
+    ("G6", "host_tmp_file_path",
+     'P = "/var/tmp/skypane/history.db"\n', None),
     ("G6", "tempfile_mkdtemp",
      'import tempfile\nD = tempfile.mkdtemp(prefix="x-")\n', None),
     ("G7", "chmod_without_marker",
@@ -643,7 +660,9 @@ _NEGATIVE_CASES = [
     ("tmp_path_probe_write",
      '(tmp_path / "test_probe.py").write_text("...")\n', None),
     ("chmod_with_requires_non_root_decorator",
-     "import os\n\n\n@requires_non_root\ndef test_x():\n    os.chmod(\"/tmp/x\", 0o644)\n", None),
+     "import os\n\n\n@requires_non_root\ndef test_x(tmp_path):\n    os.chmod(str(tmp_path / \"x\"), 0o644)\n", None),
+    ("tmp_path_state_dir_and_tmp_route",
+     'CTX = {"state_dir": str(tmp_path)}\nX = "/tmpl"\nY = "a/tmp/b"\n', None),
     ("helpers_with_test_false_marker",
      "__test__ = False\nX = 1\n", "companion/test_something_helpers.py"),
     ("import_helpers_module",
