@@ -118,3 +118,96 @@ invariant.
 |---|---:|---|
 | stub-server/byos_server.py | 35.2% | This is the device-protocol security surface the plan's own must_haves require to keep its why-comments (registry fail-closed vs. load_state()'s fail-open, timing-safe secret comparison, X-Battery-Mv input bounds, and four sleep_s composition functions whose nesting order is load-bearing and independently documented on each function). Sits essentially at the guideline after two compression passes. |
 | stub-server/make_test_panel.py | 36.4% | Small file (110 lines) whose comments are the non-obvious Spectra 6 nibble-packing byte math (which pixel occupies which nibble, why the half-width split lands exactly on a byte-pair boundary) — algorithmic why for bit-twiddling code, not restatement. |
+
+## Group 4 — companion production (Python)
+
+Source plans: 35-08 (`companion/app.py`, `auth.py` and ten small modules), 35-09
+(`companion/pages/config_page.py`), 35-10 (`companion/pages/health_page.py`,
+`history_page.py`), 35-11 (`companion/layout.py`, `draw.py`), 35-12
+(`companion/pages/airlines_page.py`, `home_page.py`, `pages/__init__.py`,
+`companion/i18n_fr/*.py`), 35-13 (HYG-05: deletes `health_page.health_severity()`,
+`health_page.anomaly_active()`, `draw.usable_pairs()`, `draw.label_grid()`, confirmed
+dead against current main — see this plan's own SUMMARY). Figures below are measured
+on this group's own HEAD, after 35-13's dead-code deletion, so `app.py`/`draw.py`/
+`health_page.py` read slightly lower than the source plans' own mid-process numbers.
+
+| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
+|---|---:|---:|---:|---:|---:|
+| companion/__init__.py | 1 | 1 | 100.0% | 100.0% | 2 -> 0 |
+| companion/app.py | 3744 | 2258 | 57.2% | 29.1% | 457 -> 0 |
+| companion/auth.py | 540 | 398 | 51.7% | 34.4% | 43 -> 0 |
+| companion/battery.py | 457 | 269 | 63.0% | 37.2% | 31 -> 0 |
+| companion/contrast_check.py | 226 | 154 | 61.9% | 44.2% | 8 -> 0 |
+| companion/draw.py | 1367 | 857 | 63.9% | 44.9% | 21 -> 0 |
+| companion/frame_state.py | 216 | 102 | 69.9% | 36.3% | 17 -> 0 |
+| companion/i18n.py | 42 | 29 | 66.7% | 51.7% | 4 -> 0 |
+| companion/i18n_fr/__init__.py | 47 | 34 | 51.1% | 32.4% | 3 -> 0 |
+| companion/i18n_fr/airlines.py | 140 | 108 | 41.4% | 24.1% | 26 -> 0 |
+| companion/i18n_fr/calendar_group.py | 77 | 28 | 68.8% | 32.1% | 15 -> 0 |
+| companion/i18n_fr/common.py | 236 | 200 | 27.5% | 14.5% | 20 -> 0 |
+| companion/i18n_fr/display.py | 485 | 247 | 63.7% | 29.1% | 102 -> 0 |
+| companion/i18n_fr/flights.py | 160 | 110 | 55.6% | 35.5% | 26 -> 0 |
+| companion/i18n_fr/frame_state.py | 70 | 26 | 90.0% | 76.9% | 9 -> 0 |
+| companion/i18n_fr/health.py | 383 | 317 | 38.9% | 26.2% | 43 -> 0 |
+| companion/i18n_fr/home.py | 146 | 94 | 60.3% | 38.3% | 27 -> 0 |
+| companion/i18n_fr/nav.py | 101 | 53 | 69.3% | 41.5% | 30 -> 0 |
+| companion/i18n_fr/notifications.py | 72 | 44 | 62.5% | 38.6% | 16 -> 0 |
+| companion/i18n_fr/registry.py | 59 | 46 | 54.2% | 41.3% | 3 -> 0 |
+| companion/i18n_fr/rules.py | 74 | 44 | 63.5% | 45.5% | 10 -> 0 |
+| companion/illustration_normalize.py | 153 | 86 | 68.6% | 44.2% | 4 -> 0 |
+| companion/layout.py | 4168 | 2582 | 65.4% | 43.0% | 458 -> 0 |
+| companion/pages/__init__.py | 176 | 71 | 100.0% | 100.0% | 35 -> 0 |
+| companion/pages/airlines_page.py | 2503 | 1293 | 66.0% | 34.5% | 382 -> 0 |
+| companion/pages/config_page.py | 6652 | 3384 | 66.6% | 34.5% | 932 -> 0 |
+| companion/pages/health_page.py | 4675 | 2358 | 68.3% | 37.4% | 554 -> 0 |
+| companion/pages/history_page.py | 1821 | 1144 | 61.3% | 38.4% | 190 -> 0 |
+| companion/pages/home_page.py | 950 | 696 | 52.3% | 34.9% | 89 -> 0 |
+| companion/prefs.py | 59 | 30 | 76.3% | 53.3% | 5 -> 0 |
+| companion/screens.py | 139 | 81 | 68.3% | 45.7% | 26 -> 0 |
+| companion/theme_preview.py | 376 | 208 | 62.5% | 32.2% | 25 -> 0 |
+| companion/wake.py | 38 | 19 | 78.9% | 57.9% | 7 -> 0 |
+| **Group 4 total** | **30353** | **17371** | **63.6%** | **36.4%** | **3620 -> 0** |
+
+The group total's "before" figures (33 files, 30353 lines, 19291 comment lines, 64%,
+3620 history hits) match `35-BASELINE/INDEX.md`'s group-4 row exactly, confirming
+every file the baseline counted is accounted for here. The group-total ratio (36.4%)
+sits just above the ~35% guideline because roughly two-thirds of the group's files
+are individually above it (see below) — small catalogue and helper modules where a
+short module docstring and a handful of per-function invariant sentences dominate a
+file with little code to dilute them against.
+
+### Files still above the ~35% guideline
+
+Each file below was re-read at least twice in its source plan hunting for
+restatement, scope talk and paraphrase before its plan accepted the guideline miss;
+justifications are summarized from the source plan SUMMARYs (35-08/35-09/35-10/
+35-11/35-12).
+
+| File | After | Justification |
+|---|---:|---|
+| companion/__init__.py | 100.0% | A one-line file: a single docstring, no code at all. Ratio is not a meaningful signal at this size. |
+| companion/battery.py | 37.2% | `battery_life_estimate()`'s docstring documents the one output-field contract every caller keys off; the curve-derivation and threshold-distinction comments are each short. |
+| companion/contrast_check.py | 44.2% | A pure-stdlib WCAG 2.1 implementation with little code to dilute against: the spec URL pointers the purge rules require to keep, three calibration-number comments and one signal-separation-vs-contrast distinction. |
+| companion/draw.py | 44.9% | Geometry/units invariants for every emitter (fixed coordinate domains, SVG dash-route degenerate cases, element-count bounds, measured-pixel derivations) — hard-capped at <=15-line docstrings/<=5-line blocks file-wide in 35-11's second pass; no caps exceptions remain. |
+| companion/frame_state.py | 36.3% | A 102-line single-source-of-truth state machine; module and all four function docstrings hold only the state/delay contract sentences every consumer relies on. |
+| companion/i18n.py | 51.7% | A 29-line module: one real function and its test-only sibling, each with a short never-raise contract — two documented functions in a file this size cannot go lower without dropping the contract itself. |
+| companion/i18n_fr/flights.py | 35.5% | 110 lines; nine cross-module key reuses, each condensed to one line. |
+| companion/i18n_fr/frame_state.py | 76.9% | Smallest file in the group (26 lines, 3 key/value pairs) carrying a genuinely load-bearing docstring (an unresolved grammatical-agreement mismatch) — three catalogue entries cannot dilute a docstring that size below 35%. |
+| companion/i18n_fr/home.py | 38.3% | 94 lines; one key reused from nav.py plus copy style, on a file with modest code volume. |
+| companion/i18n_fr/nav.py | 41.5% | 53 lines; docstring enumerates 7 locked nav labels plus cross-module grouping. |
+| companion/i18n_fr/notifications.py | 38.6% | 44 lines; 6 keys deliberately routed through a different resolver — a real routing fact, not history. |
+| companion/i18n_fr/registry.py | 41.3% | 46 lines; the id-vs-label distinction this cross-page catalogue depends on is necessarily stated once. |
+| companion/i18n_fr/rules.py | 45.5% | 44 lines, 9 key/value pairs; docstring states 6 absent keys plus the identifier/data exclusion. |
+| companion/illustration_normalize.py | 44.2% | An 86-line geometry module: the crop-box derivation constant comment and the two function docstrings are the file's only comments. |
+| companion/layout.py | 43.0% | Hard-capped at <=15-line docstrings/<=5-line blocks file-wide in 35-11's second pass (same pass as draw.py above); keeps the `escape_html()` choke-point discipline, the icon-id injection-guard whitelist, the duplicated-not-imported route-constant contract with `app.py`, and the "exactly one Primary navigation landmark" accessibility invariant. No caps exceptions remain. |
+| companion/pages/__init__.py | 100.0% | Pure-documentation file: the entire file is the module docstring describing every page module's `ctx`/`render(ctx)` contract (which keys are query-string-derived and re-validated on every use, which reads must never hit the process-scoped cache). Condensing it to the module-docstring cap would have deleted the per-key contract, not history. |
+| companion/pages/health_page.py | 37.4% | Dominated by ~60 short helper functions, each needing one real why (a threshold's unit, a WCAG rule, an SVG coordinate-system constraint) — further compression began threatening load-bearing content rather than restatement, per 35-10's own documented stopping point. |
+| companion/pages/history_page.py | 38.4% | Same pattern as health_page.py above: ~30 short helper functions, each with a real why (the untrusted `?limit=` clamp contract, the day-separator grouping rule). |
+| companion/prefs.py | 53.3% | A 30-line module whose only content is the one-set-path/two-read-path invariant; the module docstring is at the small-file floor for stating it at all. |
+| companion/screens.py | 45.7% | An 81-line registry module: module docstring plus short per-group split/render-order comments. |
+| companion/wake.py | 57.9% | A 19-line re-export shim; the docstring explaining why the shim exists is the whole file's content — no numbered list or module tour to cut. |
+
+Files close to, but under, the guideline (kept for completeness, no justification
+needed): `companion/auth.py` (34.4%), `companion/theme_preview.py` (32.2%),
+`companion/pages/airlines_page.py` (34.5%), `companion/pages/config_page.py`
+(34.5%), `companion/pages/home_page.py` (34.9%).
