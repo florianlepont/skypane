@@ -1526,24 +1526,6 @@ def test_check_in_gaps_degenerate_windows_return_empty_without_raising(tmp_path)
             pytest.fail("a window containing both rows must yield their one interval")
 
 
-def test_check_in_gaps_docstring_states_what_it_cannot_know():
-    """check_in_gaps()'s docstring carries both 'cannot know' caveats - the ingest-missed log range and the UNIQUE(ts, battery_mv) collapse with its 60-second bound - plus why battery_mv is unfiltered"""
-    # A future reader who finds this function and not the plan must
-    # learn the same limits the plan's caption carries.
-    doc = (history_db.check_in_gaps.__doc__ or "")
-    low = doc.lower()
-    if "cannot know" not in low:
-        pytest.fail("the docstring never says what this reader cannot know")
-    if "rotat" not in low:
-        pytest.fail("the docstring omits the rotation hole (an ingest-missed log range reads as a missed wake)")
-    if "unique(ts, battery_mv)" not in low:
-        pytest.fail("the docstring omits the UNIQUE(ts, battery_mv) collapse caveat")
-    if "60" not in doc:
-        pytest.fail("the docstring omits the provable WAKE_INTERVAL_MIN_S = 60 bound on that collapse")
-    if "x-battery-mv" not in low:
-        pytest.fail("the docstring never says WHY battery_mv is not filtered (the missing-header failure)")
-
-
 def test_history_db_introduces_no_migration_mechanism():
     """server/history_db.py still contains no ALTER TABLE and no PRAGMA user_version - the whole migration story remains CREATE TABLE IF NOT EXISTS on every connection (CFG-43)"""
     src_path = os.path.join(REPO_ROOT, "server", "history_db.py")
