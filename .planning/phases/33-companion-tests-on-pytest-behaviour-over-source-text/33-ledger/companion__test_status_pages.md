@@ -175,79 +175,79 @@ Baseline: `companion__test_status_pages.txt`, 317 checks
 | 169 | freshness.js knows three things it must not repaint: swapNodes() keeps 22-15's unchanged-region and focused-region skips and gains a per-region pending skip, and tick() stands the whole cycle down while dirty-state.js's own window.SkyPaneDirtyState.hasUncommittedEdits() reports unsaved edits — with the interval, ladder, ceiling, in-flight guard and redirect:manual all untouched (D1/CFG-35, 23-06-PLAN.md Task 1; retargeted from the retired save bar by 27-04-PLAN.md, CFG-63) | ported | companion/test_status_pages_04.py::test_freshness_loop_knows_three_things_it_must_not_repaint |
 | 170 | Flights' swap registry entry covers the phone card list, the desktop table, the live count and the freshness line, EXCLUDES every element list-filter.js captures once at load (the input, Clear, the empty state and the set hooks), nests no entry inside another, is keyed by nav_slug()'s own value, and the registry's own comment states the exclusion's reason (D7/CFG-37, 23-08-PLAN.md Task 1) | ported | companion/test_status_pages_04.py::test_flights_swap_registry_entry_covers_and_excludes_the_right_regions |
 | 171 | freshness.js's new-row highlight is a DIFF over server-rendered row identity: its two cross-file literals equal layout.REFRESH_ROW_ID_ATTR/REFRESH_NEW_ROW_CLASS, the known set is populated from the page as first rendered rather than empty, the diff runs from applySwap() and from nowhere else, resolves the set with an own-property test, applies one class through classList and never removes it, and writes no markup (D7/CFG-37, 23-08-PLAN.md Task 1) | ported | companion/test_status_pages_04.py::test_freshness_new_row_highlight_is_a_diff_never_a_first_paint |
-| 172 | Health's and Home's freshness lines are layout.freshness_line_html()'s own output verbatim — ONE definition site, the markup gone from health_page.py entirely — each page renders exactly one data-loaded-at and one data-refresh-pill, and the builder emits the dot, the prefix, the clock element and the pill in that order with exactly one <time data-relative> (D1/CFG-35, 23-06-PLAN.md Task 2) | pending | |
-| 173 | Home declares the four regions that actually change between polls (the strip, the status tiles, the picture, the recent-flights list) plus its freshness line, every literal in every one of its selectors appears in the rendered page, and the Display scope declares exactly the strip and the freshness line — everything else there is a form (D1/CFG-35, 23-06-PLAN.md Task 2) | pending | |
-| 174 | the Frame strip's next-update cell carries a marked <time data-relative-countdown> over companion/wake.py's OWN resolved instant, reading the ladder's future form, beside a state word that stays frame_state.resolve_state()'s — and no script in companion/static names a state or a headline template at all (D1/D-03/CFG-26, 23-06-PLAN.md Task 2) | pending | |
-| 175 | the refreshed picture fades through a named keyframes block spending var(--motion-fast) with no bare literal, the class is applied only after freshness.js compares the image's own src (a fade on every swap would flash the page every 45s for no information), and the server renders it never (D1+D3/CFG-32, 23-06-PLAN.md Task 2) | pending | |
-| 176 | layout.stat_tile()'s new caption_title parameter is byte-identical to the pre-existing output when omitted, None, or '' (19-06-PLAN.md Task 1, D-06) | pending | |
-| 177 | layout.stat_tile()'s caption_title renders as a title attribute on the caption <p> element, and nowhere else (19-06-PLAN.md Task 1, D-06) | pending | |
-| 178 | layout.stat_tile()'s caption_title is escaped through escape_html(), matching every other attribute value this module emits (19-06-PLAN.md Task 1, D-06/T-19-08) | pending | |
-| 179 | Health's stat tiles and corroboration rows read in plain language: 'Corroboration', 'Single-source (uncorroborated)' and 'pipeline last ran' are all absent from visible text, and the Pipeline/Corroboration/Resolution-rate tiles' caption elements each carry a title attribute equal to their matching technical constant (19-06-PLAN.md Task 2, D-06) | pending | |
-| 180 | a full Health render with a non-empty unresolved registry and stats rows (every branch rendered) contains no 'adsbdb' and no CFG-\d requirement id outside a title attribute (19-06-PLAN.md Task 3, D-06/T-19-24) | pending | |
-| 181 | all 52 vendored illustrations normalize to the exact same pixel dimensions (illustration_normalize.ILLUSTRATION_TARGET_SIZE) | pending | |
-| 182 | all 52 vendored illustrations normalize and serve well under 65536 bytes per file, the UIR-08 weight fix — a regression that got the dimensions right but left the served bytes unchanged would defeat this check | pending | |
-| 183 | all 52 vendored illustrations normalize with their painted content centred within 1px on both axes and never clipped | pending | |
-| 184 | a source image whose opaque bbox is None (nothing painted) falls back to the source image instead of raising, and still normalizes to the target output size | pending | |
-| 185 | no module anywhere under companion/ defines its own alpha-threshold constant — the threshold is only ever imported from server.plane.render | pending | |
-| 186 | page_shell() renders <html lang="fr" under prefs.set_request_prefs(lang='fr') and <html lang="en" otherwise (D-03) | pending | |
-| 187 | login_shell() renders <html lang="fr" under prefs.set_request_prefs(lang='fr') and <html lang="en" otherwise (D-03) | pending | |
-| 188 | a rendered shell contains exactly two aria-labelled theme-form forms per footer copy, actions /ui-lang, /ui-theme in that document order, and zero /ui-mode forms (D-02/D-17, 21-UI-SPEC.md §G) | pending | |
-| 189 | under lang='fr' the nav reads Accueil/Affichage/Vols/Compagnies/Avancé/État/Appareil (D-09) | pending | |
-| 190 | the Advanced group (Health, Device) and the nav status dot always render, in both the sidebar and the bottom tab bar, on a plain request (D-17; retargeted from the dropdown by 22-14-PLAN.md Task 2) | pending | |
-| 191 | the sidebar and the mobile dropdown each contain exactly one .nav-status link, with no <form> or <button> inside it, sitting after the brand and before the primary nav list in document order (D-03) | pending | |
-| 192 | nav_status_html()'s two dots follow all four Screen/Quiet-hours on/off combinations (dot--ok for on, dot--off for off) (D-03) | pending | |
-| 193 | under lang='fr' the reminder reads 'Écran allumé' and 'Heures calmes désactivées' — fully French, never 'Heures calmes off' (R-04) | pending | |
-| 194 | nav_status_html(None) and nav_status_html({}) both return '', and page_shell(..., device_config=None) — the default, used by login/404/error pages — renders no .nav-status at all (D-03) | pending | |
-| 195 | login_shell() — which never takes a device_config parameter — carries no .nav-status markup, unchanged by this task (D-03) | pending | |
-| 196 | status_row('Frame', 'Checking in normally', 'Last check-in 2m ago', 'ok') carries status-row--ok, dot--ok, all three texts and exactly one status-row__label (D-21) | pending | |
-| 197 | status_row('', ..., 'warn') omits the status-row__label span entirely, not merely its text (D-21, 20-UI-SPEC.md Section Anatomy A) | pending | |
-| 198 | status_row(..., state='nonsense') falls back to the default dot class and emits no status-row--nonsense class (T-20-18) | pending | |
-| 199 | status_row() with a hostile <script>-shaped verdict/detail comes back escaped, never raw markup (T-20-03) | pending | |
-| 200 | layout.section_intro_html() emits the byte-identical markup health_page.py's own former private _section_intro_html() rendered before the promotion (20-UI-SPEC.md Section Anatomy C) | pending | |
-| 201 | layout.section_intro_html() escapes a hostile section_id argument, never writing it raw into the id="..." attribute (WR-03, 20-REVIEW.md) | pending | |
-| 202 | health_page no longer defines its own _section_intro_html — layout.section_intro_html is the one definition | pending | |
-| 203 | _device_timestamp_only() emits no widget-verdict class and no DEVICE_STATE_TEXT value, while _device_section() still carries exactly one (D-17) | pending | |
-| 204 | compute_health_state()'s returned dict carries a device_detail_html key holding the verdict-free fragment also embedded (once) inside device_html (D-17) | pending | |
-| 205 | under lang='fr', relative_age_text(30) reads 'à l’instant' and relative_age_text(90000) reads 'il y a 1\u00a0j' (D-07) | pending | |
-| 206 | under lang='en' (the default), relative_age_text()'s English output is byte-for-byte unchanged — '30s ago'/'1d ago' (D-07) | pending | |
-| 207 | local_clock_text() on a September timestamp reads 'sept.' under fr and 'Sep' under en, with an identical HH:MM in both (D-07) | pending | |
-| 208 | relative_age_text()'s positional signature (age_seconds first) is untouched — lang is a trailing keyword only | pending | |
-| 209 | layout.relative_time_html() renders a <time datetime=... data-relative> element whose own text EQUALS layout.relative_age_text()'s output for all four buckets in BOTH languages, and whose instant names the same moment that text describes (23-03, D14) | pending | |
-| 210 | layout.relative_time_html() degrades to escaped plain text — never a raise, never a <time> element carrying an empty or invented instant — for a falsy, None, unparseable or mismatched timestamp (23-03) | pending | |
-| 211 | layout.relative_future_text() reads the SAME s/m/h/d bucket boundaries the past ladder reads (asserted at and around all three), is never negative, is never the past form, and clamps an already-elapsed instant to the zero bucket, in both languages (23-03) | pending | |
-| 212 | layout.relative_time_html() reads a FUTURE instant through the future form and a past one through the past form — one function, both directions, bounded and non-negative one second either side of now, in both languages (23-03, for 23-06's countdown) | pending | |
-| 213 | layout.concise_timestamp_html()'s parenthesised relative half is now a <time data-relative> element, its text unchanged, with its outer mono span, its title, its absolute-first ordering and its no-raw-ISO rule all untouched (23-03, D-09/D-05) | pending | |
-| 214 | health_page.render() under lang='fr' carries the French page title and at least three other French strings, and none of a short list of English source strings with distinct French forms (D-05) | pending | |
-| 215 | health_page.render() under lang='en' (the default) is byte-for-byte unchanged for a seeded state — pinned representative substrings (D-05) | pending | |
-| 216 | compute_health_state()'s device_html/device_detail_html/pipeline_html fields (and health_page.render()'s own page) fully localise their timestamps under lang='fr' — no English month abbreviation or ' ago' survives — proving the request-language ContextVar is resolved at the correct point relative to when this state is computed (Polish fix 2) | pending | |
-| 217 | every key of companion/i18n_fr/health.py's own CATALOG is a non-empty str mapping to a non-empty str | pending | |
-| 218 | Airlines opens with the shared layout.page_header() component, not a bare <h1> | pending | |
-| 219 | the gallery renders exactly one .airline-card per illustrations.target_airline_names() entry (36 against today's data) | pending | |
-| 220 | every rendered card image source, with the route prefix stripped, is a member of illustrations.target_filenames() — every rendered URL provably passes the route's own membership test | pending | |
-| 221 | the Air Caraïbes card renders exactly three chips (A330, A350-1000, ATR72) — the A350-1000 shape-slug-validation trap is not fallen into | pending | |
-| 222 | an airline with no variant entries (Air France) renders no .airline-card__chips container at all | pending | |
-| 223 | variant_chip_label() upper-cases every alphanumeric type code verbatim and word-cases the Embraer/Beechcraft manufacturer forms | pending | |
-| 224 | airlines_page.ILLUSTRATION_ROUTE_PREFIX equals app.ILLUSTRATION_IMAGE_ROUTE_PREFIX (the duplicated-not-imported route-prefix contract) | pending | |
-| 225 | every rendered card image carries width/height attributes matching illustration_normalize.ILLUSTRATION_TARGET_WIDTH/HEIGHT exactly | pending | |
-| 226 | the gallery filter bar carries exactly one each of data-filter-input/-count/-clear/-empty | pending | |
-| 227 | the gallery filter bar's Clear control is a real <button type="button"> (D-16 retired) | pending | |
-| 228 | the gallery filter label's for attribute equals the search input's id, and that id is the hyphen-free value quick task 260921-p2w Task 1 pins (superseding the now-stale 06.6.4.1-UI-SPEC.md §7.2 row) | pending | |
-| 229 | Compagnies' gallery filter input and Health's registry filter input both carry autocomplete=off/spellcheck=false/autocapitalize=characters (Safari contact-autofill suppression) | pending | |
-| 230 | every <input type="search"> this app can render, across companion/pages/*.py and companion/app.py (an ast-based source scan excluding docstrings, 3 occurrences found at plan time — history_page.py, airlines_page.py, health_page.py, one builder each), carries autocomplete=off/spellcheck=false/autocapitalize=characters — a fourth filter bar added later cannot reintroduce the Safari contact-autofill defect with nothing to catch it (quick task 260921-n2n Task 4) | pending | |
-| 231 | no *_FILTER_INPUT_ID constant value and no hardcoded <input type="search"> id literal, across companion/pages/*.py and companion/app.py (enumerated from disk, 3 constants found at plan time, a >= 3 vacuity floor so deleting the constants cannot make this pass trivially), contains a hyphen — the documented WebKit/Safari trigger that offers the user's own Contacts phone numbers on a name-less type="search" field even with autocomplete="off" set (quick task 260921-p2w Task 2, closing the gap Task 1's three hand-fixed values left open) | pending | |
-| 232 | the gallery filter bar's count text and empty-state body both name the real (36) card total | pending | |
-| 233 | every card carries a data-filter-text equal to its own lower-cased airline name, and the set of data-filter-group values has the same size as the card count | pending | |
-| 234 | companion/pages/airlines_page.py imports no history-database module and no sqlite module (D-17 non-goal: no detection-history cross-reference), and imports poll_loop exactly the way phase 13's D-11 membership test deliberately supersedes the OLDER half of that same non-goal | pending | |
-| 235 | the rendered Airlines gallery contains none of the migrated unresolved-prefix registry or resolution-statistics table column headers (D-13 non-goal) | pending | |
-| 236 | the rendered Health page still contains both migrated header sets — the content moved, it was not lost | pending | |
-| 237 | importing companion.pages.airlines_page raises no error, and the module exposes none of the deleted diagnostics symbols | pending | |
-| 238 | every card wraps its image in exactly one .airline-card__zoom button whose data-view-panel-src is byte-identical to that same card's <img src>, whose data-view-panel-caption equals CARD_IMAGE_ALT_TEMPLATE %% name, and whose aria-label equals ZOOM_LABEL_TEMPLATE %% name | pending | |
-| 239 | the shared lightbox dialog is emitted exactly once, carries both the lightbox and lightbox--wide classes plus all three lightbox__* elements and the close attribute, and its note element renders empty (LIGHTBOX_NOTE is deliberately '' after two rounds of live developer feedback rejected both the original and the reworded copy; the element still exists for panel-lookup.js's shared guard clause) — quick task 260902-tli | pending | |
-| 240 | .airline-card__zoom neutralizes the base button rule's height/padding/border/background and declares the zoom cursor, and declares no pointer-events property anywhere — the retired orientation gate (a misreading of the developer's original request, corrected on the same live test) must not silently return | pending | |
-| 241 | the mobile-only button override exists as the file's @media (max-width: 959.98px) block, declares a bare `button` rule with height: 36px and font-size: 14px, sits AFTER the base `button` rule in source order (the mechanism that lets it win at equal specificity), and the base rule's own desktop values (height: 30px, font-size: 13px) are untouched (06.6.4.1.1-03 D-18b) | pending | |
-| 242 | .lightbox--wide's max-width equals illustration_normalize.ILLUSTRATION_TARGET_WIDTH — a future change to the normalized frame size cannot silently leave the dialog capped at a stale width | pending | |
-| 243 | exactly one lightbox replace form is rendered, and every card's zoom trigger carries a data-view-panel-replace-action attribute (one per illustrations.target_airline_names() entry) whose value, with the route prefix stripped, is a member of illustrations.target_filenames() — mirroring the existing image-source membership check | pending | |
-| 244 | the single lightbox replace form declares method="post", enctype="multipart/form-data" — a missing enctype would silently send the file as a filename string, a real failure mode, not a formality — and a literally present action="" placeholder for panel-lookup.js to overwrite | pending | |
+| 172 | Health's and Home's freshness lines are layout.freshness_line_html()'s own output verbatim — ONE definition site, the markup gone from health_page.py entirely — each page renders exactly one data-loaded-at and one data-refresh-pill, and the builder emits the dot, the prefix, the clock element and the pill in that order with exactly one <time data-relative> (D1/CFG-35, 23-06-PLAN.md Task 2) | ported | companion/test_status_pages_05.py::test_23_06_the_freshness_line_has_one_builder_and_three_call_sites |
+| 173 | Home declares the four regions that actually change between polls (the strip, the status tiles, the picture, the recent-flights list) plus its freshness line, every literal in every one of its selectors appears in the rendered page, and the Display scope declares exactly the strip and the freshness line — everything else there is a form (D1/CFG-35, 23-06-PLAN.md Task 2) | ported | companion/test_status_pages_05.py::test_23_06_home_declares_the_regions_it_actually_renders |
+| 174 | the Frame strip's next-update cell carries a marked <time data-relative-countdown> over companion/wake.py's OWN resolved instant, reading the ladder's future form, beside a state word that stays frame_state.resolve_state()'s — and no script in companion/static names a state or a headline template at all (D1/D-03/CFG-26, 23-06-PLAN.md Task 2) | ported | companion/test_status_pages_05.py::test_23_06_the_strip_countdown_formats_and_never_decides |
+| 175 | the refreshed picture fades through a named keyframes block spending var(--motion-fast) with no bare literal, the class is applied only after freshness.js compares the image's own src (a fade on every swap would flash the page every 45s for no information), and the server renders it never (D1+D3/CFG-32, 23-06-PLAN.md Task 2) | ported | companion/test_status_pages_05.py::test_23_06_the_picture_fades_only_when_the_picture_changed |
+| 176 | layout.stat_tile()'s new caption_title parameter is byte-identical to the pre-existing output when omitted, None, or '' (19-06-PLAN.md Task 1, D-06) | ported | companion/test_status_pages_05.py::test_stat_tile_caption_title_byte_identical_when_unused |
+| 177 | layout.stat_tile()'s caption_title renders as a title attribute on the caption <p> element, and nowhere else (19-06-PLAN.md Task 1, D-06) | ported | companion/test_status_pages_05.py::test_stat_tile_caption_title_renders_as_tooltip_on_caption_only |
+| 178 | layout.stat_tile()'s caption_title is escaped through escape_html(), matching every other attribute value this module emits (19-06-PLAN.md Task 1, D-06/T-19-08) | ported | companion/test_status_pages_05.py::test_stat_tile_caption_title_is_escaped |
+| 179 | Health's stat tiles and corroboration rows read in plain language: 'Corroboration', 'Single-source (uncorroborated)' and 'pipeline last ran' are all absent from visible text, and the Pipeline/Corroboration/Resolution-rate tiles' caption elements each carry a title attribute equal to their matching technical constant (19-06-PLAN.md Task 2, D-06) | ported | companion/test_status_pages_05.py::test_health_tiles_and_rows_read_in_plain_language |
+| 180 | a full Health render with a non-empty unresolved registry and stats rows (every branch rendered) contains no 'adsbdb' and no CFG-\d requirement id outside a title attribute (19-06-PLAN.md Task 3, D-06/T-19-24) | ported | companion/test_status_pages_05.py::test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id |
+| 181 | all 52 vendored illustrations normalize to the exact same pixel dimensions (illustration_normalize.ILLUSTRATION_TARGET_SIZE) | ported | companion/test_status_pages_05.py::test_all_illustrations_normalize_to_identical_pixel_dimensions[air-algerie.png] |
+| 182 | all 52 vendored illustrations normalize and serve well under 65536 bytes per file, the UIR-08 weight fix — a regression that got the dimensions right but left the served bytes unchanged would defeat this check | ported | companion/test_status_pages_05.py::test_all_illustrations_serve_well_under_the_byte_ceiling[air-algerie.png] |
+| 183 | all 52 vendored illustrations normalize with their painted content centred within 1px on both axes and never clipped | ported | companion/test_status_pages_05.py::test_all_illustrations_are_centred_and_unclipped[air-algerie.png] |
+| 184 | a source image whose opaque bbox is None (nothing painted) falls back to the source image instead of raising, and still normalizes to the target output size | ported | companion/test_status_pages_05.py::test_none_opaque_bbox_falls_back_to_source_image_without_raising |
+| 185 | no module anywhere under companion/ defines its own alpha-threshold constant — the threshold is only ever imported from server.plane.render | deleted | S: asserted source text (a companion-wide scan for a second ALPHA_THRESHOLD constant definition); no behavior beyond what this module's own centred/unclipped-bbox checks already prove by calling server.plane.render._opaque_bbox() directly |
+| 186 | page_shell() renders <html lang="fr" under prefs.set_request_prefs(lang='fr') and <html lang="en" otherwise (D-03) | ported | companion/test_status_pages_05.py::test_page_shell_html_lang_follows_prefs |
+| 187 | login_shell() renders <html lang="fr" under prefs.set_request_prefs(lang='fr') and <html lang="en" otherwise (D-03) | ported | companion/test_status_pages_05.py::test_login_shell_html_lang_follows_prefs |
+| 188 | a rendered shell contains exactly two aria-labelled theme-form forms per footer copy, actions /ui-lang, /ui-theme in that document order, and zero /ui-mode forms (D-02/D-17, 21-UI-SPEC.md §G) | ported | companion/test_status_pages_05.py::test_shell_has_two_ordered_theme_forms_each_with_aria_label |
+| 189 | under lang='fr' the nav reads Accueil/Affichage/Vols/Compagnies/Avancé/État/Appareil (D-09) | ported | companion/test_status_pages_05.py::test_french_shell_nav_reads_the_locked_french_labels |
+| 190 | the Advanced group (Health, Device) and the nav status dot always render, in both the sidebar and the bottom tab bar, on a plain request (D-17; retargeted from the dropdown by 22-14-PLAN.md Task 2) | ported | companion/test_status_pages_05.py::test_advanced_group_always_renders_in_both_nav_copies |
+| 191 | the sidebar and the mobile dropdown each contain exactly one .nav-status link, with no <form> or <button> inside it, sitting after the brand and before the primary nav list in document order (D-03) | ported | companion/test_status_pages_05.py::test_nav_status_appears_once_in_each_nav_copy_after_the_brand |
+| 192 | nav_status_html()'s two dots follow all four Screen/Quiet-hours on/off combinations (dot--ok for on, dot--off for off) (D-03) | ported | companion/test_status_pages_05.py::test_nav_status_dot_classes_follow_the_four_on_off_combinations |
+| 193 | under lang='fr' the reminder reads 'Écran allumé' and 'Heures calmes désactivées' — fully French, never 'Heures calmes off' (R-04) | ported | companion/test_status_pages_05.py::test_french_nav_status_reads_ecran_allume_heures_calmes_desactivees |
+| 194 | nav_status_html(None) and nav_status_html({}) both return '', and page_shell(..., device_config=None) — the default, used by login/404/error pages — renders no .nav-status at all (D-03) | ported | companion/test_status_pages_05.py::test_nav_status_html_none_or_falsy_device_config_renders_nothing |
+| 195 | login_shell() — which never takes a device_config parameter — carries no .nav-status markup, unchanged by this task (D-03) | ported | companion/test_status_pages_05.py::test_login_shell_carries_no_nav_status_and_is_unchanged |
+| 196 | status_row('Frame', 'Checking in normally', 'Last check-in 2m ago', 'ok') carries status-row--ok, dot--ok, all three texts and exactly one status-row__label (D-21) | ported | companion/test_status_pages_05.py::test_status_row_renders_dot_label_verdict_detail |
+| 197 | status_row('', ..., 'warn') omits the status-row__label span entirely, not merely its text (D-21, 20-UI-SPEC.md Section Anatomy A) | ported | companion/test_status_pages_05.py::test_status_row_empty_label_omits_the_label_span |
+| 198 | status_row(..., state='nonsense') falls back to the default dot class and emits no status-row--nonsense class (T-20-18) | ported | companion/test_status_pages_05.py::test_status_row_unrecognised_state_falls_back_safely |
+| 199 | status_row() with a hostile <script>-shaped verdict/detail comes back escaped, never raw markup (T-20-03) | ported | companion/test_status_pages_05.py::test_status_row_escapes_hostile_verdict_and_detail |
+| 200 | layout.section_intro_html() emits the byte-identical markup health_page.py's own former private _section_intro_html() rendered before the promotion (20-UI-SPEC.md Section Anatomy C) | ported | companion/test_status_pages_05.py::test_section_intro_html_is_byte_identical_to_the_promoted_markup |
+| 201 | layout.section_intro_html() escapes a hostile section_id argument, never writing it raw into the id="..." attribute (WR-03, 20-REVIEW.md) | ported | companion/test_status_pages_05.py::test_section_intro_html_escapes_hostile_section_id |
+| 202 | health_page no longer defines its own _section_intro_html — layout.section_intro_html is the one definition | ported | companion/test_status_pages_05.py::test_health_page_no_longer_defines_section_intro_html |
+| 203 | _device_timestamp_only() emits no widget-verdict class and no DEVICE_STATE_TEXT value, while _device_section() still carries exactly one (D-17) | ported | companion/test_status_pages_05.py::test_device_timestamp_only_carries_no_verdict_text |
+| 204 | compute_health_state()'s returned dict carries a device_detail_html key holding the verdict-free fragment also embedded (once) inside device_html (D-17) | ported | companion/test_status_pages_05.py::test_compute_health_state_carries_device_detail_html |
+| 205 | under lang='fr', relative_age_text(30) reads 'à l’instant' and relative_age_text(90000) reads 'il y a 1\u00a0j' (D-07) | ported | companion/test_status_pages_05.py::test_relative_age_text_french_seconds_bucket_reads_a_linstant |
+| 206 | under lang='en' (the default), relative_age_text()'s English output is byte-for-byte unchanged — '30s ago'/'1d ago' (D-07) | ported | companion/test_status_pages_05.py::test_relative_age_text_english_unchanged_under_default_lang |
+| 207 | local_clock_text() on a September timestamp reads 'sept.' under fr and 'Sep' under en, with an identical HH:MM in both (D-07) | ported | companion/test_status_pages_05.py::test_local_clock_text_french_month_abbreviation |
+| 208 | relative_age_text()'s positional signature (age_seconds first) is untouched — lang is a trailing keyword only | ported | companion/test_status_pages_05.py::test_relative_age_text_first_positional_argument_is_age_seconds |
+| 209 | layout.relative_time_html() renders a <time datetime=... data-relative> element whose own text EQUALS layout.relative_age_text()'s output for all four buckets in BOTH languages, and whose instant names the same moment that text describes (23-03, D14) | ported | companion/test_status_pages_05b.py::test_relative_time_html_wraps_the_one_ladder_in_both_languages |
+| 210 | layout.relative_time_html() degrades to escaped plain text — never a raise, never a <time> element carrying an empty or invented instant — for a falsy, None, unparseable or mismatched timestamp (23-03) | ported | companion/test_status_pages_05b.py::test_relative_time_html_degrades_without_an_invented_instant |
+| 211 | layout.relative_future_text() reads the SAME s/m/h/d bucket boundaries the past ladder reads (asserted at and around all three), is never negative, is never the past form, and clamps an already-elapsed instant to the zero bucket, in both languages (23-03) | ported | companion/test_status_pages_05b.py::test_future_form_shares_the_past_ladders_own_buckets |
+| 212 | layout.relative_time_html() reads a FUTURE instant through the future form and a past one through the past form — one function, both directions, bounded and non-negative one second either side of now, in both languages (23-03, for 23-06's countdown) | ported | companion/test_status_pages_05b.py::test_relative_time_html_reads_a_future_instant_forwards |
+| 213 | layout.concise_timestamp_html()'s parenthesised relative half is now a <time data-relative> element, its text unchanged, with its outer mono span, its title, its absolute-first ordering and its no-raw-ISO rule all untouched (23-03, D-09/D-05) | ported | companion/test_status_pages_05b.py::test_concise_timestamp_htmls_relative_half_is_now_an_element |
+| 214 | health_page.render() under lang='fr' carries the French page title and at least three other French strings, and none of a short list of English source strings with distinct French forms (D-05) | ported | companion/test_status_pages_05b.py::test_health_page_renders_in_french |
+| 215 | health_page.render() under lang='en' (the default) is byte-for-byte unchanged for a seeded state — pinned representative substrings (D-05) | ported | companion/test_status_pages_05b.py::test_health_page_renders_byte_identical_in_english |
+| 216 | compute_health_state()'s device_html/device_detail_html/pipeline_html fields (and health_page.render()'s own page) fully localise their timestamps under lang='fr' — no English month abbreviation or ' ago' survives — proving the request-language ContextVar is resolved at the correct point relative to when this state is computed (Polish fix 2) | ported | companion/test_status_pages_05b.py::test_health_page_device_and_pipeline_timestamps_fully_localise_under_french |
+| 217 | every key of companion/i18n_fr/health.py's own CATALOG is a non-empty str mapping to a non-empty str | ported | companion/test_status_pages_05b.py::test_health_catalog_every_key_and_value_is_a_nonempty_str |
+| 218 | Airlines opens with the shared layout.page_header() component, not a bare <h1> | ported | companion/test_status_pages_05b.py::test_airlines_page_opens_with_shared_page_header |
+| 219 | the gallery renders exactly one .airline-card per illustrations.target_airline_names() entry (36 against today's data) | ported | companion/test_status_pages_05b.py::test_gallery_renders_one_card_per_target_airline |
+| 220 | every rendered card image source, with the route prefix stripped, is a member of illustrations.target_filenames() — every rendered URL provably passes the route's own membership test | ported | companion/test_status_pages_05b.py::test_every_card_image_source_passes_route_membership_test |
+| 221 | the Air Caraïbes card renders exactly three chips (A330, A350-1000, ATR72) — the A350-1000 shape-slug-validation trap is not fallen into | ported | companion/test_status_pages_05b.py::test_air_caraibes_card_has_three_upper_cased_chips_including_a350_1000 |
+| 222 | an airline with no variant entries (Air France) renders no .airline-card__chips container at all | ported | companion/test_status_pages_05b.py::test_primary_only_airline_renders_no_chips_container |
+| 223 | variant_chip_label() upper-cases every alphanumeric type code verbatim and word-cases the Embraer/Beechcraft manufacturer forms | ported | companion/test_status_pages_05b.py::test_variant_chip_label_covers_both_domains |
+| 224 | airlines_page.ILLUSTRATION_ROUTE_PREFIX equals app.ILLUSTRATION_IMAGE_ROUTE_PREFIX (the duplicated-not-imported route-prefix contract) | ported | companion/test_status_pages_05b.py::test_illustration_route_prefix_matches_app_constant |
+| 225 | every rendered card image carries width/height attributes matching illustration_normalize.ILLUSTRATION_TARGET_WIDTH/HEIGHT exactly | ported | companion/test_status_pages_05b.py::test_every_card_image_carries_matching_intrinsic_dimensions |
+| 226 | the gallery filter bar carries exactly one each of data-filter-input/-count/-clear/-empty | ported | companion/test_status_pages_05b.py::test_gallery_filter_bar_carries_all_four_contract_markers_exactly_once |
+| 227 | the gallery filter bar's Clear control is a real <button type="button"> (D-16 retired) | ported | companion/test_status_pages_05b.py::test_gallery_filter_clear_control_is_a_real_button |
+| 228 | the gallery filter label's for attribute equals the search input's id, and that id is the hyphen-free value quick task 260921-p2w Task 1 pins (superseding the now-stale 06.6.4.1-UI-SPEC.md §7.2 row) | ported | companion/test_status_pages_05b.py::test_gallery_filter_label_for_matches_input_id |
+| 229 | Compagnies' gallery filter input and Health's registry filter input both carry autocomplete=off/spellcheck=false/autocapitalize=characters (Safari contact-autofill suppression) | ported | companion/test_status_pages_05b.py::test_compagnies_and_health_filter_inputs_carry_safari_autofill_suppression_attributes |
+| 230 | every <input type="search"> this app can render, across companion/pages/*.py and companion/app.py (an ast-based source scan excluding docstrings, 3 occurrences found at plan time — history_page.py, airlines_page.py, health_page.py, one builder each), carries autocomplete=off/spellcheck=false/autocapitalize=characters — a fourth filter bar added later cannot reintroduce the Safari contact-autofill defect with nothing to catch it (quick task 260921-n2n Task 4) | ported | companion/test_status_pages_05b.py::test_every_rendered_search_input_carries_safari_autofill_suppression_attributes |
+| 231 | no *_FILTER_INPUT_ID constant value and no hardcoded <input type="search"> id literal, across companion/pages/*.py and companion/app.py (enumerated from disk, 3 constants found at plan time, a >= 3 vacuity floor so deleting the constants cannot make this pass trivially), contains a hyphen — the documented WebKit/Safari trigger that offers the user's own Contacts phone numbers on a name-less type="search" field even with autocomplete="off" set (quick task 260921-p2w Task 2, closing the gap Task 1's three hand-fixed values left open) | ported | companion/test_status_pages_05b.py::test_no_filter_input_id_anywhere_in_the_app_contains_a_hyphen |
+| 232 | the gallery filter bar's count text and empty-state body both name the real (36) card total | ported | companion/test_status_pages_05b.py::test_gallery_filter_count_and_empty_body_name_the_real_total |
+| 233 | every card carries a data-filter-text equal to its own lower-cased airline name, and the set of data-filter-group values has the same size as the card count | ported | companion/test_status_pages_05b.py::test_every_card_carries_distinct_filter_text_and_group |
+| 234 | companion/pages/airlines_page.py imports no history-database module and no sqlite module (D-17 non-goal: no detection-history cross-reference), and imports poll_loop exactly the way phase 13's D-11 membership test deliberately supersedes the OLDER half of that same non-goal | ported | companion/test_status_pages_05b.py::test_airlines_page_imports_no_history_db_or_sqlite_but_does_import_poll_loop |
+| 235 | the rendered Airlines gallery contains none of the migrated unresolved-prefix registry or resolution-statistics table column headers (D-13 non-goal) | ported | companion/test_status_pages_05b.py::test_airlines_page_no_longer_renders_registry_or_stats_headers |
+| 236 | the rendered Health page still contains both migrated header sets — the content moved, it was not lost | ported | companion/test_status_pages_05b.py::test_health_page_still_renders_both_migrated_header_sets |
+| 237 | importing companion.pages.airlines_page raises no error, and the module exposes none of the deleted diagnostics symbols | ported | companion/test_status_pages_05b.py::test_airlines_page_module_exposes_no_deleted_diagnostics_symbol |
+| 238 | every card wraps its image in exactly one .airline-card__zoom button whose data-view-panel-src is byte-identical to that same card's <img src>, whose data-view-panel-caption equals CARD_IMAGE_ALT_TEMPLATE %% name, and whose aria-label equals ZOOM_LABEL_TEMPLATE %% name | ported | companion/test_status_pages_05b.py::test_airline_card_zoom_button_attrs_match_expected |
+| 239 | the shared lightbox dialog is emitted exactly once, carries both the lightbox and lightbox--wide classes plus all three lightbox__* elements and the close attribute, and its note element renders empty (LIGHTBOX_NOTE is deliberately '' after two rounds of live developer feedback rejected both the original and the reworded copy; the element still exists for panel-lookup.js's shared guard clause) — quick task 260902-tli | ported | companion/test_status_pages_05b.py::test_lightbox_dialog_renders_once_wide_with_own_note_text |
+| 240 | .airline-card__zoom neutralizes the base button rule's height/padding/border/background and declares the zoom cursor, and declares no pointer-events property anywhere — the retired orientation gate (a misreading of the developer's original request, corrected on the same live test) must not silently return | ported | companion/test_status_pages_05b.py::test_airline_card_zoom_stylesheet_contract |
+| 241 | the mobile-only button override exists as the file's @media (max-width: 959.98px) block, declares a bare `button` rule with height: 36px and font-size: 14px, sits AFTER the base `button` rule in source order (the mechanism that lets it win at equal specificity), and the base rule's own desktop values (height: 30px, font-size: 13px) are untouched (06.6.4.1.1-03 D-18b) | ported | companion/test_status_pages_05b.py::test_mobile_button_override_block_and_source_order |
+| 242 | .lightbox--wide's max-width equals illustration_normalize.ILLUSTRATION_TARGET_WIDTH — a future change to the normalized frame size cannot silently leave the dialog capped at a stale width | ported | companion/test_status_pages_05b.py::test_lightbox_wide_max_width_matches_illustration_target_width |
+| 243 | exactly one lightbox replace form is rendered, and every card's zoom trigger carries a data-view-panel-replace-action attribute (one per illustrations.target_airline_names() entry) whose value, with the route prefix stripped, is a member of illustrations.target_filenames() — mirroring the existing image-source membership check | ported | companion/test_status_pages_05b.py::test_replace_form_action_matches_trigger_attribute_membership |
+| 244 | the single lightbox replace form declares method="post", enctype="multipart/form-data" — a missing enctype would silently send the file as a filename string, a real failure mode, not a formality — and a literally present action="" placeholder for panel-lookup.js to overwrite | ported | companion/test_status_pages_05b.py::test_replace_form_declares_post_multipart_enctype_and_present_action |
 | 245 | the whole rendered page carries exactly one <input type="file"> whose id equals airlines_page.REPLACE_INPUT_ID and is the target of a label's for attribute, and both the label and the file input live inside the framed zone wrapper (quick task 260903-df3) — the accessibility contract the move from per-card to shared must not lose | pending | |
 | 246 | render() with no effective state_dir produces no cache-busting query string anywhere; with a state_dir whose override directory holds Air France's override file, exactly one URL is busted, keyed on that file's own mtime, identically in both the <img src> and the zoom trigger's data-view-panel-src, every other card's URL stays unbusted, and Air France's own data-view-panel-replace-action stays the UN-busted URL while no replace-action value anywhere carries a cache buster | pending | |
 | 247 | a hostile airline name reaching the rendered page is escaped, never interpolated raw, including in its own data-view-panel-replace-action attribute; the now-airline-agnostic replace form's own markup (REPLACE_LABEL_TEXT and REPLACE_HINT_TEXT, quick task 260903-df3) carries no trace of the hostile name at all (extends T-06.6.4.1-05's existing discipline) | pending | |
@@ -536,3 +536,84 @@ own slice contains the audit's `.planning`/ticket-ID evidence sites (the
 deleted row 154): after this plan, no status-pages check reads a
 `.planning/` file, and `grep -c '"\.planning"' companion/test_status_
 pages.py` is 0.
+
+### Part 05 (plan 33-29)
+
+72 rows `ported` (73 baseline rows minus 1 `deleted`), one row `deleted`.
+Three rows (181-183, the 52-vendored-illustration checks) each map to a
+single primary parametrized node id — `[air-algerie.png]`, the first
+sorted vendored filename — out of 52 ids each: `pytest --collect-only`
+confirms all 156 instances collect; the SUMMARY lists the other 51 ids
+per row.
+
+- Row 185 (`no module anywhere under companion/ defines its own
+  alpha-threshold constant`) is `deleted` (TST-12 rubric S): a companion-
+  package-wide grep for a second `ALPHA_THRESHOLD` assignment, with no
+  behaviour beyond what rows 183's own centred/unclipped-bbox checks
+  already prove by calling `server.plane.render._opaque_bbox()` directly
+  — a stray, unused constant elsewhere in the package would never change
+  what those checks observe.
+- Row 172 (the freshness-line check) is `ported` with two source-text
+  sub-clauses dropped in place (rubric S): its own grep of `companion/
+  pages/health_page.py`/`companion/layout.py` for the literal
+  `class="page-header__freshness` substring is redundant with the SAME
+  check's rendered-equality proof (`built in rendered` against `layout.
+  freshness_line_html()`'s own output, for both Health and Home) —  a
+  second, unused definition of that markup could exist in health_page.py
+  and never be observed unless it were actually rendered, which the
+  equality check already rules out.
+- Row 208 (`relative_age_text()`'s positional signature) is `ported` with
+  its `inspect.getsource()` call (rubric S) rewritten as a behaviour
+  proof: a positional call in the pinned order (`age_seconds`, `lang`)
+  compared against the same call spelled out with both keyword names — a
+  signature that quietly swapped the two would satisfy the keyword call
+  but not the positional one.
+- Row 174 (the strip countdown) and row 175 (the picture fade) are
+  `ported` with their `companion/static/*.js` source scans (rubric J)
+  rewritten to fetch every served script through `companion/app.py`'s own
+  `*_SCRIPT_ROUTE` registry (enumerated from the live module's attributes,
+  never a `companion/static` directory listing) and strip only comments
+  with this chain's `strip_js_line_and_block_comments()`. Row 175's
+  stylesheet half goes through `companion_markup.keyframes()`/
+  `declarations_for()` against the served stylesheet instead of a disk
+  read (33-FOLLOWUPS.md F-01).
+- Rows 230 and 231 (the Safari autofill-suppression sweep and the
+  hyphen-free-filter-id sweep) are `ported` with their `ast`-based
+  module-wide source scans (rubric S) rewritten to rendered-page
+  behaviour: every `<input type="search">` this app renders today —
+  Compagnies' gallery filter, Health's registry filter (seeded so it
+  appears) and Flights' history filter — is parsed structurally
+  (`companion_markup.parse_html()`) and checked for the three suppression
+  attributes and a hyphen-free id; row 231's `*_FILTER_INPUT_ID` half is
+  ported as a direct check of the three real production constants (never
+  source text). Guard G2 bans `ast`/`inspect` introspection of production
+  source in this suite, so the legacy checks' forward guard against a
+  hypothetical FOURTH filter bar not covered by these three renders is a
+  known, narrower scope than the static analysis provided — there is no
+  forward-guarding mechanism available under TST-12 that does not itself
+  read production source as text.
+- Row 234 (`airlines_page.py` imports no history-database/sqlite module)
+  is `ported`, rewritten from a source grep to a runtime check of
+  `airlines_page`'s own module namespace (`vars(airlines_page)`): which
+  name IS bound there is a fact about `airlines_page.py`'s own import
+  statements. Deliberately NOT a `sys.modules`-membership check (33-25's
+  own `test_wake_module_never_imports_pages_or_app()` pattern): `poll_
+  loop`, which this module is required to import, itself imports
+  `sqlite3`/`server.history_db`, so `sys.modules` would carry both
+  regardless of what `airlines_page.py`'s own source says.
+- Every CSS check in this part (rows 240-242, the zoom stylesheet
+  contract, the mobile button override's source order, and the lightbox's
+  max-width) fetches the stylesheet `companion/app.py` actually serves and
+  asserts on it structurally via `companion_markup.css_rules()`/
+  `declarations_for()`/`rules_with_selector()` (33-FOLLOWUPS.md F-01).
+
+New modules: `companion/test_status_pages_05.py` (37 baseline rows,
+checks #172-#208, 190 pytest node ids — the three 52-illustration checks
+each parametrized per vendored file so xdist spreads them) and
+`companion/test_status_pages_05b.py` (36 baseline rows, checks #209-#244,
+36 pytest node ids — no splitting needed in this half).
+
+`companion/test_status_pages.py` (the legacy harness) shrinks from
+`EXPECTED_CHECK_COUNT = 146` to `EXPECTED_CHECK_COUNT = 73` (146 - 73);
+part 05's 73 checks and the closures only they used are removed from
+`main()`.
