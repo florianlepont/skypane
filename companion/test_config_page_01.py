@@ -1,20 +1,10 @@
-"""Part 01 of the `companion/test_config_page.py` migration chain
-(33-09-PLAN.md): the original harness's `check()` calls #1-#33, covering
-`companion.pages.config_page`'s render() group layout, led_group(),
-quiet_hours_group() (markup, field order, escaping, the three time
-presets), wake_interval_group() (markup, value-attribute contract,
-render() placement/prefill), handle_post()'s display_enabled/quiet_hours
-resolution and its theme-only-save regression guard, the settings form's
-class hooks, the Aspect card's per-theme palette rendering, and
-runway_fieldset()'s cards/escaping/photograph survival.
-
-Every check calls `companion.pages.config_page`'s own functions directly,
-in-process, against a `tmp_path`-backed state directory — none of this
-slice needs a running `companion/app.py` server. The original harness's
-self-referential aspect-repin bookkeeping guard (the first `check()` call
-in this slice, which opened the legacy harness's own source to grep def
-names) is DELETED, not ported: it asserts plan-history bookkeeping, not
-application behaviour (R, 33-MIGRATION-RULES.md section 3).
+"""Tests companion.pages.config_page's render() group layout, led_group(),
+quiet_hours_group(), wake_interval_group(), handle_post()'s
+display_enabled/quiet_hours resolution and its theme-only-save guard, the
+settings form's class hooks, the Aspect card's per-theme palette
+rendering, and runway_fieldset()'s cards/escaping/photograph survival.
+Each test calls config_page directly against a tmp_path-backed state
+directory; no running companion/app.py server is needed.
 """
 import contextlib
 import json
@@ -40,10 +30,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 def test_render_emits_no_fieldset_or_legend_five_groups_three_runway_cards_and_save_button():
     """render() emits no <fieldset>/<legend> and no .theme-chip-grid on this legacy SCOPE_ALL
-    render (Theme's card retired outright, D-01/21-05-PLAN.md Task 1 D-06), five
-    theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours/Wake interval/Notifications
-    — Display's own card retired outright by 22-05-PLAN.md Task 1, X1/D-04/D-12.1), three
-    runway-card labels, and a Save settings submit button"""
+    render, five theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours/Wake
+    interval/Notifications), three runway-card labels, and a Save settings submit button"""
     ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
         "poll_cooldown_remaining": 0,
@@ -59,8 +47,7 @@ def test_render_emits_no_fieldset_or_legend_five_groups_three_runway_cards_and_s
 
 def test_led_group_carries_the_switch_and_its_state_attribute_sequence():
     """led_group() emits the switch and preserves its class/role/aria-checked attribute sequence
-    in both states, with the retired settings-checkbox label gone (retargeted in place from
-    the checkbox's own sequence by 23-07-PLAN.md Task 2)"""
+    in both states, with no settings-checkbox label"""
     checked_html = config_page.led_group(True)
     unchecked_html = config_page.led_group(False)
     assert 'class="settings-checkbox"' not in checked_html
@@ -74,9 +61,9 @@ def test_led_group_carries_the_switch_and_its_state_attribute_sequence():
 
 
 def test_quiet_hours_group_markup_no_checkbox_and_time_inputs():
-    """quiet_hours_group() renders no on/off checkbox at all any more (the Frame strip is the only
-    control left, 22-05-PLAN.md Task 1 X1/D-04/D-12.1), one type="time" input each for Start/End
-    with their current values, no theme-status__row, and no disabled attribute"""
+    """quiet_hours_group() renders no on/off checkbox (the Frame strip is the only control left),
+    one type="time" input each for Start/End with their current values, no theme-status__row,
+    and no disabled attribute"""
     rendered = config_page.quiet_hours_group("23:00", "07:00")
     assert 'name="quiet_hours_enabled"' not in rendered
     assert "settings-checkbox" not in rendered
@@ -90,9 +77,8 @@ def test_quiet_hours_group_markup_no_checkbox_and_time_inputs():
 
 
 def test_quiet_hours_group_field_order_heading_caption_start_end():
-    """quiet_hours_group()'s field order is heading, then caption, then Start, then End, in document
-    order — the enable checkbox this order used to include is retired outright (22-05-PLAN.md
-    Task 1, X1/D-04/D-12.1)"""
+    """quiet_hours_group()'s field order is heading, then caption, then Start, then End, in
+    document order"""
     rendered = config_page.quiet_hours_group("23:00", "07:00")
     heading_close = rendered.index("</h2>")
     caption_pos = rendered.index("section-caption")
@@ -147,8 +133,7 @@ def test_quiet_hours_group_always_on_preset_disables_with_no_time_attrs():
 
 def test_quiet_hours_group_preset_row_between_caption_and_time_inputs():
     """the preset button row appears after the section caption and before the first
-    type="time" input (D-14's locked position, retargeted by 22-05-PLAN.md Task 1 now that
-    the checkbox it used to follow is gone)"""
+    type="time" input"""
     rendered = config_page.quiet_hours_group("23:00", "07:00")
     caption_pos = rendered.index("section-caption")
     preset_pos = rendered.index(config_page.QUIET_HOURS_PRESET_ATTR)
@@ -159,7 +144,7 @@ def test_quiet_hours_group_preset_row_between_caption_and_time_inputs():
 def test_handle_post_preset_filled_submission_treated_identically_to_hand_typed(tmp_path):
     """handle_post() persists a Night-preset-shaped submission (quiet_hours_start/end equal to
     device_config's own defaults) exactly as it would a hand-typed value - no new server code
-    path (T-19-38)"""
+    path"""
     ctx = {"state_dir": str(tmp_path)}
     flash_key = config_page.handle_post(
         {
@@ -186,9 +171,8 @@ def test_render_wires_quiet_hours_group_after_led_before_save_button():
         "poll_cooldown_remaining": 0,
     })
     assert 'value="22:30"' in rendered and 'value="06:15"' in rendered
-    # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): no scope renders a
-    # quiet_hours_enabled checkbox any more; the Frame strip is the only
-    # on/off control left.
+    # No scope renders a quiet_hours_enabled checkbox; the Frame strip is
+    # the only on/off control left.
     assert 'name="quiet_hours_enabled"' not in rendered
     led_heading_pos = rendered.index(config_page.LED_SECTION_HEADING)
     quiet_heading_pos = rendered.index(config_page.QUIET_HOURS_SECTION_HEADING)
@@ -206,8 +190,7 @@ def test_wake_interval_group_markup_in_range_value():
     expected_heading = (
         '<h2 class="text-heading">%s</h2>' % escape_html(config_page.WAKE_INTERVAL_SECTION_HEADING))
     assert rendered.count(expected_heading) == 1
-    # 19-11-PLAN.md Task 3 (D-12/A-30): the caption carries its own id
-    # (the number input's aria-describedby target).
+    # The caption carries its own id, the number input's aria-describedby target.
     expected_caption = (
         '<p class="text-label section-caption" id="%s">%s</p>'
         % (
@@ -250,8 +233,8 @@ def test_render_places_wake_interval_last_and_resolves_prefill():
         "poll_cooldown_remaining": 0,
     }
     rendered = config_page.render(base_ctx)
-    # 21-05-PLAN.md Task 1 (D-06): "Theme" no longer renders anywhere on
-    # this legacy SCOPE_ALL page — dropped from this locked-order list.
+    # "Theme" does not render on this legacy SCOPE_ALL page, so it is
+    # excluded from this order check.
     headings = [
         "Runway", config_page.LED_SECTION_HEADING,
         config_page.QUIET_HOURS_SECTION_HEADING,
@@ -274,9 +257,9 @@ def test_render_places_wake_interval_last_and_resolves_prefill():
 
 
 def test_no_page_and_no_scope_renders_a_display_or_quiet_hours_on_off_checkbox(tmp_path):
-    """X1/D-04: no settings render (legacy SCOPE_ALL, Display, Device) carries a display_enabled
-    or quiet_hours_enabled input any more — the Frame strip is the only on/off control for either
-    setting (22-05-PLAN.md Task 1, superseding 12-05-PLAN.md/10-05-PLAN.md's own checkbox markup)"""
+    """no settings render (legacy SCOPE_ALL, Display, Device) carries a display_enabled
+    or quiet_hours_enabled input — the Frame strip is the only on/off control for either
+    setting"""
     base_ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
         "state_dir": str(tmp_path), "poll_cooldown_remaining": 0,
@@ -292,12 +275,10 @@ def test_no_page_and_no_scope_renders_a_display_or_quiet_hours_on_off_checkbox(t
 
 
 def test_no_js_floor_holds_on_display_and_device_after_the_checkbox_removal(tmp_path):
-    """D-09's no-JS floor holds at this plan's own commit: scripts-blocked Display and Device
-    renders each carry a reachable fallback Save button, form="settings-form"-ASSOCIATED with a
-    plain server-rendered form (relocated into the restored .dirty-bar by 28-08-PLAN.md Task 1,
-    CFG-77/CFG-78 — never a literal descendant of the form any more, and native submission is
-    unchanged in substance either way), and a plain (no-JS) POST still round-trips the Quiet
-    hours schedule"""
+    """the no-JS floor holds: scripts-blocked Display and Device renders each carry a reachable
+    fallback Save button, form="settings-form"-associated with a plain server-rendered form
+    (never a literal descendant of the form, though native submission is unchanged in substance
+    either way), and a plain (no-JS) POST still round-trips the Quiet hours schedule"""
     base_ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
         "state_dir": str(tmp_path), "poll_cooldown_remaining": 0,
@@ -308,8 +289,8 @@ def test_no_js_floor_holds_on_display_and_device_after_the_checkbox_removal(tmp_
         assert '<form class="config-form"' in rendered
     # A save posted without any script (a plain, URL-encoded POST body,
     # exactly what a no-JS browser submits) still round-trips the Quiet
-    # hours schedule — the one control this plan leaves on the Display
-    # page for this setting.
+    # hours schedule — the one control the Display page leaves for this
+    # setting.
     ctx = {"state_dir": str(tmp_path)}
     flash_key = config_page.handle_post(
         {"scope": "display", "quiet_hours_start": "22:15", "quiet_hours_end": "06:45"}, ctx)
@@ -320,9 +301,8 @@ def test_no_js_floor_holds_on_display_and_device_after_the_checkbox_removal(tmp_
 
 def test_handle_post_display_enabled_three_shapes(tmp_path):
     """handle_post() resolves display_enabled through all three shapes: absent LEAVES the stored
-    value unchanged (D-12.1, retargeted from the pre-22-05 absent-means-False bug),
-    DISPLAY_CHECKBOX_VALUE persists True, and a crafted value returns the save-failed flash key
-    and leaves a pre-existing device_config.json byte-identical"""
+    value unchanged, DISPLAY_CHECKBOX_VALUE persists True, and a crafted value returns the
+    save-failed flash key and leaves a pre-existing device_config.json byte-identical"""
     absent_dir = tmp_path / "absent"
     device_config.save_device_config(str(absent_dir), display_enabled=True)
     flash_key = config_page.handle_post({"theme": "black"}, {"state_dir": str(absent_dir)})
@@ -354,10 +334,9 @@ def test_handle_post_display_enabled_three_shapes(tmp_path):
 
 
 def test_handle_post_theme_only_save_never_flips_display_quiet_hours_or_led_off(tmp_path):
-    """REGRESSION GUARD (T-22-16/T-23-25, 22-RESEARCH.md Pitfall 1): a settings save that only
-    changes the theme leaves display_enabled, quiet_hours_enabled AND led_enabled EXACTLY as
-    they were, across all eight starting True/False combinations — extended in place from the
-    two-flag/four-combination version 22-05 landed, never duplicated beside it"""
+    """REGRESSION GUARD: a settings save that only changes the theme leaves display_enabled,
+    quiet_hours_enabled AND led_enabled EXACTLY as they were, across all eight starting
+    True/False combinations"""
     for i, (start_display, start_quiet, start_led) in enumerate((
             (True, True, True), (True, True, False),
             (True, False, True), (True, False, False),
@@ -384,16 +363,15 @@ def test_handle_post_theme_only_save_never_flips_display_quiet_hours_or_led_off(
 def test_every_settings_group_is_named_exactly_once():
     """all four Config settings groups (Theme/Runway/Diagnostic LED/Poll) are named exactly
     once, all via the shared <h2 class="text-heading"> role, with zero <legend> and zero
-    <fieldset> anywhere on the page (06.6.4.1.1-05, D-01)"""
+    <fieldset> anywhere on the page"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
         "poll_cooldown_remaining": 0,
     }
     rendered = config_page.render(ctx)
-    # 19-11-PLAN.md Task 3 / 23-07-PLAN.md Task 2: Runway's and Diagnostic
-    # LED's own <h2> each carry an id (an aria-labelledby target); "Theme"
-    # is retired from this list along with theme_fieldset() (21-05-PLAN.md
-    # Task 1, D-06) — its replacement only ever renders on the Display scope.
+    # Runway's and Diagnostic LED's own <h2> each carry an id (an
+    # aria-labelledby target); "Theme" is excluded from this list because
+    # its replacement only ever renders on the Display scope.
     heading_ids = {
         "Runway": config_page.RUNWAY_GROUP_HEADING_ID,
         "Diagnostic LED": config_page.QUICK_LED_LABEL_ID,
@@ -440,8 +418,7 @@ def test_aspect_card_covers_every_registered_theme_with_own_id_and_label():
     """the Aspect card's three palettes each render one radio per registered theme, in registry
     order, each carrying its own registry id/translated label/data-preview-src and
     form=settings-form, with arrivals/calendar carrying exactly one leading Same-as-departures
-    option and departures exactly zero (D-06, 30-05-PLAN.md Task 1, replacing the retired
-    frame-colours-card version of this check)"""
+    option and departures exactly zero"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
@@ -474,8 +451,7 @@ def test_aspect_card_covers_every_registered_theme_with_own_id_and_label():
 def test_aspect_card_default_selects_exactly_the_white_departures_option():
     """the Aspect card rendered with the default theme id marks exactly the White chip selected
     in the departures palette, and exactly the leading Same-as-departures option selected in the
-    arrivals/calendar palettes, each asserted per group (D-06/D-07, 30-05-PLAN.md Task 1,
-    replacing the retired frame-colours-card version of this check)"""
+    arrivals/calendar palettes, each asserted per group"""
     rendered = config_page.render({
         "device_config": {"theme": device_config.DEFAULT_THEME_ID, "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
@@ -499,7 +475,7 @@ def test_runway_fieldset_exactly_three_radios():
 
 def test_runway_fieldset_cards_visually_hidden_radio_and_selected_class():
     """runway_fieldset('3') renders three selectable cards, each wrapping a visually-hidden
-    radio, with only the '3' card selected (D-05)"""
+    radio, with only the '3' card selected"""
     rendered = config_page.runway_fieldset("3", images_available=())
     assert rendered.count('<label class="runway-card') == 3
     assert rendered.count("runway-card--selected") == 1
@@ -514,7 +490,7 @@ def test_runway_fieldset_cards_visually_hidden_radio_and_selected_class():
 
 def test_runway_fieldset_cards_image_rendering_per_card():
     """runway_fieldset('3', images_available=('3', '06-24')) renders an <img> inside exactly
-    those two cards, none in the third (D-05)"""
+    those two cards, none in the third"""
     rendered = config_page.runway_fieldset("3", images_available=("3", "06-24"))
     assert rendered.count("<img") == 2
     assert "/runway-image/3.png" in rendered and "/runway-image/06-24.png" in rendered
@@ -524,9 +500,9 @@ def test_runway_fieldset_cards_image_rendering_per_card():
 def test_palette_swatch_html_matches_the_live_registry_band_facts():
     """_palette_swatch_html() draws exactly the registry-derived 5-of-18 banded themes with a
     band child, renders a plain theme as one solid <span> with no opacity, and space-joins
-    extra_class onto its class attribute (CFG-85)"""
-    # 30-02-PLAN.md Task 1: derived from the live registry at check time,
-    # never restated as a literal count.
+    extra_class onto its class attribute"""
+    # Derived from the live registry at check time, never restated as a
+    # literal count.
     banded = [
         theme_id for theme_id in device_config.THEME_IDS
         if "palette-swatch__band" in config_page._palette_swatch_html(theme_id)
@@ -555,8 +531,7 @@ def test_palette_swatch_html_matches_the_live_registry_band_facts():
 def test_palette_grid_html_renders_one_chip_per_registered_theme_in_order_no_photo():
     """_palette_grid_html() renders one chip per registered theme in device_config.THEME_IDS
     order, zero <img>, data-preview-src and form="settings-form" on every chip, exactly one
-    selected check glyph, leading_html before the chips, and no id attribute of its own
-    (CFG-85)"""
+    selected check glyph, leading_html before the chips, and no id attribute of its own"""
     g = config_page._palette_grid_html("theme", "red", radio_form_id=config_page.SETTINGS_FORM_ID)
     ids = re.findall(r'<input type="radio" name="theme" value="([^"]+)"', g)
     assert ids == list(device_config.THEME_IDS)
@@ -584,7 +559,7 @@ def test_palette_grid_html_renders_one_chip_per_registered_theme_in_order_no_pho
 def test_usage_row_summary_html_joins_row_label_and_meta_with_one_em_dash_source():
     """_usage_row_summary_html() renders a well-formed <summary> joining the translated row
     label and meta text via ASPECT_ROW_SUMMARY_TEMPLATE's single em-dash source, and renders no
-    swatch at all when theme_id is None (the rules row) (CFG-85)"""
+    swatch at all when theme_id is None (the rules row)"""
     s = config_page._usage_row_summary_html(config_page.COLOUR_USAGE_DEPARTURES, "red")
     assert s.startswith("<summary") and s.rstrip().endswith("</summary>")
     assert "usage-row__swatch" in s and "usage-row__name" in s and "usage-row__meta" in s
@@ -621,8 +596,7 @@ def _runway_entry(label):
 
 def test_runway_fieldset_escapes_a_hostile_registry_label():
     """runway_fieldset() escapes a hostile registry label rather than dropping or interpolating
-    it unescaped (T-25-03-B, narrowed from the retired schematic map's own coverage by
-    27-05-PLAN.md Task 3, CFG-66)"""
+    it unescaped"""
     hostile = 'Runway <script>"x"</script> (07/25)'
     with _temporary_registry({"h": _runway_entry(hostile)}):
         rendered = config_page.runway_fieldset("h")
@@ -634,8 +608,7 @@ def test_the_controls_semantics_and_the_photographs_survive_the_maps_removal():
     """the control's own semantics and the photographs survive the map's removal — the row
     keeps role="radiogroup" with the same aria-labelledby/aria-describedby ids,
     current_runway_id=None marks nothing selected and leaves no radio checked, and the three
-    runway photographs still render from the session-gated route and still exist on disk
-    (CFG-66, retitled from the retired schematic map's own check by 27-05-PLAN.md Task 3)"""
+    runway photographs still render from the session-gated route and still exist on disk"""
     rendered = config_page.runway_fieldset("3")
     for fragment in (
             'role="radiogroup"',
