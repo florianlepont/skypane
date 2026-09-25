@@ -1,7 +1,8 @@
 ---
 phase: 42
 slug: remote-firmware-update-over-the-air-ota-promoted-from-seed-0
-status: draft
+status: approved
+reviewed_at: 2026-09-25
 shadcn_initialized: false
 preset: none
 created: 2026-09-25
