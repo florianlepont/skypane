@@ -1,49 +1,43 @@
-"""companion/auth.py — the shared-password session gate for the SkyPane
-companion service (D-01/D-02, 06-CONTEXT.md).
+"""The shared-password session gate for the SkyPane companion service.
 
 There are no per-user accounts: a single shared password protects the
-entire site uniformly (D-02). This module is stdlib-only (collections,
+entire site uniformly. This module is stdlib-only (collections,
 hashlib, hmac, http.cookies, ipaddress, os, time, secrets,
 urllib.parse) — it must never import Pillow, sqlite3, or anything
-under server/, matching this project's stdlib-first discipline
-(06-RESEARCH.md).
+under server/, matching this project's stdlib-first discipline.
 
 Constants:
 
 - PASSWORD_ENV_VAR ("SKYPANE_COMPANION_PASSWORD"): the environment
-  variable holding the shared password. Plan 06-11 adds the matching
-  entry to deploy/skypane.env.example and the matching
-  EnvironmentFile= reference in the new systemd unit (D-01). Per D-01's
-  secrets discipline, the value is read from the process environment
-  only: this module never writes it to a file, never emits it via
-  print/logging, and never lets it reach an exception message.
+  variable holding the shared password. The value is read from the
+  process environment only: this module never writes it to a file,
+  never emits it via print/logging, and never lets it reach an
+  exception message.
 
 - SESSION_TTL_S (12h): long enough that a single operator is not
   re-prompted for a password during a normal working session, short
-  enough that a leaked cookie does not stay valid indefinitely
-  (06-RESEARCH.md Open Question 3). This is a tunable, not an
-  architectural commitment.
+  enough that a leaked cookie does not stay valid indefinitely. This
+  is a tunable, not an architectural commitment.
 
 - SESSION_COOKIE_NAME / UI_THEME_COOKIE_NAME: the two cookies this
-  service sets — the signed session token, and the CFG-09 UI theme
-  preference (read by companion/layout.py, never written by it).
+  service sets — the signed session token, and the UI theme preference
+  (read by companion/layout.py, never written by it).
 
 - LOGIN_FAILURE_LIMIT / LOGIN_LOCKOUT_S: LoginThrottle's failed-attempt
   guard thresholds (see LoginThrottle below).
 
 Session tokens are stateless: `expiry.signature`, where `signature` is
 an HMAC-SHA256 of the decimal expiry timestamp (nanosecond-resolution,
-see `issue_session_token()`), keyed by a signing key
-*derived* from the shared password (see `_signing_key()` below, A-33/
-D-16) — never the raw password itself, so a leaked `(expiry,
-signature)` pair is not an offline password oracle. The one deliberate
-departure from a purely stateless design is the small in-memory
-revocation set below (`revoke()`/`is_revoked()`), consulted on Sign
-out: it is pruned by each entry's own embedded expiry on every access,
-so it cannot grow unbounded over the 12h `SESSION_TTL_S` window, and it
-is lost on restart exactly like everything else in this module — that
-is acceptable for one household (19-CONTEXT.md D-16), not a general
-session store.
+see `issue_session_token()`), keyed by a signing key *derived* from
+the shared password (see `_signing_key()` below) — never the raw
+password itself, so a leaked `(expiry, signature)` pair is not an
+offline password oracle. The one deliberate departure from a purely
+stateless design is the small in-memory revocation set below
+(`revoke()`/`is_revoked()`), consulted on Sign out: it is pruned by
+each entry's own embedded expiry on every access, so it cannot grow
+unbounded over the 12h `SESSION_TTL_S` window, and it is lost on
+restart exactly like everything else in this module — that is
+acceptable for one household, not a general session store.
 """
 import collections
 import hashlib
@@ -60,49 +54,43 @@ PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"
 SESSION_TTL_S = 12 * 3600
 SESSION_COOKIE_NAME = "sp_session"
 UI_THEME_COOKIE_NAME = "sp_ui_theme"
-# D-02 (20-01-PLAN.md Task 2): the language per-browser cookie, added
-# directly beside UI_THEME_COOKIE_NAME — both share secure_cookie_
-# flag() below, so the Secure flag can never drift between them.
+# The language per-browser cookie, added directly beside
+# UI_THEME_COOKIE_NAME — both share secure_cookie_flag() below, so the
+# Secure flag can never drift between them.
 UI_LANG_COOKIE_NAME = "sp_ui_lang"
-# D-17 (21-01-PLAN.md Task 1): the sibling per-browser cookie that
-# backed the now-removed simple/full display-mode switch is deleted
-# along with the feature. A browser that still holds a stale copy of
-# that cookie is simply never read again — no migration, no
-# explicit-ignore branch; nothing under companion/ names that cookie
-# any more.
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_LOCKOUT_S = 300
 INSECURE_COOKIES_ENV_VAR = "SKYPANE_COMPANION_INSECURE_COOKIES"
 
-# A-33/D-16: a per-process random salt, generated once at import time,
-# that never leaves this process (never embedded in a cookie, never
-# logged). issue_session_token()/verify_session_token() mix it into the
-# signing key via _signing_key() below so that a leaked (expiry,
-# signature) pair cannot be used to brute-force the shared password
-# offline — the attacker would also need this salt, which they cannot
-# get. A side effect, explicitly accepted for one household: a process
-# restart regenerates the salt and therefore invalidates every
-# outstanding session.
+# A per-process random salt, generated once at import time, that never
+# leaves this process (never embedded in a cookie, never logged).
+# issue_session_token()/verify_session_token() mix it into the signing
+# key via _signing_key() below so that a leaked (expiry, signature)
+# pair cannot be used to brute-force the shared password offline — the
+# attacker would also need this salt, which they cannot get. A side
+# effect, explicitly accepted for one household: a process restart
+# regenerates the salt and therefore invalidates every outstanding
+# session.
 _PROCESS_SALT = secrets.token_bytes(32)
 
 
 def _signing_key():
     """The HMAC signing key for session tokens: HMAC-as-KDF over the
     shared password and this process's random salt. This is a
-    standard, well-understood construction, not a hand-rolled one
-    (19-RESEARCH.md's own Don't Hand-Roll guidance) — deriving rather
-    than reusing configured_password() directly is what makes a leaked
-    token's signature useless for guessing the password offline.
+    standard, well-understood construction, not a hand-rolled one —
+    deriving rather than reusing configured_password() directly is what
+    makes a leaked token's signature useless for guessing the password
+    offline.
     """
     return hmac.new(
         configured_password(), _PROCESS_SALT, hashlib.sha256).digest()
 
 
-# A-33/D-16: the Sign out revocation set. Maps a presented token string
-# to its own embedded expiry (an int), so pruning never needs to touch
-# auth.py's other stateless machinery. Guarded by _REVOKED_LOCK,
-# mirroring companion/app.py's own _POLL_LOCK precedent for a lock
-# around small shared mutable state under ThreadingHTTPServer.
+# The Sign out revocation set. Maps a presented token string to its own
+# embedded expiry (an int), so pruning never needs to touch auth.py's
+# other stateless machinery. Guarded by _REVOKED_LOCK, mirroring
+# companion/app.py's own _POLL_LOCK precedent for a lock around small
+# shared mutable state under ThreadingHTTPServer.
 _REVOKED = {}
 _REVOKED_LOCK = threading.Lock()
 
@@ -155,10 +143,10 @@ class AuthNotConfigured(RuntimeError):
     """Raised when PASSWORD_ENV_VAR is unset or empty.
 
     A missing password must fail closed, never open — companion/app.py
-    (plan 06-05) turns this into a startup refusal, so the service can
-    never come up with authentication silently disabled. The message
-    names only the environment variable, never a value, and must never
-    be re-worded to interpolate the configured password.
+    turns this into a startup refusal, so the service can never come up
+    with authentication silently disabled. The message names only the
+    environment variable, never a value, and must never be re-worded to
+    interpolate the configured password.
     """
 
 
@@ -180,10 +168,10 @@ def password_ok(submitted):
     """Constant-time check of `submitted` against the configured password.
 
     Never uses `==` — a plain string-equality comparison on a secret
-    leaks timing information proportional to the matching prefix length
-    (06-RESEARCH.md Pitfall 4). A non-string submission is coerced to an
-    empty string rather than raising, so a malformed login POST body
-    degrades to "wrong password" instead of a 500.
+    leaks timing information proportional to the matching prefix length.
+    A non-string submission is coerced to an empty string rather than
+    raising, so a malformed login POST body degrades to "wrong password"
+    instead of a 500.
     """
     if not isinstance(submitted, str):
         submitted = ""
@@ -194,16 +182,12 @@ def issue_session_token():
     """Build and sign a fresh session token: "<expiry>.<hex signature>".
 
     `expiry` is a nanosecond-resolution Unix timestamp (`time.time_ns()`),
-    not seconds. This is a deviation from the original second-resolution
-    field, made while adding the revocation set (A-33/D-16): tokens are
-    otherwise a pure function of (expiry, signing key), so two logins
-    landing in the same wall-clock SECOND used to produce byte-identical
-    tokens — meaning revoking one session's token on Sign out could
-    silently also revoke a different, still-legitimate session that
-    happened to be issued in that same second. Nanosecond resolution
-    makes that collision practically impossible while leaving the
-    "<int>.<hex>" two-field shape, and every existing caller/round-trip
-    check, unchanged.
+    not seconds: tokens are otherwise a pure function of (expiry,
+    signing key), so two logins landing in the same wall-clock second
+    would produce byte-identical tokens — meaning revoking one session's
+    token on Sign out could silently also revoke a different, still-
+    legitimate session issued in that same second. Nanosecond resolution
+    makes that collision practically impossible.
     """
     expiry = str(time.time_ns() + SESSION_TTL_S * 1_000_000_000)
     signature = hmac.new(
@@ -240,7 +224,7 @@ def verify_session_token(value):
 
 
 def secure_cookie_flag():
-    """The `"; Secure"` cookie-attribute fragment, or `""` — A-34/D-17.
+    """The `"; Secure"` cookie-attribute fragment, or `""`.
 
     Caddy terminating TLS in front of this service is still the
     production posture, and `Secure` stays on by default for exactly
@@ -267,7 +251,7 @@ def session_set_cookie_header(token):
     SameSite=Strict is the CSRF control for the state-changing
     endpoints (there is exactly one origin and no legitimate cross-site
     use); Secure is on by default, off only via the explicit dev-only
-    SKYPANE_COMPANION_INSECURE_COOKIES=1 opt-out (A-34/D-17, see
+    SKYPANE_COMPANION_INSECURE_COOKIES=1 opt-out (see
     secure_cookie_flag()).
     """
     return (
@@ -353,11 +337,11 @@ class LoginThrottle:
     """A failed-login guard keyed on the caller's address (client_ip()/
     login_throttle_key() above), not a single process-global counter.
 
-    D-01/D-02 mean there are no distinct user accounts on this site, so
-    a per-session counter would be trivially defeated by opening a
-    second tab — the same reasoning 06-RESEARCH.md's Pitfall 8 applies
-    to the CFG-07 poll-trigger cooldown applies here. A single shared
-    global counter, however, has the opposite problem: one stranger's
+    There are no distinct user accounts on this site, so a per-session
+    counter would be trivially defeated by opening a second tab — the
+    same reasoning applies to the poll-trigger cooldown. A single
+    shared global counter, however, has the opposite problem: one
+    stranger's
     wrong guesses lock out the site's real owner. Keying on the caller's
     address gives each address its own bucket, so failures from one
     address never lock another, while still sharing one lockout window
@@ -385,12 +369,10 @@ class LoginThrottle:
         self._max_entries = max_entries
         self._clock = clock
         self._entries = collections.OrderedDict()
-        # WR-03 (19-REVIEW.md): this instance is a single process-global
-        # object shared across every request thread under
-        # ThreadingHTTPServer (see the class docstring above), so the
-        # table must not be read-then-written by two threads at once.
-        # Mirrors _REVOKED_LOCK's own precedent a few functions above in
-        # this same file.
+        # This instance is a single process-global object shared across
+        # every request thread under ThreadingHTTPServer, so the table
+        # must not be read-then-written by two threads at once. Mirrors
+        # _REVOKED_LOCK's own precedent above in this same file.
         self._lock = threading.Lock()
 
     def _evict_locked(self):
@@ -423,9 +405,9 @@ class LoginThrottle:
         return entry
 
     def record_failure(self, key):
-        # A-32/D-15: once the previous lockout window has fully elapsed,
-        # a new failure must start a fresh count rather than re-arming
-        # the lockout from an already-saturated counter — otherwise one
+        # Once the previous lockout window has fully elapsed, a new
+        # failure must start a fresh count rather than re-arming the
+        # lockout from an already-saturated counter — otherwise one
         # stray wrong password per window keeps the lockout permanent.
         # Contract: five fresh failures per window, never permanent.
         with self._lock:
@@ -463,25 +445,25 @@ class LoginThrottle:
         return int(remaining) if remaining > 0 else 0
 
 
-# SEC-03 (37-05-PLAN.md Task 1, D-16, T-37-22/T-37-23): defence in depth
-# on top of SameSite=Strict (A-33/D-16 above), not a replacement for it.
-# SameSite=Strict already stops a cross-site browser navigation or fetch
-# from carrying the session cookie at all in every browser that honours
-# it; this check exists for the two things that discipline alone does not
-# cover — a browser that predates SameSite=Strict enforcement, and a
-# same-site sibling host (another name under the same registrable domain,
-# e.g. a second *.nip.io label) that SameSite=Strict itself does NOT
-# distinguish from this site (T-37-23). Fetch Metadata's Sec-Fetch-Site
-# header names that distinction directly ("cross-site" vs "same-site" vs
-# "same-origin"), so it is checked first and rejects both.
+# Defence in depth on top of SameSite=Strict above, not a replacement
+# for it. SameSite=Strict already stops a cross-site browser navigation
+# or fetch from carrying the session cookie at all in every browser
+# that honours it; this check exists for the two things that discipline
+# alone does not cover — a browser that predates SameSite=Strict
+# enforcement, and a same-site sibling host (another name under the
+# same registrable domain, e.g. a second *.nip.io label) that
+# SameSite=Strict itself does not distinguish from this site. Fetch
+# Metadata's Sec-Fetch-Site header names that distinction directly
+# ("cross-site" vs "same-site" vs "same-origin"), so it is checked
+# first and rejects both.
 #
-# Header-less requests are allowed on purpose (T-37-24, accepted): a
-# request carrying neither Sec-Fetch-Site nor Origin still needs a valid
-# session cookie to do anything, and refusing it here would only break
-# non-browser and older-browser clients for no security gain — the
-# accepted risk is an old browser's cross-site POST reaching the gate
-# with SameSite=Strict already having stripped its cookie, not a
-# meaningfully more permissive request.
+# Header-less requests are allowed on purpose: a request carrying
+# neither Sec-Fetch-Site nor Origin still needs a valid session cookie
+# to do anything, and refusing it here would only break non-browser and
+# older-browser clients for no security gain — the accepted risk is an
+# old browser's cross-site POST reaching the gate with SameSite=Strict
+# already having stripped its cookie, not a meaningfully more
+# permissive request.
 #
 # Comparing Origin against Host (rather than a hardcoded hostname) is
 # sound specifically because this is a same-process comparison of two
@@ -503,11 +485,11 @@ def post_origin_ok(headers):
     companion/app.py's `do_POST()`).
 
     Rule, in order:
-    1. `Sec-Fetch-Site: cross-site` or `same-site` -> reject (T-37-22/
-       T-37-23) — checked first because it is the most specific signal a
-       modern browser sends, and it is what catches a same-site sibling
-       host Origin/Host comparison alone would not.
-    2. No `Origin` header at all -> allow (header-less clients, T-37-24).
+    1. `Sec-Fetch-Site: cross-site` or `same-site` -> reject — checked
+       first because it is the most specific signal a modern browser
+       sends, and it is what catches a same-site sibling host Origin/
+       Host comparison alone would not.
+    2. No `Origin` header at all -> allow (header-less clients).
     3. `Origin: null` -> reject (an opaque origin — a sandboxed iframe, a
        data: URL, or a redirect chain — is never this site's own origin).
     4. Otherwise, `Origin`'s netloc must equal `Host`, compared

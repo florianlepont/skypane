@@ -1,5 +1,4 @@
-"""companion/frame_state.py — the one frame-state resolution and the one
-delay sentence (D-03/D-04, CFG-26/CFG-27, 22-02-PLAN.md Task 2).
+"""The one frame-state resolution and the one delay sentence.
 
 Sits beside companion/wake.py, companion/i18n.py and companion/screens.py
 in this same package — a shared, page-independent, VIEW-FREE module.
@@ -20,45 +19,39 @@ re-export seam — this module never imports server.wake directly) as
 its own three of four inputs, `now` being the caller's own clock
 reference (real wall-clock time at render, unlike next_wake_status()'s
 own last-check-in-relative epoch). Every consumer — the strip, the
-tiles, Home, the settings captions (plans 22-04, 22-05, 22-07) — calls
-`resolve_state()` and `delay_sentence_template()` against that SAME
-triple, so disagreement between them is impossible by construction
-(22-UI-SPEC.md §3.3 binding rule 5): there is exactly one place that
-decides whether the frame is due, held or late, and exactly one place
-that says when a change will reach it.
+tiles, Home, the settings captions — calls `resolve_state()` and
+`delay_sentence_template()` against that same triple, so disagreement
+between them is impossible by construction: there is exactly one place
+that decides whether the frame is due, held or late, and exactly one
+place that says when a change will reach it.
 
-Three states, encoding 22-UI-SPEC.md §3.3's condition table and its six
-binding rules:
+Three states:
 
   STATE_DUE     `now < next_wake` OR `now < next_wake + 2 * interval` —
-                the grace window is INVISIBLE (rule 3): there is no
-                third, "slightly late" state and no colour shift inside
-                it. One threshold, one flip.
+                the grace window is invisible: there is no third,
+                "slightly late" state and no colour shift inside it.
+                One threshold, one flip.
   STATE_HELD    `hold_reason` is `wake.HOLD_QUIET_HOURS`, regardless of
-                how much time has elapsed since `next_wake` (rule 4: a
-                held frame cannot escalate to late by elapsed time
-                alone — lateness is measured against the held-AWARE
+                how much time has elapsed since `next_wake` — a held
+                frame cannot escalate to late by elapsed time alone,
+                because lateness is measured against the held-aware
                 next wake, which `next_wake_status()` already extended
                 to the window's own end, so a frame missing its 07:05
-                wake is only late at 07:05 + 2 * interval).
+                wake is only late at 07:05 + 2 * interval.
   STATE_LATE    `now >= next_wake + 2 * effective_interval_s` AND not
                 held.
   STATE_UNKNOWN No check-in recorded yet (no usable next-wake data at
                 all) — no dot class is claimed for this state; the
                 caller's own fallback applies.
 
-Rule 1 (held uses a neutral dot, never a warning dot) and rule 2 (no
-status colour is used as text, in any of the three real states) are
-NOT this module's to encode — they are choices a renderer makes from
-the state name this module returns; this module never claims a CSS
-class or a colour token, which is precisely what keeps rule 1 and rule
-2 impossible to violate from here. Rule 6 (the nightly regression: with
-quiet hours 23:00-07:00, a last check-in at 22:58 and the clock at
-02:00 Europe/Paris, the resolved state is `STATE_HELD` and never
-`STATE_LATE`) is pinned by `companion/test_view_pages.py`.
+This module never claims a CSS class or a colour token — those are
+choices a renderer makes from the state name this module returns. The
+nightly-regression case (quiet hours 23:00-07:00, a last check-in at
+22:58 and the clock at 02:00 Europe/Paris resolving to `STATE_HELD` and
+never `STATE_LATE`) is pinned by `companion/test_view_pages.py`.
 
-The delay sentence (D-04) is derived from the SAME triple, in exactly
-three branches — due, held, unknown — never a fourth "late" branch: a
+The delay sentence is derived from the same triple, in exactly three
+branches — due, held, unknown — never a fourth "late" branch: a
 setting change still lands at the same next real wake regardless of
 whether the PREVIOUS wake happened to be reported late, so a late
 frame's delay sentence is the same "due" wording. `delay_sentence_template()`
@@ -77,38 +70,26 @@ from datetime import datetime, timedelta, timezone
 
 from companion import wake
 
-# --- The three frame states (D-03) --------------------------------------
+# --- The three frame states ---------------------------------------------
 
 STATE_DUE = "due"
 STATE_HELD = "held"
 STATE_LATE = "late"
 STATE_UNKNOWN = "unknown"
 
-# --- The three headlines (22-UI-SPEC.md §1 Copywriting Contract) -------
+# --- The three headlines -------------------------------------------------
 #
 # `%s` placeholders only, never f-strings or `.format()`, matching every
-# other catalogue in this codebase (companion/layout.py's own
-# NEXT_UPDATE_TEMPLATE/EXPECTED_SINCE_TEMPLATE precedent, which these
-# constants are the view-free successors of — plans 22-04/22-05 delete
-# the layout.py originals in the same commit as their own French
-# entries, once their own consumers migrate to this module).
+# other catalogue in this codebase.
 
 HEADLINE_DUE = "Next update ≈ %s"
 HEADLINE_HELD = "Next wake around %s · quiet hours"
 HEADLINE_LATE = "Expected since %s"
 
-# --- The three delay-sentence branches (D-04) ---------------------------
+# --- The three delay-sentence branches ------------------------------------
 #
-# Replaces every one of this phase's four retired wordings — "Applies
-# the next time the frame wakes up" as a hard-coded per-control literal,
-# the Screen-off card's own honest-but-fixed few-minutes-latency caption
-# (22-05-PLAN.md Task 1), the Quiet-hours card's own generic could-be-
-# hours-away caption tail (22-05-PLAN.md Task 2), and the post-save
-# flash's own fixed confirmation clause (22-05-PLAN.md Task 2) — with one
-# computed sentence in exactly three branches. 22-05-PLAN.md's own
-# acceptance criteria name the three retired literals verbatim; they are
-# deliberately NOT re-typed here, so this comment itself can never be
-# mistaken for a live occurrence by a repository-wide scan for them.
+# One computed sentence in exactly three branches, replacing every
+# hard-coded per-control latency caption this codebase used to carry.
 
 DELAY_DUE = "Applies at the next wake, around %s."
 DELAY_HELD = "Applies when quiet hours end, around %s."
@@ -145,7 +126,7 @@ def resolve_state(next_wake_iso, effective_interval_s, hold_reason, now):
     last-check-in-relative inputs).
 
     `hold_reason` is checked FIRST, before any time arithmetic and even
-    before `next_wake_iso`/`now` are parsed (22-UI-SPEC.md §3.3 rule 4):
+    before `next_wake_iso`/`now` are parsed:
     a held frame can never escalate to late by elapsed time alone,
     because held-ness is a fact about WHY the wake was scheduled, not
     about how long ago it was supposed to happen. `next_wake_status()`
@@ -196,7 +177,7 @@ def delay_sentence_template(next_wake_iso, effective_interval_s, hold_reason, no
     """The delay-sentence template constant for the SAME
     `(next_wake_iso, effective_interval_s, hold_reason)` triple
     `resolve_state()` takes — exactly three branches, never a fourth
-    "late" branch (D-04): a setting change lands at the same next real
+    "late" branch: a setting change lands at the same next real
     wake regardless of whether the previous wake happened to be
     reported late, so a late frame's delay sentence is the same "due"
     wording `DELAY_DUE` carries. `now` is accepted for signature

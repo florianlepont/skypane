@@ -1,5 +1,4 @@
-"""companion/i18n.py — the per-request language lookup for the SkyPane
-companion service (D-01..D-09, 20-01-PLAN.md Task 1).
+"""The per-request language lookup for the SkyPane companion service.
 
 Sits beside auth.py, battery.py, layout.py, prefs.py, screens.py and
 wake.py in this same package — a shared, page-independent module,
@@ -23,7 +22,7 @@ def t(text):
     is French AND text is a key in that dict; otherwise return text
     unchanged. Never raises, never logs — a missing key degrades to
     the English source string exactly like a request in English would
-    render, per D-04.
+    render.
     """
     if prefs.current_lang() == "fr":
         return i18n_fr.CATALOG.get(text, text)

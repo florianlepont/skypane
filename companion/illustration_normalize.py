@@ -1,35 +1,27 @@
 #!/usr/bin/env python3
-"""companion/illustration_normalize.py — server-side aircraft-illustration
-normalization for the companion Airlines gallery (quick task 260902-req-02,
-sibling to 260902-req plan 01's panel-side fix in `server/plane/render.py`).
+"""Server-side aircraft-illustration normalization for the companion
+Airlines gallery.
 
-`companion/pages/airlines_page.py` used to render each of the 43 vendored
-per-airline illustrations as a plain `<img>` at `width: 100%; height: auto`,
-streaming the raw source PNG bytes verbatim (`Handler._serve_illustration_image()`
-in `companion/app.py`). Every source file carries its own, differently-sized
-transparent padding around the painted aircraft, so the gallery inherited that
-inconsistency card-for-card: measured across the 43 files, the painted
-content's aspect ratio spans 2.97:1 (`chalair-aviation.png`) to 4.98:1
-(`amelia-embraer.png`).
+Every source file carries its own, differently-sized transparent
+padding around the painted aircraft, so rendering the raw PNG bytes
+verbatim at `width: 100%; height: auto` gave the gallery an
+inconsistent aspect ratio card-for-card: measured across the 43
+vendored files, the painted content's aspect ratio spans 2.97:1
+(`chalair-aviation.png`) to 4.98:1 (`amelia-embraer.png`).
 
-This module fixes that server-side, at the route, by cropping each source
-image to its *painted* content (not its raw alpha bbox — see
-`server.plane.render._opaque_bbox()`'s own docstring for why those differ),
-then re-centring that crop into one shared output frame every card renders
-into identically.
+This module fixes that server-side, at the route, by cropping each
+source image to its *painted* content (not its raw alpha bbox — see
+`server.plane.render._opaque_bbox()`'s own docstring for why those
+differ), then re-centring that crop into one shared output frame every
+card renders into identically.
 
 Deliberate constraint: this module imports `server.plane.render`'s
 `_opaque_bbox()` / `_threshold_alpha()` (and, transitively,
-`ILLUSTRATION_ALPHA_THRESHOLD`) rather than reimplementing bbox detection or
-defining a second alpha-threshold constant. The panel already solved
-"where does the aircraft actually end" once — the originating debug session
-(`illustration-crop-text-margin`) is precisely the story of a *second*,
-differently-thresholded measurement silently drifting from the first. This
-module must never become a second implementation for that same measurement to
-drift against; it may only ever import the one at `server/plane/render.py`.
-This is why this module deliberately does NOT edit `server/plane/render.py`
-itself (that stays plan 01's sibling territory) and instead only reads from
-it.
+`ILLUSTRATION_ALPHA_THRESHOLD`) rather than reimplementing bbox
+detection or defining a second alpha-threshold constant, so the panel
+and the gallery can never silently drift on "where does the aircraft
+actually end". This module deliberately does not edit
+`server/plane/render.py` itself, only reads from it.
 """
 import functools
 import io
@@ -51,13 +43,10 @@ from server.plane import render as panel_render
 # both sides; the measured median instead spreads that dead space evenly
 # across the whole distribution.
 #
-# quick task 260904-e92 (UIR-08): the frame was HALVED — 900x263 SUPERSEDED
-# — to cut served bytes; the audit found the rendered `.airline-card__image`
-# never exceeding 325px wide on mobile or 224px on desktop, so 900x263 was
-# pure oversampling (3.92MB for a full 27-card gallery scroll, measured
-# pre-change). The new width, 450, was the developer's own choice (option-a
-# of the audit's two proposed fixes; option-b, a srcset, was rejected as a
-# multi-size mechanism this module deliberately does not build). The height
+# The frame is 450 wide: the rendered `.airline-card__image` never exceeds
+# 325px wide on mobile or 224px on desktop, so a much larger frame is pure
+# oversampling. A srcset/multi-size mechanism was rejected as unneeded
+# complexity for that same reason. The height
 # is DERIVED from the median ratio, never independently chosen:
 # round(W * 263 / 900). An exact integer reproduction of the 900:263 ratio
 # is impossible below 900x263 itself, because gcd(900, 263) = 1 (263 is

@@ -1,63 +1,42 @@
-"""companion/battery.py — the shared battery-percentage estimate for the
-SkyPane companion service (D-01/A-19, 19-01-PLAN.md).
+"""The shared battery-percentage estimate for the SkyPane companion
+service.
 
-Before this module existed, home_page.py (in the per-tab pages package
-this companion service ships) owned `battery_percent()` outright, and
-Health's audit finding (A-19) needed the same estimate without either
-page module importing the other — the pages package's own documented
-boundary is "no page module imports another page module." This module is
-the fix: a shared, page-independent home for the estimate, sitting
-beside companion/auth.py, companion/layout.py and companion/screens.py,
-not inside the pages package itself.
+A shared, page-independent home for the estimate, sitting beside
+companion/auth.py, companion/layout.py and companion/screens.py, not
+inside the per-tab pages package — that package's own documented
+boundary is "no page module imports another page module", and this is
+what lets home_page.py and health_page.py share one estimate without
+importing each other.
 
-This module is stdlib-only. It must never import from the pages package
-and nothing from the server package — its whole purpose is to let
-home_page.py and health_page.py share one estimate without either
-importing the other, and pulling in a page module or a server module
-here would defeat that.
+This module is stdlib-only. It must never import from the pages
+package and nothing from the server package.
 
-24-01-PLAN.md Task 1 (CFG-39): this module is the phase's ONE home for
-the battery estimate, and a source scan in companion/test_companion_app.py
-now proves it — no other module under companion/ may define the millivolt
-constants or a second percentage function. Phase 24 draws four new
-pictures, one of them a battery ring gauge; every one of them takes its
-number from here. The extensions this task adds are `battery_fraction()`
-(the 0..1 a gauge needs) and `LOW_BATTERY_DISPLAY_MV` (where the chart
-draws its low line), both derived from the SAME ratio `battery_percent()`
-already returns, so a gauge and its own printed percentage can never
-round to different stories.
+This is the one home for the battery estimate: a source scan in
+companion/test_companion_app.py proves no other module under
+companion/ defines the millivolt constants or a second percentage
+function. `battery_fraction()` (the 0..1 a gauge needs) and
+`LOW_BATTERY_DISPLAY_MV` (where a chart draws its low line) are both
+derived from the same ratio `battery_percent()` returns, so a gauge and
+its own printed percentage can never round to different stories.
 
-25-01-PLAN.md Task 3 (CFG-49): the battery-LIFE estimate lands here, and
-it lands here for the same reason the percentage did. Phase 24's version
-of this paragraph said a life estimate was deliberately NOT added
-because "it needs a discharge model this project has no data to
-justify". That reasoning was right about the MODEL and wrong about the
-conclusion: what it ruled out was an estimate built on an ASSUMED
-per-wake energy cost, and `battery_life_estimate()` below is not that.
-It reads a slope out of the observed daily-average series and reports a
-figure only when that observed history supports one, with a named state
-for every case where it does not. No per-wake cost is assumed anywhere
-in this file. DEVICE-05's multi-day discharge run completed on
-2026-09-14 (hardware/BATTERY-RUN.md) and is BATTERY_DISCHARGE_CURVE's
-own source (SEED-006, quick 260923-gaf) — but it measured a single wake
-cadence and left the per-wake versus standing-leakage split unresolved,
-so this file still assumes no per-wake energy cost.
-
-quick 260923-gaf (SEED-006, D-SEED006): the estimate itself changed from
-a linear 4.2V-full/3.3V-empty span to the 14-knot piecewise curve below,
-because the linear span measurably overstated charge across most of a
-real discharge. See the comment above BATTERY_DISCHARGE_CURVE for the
-data and the method.
+`battery_life_estimate()` reads a slope out of the observed
+daily-average series and reports a figure only when that observed
+history supports one, with a named state for every case where it does
+not — never an assumed per-wake energy cost, because the multi-day
+discharge run this module's curve is sourced from (see
+BATTERY_DISCHARGE_CURVE below) measured a single wake cadence and left
+the per-wake-versus-standing-leakage split unresolved.
 """
 
 import datetime
 
-# D-SEED006 (SEED-006, quick 260923-gaf): a 14-knot piecewise
-# millivolt-to-percent lookup, replacing the old 4.2V-full/3.3V-empty
-# linear estimate. Source: hardware/BATTERY-RUN.md's "## Discharge
-# Trend" section, DEVICE-05's single-pack run from 2026-09-02 12:55 UTC
-# to 2026-09-14 21:05 UTC (12.340 days) at a constant 300 s poll
-# cadence. Percent is the share of that run's total runtime still ahead
+# A 14-knot piecewise millivolt-to-percent lookup, replacing a linear
+# 4.2V-full/3.3V-empty estimate that measurably overstated charge
+# across most of a real discharge. Source: hardware/BATTERY-RUN.md's
+# "## Discharge Trend" section, a single-pack run from 2026-09-02
+# 12:55 UTC to 2026-09-14 21:05 UTC (12.340 days) at a constant 300 s
+# poll cadence. Percent is the share of that run's total runtime still
+# ahead
 # of a given reading — under the run's constant load, remaining runtime
 # equals remaining charge, so that share is read straight off the
 # timestamps.
@@ -133,26 +112,25 @@ def _curve_mv_at_percent(percent):
 # exists so nobody unifies them by accident:
 #
 #   server/poll_loop.py's BATTERY_LOW_THRESHOLD_MV = 3500 (with a
-#   BATTERY_LOW_CLEAR_MV = 3600 re-arm) is the DEVICE-side hysteretic
-#   decision (DEVICE-04, 05-02): it changes what the frame renders and
-#   what a push notification says. It reasons in raw millivolts on
-#   purpose (D-02) and it is not an estimate.
+#   BATTERY_LOW_CLEAR_MV = 3600 re-arm) is the device-side hysteretic
+#   decision: it changes what the frame renders and what a push
+#   notification says. It reasons in raw millivolts on purpose and it
+#   is not an estimate.
 #
 #   LOW_BATTERY_DISPLAY_MV below is the COMPANION's own charting mark. It
-#   is DERIVED from the curve above rather than typed: it is exactly the
+#   is derived from the curve above rather than typed: it is exactly the
 #   millivolt level at which `battery_percent()` reads
 #   LOW_BATTERY_DISPLAY_PERCENT, computed by inverting
 #   BATTERY_DISCHARGE_CURVE through `_curve_mv_at_percent()`, so the line
 #   a chart draws and the "≈ N%" printed beside it can never tell two
-#   different stories. At 20% of the DEVICE-05 curve that is 3540 mV.
+#   different stories. At 20% of the measured curve that is 3540 mV.
 #
-# SEED-006 flipped the relationship to the device. The device's 3500 mV
-# warning point now reads about 15% on the curve and sits BELOW this
-# line, so a plotted series crosses the companion's display mark FIRST —
-# about 40 mV earlier, roughly 15 hours at the late-run rate DEVICE-05
-# observed (3556 → 3500 mV took about 21 h). Unifying the two thresholds
-# is still a decision nobody has taken, and BATTERY_LOW_THRESHOLD_MV /
-# BATTERY_LOW_CLEAR_MV are untouched by this file.
+# The device's 3500 mV warning point reads about 15% on the curve and
+# sits below this line, so a plotted series crosses the companion's
+# display mark first — about 40 mV earlier, roughly 15 hours at the
+# late-run rate observed (3556 -> 3500 mV took about 21 h). Unifying
+# the two thresholds is still a decision nobody has taken, and
+# BATTERY_LOW_THRESHOLD_MV/BATTERY_LOW_CLEAR_MV are untouched by this file.
 #
 # The value is also constrained from below by the chart it is drawn on:
 # health_page.py's SPARKLINE_Y_MIN_MV is 3000, the fixed floor of the
@@ -212,10 +190,8 @@ def battery_percent(mv):
     """A clamped 0-100 estimate for `mv`, or None for a non-numeric,
     non-positive or NaN reading. Never raises.
 
-    24-01-PLAN.md Task 1: the arithmetic moved into `battery_fraction()`
-    above and this function became its rounding. SEED-006 (quick
-    260923-gaf) changed the underlying curve `battery_fraction()` reads;
-    the rounding step here — `int(round(fraction * 100))` — is unchanged.
+    The arithmetic lives in `battery_fraction()` above; this function is
+    just its rounding, `int(round(fraction * 100))`.
     """
     ratio = battery_fraction(mv)
     if ratio is None:
@@ -223,7 +199,7 @@ def battery_percent(mv):
     return int(round(ratio * 100))
 
 
-# 25-01-PLAN.md Task 3 (CFG-49) — THE BATTERY-LIFE ESTIMATE.
+# The battery-life estimate.
 #
 # The four named states a caller must handle, plus the one that carries
 # a number. They are NAMES rather than an overloaded None on purpose: a
@@ -359,13 +335,13 @@ def battery_life_estimate(rows, current_wake_interval_s=None,
     THREE THINGS THIS FUNCTION WILL NOT DO, each of which is the
     difference between an estimate and a fabrication:
 
-    1. It never assumes a per-wake energy cost. DEVICE-05 has since run
-       (hardware/BATTERY-RUN.md) and is the source of
-       BATTERY_DISCHARGE_CURVE above, but it measured a single wake
-       cadence and left the per-wake versus standing-leakage split
-       unresolved, so no per-wake cost is assumed here either. That is
-       why `days_remaining` is None in the four non-falling states, and
-       in FALLING too whenever both readings sit above the curve's top
+    1. It never assumes a per-wake energy cost. The discharge run
+       (hardware/BATTERY-RUN.md) that is the source of
+       BATTERY_DISCHARGE_CURVE above measured a single wake cadence and
+       left the per-wake versus standing-leakage split unresolved, so no
+       per-wake cost is assumed here either. That is why `days_remaining`
+       is None in the four non-falling states, and in FALLING too
+       whenever both readings sit above the curve's top
        knot with no measurable state-of-charge drop to project, rather
        than a best guess.
     2. It never turns a RISING series into a number. A charged device
@@ -430,16 +406,16 @@ def battery_life_estimate(rows, current_wake_interval_s=None,
         return result
 
     result["trend"] = LIFE_TREND_FALLING
-    # SEED-006 (quick 260923-gaf): projected in STATE-OF-CHARGE space,
-    # not by straight-line millivolt extrapolation to BATTERY_EMPTY_MV.
-    # BATTERY_DISCHARGE_CURVE's percent is the share of DEVICE-05's run
-    # runtime still ahead, so state of charge falls roughly LINEARLY in
-    # time even though millivolts do not (flat top, cliff at the end).
-    # Validated against DEVICE-05 itself: from the 3922 mV reading to
-    # the 3814 mV reading (a 2.64-day window), this projection says 6.0
-    # days remained and 6.2 actually did. Millivolt extrapolation to the
+    # Projected in state-of-charge space, not by straight-line millivolt
+    # extrapolation to BATTERY_EMPTY_MV. BATTERY_DISCHARGE_CURVE's
+    # percent is the share of the measured run's runtime still ahead, so
+    # state of charge falls roughly linearly in time even though
+    # millivolts do not (flat top, cliff at the end). Validated against
+    # the measured discharge run itself: from the 3922 mV reading to the
+    # 3814 mV reading (a 2.64-day window), this projection says 6.0 days
+    # remained and 6.2 actually did. Millivolt extrapolation to the
     # curve's bottom knot said about 21 days for the same window, and to
-    # the old linear floor about 12.6 — both far outside the true 6.2.
+    # a linear floor about 12.6 — both far outside the true 6.2.
     newest_fraction = battery_fraction(newest_mv)
     oldest_fraction = battery_fraction(oldest_mv)
     if newest_fraction == 0.0:
