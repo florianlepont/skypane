@@ -3,42 +3,26 @@
 encoder that turns the live `state_dir/panel.bin` into bytes an HTTP
 handler can write directly.
 
-This module currently has no production caller - it was used by a
-companion preview route since replaced by the render gallery's
-full-resolution `/gallery/{name}.png` route - and it is kept on disk as
-tested infrastructure (`test_panel_preview.py`'s 11-check harness), not
-deleted.
+No production caller currently - kept on disk as tested infrastructure
+(`test_panel_preview.py`). Unlike `render.py --preview` (a hardcoded
+sample flight), this unpacks the literal bytes `poll_loop.py` wrote to
+`panel.bin` - the only source of truth for what the frame is displaying.
 
-This module exists because `server/plane/render.py`'s `--preview` CLI flag
-renders a hardcoded sample flight - it cannot answer "what is on the panel
-right now". The only source of truth for what the physical frame is
-currently displaying is the literal 960,000 packed bytes that
-`poll_loop.py`'s `write_panel_atomic()` writes to `state_dir/panel.bin`
-and that `byos_server.py` serves to the device verbatim - so this module
-unpacks exactly those bytes instead.
+Colour caveat: `panel_format.PALETTE_RGB` is a nominal, render-internal
+swatch, not colour-accurate against real Spectra 6 glass - the *indices*
+are faithfully reproduced (round-trip proven), the RGB is not.
 
-Colour accuracy caveat: the RGB values `panel_png_bytes()` produces come
-from `panel_format.PALETTE_RGB`, nominal render-internal swatch colours -
-not colour-accurate against real Spectra 6 glass. This module faithfully
-reproduces the *indices* on the wire (proven by the round-trip harness in
-`test_panel_preview.py`), but the resulting PNG is an index-accurate
-preview, not a colour-accurate one.
-
-This module is imported inside an HTTP request handler: it emits nothing
-to standard output and never writes to the filesystem (a stray console
-write would pollute the service journal; a stray file write could race the
-poll pipeline that owns `panel.bin`).
+Imported inside an HTTP request handler: never writes to stdout or the
+filesystem (a stray file write could race the poll pipeline that owns
+`panel.bin`).
 """
 import datetime
 import io
 import os
 import sys
 
-# Allow both `import server.panel_preview` (package import) and direct
-# script execution, matching server/poll_loop.py's own bootstrap:
-# sys.path[0] is server/ itself when this file is executed directly, so
-# the repo root must be added by hand before the absolute
-# `server.panel_format` import below can resolve.
+# Allow both package import and direct execution, matching
+# server/poll_loop.py's own bootstrap.
 _HERE = os.path.dirname(os.path.abspath(__file__))  # server/
 _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
@@ -48,30 +32,22 @@ from PIL import Image
 
 from server import panel_format
 
-# The single source of truth for nibble<->index mapping: derived by
-# inverting panel_format.INDEX_TO_NIBBLE, never by retyping the six pairs.
-# This one derivation is what makes silent drift between pack_panel() and
-# unpack_panel() impossible - a future palette change that edits
-# INDEX_TO_NIBBLE automatically keeps this in sync.
+# Derived by inverting panel_format.INDEX_TO_NIBBLE, never retyped, so a
+# future palette change keeps this in sync automatically.
 NIBBLE_TO_INDEX = {nibble: index for index, nibble in panel_format.INDEX_TO_NIBBLE.items()}
 
 
 class PanelDecodeError(ValueError):
-    """Raised when raw panel bytes cannot be turned into an image - wrong
-    length or an illegal nibble code. Always this one typed exception,
-    never AssertionError/IndexError, so the HTTP layer can catch a single
-    type and return a "temporarily unavailable" response instead of
-    faulting on an unhandled exception.
+    """Wrong length or an illegal nibble code. Always this one typed
+    exception, so the HTTP layer can catch a single type.
     """
 
 
 def unpack_panel(raw_bytes):
-    """The exact inverse of panel_format.pack_panel(): walk the same
-    row/column-pair loop in reverse, splitting each byte's high nibble
-    (left pixel) and low nibble (right pixel) back into palette indices.
-    Returns a "P"-mode (WIDTH x HEIGHT) Image with panel_format's palette
-    already applied - callers needing colour call .convert("RGB")
-    themselves so the round-trip check can compare index data directly.
+    """The exact inverse of panel_format.pack_panel(). Returns a "P"-mode
+    Image with panel_format's palette applied; callers needing colour
+    call .convert("RGB") themselves so the round-trip check can compare
+    index data directly.
     """
     expected = panel_format.IMAGE_BYTES
     actual = len(raw_bytes)
@@ -112,11 +88,9 @@ def unpack_panel(raw_bytes):
 
 def panel_png_bytes(raw_bytes, max_width=None):
     """Unpack `raw_bytes`, convert to RGB, optionally resize to
-    `max_width` (preserving aspect ratio, nearest-neighbour resampling -
-    required, not a preference, since any smoothing filter would blend the
-    six flat panel colours into intermediate values that do not exist on
-    the device), and return real PNG bytes ready for an HTTP handler to
-    write directly.
+    `max_width` (nearest-neighbour, required - any smoothing would blend
+    the six flat panel colours into values that don't exist on the
+    device), return PNG bytes.
     """
     image = unpack_panel(raw_bytes).convert("RGB")
     if max_width is not None and image.width > max_width:
@@ -129,11 +103,8 @@ def panel_png_bytes(raw_bytes, max_width=None):
 
 
 def read_panel_file(state_dir):
-    """Read `panel.bin` from `state_dir` in binary. Returns None on any
-    OSError (missing file, permission error, ...) rather than raising, so
-    the caller can distinguish "no panel yet" (this function) from "panel
-    present but unreadable/malformed" (unpack_panel()'s job - this
-    function deliberately does not validate length).
+    """Read `panel.bin` from `state_dir` in binary, or None on any
+    OSError. Does not validate length - that's unpack_panel()'s job.
     """
     path = os.path.join(state_dir, "panel.bin")
     try:
@@ -144,10 +115,8 @@ def read_panel_file(state_dir):
 
 
 def panel_file_mtime_iso(state_dir):
-    """Return panel.bin's modification time as a timezone-aware UTC
-    ISO-8601 second-precision string ("YYYY-MM-DDTHH:MM:SSZ"), or None
-    when the file is missing. This is the Preview page's caption
-    timestamp.
+    """panel.bin's mtime as a UTC ISO-8601 second-precision string, or
+    None if missing.
     """
     path = os.path.join(state_dir, "panel.bin")
     try:
