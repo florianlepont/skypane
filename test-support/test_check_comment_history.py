@@ -1,4 +1,4 @@
-"""Tests for scripts/check_comment_history.py: the HYG-06 comment-history guard.
+"""Tests for scripts/check_comment_history.py, the comment-history guard.
 
 Loads the tool by file path (it is a standalone script, not a package) and
 exercises its pattern matching, per-language extraction, same-code
@@ -10,7 +10,6 @@ import importlib.util
 import os
 import subprocess
 import sys
-import tempfile
 
 import pytest
 
@@ -511,7 +510,6 @@ def test_test_file_itself_passes_check():
 
 
 def test_stdlib_only_imports():
-    stdlib_paths = {os.path.dirname(os.__file__)}
     import ast as _ast
 
     with open(TOOL_PATH) as fh:
