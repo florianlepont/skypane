@@ -153,6 +153,7 @@ static void should_draw_matches_the_spec_table(void)
     assert(fp_fault_screen_should_draw("blit", 2, false) == false);
     assert(fp_fault_screen_should_draw("reset", 2, false) == false);
     assert(fp_fault_screen_should_draw("deadline", 5, false) == false);
+    assert(fp_fault_screen_should_draw("nvs", 5, false) == false);
     assert(fp_fault_screen_should_draw(NULL, 2, false) == false);
     assert(fp_fault_screen_should_draw("", 2, false) == false);
     assert(fp_fault_screen_should_draw("bogus", 2, false) == false);

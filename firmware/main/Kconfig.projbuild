@@ -38,8 +38,8 @@ menu "SkyPane"
         prompt "DEV ONLY: fault injection"
         default SKYPANE_FAULT_INJECT_NONE
         help
-            Bench verification of the reset/backoff and deadline paths
-            only. Production must stay NONE and CI checks it.
+            Bench verification of the reset/backoff, deadline and
+            unusable-NVS paths only. Production must stay NONE and CI checks it.
 
         config SKYPANE_FAULT_INJECT_NONE
             bool "None (production)"
@@ -51,6 +51,8 @@ menu "SkyPane"
             bool "spin with interrupts disabled"
         config SKYPANE_FAULT_INJECT_SLOW_WAKE
             bool "keep running past the wake budget"
+        config SKYPANE_FAULT_INJECT_NVS
+            bool "treat nvs_flash_init() as failed at boot"
     endchoice
 
     config FP_HW_REV

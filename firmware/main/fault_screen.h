@@ -36,6 +36,9 @@
  *                  looping the exact fault that caused the reset.
  *   - "deadline" - the whole-wake budget is already spent; a blit costs
  *                  roughly another 30 s this wake does not have.
+ *   - "nvs"      - NVS is unusable, so the "already shown" sentinel can be
+ *                  neither read nor written and the screen would redraw
+ *                  on every 5-minute wake of the outage.
  */
 #pragma once
 
