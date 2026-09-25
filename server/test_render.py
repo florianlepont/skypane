@@ -3698,11 +3698,22 @@ def test_no_connection_flat_canvas_contains_only_black_and_white():
 # no-connection screen - a grep-level/inspect assertion on build_canvas's
 # own source, since the whole point of this screen is that only the
 # firmware ever draws it.
-def test_build_canvas_never_dispatches_no_connection_canvas():
-    """build_canvas()'s source never references _build_no_connection_canvas - this screen is drawn only by the firmware, never dispatched by the server"""
-    source = inspect.getsource(render.build_canvas)
-    if "_build_no_connection_canvas" in source:
-        pytest.fail("build_canvas() references _build_no_connection_canvas - this screen must never be server-dispatched")
+def test_build_canvas_never_produces_the_no_connection_canvas():
+    """build_canvas() never returns the same bytes as _build_no_connection_canvas() for any state it accepts - that screen is drawn only by the firmware, never dispatched by the server"""
+    no_connection_bytes = render._build_no_connection_canvas().tobytes()
+    cases = [
+        (None, "battery_empty", {}),
+        (None, "display_off", {}),
+        (None, "quiet_hours", {"quiet_hours_until": "07:00"}),
+        (None, "empty", {}),
+        (TEST_FLIGHT, "departing", {"route": TEST_ROUTE}),
+        (TEST_FLIGHT, "arriving", {"route": TEST_ROUTE}),
+    ]
+    for flight, state, kwargs in cases:
+        canvas = render.build_canvas(flight, state, **kwargs)
+        if canvas.tobytes() == no_connection_bytes:
+            pytest.fail("build_canvas(%r, %r) matched the no-connection canvas - this screen must never be "
+                "server-dispatched" % (flight, state))
 
 
 # 145. Quick task 260924-u7n, (5): draw_alert_icon returns its own height,
