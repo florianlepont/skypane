@@ -3235,19 +3235,13 @@ def test_quiet_hours_source_fault_changes_canvas():
         pytest.fail("source_fault=True produced no pixel difference on the quiet-hours canvas")
 
 
-# 126. Plan 10-02, Task 1 (6): build_canvas()'s "quiet_hours" dispatch
-# branch is evaluated BEFORE the "state == \"empty\"" branch in source
-# order - otherwise every quiet-hours call would silently render the
-# empty state instead (flight is always None for this state).
-def test_quiet_hours_branch_precedes_empty_branch_in_source():
-    """build_canvas()'s source lists the 'quiet_hours' dispatch branch before the 'empty' dispatch branch"""
-    source = inspect.getsource(render.build_canvas)
-    quiet_hours_pos = source.index('state == "quiet_hours"')
-    empty_pos = source.index('state == "empty"')
-    if quiet_hours_pos >= empty_pos:
-        pytest.fail("build_canvas()'s 'state == \"quiet_hours\"' branch (source index %d) does not precede its "
-            "'state == \"empty\"' branch (source index %d) - every quiet-hours call would silently "
-            "render the empty state instead" % (quiet_hours_pos, empty_pos))
+def test_quiet_hours_state_wins_over_empty_when_flight_is_none():
+    """build_canvas(None, 'quiet_hours') renders the quiet-hours canvas, not the empty canvas, even though flight is None for both states"""
+    quiet_hours = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00").tobytes()
+    empty = render.build_canvas(None, "empty").tobytes()
+    if quiet_hours == empty:
+        pytest.fail("build_canvas(None, 'quiet_hours') produced the same bytes as build_canvas(None, 'empty') - "
+            "every quiet-hours call would silently render the empty state instead")
 
 
 
