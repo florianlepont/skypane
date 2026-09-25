@@ -1,73 +1,54 @@
-"""companion/layout.py — the escaped page shell and 06-UI-SPEC.md's
-component library for the SkyPane companion service.
+"""companion/layout.py: the escaped page shell and component library for the
+SkyPane companion service.
 
-stdlib `html` and `datetime` only — no imports from server/, and
-nothing from companion.auth beyond the UI-theme cookie name.
+stdlib `html` and `datetime` only — no imports from server/, and nothing
+from companion.auth beyond the UI-theme cookie name.
 
-06-RESEARCH.md's Pitfall 2: stdlib string formatting has no
-autoescaping, so every interpolation site is a manual opt-in.
-`escape_html()` is defined once, here, and every `companion/pages/*.py`
-module (plans 06-05 through 06-09) must import and use it — no page
-module may reach into the stdlib `html` module's escaping function
-directly, and no page module may build markup without going through
-this one helper. That single-helper discipline is what makes the
-escaping obligation auditable with one grep across the whole package.
+`escape_html()` is defined once, here; every companion/pages/*.py module
+must import and use it rather than the stdlib `html` module directly, or
+build markup without going through this helper. One helper makes the
+escaping obligation auditable with a single grep across the package.
 """
 import html
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from companion.auth import UI_THEME_COOKIE_NAME
-# 20-01-PLAN.md Task 2/3 (D-01..D-09): companion.i18n/companion.prefs
-# are both shared, page-independent modules (like companion.auth
-# above) — layout.py importing them carries no cycle, since neither
-# imports anything from this module or from companion.app
-# (companion.app is the one that imports layout.py, never the
+# companion.i18n/companion.prefs are shared, page-independent modules like
+# companion.auth: importing them carries no cycle, since neither imports this
+# module or companion.app (companion.app imports layout.py, never the
 # reverse).
 import companion.i18n as i18n
 import companion.prefs as prefs
-# 22-04-PLAN.md Task 1 (D-03/CFG-26): companion.wake/companion.frame_state
-# are both shared, page-independent modules exactly like companion.auth/
-# companion.i18n/companion.prefs above — importing them carries no cycle
-# (neither imports companion.layout), and R-01 (this module's own docstring)
-# is respected: companion.wake is a thin shim over server/wake.py, never a
-# direct server/ import from here. frame_strip_html() below is the one
-# consumer of both, so the strip's headline/dot/delay-sentence decision is
-# resolved by companion.frame_state.resolve_state(), never re-derived here.
+# companion.wake/companion.frame_state are shared, page-independent
+# modules; importing them carries no cycle. companion.wake is a thin shim
+# over server/wake.py, never a direct server/ import from here.
+# frame_strip_html() below is the one consumer of both, so lateness is
+# resolved by frame_state.resolve_state(), never re-derived here.
 import companion.wake as wake
 import companion.frame_state as frame_state
 
 SITE_TITLE = "SkyPane"
 
-# Phase 18 (audit finding H-3/H-4): every timestamp used to render as a
-# bare UTC clock ("21:50 UTC") with the date hidden in a tooltip. The
-# household this frame hangs in lives on Paris time, so visible
-# timestamps now render in LOCAL_TZ, and carry the day once the value
-# is no longer "today" ("3 Sep 21:50"). 22-06-PLAN.md Task 3 (D-05, B4):
-# the `title` attribute used to carry the raw ISO string instead — the
-# one place this rule did not reach — and now carries a local FULL
-# timestamp (see `_FULL_TIMESTAMP_SENTINEL_NOW` below) instead; the raw
-# ISO no longer appears in any `title` this module renders.
+# Visible timestamps render in LOCAL_TZ and carry the day once the value is
+# no longer "today" ("3 Sep 21:50"), rather than a bare UTC clock. The
+# `title` attribute carries a local full timestamp (see
+# FULL_TIMESTAMP_SENTINEL_NOW below); the raw ISO no longer appears in any
+# `title` this module renders.
 LOCAL_TZ = ZoneInfo("Europe/Paris")
 _MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-# D-07, 20-03-PLAN.md Task 2: the French month-abbreviation table
-# local_clock_text() selects instead of _MONTH_ABBR above under a
-# French request — same twelve-entry shape, parallel index.
+# The French month-abbreviation table local_clock_text() selects instead
+# of _MONTH_ABBR above under a French request — same twelve-entry shape,
+# parallel index.
 _MONTH_ABBR_FR = ("janv.", "févr.", "mars", "avr.", "mai", "juin",
                    "juil.", "août", "sept.", "oct.", "nov.", "déc.")
 
-# Ordered (route, label) pairs — 06-UI-SPEC.md's Page Inventory. Login is
-# deliberately absent: it is shown instead of any page when unauthenticated,
-# never as a nav tab.
-# Companion audit / UX refactor (phase 18): the flat four-tab set is
-# replaced by two GROUPS of tabs — the everyday group (no label) that a
-# household member uses without any technical background, and an
-# "Advanced" group for setup, diagnostics and debugging. Each entry is
-# (route, label). NAV_TABS below is DERIVED from this tuple so every
-# existing consumer of the flat (route, label) sequence (the login
-# `?next=` allowlist, `_referring_tab()`, the page-title map guard, both
-# nav renderers) keeps working unchanged.
+# Ordered (route, label) pairs, grouped into an unlabelled "everyday" group
+# and a labelled "Advanced" group. Login is deliberately absent: it is
+# shown instead of any page when unauthenticated, never as a nav tab.
+# NAV_TABS below is derived from this tuple so every existing (route,
+# label) consumer keeps working unchanged.
 HOME_ROUTE = "/"
 DISPLAY_ROUTE = "/display"
 FLIGHTS_ROUTE = "/flights"
@@ -90,341 +71,244 @@ NAV_GROUPS = (
     )),
 )
 
-# Ordered (route, label) pairs, flattened from NAV_GROUPS in display
-# order. Login is deliberately absent: it is shown instead of any page
-# when unauthenticated, never as a nav tab. The old "/settings" and
-# "/history" routes are not tabs any more — companion/app.py keeps both
-# as fixed 303 redirects (to DISPLAY_ROUTE and FLIGHTS_ROUTE) so a stale
-# bookmark still lands somewhere useful.
+# Ordered (route, label) pairs, flattened from NAV_GROUPS in display order.
+# Login is deliberately absent, as above. The old "/settings" and
+# "/history" routes are not tabs any more — companion/app.py keeps both as
+# fixed 303 redirects so a stale bookmark still lands somewhere useful.
 NAV_TABS = tuple(
     (route, label) for _group_label, entries in NAV_GROUPS for route, label in entries)
 
 # The slug a route is identified by inside the nav renderers and by
-# page_shell()'s `active` argument. The home route "/" has no path
-# segment to strip, so it gets an explicit slug rather than "".
+# page_shell()'s `active` argument. The home route "/" has no path segment
+# to strip, so it gets an explicit slug rather than "".
 HOME_NAV_SLUG = "home"
 
 
 def nav_slug(route):
     """The `active` slug for a NAV_TABS route: "home" for HOME_ROUTE,
-    otherwise the route with its leading slash removed."""
+    otherwise the route with its leading slash removed.
+    """
     if route == HOME_ROUTE:
         return HOME_NAV_SLUG
     return route.lstrip("/")
 
 
-# --- 06.6.1-05: hamburger nav DOM contract (D-06) -----------------------
-#
 # The exact literals companion/static/nav-dropdown.js looks up via
-# getElementById()/classList. Duplicated here rather than imported from
-# that JS file — there is no such import path, a Python module cannot
-# import a JS file — so if any of these three drifts from the JS file's
-# own literals, the menu silently stops opening on a phone with no
-# automated signal from either file in isolation. The Task 3 three-file
-# DOM contract guard (06.6.1-05-PLAN.md) reads the JS source and the
-# stylesheet from disk and requires all three to appear in both AND in
-# the rendered page.
+# getElementById()/classList. Duplicated here rather than imported — a
+# Python module cannot import a JS file — so a drift between the two
+# silently stops the menu opening, with no automated signal from either
+# file in isolation. A DOM-contract guard reads the JS source, the
+# stylesheet and the rendered page, and requires all three to agree.
 NAV_TOGGLE_ID = "site-nav-toggle"
 MOBILE_NAV_ID = "mobile-nav"
 MOBILE_NAV_OPEN_CLASS = "mobile-nav--open"
 
-# The fixed accessible name for the hamburger toggle button
-# (06.6.1-UI-SPEC.md's Copywriting Contract). State is communicated
-# entirely through aria-expanded, which is the correct ARIA disclosure
-# pattern — swapping this label to a close verb on open would make the
-# announced name change under the user mid-interaction. Do not add logic
-# that varies it BY STATE — it is still translated through i18n.t() at
-# its one render site (D-05, 20-12-PLAN.md Task 1: a real completeness
-# gap this constant's own render site had left un-wrapped).
-# 22-14-PLAN.md Task 2 (X9/D-10, 22-UI-SPEC.md §3.1): renamed from
-# "Open menu". The panel this toggle controls no longer holds a menu of
-# pages at all — the bottom tab bar owns destinations now, and what is
-# left behind the hamburger is the state reminder plus the language,
-# theme and Sign out controls. An accessible name that describes
-# something the control no longer opens is the same class of defect as
-# B10's own "go to Home" label on the Home page, so it is corrected in
-# the same plan that causes it rather than left to drift.
+# The fixed accessible name for the hamburger toggle button. State is
+# communicated entirely through aria-expanded — the correct ARIA
+# disclosure pattern; swapping this label to a close verb on open would
+# change the announced name under the user mid-interaction. Do not vary it
+# by state.
+# Renamed from "Open menu": the panel this toggle controls no longer
+# holds a menu of pages — the bottom tab bar owns destinations now, and
+# what remains behind the hamburger is the state reminder plus language,
+# theme and Sign out.
 NAV_TOGGLE_LABEL = "Account and preferences"
 
 # Must equal companion/app.py's NAV_SCRIPT_ROUTE exactly. Duplicated
-# rather than imported because companion/pages/__init__.py's boundary —
-# and a plain import cycle, since app.py imports this module — forbids
-# the reverse direction, exactly as health_page.BATTERY_TREND_SCRIPT_SRC's
-# own comment already states for its own route pair. The Task 3 checks
-# assert the equality.
+# rather than imported: companion/pages/__init__.py's boundary forbids
+# the reverse direction, since app.py imports this module. A harness
+# asserts the equality.
 NAV_DROPDOWN_SCRIPT_SRC = "/static/nav-dropdown.js"
 
-# 06.6.3: four more pre-auth static JS route constants, same
-# duplicated-not-imported contract as NAV_DROPDOWN_SCRIPT_SRC above —
-# each must equal companion/app.py's matching *_SCRIPT_ROUTE constant
-# exactly (that module's own Task 2 checks assert the equality).
+# Four more pre-auth static JS route constants, the same
+# duplicated-not-imported contract as NAV_DROPDOWN_SCRIPT_SRC above — each
+# must equal companion/app.py's matching *_SCRIPT_ROUTE constant exactly,
+# asserted by a harness.
 DIRTY_STATE_SCRIPT_SRC = "/static/dirty-state.js"
 LIST_FILTER_SCRIPT_SRC = "/static/list-filter.js"
 COPY_BUTTON_SCRIPT_SRC = "/static/copy-button.js"
 FRESHNESS_SCRIPT_SRC = "/static/freshness.js"
 
-# D-20 (06.6.4.1-02): must equal companion/app.py's PANEL_LOOKUP_SCRIPT_ROUTE
-# exactly, same duplicated-not-imported contract as the four constants above.
+# Must equal companion/app.py's PANEL_LOOKUP_SCRIPT_ROUTE exactly, the
+# same duplicated-not-imported contract as above.
 PANEL_LOOKUP_SCRIPT_SRC = "/static/panel-lookup.js"
 
-# Quick task 260903-peo (UIR-19): must equal companion/app.py's
-# FLASH_CLEANUP_SCRIPT_ROUTE exactly, same duplicated-not-imported
-# contract as the constants above.
+# Must equal companion/app.py's FLASH_CLEANUP_SCRIPT_ROUTE exactly, same
+# contract as above.
 FLASH_CLEANUP_SCRIPT_SRC = "/static/flash-cleanup.js"
 
-# 19-04-PLAN.md (D-18/A-35): must equal companion/app.py's
-# POLL_COOLDOWN_SCRIPT_ROUTE exactly, same duplicated-not-imported
-# contract as the constants above.
+# Must equal companion/app.py's POLL_COOLDOWN_SCRIPT_ROUTE exactly, same
+# contract as above.
 POLL_COOLDOWN_SCRIPT_SRC = "/static/poll-cooldown.js"
 
-# 19-11-PLAN.md Task 2 (D-08/A-26): must equal companion/app.py's
-# CONFIRM_SUBMIT_SCRIPT_ROUTE exactly, same duplicated-not-imported
-# contract as the constants above — the ninth static script.
+# Must equal companion/app.py's CONFIRM_SUBMIT_SCRIPT_ROUTE exactly, same
+# contract as above.
 CONFIRM_SUBMIT_SCRIPT_SRC = "/static/confirm-submit.js"
 
-# 20-08-PLAN.md Task 3 (D-22..D-24/D-32): must equal companion/app.py's
-# THEME_PREVIEW_SCRIPT_ROUTE exactly, same duplicated-not-imported
-# contract as the constants above — the tenth static script.
+# Must equal companion/app.py's THEME_PREVIEW_SCRIPT_ROUTE exactly, same
+# contract as above.
 THEME_PREVIEW_SCRIPT_SRC = "/static/theme-preview.js"
 
-# 21-03-PLAN.md Task 2 (D-15/R-12): must equal companion/app.py's
-# FLIGHT_ROWS_SCRIPT_ROUTE exactly, same duplicated-not-imported
-# contract as the constants above — the eleventh static script.
+# Must equal companion/app.py's FLIGHT_ROWS_SCRIPT_ROUTE exactly, same
+# contract as above.
 FLIGHT_ROWS_SCRIPT_SRC = "/static/flight-rows.js"
 
-# 22-13-PLAN.md Task 2 (X3): must equal companion/app.py's
-# LOGIN_CARD_SCRIPT_ROUTE exactly, same duplicated-not-imported
-# contract as the constants above — the twelfth static script, and the
-# first one this app has ever loaded on its PRE-AUTH page. Every
-# sibling above is emitted by page_shell(); this one is emitted by
-# login_shell() alone, and page_shell() never emits it (nothing on an
-# authenticated page carries a .login-form).
+# Must equal companion/app.py's LOGIN_CARD_SCRIPT_ROUTE exactly, same
+# contract as above. Emitted by login_shell() alone — the only static
+# script loaded on the pre-auth page; page_shell() never emits it.
 LOGIN_CARD_SCRIPT_SRC = "/static/login-card.js"
 
-# 22-15-PLAN.md Task 3 (T14): must equal companion/app.py's
-# SUBMIT_GUARD_SCRIPT_ROUTE exactly, same duplicated-not-imported
-# contract as the constants above — the THIRTEENTH static script and the
-# TWELFTH emitted by page_shell(), which is what moves the deferred-tag
-# count on an authenticated page from eleven to twelve. One shared
-# disable-on-submit guard for every form, replacing the one-form-only
-# coverage poll-cooldown.js provided.
+# Must equal companion/app.py's SUBMIT_GUARD_SCRIPT_ROUTE exactly, same
+# contract as above: one shared disable-on-submit guard for every form.
 SUBMIT_GUARD_SCRIPT_SRC = "/static/submit-guard.js"
 
-# 23-05-PLAN.md Task 1 (D14/CFG-34): must equal companion/app.py's
-# RELATIVE_TIME_SCRIPT_ROUTE exactly, same duplicated-not-imported
-# contract as the constants above — the FOURTEENTH static script and the
-# THIRTEENTH emitted by page_shell(), which is what moves the deferred-tag
-# count on an authenticated page from twelve to thirteen. It ticks every
-# <time data-relative> element relative_time_html() below renders, so it
-# is registered here rather than per page for the same reason
-# submit-guard.js is: the elements come from ONE shared builder that most
-# page modules reach through concise_timestamp_html() without naming, so
-# no page module actually knows whether it has one.
+# Must equal companion/app.py's RELATIVE_TIME_SCRIPT_ROUTE exactly, same
+# contract as above. Ticks every <time data-relative> element
+# relative_time_html() renders; registered on the shell since no page
+# module knows whether it has one.
 RELATIVE_TIME_SCRIPT_SRC = "/static/relative-time.js"
-# 23-07-PLAN.md Task 1 (D2/CFG-36): the fourteenth script on the
-# authenticated shell, under the same duplicated-not-imported contract as
-# every SCRIPT_SRC above — companion/app.py's QUICK_SWITCH_SCRIPT_ROUTE
-# must equal this exactly, and a harness asserts it. Registered on the
-# shell rather than per page because its listener is DELEGATED at
-# document level over every [data-quick-switch] form in the app, and
-# those forms already live on three different pages (Home and Display
-# carry the Frame strip's two, Device carries the LED switch's own
-# sibling form).
+# Must equal companion/app.py's QUICK_SWITCH_SCRIPT_ROUTE exactly, same
+# contract as above. Registered on the shell because its listener is
+# delegated at document level over every [data-quick-switch] form, which
+# already live on three different pages.
 QUICK_SWITCH_SCRIPT_SRC = "/static/quick-switch.js"
-# 25-01-PLAN.md Task 1 (CFG-46): the FIFTEENTH script on the
-# authenticated shell and the seventeenth in the tree, under the same
-# duplicated-not-imported contract as every SCRIPT_SRC above —
-# companion/app.py's VALUE_CONTROLS_SCRIPT_ROUTE must equal this
-# exactly, and a harness asserts it. Registered on the shell rather than
-# per page because its two known consumers (25-04's quiet-hours dial and
-# 25-05's wake-interval slider) already live on two different settings
-# pages and the set is expected to grow; its listeners are delegated at
-# document level and its guard returns before touching anything on a
-# page with no [data-value-control] wrapper.
+# Must equal companion/app.py's VALUE_CONTROLS_SCRIPT_ROUTE exactly, same
+# contract as above. Registered on the shell because its known consumers
+# (quiet-hours dial, wake-interval slider) live on different settings
+# pages and the set is expected to grow; its guard returns before
+# touching a page with no [data-value-control] wrapper.
 #
-# THIS IS PHASE 25'S ONLY NEW SCRIPT. Five controls are being built on
-# top of it; a second one would be a second copy of one clamp/round/
-# keyboard model.
+# This is the only script the value-controls feature needs: five
+# controls share one clamp/round/keyboard model rather than duplicating
+# it per control.
 VALUE_CONTROLS_SCRIPT_SRC = "/static/value-controls.js"
 
-# 25-01-PLAN.md Task 1 (CFG-46): the registration seam value-controls.js
-# reads, defined HERE so a page module never types an attribute name and
-# so a rename cannot drift from the script that consumes it (a harness
-# asserts the served script body names every one of them). A control
-# opts in entirely by attribute — there is no per-control JavaScript,
-# which is what keeps the phase's script budget at one.
+# The registration seam value-controls.js reads, defined here so a page
+# module never types the attribute name and a rename cannot drift from
+# the script (a harness asserts the served script body names every one
+# of them). A control opts in entirely by attribute, so there is no
+# per-control JavaScript.
 #
-# The floor these names sit on (D-09, the no-JS control contract's
-# points 1 and 2): the wrapper is a LAYER, never the control. The value
-# is always held by the native <input>/<select> named by
-# VALUE_CONTROL_FIELD_ATTR, which the server renders unconditionally.
+# The wrapper is a LAYER, never the control: the value is always held by
+# the native <input>/<select> named by VALUE_CONTROL_FIELD_ATTR, which
+# the server renders unconditionally.
 VALUE_CONTROL_ATTR = "data-value-control"
 VALUE_CONTROL_FIELD_ATTR = "data-value-field"
-# The id of the form that input belongs to. Load-bearing rather than
-# convenience: this app's settings groups deliberately attach ACROSS the
-# DOM through a form= attribute (a <form> can never nest inside another
-# <form>), so an ancestor walk from the wrapper would miss the field.
+# The id of the form that input belongs to. Load-bearing: this app's
+# settings groups attach ACROSS the DOM through a form= attribute (a
+# <form> cannot nest inside another), so an ancestor walk from the
+# wrapper would miss the field.
 VALUE_CONTROL_FORM_ATTR = "data-value-form"
 VALUE_CONTROL_MIN_ATTR = "data-value-min"
 VALUE_CONTROL_MAX_ATTR = "data-value-max"
 VALUE_CONTROL_STEP_ATTR = "data-value-step"
 VALUE_CONTROL_HANDLE_ATTR = "data-value-handle"
 VALUE_CONTROL_TRACK_ATTR = "data-value-track"
-# The SERVER-RENDERED, already-translated aria-valuetext template, with
-# VALUE_CONTROL_TEXT_TOKEN standing in for the number. No copy of any
-# kind lives in the script: absent this attribute it writes no
-# aria-valuetext at all rather than inventing an English one.
+# The server-rendered, already-translated aria-valuetext template, with
+# VALUE_CONTROL_TEXT_TOKEN standing in for the number. No copy lives in
+# the script: absent this attribute it writes no aria-valuetext at all.
 VALUE_CONTROL_TEXT_ATTR = "data-value-text"
-# 25-04-PLAN.md Task 3 (CFG-48): "#", AND IT USED TO BE "{}" — corrected
-# in place the moment this seam got its first consumer, because the
-# original choice could not be used by one.
-#
-# These templates reach the browser as ATTRIBUTE VALUES on a rendered
-# page, and companion/test_i18n.py's Check 3 scans every French render
-# for a stray "%s"/"%d"/"{}" — the real failure mode of a mistyped
-# catalogue key. Measured on this tree: the dial's first
-# `data-value-text` attribute failed that check on GET /display?lang=fr,
-# with nothing wrong with it. RELATIVE_QUANTITY_MARK below already
-# records this exact reasoning and already chose "#" for it; this is the
-# same decision applied to the same problem, not a new convention.
+# "#" (not "{}"): these templates reach the browser as attribute values,
+# and companion/test_i18n.py's Check 3 scans every French render for a
+# stray "%s"/"%d"/"{}" — the real failure mode of a mistyped catalogue
+# key. RELATIVE_QUANTITY_MARK below applies the same "#" choice for the
+# same reason.
 VALUE_CONTROL_TEXT_TOKEN = "#"
-# "angular" for a dial, absent for a left-to-right track. One of the two
-# differences between 25-04's dial and 25-05's slider.
+# "angular" for a dial, absent for a left-to-right track.
 VALUE_CONTROL_GEOMETRY_ATTR = "data-value-geometry"
 
-# 25-04-PLAN.md Task 3 (CFG-48): the other difference — the codec between
-# the NUMBER value-controls.js steers and the TEXT the native input
-# holds. Absent, the number is written straight in, which is what a
-# numeric input wants. VALUE_CONTROL_FORMAT_CLOCK makes the script read
-# and write "HH:MM" instead, which is what an <input type="time">
-# requires: a time input silently DISCARDS anything else, so a minute
-# count written into one empties the field the form posts, with no error
-# anywhere. That is the difference between a dial that steers a native
-# time input and a dial that quietly deletes the visitor's quiet hours.
+# The codec between the NUMBER value-controls.js steers and the TEXT the
+# native input holds. Absent, the number is written straight in, for a
+# numeric input. VALUE_CONTROL_FORMAT_CLOCK makes the script read/write
+# "HH:MM" instead: an <input type="time"> silently discards anything
+# else, so a minute count written in empties the field the form posts,
+# with no error anywhere.
 VALUE_CONTROL_FORMAT_ATTR = "data-value-format"
 VALUE_CONTROL_FORMAT_CLOCK = "clock"
 
-# --- 25-05-PLAN.md Task 2 (CFG-49/CFG-52): the MIRROR, and the READOUTS
+# THE MIRROR is a native control inside the wrapper that carries the
+# same value as the field and posts nothing — an `<input type="range">`
+# with no `name`, so it cannot submit.
 #
-# THE MIRROR is a NATIVE control inside the wrapper that carries the
-# same value as the field and posts NOTHING — 25-05's
-# `<input type="range">`, which has no `name` and therefore cannot
-# submit. It is the third and last way the five controls of this phase
-# differ from one another, after the geometry and the codec.
+# A native range input already has the keyboard model this script
+# implements (arrows, Page, Home/End), native aria-valuenow, native
+# touch dragging and a platform-native thumb. role="slider" must NOT be
+# added — the element already has those semantics, and a redundant role
+# is a double-role error.
 #
-# WHY A NATIVE RANGE RATHER THAN ANOTHER TRACK-AND-HANDLE. A range input
-# is ALREADY a slider: it has the keyboard model this script implements
-# (arrows one step, Page ten, Home/End to the ends), a native
-# aria-valuenow, native touch dragging, and a thumb every platform draws
-# the way its users expect. Re-implementing that on a <div> to avoid one
-# attribute would be the classic case of building what the platform
-# ships. It also means role="slider" must NOT be added to it — the
-# element already has those semantics, and a redundant role is the
-# double-role error.
-#
-# AND IT IS WHY THE POINTER AND KEYBOARD PATHS BELOW STAND ASIDE. A
-# wrapper carrying a mirror gets NO preventDefault and no steering from
-# this file's own gesture handlers: `preventDefault()` on a pointerdown
-# over a native range cancels the browser's own thumb drag outright, and
-# a keydown handler that both prevents the default AND steps the value
+# A wrapper carrying a mirror gets no preventDefault and no steering
+# from this file's own gesture handlers: preventDefault() on a
+# pointerdown over a native range cancels the browser's own thumb drag,
+# and a keydown handler that both prevents default and steps the value
 # would move the control twice per arrow press. The script's job with a
-# mirror is only to SYNC — which is a smaller job than steering, and the
-# reason this seam is four lines of script rather than a second control.
+# mirror is only to sync.
 VALUE_CONTROL_INPUT_ATTR = "data-value-input"
 
-# A READOUT is an element whose whole text is a sentence ABOUT the
-# value, rendered by the server and rewritten by the script as the value
-# moves. It carries the field's own name, so a readout can live anywhere
-# in the document — which it must, because a readout is NOT gated (it
-# has to be correct with scripts blocked) while the control that moves
-# it is.
+# A READOUT is an element whose whole text is a sentence about the
+# value, rendered by the server and rewritten by the script as the
+# value moves. It carries the field's own name so it can live anywhere
+# in the document — it is not gated, since it must be correct with
+# scripts blocked.
 #
-# THE SENTENCE IS SERVER-RENDERED AND ALREADY TRANSLATED, exactly like
-# VALUE_CONTROL_TEXT_ATTR above and for the identical reason: no copy of
-# any kind lives in the script. It substitutes a number into a template
-# it was handed and writes nothing else, so a French reader can never be
-# dropped into English by moving a slider.
+# The sentence is server-rendered and already translated, like
+# VALUE_CONTROL_TEXT_ATTR above: no copy lives in the script, so a
+# French reader can never be dropped into English by moving a slider.
 VALUE_CONTROL_READOUT_ATTR = "data-value-readout"
 VALUE_CONTROL_READOUT_TEXT_ATTR = "data-value-readout-text"
-# What the value is DIVIDED BY before it is substituted, rounded UP —
-# 60 for a readout that speaks in whole minutes about a field that holds
-# seconds. Absent or unusable, the value is substituted as it stands.
-# The ceiling rather than the floor because every consumer of this seam
-# so far states a BOUND, and "at most 1 min" is false for a 90-second
-# cadence.
+# What the value is divided by before substitution, rounded up (60 for
+# a readout speaking in whole minutes about a field holding seconds).
+# The ceiling rather than the floor, since every consumer states a
+# bound and "at most 1 min" would be false for a 90-second cadence.
 VALUE_CONTROL_READOUT_SCALE_ATTR = "data-value-readout-scale"
-# The value at which the readout says NOTHING AT ALL. A readout that
-# compares the proposed value against the saved one has nothing to say
-# while they are equal, which is every page load — and an empty string
-# is a better answer there than a sentence comparing a value with
-# itself. Absent, the readout always speaks.
+# The value at which the readout says nothing at all: a readout
+# comparing the proposed value against the saved one has nothing to say
+# while they are equal (every page load). Absent, the readout always
+# speaks.
 VALUE_CONTROL_READOUT_BASE_ATTR = "data-value-readout-base"
 
-# 28-03-PLAN.md Task 1 (CFG-73 Bug A): a READOUT-SCOPED clock-format
-# signal. VALUE_CONTROL_FORMAT_ATTR above already exists and already
-# carries VALUE_CONTROL_FORMAT_CLOCK — but it lives on the WRAPPER, and
-# READOUT_ATTR's own comment above states readouts are found by the
-# field's NAME, via document.querySelectorAll, never by walking up to a
-# containing wrapper (a readout is deliberately not inside the wrapper
-# at all, so it stays correct with scripts blocked). That means the
-# wrapper's own data-value-format cannot be seen from a readout, and the
-# clock signal has to be re-stated on the readout element itself. Reuses
-# the EXISTING clock-format value (VALUE_CONTROL_FORMAT_CLOCK) rather than
-# defining a second one — this is the same value, on a second element,
-# for the same reason.
+# A readout-scoped clock-format signal: VALUE_CONTROL_FORMAT_ATTR lives
+# on the wrapper, but a readout is found by the field's name, never by
+# walking up to a containing wrapper, so the wrapper's format cannot be
+# seen from it. Reuses the existing VALUE_CONTROL_FORMAT_CLOCK value on
+# a second element, for the same reason.
 VALUE_CONTROL_READOUT_FORMAT_ATTR = "data-value-readout-format"
 
-# THE PAINTED POSITION HAS NO CONSTANT HERE, AND THAT IS DELIBERATE. It
-# travels on the `--value-fraction` custom property, written by the
-# SERVER once (so the handle renders in the right place before any
-# script has run) and rewritten by value-controls.js on every steer. A
-# module-level constant for it was written and removed: a CSS custom
-# property's name begins with two hyphens, which matches none of
-# companion/test_i18n.py's identifier exclusions, so the D-05 scan reads
-# it as untranslated user-facing copy and fails — measured. The name
-# therefore lives inline in the one markup template that emits it (the
-# same place `style="background:%s"` already lives), in
-# value-controls.js's own FRACTION_PROPERTY, and in style.css; a harness
-# pins all three to one string, which is a stronger guard than a constant
-# two of the three could not have read anyway.
+# The painted position has no constant here, deliberately: it travels
+# on the `--value-fraction` custom property, written by the server once
+# and rewritten by value-controls.js on every steer. A CSS custom
+# property's name begins with two hyphens, which
+# companion/test_i18n.py's D-05 scan reads as untranslated user-facing
+# copy — measured, and it fails. The name lives inline in the one
+# markup template that emits it, in value-controls.js's own
+# FRACTION_PROPERTY, and in style.css; a harness pins all three to one
+# string.
 
-# 25-01-PLAN.md Task 4 (CFG-46/D-09): the class companion/static/
-# style.css hides by default and reveals under `.js`. Defined here so a
-# page module never types it, and pinned by a harness against both a
-# real selector in the stylesheet and the no-JS control contract's own
-# registry.
+# The class companion/static/style.css hides by default and reveals
+# under `.js`. Defined here so a page module never types it, and pinned
+# by a harness against both the stylesheet and the no-JS control
+# contract's own registry.
 #
-# THE CLASS GOES ON THE GATED ELEMENT ITSELF, never on an ancestor.
-# That is a contract, not a convenience: "this wrapper is somewhere
-# inside a gated ancestor" cannot be checked from rendered markup
-# without parsing the whole tree, whereas "this wrapper carries the
-# class" is exact — and making them one element removes the nesting
-# mistake entirely rather than detecting it.
+# The class goes on the gated element itself, never on an ancestor:
+# "carries the class" is checkable from rendered markup without parsing
+# the whole tree.
 JS_GATE_CLASS = "js-gate"
 
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
-# D-16/D-19 (20-01-PLAN.md Task 2): the quick-action form protocol,
-# moved here from companion/pages/home_page.py's own identical
-# constants so both companion/app.py and, from 20-07, config_page.py
-# can share one home for it — a page module may never import another
-# page module. home_page.py keeps its own copies untouched until
-# 20-06 deletes them with the rest of Home's quick-action code; the
-# two definitions are byte-identical in the meantime.
+# The quick-action form protocol, shared by companion/app.py and
+# config_page.py — a page module may never import another page module,
+# so this lives in the shared layer instead.
 QUICK_STATE_FIELD = "state"
 QUICK_STATE_ON = "on"
 QUICK_STATE_OFF = "off"
 
-# 21-04-PLAN.md Task 1 (D-01/D-02/R-01): the eleven QUICK_ACTION_*
-# constants, moved here byte-identical from companion/pages/
-# config_page.py — frame_strip_html() below is the ONE write site for
-# both switch cells, and a page module may never import another page
-# module, so home_page.py (Home's own caller) needs these from a
-# shared module too. Every English VALUE is unchanged from
-# config_page.py's own copy, so every French catalogue entry in
-# companion/i18n_fr/display.py keeps resolving correctly — the
-# catalogue is keyed by English string, not by which Python module
-# defines the constant that holds it.
+# The eleven QUICK_ACTION_* constants, moved here byte-identical from
+# config_page.py: frame_strip_html() below is the one write site for
+# both switch cells, and home_page.py needs these from a shared module
+# too. Every English value is unchanged, so every French catalogue
+# entry in companion/i18n_fr/display.py keeps resolving — the
+# catalogue is keyed by English string, not by which module defines the
+# constant.
 QUICK_ACTION_SCREEN_LABEL = "Screen"
 QUICK_ACTION_ON_TEXT = "On"
 QUICK_ACTION_OFF_TEXT = "Off"
@@ -433,72 +317,55 @@ QUICK_ACTION_SWITCH_OFF_BUTTON = "Switch off"
 QUICK_ACTION_QUIET_LABEL = "Quiet hours"
 QUICK_ACTION_QUIET_ON_TEMPLATE = "On — %s to %s"
 QUICK_ACTION_QUIET_OFF_TEXT = "Off"
-# 23-07-PLAN.md Task 1 (D2/CFG-36): SUPERSEDED as rendered markup. These
-# four action wordings used to be the switch BUTTON's own visible text
-# ("Switch off" / "Éteindre"), which is exactly what a role="switch"
-# control may not be named by: a switch states itself with aria-checked,
-# so a name that reads as an action makes two contradicting claims about
-# one control ("Éteindre … activé"). The button is now named by the
-# SETTING through aria-labelledby, and these constants survive only as
-# names companion/test_status_pages.py asserts are NO LONGER rendered —
-# a deliberately negative use, so a later plan that reintroduces one has
-# to delete the check that forbids it.
+# These four action wordings are no longer rendered markup: they used
+# to be the switch button's own visible text ("Switch off"/"Éteindre"),
+# which a role="switch" control may not be named by — a name that reads
+# as an action contradicts aria-checked. The button is now named by the
+# setting via aria-labelledby; these constants survive only as names
+# test_status_pages.py asserts are no longer rendered.
 QUICK_ACTION_QUIET_TURN_ON_BUTTON = "Turn on"
 QUICK_ACTION_QUIET_TURN_OFF_BUTTON = "Turn off"
 
-# --- 23-07-PLAN.md Task 1/2 (D2/CFG-36): the optimistic switch --------
-#
 # THE NO-JS FLOOR HERE IS STRUCTURAL, NOT ADDITIVE. Each switch IS the
 # <form> that already shipped: a real POST to its own /quick/* route
 # with a `state` field and a `return_to` hidden field the server
 # whitelists by membership. companion/static/quick-switch.js intercepts
-# the submit of a control that already works; remove the script and the
-# button posts the form, the server saves, and the 303 lands back on the
-# page it came from with its flash, exactly as before. `role="switch"`
-# and `aria-checked` are rendered HERE, from the saved value, so the
-# accessible state is correct on a scripts-blocked page too — the role
-# is not a promise the script keeps, it is a description of what the
-# button does either way.
-#
-# The attribute the script marks its own unconfirmed control with is
-# REFRESH_PENDING_ATTR below — plan 23-06 already taught
-# companion/static/freshness.js's swap to skip a region carrying it or
-# containing it, and 23-06-SUMMARY.md's own closing note is that setting
-# that one attribute is this plan's entire share of the contract.
-# NOT a "data-quick-switch-*" name: `data-quick-switch` is the form's own
-# handshake attribute and a shipped check counts its occurrences, so a
-# child attribute containing it as a substring would inflate that count
-# — caught by that check the first time this was written the obvious way.
+# the submit of a control that already works; remove the script and
+# the button still posts, the server still saves. `role="switch"` and
+# `aria-checked` are rendered here, from the saved value, so the
+# accessible state is correct on a scripts-blocked page too.
+# The attribute the script marks its own unconfirmed control with —
+# freshness.js's swap already skips a region carrying or containing
+# it. Not a "data-quick-switch-*" name: `data-quick-switch` is the
+# form's own handshake attribute and a shipped check counts its
+# occurrences, so a child attribute containing it as a substring would
+# inflate that count.
 QUICK_SWITCH_CONTROL_ATTR = "data-quick-control"
-# The element the script marks pending: the whole cell/card holding the
-# switch, so the region freshness.js would otherwise repaint is the one
-# that stands still. Marking the BUTTON alone would also work (the skip
-# asks the region and its subtree), but marking the region documents
-# which region is being held.
+# The element the script marks pending: the whole cell/card holding
+# the switch, so the region freshness.js would otherwise repaint is
+# the one that stands still. Marking the region (not just the button)
+# documents which region is being held.
 QUICK_SWITCH_REGION_ATTR = "data-quick-region"
-# The two state wordings, both server-rendered, exactly one hidden. This
-# is what keeps companion/static/quick-switch.js free of user-facing
-# copy entirely: an optimistic flip and its rollback are both a pure
-# attribute change over text the SERVER already translated, so there is
-# no second wording to keep in sync and nothing for a French reader to
-# fall out of.
+# The two state wordings, both server-rendered, exactly one hidden —
+# this keeps companion/static/quick-switch.js free of user-facing copy
+# entirely: an optimistic flip and its rollback are a pure attribute
+# change over text the server already translated.
 QUICK_STATE_ON_ATTR = "data-quick-state-on"
 QUICK_STATE_OFF_ATTR = "data-quick-state-off"
-# The accessible-name/description anchors. frame_strip_html() renders at
-# most once per document, so these are fixed ids rather than generated
-# ones; companion/pages/config_page.py's LED switch carries its own pair.
+# The accessible-name/description anchors. frame_strip_html() renders
+# at most once per document, so these are fixed ids; config_page.py's
+# LED switch carries its own pair.
 QUICK_SWITCH_SCREEN_LABEL_ID = "quick-switch-screen-label"
 QUICK_SWITCH_SCREEN_STATE_ID = "quick-switch-screen-state"
 QUICK_SWITCH_QUIET_LABEL_ID = "quick-switch-quiet-label"
 QUICK_SWITCH_QUIET_STATE_ID = "quick-switch-quiet-state"
-# The failure announcement. Byte-identical to companion/app.py's own
-# FLASH_MESSAGES[FLASH_KEY_QUICK_FAILED] — the generic sentence this app
-# already shows when a quick action fails, reused rather than reworded,
-# so the two readers (scripts on, scripts off) are told the same thing
-# and neither is told a status code, a URL or anything else the server
-# knows (V7/T-23-27). layout.py may not import companion/app.py, so the
-# English literal is duplicated here exactly as the QUICK_ACTION_*
-# constants above are; the French catalogue is keyed by English string.
+# The failure announcement, byte-identical to companion/app.py's own
+# FLASH_MESSAGES[FLASH_KEY_QUICK_FAILED] — the same generic sentence
+# this app already shows when a quick action fails, so neither reader
+# is told a status code or anything else the server knows. layout.py
+# may not import companion/app.py, so the English literal is
+# duplicated here, keyed by English string in the French catalogue
+# like the QUICK_ACTION_* constants above.
 QUICK_SWITCH_FAILED_TEXT = "Couldn't change that — please try again."
 QUICK_SWITCH_FAILED_ATTR = "data-quick-failed-text"
 QUICK_TOAST_ATTR = "data-quick-toast"
@@ -631,55 +498,30 @@ _CARD_STATUS_SUFFIXES = {
     "error": "--error",
 }
 
-# --- 06.6.1-04: icon sprite (D-02) -------------------------------------
-#
-# The whitelist. Originally capped at exactly five ids by
-# 06.6.1-UI-SPEC.md's Design System contract. 06.6.2-05 (D-17) supersedes
-# that cap: five per-nav-label icons (`icon-nav-*`) are added below so
-# every sidebar/mobile-nav label carries a small outline glyph — the
-# whitelist grows from five to ten members, and this is now the current
-# whole set again, not an incomplete one. The hamburger member is
-# consumed by plan 06.6.1-05's mobile-nav toggle button; it is defined
-# here anyway (rather than by that later plan) so the sprite in
-# ICON_DEFS_HTML stays the single write site for every icon in the app,
-# never two.
+# The icon-id whitelist for icon_html(). Grown incrementally as new nav
+# labels and controls gained glyphs; the hamburger member is defined here
+# rather than by its own consumer so ICON_DEFS_HTML stays the single write
+# site for every icon in the app.
 ICON_IDS = (
     "icon-device",
     "icon-pipeline",
     "icon-corroboration",
-    # quick task 260902-j8w: as of this quick task, "icon-battery" has no
-    # consumer anywhere in the app — companion/pages/health_page.py's
-    # ICON_BATTERY constant and its one call site (the Battery-trend
-    # section heading) were both removed at the developer's own
-    # instruction. Retained here anyway, on purpose, not as an
-    # oversight: pruning it would force a matching `<symbol>` deletion
-    # below plus four assertion edits in test_companion_app.py's
-    # `_icon_sprite_integrity()` (the fourteen-member count, the
-    # duplicate check, the symbol-id/ICON_IDS set-equality check, and
-    # the `<symbol` count) — a cross-page change to this shared
-    # component, well outside a one-heading-glyph removal's scope. This
-    # whitelist is an injection guard on icon_html()'s fragment
-    # reference, not a usage index of what is currently rendered —
-    # "icon-nav-preview" below is this file's existing precedent for
-    # exactly that reading. The sprite is `display: none`
-    # (companion/static/style.css's `.icon-defs` rule) and the retained
-    # symbol costs roughly 200 bytes. Pruning `icon-battery` (and its
-    # `<symbol>` below, and the four test_companion_app.py assertions)
-    # is a real, optional follow-up the developer can take or decline —
-    # not done here.
+    # "icon-battery" has no consumer anywhere in the app today. Retained on
+    # purpose: pruning it would also require a matching <symbol> deletion and
+    # matching assertion edits in test_companion_app.py's sprite-integrity
+    # check. This whitelist is an injection guard on icon_html()'s fragment
+    # reference, not a usage index of what is currently rendered.
     "icon-battery",
     "icon-hamburger",
     "icon-nav-config",
     "icon-nav-health",
     "icon-nav-airlines",
     "icon-nav-history",
-    # 06.6.4.1-08 (D-22): stays a whitelist member even though NAV_TABS/
-    # NAV_ICON_IDS no longer reference a "preview" nav tab — its consumer
-    # is now companion/pages/history_page.py's View-panel trigger button
-    # (the eye glyph on each row's "View panel near this time" control),
-    # not a nav tab. Do not remove this as apparently-orphaned: an id
+    # Stays a whitelist member even though NAV_TABS no longer references a
+    # "preview" nav tab: its consumer is now history_page.py's View-panel
+    # trigger button. Do not remove this as apparently-orphaned — an id
     # outside this whitelist makes icon_html() silently return "" and the
-    # trigger button would render an empty box with no error.
+    # button would render an empty box with no error.
     "icon-nav-preview",
     "icon-nav-home",
     "icon-nav-flights",
@@ -689,8 +531,7 @@ ICON_IDS = (
     "icon-moon",
 )
 
-# 06.6.3: four more icons for the per-page redesign plans (D-05/D-23/
-# D-12/D-20) grow the whitelist from ten to fourteen. Appended, not
+# Four more icons for the per-page redesign plans. Appended, not
 # reordered, so ICON_DEFS_HTML's own symbol-id/ICON_IDS agreement check
 # stays a straightforward set comparison.
 ICON_IDS = ICON_IDS + (
@@ -700,51 +541,38 @@ ICON_IDS = ICON_IDS + (
     "icon-search",
 )
 
-# quick task 260903-df3: one more icon for the Airlines lightbox replace
-# zone (the framed action area's upload glyph). Appended, not merged into
-# either tuple above, for the same "appended, not reordered" reason those
-# tuples' own comments already state — grows the whitelist from fourteen
-# to fifteen.
+# One more icon, for the Airlines lightbox replace zone's upload glyph.
+# Appended, not merged into an existing tuple, for the same reason above.
 ICON_IDS = ICON_IDS + (
     "icon-upload",
 )
 
-# 22-14-PLAN.md Task 1 (X9/D-10): one more icon for the bottom tab bar's
-# "More" cell — appended, not merged into either tuple above, for the
-# same "appended, not reordered" reason those tuples' own comments
-# already state — grows the whitelist from twenty-one to twenty-two.
+# One more icon, for the bottom tab bar's "More" cell. Appended, not
+# merged, for the same reason above.
 ICON_IDS = ICON_IDS + (
     "icon-more",
 )
 
-# 28-01-PLAN.md (CFG-76): one more icon for the mobile #site-nav-toggle,
-# which used to render icon-hamburger even though the panel it opens
-# holds zero page-navigation links (those moved to the bottom tab bar in
-# 22-14) — the developer reported the hamburger reads as site navigation
-# and proposed a gear instead. Appended, not merged into any tuple
-# above, for the same "appended, not reordered" reason those tuples' own
-# comments already state — grows the whitelist from twenty-two to
-# twenty-three.
+# One more icon, for the mobile #site-nav-toggle: the panel it opens
+# holds no page-navigation links (those moved to the bottom tab bar), so
+# the hamburger glyph read as site navigation; replaced by a gear.
+# Appended, not merged, for the same reason above.
 ICON_IDS = ICON_IDS + (
     "icon-gear",
 )
 
 # One shared inline sprite, emitted once per document by page_shell().
-# `display: none` (companion/static/style.css's `.icon-defs` rule) still
-# lets every <use href="#icon-..."> reference below resolve correctly —
-# that is the entire technique. Because of that, this sprite must never
-# be moved inside a conditionally-rendered region: a `<use>` referencing
-# a symbol that isn't in the DOM at all (not merely hidden) resolves to
-# nothing.
+# `display: none` still lets every <use href="#icon-..."> reference
+# below resolve correctly — this sprite must never move inside a
+# conditionally rendered region: a <use> referencing a symbol that isn't
+# in the DOM at all (not merely hidden) resolves to nothing.
 #
 # Each symbol carries fill="none"/stroke="currentColor" so a single CSS
-# `color` property drives the whole glyph — this is what lets
-# .stat-tile__icon's per-status tint rules (companion/static/style.css)
-# work with no second colour mapping to keep in sync. The four tile
-# icons use a 20x20 viewBox; the hamburger (plan 06.6.1-05) uses 24x24
-# and is three horizontal lines, per the UI-SPEC. Every glyph is built
-# from plain <path>/<line>/<rect>/<circle> primitives — legible outline
-# shapes, not detailed illustration.
+# `color` property drives the whole glyph, with no second colour mapping
+# to keep in sync. The four tile icons use a 20x20 viewBox; the hamburger
+# uses 24x24. Every glyph is built from plain <path>/<line>/<rect>/
+# <circle> primitives — legible outline shapes, not detailed
+# illustration.
 ICON_DEFS_HTML = (
     '<svg class="icon-defs" aria-hidden="true" focusable="false">'
     "<defs>"
@@ -809,8 +637,7 @@ ICON_DEFS_HTML = (
     '<path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5z"/>'
     '<circle cx="10" cy="10" r="2.5"/>'
     "</symbol>"
-    # 06.6.3: four more glyphs (D-05/D-23/D-12/D-20), same viewBox/stroke
-    # language as the ten above.
+    # Four more glyphs, same viewBox/stroke language as the ten above.
     '<symbol id="icon-nav-home" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M3 9.5L10 3.5l7 6"/><path d="M5 8.5V16.5h4v-4h2v4h4V8.5"/>'
@@ -838,10 +665,9 @@ ICON_DEFS_HTML = (
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M16 12.5A7 7 0 0 1 7.5 4a7 7 0 1 0 8.5 8.5z"/>'
     "</symbol>"
-    # 28-01-PLAN.md (CFG-76): #site-nav-toggle's new glyph — a centre
-    # circle plus a toothed outer ring, same viewBox/stroke language as
-    # icon-power/icon-moon above (its closest neighbours by stroke
-    # weight), built from <circle>/<path> only, two shapes.
+    # #site-nav-toggle's glyph: a centre circle plus a toothed outer ring,
+    # same viewBox/stroke language as its closest neighbours by stroke
+    # weight, built from <circle>/<path> only.
     '<symbol id="icon-gear" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<circle cx="10" cy="10" r="2.6"/>'
@@ -872,9 +698,8 @@ ICON_DEFS_HTML = (
     '<circle cx="8.5" cy="8.5" r="5.5"/>'
     '<path d="M13.5 13.5L17.5 17.5"/>'
     "</symbol>"
-    # quick task 260903-df3: one more glyph, same viewBox/stroke language
-    # as the fourteen above — the Airlines lightbox replace zone's upload
-    # arrow-over-tray.
+    # One more glyph, same viewBox/stroke language as above — the Airlines
+    # lightbox replace zone's upload arrow-over-tray.
     '<symbol id="icon-upload" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
     'stroke-linejoin="round">'
@@ -882,11 +707,10 @@ ICON_DEFS_HTML = (
     '<path d="M6 7l4-4 4 4"/>'
     '<path d="M3.5 13v3a1.5 1.5 0 0 0 1.5 1.5h10a1.5 1.5 0 0 0 1.5-1.5v-3"/>'
     "</symbol>"
-    # 22-14-PLAN.md Task 1 (X9/D-10): the bottom tab bar's "More" glyph —
-    # three dots drawn as zero-length round-capped strokes rather than
-    # three <circle fill="currentColor">, so this symbol keeps the
-    # sprite's own fill="none"/stroke="currentColor" language and stays
-    # driven by a single CSS `color` property like every glyph above it.
+    # The bottom tab bar's "More" glyph: three dots drawn as zero-length
+    # round-capped strokes rather than three <circle fill="currentColor">,
+    # so this symbol keeps the sprite's own
+    # fill="none"/stroke="currentColor" language.
     '<symbol id="icon-more" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '
     'stroke-linejoin="round">'
@@ -897,29 +721,25 @@ ICON_DEFS_HTML = (
 )
 
 # The tint class stat_tile() adds to its own icon instance. Its
-# counterpart is companion/static/style.css's `.stat-tile__icon` (and
-# the per-status `.stat-tile--* .stat-tile__icon` overrides) — Task 1's
-# test harness reads that stylesheet from disk and asserts this class
+# counterpart is companion/static/style.css's `.stat-tile__icon` rule —
+# a test harness reads that stylesheet from disk and asserts this class
 # name actually appears in it, guarding against the two silently
 # drifting apart.
 STAT_TILE_ICON_CLASS = "stat-tile__icon"
 
-# --- 06.6.1-04 Task 3: Health nav-tab notification dot (D-02) ---------
-#
 # The Health route's slug, matching what _nav_links() already computes
 # (`route.lstrip("/")`) — named once so a renderer can identify the
 # Health link without re-deriving it from an already-escaped route
 # string.
 HEALTH_NAV_SLUG = "health"
 
-# 06.6.2-05 (D-17): slug -> icon-id, one per NAV_TABS entry. Consumed by
-# sidebar_nav()/_mobile_nav_html() via _nav_links()'s already-computed
-# `slug` (route.lstrip("/")) — a slug not present here (which cannot
-# happen for a real NAV_TABS entry) falls through icon_html()'s own
-# whitelist-fallback ("" for an unrecognised id), never a KeyError.
+# slug -> icon-id, one per NAV_TABS entry. A slug not present here
+# (which cannot happen for a real NAV_TABS entry) falls through
+# icon_html()'s own whitelist fallback ("" for an unrecognised id),
+# never a KeyError.
 NAV_ICON_IDS = {
-    # Phase 18: keyed by nav_slug(route). "flights" keeps the History
-    # clock glyph; Home/Display/Device get their own symbols above.
+    # Keyed by nav_slug(route). "flights" keeps the History clock glyph;
+    # Home/Display/Device get their own symbols above.
     "home": "icon-nav-home",
     "display": "icon-nav-display",
     "flights": "icon-nav-history",
@@ -928,18 +748,15 @@ NAV_ICON_IDS = {
     "device": "icon-nav-device",
 }
 
-# 06.6.2-05 (UXA-10): the fragment id the skip-link's first-focusable
-# <a href="#..."> points at and <main> carries as its own id. Named once
-# so page_shell() never has the two literals drift apart.
+# The fragment id the skip-link's first-focusable <a href="#..."> points
+# at and <main> carries as its own id. Named once so page_shell() never
+# has the two literals drift apart.
 SKIP_LINK_TARGET_ID = "main-content"
 
-# 06.6.2-05 (UXA-10): a zero-external-dependency local favicon — a data
-# URI needs neither a new static file nor a new route. #B13F16 is the
-# light-mode --color-accent token (companion/static/style.css, plan
-# 06.6.2-01). Held as its own module constant (rather than inlined
-# directly in page_shell()'s format string) specifically so plan
-# 06.6.2-07's new login_shell() function can reuse this exact literal
-# later without duplicating it.
+# A zero-external-dependency local favicon — a data URI needs neither a
+# new static file nor a new route. #B13F16 is the light-mode
+# --color-accent token. Held as its own module constant so
+# login_shell() can reuse this exact literal without duplicating it.
 FAVICON_LINK_HTML = (
     '<link rel="icon" href="data:image/svg+xml,'
     '%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 20 20%27%3E'
@@ -950,51 +767,36 @@ FAVICON_LINK_HTML = (
 )
 
 # The dot's own class, layered on top of the existing .dot/.dot--error
-# classes (see _health_alert_markup()) rather than a new colour. Its
-# counterpart is companion/static/style.css's `.nav-notification` rule
-# — Task 3's test harness reads that stylesheet from disk and asserts
-# this class name actually appears in it.
+# classes rather than a new colour. Its counterpart is
+# companion/static/style.css's `.nav-notification` rule — a test
+# harness reads that stylesheet from disk and asserts this class name
+# appears in it.
 NAV_NOTIFICATION_CLASS = "nav-notification"
 
-# 06.6.1-UI-SPEC.md's Copywriting Contract, verbatim: appended (not
-# substituted) after the "Health" nav label text via a visually-hidden
-# span, so assistive tech announces "Health — attention needed" rather
-# than losing the word "Health" to an aria-label override. Translated
-# through i18n.t() at its one render site (D-05, 20-12-PLAN.md Task 1:
-# a real completeness gap this constant's own render site had left
-# un-wrapped).
+# Appended (not substituted) after the "Health" nav label text via a
+# visually-hidden span, so assistive tech announces "Health — attention
+# needed" rather than losing the word "Health" to an aria-label
+# override.
 HEALTH_ALERT_SUFFIX_TEXT = " — attention needed"
 
 
 def icon_html(icon_id, size=20, extra_class=""):
-    """A `<svg>` referencing one symbol from ICON_DEFS_HTML via `<use>`,
-    or the empty string when `icon_id` is not a member of ICON_IDS.
+    """A `<svg>` referencing one symbol from ICON_DEFS_HTML via `<use>`, or the
+    empty string when `icon_id` is not a member of ICON_IDS.
 
-    This is a whitelist, not a sanitiser — the same discipline
-    status_dot() and stat_tile() already apply to their own state
-    arguments. `icon_id` becomes a `#`-prefixed fragment identifier
-    inside a `<use href="...">` attribute; an id that reached the output
-    unchecked would be an attacker-influenceable fragment reference. An
-    unrecognised id instead fails visibly-but-safely — a missing icon,
-    not a dangling or injectable reference.
+    This is a whitelist, not a sanitiser: `icon_id` becomes a `#`-prefixed
+    fragment identifier inside a `<use href="...">` attribute, and an id
+    that reached the output unchecked would be an attacker-influenceable
+    fragment reference. An unrecognised id fails visibly-but-safely — a
+    missing icon, not a dangling or injectable reference.
 
     The explicit `width`/`height` attributes are belt-and-braces against
     companion/static/style.css's `.icon` sizing rule being lost or
-    overridden: an `<svg>` with neither an attribute nor a CSS size
-    renders at the SVG default 300x150 and would blow the layout apart.
-    This mirrors how the battery sparkline already carries both fixed
-    attributes and a CSS override.
+    overridden: an `<svg>` with neither renders at the SVG default 300x150.
 
-    `aria-hidden="true"` is set unconditionally: every icon in this app
-    sits beside its own visible text label — a tile caption, a nav link
-    label, a filter-bar/pill label — so the icon is decorative and
-    announcing it would duplicate the label. Do not "improve" this by
-    adding a `<title>`. (SUPERSEDED, quick task 260902-j8w: a section
-    heading — Health's `Battery trend` — used to be named here too, as
-    the one place a glyph sat beside a heading rather than a tile/control
-    label. That heading's glyph was removed at the developer's own
-    instruction; glyphs in this app are now a tile/control affordance
-    only, never a heading one.)
+    `aria-hidden="true"` is unconditional: every icon in this app sits
+    beside its own visible text label, so the icon is decorative and
+    announcing it would duplicate the label.
     """
     if icon_id not in ICON_IDS:
         return ""
@@ -1010,10 +812,9 @@ def icon_html(icon_id, size=20, extra_class=""):
 def escape_html(value):
     """Coerce `value` to its escaped string form for safe HTML interpolation.
 
-    None becomes an empty string; any other non-string is coerced via
-    str() first. Never raises, so a malformed upstream value (an
-    ADS-B/adsbdb-sourced airline name, callsign, or unresolved prefix)
-    degrades to an escaped string instead of crashing a page render.
+    `None` becomes an empty string; any other non-string is coerced via
+    str() first. Never raises, so a malformed upstream value degrades to an
+    escaped string instead of crashing a page render.
     """
     if value is None:
         return ""
@@ -1022,16 +823,10 @@ def escape_html(value):
     return html.escape(value, quote=True)
 
 
-# --- 06.6-01: shared "absolute + relative" timestamp helpers (D-02) ----
-#
-# Promoted verbatim (in logic) from companion/pages/health_page.py's own
-# private copies, which is why this section exists here rather than in
-# each page module: companion/pages/__init__.py forbids one page module
-# importing another, so a helper every page module needs to reach must
-# live in this shared layer instead. health_page.py's Device check-in
-# and ADS-B pipeline rows already ship the "ISO (Nm ago)" format this
-# promotes; 06.6-03 (History + Preview, wave 2) consumes these same four
-# functions rather than duplicating the logic a third time.
+# Shared "absolute + relative" timestamp helpers, promoted from
+# health_page.py's own private copies since one page module may not
+# import another. Consumed by every page module that renders a stored
+# instant.
 
 
 def parse_iso(ts):
@@ -1112,31 +907,20 @@ def _age_bucket(age_seconds):
 
 
 def relative_age_text(age_seconds, lang=None):
-    """"Ns ago"/"Nm ago"/"Nh ago"/"Nd ago" using the s/m/h/d threshold
-    ladder this app already ships on the Device/Pipeline rows — the
-    ladder itself is `_age_bucket()` above, called here rather than
-    restated, so this function and `relative_future_text()` below share
-    one set of boundaries. A negative age (clock skew) is clamped to 0
-    rather than read as "in the future".
+    """"Ns ago"/"Nm ago"/"Nh ago"/"Nd ago" using the s/m/h/d threshold ladder
+    `_age_bucket()` defines, shared with relative_future_text() below. A
+    negative age (clock skew) is clamped to 0 rather than read as "in the
+    future".
 
-    `lang` (D-07, 20-03-PLAN.md Task 2) is a trailing keyword whose
-    `None` resolves to `prefs.current_lang()` — every pre-existing call
-    site passes only the positional `age_seconds` and keeps getting the
-    identical English string this function has always returned; the
-    English branch below is byte-for-byte unchanged. Only a French
-    request (an explicit `lang="fr"`, or a request whose
-    `prefs.current_lang()` resolves to `"fr"`) takes the French branch.
+    `lang` is a trailing keyword; `None` resolves to prefs.current_lang() and
+    the English branch stays byte-for-byte unchanged for every pre-existing
+    call site.
 
-    French collapses the whole under-a-minute bucket into one
-    "à l'instant" ("just now") regardless of the exact second count —
-    the idiomatic French phrasing 20-CONTEXT.md's D-07 names, rather
-    than a literal "il y a %d secondes". The minute/hour/day buckets
-    read "il y a N <unit>" (a real U+00A0 non-breaking space
-    between the number and the unit, per D-09), with the unit taken
-    from `_AGE_UNIT_SUFFIX_FR` above and the connector taken from the
-    `"%s ago"` catalogue entry — the copy for both lives in
-    `companion/i18n_fr/health.py`, read here through `i18n.t_lang()`
-    rather than duplicated as a module literal.
+    French collapses the whole under-a-minute bucket into one "à l'instant"
+    phrase regardless of the exact second count. The minute/hour/day buckets
+    carry a real U+00A0 non-breaking space between the number and the unit;
+    that copy lives in companion/i18n_fr/health.py, read through
+    i18n.t_lang() rather than duplicated as a module literal.
     """
     age_seconds = max(0, int(age_seconds))
     if lang is None:
@@ -1151,33 +935,22 @@ def relative_age_text(age_seconds, lang=None):
 
 
 def relative_future_text(seconds_ahead, lang=None):
-    """"in Ns"/"in Nm"/"in Nh"/"in Nd" — the FORWARD reading of the same
-    ladder `relative_age_text()` above reads backwards, over the same
-    `_age_bucket()` boundaries (23-03-PLAN.md Task 1, for the countdown
-    plan 23-06 puts beside a server-computed next-wake instant).
+    """"in Ns"/"in Nm"/"in Nh"/"in Nd" — the forward reading of the same
+    ladder relative_age_text() above reads backwards, over the same
+    _age_bucket() boundaries.
 
-    This function is FORMATTING, never a verdict. It says how long
-    remains until an instant somebody else computed; it never says
-    "late", "held", "due", or anything at all about the device's state.
-    Those words are `frame_state`'s and stay server-rendered.
+    This function is FORMATTING, never a verdict: it says how long remains
+    until an instant somebody else computed, never "late"/"held"/"due" —
+    those words are frame_state's and stay server-rendered.
 
-    A `seconds_ahead` that has already elapsed (a negative) resolves to
-    the zero bucket via `_age_bucket()`'s own clamp — never a negative
-    number, and never a past-tense string. A caller wanting the past
-    tense asks `relative_age_text()` for it explicitly;
-    `relative_time_html()` below is the one place that chooses between
-    them.
+    A `seconds_ahead` that has already elapsed resolves to the zero bucket
+    via _age_bucket()'s own clamp, never a negative number or a past-tense
+    string.
 
-    `lang` is the same trailing keyword every sibling here carries: its
-    `None` resolves to `prefs.current_lang()`. French collapses the
-    whole under-a-minute bucket the way the past form does, into one
-    "in a moment" phrase rather than a literal second count, and reads
-    the connector from the `"in %s"` catalogue entry with a real U+00A0
-    between the number and the unit (D-09). Both strings live in
-    `companion/i18n_fr/health.py` beside the past form's own, read here
-    through `i18n.t_lang()` and never duplicated as a module literal —
-    which is what lets plan 23-05's ticker script carry no French at
-    all.
+    `lang` is the same trailing keyword every sibling here carries. French
+    collapses the sub-minute bucket the way the past form does, into "in a
+    moment"; both strings live in companion/i18n_fr/health.py, read through
+    i18n.t_lang() and never duplicated as a module literal.
     """
     value, unit = _age_bucket(seconds_ahead)
     if lang is None:
@@ -1191,28 +964,18 @@ def relative_future_text(seconds_ahead, lang=None):
 
 
 def duration_text(seconds, lang=None):
-    """A bare LENGTH of time — "5m" / "5 min", "2h" / "2 h" — over the
-    same `_age_bucket()` ladder the two relative forms above read in
-    their two directions (24-07-PLAN.md Task 2, for the check-in
-    regularity grid's caption and its per-cell titles).
+    """A bare LENGTH of time — "5m"/"5 min", "2h"/"2 h" — over the same
+    _age_bucket() ladder the two relative forms above read in their two
+    directions.
 
-    THE THIRD READING OF ONE LADDER, and it exists for the same reason
-    `relative_future_text()` did: this app had two ways to say "90
-    seconds" — "90s ago" and "in 90s" — and no way at all to say "90s"
-    on its own, so the first caller needing to name a CADENCE or a
-    MEASURED GAP would otherwise have invented a fourth set of
-    boundaries in a page module. The ladder is not restated here; the
-    French unit suffixes are not restated either.
-
-    NO CONNECTOR AND NO TENSE, which is the whole difference from its
-    two siblings. "il y a 5 min" and "dans 5 min" are statements about
-    an instant relative to now; this is a quantity of time with no
-    instant attached at all, so it takes no catalogue entry and adds no
-    French string — only the same real U+00A0 between the number and
-    its unit that D-09 requires of every quantity in this app.
+    The third reading of one ladder: it names a cadence or a measured gap
+    with no connector and no tense, unlike its two siblings which state an
+    instant relative to now. Only the real U+00A0 between the number and
+    its unit (D-09) is added; the ladder and the French unit suffixes are
+    not restated.
 
     A negative or non-numeric input clamps to the zero bucket through
-    `_age_bucket()`, exactly as both siblings do. Never raises.
+    _age_bucket(), exactly as both siblings do. Never raises.
     """
     value, unit = _age_bucket(seconds)
     if lang is None:
@@ -1222,41 +985,24 @@ def duration_text(seconds, lang=None):
     return "%d%s" % (value, unit)
 
 
-# --- 23-05-PLAN.md Task 1 (D14/CFG-34): the ticker's copy -------------
-#
 # companion/static/relative-time.js rewrites every <time data-relative>
-# element once a second, which means the four bucket wordings have to
-# exist CLIENT-side, in the reader's own language. They are rendered
-# onto <body> by page_shell() below and read back with getAttribute(),
-# the same attribute-with-English-fallback idiom REFRESH_PAUSED_TEXT
-# already uses, and for the same reason it gives: several of these
-# elements sit inside freshness.js's swap targets, so an attribute on
-# the element itself would be replaced out from under the script on
-# every successful refresh. <body> never is.
+# element once a second, so the four bucket wordings must exist
+# client-side, in the reader's own language. Rendered onto <body> by
+# page_shell() and read back with getAttribute() — several of these
+# elements sit inside freshness.js's swap targets, and <body> is never
+# swapped.
 #
-# ONE wording per bucket per direction, complete, rather than a
-# connector plus a unit word plus a separator plus a collapse flag. The
-# script then carries no language logic at all — it substitutes a
-# quantity into a string and stops. French collapsing its whole
-# sub-minute bucket into a phrase with no number in it ("à l’instant",
-# "dans un instant") is then just a wording with no place to substitute
-# into, which is data, not a branch.
+# One complete wording per bucket per direction, so the script carries no
+# language logic: it substitutes a quantity into a string and stops. "#"
+# is the quantity's place, not "%s": these strings reach the browser as
+# attribute values, and companion/test_i18n.py's Check 3 scans every
+# French render for a stray "%s"/"%d"/"{}" — "#" is not one.
 #
-# "#" IS THE QUANTITY'S PLACE, AND IT IS NOT "%s" ON PURPOSE. These
-# strings reach the browser as attribute values on a rendered page, and
-# companion/test_i18n.py's Check 3 scans every French render for a
-# stray "%s"/"%d"/"{}" — the real failure mode of a mistyped catalogue
-# key. A "%s" here would trip that check on every page in the app, and
-# the check is right to object: a format artefact in rendered markup is
-# exactly what it is looking for. "#" is not one.
-#
-# These are NOT a second ladder. They are the same ladder's own output
-# with the number lifted out, and test_companion_app.py asserts exactly
-# that: each wording, filled with the quantity _age_bucket() picks,
-# must EQUAL relative_age_text()/relative_future_text()'s own return
-# value for a representative instant in every bucket, in both
-# languages. Change a wording here without changing the function and
-# that check names the bucket, the language and both strings.
+# These are not a second ladder: they are the same ladder's own output
+# with the number lifted out, and test_companion_app.py asserts each
+# wording, filled with the quantity _age_bucket() picks, equals
+# relative_age_text()/relative_future_text()'s own return value for
+# every bucket, in both languages.
 RELATIVE_QUANTITY_MARK = "#"
 RELATIVE_PAST_SECONDS_TEXT = "#s ago"
 RELATIVE_PAST_MINUTES_TEXT = "#m ago"
@@ -1267,17 +1013,15 @@ RELATIVE_FUTURE_MINUTES_TEXT = "in #m"
 RELATIVE_FUTURE_HOURS_TEXT = "in #h"
 RELATIVE_FUTURE_DAYS_TEXT = "in #d"
 
-# What a countdown reads once its instant has passed. NEVER a warning
-# word and never a warn colour: 22-15 made freshness.js's own failure
-# states neutral on the argued ground that a thing which has not
-# happened yet is not a fault, and the same reasoning governs here. It
-# is the app's neutral breathing treatment and nothing else.
+# What a countdown reads once its instant has passed. Never a warning
+# word or colour — a thing which has not happened yet is not a fault;
+# this is the app's neutral breathing treatment.
 RELATIVE_WAITING_TEXT = "waiting…"
 
 # Must equal the attribute names companion/static/relative-time.js
-# reads, in this order — bucket order, s/m/h/d, matching _age_bucket()'s
-# own unit letters. test_companion_app.py pins every one of them present
-# in that file's source.
+# reads, in bucket order (s/m/h/d), matching _age_bucket()'s own unit
+# letters. test_companion_app.py pins every one present in that file's
+# source.
 RELATIVE_PAST_ATTRS = (
     "data-relative-past-s",
     "data-relative-past-m",
@@ -1293,8 +1037,8 @@ RELATIVE_FUTURE_ATTRS = (
 RELATIVE_WAITING_ATTR = "data-relative-waiting"
 
 # The marker relative_time_html() puts on an element that is a
-# COUNTDOWN rather than an age (see its `countdown` keyword). Also read
-# by companion/static/relative-time.js.
+# COUNTDOWN rather than an age (see its `countdown` keyword). Also
+# read by companion/static/relative-time.js.
 RELATIVE_COUNTDOWN_ATTR = "data-relative-countdown"
 
 # Ordered s/m/h/d, matching the attribute tuples above and
@@ -1310,13 +1054,13 @@ _RELATIVE_FUTURE_TEXTS = (
 
 
 def relative_copy_attrs(lang=None):
-    """The ticker's own copy as `((attribute name, translated wording),
-    ...)`, ready for page_shell() to render onto `<body>`.
+    """The ticker's own copy as `((attribute name, translated wording), ...)`,
+    ready for page_shell() to render onto `<body>`.
 
-    Nine pairs: four past wordings, four future wordings, and the
-    waiting phrase an expired countdown reads. Every value goes through
-    `i18n.t_lang()` here, server-side, which is what lets
-    `companion/static/relative-time.js` carry no French at all.
+    Nine pairs: four past wordings, four future wordings, and the waiting
+    phrase an expired countdown reads. Every value goes through
+    i18n.t_lang() here, server-side, so companion/static/relative-time.js
+    carries no French at all.
     """
     if lang is None:
         lang = prefs.current_lang()
@@ -1330,50 +1074,32 @@ def relative_copy_attrs(lang=None):
     return tuple(pairs)
 
 
-# --- 28-03-PLAN.md Task 1 (CFG-73 Bug A): the duration ladder's own
-# client-side wordings ---------------------------------------------------
+# duration_text() above is this app's one length-of-time ladder.
+# companion/static/value-controls.js's quiet-hours readout needs a LIVE
+# duration after a drag/keyboard step/edit, which never round-trips
+# through the server: these wordings are duration_text()'s own output
+# with the number lifted back out, so the script carries no language
+# logic.
 #
-# `duration_text()` above is this app's ONE length-of-time ladder
-# (`_age_bucket()`'s boundaries, read with no connector and no tense).
-# `companion/static/value-controls.js`'s quiet-hours readout needs to
-# say a LIVE duration after a drag, a keyboard step, a typed field edit
-# or a preset click — none of which round-trips through the server — and
-# the fix is the identical move `relative_copy_attrs()` above already
-# makes for the ticker: these are NOT a second ladder, they are
-# `duration_text()`'s own output with the number lifted back out, so the
-# script substitutes a quantity and carries no language logic at all.
+# One complete wording per bucket, reusing RELATIVE_QUANTITY_MARK ("#"):
+# these strings reach the browser as attribute values, and
+# companion/test_i18n.py's Check 3 scans every French render for a stray
+# "%s"/"%d"/"{}"; "#" is not one. The French U+00A0 between number and
+# unit lives in the i18n_fr catalogue entry, not in this module.
 #
-# ONE COMPLETE WORDING PER BUCKET, reusing RELATIVE_QUANTITY_MARK
-# ("#") — the identical reasoning the RELATIVE_* block above states at
-# length applies unchanged: these strings reach the browser as
-# ATTRIBUTE VALUES on a rendered page, and companion/test_i18n.py's
-# Check 3 scans every French render for a stray "%s"/"%d"/"{}"; "#" is
-# not one, so it does not trip that check the way a second mark would
-# have to be proven not to. French quantities keep the same real U+00A0
-# `duration_text()` itself inserts between the number and the unit
-# (D-09) — that byte lives in the i18n_fr catalogue entry for each of
-# these four wordings, not in this module, exactly like the RELATIVE_*
-# block's own French forms.
-#
-# ALL FOUR BUCKETS SHIP, even though a quiet window's own arithmetic can
-# never reach the "d" bucket (the largest a 24h dial can express is 1439
-# minutes). "s" IS reachable — a window whose start equals its end is a
-# real, zero-length window (`quiet_window_span()`'s own docstring calls
-# this out), and `duration_text(0)` reads "0s"/"0 s". A ladder with a
-# hole in it, on the theory that one rung is currently unreachable, is a
-# ladder somebody falls through the day a caller changes.
+# All four buckets ship even though a quiet window's arithmetic can
+# never reach "d": "s" is reachable (a zero-length window is real), and
+# a ladder with a hole in it is one somebody falls through the day a
+# caller changes.
 DURATION_SECONDS_TEXT = "#s"
 DURATION_MINUTES_TEXT = "#m"
 DURATION_HOURS_TEXT = "#h"
 DURATION_DAYS_TEXT = "#d"
 
-# Ordered s/m/h/d, matching _age_bucket()'s own unit letters — the same
-# ordering contract RELATIVE_PAST_ATTRS' comment states. Read directly
-# off companion/pages/config_page.py's quiet_dial_readout_html() (each
-# member carries i18n.t() of its matching *_TEXT constant above) and by
+# Ordered s/m/h/d, matching _age_bucket()'s own unit letters. Read by
+# config_page.py's quiet_dial_readout_html() and by
 # companion/static/value-controls.js, which walks these four attributes
-# in this order to pick the bucket whose boundary the live window falls
-# in.
+# in order to pick the bucket the live window falls in.
 DURATION_ATTRS = (
     "data-duration-s",
     "data-duration-m",
