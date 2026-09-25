@@ -62,14 +62,16 @@ helpers`.
 """
 import os
 import re
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
+import companion.app as app
 import companion.test_status_pages_helpers as shp
 from companion import illustration_normalize, layout
-from companion.pages import airlines_page
-from companion_app_server import served_stylesheet
-from companion_markup import css_rules
+from companion.pages import airlines_page, health_page
+from companion_app_server import served_asset, served_stylesheet
+from companion_markup import css_rules, declarations_for, rules_with_selector
 from server.plane import illustrations, manual_resolutions
 
 
@@ -937,3 +939,602 @@ def test_resolve_section_step_b_reachable_after_gap_cleared(tmp_path):
     section = _resolve_slice(rendered)
     assert airlines_page.RESOLVE_STALE_BODY in section
 
+
+def test_page_composition_order_matches_ui_spec(tmp_path):
+    """the page's own top-to-bottom order is filter-bar, then
+    illustration-grid, then the shared dialog's opening tag, then its
+    closing tag, then (last) the resolve section's own back-link text -
+    proving UI-SPEC's new page composition (resolve section moved to the
+    bottom, behind the shared dialog) shipped for real"""
+    tmp = str(tmp_path)
+    shp.seed_unresolved_prefixes(tmp, {
+        "XYZ": {"count": 3, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
+    })
+    ctx = shp.ctx(tmp)
+    ctx["resolve_prefix"] = "XYZ"
+    rendered = airlines_page.render(ctx)
+    filter_bar_index = rendered.index('class="filter-bar')
+    grid_index = rendered.index('class="illustration-grid', filter_bar_index)
+    dialog_open_index = rendered.index('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID, grid_index)
+    dialog_close_index = rendered.index("</dialog>", dialog_open_index)
+    back_link_index = rendered.index(airlines_page.RESOLVE_BACK_LINK_TEXT, dialog_close_index)
+    markers = (filter_bar_index, grid_index, dialog_open_index, dialog_close_index, back_link_index)
+    assert list(markers) == sorted(markers)
+
+
+# =============================================================================
+# Phase 13 (13-04-PLAN.md Task 2): the manual-resolutions management list
+# (D-06, D-07, D-08).
+# =============================================================================
+
+def test_manual_summary_line_replaces_retired_management_table_copy(tmp_path):
+    """with an empty manual-resolutions registry, render() emits no
+    .manual-summary element and none of the retired management table's own
+    copy; with two entries seeded (one superseded, one active),
+    .manual-summary renders exactly once with text matching
+    MANUAL_SUMMARY_TEMPLATE's total/superseded count (D-11, 14-06-PLAN.md
+    Task 2 item 1)"""
+    tmp = str(tmp_path)
+    rendered = airlines_page.render(shp.ctx(tmp))
+    summary_open = (
+        '<button type="button" class="airline-card__chip manual-summary" '
+        'data-filter-set="manual">')
+    assert "manual-summary" not in rendered
+    for retired_copy in (
+            "Manually resolved prefixes",
+            "Airlines you’ve named by hand for a prefix the frame couldn’t "
+            "otherwise identify.",
+            "No manual resolutions yet.",
+            "Resolve an unidentified flight from Health’s coverage-gap list "
+            "to add one here.",
+            "The frame’s built-in airline list now also recognizes this "
+            "prefix — its entry wins, and this manual name is no longer used.",
+            "manual-resolution__status--superseded",
+    ):
+        assert retired_copy not in rendered
+
+    manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+    manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-02T00:00:00+00:00")
+    rendered = airlines_page.render(shp.ctx(tmp))
+    summary_count = rendered.count(summary_open)
+    assert summary_count == 1
+    bar = re.search(r'<div class="filter-bar">(.*?)</div>\s*<div class="empty-state"', rendered, re.S)
+    assert bar is not None and summary_open in bar.group(1)
+    expected_text = airlines_page.MANUAL_SUMMARY_TEMPLATE % (2, 1)
+    expected_button = "%s%s</button>" % (summary_open, expected_text)
+    assert expected_button in rendered
+
+
+def test_manual_section_supersession_symbols_retired_and_chip_still_renders(tmp_path):
+    """the retired D-06 supersession machinery's own symbols
+    (SUPERSEDED_MARKER_TITLE, SUPERSEDED_CAPTION, SUPERSEDED_STATUS_CLASS)
+    are gone, and the Superseded chip itself still renders end to end via
+    render() - the card-level attribute/note contract is Task 1's own
+    check's job, not re-tested here (14-06-PLAN.md Task 2 item 2)"""
+    for name in ("SUPERSEDED_MARKER_TITLE", "SUPERSEDED_CAPTION", "SUPERSEDED_STATUS_CLASS"):
+        assert not hasattr(airlines_page, name), "expected airlines_page to no longer expose %r" % (name,)
+    tmp = str(tmp_path)
+    manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+    rendered = airlines_page.render(shp.ctx(tmp))
+    expected_chip = '<span class="airline-card__chip">%s</span>' % airlines_page.SUPERSEDED_MARKER_TEXT
+    assert expected_chip in rendered
+
+
+def test_retired_management_table_symbols_are_gone():
+    """importing companion.pages.airlines_page raises no error, and the
+    module exposes none of the six retired management-table rendering
+    functions or eight now-orphaned copy/class constants (14-06-PLAN.md
+    Task 2 item 3)"""
+    for name in (
+            "_manual_resolution_table_html", "_manual_resolution_cards_html",
+            "_manual_resolution_row_html", "_manual_resolutions_section_html",
+            "_manual_superseded_marker_html", "_manual_add_artwork_link_html",
+            "MANUAL_SECTION_HEADING", "MANUAL_SECTION_CAPTION",
+            "MANUAL_EMPTY_HEADING", "MANUAL_EMPTY_BODY",
+            "MANUAL_RESOLUTION_HEADERS", "ADD_ARTWORK_LINK_TEXT",
+            "SUPERSEDED_MARKER_TITLE", "SUPERSEDED_STATUS_CLASS",
+    ):
+        assert not hasattr(airlines_page, name)
+
+
+def test_manual_section_seed_helper_end_to_end(tmp_path):
+    """_seed_manual_resolutions() seeds through
+    manual_resolutions.add_entry() alone; both seeded airline names render
+    on the Airlines page, and _manual_resolution_rows() reports
+    superseded=True for exactly the static-table prefix (AFR) and False
+    for the novel one (XQZ) (phase 14 plan 14-01 Task 3)"""
+    tmp = str(tmp_path)
+    shp.seed_manual_resolutions(tmp, [
+        ("AFR", "Legacy Air France Ops"),
+        ("XQZ", "Totally Novel Airline"),
+    ])
+    rendered = airlines_page.render(shp.ctx(tmp))
+    assert "Legacy Air France Ops" in rendered
+    assert "Totally Novel Airline" in rendered
+
+    registry = manual_resolutions.load_manual_resolutions(tmp)
+    assert set(registry.keys()) == {"AFR", "XQZ"}
+
+    rows = airlines_page._manual_resolution_rows(tmp, registry)
+    superseded_by_prefix = {prefix: superseded for prefix, _, _, superseded, _ in rows}
+    assert superseded_by_prefix.get("AFR") is True
+    assert superseded_by_prefix.get("XQZ") is False
+
+
+def test_health_resolve_link_template_matches_airlines_route_constants():
+    """health_page.RESOLVE_LINK_HREF_TEMPLATE equals the template derived
+    from airlines_page.AIRLINES_ROUTE and airlines_page.RESOLVE_QUERY_PARAM
+    - the cross-module equality check airlines_page.py's own comment
+    already claims exists (WR-06)"""
+    expected_template = "%s?%s=%%s" % (airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+    assert health_page.RESOLVE_LINK_HREF_TEMPLATE == expected_template
+
+
+def test_manual_delete_form_renders_in_both_dialog_and_no_js_fallback(tmp_path):
+    """the D-09 amendment's permanent regression proof: rendering
+    ?resolve={prefix} for a prefix with a manual entry produces exactly
+    one _manual_delete_form_html() output inside the shared dialog
+    (action="") and exactly one inside the no-JS fallback section (the
+    real delete action) - one shared function, two call sites
+    (14-06-PLAN.md Task 2 item 4)"""
+    tmp = str(tmp_path)
+    manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
+    ctx = shp.ctx(tmp)
+    ctx["resolve_prefix"] = "ZZZ"
+    rendered = airlines_page.render(ctx)
+
+    dialog_open_index = rendered.index('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID)
+    dialog_close_index = rendered.index("</dialog>", dialog_open_index)
+    dialog_section = rendered[dialog_open_index:dialog_close_index]
+    fallback_section = rendered[dialog_close_index:]
+
+    delete_form_re = re.compile(
+        r'<form class="%s" method="post" action="([^"]*)">' % re.escape(airlines_page.LIGHTBOX_DELETE_CLASS))
+    dialog_forms = delete_form_re.findall(dialog_section)
+    assert dialog_forms == [""]
+
+    expected_action = airlines_page._manual_delete_action("ZZZ")
+    fallback_forms = delete_form_re.findall(fallback_section)
+    assert fallback_forms == [expected_action]
+
+
+# =============================================================================
+# Phase 14 (14-03-PLAN.md Task 1, RESEARCH.md Pitfall 5): list-filter.js's
+# new [data-filter-set] hook.
+# =============================================================================
+
+def test_list_filter_js_gains_data_filter_set_hook(_module_server):
+    """companion/static/list-filter.js gains an optional, guarded
+    [data-filter-set] lookup whose click handler sets the filter input's
+    value from the clicked element's own attribute and calls the file's
+    one existing applyFilter() - the file still has exactly one
+    [data-filter-text] query, stays ES5-safe, and introduces no network
+    call or timer (phase 14 plan 14-03 Task 1, RESEARCH.md Pitfall 5,
+    D-11's summary-line mechanism)"""
+    js_source = served_asset(_module_server, app.LIST_FILTER_SCRIPT_ROUTE)
+    assert "data-filter-set" in js_source
+
+    non_comment_source = shp.strip_js_line_and_block_comments(js_source)
+    assert "[data-filter-set]" in non_comment_source
+
+    handler_slice = non_comment_source[non_comment_source.index("[data-filter-set]"):]
+    assert "applyFilter()" in handler_slice
+    assert 'getAttribute("data-filter-set")' in handler_slice
+
+    text_query_count = non_comment_source.count("[data-filter-text]")
+    assert text_query_count == 1
+
+    assert not re.search(r'(^|[^A-Za-z_])(let|const) |=>', js_source)
+    assert not re.search(r'fetch\(|XMLHttpRequest|setTimeout|setInterval', non_comment_source)
+
+
+# =============================================================================
+# Phase 14 (14-03-PLAN.md Task 2): the style.css DOM-contract guard for
+# every new/extended selector UI-SPEC's Component Inventory names.
+# =============================================================================
+
+def test_phase14_task2_new_css_selectors_exhaustive(css_text):
+    """style.css declares the new/extended selectors UI-SPEC's Component
+    Inventory enumerates (a.airline-card, .airline-card__placeholder,
+    .lightbox__heading:empty, .lightbox__manual-note:empty) with their
+    exact declaration values, .manual-summary's own base rule is GONE with
+    only its hover surviving on the chip's own 12% wash (X7, 22-11-PLAN.md
+    Task 2), .airline-card__placeholder's aspect-ratio string-equals
+    .airline-card__image's, .lightbox__replace's selector is extended to a
+    three-way group with .lightbox__resolve-name/.lightbox__delete in
+    exactly one declaration block (never duplicated), none of the new/
+    extended rule bodies declares a new custom property, and
+    .manual-resolution__status--superseded is gone now that plan 14-06 has
+    retired it (phase 14 plan 14-03 Task 2, retargeted in place by 14-06
+    Task 2).
+
+    Dropped in place (rubric C): the legacy check also asserted that the
+    served stylesheet's own header COMMENT (the exhaustive accent-
+    reservation list) mentions none of this plan's new selector names -
+    a stylesheet comment carries no rendered behaviour (guard G1).
+    """
+    rules = css_rules(css_text)
+
+    simple_expectations = (
+        ("a.airline-card", ("display: block", "color: inherit", "text-decoration: none")),
+        (".airline-card__placeholder", (
+            "border: 1px dashed var(--color-border)",
+            "border-radius: var(--radius-control)",
+            "background: var(--color-canvas)",
+            "margin-bottom: var(--space-sm)",
+            "display: block")),
+        (".lightbox__heading:empty", ("display: none",)),
+        (".lightbox__manual-note:empty", ("display: none",)),
+    )
+    for selector, expected_declarations in simple_expectations:
+        declarations = declarations_for(css_text, selector)
+        rendered_decls = ["%s: %s" % (prop, value) for prop, value in declarations.items()]
+        for expected_declaration in expected_declarations:
+            assert expected_declaration in rendered_decls, (
+                "expected %r's declarations to include %r, got %r" % (selector, expected_declaration, rendered_decls))
+
+    # The `.manual-summary` base rule must be GONE (X7): only its own
+    # :hover survives.
+    assert not rules_with_selector(css_text, ".manual-summary")
+    hover_decls = declarations_for(css_text, ".manual-summary:hover")
+    assert hover_decls.get("color") == "var(--color-text)"
+    assert hover_decls.get("background") == "color-mix(in srgb, var(--color-text) 12%, transparent)"
+    chip_decls = declarations_for(css_text, ".airline-card__chip")
+    assert chip_decls.get("font-size") == "12px"
+    assert chip_decls.get("text-transform") == "uppercase"
+    assert chip_decls.get("border-radius") == "999px"
+
+    image_decls = declarations_for(css_text, ".airline-card__image")
+    placeholder_decls = declarations_for(css_text, ".airline-card__placeholder")
+    assert image_decls.get("aspect-ratio") is not None
+    assert image_decls.get("aspect-ratio") == placeholder_decls.get("aspect-ratio")
+
+    group_selectors = (
+        ".lightbox__replace:not([hidden])",
+        ".lightbox__resolve-name:not([hidden])",
+        ".lightbox__delete:not([hidden])",
+    )
+    matching_group_rules = [rule for rule in rules if rule.selectors == group_selectors]
+    assert len(matching_group_rules) == 1, (
+        "expected exactly one rule with the three-way selector group %r, got %d"
+        % (group_selectors, len(matching_group_rules)))
+    group_decls = dict(matching_group_rules[0].declarations)
+    for expected_declaration in ("display", "padding-top", "min-width"):
+        assert expected_declaration in group_decls
+    assert group_decls["display"] == "block"
+    assert group_decls["padding-top"] == "var(--space-md)"
+    assert group_decls["min-width"] == "0"
+    # The selector was extended, not duplicated: no OTHER rule declares
+    # `.lightbox__delete:not([hidden])` on its own.
+    assert not any(
+        rule.selectors == (".lightbox__delete:not([hidden])",) for rule in rules)
+
+    for selector in (
+            "a.airline-card", ".airline-card__placeholder", ".lightbox__heading:empty",
+            ".lightbox__manual-note:empty", ".manual-summary:hover"):
+        decls = declarations_for(css_text, selector)
+        assert not any(prop.startswith("--") for prop in decls), (
+            "expected %r's declarations to declare no new custom property" % (selector,))
+    assert not any(prop.startswith("--") for prop in group_decls)
+
+    assert not any(
+        "manual-resolution__status--superseded" in selector
+        for rule in rules for selector in rule.selectors)
+
+
+# =============================================================================
+# 22-04-PLAN.md Task 1 (D-03/CFG-26, X2): the Frame strip reads the one
+# frame_state.resolve_state() result instead of re-deriving lateness.
+# =============================================================================
+
+def test_frame_strip_nightly_regression_held_is_neutral_never_warn():
+    """the nightly regression (quiet hours 23:00-07:00, check-in 22:58,
+    clock 02:00 Europe/Paris): the Frame strip renders the held copy with
+    the neutral dot--off and zero warn/error tokens anywhere, including no
+    'Expected since'/'Attendu depuis' (X2, D-03/CFG-26)"""
+    paris = timezone(timedelta(hours=1))
+    qh_config = {
+        "wake_interval_s": 900, "display_enabled": True,
+        "quiet_hours_enabled": True,
+        "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+    }
+    checkin = datetime(2026, 1, 15, 22, 58, 0, tzinfo=paris)
+    clock = datetime(2026, 1, 16, 2, 0, 0, tzinfo=paris)
+    ctx = _frame_strip_ctx(checkin.isoformat(), qh_config, clock.isoformat())
+    rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+    cell = _frame_strip_update_cell_slice(rendered)
+    assert cell is not None
+    assert "dot--off" in cell
+    for warn_token in (
+            "dot--warn", "stat-tile--warn", "status-card__headline--warn",
+            "Expected since", "Attendu depuis"):
+        assert warn_token not in rendered
+    assert "Next wake around" in cell
+
+
+def test_frame_strip_due_is_identical_inside_and_outside_the_grace_window():
+    """a due result renders byte-identical copy and classes whether 'now'
+    is before next_wake or up to 2x the effective interval past it - the
+    grace window is invisible (22-UI-SPEC.md §3.3 rule 3) - with the
+    countdown present in both renderings, marked, pointed at the same
+    instant, and neither rendering carrying a warn/late/overdue token
+    anywhere (retargeted in place by 23-06-PLAN.md Task 2, which added the
+    one element in that cell that is a function of `now` by construction)"""
+    device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+    checkin_iso = "2026-08-27T11:00:00+00:00"
+    before_ctx = _frame_strip_ctx(checkin_iso, device_cfg, "2026-08-27T11:10:00+00:00")
+    inside_grace_ctx = _frame_strip_ctx(checkin_iso, device_cfg, "2026-08-27T11:40:00+00:00")
+    rendered_before = _frame_strip_update_cell_slice(
+        layout.frame_strip_html(before_ctx, return_to=layout.HOME_ROUTE))
+    rendered_inside_grace = _frame_strip_update_cell_slice(
+        layout.frame_strip_html(inside_grace_ctx, return_to=layout.HOME_ROUTE))
+    assert rendered_before is not None and rendered_inside_grace is not None
+    countdown_re = re.compile(r"<time [^>]*>.*?</time>", re.S)
+    without_before = countdown_re.sub("", rendered_before)
+    without_grace = countdown_re.sub("", rendered_inside_grace)
+    assert without_before == without_grace
+    instants = []
+    for rendered in (rendered_before, rendered_inside_grace):
+        element = re.search(r'<time datetime="([^"]*)"([^>]*)>(.*?)</time>', rendered, flags=re.S)
+        assert element is not None
+        instants.append(element.group(1))
+        assert layout.RELATIVE_COUNTDOWN_ATTR in element.group(2)
+    assert instants[0] == instants[1]
+    for rendered in (rendered_before, rendered_inside_grace):
+        for token in ("warn", "late", "overdue", "Expected since"):
+            assert token not in rendered
+    assert "dot--ok" in rendered_before
+
+
+def test_frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class():
+    """a late result renders the warn dot and 'Expected since HH:MM', with
+    the headline's own text-colour class staying the plain
+    status-card__headline--warn hook (never a status colour as text,
+    22-UI-SPEC.md §3.3 rule 2)"""
+    device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+    ctx = _frame_strip_ctx("2026-08-27T11:00:00+00:00", device_cfg, "2026-08-27T12:00:00+00:00")
+    rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+    cell = _frame_strip_update_cell_slice(rendered)
+    assert cell is not None
+    assert "dot--warn" in cell
+    assert "Expected since" in cell
+    assert 'status-card__headline status-card__headline--warn' in cell
+
+
+def test_frame_strip_parked_suppresses_late_state():
+    """with a parked frame (ctx['battery_critical']=True), wake_interval_s
+    300 and a 20-minute-old check-in, the frame strip does NOT show the
+    late state - the identical setup without the park does (quick task
+    260923-fr4)"""
+    device_cfg = {"wake_interval_s": 300, "display_enabled": True}
+    now = "2026-08-27T12:20:00+00:00"
+    checkin = "2026-08-27T12:00:00+00:00"
+
+    control_ctx = _frame_strip_ctx(checkin, device_cfg, now)
+    control_rendered = layout.frame_strip_html(control_ctx, return_to=layout.HOME_ROUTE)
+    control_cell = _frame_strip_update_cell_slice(control_rendered)
+    assert control_cell is not None and "dot--warn" in control_cell
+
+    parked_ctx = _frame_strip_ctx(checkin, device_cfg, now)
+    parked_ctx["battery_critical"] = True
+    parked_rendered = layout.frame_strip_html(parked_ctx, return_to=layout.HOME_ROUTE)
+    parked_cell = _frame_strip_update_cell_slice(parked_rendered)
+    if parked_cell is not None:
+        for token in ("dot--warn", "Expected since", "status-card__headline--warn"):
+            assert token not in parked_cell
+
+
+def test_frame_strip_no_checkin_renders_no_update_cell_and_claims_no_state():
+    """the Frame strip renders no update headline and claims no state when
+    there is no check-in recorded at all (frame_state.STATE_UNKNOWN)"""
+    device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+    ctx = _frame_strip_ctx(None, device_cfg, "2026-08-27T12:00:00+00:00")
+    rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+    assert "frame-strip__cell--update" not in rendered
+    assert "status-card__headline" not in rendered
+
+
+def test_frame_strip_three_cells_share_one_row_structure_switch_cells_keep_left_edge():
+    """all three Frame-strip cells share one wrapper and one three-row
+    internal grid (identical row-class lists), while only the two switch
+    cells' outer wrapper keeps the quick-action--on/off control-state left
+    edge (B13)"""
+    device_cfg = {
+        "wake_interval_s": 900, "display_enabled": True,
+        "quiet_hours_enabled": True, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+    }
+    ctx = _frame_strip_ctx("2026-08-27T11:00:00+00:00", device_cfg, "2026-08-27T11:10:00+00:00")
+    rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+    cell_open_re = re.compile(r'<div class="([^"]*)"[^>]*>')
+    cells = [
+        cls for cls in cell_open_re.findall(rendered)
+        if cls.split(" ")[0] == "frame-strip__cell"]
+    assert len(cells) == 3
+    row_class_re = re.compile(r'<div class="(frame-strip__row[^"]*)">')
+    cell_starts = [
+        m.start() for m in cell_open_re.finditer(rendered)
+        if m.group(1).split(" ")[0] == "frame-strip__cell"]
+    cell_starts.append(len(rendered))
+    row_class_sets = []
+    for i in range(3):
+        fragment = rendered[cell_starts[i]:cell_starts[i + 1]]
+        row_classes = row_class_re.findall(fragment)
+        assert len(row_classes) == 3
+        row_class_sets.append(row_classes)
+    assert row_class_sets[0] == row_class_sets[1] == row_class_sets[2]
+    update_cell = cells[2]
+    assert "quick-action--on" not in update_cell and "quick-action--off" not in update_cell
+    assert cells[0].count("quick-action--on") + cells[0].count("quick-action--off") == 1
+    assert cells[1].count("quick-action--on") + cells[1].count("quick-action--off") == 1
+
+
+def test_frame_strip_both_switch_forms_carry_data_quick_switch_exactly_twice():
+    """a rendered Frame strip contains exactly 2 occurrences of the literal
+    attribute data-quick-switch, one on each strip switch form (D-04
+    handshake with plan 22-05)"""
+    device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+    ctx = _frame_strip_ctx("2026-08-27T11:00:00+00:00", device_cfg, "2026-08-27T11:10:00+00:00")
+    rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+    assert rendered.count("data-quick-switch") == 2
+
+
+# Row 285 (rubric S) is deleted, not ported: the legacy check opened
+# `companion/layout.py`'s own source to prove it no longer computes an
+# `age_seconds(next_wake...)` warn trigger of its own. No behaviour of the
+# source-text ban survives independently once the checks above already
+# pin every late/due/parked/grace-window scenario this app can render
+# against `frame_state.resolve_state()`'s own output - a re-derivation
+# that quietly diverged from `resolve_state()` would already fail one of
+# them (most directly the grace-window and parked checks above, both of
+# which depend on inputs a naive `age_seconds(next_wake)` re-derivation
+# would not see).
+
+
+# =============================================================================
+# 22-04-PLAN.md Task 2 (B13, C2, C6, T9, C5): the strip's CSS - stretch
+# cells, quiet strip buttons, the demoted headline, the repaired tile
+# hover, and the one time-value role.
+# =============================================================================
+
+def test_frame_strip_cells_stretch_not_center(css_text):
+    """the .frame-strip__cells block declares align-items: stretch and
+    zero align-items: center (B13)"""
+    decls = declarations_for(css_text, ".frame-strip__cells")
+    assert decls.get("align-items") == "stretch"
+
+
+def test_frame_strip_cell_button_quiet_rule_after_submit_no_important_no_id(css_text):
+    """the .frame-strip__cell button quiet-button rule (C2) appears at a
+    later line than button[type="submit"], carries no !important and no
+    id selector, and reuses the base quiet wash (4.5%/9%) verbatim - never
+    a new wash value (T-22-13)"""
+    rules = css_rules(css_text)
+    submit_index = next(i for i, rule in enumerate(rules) if 'button[type="submit"]' in rule.selectors)
+    cell_button_index = next(
+        i for i, rule in enumerate(rules) if ".frame-strip__cell button" in rule.selectors)
+    assert cell_button_index > submit_index
+    decls = declarations_for(css_text, ".frame-strip__cell button")
+    assert "#" not in ".frame-strip__cell button"
+    for _prop, value in rules[cell_button_index].declarations:
+        assert "!important" not in value
+    joined_values = " ".join(decls.values())
+    for expected in (
+            "color-mix(in srgb, var(--color-text) 4.5%, transparent)",
+            "color-mix(in srgb, var(--color-text) 9%, transparent)",
+            "none"):
+        assert expected in joined_values
+
+
+def test_stat_tile_hover_three_edge_frame_strip_excluded(css_text):
+    """the .stat-tile hover/focus-within block declares zero border-color:
+    transparent and both border-inline-color and border-block-end-color
+    (T9: the top status/accent rail survives hover), and the whole reveal
+    is :not(.frame-strip)-scoped so the strip never lifts"""
+    decls = declarations_for(css_text, ".stat-tile:not(.frame-strip):hover")
+    assert decls.get("border-color") != "transparent"
+    assert "border-inline-color" in decls
+    assert "border-block-end-color" in decls
+
+
+def test_frame_strip_update_headline_no_heading_size_override(css_text):
+    """the Phase 21 .frame-strip__cell--update .status-card__headline
+    heading-size override is gone - the line returns to its own 16px
+    semibold Emphasis base (C6)"""
+    assert not rules_with_selector(css_text, ".frame-strip__cell--update .status-card__headline")
+
+
+def test_time_value_role_defined_once(css_text):
+    """the one .time-value role (C5) declares --font-ui and tabular-nums,
+    with a --primary modifier stepping up to body-size + semibold - no new
+    token, no new family, no new size"""
+    decls = declarations_for(css_text, ".time-value")
+    assert decls.get("font-family") == "var(--font-ui)"
+    assert decls.get("font-variant-numeric") == "tabular-nums"
+    primary_decls = declarations_for(css_text, ".time-value--primary")
+    assert primary_decls.get("font-size") == "var(--font-body-size)"
+    assert primary_decls.get("font-weight") == "var(--weight-semibold)"
+
+
+# Row 291 (rubric C) is deleted, not ported: the legacy check asserted on
+# the served stylesheet's own header COMMENT (that it records C2's
+# accent-reservation delta in prose). A stylesheet comment carries no
+# rendered behaviour (guard G1) - the actual C2 behaviour (the strip's two
+# switch buttons no longer inheriting the primary accent fill) is what
+# `test_frame_strip_cell_button_quiet_rule_after_submit_no_important_no_id`
+# above already proves against the served stylesheet's own rule bodies.
+
+
+# =============================================================================
+# 22-14-PLAN.md Task 1 (X9, D-10, 22-UI-SPEC.md §3.1): the bottom tab
+# bar's own geometry, surface, active idiom and page clearance, read
+# structurally from the served stylesheet.
+# =============================================================================
+
+_TAB_BAR_MEDIA = ("@media (max-width: 959.98px)",)
+
+
+def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
+    """the tab bar is display:none until the 959.98px boundary, then fixed
+    to the viewport bottom at 56px plus the safe-area inset on the nav
+    surface with a top hairline, the resting overlay shadow and NO border
+    radius (it is edge-anchored); its cells are `flex: 1 1 0`; its active
+    state reuses the app's one 12%-accent-wash pill idiom byte-for-byte
+    with a :not()-scoped hover placed after it; its label is 11px regular
+    with no label voice; and .has-tab-bar clears the bar at the page foot
+    (X9/D-10, 22-14-PLAN.md Task 1)"""
+    rules = css_rules(css_text)
+
+    base_decls = declarations_for(css_text, ".tab-bar", at_rules=())
+    assert base_decls.get("display") == "none"
+    for banned in ("position", "z-index", "bottom"):
+        assert banned not in base_decls
+
+    fixed_decls = declarations_for(css_text, ".tab-bar", at_rules=_TAB_BAR_MEDIA)
+    assert fixed_decls.get("display") == "flex"
+    for prop, expected in (
+            ("position", "fixed"), ("left", "0"), ("right", "0"), ("bottom", "0"),
+            ("z-index", "20"),
+            ("padding-bottom", "env(safe-area-inset-bottom, 0px)"),
+            ("background", "var(--color-secondary)"),
+            ("border-top", "1px solid var(--color-border)"),
+            ("box-shadow", "var(--shadow-card-hover)")):
+        assert fixed_decls.get(prop) == expected, (prop, fixed_decls)
+    assert "border-radius" not in fixed_decls
+
+    link_decls = declarations_for(css_text, ".tab-bar__link", at_rules=_TAB_BAR_MEDIA)
+    assert link_decls.get("flex") == "1 1 0"
+    assert link_decls.get("height") == "56px"
+    assert link_decls.get("color") == "var(--color-text)"
+
+    wash = "color-mix(in srgb, var(--color-accent) 12%, transparent)"
+    sidebar_active_decls = declarations_for(css_text, ".sidebar-link--active")
+    assert sidebar_active_decls.get("background") == wash
+    active_pill_decls = declarations_for(
+        css_text, ".tab-bar__link--active .tab-bar__pill", at_rules=_TAB_BAR_MEDIA)
+    assert active_pill_decls.get("background") == wash
+    active_text_decls = declarations_for(css_text, ".tab-bar__link--active", at_rules=_TAB_BAR_MEDIA)
+    assert active_text_decls.get("color") == "var(--color-accent)"
+    assert active_text_decls.get("font-weight") == "var(--weight-semibold)"
+
+    hover_selector = ".tab-bar__link:not(.tab-bar__link--active):hover .tab-bar__pill"
+    hover_rules = rules_with_selector(css_text, hover_selector)
+    assert hover_rules
+    active_pill_index = next(
+        i for i, rule in enumerate(rules)
+        if ".tab-bar__link--active .tab-bar__pill" in rule.selectors)
+    hover_index = next(i for i, rule in enumerate(rules) if hover_selector in rule.selectors)
+    assert hover_index > active_pill_index
+    for bad in (".tab-bar__link:hover", ".tab-bar__link:hover .tab-bar__pill"):
+        assert not rules_with_selector(css_text, bad)
+
+    label_decls = declarations_for(css_text, ".tab-bar__label", at_rules=_TAB_BAR_MEDIA)
+    assert label_decls.get("font-size") == "11px"
+    assert label_decls.get("font-weight") == "var(--weight-regular)"
+    for voice in ("text-transform", "letter-spacing"):
+        assert voice not in label_decls
+
+    clearance_decls = declarations_for(css_text, ".has-tab-bar .page-content", at_rules=_TAB_BAR_MEDIA)
+    padding_bottom = clearance_decls.get("padding-bottom", "")
+    for needle in ("56px", "env(safe-area-inset-bottom, 0px)"):
+        assert needle in padding_bottom
+    assert layout.TAB_BAR_BODY_CLASS == "has-tab-bar"
