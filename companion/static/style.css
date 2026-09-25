@@ -8444,24 +8444,9 @@ a.airline-card {
 }
 
 
-/* =====================================================================
- * Phase 18 — companion audit / UX refactor.
- *
- * Everything below is appended, in source order after every earlier
- * rule, so it wins on position wherever specificity ties. Sections:
- *   1. Grouped navigation ("Advanced" label in the sidebar/dropdown)
- *   2. Page-header screen caption ("Screen: Plane frame")
- *   3. Home page widgets (status tiles, quick actions, now-showing,
- *      recent flights)
- *   4. Audit fixes: theme chips two-per-row on phones, chip-name
- *      ellipsis, settings input widths (the truncated "Uses server
- *      default" placeholder), the save bar pinned on phones too, the
- *      filter bar's Clear control staying on the count's line, and the
- *      airline-card placeholder link reset.
- * No new tokens; every colour is an existing token or an existing
- * color-mix wash strength. No new accent consumer: the quick-action
- * "on" state uses the status-ok colour, not the accent.
- * ===================================================================== */
+/* Home page audit/refactor: grouped nav, page-header caption, Home
+ * widgets, and misc phone-layout fixes appended after the earlier
+ * rules above (so they win on position wherever specificity ties). */
 
 /* 1. Grouped navigation ------------------------------------------------ */
 .nav-group {
@@ -8484,16 +8469,6 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* 22-14-PLAN.md Task 2 (T11, X9/D-10): the `.mobile-nav__nav .nav-group`
- * override and the SECOND open-state max-height (640px) that used to sit
- * here are both DELETED. The dropdown no longer holds nav links or a
- * group label, so the first selector matched nothing; and the second
- * silently overrode the 420px declaration beside `.js .mobile-nav`
- * above it, which is T11's whole finding — two values for one state,
- * only one of them ever in effect. There is now exactly one open-state
- * declaration in this file, pinned by measurement against the reduced
- * French content at 390px. `.nav-group`/`.nav-group__label` above stay: the desktop
- * sidebar still renders the Advanced group. */
 
 /* 2. Page-header screen caption --------------------------------------- */
 .page-header__screen {
@@ -8510,73 +8485,19 @@ a.airline-card {
   margin-bottom: var(--space-lg);
 }
 
-/* D4's HERO (CFG-44, 24-08-PLAN.md Task 1): Home's top read as ONE thing
- * — the shared Frame strip, the three status tiles with their battery
- * ring, and the day band — instead of three stacked blocks.
- *
- * THE COMPOSITION IS PROXIMITY, AND IT IS A MEASUREMENT. The three parts
- * sit one --space-md (16px) apart inside this container and the
- * container sits one --space-lg (24px) above the picture row beneath it:
- * bound tighter than they are separated, which is the whole of the
- * claim and is asserted in companion/test_browser_ux.py as two numbers
- * rather than left to the eye. `display: grid` is what makes `gap` mean
- * anything here — under `display: block` the gap is inert and, with the
- * children's own margins zeroed below, the three parts would touch.
- *
- * NO SURFACE OF ITS OWN, deliberately. Two of the three parts are
- * already cards (.frame-strip is an accent .stat-tile, .day-band is a
- * .page-section) and the third is a grid of three more, so a background
- * and a border here would be a card holding cards. The alternative —
- * taking .day-band's own card away so the hero could carry one — was
- * rejected on a measured ground and not a stylistic one: the band's
- * canvas measures 278px at the 360px floor precisely because that card
- * pads it, and draw.py's DAY_BAND_MIN_MARK_SPACING_PERCENT is derived
- * from that number. Widening the canvas would silently invalidate the
- * spacing constant that keeps two check-in marks readable as two.
- *
- * ONE COLUMN AT EVERY WIDTH, and the multi-column behaviour belongs to
- * the parts (the tiles go one-across to three-across, the strip's cells
- * column to row). A hero that split into columns of its own would have
- * to put the band in one of them, and the numbers refuse it: this
- * container measures 880.00px at a 1280px viewport (read off Chromium
- * directly, not inferred from a mutation's own message — a first draft
- * of this comment read 928 off MC8's child offset, which was that
- * child's LEFT EDGE and not this box's width, and was wrong by 48px).
- * A one-third column of 880 less this rule's own 16px gap is 288px —
- * against the 310px a band CARD needs to keep its canvas at 278 (278
- * plus .page-section's own 2 x --space-md of padding), so the canvas
- * would come out at 256. The band would be NARROWER inside a wide
- * desktop hero than it is at the 360px floor, which is the "fits by
- * shrinking its parts" failure this requirement exists to refuse. */
+/* Stays one column at every width: splitting into desktop columns would
+ * put the day band in a narrower column than its canvas needs (measured:
+ * an 880px container leaves 288px per column against a 310px floor),
+ * silently invalidating draw.py's DAY_BAND_MIN_MARK_SPACING_PERCENT. */
 .home-overview {
   display: grid;
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
 }
 
-/* The parts' own bottom margins, surrendered to the container. Each of
- * .frame-strip, .home-section and .page-section carries
- * `margin-bottom: var(--space-lg)` of its own, and a grid item's margin
- * does not collapse into the gap — it ADDS to it, so without this rule
- * the hero's internal rhythm would be 40px and its own bottom margin
- * 48px. One owner of the spacing, which is what "one composition"
- * means in CSS.
- *
- * THE DOUBLED SELECTOR IS LOAD-BEARING AND WAS MEASURED, not a
- * precaution. `.home-overview > *` is (0,1,0) — the universal selector
- * contributes nothing — which TIES `.frame-strip`'s own (0,1,0)
- * `margin-bottom: var(--space-lg)` and leaves the outcome to source
- * order; that rule is declared ~360 lines further down this file, so it
- * won. Measured in Chromium before the fix: the strip and the status
- * tiles sat 40.00px apart at 360px while the tiles and the band sat at
- * the intended 16, because `.home-section` and `.page-section` are both
- * declared ABOVE this rule and lost while `.frame-strip` did not. The
- * doubled form is (0,2,0) and wins deterministically wherever the parts'
- * own rules happen to sit — the same cascade hazard, and the same fix,
- * that `.page-section.banner--anomaly` and the
- * `.battery-trend-section` status borders already document above. The
- * universal child is kept rather than a hand-list of the three parts, so
- * a fourth part added to the hero later surrenders its margin too. */
+/* .home-overview > * is doubled to (0,2,0) deliberately: at (0,1,0) it
+ * tied .frame-strip's own margin-bottom rule and lost to source order,
+ * leaving inconsistent gaps (measured in Chromium). */
 .home-overview.home-overview > * {
   margin-bottom: 0;
 }
@@ -8585,38 +8506,11 @@ a.airline-card {
   margin-top: 0;
 }
 
-/* B2 (22-07-PLAN.md Task 2): explicit, greppable align-items: stretch —
- * already the inherited value from the shared .dashboard-grid rule
- * above (a class this element also carries), but restated here rather
- * than left implicit, matching that rule's own "kept explicit" idiom.
- * The audit's measured 112/112/131px on a phone was primarily this
- * grid's single column stacking three unequal-content rows (the
- * Flight-data tile's own extra re-embedded-verdict line, B2's other
- * half, fixed in Task 1) — this declaration is the belt to that
- * fix's own suspenders. */
 .home-status-grid {
   margin-bottom: var(--space-sm);
   align-items: stretch;
 }
 
-/* 24-04-PLAN.md Task 3 (CFG-40): the Battery tile's ring, BESIDE its two
- * text lines rather than above them. Emitted only when there is a ring,
- * so a device with no reading renders this tile exactly as it did before
- * this wrapper existed.
- *
- * Beside, not stacked, for a measured reason: `.dashboard-grid` stretches
- * every tile in a row to the tallest sibling, so a taller Battery tile
- * does not merely grow itself — it pushes the whole row down. The ring's
- * box (36px) is smaller than the two text lines it sits next to (24px
- * verdict + 4px gap + 19.6px detail = 47.6px, measured at the 360px
- * floor), so this row contributes no height at all.
- *
- * `align-items: center` is what keeps the aspect-locked <svg> at its own
- * emitted size — a flex row's default `stretch` would pull it to the
- * row's full height and letterbox it. No `flex: none` and no
- * `min-width: 0` here either, for the reason measured and recorded
- * against `.battery-readout-row` above: both were written, both were
- * measured at 360px, and both changed nothing. */
 .stat-tile__gauge {
   display: flex;
   align-items: center;
@@ -8643,14 +8537,9 @@ a.airline-card {
   margin-bottom: 0;
 }
 
-/* 21-04-PLAN.md Task 3 (D-04): the picture/recent-flights row's own
- * 3:2 desktop split — D-04's "the picture column is the wider one,
- * about 3:2". This compound selector (specificity 0,2,0) outranks the
- * ambient `.home-columns` >=960px equal-split rule above at every
- * width, so this row stays one column through 1023px and only then
- * becomes 3fr/2fr — never the generic 1fr/1fr split. Scoped by the
- * compound class so no other `.home-columns` consumer anywhere else
- * in the app is affected. */
+/* .home-columns.home-picture-row is (0,2,0), outranking the generic
+ * .home-columns >=960px split above at every width, so this row keeps
+ * its own 3:2 ratio instead of the ambient 1fr/1fr. */
 .home-columns.home-picture-row {
   grid-template-columns: 1fr;
 }
@@ -8658,14 +8547,9 @@ a.airline-card {
 @media (min-width: 1024px) {
   .home-columns.home-picture-row {
     grid-template-columns: 3fr 2fr;
-    /* flex-start, not the bare `start` keyword: test_status_pages.py
-     * pins the whole file to exactly one remaining declaration of that
-     * bare keyword's own align-items value (.dashboard-shell's own
-     * D-21 sticky sidebar) — the same precedent the deleted .home-hero
-     * rule already followed for this exact reason. Grid treats
-     * flex-start as an alias of that value, so the effect here — the
-     * shorter column never stretching to match the taller one's own
-     * height — is identical. */
+    /* flex-start, not the bare "start" keyword: test_status_pages.py
+     * pins this file to exactly one remaining bare-keyword declaration
+     * elsewhere. Grid treats flex-start as an alias, same effect. */
     align-items: flex-start;
   }
 }
@@ -8712,44 +8596,15 @@ a.airline-card {
   margin: 0;
 }
 
-/* 23-07-PLAN.md Task 1 (D2/CFG-36): RETARGETED IN PLACE. This rule used
- * to read `.quick-action__form button { min-width: 96px; }` — a floor
- * that existed so the strip's two ACTION-labelled buttons ("Switch off",
- * "Turn on", and their longer French wordings) held one width between
- * them as the wording changed with the state. Those buttons are gone:
- * the control is now a real role="switch" whose state lives in
- * aria-checked and whose width is its own track, so a text-driven
- * minimum has nothing left to stabilise and would only stretch the
- * switch's hit box sideways past its own paint. The 44px floor below is
- * what replaces it, and it is a touch-target contract rather than a
- * typographic one. */
 .quick-action__form {
   display: flex;
   align-items: center;
 }
 
-/* --- The switch (D2/CFG-36, 23-07-PLAN.md Task 1/2) -------------------
- *
- * One component, three consumers: the Frame strip's Screen and Quiet
- * hours cells and the Device page's Diagnostic LED card. The element is
- * a <button type="submit"> inside a real <form>, so everything here is
- * appearance only — with this stylesheet missing entirely the control is
- * still a button that posts, which is the same floor the markup keeps.
- *
- * 44x44 is met DIRECTLY on the button rather than traded for a padded
- * label: the track itself is 52x32, and the button's own padding takes
- * the hit box past the WCAG 2.5.5 floor in both axes at every width
- * including 360px. It is the button, not the track, that is focusable
- * and pressable, which is why the floor lives here.
- *
- * The state is NEVER carried by colour alone: the thumb's position
- * changes, aria-checked changes, and the translated state word beside it
- * changes. The track colour is the fourth signal, not the first — rule 2
- * of the contrast gate, and the reason this needs no per-theme override.
- *
- * Both transitions spend var(--motion-fast). A switch is the definition
- * of motion somebody is waiting on: the flip has to land under the
- * finger before the request that confirms it has even left. */
+/* One <button type="submit"> reused for three switches. 44x44 is met
+ * directly by the button's own padding — WCAG 2.5.5 in both axes at
+ * every width. State is never colour-only: thumb position, aria-checked
+ * and the state word all change together. */
 .switch {
   display: inline-flex;
   align-items: center;
@@ -8764,10 +8619,6 @@ a.airline-card {
   border-radius: var(--radius-control);
 }
 
-/* The global button:hover/button:active treatments are a wash and a
- * press-scale written for a labelled button; on a switch they would
- * paint a box around a control whose whole visual is the track inside
- * it. The track's own colour change is the feedback. */
 .switch:hover,
 .switch:active {
   background: none;
@@ -8808,13 +8659,6 @@ a.airline-card {
   transform: translateX(20px);
 }
 
-/* The settings-page switch row (the Diagnostic LED card). The strip's
- * own cells already have a state-plus-control row from
- * `.frame-strip__row--state`; a settings card has no such grid, so this
- * is the one rule that gives the state word and the switch the same
- * side-by-side relationship inside `.theme-status`. `space-between`
- * rather than a fixed gap: at 360px the state word stays left and the
- * switch stays at the edge the thumb travels toward. */
 .settings-switch-row {
   display: flex;
   align-items: center;
@@ -8822,42 +8666,13 @@ a.airline-card {
   gap: var(--space-md);
 }
 
-/* The unconfirmed window. companion/static/quick-switch.js marks the
- * REGION (not the control) while its fetch is in flight, which is the
- * same marker companion/static/freshness.js's swap already skips — one
- * attribute doing both jobs, so a control that looks settled can never
- * be a control the refresh loop is still willing to repaint. Deliberately
- * subtle: the flip has already happened and is almost always right; a
- * spinner here would make a fast action feel slow, which is why D2's
- * "300ms spinner" clause is implemented as this state and no fixed
- * delay. */
+/* [data-pending] is set by quick-switch.js while its fetch is in
+ * flight; freshness.js's refresh swap already skips elements carrying
+ * it, so a pending control is never repainted mid-request. */
 [data-pending] .switch__track {
   opacity: 0.7;
 }
 
-/* --- The failure toast (D2/CFG-36, V7) -------------------------------
- *
- * Transient, never a banner: the state it reports on has already rolled
- * back to the truth in the switch itself, so this is an announcement
- * rather than a standing condition, and a permanent block would outlive
- * the thing it describes.
- *
- * Anchored at the TOP of the viewport on purpose. The bottom edge used
- * to be claimed by two `position: fixed` components — `.tab-bar`
- * (z-index 20) and the dirty save bar (z-index 30) — and stacking a
- * third there would have meant re-deriving their geometry. The save bar
- * is retired outright by 27-04-PLAN.md (CFG-63); `.tab-bar` is now the
- * bottom edge's only fixed occupant, but this toast stays anchored at
- * the top regardless — repositioning it was no part of what that plan
- * changed. The top edge is free at every breakpoint. `z-index: 40`
- * continues that same declared order upward rather than inventing a
- * parallel one.
- *
- * The empty element is rendered on every page and is not `hidden`: a
- * live region added to the accessibility tree at announce time is one
- * screen readers routinely miss. `opacity: 0` plus `pointer-events:
- * none` keeps it invisible and unclickable while leaving it in the tree,
- * which `visibility: hidden` or `display: none` would not. */
 .quick-toast {
   position: fixed;
   top: var(--space-md);
@@ -8882,20 +8697,6 @@ a.airline-card {
   transform: translate(-50%, 0);
 }
 
-/* 22-04-PLAN.md Task 2 (B13): every Frame-strip cell — both switch cells
- * and the update cell alike — shares this ONE wrapper: padding, hairline,
- * radius and surface, plus a fixed three-row internal grid (label, then
- * state plus control, then caption; layout.py's _frame_strip_cell_html()
- * is the one Python builder for all three). A cell with nothing to put
- * in a row still renders that row's own (empty) track, which is what
- * keeps all three cells' rows lined up — today (before this task) the
- * Screen cell puts its button on the label row while the Quiet-hours
- * cell pushes it to its own row, which is why the three cells measure
- * 119/165/69px tall instead of one shared height. `.quick-action`'s own
- * `--on/--off/--neutral` left-edge colour below stays exclusive to the
- * two switch cells (added below, on the SAME element, never here) — the
- * update cell never carries `.quick-action` at all, so it can never
- * paint a control-state signal it does not have. */
 .frame-strip__cell {
   display: grid;
   grid-template-rows: auto auto auto;
@@ -8906,20 +8707,10 @@ a.airline-card {
   background: var(--color-canvas);
 }
 
-/* The switch cells' own control-state left edge (D-01) — `.quick-action`
- * is added alongside `.frame-strip__cell` on the SAME element; only the
- * border WIDTH lives here, the colour comes from `--on`/`--off`/
- * `--neutral` above, matching the pre-restructure contract exactly. */
 .frame-strip__cell.quick-action {
   border-left-width: 4px;
 }
 
-/* Row 2 (state plus control): state text and the switch's own <form>
- * side by side, matching the pre-restructure `.quick-action` row's own
- * layout — now scoped to one grid row instead of the whole cell. Every
- * cell (including the update cell, whose row 2 is the headline
- * paragraph alone) shares this rule; it is a no-op for a cell with only
- * one child in this row. */
 .frame-strip__row--state {
   display: flex;
   align-items: center;
@@ -8928,42 +8719,12 @@ a.airline-card {
   min-width: 0;
 }
 
-/* 27-08-PLAN.md Task 2 (CFG-69): the Quiet hours caption's own link to
- * the schedule fields (companion/layout.py's frame_strip_html(), the
- * quiet cell's one write site). `.text-link` supplies the colour and
- * underline; this class supplies the FLOOR — a bare inline `<a>` hit-
- * tests to its own text line-height, well under 44px, and this sits in
- * the same dense strip cell as a switch (the geometry that produced the
- * 30x45 pager and the 43x43 handle elsewhere in this file). `display:
- * inline-flex` plus `min-height` is the native-input idiom this file
- * already uses for a floor that does not depend on font metrics, rather
- * than a padding value tuned to one line-height that a copy change could
- * silently undercut. No `::before` synthesis: unlike the small icon
- * controls in the shared register above, this control's own text is
- * already wider than 44px, so there is nothing to synthesize on that
- * axis. Block-level in its own right (the delay sentence above it is a
- * `<p>`, so this `<a>` starts its own line by construction) — it is a
- * second, independent affordance in the caption row, not a run-on
- * continuation of the delay sentence. */
 .frame-strip__schedule-link {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
 }
 
-/* The Frame strip (D-01, D-02, D-05; 22-04-PLAN.md Task 2, B13) — one
- * shared surface holding the Screen switch, the Quiet hours switch and
- * the next-update headline, atop Home and Display alike
- * (layout.frame_strip_html()). Reuses .stat-tile/.stat-tile--accent
- * verbatim for the card surface itself (padding, border-radius,
- * hairline, accent top-border) — this rule adds only the flex layout
- * that lays the three cells out side by side; each cell's own chrome
- * now comes from `.frame-strip__cell` above, not from this container.
- * `align-items: stretch` (was `center`) is B13's own fix: all three
- * cells now report equal offsetHeight at every width, because a
- * flex-stretched item's own internal grid can only ever be as tall as
- * its OWN three rows demand at minimum — never shorter than its
- * siblings. */
 .frame-strip {
   margin-bottom: var(--space-lg);
 }
@@ -8995,30 +8756,9 @@ a.airline-card {
   margin: 0;
 }
 
-/* 20-04-PLAN.md Task 1 (20-UI-SPEC.md §B): .preview-frame__image joins
- * this selector for its shared declarations only (the white backing
- * behind a rendered panel PNG, the hairline, the radius) — extending
- * this rule rather than restating the same white-backing literal on a
- * second rule introduces no new colour literal. .now-showing__image's
- * own extra sizing (the 360px cap, the auto margin) moves to its own
- * rule immediately below so .preview-frame__image is never affected by
- * it.
- *
- * 22-07-PLAN.md Task 2 (B18): `img.recent-flight__thumb` (the REAL
- * thumbnail <img> only — the tag qualifier is deliberate, not
- * decorative: the dashed placeholder variant is a <span> that ALSO
- * carries the bare .recent-flight__thumb class for its shared 40x40
- * sizing below, and without the `img` qualifier this selector would
- * tie with `.airline-card__placeholder, .recent-flight__thumb--
- * placeholder`'s own dashed-border rule at equal specificity, letting
- * source order — not intent — decide which border/background wins on
- * the placeholder span) joins here too — one more selector, no new
- * colour literal, no new radius — so a real illustration carries the
- * SAME white-backing/hairline/radius weight as the frame picture and
- * the theme preview. Its own width:40px/height:40px/object-fit:cover/
- * border-radius further down this file (declared AFTER this rule,
- * higher specificity via the same `img.` qualifier) still wins for
- * sizing; only the border/background/display are new here. */
+/* img.recent-flight__thumb (tag-qualified, not bare .recent-flight__thumb)
+ * avoids tying at equal specificity with the dashed-placeholder span's
+ * own rule, which would let source order rather than intent decide. */
 .now-showing__image,
 .preview-frame__image,
 img.recent-flight__thumb,
@@ -9036,15 +8776,6 @@ img.history-card__thumb {
   margin: 0 auto var(--space-sm);
 }
 
-/* 22-09-PLAN.md Task 2 (X5): the Flights phone card's own thumbnail
- * sizing — the Airlines gallery's 450x132 served frame in a fixed
- * 56px-tall box with `contain` fitting, so a wide livery panel is
- * letterboxed rather than cropped. Declared AFTER the shared rule
- * above and with the same `img.` qualifier, exactly like
- * `img.recent-flight__thumb`'s own sizing rule, so it wins for width/
- * height while the white backing, the hairline and the radius still
- * come from that one shared rule — one rule, an additional selector,
- * no new colour literal. */
 img.history-card__thumb {
   height: 56px;
   width: auto;
@@ -9063,85 +8794,10 @@ img.history-card__thumb {
   padding: 0;
 }
 
-/* 20-04-PLAN.md Task 1 (D-17.2, 20-UI-SPEC.md §B): gains a fourth,
- * leading 40px thumbnail column — was 3 columns (callsign, detail,
- * time). The sub-960px override further down this file is retargeted
- * to match. */
-/* Phase 21 polish (D-04): the list now lives in the narrower right-hand
- * column of .home-columns.home-picture-row at every width, so the
- * four-column desktop layout (which starved the detail column down to
- * one character per line and let the nowrap time overlap the callsign)
- * is retired: thumbnail / callsign / time on the first row, the detail
- * line under them, at every width — the former sub-960px shape. */
-/* Quick task 260913-dgh: the row's layout MECHANISM changes from grid to
- * a wrapping flex line, because the callsign was being starved to
- * nothing and a grid row has nowhere to put what does not fit.
- *
- * Measured cause. The template was a fixed 40px thumbnail track, then
- * `minmax(0, 1fr)` for the callsign, then `auto` for the time. The time
- * holds the clock and the relative age under the one-line contract
- * B18 set below, so its min-content and max-content widths are the same
- * number and that `auto` track resolves to one rigid figure at EVERY
- * width — 155.1px in French, 147.4px in English. The thumbnail track is
- * a literal. So the callsign track is the only one that can yield, and
- * its explicit 0 floor means it yields the whole way: measured in a real
- * Chromium against the seeded fixture, the callsign box was 10.9px (FR)
- * / 18.6px (EN) for 57.8px of content at a 320px viewport, and 50.9px
- * (FR) for the same 57.8px at 360px — a common Android width. That 0
- * floor IS the defect. A flex item's automatic minimum size holds a
- * line at min-content for free; `minmax(0, 1fr)` is precisely the
- * declaration that opts out of it.
- *
- * No media query can express the condition, because the viewport does
- * not predict the row: the row is 238px inside a 320px viewport, 278px
- * at 360px, 308px at 390px, 686px at 768px — and back DOWN to 292.4px
- * at 1280px, where the desktop sidebar and the two-column picture row
- * narrow it again. A container query can read that width, and it was
- * measured here rather than dismissed. It works, and it is still
- * rejected, on its own numbers: it needs a hard-coded threshold, and
- * the content that threshold has to clear grows without a ceiling —
- * layout.relative_age_text()'s day bucket has no upper bound, so the
- * age string only ever gets wider. Measured with the age grown to
- * "il y a 365 j", the 1280px callsign track falls to 57.5px for 57.8px
- * of content: the DESKTOP starves too, and was only ever ~7px away. Any
- * threshold that covers a 292.4px desktop row therefore charges the
- * extra line at 1280px unconditionally, in both languages, forever.
- *
- * The wrapping flex line asks the question that actually matters — does
- * this content fit on one line — instead of naming a width at which it
- * might not. Line breaking runs on the items' own content widths, so
- * the time drops to a second line exactly where there is no room for it
- * and nowhere else. Measured after the change, callsign box against
- * callsign content, both languages: 57.8 for 57.8 at 320, 360, 390, 768
- * and 1280 — clipped at no width in either language — with the second
- * line appearing only at 320px (both languages) and at 360px in French.
- * With the age stressed to "il y a 365 j" the same rule wraps at 1280px
- * in French and stays on one line at 1280px in English, which is the
- * per-language, per-content answer no fixed threshold can give.
- *
- * Three things this deliberately is NOT, each measured first:
- *   - NOT a min-content floor on the callsign track. That stops the
- *     clipping, but the row then grows to 284.9px inside a 238px column
- *     and Home's horizontal scrollbar comes straight back
- *     (documentElement.scrollWidth 343 FR / 335 EN against 320) — the
- *     exact B11 defect quick task 260913-bjy closed.
- *   - NOT a release of the time's one-line contract. Dropping that
- *     under a container query changed the resolved tracks by literally
- *     nothing, because a grid `auto` track is sized from max-content
- *     and never consults the min-content such a release lowers. It
- *     would have shipped inert.
- *   - NOT an unconditional second line for the time. That fits
- *     everywhere and charges every row 23.6px of extra height at 768px,
- *     where there are 686px of room and nothing to fix.
- *
- * `.status-row` further down this file already ships this exact
- * combination (flex, wrapping, baseline-aligned, one shared gap pair) —
- * this row joins an existing pattern rather than inventing one. The
- * visual order still differs from source order (the detail line paints
- * under the callsign and time, and is the third child): that divergence
- * is unchanged from the grid placement it replaces, so the reading
- * order a screen reader announces is exactly what it announced
- * before. */
+/* A wrapping flex line, not a grid row: a grid's auto time-track always
+ * resolves to its own max-content width regardless of the callsign's
+ * needs, starving the callsign to a sliver in French. Flex lets the
+ * time wrap to its own second line only when there is truly no room. */
 .recent-flight {
   display: flex;
   flex-wrap: wrap;
@@ -9164,17 +8820,9 @@ img.history-card__thumb {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* The detail line keeps the full-width-underneath placement the grid
- * gave it, expressed in the new mechanism: a 100% flex basis puts it
- * alone on its own line at every width, and the `order` bump keeps it
- * last so the time still shares the FIRST line with the callsign
- * wherever that line has room (the time is the fourth child in source
- * order, the detail the third, so without the bump flex would paint
- * them the other way round). The inline-start margin reproduces the old
- * `grid-column: 2` start exactly — the thumbnail's own 40px box plus
- * the row's column gap — so the detail still never runs back under the
- * thumbnail. The basis is allowed to shrink so that margin comes out of
- * the line rather than overflowing it. */
+/* order: 1 keeps the detail line last visually even though it is the
+ * third child before the time (fourth); the inline-start margin
+ * reproduces the old grid's thumbnail-width offset (40px + gap). */
 .recent-flight__detail {
   overflow-wrap: anywhere;
   order: 1;
@@ -9182,79 +8830,16 @@ img.history-card__thumb {
   margin-inline-start: calc(40px + var(--space-md));
 }
 
-/* B18 (22-07-PLAN.md Task 2): the recent-flight time is one line — the
- * clock and the relative age (joined by .cell-inline-sep) can never
- * wrap onto a second line. `overflow-wrap: anywhere` used to be
- * shared with .recent-flight__detail above (written for that column's
- * own long airline/route text, not this short clock+age pair) and is
- * dropped here rather than merely overridden, since the two mechanisms
- * fight: overflow-wrap can still force a mid-word break to avoid
- * overflowing a width cap even under white-space: nowrap.
- *
- * Quick task 260913-bjy (B11's missing fourth surface, after 22-09 on
- * Flights, 22-11 on Airlines and 22-12 on Health): the PERCENTAGE WIDTH
- * CAP this rule also carried is deleted, because it could only ever be
- * a lie to the layout engine. This item sits in .recent-flight's third,
- * content-sized `auto` track, so that track resolves to the item's own
- * max-content width — and a percentage cap then resolves against that
- * same content-derived width, clamping the box to 60 per cent of
- * exactly the content it was meant to bound. Under white-space: nowrap
- * nothing can reflow into the smaller box, so the relative age simply
- * painted the other 40 per cent outside it. Measured at EVERY width
- * from 320px to 1440px, in both languages and both themes, always the
- * same ratio: clientWidth 88px against a scrollWidth of 147px in
- * English, 93px against 155px in French. Below 960px that overflow
- * escaped the VIEWPORT too and gave Home a horizontal scrollbar
- * (390px viewport: documentElement.scrollWidth 411 FR / 408 EN); at
- * 960px and above it still escaped the CARD (the age painting to 1253
- * against a row ending at 1191 at 1280px), which is why nine plans of
- * desktop review never saw it. With the cap gone the track IS the line:
- * the one-line intent above is preserved verbatim, and the age sits
- * inside the card at every width companion/test_browser_ux.py measures.
- *
- * A wrapping flex container was measured here FIRST and rejected on the
- * measurement, not on taste: the `auto` track always grows to
- * max-content before the neighbouring minmax(0, 1fr) track yields, so
- * flex-wrap never engaged at any width from 320px up and would have
- * shipped inert — the same class of dead declaration the sticky-header
- * entry in the design-system notes was retired for.
- *
- * Quick task 260913-dgh, two corrections to the present tense above,
- * neither of which touches the one-line contract this rule exists for.
- * (1) This item no longer sits in a grid track at all — the row is a
- * wrapping flex line now, for the reasons measured in full above the
- * .recent-flight rule — so the grid-only end-alignment this rule used
- * to declare is replaced by an auto inline-start margin, which pushes
- * the item to the right of whichever flex line it lands on. That is the
- * same paint position on the first line, and it keeps the time
- * right-aligned on its own line when it wraps. (2) The rejected
- * wrapping-flex experiment recorded above was a flex container INSIDE
- * this item, wrapping the clock away from the age, and it stays
- * rejected for the reason given. The row above is a different thing
- * entirely: it wraps this whole item away from the callsign, never
- * inside it, so the clock and the age still cannot be split. */
+/* No percentage width cap here: since this item sits in a content-sized
+ * auto track, a percentage would resolve against that same content-
+ * derived width and always overflow itself (measured: 88px clientWidth
+ * vs 147px scrollWidth in English). The track itself is the line cap. */
 .recent-flight__time {
   text-align: right;
   margin-inline-start: auto;
   white-space: nowrap;
 }
 
-/* 20-04-PLAN.md Task 1 (D-17.2): the thumbnail's own 40x40 box.
- * object-fit: cover absorbs the artwork's own aspect ratio. The shared
- * white-backing/hairline declarations now live on the `img.recent-
- * flight__thumb` rule above (22-07-PLAN.md Task 2, B18); this rule's
- * OWN selector is tag-qualified the same way (`img.`, specificity
- * 0-1-1, matching that rule's) so it still overrides that rule's
- * width:100%/height:auto for the real thumbnail by source order alone
- * — a bare `.recent-flight__thumb` selector here would be a LOWER
- * specificity than the shared rule's `img.` qualifier and would lose
- * regardless of being declared later. `.recent-flight__thumb--
- * placeholder` (the dashed <span> variant) joins this same rule for
- * its own matching 40x40/radius/flex box; its own dashed border/
- * canvas-fill live on the separate rule immediately below, reusing
- * `.airline-card__placeholder`'s exact values (never a new literal) —
- * which is what makes a missing thumbnail match the real ones in
- * weight (B18). */
 img.recent-flight__thumb,
 .recent-flight__thumb--placeholder {
   width: 40px;
@@ -9277,9 +8862,6 @@ img.recent-flight__thumb,
 
 /* 4. Audit fixes ------------------------------------------------------- */
 
-/* Settings text-like inputs: the number/time/url fields had no width
- * rule at all and sat at the UA's intrinsic width — which is what
- * truncated "Uses server default" to "Uses se". */
 .config-form input[type="number"],
 .config-form input[type="url"],
 .config-form input[type="text"] {
@@ -9291,97 +8873,26 @@ img.recent-flight__thumb,
   min-width: 9rem;
 }
 
-/* B17 (22-AUDIT.md, 22-10-PLAN.md Task 3): the wake-interval field held
- * a 448px-wide box for a 3-4 digit number, inherited from the global
- * `input, select` rule's own sizing on this page. `8ch` is a CONTENT-FIT
- * width in character units — the correct unit for "sized for its
- * content", and one of the exactly three off-scale literals
- * 22-UI-SPEC.md §1 permits, alongside the safe-area inset and the tab
- * bar's 56px. The 96px minimum keeps the box usable in a narrow or
- * condensed font where 8ch would collapse.
- *
- * DELIBERATELY NO HEIGHT. The global `input, select` rule's 44px
- * `min-height` is the touch-target register's "kept" entry for
- * `<input type="number">` (11-03-PLAN.md), and `width` does not touch
- * `min-height`, so that entry still holds verbatim after this rule. Do
- * not add a height here.
- *
- * Selected by `name`, not by id: this file carries no id selector at all
- * and should not gain its first one here. `.config-form input[name=
- * "..."]` is (0,2,1) — EQUAL to the `.config-form input[type="number"]`
- * rule directly above, and placed immediately after it, which is this
- * file's own documented equal-specificity-plus-source-order mechanism
- * (`.logout-form button`). Raising specificity
- * instead would start beating rules this one has no business beating.
- *
- * It must live HERE, beside that rule, rather than up with the other
- * field-layout rules: the phase-18 `width: 100%` above is what it
- * narrows, and splitting the two apart is how the next reader ends up
- * re-deriving why a `width` declaration two thousand lines earlier has
- * no effect. NOTE for the phase-closing sweep: that phase-18 rule exists
- * so "Uses server default" is not truncated to "Uses se"; in a 96px box
- * this field's placeholder truncates again whenever no interval is
- * stored. B17's "sized for its content" is the later, narrower decision
- * and wins for this one field, but the interaction is real. */
+/* 8ch is a content-fit width for a 3-4 digit number (one of this file's
+ * few off-scale literals); 96px keeps it usable in a condensed font.
+ * Selected by [name=] at equal (0,2,1) specificity to the type=number
+ * rule above it, so source order — not a specificity hack — wins. */
 .config-form input[name="wake_interval_s"] {
   width: 8ch;
   min-width: 96px;
 }
 
-/* Theme-chip names must never wrap and stagger the row. */
 .theme-chip__name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Phase 18's A-18 fix: the filter bar's count and Clear control stay
- * together on one line instead of Clear wrapping alone underneath.
- *
- * SUPERSEDED in mechanism by 22-09-PLAN.md Task 3 (B11) — this is A-18
- * REGRESSING A SECOND TIME, named as such so a future reader sees it has
- * now broken twice. Two `nowrap` siblings in one `flex-wrap: wrap`
- * container do not wrap as a unit: `nowrap` stops a break INSIDE each
- * one, and nothing stopped the flex container breaking BETWEEN them, so
- * at 390px Clear still dropped alone onto its own line. The pair is
- * wrapped in one `.filter-bar__meta` group below instead, which is a
- * single flex item and therefore moves whole or not at all.
- *
- * `.filter-bar__count`'s own `margin-left: auto` was KEPT here by
- * 22-09-PLAN.md Task 3, with a stated expiry: "Airlines and Health still
- * render a bare count with no wrapper (plans 22-11 and 22-12 adopt the
- * same group element on their own filter bars), and removing it here
- * would un-right-align both of them."
- *
- * RETIRED by 22-12-PLAN.md Task 3, which is the plan that landed the
- * third and last of those three adoptions. All three filtered pages now
- * render their count inside `.filter-bar__meta` (grep: exactly three
- * `.filter-bar__count` call sites, in history_page.py, airlines_page.py
- * and health_page.py, each one a child of that group), and that group
- * carries the auto margin itself. Inside a content-sized flex item there
- * is no free space for a second auto margin to absorb, so the
- * declaration had become genuinely inert rather than merely redundant —
- * this removal changes no rendered pixel, and 22-11-SUMMARY.md's own
- * note named this plan as the one that could honestly make it. If a
- * fourth filter bar is ever added, wrap its pair in the group; do not
- * reinstate this rule. */
 
 .filter-bar [data-filter-clear] {
   white-space: nowrap;
 }
 
-/* B11 (22-09-PLAN.md Task 3, 22-UI-SPEC.md §2): the count + Clear group.
- * ONE flex item holding both controls, so they wrap as a unit and Clear
- * can never drop alone onto its own line again. The auto left margin
- * moves here with them (it is what pushes the pair to the end of the
- * bar, the role it played on the count alone before).
- *
- * Written page-agnostic on purpose: Airlines (22-11) and Health (22-12)
- * adopt it by adding this same wrapper element around their own count
- * and Clear, with NO per-page variant. Both pages' Clear controls stay
- * converged on the existing `.filter-bar [data-filter-clear]` rule
- * (06.6.4 D-08) — that selector is not forked here, and no second clear
- * class is introduced. */
 .filter-bar__meta {
   display: flex;
   align-items: center;
@@ -9390,48 +8901,21 @@ img.recent-flight__thumb,
   margin-left: auto;
 }
 
-/* A manually-resolved airline with no artwork yet renders the same
- * dashed placeholder a gap card does; and the zoom trigger, when it is
- * an <a>, must not paint link styling over its contents. */
 a.airline-card__zoom {
   color: inherit;
   text-decoration: none;
 }
 
 @media (max-width: 959.98px) {
-  /* Two chips per row on a phone instead of a 36-row single column. */
+  /* Two chips per row on a phone, not a single 36-row column. */
   .theme-chip {
     width: calc(50% - var(--space-sm) / 2);
   }
 
-  /* 27-04-PLAN.md (D-04/CFG-63): the save bar this rule used to pin to
-   * the phone viewport's bottom corner — GEOMETRIC SEPARATION FIRST
-   * against the tab bar (22-14-PLAN.md Task 3, D-10/T7), then a belt-
-   * and-braces z-index: 30 above the tab bar's 20 — is retired outright,
-   * along with the desktop rule that carried this one's full stated
-   * reason. `.save-status`, further down this file, is not fixed to the
-   * viewport at either breakpoint, so it needs no phone-side pin at
-   * all — see that rule's own comment for why.
-   *
-   * T7's phone-side content clearance is NOT declared here. It has to
-   * beat `.has-tab-bar .page-content`, which targets the same element at
-   * the same (0,2,0) specificity, so it is declared AFTER it — in the
-   * tab bar's own block at the foot of this file, next to the rule it
-   * supersedes rather than 900 lines away from it.
-   *
-   * SUPERSEDED by 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: the
-   * bar is back. GEOMETRIC SEPARATION FIRST, restored unchanged: the
-   * offset below already gains the tab bar's 56px height so the two
-   * never overlap in the normal case, arithmetic rather than a stacking
-   * assurance. The z-index stacking order is the belt-and-braces half,
-   * for a bar that wraps taller than its own gap: `z-index: 30`, the
-   * SAME single value the desktop rule declares (one value across both
-   * breakpoints, above the tab bar's 20), because the save bar is the
-   * user's ACTIVE TASK and the tab bar is ambient chrome — a save bar
-   * covering a tab is acceptable, a tab bar covering Save is not. This
-   * file's `.dirty-ready`-scoped clearance rule is NOT restored (see
-   * the tab bar's own block, further down this file, for why the
-   * scoping mechanism itself had to change, not just its figure). */
+  /* z-index: 30, one value above the tab bar's 20 at every breakpoint:
+   * the save bar is the active task and may cover ambient nav chrome,
+   * never the reverse. The bottom offset already adds the tab bar's
+   * 56px height so the two never overlap in the normal case. */
   .dirty-bar {
     position: fixed;
     left: var(--space-md);
@@ -9442,24 +8926,8 @@ a.airline-card__zoom {
     flex-wrap: wrap;
   }
 
-  /* 22-04-PLAN.md Task 2: `.quick-action` no longer establishes its own
-   * flex row (that layout moved onto `.frame-strip__row--state`, one
-   * row inside the cell's own grid) — this sub-960px `flex-wrap: wrap`
-   * override is retired as dead alongside it, not left as stale CSS
-   * with no element left to match its old flex-row context. */
 }
 
-/* Recent flights on a phone: callsign and time share the first row and
- * the detail line takes the full width underneath, instead of three
- * columns fighting over 340px.
- *
- * 20-04-PLAN.md Task 1 (D-17.2): the leading 40px thumbnail column
- * (added to the base .recent-flight rule above) stays even at this
- * width; only the middle content/detail column collapses into one, and
- * the detail line's own grid-column start moves from 1 to 2 so it never
- * runs back under the thumbnail. */
-/* (Phase 21 polish: the sub-960px recent-flight override that used to
- * live here is now the base rule above — one shape at every width.) */
 
 
 .status-row {
