@@ -32,7 +32,7 @@ import companion.prefs as prefs
 import companion.test_view_pages_helpers as vp
 from companion.pages import airlines_page, health_page, history_page, home_page
 from companion_app_server import served_asset, served_stylesheet
-from companion_markup import css_rules, declarations_for
+from companion_markup import at_rule_blocks, css_rules, declarations_for, rules_with_selector
 from server import history_db
 from server.plane import illustrations
 
@@ -68,16 +68,6 @@ def _row_block(rendered, tag, group_index):
     pattern = r"<%s[^>]*data-filter-group=\"%d\"[^>]*>(.*?)</%s>" % (
         tag, group_index, tag)
     match = re.search(pattern, rendered, re.S)
-    return match.group(1) if match else None
-
-
-def _css_rule_body_no_comments(css, selector):
-    """A raw (non-declarations_for) rule-body lookup for the handful of
-    checks below that need to scan a rule's FULL text (not just its
-    parsed property/value pairs) - comment-stripped served text, never a
-    disk read."""
-    stripped = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
-    match = re.search(r"(?:^|\n)[ ]*%s\s*\{([^}]*)\}" % re.escape(selector), stripped)
     return match.group(1) if match else None
 
 
@@ -205,8 +195,9 @@ def test_resolve_dialog_save_and_close_share_one_action_row(tmp_path, served_css
     for forbidden in ("height", "min-height", "border-radius"):
         assert forbidden not in rule, (
             "expected the action row to declare no %r, got %r" % (forbidden, rule))
-    assert ".btn--" not in re.sub(r"/\*.*?\*/", "", served_css, flags=re.S), (
-        "expected no .btn-- family anywhere in style.css")
+    btn_family = [selector for rule in css_rules(served_css) for selector in rule.selectors
+                  if ".btn--" in selector]
+    assert not btn_family, "expected no .btn-- family anywhere in style.css, got %r" % (btn_family,)
 
 
 def test_airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary():
@@ -273,10 +264,10 @@ def test_airlines_manual_count_is_a_filter_control_in_the_filter_bar(tmp_path, s
         "expected the control to reuse the card-chip label voice verbatim")
     assert rendered.count('data-filter-set="manual"') == 1
 
-    assert not re.search(r"^\.manual-summary\s*\{", served_css, re.M), (
+    assert not rules_with_selector(served_css, ".manual-summary"), (
         "expected the .manual-summary base rule block to be gone — the chip class now carries "
         "the whole treatment, and a surviving copy is a fork")
-    assert re.search(r"^\.manual-summary:hover\s*\{", served_css, re.M), (
+    assert rules_with_selector(served_css, ".manual-summary:hover"), (
         "expected .manual-summary to survive as the hover-only additive rule")
 
     assert "1 manual resolution<" in rendered, (
@@ -380,7 +371,10 @@ def test_airline_fallback_distinct_from_route_fallback(tmp_path, served_css):
     from server.plane import render as panel_render
 
     assert history_page.AIRLINE_FALLBACK_TEXT != panel_render.ROUTE_FALLBACK_TEXT
-    assert history_page.UNRESOLVED_LINK_CLASS.split()[-1] in served_css, (
+    spacing_class = re.compile(
+        r"\.%s(?![-\w])" % re.escape(history_page.UNRESOLVED_LINK_CLASS.split()[-1]))
+    assert any(spacing_class.search(selector)
+               for rule in css_rules(served_css) for selector in rule.selectors), (
         "expected UNRESOLVED_LINK_CLASS's spacing class to be styled in style.css")
 
     vp.seed_runway_events(tmp_path, [
@@ -613,11 +607,6 @@ def test_flights_declares_its_refresh_regions_and_never_the_filter_input(tmp_pat
             "load, so replacing it leaves the filter permanently dead" % (selector,))
 
 
-def _css_rule_body(css, selector):
-    match = re.search(r"(?:^|\n)[ ]*%s\s*\{([^}]*)\}" % re.escape(selector), css)
-    return match.group(1) if match else None
-
-
 def test_detail_row_height_animates_and_a_closed_row_is_unreachable(tmp_path, served_css, app):
     """the Flights detail row animates open through a grid reveal wrapper inside its own <td>
     (grid-template-rows 0fr, var(--motion-fast), an @starting-style entry, scoped to the
@@ -625,13 +614,17 @@ def test_detail_row_height_animates_and_a_closed_row_is_unreachable(tmp_path, se
     and the collapsed end state is still display: none — the one state that takes a closed
     row out of both the tab order and the accessibility tree (D3/CFG-32, 23-08-PLAN.md
     Task 2)"""
-    assert "grid-template-rows: 0fr" in served_css, (
-        "expected the detail row's height to animate from grid-template-rows: 0fr")
-    css_no_comments = re.sub(r"/\*.*?\*/", "", served_css, flags=re.DOTALL)
-    for banned in ("interpolate-size", "calc-size("):
-        assert banned not in css_no_comments, (
-            "companion/static/style.css declares %r — Chromium-only, banned by 23-01's own "
-            "guard" % (banned,))
+    entry = declarations_for(
+        served_css, ".flight-rows-live .flight-detail-row__reveal", at_rules=("@starting-style",))
+    assert entry.get("grid-template-rows") == "0fr", (
+        "expected the detail row's height to animate from grid-template-rows: 0fr in an "
+        "@starting-style entry for the reveal wrapper, got %r" % (entry,))
+    for rule in css_rules(served_css):
+        for prop, value in rule.declarations:
+            for banned in ("interpolate-size", "calc-size("):
+                assert banned not in prop and banned not in value, (
+                    "companion/static/style.css declares %r in %r — Chromium-only, banned by "
+                    "23-01's own guard" % (banned, rule.selectors))
 
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "rv01", "callsign": "REVEAL"},
@@ -654,8 +647,6 @@ def test_detail_row_height_animates_and_a_closed_row_is_unreachable(tmp_path, se
         % (reveal,))
     assert reveal.get("transition", "").find("var(--motion-fast)") != -1, (
         "expected the reveal transition to spend var(--motion-fast), got %r" % (reveal,))
-    assert "@starting-style" in served_css, (
-        "expected an @starting-style block for the reveal wrapper")
 
     collapsed = declarations_for(served_css, ".flight-detail-row--collapsed")
     assert collapsed.get("display") == "none", (
@@ -676,11 +667,11 @@ def test_the_chevron_turns_and_carries_no_reduced_motion_block_of_its_own(served
         "expected the chevron transition to spend var(--motion-fast), got %r" % (transition,))
     assert "transform" in transition, (
         "expected the chevron to transition TRANSFORM specifically, got %r" % (transition,))
-    live = "\n".join(
-        line for line in served_css.splitlines() if not re.match(r"^ *[*/]", line))
-    assert live.count("prefers-reduced-motion") == 3, (
-        "expected companion/static/style.css to carry exactly 3 live prefers-reduced-motion "
-        "occurrences, got %d" % live.count("prefers-reduced-motion"))
+    reduced_motion = [block for block in at_rule_blocks(served_css)
+                      if "prefers-reduced-motion" in block]
+    assert len(reduced_motion) == 3, (
+        "expected companion/static/style.css to carry exactly 3 prefers-reduced-motion blocks, "
+        "got %r" % (reduced_motion,))
 
 
 def test_the_phone_cards_own_face_is_its_disclosure_summary(tmp_path):

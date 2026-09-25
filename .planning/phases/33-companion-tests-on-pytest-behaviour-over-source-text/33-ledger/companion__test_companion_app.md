@@ -670,3 +670,15 @@ across `companion/test_companion_app_01.py`..`_05.py`, 1 `deleted` —
 row 89, from an earlier plan in this chain — 0 `pending`).
 `33-ledger-check.py companion/test_companion_app.py` **WITHOUT**
 `--allow-pending` confirms 320/320.
+
+
+### Closing sweep (plan 33-32): structural stylesheet checks
+
+Rows 51, 52, 57, 59, 174 and 179 kept their node ids but no longer assert with a regex, `in`
+test or str search over the served stylesheet's text (33-FOLLOWUPS.md F-01). "Class X is
+styled" is now a selector match over `css_rules()`; the `.js .mobile-nav` rules and the
+`input.visually-hidden` floor-clearing rule are read with `declarations_for()`; row 174 counts
+`@supports selector(:has(*))` with `companion_markup.at_rule_blocks()`; row 179 counts
+`@keyframes` and reduced-motion `@media` blocks with `at_rule_blocks()` and checks every
+animation declaration outside those blocks through `css_rules()`, which retires the
+module's own brace-matching text helper.

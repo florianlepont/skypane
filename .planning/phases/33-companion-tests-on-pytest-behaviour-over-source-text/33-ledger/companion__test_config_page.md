@@ -479,3 +479,17 @@ companion/test_config_page.py` **WITHOUT** `--allow-pending` confirms **276/276 
 mapped, 0 pending**. `skypane_test_support.legacy_companion_harnesses()`'s disk-derived set and
 `companion/test_legacy_harness_shim.py`'s parametrize list both drop the file automatically —
 the config-page migration chain (33-09 through this plan) is CLOSED.
+
+
+### Closing sweep (plan 33-32): structural stylesheet checks
+
+Rows 47 and 112-113, 128-134 kept their node ids but no longer assert with a regex, `in` test
+or str search over the served stylesheet's text (33-FOLLOWUPS.md F-01). They parse it with
+`companion_markup` instead: `declarations_for()` in a named at-rule context replaces every
+fixed-width text window and `index()` slice, `rule_indices()` replaces the `str.index()`
+source-order comparisons (rows 47, 130), and `at_rule_blocks()` counts the one
+`@supports selector(:has(*))` block and the one `@keyframes skypane-bar-arrive` block (rows 129,
+130, 134). Rows 112 and 113 drop only their sub-clauses that asserted stylesheet COMMENTS (the
+superseded-contract prose, the dated paragraphs, the "still mentioned in prose" probes):
+C: asserted a stylesheet comment; no rendered behaviour. Both rows stay `ported`: the selector
+checks that carry their behaviour are unchanged.

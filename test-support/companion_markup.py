@@ -38,7 +38,9 @@ __all__ = [
     "css_rules",
     "declarations_for",
     "rules_with_selector",
+    "rule_indices",
     "keyframes",
+    "at_rule_blocks",
     "custom_properties",
     "strip_js_comments_and_strings",
 ]
@@ -435,18 +437,19 @@ def _parse_declarations(body):
     return declarations
 
 
-def _walk_css(tokens, at_rules, rules, keyframe_names):
+def _walk_css(tokens, at_rules, rules, keyframe_names, blocks):
     for token in tokens:
         if token[0] == "stmt":
             continue
         _, prelude, body = token
         if prelude.startswith("@"):
+            blocks.append(_normalise(prelude))
             at_keyword = prelude.split(None, 1)[0].lower()
             if at_keyword == "@keyframes":
                 keyframe_names.add(prelude[len("@keyframes"):].strip())
                 continue
             inner_tokens = _tokenize_css_top_level(body)
-            _walk_css(inner_tokens, at_rules + (_normalise(prelude),), rules, keyframe_names)
+            _walk_css(inner_tokens, at_rules + (_normalise(prelude),), rules, keyframe_names, blocks)
         else:
             rules.append(Rule(
                 selectors=_split_selector_list(prelude),
@@ -458,6 +461,7 @@ def _walk_css(tokens, at_rules, rules, keyframe_names):
 class _ParsedCSS(NamedTuple):
     rules: list
     keyframe_names: set
+    at_rule_blocks: list
 
 
 def _parse_css(css_text):
@@ -465,8 +469,9 @@ def _parse_css(css_text):
     tokens = _tokenize_css_top_level(stripped)
     rules = []
     keyframe_names = set()
-    _walk_css(tokens, (), rules, keyframe_names)
-    return _ParsedCSS(rules=rules, keyframe_names=keyframe_names)
+    blocks = []
+    _walk_css(tokens, (), rules, keyframe_names, blocks)
+    return _ParsedCSS(rules=rules, keyframe_names=keyframe_names, at_rule_blocks=blocks)
 
 
 def css_rules(css_text):
@@ -508,9 +513,35 @@ def rules_with_selector(css_text, selector):
     return [rule for rule in css_rules(css_text) if selector in rule.selectors]
 
 
+def rule_indices(css_text, selector, at_rules=None):
+    """Source-order positions, as indices into `css_rules(css_text)`, of
+    every rule whose selectors include `selector` exactly. With `at_rules`
+    given, only rules in exactly that at-rule context count. Comparing two
+    selectors' indices answers "which rule comes later", the tie-breaker
+    between declarations of equal specificity.
+    """
+    selector = _normalise(selector)
+    if at_rules is not None:
+        at_rules = tuple(_normalise(a) for a in at_rules)
+    return [
+        index for index, rule in enumerate(css_rules(css_text))
+        if selector in rule.selectors and (at_rules is None or rule.at_rules == at_rules)
+    ]
+
+
 def keyframes(css_text):
     """The set of ``@keyframes`` names declared in `css_text`."""
     return set(_parse_css(css_text).keyframe_names)
+
+
+def at_rule_blocks(css_text):
+    """The whitespace-normalised prelude of every at-rule block in
+    `css_text` (``@media``, ``@supports``, ``@keyframes``,
+    ``@starting-style``, ...), in source order, nested blocks included and
+    repeats kept, so a caller can count how many separate blocks share a
+    prelude. Comments are ignored.
+    """
+    return list(_parse_css(css_text).at_rule_blocks)
 
 
 def custom_properties(css_text, selector=":root", at_rules=()):

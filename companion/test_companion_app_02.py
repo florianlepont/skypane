@@ -70,6 +70,12 @@ def served_css(app02_server):
     return served_stylesheet(app02_server)
 
 
+def _class_is_styled(css, cls):
+    """True when some parsed rule's selector names the class `cls`."""
+    token = re.compile(r"\.%s(?![-\w])" % re.escape(cls))
+    return any(token.search(selector) for rule in css_rules(css) for selector in rule.selectors)
+
+
 # ==========================================================================
 # The hamburger dropdown / bottom tab bar (retargeted repeatedly by
 # 22-14-PLAN.md Task 2, X9/D-10)
@@ -127,8 +133,10 @@ def test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar(served_css):
         "expected exactly two dot occurrences (one per nav renderer) regardless of the "
         "active tab")
 
-    assert layout.NAV_NOTIFICATION_CLASS in served_css, "expected the notification class to be styled"
-    assert "visually-hidden" in served_css, "expected the visually-hidden utility class to be styled"
+    assert _class_is_styled(served_css, layout.NAV_NOTIFICATION_CLASS), (
+        "expected the notification class to be styled")
+    assert _class_is_styled(served_css, "visually-hidden"), (
+        "expected the visually-hidden utility class to be styled")
 
 
 def test_hidden_form_control_floor_and_global_floor_both_survive(served_css):
@@ -140,11 +148,12 @@ def test_hidden_form_control_floor_and_global_floor_both_survive(served_css):
     # `input, select` rule's 44px minimums are separately cleared for
     # it — a rule that only asserts the new clearing rule would still
     # pass after someone deleted the global 44px floor site-wide.
-    assert "input.visually-hidden" in served_css, (
-        "expected an input.visually-hidden (or select.visually-hidden) rule clearing the "
-        "global 44px touch-target floor off hidden form controls (the runway radio's own "
-        "utility class is otherwise clamped back up to 44x44 by the global input/select "
-        "rule below)")
+    for hidden_control in ("input.visually-hidden", "select.visually-hidden"):
+        cleared = declarations_for(served_css, hidden_control)
+        assert cleared.get("min-height") == "0" and cleared.get("min-width") == "0", (
+            "expected a %s rule clearing the global 44px touch-target floor off hidden form "
+            "controls (the runway radio's own utility class is otherwise clamped back up to "
+            "44x44 by the global input/select rule below), got %r" % (hidden_control, cleared))
     global_declarations = declarations_for(served_css, "select")
     for declaration, expected in (("min-height", "44px"), ("min-width", "44px")):
         assert global_declarations.get(declaration) == expected, (
@@ -242,7 +251,8 @@ def test_three_file_nav_dom_contract_guard(app02_server, served_css):
     for cls in (
             "site-nav-toggle", "mobile-nav", "mobile-nav--open",
             "mobile-nav__link", "tab-bar", "tab-bar__link"):
-        assert cls in served_css, "DOM contract drift: %r is not styled in style.css" % cls
+        assert _class_is_styled(served_css, cls), (
+            "DOM contract drift: %r is not styled in style.css" % cls)
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     for literal in (layout.NAV_TOGGLE_ID, layout.MOBILE_NAV_ID):
         assert literal in doc, "DOM contract drift: %r is not rendered" % literal
@@ -298,8 +308,9 @@ def test_nav_dropdown_js_progressive_enhancement_state_machine(app02_server, ser
             "panel.hidden = true", "panel.hidden = false",
             "transitionend", "matchMedia", "prefers-reduced-motion"):
         assert needle in js, "nav-dropdown.js is missing %r" % needle
-    for needle in (".js .mobile-nav {", ".js .mobile-nav--open {"):
-        assert needle in served_css, "style.css is missing %r" % needle
+    for selector in (".js .mobile-nav", ".js .mobile-nav--open"):
+        assert declarations_for(served_css, selector), (
+            "style.css is missing a top-level %r rule" % selector)
 
 
 _TAB_BAR_DEVICE_CFG = {"display_enabled": True, "quiet_hours_enabled": False}
