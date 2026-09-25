@@ -1,8 +1,8 @@
 """Self-tests for companion/conftest.py's shared app-server fixtures and
-test-support/companion_app_server.py (33-02-PLAN.md Task 2, TST-10).
-Proves the behaviour every later migration plan relies on: real
-subprocess lifecycle, process-group teardown, the no-network child
-environment, the fake-providers plumbing, and the in-process variant.
+test-support/companion_app_server.py. Proves the behaviour every other
+test module relies on: real subprocess lifecycle, process-group
+teardown, the no-network child environment, the fake-providers
+plumbing, and the in-process variant.
 """
 import os
 import textwrap

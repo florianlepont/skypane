@@ -1,5 +1,5 @@
-"""The TST-10/12/13/14 behaviour-over-source-text guard: a meta-test that
-fails if a migrated companion test module reads a `.planning`/UI-SPEC
+"""The behaviour-over-source-text guard: a meta-test that
+fails if a companion test module reads a `.planning`/UI-SPEC
 file, reads a production source file as text, inspects source with
 `inspect`/`ast`/`tokenize`/`linecache`, reads a `__doc__`, redefines the
 shared `Harness`/`http_request`/`_NoRedirectHandler` machinery, writes

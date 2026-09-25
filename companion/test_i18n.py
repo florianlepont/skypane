@@ -7,17 +7,16 @@ membership-tested degrade-to-default contract, the catalogue's
 completeness against its own sibling modules, a self-consistency sweep
 over every catalogue entry (non-empty, placeholder parity, no value
 identical to its own English key outside a documented cognate list, the
-two D-09 typographic copy rules), an import-boundary proof that
+two typographic copy rules), an import-boundary proof that
 companion.i18n/companion.prefs never pull in companion.pages or the
 server package, and a real render of every authenticated page (plus the
 login, 404 and calendar-disconnect-confirm pages) in French against a
 running service.
 
-The completeness/dead-translation/attribute-literal/JS-fallback checks
-this file used to run as ast/regex scans over production source files
-are gone: proving "every user-visible string has a translation" by
-reading source text is exactly what TST-12 retires from this suite. What
-replaces that guarantee is behavioural: the catalogue's own internal
+This file never scans production source files as text: proving "every
+user-visible string has a translation" by reading source text is
+exactly what this suite's guard forbids. The guarantee is behavioural
+instead: the catalogue's own internal
 consistency (no empty value, matching %s/%d/{...} placeholders between a
 key and its translation, a working round trip through t_lang()) plus the
 real French page renders below, which are the direct proof that what a
@@ -263,7 +262,7 @@ def test_calendar_disconnect_confirm_page_renders_in_french(french_render_server
 
 
 # ==========================================================================
-# D-09's two mechanical copy rules, checked over every catalogue value
+# Two mechanical copy rules, checked over every catalogue value
 # directly (the imported dict, never source text).
 # ==========================================================================
 
