@@ -49,7 +49,7 @@ check_static() {
         if grep -vE '^[[:space:]]*#' "${f}" | grep -qE '^CONFIG_SKYPANE_ALLOW_HTTP=y'; then
             fail "${f} enables CONFIG_SKYPANE_ALLOW_HTTP"
         fi
-        if grep -vE '^[[:space:]]*#' "${f}" | grep -qE '^CONFIG_SKYPANE_FAULT_INJECT_(PANIC|TASK_WDT|INT_WDT|SLOW_WAKE)=y'; then
+        if grep -vE '^[[:space:]]*#' "${f}" | grep -qE '^CONFIG_SKYPANE_FAULT_INJECT_(PANIC|TASK_WDT|INT_WDT|SLOW_WAKE|NVS)=y'; then
             fail "${f} enables a CONFIG_SKYPANE_FAULT_INJECT_* option"
         fi
     done

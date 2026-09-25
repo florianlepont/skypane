@@ -84,7 +84,7 @@ Files in `firmware/` that are not vendored from upstream at all:
   `.git` bind-mounted) and passes it into the container build as
   `-DPROJECT_VER`; adds `SKYPANE_PROFILE=prod|dev` (selects
   `build-ee02`/`build-ee02-dev` and whether `sdkconfig.dev.defaults` is
-  layered on) and `SKYPANE_FAULT=none|panic|task_wdt|int_wdt|slow_wake`
+  layered on) and `SKYPANE_FAULT=none|panic|task_wdt|int_wdt|slow_wake|nvs`
   (refused outside `dev` at exit 2, before Docker even starts); every
   `build` action wipes the local `sdkconfig` first so a stale file can
   never carry a dev/fault option into a production image.
@@ -175,6 +175,13 @@ Files in `firmware/` that are not vendored from upstream at all:
   deferred → panel wait + 5 s when shorter; a zero server `sleep_s` is
   always treated as a failure, under every outcome, so no path can arm a
   zero-second timer wake). Introduced in plan `34-02` (FW-06).
+- `main/nvs_boot.h` / `main/nvs_boot.c` — SkyPane-original, not
+  vendored; upstream aborts on an NVS init failure. The boot-time NVS
+  decision extracted from `app_main.c` into pure, tested functions: erase
+  and retry once only on the two partition-layout codes, treat every
+  other failure as unusable, and sleep the fixed first backoff step
+  (300 s) with the radio off instead of aborting, so a partition that
+  keeps failing can no longer hot-loop the chip.
 - `main/wake_guard.h` / `main/wake_guard.c` — SkyPane-original, not
   vendored; upstream has neither a whole-wake budget nor a task watchdog
   wired to one. The `esp_timer` + `esp_task_wdt` glue arming
@@ -228,6 +235,7 @@ Files in `firmware/` that are not vendored from upstream at all:
   `tests/test_sleep_decision.c` — SkyPane-original host tests for the
   three plan-`34-02` pure modules above, discovered automatically by
   `run_host_tests.sh`'s naming convention.
+- `tests/test_nvs_boot.c` — SkyPane-original host test for `nvs_boot.c`.
 - `tests/test_validate.c` — SkyPane-original host test for `validate.c`,
   introduced in plan `34-01`, extended in plan `34-06` with the HTTP-status
   classifier cases.
@@ -338,7 +346,7 @@ silently breaks every hardware verification plan downstream (see
 |---|---|
 | Every wake | `wake reason=<rtc\|power-on\|button\|other> boot_count=<n>` |
 | Successful poll (refreshed, unchanged, or a deferred draw — see `state_machine.c`'s deferred-≠-failed rule) | `poll ok sleep_s=<n> hash_skip=<0\|1>` |
-| Failed poll | `poll fail step=<wifi\|http\|status\|json\|download\|verify\|blit\|auth\|enrol\|secret\|config\|reset\|deadline> backoff_n=<n> sleep_s=<n>` |
+| Failed poll | `poll fail step=<wifi\|http\|status\|json\|download\|verify\|blit\|auth\|enrol\|secret\|config\|reset\|deadline\|nvs> backoff_n=<n> sleep_s=<n>` |
 | Successful blit | `blit ok bytes=960000 sha256_ok=1` |
 | Immediately before sleeping | `sleep enter sleep_s=<n>` |
 
@@ -352,8 +360,8 @@ three values (`wifi`, `http`, `status`): plan `01-05` (Task 3) added the
 image-verification/download/blit path, and this phase's device-side work
 (plans `34-06` and `34-08`) added six more. The full set a device can emit
 today, in the exact spelling the code uses, is
-`wifi|http|status|json|download|verify|blit|auth|enrol|secret|config|reset|deadline`
-(13 values; `firmware/tests/check_log_contract.sh` proves every one the
+`wifi|http|status|json|download|verify|blit|auth|enrol|secret|config|reset|deadline|nvs`
+(14 values; `firmware/tests/check_log_contract.sh` proves every one the
 code can actually produce is listed here). What each of the six phase-34
 additions means:
 
@@ -377,6 +385,13 @@ additions means:
 - **`deadline`** — the whole-wake budget (`CONFIG_SKYPANE_WAKE_BUDGET_S`,
   default 300 s) expired before the poll finished — a hang the 60 s task
   watchdog either didn't catch or isn't the right mechanism for (FW-02).
+- **`nvs`** — NVS could not be brought up at boot (`nvs_flash_init()`
+  failed with an ordinary error, still failed after the one erase the
+  two layout codes allow, or `nvs_open()` failed). The failure counter
+  lives in NVS, so this line always reads `backoff_n=0` and the device
+  sleeps a fixed 300 s (`fp_nvs_fail_sleep_s()`, `nvs_boot.h`) without
+  the radio starting and without the NO CONNECTION screen. It is logged
+  before the `wake reason=` line, which needs NVS for `boot_count`.
 
 ## Diagnostic lines (outside the contract)
 
@@ -389,13 +404,14 @@ something the contract itself needs.
 
 | Tag | Line shape | Meaning |
 |---|---|---|
+| `fp_boot` | `nvs unusable err=<name>` | NVS could not be brought up at boot; `<name>` is `esp_err_to_name()` of the failing call. Logged immediately before the `poll fail step=nvs` contract line. |
 | `fp_boot` | `reset reason=<label>` | The classified reset reason (`fp_reset_label()`, `reset_reason.c`), logged once per boot immediately after the `wake reason=` contract line and before the abnormal-reset backoff check runs. Introduced in plan `34-08` (FW-01). |
 | `fp_diag` | `wake timing total_ms=<n> wifi_ms=<n> setup_ms=<n> display_ms=<n> download_ms=<n> draw_ms=<n>` | Per-stage wall-clock breakdown of the whole wake, logged immediately before every `sleep enter` line. A stage this wake never reached (for example every field on a deadline-triggered sleep that never got past Wi-Fi) reads 0. Introduced in plan `34-08` (FW-10). |
 | `fp_api` | `http connects=<n> first_connect_ms=<n> tls_offered=<0\|1> tls_saved_len=<n>` | Logged once per wake, in `fp_api_release()`: how many real TCP+TLS connects this wake made (`1` means the keep-alive connection held for the whole wake), how long the first one took, and whether a saved TLS session was offered to the transport / how large the session this wake saved was. Introduced in plan `34-09` (FW-10). |
 | `fp_tls` | `offering a saved TLS session (<n> bytes)` | A session saved by a previous wake was handed to the transport before this wake's first connect (best effort — the server may still decline the resumption and fall back to a full handshake). Introduced in plan `34-09` (FW-10). |
 | `fp_tls` | `TLS session saved (<n> bytes)` | This wake's TLS session was persisted to RTC memory for the next wake to offer. Introduced in plan `34-09` (FW-10). |
 | `fp_batt` | `battery mv=<pack> pin_mv=<pin>` | The battery reading, taken before Wi-Fi starts (FW-11): `pack` is the divider-converted pack voltage sent as `X-Battery-Mv`; `pin_mv` is the rounded mean of 8 calibrated ADC samples (`battery_math_average_mv()`) as of plan `34-07`, not a single sample as it was through Phase 5. Introduced Phase 5 (DEVICE-04, plan `05-03`). `hardware/logtools.py`'s `check-battery` reads captured stub/production-server stdout, not this device-console line, so the two are deliberately distinct tokens — a device-console capture can never be confused for a server-log capture. |
-| `fp_fault` | `SKYPANE-FAULT-INJECT <name>` | Bench-only: logged once, right after Wi-Fi connects, only when `CONFIG_SKYPANE_FAULT_INJECT_*` selects a non-`NONE` choice; `<name>` is one of `panic`, `task_wdt`, `int_wdt`, `slow_wake`. Compiled to nothing at all — not even this string — in a production build, the only build where `CONFIG_SKYPANE_FAULT_INJECT_NONE` is legal; `check_production_config.sh built` greps a finished binary for this exact string and fails the build if it is present. Introduced in plan `34-08`. |
+| `fp_fault` | `SKYPANE-FAULT-INJECT <name>` | Bench-only: logged once, right after Wi-Fi connects (for `nvs`, right after `nvs_flash_init()`), only when `CONFIG_SKYPANE_FAULT_INJECT_*` selects a non-`NONE` choice; `<name>` is one of `panic`, `task_wdt`, `int_wdt`, `slow_wake`, `nvs`. Compiled to nothing at all — not even this string — in a production build, the only build where `CONFIG_SKYPANE_FAULT_INJECT_NONE` is legal; `check_production_config.sh built` greps a finished binary for this exact string and fails the build if it is present. Introduced in plan `34-08`. |
 | `fp_diag` | `fault screen drawn step=<step> backoff_n=<n>` | `app_main.c`'s `maybe_draw_fault_screen()` successfully blitted the NO CONNECTION hold screen (DEVICE-06) and wrote the `FP_FAULT_SCREEN_HASH` sentinel to `FP_NVS_IMAGE_HASH`. Introduced in quick task `260924-u7n`. |
 | `fp_diag` | `fault screen deferred err=<name>` | `fp_panel_draw()` returned `ESP_ERR_TIMEOUT`/`ESP_ERR_INVALID_STATE` (the panel guard's refresh-spacing deferral, not a failure) — the sentinel is deliberately NOT written, so the next failing wake retries. Introduced in quick task `260924-u7n`. |
 | `fp_diag` | `fault screen failed err=<name>` | `fp_panel_draw()` returned any other error — no sentinel written, no extra backoff change. Introduced in quick task `260924-u7n`. |
