@@ -1098,7 +1098,7 @@ def test_freshness_js_breathes_only_from_the_loops_own_state(freshness_js, css_t
     # stop in a background tab.
     for owner, body_end in (
             ("function setState(state) {", "function clearState()"),
-            ("function clearState() {", "23-05-PLAN.md Task 2"),
+            ("function clearState() {", "function syncLiveDot()"),
             ("function startLoop() {", "function stopLoop()"),
             ("function stopLoop() {", "document.addEventListener")):
         assert owner in js, "expected %r in freshness.js" % (owner,)

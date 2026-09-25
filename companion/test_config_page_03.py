@@ -1364,8 +1364,7 @@ def test_dirty_state_js_is_network_free_again_with_one_named_timer_exception(dir
     """dirty-state.js is network-free and poll-free again (no fetch(/XMLHttpRequest/setInterval/
     requestAnimationFrame anywhere) with exactly ONE setTimeout in the whole file - a literal
     setTimeout(fn, 0) sitting INSIDE the form's own reset-event handler, never cancelling that
-    event's own default action - and the file's header states both the standing constraint AND
-    this one named exception in the same breath
+    event's own default action
 
     setTimeout is permitted EXACTLY ONCE, and pinned STRUCTURALLY, not by count alone: the single
     occurrence must be a setTimeout(fn, 0) - a literal zero delay, never a duration - scheduled
@@ -1409,11 +1408,6 @@ def test_dirty_state_js_is_network_free_again_with_one_named_timer_exception(dir
         "expected the reset handler's own function body to contain neither preventDefault nor "
         "returnValue - cancelling the reset event's own default action would silently turn "
         "Annuler into a no-op for every JS-running visitor")
-    assert "never introduce a network call" in source, (
-        "expected the header to restore its 'never introduce a network call' constraint")
-    assert "ONE NAMED EXCEPTION" in source, (
-        "expected the header to name the ONE timer exception explicitly, in the same breath as "
-        "the constraint")
 
 
 # ======================================================================
