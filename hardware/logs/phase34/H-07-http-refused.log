@@ -1,0 +1,29 @@
+I (447) wifi:state: assoc -> run (0x10)
+I (467) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (467) wifi:security: WPA2-PSK, phy: bgn, rssi: -37
+I (467) wifi:pm start, type: 1
+
+I (467) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (467) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (467) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1467) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1487) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (2607) fp_wifi: clock set via SNTP[0m
+[0;31mE (2607) fp_api: API base URL rejected (this build requires https)[0m
+[0;33mW (2627) skypane: poll fail step=config backoff_n=1 sleep_s=600[0m
+[0;32mI (2627) fp_diag: wake timing total_ms=2314 wifi_ms=2267 setup_ms=0 display_ms=0 download_ms=0 draw_ms=0[0m
+I (2627) wifi:state: run -> init (0x0)
+I (2627) wifi:pm stop, total sleep time: 1763986 us / 2159311 us
+
+I (2627) wifi:<ba-del>idx:0, tid:0
+I (2627) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (2677) wifi:flush txq
+I (2677) wifi:stop sw txq
+I (2677) wifi:lmac stop hw txq
+I (2677) wifi:Deinit lldesc rx mblock:10
+[0;32mI (4017) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (4017) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (4017) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (4017) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (4017) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (4017) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m

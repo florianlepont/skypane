@@ -1,0 +1,24 @@
+I (447) wifi:state: auth -> assoc (0x0)
+I (457) wifi:state: assoc -> run (0x10)
+I (467) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (467) wifi:security: WPA2-PSK, phy: bgn, rssi: -45
+I (477) wifi:pm start, type: 1
+
+I (477) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (477) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (557) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1477) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1487) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (3657) fp_wifi: clock set via SNTP[0m
+[0;33mW (4157) skypane: poll fail step=json backoff_n=6 sleep_s=19200[0m
+[0;32mI (4157) fp_diag: wake timing total_ms=3845 wifi_ms=3315 setup_ms=0 display_ms=484 download_ms=0 draw_ms=0[0m
+I (4157) wifi:state: run -> init (0x0)
+I (4157) wifi:pm stop, total sleep time: 3217652 us / 3683448 us
+
+I (4157) wifi:<ba-del>idx:0, tid:0
+I (4157) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (4197) wifi:flush txq
+I (4197) wifi:stop sw txq
+I (4197) wifi:lmac stop hw txq
+I (4197) wifi:Deinit lldesc rx mblock:10
+[0;32mI (4207) skypane: sleep enter sleep_s=19200[0m

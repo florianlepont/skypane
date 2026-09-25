@@ -1,0 +1,3 @@
+wrong secret, registered MAC: 401
+unregistered MAC: 403
+old shared secret: 401
