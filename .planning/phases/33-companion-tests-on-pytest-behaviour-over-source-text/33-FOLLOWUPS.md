@@ -61,7 +61,7 @@ Not a phase-33 code issue; report upstream (get-shit-done-cc
 
 ## F-03: Playwright's driver leaves empty temp dirs in /tmp
 
-**Status: OPEN (found in 33-33; predates Phase 33).** Every full run leaves two
+**Status: RESOLVED after 33-33** — `companion/conftest.py`'s session-autouse `_playwright_driver_tmpdir` points TMPDIR inside pytest's basetemp before the driver starts; `test_browser_policy.py::test_driver_temp_dirs_live_under_pytest_basetemp` proves it, and a full root run (2590 passed, 5 skipped) left the system temp dir's Playwright dir count unchanged (228 → 228). Original finding (found in 33-33; predates Phase 33): Every full run leaves two
 empty `playwright-artifacts-*` dirs and two empty `playwright_chromiumdev_profile-*`
 dirs in the system temp dir, owned by whichever user ran the suite. These are
 Playwright's own per-launch temp dirs, created by the Node driver under its

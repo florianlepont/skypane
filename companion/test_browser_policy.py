@@ -53,6 +53,16 @@ def test_non_loopback_navigation_blocked_in_extra_viewport_context(
     ctx.close()
 
 
+def test_driver_temp_dirs_live_under_pytest_basetemp(
+        page, _playwright_driver_tmpdir):
+    """Playwright's driver makes its per-launch artifacts dir under the
+    session TMPDIR companion/conftest.py points inside pytest's basetemp,
+    not under the system temp dir (33-FOLLOWUPS.md F-03).
+    """
+    names = os.listdir(_playwright_driver_tmpdir)
+    assert any(n.startswith("playwright-artifacts-") for n in names), names
+
+
 _PROBE_PYTEST_INI = "[pytest]\n"
 _PROBE_CONFTEST = 'pytest_plugins = ["companion.conftest"]\n'
 _PROBE_TEST = textwrap.dedent("""\
