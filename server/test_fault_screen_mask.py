@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Florian Lepont
 # SPDX-License-Identifier: Apache-2.0
-"""Quick task 260924-u7n (DEVICE-06): byte-for-byte drift test between
-`firmware/tools/gen_fault_screen.py`'s output and the committed
-`firmware/main/fault_screen_mask.h` (T-u7n-03). If this fails, the header
-was hand-edited or `server/plane/render.py`'s `_build_no_connection_canvas`
-composition changed without regenerating it - the fix is always to rerun
-the generator, never to hand-patch the header.
+"""Byte-for-byte drift test between `firmware/tools/gen_fault_screen.py`'s
+output and the committed `firmware/main/fault_screen_mask.h`. If this
+fails, the header was hand-edited or `server/plane/render.py`'s
+`_build_no_connection_canvas` composition changed without regenerating
+it - the fix is always to rerun the generator, never to hand-patch the
+header.
 
 Loads the generator module via `importlib.util.spec_from_file_location`
 (not a package import) because `firmware/tools/` is not part of the
-`server` package and has no `__init__.py` - this is the same loading
-technique the plan calls for, and it keeps the generator itself free of
-any package-layout assumption.
+`server` package and has no `__init__.py`, keeping the generator itself
+free of any package-layout assumption.
 """
 import importlib.util
 import os

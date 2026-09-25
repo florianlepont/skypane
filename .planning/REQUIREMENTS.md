@@ -378,7 +378,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FW-13 | Phase 34 | Pending |
 | FW-14 | Phase 34 | Pending |
 | FW-15 | Phase 34 | Pending |
-| HYG-01 | Phase 35 | Pending |
+| HYG-01 | Phase 35 | In progress (server group done) |
 | HYG-02 | Phase 35 | Pending |
 | HYG-03 | Phase 35 | Pending |
 | HYG-04 | Phase 35 | Complete |

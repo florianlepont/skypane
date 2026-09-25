@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Contract tests for server/plane/dither.py's full-6-color palette dither
-helper (D-25/D-26, PLANE-01/PLANE-02).
+helper.
 
 dither.py transitively imports Pillow, so this module must be run under
 server/.venv's interpreter, not the bare system python3.
 
-Phase 3 D-21 (03-CONTEXT.md): this module's earlier two-tone dithered
-"mood background" (`build_mood_background()`, D-17/D-18) was retired when
-the active-state background became a flat single-color fill - this module
-no longer tests it. Only `panel_palette_image()`/`dither_to_full_panel_palette()`
-survive, now reused by render.py's real-illustration compositing path.
+This module's earlier two-tone dithered "mood background"
+(`build_mood_background()`) was retired when the active-state background
+became a flat single-color fill - this module no longer tests it. Only
+`panel_palette_image()`/`dither_to_full_panel_palette()` survive, now
+reused by render.py's real-illustration compositing path.
 
 Note: Pillow's Image.getcolors() returns (count, value) pairs - count
 first, value second.
@@ -35,8 +35,8 @@ def _index_set(canvas):
 
 def test_panel_palette_image_is_unpadded():
     """panel_palette_image() carries exactly PALETTE_RGB's 6 entries, unpadded."""
-    # 03-RESEARCH.md Pitfall 2: a zero-padded filler entry (padded to 256)
-    # can win nearest-neighbour matching for near-black source pixels.
+    # A zero-padded filler entry (padded to 256) can win
+    # nearest-neighbour matching for near-black source pixels.
     img = dither.panel_palette_image()
     palette = img.getpalette()
     expected = list(pf.PALETTE_RGB)
@@ -91,9 +91,9 @@ def test_calibration_preview_writes_exactly_one_palette_swatch_png_and_returns_i
 
 
 def test_build_mood_background_no_longer_exists_on_server_plane_dither():
-    """build_mood_background() no longer exists on server.plane.dither (D-21 retirement)."""
-    # A live-drift check that the D-21 retirement was actually completed,
-    # not just intended.
+    """build_mood_background() no longer exists on server.plane.dither."""
+    # A live-drift check that the retirement was actually completed, not
+    # just intended.
     assert not hasattr(dither, "build_mood_background"), (
         "dither.build_mood_background() still exists - D-21 retired it, this must be dead code left behind"
     )

@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Contract tests for server/poll_loop.py's two-deep flight history (D-25,
-03-CONTEXT.md decisions_addendum_2) - the engineering consequence of the
-current+previous two-flight poster layout: a genuinely new detection
-(different ICAO hex) must shift the old "current" flight down into
-"previous" before being overwritten; re-detecting the same aircraft must
-not shift anything.
+"""Contract tests for server/poll_loop.py's two-deep flight history - the
+engineering consequence of the current+previous two-flight poster layout:
+a genuinely new detection (different ICAO hex) must shift the old
+"current" flight down into "previous" before being overwritten;
+re-detecting the same aircraft must not shift anything.
 
 Also covers cross-cycle persistence of the unresolved-ICAO-prefix
-registry (quick task 260827-oz9): that a registry entry survives the
-process boundary between two separate `run_once()` invocations against the
-same state directory, that a recognized-airline cycle leaves it untouched,
-and that the poll line's `unknown_prefix=` field names the recorded prefix
-on a miss cycle and reads `None` on a covered cycle.
+registry: that a registry entry survives the process boundary between
+two separate `run_once()` invocations against the same state directory,
+that a recognized-airline cycle leaves it untouched, and that the poll
+line's `unknown_prefix=` field names the recorded prefix on a miss cycle
+and reads `None` on a covered cycle.
 
 It also covers the BOUNDED-AGE PENDING QUEUE (mechanism-C mitigation) that
 paces how fast the "current" slot advances: the server re-renders every
@@ -46,9 +45,9 @@ staleness window costs no wall-clock time and the outcome is
 deterministic.
 
 Every run_once() cycle in this module stubs enrich.default_transport (the
-`_stub_adsbdb` autouse fixture) - no test reaches the real network
-(MR-7); a test needing a specific adsbdb response overrides the stub
-locally via `monkeypatch`.
+`_stub_adsbdb` autouse fixture) - no test reaches the real network; a
+test needing a specific adsbdb response overrides the stub locally via
+`monkeypatch`.
 """
 import contextlib
 import hashlib
@@ -71,8 +70,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 # pyproject.toml's pythonpath puts test-support/ on sys.path for a normal
-# `pytest` invocation; the legacy-runner bridge below (MR-3) executes this
-# file directly instead, so the same directory is added here too.
+# `pytest` invocation; the legacy-runner bridge below executes this file
+# directly instead, so the same directory is added here too.
 _TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
 if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
@@ -110,8 +109,8 @@ CLOCK_BASE = 1_700_000_000.0
 # from this constant (irrelevant to what any single test below exercises).
 CLIMB = 2400
 
-# 20-05-PLAN.md: the battery/silence notification-transition tests below
-# call poll_loop._notify_battery_transition()/_notify_silence_transition()
+# The battery/silence notification-transition tests below call
+# poll_loop._notify_battery_transition()/_notify_silence_transition()
 # directly with an injected _FakeSender - the private helpers both
 # call sites in run_once() invoke - never a real POST.
 _NOTIFY_TOPIC_URL = "https://ntfy.sh/skypane-test-topic"
@@ -135,8 +134,8 @@ def _tick(clock, seconds):
 
 def _wake_epoch_rows(state_dir):
     """The wake_epochs table's own (ts, wake_interval_s) rows, oldest
-    first - the 24-03-PLAN.md (CFG-43) history-write path pins that a row
-    is written only on a genuine interval CHANGE, never once per cycle.
+    first - the history-write path pins that a row is written only on a
+    genuine interval CHANGE, never once per cycle.
     """
     with poll_loop.history_db.open_db(state_dir) as conn:
         return [
@@ -165,7 +164,7 @@ def clock(monkeypatch):
     """A fresh fake clock per test (dict-backed, starting at CLOCK_BASE),
     installed in place of `poll_loop.now_s()` - deterministic pacing/
     staleness arithmetic with no dependency on test execution order or
-    wall-clock time (MR-6: monkeypatch, never manual save/restore).
+    wall-clock time (monkeypatch, never manual save/restore).
     """
     fake_clock = {"t": CLOCK_BASE}
     monkeypatch.setattr(poll_loop, "now_s", lambda: fake_clock["t"])
@@ -184,7 +183,7 @@ def _stub_adsbdb(monkeypatch, fake_providers):
     additionally monkeypatched straight to a hard miss, mirroring every
     locally-scoped override below (which shadows this default when a test
     needs a specific adsbdb response, e.g. a manual-resolution "fresh_hit"
-    scenario). Per MR-7 no test in this module may reach the real network.
+    scenario). No test in this module may reach the real network.
     """
     monkeypatch.setattr(enrich, "default_transport", lambda callsign, timeout=None: (404, None))
     return fake_providers
@@ -212,7 +211,7 @@ def _snapshot(hex_code, callsign, baro_rate):
 
 
 def _empty_snapshot():
-    """No aircraft detected this cycle - exercises the D-04 hold branch
+    """No aircraft detected this cycle - exercises the hold branch
     (`elif last_flight is not None:`) when a flight is already on screen.
     """
     return {"ac": []}
@@ -227,10 +226,10 @@ def _write_battery_state(state_dir, mv):
         json.dump({"battery_mv": mv, "received_at": 1.0}, fh)
 
 
-# 20-05-PLAN.md: the transition-hook tests below (both tasks) never
-# perform a real POST - every one injects this fake in place of
-# server.notify.send_notification, recording each call's (topic_url,
-# title, body) rather than reaching a network.
+# The transition-hook tests below never perform a real POST - every one
+# injects this fake in place of server.notify.send_notification,
+# recording each call's (topic_url, title, body) rather than reaching a
+# network.
 class _FakeSender:
     def __init__(self, result=True, raises=None):
         self.calls = []
@@ -265,12 +264,12 @@ def _seed_device_health(poll_loop, state_dir, ts_iso, battery_mv=None):
         poll_loop.history_db.record_device_health(conn, ts_iso, battery_mv=battery_mv)
 
 
-# Phase 16, plan 07: a real airline/far-end pair the calendar tests reuse
-# across every scenario below - TVF/TO (Transavia France) is the exact
-# ICAO/IATA pair 16-CONTEXT.md's measured findings and calendar_rules.py's
-# own docstring already cite, and enrich._ICAO_AIRLINE_PREFIXES already
-# maps "TVF" to "Transavia France" (the airline_only/prefix-fallback path
-# one test below exercises), so nothing here invents a fictitious carrier.
+# A real airline/far-end pair the calendar tests reuse across every
+# scenario below - TVF/TO (Transavia France) is the exact ICAO/IATA pair
+# calendar_rules.py's own docstring already cites, and
+# enrich._ICAO_AIRLINE_PREFIXES already maps "TVF" to "Transavia France"
+# (the airline_only/prefix-fallback path one test below exercises), so
+# nothing here invents a fictitious carrier.
 _CAL_ICAO_PREFIX = "TVF"
 _CAL_AIRLINE_IATA = "TO"
 _CAL_ORIGIN_IATA = "ORY"
@@ -304,7 +303,7 @@ def _seed_calendar_cache(poll_loop, state_dir, callsign, origin_iata=_CAL_ORIGIN
 
 
 def _calendar_entry(reference_time, origin_iata=_CAL_ORIGIN_IATA, destination_iata=_CAL_DESTINATION_IATA, duration_s=5400.0):
-    """One D-01-shaped calendar registry entry, matching `reference_time`
+    """One calendar registry entry, matching `reference_time`
     for a DEPARTING detection (`_seed_calendar_cache()`'s route departs
     `origin_iata` for `destination_iata`, so `start_at` - not `end_at` -
     is the reference `match_calendar_theme()` compares against).
@@ -343,7 +342,7 @@ def _digest_verdict(digest, expected):
 
 
 def test_two_deep_flight_history_sequence(tmp_path, monkeypatch, clock):
-    """A genuinely sequential scenario (MR-4): each cycle's outcome depends
+    """A genuinely sequential scenario: each cycle's outcome depends
     on the same state_dir's accumulated state from the previous cycle, so
     the five old checks below stay one pytest node id.
 
@@ -424,7 +423,7 @@ def test_two_deep_flight_history_sequence(tmp_path, monkeypatch, clock):
 
 
 def test_unresolved_prefix_registry_accumulates_across_cycles(tmp_path, clock):
-    """the unresolved-prefix registry accumulates across two separate run_once() cycles against the same state directory, read back from poll_state.json on disk between cycles (260827-oz9)"""
+    """the unresolved-prefix registry accumulates across two separate run_once() cycles against the same state directory, read back from poll_state.json on disk between cycles"""
     oz9_dir = _mkdir(tmp_path, "oz9")
     try:
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
@@ -450,7 +449,7 @@ def test_unresolved_prefix_registry_accumulates_across_cycles(tmp_path, clock):
 
 
 def test_recognized_airline_leaves_registry_untouched(tmp_path, clock):
-    """a cycle detecting a callsign whose prefix IS in _ICAO_AIRLINE_PREFIXES leaves unresolved_prefixes byte-identical - the registry is a list of gaps, not a log of every adsbdb miss (260827-oz9)"""
+    """a cycle detecting a callsign whose prefix IS in _ICAO_AIRLINE_PREFIXES leaves unresolved_prefixes byte-identical - the registry is a list of gaps, not a log of every adsbdb miss"""
     oz9_dir = _mkdir(tmp_path, "oz9")
     try:
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
@@ -469,7 +468,7 @@ def test_recognized_airline_leaves_registry_untouched(tmp_path, clock):
 
 
 def test_journal_line_names_unknown_prefix(tmp_path, clock):
-    """the poll_loop: line's unknown_prefix= field names the recorded prefix on a miss cycle, reads None on a covered cycle, and every pre-existing field is still present (260827-oz9)"""
+    """the poll_loop: line's unknown_prefix= field names the recorded prefix on a miss cycle, reads None on a covered cycle, and every pre-existing field is still present"""
     oz9_dir = _mkdir(tmp_path, "oz9")
     try:
         buf = io.StringIO()
@@ -882,7 +881,7 @@ def test_load_battery_state_degrades_never_raises(tmp_path):
 
 
 def test_cross_cycle_persistence_and_hold_branch_rerender(tmp_path):
-    """the battery decision survives run_once()'s process boundary in poll_state.json, and the D-04 hold branch re-renders panel.bin exactly when the battery decision genuinely flips (not on every hold cycle, and even with no aircraft detected at all)"""
+    """the battery decision survives run_once()'s process boundary in poll_state.json, and the hold branch re-renders panel.bin exactly when the battery decision genuinely flips (not on every hold cycle, and even with no aircraft detected at all)"""
     d = _mkdir(tmp_path, "battery-d")
     try:
         panel_path = os.path.join(d, "panel.bin")
@@ -1355,9 +1354,8 @@ def test_digest_verdict_is_linux_strict_and_non_linux_informational(monkeypatch)
     # run_once(), no temp dir and no render - just two deliberately-
     # different 64-char hex stand-ins. Never mutates _DEFAULT_CONFIG_DIGEST,
     # never touches disk. `platform.system` is monkeypatched (not manually
-    # saved/restored, MR-6) to prove both branches of the REAL
-    # _digest_verdict() (not a copy of it) by forcing platform.system() at
-    # call time.
+    # saved/restored) to prove both branches of the REAL _digest_verdict()
+    # (not a copy of it) by forcing platform.system() at call time.
     sample = "a" * 64
     bogus = "b" * 64
 
@@ -1612,7 +1610,7 @@ def test_display_off_hold_is_noop_across_battery_transition(tmp_path, clock):
         # repaint (unlike the held branch below, where a
         # transition DOES force one) - nothing rendered mid-hold
         # can ever reach the glass.
-        # 3400 (quick task 260923-fr4): below BATTERY_LOW_THRESHOLD_MV
+        # 3400: below BATTERY_LOW_THRESHOLD_MV
         # (3500) and above BATTERY_CRITICAL_MV (3300) - still a
         # badge-only transition, never a park.
         _write_battery_state(off_dir, 3400)
@@ -1659,7 +1657,7 @@ def test_display_off_skips_ads_b_detection(tmp_path, monkeypatch, clock):
 
 
 def test_display_off_wins_over_active_quiet_hours_window(tmp_path, clock):
-    """the overlap: toggle off AND an active quiet-hours window renders DISPLAY OFF, not QUIET HOURS (D-05 display axis)"""
+    """the overlap: toggle off AND an active quiet-hours window renders DISPLAY OFF, not QUIET HOURS"""
     overlap_dir = _mkdir(tmp_path, "overlap")
     try:
         device_config.save_device_config(
@@ -1686,7 +1684,7 @@ def test_display_off_wins_over_active_quiet_hours_window(tmp_path, clock):
 
 
 def test_toggle_off_mid_window_produces_no_refresh(tmp_path, clock):
-    """D-07 hold-to-hold, direction one: switching the toggle off mid-window costs no e-ink refresh - the quiet screen stays up and the latch silently updates to 'display_off'"""
+    """hold-to-hold, direction one: switching the toggle off mid-window costs no e-ink refresh - the quiet screen stays up and the latch silently updates to 'display_off'"""
     transit_dir = _mkdir(tmp_path, "hold-to-hold-a")
     try:
         device_config.save_device_config(
@@ -1721,7 +1719,7 @@ def test_toggle_off_mid_window_produces_no_refresh(tmp_path, clock):
 
 
 def test_toggle_back_on_during_window_produces_no_refresh(tmp_path, clock):
-    """D-07 hold-to-hold, direction two: switching the toggle back on while a quiet-hours window is already active costs no e-ink refresh - the off screen stays up and the latch silently updates to 'quiet_hours'"""
+    """hold-to-hold, direction two: switching the toggle back on while a quiet-hours window is already active costs no e-ink refresh - the off screen stays up and the latch silently updates to 'quiet_hours'"""
     transit_dir = _mkdir(tmp_path, "hold-to-hold-b")
     try:
         device_config.save_device_config(transit_dir, display_enabled=False)
@@ -1854,7 +1852,7 @@ def test_display_enabled_is_inert(tmp_path, clock):
 
 
 def test_manual_registry_loaded_once_per_cycle_from_its_own_state_dir(tmp_path, clock):
-    """run_once() configures the manual-resolution registry from THIS cycle's own state_dir every cycle - a seeded prefix resolves after a cycle against its state dir, and a later cycle against a different, registry-less state dir leaves it unresolved again (D-01)"""
+    """run_once() configures the manual-resolution registry from THIS cycle's own state_dir every cycle - a seeded prefix resolves after a cycle against its state dir, and a later cycle against a different, registry-less state dir leaves it unresolved again"""
     seeded_dir = _mkdir(tmp_path, "manual-a")
     empty_dir = _mkdir(tmp_path, "manual-b")
     try:
@@ -1882,7 +1880,7 @@ def test_manual_registry_loaded_once_per_cycle_from_its_own_state_dir(tmp_path, 
 
 
 def test_manual_resolution_reaches_route_source_end_to_end(tmp_path, clock):
-    """a detected flight whose callsign carries a manually-registered prefix, with adsbdb returning nothing, is recorded with route_source == 'manual' and a route carrying the operator's airline name (D-01/D-02, end to end through a real run_once() cycle)"""
+    """a detected flight whose callsign carries a manually-registered prefix, with adsbdb returning nothing, is recorded with route_source == 'manual' and a route carrying the operator's airline name, end to end through a real run_once() cycle"""
     manual_dir = _mkdir(tmp_path, "manual-e2e")
     try:
         manual_resolutions.add_entry(manual_dir, "MRZ", "Meridian Air")
@@ -1903,7 +1901,7 @@ def test_manual_resolution_reaches_route_source_end_to_end(tmp_path, clock):
 
 
 def test_clear_resolved_unresolved_prefix_removes_resolvable_entry(tmp_path, clock):
-    """a cycle detecting a flight whose prefix is now resolvable via the manual registry removes that prefix's entry from unresolved_prefixes and persists the removal, leaving a still-unresolvable prefix's entry byte-identical (D-14)"""
+    """a cycle detecting a flight whose prefix is now resolvable via the manual registry removes that prefix's entry from unresolved_prefixes and persists the removal, leaving a still-unresolvable prefix's entry byte-identical"""
     d14a_dir = _mkdir(tmp_path, "d14-clear")
     try:
         seeded_still_unresolved = {
@@ -1940,7 +1938,7 @@ def test_clear_resolved_unresolved_prefix_removes_resolvable_entry(tmp_path, clo
 
 
 def test_clear_resolved_unresolved_prefix_is_independent_of_route_source(tmp_path, monkeypatch, clock):
-    """the D-14 cleanup removes a resolved prefix's entry even when this cycle's own route_source is 'fresh_hit' (adsbdb answered) - a route_source-gated implementation would fail exactly this check and no other (13-RESEARCH.md Pitfall 2)"""
+    """the resolved-prefix cleanup removes a prefix's entry even when this cycle's own route_source is 'fresh_hit' (adsbdb answered) - a route_source-gated implementation would fail exactly this check and no other"""
     monkeypatch.setattr(enrich, "default_transport", lambda callsign, timeout=None: (200, {
             "response": {
                 "flightroute": {
@@ -1992,7 +1990,7 @@ def test_clear_resolved_unresolved_prefix_is_independent_of_route_source(tmp_pat
 
 
 def test_battery_transition_never_flips_effective_theme_for_the_same_flight(tmp_path, monkeypatch, clock):
-    """a battery-icon repaint of the same flight (the held/re-render branch) reports the identical effective_theme the flight-detected branch already reported, and both are the matching rule's theme rather than the base theme - proving a battery-icon repaint can never flip the panel's colour (D-13, 15-VALIDATION.md row 8)"""
+    """a battery-icon repaint of the same flight (the held/re-render branch) reports the identical effective_theme the flight-detected branch already reported, and both are the matching rule's theme rather than the base theme - proving a battery-icon repaint can never flip the panel's colour"""
     import server.plane.render as render
 
     d13_dir = _mkdir(tmp_path, "d13-both")
@@ -2024,7 +2022,7 @@ def test_battery_transition_never_flips_effective_theme_for_the_same_flight(tmp_
         # BATTERY_LOW_THRESHOLD_MV forces the held branch's
         # guarded re-render of the SAME flight from
         # current_route, with nothing about the flight itself
-        # changing. 3400 (quick task 260923-fr4): below the
+        # changing. 3400: below the
         # 3500 badge threshold, above BATTERY_CRITICAL_MV
         # (3300) - a badge-only transition, never a park.
         _write_battery_state(d13_dir, 3400)
@@ -2061,7 +2059,7 @@ def test_battery_transition_never_flips_effective_theme_for_the_same_flight(tmp_
 
 
 def test_nothing_ever_detected_ignores_rule_and_override(tmp_path, clock):
-    """the nothing-ever-detected empty-state call site reports effective_theme == the base theme, never consulting a configured rule or the arrivals override (D-09, 15-VALIDATION.md row 9)"""
+    """the nothing-ever-detected empty-state call site reports effective_theme == the base theme, never consulting a configured rule or the arrivals override"""
     b1_dir = _mkdir(tmp_path, "d13-flightless-a")
     try:
         colour_rules.add_rule(b1_dir, colour_rules.RULE_KIND_CALLSIGN, "SNK4444", "black")
@@ -2080,7 +2078,7 @@ def test_nothing_ever_detected_ignores_rule_and_override(tmp_path, clock):
 
 
 def test_held_branch_with_no_confirmed_state_ignores_rule_and_override(tmp_path, clock):
-    """the held branch's own empty-state call site (a persisted flight whose confirmed_state never resolved) reports effective_theme == the base theme, even though a rule configured to match that flight's own callsign is present (D-09, 15-VALIDATION.md row 9)"""
+    """the held branch's own empty-state call site (a persisted flight whose confirmed_state never resolved) reports effective_theme == the base theme, even though a rule configured to match that flight's own callsign is present"""
     b2_dir = _mkdir(tmp_path, "d13-flightless-b")
     try:
         colour_rules.add_rule(b2_dir, colour_rules.RULE_KIND_CALLSIGN, "SNK5555", "black")
@@ -2100,10 +2098,9 @@ def test_held_branch_with_no_confirmed_state_ignores_rule_and_override(tmp_path,
         # Second cycle: nothing detected. Force the held branch's
         # transition gate open via a battery change, exactly as
         # the both-branches invariant does, so its empty-state
-        # call site actually runs this cycle. 3400 (quick task
-        # 260923-fr4): below the 3500 badge threshold, above
-        # BATTERY_CRITICAL_MV (3300) - a badge-only transition,
-        # never a park.
+        # call site actually runs this cycle. 3400: below the 3500
+        # badge threshold, above BATTERY_CRITICAL_MV (3300) - a
+        # badge-only transition, never a park.
         _write_battery_state(b2_dir, 3400)
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
         result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=b2_dir, geofence=GEOFENCE_PATH)
@@ -2119,7 +2116,7 @@ def test_held_branch_with_no_confirmed_state_ignores_rule_and_override(tmp_path,
 
 
 def test_hold_early_return_ignores_rule_and_override(tmp_path, clock):
-    """the hold early-return's result dict reports effective_theme == the base theme under display-off, even with a matching rule, an arrivals override, and a pre-hold flight persisted in poll_state.json (D-09, 15-VALIDATION.md row 9)"""
+    """the hold early-return's result dict reports effective_theme == the base theme under display-off, even with a matching rule, an arrivals override, and a pre-hold flight persisted in poll_state.json"""
     b3_dir = _mkdir(tmp_path, "d13-flightless-c")
     try:
         colour_rules.add_rule(b3_dir, colour_rules.RULE_KIND_CALLSIGN, "SNK6666", "black")
@@ -2144,7 +2141,7 @@ def test_hold_early_return_ignores_rule_and_override(tmp_path, clock):
 
 
 def test_direction_sensitivity_through_the_real_loop(tmp_path, clock):
-    """with no rule but an arrivals override configured, run_once() reports the override as effective_theme for a detected arriving flight and the base theme for a detected departing flight (D-04, proved end to end through the real poll loop)"""
+    """with no rule but an arrivals override configured, run_once() reports the override as effective_theme for a detected arriving flight and the base theme for a detected departing flight, proved end to end through the real poll loop"""
     c_dir_arr = _mkdir(tmp_path, "d13-direction-arr")
     c_dir_dep = _mkdir(tmp_path, "d13-direction-dep")
     try:
@@ -2175,7 +2172,7 @@ def test_direction_sensitivity_through_the_real_loop(tmp_path, clock):
 
 
 def test_colour_rules_registry_reloaded_every_cycle_from_its_own_state_dir(tmp_path, clock):
-    """a colour rule added to the state dir AFTER one run_once() cycle is picked up by the very next cycle - proving the registry is primed every cycle, not cached once per process (D-13/T-15-02)"""
+    """a colour rule added to the state dir AFTER one run_once() cycle is picked up by the very next cycle - proving the registry is primed every cycle, not cached once per process"""
     d_dir = _mkdir(tmp_path, "d13-priming")
     try:
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
@@ -2199,7 +2196,7 @@ def test_colour_rules_registry_reloaded_every_cycle_from_its_own_state_dir(tmp_p
 
 
 def test_calendar_match_survives_a_battery_repaint_past_its_own_window(tmp_path, monkeypatch, clock):
-    """a battery-icon repaint of a calendar-matched flight, hours after the calendar entry's own time window has closed, reports the identical effective_theme the flight-detected branch already reported - the calendar theme, not the base theme - proving the held branch reuses the persisted match rather than recomputing one against the moved clock (D-13, T-16-BRANCH, 16-VALIDATION.md poll-loop row)"""
+    """a battery-icon repaint of a calendar-matched flight, hours after the calendar entry's own time window has closed, reports the identical effective_theme the flight-detected branch already reported - the calendar theme, not the base theme - proving the held branch reuses the persisted match rather than recomputing one against the moved clock"""
     import server.plane.render as render
 
     cal1_dir = _mkdir(tmp_path, "cal-both")
@@ -2229,7 +2226,7 @@ def test_calendar_match_survives_a_battery_repaint_past_its_own_window(tmp_path,
         # branch would find no candidate this far out and
         # silently fall back to the base theme, passing a
         # same-minute test and failing only this one. 3400
-        # (quick task 260923-fr4): below the 3500 badge
+        #: below the 3500 badge
         # threshold, above BATTERY_CRITICAL_MV (3300) - a
         # badge-only transition, never a park.
         _write_battery_state(cal1_dir, 3400)
@@ -2267,7 +2264,7 @@ def test_calendar_match_survives_a_battery_repaint_past_its_own_window(tmp_path,
 
 
 def test_calendar_match_beats_an_exact_callsign_rule(tmp_path, clock):
-    """a calendar match beats a matching exact-callsign rule end to end through the real loop - the calendar's designated theme, not the rule's (D-02)"""
+    """a calendar match beats a matching exact-callsign rule end to end through the real loop - the calendar's designated theme, not the rule's"""
     cal2_dir = _mkdir(tmp_path, "cal-precedence")
     try:
         device_config.save_device_config(cal2_dir, calendar_theme_id="green")
@@ -2335,7 +2332,7 @@ def test_held_branch_with_no_confirmed_state_ignores_calendar_match(tmp_path, cl
         # Second cycle: nothing detected. Force the held
         # branch's transition gate open via a battery change so
         # its empty-state call site actually runs this cycle.
-        # 3400 (quick task 260923-fr4): below the 3500 badge
+        # 3400: below the 3500 badge
         # threshold, above BATTERY_CRITICAL_MV (3300) - a
         # badge-only transition, never a park.
         _write_battery_state(cal4_dir, 3400)
@@ -2436,7 +2433,7 @@ def test_tampered_last_calendar_theme_id_falls_back_to_base_theme(tmp_path, cloc
         tampered["last_calendar_theme_id"] = "not_a_registered_theme"
         poll_loop.save_poll_state(cal7_dir, tampered)
 
-        # 3400 (quick task 260923-fr4): below the 3500 badge
+        # 3400: below the 3500 badge
         # threshold, above BATTERY_CRITICAL_MV (3300) - a
         # badge-only transition, never a park.
         _write_battery_state(cal7_dir, 3400)
@@ -2460,8 +2457,8 @@ def test_unconfigured_cycle_never_creates_the_registry_file(tmp_path, clock):
     cal8_dir = _mkdir(tmp_path, "cal-unconfigured")
     try:
         # No secret file is written - a fresh state dir is
-        # "unconfigured" by construction (D-03), with nothing to
-        # arrange or restore.
+        # "unconfigured" by construction, with nothing to arrange or
+        # restore.
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
         poll_loop.run_once(snapshot=_snapshot("cal0014", "TVF7064", CLIMB), state_dir=cal8_dir, geofence=GEOFENCE_PATH)
         if os.path.exists(calendar_rules.calendar_rules_path(cal8_dir)):
@@ -2537,7 +2534,7 @@ def test_feature_off_leaves_every_pre_phase_behaviour_unchanged(tmp_path, clock)
 
 
 def test_default_min_interval_s_preserves_poll_loops_pacing(tmp_path, clock):
-    """poll_loop.py's own run_once() call site, which passes no min_interval_s argument, still skips the calendar fetch 60 seconds after a recorded attempt - pinning refresh_calendar_registry()'s new parameter to default to None so today's pacing is unchanged (D-06)"""
+    """poll_loop.py's own run_once() call site, which passes no min_interval_s argument, still skips the calendar fetch 60 seconds after a recorded attempt - pinning refresh_calendar_registry()'s parameter to default to None so today's pacing is unchanged"""
     cal10_dir = _mkdir(tmp_path, "cal-default-interval")
     try:
         assert calendar_rules.save_calendar_url(cal10_dir, "https://example.invalid/calendar.ics") is True
@@ -2567,7 +2564,7 @@ def test_default_min_interval_s_preserves_poll_loops_pacing(tmp_path, clock):
 
 
 def test_battery_low_transition_sends_once_with_mv():
-    """a first cycle crossing into battery-low sends exactly one push whose body carries the millivolt reading and the SEED-006 curve percentage '(≈ 9%)', and records last_battery_sent=True (quick 260923-gaf)"""
+    """a first cycle crossing into battery-low sends exactly one push whose body carries the millivolt reading and the discharge-curve percentage '(≈ 9%)', and records last_battery_sent=True"""
     poll_state = {}
     sender = _FakeSender()
     poll_loop._notify_battery_transition(
@@ -2576,9 +2573,9 @@ def test_battery_low_transition_sends_once_with_mv():
     if len(sender.calls) != 1:
         pytest.fail("expected exactly one send, got %d" % len(sender.calls))
     _, title, body = sender.calls[0]
-    # WR-04 fix (20-REVIEW.md): real transition pushes carry
-    # notify.ALERT_TITLE, not TEST_NOTIFICATION_TITLE - the
-    # latter is reserved for the "Send a test" button alone.
+    # Real transition pushes carry notify.ALERT_TITLE, not
+    # TEST_NOTIFICATION_TITLE - the latter is reserved for the "Send a
+    # test" button alone.
     if title != poll_loop.notify.ALERT_TITLE:
         pytest.fail("expected the project's short-name title, got %r" % (title,))
     if "3400" not in body:
@@ -2619,7 +2616,7 @@ def test_battery_recovery_transition_sends_once():
 
 
 def test_battery_config_disabled_sends_nothing():
-    """D-26: a notifications group with battery_low: False sends nothing on a transition and records nothing"""
+    """a notifications group with battery_low: False sends nothing on a transition and records nothing"""
     poll_state = {}
     sender = _FakeSender()
     poll_loop._notify_battery_transition(
@@ -2632,7 +2629,7 @@ def test_battery_config_disabled_sends_nothing():
 
 
 def test_battery_no_topic_url_sends_nothing():
-    """D-26: a notifications group with no topic_url configured sends nothing"""
+    """a notifications group with no topic_url configured sends nothing"""
     poll_state = {}
     sender = _FakeSender()
     poll_loop._notify_battery_transition(
@@ -2662,7 +2659,7 @@ def test_battery_sender_returning_false_still_flips_state():
 
 
 def test_battery_raising_sender_does_not_propagate_through_run_once(tmp_path, monkeypatch):
-    """a raising send_notification() does not propagate out of the real run_once() battery-transition call site (T-20-17)"""
+    """a raising send_notification() does not propagate out of the real run_once() battery-transition call site"""
     raise_dir = _mkdir(tmp_path, "notify-raise")
     try:
         device_config.save_device_config(
@@ -2687,7 +2684,7 @@ def test_battery_raising_sender_does_not_propagate_through_run_once(tmp_path, mo
 
 
 def test_battery_french_lang_produces_french_body():
-    """D-28: notifications.lang == "fr" produces the French battery-low body"""
+    """notifications.lang == "fr" produces the French battery-low body"""
     poll_state = {}
     sender = _FakeSender()
     poll_loop._notify_battery_transition(
@@ -2814,7 +2811,7 @@ def test_silence_transition_no_rows_sends_and_records_nothing(tmp_path):
 
 
 def test_silence_transition_config_disabled_sends_nothing(tmp_path):
-    """D-26: a notifications group with frame_silent: False sends nothing even for a very stale check-in"""
+    """a notifications group with frame_silent: False sends nothing even for a very stale check-in"""
     d = _mkdir(tmp_path, "silence-disabled")
     try:
         device_cfg = _notify_device_cfg(frame_silent=False, wake_interval_s=500)
@@ -2861,7 +2858,7 @@ def test_silence_threshold_matches_shared_wake_thresholds_for_nondefault_interva
 
 
 def test_silence_transition_fires_during_display_off_hold(tmp_path, monkeypatch, clock):
-    """WR-01 fix: a display_off hold with a stale device_health check-in still raises exactly one frame_silent push from the early-return hold branch, and persists last_silent_sent=True"""
+    """a display_off hold with a stale device_health check-in still raises exactly one frame_silent push from the early-return hold branch, and persists last_silent_sent=True"""
     hold_dir = _mkdir(tmp_path, "silence-hold")
     try:
         device_config.save_device_config(
@@ -2889,7 +2886,7 @@ def test_silence_transition_fires_during_display_off_hold(tmp_path, monkeypatch,
 
 
 def test_wake_epochs_accrue_only_when_the_effective_interval_changes(tmp_path, clock):
-    """three consecutive poll cycles at an unchanged effective wake interval write exactly one wake_epochs row, and a fourth at a changed interval writes a second (CFG-43 Task 3)"""
+    """three consecutive poll cycles at an unchanged effective wake interval write exactly one wake_epochs row, and a fourth at a changed interval writes a second"""
     epoch_dir = _mkdir(tmp_path, "wake-epochs")
     try:
         device_config.save_device_config(epoch_dir, wake_interval_s=600)
@@ -2920,7 +2917,7 @@ def test_wake_epochs_accrue_only_when_the_effective_interval_changes(tmp_path, c
 
 
 def test_a_raising_epoch_write_cannot_break_a_poll_cycle(tmp_path, monkeypatch, clock):
-    """a wake_epochs write raising sqlite3.Error is contained by _record_history()'s existing handler - the poll cycle completes and the panel is still written (T-24-03-B)"""
+    """a wake_epochs write raising sqlite3.Error is contained by _record_history()'s existing handler - the poll cycle completes and the panel is still written"""
     raise_dir = _mkdir(tmp_path, "wake-epochs-raise")
     try:
         device_config.save_device_config(raise_dir, wake_interval_s=600)
@@ -3037,7 +3034,7 @@ def test_battery_empty_outranks_quiet_hours(tmp_path, clock):
 
 
 def test_battery_empty_entry_from_existing_display_off_hold_repaints(tmp_path, clock):
-    """entering BATTERY EMPTY from an existing DISPLAY OFF hold repaints (the widened D-07 boundary), producing the byte-identical BATTERY EMPTY canvas"""
+    """entering BATTERY EMPTY from an existing DISPLAY OFF hold repaints, producing the byte-identical BATTERY EMPTY canvas"""
     d = _mkdir(tmp_path, "be-from-off")
     try:
         device_config.save_device_config(d, display_enabled=False)

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Contract tests for server/plane/manual_resolutions.py - the phase 13
-manual-resolution registry (D-01/D-05/D-08/D-13, 13-VALIDATION.md Wave 0
-item 1).
+"""Contract tests for server/plane/manual_resolutions.py - the
+manual-resolution registry.
 
 Every fixture is `tmp_path` (pytest-owned, never a shared/real state dir).
-The two read-only-parent-directory checks (WR-11/CR-01) are skipped under
-euid 0 (`@requires_non_root`) - root ignores read-only directory permission
+The two read-only-parent-directory checks are skipped under euid 0
+(`@requires_non_root`) - root ignores read-only directory permission
 bits, so the write those checks expect to fail would silently succeed
 instead, asserting the wrong thing rather than testing anything real.
 """
@@ -198,7 +197,7 @@ def test_entry_rows_sorted_and_skips_malformed_entry():
 
 
 def test_delete_entry_leaves_override_png_untouched(tmp_path):
-    """delete_entry() leaves the override PNG on disk untouched (D-08), pinned to illustrations.override_path_for_key()."""
+    """delete_entry() leaves the override PNG on disk untouched, pinned to illustrations.override_path_for_key()."""
     override_dir = illustrations.override_dir_for_state_dir(tmp_path)
     os.makedirs(override_dir, exist_ok=True)
     override_path = illustrations.override_path_for_key("volotea", tmp_path)
@@ -223,7 +222,7 @@ def test_no_stray_tmp_file_after_successful_add(tmp_path):
 
 
 def test_concurrent_add_entry_calls_lose_no_updates(tmp_path):
-    """20 concurrent add_entry() calls for 20 distinct prefixes (ThreadingHTTPServer's real concurrency shape) all persist durably with no lost update and no stray .tmp file left behind (WR-02)."""
+    """20 concurrent add_entry() calls for 20 distinct prefixes (ThreadingHTTPServer's real concurrency shape) all persist durably with no lost update and no stray .tmp file left behind."""
     import threading
 
     prefixes = ["AA%s" % chr(ord("A") + i) for i in range(20)]
@@ -257,7 +256,7 @@ def test_concurrent_add_entry_calls_lose_no_updates(tmp_path):
 
 
 def test_load_prints_drop_count_for_rejected_and_capped_entries(tmp_path, tmp_path_factory):
-    """load_manual_resolutions() prints a one-line drop-count message whenever it silently rejects an entry or truncates at the cap (naming the real count in both cases) and prints nothing when nothing is dropped (WR-03)."""
+    """load_manual_resolutions() prints a one-line drop-count message whenever it silently rejects an entry or truncates at the cap (naming the real count in both cases) and prints nothing when nothing is dropped."""
     import contextlib
     import io
 
@@ -313,7 +312,7 @@ def test_load_prints_drop_count_for_rejected_and_capped_entries(tmp_path, tmp_pa
 
 @requires_non_root
 def test_add_entry_on_uncreatable_state_dir_returns_failed(tmp_path):
-    """add_entry() returns ADD_FAILED (never raises) when its state dir cannot be created because the parent directory is read-only - CR-01's exact reproduction case (WR-11)."""
+    """add_entry() returns ADD_FAILED (never raises) when its state dir cannot be created because the parent directory is read-only."""
     os.chmod(tmp_path, 0o500)
     try:
         result = m.add_entry(tmp_path / "state", "ABC", "Test Air")
@@ -324,7 +323,7 @@ def test_add_entry_on_uncreatable_state_dir_returns_failed(tmp_path):
 
 @requires_non_root
 def test_delete_entry_on_unwritable_state_dir_returns_false(tmp_path):
-    """delete_entry() returns False (never raises) when the state dir goes read-only mid-write, and the existing entry survives untouched since the write never happened - CR-01's mirror case for delete (WR-11)."""
+    """delete_entry() returns False (never raises) when the state dir goes read-only mid-write, and the existing entry survives untouched since the write never happened."""
     add_result = m.add_entry(tmp_path, "ABC", "Test Air")
     assert add_result == m.ADD_OK, "setup failure: add_entry() returned %r" % (add_result,)
     os.chmod(tmp_path, 0o500)

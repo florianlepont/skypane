@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Contract tests for server/plane/colour_rules.py - the phase 15
-per-flight colour-rule registry and D-13 resolver
-(15-VALIDATION.md Wave 0 item 1).
+"""Contract tests for server/plane/colour_rules.py - the per-flight
+colour-rule registry and its resolver.
 
 Because colour_rules.py keeps a process-global cache, every resolver test
 primes it explicitly with set_colour_rules_state_dir() and resets it
@@ -178,7 +177,7 @@ def test_cache_reset_to_none_falls_through_to_base_theme():
 
 
 def test_hostile_input_sweep_rejected_write_and_read(tmp_path, tmp_path_factory):
-    """add_rule() rejects every hostile value in the sweep (write-side) and load_colour_rules() drops the same shapes written directly to disk (read-side), for all three kinds (T-15-01)."""
+    """add_rule() rejects every hostile value in the sweep (write-side) and load_colour_rules() drops the same shapes written directly to disk (read-side), for all three kinds."""
     hostile_by_kind = {
         "callsign": ["../x", "a/b", "a\\b", "", "   ", None, 42, "x" * 400, "AFR123456"],
         "hex": ["../x", "a/b", "a\\b", "", "   ", None, 42, "x" * 400, "39DE4", "39DE4Z"],
@@ -216,7 +215,7 @@ def test_hostile_input_sweep_rejected_write_and_read(tmp_path, tmp_path_factory)
 
 
 def test_add_rule_distinguishes_new_from_replaced_and_enforces_cap(tmp_path, tmp_path_factory):
-    """add_rule() distinguishes ADD_OK_NEW from ADD_OK_REPLACED (a replace is not growth) and enforces COLOUR_RULE_MAX_ENTRIES only against new keys (D-09)."""
+    """add_rule() distinguishes ADD_OK_NEW from ADD_OK_REPLACED (a replace is not growth) and enforces COLOUR_RULE_MAX_ENTRIES only against new keys."""
     first = c.add_rule(tmp_path, "callsign", "AFR1234", "white")
     assert first == c.ADD_OK_NEW, "first add_rule() returned %r, expected ADD_OK_NEW" % (first,)
     second = c.add_rule(tmp_path, "callsign", "AFR1234", "black")
@@ -270,7 +269,7 @@ def test_no_stray_tmp_file_after_add_and_delete(tmp_path):
 
 
 def test_concurrent_add_rule_calls_lose_no_updates(tmp_path):
-    """20 concurrent add_rule() calls for 20 distinct prefixes (ThreadingHTTPServer's real concurrency shape) all persist durably with no lost update and no stray .tmp file left behind (T-15-02)."""
+    """20 concurrent add_rule() calls for 20 distinct prefixes (ThreadingHTTPServer's real concurrency shape) all persist durably with no lost update and no stray .tmp file left behind."""
     values = ["AA%s" % chr(ord("A") + i) for i in range(20)]
     errors = []
 
@@ -357,7 +356,7 @@ def test_resolver_row6_callsign_beats_hex(tmp_path_factory):
 
 
 def test_resolver_row7_rule_beats_override(tmp_path_factory):
-    """resolver truth table row 7: a matching rule of any kind AND theme_arriving set with state 'arriving' -> the rule's theme (a rule beats the override, D-09)."""
+    """resolver truth table row 7: a matching rule of any kind AND theme_arriving set with state 'arriving' -> the rule's theme (a rule beats the override)."""
     result = _resolver_with(
         tmp_path_factory, [("prefix", "AFR", "red")], "arriving", FLIGHT_AFR, {"theme": "white", "theme_arriving": "blue"})
     assert result == "red", "row 7: expected 'red', got %r" % (result,)
@@ -379,7 +378,7 @@ def test_resolver_never_raises_on_defensive_inputs():
 
 
 def test_resolver_ignores_tampered_cache_theme_id(tmp_path):
-    """resolve_effective_theme_id() ignores a cached entry whose theme_id is not a member of device_config.THEMES rather than returning it (T-15-05)."""
+    """resolve_effective_theme_id() ignores a cached entry whose theme_id is not a member of device_config.THEMES rather than returning it."""
     try:
         add_result = c.add_rule(tmp_path, "callsign", "AFR1234", "white")
         assert add_result == c.ADD_OK_NEW, "setup failure: add_rule() returned %r" % (add_result,)
@@ -396,7 +395,7 @@ def test_resolver_ignores_tampered_cache_theme_id(tmp_path):
         c.set_colour_rules_state_dir(None)
 
 
-# --- Plan 16-06: D-02's calendar_theme_id precedence -----------------------
+# --- calendar_theme_id precedence over rules and the arrivals override ----
 
 CAL_THEME = "band_red_field"  # distinct from any theme used in the truth table rows above
 RULE_THEME_FOR_PRECEDENCE = "red"
@@ -405,7 +404,7 @@ if CAL_THEME not in device_config.THEMES or CAL_THEME == RULE_THEME_FOR_PRECEDEN
 
 
 def test_calendar_beats_exact_callsign_rule(tmp_path_factory):
-    """resolve_effective_theme_id() D-02: a calendar_theme_id beats even a matching exact-callsign rule (the accepted consequence)."""
+    """resolve_effective_theme_id() a calendar_theme_id beats even a matching exact-callsign rule (the accepted consequence)."""
     result = _resolver_with(
         tmp_path_factory,
         [("callsign", "AFR1234", RULE_THEME_FOR_PRECEDENCE)], "departing", FLIGHT_AFR,
@@ -417,7 +416,7 @@ def test_calendar_beats_exact_callsign_rule(tmp_path_factory):
 
 
 def test_calendar_beats_hex_rule(tmp_path_factory):
-    """resolve_effective_theme_id() D-02: a calendar_theme_id beats a matching hex rule."""
+    """resolve_effective_theme_id() a calendar_theme_id beats a matching hex rule."""
     result = _resolver_with(
         tmp_path_factory,
         [("hex", "39DE4A", RULE_THEME_FOR_PRECEDENCE)], "departing", FLIGHT_AFR,
@@ -426,7 +425,7 @@ def test_calendar_beats_hex_rule(tmp_path_factory):
 
 
 def test_calendar_beats_prefix_rule(tmp_path_factory):
-    """resolve_effective_theme_id() D-02: a calendar_theme_id beats a matching prefix rule."""
+    """resolve_effective_theme_id() a calendar_theme_id beats a matching prefix rule."""
     result = _resolver_with(
         tmp_path_factory,
         [("prefix", "AFR", RULE_THEME_FOR_PRECEDENCE)], "departing", FLIGHT_AFR,
@@ -435,7 +434,7 @@ def test_calendar_beats_prefix_rule(tmp_path_factory):
 
 
 def test_calendar_beats_arrivals_override(tmp_path_factory):
-    """resolve_effective_theme_id() D-02: a calendar_theme_id beats the arrivals override (theme_arriving) on an arriving state."""
+    """resolve_effective_theme_id() a calendar_theme_id beats the arrivals override (theme_arriving) on an arriving state."""
     result = _resolver_with(
         tmp_path_factory,
         None, "arriving", FLIGHT_AFR, {"theme": "white", "theme_arriving": RULE_THEME_FOR_PRECEDENCE},

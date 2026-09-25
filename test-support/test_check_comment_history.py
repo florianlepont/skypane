@@ -336,6 +336,17 @@ def test_same_code_allow_suppresses_a_listed_file(scratch_repo):
     assert differing == []
 
 
+def test_same_code_cli_allow_takes_one_path_and_keeps_positional_paths(scratch_repo, monkeypatch):
+    _write(scratch_repo / "a.py", "x = 1\n")
+    _write(scratch_repo / "b.py", "y = 1\n")
+    base = _commit_all(scratch_repo, "base")
+    _write(scratch_repo / "a.py", "x = 2\n")
+    _write(scratch_repo / "b.py", "y = 2\n")
+    monkeypatch.chdir(scratch_repo)
+    assert cch.main(["same-code", "--base", base, "--allow", "a.py", "b.py"]) == 1
+    assert cch.main(["same-code", "--base", base, "--allow", "a.py", "--allow", "b.py", "a.py", "b.py"]) == 0
+
+
 def test_same_code_c_equal_for_comment_only_edit(scratch_repo):
     _write(scratch_repo / "m.c", "int f(void) {\n    // 22-08-PLAN.md note\n    return 1;\n}\n")
     base = _commit_all(scratch_repo, "base")

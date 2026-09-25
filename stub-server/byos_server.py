@@ -418,41 +418,21 @@ def read_wake_interval_s(state_dir, default):
 # by an automated drift guard in stub-server/test_poll_cycle.py; if you
 # change one, you must change the other identically, in the same commit.
 def seconds_until_quiet_hours_end(now_utc, start_hm, end_hm):
-    """Return the whole seconds remaining until the daily [start_hm, end_hm)
-    Europe/Paris wall-clock window's end time, or `None` when `now_utc`
-    falls outside the window. The window wraps midnight whenever
-    `end_hm <= start_hm` (e.g. "23:00"/"07:00"); when `start_hm == end_hm`
-    the window is zero-width and this always returns `None` for every
-    instant - a zero-width window is never active, and that is intentional
-    rather than a bug to "fix" into an always-active window.
+    """Seconds remaining until the daily [start_hm, end_hm) Europe/Paris
+    window's end, or None when `now_utc` falls outside it. Wraps midnight
+    when `end_hm <= start_hm`; a zero-width window (`start_hm == end_hm`)
+    is never active.
 
-    Parameter contract - this function is the arithmetic core only and
-    performs no validation of its own, because stub-server/byos_server.py
-    (plan 10-03) duplicates it byte-for-byte across the vendor boundary and
-    every byte it carries has to be reproducible there:
-      - `now_utc` MUST be a timezone-aware datetime.
-      - `start_hm`/`end_hm` MUST already have passed `_HHMM_RE`.
+    Arithmetic core only, no validation: `now_utc` must be timezone-aware;
+    `start_hm`/`end_hm` must already match `_HHMM_RE`.
+    stub-server/byos_server.py duplicates this byte-for-byte.
 
-    Two mandatory deviations from 10-PATTERNS.md's reference body, both
-    load-bearing - do not "restore" the reference version:
-
-    (a) The final return subtracts in UTC, not in local time:
-    `end_dt.astimezone(timezone.utc) - now_utc`, NOT `end_dt - local_now`.
-    This is a correctness fix, verified numerically during planning:
-    `end_dt` and `local_now` share the same `tzinfo` object, and Python's
-    documented rule for subtracting two aware datetimes with the same
-    `tzinfo` is to ignore the zone and subtract the wall-clock numerals -
-    so the reference body's naive numeral difference is wrong by exactly
-    one hour across a Europe/Paris DST transition. Converting `end_dt` to
-    UTC first restores the true-elapsed-duration property.
-
-    (b) Accepted caveat (10-RESEARCH.md Pitfall 2), not engineered around: a
-    window boundary configured inside the 02:00-03:00 transition hour on
-    the last Sunday of March or October resolves via PEP 495's default
-    `fold=0` semantics and can be up to an hour off for that one instant.
-    No `fold=1` override is added - D-01's "never shorter than the base
-    sleep" rule bounds the worst case to one extra or one missing wake,
-    twice a year, only for a boundary configured inside that specific hour.
+    Two DST-safety properties: (a) the final subtraction converts to UTC
+    first (`end_dt.astimezone(timezone.utc) - now_utc`), since two aware
+    datetimes sharing a `tzinfo` subtract by wall-clock numerals only,
+    which is wrong by an hour across a DST transition; (b) a boundary
+    configured inside the 02:00-03:00 transition hour can resolve up to
+    an hour off (PEP 495 `fold=0`, accepted, not engineered around).
     """
     local_now = now_utc.astimezone(QUIET_HOURS_TZ)
     start_h, start_m = (int(x) for x in start_hm.split(":"))

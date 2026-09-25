@@ -151,12 +151,11 @@ CAL_THEME = device_config.THEME_IDS[-1]
 CAL_CFG = {"theme": device_config.DEFAULT_THEME_ID, "calendar_theme_id": CAL_THEME}
 MATCH_NOW = 1789000000.0
 
-# Ambiguity fixture (16-VALIDATION matcher row 3): the committed fixture's
-# own same-route pair (XX2001/XX2002, both BBB-ORY arrivals roughly 8.5h
-# apart), parsed through parse_ics_events() - never a hand-built pair.
-# Asserted at import time so a fixture edit that breaks this precondition
-# fails loudly instead of silently changing what the four tests below
-# exercise.
+# Ambiguity fixture: the committed fixture's own same-route pair
+# (XX2001/XX2002, both BBB-ORY arrivals roughly 8.5h apart), parsed
+# through parse_ics_events() - never a hand-built pair. Asserted at
+# import time so a fixture edit that breaks this precondition fails
+# loudly instead of silently changing what the four tests below exercise.
 _fixture_entries = cr.parse_ics_events(fixture_text)
 bbb_ory_entries = sorted(
     (e for e in _fixture_entries if e["origin_iata"] == "BBB" and e["destination_iata"] == "ORY"),
@@ -378,7 +377,7 @@ def test_bounded_output_at_max_raw_examined():
 
 
 def test_feed_history_before_window_still_surfaces_window_entries():
-    """UAT-02: a feed listing more than CALENDAR_MAX_ENTRIES historical VEVENTs before a small number of in-window ones still surfaces every in-window entry through parse_ics_events() + select_window_entries() - the exact real-world failure reproduced"""
+    """a feed listing more than CALENDAR_MAX_ENTRIES historical VEVENTs before a small number of in-window ones still surfaces every in-window entry through parse_ics_events() + select_window_entries() - the exact real-world failure reproduced"""
     from datetime import datetime, timedelta, timezone
 
     def vevent(dtstart, dtend, flight):
@@ -435,7 +434,7 @@ def test_record_shape_carries_no_schedule_text():
 
 
 def test_d01_calendar_never_touches_colour_rules(tmp_path):
-    """D-01: writing and re-writing the calendar registry never touches colour_rules.json's content or bytes, and the two registries are distinct files"""
+    """writing and re-writing the calendar registry never touches colour_rules.json's content or bytes, and the two registries are distinct files"""
     import hashlib
     import server.plane.colour_rules as colour_rules
     tmp = tmp_path
@@ -589,7 +588,7 @@ def test_load_caps_at_max_entries_with_a_warning(tmp_path):
 
 
 def test_registry_history_before_window_still_surfaces_window_entries(tmp_path):
-    """UAT-02: load_calendar_registry() on a raw entries list holding more than CALENDAR_MAX_ENTRIES out-of-window entries before a small number of in-window ones still surfaces every in-window entry - the exact real-world failure reproduced at the registry layer"""
+    """load_calendar_registry() on a raw entries list holding more than CALENDAR_MAX_ENTRIES out-of-window entries before a small number of in-window ones still surfaces every in-window entry - the exact real-world failure reproduced at the registry layer"""
     import json
     now = _mid_fixture_now()
     history_count = cr.CALENDAR_MAX_ENTRIES + 50
@@ -1009,8 +1008,7 @@ def test_secret_absent_from_persisted_registry_after_success(monkeypatch, tmp_pa
 def test_refresh_unconfigured_makes_no_call_and_writes_nothing(tmp_path):
     """refresh_calendar_registry() makes no transport call and writes no last_attempt_at when the feature is unconfigured"""
     # No secret file is written - a fresh temporary state dir is
-    # "unconfigured" by construction, with nothing to arrange or
-    # restore (D-03).
+    # "unconfigured" by construction, with nothing to arrange or restore.
     calls = []
     transport = make_calendar_transport(status_code=200, body=b"unused", calls=calls)
     tmp = tmp_path
@@ -1129,20 +1127,17 @@ def test_empty_window_success_distinguished_only_by_last_synced_at(tmp_path):
 def test_refresh_never_raises(tmp_path):
     """refresh_calendar_registry() never raises - an unwritable registry path, a punctuation body, a raising transport, and a redirect-looping transport all return a result code"""
     tmp = tmp_path
-        # The URL now lives inside the same state_dir the registry
-        # itself is written to (D-03), so a nonexistent/unwritable
-        # state_dir no longer reaches the write path at all - the
-        # secret file's own stat() fails first, and
-        # configured_calendar_url() reports the feature as simply
-        # unconfigured, never touching a transport. To exercise this
-        # function's actual write-failure never-raises guarantee, the
-        # state_dir itself must exist and be readable (so the secret
-        # is genuinely configured) while the SPECIFIC registry write
-        # deterministically fails regardless of who runs the test:
-        # calendar_rules.json itself is made a directory, so
-        # write_calendar_registry()'s open()/os.replace() hit a type
-        # mismatch (IsADirectoryError) rather than a permission bit a
-        # root-run test would simply ignore.
+    # The URL lives inside the same state_dir the registry is written to,
+    # so a nonexistent/unwritable state_dir never reaches the write path
+    # at all - the secret file's own stat() fails first, and the feature
+    # reports as simply unconfigured. To exercise the actual
+    # write-failure never-raises guarantee, the state_dir must exist and
+    # be readable (so the secret is genuinely configured) while the
+    # registry write deterministically fails regardless of who runs the
+    # test: calendar_rules.json itself is made a directory, so
+    # write_calendar_registry()'s open()/os.replace() hit a type
+    # mismatch (IsADirectoryError) rather than a permission bit a
+    # root-run test would simply ignore.
     _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
     # save_calendar_url() above already created calendar_rules.json
     # as an ordinary (empty) file via its own registry-erase step -
@@ -1379,7 +1374,7 @@ def test_matcher_never_raises():
 
 
 def test_nested_component_does_not_drop_the_event():
-    """parse_ics_events() keeps a flight whose VEVENT contains a nested VALARM, and the nested component's properties never reach the parent entry (CR-01)"""
+    """parse_ics_events() keeps a flight whose VEVENT contains a nested VALARM, and the nested component's properties never reach the parent entry"""
     ics = "\r\n".join([
         "BEGIN:VCALENDAR", "VERSION:2.0",
         "BEGIN:VEVENT",
@@ -1405,7 +1400,7 @@ def test_nested_component_does_not_drop_the_event():
 
 
 def test_non_finite_timestamps_rejected():
-    """_normalise_calendar_entry() rejects NaN/Infinity timestamps while still accepting a finite entry (CR-02)"""
+    """_normalise_calendar_entry() rejects NaN/Infinity timestamps while still accepting a finite entry"""
     for literal in ("NaN", "Infinity", "-Infinity"):
         entry = json.loads(
             '{"airline_iata":"ZQ","origin_iata":"MPL","destination_iata":"ORY",'
@@ -1421,13 +1416,13 @@ def test_non_finite_timestamps_rejected():
 
 
 def test_failing_refresh_trims_the_raw_file_across_consecutive_cycles(tmp_path):
-    """T-16-PRIV's own reproduction: an entry that ended ~10 days ago is absent from the RAW on-disk file after every one of three consecutive FAILING refresh_calendar_registry() cycles, and the returned registry matches the raw file on every cycle (D-04) - the verification the original goal check missed"""
+    """an entry that ended ~10 days ago is absent from the RAW on-disk file after every one of three consecutive FAILING refresh_calendar_registry() cycles, and the returned registry matches the raw file on every cycle"""
     tmp = tmp_path
     _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
-    # Seed the realistic way: a legitimate write at a seed_now
-    # where the entry is genuinely in-window - this reproduces
-    # the real production sequence (one successful fetch, then
-    # a feed that breaks), not a hand-edited file.
+    # Seed the realistic way: a legitimate write at a seed_now where the
+    # entry is genuinely in-window - this reproduces the real production
+    # sequence (one successful fetch, then a feed that breaks), not a
+    # hand-edited file.
     seed_now = 1_780_000_000.0
     stale = _entry("XX", "AAA", "ORY", seed_now, seed_now + 7200.0)
     if not cr.write_calendar_registry(
@@ -1466,7 +1461,7 @@ def test_failing_refresh_trims_the_raw_file_across_consecutive_cycles(tmp_path):
 
 
 def test_loader_applies_the_window_on_read_without_rewriting(tmp_path):
-    """a hand-written file mixing one out-of-window and one in-window entry loads to the in-window entry only, and the read does not rewrite the file (D-01/D-02)"""
+    """a hand-written file mixing one out-of-window and one in-window entry loads to the in-window entry only, and the read does not rewrite the file"""
     from datetime import datetime, timezone
     now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
     out_of_window = _entry("XX", "AAA", "ORY", now - 90000.0, now - 86400.0)  # ended yesterday
@@ -1491,7 +1486,7 @@ def test_loader_applies_the_window_on_read_without_rewriting(tmp_path):
 
 
 def test_writer_refuses_to_persist_what_the_window_would_drop(tmp_path):
-    """a write containing a stale entry and a current entry puts only the current entry in the raw file (D-01/D-03)"""
+    """a write containing a stale entry and a current entry puts only the current entry in the raw file"""
     from datetime import datetime, timezone
     now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
     stale = _entry("XX", "AAA", "ORY", now - 90000.0, now - 86400.0)
@@ -1506,7 +1501,7 @@ def test_writer_refuses_to_persist_what_the_window_would_drop(tmp_path):
 
 
 def test_loader_output_is_exactly_select_window_entries(tmp_path):
-    """for any list and any now, the loader's entries are exactly select_window_entries(list, now) - the anti-drift guard that goes red if a second window implementation ever appears (D-02)"""
+    """for any list and any now, the loader's entries are exactly select_window_entries(list, now) - the anti-drift guard that goes red if a second window implementation ever appears"""
     from datetime import datetime, timezone
     now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
     mixed = [
@@ -1685,7 +1680,7 @@ def test_clear_branch_removes_the_file_and_is_idempotent(tmp_path):
 
 
 def test_erase_on_set_or_replace_d05(tmp_path):
-    """save_calendar_url() erases the fetched registry - zero entries and both timestamps None - on setting a URL for the first time or replacing one with a different URL (D-05)"""
+    """save_calendar_url() erases the fetched registry - zero entries and both timestamps None - on setting a URL for the first time or replacing one with a different URL"""
     from datetime import datetime, timezone
     now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
     seeded = [_entry("AF", "ORY", "JFK", now + 3600.0, now + 7200.0)]
@@ -1704,7 +1699,7 @@ def test_erase_on_set_or_replace_d05(tmp_path):
 
 
 def test_erase_on_clear_d04(tmp_path):
-    """save_calendar_url(CLEAR_CALENDAR_URL) erases the fetched registry and removes the secret file in the same call (D-04)"""
+    """save_calendar_url(CLEAR_CALENDAR_URL) erases the fetched registry and removes the secret file in the same call"""
     from datetime import datetime, timezone
     now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
     seeded = [_entry("AF", "ORY", "JFK", now + 3600.0, now + 7200.0)]
@@ -1796,7 +1791,7 @@ def test_sentinel_is_identity_only(tmp_path):
 
 
 def test_accessor_reads_the_secret_file(tmp_path):
-    """configured_calendar_url() returns exactly the value written through save_calendar_url(), and calendar_is_configured() is True (identity) for the same state_dir (D-03)"""
+    """configured_calendar_url() returns exactly the value written through save_calendar_url(), and calendar_is_configured() is True (identity) for the same state_dir"""
     tmp = tmp_path
     _write_calendar_secret(tmp, "https://example.invalid/feed.ics")
     url = cr.configured_calendar_url(tmp)
@@ -1807,7 +1802,7 @@ def test_accessor_reads_the_secret_file(tmp_path):
 
 
 def test_environment_is_never_consulted(monkeypatch, tmp_path_factory):
-    """neither configured_calendar_url() nor calendar_is_configured() ever calls os.environ.get() - the check that would catch a resurrected environment read, with and without a secret file present (D-03)"""
+    """neither configured_calendar_url() nor calendar_is_configured() ever calls os.environ.get() - the check that would catch a resurrected environment read, with and without a secret file present"""
     configured_tmp = tmp_path_factory.mktemp("configured")
     _write_calendar_secret(configured_tmp, "https://example.invalid/feed.ics")
     unconfigured_tmp = tmp_path_factory.mktemp("unconfigured")
@@ -1838,7 +1833,7 @@ def test_environment_is_never_consulted(monkeypatch, tmp_path_factory):
 
 
 def test_drifted_file_refuses_without_being_opened(monkeypatch, tmp_path):
-    """configured_calendar_url() refuses a secret file whose permissions have drifted, and never opens it at all - proved by observing the file was not opened, not merely by observing the return value (D-02, T-17-DRIFT)"""
+    """configured_calendar_url() refuses a secret file whose permissions have drifted, and never opens it at all - proved by observing the file was not opened, not merely by observing the return value"""
     import builtins
     import stat as stat_mod
     tmp = tmp_path
@@ -1886,7 +1881,7 @@ def test_ordinary_umask_file_refused_end_to_end(tmp_path):
 
 
 def test_boolean_contract_in_three_states(tmp_path):
-    """calendar_is_configured() returns a genuine bool - is True, is False, is False - across absent, configured, and permission-drifted secret files, never a truthy status string (D-08)"""
+    """calendar_is_configured() returns a genuine bool - is True, is False, is False - across absent, configured, and permission-drifted secret files, never a truthy status string"""
     tmp = tmp_path
     if cr.calendar_is_configured(tmp) is not False:
         pytest.fail("expected False (identity) for an absent secret file")
@@ -1912,7 +1907,7 @@ def test_accessor_strips_hand_written_trailing_newline(tmp_path):
 
 
 def test_min_interval_s_bypasses_the_throttle(tmp_path):
-    """refresh_calendar_registry(min_interval_s=0) bypasses the throttle and reaches the transport even when the recorded last attempt is well inside the standard interval, while the default (no interval argument) still honours the throttle (D-06)"""
+    """refresh_calendar_registry(min_interval_s=0) bypasses the throttle and reaches the transport even when the recorded last attempt is well inside the standard interval, while the default (no interval argument) still honours the throttle"""
     tmp = tmp_path
     _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
     seed_now = 1_800_000_000.0
@@ -1938,7 +1933,7 @@ def test_min_interval_s_bypasses_the_throttle(tmp_path):
 
 
 def test_clear_branch_reports_failure_when_removal_actually_fails(tmp_path):
-    """save_calendar_url(CLEAR_CALENDAR_URL) returns False, not True, when os.remove() fails for a reason other than the file already being absent - a permission/immutable-flag/read-only-filesystem failure must never be reported as a successful disconnect (CR-02)"""
+    """save_calendar_url(CLEAR_CALENDAR_URL) returns False, not True, when os.remove() fails for a reason other than the file already being absent - a permission/immutable-flag/read-only-filesystem failure must never be reported as a successful disconnect"""
     tmp = tmp_path
     if not cr.save_calendar_url(tmp, "https://example.invalid/feed.ics"):
         pytest.fail("test setup failure: initial save failed")
@@ -1967,7 +1962,7 @@ def test_clear_branch_reports_failure_when_removal_actually_fails(tmp_path):
 
 
 def test_cross_process_lock_closes_the_disconnect_race(tmp_path):
-    """a companion disconnect arriving while a (simulated) concurrent poll cycle is mid-fetch cannot have its registry erase overwritten by that poll cycle's later write - the cross-process registry lock, not either in-process threading.Lock, is what is exercised here (CR-01; simulates two OS processes with two threads racing the real fcntl-based lock - see comment above)"""
+    """a companion disconnect arriving while a (simulated) concurrent poll cycle is mid-fetch cannot have its registry erase overwritten by that poll cycle's later write - the cross-process registry lock, not either in-process threading.Lock, is what is exercised here (simulates two OS processes with two threads racing the real fcntl-based lock)"""
     import threading
     import time
     now = _mid_fixture_now()
@@ -2028,7 +2023,7 @@ def test_cross_process_lock_closes_the_disconnect_race(tmp_path):
 
 
 def test_write_failure_before_erase_preserves_the_previous_calendars_flights(tmp_path):
-    """save_calendar_url() replacing a connected calendar's URL leaves the previous calendar's already-fetched flights untouched when the new secret's write fails before ever reaching the registry erase (WR-01)"""
+    """save_calendar_url() replacing a connected calendar's URL leaves the previous calendar's already-fetched flights untouched when the new secret's write fails before ever reaching the registry erase"""
     from datetime import datetime, timezone
     now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
     seeded = [_entry("AF", "ORY", "JFK", now + 3600.0, now + 7200.0)]

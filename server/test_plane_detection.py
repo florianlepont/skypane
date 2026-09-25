@@ -25,7 +25,7 @@ mapping, check 28 in the pre-migration harness) uses the shared
 Checks that stub detect.query_provider() itself (the harness's own
 _with_stubbed_providers() helper) use the local `stubbed_query_provider`
 fixture below, which is the same translation applied through
-monkeypatch (MR-6) rather than manual save/restore.
+monkeypatch rather than manual save/restore.
 """
 import contextlib
 import io
@@ -129,7 +129,7 @@ def stubbed_query_provider(monkeypatch):
     """Replace detect.query_provider with a lookup into a dict handed at
     call time (name -> aircraft_list, or an Exception instance to raise),
     and zero the inter-call sleep - the monkeypatch translation of the
-    pre-migration harness's _with_stubbed_providers() helper (MR-6).
+    pre-migration harness's _with_stubbed_providers() helper.
     """
     monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 0)
 
@@ -472,10 +472,10 @@ def test_agreeing_providers_are_corroborated(geofence, stubbed_query_provider):
 
 
 def test_disagreeing_providers_yield_nothing(geofence, stubbed_query_provider):
-    """poll_current_aircraft: disagreeing providers select nothing (doubt -> D-04 hold)"""
+    """poll_current_aircraft: disagreeing providers select nothing (doubt -> hold)"""
     # The providers name two different aircraft as "the one on runway 3" -
-    # at most one can be right, so the poll selects nothing and D-04
-    # leaves the panel alone. Built from the real arrival record plus a
+    # at most one can be right, so the poll selects nothing and the panel
+    # stays on hold. Built from the real arrival record plus a
     # copy relocated to the other end of the real runway, so both are
     # legitimately on runway 3 and the disagreement is about which
     # aircraft, not about the gate.
@@ -545,8 +545,8 @@ def test_default_order_disagreement_yields_nothing(geofence, stubbed_query_provi
     # Mirrors test_disagreeing_providers_yield_nothing but reached through
     # the production default order (no providers argument) rather than an
     # explicit providers list - adsb.fi and adsb.lol naming two different
-    # aircraft as "the one on runway 3" is doubt, not information; D-04
-    # says leave the panel alone.
+    # aircraft as "the one on runway 3" is doubt, not information, so the
+    # panel is left alone.
     other = dict(_runway3_record()[0])
     other["hex"] = "3985a7"
     other["flight"] = "AFR56XX "
@@ -775,7 +775,7 @@ def test_identical_sets_are_not_manufactured_into_disagreement(geofence, stubbed
     """poll_current_aircraft (default order): two feeds differing only in seen_pos are corroborated, not suppressed"""
     # THE REGRESSION, part 2 - the cycle must no longer be thrown away.
     # Reached through the production default order (no providers
-    # argument). Pre-fix this returned None and poll_loop took the D-04
+    # argument). Pre-fix this returned None and poll_loop took the
     # "leave the panel alone" branch, which is indistinguishable from an
     # empty sky: the panel froze while real runway-3 traffic passed.
     stubbed_query_provider({"adsbfi": _pavement("adsbfi"), "adsblol": _pavement("adsblol")})
@@ -864,10 +864,11 @@ def _disjoint_poll(geofence, stubbed_query_provider):
 
 
 def test_genuinely_disjoint_sets_still_suppress(geofence, stubbed_query_provider):
-    """poll_current_aircraft: genuinely disjoint candidate sets still suppress the cycle (D-04 intact)"""
-    # D-04 MUST SURVIVE - meant to hold both BEFORE and AFTER the fix. Its
-    # job is to fail if the fix ever guts the cross-source safety net, not
-    # to fail pre-fix. The disagreeing-providers checks above already
+    """poll_current_aircraft: genuinely disjoint candidate sets still suppress the cycle (the hold behaviour stays intact)"""
+    # This hold behaviour MUST SURVIVE - meant to hold both BEFORE and
+    # AFTER the fix. Its job is to fail if the fix ever guts the
+    # cross-source safety net, not to fail pre-fix. The
+    # disagreeing-providers checks above already
     # cover disjoint SINGLE-candidate sets; this covers the multi-
     # candidate case, which is precisely where comparing SETS could have
     # diverged from comparing PICKS. Two feeds naming entirely different
@@ -911,8 +912,8 @@ def test_disagreement_line_names_every_candidate(geofence, stubbed_query_provide
 
 
 # ---------------------------------------------------------------
-# CFG-12 (plan 06-02): runway-parameterised detection, positive tracking
-# on all three Orly runways
+# Runway-parameterised detection, positive tracking on all three Orly
+# runways
 # ---------------------------------------------------------------
 #
 # Every synthetic coordinate below is derived arithmetically from
@@ -973,7 +974,7 @@ def test_neighbouring_runway_bearings_match_published_headings(geofence):
 
 
 def test_unknown_runway_id_falls_back_to_default_axis(geofence):
-    """runway_axis(runway_id='totally-unknown') falls back to the default runway's axis (T-06-02-01)"""
+    """runway_axis(runway_id='totally-unknown') falls back to the default runway's axis"""
     # An unrecognised runway_id lands on the default runway's geometry -
     # never None, never an exception, never a different (widened) gate.
     default_axis = detect.runway_axis(geofence)
@@ -985,7 +986,7 @@ def test_corridor_params_for_02_20_and_malformed_fallback(geofence):
     """corridor_params(runway_id='02-20') matches the file, negative entries fall back to the default"""
     # corridor_params() for a real neighbouring runway returns its own
     # numbers; a hand-mutated negative entry falls back to the module
-    # default rather than accepting it (T-06-02-01).
+    # default rather than accepting it.
     #
     # The 4th element is the on-ground pavement gate merged in from the
     # missed-flights-not-displayed session. The per-runway corridor

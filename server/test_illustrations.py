@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Contract tests for server/plane/illustrations.py's per-airline
-illustration selection module (D-06, D-08, D-09, D-19, PLANE-01/PLANE-02).
+illustration selection module.
 
 Covers normalise_airline_key(), select_illustration() (including its
 never-raises guarantee and its "None only when even the fallback is
@@ -46,7 +46,7 @@ def _reset_override_state_dir():
     """Every check that touches set_override_state_dir() resets it
     explicitly, but this belt-and-braces autouse fixture guarantees no
     leftover process-default override dir survives into an unrelated
-    test even if a future edit drops that discipline (MR-4 independence).
+    test even if a future edit drops that discipline.
     """
     yield
     ill.set_override_state_dir(None)
@@ -61,7 +61,7 @@ def test_normalise_airline_key_air_algerie():
 
 
 def test_normalise_airline_key_air_corsica():
-    """normalise_airline_key('Air Corsica') == 'air-corsica' (260827-kih)"""
+    """normalise_airline_key('Air Corsica') == 'air-corsica'"""
     got = ill.normalise_airline_key("Air Corsica")
     assert got == "air-corsica", "got %r, expected 'air-corsica'" % (got,)
 
@@ -206,7 +206,7 @@ def test_select_illustration_returns_none_only_when_fallback_missing(tmp_path, m
     assert got is None, "with no files present at all, select_illustration() returned %r, expected None" % (got,)
 
 
-# --- select_illustration() four-tier fallback (Task 2, D-06/D-07/D-08) -----
+# --- select_illustration() four-tier fallback -----------------------------
 
 def test_select_illustration_tier1_airline_and_shape_match(tmp_path, monkeypatch):
     """select_illustration() Tier 1 returns the airline-and-shape file when it exists"""
@@ -220,7 +220,7 @@ def test_select_illustration_tier1_airline_and_shape_match(tmp_path, monkeypatch
 
 
 def test_select_illustration_tier2_airline_only_when_shape_absent(tmp_path, monkeypatch):
-    """select_illustration() Tier 2 (D-06) returns the airline-only file when the shape file is absent"""
+    """select_illustration() Tier 2 returns the airline-only file when the shape file is absent"""
     monkeypatch.setattr(ill, "ILLUSTRATION_DIR", str(tmp_path))
     _make_fixture_png(tmp_path / "acme-air.png")
     path = ill.select_illustration({"airline_name": "Acme Air"}, "A320")
@@ -241,7 +241,7 @@ def test_select_illustration_tier2_wins_over_tier3(tmp_path, monkeypatch):
 
 
 def test_select_illustration_tier3_neutral_shape_for_unrecognized_airline(tmp_path, monkeypatch):
-    """select_illustration() Tier 3 (D-07) returns the neutral shape file for an unrecognized airline with a known shape"""
+    """select_illustration() Tier 3 returns the neutral shape file for an unrecognized airline with a known shape"""
     monkeypatch.setattr(ill, "ILLUSTRATION_DIR", str(tmp_path))
     _make_fixture_png(tmp_path / "generic-a320.png")
     path = ill.select_illustration({"airline_name": "Unknown Air"}, "A320")
@@ -261,7 +261,7 @@ def test_select_illustration_tier3_applies_when_route_is_none(tmp_path, monkeypa
 
 
 def test_select_illustration_tier4_universal_fallback_when_neither_resolves(tmp_path, monkeypatch):
-    """select_illustration() Tier 4 (D-08) returns the universal fallback when neither key resolves"""
+    """select_illustration() Tier 4 returns the universal fallback when neither key resolves"""
     monkeypatch.setattr(ill, "ILLUSTRATION_DIR", str(tmp_path))
     _make_fixture_png(tmp_path / ill.GENERIC_FALLBACK_FILENAME)
     path = ill.select_illustration({"airline_name": "Unknown Air"}, "ZZZZ")
@@ -499,7 +499,7 @@ def test_p04_secondary_variants_and_primaries_present():
 
 
 def test_target_airline_names_carries_current_brand_not_stale_names():
-    """target_airline_names() contains the current-brand 'ASL Airlines France'/'Corsair'/'Air Corsica' strings, not the stale adsbdb-resolved names they replace (260827-kih, inverted from the 260827-hyy check)"""
+    """target_airline_names() contains the current-brand 'ASL Airlines France'/'Corsair'/'Air Corsica' strings, not the stale adsbdb-resolved names they replace"""
     names = ill.target_airline_names()
     for expected in ("ASL Airlines France", "Corsair", "Air Corsica"):
         assert expected in names, "target_airline_names() is missing the current-brand name %r: %r" % (expected, names)
@@ -511,7 +511,7 @@ def test_target_airline_names_carries_current_brand_not_stale_names():
 
 
 def test_km_malta_and_tuifly_belgium_targets_present():
-    """target_airline_names()/target_filenames() carry 'KM Malta Airlines'/'TUIfly Belgium' and their derived filenames, and never 'Air Malta' or 'Jetairfly' (260827-jz6, QT-jz6-D-02 drift guard)"""
+    """target_airline_names()/target_filenames() carry 'KM Malta Airlines'/'TUIfly Belgium' and their derived filenames, and never 'Air Malta' or 'Jetairfly' (drift guard)"""
     names = ill.target_airline_names()
     for expected in ("KM Malta Airlines", "TUIfly Belgium"):
         assert expected in names, "target_airline_names() is missing %r: %r" % (expected, names)
@@ -523,7 +523,7 @@ def test_km_malta_and_tuifly_belgium_targets_present():
 
 
 def test_amelia_targets_present_and_total_is_52():
-    """target_filenames() contains 'amelia.png'/'amelia-embraer.png' (delivered on disk) and totals 52 entries (260827-kih baseline, updated by 260827-lgt, a parallel Air Caraïbes livery-audit session, and quick task 260921-v9c's nine new primaries)"""
+    """target_filenames() contains 'amelia.png'/'amelia-embraer.png' (delivered on disk) and totals 52 entries"""
     targets = ill.target_filenames()
     for expected_file in ("amelia.png", "amelia-embraer.png"):
         assert expected_file in targets, "target_filenames() is missing %r: not present" % (expected_file,)
@@ -534,7 +534,7 @@ def test_amelia_targets_present_and_total_is_52():
 
 
 def test_renamed_files_exist_superseded_names_do_not():
-    """the four renamed illustration files (air-corsica/air-corsica-atr72/asl-airlines-france/corsair) exist on disk; the four superseded filenames they replace do not (260827-kih)"""
+    """the four renamed illustration files (air-corsica/air-corsica-atr72/asl-airlines-france/corsair) exist on disk; the four superseded filenames they replace do not"""
     renamed = ("air-corsica.png", "air-corsica-atr72.png", "asl-airlines-france.png", "corsair.png")
     superseded = ("ccm-airlines.png", "ccm-airlines-atr72.png", "europe-airpost.png", "corsairfly.png")
     missing = [f for f in renamed if not os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, f))]
@@ -544,7 +544,7 @@ def test_renamed_files_exist_superseded_names_do_not():
 
 
 def test_lgt_targets_present_and_wizz_reuse_guard_holds():
-    """target_airline_names()/target_filenames() carry 'Air France Hop'/'KlasJet' (with 'Air France'/'Wizz Air' still present as distinct names) and the three new filenames (delivered on disk); the QT-lgt-D-01 Wizz Air Malta reuse guard holds - no Malta-specific Wizz entry exists in either list (260827-lgt)"""
+    """target_airline_names()/target_filenames() carry 'Air France Hop'/'KlasJet' (with 'Air France'/'Wizz Air' still present as distinct names) and the three new filenames (delivered on disk); the Wizz Air Malta reuse guard holds - no Malta-specific Wizz entry exists in either list"""
     names = ill.target_airline_names()
     for expected in ("Air France Hop", "KlasJet", "Air France", "Wizz Air"):
         assert expected in names, "target_airline_names() is missing %r: %r" % (expected, names)
@@ -557,9 +557,9 @@ def test_lgt_targets_present_and_wizz_reuse_guard_holds():
             "%r is a target but missing on disk - expected it to be delivered" % (expected_file,)
         )
 
-    # QT-lgt-D-01 reuse guard: no member of either list, other than the
-    # exact "Wizz Air" name / wizz-air.png filename, may start with the
-    # Wizz brand token.
+    # Reuse guard: no member of either list, other than the exact
+    # "Wizz Air" name / wizz-air.png filename, may start with the Wizz
+    # brand token.
     wizz_names = [n for n in names if n.lower().startswith("wizz")]
     assert wizz_names == ["Wizz Air"], (
         "target_airline_names() must contain exactly one Wizz-brand entry, 'Wizz Air': got %r" % (wizz_names,)
@@ -570,10 +570,10 @@ def test_lgt_targets_present_and_wizz_reuse_guard_holds():
     )
 
 
-# --- target_variants_by_airline() (D-14, 06.6.4.1-02) -----------------------
+# --- target_variants_by_airline() ------------------------------------------
 
 def test_variants_by_airline_matches_names_order_and_count():
-    """target_variants_by_airline() returns 36 pairs in the same order as target_airline_names() (260921-v9c: 27 -> 36 via nine new primaries)"""
+    """target_variants_by_airline() returns 36 pairs in the same order as target_airline_names()"""
     pairs = ill.target_variants_by_airline()
     assert len(pairs) == 36, "target_variants_by_airline() returned %d pairs, expected 36" % (len(pairs),)
     got_names = [name for name, _shapes in pairs]
@@ -610,17 +610,27 @@ def test_variants_no_none_and_a350_1000_survives():
     )
 
 
-def test_variants_derived_from_targets_no_second_table():
-    """target_variants_by_airline() is derived from _ILLUSTRATION_TARGETS directly (source assertion)"""
-    import inspect
-    source = inspect.getsource(ill.target_variants_by_airline)
-    assert "_ILLUSTRATION_TARGETS" in source, "target_variants_by_airline() source does not reference _ILLUSTRATION_TARGETS"
+def test_variants_derived_from_targets_no_second_table(monkeypatch):
+    """target_variants_by_airline() reflects _ILLUSTRATION_TARGETS directly, with no separate hardcoded table"""
+    fake_targets = [
+        ("Acme Air", None, "note"),
+        ("Acme Air", "a320", "note"),
+        ("Acme Air", "a350-1000", "note"),
+        ("Zephyr Jet", None, "note"),
+    ]
+    monkeypatch.setattr(ill, "_ILLUSTRATION_TARGETS", fake_targets)
+    got = ill.target_variants_by_airline()
+    expected = [("Acme Air", ["a320", "a350-1000"]), ("Zephyr Jet", [])]
+    assert got == expected, (
+        "target_variants_by_airline() did not reflect a monkeypatched _ILLUSTRATION_TARGETS: "
+        "got %r, expected %r" % (got, expected)
+    )
 
 
-# --- override resolution layer (D-01/D-02, quick task 260902-v26) ----------
+# --- override resolution layer ---------------------------------------------
 
 def test_resolved_path_override_vs_vendored(tmp_path):
-    """resolved_illustration_path() returns the override path when it exists, and the vendored path when it does not (260902-v26)"""
+    """resolved_illustration_path() returns the override path when it exists, and the vendored path when it does not"""
     vendored = ill.illustration_path_for_key("air-france")
     assert vendored is not None and os.path.isfile(vendored), "expected the real vendored air-france.png to exist as a baseline"
     got = ill.resolved_illustration_path("air-france", str(tmp_path))
@@ -640,7 +650,7 @@ def test_resolved_path_override_vs_vendored(tmp_path):
 
 
 def test_select_illustration_state_dir_override_vs_no_state_dir(tmp_path):
-    """select_illustration(..., state_dir=tmp) returns the override path when one exists for that key; the same call with no state_dir still returns the vendored path (260902-v26)"""
+    """select_illustration(..., state_dir=tmp) returns the override path when one exists for that key; the same call with no state_dir still returns the vendored path"""
     vendored = ill.illustration_path_for_key("air-france")
     override_path = tmp_path / ill.ILLUSTRATION_OVERRIDE_DIRNAME / "air-france.png"
     _touch_override_file(str(override_path))
@@ -662,7 +672,7 @@ def test_select_illustration_state_dir_override_vs_no_state_dir(tmp_path):
 
 
 def test_tier1_override_precedence_and_tier_isolation(tmp_path, monkeypatch):
-    """select_illustration() Tier 1 override wins over the vendored Tier 1 file; an override for the bare Tier 2 airline key does not displace a vendored Tier 1 file - tier precedence is unchanged, only the per-tier source changes (260902-v26)"""
+    """select_illustration() Tier 1 override wins over the vendored Tier 1 file; an override for the bare Tier 2 airline key does not displace a vendored Tier 1 file - tier precedence is unchanged, only the per-tier source changes"""
     fixture_dir = tmp_path / "vendored"
     fixture_dir.mkdir()
     state_dir = tmp_path / "state"
@@ -726,7 +736,7 @@ def test_override_hostile_key_confinement(tmp_path, monkeypatch):
 
 
 def test_vendored_file_immutable_after_override_resolution(tmp_path):
-    """the vendored file's bytes are unchanged after a battery of override resolution calls (260902-v26, T-v26-01-02)"""
+    """the vendored file's bytes are unchanged after a battery of override resolution calls"""
     vendored = ill.illustration_path_for_key("air-france")
     with open(vendored, "rb") as f:
         before = hashlib.sha256(f.read()).hexdigest()
@@ -745,7 +755,7 @@ def test_vendored_file_immutable_after_override_resolution(tmp_path):
 
 
 def test_set_override_state_dir_round_trip(tmp_path):
-    """set_override_state_dir() round trip: setting it makes a bare select_illustration() call pick up the override; resetting to None restores the vendored path, and the reset is guaranteed by a finally block (260902-v26, T-v26-01-04)"""
+    """set_override_state_dir() round trip: setting it makes a bare select_illustration() call pick up the override; resetting to None restores the vendored path, and the reset is guaranteed by a finally block"""
     override_path = tmp_path / ill.ILLUSTRATION_OVERRIDE_DIRNAME / "air-france.png"
     _touch_override_file(str(override_path))
     vendored = ill.illustration_path_for_key("air-france")
@@ -765,8 +775,7 @@ def test_set_override_state_dir_round_trip(tmp_path):
     )
 
 
-# --- Quick task 260921-v9c (2026-09-21): nine new [DEVELOPER-OBSERVED]
-# targets, delivered on arrival -----------------------------------------
+# --- Nine [DEVELOPER-OBSERVED] targets, delivered on arrival --------------
 
 _V9C_NEW_FILENAMES = (
     "qatar-amiri-flight.png",
@@ -782,7 +791,7 @@ _V9C_NEW_FILENAMES = (
 
 
 def test_v9c_nine_new_targets_present_and_tenth_excluded():
-    """target_filenames() contains all nine 260921-v9c filenames (delivered on disk), 'French Air Force' is a target_airline_names() member, and the deferred tenth file 'saudi-special-flight.png' is neither a target nor present on disk (QT-v9c-D-06 guard)"""
+    """target_filenames() contains all nine new filenames (delivered on disk), 'French Air Force' is a target_airline_names() member, and the deferred tenth file 'saudi-special-flight.png' is neither a target nor present on disk"""
     filenames = ill.target_filenames()
     for expected_file in _V9C_NEW_FILENAMES:
         assert expected_file in filenames, "target_filenames() is missing %r: not present" % (expected_file,)
@@ -791,8 +800,8 @@ def test_v9c_nine_new_targets_present_and_tenth_excluded():
         )
     names = ill.target_airline_names()
     assert "French Air Force" in names, "target_airline_names() is missing 'French Air Force': %r" % (names,)
-    # QT-v9c-D-06 guard: the tenth delivered file (unresolved operator
-    # mismatch) is neither a target nor present on disk.
+    # The tenth delivered file (unresolved operator mismatch) is neither
+    # a target nor present on disk.
     assert "saudi-special-flight.png" not in filenames, (
         "'saudi-special-flight.png' must never be a target (QT-v9c-D-06)"
     )
@@ -802,7 +811,7 @@ def test_v9c_nine_new_targets_present_and_tenth_excluded():
 
 
 def test_every_airline_has_an_unsuffixed_primary_file_on_disk():
-    """every airline in target_variants_by_airline() has an unsuffixed {slug}.png primary that is both a target_filenames() member and present on disk - protects the companion gallery card contract (airlines_page.py builds every card's <img src> from the primary key alone, 260921-v9c)"""
+    """every airline in target_variants_by_airline() has an unsuffixed {slug}.png primary that is both a target_filenames() member and present on disk - protects the companion gallery card contract (airlines_page.py builds every card's <img src> from the primary key alone)"""
     # companion/pages/airlines_page.py's _airline_card_html() builds every
     # gallery card's <img src> from the PRIMARY key alone
     # (illustrations.normalise_airline_key(airline_name) + '.png'),

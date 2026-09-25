@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Contract tests for server/plane/runway_config.py's D-03 inference with
-D-P2-04's deadband and hold-last-state behaviour.
+"""Contract tests for server/plane/runway_config.py's runway inference
+with its deadband and hold-last-state behaviour.
 
-Real-data grounding (A-02-02-01): the arrival/deadband checks below replay
+Real-data grounding: the arrival/deadband checks below replay
 server/fixtures/track_arrival_440cb1.json, the real recorded EJU84YF flare
 sequence (-640 then two +48 readings on an aircraft that is unambiguously
 landing) - not an inline literal. Every climb-side ("departing") case is
 explicitly labelled SYNTHETIC in its assertion message: no real runway-3
-departure has ever been observed (02-RESEARCH.md Open Question 2), so a
-green climb-side check proves the deadband arithmetic, not real-world
-departure validation - see A-02-02-01 in 02-02-PLAN.md.
+departure has ever been observed, so a green climb-side check proves the
+deadband arithmetic, not real-world departure validation.
 """
 import json
 import os
@@ -141,12 +140,11 @@ def test_infer_from_flight_delegates_on_the_flight_dicts_vertical_rate_fpm_key()
 
 
 def test_runway_labels_are_english_with_no_piste_vocabulary():
-    """device_config.runway_label() returns an English label containing 'Runway ' and no 'Piste' for every RUNWAY_IDS member (D-11/A-29)."""
-    # D-11 (19-12-PLAN.md Task 1, A-29): no check in this file pins a runway
-    # LABEL literally (this module tests server/plane/runway_config.py's
-    # inference state machine, not server/device_config.py's registry) -
-    # added here so the French "Piste" vocabulary can never come back
-    # unnoticed.
+    """device_config.runway_label() returns an English label containing 'Runway ' and no 'Piste' for every RUNWAY_IDS member."""
+    # No other check in this file pins a runway LABEL literally (this
+    # module tests server/plane/runway_config.py's inference state
+    # machine, not server/device_config.py's registry) - added here so
+    # the French "Piste" vocabulary can never come back unnoticed.
     for runway_id in device_config.RUNWAY_IDS:
         label = device_config.runway_label(runway_id)
         assert "Runway " in label, "runway_label(%r) = %r does not contain 'Runway '" % (runway_id, label)

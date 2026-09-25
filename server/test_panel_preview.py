@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contract tests for server/panel_preview.py (CFG-10): proves
+"""Contract tests for server/panel_preview.py: proves
 unpack_panel() is the exact inverse of panel_format.pack_panel() over a
 full canvas containing all six legal palette indices (including a mixed
 nibble pair inside one packed byte), that malformed input raises the
