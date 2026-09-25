@@ -296,31 +296,31 @@ Baseline: `companion__test_status_pages.txt`, 317 checks
 | 290 | the one .time-value role (C5) declares --font-ui and tabular-nums, with a --primary modifier stepping up to body-size + semibold — no new token, no new family, no new size | ported | companion/test_status_pages_06.py::test_time_value_role_defined_once |
 | 291 | the style.css header comment's accent-reservation list is edited to record C2's delta (the Frame strip's two switch buttons are no longer accent-filled) — the arithmetic is written into the comment, not merely asserted (22-UI-SPEC.md §1) | deleted | C: asserted a stylesheet comment (the header's own accent-reservation-list prose recording the C2 delta); no rendered behaviour |
 | 292 | the tab bar is display:none until the 959.98px boundary, then fixed to the viewport bottom at 56px plus the safe-area inset on the nav surface with a top hairline, the resting overlay shadow and NO border radius (it is edge-anchored); its cells are `flex: 1 1 0`; its active state reuses the app's one 12%-accent-wash pill idiom byte-for-byte with a :not()-scoped hover placed after it; its label is 11px regular with no label voice; and .has-tab-bar clears the bar at the page foot (X9/D-10, 22-14-PLAN.md Task 1) | ported | companion/test_status_pages_06.py::test_tab_bar_css_geometry_surface_and_active_idiom |
-| 293 | the .tab-bar__pill's horizontal margin, resolved from style.css's own --space-xs/--space-sm tokens, leaves at least the longest NAV_GROUPS label's own required width (a measured 6.5px/character advance derived from the 2026-09-17 audit's real 'Compagnies' figure, floored at that audit's own 65px) inside the tab cell at the app's 360px floor viewport, while `.tab-bar__link`'s own 56px height and `flex: 1 1 0` width basis stay byte-identical (CFG-82, 29-02-PLAN.md) | pending | |
-| 294 | the More sheet opens upward from the fixed bar (absolute, bottom: 100%, right: 0) on the nav surface with the overlay shadow, reuses .mobile-nav__link's 44px/16px geometry rather than restating it, leaves .mobile-nav's in-flow flex-basis push-down untouched, and the stylesheet itself records why this absolute positioning is not a reversal of the rejected-overlay verdict (X9/D-10, 22-14-PLAN.md Task 1) | pending | |
-| 295 | under lang='fr' every tab-bar label reads French — Accueil / Affichage / Vols / Compagnies / Plus, with État and Appareil inside the More sheet — and the landmark name is 'Navigation principale' (B16/CFG-29, 22-14-PLAN.md Task 1) | pending | |
-| 296 | the nav state reminder renders as a <span> with no href on Home, announcing ONLY the state, and stays an <a href="/" > with its destination-naming label everywhere else — in both nav copies, each with its two nowrap segments (B10/D-04, 22-14-PLAN.md Task 2) | pending | |
-| 297 | exactly ONE open-state max-height governs the dropdown (320px, pinned against a measured 165px of reduced French content at 390px — both the 420px and 640px values are gone, not re-tuned), the dropdown's dead nav selectors are deleted while .mobile-nav__link survives for the tab bar's sheet, and .nav-status is a wrapping flex row of nowrap segments whose hover underline is anchor-scoped (T11/B10, 22-14-PLAN.md Task 2) | pending | |
-| 298 | companion/static/style.css carries zero stray comment terminators and ends outside a comment — the structural guard for a real parse-error class that drops whole rules while leaving the source text a string-comparison harness reads as correct (22-14-PLAN.md Task 2, Rule 1) | pending | |
-| 299 | every <details> carries an explicit summary::before chevron that rotates on [open] through a child combinator — including the bottom tab bar's More summary, where it is taken out of flow so a marker cannot narrow the cell, and with its own inverted rotation because that sheet opens upward — with the prefers-reduced-motion block count unchanged at two; and no .data-table-wrap th rule survives to claim sticky positioning a wrapper with no height could never provide (T3/T4, 22-15-PLAN.md Task 1) | pending | |
-| 300 | freshness.js no longer stops dead on a failure: stopLoop() survives only as its definition and its two deliberate background-tab teardowns, a bounded exponential ladder starting AT the normal cadence (so a failing server sees a strictly decreasing rate) replaces it, a success resets the backoff, an in-flight guard stops two fetches racing, the swap skips unchanged regions and any region holding focus, the state badge is .banner__pill with the NEUTRAL .dot--off and no warn token anywhere in the file, style.css carries the .banner__pill[hidden] display guard the badge depends on, and both strings render onto <body> in both languages matching the script's own English fallbacks byte for byte (T13, 22-15-PLAN.md Task 2) | pending | |
-| 301 | style.css declares .resolve-context[hidden] { display: none; } after the base rule — without it, an author display declaration beats the UA [hidden] rule and every ordinary illustration's resolve-context block renders empty instead of hidden (quick task 260921-n2n Task 2) | pending | |
-| 302 | style.css's .flight-detail-row__grid margin-bottom is at least 2x .copy-btn::before's own inset magnitude — CFG-70's measured 22px hit-target floor made executable rather than a comment; this is the check that would have failed had this quick task's own source data's 'reduce to var(--space-md)' suggestion been taken (quick task 260921-n2n Task 5) | pending | |
-| 303 | the hamburger toggle's accessible name describes the preferences panel it now opens ("Account and preferences" / "Compte et préférences"), and the retired "Open menu" translation is deleted rather than orphaned (X9/D-10/B16, 22-14-PLAN.md Task 2) | pending | |
-| 304 | the save bar's own sub-960px geometry and its z-index: 30 at both breakpoints are RESTORED — the .dirty-ready marker class is not (this restoration's own clearance mechanism is :has(.dirty-bar), which works with scripts blocked) — while the tab bar's own stacking value (20) and its own content clearance are unmoved (D-10/T7, 22-14-PLAN.md Task 3; retired by 27-04-PLAN.md/CFG-63, restored by 28-08-PLAN.md Task 3/CFG-77/CFG-78) | pending | |
-| 305 | the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock 02:00 Europe/Paris), pinned as ONE named check: the strip renders the held copy with the neutral dot, Health's Frame tile renders the SAME clock time, the nav notification dot is unlit, and the rendered Health HTML carries zero warn/error dots, zero warn tile/headline modifiers and neither 'Expected since' nor 'Attendu depuis' (X2, D-03/CFG-26) | pending | |
-| 306 | inside the grace window with no hold, the tile reports the normal ('ok') state and the strip reports the due copy — they agree (22-UI-SPEC.md §3.3 rule 3) | pending | |
-| 307 | past the grace window with no hold, both the tile ('warn') and the strip ('Expected since') report late, and the nav notification dot lights | pending | |
-| 308 | a frame whose (non-held) next wake has passed and whose own grace has since elapsed is reported late by both the tile and the strip — held cannot suppress lateness forever | pending | |
-| 309 | companion/static/style.css's own dot--* class-name occurrence count is unchanged by this plan (9 before, 9 after) — this plan adds no dot class | pending | |
-| 310 | the quiet cell's caption link is present on BOTH Home's and Display's own real render() output, with the IDENTICAL href on both — asserted as one check whose failure names the page missing the link or the two hrefs when they differ, never two separate per-page checks (CFG-69, D-23, 27-08-PLAN.md Task 2) | pending | |
-| 311 | layout.frame_strip_html() renders exactly two role=switch controls whose aria-checked is the SAVED value in both directions, named by the setting through aria-labelledby and described by the state span, over the unchanged <form>/state/return_to/data-quick-switch the server already acts on — with the retired action wording gone, both state wordings present with exactly one hidden, and one pending-marker region per switch (D2/CFG-36, X1/D-04, 23-07-PLAN.md Task 1) | pending | |
-| 312 | the optimistic switch's failure copy is the app's own generic flash sentence, translated on <body> in both languages and carrying no status code, URL or server internal, and the shell renders exactly one EMPTY assertive live region for it — a transient toast, never a permanent banner (D2/CFG-36, V7/T-23-27, 23-07-PLAN.md Task 1) | pending | |
-| 313 | Health's freshness line carries exactly one neutral, aria-hidden live dot — the app's own off dot with no status or accent token and no breathing class at render time, because the motion belongs to the loop that knows whether it is listening (D22, 23-05-PLAN.md Task 2) | pending | |
-| 314 | Health's freshness line is a <time data-relative> over the same instant data-loaded-at carries whose SERVER text is the clock — never the ladder's zero bucket, which is the frozen age A-20 removed — with the absolute timestamp still in the element's tooltip, exactly one data-loaded-at and one data-refresh-pill page-wide, and the wrapper still a swap target (D22's remainder, 23-05-PLAN.md Task 2; the no-JS half retargeted in place by 23-06-PLAN.md) | pending | |
-| 315 | freshness.js DERIVES the breathing class from its own interval handle and state badge in one function, called from exactly the four places its state already changes, carries no status vocabulary, leaves 22-15's retry ladder/ceiling/in-flight guard/targeted swap untouched, and agrees with both the Python hook and the CSS rule (T-23-15, 23-05-PLAN.md Task 2) | pending | |
-| 316 | GET /health, GET /airlines and GET /history all return 200 with their own page heading against a real running service, /health's real HTTP response body carries the page purpose, both section descriptions, no duplicated freshness label, the auto-refresh pill (hidden) and zero stale-banner markers, the nested modifier twice, the prose modifier once, both readout spans, no raw ISO in the readout's own slice, and the desc-class cells at their expected count after the Resolution-statistics heading, /airlines' real HTTP response body carries zero occurrences of the retired per-card replace class, exactly one lightbox replace form and one action="" and one file input, and at least one un-busted replace-action trigger attribute, /history's real HTTP response body carries zero occurrences of the replace-form class, replace-action attribute, enctype or file input (quick task 260903-btu Task 5a), and the real served stylesheet (STYLE_ROUTE) carries the description-column rule, the demotion rule's new bottom margin and the prose rhythm rule's selector, and the real served freshness script (FRESHNESS_SCRIPT_ROUTE) carries the interval constant, the visibility-change listener, the [data-loaded-at]/[data-refresh-pill] attribute hooks, carries zero occurrences of the deleted data-pause-text/wireToggle pause-branch hooks (D-18), and every health_page.REFRESH_SWAP_SELECTORS entry verbatim (quick task 260901-tsa; extended in place by quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick task 260902-chc, quick task 260903-btu Task 5a, 19-09-PLAN.md Task 3, and 21-02-PLAN.md Task 2) | pending | |
-| 317 | GET /illustration/{key}.png against a real running service serves normalized bytes that differ from the raw vendored file and decode to illustration_normalize.ILLUSTRATION_TARGET_SIZE, and an unknown key still 404s | pending | |
+| 293 | the .tab-bar__pill's horizontal margin, resolved from style.css's own --space-xs/--space-sm tokens, leaves at least the longest NAV_GROUPS label's own required width (a measured 6.5px/character advance derived from the 2026-09-17 audit's real 'Compagnies' figure, floored at that audit's own 65px) inside the tab cell at the app's 360px floor viewport, while `.tab-bar__link`'s own 56px height and `flex: 1 1 0` width basis stay byte-identical (CFG-82, 29-02-PLAN.md) | ported | companion/test_status_pages_07.py::test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit |
+| 294 | the More sheet opens upward from the fixed bar (absolute, bottom: 100%, right: 0) on the nav surface with the overlay shadow, reuses .mobile-nav__link's 44px/16px geometry rather than restating it, leaves .mobile-nav's in-flow flex-basis push-down untouched, and the stylesheet itself records why this absolute positioning is not a reversal of the rejected-overlay verdict (X9/D-10, 22-14-PLAN.md Task 1) | ported | companion/test_status_pages_07.py::test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row |
+| 295 | under lang='fr' every tab-bar label reads French — Accueil / Affichage / Vols / Compagnies / Plus, with État and Appareil inside the More sheet — and the landmark name is 'Navigation principale' (B16/CFG-29, 22-14-PLAN.md Task 1) | ported | companion/test_status_pages_07.py::test_french_tab_bar_labels_and_landmark |
+| 296 | the nav state reminder renders as a <span> with no href on Home, announcing ONLY the state, and stays an <a href="/" > with its destination-naming label everywhere else — in both nav copies, each with its two nowrap segments (B10/D-04, 22-14-PLAN.md Task 2) | ported | companion/test_status_pages_07.py::test_nav_status_is_a_span_on_home_and_a_link_everywhere_else |
+| 297 | exactly ONE open-state max-height governs the dropdown (320px, pinned against a measured 165px of reduced French content at 390px — both the 420px and 640px values are gone, not re-tuned), the dropdown's dead nav selectors are deleted while .mobile-nav__link survives for the tab bar's sheet, and .nav-status is a wrapping flex row of nowrap segments whose hover underline is anchor-scoped (T11/B10, 22-14-PLAN.md Task 2) | ported | companion/test_status_pages_07.py::test_one_open_dropdown_max_height_and_no_dead_dropdown_nav_rule |
+| 298 | companion/static/style.css carries zero stray comment terminators and ends outside a comment — the structural guard for a real parse-error class that drops whole rules while leaving the source text a string-comparison harness reads as correct (22-14-PLAN.md Task 2, Rule 1) | ported | companion/test_status_pages_07.py::test_style_css_carries_no_stray_comment_terminator |
+| 299 | every <details> carries an explicit summary::before chevron that rotates on [open] through a child combinator — including the bottom tab bar's More summary, where it is taken out of flow so a marker cannot narrow the cell, and with its own inverted rotation because that sheet opens upward — with the prefers-reduced-motion block count unchanged at two; and no .data-table-wrap th rule survives to claim sticky positioning a wrapper with no height could never provide (T3/T4, 22-15-PLAN.md Task 1) | ported | companion/test_status_pages_07.py::test_every_disclosure_has_a_marker_and_no_header_claims_to_stick |
+| 300 | freshness.js no longer stops dead on a failure: stopLoop() survives only as its definition and its two deliberate background-tab teardowns, a bounded exponential ladder starting AT the normal cadence (so a failing server sees a strictly decreasing rate) replaces it, a success resets the backoff, an in-flight guard stops two fetches racing, the swap skips unchanged regions and any region holding focus, the state badge is .banner__pill with the NEUTRAL .dot--off and no warn token anywhere in the file, style.css carries the .banner__pill[hidden] display guard the badge depends on, and both strings render onto <body> in both languages matching the script's own English fallbacks byte for byte (T13, 22-15-PLAN.md Task 2) | ported | companion/test_status_pages_07.py::test_refresh_loop_retries_with_backoff_and_says_so_neutrally |
+| 301 | style.css declares .resolve-context[hidden] { display: none; } after the base rule — without it, an author display declaration beats the UA [hidden] rule and every ordinary illustration's resolve-context block renders empty instead of hidden (quick task 260921-n2n Task 2) | ported | companion/test_status_pages_07.py::test_resolve_context_hidden_guard_present_after_base_rule |
+| 302 | style.css's .flight-detail-row__grid margin-bottom is at least 2x .copy-btn::before's own inset magnitude — CFG-70's measured 22px hit-target floor made executable rather than a comment; this is the check that would have failed had this quick task's own source data's 'reduce to var(--space-md)' suggestion been taken (quick task 260921-n2n Task 5) | ported | companion/test_status_pages_07.py::test_flight_detail_row_grid_margin_never_shrinks_below_cfg70_floor |
+| 303 | the hamburger toggle's accessible name describes the preferences panel it now opens ("Account and preferences" / "Compte et préférences"), and the retired "Open menu" translation is deleted rather than orphaned (X9/D-10/B16, 22-14-PLAN.md Task 2) | ported | companion/test_status_pages_07.py::test_nav_toggle_label_now_describes_the_preferences_panel |
+| 304 | the save bar's own sub-960px geometry and its z-index: 30 at both breakpoints are RESTORED — the .dirty-ready marker class is not (this restoration's own clearance mechanism is :has(.dirty-bar), which works with scripts blocked) — while the tab bar's own stacking value (20) and its own content clearance are unmoved (D-10/T7, 22-14-PLAN.md Task 3; retired by 27-04-PLAN.md/CFG-63, restored by 28-08-PLAN.md Task 3/CFG-77/CFG-78) | ported | companion/test_status_pages_07.py::test_save_bar_geometry_is_restored_and_the_tab_bar_stacking_survives |
+| 305 | the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock 02:00 Europe/Paris), pinned as ONE named check: the strip renders the held copy with the neutral dot, Health's Frame tile renders the SAME clock time, the nav notification dot is unlit, and the rendered Health HTML carries zero warn/error dots, zero warn tile/headline modifiers and neither 'Expected since' nor 'Attendu depuis' (X2, D-03/CFG-26) | ported | companion/test_status_pages_07.py::test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn |
+| 306 | inside the grace window with no hold, the tile reports the normal ('ok') state and the strip reports the due copy — they agree (22-UI-SPEC.md §3.3 rule 3) | ported | companion/test_status_pages_07.py::test_health_inside_grace_window_tile_and_strip_agree_normal |
+| 307 | past the grace window with no hold, both the tile ('warn') and the strip ('Expected since') report late, and the nav notification dot lights | ported | companion/test_status_pages_07.py::test_health_past_grace_window_both_report_late_dot_lights |
+| 308 | a frame whose (non-held) next wake has passed and whose own grace has since elapsed is reported late by both the tile and the strip — held cannot suppress lateness forever | ported | companion/test_status_pages_07.py::test_health_held_window_ended_and_grace_elapsed_both_report_late |
+| 309 | companion/static/style.css's own dot--* class-name occurrence count is unchanged by this plan (9 before, 9 after) — this plan adds no dot class | ported | companion/test_status_pages_07.py::test_dot_modifier_classes_are_exactly_four_no_new_class_added |
+| 310 | the quiet cell's caption link is present on BOTH Home's and Display's own real render() output, with the IDENTICAL href on both — asserted as one check whose failure names the page missing the link or the two hrefs when they differ, never two separate per-page checks (CFG-69, D-23, 27-08-PLAN.md Task 2) | ported | companion/test_status_pages_07.py::test_the_quiet_schedule_link_is_one_write_site_reaching_both_pages |
+| 311 | layout.frame_strip_html() renders exactly two role=switch controls whose aria-checked is the SAVED value in both directions, named by the setting through aria-labelledby and described by the state span, over the unchanged <form>/state/return_to/data-quick-switch the server already acts on — with the retired action wording gone, both state wordings present with exactly one hidden, and one pending-marker region per switch (D2/CFG-36, X1/D-04, 23-07-PLAN.md Task 1) | ported | companion/test_status_pages_07.py::test_the_strip_renders_two_server_rendered_switches |
+| 312 | the optimistic switch's failure copy is the app's own generic flash sentence, translated on <body> in both languages and carrying no status code, URL or server internal, and the shell renders exactly one EMPTY assertive live region for it — a transient toast, never a permanent banner (D2/CFG-36, V7/T-23-27, 23-07-PLAN.md Task 1) | ported | companion/test_status_pages_07.py::test_the_failure_toast_is_transient_translated_and_carries_no_internal |
+| 313 | Health's freshness line carries exactly one neutral, aria-hidden live dot — the app's own off dot with no status or accent token and no breathing class at render time, because the motion belongs to the loop that knows whether it is listening (D22, 23-05-PLAN.md Task 2) | ported | companion/test_status_pages_07.py::test_health_freshness_line_carries_a_neutral_live_dot |
+| 314 | Health's freshness line is a <time data-relative> over the same instant data-loaded-at carries whose SERVER text is the clock — never the ladder's zero bucket, which is the frozen age A-20 removed — with the absolute timestamp still in the element's tooltip, exactly one data-loaded-at and one data-refresh-pill page-wide, and the wrapper still a swap target (D22's remainder, 23-05-PLAN.md Task 2; the no-JS half retargeted in place by 23-06-PLAN.md) | ported | companion/test_status_pages_07.py::test_health_freshness_clock_is_a_ticking_age_over_the_loaded_at_instant |
+| 315 | freshness.js DERIVES the breathing class from its own interval handle and state badge in one function, called from exactly the four places its state already changes, carries no status vocabulary, leaves 22-15's retry ladder/ceiling/in-flight guard/targeted swap untouched, and agrees with both the Python hook and the CSS rule (T-23-15, 23-05-PLAN.md Task 2) | ported | companion/test_status_pages_07.py::test_freshness_js_breathes_only_from_the_loops_own_state |
+| 316 | GET /health, GET /airlines and GET /history all return 200 with their own page heading against a real running service, /health's real HTTP response body carries the page purpose, both section descriptions, no duplicated freshness label, the auto-refresh pill (hidden) and zero stale-banner markers, the nested modifier twice, the prose modifier once, both readout spans, no raw ISO in the readout's own slice, and the desc-class cells at their expected count after the Resolution-statistics heading, /airlines' real HTTP response body carries zero occurrences of the retired per-card replace class, exactly one lightbox replace form and one action="" and one file input, and at least one un-busted replace-action trigger attribute, /history's real HTTP response body carries zero occurrences of the replace-form class, replace-action attribute, enctype or file input (quick task 260903-btu Task 5a), and the real served stylesheet (STYLE_ROUTE) carries the description-column rule, the demotion rule's new bottom margin and the prose rhythm rule's selector, and the real served freshness script (FRESHNESS_SCRIPT_ROUTE) carries the interval constant, the visibility-change listener, the [data-loaded-at]/[data-refresh-pill] attribute hooks, carries zero occurrences of the deleted data-pause-text/wireToggle pause-branch hooks (D-18), and every health_page.REFRESH_SWAP_SELECTORS entry verbatim (quick task 260901-tsa; extended in place by quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick task 260902-chc, quick task 260903-btu Task 5a, 19-09-PLAN.md Task 3, and 21-02-PLAN.md Task 2) | ported | companion/test_status_pages_07.py::test_both_tabs_ok_end_to_end |
+| 317 | GET /illustration/{key}.png against a real running service serves normalized bytes that differ from the raw vendored file and decode to illustration_normalize.ILLUSTRATION_TARGET_SIZE, and an unknown key still 404s | ported | companion/test_status_pages_07.py::test_illustration_route_serves_normalized_bytes_end_to_end |
 
 
 ### Part 01 (plan 33-25)
@@ -668,3 +668,101 @@ closures/constants (`_frame_strip_ctx`, `_css_source`, `_block`,
 06's checks are relocated (not deleted), right after the check() closure
 definition, because later, not-yet-migrated checks (part 07) still call
 them.
+
+### Part 07 (plan 33-31) — chain closed
+
+Rows 293-317 (part 07, original `check()` calls #293-#317, the LAST 25
+checks in the file) are flipped: all 25 `ported` to `companion/
+test_status_pages_07.py`, 0 `deleted`.
+
+Rubric codes: 12 B/D (renders a real page — `layout.page_shell()`/
+`layout.frame_strip_html()`/`health_page.render()`/`health_page.
+compute_health_state()`/`home_page.render()`/`config_page.render()` — and
+asserts on the returned/rendered HTML, per 33-25's precedent), 9 C (rows
+293, 294, 297, 298, 299, 301, 302, 304, 309's nine style.css checks,
+rewritten against a served stylesheet via `companion_markup.css_rules()`/
+`declarations_for()`/`rules_with_selector()`, iterating parsed `Rule.
+selectors`/`Rule.declarations` rather than a regex/substring probe over
+the raw served text), 2 J (rows 300 and 315, `freshness.js`'s two raw
+disk reads, rewritten as `served_asset()` fetches through this chain's
+`strip_js_line_and_block_comments()`), 2 B/end-to-end (rows 316-317, a
+real `companion/app.py` subprocess via `make_app_server`, logged in
+through `companion_app_server.login()`). 0 deletions — every one of the
+final 25 checks maps onto observable behaviour with no source-text read
+needed.
+
+Two rows keep their `ported` status but replace a legacy sub-clause that
+had no structural equivalent, noted in the new module's own docstring and
+at each test's own docstring (not counted as separate deletions, per the
+same precedent 33-30 set for rows 250/257):
+- Row 299 drops the legacy check's own
+  `css_source.count("@media (prefers-reduced-motion: reduce)") != 2`
+  literal count (`css_rules()` records each rule's ENCLOSING at-rule
+  context, not a raw count of top-level at-rule block occurrences in the
+  source — there is no structural equivalent for "exactly N block
+  occurrences"). The replacement asserts the two SPECIFIC things that
+  count actually protected: the one global `*, *::before, *::after`
+  override exists under that media query, the one `.js .mobile-nav`
+  opt-out exists under it too, and `summary::before` (this task's own
+  subject) carries no THIRD, redundant per-rule override under the same
+  at-rule.
+- Row 309 drops the legacy check's own `css_source.count("dot--") != 9`
+  literal count. Of the raw served text's 9 substring occurrences, 5 are
+  prose inside COMMENTS (guard G1 already rules out comment text as a
+  source of behaviour) and only 4 are real selectors. The replacement
+  asserts the actual invariant the comment-polluted count stood in for:
+  exactly four `.dot--*` modifier classes exist (ok/warn/error/off) and
+  no fifth has been added — a stronger, comment-immune version of the
+  same acceptance criterion.
+
+Row 298 (the stray-comment-terminator structural guard) is `ported`
+scanning the SERVED stylesheet's raw character stream rather than
+`css_rules()`'s parsed structure: the defect it guards against (an
+unterminated `/* */` comment silently swallowing the next rule) is
+exactly the shape a real CSS parser cannot see through either, so no
+`css_rules()`-based rewrite is possible without losing the property under
+test. It still never reads the file from disk — only the bytes
+`companion/app.py`'s STYLE_ROUTE actually serves, fetched over HTTP.
+
+Rows 316-317 (the file's final two checks, a real running-service
+end-to-end round trip) move from the legacy harness's own local `Harness`/
+`http_request`/`_NoRedirectHandler` to `companion/conftest.py`'s
+`make_app_server` fixture and `test-support/companion_app_server.py`'s
+`login()`/`get()`. Row 316's STYLE_ROUTE assertions (previously a
+substring probe over the raw served CSS text) are rewritten structurally
+against `companion_markup.rules_with_selector()`/`declarations_for()`
+over that SAME real subprocess's own served bytes (33-FOLLOWUPS.md F-01);
+its FRESHNESS_SCRIPT_ROUTE assertions stay a comment-stripped served-text
+scan (JS delivery contracts are the named exception in this chain's own
+convention), fetched fresh from the running service and passed through
+`strip_js_line_and_block_comments()` rather than left raw.
+
+New module: `companion/test_status_pages_07.py` (25 pytest node ids, one
+per ported row — no row in this slice needed parametrization or a
+one-to-many split). Reuses this chain's `_module_server`/`css_text`
+module-scoped read-only server fixture pair (33-26) for the 9 C-rubric
+checks, adds a `freshness_js` module-scoped fixture for the 2 J-rubric
+checks, and uses `companion/conftest.py`'s function-scoped
+`make_app_server` fixture (never the module-scoped one) for the two
+end-to-end checks, since they seed real per-test fixture state and log in.
+
+**Chain closed.** `companion/test_status_pages.py` — the LAST legacy
+companion harness — is deleted outright (`git rm`), after confirming no
+importer remains anywhere in the repo (grepped imports, `open(`/`ast`/
+`Path(`/string mentions across companion, test-support, conftest, the
+shim, and every other test module — only prose comments and the frozen
+`ORIGINAL_COMPANION_HARNESSES` history tuple in `test-support/
+skypane_test_support.py` survive, used only to bound a guard's own
+exemption set, never opened). All 317 of this harness's baseline checks
+are now accounted for (313 ported, 4 deleted — rows 285/291 from part 06
+plus 2 earlier deletions from prior parts — 0 pending).
+`33-ledger-check.py companion/test_status_pages.py` **WITHOUT**
+`--allow-pending` confirms **317/317 baseline checks mapped, 0 pending**.
+
+`skypane_test_support.legacy_companion_harnesses()` now returns `()` —
+the disk-derived legacy set is EMPTY, since every companion harness chain
+(33-04, 33-08, 33-13, 33-18, 33-20, 33-24, and now this one) has finished.
+`companion/test_legacy_harness_shim.py`'s own parametrize list collapses
+to an empty set, which pytest reports as a clean SKIP
+("got empty parameter set for (harness)"), never an error or a failure —
+confirmed by running the shim module directly.
