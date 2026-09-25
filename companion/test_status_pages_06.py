@@ -1,64 +1,10 @@
-"""Part 06 of the `companion/test_status_pages.py` migration chain
-(33-30-PLAN.md): the original harness's `check()` calls #245-#292 (48 of
-part 06's checks) - the lightbox replace form (unique/labelled file input,
-cache-busting, hostile-name escaping, no revert control, retired-surface
-sweep, the shared icon sprite, the zone's own markup/styling contract),
-the D19 drag-and-drop upload affordance (byte-identical native controls
-across all three upload-form renderings, the JS-gate boundary, the framing
-preview's reserved aspect-ratio), the D-01/D-02/D-04..D-07 coverage-gap
-block (threshold/sort/cap/overflow, the gap card's own markup shape,
-its filter-group vocabulary, hostile-callsign escaping), the D-08/D-10/
-D-12 manual-resolution card states (`_airline_card_html()`'s widened
-`manual_info` parameter, the superseded fallback, grid injection), the
-D-03/D-10..D-13 conditional resolve section (all four server-derived
-states, the datalist contract, hostile-value escaping, CR-02's
-gap-cleared reachability, the page's own top-to-bottom composition
-order), the D-06..D-08 manual-resolutions summary line and the retired
-management table's symbol sweep, the WR-06 cross-module template
-equality check, the D-09 delete-form's two call sites,
-`list-filter.js`'s new `[data-filter-set]` hook, the phase 14
-Component-Inventory CSS sweep, the D-03/X2/B13/C2/C5/C6/T9 Frame-strip
-behaviour and CSS (the nightly quiet-hours regression, the grace window,
-the late/parked states, the three-cell row structure, the strip's own
-CSS geometry) and the X9/D-10 bottom tab bar's CSS geometry, surface and
-active idiom.
+"""Companion status-page tests: the lightbox replace form, the drag-and-drop
+upload affordance, the coverage-gap block, manual-resolution card states,
+the conditional resolve section, the delete-form, and the Frame-strip and
+bottom-tab-bar CSS geometry.
 
-Two checks (rubric S) are dropped outright, both redundant with the
-comprehensive frame-strip behaviour checks already in this same module:
-row 285 (a source-text grep of `companion/layout.py` for a retired
-`age_seconds(next_wake...)` re-derivation) has no behaviour left to
-protect once `test_frame_strip_nightly_regression_held_is_neutral_
-never_warn`/`test_frame_strip_due_is_identical_inside_and_outside_the_
-grace_window`/`test_frame_strip_parked_suppresses_late_state` already
-pin every late/due/parked/grace scenario against `frame_state.
-resolve_state()`'s own output; row 291 (rubric C) asserted a stylesheet
-COMMENT (the header's own accent-reservation-list prose), which guard G1
-already rules out as a source of behaviour.
-
-Two more checks keep their behavioural assertions but drop one
-now-redundant source-text sub-clause each (rubric S), noted at each call
-site: `test_replace_zone_icon_comes_from_the_shared_sprite` drops a
-`companion/pages/airlines_page.py` source-file scan for a hand-written
-glyph token (the rendered `<use>` count and class already prove the
-glyph came from the shared sprite); `test_gap_card_filter_group_never_
-collides_with_curated_integer_groups` drops a source-file scan for the
-`'data-filter-group="gap%d"'` format-string literal (the same check's
-own rendered-attribute regex match already proves the format shipped).
-
-Every CSS check in this module fetches the stylesheet `companion/app.py`
-actually serves and asserts on it structurally via `companion_markup.
-css_rules()`/`declarations_for()`/`rules_with_selector()` - iterating
-parsed `Rule.selectors`/`Rule.declarations`, never a regex/substring
-probe over the raw served text (33-FOLLOWUPS.md F-01) - reusing a
-module-scoped read-only server. The one served-JS check
-(`list-filter.js`) fetches it via `served_asset()` and strips only
-comments with this chain's `strip_js_line_and_block_comments()`, never a
-disk read.
-
-Every other check in this module calls `companion.pages.airlines_page`/
-`companion.pages.health_page`/`companion.layout` directly, in-process,
-seeding fixtures under `tmp_path` via `companion.test_status_pages_
-helpers`.
+CSS/JS checks fetch served bytes from companion/app.py; everything else
+calls companion.pages.airlines_page/companion.layout directly, in-process.
 """
 import os
 import re
@@ -106,7 +52,7 @@ def _grid_section(rendered):
 
 def _resolve_slice(rendered):
     """Isolate everything the page renders AFTER the shared dialog - Phase
-    14 (14-04-PLAN.md) moved the resolve section from the top of the page
+    14 moved the resolve section from the top of the page
     to the bottom (behind the shared lightbox), so this anchors on the
     dialog's own id and its universal closing tag instead of a hardcoded
     index into any specific inner string.
@@ -146,14 +92,14 @@ def _frame_strip_update_cell_slice(rendered):
 
 
 # =============================================================================
-# The lightbox replace form (quick task 260903-df3, extending T-06.6.4.1-05)
+# The lightbox replace form
 # =============================================================================
 
 def test_replace_form_file_input_id_is_unique_and_labelled(tmp_path):
     """the whole rendered page carries exactly one <input type="file"> whose id
     equals airlines_page.REPLACE_INPUT_ID and is the target of a label's for
     attribute, and both the label and the file input live inside the framed
-    zone wrapper (quick task 260903-df3) - the accessibility contract the move
+    zone wrapper - the accessibility contract the move
     from per-card to shared must not lose"""
     tmp = str(tmp_path)
     rendered = airlines_page.render(shp.ctx(tmp))
@@ -213,9 +159,8 @@ def test_replace_control_escapes_hostile_airline_name(monkeypatch):
     """a hostile airline name reaching the rendered page is escaped, never
     interpolated raw, including in its own data-view-panel-replace-action
     attribute; the now-airline-agnostic replace form's own markup
-    (REPLACE_LABEL_TEXT and REPLACE_HINT_TEXT, quick task 260903-df3)
-    carries no trace of the hostile name at all (extends T-06.6.4.1-05's
-    existing discipline)"""
+    (REPLACE_LABEL_TEXT and REPLACE_HINT_TEXT)
+    carries no trace of the hostile name at all"""
     hostile_name = '<script>alert(1)</script>"'
     monkeypatch.setattr(illustrations, "target_variants_by_airline", lambda: [(hostile_name, [])])
     rendered = airlines_page.render({})
@@ -238,7 +183,7 @@ def test_replace_control_escapes_hostile_airline_name(monkeypatch):
 
 def test_replace_form_contains_no_revert_or_reset_control(tmp_path):
     """the lightbox replace form's own markup offers no restoring or resetting
-    of the original image (D-04, explicitly out of scope) - checked both
+    of the original image (explicitly out of scope) - checked both
     within the form's own markup and as a membership test over this
     feature's surviving copy constants (REPLACE_LABEL_TEXT/
     REPLACE_BUTTON_TEXT/REPLACE_HINT_TEXT)"""
@@ -299,9 +244,9 @@ def test_replace_zone_icon_comes_from_the_shared_sprite(tmp_path):
     assert "icon-upload" in layout.ICON_IDS
     tmp = str(tmp_path)
     rendered = airlines_page.render(shp.ctx(tmp))
-    # Phase 14 (14-02-PLAN.md Task 3): the shared dialog now also renders
-    # its own resolve-upload form's file input, reusing the identical
-    # icon-upload glyph, so two occurrences are expected, not one.
+    # The shared dialog now also renders its own resolve-upload form's
+    # file input, reusing the identical icon-upload glyph, so two
+    # occurrences are expected, not one.
     use_tag = "<use href=" + '"#icon-upload"'
     assert rendered.count(use_tag) == 2
     icon_svg_match = re.search(
@@ -354,7 +299,7 @@ def test_replace_zone_markup_and_styling_contract(css_text, tmp_path):
 
 
 # =============================================================================
-# 25-07-PLAN.md Task 1 (CFG-51/D19): THE DROP ZONE, OVER TWO UPLOAD
+# Task 1 (D19): THE DROP ZONE, OVER TWO UPLOAD
 # FORMS THAT DID NOT CHANGE.
 # =============================================================================
 
@@ -365,8 +310,8 @@ def test_upload_forms_native_controls_are_unchanged_by_the_drop_zone():
     their hint paragraph, their method/enctype/action and exactly one
     <form> byte-identical to their pre-25-07 output - each now also
     carrying its own id and, as the form's LAST child after the submit
-    button, a drop zone naming the very input it writes into (CFG-51/D19,
-    25-07-PLAN.md Task 1)"""
+    button, a drop zone naming the very input it writes into (D19,
+     Task 1)"""
     renderings = (
         ("the no-JS fallback upload form",
          airlines_page._resolve_upload_form_html("/illustration/demo.png", ""),
@@ -415,7 +360,7 @@ def test_drop_zone_ids_are_unique_and_no_drop_markup_escapes_the_js_gate(tmp_pat
     (boundary-anchored, so data-upload-drop-input cannot satisfy it), and
     with those three <section> subtrees excised the rest of the document
     contains zero preview, image, note, message, input-hook or
-    --upload-preview-ratio markup (CFG-51/D-09, 25-07-PLAN.md Task 1)"""
+    --upload-preview-ratio markup"""
     tmp = str(tmp_path)
     result = manual_resolutions.add_entry(tmp, "NEW", "Totally Novel Airline")
     assert result == manual_resolutions.ADD_OK
@@ -498,14 +443,13 @@ def test_preview_box_reserves_illustration_normalize_s_own_frame(css_text):
 
 
 # =============================================================================
-# Phase 14 (14-04-PLAN.md Task 1): the coverage-gap block (D-01, D-02,
-# D-04, D-05, D-06, D-07).
+# The coverage-gap block
 # =============================================================================
 
 def test_gap_block_threshold_sort_cap_and_overflow(tmp_path):
     """_gap_rows_for_grid() thresholds at >= GAP_BLOCK_THRESHOLD (3), sorts
     eligible rows (-count, prefix), caps at GAP_BLOCK_CAP (12), and reports
-    the exact overflow count for the rest (D-05/D-06)"""
+    the exact overflow count for the rest"""
     tmp = str(tmp_path / "a")
     os.makedirs(tmp)
     registry = {}
@@ -548,7 +492,7 @@ def test_gap_card_markup_shape_and_attribute_vocabulary():
     class="airline-card" href="/airlines?resolve={prefix}"> trigger with
     zero <img> tags and no nested .airline-card__zoom button, carrying
     every data-view-panel-* attribute UI-SPEC's Gap-card markup shape
-    names, non-empty where that snippet shows a value (D-01/D-02/D-12)"""
+    names, non-empty where that snippet shows a value"""
     row = ("XYZ", 5, "t1", "t2", "XYZ123")
     card_html = airlines_page._gap_card_html(0, row)
     assert "<img" not in card_html
@@ -581,7 +525,7 @@ def test_gap_card_filter_group_never_collides_with_curated_integer_groups(tmp_pa
     """a gap card's data-filter-group value is always a string-prefixed
     "gap{index}" (never a bare integer) and never collides, as a bare
     string, with any curated card's own data-filter-group value on the
-    same render (RESEARCH.md Pitfall 4, T-14-17).
+    same render (RESEARCH.md Pitfall 4).
 
     Dropped in place (rubric S): the legacy check also opened
     `companion/pages/airlines_page.py`'s own source to prove the literal
@@ -610,7 +554,7 @@ def test_gap_overflow_html_renders_only_when_the_cap_bites():
     """_gap_overflow_html() returns the empty string when the cap does not
     bite, and otherwise the exact templated line naming the overflow
     count, with <a href="/health"> wrapping only MANUAL_OVERFLOW_LINK_TEXT
-    and the trailing period sitting outside the anchor (D-07)"""
+    and the trailing period sitting outside the anchor"""
     assert airlines_page._gap_overflow_html(0) == ""
     overflow_html = airlines_page._gap_overflow_html(3)
     assert overflow_html.startswith('<p class="text-label section-caption">')
@@ -624,8 +568,7 @@ def test_gap_overflow_html_renders_only_when_the_cap_bites():
 def test_gap_card_escapes_hostile_example_callsign():
     """an example_callsign containing '<', '>', '&' and '"' reaching a gap
     card renders fully escaped, both in data-view-panel-caption and in the
-    visible callsign paragraph, exactly once per interpolation site
-    (T-06.6.4.1-05, T-14-16)"""
+    visible callsign paragraph, exactly once per interpolation site"""
     hostile_callsign = '<script>alert(1)</script>"'
     row = ("XYZ", 5, "t1", "t2", hostile_callsign)
     card_html = airlines_page._gap_card_html(0, row)
@@ -636,9 +579,8 @@ def test_gap_card_escapes_hostile_example_callsign():
 
 
 # =============================================================================
-# Phase 14 (14-06-PLAN.md Task 1, D-08/D-10/D-12 fallback reachability):
 # _airline_card_html()'s widened manual_info parameter and render()'s
-# grid-injection step.
+# grid-injection step
 # =============================================================================
 
 def test_airline_card_html_manual_info_none_matches_todays_plain_card_and_keeps_button(tmp_path):
@@ -646,7 +588,7 @@ def test_airline_card_html_manual_info_none_matches_todays_plain_card_and_keeps_
     manual_info=None) renders byte-identically to the default-omitted
     call, and a plain curated card with no manual history still wraps a
     real <button> (never an <a>), with mode="art" and every manual/
-    resolve-prefix attribute empty (14-06-PLAN.md Task 1)"""
+    resolve-prefix attribute empty"""
     tmp = str(tmp_path)
     card_none = airlines_page._airline_card_html(0, "Air France", [], tmp, None)
     card_omitted = airlines_page._airline_card_html(0, "Air France", [], tmp)
@@ -664,7 +606,7 @@ def test_airline_card_html_active_manual_states_render_expected_attributes_and_c
     correct mode/heading/upload-action for both the has-artwork and
     needs-artwork cases, the delete-action attribute from
     _manual_delete_action(), an empty manual-note, and the 'Resolved by
-    hand' chip (14-06-PLAN.md Task 1)"""
+    hand' chip"""
     tmp = str(tmp_path)
     card_art = airlines_page._airline_card_html(0, "Air France", [], tmp, ("ZZZ", False, False))
     expected_open = '<a href="%s?%s=ZZZ" class="airline-card__zoom"' % (
@@ -690,9 +632,9 @@ def test_airline_card_html_active_manual_states_render_expected_attributes_and_c
 def test_airline_card_html_needs_artwork_sighting_context_conditional_on_live_gap(tmp_path):
     """a needs-artwork manual card's first-seen/last-seen/count attributes
     are populated from unresolved_row_for_prefix() only when a live gap
-    still exists for that prefix, fall back to empty once D-14 clears it,
+    still exists for that prefix, fall back to empty once the gap clears,
     and stay empty on an art-mode card regardless of manual_info
-    (14-06-PLAN.md Task 1)"""
+   """
     tmp_live = str(tmp_path / "live")
     tmp_cleared = str(tmp_path / "cleared")
     os.makedirs(tmp_live)
@@ -728,7 +670,7 @@ def test_airline_card_html_superseded_shows_built_in_state_never_operator_upload
     (never a key derived from the entry's own stored name), the
     Superseded chip renders, and the manual-note interpolates the prefix,
     the built-in name, AND the operator's own originally-stored name (not
-    the built-in name a second time) (D-10, 14-06-PLAN.md Task 1)"""
+    the built-in name a second time)"""
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
     rendered = airlines_page.render(shp.ctx(tmp))
@@ -749,7 +691,7 @@ def test_render_grid_injection_adds_exactly_one_novel_card_and_none_for_supersed
     """render()'s grid-injection step adds exactly one card for a genuinely
     novel active manual airline name not already among the curated pairs,
     and adds none for a superseded entry or for an active entry whose name
-    is already curated (D-08, UI-SPEC's Grid injection, 14-06-PLAN.md Task
+    is already curated (UI-SPEC's Grid injection, Task
     1)"""
     tmp_novel = str(tmp_path / "novel")
     tmp_none = str(tmp_path / "none")
@@ -771,8 +713,7 @@ def test_render_grid_injection_adds_exactly_one_novel_card_and_none_for_supersed
 
 
 # =============================================================================
-# Phase 13 (13-04-PLAN.md Task 1): the conditional resolve section (D-03,
-# D-10 through D-13).
+# The conditional resolve section
 # =============================================================================
 
 def test_resolve_section_four_states_render_correctly(tmp_path):
@@ -782,7 +723,7 @@ def test_resolve_section_four_states_render_correctly(tmp_path):
     input), seeded-gap-with-artless-entry (Step B heading naming the
     stored airline, upload form action ending /{key}.png, a file input),
     and seeded-gap-with-resolved-entry (the already-resolved sentence, no
-    file input) - D-03/D-11"""
+    file input) - /"""
     tmp = str(tmp_path)
     now = shp.iso(shp.now())
 
@@ -834,10 +775,10 @@ def test_resolve_section_datalist_contract(tmp_path):
     len(illustrations.target_airline_names()) (36 against today's data)
     <option> elements, the datalist's id matches the name input's list
     attribute, every airline name appears as an escaped <option
-    value=...> exactly once (D-13), and the shared
+    value=...> exactly once, and the shared
     _resolve_name_form_html() output also carries an empty <p
     class="lightbox__resolve-scope"></p> for panel-lookup.js to write
-    into on open (14-06-PLAN.md external gap-closure)"""
+    into on open (external gap-closure)"""
     tmp = str(tmp_path)
     shp.seed_unresolved_prefixes(tmp, {
         "XYZ": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
@@ -865,7 +806,7 @@ def test_resolve_section_escapes_hostile_values_and_distrusts_query_string(tmp_p
     everywhere they appear (including inside an attribute value), and a
     resolve_prefix differing from the stored registry key only in case or
     surrounding whitespace normalises to the identical prefix and renders
-    the identical resolve section (WR-04/D-12)"""
+    the identical resolve section"""
     tmp = str(tmp_path)
     hostile_name = '<b>Evil & "quoted" name'
     hostile_callsign = '<i>XYZ</i> & "call"'
@@ -895,11 +836,11 @@ def test_resolve_section_escapes_hostile_values_and_distrusts_query_string(tmp_p
 
 
 def test_resolve_section_step_b_reachable_after_gap_cleared(tmp_path):
-    """CR-02: once D-14 clears a resolved prefix from the live gap
+    """: once clears a resolved prefix from the live gap
     registry, the resolve section still reaches Step B for a manual entry
     with no artwork yet (heading, file input, Skip link, no
     sighting-context <dl>), still reaches the already-resolved state once
-    artwork exists under the re-added name (D-07's delete-and-re-add
+    artwork exists under the re-added name (delete-and-re-add
     path), and still renders the stale sentence only once neither a live
     gap nor a manual entry exists for the prefix"""
     tmp = str(tmp_path)
@@ -963,8 +904,7 @@ def test_page_composition_order_matches_ui_spec(tmp_path):
 
 
 # =============================================================================
-# Phase 13 (13-04-PLAN.md Task 2): the manual-resolutions management list
-# (D-06, D-07, D-08).
+# The manual-resolutions management list
 # =============================================================================
 
 def test_manual_summary_line_replaces_retired_management_table_copy(tmp_path):
@@ -972,7 +912,7 @@ def test_manual_summary_line_replaces_retired_management_table_copy(tmp_path):
     .manual-summary element and none of the retired management table's own
     copy; with two entries seeded (one superseded, one active),
     .manual-summary renders exactly once with text matching
-    MANUAL_SUMMARY_TEMPLATE's total/superseded count (D-11, 14-06-PLAN.md
+    MANUAL_SUMMARY_TEMPLATE's total/superseded count (
     Task 2 item 1)"""
     tmp = str(tmp_path)
     rendered = airlines_page.render(shp.ctx(tmp))
@@ -1006,11 +946,11 @@ def test_manual_summary_line_replaces_retired_management_table_copy(tmp_path):
 
 
 def test_manual_section_supersession_symbols_retired_and_chip_still_renders(tmp_path):
-    """the retired D-06 supersession machinery's own symbols
+    """the retired supersession machinery's own symbols
     (SUPERSEDED_MARKER_TITLE, SUPERSEDED_CAPTION, SUPERSEDED_STATUS_CLASS)
     are gone, and the Superseded chip itself still renders end to end via
     render() - the card-level attribute/note contract is Task 1's own
-    check's job, not re-tested here (14-06-PLAN.md Task 2 item 2)"""
+    check's job, not re-tested here"""
     for name in ("SUPERSEDED_MARKER_TITLE", "SUPERSEDED_CAPTION", "SUPERSEDED_STATUS_CLASS"):
         assert not hasattr(airlines_page, name), "expected airlines_page to no longer expose %r" % (name,)
     tmp = str(tmp_path)
@@ -1023,7 +963,7 @@ def test_manual_section_supersession_symbols_retired_and_chip_still_renders(tmp_
 def test_retired_management_table_symbols_are_gone():
     """importing companion.pages.airlines_page raises no error, and the
     module exposes none of the six retired management-table rendering
-    functions or eight now-orphaned copy/class constants (14-06-PLAN.md
+    functions or eight now-orphaned copy/class constants (
     Task 2 item 3)"""
     for name in (
             "_manual_resolution_table_html", "_manual_resolution_cards_html",
@@ -1042,7 +982,7 @@ def test_manual_section_seed_helper_end_to_end(tmp_path):
     manual_resolutions.add_entry() alone; both seeded airline names render
     on the Airlines page, and _manual_resolution_rows() reports
     superseded=True for exactly the static-table prefix (AFR) and False
-    for the novel one (XQZ) (phase 14 plan 14-01 Task 3)"""
+    for the novel one (XQZ) (phase 14 Task 3)"""
     tmp = str(tmp_path)
     shp.seed_manual_resolutions(tmp, [
         ("AFR", "Legacy Air France Ops"),
@@ -1065,18 +1005,18 @@ def test_health_resolve_link_template_matches_airlines_route_constants():
     """health_page.RESOLVE_LINK_HREF_TEMPLATE equals the template derived
     from airlines_page.AIRLINES_ROUTE and airlines_page.RESOLVE_QUERY_PARAM
     - the cross-module equality check airlines_page.py's own comment
-    already claims exists (WR-06)"""
+    already claims exists"""
     expected_template = "%s?%s=%%s" % (airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
     assert health_page.RESOLVE_LINK_HREF_TEMPLATE == expected_template
 
 
 def test_manual_delete_form_renders_in_both_dialog_and_no_js_fallback(tmp_path):
-    """the D-09 amendment's permanent regression proof: rendering
+    """the amendment's permanent regression proof: rendering
     ?resolve={prefix} for a prefix with a manual entry produces exactly
     one _manual_delete_form_html() output inside the shared dialog
     (action="") and exactly one inside the no-JS fallback section (the
     real delete action) - one shared function, two call sites
-    (14-06-PLAN.md Task 2 item 4)"""
+   """
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
     ctx = shp.ctx(tmp)
@@ -1099,8 +1039,7 @@ def test_manual_delete_form_renders_in_both_dialog_and_no_js_fallback(tmp_path):
 
 
 # =============================================================================
-# Phase 14 (14-03-PLAN.md Task 1, RESEARCH.md Pitfall 5): list-filter.js's
-# new [data-filter-set] hook.
+# list-filter.js's new [data-filter-set] hook
 # =============================================================================
 
 def test_list_filter_js_gains_data_filter_set_hook(_module_server):
@@ -1109,8 +1048,8 @@ def test_list_filter_js_gains_data_filter_set_hook(_module_server):
     value from the clicked element's own attribute and calls the file's
     one existing applyFilter() - the file still has exactly one
     [data-filter-text] query, stays ES5-safe, and introduces no network
-    call or timer (phase 14 plan 14-03 Task 1, RESEARCH.md Pitfall 5,
-    D-11's summary-line mechanism)"""
+    call or timer (phase 14 Task 1, RESEARCH.md Pitfall 5,
+     summary-line mechanism)"""
     js_source = served_asset(_module_server, app.LIST_FILTER_SCRIPT_ROUTE)
     assert "data-filter-set" in js_source
 
@@ -1129,8 +1068,8 @@ def test_list_filter_js_gains_data_filter_set_hook(_module_server):
 
 
 # =============================================================================
-# Phase 14 (14-03-PLAN.md Task 2): the style.css DOM-contract guard for
-# every new/extended selector UI-SPEC's Component Inventory names.
+# The style.css DOM-contract guard for every new/extended selector the
+# UI-SPEC's Component Inventory names
 # =============================================================================
 
 def test_phase14_task2_new_css_selectors_exhaustive(css_text):
@@ -1138,14 +1077,14 @@ def test_phase14_task2_new_css_selectors_exhaustive(css_text):
     Inventory enumerates (a.airline-card, .airline-card__placeholder,
     .lightbox__heading:empty, .lightbox__manual-note:empty) with their
     exact declaration values, .manual-summary's own base rule is GONE with
-    only its hover surviving on the chip's own 12% wash (X7, 22-11-PLAN.md
+    only its hover surviving on the chip's own 12% wash (X7,
     Task 2), .airline-card__placeholder's aspect-ratio string-equals
     .airline-card__image's, .lightbox__replace's selector is extended to a
     three-way group with .lightbox__resolve-name/.lightbox__delete in
     exactly one declaration block (never duplicated), none of the new/
     extended rule bodies declares a new custom property, and
-    .manual-resolution__status--superseded is gone now that plan 14-06 has
-    retired it (phase 14 plan 14-03 Task 2, retargeted in place by 14-06
+    .manual-resolution__status--superseded is gone now that has
+    retired it (phase 14 Task 2, retargeted in place by 14-06
     Task 2).
 
     Dropped in place (rubric C): the legacy check also asserted that the
@@ -1223,7 +1162,7 @@ def test_phase14_task2_new_css_selectors_exhaustive(css_text):
 
 
 # =============================================================================
-# 22-04-PLAN.md Task 1 (D-03/CFG-26, X2): the Frame strip reads the one
+# Task 1 (X2): the Frame strip reads the one
 # frame_state.resolve_state() result instead of re-deriving lateness.
 # =============================================================================
 
@@ -1231,7 +1170,7 @@ def test_frame_strip_nightly_regression_held_is_neutral_never_warn():
     """the nightly regression (quiet hours 23:00-07:00, check-in 22:58,
     clock 02:00 Europe/Paris): the Frame strip renders the held copy with
     the neutral dot--off and zero warn/error tokens anywhere, including no
-    'Expected since'/'Attendu depuis' (X2, D-03/CFG-26)"""
+    'Expected since'/'Attendu depuis' (X2)"""
     paris = timezone(timedelta(hours=1))
     qh_config = {
         "wake_interval_s": 900, "display_enabled": True,
@@ -1255,10 +1194,10 @@ def test_frame_strip_nightly_regression_held_is_neutral_never_warn():
 def test_frame_strip_due_is_identical_inside_and_outside_the_grace_window():
     """a due result renders byte-identical copy and classes whether 'now'
     is before next_wake or up to 2x the effective interval past it - the
-    grace window is invisible (22-UI-SPEC.md §3.3 rule 3) - with the
+    grace window is invisible (§3.3 rule 3) - with the
     countdown present in both renderings, marked, pointed at the same
     instant, and neither rendering carrying a warn/late/overdue token
-    anywhere (retargeted in place by 23-06-PLAN.md Task 2, which added the
+    anywhere (retargeted in place by Task 2, which added the
     one element in that cell that is a function of `now` by construction)"""
     device_cfg = {"wake_interval_s": 900, "display_enabled": True}
     checkin_iso = "2026-08-27T11:00:00+00:00"
@@ -1290,7 +1229,7 @@ def test_frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class():
     """a late result renders the warn dot and 'Expected since HH:MM', with
     the headline's own text-colour class staying the plain
     status-card__headline--warn hook (never a status colour as text,
-    22-UI-SPEC.md §3.3 rule 2)"""
+     §3.3 rule 2)"""
     device_cfg = {"wake_interval_s": 900, "display_enabled": True}
     ctx = _frame_strip_ctx("2026-08-27T11:00:00+00:00", device_cfg, "2026-08-27T12:00:00+00:00")
     rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
@@ -1305,7 +1244,7 @@ def test_frame_strip_parked_suppresses_late_state():
     """with a parked frame (ctx['battery_critical']=True), wake_interval_s
     300 and a 20-minute-old check-in, the frame strip does NOT show the
     late state - the identical setup without the park does (quick task
-    260923-fr4)"""
+    )"""
     device_cfg = {"wake_interval_s": 300, "display_enabled": True}
     now = "2026-08-27T12:20:00+00:00"
     checkin = "2026-08-27T12:00:00+00:00"
@@ -1370,8 +1309,8 @@ def test_frame_strip_three_cells_share_one_row_structure_switch_cells_keep_left_
 
 def test_frame_strip_both_switch_forms_carry_data_quick_switch_exactly_twice():
     """a rendered Frame strip contains exactly 2 occurrences of the literal
-    attribute data-quick-switch, one on each strip switch form (D-04
-    handshake with plan 22-05)"""
+    attribute data-quick-switch, one on each strip switch form (
+    handshake with)"""
     device_cfg = {"wake_interval_s": 900, "display_enabled": True}
     ctx = _frame_strip_ctx("2026-08-27T11:00:00+00:00", device_cfg, "2026-08-27T11:10:00+00:00")
     rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
@@ -1391,7 +1330,7 @@ def test_frame_strip_both_switch_forms_carry_data_quick_switch_exactly_twice():
 
 
 # =============================================================================
-# 22-04-PLAN.md Task 2 (B13, C2, C6, T9, C5): the strip's CSS - stretch
+# Task 2 (B13, C2, C6, T9, C5): the strip's CSS - stretch
 # cells, quiet strip buttons, the demoted headline, the repaired tile
 # hover, and the one time-value role.
 # =============================================================================
@@ -1407,7 +1346,7 @@ def test_frame_strip_cell_button_quiet_rule_after_submit_no_important_no_id(css_
     """the .frame-strip__cell button quiet-button rule (C2) appears at a
     later line than button[type="submit"], carries no !important and no
     id selector, and reuses the base quiet wash (4.5%/9%) verbatim - never
-    a new wash value (T-22-13)"""
+    a new wash value"""
     rules = css_rules(css_text)
     submit_index = next(i for i, rule in enumerate(rules) if 'button[type="submit"]' in rule.selectors)
     cell_button_index = next(
@@ -1437,7 +1376,7 @@ def test_stat_tile_hover_three_edge_frame_strip_excluded(css_text):
 
 
 def test_frame_strip_update_headline_no_heading_size_override(css_text):
-    """the Phase 21 .frame-strip__cell--update .status-card__headline
+    """the .frame-strip__cell--update .status-card__headline
     heading-size override is gone - the line returns to its own 16px
     semibold Emphasis base (C6)"""
     assert not rules_with_selector(css_text, ".frame-strip__cell--update .status-card__headline")
@@ -1465,7 +1404,7 @@ def test_time_value_role_defined_once(css_text):
 
 
 # =============================================================================
-# 22-14-PLAN.md Task 1 (X9, D-10, 22-UI-SPEC.md §3.1): the bottom tab
+# Task 1 (X9, §3.1): the bottom tab
 # bar's own geometry, surface, active idiom and page clearance, read
 # structurally from the served stylesheet.
 # =============================================================================
@@ -1481,7 +1420,7 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
     state reuses the app's one 12%-accent-wash pill idiom byte-for-byte
     with a :not()-scoped hover placed after it; its label is 11px regular
     with no label voice; and .has-tab-bar clears the bar at the page foot
-    (X9/D-10, 22-14-PLAN.md Task 1)"""
+   """
     rules = css_rules(css_text)
 
     base_decls = declarations_for(css_text, ".tab-bar", at_rules=())
