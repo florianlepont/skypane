@@ -118,3 +118,8 @@ Group 5 is fully closed and CI-enforced. Per this plan's own dispatch instructio
 ---
 *Phase: 35-comment-purge-in-english-and-dead-code*
 *Completed: 2026-09-25*
+
+## Self-Check: PASSED
+
+- All 4 referenced files verified present on disk (`scripts/comment-history-pending.txt`, `35-COMMENT-RATIO.md`, `.planning/STATE.md`, this file) — FOUND
+- All 3 commits verified present in `git log --oneline --all`: `de2e8b1` (merge), `09a08d5` (Task 1), `8136afc` (plan metadata) — FOUND
