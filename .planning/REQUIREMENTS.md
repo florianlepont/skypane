@@ -145,7 +145,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [ ] **FW-13**: Use `fp_api_base_normalize` or delete; delete dead code; drop orphan symbols; rollback disabled until OTA exists
 - [ ] **FW-14**: One helper each
 - [ ] **FW-15**: Derived from `git describe`
-- [ ] **HYG-01**: Keep what the code does, the *why* and invariants; drop plan/ticket history
+- [x] **HYG-01**: Keep what the code does, the *why* and invariants; drop plan/ticket history
 - [ ] **HYG-02**: Same purge in CSS and JS
 - [ ] **HYG-03**: Same purge
 - [x] **HYG-04**: English-only rule for code, comments, docs and commits in CLAUDE.md and CONTRIBUTING.md
@@ -378,7 +378,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FW-13 | Phase 34 | Pending |
 | FW-14 | Phase 34 | Pending |
 | FW-15 | Phase 34 | Pending |
-| HYG-01 | Phase 35 | Pending |
+| HYG-01 | Phase 35 | Complete |
 | HYG-02 | Phase 35 | Pending |
 | HYG-03 | Phase 35 | Pending |
 | HYG-04 | Phase 35 | Complete |
