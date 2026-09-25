@@ -1721,7 +1721,7 @@ Plans:
 3. English-only rule written in CLAUDE.md and CONTRIBUTING.md
 4. Suite green with no behaviour change
 
-**Plans:** 12/22 plans executed
+**Plans:** 13/22 plans executed
 
 **Execution gates:** G-33 — 35-01 stops unless Phase 33 is complete on `main` and no test reads source files or comments. G-34 — 35-21 (firmware, last purge wave) stops unless 34-11 is complete on `main`. One writer per file per wave. Each group proves "no behaviour change" with a mechanical `same-code` check against its base, plus the full suite and ruff, and records the per-file comment ratio before and after.
 
@@ -1739,7 +1739,7 @@ Plans:
 - [x] 35-10-PLAN.md — Wave 5 — companion health and history pages (HYG-01)
 - [x] 35-11-PLAN.md — Wave 5 — companion layout.py and draw.py (HYG-01)
 - [x] 35-12-PLAN.md — Wave 5 — companion airlines/home pages, pages/__init__.py, i18n_fr comments only (HYG-01)
-- [ ] 35-13-PLAN.md — Wave 6 — HYG-05 dead code (re-checked on main) + close group 4 (HYG-05, HYG-01)
+- [x] 35-13-PLAN.md — Wave 6 — HYG-05 dead code (re-checked on main) + close group 4 (HYG-05, HYG-01)
 - [ ] 35-14-PLAN.md — Wave 7 — companion browser test family (HYG-01)
 - [ ] 35-15-PLAN.md — Wave 7 — companion status_pages and view_pages tests (HYG-01)
 - [ ] 35-16-PLAN.md — Wave 7 — companion config_page/companion_app/other tests, companion conftest, test-support (HYG-01)
