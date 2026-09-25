@@ -1,0 +1,133 @@
+I (417) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (427) wifi:state: init -> auth (0xb0)
+I (557) wifi:state: auth -> assoc (0x0)
+I (567) wifi:state: assoc -> run (0x10)
+I (577) wifi:connected with <wifi-ssid>, aid = 3, channel 6, BW20, bssid = <wifi-bssid>
+I (577) wifi:security: WPA2-PSK, phy: bgn, rssi: -36
+I (587) wifi:pm start, type: 1
+
+I (587) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (587) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (607) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1597) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[0;32mI (1607) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[0;32mI (6537) fp_wifi: clock set via SNTP[0m
+[0;31mE (6537) fp_fault: SKYPANE-FAULT-INJECT int_wdt[0m
+Guru Meditation Error: Core  0 panic'ed (Interrupt wdt timeout on CPU0). 
+
+Core  0 register dump:
+PC      : 0x4200c70f  PS      : 0x00060a34  A0      : 0x8200ad5e  A1      : 0x3fcadf80  
+A2      : 0x0000182e  A3      : 0x00000000  A4      : 0x3c0b5d74  A5      : 0x0000015b  
+A6      : 0x3c0b5be0  A7      : 0x0005b8d8  A8      : 0x00060a20  A9      : 0x3fcadf30  
+A10     : 0x00000001  A11     : 0x3c0b6844  A12     : 0x3c0b6850  A13     : 0x00001989  
+A14     : 0x3c0b6844  A15     : 0x3c0b5f10  SAR     : 0x00000004  EXCCAUSE: 0x00000005  
+EXCVADDR: 0x00000000  LBEG    : 0x400556d5  LEND    : 0x400556e5  LCOUNT  : 0xfffffffd  
+
+
+Backtrace: 0x4200c70c:0x3fcadf80 0x4200ad5b:0x3fcadfa0 0x4200a2ab:0x3fcae380 0x420ac223:0x3fcae3d0 0x40380a75:0x3fcae400
+
+
+Core  1 register dump:
+PC      : 0x4037cb9e  PS      : 0x00060734  A0      : 0x8200447d  A1      : 0x3fcaf250  
+A2      : 0x00000000  A3      : 0x00000000  A4      : 0x3fca9f20  A5      : 0x3fca9f00  
+A6      : 0x403764b0  A7      : 0x00000001  A8      : 0x82010ece  A9      : 0x3fcaf210  
+A10     : 0x00000000  A11     : 0x00000000  A12     : 0x3fca9f00  A13     : 0x3fca9ee0  
+A14     : 0x00000001  A15     : 0x3fcaf424  SAR     : 0x00000000  EXCCAUSE: 0x00000005  
+EXCVADDR: 0x00000000  LBEG    : 0x00000000  LEND    : 0x00000000  LCOUNT  : 0x00000000  
+
+
+Backtrace: 0x4037cb9b:0x3fcaf250 0x4200447a:0x3fcaf270 0x40381c85:0x3fcaf290 0x40380a75:0x3fcaf2b0
+
+
+
+
+ELF file SHA256: 3a96b0a56
+
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x29 (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40375e3c
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2810,len:0x178c
+load:0x403c8700,len:0x4
+load:0x403c8704,len:0xc10
+load:0x403cb700,len:0x2dc0
+entry 0x403c8904
+[0;32mI (26) boot: ESP-IDF v5.3.1 2nd stage bootloader[0m
+[0;32mI (26) boot: compile time Sep 25 2026 10:23:44[0m
+[0;32mI (26) boot: Multicore bootloader[0m
+[0;32mI (27) boot: chip revision: v0.2[0m
+[0;32mI (27) boot.esp32s3: Boot SPI Speed : 80MHz[0m
+[0;32mI (27) boot.esp32s3: SPI Mode       : DIO[0m
+[0;32mI (27) boot.esp32s3: SPI Flash Size : 8MB[0m
+[0;32mI (27) boot: Enabling RNG early entropy source...[0m
+[0;32mI (28) boot: Partition Table:[0m
+[0;32mI (28) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (28) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (28) boot:  1 otadata          OTA data         01 00 0000f000 00002000[0m
+[0;32mI (29) boot:  2 phy_init         RF data          01 01 00011000 00001000[0m
+[0;32mI (29) boot:  3 nvs_keys         NVS keys         01 04 00012000 00001000[0m
+[0;32mI (30) boot:  4 secret           WiFi data        01 02 00013000 00003000[0m
+[0;32mI (30) boot:  5 factory          factory app      00 00 00020000 00250000[0m
+[0;32mI (30) boot:  6 ota_0            OTA app          00 10 00270000 00250000[0m
+[0;32mI (31) boot:  7 ota_1            OTA app          00 11 004c0000 00250000[0m
+[0;32mI (31) boot: End of partition table[0m
+[0;32mI (32) boot: Defaulting to factory image[0m
+[0;32mI (32) esp_image: segment 0: paddr=00020020 vaddr=3c0b0020 size=30230h (197168) map[0m
+[0;32mI (68) esp_image: segment 1: paddr=00050258 vaddr=3fc9dc00 size=0522ch ( 21036) load[0m
+[0;32mI (72) esp_image: segment 2: paddr=0005548c vaddr=40374000 size=0ab8ch ( 43916) load[0m
+[0;32mI (82) esp_image: segment 3: paddr=00060020 vaddr=42000020 size=ad1b8h (709048) map[0m
+[0;32mI (210) esp_image: segment 4: paddr=0010d1e0 vaddr=4037eb8c size=0ef84h ( 61316) load[0m
+[0;32mI (224) esp_image: segment 5: paddr=0011c16c vaddr=50000000 size=00c8ch (  3212) load[0m
+[0;32mI (225) esp_image: segment 6: paddr=0011ce00 vaddr=600fe000 size=00100h (   256) load[0m
+[0;32mI (225) esp_image: segment 7: paddr=0011cf08 vaddr=600fe100 size=00008h (     8) load[0m
+[0;32mI (237) boot: Loaded app from partition at offset 0x20000[0m
+[0;32mI (237) boot: Disabling RNG early entropy source...[0m
+[0;32mI (238) octal_psram: vendor id    : 0x0d (AP)[0m
+[0;32mI (238) octal_psram: dev id       : 0x02 (generation 3)[0m
+[0;32mI (239) octal_psram: density      : 0x03 (64 Mbit)[0m
+[0;32mI (239) octal_psram: good-die     : 0x01 (Pass)[0m
+[0;32mI (239) octal_psram: Latency      : 0x01 (Fixed)[0m
+[0;32mI (239) octal_psram: VCC          : 0x01 (3V)[0m
+[0;32mI (239) octal_psram: SRF          : 0x01 (Fast Refresh)[0m
+[0;32mI (240) octal_psram: BurstType    : 0x01 (Hybrid Wrap)[0m
+[0;32mI (240) octal_psram: BurstLen     : 0x01 (32 Byte)[0m
+[0;32mI (240) octal_psram: Readlatency  : 0x02 (10 cycles@Fixed)[0m
+[0;32mI (241) octal_psram: DriveStrength: 0x00 (1/1)[0m
+[0;32mI (242) MSPI Timing: PSRAM timing tuning index: 5[0m
+[0;32mI (242) esp_psram: Found 8MB PSRAM device[0m
+[0;32mI (242) esp_psram: Speed: 80MHz[0m
+[0;32mI (243) cpu_start: Multicore app[0m
+[0;32mI (252) cpu_start: Pro cpu start user code[0m
+[0;32mI (252) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (252) app_init: Application information:[0m
+[0;32mI (252) app_init: Project name:     skypane[0m
+[0;32mI (252) app_init: App version:      059774e-dev-int_wdt[0m
+[0;32mI (252) app_init: Compile time:     Sep 25 2026 15:39:19[0m
+[0;32mI (253) app_init: ELF file SHA256:  3a96b0a56...[0m
+[0;32mI (253) app_init: ESP-IDF:          v5.3.1[0m
+[0;32mI (253) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (253) efuse_init: Max chip rev:     v0.99 [0m
+[0;32mI (253) efuse_init: Chip rev:         v0.2[0m
+[0;32mI (254) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (254) heap_init: At 3FCA8690 len 00041080 (260 KiB): RAM[0m
+[0;32mI (254) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[0;32mI (254) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[0;32mI (255) heap_init: At 600FE108 len 00001EE0 (7 KiB): RTCRAM[0m
+[0;32mI (255) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator[0m
+[0;32mI (256) spi_flash: detected chip: generic[0m
+[0;32mI (256) spi_flash: flash io: dio[0m
+[0;33mW (257) spi_flash: Detected size(16384k) larger than the size in the binary image header(8192k). Using the size in the binary image header.[0m
+[0;32mI (258) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (258) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (259) main_task: Started on CPU0[0m
+[0;32mI (269) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations[0m
+[0;32mI (269) main_task: Calling app_main()[0m
+[0;32mI (269) gpio: GPIO[21]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (299) skypane: wake reason=other boot_count=9635[0m
+[0;32mI (299) fp_boot: reset reason=int_wdt[0m
+[0;33mW (299) skypane: poll fail step=reset backoff_n=10 sleep_s=21600[0m
+[0;32mI (299) fp_diag: wake timing total_ms=26 wifi_ms=0 setup_ms=0 display_ms=0 download_ms=0 draw_ms=0[0m
+[0;32mI (299) skypane: sleep enter sleep_s=21600[0m
