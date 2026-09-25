@@ -5,10 +5,7 @@ devices_cli.py, the operator CLI that manages it.
 Stdlib only. Every top-level test_* function below is a plain,
 pytest-discoverable test (plain `assert`, no return value, no fixture
 dependency) - each owns a self-contained Harness (free port, temp
---state-dir, a generated panel image) so it can run standalone under
-pytest or via the __main__ runner at the bottom of this file, which
-calls every test_* function, prints PASS/FAIL per check, and exits 1 on
-any failure.
+--state-dir, a generated panel image).
 
 Proves the enrolment rules:
     - a registered MAC presenting its own secret gets a fresh token, and
@@ -487,23 +484,3 @@ def test_devices_cli_revoke_token_removes_only_that_macs_token():
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
-
-if __name__ == "__main__":
-    test_functions = sorted(
-        (name, obj) for name, obj in list(globals().items())
-        if name.startswith("test_") and callable(obj)
-    )
-    passed = 0
-    for name, fn in test_functions:
-        try:
-            fn()
-        except AssertionError as exc:
-            print("FAIL %s - %s" % (name, exc))
-        except Exception as exc:  # never let an exception be swallowed into a pass
-            print("FAIL %s - exception: %r" % (name, exc))
-        else:
-            print("PASS %s" % name)
-            passed += 1
-    total = len(test_functions)
-    print("devices-registry: %d/%d checks pass" % (passed, total))
-    sys.exit(0 if passed == total else 1)

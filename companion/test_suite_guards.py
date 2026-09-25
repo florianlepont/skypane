@@ -9,12 +9,9 @@ outside `tmp_path` or uses a literal `/nonexistent` host path, runs
 `browser` fixture directly instead of the guarded `new_context`/`page`
 fixtures from `companion/conftest.py`.
 
-The guard is strict for every companion test module from day one. Its
-only exemption is the set of harnesses still in their pre-migration
-shape (detected from disk, not a hand list, so it shrinks automatically
-as each migration plan lands) plus this file and the shim that runs
-them - both scan the legacy shape on purpose and are the guard's own
-implementation, not a module the guard needs to prove anything about.
+The guard is strict: it scans every `companion/test_*.py` module and
+`companion/conftest.py`, with no exemption other than this file itself,
+which spells out the forbidden shapes on purpose as self-test samples.
 """
 
 import ast
@@ -23,56 +20,26 @@ import os
 
 import pytest
 
-import skypane_test_support
 from skypane_test_support import REPO_ROOT
 
 Violation = collections.namedtuple("Violation", ["rule", "lineno", "detail"])
 
 _COMPANION_DIR = os.path.join(REPO_ROOT, "companion")
 
-# This file and the shim that runs the still-legacy harnesses both scan
-# or run legacy-shaped code on purpose - neither is itself proof of
-# anything the guard exists to prove.
-#
-# companion/test_browser_ux_helpers.py is NOT exempt: 33-19-PLAN.md Task 1
-# converted its three direct `browser.new_context(...)` calls (G10) into a
-# `make_context` factory argument (the guarded `new_context` fixture for a
-# pytest caller; a still-legacy harness's own `browser.new_context` bound
-# method until it migrates), so the guard now scans it like any other
-# non-legacy module.
-ALWAYS_EXEMPT = frozenset({
-    "companion/test_suite_guards.py",
-    "companion/test_legacy_harness_shim.py",
-})
-
-
-def _legacy_companion_harnesses():
-    """The still-legacy companion harnesses, as a tuple of
-    ``"companion/test_x.py"`` paths. Prefers `skypane_test_support`'s
-    disk-derived `legacy_companion_harnesses()` (33-03-PLAN.md Task 3);
-    falls back to its pre-Task-3 hand list so this module works whether
-    Task 2 or Task 3 of this same plan has landed first in a given
-    process - both names mean exactly "companion harnesses still in
-    their legacy shape".
-    """
-    fn = getattr(skypane_test_support, "legacy_companion_harnesses", None)
-    if fn is not None:
-        return tuple(fn())
-    return tuple(skypane_test_support.LEGACY_COMPANION_HARNESSES)
+_GUARD_MODULE = "companion/test_suite_guards.py"
 
 
 def scanned_files():
     """Every `companion/test_*.py` module plus `companion/conftest.py`,
-    minus `ALWAYS_EXEMPT` and every still-legacy harness - the set the
-    guard actually enforces its rules against.
+    minus this guard module - the set the guard enforces its rules
+    against.
     """
-    candidates = sorted(
+    return sorted(
         os.path.join("companion", name)
         for name in os.listdir(_COMPANION_DIR)
         if name == "conftest.py" or (name.startswith("test_") and name.endswith(".py"))
+        if os.path.join("companion", name) != _GUARD_MODULE
     )
-    exempt = set(ALWAYS_EXEMPT) | set(_legacy_companion_harnesses())
-    return [path for path in candidates if path not in exempt]
 
 
 # --- G3 helpers: source-suffixed paths and __file__/HERE/REPO_ROOT-style
@@ -445,13 +412,43 @@ def test_module_obeys_behaviour_over_source_rules(relpath):
         "%s:%d %s %s" % (relpath, v.lineno, v.rule, v.detail) for v in violations)
 
 
-def test_exemption_set_is_only_legacy_harnesses():
-    originals = set(getattr(
-        skypane_test_support, "ORIGINAL_COMPANION_HARNESSES",
-        skypane_test_support.LEGACY_COMPANION_HARNESSES))
-    exempt = set(ALWAYS_EXEMPT) | set(_legacy_companion_harnesses())
-    for path in exempt:
-        assert path in ALWAYS_EXEMPT or path in originals, (
-            "%r is exempt from the guard but is neither one of the 9 original companion "
-            "harnesses nor in ALWAYS_EXEMPT - the exemption set may be growing silently"
-            % (path,))
+def test_scanned_files_are_every_companion_test_module_but_the_guard():
+    """No companion test module is exempt from the guard except this one."""
+    on_disk = {
+        os.path.join("companion", name)
+        for name in os.listdir(_COMPANION_DIR)
+        if name.startswith("test_") and name.endswith(".py")
+    }
+    assert set(scanned_files()) == (on_disk - {_GUARD_MODULE}) | {"companion/conftest.py"}
+
+
+# The directories pytest collects tests from, each scanned for the
+# pre-pytest runner shape (G8): an EXPECTED_CHECK_COUNT counter, a
+# module-level check()/main(), or an `if __name__ == "__main__"` runner.
+_RUNNER_SCAN_DIRS = ("server", "stub-server", "test-support", "companion", "deploy/tests")
+
+
+def _test_files_under(reldir):
+    full_dir = os.path.join(REPO_ROOT, reldir)
+    return sorted(
+        os.path.join(reldir, name)
+        for name in os.listdir(full_dir)
+        if name.startswith("test_") and name.endswith(".py")
+    )
+
+
+def test_no_legacy_runner_anywhere():
+    """No test file in any collected directory keeps a hand-rolled runner:
+    pytest discovery is the only way a test runs.
+    """
+    offenders = []
+    for reldir in _RUNNER_SCAN_DIRS:
+        for relpath in _test_files_under(reldir):
+            if relpath == _GUARD_MODULE:
+                continue
+            with open(os.path.join(REPO_ROOT, relpath), encoding="utf-8") as fh:
+                source = fh.read()
+            for v in scan_source(source, relpath):
+                if v.rule == "G8":
+                    offenders.append("%s:%d %s" % (relpath, v.lineno, v.detail))
+    assert offenders == [], "\n".join(offenders)

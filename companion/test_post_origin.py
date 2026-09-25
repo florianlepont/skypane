@@ -4,9 +4,7 @@ rejects any cross-site POST (login included) with a localized 403, before
 any routing or form read.
 
 Native pytest (Phase 32's conftest.py fixtures and no-network socket guard
-apply automatically to this module) — deliberately not a stdlib
-check()/EXPECTED_CHECK_COUNT harness, companion/test_login_throttle.py's
-own precedent.
+apply automatically to this module).
 
 Section 1 is pure in-process unit coverage of `auth.post_origin_ok()`.
 Section 2 is HTTP integration coverage against a real companion/app.py

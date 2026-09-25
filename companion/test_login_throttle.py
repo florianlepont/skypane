@@ -3,8 +3,7 @@ the keyed, bounded LoginThrottle and the client_ip()/login_throttle_key()
 helpers it is built on.
 
 Native pytest (Phase 32's conftest.py fixtures and no-network socket
-guard apply automatically to this module) — deliberately not a stdlib
-check()/EXPECTED_CHECK_COUNT harness like companion/test_companion_app.py.
+guard apply automatically to this module).
 
 Section 1 is pure in-process unit coverage of companion/auth.py. Section
 2 is HTTP integration coverage proving the same property end to end

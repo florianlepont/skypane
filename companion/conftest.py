@@ -108,8 +108,7 @@ def app_server_in_process(tmp_path):
 def _browser_required():
     """True in CI (GitHub sets CI=true) or with SKYPANE_REQUIRE_BROWSER=1:
     there, a harness that could not launch Chromium is a failure, not a
-    skip. Locally it stays a visible pytest skip. Exact semantics of
-    companion/test_legacy_harness_shim.py's own _browser_required().
+    skip. Locally it stays a visible pytest skip.
     """
     return (
         os.environ.get("SKYPANE_REQUIRE_BROWSER") == "1"
