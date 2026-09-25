@@ -1,18 +1,12 @@
-"""Part 01 of the `companion/test_view_pages.py` migration chain
-(33-05-PLAN.md): the original harness's check() calls #1-#37, covering
-`companion/pages/history_page.py`'s empty state, newest-first ordering,
-the reused render-module presentation mappings, monospace/escaping
+"""Companion view-page tests: `history_page.py`'s empty state, newest-first
+ordering, the reused render-module presentation mappings, monospace/escaping
 contracts, the merged When/Flight cells, the Corroboration column's
-agreement with `health_page.py`, the filter bar, and the per-row
-disclosure (summary row <-> sibling detail row) pairing.
+agreement with `health_page.py`, the filter bar, and the per-row disclosure
+pairing.
 
-Every check calls `history_page.render()` directly (never over HTTP) with
-a `tmp_path`-backed state directory seeded through
-`server.history_db`'s own writer functions — no `Harness` subprocess is
-needed for this slice. The four checks that used to open
-`companion/static/style.css` from disk instead fetch it from a running
-`companion/app.py` (`module_app_server_factory` + `served_stylesheet()`)
-and assert on `companion_markup.css_rules()`/`declarations_for()`.
+Every check calls `history_page.render()` directly, in-process, with a
+`tmp_path`-backed state directory. CSS checks fetch the served stylesheet
+from a running `companion/app.py` and assert on it structurally.
 """
 import pytest
 
@@ -57,10 +51,9 @@ def test_three_events_render_newest_first(tmp_path):
     vp.seed_runway_events(tmp_path, events)
     rendered = history_page.render(vp.history_ctx(tmp_path))
     doc = parse_html(rendered)
-    # 21-03-PLAN.md Task 2 (D-15): each summary row carries a sibling
-    # .flight-detail-row <tr> - 1 header + 3 summary + 3 detail = 7.
-    # 22-09-PLAN.md Task 2 (X5): +1 day-separator row - all three fixture
-    # events fall on the same Europe/Paris day: 7 + 1 = 8.
+    # Each summary row carries a sibling .flight-detail-row <tr> - 1
+    # header + 3 summary + 3 detail = 7, +1 day-separator row - all
+    # three fixture events fall on the same Europe/Paris day: 7 + 1 = 8.
     assert len(doc.select("tr")) == 8
     assert len(doc.select('[class="flight-day-row"]')) == 1
     idx3, idx2, idx1 = rendered.find("FLT3"), rendered.find("FLT2"), rendered.find("FLT1")
@@ -161,8 +154,8 @@ def test_history_table_wrapped_for_horizontal_scroll_dot_survives(tmp_path):
     rendered = history_page.render(vp.history_ctx(tmp_path))
     doc = parse_html(rendered)
     assert doc.select('[class="data-table-wrap"]')
-    # 21-03-PLAN.md Task 1 (D-15): the scoped data-table--flights modifier.
-    # find_all()'s attrs= does an exact-string match without the
+    # The scoped data-table--flights modifier: find_all()'s attrs= does
+    # an exact-string match without the
     # selector-syntax tokenizer, which would otherwise split this
     # attribute value on its embedded space.
     assert doc.find_all("table", attrs={"class": "data-table data-table--flights"})
@@ -170,7 +163,7 @@ def test_history_table_wrapped_for_horizontal_scroll_dot_survives(tmp_path):
 
 
 def test_six_columns_named_and_ordered(tmp_path):
-    """History renders exactly the 5 data headers in history_page._HEADERS plus a sixth, visually-hidden 'Details' toggle-column header, all in order, with no standalone Hex/Airline/Runway/Type/Callsign/Timestamp column (21-03-PLAN.md Task 1, D-15)"""
+    """History renders exactly the 5 data headers in history_page._HEADERS plus a sixth, visually-hidden 'Details' toggle-column header, all in order, with no standalone Hex/Airline/Runway/Type/Callsign/Timestamp column"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "d6", "callsign": "SEVEN1"},
     ])
@@ -191,7 +184,7 @@ def test_six_columns_named_and_ordered(tmp_path):
 
 
 def test_runway_survives_in_row_title_and_mobile_details(tmp_path):
-    """the runway value the dropped desktop Runway column used to show survives in the <tr title="..."> attribute and, unchanged, in the mobile card's More details (A-36/D-19)"""
+    """the runway value the dropped desktop Runway column used to show survives in the <tr title="..."> attribute and, unchanged, in the mobile card's More details (A-36)"""
     vp.seed_runway_events(tmp_path, [
         {
             "ts": "2026-08-27T10:00:00+00:00", "hex": "rwt01",
@@ -211,7 +204,7 @@ def test_runway_survives_in_row_title_and_mobile_details(tmp_path):
 
 
 def test_scroller_focusable_and_named(tmp_path):
-    """the .data-table-wrap scroller is focusable (tabindex="0") and carries a non-empty aria-label naming what it scrolls (A-36/D-19)"""
+    """the .data-table-wrap scroller is focusable (tabindex="0") and carries a non-empty aria-label naming what it scrolls (A-36)"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "scr01", "callsign": "SCROLL1"},
     ])
@@ -224,7 +217,7 @@ def test_scroller_focusable_and_named(tmp_path):
 
 
 def test_desktop_when_cell_clock_primary_relative_age_secondary(tmp_path):
-    """the desktop When cell shows a local clock primary line plus a STACKED relative-age secondary line, with no title attribute carrying the full ISO string any more (21-03-PLAN.md Task 1, D-15)"""
+    """the desktop When cell shows a local clock primary line plus a STACKED relative-age secondary line, with no title attribute carrying the full ISO string any more"""
     raw_ts = "2026-08-27T10:00:00+00:00"
     vp.seed_runway_events(tmp_path, [
         {"ts": raw_ts, "hex": "clk01", "callsign": "CLOCK1"},
@@ -241,7 +234,7 @@ def test_desktop_when_cell_clock_primary_relative_age_secondary(tmp_path):
 
 
 def test_merged_flight_cell_carries_callsign_airline_and_type(tmp_path):
-    """the Flight cell's callsign and its airline/aircraft-type secondary line both appear inside the same <td>, and the hex value is not visible in the desktop table (21-03-PLAN.md Task 1, D-15)"""
+    """the Flight cell's callsign and its airline/aircraft-type secondary line both appear inside the same <td>, and the hex value is not visible in the desktop table"""
     vp.seed_runway_events(tmp_path, [
         {
             "ts": "2026-08-27T10:00:00+00:00", "hex": "39d301",
@@ -263,9 +256,9 @@ def test_merged_flight_cell_carries_callsign_airline_and_type(tmp_path):
 
 def test_merged_cells_stay_one_line(tmp_path):
     """the merged Callsign/Hex and Type/Airline cells stay on one line - no <br>, no block-level child"""
-    # Row-height contract (data-density.md's "What to Avoid"): scoped to
-    # the SUMMARY row only (21-03-PLAN.md Task 2, D-15) - the sibling
-    # .flight-detail-row legitimately carries a <dl>/<div> grid.
+    # Row-height contract ("What to Avoid"): scoped to the SUMMARY row
+    # only - the sibling .flight-detail-row legitimately carries a
+    # <dl>/<div> grid.
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "d7", "callsign": "LINE1"},
     ])
@@ -349,7 +342,7 @@ def test_timestamp_column_absolute_and_relative(tmp_path):
 
 
 def test_history_timestamps_carry_a_relative_time_element(tmp_path):
-    """History's Timestamp cells carry layout.concise_timestamp_html()'s new <time data-relative> element through data_table()'s raw_columns — as real markup, never double-escaped — with its text and its instant both intact (23-03, D14/CFG-34)"""
+    """History's Timestamp cells carry layout.concise_timestamp_html()'s new <time data-relative> element through data_table()'s raw_columns — as real markup, never double-escaped — with its text and its instant both intact (23-03, D14)"""
     seeded_ts = "2026-08-28T13:58:02+00:00"
     three_min_later = "2026-08-28T14:01:02+00:00"
     vp.seed_runway_events(tmp_path, [
@@ -357,10 +350,10 @@ def test_history_timestamps_carry_a_relative_time_element(tmp_path):
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path, now=three_min_later))
     doc = parse_html(rendered)
-    # 23-08-PLAN.md Task 1: Flights joined the refresh loop, so the
-    # header now carries its own <time data-relative> freshness clock -
-    # narrow the search to the card list so this check keeps measuring
-    # the ROW's own age, not the header's render-instant clock.
+    # Flights joined the refresh loop, so the header now carries its
+    # own <time data-relative> freshness clock - narrow the search to
+    # the card list so this check keeps measuring the ROW's own age,
+    # not the header's render-instant clock.
     assert doc.select("[data-refresh-clock]")
     cards = doc.select_one('[class="history-cards"]')
     assert not cards.select("[data-refresh-clock]")
@@ -374,7 +367,7 @@ def test_history_timestamps_carry_a_relative_time_element(tmp_path):
 
 
 def test_corroboration_copy_agrees_with_health_page():
-    """history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS on status key-by-key and on visible label for True/False; History's shortened 'None' label is the documented short form and its _CORROBORATION_TITLES tooltip equals Health's own full label exactly; the single-source 'None' state is pinned by name on each side (History 'ok', Health the neutral 'off'), is never a failure in either table, and carries a visible label distinct from 'Both agree' (quick task 260902-w4t UIR-04, retargeted by 22-12-PLAN.md Task 1's X8)"""
+    """history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS on status key-by-key and on visible label for True/False; History's shortened 'None' label is the documented short form and its _CORROBORATION_TITLES tooltip equals Health's own full label exactly; the single-source 'None' state is pinned by name on each side (History 'ok', Health the neutral 'off'), is never a failure in either table, and carries a visible label distinct from 'Both agree'"""
     health_rows = {
         stored: (status, label)
         for stored, label, status, _explanation in health_page._CORROBORATION_ROWS
@@ -386,9 +379,9 @@ def test_corroboration_copy_agrees_with_health_page():
     assert set(history_labels) == {"True", "None", "False"}
 
     # Statuses must agree key-by-key for True and False - History's
-    # desktop table deliberately keeps "ok" for None (21-UI-SPEC/D-15),
-    # while Health's None moved to the neutral "off" token (22-UI-SPEC.md
-    # §5 contract 4), so that key is pinned by name below instead.
+    # desktop table deliberately keeps "ok" for None, while Health's
+    # None moved to the neutral "off" token, so that key is pinned by
+    # name below instead.
     for key in ("True", "False"):
         assert history_labels[key][0] == health_rows[key][0]
         assert history_labels[key][1] == health_rows[key][1]
@@ -405,7 +398,7 @@ def test_corroboration_copy_agrees_with_health_page():
 
 
 def test_status_dot_title_backward_compatible_and_escaped():
-    """layout.status_dot()'s 2-arg output is unchanged, an explicit title=None is byte-identical to omitting it, and a truthy title renders as an escaped title attribute (quick task 260902-w4t, UIR-04)"""
+    """layout.status_dot()'s 2-arg output is unchanged, an explicit title=None is byte-identical to omitting it, and a truthy title renders as an escaped title attribute"""
     two_arg = layout.status_dot("ok", "All good")
     assert "title=" not in two_arg
     three_arg_equivalent = layout.status_dot("ok", "All good", None)
@@ -418,7 +411,7 @@ def test_status_dot_title_backward_compatible_and_escaped():
 
 
 def test_status_dot_visually_hide_label_defaults_false_byte_identical():
-    """layout.status_dot()'s visually_hide_label keyword defaults to False with a byte-identical return value, and True adds the visually-hidden class to the label span while leaving its text/title unchanged (21-03-PLAN.md Task 1, D-15)"""
+    """layout.status_dot()'s visually_hide_label keyword defaults to False with a byte-identical return value, and True adds the visually-hidden class to the label span while leaving its text/title unchanged"""
     without_keyword = layout.status_dot("ok", "All good", "A tooltip")
     explicit_false = layout.status_dot("ok", "All good", "A tooltip", visually_hide_label=False)
     assert explicit_false == without_keyword
@@ -430,7 +423,7 @@ def test_status_dot_visually_hide_label_defaults_false_byte_identical():
 
 
 def test_corroboration_none_row_shows_short_label_with_tooltip(tmp_path):
-    """a 'None' (single-source) row's Corroboration cell shows the short visible label with the long form only in a title attribute, in both the desktop and mobile renderings (quick task 260902-w4t, UIR-04)"""
+    """a 'None' (single-source) row's Corroboration cell shows the short visible label with the long form only in a title attribute, in both the desktop and mobile renderings"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "cn01", "callsign": "CORNONE",
          "corroborated": None},
@@ -451,7 +444,7 @@ def test_corroboration_none_row_shows_short_label_with_tooltip(tmp_path):
 
 
 def test_desktop_corroboration_cell_dot_only_no_visible_word(tmp_path):
-    """the desktop Corroboration cell renders the dot only, with the visible word hidden via visually-hidden (not deleted); the mobile card's own Corroboration <dd> still shows the word (21-03-PLAN.md Task 1, D-15/D-16)"""
+    """the desktop Corroboration cell renders the dot only, with the visible word hidden via visually-hidden (not deleted); the mobile card's own Corroboration <dd> still shows the word"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "cdo01", "callsign": "CDOTONLY",
          "corroborated": "True"},
@@ -467,7 +460,7 @@ def test_desktop_corroboration_cell_dot_only_no_visible_word(tmp_path):
 
 
 def test_when_and_flight_cells_each_carry_one_primary_one_secondary(tmp_path):
-    """the desktop When and Flight cells each carry exactly one cell-primary span and one cell-secondary span (21-03-PLAN.md Task 1, D-15)"""
+    """the desktop When and Flight cells each carry exactly one cell-primary span and one cell-secondary span"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "wf01", "callsign": "WHENFLT",
          "aircraft_type": "A320", "airline": "AFR"},
@@ -484,7 +477,7 @@ def test_when_and_flight_cells_each_carry_one_primary_one_secondary(tmp_path):
 
 
 def test_data_table_wrap_scroll_edge_affordance_css(served_css):
-    """.data-table-wrap declares both background-attachment values (local covers, scroll shadows) and style.css introduces no pointer-events-blocking overlay (quick task 260902-w4t, UIR-04)"""
+    """.data-table-wrap declares both background-attachment values (local covers, scroll shadows) and style.css introduces no pointer-events-blocking overlay"""
     base = declarations_for(served_css, ".data-table-wrap")
     assert "background-attachment" in base
     assert "local" in base["background-attachment"]
@@ -521,7 +514,7 @@ def test_filter_input_carries_safari_autofill_suppression_attributes(tmp_path):
 
 
 def test_filter_count_template_attribute_english_and_french(tmp_path):
-    """History's filter bar carries data-filter-count-template="%d of %d shown" under the default language and the French "%d sur %d affichés" under lang='fr' (D-06)"""
+    """History's filter bar carries data-filter-count-template="%d of %d shown" under the default language and the French "%d sur %d affichés" under lang='fr'"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FC1"},
     ])
@@ -541,7 +534,7 @@ def test_filter_count_template_attribute_english_and_french(tmp_path):
 
 
 def test_filter_bar_count_and_clear_wrap_as_one_group(tmp_path, served_css):
-    """History's filter count and Clear control render as siblings inside one .filter-bar__meta group whose page-agnostic rule declares flex/centre/nowrap/auto-left-margin, with no page-scoped fork of the converged [data-filter-clear] rule anywhere (B11, 22-09-PLAN.md Task 3 — a regression of Phase 18's A-18)"""
+    """History's filter count and Clear control render as siblings inside one .filter-bar__meta group whose page-agnostic rule declares flex/centre/nowrap/auto-left-margin, with no page-scoped fork of the converged [data-filter-clear] rule anywhere"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fm01", "callsign": "FILTMETA"},
     ])
@@ -607,7 +600,7 @@ def test_filter_text_attribute_on_both_representations(tmp_path):
 
 
 def test_desktop_flight_cell_carries_no_copy_buttons(tmp_path):
-    """the desktop Flight cell contains zero copy buttons (21-03-PLAN.md Task 1, D-15 - they move into the Task 2 detail row instead)"""
+    """the desktop Flight cell contains zero copy buttons - they move into the detail row instead"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "cd01", "callsign": "CDONE"},
     ])
@@ -619,7 +612,7 @@ def test_desktop_flight_cell_carries_no_copy_buttons(tmp_path):
 
 
 def test_detail_row_pairs_with_summary_row_by_aria_controls_and_id(tmp_path):
-    """each summary row gets exactly one sibling detail row, matched by aria-controls/id, with no hidden attribute and no inline style (the no-JS floor), and every row-toggle starts aria-expanded="false" (21-03-PLAN.md Task 2, D-15/R-12)"""
+    """each summary row gets exactly one sibling detail row, matched by aria-controls/id, with no hidden attribute and no inline style (the no-JS floor), and every row-toggle starts aria-expanded='false'"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "dr01", "callsign": "DETAIL1"},
         {"ts": "2026-08-27T10:01:00+00:00", "hex": "dr02", "callsign": "DETAIL2"},
