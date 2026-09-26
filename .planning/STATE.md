@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 36 plan 01 complete: server/atomic_io.py (atomic_write, staged_write, exclusive_lock, LockBusy) landed and tested; 36-02 (outbound HTTP deadline + pinned TLS) is next in wave 1."
-last_updated: "2026-09-26T07:44:39.691Z"
+stopped_at: "Phase 36 plan 02 complete: server/http_fetch.py (bounded_get INT-07, pinned_request INT-14) landed and tested; skypane-poll.service has TimeoutStartSec=90s. 36-03 (byos hardening) is next in wave 2."
+last_updated: "2026-09-26T08:10:59.028Z"
 last_activity: 2026-09-26
 progress:
   total_phases: 54
   completed_phases: 44
   total_plans: 392
-  completed_plans: 360
-  percent: 92
+  completed_plans: 361
+  percent: 81
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -32,7 +32,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Phase complete — ready for verification
+status: Ready to execute
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
@@ -60,7 +60,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTING
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 1 of 7
+Plan: 2 of 7
 
 **36-01 executed (2026-09-26), wave 1 (no dependencies) — lands the two stdlib primitives every later plan of Phase 36 migrates onto.** Task 1 re-verified gate G-35 independently against `origin/main` before any edit: 23 `35-*-SUMMARY.md` files present (≥22 required), `35-VERIFICATION.md` status `passed` on HEAD, ROADMAP's Phase 35 section fully checked, `origin/main` an ancestor of HEAD — all four checks passed, no edits made by that task. Task 2 (TDD) added `server/atomic_io.py`'s `atomic_write`/`staged_write`: a same-directory `tempfile.mkstemp` + `fchmod` + write + `fsync` + `os.replace`, with `DEFAULT_FILE_MODE` reading the umask once from `/proc/self/status`'s `Umask:` line (0022 on this runner) so a caller migrating from `open()` keeps its existing file mode unless it asks for a different one; an explicit `mode` (e.g. 0600 for a secret) lands on the temp file's descriptor before any byte is written and the destination path is never chmod'ed afterwards. Task 3 (TDD) added `exclusive_lock`/`LockBusy`/`LOCK_POLL_S`, generalising `calendar_rules._calendar_registry_lock` into one reusable cross-process, cross-thread `fcntl.flock` lock (0600 lock file, parent directory created, `LockBusy` a `TimeoutError` subclass, released in `finally`, no-op on a platform without `fcntl`), and wrote the module docstring's lock-order paragraph (`threading.Lock` → `poll.lock` → `calendar_rules.lock`; `device_config.lock` never held with another file lock). 19 behaviour tests total, including 8 threads × 50 writes and 2 OS processes × 200 writes to one path each landing exactly one complete 64 KiB payload with no leftover temp, and a child-process-held lock making the parent's blocking and non-blocking acquires both raise `LockBusy` before succeeding once the child releases. **One deviation, Rule 1/2 (coverage-gate correctness):** the new module's own defensive branches (the `/proc`-less umask fallback, the no-`fcntl` lock fallback, a write failure after the temp file is open, an already-deleted temp at cleanup, an unrelated `OSError` from `flock`) were untested by the plan's required behaviour list, pulling whole-repo coverage to 92.93% against the 93.0% floor — 8 more tests (each faking the platform condition, never reading source text) brought `server/atomic_io.py` to 98% and the full suite to 93.11%, `./scripts/run-all-tests.sh` exit 0, 2597 passed / 132 skipped (Playwright-Chromium and root-euid skips, pre-existing in this sandbox). Commits: `481fbc9` (test, RED), `08352b2` (feat, GREEN) for Task 2; `1151e42` (test, RED), `1d420f3` (feat, GREEN) for Task 3. `requirements.mark-complete INT-01 INT-02` per this plan's own frontmatter (the poll-cycle integration of INT-01 and every other caller's migration onto `atomic_write`/`exclusive_lock` land in 36-03..36-07). `roadmap.update-plan-progress "36"` confirmed `plan_count: 7, summary_count: 1, status: "In Progress"`.
 
@@ -529,6 +529,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 35 P21 | 34min | 3 tasks | 51 files |
 | Phase 35 P22 | 90min | 2 tasks | 8 files |
 | Phase 36 P01 | 25min | 3 tasks | 2 files |
+| Phase 36 P02 | 20min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -1061,6 +1062,8 @@ Recent decisions affecting current work:
 - [Phase 36]: Umask read via /proc/self/status's Umask: line (0022 on this runner), not the racy os.umask(0)/os.umask(old) pair; the racy pair is kept only as a fallback for a platform without /proc, exercised by a dedicated test that fakes /proc's absence.
 - [Phase 36]: Task 2's GREEN commit implements only atomic_write/staged_write per the plan's task split; exclusive_lock/LockBusy/LOCK_POLL_S and the lock-order docstring paragraph are added in Task 3's own RED/GREEN pair.
 - [Phase 36]: Added 8 tests beyond the plan's required behaviour list to close a coverage shortfall the new module's defensive branches caused against the repo's 93.0% floor -- ./scripts/run-all-tests.sh went from 92.93% to 93.11% after adding them (test-only fix, no production code change).
+- [Phase 36]: pinned_request's tests drive real http.client.HTTPResponse parsing over a fake socket (io.BufferedReader wrapping a raw reader returning one byte per readinto), so the connect/request round trip exercises production's own parser; PinnedResponse.iter_content's own deadline/settimeout timing is tested via a direct minimal fake body instead, isolating that timing logic.
+- [Phase 36]: INT-14 decision executed: pin the resolved address (resolve_public_addresses + pinned_request), not just correct the SSRF docstring, since requests/urllib re-resolve at connect time and could reach a different (private) address than the one checked.
 
 ### Pending Todos
 
@@ -1181,12 +1184,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T07:44:35.915Z
-Stopped at: Phase 36 plan 01 complete: server/atomic_io.py (atomic_write, staged_write, exclusive_lock, LockBusy) landed and tested; 36-02 (outbound HTTP deadline + pinned TLS) is next in wave 1.
+Last session: 2026-09-26T08:10:37.332Z
+Stopped at: Phase 36 plan 02 complete: server/http_fetch.py (bounded_get INT-07, pinned_request INT-14) landed and tested; skypane-poll.service has TimeoutStartSec=90s. 36-03 (byos hardening) is next in wave 2.
 
 Resume file: 
 
-36-02-PLAN.md
+None
 
 - `/gsd-execute-phase 33` continuation ran plan `33-22` (Wave 5, browser_ux part 02) after the original executor was killed by a container restart post-task-commits, pre-verification. This session verified both existing task commits (`6f556e4`, `72340ee`) against every one of the plan's acceptance criteria rather than redoing the migration (no gap found), then re-ran the full verification chain from `33-MIGRATION-RULES.md` section 5 plus the full unscoped suite from scratch: `companion/test_browser_ux_02.py` 43/43 passed under `SKYPANE_REQUIRE_BROWSER=1`, the shrunk legacy shim 1/1, `test_suite_guards.py`/`test-support` 101/101, `ruff check .` clean, ledger check `75/75 baseline checks mapped (36 ported, 1 deleted, 38 pending)`, and the full suite (`companion test-support server stub-server deploy`) at 2085 passed / 5 skipped / 0 failed.
 - `companion/test_browser_ux.py`'s `EXPECTED_CHECK_COUNT` is now 38 (down from 57); 36/75 of the file's original checks are ported, 1 deleted, 38 remain across parts 03-04.
