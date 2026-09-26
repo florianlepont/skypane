@@ -87,6 +87,26 @@ def test_open_db_for_a_different_path_inside_a_scope_is_a_separate_passthrough(t
     assert counts.connections == 2
 
 
+def test_nested_scope_for_a_different_path_is_also_served_unscoped(tmp_path):
+    """a connection_scope for a different path started while one is
+    already active on this thread does not take over the slot - it is
+    served exactly as if no scope were active at all, closing its own
+    connection on its own exit while the outer scope's connection is
+    untouched"""
+    state_dir = str(tmp_path / "scoped")
+    other_dir = str(tmp_path / "other")
+    with efficiency_probe.count_db() as counts:
+        with history_db.connection_scope(state_dir):
+            with history_db.open_db(state_dir) as scoped_conn:
+                with history_db.connection_scope(other_dir):
+                    with history_db.open_db(other_dir) as other_conn:
+                        assert other_conn is not scoped_conn
+                    with pytest.raises(sqlite3.ProgrammingError):
+                        other_conn.execute("SELECT 1")
+                scoped_conn.execute("SELECT 1")
+    assert counts.connections == 2
+
+
 def test_second_thread_opening_the_same_path_gets_its_own_connection(tmp_path):
     """a scope lives in threading.local(): another thread never sees it,
     and sqlite3's check_same_thread stays satisfied"""
@@ -290,3 +310,32 @@ def test_ingest_caddy_battery_log_inside_write_batch_commits_once(tmp_path):
                 inserted = history_db.ingest_caddy_battery_log(conn, log_path)
     assert inserted == 2
     assert counts.commits == 1
+
+
+def test_write_batch_on_a_plain_connection_still_commits_once(tmp_path):
+    """write_batch()'s _batch_depth bookkeeping is read via getattr with a
+    0 default and written back in a try/except AttributeError, precisely
+    so a bare sqlite3.Connection - never opened through this module's
+    connect() and therefore missing the attribute entirely - still works
+    as a single-level batch instead of raising"""
+    db_path = os.path.join(str(tmp_path), "plain.db")
+    conn = sqlite3.connect(db_path)
+    conn.execute("CREATE TABLE t (v TEXT)")
+    conn.commit()
+
+    with history_db.write_batch(conn):
+        conn.execute("INSERT INTO t (v) VALUES ('a')")
+        conn.execute("INSERT INTO t (v) VALUES ('b')")
+
+    assert conn.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 2
+
+    class Boom(Exception):
+        pass
+
+    with pytest.raises(Boom):
+        with history_db.write_batch(conn):
+            conn.execute("INSERT INTO t (v) VALUES ('c')")
+            raise Boom("mid-batch failure")
+
+    assert conn.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 2
+    conn.close()
