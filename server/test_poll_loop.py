@@ -3382,3 +3382,149 @@ def test_main_busy_lock_prints_the_lock_path_and_exits_1(tmp_path, monkeypatch, 
     finally:
         holder.stdin.close()
         assert holder.wait(timeout=5) == 0
+
+
+# ==========================================================================
+# Remaining atomic writes (panel.bin, the gallery PNG), main()'s traceback,
+# a queued detection updating META_LAST_DETECTION, and now_s() reaching
+# enrich.resolve_route()'s cache TTL.
+# ==========================================================================
+
+
+def test_panel_and_gallery_written_with_no_leftover_temp(tmp_path, clock):
+    """after a cycle that changes the panel: panel.bin holds packed bytes, the gallery holds a
+    PNG PIL can open, and no '*.tmp' exists in state_dir or gallery/"""
+    from PIL import Image
+
+    state_dir = str(tmp_path)
+    result = poll_loop.run_once(
+        snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=state_dir, geofence=GEOFENCE_PATH)
+    assert result["panel_changed"] is True, "expected the first-ever detection to change the panel"
+
+    panel_path = os.path.join(state_dir, "panel.bin")
+    assert os.path.isfile(panel_path), "expected panel.bin to exist"
+
+    gallery_dir = os.path.join(state_dir, poll_loop.GALLERY_DIRNAME)
+    pngs = [name for name in os.listdir(gallery_dir) if name.endswith(".png")]
+    assert len(pngs) == 1, "expected exactly one gallery PNG, got %r" % (pngs,)
+    with Image.open(os.path.join(gallery_dir, pngs[0])) as img:
+        img.load()  # raises if the PNG is malformed/truncated
+
+    leftovers = [name for name in os.listdir(state_dir) if name.endswith(".tmp")]
+    leftovers += [name for name in os.listdir(gallery_dir) if name.endswith(".tmp")]
+    assert leftovers == [], "expected no leftover .tmp file, found %r" % (leftovers,)
+
+
+def test_gallery_archive_failure_is_contained_and_leaves_no_temp(tmp_path, clock, monkeypatch):
+    """atomic_io.atomic_write forced to raise inside _save_to_gallery: the cycle still
+    completes (existing containment) and no '*.tmp' remains"""
+    state_dir = str(tmp_path)
+    gallery_dir = os.path.join(state_dir, poll_loop.GALLERY_DIRNAME)
+    calls = []
+    real_atomic_write = poll_loop.atomic_io.atomic_write
+
+    def spy_atomic_write(path, data, mode=None):
+        calls.append(path)
+        if gallery_dir in path:
+            raise OSError("disk full (injected)")
+        return real_atomic_write(path, data, mode=mode)
+
+    monkeypatch.setattr(poll_loop.atomic_io, "atomic_write", spy_atomic_write)
+
+    result = poll_loop.run_once(
+        snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=state_dir, geofence=GEOFENCE_PATH)
+
+    assert any(gallery_dir in path for path in calls), (
+        "expected _save_to_gallery() to archive the panel through atomic_io.atomic_write(), got "
+        "no call under %r; calls=%r" % (gallery_dir, calls))
+    assert result["panel_changed"] is True, (
+        "expected the gallery archive failure to be contained, not to fail the whole cycle")
+    assert os.path.isfile(os.path.join(state_dir, "panel.bin")), (
+        "expected panel.bin to have been written despite the gallery archive failure")
+
+    leftovers = []
+    if os.path.isdir(gallery_dir):
+        leftovers = [name for name in os.listdir(gallery_dir) if name.endswith(".tmp")]
+    assert leftovers == [], "expected no leftover .tmp file in the gallery dir, found %r" % (leftovers,)
+
+
+def test_main_generic_failure_prints_traceback_to_stdout(tmp_path, monkeypatch, capsys):
+    """main() with run_once monkeypatched to raise ValueError("boom"): returns 1, and captured
+    stdout contains "Traceback (most recent call last)" and "ValueError: boom" """
+    def _raise(*args, **kwargs):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(poll_loop, "run_once", _raise)
+    exit_code = poll_loop.main(["--state-dir", str(tmp_path), "--geofence", GEOFENCE_PATH])
+    assert exit_code == 1, "expected main() to return 1 on a generic failure, got %r" % (exit_code,)
+    captured = capsys.readouterr()
+    assert "Traceback (most recent call last)" in captured.out, (
+        "expected a full traceback in stdout, got %r" % (captured.out,))
+    assert "ValueError: boom" in captured.out, (
+        "expected the exception's own message in stdout, got %r" % (captured.out,))
+
+
+def test_queued_detection_updates_last_detection_meta(tmp_path, monkeypatch):
+    """cycle 1 detects A (displayed); cycle 2 within MIN_ADVANCE_INTERVAL_S detects B, which is
+    queued (held branch); with history_db.utc_now_iso monkeypatched to return distinct values per
+    cycle, META_LAST_DETECTION equals cycle 2's value"""
+    state_dir = str(tmp_path)
+    # A mutable holder, not an iterator: history_db.set_meta() calls
+    # utc_now_iso() again for its own row timestamp, so every call within
+    # one cycle must see that SAME cycle's value.
+    fake_iso = {"value": "2026-01-01T00:00:00+00:00"}
+    monkeypatch.setattr(poll_loop.history_db, "utc_now_iso", lambda: fake_iso["value"])
+
+    poll_loop.run_once(
+        snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=state_dir, geofence=GEOFENCE_PATH)
+    fake_iso["value"] = "2026-01-01T00:00:05+00:00"
+    # A distinct aircraft, detected well within MIN_ADVANCE_INTERVAL_S of
+    # cycle 1 (no clock fixture here - real wall-clock, but two
+    # back-to-back calls are microseconds apart) - queued, not promoted.
+    poll_loop.run_once(
+        snapshot=_snapshot("bbbbbb", "FLIGHT2 ", CLIMB), state_dir=state_dir, geofence=GEOFENCE_PATH)
+
+    with poll_loop.history_db.open_db(state_dir) as conn:
+        last_detection = poll_loop.history_db.get_meta(conn, poll_loop.history_db.META_LAST_DETECTION)
+    assert last_detection == "2026-01-01T00:00:05+00:00", (
+        "expected META_LAST_DETECTION to record the SECOND cycle's timestamp (a queued "
+        "detection still counts as a detection), got %r" % (last_detection,))
+
+
+def test_held_cycle_with_no_detection_leaves_last_detection_unchanged(tmp_path, monkeypatch):
+    """a held cycle with no detection leaves META_LAST_DETECTION unchanged"""
+    state_dir = str(tmp_path)
+    fake_iso = {"value": "2026-01-01T00:00:00+00:00"}
+    monkeypatch.setattr(poll_loop.history_db, "utc_now_iso", lambda: fake_iso["value"])
+
+    poll_loop.run_once(
+        snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=state_dir, geofence=GEOFENCE_PATH)
+    fake_iso["value"] = "2026-01-01T00:00:05+00:00"
+    poll_loop.run_once(
+        snapshot=_empty_snapshot(), state_dir=state_dir, geofence=GEOFENCE_PATH)
+
+    with poll_loop.history_db.open_db(state_dir) as conn:
+        last_detection = poll_loop.history_db.get_meta(conn, poll_loop.history_db.META_LAST_DETECTION)
+    assert last_detection == "2026-01-01T00:00:00+00:00", (
+        "expected META_LAST_DETECTION to stay at cycle 1's timestamp when cycle 2 detects "
+        "nothing, got %r" % (last_detection,))
+
+
+def test_now_s_clock_reaches_adsbdb_cache_stamp(tmp_path, clock):
+    """with the clock fixture at T, a cycle that enriches a callsign stores cached_at == T in
+    poll_state's enrichment_cache (proves now_s() reaches enrich.resolve_route())"""
+    state_dir = str(tmp_path)
+    clock["t"] = CLOCK_BASE + 12345
+
+    poll_loop.run_once(
+        snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=state_dir, geofence=GEOFENCE_PATH)
+
+    on_disk = poll_loop.load_poll_state(state_dir)
+    cache = on_disk.get("enrichment_cache", {})
+    entry = cache.get("FLIGHT1")
+    assert entry is not None, (
+        "expected an enrichment_cache entry for the normalised callsign 'FLIGHT1', got keys %r"
+        % (list(cache.keys()),))
+    assert entry.get("cached_at") == clock["t"], (
+        "expected cached_at to equal the injected clock's time (poll_loop.now_s() must reach "
+        "enrich.resolve_route()), got %r" % (entry.get("cached_at"),))
