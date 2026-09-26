@@ -14,7 +14,10 @@ Never writes the poll pipeline's own persisted flight-state file —
 `main()` fails closed on a missing password rather than starting with
 auth silently disabled.
 """
+import collections
 import email.message
+import email.utils
+import hashlib
 import io
 # Serialises the login lockout's server-computed remaining-seconds figure
 # into the data-* attribute companion/static/login-card.js seeds its
@@ -429,6 +432,69 @@ _RELATIVE_TIME_JS_PATH = os.path.join(_HERE, "static", "relative-time.js")
 _QUICK_SWITCH_JS_PATH = os.path.join(_HERE, "static", "quick-switch.js")
 _VALUE_CONTROLS_JS_PATH = os.path.join(_HERE, "static", "value-controls.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
+
+# In-memory static-asset cache behind _serve_static() below: populated on
+# first read per process, keyed by absolute path. companion/app.py
+# restarts on every deploy (deploy/activate.sh restarts
+# skypane-companion.service), so a per-process cache is never stale in
+# production. An OSError from _read_static_bytes() propagates and leaves
+# the path uncached, so a file that starts missing and later appears is
+# served on the very next request.
+_StaticEntry = collections.namedtuple(
+    "_StaticEntry", "payload etag last_modified mtime_s")
+_STATIC_CACHE = {}
+_STATIC_CACHE_LOCK = threading.Lock()
+
+
+def _read_static_bytes(abs_path):
+    """The one disk-read seam behind `_static_entry()` - kept as its own
+    function so a test can monkeypatch it and count how often it runs.
+    """
+    with open(abs_path, "rb") as fh:
+        return fh.read()
+
+
+def _static_entry(abs_path):
+    """The cached `_StaticEntry` for `abs_path`, reading the file at most
+    once per process. Raises the underlying `OSError` (never caught
+    here) when the file is missing or unreadable; the caller maps that
+    to a 404.
+    """
+    with _STATIC_CACHE_LOCK:
+        entry = _STATIC_CACHE.get(abs_path)
+    if entry is not None:
+        return entry
+    payload = _read_static_bytes(abs_path)
+    mtime_s = int(os.stat(abs_path).st_mtime)
+    etag = '"%s"' % hashlib.sha256(payload).hexdigest()[:32]
+    last_modified = email.utils.formatdate(mtime_s, usegmt=True)
+    entry = _StaticEntry(payload, etag, last_modified, mtime_s)
+    with _STATIC_CACHE_LOCK:
+        _STATIC_CACHE[abs_path] = entry
+    return entry
+
+
+def _not_modified(headers, etag, mtime_s):
+    """Whether a conditional request already holds the current
+    representation, per RFC 9110 13.2.2's evaluation order: a present
+    If-None-Match decides the outcome outright (a mismatch just means
+    "no match", never an error), and If-Modified-Since is consulted only
+    in its absence. Defensive: a malformed date never raises, it simply
+    fails to match. Header values are only ever compared here, never
+    echoed into a response.
+    """
+    inm = headers.get("If-None-Match")
+    if inm is not None:
+        tags = [tag.strip() for tag in inm.split(",")]
+        return "*" in tags or any(tag.removeprefix("W/") == etag for tag in tags)
+    ims = headers.get("If-Modified-Since")
+    if not ims:
+        return False
+    try:
+        return mtime_s <= email.utils.parsedate_to_datetime(ims).timestamp()
+    except (TypeError, ValueError, OverflowError, IndexError):
+        return False
+
 
 # Process-global, not per-session: keyed per client IP and bounded, so
 # failed logins from one address never lock another.
@@ -1221,14 +1287,43 @@ class Handler(BaseHTTPRequestHandler):
             error=error, lockout_seconds=lockout_seconds, next_route=next_route)
         return layout.login_shell(body, ui_theme=self._resolved_ui_theme())
 
-    def _serve_stylesheet(self):
+    def _serve_static(self, abs_path, content_type, cache_control):
+        """Shared body behind `_serve_stylesheet()`, `_serve_script_file()`
+        and `_serve_runway_image()`: an in-memory, read-once-per-process
+        cache (`_static_entry()`), RFC 9110 conditional evaluation
+        (`_not_modified()`), and a bodiless 304 on a match. `cache_control`
+        is sent verbatim on both a 200 and a 304, so a caller's own policy
+        (shared pre-auth vs. private) never depends on which status this
+        particular request happens to get.
+        """
         try:
-            with open(_STYLE_CSS_PATH, "rb") as fh:
-                payload = fh.read()
+            entry = _static_entry(abs_path)
         except OSError:
             return self.send_html(404, self._not_found_page())
-        # Pre-auth, identical for every client: legitimately shared-cacheable.
-        return self.send_bytes(200, "text/css", payload, cache_seconds=300, public=True)
+        if _not_modified(self.headers, entry.etag, entry.mtime_s):
+            self.send_response(304)
+            self.send_header("ETag", entry.etag)
+            self.send_header("Last-Modified", entry.last_modified)
+            self.send_header("Cache-Control", cache_control)
+            self._send_hardening_headers()
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(entry.payload)))
+        self.send_header("ETag", entry.etag)
+        self.send_header("Last-Modified", entry.last_modified)
+        self.send_header("Cache-Control", cache_control)
+        self._send_hardening_headers()
+        self.end_headers()
+        self.wfile.write(entry.payload)
+
+    def _serve_stylesheet(self):
+        # Pre-auth, identical for every client: legitimately
+        # shared-cacheable. `no-cache` (never a max-age window) so every
+        # load revalidates: no page can ever run new HTML against a
+        # browser's stale cached stylesheet after a deploy.
+        return self._serve_static(_STYLE_CSS_PATH, "text/css", "public, no-cache")
 
     def _serve_script_file(self, abs_path):
         """Serve one fixed JavaScript file, pre-auth. `abs_path` is
@@ -1236,15 +1331,11 @@ class Handler(BaseHTTPRequestHandler):
         client-supplied segment, so it has no path-traversal surface.
         Shared body for every `_serve_*_script()` method below.
         """
-        try:
-            with open(abs_path, "rb") as fh:
-                payload = fh.read()
-        except OSError:
-            return self.send_html(404, self._not_found_page())
         # text/javascript is the sole current-standard MIME type for
         # JavaScript per RFC 9239 (2022), which obsoletes RFC 4329's older
         # application/-prefixed form — deliberately not used here.
-        return self.send_bytes(200, "text/javascript", payload, cache_seconds=300, public=True)
+        # Same no-cache policy as _serve_stylesheet() above.
+        return self._serve_static(abs_path, "text/javascript", "public, no-cache")
 
     # Each below is a thin delegate onto _serve_script_file(). No
     # catch-all /static/ handler: a new script needs its own route,
@@ -1317,12 +1408,11 @@ class Handler(BaseHTTPRequestHandler):
         if runway_id not in device_config.RUNWAY_IDS:
             return self.send_html(404, self._not_found_page())
         path = _runway_image_path(runway_id)
-        try:
-            with open(path, "rb") as fh:
-                payload = fh.read()
-        except OSError:
-            return self.send_html(404, self._not_found_page())
-        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
+        # Policy unchanged (private, max-age=300; this route sits behind
+        # do_GET()'s require_session() gate, so the conditional path
+        # below is only ever reached post-auth) — it now also gains an
+        # ETag/Last-Modified and in-memory bytes via _serve_static().
+        return self._serve_static(path, "image/png", "private, max-age=300")
 
     def _serve_illustration_image(self, key):
         # Membership test first (validate-then-join, same shape as
