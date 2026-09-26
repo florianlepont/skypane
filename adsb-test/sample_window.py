@@ -3,8 +3,7 @@
 
 Repeatedly queries both aggregators over a real time window and writes one
 JSON Lines record per sample per provider, so analyze_samples.py can turn a
-window of real traffic into the viability metrics the D-02 decision is made
-on (see 01-CONTEXT.md D-01 through D-04).
+window of real traffic into the RTL-SDR-fallback viability metrics.
 
 Stdlib-only. Imports query_provider() and filter_in_geofence() from
 query_aggregator.py rather than reimplementing them, so the sampled geofence

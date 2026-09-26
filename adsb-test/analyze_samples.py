@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Turn a sample_window.py run's JSONL files into the viability metrics the
-D-02 RTL-SDR-fallback decision is made on.
+RTL-SDR-fallback decision is made on.
 
 Stdlib-only. Reads every *.jsonl file in --dir, groups records by the
 "provider" field each record already carries (not by filename), and prints
@@ -8,8 +8,7 @@ a markdown report: per-provider counts, distinct-aircraft/on-ground/update-gap
 metrics, the two-provider overlap, and an explicit PASS/FAIL verdict against
 a threshold that is fixed here - before any real data is read - so the
 decision this feeds is a reading of a pre-committed test, not a post-hoc
-rationalisation (see 01-CONTEXT.md D-01 through D-04, and T-01-04-04 in
-01-04-PLAN.md's threat register).
+rationalisation.
 
 Usage:
     python3 analyze_samples.py --dir /path/to/samples-from-one-run

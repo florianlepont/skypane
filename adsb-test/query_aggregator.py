@@ -2,8 +2,8 @@
 """Single-shot geofenced live query against adsb.fi and airplanes.live.
 
 Stdlib-only (urllib.request) - both aggregators are free, unauthenticated,
-public REST APIs, so no pip install is needed (see 01-RESEARCH.md's Package
-Legitimacy Audit). Answers the question this whole adsb-test/ track exists
+public REST APIs, so no pip install is needed. Answers the question this
+whole adsb-test/ track exists
 for: right now, which aircraft can a public ADS-B aggregator see inside the
 Orly runway-3 geofence, and at what altitude?
 
@@ -24,8 +24,7 @@ import time
 import urllib.error
 import urllib.request
 
-# Identify this project to the rate-limited public services we're calling,
-# per T-01-04-02 in the 01-04-PLAN.md threat register.
+# Identify this project to the rate-limited public services we're calling.
 USER_AGENT = (
     "skypane-adsb-validation/0.1 "
     "(hobby project, Phase 1 ADS-B-viability spike; "
@@ -84,9 +83,8 @@ def filter_in_geofence(aircraft, geofence):
     a number when airborne and a string on-ground sentinel (e.g. "ground")
     when the aircraft is on the ground - handled explicitly here rather than
     assumed to always be numeric, because the on-ground case is exactly what
-    this plan exists to detect (Pitfall 3, 01-RESEARCH.md). A missing or
-    unexpectedly-typed field is skipped/tagged conservatively rather than
-    raising, per T-01-04-01 in the plan's threat register.
+    this tool exists to detect. A missing or unexpectedly-typed field is
+    skipped/tagged conservatively rather than raising.
     """
     bbox = geofence["bbox"]
     ceiling_ft = geofence["alt_ceiling_ft"]
