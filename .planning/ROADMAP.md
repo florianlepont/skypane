@@ -1830,7 +1830,7 @@ Plans:
 3. SQLite connections per page request: 1; per poll cycle: 1
 4. Poll cycle wall time measured before/after (no fixed 1.1 s sleep)
 
-**Plans:** 7/13 plans executed
+**Plans:** 8/13 plans executed
 
 Plans:
 
@@ -1852,7 +1852,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 38-08-PLAN.md — companion: one connection per request (scope around GET/POST dispatch) [EFF-03]
+- [x] 38-08-PLAN.md — companion: one connection per request (scope around GET/POST dispatch) [EFF-03]
 - [ ] 38-09-PLAN.md — `poll_state.json` saved once, only if changed, compact [EFF-05]
 
 **Wave 5** *(blocked on Wave 4 completion)*
