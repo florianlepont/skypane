@@ -1830,7 +1830,7 @@ Plans:
 3. SQLite connections per page request: 1; per poll cycle: 1
 4. Poll cycle wall time measured before/after (no fixed 1.1 s sleep)
 
-**Plans:** 11/13 plans executed
+**Plans:** 12/13 plans executed
 
 Plans:
 
@@ -1862,7 +1862,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 38-12-PLAN.md — freshness: input token, conditional GET on the same URL, 304, forced full refresh (D-2) [EFF-04]
+- [x] 38-12-PLAN.md — freshness: input token, conditional GET on the same URL, 304, forced full refresh (D-2) [EFF-04]
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
