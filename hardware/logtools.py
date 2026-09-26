@@ -42,10 +42,9 @@ Subcommands:
                  none are given. Writes converted lines to stdout only;
                  malformed or reading-less rows are dropped, with a
                  single dropped-line count written to stderr. This is
-                 the primary observation channel for DEVICE-05:
-                 history.db's device_health table has been filled
-                 continuously and durably by production since Phase 6,
-                 with no setup step of any kind.
+                 the primary observation channel: history.db's
+                 device_health table is filled continuously and durably
+                 by production, with no setup step of any kind.
 
   check-battery  Read one or more captured server stdout logs — stamped
                  locally by `stamp`, converted from journald by
@@ -54,7 +53,7 @@ Subcommands:
                  and decide whether they show a valid unattended battery
                  discharge run, as opposed to a run interrupted by a
                  sleeping host or a pack that was never actually off USB
-                 power. Also computes the D-07 mAh-per-cycle figure and
+                 power. Also computes the mAh-per-cycle figure and
                  a two-ended projection band for candidate wake
                  intervals. In gated mode (the default) prints one
                  PASS/FAIL line per check plus a summary line and exits
@@ -374,7 +373,7 @@ def check_reset(events):
         "no failed poll reporting backoff_n=0 sleep_s=300 was found after a successful poll")
 
 
-# --- Battery discharge-run analysis (D-07) ------------------------------
+# --- Battery discharge-run analysis ------------------------------
 #
 # check-battery reads captured stub-server stdout (not device console
 # output) and treats every timestamped line carrying an X-Battery-Mv
@@ -689,7 +688,7 @@ def cmd_from_journal(args):
 # instead of raising "database is locked".
 #
 # Why regenerating the whole window is unconditionally safe on this
-# channel: `device_health` has keep-forever retention (D-13,
+# channel: `device_health` has keep-forever retention (see
 # server/history_db.py:18) and is never pruned, and
 # record_device_health() inserts with INSERT OR IGNORE against a
 # UNIQUE(ts, battery_mv) constraint, so re-reading an overlapping range
