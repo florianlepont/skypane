@@ -636,3 +636,141 @@ test-support -q -n auto` and `./scripts/run-all-tests.sh` are green;
 `server/.venv/bin/ruff check .` is clean; every changed `.sh` file passes
 `bash -n` (`shellcheck` is not installed locally, so CI's lint job is the
 gate, per the plan's own fallback).
+
+## Group 9 — firmware/
+
+Source plan: 35-21 (`firmware/main/*.c`, `firmware/main/*.h`,
+`firmware/main/Kconfig.projbuild`, `firmware/main/CMakeLists.txt`,
+`firmware/CMakeLists.txt`, `firmware/sdkconfig*.defaults`,
+`firmware/partitions.csv`, `firmware/.gitignore`, `firmware/build.sh`,
+`firmware/flash.sh`, `firmware/monitor.sh`, `firmware/provision.sh`,
+`firmware/tests/*.c`, `firmware/tests/*.sh`, `firmware/VENDOR.md`,
+`firmware/tools/gen_fault_screen.py`). Gate G-34 (Phase 34 complete on
+`main`) held before any edit. `firmware/VENDOR.md`'s row is "after"
+only — markdown is excluded from `same-code`, and its rewrite is
+recorded separately in the plan's own commit and SUMMARY rather than as
+a ratio. `firmware/LICENSE`, `firmware/NOTICE` and `main/certs/*.pem`
+are untouched and listed for completeness. Six new files
+(`nvs_boot.c/.h`, `test_nvs_boot.c`, `main/certs/*.pem`, `LICENSE`,
+`NOTICE`, `VENDOR.md`) postdate `ratio-before.tsv`'s baseline commit
+(added by Phase 34) and have no "before" figure.
+
+| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
+|---|---:|---:|---:|---:|---:|
+| firmware/.gitignore | 17 | 17 | 47.1% | 47.1% | 1 -> 0 |
+| firmware/CMakeLists.txt | 15 | 15 | 60.0% | 60.0% | 0 -> 0 |
+| firmware/LICENSE | new | 202 | new | 0.0% | 0 -> 0 |
+| firmware/NOTICE | new | 14 | new | 0.0% | 0 -> 0 |
+| firmware/VENDOR.md | new | 367 | new | 0.0% | 0 -> 0 |
+| firmware/build.sh | 106 | 106 | 30.2% | 30.2% | 1 -> 0 |
+| firmware/flash.sh | 129 | 129 | 17.8% | 17.8% | 1 -> 0 |
+| firmware/main/CMakeLists.txt | 8 | 8 | 0.0% | 0.0% | 0 -> 0 |
+| firmware/main/Kconfig.projbuild | 239 | 241 | 5.0% | 5.0% | 4 -> 0 |
+| firmware/main/api_base.c | 47 | 48 | 12.8% | 12.5% | 0 -> 0 |
+| firmware/main/api_base.h | 28 | 28 | 75.0% | 75.0% | 0 -> 0 |
+| firmware/main/api_client.c | 701 | 701 | 20.8% | 20.8% | 8 -> 0 |
+| firmware/main/api_client.h | 88 | 85 | 70.5% | 69.4% | 1 -> 0 |
+| firmware/main/app_main.c | 371 | 379 | 37.5% | 31.7% | 8 -> 0 |
+| firmware/main/backoff.c | 16 | 16 | 18.8% | 18.8% | 0 -> 0 |
+| firmware/main/backoff.h | 8 | 8 | 50.0% | 50.0% | 0 -> 0 |
+| firmware/main/battery.c | 150 | 150 | 16.7% | 16.7% | 3 -> 0 |
+| firmware/main/battery.h | 20 | 20 | 80.0% | 80.0% | 2 -> 0 |
+| firmware/main/battery_math.c | 47 | 47 | 34.0% | 34.0% | 0 -> 0 |
+| firmware/main/battery_math.h | 23 | 23 | 69.6% | 69.6% | 2 -> 0 |
+| firmware/main/certs/isrg-root-x1.pem | new | 31 | new | 0.0% | 0 -> 0 |
+| firmware/main/certs/isrg-root-x2.pem | new | 14 | new | 0.0% | 0 -> 0 |
+| firmware/main/enrol_secret.c | 41 | 41 | 17.1% | 17.1% | 0 -> 0 |
+| firmware/main/enrol_secret.h | 19 | 19 | 63.2% | 63.2% | 0 -> 0 |
+| firmware/main/epd13in3e.c | 321 | 321 | 14.6% | 14.6% | 0 -> 0 |
+| firmware/main/epd13in3e.h | 22 | 22 | 63.6% | 63.6% | 0 -> 0 |
+| firmware/main/fault_inject.c | 65 | 82 | 30.8% | 26.8% | 2 -> 0 |
+| firmware/main/fault_inject.h | 37 | 51 | 59.5% | 52.9% | 2 -> 0 |
+| firmware/main/fault_screen.c | 138 | 125 | 26.8% | 19.2% | 2 -> 0 |
+| firmware/main/fault_screen.h | 83 | 58 | 79.5% | 70.7% | 3 -> 0 |
+| firmware/main/fault_screen_mask.h | 1530 | 1530 | 0.4% | 0.4% | 0 -> 0 |
+| firmware/main/led.c | 77 | 77 | 28.6% | 28.6% | 0 -> 0 |
+| firmware/main/led.h | 39 | 20 | 84.6% | 70.0% | 1 -> 0 |
+| firmware/main/nvs_boot.c | new | 22 | new | 9.1% | 0 -> 0 |
+| firmware/main/nvs_boot.h | new | 41 | new | 65.9% | 0 -> 0 |
+| firmware/main/nvs_schema.h | 63 | 47 | 77.8% | 70.2% | 3 -> 0 |
+| firmware/main/nvs_util.c | 68 | 68 | 4.4% | 4.4% | 0 -> 0 |
+| firmware/main/nvs_util.h | 32 | 32 | 56.2% | 56.2% | 0 -> 0 |
+| firmware/main/panel.c | 113 | 113 | 15.0% | 15.0% | 0 -> 0 |
+| firmware/main/panel.h | 27 | 23 | 63.0% | 56.5% | 0 -> 0 |
+| firmware/main/panel_guard.c | 40 | 40 | 12.5% | 12.5% | 0 -> 0 |
+| firmware/main/panel_guard.h | 61 | 49 | 72.1% | 65.3% | 0 -> 0 |
+| firmware/main/reset_reason.c | 76 | 76 | 7.9% | 7.9% | 0 -> 0 |
+| firmware/main/reset_reason.h | 70 | 67 | 51.4% | 49.3% | 0 -> 0 |
+| firmware/main/secrets.example.h | 44 | 44 | 79.5% | 79.5% | 1 -> 0 |
+| firmware/main/sleep_decision.c | 40 | 40 | 20.0% | 20.0% | 0 -> 0 |
+| firmware/main/sleep_decision.h | 50 | 40 | 74.0% | 67.5% | 1 -> 0 |
+| firmware/main/state_machine.c | 193 | 189 | 24.4% | 22.8% | 2 -> 0 |
+| firmware/main/state_machine.h | 60 | 54 | 68.3% | 64.8% | 2 -> 0 |
+| firmware/main/tls_session.c | 187 | 185 | 14.4% | 13.5% | 0 -> 0 |
+| firmware/main/tls_session.h | 68 | 45 | 76.5% | 64.4% | 1 -> 0 |
+| firmware/main/validate.c | 124 | 124 | 3.2% | 3.2% | 0 -> 0 |
+| firmware/main/validate.h | 85 | 85 | 54.1% | 54.1% | 0 -> 0 |
+| firmware/main/wake_deadline.c | 24 | 24 | 20.8% | 20.8% | 0 -> 0 |
+| firmware/main/wake_deadline.h | 60 | 47 | 76.7% | 70.2% | 1 -> 0 |
+| firmware/main/wake_guard.c | 159 | 159 | 16.4% | 16.4% | 0 -> 0 |
+| firmware/main/wake_guard.h | 96 | 73 | 80.2% | 74.0% | 3 -> 0 |
+| firmware/main/wifi.c | 233 | 232 | 9.4% | 9.1% | 1 -> 0 |
+| firmware/main/wifi.h | 33 | 32 | 66.7% | 65.6% | 2 -> 0 |
+| firmware/monitor.sh | 43 | 43 | 37.2% | 37.2% | 0 -> 0 |
+| firmware/partitions.csv | 13 | 13 | 38.5% | 38.5% | 0 -> 0 |
+| firmware/provision.sh | 266 | 266 | 21.4% | 21.4% | 1 -> 0 |
+| firmware/sdkconfig.defaults | 79 | 79 | 40.5% | 40.5% | 2 -> 0 |
+| firmware/sdkconfig.dev.defaults | 6 | 6 | 83.3% | 83.3% | 0 -> 0 |
+| firmware/sdkconfig.ee02.defaults | 106 | 106 | 77.4% | 77.4% | 6 -> 0 |
+| firmware/tests/check_log_contract.sh | 91 | 98 | 30.8% | 31.6% | 1 -> 0 |
+| firmware/tests/check_production_config.sh | 181 | 181 | 17.1% | 17.1% | 5 -> 0 |
+| firmware/tests/run_host_tests.sh | 81 | 81 | 18.5% | 18.5% | 2 -> 0 |
+| firmware/tests/test_api_base.c | 71 | 71 | 26.8% | 26.8% | 0 -> 0 |
+| firmware/tests/test_backoff.c | 29 | 29 | 44.8% | 44.8% | 0 -> 0 |
+| firmware/tests/test_battery_math.c | 50 | 49 | 46.0% | 44.9% | 6 -> 0 |
+| firmware/tests/test_fault_screen.c | 188 | 189 | 9.0% | 9.0% | 2 -> 0 |
+| firmware/tests/test_nvs_boot.c | new | 64 | new | 21.9% | 0 -> 0 |
+| firmware/tests/test_panel_guard.c | 114 | 114 | 28.1% | 28.1% | 0 -> 0 |
+| firmware/tests/test_reset_reason.c | 102 | 102 | 16.7% | 16.7% | 1 -> 0 |
+| firmware/tests/test_sleep_decision.c | 91 | 91 | 19.8% | 19.8% | 1 -> 0 |
+| firmware/tests/test_validate.c | 207 | 207 | 20.3% | 20.3% | 0 -> 0 |
+| firmware/tests/test_wake_deadline.c | 71 | 71 | 19.7% | 19.7% | 1 -> 0 |
+| firmware/tools/gen_fault_screen.py | 292 | 292 | 36.6% | 36.6% | 3 -> 0 |
+| **Group total** | **8472** | **9098** | **24.6%** | **21.3%** | — |
+
+### Files still above 35% after purge
+
+Almost every `firmware/main/*.h` file is a small C header where each
+function has a one-paragraph contract comment directly above its
+declaration (preconditions, return-value sentinels, ordering
+invariants) — the convention this codebase uses instead of a separate
+design document, and exactly the "why/invariant" content the purge
+rules require keeping. A short header with that convention structurally
+cannot fall under 35%: `battery.h` is 20 lines total, so its two
+sentinel/units sentences alone are 80%; `sdkconfig.dev.defaults` is a
+6-line file whose one real line is a `CONFIG_SKYPANE_ALLOW_HTTP=y`
+dev-only override, so its 5-line explanatory comment dominates by
+construction. The same holds for `api_base.h`, `battery_math.h`,
+`enrol_secret.h`, `epd13in3e.h` (upstream, verbatim), `fault_inject.h`,
+`fault_screen.h`, `led.h`, `nvs_boot.h`, `nvs_schema.h`, `nvs_util.h`,
+`panel.h`, `panel_guard.h`, `reset_reason.h`, `secrets.example.h`,
+`sleep_decision.h`, `state_machine.h`, `tls_session.h`, `validate.h`,
+`wake_deadline.h`, `wake_guard.h`, `wifi.h`, `backoff.h` and
+`sdkconfig.ee02.defaults` (a config file whose whole content past the
+upstream block is two commented hardware-provenance notes for pins with
+no schematic of their own). `.gitignore` (17 lines, one ignore rule
+explained per line, same shape as the root and `adsb-test/` ignore
+files group 8 recorded), `firmware/CMakeLists.txt` (15 lines: the
+project-name/version rationale is the file), `monitor.sh` and
+`partitions.csv` are the same small-file effect. `test_backoff.c` and
+`test_battery_math.c` are host-test files where every assertion carries
+a one-line reason for its expected value (the whole point of a
+threshold table test). `tools/gen_fault_screen.py` (36.6%) is a
+runtime-`--help` module docstring plus a from-scratch dither-spec
+description shared with `fault_screen.c` — see the plan's own commit
+for why its docstring is `--allow`-listed in `same-code`.
+
+Every one of the 79 files above has 0 history hits after this plan;
+`same-code --base 9baf745 --allow firmware/tools/gen_fault_screen.py
+<44 changed non-.md files>` exits 0, and
+`check --paths $(git ls-files firmware)` exits 0.
