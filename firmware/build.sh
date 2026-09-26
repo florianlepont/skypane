@@ -1,8 +1,8 @@
 #!/bin/sh
 # Containerised ESP-IDF v5.3.1 build for the EE02 board profile - no host
-# toolchain install required (01-RESEARCH.md Pitfall 4: `idf.py --version`
-# answers happily on a broken host Python environment, and only a real
-# build is evidence the toolchain works).
+# toolchain install required (`idf.py --version` answers happily on a
+# broken host Python environment, and only a real build is evidence the
+# toolchain works).
 #
 # This script covers BUILD only. Flashing over USB is deliberately left to
 # flash.sh and runs natively on the host, because Docker Desktop's USB

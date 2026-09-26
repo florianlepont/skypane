@@ -17,7 +17,7 @@
 # build.sh actually produced. After writing, the application region is
 # read back off the device and compared byte-for-byte against
 # build-ee02/skypane.bin; a partial or corrupted flash is caught here,
-# not misdiagnosed later as a firmware bug (T-01-06-01).
+# not misdiagnosed later as a firmware bug.
 
 set -eu
 
