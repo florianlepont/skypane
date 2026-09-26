@@ -23,6 +23,7 @@ import shlex
 import shutil
 import stat
 import sys
+import tempfile
 
 DEFAULT_ARCHIVE_DIR = "/var/lib/skypane-backup/archives"
 DEFAULT_PULLED_DIR = "/var/lib/skypane-backup/pulled"
@@ -102,20 +103,34 @@ def _cmd_get(archive_dir, name):
 
 
 def _cmd_ack(archive_dir, pulled_dir, name):
+    """Record NAME as the freshness marker. The temp file is a unique
+    `tempfile.mkstemp` name in `pulled_dir` (never the old fixed
+    `.last-pull.tmp`, which two concurrent acks could otherwise collide
+    on), given mode 0644 on its own descriptor before any byte is
+    written, then published onto `last-pull` with one `os.replace`. Any
+    `OSError` unlinks the temp file (if it still exists) and falls
+    through to the existing `_fail(...)` path.
+    """
     path = _valid_archive_path(archive_dir, name)
     if path is None:
         return _fail("invalid or unknown archive: %s" % name)
+    tmp = None
     try:
         os.makedirs(pulled_dir, exist_ok=True)
-        tmp = os.path.join(pulled_dir, ".last-pull.tmp")
-        final = os.path.join(pulled_dir, "last-pull")
-        with open(tmp, "w") as fh:
+        fd, tmp = tempfile.mkstemp(dir=pulled_dir, prefix=".last-pull.", suffix=".tmp")
+        os.fchmod(fd, 0o644)
+        with os.fdopen(fd, "w") as fh:
             fh.write(name + "\n")
             fh.flush()
             os.fsync(fh.fileno())
-        os.chmod(tmp, 0o644)
+        final = os.path.join(pulled_dir, "last-pull")
         os.replace(tmp, final)
     except OSError as exc:
+        if tmp is not None and os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
         return _fail("ack failed: %s" % exc)
     print("ok")
     return 0
