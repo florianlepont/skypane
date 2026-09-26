@@ -28,6 +28,7 @@ import contextlib
 import hashlib
 import io
 import json
+import math
 import os
 import sqlite3
 import sys
@@ -634,6 +635,21 @@ def _load_provider_last_calls(state_dir, provider_names):
     database/filesystem failure logs one line and returns an empty map,
     so the cycle still polls, just without cross-cycle spacing memory for
     this one cycle.
+
+    Two more stored-value shapes are treated the same "no previous call"
+    way, both of them defence against `detect._spaced_query()` sleeping
+    for far longer than intended:
+
+      * non-finite (`"inf"`/`"-inf"`/`"nan"` all parse as valid floats,
+        so `float(raw)` alone would not catch them - `time.sleep(inf)`
+        raises `OverflowError`, which is outside this module's caught
+        `(requests.RequestException, ValueError)`, failing the cycle);
+      * a value ahead of the current wall clock by more than one
+        spacing interval - the clock stepped back (NTP), `history.db`
+        was restored from a host with a skewed clock, or the meta row
+        was edited by hand. `_spaced_query()` itself now also clamps its
+        wait, but a value this stale is worth dropping outright rather
+        than spacing a live poll off it at all.
     """
     last_call_at = {}
     try:
@@ -643,9 +659,12 @@ def _load_provider_last_calls(state_dir, provider_names):
                 if raw is None:
                     continue
                 try:
-                    last_call_at[name] = float(raw)
+                    value = float(raw)
                 except (TypeError, ValueError):
                     continue
+                if not math.isfinite(value) or value > time.time() + detect.MIN_SECONDS_BETWEEN_CALLS:
+                    continue
+                last_call_at[name] = value
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: could not read provider_last_call meta: %s: %s" % (type(exc).__name__, exc))
         return {}

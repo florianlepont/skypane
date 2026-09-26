@@ -571,6 +571,45 @@ def test_spacing_uses_injected_clock_and_sleep_per_provider(geofence, monkeypatc
     )
 
 
+def test_spacing_clamps_a_future_stored_last_call_at(geofence, monkeypatch):
+    """poll_current_aircraft: a last_call_at value ahead of the clock (a stepped-back clock, a restored history.db) waits at most MIN_SECONDS_BETWEEN_CALLS, never the full gap"""
+    monkeypatch.setattr(detect, "query_provider", lambda name, lat, lon, radius_nm, timeout=10.0: [])
+    monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 1.1)
+    # 1 hour ahead of the injected clock - an uncapped wait would sleep out
+    # the whole gap and stall the cycle past any systemd TimeoutStartSec.
+    last_call_at = {"adsbfi": 100.0 + 3600.0, "adsblol": 100.0 + 3600.0}
+    sleeps = []
+
+    detect.poll_current_aircraft(
+        geofence,
+        last_call_at=last_call_at,
+        clock=lambda: 100.0,
+        sleep=lambda seconds: sleeps.append(seconds),
+    )
+
+    assert sleeps, "expected at least one sleep call"
+    for waited in sleeps:
+        assert waited <= 1.1 + 1e-9, "expected every wait clamped to MIN_SECONDS_BETWEEN_CALLS (1.1), got %r" % (waited,)
+
+
+def test_spacing_treats_non_finite_last_call_at_as_absent(geofence, monkeypatch):
+    """poll_current_aircraft: an inf/nan last_call_at value never raises and never sleeps"""
+    monkeypatch.setattr(detect, "query_provider", lambda name, lat, lon, radius_nm, timeout=10.0: [])
+    monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 1.1)
+    last_call_at = {"adsbfi": float("inf"), "adsblol": float("nan")}
+    sleeps = []
+
+    result = detect.poll_current_aircraft(
+        geofence,
+        last_call_at=last_call_at,
+        clock=lambda: 100.0,
+        sleep=lambda seconds: sleeps.append(seconds),
+    )
+
+    assert result is None
+    assert sleeps == [], "expected zero sleep calls for non-finite stored values, got %r" % (sleeps,)
+
+
 def test_airplaneslive_still_opt_in():
     """airplaneslive remains a selectable opt-in, absent from the default order"""
     # The airplanes.live opt-in path survives the demotion: still

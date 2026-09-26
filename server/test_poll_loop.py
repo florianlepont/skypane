@@ -1206,6 +1206,33 @@ def test_history_row_written_on_corroboration_flip(tmp_path, monkeypatch):
         shutil.rmtree(hist_dir, ignore_errors=True)
 
 
+def test_load_provider_last_calls_drops_non_finite_and_future_values(tmp_path):
+    """_load_provider_last_calls: an inf/nan stored value and a value far in the future are both dropped as if absent, never raised"""
+    meta_dir = _mkdir(tmp_path, "provider-last-call")
+    try:
+        provider_names = list(detect.DEFAULT_PROVIDER_ORDER)
+        if len(provider_names) < 2:
+            pytest.skip("this test needs at least two default providers")
+        finite_name, future_name = provider_names[0], provider_names[1]
+        with history_db.open_db(meta_dir) as conn:
+            history_db.set_meta(
+                conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + finite_name, repr(float("nan")))
+            # An hour ahead of the real wall clock - a stepped-back clock or
+            # a restored history.db, not a value this code should ever
+            # trust enough to space a live poll off it.
+            history_db.set_meta(
+                conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + future_name,
+                repr(time.time() + 3600.0))
+        last_call_at = poll_loop._load_provider_last_calls(meta_dir, provider_names)
+        if finite_name in last_call_at:
+            pytest.fail("expected the non-finite stored value for %r dropped, got %r" % (finite_name, last_call_at))
+        if future_name in last_call_at:
+            pytest.fail("expected the future stored value for %r dropped, got %r" % (future_name, last_call_at))
+        return
+    finally:
+        shutil.rmtree(meta_dir, ignore_errors=True)
+
+
 def test_pipeline_run_meta_updated_every_cycle(tmp_path):
     """the pipeline-run meta timestamp updates on every cycle, including one that writes no runway_events row"""
     meta_dir = _mkdir(tmp_path, "meta")
