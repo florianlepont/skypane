@@ -15,16 +15,27 @@ Every behaviour here is asserted against a REAL running `companion/app.py`
 (`app_server_in_process`, the only fixture family whose monkeypatches take
 effect in the same interpreter the server thread runs in), never against
 source text, matching `companion/test_page_context.py`'s own convention.
+
+The `@pytest.mark.browser` tests below exercise `companion/static/freshness.js`
+itself, through a real Chromium session driven by Playwright: the token
+header round trip (If-None-Match sent, a 304 treated as success with no
+swap), a changed tick's swap and token update, the periodic forced full
+refresh, and the loaded-at bookkeeping a 304's own Date header drives.
 """
+import email.utils
 import os
 import re
 import sqlite3
+import time
 from datetime import datetime, timedelta, timezone
+
+import pytest
 
 import companion.app as app
 from companion import auth, layout
 from companion.pages import health_page, history_page
 from companion_app_server import http_request, login
+from companion.test_browser_ux_helpers import _login, seed_state_dir
 from server import device_config, history_db
 
 _ETAG_RE = re.compile(r'^"[0-9a-f]{32}"$')
@@ -425,3 +436,202 @@ def test_flights_limit_query_changes_the_token(app_server_in_process):
     assert status2 == 200
     after = _TOKEN_ATTR_RE.search(body2.decode("utf-8")).group(1)
     assert after != before, "expected the ?limit= query string to change the token"
+
+
+# ==========================================================================
+# Browser: freshness.js's own token round trip, through a real Chromium
+# session.
+# ==========================================================================
+
+
+def _recording_send_response(recorded):
+    """A `send_response` wrapper recording `(code, If-None-Match,
+    X-Requested-With)` for every response this Handler instance sends -
+    the one seam every browser check below reads to prove what the
+    REAL browser actually sent and received, without touching source
+    text.
+    """
+    original = app.Handler.send_response
+
+    def wrapper(self, code, message=None):
+        recorded.append(
+            (code, self.headers.get("If-None-Match"), self.headers.get("X-Requested-With")))
+        return original(self, code, message)
+
+    return wrapper
+
+
+def _wait_for_freshness_hit(page, recorded, timeout_s=5, since=0):
+    """Poll (real wall-clock time, never the page's virtualised clock)
+    until MORE than `since` recorded responses carry the freshness
+    X-Requested-With value - `since` lets a caller wait for the NEXT
+    tick specifically, across a loop of several, rather than matching
+    a tick a previous iteration already recorded.
+    """
+    deadline = time.time() + timeout_s
+    while time.time() < deadline and len(
+            [hit for hit in recorded if hit[2] == "freshness"]) <= since:
+        page.wait_for_timeout(50)
+    page.wait_for_timeout(50)  # let the fetch's own .then() handler finish running
+
+
+@pytest.mark.browser
+def test_an_unchanged_tick_gets_a_304_with_no_swap_and_no_failure_badge(
+        app_server_in_process, monkeypatch, page):
+    """/flights, unchanged state: after page.clock.run_for(46000) the server recorded a
+    freshness request answered 304, the rows are unchanged, and no reconnecting/failure state
+    is shown"""
+    monkeypatch.setenv(auth.INSECURE_COOKIES_ENV_VAR, "1")
+    server = app_server_in_process
+    seed_state_dir(server.state_dir)
+
+    recorded = []
+    monkeypatch.setattr(app.Handler, "send_response", _recording_send_response(recorded))
+
+    # Installed BEFORE the navigation below, so the interval
+    # freshness.js's own script schedules on load is itself registered
+    # against the fake clock from the start - installing it after the
+    # page has already scheduled a real setInterval leaves that timer
+    # running on the real clock, unaffected by run_for() below.
+    _login(page, server.base_url())
+    page.clock.install()
+    page.goto(server.base_url() + layout.FLIGHTS_ROUTE)
+    page.wait_for_load_state("networkidle")
+    rows_before = page.locator("[data-flight-id]").count()
+
+    recorded.clear()
+    page.clock.run_for(46000)
+    _wait_for_freshness_hit(page, recorded)
+
+    freshness_codes = [code for code, _inm, xrw in recorded if xrw == "freshness"]
+    assert freshness_codes, "expected at least one freshness request on the unchanged page"
+    assert all(code == 304 for code in freshness_codes), (
+        "expected every freshness request on an unchanged page to be 304, got %r"
+        % freshness_codes)
+
+    badge = page.locator("[data-refresh-state-pill]")
+    assert badge.count() == 0 or badge.get_attribute("hidden") is not None, (
+        "expected no visible failure/reconnecting badge after a successful 304")
+    rows_after = page.locator("[data-flight-id]").count()
+    assert rows_after == rows_before, "expected the rows unchanged after an unchanged 304 tick"
+
+
+@pytest.mark.browser
+def test_a_changed_tick_swaps_in_the_new_row_and_updates_the_token(
+        app_server_in_process, monkeypatch, page):
+    """after seeding a new runway event, the next tick receives 200, the new row appears (the
+    swap happened), and the body's data-refresh-token equals the new token"""
+    monkeypatch.setenv(auth.INSECURE_COOKIES_ENV_VAR, "1")
+    server = app_server_in_process
+    seed_state_dir(server.state_dir)
+
+    _login(page, server.base_url())
+    page.clock.install()
+    page.goto(server.base_url() + layout.FLIGHTS_ROUTE)
+    page.wait_for_load_state("networkidle")
+    token_before = page.get_attribute("body", "data-refresh-token")
+
+    with history_db.open_db(server.state_dir) as conn:
+        history_db.record_runway_event(
+            conn, ts=history_db.utc_now_iso(), hex="39ffff", callsign="AFR999",
+            aircraft_type="A320", confirmed_state="departure", corroborated=True,
+            route_source="fresh_hit", airline="Air France", origin="ORY",
+            destination="JFK", tracked_runway="3")
+
+    page.clock.run_for(46000)
+    # state="attached" (not the default "visible"): both the phone-card and
+    # desktop-table renderings of a row are swapped every tick, and CSS
+    # hides whichever one this fixture's own viewport does not use - the
+    # DOM's presence is the swap proof, not on-screen visibility here.
+    page.wait_for_selector("text=AFR999", state="attached", timeout=10000)
+
+    token_after = page.get_attribute("body", "data-refresh-token")
+    assert token_after != token_before, "expected the swap to carry a new data-refresh-token"
+
+
+@pytest.mark.browser
+def test_forced_full_refresh_lands_within_seven_ticks(app_server_in_process, monkeypatch, page):
+    """across 7 consecutive ticks on an unchanged page, at least one freshness request carries
+    no If-None-Match at all (a forced full refresh) and still gets 200"""
+    monkeypatch.setenv(auth.INSECURE_COOKIES_ENV_VAR, "1")
+    server = app_server_in_process
+    seed_state_dir(server.state_dir)
+
+    recorded = []
+    monkeypatch.setattr(app.Handler, "send_response", _recording_send_response(recorded))
+
+    _login(page, server.base_url())
+    page.clock.install()
+    page.goto(server.base_url() + layout.FLIGHTS_ROUTE)
+    page.wait_for_load_state("networkidle")
+
+    recorded.clear()
+    freshness_count = 0
+    for _ in range(7):
+        page.clock.run_for(46000)
+        _wait_for_freshness_hit(page, recorded, timeout_s=5, since=freshness_count)
+        freshness_count = len([hit for hit in recorded if hit[2] == "freshness"])
+
+    freshness_hits = [(code, inm) for code, inm, xrw in recorded if xrw == "freshness"]
+    assert len(freshness_hits) >= 7, (
+        "expected at least 7 freshness ticks, got %d" % len(freshness_hits))
+    forced = [hit for hit in freshness_hits if hit[1] is None]
+    assert forced, (
+        "expected at least one of 7 consecutive ticks to carry no If-None-Match at all "
+        "(a forced full refresh), got %r" % freshness_hits)
+    assert all(code == 200 for code, _inm in forced), (
+        "expected a forced full refresh (no If-None-Match) to get 200, got %r" % forced)
+
+
+@pytest.mark.browser
+def test_a_304_updates_loaded_at_from_the_response_date_header(
+        app_server_in_process, monkeypatch, page):
+    """a 304's own Date header (not Date.now() at receipt time) is what freshness.js stores as
+    loadedAtMs: forcing every Date header ten minutes stale and then simulating the tab's return
+    from background triggers an IMMEDIATE catch-up freshness request - proof that loadedAtMs
+    really carries the stale value the header named, not a fresh one"""
+    monkeypatch.setenv(auth.INSECURE_COOKIES_ENV_VAR, "1")
+    server = app_server_in_process
+    seed_state_dir(server.state_dir)
+
+    recorded = []
+    monkeypatch.setattr(app.Handler, "send_response", _recording_send_response(recorded))
+
+    stale_date = email.utils.formatdate(time.time() - 600, usegmt=True)
+    original_send_header = app.Handler.send_header
+
+    def stale_date_send_header(self, keyword, value):
+        if keyword == "Date":
+            value = stale_date
+        return original_send_header(self, keyword, value)
+
+    monkeypatch.setattr(app.Handler, "send_header", stale_date_send_header)
+
+    _login(page, server.base_url())
+    page.clock.install()
+    page.goto(server.base_url() + layout.FLIGHTS_ROUTE)
+    page.wait_for_load_state("networkidle")
+
+    recorded.clear()
+    page.clock.run_for(46000)
+    _wait_for_freshness_hit(page, recorded)
+    assert any(code == 304 and xrw == "freshness" for code, _inm, xrw in recorded), (
+        "expected a 304 freshness tick carrying the forced stale Date header")
+
+    recorded.clear()
+    page.evaluate(
+        "() => {"
+        "  Object.defineProperty(document, 'hidden',"
+        "    {configurable: true, get: () => true});"
+        "  document.dispatchEvent(new Event('visibilitychange'));"
+        "}")
+    page.evaluate(
+        "() => {"
+        "  Object.defineProperty(document, 'hidden',"
+        "    {configurable: true, get: () => false});"
+        "  document.dispatchEvent(new Event('visibilitychange'));"
+        "}")
+    _wait_for_freshness_hit(page, recorded)
+    assert any(xrw == "freshness" for _code, _inm, xrw in recorded), (
+        "expected the tab's return to trigger an immediate catch-up freshness request, proving "
+        "loadedAtMs was set from the 304's own stale Date header rather than Date.now()")
