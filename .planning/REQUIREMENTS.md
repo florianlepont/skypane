@@ -177,7 +177,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **EFF-02**: Only the scripts each page uses (no build step)
 - [x] **EFF-03**: One connection per request/cycle; schema once per process; one transaction
 - [ ] **EFF-04**: Lazy context; severity computed without markup; light freshness endpoint
-- [ ] **EFF-05**: Saved once, only if changed, compact
+- [x] **EFF-05**: Saved once, only if changed, compact
 - [ ] **EFF-06**: Providers queried in parallel, per-provider rate limit kept
 - [ ] **ARC-01**: `load_cycle_context` / `decide_hold` / `advance_display_queue` / `render_and_publish` / `persist` / `record` over a `CycleContext` dataclass
 - [ ] **ARC-02**: `server/state_store.py` owns `poll_state.json`; companion imports it
@@ -427,7 +427,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EFF-02 | Phase 38 | Complete |
 | EFF-03 | Phase 38 | Complete |
 | EFF-04 | Phase 38 | Pending |
-| EFF-05 | Phase 38 | Pending |
+| EFF-05 | Phase 38 | Complete |
 | EFF-06 | Phase 38 | Pending |
 | ARC-01 | Phase 39 | Pending |
 | ARC-02 | Phase 39 | Pending |
