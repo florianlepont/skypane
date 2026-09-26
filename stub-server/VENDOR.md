@@ -372,6 +372,14 @@ names, response shapes, telemetry printing) is untouched:
    and the server. No other endpoint, response field, status code, or
    telemetry print statement was touched by this change.
 
+10. **Added a `--bind` flag.** Upstream hardcodes
+    `ThreadingHTTPServer(("0.0.0.0", port), ...)`. This repository adds
+    `--bind` (default `0.0.0.0`, so the LAN stub flow is unchanged) and
+    passes `(args.bind, args.port)` to the server; the startup line now
+    names the bind address. Production passes `--bind 127.0.0.1` because
+    Caddy on loopback is byos's only client (`deploy/skypane-byos.service`).
+    Nothing else changed.
+
 **Everything else is verbatim**, including: `GET /device/v1/display`,
 `POST /device/v1/log`, `GET /img/*`, the `--image`/`--port`/`--sleep`
 flags, the bearer-token issuance and check logic once a setup request
@@ -409,11 +417,11 @@ reference simulator, per `docs/PROTOCOL.md`'s own text).
 
 A future re-pin of `byos_server.py` to a newer upstream commit is a
 deliberate, reviewable act: diff the new upstream file against the version
-recorded here, re-apply all **nine** local modifications (`--state-dir`,
+recorded here, re-apply all **ten** local modifications (`--state-dir`,
 `--image-url-scheme`, the DEVICE-04 `X-Battery-Mv` validation/persistence,
 the LED read, the quiet-hours `sleep_s` extension, the wake-interval
-read, the display-off `sleep_s` pin, the BATTERY EMPTY `sleep_s` pin, and
-the per-device enrolment registry), update the pinned commit hash above,
+read, the display-off `sleep_s` pin, the BATTERY EMPTY `sleep_s` pin,
+the per-device enrolment registry, and `--bind`), update the pinned commit hash above,
 and re-run `stub-server/test_poll_cycle.py` and
 `stub-server/test_devices_registry.py` to confirm the contract —
 including both scheme checks, the quiet-hours drift guard, the

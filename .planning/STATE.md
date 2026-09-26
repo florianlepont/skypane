@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 36 executed (7/7 plans), code review CR-01/WR-01 fixed, verification human_needed: 15/15 automated truths pass; two manual checks remain (post-deploy TimeoutStartUSec, optional on-frame panel-swap). Next: Phase 37 wave B (37-11) and Phase 38."
-last_updated: "2026-09-26T11:15:48.484Z"
+stopped_at: "Phase 37 complete (11/11 plans): 37-11 Wave B merged (PR #143) and verified live — byos on 127.0.0.1:8642 only behind IPAddressDeny=any/IPAddressAllow=localhost, no secret in argv, stale SKYPANE_BYOS_SECRET removed from the live env file, byos score 1.3 OK, frame still fetching; CP-7 removed the old in-place code directories. SEC-06/SEC-07 complete. Next: Phase 38."
+last_updated: "2026-09-26T12:45:00.000Z"
 last_activity: 2026-09-26
 progress:
   total_phases: 54
-  completed_phases: 45
+  completed_phases: 46
   total_plans: 392
-  completed_plans: 366
-  percent: 83
+  completed_plans: 367
+  percent: 85
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -56,7 +56,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human_needed: 2 manual checks after deploy)
+Phase: 37 (security-and-operations-hardening) — COMPLETE (11/11 plans; 37-11 Wave B: byos loopback-only + IP filter, no secret in argv, CP-11 and CP-7 done live 2026-09-26)
+Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human_needed: TimeoutStartUSec=1min 30s confirmed live 2026-09-26; only the optional on-frame panel-swap check remains)
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21

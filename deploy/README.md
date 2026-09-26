@@ -427,6 +427,7 @@ curl -sI https://<public-host>/device/v1/display
 
 # The app port must NOT be reachable directly (ufw denies it):
 curl -sI --connect-timeout 3 http://<vps-ip>:8642/device/v1/display   # expect: refused or timeout
+# (byos listens on 127.0.0.1 only and ufw denies the port.)
 
 # On the VPS: timer is active and cycling.
 ssh ubuntu@<vps-ip> systemctl is-active skypane-poll.timer
@@ -495,17 +496,21 @@ following that table's existing sourcing discipline. Remember the count is
 poll cycles, not distinct flights — an aircraft held on the runway across
 several cycles inflates the number for that one arrival.
 
-## Known vendored behaviour: byos_server.py binds 0.0.0.0
+## byos listens on loopback only
 
-`stub-server/byos_server.py` hardcodes `ThreadingHTTPServer(("0.0.0.0", ...))`
-— it does not itself restrict to loopback. This repository deliberately
-does not patch that (see `stub-server/VENDOR.md`'s minimal-diff discipline);
-instead the loopback restriction is enforced at the network layer:
-`ufw deny 8642/tcp` (plus ufw's own default-deny-incoming policy) blocks any
-external connection to the app port, and Caddy is the only process
-forwarding traffic to it, from `127.0.0.1`. The net effect is the same as
-if the app bound loopback only — verified by the "external request to the
-app port is refused or times out" acceptance criterion.
+`skypane-byos.service` starts `stub-server/byos_server.py` with
+`--bind 127.0.0.1` (the flag defaults to `0.0.0.0` for the LAN stub flow)
+and carries `IPAddressDeny=any` + `IPAddressAllow=localhost`: byos makes
+no outbound connections and Caddy on loopback is its only client.
+`ufw deny 8642/tcp` (plus ufw's own default-deny-incoming policy) stays
+as a second layer. byos takes no secret on its command line or in its
+environment — enrolment uses the per-device registry (`devices.json`,
+see "Device enrolment (per-device secret)" above). To check on the VPS:
+
+```bash
+sudo ss -ltnp | grep -E ':8642 '   # expect 127.0.0.1:8642 only
+pgrep -af byos_server.py           # expect --bind 127.0.0.1 and no --secret
+```
 
 ## Rolling back
 

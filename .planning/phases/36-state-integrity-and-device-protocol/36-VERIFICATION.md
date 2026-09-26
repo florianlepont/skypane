@@ -130,6 +130,8 @@ Not applicable — this phase has no `scripts/*/tests/probe-*.sh` files and its 
 **Expected:** Output shows `TimeoutStartUSec=1min 30s`.
 **Why human:** Needs the deployed systemd instance to parse and report the unit's live timer value; the static unit file text (`TimeoutStartSec=90s`) and its regression test (`deploy/tests/test_units.py`) are already verified in-repo, but confirming the deployed daemon's own interpretation requires production access this verifier does not have.
 
+**Result (2026-09-26, developer on the VPS, after the 37-11 deploy of `34bc038`):** `TimeoutStartUSec=1min 30s`: PASSED.
+
 ### 2. On-frame panel-swap check (optional)
 
 **Test:** Trigger `/poll-now` twice in quick succession during a real device wake.

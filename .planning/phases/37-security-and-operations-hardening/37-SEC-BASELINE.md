@@ -141,7 +141,35 @@ Run 2026-09-24 ~20:02 UTC from the laptop with a throwaway local commit
 
 ## Wave B (CP-11)
 
-_Pending CP-11 (Plan 37-11, after Phase 36)._
+Result: byos listens on `127.0.0.1:8642` only, no secret in its argv, score 1.3 OK, frame still fetches.
+
+Offline score after the Wave B unit change (`systemd-analyze security
+--offline=true deploy/skypane-byos.service`, systemd 255.4): **1.3 OK**
+(1.5 OK after Wave A; the drop is `IPAddressDeny=any` +
+`IPAddressAllow=localhost`). ExecStart now carries `--bind 127.0.0.1` and no
+`--secret`.
+
+Live, recorded 2026-09-26 ~12:25–12:34 UTC, after the reviewer-approved
+deploy of merge commit `34bc038` (PR #143):
+- `/opt/skypane/skypane.env` still held a stale `SKYPANE_BYOS_SECRET=` line
+  from before Phase 34 (grep count 1). It was deleted in place with `sed -i`
+  without printing it; afterwards the count was **0** and the file stayed
+  `root:root 600`. byos was restarted and came back `active`.
+- `pgrep -af byos_server.py`: `… byos_server.py --image
+  /opt/skypane/state/panel.bin --bind 127.0.0.1 --port 8642 --sleep 30
+  --state-dir /opt/skypane/state --image-url-scheme https`. No `--secret`,
+  no secret value.
+- `ss -ltnp`: `LISTEN … 127.0.0.1:8642 0.0.0.0:*` only (Wave A: `0.0.0.0:8642`).
+- `GET https://<device-host>/device/v1/display` without a token → **401**
+  (Caddy still reaches byos over loopback).
+- `sudo systemd-analyze security skypane-byos.service`: **1.3 OK** (CP-6: 1.5 OK).
+- Frame still fetches: after the restart, the new byos process served
+  `GET /img/e962e65b….bin` at 12:30:40 UTC (a frame wake at the 300 s interval
+  set in the companion; `--sleep 30` is only the fallback).
+
+| Unit | CP-1 | CP-6 | CP-11 |
+|------|------|------|-------|
+| skypane-byos.service | 8.3 EXPOSED | 1.5 OK | 1.3 OK |
 
 ## Off-box backup pull key (CP-8)
 
