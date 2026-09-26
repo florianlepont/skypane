@@ -99,6 +99,41 @@ def _temp_leftovers(directory):
     return [name for name in os.listdir(directory) if name.endswith(".tmp")]
 
 
+def _raw_request(port, request_line, header_lines, body=b"", read_timeout=5.0):
+    """Send a hand-built HTTP/1.1 request over a fresh socket and return
+    (status_code_or_None, raw_response_bytes). Used where a malformed
+    Content-Length must reach the wire verbatim - urllib/http.client
+    validate or normalise a header value before a high-level client
+    ever sends it.
+    """
+    sock = socket.create_connection(("127.0.0.1", port), timeout=read_timeout)
+    try:
+        sock.settimeout(read_timeout)
+        lines = [request_line] + header_lines + ["Connection: close", "", ""]
+        sock.sendall("\r\n".join(lines).encode("ascii") + body)
+        chunks = []
+        try:
+            while True:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+        except socket.timeout:
+            pass
+        raw = b"".join(chunks)
+        status = None
+        if raw.startswith(b"HTTP/"):
+            parts = raw.split(b" ", 2)
+            if len(parts) >= 2:
+                try:
+                    status = int(parts[1])
+                except ValueError:
+                    status = None
+        return status, raw
+    finally:
+        sock.close()
+
+
 class Harness:
     """Owns one byos_server.py subprocess: a free port, the caller's
     tmp_path as --state-dir, and a seeded byos_state.json carrying
@@ -502,5 +537,180 @@ def test_display_answers_503_when_img_dir_cannot_be_written(tmp_path):
             os.chmod(harness.tmpdir, 0o700)
         assert status == 503, "expected 503, got %d" % status
         assert json.loads(body.decode()).get("detail") == "image unavailable"
+    finally:
+        harness.stop()
+
+
+# --- Request hardening: Content-Length, socket timeout, bearer, log body ---
+
+
+def test_malformed_content_length_gets_400_or_413_without_hanging(tmp_path):
+    """A negative or non-integer Content-Length gets 400, and one above MAX_BODY_BYTES
+    gets 413, both within 2s and without the server ever reading the body; a missing
+    Content-Length on /device/v1/setup gets 422 (empty body fails JSON parsing, the
+    same fail-closed path as any malformed body); the server keeps serving normal
+    requests afterward"""
+    harness = Harness(tmp_path)
+    try:
+        harness.start()
+        cases = [
+            (["Content-Length: -1"], 400),
+            (["Content-Length: abc"], 400),
+            (["Content-Length: 70000"], 413),
+        ]
+        for header_lines, expected in cases:
+            start = time.time()
+            status, _ = _raw_request(
+                harness.port, "POST /device/v1/log HTTP/1.1",
+                ["Host: 127.0.0.1"] + header_lines, read_timeout=2.0)
+            elapsed = time.time() - start
+            assert status == expected, (
+                "headers=%r: expected %d, got %r" % (header_lines, expected, status))
+            assert elapsed < 2.0, "headers=%r took %.2fs, expected under 2s" % (header_lines, elapsed)
+
+        status, _ = _raw_request(
+            harness.port, "POST /device/v1/setup HTTP/1.1", ["Host: 127.0.0.1"], read_timeout=2.0)
+        assert status == 422, "expected 422 for a missing Content-Length, got %r" % (status,)
+
+        # The server survives every malformed request above: a normal poll
+        # still answers 200 - no thread was left wedged, no crash.
+        status, _, _ = http_request(
+            harness.base_url() + "/device/v1/display", headers=harness.auth_headers())
+        assert status == 200, "expected 200 after the malformed requests, got %d" % status
+        assert "Traceback" not in harness.read_stdout()
+    finally:
+        harness.stop()
+
+
+def test_stalled_client_dropped_after_request_timeout_others_still_served(tmp_path):
+    """A client that sends headers (Content-Length: 100) and then stalls has its
+    connection closed within Handler.timeout, a second client is served while the
+    first is still stalled (ThreadingHTTPServer must not block on it), and a third
+    client is served normally after the stall too"""
+    harness = Harness(tmp_path)
+    try:
+        harness.start(extra_args=["--request-timeout", "1"])
+        sock = socket.create_connection(("127.0.0.1", harness.port), timeout=5)
+        try:
+            request = (
+                "POST /device/v1/log HTTP/1.1\r\n"
+                "Host: 127.0.0.1\r\n"
+                "Content-Length: 100\r\n"
+                "Connection: close\r\n\r\n"
+            ).encode("ascii")
+            sock.sendall(request)  # headers only - the 100-byte body never arrives
+
+            status, _, _ = http_request(
+                harness.base_url() + "/device/v1/display", headers=harness.auth_headers())
+            assert status == 200, (
+                "expected a concurrent client to be served during the stall, got %d" % status)
+
+            start = time.time()
+            sock.settimeout(5)
+            data = sock.recv(4096)
+            elapsed = time.time() - start
+            assert data == b"", (
+                "expected the stalled connection to be closed (empty recv), got %r" % (data,))
+            assert elapsed < 3.0, "connection was not dropped within 3s (took %.2fs)" % elapsed
+        finally:
+            sock.close()
+
+        status, _, _ = http_request(
+            harness.base_url() + "/device/v1/display", headers=harness.auth_headers())
+        assert status == 200, "expected a fresh client to be served after the stall, got %d" % status
+
+        time.sleep(0.5)
+        assert "Traceback" not in harness.read_stdout()
+    finally:
+        harness.stop()
+
+
+def test_client_sending_nothing_is_closed_after_timeout_no_traceback(tmp_path):
+    """A client that connects and sends nothing at all is closed after
+    --request-timeout, and byos's stdout never contains a traceback - the timeout
+    fires before self.command/self.path exist on the handler instance"""
+    harness = Harness(tmp_path)
+    try:
+        harness.start(extra_args=["--request-timeout", "1"])
+        sock = socket.create_connection(("127.0.0.1", harness.port), timeout=5)
+        try:
+            start = time.time()
+            sock.settimeout(5)
+            data = sock.recv(4096)
+            elapsed = time.time() - start
+            assert data == b"", (
+                "expected the connection to be closed (empty recv), got %r" % (data,))
+            assert elapsed < 3.0, "connection was not dropped within 3s (took %.2fs)" % elapsed
+        finally:
+            sock.close()
+        time.sleep(0.5)
+        assert "Traceback" not in harness.read_stdout()
+    finally:
+        harness.stop()
+
+
+def test_bearer_ok_wrong_right_and_non_ascii(tmp_path):
+    """A wrong bearer token gets 401; the seeded token gets 200; a non-ASCII bearer
+    value gets 401, never a 500"""
+    harness = Harness(tmp_path)
+    try:
+        harness.start()
+        status, _, _ = http_request(
+            harness.base_url() + "/device/v1/display",
+            headers={"Authorization": "Bearer " + "0" * 64})
+        assert status == 401, "expected 401 for a wrong bearer, got %d" % status
+
+        status, _, _ = http_request(
+            harness.base_url() + "/device/v1/display", headers=harness.auth_headers())
+        assert status == 200, "expected 200 for the seeded token, got %d" % status
+
+        # Pre-encoded UTF-8 bytes, not a str: http.client's putheader()
+        # latin-1-encodes a str header value and would raise before the
+        # hostile bytes ever left the client (see test_poll_cycle.py's own
+        # X-Battery-Mv coverage of the same gotcha).
+        status, _, _ = http_request(
+            harness.base_url() + "/device/v1/display",
+            headers={"Authorization": ("Bearer " + "é" * 8).encode("utf-8")})
+        assert status == 401, "expected 401 for a non-ASCII bearer, got %d" % status
+        assert "Traceback" not in harness.read_stdout()
+    finally:
+        harness.stop()
+
+
+def test_log_endpoint_skips_non_dict_entries_and_accepts_dict_ones(tmp_path):
+    """POST /device/v1/log with a logs array mixing non-dict and dict entries answers
+    200, ok:true - non-dict entries are skipped rather than raising on entry.get"""
+    harness = Harness(tmp_path)
+    try:
+        harness.start()
+        status, _, body = http_request(
+            harness.base_url() + "/device/v1/log", method="POST",
+            headers=harness.auth_headers(),
+            json_body={"logs": [1, "x", None, {"level": "info", "message": "ok"}]})
+        assert status == 200, "expected 200, got %d" % status
+        assert json.loads(body.decode()).get("ok") is True
+        assert "Traceback" not in harness.read_stdout()
+    finally:
+        harness.stop()
+
+
+def test_log_endpoint_rejects_deeply_nested_body_with_422_not_500(tmp_path):
+    """A body of 30,000 '[' characters (deeper than the JSON decoder's recursion
+    limit, still well under MAX_BODY_BYTES) answers 422, not 500 - RecursionError is
+    caught alongside the usual JSON/Unicode decode errors"""
+    harness = Harness(tmp_path)
+    try:
+        harness.start()
+        deep_body = b"[" * 30000
+        assert len(deep_body) < 64 * 1024
+        status, _ = _raw_request(
+            harness.port, "POST /device/v1/log HTTP/1.1",
+            ["Host: 127.0.0.1",
+             "Authorization: Bearer %s" % KNOWN_TOKEN,
+             "Content-Type: application/json",
+             "Content-Length: %d" % len(deep_body)],
+            body=deep_body, read_timeout=5.0)
+        assert status == 422, "expected 422 for a deeply nested body, got %r" % (status,)
+        assert "Traceback" not in harness.read_stdout()
     finally:
         harness.stop()
