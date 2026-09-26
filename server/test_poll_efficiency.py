@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""EFF-03 contract tests: one SQLite connection and one transaction per
-poll cycle.
+"""Contract tests for one SQLite connection and one transaction per poll
+cycle.
 
 Covers `server/poll_loop.py`'s `run_once()` (now wrapping `_run_once_locked()`
 in a `history_db.connection_scope(state_dir)`, nested inside
