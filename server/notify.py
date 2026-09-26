@@ -3,19 +3,31 @@
 frame-silent alerts. One attempt, a five-second default timeout, never
 raises.
 
-Reuses `server.plane.calendar_rules._url_is_safe()`, the same SSRF gate
-`fetch_ics()` applies to calendar feed URLs, since a push topic URL is
-exactly as attacker-reachable. That gate only inspects the first URL, so
-redirects are refused outright here (`_NoRedirectHandler`, below) rather
-than re-validated like `fetch_ics()`'s bounded hop-following - a push
-topic never legitimately redirects. Logging never includes the URL or
-the raw exception string, only the exception type: several
-`urllib.error` forms embed the request URL in their default string, and
+A push topic URL is exactly as attacker-reachable as the calendar feed
+URL, so it gets the same two defences: `server.plane.calendar_rules.
+_url_is_safe()` refuses an unsafe scheme/address before any network
+attempt is made, and the default transport connects through `server.
+http_fetch`'s pinned request primitive - one DNS resolution, every
+answer checked public, the socket dialled only to an address already
+checked (closing the gap where a second resolution at connect time
+could see a different, unsafe answer), and a certificate verified
+against the topic's own hostname. That primitive never follows a
+redirect itself, so a 3xx response comes back unfollowed and this
+module's own 2xx check turns it into a plain failure - a push topic
+never legitimately redirects, and revalidating a `Location` target the
+way `fetch_ics()` does would be pointless machinery for a feature with
+no legitimate redirect to revalidate.
+
+Bounded by `NOTIFY_DEADLINE_S`, the same total-wall-clock-deadline shape
+`calendar_rules.fetch_ics()` applies, on top of the per-call `timeout`
+argument. Logging never includes the URL or the raw exception string,
+only the exception type: several exception forms this module's
+transport can raise embed the request URL in their default string, and
 a topic URL is as secret-shaped as a calendar feed URL.
 """
 import sys
-import urllib.request
 
+from server import http_fetch
 from server.plane import calendar_rules
 
 # English source strings; French forms live in _BODY_FR below, keyed by
@@ -34,6 +46,12 @@ ALERT_TITLE = "SkyPane"
 # test push needs no real battery/staleness reading.
 TEST_NOTIFICATION_TITLE = "SkyPane"
 TEST_NOTIFICATION_BODY = "This is a test notification from SkyPane."
+
+# Total wall-clock deadline for one notification POST, on top of the
+# per-call `timeout` argument - a push topic is one request with no
+# redirect hops, so this is sized smaller than the calendar feed's own
+# CALENDAR_FETCH_DEADLINE_S.
+NOTIFY_DEADLINE_S = 5.0
 
 _BODY_FR = {
     "Battery low — %s mV (≈ %d%%)": "Batterie faible — %s mV (≈ %d %%)",
@@ -66,46 +84,33 @@ def _response_status(response):
     return 0
 
 
-class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Refuses every 3xx redirect outright (see module docstring): a push
-    topic has no legitimate reason to redirect, so `redirect_request()`
-    returning `None` turns any 3xx into an `HTTPError`, caught like any
-    other transport failure.
-    """
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
-# Built once at import time: one opener with `_NoRedirectHandler` in
-# place of the default `HTTPRedirectHandler`.
-_NO_REDIRECT_OPENER = urllib.request.build_opener(_NoRedirectHandler)
-
-
 def default_notify_transport(url, title, body, timeout):
-    """POST `body` (UTF-8) to `url` with a `Title` header. Returns the
-    open response; the caller reads and closes it. Goes through
-    `_NO_REDIRECT_OPENER`, never plain `urlopen()`, which would follow a
-    3xx automatically with no re-check of `_url_is_safe()`.
+    """POST `body` (UTF-8) to `url` with a `Title` header, through
+    `http_fetch`'s pinned request primitive (see module docstring).
+    Returns the open response; the caller reads `.status`/`.getcode()`
+    and closes it. Never follows a redirect itself, so a 3xx comes back
+    unfollowed rather than being retried against a different target with
+    no re-check of `_url_is_safe()`.
     """
-    data = body.encode("utf-8")
-    request = urllib.request.Request(
+    return http_fetch.pinned_request(
+        "POST",
         url,
-        data=data,
-        method="POST",
         headers={
             "Title": title,
             "Content-Type": "text/plain; charset=utf-8",
             "User-Agent": calendar_rules.USER_AGENT,
         },
+        body=body.encode("utf-8"),
+        timeout=timeout,
+        deadline_s=NOTIFY_DEADLINE_S,
     )
-    return _NO_REDIRECT_OPENER.open(request, timeout=timeout)
 
 
 def send_notification(topic_url, title, body, timeout=5, transport=None):
     """POST `body` to `topic_url` with a `Title` header. True on any 2xx
-    response; False on any refusal (unsafe URL, non-2xx, timeout,
-    transport exception) - never raises. One attempt, no retry.
+    response; False on any refusal (unsafe URL, non-2xx including an
+    unfollowed redirect, timeout, transport exception) - never raises.
+    One attempt, no retry.
     """
     if not calendar_rules._url_is_safe(topic_url):
         return False
