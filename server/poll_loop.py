@@ -706,17 +706,50 @@ def _should_record_event(flight, confirmed_state, poll_state):
 _NO_WAKE_EPOCH = object()
 
 
+def _run_isolated_write(conn, savepoint_name, action):
+    """Run `action()` (a zero-argument callable making writes on `conn`)
+    inside its own SAVEPOINT nested inside the caller's own outer
+    `write_batch()`. A `(sqlite3.Error, OSError)` there rolls back only
+    the writes `action()` itself made - never the pipeline heartbeat or
+    the runway-event insert already staged earlier in the same outer
+    batch - and is logged rather than propagated, so an accessory write's
+    own fault can never stop the core writes' commit.
+    """
+    conn.execute("SAVEPOINT %s" % savepoint_name)
+    try:
+        action()
+    except (sqlite3.Error, OSError) as exc:
+        conn.execute("ROLLBACK TO %s" % savepoint_name)
+        conn.execute("RELEASE %s" % savepoint_name)
+        print("poll_loop: %s failed: %s: %s" % (savepoint_name, type(exc).__name__, exc))
+    else:
+        conn.execute("RELEASE %s" % savepoint_name)
+
+
 def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, provider_last_calls=None):
     """Write this cycle's durable signals into `history.db` in one
     connection and one transaction: every write below runs inside one
     `history_db.write_batch(conn)`, committed once as this function
     returns (or rolled back as one unit if any write raises) - never left
     open while `_notify_silence_transition()` makes its ntfy HTTP call
-    afterwards. A database/filesystem failure is caught and logged, never
-    allowed to fail the poll cycle - history is an accessory to the
-    panel, not a dependency of it; the batch's rollback means a mid-batch
-    failure discards every write this call made, not just the one that
-    raised.
+    afterwards. A database/filesystem failure from a CORE write (the
+    event insert, the three per-cycle meta keys, the wake epoch) is
+    caught and logged, never allowed to fail the poll cycle - history is
+    an accessory to the panel, not a dependency of it.
+
+    Two of the writes below are ACCESSORY rather than core, and are each
+    isolated in their own SAVEPOINT via `_run_isolated_write()` so a
+    fault in one can never roll back the pipeline heartbeat or the
+    runway-event insert staged just above them in the same outer batch:
+    the Caddy-log ingest (one `INSERT OR IGNORE` per log line - a
+    malformed row, `SQLITE_FULL`, or a corrupt page reached only by that
+    table could otherwise stop `META_LAST_PIPELINE_RUN` from advancing,
+    making the Health page report "stale" while the pipeline runs fine)
+    and the provider-timestamp meta rows. The Caddy log itself - up to 10
+    MiB - is also tailed BEFORE this function's own `write_batch()` even
+    opens (`history_db.read_caddy_battery_log()`, a plain meta SELECT
+    plus file I/O, no writer), so that read never holds the write lock a
+    companion writer would otherwise wait on via `busy_timeout`.
 
     `record_event` gates the one thing not written every cycle: a
     `runway_events` row, on a real transition only. The pipeline-run
@@ -736,7 +769,8 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     `provider_last_calls`, when a (non-empty) dict, is this cycle's
     updated `{provider_name: epoch_seconds}` map from
     `detect.poll_current_aircraft()` - written here, one meta row per
-    provider, inside the SAME batch as everything else above. Lives in
+    provider, inside the SAME outer batch as everything else above (just
+    isolated in its own savepoint, per the paragraph above). Lives in
     meta rather than poll_state.json so a timer cycle immediately
     followed by the companion's `/poll-now` (two separate processes) never
     calls the same provider twice within its own spacing limit, without
@@ -748,6 +782,12 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     route = route if isinstance(route, dict) else {}
     try:
         with history_db.open_db(state_dir) as conn:
+            caddy_result = None
+            if caddy_log:
+                try:
+                    caddy_result = history_db.read_caddy_battery_log(conn, caddy_log)
+                except (sqlite3.Error, OSError) as exc:
+                    print("poll_loop: caddy log read failed: %s: %s" % (type(exc).__name__, exc))
             with history_db.write_batch(conn):
                 if record_event and isinstance(flight, dict):
                     history_db.record_runway_event(
@@ -768,14 +808,19 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                 history_db.set_meta(conn, history_db.META_SOURCE_FAULT, str(source_fault))
                 if flight is not None or detected:
                     history_db.set_meta(conn, history_db.META_LAST_DETECTION, now_iso)
-                if caddy_log:
-                    history_db.ingest_caddy_battery_log(conn, caddy_log)
+                if caddy_result is not None:
+                    readings, new_offset = caddy_result
+                    _run_isolated_write(
+                        conn, "caddy_ingest",
+                        lambda: history_db.apply_caddy_battery_log(conn, readings, new_offset))
                 if wake_interval_s is not _NO_WAKE_EPOCH:
                     history_db.record_wake_epoch(conn, now_iso, wake_interval_s)
                 if provider_last_calls:
-                    for name, value in provider_last_calls.items():
-                        history_db.set_meta(
-                            conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + name, repr(float(value)))
+                    def _write_provider_last_calls():
+                        for name, value in provider_last_calls.items():
+                            history_db.set_meta(
+                                conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + name, repr(float(value)))
+                    _run_isolated_write(conn, "provider_last_call_meta", _write_provider_last_calls)
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: history write failed: %s: %s" % (type(exc).__name__, exc))
 

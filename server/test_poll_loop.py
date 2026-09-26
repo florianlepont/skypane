@@ -1394,6 +1394,103 @@ def test_caddy_log_ingestion_wired_into_poll_cycle(tmp_path):
         shutil.rmtree(log_dir, ignore_errors=True)
 
 
+def test_caddy_ingest_failure_does_not_roll_back_heartbeat_or_event(tmp_path, monkeypatch):
+    """a Caddy-log ingest failure inside _record_history's write_batch rolls back only its own
+    write - never the pipeline heartbeat or the runway_events row staged in the same cycle"""
+    log_dir = _mkdir(tmp_path, "caddy-fault")
+    try:
+        log_path = os.path.join(log_dir, "caddy-access.log")
+        with open(log_path, "w") as fh:
+            fh.write(json.dumps({
+                "ts": 1_700_000_000.0,
+                "request": {
+                    "uri": "/device/v1/display",
+                    "headers": {"X-Battery-Mv": ["4090"]},
+                },
+            }) + "\n")
+
+        def _boom(conn, readings, new_offset):
+            raise sqlite3.OperationalError("simulated caddy ingest fault")
+
+        monkeypatch.setattr(poll_loop.history_db, "apply_caddy_battery_log", _boom)
+        poll_loop.run_once(
+            snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB),
+            state_dir=log_dir, geofence=GEOFENCE_PATH, caddy_log=log_path,
+        )
+        with history_db.open_db(log_dir) as conn:
+            events = history_db.recent_runway_events(conn, limit=5)
+            pipeline_run = history_db.get_meta(conn, history_db.META_LAST_PIPELINE_RUN)
+            health_rows = history_db.recent_device_health(conn, limit=5)
+        if len(events) != 1:
+            pytest.fail("a caddy-ingest fault rolled back the runway_events insert, got %d rows" % (len(events),))
+        if not pipeline_run:
+            pytest.fail("a caddy-ingest fault rolled back the pipeline-run heartbeat")
+        if health_rows:
+            pytest.fail("expected the faulted ingest to insert nothing at all, got %r" % (health_rows,))
+        return
+    finally:
+        shutil.rmtree(log_dir, ignore_errors=True)
+
+
+def test_caddy_log_tail_reads_before_the_write_batch_opens(tmp_path, monkeypatch):
+    """the Caddy-log tail (up to 10 MiB of file I/O plus one meta SELECT) runs before
+    _record_history's write_batch opens, never while the write lock is held"""
+    log_dir = _mkdir(tmp_path, "caddy-lock-order")
+    try:
+        log_path = os.path.join(log_dir, "caddy-access.log")
+        with open(log_path, "w") as fh:
+            fh.write(json.dumps({
+                "ts": 1_700_000_000.0,
+                "request": {"uri": "/device/v1/display", "headers": {"X-Battery-Mv": ["4090"]}},
+            }) + "\n")
+
+        observed = {}
+        original_read = poll_loop.history_db.read_caddy_battery_log
+
+        def _spy(conn, path):
+            observed["batch_depth_during_read"] = getattr(conn, "_batch_depth", 0)
+            return original_read(conn, path)
+
+        monkeypatch.setattr(poll_loop.history_db, "read_caddy_battery_log", _spy)
+        poll_loop.run_once(
+            snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB),
+            state_dir=log_dir, geofence=GEOFENCE_PATH, caddy_log=log_path,
+        )
+        if observed.get("batch_depth_during_read") != 0:
+            pytest.fail("expected the Caddy-log tail to run before write_batch opened (depth 0), got %r" % (observed,))
+        return
+    finally:
+        shutil.rmtree(log_dir, ignore_errors=True)
+
+
+def test_provider_last_call_meta_failure_does_not_roll_back_heartbeat(tmp_path, monkeypatch):
+    """a provider-timestamp meta write failure inside _record_history's write_batch rolls back
+    only its own write - never the pipeline heartbeat staged in the same cycle"""
+    prov_dir = _mkdir(tmp_path, "provider-meta-fault")
+    try:
+        original_set_meta = poll_loop.history_db.set_meta
+
+        def _flaky_set_meta(conn, key, value):
+            if key.startswith(poll_loop.history_db.META_PROVIDER_LAST_CALL_PREFIX):
+                raise sqlite3.OperationalError("simulated provider-meta fault")
+            return original_set_meta(conn, key, value)
+
+        monkeypatch.setattr(poll_loop.history_db, "set_meta", _flaky_set_meta)
+        # No injected snapshot - the injected-snapshot path never queries a
+        # live provider, so provider_last_calls would stay empty and this
+        # fault would never be reached; the live path (stubbed via the
+        # fake_providers fixture, autoused through _stub_adsbdb) always
+        # populates it, queried or not.
+        poll_loop.run_once(state_dir=prov_dir, geofence=GEOFENCE_PATH)
+        with history_db.open_db(prov_dir) as conn:
+            pipeline_run = history_db.get_meta(conn, history_db.META_LAST_PIPELINE_RUN)
+        if not pipeline_run:
+            pytest.fail("a provider-meta fault rolled back the pipeline-run heartbeat")
+        return
+    finally:
+        shutil.rmtree(prov_dir, ignore_errors=True)
+
+
 def test_caddy_log_omitted_is_noop(tmp_path):
     """omitting --caddy-log (the default) ingests nothing and raises nothing"""
     none_dir = _mkdir(tmp_path, "nocaddylog")
