@@ -80,10 +80,10 @@ at the phase's close, not recalled from a plan.
 token scan — an AST carries no comment and no docstring by construction, which is a
 stronger statement of the comment-strip claim than stripping them). It exposes the
 scales (`percent_x`, `percent_y`, `percent_time`), the canvases (`percent_canvas`,
-`unit_canvas`, `label_grid`), the shape emitters (`rect`, `line`, `circle`, `path`,
+`unit_canvas`), the shape emitters (`rect`, `line`, `circle`, `path`,
 `title`, `label_span`), the four composed drawings (`ring_gauge`, `day_band`,
 `regularity_grid`, plus `unit_circle_dash_array`/`unit_point_on_circle` beneath the
-first), the filters (`usable_pairs`, `is_number`) and the two class mappings
+first), the filter `is_number` and the two class mappings
 (`status_class`, `cell_class`). It does **not** import `companion/battery.py` even
 though it may: **geometry must not know what it is plotting.** A drawing takes a
 fraction, an instant or a verdict — never a millivolt value.
@@ -97,7 +97,7 @@ have one canvas class each.
 |---|---|---|
 | Use it for | a card-filling time series that must stretch to whatever width its card gets | an intrinsically aspect-locked mark (a ring, a grid of squares) |
 | The SVG carries | **no `viewBox` at all** | `viewBox` **plus** intrinsic `width`/`height` attributes in CSS pixels |
-| Labels | HTML `<span>`s **outside** the canvas, placed by `label_grid()`'s two-track CSS grid | same — see below |
+| Labels | HTML `<span>`s **outside** the canvas, placed in the page's own two-track CSS grid (e.g. Health's `.sparkline`: Y-label column, canvas, X-label row) | same — see below |
 | Sized by | CSS: `width: 100%` and `height: var(--drawing-canvas-height, 160px)` | its own intrinsic attributes; the class deliberately declares **no** size |
 | Consumers | Health's battery chart, Home's day band | Health's battery ring (72px), Home's battery ring (36px), Health's regularity grid |
 
