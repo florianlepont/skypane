@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Behaviour tests for stub-server/byos_server.py's hardening work:
 
-- INT-02 (byos copy): `_atomic_write`, byos's local same-directory-mkstemp
-  atomic writer, proven to share `server/atomic_io.py`'s observable contract
-  by a test parametrised over both callables, plus its three writers
-  (`save_state`, `save_registry`, `save_battery_state`).
-- INT-05: content-addressed `img/<sha256>.bin` publishing, so the device
-  always downloads the bytes it was told about.
-- INT-06 (remainder): bounded/validated `Content-Length`, a socket timeout
+- `_atomic_write`, byos's local same-directory-mkstemp atomic writer,
+  proven to share `server/atomic_io.py`'s observable contract by a test
+  parametrised over both callables, plus its three writers (`save_state`,
+  `save_registry`, `save_battery_state`).
+- Content-addressed `img/<sha256>.bin` publishing, so the device always
+  downloads the bytes it was told about.
+- Request hardening: bounded/validated `Content-Length`, a socket timeout
   on a stalled client, a constant-time bearer compare, and non-dict
   `/device/v1/log` entries skipped rather than raising.
 
@@ -16,8 +16,6 @@ codes, file mode, presence/absence of a leftover temp file, server stdout) -
 never about byos_server.py's source text, per the behaviour-over-source
 convention this repo's tests follow throughout.
 """
-import hashlib
-import http.client
 import importlib.util
 import json
 import os
@@ -203,7 +201,7 @@ def write_fn(request, byos_module):
     return byos_module._atomic_write
 
 
-# --- Task 1: _atomic_write parity and byos's three writers (INT-02) ------
+# --- _atomic_write parity and byos's three writers ------------------------
 
 
 def test_atomic_write_parity_str_and_bytes_round_trip(write_fn, tmp_path):

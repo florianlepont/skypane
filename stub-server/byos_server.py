@@ -46,6 +46,7 @@ import os
 import re
 import secrets
 import sys
+import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -88,6 +89,88 @@ BATTERY_CRITICAL_SLEEP_S = 3600
 BATTERY_CRITICAL_RECOVER_MV = 3700
 
 
+def _read_umask():
+    """Return the process umask without racing another thread's
+    umask-sensitive open() the way os.umask(0)/os.umask(old) read-then-
+    restore would. Mirrors server/atomic_io.py's helper of the same name
+    byte-for-byte in intent (a local copy - see _atomic_write below for
+    why); a behaviour-parity test in test_byos_hardening.py pins the two
+    to the same observable default mode.
+    """
+    try:
+        with open("/proc/self/status") as fh:
+            for line in fh:
+                if line.startswith("Umask:"):
+                    return int(line.split(":", 1)[1].strip(), 8)
+    except OSError:
+        pass
+    old = os.umask(0)
+    os.umask(old)
+    return old
+
+
+# open(path, "w") on a fresh path has always produced 0o666 & ~umask; this
+# is _atomic_write's default so migrating a caller from open() to
+# _atomic_write() does not silently change its file's mode.
+_DEFAULT_FILE_MODE = 0o666 & ~_read_umask()
+
+
+def _atomic_write(path, data, mode=None):
+    """Write `data` (bytes, or str encoded as UTF-8) to `path` via a
+    same-directory unique-name temp file, fsync, then os.replace -
+    never a partial write, never a stray temp file left behind on any
+    failure. This is a local copy of server/atomic_io.py's atomic_write()
+    with the same observable contract (unique temp name, requested mode
+    set on the temp file's descriptor before any byte is written, never
+    chmod'ed after the rename, fsynced before the rename, temp removed
+    and the exception re-raised on any failure) - byos must never import
+    server.* (stub-server/VENDOR.md's vendor boundary); a behaviour-
+    parity test in test_byos_hardening.py pins the two to the same
+    contract instead of a source-text drift guard.
+    """
+    if isinstance(data, str):
+        payload = data.encode("utf-8")
+    elif isinstance(data, bytes):
+        payload = data
+    else:
+        raise TypeError(
+            "byos_server._atomic_write: data must be bytes or str, got %s"
+            % type(data).__name__)
+
+    directory = os.path.dirname(path) or "."
+    prefix = "." + os.path.basename(path) + "."
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix=prefix, suffix=".tmp")
+    try:
+        os.fchmod(fd, mode if mode is not None else _DEFAULT_FILE_MODE)
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(payload)
+            fh.flush()
+            os.fsync(fh.fileno())
+    except BaseException:
+        # os.fdopen's own `with` already closed fd if it got that far;
+        # closing it again raises, which the failed write should not mask.
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
+        raise
+
+    committed = False
+    try:
+        os.replace(tmp, path)
+        committed = True
+    finally:
+        if not committed:
+            try:
+                os.unlink(tmp)
+            except FileNotFoundError:
+                pass
+
+
 def state_path(state_dir):
     return os.path.join(state_dir, "byos_state.json")
 
@@ -101,10 +184,7 @@ def load_state(state_dir):
 
 
 def save_state(state_dir, state):
-    tmp = state_path(state_dir) + ".tmp"
-    with open(tmp, "w") as fh:
-        json.dump(state, fh, indent=1)
-    os.replace(tmp, state_path(state_dir))
+    _atomic_write(state_path(state_dir), json.dumps(state, indent=1))
 
 
 # --- Per-device enrolment registry -----------------------------------
@@ -153,16 +233,13 @@ def load_registry(state_dir):
 
 
 def save_registry(state_dir, registry):
-    """Atomically write `registry` to devices.json, created 0600 via
-    os.open (never chmod after, so never briefly world-readable). Holds
-    only SHA-256 hashes, never a plaintext secret.
+    """Atomically write `registry` to devices.json via _atomic_write with
+    mode=0o600 (set on the temp file's descriptor before any byte is
+    written, never chmod'ed after the rename, so the registry is never
+    briefly world-readable). Holds only SHA-256 hashes, never a plaintext
+    secret.
     """
-    path = registry_path(state_dir)
-    tmp = path + ".tmp"
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as fh:
-        json.dump(registry, fh, indent=1)
-    os.replace(tmp, path)
+    _atomic_write(registry_path(state_dir), json.dumps(registry, indent=1), mode=0o600)
 
 
 def register_device(state_dir, mac, secret_sha256, replace=False):
@@ -453,16 +530,13 @@ def parse_battery_mv(raw):
 
 def save_battery_state(state_dir, mv):
     """Persist {"battery_mv": mv, "received_at": time.time()} to
-    battery_state.json, atomically (tmp-write then os.replace()). The
-    only writer of that file anywhere in the repo -
+    battery_state.json via _atomic_write (unique temp name, fsync,
+    os.replace). The only writer of that file anywhere in the repo -
     server/poll_loop.py only reads it, avoiding a read-modify-write
     race between two processes on one JSON file.
     """
     path = battery_state_path(state_dir)
-    tmp = path + ".tmp"
-    with open(tmp, "w") as fh:
-        json.dump({"battery_mv": mv, "received_at": time.time()}, fh, indent=1)
-    os.replace(tmp, path)
+    _atomic_write(path, json.dumps({"battery_mv": mv, "received_at": time.time()}, indent=1))
 
 
 class Handler(BaseHTTPRequestHandler):
