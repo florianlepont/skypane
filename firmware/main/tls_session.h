@@ -1,37 +1,14 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
-/* Best-effort TLS session resumption across deep sleep (FW-10's optional
- * half - the mandatory half is api_client.c's own in-wake connection
- * reuse). esp_http_client already resumes a session ticket *within* one
- * wake, via CONFIG_ESP_TLS_CLIENT_SESSION_TICKETS + save_client_session:
- * every connect on the same handle after the first tries to reuse the
- * ticket its own previous connect saved. That in-process state lives on
- * the heap, so it is gone the instant deep sleep tears the heap down;
- * this module is the missing piece that carries a copy of it across that
- * boundary in RTC memory, which does survive deep sleep.
- *
- * Why this file reaches into a private ESP-IDF struct: neither
- * esp_http_client nor esp_tls exposes a public "export this session as
- * bytes" API - the ticket lives behind tcp_transport's private
- * transport_esp_tls_t, reachable only via esp_transport_get_context_data
- * and a same-layout struct mirror. mbedtls itself does expose exactly
- * the serialization primitive this needs
- * (mbedtls_ssl_session_save()/_load()), so this file mirrors just enough
- * of that private struct to reach the one field (session_ticket) it
- * needs, then calls the public mbedtls functions to flatten/restore it.
- *
- * Why this is pinned to exactly ESP-IDF v5.3.1: the mirrored struct's
- * field order is not a contract ESP-IDF guarantees stable across
- * releases, even patch releases - CONFIG_SKYPANE_TLS_SESSION_PERSIST is
- * therefore additionally gated on ESP_IDF_VERSION, so the mirror can
- * never silently misread a struct that a future IDF upgrade has
- * reordered. Outside that exact pin (or with the Kconfig option off, or
- * without session tickets enabled), every function below is a no-op:
- * the device simply pays a full TLS handshake every wake, exactly as it
- * did before this file existed. Any load/save failure inside the pinned
- * path degrades the same way - it forgets the saved session and falls
- * back to a full handshake - never aborts a wake.
- */
+/* Best-effort TLS session resumption across deep sleep — the session
+ * esp_http_client resumes within one wake lives on the heap and is
+ * gone once deep sleep tears it down; this module carries a copy
+ * across that boundary in RTC memory. Neither esp_http_client nor
+ * esp_tls exposes a public export API, so this reaches into a private
+ * ESP-IDF struct via a same-layout mirror, pinned to exactly ESP-IDF
+ * v5.3.1 (gated on ESP_IDF_VERSION, so an upgrade cannot silently
+ * misread it); outside that pin, or on any failure, every function is
+ * a safe no-op — a full handshake every wake, never an aborted one. */
 #pragma once
 
 #include <stdbool.h>
