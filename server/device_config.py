@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+import threading
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -31,6 +32,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from server import atomic_io
 from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_RED, IDX_WHITE, IDX_YELLOW
 
 DEFAULT_THEME_ID = "white"
@@ -311,6 +313,21 @@ DEFAULT_NOTIFICATIONS = {
 
 DEVICE_CONFIG_FILENAME = "device_config.json"
 
+# Lock file name for the cross-process guard around save_device_config()'s
+# load-merge-write; joined with state_dir, never a fixed absolute path.
+DEVICE_CONFIG_LOCK_FILENAME = "device_config.lock"
+# Bounded wait for a second writer (companion HTTP thread, or a future
+# second process) already holding the lock - long enough to cover a slow
+# disk, short enough that a stuck lock surfaces as the companion's own
+# existing failed-save error path rather than hanging the request.
+DEVICE_CONFIG_LOCK_TIMEOUT_S = 10.0
+
+# Same-process fast path: guards the in-memory load-merge-write sequence
+# against two threads of this process interleaving, cheaper than always
+# going through the flock syscall for the common single-process case.
+# atomic_io's documented lock order places this ahead of any file lock.
+_SAVE_LOCK = threading.Lock()
+
 
 def device_config_path(state_dir):
     return os.path.join(state_dir, DEVICE_CONFIG_FILENAME)
@@ -491,8 +508,17 @@ def save_device_config(
     validated individually, and its `topic_url` is not URL-checked here
     (`server/notify.py` does that at send time).
 
-    Writes with the same tmp-write-then-os.replace() idiom
-    server/poll_loop.py's save_poll_state() uses.
+    The whole load-merge-write sequence runs under a module
+    `threading.Lock` (same-process fast path) and then
+    `atomic_io.exclusive_lock(<state_dir>/device_config.lock)`
+    (cross-process), so two writers - two companion threads, or a second
+    process - can never each read the same stale `current` and silently
+    drop one another's field. A busy lock raises `atomic_io.LockBusy`, a
+    `TimeoutError`/`OSError` subclass, which propagates exactly like the
+    plain `OSError` a failed write already raised here, so an existing
+    `except OSError` caller needs no change. Writes through
+    `atomic_io.atomic_write`, which itself uses a unique per-call temp
+    name and leaves no leftover file on failure.
     """
     if theme is not None and theme not in THEMES:
         raise ValueError("unknown theme id %r (expected one of %r)" % (theme, THEME_IDS))
@@ -542,53 +568,47 @@ def save_device_config(
         if lang not in ("en", "fr"):
             raise ValueError("notifications['lang'] must be 'en' or 'fr', got %r" % (lang,))
 
-    current = load_device_config(state_dir)
-    # theme_arriving's three write-time meanings: sentinel clears to None,
-    # any other non-None value sets it, None carries forward.
-    if theme_arriving is CLEAR_THEME_ARRIVING:
-        new_theme_arriving = None
-    elif theme_arriving is not None:
-        new_theme_arriving = theme_arriving
-    else:
-        new_theme_arriving = current["theme_arriving"]
-    new_config = {
-        "theme": theme if theme is not None else current["theme"],
-        "theme_arriving": new_theme_arriving,
-        "calendar_theme_id": calendar_theme_id if calendar_theme_id is not None else current["calendar_theme_id"],
-        "tracked_runway": tracked_runway if tracked_runway is not None else current["tracked_runway"],
-        "led_enabled": led_enabled if led_enabled is not None else current["led_enabled"],
-        "quiet_hours_enabled": quiet_hours_enabled if quiet_hours_enabled is not None else current["quiet_hours_enabled"],
-        "quiet_hours_start": quiet_hours_start if quiet_hours_start is not None else current["quiet_hours_start"],
-        "quiet_hours_end": quiet_hours_end if quiet_hours_end is not None else current["quiet_hours_end"],
-        "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
-        "display_enabled": display_enabled if display_enabled is not None else current["display_enabled"],
-        "screen_id": screen_id if screen_id is not None else current["screen_id"],
-        "notifications": (
-            {
-                "topic_url": notifications.get("topic_url"),
-                "battery_low": notifications.get("battery_low"),
-                "frame_silent": notifications.get("frame_silent"),
-                "lang": notifications.get("lang"),
-            }
-            if notifications is not None
-            else current["notifications"]
-        ),
-    }
-
     os.makedirs(state_dir, exist_ok=True)
-    path = device_config_path(state_dir)
-    tmp = path + ".tmp"
-    try:
-        with open(tmp, "w") as fh:
-            json.dump(new_config, fh, indent=1)
-        os.replace(tmp, path)
-    except Exception:
-        if os.path.exists(tmp):
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
-        raise
+    with _SAVE_LOCK:
+        with atomic_io.exclusive_lock(
+            os.path.join(state_dir, DEVICE_CONFIG_LOCK_FILENAME),
+            DEVICE_CONFIG_LOCK_TIMEOUT_S,
+        ):
+            current = load_device_config(state_dir)
+            # theme_arriving's three write-time meanings: sentinel clears
+            # to None, any other non-None value sets it, None carries
+            # forward.
+            if theme_arriving is CLEAR_THEME_ARRIVING:
+                new_theme_arriving = None
+            elif theme_arriving is not None:
+                new_theme_arriving = theme_arriving
+            else:
+                new_theme_arriving = current["theme_arriving"]
+            new_config = {
+                "theme": theme if theme is not None else current["theme"],
+                "theme_arriving": new_theme_arriving,
+                "calendar_theme_id": calendar_theme_id if calendar_theme_id is not None else current["calendar_theme_id"],
+                "tracked_runway": tracked_runway if tracked_runway is not None else current["tracked_runway"],
+                "led_enabled": led_enabled if led_enabled is not None else current["led_enabled"],
+                "quiet_hours_enabled": quiet_hours_enabled if quiet_hours_enabled is not None else current["quiet_hours_enabled"],
+                "quiet_hours_start": quiet_hours_start if quiet_hours_start is not None else current["quiet_hours_start"],
+                "quiet_hours_end": quiet_hours_end if quiet_hours_end is not None else current["quiet_hours_end"],
+                "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
+                "display_enabled": display_enabled if display_enabled is not None else current["display_enabled"],
+                "screen_id": screen_id if screen_id is not None else current["screen_id"],
+                "notifications": (
+                    {
+                        "topic_url": notifications.get("topic_url"),
+                        "battery_low": notifications.get("battery_low"),
+                        "frame_silent": notifications.get("frame_silent"),
+                        "lang": notifications.get("lang"),
+                    }
+                    if notifications is not None
+                    else current["notifications"]
+                ),
+            }
+
+            atomic_io.atomic_write(device_config_path(state_dir), json.dumps(new_config, indent=1))
 
 
 # --- Quiet-hours window arithmetic --------------------------------------
