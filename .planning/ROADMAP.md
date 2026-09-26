@@ -1764,7 +1764,7 @@ Plans:
 4. byos survives malformed `Content-Length`/`mac` input; poll unit has a start timeout
 5. A transient adsbdb error is never cached as a miss
 
-**Plans:** 6/7 plans executed
+**Plans:** 7/7 plans complete
 
 **Execution gate:** starts only once Phase 35 is complete on `main` (gate G-35, first task of 36-01 and 36-02). Plan 37-11 (byos `--bind`) runs after this phase.
 
@@ -1784,7 +1784,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 36-07-PLAN.md — poll cycle: cross-process lock + 2×200 reproduction, poll_loop/companion writes, traceback, last detection [INT-01, INT-02, INT-07, INT-08, INT-11, INT-13]
+- [x] 36-07-PLAN.md — poll cycle: cross-process lock + 2×200 reproduction, poll_loop/companion writes, traceback, last detection [INT-01, INT-02, INT-07, INT-08, INT-11, INT-13]
 
 ### Phase 37: Security and operations hardening
 
