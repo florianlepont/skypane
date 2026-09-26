@@ -6,10 +6,11 @@ never rendered to answer an unchanged tick.
 per-table MAX(id) watermarks, two meta keys, the shared `health_signals()`
 snapshot, a handful of file stats, the newest gallery filename, lang, UI
 theme, route and the raw query string - plus, for Home/Display, the
-resolved frame state, and for Health, the pipeline-run meta key and the
-Europe/Paris date) - never from the rendered body. `_render_tab()` checks
-it only after `require_session()`, and only for a request that identifies
-itself with `X-Requested-With: freshness`.
+resolved frame state, for Health and Home, the pipeline-run meta key
+(Home's Flight-data tile renders that same timestamp), and for Health,
+the Europe/Paris date) - never from the rendered body. `_render_tab()`
+checks it only after `require_session()`, and only for a request that
+identifies itself with `X-Requested-With: freshness`.
 
 Every behaviour here is asserted against a REAL running `companion/app.py`
 (`app_server_in_process`, the only fixture family whose monkeypatches take
@@ -200,16 +201,17 @@ def test_two_requests_with_no_change_get_the_same_token(app_server_in_process):
             route, first, second)
 
 
-def test_identical_second_poll_cycle_leaves_home_display_flights_tokens_unchanged(
+def test_identical_second_poll_cycle_leaves_display_and_flights_tokens_unchanged(
         app_server_in_process):
     """a second, identical poll_loop.run_once() cycle (fake providers, empty sky) leaves the
-    Home, Display and Flights tokens unchanged - Health is excluded, since its own
-    last_pipeline_run meta key genuinely advances every cycle"""
+    Display and Flights tokens unchanged - Home and Health are both excluded here, since
+    each renders last_pipeline_run as plain text (Health's Pipeline tile, Home's Flight-data
+    tile), and that meta key genuinely advances every cycle"""
     import efficiency_probe
 
     server = app_server_in_process
     session = login(server)
-    stable_routes = (layout.HOME_ROUTE, layout.DISPLAY_ROUTE, layout.FLIGHTS_ROUTE)
+    stable_routes = (layout.DISPLAY_ROUTE, layout.FLIGHTS_ROUTE)
 
     # The first cycle establishes state (panel.bin written, meta rows set);
     # only the SECOND, identical cycle is the "nothing changed" case the
@@ -223,6 +225,26 @@ def test_identical_second_poll_cycle_leaves_home_display_flights_tokens_unchange
         assert before[route] == after[route], (
             "expected %s's token unchanged after two identical empty-sky cycles, got %r then %r"
             % (route, before[route], after[route]))
+
+
+def test_identical_second_poll_cycle_still_changes_the_home_token(app_server_in_process):
+    """a second, identical poll_loop.run_once() cycle (fake providers, empty sky) still changes
+    Home's own token - the Flight-data tile renders the same last_pipeline_run timestamp
+    Health's Pipeline tile does, as plain text, so it must keep tracking that meta key even
+    when nothing else about the cycle changed"""
+    import efficiency_probe
+
+    server = app_server_in_process
+    session = login(server)
+
+    efficiency_probe.cycle_probe(server.state_dir, latency_s=0, records=None)
+    before_home = _token(server, layout.HOME_ROUTE, session)
+    efficiency_probe.cycle_probe(server.state_dir, latency_s=0, records=None)
+    after_home = _token(server, layout.HOME_ROUTE, session)
+
+    assert after_home != before_home, (
+        "expected /'s token to change after an identical empty-sky cycle, since the "
+        "Flight-data tile's own pipeline-run timestamp still advances")
 
 
 # ==========================================================================
@@ -373,10 +395,12 @@ def test_staleness_threshold_crossed_changes_health_and_home_tokens(
     assert after_home != before_home, "expected a 2h time jump to change /"
 
 
-def test_pipeline_run_meta_advance_changes_only_health_token(app_server_in_process):
+def test_pipeline_run_meta_advance_changes_health_and_home_tokens(app_server_in_process):
     """META_LAST_PIPELINE_RUN advancing (while the pipeline stays "ok" throughout, so its
-    derived state category never flips) changes only Health's own token - Home/Flights never
-    embed the raw meta value, only the derived pipeline_state, which does not change here"""
+    derived pipeline_state category never flips) still changes both Health's own token - the
+    Pipeline tile - and Home's - the Flight-data tile renders the same raw timestamp as plain
+    text via pipeline_detail_html, so it must track the meta value, not just its derived
+    state. Flights never embeds the raw meta value at all, so its token is unaffected"""
     server = app_server_in_process
     session = login(server)
     base = datetime.now(timezone.utc)
@@ -398,7 +422,8 @@ def test_pipeline_run_meta_advance_changes_only_health_token(app_server_in_proce
     after_flights = _token(server, layout.FLIGHTS_ROUTE, session)
 
     assert after_health != before_health, "expected the pipeline-run advance to change /health"
-    assert after_home == before_home, "expected / to be unaffected by the pipeline-run advance"
+    assert after_home != before_home, (
+        "expected the pipeline-run advance to change / (the Flight-data tile's own timestamp)")
     assert after_flights == before_flights, (
         "expected /flights to be unaffected by the pipeline-run advance")
 

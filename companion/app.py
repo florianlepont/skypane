@@ -647,10 +647,13 @@ def _freshness_db_signal(state_dir, want_pipeline_run):
     collapses the WHOLE group to the literal "unavailable" (still
     hashed into the token, so an outage still answers 200 with a token,
     never a 500) rather than a partial read. `want_pipeline_run` is set
-    only for Health, whose Pipeline tile renders that timestamp - the
-    other three pages must never see it change on every poll cycle,
-    or an unchanged repeat cycle would give them a new token for no
-    visible reason.
+    for Health and Home - Health's Pipeline tile and Home's Flight-data
+    tile both render that timestamp as plain text via
+    `concise_timestamp_html()`, and `.home-status-grid` is one of
+    Home's own declared swap regions - the other two pages (Flights,
+    Display) render nothing derived from it, so they must never see it
+    change on every poll cycle, or an unchanged repeat cycle would give
+    them a new token for no visible reason.
 
     No third watermark from the per-wake-interval-change table: nothing
     under companion/ may read it yet (a repo-wide guard test enforces
@@ -737,7 +740,8 @@ def _page_freshness_token(route, ctx, query):
         "lang": ctx["lang"],
         "ui_theme": ctx["ui_theme"],
         "db": _freshness_db_signal(
-            state_dir, want_pipeline_run=(slug == layout.REFRESH_PAGE_HEALTH)),
+            state_dir,
+            want_pipeline_run=slug in (layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME)),
         "signals": signal_fields,
         "files": _freshness_file_stamps(state_dir),
         # Reuses the ctx's own lazy "gallery_entries" loader (cached after
