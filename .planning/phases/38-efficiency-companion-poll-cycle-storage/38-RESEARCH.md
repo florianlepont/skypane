@@ -406,7 +406,9 @@ if _serialize(poll_state) != baseline:
 | A4 | Python 3.14's `threading.Thread` does not inherit the parent's context by default (non-free-threaded build) | EFF-03 | The scope is set per request anyway. Using `threading.local` removes the question |
 | A5 | adsb.lol has no fixed documented per-second limit (docs say "dynamic") | EFF-06 | Only COMPLIANCE.md wording is affected; keeping ≥1.1 s per provider is conservative either way |
 
-## Open Questions (developer decisions)
+## Open Questions (developer decisions) (RESOLVED)
+
+All three were resolved on 2026-09-26: D-1 = (a) and D-2 = (a), as recorded in `38-CONTEXT.md`; the third is at Claude's discretion and is implemented in 38-10.
 
 1. **D-1: `Cache-Control` for CSS/JS.** This has user-visible impact.
    - (a) `public, no-cache` + ETag: every page load revalidates, 304s are observable, and there is never a window where new HTML runs with old JS after a deploy. Today's 5-minute window is a real risk, because layout constants are duplicated and pinned equal in JS. The cost is ~6–8 small 304 round-trips per page.

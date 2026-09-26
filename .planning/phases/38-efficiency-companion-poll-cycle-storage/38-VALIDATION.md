@@ -2,7 +2,7 @@
 phase: 38
 slug: efficiency-companion-poll-cycle-storage
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-09-26
 ---
@@ -96,4 +96,4 @@ Deviations from the requirement table above: EFF-05 and EFF-06 cycle tests live 
 - [ ] Feedback latency < 60s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** plan-checker passed 2026-09-26
