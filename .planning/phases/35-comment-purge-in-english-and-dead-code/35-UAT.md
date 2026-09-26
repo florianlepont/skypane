@@ -8,12 +8,12 @@ updated: 2026-09-26T07:17:32Z
 
 ## Current Test
 
-number: 5
-name: Companion unchanged in production
+number: 6
+name: Frame unchanged
 expected: |
-  After the production deploy of main (7cd0380 or later), the companion pages
-  (Home, Health, History, Airlines, Settings, login) look and behave as before:
-  same layout, colours, controls, save bar, charts; no console errors.
+  A frame running firmware built from main (7cd0380 or later) wakes, polls and
+  displays exactly as before (the purge changed only comments; the compiled input
+  is identical, so this is optional).
 awaiting: user response
 
 ## Tests
@@ -40,7 +40,7 @@ evidence: git grep finds only the live ctx["health_severity"] key and a string s
 
 ### 5. Companion unchanged in production
 expected: After the production deploy of main (7cd0380 or later), the companion pages (Home, Health, History, Airlines, Settings, login) look and behave as before: same layout, colours, controls, save bar, charts; no console errors.
-result: [pending]
+result: pass
 
 ### 6. Frame unchanged
 expected: A frame running firmware built from main (7cd0380 or later) wakes, polls and displays exactly as before (the purge changed only comments; the compiled input is identical, so this is optional).
@@ -49,9 +49,9 @@ result: [pending]
 ## Summary
 
 total: 6
-passed: 4
+passed: 5
 issues: 0
-pending: 2
+pending: 1
 skipped: 0
 
 ## Gaps
