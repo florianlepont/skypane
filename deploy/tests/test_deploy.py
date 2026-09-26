@@ -1,8 +1,8 @@
-"""deploy/tests/test_deploy.py — deploy/deploy.sh (SEC-05). Runs the real
-repository (git archive needs a real repo to work against — this test
+"""deploy/tests/test_deploy.py -- deploy/deploy.sh. Runs the real
+repository (git archive needs a real repo to work against -- this test
 does not use the fake_root fixtures) with a fake `ssh` stub on PATH that
 captures argv and, for the first call, the tar stream piped to its
-stdin — so this test exercises deploy.sh's actual git archive/ssh
+stdin -- so this test exercises deploy.sh's actual git archive/ssh
 transport, not a mock of it.
 """
 import os
