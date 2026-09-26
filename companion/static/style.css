@@ -6258,57 +6258,30 @@ details[open] > summary::before {
   display: none;
 }
 
-/* Airlines illustration gallery (D-14, 06.6.4.1-UI-SPEC.md §7.1). This
- * file's own responsive-grid idiom: an auto-fill grid with a 200px
- * column floor and the roomier lg gap, collapsing to fewer columns
- * automatically on mobile widths with no extra breakpoints needed. Each
- * tile carries a name and a chip row in addition to its image and
- * caption. */
+/* Airlines illustration gallery: an auto-fill grid with a 200px column
+ * floor, collapsing to fewer columns automatically with no extra
+ * breakpoints. */
 .illustration-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--space-lg);
 }
 
-/* X7 (22-11-PLAN.md Task 2, 22-UI-SPEC.md §2): exactly two cards per row
- * on a phone. The auto-fill idiom above is the right default on a wide
- * screen but collapses to ONE column inside a 342px content column
- * (342 < 2 x 200 + 24), which is what made this page 5800px tall at
- * 390px — one airline per screenful. A FIXED two-column template below
- * 960px is therefore not a tuning of the floor but a different rule:
- * `minmax(0, 1fr)` (never `1fr` alone) is what lets a column shrink
- * below its content's intrinsic width, which is what a 450x132
- * illustration inside it needs.
- *
- * At 390px: (342 - 24) / 2 = 159px per card, and the served 450x132
- * frame scales to about 159x47 — still legible as a livery swatch,
- * which is the whole job of a card in this grid. The page height
- * roughly halves. */
+/* Below 960px: minmax(0, 1fr) (never bare 1fr) lets a fixed two-column
+ * template shrink below the illustration's intrinsic width — the
+ * auto-fill default collapses to ONE column inside a 342px content
+ * column, ballooning page height. */
 @media (max-width: 959.98px) {
   .illustration-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* Quick task 260922-jiy: separate the Compagnies gallery from the
- * "Compagnies non identifiees" gap-strip card below it, spending the
- * same D-14/UIR-24 sibling-card gap (--space-lg) every other stacked
- * pair in this app already uses. This is declared as a top margin on
- * the FOLLOWING .page-section, not a bottom margin on .illustration-grid
- * itself, because .illustration-grid is load-bearing on TWO elements:
- * the outer gallery grid above, and the gap-strip's own inner grid
- * (which wears illustration-grid--gap alongside it, see that rule's
- * comment). A margin on the shared base class would also push the
- * strip's own unresolved-callsign cards away from the overflow line
- * below them, which is not wanted. The adjacent-sibling selector is
- * what confines the gap to the outer gallery: the inner grid is always
- * followed by a <p>, never by a .page-section. */
 .illustration-grid + .page-section {
   margin-top: var(--space-lg);
 }
 
-/* The 06.6.4 D-03 hairline-at-rest/shadow-on-hover card contract,
- * verbatim — do not "restore" a resting shadow on this component. */
+/* Hairline-at-rest, shadow-on-hover — do not restore a resting shadow. */
 .airline-card {
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
@@ -6317,11 +6290,6 @@ details[open] > summary::before {
   padding: var(--space-sm);
 }
 
-/* Phase 14 (14-03-PLAN.md Task 2, D-12): .airline-card was always a
- * <div> before this phase; a gap card's whole outer element is now a
- * real <a> and needs the block layout + link-reset a <div> got for
- * free. Do not touch the :hover/:focus-within rule below — an <a>
- * receiving focus already matches :focus-within per spec. */
 a.airline-card {
   display: block;
   color: inherit;
@@ -6334,29 +6302,10 @@ a.airline-card {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* 260902-req-02: the ratio matches companion/illustration_normalize.py's
- * ILLUSTRATION_TARGET_SIZE exactly — every served illustration is already
- * normalized to that pixel size, so this reserves the same box for a
- * browser that ignores the <img>'s own width/height attributes.
- * object-fit: contain (not cover) mirrors the normalization's own
- * fit-inside discipline: nothing here may ever crop an aircraft.
- *
- * quick task 260902-v2v (UIR-07): `height: auto` is load-bearing, not
- * decorative. airlines_page.py's `<img width="..." height="...">`
- * attributes map to presentational height; with both dimensions already
- * resolved from the attributes, `aspect-ratio` above is ignored
- * entirely and every card rendered the full box-height regardless of
- * the card's actual (narrower) width — the letterboxing this fixes.
- * `height: auto` un-resolves the height so `aspect-ratio` can compute it
- * from the rendered width instead. The width/height attributes on the
- * <img> element itself must stay: they are still what reserves the
- * correct box for `loading="lazy"` before the image itself loads.
- *
- * quick task 260904-e92 (UIR-08): the frame was halved (900x263 ->
- * 450x132) to cut served bytes — see illustration_normalize.py's own
- * comment for the full ratio-derivation reasoning. `height: auto`
- * remains load-bearing for exactly the same reason stated above: it is
- * independent of which pixel pair the aspect-ratio declaration names. */
+/* height: auto is load-bearing: the <img> width/height attributes
+ * resolve a presentational height, which makes aspect-ratio inert and
+ * letterboxes every card. height: auto un-resolves it so aspect-ratio
+ * computes from the rendered width instead. */
 .airline-card__image {
   width: 100%;
   height: auto;
@@ -6367,29 +6316,10 @@ a.airline-card {
   margin-bottom: var(--space-sm);
 }
 
-/* Phase 14 (14-03-PLAN.md Task 2, D-02): the gap card's reserved-box
- * placeholder — a dashed border (distinct from every solid-bordered
- * card, reads as a *slot*, not damaged art) and a var(--color-canvas)
- * fill one level down inside this card's own var(--color-dominant)
- * surface, so it reads as a hole punched in the card. aspect-ratio and
- * margin-bottom are string-identical to .airline-card__image's above,
- * so grid rows stay aligned whether a card holds art or a gap. No new
- * token, no accent use. aria-hidden="true" and empty in the markup —
- * the card's own visible, announced callsign text is the real content. */
-/* 22-07-PLAN.md Task 2 (B18) note: home_page.py's own recent-flight
- * thumbnail placeholder (`.recent-flight__thumb--placeholder`, defined
- * further down this file) deliberately does NOT join this selector as
- * a shared list — companion/test_status_pages.py (owned by a sibling
- * plan this wave, not editable here) pins the literal standalone
- * selector text ".airline-card__placeholder {" as its own complete
- * rule body carrying all five of this rule's declarations. Its dashed
- * border/radius/canvas-fill values are instead reused BY VALUE (the
- * exact same var() tokens, no new literal) on that rule's own
- * definition, matching this rule's own comment below ("copied verbatim
- * rather than inventing a second 'no image' treatment") — the real fix
- * for the B18 weight mismatch is giving the REAL thumbnail this same
- * treatment (see img.recent-flight__thumb below), not touching this
- * rule. */
+/* Values (aspect-ratio, margin-bottom) are string-identical to
+ * .airline-card__image's, so grid rows align whether a card holds art
+ * or a gap. test_status_pages.py pins this selector's own standalone
+ * rule body — do not merge it into a shared selector list. */
 .airline-card__placeholder {
   aspect-ratio: 450 / 132;
   border: 1px dashed var(--color-border);
@@ -6399,12 +6329,6 @@ a.airline-card {
   display: block;
 }
 
-/* quick task 260902-tli: the click-to-enlarge trigger wrapping
- * .airline-card__image above. Block-level, full-width and height: auto
- * so it exactly cages the image it wraps; zero padding/border/
- * background so the base `button` rule's 30px-tall/12px-padded/
- * bordered box model contributes nothing to this control's shape — the
- * wrapped image alone determines it. */
 .airline-card__zoom {
   display: block;
   width: 100%;
@@ -6416,17 +6340,9 @@ a.airline-card {
   cursor: zoom-in;
 }
 
-/* Both rules below are load-bearing, not redundant: the base
- * `button:hover`/`button:active` rules above are (0,1,1)-specificity
- * (one pseudo-class, one type selector) and would otherwise still apply
- * here, re-painting a background/border wash and a 1px press-depress
- * onto a control that must stay visually inert except for the zoom
- * cursor. `.airline-card__zoom:hover`/`:active` match or exceed that
- * specificity and sit later in source order, so these neutralizers win.
- * The press-depress in particular is deliberately removed, not just
- * muted: a full-width image nudging 1px against the card's own border
- * reads as a layout glitch, not a button press. This control keeps the
- * global :focus-visible outline — that is not touched here. */
+/* Load-bearing, not redundant: base button:hover/:active are (0,1,1)
+ * and would otherwise repaint a wash/press-depress here; these rules
+ * match or exceed that specificity and sit later in source, so they win. */
 .airline-card__zoom:hover {
   background: none;
   border-color: transparent;
@@ -6436,19 +6352,6 @@ a.airline-card {
   transform: none;
 }
 
-/* quick task 260902-tli: an earlier version of this feature disabled the
- * zoom trigger's pointer path on narrow portrait viewports via a
- * `@media (max-width: 959px) and (orientation: portrait) { pointer-
- * events: none; }` block — a misreading of the developer's own request.
- * "En mode paysage" meant the ENLARGED VIEW should present the wide
- * illustration in a landscape-style layout (which `.lightbox--wide`'s
- * own sizing below already does, regardless of the phone's physical
- * rotation), not that the click itself should be gated behind the
- * device's reported orientation. Removed outright — corrected on the
- * same live developer test that first exercised it, before that
- * (wrong) gate ever shipped to a real device. The trigger now works
- * unconditionally at every viewport size, matching "desktop always
- * works" and extending it to "phone always works" too. */
 
 /* Emphasis role, not a new type role. */
 .airline-card__name {
@@ -6463,12 +6366,6 @@ a.airline-card {
   gap: var(--space-xs);
 }
 
-/* Matches .data-table th's quiet-label tier above (not a fifth content
- * type role). Neutral-tinted, not accent-tinted, so this file's own
- * header-comment accent-reservation list stays exhaustive and unchanged.
- * 06.6.4.1.1 (D-13): 11px -> 12px, gains the uppercase/semibold/tracking
- * declarations that complete the one unified label voice — see
- * .stat-tile__caption's own comment for the full contract. */
 .airline-card__chip {
   display: inline-flex;
   align-items: center;
@@ -6484,18 +6381,11 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
- * readout line. */
+/* Interactive battery-trend chart hit targets and readout line. */
 
-/* quick task 260902-ep7 (BUG 4): the chart's outer wrapper —
- * health_page.py's battery_sparkline_svg() returns this grid, not a bare
- * <svg>, now. The `auto` first column is the entire point: the browser
- * measures the REAL rendered width of the widest Y-axis label in
- * .sparkline__y below and reserves exactly that — this is what replaces
- * _AXIS_LEFT_GUTTER, a Python-side ESTIMATE of that same width, deleted
- * along with _AXIS_BOTTOM_STRIP in health_page.py. The second row (the
- * X-axis label row, below the canvas) does the same job for the bottom
- * strip, sized by its own content height rather than a second estimate. */
+/* auto first column: the browser measures the real rendered width of
+ * the widest Y-axis label and reserves exactly that, replacing a
+ * Python-side width estimate. */
 .sparkline {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -6503,17 +6393,6 @@ a.airline-card {
   row-gap: var(--space-xs);
 }
 
-/* Column 1, row 1 (explicit — the canvas and the X-label row below are
- * auto-placed into the remaining cells; see .sparkline's own comment and
- * .sparkline__x's below). A flex column stretched to the grid row's own
- * height (grid's default `align-items: stretch`, which for row 1 means
- * this element's height equals the canvas's own declared height, in
- * .battery-trend-section svg:not(.icon)) with justify-content:
- * space-between, so document order (max label, then min label — see
- * battery_sparkline_svg()) places max at the top and min at the bottom,
- * each one's optical centre landing on the level it names by the same
- * half-line-box arithmetic health_page.py's _SPARKLINE_VERTICAL_INSET_
- * PERCENT comment derives. */
 .sparkline__y {
   grid-column: 1;
   grid-row: 1;
@@ -6523,59 +6402,23 @@ a.airline-card {
   align-items: flex-end;
 }
 
-/* Column 2 explicit; the grid auto-places this into row 2, the only open
- * cell left in that column once the canvas (auto-placed into row 1,
- * column 2 — the sole remaining cell once .sparkline__y claims column 1)
- * occupies row 1. A flex row with the same space-between as .sparkline__y,
- * so document order (oldest label, then newest — see
- * battery_sparkline_svg()) places oldest on the left, newest on the
- * right, aligned under their own X ticks. */
 .sparkline__x {
   grid-column: 2;
   display: flex;
   justify-content: space-between;
 }
 
-/* THE AREA UNDER THE TREND LINE (CFG-41/CFG-45, 24-05-PLAN.md Task 1).
- * `currentColor` at a reduced `fill-opacity` is the whole mechanism and
- * the reason there is no second colour here: the area takes the LINE's
- * own resolved colour (`.sparkline-line` below is `stroke: currentColor`
- * against the same inherited `color`), so light and dark mode are
- * correct by exactly the mechanism the line already is, and a palette
- * change moves both together or neither.
- *
- * NOT a <linearGradient>. A gradient would be the nicer fade and it can
- * only be referenced as `fill="url(#id)"` — health_page.py's
- * `battery_sparkline_svg()` carries a standing guarantee, asserted
- * against its own return value, that it emits no `url(` at all (D-09,
- * no external reference of any kind). A flat translucent fill keeps that
- * guarantee unweakened; a gradient would have required relaxing a
- * security-shaped assertion for decoration.
- *
- * 0.14 is the measured floor, not a taste value: it is the lowest
- * opacity at which the composited area separates from the card surface
- * by more than the ~2% luminance difference the eye stops resolving at
- * this size in BOTH themes (dark mode is the binding side — the card is
- * nearly black and the ink nearly white, so the same alpha buys less
- * separation there). companion/test_browser_ux.py measures the
- * composited result against the card's own resolved background rather
- * than trusting this number.
- *
- * No `stroke` declaration, deliberately: the SVG initial value is
- * already `none`, nothing in this file sets a `stroke` on an ancestor
- * for it to inherit, and a declaration that changes nothing is a comment
- * pretending to be code. The area's edge IS `.sparkline-line`, drawn
- * over it. */
+/* 0.14 fill-opacity is a measured floor: the lowest opacity that
+ * visibly separates the area from the card in both themes (dark mode is
+ * the binding case). currentColor keeps it in step with the line's own
+ * colour; no gradient, since the emitter never emits a url() reference. */
 .sparkline-area {
   fill: currentColor;
   fill-opacity: 0.14;
 }
 
-/* The trend line: one <line> per consecutive pair of points (percentages
- * are not permitted inside a <polyline>'s points list, which is why this
- * is n - 1 line segments rather than one polyline). stroke-linecap:
- * round makes consecutive segments' joins read as one continuous line
- * rather than mitred gaps. */
+/* One <line> per point pair, not a <polyline>: percentages are not
+ * permitted inside a polyline's points list. */
 .sparkline-line {
   stroke: currentColor;
   stroke-width: 2;
@@ -6583,106 +6426,38 @@ a.airline-card {
   fill: none;
 }
 
-/* Drawn axis lines and ticks (quick task 260902-ep7, BUG 4 — 06.6.4.1-
- * UI-SPEC.md §5.3's "no tick marks or axis lines are required" was a
- * stated FLOOR, not a prohibition; this is a permitted extension of it,
- * and that section is updated to say so). `--color-border` is this
- * file's existing "structural only, never an interactive-state signal"
- * token (file header comment) — precisely what a chart axis is, so no
- * new colour value is introduced. If this proves too faint against the
- * card surface in the live-browser pass, the recorded fallback is this
- * file's existing `color-mix(in srgb, var(--color-text) 12%, transparent)`
- * edge value (already used by .banner__pill and .refresh-pill), not a
- * newly invented one. */
 .sparkline-axis {
   fill: var(--color-border);
 }
 
-/* Cosmetic marker only — never receives pointer events, or it would steal
- * them from the larger .sparkline-hit target painted at the same
- * coordinates. */
+/* Never receives pointer events, or it would steal them from the
+ * larger .sparkline-hit target painted at the same coordinates. */
 .sparkline-dot {
   fill: currentColor;
   pointer-events: none;
 }
 
-/* THE CURRENT READING'S MARK (CFG-41, 24-05-PLAN.md Task 2): the newest
- * plotted point, drawn instead of — never as well as — its cosmetic dot.
- * `currentColor` for the same reason `.sparkline-dot` above uses it: the
- * mark is the same ink as the line it terminates, one step larger, so it
- * reads as "this is where the series is now" rather than as a second
- * colour with its own meaning. No status token here on purpose: the ring
- * gauge beside this chart already carries the ok/warn/error verdict about
- * the battery, and a chart point that also judged it would be a second
- * opinion about one number.
- *
- * NEITHER `r` NOR `pointer-events` IS DECLARED, and both omissions are
- * mechanism. `r` is emitted as a presentation attribute from
- * health_page.py's own _SPARKLINE_MARK_RADIUS_PX (a CSS declaration of
- * any specificity would beat it, which is the trap `.drawing-ring-track`
- * records at length). `pointer-events: none` is `.sparkline-dot`'s, and
- * it is not repeated here because it is INHERITED: the value set on a
- * sibling does not reach this element, but the mark sits at the same
- * coordinates as its own `.sparkline-hit` target, which is emitted after
- * it and therefore paints — and hit-tests — on top. Measured, not
- * assumed: hovering the last point still resolves to the hit target. */
+/* r is a presentation attribute from a Python-side radius constant; a
+ * CSS declaration of any specificity would beat and flatten it. No
+ * pointer-events here either — it's inherited from the sibling
+ * .sparkline-dot; this mark simply paints on top of it (measured). */
 .sparkline-mark {
   fill: currentColor;
   pointer-events: none;
 }
 
-/* THE DRAWN LOW-BATTERY THRESHOLD (CFG-41, T-24-05-B). A filled rect,
- * like the axis chrome above and for the same stroke-centring reason,
- * but deliberately NOT `.sparkline-axis`: the axis is structure and
- * spends `--color-border`, this file's "structural only, never an
- * interactive-state signal" token. A threshold is a judgement about the
- * device, so it spends the app's existing status-warn token instead —
- * already defined for both themes and already pinned against the card
- * surface as a UI component by companion/contrast_check.py's
- * STATUS_WARN_ON_CARD_PAIRS, so no new colour pair is introduced. Accent
- * stays reserved (this file's header comment lists its five uses; a
- * chart threshold is not one, the same reasoning `.sparkline-hit:hover`
- * records). */
 .sparkline-threshold {
   fill: var(--color-status-warn);
 }
 
-/* The threshold's label, in its own full-width row at the bottom of the
- * chart's grid. `1 / -1` is load-bearing rather than tidy, and measured
- * rather than asserted: without it the browser auto-places this into
- * column 1 — the `auto` column sized to the widest Y-axis label — and
- * that column grows to fit a whole sentence instead. Measured at 360px
- * with `grid-column: auto`, the canvas drops from 229.97px to roughly
- * 109px inside the same 278px grid, with no overflow and no other
- * visible signal that anything broke. companion/test_browser_ux.py
- * measures the canvas's share of the grid for exactly that reason; the
- * first version of that check did not, and this declaration could be
- * deleted with every assertion still green. */
+/* grid-column: 1 / -1 is load-bearing, not tidy: without it the label
+ * auto-places into the auto-sized Y-axis column, which then grows to
+ * fit a sentence — measured: the canvas dropped from 230px to ~109px
+ * inside the same 278px grid, with no other visible signal. */
 .sparkline__legend {
   grid-column: 1 / -1;
 }
 
-/* `inline-flex` is what makes the swatch exist at all: a bare inline
- * <span> ignores width and height, so the swatch would compute to a
- * zero-sized box and the legend would describe a colour it never showed.
- * Measured in companion/test_browser_ux.py rather than trusted —
- * `display: inline` here takes the swatch to 0.00x11.00.
- *
- * A `flex: none` on the swatch was written here first, on the reasoning
- * that a flex item shrinks when its line is tight and French is the
- * tight case. It was REMOVED after measuring: at 360px the legend's line
- * is 161px inside a 278px row in both languages, so there is no
- * overflow to shrink against and the declaration changed nothing in
- * either. A property whose comment claims to prevent something it
- * demonstrably does not prevent is worse than no property, so it is
- * gone. If the copy ever grows past its row, the assertion that catches
- * it is already in place — the swatch's measured box.
- *
- * The type is not a new tier: 10px / line-height 1.2 / the 70% text mix
- * are exactly `.sparkline-axis-label`'s own values, restated here (the
- * same way `.drawing-axis-label` restates them) because this label sits
- * in the same micro-label tier beside them. A chart label at a different
- * size would be a new type tier and needs an argument, not a value. */
 .sparkline-legend {
   display: inline-flex;
   align-items: center;
@@ -6693,54 +6468,34 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* The same token as `.sparkline-threshold` above, and the same 1px
- * height as the rect that is drawn — the swatch IS the line, shown at
- * legend size, so the legend cannot come to describe a colour or a
- * weight the chart does not use. */
 .sparkline-swatch {
   width: 12px;
   height: 1px;
   background: var(--color-status-warn);
 }
 
-/* A transparent fill is still opaque for SVG hit-testing, which is exactly
- * why this enlarged, invisible circle works as the real tap/click target
- * (06.5-RESEARCH.md Pattern 2). */
+/* A transparent SVG fill is still hit-testable, which is why this
+ * enlarged circle works as the real tap/click target. */
 .sparkline-hit {
   fill: transparent;
   cursor: pointer;
 }
 
-/* Deliberately var(--color-text), not var(--color-accent): this file's
- * header comment reserves accent to exactly five uses, and a chart-point
- * highlight is not one of them. */
 .sparkline-hit:hover,
 .sparkline-hit--active {
   fill: var(--color-text);
   fill-opacity: 0.15;
 }
 
-/* This one does use accent, because it is the header's already-listed
- * "focused-input outline" use — not a violation of the reservation above. */
 .sparkline-hit:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
 }
 
-/* Battery-chart axis labels (D-09, §5.3). quick task 260902-ep7 (BUG 4):
- * these are now HTML <span> elements inside the .sparkline__y/.sparkline__x
- * grid rows above, not SVG `text` nodes — so `color` sets the visible
- * ink now, not `fill` (was `fill` before this task; the same property
- * rename health_page.py's own axis-label markup already made). 10px
- * reuses this file's already-documented sub-scale exception tier
- * (.data-table th at 12px, after 06.6.4.1.1 D-13 moved it up from 11px;
- * .cell-secondary separately at 13px, after 06.6.4.1.1 D-18a moved IT up
- * from 12px), one step further down because chart-axis micro-labels sit
- * below secondary table text in the hierarchy — explicitly not a fifth
- * content type role.
- * `line-height: 1.2` is added because health_page.py's
- * _SPARKLINE_VERTICAL_INSET_PERCENT arithmetic depends on this being a
- * known number (half the label's line box), not an inherited value. */
+/* HTML <span>, not SVG text: color sets the ink, not fill. 10px matches
+ * this file's sub-scale exception tier. line-height: 1.2 is required,
+ * not decorative: health_page.py's vertical-inset math assumes this
+ * exact, non-inherited line-height. */
 .sparkline-axis-label {
   font-size: 10px;
   font-weight: var(--weight-regular);
@@ -6748,56 +6503,14 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* Phase 24 (CFG-39, 24-01-PLAN.md Task 3): the SHARED drawing
- * vocabulary. Four new server-rendered SVG drawings arrive across this
- * phase's later plans — a battery ring gauge, a battery area chart, a
- * day timeline and a check-in regularity grid — and every one of them
- * paints through the classes below, emitted from companion/draw.py's own
- * named class constants. A check in companion/test_companion_app.py
- * asserts that every class that module can emit resolves to a selector
- * here, because a class that exists in Python and nowhere in CSS paints
- * nothing at all, and nothing else in this codebase would notice.
- *
- * Placed HERE, beside the .sparkline* block above rather than at the end
- * of the file, because that block is this idiom's existing consumer and
- * has been since 06.5. It is deliberately left untouched by this plan —
- * plan 24-05 owns the battery chart's own appearance. A FIFTH
- * near-identical block is the specific failure this one exists to
- * prevent: five drawings, five ways for a shape to end up invisible in
- * one theme.
- *
- * The paint idiom, copied rather than re-derived: currentColor plus a
- * theme token. The SVG inherits `color` from its container, the
- * container's colour is a token, and the drawing is correct in BOTH
- * themes with no second rule and no media query. A literal colour value
- * would be correct in one theme only — a defect, not a polish item —
- * and it would be invisible to companion/test_contrast_check.py
- * besides, which is why companion/draw.py refuses to emit one at all.
- *
- * This block introduces no colour value and no colour pair. Structural
- * ink is --color-border, this file's existing "structural only, never an
- * interactive-state signal" token, the same one .sparkline-axis uses;
- * status colouring uses the three --color-status-* tokens already
- * defined for both themes. It introduces no accent use either, and this
- * phase does not broaden the header comment's reservation list: a chart
- * mark is not on that list, the same reasoning .sparkline-hit:hover
- * above already records for a chart-point highlight.
- *
- * It also declares no transition and no animation. This phase's drawings
- * do not move; the motion budget stays exactly where phase 23 left it. */
+/* Shared drawing vocabulary for this file's server-rendered SVG charts
+ * (battery ring, area chart, day timeline, regularity grid), emitted
+ * from companion/draw.py's own class constants. test_companion_app.py
+ * asserts every class draw.py can emit resolves to a selector here. */
 
-/* The label grid: an auto-sized label column beside the canvas, a label
- * row beneath it. This is the mechanism that keeps a time series' labels
- * OUTSIDE the SVG, which makes viewBox overflow unreachable for those
- * drawings rather than merely avoided, and keeps every label at a
- * constant CSS size instead of shrinking with the box.
- *
- * `minmax(0, 1fr)` on the canvas column is load-bearing, not decoration:
- * a plain `1fr` takes its content's min-content width as a floor, so the
- * canvas could not shrink at the 360px minimum viewport and the page
- * body would grow the horizontal scrollbar CFG-45 forbids. Same columns,
- * same gaps as .sparkline above, copied on purpose so a second drawing
- * never invents a third grid. */
+/* minmax(0, 1fr) on the canvas column is load-bearing: a plain 1fr
+ * takes its min-content width as a floor, which would grow a
+ * horizontal scrollbar at the 360px minimum viewport. */
 .drawing {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -6805,13 +6518,6 @@ a.airline-card {
   row-gap: var(--space-xs);
 }
 
-/* Column 1, row 1 explicit; the canvas and the x-label row auto-place
- * into the two cells left open, exactly as .sparkline__y/.sparkline__x
- * do. A flex column with space-between, so document order top-to-bottom
- * places the first label at the top of the canvas and the last at the
- * bottom, each one's optical centre on the level it names — which is
- * what the caller's own vertical inset arithmetic (draw.percent_y()'s
- * `inset_percent`) is derived from. */
 .drawing__y {
   grid-column: 1;
   grid-row: 1;
@@ -6821,37 +6527,16 @@ a.airline-card {
   align-items: flex-end;
 }
 
-/* Column 2 explicit; auto-placed into row 2, the only cell left in that
- * column. A flex row with the same space-between, so document order
- * left-to-right places oldest under the left edge and newest under the
- * right. */
 .drawing__x {
   grid-column: 2;
   display: flex;
   justify-content: space-between;
 }
 
-/* THE SIZE ROUTE, and the reason every drawing must have one:
- * companion/layout.py's icon_html() docstring records the trap that an
- * <svg> carrying neither a size attribute nor a CSS rule renders at the
- * SVG default 300x150 and blows the layout apart. This is the
- * percentage-scheme half of the answer — a canvas with no viewBox, sized
- * from CSS. The viewBox half is .drawing__figure below.
- *
- * The height is a custom property with a default rather than a bare
- * length, so a drawing that needs a different height sets it on its own
- * wrapper instead of adding a second rule that would then have to win a
- * specificity fight with this one. Every percentage y-coordinate a
- * drawing emits is a percentage OF this height, which is why it is
- * declared once, here, and must never be varied inside a media query: a
- * responsive height would silently move every point on the drawing with
- * no other visual signal that anything broke. That hazard is the same
- * one `.battery-trend-section svg:not(.icon)` above carries, stated
- * again because this rule now carries it for four more drawings.
- *
- * `overflow: visible` lets an axis tick poke outside the canvas into the
- * grid's own column gap, which is where .sparkline's y ticks already
- * live. */
+/* An <svg> with no size attribute or CSS rule renders at the SVG
+ * default 300x150. Never vary --drawing-canvas-height inside a media
+ * query: every percentage y-coordinate a drawing emits is relative to
+ * this height, so a responsive height would silently move every point. */
 .drawing__canvas {
   display: block;
   width: 100%;
@@ -6859,37 +6544,22 @@ a.airline-card {
   overflow: visible;
 }
 
-/* The viewBox half of the size route, for an intrinsically aspect-locked
- * mark (a ring gauge, a grid cell). It deliberately sets NO width and NO
- * height: draw.unit_canvas() emits intrinsic width/height attributes in
- * CSS pixels alongside the viewBox, and a `width: 100%` here would
- * override them, stretch the box and letterbox the aspect-locked shape
- * inside it. `display: block` is the whole rule — an inline <svg>
- * otherwise sits on the text baseline and reserves a descender's worth
- * of space beneath itself. The two canvas classes are separate for the
- * same reason draw.py's two coordinate schemes are two separately-named
- * helper families: one class with a modifier is how the two get mixed
- * inside one drawing. */
+/* Deliberately NO width/height: draw.unit_canvas() emits intrinsic
+ * width/height attributes in CSS pixels; width: 100% here would
+ * override them and letterbox the aspect-locked shape. */
 .drawing__figure {
   display: block;
 }
 
-/* Structural ink: axis lines and ticks, drawn as filled rects rather
- * than stroked lines. An axis-aligned integer-width filled rect has no
- * stroke-centring and no half-pixel rounding to reason about, and a rect
- * can pair a percentage position with an absolute size, which no stroked
- * line can and which the percentage scheme needs for every tick. */
+/* Filled rects, not stroked lines: a rect can pair a percentage
+ * position with an absolute size, which a stroked line cannot, and
+ * needs no stroke-centring math. */
 .drawing-axis {
   fill: var(--color-border);
 }
 
-/* A stroked trend segment or arc. `fill: none` is declared explicitly
- * and is not a tidy-up: it is the "deliberately unfilled" half of the
- * rule that every drawn shape must have an explicit fill route, so this
- * shape cannot fall back to the SVG default fill — which is black,
- * correct in one theme and invisible in the other. stroke-linecap: round
- * makes consecutive segments read as one continuous line rather than
- * mitred gaps. */
+/* fill: none is explicit, not tidy: without it an unfilled shape falls
+ * back to the SVG default fill (black), correct in one theme only. */
 .drawing-line {
   fill: none;
   stroke: currentColor;
@@ -6897,21 +6567,10 @@ a.airline-card {
   stroke-linecap: round;
 }
 
-/* A filled mark: a data point, a tick, a grid cell. currentColor, so it
- * follows whatever colour its container sets — including the three
- * status modifiers below. */
 .drawing-mark {
   fill: currentColor;
 }
 
-/* An axis label, an HTML <span> outside the canvas rather than an SVG
- * text node, so `color` sets the visible ink and the label stays the
- * same size at every container width. 10px and line-height 1.2 are not
- * new numbers: they are exactly .sparkline-axis-label's, which sits in
- * this file's already-documented sub-scale exception tier and whose
- * line-height the callers' inset arithmetic depends on being a known
- * value rather than an inherited one. A drawing label at a different
- * size would be a new type tier and needs an argument, not a value. */
 .drawing-axis-label {
   font-size: 10px;
   font-weight: var(--weight-regular);
@@ -6919,13 +6578,6 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* Status colouring for a drawing that carries an ok/warn/error verdict.
- * These set `color` rather than `fill`, so every currentColor shape
- * beneath them follows with no per-shape rule — and so a drawing can put
- * the modifier on a group or on a single shape without two different
- * mechanisms. The tokens are the app's existing status tokens, already
- * defined for both themes and already contrast-pinned against the card
- * surface, so no new colour pair is introduced here. */
 .drawing--ok {
   color: var(--color-status-ok);
 }
@@ -6938,30 +6590,10 @@ a.airline-card {
   color: var(--color-status-error);
 }
 
-/* THE DAY BAND (CFG-42, 24-06-PLAN.md Task 1): the day the frame has
- * had, drawn at its real width — a frame for the whole day, a shaded
- * span for the configured quiet-hours window, and one mark per
- * check-in, all emitted by draw.day_band().
- *
- * THREE RULES FOR THREE KINDS OF STATEMENT, and the split is the
- * drawing's meaning rather than its decoration. The frame is the day
- * itself; the shaded span is a window the device HONOURS; a mark is
- * something that HAPPENED. Paint all three from one token and the band
- * says those are the same kind of fact.
- *
- * THE SHADED SPAN IS STRUCTURAL INK, NOT A STATUS. Quiet hours is a
- * setting working as configured — not a warning, not an error, and
- * certainly not accent (this file's header comment keeps an exhaustive
- * list of accent's reserved uses and a shaded time window is not on
- * it). --color-border is the structural token .drawing-axis and
- * .drawing-ring-track already spend, for the same reason.
- *
- * The frame takes the SAME token at 40%, so the two can never disagree
- * about their hue and the span reads as "more of the same surface"
- * rather than as a second colour. 40 rather than a smaller share
- * because the pair has to stay distinguishable in BOTH themes against
- * the card behind them, which companion/test_browser_ux.py composites
- * and measures rather than asserting from this file. */
+/* Three tokens for three meanings: the frame is the day itself, the
+ * shaded span is a HONOURED window (structural ink, never a status
+ * colour), a mark is something that HAPPENED. 40% opacity on the frame
+ * is measured to stay distinguishable from the span in both themes. */
 .drawing-band {
   fill: color-mix(in srgb, var(--color-border) 40%, transparent);
 }
@@ -6970,74 +6602,27 @@ a.airline-card {
   fill: var(--color-border);
 }
 
-/* A check-in. currentColor, so it is the page's own text ink and moves
- * with the theme by the same route every other drawing's data does —
- * and so it stays legible where it crosses the shaded span, which is
- * where most of a night's check-ins land. */
 .drawing-band-mark {
   fill: currentColor;
 }
 
-/* The page-level half: the section wrapper Home renders the band
- * inside. Two declarations, and neither is decoration —
- * companion/test_browser_ux.py measures both, because a property that
- * no check can see is a property a later reader trusts instead of
- * measuring.
- *
- * The height override is the whole reason this wrapper exists.
- * .drawing__canvas's height is a custom property with a default
- * precisely so a drawing that needs a different one sets it on its own
- * wrapper instead of adding a second rule that would then have to win a
- * specificity fight. 24px is a band, not a chart: it carries no y axis
- * at all, every mark spans its full height, and at the 160px default
- * the day would be a block. */
+/* 24px is a band, not a chart: it carries no y axis, every mark spans
+ * its full height. Overrides --drawing-canvas-height's own default via
+ * the wrapper, rather than a second specificity-fighting rule. */
 .day-band {
   --drawing-canvas-height: 24px;
 }
 
-/* The hour labels beneath the band. `space-between` on three
- * equal-width labels puts the first flush left, the last flush right
- * and the middle one centred — which is exactly where the band's own
- * scale puts 00:00, 24:00 and 12:00, so the labels and the marks are
- * placed by one scale and not two. The same idiom, and the same
- * reasoning, as .drawing__x above; it is not reusing that class because
- * this row is not inside .drawing's grid and `grid-column: 2` would be
- * an inert declaration here. */
 .day-band__hours {
   display: flex;
   justify-content: space-between;
   margin-top: var(--space-xs);
 }
 
-/* THE CHECK-IN REGULARITY GRID (CFG-43, 24-07-PLAN.md Task 1): one cell
- * per day of OBSERVED check-in regularity, emitted by
- * draw.regularity_grid() into Health's Screen section.
- *
- * FOUR RULES FOR FOUR STATES, and the fourth is why this block exists at
- * all instead of reusing .drawing--ok/--warn/--error above. Those three
- * carry a VERDICT about a measured interval. The fourth carries the
- * ABSENCE of one — the record says nothing about that day, and
- * 24-RESEARCH.md Risk 1 is that a log range the ingest lost is
- * indistinguishable from a device that did not wake, so that state must
- * never borrow a verdict's colour. It takes --color-border, this file's
- * structural-ink token (the same one .drawing-axis, .drawing-ring-track
- * and .drawing-band already spend), precisely so it cannot read as a
- * mild warning.
- *
- * EACH MODIFIER SETS `color` AND NOTHING ELSE, which is what lets ONE
- * rule paint two different kinds of element: the SVG cell follows it
- * through .drawing-cell's `fill: currentColor`, and the HTML legend
- * swatch beneath the grid follows the same declaration through its own
- * `background: currentColor`. A legend whose swatches could disagree
- * with the cells they explain is worse than no legend at all, and this
- * is that guarantee expressed as a cascade rather than as a convention.
- *
- * No new colour value and no new token: the three verdicts use the app's
- * existing --color-status-* tokens, already defined for both themes.
- * companion/test_browser_ux.py measures all four RESOLVED colours in
- * both themes and asserts they stay pairwise separated by the app's own
- * MIN_SIGNAL_PERCEPTUAL_DISTANCE — because four states that collapse to
- * three in dark mode is a defect no source scan can see. */
+/* A fourth state (--none), beyond the ok/warn/error trio: it carries
+ * the ABSENCE of a measured interval, never a verdict, so it uses the
+ * structural --color-border token rather than borrow a verdict colour.
+ * test_browser_ux.py asserts all four stay pairwise distinguishable. */
 .drawing-cell {
   fill: currentColor;
 }
@@ -7058,23 +6643,10 @@ a.airline-card {
   color: var(--color-border);
 }
 
-/* The grid's own wrapper. The two declarations below are the ONLY thing
- * standing between this drawing and a horizontal page scrollbar on a
- * narrow screen, and they are a deliberate, scoped exception to
- * .drawing__figure's own "declare no width" rule — read that rule's
- * comment first, because the exception only holds with BOTH halves.
- *
- * That rule forbids `width: 100%` because it would stretch an
- * aspect-locked shape inside a letterboxed box. `max-width: 100%` paired
- * with `height: auto` does the opposite: the intrinsic attributes still
- * decide the size wherever there is room (the grid is drawn at exactly
- * the 278px a Health card offers at the 360px floor, so this rule is
- * INERT at every supported width), and below that the viewBox scales the
- * whole drawing down uniformly — cells stay square, the grid stays
- * inside its card. Measured: at 320px, out of contract but still
- * measured by this repository, the canvas takes the card's 238px and the
- * page does not scroll sideways; without these two declarations it keeps
- * its 278px and the page does. */
+/* max-width: 100% + height: auto is a deliberate, scoped exception to
+ * .drawing__figure's "declare no width" rule: it prevents a horizontal
+ * scrollbar on narrow screens (measured: 238px card at 320px) while
+ * staying inert everywhere the drawing already fits its card. */
 .check-in-grid {
   width: max-content;
   max-width: 100%;
@@ -7085,25 +6657,14 @@ a.airline-card {
   height: auto;
 }
 
-/* The date labels beneath the grid — the same idiom and the same
- * reasoning as .day-band__hours above, and not reusing that class for
- * the same reason it did not reuse .drawing__x: this row is not inside
- * that grid. `space-between` puts the oldest day's label under the first
- * column and the newest day's under the last, which is where the grid's
- * own scale puts those two cells, because draw.grid_cell_size() leaves
- * the canvas exactly as wide as the card this row measures itself
- * against. One scale, two kinds of element. */
 .check-in-grid__scale {
   display: flex;
   justify-content: space-between;
   margin-top: var(--space-xs);
 }
 
-/* The key. Four states painted in four colours need their four names in
- * text: colour is the only thing distinguishing the cells from each
- * other, and colour alone is not a reading. It wraps because four
- * labelled swatches do not fit on one 278px line in either language —
- * measured, not assumed. */
+/* Four labelled swatches don't fit on one 278px line in either
+ * language (measured), hence the wrap. */
 .check-in-key {
   display: flex;
   flex-wrap: wrap;
@@ -7111,170 +6672,56 @@ a.airline-card {
   margin-top: var(--space-sm);
 }
 
-/* `align-items: center` is deliberately ABSENT, and like the swatch's
- * own missing `flex: none` above this is a measurement. It was declared
- * here; removing it changed no rendered box, because the swatch is 12px
- * tall and .drawing-axis-label's line box is 10px x 1.2 = 12px too, so
- * cross-start and centre are the same place. A check now measures the
- * two centres against each other (it passed with and without the
- * declaration, which is what proved the declaration inert rather than
- * the check blind) — so the day either of those two sizes moves, the
- * alignment becomes visible and that check is what says so. */
 .check-in-key__item {
   display: inline-flex;
   gap: var(--space-xs);
 }
 
-/* The swatch takes its colour from the SAME .drawing-cell--* modifier
- * the cell it explains does — see this block's own header. `background`
- * rather than `fill` only because this one is an HTML <span> and not an
- * SVG shape; the declaration it follows is the identical one. */
-/* `flex: none` is deliberately ABSENT, and its absence is a measurement
- * rather than an oversight. It was declared here first, on the ordinary
- * reasoning that a flex item with a fixed box needs protecting from
- * being shrunk; removing it changed nothing at 360px in either language,
- * because each key item is its own inline-flex box whose content fits,
- * so this swatch is never the thing a flex line has to take width from.
- * A declaration no check can see is a declaration a later reader trusts
- * instead of measuring, so it is gone. The 12px box below IS measured,
- * in both languages, at the 360px floor. */
 .check-in-key__swatch {
   width: 12px;
   height: 12px;
   background: currentColor;
 }
 
-/* THE RING GAUGE (CFG-40, 24-04-PLAN.md Task 1): a full-circumference
- * track plus a value arc, emitted by draw.ring_gauge() and called at two
- * sizes — large in Health's battery section, small in Home's battery
- * tile. ONE emitter, two call sites; these two rules are its paint and
- * nothing else.
- *
- * NEITHER RULE DECLARES A stroke-width, AND THAT OMISSION IS THE WHOLE
- * MECHANISM rather than a gap somebody should close. draw.ring_gauge()
- * emits stroke-width as a presentation ATTRIBUTE scaled from the ring's
- * own size, and a CSS declaration of any specificity beats a
- * presentation attribute — so a stroke-width here would flatten both
- * sizes to one thickness, make the small ring's stroke proportionally
- * twice as thick as the large one's, and turn the size parameter back
- * into the CSS-only "small variant" CFG-40 exists to forbid. Do not add
- * one. The same goes for `r`, `cx` and `cy`, which are geometry for the
- * same reason.
- *
- * No gradient and no tick marks, here or in the emitter: the reading is
- * a linear estimate printed with an "approximately" marker beside this
- * drawing, and a gauge that implied calibration would out-claim the
- * number it sits next to. No accent either — a battery verdict is not on
- * this file's header comment's reserved accent list, the same reasoning
- * `.sparkline-hit:hover` already records. */
+/* Neither rule declares stroke-width, r, cx or cy: draw.ring_gauge()
+ * emits them as presentation attributes scaled per call site, and a
+ * CSS declaration of any specificity beats a presentation attribute —
+ * adding one here would flatten both sizes to one thickness. */
 
-/* The unfilled remainder. --color-border is this file's structural-ink
- * token, the same one .drawing-axis and .sparkline-axis already spend,
- * and it is deliberately NOT currentColor: the track must stay
- * structural when the status modifier on the <svg> turns the value arc
- * amber or rose, or the ring would read as entirely full in a warning
- * state. */
+/* --color-border, deliberately NOT currentColor: the track must stay
+ * structural even when the value arc's status modifier turns amber or
+ * rose, or the ring would read as entirely full in a warning state. */
 .drawing-ring-track {
   fill: none;
   stroke: var(--color-border);
 }
 
-/* The reading. currentColor, so the .drawing--ok/--warn/--error modifier
- * the page sets on the <svg> from the battery_state it ALREADY computed
- * reaches this arc and nothing else — never a second judgement about the
- * same number.
- *
- * `stroke-linecap: butt` is declared explicitly even though it is the
- * SVG initial value, because the comment is the point: a round cap adds
- * half a stroke width of ink at EACH end of the arc, so at the small
- * size a 5% reading would draw roughly 12% of the circle and the picture
- * would disagree with the number printed beside it — which is the exact
- * failure CFG-40 is about, arriving through a line cap. */
+/* stroke-linecap: butt is explicit even though it's the SVG initial
+ * value: a round cap adds half a stroke-width of ink at each arc end,
+ * so at the small size a 5% reading would draw as ~12% of the circle. */
 .drawing-ring-value {
   fill: none;
   stroke: currentColor;
   stroke-linecap: butt;
 }
 
-/* The ring lives INSIDE .battery-trend-section on Health, where
- * `.battery-trend-section svg:not(.icon)` above matches every descendant
- * <svg> and would stretch this aspect-locked figure to 100% width and a
- * flat 160px. That rule is the CHART's size route and is left exactly as
- * it is — plan 24-05 owns the chart, and a harness check in
- * test_status_pages.py pins its single declared height.
- *
- * `width: auto; height: auto` restores draw.unit_canvas()'s own
- * intrinsic width/height attributes rather than reaching the SVG default
- * — measured in Chromium before it was written here (72x72 and 36x36
- * back, not 300x150 and not 150x150), because the reasoning could have
- * gone either way and the 300x150 trap is the one layout.icon_html()'s
- * docstring already records.
- *
- * The `:not(.icon)` filters NOTHING — a ring is never an icon. It is
- * there so this selector carries one more class than the rule it has to
- * outrank, making it win on SPECIFICITY rather than on source order: two
- * equally-specific rules would leave the ring's size depending on which
- * block a later edit happens to move first. */
+/* width/height: auto restores draw.unit_canvas()'s own intrinsic
+ * attributes over the chart's own svg:not(.icon) sizing rule.
+ * :not(.icon) filters nothing here — it exists only to add a class so
+ * this selector outranks that rule on specificity, not source order. */
 .battery-trend-section svg.drawing__figure:not(.icon) {
   width: auto;
   height: auto;
 }
 
-/* Reserves a fixed-height line so the first reveal never shifts the page
- * (06.5-RESEARCH.md, Open Question 1's recommendation — the layout-jump
- * pitfall on mobile). min-height stays in `em` so it scales with the
- * larger size below on its own, and the no-layout-jump guarantee still
- * holds now that the chart sits below rather than above: the reveal
- * text is fixed-width by construction (a 4-digit millivolt figure plus
- * a fixed-length ISO timestamp, in a monospace face via .mono), so a
- * reveal cannot change where the line wraps and therefore cannot shift
- * the chart now below it.
- *
- * quick task 260901-tsa (finding D): promoted to the Emphasis role —
- * Body size plus semibold — now that health_page.py moves this element
- * ahead of the chart as the section's scannable headline number. This
- * is Emphasis, not the validated sketch's literal 28px: 28px is the
- * Display role, which 06.6.4 (D-09, see the .site-title comment above)
- * retired outright along with --font-display-size when .stat-tile__value
- * and .runway-card__number both moved to Emphasis, restoring this
- * file's claimed four-size scale — matching the mockup literally here
- * would resurrect a deliberately-retired role and re-break that claim.
- * Emphasis is this project's current answer to "make one number the
- * scannable one", and it is the same role the .stat-tile__value tiles
- * on this very page now use. The semibold weight here beats .mono's
- * regular by SOURCE ORDER, not by specificity — both are single-class
- * selectors landing on this element, and this rule is later in the
- * file — so this rule must stay after .mono
- * (companion/test_status_pages.py's cross-file guard pins that fact).
- * The margin moved from top-only to bottom-only, using --space-sm: the
- * spacing this element owns moved with it when it moved from below the
- * chart to above it. */
-/* 24-04-PLAN.md Task 2 (CFG-40): the row that puts the battery ring
- * beside the readout. Emitted ONLY when there is a ring to place, so a
- * device with no reading renders the readout exactly as it did before
- * this wrapper existed.
- *
- * `align-items: center` is the one declaration here that is doing work
- * on the figure: a flex row's default `stretch` would pull the
- * aspect-locked <svg> to the row's full height and letterbox it, which
- * is the distortion `.drawing__figure`'s own comment exists to prevent.
- *
- * WHAT IS DELIBERATELY NOT HERE, because it was written, measured and
- * found inert: `flex: none` on the figure and `min-width: 0` on the
- * readout. Both are the reflexive flex-row incantations, and the
- * reasoning for both sounded right — an aspect-locked figure must not
- * shrink; a flex item's automatic minimum size floors it at its
- * min-content width and grows the page a scrollbar. Measured at 360px
- * with a 60-character unbreakable run forced into the readout: the
- * figure stayed exactly 72px wide with and without `flex: none` (a
- * replaced element's own automatic minimum size already floors it), and
- * documentElement.scrollWidth was the identical 707px with and without
- * `min-width: 0` (nothing in the ancestor chain clips, so the run
- * overflows either way). Dead declarations with confident comments are
- * worse than none — they are what a later reader trusts instead of
- * measuring. The bottom margin below IS load-bearing: it moves the
- * readout's own 8px gap to the chart onto this new wrapper, so the
- * spacing between the readout and the sparkline is unchanged. */
+/* Fixed-width reveal text (4-digit mV + ISO timestamp, monospace) means
+ * a reveal can never change where the line wraps, so min-height in em
+ * prevents any layout jump. The semibold weight here must stay declared
+ * after .mono in source order to win by source order, not specificity
+ * — test_status_pages.py's cross-file guard pins that. */
+/* align-items: center keeps the aspect-locked figure at its own size:
+ * a flex row's default stretch would letterbox it to the row's full
+ * height. */
 .battery-readout-row {
   display: flex;
   align-items: center;
