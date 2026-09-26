@@ -151,6 +151,26 @@ def test_companion_binds_loopback_only():
     assert "--bind 127.0.0.1" in cmd
 
 
+def test_byos_binds_loopback_only_with_ip_filter():
+    cmd = _execstart_full_command("skypane-byos.service")
+    assert "--bind 127.0.0.1" in cmd
+    service = _parse_unit("skypane-byos.service")["Service"]
+    assert service["IPAddressDeny"] == "any"
+    assert service["IPAddressAllow"] == "localhost"
+    # The other variables (port, state dir, sleep) still come from here.
+    assert service["EnvironmentFile"] == "/opt/skypane/skypane.env"
+
+
+def test_byos_gets_no_shared_secret():
+    # Enrolment is per-device (devices.json); byos takes no secret, so
+    # none can show up in its argv.
+    cmd = _execstart_full_command("skypane-byos.service")
+    assert "--secret" not in cmd
+    assert "SKYPANE_BYOS_SECRET" not in (_DEPLOY / "skypane-byos.service").read_text()
+    for line in (_DEPLOY / "skypane.env.example").read_text().splitlines():
+        assert not line.startswith("SKYPANE_BYOS_SECRET="), line
+
+
 def test_companion_and_poll_geofence_uses_release_layout_path():
     for unit in ("skypane-companion.service", "skypane-poll.service"):
         cmd = _execstart_full_command(unit)
