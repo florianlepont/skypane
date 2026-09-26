@@ -15,8 +15,8 @@
 
 static const char *TAG = "fp_batt";
 
-/* EE02 driver board sense pins (Phase 5 / DEVICE-04) - see
- * Kconfig.projbuild's "Battery sense" menu for provenance and caveats. */
+/* EE02 driver board sense pins - see Kconfig.projbuild's "Battery sense"
+ * menu for provenance and caveats. */
 #define PIN_BATT_ADC CONFIG_FP_PIN_BATTERY_ADC
 #define PIN_BATT_EN  CONFIG_FP_PIN_BATTERY_ADC_EN
 
@@ -24,10 +24,10 @@ static const char *TAG = "fp_batt";
  * before the sample is meaningful. */
 #define FP_BATTERY_SETTLE_MS 10
 
-/* Averaging FW-11's 8 samples smooths out ADC/divider noise a single
- * read would carry straight into telemetry; no delay is needed between
- * samples since the divider has already settled by FP_BATTERY_SETTLE_MS
- * and oneshot conversions are microseconds apart. */
+/* Averaging 8 samples smooths out ADC/divider noise a single read would
+ * carry straight into telemetry; no delay is needed between samples
+ * since the divider has already settled by FP_BATTERY_SETTLE_MS and
+ * oneshot conversions are microseconds apart. */
 #define FP_BATTERY_SAMPLES 8
 
 /* -1 = not yet read this wake. Deep sleep clears RAM, so this static gives
