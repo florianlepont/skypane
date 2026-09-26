@@ -30,7 +30,7 @@
  * server (stub-server/) in place of the production base above. */
 #define SKYPANE_API_BASE_DEV "http://192.168.1.42:8642"
 
-/* Optional static IP fallback (D-34-03). Off by default — DHCP with
+/* Optional static IP fallback. Off by default — DHCP with
  * CONFIG_LWIP_DHCP_RESTORE_LAST_IP is the default join path. Define all
  * four of these (wifi.c's build fails with a #error otherwise) only if
  * the hardware measurement shows DHCP's restore-last-IP path is still
