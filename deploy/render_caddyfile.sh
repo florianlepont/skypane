@@ -1,35 +1,15 @@
 #!/usr/bin/env bash
-# SkyPane — render deploy/Caddyfile's two placeholder site blocks into
-# SkyPane's own Caddy site file using the operator's actual hostnames.
+# SkyPane — render deploy/Caddyfile's two placeholder site blocks with
+# the operator's actual hostnames.
 #
-# The output is not a whole Caddyfile: it is the snippet installed as
-# /etc/caddy/sites/skypane.caddy and pulled into the host's shared
-# /etc/caddy/Caddyfile by its `import sites/*.caddy` line (the host file
-# also serves other projects and is never written by SkyPane). It must
-# therefore contain site blocks only — a global options block is only
-# legal at the very top of the host file.
-#
-# Runs on the VPS as root, from deploy/activate.sh, which
-# stages the result next to the site file, moves it into place, and
-# validates the whole host config with it before swapping the release.
-# This script is the one render implementation, so the substitution
-# logic exists in exactly one place.
-#
-# Usage:
-#   deploy/render_caddyfile.sh <template> <public-host> <companion-host> > out
-#
-# <template>       path to deploy/Caddyfile (or a release copy of it)
-# <public-host>    hostname the device reaches (e.g. 203-0-113-10.nip.io)
-# <companion-host> hostname of the companion web interface
-#
-# Both hostnames must match ^[A-Za-z0-9.-]+$ — the same rule
-# deploy/provision.sh already applies -- checked before anything
-# is printed, so a bad argument produces empty stdout and a non-zero exit
-# rather than a half-rendered file. This script never reads the
-# operator's environment file directly: the caller is responsible for
-# extracting and validating the two hostname values from it first
-# (deploy/provision.sh:41-48 shows the pattern) and passing them here as
-# plain arguments.
+# Output is not a whole Caddyfile: it is the snippet installed as
+# /etc/caddy/sites/skypane.caddy, imported by the host's shared
+# /etc/caddy/Caddyfile (`import sites/*.caddy`) — site blocks only, no
+# global options block (legal only at the top of the host file).
+
+# Usage: deploy/render_caddyfile.sh <template> <public-host> <companion-host> > out
+#   <public-host>    hostname the device reaches (e.g. 203-0-113-10.nip.io)
+#   <companion-host> hostname of the companion web interface
 set -euo pipefail
 
 TEMPLATE="${1:-}"
@@ -56,13 +36,10 @@ if [ ! -f "${TEMPLATE}" ]; then
     exit 1
 fi
 
-# Companion substitution runs first: its anchor line
-# (^config-203-0-113-10\.nip\.io {) contains the device anchor
-# (^203-0-113-10\.nip\.io {) as a substring, so applying the device
-# substitution first would also match inside the still-unrendered
-# companion line. Anchoring both patterns to column 0 (^) and to the
-# literal " {" that opens a site block keeps each substitution scoped to
-# its own line only.
+# Companion substitution runs first: its anchor line contains the device
+# anchor as a substring, so substituting the device first would also
+# match inside the still-unrendered companion line. Anchoring both to
+# column 0 and the literal " {" keeps each substitution scoped to its own line.
 sed -e "s/^config-203-0-113-10\.nip\.io {/${COMPANION_HOST} {/" \
     -e "s/^203-0-113-10\.nip\.io {/${PUBLIC_HOST} {/" \
     "${TEMPLATE}"

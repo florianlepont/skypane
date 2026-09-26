@@ -4,26 +4,16 @@
 #
 # Run from the repository root on your laptop or CI runner, not on the
 # VPS. deploy/provision.sh must have run there once first.
+
+# Usage: deploy/deploy.sh <ssh-target>, e.g. deploy/deploy.sh ubuntu@203.0.113.10
 #
-# Usage:
-#   deploy/deploy.sh <ssh-target>
-#   deploy/deploy.sh ubuntu@203.0.113.10
+# SSH_TARGET logs in as a non-root user with passwordless sudo, never as
+# root directly; every remote step runs through `sudo`.
 #
-# SSH_TARGET logs in as `ubuntu` (or any other non-root user with
-# passwordless sudo) -- never as the root account directly. Every
-# remote step runs through `sudo` so it works the same way
-# regardless of which non-root login the target uses.
-#
-# Why `git archive`: it streams exactly the tree that is actually
-# committed at HEAD — no local edits, no untracked files, no state/,
-# venv/ or skypane.env, ever leave this machine. The receiving
-# side extracts it into a fresh, per-SHA "incoming" directory; every
-# other decision — staging into releases/<sha>, the atomic `current`
-# swap, service restarts, verification probes, and automatic rollback on
-# failure — belongs to deploy/activate.sh, which runs entirely on the
-# VPS as root. This script only relays activate.sh's own exit status
-# (`set -euo pipefail` plus ssh's exit-code propagation), so a failed
-# activation turns this script red too, and so the CI job.
+# `git archive` streams exactly the committed tree at HEAD — no local
+# edits, untracked files, state/, venv/ or skypane.env ever leave this
+# machine. Staging, the atomic swap, restarts and rollback all belong to
+# deploy/activate.sh (runs as root on the VPS); this script only relays its exit status.
 set -euo pipefail
 
 SSH_TARGET="${1:?usage: deploy/deploy.sh <ssh-target>, e.g. deploy/deploy.sh ubuntu@203.0.113.10}"
