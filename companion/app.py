@@ -772,7 +772,12 @@ def _page_freshness_token(route, ctx, query):
             None if signals is None else frame_state.resolve_state(
                 signals["next_wake_iso"], signals["effective_interval_s"],
                 signals["hold_reason"], now))
-    if slug == layout.REFRESH_PAGE_HEALTH:
+    if slug in (layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME, layout.REFRESH_PAGE_DISPLAY):
+        # Home's day band (_day_checkins()) buckets check-ins by this same
+        # Paris calendar day, and both Home's and Display's own next-wake
+        # local_clock_text() choose day qualifiers ("today"/"tomorrow")
+        # relative to `now` - at midnight, with no new check-in, neither
+        # page's token would otherwise change until the forced refresh.
         parts["paris_date"] = _freshness_paris_date(now)
     encoded = json.dumps(parts, sort_keys=True, default=str)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:32]

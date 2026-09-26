@@ -468,6 +468,33 @@ def test_pipeline_run_meta_advance_changes_health_and_home_tokens(app_server_in_
         "expected /flights to be unaffected by the pipeline-run advance")
 
 
+def test_paris_midnight_rollover_changes_home_and_display_tokens(app_server_in_process, monkeypatch):
+    """crossing a Paris-calendar-day boundary changes both Home's token (its day band buckets
+    check-ins by this day) and Display's (its next-wake clock text picks a day qualifier
+    relative to it) - even with no new check-in and no other signal crossing a threshold in the
+    same two-minute step"""
+    server = app_server_in_process
+    session = login(server)
+
+    # Both timestamps fall in CET (UTC+1, no DST ambiguity) and are only
+    # two minutes apart in real time - close enough that no staleness
+    # threshold or pipeline state plausibly crosses in between, so the
+    # Paris calendar date is isolated as the one thing that changed.
+    before_iso = "2026-01-15T22:59:00+00:00"  # 2026-01-15 23:59 Europe/Paris
+    after_iso = "2026-01-15T23:01:00+00:00"  # 2026-01-16 00:01 Europe/Paris
+
+    monkeypatch.setattr(history_db, "utc_now_iso", lambda: before_iso)
+    before_home = _token(server, layout.HOME_ROUTE, session)
+    before_display = _token(server, layout.DISPLAY_ROUTE, session)
+
+    monkeypatch.setattr(history_db, "utc_now_iso", lambda: after_iso)
+    after_home = _token(server, layout.HOME_ROUTE, session)
+    after_display = _token(server, layout.DISPLAY_ROUTE, session)
+
+    assert after_home != before_home, "expected a Paris midnight rollover to change /"
+    assert after_display != before_display, "expected a Paris midnight rollover to change /display"
+
+
 def test_lang_cookie_changes_the_token(app_server_in_process):
     server = app_server_in_process
     session = login(server)
