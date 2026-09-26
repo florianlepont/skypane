@@ -2175,6 +2175,173 @@ def test_min_interval_s_bypasses_the_throttle(tmp_path):
         pytest.fail("expected exactly one transport call once the throttle was bypassed, got %d" % (len(calls),))
 
 
+def test_last_synced_at_comes_from_the_injected_clock(tmp_path):
+    """a successful refresh_calendar_registry() cycle's last_synced_at is derived from the injected `now`, not datetime.now() - identical on disk and in the returned registry"""
+    from datetime import datetime, timezone
+    tmp = tmp_path
+    _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+    now = 1_800_000_000.0
+    transport = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR\nEND:VCALENDAR")
+
+    code, reg = cr.refresh_calendar_registry(tmp, now, transport=transport)
+
+    expected = datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="seconds")
+    if code != cr.FETCH_OK:
+        pytest.fail("test setup failure: expected FETCH_OK, got %r" % (code,))
+    if reg["last_synced_at"] != expected:
+        pytest.fail("expected last_synced_at == %r (from the injected now), got %r" % (expected, reg["last_synced_at"]))
+    on_disk = cr.load_calendar_registry(tmp, now)
+    if on_disk["last_synced_at"] != expected:
+        pytest.fail("expected the on-disk last_synced_at == %r, got %r" % (expected, on_disk["last_synced_at"]))
+
+
+def test_refresh_does_not_hold_the_lock_across_the_fetch_a_concurrent_save_wins(tmp_path):
+    """while a refresh_calendar_registry() cycle's fetch is blocked on a threading.Event, a concurrent save_calendar_url() to a DIFFERENT URL completes almost immediately (well under the fetch's own hold time) - proving the cross-process registry lock is not held across the network call - and once the fetch unblocks, refresh returns FETCH_SUPERSEDED, with the registry on disk left exactly as the save left it (empty), never overwritten by the stale fetch result"""
+    import threading
+    import time as time_module
+    tmp = tmp_path
+    now = _mid_fixture_now()
+    _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def _slow_transport(url, timeout):
+        started.set()
+        release.wait(timeout=10)
+        return _FakeCalendarResponse(200, fixture_text.encode())
+
+    refresh_result = {}
+
+    def _refresh_thread_body():
+        refresh_result["code"], refresh_result["registry"] = cr.refresh_calendar_registry(
+            tmp, now, transport=_slow_transport)
+
+    t_refresh = threading.Thread(target=_refresh_thread_body)
+    t_refresh.start()
+    if not started.wait(timeout=5):
+        t_refresh.join(timeout=1)
+        pytest.fail("test setup failure: the fetch never started")
+
+    save_start = time_module.monotonic()
+    save_ok = cr.save_calendar_url(tmp, "https://%s/other-feed.ics" % PUBLIC_IP, now=now)
+    save_elapsed = time_module.monotonic() - save_start
+
+    if not save_ok:
+        release.set()
+        t_refresh.join(timeout=10)
+        pytest.fail("test setup failure: the concurrent save_calendar_url() call returned False")
+    if save_elapsed >= 2.0:
+        release.set()
+        t_refresh.join(timeout=10)
+        pytest.fail((
+            "the concurrent save took %.3fs while the fetch was still blocked - the registry "
+            "lock appears to be held across the network call" % (save_elapsed,)))
+
+    release.set()
+    t_refresh.join(timeout=10)
+    if t_refresh.is_alive():
+        pytest.fail("test setup failure: the refresh thread did not finish in time")
+
+    if refresh_result.get("code") != cr.FETCH_SUPERSEDED:
+        pytest.fail("expected FETCH_SUPERSEDED once the URL changed mid-fetch, got %r" % (refresh_result.get("code"),))
+    loaded = cr.load_calendar_registry(tmp, now)
+    if loaded["entries"] != []:
+        pytest.fail((
+            "the concurrent save's own (empty) registry was overwritten by the superseded "
+            "fetch's stale result: %r" % (loaded["entries"],)))
+    if cr.configured_calendar_url(tmp) != "https://%s/other-feed.ics" % PUBLIC_IP:
+        pytest.fail("expected the concurrent save's URL to still be configured")
+
+
+def test_refresh_superseded_by_a_disconnect_mid_fetch_leaves_the_calendar_unconfigured(tmp_path):
+    """a save_calendar_url(CLEAR_CALENDAR_URL) landing while a refresh's fetch is blocked wins over that fetch: refresh returns FETCH_SUPERSEDED, writes nothing of its own, and the calendar is left unconfigured"""
+    import threading
+    tmp = tmp_path
+    now = _mid_fixture_now()
+    _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def _slow_transport(url, timeout):
+        started.set()
+        release.wait(timeout=10)
+        return _FakeCalendarResponse(200, fixture_text.encode())
+
+    refresh_result = {}
+
+    def _refresh_thread_body():
+        refresh_result["code"], refresh_result["registry"] = cr.refresh_calendar_registry(
+            tmp, now, transport=_slow_transport)
+
+    t_refresh = threading.Thread(target=_refresh_thread_body)
+    t_refresh.start()
+    if not started.wait(timeout=5):
+        t_refresh.join(timeout=1)
+        pytest.fail("test setup failure: the fetch never started")
+
+    disconnect_ok = cr.save_calendar_url(tmp, cr.CLEAR_CALENDAR_URL, now=now)
+
+    release.set()
+    t_refresh.join(timeout=10)
+    if t_refresh.is_alive():
+        pytest.fail("test setup failure: the refresh thread did not finish in time")
+    if not disconnect_ok:
+        pytest.fail("test setup failure: the concurrent disconnect returned False")
+
+    if refresh_result.get("code") != cr.FETCH_SUPERSEDED:
+        pytest.fail("expected FETCH_SUPERSEDED once the URL was cleared mid-fetch, got %r" % (refresh_result.get("code"),))
+    if cr.calendar_is_configured(tmp):
+        pytest.fail("expected the calendar to stay unconfigured after a disconnect that raced the fetch")
+    loaded = cr.load_calendar_registry(tmp, now)
+    if loaded["entries"] != []:
+        pytest.fail("expected no entries after a disconnect that raced the fetch, got %r" % (loaded["entries"],))
+
+
+def test_last_attempt_at_recorded_before_the_fetch_a_second_refresh_is_throttled_without_calling_its_own_transport(tmp_path):
+    """refresh_calendar_registry() records last_attempt_at (under the lock) BEFORE releasing it and starting the fetch: a second refresh call starting while the first's fetch is still blocked sees the throttle correctly and returns FETCH_SKIPPED_THROTTLED without ever calling its own transport"""
+    import threading
+    tmp = tmp_path
+    now = 1_800_000_000.0
+    _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def _slow_transport(url, timeout):
+        started.set()
+        release.wait(timeout=10)
+        return _FakeCalendarResponse(200, b"BEGIN:VCALENDAR\nEND:VCALENDAR")
+
+    first_result = {}
+
+    def _first_thread_body():
+        first_result["code"], _reg = cr.refresh_calendar_registry(tmp, now, transport=_slow_transport)
+
+    t_first = threading.Thread(target=_first_thread_body)
+    t_first.start()
+    if not started.wait(timeout=5):
+        t_first.join(timeout=1)
+        pytest.fail("test setup failure: the first refresh's fetch never started")
+
+    second_calls = []
+    second_transport = make_calendar_transport(status_code=200, body=b"unused", calls=second_calls)
+    second_code, _second_reg = cr.refresh_calendar_registry(now=now, state_dir=tmp, transport=second_transport)
+
+    release.set()
+    t_first.join(timeout=10)
+    if t_first.is_alive():
+        pytest.fail("test setup failure: the first refresh thread did not finish in time")
+
+    if second_code != cr.FETCH_SKIPPED_THROTTLED:
+        pytest.fail("expected the second, concurrent refresh to see FETCH_SKIPPED_THROTTLED, got %r" % (second_code,))
+    if second_calls:
+        pytest.fail("expected the second refresh to never call its own transport, got %r" % (second_calls,))
+    if first_result.get("code") != cr.FETCH_OK:
+        pytest.fail("test setup failure: expected the first refresh to complete with FETCH_OK, got %r" % (first_result.get("code"),))
+
+
 def test_clear_branch_reports_failure_when_removal_actually_fails(tmp_path):
     """save_calendar_url(CLEAR_CALENDAR_URL) returns False, not True, when os.remove() fails for a reason other than the file already being absent - a permission/immutable-flag/read-only-filesystem failure must never be reported as a successful disconnect"""
     tmp = tmp_path
