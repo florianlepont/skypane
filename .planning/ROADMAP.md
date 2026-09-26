@@ -1802,7 +1802,7 @@ Plans:
 4. A deploy that leaves a unit inactive fails the CI job; units and Caddyfile are deployed
 5. `systemd-analyze security` score recorded before/after; byos reachable on loopback only; no secret in `ps`
 
-**Plans:** 10/11 plans executed (Wave A complete; 37-11 Wave B waits for Phase 36)
+**Plans:** 11/11 plans complete (Wave A and Wave B; closed 2026-09-26)
 
 Plans:
 - [x] 37-01-PLAN.md — Wave A — SEC-01 per-client-IP login throttle, plus the companion `--bind` flag (D-22)
@@ -1815,7 +1815,7 @@ Plans:
 - [x] 37-08-PLAN.md — Wave A — human checkpoints CP-1..CP-3: baseline scores, deploy target, provision + second SSH session
 - [x] 37-09-PLAN.md — Wave A — human checkpoints CP-4..CP-6: cutover, deliberately failing deploy, after scores
 - [x] 37-10-PLAN.md — Wave A — human checkpoints CP-8..CP-10: backup key, launchd, restore rehearsal
-- [ ] 37-11-PLAN.md — Wave B — byos `--bind 127.0.0.1` + `IPAddressDeny`/`IPAddressAllow`, byos secret off the command line, CP-11, CP-7 (after Phase 36)
+- [x] 37-11-PLAN.md — Wave B — byos `--bind 127.0.0.1` + `IPAddressDeny`/`IPAddressAllow`, byos secret off the command line, CP-11, CP-7 (after Phase 36)
 
 ### Phase 38: Efficiency — companion, poll cycle, storage
 
