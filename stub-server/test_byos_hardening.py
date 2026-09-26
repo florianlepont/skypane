@@ -562,7 +562,8 @@ def test_malformed_content_length_gets_400_or_413_without_hanging(tmp_path):
             start = time.time()
             status, _ = _raw_request(
                 harness.port, "POST /device/v1/log HTTP/1.1",
-                ["Host: 127.0.0.1"] + header_lines, read_timeout=2.0)
+                ["Host: 127.0.0.1", "Authorization: Bearer %s" % KNOWN_TOKEN] + header_lines,
+                read_timeout=2.0)
             elapsed = time.time() - start
             assert status == expected, (
                 "headers=%r: expected %d, got %r" % (header_lines, expected, status))
@@ -595,8 +596,9 @@ def test_stalled_client_dropped_after_request_timeout_others_still_served(tmp_pa
             request = (
                 "POST /device/v1/log HTTP/1.1\r\n"
                 "Host: 127.0.0.1\r\n"
+                "Authorization: Bearer %s\r\n"
                 "Content-Length: 100\r\n"
-                "Connection: close\r\n\r\n"
+                "Connection: close\r\n\r\n" % KNOWN_TOKEN
             ).encode("ascii")
             sock.sendall(request)  # headers only - the 100-byte body never arrives
 

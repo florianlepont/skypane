@@ -609,10 +609,27 @@ def save_battery_state(state_dir, mv):
     _atomic_write(path, json.dumps({"battery_mv": mv, "received_at": time.time()}, indent=1))
 
 
+# Largest legitimate device body (a batched log upload); anything above
+# this is refused with 413 before a single byte of it is read.
+MAX_BODY_BYTES = 64 * 1024
+
+# Applied to every accepted connection's socket (StreamRequestHandler.setup()
+# reads this class attribute) so a client that stops sending mid-request -
+# or never sends a request line at all - cannot pin a handler thread
+# forever; main() overrides it from --request-timeout.
+REQUEST_TIMEOUT_S = 15.0
+
+# Sentinel Handler.read_body_json() returns after it has already answered
+# 400/413 itself for a malformed or oversized Content-Length - the caller
+# must return immediately without sending a second response.
+_BAD_LENGTH = object()
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "flightportrait-byos-example"
     args = None
     state = None
+    timeout = REQUEST_TIMEOUT_S
 
     def send_json(self, code, obj):
         body = json.dumps(obj).encode()
@@ -623,16 +640,57 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def read_body_json(self):
+        """Return the parsed JSON body, None for a body that is present
+        but not valid UTF-8 JSON (or one whose nesting recurses past the
+        decoder's limit), or the _BAD_LENGTH sentinel after already
+        answering 400/413 for a malformed or oversized Content-Length -
+        the body is never read in that case (an unbounded negative
+        length would otherwise read to EOF and block; an oversized
+        body's unread tail would otherwise be parsed as the start of the
+        next request), and self.close_connection is set so the
+        connection is not reused after either error.
+        """
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            length = 0
+        else:
+            try:
+                length = int(raw_length)
+            except ValueError:
+                length = -1
+            if length < 0:
+                self.close_connection = True
+                self.send_json(400, {"detail": "bad content-length"})
+                return _BAD_LENGTH
+            if length > MAX_BODY_BYTES:
+                self.close_connection = True
+                self.send_json(413, {"detail": "body too large"})
+                return _BAD_LENGTH
         try:
-            n = int(self.headers.get("Content-Length", "0"))
-            return json.loads(self.rfile.read(n).decode())
-        except (ValueError, UnicodeDecodeError):
+            return json.loads(self.rfile.read(length).decode())
+        except (ValueError, UnicodeDecodeError, RecursionError):
             return None
 
     def bearer_ok(self):
+        """True iff the presented bearer token equals one of the stored
+        tokens. Every stored token is compared with hmac.compare_digest
+        (no early exit on the first mismatch, so the check's timing does
+        not depend on which token index would have matched), both sides
+        encoded with UTF-8/surrogateescape so a non-ASCII presented value
+        (an already-decoded str; the header block itself is parsed as
+        Latin-1, so no byte sequence a client sends can raise here)
+        degrades to "no match" instead of raising.
+        """
         auth = self.headers.get("Authorization", "")
-        return (auth.startswith("Bearer ") and
-                auth[7:] in self.state["tokens"].values())
+        if not auth.startswith("Bearer "):
+            return False
+        presented = auth[len("Bearer "):].encode("utf-8", "surrogateescape")
+        matched = False
+        for stored in list(self.state["tokens"].values()):
+            stored_bytes = stored.encode("utf-8", "surrogateescape")
+            if hmac.compare_digest(presented, stored_bytes):
+                matched = True
+        return matched
 
     def log_telemetry(self):
         parts = []
@@ -647,6 +705,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/device/v1/setup":
             body = self.read_body_json()
+            if body is _BAD_LENGTH:
+                return None  # read_body_json() already answered 400/413
             mac = normalize_mac(body.get("mac")) if isinstance(body, dict) else None
             if mac is None:
                 return self.send_json(422, {"detail": "bad body"})
@@ -672,11 +732,18 @@ class Handler(BaseHTTPRequestHandler):
             if not self.bearer_ok():
                 return self.send_json(401, {"detail": "unknown token"})
             body = self.read_body_json()
+            if body is _BAD_LENGTH:
+                return None  # read_body_json() already answered 400/413
             if not isinstance(body, dict) or \
                     not isinstance(body.get("logs"), list):
                 return self.send_json(422, {"detail": "bad body"})
             self.log_telemetry()
             for entry in body["logs"]:
+                if not isinstance(entry, dict):
+                    # A hostile or buggy client's non-dict entry (int,
+                    # str, null, ...) is skipped, never raised on - entry.get
+                    # below would otherwise crash the whole request.
+                    continue
                 print("  frame log [%s] %s (ts=%s)"
                       % (entry.get("level", "error"),
                          entry.get("message", ""), entry.get("ts")))
@@ -760,7 +827,14 @@ class Handler(BaseHTTPRequestHandler):
         return self.send_json(404, {"detail": "unknown endpoint"})
 
     def log_message(self, fmt, *fmt_args):
-        print("%s %s" % (self.command, self.path))
+        # getattr, not self.command/self.path directly: a TimeoutError
+        # raised while reading the request line itself (a client that
+        # connects and sends nothing) is caught by
+        # BaseHTTPRequestHandler.handle_one_request() before
+        # parse_request() ever runs, so this instance may have neither
+        # attribute yet - a direct reference would turn that timeout log
+        # into an unhandled AttributeError.
+        print("%s %s" % (getattr(self, "command", None), getattr(self, "path", "")))
 
 
 def main():
@@ -785,6 +859,9 @@ def main():
                          "TLS-terminating reverse proxy (e.g. Caddy), so "
                          "the panel download is not silently downgraded "
                          "to plaintext.")
+    ap.add_argument("--request-timeout", type=float, default=REQUEST_TIMEOUT_S,
+                    help="seconds before a connected-but-stalled client's "
+                         "socket is closed (default: %(default)s)")
     args = ap.parse_args()
     if not os.path.exists(args.image):
         sys.exit("no such image: %s" % args.image)
@@ -801,6 +878,7 @@ def main():
 
     Handler.args = args
     Handler.state = load_state(args.state_dir)
+    Handler.timeout = args.request_timeout
     server = ThreadingHTTPServer(("0.0.0.0", args.port), Handler)
     print("serving %s on port %d — point the frame at http://<this-host>:%d"
           % (args.image, args.port, args.port))
