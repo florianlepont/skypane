@@ -537,14 +537,47 @@ def _notify_silence_transition(state_dir, poll_state, conn, device_cfg, sender=N
         )
 
 
+def _serialize_poll_state(state):
+    """Compact JSON encoding of `state` - no indentation, no space after a
+    "," or ":". Every reader (load_poll_state, wake.read_battery_critical,
+    stub-server/byos_server.py, the companion health/airlines pages) uses
+    json.load, so this is invisible to them; the compactness only shrinks
+    the file on disk, and gives `_persist_poll_state()` a cheap string to
+    diff against the snapshot taken at load time.
+    """
+    return json.dumps(state, separators=(",", ":"))
+
+
 def save_poll_state(state_dir, state):
     """Atomic same-directory-mkstemp-then-os.replace() via atomic_io, so two
     processes writing this same path (the systemd oneshot and the
     companion's POST /poll-now, both under poll_cycle_lock()) can never
     collide on one fixed temp name. Never leaves a stray temp file behind,
-    even if the write itself fails.
+    even if the write itself fails. Always writes, unconditionally - this
+    stays the public seam the test suite uses to seed a poll_state.json
+    directly; the write-once-only-if-changed decision below lives in
+    `_persist_poll_state()`, called only from `_run_once_locked()`'s two
+    exits.
     """
-    atomic_io.atomic_write(_poll_state_path(state_dir), json.dumps(state, indent=1))
+    atomic_io.atomic_write(_poll_state_path(state_dir), _serialize_poll_state(state))
+
+
+def _persist_poll_state(state_dir, poll_state, baseline):
+    """The cycle's single end-of-cycle save. Serialises `poll_state` once
+    and writes it through the same atomic path as `save_poll_state()`,
+    but only when that serialisation differs from `baseline` - the compact
+    snapshot `_run_once_locked()` took right after `load_poll_state()`,
+    before any branch mutated the dict in place (the dict can't serve as
+    its own baseline once mutated). An unchanged repeat cycle (a held
+    hold, an unchanged empty sky) compares equal and writes nothing.
+    Called from both of `_run_once_locked()`'s exits - the hold-branch
+    return and the shared tail - never mid-branch, so poll_state.json is
+    written at most once per cycle, and always after panel.bin (the save
+    moved later than it used to, never earlier).
+    """
+    serialized = _serialize_poll_state(poll_state)
+    if serialized != baseline:
+        atomic_io.atomic_write(_poll_state_path(state_dir), serialized)
 
 
 def write_panel_atomic(state_dir, rendered):
@@ -817,6 +850,11 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     # feeds three decisions: the badge, the BATTERY EMPTY latch, and (via
     # that latch) the wake-interval pin below.
     poll_state = load_poll_state(state_dir)
+    # A string snapshot taken before any branch below mutates poll_state in
+    # place - the dict itself can't serve as its own "did anything change?"
+    # baseline once mutated. Compared against at the cycle's two exits by
+    # _persist_poll_state(); never re-taken mid-cycle.
+    poll_state_baseline = _serialize_poll_state(poll_state)
     battery_mv = load_battery_state(state_dir)
     # Stored back into poll_state immediately, before
     # wake.effective_wake_interval_s() below, so it sees this cycle's own
@@ -909,14 +947,12 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             if panel_changed:
                 _save_to_gallery(state_dir, canvas, now_iso)
 
-        # `was_hold != hold_kind` persists a hold-kind change even with
-        # nothing rendered; `legacy_present` is the one-time migration
-        # flush; `battery_critical_changed` is named explicitly rather than
-        # relied on implicitly, so a future priority change can't silently
-        # stop persisting this latch's flip.
-        battery_critical_changed = battery_critical != was_battery_critical
-        if was_hold != hold_kind or battery_changed or legacy_present or battery_critical_changed:
-            save_poll_state(state_dir, poll_state)
+        # `was_hold != hold_kind` (a hold-kind change), `legacy_present`
+        # (the one-time migration flush), the battery-critical latch's own
+        # flip, and the notify hook's `poll_state["notifications"]`
+        # mutation below are exactly the fields this branch may change -
+        # all persisted together by the one end-of-cycle
+        # `_persist_poll_state()` call below, not saved individually here.
 
         # Not optional: advances META_LAST_PIPELINE_RUN, or a long hold
         # would make the companion Health page raise a false staleness
@@ -931,14 +967,17 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         # re-checks staleness while it lasts - without this, a frame that
         # dies mid-hold would never raise a frame_silent push. After
         # _record_history() so this cycle's check-in has already
-        # committed. Persisted unconditionally after, since the hook may
-        # have mutated poll_state["notifications"].
+        # committed.
         try:
             with history_db.open_db(state_dir) as conn:
                 _notify_silence_transition(state_dir, poll_state, conn, device_cfg)
         except (sqlite3.Error, OSError) as exc:
             print("poll_loop: silence-transition history read failed (hold branch): %s: %s" % (type(exc).__name__, exc))
-        save_poll_state(state_dir, poll_state)
+        # The cycle's one save: written only if this branch's mutations
+        # above (hold-kind, battery flags, migration flush, or the notify
+        # hook's own poll_state["notifications"] write) actually changed
+        # anything from the snapshot taken at load.
+        _persist_poll_state(state_dir, poll_state, poll_state_baseline)
 
         print(
             "poll_loop: hold_state=%s until=%s entered=%s panel_changed=%s "
@@ -1189,7 +1228,8 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         poll_state["previous_route"] = previous_route
         poll_state["pending_flights"] = pending
         poll_state["last_advance_at"] = last_advance_at
-        save_poll_state(state_dir, poll_state)
+        # Persisted once at the cycle's end (_persist_poll_state, in the
+        # shared tail below), not here.
         _record_history(
             state_dir, current_flight, confirmed_state, route_source, route,
             tracked_runway_id, source_fault, event_recorded, now_iso,
@@ -1251,11 +1291,12 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         if queue_dirty:
             # Nothing displayed changed, but the queue did, and this script
             # has no memory across invocations - unpersisted, an enqueue
-            # would be lost the instant this process exits.
+            # would be lost the instant this process exits. Persisted once
+            # at the cycle's end (_persist_poll_state, in the shared tail
+            # below), along with any battery-flag or hold-exit change this
+            # branch made.
             poll_state["pending_flights"] = pending
             poll_state["last_advance_at"] = last_advance_at
-        if battery_changed or queue_dirty or hold_exited:
-            save_poll_state(state_dir, poll_state)
         _record_history(
             state_dir, None, None, None, None,
             tracked_runway_id, source_fault, False, now_iso,
@@ -1280,11 +1321,11 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         panel_changed = write_panel_atomic(state_dir, rendered)
         if panel_changed:
             _save_to_gallery(state_dir, canvas, now_iso)
-        # The flight-detected branch always saves unconditionally; this
-        # branch otherwise never would, losing hysteresis memory for a
-        # frame that has never seen an aircraft.
-        if battery_changed or hold_exited:
-            save_poll_state(state_dir, poll_state)
+        # Any battery-flag or hold-exit change this branch made is
+        # persisted once at the cycle's end (_persist_poll_state, in the
+        # shared tail below) - without that shared save, hysteresis memory
+        # for a frame that has never seen an aircraft would never reach
+        # disk.
         _record_history(
             state_dir, None, None, None, None,
             tracked_runway_id, source_fault, False, now_iso,
@@ -1300,7 +1341,11 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             _notify_silence_transition(state_dir, poll_state, conn, device_cfg)
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: silence-transition history read failed: %s: %s" % (type(exc).__name__, exc))
-    save_poll_state(state_dir, poll_state)
+    # The cycle's one save for the three branches above: written only if
+    # anything - the display-pacing/enrichment/hysteresis fields any
+    # branch set, or the notify hook's own poll_state["notifications"]
+    # mutation - actually changed from the snapshot taken at load.
+    _persist_poll_state(state_dir, poll_state, poll_state_baseline)
 
     # Logs only this project's own records/telemetry, never a third-party
     # response body or the raw battery millivolt reading. `hex=` is this
