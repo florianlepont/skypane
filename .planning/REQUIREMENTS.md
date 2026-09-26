@@ -173,7 +173,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **SEC-06**: `CapabilityBoundingSet=`, `PrivateDevices`, `ProtectKernel*`, `RestrictAddressFamilies`, `SystemCallFilter=@system-service`, `UMask=0027`; byos `--bind 127.0.0.1` + `IPAddressDeny=any`/`IPAddressAllow=localhost`
 - [x] **SEC-07**: Secret via env; env file `root:root 600`; secret passed through `env:`
 - [x] **SEC-08**: `sshd_config.d/00-skypane.conf`, `PermitRootLogin no`, validated
-- [ ] **EFF-01**: `encode zstd gzip`; validators + 304; static bytes cached in memory
+- [x] **EFF-01**: `encode zstd gzip`; validators + 304; static bytes cached in memory
 - [ ] **EFF-02**: Only the scripts each page uses (no build step)
 - [ ] **EFF-03**: One connection per request/cycle; schema once per process; one transaction
 - [ ] **EFF-04**: Lazy context; severity computed without markup; light freshness endpoint
@@ -423,7 +423,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-06 | Phase 37 | Complete |
 | SEC-07 | Phase 37 | Complete |
 | SEC-08 | Phase 37 | Complete |
-| EFF-01 | Phase 38 | Pending |
+| EFF-01 | Phase 38 | Complete |
 | EFF-02 | Phase 38 | Pending |
 | EFF-03 | Phase 38 | Pending |
 | EFF-04 | Phase 38 | Pending |

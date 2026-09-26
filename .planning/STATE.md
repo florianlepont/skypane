@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 38 plan 01 complete (1/13 plans): test-support/efficiency_probe.py (count_db, count_sleeps, count_poll_state_writes, fake_provider_latency, seed_history, route_weight, cycle_probe) plus its 9 self-tests, scripts/measure_efficiency.py (an offline CLI printing the phase's markdown measurement tables), and 38-EFF-BASELINE.md's committed Before section for every EFF-01..EFF-06 metric, measured on the unmodified tree and cross-checked against 38-RESEARCH.md's baseline table (no value differs by more than 20%). Instruments-first rule satisfied: no production file touched yet. Next: 38-02."
-last_updated: "2026-09-26T13:15:00.000Z"
+stopped_at: "Phase 36 plan 07 complete (last plan of Phase 36): cross-process poll_cycle_lock() over atomic_io.exclusive_lock(poll.lock) serialises run_once() across the systemd oneshot and the companion's POST /poll-now (two-process x 200 reproduction: 400, zero lost updates); every remaining fixed-.tmp/pid-tagged temp name in server/poll_loop.py and companion/app.py is migrated onto atomic_io.atomic_write(); main() prints a full traceback on a genuine cycle failure; a queued-but-undisplayed detection still advances META_LAST_DETECTION; the adsbdb cache's TTL/LRU stamps follow the injected poll clock. All 14 INT-01..INT-14 requirements are now Complete. Phase 36 is done; next: verify/close the phase."
+last_updated: "2026-09-26T13:42:18.317Z"
 last_activity: 2026-09-26
 progress:
   total_phases: 54
   completed_phases: 46
   total_plans: 405
-  completed_plans: 368
-  percent: 91
+  completed_plans: 369
+  percent: 85
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -56,13 +56,15 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 38 (efficiency-companion-poll-cycle-storage) — EXECUTING (1/13 plans; 38-01 instruments + Before baseline complete on branch claude/plan-phase-38, unmerged)
+Phase: 38 (efficiency-companion-poll-cycle-storage) — EXECUTING (2/13 plans; 38-02 companion static-asset caching (EFF-01) complete on branch claude/plan-phase-38, unmerged)
 Phase: 37 (security-and-operations-hardening) — COMPLETE (11/11 plans; 37-11 Wave B: byos loopback-only + IP filter, no secret in argv, CP-11 and CP-7 done live 2026-09-26)
 Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human_needed: TimeoutStartUSec=1min 30s confirmed live 2026-09-26; only the optional on-frame panel-swap check remains)
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 1 of 13
+Plan: 2 of 13
+
+**38-02 executed (2026-09-26), plan 2/13 of Phase 38 (depends on 38-01), wave 2 — EFF-01: companion static-asset validators/304 and Caddy compression.** Task 1 (TDD) added `companion.app._serve_static(abs_path, content_type, cache_control)`, the shared body now behind `_serve_stylesheet()`, `_serve_script_file()` and `_serve_runway_image()`: a per-process, `threading.Lock`-guarded in-memory cache (`_static_entry()`/`_read_static_bytes()`, one disk read per file per process) and RFC 9110 §13.2.2 conditional evaluation (`_not_modified()` — `If-None-Match` decides outright when present, else `If-Modified-Since`, a malformed header is a defensive no-match never a 500). Every `/static/*.css`/`*.js` route now serves `public, no-cache` with a strong quoted ETag and a `Last-Modified`, replacing `public, max-age=300` with no validators; `/runway-image/{id}.png` keeps its exact `private, max-age=300` policy (still behind `require_session()`) and gains the same validators. New `companion/test_static_cache.py` (16 tests, incl. one `@pytest.mark.browser`) plus 16 updated `max-age=300`→`no-cache` assertions across `test_companion_app_02/03/04.py`. Task 2 (TDD) added `encode zstd gzip` to `deploy/Caddyfile`'s companion site block only (device/byos block untouched), with two new `deploy/tests/test_caddyfile.py` tests. **One deviation (Rule 3 - blocking, test-harness-only):** the plan's literal `page.reload()` browser-test shape cannot observe a 304 under this repo's mandatory `companion/conftest.py` loopback-only `route()` guard — enabling CDP request interception (needed for the security guard on every browser test) disables Chromium's disk cache as a side effect, confirmed with a standalone script showing an identical `reload()` sequence revalidates to 304 throughout against an *unguarded* context and never does against a *guarded* one. Fixed by driving the same round trip explicitly (two `fetch()` calls per asset, the second carrying the first's own ETag) through the same guarded, real Chromium stack, corroborated by a `send_response` recorder. `companion/conftest.py` itself was not touched (out of file scope; the guard applies to every browser test for a real security reason). Both tasks ran RED (failing test commit) → GREEN (implementation commit): `5932433`/`b0d57f2` (Task 1), `096cafe`/`644565e` (Task 2). Full companion suite (1569) and the whole repo's `./scripts/run-all-tests.sh` (2883 passed, coverage 94.04%, 1 pre-existing unrelated local Chromium-baseline failure) both green.
 
 **38-01 executed (2026-09-26), plan 1/13 of Phase 38 (no dependencies) — instruments-first, per the phase's own "Locked by the ledger" rule.** Task 1 added `test-support/efficiency_probe.py` (`_patched()` self-restoring attribute-swap seam behind `count_db`, `count_sleeps`, `count_poll_state_writes`, `fake_provider_latency`, `seed_history`, `route_weight`, `cycle_probe`) plus `test-support/test_efficiency_probe.py` (9 tests of the probe mechanics only, never today's inefficiency numbers, so they stay green through every later plan). Task 2 added `scripts/measure_efficiency.py` (offline CLI: DNS resolver guard, offline `enrich.default_transport`/`detect.query_provider` fakes, prints Routes/First-load weight/Static revalidation/Freshness tick/Poll cycle markdown tables) and committed `38-EFF-BASELINE.md`'s `## Before` section from a real unmodified-tree run — cross-checked against `38-RESEARCH.md`'s own baseline table (every static byte count matches exactly; no route or poll-cycle value differs by more than 20%). `## After` and `## Live compression (VPS)` sections left as placeholders for the phase's later plans and final (developer-only VPS) checkpoint. No production file touched (`git diff --name-only` for both tasks lists only `test-support/`, `scripts/`, and the `.planning/` baseline doc). `state.advance-plan`/`state.update-progress` reproduced this file's own documented recurring bug this session — `state.advance-plan` returned `current_plan: 7, total_plans: 7` (stale, unrelated to Phase 38) and `state.update-progress` rewrote the LIVE frontmatter block's `status`/`stopped_at` back to a stale Phase-36 record while also mutating the DEMOTED/frozen 2026-09-04 historical frontmatter block's progress bar (93%→91%) — both mutations discarded via `git checkout -- .planning/STATE.md`, corrected by hand instead: `total_plans: 405` (392 + Phase 38's 13 newly-planned plans), `completed_plans: 368` (367 + this plan), `percent: 91` (368/405).
 
@@ -1082,6 +1084,8 @@ Recent decisions affecting current work:
 - [Phase 36]: poll_cycle_lock() over atomic_io.exclusive_lock(poll.lock) serialises run_once() across processes; PollBusy (lock_timeout_s=0) never blocks the companion's request thread
 - [Phase 36]: Every remaining state write in poll_loop.py and the companion illustration upload migrated onto atomic_io.atomic_write(); the phase-wide fixed/pid-tagged temp-name grep now prints nothing in production Python
 - [Phase 36]: _record_history() gained detected=; a queued-but-undisplayed detection now advances META_LAST_DETECTION, and enrich.resolve_route() is called with now=now_s() so the adsbdb cache follows the injected poll clock
+- [Phase 38]: _serve_static() delegates both CSS/JS (public, no-cache) and the runway image (private, max-age=300) through one implementation via an opaque cache_control parameter — no branching on caller identity; the same in-memory cache/validator logic serves two distinct cache policies
+- [Phase 38]: The browser criterion-2 test drives its round trip with two explicit fetch() calls instead of page.reload() — companion/conftest.py's mandatory loopback-only route() guard on every browser test disables Chromium's disk cache via CDP request interception as a side effect, confirmed with a standalone unguarded-vs-guarded comparison script; conftest.py itself is out of this plan's file scope
 
 ### Pending Todos
 
