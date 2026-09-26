@@ -169,8 +169,8 @@ def test_login_card_script_public(app04_server):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_login_card_script_es5_safe_and_no_html_write(app04_server):
