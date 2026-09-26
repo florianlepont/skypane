@@ -1,14 +1,9 @@
 [Unit]
 Description=SkyPane BYOS device-protocol server (stub-server/byos_server.py)
-# Caddy is the only thing that should ever reach this - see deploy/Caddyfile
-# (reverse_proxy 127.0.0.1:${SKYPANE_BYOS_PORT}) and deploy/provision.sh (ufw
-# denies the app port from outside). byos_server.py itself binds 0.0.0.0 -
-# a known vendored behaviour (stub-server/byos_server.py is not modified
-# again for this; see deploy/README.md "Known vendored behaviour"), so the
-# loopback restriction is enforced at the firewall/reverse-proxy layer
-# instead of in the app. A future plan (Wave B) adds a
-# --bind flag and IPAddressDeny/IPAddressAllow here to close the loopback
-# gap at the unit level too.
+# Caddy is the only thing that should reach this (deploy/Caddyfile
+# reverse-proxies 127.0.0.1:${SKYPANE_BYOS_PORT}; provision.sh's ufw
+# denies it from outside). byos_server.py itself binds 0.0.0.0 (known
+# vendored behaviour, deploy/README.md); loopback is enforced there instead.
 After=network-online.target
 Wants=network-online.target
 
@@ -27,23 +22,10 @@ ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/byos_se
 Restart=always
 RestartSec=5
 
-# Hardening -- the release-layout code path (/opt/skypane/current/...)
-# is the only place this process can execute from, and
-# everything below narrows what a compromised interpreter could still do
-# even with that code. ReadWritePaths stays scoped to the state directory
-# only - every other filesystem write is refused by ProtectSystem=strict.
-# UMask=0027 is safe here: this process only ever creates files inside the
-# setgid state/ directory (0640/2750 by construction, provision.sh), and
-# no process anywhere reads state as "other" - the one cross-user access
-# (caddy's own access log) is an explicit mode 660 on a file this service
-# never writes. ProtectProc=invisible additionally hides every other
-# user's /proc entries (and this service's own argv) from anyone who is
-# not root or this unit's own user - one more layer against a secret
-# leaking through `ps`, on top of the argv-level fixes elsewhere in this
-# phase. RestrictAddressFamilies keeps AF_UNIX (glibc's NSS/resolver
-# lookups use it) alongside the IPv4/IPv6 sockets this HTTP server needs;
-# no IPAddressDeny/IPAddressAllow filter here yet (Wave B adds one once
-# byos binds loopback-only).
+# Hardening: /opt/skypane/current is the only place this runs from.
+# ReadWritePaths is scoped to state/ only; UMask=0027 matches its setgid
+# mode. ProtectProc=invisible hides every user's argv; AF_UNIX stays open
+# for the NSS/resolver lookups this HTTP server needs.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

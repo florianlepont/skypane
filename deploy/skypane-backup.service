@@ -1,13 +1,9 @@
 [Unit]
 Description=SkyPane nightly off-box-ready state snapshot (deploy/backup/skypane_backup.py)
-# Triggered by skypane-backup.timer at 03:15 UTC. Takes a consistent
-# sqlite3 .backup snapshot of history.db plus an include-list copy of the
-# other irreplaceable files under /opt/skypane/state, and writes
-# a dated tar.gz + .sha256 into the local archive directory below. This
-# job never leaves the VPS - the off-box copy is a separate pull, over
-# SSH, initiated by the developer's Mac through the forced-command gate
-# at /usr/local/lib/skypane/backup_gate.py, never pushed
-# from here.
+# Triggered by skypane-backup.timer at 03:15 UTC. Snapshots history.db
+# (sqlite3 .backup) plus other irreplaceable state files into a dated
+# tar.gz + .sha256. Never leaves the VPS -- the off-box copy is a
+# separate SSH pull the developer's Mac initiates via the forced-command gate.
 After=network-online.target
 
 [Service]
@@ -20,15 +16,10 @@ ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/current/deploy/backup/skypa
     --archive-dir /var/lib/skypane-backup/archives \
     --keep 14
 
-# Hardening - same posture as the other three units (see
-# skypane-byos.service's own comment for the full rationale on the shared
-# directives). This job needs no network at all (PrivateNetwork=true,
-# RestrictAddressFamilies=AF_UNIX only - AF_UNIX stays for sqlite3's own
-# use of local sockets/NSS, never a real network call) and writes to two
-# directories: the state directory (opening a WAL database for a
-# consistent .backup snapshot needs write access to its -shm file even
-# for what is conceptually a read) and the archive directory this
-# service's own output lands in.
+# Hardening: same posture as the other units (skypane-byos.service's
+# comment). No network needed (PrivateNetwork=true, AF_UNIX only for
+# sqlite3's local NSS use). Writes to state/ (a WAL .backup snapshot
+# needs write access to the -shm file) and to the archive directory.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
