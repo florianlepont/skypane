@@ -38,6 +38,7 @@ import http.client
 import ipaddress
 import socket
 import ssl
+import threading
 import time
 import urllib.parse
 
@@ -149,7 +150,7 @@ def address_is_public(ip_text):
     return True
 
 
-def resolve_public_addresses(hostname, port, resolver=None):
+def resolve_public_addresses(hostname, port, resolver=None, timeout_s=None):
     """Resolve `hostname` exactly once (`resolver`, or `socket.getaddrinfo`
     looked up at call time) and return its addresses, de-duplicated in
     answer order, only if every one of them is a public unicast address.
@@ -162,10 +163,22 @@ def resolve_public_addresses(hostname, port, resolver=None):
     DNS rebinding -- so re-resolving later would defeat the check; this
     is why the caller must connect only to an address this function
     already returned, never resolve again).
+
+    With `timeout_s`, the lookup runs on a daemon thread and
+    `DeadlineExceeded` is raised if it has not answered in time:
+    `getaddrinfo` takes no timeout of its own, so a stalled resolver
+    would otherwise outlast any caller's deadline. The abandoned lookup
+    finishes (or not) in the background and its answer is discarded.
     """
     getaddrinfo = resolver or socket.getaddrinfo
     try:
-        infos = getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+        if timeout_s is None:
+            infos = getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+        else:
+            infos = _getaddrinfo_within(getaddrinfo, hostname, port, timeout_s)
+    except DeadlineExceeded:
+        # A requests exception is an OSError too: keep it a timeout.
+        raise
     except (socket.gaierror, UnicodeError, OSError) as exc:
         raise UnsafeDestination(
             "resolve_public_addresses: could not resolve %r" % (hostname,)
@@ -185,6 +198,43 @@ def resolve_public_addresses(hostname, port, resolver=None):
         if address_text not in addresses:
             addresses.append(address_text)
     return addresses
+
+
+def _getaddrinfo_within(getaddrinfo, hostname, port, timeout_s):
+    """`getaddrinfo(hostname, port)` bounded by `timeout_s` seconds of
+    wall-clock time; raises `DeadlineExceeded` when the lookup is still
+    running, and re-raises whatever the lookup itself raised.
+    """
+    outcome = {}
+
+    def _lookup():
+        try:
+            outcome["infos"] = getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+        except BaseException as exc:
+            outcome["error"] = exc
+
+    worker = threading.Thread(target=_lookup, name="resolve-%s" % hostname, daemon=True)
+    worker.start()
+    worker.join(max(0.0, timeout_s))
+    if worker.is_alive():
+        raise DeadlineExceeded(
+            "resolve_public_addresses: no DNS answer for %r within the deadline"
+            % (hostname,)
+        )
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome["infos"]
+
+
+def _time_left(deadline, clock, what):
+    """Seconds left before `deadline`, raising `DeadlineExceeded` naming
+    `what` once none is left -- never a zero or negative socket timeout,
+    which would switch the socket to non-blocking mode instead of failing.
+    """
+    left = deadline - clock()
+    if left <= 0:
+        raise DeadlineExceeded("pinned_request: deadline passed before %s" % what)
+    return left
 
 
 def _default_ssl_context():
@@ -306,7 +356,9 @@ def pinned_request(
         raise UnsafeDestination("pinned_request: no hostname in %r" % (url,))
     port = parsed.port or 443
 
-    addresses = resolve_public_addresses(hostname, port, resolver=resolver)
+    addresses = resolve_public_addresses(
+        hostname, port, resolver=resolver,
+        timeout_s=_time_left(deadline, clock, "resolving"))
 
     path = parsed.path or "/"
     if parsed.query:
@@ -315,8 +367,7 @@ def pinned_request(
     conn = None
     last_exc = None
     for address in addresses:
-        time_left = deadline - clock()
-        connect_timeout = min(timeout, time_left) if time_left > 0 else 0
+        connect_timeout = min(timeout, _time_left(deadline, clock, "connecting"))
         candidate = _PinnedHTTPSConnection(
             hostname,
             port,
@@ -344,16 +395,27 @@ def pinned_request(
         request_headers["Content-Length"] = str(len(body))
 
     try:
-        time_left = deadline - clock()
-        conn.sock.settimeout(min(timeout, time_left) if time_left > 0 else 0)
+        conn.sock.settimeout(min(timeout, _time_left(deadline, clock, "sending")))
         conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
         for key, value in request_headers.items():
             conn.putheader(key, value)
         conn.endheaders(body)
 
-        time_left = deadline - clock()
-        conn.sock.settimeout(min(timeout, time_left) if time_left > 0 else 0)
+        conn.sock.settimeout(min(timeout, _time_left(deadline, clock, "the response")))
         http_response = conn.getresponse()
+    except requests.exceptions.RequestException:
+        conn.close()
+        raise
+    except TimeoutError as exc:
+        conn.close()
+        raise requests.exceptions.ReadTimeout(
+            "pinned_request: %r timed out" % (hostname,)) from exc
+    except (OSError, http.client.HTTPException) as exc:
+        # Callers handle requests.RequestException; a raw socket or
+        # protocol error must not escape under a different type.
+        conn.close()
+        raise requests.exceptions.ConnectionError(
+            "pinned_request: %s talking to %r" % (type(exc).__name__, hostname)) from exc
     except BaseException:
         conn.close()
         raise

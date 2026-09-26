@@ -600,7 +600,7 @@ def test_pinned_request_closes_connection_on_request_failure():
     fake_sock = _FailingSocket(_canned_response(body=b"{}"))
     create_connection = _make_create_connection({"93.184.216.34": fake_sock}, [])
 
-    with pytest.raises(BrokenPipeError):
+    with pytest.raises(requests.exceptions.ConnectionError) as excinfo:
         http_fetch.pinned_request(
             "GET",
             "https://calendar.example/a.ics",
@@ -611,7 +611,56 @@ def test_pinned_request_closes_connection_on_request_failure():
             ssl_context=_FakeSSLContext(),
         )
 
+    assert isinstance(excinfo.value.__cause__, BrokenPipeError)
     assert fake_sock.closed is True
+
+
+def test_pinned_request_raises_deadline_exceeded_when_dns_stalls():
+    """a resolver that never answers cannot outlast the caller's deadline"""
+    import threading
+
+    release = threading.Event()
+
+    def stalled_resolver(host, port, type=None):
+        release.wait(10)
+        return [(None, None, None, "", ("93.184.216.34", port))]
+
+    started = time_module.monotonic()
+    try:
+        with pytest.raises(http_fetch.DeadlineExceeded):
+            http_fetch.pinned_request(
+                "GET",
+                "https://calendar.example/a.ics",
+                timeout=5,
+                deadline_s=0.3,
+                resolver=stalled_resolver,
+                create_connection=_make_create_connection({}, []),
+                ssl_context=_FakeSSLContext(),
+            )
+    finally:
+        release.set()
+    assert time_module.monotonic() - started < 2.0
+
+
+def test_pinned_request_raises_deadline_exceeded_when_deadline_already_spent():
+    """an elapsed deadline fails as DeadlineExceeded, never as a zero (non-blocking) socket timeout"""
+    ticks = iter([0.0, 0.0, 10.0, 10.0, 10.0, 10.0])
+    resolver = _resolver_sequence(["93.184.216.34"])
+    calls = []
+    create_connection = _make_create_connection({"93.184.216.34": _FakeSocket(_canned_response())}, calls)
+
+    with pytest.raises(http_fetch.DeadlineExceeded):
+        http_fetch.pinned_request(
+            "GET",
+            "https://calendar.example/a.ics",
+            timeout=5,
+            deadline_s=5,
+            resolver=resolver,
+            create_connection=create_connection,
+            ssl_context=_FakeSSLContext(),
+            clock=lambda: next(ticks),
+        )
+    assert calls == []
 
 
 def test_pinned_request_refuses_url_with_no_hostname():

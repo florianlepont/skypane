@@ -107,3 +107,10 @@ conn.sock.settimeout(min(timeout, time_left))
 _Reviewed: 2026-09-26T11:22:03Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+
+## Resolution (2026-09-26, orchestrator)
+
+- **CR-01 fixed:** `resolve_public_addresses(..., timeout_s=)` runs `getaddrinfo` on a daemon thread bounded by the caller's remaining deadline and raises `DeadlineExceeded` when the resolver stalls; `pinned_request` passes its remaining time. Test: `test_pinned_request_raises_deadline_exceeded_when_dns_stalls`.
+- **WR-01 fixed:** an elapsed deadline raises `DeadlineExceeded` before resolving, connecting, sending or reading the response (no more `settimeout(0)`); a raw `OSError`/`http.client.HTTPException` during the request is re-raised as `requests.exceptions.ConnectionError` (a socket timeout as `ReadTimeout`). Tests: `test_pinned_request_closes_connection_on_request_failure` (now asserts the wrapped type), `test_pinned_request_raises_deadline_exceeded_when_deadline_already_spent`.
+- **WR-02:** accepted as designed (byos vendor boundary, removed by Phase 39 ARC-05).
+- Full suite after the fixes: 2723 passed, 133 skipped (sandbox browser/root skips), coverage 93.79%.
