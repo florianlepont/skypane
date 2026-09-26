@@ -1149,17 +1149,32 @@ def refresh_calendar_registry(state_dir, now, transport=None, min_interval_s=Non
     bypass the throttle for one attempt, so connecting a calendar is not
     silently delayed up to half an hour.
 
+    Three steps, each under its own brief lock acquisition — the network
+    fetch itself runs with NO lock held, so a companion save or disconnect
+    never waits behind it: (1) under the lock, load the registry, decide
+    unconfigured/throttled/due, and — only when due — record the attempt
+    (`last_attempt_at = now`) before releasing; (2) without the lock, fetch
+    and parse; (3) under the lock again, reload the registry and re-read
+    the configured URL. If it no longer matches the URL this attempt
+    fetched (a companion save or disconnect landed while the fetch was in
+    flight), the stale result is discarded entirely — nothing is written,
+    and `FETCH_SUPERSEDED` is returned with the reloaded (newer) registry;
+    the newer URL always wins over this cycle's own fetch. Otherwise a
+    failed fetch re-persists the previous entries unchanged (the attempt
+    was already recorded in step 1), and a successful one persists the
+    windowed parse with `last_synced_at` derived from `now` — the
+    injected clock, never the wall clock.
+
     `last_attempt_at` updates on every attempt that runs; `last_synced_at`
-    only after a body was fetched and parsed. On a refused URL, transport
-    failure, or unusable body, the previous entries are re-persisted
-    unchanged (never erased) — an empty result on genuine success is a
-    legitimate empty window, distinguishable from a broken feed only by
+    only after a body was fetched, parsed, and found to still match the
+    configured URL. An empty result on genuine success is a legitimate
+    empty window, distinguishable from a broken feed only by
     `last_synced_at` having moved.
 
     Prints nothing on the throttled/unconfigured paths (near-every-cycle
-    volume); at most one line, never the URL, on a completed attempt. The
-    same `now` threads through every registry call here, so the failure
-    path's re-persist stays correctly windowed and byte-equal to disk.
+    volume); at most one line, never the URL, once step 3 has a verdict.
+    The same `now` threads through every registry call here, so a
+    re-persist stays correctly windowed and byte-equal to disk.
     """
     # Wrapped so nothing escapes: every callee is already never-raising,
     # but this function must never gain a new failure mode from a future
@@ -1167,10 +1182,6 @@ def refresh_calendar_registry(state_dir, now, transport=None, min_interval_s=Non
     # _calendar_registry_lock() below — a stuck holder degrades this
     # cycle to FETCH_FAILED rather than wedging the poll loop.
     try:
-        # The entire load-throttle-fetch-write sequence runs under the
-        # cross-process lock, not just the final write — a lock scoped
-        # only to write_calendar_registry() would still let a concurrent
-        # save's erase land between this function's load and its write.
         with _calendar_registry_lock(state_dir):
             registry = load_calendar_registry(state_dir, now)
 
@@ -1184,33 +1195,50 @@ def refresh_calendar_registry(state_dir, now, transport=None, min_interval_s=Non
             if not calendar_fetch_is_due(registry["last_attempt_at"], now, min_interval_s):
                 return FETCH_SKIPPED_THROTTLED, registry
 
-            body = fetch_ics(url, transport=transport)
+            # Record the attempt now, before the lock is released and the
+            # fetch begins: a second refresh starting while this one's
+            # fetch is still in flight must see the throttle correctly
+            # (the normal 30s-cycle-against-30-minute-interval case),
+            # rather than racing this same fetch.
+            write_calendar_registry(
+                state_dir, registry["entries"], now, registry["last_synced_at"], now=now)
 
-            if body is None:
-                # A transient blip must not erase an otherwise-valid
-                # window before its natural expiry - persist the
-                # existing entries unchanged, moving only
-                # last_attempt_at.
-                write_calendar_registry(
-                    state_dir, registry["entries"], now, registry["last_synced_at"], now=now)
-                result_registry = {
-                    "entries": registry["entries"],
-                    "last_attempt_at": now,
-                    "last_synced_at": registry["last_synced_at"],
-                }
+        # Outside the lock: the network fetch never blocks a companion
+        # save or disconnect (see this function's own docstring).
+        body = fetch_ics(url, transport=transport)
+        windowed = select_window_entries(parse_ics_events(body), now) if body is not None else None
+
+        with _calendar_registry_lock(state_dir):
+            reloaded = load_calendar_registry(state_dir, now)
+            current_url = configured_calendar_url(state_dir)
+
+            if current_url != url:
+                # The configured URL changed or was cleared while this
+                # fetch was in flight - the newer URL always wins, so
+                # this cycle's own result (success or failure) is
+                # discarded rather than persisted.
                 print(
                     "calendar_rules: refresh_calendar_registry() result=%s entries=%d"
-                    % (FETCH_FAILED, len(result_registry["entries"])),
+                    % (FETCH_SUPERSEDED, len(reloaded["entries"])),
                     file=sys.stderr,
                 )
-                return FETCH_FAILED, result_registry
+                return FETCH_SUPERSEDED, reloaded
 
-            parsed = parse_ics_events(body)
-            windowed = select_window_entries(parsed, now)
+            if windowed is None:
+                # A transient blip must not erase an otherwise-valid
+                # window before its natural expiry - the attempt was
+                # already recorded above, nothing else changes.
+                print(
+                    "calendar_rules: refresh_calendar_registry() result=%s entries=%d"
+                    % (FETCH_FAILED, len(reloaded["entries"])),
+                    file=sys.stderr,
+                )
+                return FETCH_FAILED, reloaded
+
             # An empty windowed result here is still success -
             # distinguishable from a broken feed only by last_synced_at
             # having moved.
-            last_synced_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            last_synced_at = datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="seconds")
             wrote_ok = write_calendar_registry(state_dir, windowed, now, last_synced_at, now=now)
             result_registry = {
                 "entries": windowed,
