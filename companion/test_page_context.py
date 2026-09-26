@@ -17,6 +17,8 @@ import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 import companion.app as app
 import efficiency_probe
 
@@ -110,6 +112,26 @@ def test_lazy_context_get_resolves_once_and_falls_back_on_a_real_default():
     assert len(calls) == 1, "expected the loader to run exactly once via .get(), got %d" % len(
         calls)
     assert ctx.get("missing", 7) == 7
+
+
+def test_lazy_context_getitem_keeps_a_raising_loader_pending_for_retry():
+    """a loader that raises leaves its key exactly as pending as it found it - neither resolved
+    nor forgotten - so a second read retries the SAME loader (and can raise the SAME original
+    exception) instead of falling through to a masking KeyError"""
+    calls = []
+
+    def _flaky_load():
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("simulated loader failure")
+        return "computed on retry"
+
+    ctx = app._LazyContext({}, {"lazy": _flaky_load})
+    with pytest.raises(RuntimeError):
+        ctx["lazy"]
+    assert "lazy" in ctx, "expected the key to remain a pending loader after the raise"
+    assert ctx["lazy"] == "computed on retry"
+    assert len(calls) == 2, "expected exactly one retry after the first raise, got %d calls" % len(calls)
 
 
 # ==========================================================================

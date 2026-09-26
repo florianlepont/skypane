@@ -1184,8 +1184,13 @@ class _LazyContext(dict):
 
     def __getitem__(self, key):
         if key in self._loaders:
-            loader = self._loaders.pop(key)
-            value = loader()
+            # Popped only AFTER loader() returns - a loader that raises
+            # must leave its key exactly as it found it (still lazy, not
+            # half-resolved), so a second read retries the loader instead
+            # of falling through to dict.__getitem__() and raising
+            # KeyError, which would hide the original exception.
+            value = self._loaders[key]()
+            del self._loaders[key]
             dict.__setitem__(self, key, value)
             return value
         return dict.__getitem__(self, key)
