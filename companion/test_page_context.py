@@ -1,4 +1,4 @@
-"""Lazy `page_context()` and markup-free severity (EFF-04).
+"""Lazy `page_context()` and markup-free severity.
 
 `page_context()` used to build the full Health markup, the gallery
 listing, the manual-resolutions/colour-rules/calendar registries, and
