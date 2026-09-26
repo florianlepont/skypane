@@ -155,8 +155,8 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [ ] **INT-02**: One `atomic_write(path, data)` with unique temp names
 - [ ] **INT-03**: Thread lock + flock
 - [ ] **INT-04**: `mkstemp`, pruning, bounded cache
-- [ ] **INT-05**: Content-addressed `state/img/<sha>.bin` (last N kept); 404 on unknown hash
-- [ ] **INT-06**: Validated length, `Handler.timeout`, typed input, `hmac.compare_digest`
+- [x] **INT-05**: Content-addressed `state/img/<sha>.bin` (last N kept); 404 on unknown hash
+- [x] **INT-06**: Validated length, `Handler.timeout`, typed input, `hmac.compare_digest`
 - [ ] **INT-07**: `TimeoutStartSec`; total deadline per HTTP call
 - [ ] **INT-08**: Miss only on 404/empty route; TTL (misses ~1 day, hits ~30 days); LRU
 - [ ] **INT-09**: Advance to last newline; errors caught
@@ -405,8 +405,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INT-02 | Phase 36 | Pending |
 | INT-03 | Phase 36 | Pending |
 | INT-04 | Phase 36 | Pending |
-| INT-05 | Phase 36 | Pending |
-| INT-06 | Phase 36 | Pending |
+| INT-05 | Phase 36 | Complete |
+| INT-06 | Phase 36 | Complete |
 | INT-07 | Phase 36 | Pending |
 | INT-08 | Phase 36 | Pending |
 | INT-09 | Phase 36 | Pending |
