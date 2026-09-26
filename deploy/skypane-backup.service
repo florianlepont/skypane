@@ -2,11 +2,11 @@
 Description=SkyPane nightly off-box-ready state snapshot (deploy/backup/skypane_backup.py)
 # Triggered by skypane-backup.timer at 03:15 UTC. Takes a consistent
 # sqlite3 .backup snapshot of history.db plus an include-list copy of the
-# other irreplaceable files under /opt/skypane/state (SEC-04), and writes
+# other irreplaceable files under /opt/skypane/state, and writes
 # a dated tar.gz + .sha256 into the local archive directory below. This
 # job never leaves the VPS - the off-box copy is a separate pull, over
 # SSH, initiated by the developer's Mac through the forced-command gate
-# at /usr/local/lib/skypane/backup_gate.py (Plan 37-04), never pushed
+# at /usr/local/lib/skypane/backup_gate.py, never pushed
 # from here.
 After=network-online.target
 

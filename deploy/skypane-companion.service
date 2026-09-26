@@ -5,13 +5,13 @@ Description=SkyPane companion configuration web interface (companion/app.py)
 # (ufw denies the companion port from outside). Unlike skypane-byos.service,
 # this process binds 127.0.0.1 only (--bind, companion/app.py) rather than
 # 0.0.0.0, so the loopback restriction is enforced twice over: by the
-# firewall/reverse-proxy layer and by the socket itself (SEC-06, D-22). No
+# firewall/reverse-proxy layer and by the socket itself. No
 # systemd IP address allow-list filter is used here - this service makes
 # its own outbound calls (calendar ICS fetch, ntfy notifications,
 # /poll-now running a poll cycle in-process), and systemd's IP address
 # filtering directives apply to both directions.
 #
-# Separate process (D-03): this is a distinct service from both
+# Separate process: this is a distinct service from both
 # skypane-byos.service (device protocol) and skypane-poll.service (the
 # ADS-B detection/render loop), so a failure or restart in this web-facing
 # configuration interface cannot take down the ADS-B detection loop or the
@@ -33,8 +33,8 @@ ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/current/companion/app.py \
 Restart=always
 RestartSec=5
 
-# Hardening - the release-layout code path (/opt/skypane/current/...,
-# Plan 37-05/37-06) is the only place this process can execute from, and
+# Hardening -- the release-layout code path (/opt/skypane/current/...)
+# is the only place this process can execute from, and
 # everything below narrows what a compromised interpreter could still do
 # even with that code. ReadWritePaths stays scoped to the state directory
 # only - every other filesystem write is refused by ProtectSystem=strict.

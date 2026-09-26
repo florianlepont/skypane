@@ -6,7 +6,7 @@ Description=SkyPane BYOS device-protocol server (stub-server/byos_server.py)
 # a known vendored behaviour (stub-server/byos_server.py is not modified
 # again for this; see deploy/README.md "Known vendored behaviour"), so the
 # loopback restriction is enforced at the firewall/reverse-proxy layer
-# instead of in the app. A future plan (Wave B, after Phase 36) adds a
+# instead of in the app. A future plan (Wave B) adds a
 # --bind flag and IPAddressDeny/IPAddressAllow here to close the loopback
 # gap at the unit level too.
 After=network-online.target
@@ -27,8 +27,8 @@ ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/byos_se
 Restart=always
 RestartSec=5
 
-# Hardening - the release-layout code path (/opt/skypane/current/...,
-# Plan 37-05/37-06) is the only place this process can execute from, and
+# Hardening -- the release-layout code path (/opt/skypane/current/...)
+# is the only place this process can execute from, and
 # everything below narrows what a compromised interpreter could still do
 # even with that code. ReadWritePaths stays scoped to the state directory
 # only - every other filesystem write is refused by ProtectSystem=strict.
