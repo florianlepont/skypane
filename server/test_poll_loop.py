@@ -987,7 +987,7 @@ def test_non_default_runway_reaches_poll_current_aircraft(tmp_path, monkeypatch)
         device_config.save_device_config(runway_dir, tracked_runway="02-20")
         captured = {}
 
-        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
             captured["runway_id"] = runway_id
             if diagnostics is not None:
                 diagnostics.update({"queried": [], "failed": [], "selected": [], "disagreement": False, "runway_id": runway_id})
@@ -1006,7 +1006,7 @@ def test_all_failed_diagnostics_yields_true_fault_flag(tmp_path, monkeypatch):
     """an all-providers-failed diagnostics report yields a true source_fault flag passed to render.build_canvas"""
     fault_dir = _mkdir(tmp_path, "fault")
     try:
-        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
             if diagnostics is not None:
                 diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": ["adsbfi", "adsblol"], "selected": [], "disagreement": False, "runway_id": runway_id})
             return None
@@ -1034,7 +1034,7 @@ def test_successful_query_no_selection_yields_false_fault_flag(tmp_path, monkeyp
     """providers queried successfully with nothing selected leaves the source_fault flag false"""
     fault_dir = _mkdir(tmp_path, "nofault")
     try:
-        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
             if diagnostics is not None:
                 diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": [], "selected": [], "disagreement": False, "runway_id": runway_id})
             return None
@@ -1068,7 +1068,7 @@ def test_fault_transition_gated_not_value(tmp_path, monkeypatch):
     try:
         poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=trans_dir, geofence=GEOFENCE_PATH)
 
-        def _fake_poll_all_failed(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+        def _fake_poll_all_failed(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
             if diagnostics is not None:
                 diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": ["adsbfi", "adsblol"], "selected": [], "disagreement": False, "runway_id": runway_id})
             return None

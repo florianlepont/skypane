@@ -44,6 +44,15 @@ META_SOURCE_FAULT = "source_fault"
 META_CADDY_LOG_OFFSET = "caddy_log_offset"
 META_LAST_POLL_TRIGGER = "last_poll_trigger"
 
+# Prefix for one meta key per ADS-B provider name (e.g.
+# "provider_last_call:adsbfi"), holding that provider's own last-call
+# epoch as a float string. Fixed-size regardless of cycle count: one row
+# per provider, updated in place, never appended. Lives here rather than
+# in poll_state.json so a timer cycle and a companion-triggered poll-now
+# share the same bookkeeping across process boundaries without perturbing
+# poll_state.json's own "only write when content changes" contract.
+META_PROVIDER_LAST_CALL_PREFIX = "provider_last_call:"
+
 _RUNWAY_EVENT_COLUMNS = (
     "ts", "hex", "callsign", "aircraft_type", "confirmed_state",
     "corroborated", "route_source", "airline", "origin", "destination",

@@ -617,6 +617,41 @@ def _classify_source_fault(diagnostics):
     return set(failed) == set(queried)
 
 
+def _load_provider_last_calls(state_dir, provider_names):
+    """The `{provider_name: epoch_seconds}` map `detect.poll_current_aircraft()`
+    needs so a provider is never called twice within its own
+    `MIN_SECONDS_BETWEEN_CALLS` spacing across two back-to-back cycles - a
+    timer cycle immediately followed by the companion's `/poll-now`, each
+    its own process with no in-memory state of the other. Read from
+    `history.db`'s meta table (a plain SELECT, no transaction, through the
+    cycle's own scoped connection) rather than `poll_state.json`: see
+    `_record_history()`'s own comment for why this bookkeeping must never
+    perturb poll_state's "only write when content changes" contract.
+
+    A missing or unparsable stored value for one provider is silently
+    treated as "no previous call" for that provider alone (never an
+    exception - a corrupted value must not block detection); a
+    database/filesystem failure logs one line and returns an empty map,
+    so the cycle still polls, just without cross-cycle spacing memory for
+    this one cycle.
+    """
+    last_call_at = {}
+    try:
+        with history_db.open_db(state_dir) as conn:
+            for name in provider_names:
+                raw = history_db.get_meta(conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + name)
+                if raw is None:
+                    continue
+                try:
+                    last_call_at[name] = float(raw)
+                except (TypeError, ValueError):
+                    continue
+    except (sqlite3.Error, OSError) as exc:
+        print("poll_loop: could not read provider_last_call meta: %s: %s" % (type(exc).__name__, exc))
+        return {}
+    return last_call_at
+
+
 def _last_source_fault(state_dir):
     """Best-effort read of the previously-persisted fault flag from
     `history.db`'s meta table - not `poll_state.json`, to avoid a second
@@ -652,7 +687,7 @@ def _should_record_event(flight, confirmed_state, poll_state):
 _NO_WAKE_EPOCH = object()
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False):
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, provider_last_calls=None):
     """Write this cycle's durable signals into `history.db` in one
     connection and one transaction: every write below runs inside one
     `history_db.write_batch(conn)`, committed once as this function
@@ -678,6 +713,18 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     queue this cycle enqueued is a real detection in its own right). The
     last-detection timestamp advances on either signal, so "Last aircraft
     detected" never lags behind a genuinely queued sighting.
+
+    `provider_last_calls`, when a (non-empty) dict, is this cycle's
+    updated `{provider_name: epoch_seconds}` map from
+    `detect.poll_current_aircraft()` - written here, one meta row per
+    provider, inside the SAME batch as everything else above. Lives in
+    meta rather than poll_state.json so a timer cycle immediately
+    followed by the companion's `/poll-now` (two separate processes) never
+    calls the same provider twice within its own spacing limit, without
+    making poll_state.json's own "write only if content changed" bit flip
+    on every cycle just because a provider was queried. `None` (the hold
+    branch and the injected-snapshot path, neither of which queries a
+    live provider) writes nothing here.
     """
     route = route if isinstance(route, dict) else {}
     try:
@@ -706,6 +753,10 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                     history_db.ingest_caddy_battery_log(conn, caddy_log)
                 if wake_interval_s is not _NO_WAKE_EPOCH:
                     history_db.record_wake_epoch(conn, now_iso, wake_interval_s)
+                if provider_last_calls:
+                    for name, value in provider_last_calls.items():
+                        history_db.set_meta(
+                            conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + name, repr(float(value)))
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: history write failed: %s: %s" % (type(exc).__name__, exc))
 
@@ -1013,12 +1064,23 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     # source is down" apart from "nothing on the runway" - both otherwise
     # return the same None selection.
     diagnostics = None
+    # This cycle's updated `{provider_name: epoch_seconds}` map, persisted
+    # into history.db meta (never poll_state.json - see
+    # _record_history()'s own comment) by every _record_history() call
+    # below on the live path only. Stays None on the injected-snapshot
+    # path (no live provider is ever queried there, so there is nothing to
+    # persist) - `_load_provider_last_calls()` itself is also skipped on
+    # that path for the same reason.
+    provider_last_calls = None
     if snapshot is not None:
         aircraft = _extract_aircraft(snapshot)
         flight = detect.select_aircraft_for_runway(aircraft, geofence_data, runway_id=tracked_runway_id)
     else:
         diagnostics = {}
-        flight = detect.poll_current_aircraft(geofence_data, runway_id=tracked_runway_id, diagnostics=diagnostics)
+        provider_last_calls = _load_provider_last_calls(state_dir, detect.DEFAULT_PROVIDER_ORDER)
+        flight = detect.poll_current_aircraft(
+            geofence_data, runway_id=tracked_runway_id, diagnostics=diagnostics,
+            last_call_at=provider_last_calls)
 
     source_fault = _classify_source_fault(diagnostics)
     previous_source_fault = _last_source_fault(state_dir)
@@ -1234,6 +1296,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             state_dir, current_flight, confirmed_state, route_source, route,
             tracked_runway_id, source_fault, event_recorded, now_iso,
             caddy_log=caddy_log, wake_interval_s=effective_wake_interval_s,
+            provider_last_calls=provider_last_calls,
         )
     elif current_flight is not None:
         # Nothing new reached the display this cycle, but a flight was
@@ -1305,6 +1368,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             # the display (`current_flight`, unchanged here) - a distinct
             # aircraft that only got queued is still a real detection.
             detected=flight is not None,
+            provider_last_calls=provider_last_calls,
         )
     else:
         # Nothing detected, and nothing has ever been detected since the
@@ -1330,6 +1394,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             state_dir, None, None, None, None,
             tracked_runway_id, source_fault, False, now_iso,
             caddy_log=caddy_log, wake_interval_s=effective_wake_interval_s,
+            provider_last_calls=provider_last_calls,
         )
 
     # Shared call site for the frame-silence check, common to all three
