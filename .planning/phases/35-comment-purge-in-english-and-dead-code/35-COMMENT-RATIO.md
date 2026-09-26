@@ -774,3 +774,151 @@ Every one of the 79 files above has 0 history hits after this plan;
 `same-code --base 9baf745 --allow firmware/tools/gen_fault_screen.py
 <44 changed non-.md files>` exits 0, and
 `check --paths $(git ls-files firmware)` exits 0.
+
+## Final — whole-tree summary (35-22, phase close)
+
+Measured by `35-22` after the pending list was deleted (the guard's `check`
+now covers every tracked code file with no exceptions) and after the two
+tool refinements (a tighter `_PRAGMA_RE` shellcheck match, an AST-based
+`__doc__` read check). "Before" is `35-BASELINE/ratio-before.tsv` (264
+files, commit `83f4620` plus the foundation plan's own additions);
+"after" is `server/.venv/bin/python scripts/check_comment_history.py
+ratio` over every tracked, non-excluded file at commit `ec5ddda` (this
+plan's Task 1 commit). Both columns are produced by the same tool, so a
+few whole-tree gzip/line-count differences against the group sections
+above (which mixed in `gzip -9c | wc -c` and slightly earlier bases) are
+measurement-method noise, not a regression — every group's history-hit
+count is independently re-confirmed at 0 here.
+
+| Group | Directories | Files before | Files after | Lines before | Lines after | Comment % before | Comment % after | History hits before | History hits after |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2 | server/ | 36 | 36 | 30940 | 25602 | 37.2% | 24.1% | 1689 | 0 |
+| 3 | stub-server/ | 6 | 6 | 2915 | 2627 | 32.7% | 25.4% | 69 | 0 |
+| 4 | companion production (Python) | 33 | 33 | 30353 | 17371 | 63.6% | 36.4% | 3620 | 0 |
+| 5 | companion tests + test-support/ | 52 | 52 | 50312 | 47202 | 25.7% | 20.7% | 2605 | 0 |
+| 6 | companion static JS | 17 | 17 | 6518 | 4041 | 57.3% | 31.4% | 340 | 0 |
+| 7 | companion/static/style.css | 1 | 1 | 10689 | 4793 | 64.0% | 19.7% | 830 | 0 |
+| 8 | deploy/ + scripts/ + .github/ + root config + adsb-test/ + hardware/logtools.py | 48 | 48 | 8325 | 7848 | 22.8% | 18.0% | 199 | 0 |
+| 9 | firmware/ | 71 | 74 | 8472 | 8403 | 24.6% | 22.2% | 89 | 0 |
+| **Total** | | **264** | **267** | **148524** | **117887** | **39.9%** | **24.1%** | **9441** | **0** |
+
+The file count grows by 3 (264 -> 267): 2 new firmware host-test files
+added during the phase (e.g. `firmware/tests/test_nvs_boot.c`, already
+counted with 0 history hits in group 9's own table above) and this plan's
+own net addition to `test-support/test_check_comment_history.py` (new
+regression tests for the two tool refinements below), counted in group 5.
+
+`server/.venv/bin/python scripts/check_comment_history.py check` (no
+`--paths`, the whole tree) exits **0**.
+
+### Note on group 8 and group 9: `35-21b`'s later tightening
+
+The group 8 and group 9 sections above record each group's own
+closing-plan numbers (35-20 for group 8: 47 files, 7505 -> 7471 lines,
+24.7% -> 24.3%; 35-21 for group 9: 71 files, 8472 -> 9098 lines, 24.6% ->
+21.3%). Both groups contain many of the 24 files `35-21b` re-tightened
+*after* those closing plans ran, once commit `dbc1c28` fixed
+`_hash_code_lines` to drop blank/comment-only lines before comparison —
+letting a `#`-comment shrink instead of only reword (see
+`35-21b-SUMMARY.md`). The Final table above supersedes those two groups'
+own "after" rows for that reason; group 8's Final row also folds in
+`scripts/check_comment_history.py` itself (830 lines, 5.9% comment ratio,
+0 hits), which `35-BASELINE/INDEX.md` always counted in group 8's
+48-file total but the group-8 closing plan's own table (out of its
+`files_modified` scope) did not re-list. Every other group above was
+untouched by both `35-21b` and this plan's own edits, so its Final row
+matches its own section's "after" row exactly (confirmed for groups 2,
+3, 4 and 6).
+
+### style.css shipped size
+
+| | Raw bytes | Gzip -9 bytes |
+|---|---:|---:|
+| Before | 512795 | 170211 |
+| After | 140426 | 36812 |
+
+(`35-BASELINE/INDEX.md` recorded 170113 gzip bytes via the `gzip -9c \|
+wc -c` CLI; the ratio tool's own `gzip.compress(raw, 9)` gives 170211 for
+the same before-revision — a ~100-byte difference from the gzip header's
+OS/mtime fields, not a content difference. The group 7 section above used
+yet another CLI measurement at a slightly different base, hence its own
+170819/36735. All three agree the file shrank by roughly 78%.)
+
+### companion/static/*.js shipped size (17 files)
+
+| | Raw bytes | Gzip -9 bytes |
+|---|---:|---:|
+| Before | 303536 | 112307 |
+| After | 153495 | 55828 |
+
+## Requirements — HYG-01..06 evidence
+
+**HYG-01** (keep the *why* and invariants, drop plan/ticket history) and
+**HYG-02/HYG-03** (the same purge across every language, CSS and JS
+included): the Final table above shows **0 history hits** across all 267
+tracked code files (was 9441 across 264 before this phase started), and
+`check` over the whole tree exits 0 with no `--paths` and no pending-list
+exception. Each group's own section above records the `same-code` proof
+that ran against that group's own base commit at close time (groups 5-8
+have an explicit "same-code and check evidence" subsection; groups 2, 3,
+4 and 9 record the same proof inline against their own base — see
+`35-02-SUMMARY.md`/`35-03-SUMMARY.md`/`35-04-SUMMARY.md` (group 2),
+`35-06-SUMMARY.md` (group 3), `35-13-SUMMARY.md` (group 4, HYG-05's own
+plan) and `35-21-SUMMARY.md` (group 9) for each group's commit list).
+`35-21b-SUMMARY.md` re-proves `same-code --base dbc1c28` on its own 24
+re-tightened files. This plan's Task 1 re-proves the guard itself is
+sound on the final tree (see the mutation and per-language plant results
+below), so a 0-hit result here is a guard that actually still looks.
+
+**HYG-04** (English-only rule for code, comments, docs and commits, in
+`CLAUDE.md` and `CONTRIBUTING.md`): `.claude/CLAUDE.md` lines 46-47 —
+"Code, identifiers, comments, docstrings, docs and commit messages are in
+English." `CONTRIBUTING.md`'s "Code language and comments" section
+carries the same rule plus the plan/ticket-ID prohibition, and (as of
+this plan) points at the guard without mentioning a pending list:
+"`scripts/check_comment_history.py check` enforces this in CI, scanning
+every tracked code file."
+
+**HYG-05** (delete confirmed-dead code found during the purge): four
+functions deleted in `35-13` — `companion/pages/health_page.py`'s
+`health_severity()` and `anomaly_active()`, `companion/draw.py`'s
+`usable_pairs()` and `label_grid()` — each re-checked against current
+`main` with `git grep -nw` and found to have no production caller before
+deletion (only test callers, which `35-13` re-pointed at
+`health_page.safe_health_state()`, the function `app.py`'s
+`page_context()` actually calls, or partially edited to drop only the
+dead-function assertions). `git grep -n "health_page\.health_severity\|
+health_page\.anomaly_active\|draw\.usable_pairs\|draw\.label_grid\|def
+health_severity\|def anomaly_active\|def usable_pairs\|def label_grid"`
+against the current tree returns exactly one hit, a string-literal test
+fixture inside `companion/test_suite_guards.py` (data for the static
+analysis guard's own self-test, never executed as a call); no definition
+and no real call to any of the four deleted functions remains anywhere.
+
+**HYG-06** (a CI lint guard rejecting plan/ticket IDs in comments): the
+"Comment history guard" step in `.github/workflows/ci.yml`'s lint job
+runs `server/.venv/bin/python scripts/check_comment_history.py check`
+with no arguments, unconditionally over the whole tree, right after the
+blocking `ruff check .` step — no allowlist, no pending list, no skipped
+paths. This plan's Task 1 re-proved the guard mechanically on the final
+tree:
+- All **45** pattern-set mutations are killed by the test suite: the 10
+  `plan-artifact` suffixes, 3 `d-id` branches, all 27 `prefix-id`
+  allowlist entries and 3 `bare-plan-id` forms from `35-01`'s original
+  43-mutation sweep, plus 2 new mutations for this plan's own tool
+  changes (the `_PRAGMA_RE` shellcheck-directive alternative, and the
+  AST-based `__doc__` read check) — each alternative/check removed from
+  a working copy, the full test suite re-run, at least one test failed,
+  the file restored, `git diff` empty.
+- A `# see D-06` (or the language's own comment syntax) planted in one
+  tracked file per language family — `server/plane/dither.py` (Python),
+  `firmware/main/wake_deadline.c` (C), `companion/static/copy-button.js`
+  (JS), `companion/static/style.css` (CSS), `scripts/lock-deps.sh`
+  (shell), `.github/workflows/firmware.yml` (YAML/hash-format) — made
+  `check` exit 1 every time, naming the planted file and matched text;
+  reverted with `git checkout --` after each plant, `check` back to exit
+  0, `git diff` empty throughout.
+
+Every HYG requirement (HYG-01 through HYG-06; HYG-05 was already complete
+before this plan) is now confirmed with evidence and marked complete in
+`REQUIREMENTS.md`.
