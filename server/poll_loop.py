@@ -22,6 +22,7 @@ Usage:
     server/.venv/bin/python3 server/poll_loop.py --once --state-dir /tmp/x
 """
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -37,6 +38,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+import server.atomic_io as atomic_io
 import server.device_config as device_config
 import server.history_db as history_db
 import server.notify as notify
@@ -77,6 +79,58 @@ MAX_STALENESS_S = 150
 # burst piling up entries between two advances: at most 150/30 = 5
 # aircraft can legitimately queue inside one staleness window.
 MAX_PENDING_FLIGHTS = 5
+
+# --- Cross-process poll-cycle lock ------------------------------------------
+#
+# poll.lock serialises run_once() across every process that shares
+# state_dir: the systemd oneshot (main()) and the companion's POST
+# /poll-now both go through poll_cycle_lock() below. A normal cycle takes
+# a few seconds; POLL_LOCK_WAIT_S=10 plus a worst-case cycle (every
+# upstream at its own bounded deadline) stays comfortably under the
+# systemd unit's TimeoutStartSec=90s.
+POLL_LOCK_FILENAME = "poll.lock"
+POLL_LOCK_WAIT_S = 10.0
+
+
+class PollBusy(RuntimeError):
+    """Raised when another process (or thread) holds poll.lock past the
+    caller's own wait budget. The companion's lock_timeout_s=0 fast path
+    catches this to answer the existing "already running" flash without
+    ever blocking a request thread; the systemd oneshot waits up to
+    POLL_LOCK_WAIT_S, then fails the cycle cleanly (main() prints this
+    exception's message and returns 1).
+    """
+
+    def __init__(self, lock_path, waited_s):
+        self.lock_path = lock_path
+        self.waited_s = waited_s
+        super().__init__(
+            "poll_loop: another poll cycle holds %s; this cycle was skipped after %s s"
+            % (lock_path, waited_s)
+        )
+
+
+@contextlib.contextmanager
+def poll_cycle_lock(state_dir, timeout_s=None):
+    """Serialises a poll cycle across every process sharing `state_dir`.
+    `timeout_s=None` (the systemd oneshot's default) waits up to
+    POLL_LOCK_WAIT_S; `timeout_s=0` (the companion's non-blocking fast
+    path) raises PollBusy at once rather than ever blocking a request
+    thread; any other value waits up to that many seconds. Read from the
+    module global at call time (not a default-argument value), so a test
+    that monkeypatches POLL_LOCK_WAIT_S is honoured. Translates
+    atomic_io.LockBusy into the poll-cycle-specific PollBusy, so a caller
+    need not import atomic_io just to catch this.
+    """
+    if timeout_s is None:
+        timeout_s = POLL_LOCK_WAIT_S
+    os.makedirs(state_dir, exist_ok=True)
+    lock_path = os.path.join(state_dir, POLL_LOCK_FILENAME)
+    try:
+        with atomic_io.exclusive_lock(lock_path, timeout_s, blocking=timeout_s != 0):
+            yield
+    except atomic_io.LockBusy as exc:
+        raise PollBusy(lock_path, timeout_s) from exc
 
 
 def now_s():
@@ -480,23 +534,13 @@ def _notify_silence_transition(state_dir, poll_state, conn, device_cfg, sender=N
 
 
 def save_poll_state(state_dir, state):
-    """Atomic tmp-write-then-os.replace(), matching
-    stub-server/byos_server.py's save_state(). Never leaves a stray .tmp
-    file behind, even if the write itself fails.
+    """Atomic same-directory-mkstemp-then-os.replace() via atomic_io, so two
+    processes writing this same path (the systemd oneshot and the
+    companion's POST /poll-now, both under poll_cycle_lock()) can never
+    collide on one fixed temp name. Never leaves a stray temp file behind,
+    even if the write itself fails.
     """
-    path = _poll_state_path(state_dir)
-    tmp = path + ".tmp"
-    try:
-        with open(tmp, "w") as fh:
-            json.dump(state, fh, indent=1)
-        os.replace(tmp, path)
-    except Exception:
-        if os.path.exists(tmp):
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
-        raise
+    atomic_io.atomic_write(_poll_state_path(state_dir), json.dumps(state, indent=1))
 
 
 def write_panel_atomic(state_dir, rendered):
@@ -676,10 +720,27 @@ def _save_to_gallery(state_dir, canvas, now_iso):
         print("poll_loop: gallery archive failed: %s: %s" % (type(exc).__name__, exc))
 
 
-def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
-    """One poll cycle. `snapshot=None` polls the live aggregators; a
-    non-None `snapshot` is a raw aggregator response dict injected by
-    tests (no live network call).
+def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None):
+    """One poll cycle, serialised across every process that shares
+    `state_dir` by `poll_cycle_lock()`: the lock is held for the cycle's
+    whole body, acquired before any state read. `lock_timeout_s`
+    is passed straight through to `poll_cycle_lock()` - `None` (the
+    systemd oneshot's default) waits up to `POLL_LOCK_WAIT_S`; `0` (the
+    companion's POST /poll-now) raises `PollBusy` at once rather than
+    ever blocking a request thread. See `_run_once_locked()` for the
+    cycle itself.
+    """
+    state_dir = state_dir or DEFAULT_STATE_DIR
+    with poll_cycle_lock(state_dir, lock_timeout_s):
+        return _run_once_locked(
+            snapshot=snapshot, state_dir=state_dir, geofence=geofence, caddy_log=caddy_log)
+
+
+def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
+    """The poll cycle itself, called by `run_once()` only while
+    `poll_cycle_lock()` is held. `snapshot=None` polls the live
+    aggregators; a non-None `snapshot` is a raw aggregator response dict
+    injected by tests (no live network call).
 
     Returns {"flight", "state", "panel_changed", "theme",
     "effective_theme", "tracked_runway", "source_fault",
@@ -1294,6 +1355,13 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
         run_once(state_dir=args.state_dir, geofence=args.geofence, caddy_log=args.caddy_log)
+    except PollBusy as exc:
+        # Distinct from the generic failure below: another process (the
+        # companion, or an overlapping timer firing) is mid-cycle, not a
+        # cycle that itself failed. No traceback - this is an expected,
+        # bounded wait outcome, not a bug.
+        print(str(exc))
+        return 1
     except Exception as exc:
         # A failed cycle must leave the previously served panel intact and
         # never crash-loop the systemd timer silently - log to stdout

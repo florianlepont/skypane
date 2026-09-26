@@ -435,7 +435,11 @@ LOGIN_THROTTLE = auth.LoginThrottle()
 # Guards the check-cooldown -> run_once() -> mark-triggered sequence in
 # _handle_poll_now(), so two concurrent POST /poll-now requests can
 # never both call poll_loop.run_once(). Process-local only: correct
-# because main() runs exactly one ThreadingHTTPServer in one OS process.
+# because main() runs exactly one ThreadingHTTPServer in one OS process -
+# the in-process fast path. Cross-process exclusion (the systemd oneshot
+# racing this same handler) is poll_loop.poll_cycle_lock()'s poll.lock,
+# taken inside run_once() itself with lock_timeout_s=0 below, so a busy
+# lock never blocks this request thread.
 _POLL_LOCK = threading.Lock()
 
 _PAGE_TITLES = {
@@ -1952,8 +1956,15 @@ class Handler(BaseHTTPRequestHandler):
                     # The exact production code path the systemd timer
                     # already runs, in-process — never a second process
                     # and never a re-parsed subprocess result.
+                    # lock_timeout_s=0: never block this request thread on
+                    # poll.lock — a lock held by another process (the
+                    # oneshot, or an overlapping trigger) must answer at
+                    # once, exactly like the in-process _POLL_LOCK above.
                     poll_loop.run_once(
-                        state_dir=state_dir, geofence=self.args.geofence)
+                        state_dir=state_dir, geofence=self.args.geofence,
+                        lock_timeout_s=0)
+                except poll_loop.PollBusy:
+                    flash = FLASH_KEY_POLL_ALREADY_RUNNING
                 except Exception:
                     flash = FLASH_KEY_POLL_FAILED
                 else:

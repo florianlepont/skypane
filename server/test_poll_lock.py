@@ -1,13 +1,13 @@
-"""INT-01's reproduction: two OS processes, each 200 iterations of a locked
-read-increment-save cycle against the same `poll_state.json`, must end at
-counter == 400 with zero exceptions in either child and zero lost updates.
+"""The cross-process poll-cycle lock's reproduction: two OS processes, each
+200 iterations of a locked read-increment-save cycle against the same
+`poll_state.json`, must end at counter == 400 with zero exceptions in
+either child and zero lost updates.
 
-This is a REGRESSION test against the pre-`poll_cycle_lock()` code shape
-(a fixed `poll_state.json.tmp` name, no cross-process lock): the child
-script below falls back to a no-op context manager when
-`poll_loop.poll_cycle_lock` does not exist yet, so this file's RED run
-(recorded in the plan's own SUMMARY) demonstrates the bug this plan fixes,
-not merely a missing attribute error.
+This is a REGRESSION test against the pre-`poll_cycle_lock()` code shape (a
+fixed `poll_state.json.tmp` name, no cross-process lock): its RED run
+(getattr-fallback shim now removed, recorded in the plan's own SUMMARY
+instead) reproduced the bug this plan fixes - 4 of 5 runs failed with
+FileNotFoundError on the shared poll_state.json.tmp, one happened to pass.
 """
 import os
 import subprocess
@@ -16,17 +16,14 @@ import sys
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 _LOCK_RACE_TEMPLATE = """
-import contextlib
 import sys
 sys.path.insert(0, {repo_root!r})
 import server.poll_loop as poll_loop
 
 state_dir, count = sys.argv[1], int(sys.argv[2])
 
-lock_ctx = getattr(poll_loop, "poll_cycle_lock", None) or (lambda sd: contextlib.nullcontext())
-
 for _ in range(count):
-    with lock_ctx(state_dir):
+    with poll_loop.poll_cycle_lock(state_dir):
         state = poll_loop.load_poll_state(state_dir)
         state["counter"] = state.get("counter", 0) + 1
         poll_loop.save_poll_state(state_dir, state)

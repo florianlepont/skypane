@@ -57,7 +57,9 @@ import os
 import platform
 import shutil
 import sqlite3
+import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 
 import pytest
@@ -3263,3 +3265,120 @@ def test_silence_transition_parked_suppresses_false_alert(tmp_path):
         shutil.rmtree(unparked_dir, ignore_errors=True)
         shutil.rmtree(parked_dir, ignore_errors=True)
 
+
+
+# ==========================================================================
+# run_once()'s cross-process poll_cycle_lock(), from the caller side -
+# server/test_poll_lock.py owns the two-process x 200 reproduction itself;
+# these tests cover run_once()'s lock_timeout_s parameter and main()'s
+# PollBusy handling.
+# ==========================================================================
+
+_POLL_LOCK_HOLDER_TEMPLATE = """
+import os
+import sys
+sys.path.insert(0, {repo_root!r})
+from server import atomic_io
+
+lock_path = os.path.join(sys.argv[1], "poll.lock")
+with atomic_io.exclusive_lock(lock_path, 5):
+    print("locked", flush=True)
+    sys.stdin.read()  # blocks until the parent closes stdin, releasing the lock
+"""
+
+_POLL_LOCK_TIMED_HOLDER_TEMPLATE = """
+import os
+import sys
+import time
+sys.path.insert(0, {repo_root!r})
+from server import atomic_io
+
+lock_path = os.path.join(sys.argv[1], "poll.lock")
+hold_s = float(sys.argv[2])
+with atomic_io.exclusive_lock(lock_path, 5):
+    print("locked", flush=True)
+    time.sleep(hold_s)
+"""
+
+
+def _spawn_poll_lock_holder(state_dir, script_name, template, extra_args=()):
+    """Start a child process holding <state_dir>/poll.lock, confirmed via
+    its own "locked" stdout line before returning - so the parent never
+    races the child's own lock acquisition.
+    """
+    os.makedirs(state_dir, exist_ok=True)
+    script_path = os.path.join(state_dir, script_name)
+    with open(script_path, "w") as fh:
+        fh.write(template.format(repo_root=REPO_ROOT))
+    env = dict(os.environ)
+    env["PYTHONPATH"] = REPO_ROOT
+    child = subprocess.Popen(
+        [sys.executable, script_path, state_dir] + list(extra_args),
+        cwd=REPO_ROOT, env=env,
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+    )
+    line = child.stdout.readline()
+    assert line.strip() == "locked", (
+        "expected the lock-holder child to report itself locked, got %r" % (line,))
+    return child
+
+
+def test_run_once_busy_lock_raises_promptly_and_writes_nothing(tmp_path):
+    """with a child process holding poll.lock, run_once(lock_timeout_s=0) raises PollBusy
+    within 0.5s and creates neither poll_state.json nor panel.bin"""
+    state_dir = str(tmp_path)
+    holder = _spawn_poll_lock_holder(state_dir, "_holder.py", _POLL_LOCK_HOLDER_TEMPLATE)
+    try:
+        start = time.monotonic()
+        with pytest.raises(poll_loop.PollBusy):
+            poll_loop.run_once(
+                snapshot=_snapshot("aaaaaa", "FLIGHT1 ", 2400), state_dir=state_dir,
+                geofence=GEOFENCE_PATH, lock_timeout_s=0)
+        elapsed = time.monotonic() - start
+        assert elapsed < 0.5, (
+            "expected run_once(lock_timeout_s=0) to raise promptly, took %.3fs" % elapsed)
+    finally:
+        holder.stdin.close()
+        assert holder.wait(timeout=5) == 0
+
+    assert not os.path.exists(os.path.join(state_dir, "poll_state.json")), (
+        "a busy run_once() must never have started writing poll_state.json")
+    assert not os.path.exists(os.path.join(state_dir, "panel.bin")), (
+        "a busy run_once() must never have started writing panel.bin")
+
+
+def test_run_once_waits_for_a_held_lock_then_completes(tmp_path):
+    """a child holds poll.lock for 0.5s; run_once(lock_timeout_s=5) waits, then completes
+    normally"""
+    state_dir = str(tmp_path)
+    holder = _spawn_poll_lock_holder(
+        state_dir, "_timed_holder.py", _POLL_LOCK_TIMED_HOLDER_TEMPLATE, extra_args=("0.5",))
+    try:
+        result = poll_loop.run_once(
+            snapshot=_snapshot("aaaaaa", "FLIGHT1 ", 2400), state_dir=state_dir,
+            geofence=GEOFENCE_PATH, lock_timeout_s=5)
+        assert result["flight"]["hex"] == "aaaaaa", (
+            "expected run_once() to complete normally once the lock freed, got %r" % (result,))
+    finally:
+        assert holder.wait(timeout=5) == 0
+    assert os.path.exists(os.path.join(state_dir, "poll_state.json")), (
+        "expected a completed cycle to have written poll_state.json"
+    )
+
+
+def test_main_busy_lock_prints_the_lock_path_and_exits_1(tmp_path, monkeypatch, capsys):
+    """with the lock held elsewhere and POLL_LOCK_WAIT_S monkeypatched to 0.2,
+    main(["--state-dir", sd]) returns 1 and stdout names the busy lock"""
+    state_dir = str(tmp_path)
+    monkeypatch.setattr(poll_loop, "POLL_LOCK_WAIT_S", 0.2)
+    holder = _spawn_poll_lock_holder(state_dir, "_holder.py", _POLL_LOCK_HOLDER_TEMPLATE)
+    try:
+        exit_code = poll_loop.main(["--state-dir", state_dir, "--geofence", GEOFENCE_PATH])
+        assert exit_code == 1, "expected main() to return 1 on a busy lock, got %r" % (exit_code,)
+        captured = capsys.readouterr()
+        lock_path = os.path.join(state_dir, poll_loop.POLL_LOCK_FILENAME)
+        assert lock_path in captured.out, (
+            "expected stdout to name the busy lock path %r, got %r" % (lock_path, captured.out))
+    finally:
+        holder.stdin.close()
+        assert holder.wait(timeout=5) == 0
