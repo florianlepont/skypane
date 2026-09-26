@@ -1764,7 +1764,7 @@ Plans:
 4. byos survives malformed `Content-Length`/`mac` input; poll unit has a start timeout
 5. A transient adsbdb error is never cached as a miss
 
-**Plans:** 7 plans (3 waves)
+**Plans:** 1/7 plans executed
 
 **Execution gate:** starts only once Phase 35 is complete on `main` (gate G-35, first task of 36-01 and 36-02). Plan 37-11 (byos `--bind`) runs after this phase.
 
@@ -1772,7 +1772,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 36-01-PLAN.md — `server/atomic_io.py`: `atomic_write` (unique temp names) + `exclusive_lock` (flock) [INT-01, INT-02]
+- [x] 36-01-PLAN.md — `server/atomic_io.py`: `atomic_write` (unique temp names) + `exclusive_lock` (flock) [INT-01, INT-02]
 - [ ] 36-02-PLAN.md — `server/http_fetch.py`: total deadline per HTTP call + pinned-address HTTPS; `TimeoutStartSec` on the poll unit [INT-07, INT-14]
 
 **Wave 2** *(blocked on Wave 1 completion)*

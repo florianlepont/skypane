@@ -151,8 +151,8 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **HYG-04**: English-only rule for code, comments, docs and commits in CLAUDE.md and CONTRIBUTING.md
 - [x] **HYG-05**: Deleted
 - [x] **HYG-06**: Lint guard in CI rejecting plan/ticket IDs in comments (e.g. `\d{2}-\d{2}-PLAN`, `D-\d+`, `WR-\d+`)
-- [ ] **INT-01**: `fcntl.flock` on `state/poll.lock` around `run_once`
-- [ ] **INT-02**: One `atomic_write(path, data)` with unique temp names
+- [x] **INT-01**: `fcntl.flock` on `state/poll.lock` around `run_once`
+- [x] **INT-02**: One `atomic_write(path, data)` with unique temp names
 - [ ] **INT-03**: Thread lock + flock
 - [ ] **INT-04**: `mkstemp`, pruning, bounded cache
 - [ ] **INT-05**: Content-addressed `state/img/<sha>.bin` (last N kept); 404 on unknown hash
@@ -401,8 +401,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HYG-04 | Phase 35 | Complete |
 | HYG-05 | Phase 35 | Complete |
 | HYG-06 | Phase 35 | Complete |
-| INT-01 | Phase 36 | Pending |
-| INT-02 | Phase 36 | Pending |
+| INT-01 | Phase 36 | Complete |
+| INT-02 | Phase 36 | Complete |
 | INT-03 | Phase 36 | Pending |
 | INT-04 | Phase 36 | Pending |
 | INT-05 | Phase 36 | Pending |
