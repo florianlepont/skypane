@@ -5300,38 +5300,11 @@ table.data-table--registry .cell-inline-sep {
   text-align: center;
 }
 
-/* 22-12-PLAN.md Task 1 (D-08's C1, 22-UI-SPEC.md §1 Typography / §2 X8):
- * the in-tile variant of the block above, emitted only by
- * layout.empty_state(..., compact=True). The type change itself is NOT
- * here — the compact form composes the already-existing `.text-body
- * .widget-verdict` and `.text-label .widget-detail` pairs, which is the
- * whole reason no new type tier had to be invented. This rule therefore
- * declares nothing but box: a tile already supplies its own padding, so
- * a second 24px inset inside it read as a floating island, and the
- * centring that is right for a full-card empty state fights the tile's
- * own left-aligned label/verdict/detail column. Zero padding plus the
- * inherited left alignment is what makes the empty tile occupy exactly
- * the verdict and detail slots of X8's one-tile anatomy. */
 .empty-state--compact {
   padding: 0;
   text-align: left;
 }
 
-/* The two child rules the compact variant needs, and the only two rules
- * `.empty-state__heading` / `.empty-state__body` have ever had in this
- * file — both classes existed as bare markup hooks until now, with all
- * of their treatment coming from the co-classed `.text-*` tier. Scoped
- * to the compact wrapper so the full-card form stays byte-identical.
- *
- * The heading takes the semibold weight `.text-body` does not declare,
- * landing it on the Emphasis role (16px sans semibold) — the same
- * treatment a tile's verdict row wears, reached through the empty
- * state's own class rather than by borrowing `.widget-verdict`, which
- * would claim a judgement an empty state does not make. The margins
- * match `.widget-verdict`'s own rhythm so a compact empty state and a
- * filled tile sit on the same baseline grid. The body needs no rule of
- * its own: `.text-label` sizes it and `.section-caption` supplies this
- * file's single 70% muted strength. */
 .empty-state--compact .empty-state__heading {
   margin: 0 0 var(--space-xs);
   font-weight: var(--weight-semibold);
@@ -5341,34 +5314,9 @@ table.data-table--registry .cell-inline-sep {
   margin: 0;
 }
 
-/* Native <details>/<summary> disclosures (06.6.3, shared) — first use in
- * this file (grep confirms zero prior details/summary rules). Used by the
- * Battery readings table (D-08) and the History mobile per-card detail
- * region (D-07). The 44px hit-target floor matches every other
- * interactive element's floor (D-22); both marker rules are required
- * since Safari supports only the -webkit- form on <summary> specifically,
- * unlike <li>. */
-/* quick task 260902-ep7 (BUG 3): `color: var(--color-accent)` added.
- * Before this, the element's own label text (not just its ::marker,
- * below) declared no colour at all and inherited full-strength
- * `--color-text`, so a disclosure control was visually indistinguishable
- * from static text except by hovering over it. A <summary> is a
- * disclosure CONTROL — the same interaction class as this file's
- * already-listed "links" accent use — which is the reasoning that
- * admits it to the accent-reservation list in the file header above.
- * `cursor: pointer`, the 44px hit-target floor and the flex centring
- * below are unchanged and were already correct.
- *
- * Deliberately declined: the validated sketch also declares
- * `font-size: var(--font-label-size)` on its two summaries
- * (`summary.readings-summary` / `details.more-details summary`). Not
- * applied here — a size change was not the reported defect, is not what
- * makes the element read as interactive, and would land on all three
- * real disclosure call sites at once as an unrequested rider (health_page
- * .py's readings table and Corroboration "More details", history_page
- * .py's mobile per-card "More details" — verified by grep). Recorded
- * here so the delta from the sketch stays visible rather than
- * forgotten. */
+/* Native <details>/<summary>, first use in this file. Both marker rules
+ * below are required: Safari supports only the -webkit- form on
+ * <summary> specifically, unlike <li>. */
 summary {
   cursor: pointer;
   min-height: 44px;
@@ -5385,39 +5333,10 @@ summary::-webkit-details-marker {
   color: var(--color-accent);
 }
 
-/* T3 (22-AUDIT.md, 22-UI-SPEC.md §5 contract 3, 22-15-PLAN.md Task 1).
- * The two marker rules directly above have had no effect since the
- * `summary` rule gained `display: flex`: a flex container generates no
- * `::marker` at all, so every <details> in the app lost its open/closed
- * indicator and a disclosure was distinguishable from static text only
- * by its accent colour. The rules are kept rather than deleted — they
- * are correct for any future non-flex summary and cost nothing — and
- * this explicit chevron restores the indicator for the flex one.
- *
- * This RESTORES the `<summary>` disclosure-marker entry already on the
- * accent-reservation list in this file's header comment. It is not a
- * new accent consumer and the list does not change: `currentColor`
- * resolves to the `summary` rule's own `--color-accent` wherever that
- * colour is in force, and to the inherited colour where a call site
- * deliberately overrides it (`.tab-bar__link` sets `--color-text`, so
- * the tab bar's chevron is text-coloured, not accent-coloured, which is
- * what an inactive tab must be).
- *
- * Pure geometry, no glyph: two 2px edges of an empty box rotated 45
- * degrees. Deliberately not a text character — a `content` string is
- * exactly the hard-coded-English hazard T10 had to unpick, and an arrow
- * glyph's rendering varies by installed font.
- *
- * `flex: none` is load-bearing: the chevron is a flex ITEM of the
- * summary row, and without it a long label would shrink the box to a
- * sliver. `margin-right` rather than a `gap` on the parent, so no
- * existing summary's own internal spacing changes.
- *
- * The rotation is a `transform` and the fade is a `transition`, both
- * already covered by the single global `@media (prefers-reduced-motion:
- * reduce)` block at the top of this file. NO per-rule reduced-motion
- * block is added here: references/accessibility-contrast.md's "What to
- * Avoid" names that as dead code, not a safety net. */
+/* content: "" plus two rotated borders, not a text glyph: a flex
+ * container generates no native ::marker at all, and a glyph's
+ * rendering varies by font. Covered by the global prefers-reduced-motion
+ * block already; no per-rule block needed. */
 summary::before {
   content: "";
   flex: none;
@@ -5430,9 +5349,8 @@ summary::before {
   transition: transform .15s ease;
 }
 
-/* Child combinator, not a descendant one: a <details> nested inside
- * another one must never rotate its parent's marker. (0,1,2) against
- * the (0,0,2) base above. */
+/* Child combinator, not descendant: a nested <details> must never
+ * rotate its parent's own marker. (0,1,2) against the (0,0,2) base. */
 details[open] > summary::before {
   transform: rotate(45deg);
 }
@@ -5441,39 +5359,14 @@ details[open] > summary::before {
   margin-top: var(--space-md);
 }
 
-/* Stat tile: a card with a status-coloured top border. `min-width: 0` is
- * the first declaration and is load-bearing — a grid item's default
- * minimum size is its content's intrinsic width, and the Battery-trend
- * tile contains a .data-table carrying `min-width: max-content` (see
- * above), deliberately, so tables never crop. Without `min-width: 0` that
- * intrinsic width propagates up and stretches the tile's whole
- * dashboard-grid track far past the 240px floor, pushing sibling tiles
- * off-grid and forcing horizontal scroll on the page itself. With it, the
- * existing .data-table-wrap { overflow-x: auto } absorbs the width
- * instead, which is exactly what that wrapper is for. */
-/* 06.6.4 (D-03) supersedes 06.6.1's D-02 shadow-at-rest direction: the
- * hairline outline is back, and the resting shadow is gone — the shadow
- * now appears only on hover/focus-within, below. Do not restore both at
- * once; the two are mutually exclusive states, not additive.
- *
- * quick task 260902-gjj (Task 3): CORRECTED — the claim this comment
- * used to make here, "the status-coloured top border is unaffected
- * either way: it draws from a different property (border-top) than the
- * general border, so the two always coexist without fighting each
- * other," was FALSE. `.stat-tile:hover, .stat-tile:focus-within` below
- * is (0,2,0) and declares `border-color: transparent` — a SHORTHAND that
- * expands to all four `border-*-color` longhands, including
- * `border-top-color`. Each `.stat-tile--{status}` modifier below was
- * (0,1,0), so on hover/focus-within it lost to the hover rule and the
- * status-coloured top border resolved to transparent — a latent defect,
- * pre-existing and not introduced by this task, worth fixing here
- * because Task 2 of this same quick task extends this exact pattern to
- * two page-level cards and cites this rule's own (false) reasoning as
- * precedent. The modifiers below are now written in the doubled
- * (0,2,0) form, matching the fix `.battery-trend-section`/`.page-section`
- * already use (see those rules' own status-modifier block) — a harness
- * check pins the doubled form and the required after-hover source
- * order. */
+/* min-width: 0 must be first and is load-bearing: a grid item's default
+ * min size is its content's intrinsic width, and a .data-table inside
+ * (min-width: max-content) would otherwise stretch this tile's whole
+ * grid track and force horizontal scroll on the page. */
+/* Hairline-at-rest, shadow-on-hover; the two states are mutually
+ * exclusive, never additive. Status modifiers below use the doubled
+ * (0,2,0) form: a single-class (0,1,0) modifier ties the hover rule's
+ * own (0,2,0) border-color: transparent shorthand and loses to it. */
 .stat-tile {
   min-width: 0;
   padding: var(--space-md);
@@ -5485,26 +5378,12 @@ details[open] > summary::before {
   transition: box-shadow .15s, transform .15s;
 }
 
-/* :focus-within alongside :hover on purpose: several tiles now contain
- * focusable children (the sparkline hit targets from Phase 06.5), and a
- * keyboard user should get the same lift affordance a mouse user gets.
- *
- * 22-04-PLAN.md Task 2 (T9): this declaration used to clear the resting
- * hairline the moment the shadow appears, on all four edges, "so the
- * two treatments never overlap (D-03)" — that stops being true of the
- * TOP edge as of this task: `border-inline-color`/`border-block-end-color`
- * (side-and-bottom only) replace the four-edge `border-color: transparent`
- * shorthand, leaving `border-block-start` — a modifier tile's own
- * status/accent rail (`.stat-tile--ok/--warn/--error/--accent` above) —
- * intact through hover/focus-within instead of erasing it. The two
- * treatments still never overlap on the three edges this rule still
- * clears; only the top rail is now exempt, deliberately.
- *
- * `:not(.frame-strip)` scopes the WHOLE hover/focus-within reveal (the
- * border change and the lift alike) away from the Frame strip: the
- * strip is a control area, not a browsable card, and must not lift 1px
- * or lose its own top rail just because a button inside it is hovered
- * or focused. */
+/* :focus-within alongside :hover: several tiles hold focusable children
+ * (chart hit targets) and need the same lift for keyboard users.
+ * border-inline-color/border-block-end-color (not the four-edge
+ * shorthand) spare the top rail, so a status/accent modifier survives
+ * hover. :not(.frame-strip) excludes the control strip, which must not
+ * lift just because a button inside it is hovered. */
 .stat-tile:not(.frame-strip):hover, .stat-tile:not(.frame-strip):focus-within {
   border-inline-color: transparent;
   border-block-end-color: transparent;
@@ -5528,55 +5407,6 @@ details[open] > summary::before {
   border-top-color: var(--color-accent);
 }
 
-/* CURRENT CONTRACT (06.6.4.1.1, D-13): this rule is no longer a serif
- * exception at all. It now states the one unified 12px uppercase label
- * voice every label-shaped element in the app shares — sans, 12px,
- * semibold, uppercase, 0.06em tracking, the file's existing 70%
- * color-mix muted strength — the same declarations `.data-table th`,
- * `.data-card__label`, `.filter-bar__count`, `.banner__pill` and
- * `.airline-card__chip` all now carry too (each edited in the same
- * plan). No serif text remains at Label size anywhere in the companion.
- *
- * SUPERSEDED (06.6.1 through quick task 260902-iag): this rule used to be
- * the one named Label-role serif exception in the file — the entire
- * premise of the two adjudications below was a four-role scale in which
- * this caption was serif and 14px, disagreeing or agreeing in WEIGHT with
- * a 16px/20px nested card title. D-13 retires that whole premise: there
- * is no longer a separate serif Label voice to weigh against a card-title
- * tier, so the weight-adjudication question the two blocks below argued
- * over no longer arises. Kept below, not deleted, because it is the
- * evidence trail for how this rule got here.
- *
- * SUPERSEDED (quick task 260902-dng, Task 3): this rule used to promote
- * the caption to --weight-semibold, keeping the 14px size and the serif
- * family untouched. Reasoning, kept readable rather than deleted:
- * 260901-uzi's own finding 4 had just demoted `.page-section--nested >
- * h2` (the nested card title — "Battery trend", "Unresolved prefixes",
- * "Resolution statistics") from 20px regular to 16px SEMIBOLD, which
- * created a collision this task's brief asked to resolve — hypothesis
- * (ii): the caption and the nested card title are both this file's "name
- * of a card" role, and until that promotion they rendered at two
- * different weights (14px regular serif vs 16px semibold serif). D-09's
- * four-size scale ruled out a size fix, so weight was the only lever;
- * promoting the caption made the two "card name" roles agree on weight
- * while the unchanged 14/16 size gap kept signalling a tile's name as
- * subordinate to a section-level card's own name.
- *
- * SUPERSEDED (quick task 260902-iag): re-adjudicated the promotion above
- * when 260901-uzi's finding 4 was itself reverted (see
- * `.page-section--nested > h2`'s own comment). The promotion's ONLY
- * stated reason was matching the nested card title's weight; reverting
- * that title to regular did not merely remove the reason, it inverted
- * it — a semibold 14px caption next to a regular 20px card title would
- * have recreated the same weight-vs-size inversion in the opposite
- * direction. Verdict at the time: REVERTED, back to the plain Label role
- * it held before 260902-dng.
- *
- * D-13 supersedes both adjudications above with a different move
- * entirely: rather than choosing whether this caption should match the
- * nested card title's weight, it retires the caption's own serif Label
- * identity and puts it on the same uppercase label voice every other
- * label-shaped element in the app already needed to converge on. */
 .stat-tile__caption {
   display: flex;
   align-items: center;
@@ -5590,19 +5420,12 @@ details[open] > summary::before {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* Icon section (06.6.1 Component Patterns — icon <defs> block). A
- * display:none sprite container still resolves <use> references, which is
- * the whole point of the technique: this rule hides the definitions
- * without disabling them. */
+/* A display: none sprite container still resolves <use> references —
+ * this hides the definitions without disabling them. */
 .icon-defs {
   display: none;
 }
 
-/* Plan 04 also emits explicit width/height attributes on each <svg class
- * ="icon"> instance, so an icon is correctly sized even if this rule is
- * ever lost — belt and braces, matching how the battery sparkline already
- * carries both attributes and a CSS override (see .battery-trend-section
- * svg below). */
 .icon {
   width: 20px;
   height: 20px;
@@ -5610,11 +5433,6 @@ details[open] > summary::before {
   vertical-align: middle;
 }
 
-/* Icon tint: because the SVG instances use stroke="currentColor" with
- * fill="none", a single `color` property drives the icon's stroke with no
- * second colour mapping to keep in sync with the top-border modifiers
- * above. The icon and the top accent read from the same modifier class,
- * which is what makes them incapable of disagreeing. */
 .stat-tile__icon {
   color: var(--color-accent);
 }
@@ -5637,108 +5455,39 @@ details[open] > summary::before {
   line-height: 1.2;
 }
 
-/* Quick task 260903-peo (UIR-14): the pipeline tile's new second content
- * line. Declares layout only (a small top margin, tightening the
- * default <p> spacing so the two lines read as one tile, not two
- * paragraphs) — the muted-text tier itself is `.text-label
- * .section-caption` (co-classed alongside this on the same element,
- * the file's existing 70% color-mix muted strength), reused rather than
- * a new type tier invented here. `.battery-readout__detail` was
- * considered and rejected: it declares the same muted strength, but its
- * class name's `battery-readout` substring collides with
- * BATTERY_READOUT_ID and would false-positive two pre-existing "no
- * battery readout" regression guards on every fresh install, since this
- * tile renders unconditionally. */
+/* Not named .battery-readout__detail: that substring collides with
+ * BATTERY_READOUT_ID and would false-positive existing "no battery
+ * readout" regression guards, since this tile renders unconditionally. */
 .stat-tile__meta {
   margin: var(--space-xs) 0 0;
 }
 
-/* quick task 260901-tsa (finding C): the Device/Pipeline tiles now hold
- * a concise_timestamp_html() <span class="mono"> directly inside this
- * paragraph. .mono (above) sets `font-weight: var(--weight-regular)` on
- * that span directly — a rule that targets an element beats a weight
- * the element would otherwise inherit, regardless of the two selectors'
- * equal specificity — so without this line .stat-tile__value's Emphasis
- * promotion is silently inert on both timestamp tiles: the span renders
- * regular no matter what the parent asks for. `inherit` is what lets
- * the parent's semibold weight through while leaving .mono's font-family
- * intact (the whole reason the span exists: stable digit widths in a
- * value that changes on hover). Matches .filter-bar__field input's own
- * precedent for a narrow, scoped opt-out of a global rule for one
- * container's descendants — scoped to .stat-tile__value on purpose:
- * mono values elsewhere in this file keep .mono's regular weight.
- *
- * quick task 260901-uzi: the battery readout's value span joins this
- * same selector list rather than getting a rule of its own — it needs
- * exactly the same scoped opt-out, for exactly the same reason: an
- * Emphasis-weight container holding a .mono descendant whose own rule
- * would otherwise pin it back to regular. This is one role, so it stays
- * one rule; .stat-tile__value stays first in the list so the existing
- * cross-file harness guard that locates this rule by that literal still
- * finds it. */
+/* font-weight: inherit is required: .mono targets the <span> element
+ * directly and beats an equal-specificity class regardless of source
+ * order, leaving Emphasis weight inert otherwise. Must stay first in
+ * this list — a harness guard locates the rule by that literal. */
 .stat-tile__value .mono,
 .battery-readout .mono {
   font-weight: inherit;
 }
 
-/* quick task 260901-uzi (finding 3): the readout's trailing detail —
- * recedes to the Label size and regular weight, using this file's
- * existing 70% color-mix muted strength (.section-caption, .data-table
- * th, .filter-bar__count already use it — not a fourth value invented
- * here). Addresses the developer's actual complaint (too bold, too big,
- * not sober): the readout keeps exactly one emphasised element, the
- * figure (.battery-readout__value above, carrying the .mono rule's
- * reach-through), and everything trailing it recedes — this page's own
- * validated sketch's arrangement.
- *
- * companion/test_contrast_check.py's live_pairs did not already pin
- * this muted-on-card-surface pair, so this task adds it there rather
- * than shipping an under-contrast trailing detail unguarded (light
- * #5D5E62 on #FFFFFF, dark #AFB2B6 on #151922 — both this same 70%
- * strength composited over --color-dominant). */
+/* 70% muted strength, matching .section-caption/.data-table th. This
+ * pair (light #5D5E62 on #FFFFFF, dark #AFB2B6 on #151922) is pinned in
+ * companion/test_contrast_check.py's live_pairs. */
 .battery-readout__detail {
   font-size: var(--font-label-size);
   font-weight: var(--weight-regular);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* No `.stat-tile svg { width:100%; height:auto }` rule here (deliberate,
- * not an oversight). That rule existed pre-06.6.1 to shrink the battery
- * sparkline's fixed width="300" height="60" SVG to fit inside a tile —
- * but 06.6.1's own plan 03 moved the sparkline out of .stat-tile entirely
- * (see .battery-trend-section svg below, which now owns that job). Left
- * in place, the old rule's `svg` element selector (specificity 0,1,1)
- * unintentionally matched plan 04's new `<svg class="icon">` elements
- * too, beating `.icon`'s own sizing (specificity 0,1,0) regardless of
- * source order and stretching every icon to fill its tile — a real
- * defect found on real-device verification (06.6.1-06-SUMMARY.md).
- * `.icon`'s explicit width/height (both the CSS rule and icon_html()'s
- * own belt-and-braces HTML attributes) are sufficient without it. */
+/* No bare `svg { width:100%; height:auto }` rule here: that element
+ * selector (0,1,1) would beat .icon's own sizing (0,1,0) regardless of
+ * source order and stretch every icon to fill its tile (a real defect
+ * found on real-device testing). */
 
-/* Battery-trend section (06.6.1): moves out of .dashboard-grid entirely
- * into its own full-width card, same hairline-at-rest/shadow-on-hover
- * contract as .stat-tile (06.6.4 D-03). One deliberate omission vs.
- * .stat-tile still stands — do not "complete" the pattern by adding it
- * back: no hover lift/transform (it contains an interactive chart, and
- * lifting the container under the pointer while the user is aiming at an
- * 8px-radius chart hit target is actively unhelpful). The shadow reveal
- * added in 06.6.4 changes no geometry, so the transform omission's
- * reasoning is untouched by that change.
- *
- * quick task 260902-gjj (ISSUE 2): REVERSED — the other omission this
- * comment used to list here, no border-top status accent, was recorded
- * as "unrelated to this plan and still correct (this is not a status
- * tile — it carries no ok/warn/error verdict of its own)". That claim
- * was FALSE as written: companion/pages/health_page.py's
- * _battery_section() computes a real battery_status() verdict and
- * renders it inside this very section — the verdict was drawn as an
- * in-body status_dot() badge instead of a card edge, not absent. 06.5-
- * CONTEXT.md's own D-01 reference note already expected "06.3's 3px
- * top-border-by-status treatment" to apply to this content, before
- * 06.6.1-03 moved it out of .stat-tile and the border-by-status
- * treatment never followed. This task restores that original intent —
- * see the shared status-modifier rules below .page-section's own hover
- * rule, and layout.card_status_class(). */
+/* No hover lift/transform here, unlike .stat-tile: this card holds an
+ * interactive chart, and lifting the container while the pointer aims
+ * at a small hit target would be actively unhelpful. */
 .battery-trend-section {
   padding: var(--space-md);
   background: var(--color-dominant);
@@ -5755,99 +5504,10 @@ details[open] > summary::before {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* This selector shrinks the sparkline canvas to the section's own
- * width. It used to also need `:not(.icon)` to exclude the section
- * heading's own `icon-battery` `<svg class="icon">` (06.6.1 plan 04/06
- * gap fix) from a bare `svg` element selector, reproducing the exact
- * `.stat-tile svg` collision already fixed above (06.6.1-06-SUMMARY.md)
- * in a second location this rule was never updated for. SUPERSEDED
- * (quick task 260902-j8w): that heading glyph is gone — removed at the
- * developer's own instruction, it was the only glyph inside any Health
- * `<h2>` — so `:not(.icon)` now matches nothing in this section and is
- * vestigial. It is retained anyway, as belt-and-braces against any
- * future `.icon` element landing inside `.battery-trend-section`: three
- * assertions in test_status_pages.py key on this exact selector string
- * as a literal (one of them scanning every `@media` block), and the
- * specificity note two sentences below is stated against this precise
- * selector form, so tidying the guard away would break all three for a
- * reason unrelated to any change actually being made. Specificity note,
- * still load-bearing: this selector is (0,2,1), which out-specifies any
- * bare `.sparkline__canvas` class rule (0,1,0) — the canvas's size is
- * declared HERE ONLY; a second declaration on the class selector would
- * lose a silent specificity fight rather than override anything.
- *
- * HISTORY (kept as evidence the fixed-viewBox design this replaces
- * could never have worked here, not as a live constraint — nothing
- * below this paragraph governs the current rule):
- *
- * quick task 260902-dng (bug 1) found that `height: auto` let the
- * browser's default `xMidYMid meet` scaling multiply every SVG-user-unit
- * value by `containerWidth / viewBoxWidth`, unbounded above — a measured
- * 2.53x blow-up (846px rendered / a 334-wide viewBox) with 10px labels
- * rendering at ~25px. That task derived this file's real container-width
- * range from its own layout rules (not just the one width anyone
- * happened to measure): at >= 960px, `.dashboard-shell`'s 240px column
- * plus a `--space-xl` (32px) gap leaves `viewport - 272` for the main
- * column; `.dashboard-main` caps at `min(1440px, 100%)` and adds
- * `--space-2xl`/`--space-3xl` (48/64px) padding; this section's own
- * `--space-md` (16px) padding plus its 1px border subtracts 34 more.
- * Below 960px, `.page-content`'s `--space-xl`/`--space-lg` (32/24px)
- * padding leaves `viewport - 48`, then the same 34 for this section's
- * own padding/border. Evaluated: 375px viewport -> 293px (the narrowest
- * real container); 959px -> 877px; **960px -> 526px** (a real
- * discontinuity — the container DROPS as the sidebar appears);
- * 1280px -> 846px (matches the live measurement exactly); >= 1568px ->
- * 1278px (the 1440px max-width caps it). Real range: 293px to 1278px, a
- * 4.36x spread, non-monotonic in viewport width. (All figures above are
- * as measured at quick task 260902-dng's own time, when this section's
- * padding was `--space-md` (16px) at every width. 06.6.4.1.1-03 (D-15)
- * later raised this section's own padding to `--space-lg` (24px) at
- * >= 960px only, so the "34" subtracted above becomes 50 (24px x2 +
- * the 1px border x2) for every >= 960px figure in this walkthrough —
- * ~16px narrower than shown. The below-960px figures are unaffected:
- * this section's padding there is still `--space-md`, still 34. Nothing
- * about this recomputation changes the paragraph's own conclusion —
- * width is still non-monotonic and still ranges over a multi-x spread —
- * which is why the historical numbers above are left as originally
- * measured rather than silently rewritten.)
- *
- * quick task 260902-dng's own fix bounded the scale at 1.0 (a fixed CSS
- * height equal to the SVG's own height attribute, capping
- * `min(containerWidth/viewBoxWidth, cssHeight/viewBoxHeight)` at 1.0) —
- * correct as far as it went, but it left the chart under-filling its
- * card at most widths in the range above (a 366-unit-wide plot area
- * inside an 846px-wide card at 1280px, for instance). quick task
- * 260902-ep7 (BUG 4) evaluated and rejected a breakpoint-aware dual
- * canvas as the fix for that: it would break battery-trend.js outright
- * (two `<svg>` in the DOM means `document.querySelectorAll(".sparkline-
- * hit")` returns 2N points, half inside a `display: none` subtree where
- * `.focus()` silently fails, plus two conflicting `tabindex="0"` Tab
- * stops), and even setting that aside, each breakpoint band still spans
- * a wide ratio of this range (293-877px below 960px, 526-1278px above
- * it) so neither canvas would fill its own band's full range either.
- *
- * The fix actually taken: delete the viewBox entirely (see
- * health_page.py's `battery_sparkline_svg()`). With no viewBox there is
- * no scaling transform of any kind — 1 SVG user unit IS 1 CSS pixel, and
- * percentage geometry resolves against this element's own real rendered
- * size. "The chart fills its card" becomes a property of the layout,
- * not a tuned number, and the entire class of defect quick task
- * 260902-dng fixed (and this bug report's own "doesn't fill the card"
- * complaint) becomes structurally unreachable rather than merely
- * bounded. `preserveAspectRatio="none"` (the validated Merged Health
- * Sketch's own strategy, already rejected once by 260902-dng for
- * distorting glyphs/circles at narrow widths under a fixed viewBox) is
- * now simply MOOT — there is no scaled canvas left for it to apply to.
- *
- * **New hazard this design introduces, in place of the old scale-bound
- * one — read this before touching `height` below:** every point
- * coordinate `battery_sparkline_svg()` emits is a PERCENTAGE OF THIS
- * DECLARED HEIGHT. The height must be declared exactly once, here, and
- * must never be varied inside a `@media` block — a responsive height
- * would silently move every point on the chart with no other visual
- * signal that anything broke. A harness check in test_status_pages.py
- * pins this: it asserts the height is declared on this selector and
- * declared nowhere else, especially not inside `@media`. */
+/* (0,2,1) specificity, deliberately: out-specifies any bare
+ * .sparkline__canvas class rule, since the canvas size must be declared
+ * HERE ONLY. No viewBox: every point battery_sparkline_svg() emits is a
+ * PERCENTAGE OF THIS HEIGHT, so it must never vary inside a media query. */
 .battery-trend-section svg:not(.icon) {
   width: 100%;
   height: 160px;
@@ -5855,143 +5515,25 @@ details[open] > summary::before {
   display: block;
 }
 
-/* 06.6.4 (D-03) removes the D-14 dark-mode card-edge override that used
- * to live here (the six-selector list: .stat-tile, .page-section,
- * .battery-trend-section, .runway-card, .history-card, .login-card).
- * Two reasons, both load-bearing:
- *
- * 1. Redundant — every one of those six base rules now carries a real
- *    `--color-border` hairline in every theme (D-03), which is exactly
- *    what this override existed to synthesize for dark mode alone.
- *
- * 2. Actively wrong if left in place — the `html[data-ui-theme="dark"]`
- *    attribute selector outranks a bare `.stat-tile:hover` on
- *    specificity. Leaving it would have pinned the border back on
- *    during hover for any user who explicitly picked dark mode via the
- *    theme picker, while `prefers-color-scheme` dark users saw the
- *    correct cleared-border hover behaviour — a silent per-theme
- *    divergence in exactly the signal D-03a depends on reading
- *    correctly. Removing both blocks outright, rather than reworking
- *    their specificity, is what makes hover behave identically across
- *    both theme-selection mechanisms. */
 
-/* Dashboard grid (D-02): shares the same auto-fit/minmax idiom as
- * .illustration-grid below (this file's responsive-grid idiom), with a
- * wider 240px floor. 06.6.1 promoted the gap (the horizontal/vertical GAP
- * between tiles inside one grid row) from lg (24px) to xl (32px) per
- * D-02/D-04's airier-layout direction — SUPERSEDED by 06.6.4.1.1-03
- * (D-14, UIR-25): the 32px-in-grid gap and .page-section's own 24px
- * stacked card-to-card gap (below) were two different values for the
- * same "sibling card" relationship, an inconsistency, not a deliberate
- * reading — collapsed back onto the one stacked value (`--space-lg`,
- * 24px) so every sibling-card gap in the file agrees. No breakpoint is
- * needed for the grid itself: it collapses to one column on narrow
- * viewports on its own.
- *
- * quick task 260902-ep7 (BUG 2): `margin-bottom` is a DIFFERENT thing
- * from the `gap` above — it is the space AFTER this whole grid, before
- * whatever card follows it in the same section, not the space between
- * this grid's own tiles. That margin used to be `var(--space-2xl)`
- * (48px), the same token `.battery-trend-section` below uses for its
- * own margin-bottom. Both of `.dashboard-grid`'s two real call sites
- * (verified by grep: health_page.py::render()'s Screen section's
- * single-tile grid, and its Server & data section's three-tile grid) are
- * followed by ANOTHER card in the SAME section — the battery-trend card
- * after Screen's grid, the two migrated .page-section cards after Server
- * & data's grid — never by a new section heading. So both of this rule's
- * two uses were same-section, card-to-card gaps, not section
- * transitions, and both were using the section-transition value.
- *
- * This file's own real "two cards, same section, one after another"
- * precedent is `.page-section`'s own `margin-bottom: var(--space-lg)`
- * (24px, below) — the gap that already separates the Unresolved-prefixes
- * card from the Resolution-statistics card, both inside the single
- * Server & data section. Retargeting `.dashboard-grid` to that same
- * value makes the two-role split explicit and, going forward, load-
- * bearing:
- *   - Same-section, card-to-card rhythm: `--space-lg` (`.dashboard-grid`
- *     now, `.page-section` already).
- *   - Section-to-section separation: `--space-2xl`
- *     (`.battery-trend-section`'s own margin-bottom, below — closes the
- *     Screen section before the Server & data heading — UNCHANGED by
- *     this edit, it is a genuine section transition).
- * Before this change both roles shared one token, which is exactly why
- * the Screen section's single Device tile and the battery-trend card
- * below it read with a section-sized gap between two cards that belong
- * to the same section.
- *
- * This does NOT undo quick task 260901-tsa's finding E, immediately
- * above at the Screen-section call site in health_page.py: that finding
- * was that a bare `.stat-tile` outside any `.dashboard-grid` sat FLUSH
- * (zero gap) against the card below it, because `.stat-tile` itself
- * declares no margin — the fix was wrapping it in a grid so it inherited
- * A gap at all. That wrapper stays and is still correct; only the SIZE
- * of the gap it now contributes changes, from the section-transition
- * value to the card-to-card value. A harness check in
- * test_status_pages.py pins both roles as a pair, so a future "harmonise
- * these two margins" edit cannot silently re-flatten the split. */
+/* margin-bottom is the section-to-section gap AFTER this whole grid,
+ * distinct from the gap above (between this grid's own tiles) and from
+ * .page-section's own --space-lg card-to-card gap. A harness check in
+ * test_status_pages.py pins both roles as a pair. */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--space-lg);
   margin-bottom: var(--space-lg);
-  /* 06.6.3 (UXA-06) deliberately set this row's cross-axis alignment so
-   * unequal-height tiles would NOT stretch to the tallest sibling —
-   * Health's shorter Device/Pipeline tiles kept their own intrinsic
-   * height next to a taller Corroboration tile. That was the stated
-   * intent, not an accident, and this comment used to say so alone.
-   *
-   * quick task 260901-uzi: REVERSED. The developer measured the shipped
-   * result live in one Server & data row — Pipeline 107.7px, Corroboration
-   * 261.8px, Resolution-rate 140.4px, all in the same grid row — and
-   * asked for the opposite of what UXA-06 chose. This is a reversal of
-   * UXA-06, not a fix of it: the direction only ever runs one way, the
-   * two shorter tiles grow to match the row's tallest sibling. The
-   * Corroboration tile — naturally tallest, since it carries three
-   * status rows plus a <details> disclosure — is never shrunk or
-   * clipped by this, which is what makes stretching the safe direction
-   * here. Stretching is CSS Grid's own default and this declaration
-   * could be removed instead of restated, but it is kept explicit —
-   * greppable, and pinned by a stylesheet guard in
-   * test_status_pages.py — so the reversal is visible in a diff instead
-   * of invisible as a deletion.
-   *
-   * Blast radius, verified: `dashboard-grid` is emitted from exactly two
-   * places in the whole codebase, both inside
-   * health_page.py::render() (the Screen section's single-tile grid and
-   * the Server & data section's three-tile grid) — so this reversal
-   * reaches Health and nothing else.
-   *
-   * Do not confuse this with the OTHER cross-axis declaration in this
-   * file, inside the `@media (min-width: 960px)` `.dashboard-shell` rule
-   * below: a different selector doing a different job. D-21's sticky
-   * sidebar depends on that one staying non-stretched, and it is
-   * untouched by this reversal. */
+  /* align-items: stretch here is unrelated to the OTHER cross-axis
+   * declaration in .dashboard-shell below: the sticky sidebar there
+   * depends on THAT one staying non-stretched. Do not conflate them. */
   align-items: stretch;
 }
 
-/* Page section card treatment: gives the below-breakpoint stacked
- * sections the same card treatment as the dashboard's tiles.
- *
- * "The same card treatment" now means literally the same, including the
- * edge: 06.6.4 (D-03) gives this rule the same hairline-at-rest,
- * shadow-on-hover contract every other card in this file carries — a
- * real `--color-border` edge at rest, no resting shadow, with the shadow
- * revealed only on hover/focus-within below. */
 .page-section {
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
-  /* The card surface, like every other card in this file. This rule had
-   * no `background` at all, which was correct under the pre-06.6.2
-   * TWO-level surface model — back then --color-dominant was the page
-   * background, so a card needed no fill to sit on it. 06.6.2 split the
-   * levels (--color-canvas page / --color-dominant card /
-   * --color-secondary elevated) and updated .stat-tile,
-   * .battery-trend-section, .runway-card, .history-card and .login-card
-   * to declare the card surface explicitly — this rule was missed, so
-   * Config's Poll/LED sections and both of Preview's sections rendered
-   * as shadowed canvas-coloured blocks while every other card on screen
-   * was on --color-dominant. */
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
@@ -6004,36 +5546,10 @@ details[open] > summary::before {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* quick task 260902-gjj (ISSUE 2): card-level status accent, shared by
- * .battery-trend-section and .page-section (specifically the
- * Unresolved-prefixes card — the Resolution-statistics card gets no
- * modifier at all; see layout.card_status_class()'s own docstring for
- * why an absent modifier, not an accent fallback, is the correct "no
- * verdict" signal here). Reuses the exact tokens .stat-tile's own
- * modifiers already use — no new colour value.
- *
- * The doubled selector form (`.battery-trend-section.battery-trend-
- * section--ok`, no space — one class immediately followed by another)
- * is deliberate, not decoration: both `.battery-trend-section` and
- * `.page-section` declare a `border` SHORTHAND above, which resets
- * `border-top-color`/`border-top-width`. A single-class modifier
- * selector is (0,1,0), tying the base rule's own (0,1,0) and leaving the
- * outcome to source order — the exact cascade hazard
- * `.page-section.banner--anomaly` above already documents and solves the
- * same way. The doubled form is (0,2,0) and wins deterministically.
- *
- * Placement after both hover rules above is equally load-bearing, and is
- * the part a future "tidy the modifiers up next to their base rule" edit
- * is most likely to break: `.battery-trend-section:hover`/`:focus-within`
- * and `.page-section:hover`/`:focus-within` are ALSO (0,2,0) and declare
- * `border-color: transparent` — a shorthand that includes
- * `border-top-color`. At equal specificity the LATER rule wins, so this
- * block must stay after both hover rules or the status colour vanishes
- * the moment the card is hovered. That is not hypothetical:
- * `.battery-trend-section:focus-within` fires on every chart hit target a
- * keyboard user focuses, so a status border that lost to hover would
- * blink out during ordinary chart traversal. A harness check pins this
- * source order. */
+/* Doubled selector (0,2,0), not a single-class modifier (0,1,0): the
+ * base rule's own border shorthand resets border-top-color, so (0,1,0)
+ * would tie and lose to source order. Must stay declared AFTER both
+ * hover rules above, which are also (0,2,0) and clear the same property. */
 .battery-trend-section.battery-trend-section--ok,
 .page-section.page-section--ok {
   border-top: 3px solid var(--color-status-ok);
@@ -6049,118 +5565,6 @@ details[open] > summary::before {
   border-top: 3px solid var(--color-status-error);
 }
 
-/* CURRENT CONTRACT (06.6.4.1.1, D-09 — the third and final state of this
- * round trip): nested card titles render sans-semibold at the Body size
- * (16px) — the bottom rung of a real three-tier ladder: 32px semibold
- * `.page-title` / 22px regular `.text-heading` / 16px semibold sans here.
- * This is quick task 260901-uzi's own finding-4 demotion, re-applied
- * deliberately after quick task 260902-iag reverted it. The full history
- * below (both SUPERSEDED blocks) is kept because this looks like a
- * flip-flop and isn't one — read it before touching this rule again.
- *
- * Why re-applying the same change is not undoing the same reversal:
- * 260901-uzi demoted this ONE tier in isolation, against a 20px section
- * heading it then matched too closely once the page-title tier above it
- * hadn't itself moved — the developer's own screenshot comparison against
- * Settings' 20px `Runway` heading found that isolated demotion wrong, and
- * 260902-iag reverted it. Here it lands as the deliberately-built bottom
- * rung of the full audit ladder (06.6.4.1.1 D-10 grew the page title to
- * 32px semibold and kept the section heading at a *regular*-weight 22px
- * specifically so a semibold card title below it would read as a third
- * tier, not a repeat) — validated on a full Health composition in sketch
- * 005 (variant B), not eyeballed in isolation. The developer confirmed
- * this explicitly, aware of the prior reversal (CONTEXT D-09). This is
- * the third state of the round trip, not a mistake to second-guess.
- *
- * SUPERSEDED (quick task 260902-iag, reverting 260901-uzi finding 4):
- * this rule used to carry exactly one declaration, the bottom margin,
- * and stated no typography at all — a nested card heading was
- * deliberately the plain `.text-heading` treatment every other section
- * heading in the app got, on the theory that the card boundary itself
- * (the `--color-border` hairline, the `--color-dominant` surface, the
- * 16px padding `.page-section`/`.battery-trend-section` declare) already
- * signalled "this heading and its content are one grouped unit", the
- * same signal every Settings group relies on. That reasoning held only
- * as long as the section heading above it was itself undifferentiated
- * from the page title — once D-10 gave the page title its own semibold
- * weight, a regular-weight section heading and a regular-weight nested
- * title were free to look identical again without a real hierarchy
- * problem resurfacing, which is what let 260901-uzi's original demotion
- * be revisited rather than re-litigated from scratch.
- *
- * SUPERSEDED (quick task 260901-uzi finding 4, itself later reverted by
- * 260902-iag above before being re-applied by this rule): the original
- * demotion from 20px serif regular to 16px semibold (the Emphasis role,
- * `.stat-tile__value`'s own tier). Reasoning at the time: Health rendered
- * two structural levels — the section headings ("Screen", "Server &
- * data") and the cards nested inside them ("Battery trend", "Unresolved
- * prefixes", "Resolution statistics") — at one identical 20px tier, and a
- * card title subordinate to its own section heading was rendering as that
- * heading's equal.
- *
- * Not taken, named here so a later edit has to argue with a written
- * decision rather than discover an apparent omission: the validated
- * Merged Health Sketch's own `.wide-card__caption` card-title role, a
- * 14px muted uppercase eyebrow label — a genuine third answer to this
- * hierarchy question this app has never shipped. Declined again here for
- * the same reason it was declined before: the ladder already has a
- * distinct label voice (D-13, `.stat-tile__caption` et al.) and giving
- * the card-title tier its own separate uppercase treatment would create
- * a second, competing label-like voice instead of reusing the existing
- * Emphasis role.
- *
- * The margin-bottom declaration is UNCHANGED across all three states of
- * this round trip (quick task 260902-bl2, bug 2): 16px (`--space-md`),
- * independently justified — a deterministic heading-to-content gap,
- * unrelated to the font-size/weight question above. The two cards
- * migrated by 06.6.4.1-04 measured wildly different heading-to-content
- * gaps in a real browser, and the cause was that nothing in this file
- * had ever governed that gap — it was whatever the composition of the
- * heading-rhythm rule's own `margin: 0 0 var(--space-sm)` and an unstated
- * UA paragraph margin happened to produce. The value comes from the
- * validated sketch's own card-title role (`.wide-card__caption`), which
- * declares the same medium space below every card title unconditionally,
- * in both cards — this is that declaration, not a middle value chosen to
- * split the difference. Longhand only: the heading-rhythm rule above
- * still owns the zeroed top and sides, and a `margin` shorthand here
- * would restate three values it does not mean to change. Paired with the
- * `> p.text-body` rhythm rule immediately below, the heading now owns
- * the whole gap and no following element contributes any of its own, so
- * the gap is the same 16px regardless of whether a paragraph, a table
- * wrapper, a filter bar or an empty state comes next.
- *
- * `letter-spacing: normal` clears the shared serif rule's `-0.01em`
- * tracking, which is tuned for large serif text and reads wrong applied
- * to 16px sans. There is no icon in this heading at any point in this
- * history to worry about sizing against — quick task 260902-j8w removed
- * the one glyph that ever lived inside a Health `<h2>` (the battery
- * icon), independently of and before either reversal above.
- *
- * 20-04-PLAN.md Task 1 (D-12, 20-UI-SPEC.md §C): `.theme-status--nested
- * > h2` joins this selector list as a one-line, additive parity fix —
- * `theme_fieldset()`/`runway_fieldset()`/`display_group()`/
- * `quiet_hours_group()` wrap in `.theme-status`, not `.page-section`, so
- * a group card placed under a Display supersection needed this
- * extension to render its own `<h2>` at this same 16px sans-semibold
- * bottom rung instead of the 22px serif tier. No `.theme-status` wrapper
- * is converted to `.page-section` — 20-UI-SPEC.md §C explicitly rejects
- * that alternative for its blast radius (every existing test asserting
- * `.theme-status` markup). Runway/Theme/LED on Device keep their
- * current, un-nested 22px-serif heading treatment — this selector only
- * ever matches a `.theme-status` that also carries `--nested`.
- *
- * SUPERSEDED by 28-04-PLAN.md (CFG-72), CARRIED IN by 28-08-PLAN.md
- * Task 2 (this plan edits zero CSS of its own for CFG-72, but is the
- * last writer of this file in the phase and therefore the only plan
- * that CAN correct a sentence this file's own later work falsified):
- * "Runway/Theme/LED on Device keep their current, un-nested 22px-serif
- * heading treatment" is now FALSE. 28-04 wrapped every Device settings
- * card with the nested modifier (CFG-72's title-consistency fix), so
- * those headings now DO render through this same rule, at this same
- * 16px sans-semibold bottom rung — the rule below needed NO edit for
- * that to become true, which is exactly why 28-04 itself touched no
- * CSS: this selector was already correct, sitting there waiting for a
- * consumer that hadn't arrived yet. */
 .page-section--nested > h2,
 .battery-trend-section > h2,
 .theme-status--nested > h2 {
@@ -6171,83 +5575,20 @@ details[open] > summary::before {
   margin-bottom: var(--space-md);
 }
 
-/* quick task 260902-bl2 (bug 2): direct-child prose immediately under one
- * of the three nested-card headings above owns the sketch's own
- * intervening-prose rhythm — the same `.read-only-note` role the
- * validated sketch declares (zero above, the small space below) — rather
- * than falling through to the UA `margin-block: 1em` this file has never
- * stated for `.text-body` (see that rule's own comment: no margin is a
- * deliberate decision there, not an omission, because Settings' own
- * `.section-caption` role relies on the same UA default in a different
- * context; the zeroing belongs here, on the container where these three
- * cards' own layout is owned, not inside `.text-body` itself — the same
- * precedent `.section-intro > p` sets a few hundred lines above this one,
- * for the same reason, at a different structural position).
- *
- * Both the child combinator and the `.text-body` qualifier are
- * load-bearing. The child combinator keeps this off paragraphs inside a
- * nested `.empty-state` (not siblings of any heading, so unreachable
- * through it regardless). The qualifier keeps it off `.battery-readout`
- * — a direct-child `<p>` of `.battery-trend-section` that carries no
- * `text-body` class and already declares its own `margin: 0 0
- * var(--space-sm)` above; a bare `> p` selector would silently take that
- * ownership away.
- *
- * No catch-all is added for "whatever follows the heading" — deliberately
- * not needed: every other element type that can sit directly under one
- * of these three headings (the table wrapper, the filter bar, the empty
- * state, the readout, the chart, the disclosure) already carries no top
- * margin of its own. A markup check in test_status_pages.py pins the
- * allowlist of element types instead, so a future element carrying a UA
- * top margin fails a test rather than silently reintroducing the
- * inconsistency this task fixes. */
+/* Both the child combinator and the .text-body qualifier are
+ * load-bearing: the combinator excludes nested .empty-state paragraphs,
+ * the qualifier excludes .battery-readout's own <p>, which already owns
+ * its own margin. test_status_pages.py pins the allowlist this depends on. */
 .page-section--nested > p.text-body,
 .battery-trend-section > p.text-body {
   margin: 0 0 var(--space-sm);
 }
 
-/* health_page.py's source-fault block combines page-section with banner
- * banner--anomaly. .page-section's `border` shorthand above resets all
- * four sides, including the left edge banner--anomaly needs error-
- * coloured — at equal (0,1,0) specificity the later rule wins regardless
- * of which one "means" to own that edge. This combined selector (0,2,0)
- * restores that left border deterministically, independent of source
- * order.
- *
- * The width is restored here too, not just the colour, and narrowed to
- * 3px in 06.6.4 (D-04a) to match the base .banner rule's new edge
- * width. The `border` shorthand resets border-left-WIDTH as well, and
- * only the colour was ever put back — so without this restatement the
- * source-fault block, the single most severe state this page can show,
- * would draw a 1px alert edge while every other anomaly banner draws a
- * 3px edge. One signal, two widths, decided by which rule happened to
- * sit later in the file. Both properties stay restated together; they
- * must stay together.
- *
- * The background is restated here for the same cascade reason: this
- * block is both a card and a banner, and .page-section's own
- * `background: var(--color-dominant)` above sits later in the file than
- * .banner--anomaly's own rule, so at equal (0,1,0) specificity the
- * plain card rule would win regardless of source order without this
- * (0,2,0) override. 06.6.4 (D-04) retired the severity wash in favour
- * of the same --color-dominant card surface every banner now uses, so
- * this restatement no longer settles a colour conflict — it only
- * guarantees the block cannot silently drift onto a different surface
- * than the banners it shares a severity language with, should a future
- * edit change .page-section's own background and forget this sibling.
- *
- * Two opt-outs, both new in 06.6.4 (D-04a): Task 1 made the base
- * .banner rule a centred flex row with a `::before` status dot, and
- * both reach this selector by inheritance. The source-fault block
- * contains a heading and several stacked paragraphs (see
- * companion/pages/health_page.py's source-fault section), not a single
- * line of banner text — without `display: block` it would reflow into
- * one horizontal row with the dot as its first flex item, and the
- * block already carries its own heading plus this 3px error edge, so
- * it needs no dot at all. Both are scoped exceptions that preserve
- * D-04a's "container treatment only, never banner content" boundary —
- * the block's own content is untouched, only two inherited container
- * properties are turned back off for this one combined selector. */
+/* (0,2,0) restores the left border/width/background deterministically
+ * over .page-section's own shorthand and .banner--anomaly's own rule —
+ * at equal (0,1,0) specificity the later one would otherwise win by
+ * accident. display: block and ::before: none opt out of the base
+ * .banner's row-plus-dot treatment: this is a card, not banner text. */
 .page-section.banner--anomaly {
   display: block;
   border-left: 3px solid var(--color-status-error);
