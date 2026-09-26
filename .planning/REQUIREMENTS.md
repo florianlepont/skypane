@@ -174,7 +174,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **SEC-07**: Secret via env; env file `root:root 600`; secret passed through `env:`
 - [x] **SEC-08**: `sshd_config.d/00-skypane.conf`, `PermitRootLogin no`, validated
 - [x] **EFF-01**: `encode zstd gzip`; validators + 304; static bytes cached in memory
-- [ ] **EFF-02**: Only the scripts each page uses (no build step)
+- [x] **EFF-02**: Only the scripts each page uses (no build step)
 - [ ] **EFF-03**: One connection per request/cycle; schema once per process; one transaction
 - [ ] **EFF-04**: Lazy context; severity computed without markup; light freshness endpoint
 - [ ] **EFF-05**: Saved once, only if changed, compact
@@ -424,7 +424,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-07 | Phase 37 | Complete |
 | SEC-08 | Phase 37 | Complete |
 | EFF-01 | Phase 38 | Complete |
-| EFF-02 | Phase 38 | Pending |
+| EFF-02 | Phase 38 | Complete |
 | EFF-03 | Phase 38 | Pending |
 | EFF-04 | Phase 38 | Pending |
 | EFF-05 | Phase 38 | Pending |
