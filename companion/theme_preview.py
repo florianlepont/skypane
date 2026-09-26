@@ -13,10 +13,11 @@ flight is a cache miss, never a stale hit.
 import hashlib
 import io
 import os
+import re
 
 from PIL import Image
 
-from server import device_config, panel_format
+from server import atomic_io, device_config, panel_format
 from server.plane import render
 
 THEME_PREVIEW_ROUTE_PREFIX = "/theme-preview/"
@@ -63,6 +64,22 @@ THEME_PREVIEW_CACHE_DIRNAME = "theme_previews"
 # Manual escape hatch for a render-geometry change inside render.py
 # that preview_signature() cannot see on its own.
 THEME_PREVIEW_CACHE_VERSION = 1
+
+# Bound on the cache directory's total file count, oldest evicted first -
+# 18 themes x a handful of concurrently-live_event previews stays well
+# under this; a much larger number would only ever accumulate from a
+# runway with many distinct live events, not from normal Settings-page
+# browsing.
+THEME_PREVIEW_CACHE_MAX_FILES = 64
+
+# Matches cached_preview_bytes()'s own filename shape: a stable
+# "<theme>-<event or 'sample'>" prefix followed by exactly the 12-hex
+# signature suffix preview_signature() produces. Anchored full-match only
+# (never a startswith/substring check), so a theme id that is itself a
+# prefix of another theme id (or of another theme's event-qualified name)
+# can never match that other theme's files - the exact prefix plus
+# exactly 12 hex characters plus ".png" is the only shape this accepts.
+_PREVIEW_FILENAME_RE = re.compile(r"(?P<prefix>.+)-[0-9a-f]{12}\.png\Z")
 
 
 # "empty" is never recorded to runway_events — only a real detection is.
@@ -180,13 +197,75 @@ def cache_path(state_dir, theme_id, live_event_id=None):
     return os.path.join(directory, filename)
 
 
+def _prune_preview_cache(directory, keep_path):
+    """Best-effort cache maintenance after a fresh write to `keep_path`:
+    never raises (an `OSError` anywhere below is swallowed - a maintenance
+    step must never fail the request the write it follows is serving).
+
+    1. Stale-signature removal: any other file sharing `keep_path`'s exact
+       `<theme>-<event or 'sample'>` prefix but a different 12-hex
+       signature is removed (a theme re-tune or a render-geometry bump
+       leaves the old image behind otherwise, forever).
+    2. Bound: if more than `THEME_PREVIEW_CACHE_MAX_FILES` `*.png` files
+       (skipping any dotfile) remain, the oldest by mtime are removed
+       until the count is back at the bound. `keep_path` is never removed
+       by this step.
+    """
+    try:
+        keep_name = os.path.basename(keep_path)
+        match = _PREVIEW_FILENAME_RE.fullmatch(keep_name)
+        if match:
+            stale_re = re.compile(
+                r"%s-[0-9a-f]{12}\.png\Z" % re.escape(match.group("prefix")))
+            for name in os.listdir(directory):
+                if name == keep_name or name.startswith("."):
+                    continue
+                if stale_re.fullmatch(name):
+                    try:
+                        os.remove(os.path.join(directory, name))
+                    except OSError:
+                        pass
+
+        entries = []
+        for name in os.listdir(directory):
+            if name.startswith(".") or not name.endswith(".png"):
+                continue
+            candidate = os.path.join(directory, name)
+            try:
+                mtime = os.stat(candidate).st_mtime
+            except OSError:
+                continue
+            entries.append((mtime, candidate))
+
+        overflow = len(entries) - THEME_PREVIEW_CACHE_MAX_FILES
+        if overflow > 0:
+            entries.sort(key=lambda entry: entry[0])
+            removed = 0
+            for _mtime, candidate in entries:
+                if removed >= overflow:
+                    break
+                if candidate == keep_path:
+                    continue
+                try:
+                    os.remove(candidate)
+                    removed += 1
+                except OSError:
+                    pass
+    except OSError:
+        pass
+
+
 def cached_preview_bytes(state_dir, theme_id, live_event=None):
     """Return `theme_id`'s preview PNG bytes: disk cache on a hit,
     render + write on a miss. `None` for anything `cache_path()` refuses.
 
-    Writes are atomic-rename via a pid-named temp file, so two
-    concurrent worker threads racing the same cold theme never serve a
-    half-written PNG. `OSError` propagates to the caller uncaught.
+    A miss writes through `atomic_io.atomic_write` (unique per-call temp
+    name, so two concurrent worker threads racing the same cold theme
+    never serve a half-written PNG, and never collide on the same temp
+    file), then prunes the cache via `_prune_preview_cache()` - stale
+    signatures for this theme+event are removed and the directory is
+    bounded to `THEME_PREVIEW_CACHE_MAX_FILES`. A hit neither writes nor
+    prunes. `OSError` propagates to the caller uncaught.
     """
     live_event_id = live_event.get("id") if isinstance(live_event, dict) else None
     path = cache_path(state_dir, theme_id, live_event_id)
@@ -200,9 +279,6 @@ def cached_preview_bytes(state_dir, theme_id, live_event=None):
     directory = cache_dir(state_dir)
     os.makedirs(directory, exist_ok=True)
     payload = preview_png_bytes(theme_id, live_event)
-    tmp_path = os.path.join(
-        directory, ".%s.%d.tmp" % (theme_id, os.getpid()))
-    with open(tmp_path, "wb") as fh:
-        fh.write(payload)
-    os.replace(tmp_path, path)
+    atomic_io.atomic_write(path, payload)
+    _prune_preview_cache(directory, path)
     return payload
