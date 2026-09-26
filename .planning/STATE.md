@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 36 plan 07 complete (last plan of Phase 36): cross-process poll_cycle_lock() over atomic_io.exclusive_lock(poll.lock) serialises run_once() across the systemd oneshot and the companion's POST /poll-now (two-process x 200 reproduction: 400, zero lost updates); every remaining fixed-.tmp/pid-tagged temp name in server/poll_loop.py and companion/app.py is migrated onto atomic_io.atomic_write(); main() prints a full traceback on a genuine cycle failure; a queued-but-undisplayed detection still advances META_LAST_DETECTION; the adsbdb cache's TTL/LRU stamps follow the injected poll clock. All 14 INT-01..INT-14 requirements are now Complete. Phase 36 is done; next: verify/close the phase."
+stopped_at: "Phase 36 executed (7/7 plans), code review CR-01/WR-01 fixed, verification human_needed: 15/15 automated truths pass; two manual checks remain (post-deploy TimeoutStartUSec, optional on-frame panel-swap). Next: Phase 37 wave B (37-11) and Phase 38."
 last_updated: "2026-09-26T11:15:48.484Z"
 last_activity: 2026-09-26
 progress:
@@ -56,7 +56,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 36 (state-integrity-and-device-protocol) — EXECUTING
+Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human_needed: 2 manual checks after deploy)
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
