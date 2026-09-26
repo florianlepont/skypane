@@ -1,20 +1,14 @@
 ---
-status: testing
+status: complete
 phase: 35-comment-purge-in-english-and-dead-code
 source: [35-01-SUMMARY.md … 35-22-SUMMARY.md, 35-21b-SUMMARY.md]
 started: 2026-09-26T07:17:32Z
-updated: 2026-09-26T07:17:32Z
+updated: 2026-09-26T07:20:48Z
 ---
 
 ## Current Test
 
-number: 6
-name: Frame unchanged
-expected: |
-  A frame running firmware built from main (7cd0380 or later) wakes, polls and
-  displays exactly as before (the purge changed only comments; the compiled input
-  is identical, so this is optional).
-awaiting: user response
+[testing complete]
 
 ## Tests
 
@@ -44,14 +38,14 @@ result: pass
 
 ### 6. Frame unchanged
 expected: A frame running firmware built from main (7cd0380 or later) wakes, polls and displays exactly as before (the purge changed only comments; the compiled input is identical, so this is optional).
-result: [pending]
+result: pass
 
 ## Summary
 
 total: 6
-passed: 5
+passed: 6
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 
 ## Gaps
