@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Completed 35-21-PLAN.md (group 9 close: firmware/ comment-history purge, gate G-34)"
-last_updated: "2026-09-26T02:31:10.973Z"
+status: verifying
+stopped_at: "Phase 35 complete: 35-22-PLAN.md closed the phase (ratchet removed, guard re-proven, HYG-01..06 confirmed). No PR opened per orchestrator instruction."
+last_updated: "2026-09-26T03:33:34.430Z"
 last_activity: 2026-09-26
 progress:
   total_phases: 54
-  completed_phases: 43
+  completed_phases: 44
   total_plans: 392
-  completed_plans: 357
-  percent: 80
+  completed_plans: 359
+  percent: 81
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -32,13 +32,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Ready to execute
+status: Phase complete — ready for verification
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [██████████] 95%
+  [█████████░] 92%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -524,6 +524,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 35 P19 | ~3h | 3 tasks | 3 files |
 | Phase 35 P20 | ~2h | 3 tasks | 44 files |
 | Phase 35 P21 | 34min | 3 tasks | 51 files |
+| Phase 35 P22 | 90min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -1050,6 +1051,8 @@ Recent decisions affecting current work:
 - [Phase 35]: Group 7 (companion/static/style.css) closed: 830 history hits purged across 9 bottom-up sections, ratio 64.0% -> 19.7%, shipped size 512795 -> 140426 raw bytes / 170819 -> 36735 gzip bytes; same-code, full suite (2691 passed) and ruff all green
 - [Phase 35]: 35-20: allowed deploy/backup/mac/skypane-backup-pull.plist.template in same-code -- the guard's same-code dispatch has no XML branch for .plist.template, so it falls through to the hash-comment comparator and treats the whole file as code — verified comment-only via git diff and an ElementTree structural compare; editing scripts/check_comment_history.py is reserved for 35-01/35-22
 - [Phase 35]: 35-21: purged every firmware C/H/Kconfig/CMake/sdkconfig/shell/Python history reference (group 9) and rewrote firmware/VENDOR.md concisely (477->367 lines); scripts/comment-history-pending.txt now empty of paths, check_comment_history.py check (no args) exits 0 for the first time in Phase 35. firmware/build.sh could not run (no Docker daemon in this sandbox); CI's firmware.yml is the build gate. HYG-01/HYG-03 deliberately left unticked for 35-22 to close.
+- [Phase 35]: Fixed check_comment_history.py's two guard false-positive bugs found during the phase: the _PRAGMA_RE shellcheck alternative matched any comment starting with the word "shellcheck" (now narrowed to real directive shapes disable=/enable=/source=/shell=/external-sources=), and the same-code __doc__ heuristic used a text substring check (now an AST ast.Name(id='__doc__', ctx=Load) walk) — Both false positives could pin a comment/docstring as unchangeable code even though it was safe to reword; re-proved with 45/45 mutations killed and 8 new regression tests
+- [Phase 35]: Phase 35 closed: comment-history pending list deleted, guard now scans every tracked code file unconditionally, HYG-01..06 all confirmed complete — 35-COMMENT-RATIO.md Final section: 9441 -> 0 history hits, 40% -> 24.1% whole-tree comment ratio across 264 -> 267 files
 
 ### Pending Todos
 
@@ -1170,8 +1173,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T02:31:10.909Z
-Stopped at: Completed 35-21-PLAN.md (group 9 close: firmware/ comment-history purge, gate G-34)
+Last session: 2026-09-26T03:33:34.375Z
+Stopped at: Phase 35 complete: 35-22-PLAN.md closed the phase (ratchet removed, guard re-proven, HYG-01..06 confirmed). No PR opened per orchestrator instruction.
 
 Resume file: 
 
