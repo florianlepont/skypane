@@ -6,7 +6,6 @@
 adsb-test/analyze_samples.py
 adsb-test/query_aggregator.py
 adsb-test/sample_window.py
-companion/static/style.css
 conftest.py
 deploy/Caddyfile
 deploy/activate.sh

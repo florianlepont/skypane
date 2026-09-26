@@ -418,3 +418,43 @@ tests, which exercise these scripts in a real browser) passes.
 
 - Raw, before: 303536 bytes; after: 153483 bytes.
 - Gzip -9, before: 112307 bytes; after: 55831 bytes.
+
+## Group 7 — companion/static/style.css
+
+Source plan: 35-19 (the file's only member, purged bottom-up in nine
+~1000-1500-line sections against base `0b3d61c`).
+
+| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
+|---|---:|---:|---:|---:|---:|
+| companion/static/style.css | 10689 | 4793 | 64.0% | 19.7% | 830 -> 0 |
+
+The before row matches `35-BASELINE/INDEX.md`'s group-7 line (1 file,
+10689 lines, 64% ratio, 830 history hits) exactly.
+
+Every comment that survives fits one of: a short section/file header, a
+WCAG contrast or target-size fact (with the ratio/pair), a cross-browser
+quirk (Safari `<summary>` markers, `<dialog>`/`showModal()` colour
+inheritance, `@starting-style` support), a specificity or cascade trap
+(the recurring `[hidden]`-vs-author-`display` collision, equal-specificity-
+plus-source-order idiom, presentation-attribute-vs-CSS-declaration trap),
+a magic-number rationale, or a contract with JS/markup/a test
+(`test_status_pages.py`, `test_contrast_check.py`, `test_companion_app.py`,
+`test_config_page.py`, `test_browser_ux.py`, and the Python constants a
+handful of rules are pinned against). No comment still under ~35% needs a
+per-file justification, since the whole file measures 19.7%.
+
+### same-code and check evidence
+
+`server/.venv/bin/python scripts/check_comment_history.py same-code --base
+0b3d61c companion/static/style.css` exits 0 with no `--allow`, run after
+every section and again here. `check --paths companion/static/style.css`
+and the argument-less `check` (after the pending-list edit) both report 0
+history hits. `SKYPANE_REQUIRE_BROWSER=1 server/.venv/bin/python -m pytest
+companion -q -n auto -k "browser or contrast or theme"` (258 tests, which
+render and measure this stylesheet in a real browser) passes.
+`server/.venv/bin/ruff check .` is clean.
+
+## Shipped CSS bytes, companion/static/style.css
+
+- Raw, before: 512795 bytes; after: 140426 bytes (72.6% smaller).
+- Gzip, before: 170819 bytes; after: 36735 bytes (78.5% smaller).
