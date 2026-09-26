@@ -34,12 +34,12 @@
 #     the tip — so a guard decision is never a silently green skip.
 #   - A `paths` filter with `!` exclusions on both triggers (ordered:
 #     a later positive pattern re-includes what an earlier `!` excluded):
-#     a docs-only change (`**/*.md`, `.planning/**`, `.claude/**`,
+#     a docs-only change (`**/*.md`, the planning directory, `.claude/**`,
 #     `LICENSE`) no longer runs this job at all — EXCEPT the Markdown this
 #     job itself checks, re-included by name: `server/assets/**/VENDOR.md`,
 #     which `check-attribution.sh` checks, and `deploy/README.md`, which
 #     deploy/tests/test_docs.py checks. No companion test reads a doc or
-#     anything under `.planning/` (companion/test_suite_guards.py enforces
+#     anything under the planning directory (companion/test_suite_guards.py enforces
 #     it). A new test that reads another doc must add it here too.
 #     Skipping is safe specifically because `main` has NO branch
 #     protection and NO required status checks configured in this
@@ -114,7 +114,7 @@ jobs:
 
       - name: Create virtualenv and install dependencies (hash-enforced)
         # server/requirements-dev.txt is a hash-locked superset of
-        # server/requirements.txt (plan 32-12) — installing it alone with
+        # server/requirements.txt (installing it alone with
         # --require-hashes pulls in every runtime and dev package, pinned
         # by hash, and rejects anything whose downloaded content doesn't
         # match the lock.
@@ -153,7 +153,7 @@ jobs:
 
       - name: Shellcheck deploy scripts
         # shellcheck is preinstalled on the ubuntu-24.04 runner image
-        # (37-RESEARCH.md Standard Stack). It reads each file's own
+        # (the ubuntu-24.04 standard toolset). It reads each file's own
         # shebang, so the bash scripts and the POSIX-sh Mac scripts under
         # deploy/backup/mac/ are each checked against the right dialect
         # with no --shell override needed.
@@ -165,7 +165,7 @@ jobs:
         # unavailable): this step runs unconditionally on the runner,
         # where systemd is always present, so a regression that pushes
         # any unit's exposure over the threshold fails the job even if a
-        # future local sandbox lacked systemd-analyze (SEC-06, SEC-07).
+        # future local sandbox lacked systemd-analyze.
         run: |
           set -euo pipefail
           for u in deploy/*.service; do
@@ -261,7 +261,7 @@ jobs:
         # an impostor host silently. The expected key comes from its own
         # dedicated secret instead, written straight into known_hosts.
         # Passed through env: rather than interpolated into the run:
-        # script (SEC-07, D-20): a `${{ }}` expression inside run: is
+        # script (a `${{ }}` expression inside run: is
         # substituted into the script's literal text before the shell
         # ever sees it, so an attacker-controlled secret value could
         # break out of the echo and inject shell commands. env: hands the
@@ -279,7 +279,7 @@ jobs:
         # release directory and runs activate.sh, which stages the
         # release, installs units and the rendered Caddyfile, swaps the
         # `current` symlink atomically, probes the running services, and
-        # rolls back on any failure (SEC-05, Plan 37-06/37-09). The target
+        # rolls back on any failure. The target
         # is passed through env: for the same reason as the host key above.
         env:
           DEPLOY_SSH_TARGET: ${{ secrets.DEPLOY_SSH_TARGET }}
