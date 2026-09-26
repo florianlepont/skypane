@@ -4,19 +4,16 @@
  *
  * Modified from FlightPortrait (github.com/flightportrait/frame) for
  * SkyPane; the changes are listed in firmware/VENDOR.md. */
-/* SkyPane device-protocol client — trimmed from flightportrait/frame's
- * `main/api_client.c/.h` (@ ce3335fc). Upstream implements the full
- * production surface: OTA firmware offers, possession-pairing signed
- * headers, and a versioned target-blob (BYOS override) resolution chain
- * written only by provisioning flows. None of that is compiled here —
- * this project's server is addressed via SKYPANE_API_BASE in the
- * gitignored secrets.h, with the per-device enrolment secret read
- * separately from its own NVS partition (enrol_secret.h).
- *
- * Kept: the two endpoints, all four telemetry headers, and the streamed
+/* SkyPane device-protocol client — trimmed from upstream's
+ * api_client.c/.h. Upstream implements the full production surface: OTA
+ * firmware offers, possession-pairing signed headers, and a versioned
+ * target-blob (BYOS override) resolution chain written only by
+ * provisioning flows — none of that is compiled here. This project's
+ * server is addressed via SKYPANE_API_BASE (secrets.h), with the
+ * per-device enrolment secret read separately (enrol_secret.h). Kept:
+ * the two endpoints, all four telemetry headers, and the streamed
  * download with SHA-256 + exact-byte-count verification before any
- * buffer reaches panel.c — PROTOCOL.md §2-3 at the pinned commit.
- */
+ * buffer reaches panel.c — PROTOCOL.md §2-3. */
 #pragma once
 
 #include <stdbool.h>
@@ -48,7 +45,7 @@ typedef struct {
     char image_url[768];   /* presigned URLs are long */
     char image_hash[80];   /* "sha256:<64 hex>" */
     uint32_t sleep_s;
-    /* DEVICE-05 bring-up LED toggle. The struct's one *optional* field,
+    /* The bring-up LED toggle. The struct's one *optional* field,
      * unlike the three above it: those three are hard-required and a
      * bad value in any of them rejects the whole response, while this
      * one defaults to true whenever it is absent, null or the wrong JSON

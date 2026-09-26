@@ -51,11 +51,11 @@ static const bool s_allow_http = false;
  * One esp_http_client handle (and, when the server allows it, one
  * TCP+TLS connection) is reused for every request of a wake - setup,
  * display, and a same-origin image download - instead of a fresh
- * connection per request. This is FW-10's mandatory half; tls_session.c
- * carries the TLS session across deep sleep as a best-effort addition on
- * top of it. s_connects/s_first_connect_ms are read once, in
- * fp_api_release(), for the diagnostic line the hardware session uses to
- * explain the per-cycle overhead. */
+ * connection per request; tls_session.c carries the TLS session across
+ * deep sleep as a best-effort addition on top of it. s_connects/
+ * s_first_connect_ms are read once, in fp_api_release(), for the
+ * diagnostic line the hardware session uses to explain the per-cycle
+ * overhead. */
 static esp_http_client_handle_t s_http;
 static esp_transport_handle_t s_tls; /* NULL for the dev http:// path */
 static char s_origin[API_BASE_MAX];  /* scheme://host[:port] of s_http */
@@ -67,7 +67,7 @@ static bool s_tls_saved; /* fp_tls_session_save() runs at most once/wake */
 /* Every telemetry/auth header any request on the shared handle can carry.
  * Deleting all of them before setting only what the next request needs
  * is what keeps a bearer token or a battery reading from leaking onto a
- * request it was never meant for (T-34-09-01) - esp_http_client does not
+ * request it was never meant for - esp_http_client does not
  * clear headers on its own between esp_http_client_set_url() calls. */
 static void clear_request_headers(esp_http_client_handle_t http)
 {
@@ -134,7 +134,7 @@ static void maybe_save_tls_session(void)
     }
 }
 
-/* Replaces the plan-34-06 http_client_new() for every request that
+/* Replaces http_client_new() for every request that
  * shares s_http: the first call this wake creates the handle (attaching
  * a custom SSL transport for https so tls_session.c has something to
  * offer a saved session to before the first connect); every later call
@@ -169,7 +169,7 @@ static esp_err_t session_client(const char *url, esp_http_client_method_t method
 #endif
             /* Offered before the transport's first connect, so a session
              * saved by a previous wake gets a chance to abbreviate this
-             * wake's very first handshake (FW-10, best effort). */
+             * wake's very first handshake, best effort. */
             fp_tls_session_offer(s_tls, s_origin);
         }
         s_http = esp_http_client_init(&cfg);
@@ -239,9 +239,9 @@ static void auth_header(esp_http_client_handle_t http)
  * project always sends all four so the stub server's telemetry line -
  * and the battery-life measurement - never has a gap). X-Battery-Mv
  * carries one cached adc_oneshot + adc_cali read per wake, taken off the
- * EE02 driver board's own factory sense divider (battery.h, DEVICE-04);
- * zero is reported - PROTOCOL.md §2's unknown sentinel - if the read
- * fails, never a fabricated value. */
+ * EE02 driver board's own factory sense divider (battery.h); zero is
+ * reported - PROTOCOL.md §2's unknown sentinel - if the read fails,
+ * never a fabricated value. */
 static void telemetry_headers(esp_http_client_handle_t http,
                               const char *boot_reason)
 {
@@ -263,7 +263,7 @@ static void telemetry_headers(esp_http_client_handle_t http,
  * URL is not on s_origin (a presigned CDN URL on a different host, say)
  * - carrying the API handle's keep-alive connection or its headers over
  * to an unrelated origin would be pointless and, for the headers, a
- * credential leak (T-34-09-01). setup/display/same-origin download all
+ * credential leak. setup/display/same-origin download all
  * go through session_client() instead. */
 static esp_http_client_handle_t http_client_new(const char *url,
                                                  esp_http_client_method_t method,
@@ -285,8 +285,8 @@ static esp_http_client_handle_t http_client_new(const char *url,
  * only if s_http has already connected successfully at least once this
  * wake (s_connects > 0): a handle's very first connect failing is a real
  * problem no retry fixes, while a later one failing on a handle that
- * already worked is exactly the "server closed the keep-alive" case
- * (T-34-09-06). Never retries once a response status has been read
+ * already worked is exactly the "server closed the keep-alive" case.
+ * Never retries once a response status has been read
  * (esp_http_client_fetch_headers succeeded) - only a transport-level
  * failure before that point is retried. */
 static esp_err_t small_request(esp_http_client_handle_t http,
@@ -531,7 +531,7 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
     const cJSON *url = cJSON_GetObjectItem(json, "image_url");
     const cJSON *hash = cJSON_GetObjectItem(json, "image_hash");
     const cJSON *sleep_s = cJSON_GetObjectItem(json, "sleep_s");
-    /* DEVICE-05 bring-up LED toggle - deliberately fetched here, outside
+    /* The bring-up LED toggle field - deliberately fetched here, outside
      * the rejection block below, and resolved after it. See its resolve
      * expression further down for why. */
     const cJSON *led = cJSON_GetObjectItem(json, "led_enabled");
@@ -651,8 +651,8 @@ open_again:
     while (got < FP_IMAGE_BYTES) {
         int n = esp_http_client_read(http, (char *)buf + got,
                                      FP_IMAGE_BYTES - got);
-        /* FW-02: bounds a trickling transfer by the whole-wake budget,
-         * not just this read's own per-call timeout - a download that
+        /* Bounds a trickling transfer by the whole-wake budget, not
+         * just this read's own per-call timeout - a download that
          * dribbles in a few bytes at a time, just under the timeout on
          * every single read, would otherwise never end. */
         fp_wake_checkpoint();
