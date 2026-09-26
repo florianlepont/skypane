@@ -159,8 +159,8 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **INT-06**: Validated length, `Handler.timeout`, typed input, `hmac.compare_digest`
 - [ ] **INT-07**: `TimeoutStartSec`; total deadline per HTTP call
 - [ ] **INT-08**: Miss only on 404/empty route; TTL (misses ~1 day, hits ~30 days); LRU
-- [ ] **INT-09**: Advance to last newline; errors caught
-- [ ] **INT-10**: Type-checked
+- [x] **INT-09**: Advance to last newline; errors caught
+- [x] **INT-10**: Type-checked
 - [ ] **INT-11**: Full traceback
 - [x] **INT-12**: Injected clock; lock released during fetch
 - [ ] **INT-13**: Updated
@@ -409,8 +409,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INT-06 | Phase 36 | Complete |
 | INT-07 | Phase 36 | Pending |
 | INT-08 | Phase 36 | Pending |
-| INT-09 | Phase 36 | Pending |
-| INT-10 | Phase 36 | Pending |
+| INT-09 | Phase 36 | Complete |
+| INT-10 | Phase 36 | Complete |
 | INT-11 | Phase 36 | Pending |
 | INT-12 | Phase 36 | Complete |
 | INT-13 | Phase 36 | Pending |

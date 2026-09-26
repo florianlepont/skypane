@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 36 plan 05 complete: calendar feed and ntfy notify both pinned through http_fetch.pinned_request(), fetch_ics() bounded by a total deadline, calendar writers/lock on atomic_io, refresh_calendar_registry() releases the lock across the fetch (FETCH_SUPERSEDED added). 36-06 (upstream parsing: enrich/detect/history_db) is next in wave 2."
-last_updated: "2026-09-26T09:19:30.694Z"
+stopped_at: "Phase 36 plan 06 complete: detect.query_provider and enrich.default_transport both bounded through http_fetch.bounded_get; the adsbdb cache gains cached_at TTLs (1 day miss / 30 day hit) and true LRU eviction, never caching a transient failure; the Caddy log tailer reads binary, complete-lines-only, with byte-exact offsets and a guarded ts. 36-07 (poll cycle: lock, atomic writes, clock wiring) is next."
+last_updated: "2026-09-26T09:41:54.875Z"
 last_activity: 2026-09-26
 progress:
   total_phases: 54
   completed_phases: 44
   total_plans: 392
-  completed_plans: 364
+  completed_plans: 365
   percent: 81
 ---
 
@@ -60,7 +60,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTING
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 5 of 7
+Plan: 6 of 7
 
 **36-01 executed (2026-09-26), wave 1 (no dependencies) — lands the two stdlib primitives every later plan of Phase 36 migrates onto.** Task 1 re-verified gate G-35 independently against `origin/main` before any edit: 23 `35-*-SUMMARY.md` files present (≥22 required), `35-VERIFICATION.md` status `passed` on HEAD, ROADMAP's Phase 35 section fully checked, `origin/main` an ancestor of HEAD — all four checks passed, no edits made by that task. Task 2 (TDD) added `server/atomic_io.py`'s `atomic_write`/`staged_write`: a same-directory `tempfile.mkstemp` + `fchmod` + write + `fsync` + `os.replace`, with `DEFAULT_FILE_MODE` reading the umask once from `/proc/self/status`'s `Umask:` line (0022 on this runner) so a caller migrating from `open()` keeps its existing file mode unless it asks for a different one; an explicit `mode` (e.g. 0600 for a secret) lands on the temp file's descriptor before any byte is written and the destination path is never chmod'ed afterwards. Task 3 (TDD) added `exclusive_lock`/`LockBusy`/`LOCK_POLL_S`, generalising `calendar_rules._calendar_registry_lock` into one reusable cross-process, cross-thread `fcntl.flock` lock (0600 lock file, parent directory created, `LockBusy` a `TimeoutError` subclass, released in `finally`, no-op on a platform without `fcntl`), and wrote the module docstring's lock-order paragraph (`threading.Lock` → `poll.lock` → `calendar_rules.lock`; `device_config.lock` never held with another file lock). 19 behaviour tests total, including 8 threads × 50 writes and 2 OS processes × 200 writes to one path each landing exactly one complete 64 KiB payload with no leftover temp, and a child-process-held lock making the parent's blocking and non-blocking acquires both raise `LockBusy` before succeeding once the child releases. **One deviation, Rule 1/2 (coverage-gate correctness):** the new module's own defensive branches (the `/proc`-less umask fallback, the no-`fcntl` lock fallback, a write failure after the temp file is open, an already-deleted temp at cleanup, an unrelated `OSError` from `flock`) were untested by the plan's required behaviour list, pulling whole-repo coverage to 92.93% against the 93.0% floor — 8 more tests (each faking the platform condition, never reading source text) brought `server/atomic_io.py` to 98% and the full suite to 93.11%, `./scripts/run-all-tests.sh` exit 0, 2597 passed / 132 skipped (Playwright-Chromium and root-euid skips, pre-existing in this sandbox). Commits: `481fbc9` (test, RED), `08352b2` (feat, GREEN) for Task 2; `1151e42` (test, RED), `1d420f3` (feat, GREEN) for Task 3. `requirements.mark-complete INT-01 INT-02` per this plan's own frontmatter (the poll-cycle integration of INT-01 and every other caller's migration onto `atomic_write`/`exclusive_lock` land in 36-03..36-07). `roadmap.update-plan-progress "36"` confirmed `plan_count: 7, summary_count: 1, status: "In Progress"`.
 
@@ -532,6 +532,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 36 P02 | 20min | 3 tasks | 5 files |
 | Phase 36 P03 | 45min | 3 tasks | 3 files |
 | Phase 36 P05 | 21min | 3 tasks | 4 files |
+| Phase 36 P06 | 22min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1070,6 +1071,8 @@ Recent decisions affecting current work:
 - [Phase 36]: REQUIREMENTS.md: INT-05 and INT-06 marked Complete (owned end-to-end by 36-03); INT-02 stays Pending until the remaining fixed-.tmp-name callers in other 36-* plans are migrated
 - [Phase 36]: Pinned both remaining owner-supplied outbound URLs (calendar feed, ntfy topic) through http_fetch.pinned_request(), per CONTEXT's INT-14 decision — Closes the DNS-rebinding TOCTOU gap where requests/urllib re-resolve a hostname at connect time, seeing a different address than the one an early SSRF check saw
 - [Phase 36]: refresh_calendar_registry() releases the cross-process registry lock during the network fetch and adds FETCH_SUPERSEDED — A companion save or disconnect must never wait behind an in-flight poll cycle's calendar fetch, and a stale fetch result must never overwrite a newer URL's own write
+- [Phase 36]: 36-06: resolve_route's from_cache flag now comes from _lookup() itself, fixing the expired-then-refetched cache_hit/fresh_hit distinction the old pre-call presence check could not make.
+- [Phase 36]: 36-06: a legacy adsbdb cache miss (no cached_at) is left in place across repeated transient requery failures rather than deleted-and-recreated.
 
 ### Pending Todos
 
@@ -1190,8 +1193,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T09:19:30.629Z
-Stopped at: Phase 36 plan 05 complete: calendar feed and ntfy notify both pinned through http_fetch.pinned_request(), fetch_ics() bounded by a total deadline, calendar writers/lock on atomic_io, refresh_calendar_registry() releases the lock across the fetch (FETCH_SUPERSEDED added). 36-06 (upstream parsing: enrich/detect/history_db) is next in wave 2.
+Last session: 2026-09-26T09:41:54.800Z
+Stopped at: Phase 36 plan 06 complete: detect.query_provider and enrich.default_transport both bounded through http_fetch.bounded_get; the adsbdb cache gains cached_at TTLs (1 day miss / 30 day hit) and true LRU eviction, never caching a transient failure; the Caddy log tailer reads binary, complete-lines-only, with byte-exact offsets and a guarded ts. 36-07 (poll cycle: lock, atomic writes, clock wiring) is next.
 
 Resume file: 
 
