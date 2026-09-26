@@ -17,8 +17,14 @@ display whatever panel image you serve.
 
 The image must be exactly 960,000 bytes in the PROTOCOL.md §1 format
 (the calibration patterns in first-flash/bins/ work); swap the file on
-disk and the next poll serves the new content via its hash. Enrolment
-is gated by a per-device registry (devices.json in --state-dir maps
+disk and the next poll advertises the new content's own hash. Each
+GET /device/v1/display publishes the served image under
+<state-dir>/img/<sha256>.bin (content-addressed, keeping the newest
+IMG_KEEP files) before answering, so GET /img/<sha>.bin always serves
+exactly the bytes that hash names, even if the on-disk --image changes
+before the device downloads; any other /img/ path, or a hash never
+published, is 404. Enrolment is gated by a per-device registry
+(devices.json in --state-dir maps
 each MAC to the SHA-256 of its own enrolment secret, managed with
 stub-server/devices_cli.py); a missing or unreadable registry refuses
 every enrolment rather than falling back to open. Issued tokens live
@@ -504,6 +510,70 @@ def quiet_hours_sleep_s(base_sleep_s, state_dir, now=None):
     return max(base_sleep_s, remaining)
 
 
+IMG_DIRNAME = "img"
+# The newest N published panel images kept on disk; a poll that lands
+# between more than this many distinct panels in one wake would see a
+# 404 on download, retried like any other failed download - the
+# firmware treats it exactly the same as a stale server.
+IMG_KEEP = 8
+
+_IMG_NAME_RE = re.compile(r"\A[0-9a-f]{64}\.bin\Z")
+_IMG_PATH_RE = re.compile(r"\A/img/([0-9a-f]{64})\.bin\Z")
+
+
+def _img_dir(state_dir):
+    return os.path.join(state_dir, IMG_DIRNAME)
+
+
+def _publish_image(state_dir, digest, image):
+    """Ensure <state_dir>/img/<digest>.bin holds `image`'s bytes and is
+    the newest file in img/ (so a re-advertised digest survives
+    pruning), then prune img/ down to IMG_KEEP files. Raises OSError on
+    any filesystem failure (a full or read-only state dir) - the caller
+    must answer 503 rather than advertise a hash it cannot serve.
+    """
+    img_dir = _img_dir(state_dir)
+    os.makedirs(img_dir, exist_ok=True)
+    path = os.path.join(img_dir, "%s.bin" % digest)
+    if os.path.exists(path):
+        os.utime(path, None)
+    else:
+        _atomic_write(path, image)
+    _prune_images(img_dir, keep_digest=digest)
+
+
+def _prune_images(img_dir, keep_digest):
+    """Keep at most IMG_KEEP files in img/, newest by mtime first, and
+    never remove `keep_digest`'s file even if it is not among the
+    newest IMG_KEEP by mtime. Names not matching _IMG_NAME_RE are
+    ignored (never counted, never removed); a file removed by a
+    concurrent pruner is tolerated.
+    """
+    try:
+        names = [name for name in os.listdir(img_dir) if _IMG_NAME_RE.match(name)]
+    except OSError:
+        return
+
+    def _mtime(name):
+        try:
+            return os.stat(os.path.join(img_dir, name)).st_mtime
+        except OSError:
+            return -1.0
+
+    names.sort(key=_mtime, reverse=True)
+    keep_name = "%s.bin" % keep_digest
+    survivors = names[:IMG_KEEP]
+    if keep_name not in survivors:
+        survivors = survivors[:max(0, IMG_KEEP - 1)] + [keep_name]
+    for name in names:
+        if name in survivors:
+            continue
+        try:
+            os.remove(os.path.join(img_dir, name))
+        except FileNotFoundError:
+            pass
+
+
 def battery_state_path(state_dir):
     return os.path.join(state_dir, "battery_state.json")
 
@@ -640,6 +710,10 @@ class Handler(BaseHTTPRequestHandler):
             if len(image) != IMAGE_BYTES:
                 return self.send_json(503, {"detail": "image wrong size"})
             digest = hashlib.sha256(image).hexdigest()
+            try:
+                _publish_image(self.args.state_dir, digest, image)
+            except OSError:
+                return self.send_json(503, {"detail": "image unavailable"})
             host = self.headers.get("Host", "localhost")
             return self.send_json(200, {
                 "image_url": "%s://%s/img/%s.bin" % (
@@ -669,12 +743,14 @@ class Handler(BaseHTTPRequestHandler):
                 # (server/device_config.py's save_device_config()).
                 "led_enabled": read_led_enabled(self.args.state_dir),
             })
-        if self.path.startswith("/img/"):
+        match = _IMG_PATH_RE.match(self.path)
+        if match is not None:
+            path = os.path.join(_img_dir(self.args.state_dir), "%s.bin" % match.group(1))
             try:
-                with open(self.args.image, "rb") as fh:
+                with open(path, "rb") as fh:
                     image = fh.read()
             except OSError:
-                return self.send_json(503, {"detail": "image unreadable"})
+                return self.send_json(404, {"detail": "unknown image"})
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
             self.send_header("Content-Length", str(len(image)))
