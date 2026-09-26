@@ -11,15 +11,21 @@ never once per 30-second cycle - the always-changing "pipeline last ran"
 signal lives in the fixed-size `meta` table instead, so keep-forever
 retention doesn't turn into unbounded per-cycle row growth.
 
-Concurrency: every connection sets `PRAGMA journal_mode=WAL` and `PRAGMA
-busy_timeout=5000`, so a concurrent poll-oneshot write and companion read
-wait briefly on a lock instead of raising "database is locked".
+Concurrency: `connection_scope(state_dir)` gives every `open_db()` call on
+the same thread inside it one lazily-opened connection, closed only once
+the outermost scope exits; outside any scope `open_db()` keeps its own
+open-per-call behaviour. Every connection sets `PRAGMA busy_timeout=5000`;
+`PRAGMA journal_mode=WAL` and the schema run once per process for a given
+database file identity, not once per connection. A concurrent
+poll-oneshot write and a companion read still just wait briefly on a lock
+instead of raising "database is locked".
 """
 import contextlib
 import json
 import os
 import sqlite3
 import sys
+import threading
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -156,11 +162,82 @@ def connect(state_dir, timeout=5.0):
     return conn
 
 
+# One re-entrant connection slot per thread: `ThreadingHTTPServer` runs one
+# thread per request and sqlite3 defaults to check_same_thread=True, so a
+# thread-local (rather than a ContextVar, whose inheritance across a
+# ThreadPoolExecutor worker or a bare threading.Thread differs by Python
+# version) is the one place that is both "shared within a scope" and
+# "never visible to another thread" by construction.
+_SCOPE = threading.local()
+
+
+@contextlib.contextmanager
+def connection_scope(state_dir):
+    """`with connection_scope(state_dir):` - every `open_db(state_dir)`
+    call on this thread inside the block, however deep it is nested,
+    shares one connection, opened lazily on the first `open_db()` call and
+    closed once this outermost scope exits (rolled back first if a write
+    was left uncommitted). Re-entrant: a nested `connection_scope` for the
+    same path just extends the same scope. A `connection_scope` for a
+    different path started while this one is active does not take over -
+    it is served as if no scope were active (see `open_db()`'s
+    passthrough branch), since one thread-local slot can hold only one
+    path at a time.
+    """
+    path = history_db_path(state_dir)
+    active_path = getattr(_SCOPE, "path", None)
+
+    if active_path == path:
+        _SCOPE.depth += 1
+        try:
+            yield
+        finally:
+            _SCOPE.depth -= 1
+        return
+
+    if active_path is not None:
+        yield  # a different path is already scoped on this thread
+        return
+
+    _SCOPE.path = path
+    _SCOPE.depth = 1
+    _SCOPE.conn = None
+    _SCOPE.error = None
+    try:
+        yield
+    finally:
+        conn = _SCOPE.conn
+        _SCOPE.path = None
+        _SCOPE.depth = 0
+        _SCOPE.conn = None
+        _SCOPE.error = None
+        if conn is not None:
+            if conn.in_transaction:
+                conn.rollback()
+            conn.close()
+
+
 @contextlib.contextmanager
 def open_db(state_dir, timeout=5.0):
     """`with open_db(state_dir) as conn:` - closes on exit even if the
-    block raises.
+    block raises. Inside a `connection_scope(state_dir)` active on this
+    thread, yields that scope's shared connection instead (opened lazily
+    on first use here) and does not close it; a prior failed open in the
+    same scope re-raises the same exception again without retrying.
     """
+    path = history_db_path(state_dir)
+    if getattr(_SCOPE, "path", None) == path:
+        if _SCOPE.error is not None:
+            raise _SCOPE.error
+        if _SCOPE.conn is None:
+            try:
+                _SCOPE.conn = connect(state_dir, timeout=timeout)
+            except (sqlite3.Error, OSError) as exc:
+                _SCOPE.error = exc
+                raise
+        yield _SCOPE.conn
+        return
+
     conn = connect(state_dir, timeout=timeout)
     try:
         yield conn
