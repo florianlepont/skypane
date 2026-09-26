@@ -42,6 +42,7 @@ PUBLIC_IP = "93.184.216.34"
 
 import server.plane.calendar_rules as cr  # noqa: E402
 import server.device_config as device_config  # noqa: E402
+from server import http_fetch  # noqa: E402
 
 
 def load_fixture_text(name):
@@ -94,6 +95,89 @@ class _FakeCalendarResponse:
 
     def close(self):
         self.closed = True
+
+
+# --- Fakes for the real default_calendar_transport() -> http_fetch.
+# pinned_request() path (no injected transport) - mirroring server/test_
+# http_fetch.py's own fake socket/SSL-context technique (a byte-at-a-time
+# raw reader wrapped in io.BufferedReader, so the response is parsed
+# through http.client's own real status-line/header parser) rather than a
+# hand-rolled response stub, since this is the exact code path a real
+# fetch runs.
+
+
+class _RawByteAtATimeReader(io.RawIOBase):
+    def __init__(self, data):
+        super().__init__()
+        self._data = data
+        self._pos = 0
+
+    def readable(self):
+        return True
+
+    def readinto(self, b):
+        if self._pos >= len(self._data):
+            return 0
+        b[0] = self._data[self._pos]
+        self._pos += 1
+        return 1
+
+
+def _canned_pinned_response(status_line="HTTP/1.1 200 OK", headers=None, body=b""):
+    headers = dict(headers) if headers is not None else {"Content-Length": str(len(body))}
+    lines = [status_line] + ["%s: %s" % (k, v) for k, v in headers.items()]
+    header_bytes = ("\r\n".join(lines) + "\r\n\r\n").encode("ascii")
+    return header_bytes + body
+
+
+class _FakePinnedSocket:
+    def __init__(self, response_bytes):
+        self.sent = b""
+        self.timeouts = []
+        self._response_bytes = response_bytes
+        self.closed = False
+
+    def sendall(self, data):
+        self.sent += data
+
+    def makefile(self, mode="r", *args, **kwargs):
+        return io.BufferedReader(_RawByteAtATimeReader(self._response_bytes))
+
+    def settimeout(self, value):
+        self.timeouts.append(value)
+
+    def close(self):
+        self.closed = True
+
+
+class _FakePinnedSSLContext:
+    def __init__(self):
+        self.wrap_calls = []
+
+    def wrap_socket(self, sock, server_hostname=None):
+        self.wrap_calls.append({"sock": sock, "server_hostname": server_hostname})
+        return sock
+
+
+def _sequenced_resolver(*answer_lists):
+    """A fake `socket.getaddrinfo()`: each call consumes the next
+    `answer_lists` entry (a list of address strings), repeating the last
+    one once exhausted - used to prove a hostname's own genuinely-later
+    resolution (were one ever made) would see a different, unsafe
+    answer, while asserting the resolver was in fact called only as many
+    times as the real code path legitimately calls it (never once more,
+    at "connect time").
+    """
+    calls = []
+    remaining = list(answer_lists)
+
+    def resolver(host, port=None, *args, **kwargs):
+        calls.append(host)
+        current = remaining.pop(0) if remaining else answer_lists[-1]
+        return [(2, 1, 6, "", (addr, port or 443)) for addr in current]
+
+    resolver.calls = calls
+    return resolver
 
 
 def _write_calendar_secret(state_dir, url):
@@ -928,6 +1012,160 @@ def test_default_timeout_passed_to_transport():
         pytest.fail("expected the transport's timeout argument to be CALENDAR_FETCH_TIMEOUT_S, got %r" % (timeouts,))
 
 
+def test_default_transport_pins_the_checked_address_end_to_end(monkeypatch):
+    """fetch_ics(), with NO injected transport, goes through the real default_calendar_transport() -> http_fetch.pinned_request() path: the two legitimate resolutions (_url_is_safe()'s early gate, then pinned_request()'s own resolve) both see the public address, the connection reaches only that address, TLS server_hostname is the feed hostname, and the parsed body is returned - proving the connection never performs a further resolution that could see a different (private) answer, even though one is configured to be available"""
+    host = "calendar-pin-test.invalid"
+    resolver = _sequenced_resolver([PUBLIC_IP], [PUBLIC_IP], ["127.0.0.1"])
+    monkeypatch.setattr(socket, "getaddrinfo", resolver)
+
+    body = b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"
+    fake_sock = _FakePinnedSocket(_canned_pinned_response(body=body))
+    cc_calls = []
+
+    def fake_create_connection(address, timeout):
+        cc_calls.append(address)
+        return fake_sock
+
+    monkeypatch.setattr(socket, "create_connection", fake_create_connection)
+    fake_ssl = _FakePinnedSSLContext()
+    monkeypatch.setattr(http_fetch, "_default_ssl_context", lambda: fake_ssl)
+
+    result = cr.fetch_ics("https://%s/a.ics" % host)
+
+    if result != body.decode("utf-8"):
+        pytest.fail("expected the parsed body, got %r" % (result,))
+    if cc_calls != [(PUBLIC_IP, 443)]:
+        pytest.fail("expected exactly one connection, to the checked public address, got %r" % (cc_calls,))
+    if not fake_ssl.wrap_calls or fake_ssl.wrap_calls[0]["server_hostname"] != host:
+        pytest.fail("expected TLS server_hostname to be the feed hostname, got %r" % (fake_ssl.wrap_calls,))
+    if len(resolver.calls) != 2:
+        pytest.fail((
+            "expected exactly two resolutions (the early gate, then pinned_request()'s own) "
+            "- a third would have seen the private answer: got %d (%r)"
+            % (len(resolver.calls), resolver.calls)))
+
+
+def test_default_transport_redirect_hop_to_private_address_never_connects(monkeypatch):
+    """a redirect hop whose Location targets a hostname resolving to a private address is refused by fetch_ics()'s own _url_is_safe() gate before default_calendar_transport() (and therefore socket.create_connection()) is ever invoked for that hop"""
+    first_host = "calendar-redirect-first.invalid"
+    second_host = "calendar-redirect-private.invalid"
+
+    def fake_getaddrinfo(host, port=None, *a, **k):
+        if host == first_host:
+            return [(2, 1, 6, "", (PUBLIC_IP, port or 443))]
+        if host == second_host:
+            return [(2, 1, 6, "", ("10.0.0.5", port or 443))]
+        raise socket.gaierror("unexpected host in test: %r" % (host,))
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+
+    redirect_bytes = _canned_pinned_response(
+        status_line="HTTP/1.1 302 Found",
+        headers={"Location": "https://%s/b.ics" % second_host, "Content-Length": "0"},
+    )
+    fake_sock = _FakePinnedSocket(redirect_bytes)
+    cc_calls = []
+
+    def fake_create_connection(address, timeout):
+        cc_calls.append(address)
+        return fake_sock
+
+    monkeypatch.setattr(socket, "create_connection", fake_create_connection)
+    monkeypatch.setattr(http_fetch, "_default_ssl_context", lambda: _FakePinnedSSLContext())
+
+    result = cr.fetch_ics("https://%s/a.ics" % first_host)
+
+    if result is not None:
+        pytest.fail("expected None when the redirect targets a private address, got %r" % (result,))
+    if cc_calls != [(PUBLIC_IP, 443)]:
+        pytest.fail((
+            "expected exactly one connection (the first hop only) - the private redirect "
+            "target must never be connected to: %r" % (cc_calls,)))
+
+
+def test_fetch_ics_deadline_exceeded_mid_stream_logs_only_the_type():
+    """fetch_ics() aborts once its total deadline has elapsed while streaming a chunked body - even though each individual chunk arrives well inside the per-hop timeout - closes the response, and logs only the exception type, never the URL"""
+    clock_state = {"t": 0.0}
+
+    def clock():
+        return clock_state["t"]
+
+    class _SlowTrickleResponse:
+        def __init__(self):
+            self.status_code = 200
+            self.headers = {}
+            self.closed = False
+
+        def iter_content(self, chunk_size=8192):
+            for _ in range(20):
+                clock_state["t"] += 3.0
+                yield b"x"
+
+        def close(self):
+            self.closed = True
+
+    response = _SlowTrickleResponse()
+
+    def transport(url, timeout):
+        return response
+
+    buf = io.StringIO()
+    old_stderr = sys.stderr
+    sys.stderr = buf
+    try:
+        result = cr.fetch_ics(
+            "https://%s/a.ics" % PUBLIC_IP, transport=transport,
+            deadline_s=cr.CALENDAR_FETCH_DEADLINE_S, clock=clock)
+    finally:
+        sys.stderr = old_stderr
+    captured = buf.getvalue()
+
+    if result is not None:
+        pytest.fail("expected None once the deadline elapsed mid-stream, got %r" % (result,))
+    if response.closed is not True:
+        pytest.fail("expected the response to be closed on a deadline abort")
+    if "DeadlineExceeded" not in captured:
+        pytest.fail("expected the deadline-exceeded exception's type name on stderr, got %r" % (captured,))
+    if PUBLIC_IP in captured:
+        pytest.fail("expected no URL/address in the deadline log line, got %r" % (captured,))
+
+
+def test_later_hop_timeout_is_clamped_to_time_left():
+    """the timeout fetch_ics() hands the transport on a later hop is min(CALENDAR_FETCH_TIMEOUT_S, time left under the total deadline), not always the full per-request timeout"""
+    clock_state = {"t": 0.0}
+
+    def clock():
+        return clock_state["t"]
+
+    timeouts = []
+    calls = []
+
+    def transport(url, timeout):
+        calls.append(url)
+        timeouts.append(timeout)
+        if len(calls) == 1:
+            clock_state["t"] += 8.0  # eats most of the 10s total deadline
+            return _FakeCalendarResponse(
+                302, headers={"Location": "https://%s/b.ics" % PUBLIC_IP}, is_redirect=True)
+        return _FakeCalendarResponse(200, body=b"BEGIN:VCALENDAR")
+
+    result = cr.fetch_ics(
+        "https://%s/a.ics" % PUBLIC_IP, transport=transport,
+        deadline_s=cr.CALENDAR_FETCH_DEADLINE_S, clock=clock)
+
+    if result != "BEGIN:VCALENDAR":
+        pytest.fail("expected the second hop to succeed, got %r" % (result,))
+    if len(timeouts) != 2:
+        pytest.fail("expected exactly two transport calls, got %d" % (len(timeouts),))
+    if timeouts[0] != cr.CALENDAR_FETCH_TIMEOUT_S:
+        pytest.fail("expected the first hop's timeout to be the full per-request timeout, got %r" % (timeouts[0],))
+    expected_second = min(cr.CALENDAR_FETCH_TIMEOUT_S, cr.CALENDAR_FETCH_DEADLINE_S - 8.0)
+    if timeouts[1] != pytest.approx(expected_second):
+        pytest.fail((
+            "expected the second hop's timeout clamped to time left (%r), got %r"
+            % (expected_second, timeouts[1])))
+
+
 def test_secret_never_reaches_stderr_across_seven_failure_paths(monkeypatch):
     """across seven distinct fetch_ics() failure paths - including a transport exception whose message is the full secret URL - neither the token, the host, the path, nor the query-parameter name reaches stderr"""
     import requests
@@ -1529,12 +1767,17 @@ def test_tmp_file_mode_is_0600_at_creation_time(monkeypatch, tmp_path):
     import stat as stat_mod
     tmp = tmp_path
     secret_path = cr.calendar_secret_path(tmp)
+    # atomic_io.staged_write() names its temp file "<dir>/.<basename>.XXXXXX.tmp"
+    # (tempfile.mkstemp's own convention), not "<path>.<pid>.<tid>.tmp" - match
+    # on that prefix rather than a plain startswith(secret_path), which would
+    # no longer find it.
+    secret_tmp_prefix = "." + os.path.basename(secret_path) + "."
     recorded = {}
     real_open = cr.os.open
     real_replace = cr.os.replace
 
     def _spy_open(path, flags, mode=0o777, *args, **kwargs):
-        if path.startswith(secret_path):
+        if os.path.basename(path).startswith(secret_tmp_prefix):
             recorded["open_mode"] = mode
         return real_open(path, flags, mode, *args, **kwargs)
 
