@@ -16,6 +16,7 @@ codes, file mode, presence/absence of a leftover temp file, server stdout) -
 never about byos_server.py's source text, per the behaviour-over-source
 convention this repo's tests follow throughout.
 """
+import hashlib
 import importlib.util
 import json
 import os
@@ -336,3 +337,170 @@ def test_save_state_concurrent_threads_no_exception(byos_module, tmp_path):
 
     assert errors == []
     assert _temp_leftovers(tmpdir) == []
+
+
+# --- Content-addressed image download --------------------------------------
+
+
+def test_display_publishes_image_and_img_endpoint_serves_it_by_hash(tmp_path):
+    """GET /device/v1/display advertises image_hash sha256:X; after the served --image
+    file is replaced with different bytes, /img/X.bin still returns the bytes whose
+    SHA-256 is X (content-addressed, not "whatever's currently on disk"), and the
+    following /display advertises the new image under its own hash"""
+    image_x = make_panel_bytes(1)
+    harness = Harness(tmp_path, image_bytes=image_x)
+    try:
+        harness.start()
+        status, _, body = http_request(
+            harness.base_url() + "/device/v1/display", headers=harness.auth_headers())
+        assert status == 200, "expected 200, got %d" % status
+        obj = json.loads(body.decode())
+        digest_x = obj["image_hash"].split(":", 1)[1]
+        assert digest_x == hashlib.sha256(image_x).hexdigest()
+        image_url_x = obj["image_url"]
+
+        # Replace the served panel with different bytes before downloading -
+        # the download must still yield X, not the new on-disk content.
+        with open(harness.image_path, "wb") as fh:
+            fh.write(make_panel_bytes(2))
+
+        dstatus, _, dbuf = http_request(image_url_x)
+        assert dstatus == 200, "expected 200 downloading X, got %d" % dstatus
+        assert hashlib.sha256(dbuf).hexdigest() == digest_x
+        assert dbuf == image_x
+
+        # The next /display advertises the new image (Y), served at its own hash.
+        status2, _, body2 = http_request(
+            harness.base_url() + "/device/v1/display", headers=harness.auth_headers())
+        assert status2 == 200
+        obj2 = json.loads(body2.decode())
+        digest_y = obj2["image_hash"].split(":", 1)[1]
+        assert digest_y != digest_x
+        dstatus2, _, dbuf2 = http_request(obj2["image_url"])
+        assert dstatus2 == 200
+        assert hashlib.sha256(dbuf2).hexdigest() == digest_y
+    finally:
+        harness.stop()
+
+
+def test_img_endpoint_404_for_unknown_or_malformed_paths(tmp_path):
+    """GET /img/<64-hex not published>.bin, /img/../panel.bin, /img/<hex>.BIN,
+    /img/<hex>.bin?x=1, /img/<hex> (no extension), /img/ and a 63-hex name all answer
+    404 - only the exact published /img/<64 lowercase hex>.bin path is ever served"""
+    harness = Harness(tmp_path)
+    try:
+        harness.start()
+        status, _, body = http_request(
+            harness.base_url() + "/device/v1/display", headers=harness.auth_headers())
+        assert status == 200
+        digest = json.loads(body.decode())["image_hash"].split(":", 1)[1]
+        unknown_hex = "0" * 64 if digest != "0" * 64 else "1" * 64
+
+        bad_paths = [
+            "/img/%s.bin" % unknown_hex,
+            "/img/../panel.bin",
+            "/img/%s.BIN" % digest,
+            "/img/%s.bin?x=1" % digest,
+            "/img/%s" % digest,
+            "/img/",
+            "/img/%s.bin" % digest[:63],
+        ]
+        for path in bad_paths:
+            status, _, _ = http_request(harness.base_url() + path)
+            assert status == 404, "expected 404 for %r, got %d" % (path, status)
+    finally:
+        harness.stop()
+
+
+def test_img_dir_bounded_to_img_keep_after_ten_publishes(byos_module, tmp_path):
+    """After publishing 10 distinct images through /display, img/ holds exactly
+    IMG_KEEP files matching the hash pattern, and the most recently advertised
+    hash is among them"""
+    harness = Harness(tmp_path)
+    try:
+        harness.start()
+        last_digest = None
+        for n in range(10):
+            with open(harness.image_path, "wb") as fh:
+                fh.write(make_panel_bytes(n))
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", headers=harness.auth_headers())
+            assert status == 200, "publish %d: expected 200, got %d" % (n, status)
+            last_digest = json.loads(body.decode())["image_hash"].split(":", 1)[1]
+
+        img_dir = os.path.join(harness.tmpdir, "img")
+        names = os.listdir(img_dir)
+        assert len(names) == byos_module.IMG_KEEP, (
+            "expected exactly IMG_KEEP (%d) files, found %d: %r"
+            % (byos_module.IMG_KEEP, len(names), names))
+        for name in names:
+            assert byos_module._IMG_NAME_RE.match(name), "unexpected name in img/: %r" % (name,)
+        assert ("%s.bin" % last_digest) in names, "most recently advertised hash was pruned"
+    finally:
+        harness.stop()
+
+
+def test_prune_images_never_removes_the_just_advertised_hash(byos_module, tmp_path):
+    """_prune_images keeps at most IMG_KEEP files and never removes keep_digest, even
+    when keep_digest is the oldest file by mtime - the guarantee _publish_image relies
+    on for a panel that alternates back to a previously-served image"""
+    img_dir = os.path.join(str(tmp_path), "img")
+    os.makedirs(img_dir)
+    keep_digest = "a" * 64
+    keep_path = os.path.join(img_dir, "%s.bin" % keep_digest)
+    with open(keep_path, "wb") as fh:
+        fh.write(b"keep")
+    os.utime(keep_path, (1_000_000, 1_000_000))  # oldest of all the entries below
+
+    for i in range(byos_module.IMG_KEEP + 5):
+        digest = "%064x" % i
+        path = os.path.join(img_dir, "%s.bin" % digest)
+        with open(path, "wb") as fh:
+            fh.write(b"x")
+        os.utime(path, (2_000_000 + i, 2_000_000 + i))  # all newer than keep_digest
+
+    byos_module._prune_images(img_dir, keep_digest=keep_digest)
+    names = set(os.listdir(img_dir))
+    assert ("%s.bin" % keep_digest) in names, "keep_digest was pruned despite being the oldest"
+    assert len(names) == byos_module.IMG_KEEP, (
+        "expected exactly IMG_KEEP (%d) survivors, found %d: %r"
+        % (byos_module.IMG_KEEP, len(names), names))
+
+
+def test_img_survives_byos_restart(tmp_path):
+    """A byos restart between /display and /img/<X>.bin still serves X - the
+    published file lives on disk, not only in the running process's memory"""
+    harness = Harness(tmp_path)
+    try:
+        harness.start()
+        status, _, body = http_request(
+            harness.base_url() + "/device/v1/display", headers=harness.auth_headers())
+        assert status == 200
+        digest = json.loads(body.decode())["image_hash"].split(":", 1)[1]
+        harness.stop()
+        harness.start()
+        status2, _, dbuf = http_request(harness.base_url() + "/img/%s.bin" % digest)
+        assert status2 == 200, "expected 200 after restart, got %d" % status2
+        assert hashlib.sha256(dbuf).hexdigest() == digest
+    finally:
+        harness.stop()
+
+
+def test_display_answers_503_when_img_dir_cannot_be_written(tmp_path):
+    """When img/ cannot be created or written (a read-only state dir), /display answers
+    503 "image unavailable" rather than advertise a hash it cannot serve"""
+    if os.geteuid() == 0:
+        pytest.skip("root ignores directory permission bits")
+    harness = Harness(tmp_path)
+    try:
+        harness.start()
+        os.chmod(harness.tmpdir, 0o500)
+        try:
+            status, _, body = http_request(
+                harness.base_url() + "/device/v1/display", headers=harness.auth_headers())
+        finally:
+            os.chmod(harness.tmpdir, 0o700)
+        assert status == 503, "expected 503, got %d" % status
+        assert json.loads(body.decode()).get("detail") == "image unavailable"
+    finally:
+        harness.stop()
