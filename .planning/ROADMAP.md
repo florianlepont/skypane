@@ -1830,7 +1830,7 @@ Plans:
 3. SQLite connections per page request: 1; per poll cycle: 1
 4. Poll cycle wall time measured before/after (no fixed 1.1 s sleep)
 
-**Plans:** 10/13 plans executed
+**Plans:** 11/13 plans executed
 
 Plans:
 
@@ -1858,7 +1858,7 @@ Plans:
 **Wave 5** *(blocked on Wave 4 completion)*
 
 - [x] 38-10-PLAN.md — lazy `page_context`, 404/403 severity from signals, cooldown degrades to 0 [EFF-04]
-- [ ] 38-11-PLAN.md — provider last-call times persisted in meta; spacing kept across back-to-back cycles [EFF-06]
+- [x] 38-11-PLAN.md — provider last-call times persisted in meta; spacing kept across back-to-back cycles [EFF-06]
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
