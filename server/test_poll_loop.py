@@ -1122,6 +1122,37 @@ def test_history_row_written_only_on_hex_transition(tmp_path):
         shutil.rmtree(hist_dir, ignore_errors=True)
 
 
+def test_crash_during_notify_after_history_commit_does_not_duplicate_the_event(tmp_path, monkeypatch):
+    """a process death during the frame-silence notify call - which runs after this cycle's runway_events row already committed - leaves poll_state.json's dedup fields already on disk, so the next cycle does not insert the same event again"""
+    crash_dir = _mkdir(tmp_path, "crash-dedup")
+    try:
+        original_notify = poll_loop._notify_silence_transition
+
+        def _die(*args, **kwargs):
+            raise SystemExit(1)
+
+        monkeypatch.setattr(poll_loop, "_notify_silence_transition", _die)
+        with pytest.raises(SystemExit):
+            poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=crash_dir, geofence=GEOFENCE_PATH)
+
+        # The crash landed after the runway_events row committed but before
+        # the notify call would have run - the dedup fields must already be
+        # on disk at this point, not merely in the now-gone process's memory.
+        state_on_disk = poll_loop.load_poll_state(crash_dir)
+        if state_on_disk.get("last_recorded_hex") != "aaaaaa":
+            pytest.fail("poll_state.json's dedup fields were not persisted before the crash: %r" % (state_on_disk,))
+
+        monkeypatch.setattr(poll_loop, "_notify_silence_transition", original_notify)
+        poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=crash_dir, geofence=GEOFENCE_PATH)
+        with history_db.open_db(crash_dir) as conn:
+            rows = history_db.recent_runway_events(conn, limit=100)
+        if len(rows) != 1:
+            pytest.fail("a crash between the history commit and the notify call produced %d total runway_events rows after the next cycle, expected still 1" % (len(rows),))
+        return
+    finally:
+        shutil.rmtree(crash_dir, ignore_errors=True)
+
+
 def test_history_row_written_on_confirmed_state_flip(tmp_path):
     """a confirmed_state flip on the same hex writes a new runway_events row"""
     hist_dir = _mkdir(tmp_path, "hist-state")

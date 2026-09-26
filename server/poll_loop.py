@@ -1397,6 +1397,19 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             provider_last_calls=provider_last_calls,
         )
 
+    # Saved here, BEFORE the frame-silence notify call below, not after it
+    # - the flight-detected branch above may have just committed a
+    # runway_events row gated on poll_state["last_recorded_*"]
+    # (_should_record_event()); those dedup fields must reach disk before
+    # the notify hook's ntfy HTTP call (5s timeout plus DNS) gives a crash
+    # (SIGKILL/OOM, the systemd 90s TimeoutStartSec kill, an atomic_write
+    # OSError, a companion restart mid /poll-now) a window to lose them -
+    # otherwise the next cycle's _should_record_event() would still see
+    # the OLD last_recorded_* values on disk and insert the same event
+    # again. Written only if any branch above actually changed something
+    # from the snapshot taken at load.
+    _persist_poll_state(state_dir, poll_state, poll_state_baseline)
+    after_branches_serialized = _serialize_poll_state(poll_state)
     # Shared call site for the frame-silence check, common to all three
     # branches above (the hold branch has its own, right after its own
     # _record_history()). Placed after every branch's history write so a
@@ -1406,11 +1419,14 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             _notify_silence_transition(state_dir, poll_state, conn, device_cfg)
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: silence-transition history read failed: %s: %s" % (type(exc).__name__, exc))
-    # The cycle's one save for the three branches above: written only if
-    # anything - the display-pacing/enrichment/hysteresis fields any
-    # branch set, or the notify hook's own poll_state["notifications"]
-    # mutation - actually changed from the snapshot taken at load.
-    _persist_poll_state(state_dir, poll_state, poll_state_baseline)
+    # A second save, only on top of the one above - written only if the
+    # notify hook's own poll_state["notifications"] mutation changed
+    # anything beyond what was just persisted. A steady-state cycle (no
+    # branch mutation, no transition) still writes nothing at all; a cycle
+    # with only a branch mutation still writes exactly once, before the
+    # notify call - this second call only fires on a genuine silent/
+    # recovered transition landing in the same cycle as a branch mutation.
+    _persist_poll_state(state_dir, poll_state, after_branches_serialized)
 
     # Logs only this project's own records/telemetry, never a third-party
     # response body or the raw battery millivolt reading. `hex=` is this
