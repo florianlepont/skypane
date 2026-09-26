@@ -2,9 +2,8 @@
 # firmware/monitor.sh - serial console capture to a timestamped log file
 # under hardware/logs/, so a bring-up session is captured rather than
 # scrolling away in a terminal.
-#
-# Usage:
-#   firmware/monitor.sh <serial-port> [output-log-path]
+
+# Usage: firmware/monitor.sh <serial-port> [output-log-path]
 #
 # The serial port is REQUIRED, same reasoning as flash.sh - never guessed
 # or wildcarded. If no output path is given, one is generated under
