@@ -10,6 +10,7 @@ import stat
 import subprocess
 import sys
 import threading
+import time
 
 import pytest
 
@@ -191,3 +192,102 @@ def test_staged_write_commit_writes_and_rollback_leaves_untouched(tmp_path):
             raise RuntimeError("boom")
     assert path.read_bytes() == b"committed"
     assert _temp_leftovers(str(tmp_path)) == []
+
+
+_LOCK_HOLDER_TEMPLATE = """
+import sys
+sys.path.insert(0, {repo_root!r})
+from server import atomic_io
+
+lock_path = sys.argv[1]
+with atomic_io.exclusive_lock(lock_path, 5):
+    print("locked", flush=True)
+    sys.stdin.read()  # blocks until the parent closes stdin, releasing the lock
+"""
+
+
+def test_exclusive_lock_blocks_across_processes_and_releases(tmp_path):
+    # The lock's parent directory does not exist yet: exclusive_lock must create it.
+    lock_path = str(tmp_path / "sub" / "poll.lock")
+    script = tmp_path / "_holder.py"
+    script.write_text(_LOCK_HOLDER_TEMPLATE.format(repo_root=REPO_ROOT))
+
+    env = dict(os.environ)
+    env["PYTHONPATH"] = REPO_ROOT
+    child = subprocess.Popen(
+        [sys.executable, str(script), lock_path],
+        cwd=REPO_ROOT,
+        env=env,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        line = child.stdout.readline()
+        assert line.strip() == "locked"
+
+        start = time.monotonic()
+        with pytest.raises(atomic_io.LockBusy):
+            with atomic_io.exclusive_lock(lock_path, 0.3):
+                pass
+        elapsed = time.monotonic() - start
+        assert 0.3 <= elapsed < 2.0
+
+        start = time.monotonic()
+        with pytest.raises(atomic_io.LockBusy):
+            with atomic_io.exclusive_lock(lock_path, 5, blocking=False):
+                pass
+        assert time.monotonic() - start < 0.2
+    finally:
+        child.stdin.close()
+        assert child.wait(timeout=5) == 0
+
+    # The child released the lock on exit: the parent now acquires at once.
+    with atomic_io.exclusive_lock(lock_path, 1):
+        pass
+
+
+def test_exclusive_lock_excludes_threads(tmp_path):
+    lock_path = str(tmp_path / "thread.lock")
+    ready = threading.Event()
+    release = threading.Event()
+
+    def holder():
+        with atomic_io.exclusive_lock(lock_path, 5):
+            ready.set()
+            release.wait(timeout=5)
+
+    t = threading.Thread(target=holder)
+    t.start()
+    try:
+        assert ready.wait(timeout=5)
+        with pytest.raises(atomic_io.LockBusy):
+            with atomic_io.exclusive_lock(lock_path, 5, blocking=False):
+                pass
+    finally:
+        release.set()
+        t.join(timeout=5)
+
+
+def test_lock_busy_is_timeout_error_subclass():
+    assert issubclass(atomic_io.LockBusy, TimeoutError)
+
+
+def test_exclusive_lock_creates_parent_dir_and_mode_0600(tmp_path):
+    lock_path = tmp_path / "nested" / "dir" / "poll.lock"
+    assert not lock_path.parent.exists()
+    with atomic_io.exclusive_lock(str(lock_path), 1):
+        pass
+    assert lock_path.exists()
+    assert stat.S_IMODE(lock_path.stat().st_mode) == 0o600
+
+
+def test_exclusive_lock_releases_on_exception(tmp_path):
+    lock_path = str(tmp_path / "err.lock")
+    with pytest.raises(RuntimeError):
+        with atomic_io.exclusive_lock(lock_path, 1):
+            raise RuntimeError("boom")
+
+    # The prior failure released the lock: a fresh non-blocking acquire succeeds at once.
+    with atomic_io.exclusive_lock(lock_path, 1, blocking=False):
+        pass
