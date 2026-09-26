@@ -1853,6 +1853,17 @@ class Handler(BaseHTTPRequestHandler):
     # --- GET -------------------------------------------------------------
 
     def do_GET(self):
+        """One `history_db.connection_scope()` for the whole request:
+        every `history_db.open_db()` call `_dispatch_get()` makes on this
+        thread (however many route handlers read the database) shares one
+        connection, opened lazily on the first database read - a static
+        asset or an unauthenticated/pre-login route that reads no
+        database table never opens one at all.
+        """
+        with history_db.connection_scope(self.args.state_dir):
+            return self._dispatch_get()
+
+    def _dispatch_get(self):
         parsed = urlsplit(self.path)
         path = parsed.path
 
@@ -2202,10 +2213,19 @@ class Handler(BaseHTTPRequestHandler):
                    LANG_COOKIE_MAX_AGE_S))
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
+    def do_POST(self):
+        """Same one-connection-per-request scope as `do_GET()` above,
+        wrapped around the unchanged `_dispatch_post()` dispatch - the
+        Origin/Sec-Fetch-Site gate stays that dispatch's first statement,
+        run before this scope has opened anything.
+        """
+        with history_db.connection_scope(self.args.state_dir):
+            return self._dispatch_post()
+
     # Runs as the first statement, before urlsplit()/routing, so it covers
     # every route uniformly including ones added later. Defence in depth
     # on top of SameSite=Strict (see auth.post_origin_ok()'s docstring).
-    def do_POST(self):
+    def _dispatch_post(self):
         if not auth.post_origin_ok(self.headers):
             return self.send_html(403, self._forbidden_page())
 
