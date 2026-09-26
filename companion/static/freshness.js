@@ -41,6 +41,19 @@
   // companion/layout.py's page_shell(). See SWAP_SELECTORS_BY_PAGE.
   var PAGE_ATTR = "data-refresh-page";
 
+  // The server's own change token (companion/layout.py's
+  // REFRESH_TOKEN_ATTR), rendered on <body> - never on a swap target, so
+  // a swap can never carry it out from under this script. Read only
+  // through readToken() below, which validates the shape before this
+  // file ever sends it back as a header value.
+  var TOKEN_ATTR = "data-refresh-token";
+  var TOKEN_RE = /^[0-9a-f]{16,64}$/;
+
+  // Roughly every five minutes (45s * 7), a tick sends no If-None-Match
+  // at all, forcing a full render - bounding whatever input the
+  // server's own token might still miss.
+  var FORCED_REFRESH_EVERY_N_TICKS = 7;
+
   // Marks a region holding an optimistic control whose server
   // confirmation has not arrived yet (layout.py's REFRESH_PENDING_ATTR);
   // swapNodes() leaves such a region alone entirely.
@@ -64,6 +77,23 @@
   // no reference to any element this file touches; list-filter.js and
   // flight-rows.js re-derive their own row state from it.
   var SWAPPED_EVENT = "skypane-regions-swapped";
+
+  // The DOM value is never trusted unvalidated: only a plain hex string
+  // matching TOKEN_RE is ever accepted, so a page whose body somehow
+  // carries something else can never inject an arbitrary header value.
+  function readToken(doc) {
+    var value = doc.body ? doc.body.getAttribute(TOKEN_ATTR) : null;
+    return value && TOKEN_RE.test(value) ? value : null;
+  }
+
+  // Reassigned after every successful 200 swap, from the fetched
+  // document's own token - never re-read from document.body, which is
+  // never itself replaced but whose descendants a swap does replace.
+  var currentToken = readToken(document);
+
+  // Counts ticks since the last forced full refresh; wraps at
+  // FORCED_REFRESH_EVERY_N_TICKS in doRefresh() below.
+  var ticksSinceForcedRefresh = 0;
 
   var loadedAtEl = document.querySelector("[data-loaded-at]");
   if (!loadedAtEl) {
@@ -444,6 +474,21 @@
     }
     inFlight = true;
     revealPill();
+
+    // Every tick counts toward the forced-refresh wrap, whether or not
+    // it ends up sending a token: a tick with no valid token yet (a
+    // page load whose body carried none) must not reset the counter.
+    ticksSinceForcedRefresh += 1;
+    var forcingFullRefresh = ticksSinceForcedRefresh >= FORCED_REFRESH_EVERY_N_TICKS;
+    if (forcingFullRefresh) {
+      ticksSinceForcedRefresh = 0;
+    }
+
+    var headers = {"X-Requested-With": "freshness"};
+    if (currentToken && !forcingFullRefresh) {
+      headers["If-None-Match"] = '"' + currentToken + '"';
+    }
+
     // Security: window.location.href, the same-document URL, and never
     // a URL read out of the DOM — the fetch target must never be
     // readable from, or influenced by, injected markup.
@@ -456,8 +501,23 @@
     fetch(window.location.href, {
       credentials: "same-origin",
       redirect: "manual",
-      headers: {"X-Requested-With": "freshness"}
+      headers: headers
     }).then(function (response) {
+      // Checked BEFORE !response.ok: a fetch that sends its own
+      // If-None-Match bypasses the browser's HTTP cache entirely and
+      // hands a 304 straight to this script (ok is false on a 304, the
+      // same as any other non-2xx status), so a 304 must be recognised
+      // here or it would fall through to the failure branch below.
+      if (response.status === 304) {
+        var dateHeader = response.headers.get("Date");
+        var parsedDate = dateHeader ? new Date(dateHeader) : null;
+        loadedAtMs = (parsedDate && !isNaN(parsedDate.getTime()))
+          ? parsedDate.getTime() : Date.now();
+        inFlight = false;
+        hidePill();
+        succeed();
+        return null;
+      }
       if (!response.ok) {
         // Non-OK (including the opaque redirect above): do not swap or
         // navigate, leave the stale page visible, and schedule a retry.
@@ -474,6 +534,19 @@
       // it is not an HTML-writing sink on the live document.
       var fetchedDoc = new DOMParser().parseFromString(text, "text/html");
       applySwap(fetchedDoc);
+      currentToken = readToken(fetchedDoc);
+      // <body> itself is never a swap target (nothing in
+      // SWAP_SELECTORS_BY_PAGE selects it), so the live attribute is
+      // written explicitly here - otherwise the DOM would keep
+      // reporting the page's ORIGINAL token forever, even after a real
+      // swap moved the live content on.
+      if (document.body) {
+        if (currentToken) {
+          document.body.setAttribute(TOKEN_ATTR, currentToken);
+        } else {
+          document.body.removeAttribute(TOKEN_ATTR);
+        }
+      }
       inFlight = false;
       hidePill();
       succeed();
