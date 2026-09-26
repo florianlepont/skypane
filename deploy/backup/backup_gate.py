@@ -1,33 +1,20 @@
 #!/usr/bin/python3
-"""The forced-command gate for the `skypane-backup` pull key (SEC-04, D-05,
-D-25, T-37-16/T-37-17).
+"""The forced-command gate for the `skypane-backup` pull key.
 
-Installed at `/usr/local/lib/skypane` (Plan 37-06) and wired into
-`skypane-backup`'s `authorized_keys` as
-`restrict,command="/usr/bin/python3 /usr/local/lib/skypane/backup_gate.py" ssh-ed25519 ...`
-(Plan 37-07). `restrict,` already strips port-forwarding, agent
-forwarding, X11 and PTY allocation from the key. `command=` means this
-script's own argv (`--archive-dir`/`--pulled-dir`) is fixed by root at
-install time - the ONLY thing the client (the developer's Mac,
-`deploy/backup/mac/skypane-backup-pull.sh`) controls is the string SSH
-puts in `SSH_ORIGINAL_COMMAND`, which this script treats as untrusted
-input from the moment it is read.
+Wired into `skypane-backup`'s `authorized_keys` as `restrict,command=...
+backup_gate.py`, which strips port/agent/X11/PTY forwarding and fixes
+this script's own argv, so the only thing the client
+(`deploy/backup/mac/skypane-backup-pull.sh`) controls is
+`SSH_ORIGINAL_COMMAND`, treated as untrusted input throughout.
 
-Exactly three verbs are recognised, dispatched on an EXACT (verb, word
-count) match - no substring/prefix matching, no shell, no `eval`:
+Exactly three verbs are recognised by exact (verb, word count) match, no
+substring matching, no shell, no `eval`:
   `list`        -> one line per archive: "<name> <size bytes> <sha256>"
   `get NAME`    -> the raw archive bytes on stdout
   `ack NAME`    -> records NAME as the freshness marker
-Anything else - an empty/unset command, a bare shell, a semicolon-joined
-command, an unbalanced quote, a name that does not match `ARCHIVE_RE`, or
-a name whose target is not a regular file inside `--archive-dir` (a
-symlink included) - exits 2 with one line on stderr and touches nothing.
-This script never opens a path outside `--archive-dir`/`--pulled-dir`,
-and it must stay self-contained: it runs as `/usr/bin/python3` outside
-the project's venv and outside any release checkout, so it cannot import
-anything from `server/`, `companion/`, or even `deploy/backup/
-skypane_backup.py` - `ARCHIVE_RE` is intentionally duplicated here rather
-than shared.
+Anything else exits 2 and touches nothing. Stays self-contained (no
+imports from `server/`, `companion/` or `skypane_backup.py`), so
+`ARCHIVE_RE` is duplicated here.
 """
 import argparse
 import os
