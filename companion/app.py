@@ -32,6 +32,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, urlsplit
+from zoneinfo import ZoneInfo
 
 from PIL import Image
 
@@ -149,6 +150,12 @@ QUICK_LED_ROUTE = "/quick/led"
 # with a flash, a fetch (identified by this header) gets a 204. Only
 # the value is a constant; the header name has no module-level constant.
 QUICK_FETCH_HEADER_VALUE = "quick-switch"
+# companion/static/freshness.js's own X-Requested-With value: it marks a
+# conditional freshness tick (see _render_tab()'s 304 branch) so that an
+# ordinary browser navigation with a stale cached If-None-Match can never
+# be answered 304 by accident - only a tick that identifies itself this
+# way is ever eligible for one.
+FRESHNESS_FETCH_HEADER_VALUE = "freshness"
 THEME_ROUTE = "/ui-theme"
 LANG_ROUTE = "/ui-lang"
 LOGOUT_ROUTE = "/logout"
@@ -474,19 +481,33 @@ def _static_entry(abs_path):
     return entry
 
 
+def _if_none_match_matches(headers, etag):
+    """Whether `headers`' `If-None-Match` (a comma-separated list, each
+    entry optionally `W/`-prefixed, or a bare `*`) already matches
+    `etag`. `None` (not `False`) when the header is absent, so a caller
+    that also wants the `If-Modified-Since` fallback (`_not_modified()`
+    below) can tell "no match" apart from "nothing to match against".
+    Header values are only ever compared here, never echoed into a
+    response.
+    """
+    inm = headers.get("If-None-Match")
+    if inm is None:
+        return None
+    tags = [tag.strip() for tag in inm.split(",")]
+    return "*" in tags or any(tag.removeprefix("W/") == etag for tag in tags)
+
+
 def _not_modified(headers, etag, mtime_s):
     """Whether a conditional request already holds the current
     representation, per RFC 9110 13.2.2's evaluation order: a present
     If-None-Match decides the outcome outright (a mismatch just means
     "no match", never an error), and If-Modified-Since is consulted only
     in its absence. Defensive: a malformed date never raises, it simply
-    fails to match. Header values are only ever compared here, never
-    echoed into a response.
+    fails to match.
     """
-    inm = headers.get("If-None-Match")
-    if inm is not None:
-        tags = [tag.strip() for tag in inm.split(",")]
-        return "*" in tags or any(tag.removeprefix("W/") == etag for tag in tags)
+    match = _if_none_match_matches(headers, etag)
+    if match is not None:
+        return match
     ims = headers.get("If-Modified-Since")
     if not ims:
         return False
@@ -564,6 +585,174 @@ _PAGE_SCRIPTS = {
         layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
 }
+
+# The four refresh pages a freshness tick may answer with a bodiless 304:
+# a conditional GET on the page's OWN URL, never a new route. Keyed by
+# layout.nav_slug(route) - the same vocabulary
+# layout.REFRESH_PAGE_* and companion/static/freshness.js's
+# SWAP_SELECTORS_BY_PAGE already use - so /device and /airlines (neither
+# a member) never compute a token or carry one on <body> at all.
+_FRESHNESS_PAGE_SLUGS = frozenset((
+    layout.REFRESH_PAGE_HOME, layout.REFRESH_PAGE_DISPLAY,
+    layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_FLIGHTS,
+))
+
+
+def _freshness_file_stamp(path):
+    """`[mtime_ns, size]` for `path`, or the literal "missing" - a
+    stat() failure (never created, or deleted) is a real, distinct
+    input state for the freshness token, not an error to swallow.
+    """
+    try:
+        st = os.stat(path)
+    except OSError:
+        return "missing"
+    return [st.st_mtime_ns, st.st_size]
+
+
+def _freshness_file_stamps(state_dir):
+    """`_freshness_file_stamp()` for every file-backed freshness-token
+    input: `device_config.json`, `poll_state.json`, the calendar
+    registry, the manual-resolutions registry, the colour-rules
+    registry, `panel.bin`, and the off-box marker (if configured at
+    all - "disabled" when `OFFBOX_MARKER_ENV_VAR` is unset, distinct
+    from "missing", which means the env var names a file that is not
+    there). Each path comes from its own module's own path builder,
+    never a second, drifting copy of the filename - `panel.bin` has no
+    such builder anywhere in the codebase (every writer inlines the
+    name), so this does too.
+    """
+    marker_path = os.environ.get(health_page.OFFBOX_MARKER_ENV_VAR)
+    return {
+        "device_config": _freshness_file_stamp(
+            device_config.device_config_path(state_dir)),
+        "poll_state": _freshness_file_stamp(poll_loop._poll_state_path(state_dir)),
+        "calendar_registry": _freshness_file_stamp(
+            calendar_rules.calendar_rules_path(state_dir)),
+        "manual_resolutions": _freshness_file_stamp(
+            manual_resolutions.manual_resolutions_path(state_dir)),
+        "colour_rules": _freshness_file_stamp(colour_rules.colour_rules_path(state_dir)),
+        "panel_bin": _freshness_file_stamp(os.path.join(state_dir, "panel.bin")),
+        "offbox_marker": (
+            "disabled" if not marker_path else _freshness_file_stamp(marker_path)),
+    }
+
+
+def _freshness_db_signal(state_dir, want_pipeline_run):
+    """The freshness token's database-backed piece: the three per-table
+    MAX(id) watermarks (one SELECT) plus the last-detection/source-fault
+    meta keys, read through the request's own single scoped connection -
+    an `open_db()` call here inside an active `connection_scope()`
+    reuses it, never opens a second one. Any (sqlite3.Error, OSError)
+    collapses the WHOLE group to the literal "unavailable" (still
+    hashed into the token, so an outage still answers 200 with a token,
+    never a 500) rather than a partial read. `want_pipeline_run` is set
+    only for Health, whose Pipeline tile renders that timestamp - the
+    other three pages must never see it change on every poll cycle,
+    or an unchanged repeat cycle would give them a new token for no
+    visible reason.
+    """
+    try:
+        with history_db.open_db(state_dir) as conn:
+            row = conn.execute(
+                "SELECT "
+                "(SELECT MAX(id) FROM runway_events) AS runway_events_id, "
+                "(SELECT MAX(id) FROM device_health) AS device_health_id, "
+                "(SELECT MAX(id) FROM wake_epochs) AS wake_epochs_id"
+            ).fetchone()
+            result = {
+                "runway_events_id": row["runway_events_id"],
+                "device_health_id": row["device_health_id"],
+                "wake_epochs_id": row["wake_epochs_id"],
+                "last_detection": history_db.get_meta(conn, history_db.META_LAST_DETECTION),
+                "source_fault": history_db.get_meta(conn, history_db.META_SOURCE_FAULT),
+            }
+            if want_pipeline_run:
+                result["last_pipeline_run"] = history_db.get_meta(
+                    conn, history_db.META_LAST_PIPELINE_RUN)
+            return result
+    except (sqlite3.Error, OSError):
+        return "unavailable"
+
+
+def _freshness_paris_date(now):
+    """The Europe/Paris calendar date `now` falls on, or `None` when
+    `now` fails to parse - Health's regularity grid buckets its cells
+    by this same day. A naive `now` (never produced by
+    `history_db.utc_now_iso()` in practice) is taken as UTC first,
+    matching `health_page._as_paris()`'s own convention, rather than
+    the ambiguous "system local time" `astimezone()` would otherwise
+    assume.
+    """
+    parsed = layout.parse_iso(now)
+    if parsed is None:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=ZoneInfo("UTC"))
+    return parsed.astimezone(layout.LOCAL_TZ).date().isoformat()
+
+
+# The health_signals() fields every freshness token folds in unchanged -
+# never recomputed, the same "copy, don't recompute" discipline
+# health_page.health_state_from_signals() itself follows. Anything a
+# route's own render() derives from one of these (a tile's verdict text,
+# the frame strip) is therefore already covered without naming it twice.
+_FRESHNESS_SIGNAL_FIELDS = (
+    "severity", "anomalies", "device_state", "pipeline_state",
+    "battery_state", "coverage_state", "disagreement_warn", "source_fault",
+    "offbox", "next_wake_iso", "effective_interval_s", "hold_reason",
+)
+
+
+def _page_freshness_token(route, ctx, query):
+    """The freshness check's server-computed input token: built from the
+    page's own inputs alone, with NO markup ever rendered
+    to answer a tick - `render(ctx)` never runs on this path at all when
+    the token matches. A completeness test mutates each input below and
+    expects a different token on the affected route or routes; the
+    client's own periodic forced full refresh
+    (companion/static/freshness.js's FORCED_REFRESH_EVERY_N_TICKS)
+    bounds whatever this list still misses.
+
+    `ctx["_health_signals"]` is read through the ctx's own internal
+    loader key (shared with "health_state"/"health_severity"), so the
+    one `health_page.health_signals()` read this triggers is the same
+    snapshot a route's own `render()` reuses afterwards on a token
+    mismatch - never a second, independent read at a later instant.
+    """
+    state_dir = ctx["state_dir"]
+    now = ctx["now"]
+    slug = layout.nav_slug(route)
+    signals = ctx["_health_signals"]
+    signal_fields = (
+        None if signals is None
+        else {key: signals[key] for key in _FRESHNESS_SIGNAL_FIELDS}
+    )
+    parts = {
+        "route": route,
+        "query": query,
+        "lang": ctx["lang"],
+        "ui_theme": ctx["ui_theme"],
+        "db": _freshness_db_signal(
+            state_dir, want_pipeline_run=(slug == layout.REFRESH_PAGE_HEALTH)),
+        "signals": signal_fields,
+        "files": _freshness_file_stamps(state_dir),
+        # Reuses the ctx's own lazy "gallery_entries" loader (cached after
+        # this first read) rather than a second, direct gallery_entries()
+        # call - a route whose render() also reads it (Home, Flights)
+        # must still pay for exactly one scandir(), not two.
+        "gallery_newest": (ctx["gallery_entries"] or [None])[0],
+    }
+    if slug in (layout.REFRESH_PAGE_HOME, layout.REFRESH_PAGE_DISPLAY):
+        parts["frame_state"] = (
+            None if signals is None else frame_state.resolve_state(
+                signals["next_wake_iso"], signals["effective_interval_s"],
+                signals["hold_reason"], now))
+    if slug == layout.REFRESH_PAGE_HEALTH:
+        parts["paris_date"] = _freshness_paris_date(now)
+    encoded = json.dumps(parts, sort_keys=True, default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:32]
+
 
 # The login card's one-sentence purpose text.
 LOGIN_EXPLANATION_TEXT = "Sign in to manage this device's settings."
@@ -1002,7 +1191,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "same-origin")
         self.send_header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
 
-    def send_html(self, code, html_str):
+    def send_html(self, code, html_str, etag=None):
+        """`etag` (default `None`) is a change TOKEN, never a cache
+        freshness signal - it rides alongside `Cache-Control: no-store`
+        below, always, so it can only ever be used for the freshness
+        tick's own conditional GET (`_render_tab()`), never to let a
+        shared cache or the back button replay a stale page.
+        """
         body = html_str.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -1011,9 +1206,25 @@ class Handler(BaseHTTPRequestHandler):
         # something a shared cache or the back button should replay
         # after sign-out.
         self.send_header("Cache-Control", "no-store")
+        if etag is not None:
+            self.send_header("ETag", etag)
         self._send_hardening_headers()
         self.end_headers()
         self.wfile.write(body)
+
+    def send_not_modified(self, etag):
+        """304 for a freshness tick whose token still matches
+        `_render_tab()`'s freshly-computed one: no body, the same quoted
+        ETag the client's own If-None-Match already named, and
+        `Cache-Control: no-store` still - the ETag here is only ever a
+        change token, never a signal that a shared cache or the back
+        button may replay this page.
+        """
+        self.send_response(304)
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", "no-store")
+        self._send_hardening_headers()
+        self.end_headers()
 
     def send_bytes(self, code, content_type, payload, cache_seconds=0, public=False):
         """`public` (default False, fail-closed): a shared cache has no
@@ -1965,11 +2176,14 @@ class Handler(BaseHTTPRequestHandler):
         allowed = {route for route, _ in layout.NAV_TABS}
         return path if path in allowed else HOME_ROUTE
 
-    def _page_shell_for(self, route, body, ctx):
+    def _page_shell_for(self, route, body, ctx, refresh_token=None):
         """The `layout.page_shell()` assembly both `_render_tab()`
         (every GET) and `_handle_settings_post()`'s rejected-save branch
         (a POST that already has its own rendered `body`) need, so
-        there is one `page_shell()` call site for both.
+        there is one `page_shell()` call site for both. `refresh_token`
+        (default `None`, matching the rejected-save branch, which never
+        carries one) forwards straight to `layout.page_shell()`, which
+        renders it onto `<body>` only when given.
         """
         flash_html = (
             layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
@@ -1979,17 +2193,41 @@ class Handler(BaseHTTPRequestHandler):
             body=body,
             ui_theme=ctx["ui_theme"], flash=flash_html,
             health_alert=ctx["health_severity"], device_config=ctx["device_config"],
-            scripts=_PAGE_SCRIPTS[route])
+            scripts=_PAGE_SCRIPTS[route], refresh_token=refresh_token)
 
     def _render_tab(self, route, render):
         """Render one authenticated tab: `render(ctx) -> body markup`
         (a page module's render(), or a lambda binding a scope onto
         config_page.render()) wrapped in layout.page_shell(), so the six
         live routes share one body instead of six copies of it.
+
+        On one of the four refresh pages, computes
+        `_page_freshness_token()` right after `page_context()` but
+        BEFORE `render()` runs at all: a freshness tick
+        (`X-Requested-With: freshness`) whose own `If-None-Match`
+        already matches gets a bodiless 304 through
+        `send_not_modified()` here, with `render()` never called for
+        it. A normal navigation (no `X-Requested-With: freshness`) is
+        never answered 304, even carrying a stale matching
+        If-None-Match from an earlier tick. `/device` and `/airlines`
+        are not refresh pages, so they skip this whole branch and
+        carry neither an ETag nor a `data-refresh-token` attribute.
         """
         if not self.require_session():
             return None
         ctx = self.page_context()
+        if layout.nav_slug(route) in _FRESHNESS_PAGE_SLUGS:
+            query = urlsplit(self.path).query
+            token = _page_freshness_token(route, ctx, query)
+            quoted_etag = '"%s"' % token
+            is_freshness_tick = (
+                self.headers.get("X-Requested-With") == FRESHNESS_FETCH_HEADER_VALUE)
+            if is_freshness_tick and _if_none_match_matches(self.headers, quoted_etag):
+                return self.send_not_modified(quoted_etag)
+            body = render(ctx)
+            return self.send_html(
+                200, self._page_shell_for(route, body, ctx, refresh_token=token),
+                etag=quoted_etag)
         body = render(ctx)
         return self.send_html(200, self._page_shell_for(route, body, ctx))
 

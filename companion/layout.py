@@ -1427,6 +1427,12 @@ REFRESH_RECONNECTING_ATTR = "data-refresh-reconnecting-text"
 # literal in the script mirroring this, pinned entry-for-entry and
 # key-for-key by companion/test_status_pages.py in both directions. The
 # keys are nav_slug()'s own values, never a second vocabulary.
+# The freshness token: a conditional GET on the page's own URL,
+# computed from its inputs without ever rendering it, rather than a new
+# route or a body-hash ETag. Rendered on <body> - never on
+# the freshness wrapper itself, which is a swap target - so a swap can
+# never carry it out from under companion/static/freshness.js.
+REFRESH_TOKEN_ATTR = "data-refresh-token"
 REFRESH_PAGE_ATTR = "data-refresh-page"
 REFRESH_PAGE_HOME = nav_slug(HOME_ROUTE)
 REFRESH_PAGE_DISPLAY = nav_slug(DISPLAY_ROUTE)
@@ -1881,7 +1887,8 @@ GLOBAL_PAGE_SCRIPTS = (
 
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
-        health_alert=None, lang=None, device_config=None, scripts=()):
+        health_alert=None, lang=None, device_config=None, scripts=(),
+        refresh_token=None):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and nav labels are escaped here. `body`, `flash` and `banner` are
@@ -1900,6 +1907,12 @@ def page_shell(
     fixed relative order, each at most once, however many times it appears
     across the two sets. A src not present in SHELL_SCRIPT_ORDER raises
     ValueError - failing fast on a typo rather than silently emitting nothing.
+
+    `refresh_token` (default `None`) renders as REFRESH_TOKEN_ATTR on
+    `<body>`, escaped, only when given - the four refresh pages'
+    companion/app.py call site passes their own freshness token; every
+    other caller (including the rejected-settings-save re-render) omits
+    it, so that page carries no such attribute at all.
     """
     unknown_scripts = set(scripts) - set(SHELL_SCRIPT_ORDER)
     if unknown_scripts:
@@ -1942,6 +1955,13 @@ def page_shell(
     # unknown key selects nothing.
     body_class_attr += ' %s="%s"' % (
         REFRESH_PAGE_ATTR, escape_html(active))
+    # The freshness token itself, rendered only when the
+    # caller has one - /device and /airlines (not refresh pages) and the
+    # rejected-settings-save re-render never pass refresh_token, so they
+    # carry no such attribute at all.
+    if refresh_token is not None:
+        body_class_attr += ' %s="%s"' % (
+            REFRESH_TOKEN_ATTR, escape_html(refresh_token))
     # The optimistic switch's user-facing sentence, translated here and read
     # client-side, on <body> for the same swap-safety reason as the attributes
     # above — emitted unconditionally; a page with no switch carries one inert
