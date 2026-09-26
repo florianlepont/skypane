@@ -5,7 +5,7 @@ Description=SkyPane poll cycle (detect -> infer -> enrich -> render -> atomic sw
 # oneshot unit does not disable its triggering timer) already gives us
 # this for free; the error just goes to journald and the previously
 # rendered panel.bin keeps being served by skypane-byos.service. No
-# systemd IP address allow-list filter here (SEC-06, D-18): this process
+# systemd IP address allow-list filter here: this process
 # makes outbound calls to the ADS-B providers on every cycle.
 After=network-online.target
 Wants=network-online.target
