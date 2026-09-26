@@ -25,12 +25,12 @@ abort a poll cycle. Both hits and misses are cached and never re-queried;
 the cache is a plain JSON-serialisable dict persisted in
 `poll_state.json` across the poll oneshot's process boundary.
 """
+import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timezone
-
-import requests
 
 # Support both package import and direct script execution.
 _HERE = os.path.dirname(os.path.abspath(__file__))  # server/plane
@@ -38,6 +38,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(_HERE))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from server import http_fetch
 from server.plane import manual_resolutions, runway_config
 
 ADSBDB_URL = "https://api.adsbdb.com/v0/callsign/{callsign}"
@@ -50,7 +51,25 @@ USER_AGENT = (
     "see server/README.md for what this traffic is)"
 )
 
-DEFAULT_TIMEOUT = 10.0
+DEFAULT_TIMEOUT = 5.0
+
+# ADSBDB_DEADLINE_S bounds one lookup's TOTAL wall-clock time regardless of
+# how many small reads it takes, on top of DEFAULT_TIMEOUT's per-read
+# bound; ADSBDB_MAX_BYTES caps the response body a malformed or hostile
+# response can make this process buffer (adsbdb's real payloads are a few
+# hundred bytes). Worst case per call is deadline + one read timeout
+# (13s).
+ADSBDB_DEADLINE_S = 8.0
+ADSBDB_MAX_BYTES = 256 * 1024
+
+# Cache-entry TTLs (seconds), measured against an injected `now`. A miss
+# (404, or a 2xx with no resolvable route) is trusted for a day; a
+# resolved route is trusted for a month - adsbdb's crowdsourced database
+# does improve over time, so neither outcome is cached forever. A
+# transient failure (429, 5xx, another non-404 4xx, a timeout, a transport
+# exception) is never cached at all - see _lookup().
+CACHE_MISS_TTL_S = 86400
+CACHE_HIT_TTL_S = 30 * 86400
 
 # Bounds poll_state.json's enrichment_cache so a long-running server
 # cannot grow the state file without limit.
@@ -120,21 +139,26 @@ def _primary_city_name(raw):
 
 
 def default_transport(callsign, timeout=DEFAULT_TIMEOUT):
-    """Thin `requests.get()` wrapper: GET the adsbdb endpoint for
-    `callsign` and return `(status_code, parsed_json_or_None)`. A body
+    """GET the adsbdb endpoint for `callsign`, bounded by both `timeout`
+    (connect and each individual read) and `ADSBDB_DEADLINE_S` (the
+    call's total wall-clock time), capped at `ADSBDB_MAX_BYTES` of
+    response body. Returns `(status_code, parsed_json_or_None)`. A body
     that fails to parse as JSON is `(status_code, None)`, not a raise —
-    `lookup_route()` treats it as any other unexpected response.
+    `_lookup()` treats it as any other unexpected response.
 
-    The injectable `transport` parameter on `lookup_route()` lets tests
-    replace this with a hermetic fake.
+    The injectable `transport` parameter on `lookup_route()`/
+    `resolve_route()` lets tests replace this with a hermetic fake.
     """
     url = ADSBDB_URL.format(callsign=callsign)
-    response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=timeout)
+    result = http_fetch.bounded_get(
+        url, headers={"User-Agent": USER_AGENT}, timeout=timeout,
+        deadline_s=ADSBDB_DEADLINE_S, max_bytes=ADSBDB_MAX_BYTES,
+    )
     try:
-        body = response.json()
+        body = json.loads(result.content)
     except ValueError:
         body = None
-    return response.status_code, body
+    return result.status_code, body
 
 
 def _parse_route(body):
@@ -190,11 +214,99 @@ def _parse_route(body):
     }
 
 
-def _cache_get(cache, key):
+def _fresh_entry(cache, key, now):
+    """Return `cache[key]` when it is still fresh, touching it as the most
+    recently used entry in the same step (`cache[key] = cache.pop(key)`,
+    the LRU discipline `trim_cache()` relies on); otherwise `None`,
+    without touching a legacy miss.
+
+    A LEGACY entry (written before `cached_at` existed) is handled by
+    outcome, not by TTL, since it never carries the timestamp a TTL check
+    needs:
+
+      - a legacy HIT is trusted indefinitely — stamped with
+        `cached_at = now` (so it becomes an ordinary timed entry from here
+        on) and moved to the end, same as any other fresh read;
+      - a legacy MISS is treated as always-expired (it may be a poisoned
+        transient failure from before this cache learned never to store
+        those) and left untouched in place, so the next call re-queries it
+        without losing the placeholder until a definitive answer replaces
+        it.
+
+    A TIMED entry (carries `cached_at`) past its TTL — `CACHE_HIT_TTL_S`
+    for a resolved route, `CACHE_MISS_TTL_S` for a miss — is popped
+    outright and `None` is returned: stale enough that even a miss should
+    not survive indefinitely.
+    """
     entry = cache.get(key)
     if not isinstance(entry, dict):
+        return None
+    cached_at = entry.get("cached_at")
+    has_timestamp = isinstance(cached_at, (int, float)) and not isinstance(cached_at, bool)
+    if not has_timestamp:
+        if not entry.get("found"):
+            return None
+        entry["cached_at"] = now
+        cache[key] = cache.pop(key)
+        return entry
+    ttl = CACHE_HIT_TTL_S if entry.get("found") else CACHE_MISS_TTL_S
+    if now - cached_at > ttl:
+        cache.pop(key, None)
+        return None
+    cache[key] = cache.pop(key)
+    return entry
+
+
+def _lookup(callsign, cache, transport, timeout, now):
+    """Shared resolution seam behind `lookup_route()`/`resolve_route()`:
+    return `(route_or_None, from_cache)`.
+
+    Cache writes are all-or-nothing by outcome: a 404 or a 2xx whose body
+    yields no route stores `{"found": False, "cached_at": now}`; a
+    resolved route stores the raw fields plus `"found": True,
+    "cached_at": now`. Every other outcome — a raised exception (timeout,
+    connection error, ...), a 429, a 5xx, or any other non-404 4xx — is
+    transient and returns `None` WITHOUT touching the cache, so the same
+    callsign is queried again on the next call rather than poisoned by a
+    passing upstream hiccup.
+    """
+    normalised = normalise_callsign(callsign)
+    if normalised is None:
         return None, False
-    return entry, True
+    if not _is_url_safe_callsign(normalised):
+        return None, False
+
+    entry = _fresh_entry(cache, normalised, now)
+    if entry is not None:
+        if not entry.get("found"):
+            return None, True
+        return _route_from_entry(entry), True
+
+    fetch = transport or default_transport
+    try:
+        status_code, body = fetch(normalised, timeout)
+    except Exception:
+        return None, False
+
+    if status_code == 404:
+        cache[normalised] = {"found": False, "cached_at": now}
+        return None, False
+
+    if 200 <= status_code < 300:
+        route = _parse_route(body)
+        if route is None:
+            cache[normalised] = {"found": False, "cached_at": now}
+            return None, False
+        # The cache holds the raw, uncorrected payload — correction
+        # happens on read, in lookup_route()/resolve_route().
+        cache_entry = dict(route)
+        cache_entry["found"] = True
+        cache_entry["cached_at"] = now
+        cache[normalised] = cache_entry
+        return route, False
+
+    # 429, another 5xx, or any other non-404 4xx: transient, never cached.
+    return None, False
 
 
 def _route_from_entry(entry):
@@ -279,16 +391,22 @@ def apply_airline_name_correction(callsign, route):
     return corrected_route
 
 
-def lookup_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
+def lookup_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=None):
     """Resolve `callsign` to a normalised route dict, or `None` on any
-    miss or failure. Never raises — every failure mode degrades to a
-    cached miss rather than aborting the caller's render cycle.
+    miss or transient failure. Never raises — every failure mode degrades
+    to `None` rather than aborting the caller's render cycle.
 
     `cache` is a plain, JSON-serialisable dict (persisted across process
-    boundaries via `poll_state.json`'s `enrichment_cache` key) mapping
-    the normalised callsign to `{"found": True, <route fields>}` or
-    `{"found": False}`. Both hits and misses are cached; a cached
-    callsign is never re-queried.
+    boundaries via `poll_state.json`'s `enrichment_cache` key) mapping the
+    normalised callsign to `{"found": True, <route fields>, "cached_at":
+    <epoch seconds>}` or `{"found": False, "cached_at": <epoch seconds>}`.
+    See `_lookup()` for exactly which outcomes are cached (a 404 or a
+    routeless 2xx; never a transient failure), `_fresh_entry()` for the
+    TTL (`CACHE_HIT_TTL_S` / `CACHE_MISS_TTL_S`) and legacy-entry handling,
+    and `trim_cache()` for the LRU eviction a read here participates in.
+
+    `now` is epoch seconds, defaulting to `time.time()`; inject a fixed
+    value from a test or from `poll_loop.py`'s own clock seam.
 
     Both success paths (a fresh 200 and a cached hit) converge on
     `apply_airline_name_correction()` at the end — the one seam every
@@ -297,43 +415,12 @@ def lookup_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
     write, so an older `poll_state.json` starts producing corrected names
     on its very next poll with zero cache migration.
     """
-    normalised = normalise_callsign(callsign)
-    if normalised is None:
+    if now is None:
+        now = time.time()
+    route, _from_cache = _lookup(callsign, cache, transport, timeout, now)
+    if route is None:
         return None
-    if not _is_url_safe_callsign(normalised):
-        return None
-
-    entry, present = _cache_get(cache, normalised)
-    if present:
-        if not entry.get("found"):
-            return None
-        route = _route_from_entry(entry)
-    else:
-        fetch = transport or default_transport
-        try:
-            status_code, body = fetch(normalised, timeout)
-        except Exception:
-            cache[normalised] = {"found": False}
-            return None
-
-        if not (200 <= status_code < 300):
-            # Covers the 404 "unknown callsign" miss and every other
-            # non-2xx response uniformly.
-            cache[normalised] = {"found": False}
-            return None
-
-        route = _parse_route(body)
-        if route is None:
-            cache[normalised] = {"found": False}
-            return None
-
-        # The cache holds the raw, uncorrected payload — correction
-        # happens on read, in the return statement below.
-        cache_entry = dict(route)
-        cache_entry["found"] = True
-        cache[normalised] = cache_entry
-
-    return apply_airline_name_correction(normalised, route)
+    return apply_airline_name_correction(normalise_callsign(callsign), route)
 
 
 def city_for_state(route, state):
@@ -563,12 +650,15 @@ def airline_only_route(airline_name):
     }
 
 
-def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
+def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=None):
     """Single resolution seam: classify `callsign`'s enrichment outcome
     into one of five sources and return `(route, source)`.
 
-    - `"fresh_hit"`: adsbdb resolved a full route this cycle.
-    - `"cache_hit"`: the cache already held a resolved route.
+    - `"fresh_hit"`: adsbdb resolved a full route this call (no fresh
+      cache entry was available, whether because none existed or because
+      it had expired).
+    - `"cache_hit"`: a still-fresh cache entry already held a resolved
+      route.
     - `"airline_only"`: adsbdb had no route, but the ICAO prefix
       identified the carrier via the static `_ICAO_AIRLINE_PREFIXES`
       table.
@@ -585,17 +675,21 @@ def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
     `airline_source_from_callsign()`), so `"manual"` is reported only on
     a genuine static miss.
 
-    `was_cached` is computed from the normalised callsign before
-    delegating to `lookup_route()`, matching the fresh/cache distinction
-    `poll_loop.py` used to compute inline. The prefix resolution is never
-    cached — recomputed from the static and manual tables on every call,
-    cheaper than a second cache. Never raises.
+    `now` is epoch seconds, defaulting to `time.time()`; forwarded to
+    `_lookup()`. The `from_cache` flag `_lookup()` returns — true only for
+    a still-fresh cached hit, matching `poll_loop.py`'s own fresh/cache
+    distinction — is what tells `"fresh_hit"` and `"cache_hit"` apart; an
+    expired entry that was just re-fetched reports `"fresh_hit"`, not
+    `"cache_hit"`. The prefix resolution is never cached — recomputed from
+    the static and manual tables on every call, cheaper than a second
+    cache. Never raises.
     """
-    normalised = normalise_callsign(callsign)
-    was_cached = normalised is not None and normalised in cache
-    route = lookup_route(callsign, cache, transport=transport, timeout=timeout)
+    if now is None:
+        now = time.time()
+    route, from_cache = _lookup(callsign, cache, transport, timeout, now)
     if route is not None:
-        return route, ("cache_hit" if was_cached else "fresh_hit")
+        corrected = apply_airline_name_correction(normalise_callsign(callsign), route)
+        return corrected, ("cache_hit" if from_cache else "fresh_hit")
     airline_name, airline_source = airline_source_from_callsign(callsign)
     if airline_name:
         source = "airline_only" if airline_source == "static" else "manual"
@@ -604,10 +698,13 @@ def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
 
 
 def trim_cache(cache, max_entries=CACHE_MAX_ENTRIES):
-    """Bound `cache` to at most `max_entries` via simple insertion-order
-    eviction — a long-running server's poll_state.json cannot grow
-    without limit. Plain dicts preserve insertion order (Python 3.7+), so
-    the oldest entry is always the current first key.
+    """Bound `cache` to at most `max_entries` by evicting the LEAST
+    RECENTLY USED entries first — a long-running server's poll_state.json
+    cannot grow without limit. Plain dicts preserve insertion order
+    (Python 3.7+), and every fresh cache read in `_fresh_entry()` re-inserts
+    the entry it served (`cache[key] = cache.pop(key)`), moving it to the
+    end - so the current first key is always the one least recently
+    served, not merely the oldest by wall-clock insertion time.
     """
     while len(cache) > max_entries:
         oldest_key = next(iter(cache))
