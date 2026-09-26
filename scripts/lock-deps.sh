@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SkyPane — regenerate the hash-locked dependency files (TST-08).
+# SkyPane -- regenerate the hash-locked dependency files.
 #
 # Compiles server/requirements.in -> server/requirements.txt (runtime
 # lock, what deploy/deploy.sh installs on the VPS with --require-hashes)
