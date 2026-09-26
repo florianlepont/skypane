@@ -1519,7 +1519,12 @@ def test_four_new_static_routes_dom_contract_guard():
     )
     for route_const, src_const in pairs:
         assert route_const == src_const, "script route drift: %r vs %r" % (route_const, src_const)
-    doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+    # Per-page scripts: page_shell() now emits a src only when asked
+    # for it via `scripts=`, so this cross-file-equality guard asks for all
+    # four explicitly rather than relying on a page's own hooks.
+    doc = layout.page_shell(
+        title="T", active="health", body="<p>b</p>",
+        scripts=tuple(src_const for _route_const, src_const in pairs))
     for _route_const, src_const in pairs:
         assert ('<script src="%s" defer></script>' % src_const) in doc, (
             "expected a deferred <script> tag for %r" % src_const)

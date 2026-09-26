@@ -519,6 +519,52 @@ _PAGE_TITLES = {
     layout.DEVICE_ROUTE: "Device",
 }
 
+# Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
+# (present on every authenticated page regardless). One tuple per
+# layout.NAV_TABS route - companion/test_page_scripts.py's hook-coverage
+# test fails, naming the route, if a tab is ever added here without one.
+# Each tuple is the SUPERSET over every state the page can be in,
+# including a region freshness.js may swap in later with no fresh page
+# load of its own (for example Flights' rows, or Display's calendar-
+# disconnect confirm dialog once the calendar is connected) - never only
+# what a freshly-seeded, empty state happens to render.
+_PAGE_SCRIPTS = {
+    layout.HOME_ROUTE: (
+        layout.FRESHNESS_SCRIPT_SRC,
+        layout.QUICK_SWITCH_SCRIPT_SRC,
+    ),
+    layout.DISPLAY_ROUTE: (
+        layout.CONFIRM_SUBMIT_SCRIPT_SRC,
+        layout.DIRTY_STATE_SCRIPT_SRC,
+        layout.FRESHNESS_SCRIPT_SRC,
+        layout.QUICK_SWITCH_SCRIPT_SRC,
+        layout.THEME_PREVIEW_SCRIPT_SRC,
+        layout.VALUE_CONTROLS_SCRIPT_SRC,
+    ),
+    layout.DEVICE_ROUTE: (
+        layout.DIRTY_STATE_SCRIPT_SRC,
+        layout.POLL_COOLDOWN_SCRIPT_SRC,
+        layout.QUICK_SWITCH_SCRIPT_SRC,
+        layout.VALUE_CONTROLS_SCRIPT_SRC,
+    ),
+    layout.FLIGHTS_ROUTE: (
+        layout.COPY_BUTTON_SCRIPT_SRC,
+        layout.FLIGHT_ROWS_SCRIPT_SRC,
+        layout.FRESHNESS_SCRIPT_SRC,
+        layout.LIST_FILTER_SCRIPT_SRC,
+        layout.PANEL_LOOKUP_SCRIPT_SRC,
+    ),
+    layout.HEALTH_ROUTE: (
+        layout.COPY_BUTTON_SCRIPT_SRC,
+        layout.FRESHNESS_SCRIPT_SRC,
+        layout.LIST_FILTER_SCRIPT_SRC,
+    ),
+    layout.AIRLINES_ROUTE: (
+        layout.LIST_FILTER_SCRIPT_SRC,
+        layout.PANEL_LOOKUP_SCRIPT_SRC,
+    ),
+}
+
 # The login card's one-sentence purpose text.
 LOGIN_EXPLANATION_TEXT = "Sign in to manage this device's settings."
 
@@ -1789,7 +1835,8 @@ class Handler(BaseHTTPRequestHandler):
             title=i18n.t(_PAGE_TITLES[route]), active=layout.nav_slug(route),
             body=body,
             ui_theme=ctx["ui_theme"], flash=flash_html,
-            health_alert=ctx["health_severity"], device_config=ctx["device_config"])
+            health_alert=ctx["health_severity"], device_config=ctx["device_config"],
+            scripts=_PAGE_SCRIPTS[route])
 
     def _render_tab(self, route, render):
         """Render one authenticated tab: `render(ctx) -> body markup`

@@ -1,5 +1,5 @@
-"""Per-page script coverage (EFF-02): every authenticated page loads only the
-shell scripts its own hooks need, with no build step.
+"""Per-page script coverage: every authenticated page loads only the shell
+scripts its own hooks need, with no build step.
 
 Behaviour asserted against a REAL running companion/app.py, never against
 source text: `layout.page_shell(scripts=...)`'s emitted `<script src>` set,
@@ -43,7 +43,7 @@ HOOKS = (
 # A route's calendar-feed secret, saved directly (no network fetch - see
 # save_calendar_url()'s own contract) so "calendar connected" is one of the
 # states every per-route tuple must cover.
-_SEEDED_CALENDAR_URL = "https://calendar.example/feed.ics?token=EFF02TEST"
+_SEEDED_CALENDAR_URL = "https://calendar.example/feed.ics?token=PAGESCRIPTSTEST"
 
 
 def _seed_empty(state_dir):
@@ -125,7 +125,7 @@ def test_every_present_hook_has_its_script(servers, route, server_name, query):
 # Exact set: the shell's own script srcs (battery-trend.js excluded - Health
 # emits it inside its body, not through the shell) equal
 # GLOBAL_PAGE_SCRIPTS | _PAGE_SCRIPTS[route], no repeats, in
-# SHELL_SCRIPT_ORDER's relative order, and fewer than the pre-EFF-02
+# SHELL_SCRIPT_ORDER's relative order, and fewer than the pre-per-page-scripts
 # baseline of 15.
 # ==========================================================================
 
@@ -150,7 +150,7 @@ def test_shell_script_set_matches_global_and_route_tuple(servers, route, server_
 
     assert len(shell_srcs) < 15, (
         "%s (%s state, query=%r): still serves %d shell script tags, no "
-        "fewer than the pre-EFF-02 baseline of 15"
+        "fewer than the pre-per-page-scripts baseline of 15"
         % (route, server_name, query, len(shell_srcs)))
 
     order_positions = [layout.SHELL_SCRIPT_ORDER.index(s) for s in shell_srcs]
