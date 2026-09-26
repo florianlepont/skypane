@@ -439,20 +439,41 @@ def set_meta(conn, key, value):
 
 
 def tail_caddy_battery_log(log_path, offset):
-    """Read `log_path` from byte `offset` to EOF, one Caddy JSON
-    access-log line at a time; return `(readings, new_offset)`. A line
-    that fails to parse (Caddy can leave a partial final line across a
-    rotation), or whose URI isn't `DEVICE_DISPLAY_URI`, is skipped
-    silently. Battery is coerced to `int`, `None` on failure. `ts` is
-    used as-is if a string, converted if a float/int epoch, else
-    `utc_now_iso()`. A missing/unreadable file returns `([], offset)`.
+    """Read `log_path` from byte `offset`, one COMPLETE Caddy JSON
+    access-log line at a time (a line without a trailing `\\n` - a
+    rotation can catch Caddy mid-write - is never parsed, and is not
+    counted into the returned offset, so the next tail re-reads it once
+    it is complete); return `(readings, new_offset)`.
+
+    Read in binary and decoded per line with `errors="replace"`, so
+    invalid-UTF-8 bytes can never raise here, and every offset - `offset`
+    itself and the returned `new_offset` - is an exact BYTE count, safe
+    to `seek()` back to even mid-multi-byte-character in a header value.
+
+    A line that fails to parse as JSON, or whose URI isn't
+    `DEVICE_DISPLAY_URI`, is skipped silently (but still counted into
+    `new_offset` - it was a complete line, just not one this tailer
+    keeps). Battery is coerced to `int`, `None` on failure. `ts` is used
+    as-is if a string; if a float/int epoch, converted via
+    `datetime.fromtimestamp()` - an out-of-range value (`OverflowError`,
+    `OSError`, or non-finite per `ValueError`, e.g. the JSON `NaN` token)
+    skips the line entirely rather than raising or storing a garbage
+    timestamp; otherwise `utc_now_iso()`. A missing/unreadable file
+    returns `([], offset)`.
     """
     readings = []
+    consumed_through = offset
     try:
-        with open(log_path) as fh:
+        with open(log_path, "rb") as fh:
             fh.seek(offset)
-            for line in fh:
-                line = line.strip()
+            for raw_line in fh:
+                if not raw_line.endswith(b"\n"):
+                    # Partial last line (Caddy still mid-write, or a
+                    # rotation caught it mid-line) - leave both the
+                    # reading and the offset behind for the next tail.
+                    break
+                consumed_through += len(raw_line)
+                line = raw_line.decode("utf-8", errors="replace").strip()
                 if not line:
                     continue
                 try:
@@ -487,7 +508,10 @@ def tail_caddy_battery_log(log_path, offset):
                 if isinstance(ts_raw, str):
                     ts = ts_raw
                 elif isinstance(ts_raw, (int, float)) and not isinstance(ts_raw, bool):
-                    ts = datetime.fromtimestamp(ts_raw, tz=timezone.utc).isoformat(timespec="seconds")
+                    try:
+                        ts = datetime.fromtimestamp(ts_raw, tz=timezone.utc).isoformat(timespec="seconds")
+                    except (OverflowError, OSError, ValueError):
+                        continue  # out-of-range or non-finite epoch ts - skip this line
                 else:
                     ts = utc_now_iso()
 
@@ -498,24 +522,29 @@ def tail_caddy_battery_log(log_path, offset):
                     "boot_reason": extracted.get("X-Boot-Reason"),
                     "rssi": extracted.get("X-Rssi"),
                 })
-            new_offset = fh.tell()
     except OSError:
         return [], offset
-    return readings, new_offset
+    return readings, consumed_through
 
 
 def ingest_caddy_battery_log(conn, log_path):
-    """Read the stored offset (reset to 0 if the file shrank, i.e.
-    rotated), tail the file, insert every reading, store the new offset.
-    Returns rows actually inserted (a re-tail of an already-seen range is
-    silently ignored by `UNIQUE(ts, battery_mv)`). A missing log file
-    returns 0 without raising.
+    """Read the stored offset (a non-integer, negative, or empty stored
+    value resets to 0 rather than raising; reset to 0 if the file shrank,
+    i.e. rotated), tail the file, insert every reading, store the new
+    offset. Returns rows actually inserted (a re-tail of an already-seen
+    range is silently ignored by `UNIQUE(ts, battery_mv)`). A missing log
+    file returns 0 without raising.
     """
     if not os.path.exists(log_path):
         return 0
 
     stored_offset = get_meta(conn, META_CADDY_LOG_OFFSET)
-    offset = int(stored_offset) if stored_offset else 0
+    try:
+        offset = int(stored_offset) if stored_offset else 0
+    except (TypeError, ValueError):
+        offset = 0
+    if offset < 0:
+        offset = 0
 
     try:
         file_size = os.path.getsize(log_path)
