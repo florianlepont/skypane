@@ -57,7 +57,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 37 (security-and-operations-hardening) — COMPLETE (11/11 plans; 37-11 Wave B: byos loopback-only + IP filter, no secret in argv, CP-11 and CP-7 done live 2026-09-26)
-Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human_needed: 2 manual checks after deploy)
+Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human_needed: TimeoutStartUSec=1min 30s confirmed live 2026-09-26; only the optional on-frame panel-swap check remains)
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
