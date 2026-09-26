@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SkyPane — ship one git SHA's committed tree to an already-provisioned
-# VPS and run its own activate.sh there (SEC-05, D-09).
+# VPS and run its own activate.sh there.
 #
 # Run from the repository root on your laptop or CI runner, not on the
 # VPS. deploy/provision.sh must have run there once first.
@@ -10,13 +10,13 @@
 #   deploy/deploy.sh ubuntu@203.0.113.10
 #
 # SSH_TARGET logs in as `ubuntu` (or any other non-root user with
-# passwordless sudo) — never as the root account directly (SEC-08,
-# D-08). Every remote step runs through `sudo` so it works the same way
+# passwordless sudo) -- never as the root account directly. Every
+# remote step runs through `sudo` so it works the same way
 # regardless of which non-root login the target uses.
 #
 # Why `git archive`: it streams exactly the tree that is actually
 # committed at HEAD — no local edits, no untracked files, no state/,
-# venv/ or skypane.env, ever leave this machine (T-37-30). The receiving
+# venv/ or skypane.env, ever leave this machine. The receiving
 # side extracts it into a fresh, per-SHA "incoming" directory; every
 # other decision — staging into releases/<sha>, the atomic `current`
 # swap, service restarts, verification probes, and automatic rollback on

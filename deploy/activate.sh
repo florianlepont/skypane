@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SkyPane — VPS-side atomic, verified deploy (SEC-05, D-09/D-10/D-11).
+# SkyPane -- VPS-side atomic, verified deploy.
 #
 # Runs ON THE VPS AS ROOT, invoked over ssh by deploy/deploy.sh, once
 # deploy.sh has streamed one git SHA's committed tree into
@@ -16,7 +16,7 @@
 # HTTP(S) surfaces. Any failure rolls the swap back to the previous
 # release (if one exists) and always exits non-zero, so a bad deploy
 # leaves a red CI job and the previously-working release still serving
-# traffic (T-37-26).
+# traffic.
 #
 # The host's /etc/caddy/Caddyfile is shared with other projects on the
 # same VPS, so this script only ever reads and validates it — it never
@@ -35,7 +35,7 @@
 # skypane.env is parsed with a strict, anchored `sed` line regex below —
 # never `source`d or `.`d. systemd's own EnvironmentFile= syntax is not
 # shell syntax, and sourcing the operator's file here would execute it as
-# root (T-37-27); a poison line in deploy/tests/conftest.py's fake env
+# root; a poison line in deploy/tests/conftest.py's fake env
 # file proves this script never does that.
 #
 # Usage: activate.sh <sha> [<incoming-dir>]

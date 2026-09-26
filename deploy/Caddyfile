@@ -13,8 +13,8 @@
 # everything to byos_server.py, which listens on 127.0.0.1:8642 and is
 # never reachable directly from outside (ufw denies the app port -
 # deploy/provision.sh). This is what makes byos_server.py's
-# --image-url-scheme https flag (stub-server/byos_server.py, D-P2-07)
-# correspond to a real TLS-terminated connection rather than an empty
+# --image-url-scheme https flag (stub-server/byos_server.py) correspond to a
+# real TLS-terminated connection rather than an empty
 # promise.
 #
 # Hostname pattern: <dashed-vps-ip>.nip.io. nip.io is a public DNS service
@@ -37,7 +37,7 @@
 # in this file, or in skypane-byos.service, needs to change — Caddy
 # re-requests a certificate for whatever hostname the site block names.
 #
-# Two site blocks now exist (06-11-PLAN.md, D-05): the device-protocol
+# Two site blocks exist: the device-protocol
 # block below, and a second block for the companion configuration web
 # interface, prefixed "config-" by default (e.g. config-203-0-113-10.nip.io;
 # SKYPANE_COMPANION_HOST in skypane.env replaces this line with any
@@ -57,18 +57,18 @@
     # HSTS is a browser (user-agent) policy, not something the firmware
     # reads: esp_http_client only calls esp_http_client_fetch_headers for
     # the content length (firmware/main/api_client.c) and never inspects
-    # this header, so adding it to the device block is harmless (SEC-02,
-    # D-15). No `preload` (this hostname is not submitted to any preload
+    # this header, so adding it to the device block is harmless. No
+    # `preload` (this hostname is not submitted to any preload
     # list) and no `includeSubDomains` (this host has no subdomains of its
     # own to cover).
     header Strict-Transport-Security "max-age=31536000"
 
     # Structured per-request access log to a durable file, not stdout
-    # (changed in 06-11-PLAN.md — this is the load-bearing edit that makes
-    # CFG-03's battery history possible). The device sends its battery
+    # (this is the load-bearing edit that makes battery history
+    # possible). The device sends its battery
     # voltage as the X-Battery-Mv request header on every poll;
     # stub-server/byos_server.py prints that header and persists nothing,
-    # and is explicitly off-limits to modify (D-03, stub-server/VENDOR.md)
+    # and is explicitly off-limits to modify (stub-server/VENDOR.md)
     # — solved at the infrastructure layer instead, following this
     # project's existing precedent of working around a vendored-code
     # limitation rather than patching the file. The previous "output
@@ -76,7 +76,7 @@
     # schedule (the same reasoning server/poll_loop.py's own module
     # docstring already records for a different durable-state decision),
     # so it could never be the source of a durable history. roll_size/
-    # roll_keep bound the file's growth (T-06-11-04) — server/history_db.py's
+    # roll_keep bound the file's growth -- server/history_db.py's
     # tailer resets its stored offset when the file is shorter than the
     # offset, so a rotation neither loses nor double-counts readings.
     #
@@ -87,7 +87,7 @@
     # (server/history_db.py's tail_caddy_battery_log()) extracts only an
     # explicit four-name telemetry-header allowlist, never the header map
     # wholesale, so a future change to Caddy's redaction policy cannot
-    # leak a credential into the history database (T-06-11-03).
+    # leak a credential into the history database.
     # mode 660: this log is written by caddy (user `caddy`) but read every
     # 30s by server/poll_loop.py (user `skypane`, via --caddy-log). Caddy's
     # default file mode is owner-only (0600), inaccessible outside the
@@ -112,7 +112,7 @@
 config-203-0-113-10.nip.io {
     reverse_proxy 127.0.0.1:8643
 
-    # Same HSTS policy as the device block above (SEC-02, D-15): no
+    # Same HSTS policy as the device block above: no
     # preload, no includeSubDomains.
     header Strict-Transport-Security "max-age=31536000"
 
