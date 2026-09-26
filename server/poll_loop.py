@@ -6,10 +6,12 @@ in-process loop - a systemd `.timer`/`.service` unit pair drives the
 cadence by invoking this repeatedly.
 
 No in-process memory between invocations: cross-cycle state lives in
-`<state_dir>/poll_state.json` (tmp-write-then-os.replace(), matching
-stub-server/byos_server.py's save_state()); malformed state degrades to
-empty, never a crash. `<state_dir>/battery_state.json` is a second,
-read-only input owned exclusively by stub-server/byos_server.py.
+`<state_dir>/poll_state.json` (written through server/atomic_io.py's
+same-directory-mkstemp-then-os.replace(), so this process and a
+concurrent companion/app.py trigger can never collide on one fixed temp
+name); malformed state degrades to empty, never a crash.
+`<state_dir>/battery_state.json` is a second, read-only input owned
+exclusively by stub-server/byos_server.py.
 
 Display pacing: the frame can't redraw as fast as this server polls, so a
 distinct new detection is queued rather than shown immediately, and the
@@ -24,11 +26,13 @@ Usage:
 import argparse
 import contextlib
 import hashlib
+import io
 import json
 import os
 import sqlite3
 import sys
 import time
+import traceback
 from datetime import datetime, timezone
 
 # Allow both `import server.poll_loop` and direct script execution:
@@ -545,9 +549,10 @@ def save_poll_state(state_dir, state):
 
 def write_panel_atomic(state_dir, rendered):
     """Write `rendered` (packed panel bytes) to <state_dir>/panel.bin only if
-    its SHA-256 differs from the currently-served bytes - tmp-write-then-
-    os.replace(), so byos_server.py can never serve a half-written file.
-    Returns True if the served panel actually changed.
+    its SHA-256 differs from the currently-served bytes - a same-directory-
+    mkstemp-then-os.replace() via atomic_io, so byos_server.py can never
+    serve a half-written file and two writers can never collide on one
+    fixed temp name. Returns True if the served panel actually changed.
     """
     panel_path = os.path.join(state_dir, "panel.bin")
     if os.path.exists(panel_path):
@@ -556,18 +561,7 @@ def write_panel_atomic(state_dir, rendered):
         if hashlib.sha256(existing).hexdigest() == hashlib.sha256(rendered).hexdigest():
             return False
 
-    tmp = panel_path + ".tmp"
-    try:
-        with open(tmp, "wb") as fh:
-            fh.write(rendered)
-        os.replace(tmp, panel_path)
-    except Exception:
-        if os.path.exists(tmp):
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
-        raise
+    atomic_io.atomic_write(panel_path, rendered)
     return True
 
 
@@ -625,7 +619,7 @@ def _should_record_event(flight, confirmed_state, poll_state):
 _NO_WAKE_EPOCH = object()
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH):
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False):
     """Write this cycle's durable signals into `history.db`, in one
     connection: a database/filesystem failure is caught and logged, never
     allowed to fail the poll cycle - history is an accessory to the
@@ -638,6 +632,13 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     the database. `caddy_log`, when given, ingests new Caddy access-log
     lines. `wake_interval_s` records a `wake_epochs` row only when it
     differs from the newest one stored.
+
+    `detected` covers the one case `flight is not None` alone misses: a
+    cycle that detected an aircraft but only queued it (the held branch
+    passes `flight=None` - nothing new reached the display - while the
+    queue this cycle enqueued is a real detection in its own right). The
+    last-detection timestamp advances on either signal, so "Last aircraft
+    detected" never lags behind a genuinely queued sighting.
     """
     route = route if isinstance(route, dict) else {}
     try:
@@ -659,7 +660,7 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                 )
             history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, now_iso)
             history_db.set_meta(conn, history_db.META_SOURCE_FAULT, str(source_fault))
-            if flight is not None:
+            if flight is not None or detected:
                 history_db.set_meta(conn, history_db.META_LAST_DETECTION, now_iso)
             if caddy_log:
                 history_db.ingest_caddy_battery_log(conn, caddy_log)
@@ -708,13 +709,19 @@ def _save_to_gallery(state_dir, canvas, now_iso):
     fill the gallery with visually-identical duplicates. Wrapped in the same
     catch-and-log containment as `_record_history()`: the gallery is an
     accessory, never allowed to fail a poll cycle - by the time this is
-    called, `panel.bin` has already been written.
+    called, `panel.bin` has already been written. The PNG is encoded into
+    memory first, then published through atomic_io.atomic_write() (a
+    same-directory-mkstemp-then-os.replace()), so a reader can never see a
+    half-written gallery file and a failed encode/write leaves no temp
+    file behind.
     """
     try:
         gallery_dir = _gallery_dir(state_dir)
         os.makedirs(gallery_dir, exist_ok=True)
         safe_name = now_iso.replace(":", "-") + ".png"
-        canvas.convert("RGB").save(os.path.join(gallery_dir, safe_name))
+        buffer = io.BytesIO()
+        canvas.convert("RGB").save(buffer, format="PNG")
+        atomic_io.atomic_write(os.path.join(gallery_dir, safe_name), buffer.getvalue())
         _prune_gallery(gallery_dir)
     except Exception as exc:
         print("poll_loop: gallery archive failed: %s: %s" % (type(exc).__name__, exc))
@@ -1094,7 +1101,8 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             # route this cycle); "manual" via the operator-writable
             # registry (only when the static table has no entry - it wins
             # on a collision); "miss" resolved nothing.
-            route, route_source = enrich.resolve_route(current_flight.get("callsign"), cache)
+            route, route_source = enrich.resolve_route(
+                current_flight.get("callsign"), cache, now=now_s())
             enrich.trim_cache(cache)
             poll_state["enrichment_cache"] = cache
             # A "miss" is an unrecognized ICAO prefix - recorded so the
@@ -1239,6 +1247,10 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             state_dir, None, None, None, None,
             tracked_runway_id, source_fault, False, now_iso,
             caddy_log=caddy_log, wake_interval_s=effective_wake_interval_s,
+            # This cycle's own raw detection (`flight`), not what reached
+            # the display (`current_flight`, unchanged here) - a distinct
+            # aircraft that only got queued is still a real detection.
+            detected=flight is not None,
         )
     else:
         # Nothing detected, and nothing has ever been detected since the
@@ -1367,6 +1379,10 @@ def main(argv=None):
         # never crash-loop the systemd timer silently - log to stdout
         # (journald captures this) and exit non-zero.
         print("poll_loop: cycle failed: %s: %s" % (type(exc).__name__, exc))
+        # journald captures stdout, not this process's own traceback
+        # rendering choices - a one-line summary alone leaves no way to
+        # tell which line raised without reproducing the failure locally.
+        traceback.print_exc(file=sys.stdout)
         return 1
     return 0
 
