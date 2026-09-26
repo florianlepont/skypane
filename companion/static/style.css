@@ -4030,45 +4030,12 @@ button:disabled {
 }
 
 /* Data table: quiet uppercase label header, one row surface, hover-only
- * row cue. Wrapped in .data-table-wrap (scrolls horizontally, never
- * crops) instead of letting a wide table (History's timestamp/callsign/
- * hex/airline/type columns, Airlines' unresolved-prefix table) overflow
- * the viewport on phone widths — this wrap now stands on its own (the
- * horizontal .nav-bar it used to be paired with is gone, see the header
- * comment above). */
-/* quick task 260902-w4t (UIR-04): a CSS-only, pointer-inert, theme-aware
- * hint that a table has more columns off to the side, for the widths
- * where History's own table (Type+Airline, Corroboration, etc.) still
- * overflows the wrap above even after this task's copy fixes.
- *
- * `background-attachment` was chosen over a `mask-image` fade because
- * `.data-table` above declares `width: 100%`, so an unconditional
- * right-edge mask would fade the last column of a table that already
- * fits at a given width — exactly the regression this fix must avoid.
- * The four-layer stack below sidesteps that: two OPAQUE cover gradients
- * (listed first, so they paint on top) use `background-attachment:
- * local` — meaning they scroll WITH the table's own content — while two
- * SHADOW gradients underneath use `background-attachment: scroll` —
- * meaning they stay fixed to the wrap's viewport. When the table's
- * content is exactly as wide as the wrap (nothing to scroll), the local
- * covers and the scroll shadows land in the same place and the covers
- * fully occlude the shadows, by geometry, not by a media query or a
- * JS measurement. Only once the content is wider than the wrap does
- * scrolling move the covers out from over the shadows, revealing them
- * at whichever edge still has more content. This needs no pseudo-
- * element, so it can never intercept a pointer event or interfere with
- * the wrap's own native scrolling.
- *
- * The shadow colour is `color-mix(in srgb, var(--color-text) 15%,
- * transparent)` — the same muted-mix idiom `.section-caption` above and
- * the `.copy-btn` washes already use — never a hardcoded grey, so both
- * themes render a correctly-toned shadow with no per-theme value to
- * keep in sync. The cover colour is the surface this wrap actually
- * paints onto: `--color-canvas` here (History's table sits directly on
- * the page background), with a `--color-dominant` override immediately
- * below for the one case (Health's registry/readings/stats tables) where
- * a wrap genuinely sits inside a `.page-section`/`.battery-trend-section`
- * card instead — verified by reading health_page.py, not assumed. */
+ * row cue. Wrapped in .data-table-wrap, which scrolls horizontally
+ * rather than letting a wide table overflow the viewport on phones. */
+/* Four-layer background-attachment trick: two opaque "cover" gradients
+ * scroll WITH the content (local) while two shadow gradients stay fixed
+ * to the viewport (scroll). When nothing is scrollable the covers sit
+ * exactly over the shadows and occlude them by geometry alone. */
 .data-table-wrap {
   overflow-x: auto;
   max-width: 100%;
@@ -4085,14 +4052,9 @@ button:disabled {
   background-attachment: local, local, scroll, scroll;
 }
 
-/* The one place a .data-table-wrap genuinely sits inside a card surface
- * instead of directly on the page background (health_page.py's
- * _registry_table_html(), the battery readings disclosure table, and
- * _stats_table_html() all render inside a .page-section or
- * .battery-trend-section card) — the cover gradients above must match
- * that surface or they would read as a visible coloured band instead of
- * an invisible cover. History's own table is unaffected: it is returned
- * directly by render(), never inside a .page-section. */
+/* The one place .data-table-wrap sits inside a card surface instead of
+ * the page background — the cover gradients must match that surface or
+ * they read as a visible coloured band. */
 .page-section .data-table-wrap,
 .battery-trend-section .data-table-wrap {
   background-image:
@@ -4110,162 +4072,31 @@ button:disabled {
   border-collapse: collapse;
 }
 
-/* quick task 260901-uzi (finding 2): opts exactly one table — the
- * Resolution-statistics table, health_page.py::_stats_table_html() —
- * out of the no-crop floor above.
- *
- * The mechanism, in full: the base rule above and this one are both
- * single-class selectors landing on the same <table> element, so their
- * specificity is equal and SOURCE ORDER is the only thing deciding which
- * minimum width wins. This rule must therefore stay after the base one
- * in this file — moving it above would silently restore the overflow
- * with nothing else in the file to notice. A stylesheet guard in
- * test_status_pages.py pins that ordering directly, rather than leaving
- * it to this comment alone.
- *
- * No fixed pixel floor is added to the Description column here, even
- * though the sketch this page came from used one. A minimum wider than
- * the narrowest container simply re-creates the same overflow one
- * breakpoint down — the exact defect being fixed — and it is not needed:
- * the table's other two columns (a short source label and a count) have
- * small max-content widths, so the table's own auto layout already
- * gives the description column the large majority of the available
- * width and wraps it there. The wrap's own overflow-x: auto remains the
- * backstop for any residue at extreme widths, used as the safety net it
- * was written to be, not as the normal state.
- *
- * The boundary: this releases exactly one table. The floor stays in
- * force for History's wide table and for the unresolved-prefix registry,
- * and .stat-tile's own min-width: 0 comment still describes a real,
- * unrelated failure mode that depends on it. */
+/* Opts the Resolution-statistics table out of the no-crop floor above.
+ * Equal specificity with the base rule, so source order decides — this
+ * rule must stay declared after it. A stylesheet guard in
+ * test_status_pages.py pins that ordering. */
 .data-table--prose {
   min-width: 0;
 }
 
-/* quick task 260902-v2v (UIR-13): scoped to the same opted-out table as
- * the rule immediately above, and placed immediately after it — the
- * Source column (a short label like "Fresh lookup"/"Airline only") was
- * wrapping onto two lines at desktop widths once the table's own
- * no-crop floor was released above. Source order matters here for the
- * same reason it matters above: nothing else in this file re-scopes
- * .data-table--prose, so this is a plain child-selector addition, not a
- * specificity race, but it still reads more clearly living beside the
- * rule it depends on rather than elsewhere in the file. */
 .data-table--prose th:first-child,
 .data-table--prose td:first-child {
   white-space: nowrap;
 }
 
-/* Quick task 260913-cz6 — the SECOND table released from the no-crop
- * floor above, and (like the first) it arrived by headless measurement
- * rather than by eye. Health's battery readings table lives inside a
- * closed-by-default `details.readings-disclosure`, so nothing in this
- * repo's sweeps had ever measured it: at a 390px viewport the table
- * measured 432px (FR) / 369px (EN) inside a 308px `.data-table-wrap`,
- * overflowing by 124px and giving that wrap its own horizontal
- * scrollbar. The Timestamp column alone took 302px (FR), holding the
- * one-line concise form "31 juil. 08:00 (il y a 44 j)", against 130px
- * for the four-digit millivolt column. `document.documentElement
- * .scrollWidth` stayed exactly 390px throughout, open or closed —
- * the WRAPPER scrolls, not the page — which is precisely why every
- * page-level overflow assertion in the suite was structurally blind
- * to it.
- *
- * This is the same measured cause as B12 (the floor sizes every column
- * to its widest UNWRAPPED line) but deliberately NOT the same remedy,
- * and `references/data-density.md`'s stacked-cell warning is neither
- * loosened nor invoked here. The registry's stacked-cell treatment was
- * measured on THIS table first and rejected on its own numbers: stacking
- * only lowers the floor from 432px to 297px, which clears 390px by
- * exactly zero and still overflows at 360px (297 against 278) and at
- * 320px (297 against 238) — a fix already broken on a common Android
- * width. It would also force two lines at 1280px, where the wrap has
- * 830px to spare. `table.data-table--registry`'s selector is therefore
- * left alone rather than widened to cover both tables.
- *
- * Releasing the floor is right here and was right to REJECT for the
- * registry, for a reason specific to each table's columns. The floor
- * exists to stop short OPAQUE CODES cropping; the registry has two such
- * columns (prefix, example callsign) with no safe internal break point.
- * This table has exactly two columns: a four-digit integer, which is a
- * single token with no break opportunity at all, so the floor is inert
- * for it; and a timestamp whose every break opportunity is a real word
- * boundary. Measured at 360px and 390px in BOTH languages, the released
- * line breaks on the exact semantic boundary — "31 juil. 08:00" then
- * "(il y a 44 j)" — because the space before the parenthesis is the
- * only mid-string break opportunity and French already carries a
- * non-breaking space inside "44 j". At 768px and 1280px the timestamp
- * stays on ONE line, so this costs no row height where there is room.
- * The floor protects nothing here that is not already safe, while
- * forbidding the one break that makes the table fit.
- *
- * Source order matters for the same reason it does for the rule above,
- * and the `table` qualifier additionally wins on specificity. */
+/* Releasing the no-crop floor is safe here (and was rejected for the
+ * registry table) for a column-specific reason: this table's only
+ * columns are a single-token integer and a timestamp whose one break
+ * point falls on a real word boundary in both languages (measured). */
 table.data-table--readings {
   min-width: 0;
 }
 
-/* 06.6.4 (D-07): the header used to fill a solid --color-secondary
- * block; it now reads as a quiet uppercase label instead — no
- * background at all, just a bottom hairline. The 70% text color-mix is
- * this file's one muted-secondary strength (same value the theme
- * segments and merged-cell parts use), not a new value invented here.
- * This rule and .data-table-wrap th immediately below MUST always be
- * edited together: they carry equal (0,1,1)/(0,2,0)-class specificity
- * and the sticky rule sits later in source order, so leaving it on the
- * old filled background would silently repaint the header the moment a
- * long table scrolls, defeating this rule's own change.
- *
- * quick task 260902-dng (bug 2, closes 260901-uzi Finding 5 candidate
- * (a)): top padding was zero, which is the real mechanism behind the
- * developer's real-Safari header-clipping report. Sticky positioning
- * itself never clips text — `.data-table-wrap th` immediately below
- * paints an OPAQUE BACKGROUND over this rule's own padding box; with
- * zero top padding, that opaque box began exactly at the glyph tops, so
- * a row scrolling underneath a stuck header reached the ascenders
- * before any background covered them. Whether that reads as visible
- * clipping depends on where a font's ascent metric sits inside its own
- * line box — genuinely different between WebKit and Blink, which is
- * exactly why 260901-uzi's Finding 5 reproduced in the developer's real
- * Safari and not in a Chromium-based measurement tool, and why that
- * task declined to fix it blind. Real top padding extends the opaque
- * background above the glyphs by a fixed pixel amount, so the fix does
- * not depend on any font's ascent metric in any engine — not a
- * WebKit-only patch.
- *
- * The new top value mirrors the existing bottom value (10px) rather
- * than inventing one or reaching for a --space-* token: the bottom
- * value is already a bare 10px literal in this same rule, and swapping
- * it to a token (8px or 16px) to "use a token" would change a value
- * nobody reported a problem with, on four tables at once, as a rider on
- * an unrelated fix. Symmetric padding also centres the header's text in
- * its own band and leaves the bottom value — and therefore this
- * header's optical relationship to its own border-bottom hairline —
- * byte-identical to before.
- *
- * Blast radius (shared rule, deliberately not Health-scoped): History's
- * table, the Health battery-readings table, the Resolution-statistics
- * table, and the hand-rolled unresolved-prefix registry table (which
- * emits `<table class="data-table">` directly) all re-space together by
- * 10px of header height. That is intended — a uniform improvement
- * shipped on the shared rule, not a Health-only patch — which is why it
- * belongs here rather than on a Health-scoped override.
- *
- * This closes 260901-uzi's Finding 5 candidate (a). Candidate (b) — the
- * sticky header background's own token, currently --color-canvas,
- * flagged as never live-validated against the in-card tables — was left
- * open here for a later one-declaration decision.
- *
- * T4 (22-15-PLAN.md Task 1) CLOSES candidate (b) by making it moot
- * rather than by deciding it. The `.data-table-wrap th` rule that
- * carried both the sticky claim and that background is deleted below:
- * the wrapper has no height, so the header could never stick, so there
- * was never a stuck header for any token to paint. Nothing about THIS
- * rule changes — only the open question that used to point at the rule
- * below it. */
-/* 06.6.4.1.1 (D-13): 11px -> 12px, converging onto the one unified label
- * voice this file now states once, on .stat-tile__caption's own comment
- * below. Every other declaration here already matched that voice. */
+/* Real top padding, matching the bottom value: with zero top padding
+ * the sticky header's opaque background began exactly at the glyph
+ * tops, clipping ascenders in real Safari (not reproduced in Chromium)
+ * — an engine-specific ascent-metric difference, not a WebKit-only bug. */
 .data-table th {
   font-size: 12px;
   font-weight: var(--weight-semibold);
@@ -4277,67 +4108,25 @@ table.data-table--readings {
   border-bottom: 1px solid var(--color-border);
 }
 
-/* T4 (22-AUDIT.md, 22-UI-SPEC.md §2's T4 row, 22-15-PLAN.md Task 1):
- * the sticky desktop table header is REMOVED, rule and all.
- *
- * It could never engage. Sticky positioning resolves against the
- * nearest scrollport, which for these cells is `.data-table-wrap` — and
- * that wrapper declares `overflow-x: auto` with NO height and no
- * `max-height`, so it has no vertical scrollport for a header to stick
- * inside. The page scrolls instead, and the page is not the sticky
- * containing block here. Six years of file history describe a behaviour
- * no browser has ever produced: the header simply scrolled away with
- * its table, exactly as if the rule were absent.
- *
- * Removing the claim rather than making it true, deliberately. Giving
- * the wrapper a `max-height` would put a second, nested vertical
- * scrollbar inside a page that already scrolls, on four tables at once,
- * as a rider on a defect report that asked for nothing of the sort.
- * Sticky day headers are Phase 23's D7 and will be specified there.
- * Removing a lie beats adding a second one.
- *
- * The rule's `background: var(--color-canvas)` goes with it. That
- * declaration existed ONLY to stop body rows showing through a stuck
- * header, and quick task 260901-uzi's finding 5 candidate (b) — "is
- * --color-canvas the right token here, against the in-card tables?" —
- * is therefore MOOT, not merely deferred: there is no stuck header to
- * paint. Recorded for the closing design-system sweep (22-16), which
- * marks references/data-density.md's sticky-header entry SUPERSEDED and
- * retires candidate (b) with it. */
 
 .data-table td {
   padding: 13px var(--space-md);
   border-bottom: 1px solid var(--color-border);
 }
 
-/* 21-03-PLAN.md Task 1 (D-15, 21-UI-SPEC.md §F): scoped to Flights' own
- * table only — no other .data-table consumer (Health, Airlines) gains
- * this modifier. Six columns (5 data + the "More" toggle) at 8px
- * horizontal padding each = 96px of padding, leaving a 784px content
- * budget inside the real 880px column (1280 - 240 sidebar - 32 gap -
- * 128 .dashboard-main padding) — tokens only, no literal px value, so
- * this rule tracks --space-sm/--space-md if either token ever changes. */
+/* Scoped to Flights' own table only. Tokens only (no literal px), so
+ * this rule tracks --space-sm/--space-md automatically if either token
+ * ever changes. */
 table.data-table--flights td,
 table.data-table--flights th {
   padding: var(--space-sm) var(--space-sm);
 }
 
-/* 21-03-PLAN.md Task 3 (D-15) — Rule 1 auto-fix found by the headless
- * measurement step: .data-table's own `min-width: max-content` rule
- * (a deliberate earlier "no-crop" floor, quick task 260901-uzi) sizes
- * every column to its widest UNWRAPPED line. The When/Flight cells'
- * primary+separator+secondary spans render inline by default (the
- * shape _merged_cell() already produces everywhere else in this app),
- * so a run like "AFR1380 · Air France · A320" wants ~400px on one
- * line — blowing straight through the 880px column budget regardless
- * of the padding rule above. Scoped to this table only: the primary
- * and secondary lines become genuinely STACKED (block-level), so each
- * column's own max-content width is the WIDER of its two lines, not
- * their concatenation, matching this task's own "two stacked lines,
- * never an inline suffix" requirement. The inline middle-dot
- * separator has no role once the two parts sit on separate lines, so
- * it is hidden here — never deleted from the DOM, so a future change
- * that un-scopes this rule finds the separator markup still intact. */
+/* .data-table's own min-width: max-content sizes every column to its
+ * widest UNWRAPPED line, so inline primary+secondary spans blow through
+ * the column budget. Making them block-level (stacked) makes each
+ * column's max-content width the WIDER of its two lines instead of
+ * their concatenation. Scoped to this table only. */
 table.data-table--flights .cell-primary,
 table.data-table--flights .cell-secondary {
   display: block;
@@ -4347,24 +4136,6 @@ table.data-table--flights .cell-inline-sep {
   display: none;
 }
 
-/* 22-12-PLAN.md Task 2 (B12) — the SECOND consumer of the stacked-cell
- * exception above, and it arrived the same way the first one did: by
- * headless measurement, not by eye. Health's unresolved-prefix table
- * measured 886px (EN) / 1026px (FR) inside an 830px `.data-table-wrap`
- * at a 1280px viewport, because `.data-table`'s `min-width: max-content`
- * no-crop floor sizes each column to its widest UNWRAPPED line and the
- * First seen / Last seen cells' one-line form ("1 août 08:00 (il y a
- * 42 j)") wanted 251px of ink EACH — 564px of the budget for two of six
- * columns. Shortening the French headers alone was measured to be
- * incapable of closing that gap; stacking is what makes each column's
- * max-content width the wider of its two lines instead of their
- * concatenation.
- *
- * `references/data-density.md`'s warning still stands and is not being
- * loosened here: this is NOT license to stack any other merged cell
- * "for consistency". It is the same local fix for the same measured
- * cause, applied to the second table in this app that demonstrably has
- * it, and it stays scoped to that table by its own modifier class. */
 table.data-table--registry .cell-primary,
 table.data-table--registry .cell-secondary {
   display: block;
@@ -4374,30 +4145,15 @@ table.data-table--registry .cell-inline-sep {
   display: none;
 }
 
-/* 21-03-PLAN.md Task 2 (D-15/R-12, 21-UI-SPEC.md §F): the expandable
- * detail row's own styling — tokens only, no new colour literal. The
- * no-JS floor (D-15, locked) is a VISIBLE detail row by default; the
- * collapsing class below is added only by companion/static/
- * flight-rows.js at load, never rendered server-side. */
 .flight-detail-row td {
   background: color-mix(in srgb, var(--color-text) 3%, transparent);
   padding: var(--space-md);
 }
 
-/* 27-08-PLAN.md Task 3 (CFG-70): `margin-bottom` closes the gap between
- * this grid and whatever follows it in the same reveal cell (the
- * callsign's own copy button, standalone rather than inside a `<dl>`
- * item — companion/pages/history_page.py's `_flight_detail_row_html()`).
- * MEASURED at the prior 0-margin value: the grid's bottom edge sat
- * roughly 4px above that trailing button's own top edge, well inside
- * both controls' own synthesized 11px reach — the later element (the
- * trailing button, later in document order) wins that overlap outright,
- * so the EARLIER control (the grid's own last-row copy button) measured
- * a real 34x26 against its declared 44x44: full reach left/right/up,
- * almost none down. `var(--space-lg)` (24px) reopens a real gap between
- * the two 11px reaches (22px needed) with room to spare, the same
- * `--space-lg`-over-the-exact-minimum margin this file's carousel pager
- * gap rule already banked for the identical reason. */
+/* var(--space-lg) reopens a real gap between this grid's own trailing
+ * copy button and the next control's synthesized 44x44 hit area — a 0
+ * margin measured only 4px of clearance between their two 11px reaches
+ * (22px needed). */
 .flight-detail-row__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -4413,85 +4169,18 @@ table.data-table--registry .cell-inline-sep {
   margin: 0 0 var(--space-xs);
 }
 
-/* D-15's own no-JS floor: visible by default. flight-rows.js adds
- * this class to every .flight-detail-row at load, mirroring
- * nav-dropdown.js's own "document.documentElement.className += ' js'"
- * convention for a component-scoped hide instead of a page-wide one.
- *
- * 23-08-PLAN.md Task 2 (D3/CFG-32): THIS DECLARATION IS THE DELIBERATE
- * CHOICE, and it stays exactly as it is. The height animation below is
- * ONE-DIRECTIONAL: opening animates, closing is instant. The
- * alternative D3 allows — keeping the row present and driving
- * `display` through `transition-behavior: allow-discrete` so it leaves
- * the flow only once the collapse finishes — was considered and
- * declined, for one reason that outranks the nicer closing animation:
- * for the whole of that transition, and for any browser that does not
- * support the property, the row's links, buttons and copy controls are
- * still in the tab order and still in the accessibility tree. A
- * keyboard user tabbing past a "closed" row would land inside it, and a
- * screen reader would read out a row nobody can see. `display: none` is
- * the only end state that removes an element from BOTH, with no support
- * question attached, and it is the property companion/test_view_pages.py
- * and companion/test_browser_ux.py both assert. A row that shuts
- * instantly is a smaller loss than a row that is secretly still there. */
+/* display: none, not transition-behavior: allow-discrete: the
+ * alternative keeps the row's controls in the tab order and a11y tree
+ * for the whole close transition (forever, in unsupported browsers).
+ * Asserted by test_view_pages.py and test_browser_ux.py. */
 .flight-detail-row--collapsed {
   display: none;
 }
 
-/* 23-08-PLAN.md Task 2 (D3/CFG-32): the detail row opens with HEIGHT.
- *
- * WHY THERE IS A WRAPPER AT ALL, since that is the first thing a reader
- * of this rule will wonder. The obvious place for the animation is the
- * row, and the row cannot carry it: a <tr> is `display: table-row`, so
- * it is not a grid container and has no row track to grow; and
- * `display` is a DISCRETE property, so it jumps rather than
- * interpolates no matter what is declared. So the animation lives one
- * level down, inside the <td>, on a wrapper
- * companion/pages/history_page.py renders for exactly this purpose.
- *
- * The mechanism is `grid-template-rows` between `0fr` and `1fr` — a
- * single-track grid whose track grows from nothing to its content's own
- * height, with the inner element clipping what does not fit yet. It is
- * the mechanism 23-RESEARCH.md's Baseline table picks for this job, and
- * the reason is the two things it is NOT: not a guessed `max-height`
- * (which either clips tall content or animates through empty space on
- * short content, and here the content varies per row — a flight with no
- * hex and no runway has half the rows of one with both), and not
- * `interpolate-size`/`calc-size()`, which are Chromium-only and would
- * animate for some visitors while silently doing nothing for the rest.
- * 23-01's own guard bans both by name.
- *
- * `min-height: 0` on the inner element is load-bearing and not
- * defensive: a grid item's automatic minimum size is its content's, so
- * without it the track never actually reaches 0fr and the row would
- * simply appear at full height with a pointless transition attached.
- *
- * SCOPED TO THE CLASS flight-rows.js ADDS TO <html> ITSELF, which is
- * the no-JS floor rather than tidiness. With scripts blocked every
- * detail row is rendered open and stays open — that is D-15, locked —
- * and an unscoped @starting-style would then run this entry animation
- * on every one of up to fifty rows at first paint, unfolding the whole
- * page in front of a reader who has touched nothing. Unscoped, it is
- * motion nobody asked for; scoped, a scripts-blocked page declares no
- * transition at all.
- *
- * The @starting-style block is what makes the OPENING animate: an
- * element going from `display: none` to displayed has no previous
- * computed value to transition from, so without a declared starting
- * value the transition is one that can never run. Where it is not
- * supported the row simply appears, which is exactly what it did
- * before this plan — the animation is additive and degrades to today.
- *
- * `var(--motion-fast)`: 23-01's REACTION token, which names this
- * surface in its own comment. Somebody pressed the control and is
- * watching for it to answer.
- *
- * UNDER REDUCED MOTION THIS DOES NOT GROW, and there is no block here
- * saying so — the global override at the top of this file already
- * drives every transition-duration to 0.01ms, and a per-rule block
- * would be the dead-code-not-a-safety-net pattern
- * accessibility-contrast.md records a verdict on. The stylesheet's live
- * reduce-block count stays at two. */
+/* grid-template-rows 0fr -> 1fr on a wrapper <td>: a <tr> cannot be a
+ * grid container and display cannot interpolate. Not max-height (row
+ * content varies) and not interpolate-size/calc-size() (Chromium-only).
+ * min-height: 0 is load-bearing — without it the track never reaches 0fr. */
 .flight-rows-live .flight-detail-row__reveal {
   display: grid;
   grid-template-rows: 1fr;
@@ -4504,68 +4193,20 @@ table.data-table--registry .cell-inline-sep {
   }
 }
 
-/* 27-08-PLAN.md Task 3 (CFG-70): `padding-left` on THIS element, not on
- * `.flight-detail-row td` two rules up (that rule's own `padding`
- * declaration is shadowed by `table.data-table--flights td`'s higher-
- * specificity `var(--space-sm)` padding, verified from source rather
- * than assumed — editing the shadowed rule would be a change with no
- * effect). This element is the one whose `overflow: hidden` (needed for
- * the height-collapse animation two rules up) clips anything painted
- * past its own edge, including a synthesized `::before` pointer target
- * belonging to a descendant flush against that edge — which the first
- * grid column's copy buttons are, at the 8px `table.data-table--flights
- * td` leaves them. `var(--space-md)` (16px) clears the 11px reach those
- * buttons need with a few pixels to spare. This DOES move the row's
- * rendered content 16px further right than the table's own 8px cell
- * padding alone would (24px total inset instead of 8px) — a visible,
- * deliberate trade rather than a free one: touching `table.data-table--
- * flights td` instead would have re-spaced every cell in the table
- * (header and every summary row too) for a defect that lives in one
- * component. */
+/* padding-left lives on THIS element, not .flight-detail-row td above:
+ * that rule's own padding is shadowed by table.data-table--flights td's
+ * higher-specificity padding. Clears the 11px reach of the copy
+ * button's synthesized hit area, which overflow: hidden would clip. */
 .flight-detail-row__reveal-inner {
   overflow: hidden;
   min-height: 0;
   padding-left: var(--space-md);
 }
 
-/* 22-09-PLAN.md Task 1 (X5, 22-UI-SPEC.md §2): the row-toggle's FIRST
- * rule block — the control shipped in Phase 21 with markup only and no
- * CSS of its own, riding the base `button` rule's 30px geometry with a
- * visible "More"/"Plus" label. X5 removes that label (fifty text
- * buttons leaving the scan path is the whole point of the fix), which
- * is exactly what dissolves `references/control-density.md`'s recorded
- * rejection of the icon-only pattern for this control ("unlike
- * .copy-btn, the row-toggle carries visible text"). `.row-toggle`
- * therefore moves from the touch-target register's TRADED-AWAY category
- * to its RELOCATED category, and plan 22-16 marks that rejection
- * SUPERSEDED in place with this reasoning.
- *
- * Every value below is `.copy-btn`'s own, reused verbatim rather than
- * re-chosen: the 22x22 visual box, the 6px radius, the `::before`
- * negative 11px inset that synthesizes a real 44x44 pointer/touch hit
- * area (22 + 11 + 11 = 44), the 7% hover wash, and the 14px glyph size
- * `.copy-btn .icon` already scopes its SVG down to. The control is
- * BIGGER than the 30px text button it replaces, not smaller.
- *
- * The glyph rotates with the state. 22-09 left it with no transition
- * of its own and named D3/Phase 23's motion budget as the plan that
- * would add one; 23-08-PLAN.md Task 2 is that plan, and the transition
- * is below.
- *
- * `transform` by name rather than `all`: the rotation is the only thing
- * that changes here, and `all` would animate every property a future
- * edit happens to add to this rule, including ones nobody chose to
- * animate. `var(--motion-fast)` because this is a control answering a
- * press.
- *
- * NO per-rule reduced-motion block, and that was pre-approved rather
- * than assumed: references/control-density.md:78 says in advance that
- * "the global prefers-reduced-motion block already covers a plain
- * transform for free, and a per-rule block here would be dead code, not
- * a safety net." The global block at the top of this file drives every
- * transition-duration to 0.01ms, so under that preference the chevron
- * simply is where it should be. The stylesheet's live reduce-block
- * count stays at two. */
+/* Every value below is .copy-btn's own, reused verbatim: the 22x22 box,
+ * the ::before -11px inset synthesizing a 44x44 hit area, the 7% hover
+ * wash. transform (not all) animates only the rotation; the global
+ * reduced-motion block already covers it, so no per-rule block is added. */
 .row-toggle {
   width: 22px;
   height: 22px;
@@ -4600,24 +4241,6 @@ table.data-table--registry .cell-inline-sep {
   transform: rotate(180deg);
 }
 
-/* 22-09-PLAN.md Task 2 (X5, 22-UI-SPEC.md §2): the day separator row.
- * Thirty-six to fifty rows used to run together with nothing marking
- * where one Paris day ended and the next began.
- *
- * NOT sticky, deliberately and by instruction: sticky day headers are
- * D7/Phase 23, and T4 in this same phase removes the app's one broken
- * sticky-positioning claim rather than adding a second one. This rule
- * therefore declares no positioning of any kind — the phrase is spelled
- * out here rather than quoted as a declaration on purpose, so this
- * plan's own acceptance grep for the file's sticky-declaration count
- * keeps measuring declarations and not prose about them.
- *
- * `--color-canvas` is the page ground the table sits on (the same token
- * the retired sticky-header note named), so the separator reads as a
- * gap in the list rather than as another data row; the label voice
- * comes from the `.text-label` class the <th> already carries plus the
- * uppercase/tracking/70%-muted register `.data-table th` itself uses —
- * no new muted strength, no new size. */
 .flight-day-row th {
   background: var(--color-canvas);
   text-align: left;
@@ -4627,94 +4250,32 @@ table.data-table--registry .cell-inline-sep {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* The pointer cursor for the whole-row click, keyed ONLY on the class
- * companion/static/flight-rows.js adds to each summary row at load —
- * the same component-scoped class-at-load idiom
- * .flight-detail-row--collapsed above uses, and for the same reason: a
- * scripts-blocked page must never show a pointer over a row that does
- * nothing. This is the file's only `cursor: pointer` on a table row. */
 .flight-row--clickable {
   cursor: pointer;
 }
 
-/* quick task 260902-bl2 (bug 1): the Resolution-statistics table's
- * Description column measured full-strength --color-text with an empty
- * classList — not a rule written wrong, a missing hook: before this,
- * layout.data_table() had a column-role class only for the monospace
- * role (mono_columns), so a table whose middle column holds prose had no
- * class for any rule to target at all.
- *
- * The value is this file's existing 70% color-mix muted strength — the
- * same literal .section-caption, .data-table th, .filter-bar__count and
- * .battery-readout__detail already carry. The sketch this table came
- * from names a --color-text-muted token; .cell-primary's own comment
- * below already decided in writing that no such token exists in this
- * file, and none is introduced here — this is the file's one muted
- * strength, reused, not a fourth value or a new token.
- *
- * color, not opacity: .cell-secondary reaches this same 70% read via
- * opacity, but .data-table td above declares its own border-bottom
- * hairline, and opacity would fade that separator along with the text on
- * exactly these four rows and nowhere else in the table.
- *
- * Two things deliberately not carried from the sketch's own td.desc
- * rule. First, a fixed min-width — declined, because .data-table--prose's
- * own comment above already argues a pixel floor on this exact column
- * re-creates the horizontal overflow that modifier was written to
- * remove, one breakpoint down. Second, any selector scoping beyond the
- * class itself: the CLASS is the scope — `desc` is emitted only where a
- * caller opts in via data_table()'s desc_columns keyword, exactly as
- * `mono` is, and the stats table is the only caller that does; History's
- * table and the unresolved-prefix registry hand-roll their own markup
- * and never reach this builder at all.
- *
- * test_contrast_check.py's existing "muted detail text on card surface"
- * pairs already pin this exact foreground/background combination in
- * both themes — no new pair is needed here. */
+/* 70% muted strength, matching .section-caption/.data-table th. color,
+ * not opacity: .data-table td above declares its own border-bottom, and
+ * opacity would fade that hairline along with the text. Pinned in
+ * test_contrast_check.py's existing muted-on-card-surface pairs. */
 .data-table td.desc {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* 06.6.4 (D-07): a clean bottom edge — the last row carries no trailing
- * separator line. */
+/* A clean bottom edge: the last row carries no trailing separator line. */
 .data-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-/* 06.6.4 (D-07): a row answers the pointer with a subtle tint instead of
- * alternating-row zebra striping (removed below). Same 4% text
- * color-mix strength D-07 specifies and every other hover wash in this
- * phase uses. */
 .data-table tbody tr:hover {
   background: color-mix(in srgb, var(--color-text) 4%, transparent);
 }
 
-/* 06.6.4 (D-07): the .data-table tr.row-alt zebra-stripe rule that used
- * to live here is removed outright — one row surface plus the hover
- * tint above replaces it. The three server-side sites that still
- * compute and emit the row-alt class name (companion/layout.py's
- * data_table(), companion/pages/history_page.py, companion/pages/
- * airlines_page.py) are deliberately left untouched: the class becomes
- * inert markup with no visual or functional effect, and removing it
- * would mean three Python edits and three harness updates for zero
- * user-visible gain — an intentional decision, not a half-finished
- * refactor. */
 
-/* History's merged-cell parts (06.6.1, D-06/data-density.md). No
- * --color-text-muted token exists in this stylesheet, and the sketch's
- * pattern that named one is deliberately not carried over — inventing a
- * new token, or hard-coding a grey, would be wrong in one of the two
- * themes. opacity on the existing --color-text gives the same muted read
- * in both modes with no per-theme value to keep in sync. The 13px size on
- * .cell-secondary is a legitimate secondary-data exception to the 4-size
- * scale, scoped to this one class.
- *
- * 06.6.4.1.1-03 (D-18a, UIR-26): font-size 12px -> 13px, opacity
- * 0.7 -> 0.75. 12px at 70% opacity on the dark surface measured at the
- * edge of comfortable — this raises both the size and the effective
- * contrast of History's secondary hex text a step, without inventing a
- * new muted-text strength (still the same opacity-on-`--color-text`
- * idiom, just a slightly stronger mix on this one class). */
+/* opacity on --color-text gives a muted read in both themes with no
+ * per-theme value to keep in sync — no --color-text-muted token exists
+ * in this file. 13px/0.75 (up from 12px/0.7): the smaller pair measured
+ * at the edge of comfortable contrast on the dark surface. */
 .cell-primary {
   font-family: var(--font-mono);
   font-weight: var(--weight-semibold);
@@ -4731,26 +4292,13 @@ table.data-table--registry .cell-inline-sep {
   margin: 0 var(--space-xs);
 }
 
-/* quick task 260902-w4t (UIR-05): the unresolved-airline link
- * (history_page.py's UNRESOLVED_LINK_CLASS) was reading as glued to the
- * airline text it follows - the separator span above already uses
- * `space-xs` on both sides, so this link takes the next step up
- * (`space-sm`) to read as a distinct affordance rather than another
- * inline part of the cell. Follows .nav-notification's own
- * `margin-left: var(--space-xs)` precedent for spacing an appended
- * inline element; uses an existing token, no new one introduced. */
 .cell-unresolved-link {
   margin-left: var(--space-sm);
 }
 
-/* History mobile card list (06.6.3, D-07) — the compact-card
- * representation that replaces the cropped horizontal-scroll table below
- * 960px. History's own markup renders both `.history-cards` and its
- * desktop `.data-table-wrap` together, so `.history-cards ~
- * .data-table-wrap` (a sibling-combinator, not the bare `.data-table-wrap`)
- * scopes this toggle to that pair specifically — Airlines' and Health's
- * tables also reuse `.data-table-wrap` but never render a `.history-cards`
- * sibling, so they are never hidden by this rule. */
+/* .history-cards ~ .data-table-wrap (a sibling combinator) scopes this
+ * toggle to History's own pair only — Airlines/Health also reuse
+ * .data-table-wrap but never render a sibling .history-cards. */
 .history-cards {
   list-style: none;
   margin: 0;
@@ -4763,9 +4311,7 @@ table.data-table--registry .cell-inline-sep {
 
 .history-card {
   background: var(--color-dominant);
-  /* Same 06.6.4 (D-03) hairline-at-rest contract as .runway-card above:
-   * a real --color-border edge at rest, no resting shadow, with the
-   * shadow revealed only on hover/focus-within below. */
+  /* Same hairline-at-rest contract as .runway-card above. */
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   box-shadow: none;
@@ -4779,21 +4325,10 @@ table.data-table--registry .cell-inline-sep {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* 29-03-PLAN.md Task 2 (CFG-83, 2026-09-17 audit P1 second paragraph):
- * the flex row let its two children renegotiate their share of the
- * line at 390px — "l'horodatage et l'indicatif se disputent aussi la
- * même ligne dans certaines cartes" — because a flex row with no fixed
- * track never guarantees which side gives way first. The two-track
- * grid below pins the timestamp's track to its own content width
- * (`auto`) and gives every remaining pixel to the callsign/hex track
- * (`minmax(0, 1fr)`, free to shrink to zero and wrap/ellipsis within
- * itself) — the timestamp can never be squeezed again. `white-space:
- * nowrap` on `.history-card__time` below is the half that makes the
- * pin meaningful: without it, a timestamp column pinned to `auto`
- * would still be free to wrap internally onto a second line.
- * `justify-content` is meaningless on a two-track grid whose second
- * track is `auto` (there is no leftover space to distribute), so it is
- * removed rather than kept as dead weight. */
+/* A two-track grid, not flex: the timestamp's track pins to its own
+ * content width (auto) so it can never be squeezed by the callsign/hex
+ * track (minmax(0, 1fr)). white-space: nowrap below is what stops the
+ * timestamp wrapping internally within its own pinned track. */
 .history-card__primary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -4801,43 +4336,20 @@ table.data-table--registry .cell-inline-sep {
   gap: var(--space-sm);
 }
 
-/* The callsign/hex side of the primary line renders as ONE OR TWO bare
- * sibling spans (`.cell-primary`, and — only in the hex-with-no-
- * callsign branch — a following `.cell-secondary` note), both direct
- * children of `.history-card__primary` with no wrapper of their own
- * (companion/pages/history_page.py's `_history_cards_html()`). Both
- * must land in the grid's FIRST track and stack there, never spill
- * into the timestamp's second track — scoped to this one parent, never
- * to the bare `.cell-primary`/`.cell-secondary` classes themselves,
- * which `_history_table_html()`'s desktop cells also use with no grid
- * of their own to conflict with. */
+/* Both cell-primary/cell-secondary must land in the grid's first track,
+ * scoped to this one parent — the desktop table's own bare cells use
+ * these same classes with no grid to conflict with. */
 .history-card__primary > .cell-primary,
 .history-card__primary > .cell-secondary {
   grid-column: 1;
 }
 
-/* opacity 0.7, matching .cell-secondary / .cell-inline-sep above. This
- * card and that table cell render the SAME secondary data (History's
- * merged Hex / Type·Airline parts) — the card below 960px, the table
- * above it — so a second muting strength here meant the identical
- * content read at two different weights purely as a function of
- * viewport width. One secondary-data role, one opacity. */
-/* 22-09-PLAN.md Task 2 (X5): the flex `gap` is retired here in favour
- * of the real `.cell-inline-sep` middle dot the markup now carries
- * between the route and the state ("ORY → JFK · Departing", which used
- * to run together). That separator brings its own `--space-xs` margins,
- * so keeping the gap as well would space this one line differently from
- * every other separated pair in the app. */
 .history-card__secondary {
   display: flex;
   opacity: 0.7;
   margin-top: var(--space-xs);
 }
 
-/* 22-09-PLAN.md Task 2 (X5): the card's airline line — the name and the
- * artwork the phone card used to drop entirely (both were reachable
- * only by opening the disclosure, so the card showed strictly less
- * about a flight than the desktop row for the same data). */
 .history-card__airline {
   display: flex;
   align-items: center;
@@ -4849,55 +4361,22 @@ table.data-table--registry .cell-inline-sep {
   font-size: var(--font-label-size);
 }
 
-/* 29-03-PLAN.md Task 2: `margin-left: auto` was the FLEX mechanism that
- * pushed this span to the line's trailing edge — the grid above places
- * it in its own track instead, so the auto margin is dead weight now
- * (and, left in place, would fight the grid's own alignment). `white-
- * space: nowrap` is new: a wrapped clock is the exact "retours
- * visuellement maladroits" the audit photographed, and pinning the
- * track to `auto` (above) only stops the track's WIDTH from being
- * squeezed — nothing stops the text inside it from wrapping unless
- * this is also declared. */
+/* white-space: nowrap is necessary even with the track pinned to auto:
+ * pinning the track's WIDTH does not stop the text inside it wrapping
+ * onto a second line. */
 .history-card__time {
   font-size: var(--font-label-size);
   white-space: nowrap;
 }
 
-/* 23-08-PLAN.md Task 2 (D7/CFG-37): the disclosure is the card's WHOLE
- * content now, not a strip under it, so the gap that used to separate
- * it from the airline line above is gone — that line is inside it. The
- * gap moved to the body, below. */
 .history-card__details {
   margin-top: 0;
 }
 
-/* The card's face, promoted to be the <summary> of the <details> the
- * card already contained. A tap anywhere on the card opens it, through
- * the native disclosure and with no script involved at all — which is
- * why this is a restructure of what the summary IS rather than a new
- * mechanism, and why it holds with scripts blocked.
- *
- * THE NEGATIVE MARGIN IS THE "ANYWHERE" PART. `.history-card` carries
- * `padding: var(--space-md)`, and without this the summary would stop
- * at the padding's inner edge — a tap on the card's own margin of
- * breathing space would land on the <li> and do nothing, which is the
- * kind of near-miss that reads as a broken control rather than as a
- * boundary. Pulling the summary out by exactly that padding and
- * re-declaring it here makes the tappable box the card's whole face,
- * with the inner spacing unchanged to the eye.
- *
- * `color: inherit` overrides the global `summary` rule's
- * `--color-accent`. That rule is right for a summary whose text IS its
- * label; here the summary's text is the flight's own data, and painting
- * a callsign, a route and an airline name in the accent colour would
- * claim every one of them as a control. The chevron below keeps the
- * accent, so the affordance is still accent-coloured while the data is
- * not — the same split `.tab-bar__link` already makes for its own
- * summary.
- *
- * `min-height: 0` overrides the global 44px floor, which would
- * otherwise fight this box's own content height; the card face is
- * several lines tall and clears 44px many times over. */
+/* The negative margin cancels .history-card's own padding so the tap
+ * area is the card's whole face, not just its inner content box.
+ * color: inherit overrides the global summary accent — this text is
+ * flight data, not a label; the chevron below keeps the accent instead. */
 .history-card__summary {
   margin: calc(var(--space-md) * -1);
   padding: var(--space-md);
@@ -4906,16 +4385,6 @@ table.data-table--registry .cell-inline-sep {
   min-height: 0;
 }
 
-/* The shared chevron, moved to the trailing edge. `order` rather than a
- * second pseudo-element: the global `summary::before` already draws it,
- * already rotates it on open and already carries the reduced-motion
- * reasoning, so this rule only changes where it sits. On a card whose
- * face is three stacked lines, a leading chevron would indent every one
- * of them; a trailing one reads as the card's own affordance.
- *
- * `flex: none` and the rotation stay the base rule's. Only the accent
- * is restated, because `currentColor` now resolves to the inherited
- * text colour set above rather than to the summary's own accent. */
 .history-card__summary::before {
   order: 1;
   margin-right: 0;
@@ -4923,27 +4392,18 @@ table.data-table--registry .cell-inline-sep {
   color: var(--color-accent);
 }
 
-/* The face's three stacked lines are one flex item, so the chevron sits
- * beside the block rather than between its lines. `min-width: 0` is the
- * usual flex-item floor: without it a long callsign or route would
- * refuse to shrink and push the chevron off the card. */
+/* min-width: 0 is the usual flex-item floor: without it a long
+ * callsign or route would refuse to shrink and push the chevron off
+ * the card. */
 .history-card__face {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-/* The gap the disclosure's own margin used to provide, moved to the
- * body it actually separates. */
 .history-card__details > dl {
   margin-top: var(--space-md);
 }
 
-/* The one-hop resolve link, kept on the card face and OUT of the
- * summary (companion/pages/history_page.py's own comment holds the
- * reasoning). Its `.cell-unresolved-link` left margin exists to space
- * it from the airline name it used to follow INLINE; on its own line
- * that margin is a stray indent, so it is zeroed here rather than the
- * shared class being changed for the desktop cell that still needs it. */
 .history-card__resolve {
   margin-top: var(--space-sm);
 }
@@ -4952,14 +4412,9 @@ table.data-table--registry .cell-inline-sep {
   margin-left: 0;
 }
 
-/* 29-03-PLAN.md Task 1 (CFG-83): the "Afficher plus" / "Show more"
- * reveal's own container. `.flights-more` is ALWAYS rendered
- * (history_page.py's `_show_more_html()`, empty when nothing remains —
- * see that function's own comment for why an empty container must
- * still exist), so `:empty` is what keeps a page with nothing left to
- * reveal from paying for this rule's own top margin. No new custom
- * property, no new colour, no new size — `--space-md` is the same
- * token `.history-card` already uses for its own padding. */
+/* .flights-more is always rendered (empty when nothing remains), so
+ * :empty is what keeps a page with nothing left to reveal from paying
+ * for this rule's own top margin. */
 .flights-more {
   display: flex;
   justify-content: center;
@@ -4970,36 +4425,11 @@ table.data-table--registry .cell-inline-sep {
   display: none;
 }
 
-/* Health's own generic mobile card-list mechanism (quick task 260903-ghy,
- * UIR-10/UIR-11) — the SIBLING of History's page-scoped `.history-card*`
- * vocabulary above, not a merge with it: consolidating the two into one
- * shared vocabulary is deliberately DEFERRED here, not forgotten — the
- * two Health tables this mechanism serves have genuinely different
- * per-table content shapes (one stacked-prose card, one two-line-plus-
- * disclosure card), so a shared base class buys little today.
- *
- * These cards render INSIDE a `.page-section page-section--nested` card
- * (health_page.py's `_registry_section()`/`_stats_table_html()` callers),
- * never directly on the page background the way History's `.history-card`
- * does — putting a second bordered/shadowed surface on top of that
- * existing card surface would be the elevation-on-elevation defect
- * 06.6.4 (D-03) already walked back once (and quick task 260902-iag's own
- * reversal on this very page). `.data-card` therefore carries no fill, no
- * radius and no shadow at rest or on hover — only the same row-hairline
- * rhythm `.data-table td`'s own `border-bottom` (and
- * `.data-table tbody tr:last-child td`'s clean last-row edge) already
- * give the table rows these cards replace.
- *
- * `.data-card__desc` repeats this file's one 70% muted-text color-mix
- * literal (the same one `.data-table td.desc` above carries) rather than
- * joining that rule's own selector list — test_status_pages.py pins
- * `.data-table td.desc {` as an exact literal string it indexes by, so
- * appending a second selector there would break that lookup.
- *
- * quick task 260902-w4t's four-layer `background-attachment` scroll-edge
- * shadow on `.data-table-wrap` is untouched by any of this — it remains
- * the desktop/tablet safety net for every table on this page, including
- * the one (battery readings) this task does not touch at all. */
+/* Renders INSIDE an existing .page-section card, unlike .history-card
+ * which sits on the page background — so .data-card carries no fill,
+ * radius or shadow, only the row-hairline .data-table td already uses.
+ * .data-card__desc repeats the 70% muted literal rather than joining
+ * .data-table td.desc's list: test_status_pages.py pins that exact string. */
 .data-cards {
   list-style: none;
   margin: 0;
@@ -5030,13 +4460,9 @@ table.data-table--registry .cell-inline-sep {
   margin-left: auto;
 }
 
-/* Mirrors `.data-table th`'s own quiet uppercase label tier above — the
- * same font-size, weight, letter-spacing, transform and 70% muted
- * color-mix literal, copied by VALUE (not by selector), so a card's
- * field label reads at the same quiet tier as the table header it
- * replaces. 06.6.4.1.1 (D-13): 11px -> 12px, moved in the same edit as
- * .data-table th above — a harness check pins these two font-size
- * declarations string-equal, so they must always move together. */
+/* Mirrors .data-table th's own label tier by VALUE, not selector — a
+ * harness check pins these two font-size declarations string-equal, so
+ * they must always move together. */
 .data-card__label {
   font-size: 12px;
   font-weight: var(--weight-semibold);
@@ -5060,25 +4486,9 @@ table.data-table--registry .cell-inline-sep {
   margin-top: var(--space-sm);
 }
 
-/* Phase 13 (13-04-PLAN.md Task 1, D-12): the resolve section's own
- * sighting-context definition list on Airlines. The original rule
- * declared nothing but this block's own bottom margin, leaving the list
- * on browser defaults to match Health's registry disclosure.
- *
- * B5 (22-11-PLAN.md Task 1): SUPERSEDED in that one respect — the audit
- * recorded the `<dl>` as "hand-indented", which is what the UA default
- * `dd { margin-inline-start: 40px }` paints: five labels at the left
- * edge with five values stranded 40px in, on their own lines. The five
- * pairs become two real columns instead, label then value, so a
- * household member reads "Last seen  15:49 (2d ago)" on one line. This
- * is a layout correction to an existing rule, not a new class family
- * and not a new token: both gaps come from the existing xs/sm scale,
- * and the `dt`/`dd` children keep every type declaration their own
- * `text-label`/`text-body` classes already give them. `auto 1fr` sizes
- * the label column to the longest label ("Example callsign") once, so
- * the values share one left edge. The `dt`/`dd` selector is scoped
- * inside `.resolve-context`, so this file still declares no bare
- * `dl`/`dt`/`dd` rule and Health's list is untouched. */
+/* auto 1fr sizes the label column to the longest label once, so every
+ * value shares one left edge. Scoped inside .resolve-context so this
+ * file still declares no bare dl/dt/dd rule. */
 .resolve-context {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -5087,31 +4497,9 @@ table.data-table--registry .cell-inline-sep {
   margin: 0 0 var(--space-md);
 }
 
-/* Quick task 260921-n2n Task 2: the developer's 2026-09-21 report
- * ("une bonne part de ces infos ne servent à rien") traced to this
- * exact collision, the same one named above at `.banner__pill[hidden]`,
- * `.refresh-pill[hidden]` and `.dirty-bar[hidden]`. panel-lookup.js
- * already sets the native `hidden` attribute correctly
- * (`resolveContext.hidden = !count;`), but the rule above declares
- * `display: grid` with no `[hidden]` guard, and an author `display`
- * declaration always beats the user-agent stylesheet's
- * `[hidden] { display: none }` regardless of source order — so every
- * ordinary illustration lightbox painted five empty label/value pairs
- * (Prefix / First seen / Last seen / Times seen / Example callsign)
- * instead of nothing at all.
- *
- * This uses the additive `[hidden]`-suffix form, like the three
- * siblings above, rather than rewriting the base rule's selector to
- * `:not([hidden])` the way the lightbox forms further below do
- * (`.lightbox__replace:not([hidden])` et al.). Both idioms are
- * correct; the choice here is not an oversight. The base rule carries
- * five declarations that all belong to the visible state — grid
- * columns, gaps, alignment, margin — and Phase 22's B5 deliberately
- * laid that rule out as a single block. Moving the whole selector to
- * `:not([hidden])` would restructure a rule this file already treats
- * as settled, to change nothing about what it looks like when visible.
- * A two-line additive guard changes nothing about the visible state at
- * all, which is the smaller change for the same fix. */
+/* [hidden]-vs-author-display collision, the same trap the other
+ * [hidden] guards in this file fix: an author display declaration
+ * always beats the UA [hidden] rule regardless of source order. */
 .resolve-context[hidden] {
   display: none;
 }
@@ -5121,25 +4509,16 @@ table.data-table--registry .cell-inline-sep {
   margin: 0;
 }
 
-/* Phase 13 (13-04-PLAN.md Task 1, D-13): the resolve section's Step A
- * name field wrapper. Same token as the sighting-context block above,
- * no other property. */
 .resolve-name-field {
   margin-bottom: var(--space-md);
 }
 
-/* Phase 13 (D-10): Health's per-row Resolve deep link on the mobile
- * registry card. The link inherits the page's default anchor styling
- * deliberately — no colour, no size — so the project's exhaustive
- * accent-reservation list (style.css's own header comment) is not
- * extended for it. */
 .data-card__action {
   margin-top: var(--space-xs);
 }
 
-/* Filter bar (06.6.3 D-20) — shared by History and Airlines, driven by
- * list-filter.js; inert without JS (the full unfiltered table/card list
- * stays completely usable if the script fails to load). */
+/* Shared by History and Airlines, driven by list-filter.js; inert
+ * without JS — the full unfiltered list stays completely usable. */
 .filter-bar {
   display: flex;
   gap: var(--space-sm);
@@ -5148,20 +4527,14 @@ table.data-table--registry .cell-inline-sep {
   flex-wrap: wrap;
 }
 
-/* Wraps the filter <input> + its decorative icon-search glyph so the icon
- * renders inside the input's visual bounds rather than beside it. */
 .filter-bar__field {
   position: relative;
 }
 
-/* 06.6.4 (D-08): 14px, not the .icon rule's 20px default. The glyph is
- * positioned 8px from the left edge, so at 14px it ends at 22px and the
- * input's own 26px left padding below leaves a clean 4px gap; at the
- * base 20px it would end at 28px, two pixels past where the text
- * begins. A 14px glyph is also the proportionate size for a 32px field
- * with a 13px label. This rule outranks both the base .icon sizing rule
- * and the inline width/height attributes the icon builder emits, so no
- * Python change is needed. */
+/* 14px, not .icon's 20px default: positioned 8px from the left edge, it
+ * ends at 22px, leaving a clean 4px gap before the input's own 26px
+ * left padding. Outranks the base .icon rule and the icon builder's own
+ * inline width/height attributes, so no Python change is needed. */
 .filter-bar__field .icon {
   position: absolute;
   left: var(--space-sm);
@@ -5173,15 +4546,10 @@ table.data-table--registry .cell-inline-sep {
   height: 14px;
 }
 
-/* 06.6.4 (D-08): a 32px transparent field, scoped to this wrapper's
- * descendant input only — the global native input/select rule below
- * keeps its 44px floor for every other form field in the app. The
- * `min-height: 0` is load-bearing: the global rule's 44px minimum
- * outranks any plain `height` declaration here regardless of
- * specificity (a browser never lets a lower min-height shrink an
- * element below a higher one from another rule unless the higher one is
- * itself cleared), so without this line the 32px height above is inert
- * and D-08 silently does nothing. */
+/* min-height: 0 is load-bearing: the global input rule's 44px min-height
+ * outranks a plain height declaration regardless of specificity — a
+ * browser never lets a lower min-height shrink an element below a
+ * higher one from another rule unless the higher one is cleared. */
 .filter-bar__field input {
   height: 32px;
   min-height: 0;
@@ -5191,23 +4559,11 @@ table.data-table--registry .cell-inline-sep {
   border: 1px solid var(--color-border);
 }
 
-/* WR-03 fix: border-color used to substitute for the accent colour here,
- * directly contradicting the header's "border is structural only ...
- * never substitutes for the accent" contract. Brought into line with
- * the file's existing "focused-input outline" accent use instead (see
- * .sparkline-hit:focus-visible below for the same idiom). */
 .filter-bar__field input:focus {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
 }
 
-/* 06.6.4 (D-08): shrunk and muted to the same 70% text color-mix
- * strength the table header and theme segments use — one muted
- * strength across the app, not a fourth value invented here.
- * 06.6.4.1.1 (D-13): already the right size and muted strength; adds
- * the weight/transform/tracking that complete the one unified label
- * voice (see .stat-tile__caption's own comment below for the full
- * contract). */
 .filter-bar__count {
   font-size: 12px;
   font-weight: var(--weight-semibold);
@@ -5217,19 +4573,11 @@ table.data-table--registry .cell-inline-sep {
   white-space: nowrap;
 }
 
-/* 06.6.4 (D-08): the shared Clear-control rule. Targets the
- * [data-filter-clear] attribute both companion/pages/history_page.py's
- * <button type="button" data-filter-clear> and companion/pages/
- * airlines_page.py's <a href="#..." data-filter-clear> already emit —
- * not a new shared class, which would have needed a Python edit on both
- * page modules. The specificity here comfortably outranks both the base
- * button rule and the base anchor rule, and History's Clear is not a
- * submit button so the primary-fill rule never reaches it. Every
- * declaration below undoes a specific base-button property (size,
- * weight, letter-spacing, shadow, radius, min dimensions) so the button
- * variant and the link variant land on pixel-identical output. Do not
- * change either page's Clear element type — see D-16's read-only
- * constraint on Airlines. */
+/* Targets the [data-filter-clear] attribute both history_page.py's
+ * <button> and airlines_page.py's <a> already emit, rather than a new
+ * shared class needing edits to both page modules. Every declaration
+ * below undoes a specific base-button property so the button and link
+ * variants render pixel-identical. */
 .filter-bar [data-filter-clear] {
   height: auto;
   min-height: 0;
@@ -5242,18 +4590,10 @@ table.data-table--registry .cell-inline-sep {
   font-family: var(--font-ui);
   font-size: 12px;
   font-weight: var(--weight-regular);
-  /* 22-09-PLAN.md Task 3 (B11), Rule 1 auto-fix: `line-height` is one
-   * more UA button property this rule's own stated contract ("every
-   * declaration below undoes a specific base-button property ... so the
-   * button variant and the link variant land on pixel-identical
-   * output") had not actually undone. A <button> takes the UA's
-   * `line-height: normal` (14px at this font size) while Airlines' <a>
-   * variant inherits the body's 1.5 (18px) — measured in a real browser
-   * at 390px, the two converged controls were 4px apart in height and
-   * History's Clear sat 2px lower than the count beside it. Inheriting
-   * makes both variants the same height, which is what the rule
-   * promised, and is what lets the count and Clear share one top inside
-   * the centre-aligned .filter-bar__meta group. */
+  /* line-height: inherit is necessary too: a <button> takes the UA's
+   * line-height: normal while the <a> variant inherits the body's 1.5 —
+   * measured 4px apart in height without this, misaligning Clear
+   * against the count beside it. */
   line-height: inherit;
   letter-spacing: normal;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -5266,29 +4606,9 @@ table.data-table--registry .cell-inline-sep {
   color: var(--color-text);
 }
 
-/* Phase 14 (14-03-PLAN.md Task 2, D-11): the clickable manual-resolution
- * summary. It used to declare "the identical property list
- * .filter-bar [data-filter-clear] uses above, byte-for-byte" — a 12px
- * underlined bare link sitting BELOW the filter bar, because
- * 06.6.4.1-UI-SPEC.md's Autonomous Decision 4 put it outside the bar and
- * a scoped selector therefore could not reach it.
- *
- * X7 (22-11-PLAN.md Task 2): SUPERSEDED, premise and all. The audit
- * found it read as neither a control nor a caption ("1 manual
- * resolutions" as a 12px link), and the reason is that it was drawn as
- * body prose while behaving as a filter. It moved INSIDE the filter bar
- * and now wears `.airline-card__chip` verbatim in the markup — the same
- * label voice the cards' own chips wear, which is the vocabulary this
- * page already uses for a small categorical token. The whole copied
- * property list is deleted rather than forked: everything it used to
- * restate now comes from the chip class, and this rule is reduced to the
- * one thing a chip does not carry because a chip is not interactive —
- * a hover state.
- *
- * `.manual-summary:hover` (0,2,0) outranks the base `button:hover`
+/* .manual-summary:hover (0,2,0) outranks the base button:hover
  * (0,1,1), so the chip wash deepens on hover instead of the base
- * button's. The wash values are the chip's own 6% -> 12% pair, the same
- * step `.calendar-disconnect-btn` takes; no new strength is invented. */
+ * button's own wash. Reuses the chip's own 6% -> 12% wash pair. */
 .manual-summary:hover {
   background: color-mix(in srgb, var(--color-text) 12%, transparent);
   color: var(--color-text);
