@@ -44,6 +44,15 @@ import time
 
 import requests
 
+# Support both package import and direct script execution (see the module
+# docstring's Usage section) - matching enrich.py's own bootstrap.
+_HERE = os.path.dirname(os.path.abspath(__file__))  # server/plane
+_REPO_ROOT = os.path.dirname(os.path.dirname(_HERE))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from server import http_fetch
+
 # Identify this project to the rate-limited public services being queried.
 USER_AGENT = (
     "skypane-server/0.1 "
@@ -128,6 +137,17 @@ DEFAULT_GROUND_HALF_WIDTH_M = 75.0
 # so pre-multi-runway callers (poll_loop.py, the CLI, existing tests) get
 # exactly the same behaviour when they pass no runway_id at all.
 DEFAULT_RUNWAY_ID = "3"
+
+# query_provider()'s default `timeout=` (bounds connect and each
+# individual read, same as the old default's role); PROVIDER_DEADLINE_S
+# bounds the call's TOTAL wall-clock time regardless of how many small
+# reads it takes; PROVIDER_MAX_BYTES caps the response body a malformed or
+# hostile aggregator can make this process buffer. Worst case per call is
+# deadline + one read timeout (13s), which feeds the 90s systemd unit
+# budget (see deploy/skypane-poll.service).
+PROVIDER_TIMEOUT_S = 5.0
+PROVIDER_DEADLINE_S = 8.0
+PROVIDER_MAX_BYTES = 4 * 1024 * 1024
 
 
 def load_geofence(path=None):
@@ -316,20 +336,43 @@ def track_axis_deviation_deg(track, geofence, axis=None, runway_id=DEFAULT_RUNWA
     return min(forward, reverse)
 
 
-def query_provider(name, lat, lon, radius_nm, timeout=10.0):
-    """Single unauthenticated GET against one aggregator.
+def query_provider(name, lat, lon, radius_nm, timeout=PROVIDER_TIMEOUT_S):
+    """Single unauthenticated GET against one aggregator, bounded by both
+    `timeout` (connect and each individual read) and `PROVIDER_DEADLINE_S`
+    (the call's total wall-clock time), and capped at `PROVIDER_MAX_BYTES`
+    of response body.
 
-    Raises on any failure (bad host, timeout, non-2xx, malformed JSON) - the
-    caller is responsible for catching this per-provider so one aggregator
-    being down never aborts a poll against the other.
+    Raises on any failure (bad host, timeout, deadline exceeded, oversized
+    body, non-2xx, malformed JSON) - the caller is responsible for
+    catching this per-provider so one aggregator being down never aborts a
+    poll against the other. A non-2xx status raises `requests.HTTPError`
+    naming only the provider and status, never the URL (the URL is not
+    secret, but there is no reason to echo it into a log line either).
+
+    The response body must be a JSON object, and its aircraft-array field
+    (`spec["aircraft_key"]`) must be either absent/null or a list - either
+    violation raises `ValueError`, since an aggregator's response shape is
+    untrusted input this process must never assume. Individual aircraft
+    records that are not JSON objects are dropped here, before
+    `filter_in_geofence()` ever sees them.
     """
     spec = PROVIDERS[name]
     url = spec["url_template"].format(lat=lat, lon=lon, dist=radius_nm)
-    response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=timeout)
-    response.raise_for_status()
-    data = response.json()
-    aircraft = data.get(spec["aircraft_key"]) or []
-    return aircraft
+    result = http_fetch.bounded_get(
+        url, headers={"User-Agent": USER_AGENT}, timeout=timeout,
+        deadline_s=PROVIDER_DEADLINE_S, max_bytes=PROVIDER_MAX_BYTES,
+    )
+    if not (200 <= result.status_code < 300):
+        raise requests.HTTPError("%d from %s" % (result.status_code, name))
+    data = json.loads(result.content)
+    if not isinstance(data, dict):
+        raise ValueError("%s: response body is not a JSON object" % name)
+    aircraft = data.get(spec["aircraft_key"])
+    if aircraft is None:
+        return []
+    if not isinstance(aircraft, list):
+        raise ValueError("%s: aircraft value is not a list" % name)
+    return [ac for ac in aircraft if isinstance(ac, dict)]
 
 
 def filter_in_geofence(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID):
@@ -622,7 +665,7 @@ def select_runway3_aircraft(aircraft, geofence):
     return select_aircraft_for_runway(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID)
 
 
-def poll_current_aircraft(geofence, timeout=10.0, providers=None, runway_id=DEFAULT_RUNWAY_ID, diagnostics=None):
+def poll_current_aircraft(geofence, timeout=PROVIDER_TIMEOUT_S, providers=None, runway_id=DEFAULT_RUNWAY_ID, diagnostics=None):
     """Query provider(s) in order (by default `DEFAULT_PROVIDER_ORDER`),
     sleeping `MIN_SECONDS_BETWEEN_CALLS` between calls, catching
     `(requests.RequestException, ValueError)` per provider so one
@@ -786,8 +829,10 @@ def build_parser():
     parser.add_argument(
         "--timeout",
         type=float,
-        default=10.0,
-        help="Per-request timeout in seconds (default: 10).",
+        default=PROVIDER_TIMEOUT_S,
+        help="Per-request connect/read timeout in seconds (default: %s). "
+             "The total time any one call may take is separately bounded "
+             "by PROVIDER_DEADLINE_S (%ss)." % (PROVIDER_TIMEOUT_S, PROVIDER_DEADLINE_S),
     )
     parser.add_argument(
         "--runway",
