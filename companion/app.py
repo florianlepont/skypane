@@ -599,28 +599,43 @@ _FRESHNESS_PAGE_SLUGS = frozenset((
 
 
 def _freshness_file_stamp(path):
-    """`[mtime_ns, size]` for `path`, or the literal "missing" - a
-    stat() failure (never created, or deleted) is a real, distinct
-    input state for the freshness token, not an error to swallow.
+    """`[mtime_ns, ctime_ns, size, mode]` for `path`, or the literal
+    "missing" - a stat() failure (never created, or deleted) is a real,
+    distinct input state for the freshness token, not an error to
+    swallow. `st_ctime_ns`/`st_mode` matter beyond `st_mtime_ns`/
+    `st_size` for at least one stamped file: a bare `chmod` on the
+    calendar secret changes only the mode and the ctime, never the
+    mtime or the size, and that mode is itself a security signal
+    (`calendar_rules.calendar_secret_mode_is_unsafe()` reads it to
+    raise the drift banner).
     """
     try:
         st = os.stat(path)
     except OSError:
         return "missing"
-    return [st.st_mtime_ns, st.st_size]
+    return [st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_mode]
 
 
 def _freshness_file_stamps(state_dir):
     """`_freshness_file_stamp()` for every file-backed freshness-token
     input: `device_config.json`, `poll_state.json`, the calendar
-    registry, the manual-resolutions registry, the colour-rules
-    registry, `panel.bin`, and the off-box marker (if configured at
-    all - "disabled" when `OFFBOX_MARKER_ENV_VAR` is unset, distinct
-    from "missing", which means the env var names a file that is not
-    there). Each path comes from its own module's own path builder,
-    never a second, drifting copy of the filename - `panel.bin` has no
-    such builder anywhere in the codebase (every writer inlines the
-    name), so this does too.
+    registry, the calendar secret, the manual-resolutions registry, the
+    colour-rules registry, `panel.bin`, and the off-box marker (if
+    configured at all - "disabled" when `OFFBOX_MARKER_ENV_VAR` is
+    unset, distinct from "missing", which means the env var names a file
+    that is not there). Each path comes from its own module's own path
+    builder, never a second, drifting copy of the filename - `panel.bin`
+    has no such builder anywhere in the codebase (every writer inlines
+    the name), so this does too.
+
+    The calendar secret is stamped separately from the calendar registry
+    it is stored beside: Display renders `calendar_configured` and
+    `calendar_drift` (`config_page._aspect_card_html()`), both read from
+    `calendar_rules.calendar_secret_path()` - a drift appearing/clearing,
+    the secret being removed by hand, or a `save_calendar_url()` path
+    that leaves the registry untouched are all otherwise invisible to
+    this token until the forced full refresh, on a signal that can mean
+    the secret was exposed.
     """
     marker_path = os.environ.get(health_page.OFFBOX_MARKER_ENV_VAR)
     return {
@@ -629,6 +644,8 @@ def _freshness_file_stamps(state_dir):
         "poll_state": _freshness_file_stamp(poll_loop._poll_state_path(state_dir)),
         "calendar_registry": _freshness_file_stamp(
             calendar_rules.calendar_rules_path(state_dir)),
+        "calendar_secret": _freshness_file_stamp(
+            calendar_rules.calendar_secret_path(state_dir)),
         "manual_resolutions": _freshness_file_stamp(
             manual_resolutions.manual_resolutions_path(state_dir)),
         "colour_rules": _freshness_file_stamp(colour_rules.colour_rules_path(state_dir)),

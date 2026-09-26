@@ -38,6 +38,13 @@ from companion.pages import health_page, history_page
 from companion_app_server import http_request, login
 from companion.test_browser_ux_helpers import _login, seed_state_dir
 from server import device_config, history_db
+from server.plane import calendar_rules
+from skypane_test_support import requires_non_root
+
+# A well-formed calendar URL, distinctive enough to prove it round-trips
+# to the staged secret file - the exact host/path/token values are never
+# asserted on here, only the file's own stamped presence/mode.
+_CALENDAR_URL = "https://private-crew-calendar.example.internal/feeds/roster-export?auth_token=sk1-distinctive-token"
 
 _ETAG_RE = re.compile(r'^"[0-9a-f]{32}"$')
 _TOKEN_ATTR_RE = re.compile(r'data-refresh-token="([0-9a-f]{32})"')
@@ -333,6 +340,39 @@ def test_device_config_save_changes_display_and_home_tokens(app_server_in_proces
     after_home = _token(server, layout.HOME_ROUTE, session)
     assert after_display != before_display, "expected a device_config save to change /display"
     assert after_home != before_home, "expected a device_config save to change /"
+
+
+@requires_non_root
+def test_calendar_secret_chmod_changes_display_token(app_server_in_process):
+    """a bare chmod on the calendar secret - which changes only st_mode/st_ctime, never
+    st_mtime/st_size - still changes /display's own token; the drift banner it feeds
+    (calendar_rules.calendar_secret_mode_is_unsafe()) is a security signal that must not wait
+    for the forced full refresh"""
+    server = app_server_in_process
+    session = login(server)
+    assert calendar_rules.save_calendar_url(server.state_dir, _CALENDAR_URL) is True
+    secret_path = calendar_rules.calendar_secret_path(server.state_dir)
+
+    before = _token(server, layout.DISPLAY_ROUTE, session)
+    os.chmod(secret_path, 0o644)  # group/other now readable - the drift condition
+    after = _token(server, layout.DISPLAY_ROUTE, session)
+
+    assert after != before, "expected a chmod on the calendar secret to change /display's token"
+
+
+def test_calendar_secret_removed_changes_display_token(app_server_in_process):
+    """removing the calendar secret by hand changes /display's own token, even though the
+    calendar registry beside it is untouched"""
+    server = app_server_in_process
+    session = login(server)
+    assert calendar_rules.save_calendar_url(server.state_dir, _CALENDAR_URL) is True
+    secret_path = calendar_rules.calendar_secret_path(server.state_dir)
+
+    before = _token(server, layout.DISPLAY_ROUTE, session)
+    os.remove(secret_path)
+    after = _token(server, layout.DISPLAY_ROUTE, session)
+
+    assert after != before, "expected removing the calendar secret to change /display's token"
 
 
 def test_new_gallery_png_changes_flights_token(app_server_in_process):
