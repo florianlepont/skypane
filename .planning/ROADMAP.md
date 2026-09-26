@@ -1830,7 +1830,7 @@ Plans:
 3. SQLite connections per page request: 1; per poll cycle: 1
 4. Poll cycle wall time measured before/after (no fixed 1.1 s sleep)
 
-**Plans:** 6/13 plans executed
+**Plans:** 7/13 plans executed
 
 Plans:
 
@@ -1848,7 +1848,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 38-06-PLAN.md — per-page script tuples, `page_shell(scripts=...)`, hook-coverage test [EFF-02]
-- [ ] 38-07-PLAN.md — poll cycle: one connection, one COMMIT, no transaction during ntfy [EFF-03]
+- [x] 38-07-PLAN.md — poll cycle: one connection, one COMMIT, no transaction during ntfy [EFF-03]
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
