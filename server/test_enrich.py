@@ -216,6 +216,185 @@ def test_normalisation_shares_one_cache_entry_and_request(hit_body):
     assert first == second, "differently-cased/whitespace-padded callsigns did not resolve to the same cached result"
 
 
+@pytest.mark.parametrize("status", [429, 500, 503, 403])
+def test_transient_status_never_cached_and_requeried(status):
+    """a 429/5xx/other non-404 4xx is never cached - the cache is unchanged and the next call queries the transport again."""
+    cache = {}
+    calls = []
+    transport = make_transport(status, {"error": "transient"}, calls=calls)
+    first = enrich.lookup_route("TRN001", cache, transport=transport, now=1000.0)
+    assert first is None, "expected None for a transient %d response" % status
+    assert cache == {}, "a transient failure must never be written to the cache, got %r" % (cache,)
+    second = enrich.lookup_route("TRN001", cache, transport=transport, now=1001.0)
+    assert second is None
+    assert len(calls) == 2, "a transient failure must be re-queried on the next call, got %d transport calls" % len(calls)
+
+
+def test_transport_exception_never_cached_and_requeried():
+    """a transport exception (OSError, requests.Timeout, ...) is never cached; the next call queries the transport again."""
+    cache = {}
+    calls = []
+    transport = make_transport(None, None, raise_exc=OSError("simulated"), calls=calls)
+    first = enrich.lookup_route("TRN002", cache, transport=transport, now=1000.0)
+    assert first is None
+    assert cache == {}, "a transport exception must never be written to the cache, got %r" % (cache,)
+    second = enrich.lookup_route("TRN002", cache, transport=transport, now=1001.0)
+    assert second is None
+    assert len(calls) == 2, "a transport exception must be re-queried on the next call, got %d transport calls" % len(calls)
+
+
+def test_404_miss_cached_for_a_day_then_requeried(miss_fixture):
+    """a 404 is cached as a miss for CACHE_MISS_TTL_S; unchanged within the window, re-queried once it expires."""
+    cache = {}
+    calls = []
+    transport = make_transport(miss_fixture["http_status"], miss_fixture["body"], calls=calls)
+    first = enrich.lookup_route("EJU84YF", cache, transport=transport, now=1000.0)
+    assert first is None
+    assert len(calls) == 1
+    within_window = enrich.lookup_route(
+        "EJU84YF", cache, transport=transport, now=1000.0 + enrich.CACHE_MISS_TTL_S - 1
+    )
+    assert within_window is None
+    assert len(calls) == 1, "a miss still inside its TTL must not be re-queried, got %d calls" % len(calls)
+    after_expiry = enrich.lookup_route(
+        "EJU84YF", cache, transport=transport, now=1000.0 + enrich.CACHE_MISS_TTL_S + 1
+    )
+    assert after_expiry is None
+    assert len(calls) == 2, "a miss past its TTL must be re-queried, got %d calls" % len(calls)
+
+
+def test_2xx_without_a_route_is_cached_as_a_miss_with_the_same_ttl():
+    """a 200 body carrying no resolvable route is cached exactly like a 404 miss, same TTL."""
+    cache = {}
+    calls = []
+    transport = make_transport(200, {"response": {}}, calls=calls)
+    first = enrich.lookup_route("NRT001", cache, transport=transport, now=1000.0)
+    assert first is None
+    within_window = enrich.lookup_route(
+        "NRT001", cache, transport=transport, now=1000.0 + enrich.CACHE_MISS_TTL_S - 1
+    )
+    assert within_window is None
+    assert len(calls) == 1, "a routeless 2xx cached as a miss must not be re-queried inside its TTL"
+
+
+def test_hit_expires_after_thirty_days_not_before(hit_body):
+    """a resolved route is not re-queried at 29 days, but is re-queried once CACHE_HIT_TTL_S has elapsed."""
+    cache = {}
+    calls = []
+    transport = make_transport(200, hit_body, calls=calls)
+    first = enrich.lookup_route("TVF16VB", cache, transport=transport, now=1000.0)
+    assert first is not None
+    assert len(calls) == 1
+    almost_expired = enrich.lookup_route(
+        "TVF16VB", cache, transport=transport, now=1000.0 + 29 * 86400
+    )
+    assert almost_expired is not None
+    assert len(calls) == 1, "a hit at 29 days must still be served from the cache, got %d transport calls" % len(calls)
+    expired = enrich.lookup_route(
+        "TVF16VB", cache, transport=transport, now=1000.0 + enrich.CACHE_HIT_TTL_S + 1
+    )
+    assert expired is not None
+    assert len(calls) == 2, "a hit past CACHE_HIT_TTL_S must be re-queried, got %d transport calls" % len(calls)
+
+
+def test_legacy_miss_without_cached_at_is_requeried_and_stays_on_transient_failure():
+    """a legacy miss (no cached_at) is queried again; a transient failure on that requery leaves the legacy entry unchanged."""
+    cache = {"LGY001": {"found": False}}
+    transport = make_transport(500, {"error": "transient"})
+    route = enrich.lookup_route("LGY001", cache, transport=transport, now=1000.0)
+    assert route is None
+    assert cache["LGY001"] == {"found": False}, (
+        "a transient failure on the requery must leave the legacy miss entry exactly as it was, got %r" % (cache["LGY001"],)
+    )
+
+
+def test_legacy_hit_without_cached_at_is_served_and_stamped():
+    """a legacy hit (no cached_at) is served without a query, and stamped with cached_at == now."""
+    cache = {
+        "LGY002": {
+            "found": True,
+            "airline_name": "Legacy Air",
+            "origin_iata": "ORY",
+            "origin_city": "Paris",
+            "destination_iata": "NCE",
+            "destination_city": "Nice",
+            "callsign_iata": None,
+        }
+    }
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("a legacy hit must be served from the cache, never queried")
+
+    route = enrich.lookup_route("LGY002", cache, transport=_explode, now=12345.0)
+    assert route is not None and route.get("airline_name") == "Legacy Air"
+    assert cache["LGY002"]["cached_at"] == 12345.0, (
+        "a legacy hit must be stamped with cached_at == now on read, got %r" % (cache["LGY002"].get("cached_at"),)
+    )
+
+
+def test_cache_read_moves_entry_to_the_end_and_trim_evicts_least_recently_used():
+    """reading key A (insertion order A, B, C) moves it to the end; trim_cache(cache, 2) then evicts B, the true LRU entry."""
+    cache = {
+        "AAA111": {"found": True, "airline_name": "A", "origin_iata": None, "origin_city": None,
+                   "destination_iata": None, "destination_city": None, "callsign_iata": None, "cached_at": 1.0},
+        "BBB222": {"found": True, "airline_name": "B", "origin_iata": None, "origin_city": None,
+                   "destination_iata": None, "destination_city": None, "callsign_iata": None, "cached_at": 2.0},
+        "CCC333": {"found": True, "airline_name": "C", "origin_iata": None, "origin_city": None,
+                   "destination_iata": None, "destination_city": None, "callsign_iata": None, "cached_at": 3.0},
+    }
+    assert list(cache.keys()) == ["AAA111", "BBB222", "CCC333"]
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("a fresh cached hit must never call the transport")
+
+    enrich.lookup_route("AAA111", cache, transport=_explode, now=4.0)
+    assert list(cache.keys()) == ["BBB222", "CCC333", "AAA111"], (
+        "reading A must move it to the end, got order %r" % (list(cache.keys()),)
+    )
+
+    enrich.trim_cache(cache, max_entries=2)
+    assert set(cache.keys()) == {"CCC333", "AAA111"}, (
+        "trim_cache(cache, 2) must evict B (the least recently used entry), got %r" % (sorted(cache.keys()),)
+    )
+
+
+def test_resolve_route_reports_cache_hit_only_for_a_fresh_cache_and_fresh_hit_after_expiry(hit_body):
+    """resolve_route reports cache_hit only for a still-fresh cached hit, and fresh_hit after an expired entry was re-fetched."""
+    cache = {}
+    transport = make_transport(200, hit_body)
+    route1, source1 = enrich.resolve_route("TVF16VB", cache, transport=transport, now=1000.0)
+    assert route1 is not None and source1 == "fresh_hit"
+    route2, source2 = enrich.resolve_route("TVF16VB", cache, transport=transport, now=1000.0 + 1)
+    assert route2 is not None and source2 == "cache_hit", "expected cache_hit for a still-fresh entry, got %r" % (source2,)
+    route3, source3 = enrich.resolve_route(
+        "TVF16VB", cache, transport=transport, now=1000.0 + enrich.CACHE_HIT_TTL_S + 1
+    )
+    assert route3 is not None and source3 == "fresh_hit", (
+        "expected fresh_hit after the cached entry expired and was re-fetched, got %r" % (source3,)
+    )
+
+
+def test_default_transport_passes_bounded_get_deadline_and_cap(monkeypatch):
+    """default_transport passes ADSBDB_DEADLINE_S / ADSBDB_MAX_BYTES and the timeout 5.0 default to bounded_get; a non-JSON body gives (status, None)."""
+    captured = {}
+
+    def fake_bounded_get(url, *, headers, timeout, deadline_s, max_bytes):
+        captured["timeout"] = timeout
+        captured["deadline_s"] = deadline_s
+        captured["max_bytes"] = max_bytes
+        from server import http_fetch
+        return http_fetch.FetchResult(200, b"not json at all", {})
+
+    import server.plane.enrich as enrich_module
+    monkeypatch.setattr(enrich_module.http_fetch, "bounded_get", fake_bounded_get)
+    status, body = enrich.default_transport("AAA111")
+    assert status == 200
+    assert body is None, "a non-JSON body must yield (status, None), got %r" % (body,)
+    assert captured["timeout"] == enrich.DEFAULT_TIMEOUT == 5.0
+    assert captured["deadline_s"] == enrich.ADSBDB_DEADLINE_S == 8.0
+    assert captured["max_bytes"] == enrich.ADSBDB_MAX_BYTES == 256 * 1024
+
+
 def test_sentence_case_lowercases_interior_particles():
     """to_sentence_case_city lower-cases interior connective particles but capitalises the first word and all other words."""
     cases = {
