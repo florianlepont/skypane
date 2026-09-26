@@ -1,7 +1,7 @@
-"""deploy/tests/test_activate.py — deploy/activate.sh (SEC-05, D-09/D-10/
-D-11). Runs activate.sh as a real bash subprocess against the fake-root
-fixtures in conftest.py (systemctl/curl/caddy/runuser/journalctl/chown
-stubs on PATH), so the atomic swap, verification probes, and automatic
+"""deploy/tests/test_activate.py -- deploy/activate.sh. Runs it as a real
+bash subprocess against the fake-root fixtures in conftest.py
+(systemctl/curl/caddy/runuser/journalctl/chown stubs on PATH), so the
+atomic swap, verification probes, and automatic
 rollback are exercised end to end with no VPS and no root. One test per
 behavior line in the PLAN's <behavior> block, plus the shared-host
 Caddy layout: SkyPane only ever writes its own site file under
@@ -147,11 +147,9 @@ def test_failure_with_no_previous_release(fake_root, fake_release, run_activate)
     )
     assert r.returncode != 0
     assert "no previous release" in r.stderr
-    # The swap (step 11) already happened before probing (step 13) — with
-    # no earlier release to fall back to, there is nothing to swap back
-    # to, so `current` legitimately still points at this first, failing
-    # release (T-37-31; the old in-place layout stays a manual fallback
-    # until Plan 37-09's cutover).
+    # The swap already happened before probing -- with no earlier release
+    # to fall back to, there is nothing to swap back to, so `current`
+    # legitimately still points at this first, failing release.
     assert os.readlink(fake_root.current_link) == "releases/aaaaaa1"
 
 

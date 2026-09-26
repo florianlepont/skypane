@@ -1,9 +1,8 @@
-"""deploy/tests/conftest.py — fake-root fixtures for deploy/activate.sh and
-deploy/deploy.sh (SEC-05, Plan 37-06). See 37-RESEARCH.md "Pattern:
-fake-root shell testing": activate.sh reads every system path from an
-overridable variable, so a tmp tree plus PATH-stubbed systemctl/curl/
-caddy/runuser/journalctl/chown lets the whole atomic-swap/probe/rollback
-flow run as a subprocess against fake state, with no VPS and no root.
+"""deploy/tests/conftest.py -- fake-root fixtures for deploy/activate.sh and
+deploy/deploy.sh. activate.sh reads every system path from an overridable
+variable, so a tmp tree plus PATH-stubbed systemctl/curl/caddy/runuser/
+journalctl/chown lets the whole atomic-swap/probe/rollback flow run as a
+subprocess against fake state, with no VPS and no root.
 
 Does not import or extend the repo-root conftest.py's fixtures (socket
 guard, fake_providers) — those exist for server/companion HTTP tests, not
@@ -269,9 +268,7 @@ def fake_release(fake_root):
     releases/.incoming-<sha> directory, built from the *real* deploy/
     tree (so render_caddyfile.sh, the real units and backup_gate.py are
     exercised) plus minimal stand-ins for the three services and their
-    requirements file, matching Phase 32's server/requirements.txt name
-    (no TST-08 rename found in this checkout — re-verified before this
-    plan's Task 1).
+    requirements file, matching server/requirements.txt's actual name.
     """
 
     def _make(sha):
