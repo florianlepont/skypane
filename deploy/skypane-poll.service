@@ -12,6 +12,16 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# A oneshot's default start timeout is infinity, so one trickling upstream
+# (or a stuck lock wait) could otherwise hang a cycle forever. Every
+# outbound call this cycle makes is itself bounded (deadline + one read
+# timeout), a normal cycle finishes in a few seconds, and the worst
+# legitimate case (every upstream at its own limit) stays under a minute --
+# 90s leaves headroom without masking a genuinely stuck process. A cycle
+# killed at this timeout leaves no torn state file: every write in this
+# codebase is atomic (temp file + rename) and any held flock is released
+# with the process.
+TimeoutStartSec=90s
 User=skypane
 Group=skypane
 EnvironmentFile=/opt/skypane/skypane.env

@@ -26,6 +26,12 @@ ILLUSTRATION_TARGET_WIDTH = 450
 ILLUSTRATION_TARGET_HEIGHT = 132
 ILLUSTRATION_TARGET_SIZE = (ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT)
 
+# Above the 43 vendored assets plus manual-resolution overrides, so every
+# normal installation's whole illustration set stays resident; bounded
+# rather than unbounded so a future large override set cannot grow this
+# process-lifetime cache without limit.
+NORMALIZED_CACHE_MAX_ENTRIES = 128
+
 
 def normalized_png_bytes(path):
     """Return PNG bytes for the illustration at `path`, resized (LANCZOS)
@@ -64,12 +70,13 @@ def normalized_png_bytes(path):
     return buffer.getvalue()
 
 
-@functools.lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=NORMALIZED_CACHE_MAX_ENTRIES)
 def _cached_normalized_png_bytes(path, mtime_ns):
     # `mtime_ns` is part of the cache key purely so a replaced asset on
     # disk is picked up on the next call — it is never read for any other
     # purpose. The 43 vendored files are therefore normalized once per
-    # process, not once per request.
+    # process, not once per request, and NORMALIZED_CACHE_MAX_ENTRIES
+    # bounds how many distinct (path, mtime_ns) entries stay resident.
     return normalized_png_bytes(path)
 
 

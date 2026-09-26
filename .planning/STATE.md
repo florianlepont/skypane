@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: "Phase 35 complete: 35-22-PLAN.md closed the phase (ratchet removed, guard re-proven, HYG-01..06 confirmed). No PR opened per orchestrator instruction."
-last_updated: "2026-09-26T03:33:34.430Z"
+status: executing
+stopped_at: "Phase 36 executed (7/7 plans), code review CR-01/WR-01 fixed, verification human_needed: 15/15 automated truths pass; two manual checks remain (post-deploy TimeoutStartUSec, optional on-frame panel-swap). Next: Phase 37 wave B (37-11) and Phase 38."
+last_updated: "2026-09-26T11:15:48.484Z"
 last_activity: 2026-09-26
 progress:
   total_phases: 54
-  completed_phases: 44
+  completed_phases: 45
   total_plans: 392
-  completed_plans: 359
-  percent: 81
+  completed_plans: 366
+  percent: 83
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -32,13 +32,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Phase complete — ready for verification
+status: Ready to execute
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 92%
+  [█████████░] 93%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -52,14 +52,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 35 — comment-purge-in-english-and-dead-code
+**Current focus:** Phase 36 — state-integrity-and-device-protocol
 
 ## Current Position
 
-Phase: 35 (comment-purge-in-english-and-dead-code) — EXECUTING
+Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human_needed: 2 manual checks after deploy)
+Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 22 of 22
+Plan: 7 of 7
+
+**36-01 executed (2026-09-26), wave 1 (no dependencies) — lands the two stdlib primitives every later plan of Phase 36 migrates onto.** Task 1 re-verified gate G-35 independently against `origin/main` before any edit: 23 `35-*-SUMMARY.md` files present (≥22 required), `35-VERIFICATION.md` status `passed` on HEAD, ROADMAP's Phase 35 section fully checked, `origin/main` an ancestor of HEAD — all four checks passed, no edits made by that task. Task 2 (TDD) added `server/atomic_io.py`'s `atomic_write`/`staged_write`: a same-directory `tempfile.mkstemp` + `fchmod` + write + `fsync` + `os.replace`, with `DEFAULT_FILE_MODE` reading the umask once from `/proc/self/status`'s `Umask:` line (0022 on this runner) so a caller migrating from `open()` keeps its existing file mode unless it asks for a different one; an explicit `mode` (e.g. 0600 for a secret) lands on the temp file's descriptor before any byte is written and the destination path is never chmod'ed afterwards. Task 3 (TDD) added `exclusive_lock`/`LockBusy`/`LOCK_POLL_S`, generalising `calendar_rules._calendar_registry_lock` into one reusable cross-process, cross-thread `fcntl.flock` lock (0600 lock file, parent directory created, `LockBusy` a `TimeoutError` subclass, released in `finally`, no-op on a platform without `fcntl`), and wrote the module docstring's lock-order paragraph (`threading.Lock` → `poll.lock` → `calendar_rules.lock`; `device_config.lock` never held with another file lock). 19 behaviour tests total, including 8 threads × 50 writes and 2 OS processes × 200 writes to one path each landing exactly one complete 64 KiB payload with no leftover temp, and a child-process-held lock making the parent's blocking and non-blocking acquires both raise `LockBusy` before succeeding once the child releases. **One deviation, Rule 1/2 (coverage-gate correctness):** the new module's own defensive branches (the `/proc`-less umask fallback, the no-`fcntl` lock fallback, a write failure after the temp file is open, an already-deleted temp at cleanup, an unrelated `OSError` from `flock`) were untested by the plan's required behaviour list, pulling whole-repo coverage to 92.93% against the 93.0% floor — 8 more tests (each faking the platform condition, never reading source text) brought `server/atomic_io.py` to 98% and the full suite to 93.11%, `./scripts/run-all-tests.sh` exit 0, 2597 passed / 132 skipped (Playwright-Chromium and root-euid skips, pre-existing in this sandbox). Commits: `481fbc9` (test, RED), `08352b2` (feat, GREEN) for Task 2; `1151e42` (test, RED), `1d420f3` (feat, GREEN) for Task 3. `requirements.mark-complete INT-01 INT-02` per this plan's own frontmatter (the poll-cycle integration of INT-01 and every other caller's migration onto `atomic_write`/`exclusive_lock` land in 36-03..36-07). `roadmap.update-plan-progress "36"` confirmed `plan_count: 7, summary_count: 1, status: "In Progress"`.
 
 **23-10 executed (2026-09-13), wave 8 (depends on 23-01, 23-02, 23-09) — D3's remainder: the selection scale and wash fade, the theme-preview crossfade, both `<dialog>` entrances via `@starting-style`, and skeletons at final size.** **The one `@supports selector(:has(*))` block is still exactly one**, which the plan named as its single largest risk, and the way through was one sentence written into the stylesheet where the next editor will look: a transition is a property of the ELEMENT, not of the state, so declared on the base rule of `.theme-chip`/`.theme-chip__body`/`.runway-card` it animates the live `:has(input:checked)` treatment and the server-rendered `--selected` fallback identically, from one declaration, and no second feature query is needed. Both halves are asserted inside a SINGLE check function — the transitions exist outside the query AND the query contains no `transition` at all — so "helpfully" moving one inside fails exactly once rather than twice. The arithmetic comment, every border width, both dashed markers and the `:has(input:checked):hover` restore rule are untouched: the `style.css` diff for Task 1 is **111 insertions, 0 deletions**. **The decision that mattered most was refusing to loosen a tolerance.** `transform: scale(1.02)` is what makes selection free of T6 by construction, but `getBoundingClientRect()` reports the box AFTER transforms, so 22-15's still-green three-equal-outer-widths assertion failed by 1.9px and its equal-tops assertion by ~1px **on a correct build**. Shrinking the scale until it squeaked under the 1px tolerance would have been passing by luck and would have let a test choose the design; deleting the assertion would have retired the check T6 was closed with. Instead the read neutralises `transform` (and `transition` first, or it catches the 180ms unwind mid-flight) and the same check now asserts that **exactly one of the three cards really is scaled** — neutralising a thing you have not proven exists is how a check quietly becomes one that also passes when the feature is gone. The new chip check reads `offsetWidth/offsetHeight/offsetLeft/offsetTop` throughout, which is transform-independent by definition; **that layout-box-versus-visual-box distinction is the pattern worth carrying forward.** **Task 3 found a real, pre-existing ~500px layout shift.** Home's frame picture reserved its box correctly at 360px and reserved *nothing* at 1280px: measured **2 × 2** before the render arrived and **380 × 506** after. `width: auto` on an image with no content yet leaves it an intrinsic size of ZERO however well known its ratio is — the `width="600" height="800"` attributes supply a ratio, and a ratio alone resolves nothing without a definite size in one axis; mobile escaped only because `width: 100%` is definite. Fixed with `width: min(100%, calc(60vh * 3 / 4))` — the same 60vh cap the `max-height` states, written as a definite width — plus an explicit `aspect-ratio: 3 / 4` so the reservation no longer depends on the shape of whatever bytes arrive (and, because the universal reset makes every box border-box, so the width resolves to exactly the cap rather than the cap minus the hairline). **A flaky harness run was chased rather than reruns-until-green:** the crossfade could stall invisible on the discarded theme — `transitionend` only arrives if a transition actually RAN, and a class removed and re-added without an intervening style recalculation (an image `load` and a click in the same frame) transitions nothing. Reproduced at **4 stalls in 14 runs**, fixed by consulting the computed opacity before waiting, **0 in 14** after. **The skeleton deliberately does NOT shimmer, and the reasoning is in `style.css` rather than only in the summary**: the only placement where a pure-CSS skeleton auto-hides on load is the image's own `background-image` (painted above the backing, below the decoded bitmap), and that is exactly the placement where `skypane-pulse` — which cycles opacity, an element property — would go on breathing the decoded picture forever on a page left open all day. Overlays behind are covered from frame one; overlays in front can never learn the image arrived; a JS toggle would need a fourteenth script and route. Four keyframes stay four. **Both dialogs arrive through ONE `@starting-style` rule** (History's `.lightbox` and the Airlines gallery's `.lightbox--wide` are the same component under two classes) and the close is one-directional, with `display`/`allow-discrete` banned by a harness check rather than by a comment, following 23-08's precedent — a modal that has not reached `display: none` is an invisible sheet in the top layer. `::backdrop` is deliberately unanimated: the global reduce override matches `*, *::before, *::after`, and `::backdrop` is none of them. **Ten mutations, all quoted**, and one taught something: adding `allow-discrete` left the viewport-centre hit test returning FALSE (the closed dialog had left the top layer and sat in normal flow) while `display: block` and a 307,965px² box both caught it — a check built on the hit test alone would have passed the defect. **Four checks failed the vacuity question**, three of mine and one inherited: the crossfade check passed on the CUT until a mid-flight sample was added; the neutralised T6 read needed the "exactly one is scaled" clause; `before == after` is satisfied by `2x2 == 2x2` so the reserved box needed a floor; and `.lightbox[open] {` legitimately occurs twice on a correct file because `@starting-style` repeats its selector. **Three self-inflicted grep traps**, all the warned-about class: my own JS comment containing `setTimeout` answered my own timer ban (fixed by comment-stripping), backticks in my JS prose reddened the standing no-backtick rule, and `grep -c '@starting-style'` now returns 7 raw against **2** comment-stripped blocks / **1** dialog entrance / **2** dialogs served — recorded, not adjusted. Two pre-existing checks retargeted IN PLACE: the runway T6/B9 measurement, and 22-01's Cancel/T8 preview assertions (a synchronous read became a bounded `wait_for_function`, because the swap now lands one `var(--motion-fast)` after the click). `dirty-state.js` was NOT edited — the whole adaptation happened on the `theme-preview.js` side, as the plan directed. The browser fixture's 8×8 stand-in render became the **600 × 800** the markup itself declares, because an image whose loaded ratio is 1:1 against a 3:4 promise makes a layout-shift measurement meaningless. Counts re-derived by RUNNING: `config-page` 239→240, `view-pages` 152→153, `browser-ux` 50→54; `companion-app` and `status-pages` unmoved; `run-all-tests.sh` at exactly the documented 5-check root-sandbox baseline **verified by failing check NAMES**, coverage 93%. **`CFG-32` deliberately NOT ticked — 23-11 closes it.**
 
@@ -525,6 +528,12 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 35 P20 | ~2h | 3 tasks | 44 files |
 | Phase 35 P21 | 34min | 3 tasks | 51 files |
 | Phase 35 P22 | 90min | 2 tasks | 8 files |
+| Phase 36 P01 | 25min | 3 tasks | 2 files |
+| Phase 36 P02 | 20min | 3 tasks | 5 files |
+| Phase 36 P03 | 45min | 3 tasks | 3 files |
+| Phase 36 P05 | 21min | 3 tasks | 4 files |
+| Phase 36 P06 | 22min | 3 tasks | 6 files |
+| Phase 36 P07 | 90min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -1053,6 +1062,21 @@ Recent decisions affecting current work:
 - [Phase 35]: 35-21: purged every firmware C/H/Kconfig/CMake/sdkconfig/shell/Python history reference (group 9) and rewrote firmware/VENDOR.md concisely (477->367 lines); scripts/comment-history-pending.txt now empty of paths, check_comment_history.py check (no args) exits 0 for the first time in Phase 35. firmware/build.sh could not run (no Docker daemon in this sandbox); CI's firmware.yml is the build gate. HYG-01/HYG-03 deliberately left unticked for 35-22 to close.
 - [Phase 35]: Fixed check_comment_history.py's two guard false-positive bugs found during the phase: the _PRAGMA_RE shellcheck alternative matched any comment starting with the word "shellcheck" (now narrowed to real directive shapes disable=/enable=/source=/shell=/external-sources=), and the same-code __doc__ heuristic used a text substring check (now an AST ast.Name(id='__doc__', ctx=Load) walk) — Both false positives could pin a comment/docstring as unchangeable code even though it was safe to reword; re-proved with 45/45 mutations killed and 8 new regression tests
 - [Phase 35]: Phase 35 closed: comment-history pending list deleted, guard now scans every tracked code file unconditionally, HYG-01..06 all confirmed complete — 35-COMMENT-RATIO.md Final section: 9441 -> 0 history hits, 40% -> 24.1% whole-tree comment ratio across 264 -> 267 files
+- [Phase 36]: G-35 gate re-verified independently before any edit: 23 35-*-SUMMARY.md on origin/main, 35-VERIFICATION.md status passed on HEAD, ROADMAP Phase 35 fully checked, origin/main is an ancestor of HEAD -- all four checks passed, no edits made by that task.
+- [Phase 36]: Umask read via /proc/self/status's Umask: line (0022 on this runner), not the racy os.umask(0)/os.umask(old) pair; the racy pair is kept only as a fallback for a platform without /proc, exercised by a dedicated test that fakes /proc's absence.
+- [Phase 36]: Task 2's GREEN commit implements only atomic_write/staged_write per the plan's task split; exclusive_lock/LockBusy/LOCK_POLL_S and the lock-order docstring paragraph are added in Task 3's own RED/GREEN pair.
+- [Phase 36]: Added 8 tests beyond the plan's required behaviour list to close a coverage shortfall the new module's defensive branches caused against the repo's 93.0% floor -- ./scripts/run-all-tests.sh went from 92.93% to 93.11% after adding them (test-only fix, no production code change).
+- [Phase 36]: pinned_request's tests drive real http.client.HTTPResponse parsing over a fake socket (io.BufferedReader wrapping a raw reader returning one byte per readinto), so the connect/request round trip exercises production's own parser; PinnedResponse.iter_content's own deadline/settimeout timing is tested via a direct minimal fake body instead, isolating that timing logic.
+- [Phase 36]: INT-14 decision executed: pin the resolved address (resolve_public_addresses + pinned_request), not just correct the SSRF docstring, since requests/urllib re-resolve at connect time and could reach a different (private) address than the one checked.
+- [Phase 36]: byos _atomic_write is a local copy of server/atomic_io.py's contract (a Phase 39 ARC-05 input), proven equal by a parity test, not a source-text drift guard
+- [Phase 36]: REQUIREMENTS.md: INT-05 and INT-06 marked Complete (owned end-to-end by 36-03); INT-02 stays Pending until the remaining fixed-.tmp-name callers in other 36-* plans are migrated
+- [Phase 36]: Pinned both remaining owner-supplied outbound URLs (calendar feed, ntfy topic) through http_fetch.pinned_request(), per CONTEXT's INT-14 decision — Closes the DNS-rebinding TOCTOU gap where requests/urllib re-resolve a hostname at connect time, seeing a different address than the one an early SSRF check saw
+- [Phase 36]: refresh_calendar_registry() releases the cross-process registry lock during the network fetch and adds FETCH_SUPERSEDED — A companion save or disconnect must never wait behind an in-flight poll cycle's calendar fetch, and a stale fetch result must never overwrite a newer URL's own write
+- [Phase 36]: 36-06: resolve_route's from_cache flag now comes from _lookup() itself, fixing the expired-then-refetched cache_hit/fresh_hit distinction the old pre-call presence check could not make.
+- [Phase 36]: 36-06: a legacy adsbdb cache miss (no cached_at) is left in place across repeated transient requery failures rather than deleted-and-recreated.
+- [Phase 36]: poll_cycle_lock() over atomic_io.exclusive_lock(poll.lock) serialises run_once() across processes; PollBusy (lock_timeout_s=0) never blocks the companion's request thread
+- [Phase 36]: Every remaining state write in poll_loop.py and the companion illustration upload migrated onto atomic_io.atomic_write(); the phase-wide fixed/pid-tagged temp-name grep now prints nothing in production Python
+- [Phase 36]: _record_history() gained detected=; a queued-but-undisplayed detection now advances META_LAST_DETECTION, and enrich.resolve_route() is called with now=now_s() so the adsbdb cache follows the injected poll clock
 
 ### Pending Todos
 
@@ -1173,8 +1197,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T03:33:34.375Z
-Stopped at: Phase 35 complete: 35-22-PLAN.md closed the phase (ratchet removed, guard re-proven, HYG-01..06 confirmed). No PR opened per orchestrator instruction.
+Last session: 2026-09-26T11:15:48.402Z
+Stopped at: Phase 36 plan 07 complete (last plan of Phase 36): cross-process poll_cycle_lock() over atomic_io.exclusive_lock(poll.lock) serialises run_once() across the systemd oneshot and the companion's POST /poll-now (two-process x 200 reproduction: 400, zero lost updates); every remaining fixed-.tmp/pid-tagged temp name in server/poll_loop.py and companion/app.py is migrated onto atomic_io.atomic_write(); main() prints a full traceback on a genuine cycle failure; a queued-but-undisplayed detection still advances META_LAST_DETECTION; the adsbdb cache's TTL/LRU stamps follow the injected poll clock. All 14 INT-01..INT-14 requirements are now Complete. Phase 36 is done; next: verify/close the phase.
 
 Resume file: 
 

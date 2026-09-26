@@ -9,6 +9,7 @@ import os
 import stat
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -115,7 +116,46 @@ class TestAck:
         marker = pulled_dir / "last-pull"
         assert marker.read_text() == "skypane-state-20260920T031500Z.tar.gz\n"
         assert stat.S_IMODE(marker.stat().st_mode) == 0o644
-        assert not (pulled_dir / ".last-pull.tmp").exists()
+        # The temp name is a unique mkstemp name, not the old fixed
+        # ".last-pull.tmp" - assert no file in pulled_dir ends with .tmp,
+        # rather than the absence of one specific literal name.
+        for entry in os.listdir(pulled_dir):
+            assert not entry.endswith(".tmp")
+
+    def test_concurrent_acks_land_one_full_name_no_stray_tmp(self, tmp_path):
+        """Two `ack` invocations for two different valid archives, run as
+        real concurrent subprocesses, both exit 0 and leave `last-pull`
+        holding one of the two names in full (never a torn mix of both),
+        with no `.tmp` file left behind in `pulled_dir` - the unique
+        mkstemp name means neither process can collide with the other's
+        temp file the way a fixed `.last-pull.tmp` name could.
+        """
+        archive_dir = tmp_path / "archives"
+        pulled_dir = tmp_path / "pulled"
+        _seed_archive(archive_dir, "skypane-state-20260920T031500Z.tar.gz")
+        _seed_archive(archive_dir, "skypane-state-20260921T031500Z.tar.gz")
+
+        results = {}
+
+        def run(name):
+            results[name] = _run(archive_dir, pulled_dir, "ack %s" % name)
+
+        names = [
+            "skypane-state-20260920T031500Z.tar.gz",
+            "skypane-state-20260921T031500Z.tar.gz",
+        ]
+        threads = [threading.Thread(target=run, args=(name,)) for name in names]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10)
+            assert not t.is_alive()
+
+        for name in names:
+            assert results[name].returncode == 0, results[name].stderr
+
+        marker = pulled_dir / "last-pull"
+        assert marker.read_text() in ("%s\n" % names[0], "%s\n" % names[1])
         for entry in os.listdir(pulled_dir):
             assert not entry.endswith(".tmp")
 

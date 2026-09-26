@@ -42,6 +42,7 @@ PUBLIC_IP = "93.184.216.34"
 
 import server.plane.calendar_rules as cr  # noqa: E402
 import server.device_config as device_config  # noqa: E402
+from server import http_fetch  # noqa: E402
 
 
 def load_fixture_text(name):
@@ -94,6 +95,89 @@ class _FakeCalendarResponse:
 
     def close(self):
         self.closed = True
+
+
+# --- Fakes for the real default_calendar_transport() -> http_fetch.
+# pinned_request() path (no injected transport) - mirroring server/test_
+# http_fetch.py's own fake socket/SSL-context technique (a byte-at-a-time
+# raw reader wrapped in io.BufferedReader, so the response is parsed
+# through http.client's own real status-line/header parser) rather than a
+# hand-rolled response stub, since this is the exact code path a real
+# fetch runs.
+
+
+class _RawByteAtATimeReader(io.RawIOBase):
+    def __init__(self, data):
+        super().__init__()
+        self._data = data
+        self._pos = 0
+
+    def readable(self):
+        return True
+
+    def readinto(self, b):
+        if self._pos >= len(self._data):
+            return 0
+        b[0] = self._data[self._pos]
+        self._pos += 1
+        return 1
+
+
+def _canned_pinned_response(status_line="HTTP/1.1 200 OK", headers=None, body=b""):
+    headers = dict(headers) if headers is not None else {"Content-Length": str(len(body))}
+    lines = [status_line] + ["%s: %s" % (k, v) for k, v in headers.items()]
+    header_bytes = ("\r\n".join(lines) + "\r\n\r\n").encode("ascii")
+    return header_bytes + body
+
+
+class _FakePinnedSocket:
+    def __init__(self, response_bytes):
+        self.sent = b""
+        self.timeouts = []
+        self._response_bytes = response_bytes
+        self.closed = False
+
+    def sendall(self, data):
+        self.sent += data
+
+    def makefile(self, mode="r", *args, **kwargs):
+        return io.BufferedReader(_RawByteAtATimeReader(self._response_bytes))
+
+    def settimeout(self, value):
+        self.timeouts.append(value)
+
+    def close(self):
+        self.closed = True
+
+
+class _FakePinnedSSLContext:
+    def __init__(self):
+        self.wrap_calls = []
+
+    def wrap_socket(self, sock, server_hostname=None):
+        self.wrap_calls.append({"sock": sock, "server_hostname": server_hostname})
+        return sock
+
+
+def _sequenced_resolver(*answer_lists):
+    """A fake `socket.getaddrinfo()`: each call consumes the next
+    `answer_lists` entry (a list of address strings), repeating the last
+    one once exhausted - used to prove a hostname's own genuinely-later
+    resolution (were one ever made) would see a different, unsafe
+    answer, while asserting the resolver was in fact called only as many
+    times as the real code path legitimately calls it (never once more,
+    at "connect time").
+    """
+    calls = []
+    remaining = list(answer_lists)
+
+    def resolver(host, port=None, *args, **kwargs):
+        calls.append(host)
+        current = remaining.pop(0) if remaining else answer_lists[-1]
+        return [(2, 1, 6, "", (addr, port or 443)) for addr in current]
+
+    resolver.calls = calls
+    return resolver
 
 
 def _write_calendar_secret(state_dir, url):
@@ -928,6 +1012,160 @@ def test_default_timeout_passed_to_transport():
         pytest.fail("expected the transport's timeout argument to be CALENDAR_FETCH_TIMEOUT_S, got %r" % (timeouts,))
 
 
+def test_default_transport_pins_the_checked_address_end_to_end(monkeypatch):
+    """fetch_ics(), with NO injected transport, goes through the real default_calendar_transport() -> http_fetch.pinned_request() path: the two legitimate resolutions (_url_is_safe()'s early gate, then pinned_request()'s own resolve) both see the public address, the connection reaches only that address, TLS server_hostname is the feed hostname, and the parsed body is returned - proving the connection never performs a further resolution that could see a different (private) answer, even though one is configured to be available"""
+    host = "calendar-pin-test.invalid"
+    resolver = _sequenced_resolver([PUBLIC_IP], [PUBLIC_IP], ["127.0.0.1"])
+    monkeypatch.setattr(socket, "getaddrinfo", resolver)
+
+    body = b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"
+    fake_sock = _FakePinnedSocket(_canned_pinned_response(body=body))
+    cc_calls = []
+
+    def fake_create_connection(address, timeout):
+        cc_calls.append(address)
+        return fake_sock
+
+    monkeypatch.setattr(socket, "create_connection", fake_create_connection)
+    fake_ssl = _FakePinnedSSLContext()
+    monkeypatch.setattr(http_fetch, "_default_ssl_context", lambda: fake_ssl)
+
+    result = cr.fetch_ics("https://%s/a.ics" % host)
+
+    if result != body.decode("utf-8"):
+        pytest.fail("expected the parsed body, got %r" % (result,))
+    if cc_calls != [(PUBLIC_IP, 443)]:
+        pytest.fail("expected exactly one connection, to the checked public address, got %r" % (cc_calls,))
+    if not fake_ssl.wrap_calls or fake_ssl.wrap_calls[0]["server_hostname"] != host:
+        pytest.fail("expected TLS server_hostname to be the feed hostname, got %r" % (fake_ssl.wrap_calls,))
+    if len(resolver.calls) != 2:
+        pytest.fail((
+            "expected exactly two resolutions (the early gate, then pinned_request()'s own) "
+            "- a third would have seen the private answer: got %d (%r)"
+            % (len(resolver.calls), resolver.calls)))
+
+
+def test_default_transport_redirect_hop_to_private_address_never_connects(monkeypatch):
+    """a redirect hop whose Location targets a hostname resolving to a private address is refused by fetch_ics()'s own _url_is_safe() gate before default_calendar_transport() (and therefore socket.create_connection()) is ever invoked for that hop"""
+    first_host = "calendar-redirect-first.invalid"
+    second_host = "calendar-redirect-private.invalid"
+
+    def fake_getaddrinfo(host, port=None, *a, **k):
+        if host == first_host:
+            return [(2, 1, 6, "", (PUBLIC_IP, port or 443))]
+        if host == second_host:
+            return [(2, 1, 6, "", ("10.0.0.5", port or 443))]
+        raise socket.gaierror("unexpected host in test: %r" % (host,))
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+
+    redirect_bytes = _canned_pinned_response(
+        status_line="HTTP/1.1 302 Found",
+        headers={"Location": "https://%s/b.ics" % second_host, "Content-Length": "0"},
+    )
+    fake_sock = _FakePinnedSocket(redirect_bytes)
+    cc_calls = []
+
+    def fake_create_connection(address, timeout):
+        cc_calls.append(address)
+        return fake_sock
+
+    monkeypatch.setattr(socket, "create_connection", fake_create_connection)
+    monkeypatch.setattr(http_fetch, "_default_ssl_context", lambda: _FakePinnedSSLContext())
+
+    result = cr.fetch_ics("https://%s/a.ics" % first_host)
+
+    if result is not None:
+        pytest.fail("expected None when the redirect targets a private address, got %r" % (result,))
+    if cc_calls != [(PUBLIC_IP, 443)]:
+        pytest.fail((
+            "expected exactly one connection (the first hop only) - the private redirect "
+            "target must never be connected to: %r" % (cc_calls,)))
+
+
+def test_fetch_ics_deadline_exceeded_mid_stream_logs_only_the_type():
+    """fetch_ics() aborts once its total deadline has elapsed while streaming a chunked body - even though each individual chunk arrives well inside the per-hop timeout - closes the response, and logs only the exception type, never the URL"""
+    clock_state = {"t": 0.0}
+
+    def clock():
+        return clock_state["t"]
+
+    class _SlowTrickleResponse:
+        def __init__(self):
+            self.status_code = 200
+            self.headers = {}
+            self.closed = False
+
+        def iter_content(self, chunk_size=8192):
+            for _ in range(20):
+                clock_state["t"] += 3.0
+                yield b"x"
+
+        def close(self):
+            self.closed = True
+
+    response = _SlowTrickleResponse()
+
+    def transport(url, timeout):
+        return response
+
+    buf = io.StringIO()
+    old_stderr = sys.stderr
+    sys.stderr = buf
+    try:
+        result = cr.fetch_ics(
+            "https://%s/a.ics" % PUBLIC_IP, transport=transport,
+            deadline_s=cr.CALENDAR_FETCH_DEADLINE_S, clock=clock)
+    finally:
+        sys.stderr = old_stderr
+    captured = buf.getvalue()
+
+    if result is not None:
+        pytest.fail("expected None once the deadline elapsed mid-stream, got %r" % (result,))
+    if response.closed is not True:
+        pytest.fail("expected the response to be closed on a deadline abort")
+    if "DeadlineExceeded" not in captured:
+        pytest.fail("expected the deadline-exceeded exception's type name on stderr, got %r" % (captured,))
+    if PUBLIC_IP in captured:
+        pytest.fail("expected no URL/address in the deadline log line, got %r" % (captured,))
+
+
+def test_later_hop_timeout_is_clamped_to_time_left():
+    """the timeout fetch_ics() hands the transport on a later hop is min(CALENDAR_FETCH_TIMEOUT_S, time left under the total deadline), not always the full per-request timeout"""
+    clock_state = {"t": 0.0}
+
+    def clock():
+        return clock_state["t"]
+
+    timeouts = []
+    calls = []
+
+    def transport(url, timeout):
+        calls.append(url)
+        timeouts.append(timeout)
+        if len(calls) == 1:
+            clock_state["t"] += 8.0  # eats most of the 10s total deadline
+            return _FakeCalendarResponse(
+                302, headers={"Location": "https://%s/b.ics" % PUBLIC_IP}, is_redirect=True)
+        return _FakeCalendarResponse(200, body=b"BEGIN:VCALENDAR")
+
+    result = cr.fetch_ics(
+        "https://%s/a.ics" % PUBLIC_IP, transport=transport,
+        deadline_s=cr.CALENDAR_FETCH_DEADLINE_S, clock=clock)
+
+    if result != "BEGIN:VCALENDAR":
+        pytest.fail("expected the second hop to succeed, got %r" % (result,))
+    if len(timeouts) != 2:
+        pytest.fail("expected exactly two transport calls, got %d" % (len(timeouts),))
+    if timeouts[0] != cr.CALENDAR_FETCH_TIMEOUT_S:
+        pytest.fail("expected the first hop's timeout to be the full per-request timeout, got %r" % (timeouts[0],))
+    expected_second = min(cr.CALENDAR_FETCH_TIMEOUT_S, cr.CALENDAR_FETCH_DEADLINE_S - 8.0)
+    if timeouts[1] != pytest.approx(expected_second):
+        pytest.fail((
+            "expected the second hop's timeout clamped to time left (%r), got %r"
+            % (expected_second, timeouts[1])))
+
+
 def test_secret_never_reaches_stderr_across_seven_failure_paths(monkeypatch):
     """across seven distinct fetch_ics() failure paths - including a transport exception whose message is the full secret URL - neither the token, the host, the path, nor the query-parameter name reaches stderr"""
     import requests
@@ -1529,12 +1767,17 @@ def test_tmp_file_mode_is_0600_at_creation_time(monkeypatch, tmp_path):
     import stat as stat_mod
     tmp = tmp_path
     secret_path = cr.calendar_secret_path(tmp)
+    # atomic_io.staged_write() names its temp file "<dir>/.<basename>.XXXXXX.tmp"
+    # (tempfile.mkstemp's own convention), not "<path>.<pid>.<tid>.tmp" - match
+    # on that prefix rather than a plain startswith(secret_path), which would
+    # no longer find it.
+    secret_tmp_prefix = "." + os.path.basename(secret_path) + "."
     recorded = {}
     real_open = cr.os.open
     real_replace = cr.os.replace
 
     def _spy_open(path, flags, mode=0o777, *args, **kwargs):
-        if path.startswith(secret_path):
+        if os.path.basename(path).startswith(secret_tmp_prefix):
             recorded["open_mode"] = mode
         return real_open(path, flags, mode, *args, **kwargs)
 
@@ -1930,6 +2173,173 @@ def test_min_interval_s_bypasses_the_throttle(tmp_path):
         pytest.fail("expected FETCH_OK when min_interval_s=0 bypasses the throttle, got %r" % (code2,))
     if len(calls) != 1:
         pytest.fail("expected exactly one transport call once the throttle was bypassed, got %d" % (len(calls),))
+
+
+def test_last_synced_at_comes_from_the_injected_clock(tmp_path):
+    """a successful refresh_calendar_registry() cycle's last_synced_at is derived from the injected `now`, not datetime.now() - identical on disk and in the returned registry"""
+    from datetime import datetime, timezone
+    tmp = tmp_path
+    _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+    now = 1_800_000_000.0
+    transport = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR\nEND:VCALENDAR")
+
+    code, reg = cr.refresh_calendar_registry(tmp, now, transport=transport)
+
+    expected = datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="seconds")
+    if code != cr.FETCH_OK:
+        pytest.fail("test setup failure: expected FETCH_OK, got %r" % (code,))
+    if reg["last_synced_at"] != expected:
+        pytest.fail("expected last_synced_at == %r (from the injected now), got %r" % (expected, reg["last_synced_at"]))
+    on_disk = cr.load_calendar_registry(tmp, now)
+    if on_disk["last_synced_at"] != expected:
+        pytest.fail("expected the on-disk last_synced_at == %r, got %r" % (expected, on_disk["last_synced_at"]))
+
+
+def test_refresh_does_not_hold_the_lock_across_the_fetch_a_concurrent_save_wins(tmp_path):
+    """while a refresh_calendar_registry() cycle's fetch is blocked on a threading.Event, a concurrent save_calendar_url() to a DIFFERENT URL completes almost immediately (well under the fetch's own hold time) - proving the cross-process registry lock is not held across the network call - and once the fetch unblocks, refresh returns FETCH_SUPERSEDED, with the registry on disk left exactly as the save left it (empty), never overwritten by the stale fetch result"""
+    import threading
+    import time as time_module
+    tmp = tmp_path
+    now = _mid_fixture_now()
+    _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def _slow_transport(url, timeout):
+        started.set()
+        release.wait(timeout=10)
+        return _FakeCalendarResponse(200, fixture_text.encode())
+
+    refresh_result = {}
+
+    def _refresh_thread_body():
+        refresh_result["code"], refresh_result["registry"] = cr.refresh_calendar_registry(
+            tmp, now, transport=_slow_transport)
+
+    t_refresh = threading.Thread(target=_refresh_thread_body)
+    t_refresh.start()
+    if not started.wait(timeout=5):
+        t_refresh.join(timeout=1)
+        pytest.fail("test setup failure: the fetch never started")
+
+    save_start = time_module.monotonic()
+    save_ok = cr.save_calendar_url(tmp, "https://%s/other-feed.ics" % PUBLIC_IP, now=now)
+    save_elapsed = time_module.monotonic() - save_start
+
+    if not save_ok:
+        release.set()
+        t_refresh.join(timeout=10)
+        pytest.fail("test setup failure: the concurrent save_calendar_url() call returned False")
+    if save_elapsed >= 2.0:
+        release.set()
+        t_refresh.join(timeout=10)
+        pytest.fail((
+            "the concurrent save took %.3fs while the fetch was still blocked - the registry "
+            "lock appears to be held across the network call" % (save_elapsed,)))
+
+    release.set()
+    t_refresh.join(timeout=10)
+    if t_refresh.is_alive():
+        pytest.fail("test setup failure: the refresh thread did not finish in time")
+
+    if refresh_result.get("code") != cr.FETCH_SUPERSEDED:
+        pytest.fail("expected FETCH_SUPERSEDED once the URL changed mid-fetch, got %r" % (refresh_result.get("code"),))
+    loaded = cr.load_calendar_registry(tmp, now)
+    if loaded["entries"] != []:
+        pytest.fail((
+            "the concurrent save's own (empty) registry was overwritten by the superseded "
+            "fetch's stale result: %r" % (loaded["entries"],)))
+    if cr.configured_calendar_url(tmp) != "https://%s/other-feed.ics" % PUBLIC_IP:
+        pytest.fail("expected the concurrent save's URL to still be configured")
+
+
+def test_refresh_superseded_by_a_disconnect_mid_fetch_leaves_the_calendar_unconfigured(tmp_path):
+    """a save_calendar_url(CLEAR_CALENDAR_URL) landing while a refresh's fetch is blocked wins over that fetch: refresh returns FETCH_SUPERSEDED, writes nothing of its own, and the calendar is left unconfigured"""
+    import threading
+    tmp = tmp_path
+    now = _mid_fixture_now()
+    _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def _slow_transport(url, timeout):
+        started.set()
+        release.wait(timeout=10)
+        return _FakeCalendarResponse(200, fixture_text.encode())
+
+    refresh_result = {}
+
+    def _refresh_thread_body():
+        refresh_result["code"], refresh_result["registry"] = cr.refresh_calendar_registry(
+            tmp, now, transport=_slow_transport)
+
+    t_refresh = threading.Thread(target=_refresh_thread_body)
+    t_refresh.start()
+    if not started.wait(timeout=5):
+        t_refresh.join(timeout=1)
+        pytest.fail("test setup failure: the fetch never started")
+
+    disconnect_ok = cr.save_calendar_url(tmp, cr.CLEAR_CALENDAR_URL, now=now)
+
+    release.set()
+    t_refresh.join(timeout=10)
+    if t_refresh.is_alive():
+        pytest.fail("test setup failure: the refresh thread did not finish in time")
+    if not disconnect_ok:
+        pytest.fail("test setup failure: the concurrent disconnect returned False")
+
+    if refresh_result.get("code") != cr.FETCH_SUPERSEDED:
+        pytest.fail("expected FETCH_SUPERSEDED once the URL was cleared mid-fetch, got %r" % (refresh_result.get("code"),))
+    if cr.calendar_is_configured(tmp):
+        pytest.fail("expected the calendar to stay unconfigured after a disconnect that raced the fetch")
+    loaded = cr.load_calendar_registry(tmp, now)
+    if loaded["entries"] != []:
+        pytest.fail("expected no entries after a disconnect that raced the fetch, got %r" % (loaded["entries"],))
+
+
+def test_last_attempt_at_recorded_before_the_fetch_a_second_refresh_is_throttled_without_calling_its_own_transport(tmp_path):
+    """refresh_calendar_registry() records last_attempt_at (under the lock) BEFORE releasing it and starting the fetch: a second refresh call starting while the first's fetch is still blocked sees the throttle correctly and returns FETCH_SKIPPED_THROTTLED without ever calling its own transport"""
+    import threading
+    tmp = tmp_path
+    now = 1_800_000_000.0
+    _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def _slow_transport(url, timeout):
+        started.set()
+        release.wait(timeout=10)
+        return _FakeCalendarResponse(200, b"BEGIN:VCALENDAR\nEND:VCALENDAR")
+
+    first_result = {}
+
+    def _first_thread_body():
+        first_result["code"], _reg = cr.refresh_calendar_registry(tmp, now, transport=_slow_transport)
+
+    t_first = threading.Thread(target=_first_thread_body)
+    t_first.start()
+    if not started.wait(timeout=5):
+        t_first.join(timeout=1)
+        pytest.fail("test setup failure: the first refresh's fetch never started")
+
+    second_calls = []
+    second_transport = make_calendar_transport(status_code=200, body=b"unused", calls=second_calls)
+    second_code, _second_reg = cr.refresh_calendar_registry(now=now, state_dir=tmp, transport=second_transport)
+
+    release.set()
+    t_first.join(timeout=10)
+    if t_first.is_alive():
+        pytest.fail("test setup failure: the first refresh thread did not finish in time")
+
+    if second_code != cr.FETCH_SKIPPED_THROTTLED:
+        pytest.fail("expected the second, concurrent refresh to see FETCH_SKIPPED_THROTTLED, got %r" % (second_code,))
+    if second_calls:
+        pytest.fail("expected the second refresh to never call its own transport, got %r" % (second_calls,))
+    if first_result.get("code") != cr.FETCH_OK:
+        pytest.fail("test setup failure: expected the first refresh to complete with FETCH_OK, got %r" % (first_result.get("code"),))
 
 
 def test_clear_branch_reports_failure_when_removal_actually_fails(tmp_path):

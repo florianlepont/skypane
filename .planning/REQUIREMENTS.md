@@ -151,20 +151,20 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **HYG-04**: English-only rule for code, comments, docs and commits in CLAUDE.md and CONTRIBUTING.md
 - [x] **HYG-05**: Deleted
 - [x] **HYG-06**: Lint guard in CI rejecting plan/ticket IDs in comments (e.g. `\d{2}-\d{2}-PLAN`, `D-\d+`, `WR-\d+`)
-- [ ] **INT-01**: `fcntl.flock` on `state/poll.lock` around `run_once`
-- [ ] **INT-02**: One `atomic_write(path, data)` with unique temp names
-- [ ] **INT-03**: Thread lock + flock
-- [ ] **INT-04**: `mkstemp`, pruning, bounded cache
-- [ ] **INT-05**: Content-addressed `state/img/<sha>.bin` (last N kept); 404 on unknown hash
-- [ ] **INT-06**: Validated length, `Handler.timeout`, typed input, `hmac.compare_digest`
-- [ ] **INT-07**: `TimeoutStartSec`; total deadline per HTTP call
-- [ ] **INT-08**: Miss only on 404/empty route; TTL (misses ~1 day, hits ~30 days); LRU
-- [ ] **INT-09**: Advance to last newline; errors caught
-- [ ] **INT-10**: Type-checked
-- [ ] **INT-11**: Full traceback
-- [ ] **INT-12**: Injected clock; lock released during fetch
-- [ ] **INT-13**: Updated
-- [ ] **INT-14**: Pin the resolved IP for the connection (or correct the claim)
+- [x] **INT-01**: `fcntl.flock` on `state/poll.lock` around `run_once`
+- [x] **INT-02**: One `atomic_write(path, data)` with unique temp names
+- [x] **INT-03**: Thread lock + flock
+- [x] **INT-04**: `mkstemp`, pruning, bounded cache
+- [x] **INT-05**: Content-addressed `state/img/<sha>.bin` (last N kept); 404 on unknown hash
+- [x] **INT-06**: Validated length, `Handler.timeout`, typed input, `hmac.compare_digest`
+- [x] **INT-07**: `TimeoutStartSec`; total deadline per HTTP call
+- [x] **INT-08**: Miss only on 404/empty route; TTL (misses ~1 day, hits ~30 days); LRU
+- [x] **INT-09**: Advance to last newline; errors caught
+- [x] **INT-10**: Type-checked
+- [x] **INT-11**: Full traceback
+- [x] **INT-12**: Injected clock; lock released during fetch
+- [x] **INT-13**: Updated
+- [x] **INT-14**: Pin the resolved IP for the connection (or correct the claim)
 - [x] **SEC-01**: Per-client-IP throttle (trusted `X-Forwarded-For` from loopback Caddy)
 - [x] **SEC-02**: `Strict-Transport-Security`
 - [x] **SEC-03**: `Origin`/`Sec-Fetch-Site` check on every POST
@@ -401,20 +401,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HYG-04 | Phase 35 | Complete |
 | HYG-05 | Phase 35 | Complete |
 | HYG-06 | Phase 35 | Complete |
-| INT-01 | Phase 36 | Pending |
-| INT-02 | Phase 36 | Pending |
-| INT-03 | Phase 36 | Pending |
-| INT-04 | Phase 36 | Pending |
-| INT-05 | Phase 36 | Pending |
-| INT-06 | Phase 36 | Pending |
-| INT-07 | Phase 36 | Pending |
-| INT-08 | Phase 36 | Pending |
-| INT-09 | Phase 36 | Pending |
-| INT-10 | Phase 36 | Pending |
-| INT-11 | Phase 36 | Pending |
-| INT-12 | Phase 36 | Pending |
-| INT-13 | Phase 36 | Pending |
-| INT-14 | Phase 36 | Pending |
+| INT-01 | Phase 36 | Complete |
+| INT-02 | Phase 36 | Complete |
+| INT-03 | Phase 36 | Complete |
+| INT-04 | Phase 36 | Complete |
+| INT-05 | Phase 36 | Complete |
+| INT-06 | Phase 36 | Complete |
+| INT-07 | Phase 36 | Complete |
+| INT-08 | Phase 36 | Complete |
+| INT-09 | Phase 36 | Complete |
+| INT-10 | Phase 36 | Complete |
+| INT-11 | Phase 36 | Complete |
+| INT-12 | Phase 36 | Complete |
+| INT-13 | Phase 36 | Complete |
+| INT-14 | Phase 36 | Complete |
 | SEC-01 | Phase 37 | Complete |
 | SEC-02 | Phase 37 | Complete |
 | SEC-03 | Phase 37 | Complete |

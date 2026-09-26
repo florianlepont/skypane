@@ -26,7 +26,7 @@ import re
 import threading
 from datetime import datetime, timezone
 
-from server import device_config
+from server import atomic_io, device_config
 
 COLOUR_RULES_FILENAME = "colour_rules.json"
 
@@ -205,8 +205,9 @@ def add_rule(state_dir, kind, value, theme_id, now=None):
     value and theme_id before touching the filesystem, then holds
     `_WRITE_LOCK` across the whole load-check-mutate-write sequence to
     avoid a TOCTOU race on the added-vs-replaced decision. Rejects when
-    full unless replacing an existing key. Writes via tmp-then-`os.replace()`;
-    any write exception returns `ADD_FAILED` rather than raising.
+    full unless replacing an existing key. Writes via
+    `atomic_io.atomic_write` (unique per-call temp name, no leftover on
+    failure); any write exception returns `ADD_FAILED` rather than raising.
     """
     normalised_kind = normalise_rule_kind(kind)
     if normalised_kind is None:
@@ -234,19 +235,10 @@ def add_rule(state_dir, kind, value, theme_id, now=None):
             "created_at": now,
         }
 
-        path = colour_rules_path(state_dir)
-        tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
         try:
             os.makedirs(state_dir, exist_ok=True)
-            with open(tmp, "w") as fh:
-                json.dump(registry, fh, indent=1)
-            os.replace(tmp, path)
+            atomic_io.atomic_write(colour_rules_path(state_dir), json.dumps(registry, indent=1))
         except Exception:
-            if os.path.exists(tmp):
-                try:
-                    os.remove(tmp)
-                except OSError:
-                    pass
             return ADD_FAILED
 
     return ADD_OK_REPLACED if replacing else ADD_OK_NEW
@@ -256,7 +248,7 @@ def delete_rule(state_dir, kind, value):
     """Remove `(kind, value)` from the registry at `state_dir`. `True`
     when removed, `False` otherwise (unknown kind, malformed value,
     absent key, write failure). Idempotent, never raises; same
-    `_WRITE_LOCK`/tmp-write discipline as `add_rule()`.
+    `_WRITE_LOCK`/`atomic_io.atomic_write` discipline as `add_rule()`.
     """
     normalised_kind = normalise_rule_kind(kind)
     if normalised_kind is None:
@@ -273,19 +265,10 @@ def delete_rule(state_dir, kind, value):
 
         del registry[normalised_kind][normalised_value]
 
-        path = colour_rules_path(state_dir)
-        tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
         try:
             os.makedirs(state_dir, exist_ok=True)
-            with open(tmp, "w") as fh:
-                json.dump(registry, fh, indent=1)
-            os.replace(tmp, path)
+            atomic_io.atomic_write(colour_rules_path(state_dir), json.dumps(registry, indent=1))
         except Exception:
-            if os.path.exists(tmp):
-                try:
-                    os.remove(tmp)
-                except OSError:
-                    pass
             return False
 
     return True

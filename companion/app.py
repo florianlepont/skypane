@@ -15,6 +15,7 @@ Never writes the poll pipeline's own persisted flight-state file —
 auth silently disabled.
 """
 import email.message
+import io
 # Serialises the login lockout's server-computed remaining-seconds figure
 # into the data-* attribute companion/static/login-card.js seeds its
 # countdown from; never anything client-supplied.
@@ -23,6 +24,7 @@ import os
 import socket
 import sqlite3
 import sys
+import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -50,7 +52,7 @@ from companion.pages import (  # noqa: E402
 # it, so the render path (airlines_page.render()) and the write path
 # (Handler._handle_manual_resolve_post() below) can never diverge.
 from companion.pages.airlines_page import unresolved_row_for_prefix  # noqa: E402
-from server import device_config, history_db, notify  # noqa: E402
+from server import atomic_io, device_config, history_db, notify  # noqa: E402
 from server.plane import (  # noqa: E402
     calendar_rules, colour_rules, illustrations, manual_resolutions)
 import server.poll_loop as poll_loop  # noqa: E402
@@ -435,7 +437,11 @@ LOGIN_THROTTLE = auth.LoginThrottle()
 # Guards the check-cooldown -> run_once() -> mark-triggered sequence in
 # _handle_poll_now(), so two concurrent POST /poll-now requests can
 # never both call poll_loop.run_once(). Process-local only: correct
-# because main() runs exactly one ThreadingHTTPServer in one OS process.
+# because main() runs exactly one ThreadingHTTPServer in one OS process -
+# the in-process fast path. Cross-process exclusion (the systemd oneshot
+# racing this same handler) is poll_loop.poll_cycle_lock()'s poll.lock,
+# taken inside run_once() itself with lock_timeout_s=0 below, so a busy
+# lock never blocks this request thread.
 _POLL_LOCK = threading.Lock()
 
 _PAGE_TITLES = {
@@ -1396,14 +1402,19 @@ class Handler(BaseHTTPRequestHandler):
             return self.redirect(
                 "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
 
-        # Both temps live in override_dir so os.replace() below is a
-        # same-filesystem atomic rename, named from key+pid only.
-        raw_tmp_path = os.path.join(
-            override_dir, ".%s.%d.upload.tmp" % (key, os.getpid()))
-        encoded_tmp_path = os.path.join(
-            override_dir, ".%s.%d.encoded.tmp" % (key, os.getpid()))
+        # The raw upload's temp lives in override_dir (mkstemp: a unique
+        # name, so two concurrent uploads of the same key can never
+        # collide) so it never needs a cross-filesystem copy before
+        # validate_illustration_file()/Image.open() read it back. The
+        # encoded PNG is never staged as a file at all - it is built in
+        # memory and published straight through atomic_io.atomic_write(),
+        # which owns its own unique temp name and cleans it up on any
+        # failure.
+        raw_tmp_path = None
         try:
-            with open(raw_tmp_path, "wb") as fh:
+            raw_tmp_fd, raw_tmp_path = tempfile.mkstemp(
+                dir=override_dir, prefix="." + key + ".upload.", suffix=".tmp")
+            with os.fdopen(raw_tmp_fd, "wb") as fh:
                 fh.write(payload)
 
             # Reads format/dimensions from the header only, rejecting an
@@ -1418,19 +1429,20 @@ class Handler(BaseHTTPRequestHandler):
 
             with Image.open(raw_tmp_path) as img:
                 rgba = img.convert("RGBA")
-                rgba.save(encoded_tmp_path, format="PNG")
+                buffer = io.BytesIO()
+                rgba.save(buffer, format="PNG")
 
             override_path = illustrations.override_path_for_key(key, state_dir)
-            os.replace(encoded_tmp_path, override_path)
+            atomic_io.atomic_write(override_path, buffer.getvalue())
             return self.redirect(
                 "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED))
         except Exception:
             return self.redirect(
                 "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
         finally:
-            for tmp_path in (raw_tmp_path, encoded_tmp_path):
+            if raw_tmp_path is not None:
                 try:
-                    os.unlink(tmp_path)
+                    os.unlink(raw_tmp_path)
                 except OSError:
                     pass
 
@@ -1952,8 +1964,15 @@ class Handler(BaseHTTPRequestHandler):
                     # The exact production code path the systemd timer
                     # already runs, in-process — never a second process
                     # and never a re-parsed subprocess result.
+                    # lock_timeout_s=0: never block this request thread on
+                    # poll.lock — a lock held by another process (the
+                    # oneshot, or an overlapping trigger) must answer at
+                    # once, exactly like the in-process _POLL_LOCK above.
                     poll_loop.run_once(
-                        state_dir=state_dir, geofence=self.args.geofence)
+                        state_dir=state_dir, geofence=self.args.geofence,
+                        lock_timeout_s=0)
+                except poll_loop.PollBusy:
+                    flash = FLASH_KEY_POLL_ALREADY_RUNNING
                 except Exception:
                     flash = FLASH_KEY_POLL_FAILED
                 else:

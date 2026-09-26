@@ -35,6 +35,7 @@ import random
 import sys
 
 import pytest
+import requests
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -45,6 +46,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import server.plane.detect as detect  # noqa: E402
+from server import http_fetch  # noqa: E402
 
 
 def load_fixture(name):
@@ -609,6 +611,92 @@ def test_provider_keys_are_not_interchanged(fake_providers):
         "expected the adsb.lol host to be requested first, got %r" % (first_url,)
     )
     assert first_url.endswith("/48.1/2.2/5"), "expected lat/lon/dist substituted into the URL, got %r" % (first_url,)
+
+
+# ---------------------------------------------------------------
+# Bounded provider GET and type-checked body
+# ---------------------------------------------------------------
+
+@pytest.mark.parametrize("body", [[], "x", {"aircraft": "x"}, {"aircraft": {"a": 1}}])
+def test_query_provider_malformed_body_raises_value_error(fake_providers, body):
+    """query_provider raises ValueError when the body is not a dict, or the aircraft value is neither None nor a list"""
+    fake_providers.respond("adsbfi", body)
+    with pytest.raises(ValueError):
+        detect.query_provider("adsbfi", 48.1, 2.2, 5)
+
+
+def test_query_provider_drops_non_dict_aircraft_records(fake_providers):
+    """query_provider drops non-dict aircraft records before filter_in_geofence ever sees them"""
+    valid_record = {"hex": "AAAAAA", "flight": "VALID001"}
+    fake_providers.respond("adsblol", {"ac": [1, None, "x", valid_record]})
+    result = detect.query_provider("adsblol", 48.1, 2.2, 5)
+    assert result == [valid_record], "expected only the valid dict record to survive, got %r" % (result,)
+
+
+def test_query_provider_null_or_missing_aircraft_key_is_empty(fake_providers):
+    """query_provider returns [] (unchanged) for a null aircraft value or a missing key"""
+    fake_providers.respond("adsblol", {"ac": None})
+    assert detect.query_provider("adsblol", 48.1, 2.2, 5) == []
+    fake_providers.respond("adsblol", {"unrelated": True})
+    assert detect.query_provider("adsblol", 48.1, 2.2, 5) == []
+
+
+def test_query_provider_non_2xx_raises_http_error_naming_no_url(fake_providers):
+    """a 503 from a provider raises requests.HTTPError (a RequestException) naming the provider and status, not the URL"""
+    fake_providers.respond("adsbfi", {"error": "unavailable"}, status=503)
+    with pytest.raises(requests.HTTPError) as excinfo:
+        detect.query_provider("adsbfi", 48.1, 2.2, 5)
+    message = str(excinfo.value)
+    assert "503" in message and "adsbfi" in message
+    assert "opendata.adsb.fi" not in message, "the provider's URL must never appear in the error message"
+
+
+def test_poll_current_aircraft_survives_one_malformed_provider(geofence, fake_providers):
+    """poll_current_aircraft: a malformed adsbfi body fails only that provider, adsblol's own selection still comes back"""
+    fixture = load_fixture("geofence_on_ground.json")
+    fake_providers.respond("adsbfi", {"aircraft": "not-a-list"})
+    fake_providers.respond("adsblol", {"ac": fixture["ac"]})
+    diagnostics = {}
+    result = detect.poll_current_aircraft(geofence, diagnostics=diagnostics)
+    assert result is not None, "expected adsblol's own selection despite adsbfi's malformed body"
+    assert result["hex"] == "3985a7", "expected the real on-ground runway-3 record, got %r" % (result["hex"],)
+    assert diagnostics["failed"] == ["adsbfi"], "expected adsbfi recorded as failed, got %r" % (diagnostics["failed"],)
+    assert diagnostics["selected"] == ["adsblol"], "expected adsblol recorded as selected, got %r" % (diagnostics["selected"],)
+
+
+def test_poll_current_aircraft_survives_a_provider_deadline_exceeded(geofence, fake_providers, monkeypatch):
+    """a DeadlineExceeded from bounded_get counts as that provider failing; the cycle still completes"""
+    fixture = load_fixture("geofence_on_ground.json")
+    fake_providers.respond("adsblol", {"ac": fixture["ac"]})
+    real_bounded_get = http_fetch.bounded_get
+
+    def fake_bounded_get(url, **kwargs):
+        if "adsb.fi" in url:
+            raise http_fetch.DeadlineExceeded("simulated deadline")
+        return real_bounded_get(url, **kwargs)
+
+    monkeypatch.setattr(detect.http_fetch, "bounded_get", fake_bounded_get)
+    diagnostics = {}
+    result = detect.poll_current_aircraft(geofence, diagnostics=diagnostics)
+    assert result is not None, "expected adsblol's own selection despite adsbfi timing out"
+    assert diagnostics["failed"] == ["adsbfi"], "expected adsbfi recorded as failed, got %r" % (diagnostics["failed"],)
+
+
+def test_query_provider_passes_bounded_get_deadline_and_cap(monkeypatch):
+    """query_provider passes PROVIDER_DEADLINE_S / PROVIDER_MAX_BYTES and the timeout 5.0 default through to bounded_get"""
+    captured = {}
+
+    def fake_bounded_get(url, *, headers, timeout, deadline_s, max_bytes):
+        captured["timeout"] = timeout
+        captured["deadline_s"] = deadline_s
+        captured["max_bytes"] = max_bytes
+        return http_fetch.FetchResult(200, b'{"aircraft": []}', {})
+
+    monkeypatch.setattr(detect.http_fetch, "bounded_get", fake_bounded_get)
+    detect.query_provider("adsbfi", 48.1, 2.2, 5)
+    assert captured["timeout"] == detect.PROVIDER_TIMEOUT_S == 5.0
+    assert captured["deadline_s"] == detect.PROVIDER_DEADLINE_S == 8.0
+    assert captured["max_bytes"] == detect.PROVIDER_MAX_BYTES == 4 * 1024 * 1024
 
 
 # ---------------------------------------------------------------

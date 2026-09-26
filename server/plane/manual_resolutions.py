@@ -10,8 +10,9 @@ at runtime, so a flight whose callsign prefix has no static-table entry
 generic fallback.
 
 Copies `server/device_config.py`'s file contract exactly: never-raising
-load, a per-field `normalise_*` gate, validate-before-write, tmp-write
-then `os.replace()`, and stray-`.tmp` cleanup in the `except` branch. The
+load, a per-field `normalise_*` gate, validate-before-write, and a write
+through `server/atomic_io.py`'s `atomic_write()` (unique per-call temp
+name, no leftover file on failure). The
 companion writes this file (`add_entry()`/`delete_entry()`, from an
 authenticated HTTP route) and the server reads it
 (`load_manual_resolutions()`/`set_manual_registry_state_dir()`/
@@ -41,6 +42,7 @@ import re
 import threading
 from datetime import datetime, timezone
 
+from server import atomic_io
 from server.plane import illustrations
 
 MANUAL_RESOLUTIONS_FILENAME = "manual_resolutions.json"
@@ -261,17 +263,15 @@ def add_entry(state_dir, prefix, airline_name, now=None):
     `created_at` - delete-and-re-add is the correction path, so an
     overwrite is treated as a new entry, not an update-in-place.
 
-    Writes via tmp-write then `os.replace()`; any exception during the
-    write is caught, the stray temp file removed if present, and
-    `ADD_FAILED` returned instead of re-raising - the caller is an HTTP
-    route handler that needs a flash key, not a traceback.
+    Writes via `atomic_io.atomic_write` (unique per-call temp name, no
+    leftover file on failure); any exception during the write is caught
+    and `ADD_FAILED` returned instead of re-raising - the caller is an
+    HTTP route handler that needs a flash key, not a traceback.
 
     Step 5's load-check-mutate-write is one atomic unit under
     `_WRITE_LOCK`, since a `ThreadingHTTPServer` could otherwise let two
     concurrent writers each load before either writes, silently losing
-    whichever wrote second. The temp filename includes the writer's own
-    pid and thread id, so two writers can never interleave into the same
-    file descriptor.
+    whichever wrote second.
     """
     normalised_prefix = normalise_prefix(prefix)
     if normalised_prefix is None:
@@ -303,19 +303,10 @@ def add_entry(state_dir, prefix, airline_name, now=None):
             now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         registry[normalised_prefix] = {"airline_name": name, "created_at": now}
 
-        path = manual_resolutions_path(state_dir)
-        tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
         try:
             os.makedirs(state_dir, exist_ok=True)
-            with open(tmp, "w") as fh:
-                json.dump(registry, fh, indent=1)
-            os.replace(tmp, path)
+            atomic_io.atomic_write(manual_resolutions_path(state_dir), json.dumps(registry, indent=1))
         except Exception:
-            if os.path.exists(tmp):
-                try:
-                    os.remove(tmp)
-                except OSError:
-                    pass
             return ADD_FAILED
 
     return ADD_OK
@@ -337,8 +328,7 @@ def delete_entry(state_dir, prefix):
 
     The load-check-mutate-write sequence is one atomic unit under
     `_WRITE_LOCK`, shared with `add_entry()` (a `ThreadingHTTPServer` can
-    run both concurrently). The temp filename likewise carries this
-    writer's own pid and thread id.
+    run both concurrently).
     """
     normalised_prefix = normalise_prefix(prefix)
     if normalised_prefix is None:
@@ -351,19 +341,10 @@ def delete_entry(state_dir, prefix):
 
         del registry[normalised_prefix]
 
-        path = manual_resolutions_path(state_dir)
-        tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
         try:
             os.makedirs(state_dir, exist_ok=True)
-            with open(tmp, "w") as fh:
-                json.dump(registry, fh, indent=1)
-            os.replace(tmp, path)
+            atomic_io.atomic_write(manual_resolutions_path(state_dir), json.dumps(registry, indent=1))
         except Exception:
-            if os.path.exists(tmp):
-                try:
-                    os.remove(tmp)
-                except OSError:
-                    pass
             return False
 
     return True

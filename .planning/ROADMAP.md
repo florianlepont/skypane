@@ -1764,7 +1764,7 @@ Plans:
 4. byos survives malformed `Content-Length`/`mac` input; poll unit has a start timeout
 5. A transient adsbdb error is never cached as a miss
 
-**Plans:** 7 plans (3 waves)
+**Plans:** 7/7 plans complete
 
 **Execution gate:** starts only once Phase 35 is complete on `main` (gate G-35, first task of 36-01 and 36-02). Plan 37-11 (byos `--bind`) runs after this phase.
 
@@ -1772,19 +1772,19 @@ Plans:
 
 **Wave 1**
 
-- [ ] 36-01-PLAN.md — `server/atomic_io.py`: `atomic_write` (unique temp names) + `exclusive_lock` (flock) [INT-01, INT-02]
-- [ ] 36-02-PLAN.md — `server/http_fetch.py`: total deadline per HTTP call + pinned-address HTTPS; `TimeoutStartSec` on the poll unit [INT-07, INT-14]
+- [x] 36-01-PLAN.md — `server/atomic_io.py`: `atomic_write` (unique temp names) + `exclusive_lock` (flock) [INT-01, INT-02]
+- [x] 36-02-PLAN.md — `server/http_fetch.py`: total deadline per HTTP call + pinned-address HTTPS; `TimeoutStartSec` on the poll unit [INT-07, INT-14]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 36-03-PLAN.md — byos: content-addressed `img/<sha>.bin` + 404, request hardening, local atomic write [INT-02, INT-05, INT-06]
-- [ ] 36-04-PLAN.md — device_config lock, colour/manual registries, theme-preview and illustration caches, backup gate temp [INT-02, INT-03, INT-04]
-- [ ] 36-05-PLAN.md — calendar + notify: pinned fetch, deadline, injected clock, lock released during fetch [INT-02, INT-07, INT-12, INT-14]
-- [ ] 36-06-PLAN.md — detect/enrich/history_db: bounded calls, adsbdb TTL/LRU, Caddy tailer, provider JSON types [INT-07, INT-08, INT-09, INT-10]
+- [x] 36-03-PLAN.md — byos: content-addressed `img/<sha>.bin` + 404, request hardening, local atomic write [INT-02, INT-05, INT-06]
+- [x] 36-04-PLAN.md — device_config lock, colour/manual registries, theme-preview and illustration caches, backup gate temp [INT-02, INT-03, INT-04]
+- [x] 36-05-PLAN.md — calendar + notify: pinned fetch, deadline, injected clock, lock released during fetch [INT-02, INT-07, INT-12, INT-14]
+- [x] 36-06-PLAN.md — detect/enrich/history_db: bounded calls, adsbdb TTL/LRU, Caddy tailer, provider JSON types [INT-07, INT-08, INT-09, INT-10]
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 36-07-PLAN.md — poll cycle: cross-process lock + 2×200 reproduction, poll_loop/companion writes, traceback, last detection [INT-01, INT-02, INT-07, INT-08, INT-11, INT-13]
+- [x] 36-07-PLAN.md — poll cycle: cross-process lock + 2×200 reproduction, poll_loop/companion writes, traceback, last detection [INT-01, INT-02, INT-07, INT-08, INT-11, INT-13]
 
 ### Phase 37: Security and operations hardening
 

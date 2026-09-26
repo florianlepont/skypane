@@ -6,10 +6,12 @@ in-process loop - a systemd `.timer`/`.service` unit pair drives the
 cadence by invoking this repeatedly.
 
 No in-process memory between invocations: cross-cycle state lives in
-`<state_dir>/poll_state.json` (tmp-write-then-os.replace(), matching
-stub-server/byos_server.py's save_state()); malformed state degrades to
-empty, never a crash. `<state_dir>/battery_state.json` is a second,
-read-only input owned exclusively by stub-server/byos_server.py.
+`<state_dir>/poll_state.json` (written through server/atomic_io.py's
+same-directory-mkstemp-then-os.replace(), so this process and a
+concurrent companion/app.py trigger can never collide on one fixed temp
+name); malformed state degrades to empty, never a crash.
+`<state_dir>/battery_state.json` is a second, read-only input owned
+exclusively by stub-server/byos_server.py.
 
 Display pacing: the frame can't redraw as fast as this server polls, so a
 distinct new detection is queued rather than shown immediately, and the
@@ -22,12 +24,15 @@ Usage:
     server/.venv/bin/python3 server/poll_loop.py --once --state-dir /tmp/x
 """
 import argparse
+import contextlib
 import hashlib
+import io
 import json
 import os
 import sqlite3
 import sys
 import time
+import traceback
 from datetime import datetime, timezone
 
 # Allow both `import server.poll_loop` and direct script execution:
@@ -37,6 +42,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+import server.atomic_io as atomic_io
 import server.device_config as device_config
 import server.history_db as history_db
 import server.notify as notify
@@ -77,6 +83,58 @@ MAX_STALENESS_S = 150
 # burst piling up entries between two advances: at most 150/30 = 5
 # aircraft can legitimately queue inside one staleness window.
 MAX_PENDING_FLIGHTS = 5
+
+# --- Cross-process poll-cycle lock ------------------------------------------
+#
+# poll.lock serialises run_once() across every process that shares
+# state_dir: the systemd oneshot (main()) and the companion's POST
+# /poll-now both go through poll_cycle_lock() below. A normal cycle takes
+# a few seconds; POLL_LOCK_WAIT_S=10 plus a worst-case cycle (every
+# upstream at its own bounded deadline) stays comfortably under the
+# systemd unit's TimeoutStartSec=90s.
+POLL_LOCK_FILENAME = "poll.lock"
+POLL_LOCK_WAIT_S = 10.0
+
+
+class PollBusy(RuntimeError):
+    """Raised when another process (or thread) holds poll.lock past the
+    caller's own wait budget. The companion's lock_timeout_s=0 fast path
+    catches this to answer the existing "already running" flash without
+    ever blocking a request thread; the systemd oneshot waits up to
+    POLL_LOCK_WAIT_S, then fails the cycle cleanly (main() prints this
+    exception's message and returns 1).
+    """
+
+    def __init__(self, lock_path, waited_s):
+        self.lock_path = lock_path
+        self.waited_s = waited_s
+        super().__init__(
+            "poll_loop: another poll cycle holds %s; this cycle was skipped after %s s"
+            % (lock_path, waited_s)
+        )
+
+
+@contextlib.contextmanager
+def poll_cycle_lock(state_dir, timeout_s=None):
+    """Serialises a poll cycle across every process sharing `state_dir`.
+    `timeout_s=None` (the systemd oneshot's default) waits up to
+    POLL_LOCK_WAIT_S; `timeout_s=0` (the companion's non-blocking fast
+    path) raises PollBusy at once rather than ever blocking a request
+    thread; any other value waits up to that many seconds. Read from the
+    module global at call time (not a default-argument value), so a test
+    that monkeypatches POLL_LOCK_WAIT_S is honoured. Translates
+    atomic_io.LockBusy into the poll-cycle-specific PollBusy, so a caller
+    need not import atomic_io just to catch this.
+    """
+    if timeout_s is None:
+        timeout_s = POLL_LOCK_WAIT_S
+    os.makedirs(state_dir, exist_ok=True)
+    lock_path = os.path.join(state_dir, POLL_LOCK_FILENAME)
+    try:
+        with atomic_io.exclusive_lock(lock_path, timeout_s, blocking=timeout_s != 0):
+            yield
+    except atomic_io.LockBusy as exc:
+        raise PollBusy(lock_path, timeout_s) from exc
 
 
 def now_s():
@@ -480,30 +538,21 @@ def _notify_silence_transition(state_dir, poll_state, conn, device_cfg, sender=N
 
 
 def save_poll_state(state_dir, state):
-    """Atomic tmp-write-then-os.replace(), matching
-    stub-server/byos_server.py's save_state(). Never leaves a stray .tmp
-    file behind, even if the write itself fails.
+    """Atomic same-directory-mkstemp-then-os.replace() via atomic_io, so two
+    processes writing this same path (the systemd oneshot and the
+    companion's POST /poll-now, both under poll_cycle_lock()) can never
+    collide on one fixed temp name. Never leaves a stray temp file behind,
+    even if the write itself fails.
     """
-    path = _poll_state_path(state_dir)
-    tmp = path + ".tmp"
-    try:
-        with open(tmp, "w") as fh:
-            json.dump(state, fh, indent=1)
-        os.replace(tmp, path)
-    except Exception:
-        if os.path.exists(tmp):
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
-        raise
+    atomic_io.atomic_write(_poll_state_path(state_dir), json.dumps(state, indent=1))
 
 
 def write_panel_atomic(state_dir, rendered):
     """Write `rendered` (packed panel bytes) to <state_dir>/panel.bin only if
-    its SHA-256 differs from the currently-served bytes - tmp-write-then-
-    os.replace(), so byos_server.py can never serve a half-written file.
-    Returns True if the served panel actually changed.
+    its SHA-256 differs from the currently-served bytes - a same-directory-
+    mkstemp-then-os.replace() via atomic_io, so byos_server.py can never
+    serve a half-written file and two writers can never collide on one
+    fixed temp name. Returns True if the served panel actually changed.
     """
     panel_path = os.path.join(state_dir, "panel.bin")
     if os.path.exists(panel_path):
@@ -512,18 +561,7 @@ def write_panel_atomic(state_dir, rendered):
         if hashlib.sha256(existing).hexdigest() == hashlib.sha256(rendered).hexdigest():
             return False
 
-    tmp = panel_path + ".tmp"
-    try:
-        with open(tmp, "wb") as fh:
-            fh.write(rendered)
-        os.replace(tmp, panel_path)
-    except Exception:
-        if os.path.exists(tmp):
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
-        raise
+    atomic_io.atomic_write(panel_path, rendered)
     return True
 
 
@@ -581,7 +619,7 @@ def _should_record_event(flight, confirmed_state, poll_state):
 _NO_WAKE_EPOCH = object()
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH):
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False):
     """Write this cycle's durable signals into `history.db`, in one
     connection: a database/filesystem failure is caught and logged, never
     allowed to fail the poll cycle - history is an accessory to the
@@ -594,6 +632,13 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     the database. `caddy_log`, when given, ingests new Caddy access-log
     lines. `wake_interval_s` records a `wake_epochs` row only when it
     differs from the newest one stored.
+
+    `detected` covers the one case `flight is not None` alone misses: a
+    cycle that detected an aircraft but only queued it (the held branch
+    passes `flight=None` - nothing new reached the display - while the
+    queue this cycle enqueued is a real detection in its own right). The
+    last-detection timestamp advances on either signal, so "Last aircraft
+    detected" never lags behind a genuinely queued sighting.
     """
     route = route if isinstance(route, dict) else {}
     try:
@@ -615,7 +660,7 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                 )
             history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, now_iso)
             history_db.set_meta(conn, history_db.META_SOURCE_FAULT, str(source_fault))
-            if flight is not None:
+            if flight is not None or detected:
                 history_db.set_meta(conn, history_db.META_LAST_DETECTION, now_iso)
             if caddy_log:
                 history_db.ingest_caddy_battery_log(conn, caddy_log)
@@ -664,22 +709,45 @@ def _save_to_gallery(state_dir, canvas, now_iso):
     fill the gallery with visually-identical duplicates. Wrapped in the same
     catch-and-log containment as `_record_history()`: the gallery is an
     accessory, never allowed to fail a poll cycle - by the time this is
-    called, `panel.bin` has already been written.
+    called, `panel.bin` has already been written. The PNG is encoded into
+    memory first, then published through atomic_io.atomic_write() (a
+    same-directory-mkstemp-then-os.replace()), so a reader can never see a
+    half-written gallery file and a failed encode/write leaves no temp
+    file behind.
     """
     try:
         gallery_dir = _gallery_dir(state_dir)
         os.makedirs(gallery_dir, exist_ok=True)
         safe_name = now_iso.replace(":", "-") + ".png"
-        canvas.convert("RGB").save(os.path.join(gallery_dir, safe_name))
+        buffer = io.BytesIO()
+        canvas.convert("RGB").save(buffer, format="PNG")
+        atomic_io.atomic_write(os.path.join(gallery_dir, safe_name), buffer.getvalue())
         _prune_gallery(gallery_dir)
     except Exception as exc:
         print("poll_loop: gallery archive failed: %s: %s" % (type(exc).__name__, exc))
 
 
-def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
-    """One poll cycle. `snapshot=None` polls the live aggregators; a
-    non-None `snapshot` is a raw aggregator response dict injected by
-    tests (no live network call).
+def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None):
+    """One poll cycle, serialised across every process that shares
+    `state_dir` by `poll_cycle_lock()`: the lock is held for the cycle's
+    whole body, acquired before any state read. `lock_timeout_s`
+    is passed straight through to `poll_cycle_lock()` - `None` (the
+    systemd oneshot's default) waits up to `POLL_LOCK_WAIT_S`; `0` (the
+    companion's POST /poll-now) raises `PollBusy` at once rather than
+    ever blocking a request thread. See `_run_once_locked()` for the
+    cycle itself.
+    """
+    state_dir = state_dir or DEFAULT_STATE_DIR
+    with poll_cycle_lock(state_dir, lock_timeout_s):
+        return _run_once_locked(
+            snapshot=snapshot, state_dir=state_dir, geofence=geofence, caddy_log=caddy_log)
+
+
+def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
+    """The poll cycle itself, called by `run_once()` only while
+    `poll_cycle_lock()` is held. `snapshot=None` polls the live
+    aggregators; a non-None `snapshot` is a raw aggregator response dict
+    injected by tests (no live network call).
 
     Returns {"flight", "state", "panel_changed", "theme",
     "effective_theme", "tracked_runway", "source_fault",
@@ -1033,7 +1101,8 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             # route this cycle); "manual" via the operator-writable
             # registry (only when the static table has no entry - it wins
             # on a collision); "miss" resolved nothing.
-            route, route_source = enrich.resolve_route(current_flight.get("callsign"), cache)
+            route, route_source = enrich.resolve_route(
+                current_flight.get("callsign"), cache, now=now_s())
             enrich.trim_cache(cache)
             poll_state["enrichment_cache"] = cache
             # A "miss" is an unrecognized ICAO prefix - recorded so the
@@ -1178,6 +1247,10 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             state_dir, None, None, None, None,
             tracked_runway_id, source_fault, False, now_iso,
             caddy_log=caddy_log, wake_interval_s=effective_wake_interval_s,
+            # This cycle's own raw detection (`flight`), not what reached
+            # the display (`current_flight`, unchanged here) - a distinct
+            # aircraft that only got queued is still a real detection.
+            detected=flight is not None,
         )
     else:
         # Nothing detected, and nothing has ever been detected since the
@@ -1294,11 +1367,22 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
         run_once(state_dir=args.state_dir, geofence=args.geofence, caddy_log=args.caddy_log)
+    except PollBusy as exc:
+        # Distinct from the generic failure below: another process (the
+        # companion, or an overlapping timer firing) is mid-cycle, not a
+        # cycle that itself failed. No traceback - this is an expected,
+        # bounded wait outcome, not a bug.
+        print(str(exc))
+        return 1
     except Exception as exc:
         # A failed cycle must leave the previously served panel intact and
         # never crash-loop the systemd timer silently - log to stdout
         # (journald captures this) and exit non-zero.
         print("poll_loop: cycle failed: %s: %s" % (type(exc).__name__, exc))
+        # journald captures stdout, not this process's own traceback
+        # rendering choices - a one-line summary alone leaves no way to
+        # tell which line raised without reproducing the failure locally.
+        traceback.print_exc(file=sys.stdout)
         return 1
     return 0
 

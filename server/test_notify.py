@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 """Contract tests for server/notify.py.
 
-Every test below injects its own fake `transport(url, title, body, timeout)`,
+Most tests below inject a fake `transport(url, title, body, timeout)`,
 mirroring `server/test_calendar_rules.py`'s own `make_calendar_transport()`
 idiom (`fetch_ics(transport=...)`'s injection seam) - no test here ever
 makes a real network call, and the SSRF test additionally asserts the
 transport was never even invoked (a call counter staying at zero), pinning
 that `send_notification()`'s own `_url_is_safe()` gate runs BEFORE any
 attempt to reach the network.
+
+The tests exercising the REAL `default_notify_transport()` (the pinned
+connection itself) use `server/test_http_fetch.py`'s own fake-socket
+technique: a byte-at-a-time raw reader wrapped in `io.BufferedReader` so
+the response is parsed through `http.client`'s real status-line/header
+parser, and a fake SSL context recording `wrap_socket()` calls - no test
+here opens a real socket either way.
 """
 import io
 import os
 import socket
 import sys
-import urllib.request
-from urllib.response import addinfourl
 
 import pytest
 
@@ -25,6 +30,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import server.notify as notify  # noqa: E402
+from server import http_fetch  # noqa: E402
 
 # send_notification()'s first line is calendar_rules._url_is_safe(), which
 # for a real "https://ntfy.sh/..." topic URL does a genuine
@@ -54,10 +60,9 @@ def _stub_ntfy_sh_dns(monkeypatch):
 
 
 class _FakeNotifyResponse:
-    """A hermetic stand-in for the response object
+    """A hermetic stand-in for the `http_fetch.PinnedResponse`
     `default_notify_transport()` would otherwise return from a real
-    `urllib.request.urlopen()` call - built from a fixed status only,
-    never a live call.
+    call - built from a fixed status only, never a live call.
     """
 
     def __init__(self, status=200):
@@ -129,6 +134,136 @@ def test_ssrf_gate_refuses_before_ever_calling_the_transport():
         )
 
 
+# --- Fakes for the real default_notify_transport() -> http_fetch.
+# pinned_request() path (no injected transport) - server/test_http_fetch.
+# py's own technique: a byte-at-a-time raw reader wrapped in io.
+# BufferedReader (so the response is parsed through http.client's real
+# status-line/header parser) and a fake SSL context recording
+# wrap_socket() calls, rather than a hand-rolled response stub.
+
+
+class _RawByteAtATimeReader(io.RawIOBase):
+    def __init__(self, data):
+        super().__init__()
+        self._data = data
+        self._pos = 0
+
+    def readable(self):
+        return True
+
+    def readinto(self, b):
+        if self._pos >= len(self._data):
+            return 0
+        b[0] = self._data[self._pos]
+        self._pos += 1
+        return 1
+
+
+def _canned_pinned_response(status_line="HTTP/1.1 200 OK", headers=None, body=b""):
+    headers = dict(headers) if headers is not None else {"Content-Length": str(len(body))}
+    lines = [status_line] + ["%s: %s" % (k, v) for k, v in headers.items()]
+    header_bytes = ("\r\n".join(lines) + "\r\n\r\n").encode("ascii")
+    return header_bytes + body
+
+
+class _FakePinnedSocket:
+    def __init__(self, response_bytes):
+        self.sent = b""
+        self.timeouts = []
+        self._response_bytes = response_bytes
+        self.closed = False
+
+    def sendall(self, data):
+        self.sent += data
+
+    def makefile(self, mode="r", *args, **kwargs):
+        return io.BufferedReader(_RawByteAtATimeReader(self._response_bytes))
+
+    def settimeout(self, value):
+        self.timeouts.append(value)
+
+    def close(self):
+        self.closed = True
+
+
+class _FakePinnedSSLContext:
+    def __init__(self):
+        self.wrap_calls = []
+
+    def wrap_socket(self, sock, server_hostname=None):
+        self.wrap_calls.append({"sock": sock, "server_hostname": server_hostname})
+        return sock
+
+
+def test_default_transport_builds_the_expected_request(monkeypatch):
+    """default_notify_transport(), with no injected fake, connects through http_fetch.pinned_request(): the checked public address (from the autouse ntfy.sh DNS stub) is the one create_connection() is called with, the request line and headers carry the POST/Title/Content-Type this module builds, and the body bytes are sent."""
+    fake_sock = _FakePinnedSocket(_canned_pinned_response(body=b""))
+    cc_calls = []
+
+    def fake_create_connection(address, timeout):
+        cc_calls.append(address)
+        return fake_sock
+
+    monkeypatch.setattr(socket, "create_connection", fake_create_connection)
+    monkeypatch.setattr(http_fetch, "_default_ssl_context", lambda: _FakePinnedSSLContext())
+
+    response = notify.default_notify_transport("https://ntfy.sh/skypane-test", "Hello", "World", 5)
+
+    assert cc_calls == [("93.184.216.34", 443)], "expected the checked public address, got %r" % (cc_calls,)
+    assert response.status_code == 200, "expected a 200 response, got %r" % (response.status_code,)
+    assert fake_sock.sent.startswith(b"POST /skypane-test HTTP/1.1"), (
+        "expected a POST request line, got %r" % (fake_sock.sent[:40],))
+    assert b"Title: Hello" in fake_sock.sent
+    assert b"Content-Type: text/plain; charset=utf-8" in fake_sock.sent
+    assert fake_sock.sent.endswith(b"World"), "expected the body bytes sent, got %r" % (fake_sock.sent[-20:],)
+
+
+def test_no_redirect_handler_refuses_a_302_to_an_internal_address_and_never_fetches_it(monkeypatch):
+    """default_notify_transport() never follows a redirect itself (http_fetch.pinned_request()'s own contract): a 302 pointing at an internal address (169.254.169.254) comes back unfollowed, send_notification() returns False, and only the ONE connection to the checked public address is ever made - the internal redirect target is never resolved or connected to."""
+    fake_sock = _FakePinnedSocket(_canned_pinned_response(
+        status_line="HTTP/1.1 302 Found",
+        headers={"Location": "http://169.254.169.254/latest/meta-data/", "Content-Length": "0"},
+    ))
+    cc_calls = []
+
+    def fake_create_connection(address, timeout):
+        cc_calls.append(address)
+        return fake_sock
+
+    monkeypatch.setattr(socket, "create_connection", fake_create_connection)
+    monkeypatch.setattr(http_fetch, "_default_ssl_context", lambda: _FakePinnedSSLContext())
+
+    ok = notify.send_notification("https://ntfy.sh/skypane-test", "t", "b")
+
+    assert ok is False, "expected send_notification() to return False for a 302 response, got %r" % (ok,)
+    assert cc_calls == [("93.184.216.34", 443)], (
+        "expected exactly one connection (the checked public address only) - the internal "
+        "redirect target must never be connected to: %r" % (cc_calls,)
+    )
+
+
+def test_default_transport_passes_the_notify_deadline_to_pinned_request(monkeypatch):
+    """default_notify_transport() passes NOTIFY_DEADLINE_S as pinned_request()'s deadline_s, alongside the POST method, the caller's timeout, and the Title/body it builds - proving the notify POST is bounded by the same total-wall-clock-deadline primitive the calendar fetch uses."""
+    captured = {}
+
+    def fake_pinned_request(method, url, **kwargs):
+        captured["method"] = method
+        captured["url"] = url
+        captured.update(kwargs)
+        return _FakeNotifyResponse(200)
+
+    monkeypatch.setattr(http_fetch, "pinned_request", fake_pinned_request)
+
+    notify.default_notify_transport("https://ntfy.sh/skypane-test", "Hello", "World", 5)
+
+    assert captured["method"] == "POST"
+    assert captured["url"] == "https://ntfy.sh/skypane-test"
+    assert captured["timeout"] == 5
+    assert captured["deadline_s"] == notify.NOTIFY_DEADLINE_S
+    assert captured["headers"]["Title"] == "Hello"
+    assert captured["body"] == b"World"
+
+
 def test_body_for_lang_returns_french_or_falls_back_to_english():
     expected_fr = "Batterie revenue à la normale"
     got_fr = notify.body_for_lang(notify.BATTERY_OK_BODY, "fr")
@@ -141,67 +276,4 @@ def test_body_for_lang_returns_french_or_falls_back_to_english():
         )
 
 
-def test_default_transport_builds_the_expected_request(monkeypatch):
-    captured = {}
-
-    class _FakeOpener:
-        def open(self, request, timeout=None):
-            captured["method"] = request.get_method()
-            captured["title"] = request.get_header("Title")
-            captured["content_type"] = request.get_header("Content-type")
-            captured["data"] = request.data
-            captured["timeout"] = timeout
-            return _FakeNotifyResponse(200)
-
-    # default_notify_transport() goes through
-    # `_NO_REDIRECT_OPENER.open()`, not `urllib.request.urlopen()` - patch
-    # the module's opener itself rather than `urlopen`.
-    monkeypatch.setattr(notify, "_NO_REDIRECT_OPENER", _FakeOpener())
-
-    notify.default_notify_transport("https://ntfy.sh/skypane-test", "Hello", "World", 5)
-
-    assert captured.get("method") == "POST", "expected method POST, got %r" % (captured.get("method"),)
-    assert captured.get("title") == "Hello", "expected Title header 'Hello', got %r" % (captured.get("title"),)
-    assert captured.get("data") == b"World", "expected body b'World', got %r" % (captured.get("data"),)
-    assert captured.get("timeout") == 5, "expected timeout 5, got %r" % (captured.get("timeout"),)
-
-
-def test_no_redirect_handler_refuses_a_302_to_an_internal_address_and_never_fetches_it(monkeypatch):
-    """default_notify_transport()'s _NoRedirectHandler refuses a 302 pointing at an internal address (169.254.169.254) outright - send_notification() returns False and the redirect target is never fetched."""
-    # default_notify_transport() must never automatically follow a
-    # redirect - a validated public HTTPS topic URL can still answer with
-    # a 3xx pointing at an internal address (e.g.
-    # http://169.254.169.254/...). This drives the REAL
-    # default_notify_transport()/_NO_REDIRECT_OPENER wiring, not an
-    # injected fake transport (which would bypass the fix entirely) - a
-    # fake urllib handler stands in for the network layer only, one level
-    # below the opener, mirroring server/test_calendar_rules.py's own
-    # "assert the redirect target's call count stays at zero" style.
-    calls = []
-    internal_target = "http://169.254.169.254/latest/meta-data/"
-
-    class _FakeRedirectingHandler(urllib.request.BaseHandler):
-        # Lower than the real HTTPHandler/HTTPSHandler's default 500, so
-        # this fake always answers first and no real socket is ever
-        # opened.
-        handler_order = 100
-
-        def http_open(self, req):
-            calls.append(req.full_url)
-            resp = addinfourl(io.BytesIO(b""), {"location": internal_target}, req.full_url, 302)
-            resp.msg = "Found"
-            return resp
-
-        https_open = http_open
-
-    fake_opener = urllib.request.build_opener(_FakeRedirectingHandler(), notify._NoRedirectHandler())
-    monkeypatch.setattr(notify, "_NO_REDIRECT_OPENER", fake_opener)
-
-    ok = notify.send_notification("https://ntfy.sh/skypane-test", "t", "b")
-
-    assert ok is False, "expected send_notification() to return False for a 302 response, got %r" % (ok,)
-    assert calls == ["https://ntfy.sh/skypane-test"], (
-        "expected exactly one request (the original URL only) and the internal redirect target %r "
-        "to never be fetched: %r" % (internal_target, calls)
-    )
 

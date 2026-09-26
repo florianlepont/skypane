@@ -17,8 +17,14 @@ display whatever panel image you serve.
 
 The image must be exactly 960,000 bytes in the PROTOCOL.md §1 format
 (the calibration patterns in first-flash/bins/ work); swap the file on
-disk and the next poll serves the new content via its hash. Enrolment
-is gated by a per-device registry (devices.json in --state-dir maps
+disk and the next poll advertises the new content's own hash. Each
+GET /device/v1/display publishes the served image under
+<state-dir>/img/<sha256>.bin (content-addressed, keeping the newest
+IMG_KEEP files) before answering, so GET /img/<sha>.bin always serves
+exactly the bytes that hash names, even if the on-disk --image changes
+before the device downloads; any other /img/ path, or a hash never
+published, is 404. Enrolment is gated by a per-device registry
+(devices.json in --state-dir maps
 each MAC to the SHA-256 of its own enrolment secret, managed with
 stub-server/devices_cli.py); a missing or unreadable registry refuses
 every enrolment rather than falling back to open. Issued tokens live
@@ -46,6 +52,7 @@ import os
 import re
 import secrets
 import sys
+import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -88,6 +95,88 @@ BATTERY_CRITICAL_SLEEP_S = 3600
 BATTERY_CRITICAL_RECOVER_MV = 3700
 
 
+def _read_umask():
+    """Return the process umask without racing another thread's
+    umask-sensitive open() the way os.umask(0)/os.umask(old) read-then-
+    restore would. Mirrors server/atomic_io.py's helper of the same name
+    byte-for-byte in intent (a local copy - see _atomic_write below for
+    why); a behaviour-parity test in test_byos_hardening.py pins the two
+    to the same observable default mode.
+    """
+    try:
+        with open("/proc/self/status") as fh:
+            for line in fh:
+                if line.startswith("Umask:"):
+                    return int(line.split(":", 1)[1].strip(), 8)
+    except OSError:
+        pass
+    old = os.umask(0)
+    os.umask(old)
+    return old
+
+
+# open(path, "w") on a fresh path has always produced 0o666 & ~umask; this
+# is _atomic_write's default so migrating a caller from open() to
+# _atomic_write() does not silently change its file's mode.
+_DEFAULT_FILE_MODE = 0o666 & ~_read_umask()
+
+
+def _atomic_write(path, data, mode=None):
+    """Write `data` (bytes, or str encoded as UTF-8) to `path` via a
+    same-directory unique-name temp file, fsync, then os.replace -
+    never a partial write, never a stray temp file left behind on any
+    failure. This is a local copy of server/atomic_io.py's atomic_write()
+    with the same observable contract (unique temp name, requested mode
+    set on the temp file's descriptor before any byte is written, never
+    chmod'ed after the rename, fsynced before the rename, temp removed
+    and the exception re-raised on any failure) - byos must never import
+    server.* (stub-server/VENDOR.md's vendor boundary); a behaviour-
+    parity test in test_byos_hardening.py pins the two to the same
+    contract instead of a source-text drift guard.
+    """
+    if isinstance(data, str):
+        payload = data.encode("utf-8")
+    elif isinstance(data, bytes):
+        payload = data
+    else:
+        raise TypeError(
+            "byos_server._atomic_write: data must be bytes or str, got %s"
+            % type(data).__name__)
+
+    directory = os.path.dirname(path) or "."
+    prefix = "." + os.path.basename(path) + "."
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix=prefix, suffix=".tmp")
+    try:
+        os.fchmod(fd, mode if mode is not None else _DEFAULT_FILE_MODE)
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(payload)
+            fh.flush()
+            os.fsync(fh.fileno())
+    except BaseException:
+        # os.fdopen's own `with` already closed fd if it got that far;
+        # closing it again raises, which the failed write should not mask.
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
+        raise
+
+    committed = False
+    try:
+        os.replace(tmp, path)
+        committed = True
+    finally:
+        if not committed:
+            try:
+                os.unlink(tmp)
+            except FileNotFoundError:
+                pass
+
+
 def state_path(state_dir):
     return os.path.join(state_dir, "byos_state.json")
 
@@ -101,10 +190,7 @@ def load_state(state_dir):
 
 
 def save_state(state_dir, state):
-    tmp = state_path(state_dir) + ".tmp"
-    with open(tmp, "w") as fh:
-        json.dump(state, fh, indent=1)
-    os.replace(tmp, state_path(state_dir))
+    _atomic_write(state_path(state_dir), json.dumps(state, indent=1))
 
 
 # --- Per-device enrolment registry -----------------------------------
@@ -153,16 +239,13 @@ def load_registry(state_dir):
 
 
 def save_registry(state_dir, registry):
-    """Atomically write `registry` to devices.json, created 0600 via
-    os.open (never chmod after, so never briefly world-readable). Holds
-    only SHA-256 hashes, never a plaintext secret.
+    """Atomically write `registry` to devices.json via _atomic_write with
+    mode=0o600 (set on the temp file's descriptor before any byte is
+    written, never chmod'ed after the rename, so the registry is never
+    briefly world-readable). Holds only SHA-256 hashes, never a plaintext
+    secret.
     """
-    path = registry_path(state_dir)
-    tmp = path + ".tmp"
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as fh:
-        json.dump(registry, fh, indent=1)
-    os.replace(tmp, path)
+    _atomic_write(registry_path(state_dir), json.dumps(registry, indent=1), mode=0o600)
 
 
 def register_device(state_dir, mac, secret_sha256, replace=False):
@@ -427,6 +510,70 @@ def quiet_hours_sleep_s(base_sleep_s, state_dir, now=None):
     return max(base_sleep_s, remaining)
 
 
+IMG_DIRNAME = "img"
+# The newest N published panel images kept on disk; a poll that lands
+# between more than this many distinct panels in one wake would see a
+# 404 on download, retried like any other failed download - the
+# firmware treats it exactly the same as a stale server.
+IMG_KEEP = 8
+
+_IMG_NAME_RE = re.compile(r"\A[0-9a-f]{64}\.bin\Z")
+_IMG_PATH_RE = re.compile(r"\A/img/([0-9a-f]{64})\.bin\Z")
+
+
+def _img_dir(state_dir):
+    return os.path.join(state_dir, IMG_DIRNAME)
+
+
+def _publish_image(state_dir, digest, image):
+    """Ensure <state_dir>/img/<digest>.bin holds `image`'s bytes and is
+    the newest file in img/ (so a re-advertised digest survives
+    pruning), then prune img/ down to IMG_KEEP files. Raises OSError on
+    any filesystem failure (a full or read-only state dir) - the caller
+    must answer 503 rather than advertise a hash it cannot serve.
+    """
+    img_dir = _img_dir(state_dir)
+    os.makedirs(img_dir, exist_ok=True)
+    path = os.path.join(img_dir, "%s.bin" % digest)
+    if os.path.exists(path):
+        os.utime(path, None)
+    else:
+        _atomic_write(path, image)
+    _prune_images(img_dir, keep_digest=digest)
+
+
+def _prune_images(img_dir, keep_digest):
+    """Keep at most IMG_KEEP files in img/, newest by mtime first, and
+    never remove `keep_digest`'s file even if it is not among the
+    newest IMG_KEEP by mtime. Names not matching _IMG_NAME_RE are
+    ignored (never counted, never removed); a file removed by a
+    concurrent pruner is tolerated.
+    """
+    try:
+        names = [name for name in os.listdir(img_dir) if _IMG_NAME_RE.match(name)]
+    except OSError:
+        return
+
+    def _mtime(name):
+        try:
+            return os.stat(os.path.join(img_dir, name)).st_mtime
+        except OSError:
+            return -1.0
+
+    names.sort(key=_mtime, reverse=True)
+    keep_name = "%s.bin" % keep_digest
+    survivors = names[:IMG_KEEP]
+    if keep_name not in survivors:
+        survivors = survivors[:max(0, IMG_KEEP - 1)] + [keep_name]
+    for name in names:
+        if name in survivors:
+            continue
+        try:
+            os.remove(os.path.join(img_dir, name))
+        except FileNotFoundError:
+            pass
+
+
 def battery_state_path(state_dir):
     return os.path.join(state_dir, "battery_state.json")
 
@@ -453,22 +600,36 @@ def parse_battery_mv(raw):
 
 def save_battery_state(state_dir, mv):
     """Persist {"battery_mv": mv, "received_at": time.time()} to
-    battery_state.json, atomically (tmp-write then os.replace()). The
-    only writer of that file anywhere in the repo -
+    battery_state.json via _atomic_write (unique temp name, fsync,
+    os.replace). The only writer of that file anywhere in the repo -
     server/poll_loop.py only reads it, avoiding a read-modify-write
     race between two processes on one JSON file.
     """
     path = battery_state_path(state_dir)
-    tmp = path + ".tmp"
-    with open(tmp, "w") as fh:
-        json.dump({"battery_mv": mv, "received_at": time.time()}, fh, indent=1)
-    os.replace(tmp, path)
+    _atomic_write(path, json.dumps({"battery_mv": mv, "received_at": time.time()}, indent=1))
+
+
+# Largest legitimate device body (a batched log upload); anything above
+# this is refused with 413 before a single byte of it is read.
+MAX_BODY_BYTES = 64 * 1024
+
+# Applied to every accepted connection's socket (StreamRequestHandler.setup()
+# reads this class attribute) so a client that stops sending mid-request -
+# or never sends a request line at all - cannot pin a handler thread
+# forever; main() overrides it from --request-timeout.
+REQUEST_TIMEOUT_S = 15.0
+
+# Sentinel Handler.read_body_json() returns after it has already answered
+# 400/413 itself for a malformed or oversized Content-Length - the caller
+# must return immediately without sending a second response.
+_BAD_LENGTH = object()
 
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "flightportrait-byos-example"
     args = None
     state = None
+    timeout = REQUEST_TIMEOUT_S
 
     def send_json(self, code, obj):
         body = json.dumps(obj).encode()
@@ -479,16 +640,57 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def read_body_json(self):
+        """Return the parsed JSON body, None for a body that is present
+        but not valid UTF-8 JSON (or one whose nesting recurses past the
+        decoder's limit), or the _BAD_LENGTH sentinel after already
+        answering 400/413 for a malformed or oversized Content-Length -
+        the body is never read in that case (an unbounded negative
+        length would otherwise read to EOF and block; an oversized
+        body's unread tail would otherwise be parsed as the start of the
+        next request), and self.close_connection is set so the
+        connection is not reused after either error.
+        """
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            length = 0
+        else:
+            try:
+                length = int(raw_length)
+            except ValueError:
+                length = -1
+            if length < 0:
+                self.close_connection = True
+                self.send_json(400, {"detail": "bad content-length"})
+                return _BAD_LENGTH
+            if length > MAX_BODY_BYTES:
+                self.close_connection = True
+                self.send_json(413, {"detail": "body too large"})
+                return _BAD_LENGTH
         try:
-            n = int(self.headers.get("Content-Length", "0"))
-            return json.loads(self.rfile.read(n).decode())
-        except (ValueError, UnicodeDecodeError):
+            return json.loads(self.rfile.read(length).decode())
+        except (ValueError, UnicodeDecodeError, RecursionError):
             return None
 
     def bearer_ok(self):
+        """True iff the presented bearer token equals one of the stored
+        tokens. Every stored token is compared with hmac.compare_digest
+        (no early exit on the first mismatch, so the check's timing does
+        not depend on which token index would have matched), both sides
+        encoded with UTF-8/surrogateescape so a non-ASCII presented value
+        (an already-decoded str; the header block itself is parsed as
+        Latin-1, so no byte sequence a client sends can raise here)
+        degrades to "no match" instead of raising.
+        """
         auth = self.headers.get("Authorization", "")
-        return (auth.startswith("Bearer ") and
-                auth[7:] in self.state["tokens"].values())
+        if not auth.startswith("Bearer "):
+            return False
+        presented = auth[len("Bearer "):].encode("utf-8", "surrogateescape")
+        matched = False
+        for stored in list(self.state["tokens"].values()):
+            stored_bytes = stored.encode("utf-8", "surrogateescape")
+            if hmac.compare_digest(presented, stored_bytes):
+                matched = True
+        return matched
 
     def log_telemetry(self):
         parts = []
@@ -503,6 +705,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/device/v1/setup":
             body = self.read_body_json()
+            if body is _BAD_LENGTH:
+                return None  # read_body_json() already answered 400/413
             mac = normalize_mac(body.get("mac")) if isinstance(body, dict) else None
             if mac is None:
                 return self.send_json(422, {"detail": "bad body"})
@@ -528,11 +732,18 @@ class Handler(BaseHTTPRequestHandler):
             if not self.bearer_ok():
                 return self.send_json(401, {"detail": "unknown token"})
             body = self.read_body_json()
+            if body is _BAD_LENGTH:
+                return None  # read_body_json() already answered 400/413
             if not isinstance(body, dict) or \
                     not isinstance(body.get("logs"), list):
                 return self.send_json(422, {"detail": "bad body"})
             self.log_telemetry()
             for entry in body["logs"]:
+                if not isinstance(entry, dict):
+                    # A hostile or buggy client's non-dict entry (int,
+                    # str, null, ...) is skipped, never raised on - entry.get
+                    # below would otherwise crash the whole request.
+                    continue
                 print("  frame log [%s] %s (ts=%s)"
                       % (entry.get("level", "error"),
                          entry.get("message", ""), entry.get("ts")))
@@ -566,6 +777,10 @@ class Handler(BaseHTTPRequestHandler):
             if len(image) != IMAGE_BYTES:
                 return self.send_json(503, {"detail": "image wrong size"})
             digest = hashlib.sha256(image).hexdigest()
+            try:
+                _publish_image(self.args.state_dir, digest, image)
+            except OSError:
+                return self.send_json(503, {"detail": "image unavailable"})
             host = self.headers.get("Host", "localhost")
             return self.send_json(200, {
                 "image_url": "%s://%s/img/%s.bin" % (
@@ -595,12 +810,14 @@ class Handler(BaseHTTPRequestHandler):
                 # (server/device_config.py's save_device_config()).
                 "led_enabled": read_led_enabled(self.args.state_dir),
             })
-        if self.path.startswith("/img/"):
+        match = _IMG_PATH_RE.match(self.path)
+        if match is not None:
+            path = os.path.join(_img_dir(self.args.state_dir), "%s.bin" % match.group(1))
             try:
-                with open(self.args.image, "rb") as fh:
+                with open(path, "rb") as fh:
                     image = fh.read()
             except OSError:
-                return self.send_json(503, {"detail": "image unreadable"})
+                return self.send_json(404, {"detail": "unknown image"})
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
             self.send_header("Content-Length", str(len(image)))
@@ -610,7 +827,14 @@ class Handler(BaseHTTPRequestHandler):
         return self.send_json(404, {"detail": "unknown endpoint"})
 
     def log_message(self, fmt, *fmt_args):
-        print("%s %s" % (self.command, self.path))
+        # getattr, not self.command/self.path directly: a TimeoutError
+        # raised while reading the request line itself (a client that
+        # connects and sends nothing) is caught by
+        # BaseHTTPRequestHandler.handle_one_request() before
+        # parse_request() ever runs, so this instance may have neither
+        # attribute yet - a direct reference would turn that timeout log
+        # into an unhandled AttributeError.
+        print("%s %s" % (getattr(self, "command", None), getattr(self, "path", "")))
 
 
 def main():
@@ -635,6 +859,9 @@ def main():
                          "TLS-terminating reverse proxy (e.g. Caddy), so "
                          "the panel download is not silently downgraded "
                          "to plaintext.")
+    ap.add_argument("--request-timeout", type=float, default=REQUEST_TIMEOUT_S,
+                    help="seconds before a connected-but-stalled client's "
+                         "socket is closed (default: %(default)s)")
     args = ap.parse_args()
     if not os.path.exists(args.image):
         sys.exit("no such image: %s" % args.image)
@@ -651,6 +878,7 @@ def main():
 
     Handler.args = args
     Handler.state = load_state(args.state_dir)
+    Handler.timeout = args.request_timeout
     server = ThreadingHTTPServer(("0.0.0.0", args.port), Handler)
     print("serving %s on port %d — point the frame at http://<this-host>:%d"
           % (args.image, args.port, args.port))

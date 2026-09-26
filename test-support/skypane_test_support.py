@@ -189,6 +189,7 @@ class FakeResponse:
         self._body = body
         self.headers = {}
         self.url = ""
+        self.closed = False
 
     def json(self):
         if self._body is None:
@@ -200,6 +201,26 @@ class FakeResponse:
         if self._body is None:
             return ""
         return json.dumps(self._body)
+
+    @property
+    def content(self):
+        if self._body is None:
+            return b""
+        return json.dumps(self._body).encode("utf-8")
+
+    def iter_content(self, chunk_size=1, decode_unicode=False):
+        """Yield the JSON-encoded body in `chunk_size` slices, so a caller
+        streaming through `requests.Response.iter_content()` (bounded_get,
+        the calendar fetch's redirect-following loop) keeps working against
+        this fake. Nothing is yielded when the body is None (mirrors a
+        body-less response such as a 204).
+        """
+        payload = self.content
+        for start in range(0, len(payload), chunk_size):
+            yield payload[start:start + chunk_size]
+
+    def close(self):
+        self.closed = True
 
     def raise_for_status(self):
         if self.status_code >= 400:
