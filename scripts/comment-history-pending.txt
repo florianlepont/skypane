@@ -1,3 +1,0 @@
-# Files not yet purged of plan/ticket-history references in comments.
-# check_comment_history.py check skips these paths by default. Each
-# group's closing commit shrinks this list; the last one deletes it.

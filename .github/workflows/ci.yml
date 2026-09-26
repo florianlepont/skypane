@@ -93,15 +93,13 @@ jobs:
         run: server/.venv/bin/ruff check .
 
       - name: Comment history guard
-        # Keeps history references out of comments; the pending list only
-        # shrinks as files are purged.
+        # Keeps plan/ticket history references out of comments, over the
+        # whole tracked tree.
         run: server/.venv/bin/python scripts/check_comment_history.py check
 
       - name: Shellcheck deploy scripts
-        # shellcheck is preinstalled on the ubuntu-24.04 runner image
-        # (the standard toolset). Reads each file's own shebang, so the
-        # POSIX-sh Mac scripts under deploy/backup/mac/ are checked
-        # against the right dialect too, no --shell override needed.
+        # Reads each file's own shebang, so the POSIX-sh Mac scripts under
+        # deploy/backup/mac/ are checked against the right dialect too.
         run: find deploy -name '*.sh' -print0 | xargs -0 shellcheck
 
       - name: Score systemd units (offline, fail above 2.0)

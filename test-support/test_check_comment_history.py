@@ -328,6 +328,28 @@ def test_same_code_python_keeps_module_docstring_when_dunder_doc_read(scratch_re
     assert differing != [], "a changed module docstring must count as code when __doc__ is read"
 
 
+def test_same_code_python_ignores_docstring_when_dunder_doc_only_in_a_string_literal(scratch_repo):
+    """A string literal that merely spells `__doc__` (e.g. test fixture data
+    for a static-analysis guard) must not be mistaken for the module reading
+    its own docstring -- the AST check looks for a real `ast.Name` load, not
+    a text substring."""
+    _write(scratch_repo / "m.py", '"""Old help text."""\nX = "__doc__"\n')
+    base = _commit_all(scratch_repo, "base")
+    _write(scratch_repo / "m.py", '"""New help text."""\nX = "__doc__"\n')
+    differing = cch.same_code(str(scratch_repo), base, paths=["m.py"])
+    assert differing == [], "a __doc__ substring inside a string literal must not pin the docstring"
+
+
+def test_same_code_python_ignores_docstring_when_dunder_doc_is_attribute_access(scratch_repo):
+    """`other_module.__doc__` reads someone else's docstring, not this
+    module's own -- must not trigger the keep-module-doc heuristic."""
+    _write(scratch_repo / "m.py", '"""Old help text."""\nimport sys\nX = sys.__doc__\n')
+    base = _commit_all(scratch_repo, "base")
+    _write(scratch_repo / "m.py", '"""New help text."""\nimport sys\nX = sys.__doc__\n')
+    differing = cch.same_code(str(scratch_repo), base, paths=["m.py"])
+    assert differing == [], "an attribute access to another object's __doc__ must not pin the docstring"
+
+
 def test_same_code_allow_suppresses_a_listed_file(scratch_repo):
     _write(scratch_repo / "m.py", "def f():\n    return 1\n")
     base = _commit_all(scratch_repo, "base")
@@ -457,6 +479,41 @@ def test_same_code_pragma_multiset_change_alone_differs_for_hash_format(scratch_
     assert differing != []
 
 
+@pytest.mark.parametrize("directive", [
+    "# shellcheck disable=SC2086",
+    "# shellcheck enable=all",
+    "# shellcheck source=./lib.sh",
+    "# shellcheck shell=bash",
+    "# shellcheck external-sources=true",
+])
+def test_pragma_multiset_matches_every_real_shellcheck_directive_shape(directive):
+    assert sum(cch._pragma_spdx_multiset(directive).values()) == 1
+
+
+def test_pragma_multiset_ignores_shellcheck_prose_that_is_not_a_directive():
+    """A sentence that merely starts with the word "shellcheck" (describing
+    the tool, not invoking a directive) must not be treated as a pragma --
+    it is free to be edited like any other comment."""
+    prose = "# shellcheck is preinstalled on the ubuntu-24.04 runner image"
+    assert dict(cch._pragma_spdx_multiset(prose)) == {}
+
+
+def test_same_code_shellcheck_prose_comment_may_be_reworded(scratch_repo):
+    _write(scratch_repo / "m.sh", "#!/bin/sh\n# shellcheck is preinstalled here\necho hi\n")
+    base = _commit_all(scratch_repo, "base")
+    _write(scratch_repo / "m.sh", "#!/bin/sh\n# shellcheck ships with the runner\necho hi\n")
+    differing = cch.same_code(str(scratch_repo), base, paths=["m.sh"])
+    assert differing == [], "prose starting with 'shellcheck' is not a pragma and may be reworded"
+
+
+def test_same_code_real_shellcheck_directive_must_stay_byte_identical(scratch_repo):
+    _write(scratch_repo / "m.sh", "#!/bin/sh\n# shellcheck disable=SC2086\necho hi\n")
+    base = _commit_all(scratch_repo, "base")
+    _write(scratch_repo / "m.sh", "#!/bin/sh\n# shellcheck disable=SC2154\necho hi\n")
+    differing = cch.same_code(str(scratch_repo), base, paths=["m.sh"])
+    assert differing != [], "changing a real shellcheck directive's value must still be flagged"
+
+
 # ---------------------------------------------------------------------------
 # ratio
 # ---------------------------------------------------------------------------
@@ -516,19 +573,21 @@ def test_check_flags_planted_id_in_temp_git_repo(scratch_repo):
     assert "clean.py" in result.stdout
 
 
-def test_check_paths_flag_ignores_pending_list(scratch_repo):
-    _write(scratch_repo / "pending.py", "x = 1  # see D-06\n")
-    (scratch_repo / "scripts").mkdir()
-    _write(scratch_repo / "scripts" / "comment-history-pending.txt", "pending.py\n")
+def test_check_no_args_scans_every_tracked_file(scratch_repo):
+    """`check` with no `--paths` scans every tracked code file, with no
+    exceptions list to skip past (the pending mechanism was removed in
+    35-22 once every group had been purged)."""
+    _write(scratch_repo / "any.py", "x = 1  # see D-06\n")
     subprocess.run(["git", "add", "-A"], cwd=scratch_repo, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=scratch_repo, check=True)
     result = subprocess.run(
-        [sys.executable, TOOL_PATH, "check", "--paths", "pending.py"],
+        [sys.executable, TOOL_PATH, "check"],
         cwd=scratch_repo,
         capture_output=True,
         text=True,
     )
-    assert result.returncode != 0, "explicit --paths must ignore the pending list"
+    assert result.returncode != 0, "check with no args must scan every tracked file"
+    assert "any.py" in result.stdout
 
 
 def test_tool_own_comments_pass_check():

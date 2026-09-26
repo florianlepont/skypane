@@ -506,9 +506,6 @@ def is_excluded(path):
 # check
 # ---------------------------------------------------------------------------
 
-PENDING_PATH = "scripts/comment-history-pending.txt"
-
-
 def git_ls_files(root="."):
     result = subprocess.run(
         ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
@@ -516,25 +513,9 @@ def git_ls_files(root="."):
     return [line for line in result.stdout.splitlines() if line]
 
 
-def load_pending(root="."):
-    path = os.path.join(root, PENDING_PATH)
-    if not os.path.isfile(path):
-        return set()
-    pending = set()
-    with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            pending.add(line)
-    return pending
-
-
 def check(paths=None, root="."):
     if paths is None:
         files = [f for f in git_ls_files(root) if not is_excluded(f)]
-        pending = load_pending(root)
-        files = [f for f in files if f not in pending]
     else:
         files = list(paths)
 
@@ -643,7 +624,7 @@ _PRAGMA_RE = re.compile(
     r"|#\s*noqa\b.*$"
     r"|#\s*type:\s*ignore\b.*$"
     r"|#\s*pragma:\s*no cover\b.*$"
-    r"|#\s*shellcheck\b.*$"
+    r"|#\s*shellcheck\s+(?:disable|enable|source|shell|external-sources)=.*$"
     r"|#\s*fmt:\s*\S+.*$"
     r"|#\s*ruff:\s*\S+.*$"
     r"|SPDX-License-Identifier:.*$"
@@ -696,8 +677,25 @@ def _python_ast_dump(source, keep_module_doc):
     return ast.dump(tree, annotate_fields=True, include_attributes=False)
 
 
+def _reads_module_dunder_doc(source):
+    """True only if the module loads its own `__doc__` global (the
+    `argparse.ArgumentParser(description=__doc__)` idiom), not merely
+    mentions the word in a string, comment, or as an attribute of some
+    other object (`mod.__doc__`)."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False
+    return any(
+        isinstance(node, ast.Name) and node.id == "__doc__" and isinstance(node.ctx, ast.Load)
+        for node in ast.walk(tree)
+    )
+
+
 def _same_code_python(base_text, working_text):
-    keep_module_doc = "__doc__" in base_text or "__doc__" in working_text
+    keep_module_doc = (
+        _reads_module_dunder_doc(base_text) or _reads_module_dunder_doc(working_text)
+    )
     try:
         base_dump = _python_ast_dump(base_text, keep_module_doc)
         work_dump = _python_ast_dump(working_text, keep_module_doc)
