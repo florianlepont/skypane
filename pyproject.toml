@@ -7,82 +7,46 @@
 
 [tool.ruff]
 # Applies repo-wide: server/, stub-server/, adsb-test/.
-# py314: production is Ubuntu 26.04's distro python3,
-# which is 3.14 - moved up from py311 alongside CI's setup-python bump.
+# Production is Ubuntu 26.04's distro python3, which is 3.14.
 target-version = "py314"
 
 [tool.ruff.lint]
-# Correctness-focused families only, selected explicitly rather than left
-# to the tool's evolving defaults (M3): pycodestyle errors (E4 import
-# placement, E7 statement-level errors), E9 (syntax/runtime errors), and F
-# (pyflakes — undefined names, unused imports, unreachable logic).
-#
-# Deliberately excluded: everything else, most notably pycodestyle's E501
-# and the "UP" (pyupgrade) family. Measured unconfigured (`ruff check .`
-# with no select) this tree reports 397 findings, 328 of them UP031
-# (printf-style string formatting — e.g. `"%s: %d/%d checks pass" % (...)`)
-# — the idiom every test harness and much of server/ uses consistently.
-# Rewriting 328 call sites of working, tested code for a stylistic
-# preference is change-risk with no correctness benefit, so UP (and every
-# other non-selected family) is left out of the selected set rather than
-# individually ignored. Broadening this selection later is a deliberate
-# follow-up once there's a reason to, not an oversight — this line is what
-# a reader in six months should trust as "we measured it and chose", not
-# "we never thought about it".
+# Correctness families only (E4/E7/E9 pycodestyle+syntax, F pyflakes).
+# UP and E501 excluded: unconfigured, this tree reports 397 findings,
+# 328 UP031 alone (printf-style formatting used throughout server/) --
+# a stylistic rewrite risk with no correctness benefit, not an oversight.
 select = ["E4", "E7", "E9", "F"]
 
-# E402 (module level import not at top of file) is suppressed repo-wide,
-# not code-fixed, because the 8 findings it produces (M4: 4 in
-# server/poll_loop.py, 3 in server/plane/render.py, 1 in
-# server/plane/enrich.py) are each the project's documented sys.path
-# bootstrap — the block, preceded by a comment, that inserts the repo root
-# onto sys.path so the file's absolute `server.*` imports resolve when the
-# file is executed directly as a script (`server/.venv/bin/python3
-# server/poll_loop.py`), which is the exact invocation server/README.md
-# prescribes for the whole test suite and for poll_loop.py itself.
-# Reordering these imports above the bootstrap would break that invocation
-# style, so the rule is suppressed here with this rationale rather than
-# the working code being rearranged to satisfy it.
+# E402 (import not at top) suppressed, not fixed: all 8 findings are the
+# documented sys.path bootstrap in server/poll_loop.py (4), render.py (3)
+# and enrich.py (1), needed so `server/.venv/bin/python3 server/poll_loop.py`
+# (server/README.md's own invocation) resolves its `server.*` imports.
 ignore = ["E402"]
 
 [tool.pytest.ini_options]
-# No [project] table exists in this file (see the
-# header comment above) and none is needed for pytest configuration -
-# [tool.pytest.ini_options] is pytest's own documented way to configure
-# itself from pyproject.toml without one.
 minversion = "9.0"
 
-# server/ has no __init__.py (server/test_*.py runs both as a package
-# member and as a direct script - see the E402 bootstrap comment above),
-# so the default "prepend" import mode would silently pollute sys.path
-# with server/'s own directory the first time two same-named test modules
-# existed anywhere in the tree. importlib mode imports each test module by
-# its fully qualified name instead, with no sys.path mutation.
+# server/ has no __init__.py (test files run both as package members and
+# direct scripts), so the default "prepend" import mode would pollute
+# sys.path with server/'s own directory on the first same-named test
+# module collision elsewhere in the tree.
 addopts = [
     "--import-mode=importlib",
     "--strict-markers",
     "--strict-config",
     "-ra",
     "-p", "no:legacypath",
-    # Non-loopback network guard: pytest-socket in
-    # allow-hosts mode only replaces socket.socket.connect - it does NOT
-    # patch socket.getaddrinfo/gethostbyname (verified against the
-    # installed pytest_socket 0.8.1 source),
-    # so a non-loopback DNS lookup is NOT blocked by these two flags
-    # alone. conftest.py's autouse _block_non_loopback_dns fixture closes
-    # that gap with its own guarded_resolvers(). --allow-unix-socket keeps
-    # AF_UNIX connects working (CONTEXT.md requirement); loopback servers
-    # (companion/app.py, stub-server/byos_server.py under test) stay
-    # reachable via --allow-hosts.
+    # pytest-socket's allow-hosts mode patches only socket.connect, not
+    # getaddrinfo/gethostbyname; conftest.py's autouse DNS-blocking
+    # fixture closes that gap. --allow-unix-socket keeps AF_UNIX open;
+    # loopback servers stay reachable via --allow-hosts.
     "--disable-socket",
     "--allow-unix-socket",
     "--allow-hosts=127.0.0.1,::1,localhost",
 ]
 testpaths = ["server", "stub-server", "companion", "test-support", "deploy"]
-# test-support/ holds the shared test contracts every later plan imports
-# as `import skypane_test_support` - both "." (repo root, so
-# `import server.plane.detect` resolves the same way production code
-# expects) and "test-support" need to be on sys.path before collection.
+# test-support/ holds shared contracts imported as `skypane_test_support`;
+# both repo root and test-support/ must be on sys.path before collection.
 pythonpath = [".", "test-support"]
 markers = [
     "slow: takes more than a few seconds",
@@ -93,46 +57,28 @@ markers = [
 xfail_strict = true
 
 [tool.coverage.run]
-# Parallel data files: the suite runs as pytest-xdist workers (one per CPU
-# by default, `scripts/run-all-tests.sh`'s `-n auto`) PLUS every
-# subprocess a test itself launches (byos_server.py, companion/app.py)
-# — each of those processes needs its own data file before pytest-cov's
-# end-of-session `coverage combine` merges them. Do NOT also set `append`
-# — coverage.py rejects that combination outright ("Can't append to data
-# files in parallel mode"), confirmed live (M2). Parallel mode already
-# gives each process its own file; append is the alternative to it, not a
-# companion.
+# Each pytest-xdist worker, plus every subprocess a test launches
+# (byos_server.py, companion/app.py), needs its own data file before
+# pytest-cov's end-of-session `coverage combine` merges them. Do NOT set
+# `append` too -- coverage.py rejects combining the two outright.
 parallel = true
 
-# coverage.py's own subprocess-measurement
-# mechanism (added 7.10; already satisfied by the pinned coverage 7.16.1).
-# pytest-cov 7+ removed its prior `.pth`-file auto-injection for
-# subprocess coverage, so this is the only supported mechanism left —
-# without it, every subprocess-launched child (byos_server.py,
-# companion/app.py) measures at a
-# permanent 0%, exactly the situation the old `omit` entries below existed
-# to paper over. `patch = ["subprocess"]` implies `parallel = true` (kept
-# explicit above for its own documentation value).
+# coverage.py's subprocess-measurement mechanism (pytest-cov 7+ dropped
+# its .pth-file auto-injection). Without it every subprocess-launched
+# child (byos_server.py, companion/app.py) measures at a permanent 0%.
+# Implies parallel=true above (kept explicit for its own documentation).
 patch = ["subprocess"]
 
-# coverage.py only writes a process's data file at a
-# normal interpreter exit unless `sigterm` is set, and every long-lived
-# child above (byos_server.py, companion/app.py) is stopped with
-# `proc.terminate()` — SIGTERM. Without this, those children saved
-# nothing and their HTTP request-handling code measured as unreached
-# (byos_server.py: 50% without, 91% with, on stub-server/test_poll_cycle.py
-# alone). A child killed with SIGKILL still saves nothing — that is a
-# failed run anyway.
+# coverage.py only saves a data file at normal interpreter exit unless
+# this is set; every long-lived child above is stopped with SIGTERM
+# (proc.terminate()). Without it, byos_server.py measured 50% instead
+# of 91% on stub-server/test_poll_cycle.py alone.
 sigterm = true
 
-# Source-scoped to this project's own code directories so library
-# internals (Pillow, requests, stdlib) are never counted toward the
-# measurement — an unscoped run makes any threshold meaningless
-# (an earlier unscoped run showed this concretely). "companion" is
-# covered for the harnesses that exercise it; "deploy/backup" for the
-# nightly snapshot job and pull gate; deploy/tests/ itself
-# and deploy/render_caddyfile.sh (a shell script, not measured by
-# coverage.py) are deliberately not listed here.
+# Scoped to this project's own code so library internals (Pillow,
+# requests, stdlib) never count toward the measurement. deploy/tests/
+# itself and deploy/render_caddyfile.sh (a shell script) are
+# deliberately not listed here.
 source = ["server", "stub-server", "companion", "deploy/backup"]
 
 omit = [
@@ -143,37 +89,5 @@ omit = [
 ]
 
 [tool.coverage.report]
-# Threshold: 93. Derivation (re-measuring the prior
-# floor): measured 93.35% total coverage once `sigterm = true` (above) let
-# every SIGTERM-stopped child (companion/app.py, stub-server/byos_server.py)
-# actually save its data — 32-15's 88.11% was measured without it, so it
-# mostly reflected in-process imports, not those servers' HTTP
-# request-handling code. Same source/omit scope (server + stub-server +
-# companion; only the three test_*.py globs above omitted), all 777 tests
-# passing, via `./scripts/run-all-tests.sh` (a full run, no extra
-# arguments, so the gate applies) run as a non-root user (`runuser -u
-# nobody`, matching GitHub CI's non-root runner — root ignores
-# read-only-directory permission bits, which changes 3 tests' pass/skip
-# outcome) on CPython 3.14.0rc2 (a scratch venv built from
-# server/requirements-dev.txt with --require-hashes; the CI interpreter),
-# measured 2026-09-24. 93 is the measured total rounded down with no
-# margin — the floor equals the measurement exactly, not a discount below
-# it, per this project's own coverage-floor decision (a legitimate refactor that shifts a few
-# statements is expected to nudge this number in a future plan, not be
-# absorbed by slack). This is a floor to ratchet upward as coverage
-# improves, never downward, and only moves when someone re-measures and
-# raises it — changing the `source` or `omit` lists above, or the
-# `[tool.coverage.run]` subprocess settings, invalidates this number
-# outright, since it stops describing what was actually measured the
-# moment the scope changes.
-#
-# Re-measured 2026-09-25 (33-33, after the companion tests moved to
-# pytest), same method: a full `./scripts/run-all-tests.sh` as `nobody`
-# (euid 65534) on CPython 3.14.0rc2, in a scratch venv built from
-# server/requirements-dev.txt with --require-hashes. 2594 passed, 0 skipped,
-# TOTAL 93.38% (9830 statements, 651 missed). The pre-migration tree
-# (d2c53a0) measured the same way gives 93.35%. The floor rounded down is
-# still 93, so the gate stays at 93. A root run of the same tree on the dev
-# venv (CPython 3.11) gives 93.26%, because the 5 requires_non_root tests
-# skip under euid 0.
+# Floor derivation: measured 93.38% total on 2026-09-25 (CPython 3.14.0rc2, ./scripts/run-all-tests.sh as non-root); ratchets upward only, never down.
 fail_under = 93
