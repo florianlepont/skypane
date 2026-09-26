@@ -16,7 +16,7 @@ __pycache__/
 *.pyc
 .venv/
 
-# --- Symlinked venv (phase 14 plan 14-01 Task 1) ---
+# --- Symlinked venv ---
 # server/.gitignore's `.venv/` pattern only matches a real directory; a
 # worktree that provisions server/.venv as a symlink to another
 # checkout's already-built venv (this phase's network-free bootstrap
@@ -27,13 +27,13 @@ __pycache__/
 # boundary: no file under server/ is modified by this phase).
 /server/.venv
 
-# --- Tooling caches this phase introduces (plan 04-02) ---
+# --- Tooling caches ---
 # Landed here before ruff/coverage ever run in the working tree, so
 # there is no window in which a cache file could land in git history.
 .ruff_cache/
 .coverage
 .coverage.*
-# Phase 32 (32-01): pytest's own cache directory (last-failed, cache/*).
+# pytest's own cache directory (last-failed, cache/*).
 .pytest_cache/
 
 # --- ESP-IDF build output at root scope ---
@@ -47,7 +47,7 @@ firmware/build*/
 # not project content (see F4).
 .claude/worktrees/
 
-# --- Credential belt-and-suspenders (D-03/D-06) ---
+# --- Credential belt-and-suspenders ---
 # Per-subdirectory .gitignore files already cover these two files
 # (deploy/.gitignore, firmware/.gitignore); duplicating the rule here
 # is deliberate defence-in-depth so a repo-root-relative `git add -A`

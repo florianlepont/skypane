@@ -1,4 +1,4 @@
-# SkyPane — repo-root lint/coverage configuration (plan 04-02, D-08/D-09).
+# SkyPane -- repo-root lint/coverage configuration.
 #
 # Deliberately no [project] table: this repository is a deployed
 # application (device firmware + server + stub server), not an installable
@@ -7,7 +7,7 @@
 
 [tool.ruff]
 # Applies repo-wide: server/, stub-server/, adsb-test/.
-# py314 (D-A4, phase 32): production is Ubuntu 26.04's distro python3,
+# py314: production is Ubuntu 26.04's distro python3,
 # which is 3.14 - moved up from py311 alongside CI's setup-python bump.
 target-version = "py314"
 
@@ -46,7 +46,7 @@ select = ["E4", "E7", "E9", "F"]
 ignore = ["E402"]
 
 [tool.pytest.ini_options]
-# Phase 32 (32-01, TST-01). No [project] table exists in this file (see the
+# No [project] table exists in this file (see the
 # header comment above) and none is needed for pytest configuration -
 # [tool.pytest.ini_options] is pytest's own documented way to configure
 # itself from pyproject.toml without one.
@@ -64,10 +64,10 @@ addopts = [
     "--strict-config",
     "-ra",
     "-p", "no:legacypath",
-    # Non-loopback network guard (T-32-01-01/02): pytest-socket in
+    # Non-loopback network guard: pytest-socket in
     # allow-hosts mode only replaces socket.socket.connect - it does NOT
     # patch socket.getaddrinfo/gethostbyname (verified against the
-    # installed pytest_socket 0.8.1 source, 32-PLAN.md planner findings),
+    # installed pytest_socket 0.8.1 source),
     # so a non-loopback DNS lookup is NOT blocked by these two flags
     # alone. conftest.py's autouse _block_non_loopback_dns fixture closes
     # that gap with its own guarded_resolvers(). --allow-unix-socket keeps
@@ -104,7 +104,7 @@ xfail_strict = true
 # companion.
 parallel = true
 
-# 32-13-PLAN.md (TST-09 part 1): coverage.py's own subprocess-measurement
+# coverage.py's own subprocess-measurement
 # mechanism (added 7.10; already satisfied by the pinned coverage 7.16.1).
 # pytest-cov 7+ removed its prior `.pth`-file auto-injection for
 # subprocess coverage, so this is the only supported mechanism left —
@@ -115,7 +115,7 @@ parallel = true
 # explicit above for its own documentation value).
 patch = ["subprocess"]
 
-# 32-REVIEW WR-02: coverage.py only writes a process's data file at a
+# coverage.py only writes a process's data file at a
 # normal interpreter exit unless `sigterm` is set, and every long-lived
 # child above (byos_server.py, companion/app.py) is stopped with
 # `proc.terminate()` — SIGTERM. Without this, those children saved
@@ -128,9 +128,9 @@ sigterm = true
 # Source-scoped to this project's own code directories so library
 # internals (Pillow, requests, stdlib) are never counted toward the
 # measurement — an unscoped run makes any threshold meaningless
-# (04-RESEARCH.md Pitfall 3). "companion" added 06-11 alongside the six
-# new harnesses that exercise it. "deploy/backup" added in 37-03 for the
-# nightly snapshot job and pull gate (Plan 37-04); deploy/tests/ itself
+# (an earlier unscoped run showed this concretely). "companion" is
+# covered for the harnesses that exercise it; "deploy/backup" for the
+# nightly snapshot job and pull gate; deploy/tests/ itself
 # and deploy/render_caddyfile.sh (a shell script, not measured by
 # coverage.py) are deliberately not listed here.
 source = ["server", "stub-server", "companion", "deploy/backup"]
@@ -143,7 +143,7 @@ omit = [
 ]
 
 [tool.coverage.report]
-# Threshold: 93. Derivation (32-REVIEW WR-02, re-measuring 32-15's TST-09
+# Threshold: 93. Derivation (re-measuring the prior
 # floor): measured 93.35% total coverage once `sigterm = true` (above) let
 # every SIGTERM-stopped child (companion/app.py, stub-server/byos_server.py)
 # actually save its data — 32-15's 88.11% was measured without it, so it
@@ -158,7 +158,7 @@ omit = [
 # server/requirements-dev.txt with --require-hashes; the CI interpreter),
 # measured 2026-09-24. 93 is the measured total rounded down with no
 # margin — the floor equals the measurement exactly, not a discount below
-# it, per TST-09's decision (a legitimate refactor that shifts a few
+# it, per this project's own coverage-floor decision (a legitimate refactor that shifts a few
 # statements is expected to nudge this number in a future plan, not be
 # absorbed by slack). This is a floor to ratchet upward as coverage
 # improves, never downward, and only moves when someone re-measures and
