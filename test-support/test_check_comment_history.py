@@ -347,6 +347,36 @@ def test_same_code_cli_allow_takes_one_path_and_keeps_positional_paths(scratch_r
     assert cch.main(["same-code", "--base", base, "--allow", "a.py", "--allow", "b.py", "a.py", "b.py"]) == 0
 
 
+def test_same_code_hash_allows_a_comment_to_shrink(scratch_repo):
+    _write(scratch_repo / "run.sh", "#!/bin/sh\n# one\n# two\n# three\necho hi\n\necho bye\n")
+    base = _commit_all(scratch_repo, "base")
+    _write(scratch_repo / "run.sh", "#!/bin/sh\n# one line now\necho hi\necho bye\n")
+    assert cch.same_code(str(scratch_repo), base, paths=["run.sh"]) == []
+
+
+def test_same_code_hash_still_catches_a_changed_directive(scratch_repo):
+    _write(scratch_repo / "u.service", "[Service]\n# why\nUser=skypane\n")
+    base = _commit_all(scratch_repo, "base")
+    _write(scratch_repo / "u.service", "[Service]\nUser=root\n")
+    assert cch.same_code(str(scratch_repo), base, paths=["u.service"]) != []
+
+
+def test_same_code_sdkconfig_keeps_disabled_symbol_lines(scratch_repo):
+    _write(scratch_repo / "sdkconfig.defaults", "# note\n# CONFIG_FOO is not set\nCONFIG_BAR=y\n")
+    base = _commit_all(scratch_repo, "base")
+    _write(scratch_repo / "sdkconfig.defaults", "CONFIG_BAR=y\n")
+    assert cch.same_code(str(scratch_repo), base, paths=["sdkconfig.defaults"]) != []
+
+
+def test_same_code_xml_compares_markup_without_comments(scratch_repo):
+    _write(scratch_repo / "a.plist.template", "<plist>\n<!-- long\nnote -->\n<key>K</key>\n</plist>\n")
+    base = _commit_all(scratch_repo, "base")
+    _write(scratch_repo / "a.plist.template", "<plist>\n<!-- short -->\n<key>K</key>\n</plist>\n")
+    assert cch.same_code(str(scratch_repo), base, paths=["a.plist.template"]) == []
+    _write(scratch_repo / "a.plist.template", "<plist>\n<key>J</key>\n</plist>\n")
+    assert cch.same_code(str(scratch_repo), base, paths=["a.plist.template"]) != []
+
+
 def test_same_code_c_equal_for_comment_only_edit(scratch_repo):
     _write(scratch_repo / "m.c", "int f(void) {\n    // 22-08-PLAN.md note\n    return 1;\n}\n")
     base = _commit_all(scratch_repo, "base")

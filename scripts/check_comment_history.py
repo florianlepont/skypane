@@ -412,7 +412,16 @@ def _hash_code_lines(source, path):
             continue
         pos = raw.find(comment_text)
         out.append(raw[:pos if pos != -1 else len(raw)].rstrip())
-    return out
+    # Blank and comment-only lines carry no configuration, so dropping them
+    # lets a comment shrink without shifting the lines that follow it.
+    return [line for line in out if line.strip()]
+
+
+def _same_code_xml(base_text, working_text):
+    def code_lines(text):
+        text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+        return [line.rstrip() for line in text.split("\n") if line.strip()]
+    return code_lines(base_text) == code_lines(working_text)
 
 
 def extract_xml(source):
@@ -742,6 +751,8 @@ def _same_code_one(rel, base_text, working_text):
         return _same_code_c(base_text, working_text)
     if ext in (".js", ".css"):
         return _same_code_js_css(rel, base_text, working_text)
+    if os.path.basename(rel).endswith(".plist.template"):
+        return _same_code_xml(base_text, working_text)
     if extractor_for_path(rel) is not None:
         return _same_code_hash(rel, base_text, working_text)
     return base_text == working_text
