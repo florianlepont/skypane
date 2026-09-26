@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# SkyPane — install the Mac's off-box backup pull key (SEC-04, D-05).
+# SkyPane -- install the Mac's off-box backup pull key.
 #
-# Runs ON THE VPS AS ROOT at the human checkpoint CP-8 (37-RESEARCH.md),
+# Runs ON THE VPS AS ROOT at the human checkpoint where the developer's
 # after the developer's Mac has generated its own ed25519 keypair and its
 # public key line is pasted here as the one argument. Writes exactly one
 # forced-command authorized_keys line (see the printf below for its exact
 # shape) to /var/lib/skypane-backup/.ssh/authorized_keys.
 # The `restrict,` option strips port-forwarding, agent-forwarding, X11 and
 # PTY allocation from the key; the forced command fixes the ONLY program
-# this key can ever run, no matter what the client asks for (T-37-35) -
+# this key can ever run, no matter what the client asks for --
 # the forced command (deploy/backup/backup_gate.py) then treats
 # SSH_ORIGINAL_COMMAND itself as untrusted input.
 #
