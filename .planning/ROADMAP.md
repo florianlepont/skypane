@@ -1764,7 +1764,7 @@ Plans:
 4. byos survives malformed `Content-Length`/`mac` input; poll unit has a start timeout
 5. A transient adsbdb error is never cached as a miss
 
-**Plans:** 4/7 plans executed
+**Plans:** 5/7 plans executed
 
 **Execution gate:** starts only once Phase 35 is complete on `main` (gate G-35, first task of 36-01 and 36-02). Plan 37-11 (byos `--bind`) runs after this phase.
 
@@ -1779,7 +1779,7 @@ Plans:
 
 - [x] 36-03-PLAN.md — byos: content-addressed `img/<sha>.bin` + 404, request hardening, local atomic write [INT-02, INT-05, INT-06]
 - [x] 36-04-PLAN.md — device_config lock, colour/manual registries, theme-preview and illustration caches, backup gate temp [INT-02, INT-03, INT-04]
-- [ ] 36-05-PLAN.md — calendar + notify: pinned fetch, deadline, injected clock, lock released during fetch [INT-02, INT-07, INT-12, INT-14]
+- [x] 36-05-PLAN.md — calendar + notify: pinned fetch, deadline, injected clock, lock released during fetch [INT-02, INT-07, INT-12, INT-14]
 - [ ] 36-06-PLAN.md — detect/enrich/history_db: bounded calls, adsbdb TTL/LRU, Caddy tailer, provider JSON types [INT-07, INT-08, INT-09, INT-10]
 
 **Wave 3** *(blocked on Wave 2 completion)*

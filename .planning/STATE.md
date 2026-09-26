@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 36 plan 04 complete: save_device_config locked (thread lock + flock), registries on atomic_io, theme-preview cache atomic/pruned/bounded, illustration lru_cache bounded, backup gate ack on a unique temp name. 36-05 (calendar + notify) is next in wave 2."
-last_updated: "2026-09-26T08:54:01.602Z"
+stopped_at: "Phase 36 plan 05 complete: calendar feed and ntfy notify both pinned through http_fetch.pinned_request(), fetch_ics() bounded by a total deadline, calendar writers/lock on atomic_io, refresh_calendar_registry() releases the lock across the fetch (FETCH_SUPERSEDED added). 36-06 (upstream parsing: enrich/detect/history_db) is next in wave 2."
+last_updated: "2026-09-26T09:19:30.694Z"
 last_activity: 2026-09-26
 progress:
   total_phases: 54
   completed_phases: 44
   total_plans: 392
-  completed_plans: 363
+  completed_plans: 364
   percent: 81
 ---
 
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 92%
+  [█████████░] 93%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -60,7 +60,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTING
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 4 of 7
+Plan: 5 of 7
 
 **36-01 executed (2026-09-26), wave 1 (no dependencies) — lands the two stdlib primitives every later plan of Phase 36 migrates onto.** Task 1 re-verified gate G-35 independently against `origin/main` before any edit: 23 `35-*-SUMMARY.md` files present (≥22 required), `35-VERIFICATION.md` status `passed` on HEAD, ROADMAP's Phase 35 section fully checked, `origin/main` an ancestor of HEAD — all four checks passed, no edits made by that task. Task 2 (TDD) added `server/atomic_io.py`'s `atomic_write`/`staged_write`: a same-directory `tempfile.mkstemp` + `fchmod` + write + `fsync` + `os.replace`, with `DEFAULT_FILE_MODE` reading the umask once from `/proc/self/status`'s `Umask:` line (0022 on this runner) so a caller migrating from `open()` keeps its existing file mode unless it asks for a different one; an explicit `mode` (e.g. 0600 for a secret) lands on the temp file's descriptor before any byte is written and the destination path is never chmod'ed afterwards. Task 3 (TDD) added `exclusive_lock`/`LockBusy`/`LOCK_POLL_S`, generalising `calendar_rules._calendar_registry_lock` into one reusable cross-process, cross-thread `fcntl.flock` lock (0600 lock file, parent directory created, `LockBusy` a `TimeoutError` subclass, released in `finally`, no-op on a platform without `fcntl`), and wrote the module docstring's lock-order paragraph (`threading.Lock` → `poll.lock` → `calendar_rules.lock`; `device_config.lock` never held with another file lock). 19 behaviour tests total, including 8 threads × 50 writes and 2 OS processes × 200 writes to one path each landing exactly one complete 64 KiB payload with no leftover temp, and a child-process-held lock making the parent's blocking and non-blocking acquires both raise `LockBusy` before succeeding once the child releases. **One deviation, Rule 1/2 (coverage-gate correctness):** the new module's own defensive branches (the `/proc`-less umask fallback, the no-`fcntl` lock fallback, a write failure after the temp file is open, an already-deleted temp at cleanup, an unrelated `OSError` from `flock`) were untested by the plan's required behaviour list, pulling whole-repo coverage to 92.93% against the 93.0% floor — 8 more tests (each faking the platform condition, never reading source text) brought `server/atomic_io.py` to 98% and the full suite to 93.11%, `./scripts/run-all-tests.sh` exit 0, 2597 passed / 132 skipped (Playwright-Chromium and root-euid skips, pre-existing in this sandbox). Commits: `481fbc9` (test, RED), `08352b2` (feat, GREEN) for Task 2; `1151e42` (test, RED), `1d420f3` (feat, GREEN) for Task 3. `requirements.mark-complete INT-01 INT-02` per this plan's own frontmatter (the poll-cycle integration of INT-01 and every other caller's migration onto `atomic_write`/`exclusive_lock` land in 36-03..36-07). `roadmap.update-plan-progress "36"` confirmed `plan_count: 7, summary_count: 1, status: "In Progress"`.
 
@@ -531,6 +531,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 36 P01 | 25min | 3 tasks | 2 files |
 | Phase 36 P02 | 20min | 3 tasks | 5 files |
 | Phase 36 P03 | 45min | 3 tasks | 3 files |
+| Phase 36 P05 | 21min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -1067,6 +1068,8 @@ Recent decisions affecting current work:
 - [Phase 36]: INT-14 decision executed: pin the resolved address (resolve_public_addresses + pinned_request), not just correct the SSRF docstring, since requests/urllib re-resolve at connect time and could reach a different (private) address than the one checked.
 - [Phase 36]: byos _atomic_write is a local copy of server/atomic_io.py's contract (a Phase 39 ARC-05 input), proven equal by a parity test, not a source-text drift guard
 - [Phase 36]: REQUIREMENTS.md: INT-05 and INT-06 marked Complete (owned end-to-end by 36-03); INT-02 stays Pending until the remaining fixed-.tmp-name callers in other 36-* plans are migrated
+- [Phase 36]: Pinned both remaining owner-supplied outbound URLs (calendar feed, ntfy topic) through http_fetch.pinned_request(), per CONTEXT's INT-14 decision — Closes the DNS-rebinding TOCTOU gap where requests/urllib re-resolve a hostname at connect time, seeing a different address than the one an early SSRF check saw
+- [Phase 36]: refresh_calendar_registry() releases the cross-process registry lock during the network fetch and adds FETCH_SUPERSEDED — A companion save or disconnect must never wait behind an in-flight poll cycle's calendar fetch, and a stale fetch result must never overwrite a newer URL's own write
 
 ### Pending Todos
 
@@ -1187,8 +1190,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T08:33:14.200Z
-Stopped at: Phase 36 plan 03 complete: stub-server/byos_server.py hardened (_atomic_write INT-02 byos copy, content-addressed /img/ INT-05, request hardening INT-06). 36-04 (config/caches) is next in wave 2.
+Last session: 2026-09-26T09:19:30.629Z
+Stopped at: Phase 36 plan 05 complete: calendar feed and ntfy notify both pinned through http_fetch.pinned_request(), fetch_ics() bounded by a total deadline, calendar writers/lock on atomic_io, refresh_calendar_registry() releases the lock across the fetch (FETCH_SUPERSEDED added). 36-06 (upstream parsing: enrich/detect/history_db) is next in wave 2.
 
 Resume file: 
 
