@@ -82,10 +82,14 @@ sigterm = true
 source = ["server", "stub-server", "companion", "deploy/backup"]
 
 omit = [
-    # The measuring instrument, not the thing being measured.
-    "server/test_*.py",
-    "stub-server/test_*.py",
-    "companion/test_*.py",
+    # The measuring instrument, not the thing being measured. Leading `*/`
+    # on purpose: coverage.py resolves a relative pattern against the
+    # current directory of whichever process saves data, so a measured
+    # subprocess started outside the repository root would otherwise record
+    # every test file as an unexecuted 0% source file.
+    "*/server/test_*.py",
+    "*/stub-server/test_*.py",
+    "*/companion/test_*.py",
 ]
 
 [tool.coverage.report]
