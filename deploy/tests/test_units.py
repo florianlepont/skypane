@@ -1,6 +1,6 @@
-"""deploy/tests/test_units.py — systemd unit hardening + release-layout
-paths (SEC-04, SEC-06). See RESEARCH.md SEC-06 for the directive table
-this test enforces and the measured offline exposure scores.
+"""deploy/tests/test_units.py -- systemd unit hardening + release-layout
+paths. Enforces the shared hardening directive table and the measured
+offline exposure scores.
 """
 
 import configparser
@@ -20,9 +20,8 @@ _UNITS = [
     "skypane-backup.service",
 ]
 
-# The directive set every one of the four units must carry (SEC-06
-# directive table). Values are compared as strings after configparser's
-# own whitespace handling.
+# The directive set every one of the four units must carry. Values are
+# compared as strings after configparser's own whitespace handling.
 _COMMON_DIRECTIVES = {
     "CapabilityBoundingSet": "",
     "AmbientCapabilities": "",

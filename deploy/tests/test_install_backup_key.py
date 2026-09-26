@@ -1,10 +1,9 @@
-"""deploy/tests/test_install_backup_key.py — deploy/backup/install-backup-key.sh
-(SEC-04, D-05), run as a real subprocess against a tmp BACKUP_HOME with
+"""deploy/tests/test_install_backup_key.py -- deploy/backup/install-backup-key.sh,
+run as a real subprocess against a tmp BACKUP_HOME with
 SKYPANE_KEY_ALLOW_NONROOT=1 and a stub `chown` on PATH (the script's only
-external command that needs real root). Also carries the text checks for
-the SKYPANE_OFFBOX_MARKER doc block in deploy/skypane.env.example and the
-CI shellcheck step in .github/workflows/ci.yml (37-RESEARCH.md CP-8,
-SEC-04 D-07).
+external command that needs real root). Also carries the checks for the
+SKYPANE_OFFBOX_MARKER doc block in deploy/skypane.env.example and the CI
+shellcheck step in .github/workflows/ci.yml.
 """
 import os
 import subprocess
