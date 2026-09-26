@@ -639,7 +639,7 @@ def _freshness_file_stamps(state_dir):
 
 
 def _freshness_db_signal(state_dir, want_pipeline_run):
-    """The freshness token's database-backed piece: the three per-table
+    """The freshness token's database-backed piece: the two per-table
     MAX(id) watermarks (one SELECT) plus the last-detection/source-fault
     meta keys, read through the request's own single scoped connection -
     an `open_db()` call here inside an active `connection_scope()`
@@ -651,19 +651,22 @@ def _freshness_db_signal(state_dir, want_pipeline_run):
     other three pages must never see it change on every poll cycle,
     or an unchanged repeat cycle would give them a new token for no
     visible reason.
+
+    No third watermark from the per-wake-interval-change table: nothing
+    under companion/ may read it yet (a repo-wide guard test enforces
+    this - it accrues data for a later phase), so it can never be a
+    token input here either.
     """
     try:
         with history_db.open_db(state_dir) as conn:
             row = conn.execute(
                 "SELECT "
                 "(SELECT MAX(id) FROM runway_events) AS runway_events_id, "
-                "(SELECT MAX(id) FROM device_health) AS device_health_id, "
-                "(SELECT MAX(id) FROM wake_epochs) AS wake_epochs_id"
+                "(SELECT MAX(id) FROM device_health) AS device_health_id"
             ).fetchone()
             result = {
                 "runway_events_id": row["runway_events_id"],
                 "device_health_id": row["device_health_id"],
-                "wake_epochs_id": row["wake_epochs_id"],
                 "last_detection": history_db.get_meta(conn, history_db.META_LAST_DETECTION),
                 "source_fault": history_db.get_meta(conn, history_db.META_SOURCE_FAULT),
             }
