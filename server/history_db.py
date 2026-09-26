@@ -148,17 +148,53 @@ def init_schema(conn):
     conn.commit()
 
 
+class _HistoryConnection(sqlite3.Connection):
+    """`sqlite3.Connection` subclass carrying a batch-depth counter, so
+    `write_batch()` can defer a writer's commit across several calls
+    without any writer's signature changing. `0` by default: a connection
+    never inside a `write_batch` behaves exactly like a plain
+    `sqlite3.Connection`.
+    """
+    _batch_depth = 0
+
+
+# Database file identities (`os.path.realpath(path)`, `st_dev`, `st_ino`)
+# that have already had `init_schema()` run in this process - avoids
+# re-running its table- and index-creation statements on every connection,
+# since they are idempotent but not free. Guarded by a lock: the
+# companion's request threads and a poll-oneshot's own connect can race
+# here.
+_SCHEMA_READY = set()
+_SCHEMA_LOCK = threading.Lock()
+
+
 def connect(state_dir, timeout=5.0):
-    """Open (creating if needed) `<state_dir>/history.db`, apply the WAL +
-    busy_timeout pragmas, ensure the schema, return the connection.
-    Callers must close it - see `open_db()` for a wrapper that does.
+    """Open (creating if needed) `<state_dir>/history.db`, apply the
+    busy_timeout pragma (every connection), and the WAL pragma + schema
+    (once per process for this database file's identity - see
+    `_SCHEMA_READY` below). Callers must close it - see `open_db()` for a
+    wrapper that does.
     """
     os.makedirs(state_dir, exist_ok=True)
-    conn = sqlite3.connect(history_db_path(state_dir), timeout=timeout)
+    path = history_db_path(state_dir)
+    conn = sqlite3.connect(path, timeout=timeout, factory=_HistoryConnection)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
-    init_schema(conn)
+
+    stat_result = os.stat(path)
+    key = (os.path.realpath(path), stat_result.st_dev, stat_result.st_ino)
+    with _SCHEMA_LOCK:
+        # A brand-new or just-recreated file is always empty at this
+        # point (sqlite3.connect() creates it with size 0) - re-running
+        # the schema there even if this exact (device, inode) key was
+        # already marked ready covers a backup restore or a
+        # deleted-and-recreated history.db coincidentally reusing a
+        # retired inode number. `PRAGMA journal_mode=WAL` is persisted in
+        # the file itself, so setting it once per key is enough too.
+        if key not in _SCHEMA_READY or stat_result.st_size == 0:
+            conn.execute("PRAGMA journal_mode=WAL")
+            init_schema(conn)
+            _SCHEMA_READY.add(key)
     return conn
 
 
@@ -245,6 +281,55 @@ def open_db(state_dir, timeout=5.0):
         conn.close()
 
 
+@contextlib.contextmanager
+def write_batch(conn):
+    """`with write_batch(conn):` - every writer called on `conn` while the
+    block is open defers its commit (see `_commit()`); the batch commits
+    once on clean exit, or rolls back and re-raises on an exception.
+    Re-entrant on the same connection: only the outermost `write_batch`
+    actually commits or rolls back. Tracked on `conn._batch_depth`
+    (`getattr` with a `0` default, so a plain `sqlite3.Connection` - one
+    not opened through this module's `connect()` - still behaves
+    correctly as a single-level batch, just without the attribute
+    persisting across calls).
+    """
+    depth = getattr(conn, "_batch_depth", 0) + 1
+    try:
+        conn._batch_depth = depth
+    except AttributeError:
+        pass
+    try:
+        yield
+    except BaseException:
+        _exit_batch(conn, depth, commit=False)
+        raise
+    else:
+        _exit_batch(conn, depth, commit=True)
+
+
+def _exit_batch(conn, depth, commit):
+    try:
+        conn._batch_depth = depth - 1
+    except AttributeError:
+        pass
+    if depth == 1:  # outermost write_batch on this connection
+        if commit:
+            conn.commit()
+        else:
+            conn.rollback()
+
+
+def _commit(conn):
+    """Commit `conn` unless a `write_batch` is active on it - writers call
+    this instead of `conn.commit()` directly, so several writes inside a
+    batch land in one COMMIT while a bare writer call outside any batch
+    still commits immediately, exactly as before this module had a batch
+    at all.
+    """
+    if getattr(conn, "_batch_depth", 0) == 0:
+        conn.commit()
+
+
 # --- Writers -------------------------------------------------------------
 
 
@@ -266,7 +351,7 @@ def record_runway_event(conn, **fields):
         else:
             values.append(fields.get(column))
     conn.execute(_RUNWAY_EVENT_INSERT_SQL, values)
-    conn.commit()
+    _commit(conn)
 
 
 def record_device_health(conn, ts, battery_mv=None, fw_version=None, boot_reason=None, rssi=None):
@@ -274,7 +359,7 @@ def record_device_health(conn, ts, battery_mv=None, fw_version=None, boot_reason
     `UNIQUE(ts, battery_mv)`. Returns rows actually inserted (0 or 1).
     """
     cur = conn.execute(_DEVICE_HEALTH_INSERT_SQL, (ts, battery_mv, fw_version, boot_reason, rssi))
-    conn.commit()
+    _commit(conn)
     return cur.rowcount
 
 
@@ -297,7 +382,7 @@ def record_wake_epoch(conn, ts, wake_interval_s):
         "INSERT INTO wake_epochs (ts, wake_interval_s) VALUES (?, ?)",
         (ts, wake_interval_s),
     )
-    conn.commit()
+    _commit(conn)
     return 1
 
 
@@ -504,7 +589,7 @@ def get_meta(conn, key):
 
 def set_meta(conn, key, value):
     conn.execute(_META_UPSERT_SQL, (key, value, utc_now_iso()))
-    conn.commit()
+    _commit(conn)
 
 
 # --- Caddy battery-log tailer -----------------------------------------------
