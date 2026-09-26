@@ -116,6 +116,13 @@ def test_restrict_address_families(unit, expected):
     assert cp["Service"]["RestrictAddressFamilies"] == expected
 
 
+def test_poll_unit_has_start_timeout():
+    # A oneshot's default start timeout is infinity; without one a stuck
+    # cycle (a hung upstream, a stuck lock wait) never gets killed.
+    cp = _parse_unit("skypane-poll.service")
+    assert cp["Service"]["TimeoutStartSec"] == "90s"
+
+
 def test_backup_unit_has_private_network():
     cp = _parse_unit("skypane-backup.service")
     assert cp["Service"]["PrivateNetwork"] == "true"
