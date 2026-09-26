@@ -5,6 +5,7 @@ companion request or poll cycle share one connection and one COMMIT,
 without changing any existing open_db()/connect() caller's signature or
 behaviour outside a scope/batch.
 """
+import json
 import os
 import sqlite3
 import sys
@@ -164,3 +165,128 @@ def test_open_db_outside_a_scope_behaves_as_today(tmp_path):
     with history_db.open_db(state_dir) as conn2:
         row = conn2.execute("SELECT battery_mv FROM device_health").fetchone()
         assert row[0] == 3700
+
+
+# --- schema once per database file identity ---------------------------------
+
+
+def test_three_connects_run_init_schema_once_and_pragmas_every_time(tmp_path):
+    state_dir = str(tmp_path)
+    with efficiency_probe.count_db() as counts:
+        conns = [history_db.connect(state_dir) for _ in range(3)]
+    assert counts.init_schema == 1
+
+    for conn in conns:
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == 5000
+        conn.close()
+
+
+def test_recreated_empty_file_at_same_path_reruns_schema(tmp_path):
+    """covers inode reuse: a deleted-and-recreated history.db is always
+    empty at connect time, so the schema always runs again there even if
+    the OS happened to hand back a previously-seen (device, inode) pair"""
+    state_dir = str(tmp_path)
+    conn = history_db.connect(state_dir)
+    conn.close()
+
+    db_path = history_db.history_db_path(state_dir)
+    os.remove(db_path)
+    for suffix in ("-wal", "-shm"):
+        candidate = db_path + suffix
+        if os.path.exists(candidate):
+            os.remove(candidate)
+
+    with efficiency_probe.count_db() as counts:
+        conn2 = history_db.connect(state_dir)
+    assert counts.init_schema == 1
+    row = conn2.execute("SELECT COUNT(*) FROM meta").fetchone()
+    assert row[0] == 0
+    conn2.close()
+
+
+def test_two_different_state_dirs_run_init_schema_once_each(tmp_path):
+    dir1 = str(tmp_path / "a")
+    dir2 = str(tmp_path / "b")
+    with efficiency_probe.count_db() as counts:
+        conn1 = history_db.connect(dir1)
+        conn2 = history_db.connect(dir2)
+    assert counts.init_schema == 2
+    conn1.close()
+    conn2.close()
+
+
+# --- write_batch: one transaction, deferred writer commits -----------------
+
+
+def test_write_batch_commits_once_for_multiple_writers(tmp_path):
+    state_dir = str(tmp_path)
+    with efficiency_probe.count_db() as counts:
+        with history_db.open_db(state_dir) as conn:
+            with history_db.write_batch(conn):
+                history_db.record_runway_event(
+                    conn, hex="39a1b2", corroborated=True, confirmed_state="departure",
+                )
+                history_db.set_meta(conn, "batch-key", "batch-value")
+                history_db.record_device_health(conn, "2026-09-26T00:00:00Z", battery_mv=3700)
+    assert counts.commits == 1
+
+    with history_db.open_db(state_dir) as conn2:
+        assert conn2.execute("SELECT COUNT(*) FROM runway_events").fetchone()[0] == 1
+        assert conn2.execute("SELECT COUNT(*) FROM device_health").fetchone()[0] == 1
+        assert history_db.get_meta(conn2, "batch-key") == "batch-value"
+
+
+def test_write_batch_exception_rolls_back_and_reraises(tmp_path):
+    class Boom(Exception):
+        pass
+
+    state_dir = str(tmp_path)
+    with history_db.open_db(state_dir) as conn:
+        with pytest.raises(Boom):
+            with history_db.write_batch(conn):
+                history_db.set_meta(conn, "rollback-key", "rollback-value")
+                raise Boom("mid-batch failure")
+
+    with history_db.open_db(state_dir) as conn2:
+        assert history_db.get_meta(conn2, "rollback-key") is None
+
+
+def test_set_meta_outside_batch_is_visible_from_a_second_connection_immediately(tmp_path):
+    state_dir = str(tmp_path)
+    with history_db.open_db(state_dir) as conn:
+        history_db.set_meta(conn, "immediate-key", "immediate-value")
+        with history_db.open_db(state_dir) as conn2:
+            assert history_db.get_meta(conn2, "immediate-key") == "immediate-value"
+
+
+def _caddy_log_line(uri, ts, headers):
+    """One Caddy JSON access-log line, matching
+    server/test_caddy_tail.py's own helper of the same name."""
+    entry = {
+        "ts": ts,
+        "logger": "http.log.access",
+        "msg": "handled request",
+        "request": {"method": "GET", "uri": uri, "headers": headers},
+        "status": 200,
+    }
+    return json.dumps(entry)
+
+
+def test_ingest_caddy_battery_log_inside_write_batch_commits_once(tmp_path):
+    state_dir = str(tmp_path)
+    os.makedirs(state_dir, exist_ok=True)
+    log_path = os.path.join(state_dir, "caddy-access.log")
+    lines = [
+        _caddy_log_line("/device/v1/display", "2026-09-26T00:00:00Z", {"X-Battery-Mv": ["3700"]}),
+        _caddy_log_line("/device/v1/display", "2026-09-26T00:01:00Z", {"X-Battery-Mv": ["3690"]}),
+    ]
+    with open(log_path, "w") as fh:
+        fh.write("\n".join(lines) + "\n")
+
+    with efficiency_probe.count_db() as counts:
+        with history_db.open_db(state_dir) as conn:
+            with history_db.write_batch(conn):
+                inserted = history_db.ingest_caddy_battery_log(conn, log_path)
+    assert inserted == 2
+    assert counts.commits == 1
