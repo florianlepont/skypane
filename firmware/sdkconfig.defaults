@@ -71,9 +71,9 @@ CONFIG_FP_PIN_KEY2=5
 CONFIG_FP_REPROVISION_HOLD_MS=2000
 CONFIG_FP_FACTORY_RESET_HOLD_MS=10000
 
-# Phase 1 implements no BLE provisioning - hardcoded credentials in a
+# This build implements no BLE provisioning - hardcoded credentials in a
 # gitignored secrets.h replace it for a device that talks only to a
 # local stub. Carrying the BLE/NimBLE stack would inflate the image for
-# no Phase 1 behaviour.
+# no benefit here.
 CONFIG_BT_ENABLED=n
 CONFIG_BT_NIMBLE_ENABLED=n

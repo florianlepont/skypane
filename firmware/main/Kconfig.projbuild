@@ -208,13 +208,13 @@ menu "SkyPane"
               ceiling it gives up and lets the next wake carry it.
     endmenu
 
-    # Retained without a consumer. No button handler is compiled in this
-    # project during Phase 1 - view switching is Phase 4's DEVICE-01. These
+    # Retained without a consumer. No button handler is compiled into
+    # this project yet - view switching is future work. These
     # pin values are measured hardware fact from a real EE02 key-sweep (see
     # sdkconfig.ee02.defaults' "VERIFIED on hardware 2026-07-26" comment,
     # which overrides the E1004 defaults below with the EE02's own KEY0/1/2
     # GPIOs). Dropping this block now would mean re-deriving that same
-    # key-sweep measurement when Phase 4 needs it.
+    # key-sweep measurement when view switching needs it.
     menu "E1004 controls (active low)"
         config FP_PIN_KEY0
             int "PCB KEY0 / right-arrow: admin hold"
