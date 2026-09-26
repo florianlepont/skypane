@@ -1,168 +1,20 @@
 /*
- * SkyPane companion service — hand-written stylesheet, no build step, no
- * framework, no web font, no icon font (06-UI-SPEC.md Design System).
- * 06.3-CONTEXT.md's D-01 supersedes 06-CONTEXT.md's D-21 for the companion
- * app: this stylesheet now carries its own full visual identity (colour,
- * type, spacing, card treatment, dashboard layout), while staying entirely
- * separate from the physical frame's own design system — the frame's
- * vendored fonts and PALETTE_RGB values must still never be pulled in here.
+ * SkyPane companion service — hand-written stylesheet: no build step,
+ * no framework, no web/icon fonts, no external references (no url(),
+ * no @font-face, no remote asset).
  *
  * Accent is reserved to selection/primary-action/wayfinding affordances
- * (06.6.1-UI-SPEC.md Color section), and to nothing else — everything
- * else interactive uses neutral gray, never a repurposed accent colour.
- * The full current list, kept exhaustive on purpose so a future reader
- * can tell an intended use from an accidental one: primary
- * (`type="submit"`) buttons, links, the focused-input outline, the
- * active sidebar/dropdown/tab-bar link indicator and its tinted pill
- * (22-14-PLAN.md Task 1 widens this one entry to its third rendering —
- * the bottom tab bar reuses the identical 12% wash, accent text and
- * semibold weight, so this is one more consumer of an already-listed
- * use, not a new accent consumer and not a new entry), the
- * hamburger toggle's active state, a stat tile's icon tint and top
- * accent when no ok/warn/error status applies, the skip link's fill,
- * the selected runway card's border and check glyph, the native
- * `accent-color` of radios/checkboxes AND (25-05-PLAN.md Task 2 — a
- * genuine broadening rather than a clarification, recorded because
- * this list is kept exhaustive on purpose) of the wake-interval
- * range input, which inherits it from the same global `input,
- * select` declaration and is a selection affordance of exactly the
- * kind this reservation is for, a `<summary>` disclosure's marker
- * (260902-ep7: this is a genuine broadening, not a clarification — the
- * marker pseudo-element was already on this list; its own label text
- * was not, and is now added too), the neutral (non-anomaly) banner's
- * left edge, and the favicon. 06.6.4.1.1-05: a genuine broadening, not a
- * clarification — the selected theme chip's border and check glyph
- * (.theme-chip--selected, .theme-chip__check) join the selected runway
- * card's own border/check-glyph pair above, the same accent use on a
- * second selectable-card component. 06.6.4.1.1-06 (developer checkpoint
- * follow-up): both selected cards also gained a 12%-accent background
- * wash (`color-mix(in srgb, var(--color-accent) 12%, transparent)`,
- * `.runway-card--selected` / `.theme-chip--selected .theme-chip__body`)
- * — a third accent property on the same two already-listed components,
- * not a new component. quick task 260904-bbi (the strong treatment must
- * follow the user's LIVE choice, not the saved config): the border,
- * wash and check glyph on both components are RE-KEYED from the
- * server-rendered `--selected` class to a live `:has(input:checked)`
- * selector, inside `@supports selector(:has(*))` — the same two
- * components, the same three accent properties, now driven by a live
- * signal rather than a stale one. This is a re-keying of an
- * already-listed use, not a new accent consumer. The server `--selected`
- * class is demoted to a quiet "this is what is saved" marker (a dashed
- * ring plus an English "Current" tag) that deliberately uses NO accent
- * at all — a muted-text mix and a dashed edge only — so it adds nothing
- * to this list. Do not broaden this list without updating
- * 06.6.1-UI-SPEC.md's Color section.
+ * only. Border is structural only (dividers, table lines, card edges)
+ * and never substitutes for accent or status colour.
  *
- * 30-07-PLAN.md Task 1 (CFG-85): the Aspect card's palette chip
- * (`.palette-chip`, `@supports selector(:has(*))` block, far below) is a
- * NEW SELECTOR consuming the ALREADY-LISTED selected-selectable-card use
- * above (`.theme-chip`/`.runway-card`'s own border/check-glyph/
- * background-wash) — the identical accent treatment, at a smaller box,
- * for a third selectable-card component. Not a new use; naming the
- * selector here rather than duplicating the list entry.
- *
- * The same commit also closes a gap this list's own prose has recorded
- * as open since Phase 23 (see the sketch-findings-skypane skill's Colour
- * section, "the pointer above is currently POINTING AT A LIST THAT IS NO
- * LONGER EXHAUSTIVE"): two genuine Phase 23 accent consumers were added
- * without ever being named here, re-verified still present and still
- * unlisted immediately before this edit. (1) `.switch[aria-checked=
- * "true"] .switch__track { background: var(--color-accent); border-
- * color: var(--color-accent); }` (23-07) — a switch's on-state, an
- * author fill on a custom button and therefore NOT covered by the
- * existing native-`accent-color` entry above. (2) the
- * `@keyframes skypane-row-arrive` wash — `color-mix(in srgb,
- * var(--color-accent) 22%, transparent)` (23-08) — the newly-arrived
- * Flights row's draining wash, an ARRIVAL signal distinct from the
- * selected-card wash entry's SELECTION signal, a use this list has
- * never carried. Both genuine broadenings, recorded because this list
- * is kept exhaustive on purpose.
- *
- * 22-04-PLAN.md Task 2 (C2, 22-UI-SPEC.md §1 "Accent reservation — the
- * delta this phase makes"): this list LOSES two entries and gains none.
- * The Frame strip's two switch buttons ("Switch off"/"Switch on",
- * "Turn off"/"Turn on") are `type="submit"` and used to be covered by
- * the "primary buttons" entry above — a `.frame-strip__cell button`
- * rule (equal (0,1,1) specificity to `button[type="submit"]`, placed
- * after it in source order, the same mechanism `.logout-form button`
- * already uses) now repaints them with the ordinary quiet-button wash
- * instead, so "primary buttons" no longer includes them.
- *
- * The arithmetic, CORRECTED IN PLACE by 22-16-PLAN.md's closing sweep
- * because the premise it rested on was wrong. This paragraph used to
- * read "06.6.4.1-04 already removed the Disconnect button's accent fill
- * as a specificity BUG fix ... this task's own removal is the first of
- * the two genuine losses this phase makes". THE FIRST HALF WAS FALSE
- * WHEN IT WAS WRITTEN and stayed false for another eleven plans: the
- * Disconnect fill was still live, because `.calendar-disconnect-btn`
- * was (0,1,0) against `button[type="submit"]`'s (0,1,1), so the primary
- * accent fill won outright and this app's one DESTRUCTIVE control
- * rendered as the page's primary CTA. 22-15-PLAN.md Task 1 (T2) is what
- * actually removed it, by element-qualifying the selector to
- * `button.calendar-disconnect-btn` — equal (0,1,1) specificity, decided
- * by source order (see that rule's own comment, far below).
- *
- * What the correction does and does not move: the COUNT above is
- * unchanged, because the Disconnect fill was never a deliberate entry
- * on this list to begin with — it was a specificity accident, not a
- * reservation. What moves is WHERE the two losses land. Both are this
- * phase's: 22-04-PLAN.md Task 2 repainting the Frame strip's two switch
- * buttons (the sentence above), and 22-15-PLAN.md Task 1 clearing the
- * Disconnect fill. 22-05-PLAN.md's own settings-form work makes no
- * change to this list at all. After this phase, `.stat-tile--accent`'s
- * own top rail is the Frame strip's ONLY remaining accent, and the
- * page's accent has returned to Save/the page's one primary action —
- * this sentence states the result; it does not itself remove anything
- * from the list above, since "primary buttons" is still correct for
- * every OTHER submit button in the app.
- *
- * Colour-separation contract (heading-color-consistency debug session):
- * `--color-accent` must stay measurably distinguishable from every
- * `--color-status-*` signal colour, in BOTH themes. This was prose-only
- * for three phases and named only the accent-vs-warn pair, which is
- * exactly how 06.6.2's WCAG-AA accent darkening was able to move the
- * accent to within dE76 22.9 of `--color-status-error` unnoticed. It is
- * now executable: companion/contrast_check.py's `perceptual_distance()`
- * / `hue_separation()` and companion/test_contrast_check.py's
- * separation section enforce it on every accent/status pair. Change any
- * of these tokens and that test tells you whether the signals still
- * read apart — do not rely on the comments below alone.
- *
- * Border is structural only — the sidebar/content divider, fieldset
- * borders, table borders, the mobile-nav dropdown's own edge, and (since
- * 06.6.4, D-03) every card's resting edge too. It is never used as an
- * interactive-state signal and never substitutes for the accent or
- * status colours. 06.6.1 (D-02) had traded the card hairline for a
- * resting shadow instead; 06.6.4 (D-03) reverses that specific trade —
- * all six card components (.stat-tile, .page-section,
- * .battery-trend-section, .runway-card, .history-card, .login-card) carry
- * a --color-border hairline at rest and reveal --shadow-card-hover only
- * on hover/focus-within.
- *
- * 06.6.2 (D-14, UXA-04): the accent value changed for WCAG AA — light
- * mode's --color-accent is now #B13F16 (was #E8622C), still hue-separated
- * (~16°) from --color-status-warn's golden amber (~32°), so the same
- * signal-confusion guarantee above holds at the new value. Three surface
- * levels now exist in both themes — --color-canvas (page background),
- * --color-dominant (primary card/control surface), --color-secondary
- * (secondary/elevated/nav surface) — replacing the prior two-level model
- * where --color-dominant did double duty as both the page background and
- * the card surface.
- *
- * Theme resolution (CFG-09): `prefers-color-scheme` supplies the default;
- * an explicit `data-ui-theme="light"`/`data-ui-theme="dark"` attribute on
- * <html> (set by companion/layout.py's page_shell(), posted to by the
- * theme form) overrides it. `data-ui-theme="auto"` intentionally has no
- * override rule of its own, so the media query keeps governing.
- *
- * Zero external references anywhere in this file: no CSS url function,
- * no custom font-face declaration, no remote asset of any kind. This
- * stays true even after 06.6.1 added a serif font family and card
- * shadows — --font-serif is a system font stack, not a web font.
+ * Theming: :root plus a prefers-color-scheme block hold both palettes;
+ * html[data-ui-theme] overrides either explicitly. Accent stays
+ * perceptually separated from every status colour in both themes
+ * (companion/test_contrast_check.py).
  */
 
 :root {
-  /* Spacing scale (06-UI-SPEC.md, multiples of 4) */
+  /* Spacing scale, multiples of 4. */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
@@ -171,13 +23,7 @@
   --space-2xl: 48px;
   --space-3xl: 64px;
 
-  /* Typography scale: exactly 4 sizes, 2 weights.
-   * 06.6.4.1.1 (D-10): --font-page-title-size 30px -> 32px and
-   * --font-heading-size 20px -> 22px, widening the gap between the page
-   * title and section-heading tiers so they read as two distinct rungs
-   * of a three-tier ladder rather than the same weight at nearly the
-   * same size — see .page-title and .text-heading below for the paired
-   * weight/tracking changes. */
+  /* Typography scale: exactly 4 sizes, 2 weights. */
   --font-label-size: 14px;
   --font-body-size: 16px;
   --font-heading-size: 22px;
@@ -187,60 +33,21 @@
 
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  /* 06.6.1 (D-03): headings-only warm serif. A system stack on purpose —
-   * the file's zero-external-reference constraint forbids loading a web
-   * font, and that stays literally true with this token.
-   *
-   * 06.6.4.1.1 (D-12, UIR-20): reordered to lead with "Iowan Old Style"
-   * and Charter. Georgia-first meant every Mac and iPhone rendered
-   * Georgia even though both Iowan Old Style and Charter are bundled on
-   * those platforms and were the sketch's own intended reading — Georgia
-   * was only ever meant to be the fallback for platforms that lack them.
-   * Windows (which bundles neither Apple font) now falls through to
-   * Palatino Linotype, then Georgia, exactly as it did before this
-   * reorder. This is still a system stack — no @font-face, no remote
-   * font reference of any kind — the file's zero-external-reference
-   * rule is untouched by this change. */
+  /* A system font stack, deliberately: the zero-external-reference rule
+   * forbids a web font. Leads with Iowan Old Style/Charter (bundled on
+   * Apple platforms) rather than Georgia, so Mac/iPhone render the
+   * intended faces instead of always falling through to Georgia. */
   --font-serif: "Iowan Old Style", Charter, "Palatino Linotype", Georgia, "Book Antiqua", serif;
 
-  /* 06.6.1 (D-02): mode-independent structural tokens. --radius-card
-   * deliberately revises 06.3's "0-4px sharp/minimal" rule — softer
-   * rounding is part of D-02's visible-relief direction, not a
-   * contradiction of the earlier spec. */
   --radius-card: 10px;
   --radius-control: 8px;
 
-  /* 23-01-PLAN.md Task 1 (D3, CFG-32): the app's ENTIRE motion budget —
-   * two durations, and deliberately no third. Mode-independent, so they
-   * sit with the radii above rather than with the themed colours below.
-   * "Zero new custom properties" was a stated achievement of Phases 20
-   * and 21, so spending two here is a deliberate, bounded exception:
-   * every animated surface Phase 23 adds takes its duration from one of
-   * these two, and a plan that believes it needs a third has to say so
-   * in its own SUMMARY instead of inlining a literal. Neither token is
-   * a timing function — an easing token would be a third custom
-   * property and the budget is two, so easing is written at the call
-   * site. companion/test_companion_app.py enforces the token-only rule
-   * on every animation duration in this file.
-   *
-   * REACTION motion: a state change the user just caused and is
-   * watching for confirmation of, so it must read as the control
-   * responding rather than as an animation playing. Intended surfaces:
-   * the Flights detail row and its rotating chevron (23-08), the save
-   * bar's entrance and its counting label (23-09), selection scale, the
-   * wash fade, the preview crossfade and the dialog entrances (23-10),
-   * and the fades on a region that refreshed itself (23-06) — those are
-   * self-initiated but somebody IS waiting to read the new value, which
-   * is what puts them here and not below. 180ms is the top of the range
-   * that still feels instant on a press. */
+  /* The app's entire motion budget: two durations only, enforced by
+   * companion/test_companion_app.py (no bare literals, no third token).
+   * --motion-fast (180ms) is for a REACTION the user is watching
+   * confirm; --motion-slow (2s) is for an AMBIENT loop nobody watches
+   * (e.g. a breathing status dot) — reaction speed would strobe. */
   --motion-fast: 180ms;
-  /* AMBIENT motion: the one loop the page runs on its own with nobody
-   * waiting on it — the live/paused indicator's breathing dot (23-05,
-   * D14 and D22), the sole consumer of the keyframes block defined
-   * further down. An order of magnitude longer than the reaction
-   * duration on purpose: a status dot cycling at reaction speed strobes,
-   * and a strobing dot in the corner of a page somebody leaves open all
-   * day is precisely the complaint a motion budget exists to prevent. */
   --motion-slow: 2s;
 
   /* Light mode (default) */
@@ -248,48 +55,29 @@
   --color-dominant: #FFFFFF;
   --color-secondary: #EEE8DE;
   --color-border: #DFD7C8;
-  /* 06.6.2 (D-14, UXA-04): terracotta/red-orange, hue ~16°, deliberately
-   * separated from --color-status-warn's golden amber (~32°) so an
-   * accent-coloured control and a warning dot never read as the same
-   * signal at a glance. Darkened from 06.6.1's #E8622C to meet WCAG AA
-   * text contrast (UXA-04) — do not shift this toward a more golden
-   * orange without re-verifying that hue separation, and do not revert
-   * to #E8622C without re-verifying contrast (companion/test_contrast_check.py
-   * pins both). */
+  /* Deliberately hue-separated (~16°) from --color-status-warn's
+   * golden amber (~32°), so an accent control and a warning dot never
+   * read as the same signal. Meets WCAG AA text contrast; re-verify
+   * both hue separation and contrast before changing this value
+   * (companion/test_contrast_check.py pins both). */
   --color-accent: #B13F16;
   --color-accent-hover: #963610;
-  /* The foreground for text/glyphs painted ON an accent fill (primary
-   * buttons, the skip link). Previously these rules borrowed
-   * --color-dominant, the card-surface token, which happened to resolve
-   * to the right value in both themes — a coincidence, not a contract,
-   * and one that would break silently the day a card surface is
-   * retinted. Same value, now named for the job it does. */
   --color-on-accent: #FFFFFF;
   --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
   --color-text: #17191F;
   --color-status-ok: #16A34A;
   --color-status-warn: #D97706;
-  /* Crimson, hue ~345. Was #DC2626 (hue 0) until the
-   * heading-color-consistency debug session measured it at only dE76
-   * 22.9 / 15.9 degrees from --color-accent — closer than the
-   * accent-vs-warn pair (28.6 / 16.3) that 06.6.1's D-04 examined and
-   * accepted, which is why a primary-action button and an error edge
-   * read as the same brick red on screen. Moving error to crimson
-   * restores separation (dE76 29.3 / 30.5 degrees) WITHOUT touching the
-   * accent, so UXA-04's WCAG AA contrast fix stays intact; it also
-   * raises this token's own worst-case contrast on the three light
-   * surfaces from 3.96 to 5.16, so it is now safe as text and not only
-   * as a fill. Enforced by companion/test_contrast_check.py's
-   * separation section — do not shift this back toward pure red. */
+  /* Hue ~345 (crimson), not pure red: measured too close to
+   * --color-accent (dE76 22.9/15.9°) at the old value, closer than the
+   * accepted accent-vs-warn pair. Now dE76 29.3/30.5° from accent, and
+   * its worst-case contrast on light surfaces is 5.16:1 (up from 3.96),
+   * safe as text. Enforced by test_contrast_check.py's separation section. */
   --color-status-error: #BE123C;
 
-  /* 10-05-PLAN.md Task 2: the default (data-ui-theme="auto" / no
-   * override) case — follow the OS, matching today's
-   * prefers-color-scheme-driven default block above. Without this, a
-   * browser paints native form-control chrome (e.g. this page's first
-   * <input type="time">) using its own light/dark heuristic instead of
-   * the OS scheme the rest of this default case already follows. */
+  /* Without color-scheme, the browser paints native form-control chrome
+   * (e.g. <input type="time">) using its own light/dark heuristic
+   * instead of following the OS scheme this default case follows. */
   color-scheme: light dark;
 }
 
@@ -301,27 +89,20 @@
     --color-border: #2A3040;
     --color-accent: #FF8A5C;
     --color-accent-hover: #FF9E77;
-    /* Dark-mode accent fills are light, so the on-accent foreground
-     * flips to the dark card surface's value — again the same value
-     * these rules already resolved to via --color-dominant, now named. */
     --color-on-accent: #151922;
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
     --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
     --color-text: #F1F3F6;
     --color-status-ok: #4ADE80;
     --color-status-warn: #FBBF24;
-    /* Dark-theme counterpart of the light crimson above (same rose
-     * family, shifted lighter/more saturated the way every other
-     * --color-status-* token shifts between themes). Was #F87171, which
-     * sat at dE76 22.3 / 16.9 degrees from the dark accent #FF8A5C —
-     * the same collision as light mode, and worse in relative terms
-     * since dark's accent-vs-warn pair is a comfortable 47.0 apart.
-     * Now dE76 32.2 / 25.6 degrees. */
+    /* Same rose family as light mode's crimson, shifted lighter for
+     * dark. Was too close to the dark accent (dE76 22.3/16.9°, worse
+     * than the accent-vs-warn gap); now dE76 32.2/25.6°. */
     --color-status-error: #FB7185;
   }
 }
 
-/* CFG-09 explicit overrides — take precedence over prefers-color-scheme. */
+/* Explicit theme overrides — take precedence over prefers-color-scheme. */
 html[data-ui-theme="light"] {
   --color-canvas: #F7F4EF;
   --color-dominant: #FFFFFF;
@@ -336,12 +117,6 @@ html[data-ui-theme="light"] {
   --color-status-ok: #16A34A;
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
-  /* 10-05-PLAN.md Task 2: this explicit CFG-09 override can disagree with
-   * the OS's own prefers-color-scheme, and without color-scheme a
-   * browser paints native form-control chrome (e.g. the first
-   * <input type="time"> on this page, Settings' new Quiet hours group)
-   * using the OS scheme instead — producing a dark, hard-to-see picker
-   * icon on this light fill whenever the two disagree. */
   color-scheme: light;
 }
 
@@ -359,17 +134,11 @@ html[data-ui-theme="dark"] {
   --color-status-ok: #4ADE80;
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
-  /* Same reason as the light override above, inverted: without this, a
-   * browser whose OS scheme is light paints the time-picker icon dark on
-   * this dark-mode --color-secondary fill. */
   color-scheme: dark;
 }
 
-/* D-19: a single global reduced-motion override every transition in this
- * file (and every later plan's new transitions) inherits for free — no
- * later plan needs its own reduced-motion rule for a simple colour/
- * border/shadow transition. Placed after the token blocks, before the
- * universal box-sizing reset. */
+/* A single global reduced-motion override every transition in this
+ * file inherits for free — no later rule needs its own. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     transition-duration: 0.01ms !important;
@@ -378,95 +147,18 @@ html[data-ui-theme="dark"] {
   }
 }
 
-/* The ONE gap the block above does not reach — recorded here, because
- * this is where the next reader will come looking for it (23-01-PLAN.md
- * Task 1, D3/CFG-32; measured in 23-RESEARCH.md's Risk 3 and confirmed
- * in this project's own harness Chromium). This is a NOTE, not a rule:
- * nothing is declared here and nothing above is edited.
- *
- * `*, *::before, *::after` matches ELEMENTS. The view-transition
- * pseudo-elements — the `::view-transition` root and the
- * `::view-transition-group()` / `::view-transition-old()` /
- * `::view-transition-new()` tree beneath it — form a separate
- * pseudo-element tree that none of those three selectors match. A
- * cross-document view transition is therefore NOT switched off by the
- * override above, and shipping one without its own opt-out would hand a
- * reduced-motion user full-page cross-fades with no way to escape them.
- *
- * That gap is CLOSED, by the rule immediately below (23-04-PLAN.md
- * Task 1, D10/CFG-33) — no longer by a future plan. It wraps the
- * navigation at-rule in a `prefers-reduced-motion: no-preference` media
- * query rather than zeroing these pseudo-elements' duration, and the
- * wrapper is the better shape for one reason: it prevents the
- * transition being SET UP at all, instead of setting one up and then
- * running it fast. A near-zero duration is not the same thing as none —
- * the same reasoning `.js .mobile-nav`'s narrow `none` override further
- * down this file already rests on. */
+/* `*, *::before, *::after` matches ELEMENTS only — the ::view-transition
+ * pseudo-element tree is a separate tree these selectors do not reach,
+ * so a view transition needs its own reduced-motion opt-out (below),
+ * wrapped so the transition is never set up at all rather than set up
+ * and run at a near-zero duration. */
 
-/* D10/CFG-33 (23-04-PLAN.md Task 1): cross-document view transitions —
- * the whole feature, and the only enhancement in Phase 23 that a
- * scripts-blocked visitor gets in full. No script, no framework, no
- * fallback branch, no feature detection and no markup change: the
- * browser snapshots the outgoing document and cross-fades it into the
- * incoming one, and a browser that has not implemented this simply
- * ignores the at-rule and navigates exactly as it did before. Baseline
- * "limited" as of 2026-09-13 (webstatus.dev, re-read in
- * 23-RESEARCH.md): Chrome/Edge 126+, Safari/iOS 18.2+, and NOT Firefox,
- * which therefore sees today's instant navigation and nothing else
- * different. Both of the design system's reference devices — the
- * Android at 360px and the iPhone at 390px — are covered.
- *
- * WHY THE MEDIA WRAPPER, AND WHY IT IS NOT BELT-AND-BRACES. It is the
- * opt-out the block above genuinely cannot provide, not a second copy
- * of it. Source: CSS View Transitions Module Level 2, §8.3.1 — "as per
- * default behavior, the [navigation] rule can be nested inside a
- * conditional group rule such as @media or @supports" — and this exact
- * nested form was verified to parse and to be RETAINED in the CSSOM in
- * this project's own harness Chromium (151.0.7922.34), not assumed from
- * the prose. Wrapping it means that under reduced motion the
- * transition is never SET UP; the alternative (an `animation: none`
- * override on the pseudo-elements) would set one up and then run it at
- * a zeroed duration, which is strictly weaker AND is the dead-code-
- * not-a-safety-net pattern `references/accessibility-contrast.md`
- * records. There is deliberately no such override anywhere in this
- * file.
- *
- * SAME-ORIGIN ONLY, by spec — stated here rather than left as an
- * unstated assumption: the browser only runs a transition between two
- * same-origin documents. Nothing in this app links off-origin from a
- * page carrying this at-rule, so no additional gate is needed; if one
- * is ever added, it degrades to an ordinary navigation on its own.
- *
- * THE THREE NAMES BELOW MUST BE UNIQUE PER RENDERED DOCUMENT, and that
- * is the one way this feature fails silently: a name that matches twice
- * makes the browser drop the transition with no error anywhere. Read
- * this before "simplifying" any of the three selectors — companion/
- * layout.py puts TWO navigation landmarks into EVERY authenticated
- * document simultaneously, the sidebar's own vertical one and the
- * bottom tab bar, hidden from one another only by the 960px media query
- * further down this file. (23-RESEARCH.md and this plan both say three,
- * counting the preferences panel's copy — that one was REMOVED rather
- * than emptied by 22-14, so the hazard is two-fold today and would be
- * three-fold again the moment a panel-level landmark returns.) A name
- * hung on a class those share, or on the bare `nav` element, is
- * therefore declared once in this file and resolves twice in the
- * document, and the whole cross-fade vanishes. The sidebar is targeted
- * by `.dashboard-sidebar`, its own `<aside>` class, rendered exactly
- * once. `.page-title` is page_header()'s single `<h1>`, and
- * `.preview-frame__image` is Home's frame picture and the app's only
- * render site of that class. companion/test_browser_ux.py counts the
- * COMPUTED value on every authenticated route, because only a browser
- * can see a selector matching twice — and that is not hypothetical:
- * mutating `.dashboard-sidebar` to `nav` was measured here, and it
- * resolves to `nav.sidebar-nav` and `nav.tab-bar` on all six routes
- * while every source-level scan in this repository stays green.
- *
- * Each name is declared in a rule of its own on purpose. In particular
- * `.preview-frame__image` shares its white-backing/hairline/radius
- * declarations with `.now-showing__image`, `img.recent-flight__thumb`
- * and `img.history-card__thumb` in one four-selector rule below, and
- * the thumbnails render once PER ROW — putting a name on that shared
- * rule would collide dozens of times on Flights. */
+/* Baseline "limited" (2026-09-13): Chrome/Edge 126+, Safari/iOS 18.2+,
+ * not Firefox — unsupported browsers just navigate instantly, no
+ * fallback needed. Each view-transition-name below must be unique per
+ * rendered document or the browser silently drops the whole transition
+ * with no error; test_browser_ux.py counts the computed value on every
+ * route to guard it. */
 @media (prefers-reduced-motion: no-preference) {
   @view-transition {
     navigation: auto;
@@ -485,32 +177,11 @@ html[data-ui-theme="dark"] {
   view-transition-name: skypane-picture;
 }
 
-/* The app's FIRST and ONLY keyframes block (23-01-PLAN.md Task 1,
- * D3/CFG-32). This stylesheet carried zero before this plan; this one
- * is the whole vocabulary, and companion/test_companion_app.py fails if
- * a second one ever appears.
- *
- * ONE block, TWO consumers, on purpose. D14's "breathing dot" on the
- * relative-time ticker and D22's "pulsing dot" on the live/paused
- * indicator are the same animation described twice in 22-AUDIT.md;
- * 23-RESEARCH.md names two near-identical keyframe blocks as the
- * specific failure to avoid, and that failure is the entire reason this
- * single definition exists. The name carries the app's own prefix for
- * the same reason — a generic `pulse` is exactly the name a later plan
- * redefines without noticing.
- *
- * It cycles OPACITY and nothing else. Never `transform: scale()` on a
- * dot: these indicators are ~6px, so scaling one repaints a layout box
- * sixty times a second for a movement nobody can see. The floor is
- * 0.35 rather than 0 — a dot that vanishes outright reads as a
- * rendering fault, not as a heartbeat.
- *
- * DEFINED here, CONSUMED by 23-05. This plan declares the animation on
- * no selector at all, and that is safe by construction: the guard
- * asserts every animation reference resolves to a block defined in this
- * file, so an unused definition costs nothing and a dangling reference
- * cannot ship. Its duration must come from `var(--motion-slow)` at the
- * call site; the guard rejects a bare literal there. */
+/* The app's only @keyframes block for an ambient pulse, shared by two
+ * consumers rather than duplicated (test_companion_app.py fails if a
+ * second near-identical block appears). Cycles opacity only, never
+ * transform: scale() on a ~6px dot. Floor is 0.35, not 0: a dot that
+ * vanishes outright reads as a rendering fault, not a heartbeat. */
 @keyframes skypane-pulse {
   0%, 100% {
     opacity: 1;
@@ -520,31 +191,9 @@ html[data-ui-theme="dark"] {
   }
 }
 
-/* 23-06-PLAN.md Task 2 (D1/CFG-35, spending 23-01's D3/CFG-32 budget):
- * the app's SECOND keyframes block, and the argument for it rather than
- * a bare assertion that it was needed.
- *
- * 23-01 declared one block and said a plan that believes it needs
- * another has to say so. This one does: `skypane-pulse` cycles opacity
- * between 1 and 0.35 forever, and what a refreshed picture needs is a
- * ONE-SHOT ramp from 0 to 1. Reusing the pulse would mean running an
- * infinite animation for one iteration and accepting its 0.35 floor as
- * the starting opacity, which is a different visual (the picture would
- * appear at a third of its weight rather than from nothing) and a
- * misuse of a block whose own comment says it is the AMBIENT loop. Two
- * blocks, two motions, each named for what it does.
- *
- * It is a fade and nothing else: no transform, no scale. The picture is
- * a 600x800 image and animating its geometry would repaint a large box
- * on a phone for an effect nobody asked for.
- *
- * Its duration comes from `var(--motion-fast)` at the call site below —
- * 23-01's REACTION token, which names "the fades on a region that
- * refreshed itself (23-06)" among its own intended surfaces. Somebody
- * IS waiting to read the new value, which is what puts it there rather
- * than on the ambient token. companion/test_companion_app.py's motion
- * guard rejects a bare literal there and requires every animation name
- * to resolve to a block defined in this file; both hold. */
+/* A one-shot 0->1 fade, distinct from the ambient pulse above (which
+ * never reaches 0 and loops forever) — reusing it would start a
+ * refreshed picture at a third of its weight instead of from nothing. */
 @keyframes skypane-fade-in {
   from {
     opacity: 0;
@@ -554,51 +203,11 @@ html[data-ui-theme="dark"] {
   }
 }
 
-/* 23-08-PLAN.md Task 1 (D7/CFG-37, spending 23-01's D3/CFG-32 budget):
- * the app's THIRD keyframes block, argued for rather than assumed, the
- * way the second one was.
- *
- * The two existing blocks are both about OPACITY: one cycles it forever
- * (the ambient pulse), one ramps it once from nothing (the fade). What a
- * newly-arrived row needs is neither. Fading a table row in from zero
- * opacity would make a line of text materialise out of the page
- * background — the row was not absent a moment ago in any sense the
- * reader experienced, it simply was not there yet — and running the
- * pulse would leave it flashing forever. What says "this one just
- * landed" is a wash of colour on the row that drains away, leaving the
- * row exactly as every other row looks. So: a background tint, and
- * nothing else moves.
- *
- * IT FADES TO A TRANSPARENT FORM OF ITS OWN COLOUR, not to `transparent`
- * the keyword, and that is a correctness point rather than a style one.
- * The final keyframe is the last thing painted before the animation
- * hands the element back to its ordinary computed style; a final value
- * of `transparent` would be the same PAINT as the row's real background
- * only for rows whose real background is already nothing. Ending on the
- * same colour at zero alpha means the last animated frame and the first
- * un-animated one are the same pixels, so there is no snap at the end
- * on a row that has a background of its own (the hover tint, a future
- * zebra, a card surface).
- *
- * No new colour literal: `--color-accent` at this file's own
- * color-mix-with-transparent idiom, the same shape every wash in this
- * stylesheet already uses.
- *
- * Its duration comes from `var(--motion-slow)` at the call site below.
- * That is 23-01's AMBIENT token and the choice is deliberate: nobody
- * pressed anything and nobody is waiting: the page ran this on its own
- * to report something that happened elsewhere. A 180ms flash on a row
- * the reader was not looking at would be over before their eye reached
- * it, which is the same as no signal at all.
- *
- * UNDER REDUCED MOTION THIS DOES NOT WASH, and there is no block here
- * saying so — the global override earlier in this file already zeroes
- * animation-duration for every element, and a per-rule block would be
- * the dead-code-not-a-safety-net pattern accessibility-contrast.md
- * records a verdict on. The stylesheet's live reduce-block count stays
- * at two. The outcome under that preference is correct rather than
- * merely acceptable: the new row is still at the top of the list, which
- * is itself the information. */
+/* A background wash that drains away, not an opacity fade: a newly
+ * arrived row was not literally absent a moment ago. Fades to a
+ * transparent form of ITS OWN colour, not the transparent keyword —
+ * the final frame must paint identically to the row's real background
+ * (a hover tint, a card surface) so there is no snap at the end. */
 @keyframes skypane-row-arrive {
   from {
     background-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
@@ -608,66 +217,12 @@ html[data-ui-theme="dark"] {
   }
 }
 
-/* 23-09-PLAN.md Task 1 (D3/CFG-32, spending 23-01's budget): the app's
- * FOURTH keyframes block, argued for rather than assumed, the way the
- * second and third were.
- *
- * The three existing blocks are an opacity CYCLE (the ambient pulse), an
- * opacity RAMP (the fade a refreshed region spends) and a background
- * WASH (a row that just landed). None of them moves anything. What the
- * save bar needs is the one motion none of them describes: it has to
- * ARRIVE — travel a short distance into the position it then keeps —
- * because that is the difference between a control the reader watches
- * appear and one that was apparently always there and they simply had
- * not noticed. The fade alone would have made a bar carrying the only
- * Save button on the page materialise out of the page background.
- *
- * WHY AN ANIMATION RATHER THAN A TRANSITION, which is the real decision
- * here. The bar goes from `display: none` (its server-rendered `hidden`
- * attribute) to displayed, and a transition has no previous computed
- * value to start from across that change — it needs an @starting-style
- * entry, which is exactly what 23-08 wrote for the Flights detail row.
- * That was right there and is wrong here: @starting-style is newer than
- * this component's audience, so a transition would move for some
- * visitors and silently do nothing for the rest. That is the shape of
- * failure 23-01's interpolate-size ban exists to stop, and it is not a
- * smaller failure because the property involved is Baseline-newer
- * rather than Chromium-only. An animation runs for everyone, and an
- * element that is `display: none` runs none of it, so the
- * scripts-blocked reader — for whom this bar never appears at all — is
- * reached by nothing here either.
- *
- * TRANSFORM AND OPACITY, AND NOTHING ELSE, and that ban is a
- * correctness rule rather than a performance one. This component's own
- * history is why: a bar stranded at an intermediate SIZE is a blocked
- * save, and this app has already shipped a blocked save once (B1). The
- * `.js .mobile-nav` override further down this file is the recorded
- * precedent for a size-interpolating transition stranding a computed
- * value when its duration is forced to 0.01ms. Neither property here
- * can strand anything: with no fill mode the element is handed straight
- * back to its own computed style the instant the animation ends, and
- * that style has never mentioned either property.
- *
- * The travel is `--space-md`, the file's own spacing token, and it is
- * DOWNWARD-origin on purpose: the bar is pinned to the bottom of the
- * viewport at both breakpoints, so arriving from below it is the
- * direction it would come from if it were a physical object sliding
- * into place, and it never crosses the content it is about to sit over.
- *
- * Its duration comes from `var(--motion-fast)` at the call site. That is
- * 23-01's REACTION token by its own definition — the user just made an
- * edit and is watching for the confirmation that it can be saved — and
- * 23-01's own comment already names "the save bar's entrance" among the
- * surfaces it was chosen for. The guard rejects a bare literal there.
- *
- * UNDER REDUCED MOTION THIS DOES NOT SLIDE, and there is no block here
- * saying so — the global override earlier in this file already zeroes
- * animation-duration for every element, and a per-rule block would be
- * the dead-code-not-a-safety-net pattern accessibility-contrast.md
- * records a verdict on. The stylesheet's live reduce-block count stays
- * at two. The outcome under that preference is correct rather than
- * merely tolerable: the bar is simply there, at full opacity, in its
- * final position, which is what it did before this plan. */
+/* An animation, not a transition: the bar goes from display: none to
+ * displayed, which a transition cannot animate across without
+ * @starting-style — newer than this component's audience. transform
+ * and opacity only: this component has shipped a stranded-at-
+ * intermediate-size bug before (a blocked save), and neither property
+ * can strand a value the way an interpolated size can. */
 @keyframes skypane-bar-arrive {
   from {
     opacity: 0;
@@ -691,13 +246,11 @@ body {
   line-height: 1.5;
   background: var(--color-canvas);
   color: var(--color-text);
-  /* UXA-01's guaranteed fix, verified by the audit's own real-browser
-   * measurement (1440x900, populated History: 1425px document client width
-   * vs 1712px document scroll width). No matter what layout quirk exists
-   * deep in the tree, the document itself can never scroll horizontally
-   * once this is set. .data-table-wrap's own overflow-x: auto below is
-   * what still gives a genuinely wide table its own discoverable, scoped
-   * horizontal scroll — do not remove either half. */
+  /* No matter what layout quirk exists deep in the tree, the document
+   * itself can never scroll horizontally once this is set (measured
+   * 1425px client vs 1712px scroll width before this fix).
+   * .data-table-wrap's own overflow-x: auto still gives a wide table its
+   * own scoped horizontal scroll — do not remove either half. */
   overflow-x: hidden;
 }
 
@@ -719,84 +272,34 @@ body {
   line-height: 1.5;
 }
 
-/* 06.6.4.1.1 (D-10): stays weight-regular on purpose — the section-heading
- * tier must NOT gain a weight of its own, because that is what keeps it
- * reading as a distinct middle rung between the semibold .page-title
- * above it and the semibold nested-card-title tier below it (see the
- * .page-section--nested > h2 rule further down this file). A regular-
- * weight middle tier between two semibold tiers is the whole ladder;
- * making all three semibold would collapse it back into "one heading
- * weight at different sizes". `legend` also consumes
- * --font-heading-size via the shared serif rule above — that is fine
- * and intentional, not an oversight. */
+/* Stays weight-regular on purpose: this is the middle rung of a
+ * three-tier heading ladder (semibold .page-title above, semibold
+ * nested-card-title below) — a regular middle tier is what keeps all
+ * three reading as distinct levels instead of one weight repeated. */
 .text-heading {
   font-size: var(--font-heading-size);
   font-weight: var(--weight-regular);
   line-height: 1.25;
 }
 
-/* quick task 260901-re6: the single muted sentence that now sits
- * directly under each Settings group heading (Theme/Runway/Diagnostic
- * LED), replacing the old description-above / helper-below paragraph
- * pair. Deliberately COMPOSES with .text-label rather than restating
- * it — .text-label already supplies var(--font-label-size), so the
- * markup always carries both classes together (`class="text-label
- * section-caption"`) and this rule adds only colour: the file's
- * existing 70% color-mix muted strength (.data-table-wrap thead, the
- * filter-bar hint, the empty-state copy), not a new one. The absence of
- * a margin declaration here is a decision, not an omission: unlike the
- * `h1, h2, h3, .text-heading` heading-rhythm rule below, this role
- * keeps the UA default paragraph margin, because the description and
- * helper paragraphs it replaces already relied on that default and the
- * validated sketch was measured against it. Do not "complete" this rule
- * by adding a margin. */
+/* Composes with .text-label (both classes always applied together)
+ * rather than restating it. No margin here, deliberately: this role
+ * relies on the UA default paragraph margin in its Settings context. */
 .section-caption {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* D-07 (19-07-PLAN.md, A-25): the field-level message a rejected
- * Settings save renders directly under the offending control.
- * Deliberately COMPOSES with .text-label the same way .section-caption
- * above does — the markup always carries both classes together
- * (`class="field-error text-label"`), so this rule adds only colour
- * plus a small top margin, reusing the existing --color-status-error
- * token (both themes already declare it) and the existing --space-xs
- * token — no new custom property, no new colour literal. The top
- * margin (rather than .section-caption's own no-margin decision) is
- * what makes the message read as attached to the control immediately
- * above it instead of colliding with the next sibling's own spacing. */
 .field-error {
   color: var(--color-status-error);
   margin: var(--space-xs) 0 0;
 }
 
-/* quick task 260901-tsa (finding B): pairs a section heading with an
- * inline, baseline-aligned muted description — Health's Screen/Server &
- * data headings. Declares NO margin of its own, deliberately: the <h2>
- * inside still carries the heading-rhythm rule's own `margin: 0 0
- * var(--space-sm)` below, and a flex item's own margin still
- * contributes to the flex line's box, so the gap below this whole row
- * is exactly the gap that existed below the bare <h2> before this
- * wrapper existed — the unchanged spacing is the intent, not an
- * omission.
- *
- * 06.6.4.1.1-03 (D-19, UIR-24) makes this rule mobile-first. The
- * original single-rule form (baseline row plus `flex-wrap: wrap`) let
- * the muted caption wrap onto its own line below 960px, but as a
- * hanging "— …" line under the heading — an orphan, not a clean stack.
- * The base rule below is now the mobile default (a real column stack,
- * `gap: 2px` since a stacked heading+caption pair needs far less
- * separation than a baseline-aligned inline pair); the
- * `@media (min-width: 960px)` block (below, where `.stat-tile__caption`'s
- * neighbours also live) restores the original inline baseline row once
- * there is room for it. `display: flex` stays a literal declaration on
- * THIS rule — a harness check in test_status_pages.py indexes it — so
- * the desktop override only needs to change direction/alignment/gap,
- * never re-declare `display`. `flex-wrap: wrap` is kept even in this
- * column form: it is harmless (a column layout has no cross-axis line
- * for a lone child to wrap onto today), and keeping it is what this
- * rule's own comment above already describes, rather than removing a
- * declaration this edit has no stated reason to touch. */
+/* Mobile-first: a column stack by default, with a @media (min-width:
+ * 960px) override further down restoring the inline baseline row. No
+ * margin of its own — the <h2> inside still carries the heading-rhythm
+ * margin, so spacing below this row is unchanged from before this
+ * wrapper existed. display: flex is a literal here on purpose:
+ * test_status_pages.py indexes it directly. */
 .section-intro {
   display: flex;
   flex-direction: column;
@@ -805,52 +308,15 @@ body {
   gap: 2px;
 }
 
-/* Zeroes the row's own <p> margin. Deliberately NOT added to
- * .section-caption above — that rule's own comment states its lack of a
- * margin declaration is a decision, because in its Settings context the
- * caption is an ordinary block sibling relying on the UA paragraph
- * margin the validated sketch was measured against. That reasoning is
- * context-specific, so the zeroing belongs here, on the container where
- * the flex row owns the layout, not as a new declaration inside
- * .section-caption, which would silently change every Settings group at
- * the same time. Child combinator, not a descendant selector: only the
- * row's own direct paragraph is being laid out. */
 .section-intro > p {
   margin: 0;
 }
 
-/* 06.6.1 (D-03): headings move onto var(--font-serif). This is a
- * headings-only treatment — body text, table cells, form controls, nav
- * links and monospace content stay on --font-ui, never var(--font-serif).
- * That boundary is the whole substance of D-03.
- *
- * The exhaustive serif set is: h1, h2, h3, .text-heading, `legend`,
- * .page-title, .site-title (which .sidebar-title is always co-classed
- * with, and is why .sidebar-title needs no rule of its own) — minus the
- * nested-card-title override further down this file (the rule pairing
- * .page-section--nested's own h2 with .battery-trend-section's), which
- * overrides this rule's family to sans for that one tier (06.6.4.1.1
- * D-09). 06.6.4.1.1 (D-13) also retires the one Label-role exception
- * this list used to carry —
- * .stat-tile__caption is no longer serif, no longer a Label-role
- * exception of any kind, and moved onto the unified 12px uppercase label
- * voice instead (see its own rule in the stat-tile section below). This
- * serif set is genuinely exhaustive again: do not extend it further, and
- * do not let this comment's own allow-list drift out of date the way the
- * stale one it replaces did — a stale allow-list in a comment is exactly
- * the defect the heading-color-consistency debug session was caused by.
- *
- * `legend` is in the selector below, and this is the fix, not a
- * cosmetic addition: `legend` is a section-heading role — it is the
- * accessible group name for a <fieldset>, and config_page.py's D-06
- * deliberately uses it INSTEAD of an <h2> so a group is never named
- * twice. It was never added to this selector, so it kept the browser's
- * sans-serif and the file's own --weight-semibold, which put a
- * sans-semibold `<legend>Diagnostic LED</legend>` directly above a
- * serif-regular `<h2 class="text-heading">Poll</h2>` at the identical
- * 20px size on the Config page. Same role, same size, two families and
- * two weights. If a heading role is ever added to this file, it belongs
- * in this selector — that is the whole contract. */
+/* Headings-only: body text, tables, form controls, nav links and
+ * monospace content stay on --font-ui, never --font-serif. legend is
+ * included deliberately — it is a <fieldset>'s accessible group name,
+ * the same role as an <h2>, and previously fell through to the browser
+ * default instead. Any future heading role belongs in this selector. */
 h1,
 h2,
 h3,
@@ -861,14 +327,10 @@ legend,
   letter-spacing: -0.01em;
 }
 
-/* Heading rhythm. Without this, headings fall through to UA defaults,
- * which are em-based and per-element — and .text-heading is applied
- * both to real <h2> elements (Health/Preview/Config sections) and to
- * <p> elements (layout.empty_state(), airlines_page, history_page), so
- * one visual heading role got 0.83em margins on an h2 and 1em margins
- * on a p. Stating the rhythm once, in the same selector that states the
- * family, is what keeps the role's spacing independent of which tag it
- * happens to land on. */
+/* Stated once, in the same selector as the family: .text-heading is
+ * applied to both real <h2> elements and <p> elements, so leaving
+ * margin to UA defaults would give the same visual role two different
+ * spacings depending on which tag it landed on. */
 h1,
 h2,
 h3,
@@ -876,17 +338,9 @@ h3,
   margin: 0 0 var(--space-sm);
 }
 
-/* 06.6.2 (D-15): the page-title role — distinct from the 22px
- * .text-heading section-heading role, used only by layout.page_header()'s
- * <h1 class="page-title">.
- *
- * 06.6.4.1.1 (D-10): grows from 30px to 32px, gains its own semibold
- * weight and tighter -0.015em tracking (overriding the shared serif
- * rule's regular weight and -0.01em), and line-height loosens slightly
- * to 1.15 for the bigger size. This is the top rung of the three-tier
- * ladder — semibold here, regular on .text-heading, semibold again on
- * the nested-card-title tier — is what makes all three read as distinct
- * levels instead of one heading weight repeated at different sizes. */
+/* The top rung of the three-tier heading ladder: semibold here,
+ * regular on .text-heading, semibold again on the nested-card-title
+ * tier — what makes all three read as distinct levels. */
 .page-title {
   font-family: var(--font-serif);
   font-size: var(--font-page-title-size);
@@ -900,84 +354,24 @@ h3,
   margin: 0 0 var(--space-lg);
 }
 
-/* Quick task 260903-peo (UIR-18): the persistent-liveness-note wrapper.
- * Spacing only — no border, no fill, no shadow; this is a header line,
- * not a card. Block-level by element choice (a <p>), which is the whole
- * point: it keeps `.page-header`'s in-flow children block-level end to
- * end (<h1>, this wrapper, <p class="page-header__purpose">), so the
- * renderer never has to synthesize an anonymous block box for a
- * stranded inline child the way the bare pill span once did (see
- * 260902-ep7's comment below). `.page-header .refresh-pill`'s
- * descendant selector still matches the pill nested inside this
- * wrapper — position: absolute takes it out of this element's flow
- * entirely, so the wrapper's own height is dictated by the note text
- * alone. */
+/* Block-level by element choice (a <p>), keeping .page-header's
+ * children block-level end to end so the renderer never has to
+ * synthesize an anonymous block box for a stranded inline child. */
 .page-header__freshness {
   margin: 0 0 var(--space-xs);
 }
 
-/* 260902-ep7: `.page-header` establishes a containing block for the
- * pill's own out-of-flow rule further down this file. Everything below
- * the divider is about WHY that pill is taken out of flow at all.
- *
- * The mechanism the pill's own out-of-flow gap used to leave behind:
- * .page-header is a plain block box. On Health it has three children —
- * a block <h1>, an inline-level <span class="refresh-pill"> (its own
- * rule declares `display: inline-flex`, which is inline-LEVEL, not
- * block-level), and a block <p>. CSS block layout cannot mix an
- * inline-level child directly between two block-level siblings in one
- * block container, so the renderer wraps the stranded span in an
- * anonymous block box of its own. That anonymous box generates a line
- * box exactly as tall as its content — the pill's own 20px — and
- * `.refresh-pill[hidden]`'s `visibility: hidden` (kept below,
- * deliberately) suppresses PAINTING that box, never its LAYOUT, so the
- * 20px line box is consumed on every render whether or not the pill is
- * showing. Combined with .page-title's own 4px margin-bottom and the
- * line box's own half-leading, that produced the measured 28px gap
- * between Health's <h1> and its purpose sentence, against Airlines'
- * 4px (Airlines' .page-header has only the <h1> and <p> — two children,
- * no stranded inline-level sibling, no anonymous block box). Before
- * 260902-chc the same three-line stack existed but the middle line held
- * a visible Refresh link, so the space was visually motivated; 260902-chc
- * replaced that link with an invisible pill and the space became
- * unexplained.
- *
- * Fix: take the pill out of normal flow entirely with `position:
- * absolute`, scoped to a page-header-scoped pill rule further down this
- * file (see that rule's own comment for the offsets and the rejected
- * alternatives).
- * An out-of-flow box reserves no line box and participates in no flow
- * at all, so this preserves 260902-chc's real goal (revealing the pill
- * shifts nothing in the header) STRICTLY MORE STRONGLY than the
- * reserved-line-box mechanism it replaces — the no-shift-on-reveal
- * guarantee becomes structural instead of depending on the hidden box's
- * height matching the visible box's height. */
+/* Establishes a containing block for the out-of-flow pill further down.
+ * The pill used to be an inline-level child stranded between block
+ * siblings, forcing an anonymous block box whose line box was consumed
+ * on every render whether visible or not (measured: a spurious 28px
+ * gap under <h1>). position: absolute removes it from flow entirely,
+ * reserving no line box at all. */
 .page-header {
   position: relative;
   margin-bottom: var(--space-lg);
 }
 
-/* 06.6.1 (D-01): the wordmark moves from the Display role to the Heading
- * role — crafted typography instead of a default bold sans, with no logo
- * asset introduced. The retired Display role's own two consumers,
- * .stat-tile__value and .runway-card__number, moved on in 06.6.4 (D-09) to
- * the Emphasis role instead — Body size plus semibold, the same
- * existing-size-made-bold pattern .data-table th already uses for its own
- * emphasis. --font-display-size was retired along with them, restoring the
- * scale block above to its own claimed four sizes.
- *
- * 06.6.4.1.1 (D-11): grows to 24px serif semibold, -0.01em tracking
- * (replacing the prior 0.02em). The 24px is a deliberate LITERAL, not a
- * token, and stays that way on purpose: this file's stated scale is
- * exactly four content sizes, the retired --font-display-size was also
- * 24px and was deliberately retired by 06.6.4 (D-09) to keep the scale
- * honest, and the wordmark is a brand role rather than a content role —
- * it does not belong in the four-size content scale any more than the
- * documented sub-scale exception tier (11/12/13px on .data-table th,
- * .filter-bar__count, etc.) does. Resurrecting a fifth content token
- * just to name this one literal would misrepresent the wordmark as a
- * content-scale citizen it isn't. .sidebar-title needs no rule of its
- * own; it is always co-classed with .site-title. */
 .site-title {
   font-size: 24px;
   font-weight: var(--weight-semibold);
@@ -986,16 +380,8 @@ h3,
   letter-spacing: -0.01em;
 }
 
-/* Visible focus outline on every focusable element — never removed without
- * a replacement (accessibility floor, D-22).
- *
- * T15 (22-UI-SPEC.md §5 contract 2, 22-15-PLAN.md Task 1): `summary`
- * joins the list. It is a NATIVE interactive element — keyboard
- * focusable, Enter/Space operable, already carrying the touch-target
- * register's kept 44px entry — and it was the one such element in the
- * app with no visible focus state at all, which is a hole in this
- * floor rather than a styling gap. It is added here, to the one rule
- * that owns the floor, rather than given a treatment of its own. */
+/* Visible focus outline on every focusable element — never removed
+ * without a replacement (accessibility floor). */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
@@ -1014,30 +400,10 @@ a:hover {
   color: var(--color-accent-hover);
 }
 
-/* Nav bar (header). 06.6.1 (D-00/D-06, Reconciliation 2): the horizontal
- * `.nav-bar`/`.nav-tab` strip that used to render here below 960px is
- * removed outright, not merely hidden — the hamburger dropdown below
- * replaces its role at that breakpoint. Prior history, preserved for the
- * record: `.nav-bar`'s `overflow-x: auto` zeroed its own automatic
- * minimum width per CSS Flexbox 4.5, so it silently lost all its width to
- * `.theme-form` (which had no such minimum override) instead of wrapping
- * onto its own row — that collapsed the strip to ~26px on a 375px
- * viewport, hiding every tab but a sliver of "Config". Commit `b90ed88`
- * fixed that specific collapse (`flex: 1 1 200px` on `.nav-bar`,
- * `flex-wrap: wrap` here). Real-device testing during 06.5-03 then found
- * the horizontally-scrollable strip itself — even correctly sized — hid
- * most tabs behind an undiscoverable swipe (only 3-4 of 5 tabs visible at
- * once on a real phone). Rather than tuning the flex sizing a second
- * time, this phase removes the pattern the bug lived in. `.mobile-nav`
- * relies on `flex-wrap` here to drop onto its own full-width row below
- * the title/toggle row — it stays in normal document flow (see
- * `.mobile-nav` below) rather than being taken out of it, which is what
- * lets its `max-height` transition actually push page content down
- * instead of overlaying it. An earlier version of this rule used
- * `position: absolute` on `.mobile-nav` for that same goal; absolute
- * positioning removes an element from flow entirely, so it could only
- * ever overlay, never push — a real defect found on real-device
- * verification (06.6.1-06-SUMMARY.md), fixed here. */
+/* .mobile-nav relies on this rule's flex-wrap to drop onto its own
+ * full-width row in normal document flow (never position: absolute,
+ * which would only ever overlay) — that is what lets its max-height
+ * transition push page content down instead of covering it. */
 .site-header {
   display: flex;
   flex-wrap: wrap;
@@ -1048,14 +414,11 @@ a:hover {
   margin-bottom: var(--space-xl);
 }
 
-/* Hamburger toggle (06.6.1 D-06). Not type="submit", so the
- * button[type="submit"] accent-fill rule does not reach it and no
- * defensive override is needed here — if a later change ever makes it a
- * submit button, this rule would lose, the same trap
- * `.theme-form .theme-option` already documents. State is styled off
- * aria-expanded, not a duplicate CSS class, so the visual state and the
- * accessibility state are physically the same attribute and cannot
- * drift. */
+/* Not type="submit", so the accent-fill rule never reaches it — if a
+ * later change makes it a submit button, this rule would lose, the
+ * same trap .theme-form .theme-option documents. State is styled off
+ * aria-expanded, not a duplicate class, so it cannot drift from the
+ * announced state. */
 .site-nav-toggle {
   margin-left: auto;
   min-height: 44px;
@@ -1076,16 +439,12 @@ a:hover {
   border-color: var(--color-accent);
 }
 
-/* Dropdown panel. `flex-basis: 100%` (not `position: absolute` — see
- * .site-header's comment above) is what forces this onto its own
- * full-width row below the title/toggle row within the wrapping flex
- * header, while staying in normal flow. The clipping half of this
- * component (max-height/overflow/transition) has moved to the `.js
- * .mobile-nav` rule below — UXA-02/UXA-12's joint fix. Without the `.js`
- * class ever present (no JavaScript, or the script failed to load), this
- * base rule alone renders the panel in its natural, unclipped, fully
- * visible document flow — this is UXA-12's floor. The two rules must
- * never be edited independently. */
+/* flex-basis: 100% (not position: absolute) forces this onto its own
+ * full-width row while staying in normal flow. The clipping half
+ * (max-height/overflow/transition) lives in the .js .mobile-nav rule
+ * below — without .js ever present, this base rule alone renders the
+ * panel fully visible in document flow. The two rules must never be
+ * edited independently. */
 .mobile-nav {
   flex-basis: 100%;
   background: var(--color-secondary);
@@ -1094,31 +453,19 @@ a:hover {
   border-bottom-right-radius: var(--radius-card);
 }
 
-/* max-height (not display or height: auto) is used because neither of the
- * latter can be transitioned; overflow: hidden is what makes the
- * collapsed state actually hide its contents rather than merely clip them
- * visually. Scoped under `.js` (added unconditionally by
- * nav-dropdown.js's first statement) so the clipping only ever applies
- * once client-side script has proven it is running — nav-dropdown.js's
- * own `panel.hidden` toggling (UXA-02's floor) is what removes the closed
- * panel from the accessibility tree and tab order once JS confirms it is
- * closed; this CSS rule alone only ever governs the visual/animated
- * state. */
+/* max-height (not display/height: auto) is used because neither of
+ * those can be transitioned; overflow: hidden makes the collapsed
+ * state actually hide its contents. Scoped under .js so clipping only
+ * ever applies once script has proven it is running. */
 .js .mobile-nav {
   max-height: 0;
   overflow: hidden;
   transition: max-height .22s ease;
 }
 
-/* T11 (22-14-PLAN.md Task 2): the ONE max-height for the open dropdown.
- * A second declaration used to sit ~4900 lines further down and win
- * silently at 640px; it is deleted, not re-tuned. This value is
- * MEASURED, not guessed: with the destination links gone the panel holds
- * the state reminder, the language and theme switches and Sign out, and
- * its content measures 165px in French at 390px —
- * the language where the segments and the Sign out label are longest.
- * The cap is rounded up from that to leave room for a longer future
- * footer string without clipping it. */
+/* 320px is measured, not guessed: with the state reminder, language/
+ * theme switches and Sign out, French content measures 165px at 390px
+ * — the cap is rounded up from that with room for a longer footer. */
 .js .mobile-nav--open {
   max-height: 320px;
 }
@@ -1129,54 +476,12 @@ a:hover {
   }
 }
 
-/* ===================================================================
- * 25-01-PLAN.md Task 2 (CFG-46) — THE .js GATE, AND THE SHARED CONTROL
- * VOCABULARY THE WHOLE OF PHASE 25 IS BUILT ON.
- *
- * Placed here, immediately after the two `.js .mobile-nav` rules above,
- * because those are this file's other consumers of the same `.js` class
- * (added unconditionally to <html> as nav-dropdown.js's very first
- * statement) and all three read as one group. Placement is for
- * READABILITY only: every selector below is unique to this block, so
- * nothing here wins or loses on source order.
- *
- * --- THE DIRECTION, AND WHY THE REVERSE IS A DEFECT ----------------
- *
- * D-09 (22-CONTEXT.md) is a locked decision: an affordance that cannot
- * work without script does not RENDER without script. The gate
- * therefore HIDES BY DEFAULT and is revealed under `.js` — never the
- * other way round.
- *
- * Writing it the other way round (render by default, hide under `.js`)
- * fails twice. It flashes a dead control on every single load, in the
- * window between first paint and the script running. And when a script
- * genuinely fails to run — blocked, 404, a parse error — `.js` is never
- * added at all, so the dead control does not merely flash, it stays on
- * screen permanently with nothing behind it. This file has already paid
- * that bill once: 19-10's `.js`-keyed fallback-hide rule (the block
- * immediately below this one, which now keys on two liveness markers
- * instead) hid the only working Save button whenever an unrelated
- * script failed, and the fix was to stop keying on `.js` at all. That
- * rule's own attribute name is deliberately NOT repeated in this
- * paragraph: companion/test_config_page.py locates it by the FIRST
- * occurrence of that literal in this file, so quoting it here would
- * point the guard at a comment.
- *
- * `display: none` specifically, and it is not interchangeable with
- * `visibility: hidden` or `opacity: 0`. Those two leave the element in
- * the layout AND in the tab order, so a keyboard user with scripts
- * blocked can tab straight into a control that cannot do anything. Out
- * of the layout and out of the tab order is the whole requirement.
- *
- * --- THE REVEAL, AND WHY IT IS ONE RULE ---------------------------
- *
- * The revealed display value comes from `--js-gate-display`, which a
- * consumer sets on its own rule (`--js-gate-display: flex;`) with no
- * `.js`-scoped selector of its own. Without that indirection every
- * consumer would have to write its own `.js .thing { display: flex; }`
- * pair and the gate's direction would be re-decided five times. The
- * fallback is `block`, which is what an unstyled <div> is anyway.
- * =================================================================== */
+/* The `.js` progressive-enhancement gate, shared by every script-only
+ * control in this file: hidden by default (display: none, never
+ * visibility/opacity, which would leave a dead control focusable),
+ * revealed under `.js` via a consumer's own --js-gate-display. The
+ * reverse direction (render then hide) flashes a dead control on every
+ * load and strands it if the script fails to run at all. */
 .js-gate {
   display: none;
 }
@@ -1185,36 +490,11 @@ a:hover {
   display: var(--js-gate-display, block);
 }
 
-/* The shared hit area for a small control, in the RELOCATED category of
- * `references/control-density.md`'s touch-target register — a 22x22px
- * visual box with a `::before` synthesizing a real 44x44 pointer/touch
- * target (22 + 11 + 11 = 44), which is a hit-area GAIN, never a trade.
- *
- * Every value here is `.copy-btn`'s own, reused VERBATIM rather than
- * re-chosen: the 22x22 box, the zero padding, the inline-flex centring,
- * the 6px radius, the negative-11px inset and the 14px glyph
- * `.copy-btn .icon` already scopes its SVG down to. `.row-toggle` did
- * exactly this in 22-09 and its own comment says so; this is the third
- * consumer of one register entry, not a fourth set of numbers. A
- * harness asserts every one of those declarations EQUAL to
- * `.copy-btn`'s and recomputes the 44 from the declared box and inset,
- * so a future density pass that shrinks one and forgets the other
- * fails rather than drifts.
- *
- * NO FOCUS RULE HERE, AND THAT IS DELIBERATE. The global
- * `a/button/input/select/summary:focus-visible` floor near the top of
- * this file already paints every native interactive element, and a
- * handle in this phase is a real <button>. A plan adding its own focus
- * ring to a control is duplicating a solved problem and will end up
- * with a second, subtly different ring. (For the record, so the next
- * reader does not go looking in the wrong place: that floor is a
- * top-level rule, NOT part of the one `@supports selector(:has(*))`
- * block — what lives inside the feature query is the DELEGATED focus
- * ring for cards wrapping a visually-hidden radio, which is a different
- * mechanism for a different markup shape.)
- *
- * No background, border or content of its own on the `::before`: it is
- * a pointer target, not a painted surface. */
+/* 22x22 visual box with a ::before synthesizing a real 44x44 hit area
+ * (22+11+11=44) — every value reused verbatim from .copy-btn, and a
+ * harness asserts them equal so a future density pass cannot drift one
+ * without the other. No focus rule here: the global focus-visible floor
+ * already covers every native <button>. */
 .control-hit-area {
   width: 22px;
   height: 22px;
@@ -1239,47 +519,12 @@ a:hover {
   height: 14px;
 }
 
-/* The continuous-value control's three-part naming convention, shared
- * by 25-04's quiet-hours dial and 25-05's wake-interval slider:
- *
- *   .value-control           the wrapper, and the positioning context
- *   .value-control__track    the box companion/static/value-controls.js
- *                            measures the pointer against
- *   .value-control__handle   the grabbable, focusable <button>
- *
- * There is deliberately no `__readout` class. A control's printed value
- * is a TIME VALUE and this file already has exactly one role for that
- * (`.time-value`, C5's consolidation of four competing treatments,
- * carrying `font-variant-numeric: tabular-nums` so a changing digit
- * never reflows its neighbours). A readout wears that class. Adding a
- * fourth numeric voice here would be reopening C5.
- *
- * Only the declarations that are genuinely SHARED live here — each
- * control's own geometry (a track's length, a dial's diameter, where a
- * handle sits for a given fraction) is that control's plan's, and
- * guessing it now would be inventing numbers with nothing to measure
- * them against. The two that ARE shared:
- *
- * `touch-action: none` is load-bearing and easy to omit: without it the
- * browser's own panning gesture claims a press-and-drag on every touch
- * device, `pointermove` never reaches value-controls.js, and the
- * control is simply immovable on a phone — with no error anywhere and
- * every string-comparison check still green. It is declared on the
- * wrapper AND on the handle, because the handle is the element a drag
- * actually starts on and `touch-action` does not inherit.
- *
- * `position: relative` on the wrapper and the track is what an
- * absolutely-placed handle is measured against; without it the handle
- * would resolve against the nearest positioned ancestor somewhere else
- * on the page.
- *
- * The painted position arrives as the `--value-fraction` custom
- * property, written by value-controls.js from the value it just read
- * back off the native input — so the geometry stays in the stylesheet
- * and the script stays out of the layout business. With scripts
- * blocked the property is simply never set, which is correct: the
- * control it positions is inside a `.js-gate` and is not rendered at
- * all. */
+/* Shared wrapper/track/handle naming convention for a continuous-value
+ * control (the quiet-hours dial, the wake-interval slider). No
+ * __readout class: a control's printed value reuses .time-value instead.
+ * touch-action: none is load-bearing on both the wrapper and the handle
+ * (it does not inherit): without it the browser's own panning gesture
+ * claims the drag and pointermove never reaches value-controls.js. */
 .value-control {
   position: relative;
   touch-action: none;
@@ -1292,16 +537,9 @@ a:hover {
 .value-control__handle {
   position: absolute;
   touch-action: none;
-  /* 28-02-PLAN.md (CFG-73, Bug B): every OTHER transitioned property the
-   * base `button` rule lists, minus `transform`. A handle's polar
-   * position is a REPRESENTATION OF A VALUE, not an affordance that
-   * should ease anywhere — easing it means that for ~150ms after every
-   * value change the handle is drawing a position the control does not
-   * hold, the same class of lie as 27-02's stale arc, in geometry
-   * instead of in a sentence. The position now tracks `--value-fraction`
-   * instantly instead of lerping through the chord. The hover/press
-   * colour feedback below is genuinely an affordance and keeps its
-   * easing. */
+  /* Every base-button transitioned property except transform: a
+   * handle's position represents a live value and must track
+   * --value-fraction instantly, never ease through a stale position. */
   transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
 }
 
