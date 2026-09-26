@@ -1,42 +1,6 @@
 # Files not yet purged of plan/ticket-history references in comments.
 # check_comment_history.py check skips these paths by default. Each
 # group's closing commit shrinks this list; the last one deletes it.
-.github/workflows/ci.yml
-.gitignore
-adsb-test/analyze_samples.py
-adsb-test/query_aggregator.py
-adsb-test/sample_window.py
-conftest.py
-deploy/Caddyfile
-deploy/activate.sh
-deploy/backup/backup_gate.py
-deploy/backup/install-backup-key.sh
-deploy/backup/mac/install-launchagent.sh
-deploy/backup/mac/skypane-backup-pull.plist.template
-deploy/backup/mac/skypane-backup-pull.sh
-deploy/backup/skypane_backup.py
-deploy/deploy.sh
-deploy/harden_sshd.sh
-deploy/provision.sh
-deploy/render_caddyfile.sh
-deploy/skypane-backup.service
-deploy/skypane-byos.service
-deploy/skypane-companion.service
-deploy/skypane-poll.service
-deploy/skypane-poll.timer
-deploy/skypane.env.example
-deploy/tests/conftest.py
-deploy/tests/test_activate.py
-deploy/tests/test_backup.py
-deploy/tests/test_backup_gate.py
-deploy/tests/test_caddyfile.py
-deploy/tests/test_ci_secrets.py
-deploy/tests/test_deploy.py
-deploy/tests/test_docs.py
-deploy/tests/test_install_backup_key.py
-deploy/tests/test_mac_pull.py
-deploy/tests/test_provision.py
-deploy/tests/test_units.py
 firmware/.gitignore
 firmware/build.sh
 firmware/flash.sh
@@ -74,7 +38,3 @@ firmware/tests/test_reset_reason.c
 firmware/tests/test_sleep_decision.c
 firmware/tests/test_wake_deadline.c
 firmware/tools/gen_fault_screen.py
-hardware/logtools.py
-pyproject.toml
-scripts/check-attribution.sh
-scripts/lock-deps.sh

@@ -458,3 +458,181 @@ render and measure this stylesheet in a real browser) passes.
 
 - Raw, before: 512795 bytes; after: 140426 bytes (72.6% smaller).
 - Gzip, before: 170819 bytes; after: 36735 bytes (78.5% smaller).
+
+## Group 8 — deploy/ + scripts/ + .github/ + root config + adsb-test/ + hardware/logtools.py
+
+Source plan: 35-20 (all three tasks, purged file-by-file against base
+`8840b0a`, with three commits' worth of `--allow` exceptions recorded
+below).
+
+| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
+|---|---:|---:|---:|---:|---:|
+| deploy/.gitignore | 6 | 6 | 83.3% | 83.3% | 0 -> 0 |
+| deploy/Caddyfile | 126 | 126 | 79.4% | 79.4% | 11 -> 0 |
+| deploy/activate.sh | 385 | 385 | 16.9% | 16.9% | 6 -> 0 |
+| deploy/deploy.sh | 61 | 61 | 54.1% | 54.1% | 5 -> 0 |
+| deploy/harden_sshd.sh | 86 | 86 | 31.4% | 31.4% | 4 -> 0 |
+| deploy/provision.sh | 224 | 224 | 45.5% | 45.5% | 14 -> 0 |
+| deploy/render_caddyfile.sh | 68 | 68 | 57.4% | 57.4% | 4 -> 0 |
+| deploy/skypane-backup.service | 59 | 59 | 28.8% | 28.8% | 2 -> 0 |
+| deploy/skypane-backup.timer | 16 | 16 | 31.2% | 31.2% | 0 -> 0 |
+| deploy/skypane-byos.service | 76 | 76 | 34.2% | 34.2% | 2 -> 0 |
+| deploy/skypane-companion.service | 80 | 80 | 38.8% | 38.8% | 4 -> 0 |
+| deploy/skypane-poll.service | 57 | 57 | 22.8% | 22.8% | 2 -> 0 |
+| deploy/skypane-poll.timer | 16 | 16 | 31.2% | 31.2% | 1 -> 0 |
+| deploy/skypane.env.example | 108 | 108 | 81.5% | 81.5% | 10 -> 0 |
+| deploy/backup/backup_gate.py | 159 | 146 | 24.5% | 17.8% | 7 -> 0 |
+| deploy/backup/skypane_backup.py | 246 | 237 | 22.0% | 19.0% | 8 -> 0 |
+| deploy/backup/install-backup-key.sh | 66 | 66 | 37.9% | 37.9% | 5 -> 0 |
+| deploy/backup/mac/install-launchagent.sh | 83 | 83 | 24.1% | 24.1% | 5 -> 0 |
+| deploy/backup/mac/skypane-backup-pull.sh | 171 | 171 | 18.7% | 18.7% | 3 -> 0 |
+| deploy/backup/mac/skypane-backup-pull.plist.template | 43 | 43 | 30.2% | 30.2% | 2 -> 0 |
+| deploy/tests/conftest.py | 336 | 333 | 18.5% | 17.7% | 5 -> 0 |
+| deploy/tests/test_activate.py | 418 | 416 | 6.2% | 5.8% | 6 -> 0 |
+| deploy/tests/test_backup.py | 341 | 340 | 6.5% | 6.2% | 4 -> 0 |
+| deploy/tests/test_backup_gate.py | 162 | 162 | 4.9% | 4.9% | 3 -> 0 |
+| deploy/tests/test_caddyfile.py | 168 | 167 | 16.1% | 15.6% | 4 -> 0 |
+| deploy/tests/test_ci_secrets.py | 122 | 122 | 18.9% | 18.9% | 3 -> 0 |
+| deploy/tests/test_deploy.py | 135 | 135 | 10.4% | 10.4% | 1 -> 0 |
+| deploy/tests/test_docs.py | 84 | 84 | 10.7% | 10.7% | 4 -> 0 |
+| deploy/tests/test_install_backup_key.py | 146 | 149 | 12.3% | 13.4% | 6 -> 0 |
+| deploy/tests/test_mac_pull.py | 299 | 299 | 6.0% | 6.0% | 2 -> 0 |
+| deploy/tests/test_provision.py | 241 | 239 | 8.7% | 7.9% | 6 -> 0 |
+| deploy/tests/test_units.py | 205 | 204 | 8.3% | 7.8% | 4 -> 0 |
+| scripts/check-attribution.sh | 128 | 128 | 13.3% | 13.3% | 1 -> 0 |
+| scripts/lock-deps.sh | 51 | 51 | 43.1% | 43.1% | 1 -> 0 |
+| scripts/run-all-tests.sh | 68 | 68 | 54.4% | 54.4% | 0 -> 0 |
+| scripts/run-local-verify.sh | 5 | 5 | 20.0% | 20.0% | 0 -> 0 |
+| .github/dependabot.yml | 17 | 17 | 29.4% | 29.4% | 0 -> 0 |
+| .github/workflows/ci.yml | 286 | 286 | 51.0% | 51.0% | 10 -> 0 |
+| .github/workflows/firmware.yml | 84 | 84 | 32.1% | 32.1% | 0 -> 0 |
+| pyproject.toml | 179 | 179 | 73.7% | 73.7% | 18 -> 0 |
+| conftest.py | 59 | 59 | 44.1% | 44.1% | 1 -> 0 |
+| .gitignore | 61 | 61 | 63.9% | 63.9% | 5 -> 0 |
+| adsb-test/.gitignore | 8 | 8 | 37.5% | 37.5% | 0 -> 0 |
+| adsb-test/analyze_samples.py | 297 | 296 | 12.8% | 12.5% | 6 -> 0 |
+| adsb-test/query_aggregator.py | 219 | 217 | 21.9% | 21.2% | 5 -> 0 |
+| adsb-test/sample_window.py | 165 | 164 | 21.8% | 21.3% | 4 -> 0 |
+| hardware/logtools.py | 1085 | 1084 | 25.2% | 25.1% | 5 -> 0 |
+| **Group total (47 files)** | 7505 | 7471 | 24.7% | 24.3% | 199 -> 0 |
+
+The before totals match `35-BASELINE/INDEX.md`'s group-8 line exactly
+once `scripts/check_comment_history.py` (820 lines, 43 comment lines, 0
+history hits) is subtracted: the baseline's directory-level count
+includes it because it lives under `scripts/`, but this plan does not
+purge it (out of scope, reserved for 35-01/35-22) and it carried 0
+history hits to begin with, so 8325 - 820 = 7505 lines and
+199 - 0 = 199 history hits match this table's totals for the 47 files
+this plan actually purges.
+
+Line counts are unchanged for every hash-comment-format file (shell,
+systemd units, Caddyfile, env example, YAML, TOML, `.gitignore`) by
+construction: `same-code`'s comparator for that file class strips each
+line down to its code portion and compares position-by-position, so a
+deleted or inserted comment line would shift every later code line out
+of place and fail the check. Comments in that class were rewritten in
+place, line for line, never added or removed. The three Python files
+with `--allow` entries below, plus the free-form `.py` test/tool files,
+were not under that constraint and could shrink their docstrings
+directly.
+
+### Files still above ~35% comment lines (review trigger, not a failure)
+
+- **deploy/.gitignore (83.3%)** — a 6-line ignore file; the ratio is an
+  artifact of file size (5 comment lines explain 1 ignore entry), not
+  verbosity.
+- **deploy/Caddyfile (79.4%)** — every security-relevant directive (HSTS,
+  the durable battery-telemetry log and its file mode) carries a one- or
+  two-sentence why per this phase's own rule that security invariants
+  are rewritten, never dropped; the config itself is ~20 non-comment
+  lines.
+- **deploy/deploy.sh (54.1%)** — a short script; its header documents the
+  git-archive transport choice and the one shellcheck suppression it
+  carries.
+- **deploy/provision.sh (45.5%)** — a first-run provisioning script where
+  nearly every step is a permission or ownership choice; each one keeps
+  a why (least-privilege reasoning, idempotency, re-run safety).
+- **deploy/render_caddyfile.sh (57.4%)** — a short script; its header
+  explains the substitution-ordering bug it exists to avoid.
+- **deploy/skypane-companion.service (38.8%)** — the hardening-directive
+  block explains the loopback-bind and process-isolation rationale a
+  systemd unit reviewer needs.
+- **deploy/skypane.env.example (81.5%)** — an env template whose entire
+  purpose is documenting each variable's meaning, format and default.
+- **deploy/backup/install-backup-key.sh (37.9%)** — a short,
+  security-critical script; comments explain the forced-command key
+  format and why each character class in the rejection regex exists.
+- **scripts/lock-deps.sh (43.1%)** — a short wrapper; its header records
+  the hash-lock invariant (never hand-edit the compiled files) it
+  protects.
+- **scripts/run-all-tests.sh (54.4%)** — the single entry point for the
+  whole suite; its header is the coverage-gate contract every
+  contributor and CI both depend on.
+- **.github/workflows/ci.yml (51.0%)** — the workflow's own security
+  rationale (concurrency groups, the paths filter's skip-safety
+  argument, the secret-interpolation-into-`run:` hazard) is exactly the
+  kind of why this phase's rules require to survive.
+- **pyproject.toml (73.7%)** — repo-wide lint/coverage/pytest
+  configuration; each non-default choice (the E402 suppression, the
+  coverage-floor derivation, the socket-guard rationale) needs its why
+  recorded so a future contributor does not silently "fix" it.
+- **conftest.py (44.1%)** — a 59-line file whose only content is two
+  fixtures, each with a security-relevant why (the DNS-resolution guard,
+  the sys.path bootstrap race with pytest's own config loading).
+- **.gitignore (63.9%)** — root-level ignore rules, each with a why so a
+  future cleanup does not remove an entry that is quietly load-bearing
+  (the symlinked-venv pattern, the credential belt-and-suspenders lines).
+- **adsb-test/.gitignore (37.5%)** — an 8-line ignore file; the ratio is
+  dominated by its own small size.
+
+### `--allow` exceptions and same-code evidence
+
+Three files needed `same-code --allow` against base `8840b0a`, all
+recorded in the per-task commits above:
+
+1. **`deploy/backup/backup_gate.py`, `deploy/backup/skypane_backup.py`**
+   — the two argparse `description=__doc__` modules the plan names
+   explicitly. Both module docstrings were shortened (backup_gate.py's
+   first line: `"""The forced-command gate for the` `skypane-backup`
+   `pull key (SEC-04, D-05,` -> `"""The forced-command gate for the`
+   `skypane-backup` `pull key.`; skypane_backup.py's first line:
+   `"""SkyPane nightly off-box-ready state snapshot (SEC-04, D-03).` ->
+   `"""SkyPane nightly off-box-ready state snapshot.`), both verified
+   with `--help` still printing accurate usage text and within the
+   15-line cap for argparse `--help` modules.
+2. **`deploy/backup/mac/skypane-backup-pull.plist.template`** — a tool
+   gap, not a plan-authorized exception: `same-code`'s dispatch has no
+   XML branch (only `check`/`ratio` call `extract_xml` for
+   `.plist.template`; `same-code` falls through to the hash-line
+   comparator, which finds no `#` comment spans in XML and therefore
+   treats the whole file as code, so any edit inside `<!-- -->` trips a
+   false positive). `scripts/check_comment_history.py` is out of scope
+   for this plan (reserved for 35-01/35-22), so the file was allowed
+   here with `git diff 8840b0a -- <file>` manually confirmed to touch
+   only the comment's prose (see the `docs(35-20)` commit for the Mac
+   backup pull scripts).
+3. **`deploy/tests/test_install_backup_key.py`** — an approved code
+   change, not a purge regression: its
+   `test_env_example_header_says_root_owned_600_read_by_systemd` test
+   read `deploy/skypane.env.example`'s header comment for `"root:root"`/
+   `"600"` text, which blocked purging that comment (35-01's own G-33
+   audit flagged this as the plan's one class-(b) source-read hit). Per
+   the plan's `<purge_bar>`, the assertion was rewritten in its own
+   preceding commit to check `deploy/provision.sh`'s actual
+   `chown root:root`/`chmod 600` directives instead, before the
+   env-example comment was purged. A grep of every other
+   `deploy/tests/*.py` `read_text()` call found no other assertion on
+   comment text (all others check directives, log output, or greppable
+   code tokens -- see the plan's own SUMMARY for the file-by-file list).
+
+`server/.venv/bin/python scripts/check_comment_history.py same-code
+--base 8840b0a --allow deploy/backup/backup_gate.py --allow
+deploy/backup/skypane_backup.py --allow
+deploy/backup/mac/skypane-backup-pull.plist.template --allow
+deploy/tests/test_install_backup_key.py <all 47 files>` exits 0.
+`check --paths <all 47 files>` and the argument-less `check` (after the
+pending-list edit) both report 0 history hits. `pytest deploy
+test-support -q -n auto` and `./scripts/run-all-tests.sh` are green;
+`server/.venv/bin/ruff check .` is clean; every changed `.sh` file passes
+`bash -n` (`shellcheck` is not installed locally, so CI's lint job is the
+gate, per the plan's own fallback).
