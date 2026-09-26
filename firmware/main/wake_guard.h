@@ -1,57 +1,34 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
-/* ESP-IDF glue for the two-mechanism wake bound (FW-02): the task
- * watchdog and the whole-wake budget timer are two separate mechanisms
- * with two separate jobs, and this module owns both so app_main.c has
- * one place to arm them and one place to feed them.
- *
- * The task watchdog (esp_task_wdt, CONFIG_ESP_TASK_WDT_TIMEOUT_S,
- * Kconfig-capped at 60 s) is a short hang detector: if the main task
- * stops calling fp_wake_feed()/fp_wake_checkpoint() for that long, it
- * panics, and the next boot's abnormal reset reason drives backoff
- * (FW-01). It cannot bound an entire wake - 60 s is not enough for a
- * legitimate blit alone.
- *
- * The wake budget (CONFIG_SKYPANE_WAKE_BUDGET_S, wake_deadline.h's
- * fp_wake_deadline_expired) bounds a wake that is still making forward
- * progress and feeding the watchdog, but has been running too long
- * end to end. On expiry, fp_wake_checkpoint() calls the registered
- * fp_wake_expired_fn, which records a failure and deep-sleeps through
- * the single exit in app_main.c - never a second, independent exit
- * path. The one-shot esp_timer that detects the expiry runs in the
- * esp_timer dispatch task's context, not the main task's, so its
- * callback body does only the minimum safe under that context: it sets
- * a flag and returns. Every side effect (logging, sleep ordering,
- * radio/panel/LED power-down) stays in the main task, driven by
- * fp_wake_checkpoint() at a point the caller has chosen because it is
- * safe to sleep there (never while the panel is powered).
- */
+/* ESP-IDF glue for the two-mechanism wake bound: the task watchdog and
+ * the whole-wake budget timer are two separate mechanisms, and this
+ * module owns both so app_main.c has one place to arm and feed them.
+ * The watchdog (capped at 60 s) is a short hang detector; it cannot
+ * bound an entire wake. The wake budget bounds a wake still making
+ * progress but running too long end to end — its timer callback runs
+ * in the dispatch task's context, so it only sets a flag; every side
+ * effect happens later, in fp_wake_checkpoint(), at a point safe to
+ * sleep (never while the panel is powered). */
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
 
 /* Called when the wake budget has expired (or the checkpoint sees the
  * elapsed-time fallback trip even without the timer). Must not return -
- * the implementation (app_main.c, plan 34-08) records the failure and
+ * the implementation (app_main.c) records the failure and
  * calls the single deep-sleep exit. */
 typedef void (*fp_wake_expired_fn)(void);
 
 /* Starts the whole-wake clock: records esp_timer_get_time() as the
  * wake's start, arms a one-shot esp_timer for
- * CONFIG_SKYPANE_WAKE_BUDGET_S seconds whose callback only sets a flag
- * (no logging, no sleep, no NVS - see the header comment above), and
- * subscribes the calling task to the task watchdog via
- * esp_task_wdt_add(NULL). Call once, early in app_main(), from the task
- * that will call fp_wake_feed()/fp_wake_checkpoint() throughout the
- * wake.
- *
- * Timer creation/start or watchdog subscription failure is logged and
- * degrades rather than aborting: fp_wake_checkpoint() still compares
- * elapsed time against the budget via fp_wake_deadline_expired(), so
- * the budget itself holds even if the timer could not be armed; a
- * failed watchdog subscription just means fp_wake_feed() has nothing to
- * reset (tracked internally so it never calls esp_task_wdt_reset() from
- * an unsubscribed task, which ESP-IDF logs as an error on every call). */
+ * CONFIG_SKYPANE_WAKE_BUDGET_S seconds whose callback only sets a flag,
+ * and subscribes the calling task to the task watchdog. Call once,
+ * early in app_main(), from the task that will call
+ * fp_wake_feed()/fp_wake_checkpoint() throughout the wake. Timer or
+ * watchdog-subscription failure is logged and degrades rather than
+ * aborting: fp_wake_checkpoint() still compares elapsed time against
+ * the budget directly, and a failed watchdog subscription just means
+ * fp_wake_feed() has nothing to reset. */
 void fp_wake_guard_start(fp_wake_expired_fn on_expired);
 
 /* Resets the task watchdog if fp_wake_guard_start() subscribed the

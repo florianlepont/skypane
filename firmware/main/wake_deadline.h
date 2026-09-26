@@ -1,26 +1,13 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
-/* Whole-wake deadline arithmetic (FW-02), kept apart from the esp_timer
- * plumbing that arms it so the arithmetic itself is host-testable: no
- * ESP-IDF, no I/O.
- *
- * This budget and the task watchdog are two separate mechanisms with
- * two separate jobs, and conflating them is the mistake this module's
- * name is meant to prevent:
- *
- * The task watchdog (esp_task_wdt, fed at each blocking-call boundary)
- * is a short hang detector. CONFIG_ESP_TASK_WDT_TIMEOUT_S has a hard
- * ESP-IDF Kconfig range of 1-60 seconds, so it can only ever catch one
- * stage wedging solid, never bound an entire wake.
- *
- * This whole-wake deadline is a longer, one-shot budget covering every
- * stage a legitimate wake can stack (Wi-Fi join, an SNTP resync after a
- * brownout, a setup call after a 401 re-enrol, the display fetch, the
- * image download, the blit). It must exceed the worst-case legitimate
- * wake or a healthy device would trip its own deadline. FP_WAKE_WORST_CASE_S
- * computes that worst case from the timeouts already coded in
- * api_client.c/panel.c/Kconfig.projbuild, so the two numbers cannot
- * silently drift apart. */
+/* Whole-wake deadline arithmetic, kept apart from the esp_timer
+ * plumbing that arms it so the arithmetic itself is host-testable. The
+ * task watchdog (fed at each blocking-call boundary) is a short hang
+ * detector, capped at 60 s, so it can only catch one stage wedging,
+ * never bound a whole wake. This deadline is a longer, one-shot budget
+ * covering every stage a legitimate wake can stack; FP_WAKE_WORST_CASE_S
+ * computes that worst case from the timeouts already coded elsewhere,
+ * so the two numbers cannot silently drift apart. */
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
