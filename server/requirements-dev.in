@@ -1,14 +1,10 @@
 # SkyPane — dev/CI dependency sources (direct pins only).
 #
-# Superset of the runtime lock: includes requirements.in so the compiled
-# server/requirements-dev.txt is ONE file CI installs with
-# --require-hashes, rather than two separately-compiled hash files that
-# could disagree on transitive pins. deploy/deploy.sh never references
-# this file or its compiled lock — production only ever installs
-# server/requirements.txt.
-#
-# To regenerate server/requirements-dev.txt (and the runtime lock), run
-# scripts/lock-deps.sh. Never hand-edit the hashes in the compiled lock.
+# Superset of the runtime lock so the compiled server/requirements-dev.txt
+# is ONE hash-locked file, not two that could disagree on transitive pins.
+# Production only installs server/requirements.txt; deploy.sh never
+# touches this file. Regenerate via scripts/lock-deps.sh; never hand-edit
+# the lock's hashes.
 -r requirements.in
 
 # Lint.

@@ -1,30 +1,13 @@
-"""Part 02 of the `companion/test_companion_app.py` migration chain
-(33-15-PLAN.md): the original harness's `check()` calls #51-#122 (by
-ledger row — the loop-generated route checks each own a row per
-iteration, so the plan's own "63 calls" count of source `check(...)`
-call sites undercounts by the 12 rows three of those loops emit).
-
-Covers the rest of `companion/layout.py`'s nav contract (the hamburger
+"""Tests the rest of `companion/layout.py`'s nav contract (the hamburger
 dropdown, the bottom tab bar, the three-file nav DOM-contract guard),
 `companion.app.parse_single_uploaded_file()`'s multipart parser,
-`env_wake_interval_default()`/`page_context()`'s D-07 wake-interval
-threading, the whole of `companion/theme_preview.py` (Sections 2.5/2.5b),
-`_illustration_filenames()`'s per-request union (2.6), the
-FLASH_KEY_MANUAL_* deck and `page_context()`'s resolve/manual_resolutions
-ctx keys (2.7), the CFG-39/CFG-40 drawing contract
-(`companion/draw.py`, 2.8), and Section 3's D-02 whole-site auth gate
-plus the public static-asset routes, driven against a real
-`companion/app.py` subprocess instead of the legacy `Harness`.
-
-Three checks from the original Section 2.8 (`_battery_estimate_has_
-exactly_one_home`, `_no_colour_literal_in_emitted_markup`, `_every_
-drawn_shape_has_a_fill_route`) read production `.py` source as text
-(one of them via `tokenize`, banned by guard G2) to prove a
-structural/no-duplication property with no directly observable HTTP/DOM
-consequence within this plan's scope — see the ledger fragment's Part 02
-note and this plan's SUMMARY for the per-check disposition (one deleted,
-two consolidated into a single narrower behaviour test scoped to
-`companion/draw.py`'s own emitters).
+`env_wake_interval_default()`/`page_context()`'s wake-interval
+threading, `companion/theme_preview.py`, `_illustration_filenames()`'s
+per-request union, the FLASH_KEY_MANUAL_* deck and
+`page_context()`'s resolve/manual_resolutions ctx keys, the drawing
+contract (`companion/draw.py`), and the whole-site auth gate plus the
+public static-asset routes, driven against a real `companion/app.py`
+subprocess.
 """
 import json
 import math
@@ -78,15 +61,14 @@ def _class_is_styled(css, cls):
 
 # ==========================================================================
 # The hamburger dropdown / bottom tab bar (retargeted repeatedly by
-# 22-14-PLAN.md Task 2, X9/D-10)
+# Task 2, X9/)
 # ==========================================================================
 
 
 def test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar(served_css):
     """the Health notification dot appears inside the Health sidebar link and on the tab
     bar's More summary — one per nav renderer — when health_alert='error', nowhere when
-    None/omitted, and never on another link (retargeted from the dropdown, 22-14-PLAN.md
-    Task 2)"""
+    None/omitted, and never on another link"""
     dot_device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     on = layout.page_shell(
         title="T", active="health", body="<p>b</p>", health_alert="error",
@@ -143,7 +125,7 @@ def test_hidden_form_control_floor_and_global_floor_both_survive(served_css):
     """input.visually-hidden/select.visually-hidden clears the 44px touch-target floor off
     hidden form controls, and the global input/select rule still declares both 44px
     minimums for every other field"""
-    # quick task 260902-l9w: the runway radio's own utility class
+    # quick task : the runway radio's own utility class
     # (visually-hidden) is inert on an <input> unless the global
     # `input, select` rule's 44px minimums are separately cleared for
     # it — a rule that only asserts the new clearing rule would still
@@ -209,8 +191,7 @@ def test_toggle_aria_contract_and_fixed_label():
 
 def test_dropdown_contents_and_order():
     """the dropdown panel holds the state reminder, then the language and theme switches and
-    Sign out, in that order — and zero destination links (retargeted in place from the
-    retired six-link menu, 22-14-PLAN.md Task 2)"""
+    Sign out, in that order — and zero destination links"""
     doc = layout.page_shell(
         title="T", active="health", body="<p>b</p>",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
@@ -265,8 +246,7 @@ def test_dropdown_survives_with_javascript_disabled():
     """with JavaScript disabled the dropdown panel stays unclipped in the DOM (the collapsed
     look is a CSS max-height constraint, not a hidden attribute or display:none), every nav
     link stays reachable in the tab bar with its Advanced group behind a native <details>
-    needing no script, and the server-rendered <html> tag carries no .js marker class
-    (retargeted onto the tab bar, 22-14-PLAN.md Task 2)"""
+    needing no script, and the server-rendered <html> tag carries no.js marker class"""
     doc = layout.page_shell(
         title="T", active="health", body="<p>b</p>",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
@@ -327,7 +307,7 @@ def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
     links and the Advanced group is a native <details> sheet, exactly one aria-current="page"
     sits on the real link (never on the <summary>), the More summary wears the active pill on
     an Advanced page, it carries the shared Primary-navigation landmark name, and the whole
-    bar carries no script hook (X9/D-10, 22-14-PLAN.md Task 1)"""
+    bar carries no script hook"""
     doc = layout.page_shell(
         title="T", active="flights", body="<p>b</p>", device_config=_TAB_BAR_DEVICE_CFG)
     bar = _tab_bar_slice(doc)
@@ -384,7 +364,7 @@ def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
 def test_tab_bar_is_absent_from_the_login_shell_and_the_404():
     """the tab bar renders from the authenticated shell only and only with a device config —
     never on the login shell, never on the 404 — and the <body> clearance marker appears
-    exactly when the bar does (X9/D-10, 22-14-PLAN.md Task 1)"""
+    exactly when the bar does"""
     login = layout.login_shell("<p>login</p>")
     assert "tab-bar" not in login, "expected no tab bar on the login shell"
     no_ctx = layout.page_shell(title="404", active="", body="<p>x</p>")
@@ -414,7 +394,7 @@ def test_tab_bar_is_absent_from_the_login_shell_and_the_404():
 
 # ==========================================================================
 # parse_single_uploaded_file() — stdlib-only, single-part multipart parser
-# (quick task 260902-v26 Task 1). Pure in-process checks.
+#. Pure in-process checks.
 # ==========================================================================
 
 _VALID_UPLOAD_PAYLOAD = b"\x89PNG-fixture-bytes-not-a-real-decodable-png"
@@ -498,7 +478,7 @@ def test_parser_empty_payload_returns_none():
 
 
 # ==========================================================================
-# 11-04: env_wake_interval_default() / page_context() threading (D-07's
+# 11-04: env_wake_interval_default() / page_context() threading ( 's
 # SKYPANE_SLEEP_S pre-fill). Pure in-process checks.
 # ==========================================================================
 
@@ -599,7 +579,7 @@ def test_page_context_threads_wake_interval_env_default(tmp_path, monkeypatch):
 
 
 # ==========================================================================
-# Section 2.5: companion/theme_preview.py (06.6.4.1.1-01 Task 1) — pure
+# Section 2.5: companion/theme_preview.py — pure
 # in-process module checks, no companion/app.py subprocess or password
 # env needed.
 # ==========================================================================
@@ -619,8 +599,7 @@ def test_theme_preview_bytes_open_as_320x120_rgb_png_for_every_theme():
 
 
 def test_theme_preview_means_pairwise_distinct():
-    """the 18 themes' previews have pairwise-distinct mean RGB at the crop/size used (proves
-    the crop box discriminates themes, D-07)"""
+    """the 18 themes' previews have pairwise-distinct mean RGB at the crop/size used"""
     import io
     means = []
     for theme_id in device_config.THEME_IDS:
@@ -634,8 +613,8 @@ def test_theme_preview_means_pairwise_distinct():
 def test_theme_preview_crop_keeps_8_3_and_excludes_every_caption_glyph():
     """THEME_PREVIEW_CROP_BOX keeps THEME_PREVIEW_SIZE's exact 8:3 ratio and cuts no ink band
     at either edge - every caption glyph is outside it and the main illustration band is
-    inside it whole, measured against a real render (B6, 22-10-PLAN.md Task 2)"""
-    # B6 (22-AUDIT.md, 22-10-PLAN.md Task 2): the crop used to end at
+    inside it whole, measured against a real render"""
+    # B6 : the crop used to end at
     # y=870 and sliced the render's caption mid-glyph at every chip size
     # and in the large live preview. Both properties below are asserted
     # by MEASUREMENT against a real render, never by restating the
@@ -686,8 +665,7 @@ def test_theme_preview_crop_keeps_8_3_and_excludes_every_caption_glyph():
 
 
 def test_theme_preview_bytes_stable_across_calls():
-    """preview_png_bytes() returns byte-identical output across two calls for the same theme
-    (the scene is fixed, D-06 — nothing time- or data-dependent leaks in)"""
+    """preview_png_bytes() returns byte-identical output across two calls for the same theme"""
     first = theme_preview.preview_png_bytes("white")
     second = theme_preview.preview_png_bytes("white")
     assert first == second, "expected byte-identical output for the same fixed-scene theme"
@@ -744,15 +722,15 @@ def test_theme_preview_signature_changes_with_cache_version():
 
 
 # ==========================================================================
-# Section 2.5b: companion/theme_preview.py's D-23 live-event render path
-# and event-aware cache key (20-08-PLAN.md Task 1).
+# Section 2.5b: companion/theme_preview.py's live-event render path
+# and event-aware cache key.
 # ==========================================================================
 
 
 def test_theme_preview_cache_path_no_event_is_stable_and_distinct_from_live(tmp_path):
     """cache_path() with no event returns a stable, deterministic filename that differs from
     the same theme's live-event filename (which contains the event id) — the existing
-    2-argument call site (the chip grid) keeps working unmodified, D-23"""
+    2-argument call site (the chip grid) keeps working unmodified"""
     state_dir = str(tmp_path)
     no_event_first = theme_preview.cache_path(state_dir, "white")
     no_event_second = theme_preview.cache_path(state_dir, "white")
@@ -765,7 +743,7 @@ def test_theme_preview_cache_path_no_event_is_stable_and_distinct_from_live(tmp_
 
 def test_theme_preview_cache_path_distinct_event_ids_distinct_paths(tmp_path):
     """cache_path() gives two different event ids two different paths, and the same event id
-    twice the same path (D-23/Pitfall 7)"""
+    twice the same path"""
     state_dir = str(tmp_path)
     path_41 = theme_preview.cache_path(state_dir, "white", live_event_id=41)
     path_42 = theme_preview.cache_path(state_dir, "white", live_event_id=42)
@@ -776,7 +754,7 @@ def test_theme_preview_cache_path_distinct_event_ids_distinct_paths(tmp_path):
 
 def test_theme_preview_cache_path_hostile_event_id_degrades_to_sample(tmp_path):
     """cache_path() degrades a non-integer or hostile event id to the same sample path as no
-    event at all, never reaching the filename (T-20-14)"""
+    event at all, never reaching the filename"""
     state_dir = str(tmp_path)
     sample_path = theme_preview.cache_path(state_dir, "white")
     for hostile in ("../../etc/passwd", "not-a-number", object()):
@@ -791,7 +769,7 @@ def test_theme_preview_cache_path_hostile_event_id_degrades_to_sample(tmp_path):
 
 def test_theme_preview_png_bytes_live_event_full_and_partial_row():
     """preview_png_bytes(theme_id, live_event=row) returns a well-formed PNG for a full
-    runway_events row and for a row missing half its fields (partial rows never raise, D-23)"""
+    runway_events row and for a row missing half its fields"""
     import io
     full_row = {
         "id": 5, "hex": "3946a1", "callsign": "AFR1380", "airline": "Air France",
@@ -809,7 +787,7 @@ def test_theme_preview_png_bytes_live_event_full_and_partial_row():
 
 def test_theme_preview_cached_bytes_no_event_unchanged(tmp_path):
     """cached_preview_bytes() with no live_event still creates the cache file and returns
-    exactly what preview_png_bytes(theme_id) returns, unchanged by this task (D-23)"""
+    exactly what preview_png_bytes(theme_id) returns, unchanged by this task"""
     state_dir = str(tmp_path)
     direct = theme_preview.preview_png_bytes("blue")
     cached = theme_preview.cached_preview_bytes(state_dir, "blue")
@@ -821,7 +799,7 @@ def test_theme_preview_cached_bytes_no_event_unchanged(tmp_path):
 def test_theme_preview_cached_bytes_live_event_keyed_by_id(tmp_path):
     """cached_preview_bytes() keys its cache on the live event's row id: a repeat request for
     the SAME event serves the on-disk file unchanged (no re-render), and a NEWER event is a
-    cache miss rather than the stale first render (D-23/Pitfall 7)"""
+    cache miss rather than the stale first render"""
     state_dir = str(tmp_path)
     event_5 = {
         "id": 5, "hex": "3946a1", "callsign": "AFR1380", "airline": "Air France",
@@ -846,7 +824,7 @@ def test_theme_preview_cached_bytes_live_event_keyed_by_id(tmp_path):
 
 # ==========================================================================
 # Section 2.6: companion/app.py's _illustration_filenames() (phase 13 plan
-# 13-06 Task 1, D-09) — pure in-process module checks against the widened
+# Task 1) — pure in-process module checks against the widened
 # per-request union helper, no subprocess needed.
 # ==========================================================================
 
@@ -855,7 +833,7 @@ def test_illustration_filenames_union_contract(tmp_path):
     """_illustration_filenames() is the per-request union of the static target set and
     server-persisted manual keys: None and an empty state dir both equal the static set
     exactly, a seeded manual entry adds exactly one filename, and an entry whose stored name
-    yields no usable key contributes nothing (D-09)"""
+    yields no usable key contributes nothing"""
     baseline = frozenset(server_illustrations.target_filenames())
     assert app_module._illustration_filenames(None) == baseline, (
         "expected _illustration_filenames(None) to equal the static target set")
@@ -894,7 +872,7 @@ def test_illustration_filenames_union_contract(tmp_path):
 
 # ==========================================================================
 # Section 2.7: companion/app.py's eight FLASH_KEY_MANUAL_* keys and
-# page_context()'s two new ctx keys (phase 13 plan 13-06 Task 2).
+# page_context()'s two new ctx keys.
 #
 # RESEARCH A3: does _resolve_flash_text() ever create a directory for a
 # missing state_dir? No — reading companion/app.py's own source, the
@@ -914,9 +892,7 @@ def test_flash_manual_keys_complete_and_byte_identical(tmp_path):
     """every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six
     UI-SPEC deck strings resolve byte for byte through _resolve_flash_text(), an unknown key
     still resolves to None, and no FLASH_MESSAGES value carries a runtime placeholder except
-    the cooldown, rule_replaced, calendar_connected and calendar_connect_ok keys (Phase 15
-    D-10 widened this in place, not loosened; Phase 17 plan 04 and 20-09-PLAN.md Task 2 each
-    widen it again for the same reason)"""
+    the cooldown, rule_replaced, calendar_connected and calendar_connect_ok keys"""
     manual_keys = (
         app_module.FLASH_KEY_MANUAL_RESOLVED,
         app_module.FLASH_KEY_MANUAL_NAME_EMPTY,
@@ -932,7 +908,7 @@ def test_flash_manual_keys_complete_and_byte_identical(tmp_path):
         assert key in app_module.FLASH_MESSAGES, "expected %r to be a FLASH_MESSAGES key" % (key,)
         assert key in app_module.FLASH_ROLES, "expected %r to be a FLASH_ROLES key" % (key,)
 
-    # The six deck strings from 13-UI-SPEC.md's Full Copy Deck, byte for
+    # The six deck strings from 's Full Copy Deck, byte for
     # byte, ported as literals (they were already literals in the
     # original check, never read from the spec file here either) — the
     # two planner-added failure keys are checked for presence above only.
@@ -971,8 +947,8 @@ def test_flash_manual_keys_complete_and_byte_identical(tmp_path):
         "an unknown key must not touch state_dir either")
 
     # Every other FLASH_MESSAGES value carries no runtime placeholder
-    # except the five deliberately-interpolated keys (Phase 15 D-10,
-    # Phase 17 plan 04, 20-09-PLAN.md Task 2, 22-05-PLAN.md Task 2).
+    # except the five deliberately-interpolated keys (
+    # plan 04 Task 2 Task 2).
     interpolated_keys = (
         app_module.FLASH_KEY_POLL_COOLDOWN, app_module.FLASH_KEY_RULE_REPLACED,
         app_module.FLASH_KEY_CALENDAR_CONNECTED, app_module.FLASH_KEY_CALENDAR_CONNECT_OK,
@@ -1007,9 +983,9 @@ def test_page_context_supplies_resolve_prefix_and_manual_resolutions(tmp_path):
         % (registry["XYZ"],))
     # The wider set of ctx keys page_context() always returns (state_dir,
     # ui_theme, device_config, flash, ...) is exercised by other checks
-    # in this chain; the original check's own cross-reference against
-    # companion/pages/__init__.py's docstring text is dropped here (guard
-    # G4 bans reading a module's __doc__ at all) with no behaviour lost
+    # in this file; a cross-reference against companion/pages/__init__.py's
+    # own module docstring text is dropped here (reading a module's
+    # docstring text at test time is banned) with no behaviour lost
     # for THIS check's own subject: resolve_prefix/manual_resolutions are
     # already asserted present and correct above.
     for key in ("state_dir", "device_config", "flash_role", "now"):
@@ -1019,8 +995,8 @@ def test_page_context_supplies_resolve_prefix_and_manual_resolutions(tmp_path):
 
 
 # ==========================================================================
-# Section 2.8: the drawing contract (CFG-39, 24-01-PLAN.md Task 4) —
-# companion/draw.py, companion/battery.py, server/poll_loop.py's D-27
+# Section 2.8: the drawing contract —
+# companion/draw.py, companion/battery.py, server/poll_loop.py's 
 # private copy, and the served stylesheet.
 #
 # The original harness's `_battery_estimate_has_exactly_one_home()` check
@@ -1047,9 +1023,8 @@ def test_page_context_supplies_resolve_prefix_and_manual_resolutions(tmp_path):
 def test_battery_discharge_curve_is_well_formed():
     """companion.battery.BATTERY_DISCHARGE_CURVE is strictly increasing in both columns, runs
     0..100, every knot round-trips through battery_percent(), the end-knot clamps are exact,
-    the SEED-006 anchor values hold, NaN is refused, and LOW_BATTERY_DISPLAY_MV is 3540 and
-    sits strictly between the sparkline's fixed range and above BATTERY_LOW_THRESHOLD_MV
-    (SEED-006, quick 260923-gaf)"""
+    the anchor values hold, NaN is refused, and LOW_BATTERY_DISPLAY_MV is 3540 and
+    sits strictly between the sparkline's fixed range and above BATTERY_LOW_THRESHOLD_MV"""
     from companion import battery as battery_module
 
     curve = battery_module.BATTERY_DISCHARGE_CURVE
@@ -1094,9 +1069,9 @@ def test_battery_discharge_curve_is_well_formed():
 
 def test_battery_estimate_parity_between_companion_and_server():
     """companion.battery and server.poll_loop's independently-maintained battery-percentage
-    copies (D-27) agree on their curve table, their FULL/EMPTY endpoints, and their output
+    copies agree on their curve table, their FULL/EMPTY endpoints, and their output
     for every integer millivolt value from 2800 to 4400, a few non-integer floats, and a
-    hostile input set — a drift here is exactly T-gaf-02 (SEED-006, quick 260923-gaf)"""
+    hostile input set — a drift here is exactly T-gaf-02"""
     from companion import battery as battery_module
 
     assert battery_module.BATTERY_DISCHARGE_CURVE == poll_loop._NOTIFY_BATTERY_DISCHARGE_CURVE, (
@@ -1140,8 +1115,7 @@ def test_draw_emitters_carry_no_colour_literal_and_every_shape_has_a_fill_route(
     """companion/draw.py's own emitters never return a colour literal, and every
     <rect>/<circle>/<line>/<path>/<polygon>/<polyline>/<ellipse> they emit carries a class
     attribute or an explicit fill/stroke — a shape with neither paints SVG-default black and
-    is invisible in one of the two themes (CFG-39 contract rules 3/4, narrowed here to
-    companion/draw.py's own emitters — see this plan's SUMMARY)"""
+    is invisible in one of the two themes"""
     for build in _DRAWING_CONTRACT_SAMPLES:
         markup = build()
         found = _COLOUR_LITERAL.search(markup)
@@ -1158,8 +1132,7 @@ def test_draw_emitters_carry_no_colour_literal_and_every_shape_has_a_fill_route(
 def test_every_drawing_class_resolves_in_the_served_stylesheet(served_css):
     """every class name companion/draw.py can emit (DRAWING_CLASSES, its own constants)
     resolves to at least one selector in the served stylesheet, matched on a selector
-    boundary so `.drawing-axis` is not reported as resolved by `.drawing-axis-label`
-    (CFG-39)"""
+    boundary so `.drawing-axis` is not reported as resolved by `.drawing-axis-label`"""
     all_selectors = [selector for rule in css_rules(served_css) for selector in rule.selectors]
     for class_name in draw.DRAWING_CLASSES:
         # A boundary match against each parsed SELECTOR string (not the
@@ -1201,7 +1174,7 @@ def test_draw_module_imports_no_page_and_no_server():
 def test_draw_module_emits_no_script_and_no_external_reference():
     """every companion/draw.py emitter returns complete markup with no script tag, no
     external reference and no inline style, and refuses an attribute carrying one — the
-    no-JS floor (D-09) is why this phase server-renders its SVG"""
+    no-JS floor is why this phase server-renders its SVG"""
     samples = [
         draw.rect(draw.DRAWING_AXIS_CLASS, 0, "100%", 1, 4),
         draw.line(draw.DRAWING_LINE_CLASS, "0.00%", "1.00%", "2.00%", "3.00%"),
@@ -1232,7 +1205,7 @@ def test_draw_module_emits_no_script_and_no_external_reference():
 def test_draw_module_escapes_every_interpolated_value():
     """companion/draw.py escapes every interpolated value through its one escape() helper —
     all five dangerous characters, in element content and in attribute values alike, with no
-    'this value is always safe' exception (T-24-01)"""
+    'this value is always safe' exception"""
     hostile = "<img src=x>&\"'"
     escaped = draw.escape(hostile)
     for character, entity in (
@@ -1254,7 +1227,7 @@ def test_draw_module_escapes_every_interpolated_value():
 def test_draw_module_scales_clamp_and_never_raise():
     """companion/draw.py's scales clamp into their caller-supplied FIXED domain and pin at
     exactly the floor and ceiling positions, and no helper raises on None/a bool/a negative/a
-    string/a NaN (T-24-04, D-04/A-22)"""
+    string/a NaN"""
     low, high, inset = 3000, 4200, 3.75
     assert draw.percent_y(low - 1, low, high, inset) == draw.percent_y(low, low, high, inset), (
         "percent_y() below the domain floor must pin at exactly the floor")
@@ -1299,7 +1272,7 @@ def test_ring_gauge_is_one_emitter_whose_size_drives_the_geometry():
     the stroke width (never a CSS-only small variant), draws no value arc at all at 0 and a
     complete dash-free circle at 1, draws half its own emitted circumference at 0.5, gives
     every arc an explicit fill route and a class with no colour literal, carries a viewBox
-    plus intrinsic width/height and aria-hidden, and never raises (CFG-40, T-24-04-A)"""
+    plus intrinsic width/height and aria-hidden, and never raises"""
     for constant in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
         assert constant in draw.DRAWING_CLASSES, (
             "the ring's class %r is not in draw.DRAWING_CLASSES, so the class-resolution "
@@ -1382,7 +1355,7 @@ def test_ring_gauge_is_one_emitter_whose_size_drives_the_geometry():
 
 
 # ==========================================================================
-# Section 3: companion/app.py (plan 06-05) — a real companion/app.py
+# Section 3: companion/app.py — a real companion/app.py
 # subprocess, driven with companion_app_server.http_request() instead of
 # the legacy Harness. Tolerates the ADS-B aggregators being unreachable in
 # this sandboxed environment — none of these checks depends on a flight
@@ -1408,9 +1381,7 @@ def test_unauth_get_nav_tab_redirects_to_login_with_next(app02_server, path):
 
 @pytest.mark.parametrize("path", ["/settings", "/history"], ids=["settings", "history"])
 def test_unauth_get_retired_page_route_redirects_to_login_without_next(app02_server, path):
-    """unauthenticated GET {path} (a retired page route) redirects to /login without ?next=
-    (Phase 18: the retired page routes keep their session gate but, no longer being NAV_TABS
-    members, carry no ?next=)"""
+    """unauthenticated GET {path} (a retired page route) redirects to /login without ?next="""
     status, headers, body = http_request(app02_server.base_url() + path)
     assert status == 303, "expected 303, got %d" % status
     assert headers.get("Location") == "/login", (
@@ -1420,8 +1391,7 @@ def test_unauth_get_retired_page_route_redirects_to_login_without_next(app02_ser
 
 def test_unauth_get_preview_redirects_to_login_without_next(app02_server):
     """unauthenticated GET /preview (the retired Preview page's redirect source) redirects to
-    /login without page content (D-22 removed it from NAV_TABS, so no ?next= is carried — it
-    lands on /login, not /history, proving the redirect branch keeps its own session gate)"""
+    /login without page content"""
     status, headers, body = http_request(app02_server.base_url() + "/preview")
     assert status == 303, "expected 303, got %d" % status
     assert headers.get("Location") == "/login", (
@@ -1433,7 +1403,7 @@ def test_preview_png_unauth_404_not_login_redirect(app02_server):
     """unauthenticated GET /preview.png now returns 404 (not a 303 to /login) — the route's
     session-gated branch is gone, so the request falls through to do_GET's deliberately
     ungated unknown-path handler"""
-    # Quick task 260903-c4o retired the /preview.png route entirely, so an
+    # Quick task retired the /preview.png route entirely, so an
     # unauthenticated request no longer reaches a require_session() check
     # at all — it falls through to do_GET's unknown-path handler, which
     # is deliberately ungated (every other unknown path already 404s
@@ -1474,7 +1444,7 @@ def test_unauth_post_poll_now_redirects_to_login_without_next(app02_server):
 
 def test_stylesheet_public(app02_server):
     """GET /static/style.css succeeds without a session, returns a CSS content type, and
-    stays shared-cacheable (public, max-age=300) — this route is a deliberate D-02 gate
+    stays shared-cacheable (public, max-age=300) — this route is a deliberate gate
     exemption with no per-user content"""
     status, headers, body = http_request(app02_server.base_url() + "/static/style.css")
     assert status == 200, "expected 200, got %d" % status
@@ -1556,7 +1526,7 @@ def test_copy_button_script_es5_safe_reads_data_copied_text(app02_server):
     """copy-button.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/
     insertAdjacentHTML/document.write/eval/fetch/XHR), reads its on-success feedback text
     from each button's own data-copied-text attribute, and the removed hardcoded "Copied"
-    literal survives only as the one documented fallback (D-06)"""
+    literal survives only as the one documented fallback"""
     src = served_asset(app02_server, "/static/copy-button.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -1569,7 +1539,7 @@ def test_copy_button_script_es5_safe_reads_data_copied_text(app02_server):
     for token in required:
         assert token in src, "expected %r in copy-button.js" % token
     assert "data-copied-text" in src, "expected copy-button.js to read data-copied-text"
-    # D-06: the removed hardcoded literal survives ONLY as the documented
+    # The removed hardcoded literal survives ONLY as the documented
     # fallback — exactly one occurrence of the quoted string, on the
     # FALLBACK_FEEDBACK_TEXT declaration itself.
     assert src.count('"Copied"') == 1, (
@@ -1580,7 +1550,7 @@ def test_dirty_state_script_es5_safe_reads_seven_dirty_bar_attributes(app02_serv
     """dirty-state.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/
     insertAdjacentHTML/document.write/eval/XHR), contains NO fetch( any more, reads all seven
     of the bar's own data-dirty-* attributes, and each restored hardcoded literal survives
-    only as its own documented fallback (CFG-77/CFG-78, 28-08-PLAN.md Task 3)"""
+    only as its own documented fallback"""
     src = served_asset(app02_server, "/static/dirty-state.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -1597,7 +1567,7 @@ def test_dirty_state_script_es5_safe_reads_seven_dirty_bar_attributes(app02_serv
             "data-dirty-unsaved-singular", "data-dirty-unsaved-plural",
             "data-dirty-saving", "data-dirty-initial-text"):
         assert attr in src, "expected dirty-state.js to read %r" % attr
-    # D-06: each restored hardcoded word survives ONLY as its own
+    # Each restored hardcoded word survives ONLY as its own
     # documented fallback literal, never a second inline occurrence
     # elsewhere in the file.
     for literal in (

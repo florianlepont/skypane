@@ -4,16 +4,14 @@
  *
  * Modified from FlightPortrait (github.com/flightportrait/frame) for
  * SkyPane; the changes are listed in firmware/VENDOR.md. */
-/* Trimmed from flightportrait/frame's `main/state_machine.c/.h`
- * (@ ce3335fc). Upstream's state machine dispatches boot -> provision |
- * pair | poll across BLE provisioning, possession-pairing re-registration,
- * OTA evaluation, remote reset, and button-driven branches — none of
- * which is compiled into this project this phase (see firmware/VENDOR.md
- * "Deliberately Not Vendored"). This is the Phase 1 path only: connect
- * Wi-Fi, ensure a bearer token exists, poll the display endpoint,
- * hash-skip or download+verify+blit, persist the new hash only after a
- * successful blit.
- */
+/* Trimmed from upstream's state_machine.c/.h. Upstream's state machine
+ * dispatches boot -> provision | pair | poll across BLE provisioning,
+ * possession-pairing re-registration, OTA evaluation, remote reset, and
+ * button-driven branches — none of which is compiled into this project
+ * (see firmware/VENDOR.md). This is the walking-skeleton path only:
+ * connect Wi-Fi, ensure a bearer token exists, poll the display
+ * endpoint, hash-skip or download+verify+blit, persist the new hash
+ * only after a successful blit. */
 #pragma once
 #include <stdint.h>
 
@@ -29,8 +27,8 @@ typedef enum {
 } fp_poll_result_t;
 
 /* Per-stage wall-clock timings for the diagnostic `wake timing` line
- * (FW-10, fp_diag tag, app_main.c) — milliseconds, 0 for a stage this
- * wake never reached. Outside the Log Line Contract. */
+ * (fp_diag tag, app_main.c) — milliseconds, 0 for a stage this wake
+ * never reached. Outside the Log Line Contract. */
 typedef struct {
     uint32_t wifi_ms;
     uint32_t setup_ms;
@@ -44,16 +42,12 @@ typedef struct {
  * 401/403 erased it), GET /device/v1/display, hash-skip or
  * download+verify+blit, and persist the new image hash only after a
  * successful blit — so a blit that never happened cannot cause the next
- * wake to skip.
- *
- * `boot_reason` feeds the X-Boot-Reason telemetry header. On any
- * FP_POLL_OK_* result, *sleep_s_out carries the server's sleep_s value.
- * On FP_POLL_FAILED, *fail_step_out is set to one of the Log Line
- * Contract's step tokens ("wifi", "http", "status", "json", "download",
- * "verify", "blit", "auth", "enrol", "secret", "config" —
- * firmware/VENDOR.md § Log Line Contract) and *sleep_s_out is left
- * untouched. `timing_out`, if non-NULL, is written to as each stage
- * completes — a checkpoint that expires mid-stage still leaves the
+ * wake to skip. `boot_reason` feeds the X-Boot-Reason telemetry header.
+ * On any FP_POLL_OK_* result, *sleep_s_out carries the server's sleep_s
+ * value; on FP_POLL_FAILED, *fail_step_out is set to one of the Log
+ * Line Contract's step tokens (firmware/VENDOR.md) and *sleep_s_out is
+ * left untouched. `timing_out`, if non-NULL, is written to as each
+ * stage completes, so a checkpoint expiring mid-stage still leaves the
  * fields completed so far intact. */
 fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
                               const char **fail_step_out,

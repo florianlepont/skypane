@@ -1,43 +1,21 @@
 #!/usr/bin/env python3
-"""Part 03 of `companion/test_browser_ux.py` (33-23-PLAN.md, TST-11), the
-third of the browser_ux chain's four migration plans (33-21..33-24).
+"""Browser checks for the expired-countdown wording floor, Home's swap rules
+(focus-holding region, [data-pending] region, dirty-settings-form stand-down, hidden-tab
+zero-requests, the frame picture's fade-only-on-change), the Display fallback save at 360px,
+the optimistic Frame-strip switch family (flips before the answer, rolls back and announces
+on failure, survives a mid-flip refresh, saves with scripts blocked), the Flights live-list
+family (new-detection highlight, refresh-preserves-open-row, refresh-never-interrupts-the-
+filter, a collapsed detail row's keyboard floor, the phone card's tap-anywhere disclosure),
+the restored dirty bar's own dirty-count/save-every-field/fallback-save family, Display's
+recorded page height, the theme/arrivals scripts-blocked save floors, and the palette
+preview's keyboard/hover/focus behaviour.
 
-Covers the original file's check() calls #38-#62: the expired-countdown
-wording floor, Home's D1 swap rules (focus-holding region, [data-pending]
-region, dirty-settings-form stand-down, hidden-tab zero-requests, the
-frame picture's fade-only-on-change), the Display fallback save at 360px,
-the D2 optimistic Frame-strip switch family (flips before the answer,
-rolls back and announces on failure, survives a mid-flip refresh, saves
-with scripts blocked), the Flights live-list family (new-detection
-highlight, refresh-preserves-open-row, refresh-never-interrupts-the-
-filter, a collapsed detail row's keyboard floor, the phone card's tap-
-anywhere disclosure), the restored dirty bar's own dirty-count/save-every-
-field/fallback-save family, the retired runway map's replacement
-relationship check, Display's recorded page height, the theme/arrivals
-scripts-blocked save floors, and the palette preview's keyboard/hover/
-focus behaviour.
-
-Every test below drives a real headless Chromium against a real
-`companion/app.py` subprocess, through the guarded `page`/`new_context`
-fixtures (`companion/conftest.py`), and never constructs or navigates to
-any URL outside `server.base_url()` — a `127.0.0.1:<ephemeral-port>`
-origin the guarded fixture itself created. A missing/unlaunchable
-Chromium is a hard failure under CI / `SKYPANE_REQUIRE_BROWSER=1` (the
-`browser` fixture override in `companion/conftest.py`), never a silent
-skip.
-
-Read-only checks (no test below saves a real setting through the bar or
-the fallback Save) share one module-scoped, read-only `server` fixture
-(33-MIGRATION-RULES.md section 2). Every check that DOES persist a
-setting — the Display/fallback/theme/arrivals scripts-blocked saves, all
-four switch checks, the bar's own save check, and the two Flights checks
-that write a new runway_events row directly to the database — gets its
-own function-scoped `make_app_server` server, so no xdist worker ever
+Read-only checks share one module-scoped, read-only `server` fixture. Every check that
+persists a setting gets its own function-scoped `make_app_server` server, so no xdist worker
 sees another test's leftover on-disk state.
 
-Request-count assertions (the D1/D-12 "zero requests" family) are
-counted through `page.on("request", ...)` on the guarded context, never
-inferred from the DOM: a page that fetched and then declined to swap is a
+Request-count assertions are counted through `page.on("request", ...)` on the guarded
+context, never inferred from the DOM: a page that fetched and then declined to swap is a
 different and worse behaviour than a page that never fetched at all.
 """
 import pytest
@@ -57,18 +35,14 @@ pytestmark = pytest.mark.browser
 
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
-    """The shared, read-only 22-AUDIT.md-methodology fixture every read-only
-    check in this module measures against — module-scoped because none of
-    them persists a real setting.
+    """The shared, read-only seeded fixture every read-only check in this module measures
+    against — module-scoped because none of them persists a real setting.
     """
     return module_app_server_factory(seed=seed_state_dir, fake_providers=True)
 
 
-# ===========================================================================
-# Shared helpers for this part's D1/D2/D7 swap-and-request-counting checks
-# (23-06/23-07/23-08-PLAN.md). Local to this module: no later part of this
-# chain calls any of them.
-# ===========================================================================
+# Shared helpers for this module's swap-and-request-counting checks. Local to this module: no
+# other file calls any of them.
 
 REFRESH_SETTLE_MS = 1200
 SWITCH_SEL = 'form[action="/quick/display"] button[role="switch"]'
@@ -184,15 +158,12 @@ def _highlighted(page):
         NEW_ROW_CLASS)
 
 
-# ===========================================================================
-# 23-05-PLAN.md Task 3 (D14/CFG-34): the expired-countdown wording floor.
-# ===========================================================================
-
 def test_an_expired_countdown_reads_waiting_and_never_a_warning(new_context, server):
-    """a countdown whose instant has already passed reads the server's own translated
-    waiting wording in BOTH languages, never an age, gains the breathing class and no
+    """A countdown whose instant has already passed reads the server's own translated
+    waiting wording in both languages, never an age, gains the breathing class and no
     warn/error/alert class at all, and that class resolves to the one animation the
-    stylesheet defines (D14/CFG-34, 23-05-PLAN.md Task 3)"""
+    stylesheet defines.
+    """
     tick_settle_ms = 2200
     freshness_age = ".page-header__freshness time[data-relative]"
     base_url = server.base_url()
@@ -256,17 +227,12 @@ def test_an_expired_countdown_reads_waiting_and_never_a_warning(new_context, ser
             context.close()
 
 
-# ===========================================================================
-# 23-06-PLAN.md Task 3 (D1/CFG-35): the three skips, and the number D-12
-# was written to protect.
-# ===========================================================================
-
 def test_a_swap_leaves_the_region_holding_focus_alone(new_context, server):
-    """a Home refresh swaps the regions that changed while leaving the one holding
-    keyboard focus untouched — asserted on NODE IDENTITY through a JS expando, not on
-    a selector match, because a replaced node matching the same selector is exactly
-    the defect — against a control proving another region really was swapped in the
-    same cycle (D1/CFG-35, 23-06-PLAN.md Task 3)"""
+    """A Home refresh swaps the regions that changed while leaving the one holding keyboard
+    focus untouched — asserted on node identity through a JS expando, not a selector match,
+    since a replaced node matching the same selector is exactly the defect — against a
+    control proving another region really was swapped in the same cycle.
+    """
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -316,10 +282,9 @@ def test_a_swap_leaves_the_region_holding_focus_alone(new_context, server):
 
 
 def test_a_swap_leaves_a_pending_region_alone(new_context, server):
-    """a region containing a [data-pending] element survives a refresh untouched, by
-    node identity, while another region on the same page is swapped in the same
-    cycle — the reconciliation rule plan 23-07 sets its marker for, proven before it
-    has a marker to set (T-23-21, 23-06-PLAN.md Task 3)"""
+    """A region containing a [data-pending] element survives a refresh untouched, by node
+    identity, while another region on the same page is swapped in the same cycle.
+    """
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -371,12 +336,11 @@ def test_a_swap_leaves_a_pending_region_alone(new_context, server):
 
 
 def test_a_dirty_settings_form_stands_the_whole_cycle_down(new_context, server):
-    """a Display page with a typed-but-uncommitted edit issues ZERO requests when the
-    same trigger that fetched on the clean page fires — counted as REQUESTS, not
-    inferred from the DOM, because a page that fetched and then declined to swap is a
-    different and worse behaviour — against a control proving the clean page does
-    fetch (T-23-20/T-23-21, 23-06-PLAN.md Task 3; retargeted from the retired save
-    bar's own gate by 27-04-PLAN.md Task 4, CFG-63)"""
+    """A Display page with a typed-but-uncommitted edit issues zero requests when the same
+    trigger that fetched on the clean page fires — counted as requests, not inferred from the
+    DOM, since a page that fetched and then declined to swap is a different and worse
+    behaviour — against a control proving the clean page does fetch.
+    """
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -420,11 +384,10 @@ def test_a_dirty_settings_form_stands_the_whole_cycle_down(new_context, server):
 
 
 def test_a_hidden_tab_issues_zero_requests_on_all_three_pages(new_context, server):
-    """a tab reporting itself hidden issues ZERO requests on ALL THREE pages that now
-    run the loop — counted as requests, each against a control proving the same page
-    and the same trigger DO fetch while visible — which is the number D-12 was
-    written to protect and the reason three pages polling is acceptable at all
-    (T-23-20, 23-06-PLAN.md Task 3)"""
+    """A tab reporting itself hidden issues zero requests on all three pages that run the
+    loop — counted as requests, each against a control proving the same page and the same
+    trigger do fetch while visible.
+    """
     base_url = server.base_url()
     for route in ("/", "/display", "/health"):
         context = new_context(viewport=VIEWPORT_DESKTOP)
@@ -465,10 +428,11 @@ def test_a_hidden_tab_issues_zero_requests_on_all_three_pages(new_context, serve
 
 
 def test_the_picture_fades_only_when_the_picture_changed(new_context, server):
-    """the frame picture fades in when a NEW render arrives and does NOT animate when
-    the same picture is swapped back in — both phases in one check, against a control
-    proving a swap happened at all, with the class proven to resolve to the
-    stylesheet's own fade-in block (D1+D3, 23-06-PLAN.md Task 3)"""
+    """The frame picture fades in when a new render arrives and does not animate when the
+    same picture is swapped back in — both phases in one check, against a control proving a
+    swap happened at all, with the class proven to resolve to the stylesheet's own fade-in
+    block.
+    """
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -513,10 +477,10 @@ def test_the_picture_fades_only_when_the_picture_changed(new_context, server):
 
 
 def test_display_still_saves_with_scripts_blocked_at_360px(new_context, make_app_server):
-    """with scripts blocked at 360px, in BOTH languages, a Display setting still
-    saves through the fallback Save and persists to disk, with the freshness line
-    this plan added rendering beside it — the one assertion here that would catch the
-    Phase 22 P0 recurring (B1/CFG-38, 23-06-PLAN.md Task 3)"""
+    """With scripts blocked at 360px, in both languages, a Display setting still saves
+    through the fallback Save and persists to disk, with the freshness line rendering
+    beside it.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     for lang in ("en", "fr"):
@@ -536,11 +500,9 @@ def test_display_still_saves_with_scripts_blocked_at_360px(new_context, make_app
                 raise AssertionError(
                     "lang=%s: the fallback Save is the ONLY way to save this page "
                     "with scripts blocked, and it is not rendered" % (lang,))
-            # The relocated Save button's entrance animation
-            # (skypane-bar-arrive) is unconditional on script, so a
-            # coordinate click during it fails Playwright's own
-            # stability check against a button still translating into
-            # place.
+            # The Save button's entrance animation is unconditional on script, so a coordinate
+            # click during it fails Playwright's own stability check against a button still
+            # translating into place.
             page.wait_for_timeout(600)
             with page.expect_navigation():
                 save.click()
@@ -556,17 +518,12 @@ def test_display_still_saves_with_scripts_blocked_at_360px(new_context, make_app
                     "scripts-blocked Display page" % (lang,))
 
 
-# ===========================================================================
-# 23-07-PLAN.md Task 3 (D2/CFG-36): the optimistic Frame-strip switch,
-# proven in a real browser.
-# ===========================================================================
-
 def test_a_switch_flips_before_the_server_answers(new_context, make_app_server):
-    """a switch flips its aria-checked BEFORE the server answers — proven against a
-    held request that has genuinely been issued and genuinely has no answer, with the
-    stored value still unchanged at that instant — marks exactly one region pending
-    while in flight, and on a 204 keeps the flip and clears the marker (D2/CFG-36,
-    23-07-PLAN.md Task 3)"""
+    """A switch flips its aria-checked before the server answers — proven against a held
+    request that has genuinely been issued and genuinely has no answer, with the stored
+    value still unchanged at that instant — marks exactly one region pending while in
+    flight, and on a 204 keeps the flip and clears the marker.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
@@ -624,11 +581,11 @@ def test_a_switch_flips_before_the_server_answers(new_context, make_app_server):
 
 
 def test_a_switch_rolls_back_and_announces_on_both_failure_branches(new_context, make_app_server):
-    """a switch rolls its aria-checked back, clears its pending marker, leaves the
-    stored value alone and announces the TRANSLATED generic failure in a visible
-    toast — on a 500 AND on a network-level failure, in English and in French, each
-    against a control phase proving the same switch DOES flip and does NOT announce
-    on a working request (D2/CFG-36, T-23-26/T-23-27, 23-07-PLAN.md Task 3)"""
+    """A switch rolls its aria-checked back, clears its pending marker, leaves the stored
+    value alone and announces the translated generic failure in a visible toast, on a 500 and
+    on a network-level failure, in English and in French, each against a control phase
+    proving the same switch does flip and does not announce on a working request.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     for lang, failure_copy in (
@@ -715,12 +672,12 @@ def test_a_switch_rolls_back_and_announces_on_both_failure_branches(new_context,
 
 
 def test_a_refresh_landing_mid_flip_does_not_repaint_the_switch(new_context, make_app_server):
-    """a Home refresh landing while a flip is unconfirmed leaves the Frame strip
-    untouched — by NODE IDENTITY and by the optimistic aria-checked surviving —
-    against one control proving another region really was swapped in the same cycle
-    and a second proving the same changed strip IS replaced once the marker has
-    cleared, with focus deliberately moved off the strip so the focus skip cannot be
-    what satisfies it (D1+D2, T-23-26, 23-07-PLAN.md Task 3)"""
+    """A Home refresh landing while a flip is unconfirmed leaves the Frame strip untouched,
+    by node identity and by the optimistic aria-checked surviving, against one control
+    proving another region really was swapped in the same cycle and a second proving the
+    same changed strip is replaced once the marker has cleared, with focus deliberately
+    moved off the strip so the focus skip cannot be what satisfies it.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
@@ -776,11 +733,10 @@ def test_a_refresh_landing_mid_flip_does_not_repaint_the_switch(new_context, mak
 
 
 def test_all_three_switches_still_post_with_scripts_blocked_at_360px(new_context, make_app_server):
-    """with scripts blocked at 360px, in BOTH languages, all THREE switches render
-    with the server's own aria-checked, clear the 44px touch floor in both axes,
-    submit their real form and PERSIST to disk — the assertion that would catch a
-    control that renders and silently does nothing (D2/CFG-36, CFG-38, 23-07-PLAN.md
-    Task 3)"""
+    """With scripts blocked at 360px, in both languages, all three switches render with the
+    server's own aria-checked, clear the 44px touch floor in both axes, submit their real
+    form and persist to disk.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     switches = (
@@ -840,18 +796,13 @@ def test_all_three_switches_still_post_with_scripts_blocked_at_360px(new_context
                         "with no script at all" % (lang, field))
 
 
-# ===========================================================================
-# 23-08-PLAN.md Task 3 (D7/CFG-37 + D3's two Flights clauses): the live
-# list, proven live.
-# ===========================================================================
-
 def test_a_new_detection_is_highlighted_and_an_existing_row_is_not(new_context, make_app_server):
-    """a detection recorded while the Flights page is open arrives at the top of the
-    live list on the next refresh and is the ONLY thing highlighted — in both the
-    table and the phone card list — while a row that was already there is not,
-    nothing at all is highlighted on first load, and a refresh that brings nothing
-    new announces nothing; the class resolves to the stylesheet's own single-run
-    arrival animation on --motion-slow (D7/CFG-37, 23-08-PLAN.md Task 3)"""
+    """A detection recorded while the Flights page is open arrives at the top of the live
+    list on the next refresh and is the only thing highlighted — in both the table and the
+    phone card list — while a row that was already there is not, nothing at all is
+    highlighted on first load, and a refresh that brings nothing new announces nothing; the
+    class resolves to the stylesheet's own single-run arrival animation on --motion-slow.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
@@ -950,11 +901,12 @@ def test_a_new_detection_is_highlighted_and_an_existing_row_is_not(new_context, 
 
 
 def test_a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened(new_context, make_app_server):
-    """a refresh neither unfolds the Flights table nor closes the row you opened:
-    with focus deliberately blurred off the toggle (so the loop's focus skip cannot
-    be what passes this) and a new detection renumbering every row below it, exactly
-    the row that was opened is still open — by EVENT identity, not by position — and
-    exactly one toggle still announces it (D7/CFG-37, 23-08-PLAN.md Task 3)"""
+    """A refresh neither unfolds the Flights table nor closes the row you opened: with focus
+    deliberately blurred off the toggle (so the loop's focus skip cannot be what passes this)
+    and a new detection renumbering every row below it, exactly the row that was opened is
+    still open — by event identity, not by position — and exactly one toggle still
+    announces it.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
@@ -1019,12 +971,11 @@ def test_a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened(new_cont
 
 
 def test_a_refresh_never_interrupts_or_undoes_the_filter(new_context, server):
-    """a refresh never interrupts the filter and never undoes it: with the caret in
-    the box the loop issues ZERO requests (counted, against a control proving the
-    same trigger does fetch with focus moved off), and the swap that then happens
-    leaves the typed query applied — same visible rows, same live count, same input
-    value — because the server renders the list unfiltered (D7/CFG-37, 23-08-PLAN.md
-    Task 3)"""
+    """A refresh never interrupts the filter and never undoes it: with the caret in the box
+    the loop issues zero requests (counted, against a control proving the same trigger does
+    fetch with focus moved off), and the swap that then happens leaves the typed query
+    applied — same visible rows, same live count, same input value.
+    """
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -1093,11 +1044,11 @@ def test_a_refresh_never_interrupts_or_undoes_the_filter(new_context, server):
 
 
 def test_a_collapsed_detail_row_cannot_be_reached_by_keyboard(new_context, server):
-    """a COLLAPSED Flights detail row lets none of its own controls take focus — the
-    deliberate display:none end state, asked as the keyboard question directly —
-    against a control phase proving the same controls ARE reachable once the row is
-    open, and the opening really animates grid-template-rows on a grid wrapper at
-    --motion-fast (D3/CFG-32, T-23-32, 23-08-PLAN.md Task 3)"""
+    """A collapsed Flights detail row lets none of its own controls take focus — the
+    deliberate display:none end state, asked as the keyboard question directly — against a
+    control phase proving the same controls are reachable once the row is open, and the
+    opening really animates grid-template-rows on a grid wrapper at --motion-fast.
+    """
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -1164,12 +1115,12 @@ def test_a_collapsed_detail_row_cannot_be_reached_by_keyboard(new_context, serve
 
 
 def test_a_phone_card_opens_from_a_tap_anywhere_with_and_without_scripts(new_context, server):
-    """a phone card at 360px opens from a tap on its own face away from every
-    control, through the native disclosure it already contained, with its summary
-    box covering the whole card and no control nested inside it — and it does the
-    same with SCRIPTS BLOCKED, where no detail row is collapsed and the live-script
-    class the height animation is keyed on is absent (D7/CFG-37, CFG-38,
-    23-08-PLAN.md Task 3)"""
+    """A phone card at 360px opens from a tap on its own face away from every control,
+    through the native disclosure it already contained, with its summary box covering the
+    whole card and no control nested inside it — and it does the same with scripts
+    blocked, where no detail row is collapsed and the live-script class the height
+    animation is keyed on is absent.
+    """
     base_url = server.base_url()
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:
@@ -1243,26 +1194,18 @@ def test_a_phone_card_opens_from_a_tap_anywhere_with_and_without_scripts(new_con
                 "page animates nothing")
 
 
-# ===========================================================================
-# 23-09-PLAN.md Task 3 (D3/CFG-32): the save bar's own dirty-count, its
-# every-field save, and its scripts-blocked fallback.
-# ===========================================================================
+# The save bar's own dirty-count, its every-field save, and its scripts-blocked fallback.
 
 def test_the_dirty_count_arrives_and_moves_only_when_the_word_does(new_context, server):
-    """[data-dirty-count] ARRIVES rather than appearing, and stays silent for
-    anything that is not a genuine change: clicking an ALREADY-CHECKED radio writes
-    nothing (the surviving control-phase idea from the retired save-status region —
-    MEASURED live to fire no native change at all, never reaching updateBar()); a
-    REAL change writes the section's own name EXACTLY ONCE, read off the bar's own
-    data-* attributes never hardcoded in English, and carries the changed-value
-    class; and changing to a SECOND, DIFFERENT theme inside the identical
-    data-dirty-section wrapper — a real change that resolves to the textually
-    IDENTICAL label — writes nothing further, which is setCountText()'s own
-    changed-text gate genuinely exercised (a same-value re-click, tried first, never
-    reaches the listener at all and so cannot prove the gate) — a new phase this
-    check gains over its retired predecessor (D3/CFG-32, 23-09-PLAN.md Task 3;
-    retargeted from the retired save-status region onto the restored bar by
-    28-10-PLAN.md Task 2, CFG-77/CFG-78)"""
+    """[data-dirty-count] arrives rather than appearing, and stays silent for anything that
+    is not a genuine change: clicking an already-checked radio writes nothing (measured live
+    to fire no native change at all, never reaching updateBar()); a real change writes the
+    section's own name exactly once, read off the bar's own data-* attributes never
+    hardcoded in English, and carries the changed-value class; and changing to a second,
+    different theme inside the identical data-dirty-section wrapper, a real change that
+    resolves to the textually identical label, writes nothing further, which is
+    setCountText()'s own changed-text gate genuinely exercised.
+    """
     context = new_context()
     try:
         page = context.new_page()
@@ -1333,15 +1276,13 @@ def test_the_dirty_count_arrives_and_moves_only_when_the_word_does(new_context, 
 
 
 def test_the_bars_save_persists_every_field_never_only_the_touched_one(new_context, make_app_server):
-    """the bar's own Save persists EVERY field to disk, never only the touched one:
-    reading the FULL on-disk config before and after a single-field
-    (tracked_runway) save, in both languages, and asserting the two dicts differ in
-    EXACTLY the one key touched — a STRONGER surface than the retired request-body
-    capture, since a server that posts the whole form but only writes the touched
-    key would still pass that check and fail this one (T-27-04-D, CFG-36's own
-    hazard; retargeted from the request body onto disk by 28-10-PLAN.md Task 3,
-    CFG-77/CFG-78; 27-04-PLAN.md Task 4, CFG-63; supersedes the retired Save-button
-    relabel check, T14's deferred label, 23-09-PLAN.md Task 3/D3/CFG-32)"""
+    """The bar's own Save persists every field to disk, never only the touched one: reading
+    the full on-disk config before and after a single-field (tracked_runway) save, in both
+    languages, and asserting the two dicts differ in exactly the one key touched — a
+    stronger surface than reading the request body, since a server that posts the whole
+    form but only writes the touched key would still pass a request-body check and fail
+    this one.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     for lang in ("en", "fr"):
@@ -1379,10 +1320,9 @@ def test_the_bars_save_persists_every_field_never_only_the_touched_one(new_conte
 
 
 def test_with_no_script_the_fallback_save_is_the_only_way(new_context, make_app_server):
-    """with scripts blocked at 360px, in BOTH languages, the fallback Save is
-    VISIBLE with a real box and still saves to disk — B1's floor re-asserted after
-    the bar and both its former liveness markers are retired outright (B1/CFG-38,
-    23-09-PLAN.md Task 3; retargeted by 27-04-PLAN.md Task 4, CFG-63)"""
+    """With scripts blocked at 360px, in both languages, the fallback Save is visible with a
+    real box and still saves to disk.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     for lang in ("en", "fr"):
@@ -1390,9 +1330,8 @@ def test_with_no_script_the_fallback_save_is_the_only_way(new_context, make_app_
                          viewport=VIEWPORT_MIN_SUPPORTED) as page:
             page.context.add_cookies([{
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-            # The relocated Save's entrance animation runs regardless of
-            # scripts, so reduced motion is requested here to avoid
-            # clicking a button that is still translating into place.
+            # The Save button's entrance animation runs regardless of scripts, so reduced
+            # motion is requested here to avoid clicking a button still translating into place.
             page.emulate_media(reduced_motion="reduce")
             page.goto(base_url + "/display")
             if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
@@ -1430,21 +1369,15 @@ def test_with_no_script_the_fallback_save_is_the_only_way(new_context, make_app_
                     % (lang, target, saved))
 
 
-# ===========================================================================
-# 27-05-PLAN.md Task 3 (CFG-66): the retired schematic runway map's
-# replacement relationship — the map is gone, the radios and the
-# photographs are not.
-# ===========================================================================
-
 def test_the_map_is_gone_the_radios_and_photographs_remain_and_meet_their_floor(new_context, server):
-    """CFG-66: the map is gone, the radios and the photographs are not — asserted as
-    ONE relationship rather than three separate facts: zero .runway-map elements
-    resolve on /display, exactly RUNWAY_IDS' own count of tracked_runway radios and
-    of .runway-card__image photographs still resolve, the runway row does not
-    scroll the page sideways at 360px, and every runway card clears the 44px
-    hit-target floor in ITS OWN container at 360px in BOTH themes — measured, not
-    assumed, now that the map strip no longer provides the box (CFG-66/D-32/
-    T-27-05-B, retiring CFG-47's three checks named in 27-05-SUMMARY.md)"""
+    """The schematic runway map is gone, the radios and the photographs are not — asserted
+    as one relationship rather than three separate facts: zero .runway-map elements resolve
+    on /display, exactly RUNWAY_IDS' own count of tracked_runway radios and of
+    .runway-card__image photographs still resolve, the runway row does not scroll the page
+    sideways at 360px, and every runway card clears the 44px hit-target floor in its own
+    container at 360px in both themes, measured now that the map strip no longer provides
+    the box.
+    """
     base_url = server.base_url()
     ids = device_config.RUNWAY_IDS
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -1498,19 +1431,14 @@ def test_the_map_is_gone_the_radios_and_photographs_remain_and_meet_their_floor(
 THEME_PREVIEW_SEL = ".theme-live-preview__image"
 
 
-# ===========================================================================
-# 25-06-PLAN.md Task 1 (CFG-50): Display's own recorded page height.
-# ===========================================================================
-
 def test_displays_page_height_is_recorded_at_both_phone_widths(new_context, server):
-    """Display's full rendered document height is recorded at 390px and at 360px by
-    one instrument — proved to be pointed at the authenticated Display page (its
-    Aspect heading AND a full THEME_IDS-sized departures radiogroup, never merely
-    'a page rendered'), at the width the caller asked for, and taller than the
-    viewport — asserting NO target, because the number IS the criterion and 25-06
-    states in its own SUMMARY whether it is met, and no cross-width relationship
-    either, because the obvious one (narrower cannot be shorter) was MEASURED FALSE
-    on this page before the plan changed anything (CFG-50, 25-06-PLAN.md Task 1)"""
+    """Display's full rendered document height is recorded at 390px and at 360px by one
+    instrument, proved to be pointed at the authenticated Display page (its Aspect heading
+    and a full THEME_IDS-sized departures radiogroup, never merely "a page rendered"), at
+    the width the caller asked for, and taller than the viewport. Asserts no target, because
+    the number is the verdict, and no cross-width relationship either, because the obvious
+    one (narrower cannot be shorter) was measured false on this page.
+    """
     base_url = server.base_url()
     heights = {}
     for viewport in (VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
@@ -1521,25 +1449,18 @@ def test_displays_page_height_is_recorded_at_both_phone_widths(new_context, serv
             "%d px (client %dx%d, %d theme radios)"
             % (viewport["width"], seen["height"],
                seen["clientWidth"], seen["clientHeight"], seen["themeRadios"]))
-    # NO TARGET IS ASSERTED HERE, DELIBERATELY, and no cross-width
-    # relationship either — the obvious one (narrower cannot be shorter)
-    # was measured FALSE on this page (a stack of independently-rounding
-    # cards) before any of this phase's markup existed.
+    # No target is asserted here, deliberately, and no cross-width relationship either: the
+    # obvious one (narrower cannot be shorter) was measured false on this page (a stack of
+    # independently-rounding cards).
     if not heights:
         raise AssertionError("no viewport was measured at all")
 
 
-# ===========================================================================
-# 25-06-PLAN.md Task 4 (CFG-50/D-09) and 27-07-PLAN.md Task 2 (CFG-68):
-# the theme/arrivals scripts-blocked save floors, narrowed by
-# 30-03-PLAN.md Task 3 (CFG-85).
-# ===========================================================================
-
 def test_the_theme_still_saves_with_scripts_blocked(new_context, make_app_server):
-    """the theme still SAVES with scripts blocked, at 360px and in BOTH shipped
-    languages — operated natively by field name, submitted through the real form,
-    re-read FROM DISK after a fresh GET and restored the same way (CFG-50/D-09/
-    CFG-85, 25-06-PLAN.md Task 4, narrowed by 30-03-PLAN.md Task 3)"""
+    """The theme still saves with scripts blocked, at 360px and in both shipped languages:
+    operated natively by field name, submitted through the real form, re-read from disk
+    after a fresh GET and restored the same way.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
 
@@ -1587,13 +1508,12 @@ def test_the_theme_still_saves_with_scripts_blocked(new_context, make_app_server
 
 
 def test_arrivals_still_saves_with_scripts_blocked(new_context, make_app_server):
-    """the arrivals grid still SAVES with scripts blocked, at 360px and in BOTH
-    shipped languages — operated natively by field name, submitted through the real
-    form, re-read FROM DISK after a fresh GET and restored the same way (seeded
-    through the validated save_device_config() API rather than a raw file write,
-    since theme_arriving's own None state would otherwise defeat the shared
-    helper's stored-is-None save-floor guard) (CFG-68/CFG-85, 27-07-PLAN.md Task 2,
-    narrowed by 30-03-PLAN.md Task 3)"""
+    """The arrivals grid still saves with scripts blocked, at 360px and in both shipped
+    languages: operated natively by field name, submitted through the real form, re-read
+    from disk after a fresh GET and restored the same way. Seeded through the validated
+    save_device_config() API rather than a raw file write, since theme_arriving's own None
+    state would otherwise defeat the shared helper's stored-is-None save-floor guard.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
 
@@ -1660,19 +1580,16 @@ def test_arrivals_still_saves_with_scripts_blocked(new_context, make_app_server)
                 % (original_arriving, final))
 
 
-# ===========================================================================
-# 30-08-PLAN.md Task 2 (CFG-85): the palette preview's keyboard/hover/
-# focus behaviour, over the static wrapping grid the carousel was
-# rebuilt into.
-# ===========================================================================
+# The palette preview's keyboard/hover/focus behaviour, over the static wrapping grid the
+# carousel was rebuilt into.
 
 def test_keying_the_palette_moves_the_preview(new_context, server):
-    """arrow-keying the departures palette's native radiogroup (no click at all)
-    still moves the checked selection, and the live preview still follows it via
-    theme-preview.js's own delegated change listener, settled fully opaque - the one
-    property _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview
-    proved that survives a static wrapping grid with no strip/scroll/pager to key
-    through (_ASPECT_REPIN_LEDGER, 30-08-PLAN.md Task 2, CFG-85)"""
+    """Arrow-keying the departures palette's native radiogroup (no click at all) still
+    moves the checked selection, and the live preview still follows it via
+    theme-preview.js's own delegated change listener, settled fully opaque — the same
+    property a prior scrolling-strip check proved, now shown to survive a static wrapping
+    grid with no strip/scroll/pager to key through.
+    """
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
@@ -1720,15 +1637,13 @@ def test_keying_the_palette_moves_the_preview(new_context, server):
 
 
 def test_the_preview_follows_hover_and_focus_and_selects_nothing(new_context, server):
-    """hovering or keyboard-focusing an unchecked palette chip previews that chip's
-    own theme in the ONE live preview, writing NO radio's checked state and NO value
-    on disk; moving the pointer/focus away reverts the preview to the checked
-    chip's own src; hovering straight from chip A to chip B never passes through
-    the checked selection's own src in between (observed via a live
-    MutationObserver on the preview's src attribute), settling on B; and the value
-    on disk is unchanged start to finish - the genuinely new interaction this phase
-    adds, with no existing hover/focus precedent to re-key (30-RESEARCH.md
-    Pitfall 4, _ASPECT_REPIN_LEDGER, 30-08-PLAN.md Task 1+2, CFG-85)"""
+    """Hovering or keyboard-focusing an unchecked palette chip previews that chip's own
+    theme in the one live preview, writing no radio's checked state and no value on disk;
+    moving the pointer/focus away reverts the preview to the checked chip's own src; hovering
+    straight from chip A to chip B never passes through the checked selection's own src in
+    between (observed via a live MutationObserver on the preview's src attribute), settling
+    on B; and the value on disk is unchanged start to finish.
+    """
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()

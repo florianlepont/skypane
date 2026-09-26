@@ -1,88 +1,40 @@
 # SkyPane — CI pipeline.
 #
-# Single workflow file, two jobs: `test` runs blocking lint + the full
-# pytest suite (coverage gate included) + attribution check on every push
-# and pull request, on the same Python version production runs (3.14),
-# installing only the hash-locked `server/requirements-dev.txt` with
-# `--require-hashes` so a compromised or substituted package on PyPI is
-# rejected rather than silently installed. `deploy` only runs after `test`
-# succeeds, only on a push to the default branch (never a pull request),
-# and pauses for a human reviewer before touching the production VPS.
-# Kept as one file rather than a two-file split, because a job cannot
-# `needs:` a job defined in a *different* workflow file — only
-# `workflow_run` crosses that boundary, and it carries its own
-# well-documented pitfalls. The firmware build lives in its own file
-# (firmware.yml) instead, because path-restricted triggers are a
-# workflow-level feature, not a job-level one, and that build is
-# independent of this pipeline.
-#
-# Hardening:
-#   - `test` and `deploy` each carry their own job-level `concurrency`
-#     group instead of sharing one at workflow level: a `deploy` sitting
-#     on the production reviewer's approval can no longer block the next
-#     push's `test` job from starting. `test`'s group cancels a superseded
-#     PR push (never a push to `main`); `deploy`'s group
-#     (`production-deploy`) never cancels a running job
-#     (`cancel-in-progress: false`) — an in-flight rsync is never killed
-#     half-done — but a newer queued deploy still replaces an older
-#     *pending* one. To stop a reviewer approving a queued deploy whose
-#     commit `main` has already moved past, the deploy job's first step
-#     compares its own `github.sha` against the current tip of `main` via
-#     `git ls-remote`: it deploys when they match or when the newer tip
-#     leaves every shipped path identical (a docs-only push never deploys
-#     itself), and otherwise FAILS the job — as does any error reading
-#     the tip — so a guard decision is never a silently green skip.
-#   - A `paths` filter with `!` exclusions on both triggers (ordered:
-#     a later positive pattern re-includes what an earlier `!` excluded):
-#     a docs-only change (`**/*.md`, `.planning/**`, `.claude/**`,
-#     `LICENSE`) no longer runs this job at all — EXCEPT the Markdown this
-#     job itself checks, re-included by name: `server/assets/**/VENDOR.md`,
-#     which `check-attribution.sh` checks, and `deploy/README.md`, which
-#     deploy/tests/test_docs.py checks. No companion test reads a doc or
-#     anything under `.planning/` (companion/test_suite_guards.py enforces
-#     it). A new test that reads another doc must add it here too.
-#     Skipping is safe specifically because `main` has NO branch
-#     protection and NO required status checks configured in this
-#     repository — a skipped run blocks nothing. Deliberately does
-#     NOT exclude `hardware/**` or `adsb-test/**`: `ruff check .` lints
-#     the Python in both, so excluding them would silence a real lint gate.
-#   - `timeout-minutes` on every job: no job can ever consume GitHub's
-#     6-hour default, whether from a genuinely hung step or a runner-side
-#     stall.
-#   - `cache: pip` on setup-python: server/requirements*.txt-keyed pip
-#     cache, so a repeat run doesn't re-download the same wheels. The
-#     Playwright headless shell gets its own cache
-#     (`~/.cache/ms-playwright`), keyed on the exact installed Playwright
-#     version, since the browser binary is not something pip's own cache
-#     covers.
+# `test`: lint + full pytest suite (coverage gate) + attribution check,
+# on Python 3.14 (matches production), every push and PR. `deploy` runs
+# only after `test` succeeds, only on a push to main, and pauses for a
+# human reviewer. Firmware builds live in their own file (firmware.yml):
+# path-restricted triggers are workflow-level, not job-level.
 name: CI
 
 on:
   push:
     branches: [main]
+    # Skips a docs-only push (safe: main requires no status checks), but
+    # re-includes docs this job itself checks (VENDOR.md via
+    # check-attribution.sh, deploy/README.md via test_docs.py) and never
+    # excludes hardware/**/adsb-test/** since ruff lints their Python too.
     paths:
       - '**'
       - '!**/*.md'
       - '!.planning/**'
       - '!.claude/**'
       - '!LICENSE'
-      # Re-included: docs this job checks (see header comment).
       - 'server/assets/**/VENDOR.md'
       - 'deploy/README.md'
   pull_request:
+    # Same filter as push above.
     paths:
       - '**'
       - '!**/*.md'
       - '!.planning/**'
       - '!.claude/**'
       - '!LICENSE'
-      # Re-included: docs this job checks (see header comment).
       - 'server/assets/**/VENDOR.md'
       - 'deploy/README.md'
 
-# Least privilege for the workflow's GITHUB_TOKEN: read the repository,
-# nothing else. (The repo default is already read-only; declaring it here
-# keeps it read-only even if that repository setting is ever changed.)
+# Least privilege: read-only GITHUB_TOKEN (repo default already is; kept
+# explicit so it can't silently change).
 permissions:
   contents: read
 
@@ -91,10 +43,9 @@ jobs:
     name: Lint, test, coverage, attribution
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Own group, separate from `deploy`'s: a deploy paused on reviewer
-    # approval can never block this job. Only PR pushes cancel an
-    # in-flight run here — a push to `main` never does, matching `deploy`
-    # (see header comment above).
+    # Separate group from `deploy`: a deploy paused on reviewer approval
+    # never blocks this job. Only a PR push cancels an in-flight run
+    # here; a push to main never does.
     concurrency:
       group: test-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -114,10 +65,8 @@ jobs:
 
       - name: Create virtualenv and install dependencies (hash-enforced)
         # server/requirements-dev.txt is a hash-locked superset of
-        # server/requirements.txt (plan 32-12) — installing it alone with
-        # --require-hashes pulls in every runtime and dev package, pinned
-        # by hash, and rejects anything whose downloaded content doesn't
-        # match the lock.
+        # server/requirements.txt; --require-hashes rejects any package
+        # whose downloaded content doesn't match the lock.
         run: |
           python3 -m venv server/.venv
           server/.venv/bin/pip install --require-hashes -r server/requirements-dev.txt
@@ -135,37 +84,29 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-headless-shell
 
       - name: Download the Chromium headless shell the browser tests drive
-        # --only-shell installs just the headless shell binary the
-        # pytest-playwright browser tests actually launch (headless by
-        # default) instead of the full Chromium download; --with-deps
-        # still installs the OS packages every run since those aren't
-        # covered by the cache above, but the browser download itself is
-        # skipped whenever the cache step restored a hit.
+        # --only-shell installs just the headless shell binary the browser
+        # tests launch (headless by default), not full Chromium; --with-deps
+        # still installs OS packages every run (outside the cache above).
         run: server/.venv/bin/python -m playwright install --with-deps --only-shell chromium
 
       - name: Lint (blocking — rule set lives in pyproject.toml)
         run: server/.venv/bin/ruff check .
 
       - name: Comment history guard
-        # Keeps history references out of comments; the pending list is a
-        # ratchet that only shrinks as files are purged.
+        # Keeps plan/ticket history references out of comments, over the
+        # whole tracked tree.
         run: server/.venv/bin/python scripts/check_comment_history.py check
 
       - name: Shellcheck deploy scripts
-        # shellcheck is preinstalled on the ubuntu-24.04 runner image
-        # (37-RESEARCH.md Standard Stack). It reads each file's own
-        # shebang, so the bash scripts and the POSIX-sh Mac scripts under
-        # deploy/backup/mac/ are each checked against the right dialect
-        # with no --shell override needed.
+        # Reads each file's own shebang, so the POSIX-sh Mac scripts under
+        # deploy/backup/mac/ are checked against the right dialect too.
         run: find deploy -name '*.sh' -print0 | xargs -0 shellcheck
 
       - name: Score systemd units (offline, fail above 2.0)
         # Independent of deploy/tests/test_units.py's own offline-score
         # test (which skips when systemd-analyze --offline is
-        # unavailable): this step runs unconditionally on the runner,
-        # where systemd is always present, so a regression that pushes
-        # any unit's exposure over the threshold fails the job even if a
-        # future local sandbox lacked systemd-analyze (SEC-06, SEC-07).
+        # unavailable): this step always has systemd, so a regression
+        # fails the job even where a local sandbox lacks it.
         run: |
           set -euo pipefail
           for u in deploy/*.service; do
@@ -174,9 +115,8 @@ jobs:
 
       - name: Run full test suite with coverage threshold
         # SKYPANE_REQUIRE_BROWSER: a browser test that cannot launch
-        # Chromium fails here instead of skipping (companion/conftest.py's
-        # `browser` fixture; CI=true has the same effect, this just makes
-        # the requirement explicit).
+        # Chromium fails here instead of skipping (same effect as
+        # CI=true, made explicit).
         env:
           SKYPANE_REQUIRE_BROWSER: "1"
         run: ./scripts/run-all-tests.sh
@@ -190,20 +130,16 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Own group, separate from `test`'s (see header comment above).
-    # cancel-in-progress: false means a running deploy is never killed
-    # mid-rsync; a newer queued deploy still supersedes an older *pending*
-    # one. The "Refuse to deploy if main has moved on" step below is what
-    # stops a reviewer approving an already-superseded run from shipping
-    # old code — by failing loudly, never by skipping with a green job.
+    # Separate group from `test`. cancel-in-progress: false means a
+    # running deploy is never killed mid-rsync; a newer queued deploy
+    # only supersedes an older *pending* one. The step below is what
+    # stops an approved-but-stale run from shipping old code.
     concurrency:
       group: production-deploy
       cancel-in-progress: false
-    # The production environment gate below is what makes GitHub pause
-    # this job for a required reviewer — but only once the "production"
-    # environment actually exists, with a reviewer attached, in this
-    # repository's Settings. Without it, this gate is inert and the
-    # approval step silently degrades to no gate at all.
+    # Pauses for a required reviewer only once a "production" environment
+    # with a reviewer exists in this repo's Settings — otherwise this
+    # gate is inert.
     environment:
       name: production
     steps:
@@ -211,22 +147,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Refuse to deploy if main has moved on to different shipped code
-        # A reviewer can sit on the approval gate long enough for a later
-        # push to move `main` past this run's commit. Rather than cancel
-        # this (possibly already-running) job — which could kill an
-        # in-flight rsync — this step decides before anything is shipped:
-        #   - this commit is still the tip of main: deploy;
-        #   - main moved on, but only to commits that leave every shipped
-        #     path identical (e.g. a docs-only push the `paths` filter never
-        #     runs CI for, so it would never deploy itself): deploying
-        #     this commit is deploying the tip, so deploy;
-        #   - main moved on and changed shipped files: FAIL the job. The
-        #     newer commit deploys itself if its own tests pass; if they
-        #     fail, production deliberately stays on the last deployed
-        #     code — either way the red run says this approval shipped
-        #     nothing, instead of a green run that silently skipped.
-        # Any error (ls-remote/fetch failure, unreadable tip) fails the job
-        # too: an error must never look like a successful skip.
+        # A reviewer can approve after a later push moves main past this
+        # commit. Deploys only if this commit is main's tip, or main only
+        # changed non-shipped paths; otherwise FAILS (never a silent
+        # green skip) so the newer commit's own run is what ships it.
         run: |
           set -euo pipefail
           latest="$(git ls-remote origin refs/heads/main | cut -f1)"
@@ -238,9 +162,8 @@ jobs:
             exit 0
           fi
           git fetch --quiet --depth=1 origin "${latest}"
-          # Markdown is excluded: the `paths` filter never runs CI for a
-          # Markdown-only push, so such a push can never deploy itself and
-          # must not block this one (it changes no runtime behaviour).
+          # Markdown-only changes never run CI (paths filter above), so
+          # excluding them here stops them from blocking this deploy.
           if git diff --quiet "${GITHUB_SHA}" "${latest}" -- \
               server stub-server companion adsb-test/runway3.json deploy \
               ':(exclude,glob)**/*.md'; then
@@ -256,17 +179,10 @@ jobs:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
 
       - name: Trust the production host key
-        # Deliberately not scanned at deploy time: trusting whatever key
-        # answers is trust-on-first-use on every single run and accepts
-        # an impostor host silently. The expected key comes from its own
-        # dedicated secret instead, written straight into known_hosts.
-        # Passed through env: rather than interpolated into the run:
-        # script (SEC-07, D-20): a `${{ }}` expression inside run: is
-        # substituted into the script's literal text before the shell
-        # ever sees it, so an attacker-controlled secret value could
-        # break out of the echo and inject shell commands. env: hands the
-        # value to the shell as a variable instead, where "$DEPLOY_HOST_KEY"
-        # is just data.
+        # Not scanned at deploy time (trust-on-first-use would silently
+        # accept an impostor); the key comes from its own secret instead.
+        # Passed via env:, not interpolated into run: -- a `${{ }}` in
+        # run: becomes literal script text, letting a secret value inject shell commands.
         env:
           DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
         run: |
@@ -275,12 +191,10 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
       - name: Deploy
-        # deploy.sh ships the committed tree (git archive | ssh) to the
-        # release directory and runs activate.sh, which stages the
-        # release, installs units and the rendered Caddyfile, swaps the
-        # `current` symlink atomically, probes the running services, and
-        # rolls back on any failure (SEC-05, Plan 37-06/37-09). The target
-        # is passed through env: for the same reason as the host key above.
+        # Runs deploy.sh: ships the committed tree, then activate.sh
+        # stages the release, swaps `current` atomically, probes services
+        # and rolls back on failure. Target passed via env:, same
+        # injection-prevention reason as the host key above.
         env:
           DEPLOY_SSH_TARGET: ${{ secrets.DEPLOY_SSH_TARGET }}
         run: ./deploy/deploy.sh "$DEPLOY_SSH_TARGET"

@@ -1,22 +1,9 @@
-"""Part 02 of the `companion/test_config_page.py` migration chain
-(33-10-PLAN.md): the original harness's `check()` calls #34-#84, covering
-the quiet-window arithmetic and the quiet-hours dial (span/arc/readout/
-handles/pair seam), the remaining render()/runway_fieldset()/dirty-bar
-markup checks, poll_trigger_section()'s data-attribute contract and
-companion/static/poll-cooldown.js's sink safety, and handle_post()'s
-theme/runway/LED/quiet-hours/wake-interval validation paths.
-
-Every check calls `companion.pages.config_page`'s own functions directly,
-in-process, against a `tmp_path`-backed state directory — this slice
-still needs no running `companion/app.py` server for its handle_post()/
-render() checks. The few checks that used to read
-`companion/static/style.css` or a served JS asset from disk instead fetch
-them from a running `companion/app.py` (`module_app_server_factory` +
-`served_stylesheet()`/`served_asset()`) and assert on
-`companion_markup`'s parsed CSS structure or the served text itself —
-never a file opened from disk (TST-12). Runtime state files this slice
-writes under `tmp_path` (never production source) are read back with
-`pathlib.Path.read_bytes()`.
+"""Tests companion.pages.config_page's quiet-window arithmetic and dial
+(span/arc/readout/handles/pair seam), remaining render()/
+runway_fieldset()/dirty-bar markup, poll_trigger_section()'s
+data-attribute contract and poll-cooldown.js's sink safety, and
+handle_post()'s theme/runway/LED/quiet-hours/wake-interval validation.
+Some checks fetch style.css or a JS asset from a running app server.
 """
 import datetime
 import math
@@ -40,8 +27,7 @@ from server import device_config
 @pytest.fixture(scope="module")
 def app(module_app_server_factory):
     """A read-only companion/app.py server this module's checks fetch the
-    served stylesheet/JS assets from, instead of opening them from disk
-    (TST-12)."""
+    served stylesheet/JS assets from, instead of opening them from disk."""
     return module_app_server_factory()
 
 
@@ -54,14 +40,14 @@ def served_css(app):
 @pytest.fixture(scope="module")
 def value_controls_js(app):
     """companion/static/value-controls.js's served text, fetched over
-    HTTP instead of opened from disk (TST-12)."""
+    HTTP instead of opened from disk."""
     return served_asset(app, "/static/value-controls.js")
 
 
 @pytest.fixture(scope="module")
 def poll_cooldown_js(app):
     """companion/static/poll-cooldown.js's served text, fetched over HTTP
-    instead of opened from disk (TST-12)."""
+    instead of opened from disk."""
     return served_asset(app, "/static/poll-cooldown.js")
 
 
@@ -96,8 +82,7 @@ def test_the_quiet_window_wraps_midnight_the_short_way_round():
     length is reconstructed from what server.device_config.seconds_until_quiet_hours_end()
     has left at a shared instant rather than pinned, equal ends is the zero-width window
     that server's own docstring calls never-active, and every unparseable input returns the
-    render-nothing signal rather than raising or fabricating a zero (CFG-48, 25-04-PLAN.md
-    Task 1)"""
+    render-nothing signal rather than raising or fabricating a zero"""
     span_of = config_page.quiet_window_span
     day = config_page.QUIET_WINDOW_MINUTES_PER_DAY
     assert day == 1440, "expected a 1440-minute day, got %r" % (day,)
@@ -200,9 +185,9 @@ def test_the_quiet_window_wraps_midnight_the_short_way_round():
             "zero reading above no longer agrees with it — one of the two has changed "
             "its mind about a zero-width window" % instant_hour)
 
-    # THE RENDER-NOTHING SIGNAL. None, never an exception (T-25-04-C: the
-    # Display page renders this) and never a zero, which would draw a
-    # real, empty window and claim one is configured.
+    # THE RENDER-NOTHING SIGNAL. None, never an exception (the Display
+    # page renders this) and never a zero, which would draw a real,
+    # empty window and claim one is configured.
     for hostile in ("", None, "7:00", "0700", "99:99", "24:00", "23:60", "ab:cd",
                     "23:00 ", 5, True, object(), "<b>23:00</b>"):
         assert span_of(hostile, "07:00") is None, (
@@ -232,9 +217,8 @@ def test_the_ring_draws_the_saved_window_from_the_emitted_attributes():
     plus the window's own start about its own centre (an eight-hour arc drawn from the
     wrong hour is the same length and a different window); the readout names both times and
     the duration the same span implies and is aria-hidden; nothing on the card is a
-    role="status"/aria-live region (CFG-52); nothing stored draws no arc and no words
-    while the full-day ring still draws; and a hostile submitted value reaches neither
-    (T-25-04-B) (CFG-48, 25-04-PLAN.md Task 2)"""
+    role="status"/aria-live region; nothing stored draws no arc and no words
+    while the full-day ring still draws; and a hostile submitted value reaches neither"""
     for start, end, expected_turns in (
             ("23:00", "07:00", 1 / 3.0),
             ("07:00", "23:00", 2 / 3.0),
@@ -281,11 +265,10 @@ def test_the_ring_draws_the_saved_window_from_the_emitted_attributes():
     # THE READOUT SAYS WHAT THE ARC DRAWS, asserted against BOTH at once:
     # the two times it names and the duration the span implies.
     #
-    # 27-02-PLAN.md Task 3 (CFG-62): the readout is now THREE children
-    # (two `data-value-readout` endpoints plus a duration span), not one
-    # text node — so "at rest, byte-identical" is checked against the
-    # STRIPPED text (what a visitor reads), and the structural seam is
-    # checked separately.
+    # The readout is THREE children (two `data-value-readout` endpoints
+    # plus a duration span), not one text node — so "at rest,
+    # byte-identical" is checked against the STRIPPED text (what a
+    # visitor reads), and the structural seam is checked separately.
     markup = config_page.quiet_hours_group("23:00", "07:00")
     readout = re.search(
         r'<p class="time-value %s"([^>]*)>(.*?)</p>'
@@ -304,14 +287,12 @@ def test_the_ring_draws_the_saved_window_from_the_emitted_attributes():
         "values natively and this would say the same thing twice (%r)" % readout.group(1))
 
     # THE THREE CHILDREN, EACH WIRED THROUGH THE EXISTING READOUT SEAM.
-    # 28-03-PLAN.md Task 1 (CFG-73 Bug A) widened both halves: the two
-    # endpoints now ALSO carry VALUE_CONTROL_READOUT_FORMAT_ATTR="clock"
-    # (the readout-scoped clock signal, alongside their existing
-    # bare-token template); the duration span no longer carries an EMPTY
-    # template at all — it carries its own data-value-readout-base PLUS
-    # all four layout.DURATION_ATTRS, each holding a non-empty translated
-    # wording, so value-controls.js can compose a live duration from the
-    # pair without inventing any language of its own.
+    # Both endpoints carry VALUE_CONTROL_READOUT_FORMAT_ATTR="clock" (the
+    # readout-scoped clock signal, alongside their existing bare-token
+    # template); the duration span carries its own data-value-readout-base
+    # PLUS all four layout.DURATION_ATTRS, each holding a non-empty
+    # translated wording, so value-controls.js can compose a live duration
+    # from the pair without inventing any language of its own.
     for field, value in (("quiet_hours_start", "23:00"), ("quiet_hours_end", "07:00")):
         endpoint = re.search(
             r'<span %s="%s" %s="%s" %s="%s">%s</span>'
@@ -346,10 +327,9 @@ def test_the_ring_draws_the_saved_window_from_the_emitted_attributes():
         "the duration span's own text is %r at rest, not this app's one duration ladder's "
         "%r" % (duration_span.group(3), layout.duration_text(span.minutes * 60)))
 
-    # CFG-52: NOTHING ON THIS CARD IS A LIVE REGION. Dragging fires
-    # continuously and a role="status" here would re-announce the
-    # identical phrase on every step — the defect Phase 23 hit with its
-    # three switches, and the one this plan exists to avoid.
+    # NOTHING ON THIS CARD IS A LIVE REGION. Dragging fires continuously
+    # and a role="status" here would re-announce the identical phrase on
+    # every step.
     for banned in ('role="status"', "aria-live", 'role="alert"', 'role="log"'):
         assert banned not in markup, (
             "the Quiet hours card carries %r — the focused handle's own aria-valuetext "
@@ -379,7 +359,7 @@ def test_the_ring_draws_the_saved_window_from_the_emitted_attributes():
         "a zero-length window is a real, stored state (server.device_config calls it "
         "never-active) and its readout must still say so")
 
-    # T-25-04-B: a hostile stored value reaching the arc or readout.
+    # A hostile stored value reaching the arc or readout.
     hostile = config_page.quiet_hours_group(
         "23:00", "07:00",
         submitted={"quiet_hours_start": '"><script>alert(1)</script>',
@@ -392,13 +372,13 @@ def test_the_ring_draws_the_saved_window_from_the_emitted_attributes():
 def test_the_quiet_dial_readout_carries_clock_format_and_duration_wordings_in_both_languages():
     """quiet_dial_readout_html() carries data-value-readout-format="clock" on both endpoint
     spans and a non-empty value for each of the four layout.DURATION_ATTRS on the duration
-    span, in both shipped languages (CFG-73 Bug A, 28-03-PLAN.md Task 3)"""
-    # 28-03-PLAN.md Task 3 (CFG-73 Bug A): quiet_dial_readout_html()'s own
-    # server-render contract, checked directly rather than only through
-    # the byte-identical-at-rest assertion above — both endpoint spans
-    # carry the readout-scoped clock-format attribute, and the duration
-    # span carries a non-empty value for EVERY one of layout.DURATION_ATTRS,
-    # in BOTH shipped languages.
+    span, in both shipped languages"""
+    # quiet_dial_readout_html()'s own server-render contract, checked
+    # directly rather than only through the byte-identical-at-rest
+    # assertion above — both endpoint spans carry the readout-scoped
+    # clock-format attribute, and the duration span carries a non-empty
+    # value for EVERY one of layout.DURATION_ATTRS, in BOTH shipped
+    # languages.
     for lang in ("en", "fr"):
         prefs.set_request_prefs(lang=lang)
         try:
@@ -431,14 +411,13 @@ def test_the_ring_is_an_addition_and_the_four_controls_are_untouched():
     required/lang/form attributes and are never disabled, B14's visible 24h sibling still
     renders beside each, the three presets keep the data attributes dirty-state.js writes
     through, the one section caption is EXACTLY QUIET_HOURS_SECTION_CAPTION with no
-    appended delay sentence (29-05-PLAN.md Task 2, CFG-79), the card's order is
+    appended delay sentence, the card's order is
     caption → ring → presets → Start → End with the four controls' own order and adjacency
     untouched and no side-by-side row, and the arc echoes the SUBMITTED window on a
-    rejected save rather than the stored one (B14/D-07/CFG-48, 25-04-PLAN.md Task 2)
+    rejected save rather than the stored one
 
-    CFG-48 (25-04-PLAN.md Task 2): B14 has been broken once already, and
-    the two time inputs are the only controls on this card a visitor can
-    TYPE into.
+    B14 has been broken once already, and the two time inputs are the
+    only controls on this card a visitor can TYPE into.
     """
     for start, end, submitted in (
             ("23:00", "07:00", None),
@@ -455,8 +434,7 @@ def test_the_ring_is_an_addition_and_the_four_controls_are_untouched():
             submitted, "quiet_hours_end", end)
 
         # BOTH NATIVE TIME INPUTS, with every attribute the card's own
-        # docstring locks — and NEVER `disabled`, which 10-RESEARCH.md's
-        # Open Question 2 settled in the affirmative (a window may be
+        # docstring locks — and NEVER `disabled` (a window may be
         # pre-configured whether or not quiet hours is currently on).
         for field, effective in (("quiet_hours_start", effective_start),
                                  ("quiet_hours_end", effective_end)):
@@ -506,14 +484,11 @@ def test_the_ring_is_an_addition_and_the_four_controls_are_untouched():
         # THE CAPTION, exactly one caption element — the one-caption-per-
         # section rule, which a drawing is the obvious way to break.
         #
-        # 29-05-PLAN.md Task 2 (CFG-79): retargeted from "starts with the
-        # static sentence, then carries something longer" (the computed
-        # delay sentence used to be appended here) to exact equality —
-        # quiet_hours_group() no longer accepts a `delay_sentence`
-        # keyword at all, and the caption is now ONE sentence, full stop.
-        # The property that survives — the Frame strip still carries the
-        # computed delay sentence — is pinned by its own dedicated checks
-        # below, against the Frame strip's own markup, not this card's.
+        # quiet_hours_group() does not accept a `delay_sentence` keyword;
+        # the caption is exactly ONE sentence, full stop. The property
+        # that survives — the Frame strip still carries the computed
+        # delay sentence — is pinned by its own dedicated checks below,
+        # against the Frame strip's own markup, not this card's.
         caption = re.search(
             r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
             % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), markup)
@@ -526,13 +501,12 @@ def test_the_ring_is_an_addition_and_the_four_controls_are_untouched():
             "with no appended delay sentence, got %r"
             % (start, end, caption.group(1)))
 
-        # THE LOCKED ORDER, AND WHERE THE RING JOINS IT. 29-04-PLAN.md
-        # Task 1 (CFG-80) re-derives this list: the four controls keep
-        # their positions and their adjacency (presets before Start,
-        # Start before End), but Start and End are now ONE element in
+        # THE LOCKED ORDER, AND WHERE THE RING JOINS IT. The four controls
+        # keep their positions and their adjacency (presets before Start,
+        # Start before End), but Start and End are ONE element in
         # document order — the QUIET_TIMES_ROW_CLASS wrapper — rather
         # than two separately-indexed labels, since that wrapper is what
-        # now lays them out side by side. The readout is OMITTED, not
+        # lays them out side by side. The readout is OMITTED, not
         # fabricated, for an unparseable span (the ("", "", None) case in
         # this very loop) — matching quiet_dial_readout_html()'s own
         # "omit, don't fabricate" rule, so it is only checked for order
@@ -557,21 +531,17 @@ def test_the_ring_is_an_addition_and_the_four_controls_are_untouched():
         assert markup.index('name="quiet_hours_start"') < markup.index('name="quiet_hours_end"'), (
             "%r→%r: Start must still precede End in document order" % (start, end))
 
-        # NOT VIA `.theme-status__row`. CFG-80 puts Start and End side by
-        # side through its OWN dedicated `.quiet-times-row` grid, never
+        # NOT VIA `.theme-status__row`. Start and End sit side by side
+        # through their OWN dedicated `.quiet-times-row` grid, never
         # through the shared `.theme-status__row` class this card has
-        # never used — a re-check of the same negative
-        # 10-UI-SPEC.md/22-05-PLAN.md history originally recorded here
-        # kept true on its own narrow terms even though the broader
-        # "never side by side" premise it once supported does not (see
-        # quiet_hours_group()'s own docstring for the full supersession).
+        # never used (see quiet_hours_group()'s own docstring for detail).
         assert "theme-status__row" not in markup, (
             "%r→%r: the two time fields used the shared row class" % (start, end))
 
-    # THE D-07 ECHO, WHICH IS WHY THE ARC READS THE EFFECTIVE VALUES. On a
-    # rejected save the picture must show what the visitor submitted, not
-    # what is stored, or the two disagree on exactly the screen where a
-    # mistake is being fixed.
+    # THE ECHO IS WHY THE ARC READS THE EFFECTIVE VALUES. On a rejected
+    # save the picture must show what the visitor submitted, not what is
+    # stored, or the two disagree on exactly the screen where a mistake
+    # is being fixed.
     echoed = config_page.quiet_hours_group(
         "23:00", "07:00", errors={"quiet_hours_end": "Bad"},
         submitted={"quiet_hours_start": "09:00", "quiet_hours_end": "17:00"})
@@ -585,9 +555,8 @@ def test_the_ring_is_an_addition_and_the_four_controls_are_untouched():
         "submission, the same D-07 rule the two inputs already follow"
         % (drawn / (2 * math.pi * float(arc["r"])), submitted_span.sweep_fraction,
            config_page.quiet_window_span("23:00", "07:00").sweep_fraction))
-    # 27-02-PLAN.md Task 3 (CFG-62): the readout is now three children,
-    # not one text node, so the echo is checked per span rather than as
-    # one contiguous substring.
+    # The readout is three children, not one text node, so the echo is
+    # checked per span rather than as one contiguous substring.
     echoed_readout = re.search(
         r'<p class="time-value %s"[^>]*>(.*?)</p>'
         % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), echoed, re.DOTALL)
@@ -598,9 +567,9 @@ def test_the_ring_is_an_addition_and_the_four_controls_are_untouched():
 
 
 def test_every_class_the_quiet_hours_card_emits_has_a_real_selector(served_css):
-    """every class quiet_hours_group() emits — including the new .quiet-preset-row/
+    """every class quiet_hours_group() emits — including the .quiet-preset-row/
     .quiet-times-row wrappers — resolves to a real selector in style.css, scanned off
-    the emitted markup rather than a hand-kept list (CFG-80, 29-04-PLAN.md Task 1)"""
+    the emitted markup rather than a hand-kept list"""
     known_classes = set()
     for rule in css_rules(served_css):
         for selector in rule.selectors:
@@ -618,11 +587,10 @@ def test_every_class_the_quiet_hours_card_emits_has_a_real_selector(served_css):
 def test_both_time_fields_and_twins_sit_inside_the_times_row_with_their_own_error_slot():
     """both <input type="time"> elements, both B14 twins and each field's own error
     paragraph all fall inside the .quiet-times-row container's own slice of the markup,
-    across a clean render and a rejected save on either field (CFG-80, 29-04-PLAN.md
-    Task 1)
+    across a clean render and a rejected save on either field
 
-    CFG-80: the times-row wrapper's own slice of the markup must contain
-    BOTH native time inputs and both twins, and each field's own error
+    The times-row wrapper's own slice of the markup must contain BOTH
+    native time inputs and both twins, and each field's own error
     paragraph must sit inside that SAME field's column — never
     displacing its sibling's.
     """
@@ -658,12 +626,12 @@ def test_both_time_fields_and_twins_sit_inside_the_times_row_with_their_own_erro
 def test_the_three_preset_buttons_render_short_labels_with_no_colon_in_both_languages():
     """the three preset buttons render the short labels Night/Day/Always on and Nuit/
     Journée/Toujours actif, and NO preset label contains a ':' in either language — the
-    hours are spoken once, by the dial's own readout (CFG-80, 29-04-PLAN.md Task 1)
+    hours are spoken once, by the dial's own readout
 
-    CFG-80: the hours a preset sets are already spoken by the dial's own
-    readout caption — no preset label may spell one, in either language,
-    stated as a PROPERTY (no colon character) not as three literal
-    string comparisons.
+    The hours a preset sets are already spoken by the dial's own readout
+    caption — no preset label may spell one, in either language, stated
+    as a PROPERTY (no colon character) not as three literal string
+    comparisons.
     """
     for lang, labels in (
             ("en", ("Night", "Day", "Always on")),
@@ -685,8 +653,7 @@ def test_the_three_preset_buttons_render_short_labels_with_no_colon_in_both_lang
 
 def test_the_times_row_rule_declares_exactly_two_grid_tracks(served_css):
     """style.css's .quiet-times-row rule declares display: grid with a
-    grid-template-columns of exactly two tracks, parsed from the stylesheet itself
-    (CFG-80, 29-04-PLAN.md Task 1)"""
+    grid-template-columns of exactly two tracks, parsed from the stylesheet itself"""
     decl = declarations_for(served_css, ".%s" % config_page.QUIET_TIMES_ROW_CLASS)
     assert decl.get("display") == "grid", (
         "expected .%s to declare display: grid" % config_page.QUIET_TIMES_ROW_CLASS)
@@ -701,13 +668,12 @@ def test_check_a_the_twin_is_visible_in_the_served_markup_in_both_languages():
     /display's quiet-hours card in both languages emits exactly two hook-attribute
     spans, each rendering the SAME text as its own field's value attribute (a
     relationship, never a literal), with none carrying hidden/js-gate/style — the
-    served HTML IS what a scripts-blocked reader sees (CFG-80, 29-04-PLAN.md Task 3)
+    served HTML IS what a scripts-blocked reader sees
 
-    Check A (29-04-PLAN.md Task 3): with no script running, the served
-    HTML IS what a scripts-blocked reader sees — so a VISIBLE twin in the
-    served HTML, for both fields, in both languages, IS the
-    scripts-blocked proof. This asserts a fact about the served markup,
-    never about a browser.
+    With no script running, the served HTML IS what a scripts-blocked
+    reader sees — so a VISIBLE twin in the served HTML, for both fields,
+    in both languages, IS the scripts-blocked proof. This asserts a fact
+    about the served markup, never about a browser.
     """
     for lang in ("en", "fr"):
         prefs.set_request_prefs(lang=lang)
@@ -756,10 +722,10 @@ def test_check_b_the_hide_path_is_gated_on_one_strict_condition(value_controls_j
     `.hidden = true` assignment on the hook attribute, gated by a strict `hour12 ===
     false` comparison (never a truthiness test), with the Intl/resolvedOptions
     availability guard preceding it, and a vacuity floor on the comment-stripped
-    source's own length ratio and hook-literal count (CFG-80, 29-04-PLAN.md Task 3)
+    source's own length ratio and hook-literal count
 
-    Check B (29-04-PLAN.md Task 3): the hide assignment must be reachable
-    through exactly one strict, guarded branch.
+    The hide assignment must be reachable through exactly one strict,
+    guarded branch.
 
     Comment-stripped first, this file's own comments quote the very
     tokens this scan counts.
@@ -892,18 +858,17 @@ def test_check_c_the_four_server_rendered_surfaces_agree():
     (09:00→17:00 submitted over a 23:00→07:00 stored value), the arc's presentation
     attributes, the two handles' aria-valuenow, the readout's endpoint text and both
     <input type="time"> values all decode to the SAME canonical minute-of-day pair
-    (CFG-80/CFG-62, 29-04-PLAN.md Task 3)
 
-    Check C (29-04-PLAN.md Task 3): CFG-62's own surfaces-agree check is
-    browser-level and cannot run here — but the SERVER's four surfaces
-    (the arc's presentation attributes, the two handles' aria-valuenow,
-    the readout's own endpoint text, and both <input type="time"> values)
-    are all computed in quiet_hours_group() from the SAME
-    effective_start/effective_end pair, and that agreement is provable
-    from the rendered markup alone. This is a GUARD against Task 1's own
-    markup restructuring silently breaking Phase 27's agreement — it is
-    NOT a replacement for the browser-level preset-click check in
-    test_browser_ux.py, which this worktree cannot run.
+    The equivalent browser-level surfaces-agree check cannot run here —
+    but the SERVER's four surfaces (the arc's presentation attributes,
+    the two handles' aria-valuenow, the readout's own endpoint text, and
+    both <input type="time"> values) are all computed in
+    quiet_hours_group() from the SAME effective_start/effective_end pair,
+    and that agreement is provable from the rendered markup alone. This
+    is a GUARD against markup restructuring silently breaking that
+    agreement — it is NOT a replacement for the browser-level
+    preset-click check in test_browser_ux.py, which this worktree cannot
+    run.
     """
     for start, end, errors, submitted in _DECODE_QUIET_CASES:
         markup = config_page.quiet_hours_group(
@@ -927,13 +892,12 @@ def test_the_dials_paint_resolves_and_decides_nothing_in_python(served_css):
     intrinsic size, aria-hidden and focusable, no colour is decided in Python, the day
     ring/arc/hour labels each paint from a theme token so both themes are correct from one
     rule, no accent appears anywhere in the component, and no rule declares stroke-width in
-    CSS where it would beat the derived presentation attribute (CFG-48/CFG-52,
-    25-04-PLAN.md Task 2)
+    CSS where it would beat the derived presentation attribute
 
-    CFG-48/CFG-52 (25-04-PLAN.md Task 2): the dial's paint, asserted as
-    one thing because the parts fail together. A class that exists in
-    Python and nowhere in the stylesheet paints nothing at all, and
-    nothing else in this codebase would notice.
+    The dial's paint, asserted as one thing because the parts fail
+    together. A class that exists in Python and nowhere in the
+    stylesheet paints nothing at all, and nothing else in this codebase
+    would notice.
     """
     markup = config_page.quiet_hours_group("23:00", "07:00")
     # From the dial's own opening tag to the end of its readout — the
@@ -1026,12 +990,10 @@ def test_the_two_handles_are_gated_and_hold_no_value_of_their_own(value_controls
     attributes including the clock codec, is painted at the fraction its input's value
     implies, and names --value-fraction in all three files it travels through; the
     aria-valuetext token is not one of the format artefacts the i18n harness scans French
-    renders for; and an end that does not parse gets no handle at all (CFG-48,
-    25-04-PLAN.md Task 3)
+    renders for; and an end that does not parse gets no handle at all
 
-    CFG-48 (25-04-PLAN.md Task 3): two real `<button>` sliders, inside
-    the gate and nowhere else, announcing the value the two native inputs
-    already hold.
+    Two real `<button>` sliders, inside the gate and nowhere else,
+    announcing the value the two native inputs already hold.
 
     The point every clause below defends: the handles are a LAYER.
     Delete the script and both times are still rendered, still
@@ -1188,7 +1150,6 @@ def test_the_handle_rides_the_ring_the_emitter_drew(served_css):
     equal specificity, both stacked layers are pointer-transparent while the handle itself
     is not, the transform reads both custom properties, no z-index re-decides the
     document-order overlap rule, and the grip paints from theme tokens with no accent
-    (CFG-48/CFG-52, 25-04-PLAN.md Task 3)
 
     Two numbers have to agree across two files here — the dial's rendered
     width and the radius the handle is thrown out to — and two numbers
@@ -1252,8 +1213,8 @@ def test_the_handle_rides_the_ring_the_emitter_drew(served_css):
 
 
 def test_the_pair_seam_publishes_both_handles_onto_the_shared_ancestor(value_controls_js, served_css):
-    """the pair seam publishes both handles onto the shared ancestor (CFG-62, 27-02-PLAN.md
-    Tasks 1-2) — value-controls.js names both data-value-pair* attributes and reuses
+    """the pair seam publishes both handles onto the shared ancestor —
+    value-controls.js names both data-value-pair* attributes and reuses
     ancestorWith() rather than a second walker (still exactly 2 'while (node' loops); the
     .quiet-dial ancestor carries the pair marker (its own value naming the derived sweep
     property) and all three fractions, computed from the SAME span triple the arc is drawn
@@ -1262,12 +1223,11 @@ def test_the_pair_seam_publishes_both_handles_onto_the_shared_ancestor(value_con
     corrupt them); and the .js-scoped override rule reads the three ancestor properties plus
     the existing --quiet-dial-radius, never a radius literal
 
-    CFG-62 (27-02-PLAN.md Tasks 1-2): the ancestor carries the pair
-    marker and all three fractions, computed from the SAME span the arc
-    is drawn from; each handle names which one is its own; the script
-    names both attributes and reuses the existing ancestor walker rather
-    than a second one; and the presentation attributes this rule
-    overrides stay untouched.
+    The ancestor carries the pair marker and all three fractions,
+    computed from the SAME span the arc is drawn from; each handle names
+    which one is its own; the script names both attributes and reuses
+    the existing ancestor walker rather than a second one; and the
+    presentation attributes this rule overrides stay untouched.
     """
     script = value_controls_js
     css = served_css
@@ -1364,10 +1324,8 @@ def test_the_pair_seam_publishes_both_handles_onto_the_shared_ancestor(value_con
 
 def test_render_exactly_five_dirty_sections_in_order():
     """render() carries exactly five data-dirty-section elements, in document order Runway/
-    Diagnostic LED/Quiet hours/Wake interval/Notifications (Theme's own entry retired along
-    with theme_fieldset(), 21-05-PLAN.md Task 1 D-06; Calendar's own entry retired from this
-    legacy scope by 21-07-PLAN.md Task 1 D-13/Pitfall 2; Display's own entry retired outright
-    by 22-05-PLAN.md Task 1 X1/D-04/D-12.1)"""
+    Diagnostic LED/Quiet hours/Wake interval/Notifications (Theme, Calendar and Display each
+    have no entry on this legacy scope)"""
     rendered = config_page.render({
         "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
         "poll_cooldown_remaining": 0,
@@ -1382,7 +1340,7 @@ def test_render_exactly_five_dirty_sections_in_order():
 
 def test_runway_fieldset_returns_single_top_level_div():
     """runway_fieldset() returns exactly two div pairs - the top-level .theme-status wrapper
-    and the nested .runway-row layout container, not five flat siblings (D-01)"""
+    and the nested .runway-row layout container, not five flat siblings"""
     rendered = config_page.runway_fieldset("3")
     assert rendered.startswith('<div class="theme-status"'), (
         "expected runway_fieldset() to start with a single <div class=\"theme-status\"> wrapper")
@@ -1395,13 +1353,12 @@ def test_runway_fieldset_returns_single_top_level_div():
 
 def test_runway_row_starts_after_caption_and_nothing_follows_it():
     """runway_fieldset() renders RUNWAY_SECTION_CAPTION before .runway-row opens, and no <p
-    element after .runway-row closes (quick task 260901-re6)"""
+    element after .runway-row closes"""
     rendered = config_page.runway_fieldset("3")
     caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
-    # 19-11-PLAN.md Task 3 (D-12/A-30): the row now also carries
-    # role="radiogroup"/aria-labelledby/aria-describedby, so the opening
-    # tag itself is no longer a bare literal; the match still proves
-    # there is exactly one .runway-row element.
+    # The row also carries role="radiogroup"/aria-labelledby/
+    # aria-describedby, so the opening tag itself is not a bare literal;
+    # the match still proves there is exactly one .runway-row element.
     row_open = '<div class="runway-row" role="radiogroup"'
     assert rendered.count(row_open) == 1, (
         "expected exactly one <div class=\"runway-row\" role=\"radiogroup\"...> opening tag, "
@@ -1421,8 +1378,7 @@ def test_runway_row_starts_after_caption_and_nothing_follows_it():
 
 
 def test_runway_section_caption_appears_exactly_once():
-    """render() carries RUNWAY_SECTION_CAPTION exactly once (quick task 260901-re6, narrowed by
-    21-05-PLAN.md Task 1 D-06 once THEME_SECTION_CAPTION/theme_fieldset() are retired)"""
+    """render() carries RUNWAY_SECTION_CAPTION exactly once"""
     rendered = config_page.render({
         "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
         "poll_cooldown_remaining": 0,
@@ -1434,18 +1390,14 @@ def test_runway_section_caption_appears_exactly_once():
 
 def test_each_group_emits_exactly_one_caption_between_heading_and_control():
     """runway_fieldset()/led_group() each emit exactly one section-caption <p> element,
-    positioned after the group's own naming element and before its control (quick task
-    260901-re6, merge of origin/main; narrowed by 21-05-PLAN.md Task 1 D-06 once
-    theme_fieldset() is retired)"""
+    positioned after the group's own naming element and before its control"""
     runway_rendered = config_page.runway_fieldset("3")
     led_rendered = config_page.led_group(True)
     groups = (
         ("runway_fieldset()", runway_rendered, "</h2>", "runway-row", 1),
-        # 23-07-PLAN.md Task 2 (D2/CFG-36): the control marker is
-        # retargeted in place from "settings-checkbox" to the switch's
-        # own class — the LED's control changed, the
-        # heading-then-caption-then-control ORDER this row is about did
-        # not.
+        # The control marker is the switch's own class — the LED's
+        # control changed, the heading-then-caption-then-control ORDER
+        # this row is about did not.
         ("led_group()", led_rendered, "</h2>", 'class="switch"', 1),
     )
     for name, rendered, heading_close_marker, control_marker, expected_p_count in groups:
@@ -1465,10 +1417,9 @@ def test_each_group_emits_exactly_one_caption_between_heading_and_control():
 
 
 def test_the_bar_s_save_button_is_the_same_static_fallback_element_relocated():
-    """the bar's Save button is the SAME STATIC_SAVE_FALLBACK_ATTR element CFG-64 pins,
+    """the bar's Save button is the SAME STATIC_SAVE_FALLBACK_ATTR element,
     relocated inside .dirty-bar with form="settings-form" — never a second button, and the
-    physical <form> itself carries no submit control of its own any more (CFG-77/CFG-78,
-    28-08-PLAN.md Task 1)"""
+    physical <form> itself carries no submit control of its own any more"""
     rendered = config_page.render({
         "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
         "poll_cooldown_remaining": 0,
@@ -1498,11 +1449,11 @@ def test_the_bar_s_save_button_is_the_same_static_fallback_element_relocated():
     # WOULD ACTUALLY SUBMIT IT, now that the one that did has moved out.
     # The Frame strip's LED quick-switch and the Notifications card's
     # "Send a test" both render a type="submit" button positionally
-    # inside this <form>...</form> markup already (D-19/D2's own
-    # cross-DOM idiom, predating and unaffected by this plan) — each
-    # carries its OWN form= attribute pointing at a DIFFERENT physical
-    # form ("quick-led", "notifications-test"), so neither actually
-    # submits settings-form despite sitting inside its markup. Only a
+    # inside this <form>...</form> markup already (a cross-DOM idiom) —
+    # each carries its OWN form= attribute pointing at a DIFFERENT
+    # physical form ("quick-led", "notifications-test"), so neither
+    # actually submits settings-form despite sitting inside its markup.
+    # Only a
     # type="submit" button with NO form= attribute (which would submit
     # its nearest ancestor form — this one) or an explicit
     # form="settings-form" would be a genuine second save affordance for
@@ -1522,14 +1473,14 @@ def test_the_bar_s_save_button_is_the_same_static_fallback_element_relocated():
 def test_the_dirty_bar_renders_without_hidden_on_every_scope(tmp_path):
     """the restored .dirty-bar renders WITHOUT a hidden attribute on every scope — the no-JS
     floor is the bar's own visible server-rendered state now, not a separate fallback
-    button (CFG-77/CFG-78, 28-08-PLAN.md Task 1)
+    button
 
-    28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: THE POLARITY
-    INVERSION, pinned. The pre-27-04 bar was server-rendered `hidden`
-    because a separate always-visible bottom Save button existed as the
-    no-JS floor. There is no second button any more — the bar's own
-    visible state IS the floor now — so a `hidden` attribute here would
-    silently remove the only way a scripts-blocked visitor can save.
+    THE POLARITY INVERSION, pinned. The bar used to be server-rendered
+    `hidden` because a separate always-visible bottom Save button existed
+    as the no-JS floor. There is no second button any more — the bar's
+    own visible state IS the floor now — so a `hidden` attribute here
+    would silently remove the only way a scripts-blocked visitor can
+    save.
     """
     base_ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
@@ -1548,12 +1499,11 @@ def test_nothing_inside_the_bar_is_inert_or_claims_a_dirty_state_that_does_not_e
     """no control inside the restored .dirty-bar is inert with scripts blocked (every
     <button>/<input> resolves to type="submit" or type="reset", each form="settings-form"-
     associated, none type="button"), and [data-dirty-count]'s server-rendered content makes
-    no claim about unsaved changes existing, in either language (CFG-77/CFG-78,
-    28-08-PLAN.md Task 1)
+    no claim about unsaved changes existing, in either language
 
-    28-08-PLAN.md Task 1 (CFG-77/CFG-78), 2026-09-16: BLOCKER 4's two
-    consequences of the polarity inversion, asserted as one fact because
-    both are load-bearing for the identical scripts-blocked visitor.
+    Two consequences of the polarity inversion above, asserted as one
+    fact because both are load-bearing for the identical scripts-blocked
+    visitor.
     """
     base_ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
@@ -1612,8 +1562,7 @@ def test_nothing_inside_the_bar_is_inert_or_claims_a_dirty_state_that_does_not_e
 
 def test_section_captions_appear_escaped_verbatim_exactly_once():
     """the runway, LED, and poll section captions all appear escaped-verbatim exactly once in
-    render()'s output (quick task 260901-re6, quick task 260901-s5o; narrowed by 21-05-PLAN.md
-    Task 1 D-06 once THEME_SECTION_CAPTION/theme_fieldset() are retired)"""
+    render()'s output"""
     rendered = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "3"},
         "poll_cooldown_remaining": 0,
@@ -1635,7 +1584,7 @@ def test_section_captions_appear_escaped_verbatim_exactly_once():
 def test_current_theme_and_runway_are_selected():
     """the (non-default) saved runway card is the one marked selected, and this legacy SCOPE_ALL
     render carries zero .theme-chip--selected modifiers now that theme_fieldset(), Calendar's own
-    chip grid, and the rules add-form's own chip grid are all retired from it (D-06)"""
+    chip grid, and the rules add-form's own chip grid are all retired from it"""
     rendered = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "06-24"},
         "poll_cooldown_remaining": 0,
@@ -1651,13 +1600,12 @@ def test_current_theme_and_runway_are_selected():
         "expected runway 3 (not the saved value) to NOT be marked selected")
     assert rendered.count("runway-card--selected") == 1, (
         "expected exactly one runway-card--selected modifier")
-    # 21-05-PLAN.md Task 1 (D-06): theme_fieldset(), Calendar's own
-    # compact chip grid, and the Flight-colours add form's compact chip
-    # grid are all retired from this legacy SCOPE_ALL render — zero
-    # .theme-chip--selected modifiers remain on this page at all (their
-    # replacement, the Frame colours card, only ever renders on the
-    # Display scope; its own selection state is covered by its own tests
-    # elsewhere in this file).
+    # theme_fieldset(), Calendar's own compact chip grid, and the
+    # Flight-colours add form's compact chip grid are all retired from
+    # this legacy SCOPE_ALL render — zero .theme-chip--selected modifiers
+    # remain on this page at all (their replacement, the Frame colours
+    # card, only ever renders on the Display scope; its own selection
+    # state is covered by its own tests elsewhere in this file).
     assert "theme-chip--selected" not in rendered, (
         "expected zero .theme-chip--selected modifiers on this legacy SCOPE_ALL render, got %d"
         % rendered.count("theme-chip--selected"))
@@ -1666,11 +1614,11 @@ def test_current_theme_and_runway_are_selected():
 def test_poll_trigger_enabled_at_zero_cooldown():
     """poll_trigger_section(0) renders an enabled button"""
     rendered = config_page.poll_trigger_section(0)
-    # UXA-15 (06.6.2-02): scoped to the <button ...> tag itself, not a
-    # bare substring search — the zero-cooldown branch's own submit-
-    # affordance script now legitimately contains the word "disabled" as
-    # a JS property name (`btn.disabled = true;`), which a whole-document
-    # substring check would false-positive on.
+    # Scoped to the <button ...> tag itself, not a bare substring search —
+    # the zero-cooldown branch's own submit-affordance script legitimately
+    # contains the word "disabled" as a JS property name
+    # (`btn.disabled = true;`), which a whole-document substring check
+    # would false-positive on.
     button_tag = re.search(r"<button\b[^>]*>", rendered)
     assert button_tag, "expected a <button> tag to extract"
     assert "disabled" not in button_tag.group(0), "expected no disabled attribute at zero cooldown"
@@ -1687,9 +1635,8 @@ def test_poll_trigger_disabled_with_remaining_seconds():
 def test_poll_section_caption_renders_on_both_branches_under_the_heading():
     """poll_trigger_section() emits POLL_SECTION_CAPTION exactly once on both the enabled and
     disabled branches, before the poll-trigger form, and render() places it directly under the
-    Poll <h2> heading (quick task 260901-s5o)"""
-    # quick task 260901-s5o: the Poll section's own new caption check —
-    # the group Task 1's non-goal explicitly excludes from
+    Poll <h2> heading"""
+    # The Poll section's own caption check, separate from
     # test_each_group_emits_exactly_one_caption_between_heading_and_control()
     # (Poll's heading lives in render(), not in poll_trigger_section(),
     # and its disabled branch legitimately emits a second <p>).
@@ -1730,14 +1677,13 @@ def test_poll_section_caption_renders_on_both_branches_under_the_heading():
 
 
 def test_poll_trigger_live_countdown_seeded_from_server_value():
-    """poll_trigger_section() emits zero <script> elements and ships the D-01/UXA-15 data-*
+    """poll_trigger_section() emits zero <script> elements and ships the data-*
     attribute contract companion/static/poll-cooldown.js reads instead, on both the
-    disabled and zero-cooldown branches (D-18/A-35, 19-04-PLAN.md)
+    disabled and zero-cooldown branches
 
-    D-18/A-35 (19-04-PLAN.md): the disabled branch no longer ships an
-    inline <script> at all (that behaviour moved to
-    companion/static/poll-cooldown.js, D-01/UXA-15 externalized). This
-    check pins the data-* attribute contract the script reads instead:
+    The disabled branch ships no inline <script> at all (that behaviour
+    lives in companion/static/poll-cooldown.js instead). This check pins
+    the data-* attribute contract the script reads instead:
     id="poll-trigger-btn"/id="poll-cooldown-text", the unchanged
     server-rendered no-JS copy, and every value the script needs exposed
     as an escape_html()-gated data attribute on the button — never a
@@ -1778,13 +1724,12 @@ def test_poll_trigger_live_countdown_seeded_from_server_value():
 def test_poll_trigger_zero_cooldown_ships_submit_affordance_script():
     """poll_trigger_section(0) ships id="poll-trigger-btn" and a data-submit-pending
     attribute with zero <script> elements, while poll_trigger_section(30) carries the
-    disabled-branch data-cooldown attribute instead (D-18/A-35, 19-04-PLAN.md)
+    disabled-branch data-cooldown attribute instead
 
-    D-18/A-35 (19-04-PLAN.md): supersedes the pre-existing "ships its own
-    inline <script>" assertion, no longer true by design now that the
-    UXA-15 disable-on-submit affordance lives in
-    companion/static/poll-cooldown.js. Pins the new contract instead:
-    poll_trigger_section(0) carries id="poll-trigger-btn" and a
+    The disable-on-submit affordance lives in
+    companion/static/poll-cooldown.js, not in an inline <script>. Pins
+    the contract instead: poll_trigger_section(0) carries
+    id="poll-trigger-btn" and a
     data-submit-pending attribute, no <script> anywhere, while
     poll_trigger_section(30) carries the disabled-branch data-cooldown
     attribute set instead.
@@ -1793,8 +1738,7 @@ def test_poll_trigger_zero_cooldown_ships_submit_affordance_script():
     assert "Trigger poll now" in rendered, "expected the Trigger poll now button copy"
     # Scoped to the <button ...> tag, not a bare substring search —
     # poll-cooldown.js's own body legitimately contains "disabled" as a
-    # JS property name, though that no longer reaches this render()
-    # output at all post-externalization.
+    # JS property name, though that never reaches this render() output.
     button_tag = re.search(r"<button\b[^>]*>", rendered)
     assert button_tag, "expected a <button> tag to extract"
     assert "disabled" not in button_tag.group(0), "expected no disabled attribute at zero cooldown"
@@ -1810,8 +1754,7 @@ def test_poll_trigger_zero_cooldown_ships_submit_affordance_script():
 
 
 # The whole forbidden-sink family in one place, so a future reader can
-# see it at a glance (06.5-01-PLAN.md's own sink-safety gate for
-# companion/static/battery-trend.js established this pattern first).
+# see it at a glance.
 _FORBIDDEN_SCRIPT_SINKS = (
     "innerHTML", "outerHTML", "insertAdjacentHTML",
     "document.write", "eval(", "fetch(", "XMLHttpRequest",
@@ -1826,7 +1769,7 @@ def test_poll_cooldown_script_has_no_forbidden_sink(poll_cooldown_js):
     """poll_trigger_section(17) carries no <script substring and ships the countdown's
     required data attributes; companion/static/poll-cooldown.js's own source contains
     none of the forbidden HTML-writing/eval/network sinks and does contain strict mode
-    plus the permitted DOM/timer operations (retargeted, D-18/A-35)"""
+    plus the permitted DOM/timer operations"""
     rendered = config_page.poll_trigger_section(17)
     assert "<script" not in rendered, (
         "expected zero <script occurrences at cooldown=17 (D-18: externalized to poll-cooldown.js)")
@@ -1844,8 +1787,7 @@ def test_poll_cooldown_script_has_no_forbidden_sink(poll_cooldown_js):
 def test_poll_submit_script_has_no_forbidden_sink(poll_cooldown_js):
     """poll_trigger_section(0) carries no <script substring and ships the data-submit-pending
     attribute; companion/static/poll-cooldown.js's own source contains none of the
-    forbidden HTML-writing/eval/network sinks and attaches a submit listener (retargeted,
-    D-18/A-35, UXA-15)"""
+    forbidden HTML-writing/eval/network sinks and attaches a submit listener"""
     rendered = config_page.poll_trigger_section(0)
     assert "<script" not in rendered, (
         "expected zero <script occurrences at cooldown=0 (D-18: externalized to poll-cooldown.js)")
@@ -1987,8 +1929,8 @@ def test_save_oserror_returns_failure_key_not_raise(tmp_path, monkeypatch):
 
 
 # ------------------------------------------------------------------
-# 06.6.4.1 Task 2 (D-05): handle_post() absorbs LED validation as one
-# all-or-nothing submission — one check per <behavior> bullet.
+# handle_post() absorbs LED validation as one all-or-nothing
+# submission — one check per <behavior> bullet.
 # ------------------------------------------------------------------
 
 
@@ -1996,7 +1938,7 @@ def test_save_oserror_returns_failure_key_not_raise(tmp_path, monkeypatch):
 def test_handle_post_empty_form_leaves_led_unchanged(tmp_path, stored):
     """handle_post({}, ctx) - the shape a browser sends when nothing is checked and nothing is
     selected - LEAVES the stored led_enabled unchanged in both directions and returns the
-    saved flash key (retargeted in place from absent-means-False by 23-07-PLAN.md Task 2)
+    saved flash key
 
     Bullet 1: the shape a browser sends when nothing is checked and
     nothing is selected. Absence now means "leave unchanged", so the
@@ -2074,9 +2016,8 @@ def test_handle_post_valid_runway_and_led_persist_together_one_call(tmp_path):
 
 
 # ------------------------------------------------------------------
-# 10-05-PLAN.md Task 3: handle_post()'s quiet-hours save/reject paths
-# (D-03/D-04, 10-UI-SPEC.md's unchecked-checkbox-still-saves-times
-# semantics — the resolution of 10-RESEARCH.md Assumption A1).
+# handle_post()'s quiet-hours save/reject paths: an unchecked checkbox
+# still saves the submitted times.
 # ------------------------------------------------------------------
 
 
@@ -2104,9 +2045,8 @@ def test_handle_post_quiet_hours_checkbox_absent_still_persists_times(tmp_path):
     """handle_post with quiet_hours_enabled absent but both times submitted persists
     quiet_hours_enabled False and the edited times (a user can pre-configure a window before
     enabling it)"""
-    # The direct pin of 10-UI-SPEC.md's resolution of 10-RESEARCH.md
-    # Assumption A1 / Open Question 2: a user can pre-configure a window
-    # before ever turning it on. Must not be dropped or inverted.
+    # A user can pre-configure a window before ever turning it on. Must
+    # not be dropped or inverted.
     tmpdir = str(tmp_path)
     ctx = {"state_dir": tmpdir}
     flash_key = config_page.handle_post(
@@ -2164,20 +2104,19 @@ def test_handle_post_valid_theme_and_malformed_quiet_hours_end_all_or_nothing(tm
 
 
 # ------------------------------------------------------------------
-# 11-03-PLAN.md Task 2: handle_post()'s wake_interval_s conversion,
-# rejection, and leave-unchanged checks (D-05, 11-UI-SPEC.md).
+# handle_post()'s wake_interval_s conversion, rejection, and
+# leave-unchanged checks.
 # ------------------------------------------------------------------
 
 
 def test_handle_post_wake_interval_string_converts_to_int_and_persists(tmp_path):
     """handle_post({"wake_interval_s": "120"}, ctx) explicitly string-to-int converts before
-    persisting, stores the int (not a string) 120, and returns the saved flash key
-    (11-RESEARCH.md Pitfall 1 regression guard)"""
-    # The direct regression guard for 11-RESEARCH.md Pitfall 1: a stored
-    # string would round-trip through load_device_config() as None
-    # (normalise_wake_interval_s() rejects non-int values) and silently
-    # look like "unset" instead of like a bug — asserting
-    # isinstance(..., int) explicitly is what catches that.
+    persisting, stores the int (not a string) 120, and returns the saved flash key"""
+    # A regression guard: a stored string would round-trip through
+    # load_device_config() as None (normalise_wake_interval_s() rejects
+    # non-int values) and silently look like "unset" instead of like a
+    # bug — asserting isinstance(..., int) explicitly is what catches
+    # that.
     tmpdir = str(tmp_path)
     ctx = {"state_dir": tmpdir}
     flash_key = config_page.handle_post({"wake_interval_s": "120"}, ctx)

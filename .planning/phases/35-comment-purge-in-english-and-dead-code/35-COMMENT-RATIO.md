@@ -211,3 +211,714 @@ Files close to, but under, the guideline (kept for completeness, no justificatio
 needed): `companion/auth.py` (34.4%), `companion/theme_preview.py` (32.2%),
 `companion/pages/airlines_page.py` (34.5%), `companion/pages/config_page.py`
 (34.5%), `companion/pages/home_page.py` (34.9%).
+
+## Group 5 — companion tests + test-support
+
+Source plans: 35-14 (`companion/test_browser_*.py`), 35-15
+(`companion/test_status_pages_*.py`, `test_view_pages_*.py`), 35-16 (every
+remaining `companion/test_*.py`, `companion/conftest.py`,
+`test-support/*.py`). "Before" figures come from
+`35-BASELINE/ratio-before.tsv`, as for every other group; one file
+(`companion/test_status_pages_01.py`) shows a "before" line count 9 lines
+lower than 35-15's own mid-process figure (940 vs 949) because group 4's
+dead-code deletion (35-13, removing `health_page.anomaly_active()`) touched
+this test file between the phase baseline commit and group 5's own base
+`8a8b8b4` — inlining a local `_anomaly_active()` helper. The baseline TSV
+predates that edit; group 5's own same-code proof (below) is against
+`8a8b8b4`, which already includes it, so no group-5 commit re-touches those
+9 lines.
+
+| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
+|---|---:|---:|---:|---:|---:|
+| companion/conftest.py | 218 | 218 | 37.2% | 37.2% | 5 -> 0 |
+| companion/test_app_server_fixture.py | 211 | 211 | 24.6% | 24.6% | 2 -> 0 |
+| companion/test_browser_origin.py | 159 | 144 | 20.1% | 13.2% | 4 -> 0 |
+| companion/test_browser_policy.py | 134 | 116 | 26.9% | 15.5% | 2 -> 0 |
+| companion/test_browser_ux_01.py | 1408 | 1105 | 38.5% | 21.7% | 136 -> 0 |
+| companion/test_browser_ux_02.py | 1954 | 1703 | 28.8% | 18.8% | 115 -> 0 |
+| companion/test_browser_ux_03.py | 1844 | 1759 | 14.6% | 10.9% | 110 -> 0 |
+| companion/test_browser_ux_04.py | 1486 | 1400 | 22.9% | 18.5% | 79 -> 0 |
+| companion/test_browser_ux_health_drawings.py | 1794 | 1594 | 30.9% | 22.2% | 60 -> 0 |
+| companion/test_browser_ux_helpers.py | 2717 | 1847 | 51.5% | 28.7% | 57 -> 0 |
+| companion/test_browser_ux_quiet_wake.py | 1938 | 1665 | 32.1% | 21.0% | 73 -> 0 |
+| companion/test_companion_app_01.py | 897 | 880 | 29.8% | 28.4% | 65 -> 0 |
+| companion/test_companion_app_02.py | 1618 | 1577 | 21.9% | 20.5% | 72 -> 0 |
+| companion/test_companion_app_03.py | 1541 | 1482 | 22.1% | 19.0% | 111 -> 0 |
+| companion/test_companion_app_04.py | 967 | 944 | 18.9% | 16.9% | 39 -> 0 |
+| companion/test_companion_app_04b.py | 904 | 887 | 22.6% | 21.1% | 28 -> 0 |
+| companion/test_companion_app_05.py | 1661 | 1644 | 17.8% | 17.0% | 70 -> 0 |
+| companion/test_companion_app_helpers.py | 197 | 186 | 41.1% | 37.6% | 3 -> 0 |
+| companion/test_config_page_01.py | 658 | 631 | 22.3% | 19.0% | 57 -> 0 |
+| companion/test_config_page_02.py | 2220 | 2159 | 31.1% | 29.1% | 157 -> 0 |
+| companion/test_config_page_03.py | 1777 | 1722 | 28.6% | 26.3% | 125 -> 0 |
+| companion/test_config_page_04.py | 938 | 905 | 23.0% | 20.2% | 68 -> 0 |
+| companion/test_config_page_04b.py | 1000 | 967 | 22.0% | 19.3% | 81 -> 0 |
+| companion/test_config_page_05.py | 1578 | 1526 | 20.3% | 17.6% | 128 -> 0 |
+| companion/test_config_page_helpers.py | 145 | 108 | 54.5% | 38.9% | 10 -> 0 |
+| companion/test_contrast_check.py | 335 | 335 | 27.2% | 27.2% | 0 -> 0 |
+| companion/test_health_offbox.py | 269 | 265 | 12.3% | 10.9% | 7 -> 0 |
+| companion/test_i18n.py | 287 | 286 | 21.3% | 21.0% | 3 -> 0 |
+| companion/test_login_throttle.py | 182 | 180 | 22.0% | 21.1% | 6 -> 0 |
+| companion/test_post_origin.py | 232 | 231 | 16.8% | 16.5% | 5 -> 0 |
+| companion/test_status_pages_01.py | 940 | 898 | 24.5% | 20.3% | 53 -> 0 |
+| companion/test_status_pages_02.py | 1726 | 1659 | 26.4% | 23.4% | 124 -> 0 |
+| companion/test_status_pages_03.py | 1836 | 1744 | 25.2% | 21.3% | 139 -> 0 |
+| companion/test_status_pages_04.py | 1351 | 1283 | 17.5% | 13.1% | 6 -> 0 |
+| companion/test_status_pages_05.py | 797 | 739 | 28.2% | 22.6% | 77 -> 0 |
+| companion/test_status_pages_05b.py | 803 | 748 | 25.8% | 20.3% | 31 -> 0 |
+| companion/test_status_pages_06.py | 1540 | 1479 | 27.1% | 24.1% | 117 -> 0 |
+| companion/test_status_pages_07.py | 1402 | 1346 | 28.2% | 25.1% | 74 -> 0 |
+| companion/test_status_pages_helpers.py | 179 | 166 | 31.3% | 25.9% | 1 -> 0 |
+| companion/test_suite_guards.py | 777 | 777 | 10.7% | 10.7% | 1 -> 0 |
+| companion/test_view_pages_01.py | 637 | 630 | 15.5% | 14.6% | 44 -> 0 |
+| companion/test_view_pages_02.py | 1431 | 1401 | 22.5% | 20.8% | 121 -> 0 |
+| companion/test_view_pages_03.py | 1464 | 1445 | 14.4% | 13.3% | 74 -> 0 |
+| companion/test_view_pages_04.py | 1699 | 1664 | 27.7% | 26.2% | 60 -> 0 |
+| companion/test_view_pages_helpers.py | 122 | 115 | 42.6% | 39.1% | 0 -> 0 |
+| test-support/companion_app_server.py | 320 | 318 | 26.6% | 26.1% | 2 -> 0 |
+| test-support/companion_markup.py | 594 | 594 | 19.9% | 19.9% | 1 -> 0 |
+| test-support/sitecustomize.py | 26 | 26 | 38.5% | 38.5% | 0 -> 0 |
+| test-support/skypane_test_support.py | 391 | 391 | 23.8% | 23.8% | 0 -> 0 |
+| test-support/test_check_comment_history.py | 534 | 545 | 6.0% | 5.9% | 0 -> 0 |
+| test-support/test_companion_markup.py | 190 | 190 | 4.2% | 4.2% | 2 -> 0 |
+| test-support/test_test_support.py | 284 | 284 | 6.0% | 6.0% | 0 -> 0 |
+| **Group 5 total** | **50312** | **47119** | **25.7%** | **20.7%** | **2605 -> 0** |
+
+The group total's history-hits figure (2605) matches the sum of the three source
+plans' own family totals exactly (636 + 921 + 1048 = 2605), confirming every hit
+the three plans purged is accounted for here. The line-count totals differ from
+that same sum by 19 lines (50312 here vs 50331), entirely attributable to the
+`test_status_pages_01.py` baseline-vs-group-base discrepancy explained above.
+
+### Files still above the ~20%-per-file guideline
+
+Group 5's own plans used a stricter ~20% per-file guideline than groups 2-4's
+~35% (test files carry proportionally less code to dilute a why-comment
+against, and the family sizes here made a lower bar practical). 30 of the 52
+files sit above it after purge; every one was re-read at least once hunting
+for restatement before its plan accepted the guideline miss, and none had
+unpurged history left (all report 0 hits). Justifications are condensed from
+the three source plans' own SUMMARYs, grouped by family:
+
+- **`companion/conftest.py`** (37.2%), **`test_companion_app_helpers.py`**
+  (37.6%), **`test_config_page_helpers.py`** (38.9%), **`test-support/
+  sitecustomize.py`** (38.5%) — short, fixture-dense files (conftest's own
+  scope-rationale comments, the two `*_helpers.py` modules' one-why-
+  paragraph-per-helper shape, `sitecustomize.py`'s 26-line body where one
+  why-comment is already a large fraction of the file).
+- **`test_browser_ux_01.py`** (21.7%), **`_health_drawings.py`** (22.2%),
+  **`_helpers.py`** (28.7%), **`_quiet_wake.py`** (21.0%) — the browser-UX
+  family's dense multi-branch behaviour checks (motion/timing contracts,
+  reduced-motion controls, save-floor helper parameter contracts) 35-14
+  documented as genuine why-content, not restatement.
+- **`test_companion_app_01.py`** (28.4%), **`_02.py`** (20.5%), **`_04b.py`**
+  (21.1%) and the config_page family's **`_02.py`** (29.1%), **`_03.py`**
+  (26.3%), **`_04.py`** (20.2%) — the dense multi-hundred-test files 35-16
+  documented as carrying genuine why-content per assertion (root-safety
+  notes, paint-order/geometry rationale, why a fixture value was chosen).
+- **`test_status_pages_02.py`** through **`_07.py`**, **`_helpers.py`**,
+  **`test_view_pages_02.py`** and **`_04.py`** — the status_pages/view_pages
+  family's declaration-by-declaration stylesheet assertions, per-language
+  render sweeps and corroboration/anomaly state matrices 35-15 documented
+  as genuine why-content (root-safety notes, paint-order rationale, fixture
+  value justification).
+- **`test_view_pages_helpers.py`** (39.1%) — 35-15's documented extreme
+  case: an eight-function, 115-line helper module where the ratio is
+  inherent to the file's shape (short bodies, one why-paragraph each), not
+  unpurged history.
+- **`test_contrast_check.py`** (27.2%), **`test-support/skypane_test_
+  support.py`** (23.8%), **`test-support/companion_app_server.py`** (26.1%)
+  — already at these ratios before this group's own edits (0 -> 0 or a
+  small hit count unrelated to the bulk of the file); confirmed already
+  clean by 35-16 and left untouched or edited only at the specific hit
+  lines.
+- **`companion/test_i18n.py`** (21.0%), **`test_login_throttle.py`**
+  (21.1%) — small standalone files (35-16) sitting a fraction of a point
+  over the guideline after their few real hits were purged; no further
+  content to cut without dropping a genuine invariant.
+
+No `--allow` was used for any of these files' own body content; the two
+same-code `--allow` flags this group needs (see below) are both scoped to a
+module docstring alone, unrelated to which files exceed the ratio guideline.
+
+### same-code and check evidence
+
+`server/.venv/bin/python scripts/check_comment_history.py same-code --base
+8a8b8b4 --allow companion/test_companion_app_02.py --allow
+companion/test_suite_guards.py <the 47 files changed since 8a8b8b4>` exits
+0. The two `--allow` flags are for `test_companion_app_02.py` and
+`test_suite_guards.py`'s module docstrings alone — both mention the literal
+substring `__doc__` in ordinary prose (discussing a banned pattern in the
+first case, describing the guard's own detection rule in the second), which
+trips `same-code`'s own `keep_module_doc = "__doc__" in base_text or
+"__doc__" in working_text` heuristic (built for group 2's `illustrations.py`
+argparse `--help` pattern) regardless of what the docstring itself says.
+35-16 diagnosed and isolated both cases to exactly the module docstring by
+forcing `keep_module_doc=False` and diffing the resulting AST dumps
+(identical outside the docstring in both cases); this plan re-ran that same
+proof at the group level and confirms it still holds after the merge with
+`origin/main` (which touches no companion test or test-support file — see
+`git diff 8a8b8b4 origin/main --stat -- companion test-support`, empty).
+
+`check --paths <all 52 group-5 files>` reports 0 history hits.
+
+## Group 6 — companion static JS
+
+Source plan: 35-18 (all 17 `companion/static/*.js` files).
+
+| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
+|---|---:|---:|---:|---:|---:|
+| companion/static/battery-trend.js | 222 | 150 | 52.7% | 30.0% | 21 -> 0 |
+| companion/static/confirm-submit.js | 79 | 46 | 63.3% | 37.0% | 4 -> 0 |
+| companion/static/copy-button.js | 179 | 145 | 39.7% | 25.5% | 8 -> 0 |
+| companion/static/dirty-state.js | 726 | 368 | 65.0% | 31.0% | 47 -> 0 |
+| companion/static/flash-cleanup.js | 95 | 36 | 75.8% | 36.1% | 3 -> 0 |
+| companion/static/flight-rows.js | 281 | 195 | 52.7% | 31.8% | 9 -> 0 |
+| companion/static/freshness.js | 1073 | 599 | 60.1% | 28.7% | 83 -> 0 |
+| companion/static/list-filter.js | 240 | 142 | 60.0% | 32.4% | 18 -> 0 |
+| companion/static/login-card.js | 152 | 100 | 56.6% | 34.0% | 3 -> 0 |
+| companion/static/nav-dropdown.js | 225 | 147 | 57.3% | 34.7% | 8 -> 0 |
+| companion/static/panel-lookup.js | 691 | 488 | 50.5% | 31.1% | 46 -> 0 |
+| companion/static/poll-cooldown.js | 88 | 61 | 53.4% | 32.8% | 6 -> 0 |
+| companion/static/quick-switch.js | 340 | 214 | 57.4% | 32.2% | 5 -> 0 |
+| companion/static/relative-time.js | 379 | 253 | 53.8% | 30.8% | 6 -> 0 |
+| companion/static/submit-guard.js | 212 | 103 | 67.0% | 32.0% | 6 -> 0 |
+| companion/static/theme-preview.js | 422 | 247 | 61.4% | 34.0% | 31 -> 0 |
+| companion/static/value-controls.js | 1114 | 747 | 54.6% | 32.3% | 36 -> 0 |
+| **Group 6 total** | **6518** | **4041** | **57.3%** | **31.4%** | **340 -> 0** |
+
+The group total matches `35-BASELINE/INDEX.md`'s "before" row for group 6
+(17 files, 6518 lines, 57% ratio, 340 history hits) exactly.
+
+### Files still above the ~35% guideline
+
+Both are the group's smallest files, where a compact ≤8-line file header
+(what the script does, which page(s) it binds to, its progressive-
+enhancement contract) is a large fraction of a 36-46 line total — there is
+no per-comment restatement left to cut without dropping the security note
+(confirm-submit.js: the native `confirm()` dialog is a misclick guard, not
+an authorization boundary) or the DOM contract (flash-cleanup.js: the
+two-condition guard and the parameters the address-bar rewrite must keep).
+
+| File | After | Justification |
+|---|---:|---|
+| companion/static/confirm-submit.js | 37.0% | 46-line file; the header's security note (native `confirm()` is a misclick guard only, never the authorization boundary — that is server-side in the disconnect route) is load-bearing and cannot shrink further without losing the warning against relying on client-side confirmation for a destructive action. |
+| companion/static/flash-cleanup.js | 36.1% | 36-line file; the header and the one inline comment state the two-condition guard and which query parameters the address-bar rewrite must preserve (`?resolve=` on Airlines) — both genuine DOM/behaviour contracts, not restatement. |
+
+### same-code and check evidence
+
+`server/.venv/bin/python scripts/check_comment_history.py same-code --base
+ebe66f9 $(git ls-files 'companion/static/*.js')` exits 0 with no `--allow`
+for all 17 files. `check --paths $(git ls-files 'companion/static/*.js')`
+reports 0 history hits. `node --check` passes for all 17 files.
+`SKYPANE_REQUIRE_BROWSER=1 pytest companion -q -n auto -k browser` (139
+tests, which exercise these scripts in a real browser) passes.
+
+## Shipped JS bytes, companion/static/*.js (17 files)
+
+- Raw, before: 303536 bytes; after: 153483 bytes.
+- Gzip -9, before: 112307 bytes; after: 55831 bytes.
+
+## Group 7 — companion/static/style.css
+
+Source plan: 35-19 (the file's only member, purged bottom-up in nine
+~1000-1500-line sections against base `0b3d61c`).
+
+| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
+|---|---:|---:|---:|---:|---:|
+| companion/static/style.css | 10689 | 4793 | 64.0% | 19.7% | 830 -> 0 |
+
+The before row matches `35-BASELINE/INDEX.md`'s group-7 line (1 file,
+10689 lines, 64% ratio, 830 history hits) exactly.
+
+Every comment that survives fits one of: a short section/file header, a
+WCAG contrast or target-size fact (with the ratio/pair), a cross-browser
+quirk (Safari `<summary>` markers, `<dialog>`/`showModal()` colour
+inheritance, `@starting-style` support), a specificity or cascade trap
+(the recurring `[hidden]`-vs-author-`display` collision, equal-specificity-
+plus-source-order idiom, presentation-attribute-vs-CSS-declaration trap),
+a magic-number rationale, or a contract with JS/markup/a test
+(`test_status_pages.py`, `test_contrast_check.py`, `test_companion_app.py`,
+`test_config_page.py`, `test_browser_ux.py`, and the Python constants a
+handful of rules are pinned against). No comment still under ~35% needs a
+per-file justification, since the whole file measures 19.7%.
+
+### same-code and check evidence
+
+`server/.venv/bin/python scripts/check_comment_history.py same-code --base
+0b3d61c companion/static/style.css` exits 0 with no `--allow`, run after
+every section and again here. `check --paths companion/static/style.css`
+and the argument-less `check` (after the pending-list edit) both report 0
+history hits. `SKYPANE_REQUIRE_BROWSER=1 server/.venv/bin/python -m pytest
+companion -q -n auto -k "browser or contrast or theme"` (258 tests, which
+render and measure this stylesheet in a real browser) passes.
+`server/.venv/bin/ruff check .` is clean.
+
+## Shipped CSS bytes, companion/static/style.css
+
+- Raw, before: 512795 bytes; after: 140426 bytes (72.6% smaller).
+- Gzip, before: 170819 bytes; after: 36735 bytes (78.5% smaller).
+
+## Group 8 — deploy/ + scripts/ + .github/ + root config + adsb-test/ + hardware/logtools.py
+
+Source plan: 35-20 (all three tasks, purged file-by-file against base
+`8840b0a`, with three commits' worth of `--allow` exceptions recorded
+below).
+
+| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
+|---|---:|---:|---:|---:|---:|
+| deploy/.gitignore | 6 | 6 | 83.3% | 83.3% | 0 -> 0 |
+| deploy/Caddyfile | 126 | 126 | 79.4% | 79.4% | 11 -> 0 |
+| deploy/activate.sh | 385 | 385 | 16.9% | 16.9% | 6 -> 0 |
+| deploy/deploy.sh | 61 | 61 | 54.1% | 54.1% | 5 -> 0 |
+| deploy/harden_sshd.sh | 86 | 86 | 31.4% | 31.4% | 4 -> 0 |
+| deploy/provision.sh | 224 | 224 | 45.5% | 45.5% | 14 -> 0 |
+| deploy/render_caddyfile.sh | 68 | 68 | 57.4% | 57.4% | 4 -> 0 |
+| deploy/skypane-backup.service | 59 | 59 | 28.8% | 28.8% | 2 -> 0 |
+| deploy/skypane-backup.timer | 16 | 16 | 31.2% | 31.2% | 0 -> 0 |
+| deploy/skypane-byos.service | 76 | 76 | 34.2% | 34.2% | 2 -> 0 |
+| deploy/skypane-companion.service | 80 | 80 | 38.8% | 38.8% | 4 -> 0 |
+| deploy/skypane-poll.service | 57 | 57 | 22.8% | 22.8% | 2 -> 0 |
+| deploy/skypane-poll.timer | 16 | 16 | 31.2% | 31.2% | 1 -> 0 |
+| deploy/skypane.env.example | 108 | 108 | 81.5% | 81.5% | 10 -> 0 |
+| deploy/backup/backup_gate.py | 159 | 146 | 24.5% | 17.8% | 7 -> 0 |
+| deploy/backup/skypane_backup.py | 246 | 237 | 22.0% | 19.0% | 8 -> 0 |
+| deploy/backup/install-backup-key.sh | 66 | 66 | 37.9% | 37.9% | 5 -> 0 |
+| deploy/backup/mac/install-launchagent.sh | 83 | 83 | 24.1% | 24.1% | 5 -> 0 |
+| deploy/backup/mac/skypane-backup-pull.sh | 171 | 171 | 18.7% | 18.7% | 3 -> 0 |
+| deploy/backup/mac/skypane-backup-pull.plist.template | 43 | 43 | 30.2% | 30.2% | 2 -> 0 |
+| deploy/tests/conftest.py | 336 | 333 | 18.5% | 17.7% | 5 -> 0 |
+| deploy/tests/test_activate.py | 418 | 416 | 6.2% | 5.8% | 6 -> 0 |
+| deploy/tests/test_backup.py | 341 | 340 | 6.5% | 6.2% | 4 -> 0 |
+| deploy/tests/test_backup_gate.py | 162 | 162 | 4.9% | 4.9% | 3 -> 0 |
+| deploy/tests/test_caddyfile.py | 168 | 167 | 16.1% | 15.6% | 4 -> 0 |
+| deploy/tests/test_ci_secrets.py | 122 | 122 | 18.9% | 18.9% | 3 -> 0 |
+| deploy/tests/test_deploy.py | 135 | 135 | 10.4% | 10.4% | 1 -> 0 |
+| deploy/tests/test_docs.py | 84 | 84 | 10.7% | 10.7% | 4 -> 0 |
+| deploy/tests/test_install_backup_key.py | 146 | 149 | 12.3% | 13.4% | 6 -> 0 |
+| deploy/tests/test_mac_pull.py | 299 | 299 | 6.0% | 6.0% | 2 -> 0 |
+| deploy/tests/test_provision.py | 241 | 239 | 8.7% | 7.9% | 6 -> 0 |
+| deploy/tests/test_units.py | 205 | 204 | 8.3% | 7.8% | 4 -> 0 |
+| scripts/check-attribution.sh | 128 | 128 | 13.3% | 13.3% | 1 -> 0 |
+| scripts/lock-deps.sh | 51 | 51 | 43.1% | 43.1% | 1 -> 0 |
+| scripts/run-all-tests.sh | 68 | 68 | 54.4% | 54.4% | 0 -> 0 |
+| scripts/run-local-verify.sh | 5 | 5 | 20.0% | 20.0% | 0 -> 0 |
+| .github/dependabot.yml | 17 | 17 | 29.4% | 29.4% | 0 -> 0 |
+| .github/workflows/ci.yml | 286 | 286 | 51.0% | 51.0% | 10 -> 0 |
+| .github/workflows/firmware.yml | 84 | 84 | 32.1% | 32.1% | 0 -> 0 |
+| pyproject.toml | 179 | 179 | 73.7% | 73.7% | 18 -> 0 |
+| conftest.py | 59 | 59 | 44.1% | 44.1% | 1 -> 0 |
+| .gitignore | 61 | 61 | 63.9% | 63.9% | 5 -> 0 |
+| adsb-test/.gitignore | 8 | 8 | 37.5% | 37.5% | 0 -> 0 |
+| adsb-test/analyze_samples.py | 297 | 296 | 12.8% | 12.5% | 6 -> 0 |
+| adsb-test/query_aggregator.py | 219 | 217 | 21.9% | 21.2% | 5 -> 0 |
+| adsb-test/sample_window.py | 165 | 164 | 21.8% | 21.3% | 4 -> 0 |
+| hardware/logtools.py | 1085 | 1084 | 25.2% | 25.1% | 5 -> 0 |
+| **Group total (47 files)** | 7505 | 7471 | 24.7% | 24.3% | 199 -> 0 |
+
+The before totals match `35-BASELINE/INDEX.md`'s group-8 line exactly
+once `scripts/check_comment_history.py` (820 lines, 43 comment lines, 0
+history hits) is subtracted: the baseline's directory-level count
+includes it because it lives under `scripts/`, but this plan does not
+purge it (out of scope, reserved for 35-01/35-22) and it carried 0
+history hits to begin with, so 8325 - 820 = 7505 lines and
+199 - 0 = 199 history hits match this table's totals for the 47 files
+this plan actually purges.
+
+Line counts are unchanged for every hash-comment-format file (shell,
+systemd units, Caddyfile, env example, YAML, TOML, `.gitignore`) by
+construction: `same-code`'s comparator for that file class strips each
+line down to its code portion and compares position-by-position, so a
+deleted or inserted comment line would shift every later code line out
+of place and fail the check. Comments in that class were rewritten in
+place, line for line, never added or removed. The three Python files
+with `--allow` entries below, plus the free-form `.py` test/tool files,
+were not under that constraint and could shrink their docstrings
+directly.
+
+### Files still above ~35% comment lines (review trigger, not a failure)
+
+- **deploy/.gitignore (83.3%)** — a 6-line ignore file; the ratio is an
+  artifact of file size (5 comment lines explain 1 ignore entry), not
+  verbosity.
+- **deploy/Caddyfile (79.4%)** — every security-relevant directive (HSTS,
+  the durable battery-telemetry log and its file mode) carries a one- or
+  two-sentence why per this phase's own rule that security invariants
+  are rewritten, never dropped; the config itself is ~20 non-comment
+  lines.
+- **deploy/deploy.sh (54.1%)** — a short script; its header documents the
+  git-archive transport choice and the one shellcheck suppression it
+  carries.
+- **deploy/provision.sh (45.5%)** — a first-run provisioning script where
+  nearly every step is a permission or ownership choice; each one keeps
+  a why (least-privilege reasoning, idempotency, re-run safety).
+- **deploy/render_caddyfile.sh (57.4%)** — a short script; its header
+  explains the substitution-ordering bug it exists to avoid.
+- **deploy/skypane-companion.service (38.8%)** — the hardening-directive
+  block explains the loopback-bind and process-isolation rationale a
+  systemd unit reviewer needs.
+- **deploy/skypane.env.example (81.5%)** — an env template whose entire
+  purpose is documenting each variable's meaning, format and default.
+- **deploy/backup/install-backup-key.sh (37.9%)** — a short,
+  security-critical script; comments explain the forced-command key
+  format and why each character class in the rejection regex exists.
+- **scripts/lock-deps.sh (43.1%)** — a short wrapper; its header records
+  the hash-lock invariant (never hand-edit the compiled files) it
+  protects.
+- **scripts/run-all-tests.sh (54.4%)** — the single entry point for the
+  whole suite; its header is the coverage-gate contract every
+  contributor and CI both depend on.
+- **.github/workflows/ci.yml (51.0%)** — the workflow's own security
+  rationale (concurrency groups, the paths filter's skip-safety
+  argument, the secret-interpolation-into-`run:` hazard) is exactly the
+  kind of why this phase's rules require to survive.
+- **pyproject.toml (73.7%)** — repo-wide lint/coverage/pytest
+  configuration; each non-default choice (the E402 suppression, the
+  coverage-floor derivation, the socket-guard rationale) needs its why
+  recorded so a future contributor does not silently "fix" it.
+- **conftest.py (44.1%)** — a 59-line file whose only content is two
+  fixtures, each with a security-relevant why (the DNS-resolution guard,
+  the sys.path bootstrap race with pytest's own config loading).
+- **.gitignore (63.9%)** — root-level ignore rules, each with a why so a
+  future cleanup does not remove an entry that is quietly load-bearing
+  (the symlinked-venv pattern, the credential belt-and-suspenders lines).
+- **adsb-test/.gitignore (37.5%)** — an 8-line ignore file; the ratio is
+  dominated by its own small size.
+
+### `--allow` exceptions and same-code evidence
+
+Three files needed `same-code --allow` against base `8840b0a`, all
+recorded in the per-task commits above:
+
+1. **`deploy/backup/backup_gate.py`, `deploy/backup/skypane_backup.py`**
+   — the two argparse `description=__doc__` modules the plan names
+   explicitly. Both module docstrings were shortened (backup_gate.py's
+   first line: `"""The forced-command gate for the` `skypane-backup`
+   `pull key (SEC-04, D-05,` -> `"""The forced-command gate for the`
+   `skypane-backup` `pull key.`; skypane_backup.py's first line:
+   `"""SkyPane nightly off-box-ready state snapshot (SEC-04, D-03).` ->
+   `"""SkyPane nightly off-box-ready state snapshot.`), both verified
+   with `--help` still printing accurate usage text and within the
+   15-line cap for argparse `--help` modules.
+2. **`deploy/backup/mac/skypane-backup-pull.plist.template`** — a tool
+   gap, not a plan-authorized exception: `same-code`'s dispatch has no
+   XML branch (only `check`/`ratio` call `extract_xml` for
+   `.plist.template`; `same-code` falls through to the hash-line
+   comparator, which finds no `#` comment spans in XML and therefore
+   treats the whole file as code, so any edit inside `<!-- -->` trips a
+   false positive). `scripts/check_comment_history.py` is out of scope
+   for this plan (reserved for 35-01/35-22), so the file was allowed
+   here with `git diff 8840b0a -- <file>` manually confirmed to touch
+   only the comment's prose (see the `docs(35-20)` commit for the Mac
+   backup pull scripts).
+3. **`deploy/tests/test_install_backup_key.py`** — an approved code
+   change, not a purge regression: its
+   `test_env_example_header_says_root_owned_600_read_by_systemd` test
+   read `deploy/skypane.env.example`'s header comment for `"root:root"`/
+   `"600"` text, which blocked purging that comment (35-01's own G-33
+   audit flagged this as the plan's one class-(b) source-read hit). Per
+   the plan's `<purge_bar>`, the assertion was rewritten in its own
+   preceding commit to check `deploy/provision.sh`'s actual
+   `chown root:root`/`chmod 600` directives instead, before the
+   env-example comment was purged. A grep of every other
+   `deploy/tests/*.py` `read_text()` call found no other assertion on
+   comment text (all others check directives, log output, or greppable
+   code tokens -- see the plan's own SUMMARY for the file-by-file list).
+
+`server/.venv/bin/python scripts/check_comment_history.py same-code
+--base 8840b0a --allow deploy/backup/backup_gate.py --allow
+deploy/backup/skypane_backup.py --allow
+deploy/backup/mac/skypane-backup-pull.plist.template --allow
+deploy/tests/test_install_backup_key.py <all 47 files>` exits 0.
+`check --paths <all 47 files>` and the argument-less `check` (after the
+pending-list edit) both report 0 history hits. `pytest deploy
+test-support -q -n auto` and `./scripts/run-all-tests.sh` are green;
+`server/.venv/bin/ruff check .` is clean; every changed `.sh` file passes
+`bash -n` (`shellcheck` is not installed locally, so CI's lint job is the
+gate, per the plan's own fallback).
+
+## Group 9 — firmware/
+
+Source plan: 35-21 (`firmware/main/*.c`, `firmware/main/*.h`,
+`firmware/main/Kconfig.projbuild`, `firmware/main/CMakeLists.txt`,
+`firmware/CMakeLists.txt`, `firmware/sdkconfig*.defaults`,
+`firmware/partitions.csv`, `firmware/.gitignore`, `firmware/build.sh`,
+`firmware/flash.sh`, `firmware/monitor.sh`, `firmware/provision.sh`,
+`firmware/tests/*.c`, `firmware/tests/*.sh`, `firmware/VENDOR.md`,
+`firmware/tools/gen_fault_screen.py`). Gate G-34 (Phase 34 complete on
+`main`) held before any edit. `firmware/VENDOR.md`'s row is "after"
+only — markdown is excluded from `same-code`, and its rewrite is
+recorded separately in the plan's own commit and SUMMARY rather than as
+a ratio. `firmware/LICENSE`, `firmware/NOTICE` and `main/certs/*.pem`
+are untouched and listed for completeness. Six new files
+(`nvs_boot.c/.h`, `test_nvs_boot.c`, `main/certs/*.pem`, `LICENSE`,
+`NOTICE`, `VENDOR.md`) postdate `ratio-before.tsv`'s baseline commit
+(added by Phase 34) and have no "before" figure.
+
+| File | Lines before | Lines after | Comment % before | Comment % after | History hits before -> after |
+|---|---:|---:|---:|---:|---:|
+| firmware/.gitignore | 17 | 17 | 47.1% | 47.1% | 1 -> 0 |
+| firmware/CMakeLists.txt | 15 | 15 | 60.0% | 60.0% | 0 -> 0 |
+| firmware/LICENSE | new | 202 | new | 0.0% | 0 -> 0 |
+| firmware/NOTICE | new | 14 | new | 0.0% | 0 -> 0 |
+| firmware/VENDOR.md | new | 367 | new | 0.0% | 0 -> 0 |
+| firmware/build.sh | 106 | 106 | 30.2% | 30.2% | 1 -> 0 |
+| firmware/flash.sh | 129 | 129 | 17.8% | 17.8% | 1 -> 0 |
+| firmware/main/CMakeLists.txt | 8 | 8 | 0.0% | 0.0% | 0 -> 0 |
+| firmware/main/Kconfig.projbuild | 239 | 241 | 5.0% | 5.0% | 4 -> 0 |
+| firmware/main/api_base.c | 47 | 48 | 12.8% | 12.5% | 0 -> 0 |
+| firmware/main/api_base.h | 28 | 28 | 75.0% | 75.0% | 0 -> 0 |
+| firmware/main/api_client.c | 701 | 701 | 20.8% | 20.8% | 8 -> 0 |
+| firmware/main/api_client.h | 88 | 85 | 70.5% | 69.4% | 1 -> 0 |
+| firmware/main/app_main.c | 371 | 379 | 37.5% | 31.7% | 8 -> 0 |
+| firmware/main/backoff.c | 16 | 16 | 18.8% | 18.8% | 0 -> 0 |
+| firmware/main/backoff.h | 8 | 8 | 50.0% | 50.0% | 0 -> 0 |
+| firmware/main/battery.c | 150 | 150 | 16.7% | 16.7% | 3 -> 0 |
+| firmware/main/battery.h | 20 | 20 | 80.0% | 80.0% | 2 -> 0 |
+| firmware/main/battery_math.c | 47 | 47 | 34.0% | 34.0% | 0 -> 0 |
+| firmware/main/battery_math.h | 23 | 23 | 69.6% | 69.6% | 2 -> 0 |
+| firmware/main/certs/isrg-root-x1.pem | new | 31 | new | 0.0% | 0 -> 0 |
+| firmware/main/certs/isrg-root-x2.pem | new | 14 | new | 0.0% | 0 -> 0 |
+| firmware/main/enrol_secret.c | 41 | 41 | 17.1% | 17.1% | 0 -> 0 |
+| firmware/main/enrol_secret.h | 19 | 19 | 63.2% | 63.2% | 0 -> 0 |
+| firmware/main/epd13in3e.c | 321 | 321 | 14.6% | 14.6% | 0 -> 0 |
+| firmware/main/epd13in3e.h | 22 | 22 | 63.6% | 63.6% | 0 -> 0 |
+| firmware/main/fault_inject.c | 65 | 82 | 30.8% | 26.8% | 2 -> 0 |
+| firmware/main/fault_inject.h | 37 | 51 | 59.5% | 52.9% | 2 -> 0 |
+| firmware/main/fault_screen.c | 138 | 125 | 26.8% | 19.2% | 2 -> 0 |
+| firmware/main/fault_screen.h | 83 | 58 | 79.5% | 70.7% | 3 -> 0 |
+| firmware/main/fault_screen_mask.h | 1530 | 1530 | 0.4% | 0.4% | 0 -> 0 |
+| firmware/main/led.c | 77 | 77 | 28.6% | 28.6% | 0 -> 0 |
+| firmware/main/led.h | 39 | 20 | 84.6% | 70.0% | 1 -> 0 |
+| firmware/main/nvs_boot.c | new | 22 | new | 9.1% | 0 -> 0 |
+| firmware/main/nvs_boot.h | new | 41 | new | 65.9% | 0 -> 0 |
+| firmware/main/nvs_schema.h | 63 | 47 | 77.8% | 70.2% | 3 -> 0 |
+| firmware/main/nvs_util.c | 68 | 68 | 4.4% | 4.4% | 0 -> 0 |
+| firmware/main/nvs_util.h | 32 | 32 | 56.2% | 56.2% | 0 -> 0 |
+| firmware/main/panel.c | 113 | 113 | 15.0% | 15.0% | 0 -> 0 |
+| firmware/main/panel.h | 27 | 23 | 63.0% | 56.5% | 0 -> 0 |
+| firmware/main/panel_guard.c | 40 | 40 | 12.5% | 12.5% | 0 -> 0 |
+| firmware/main/panel_guard.h | 61 | 49 | 72.1% | 65.3% | 0 -> 0 |
+| firmware/main/reset_reason.c | 76 | 76 | 7.9% | 7.9% | 0 -> 0 |
+| firmware/main/reset_reason.h | 70 | 67 | 51.4% | 49.3% | 0 -> 0 |
+| firmware/main/secrets.example.h | 44 | 44 | 79.5% | 79.5% | 1 -> 0 |
+| firmware/main/sleep_decision.c | 40 | 40 | 20.0% | 20.0% | 0 -> 0 |
+| firmware/main/sleep_decision.h | 50 | 40 | 74.0% | 67.5% | 1 -> 0 |
+| firmware/main/state_machine.c | 193 | 189 | 24.4% | 22.8% | 2 -> 0 |
+| firmware/main/state_machine.h | 60 | 54 | 68.3% | 64.8% | 2 -> 0 |
+| firmware/main/tls_session.c | 187 | 185 | 14.4% | 13.5% | 0 -> 0 |
+| firmware/main/tls_session.h | 68 | 45 | 76.5% | 64.4% | 1 -> 0 |
+| firmware/main/validate.c | 124 | 124 | 3.2% | 3.2% | 0 -> 0 |
+| firmware/main/validate.h | 85 | 85 | 54.1% | 54.1% | 0 -> 0 |
+| firmware/main/wake_deadline.c | 24 | 24 | 20.8% | 20.8% | 0 -> 0 |
+| firmware/main/wake_deadline.h | 60 | 47 | 76.7% | 70.2% | 1 -> 0 |
+| firmware/main/wake_guard.c | 159 | 159 | 16.4% | 16.4% | 0 -> 0 |
+| firmware/main/wake_guard.h | 96 | 73 | 80.2% | 74.0% | 3 -> 0 |
+| firmware/main/wifi.c | 233 | 232 | 9.4% | 9.1% | 1 -> 0 |
+| firmware/main/wifi.h | 33 | 32 | 66.7% | 65.6% | 2 -> 0 |
+| firmware/monitor.sh | 43 | 43 | 37.2% | 37.2% | 0 -> 0 |
+| firmware/partitions.csv | 13 | 13 | 38.5% | 38.5% | 0 -> 0 |
+| firmware/provision.sh | 266 | 266 | 21.4% | 21.4% | 1 -> 0 |
+| firmware/sdkconfig.defaults | 79 | 79 | 40.5% | 40.5% | 2 -> 0 |
+| firmware/sdkconfig.dev.defaults | 6 | 6 | 83.3% | 83.3% | 0 -> 0 |
+| firmware/sdkconfig.ee02.defaults | 106 | 106 | 77.4% | 77.4% | 6 -> 0 |
+| firmware/tests/check_log_contract.sh | 91 | 98 | 30.8% | 31.6% | 1 -> 0 |
+| firmware/tests/check_production_config.sh | 181 | 181 | 17.1% | 17.1% | 5 -> 0 |
+| firmware/tests/run_host_tests.sh | 81 | 81 | 18.5% | 18.5% | 2 -> 0 |
+| firmware/tests/test_api_base.c | 71 | 71 | 26.8% | 26.8% | 0 -> 0 |
+| firmware/tests/test_backoff.c | 29 | 29 | 44.8% | 44.8% | 0 -> 0 |
+| firmware/tests/test_battery_math.c | 50 | 49 | 46.0% | 44.9% | 6 -> 0 |
+| firmware/tests/test_fault_screen.c | 188 | 189 | 9.0% | 9.0% | 2 -> 0 |
+| firmware/tests/test_nvs_boot.c | new | 64 | new | 21.9% | 0 -> 0 |
+| firmware/tests/test_panel_guard.c | 114 | 114 | 28.1% | 28.1% | 0 -> 0 |
+| firmware/tests/test_reset_reason.c | 102 | 102 | 16.7% | 16.7% | 1 -> 0 |
+| firmware/tests/test_sleep_decision.c | 91 | 91 | 19.8% | 19.8% | 1 -> 0 |
+| firmware/tests/test_validate.c | 207 | 207 | 20.3% | 20.3% | 0 -> 0 |
+| firmware/tests/test_wake_deadline.c | 71 | 71 | 19.7% | 19.7% | 1 -> 0 |
+| firmware/tools/gen_fault_screen.py | 292 | 292 | 36.6% | 36.6% | 3 -> 0 |
+| **Group total** | **8472** | **9098** | **24.6%** | **21.3%** | — |
+
+### Files still above 35% after purge
+
+Almost every `firmware/main/*.h` file is a small C header where each
+function has a one-paragraph contract comment directly above its
+declaration (preconditions, return-value sentinels, ordering
+invariants) — the convention this codebase uses instead of a separate
+design document, and exactly the "why/invariant" content the purge
+rules require keeping. A short header with that convention structurally
+cannot fall under 35%: `battery.h` is 20 lines total, so its two
+sentinel/units sentences alone are 80%; `sdkconfig.dev.defaults` is a
+6-line file whose one real line is a `CONFIG_SKYPANE_ALLOW_HTTP=y`
+dev-only override, so its 5-line explanatory comment dominates by
+construction. The same holds for `api_base.h`, `battery_math.h`,
+`enrol_secret.h`, `epd13in3e.h` (upstream, verbatim), `fault_inject.h`,
+`fault_screen.h`, `led.h`, `nvs_boot.h`, `nvs_schema.h`, `nvs_util.h`,
+`panel.h`, `panel_guard.h`, `reset_reason.h`, `secrets.example.h`,
+`sleep_decision.h`, `state_machine.h`, `tls_session.h`, `validate.h`,
+`wake_deadline.h`, `wake_guard.h`, `wifi.h`, `backoff.h` and
+`sdkconfig.ee02.defaults` (a config file whose whole content past the
+upstream block is two commented hardware-provenance notes for pins with
+no schematic of their own). `.gitignore` (17 lines, one ignore rule
+explained per line, same shape as the root and `adsb-test/` ignore
+files group 8 recorded), `firmware/CMakeLists.txt` (15 lines: the
+project-name/version rationale is the file), `monitor.sh` and
+`partitions.csv` are the same small-file effect. `test_backoff.c` and
+`test_battery_math.c` are host-test files where every assertion carries
+a one-line reason for its expected value (the whole point of a
+threshold table test). `tools/gen_fault_screen.py` (36.6%) is a
+runtime-`--help` module docstring plus a from-scratch dither-spec
+description shared with `fault_screen.c` — see the plan's own commit
+for why its docstring is `--allow`-listed in `same-code`.
+
+Every one of the 79 files above has 0 history hits after this plan;
+`same-code --base 9baf745 --allow firmware/tools/gen_fault_screen.py
+<44 changed non-.md files>` exits 0, and
+`check --paths $(git ls-files firmware)` exits 0.
+
+## Final — whole-tree summary (35-22, phase close)
+
+Measured by `35-22` after the pending list was deleted (the guard's `check`
+now covers every tracked code file with no exceptions) and after the two
+tool refinements (a tighter `_PRAGMA_RE` shellcheck match, an AST-based
+`__doc__` read check). "Before" is `35-BASELINE/ratio-before.tsv` (264
+files, commit `83f4620` plus the foundation plan's own additions);
+"after" is `server/.venv/bin/python scripts/check_comment_history.py
+ratio` over every tracked, non-excluded file at commit `ec5ddda` (this
+plan's Task 1 commit). Both columns are produced by the same tool, so a
+few whole-tree gzip/line-count differences against the group sections
+above (which mixed in `gzip -9c | wc -c` and slightly earlier bases) are
+measurement-method noise, not a regression — every group's history-hit
+count is independently re-confirmed at 0 here.
+
+| Group | Directories | Files before | Files after | Lines before | Lines after | Comment % before | Comment % after | History hits before | History hits after |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2 | server/ | 36 | 36 | 30940 | 25602 | 37.2% | 24.1% | 1689 | 0 |
+| 3 | stub-server/ | 6 | 6 | 2915 | 2627 | 32.7% | 25.4% | 69 | 0 |
+| 4 | companion production (Python) | 33 | 33 | 30353 | 17371 | 63.6% | 36.4% | 3620 | 0 |
+| 5 | companion tests + test-support/ | 52 | 52 | 50312 | 47202 | 25.7% | 20.7% | 2605 | 0 |
+| 6 | companion static JS | 17 | 17 | 6518 | 4041 | 57.3% | 31.4% | 340 | 0 |
+| 7 | companion/static/style.css | 1 | 1 | 10689 | 4793 | 64.0% | 19.7% | 830 | 0 |
+| 8 | deploy/ + scripts/ + .github/ + root config + adsb-test/ + hardware/logtools.py | 48 | 48 | 8325 | 7848 | 22.8% | 18.0% | 199 | 0 |
+| 9 | firmware/ | 71 | 74 | 8472 | 8403 | 24.6% | 22.2% | 89 | 0 |
+| **Total** | | **264** | **267** | **148524** | **117887** | **39.9%** | **24.1%** | **9441** | **0** |
+
+The file count grows by 3 (264 -> 267): 2 new firmware host-test files
+added during the phase (e.g. `firmware/tests/test_nvs_boot.c`, already
+counted with 0 history hits in group 9's own table above) and this plan's
+own net addition to `test-support/test_check_comment_history.py` (new
+regression tests for the two tool refinements below), counted in group 5.
+
+`server/.venv/bin/python scripts/check_comment_history.py check` (no
+`--paths`, the whole tree) exits **0**.
+
+### Note on group 8 and group 9: `35-21b`'s later tightening
+
+The group 8 and group 9 sections above record each group's own
+closing-plan numbers (35-20 for group 8: 47 files, 7505 -> 7471 lines,
+24.7% -> 24.3%; 35-21 for group 9: 71 files, 8472 -> 9098 lines, 24.6% ->
+21.3%). Both groups contain many of the 24 files `35-21b` re-tightened
+*after* those closing plans ran, once commit `dbc1c28` fixed
+`_hash_code_lines` to drop blank/comment-only lines before comparison —
+letting a `#`-comment shrink instead of only reword (see
+`35-21b-SUMMARY.md`). The Final table above supersedes those two groups'
+own "after" rows for that reason; group 8's Final row also folds in
+`scripts/check_comment_history.py` itself (830 lines, 5.9% comment ratio,
+0 hits), which `35-BASELINE/INDEX.md` always counted in group 8's
+48-file total but the group-8 closing plan's own table (out of its
+`files_modified` scope) did not re-list. Every other group above was
+untouched by both `35-21b` and this plan's own edits, so its Final row
+matches its own section's "after" row exactly (confirmed for groups 2,
+3, 4 and 6).
+
+### style.css shipped size
+
+| | Raw bytes | Gzip -9 bytes |
+|---|---:|---:|
+| Before | 512795 | 170211 |
+| After | 140426 | 36812 |
+
+(`35-BASELINE/INDEX.md` recorded 170113 gzip bytes via the `gzip -9c \|
+wc -c` CLI; the ratio tool's own `gzip.compress(raw, 9)` gives 170211 for
+the same before-revision — a ~100-byte difference from the gzip header's
+OS/mtime fields, not a content difference. The group 7 section above used
+yet another CLI measurement at a slightly different base, hence its own
+170819/36735. All three agree the file shrank by roughly 78%.)
+
+### companion/static/*.js shipped size (17 files)
+
+| | Raw bytes | Gzip -9 bytes |
+|---|---:|---:|
+| Before | 303536 | 112307 |
+| After | 153495 | 55828 |
+
+## Requirements — HYG-01..06 evidence
+
+**HYG-01** (keep the *why* and invariants, drop plan/ticket history) and
+**HYG-02/HYG-03** (the same purge across every language, CSS and JS
+included): the Final table above shows **0 history hits** across all 267
+tracked code files (was 9441 across 264 before this phase started), and
+`check` over the whole tree exits 0 with no `--paths` and no pending-list
+exception. Each group's own section above records the `same-code` proof
+that ran against that group's own base commit at close time (groups 5-8
+have an explicit "same-code and check evidence" subsection; groups 2, 3,
+4 and 9 record the same proof inline against their own base — see
+`35-02-SUMMARY.md`/`35-03-SUMMARY.md`/`35-04-SUMMARY.md` (group 2),
+`35-06-SUMMARY.md` (group 3), `35-13-SUMMARY.md` (group 4, HYG-05's own
+plan) and `35-21-SUMMARY.md` (group 9) for each group's commit list).
+`35-21b-SUMMARY.md` re-proves `same-code --base dbc1c28` on its own 24
+re-tightened files. This plan's Task 1 re-proves the guard itself is
+sound on the final tree (see the mutation and per-language plant results
+below), so a 0-hit result here is a guard that actually still looks.
+
+**HYG-04** (English-only rule for code, comments, docs and commits, in
+`CLAUDE.md` and `CONTRIBUTING.md`): `.claude/CLAUDE.md` lines 46-47 —
+"Code, identifiers, comments, docstrings, docs and commit messages are in
+English." `CONTRIBUTING.md`'s "Code language and comments" section
+carries the same rule plus the plan/ticket-ID prohibition, and (as of
+this plan) points at the guard without mentioning a pending list:
+"`scripts/check_comment_history.py check` enforces this in CI, scanning
+every tracked code file."
+
+**HYG-05** (delete confirmed-dead code found during the purge): four
+functions deleted in `35-13` — `companion/pages/health_page.py`'s
+`health_severity()` and `anomaly_active()`, `companion/draw.py`'s
+`usable_pairs()` and `label_grid()` — each re-checked against current
+`main` with `git grep -nw` and found to have no production caller before
+deletion (only test callers, which `35-13` re-pointed at
+`health_page.safe_health_state()`, the function `app.py`'s
+`page_context()` actually calls, or partially edited to drop only the
+dead-function assertions). `git grep -n "health_page\.health_severity\|
+health_page\.anomaly_active\|draw\.usable_pairs\|draw\.label_grid\|def
+health_severity\|def anomaly_active\|def usable_pairs\|def label_grid"`
+against the current tree returns exactly one hit, a string-literal test
+fixture inside `companion/test_suite_guards.py` (data for the static
+analysis guard's own self-test, never executed as a call); no definition
+and no real call to any of the four deleted functions remains anywhere.
+
+**HYG-06** (a CI lint guard rejecting plan/ticket IDs in comments): the
+"Comment history guard" step in `.github/workflows/ci.yml`'s lint job
+runs `server/.venv/bin/python scripts/check_comment_history.py check`
+with no arguments, unconditionally over the whole tree, right after the
+blocking `ruff check .` step — no allowlist, no pending list, no skipped
+paths. This plan's Task 1 re-proved the guard mechanically on the final
+tree:
+- All **45** pattern-set mutations are killed by the test suite: the 10
+  `plan-artifact` suffixes, 3 `d-id` branches, all 27 `prefix-id`
+  allowlist entries and 3 `bare-plan-id` forms from `35-01`'s original
+  43-mutation sweep, plus 2 new mutations for this plan's own tool
+  changes (the `_PRAGMA_RE` shellcheck-directive alternative, and the
+  AST-based `__doc__` read check) — each alternative/check removed from
+  a working copy, the full test suite re-run, at least one test failed,
+  the file restored, `git diff` empty.
+- A `# see D-06` (or the language's own comment syntax) planted in one
+  tracked file per language family — `server/plane/dither.py` (Python),
+  `firmware/main/wake_deadline.c` (C), `companion/static/copy-button.js`
+  (JS), `companion/static/style.css` (CSS), `scripts/lock-deps.sh`
+  (shell), `.github/workflows/firmware.yml` (YAML/hash-format) — made
+  `check` exit 1 every time, naming the planted file and matched text;
+  reverted with `git checkout --` after each plant, `check` back to exit
+  0, `git diff` empty throughout.
+
+Every HYG requirement (HYG-01 through HYG-06; HYG-05 was already complete
+before this plan) is now confirmed with evidence and marked complete in
+`REQUIREMENTS.md`.

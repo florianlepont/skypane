@@ -1,22 +1,11 @@
-"""Part 03 of the `companion/test_view_pages.py` migration chain
-(33-07-PLAN.md): the original harness's check() calls #97-#134, the
-part of the chain holding most of the JS-source contracts (panel-
-lookup.js's date-math ban, flight-rows.js's live-script class,
-list-filter.js's count-animation contract, freshness.js's single
-fetch() target) plus the Airlines resolve-dialog action row, the
-one-hop unresolved-airline link (22-09-PLAN.md Task 2), Flights'
-refresh-region/row-identity/detail-reveal/Show-more contracts
-(23-08/29-03-PLAN.md) and Home's battery ring, relative-age elements
-and French render (22-11/23-03/20-10-PLAN.md).
+"""Companion view-page tests: most of the JS-source contracts
+(panel-lookup.js, flight-rows.js, list-filter.js, freshness.js), the
+Airlines resolve-dialog action row and unresolved-airline link, Flights'
+refresh-region/row-identity/detail-reveal/Show-more contracts, and Home's
+battery ring, relative-age elements and French render.
 
-Every check calls `history_page.render()` / `airlines_page.render()` /
-`home_page.render()` directly (never over HTTP) with a `tmp_path`-
-backed state directory. Checks that used to `open()`
-`companion/static/style.css` or a served JS asset from disk instead
-fetch them from a running `companion/app.py` (`module_app_server_factory`
-+ `served_stylesheet()`/`served_asset()`) and assert on
-`companion_markup`'s parsed CSS rules or the served JS text itself —
-never a file opened from disk (TST-12).
+CSS/JS checks fetch served bytes from a running `companion/app.py`;
+everything else calls `*_page.render()` directly, in-process.
 """
 import math
 import os
@@ -41,7 +30,7 @@ from server.plane import illustrations
 def app(module_app_server_factory):
     """A read-only companion/app.py server this module's checks fetch the
     served stylesheet/JS assets from, instead of opening them from disk
-    (TST-12)."""
+    ."""
     return module_app_server_factory()
 
 
@@ -54,7 +43,7 @@ def served_css(app):
 @pytest.fixture(scope="module")
 def panel_lookup_js(app):
     """companion/static/panel-lookup.js's served text, fetched over HTTP
-    instead of opened from disk (TST-12)."""
+    instead of opened from disk ."""
     return served_asset(app, "/static/panel-lookup.js")
 
 
@@ -78,7 +67,7 @@ def _all_static_script_routes():
     """Every companion/app.py `*_SCRIPT_ROUTE` constant's value - the
     served static-JS surface, enumerated from the production module's
     own registered route names rather than a filesystem glob over
-    companion/static/*.js (TST-12: no production source is opened as
+    companion/static/*.js (: no production source is opened as
     text, and this floor tracks whatever app.py itself registers rather
     than going stale against a hand-written list)."""
     names = [name for name in dir(app_module) if _SCRIPT_ROUTE_NAME_RE.match(name)]
@@ -110,7 +99,7 @@ def _home_seeded_ctx(tmp, now, flight_ts):
     }
 
 
-# --- panel-lookup.js's date-math ban (B5, 22-11-PLAN.md Task 1) --------
+# --- panel-lookup.js's date-math ban (B5, Task 1) --------
 
 _PANEL_LOOKUP_FORBIDDEN_DATE_TOKENS = (
     r"\bnew\s+Date\(", r"\bDate\.now\b", r"\btoISOString\b", r"\btoLocaleDateString\b",
@@ -123,7 +112,7 @@ def test_panel_lookup_js_does_no_date_math_of_any_kind(panel_lookup_js):
     """companion/static/panel-lookup.js contains no date-parsing or date-formatting API at all
     (new Date/Date.now/toISOString/toLocale*/getHours/getMinutes/getTime/Intl.DateTimeFormat)
     and assigns the first-seen/last-seen attribute values straight to textContent — the
-    property that keeps D-05's Paris-local rule enforceable server-side (B5, 22-11-PLAN.md
+    property that keeps Paris-local rule enforceable server-side (B5,
     Task 1)"""
     from companion_markup import strip_js_comments_and_strings
 
@@ -146,7 +135,7 @@ def test_resolve_dialog_save_and_close_share_one_action_row(tmp_path, served_css
     primary Save second and re-attached to its form by the native form= attribute — while the
     no-JS fallback keeps its own submit inside its own form, and the row's rule declares
     flex/centre/space-between with no shared height (C4) and no .btn-- family (B5,
-    22-11-PLAN.md Task 1)"""
+     Task 1)"""
     rendered = airlines_page.render({})
     row = re.search(
         r'<div class="%s">(.*?)</div>' % re.escape(airlines_page.LIGHTBOX_ACTIONS_CLASS),
@@ -202,9 +191,9 @@ def test_resolve_dialog_save_and_close_share_one_action_row(tmp_path, served_css
 
 def test_airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary():
     """a normal Airlines render carries no Editing badge and no per-card Replace control
-    anywhere (both deleted outright, CFG-81) — while every airline-card__zoom trigger still
+    anywhere (both deleted outright) — while every airline-card__zoom trigger still
     carries the SAME full data-view-panel-* vocabulary, its size derived from the module's
-    own _VIEW_PANEL_*_ATTR constants rather than a hardcoded number (29-01-PLAN.md)"""
+    own _VIEW_PANEL_*_ATTR constants rather than a hardcoded number"""
     rendered = airlines_page.render({})
 
     assert "banner__pill" not in rendered, (
@@ -242,7 +231,7 @@ def test_airlines_manual_count_is_a_filter_control_in_the_filter_bar(tmp_path, s
     bar wearing .airline-card__chip's label voice — the 12px bare link and its copied
     [data-filter-clear] property list are retired, leaving only a hover-additive rule — and
     one entry reads '1 manual resolution' (FR '1 resolution manuelle') while two read
-    '2 manual resolutions' (X7 + D-06/B16, 22-11-PLAN.md Task 2)"""
+    '2 manual resolutions' (X7 + /B16, Task 2)"""
     registry = {"QQQ": {"airline_name": "Air France",
                         "created_at": "2026-09-01T10:00:00+00:00"}}
     rendered = airlines_page.render({"state_dir": str(tmp_path), "manual_resolutions": registry})
@@ -284,7 +273,7 @@ def test_airlines_manual_count_is_a_filter_control_in_the_filter_bar(tmp_path, s
 def test_airlines_grid_is_two_fixed_columns_below_960px(served_css):
     """below 960px .illustration-grid takes a FIXED repeat(2, minmax(0, 1fr)) template — two
     cards per row with a zero column minimum — while the desktop auto-fill idiom above 960px
-    is left untouched (X7, 22-11-PLAN.md Task 2)"""
+    is left untouched (X7, Task 2)"""
     declaration = declarations_for(
         served_css, ".illustration-grid", at_rules=("@media (max-width: 959.98px)",))
     assert declaration, (
@@ -300,7 +289,7 @@ def test_airlines_grid_is_two_fixed_columns_below_960px(served_css):
 def test_unresolved_link_absent_for_resolved_airline(tmp_path):
     """a formatted row with a resolved airline produces a Flight cell (desktop) and a phone
     card (mobile) carrying neither a one-hop resolve link nor the retired two-hop Health
-    route (22-09-PLAN.md Task 2, X5)"""
+    route"""
     vp.seed_runway_events(tmp_path, [
         {
             "ts": "2026-08-27T10:00:00+00:00", "hex": "lkr01", "callsign": "LINKRES",
@@ -322,7 +311,7 @@ def test_unresolved_link_absent_for_resolved_airline(tmp_path):
 def test_unresolved_link_present_once_each_for_unresolved_airline(tmp_path):
     """a formatted row whose airline is unresolved produces exactly one ONE-HOP resolve anchor
     in the desktop Flight cell and exactly one on the phone card, both naming the prefix
-    derived from that row's own callsign (22-09-PLAN.md Task 2, X5)"""
+    derived from that row's own callsign"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "lku01", "callsign": "LINKUNR"},
     ])
@@ -367,7 +356,7 @@ def test_unresolved_link_keyed_on_airline_not_route(tmp_path):
 def test_airline_fallback_distinct_from_route_fallback(tmp_path, served_css):
     """a no-airline row renders AIRLINE_FALLBACK_TEXT and ROUTE_FALLBACK_TEXT as two distinct
     strings in two distinct columns, and the unresolved-link's spacing class is styled in
-    style.css and present in the rendered anchor (quick task 260902-w4t, UIR-05)"""
+    style.css and present in the rendered anchor"""
     from server.plane import render as panel_render
 
     assert history_page.AIRLINE_FALLBACK_TEXT != panel_render.ROUTE_FALLBACK_TEXT
@@ -397,10 +386,9 @@ def test_airline_fallback_distinct_from_route_fallback(tmp_path, served_css):
 
 def test_hex_only_row_promotes_hex_to_primary(tmp_path):
     """a callsign-less row's desktop Flight cell is empty with zero copy buttons and no
-    visible hex (21-03-PLAN.md Task 1, D-15); the mobile card still promotes the hex to
-    its primary slot with a no-copy-button 'no callsign' note (D-16); a callsign+hex row
-    is unaffected; a row with neither renders without raising
-    (quick task 260902-w4t, UIR-06)"""
+    visible hex; the mobile card still promotes the hex to its primary slot with a
+    no-copy-button 'no callsign' note; a callsign+hex row is unaffected; a row with
+    neither renders without raising"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:02:00+00:00", "hex": "34560d"},
         {"ts": "2026-08-27T10:01:00+00:00"},
@@ -441,7 +429,7 @@ def test_resolve_link_template_matches_the_airlines_resolve_view():
     """history_page.RESOLVE_LINK_HREF_TEMPLATE is built from airlines_page.AIRLINES_ROUTE and
     RESOLVE_QUERY_PARAM (never a re-typed literal), the retired two-hop Health constant is
     gone, and resolve_prefix_for_callsign() derives a prefix only for a callsign the
-    registry writer's own shape gate would accept (22-09-PLAN.md Task 2, X5/T-22-30)"""
+    registry writer's own shape gate would accept"""
     from server.plane import manual_resolutions
 
     expected = "%s?%s=%%s" % (airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
@@ -463,7 +451,7 @@ def test_day_separators_group_rows_by_europe_paris_calendar_day(tmp_path):
     """the rendered Flights table carries exactly one day-separator row per EUROPE/PARIS
     calendar day present in the rows — Today / Yesterday / an absolute date, translated in
     both languages — and a row whose UTC day differs from its Paris day is grouped by the
-    Paris one (22-09-PLAN.md Task 2, X5/D-05)"""
+    Paris one"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-26T10:00:00+00:00", "hex": "ds01", "callsign": "DAYONE"},
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "ds02", "callsign": "DAYTWO"},
@@ -501,14 +489,12 @@ def test_day_separators_group_rows_by_europe_paris_calendar_day(tmp_path):
 def test_day_label_is_the_paris_day_formatters_own_output_and_never_sticky(served_css):
     """the day separator's absolute label is the day portion of layout.local_clock_text()'s own
     cross-day output in both languages, paris_day() degrades to None rather than raising, and
-    the separator's CSS rule declares no positioning (22-09-PLAN.md Task 2, X5/D-05/T4)
+    the separator's CSS rule declares no positioning
 
-    (33-07-PLAN.md, rubric S deletion: the legacy check's own `"strftime" not in
-    open(history_page.py).read()` clause is dropped — the equivalence asserted below (the day
-    label equals the day PORTION of layout.local_clock_text()'s own cross-day output) already
-    proves the label is the shared Paris-local formatter's own output rather than a second
-    date-formatting path; a source-text grep for the word "strftime" added no behaviour beyond
-    what that comparison already covers.)
+    A source-text grep for the word "strftime" is dropped: the equivalence asserted below (the
+    day label equals the day PORTION of layout.local_clock_text()'s own cross-day output)
+    already proves the label is the shared Paris-local formatter's own output rather than a
+    second date-formatting path, which is all that grep added.
     """
     raw_ts = "2026-08-26T10:00:00+00:00"
     parsed = layout.parse_iso(raw_ts)
@@ -539,8 +525,7 @@ def test_every_flights_row_carries_a_stable_event_identity(tmp_path):
     """every rendered Flights row carries a non-empty, unique event identity in BOTH
     representations, the table and the card list name the same event set, and a newer
     detection arriving at the top leaves every existing row's identity unchanged — the
-    property the row's position does not have and the whole basis of the new-row highlight
-    (D7/CFG-37, 23-08-PLAN.md Task 1)"""
+    property the row's position does not have and the whole basis of the new-row highlight"""
     older = [
         {"ts": "2026-08-27T09:00:00+00:00", "hex": "id01", "callsign": "IDONE"},
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "id02", "callsign": "IDTWO"},
@@ -579,7 +564,7 @@ def test_every_flights_row_carries_a_stable_event_identity(tmp_path):
 def test_flights_declares_its_refresh_regions_and_never_the_filter_input(tmp_path):
     """the rendered Flights page carries exactly one data-loaded-at marker and a witness for
     every one of its REFRESH_SWAP_SELECTORS_BY_PAGE regions, and no region names the filter
-    input list-filter.js captured at load (D7/CFG-37, 23-08-PLAN.md Task 1)"""
+    input list-filter.js captured at load"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "rr01", "callsign": "REGION"},
     ])
@@ -612,7 +597,7 @@ def test_detail_row_height_animates_and_a_closed_row_is_unreachable(tmp_path, se
     (grid-template-rows 0fr, var(--motion-fast), an @starting-style entry, scoped to the
     class flight-rows.js adds to <html>), neither interpolate-size nor calc-size() appears,
     and the collapsed end state is still display: none — the one state that takes a closed
-    row out of both the tab order and the accessibility tree (D3/CFG-32, 23-08-PLAN.md
+    row out of both the tab order and the accessibility tree (D3/,
     Task 2)"""
     entry = declarations_for(
         served_css, ".flight-rows-live .flight-detail-row__reveal", at_rules=("@starting-style",))
@@ -656,8 +641,8 @@ def test_detail_row_height_animates_and_a_closed_row_is_unreachable(tmp_path, se
 def test_the_chevron_turns_and_carries_no_reduced_motion_block_of_its_own(served_css):
     """the row-toggle chevron transitions TRANSFORM on var(--motion-fast) and adds no per-rule
     reduced-motion block — the global override already covers a plain transform for free,
-    and the stylesheet's live prefers-reduced-motion count is unmoved at 3 (D3/CFG-32,
-    references/control-density.md:78, 23-08-PLAN.md Task 2)"""
+    and the stylesheet's live prefers-reduced-motion count is unmoved at 3 (D3/,
+    references/control-density.md:78, Task 2)"""
     glyph = declarations_for(served_css, ".row-toggle__glyph")
     assert glyph, "expected a .row-toggle__glyph rule"
     transition = glyph.get("transition", "")
@@ -676,10 +661,10 @@ def test_the_chevron_turns_and_carries_no_reduced_motion_block_of_its_own(served
 
 def test_the_phone_cards_own_face_is_its_disclosure_summary(tmp_path):
     """the phone card's own face IS the native disclosure's <summary> — the primary line, the
-    secondary line, the time and 22-09's thumbnail and airline name all inside it, so a tap
+    secondary line, the time and the thumbnail and airline name all inside it, so a tap
     anywhere opens the card with no script at all — while the one-hop resolve link stays on
     the card and OUT of the summary, and the disclosure body still holds exactly the three
-    copy buttons (D7/CFG-37, 23-08-PLAN.md Task 2)"""
+    copy buttons"""
     from PIL import Image
 
     key = illustrations.normalise_airline_key("Air France")
@@ -728,7 +713,7 @@ def test_history_card_primary_grid_pins_the_timestamp_track(tmp_path, served_css
     (minmax(0, 1fr) then auto, no justify-content) with a non-wrapping .history-card__time
     (white-space: nowrap, no margin-left: auto), and all three primary_value_html branches —
     callsign, hex-plus-note, empty — produce a child set the grid can place with no third,
-    unclassified top-level child (2026-09-17 audit P1, 29-03-PLAN.md Task 2)"""
+    unclassified top-level child (2026-09-17 audit P1, Task 2)"""
     primary_block = declarations_for(served_css, ".history-card__primary")
     assert primary_block, "could not locate the .history-card__primary rule block"
     assert primary_block.get("display") == "grid", (
@@ -786,7 +771,7 @@ def test_flights_reveal_state_reproduces_from_the_url_alone(tmp_path, app):
     window.location.href), '.flights-more' is a declared swap region, and freshness.js
     carries exactly one fetch( call targeting window.location.href verbatim — the
     structural half of the refresh-survival property this harness can prove without a
-    browser (29-RESEARCH.md, 29-03-PLAN.md Task 3)"""
+    browser"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "rv%02d" % i, "callsign": "REV%02d" % i}
         for i in range(1, 37)
@@ -829,7 +814,7 @@ def test_flights_reveal_control_is_a_plain_anchor_no_script_mentions(tmp_path, a
     """the Show-more anchor renders with an href and no onclick/data- attribute and is never a
     <button> or <form>, and zero companion/static/*.js files mention its 'flights-more'
     class (scanned-route floor >= 17, printed on failure) — a no-JS control proof, not merely
-    a render (29-03-PLAN.md Task 3)"""
+    a render"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "nj%02d" % i, "callsign": "NOJS%02d" % i}
         for i in range(1, 21)
@@ -874,7 +859,7 @@ def test_flights_reveal_control_is_a_plain_anchor_no_script_mentions(tmp_path, a
 def test_flights_reveal_anchor_has_a_matching_css_selector(tmp_path, served_css):
     """the Show-more anchor's rendered tag agrees with a REAL CSS selector match (rightmost
     compound's tag qualifier, if any) — not merely a class-string substring shared between
-    the markup and style.css (CR-01, 29-REVIEW.md)"""
+    the markup and style.css"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "cm%02d" % i, "callsign": "CSSM%02d" % i}
         for i in range(1, 21)
@@ -934,7 +919,7 @@ _FLIGHTS_LIMIT_HOSTILE_INPUT_IDS = [
     "raw", _FLIGHTS_LIMIT_HOSTILE_INPUTS, ids=_FLIGHTS_LIMIT_HOSTILE_INPUT_IDS)
 def test_flights_limit_clamps_every_hostile_input_into_bounds(raw):
     """history_page.flights_limit() clamps all 19 hostile inputs into [15, 50] without
-    raising (T-29-03-01, T-29-03-02, 29-03-PLAN.md Task 3)"""
+    raising"""
     result = history_page.flights_limit({"flights_limit": raw})
     assert isinstance(result, int) and not isinstance(result, bool), (
         "flights_limit(%r) returned %r, expected a plain int" % (raw, result))
@@ -948,17 +933,13 @@ def test_flights_render_defers_entirely_to_flights_limit_for_hostile_ctx_values(
     card count flights_limit() itself computes — the behavioural proof that render() has no
     second, unvalidated arithmetic path of its own on the raw threaded value, and
     HISTORY_ROW_LIMIT is the ceiling a huge hostile value clamps to
-    (T-29-03-01, T-29-03-02, 29-03-PLAN.md Task 3)
 
-    (33-07-PLAN.md, rubric S deletion: the legacy check's `ast.parse(inspect.getsource(...))`
-    proof that render() calls flights_limit() exactly once and never reads
-    ctx['flights_limit'] directly, and its companion.app.py source-line-count proof that
-    app.py performs no arithmetic on the raw threaded value, are both dropped — G2 bans
-    inspect/ast introspection of production source outright, and this behavioural
-    equivalence is strictly stronger evidence for the same property: if render() had any
+    A source/AST introspection proof that render() calls flights_limit() exactly once, never
+    reads ctx['flights_limit'] directly, and performs no arithmetic of its own on the raw
+    threaded value is dropped in favour of stronger behavioural evidence: if render() had any
     second path onto the raw value (its own arithmetic, a different default, a raise), the
     observed card count below would diverge from flights_limit()'s own clamp for at least
-    one of these hostile inputs.)
+    one of these hostile inputs.
     """
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-09-01T%02d:00:00+00:00" % (i % 24), "hex": "cl%03d" % i,
@@ -980,7 +961,7 @@ def test_the_count_animates_without_its_text_production_moving(app):
     """the filter count animates its ELEMENT and never its number: the template-driven text
     production is untouched, the text is written before the class is added, the class is
     removed and re-added across a forced reflow so a second change restarts it, and it
-    fires only when the rendered value actually differs (D7/CFG-37, 23-08-PLAN.md Task 2)"""
+    fires only when the rendered value actually differs"""
     js = vp.strip_js_line_and_block_comments(served_asset(app, "/static/list-filter.js"))
     for token in ('getAttribute("data-filter-count-template")',
                   '.replace("%d", String(visibleCount))',
@@ -1006,7 +987,7 @@ def test_the_count_animates_without_its_text_production_moving(app):
 def test_phone_card_route_and_state_carry_the_existing_middle_dot(tmp_path):
     """the phone card's "ORY → JFK Departing" line carries the module's EXISTING
     cell-inline-sep middle dot between the route and the state, reused rather than
-    reinvented (22-09-PLAN.md Task 2, X5)"""
+    reinvented"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "sep01", "callsign": "SEPCARD",
          "origin": "LFPO", "destination": "KJFK", "confirmed_state": "departing"},
@@ -1027,7 +1008,7 @@ def test_phone_card_route_and_state_carry_the_existing_middle_dot(tmp_path):
 def test_raw_iso_survives_only_behind_the_copy_control(tmp_path):
     """the raw ISO timestamp appears only inside a data-copy-value attribute, while the visible
     full timestamp is the Europe/Paris local clock in the .time-value role on both the
-    desktop detail row and the phone card (22-09-PLAN.md Task 2, X5/D-05/C5)"""
+    desktop detail row and the phone card"""
     raw_ts = "2026-08-27T10:00:00+00:00"
     vp.seed_runway_events(tmp_path, [
         {"ts": raw_ts, "hex": "iso01", "callsign": "ISOROW"},
@@ -1050,7 +1031,7 @@ def test_phone_cards_carry_the_airline_name_and_artwork_thumbnail(tmp_path, serv
     """a phone card carries the airline name and, when real artwork exists for it, the Airlines
     gallery's own served frame as a thumbnail joining the shared white-backing/hairline/
     radius rule in a contain-fitted 56px box — and no <img> at all when no artwork file
-    exists (22-09-PLAN.md Task 2, X5)"""
+    exists"""
     from PIL import Image
 
     key = illustrations.normalise_airline_key("Air France")
@@ -1108,7 +1089,7 @@ def test_no_prefix_registry_duplicated_on_history(tmp_path):
 
 def test_flights_french_render_translates_headings_not_data(tmp_path):
     """a French render of Flights shows the French page title, column headers and filter label,
-    while a seeded callsign stays untranslated data (D-05, 20-10-PLAN.md Task 3)"""
+    while a seeded callsign stays untranslated data"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "aaa111", "callsign": "FLT1",
          "airline": "AFR", "origin": "LFPO", "destination": "LFPG",
@@ -1131,7 +1112,7 @@ def test_flights_full_seeded_render_french_end_to_end(tmp_path):
     headers, direction words, the unresolved-airline fallback, the no-callsign note, the
     disclosure summary and the filter's Clear button) with no English leaking in, the seeded
     callsign stays untranslated data, and the identical seeded render under the default
-    language still carries every pre-existing English needle (D-05, 20-10-PLAN.md Task 3)"""
+    language still carries every pre-existing English needle"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "aaa111", "callsign": "FLT1",
          "airline": None, "confirmed_state": "departing", "corroborated": "True"},
@@ -1167,7 +1148,7 @@ def test_flights_full_seeded_render_french_end_to_end(tmp_path):
 def test_flights_catalog_keys_all_present_in_merged_catalog():
     """every key in companion/i18n_fr/flights.py's own CATALOG is also a key of the merged
     companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up
-    (20-10-PLAN.md Task 3)"""
+   """
     import companion.i18n_fr as i18n_fr
     import companion.i18n_fr.flights as i18n_fr_flights
 
@@ -1178,7 +1159,7 @@ def test_flights_catalog_keys_all_present_in_merged_catalog():
 def test_home_page_render_with_seeded_state(tmp_path):
     """home_page.render() with seeded flights, a battery reading and a gallery entry renders
     the hero picture, the battery percentage estimate, escaped recent flights, and the
-    Next-update headline, with .preview-frame before .recent-flight in document order (D-04)"""
+    Next-update headline, with .preview-frame before .recent-flight in document order"""
     now = "2026-08-27T12:00:00+00:00"
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T11:50:00+00:00", "hex": "3c6444", "callsign": "AFR1380",
@@ -1218,7 +1199,7 @@ def test_home_battery_ring_is_the_same_drawing_at_a_smaller_size(tmp_path):
     ring is SMALLER than Health's yet identical to it in radius-over-box and
     stroke-over-box, proving one emitter at two sizes rather than two components; the
     frame verdict still appears exactly once; and a device with no reading draws no ring
-    at all (CFG-40)"""
+    at all"""
     now = "2026-08-27T12:00:00+00:00"
     home_dir = tmp_path / "home"
     blank_dir = tmp_path / "blank"
@@ -1307,7 +1288,7 @@ def test_home_recent_flight_age_is_an_element_reading_exactly_as_before(tmp_path
     """Home's recent-flight relative age is a <time data-relative> element carrying the ROW's
     own instant, reading exactly what it reads today in both languages, with C5's
     .time-value/.cell-inline-sep/.time-value__age split and its parentheses intact
-    (23-03, D14/CFG-34)"""
+    (23-03, D14)"""
     now = "2026-08-27T12:00:00+00:00"
     flight_ts = "2026-08-27T11:50:00+00:00"
     for lang in ("en", "fr"):
@@ -1343,7 +1324,7 @@ def test_home_recent_flight_age_is_an_element_reading_exactly_as_before(tmp_path
 def test_home_rendered_caption_carries_the_element_through_the_template(tmp_path):
     """Home's rendered-picture caption carries concise_timestamp_html()'s <time data-relative>
     element THROUGH its i18n template's own %s — as markup, never double-escaped — with the
-    caption's wording and the age's text unchanged in both languages (23-03, D14/CFG-34)"""
+    caption's wording and the age's text unchanged in both languages (23-03, D14)"""
     now = "2026-08-27T12:00:00+00:00"
     flight_ts = "2026-08-27T11:50:00+00:00"
     gallery_iso = "2026-08-27T11:50:00+00:00"
@@ -1380,7 +1361,7 @@ def test_recent_flight_thumb_resolved_vs_placeholder(tmp_path):
     """a recent-flight row whose airline resolves to a real illustration file renders exactly
     one lazily-loaded /illustration/ thumbnail <img>; a null/unrecognised airline AND an
     airline whose normalised key resolves to no file on disk anywhere (override or
-    vendored) both render the dashed placeholder span with no <img> at all (D-17 fix)"""
+    vendored) both render the dashed placeholder span with no <img> at all (fix)"""
     no_state_dir = str(tmp_path / "absent" / "nested")
     resolved_row = {"callsign": "AFR1380", "airline": "Air France"}
     thumb_resolved = home_page._recent_flight_thumb_html(resolved_row, no_state_dir)
@@ -1405,7 +1386,7 @@ def test_hero_figure_precedes_status_card_with_flight_one_liner_when_known(tmp_p
     """the hero's flight one-liner (callsign in .mono, then airline, then the route) appears
     when the current flight is known and is absent otherwise, and the page reads header ->
     .frame-strip -> .home-status-grid -> .home-picture-row (.preview-frame before
-    .recent-flight inside it) (D-04)"""
+    .recent-flight inside it)"""
     no_state_dir = str(tmp_path / "absent" / "nested")
     hero_ctx = {
         "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
@@ -1443,7 +1424,7 @@ def test_hero_figure_precedes_status_card_with_flight_one_liner_when_known(tmp_p
 def test_home_page_french_render_translates_headings_and_alt_text_not_data(tmp_path):
     """under a French request Home's headings ('Vols récents'/'Voir tous les vols') and a
     thumbnail's alt text translate while the callsign/airline name stay untranslated data
-    (D-05)"""
+    """
     no_state_dir = str(tmp_path / "absent" / "nested")
     ctx = {
         "gallery_entries": [],

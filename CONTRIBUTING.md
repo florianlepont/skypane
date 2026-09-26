@@ -43,8 +43,8 @@ may take a few days, but issues and pull requests are welcome.
   invariants, security invariants, units, or a pointer to a spec.
 - Don't put a plan, ticket, decision, review or phase ID in a comment; that
   history belongs in git and `.planning/`, not the code.
-- `scripts/check_comment_history.py check` enforces this in CI, and its
-  pending list only shrinks — don't add newly purged files back to it.
+- `scripts/check_comment_history.py check` enforces this in CI, scanning
+  every tracked code file.
 
 ## Licence of contributions
 

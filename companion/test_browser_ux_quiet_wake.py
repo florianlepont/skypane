@@ -1,28 +1,11 @@
-"""The quiet-hours dial and wake-interval slider scenario group split out
-of `companion/test_browser_ux.py` (31-03-PLAN.md, D-04) into its own
-standalone harness, converted to native pytest-playwright tests by
-33-20-PLAN.md (TST-11).
+"""Browser checks for the quiet-hours dial and wake-interval slider widget family: the
+quiet-hours dial on the Display settings page and its wake-interval slider sibling on the
+Device settings page.
 
-Covers the complete 25-04/25-05 widget family: D17's quiet-hours dial on
-the Display settings page and its wake-interval slider sibling on the
-Device settings page. These nine checks were D-04's second mandatory
-extraction and RESEARCH.md's rank-2 candidate — the single largest
-fully-contiguous block outside the settings mega-cluster, one coherent
-widget family, three `_in_both_themes()`-style loops.
-
-Every test below drives a real headless Chromium against a real
-`companion/app.py` subprocess, through the guarded `new_context` fixture
-(`companion/conftest.py`), and never constructs or navigates to any URL
-outside `server.base_url()` — a `127.0.0.1:<ephemeral-port>` origin the
-guarded fixture itself created. A missing/unlaunchable Chromium is a hard
-failure under CI / `SKYPANE_REQUIRE_BROWSER=1` (the `browser` fixture
-override in `companion/conftest.py`), never a silent skip.
-
-Every one of the nine checks below drives the quiet-hours dial or the
-wake-interval slider through a real save, so each gets its OWN
-function-scoped `make_app_server(seed=seed_state_dir, fake_providers=True)`
-server — sharing one server across mutating tests would make xdist's
-distribution order-dependent (33-MIGRATION-RULES.md section 2).
+Every check below drives the quiet-hours dial or the wake-interval slider through a real
+save, so each gets its own function-scoped
+`make_app_server(seed=seed_state_dir, fake_providers=True)` server — sharing one server
+across mutating tests would make xdist's distribution order-dependent.
 """
 import json
 import re
@@ -32,12 +15,6 @@ import pytest
 from companion import auth
 from companion.pages import config_page
 from server import device_config
-# 31-03-PLAN.md Task 1: shared constants and helpers live in
-# companion.test_browser_ux_helpers (31-01-PLAN.md Task 3), so this file
-# imports them rather than duplicating them. The quiet-dial decoder
-# cluster and `_handle_sel` were promoted there by plan 01 precisely so
-# this file and the reduced parent can each import one definition
-# instead of duplicating it.
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_MIN_SUPPORTED, _QUIET_READOUT_SELECTOR,
     _assert_hit_target, _assert_js_gate, _assert_no_page_overflow,
@@ -54,10 +31,10 @@ pytestmark = pytest.mark.browser
 
 @pytest.fixture
 def server(make_app_server):
-    """A fresh, function-scoped companion/app.py server for each of the
-    pytest checks below: every one of them drives the quiet-hours dial
-    through a real save, so no two of them may share a server
-    (33-MIGRATION-RULES.md section 2)."""
+    """A fresh, function-scoped companion/app.py server for each of the pytest checks
+    below: every one of them drives the quiet-hours dial through a real save, so no two of
+    them may share a server.
+    """
     return make_app_server(seed=seed_state_dir, fake_providers=True)
 
 
@@ -72,35 +49,18 @@ def _quiet_hours_on_disk(state_dir):
     return (config["quiet_hours_start"], config["quiet_hours_end"])
 
 
-# Set both ends through the real UI and save, so every
-# arrangement this file measures is reached the way a
-# visitor reaches it. Raises on failure.
+# Set both ends through the real UI and save, so every arrangement this file measures is
+# reached the way a visitor reaches it. Raises on failure.
 def _set_window(page, base_url, state_dir, start, end):
-    # 28-10-PLAN.md Task 1 (CFG-77/CFG-78): RETARGETED from
-    # auto-save onto the restored bar — commits reveal the
-    # bar; only a click on its own Save persists. MEASURED,
-    # not assumed: Playwright's own .fill() dispatches
-    # `input` only (its documented contract), never
-    # `change` — the trigger the bar's own document-level
-    # listener needs — so _commit_field() fires the real
-    # event a blur would, on each field, the same way
-    # value-controls.js's own notify() does for a
-    # drag/keyboard interaction.
+    # Commits reveal the bar; only a click on its own Save persists. Playwright's `.fill()`
+    # dispatches `input` only, never `change` (the trigger the bar's document-level listener
+    # needs), so `_commit_field()` fires the real event a blur would, the same way
+    # value-controls.js's own notify() does for a drag/keyboard interaction.
     #
-    # IDEMPOTENT, and now a REAL requirement rather than a
-    # borrowed convenience: under the bar, disk only ever
-    # moves via an explicit Save (never a bare `change`
-    # any more), so a caller's own drag/preset work
-    # in-between two _set_window() calls no longer keeps
-    # disk (and therefore the next fresh load's own
-    # snapshot) drifting on its own — reload here can
-    # genuinely already match the requested (start, end),
-    # and filling both fields with their own current
-    # values fires no DIFFERENCE at all, so the bar never
-    # reveals and _wait_for_bar() below would time out
-    # waiting for one that correctly never comes (the
-    # exact failure mode _set_interval()'s own identical
-    # guard, below, already documents for its own field).
+    # Idempotent: disk only ever moves via an explicit Save, so a reload can genuinely
+    # already match the requested (start, end), and filling both fields with their own
+    # current values fires no difference, so the bar never reveals and _wait_for_bar() below
+    # would time out waiting for one that correctly never comes.
     page.goto(base_url + "/display")
     if _quiet_hours_on_disk(state_dir) == (start, end):
         return
@@ -138,15 +98,14 @@ _SETTLE_DIAL = (
 
 
 def test_the_quiet_window_still_saves_with_scripts_blocked_through_the_dial(new_context, server):
-    """the quiet window still SAVES with scripts blocked through the dial — both
-    ends set natively, submitted through the real form, re-read FROM DISK
-    after a fresh GET and restored the same way, at 360px and in BOTH shipped
-    languages; the gated handle layer has zero height and no keyboard can
-    reach into it with scripts blocked while it occupies space with them; and
-    the server-drawn ARC, the readout, both time inputs, B14's two 24h
-    siblings and the three presets are all present on the scripts-blocked
-    page, asserted after the save so none of them can stand in for it
-    (D-09/CFG-48, 25-04-PLAN.md Task 4)"""
+    """The quiet window still saves with scripts blocked through the dial: both ends set
+    natively, submitted through the real form, re-read from disk after a fresh GET and
+    restored the same way, at 360px and in both shipped languages; the gated handle layer
+    has zero height and no keyboard can reach into it with scripts blocked while it occupies
+    space with them; and the server-drawn arc, the readout, both time inputs, the two 24h
+    siblings and the three presets are all present on the scripts-blocked page, asserted
+    after the save so none of them can stand in for it.
+    """
     base_url = server.base_url()
     before = _quiet_hours_on_disk(server.tmpdir)
 
@@ -156,10 +115,8 @@ def test_the_quiet_window_still_saves_with_scripts_blocked_through_the_dial(new_
     def read_end():
         return _quiet_hours_on_disk(server.tmpdir)[1]
 
-    # BOTH ENDS AND BOTH SHIPPED LANGUAGES. The UI
-    # language is a cookie the first rendered document
-    # already has to honour, and "it saves in English" is
-    # not the D-09 floor.
+    # Both ends and both shipped languages: the UI language is a cookie the first rendered
+    # document already has to honour, and "it saves in English" is not the floor.
     saved = {}
     for lang in ("en", "fr"):
         cookies = [{"name": auth.UI_LANG_COOKIE_NAME,
@@ -184,26 +141,20 @@ def test_the_quiet_window_still_saves_with_scripts_blocked_through_the_dial(new_
                 "%s: %s did not reach disk, it reads %r"
                 % (key, result["field"], result["stored"]))
 
-    # THE GATE, IN BOTH DIRECTIONS. Asserting only the
-    # blocked half passes against a gate stuck shut;
-    # asserting only the enabled half is the "renders and
-    # does nothing" defect. 25-02's helper owns both.
+    # The gate, in both directions: asserting only the blocked half passes against a gate
+    # stuck shut; asserting only the enabled half is the "renders and does nothing" defect.
     gate = _assert_js_gate(
         new_context, base_url, "/display", QUIET_HANDLES_SEL,
         viewport=VIEWPORT_MIN_SUPPORTED)
 
-    # AND THE ARC IS PRESENT IN BOTH — which is what makes
-    # this dial's fallback a FEATURE rather than an
-    # absence. A check that skipped it would let a later
-    # refactor move the whole drawing behind the gate
-    # unnoticed, and nothing else here would object.
+    # The arc is present in both, which is what makes this dial's fallback a feature rather
+    # than an absence: a check that skipped it would let a later refactor move the whole
+    # drawing behind the gate unnoticed.
     with _no_js_page(new_context, base_url, "/display",
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
-        # MEASURED, NOT COUNTED. locator.count() counts
-        # elements in the DOM whatever their box is, so
-        # it passes against an arc moved behind the gate
-        # — the exact refactor this clause exists to
-        # notice. The verdict is the rendered box.
+        # Measured, not counted: locator.count() counts elements in the DOM whatever their
+        # box is, so it would pass against an arc moved behind the gate. The verdict is the
+        # rendered box.
         blocked_arc = page.locator(QUIET_ARC_SEL).count()
         blocked_arc_box = (
             page.locator(QUIET_ARC_SEL).bounding_box()
@@ -245,18 +196,13 @@ def test_the_quiet_window_still_saves_with_scripts_blocked_through_the_dial(new_
 
 
 def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server):
-    """dragging a quiet-hours handle changes its own native <input type="time">,
-    moves the announcement ON THE HANDLE rather than on the wrapper, REVEALS the
-    bar and PERSISTS to disk once Enregistrer is clicked; one ArrowRight
-    moves exactly one stated step and End/Home reach 23:59 and 00:00 with zero
-    pointer events fired and the recorder proving itself; and a preset click moves
-    BOTH handles, which is what proves the two native inputs are the one source
-    of truth (the arc/caption AGREEMENT claim this check used to also carry is
-    superseded by
-    _the_arc_the_handles_and_the_caption_agree_after_an_interaction(), CFG-71,
-    27-02-PLAN.md Task 4) (CFG-48, 25-04-PLAN.md Task 4; retargeted from the
-    retired auto-save onto the restored bar by 28-10-PLAN.md Task 1,
-    CFG-77/CFG-78)"""
+    """Dragging a quiet-hours handle changes its own native <input type="time">, moves the
+    announcement on the handle rather than on the wrapper, reveals the bar and persists to
+    disk once Enregistrer is clicked; one ArrowRight moves exactly one stated step and
+    End/Home reach 23:59 and 00:00 with zero pointer events fired and the recorder proving
+    itself; and a preset click moves both handles, which is what proves the two native
+    inputs are the one source of truth.
+    """
     base_url = server.base_url()
     before = _quiet_hours_on_disk(server.tmpdir)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -266,16 +212,11 @@ def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server
         _login(page, base_url)
         _set_window(page, base_url, server.tmpdir, "23:00", "07:00")
 
-        # 1. THE DRAG. Aimed at six o'clock on the ring,
-        # which is 12:00 — a point this check can compute
-        # without trusting the control's own arithmetic.
-        #
-        # SCROLLED TO THE MIDDLE OF THE VIEWPORT FIRST,
-        # for `_hit_area()`'s own recorded reason: at
-        # 360px this page is long and its tab bar is
-        # fixed to the bottom, so a coordinate gesture
-        # taken wherever the page happened to be scrolled
-        # is a gesture that lands somewhere else.
+        # The drag: aimed at six o'clock on the ring, which is 12:00, a point this check can
+        # compute without trusting the control's own arithmetic. Scrolled to the middle of
+        # the viewport first, since at 360px this page is long and its tab bar is fixed to
+        # the bottom, so a coordinate gesture taken wherever the page happened to be scrolled
+        # would land somewhere else.
         page.eval_on_selector(
             QUIET_DIAL_SEL, "el => el.scrollIntoView({block: 'center'})")
         box = page.evaluate(
@@ -290,10 +231,9 @@ def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server
             _handle_sel("quiet_hours_start"))
         page.mouse.move(grip[0], grip[1])
         page.mouse.down()
-        # The steering script focuses the handle it
-        # captured, so this is the page's own answer to
-        # "did the press reach the control", and it turns
-        # a silent no-op into a named diagnostic.
+        # The steering script focuses the handle it captured, so this is the page's own
+        # answer to "did the press reach the control", turning a silent no-op into a named
+        # diagnostic.
         if not page.evaluate(
                 "sel => document.activeElement"
                 "  === document.querySelector(sel)",
@@ -312,10 +252,9 @@ def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server
                 "dragging the start handle to six o'clock on the ring put %r "
                 "into quiet_hours_start; the bottom of a 24h dial is 12:00"
                 % dragged)
-        # THE ANNOUNCEMENT FOLLOWED THE DRAG, AND IT IS
-        # THE HANDLE THAT CARRIES IT. A wrapper holding
-        # role="slider" while the <button> inside takes
-        # the focus announces the saved value forever.
+        # The announcement follows the drag, and it is the handle that carries it: a
+        # wrapper holding role="slider" while the <button> inside takes the focus would
+        # announce the saved value forever.
         announced = page.get_attribute(
             _handle_sel("quiet_hours_start"), "aria-valuetext")
         if announced != dragged:
@@ -330,17 +269,9 @@ def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server
                 "the wrapper carries aria-valuenow; the element a keyboard "
                 "visitor lands on is the button inside it, and two elements "
                 "announcing one value is how the stale one gets read")
-        # 28-10-PLAN.md Task 1 (CFG-77/CFG-78): RETARGETED
-        # from auto-save onto the restored bar — a control
-        # that changes a value without notify()'s own real
-        # `change` event would lose the edit silently
-        # (value-controls.js's own notify() comment: "the
-        # bubbling notification dirty-state.js's delegated
-        # document-level listener is waiting for" —
-        # unchanged by this plan), so the drag REVEALING
-        # the bar is still the proof the event fired; the
-        # edit only reaches disk once Enregistrer is
-        # clicked.
+        # A control that changes a value without notify()'s own real `change` event would
+        # lose the edit silently, so the drag revealing the bar is the proof the event
+        # fired; the edit only reaches disk once Enregistrer is clicked.
         _wait_for_bar(page)
         _save_via_bar(page)
         recorded["dragged_stored"] = _quiet_hours_on_disk(server.tmpdir)[0]
@@ -352,8 +283,7 @@ def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server
         if page.input_value('input[name="quiet_hours_start"]') != "12:00":
             raise AssertionError("the reloaded page does not show the dragged value")
 
-        # 2. THE KEYBOARD ALONE, with the pointer-free
-        # claim MEASURED rather than promised. One
+        # The keyboard alone, with the pointer-free claim measured rather than promised. One
         # ArrowRight is one step, and the step is stated.
         _set_window(page, base_url, server.tmpdir, "23:00", "07:00")
         keyed = _operate_with_keyboard(
@@ -366,7 +296,7 @@ def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server
                 "step is %d minutes" % (after_key, 15))
         if keyed["pointer_events"]:
             raise AssertionError("a pointer event fired during the keyboard sequence")
-        # HOME AND END REACH THE DAY'S OWN ENDS.
+        # Home and End reach the day's own ends.
         page.keyboard.press("End")
         recorded["after_end"] = page.input_value(
             'input[name="quiet_hours_start"]')
@@ -381,26 +311,12 @@ def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server
             raise AssertionError(
                 "Home put %r into the start field" % (recorded["after_home"],))
 
-        # 3. A PRESET MOVES BOTH HANDLES — the cheapest
-        # available proof that the two native inputs are
-        # the ONE source of truth: the presets write into
-        # those fields and know nothing about this
-        # control. (27-02-PLAN.md Task 4, CFG-71: what
-        # used to live here as sections 3-4 — this
-        # endpoint-only "the handles moved" claim and a
-        # separate "the readout names the window" claim —
-        # is SUPERSEDED by
-        # _the_arc_the_handles_and_the_caption_agree_
-        # after_an_interaction() below, which asserts
-        # agreement across all four surfaces after both a
-        # drag AND a preset, rather than four endpoint
-        # checks that can each be individually right
-        # while the page as a whole lies. This clause
-        # stays, narrowed to what it alone still proves:
-        # a preset is a SILENT script write with no
-        # event of its own, so it is a distinct code path
-        # from a drag and worth its own cheap proof that
-        # both handles still follow it.
+        # A preset moves both handles, the cheapest available proof that the two native
+        # inputs are the one source of truth: the presets write into those fields and know
+        # nothing about this control. A preset is a silent script write with no event of its
+        # own, so it is a distinct code path from a drag and worth its own cheap proof that
+        # both handles still follow it (fuller cross-surface agreement is asserted
+        # separately, below).
         _set_window(page, base_url, server.tmpdir, "12:00", "13:00")
         fractions = page.evaluate(
             "() => [...document.querySelectorAll('[data-value-control]')]"
@@ -421,10 +337,9 @@ def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server
             raise AssertionError(
                 "a preset click moved only one handle: %r -> %r"
                 % (fractions, moved))
-        # RESTORED THROUGH THE SAME UI SEQUENCE, never
-        # a direct write to the state directory — a
-        # harness that changes a real setting is a test
-        # that edits its neighbours' subject.
+        # Restored through the same UI sequence, never a direct write to the state
+        # directory: a harness that changes a real setting is a test that edits its
+        # neighbours' subject.
         _set_window(page, base_url, server.tmpdir, before[0], before[1])
         if _quiet_hours_on_disk(server.tmpdir) != before:
             raise AssertionError(
@@ -432,10 +347,8 @@ def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server
                 % (_quiet_hours_on_disk(server.tmpdir), before))
         _ = recorded
     finally:
-        # Best effort only, and deliberately silent: a
-        # restore that raised here would mask the failure
-        # it is cleaning up after. The happy path asserts
-        # the restore above.
+        # Best effort only, and deliberately silent: a restore that raised here would mask
+        # the failure it is cleaning up after. The happy path asserts the restore above.
         try:
             _set_window(page, base_url, server.tmpdir, before[0], before[1])
         except Exception:
@@ -444,10 +357,9 @@ def test_dragging_and_keying_a_quiet_hours_handle_reach_disk(new_context, server
 
 
 def _quiet_surfaces(page, where):
-    """The four surfaces `_assert_surfaces_agree()` decodes
-    for `page`, closed over the CURRENT `where` label so
-    every raised AssertionError names which path (drag or
-    preset, which theme) produced it.
+    """The four surfaces `_assert_surfaces_agree()` decodes for `page`, closed over the
+    current `where` label so every raised AssertionError names which path (drag or preset,
+    which theme) produced it.
     """
     def native_inputs():
         return (
@@ -471,10 +383,9 @@ def _quiet_surfaces(page, where):
     def caption_text():
         return _quiet_caption_minutes(page, where)
 
-    # An ORDERED mapping, so a disagreement's message lists
-    # the four surfaces in the same order a reader would
-    # look at the card: the fields, then the handles, then
-    # the drawing, then the sentence under it.
+    # An ordered mapping, so a disagreement's message lists the four surfaces in the same
+    # order a reader would look at the card: the fields, then the handles, then the drawing,
+    # then the sentence under it.
     return {
         "the two native <input type=\"time\"> fields": native_inputs,
         "the two handles' aria-valuenow": handles_aria_valuenow,
@@ -484,24 +395,18 @@ def _quiet_surfaces(page, where):
 
 
 def test_the_arc_the_handles_and_the_caption_agree_after_an_interaction(new_context, server):
-    """THE arc/handles/caption agreement check (CFG-62/CFG-71/D-32,
-    27-02-PLAN.md Task 4): in BOTH themes, after dragging the end handle to
-    reach the developer's own recorded window (08:00→18:00) AND, in the
-    same check, after pressing a preset (23:00→07:00, the wrap through
-    midnight) from wherever the drag left it, all FOUR surfaces — the two
-    native <input type="time"> fields, the two handles' aria-valuenow, the
-    arc's RESOLVED geometry (read back through getComputedStyle, not the
-    static attribute), and the caption's own text — decode to the SAME
-    canonical (start_minute, end_minute) pair, which equals what the
-    interaction requested and differs from what was there before; AND, after
-    the same preset click, each B14 twin's own live .hidden property matches
-    this browser's resolved hour12 (CFG-80, 29-04-PLAN.md Task 3, folded into
-    this existing check rather than a new one so the file's own check count
-    did not move for an assertion this worktree had never run); separately, with
-    scripts blocked, the arc still carries both presentation attributes and
-    they still decode to whatever window is actually saved on disk — under
-    auto-save that is the preset's own commit, read fresh rather than assumed
-    (27-04-PLAN.md Task 4, CFG-63)"""
+    """The arc/handles/caption agreement check: in both themes, after dragging the end
+    handle to reach a recorded window (08:00→18:00) and, in the same check, after pressing
+    a preset (23:00→07:00, the wrap through midnight) from wherever the drag left it, all
+    four surfaces — the two native <input type="time"> fields, the two handles'
+    aria-valuenow, the arc's resolved geometry (read back through getComputedStyle, not the
+    static attribute), and the caption's own text — decode to the same canonical
+    (start_minute, end_minute) pair, which equals what the interaction requested and
+    differs from what was there before; and, after the same preset click, each 24h twin's
+    own live .hidden property matches this browser's resolved hour12. Separately, with
+    scripts blocked, the arc still carries both presentation attributes and they still
+    decode to whatever window is actually saved on disk, read fresh rather than assumed.
+    """
     base_url = server.base_url()
     before_on_disk = _quiet_hours_on_disk(server.tmpdir)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -510,40 +415,19 @@ def test_the_arc_the_handles_and_the_caption_agree_after_an_interaction(new_cont
         page = context.new_page()
         _login(page, base_url)
 
-        # A KNOWN, DETERMINISTIC STARTING WINDOW —
-        # 08:00-23:00 — chosen so the drag below only has
-        # to move the END handle to reach the developer's
-        # own recording (08:00-18:00): the start is
-        # already right. _set_window() saves and reloads,
-        # so this is real, on-disk state exactly like
-        # every neighbouring dial check reaches it.
-        #
-        # 27-04-PLAN.md Task 4 (CFG-63): SUPERSEDES this
-        # paragraph's own former "once, before the loop,
-        # not inside it" instruction — that reasoning
-        # depended on "neither the drag nor the preset
-        # below ever clicks Save", which auto-save makes
-        # FALSE: both value-controls.js's own notify()
-        # (the drag) and dirty-state.js's preset handler
-        # now fire a real `change` that saves to disk
-        # immediately, same as every other committing
-        # interaction in this app. So the baseline is
-        # reset INSIDE the loop instead, once per theme,
-        # or the second iteration would start from
-        # whatever the FIRST iteration's own preset left
-        # on disk (23:00-07:00) rather than the known
-        # 08:00-23:00 this check's own arithmetic assumes.
+        # A known, deterministic starting window (08:00-23:00), chosen so the drag below
+        # only has to move the end handle to reach the recorded target (08:00-18:00).
+        # _set_window() saves and reloads, so this is real on-disk state. The baseline is
+        # reset inside the loop, once per theme, since both the drag and the preset handler
+        # commit to disk immediately, so a second iteration would otherwise start from
+        # whatever the first iteration's own preset left on disk.
         for theme in UI_THEMES_EXPLICIT:
             _set_window(page, base_url, server.tmpdir, "08:00", "23:00")
             _set_ui_theme(page, theme)
 
-            # 1. THE DRAG PATH. Aimed at nine o'clock on the
-            # ring, which is 18:00 — the same
-            # scroll-into-view-first, box-relative aiming
-            # test_dragging_and_keying_a_quiet_hours_handle_reach_disk()
-            # above already uses and for the same reason
-            # (the page is long and its tab bar is fixed to
-            # the bottom at this viewport).
+            # The drag path, aimed at nine o'clock on the ring, which is 18:00, using the
+            # same scroll-into-view-first, box-relative aiming as the sibling drag/keyboard
+            # check above, for the same reason.
             page.eval_on_selector(
                 QUIET_DIAL_SEL, "el => el.scrollIntoView({block: 'center'})")
             box = page.evaluate(
@@ -585,13 +469,9 @@ def test_the_arc_the_handles_and_the_caption_agree_after_an_interaction(new_cont
                 "%s theme, drag path" % theme)
             recorded["%s/drag" % theme] = agreed_drag
 
-            # 2. THE PRESET PATH, from wherever the drag
-            # above left the pair. Both paths were reported
-            # working for the handles and broken for the
-            # arc, so both belong to the SAME agreement
-            # assertion — two separate checks would
-            # re-create the very split this phase exists to
-            # close.
+            # The preset path, from wherever the drag above left the pair. Both paths
+            # belong to the same agreement assertion; two separate checks would re-create
+            # the split this check exists to close.
             page.locator('[data-preset-start="23:00"]').click()
             requested_preset = (23 * 60, 7 * 60)
             agreed_preset = _assert_surfaces_agree(
@@ -600,21 +480,11 @@ def test_the_arc_the_handles_and_the_caption_agree_after_an_interaction(new_cont
                 "%s theme, preset path" % theme)
             recorded["%s/preset" % theme] = agreed_preset
 
-            # 29-04-PLAN.md Task 3 (CFG-80), added to
-            # THIS existing check rather than as a new
-            # one — folded in per the plan's own
-            # instruction not to move this file's own
-            # check count for an assertion nobody in this
-            # worktree could verify at the time (playwright
-            # was not installed there). A FIFTH surface,
-            # after the same preset click the four above just
-            # agreed on: each twin's OWN visibility must
-            # match the browser's own resolved hour
-            # cycle — hidden when it is unambiguously
-            # 24h, visible otherwise — read from the
-            # live DOM's `.hidden` property, never from
-            # the served HTML (which is a SEPARATE,
-            # runnable proof in test_config_page.py).
+            # A fifth surface, after the same preset click the four above just agreed on:
+            # each twin's own visibility must match the browser's own resolved hour cycle
+            # (hidden when it is unambiguously 24h, visible otherwise), read from the live
+            # DOM's `.hidden` property, never from the served HTML (a separate, runnable
+            # proof in test_config_page.py).
             resolved_hour12 = page.evaluate(
                 "() => { try { return new Intl.DateTimeFormat("
                 "undefined, {hour: 'numeric'})"
@@ -637,19 +507,10 @@ def test_the_arc_the_handles_and_the_caption_agree_after_an_interaction(new_cont
             recorded["%s/twin_visibility" % theme] = (
                 resolved_hour12, expect_hidden)
 
-        # 3. THE SCRIPTS-BLOCKED HALF. 27-04-PLAN.md
-        # (CFG-63): SUPERSEDES this paragraph's own former
-        # claim that neither interaction above reaches
-        # disk — under auto-save, the PRESET path's own
-        # commit is the last thing either loop iteration
-        # does, so disk now holds whatever that preset
-        # last wrote (23:00-07:00), not the 08:00-23:00
-        # baseline. `saved` below is read FRESH, right
-        # here, so it already reflects that correctly —
-        # only this comment's account was stale. A FRESH,
-        # scripts-blocked load must still draw whatever
-        # window is actually saved, from the presentation
-        # attributes alone.
+        # The scripts-blocked half: the preset path's own commit is the last thing either
+        # loop iteration does, so disk holds whatever that preset last wrote. `saved` is
+        # read fresh, right here. A fresh, scripts-blocked load must still draw whatever
+        # window is actually saved, from the presentation attributes alone.
         saved = _quiet_hours_on_disk(server.tmpdir)
         saved_minutes = (
             config_page.quiet_window_minute_of_day(saved[0]),
@@ -674,8 +535,7 @@ def test_the_arc_the_handles_and_the_caption_agree_after_an_interaction(new_cont
                 "must stay authoritative for the saved value with no script "
                 "running at all" % (static_minutes, saved_minutes, saved))
 
-        # RESTORED THROUGH THE SAME UI SEQUENCE, never a
-        # direct write to the state directory.
+        # Restored through the same UI sequence, never a direct write to the state directory.
         _set_window(page, base_url, server.tmpdir, before_on_disk[0], before_on_disk[1])
         if _quiet_hours_on_disk(server.tmpdir) != before_on_disk:
             raise AssertionError(
@@ -691,22 +551,18 @@ def test_the_arc_the_handles_and_the_caption_agree_after_an_interaction(new_cont
 
 
 def test_the_dial_caption_keeps_its_form_after_every_interaction_kind(new_context, server):
-    """the dial caption keeps the SAME FORM the server emits at load after EACH
-    of a drag, a keyboard step, a typed field edit and a preset click (CFG-73
-    Bug A, 28-03-PLAN.md Task 3): after every one, the caption's two "HH:MM"
-    tokens decode to what the interaction requested, its duration segment is
-    NON-EMPTY and equals the wrapped-difference computation worded from the
-    page's own layout.DURATION_ATTRS (never a hardcoded unit literal), and the
-    whole caption's structural shape (separators, spacing, token order)
-    matches the server-rendered reference captured before any interaction — in
-    BOTH shipped languages, with the preset step crossing midnight"""
-    # 28-03-PLAN.md Task 3 (CFG-73 Bug A): the developer's
-    # own report was that the caption reverts to a raw,
-    # blank-duration form after EVERY interaction, not
-    # just a drag — so this check drives all FOUR kinds
-    # (drag, keyboard, typed field edit, preset), in this
-    # order, on the SAME page, and reads the caption's
-    # ACTUAL DISPLAYED TEXT after each one.
+    """The dial caption keeps the same form the server emits at load after each of a drag,
+    a keyboard step, a typed field edit and a preset click: after every one, the caption's
+    two "HH:MM" tokens decode to what the interaction requested, its duration segment is
+    non-empty and equals the wrapped-difference computation worded from the page's own
+    layout.DURATION_ATTRS (never a hardcoded unit literal), and the whole caption's
+    structural shape (separators, spacing, token order) matches the server-rendered
+    reference captured before any interaction — in both shipped languages, with the preset
+    step crossing midnight.
+    """
+    # This check drives all four interaction kinds (drag, keyboard, typed field edit,
+    # preset), in this order, on the same page, and reads the caption's actual displayed
+    # text after each one.
     base_url = server.base_url()
     before = _quiet_hours_on_disk(server.tmpdir)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -718,18 +574,13 @@ def test_the_dial_caption_keeps_its_form_after_every_interaction_kind(new_contex
             context.add_cookies([{
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
                 "url": base_url}])
-            # A KNOWN, DETERMINISTIC STARTING WINDOW,
-            # reset EVERY language pass for the identical
-            # reason 27-02-PLAN.md Task 4's own agreement
-            # check resets inside its loop: auto-save
-            # means the second language pass would
-            # otherwise start from whatever the FIRST
-            # pass's own preset left on disk.
+            # A known, deterministic starting window, reset every language pass since each
+            # committing interaction would otherwise leave the second pass starting from
+            # whatever the first pass's own preset left on disk.
             _set_window(page, base_url, server.tmpdir, "08:00", "23:00")
 
-            # THE REFERENCE SHAPE — captured from the
-            # server-rendered page, BEFORE any
-            # interaction, on THIS language pass.
+            # The reference shape, captured from the server-rendered page, before any
+            # interaction, on this language pass.
             reference_text = page.locator(
                 _QUIET_READOUT_SELECTOR).text_content()
             reference_shape = _quiet_caption_shape(reference_text)
@@ -803,8 +654,7 @@ def test_the_dial_caption_keeps_its_form_after_every_interaction_kind(new_contex
             if problem:
                 raise AssertionError(problem)
 
-            # 2. KEYBOARD: one ArrowRight on the START
-            # handle — QUIET_DIAL_HANDLE_STEP is 15
+            # Keyboard: one ArrowRight on the start handle — QUIET_DIAL_HANDLE_STEP is 15
             # minutes.
             _operate_with_keyboard(
                 page, _handle_sel("quiet_hours_start"), ["ArrowRight"])
@@ -813,8 +663,7 @@ def test_the_dial_caption_keeps_its_form_after_every_interaction_kind(new_contex
             if problem:
                 raise AssertionError(problem)
 
-            # 3. TYPED FIELD EDIT: the `.fill()` shape,
-            # committed the same way `_set_window()`
+            # Typed field edit: the `.fill()` shape, committed the same way `_set_window()`
             # commits each field.
             page.fill('input[name="quiet_hours_end"]', "19:00")
             _commit_field(page, 'input[name="quiet_hours_end"]')
@@ -823,12 +672,9 @@ def test_the_dial_caption_keeps_its_form_after_every_interaction_kind(new_contex
             if problem:
                 raise AssertionError(problem)
 
-            # 4. PRESET CLICK — a silent script write
-            # with no event of its own, and the ONE
-            # interaction kind here that crosses
-            # midnight (23:00 -> 07:00), so the wrapped-
-            # difference duration computation is
-            # genuinely exercised, not merely stated.
+            # Preset click: a silent script write with no event of its own, and the one
+            # interaction kind here that crosses midnight (23:00 -> 07:00), so the
+            # wrapped-difference duration computation is genuinely exercised.
             page.locator('[data-preset-start="23:00"]').click()
             requested_preset = (23 * 60, 7 * 60)
             problem = _assert_after(requested_preset, "preset click")
@@ -850,18 +696,17 @@ def test_the_dial_caption_keeps_its_form_after_every_interaction_kind(new_contex
 
 
 def test_the_dial_meets_its_floors_at_360px_in_both_themes(new_context, server):
-    """the quiet dial meets its floors at 360px — BOTH handles clear the 44px
-    touch target by real hit-testing in THEIR OWN container with the window's
-    ends far apart AND close together, with the overlapping case measured and
-    its document-order z-rule confirmed (the end handle grabbable, the start
-    handle still focusable); the drawing measures its emitter's own declared size by
-    getBoundingClientRect rather than clientWidth, computes display:block, is
-    centred in its card and captioned by a centred readout with no top margin;
-    the four anchor hours each sit on their own axis; the page does not scroll
-    sideways; and the paint is a FLOOR not a ceiling — the day and the window
-    are different colours, the labels that orient it are weaker than it is, the grip
-    has an edge, and every one of the five
-    differs between the two themes (CFG-48/CFG-52, 25-04-PLAN.md Task 4)"""
+    """The quiet dial meets its floors at 360px: both handles clear the 44px touch target
+    by real hit-testing in their own container with the window's ends far apart and close
+    together, with the overlapping case measured and its document-order z-rule confirmed
+    (the end handle grabbable, the start handle still focusable); the drawing measures its
+    emitter's own declared size by getBoundingClientRect rather than clientWidth, computes
+    display:block, is centred in its card and captioned by a centred readout with no top
+    margin; the four anchor hours each sit on their own axis; the page does not scroll
+    sideways; and the paint is a floor not a ceiling — the day and the window are different
+    colours, the labels that orient it are weaker than it is, the grip has an edge, and
+    every one of the five differs between the two themes.
+    """
     base_url = server.base_url()
     before = _quiet_hours_on_disk(server.tmpdir)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -870,29 +715,15 @@ def test_the_dial_meets_its_floors_at_360px_in_both_themes(new_context, server):
         page = context.new_page()
         _login(page, base_url)
 
-        # 1. THE HIT TARGETS, IN THIS CONTROL'S OWN
-        # CONTAINER. A class-level measurement is worth
-        # nothing here: 25-02 measured `.copy-btn`'s
-        # declared 44x44 at a real 34x26 because its
-        # neighbours covered the ::before that synthesises
-        # it. Two windows: ends far apart (the control)
-        # and ends close together (the real test).
-        # WHY "CLOSE" IS FOUR HOURS AND NOT FIFTEEN
-        # MINUTES, stated rather than tuned: two 44px
-        # targets on ONE ring cannot both clear the floor
-        # at every separation, and that is geometry, not
-        # a defect to fix. Each target is a 46px box, so
-        # neither may intrude within 22px of the other's
-        # centre — which needs about 45px between the two
-        # centres on one axis, and in the worst (45°)
-        # orientation that is 45*sqrt(2) of chord. On
-        # this 176px ring (radius 78) that is about 3h12;
-        # on the 128px ring this control started as it
-        # was about 4h49, which is what moved the size.
-        # Four hours is inside the reachable band with
-        # room to spare and is a window a person really
-        # sets. The genuinely overlapping case is
-        # measured below, and answered by a decision.
+        # The hit targets, in this control's own container. A class-level measurement is
+        # worth nothing here: a declared 44x44 can resolve much smaller once neighbours
+        # cover the pseudo-element that synthesises it. Two windows: ends far apart (the
+        # control) and ends close together (the real test). Four hours apart is used for
+        # "close" rather than fifteen minutes, since two 44px targets on one ring cannot
+        # both clear the floor at every separation (that is geometry, not a defect), and
+        # four hours is inside the reachable band with room to spare and is a window a
+        # person really sets. The genuinely overlapping case is measured below, and
+        # answered by a decision.
         for label, (start, end) in (("far", ("23:00", "07:00")),
                                     ("close", ("23:00", "03:00"))):
             _set_window(page, base_url, server.tmpdir, start, end)
@@ -904,20 +735,12 @@ def test_the_dial_meets_its_floors_at_360px_in_both_themes(new_context, server):
                 recorded["%s/%s" % (label, field)] = (
                     seen["visual"], seen["hit"], seen["reach"])
 
-        # AND THE OVERLAP CASE, RECORDED RATHER THAN
-        # ASSERTED AWAY. There is deliberately no minimum
-        # separation in the VALUE — a zero-length window
-        # is a real, defined state that
-        # server.device_config's own arithmetic calls
-        # never-active, and refusing it here would make a
-        # state reachable by typing unreachable by
-        # dragging. What happens instead is a decision:
-        # z-order is DOCUMENT order, the end handle is
-        # emitted second, so the END handle wins a
-        # pointer-down in the overlap. That is sufficient
-        # rather than arbitrary — moving either end
-        # separates the pair, and the start handle stays
-        # its own tab stop whatever it is painted under.
+        # The overlap case, recorded rather than asserted away: there is deliberately no
+        # minimum separation in the value, since refusing one here would make a state
+        # reachable by typing unreachable by dragging. Z-order is document order, the end
+        # handle is emitted second, so it wins a pointer-down in the overlap; moving either
+        # end separates the pair, and the start handle stays its own tab stop whatever it
+        # is painted under.
         _set_window(page, base_url, server.tmpdir, "23:00", "23:15")
         overlap = _assert_hit_target(
             page, _handle_sel("quiet_hours_end"),
@@ -943,11 +766,8 @@ def test_the_dial_meets_its_floors_at_360px_in_both_themes(new_context, server):
                 "focus — the stated escape from an overlap is that it stays "
                 "its own tab stop whatever it is painted under")
 
-        # 2. THE GEOMETRY, MEASURED WITH
-        # getBoundingClientRect AND NOT clientWidth.
-        # clientWidth rounds to an integer and can fail a
-        # correct drawing; this control's own card carries
-        # no scale, but the rule is the file's.
+        # The geometry, measured with getBoundingClientRect and not clientWidth: clientWidth
+        # rounds to an integer and can fail a correct drawing.
         _set_window(page, base_url, server.tmpdir, "23:00", "07:00")
         geometry = page.evaluate(
             "args => {"
@@ -1021,11 +841,9 @@ def test_the_dial_meets_its_floors_at_360px_in_both_themes(new_context, server):
                 % (geometry["readoutTextCentre"],
                    geometry["readoutBoxCentre"]))
 
-        # 3. THE FOUR ANCHOR HOURS ARE WHERE THEY CLAIM TO
-        # BE. Each is placed by its own edge and then
-        # pulled back by half of itself; dropping either
-        # half puts a numeral off its own axis, which no
-        # string assertion can see.
+        # The four anchor hours are where they claim to be. Each is placed by its own edge
+        # and then pulled back by half of itself; dropping either half puts a numeral off
+        # its own axis, which no string assertion can see.
         for hour, (want_dx, want_dy) in (
                 ("0", (0, -1)), ("6", (1, 0)),
                 ("12", (0, 1)), ("18", (-1, 0))):
@@ -1049,9 +867,7 @@ def test_the_dial_meets_its_floors_at_360px_in_both_themes(new_context, server):
                     "centred on — the half-of-itself pull-back is not being "
                     "applied" % (hour, across))
 
-        # 4. NO SIDEWAYS PAGE SCROLL at the narrowest
-        # supported screen. 24-02's helper, not a second
-        # convention about what "the page" means.
+        # No sideways page scroll at the narrowest supported screen.
         message = _assert_no_page_overflow(
             page, "the quiet dial on /display",
             VIEWPORT_MIN_SUPPORTED["width"])
@@ -1061,11 +877,9 @@ def test_the_dial_meets_its_floors_at_360px_in_both_themes(new_context, server):
             "() => [document.documentElement.scrollWidth,"
             "       document.documentElement.clientWidth]")
 
-        # 5. THE PAINT, IN BOTH THEMES, AS A FLOOR AND NOT
-        # ONLY A CEILING. "Not the SVG default" passes
-        # against a ring where the day and the window are
-        # the same flat grey; the floor is that they are
-        # two different paints and that each differs
+        # The paint, in both themes, as a floor and not only a ceiling: "not the SVG
+        # default" passes against a ring where the day and the window are the same flat
+        # grey, so the floor is that they are two different paints and that each differs
         # between the themes.
         samples = {
             "day": (".quiet-dial__day", "stroke"),
@@ -1149,24 +963,16 @@ def _gauge_texts(page):
             page.locator(WAKE_BATTERY_SEL).inner_text())
 
 
-# Set the interval through the real UI and save, so every
-# arrangement measured below is reached the way a visitor
-# reaches it. Raises on failure.
+# Set the interval through the real UI and save, so every arrangement measured below is
+# reached the way a visitor reaches it. Raises on failure.
 def _set_interval(page, base_url, state_dir, seconds):
-    # 28-10-PLAN.md Task 1 (CFG-77/CFG-78): RETARGETED from
-    # auto-save onto the restored bar — commits reveal the
-    # bar; only a click on its own Save persists. MEASURED,
-    # not assumed: Playwright's own .fill() dispatches
-    # `input` only (its documented contract), never
-    # `change` — the trigger the bar's own document-level
-    # listener needs — so _commit_field() fires the real
-    # event a blur would.
+    # Commits reveal the bar; only a click on its own Save persists. Playwright's `.fill()`
+    # dispatches `input` only, never `change` (the trigger the bar's document-level listener
+    # needs), so `_commit_field()` fires the real event a blur would.
     #
-    # IDEMPOTENT, still not a mere convenience: "set it to
-    # what it already is" fires no `change` at all (the
-    # value never differs), so the bar never reveals and
-    # _wait_for_bar() below would time out waiting for a
-    # reveal that correctly never comes.
+    # Idempotent: "set it to what it already is" fires no `change` at all, so the bar never
+    # reveals and _wait_for_bar() below would time out waiting for a reveal that correctly
+    # never comes.
     page.goto(base_url + "/device")
     if _wake_interval_on_disk(state_dir) == seconds:
         return
@@ -1189,24 +995,18 @@ _DAYS_FIGURE_RE = re.compile(r"\d+\s*(?:day|jour)", re.I)
 
 
 def test_the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press(new_context, server):
-    """THE handle-stays-on-its-ring check (CFG-73 Bug B, 28-02-PLAN.md Task 2):
-    holding the quiet-hours start handle down with no drag samples its
-    resolved distance from the dial's own centre at least 10 times across at
-    least 400ms — long enough to cover the measured 90-150ms collapse — and
-    asserts EVERY sample stays within a stated tolerance of the dial's own
-    --quiet-dial-radius (read from rendered geometry, never hardcoded), naming
-    the worst sample's distance and index on failure; the control's reported
-    value is asserted IDENTICAL before mouse.down() and after mouse.up() (a
-    press is not a drag); a final post-release sample is asserted on the ring
-    too, with the source recording that this is the ONE state the pre-fix
-    code already got right and therefore not sufficient alone; and the whole
-    check runs in BOTH themes at the 360px floor"""
-    # A PRESS, NOT A DRAG: the pointer never moves after
-    # mouse.down(), so the value the control reports must be
-    # byte-identical before and after — a fix that ever gets
-    # "helped along" by suppressing the handle's pointer
-    # handling would fail this clause even while passing the
-    # geometry one.
+    """The handle stays on its ring check: holding the quiet-hours start handle down with
+    no drag samples its resolved distance from the dial's own centre at least 10 times
+    across at least 400ms (long enough to cover the measured 90-150ms collapse), and
+    asserts every sample stays within a stated tolerance of the dial's own
+    --quiet-dial-radius (read from rendered geometry, never hardcoded), naming the worst
+    sample's distance and index on failure; the control's reported value is asserted
+    identical before mouse.down() and after mouse.up() (a press is not a drag); a final
+    post-release sample is asserted on the ring too; and the whole check runs in both
+    themes at the 360px floor.
+    """
+    # A press, not a drag: the pointer never moves after mouse.down(), so the value the
+    # control reports must be byte-identical before and after.
     base_url = server.base_url()
     before_on_disk = _quiet_hours_on_disk(server.tmpdir)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -1214,20 +1014,10 @@ def test_the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press(new_con
     try:
         page = context.new_page()
         _login(page, base_url)
-        # Set ONCE, outside the loop — unlike the
-        # neighbouring drag/preset checks, a plain
-        # press-and-hold with no drag changes NOTHING
-        # (that is this check's own value-identity
-        # clause below), so calling _set_window() again
-        # inside the loop with the SAME values would ask
-        # the app to "save" a value it already holds;
-        # dirty-state.js's own countDifferences() would
-        # read zero, the bar would never reveal itself,
-        # and _wait_for_bar() would time out waiting for a
-        # reveal that correctly never comes — 28-10-PLAN.md
-        # Task 1 (CFG-77/CFG-78): the identical reason
-        # _set_window() itself now guards on this, measured
-        # live, not guessed.
+        # Set once, outside the loop: a plain press-and-hold with no drag changes nothing
+        # (this check's own value-identity clause below), so calling _set_window() again
+        # inside the loop with the same values would ask the app to "save" a value it
+        # already holds, and the bar would never reveal itself.
         _set_window(page, base_url, server.tmpdir, "23:00", "07:00")
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
@@ -1254,20 +1044,12 @@ def test_the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press(new_con
                     "did not reach the steering script — nothing below sampled "
                     "a held press" % (theme, grip))
 
-            # THE SAMPLE, taken while the button is STILL
-            # DOWN. One page.evaluate, one rAF loop, so the
-            # whole window is sampled with no Python-side
-            # round trip resetting the clock between
-            # frames (a round trip here would widen the
-            # very gaps a frame-timed bug hides in). >=
-            # 400ms because the measured collapse completes
-            # by 90-150ms and the recovery lands ~200ms
-            # after release — a shorter window would
-            # reproduce the exact blind spot this check
-            # exists to close. The ring radius is read
-            # from --quiet-dial-radius, the SAME custom
-            # property the handle's own transform reads,
-            # never hardcoded as 78.
+            # The sample, taken while the button is still down: one page.evaluate, one rAF
+            # loop, so the whole window is sampled with no Python-side round trip resetting
+            # the clock between frames. At least 400ms because the measured collapse
+            # completes by 90-150ms and the recovery lands ~200ms after release. The ring
+            # radius is read from --quiet-dial-radius, the same custom property the
+            # handle's own transform reads, never hardcoded.
             sampled = page.evaluate(
                 "async (args) => {"
                 "  const handle = document.querySelector(args.handleSel);"
@@ -1318,13 +1100,9 @@ def test_the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press(new_con
             after_value = page.input_value(
                 'input[name="quiet_hours_start"]')
 
-            # ONE FINAL SAMPLE, after release — the
-            # recovery state, which is the ONLY state
-            # today's broken code already gets right and
-            # therefore the one that must not be mistaken
-            # for the whole proof: a check that only read
-            # this would pass against the exact bug this
-            # check exists to catch.
+            # One final sample, after release: the recovery state, the only state today's
+            # broken code already gets right and therefore the one that must not be
+            # mistaken for the whole proof.
             released = page.evaluate(
                 "args => {"
                 "  const handle = document.querySelector(args.handleSel);"
@@ -1408,17 +1186,16 @@ def test_the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press(new_con
 
 
 def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(new_context, server):
-    """the wake interval still SAVES with scripts blocked beside the slider —
-    typed natively, submitted through the real form, re-read FROM DISK after a
-    fresh GET and restored the same way, at 360px and in BOTH shipped
-    languages; the gated range has zero height and no keyboard can reach into
-    it with scripts blocked while it occupies space with them; both gauges are
-    MEASURED (not counted) present on the scripts-blocked page, asserted after
-    the save so neither can stand in for it; and the out-of-range trap is
-    re-proven end to end — with 30 s on disk the number input carries NO value
-    attribute, no range and no gauge render at all, and the whole Settings
-    form still saves a corrected value (D-09/CFG-49/T-25-05-B, 25-05-PLAN.md
-    Task 3)"""
+    """The wake interval still saves with scripts blocked beside the slider: typed
+    natively, submitted through the real form, re-read from disk after a fresh GET and
+    restored the same way, at 360px and in both shipped languages; the gated range has
+    zero height and no keyboard can reach into it with scripts blocked while it occupies
+    space with them; both gauges are measured (not counted) present on the scripts-blocked
+    page, asserted after the save so neither can stand in for it; and the out-of-range trap
+    is re-proven end to end: with 30 s on disk the number input carries no value attribute,
+    no range and no gauge render at all, and the whole Settings form still saves a
+    corrected value.
+    """
     base_url = server.base_url()
     before = _wake_interval_on_disk(server.tmpdir)
     recorded = {}
@@ -1426,10 +1203,8 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
     def read_back():
         return _wake_interval_on_disk(server.tmpdir)
 
-    # 1. IT STILL REACHES DISK WITH SCRIPTS BLOCKED, at
-    #    360px and in BOTH shipped languages. The gauges
-    #    are asserted present only AFTER the save, so
-    #    they can never stand in for it.
+    # It still reaches disk with scripts blocked, at 360px and in both shipped languages.
+    # The gauges are asserted present only after the save, so they can never stand in for it.
     saved = {}
     for lang in ("en", "fr"):
         cookies = [{"name": auth.UI_LANG_COOKIE_NAME,
@@ -1452,22 +1227,16 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
             "%r — a harness that changes a real setting is a test that edits "
             "its neighbours' subject" % (_wake_interval_on_disk(server.tmpdir), before))
 
-    # 2. THE GATE, IN BOTH DIRECTIONS. Asserting only the
-    #    blocked half passes against a gate stuck shut;
-    #    asserting only the enabled half is the "renders
-    #    and does nothing" defect.
+    # The gate, in both directions: asserting only the blocked half passes against a gate
+    # stuck shut; asserting only the enabled half is the "renders and does nothing" defect.
     gate = _assert_js_gate(
         new_context, base_url, "/device", WAKE_SLIDER_SEL,
         viewport=VIEWPORT_MIN_SUPPORTED)
     recorded["gate"] = gate
 
-    # 3. AND BOTH GAUGES ARE THERE WITHOUT A SCRIPT —
-    #    which is what makes this card's fallback a
-    #    feature rather than an absence. MEASURED, not
-    #    counted: locator.count() counts elements
-    #    whatever their box is, so it passes against a
-    #    gauge moved behind the gate, which is the exact
-    #    refactor this clause exists to notice.
+    # Both gauges are there without a script, which is what makes this card's fallback a
+    # feature rather than an absence. Measured, not counted: locator.count() counts
+    # elements whatever their box is, so it would pass against a gauge moved behind the gate.
     with _no_js_page(new_context, base_url, "/device",
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         boxes = {}
@@ -1567,18 +1336,16 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
 
 
 def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
-    """dragging the wake-interval range moves the native <input type="number">
-    the form posts, moves BOTH gauge sentences with it, REVEALS the bar and
-    PERSISTS to disk once Enregistrer is clicked — with the script's own
-    wording asserted EQUAL to the server's for the same two cadences, so the
-    script provably carries no copy of its own; one ArrowRight moves exactly
-    one stated step and End/Home reach device_config's own ceiling and floor
-    with zero pointer events fired and the recorder proving itself; typing into
-    the number input moves the range back; and at no position — dragged, keyed,
-    at the floor or at the ceiling — does the battery gauge produce a days
-    figure from this fixture's RISING series (CFG-49/CFG-52/T-25-05-C,
-    25-05-PLAN.md Task 3; retargeted from the retired auto-save onto the
-    restored bar by 28-10-PLAN.md Task 1, CFG-77/CFG-78)"""
+    """Dragging the wake-interval range moves the native <input type="number"> the form
+    posts, moves both gauge sentences with it, reveals the bar and persists to disk once
+    Enregistrer is clicked, with the script's own wording asserted equal to the server's
+    for the same two cadences, so the script provably carries no copy of its own; one
+    ArrowRight moves exactly one stated step and End/Home reach device_config's own
+    ceiling and floor with zero pointer events fired and the recorder proving itself;
+    typing into the number input moves the range back; and at no position, dragged, keyed,
+    at the floor or at the ceiling, does the battery gauge produce a days figure from this
+    fixture's rising series.
+    """
     base_url = server.base_url()
     before = _wake_interval_on_disk(server.tmpdir)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -1591,24 +1358,16 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
         started = _gauge_texts(page)
         recorded["at_600"] = started
 
-        # 1. THE DRAG. Aimed at a point well along the
-        #    track rather than at a value computed from
-        #    the thumb geometry: a native range maps its
-        #    value across (width - thumbWidth), which is
-        #    an engine detail this check has no business
-        #    predicting. What it asserts is what the plan
-        #    asks — that the number input and BOTH gauge
-        #    sentences moved together, and that what the
-        #    script rendered is what the SERVER would
-        #    have rendered for the same value.
+        # The drag: aimed at a point well along the track rather than at a value computed
+        # from the thumb geometry, since a native range maps its value across (width -
+        # thumbWidth), an engine detail this check has no business predicting. What it
+        # asserts is that the number input and both gauge sentences moved together, and
+        # that what the script rendered is what the server would have rendered for the
+        # same value.
         #
-        #    Scrolled to the middle of the viewport
-        #    first, for _hit_area()'s own recorded
-        #    reason: at 360px this page is long and its
-        #    tab bar is fixed to the bottom, so a
-        #    coordinate gesture taken wherever the page
-        #    happened to be scrolled lands somewhere
-        #    else.
+        # Scrolled to the middle of the viewport first: at 360px this page is long and its
+        # tab bar is fixed to the bottom, so a coordinate gesture taken wherever the page
+        # happened to be scrolled would land somewhere else.
         page.eval_on_selector(
             WAKE_SLIDER_SEL, "el => el.scrollIntoView({block: 'center'})")
         box = page.evaluate(
@@ -1642,11 +1401,9 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
             raise AssertionError(
                 "the battery gauge still reads %r after the value moved from "
                 "600 to %s" % (moved[1], dragged))
-        # WHAT THE SCRIPT SAYS IS WHAT THE SERVER WOULD
-        # HAVE SAID. The relative clause has exactly one
-        # definition in Python, and this is what makes
-        # "the script carries no copy of its own" a
-        # measurement rather than a claim.
+        # What the script says is what the server would have said: the relative clause has
+        # exactly one definition in Python, which is what makes "the script carries no copy
+        # of its own" a measurement rather than a claim.
         expected_clause = config_page.wake_battery_relative_text(dragged_s, 600)
         recorded["expected_clause"] = expected_clause
         if not expected_clause or expected_clause not in moved[1]:
@@ -1658,23 +1415,17 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
             raise AssertionError(
                 "the freshness gauge reads %r; the server's own wording for %s "
                 "seconds is %r" % (moved[0], dragged, expected_bound))
-        # THE HONESTY CLAUSE, IN THE BROWSER. This
-        # fixture's battery series is RISING (the device
-        # was charged), so companion/battery.py refuses a
-        # figure — and no drag position may produce one.
+        # The honesty clause, in the browser: this fixture's battery series is rising (the
+        # device was charged), so companion/battery.py refuses a figure, and no drag
+        # position may produce one.
         if _DAYS_FIGURE_RE.search(moved[1]):
             raise AssertionError(
                 "the battery gauge produced a days figure (%r) from a rising "
                 "series — the per-wake energy cost has never been measured and "
                 "the script has no template that could state one" % moved[1])
-        # 28-10-PLAN.md Task 1 (CFG-77/CFG-78): RETARGETED
-        # — see the identical comment on the quiet-hours
-        # dial's own drag check: value-controls.js's
-        # notify() is the same real `change` event the
-        # bar's own document-level listener reacts to, so
-        # the drag REVEALING the bar is still the proof
-        # the event fired; the edit only reaches disk once
-        # Enregistrer is clicked.
+        # value-controls.js's notify() is the same real `change` event the bar's own
+        # document-level listener reacts to, so the drag revealing the bar is the proof
+        # the event fired; the edit only reaches disk once Enregistrer is clicked.
         _wait_for_bar(page)
         _save_via_bar(page)
         recorded["dragged_stored"] = _wake_interval_on_disk(server.tmpdir)
@@ -1686,11 +1437,8 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
         if page.input_value(WAKE_NUMBER_SEL) != dragged:
             raise AssertionError("the reloaded page does not show the dragged value")
 
-        # 2. THE KEYBOARD ALONE, with the pointer-free
-        #    claim MEASURED rather than promised. One
-        #    ArrowRight is one stated step — and the
-        #    model is the one 25-04's dial recorded,
-        #    inherited rather than re-decided.
+        # The keyboard alone, with the pointer-free claim measured rather than promised.
+        # One ArrowRight is one stated step.
         _set_interval(page, base_url, server.tmpdir, 600)
         keyed = _operate_with_keyboard(
             page, WAKE_RANGE_SEL, ["ArrowRight"])
@@ -1723,8 +1471,7 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
                 "Home put %r into the field; the band's floor is %d"
                 % (recorded["after_home"], device_config.WAKE_INTERVAL_MIN_S))
         recorded["at_min"] = _gauge_texts(page)
-        # THE FLOOR AND THE CEILING BOTH READ TRUE, and
-        # neither produces a days figure.
+        # The floor and the ceiling both read true, and neither produces a days figure.
         for where, texts, seconds in (
                 ("the band's floor", recorded["at_min"],
                  device_config.WAKE_INTERVAL_MIN_S),
@@ -1740,9 +1487,8 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
                     "at %s the battery gauge produced a days figure: %r"
                     % (where, texts[1]))
 
-        # 3. TYPING IN THE NUMBER INPUT MOVES THE RANGE,
-        #    which is the direction a repaint has to
-        #    cover and the one a drag test is blind to.
+        # Typing in the number input moves the range, the direction a repaint has to cover
+        # and the one a drag test is blind to.
         _set_interval(page, base_url, server.tmpdir, 600)
         page.fill(WAKE_NUMBER_SEL, "1800")
         page.eval_on_selector(
@@ -1755,8 +1501,7 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
                 "slider would then show a value that is no longer there while "
                 "the field beside it shows the real one"
                 % (recorded["range_after_typing"],))
-        # RESTORED THROUGH THE SAME UI SEQUENCE, never a
-        # direct write to the state directory.
+        # Restored through the same UI sequence, never a direct write to the state directory.
         _set_interval(page, base_url, server.tmpdir, before)
         if _wake_interval_on_disk(server.tmpdir) != before:
             raise AssertionError(
@@ -1764,9 +1509,8 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
                 % (_wake_interval_on_disk(server.tmpdir), before))
         _ = recorded
     finally:
-        # Best effort only, and deliberately silent: a
-        # restore that raised here would mask the failure
-        # it is cleaning up after.
+        # Best effort only, and deliberately silent: a restore that raised here would mask
+        # the failure it is cleaning up after.
         try:
             _set_interval(page, base_url, server.tmpdir, before)
         except Exception:
@@ -1775,16 +1519,15 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
 
 
 def test_the_wake_slider_meets_its_floors_at_360px_in_both_themes(new_context, server):
-    """the wake-interval slider meets its floors at 360px — its hit area clears
-    the 44px target by real hit-testing in ITS OWN container (never inherited
-    from a class), it measures wider than the number input it steers and no
-    wider than the card holding it by getBoundingClientRect rather than
-    clientWidth, its wrapper keeps a real top margin off the field's own row,
-    the Device page does not scroll sideways at that width (its own baseline,
-    not the Display page's), and the paint is a FLOOR not a ceiling: both gauge
-    sentences and the control's own accent and surface all differ between the
-    two themes and neither sentence is painted in the canvas colour
-    (CFG-49/CFG-52, 25-05-PLAN.md Task 3)"""
+    """The wake-interval slider meets its floors at 360px: its hit area clears the 44px
+    target by real hit-testing in its own container (never inherited from a class), it
+    measures wider than the number input it steers and no wider than the card holding it
+    by getBoundingClientRect rather than clientWidth, its wrapper keeps a real top margin
+    off the field's own row, the Device page does not scroll sideways at that width (its
+    own baseline, not the Display page's), and the paint is a floor not a ceiling: both
+    gauge sentences and the control's own accent and surface all differ between the two
+    themes and neither sentence is painted in the canvas colour.
+    """
     base_url = server.base_url()
     before = _wake_interval_on_disk(server.tmpdir)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -1794,19 +1537,14 @@ def test_the_wake_slider_meets_its_floors_at_360px_in_both_themes(new_context, s
         _login(page, base_url)
         page.goto(base_url + "/device")
 
-        # 1. THE HIT TARGET, IN THIS CONTROL'S OWN
-        #    CONTAINER. A class-level measurement is
-        #    worth nothing: 25-02 measured `.copy-btn`'s
-        #    declared 44x44 at a real 34x26 because its
-        #    neighbours covered the ::before that
-        #    synthesises it.
+        # The hit target, in this control's own container: a class-level measurement is
+        # worth nothing here, since a declared box can resolve much smaller once
+        # neighbours cover the pseudo-element that synthesises it.
         recorded["hit"] = _assert_hit_target(
             page, WAKE_RANGE_SEL, "the wake-interval slider on /device")
 
-        # 2. THE GEOMETRY, by getBoundingClientRect and
-        #    never clientWidth — which rounds to an
-        #    integer and can fail a correct drawing
-        #    (54.41 in a "53.00" box).
+        # The geometry, by getBoundingClientRect and never clientWidth, which rounds to an
+        # integer and can fail a correct drawing.
         measured = page.evaluate(
             "sels => {"
             "  const el = document.querySelector(sels.range);"
@@ -1867,26 +1605,15 @@ def test_the_wake_slider_meets_its_floors_at_360px_in_both_themes(new_context, s
                 "control is the most likely cause and this is its own page's "
                 "baseline, not the Display page's" % (width_at_360,))
 
-        # 3. THE PAINT, IN BOTH THEMES, AND AS A FLOOR
-        #    RATHER THAN A CEILING. A gauge is only a
-        #    gauge if it can be read: both sentences and
-        #    the control's own accent have to change with
-        #    the theme, or one of the two modes is
-        #    showing ink on ink.
-        # THE THEME SWITCH STARTS A TRANSITION, AND THE
-        # READ HAS TO WAIT FOR THE BROWSER'S OWN "it has
-        # finished" SIGNAL RATHER THAN A GUESSED INSTANT.
-        # The global `input, select` rule declares
-        # `transition: background-color .15s ease`, so a
-        # getComputedStyle taken straight after the
-        # attribute flip reads an INTERPOLATION FRAME —
-        # measured here: the range's surface reported the
-        # LIGHT value in both themes and this check
-        # failed, claiming a token that does not invert
-        # when it does. 25-03 lost a paint measurement to
-        # exactly this and fixed it the same way. Never a
-        # timer: an element with nothing running returns
-        # an empty list and resolves at once.
+        # The paint, in both themes, as a floor rather than a ceiling: a gauge is only a
+        # gauge if it can be read, so both sentences and the control's own accent have to
+        # change with the theme, or one of the two modes is showing ink on ink.
+        #
+        # The theme switch starts a transition, and the read has to wait for the browser's
+        # own "it has finished" signal rather than a guessed instant: a getComputedStyle
+        # taken straight after the attribute flip can read an interpolation frame and
+        # report a token as not inverting when it does. Never a timer: an element with
+        # nothing running returns an empty list and resolves at once.
         _SETTLE_SLIDER = (
             "async () => {"
             "  const els = [...document.querySelectorAll("

@@ -51,11 +51,9 @@ CONFIG_ESP_HTTP_CLIENT_ENABLE_CUSTOM_TRANSPORT=y
 # headroom (upstream: FlightPortrait README "Building").
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=12288
 
-# FlightPortrait project settings. Kept as-is from upstream for this
-# plan even though main/Kconfig.projbuild (which defines the CONFIG_FP_*
-# namespace, including the panel pin map) is not introduced until plan
-# 01-05 - see VENDOR.md. Do not hand-edit the pin values here; the EE02
-# profile that overrides them is a separate, later overlay file.
+# FlightPortrait project settings, kept as upstream defaults; the EE02
+# profile (sdkconfig.ee02.defaults) overrides them with Unit B's own
+# values. Do not hand-edit the pin values here -- that keeps Unit A reproducible.
 CONFIG_FP_HW_REV="proto-e1004"
 CONFIG_FP_PIN_EPD_SCK=7
 CONFIG_FP_PIN_EPD_MOSI=9
@@ -71,9 +69,9 @@ CONFIG_FP_PIN_KEY2=5
 CONFIG_FP_REPROVISION_HOLD_MS=2000
 CONFIG_FP_FACTORY_RESET_HOLD_MS=10000
 
-# Phase 1 implements no BLE provisioning - hardcoded credentials in a
+# This build implements no BLE provisioning - hardcoded credentials in a
 # gitignored secrets.h replace it for a device that talks only to a
 # local stub. Carrying the BLE/NimBLE stack would inflate the image for
-# no Phase 1 behaviour.
+# no benefit here.
 CONFIG_BT_ENABLED=n
 CONFIG_BT_NIMBLE_ENABLED=n

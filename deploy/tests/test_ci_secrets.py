@@ -1,5 +1,5 @@
-"""deploy/tests/test_ci_secrets.py — no secret spliced into a run: script
-(SEC-07, D-20), plus the offline systemd-analyze CI gate (SEC-06).
+"""deploy/tests/test_ci_secrets.py -- no secret spliced into a run: script,
+plus the offline systemd-analyze CI gate.
 
 Deliberately no PyYAML dependency (stdlib-only, matching this project's
 discipline): a small text scanner is enough to find every `run:` block in

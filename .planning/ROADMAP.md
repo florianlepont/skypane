@@ -1721,7 +1721,7 @@ Plans:
 3. English-only rule written in CLAUDE.md and CONTRIBUTING.md
 4. Suite green with no behaviour change
 
-**Plans:** 13/22 plans executed
+**Plans:** 22/22 plans complete, plus 35-21b (a dangling closing plan with no PLAN.md of its own)
 
 **Execution gates:** G-33 — 35-01 stops unless Phase 33 is complete on `main` and no test reads source files or comments. G-34 — 35-21 (firmware, last purge wave) stops unless 34-11 is complete on `main`. One writer per file per wave. Each group proves "no behaviour change" with a mechanical `same-code` check against its base, plus the full suite and ruff, and records the per-file comment ratio before and after.
 
@@ -1740,15 +1740,15 @@ Plans:
 - [x] 35-11-PLAN.md — Wave 5 — companion layout.py and draw.py (HYG-01)
 - [x] 35-12-PLAN.md — Wave 5 — companion airlines/home pages, pages/__init__.py, i18n_fr comments only (HYG-01)
 - [x] 35-13-PLAN.md — Wave 6 — HYG-05 dead code (re-checked on main) + close group 4 (HYG-05, HYG-01)
-- [ ] 35-14-PLAN.md — Wave 7 — companion browser test family (HYG-01)
-- [ ] 35-15-PLAN.md — Wave 7 — companion status_pages and view_pages tests (HYG-01)
-- [ ] 35-16-PLAN.md — Wave 7 — companion config_page/companion_app/other tests, companion conftest, test-support (HYG-01)
-- [ ] 35-17-PLAN.md — Wave 8 — close group 5 (companion tests)
-- [ ] 35-18-PLAN.md — Wave 9 — group 6 companion static JS purge and close (HYG-02)
-- [ ] 35-19-PLAN.md — Wave 10 — group 7 style.css purge by section, shipped size raw/gzip before/after (HYG-02)
-- [ ] 35-20-PLAN.md — Wave 11 — group 8 deploy/, scripts/, .github/, root config, adsb-test/, hardware/ (HYG-03, HYG-01)
-- [ ] 35-21-PLAN.md — Wave 12 — group 9 firmware behind gate G-34; SPDX/Apache headers and VENDOR.md provenance kept (HYG-03)
-- [ ] 35-22-PLAN.md — Wave 13 — phase close: ratchet removed, mutation proof on the final tree, final 35-COMMENT-RATIO.md (HYG-01..06)
+- [x] 35-14-PLAN.md — Wave 7 — companion browser test family (HYG-01)
+- [x] 35-15-PLAN.md — Wave 7 — companion status_pages and view_pages tests (HYG-01)
+- [x] 35-16-PLAN.md — Wave 7 — companion config_page/companion_app/other tests, companion conftest, test-support (HYG-01)
+- [x] 35-17-PLAN.md — Wave 8 — close group 5 (companion tests)
+- [x] 35-18-PLAN.md — Wave 9 — group 6 companion static JS purge and close (HYG-02)
+- [x] 35-19-PLAN.md — Wave 10 — group 7 style.css purge by section, shipped size raw/gzip before/after (HYG-02)
+- [x] 35-20-PLAN.md — Wave 11 — group 8 deploy/, scripts/, .github/, root config, adsb-test/, hardware/ (HYG-03, HYG-01)
+- [x] 35-21-PLAN.md — Wave 12 — group 9 firmware behind gate G-34; SPDX/Apache headers and VENDOR.md provenance kept (HYG-03)
+- [x] 35-22-PLAN.md — Wave 13 — phase close: ratchet removed, mutation proof on the final tree, final 35-COMMENT-RATIO.md (HYG-01..06)
 
 ### Phase 36: State integrity and device protocol
 

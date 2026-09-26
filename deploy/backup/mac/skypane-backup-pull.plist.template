@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  SkyPane off-box backup pull LaunchAgent (SEC-04, D-04). Installed by
+  SkyPane off-box backup pull LaunchAgent. Installed by
   install-launchagent.sh, which substitutes @SCRIPT_PATH@/@LOG_PATH@ with
   absolute paths (plist values are never tilde-expanded by launchd).
 

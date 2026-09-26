@@ -1,15 +1,10 @@
 """Shared seeding/render helpers for the `companion/test_view_pages*.py`
-migration chain (33-05..33-08). Not a test module itself — `__test__ =
-False` keeps pytest from ever collecting it directly, and
-`companion/test_suite_guards.py`'s G9 rule enforces that this marker is
-present.
+test family. Not a test module itself — `__test__ = False` keeps pytest
+from ever collecting it directly.
 
-The original `companion/test_view_pages.py`'s subprocess-lifecycle
-plumbing (its own harness class, HTTP client and non-redirect-following
-opener) is deliberately NOT ported here: migrated tests get a real
-`companion/app.py` server (when they need one at all) from
-`companion/conftest.py`'s `app_server` / `module_app_server_factory`
-fixtures instead.
+Tests get a real `companion/app.py` server (when they need one at all)
+from `companion/conftest.py`'s `app_server` / `module_app_server_factory`
+fixtures.
 """
 import os
 import re
@@ -55,12 +50,10 @@ def row_block(rendered, tag, group_index):
 
 def detail_row_block(rendered, index):
     """The inner markup slice of the sibling detail `<tr>` for row
-    `index` (a raw string, not a `Node`) — several 33-06+ checks need a
-    plain substring/`in` test over the row's own markup (e.g. "this
-    value appears in the detail row and NOT in the summary row"), which
-    a parsed `Node` has no equivalent for. `None` if no such row exists.
-    This still operates on RENDERED text (a production function's
-    return value), never on a file opened from disk.
+    `index` (a raw string, not a `Node`) — several checks need a plain
+    substring/`in` test over the row's own markup (e.g. "this value
+    appears in the detail row and NOT in the summary row"), which a
+    parsed `Node` has no equivalent for. `None` if no such row exists.
     """
     match = re.search(
         r'<tr class="flight-detail-row" id="flight-detail-%d"[^>]*>(.*?)</tr>' % index,

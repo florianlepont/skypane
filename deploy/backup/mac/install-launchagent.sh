@@ -1,9 +1,9 @@
 #!/bin/sh
-# SkyPane Mac-side backup pull installer (SEC-04, D-04, D-21). Installs
+# SkyPane Mac-side backup pull installer. Installs
 # the pull script, its config file, and a launchd LaunchAgent that runs
 # it nightly at 09:30 local time (skypane-backup-pull.plist.template).
 # Run once per Mac, by hand, after the VPS-side skypane-backup user/key
-# already exist (Plan 37-07's provision.sh, a human checkpoint).
+# already exist (provision.sh, a human checkpoint).
 #
 # Usage:
 #   install-launchagent.sh <user@host> <private-key-path> [destination]
@@ -73,7 +73,7 @@ UID_NUM=$(id -u)
 
 # Re-installing over an already-loaded agent: bootout first so bootstrap
 # does not fail with "already loaded". A first-time install has nothing
-# to boot out - that failure is the one tolerated case (CP-9).
+# to boot out -- that failure is the one tolerated case.
 launchctl bootout "gui/$UID_NUM/com.skypane.backup-pull" 2>/dev/null || true
 launchctl bootstrap "gui/$UID_NUM" "$PLIST_PATH"
 

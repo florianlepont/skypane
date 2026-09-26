@@ -1,244 +1,66 @@
 /*
  * SkyPane companion service — value-controls.js.
  *
- * CFG-46 (25-01-PLAN.md Task 1). Phase 25's ONE new static script, and
- * the only one it is allowed. Its subject is a control that steers a
- * CONTINUOUS VALUE: a handle you drag or arrow, over a track or around
- * a dial, whose whole job is to put a number into a native form input
- * the server already renders and the form already posts.
- *
- * Two consumers are coming — 25-04's 24 h quiet-hours dial and 25-05's
- * wake-interval slider — and they are ONE behaviour, not two: clamp a
- * number into a stated range and step, write it into a named input,
- * wake the save bar. Two scripts would have been two copies of one
- * clamp/round/keyboard model, drifting the first time either was
- * touched. They differ here only in the attributes their markup
- * carries.
- *
- * --- THIS FILE CREATES NO CONTROL, AND TODAY IT HAS NO SUBJECT -------
- *
- * There is no markup anywhere in this app carrying the wrapper
- * attribute below. That is deliberate and it is the state every script
- * here is in on fifteen of its sixteen pages: served everywhere,
- * inert until its subject appears, no-op via its own guard. What this
- * file gives 25-04 and 25-05 is the plumbing, so each of them adds
- * markup and a check rather than a script, a route, a shell
- * registration and a pin move.
- *
- * --- THE FLOOR IS STRUCTURAL, AND IT IS NOT NEGOTIABLE --------------
- *
- * D-09 (22-CONTEXT.md:133-135) is a locked decision. Every value this
- * file can change is held by a native <input> the SERVER renders on
- * every render, with its own min/max/step and its own form association.
- * Delete this file and every one of those inputs still renders, still
- * validates, still posts and still saves. Specifically:
- *
- *   1. This file never holds a value. There is exactly one assignment
- *      to a .value in it — writeValue(), the single write helper — and
- *      every read of the control's current state is a read of the
- *      native input the form posts. There is no parallel state anywhere
- *      here: no map keyed by element, no cached number, nothing to fall
- *      out of step.
- *
- *      25-05 gave that helper a SECOND call site and it is worth being
- *      precise about why it is not a second source of truth. A wrapper
- *      may declare a MIRROR — another native control holding the same
- *      value and posting nothing at all (a range input with no name).
- *      The mirror is written only inside paint(), from the value just
- *      read back off the field, so it is strictly downstream: the field
- *      is what the form posts, what this file reads, and what the
- *      server rendered. The mirror can no more disagree with it than a
- *      painted handle position can.
- *   2. This file never renders an affordance. An affordance that cannot
- *      work without script lives inside companion/static/style.css's
- *      .js-gated wrapper, which HIDES by default and reveals under
- *      .js — so with scripts blocked the handle is not merely
- *      invisible, it is out of the layout and out of the tab order.
- *   3. This file writes no copy. aria-valuetext is filled from a
- *      SERVER-RENDERED, already-translated template on the wrapper; if
- *      no template is there, no aria-valuetext is written at all and
- *      the numeric aria-valuenow stands alone. The same rule governs
- *      25-05's READOUTS — the sentences beside a control that restate
- *      what its value MEANS: the wording is a translated template the
- *      server put in an attribute, and this file substitutes one number
- *      into it and writes nothing else. A French reader can therefore
- *      never be dropped into English by touching a control.
- *
- *      THE HONESTY COROLLARY, because this is the one place it could be
- *      quietly lost. 25-05's battery gauge prints an absolute
- *      "days left" figure only when the device's OWN observed history
- *      supports one, and that sentence is rendered by the server,
- *      OUTSIDE every readout, and never touched here. What a readout
- *      holds is a statement about the two CADENCES, which is arithmetic
- *      on the value itself. If the server declined to state a figure,
- *      nothing in this file can invent one — not by policy, but because
- *      no template here contains one.
- *
- * --- HOW THE SAVE BAR IS WOKEN, AND WHY IT IS THIS WAY --------------
- *
- * A control that changes a value without waking the save bar is a
- * control that silently loses the user's edit, so this is the part of
- * this file with the most care spent on it.
- *
- * companion/static/dirty-state.js's own quiet-hours preset handler
- * reaches its bar by calling a PRIVATE notifyDirty(), which is a
- * closure inside that file's IIFE and is unreachable from here. The
- * question this plan had to answer was therefore: move the control
- * into dirty-state.js, or notify across the file boundary?
- *
- * ANSWER: notify across the boundary, because a public surface for
- * exactly this already exists and is already load-bearing.
- * dirty-state.js registers DELEGATED document-level change and
- * input listeners, filtered to e.target.form === form — that
- * delegation is 22-01's own fix for the B1 defect, and it is what makes
- * every form=-attached settings field (which is what all of them are)
- * reach the bar at all. A bubbling change dispatched on the input
- * this file wrote is therefore indistinguishable, to dirty-state.js,
- * from a user typing in that input — which is precisely the semantics
- * wanted. dirty-state.js needs no change of any kind, and its private
- * preset path keeps working exactly as it does today.
- *
- * The alternative — moving a dial and a slider into dirty-state.js —
- * would have put two page-specific controls inside the file that owns
- * the app's unsaved-edits guard, which is the last file in this tree
- * that should grow a feature.
- *
- * A harness pins both ends of this: the event name constructed in BOTH
- * branches below, and dirty-state.js's listener for it, together with
- * that listener's e.target.form filter.
- *
- * --- CONSTRAINTS THIS FILE MUST KEEP -------------------------------
- *
- * No build step, no bundler, no framework, no dependency, and an
- * ES5-safe subset throughout (no arrow functions, no block-scoped
- * declarations, no template literals) so no transpiler is ever needed.
- * Unlike three of its siblings it claims NO reviewed exception: no
- * network call, no timer, no navigation, and no HTML-writing sink of
- * any kind. It writes attributes, one custom property, one input value
- * through one helper, and the text of readouts whose wording the server
- * wrote — and nothing else.
- *
- * It is served by companion/app.py's VALUE_CONTROLS_SCRIPT_ROUTE and
- * registered once on the authenticated shell by companion/layout.py's
- * page_shell(), because its two consumers already live on two
- * different settings pages and the set is expected to grow.
+ * Drives continuous-value controls (a dial or slider steering a native
+ * form input the server already renders): clamps a number into a
+ * stated range/step, writes it into the named input, wakes the save
+ * bar, paints the handle. Inert until a page carries a
+ * [data-value-control] wrapper; no build step, ES5-safe subset. Served
+ * by companion/app.py's VALUE_CONTROLS_SCRIPT_ROUTE.
  */
 (function () {
   "use strict";
 
-  // The registration seam. Every one of these is defined on the Python
-  // side too (companion/layout.py's VALUE_CONTROL_* constants) and a
-  // harness asserts the served body names them, so a rename on either
-  // side alone fails rather than producing a control that renders and
-  // steers nothing.
-  //
-  // The wrapper. Carries the whole contract; nothing outside a wrapper
-  // is ever touched by this file.
+  // Registration seam: every attribute below is also defined on the
+  // Python side (companion/layout.py's VALUE_CONTROL_* constants).
+  // Nothing outside a [data-value-control] wrapper is ever touched.
   var WRAPPER_ATTR = "data-value-control";
-  // The name of the native input this control writes into. The input
-  // itself is server-rendered, unconditionally, with its own min/max.
+  // Name of the native input this control writes into (server-rendered
+  // with its own min/max).
   var FIELD_ATTR = "data-value-field";
-  // The id of the <form> that input belongs to. Needed because this
-  // app's settings groups deliberately attach ACROSS the DOM via a
-  // form= attribute (a <form> can never nest inside another <form>), so
-  // walking up from the wrapper would miss the field. Absent, the
-  // nearest ancestor <form> is used instead.
+  // id of the <form> the field belongs to, since settings groups attach
+  // across the DOM via a form= attribute rather than nesting; falls
+  // back to the nearest ancestor <form>.
   var FORM_ATTR = "data-value-form";
   var MIN_ATTR = "data-value-min";
   var MAX_ATTR = "data-value-max";
   var STEP_ATTR = "data-value-step";
-  // The grabbable element, and the element whose box (or circle) the
-  // pointer position is measured against.
+  // The grabbable element, and the element the pointer position is
+  // measured against.
   var HANDLE_ATTR = "data-value-handle";
   var TRACK_ATTR = "data-value-track";
-  // "angular" for a dial, anything else (including absent) for a
-  // left-to-right track. Compared inline rather than held in a named
-  // ALL_CAPS constant, for the reason quick-switch.js's own state
-  // values document: a bare lowercase word in a named JS constant is
-  // what this project's translation scanner reads as untranslated
-  // user-facing copy, and this is a geometry mode, not copy.
+  // "angular" for a dial, anything else for a left-to-right track.
   var GEOMETRY_ATTR = "data-value-geometry";
-  // The SERVER-RENDERED, already-translated aria-valuetext template.
-  // The token below is replaced with the number. No template, no
-  // aria-valuetext — never an English sentence invented here.
+  // Server-rendered, already-translated aria-valuetext template; the
+  // token below is replaced with the number. No template, no
+  // aria-valuetext.
   var TEXT_ATTR = "data-value-text";
-  // "#" and not "{}": these templates reach the browser as attribute
-  // values on a rendered page, and companion/test_i18n.py scans every
-  // French render for a stray "%s"/"%d"/"{}" — the real failure mode
-  // of a mistyped catalogue key. Corrected in place by 25-04 when the
-  // first consumer of this seam tripped that check. companion/
-  // layout.py's RELATIVE_QUANTITY_MARK already records the reasoning.
+  // "#" rather than "{}", since companion/test_i18n.py scans every
+  // French render for a stray "%s"/"%d"/"{}" as a mistyped catalogue key.
   var TEXT_TOKEN = "#";
-  // The CODEC between the NUMBER this file steers and the TEXT the
-  // native input holds — 25-04-PLAN.md Task 3 (CFG-48), and the second
-  // of exactly two places this file's consumers differ (the first is
-  // GEOMETRY_ATTR above).
-  //
-  // WHY IT HAD TO EXIST. 25-04's dial steers the two native
-  // <input type="time"> fields the quiet-hours form already posts, and
-  // a time input holds "HH:MM" and silently DISCARDS anything else.
-  // Writing a minute count straight into one would empty the field the
-  // form posts, on the first arrow press, with no error anywhere — the
-  // "changes a value and loses the edit" failure this file's own header
-  // spends its longest paragraph on. The alternative (a hidden numeric
-  // input beside the visible time input) was refused by 25-04's plan
-  // outright: the time inputs stay visible AND stay what the form
-  // posts, because typing 23:00 beats dragging to it and they are the
-  // only controls on that card a visitor can type into at all.
-  //
-  // Compared inline against a bare lowercase word rather than held in a
-  // named ALL_CAPS constant, for the reason GEOMETRY_ATTR's own comment
-  // records: a bare lowercase word in a named JS constant is what this
-  // project's translation scanner reads as untranslated user-facing
-  // copy, and a value FORMAT is not copy.
+  // Codec between the number this file steers and the text a native
+  // <input type="time"> holds (which stores "HH:MM" and discards
+  // anything else). Without this, an arrow press would empty the field
+  // the form posts.
   var FORMAT_ATTR = "data-value-format";
-  // THE MIRROR — 25-05-PLAN.md Task 2 (CFG-49/CFG-52), and the third
-  // and last way this file's consumers differ from one another.
-  //
-  // A NATIVE control inside the wrapper holding the same value as the
-  // field and posting NOTHING (25-05's <input type="range"> carries no
-  // "name" attribute, so it cannot submit and can never become a second
-  // source of truth). It is not a second value: it is repainted FROM
-  // the field on every paint, and the field is the only thing read back.
-  //
-  // A WRAPPER WITH A MIRROR TAKES NO GESTURES FROM THIS FILE AT ALL.
-  // The three listeners at the bottom stand aside for it, and that is
-  // load-bearing rather than tidy: preventDefault() on a pointerdown
-  // over a native range CANCELS the browser's own thumb drag, and a
-  // keydown that both prevents the default and steps the value moves
-  // the control twice per arrow press. A native range already has this
-  // file's exact keyboard model, its own aria-valuenow and its own
-  // touch handling; the job here is to SYNC, never to steer.
+  // A native control inside the wrapper mirroring the field's value and
+  // posting nothing (no name attribute). Repainted from the field on
+  // every paint; a wrapper with a mirror takes no gestures from this
+  // file at all, since a native range already has its own keyboard
+  // model and drag handling — the job here is to sync, not steer.
   var INPUT_ATTR = "data-value-input";
-  // THE READOUTS — an element whose whole text is a sentence ABOUT the
-  // value. Found by the FIELD's name rather than by containment,
-  // because a readout is deliberately NOT inside the wrapper: the
-  // wrapper is gated (it cannot work without script) and the readouts
-  // are not (they have to be correct with scripts blocked).
-  //
-  // The sentence is a SERVER-RENDERED, already-translated template with
-  // TEXT_TOKEN standing in for the number, exactly like the
-  // aria-valuetext template above and for the identical reason: this
-  // file writes no copy. It substitutes one number and nothing else.
-  //
-  // AND IT CAN NEVER BECOME BRAVER THAN THE SERVER WAS. This is the one
-  // place the honesty rule of 25-05's battery gauge could be quietly
-  // lost, so it is stated here: the sentence that carries an absolute
-  // battery figure is rendered by the SERVER, outside every readout,
-  // and is never touched by this file. What a readout holds is only
-  // ever a statement about the two CADENCES — arithmetic on the value
-  // itself. If the server declined to print a days figure (because this
-  // device's observed history does not support one), nothing here can
-  // invent it, because nothing here has a template containing one.
+  // An element whose text is a sentence about the value, found by field
+  // name rather than containment (a readout must render correctly with
+  // scripts blocked, so it lives outside the gated wrapper). The
+  // sentence is a server-rendered, translated template with TEXT_TOKEN
+  // standing in for the number.
   var READOUT_ATTR = "data-value-readout";
   var READOUT_TEXT_ATTR = "data-value-readout-text";
   var READOUT_SCALE_ATTR = "data-value-readout-scale";
   var READOUT_BASE_ATTR = "data-value-readout-base";
-  // 28-03-PLAN.md Task 1/2 (CFG-73 Bug A): a READOUT-SCOPED clock-format
-  // signal, mirroring FORMAT_ATTR above. A readout is found by field
-  // NAME, never by wrapper containment (see READOUT_ATTR's own comment
-  // above), so the wrapper's own FORMAT_ATTR is invisible from here —
-  // this restates the identical "clock" signal on the readout itself.
+  // Readout-scoped clock-format signal, mirroring FORMAT_ATTR (a
+  // readout is found by field name, not wrapper containment, so it
+  // cannot see the wrapper's own FORMAT_ATTR).
   var READOUT_FORMAT_ATTR = "data-value-readout-format";
   var MINUTES_PER_HOUR = 60;
   var HOURS_PER_DAY = 24;
@@ -246,65 +68,39 @@
   var SECONDS_PER_MINUTE = 60;
   var CLOCK_RE = /^(\d{1,2}):(\d{2})$/;
 
-  // 28-03-PLAN.md Task 1's own four duration-attribute names
-  // (layout.DURATION_ATTRS), in the SAME s/m/h/d order —
-  // _age_bucket()'s own unit-letter order, matched one-for-one against
-  // DURATION_BOUNDARY_SECONDS below. Literal strings, exactly like every
-  // other server-chosen attribute name this file reads (READOUT_ATTR,
-  // FORMAT_ATTR, ...) — companion/test_companion_app.py pins these four
-  // present in this file's own source, the same way relative-time.js's
-  // ticker attributes are pinned present in that file.
+  // companion/layout.py's DURATION_ATTRS, in the same s/m/h/d order as
+  // DURATION_BOUNDARY_SECONDS below; companion/test_companion_app.py
+  // pins these four present in this file's source.
   var DURATION_ATTRS = [
     "data-duration-s",
     "data-duration-m",
     "data-duration-h",
     "data-duration-d",
   ];
-  // _age_bucket()'s own three boundaries, in SECONDS: 60 / 3600 / 86400.
-  // Never a second ladder — these are the same three numbers
-  // layout._age_bucket() is built from, compared here in the SAME unit
-  // (seconds) rather than a second unit that happens to agree today.
+  // layout._age_bucket()'s own three boundaries, in seconds.
   var DURATION_BOUNDARY_SECONDS = [60, 3600, 86400];
 
   // The painted position, as a 0..1 fraction, handed to the stylesheet
-  // as a custom property so every bit of geometry stays in the CSS.
+  // as a custom property so all geometry stays in CSS.
   var FRACTION_PROPERTY = "--value-fraction";
 
-  // THE PAIR SEAM — 27-02-PLAN.md Task 1 (CFG-62). Every wrapper above
-  // models ONE value; an arc and a caption sentence are functions of
-  // BOTH ends of a window, and until this seam existed there was no
-  // element in this file's model for a pair to live on at all — two
-  // handles could each be independently correct while nothing was a
-  // function of the two of them together, which is exactly how a
-  // correct pair of fields shipped a lying arc.
-  //
-  // PAIR_ATTR marks the shared ancestor two wrappers publish onto. Its
-  // OWN VALUE is the name of the DERIVED SWEEP property this file
-  // writes there once both members have published — not a fixed
-  // constant, because the sweep's name is a server decision like every
-  // other property name this file only ever reads, never invents.
-  //
-  // PAIR_PROPERTY_ATTR, on a wrapper, names which of the ancestor's
-  // properties is THAT wrapper's own fraction. A wrapper carrying
-  // neither attribute is untouched by any of this — the pair seam is
-  // strictly additive over the fraction write above.
+  // Pair seam: an arc/caption that is a function of both ends of a
+  // window. PAIR_ATTR marks the shared ancestor two wrappers publish
+  // onto; its value is the name of the derived sweep property written
+  // there once both members have published. PAIR_PROPERTY_ATTR, on a
+  // wrapper, names which ancestor property is that wrapper's own
+  // fraction. A wrapper with neither attribute is untouched by any of
+  // this.
   var PAIR_ATTR = "data-value-pair";
   var PAIR_PROPERTY_ATTR = "data-value-pair-property";
 
-  // How many steps PageUp/PageDown move. Ten is the native <input
-  // type="range"> convention and needs no attribute.
+  // How many steps PageUp/PageDown move — the native <input
+  // type="range"> convention.
   var PAGE_STEPS = 10;
 
-  // 29-04-PLAN.md Task 2 (CFG-80): THE NORMALISED-TIME TWIN'S OWN HOOK.
-  // Unrelated to every wrapper/pair/readout name above — this marks a
-  // plain <span> (companion/pages/config_page.py's _normalised_time_
-  // html(), B14/22-10), not a control, and is read by the ONE load-time
-  // pass near the bottom of this file rather than by any delegated
-  // listener. Kept as its own named constant for the identical reason
-  // every other server-decided attribute name in this file is: a
-  // harness reads this file's own source for it, so a rename on either
-  // side alone fails rather than producing a twin that renders and is
-  // never found.
+  // Marks a plain <span> (companion/pages/config_page.py's
+  // _normalised_time_html()) shown only to correct a browser whose
+  // native <input type="time"> does not render 24-hour time.
   var NORMALISED_TIME_ATTR = "data-normalised-time";
 
   function ancestorWith(el, attr) {
@@ -365,9 +161,8 @@
   }
 
   // The bounds this wrapper declares. Missing or unusable bounds mean
-  // this file does nothing at all — it does NOT invent a range, because
-  // an invented range would write a value the server's own re-check
-  // would then reject.
+  // this file does nothing at all, since an invented range would write
+  // a value the server's own re-check would then reject.
   function boundsFor(wrapper) {
     var min = numberOrNull(wrapper.getAttribute(MIN_ATTR));
     var max = numberOrNull(wrapper.getAttribute(MAX_ATTR));
@@ -381,12 +176,10 @@
     return { min: min, max: max, step: step };
   }
 
-  // THE CLAMP. Round to the nearest step measured FROM the minimum,
-  // then clamp into the inclusive range — in that order, so a maximum
-  // that does not sit on a step boundary is still exactly reachable
-  // rather than rounded away. Total by construction: a non-numeric or
-  // null input returns the minimum rather than NaN, and a value beyond
-  // either end returns that end exactly.
+  // Rounds to the nearest step measured from the minimum, then clamps
+  // into the inclusive range, so a maximum off a step boundary is still
+  // exactly reachable. A non-numeric or null input returns the minimum
+  // rather than NaN.
   function clampToStep(raw, bounds) {
     var value = numberOrNull(raw);
     if (value === null) {
@@ -425,13 +218,10 @@
     return hours * MINUTES_PER_HOUR + minutes;
   }
 
-  // THE ZERO-PADDED "HH:MM" FORMATTING BODY ITSELF — 28-03-PLAN.md
-  // Task 2 (CFG-73 Bug A) extracted this out of numberToField() below so
-  // a readout wanting the identical text has ONE place to call, never a
-  // second six-line copy of the same arithmetic: a second copy of a
-  // codec is a second thing that can drift, and 28-CONTEXT.md names this
-  // explicitly. Zero-padded both halves, because "7:0" is not a value a
-  // native time input accepts and a rejected write is an emptied field.
+  // Zero-padded "HH:MM" formatting, extracted so a readout wanting the
+  // identical text has one place to call rather than a second copy of
+  // the arithmetic. Both halves are zero-padded, since "7:0" is not a
+  // value a native time input accepts.
   function minutesToClock(value) {
     var whole = Math.max(0, Math.round(value));
     var hours = Math.floor(whole / MINUTES_PER_HOUR) % HOURS_PER_DAY;
@@ -462,10 +252,9 @@
 
   // The bubbling notification dirty-state.js's delegated document-level
   // listener is waiting for. Constructed the modern way where the
-  // browser has it and through the legacy path otherwise; BOTH branches
-  // name the same event, and a harness asserts they do, because a file
-  // whose two branches disagree wakes the save bar on one browser and
-  // loses the edit on another.
+  // browser has it and through the legacy path otherwise; both branches
+  // must name the same event, or a file whose branches disagree wakes
+  // the save bar on one browser and loses the edit on another.
   function notify(field) {
     var evt = null;
     if (typeof window.Event === "function") {
@@ -479,24 +268,6 @@
     }
   }
 
-  // The announced state. aria-valuenow is the number and needs no
-  // translation; aria-valuetext is written ONLY when the server put a
-  // translated template on the wrapper.
-  //
-  // THE ANNOUNCED ELEMENT IS THE FOCUSABLE HANDLE when the wrapper has
-  // one, and the wrapper itself otherwise. role="slider" and its
-  // aria-value* belong on the element a keyboard visitor actually lands
-  // on: a wrapper holding them while a <button> inside it takes the
-  // focus announces a value that never changes, which is worse than
-  // announcing none — a screen reader would read the saved time on
-  // every step of a drag that had already moved somewhere else.
-  //
-  // aria-valuetext carries the value in the FIELD's own notation
-  // (25-04's dial announces "23:00", not "one thousand three hundred
-  // and eighty", which is the whole reason aria-valuetext exists),
-  // through the same codec the field write below goes through — one
-  // conversion, so the announcement and the stored value cannot
-  // disagree.
   // The mirror this wrapper declares, or null. Queried every time for
   // the same reason fieldFor() is: a cache would be state this file is
   // forbidden to hold.
@@ -504,10 +275,10 @@
     return wrapper.querySelector("[" + INPUT_ATTR + "]");
   }
 
-  // THE ONLY PLACE IN THIS FILE THAT ASSIGNS TO A .value, and both of
-  // its callers go through it: the write into the native input the form
-  // posts (steer, below) and the write into the mirror that posts
-  // nothing (paint, below). Returns whether anything actually changed,
+  // The only place in this file that assigns to a .value; both callers
+  // go through it: the write into the native input the form posts
+  // (steer, below) and the write into the mirror that posts nothing
+  // (paint, below). Returns whether anything actually changed,
   // which is what keeps a write during a drag from fighting the thumb
   // the visitor is holding, and what keeps steer() from dispatching a
   // notification for a value that did not move.
@@ -520,9 +291,9 @@
   }
 
   // A readout's own quantity: the value divided by the scale its markup
-  // declares, ROUNDED UP, because every consumer of this seam states a
-  // BOUND ("at most 2 min" is true of a 90-second cadence and "at most
-  // 1 min" is false). No scale, no division.
+  // declares, rounded up, since every consumer of this seam states a
+  // bound ("at most 2 min" is true of a 90-second cadence). No scale,
+  // no division.
   function readoutQuantity(readout, value) {
     var scale = numberOrNull(readout.getAttribute(READOUT_SCALE_ATTR));
     if (scale === null || scale <= 0) {
@@ -531,35 +302,20 @@
     return Math.ceil(value / scale);
   }
 
-  // 28-03-PLAN.md Task 2 (CFG-73 Bug A): does THIS READOUT declare
-  // itself clock-formatted — READOUT_FORMAT_ATTR, never the wrapper's
-  // own FORMAT_ATTR, for the reason that constant's comment states.
+  // Does this readout declare itself clock-formatted — read from
+  // READOUT_FORMAT_ATTR, never the wrapper's own FORMAT_ATTR, since a
+  // readout is found by field name rather than wrapper containment.
   function isReadoutClockFormat(readout) {
     return readout.getAttribute(READOUT_FORMAT_ATTR) === "clock";
   }
 
-  // THE DURATION, AS MINUTES — 28-03-PLAN.md Task 2 (CFG-73 Bug A).
-  // pairAncestor is the shared ancestor the CFG-62 pair seam already
-  // publishes both ends' fractions onto (paintSweep()'s own subject);
-  // its PAIR_PROPERTY_ATTR children are the two paired wrappers, in
-  // DOCUMENT ORDER — start before end, exactly as paintSweep()'s own
-  // comment states the server always emits them. Read straight off each
-  // member's own FIELD via currentValue() — never a cached number, and
-  // never the painted fraction, which would be a second, rounder
-  // encoding of the identical value.
-  //
-  // THE WRAP, NAMED: (end - start + MINUTES_PER_DAY) % MINUTES_PER_DAY
-  // measures FORWARD through midnight, matching
-  // quiet_window_span()'s own "always forward from start" server-side
-  // contract — 23:00 to 07:00 is 480 minutes, never a negative. A
-  // start-equals-end window measures 0, not a full day, matching that
-  // same function's zero-length-window contract — the one expression
-  // handles both edge cases because both are the same expression's
-  // natural output, not two branches.
-  //
-  // Returns null when either end has no usable bounds/value — no
-  // invented duration for half a pair, matching this file's
-  // total-by-construction discipline elsewhere.
+  // pairAncestor's PAIR_PROPERTY_ATTR children are the two paired
+  // wrappers, in document order (start before end), read via
+  // currentValue() rather than the painted fraction. The wrap,
+  // (end - start + MINUTES_PER_DAY) % MINUTES_PER_DAY, measures forward
+  // through midnight (23:00 to 07:00 is 480 minutes, never negative)
+  // and a start-equals-end window measures 0, not a full day. Returns
+  // null when either end has no usable bounds/value.
   function pairedDurationMinutes(pairAncestor) {
     var members = pairAncestor.querySelectorAll("[" + PAIR_PROPERTY_ATTR + "]");
     if (members.length < 2) {
@@ -575,20 +331,12 @@
     return (end - start + MINUTES_PER_DAY) % MINUTES_PER_DAY;
   }
 
-  // THE DURATION READOUT ITSELF — 28-03-PLAN.md Task 2 (CFG-73 Bug A).
-  // wrapper is whichever paired wrapper is CURRENTLY painting (the
-  // caller of paintReadouts()), used only to find the shared pair
-  // ancestor via ancestorWith() — the readout element itself is a
-  // SIBLING of the dial's pair-ancestor div, never a descendant of it,
-  // so the lookup has to start from the wrapper, not from the readout.
-  //
-  // Selects the bucket with _age_bucket()'s OWN boundaries — 60 / 3600 /
-  // 86400 seconds, integer-divided, negatives clamped to 0 by
-  // pairedDurationMinutes()'s own wrap arithmetic (its result is always
-  // in [0, MINUTES_PER_DAY)) — and walks DURATION_ATTRS in the SAME
-  // s/m/h/d order to read the matching server-rendered wording. Writes
-  // "" when the pair is not resolvable or the server did not render a
-  // wording for the bucket reached (never invents English here).
+  // wrapper is whichever paired wrapper is currently painting, used to
+  // find the shared pair ancestor: the readout element is a sibling of
+  // the pair-ancestor div, never a descendant, so the lookup must start
+  // from the wrapper. Selects the bucket with _age_bucket()'s own
+  // boundaries and walks DURATION_ATTRS in the same order to read the
+  // matching server-rendered wording; writes "" when unresolvable.
   function paintDurationReadout(wrapper, readout) {
     var pairAncestor = ancestorWith(wrapper, PAIR_ATTR);
     var minutes = pairAncestor ? pairedDurationMinutes(pairAncestor) : null;
@@ -621,16 +369,9 @@
 
   // Every readout for this wrapper's field, rewritten from its own
   // server-rendered template. A readout whose value equals its declared
-  // base says NOTHING — that is the state every page load renders, and
-  // a sentence comparing a value with itself would be noise.
-  //
-  // A READOUT CARRYING NO READOUT_TEXT_ATTR AT ALL is not skipped as it
-  // used to be unconditionally — 28-03-PLAN.md Task 2 (CFG-73 Bug A)
-  // gave the duration readout FOUR attributes (DURATION_ATTRS) instead
-  // of one empty template, so the absent-template branch now tries the
-  // duration path before giving up. Every OTHER readout in the app still
-  // carries READOUT_TEXT_ATTR and is painted exactly as before this
-  // task — this clause is additive, never a change to that path.
+  // base says nothing, since a sentence comparing a value with itself
+  // would be noise. A readout with no READOUT_TEXT_ATTR falls back to
+  // the duration path (DURATION_ATTRS) rather than being skipped.
   function paintReadouts(wrapper, value) {
     var name = wrapper.getAttribute(FIELD_ATTR);
     if (!name) {
@@ -657,30 +398,15 @@
     }
   }
 
-  // THE SWEEP, DERIVED ON THE ANCESTOR ONCE BOTH MEMBERS OF THE PAIR
-  // HAVE PUBLISHED THERE — 27-02-PLAN.md Task 1 (CFG-62).
+  // The sweep, derived on the ancestor once both members of the pair
+  // have published there.
   //
-  // Read back off the ANCESTOR'S OWN STYLE, never a cached number: the
-  // same "never a cached number" rule every other read in this file
-  // follows, and the reason there is still no parallel state after this
-  // seam exists. Members are found in DOCUMENT ORDER, which is
-  // publication order — quiet_dial_handles_html()'s own comment states
-  // the server always emits the start handle before the end handle, so
-  // the first wrapper this ancestor contains carrying
-  // PAIR_PROPERTY_ATTR is always the start of the pair and the second
-  // is always the end.
-  //
-  // THE +1 IS THE WRAP, AND IT IS THE WHOLE REASON THIS IS NOT A PLAIN
-  // SUBTRACTION. 23:00 -> 07:00 is start 0.9583, end 0.2917: end - start
-  // is -0.6667, which is not a sweep at all, and (end - start + 1) % 1
-  // reads it correctly as 0.3333 — the eight hours forward through
-  // midnight this control has always drawn.
-  //
-  // Silently does nothing until both members have a readable number on
-  // the ancestor (an unset custom property reads back as "", and
-  // numberOrNull("") is null) — there is no invented sweep for half a
-  // pair, matching this file's total-by-construction discipline
-  // elsewhere.
+  // Read back off the ancestor's own style, never a cached number.
+  // Members are found in document order (the server always emits the
+  // start handle before the end handle). The +1 handles the wrap:
+  // 23:00 -> 07:00 is start 0.9583, end 0.2917, so a plain subtraction
+  // gives -0.6667, while (end - start + 1) % 1 correctly reads 0.3333.
+  // Does nothing until both members have a readable number.
   function paintSweep(ancestor) {
     var sweepProperty = ancestor.getAttribute(PAIR_ATTR);
     if (!sweepProperty || !ancestor.style || !ancestor.style.setProperty) {
@@ -701,11 +427,10 @@
   }
 
   function paint(wrapper, bounds, value) {
-    // THE ANNOUNCING ELEMENT IS THE ONE A VISITOR LANDS ON: an explicit
-    // handle first, then the native mirror (which IS the focusable
-    // control when there is one), and the wrapper only when there is
-    // neither. A wrapper holding aria-value* while something inside it
-    // takes the focus announces a value that never changes.
+    // The announcing element is the one a visitor lands on: an explicit
+    // handle first, then the native mirror, and the wrapper only when
+    // neither exists — a wrapper holding aria-value* while something
+    // inside it takes focus would announce a value that never changes.
     var announce = wrapper.querySelector("[" + HANDLE_ATTR + "]")
         || mirrorFor(wrapper) || wrapper;
     announce.setAttribute("aria-valuenow", String(value));
@@ -714,37 +439,23 @@
       announce.setAttribute(
         "aria-valuetext", text.split(TEXT_TOKEN).join(numberToField(wrapper, value)));
     }
-    // THE MIRROR FOLLOWS THE FIELD, NEVER THE OTHER WAY ROUND. It is
-    // written here, in the paint, from the value just read back off the
-    // field — so typing into the native input moves the slider for
-    // free, and the slider can never hold a value the field does not.
+    // The mirror follows the field, never the other way round: written
+    // here from the value just read back off the field, so typing into
+    // the native input moves the slider for free.
     writeValue(mirrorFor(wrapper), numberToField(wrapper, value));
     paintReadouts(wrapper, value);
     if (wrapper.style && wrapper.style.setProperty) {
       var span = bounds.max - bounds.min;
       var fraction = (value - bounds.min) / span;
       wrapper.style.setProperty(FRACTION_PROPERTY, String(fraction));
-      // THE PAIR SEAM'S OWN WRITE. Additive over the fraction write
-      // above: a wrapper that declares no pair property is untouched
-      // from here on, and behaves exactly as it did before this task.
-      //
-      // A SEPARATE FRACTION, NOT THE ONE JUST WRITTEN ABOVE — found by
-      // Task 4's own agreement check, which decodes the arc back to an
-      // exact minute and caught this disagreeing by one. FRACTION_PROPERTY
-      // above is deliberately (value - min) / (max - min), matching
-      // quiet_dial_handle_fraction()'s own documented choice to make the
-      // control's MAXIMUM reachable at a full visual turn. For a
-      // wrapping/angular pair that fraction is off by exactly
-      // 1 / (max - min) of a turn — under a quarter of a degree, which is
-      // invisible on a painted handle and exactly enough to round a
-      // decoded minute to its neighbour (1380/1439 of a turn decodes to
-      // minute 1381, not 1380). The pair fraction instead divides by
-      // (max - min) + 1: bounds are an INCLUSIVE range of integers, so the
-      // value one step past max is min again, and that wrap point — not
-      // max itself — is what one full turn must mean for a value a sweep
-      // gets derived from. This is exactly QUIET_WINDOW_MINUTES_PER_DAY
-      // (1440) for the quiet-hours dial, reached with no knowledge of
-      // that constant at all.
+      // Additive over the fraction write above; a wrapper with no pair
+      // property is untouched. This is a separate fraction from
+      // FRACTION_PROPERTY: that one divides by (max - min), reaching
+      // max at a full turn, but for a wrapping/angular pair that would
+      // be off by 1/(max - min) of a turn. Dividing by (max - min) + 1
+      // instead treats bounds as an inclusive integer range, where the
+      // value one step past max is min again — the correct wrap point
+      // for a value a sweep is derived from.
       var pairProperty = wrapper.getAttribute(PAIR_PROPERTY_ATTR);
       if (pairProperty) {
         var pairAncestor = ancestorWith(wrapper, PAIR_ATTR);
@@ -757,10 +468,9 @@
     }
   }
 
-  // THE ENTRY POINT. Clamp, round, write into the native input, wake
-  // the save bar, paint. Returns the value actually written, or null
-  // when this wrapper has no usable bounds or no field — so a caller
-  // can never mistake "refused" for "wrote the minimum".
+  // Entry point: clamp, round, write into the native input, wake the
+  // save bar, paint. Returns the value actually written, or null when
+  // this wrapper has no usable bounds or no field.
   function steer(wrapper, raw) {
     var bounds = boundsFor(wrapper);
     if (!bounds) {
@@ -823,10 +533,9 @@
     steer(wrapper, bounds.min + fraction * (bounds.max - bounds.min));
   }
 
-  // Which wrapper, if any, this event belongs to. THE GUARD CLAUSE:
-  // every listener below returns from here on every page that carries
-  // no continuous-value control, before reading or writing a single
-  // thing in the DOM. That is every page in this app today.
+  // Which wrapper, if any, this event belongs to. The guard clause
+  // every listener below returns from on a page with no continuous-
+  // value control, before reading or writing anything in the DOM.
   function wrapperFor(target) {
     if (!target || !target.getAttribute) {
       return null;
@@ -862,11 +571,9 @@
     return null;
   }
 
-  // A WRAPPER WITH A MIRROR IS NOT STEERED FROM HERE. Its native input
-  // already implements exactly this model, and a handler that both
-  // prevented the default AND stepped the value would move the control
-  // twice on every arrow press. The mirror's own change/input event
-  // reaches the sync path below instead.
+  // A wrapper with a mirror is not steered from here: its native input
+  // already implements this model, and a handler that both prevented
+  // the default and stepped the value would move the control twice.
   function steeredHere(wrapper) {
     return wrapper && !mirrorFor(wrapper);
   }
@@ -892,22 +599,15 @@
   });
 
   // Pointer steering. pointerdown on the handle (or anywhere on the
-  // track) begins a drag; setPointerCapture keeps the subsequent moves
-  // coming even when the pointer leaves the element, which is what
-  // makes a drag that overshoots the end behave like a native one.
-  // A SYNTHETIC POINTER EVENT IS NOT A GESTURE, AND THIS GUARD IS NOT
-  // TEST SCAFFOLDING. An el.dispatchEvent(new PointerEvent("pointerdown"))
-  // carries clientX/clientY of 0,0 — the top-left corner of the viewport
-  // — so steering from one yanks a real, saved setting to whatever angle
-  // the corner of the screen happens to be at, from any script on the
-  // page. Measured on this tree: companion/test_browser_ux.py's pointer
-  // recorder proves itself alive by dispatching exactly that event, and
-  // it moved the quiet window by half an hour while doing it.
+  // track) begins a drag; setPointerCapture keeps subsequent moves
+  // coming even when the pointer leaves the element.
   //
-  // Compared against false rather than negated, deliberately: a browser
-  // that does not implement the property leaves it undefined, and the
-  // negated form would then refuse every real drag rather than every
-  // fake one.
+  // Security: a synthetic PointerEvent carries clientX/clientY of 0,0,
+  // so steering from one would yank a real setting to whatever the
+  // corner of the screen happens to be, from any script on the page.
+  // Compared against false rather than negated, since a browser that
+  // does not implement isTrusted leaves it undefined, and the negated
+  // form would refuse every real drag rather than every fake one.
   function untrusted(evt) {
     return evt.isTrusted === false;
   }
@@ -917,11 +617,9 @@
       return;
     }
     var wrapper = wrapperFor(evt.target);
-    // The mirror guard again, and here it is the load-bearing one:
-    // preventDefault() below cancels a native range's own thumb drag
-    // outright, so without this the slider would be immovable by
-    // pointer while every string comparison in every harness stayed
-    // green.
+    // Load-bearing here: preventDefault() below cancels a native
+    // range's own thumb drag, so without this the slider would be
+    // immovable by pointer.
     if (!steeredHere(wrapper)) {
       return;
     }
@@ -958,37 +656,14 @@
     steerFromPointer(wrapper, evt.clientX, evt.clientY);
   });
 
-  // THE ONE THING THIS FILE LISTENS FOR THAT IT DID NOT CAUSE, and it
-  // is what makes "this control holds no value" true rather than merely
-  // claimed.
-  //
-  // The painted position is read off the native input. So when SOMETHING
-  // ELSE writes into that input, the handle has to follow, or it shows a
-  // value that is no longer there while the field beside it shows the
-  // real one. Three writers exist today and none of them is this file:
-  // a visitor typing into the field, a browser autofill, and — the live
-  // case — companion/static/dirty-state.js's quiet-hours preset buttons.
-  //
-  // THE PRESET IS WHY THE CLICK LISTENER IS HERE AND NOT ONLY THE OTHER
-  // TWO. Assigning to .value from script fires NO event of any kind, so
-  // a preset that fills both time inputs is completely silent; measured
-  // on this tree, clicking "Work day" moved both inputs and left both
-  // handles exactly where they were. Reacting to the click instead is
-  // ordering-safe by the DOM's own event model rather than by luck: the
-  // preset's handler is bound to the BUTTON, so it has already run by
-  // the time the click reaches document. And it is generic — this file
-  // learns nothing about presets, only that a click is a moment after
-  // which an input it paints from may hold something new.
-  //
-  // IT REPAINTS AND NEVER WRITES. The change event this file sends after
-  // its own write reaches here, finds the value already correct, and
-  // stops. There is no loop to guard against because there is no second
-  // write — and re-reading a value this file does not own is idempotent
-  // by construction.
-  //
-  // Delegated at document level, and on a page with no continuous-value
-  // control (which is most of them) it costs one selector query that
-  // matches nothing.
+  // Repaints from the native input for a write this file did not cause:
+  // a visitor typing into the field, browser autofill, or (the live
+  // case) dirty-state.js's quiet-hours preset buttons, which assign to
+  // .value from script and fire no event at all. Reacting to the click
+  // that triggers a preset is ordering-safe, since the preset's own
+  // handler is bound to the button and has already run by the time the
+  // click reaches document. Idempotent: the change event this file
+  // sends after its own write finds the value already correct.
   function repaintAll() {
     var wrappers = document.querySelectorAll("[" + WRAPPER_ATTR + "]");
     for (var i = 0; i < wrappers.length; i++) {
@@ -999,20 +674,16 @@
     }
   }
 
-  // THE SYNC, AND IT IS THE ONE DIRECTION THE REPAINT ABOVE CANNOT DO.
-  // A repaint writes the mirror FROM the field; this writes the field
-  // from the mirror, which is what a drag on a native range has to do
-  // to reach the form at all. It is the same steer() every other path
-  // goes through — one clamp, one write, one notification, one paint —
-  // so a value dragged past the end is clamped exactly as a typed one
-  // is, and the save bar wakes the same way.
+  // The sync: a repaint writes the mirror from the field; this writes
+  // the field from the mirror, which is what a drag on a native range
+  // has to do to reach the form. Goes through the same steer() as
+  // every other path, so a dragged value clamps like a typed one.
   function onValueEvent(evt) {
     var target = evt.target;
     if (target && target.hasAttribute && target.hasAttribute(INPUT_ATTR)) {
       var wrapper = wrapperFor(target);
       if (wrapper) {
-        // steer() paints, so there is nothing left for the repaint to
-        // do — and returning here is what keeps the visitor's own
+        // steer() paints, so returning here keeps the visitor's own
         // in-flight drag from being written back over mid-gesture.
         steer(wrapper, target.value);
         return;
@@ -1026,45 +697,20 @@
   document.addEventListener("click", repaintAll);
 
   // No DOMContentLoaded wrapper, and no load-time pass over the
-  // document either. The <script> tag companion/layout.py's
-  // page_shell() emits carries defer, so this file only runs after
-  // parsing; and the INITIAL position of every control is rendered by
-  // the server, from the saved value, so there is nothing to
-  // initialise. That is not an omission — it is what makes the
-  // scripts-blocked rendering correct rather than merely present, and
-  // it is why this file mutates absolutely nothing until a user
-  // touches a control that exists.
+  // document: the <script> tag carries defer, and every control's
+  // initial position is already rendered by the server from the saved
+  // value, so this file mutates nothing until a user touches a control.
   //
-  // 29-04-PLAN.md Task 2 (CFG-80): THE ONE EXCEPTION TO THE PARAGRAPH
-  // ABOVE, AND WHY IT DOES NOT REOPEN IT. That paragraph is about not
-  // DUPLICATING LIVE STATE — every control's initial position already
-  // comes from the server, and re-deriving it at load would be a second
-  // copy of state this file must never hold (see this file's own
-  // header, "this file never holds a value"). The pass below writes NO
-  // state of any kind and steers no control. It makes one, one-time
-  // ENVIRONMENT determination — does this browser's own resolved hour
-  // cycle unambiguously use 24 hour time — and, on a strictly positive
-  // answer only, hides the normalised-time twins that exist purely to
-  // correct a browser whose native <input type="time"> does NOT. No CSS
-  // media feature exists for "does this input render 24h", so the
-  // closest thing the platform offers is asked here instead, once, in
-  // script — the same one-time-environment-check shape this file's own
-  // defer placement already relies on, not a second pattern.
-  //
-  // CONSERVATIVE BY CONSTRUCTION, AND STRICT ON PURPOSE. 29-RESEARCH.md's
-  // own assumption A1 names the risk in full: Intl.DateTimeFormat's
-  // resolved hour12 measures the BROWSER's locale-derived preference,
-  // not what THIS SPECIFIC input will actually paint — no DOM API
-  // exposes that directly. A FALSE NEGATIVE (hiding the twin on a
-  // browser that in fact paints 12h) would silently reintroduce the
-  // exact defect B14 exists to prevent, so every uncertain case — no
-  // Intl, no DateTimeFormat, a missing resolvedOptions, or a resolved
-  // hour12 that is anything other than the literal boolean false
-  // (including undefined) — leaves every twin exactly as visible as the
-  // server rendered it. Real-device confirmation on a browser whose OS
-  // region forces a 12h clock remains an outstanding, named human
-  // follow-up (see the plan's own SUMMARY) rather than an assumption
-  // made here.
+  // The one exception below writes no control state; it makes a
+  // one-time environment check — does this browser's resolved hour
+  // cycle unambiguously use 24-hour time — and only then hides the
+  // normalised-time twins that exist to correct a browser whose native
+  // <input type="time"> does not. Conservative by construction: since
+  // Intl.DateTimeFormat's resolved hour12 measures the browser's
+  // locale preference, not what this specific input will paint, every
+  // uncertain case (no Intl, no resolvedOptions, anything but the
+  // literal boolean false) leaves every twin exactly as visible as the
+  // server rendered it.
   function hideNormalisedTimeTwinsIfUnambiguously24Hour() {
     try {
       if (!window.Intl || !window.Intl.DateTimeFormat) {
@@ -1091,24 +737,11 @@
   }
   hideNormalisedTimeTwinsIfUnambiguously24Hour();
 
-  // 28-08-PLAN.md Task 3 (CFG-77), 2026-09-16: exposes the EXISTING
-  // repaintAll() as a callable entry point — dirty-state.js's restored
-  // Cancel handler calls it, from the deferred tick its own comment
-  // explains, after the native reset event has actually restored
-  // every field's value. Nothing about repaintAll() itself changes: it
-  // already reads each wrapper's LIVE field value at call time via
-  // currentValue(wrapper, bounds), which is exactly why calling it
-  // AFTER the restore produces the right answer, and the document-level
-  // click listener two lines above keeps registered exactly as-is,
-  // serving its own pre-existing purpose (repainting after any click
-  // that might have moved a value, e.g. a preset button) — this export
-  // adds a second, deliberate caller, never replaces the first.
-  //
-  // A small namespace object, matching theme-preview.js's own
-  // window.SkyPaneLivePreview = { refresh: refreshFromCurrentState };
-  // — this codebase's one-namespace-object-per-file idiom for a script
-  // that needs to give another script a named, stable entry point
-  // without becoming a stray global. window.SkyPaneDirtyState (dirty-
-  // state.js) is that same idiom's second instance; this is its third.
+  // Exposes repaintAll() as a callable entry point: dirty-state.js's
+  // Cancel handler calls it after a native reset event has restored
+  // every field's value, since repaintAll() reads each wrapper's live
+  // field value at call time. A small namespace object, matching
+  // theme-preview.js's window.SkyPaneLivePreview and dirty-state.js's
+  // window.SkyPaneDirtyState.
   window.SkyPaneValueControls = { repaintAll: repaintAll };
 })();

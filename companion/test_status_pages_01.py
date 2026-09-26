@@ -1,34 +1,8 @@
-"""Part 01 of the `companion/test_status_pages.py` migration chain
-(33-25-PLAN.md): the original harness's `check()` calls #1-#37 — all of
-Section 1 (`companion/pages/health_page.py`'s two freshness signals,
-`companion/wake.py`'s staleness-threshold/env/effective-interval
-contract and import boundary, `companion/layout.py`'s
-`absolute_and_relative()` timestamp helper, the Battery section's ring/
-trend/disclosure/caption behaviour through the day-1 raw-series
-fallback and the mode-honest caption sweep, the D-07 anomaly-category/
-pill/banner contract, the D-08 Corroboration disclosure, the D-09
-concise-timestamp rows, the 260902-chc D-12 reversal guard, the
-badge-to-card-border retargets, the retired anomaly-detail-list guards,
-and `battery_sparkline_svg()`'s own external-reference and per-point
-interactive-markup contract).
+"""Companion status-page tests: `health_page`'s freshness signals, `wake.py`'s
+staleness thresholds, `layout.py`'s timestamps, and the battery section.
 
-One check is pulled forward out of order (33-MIGRATION-RULES.md's rubric
-T): the root-unsafe `anomaly_active()` degrade-safely check, originally
-near the end of the legacy harness's Section 1 (~line 8201). Every
-"missing state_dir" input now uses a `tmp_path` subpath instead of a
-fixed absolute path outside the repo that production code could create
-as root — a real host-filesystem write the audit flagged (T-33-25-01).
-Since a `tmp_path` subpath is always writable (unlike a root-owned path
-elsewhere on the host), the missing-path case can no longer exercise the
-"database unopenable because the path can't even be created" branch a
-non-root run of the original fixed path happened to hit — it now takes
-the same schema-gets-created path the pre-existing empty-directory case
-already covers, so both are asserted the same way: no raise, a real
-bool, and agreement with `render()`'s own banner presence.
-
-Every check in this module calls `companion.pages.health_page`/
-`companion.wake`/`companion.layout` directly, in-process — none of this
-half of the slice needs a running `companion/app.py` server.
+Every check calls `health_page`/`wake`/`layout` directly, in-process; missing
+state_dir cases use a `tmp_path` subpath, writable even when running as root.
 """
 import math
 import os
@@ -78,7 +52,7 @@ def test_staleness_status_boundaries():
 
 def test_device_staleness_thresholds_floors_and_multipliers():
     """wake.device_staleness_thresholds() floors at (300, 1200), multiplies at a
-    5-minute cadence, and falls back to the floors for None (19-05-PLAN.md D-05/A-23)"""
+    5-minute cadence, and falls back to the floors for None"""
     assert wake.device_staleness_thresholds(30) == (300, 1200)
     assert wake.device_staleness_thresholds(300) == (900, 3600)
     assert wake.device_staleness_thresholds(None) == (300, 1200)
@@ -212,8 +186,7 @@ def test_device_pipeline_tiles_have_no_duplicated_label(tmp_path):
     """the Device and Pipeline tiles carry their freshness label exactly once
     (caption only) plus exactly one Emphasis-role verdict and exactly one muted
     detail slot holding the mono timestamp, with zero stat-tile__value and no
-    leftover dot-label (quick task 260901-tsa finding C, retargeted by
-    22-12-PLAN.md Task 1's X8 anatomy)"""
+    leftover dot-label"""
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
@@ -260,15 +233,15 @@ def test_battery_ring_agrees_with_its_own_readout(tmp_path):
     recovered from its own emitted radius and dash array — equals the percentage
     the readout beside it PRINTS; the <h2> still carries no glyph,
     battery_sparkline_svg()'s own output carries no ring class, and a device with
-    no reading renders no ring at all rather than an empty one (CFG-40)"""
+    no reading renders no ring at all rather than an empty one"""
     with_reading = tmp_path / "with-reading"
     with_reading.mkdir()
     no_reading = tmp_path / "no-reading"
     no_reading.mkdir()
     base = shp.now().replace(hour=12, minute=0, second=0, microsecond=0)
-    # 3690 mV lands on 32% of the DEVICE-05 discharge curve, deliberately
-    # not a round fraction, so a ring drawn from a plausible-but-wrong
-    # constant (half/full/empty) cannot coincide with the right answer.
+    # 3690 mV lands on 32% of the discharge curve, deliberately not a round
+    # fraction, so a ring drawn from a plausible-but-wrong constant
+    # (half/full/empty) cannot coincide with the right answer.
     readings = [
         (shp.iso(base - timedelta(minutes=2)), 3600),
         (shp.iso(base - timedelta(minutes=1)), 3650),
@@ -327,8 +300,8 @@ def test_battery_ring_agrees_with_its_own_readout(tmp_path):
 
 def test_battery_trend_shows_all_readings_and_one_sparkline(tmp_path):
     """three battery rows render the full trend (not just the latest value) and
-    exactly one <svg> with exactly n - 1 trend-line segments (260902-ep7:
-    retargeted from the retired single-<polyline> marker)"""
+    exactly one <svg> with exactly n - 1 trend-line segments (retargeted from the
+    retired single-<polyline> marker)"""
     base = shp.now().replace(hour=12, minute=0, second=0, microsecond=0)
     readings = [
         (shp.iso(base - timedelta(minutes=2)), 4200),
@@ -347,14 +320,12 @@ def test_battery_trend_shows_all_readings_and_one_sparkline(tmp_path):
 
 
 def test_battery_trend_timestamps_show_concise_format(tmp_path):
-    """Battery Trend's Timestamp column shows the D-09 concise format (full ISO
+    """Battery Trend's Timestamp column shows the concise format (full ISO
     demoted to title), matching the Device/pipeline rows, and _battery_section()
     stays single-argument"""
     # _battery_section() must stay callable with exactly one positional
-    # argument (06.5-02's own pinned automated gate, matching the real
-    # call site inside render()) — proven directly by calling it with
-    # just one, not by inspecting its signature (TST-12/G2 forbids
-    # `inspect.*` in a migrated test).
+    # argument, matching the real call site inside render() — proven by
+    # calling it with just one argument, not by inspecting its signature.
     health_page._battery_section([])
     base = shp.now()
     readings = [
@@ -374,7 +345,7 @@ def test_battery_trend_timestamps_show_concise_format(tmp_path):
 
 def test_battery_readings_collapsed_behind_closed_disclosure_after_chart(tmp_path):
     """the readings table is collapsed behind a closed-by-default disclosure, and
-    the chart precedes it (D-08)"""
+    the chart precedes it"""
     base = shp.now()
     readings = [
         (shp.iso(base - timedelta(minutes=2)), 4200),
@@ -395,8 +366,7 @@ def test_battery_readings_collapsed_behind_closed_disclosure_after_chart(tmp_pat
 
 def test_battery_trend_heading_shows_d10_window_label(tmp_path):
     """the Battery trend heading shows the default 3-month window framing on an
-    empty render (260902-l0b, retargeted from the retired D-10 'Latest 20
-    readings' label)"""
+    empty render"""
     rendered = health_page.render(shp.ctx(str(tmp_path)))
     assert "Last 3 months" in rendered
 
@@ -404,7 +374,7 @@ def test_battery_trend_heading_shows_d10_window_label(tmp_path):
 def test_battery_chart_plots_daily_averages_not_raw_readings(tmp_path):
     """a multi-day seeded render plots the three DAILY AVERAGES (never any raw
     reading value) as points, keeps every raw reading visible in the disclosure
-    table, and names the 3-month window (260902-l0b)"""
+    table, and names the 3-month window"""
     base = datetime(2026, 9, 2, 12, 0, 0, tzinfo=timezone.utc)
     readings = []
     day_values = [[4000, 4100, 4200], [4001, 4101, 4201], [4002, 4102, 4202]]
@@ -432,7 +402,7 @@ def test_battery_chart_plots_daily_averages_not_raw_readings(tmp_path):
 def test_battery_chart_falls_back_to_raw_series_on_day_one(tmp_path):
     """a same-day (fewer than two calendar days) seeded render still produces a
     chart and a readout, captioned honestly as readings rather than the 3-month
-    window — the day-1 regression guard (260902-l0b)"""
+    window — the day-1 regression guard"""
     base = shp.now().replace(hour=12, minute=0, second=0, microsecond=0)
     readings = [
         (shp.iso(base - timedelta(minutes=2)), 4200),
@@ -452,15 +422,14 @@ def test_battery_chart_falls_back_to_raw_series_on_day_one(tmp_path):
 
 
 # ==========================================================================
-# Rubric T out-of-order pull: anomaly_active()'s root-unsafe degrade-safely
-# check (originally near line ~8201 of the legacy harness)
+# The nav-tab severity path's root-unsafe degrade-safely check
 # ==========================================================================
 
 
 def _anomaly_active(state_dir, now=None):
     # The live nav-tab severity path app.py's page_context() calls
-    # (health_page.safe_health_state()), reduced to the same "is there an
-    # anomaly" bool the retired anomaly_active() used to return directly.
+    # (health_page.safe_health_state()), reduced to a single "is there an
+    # anomaly" bool.
     state = health_page.safe_health_state(state_dir, now)
     severity = state["severity"] if state else "ok"
     return severity != "ok"
@@ -469,21 +438,11 @@ def _anomaly_active(state_dir, now=None):
 def test_anomaly_active_never_raises_on_hostile_inputs(tmp_path):
     """the nav-tab severity path runs on every page render and must never raise —
     missing/empty/file/corrupt-db inputs all degrade safely"""
-    # The severity path runs on every authenticated page render via
-    # page_context() (companion/app.py) — it may never fault a page that
-    # has nothing to do with Health.
-    #
-    # A never-existed-before tmp_path subpath and a pre-created empty
-    # tmp_path directory take the SAME code path: history_db.open_db()
-    # creates the directory (os.makedirs(..., exist_ok=True)) and the
-    # schema in both cases, because tmp_path is always writable — unlike
-    # the original harness's fixed absolute path outside the repo, whose
-    # degrade-safely behaviour only held when the process lacked
-    # permission to create it (never true for root, which is exactly
-    # T-33-25-01: this check used to create a real directory on the host
-    # when the suite ran as root). Both are asserted the same way: no
-    # raise, a real bool, and agreement with render()'s own banner
-    # presence — the property this check actually protects.
+    # The severity path runs on every page render (page_context() in
+    # companion/app.py), so it may never raise. Missing/empty/corrupt-db
+    # state_dir inputs all reach the same tmp_path-backed code path —
+    # tmp_path stays writable even when the test process runs as root,
+    # unlike a fixed host path outside the repo.
     for candidate in (tmp_path / "absent" / "nested", tmp_path / "empty"):
         candidate_str = str(candidate)
         verdict = _anomaly_active(candidate_str)
@@ -515,7 +474,7 @@ def test_anomaly_active_never_raises_on_hostile_inputs(tmp_path):
 def test_battery_caption_is_mode_honest_across_renders(tmp_path):
     """the Battery trend caption is mode-honest across three renders — empty
     (3-month default), multi-day (3-month, daily average), and same-day (readings
-    count) (260902-l0b)"""
+    count)"""
     empty_dir = tmp_path / "empty"
     multiday_dir = tmp_path / "multiday"
     sameday_dir = tmp_path / "sameday"
@@ -547,13 +506,13 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
 
 
 # ==========================================================================
-# D-07: the anomaly banner's category naming / pill markup
+# The anomaly banner's category naming / pill markup
 # ==========================================================================
 
 
 def test_anomaly_banner_names_real_categories_not_generic_only(tmp_path):
     """the anomaly banner names the real failing category (a disagreement), not
-    only the generic fallback text (UXA-06)"""
+    only the generic fallback text"""
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
@@ -571,12 +530,9 @@ def test_anomaly_categories_never_lowercase_a_leading_acronym():
     """_anomaly_category_text() lower-cases ordinary mid-sentence phrases but never
     a leading acronym (no 'aDS-B')"""
     # Driven through the real collect_anomalies() strings, in the real
-    # order, rather than hand-written fixtures — so the check cannot
-    # drift away from the copy it is protecting. 19-06 (D-06) rewrote
-    # every collect_anomalies() literal into plain language, so none of
-    # the real strings begins with an acronym any more; the real strings
-    # now prove the ordinary mid-sentence lower-casing, and a
-    # hand-written acronym-led fixture keeps the guard itself under test.
+    # order, rather than hand-written fixtures, so the check cannot drift
+    # away from the copy it is protecting; a hand-written acronym-led
+    # fixture below keeps the guard itself under test.
     anomalies = health_page.collect_anomalies(
         device_state="warn", pipeline_state="warn",
         battery_state="ok", disagreement_warn=True)
@@ -602,7 +558,7 @@ def test_anomaly_categories_never_lowercase_a_leading_acronym():
 
 def test_anomaly_category_labels_are_pill_text_not_full_sentences():
     """_anomaly_category_labels() returns one period-stripped label per anomaly,
-    distinct from collect_anomalies()'s own full literal sentences (D-07)"""
+    distinct from collect_anomalies()'s own full literal sentences"""
     anomalies = health_page.collect_anomalies(
         device_state="error", pipeline_state="error",
         battery_state="ok", disagreement_warn=False)
@@ -618,7 +574,7 @@ def test_anomaly_category_labels_are_pill_text_not_full_sentences():
 def test_anomaly_banner_html_matches_layout_anomaly_banner_severity_mapping():
     """_anomaly_banner_html() reproduces layout.anomaly_banner()'s exact
     severity-to-class/role mapping, and carries one banner__pill per anomaly plus
-    the accessible ANOMALY_BANNER_TEXT tail (D-07)"""
+    the accessible ANOMALY_BANNER_TEXT tail"""
     anomalies = ["Device check-in is stale."]
     error_banner = health_page._anomaly_banner_html("error", anomalies)
     assert 'class="banner banner--anomaly"' in error_banner and 'role="alert"' in error_banner, (
@@ -634,7 +590,7 @@ def test_anomaly_banner_html_matches_layout_anomaly_banner_severity_mapping():
 
 def test_anomaly_banner_renders_one_pill_per_anomaly_on_the_page(tmp_path):
     """a two-anomaly fixture renders exactly two banner__pill elements inside one
-    banner element on the real page (D-07)"""
+    banner element on the real page"""
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
     shp.seed_meta(str(tmp_path), **{
@@ -647,13 +603,13 @@ def test_anomaly_banner_renders_one_pill_per_anomaly_on_the_page(tmp_path):
 
 
 # ==========================================================================
-# D-08: Corroboration's compact rows + closed-by-default explanations
+# Corroboration's compact rows + closed-by-default explanations
 # ==========================================================================
 
 
 def test_corroboration_rows_compact_explanations_in_closed_disclosure(tmp_path):
     """Corroboration's three rows stay compact (dot/label/count only) and their
-    explanations move into a closed-by-default disclosure (D-08)"""
+    explanations move into a closed-by-default disclosure"""
     now = shp.now()
     shp.seed_runway_events(str(tmp_path), [
         {"ts": shp.iso(now), "hex": "abc123", "corroborated": True},
@@ -678,7 +634,7 @@ def test_corroboration_rows_compact_explanations_in_closed_disclosure(tmp_path):
 
 def test_corroboration_section_disagreement_flag_unchanged():
     """_corroboration_section()'s second return value (the disagreement flag) is
-    unchanged by the D-08 disclosure rewrite"""
+    unchanged by the disclosure rewrite"""
     _, has_disagreement = health_page._corroboration_section({"True": 1, "None": 0, "False": 2})
     assert has_disagreement is True, "expected the disagreement flag to be True when the False bucket is non-zero"
     _, no_disagreement = health_page._corroboration_section({"True": 1, "None": 2, "False": 0})
@@ -686,20 +642,19 @@ def test_corroboration_section_disagreement_flag_unchanged():
 
 
 def test_corroboration_copy_has_no_decision_id_leak():
-    """no corroboration row's explanation leaks a bare decision-ID parenthetical
-    (UXA-05)"""
+    """no corroboration row's explanation leaks a bare decision-ID parenthetical"""
     for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
         assert "(D-" not in explanation, (
             "found a decision-ID leak in a corroboration row's explanation: %r" % explanation)
 
 
 # ==========================================================================
-# D-09: concise timestamps; 260902-chc's D-12 reversal
+# Concise timestamps, and the stale-view-banner reversal
 # ==========================================================================
 
 
 def test_device_and_pipeline_rows_use_concise_timestamp_format(tmp_path):
-    """the Device check-in and ADS-B pipeline rows render via the D-09 concise
+    """the Device check-in and ADS-B pipeline rows render via the concise
     timestamp format"""
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
@@ -710,14 +665,12 @@ def test_device_and_pipeline_rows_use_concise_timestamp_format(tmp_path):
 
 
 def test_health_pill_reversal_guard(tmp_path):
-    """Health's D-12 reversal: a live data-loaded-at timestamp survives,
-    page_header() is called exactly once, and the retired stale-view banner
-    marker/copy and manual Refresh-link class are gone from both the rendered
-    page and the module itself (260902-chc)"""
-    # 260902-chc: D-12's manual Refresh link + stale-view banner pattern
-    # is reversed for Health. This check pins the reversal's own
-    # rendered result and positively asserts both retired literals are
-    # truly gone — a later refactor cannot silently un-reverse it either.
+    """Health's manual Refresh link and stale-view banner are reversed: a live
+    data-loaded-at timestamp survives, page_header() is called exactly once, and
+    both retired markers are gone from the rendered page and the module itself"""
+    # Pins the reversal's own rendered result and positively asserts both
+    # retired literals are truly gone, so a later refactor cannot silently
+    # bring them back.
     now_iso = shp.iso(shp.now())
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=now_iso))
     assert rendered.count("data-loaded-at") == 1, "expected exactly one data-loaded-at attribute"
@@ -735,14 +688,13 @@ def test_health_pill_reversal_guard(tmp_path):
 
 
 # ==========================================================================
-# The badge-to-card-border retargets (quick task 260902-gjj)
+# The badge-to-card-border retargets
 # ==========================================================================
 
 
 def test_battery_section_healthy_card_border_on_normal_trend(tmp_path):
     """Battery trend renders a healthy status-coloured card border on a normal
-    trend, in place of the retired status_dot() badge (D-01 reversal, quick task
-    260902-gjj)"""
+    trend, in place of the retired status_dot() badge"""
     now = shp.now()
     readings = [
         (shp.iso(now - timedelta(minutes=1)), 4200),
@@ -771,10 +723,9 @@ def test_battery_section_healthy_card_border_on_normal_trend(tmp_path):
 def test_battery_empty_history_ok_badge_no_anomaly_banner(tmp_path):
     """an empty/single-reading battery trend renders an ok badge and no anomaly
     banner (Assumption A1 regression guard)"""
-    # 06.5-RESEARCH.md Pitfall 2: the empty-history branch must stay "ok"
-    # (Assumption A1), or a freshly-provisioned device with zero readings
-    # would display "A battery reading shows an abnormal drop." —
-    # factually wrong copy. This is a permanent regression guard.
+    # The empty-history branch must stay "ok", or a freshly-provisioned
+    # device with zero readings would display "A battery reading shows an
+    # abnormal drop." — factually wrong copy.
     markup, state = health_page._battery_section([])
     assert state == "ok", "expected _battery_section([]) to return state 'ok', got %r" % (state,)
     assert "No battery readings yet." in markup, "expected the empty-history empty-state heading in the markup"
@@ -801,8 +752,8 @@ def test_battery_empty_history_ok_badge_no_anomaly_banner(tmp_path):
 
 def test_battery_drop_drives_badge_and_banner_detail_copy_not_rendered(tmp_path):
     """a real battery drop drives both the card's own error border (retargeted
-    from the retired badge, quick task 260902-gjj) and the banner; the detail copy
-    is no longer rendered"""
+    from the retired badge) and the banner; the detail copy is no longer
+    rendered"""
     now = shp.now()
     readings = [
         (shp.iso(now - timedelta(minutes=1)), 4200),
@@ -831,9 +782,8 @@ def test_battery_drop_drives_badge_and_banner_detail_copy_not_rendered(tmp_path)
 
 def test_anomaly_detail_list_markup_is_gone(tmp_path):
     """an unhealthy fixture renders the anomaly banner with zero <ul/<li list
-    markup inside its own element slice (retargeted from a page-wide ban by quick
-    task 260903-ghy, to stop it colliding with a legitimate .data-cards list
-    elsewhere on the page)"""
+    markup inside its own element slice (retargeted from a page-wide ban, which
+    collided with a legitimate .data-cards list elsewhere on the page)"""
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
@@ -848,12 +798,12 @@ def test_anomaly_detail_list_markup_is_gone(tmp_path):
 
 
 def test_none_of_the_four_anomaly_item_strings_render(tmp_path):
-    """with all four D-14 signals unhealthy, none of collect_anomalies()'s four
-    item strings is rendered"""
+    """with all four anomaly signals unhealthy, none of collect_anomalies()'s
+    four item strings is rendered"""
     now = shp.now()
-    # Trip all four D-14 signals at once: stale device, stale pipeline,
-    # an abnormal battery drop, and a disagreement within the
-    # corroboration window.
+    # Trip all four signals at once: stale device, stale pipeline, an
+    # abnormal battery drop, and a disagreement within the corroboration
+    # window.
     shp.seed_device_health(str(tmp_path), [
         (shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4200),
         (shp.ago(_DEFAULT_DEVICE_ERROR_S + 30), 4200 - health_page.BATTERY_DROP_WARN_MV),
@@ -908,10 +858,9 @@ def test_sparkline_svg_has_per_point_interactive_markup():
     hits = doc.find_all("circle", cls=health_page.SPARKLINE_HIT_CLASS)
     assert len(hits) == 3, "expected exactly 3 hit-target circles, got %d" % len(hits)
 
-    # 24-05-PLAN.md Task 2 (CFG-41): the newest plotted point is marked
-    # with a non-cosmetic mark (survives the density rule that suppresses
-    # cosmetic dots) — one drawn marker per point, the last of them the
-    # mark, is what "every point is drawn" always meant.
+    # The newest plotted point is marked with a non-cosmetic mark (it
+    # survives the density rule that suppresses cosmetic dots) — one
+    # drawn marker per point, the last of them the mark.
     dots = doc.find_all("circle", cls=health_page.SPARKLINE_DOT_CLASS)
     marks = doc.find_all("circle", cls=health_page.SPARKLINE_MARK_CLASS)
     assert (len(dots), len(marks)) == (2, 1), (
@@ -922,9 +871,9 @@ def test_sparkline_svg_has_per_point_interactive_markup():
     assert sum(1 for h in hits if "data-ts" in h.attrs) == 3, "expected exactly 3 data-ts attributes"
     assert len(doc.find_all("title")) == 3, "expected exactly 3 <title elements"
 
-    # 06.6.3-04 (D-13/UXA-11): roving tabindex — exactly one hit target
-    # is a normal Tab stop (the chronologically-latest point), the rest
-    # are removed from the natural Tab order.
+    # Roving tabindex: exactly one hit target is a normal Tab stop (the
+    # chronologically-latest point), the rest are removed from the
+    # natural Tab order.
     tabindex_0 = [h for h in hits if h.attrs.get("tabindex") == "0"]
     tabindex_neg1 = [h for h in hits if h.attrs.get("tabindex") == "-1"]
     assert len(tabindex_0) == 1, (

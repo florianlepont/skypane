@@ -1,16 +1,15 @@
-"""companion/test_post_origin.py — SEC-03 (audit ledger 2026-09-23, D-16):
-`auth.post_origin_ok()` and the `do_POST()` Origin/Sec-Fetch-Site gate that
-rejects any cross-site POST (login included) with a localized 403, before
-any routing or form read.
+"""Tests `auth.post_origin_ok()` and the `do_POST()` Origin/Sec-Fetch-Site
+gate that rejects any cross-site POST (login included) with a localized
+403, before any routing or form read.
 
-Native pytest (Phase 32's conftest.py fixtures and no-network socket guard
+Native pytest (conftest.py fixtures and the no-network socket guard
 apply automatically to this module).
 
 Section 1 is pure in-process unit coverage of `auth.post_origin_ok()`.
 Section 2 is HTTP integration coverage against a real companion/app.py
 subprocess (companion/conftest.py's app_server/module_app_server_factory
-fixtures, test-support/companion_app_server.py's HTTP client — Phase 33,
-TST-10), over every POST route do_POST() dispatches. The route list below
+fixtures, test-support/companion_app_server.py's HTTP client), over
+every POST route do_POST() dispatches. The route list below
 is named explicitly from companion/app.py's own route constants — the
 same names do_POST() itself branches on — never discovered by reading
 do_POST()'s source text; a route added there later needs a line added

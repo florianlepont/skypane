@@ -1,36 +1,15 @@
 /*
  * SkyPane companion service — copy-button.js.
  *
- * D-23 (06.6.3-CONTEXT.md): click handler on every [data-copy-value]
- * button, copying its value to the clipboard. Like nav-dropdown.js/
- * battery-trend.js before it, this file has no build step, no bundler,
- * no framework and no dependency of any kind beyond the Clipboard API,
- * and must stay written to an ES5-safe subset (no let/const/arrow
- * functions/template literals/backticks) so no transpiler is ever
- * needed to ship it. It is served by companion/app.py's
- * COPY_BUTTON_SCRIPT_ROUTE, mirroring the existing /static/style.css
- * route.
- *
- * Standing constraint this file must never violate: no inner-HTML
- * assignment, no other HTML-writing sink anywhere in this file — only
- * textContent and attribute reads. The values this file ever touches are already
- * server-escaped data-copy-value attributes; writing them back into the
- * DOM via anything other than textContent would reopen a markup
- * injection surface this file has no reason to carry.
- *
- * D-06 (20-11-PLAN.md Task 3): the on-success feedback text is read
- * from each button's own data-copied-text attribute, server-rendered
- * and translated by companion/pages/history_page.py's own emitter —
- * the same shape freshness.js uses for its own data-* labels (its
- * former data-pause-text pair was retired in 21-02). A short, hardcoded fallback covers an un-updated
- * caller that has not yet been given the attribute, so the button can
- * never render an empty label.
- *
- * This script is served to every page on the site (a single cached
- * static asset, not re-emitted per page). Most pages carry no
- * [data-copy-value] elements at all, so the guard below is
- * load-bearing, not defensive noise, matching the project's established
- * convention.
+ * Click handler on every [data-copy-value] button, copying its value
+ * to the clipboard (Clipboard API, with a document.execCommand("copy")
+ * fallback). No build step, ES5-safe subset. Inert on a page with no
+ * [data-copy-value] element. Served by companion/app.py's
+ * COPY_BUTTON_SCRIPT_ROUTE. No HTML-writing sink: only textContent and
+ * attribute reads, since the values here are already server-escaped
+ * data-copy-value attributes. The on-success feedback text is read
+ * from each button's own server-rendered, translated data-copied-text
+ * attribute.
  */
 (function () {
   "use strict";
@@ -40,13 +19,11 @@
     return;
   }
 
-  // D-06 (20-11-PLAN.md Task 3): the documented fallback for an
-  // un-updated caller whose markup does not yet carry data-copied-text
-  // — copiedText(button) below reads the real, translated value off
-  // each button first, falling back to this literal only then.
+  // Fallback for a caller whose markup does not yet carry
+  // data-copied-text; copiedText() reads the real, translated value
+  // off each button first.
   var FALLBACK_FEEDBACK_TEXT = "Copied";
-  // D-20: was 2000 — 1.5s is the visible-confirmation window this
-  // decision names for the new on-button feedback-label swap below.
+  // The visible-confirmation window for the on-button feedback swap.
   var FEEDBACK_RESET_MS = 1500;
   var COPIED_CLASS = "copy-btn--copied";
 
@@ -65,10 +42,8 @@
     document.body.appendChild(textarea);
     try {
       textarea.select();
-      // A-37's third half: this used to call document.execCommand("copy")
-      // and discard its boolean return value, so handleClick() below
-      // showed the success feedback even when the copy silently failed.
-      // Propagate the real result instead.
+      // Propagate the real result, so handleClick() below never shows
+      // success feedback for a copy that silently failed.
       return document.execCommand("copy");
     } finally {
       document.body.removeChild(textarea);
@@ -77,8 +52,7 @@
 
   function _toggleCopiedClass(button, isActive) {
     // Defensive classList fallback, matching battery-trend.js's own
-    // _toggleActive() pattern for elements whose classList might be
-    // unavailable.
+    // _toggleActive() pattern.
     if (button.classList) {
       if (isActive) {
         button.classList.add(COPIED_CLASS);
@@ -105,21 +79,16 @@
     var feedbackText = copiedText(button);
     feedbackEl.textContent = feedbackText;
 
-    // D-20: swap a visible success label in beside the icon, on
-    // success only. The button's own visible content is an SVG icon
-    // (history_page._copy_button_html()'s .copy-btn__icon span) —
-    // writing textContent onto the button itself would destroy that
-    // SVG with no way to restore it, so this writes only into the leaf
-    // .copy-btn__label span rendered alongside it, never the button
-    // element (keeping the no-HTML-writing-sink rule intact: only
-    // textContent on a leaf <span>, only a class toggle on the button).
+    // Swaps a visible success label in beside the icon. The button's
+    // own visible content is an SVG icon, so writing textContent onto
+    // the button itself would destroy it; this writes only into the
+    // leaf .copy-btn__label span rendered alongside it.
     //
     // A double-click mid-animation must not overwrite the remembered
-    // original label with the feedback text a second time —
-    // data-copy-pending guards that: only the FIRST swap in a run
-    // records the label to restore, and one shared setTimeout clears
-    // the visible label, the announced feedback span and the class
-    // together, so the visible and announced states can never disagree.
+    // original label a second time: data-copy-pending guards that, so
+    // only the first swap in a run records the label to restore, and
+    // one shared setTimeout clears the label, feedback span and class
+    // together.
     var labelEl = button.querySelector(".copy-btn__label");
     if (!labelEl || button.getAttribute("data-copy-pending") === "1") {
       window.setTimeout(function () {
@@ -149,9 +118,8 @@
           showFeedback(button);
         },
         function () {
-          // A-37: only report success when fallbackCopy() actually
-          // succeeded. A failed copy must show nothing at all — never a
-          // false success indication.
+          // Only report success when fallbackCopy() actually succeeded;
+          // a failed copy must never show a false success indication.
           if (fallbackCopy(value)) {
             showFeedback(button);
           }
@@ -172,8 +140,6 @@
     })(buttons[i]);
   }
 
-  // No DOMContentLoaded wrapper is needed: the <script> tag
-  // companion/layout.py's page_shell() emits carries the defer
-  // attribute, so this file only ever runs after parsing. Do not add
-  // one later.
+  // No DOMContentLoaded wrapper needed: the <script> tag carries defer,
+  // so this file only ever runs after parsing.
 })();

@@ -2,19 +2,12 @@
  * SPDX-License-Identifier: Apache-2.0 */
 /* What app_main.c does with the result of bringing NVS up at boot, and
  * how long it sleeps when NVS stays unusable. Pure, no ESP-IDF, no I/O:
- * host-compilable so the rules are asserted on every commit.
- *
- * NVS comes up before the abnormal-reset check and before the failure
- * counter can be read, so a failure here cannot go through the
- * persisted backoff: there is nowhere to persist it. The device logs
- * `poll fail step=nvs` and deep-sleeps for a fixed interval instead of
- * aborting, because an abort reboots within a fraction of a second and
- * a partition that keeps failing would hot-loop the chip until the
- * battery is flat.
- *
- * The FP_NVS_ERR_* values mirror ESP-IDF v5.3.1 (esp_err.h, nvs.h) so
- * this header needs no ESP-IDF include; app_main.c asserts the equality
- * at compile time. */
+ * host-compilable so the rules are asserted on every commit. NVS comes
+ * up before the failure counter can be read, so a failure here cannot
+ * go through the persisted backoff — it logs `poll fail step=nvs` and
+ * sleeps a fixed interval instead of aborting, since an abort would
+ * hot-loop a chip whose partition keeps failing. FP_NVS_ERR_* mirrors
+ * ESP-IDF v5.3.1 (esp_err.h, nvs.h); app_main.c asserts the equality. */
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>

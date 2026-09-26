@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
-"""Shared constants and helpers for the companion browser tests
-(companion/test_browser_ux_*.py): viewport constants, seed_state_dir(),
-the login/save/theme/keyboard/upload/geometry probe helpers, the
-quiet-hours arc decoders, _markup_inventory() and _handle_sel().
+"""Shared constants and helpers for the companion browser tests: viewport sizes, seed_state_dir(),
+login/save/theme/keyboard/upload/geometry probes, quiet-hours arc decoders, and markup helpers.
+Holds no tests (`__test__ = False`); this module exists only to be imported.
 
-This module holds no tests. `__test__ = False` tells pytest so directly,
-and it exists only to be imported.
-
-Every helper that opens a browser context takes a `make_context` factory
-argument instead of calling a `browser` object's `.new_context()`
-directly (guard G10): callers pass `companion/conftest.py`'s guarded
-`new_context` fixture, which installs the loopback-only route guard.
+Every helper that opens a browser context takes a `make_context` factory instead of calling
+`browser.new_context()` directly, so callers pass conftest's guarded `new_context` fixture, which
+installs the loopback-only route guard.
 """
 import contextlib
 import math
@@ -26,9 +21,8 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-# test-support/ (companion_app_server, for TEST_PASSWORD) — mirrors
-# companion/conftest.py's own bootstrap, so a direct import of this module
-# outside pytest still finds it.
+# Mirrors companion/conftest.py's own bootstrap, so a direct import of this module outside
+# pytest still finds test-support (companion_app_server, for TEST_PASSWORD).
 _TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
 if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
@@ -47,30 +41,18 @@ VIEW_TRANSITION_NAMES = {
     "skypane-picture": ("/",),
 }
 
-# --- The viewport sizes this file measures at (23-02-PLAN.md Task 1) ---
-# One named set replacing the inline {"width": ..., "height": ...} dicts
-# this file repeated at nine call sites. 360 is here because it is the
-# MINIMUM SUPPORTED VIEWPORT (developer decision 2026-09-13, recorded in
-# .claude/skills/sketch-findings-skypane/SKILL.md) and until now nothing
-# in this file could name it — the assertions were a mix of 320 and 390.
-#
-# 320 STAYS a measured width even though the contract floor is 360, and
-# that is deliberate, not an oversight for a later reader to tidy away.
-# SKILL.md states both of the floor's non-licences in as many words: it
-# "does not license shipping something broken at 360 px", and it "does
-# not mean deleting the 320 px assertions that already exist in
-# companion/test_browser_ux.py. They pass today, they cost nothing, and
-# they catch real defects. Keep them." The narrow rung below is that
-# sentence, executable.
+# Named viewport sizes, replacing the inline {"width": ..., "height": ...} dicts this file used
+# to repeat at each call site. 360 is the minimum supported viewport; 320 is below that contract
+# floor but stays a measured width because the existing narrow-width assertions still pass and
+# catch real defects.
 VIEWPORT_MIN_SUPPORTED = {"width": 360, "height": 844}
 VIEWPORT_PHONE = {"width": 390, "height": 844}
 VIEWPORT_DESKTOP = {"width": 1280, "height": 900}
-# Out of contract since 2026-09-13, still measured — see above.
+# Below the 360px contract floor, still measured — see above.
 VIEWPORT_WIDTH_NARROW = 320
 VIEWPORT_WIDTH_TABLET = 768
-# The two width ladders, for the checks that build one context per width
-# rather than one fixed-size context. Derived from the three sizes above
-# so a width has exactly one definition in this file.
+# The two width ladders, for checks that build one context per width rather than one fixed-size
+# context. Derived from the three sizes above so a width has exactly one definition in this file.
 VIEWPORT_WIDTHS_RESPONSIVE = (
     VIEWPORT_MIN_SUPPORTED["width"], VIEWPORT_PHONE["width"],
     VIEWPORT_DESKTOP["width"])
@@ -79,19 +61,14 @@ VIEWPORT_WIDTHS_ALL = (
     VIEWPORT_PHONE["width"], VIEWPORT_WIDTH_TABLET,
     VIEWPORT_DESKTOP["width"])
 
-# Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
-# window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
-# overlap with each other by construction, keeping the two concerns
-# independent in the seeded fixture.
+# Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway window (06:00-23:00)
+# and the 23:00-07:00 quiet-hours window share no overlap, keeping the two concerns independent.
 SEED_BASE_TS = datetime(2026, 8, 1, 6, 0, 0, tzinfo=timezone.utc)
 
 
 def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
-    """Write 22-AUDIT.md's own methodology fixture into a fresh temp
-    state directory, through the same modules companion/app.py and
-    server/poll_loop.py use to write this data themselves — see this
-    file's own module docstring for the full rationale and the one
-    deliberate deviation (battery cadence).
+    """Write a fixture into a fresh temp state directory, through the same modules
+    companion/app.py and server/poll_loop.py use to write this data themselves.
     """
     runway_ids = device_config.RUNWAY_IDS
     theme_ids = device_config.THEME_IDS
@@ -116,8 +93,7 @@ def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
                 tracked_runway=runway_ids[i % len(runway_ids)],
             )
 
-        # ~40 days of battery readings, one reading per day (see the
-        # module docstring's cadence note).
+        # ~40 days of battery readings, one reading per day.
         for day in range(40, 0, -1):
             ts = base_ts - timedelta(days=day)
             history_db.record_device_health(
@@ -133,9 +109,8 @@ def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
 
     now_iso = base_ts.isoformat()
 
-    # 2 unresolved prefixes — same registry shape
-    # companion/test_status_pages.py's own _seed_unresolved_prefixes()
-    # helper writes, through the identical save_poll_state() call.
+    # 2 unresolved prefixes, same registry shape companion/test_status_pages.py's own
+    # _seed_unresolved_prefixes() helper writes, through the identical save_poll_state() call.
     poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": {
         "TVF": {
             "count": 5, "first_seen": now_iso, "last_seen": now_iso,
@@ -156,20 +131,11 @@ def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
     colour_rules.add_rule(
         state_dir, colour_rules.RULE_KIND_CALLSIGN, "EZY456", theme_ids[-1], now=now_iso)
 
-    # 3 gallery renders, archived through poll_loop's own writer — never a
-    # hand-written PNG dropped straight into the gallery directory, so the
-    # on-disk filename/format contract can never drift from what a real
-    # poll cycle produces.
+    # 3 gallery renders, archived through poll_loop's own writer so the on-disk filename/format
+    # contract can never drift from what a real poll cycle produces.
     from PIL import Image
-    # 23-10-PLAN.md Task 3 (D3/CFG-32): 600x800, not the 8x8 stand-in
-    # this fixture used to write. The size is not decoration — Home's own
-    # <img> declares width="600" height="800", and an 8x8 render makes
-    # the loaded image's aspect ratio 1:1 against the 3:4 the markup
-    # promises. A skeleton whose box differs from its image's box IS the
-    # layout shift it was added to prevent, so the one fixture in this
-    # repository that a browser measures that shift against cannot be the
-    # one fixture whose proportions are wrong. 600x800 is the markup's
-    # own declared size and the real 1200x1600 panel render's own ratio.
+    # 600x800 matches Home's <img width="600" height="800">, so a layout-shift check comparing
+    # the skeleton box to the loaded image's box is comparing against the real aspect ratio.
     canvas = Image.new("RGB", (600, 800), "white")
     for i in range(3):
         render_ts = (base_ts + timedelta(minutes=i)).isoformat()
@@ -177,10 +143,7 @@ def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
 
 
 def _login(page, base_url):
-    """Drive the real login form through the UI (never a bare HTTP POST —
-    this file exists specifically to exercise the browser), and wait for
-    the post-login redirect to land.
-    """
+    """Drive the real login form through the UI and wait for the post-login redirect to land."""
     page.goto(base_url + "/login")
     page.fill("#password", TEST_PASSWORD)
     page.click('button[type="submit"]')
@@ -192,42 +155,11 @@ def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
                 cookies=None):
     """A scripts-blocked browser context, signed in, landed on `route`.
 
-    `make_context` is a context-factory callable — the guarded
-    `new_context` fixture from companion/conftest.py — never a `browser`
-    object itself (guard G10: only the guarded fixture may call
-    `browser.new_context()` directly).
-
-    The one place in this file that blocks scripts. Three checks each
-    spelled this sequence out by hand (Health, the two settings pages,
-    and the login card), and 23-RESEARCH.md's Wave 0 gap list names five
-    more controls that each need one; a transcribed sequence is a
-    sequence that can be transcribed WRONG, and a scripts-blocked proof
-    that quietly ran with scripts enabled would pass while proving
-    nothing. Keeping the flag to a single call site is what makes that
-    failure mode unavailable rather than merely unlikely.
-
-    `sign_in=False` exists for the login card, whose whole subject is the
-    unauthenticated page: it asserts what /login renders with scripts
-    blocked and THEN signs in as its last act. That is not a weaker use
-    of the helper, it is the only honest one for a check about signing
-    in.
-
-    `viewport` is optional and defaults to the Playwright default the
-    three converted checks already ran under, so converting them changes
-    nothing at all. Pass VIEWPORT_MIN_SUPPORTED to measure a
-    scripts-blocked control at the 360px contract floor.
-
-    `cookies` is applied to the context BEFORE the sign-in navigation,
-    which is the only order that works for a cookie the first rendered
-    document already has to honour — the UI-language cookie being the
-    live case. It exists because 23-05's freshness check needed exactly
-    that and, lacking it, opened this file's SECOND
-    `java_script_enabled=False` context by hand, quietly undoing the one
-    property the paragraph above claims. 25-02 added the parameter and
-    converted that check back rather than let the claim stay untrue.
-
-    `context.close()` runs in a finally, the discipline every check in
-    this file already follows by hand.
+    `make_context` must be the guarded `new_context` fixture, never a bare `browser` object, so
+    every scripts-blocked context in this file goes through the one loopback-guarded call site.
+    `sign_in=False` is for the login card itself, which inspects the unauthenticated page before
+    signing in as its last step. `cookies` is applied before the sign-in navigation, the only
+    order under which the first rendered document (e.g. a UI-language cookie) already honours it.
     """
     extra = {} if viewport is None else {"viewport": viewport}
     context = make_context(java_script_enabled=False, **extra)
@@ -247,64 +179,38 @@ def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
 
 
 def _click_control(page, selector):
-    """Click a checkbox/radio input through the browser's own native
-    .click() method (JS-level, not Playwright's mouse-coordinate click).
+    """Click a checkbox/radio input through the DOM's native .click(), not Playwright's
+    coordinate-based click.
 
-    Every checkbox/radio this file's checks click below is visually
-    hidden (config_page.py's own selectable-card idiom: a
-    visually-hidden native input wrapped in a full-card <label>), via
-    `clip-path: inset(50%)` (companion/static/style.css's own
-    .visually-hidden rule) — which clips the element's paintable AND
-    hit-testable area to nothing. A coordinate-based click (Playwright's
-    own `locator.click()`, even with `force=True`) dispatches at that
-    point and can silently land on whatever the browser's hit-test
-    resolves to there instead (confirmed live: it left the target
-    control unchecked with no error). `element.click()` is the DOM's own
-    "activation behaviour" algorithm — it runs regardless of paint/hit-
-    test visibility and is what every real assistive-technology/keyboard
-    activation path already relies on for this exact selectable-card
-    pattern, so it is the correct thing to call here, not a workaround.
+    The selectable-card idiom hides these inputs with `clip-path: inset(50%)`, clipping both
+    paint and hit-testing to nothing, so a coordinate click can silently land elsewhere and leave
+    the control unchecked with no error. `element.click()` runs the DOM's activation behaviour
+    regardless of hit-test visibility, matching how assistive tech and keyboard activation
+    already reach this pattern.
     """
     page.eval_on_selector(selector, "el => el.click()")
 
 
 def _guard_armed(page):
-    """T1: whether dirty-state.js's beforeunload guard is currently
-    armed, tested by constructing a real, cancelable `beforeunload`
-    Event object in-page and dispatching it directly on window, then
-    reading `defaultPrevented` — never by trying to trigger an actual
-    navigation and observe a native "leave site?" dialog, which
-    Chromium suppresses/auto-resolves under Playwright and which
-    Playwright's own `dialog` event does not reliably surface for
-    beforeunload specifically. Dispatching the Event directly still
-    exercises dirty-state.js's own real listener (the one registered via
-    `window.addEventListener("beforeunload", ...)`) with no change to
-    that file — this is a black-box behavioural probe, not an internal
-    read of the private `suppressGuard` variable.
+    """Whether dirty-state.js's beforeunload guard is currently armed.
+
+    Dispatches a real, cancelable `beforeunload` Event in-page and reads `defaultPrevented`,
+    rather than triggering an actual navigation: Chromium suppresses/auto-resolves the native
+    "leave site?" dialog under Playwright, and `dialog` events do not reliably surface for
+    beforeunload. Dispatching the Event still exercises dirty-state.js's real listener.
     """
     return page.evaluate(
         "() => { var e = new Event('beforeunload', {cancelable: true}); "
         "window.dispatchEvent(e); return e.defaultPrevented; }")
 
 
-# --- 28-10-PLAN.md (CFG-77/CFG-78): the restored dirty bar's own wait
-# helpers, replacing the retired auto-save status region's
-# (27-04-PLAN.md's `_SAVE_STATUS_SEL`/`_save_status_text()`/
-# `_wait_for_save_status()`/`_wait_for_saved()`/`_wait_for_saving()`,
-# all deleted outright by this plan — [data-save-status] no longer
-# exists, 28-08-PLAN.md Task 1).
-#
-# The idiom carries forward unchanged from the 27-04 block comment this
-# one replaces: the bar's own words are read off its OWN data-dirty-*
-# attributes (D-06's idiom, restated by companion/static/dirty-state.js's
-# own header) rather than hardcoded here in English, so a check works
-# unchanged whichever shipped language the page is in.
+# The dirty bar's own wait helpers. The bar's words are read off its own data-dirty-*
+# attributes, restated by companion/static/dirty-state.js's own header, rather than hardcoded
+# here in English, so a check works unchanged whichever shipped language the page is in.
 def _wait_for_bar(page, timeout=5000):
-    """Waits, via wait_for_function (never a sleep), for [data-dirty-bar]
-    to LOSE its `hidden` attribute — the bar revealing itself the moment
-    dirty-state.js's own updateBar() has recorded at least one real
-    difference from the page's load-time snapshot (countDifferences() >
-    0). Resolves on the real DOM condition, never a guessed instant.
+    """Waits, via wait_for_function rather than a sleep, for [data-dirty-bar] to lose its
+    `hidden` attribute — the bar revealing itself once dirty-state.js's updateBar() has
+    recorded at least one real difference from the page's load-time snapshot.
     """
     page.wait_for_function(
         "() => {"
@@ -314,12 +220,8 @@ def _wait_for_bar(page, timeout=5000):
 
 
 def _wait_for_bar_hidden(page, timeout=5000):
-    """The inverse of `_wait_for_bar()`. The restored model has a HIDDEN
-    state that genuinely matters — a fresh script-enabled load, the
-    moment after Annuler, the moment after Save's own navigation lands —
-    and the auto-save suite this replaces had no equivalent state at
-    all, so this helper is genuinely NEW rather than a rename of a
-    retired one.
+    """The inverse of `_wait_for_bar()`: waits for the bar to be hidden again, e.g. after a
+    fresh script-enabled load, after Annuler, or after Save's navigation lands.
     """
     page.wait_for_function(
         "() => {"
@@ -329,34 +231,21 @@ def _wait_for_bar_hidden(page, timeout=5000):
 
 
 def _bar_text(page):
-    """Reads `[data-dirty-count]`'s own textContent — the bar's section-
-    naming copy, in whatever language the page is in.
+    """Reads `[data-dirty-count]`'s textContent — the bar's section-naming copy, in whatever
+    language the page is in.
     """
     return page.eval_on_selector("[data-dirty-count]", "el => el.textContent")
 
 
 def _save_via_bar(page, timeout=5000):
-    """Clicks the bar's own Save (the relocated, AST-provably-
-    unconditional `[data-static-save-fallback]` native submit,
-    `form="settings-form"`-attached) and waits for the REAL navigation
-    it causes — never a same-page DOM update. A successful save 303-
-    redirects to the scoped page's own GET route
-    (`_settings_saved_redirect()`); a rejected save re-renders the SAME
-    page directly at 200, carrying the user's own submission and each
-    offending field's inline error (`_handle_settings_post()`). Either
-    way the browser navigates.
-
-    THIS IS THE SINGLE BIGGEST BEHAVIOURAL DIFFERENCE from the retired
-    `_wait_for_saved()`: that helper waited for a WORD to appear in a
-    region on the SAME page; this one waits for the page to actually go
-    away and come back. Any DOM handle or read captured BEFORE this call
-    is STALE the instant it returns — re-query by selector afterwards,
-    never reuse a reference taken before the click.
+    """Clicks the bar's own Save (`[data-static-save-fallback]`, `form="settings-form"`) and
+    waits for the real navigation it causes, never a same-page DOM update: a successful save
+    redirects to the scoped page's GET route, a rejected one re-renders the same page at 200
+    with inline errors. Either way the browser navigates, so any DOM handle captured before this
+    call is stale the instant it returns — re-query by selector afterwards.
     """
-    # quick-260923-9na: same shared-budget shape as the fallback-Save
-    # check in test_browser_ux.py — wait for the click target's own
-    # visibility on its OWN clock, before expect_navigation()'s clock
-    # starts, so an actionability poll here cannot silently eat the
+    # Wait for the click target's own visibility on its own clock, before
+    # expect_navigation()'s clock starts, so an actionability poll here cannot eat the
     # navigation wait's budget too.
     page.wait_for_selector("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR, state="visible")
     with page.expect_navigation(timeout=timeout):
@@ -364,69 +253,35 @@ def _save_via_bar(page, timeout=5000):
 
 
 def _commit_field(page, selector):
-    """Fires the real `change` event dirty-state.js's own document-level
-    listener is waiting for — MEASURED necessary, not decorative:
-    Playwright's own `locator.fill()` dispatches `input` only (its
-    documented contract), never `change`, so a field filled and left
-    there stays UNCOMMITTED by this app's own D-04 definition (change,
-    not input, is what auto-save listens for). Real keyboard typing
-    followed by a real Tab/blur also produces a genuine `change` and
-    does not need this helper — this one is for the `.fill()` shape,
-    the same shape value-controls.js's own notify() dispatches for a
-    drag/keyboard interaction on a custom control.
+    """Fires the real `change` event dirty-state.js's document-level listener waits for.
+    `locator.fill()` dispatches `input` only, never `change`, so a field filled and left there
+    stays uncommitted; real keyboard typing followed by Tab/blur produces a genuine `change` and
+    does not need this helper.
     """
     page.eval_on_selector(
         selector, "el => el.dispatchEvent(new Event('change', {bubbles: true}))")
 
 
-# --- 24-02-PLAN.md (CFG-45): the three shared measurement helpers the
-# four drawing plans (24-04..24-08) each need, added BEFORE the drawings
-# rather than after them. Helpers only: this block registers no test of
-# its own.
-#
-# Why they are here at all. Until this block, this file — the only
-# harness in the repository that renders anything — had never once
-# switched theme: `grep -c data-ui-theme companion/test_browser_ux.py`
-# was 0 across twenty-three phases, so every dark-mode claim this project
-# has made rested on READING style.css rather than on rendering it. The
-# single most predictable defect in a set of server-rendered SVG drawings
-# is one that is correct in light mode and invisible in dark, and no
-# source scan can see it: the markup can be structurally perfect and
-# still paint wrong once the cascade, `currentColor` and a theme token
-# have had their say.
+# Shared measurement helpers for the drawing checks. Helpers only: this block registers no
+# test of its own. They exist because the single most predictable defect in a server-rendered
+# SVG drawing is one that is correct in light mode and invisible in dark, and no static scan
+# can see it — the markup can be structurally perfect and still paint wrong once the cascade,
+# `currentColor` and a theme token have had their say.
 
-# The explicit themes this harness can drive, derived from the app's own
-# vocabulary (layout.UI_THEME_CHOICES) rather than restated as literals,
-# so a call site reads as the thing it means and a renamed choice fails
-# here instead of silently measuring nothing.
-#
-# "auto" is excluded ON PURPOSE and is not an oversight: style.css's own
-# header comment (the CFG-09 theme-resolution paragraph) states that
-# `data-ui-theme="auto"` intentionally has no override rule of its own,
-# so the media query keeps governing and the resolved theme becomes
-# whatever the host OS says. That is precisely the one thing a
-# measurement must not depend on, so asking for it is an error rather
-# than a third mode.
+# The explicit themes this harness can drive, derived from the app's own vocabulary
+# (layout.UI_THEME_CHOICES) so a renamed choice fails here instead of silently measuring
+# nothing. "auto" is excluded on purpose: style.css declares no override rule for
+# `data-ui-theme="auto"`, so it resolves to whatever the host OS prefers, which is the one
+# thing a measurement must not depend on.
 UI_THEME_AUTO = "auto"
 UI_THEMES_EXPLICIT = tuple(
     t for t in layout.UI_THEME_CHOICES if t != UI_THEME_AUTO)
 
-# Set an explicit theme, sample the paint it produces, and leave the page
-# on the requested one. Every read below goes through getComputedStyle,
-# which is a forced style flush: the browser must resolve every pending
-# recalculation before it can answer, so THE READ IS THE WAIT. There is
-# no sleep, no timeout and no transitionend listener anywhere in this
-# helper, for the same reason 23-02 recorded when it put the disclosure
-# sweep under reduced motion — a timing wait is a flakiness generator on
-# the slowest file in the suite, and an intermittently red check is worse
-# than no check.
-#
-# `document.body` is the witness because style.css's own `body` rule is
-# where both inverting tokens are actually SPENT (`background:
-# var(--color-canvas)`, `color: var(--color-text)`), so this reads real
-# paint rather than a custom property's declared text — a
-# getPropertyValue('--color-canvas') would return the token's literal
-# string even if nothing on the page ever used it.
+# Set an explicit theme, sample the paint it produces, and leave the page on the requested one.
+# Every read goes through getComputedStyle, a forced style flush that resolves every pending
+# recalculation before answering, so the read itself is the wait — no sleep or timeout needed.
+# `document.body` is the witness because style.css's `body` rule is where both inverting tokens
+# are actually spent, so this reads real paint rather than a custom property's declared text.
 _THEME_PROBE = (
     "args => {"
     "  const html = document.documentElement;"
@@ -446,52 +301,14 @@ _THEME_PROBE = (
 
 
 def _set_ui_theme(page, theme):
-    """Put an already-loaded `page` into an explicitly named theme and
-    return the resolved paint that theme produces. The first thing in
-    this harness that has ever measured dark mode.
+    """Put an already-loaded `page` into an explicitly named theme and return the resolved
+    paint: {"theme", "canvas", "text"}.
 
-    Returns {"theme", "canvas", "text"} — `canvas` and `text` are the
-    browser's own resolved `background-color`/`color` on <body>, in
-    Chromium's `rgb(r, g, b)` form, ready to be compared between themes
-    or recorded in a SUMMARY.
-
-    THE EXPLICIT ATTRIBUTE, NOT `emulate_media`. The next reader's
-    instinct will be `context.new_context(color_scheme="dark")` or
-    `page.emulate_media(color_scheme="dark")`, and that is the weaker
-    test here. `html[data-ui-theme="light"|"dark"]` is what this app's
-    OWN theme picker sets (companion/app.py's theme form ->
-    layout.page_shell()'s <html> attribute), and style.css declares those
-    two blocks specifically so they TAKE PRECEDENCE over
-    prefers-color-scheme. Driving the OS preference would exercise a
-    path the app deliberately lets the user override, and would leave the
-    measurement at the mercy of the host's own setting; driving the
-    attribute exercises the path a real visitor takes and is
-    deterministic. Both halves matter, which is why this comment states
-    both.
-
-    IT MUST KEEP WORKING WITH SCRIPTS BLOCKED. "renders correctly in dark
-    mode with scripts blocked" is the combination most likely to be
-    wrong, so it is the one the drawing plans have to be able to ask
-    about. Measured on this tree: a context built with
-    `java_script_enabled=False` (which is what `_no_js_page()` composes)
-    still answers `page.evaluate` — Playwright's evaluation runs through
-    the debugging protocol rather than through the page's own script
-    execution, and CSS cascade/recalculation is not gated on scripts at
-    all. Light and dark resolved to the identical pair of values with
-    scripts on and with scripts blocked.
-
-    THE HELPER VERIFIES THE PAGE REALLY REPAINTED, and that is the whole
-    point of it rather than a nicety. A helper that set the attribute and
-    returned would let every later dark-mode assertion pass VACUOUSLY:
-    if the override rule were renamed, dropped, or outranked, both themes
-    would resolve to the same paint and a "these two differ" check
-    downstream would be comparing a value to itself. So this helper
-    samples BOTH explicit themes on every call and refuses to return
-    unless the two genuinely differ in BOTH inverting tokens. It is
-    deliberately not a literal-value assertion: hardcoding #F7F4EF /
-    #0C0F14 here would duplicate style.css into a harness and would start
-    failing on a palette change that is not a defect. What is asserted is
-    the PROPERTY the two override blocks exist to produce.
+    Sets `html[data-ui-theme]` rather than `emulate_media`/`color_scheme`: that is what the
+    app's own theme picker sets, and style.css's override blocks take precedence over
+    `prefers-color-scheme`. Works with scripts blocked too, since `page.evaluate` runs outside
+    page script execution and the CSS cascade is not scripts-gated. Samples both themes and
+    raises unless they genuinely differ, so a dropped override rule cannot pass vacuously.
     """
     if theme not in UI_THEMES_EXPLICIT:
         raise AssertionError(
@@ -540,17 +357,11 @@ def _set_ui_theme(page, theme):
             "text": settled["text"]}
 
 
-# The values Chromium computes for the SVG paint properties when NOTHING
-# in the cascade reaches the element — the SVG initial values (`fill:
-# black`, `stroke: none`). This pair is the signature of the exact defect
-# the drawing plans exist to catch: a shape that inherited no colour and
-# painted the SVG default instead of a theme token.
-#
-# `rgb(0, 0, 0)` is a usable sentinel on THIS app specifically, and that
-# is a measured fact rather than an assumption: neither theme's
-# --color-text is pure black (light #17191F -> rgb(23, 25, 31), dark
-# #F1F3F6 -> rgb(241, 243, 246)), so a shape meant to be painted by a
-# token can never legitimately land on it.
+# The SVG initial values (`fill: black`, `stroke: none`) Chromium computes when nothing in the
+# cascade reaches an element — the signature of a shape that inherited no colour and painted
+# the SVG default instead of a theme token. `rgb(0, 0, 0)` is a safe sentinel here because
+# neither theme's --color-text resolves to pure black, so a token-painted shape can never
+# legitimately land on it.
 SVG_DEFAULT_PAINT = {"fill": "rgb(0, 0, 0)", "stroke": "none"}
 
 _PAINT_PROBE = (
@@ -565,42 +376,17 @@ _PAINT_PROBE = (
 
 
 def _computed_paint(page, selector, props=("fill", "stroke", "color")):
-    """Read the RESOLVED paint the browser computed for the first element
-    matching `selector` — never the attribute, never the class.
+    """Read the resolved paint the browser computed for the first element matching `selector`
+    — never the attribute, never the class. Returns {"selector", <prop>: value, ...,
+    "svg_default": (props,)}.
 
-    Returns {"selector", <prop>: value, ..., "svg_default": (props,)}.
-
-    WHAT THIS BUYS OVER A SOURCE SCAN, which is the only reason it is
-    worth the browser it costs. A scan of the rendered markup can see
-    that a `<line>` carries `class="sparkline-line"`; it cannot see what
-    that class RESOLVES to. getComputedStyle has already run the cascade,
-    resolved `currentColor` against the inherited `color`, and
-    substituted the theme's custom property — so this is the only thing
-    in the repository that can tell a shape painted by a token from a
-    shape painted by the SVG default. Measured live on
-    `.sparkline-line`, whose rule is `stroke: currentColor`: light
-    resolves stroke to rgb(23, 25, 31), dark to rgb(241, 243, 246), and
-    the same element with its class removed resolves to stroke `none`
-    with fill `rgb(0, 0, 0)`. No source scan distinguishes those three.
-
-    `svg_default` names, for the caller, every requested property whose
-    resolved value is indistinguishable from that property's SVG initial
-    value — so four plans do not each have to recognise the defect for
-    themselves and then each get the sentinel slightly different. Read it
-    for what it says: INDISTINGUISHABLE FROM THE INITIAL VALUE. A shape
-    that legitimately declares `stroke: none` (a fill-only shape) reports
-    `stroke` here too, which is correct and not a false positive — a
-    caller asserting "this must be token-painted" should assert on the
-    property it expects to carry the token, and `.sparkline-line`'s own
-    `fill: none` is exactly why this helper reports properties rather
-    than a single verdict.
-
-    Raises rather than returning a sentinel when the selector matches
-    nothing. This file's checks guard against measuring an empty page
-    everywhere they can ("with none, this check measures nothing"), and a
-    returned `None` is a guard each of four call sites has to REMEMBER;
-    an exception is one they cannot forget, and `check()` above turns it
-    into a named FAIL rather than a swallowed pass.
+    getComputedStyle has already run the cascade and resolved `currentColor`/custom properties,
+    so this is the only way to tell a shape painted by a theme token from one painted by the SVG
+    default; a source scan of the markup cannot see what a class resolves to. `svg_default`
+    names every requested property indistinguishable from its SVG initial value — a shape that
+    legitimately declares `stroke: none` reports it too, which is correct, not a false positive.
+    Raises rather than returning a sentinel when nothing matches, so an empty-page measurement
+    cannot be silently forgotten by a call site.
     """
     props = tuple(props)
     seen = page.evaluate(
@@ -620,41 +406,11 @@ def _computed_paint(page, selector, props=("fill", "stroke", "color")):
     return out
 
 
-# WHICH BOX MEANS "THE PAGE". `document.documentElement`, matching the
-# two page-level overflow checks this file already carries
-# (`_home_paints_nothing_outside_the_viewport_or_its_cards` and
-# `_every_disclosure_on_every_page_opens_without_overflow`, both of which
-# compare documentElement.scrollWidth against the viewport) — a third
-# convention in the same file is how three checks come to disagree about
-# what "the page" means.
-#
-# Measured before choosing, not assumed: at 360/390/1280 on Health with
-# every disclosure open, `document.body` and `document.documentElement`
-# report the SAME pair of numbers, clean (360/360) and with a 2000px
-# element appended to <body> (2000/360). body's own `overflow-x: hidden`
-# (style.css's body rule, UXA-01's guaranteed fix) does NOT clip its own
-# scrollWidth, because CSS propagates a body overflow to the viewport
-# when <html>'s is `visible` and leaves body's own used value `visible`.
-# So the two boxes agree today and the choice is settled by consistency
-# with the file's existing checks rather than by a measured difference.
-#
-# THE DELIBERATELY-SCROLLABLE WRAP IS NOT A PAGE OVERFLOW, and this
-# helper gets that right by construction rather than by a special case:
-# 260913-cz6 recorded that a `.data-table-wrap` overflowing its own box
-# leaves documentElement.scrollWidth EXACTLY unmoved, and that was
-# re-measured here — a 2000px element appended INSIDE a
-# `.data-table-wrap` takes that wrap from 278 to 2000 while the document
-# stays at 360/360 and this helper reports clean. `_health_tables_fit_
-# their_wraps_with_every_disclosure_open` is the check that owns the
-# wrap-level question; this helper must not contradict it, and does not.
-#
-# The escaped-element list is DIAGNOSTIC ONLY and is never an independent
-# failure condition. CFG-45's wording is "no horizontal scrollbar on the
-# page body", so that — and only that — is what this helper asserts; a
-# helper that quietly also failed on content escaping an
-# `overflow: hidden` card would be doing more than its name says to four
-# calling plans. Naming what escaped is still what makes the failure
-# actionable, so it rides along in the message.
+# `document.documentElement`, matching this file's other page-level overflow checks (they
+# compare documentElement.scrollWidth against the viewport, and both boxes report the same
+# number here). A `.data-table-wrap` overflowing its own box leaves scrollWidth unmoved, so this
+# helper does not double-count wrap-level overflow; the escaped-element list is diagnostic only,
+# never an independent failure condition.
 _PAGE_OVERFLOW_PROBE = (
     "() => {"
     "  const vw = document.documentElement.clientWidth;"
@@ -670,12 +426,9 @@ _PAGE_OVERFLOW_PROBE = (
     "}")
 
 
-# 24-04-PLAN.md Task 4: the ring's own INK, in viewBox user units.
-# getBBox() reports the shape's geometry box and deliberately EXCLUDES
-# the stroke, so the resolved stroke-width is read alongside it and half
-# of it added on every side here, in the open — that half-stroke is the
-# whole property under test, and hiding it inside a getBBox() option
-# dictionary would also mean assuming that dictionary is supported.
+# The ring's own ink extent, in viewBox user units. getBBox() excludes the stroke, so the
+# resolved stroke-width is read alongside it and half of it added on every side here, in the
+# open, since that half-stroke is the property under test.
 _RING_INK_PROBE = (
     "args => {"
     "  const svg = document.querySelector(args.selector);"
@@ -709,33 +462,17 @@ _TILE_CONTENT_PROBE = (
 
 
 def _assert_no_page_overflow(page, where, expected_width=None):
-    """Whether the page itself scrolls horizontally. Returns "" when it
-    does not, and a finished failure sentence naming BOTH measurements
-    when it does — the `_assert_clean` idiom this file already uses for
-    exactly this job, so a caller writes `msg = ...; if msg: return
-    False, msg` and every drawing plan's overflow failure reads the same.
+    """Whether the page itself scrolls horizontally. Returns "" when it does not, and a
+    failure sentence naming both measurements when it does, matching this file's
+    `_assert_clean` idiom.
 
-    `where` names the surface being measured and nothing else — a route
-    or page name ("Home", "/health in fr"). The width is appended by this
-    helper from its own measurement, matching the existing checks'
-    "%s scrolls sideways at %dpx" wording, so a caller that folds the
-    width into `where` gets it twice.
+    `where` names the surface being measured; the width is appended by this helper, so folding
+    the width into `where` too would duplicate it. `expected_width`, when given, asserts the
+    measurement was taken at the viewport the caller believes it built.
 
-    `expected_width` is optional and, when given, asserts the measurement
-    was really taken at the viewport the caller believes it built — the
-    same "expected the measurement to be taken at %dpx" guard both
-    existing overflow checks spell out by hand, so a context that
-    silently came up at another size cannot produce a green measurement.
-
-    The comparison is documentElement.scrollWidth against
-    documentElement.clientWidth, strictly greater, no tolerance. The two
-    existing page-level checks compare against the width they REQUESTED
-    because they have one in scope; a helper handed only a page does not,
-    and clientWidth is the same number in every measurement this file has
-    ever taken (360/360, 390/390, 1280/1280 — re-measured on this tree).
-    It is also the viewport's own content box, which is the box a
-    horizontal scrollbar would appear for, and the number both existing
-    checks already print beside scrollWidth in their own messages.
+    Compares documentElement.scrollWidth against its own clientWidth, strictly greater, no
+    tolerance: clientWidth is the viewport's own content box, the box a scrollbar would appear
+    for, rather than the width the caller requested.
     """
     seen = page.evaluate(_PAGE_OVERFLOW_PROBE)
     if expected_width is not None and seen["cw"] != expected_width:
@@ -752,54 +489,19 @@ def _assert_no_page_overflow(page, where, expected_width=None):
     return ""
 
 
-# --- 25-02-PLAN.md (CFG-52): the four control-contract helpers the five
-# control plans (25-03..25-07) each need, written ONCE, before any of the
-# five controls exists. Helpers only: this block registers no test of its
-# own.
-#
-# Why they are here at all, and why the FIRST of them is the one that
-# matters. Phase 25 replaces five bare fields with richer controls, and
-# every one of them owes the same four proofs: it is operable with
-# scripts blocked, it is operable from the keyboard with no pointer at
-# all, its hit target survives the 360px floor, and it is legible in both
-# themes. Written out five times by hand, that is five chances to
-# transcribe a sequence WRONG — which is the exact argument
-# `_no_js_page()`'s own docstring already makes about the flag it owns.
-#
-# THE NO-JS PROOF FOR A CONTROL IS NOT "IT RENDERS". A control can render
-# perfectly with scripts blocked and save nothing whatsoever: Phase 22
-# found exactly that (a fallback Save that was rendered and had a
-# zero-size box), and a phase that replaces five inputs can ship it five
-# times over. So the first helper below operates the control, submits the
-# real form it belongs to, reloads, and reads the value back FROM DISK.
-# Reading it back from the reloaded DOM alone would still pass against a
-# server that echoed the submission straight back without storing it, and
-# stopping at "the page navigated" would pass against a control that
-# saves nothing at all.
+# Four control-contract helpers shared by the richer form controls: each one is operable with
+# scripts blocked, operable from the keyboard with no pointer, keeps a hit target at the 360px
+# floor, and stays legible in both themes. A no-js proof is not "it renders" — a control can
+# render perfectly with scripts blocked and save nothing, so the first helper below operates
+# the control, submits its real form, reloads, and reads the value back from disk.
 
+# 1. Operate, submit, persist — with scripts blocked.
 
-# ---------------------------------------------------------------------
-# 1. Operate, submit, PERSIST — with scripts blocked.
-# ---------------------------------------------------------------------
-
-# Locate every form control posting under one `name`, set it by the
-# browser's OWN mechanism, and report what happened — never a
-# Playwright coordinate interaction.
-#
-# The kind is dispatched on the control's own `type`, so a call site says
-# what it means ("this field must end up holding this value") and the
-# helper picks `el.click()` for a radio/checkbox and a `.value`
-# assignment for everything else. `_click_control()`'s docstring is the
-# precedent and its reasoning carries verbatim: the radios this phase's
-# controls are built over are `clip-path: inset(50%)` visually-hidden,
-# which clips their hit-testable area to nothing, so a coordinate click
-# lands on whatever the hit-test resolves to instead. The DOM's own
-# activation behaviour is what every keyboard/assistive path already
-# uses for this pattern and is what works here.
-#
-# Controls are collected by comparing `.name` rather than through a
-# `[name="..."]` attribute selector, so a field name needing CSS escaping
-# can never turn a real subject into a silent zero-match.
+# Locates every form control posting under one `name`, sets it via the browser's own mechanism
+# (never a Playwright coordinate interaction — see `_click_control()`'s docstring for why a
+# coordinate click can miss a visually-hidden radio), and reports what happened. Controls are
+# collected by comparing `.name` rather than a `[name="..."]` selector, so a field name needing
+# CSS escaping cannot silently zero-match.
 _OPERATE_PROBE = (
     "args => {"
     "  const all = [...document.querySelectorAll('input, select, textarea')]"
@@ -837,19 +539,11 @@ _OPERATE_PROBE = (
     "          submits: submits.length, visible: visible.length};"
     "}")
 
-# The submission itself, re-resolving the form from the same field name
-# so nothing has to be carried across the two evaluations.
-#
-# A VISIBLE submit button is preferred over `form.requestSubmit()`, and
-# that preference is the point rather than an implementation detail: the
-# button a scripts-blocked visitor can actually press is the always-
-# rendered fallback Save, and Phase 22's P0 was precisely that button
-# being rendered with a zero-size box. Going through it means this helper
-# exercises the control AND the one affordance that submits it. `click()`
-# is the DOM's activation behaviour, so it carries the submitter's own
-# name/value (which several of this app's forms post) and still runs
-# native constraint validation — `form.submit()` would skip both, and is
-# deliberately not used anywhere here.
+# The submission itself, re-resolving the form from the same field name so nothing has to be
+# carried across the two evaluations. A visible submit button is preferred over
+# `form.requestSubmit()`, since that is the affordance a scripts-blocked visitor can actually
+# press; `click()` carries the submitter's name/value and runs native constraint validation,
+# which `form.submit()` would skip.
 _SUBMIT_PROBE = (
     "args => {"
     "  const all = [...document.querySelectorAll('input, select, textarea')]"
@@ -884,69 +578,19 @@ _READ_FIELD_PROBE = (
 def _persist_without_js(make_context, base_url, route, field, value, read_back,
                         viewport=None, restore=True, shows_back=True,
                         cookies=None):
-    """Operate a native control with scripts blocked, submit the real
-    form it belongs to, reload the route, and prove the value SURVIVED —
-    on disk, not merely on the page.
+    """Operate a native control with scripts blocked, submit its form, reload the route, and
+    prove the value survived on disk, not merely on the page.
 
-    Returns {"field", "set", "held", "reloaded", "stored", "before",
-    "submitted_via", "restored"} on success. RAISES AssertionError on
-    every failure, `_set_ui_theme()`'s shape and for its reason: a helper
-    that returned a verdict string would hand five calling plans a guard
-    each of them has to REMEMBER, and `check()` turns a raised
-    AssertionError into a named FAIL that nobody can forget.
+    Returns {"field", "set", "held", "reloaded", "stored", "before", "submitted_via",
+    "restored"}; raises AssertionError on failure rather than returning a verdict string.
 
-    THE ASSERTION IS ON THE RELOADED, RE-READ VALUE — NEVER THE POSTED
-    ONE, and that is the entire reason this helper exists rather than the
-    three-line sequence it replaces. Three weaker sequences all pass
-    against a broken control:
-      * "the input is present with scripts blocked" passes against a
-        control that saves nothing — the Phase 22 defect exactly;
-      * "the page navigated after submit" passes against a POST the
-        server rejected on validation and redirected straight back from;
-      * "the reloaded page shows the value" passes against a server that
-        echoes a rejected submission back into the field (which
-        `wake_interval_group()` deliberately DOES, by design, for D-07).
-    So the verdict is `read_back()` — a caller-supplied reader that goes
-    to the real state directory through the app's own loader. The
-    reloaded DOM is measured too, and reported, but it is corroboration.
-
-    `read_back` is a zero-argument callable returning the stored value;
-    it is compared as text (`str()`), because a field posts "300" and
-    `device_config` stores `300`, and a helper that failed on that would
-    only teach its callers to pre-stringify.
-
-    `shows_back=True` (the default) additionally corroborates that the
-    reloaded page SHOWS the saved value back, which is what makes a
-    setting visible to the visitor who made it. It is a parameter rather
-    than an always-on clause because this app has a deliberate,
-    documented exception: `notifications_topic_url` is write-only by
-    design (T-20-12 — never echoed, never masked, in any state), so it
-    stores correctly and renders empty forever. Measured on this tree:
-    with the default it raises on that field and with `shows_back=False`
-    it passes, which is the right answer in both cases. The DISK read is
-    never optional — it is the verdict.
-
-    `restore=True` (the default) puts the setting back the way it found
-    it as this helper's LAST act, through the identical operate-submit
-    sequence — never a direct write to the state directory, which would
-    be a second way of changing settings living in a harness. The
-    fixture is shared by every check in this file and a helper that left
-    a real setting changed would be a test that edits its own
-    neighbours' subject (T-25-02-A).
-
-    `cookies` is a straight passthrough to `_no_js_page()`'s own
-    parameter, added by 25-03 for one reason: D-09's floor has to hold in
-    BOTH shipped languages, and the UI language is a cookie the FIRST
-    rendered document already has to honour. A passthrough rather than a
-    second sequence — this helper's whole value is that the five control
-    plans measure saving the same way, and a plan that needed a cookie
-    and hand-rolled its own operate-submit-reload would have re-opened
-    exactly the transcription risk `_no_js_page()` exists to close. It
-    reaches the restore pass too, so a French-language measurement puts
-    the setting back through the French page.
-
-    It runs entirely inside `_no_js_page()` and opens no context of its
-    own — the one scripts-blocked call site in this file stays one.
+    The verdict is `read_back()`, a caller-supplied reader of the real state directory, compared
+    as text — the reloaded DOM is corroboration only, since a rejected submission can echo back
+    into the field. `shows_back=False` opts out of that DOM corroboration for write-only fields
+    like `notifications_topic_url`. `restore=True` (default) puts the setting back via the same
+    sequence as its last act; `cookies` passes through to `_no_js_page()` for language-cookie
+    coverage. Runs entirely inside `_no_js_page()`, keeping this file's one scripts-blocked call
+    site to one.
     """
     before = read_back()
     result = _persist_once(
@@ -965,54 +609,20 @@ def _persist_without_js(make_context, base_url, route, field, value, read_back,
 def _upload_without_js(make_context, base_url, route, input_selector, submit_selector,
                        source_path, read_back, serve_path, viewport=None,
                        cookies=None):
-    """`_persist_without_js()`'s FILE-INPUT VARIANT, added by 25-07 and
-    stated as a variant rather than smuggled in as a second sequence.
+    """`_persist_without_js()`'s file-input variant: `<input type="file">` is the one native
+    control whose `.value` a script may not write, so the file goes in through
+    `page.set_input_files()` (CDP's `DOM.setFileInputFiles`, works with scripts blocked) and the
+    form is submitted via its real submit button.
 
-    WHY A VARIANT AT ALL, since the whole point of 25-02's helper is that
-    five control plans measure saving the same way. `_persist_without_js()`
-    operates its control by ASSIGNING TO `.value` through `_OPERATE_PROBE`,
-    and `<input type="file">` is the one native control in this app whose
-    `.value` a script may not write — that restriction is the browser's,
-    not this app's, and no amount of parameterising gets around it. The
-    file is put in through the browser's own file-chooser plumbing
-    (`page.set_input_files()`, which is CDP's `DOM.setFileInputFiles` and
-    works perfectly well with scripts blocked) and the form is submitted
-    by clicking its real submit button.
+    Otherwise the same discipline: runs entirely inside `_no_js_page()`; the verdict is read
+    back from disk, never from the page, since a rejected upload can redirect back to a page
+    that looks like success. It additionally fetches `serve_path` by navigating to it (never
+    `page.request`, which does not carry the session cookie on this tree's Playwright and would
+    silently hit the login redirect), so a stored-but-not-served illustration is caught too.
 
-    EVERYTHING ELSE IS 25-02'S DISCIPLINE, DELIBERATELY UNCHANGED:
-
-      * It runs entirely inside `_no_js_page()` and opens no context of
-        its own, so this file's one scripts-blocked call site stays one.
-      * THE VERDICT IS READ BACK FROM DISK, never from the page. A POST
-        the server rejected on validation redirects straight back to a
-        page that looks exactly like success — this app even has a named
-        flash key for it (`illustration_rejected`) — so "the browser
-        navigated" proves nothing at all.
-      * It additionally fetches `serve_path` BY NAVIGATING TO IT and
-        reading the navigation response's own body, and returns those
-        bytes too. For an upload that is the clause that matters and it
-        has no counterpart in the field case: an illustration that is
-        stored but not SERVED is a setting nobody can see, and D19's
-        whole promise is a picture on a card.
-
-        BY NAVIGATION, AND NOT THROUGH `page.request`, WHICH WAS
-        MEASURED WRONG HERE. `page.request` is documented as sharing the
-        browser context's cookie jar; on this tree's Playwright it does
-        not send `sp_session`, so an authenticated fetch through it
-        follows the redirect to /login and comes back **200 with a
-        1493-byte HTML page**. A check asserting "200" on that would
-        have passed against the login screen. A navigation carries the
-        session cookie and reports the route's real status, so that is
-        what this helper uses.
-
-    Returns {"before_len", "landed", "stored", "stored_len",
-    "served_status", "served", "served_len", "gate"}. RAISES
-    AssertionError on every failure, `_persist_without_js()`'s shape and
-    for its reason.
-
-    `read_back` is a zero-argument callable returning the stored BYTES,
-    or None when nothing is stored — a caller-supplied reader going to
-    the real state directory, exactly as in the field case.
+    Returns {"before_len", "landed", "stored", "stored_len", "served_status", "served",
+    "served_len", "gate"}; raises AssertionError on failure. `read_back` is a zero-argument
+    callable returning the stored bytes or None, reading the real state directory.
     """
     before = read_back()
     with _no_js_page(make_context, base_url, route, viewport=viewport,
@@ -1055,9 +665,8 @@ def _upload_without_js(make_context, base_url, route, input_selector, submit_sel
 
 def _persist_once(make_context, base_url, route, field, value, read_back, viewport,
                   shows_back, cookies=None):
-    """One operate-submit-reload-verify pass. Split out only so
-    `_persist_without_js()`'s restore step is the SAME sequence as its
-    measurement rather than a second, hand-written one.
+    """One operate-submit-reload-verify pass, split out so `_persist_without_js()`'s restore
+    step is the same sequence as its measurement rather than a second, hand-written one.
     """
     with _no_js_page(make_context, base_url, route, viewport=viewport,
                      cookies=cookies) as page:
@@ -1101,9 +710,8 @@ def _persist_once(make_context, base_url, route, field, value, read_back, viewpo
         with page.expect_navigation():
             via = page.evaluate(_SUBMIT_PROBE, {"field": field})
 
-        # A genuine second GET, not page.reload() — the redirect the save
-        # lands on is not necessarily the route under test, and what the
-        # next visitor sees is this route fetched fresh.
+        # A genuine second GET, not page.reload(): the save's redirect target is not
+        # necessarily the route under test, and this fetches it fresh.
         page.goto(base_url + route)
         reloaded = page.evaluate(_READ_FIELD_PROBE, {"field": field})
 
@@ -1127,43 +735,19 @@ def _persist_once(make_context, base_url, route, field, value, read_back, viewpo
             "reloaded": reloaded, "stored": stored}
 
 
-# ---------------------------------------------------------------------
-# 2. Keyboard-only operation, with the pointer-free claim MEASURED.
-# ---------------------------------------------------------------------
+# 2. Keyboard-only operation, with the pointer-free claim measured.
 
-# Arm a capture-phase recorder for every pointer-ish event on the
-# document, then (separately) read it back and then prove it was alive.
+# Arms a capture-phase recorder for every pointer-ish event on the document, so "no pointer was
+# involved" is a measurement of the page rather than merely a promise that the harness itself
+# avoided calling a pointer API.
 #
-# WHY A RECORDER AT ALL, when this helper simply does not call a pointer
-# API. Because "I did not click" is a statement about the harness, and
-# the property under test is a statement about the CONTROL: that a
-# keyboard-only visitor can operate it. A helper that merely avoided
-# clicking would still pass against a control reachable only by mouse,
-# because it would never notice that the value it read had been changed
-# by something other than the keys it pressed. The recorder turns "no
-# pointer was involved" from the harness's promise into the page's own
-# measurement.
-# A `click` IS NOT A POINTER EVENT, AND THIS DISTINCTION IS NOT
-# PEDANTRY — IT IS MEASURED ON THIS TREE AND IT DECIDES WHETHER THIS
-# HELPER IS USABLE AT ALL. Pressing ArrowDown inside a native radiogroup
-# moves the selection and, as part of the selected radio's ACTIVATION
-# BEHAVIOUR, fires a real `click` event on it. The first version of this
-# recorder logged `click` unconditionally, and it duly reported that the
-# existing runway radiogroup — the single behaviour D16's runway map and
-# D5's carousel both inherit for free — "was driven with ['ArrowDown']
-# and 1 pointer event(s) fired ... ['click:INPUT']". That verdict is
-# wrong, and a helper that returns it would have taught this phase to
-# stop using the keyboard behaviour it is built on.
-#
-# The discriminator is the event's own provenance, not its name.
-# UI Events gives a pointer-driven `click` a `detail` of at least 1 (the
-# click count) and a `pointerType` of "mouse"/"pen"/"touch"; a click
-# synthesized by keyboard activation or by `el.click()` carries
-# `detail === 0` and an empty `pointerType`. So `click`/`dblclick`/
-# `contextmenu` are logged ONLY when they carry that provenance, and
-# every genuinely pointer-only event (pointer*/mouse*/touch*) is logged
-# unconditionally. Verified in both directions below: a real
-# `locator.click()` is caught, and a keyboard ArrowDown is not.
+# A native radiogroup's ArrowDown activation behaviour fires a real `click` event on the
+# selected radio, so `click` cannot simply be logged unconditionally without misreporting
+# genuine keyboard operation as pointer-driven. The discriminator is provenance, not the event
+# name: a pointer-driven `click` carries `detail >= 1` and a `pointerType`; a click synthesized
+# by keyboard activation or `el.click()` carries `detail === 0` and no `pointerType`. So
+# `click`/`dblclick`/`contextmenu` are logged only with that provenance, while genuinely
+# pointer-only events (pointer*/mouse*/touch*) are logged unconditionally.
 _POINTER_RECORDER_ARM = (
     "() => {"
     "  window.__skypanePointerLog = [];"
@@ -1188,8 +772,8 @@ _POINTER_RECORDER_ARM = (
 
 _POINTER_RECORDER_READ = "() => (window.__skypanePointerLog || []).slice()"
 
-# The recorder's OWN proof of life, dispatched only AFTER the measurement
-# above has been taken, so it can never pollute what it verifies.
+# The recorder's own proof of life, dispatched only after the measurement above has been
+# taken, so it can never pollute what it verifies.
 _POINTER_RECORDER_SELFTEST = (
     "args => {"
     "  const el = document.querySelector(args.selector) || document.body;"
@@ -1233,50 +817,23 @@ _KEYBOARD_RESULT_PROBE = (
 
 
 def _operate_with_keyboard(page, selector, keys):
-    """Drive a control with the keyboard ALONE and report what it did,
-    having measured that not one pointer event fired while doing it.
+    """Drive a control with the keyboard alone and report what it did, having measured that
+    not one pointer event fired while doing it.
 
-    Returns {"selector", "keys", "value", "checked", "group", "active",
-    "pointer_events", "recorder_proved"}. Raises AssertionError when the
-    element cannot be focused, when a pointer event DID fire, or when the
-    recorder could not prove itself (below).
+    Returns {"selector", "keys", "value", "checked", "group", "active", "pointer_events",
+    "recorder_proved"}; raises AssertionError when the element cannot be focused, a pointer
+    event did fire, or the recorder could not prove itself.
 
-    FOCUS IS TAKEN WITH `el.focus()`, NOT A CLICK. That is the DOM's own
-    focusing method — no pointer event of any kind is generated by it —
-    and it is the same reasoning `_click_control()` records for using the
-    element's own API instead of a coordinate interaction.
-
-    THE KEYS ARE PRESSED THROUGH `page.keyboard`, NOT DISPATCHED AS
-    SYNTHETIC KeyboardEvents, and this is load-bearing rather than
-    stylistic: the single most important keyboard behaviour this phase
-    depends on — arrow keys moving the selection inside a native
-    radiogroup, which is what D16's runway map and D5's carousel both
-    inherit for free — is implemented by the browser's own default action
-    and runs only for TRUSTED events. A `dispatchEvent(new
-    KeyboardEvent('keydown', {key: 'ArrowDown'}))` is untrusted, moves
-    nothing, and would make this helper report that a perfectly good
-    radiogroup is not keyboard-operable.
-
-    THE RECORDER PROVES ITSELF, IN THIS ORDER: arm, measure (must be
-    empty), then dispatch one synthetic pointer event and confirm the
-    recorder caught it (must not be empty). Without that last step the
-    pointer-free claim would be vacuous in exactly the case where it is
-    easiest to get wrong — a context where the listener never ran at all
-    would report "zero pointer events" forever.
-
-    MEASURED ON THIS TREE, AND THE REASON THIS HELPER REFUSES TO RUN
-    WITH SCRIPTS BLOCKED: in a `java_script_enabled=False` context,
-    listeners registered through `page.evaluate` are installed (the array
-    is really there and really readable afterwards) but NEVER FIRE — a
-    Tab walk moves focus and an `el.click()` still activates, and the log
-    stays empty regardless. `getComputedStyle` and CSS recalculation are
-    not gated on scripts, which is why `_set_ui_theme()` works there, but
-    listener callbacks are. So in that context the recorder's self-test
-    fails and this helper raises rather than returning a green
-    pointer-free verdict it cannot back up. Keyboard operation of a
-    control that needs no script is proven by
-    `_persist_without_js()` instead; this helper's subject is the
-    enhanced control, which has scripts by definition.
+    Focus is taken with `el.focus()`, never a click, matching `_click_control()`'s reasoning for
+    using the element's own API. Keys are pressed through `page.keyboard`, not dispatched as
+    synthetic KeyboardEvents: a native radiogroup's arrow-key selection is the browser's own
+    default action and only runs for trusted events, so a synthetic dispatch would misreport a
+    working radiogroup as not keyboard-operable. The recorder proves itself by dispatching one
+    synthetic pointer event after measuring and confirming it was caught, so a listener that
+    never ran cannot report a vacuous "zero pointer events". This helper refuses to run with
+    scripts blocked: listeners installed via `page.evaluate` never fire in a
+    `java_script_enabled=False` context, so its self-test would fail; scripts-blocked keyboard
+    operation is proven by `_persist_without_js()` instead.
     """
     page.evaluate(_POINTER_RECORDER_ARM)
 
@@ -1323,49 +880,22 @@ def _operate_with_keyboard(page, selector, keys):
             "pointer_events": fired, "recorder_proved": proved}
 
 
-# ---------------------------------------------------------------------
 # 3. The hit area the browser really hit-tests, at a real viewport.
-# ---------------------------------------------------------------------
 
-# The established touch-target floor, in both axes
-# (.claude/skills/sketch-findings-skypane/references/control-density.md,
-# and the same 44 the `.copy-btn`/`.row-toggle` ::before synthesis and
-# the global `input, select` rule are both built to reach). Named once
-# here so five control plans do not each retype it.
+# The established touch-target floor, in both axes. Named once here so five control plans do
+# not each retype it.
 MIN_HIT_TARGET_PX = 44
 
-# Measure the visual box, confirm the centre is genuinely reachable, then
-# find how far past each edge the browser still resolves a hit to this
-# element.
-#
-# THE TECHNIQUE, RECORDED HERE BECAUSE A LATER READER WILL OTHERWISE
-# "SIMPLIFY" IT BACK INTO A WRONG MEASUREMENT. `getBoundingClientRect()`
-# alone is not the hit area, in either direction:
-#   * it UNDERSTATES a synthesized target. `.copy-btn` is a 22x22 box
-#     whose `::before` carries `inset: -11px`, making the real target
-#     44x44. A pseudo-element has no box of its own in the DOM and no
-#     rect to read; the only thing that knows about it is the hit-test.
-#   * it OVERSTATES an occluded one. A perfectly-sized rectangle covered
-#     by a sticky bar, an overlay or a later-painted sibling is a control
-#     nobody can press, and its rect says 44x44 regardless.
-# `document.elementFromPoint()` answers both, because it IS the browser's
-# hit-test: it returns the element that would receive a pointer
-# interaction at a point, pseudo-elements resolving to their generating
-# element. So the centre is probed first (occlusion), and then each edge
-# is pushed outwards by binary search for as long as the hit still
-# resolves to this element or a descendant of it (synthesis).
-#
-# Reading `getComputedStyle(el, '::before')`'s insets instead — which one
-# existing check in this file does by hand — measures the DECLARATION,
-# not the hit test. It cannot see an occluder, it cannot see a
-# `pointer-events: none` on the pseudo-element, and it has to know in
-# advance which pseudo-element to ask about.
-#
-# The search is bounded by `max` and monotonic by construction (an inset
-# hit area is a rectangle), and it reports `clipped` when a probe left
-# the viewport — at which point the measurement is a floor, not the
-# answer, and a caller comparing it against 44 is still safe because a
-# clipped measurement can only be too SMALL.
+# Measures the visual box, confirms the centre is genuinely reachable, then finds how far past
+# each edge the browser still resolves a hit to this element. `getBoundingClientRect()` alone
+# understates a synthesized target (a pseudo-element's `inset` has no box of its own to read)
+# and overstates an occluded one (its rect is unchanged by a sticky bar or overlay covering it).
+# `document.elementFromPoint()` is the browser's real hit-test and answers both: the centre is
+# probed first (occlusion), then each edge is pushed outward by binary search for as long as the
+# hit still resolves to this element or a descendant (synthesis). Bounded by `max` and monotonic
+# by construction; reports `clipped` when a probe left the viewport, at which point the
+# measurement is a floor, safe for a caller comparing against 44 since a clipped result can only
+# be too small.
 _HIT_AREA_PROBE = (
     "args => {"
     "  const el = document.querySelector(args.selector);"
@@ -1412,64 +942,24 @@ _HIT_AREA_PROBE = (
 
 
 def _hit_area(page, selector, max_expand=64):
-    """The element's VISUAL box and the box the browser actually
-    hit-tests to it, both axes, at whatever viewport `page` is at.
+    """The element's visual box and the box the browser actually hit-tests to it, both axes,
+    at whatever viewport `page` is at.
 
-    Returns {"selector", "visual": (w, h), "hit": (w, h), "reach":
-    (left, right, up, down), "clipped", "viewport"}. Raises
-    AssertionError when the selector matches nothing, when the element
-    has no box at all, or when its own centre point hit-tests to
-    something else — an occluded control, which is the failure a
-    rectangle measurement is blind to.
+    Returns {"selector", "visual": (w, h), "hit": (w, h), "reach": (left, right, up, down),
+    "clipped", "viewport"}; raises AssertionError when the selector matches nothing, the
+    element has no box, or its own centre hit-tests to something else (an occluded control,
+    invisible to a rectangle measurement). See the module comment above `_HIT_AREA_PROBE` for
+    why `elementFromPoint` is used instead of `getBoundingClientRect()` alone.
 
-    Read the module comment above this function before changing it: the
-    `elementFromPoint` probing is the whole measurement, and
-    `getBoundingClientRect()` on its own would report `.copy-btn` as
-    22x22 when its real target is 44x44.
-
-    THE SEARCH COUNTS WHOLE PIXELS, OUTWARDS FROM THE CENTRE, SAMPLED AT
-    THEIR CENTRES, AND THE ANSWER IS A PIXEL COUNT. Both halves of that
-    were arrived at by measuring rather than by taste:
-      * A FRACTIONAL binary search inflates every answer by about a
-        pixel, because `elementFromPoint` resolves to the pixel grid — a
-        312.0-wide <h1> reported 312.97. On a 44px floor a systematic
-        +1 is the difference between passing a 43px target and failing
-        it, so the search is over integers.
-      * Each pixel is sampled at its own CENTRE (x + 0.5), which asks
-        the unambiguous question "does THIS pixel route a pointer to the
-        control?" rather than the ambiguous one about a box edge.
-    THE ANSWER CAN EXCEED THE CSS BOX BY ABOUT A PIXEL PER AXIS, and that
-    is the browser rather than this probe: a box whose edges land off the
-    pixel grid has its hit region snapped outwards, so the row toggle's
-    22x22 visual box and -11px `::before` inset measure 45x45 rather than
-    44x44, and a 96x44 `<input>` measures 97x45. Those pixels really do
-    route a pointer to the control — a click at them lands on it — so the
-    number is the truth about this rendering and not an error to be
-    corrected away. It does mean a floor comparison is permissive by up
-    to a pixel: a control measuring exactly 44 here could be 43 in CSS.
-    Do not trust the last pixel of this measurement; do trust the
-    difference between 22 and 44, which is what it exists to tell apart.
-
-    Probing outward FROM THE CENTRE (rather than inward from each edge)
-    is what makes the search monotonic without having to guess a starting
-    point that is definitely inside the box.
-
-    THE ELEMENT IS SCROLLED TO THE CENTRE OF THE VIEWPORT FIRST, and that
-    is a correctness measure rather than a convenience. A hit-test is
-    meaningless off-screen, and — measured here — `#wake-interval-s` at
-    360px reports its centre hit-testing to `tab-bar__pill`, the fixed
-    bottom tab bar, purely because of where the page happened to be
-    scrolled. An occlusion verdict that depends on scroll position is an
-    intermittently-red check, which is worse than no check. After
-    centring, an `occluded` result means a real overlay rather than a
-    scroll accident.
-
-    `max_expand` bounds the outward search. 64 is comfortably past the
-    44px floor and past the 11px-per-side synthesis this app uses, and
-    keeps a control that happens to sit inside a large clickable parent
-    from reporting that parent's size — the search stops at this element,
-    but only because `owns()` requires the hit to BE this element or a
-    descendant, never an ancestor.
+    The search counts whole pixels outward from the centre, each sampled at its own centre
+    (x + 0.5): a fractional binary search inflates every answer by about a pixel, which matters
+    at a 44px floor. The answer can therefore exceed the CSS box by about a pixel per axis when
+    an edge lands off the pixel grid and the hit region snaps outward — that is real browser
+    behaviour, not an artefact, so a floor comparison here is permissive by up to a pixel.
+    The element is scrolled to the viewport centre first, since an occlusion verdict that
+    depends on scroll position would be intermittently red. `max_expand` bounds the outward
+    search past the 44px floor without reporting a large clickable parent's size, since `owns()`
+    requires the hit to be this element or a descendant, never an ancestor.
     """
     seen = page.evaluate(
         _HIT_AREA_PROBE, {"selector": selector, "max": max_expand})
@@ -1507,33 +997,19 @@ def _hit_area(page, selector, max_expand=64):
             "viewport": tuple(seen["viewport"])}
 
 
-# 25-07-PLAN.md Task 3 (CFG-51/D19): a REAL, TRUSTED file drop.
-#
-# WHY CDP AND NOT page.dispatch_event(). panel-lookup.js's drop handler
-# refuses an event whose `isTrusted` is false — 25-01's value-controls.js
-# closes the same exposure for its own control — and every drop a page
-# script can construct is untrusted by definition. The obvious harness
-# recipe (build a DataTransfer in the page, dispatch a synthetic "drop")
-# therefore measures the refusal and nothing else.
-#
-# Chromium's DevTools protocol dispatches drag events through the same
-# input pipeline a real pointer uses, with a `files` list the browser
-# turns into genuine File objects. Measured on this tree: the handler
-# sees `isTrusted: true` and `dataTransfer.files.length === 1`. So the
-# guard stays, AND the gesture is measured end to end — which is the
-# only combination that proves both.
-#
-# The drag-over state is sampled BETWEEN dragOver and drop, i.e. while
-# the browser is genuinely in the state, rather than at a guessed
-# instant after a sleep. An intermittently-red check is worse than none.
+# A real, trusted file drop. The drop handler refuses an event whose `isTrusted` is false, and
+# every drop a page script can construct is untrusted by definition, so a synthetic
+# `dispatchEvent("drop")` would only measure the refusal. Chromium's DevTools protocol
+# dispatches drag events through the same input pipeline a real pointer uses, with a `files`
+# list the browser turns into genuine File objects, so the guard stays intact and the gesture is
+# measured end to end. The drag-over state is sampled between dragOver and drop, while the
+# browser is genuinely in that state, rather than at a guessed instant after a sleep.
 def _drop_files(page, selector, paths):
     """Dispatch a trusted file drop of `paths` onto `selector`'s centre.
 
-    Returns {"active_during_drag", "active_after_drop", "paint_during_drag",
-    "paint_at_rest"} — the attribute the stylesheet keys its drag state
-    on, sampled on both sides of the drop, plus the resolved paint in
-    each state so "the state is visible" is a measurement rather than a
-    class name.
+    Returns {"active_during_drag", "active_after_drop", "paint_during_drag", "paint_at_rest"}:
+    the drag-state attribute sampled on both sides of the drop, plus the resolved paint in each
+    state, so "the state is visible" is a measurement rather than a class name.
     """
     box = page.locator(selector).bounding_box()
     if not box or not box["height"]:
@@ -1624,10 +1100,8 @@ def _upload_zone_state(page, selector):
 
 
 def _assert_hit_target(page, selector, where, minimum=MIN_HIT_TARGET_PX):
-    """`_hit_area()` plus the floor, so five control plans do not each
-    retype the comparison and get the axis or the number slightly
-    different. Returns the measurement; raises when either axis is under
-    `minimum`.
+    """`_hit_area()` plus the floor comparison, so callers do not each retype it. Returns the
+    measurement; raises when either axis is under `minimum`.
     """
     seen = _hit_area(page, selector)
     w, h = seen["hit"]
@@ -1643,14 +1117,11 @@ def _assert_hit_target(page, selector, where, minimum=MIN_HIT_TARGET_PX):
     return seen
 
 
-# ---------------------------------------------------------------------
-# 4. The `.js` gate, asserted in BOTH directions.
-# ---------------------------------------------------------------------
+# 4. The `.js` gate, asserted in both directions.
 
-# The tabbable-candidate vocabulary, in one place. `[tabindex]` is
-# included and then filtered on its resolved value rather than matched as
-# `[tabindex="-1"]` in the selector, because a programmatically-set
-# `el.tabIndex = -1` leaves no attribute to match.
+# The tabbable-candidate vocabulary, in one place. `[tabindex]` is included and filtered on its
+# resolved value rather than matched as `[tabindex="-1"]` in the selector, because a
+# programmatically-set `el.tabIndex = -1` leaves no attribute to match.
 _FOCUSABLE_CANDIDATE_SELECTOR = (
     "a[href], area[href], button, input, select, textarea, summary, "
     "iframe, object, embed, audio[controls], video[controls], "
@@ -1671,16 +1142,10 @@ _GATE_BOX_PROBE = (
     "          tabbable: document.querySelectorAll(args.focusable).length};"
     "}")
 
-# Where focus currently is, and whether it is inside the gated wrapper.
-# Read after every single Tab press, because a `focusin` recorder — the
-# obvious optimisation — does not fire at all in a scripts-blocked
-# context, which is the only context this walk is ever taken in.
-# The walk's own cycle detector MARKS THE ELEMENT rather than comparing a
-# name, because names collide: the first version stopped after 24 of a
-# page's 44 tab stops, having decided it had come back round when two
-# different controls merely shared a class string. A mark is identity,
-# and a walk that stops early is a walk that never reaches the stops it
-# was looking for.
+# Where focus currently is, and whether it is inside the gated wrapper. Read after every Tab
+# press, since a `focusin` recorder does not fire in the scripts-blocked context this walk runs
+# in. The cycle detector marks the element itself rather than comparing a name, because two
+# different controls can share a class string and a name comparison stopped the walk early.
 _ACTIVE_PROBE = (
     "args => {"
     "  const a = document.activeElement;"
@@ -1697,61 +1162,27 @@ _ACTIVE_PROBE = (
 
 def _assert_js_gate(make_context, base_url, route, selector, viewport=None,
                     prepare=None, arm=None, tab_budget=None):
-    """Prove a `.js`-gated wrapper in BOTH directions: it occupies no
-    space and holds nothing a keyboard can reach when scripts are
-    blocked, AND it occupies space when they are not.
+    """Prove a `.js`-gated wrapper in both directions: it occupies no space and holds nothing
+    a keyboard can reach when scripts are blocked, and it occupies space when they are not.
 
-    Returns {"blocked": {...}, "enabled": {...}}; raises AssertionError
-    on either direction.
+    Returns {"blocked": {...}, "enabled": {...}}; raises AssertionError on either direction.
+    Both directions matter: asserting only the blocked half passes against a gate stuck shut
+    forever, and asserting only the enabled half passes against an affordance that renders and
+    does nothing without its script.
 
-    BOTH DIRECTIONS, BECAUSE ONLY ONE OF THEM IS THE DEFECT PEOPLE
-    REMEMBER. Asserting only the blocked half passes perfectly against a
-    gate that is stuck shut and never reveals anything at all — a control
-    that is invisible to everybody rather than to nobody. Asserting only
-    the enabled half is the defect 25-RESEARCH.md's finding 2 names: an
-    affordance that renders and does nothing without its script. A gate
-    is a two-state thing and a one-state assertion is half a check.
+    "Holds nothing focusable" is asserted by walking the tab order rather than reading the
+    computed `display`, since a gate hidden via `visibility`/`opacity` instead of `display: none`
+    still removes nothing from the tab order — the property under test is reachability, so
+    reachability is what is measured. The walk is skipped, with `candidates: 0` recorded, when
+    the wrapper has no focusable candidate at all, since that already answers the assertion.
 
-    "HOLDS NOTHING FOCUSABLE" IS THE CLAUSE THAT MATTERS, AND IT IS
-    ASSERTED BY WALKING THE TAB ORDER RATHER THAN BY READING THE
-    COMPUTED `display`. `display: none` does remove its subtree from the
-    tab order, so a computed-style read agrees with the tab walk TODAY —
-    and would keep agreeing, wrongly, the moment somebody refactors the
-    rule to `visibility: hidden` on the wrapper with an inner override,
-    or to `opacity: 0`, both of which leave a keyboard visitor able to
-    Tab into a control that does nothing. The property under test is
-    reachability, so reachability is what is measured.
-
-    The walk is skipped, and `candidates: 0` recorded instead, when the
-    wrapper contains no focusable candidate in the first place — that is
-    not a short cut around the assertion, it is the assertion already
-    answered: a wrapper with nothing focusable in it cannot put anything
-    in the tab order. The walk runs exactly when it can find something,
-    which is the case it exists for.
-
-    TWO HOOKS, AND THE DIFFERENCE BETWEEN THEM IS THE POINT.
-
-    `prepare` runs on BOTH pages, right after the route loads and before
-    anything is measured, and it is for putting the subject into the
-    state it is meant to be judged in — opening the disclosure the gated
-    wrapper lives inside, or (as 25-02 used it) rendering a wrapper that
-    carries the gate class at all, so the STYLESHEET's rule can be
-    measured in a real browser before any page renders one. Whatever it
-    does, it must do to both pages identically, or the two directions
-    stop being the same measurement taken twice.
-
-    `arm` runs on the scripts-ENABLED page only, after `prepare`, and it
-    is for the state change that does the revealing. A plain `.js` gate
-    needs none (the class is on <html> from the first script statement),
-    but the same two-state shape covers a wrapper revealed by a script's
-    own logic — `.dirty-bar`, revealed by dirty-state.js only once the
-    form is dirty, is the live precedent and one of the two subjects this
-    helper was demonstrated against.
-
-    `tab_budget` bounds the walk; it defaults to the page's own count of
-    focusable candidates plus two, so it is derived from the document
-    rather than guessed, and a page that grows a control does not
-    silently start walking too few steps.
+    `prepare` runs on both pages, right after the route loads, to put the subject into the state
+    it is meant to be judged in; it must do the same thing to both pages or the two directions
+    stop being the same measurement taken twice. `arm` runs on the scripts-enabled page only,
+    after `prepare`, for the state change that does the revealing (a plain `.js` gate needs
+    none; a script-revealed wrapper like `.dirty-bar` does). `tab_budget` defaults to the page's
+    own count of focusable candidates plus two, so a page that grows a control is not silently
+    under-walked.
     """
     probe_args = {"selector": selector,
                   "focusable": _FOCUSABLE_CANDIDATE_SELECTOR}
@@ -1831,86 +1262,32 @@ def _assert_js_gate(make_context, base_url, route, selector, viewport=None,
     return {"blocked": blocked, "enabled": enabled}
 
 
-# ---------------------------------------------------------------------
 # 5. Both themes, and the page-overflow floor — both already owned.
-# ---------------------------------------------------------------------
 
 def _in_both_themes(page):
-    """Yield `_set_ui_theme(page, t)`'s measurement for each of this
-    app's explicit themes, in order, so "assert this in both themes" is
-    one `for` line at a control plan's call site.
-
-    THIS IS COMPOSITION, NOT A SECOND THEME MECHANISM. 24-02 owns the
-    theme switch and every one of its guarantees lives in
-    `_set_ui_theme()` — the explicit `data-ui-theme` attribute rather
-    than `emulate_media`, the both-themes sampling, and the refusal to
-    return unless `--color-canvas` and `--color-text` genuinely differ
-    between them. This generator adds a loop and nothing else. A control
-    plan that reached for `context.new_context(color_scheme="dark")`
-    instead would be building the second theme switch this project keeps
-    paying for.
-
-    The page is left on the LAST theme yielded, which is
-    `UI_THEMES_EXPLICIT`'s last entry — a caller that cares should call
-    `_set_ui_theme()` again itself rather than depend on that order.
+    """Yield `_set_ui_theme(page, t)`'s measurement for each of this app's explicit themes, in
+    order, so "assert this in both themes" is one `for` line at a call site. Adds only the loop
+    on top of `_set_ui_theme()`'s own guarantees; not a second theme mechanism. Leaves the page
+    on the last theme yielded — a caller that cares should call `_set_ui_theme()` again itself.
     """
     for theme in UI_THEMES_EXPLICIT:
         yield _set_ui_theme(page, theme)
 
 
-# THE 360px BODY-OVERFLOW MEASUREMENT IS `_assert_no_page_overflow()`
-# ABOVE, AND THIS PLAN ADDS NOTHING BESIDE IT. 24-02 already exposed it
-# as one call taking a page and a name, already settled which box means
-# "the page" (documentElement, matching the two page-level checks this
-# file carried before it), already established that a deliberately
-# scrollable `.data-table-wrap` is not a page overflow, and already
-# carries the optional `expected_width` guard that proves the
-# measurement was taken at the viewport the caller believes it built.
-# Every control plan in this phase calls it as:
-#
-#     msg = _assert_no_page_overflow(
-#         page, "the dial on /device", VIEWPORT_MIN_SUPPORTED["width"])
-#     if msg:
-#         return False, msg
-#
-# A second overflow helper would be a third convention in one file about
-# what "the page" means, which is how three checks come to disagree.
+# The 360px body-overflow measurement is `_assert_no_page_overflow()` above; every control
+# plan in this phase calls it directly. A second overflow helper would be a third convention in
+# one file about what "the page" means, which is how checks come to disagree.
 
 
-# ---------------------------------------------------------------------
-# 6. Display's own rendered page HEIGHT — 25-06-PLAN.md Task 1 (CFG-50).
-# ---------------------------------------------------------------------
+# 6. Display's own rendered page height.
 #
-# WHY A HARNESS HELPER AND NOT A NUMBER IN A SUMMARY. D5 is the one item
-# in this phase whose success criterion is a MEASUREMENT rather than a
-# behaviour: 22-AUDIT.md's X6 row set a page-height target that 22-10
-# then recorded as "NOT met and cannot be by density alone — folding the
-# grid behind the big preview is D5". A before-number typed into a
-# document by hand, after the change, is not a before-number; a before-
-# number produced by the same instrument that later produces the after-
-# number is. So the measurement is a registered check, taken before any
-# markup in this plan existed, and re-run afterwards by the identical
-# code path.
-#
-# IT DELIBERATELY ASSERTS NO TARGET. The number it reports is the
-# verdict, and 25-06 Task 4 states plainly whether the target is met.
-# What it DOES assert is that the instrument is pointed at the right
-# thing, which is the only way a recorded height means anything at all:
-#   * the measurement was taken at the width the caller asked for (a
-#     context that silently came up at another size reports a height for
-#     a layout nobody asked about);
-#   * the document really is the authenticated Display page and not the
-#     login card it redirects to when the session is missing — asserted
-#     by the Frame colours card's own heading id AND by the departures
-#     radiogroup's full THEME_IDS-sized population, because "a page
-#     rendered" is exactly the vacuous version of this;
-#   * the page is genuinely taller than the viewport, so the number is a
-#     document height rather than a viewport height wearing one.
-#
-# `scrollHeight` on documentElement, not `body`: `body` can be shorter
-# than the document when a child escapes it, and documentElement is the
-# same box `_assert_no_page_overflow()` already settled on for the
-# horizontal axis. One convention per file.
+# A harness helper rather than a number typed into a document by hand, so the before-number and
+# the after-number come from the same instrument. It deliberately asserts no target — the number
+# it reports is the verdict — but does assert that the instrument is pointed at the right thing:
+# the measurement was taken at the requested width, the document is really the authenticated
+# Display page (not its login redirect), and the page is genuinely taller than the viewport.
+# `scrollHeight` on documentElement, not `body`, since `body` can be shorter than the document
+# when a child escapes it — the same box `_assert_no_page_overflow()` uses for the horizontal axis.
 _DISPLAY_HEIGHT_PROBE = (
     "args => ({"
     "  height: document.documentElement.scrollHeight,"
@@ -1924,22 +1301,15 @@ _DISPLAY_HEIGHT_PROBE = (
 
 
 def _display_page_height(make_context, base_url, viewport):
-    """Display's full rendered document height at `viewport`, with the
-    instrument proved to be pointed at Display.
+    """Display's full rendered document height at `viewport`, with the instrument proved to be
+    pointed at Display.
 
-    Returns the probe's own dict (height, clientWidth, clientHeight,
-    scrollWidth, heading, themeRadios). Raises AssertionError when the
-    measurement cannot be trusted — `_set_ui_theme()`'s shape and for
-    its reason: a helper returning a verdict string hands every caller a
-    guard it has to remember, and `check()` turns a raised
-    AssertionError into a named FAIL nobody can forget.
+    Returns the probe's own dict (height, clientWidth, clientHeight, scrollWidth, heading,
+    themeRadios); raises AssertionError when the measurement cannot be trusted.
 
-    Scripts are ENABLED here, deliberately. The height a visitor sees is
-    the height of the page their browser actually renders, and on
-    Display that includes `theme-preview.js` collapsing three of the
-    four usage panels at load — a scripts-blocked measurement would
-    report a page nobody with a default browser ever sees, and would
-    move for reasons that have nothing to do with this plan.
+    Scripts are enabled here, deliberately: the height a visitor sees includes
+    `theme-preview.js` collapsing panels at load, so a scripts-blocked measurement would report
+    a page nobody with a default browser ever sees.
     """
     context = make_context(viewport=viewport)
     try:
@@ -1949,24 +1319,9 @@ def _display_page_height(make_context, base_url, viewport):
         page.wait_for_load_state("networkidle")
         seen = page.evaluate(
             _DISPLAY_HEIGHT_PROBE,
-            # 30-04-PLAN.md Task 2 (CFG-85/CFG-86): repointed from the
-            # retired FRAME_COLOURS_HEADING_ID to ASPECT_HEADING_ID, in
-            # the SAME commit that renamed the heading — 30-RESEARCH.md
-            # Pitfall 1. The theme-radio guard just below still holds
-            # unchanged: the departures palette (`_palette_grid_html()`)
-            # renders exactly `len(device_config.THEME_IDS)` radios
-            # named `theme`, the identical count the retired departures
-            # chip grid always rendered — this is the guard most likely
-            # to be assumed broken by the accordion rebuild and quietly
-            # loosened, and it does not need to be.
-            #
-            # MERGE NOTE (origin/main -> claude/phase-30-aspect-rebuilt):
-            # Phase 30 made this edit while _display_page_height() still
-            # lived in companion/test_browser_ux.py; 31-01-PLAN.md Task 3
-            # moved the function here. The edit follows the function —
-            # config_page.FRAME_COLOURS_HEADING_ID does not exist on this
-            # branch at all, so origin/main's copy of this line would
-            # raise AttributeError on its first call.
+            # The theme-radio guard below still holds unchanged: the departures palette
+            # renders exactly `len(device_config.THEME_IDS)` radios named `theme`, the same
+            # count the retired chip grid always rendered.
             {"headingId": config_page.ASPECT_HEADING_ID})
     finally:
         context.close()
@@ -1999,47 +1354,23 @@ def _display_page_height(make_context, base_url, viewport):
     return seen
 
 
-# ---------------------------------------------------------------------
-# 7. AGREEMENT — the RELATIONSHIP between surfaces, which is the thing
-#    D17 shipped broken while every one of its own checks passed.
-# ---------------------------------------------------------------------
+# 7. Agreement — the relationship between surfaces, not just each surface on its own.
 #
-# The quiet-hours dial shipped with three correct checks and one live
-# defect. The arc was asserted correct SERVER-SIDE for the saved value.
-# The handles were asserted TO MOVE. The value was asserted TO PERSIST
-# to disk. All three pass, today, against a page on which the fields
-# read 08:00/18:00, both handles sit at 8 and 18, and the arc still
-# draws 23:00 -> 07:00 under a caption that still reads "23:00 -> 07:00
-# - 8 h". Nothing asserted that the arc AGREES with the handles after
-# an interaction, and that unmeasured relationship is the whole defect.
-#
-# So the shape below is deliberately NOT "one check per surface". One
-# check per surface is precisely the shape that shipped this: each of
-# them can be individually, permanently right while the page as a whole
-# lies. The subject here is the SET of decoded values, and the assertion
-# is that it has exactly one member.
-#
-# Two further clauses, and they are the vacuity answers rather than
-# decoration. Without "equals what the interaction REQUESTED" this
-# passes perfectly against a page that froze all four surfaces together
-# at their old value — four surfaces agreeing on the wrong thing is
-# still agreement. Without "DIFFERS from what was there before" it
-# passes against an interaction that did nothing at all, which is the
-# easiest way in the world to make every surface agree.
+# A control can ship with each surface individually, permanently correct (the arc correct
+# server-side, the handles asserted to move, the value asserted to persist) while the page as a
+# whole disagrees with itself, e.g. an interaction that moved the handles without moving the
+# arc. So the shape below is deliberately not "one check per surface": the subject is the set of
+# decoded values, asserted to have exactly one member. Two further clauses close the vacuity
+# gaps: without "equals what the interaction requested", four frozen surfaces agreeing on the
+# old value would still pass; without "differs from what was there before", an interaction that
+# did nothing at all would too.
 
 
 def _canonical_surface_value(value):
-    """One canonical, hashable, comparable form for a decoded surface
-    value, so `(1380, 420)` and `[1380, 420]` are the SAME reading
-    rather than two members of a set.
-
-    This exists because the set is the whole assertion below, and a set
-    that counts a tuple and a list as two members would report a
-    disagreement between two surfaces that agree — a false FAIL is as
-    bad here as a false PASS, and worse for trust. Raises on anything
-    that cannot be made hashable rather than falling back to `repr()`,
-    which would make every unhashable value agree with itself and with
-    nothing else by accident.
+    """One canonical, hashable, comparable form for a decoded surface value, so `(1380, 420)`
+    and `[1380, 420]` are the same reading rather than two members of a set. Raises on anything
+    that cannot be made hashable, rather than falling back to `repr()`, which would make every
+    unhashable value agree with itself and nothing else by accident.
     """
     if isinstance(value, (list, tuple)):
         return tuple(_canonical_surface_value(item) for item in value)
@@ -2054,59 +1385,29 @@ def _canonical_surface_value(value):
 
 
 def _surface_reading_report(decoded):
-    """Every surface and what it decoded to, in the order the caller
-    listed them — never only the mismatching pair.
-
-    The two-value message is the tempting one and it is the wrong one:
-    the shipped defect reads "the fields and the handles agree on
-    08:00-18:00 while the arc and the caption both still say
-    23:00-07:00", and that sentence is only available to a reader who
-    is shown all four. A message naming one pair would have sent the
-    next reader looking at the wrong half.
+    """Every surface and what it decoded to, in the order the caller listed them — never only
+    the mismatching pair, since a reader needs to see all of them to tell which surface is the
+    one that did not follow.
     """
     return "; ".join("%s -> %r" % (label, value) for label, value in decoded.items())
 
 
 def _assert_surfaces_agree(page, surfaces, requested, before, where):
-    """Decode N rendered surfaces into ONE canonical value and assert
-    they agree, that the agreed value is the one the interaction
-    REQUESTED, and that it DIFFERS from the pre-interaction value.
+    """Decode N rendered surfaces into one canonical value and assert they agree, that the
+    agreed value is the one the interaction requested, and that it differs from the
+    pre-interaction value.
 
-    `surfaces` is an ordered mapping of a surface LABEL to a
-    zero-argument callable returning that surface's decoded value — a
-    mapping rather than a fixed pair of arguments, because the number of
-    surfaces describing one value is a property of the control and not
-    of this helper, and a two-argument version would have to be
-    hand-unrolled (and mis-unrolled) at every call site with three or
-    four.
+    `surfaces` is an ordered mapping of a surface label to a zero-argument callable returning
+    that surface's decoded value, since the number of surfaces describing one value is a
+    property of the control, not of this helper. Returns the `{label: decoded}` mapping on
+    success; raises AssertionError on failure.
 
-    Returns the `{label: decoded}` mapping on success, so a caller can
-    report the numbers it agreed on. RAISES AssertionError on every
-    failure, `_persist_without_js()`'s shape and for its reason: a
-    helper returning a verdict string hands every caller a guard it has
-    to remember, and `check()` turns a raised AssertionError into a
-    named FAIL nobody can forget.
-
-    THREE SEPARATE ASSERTIONS WITH THREE SEPARATE MESSAGES, deliberately
-    not collapsed into one boolean, because they fail for three
-    unrelated reasons and a reader needs to know which:
-      1. the surfaces DISAGREE — some part of the page did not follow;
-      2. they agree on the WRONG value — the page froze together, or the
-         interaction was applied and then overwritten;
-      3. they agree on the value that was already there — nothing
-         happened at all, and a one-boolean version of this helper would
-         have called that a pass.
-    A single `all(...)` over the three would report "agreement failed"
-    for a frozen page, which is both true and useless.
-
-    `page` is taken and used: every message names the document the
-    reading came off, because these surfaces are decoded on a live page
-    that a preceding step navigated, and a reading taken on the wrong
-    route is the one failure whose message would otherwise be a puzzle.
-
-    This helper drives NO state change of its own (T-27-01-A). It reads
-    what the caller's interaction already did, which is what lets it
-    compose with `_persist_without_js()` rather than wrap it.
+    Three separate assertions with three separate messages, not collapsed into one boolean,
+    because they fail for three unrelated reasons a reader needs told apart: the surfaces
+    disagree, they agree on the wrong value (the page froze together), or they agree on the
+    value that was already there (nothing happened). This helper drives no state change of its
+    own — it reads what the caller's interaction already did, which is what lets it compose
+    with `_persist_without_js()` rather than wrap it.
     """
     decoded = {}
     for label, decoder in surfaces.items():
@@ -2155,68 +1456,29 @@ def _assert_surfaces_agree(page, surfaces, requested, before, where):
     return decoded
 
 
-# ---------------------------------------------------------------------
-# 8. The arc as a NUMBER — resolved geometry, read back out of the
-#    browser (27-01-PLAN.md Task 2).
-# ---------------------------------------------------------------------
+# 8. The arc as a number — resolved geometry, read back out of the browser.
 #
-# Until now the quiet-hours arc was only checkable as SERVER-RENDERED
-# HTML, and that is precisely the blind spot D17 shipped through: the
-# server-rendered attribute was right for the saved value on every page
-# load, and stayed right, and stayed on the screen, while the handles
-# and the fields moved away from it. A check that can only read the
-# declared attribute cannot see that defect at all. So what is read
-# here is the RESOLVED value — what the browser actually painted, after
-# script ran and after any `.js`-scoped stylesheet rule overrode the
-# presentation attribute (which a CSS declaration of any specificity
-# does, as `quiet_dial_svg()`'s own docstring records).
-#
-# MEASURED ON THIS TREE, and these are the numbers the decoder below is
-# built against rather than guessed at. On /display with the seeded
-# 23:00-07:00 window the arc reports:
-#     attribute   stroke-dasharray="163.3628 326.7256"
-#     resolved    stroke-dasharray: 163.363px, 326.726px
-#     attribute   transform="rotate(255.0000 88 88)"
-#     resolved    transform: matrix(-0.258819, -0.965926, 0.965926,
-#                                   -0.258819, 25.7746, 195.778)
-# Three facts follow, all of them load-bearing:
-#   * the resolved dash is COMMA-separated, unit-suffixed and rounded to
-#     three decimals where the attribute carries four — so it is parsed
-#     as "the numbers in this string", never string-compared against
-#     what the server emitted;
-#   * the resolved `transform` is a MATRIX, not the rotate() that was
-#     written, so the angle comes back through atan2 rather than off the
-#     attribute (`rotate` as its own resolved property is "none" here);
-#   * the resolved dash is in SVG USER UNITS, the same units
-#     QUIET_DIAL_RADIUS is in. That is why this decoder does NOT go
-#     through getBoundingClientRect and needs no correction for a
-#     `scale()` in force: a box measurement would need one (and
-#     `clientWidth` rounds to an integer, which can fail a perfectly
-#     correct drawing), while a resolved dash length is already in the
-#     coordinate system the emitter's own arithmetic used.
-#
-# The unit this file canonicalises a quiet window into is the
-# MINUTE-OF-DAY, and it is not a choice made here: the two handles
-# already publish `aria-valuenow="1380"` / `"420"`, so minutes are the
-# unit three of the four surfaces speak natively. A decoder returning
-# fractions would make the agreement helper compare 0.9583333 against
-# whatever a caption parsed to, and invent a tolerance to hide the
-# difference.
+# The declared SVG attribute can stay correct for the saved value while the handles and fields
+# move away from it, so what is read here is the resolved value: what the browser actually
+# painted after script ran and any `.js`-scoped stylesheet rule overrode the presentation
+# attribute. Measured on this tree, the resolved `stroke-dasharray` is comma-separated,
+# unit-suffixed and rounded to three decimals (parsed as numbers, never string-compared), and
+# the resolved `transform` is a matrix rather than the `rotate()` that was written, so the angle
+# is recovered via atan2. The resolved dash is in SVG user units — the same units
+# QUIET_DIAL_RADIUS is in — so this decoder skips getBoundingClientRect and needs no `scale()`
+# correction. The canonical unit is minute-of-day, matching what the handles already publish via
+# `aria-valuenow`, so the agreement helper never has to invent a tolerance between two rounding
+# schemes.
 
 _QUIET_ARC_SELECTOR = "." + config_page.QUIET_DIAL_ARC_CLASS
-# The emitter's OWN quarter-turn correction, read rather than retyped as
-# -90: this decoder must undo exactly the rotation quiet_dial_svg()
-# applied, and a second copy of that number is a second thing to change
-# and a second thing to forget. It is private by name because nothing
-# outside that module had a reason to read it until a check needed to
-# INVERT it, which is a new reason rather than a licence to copy it.
+# The emitter's own quarter-turn correction, read rather than retyped as -90, so this decoder
+# stays in sync with quiet_dial_svg()'s own rotation.
 _QUIET_ARC_TWELVE_OCLOCK_DEG = config_page._QUIET_DIAL_TWELVE_OCLOCK_DEG
 MINUTES_PER_DAY = 24 * 60
 
-# Any signed decimal, in any of the forms a resolved CSS value can put
-# one in. Deliberately tolerant about separators and units, because the
-# separator and the unit are the browser's business and the NUMBERS are
-# this decoder's.
+# Any signed decimal, in any of the forms a resolved CSS value can put one in. Deliberately
+# tolerant about separators and units, since those are the browser's business, not this
+# decoder's.
 _GEOMETRY_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 _GEOMETRY_MATRIX_RE = re.compile(r"^matrix\(([^)]*)\)$")
 
@@ -2235,29 +1497,14 @@ _RESOLVED_PROPERTY_PROBE = (
 
 
 def _resolved_property(page, selector, property_name, where):
-    """The RESOLVED value of one property — custom or standard — on the
-    one element `selector` matches, as a trimmed string.
+    """The resolved value of one property — custom or standard — on the one element `selector`
+    matches, as a trimmed string.
 
-    Raises AssertionError naming the selector, the property and the
-    document when the selector matches anything other than exactly one
-    element, or when the resolved value is empty. NEVER returns a
-    default, and that refusal is the point rather than tidiness: a
-    reader that answered "" or 0 for an arc that is not on the page
-    would let `_assert_surfaces_agree()` pass on a document with no arc
-    at all — every surface agreeing because one of them is silently
-    absent is the exact vacuity this phase exists to refuse.
-
-    Custom properties and standard ones go through the SAME call
-    (`getPropertyValue` serves both), because after 27-02 the arc's
-    geometry lives in both places at once: the pair of custom properties
-    published on the shared ancestor, and the resolved presentation
-    properties on the circle they drive. Two readers would have made
-    "the ancestor says one thing and the circle paints another" a
-    comparison nobody wrote.
-
-    EXACTLY ONE ELEMENT, not `.first`. A selector that matches two arcs
-    has an ambiguous answer, and a reader that quietly took the first
-    would report a number that is right about half a page.
+    Raises AssertionError naming the selector, property and document when the selector matches
+    anything other than exactly one element, or when the resolved value is empty. Never returns
+    a default: a reader that answered "" or 0 for an absent arc would let
+    `_assert_surfaces_agree()` pass on a document missing the arc entirely. Requires exactly one
+    element, not `.first`, since a selector matching two arcs has an ambiguous answer.
     """
     seen = page.evaluate(
         _RESOLVED_PROPERTY_PROBE,
@@ -2287,46 +1534,30 @@ def _resolved_property(page, selector, property_name, where):
 def _fraction_to_minute(fraction):
     """A fraction of a day to a minute-of-day, wrapped into [0, 1440).
 
-    Rounded to the nearest minute ON PURPOSE and stated here rather than
-    buried: the resolved dash comes back at three decimals where the
-    server emitted four, so a fraction decoded off the paint is within
-    about a thousandth of a minute of the one the server computed and
-    will never be bit-identical to it. The minute is the unit the
-    handles already publish, so rounding to it is canonicalisation, not
-    a tolerance that hides a disagreement — a surface that is a whole
-    minute out still reads as a different number here.
+    Rounded to the nearest minute on purpose: the resolved dash comes back at three decimals
+    where the server emitted four, so a paint-decoded fraction is never bit-identical to the
+    server's. Minutes are the unit the handles already publish, so rounding to it is
+    canonicalisation, not a tolerance — a surface a whole minute out still reads differently.
     """
     return int(round(fraction * MINUTES_PER_DAY)) % MINUTES_PER_DAY
 
 
 def _quiet_arc_minutes(page, where, selector=_QUIET_ARC_SELECTOR,
                        radius=None):
-    """The quiet-hours arc, read back off what the browser PAINTED, as
-    a canonical `(start_minute, end_minute)` pair of ints.
+    """The quiet-hours arc, read back off what the browser painted, as a canonical
+    `(start_minute, end_minute)` pair of ints.
 
-    Inverts `draw.unit_circle_dash_array()`'s own arithmetic — the drawn
-    dash over the full circumference is the sweep fraction — and
-    `quiet_dial_svg()`'s quarter-turn correction: the circle's dash
-    origin is three o'clock and the drawing rotates by minus ninety
-    degrees plus the window's own start.
+    Inverts `draw.unit_circle_dash_array()`'s arithmetic (drawn dash over full circumference is
+    the sweep fraction) and `quiet_dial_svg()`'s quarter-turn correction. `radius` defaults to
+    `config_page.QUIET_DIAL_RADIUS`, the same constant the emitter divides by, rather than a
+    number retyped here that could silently go stale.
 
-    `radius` defaults to `config_page.QUIET_DIAL_RADIUS`, the SAME
-    constant the emitter divides by, rather than a number retyped here.
-    A retyped 78 would go on agreeing with a stale drawing for exactly
-    as long as nobody changed the dial's size, and then disagree with
-    the whole page at once.
+    Raises AssertionError, naming what was read, when either property is missing, the transform
+    is not a 2-D matrix, or neither parses as a number; never returns a default.
 
-    Raises AssertionError, naming what was read, when either property is
-    missing, when the transform is not a 2-D matrix, or when neither
-    parses as a number. It never returns a default — see
-    `_resolved_property()` for why that matters more than it looks.
-
-    IT DOES NOT WAIT FOR ANYTHING. Sampling at the right instant is the
-    CALLER's job and must be done by hooking the event the browser
-    actually emits (this file has lost two checks to a guessed instant:
-    one read an interpolation frame, one sampled two rAF after a click
-    and failed CI on a correct build). A decoder that slept would hide
-    that decision inside an instrument.
+    Does not wait for anything — sampling at the right instant is the caller's job, done by
+    hooking the event the browser actually emits, since this file has lost checks to a guessed
+    instant before.
     """
     if radius is None:
         radius = config_page.QUIET_DIAL_RADIUS
@@ -2369,41 +1600,25 @@ def _quiet_arc_minutes(page, where, selector=_QUIET_ARC_SELECTOR,
     return (start_minute, end_minute)
 
 
-# 31-01-PLAN.md Task 2: promoted from a main()-local def (pre-edit line
-# 11466) to module level because it is called BOTH from the quiet-hours
-# dial block plan 03 moves out of this file AND from the settings
-# dirty-bar audit that stays behind permanently — the same
-# main()-local-but-needed-in-two-places coupling shape RESEARCH.md
-# documented for _quiet_arc_minutes above, which is why the two
-# promotions sit next to each other.
+# Module-level because it is shared by both the quiet-hours dial checks and the settings
+# dirty-bar audit.
 def _handle_sel(field):
     return '[data-value-field="%s"] [data-value-handle]' % field
 
 
 def _fraction_pair_minutes(page, selector, start_property, sweep_property,
                            where):
-    """The quiet window as `(start_minute, end_minute)`, decoded from a
-    START fraction and a SWEEP fraction published as custom properties
-    on `selector` — the shared ancestor, not the circle.
+    """The quiet window as `(start_minute, end_minute)`, decoded from a start fraction and a
+    sweep fraction published as custom properties on `selector` — the shared ancestor, not the
+    circle. Reading both ends of that chain with the same canonical output is what lets
+    `_assert_surfaces_agree()` catch "the ancestor was updated and the paint did not follow".
 
-    This is the second place the arc's geometry lives after 27-02: the
-    script publishes the pair on the ancestor and the stylesheet draws
-    the circle from it. Reading BOTH ends of that chain with the same
-    canonical output is what lets `_assert_surfaces_agree()` catch "the
-    ancestor was updated and the paint did not follow", which is D17 one
-    layer down and would otherwise be nobody's check.
+    The second property is the sweep, not the end — a contract, not a convenience: for a
+    wrapping window an end fraction and a sweep fraction diverge (23:00-07:00 is end 0.2917,
+    sweep 0.3333), and mixing them up would silently report 07:00-07:00 as agreement.
 
-    THE SECOND PROPERTY IS THE SWEEP, not the end, and that is a
-    contract rather than a convenience: a wrapping window is exactly
-    where an end fraction and a sweep fraction stop being the same
-    arithmetic (23:00 to 07:00 is end 0.2917, sweep 0.3333, and a
-    reader that mixed them up would report 07:00 to 07:00 and call it
-    agreement). If 27-02 publishes an end fraction instead, the
-    conversion belongs at the emitter, where the wrap decision already
-    lives in `quiet_window_span()`.
-
-    Raises through `_resolved_property()` when either property is
-    absent, and on its own when either does not parse.
+    Raises through `_resolved_property()` when either property is absent, and on its own when
+    either does not parse.
     """
     fractions = []
     for name in (start_property, sweep_property):
@@ -2421,66 +1636,28 @@ def _fraction_pair_minutes(page, selector, start_property, sweep_property,
     return (start_minute, end_minute)
 
 
-# 28-03-PLAN.md Task 3 (CFG-73 Bug A) — SUPERSEDED. Kept below, legible,
-# because it documents the real design this task inverts on purpose, not
-# by accident:
-#
-#     "Any run of digits, for the caption's own text — 27-02-PLAN.md
-#     Task 3's own design (see quiet_dial_readout_html()'s docstring):
-#     the two endpoint spans substitute value-controls.js's
-#     paintReadouts() raw, UNCONVERTED value — the same minute-of-day
-#     number the handles publish as aria-valuenow, not an "HH:MM"
-#     string, because paintReadouts()'s own substitution is a bare
-#     number and this app writes no clock-formatting copy into that
-#     seam. So the LIVE caption (after any interaction) reads like
-#     "480 -> 1080 . ", and this decoder reads it exactly that way,
-#     through the same minute-of-day unit the other three surfaces
-#     already speak - no HH:MM parsing, no second unit, no tolerance."
-#
-# THAT WAS THE BUG, DOCUMENTED HERE AS CORRECT BEHAVIOUR. 28-03-PLAN.md
-# Task 1/2 (CFG-73 Bug A) gave both endpoint spans a real HH:MM codec and
-# the duration span a live, worded duration, so the LIVE caption now
-# reads "08:00 -> 18:00 . 8h" — the SAME FORM the server emits at load.
-# `_CAPTION_NUMBER_RE`'s old bare-digit-run approach, re-applied to that
-# string, would misparse "08:00" into the digit runs "08"/"00" and
-# silently report (8, 0) instead of (480, 1080) — precisely how this
-# regression shipped and survived a phase undetected: a decoder that
-# read the bug's own output as ground truth. `_CAPTION_TOKEN_RE` below
-# matches "HH:MM" tokens instead of bare digit runs.
+# The live caption reads "08:00 -> 18:00 . 8h", the same form the server emits at load: both
+# endpoint spans are painted through a zero-padded HH:MM codec after any interaction. Matching
+# "HH:MM" tokens rather than bare digit runs matters because a bare-digit-run parse would
+# misparse "08:00" into "08"/"00" and silently report the wrong pair.
 _CAPTION_TOKEN_RE = re.compile(r"(\d{1,2}):(\d{2})")
 _QUIET_READOUT_SELECTOR = "." + config_page.QUIET_DIAL_READOUT_CLASS
 
 
 def _quiet_caption_minutes(page, where, selector=None):
-    """The quiet-hours caption, read back off what the browser is
-    CURRENTLY SHOWING, as a canonical `(start_minute, end_minute)` pair
-    of ints — the fourth and last surface `_assert_surfaces_agree()`
-    checks.
+    """The quiet-hours caption, read back off what the browser is currently showing, as a
+    canonical `(start_minute, end_minute)` pair of ints — the fourth surface
+    `_assert_surfaces_agree()` checks.
 
-    Reads `textContent` (not `inner_text()`): the paragraph is
-    `aria-hidden="true"` and its own two endpoint spans are ordinary
-    elements with no visibility trick played on them, but `textContent`
-    is unambiguous about picking up every character in document order
-    regardless of layout, which is what a decoder that must never
-    silently read stale/absent text needs.
+    Reads `textContent`, not `inner_text()`: the paragraph is `aria-hidden="true"`, and
+    `textContent` unambiguously picks up every character in document order regardless of
+    layout. The first two "HH:MM" tokens are the pair, in document order (start span, then end
+    span); the duration segment's wording (e.g. "8h") contains no "HH:MM"-shaped substring, so
+    it never contributes a false third member.
 
-    28-03-PLAN.md Task 3 (CFG-73 Bug A): THE FIRST TWO "HH:MM" TOKENS ARE
-    THE PAIR, taken in document order (start span, then end span) — the
-    same order `quiet_dial_readout_html()` emits them in and the same
-    order `quiet_dial_handles_html()` emits its own two wrappers in, and
-    the SAME "HH:MM -> HH:MM . <duration>" FORM the server emits at
-    load: both endpoints are painted through `numberToField()`'s own
-    zero-padded clock codec after ANY interaction now (28-03's own
-    Bug A fix), not the bare minute-of-day number this decoder used to
-    (mis)read as ground truth. The duration segment's own wording (e.g.
-    "8h"/"8 h") contains no "HH:MM"-shaped substring, so it never
-    contributes a false third pair member.
-
-    Raises AssertionError, with the caption's ACTUAL text quoted, when
-    fewer than two "HH:MM" tokens are present — a decoder that silently
-    returns a plausible-looking pair from unparseable text is exactly
-    how the original bug survived a phase undetected, and this one does
-    not repeat that mistake.
+    Raises AssertionError, with the caption's actual text quoted, when fewer than two "HH:MM"
+    tokens are present, rather than silently returning a plausible-looking pair from
+    unparseable text.
     """
     if selector is None:
         selector = _QUIET_READOUT_SELECTOR
@@ -2502,34 +1679,25 @@ def _quiet_caption_minutes(page, where, selector=None):
     return (_token_to_minute(tokens[0]), _token_to_minute(tokens[1]))
 
 
-# 28-03-PLAN.md Task 3 (CFG-73 Bug A): the duration span's own selector —
-# it carries VALUE_CONTROL_READOUT_BASE_ATTR (data-value-readout-base)
-# and neither endpoint span does, so this is unique WITHIN the quiet-dial
-# readout paragraph without inventing a class the stylesheet never uses.
+# The duration span's own selector — it carries VALUE_CONTROL_READOUT_BASE_ATTR and neither
+# endpoint span does, so this is unique within the readout paragraph without a new class.
 _QUIET_DURATION_SELECTOR = "%s [%s]" % (
     _QUIET_READOUT_SELECTOR, layout.VALUE_CONTROL_READOUT_BASE_ATTR)
 
 
 def _quiet_caption_shape(text):
-    """`text`'s STRUCTURE, never its value: every "HH:MM" token becomes
-    the literal placeholder "HH:MM" and every remaining digit becomes
-    "#", so two captions naming different times/durations but sharing
-    the same separators, spacing and token order compare equal, while a
-    caption whose FORM actually changed (a dropped separator, a missing
-    duration, a reordered pair) does not.
-
-    28-03-PLAN.md Task 3 (CFG-73 Bug A)'s own contract: the caption must
-    keep the SAME FORM the server emits at load after every interaction
-    kind — this is "the same form" made comparable without pinning the
-    one reference string, which would only ever be true for one value.
+    """`text`'s structure, never its value: every "HH:MM" token becomes the literal placeholder
+    "HH:MM" and every remaining digit becomes "#", so two captions naming different
+    times/durations but sharing the same separators, spacing and token order compare equal,
+    while a caption whose form actually changed (dropped separator, missing duration,
+    reordered pair) does not.
     """
     shaped = _CAPTION_TOKEN_RE.sub("HH:MM", text)
     return re.sub(r"\d+", "#", shaped)
 
 
 def _quiet_duration_span_text(page, where):
-    """The duration span's own CURRENTLY DISPLAYED text — the third
-    child of the readout paragraph — read the same `textContent` way
+    """The duration span's own currently displayed text, read the same `textContent` way
     `_quiet_caption_minutes()` reads the whole caption.
     """
     text = page.locator(_QUIET_DURATION_SELECTOR).text_content()
@@ -2541,15 +1709,11 @@ def _quiet_duration_span_text(page, where):
 
 
 def _expected_quiet_duration_text(page, requested, where):
-    """The duration text `page`'s OWN duration span SHOULD show for the
-    `requested` (start_minute, end_minute) pair — computed as the
-    WRAPPED difference between the two ends (matching
-    `quiet_window_span()`'s own "always forward from start" contract),
-    bucketed with `layout._age_bucket()`'s own boundaries, and worded
-    with whichever of `layout.DURATION_ATTRS` the PAGE ITSELF carries —
-    read off the duration span's own attribute, never hardcoded as
-    "h"/"min"/"heure", so this check cannot desync from the catalogue
-    the server actually shipped.
+    """The duration text `page`'s own duration span should show for the `requested`
+    (start_minute, end_minute) pair: the wrapped difference between the two ends, bucketed with
+    `layout._age_bucket()`, and worded with whichever `layout.DURATION_ATTRS` the page itself
+    carries — read off the span's own attribute, never hardcoded, so this check cannot desync
+    from the catalogue the server actually shipped.
     """
     start_minute, end_minute = requested
     minutes = (end_minute - start_minute) % MINUTES_PER_DAY
@@ -2565,32 +1729,15 @@ def _expected_quiet_duration_text(page, requested, where):
     return wording.replace(mark, str(quantity), 1) if mark in wording else wording
 
 
-# ---------------------------------------------------------------------
-# 9. "Shorter, and still refusing" — ONE read, two facts
-#    (27-01-PLAN.md Task 3).
-# ---------------------------------------------------------------------
+# 9. "Shorter, and still refusing" — one read, two facts.
 #
-# 27-06 cuts three regions of explanatory copy. Two of them sit directly
-# on top of this app's loudest honesty rule: the battery gauge prints an
-# absolute days figure ONLY when this frame's own observed history
-# supports one, and prints no figure at all otherwise —
-# `wake_battery_observed_text()`'s docstring, `wake_gauges_html()` and
-# `value-controls.js`'s header all say so in as many words. A shorter
-# sentence that starts naming a number is not a cut, it is a REGRESSION
-# wearing a cut's clothes.
-#
-# So "it got shorter" and "it still refuses to claim a figure" are
-# asserted about ONE read of ONE rendering, and that is structural
-# rather than tidy. Asserted separately they can be satisfied by two
-# different page states — a cut proven on a page with a falling battery
-# series and a refusal proven on a page without one — and the pair would
-# report success about a rendering that never existed. The read happens
-# once; both assertions are made against that string.
-#
-# Whitespace is normalised to single spaces before anything is counted,
-# because the rendered textContent carries the markup's own indentation
-# and newlines, and a baseline that moved when a template was re-wrapped
-# would be a baseline about formatting rather than about copy.
+# The battery gauge prints an absolute days figure only when this frame's own observed history
+# supports one; a shorter sentence that starts naming a number is a regression, not a cut. So
+# "it got shorter" and "it still refuses to claim a figure" are asserted about one read of one
+# rendering: asserted separately, a cut proven on one page state and a refusal proven on another
+# would report success about a rendering that never existed. Whitespace is normalised to single
+# spaces before counting, since the rendered textContent carries the markup's own indentation
+# and a baseline should be about copy, not formatting.
 
 _REGION_TEXT_PROBE = (
     "args => {"
@@ -2609,16 +1756,13 @@ _REGION_WHITESPACE_RE = re.compile(r"\s+")
 
 
 def _region_text(page, selector, where):
-    """Every element `selector` matches, read ONCE, joined in document
-    order and whitespace-normalised.
+    """Every element `selector` matches, read once, joined in document order and
+    whitespace-normalised.
 
-    Joined rather than restricted to one element because two of 27-06's
-    three regions are genuinely plural — `wake_gauges_html()` emits the
-    two gauges as two sibling `<p>`s, and a helper that measured only
-    the first would report a card half cut. Raises when nothing matches:
-    a region that is not on the page has no length to compare, and zero
-    is the shortest possible string, so a defaulting version of this
-    would call a DELETED region a successful cut.
+    Joined rather than restricted to one element because some regions are genuinely plural
+    (`wake_gauges_html()` emits two gauges as two sibling `<p>`s), so measuring only the first
+    would report a card half cut. Raises when nothing matches, rather than defaulting to zero
+    length, since that would call a deleted region a successful cut.
     """
     seen = page.evaluate(_REGION_TEXT_PROBE, {"selector": selector})
     if seen.get("error") == "bad-selector":
@@ -2637,25 +1781,17 @@ def _region_text(page, selector, where):
 
 def _assert_shorter_and_still_refuses(page, selector, baseline_chars,
                                       forbidden, where):
-    """One region, read once; two assertions against that single read:
-    it is strictly SHORTER than `baseline_chars`, and `forbidden` does
-    not match it.
+    """One region, read once; two assertions against that single read: it is strictly shorter
+    than `baseline_chars`, and `forbidden` does not match it.
 
-    Returns `_region_text()`'s measurement so a caller can report the
-    number it measured. Raises AssertionError with two distinct
-    messages, because the two failures mean opposite things: the first
-    says the cut never happened, the second says the cut went through
-    something that was holding a refusal up.
+    Returns `_region_text()`'s measurement. Raises AssertionError with two distinct messages,
+    since the two failures mean opposite things: the first says the cut never happened, the
+    second says the cut went through something that was holding a refusal up.
 
-    `baseline_chars` is a number 27-01 MEASURED on the pre-cut tree and
-    recorded, never a round number chosen because it looked about right.
-    STRICTLY less than, not "at most": a cut that changed nothing is
-    exactly the claim this is here to refuse.
-
-    `forbidden` is a regex (a string or a compiled pattern) describing
-    the claim the shortened copy still must not make — for the battery
-    gauge, the shape of an absolute days figure. It is searched against
-    the same normalised string the length was taken from.
+    `baseline_chars` must be strictly greater than the measurement, not "at most", since a cut
+    that changed nothing is exactly the claim this refuses. `forbidden` is a regex describing
+    the claim the shortened copy still must not make, searched against the same normalised
+    string the length was taken from.
     """
     seen = _region_text(page, selector, where)
     pattern = re.compile(forbidden) if isinstance(forbidden, str) else forbidden
@@ -2695,17 +1831,11 @@ _MARKUP_INVENTORY_PROBE = (
 
 
 def _markup_inventory(page, shapes):
-    """How many elements each named markup shape has on this page, as
-    `{label: count}`.
+    """How many elements each named markup shape has on this page, as `{label: count}`.
 
-    IT ASSERTS NOTHING ABOUT THE SUBJECT, on purpose. 27-06 has to pick
-    one title form over another, and the count that decision rests on
-    must be DERIVED BY RUNNING rather than copied out of a research
-    document's grep — 27-RESEARCH.md §3 states its own 8/3/2 split is
-    provisional precisely because a regex matches a formatting
-    convention and not a grammar. A helper that also asserted the count
-    would be a helper nobody could use to find out what the count is.
-    Zero is a legitimate answer and is returned as one.
+    Asserts nothing about the subject, on purpose: it exists to derive a count by running
+    against the real page rather than by grepping markup by hand. Zero is a legitimate answer
+    and is returned as one.
     """
     seen = page.evaluate(_MARKUP_INVENTORY_PROBE, {"shapes": dict(shapes)})
     if seen.get("error") == "bad-selector":

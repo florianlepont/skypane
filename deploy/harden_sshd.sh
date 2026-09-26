@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# SkyPane — SSH hardening drop-in writer (SEC-08, D-08).
+# SkyPane -- SSH hardening drop-in writer.
 #
 # Runs ON THE VPS AS ROOT, called from deploy/provision.sh (never with
-# `|| true` — its failure must fail provisioning, T-37-33). Writes
+# `|| true` -- its failure must fail provisioning). Writes
 # /etc/ssh/sshd_config.d/00-skypane.conf. Ubuntu's sshd_config starts with
 # "Include /etc/ssh/sshd_config.d/*.conf", and for each keyword the FIRST
 # obtained value wins (sshd_config(5)) — "00-" therefore beats cloud-init's
@@ -11,9 +11,9 @@
 # The new drop-in is validated with `sshd -t` BEFORE anything is reloaded.
 # On a validation failure the previous drop-in (or its absence) is
 # restored and nothing is reloaded — a bad config must never reach a
-# running sshd (T-37-33). No AllowUsers (too easy to lock every account
+# running sshd. No AllowUsers (too easy to lock every account
 # out at once with one typo) and no Match block (its scoping inside an
-# included file is version-dependent — RESEARCH.md Assumption A11); this
+# included file is version-dependent); this
 # drop-in applies unconditionally to the whole host.
 #
 # Every path and binary below is an overridable variable so the whole

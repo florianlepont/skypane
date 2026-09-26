@@ -1,39 +1,24 @@
-"""Part 04a of the `companion/test_companion_app.py` migration chain
-(33-17-PLAN.md): ledger rows 178-222 (fragment `33-ledger/companion__
-test_companion_app.md`) — the JS gate/motion budget style.css contracts,
-login-card.js's public-route/ES5/route-agreement/no-inline-script/reveal-
-toggle checks, the login POST/GET flows (wrong password, right password,
-deep-link return, open-redirect rejection, the renamed no-such-route
-next value, the dedicated login_shell(), the clean/error/lockout card
-renders), the document-language regression guard, the six authenticated
-NAV_TABS headings, the retired /preview / legacy-route redirects, the
-/config 404, the unscoped and scope-rejected /settings saves, the
-rebuilt Home page, the three /quick/* routes (display, quiet-hours, led)
-including their return_to whitelist and fetch/204 negotiation, the
-scoped Display/Device settings split, and the Cache-Control/CSP headers
-on an authenticated response.
-
-`companion/test_companion_app_04b.py` continues from ledger row 223
-(the redirect hardening headers) through row 266 (the LAST anchor, the
-real-PNG illustration upload round trip).
-
-Renamed from the original slice (33-MIGRATION-RULES.md section 0/2): the
-GET /login?next=<unrecognised-route> check below now uses next=/no-such-
-route — same behaviour (neither is a real NAV_TABS member, so both take
-the "no hidden next field" branch), never a literal string a
-`os.makedirs` production code path could turn into a real directory
-create attempt.
+"""Tests the JS gate/motion budget style.css contracts, login-card.js's
+public-route/ES5/route-agreement/no-inline-script/reveal-toggle checks,
+the login POST/GET flows (wrong password, right password, deep-link
+return, open-redirect rejection, the dedicated login_shell(), the
+clean/error/lockout card renders), the document-language regression
+guard, the six authenticated NAV_TABS headings, the retired /preview
+route redirect, the /config 404, the unscoped and scope-rejected
+/settings saves, the rebuilt Home page, the three /quick/* routes
+(display, quiet-hours, led) including their return_to whitelist and
+fetch/204 negotiation, the scoped Display/Device settings split, and
+the Cache-Control/CSP headers on an authenticated response.
 
 Every test that only reads (a GET, or a POST that is rejected before any
 handler runs) shares one module-scoped, already-logged-in `app04_server`
 — nothing in this module's own shared-server tests ever changes
 persisted device config, gallery/illustration state or history, so the
 Home-page and Display/Device-split checks always see the same fresh
-install their original harness saw at that point in its run. Every test
-that actually WRITES device config, quick-toggle flags, or drives the
-process-global login throttle to a lockout gets its own fresh,
-function-scoped server via `make_app_server` (33-MIGRATION-RULES.md
-section 2's POST-implies-function-scoped rule) — never the shared one.
+install. Every test that actually WRITES device config, quick-toggle
+flags, or drives the process-global login throttle to a lockout gets
+its own fresh, function-scoped server via `make_app_server` — never the
+shared one.
 """
 import re
 import urllib.parse
@@ -51,11 +36,7 @@ from server import device_config
 
 import companion.app as app_module
 
-# --- 23-01-PLAN.md Task 2 (D3/CFG-32): the motion budget's own pinned
-# counts, ported verbatim from the legacy harness (row 179) — see
-# companion/test_companion_app.py's own historical comment for why each
-# number is what it is; that reasoning is plan history, not behaviour,
-# and is not repeated here.
+# --- The motion budget's own pinned counts. ---------------------------
 _EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
 _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 
@@ -101,7 +82,7 @@ def test_js_gate_class_resolves_to_a_real_selector_on_a_boundary(served_css):
     """layout.JS_GATE_CLASS resolves to a real selector in companion/static/style.css on a
     SELECTOR BOUNDARY — the class a page module writes and the rule that hides it pinned as one
     name, because a rename on either side alone renders a script-only affordance permanently
-    with scripts blocked (CFG-46/D-09, 25-01-PLAN.md Task 4)"""
+    with scripts blocked"""
     boundary = re.compile(r"\.%s(?![-\w])" % re.escape(layout.JS_GATE_CLASS))
     matched = any(
         boundary.search(selector)
@@ -121,10 +102,7 @@ def test_style_css_honours_the_motion_budget(served_css):
     prefers-reduced-motion reduce/no-preference block counts equal
     EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS/EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS, and
     neither interpolate-size nor calc-size() appears — all measured on COMMENT-STRIPPED source,
-    because this stylesheet's comments quote every token the check counts (D3/CFG-32,
-    23-01-PLAN.md Task 2)
-
-    Measured over the parsed served stylesheet (`at_rule_blocks()` for the block counts,
+    because this stylesheet's comments quote every token the check counts Measured over the parsed served stylesheet (`at_rule_blocks()` for the block counts,
     `css_rules()` for the declarations), so a comment quoting a token never counts.
     """
     blocks = at_rule_blocks(served_css)
@@ -199,7 +177,7 @@ def test_login_card_script_es5_safe_and_no_html_write(app04_server):
     """login-card.js stays ES5-safe and sink-free (no let/const/arrow/backtick/innerHTML/
     outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), carries the reveal contract
     (addEventListener/querySelector/getAttribute/data-login-reveal/aria-pressed/the class-at-
-    load modifier) and duplicates no server-side throttling constant (X3, T-22-46/T-22-49)"""
+    load modifier) and duplicates no server-side throttling constant"""
     src = served_asset(app04_server, "/static/login-card.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -227,7 +205,7 @@ def test_login_card_script_route_src_agree():
 def test_login_page_emits_exactly_one_script_tag(app04_server):
     """a rendered login page contains exactly ONE <script occurrence, the deferred
     LOGIN_CARD_SCRIPT_SRC tag, with no inline script and no nonce — login_shell() emitted zero
-    script tags before this plan (X3, 22-13-PLAN.md Task 2)"""
+    script tags before this plan"""
     status, _headers, body = http_request(app04_server.base_url() + "/login")
     assert status == 200, "expected 200, got %d" % status
     text = body.decode("utf-8", errors="replace")
@@ -274,7 +252,7 @@ def test_login_reveal_toggle_is_server_hidden_and_named(app04_server):
 
 # ==========================================================================
 # login: wrong password, right password, deep-link return, open-redirect
-# rejection, the renamed no-such-route next value, the dedicated shell
+# rejection, an unrecognised next value, the dedicated shell
 # ==========================================================================
 
 
@@ -339,6 +317,10 @@ def test_open_redirect_rejected(make_app_server, crafted_next):
 def test_login_get_with_unrecognised_next_carries_no_hidden_field(app04_server):
     """GET /login?next=/no-such-route (not a real NAV_TABS member) renders the plain login form
     with no hidden next input"""
+    # /no-such-route is not a real NAV_TABS member, so it exercises the same
+    # "no hidden next field" branch as any other unrecognised value, without
+    # being a literal a production os.makedirs() path could ever mistake for
+    # a real directory to create.
     status, _headers, body = http_request(
         app04_server.base_url() + "/login?next=/no-such-route")
     assert status == 200, "expected 200, got %d" % status
@@ -363,11 +345,10 @@ def test_login_page_uses_dedicated_login_shell(app04_server):
 
 
 def test_login_clean_render_carries_no_error_association(app04_server, served_css):
-    """GET /login with no error renders the stacked card (a .login-form with a
-    .login-form__input and a bare page-title brand mark, no glyph, no sprite) and carries
+    """GET /login with no error renders the stacked card (a.login-form with a
+.login-form__input and a bare page-title brand mark, no glyph, no sprite) and carries
     NEITHER aria-invalid NOR aria-describedby — never aria-invalid="false" — with style.css
-    carrying the field/primary/error-border rules it had none of before (X3, 22-13-PLAN.md
-    Task 1)"""
+    carrying the field/primary/error-border rules it had none of before"""
     status, _headers, body = http_request(app04_server.base_url() + "/login")
     assert status == 200, "expected 200, got %d" % status
     text = body.decode("utf-8", errors="replace")
@@ -393,8 +374,8 @@ def test_login_clean_render_carries_no_error_association(app04_server, served_cs
 
 def test_login_error_render_is_programmatically_associated(app04_server):
     """a wrong-password login render carries aria-invalid="true", aria-describedby="login-error"
-    and a role="alert" message in the existing .field-error text-label treatment, rendered
-    between the field and the primary (X3, 22-UI-SPEC.md §5 contract 5)"""
+    and a role="alert" message in the existing.field-error text-label treatment, rendered
+    between the field and the primary"""
     status, _headers, body = http_request(
         app04_server.base_url() + "/login", method="POST",
         data=b"password=still-not-the-real-password")
@@ -459,8 +440,7 @@ def test_login_lockout_render_shares_the_one_error_voice(make_app_server):
 
 
 def test_both_shells_agree_on_document_language():
-    """page_shell() and login_shell() both emit lang="en" (D-01/UXA-09 language-policy
-    regression guard)"""
+    """page_shell() and login_shell() both emit lang="en" """
     page_doc = layout.page_shell(title="Config", active="config", body="<p>x</p>")
     login_doc = layout.login_shell("<p>x</p>")
     assert 'lang="en"' in page_doc, "expected lang=\"en\" in page_shell()'s output"
@@ -486,8 +466,7 @@ def test_authenticated_tab_returns_200_with_its_own_heading(app04_server, sessio
 
 
 def test_preview_redirects_to_flights(app04_server, session_cookie):
-    """authenticated GET /preview (the retired Preview page route) redirects to /flights (D-22,
-    retargeted by phase 18)"""
+    """authenticated GET /preview (the retired Preview page route) redirects to /flights"""
     status, headers, body = http_request(
         app04_server.base_url() + "/preview", cookie=session_cookie)
     assert status == 303, "expected a 303 redirect, got %d" % status
@@ -522,7 +501,7 @@ def test_preview_redirect_ignores_query_string(app04_server, session_cookie):
 
 
 def test_old_settings_path_404s_authenticated(app04_server, session_cookie):
-    """authenticated GET /config (the retired settings path) returns 404 — D-26 declines a
+    """authenticated GET /config (the retired settings path) returns 404 — declines a
     redirect since this is a fresh URL at inception, not a deprecated bookmark"""
     status, _headers, body = http_request(
         app04_server.base_url() + "/config", cookie=session_cookie)
@@ -546,7 +525,7 @@ def test_settings_post_redirects_to_display_with_flash(make_app_server):
 def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_nothing(make_app_server):
     """a POST /settings with a valid theme change and an empty quiet_hours_start returns 200,
     shows the newly-picked theme still selected, shows the quiet-hours field error, carries no
-    flash banner, and persists nothing on disk (D-07/A-25)"""
+    flash banner, and persists nothing on disk"""
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
     before = device_config.load_device_config(server.state_dir)
@@ -573,12 +552,12 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
 
 
 # ==========================================================================
-# Phase 18: Home page, quick actions, scoped settings saves
+# Home page, quick actions, scoped settings saves.
 # ==========================================================================
 
 
 def test_home_page_renders_widgets(app04_server, session_cookie):
-    """authenticated GET / renders the rebuilt Home page (D-01/D-04/D-05) with the Frame strip's
+    """authenticated GET / renders the rebuilt Home page with the Frame strip's
     two switch forms, three stat-tile elements, the picture/recent-flights row, and the
     recent-flights list under the grouped Advanced navigation, carrying none of the retired
     Quick-actions card or Poll form"""
@@ -608,7 +587,7 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
 
 def test_quick_display_toggle_round_trip(make_app_server):
     """POST /quick/display with state=off then state=on flips display_enabled on disk and
-    redirects to Display (D-16) with the matching flash; a crafted state value redirects with
+    redirects to Display with the matching flash; a crafted state value redirects with
     quick_failed and writes nothing"""
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
@@ -638,7 +617,7 @@ def test_quick_display_toggle_round_trip(make_app_server):
 
 def test_quick_quiet_hours_toggle_round_trip(make_app_server):
     """POST /quick/quiet-hours with state=on then state=off flips quiet_hours_enabled on disk,
-    redirects to Display (D-16) with the matching flash, and never touches display_enabled"""
+    redirects to Display with the matching flash, and never touches display_enabled"""
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
     status, headers, _ = http_request(
@@ -660,7 +639,7 @@ def test_quick_quiet_hours_toggle_round_trip(make_app_server):
 
 
 def _quick_toggle_return_to_check(server, session_cookie, route, flash_key):
-    """21-04-PLAN.md Task 1 (D-01/R-02/T-21-12): return_to=/ redirects to Home, return_to=/display
+    """ Task 1 : return_to=/ redirects to Home, return_to=/display
     redirects to Display, and a hostile/absent value falls back to Display — never
     string-prefix-matched, never parsed as a URL. Shared by both /quick/display and
     /quick/quiet-hours below, so the two forms' whitelist-then-fallback contract can never
@@ -698,7 +677,7 @@ def _quick_toggle_return_to_check(server, session_cookie, route, flash_key):
 def test_quick_display_honours_return_to(make_app_server):
     """POST /quick/display honours return_to (/ or /display), falls back to Display for a
     hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and the
-    invalid-state early return honours return_to too (D-01/R-02)"""
+    invalid-state early return honours return_to too"""
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
     _quick_toggle_return_to_check(
@@ -708,7 +687,7 @@ def test_quick_display_honours_return_to(make_app_server):
 def test_quick_quiet_hours_honours_return_to(make_app_server):
     """POST /quick/quiet-hours honours return_to (/ or /display), falls back to Display for a
     hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and the
-    invalid-state early return honours return_to too (D-01/R-02)"""
+    invalid-state early return honours return_to too"""
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
     _quick_toggle_return_to_check(
@@ -718,8 +697,7 @@ def test_quick_quiet_hours_honours_return_to(make_app_server):
 def test_quick_routes_answer_204_for_a_fetch_and_303_for_a_form(make_app_server):
     """POST /quick/display and POST /quick/quiet-hours answer a form post with exactly today's
     303-and-flash and a request carrying the fetch header with a 204, empty body and no Location
-    — the same write either way, and a crafted state value is never a 204 (D2/CFG-36, T-23-26,
-    23-07-PLAN.md Task 1)"""
+    — the same write either way, and a crafted state value is never a 204"""
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
     base = server.base_url()
@@ -765,7 +743,7 @@ def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
     forward, redirects to /device with its own flash for a form post, answers 204 with an empty
     body for a fetch, redirects with the generic failure flash and writes nothing for a crafted
     state, falls back to /device for every non-member return_to, and is not reachable by GET at
-    all (D2/CFG-36, T-23-23/T-23-24/T-23-25, 23-07-PLAN.md Task 2)"""
+    all"""
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
     base = server.base_url()
@@ -894,8 +872,7 @@ def test_scoped_settings_save_carries_other_page_forward(make_app_server):
 
 
 def test_display_and_device_pages_split_the_groups(app04_server, session_cookie):
-    """GET /display and GET /device split the settings groups per companion/screens.py (20-07
-    moved Runway/Calendar/the rules editor to Display, D-10/D-11), each carrying its hidden
+    """GET /display and GET /device split the settings groups per companion/screens.py each carrying its hidden
     scope/return_to fields and the screen-type caption; Manual refresh lives on Device only"""
     base = app04_server.base_url()
     _s, _h, display_body = http_request(base + "/display", cookie=session_cookie)

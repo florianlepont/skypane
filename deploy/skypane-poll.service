@@ -1,12 +1,12 @@
 [Unit]
 Description=SkyPane poll cycle (detect -> infer -> enrich -> render -> atomic swap)
-# Triggered by skypane-poll.timer every 30s. A failing cycle must not stop
-# the timer from firing again - systemd's default behaviour (a failed
-# oneshot unit does not disable its triggering timer) already gives us
-# this for free; the error just goes to journald and the previously
-# rendered panel.bin keeps being served by skypane-byos.service. No
-# systemd IP address allow-list filter here (SEC-06, D-18): this process
-# makes outbound calls to the ADS-B providers on every cycle.
+# Triggered by skypane-poll.timer every 30s. A failing cycle doesn't stop
+# the timer (systemd's default: a failed oneshot doesn't disable it) --
+# the error goes to journald and the previously rendered panel.bin keeps
+# being served by skypane-byos.service.
+#
+# No systemd IP address allow-list filter here: this process calls the
+# ADS-B providers on every cycle.
 After=network-online.target
 Wants=network-online.target
 
@@ -22,12 +22,10 @@ ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/current/server/poll_loop.py
     --geofence /opt/skypane/current/adsb-test/runway3.json \
     --caddy-log ${SKYPANE_CADDY_ACCESS_LOG}
 
-# Hardening - same posture as skypane-byos.service/skypane-companion.service
-# (see their own comments for the full rationale): the release-layout code
-# path is the only place this process can execute from, ReadWritePaths
-# stays scoped to the state directory, UMask=0027 matches the setgid
-# state/ directory's own permissions, and ProtectProc=invisible hides this
-# service's argv (and everyone else's) from other users.
+# Hardening: same posture as skypane-byos.service/skypane-companion.service
+# (see their own comments) -- release-layout code path only, ReadWritePaths
+# scoped to state/, UMask=0027 matches its setgid mode, ProtectProc=invisible
+# hides this service's argv.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

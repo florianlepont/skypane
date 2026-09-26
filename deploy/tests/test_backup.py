@@ -1,9 +1,8 @@
-"""deploy/tests/test_backup.py -- the nightly snapshot job (SEC-04, D-03,
-D-24). See RESEARCH.md SEC-04 "State inventory"/"Snapshot job" and the
-PLAN's <interfaces> for the archive-name regex and CLI contract this test
-enforces. Loads deploy/backup/skypane_backup.py directly by path
-(importlib) rather than as a package import, matching the plan's own
-instruction and the fact that deploy/backup/ is not itself a package.
+"""deploy/tests/test_backup.py -- the nightly snapshot job. Exercises the
+archive-name regex and CLI contract enforced by
+deploy/backup/skypane_backup.py, loaded directly by path (importlib)
+rather than as a package import, since deploy/backup/ is not itself a
+package.
 """
 import hashlib
 import importlib.util

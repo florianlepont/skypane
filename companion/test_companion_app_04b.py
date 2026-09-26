@@ -1,38 +1,23 @@
-"""Part 04b of the `companion/test_companion_app.py` migration chain
-(33-17-PLAN.md): ledger rows 223-266 (fragment `33-ledger/companion__
-test_companion_app.md`) — the LAST anchor of part 04.
-
-Continues `companion/test_companion_app_04.py` (rows 178-222) with: the
-redirect/static-CSS hardening headers, the session-gated POST /ui-theme
-and POST /logout, the POST /ui-lang round trip and its no-session gate,
-the retired POST /ui-mode's unknown-route 404, D-03 language resolution
-(Accept-Language, the sp_ui_lang cookie precedence), the nav toggle's
-gear glyph and translated aria-label, the wake-interval environment
-pre-fill/floor, the login ?next= round trip for a real NAV_TABS member,
-two cross-module route/nav standing-contract guards, the logout/replay/
-GET-logout/post-logout-tab cluster, the 404 page-header/health-dot leak
-guard, the retired /preview.png route, gallery path-traversal rejection
-with a canary file, the illustration image route (real key/unknown key/
-traversal/unauthenticated redirect, two isolated manual-resolution-key
-checks), the theme-preview image route (real key/unknown key/traversal/
-unauthenticated redirect, and the stateful ?live=1 cache/fallback
-branch), and — the LAST anchor — the real-PNG illustration upload round
-trip over a real HTTP POST.
+"""Tests the redirect/static-CSS hardening headers, the session-gated
+POST /ui-theme and POST /logout, the POST /ui-lang round trip and its
+no-session gate, language resolution (Accept-Language, the sp_ui_lang
+cookie precedence), the nav toggle's gear glyph and translated
+aria-label, the wake-interval environment pre-fill/floor, the login
+?next= round trip for a real NAV_TABS member, two cross-module
+route/nav standing-contract guards, the logout/replay/GET-logout/
+post-logout-tab cluster, the 404 page-header/health-dot leak guard, the
+retired /preview.png route, gallery path-traversal rejection with a
+canary file, the illustration and theme-preview image routes (real
+key/unknown key/traversal/unauthenticated redirect, and the stateful
+?live=1 cache/fallback branch), and the real-PNG illustration upload
+round trip over a real HTTP POST.
 
 Every check that ends a session (logout), needs its own subprocess
-environment (the wake-interval pre-fill/floor checks), or writes an
-override file into `illustration_overrides/` gets its own fresh,
-function-scoped `make_app_server` server (33-MIGRATION-RULES.md section
-2) — the manual-resolution-key checks and the upload round trip
-deliberately never share the module's read-only server, mirroring the
-original harness's own isolated `Harness()` instances for the same
-reason (D-03's exact-one-file assertion on the shared state dir belongs
-to 33-18/part 05, downstream of this plan's own LAST anchor, and is
-never exercised here — the isolation is kept anyway, matching the
-plan's own hotspot instruction). Every other check here only reads (or
-writes a local fixture file directly into the shared server's own state
-dir, never through a mutating HTTP POST) and shares one module-scoped,
-already-logged-in server.
+environment, or writes an override file into `illustration_overrides/`
+gets its own fresh, function-scoped `make_app_server` server. Every
+other check here only reads (or writes a local fixture file directly
+into the shared server's own state dir, never through a mutating HTTP
+POST) and shares one module-scoped, already-logged-in server.
 """
 import os
 import re
@@ -131,7 +116,7 @@ def test_static_css_response_carries_csp(app04b_server):
 
 def test_ui_theme_post_without_session_redirects_to_login(app04b_server):
     """POST /ui-theme with no session cookie redirects to /login and does not set a ui_theme
-    cookie (T-19-04: an unauthenticated caller cannot set another visitor's UI theme)"""
+    cookie"""
     status, headers, _ = http_request(
         app04b_server.base_url() + "/ui-theme", method="POST", data=b"ui_theme=dark")
     assert status == 303 and headers.get("Location") == "/login", (
@@ -144,8 +129,7 @@ def test_ui_theme_post_without_session_redirects_to_login(app04b_server):
 
 
 def test_logout_post_without_session_redirects_to_login(app04b_server):
-    """POST /logout with no session cookie redirects to /login (T-19-04: gating a logout costs
-    a signed-out caller nothing)"""
+    """POST /logout with no session cookie redirects to /login"""
     status, headers, _ = http_request(app04b_server.base_url() + "/logout", method="POST")
     assert status == 303 and headers.get("Location") == "/login", (
         "expected an unauthenticated POST /logout to redirect to /login, got %d/%r"
@@ -178,7 +162,7 @@ def test_ui_lang_post_round_trip(app04b_server, session_cookie):
 
 def test_ui_lang_post_without_session_redirects_to_login(app04b_server):
     """POST /ui-lang with no session cookie redirects to /login and does not set a sp_ui_lang
-    cookie (T-20-01)"""
+    cookie"""
     status, headers, _ = http_request(
         app04b_server.base_url() + "/ui-lang", method="POST", data=b"ui_lang=fr")
     assert status == 303 and headers.get("Location") == "/login", (
@@ -191,8 +175,7 @@ def test_ui_lang_post_without_session_redirects_to_login(app04b_server):
 
 
 def test_post_to_the_deleted_display_mode_route_with_session_now_404s(app04b_server, session_cookie):
-    """POST /ui-mode with a valid session now takes the unknown-route 404 path (D-17, the
-    route/handler/dispatch line are deleted together)"""
+    """POST /ui-mode with a valid session now takes the unknown-route 404 path"""
     status, headers, _ = http_request(
         app04b_server.base_url() + "/ui-mode", method="POST", cookie=session_cookie,
         data=urllib.parse.urlencode({"value": "simple"}).encode())
@@ -206,14 +189,14 @@ def test_post_to_the_deleted_display_mode_route_with_session_now_404s(app04b_ser
 
 
 # ==========================================================================
-# D-03: language resolution from cookie / Accept-Language
+# Language resolution from cookie / Accept-Language.
 # ==========================================================================
 
 
 def test_accept_language_resolves_html_lang_with_no_cookie(app04b_server, session_cookie):
     """a cookie-free GET (session cookie only, no sp_ui_lang) with Accept-Language:
     fr-FR,fr;q=0.9 renders <html lang="fr"; with Accept-Language: en-GB renders
-    <html lang="en" (D-03)"""
+    <html lang="en" """
     base = app04b_server.base_url()
     status, _headers, body = http_request(
         base + "/", cookie=session_cookie, extra_headers={"Accept-Language": "fr-FR,fr;q=0.9"})
@@ -226,7 +209,7 @@ def test_accept_language_resolves_html_lang_with_no_cookie(app04b_server, sessio
 
 
 def test_ui_lang_cookie_beats_accept_language(app04b_server, session_cookie):
-    """the sp_ui_lang cookie beats Accept-Language when both are present (D-03)"""
+    """the sp_ui_lang cookie beats Accept-Language when both are present"""
     from companion_app_server import cookie_value
     base = app04b_server.base_url()
     status, headers, _ = http_request(
@@ -245,7 +228,7 @@ def test_ui_lang_cookie_beats_accept_language(app04b_server, session_cookie):
 
 
 # ==========================================================================
-# 28-01-PLAN.md (CFG-76): the mobile toggle's gear glyph and its label
+# The mobile toggle's gear glyph and its label.
 # ==========================================================================
 
 
@@ -253,7 +236,7 @@ def test_the_nav_toggle_wears_the_gear_and_opens_the_same_panel(app04b_server, s
     """#site-nav-toggle renders icon-gear (never icon-hamburger), its aria-label is
     NAV_TOGGLE_LABEL translated through i18n's real per-request path in both EN and FR, and the
     panel it opens still holds the language/theme switches and Sign out with zero
-    page-navigation links (CFG-76)"""
+    page-navigation links"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     toggle_start = doc.index('id="%s"' % layout.NAV_TOGGLE_ID)
     toggle_end = doc.index("</button>", toggle_start) + len("</button>")
@@ -401,7 +384,7 @@ def test_nav_page_titles_icon_route_standing_contract_guard():
 def test_logout_clears_cookie_and_a_replayed_or_absent_cookie_is_refused_afterward(make_app_server):
     """POST /logout clears the session cookie (Max-Age=0); replaying the exact session cookie
     after Sign out is rejected (A-33: revoked server-side, not just cleared client-side); GET
-    /logout no longer accepts the request (404, D-11 closes the GET-triggered logout hole); and
+    /logout no longer accepts the request ; and
     a tab request after logout with no cookie presented is refused again"""
     server = make_app_server(fake_providers=True)
     base = server.base_url()
@@ -495,7 +478,7 @@ def test_preview_png_404_even_with_real_panel(app04b_server, session_cookie):
 
 def test_gallery_response_is_never_shared_cacheable(app04b_server, session_cookie):
     """an authenticated gallery image is never advertised as storable by a shared/intermediary
-    cache (WR-02)"""
+    cache"""
     gallery_dir = os.path.join(app04b_server.state_dir, "gallery")
     os.makedirs(gallery_dir, exist_ok=True)
     gallery_filename = "260829-0rl-cache-control-fixture.png"
@@ -545,7 +528,7 @@ def test_gallery_traversal_and_canary_never_leaks(app04b_server, session_cookie)
 
 
 # ==========================================================================
-# illustration image route (D-15, 06.6.4.1-02)
+# illustration image route 
 # ==========================================================================
 
 
@@ -596,7 +579,7 @@ def test_illustration_unauthenticated_redirects_to_login(app04b_server):
 
 
 # --- widened membership set: manual-resolution keys (phase 13 plan
-# 13-06 Task 1, D-09). Both checks below get their own isolated,
+# Task 1). Both checks below get their own isolated,
 # function-scoped server rather than the module's shared one: they
 # write real files into illustration_overrides/, matching the plan's
 # own hotspot instruction. ---
@@ -677,7 +660,7 @@ def test_illustration_manual_key_post_unregistered_then_registered(make_app_serv
 
 
 # ==========================================================================
-# theme preview image route (06.6.4.1.1-01 Task 2)
+# theme preview image route 
 # ==========================================================================
 
 
@@ -729,7 +712,7 @@ def test_theme_preview_unauthenticated_redirects_to_login(app04b_server):
     assert not body.startswith(PNG_SIGNATURE), "unauthenticated request must never return image bytes"
 
 
-# --- 20-08-PLAN.md Task 2 (D-23): the ?live=1 route branch. One
+# --- The ?live=1 route branch. One
 # consolidated, atomic test over its own dedicated server: each step
 # depends on the previous step's own mutation (no runway_events row,
 # then one, then a newer one), which the original harness expressed as
@@ -742,9 +725,9 @@ def test_theme_preview_unauthenticated_redirects_to_login(app04b_server):
 
 def test_theme_preview_live_branch_cache_and_fallback_behaviour(make_app_server):
     """GET /theme-preview/white.png?live=1 with no runway_events row at all still returns
-    200/image/png (the sample-scene fallback, D-23); with a seeded runway_events row it returns
+    200/image/png ; with a seeded runway_events row it returns
     200/image/png, and a second request for the same latest event is served from the cache
-    without growing the cache directory (D-23/Pitfall 7); inserting a NEWER runway_events row
+    without growing the cache directory ; inserting a NEWER runway_events row
     changes both the served live-preview bytes and the cache file it comes from; GET
     /theme-preview/nope.png?live=1 returns the same 404 an unknown theme id always returns; and
     ?live=0 / a missing ?live query both serve the sample variant, never the live one, even with
@@ -759,7 +742,7 @@ def test_theme_preview_live_branch_cache_and_fallback_behaviour(make_app_server)
         return glob.glob(os.path.join(
             server.state_dir, theme_preview.THEME_PREVIEW_CACHE_DIRNAME, "%s*.png" % theme_id_glob))
 
-    # No runway_events row exists yet — the "fresh install" case D-23
+    # No runway_events row exists yet — the "fresh install" case 
     # must fall back to the sample scene for.
     status, headers, body = http_request(
         base + "/theme-preview/white.png?live=1", cookie=session_cookie)
@@ -822,8 +805,8 @@ def test_theme_preview_live_branch_cache_and_fallback_behaviour(make_app_server)
 
 
 # ==========================================================================
-# 260902-v26 Task 3: the live upload round trip, against this real
-# running companion/app.py subprocess (D-01/D-02/D-03) — the LAST
+# Task 3: the live upload round trip, against this real
+# running companion/app.py subprocess — the LAST
 # anchor of part 04.
 # ==========================================================================
 

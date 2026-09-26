@@ -27,7 +27,7 @@ skypane_test_support.strip_proxy_env()
 
 @pytest.fixture(autouse=True)
 def _block_non_loopback_dns(request, monkeypatch):
-    """Close the one gap --allow-hosts leaves open (T-32-01-02): pytest-socket
+    """Close the one gap --allow-hosts leaves open: pytest-socket
     only guards socket.socket.connect() in allow-hosts mode, never DNS
     resolution. Every test gets this unless it opts out with
     @pytest.mark.enable_socket, the same marker that opts a test out of

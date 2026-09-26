@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Proves two things every push touching firmware/main/ or firmware/VENDOR.md
-# must keep true (T-34-10-01):
+# must keep true:
 #
 #   1. The five Log Line Contract format strings are still present, byte
 #      for byte, in the C sources that emit them.

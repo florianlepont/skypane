@@ -1,6 +1,6 @@
 # companion/conftest.py: the ONE shared companion/app.py test-server
-# fixture family (33-02-PLAN.md, TST-10) every companion test module
-# builds on, instead of copying its own Harness class.
+# fixture family every companion test module builds on, instead of
+# copying its own Harness class.
 #
 # Scope rationale: `app_server` and `make_app_server` are function-scoped
 # because they isolate each test by default — a test that POSTs or
@@ -103,7 +103,7 @@ def app_server_in_process(tmp_path):
     server.stop()
 
 
-# --- Missing-browser policy and loopback-only browser guard (TST-11) -----
+# --- Missing-browser policy and loopback-only browser guard --------------
 
 def _browser_required():
     """True in CI (GitHub sets CI=true) or with SKYPANE_REQUIRE_BROWSER=1:
@@ -142,8 +142,8 @@ def browser(browser_type, browser_type_launch_args):
     (built on its `launch_browser`/`browser_type`/`browser_type_launch_args`
     chain): a missing/unlaunchable Chromium is a hard pytest.fail() when a
     browser is required (CI / SKYPANE_REQUIRE_BROWSER=1), and a visible
-    pytest.skip() otherwise — it never passes silently (RESEARCH Pitfall 3).
-    Do not pass --browser-channel (33-RESEARCH.md): the default resolution
+    pytest.skip() otherwise — it never passes silently.
+    Do not pass --browser-channel: the default resolution
     matches the --only-shell-installed binary.
     """
     try:
@@ -196,8 +196,8 @@ def blocked_requests():
 def new_context(new_context, blocked_requests):
     """Overrides pytest-playwright's own function-scoped `new_context`
     factory fixture. The plugin's own `context`/`page` fixtures are built
-    on `new_context`, so both are covered by this override too
-    (T-33-02-02). Every context this factory returns gets a route guard
+    on `new_context`, so both are covered by this override too.
+    Every context this factory returns gets a route guard
     that continues loopback/data/blob/about requests and aborts
     everything else, recording the aborted URL in `blocked_requests`.
     Guard rule G10: a test that needs an extra viewport/context calls

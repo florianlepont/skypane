@@ -1,44 +1,21 @@
 #!/usr/bin/env python3
-"""Part 04 of `companion/test_browser_ux.py` (33-24-PLAN.md, TST-11), the
-FOURTH AND FINAL plan of the browser_ux chain (33-21..33-24). This plan's
-own second task deletes `companion/test_browser_ux.py` outright, closing the
-chain: after this module lands, no browser check anywhere is monolithic.
+"""Browser checks for the scripts-blocked accordion's own operability/save floor, the Touch
+Targets measurement sweep over the palette/usage-row/rule-add controls, the no-JS floor's
+save-to-disk proof, the restored dirty bar's settle contract, a server-side validation
+rejection's inline-error/echo/no-toast floor, the bar's own document-order section naming, a
+real Annuler click's restore-every-surface proof, the settings-card-title consistency probe,
+the single-submit-affordance audit, the runway radios' cross-tree `form="settings-form"`
+regression check, and the artwork drop zone's own upload/equivalence/geometry family.
 
-Covers the original file's check() calls #63-#75 (its last 13): the
-scripts-blocked accordion's own operability/save floor, the Touch Targets
-measurement sweep over the palette/usage-row/rule-add controls, the no-JS
-floor's own save-to-disk proof after the `.js`-gate simplification, the
-restored dirty bar's settle contract, a server-side validation rejection's
-inline-error/echo/no-toast floor, the bar's own document-order section
-naming, a real Annuler click's restore-every-surface proof, the settings-
-card-title consistency probe (CFG-72), the single-submit-affordance audit
-(CFG-78), the runway radios' cross-tree `form="settings-form"` regression
-check, and the artwork drop zone's own upload/equivalence/geometry family
-(CFG-51/D19).
-
-Every test below drives a real headless Chromium against a real
-`companion/app.py` subprocess, through the guarded `page`/`new_context`
-fixtures (`companion/conftest.py`), and never constructs or navigates to any
-URL outside `server.base_url()` — a `127.0.0.1:<ephemeral-port>` origin the
-guarded fixture itself created. A missing/unlaunchable Chromium is a hard
-failure under CI / `SKYPANE_REQUIRE_BROWSER=1` (the `browser` fixture
-override in `companion/conftest.py`), never a silent skip.
-
-Read-only checks (no test below persists a real setting through the bar or
-the fallback Save) share one module-scoped, read-only `server` fixture
-(33-MIGRATION-RULES.md section 2): the palette Touch Targets sweep, the
-rejected-value floor (the rejection never reaches disk), the bar's
-document-order section-naming check and the Annuler restore check (both
-discard their own edit rather than saving it), the settings-card-title
-probe and the single-submit-affordance audit. Every check that DOES persist
-a setting — the scripts-blocked accordion save, the no-JS tracked_runway
-floor, the bar's own settle-and-hide save, and the runway cross-tree save —
-gets its own function-scoped `make_app_server` server. The artwork drop
-zone's three checks need a DIFFERENT seed (a `needs-artwork` manual
-resolution entry the default fixture never creates): the two that actually
-upload a file get their own function-scoped server each; the one that only
-measures the zone at rest shares a second, dedicated module-scoped
-`artwork_server` fixture.
+Read-only checks share one module-scoped, read-only `server` fixture: the palette Touch
+Targets sweep, the rejected-value floor (the rejection never reaches disk), the bar's
+document-order section-naming check and the Annuler restore check (both discard their own
+edit rather than saving it), the settings-card-title probe and the single-submit-affordance
+audit. Every check that persists a setting gets its own function-scoped `make_app_server`
+server. The artwork drop zone's three checks need a different seed (a `needs-artwork` manual
+resolution entry the default fixture never creates): the two that actually upload a file get
+their own function-scoped server each; the one that only measures the zone at rest shares a
+second, dedicated module-scoped `artwork_server` fixture.
 """
 import collections
 import io
@@ -63,33 +40,25 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-# 30-08-PLAN.md Task 2 (CFG-85): the live preview element (unchanged by
-# this phase) — also defined in companion/test_browser_ux_03.py, since that
-# part's own checks read it too; kept local to each module rather than
-# promoted into the shared helpers file, matching 33-23's own precedent for
-# this exact constant.
+# Also defined in companion/test_browser_ux_03.py, since that module's own checks read it too;
+# kept local to each module rather than promoted into the shared helpers file.
 THEME_PREVIEW_SEL = ".theme-live-preview__image"
 
 
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
-    """The shared, read-only 22-AUDIT.md-methodology fixture every read-only
-    check in this module measures against — module-scoped because none of
-    them persists a real setting (the two checks that edit a field discard
-    it via Annuler or a server-side rejection rather than saving it).
+    """The shared, read-only seeded fixture every read-only check in this module measures
+    against — module-scoped because none of them persists a real setting (the two checks
+    that edit a field discard it via Annuler or a server-side rejection rather than saving it).
     """
     return module_app_server_factory(seed=seed_state_dir, fake_providers=True)
 
 
-# ===========================================================================
-# 25-07-PLAN.md Task 3 (CFG-51/D19): THE ARTWORK DROP ZONE fixture family.
+# The artwork drop zone fixture family.
 #
-# A manual resolution with NO artwork yet ("needs-artwork") is the one state
-# where both the in-page no-JS fallback panel and the dialog's own copy of
-# the upload form render at once — the same reason the legacy harness chose
-# it. `seed_state_dir()` alone never creates this entry, so this seed layers
-# it on top.
-# ===========================================================================
+# A manual resolution with no artwork yet ("needs-artwork") is the one state where both the
+# in-page no-JS fallback panel and the dialog's own copy of the upload form render at once.
+# `seed_state_dir()` alone never creates this entry, so this seed layers it on top.
 
 ARTWORK_PREFIX = "NEW"
 ARTWORK_NAME = "Totally Novel Airline"
@@ -97,11 +66,10 @@ ARTWORK_KEY = manual_resolutions.illustration_key_for_name(ARTWORK_NAME)
 ARTWORK_ROUTE = "/airlines?resolve=" + ARTWORK_PREFIX
 ARTWORK_SERVE = "/illustration/%s.png" % ARTWORK_KEY
 FALLBACK_ZONE = "[data-resolve-fallback] [data-upload-drop]"
-# 29-01-PLAN.md (CFG-81): the dialog's Replace form renders
-# UNCONDITIONALLY, so #panel-lookup-dialog carries BOTH upload-drop zones at
-# once — this one (the needs-artwork resolve zone, id_suffix="-dialog") and
-# REPLACE_INPUT_ID's own. Disambiguated by the same UPLOAD_DROP_INPUT_ATTR
-# value panel-lookup.js itself reads to decide which to hide.
+# The dialog's Replace form renders unconditionally, so #panel-lookup-dialog carries both
+# upload-drop zones at once — this one (the needs-artwork resolve zone, id_suffix="-dialog")
+# and REPLACE_INPUT_ID's own. Disambiguated by the same UPLOAD_DROP_INPUT_ATTR value
+# panel-lookup.js itself reads to decide which to hide.
 DIALOG_ZONE = "#panel-lookup-dialog [%s='%s']" % (
     airlines_page.UPLOAD_DROP_INPUT_ATTR,
     airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog",
@@ -117,11 +85,10 @@ def _seed_with_needs_artwork_entry(state_dir):
 
 @pytest.fixture(scope="module")
 def artwork_server(module_app_server_factory):
-    """A second, dedicated module-scoped server seeded with the
-    needs-artwork manual entry, for the ONE artwork check that never
-    uploads anything (it only measures the zone at rest) — the two that
-    actually store a file each get their own function-scoped server
-    instead (below).
+    """A second, dedicated module-scoped server seeded with the needs-artwork manual entry,
+    for the one artwork check that never uploads anything (it only measures the zone at
+    rest) — the two that actually store a file each get their own function-scoped server
+    instead.
     """
     return module_app_server_factory(seed=_seed_with_needs_artwork_entry, fake_providers=True)
 
@@ -158,10 +125,10 @@ def _write_artwork_fixtures(tmp_path):
 
 
 def _stored_artwork(server):
-    """The stored override's BYTES, or None. The verdict for every upload
-    below, read off the real state directory rather than off the page — a
-    POST this app rejected redirects to a page that looks exactly like
-    success."""
+    """The stored override's bytes, or None. The verdict for every upload below, read off
+    the real state directory rather than off the page — a POST this app rejected redirects
+    to a page that looks exactly like success.
+    """
     path = illustrations.override_path_for_key(ARTWORK_KEY, server.tmpdir)
     if not path or not os.path.isfile(path):
         return None
@@ -175,22 +142,16 @@ def _clear_stored_artwork(server):
         os.unlink(path)
 
 
-# ===========================================================================
-# 30-08-PLAN.md Task 2 (CFG-85): the accordion's own operability/save floor.
-# ===========================================================================
-
 def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, make_app_server):
-    """with scripts blocked, in BOTH languages, at 360px: all 4 usage rows carry their own
+    """With scripts blocked, in both languages, at 360px: all 4 usage rows carry their own
     <summary>; every registry theme's radio (theme/theme_arriving/calendar_theme_id/
     rule_theme_id) is present in the DOM at full registry size regardless of which row is
-    open; a REAL pointer click on a closed row's own <summary> opens it and closes the
+    open; a real pointer click on a closed row's own <summary> opens it and closes the
     previously-open sibling (the native grouped <details name="aspect-rows"> mechanism); and
-    a palette selection made INSIDE the row the visitor just opened themselves reaches disk,
+    a palette selection made inside the row the visitor just opened themselves reaches disk,
     read back via device_config.load_device_config(), with the restore leg putting the old
-    value back - CFG-85's own "every row open" wording is unachievable alongside the
-    grouped, mutually-exclusive accordion the developer already approved, and this check's
-    own comment states that discrepancy plainly rather than narrowing the claim
-    (_ASPECT_REPIN_LEDGER, 30-08-PLAN.md Task 2, CFG-85)"""
+    value back.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     n_themes = len(device_config.THEME_IDS)
@@ -277,13 +238,14 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
 
 
 def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, server):
-    """30-UI-SPEC.md's Touch Targets table, MEASURED (never declared) in each control's own
-    container, in both UI themes, at the 360px contract floor: the open row's first and last
+    """The Touch Targets floor, measured (never declared) in each control's own container,
+    in both UI themes, at the 360px contract floor: the open row's first and last
     .palette-chip, the usage-row's own <summary>, the arrivals row's leading "Same as
     departures" option, and the nested rule-add disclosure's own <summary> all clear 44px;
     the palette grid never scrolls horizontally, the page itself never overflows sideways,
     and the swatch paints visibly distinct from its own surrounding chip surface in both
-    themes (_ASPECT_REPIN_LEDGER, 30-08-PLAN.md Task 2, CFG-85)"""
+    themes.
+    """
     base_url = server.base_url()
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:
@@ -292,9 +254,8 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
         page.goto(base_url + "/display")
 
         def open_row(usage):
-            # IDEMPOTENT, deliberately: a grouped <details name="aspect-
-            # rows"> summary click TOGGLES, so clicking an already-open row
-            # would close it rather than leave it open.
+            # Idempotent, deliberately: a grouped <details name="aspect-rows"> summary click
+            # toggles, so clicking an already-open row would close it rather than leave it open.
             row = page.query_selector(
                 'details.usage-row[data-usage="%s"]' % usage)
             if row.get_attribute("open") is None:
@@ -390,18 +351,14 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
         context.close()
 
 
-# ===========================================================================
-# 27-03-PLAN.md Task 3 (CFG-64): the no-JS floor under the simplified gate.
-# ===========================================================================
-
 def test_the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies(
         new_context, make_app_server):
-    """the no-JS floor still SAVES TO DISK after the gate simplifies to the plain .js rule
-    (CFG-64) — tracked_runway operated natively, submitted through the real form, re-read
-    FROM DISK after a fresh GET, in BOTH shipped languages, at 360px, restored as the last
-    act (the same field and mutation 25-03's own M20 recorded) — and the
-    data-static-save-fallback submit is present and VISIBLE on that scripts-blocked page
-    AFTER the save, so a rendering can never stand in for it (CFG-64, 27-03-PLAN.md Task 3)"""
+    """The no-JS floor still saves to disk after the gate simplifies to the plain .js rule:
+    tracked_runway operated natively, submitted through the real form, re-read from disk
+    after a fresh GET, in both shipped languages, at 360px, restored as the last act. The
+    data-static-save-fallback submit is present and visible on that scripts-blocked page
+    after the save, so a rendering can never stand in for it.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
 
@@ -411,9 +368,8 @@ def test_the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies(
     before = read_back()
     target = next(r for r in device_config.RUNWAY_IDS if r != before)
     seen = {}
-    # BOTH SHIPPED LANGUAGES, at the 360px floor: the UI language is a
-    # cookie the FIRST rendered document already has to honour, and "it
-    # saves in English" is not the D-09 floor.
+    # Both shipped languages, at the 360px floor: the UI language is a cookie the first
+    # rendered document already has to honour, and "it saves in English" is not the floor.
     for lang in ("en", "fr"):
         seen[lang] = _persist_without_js(
             new_context, base_url, "/display", "tracked_runway", target, read_back,
@@ -435,9 +391,8 @@ def test_the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies(
                 "lang=%s: the restore leg did not put %r back, disk reads %r"
                 % (lang, before, result["restored"]))
 
-    # AND THE SUBMIT ITSELF, ASSERTED AFTER THE SAVE ABOVE — never before,
-    # and never in its place. A rendering can never stand in for the save
-    # this check just proved.
+    # The submit itself, asserted after the save above, never before and never in its place: a
+    # rendering can never stand in for the save this check just proved.
     with _no_js_page(new_context, base_url, "/display",
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         submit = page.locator("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
@@ -451,20 +406,12 @@ def test_the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies(
                 "after the save - this is precisely the shape Phase 22's P0 took")
 
 
-# ===========================================================================
-# 27-04-PLAN.md Task 4 / 28-10-PLAN.md Tasks 2-3 (CFG-63/CFG-71/CFG-77/
-# CFG-78): the bar's own settle contract, and its failure proven honest.
-# ===========================================================================
-
 def test_the_bar_settles_the_field_disk_agree_and_the_bar_hides(new_context, make_app_server):
-    """the bar's own settle contract: changing a field REVEALS the bar, names the changed
-    section, updates the field's own DOM value, and leaves DISK UNTOUCHED (the bar means
-    unsaved, stronger than anything the retired check asserted); clicking Enregistrer causes
-    a real navigation; and after it lands the field, the bar (now HIDDEN) and disk all agree
-    on the requested value — three surfaces, on different surfaces than before
-    (CFG-63/CFG-71/CFG-77/CFG-78, 27-04-PLAN.md Task 4; retargeted onto the restored bar by
-    28-10-PLAN.md Task 2, which also retires the CFG-63 'no save button visible' clause this
-    check used to assert)"""
+    """The bar's own settle contract: changing a field reveals the bar, names the changed
+    section, updates the field's own DOM value, and leaves disk untouched (the bar means
+    unsaved); clicking Enregistrer causes a real navigation; and after it lands the field,
+    the bar (now hidden) and disk all agree on the requested value.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context()
     try:
@@ -482,9 +429,8 @@ def test_the_bar_settles_the_field_disk_agree_and_the_bar_hides(new_context, mak
             device_config.load_device_config(server.tmpdir)["tracked_runway"])
         target = next(r for r in device_config.RUNWAY_IDS if r != before)
 
-        # a. CHANGE A FIELD: the bar reveals, the count names the section,
-        # the field shows the new value, and disk STILL shows the OLD
-        # value — the bar means *unsaved*.
+        # Change a field: the bar reveals, the count names the section, the field shows the
+        # new value, and disk still shows the old value — the bar means unsaved.
         _click_control(page, 'input[name="tracked_runway"][value="%s"]' % target)
         _wait_for_bar(page)
         if not _bar_text(page):
@@ -504,11 +450,10 @@ def test_the_bar_settles_the_field_disk_agree_and_the_bar_hides(new_context, mak
                 "expected disk to still read %r while the bar is visible and unsaved, "
                 "got %r - the bar means UNSAVED" % (before, disk_before_save))
 
-        # b. CLICK ENREGISTRER — a real navigation.
+        # Click Enregistrer: a real navigation.
         _save_via_bar(page)
 
-        # c. AFTER THE NAVIGATION: field, bar and disk all agree on the new
-        # value.
+        # After the navigation: field, bar and disk all agree on the new value.
         _assert_surfaces_agree(
             page,
             {
@@ -530,14 +475,13 @@ def test_the_bar_settles_the_field_disk_agree_and_the_bar_hides(new_context, mak
 
 def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouched(
         new_context, server):
-    """a value the server's own validation rejects (wake_interval_s below its floor)
-    re-renders the SAME page with the field's OWN inline error, programmatically associated
+    """A value the server's own validation rejects (wake_interval_s below its floor)
+    re-renders the same page with the field's own inline error, programmatically associated
     via aria-describedby and naming the field; echoes the user's rejected input back into
-    the field rather than the on-disk value (D-07's echo rule); leaves disk UNCHANGED; and
-    raises NO .quick-toast at all on this path — the explicit negative that keeps this
-    failure surface and quick-switch.js's own toast from merging (CFG-63/CFG-71,
-    27-04-PLAN.md Task 4; retargeted from the toast onto the native inline-error path by
-    28-10-PLAN.md Task 3, CFG-77/CFG-78)"""
+    the field rather than the on-disk value; leaves disk unchanged; and raises no
+    .quick-toast at all on this path, keeping this failure surface and quick-switch.js's
+    own toast from merging.
+    """
     context = new_context()
     try:
         page = context.new_page()
@@ -546,9 +490,8 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
         page.goto(base_url + "/device")
 
         before = str(device_config.load_device_config(server.tmpdir)["wake_interval_s"])
-        # Below server/device_config.py's own WAKE_INTERVAL_MIN_S (60) — a
-        # genuine server-side rejection, exercising the 200-is-not-a-
-        # redirect branch, never a client-side shortcut.
+        # Below server/device_config.py's own WAKE_INTERVAL_MIN_S (60): a genuine server-side
+        # rejection, exercising the 200-is-not-a-redirect branch, never a client-side shortcut.
         rejected = "30"
 
         wake_sel = 'input[name="wake_interval_s"]'
@@ -557,9 +500,9 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
         page.keyboard.type(rejected)
         page.keyboard.press("Tab")
         _wait_for_bar(page)
-        # noValidate disables only the BROWSER's own pre-flight check for
-        # this one native submit — the request that follows is still a
-        # REAL native POST, so the server's own validation is exercised.
+        # noValidate disables only the browser's own pre-flight check for this one native
+        # submit; the request that follows is still a real native POST, so the server's own
+        # validation is exercised.
         page.eval_on_selector(
             "#%s" % config_page.SETTINGS_FORM_ID, "el => { el.noValidate = true; }")
         _save_via_bar(page)
@@ -606,22 +549,17 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
         context.close()
 
 
-# ===========================================================================
-# 28-11-PLAN.md Tasks 1-2 (CFG-77): document-order section naming, and
-# Cancel's side effects read off the resulting DOM.
-# ===========================================================================
-
 def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
         new_context, server):
-    """the bar's own [data-dirty-count] names which section(s) actually changed, built from
-    the bar's own data-dirty-* attributes plus each section wrapper's own label — never
-    hardcoded English/French, never merely 'the bar is visible' or 'the text is non-empty':
-    a single changed Runway field reads exactly that wrapper's own label plus the
-    changed-suffix, and a second, different-section change (Quiet hours) reads the two-item
-    join with Runway BEFORE Quiet hours in BOTH click orders — the reversed-order pass is
-    what proves DOCUMENT order rather than click order, since dirtySectionLabels() walks the
-    document and Runway's own wrapper precedes Quiet hours' on Display regardless of which
-    the visitor touches first; run in both site languages (CFG-77, 28-11-PLAN.md Task 1)"""
+    """The bar's own [data-dirty-count] names which section(s) actually changed, built from
+    the bar's own data-dirty-* attributes plus each section wrapper's own label, never
+    hardcoded English/French: a single changed Runway field reads exactly that wrapper's own
+    label plus the changed-suffix, and a second, different-section change (Quiet hours)
+    reads the two-item join with Runway before Quiet hours in both click orders — the
+    reversed-order pass is what proves document order rather than click order, since
+    dirtySectionLabels() walks the document and Runway's own wrapper precedes Quiet hours'
+    on Display regardless of which the visitor touches first; run in both site languages.
+    """
     base_url = server.base_url()
     for lang in ("en", "fr"):
         context = new_context()
@@ -650,9 +588,9 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
             target_quiet_start = (
                 "05:00" if current_quiet_start != "05:00" else "06:00")
 
-            # Built from the bar's OWN data-dirty-* words and each section
-            # wrapper's OWN label — never a hardcoded English/French
-            # literal, so this check works unchanged in either language.
+            # Built from the bar's own data-dirty-* words and each section wrapper's own
+            # label, never a hardcoded English/French literal, so this check works unchanged
+            # in either language.
             runway_label = page.eval_on_selector(
                 runway_sel,
                 "el => el.closest('[data-dirty-section]')"
@@ -671,7 +609,7 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
             expected_two = (
                 runway_label + and_word + quiet_label + changed_suffix)
 
-            # Phase A: ONE changed field (Runway). The bar names ONLY it.
+            # Phase A: one changed field (Runway). The bar names only it.
             _click_control(
                 page, '%s[value="%s"]' % (runway_sel, target_runway))
             _wait_for_bar(page)
@@ -681,16 +619,16 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
                     "lang=%s: expected [data-dirty-count] to read %r for a single "
                     "changed field (Runway), got %r" % (lang, expected_one, actual_one))
 
-            # Phase B: ALSO change a Quiet hours field. The bar names
-            # BOTH, Runway before Quiet hours — DOCUMENT order.
+            # Phase B: also change a Quiet hours field. The bar names both, Runway before
+            # Quiet hours — document order.
             page.fill(
                 'input[name="quiet_hours_start"]', target_quiet_start)
             _commit_field(page, 'input[name="quiet_hours_start"]')
             wait_for_bar_text(expected_two)
 
-            # Fresh load, REVERSED click order: Quiet hours first, Runway
-            # second. dirtySectionLabels() walks the DOCUMENT, so the bar
-            # must still read Runway before Quiet hours.
+            # Fresh load, reversed click order: Quiet hours first, Runway second.
+            # dirtySectionLabels() walks the document, so the bar must still read Runway
+            # before Quiet hours.
             page.goto(base_url + "/display")
             page.fill(
                 'input[name="quiet_hours_start"]', target_quiet_start)
@@ -705,20 +643,17 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
 
 def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_dom(
         new_context, server):
-    """a real Annuler click restores every surface, read off the RESULTING DOM: the theme
+    """A real Annuler click restores every surface, read off the resulting DOM: the theme
     chip's checked state is back to the original, the live preview <img>'s resolved src is
-    back to the ORIGINALLY-selected theme's own (never the discarded one) — proving
-    window.SkyPaneLivePreview.refresh() actually ran, since form.reset() fires no change
-    event — and the quiet-hours dial's decoded arc and its handles' aria-valuenow are back
-    to the pre-edit window, proving 28-08's own explicit deferred repaint of
-    value-controls.js's repaintAll() landed; both edits are confirmed to have actually MOVED
-    both surfaces before Cancel is ever clicked, and every post-Cancel read waits for
-    28-08's setTimeout(fn, 0) deferred tick rather than reading synchronously after the
-    click; asserting that refresh()/repaintAll() was CALLED is explicitly not acceptable and
-    this check never does — the dial-repaints-for-free claim CONTEXT.md made is false by
-    specification (already refuted in writing by 28-08) and this check does not re-litigate
-    it (CFG-77, 28-11-PLAN.md Task 2; re-pointed to .palette-chip by 30-08-PLAN.md Task 2,
-    CFG-85)"""
+    back to the originally-selected theme's own (never the discarded one), proving
+    window.SkyPaneLivePreview.refresh() actually ran since form.reset() fires no change
+    event, and the quiet-hours dial's decoded arc and its handles' aria-valuenow are back to
+    the pre-edit window, proving the deferred repaint of value-controls.js's repaintAll()
+    landed. Both edits are confirmed to have actually moved both surfaces before Cancel is
+    ever clicked, and every post-Cancel read waits for the deferred tick rather than reading
+    synchronously after the click. Asserting that refresh()/repaintAll() was called is
+    explicitly not acceptable and this check never does; it observes only the DOM.
+    """
     context = new_context()
     try:
         page = context.new_page()
@@ -738,7 +673,7 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
             return page.eval_on_selector(
                 THEME_PREVIEW_SEL, "el => el.getAttribute('src')")
 
-        # --- Setup: record the pre-edit state of every surface, off the DOM.
+        # Setup: record the pre-edit state of every surface, off the DOM.
         original_theme = page.eval_on_selector(
             'input[name="theme"]:checked', "el => el.value")
         original_preview_src = preview_src()
@@ -755,9 +690,9 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
             'input[name="quiet_hours_start"]')
         target_start = "05:00" if current_start != "05:00" else "06:00"
 
-        # --- Edit: a DIFFERENT theme via a carousel chip, AND a different
-        # quiet-hours window. Confirm both surfaces actually MOVED before
-        # Cancel — a no-op edit would make every assertion below vacuous.
+        # Edit: a different theme via a palette chip, and a different quiet-hours window.
+        # Confirm both surfaces actually moved before Cancel — a no-op edit would make every
+        # assertion below vacuous.
         _click_control(
             page, 'input[name="theme"][value="%s"]' % target_theme)
         _wait_for_bar(page)
@@ -777,13 +712,12 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
                 "handles %r -> %r - a no-op edit proves nothing about Cancel"
                 % (original_arc, moved_arc, original_handles, moved_handles))
 
-        # --- Cancel: a real click on the native type="reset" button,
-        # exercising both the native reset and 28-08's scripted
-        # enhancement at once.
+        # Cancel: a real click on the native type="reset" button, exercising both the native
+        # reset and the scripted enhancement at once.
         page.click("[data-dirty-cancel]")
         _wait_for_bar_hidden(page)
 
-        # a. The theme chip's checked state is back to the original.
+        # The theme chip's checked state is back to the original.
         try:
             page.wait_for_function(
                 "args => {"
@@ -798,11 +732,9 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
                 "expected the theme radio to be restored to %r after Annuler, got %r"
                 % (original_theme, restored_theme))
 
-        # b. The live preview's <img> resolved src is back to the
-        #    ORIGINALLY-selected theme's own — the clause that proves
-        #    window.SkyPaneLivePreview.refresh() actually ran, since
-        #    form.reset() fires no change event and the preview cannot
-        #    repaint on its own.
+        # The live preview's <img> resolved src is back to the originally-selected theme's
+        # own: the clause that proves window.SkyPaneLivePreview.refresh() actually ran, since
+        # form.reset() fires no change event and the preview cannot repaint on its own.
         try:
             page.wait_for_function(
                 "args => { var img = document.querySelector(args.sel);"
@@ -816,8 +748,8 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
                 "theme's own %r after Annuler (proving window.SkyPaneLivePreview.refresh() "
                 "actually ran), it still reads %r" % (original_preview_src, preview_src()))
 
-        # c. The quiet-hours dial's decoded arc AND its handles'
-        #    aria-valuenow are back to the PRE-EDIT window.
+        # The quiet-hours dial's decoded arc and its handles' aria-valuenow are back to the
+        # pre-edit window.
         try:
             page.wait_for_function(
                 "args => {"
@@ -846,26 +778,19 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
         context.close()
 
 
-# ===========================================================================
-# 28-04-PLAN.md Task 2 (CFG-72): the settings-card-title consistency probe.
-# ===========================================================================
-
 _SETTINGS_CARD_TITLE_SELECTOR = (
     ".theme-status > h2.text-heading, .page-section > h2.text-heading")
 
 
 def _settings_card_title_probe(page):
-    """Every settings-card title on the CURRENTLY LOADED settings page,
-    addressed by STRUCTURAL POSITION — the `<h2>` that is a direct child of
-    a `.theme-status`/`.page-section` settings-card wrapper — never by
-    class name. A supersection's own intro heading (`.section-intro > h2`)
-    is EXCLUDED, structurally rather than by an explicit `:not()`: it lives
-    under `.section-intro`, never directly under
-    `.theme-status`/`.page-section`, so the selector above never reaches
-    it — a deliberate exclusion (companion/test_config_page.py's own
-    title-form inventory, 27-06-PLAN.md Task 1, and SKILL.md's three-rung
-    heading ladder), not an oversight this check should "fix" into
-    asserting the ladder away.
+    """Every settings-card title on the currently loaded settings page, addressed by
+    structural position — the `<h2>` that is a direct child of a
+    `.theme-status`/`.page-section` settings-card wrapper — never by class name. A
+    supersection's own intro heading (`.section-intro > h2`) is excluded structurally
+    rather than by an explicit `:not()`: it lives under `.section-intro`, never directly
+    under `.theme-status`/`.page-section`, so the selector above never reaches it — a
+    deliberate exclusion, matching the three-rung heading ladder, not an oversight this
+    check should "fix" into asserting the ladder away.
     """
     return page.evaluate(
         "sel => Array.from(document.querySelectorAll(sel)).map(h => {"
@@ -876,29 +801,26 @@ def _settings_card_title_probe(page):
 
 
 def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_context, server):
-    """THE real proof, not a grep: ONE probe renders BOTH settings pages (Display and
-    Device) in one session, addresses every settings-card title by STRUCTURAL POSITION
+    """The real proof, not a grep: one probe renders both settings pages (Display and
+    Device) in one session, addresses every settings-card title by structural position
     rather than by class name, reads its getComputedStyle font-size/font-weight/font-family,
-    and asserts the combined set across both pages has cardinality 1 — CFG-72's literal
-    wording. Fails naming the empty side if either page contributes zero titles; every
-    Device title must be one of the four named cards (Diagnostic LED, Wake interval,
-    Notifications, Manual refresh) and the Poll card's own title specifically must be among
-    them — proving the probe's reach extends to the one .page-section card, not just the
-    three .theme-status ones — while a genuinely SMALLER set (one Device card removed from
-    `builders`) still passes, proving the comparator is not secretly counting; the failure
-    message names the offending page, the offending title's text and BOTH triples.
-    Supersection intro headings (.section-intro > h2) are excluded structurally,
-    deliberately — a different, generically-worded tier (27-06-PLAN.md Task 1, SKILL.md's
-    three-rung heading ladder), not an inconsistency this check should assert away. Both
-    themes exercised via _set_ui_theme(), at the 360px floor (CFG-72, 28-04-PLAN.md Task 2)"""
+    and asserts the combined set across both pages has cardinality 1. Fails naming the empty
+    side if either page contributes zero titles; every Device title must be one of the four
+    named cards and the Poll card's own title specifically must be among them, proving the
+    probe's reach extends to the one .page-section card, not just the three .theme-status
+    ones; the failure message names the offending page, the offending title's text and both
+    triples. Supersection intro headings (.section-intro > h2) are excluded structurally,
+    deliberately: a different, generically-worded tier, not an inconsistency this check
+    should assert away. Both themes exercised via _set_ui_theme(), at the 360px floor.
+    """
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         base_url = server.base_url()
 
-        # Every (page, theme) combination this app can paint a
-        # settings-card title in, all folded into ONE combined set below.
+        # Every (page, theme) combination this app can paint a settings-card title in, all
+        # folded into one combined set below.
         entries = []
         by_page = {"/display": [], "/device": []}
         for theme in UI_THEMES_EXPLICIT:
@@ -944,14 +866,14 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "would pass this check while leaving CFG-72 unmet on a card the developer "
                 "can see" % config_page.POLL_SECTION_HEADING)
 
-        # Clause (b): the combined set's own cardinality is 1.
+        # The combined set's own cardinality is 1.
         triples = sorted({e["triple"] for e in entries})
         if len(triples) != 1:
             majority = collections.Counter(
                 e["triple"] for e in entries).most_common(1)[0][0]
             offender = next(e for e in entries if e["triple"] != majority)
-            # Clause (c): the message names the offending page, the
-            # offending title's text, and BOTH triples.
+            # The message names the offending page, the offending title's text, and both
+            # triples.
             raise AssertionError(
                 "expected exactly one (font-size, font-weight, font-family) triple across "
                 "every settings-card title on both settings pages, got %d distinct triples "
@@ -962,10 +884,7 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
         context.close()
 
 
-# ===========================================================================
-# 28-09-PLAN.md Task 1 (CFG-78/CFG-74(c)): the single-affordance audit, and
-# the runway radios' cross-tree form= regression check.
-# ===========================================================================
+# The single-affordance audit, and the runway radios' cross-tree form= regression check.
 
 def _submit_shaped_controls(page):
     return page.evaluate(
@@ -988,18 +907,18 @@ def _submit_shaped_controls(page):
 
 
 def test_exactly_one_submit_shaped_control_resolves_to_the_settings_form(new_context, server):
-    """exactly ONE submit-shaped control on the whole settings page resolves its own
-    .form.id to config_page.SETTINGS_FORM_ID, on both /display and /device, in both site
-    languages — resolved via the browser's OWN .form property, never a count of <button
-    occurrences in the HTML string and never a hand-maintained allow-list; covers
-    input[type=submit], button[type=submit] AND a bare <button> with no type attribute (the
-    HTML default IS submit); the bar's native type="reset" Cancel is deliberately excluded
-    (form-associated but not submit-shaped, and it saves nothing); the one settings-form
-    control must carry data-static-save-fallback and be a descendant of [data-dirty-bar];
-    the failure message NAMES every collected control as a tagName/type/form-id/text tuple
-    so a regression says WHICH control drifted; and the complement is asserted too —
-    calendar/rules/notifications-test/quick-LED/quick-switch controls, whichever this scope
-    renders, each resolve to a NON-settings-form id (CFG-78, 28-09-PLAN.md Task 1)"""
+    """Exactly one submit-shaped control on the whole settings page resolves its own .form.id
+    to config_page.SETTINGS_FORM_ID, on both /display and /device, in both site languages,
+    resolved via the browser's own .form property, never a count of <button occurrences in
+    the HTML string and never a hand-maintained allow-list. Covers input[type=submit],
+    button[type=submit] and a bare <button> with no type attribute (the HTML default is
+    submit); the bar's native type="reset" Cancel is deliberately excluded (form-associated
+    but not submit-shaped, and it saves nothing). The one settings-form control must carry
+    data-static-save-fallback and be a descendant of [data-dirty-bar]; the failure message
+    names every collected control as a tagName/type/form-id/text tuple so a regression says
+    which control drifted; and the complement is asserted too: every other submit-shaped
+    control this scope renders resolves to a non-settings-form id.
+    """
     base_url = server.base_url()
     for scope_route in ("/display", "/device"):
         for lang in ("en", "fr"):
@@ -1047,10 +966,9 @@ def test_exactly_one_submit_shaped_control_resolves_to_the_settings_form(new_con
                         "%s lang=%s: the one settings-form submit control is not a "
                         "descendant of [data-dirty-bar] - %r" % (scope_route, lang, the_one))
 
-                # The complement — the relationship half, not merely the
-                # endpoint: every OTHER submit-shaped control this scope
-                # renders resolves to a form id that is NOT the settings
-                # form.
+                # The complement, the relationship half, not merely the endpoint: every other
+                # submit-shaped control this scope renders resolves to a form id that is not
+                # the settings form.
                 bad = [
                     c for c in controls
                     if c is not the_one
@@ -1066,14 +984,13 @@ def test_exactly_one_submit_shaped_control_resolves_to_the_settings_form(new_con
 
 def test_the_runway_form_associated_path_reaches_the_bar_and_disk_end_to_end(
         new_context, make_app_server):
-    """the runway radios' cross-tree form="settings-form" wiring drives the SAME
+    """The runway radios' cross-tree form="settings-form" wiring drives the same
     bar-appears -> Enregistrer -> persisted-to-disk path every natively-nested control
-    does — closing the path CFG-74(c) named before it was superseded, now against the real
-    POST instead of the retired fetch: selecting a runway radio (rendered OUTSIDE the
-    settings form) reveals the bar naming exactly its own Runway/Piste label, a real
-    Enregistrer navigation writes tracked_runway to disk, and a reload shows the radio
-    reflecting the saved value — both site languages (CFG-74(c)/CFG-78, 28-09-PLAN.md
-    Task 1)"""
+    does, against the real POST: selecting a runway radio (rendered outside the settings
+    form) reveals the bar naming exactly its own Runway/Piste label, a real Enregistrer
+    navigation writes tracked_runway to disk, and a reload shows the radio reflecting the
+    saved value — both site languages.
+    """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     for lang in ("en", "fr"):
@@ -1143,24 +1060,21 @@ def test_the_runway_form_associated_path_reaches_the_bar_and_disk_end_to_end(
             context.close()
 
 
-# ===========================================================================
-# 25-07-PLAN.md Task 3 (CFG-51/D19): THE ARTWORK DROP ZONE.
+# The artwork drop zone.
 #
-# Each check below gets its own state (see the fixtures above): the
-# needs-artwork manual entry is a precondition none of them may leave
-# altered for a sibling, and under xdist there is no sibling to leave it
-# for anyway — each test builds/tears down its own server and its own
-# tmp_path fixture files.
-# ===========================================================================
+# Each check below gets its own state (see the fixtures above): the needs-artwork manual
+# entry is a precondition none of them may leave altered for a sibling, so each test
+# builds/tears down its own server and its own tmp_path fixture files.
 
 def test_artwork_uploads_and_is_served_with_scripts_blocked(new_context, make_app_server, tmp_path):
-    """with scripts blocked at 360px, an artwork file chosen through the native <input
-    type="file"> and submitted through the fallback panel's own form is STORED (read back
+    """With scripts blocked at 360px, an artwork file chosen through the native <input
+    type="file"> and submitted through the fallback panel's own form is stored (read back
     off the real state directory, never off the page — a rejected upload redirects to a
-    page that looks like success) and SERVED back by the illustration route as an image at
+    page that looks like success) and served back by the illustration route as an image at
     illustration_normalize.ILLUSTRATION_TARGET_SIZE; and the drop zone beside it measures
     zero height and holds zero focusable descendants with scripts blocked while occupying a
-    real box with them on (CFG-51/D-09, 25-07-PLAN.md Task 3)"""
+    real box with them on.
+    """
     server = make_app_server(seed=_seed_with_needs_artwork_entry, fake_providers=True)
     fixtures = _write_artwork_fixtures(tmp_path)
     base_url = server.base_url()
@@ -1208,15 +1122,15 @@ def test_artwork_uploads_and_is_served_with_scripts_blocked(new_context, make_ap
 
 
 def test_dropped_and_picked_files_are_stored_identically(new_context, make_app_server, tmp_path):
-    """the SAME source file stored byte-identically whether it was PICKED or DROPPED (with
+    """The same source file stored byte-identically whether it was picked or dropped (with
     the stored file deleted between the two uploads, so a drop that never reached the server
     could not pass on the picked file left behind), the preview decoding to the source's own
     1200x300 through a data: URL (a blob: one is blocked by this app's own CSP); and the
-    FLOOR measured against the INPUT rather than against a message — zero files, a wrong
+    floor measured against the input rather than against a message: zero files, a wrong
     type, several at once and an oversized file each assign nothing, each say something, and
     each say something different, while a synthetic drop changes nothing at all and the
-    drag-over state is sampled visible BETWEEN dragOver and drop (CFG-51/D19, 25-07-PLAN.md
-    Task 3)"""
+    drag-over state is sampled visible between dragOver and drop.
+    """
     server = make_app_server(seed=_seed_with_needs_artwork_entry, fake_providers=True)
     fixtures = _write_artwork_fixtures(tmp_path)
     art_path = fixtures["art_path"]
@@ -1421,13 +1335,13 @@ def test_dropped_and_picked_files_are_stored_identically(new_context, make_app_s
 
 def test_the_artwork_drop_zone_meets_its_floors_at_360px_in_both_themes(
         new_context, artwork_server):
-    """the artwork drop zone clears the 44px target by real hit-testing in ITS OWN
+    """The artwork drop zone clears the 44px target by real hit-testing in its own
     container at 360px, the Airlines page does not scroll sideways there, the preview box
     reserves illustration_normalize.py's own aspect ratio (by getBoundingClientRect, never
-    clientWidth) BEFORE any image exists with the <img> still hidden, and the paint is a
-    FLOOR not a ceiling: the hint text is never the canvas colour, the preview frame is
-    never its own fill, and the whole zone paints differently in the two themes
-    (CFG-51/CFG-52, 25-07-PLAN.md Task 3)"""
+    clientWidth) before any image exists with the <img> still hidden, and the paint is a
+    floor not a ceiling: the hint text is never the canvas colour, the preview frame is
+    never its own fill, and the whole zone paints differently in the two themes.
+    """
     base_url = artwork_server.base_url()
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:

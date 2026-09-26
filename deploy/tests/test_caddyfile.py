@@ -1,10 +1,10 @@
-"""deploy/tests/test_caddyfile.py — render_caddyfile.sh + HSTS (SEC-02, SEC-05).
+"""deploy/tests/test_caddyfile.py -- render_caddyfile.sh + HSTS.
 
 Runs render_caddyfile.sh as a real subprocess (it is a shell script, not
 Python) and parses the rendered text. No caddy binary is invoked (there is
-none on the pytest runner) — deploy/render_caddyfile.sh's own syntax is
-checked separately with `bash -n` in the plan's verify step, and the real
-`caddy validate` only ever runs on the VPS inside activate.sh (Plan 37-06).
+none on the pytest runner) -- deploy/render_caddyfile.sh's own syntax is
+checked separately with `bash -n`, and the real `caddy validate` only ever
+runs on the VPS inside activate.sh.
 """
 
 import re
@@ -77,9 +77,8 @@ def test_each_site_block_carries_hsts_no_preload_no_include_subdomains():
     for address, body in blocks.items():
         assert 'header Strict-Transport-Security "max-age=31536000"' in body, address
     # Comments may explain the *absence* of preload/includeSubDomains
-    # (D-15) without that mention counting as the directive itself — only
-    # non-comment lines matter here, matching the plan's own acceptance
-    # check (`grep -v '^\s*#' | grep -Ec 'preload|includeSubDomains'`).
+    # without that mention counting as the directive itself -- only
+    # non-comment lines matter here.
     non_comment_lines = "\n".join(
         line for line in result.stdout.splitlines() if not line.strip().startswith("#")
     )

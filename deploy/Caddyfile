@@ -1,107 +1,39 @@
-# SkyPane — Caddy reverse proxy + automatic HTTPS.
+# SkyPane -- Caddy reverse proxy + automatic HTTPS.
 #
-# This template renders SkyPane's OWN site file,
-# /etc/caddy/sites/skypane.caddy (deploy/render_caddyfile.sh, run by
-# deploy/activate.sh on every deploy). The host's /etc/caddy/Caddyfile is
-# shared with other projects on the same VPS and imports this file through
-# a one-time `import sites/*.caddy` line; SkyPane never writes the host
-# file. Keep this template to site blocks only — no global options block
-# (`{ ... }` at the top), which Caddy only accepts at the start of the host
-# Caddyfile, not inside an imported file.
+# Renders /etc/caddy/sites/skypane.caddy (deploy/render_caddyfile.sh, via
+# deploy/activate.sh); the host Caddyfile imports it, so keep to site
+# blocks only, no global options block (host-file-only in Caddy).
 #
-# Terminates TLS on :443 for the public hostname below and reverse-proxies
-# everything to byos_server.py, which listens on 127.0.0.1:8642 and is
-# never reachable directly from outside (ufw denies the app port -
-# deploy/provision.sh). This is what makes byos_server.py's
-# --image-url-scheme https flag (stub-server/byos_server.py, D-P2-07)
-# correspond to a real TLS-terminated connection rather than an empty
-# promise.
-#
-# Hostname pattern: <dashed-vps-ip>.nip.io. nip.io is a public DNS service
-# that resolves any hostname of the form <A>-<B>-<C>-<D>.nip.io to the IP
-# address A.B.C.D embedded in the hostname itself — no DNS zone, no
-# registrar, no A-record configuration needed. Caddy uses this hostname to
-# request a Let's Encrypt certificate via the HTTP-01 challenge, which only
-# requires that the hostname resolve to this server's IP (which nip.io
-# guarantees by construction) and that port 80 be reachable for the
-# challenge handshake before Caddy switches to serving 443.
-#
-# Example: a VPS with IP 203.0.113.10 uses the hostname
-# 203-0-113-10.nip.io below. Replace with the real VPS IP, dashes in place
-# of dots, through SKYPANE_PUBLIC_HOST in skypane.env (activate.sh renders
-# the real value in on every deploy — see deploy/README.md).
-#
-# To swap in a real owned domain later: change the site address on the
-# line below to the domain (e.g. frame.example.com), point an A record at
-# this VPS's IP, and redeploy (activate.sh reloads Caddy). Nothing else
-# in this file, or in skypane-byos.service, needs to change — Caddy
-# re-requests a certificate for whatever hostname the site block names.
-#
-# Two site blocks now exist (06-11-PLAN.md, D-05): the device-protocol
-# block below, and a second block for the companion configuration web
-# interface, prefixed "config-" by default (e.g. config-203-0-113-10.nip.io;
-# SKYPANE_COMPANION_HOST in skypane.env replaces this line with any
-# other hostname, such as a domain of its own). nip.io
-# accepts an arbitrary label before the IP-encoding suffix, so the second
-# name needs no DNS configuration of its own — it resolves to the same IP
-# by the same mechanism as the first. Let's Encrypt issues a separate
-# certificate per hostname at no additional cost. A separate hostname was
-# chosen over a path prefix on the device hostname (e.g. /config/*) for a
-# cleaner boundary between the device protocol and the human-facing
-# interface — two independent site blocks, two independent failure
-# domains, rather than one block routing on path.
+# Hostnames are <dashed-vps-ip>.nip.io, resolved to the embedded IP with
+# no DNS zone needed, for the Let's Encrypt HTTP-01 challenge.
 
 203-0-113-10.nip.io {
     reverse_proxy 127.0.0.1:8642
 
-    # HSTS is a browser (user-agent) policy, not something the firmware
-    # reads: esp_http_client only calls esp_http_client_fetch_headers for
-    # the content length (firmware/main/api_client.c) and never inspects
-    # this header, so adding it to the device block is harmless (SEC-02,
-    # D-15). No `preload` (this hostname is not submitted to any preload
-    # list) and no `includeSubDomains` (this host has no subdomains of its
-    # own to cover).
+    # HSTS is a browser policy, not read by the firmware (esp_http_client
+    # never inspects response headers here). No `preload` (not submitted
+    # to any preload list) and no `includeSubDomains` (no subdomains).
     header Strict-Transport-Security "max-age=31536000"
 
-    # Structured per-request access log to a durable file, not stdout
-    # (changed in 06-11-PLAN.md — this is the load-bearing edit that makes
-    # CFG-03's battery history possible). The device sends its battery
-    # voltage as the X-Battery-Mv request header on every poll;
-    # stub-server/byos_server.py prints that header and persists nothing,
-    # and is explicitly off-limits to modify (D-03, stub-server/VENDOR.md)
-    # — solved at the infrastructure layer instead, following this
-    # project's existing precedent of working around a vendored-code
-    # limitation rather than patching the file. The previous "output
-    # stdout" directive was journald-bound and rotates on journald's own
-    # schedule (the same reasoning server/poll_loop.py's own module
-    # docstring already records for a different durable-state decision),
-    # so it could never be the source of a durable history. roll_size/
-    # roll_keep bound the file's growth (T-06-11-04) — server/history_db.py's
-    # tailer resets its stored offset when the file is shorter than the
-    # offset, so a rotation neither loses nor double-counts readings.
+    # Durable per-request access log (not stdout, which is journald-bound
+    # and rotates on its own schedule). The device's battery voltage
+    # arrives as the X-Battery-Mv header; byos_server.py prints it but
+    # persists nothing, so this file is the only durable record.
     #
-    # Caddy's own header redaction only covers a fixed sensitive set
-    # (Cookie, Set-Cookie, Authorization, Proxy-Authorization) — the
-    # device's telemetry headers are not in that set, which is why they
-    # appear in this log at all. The tailer that reads this file
-    # (server/history_db.py's tail_caddy_battery_log()) extracts only an
-    # explicit four-name telemetry-header allowlist, never the header map
-    # wholesale, so a future change to Caddy's redaction policy cannot
-    # leak a credential into the history database (T-06-11-03).
-    # mode 660: this log is written by caddy (user `caddy`) but read every
-    # 30s by server/poll_loop.py (user `skypane`, via --caddy-log). Caddy's
-    # default file mode is owner-only (0600), inaccessible outside the
-    # caddy user. provision.sh sets setgid on state/ so every new/rotated
-    # file here inherits group `skypane` regardless of which process
-    # created it, and adds caddy to the skypane group - but that only
-    # helps if the GROUP bits grant what the accessing process needs: 660
-    # (not 640) because caddy itself may need to write this file via its
-    # *group* membership rather than ownership (e.g. after a rotation, or
-    # if the file was ever touched by another skypane-group process) -
-    # group read-only would then deny caddy's own append.
+    # Caddy's header redaction covers only Cookie/Set-Cookie/Authorization/
+    # Proxy-Authorization, so telemetry headers appear here; the tailer
+    # (server/history_db.py) reads an explicit four-name allowlist, never
+    # the full header map, so a redaction change cannot leak a credential.
     log {
         output file /opt/skypane/state/caddy-access.log {
+            # mode 660: caddy (owner) writes; server/poll_loop.py (user
+            # skypane) reads every 30s via --caddy-log. provision.sh sets
+            # setgid on state/ and adds caddy to group skypane, so 660
+            # (not 640) lets caddy append via group membership too.
             mode 660
+            # roll_size/roll_keep bound growth; the tailer resets its
+            # stored offset when the file is shorter than that offset, so
+            # rotation neither loses nor double-counts readings.
             roll_size 10MiB
             roll_keep 5
         }
@@ -112,13 +44,12 @@
 config-203-0-113-10.nip.io {
     reverse_proxy 127.0.0.1:8643
 
-    # Same HSTS policy as the device block above (SEC-02, D-15): no
-    # preload, no includeSubDomains.
+    # Same HSTS policy as the device block above: no preload, no
+    # includeSubDomains.
     header Strict-Transport-Security "max-age=31536000"
 
-    # Console stream is fine here: the companion interface has no
-    # durable-telemetry requirement of its own (unlike the block above),
-    # this is purely operator convenience for `journalctl -u caddy`.
+    # Console log only: no durable-telemetry requirement here, just
+    # operator convenience for `journalctl -u caddy`.
     log {
         output stdout
         format json

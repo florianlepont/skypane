@@ -1,20 +1,12 @@
 #!/usr/bin/env bash
-# SkyPane — regenerate the hash-locked dependency files (TST-08).
+# SkyPane -- regenerate the hash-locked dependency files.
 #
-# Compiles server/requirements.in -> server/requirements.txt (runtime
-# lock, what deploy/deploy.sh installs on the VPS with --require-hashes)
-# and server/requirements-dev.in -> server/requirements-dev.txt (dev
-# lock, a superset that CI installs with --require-hashes). Both locks
-# pin every transitive package (urllib3, certifi, idna,
-# charset-normalizer, ...) with sha256 hashes, not just the direct pins
-# above.
+# Compiles server/requirements.in -> requirements.txt (runtime lock) and
+# requirements-dev.in -> requirements-dev.txt (dev superset, what CI
+# installs). Both pin every transitive package with sha256 hashes.
 #
 # Requires `uv` on PATH (https://docs.astral.sh/uv/). Never hand-edit the
-# hashes in the compiled .txt files - always regenerate through this
-# script so the lock and the resolver that produced it stay in sync.
-#
-# Usage:
-#   scripts/lock-deps.sh
+# lock hashes -- always regenerate through this script.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,11 +18,10 @@ if ! command -v uv >/dev/null 2>&1; then
     exit 1
 fi
 
-# Locks are generated for Python 3.14 on x86_64 Linux (manylinux_2_28):
-# production (OVH VPS, Ubuntu 26.04, Python 3.14) and CI (ubuntu-latest,
-# Python 3.14) are both x86_64 Linux, so one platform target covers both.
-# If a future uv rejects the manylinux_2_28 platform tag, fall back to
-# the coarser "linux" value instead (--python-platform linux).
+# Both production (OVH VPS, Ubuntu 26.04) and CI (ubuntu-latest) are
+# x86_64 Linux on Python 3.14, so one manylinux_2_28 target covers both.
+# If a future uv rejects that platform tag, fall back to the coarser
+# "linux" value (--python-platform linux).
 
 echo "==> Locking server/requirements.in -> server/requirements.txt"
 uv pip compile --generate-hashes \

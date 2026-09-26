@@ -1,31 +1,13 @@
-"""Part 04 (second half) of the `companion/test_config_page.py` migration
-chain (33-12-PLAN.md): the original harness's `check()` calls #188-#228
-(minus #196, deleted - see below), covering the screen-registry split
-(scope_groups()/screens.py), the Diagnostic LED's single-switch contract
-(the LED quick-form sibling-of-settings-form guard), the Display/Device
-supersection structure (three section-intro headings each, the --nested
-modifier count, the merged-Aspect-card <h2> order), the Task 2 instant-
-switch/form-nesting restructure (D-19/Pitfall 1), the French/English i18n
-copy checks, scope-aware render()/handle_post() (hidden fields, out-of-
-scope-checkbox carry-forward), the conditional screen selector, and the
-next-wake caption suffix plus the one computed Quiet-hours delay sentence
-across its DUE/HELD/UNKNOWN branches.
-
-Every check calls `companion.pages.config_page`'s own functions directly,
-in-process, against a `tmp_path`-backed state directory when it needs one on
-disk at all - no running `companion/app.py` server is needed for this slice.
-
-Check #196 (`_no_card_builder_function_ever_calls_section_intro_html_after_
-the_merge`) is DELETED, not ported: it opened `companion/pages/config_page.py`
-from disk and `ast.parse()`d it to find `section_intro_html()` call sites
-inside the settings-card builder functions (a G2/TST-12 source-text read with
-no test-side workaround, since the property it protects has no OWN
-observable trace beyond the one the rendered markup already carries).
-That rendered-markup trace - which builder produced which <h2>, classified
-as a settings-card title vs. a supersection intro - is exactly what
-`test_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_
-after_the_merge` (row 195, ported below) already counts by running render()
-and inspecting its output; the AST check added no coverage beyond that.
+"""Tests the screen-registry split (scope_groups()/screens.py), the
+Diagnostic LED's single-switch contract, the Display/Device supersection
+structure (section-intro headings, the --nested modifier count, the
+merged-Aspect-card <h2> order), the instant-switch/form-nesting
+restructure, French/English i18n copy checks, scope-aware
+render()/handle_post() (hidden fields, out-of-scope-checkbox
+carry-forward), the conditional screen selector, and the next-wake
+caption suffix plus the one computed Quiet-hours delay sentence across
+its DUE/HELD/UNKNOWN branches. No running companion/app.py server is
+needed for this slice.
 """
 import re
 import sys
@@ -82,8 +64,7 @@ def test_the_led_group_renders_one_switch_and_no_surviving_checkbox():
     """config_page.led_group() renders exactly ONE control for the setting - a server-rendered
     role=switch whose aria-checked is the stored value in both directions, named by the setting,
     described by its state span AND the group's own caption, attached across the DOM to its own
-    /quick/led form - and no input[name="led_enabled"] checkbox survives beside it (D2/CFG-36,
-    X1/D-04, 23-07-PLAN.md Task 2)"""
+    /quick/led form - and no input[name="led_enabled"] checkbox survives beside it"""
     for stored in (True, False):
         rendered = config_page.led_group(stored)
         assert 'name="led_enabled"' not in rendered, (
@@ -120,13 +101,13 @@ def test_the_led_group_renders_one_switch_and_no_surviving_checkbox():
 
 def test_the_quick_led_form_is_a_sibling_of_the_settings_form(tmp_path):
     """config_page.quick_led_form_html() is an EMPTY form carrying its own method/action/id, the
-    D-04 handshake attribute and the two hidden fields with the posted state inverted from the
+    handshake attribute and the two hidden fields with the posted state inverted from the
     stored one - and render() places it as a SIBLING of the settings form on the Device scope and
-    not at all on Display (D2/CFG-36, 23-07-PLAN.md Task 2)
+    not at all on Display
 
     The <form> must never nest inside <form id="settings-form">: HTML forbids it and the browser
     silently drops the inner one, which would make the switch post the SETTINGS route instead - a
-    partial settings save, the exact shape T-23-25 is about.
+    partial settings save.
     """
     section = config_page.quick_led_form_html(True)
     assert section.startswith('<form method="post" action="/quick/led" '), (
@@ -162,7 +143,7 @@ def test_the_quick_led_form_is_a_sibling_of_the_settings_form(tmp_path):
 
 def test_display_scope_carries_runway_and_calendar_device_carries_neither():
     """scope_groups(SCOPE_DISPLAY) contains Runway and Calendar, and scope_groups(SCOPE_DEVICE)
-    contains neither (D-10/D-11)"""
+    contains neither"""
     from companion import screens
     display_groups = config_page.scope_groups(config_page.SCOPE_DISPLAY)
     device_groups = config_page.scope_groups(config_page.SCOPE_DEVICE)
@@ -175,8 +156,7 @@ def test_display_scope_carries_runway_and_calendar_device_carries_neither():
 def test_display_render_carries_three_section_intros_in_locked_order():
     """the Display scope renders exactly three section-intro headings, in the locked Look/What it
     watches/When it is on order, and the Device scope renders exactly three of its own, in the
-    locked When it wakes/How it tells you/When you can't wait order (D-12, retargeted by
-    28-04-PLAN.md Task 1/CFG-72 from 'the Device scope renders none')"""
+    locked When it wakes/How it tells you/When you can't wait order"""
     ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
@@ -202,7 +182,7 @@ def test_every_grouped_card_under_a_display_supersection_carries_nested_class():
     """every grouped card the Display scope renders under one of its three supersections carries
     a --nested modifier class - down to 3 occurrences (Aspect's page-section--nested, Runway's and
     Quiet hours' theme-status--nested) now that the Calendar card's own separate
-    page-section--nested wrapper is retired (D-12, CFG-85)"""
+    page-section--nested wrapper is retired"""
     ctx = {
         "device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
         "calendar_configured": True, "calendar_last_synced_at": None,
@@ -224,8 +204,7 @@ def test_display_h2_order_matches_the_merged_aspect_card_placement():
     """the Display scope's rendered <h2> order is exactly Look, Aspect, What it watches, Runway,
     When it is on, Quiet hours - the separate Calendar heading this order used to also name is
     retired outright now that its connection block folds into the Aspect card's own Calendar row
-    - and every calendar_theme_id radio still carries a form="settings-form" attribute (CFG-85,
-    replacing the retired _display_h2_order_matches_d12_after_calendar_placement_fix)"""
+    - and every calendar_theme_id radio still carries a form="settings-form" attribute"""
     ctx = {
         "device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
         "calendar_configured": True, "calendar_last_synced_at": None,
@@ -255,8 +234,7 @@ def test_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_af
     3 on Display, down from 4 now that Calendar's own separate heading is retired) + 3
     supersection intros (form B) + 2 unrelated headings, with the counts re-derived by RUNNING
     rather than restated as the pre-merge 8/4/3/1 literal, and the two label vocabularies still
-    never overlapping (CFG-85, replacing the retired
-    _title_form_inventory_classifies_every_h2_text_heading_on_both_routes)"""
+    never overlapping"""
     ctx_display = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
@@ -276,7 +254,7 @@ def test_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_af
         form_a = rendered.count('%s="' % config_page.DIRTY_SECTION_ATTR)
         form_b = rendered.count("section-intro")
         counts[label] = (total, form_a, form_b, total - form_a - form_b)
-    # RE-DERIVED BY RUNNING (30-06-PLAN.md Task 3, CFG-85): Display's own tuple moves from
+    # RE-DERIVED BY RUNNING: Display's own tuple moves from
     # (8, 4, 3, 1) to (7, 3, 3, 1) - one fewer h2.text-heading instance and one fewer form-A card
     # title, both for the identical reason (the Calendar card's own separate heading is retired).
     # Device's own tuple is untouched.
@@ -330,8 +308,8 @@ def test_device_scope_wraps_all_four_settings_cards_with_the_nested_modifier():
     """the cheap structural guard, NOT the real proof (that is test_browser_ux.py's cross-page
     getComputedStyle comparator): the Device scope's rendered output wraps all four of its
     settings cards with the --nested modifier (three theme-status--nested, one
-    page-section--nested) and carries zero unmodified settings-card wrappers of either base class
-    (CFG-72, 28-04-PLAN.md Task 2)"""
+    page-section--nested) and carries zero unmodified settings-card wrappers of either base
+    class"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
         "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
@@ -364,7 +342,7 @@ _TASK2_BASE_CTX = {
 
 def test_display_render_carries_exactly_two_quick_action_forms():
     """a Display render contains exactly one action="/quick/display" form and one
-    action="/quick/quiet-hours" form (D-19)"""
+    action="/quick/quiet-hours" form"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     assert rendered.count('action="%s"' % config_page.QUICK_DISPLAY_ROUTE) == 1, (
         "expected exactly one action=\"/quick/display\" form")
@@ -374,7 +352,7 @@ def test_display_render_carries_exactly_two_quick_action_forms():
 
 def test_quick_action_forms_are_not_descendants_of_settings_form():
     """neither instant-switch form is a descendant of <form id=settings-form> - both render in
-    the shared Frame strip, before the settings form even opens (D-01/D-02/Pitfall 1)"""
+    the shared Frame strip, before the settings form even opens"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     settings_form_open = rendered.index('<form class="config-form"')
     for route in (config_page.QUICK_DISPLAY_ROUTE, config_page.QUICK_QUIET_HOURS_ROUTE):
@@ -386,7 +364,6 @@ def test_quick_action_forms_are_not_descendants_of_settings_form():
 
 def test_display_render_carries_no_form_nested_inside_a_form():
     """the rendered Display page contains no <form> nested inside another <form> anywhere
-    (D-19/Pitfall 1, the required structural fix)
 
     A whole-body scan for any "<form" whose nearest preceding unclosed "<form" has not yet been
     closed - i.e. no <form> is ever a descendant of another <form> anywhere in the rendered
@@ -413,9 +390,8 @@ def test_display_render_carries_no_form_nested_inside_a_form():
 
 def test_two_scheduled_inputs_carry_form_settings_form():
     """the two remaining scheduled inputs (quiet_hours_start, quiet_hours_end) carry
-    form="settings-form" via the SETTINGS_FORM_ID constant (D-19), and neither display_enabled
-    nor quiet_hours_enabled renders on the Display page any more (22-05-PLAN.md Task 1,
-    X1/D-04/D-12.1)"""
+    form="settings-form" via the SETTINGS_FORM_ID constant, and neither display_enabled
+    nor quiet_hours_enabled renders on the Display page any more"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     for needle in (
             '<input type="time" name="quiet_hours_start" value="22:00" required'
@@ -429,7 +405,7 @@ def test_two_scheduled_inputs_carry_form_settings_form():
 
 def test_display_render_has_exactly_one_quick_action_pair_inside_the_strip():
     """a Display render carries exactly one .quick-action--on/--off pair per switch, both inside
-    .frame-strip (D-01/D-02)"""
+    .frame-strip"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     on_off_count = (
         rendered.count('quick-action quick-action--on')
@@ -447,8 +423,8 @@ def test_display_render_has_exactly_one_quick_action_pair_inside_the_strip():
 
 def test_schedule_cards_carry_no_quick_action_markup():
     """the Quiet hours card carries no quick-action markup any more - its switch moved into the
-    shared Frame strip (D-01/D-02); the Screen on/off card this check used to also cover is
-    retired outright by 22-05-PLAN.md Task 1 (X1/D-04/D-12.1)"""
+    shared Frame strip; the Screen on/off card this check used to also cover is
+    retired outright"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     for heading in (config_page.QUIET_HOURS_SECTION_HEADING,):
         start = rendered.index(
@@ -461,10 +437,10 @@ def test_schedule_cards_carry_no_quick_action_markup():
 
 def test_quick_action_forms_carry_return_to_the_display_route():
     """both instant-switch forms on Display carry a return_to hidden input whose value is the
-    Display route (R-02)
+    Display route
 
     A DIFFERENT, pre-existing "return_to" hidden field also lives inside <form id="settings-form">
-    itself (D-10's own scope-aware save-and-return-to-the-same-page mechanism) - same field NAME,
+    itself (a scope-aware save-and-return-to-the-same-page mechanism) - same field NAME,
     different form, different route, no collision. Scoped to each quick-action <form>...</form>
     block specifically, not a whole-page substring count.
     """
@@ -478,7 +454,7 @@ def test_quick_action_forms_carry_return_to_the_display_route():
 
 def test_frame_strip_renders_after_header_before_first_section_intro():
     """the Frame strip renders immediately after the page header and before the first
-    section-intro on Display (D-02)"""
+    section-intro on Display"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     header_pos = rendered.index('<h1 class="page-title">')
     strip_pos = rendered.index('<div class="frame-strip stat-tile stat-tile--accent"')
@@ -491,8 +467,7 @@ def test_frame_strip_renders_after_header_before_first_section_intro():
 def test_applies_next_wake_sentence_appears_exactly_twice():
     """the shared "Applies the next time the frame wakes up." sentence appears exactly twice on
     the Display page - once per Frame-strip instant switch, and no longer a third time under the
-    Quiet hours card's own caption now that CFG-79 confines it to one place per page (29-05-PLAN.md
-    Task 2; widened to three by 22-05-PLAN.md Task 2 D-04, narrowed back here)"""
+    Quiet hours card's own caption, which confines it to one place per page"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     count = rendered.count(escape_html(layout.QUICK_ACTION_APPLIES_SENTENCE))
     assert count == 2, (
@@ -501,8 +476,8 @@ def test_applies_next_wake_sentence_appears_exactly_twice():
 
 
 def test_handle_post_same_field_set_after_restructure_saves_the_same_config(tmp_path):
-    """a POST through handle_post() with the same field set as before the Task 2 restructure
-    still produces the same saved config (D-13/T-20-26)"""
+    """a POST through handle_post() with the same field set as before the instant-switch
+    restructure still produces the same saved config"""
     tmp = str(tmp_path)
     key = config_page.handle_post(
         {
@@ -534,7 +509,7 @@ _TASK3_I18N_CTX = {
 def test_french_display_render_carries_french_headings_no_english():
     """a French Display render (prefs.set_request_prefs(lang='fr')) carries the three
     supersection headings, the purpose sentence and the instant-switch sentence in French, and
-    none of their English counterparts (D-05)"""
+    none of their English counterparts"""
     try:
         prefs.set_request_prefs(lang="fr")
         fr_rendered = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
@@ -554,7 +529,7 @@ def test_french_display_and_device_render_translate_registry_labels():
     """a French Display render translates the default theme name ('White' -> 'Blanc') and
     default runway label ('Runway 3 (07/25)' -> 'Piste 3 (07/25)'), and both scopes' screen
     caption translates 'Plane frame' -> 'Cadre avion', while the theme/runway ids stay
-    untranslated attribute values (Polish fix 5, D-05)
+    untranslated attribute values
 
     device_config.theme_label()/runway_label()'s registry text and screens.py's screen label are
     translated at their config_page.py display sites via i18n.t(), backed by
@@ -579,11 +554,9 @@ def test_french_display_and_device_render_translate_registry_labels():
 
 def test_aspect_display_render_still_carries_every_pinned_english_string():
     """an English (default) Display render still contains every pre-existing English string this
-    file's own checks assert, updated for CFG-85's rebuild (both the former Frame colours card's
-    and the calendar connection block's own caption constants dropped, ASPECT_HEADING gained,
-    everything else kept) - t() never touches the default-language render (D-05, 30-05-PLAN.md
-    Task 2/30-06-PLAN.md Task 3, replacing the retired
-    _english_display_render_still_carries_every_pinned_english_string)"""
+    file's own checks assert, updated for the Aspect-card rebuild (both the former Frame colours
+    card's and the calendar connection block's own caption constants dropped, ASPECT_HEADING
+    gained, everything else kept) - t() never touches the default-language render"""
     rendered = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
     for english_text in (
             config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
@@ -595,8 +568,8 @@ def test_aspect_display_render_still_carries_every_pinned_english_string():
 
 
 def test_device_render_carries_no_edit_artwork_markup_in_either_language():
-    """the Device render contains no edit-artwork markup and no ?edit=1 link, in either language
-    (D-36)"""
+    """the Device render contains no edit-artwork markup and no ?edit=1 link, in either
+    language"""
     for lang in ("en", "fr"):
         try:
             prefs.set_request_prefs(lang=lang)
@@ -635,9 +608,7 @@ def test_submitted_scope_and_return_route_are_allowlisted():
 def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
     """render(scope=display/device) carries the matching hidden fields and only its own groups,
     including locating the rules row (inside the Aspect card) by its own data-usage attribute;
-    the legacy render(ctx) carries no scope field; a hostile scope never reaches the markup
-    (30-05-PLAN.md Task 2, replacing the retired
-    _scoped_render_carries_hidden_fields_and_omits_other_groups)"""
+    the legacy render(ctx) carries no scope field; a hostile scope never reaches the markup"""
     ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
@@ -668,8 +639,7 @@ def test_handle_post_scope_carries_out_of_scope_checkboxes_forward(tmp_path):
     Display save never flips the LED, a Device save never flips the screen or quiet hours), leaves
     display_enabled/quiet_hours_enabled/led_enabled unchanged even in-scope and on the legacy
     unscoped form while still honouring an explicit value, and a scoped submission without the
-    Calendar group always carries the calendar forward (D-12.1, 22-05-PLAN.md Task 1; the
-    led_enabled half retargeted in place from absent-means-False by 23-07-PLAN.md Task 2)"""
+    Calendar group always carries the calendar forward"""
     tmp = str(tmp_path)
     device_config.save_device_config(
         tmp, led_enabled=True, display_enabled=True, quiet_hours_enabled=True,
@@ -699,7 +669,7 @@ def test_handle_post_scope_carries_out_of_scope_checkboxes_forward(tmp_path):
         {"scope": "device", "led_enabled": config_page.LED_CHECKBOX_VALUE}, {"state_dir": tmp})
     assert key == config_page.FLASH_SAVED and device_config.load_device_config(tmp)["led_enabled"] is True, (
         "expected an explicit led_enabled value to still be honoured")
-    # Calendar moved from Device to Display's everyday_groups (20-07-PLAN.md Task 1, D-11): a
+    # Calendar moved from Device to Display's everyday_groups: a
     # device-page submission now ignores even a stray calendar_disconnect field, while a
     # display-page submission's calendar fields are live.
     assert config_page.submitted_calendar_signal({"scope": "device"}) == config_page.CALENDAR_URL_SIGNAL_CARRY_FORWARD, (
@@ -712,7 +682,7 @@ def test_handle_post_scope_carries_out_of_scope_checkboxes_forward(tmp_path):
         "expected a display-page submission's calendar_disconnect field to resolve clear now that "
         "Calendar renders there (D-11)")
     # display_enabled and quiet_hours_enabled now resolve absent to "leave unchanged"
-    # UNCONDITIONALLY, including on this legacy unscoped SCOPE_ALL path (X1/D-04/D-12.1, T-22-16).
+    # UNCONDITIONALLY, including on this legacy unscoped SCOPE_ALL path.
     key = config_page.handle_post({"theme": "white"}, {"state_dir": tmp})
     cfg = device_config.load_device_config(tmp)
     assert key == config_page.FLASH_SAVED and cfg["display_enabled"] is True, (
@@ -821,7 +791,7 @@ def test_screen_selector_renders_the_field_error_message():
 
 def test_neither_scope_renders_an_edit_artwork_link():
     """neither the Display nor the Device scope renders an Edit-artwork link or markup any more -
-    the link and its builder are deleted outright (D-36)"""
+    the link and its builder are deleted outright"""
     ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
@@ -848,11 +818,10 @@ def test_with_next_wake_helper_contract():
 
 def test_affected_captions_gain_the_suffix_only_when_known():
     """each of Runway/LED/Wake-interval's own caption gains the '(next wake ≈ HH:MM)' suffix when
-    the value is known, and is byte-identical to its own constant when it is not (D-13; narrowed
-    by 21-05-PLAN.md Task 1 D-06 once THEME_SECTION_CAPTION/theme_fieldset() are retired, and by
-    22-05-PLAN.md Task 1 X1/D-04/D-12.1 once Quiet hours' own caption moves to its own computed
-    delay sentence instead - the Frame colours card's own caption never gains this suffix
-    either)"""
+    the value is known, and is byte-identical to its own constant when it is not (Theme's and
+    Quiet hours' own captions are retired from this list - Quiet hours' own caption moved to its
+    own computed delay sentence instead - and the Frame colours card's own caption never gains
+    this suffix either)"""
     known_ctx = {
         "device_config": {"wake_interval_s": 900, "display_enabled": True},
         "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
@@ -864,7 +833,7 @@ def test_affected_captions_gain_the_suffix_only_when_known():
     unknown_display = config_page.render(unknown_ctx, scope=config_page.SCOPE_DISPLAY)
     unknown_device = config_page.render(unknown_ctx, scope=config_page.SCOPE_DEVICE)
     # THEME_SECTION_CAPTION/QUIET_HOURS_SECTION_CAPTION are deliberately NOT in this list any
-    # more - see their own retirements' history for why (21-05/22-05-PLAN.md).
+    # more - both are retired from this suffix contract.
     for caption in (
             config_page.RUNWAY_SECTION_CAPTION,
             config_page.LED_SECTION_CAPTION,
@@ -885,7 +854,7 @@ def test_affected_captions_gain_the_suffix_only_when_known():
 
 def test_device_header_shows_next_wake_line_when_known():
     """the Device page header carries a 'Next wake ≈ HH:MM' line when the value is known and none
-    at all when it is not (D-13's 'Home and Device show' wording)"""
+    at all when it is not"""
     known_ctx = {
         "device_config": {"wake_interval_s": 900, "display_enabled": True},
         "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
@@ -901,9 +870,9 @@ def test_device_header_shows_next_wake_line_when_known():
 
 def test_quiet_hours_caption_and_flash_agree_on_the_due_branch():
     """with a due result, the Frame strip carries the DUE delay sentence exactly twice (once per
-    switch cell), the Quiet hours card's own caption carries NO delay sentence any more
-    (29-05-PLAN.md Task 2, CFG-79), and the post-save flash still reads the DUE delay sentence
-    naming the same computed time, unaffected by the caption change (D-04)"""
+    switch cell), the Quiet hours card's own caption carries NO delay sentence any more, and the
+    post-save flash still reads the DUE delay sentence naming the same computed time, unaffected
+    by the caption change"""
     ctx = {
         "device_config": {"wake_interval_s": 900, "quiet_hours_enabled": False},
         "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
@@ -934,9 +903,8 @@ def test_quiet_hours_caption_and_flash_agree_on_the_due_branch():
 def test_quiet_hours_caption_and_flash_agree_on_the_held_branch():
     """with a held result (the nightly regression fixture), the Frame strip carries the HELD
     delay sentence exactly twice (once per switch cell), the Quiet hours card's own caption
-    carries NO delay sentence any more (29-05-PLAN.md Task 2, CFG-79), and the post-save flash
+    carries NO delay sentence any more, and the post-save flash
     still reads the HELD delay sentence naming the window's own end, never the generic due wording
-    (D-04, 22-UI-SPEC.md §3.3 binding rule 6)
 
     The nightly regression fixture: quiet hours 23:00-07:00 Europe/Paris, last check-in 22:58,
     clock 02:00 the next morning (a non-DST January date) - held, never late.
@@ -975,9 +943,8 @@ def test_quiet_hours_caption_and_flash_agree_on_the_held_branch():
 
 def test_quiet_hours_caption_and_flash_agree_on_the_unknown_branch():
     """with no check-in at all, the Frame strip carries the UNKNOWN delay sentence exactly twice
-    (once per switch cell), the Quiet hours card's own caption carries NO delay sentence any more
-    (29-05-PLAN.md Task 2, CFG-79), and the post-save flash still reads the UNKNOWN delay
-    sentence, which names no time (D-04)"""
+    (once per switch cell), the Quiet hours card's own caption carries NO delay sentence any more,
+    and the post-save flash still reads the UNKNOWN delay sentence, which names no time"""
     ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     expected_delay_fragment = escape_html("Applies the next time the frame wakes up.")

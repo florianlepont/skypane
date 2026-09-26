@@ -1,5 +1,5 @@
 #!/bin/sh
-# SkyPane Mac-side off-box backup pull (SEC-04, D-04). Runs nightly from
+# SkyPane Mac-side off-box backup pull. Runs nightly from
 # launchd (skypane-backup-pull.plist.template), pulling archives through
 # the VPS's narrow forced-command gate (deploy/backup/backup_gate.py) -
 # it never pushes anything back to the VPS. Safe to run repeatedly:
@@ -135,8 +135,8 @@ if [ "$FAILED" -eq 0 ] && [ -n "$NEWEST" ] && [ -f "$DEST/$NEWEST" ]; then
 fi
 
 # Retention: keep the 30 newest local archives, plus the oldest local
-# archive of each YYYYMM within the last 12 months (RESEARCH.md SEC-04
-# "Mac side"). Names sort lexically = chronologically, so
+# archive of each YYYYMM within the last 12 months. Names sort
+# lexically = chronologically, so
 # `sort -r | tail -n +31` finds the deletion candidates without ever
 # relying on a GNU-only negative head line count.
 for f in "$DEST"/*; do

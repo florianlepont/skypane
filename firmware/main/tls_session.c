@@ -32,15 +32,13 @@
 static const char *TAG = "fp_tls";
 
 /* Mirror of components/tcp_transport/transport_ssl.c's private
- * transport_esp_tls_t at ESP-IDF v5.3.1 - field order and types copied
- * exactly (re-confirmed against the container's own source at plan
- * time) so that casting esp_transport_get_context_data()'s result
- * through this type reaches the real session_ticket field, which
- * neither esp_transport nor esp_tls exposes a public accessor for. Must
- * be re-checked against the real struct on any ESP-IDF upgrade; the
- * FP_TLS_SESSION_ACTIVE guard above compiles this whole block out
- * outside the exact pinned version, so a mismatched mirror can never
- * silently misread memory on an untested IDF release. */
+ * transport_esp_tls_t at ESP-IDF v5.3.1 — field order and types copied
+ * exactly, confirmed against the container's own source, so casting
+ * esp_transport_get_context_data()'s result through this type reaches
+ * the real session_ticket field, which no public accessor exposes.
+ * Must be re-checked on any ESP-IDF upgrade; FP_TLS_SESSION_ACTIVE
+ * compiles this whole block out outside the exact pinned version, so a
+ * mismatched mirror can never silently misread memory. */
 typedef enum {
     FP_MIRROR_TRANS_SSL_INIT = 0,
     FP_MIRROR_TRANS_SSL_CONNECTING,

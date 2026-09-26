@@ -1,13 +1,11 @@
-"""deploy/tests/test_provision.py — deploy/harden_sshd.sh (SEC-08, D-08)
-run as a real subprocess against a fake sshd_config.d and stub sshd/
-systemctl, plus text/syntax checks on deploy/provision.sh's release
-layout, env ownership and skypane-backup changes (SEC-04, SEC-05,
-SEC-07). provision.sh itself needs a real root machine to exercise
-end-to-end (useradd/apt-get/ufw/systemctl are not something a sandboxed
-test should run for real) — RESEARCH.md's own SEC-08 "Test in CI" note
-says the same about the SSH step, which is exactly why it was extracted
-into the small, self-contained harden_sshd.sh this file exercises for
-real.
+"""deploy/tests/test_provision.py -- deploy/harden_sshd.sh, run as a real
+subprocess against a fake sshd_config.d and stub sshd/systemctl, plus
+text/syntax checks on deploy/provision.sh's release layout, env
+ownership and skypane-backup changes. provision.sh itself needs a real
+root machine to exercise end-to-end (useradd/apt-get/ufw/systemctl are
+not something a sandboxed test should run for real), which is exactly
+why the SSH step was extracted into the small, self-contained
+harden_sshd.sh this file exercises for real.
 """
 import os
 import re

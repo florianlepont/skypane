@@ -1,12 +1,11 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
-/* Quick task 260924-u7n (DEVICE-06) - see fault_screen.h for the full
- * design rationale. Pure C11, no ESP-IDF dependency at all (buildable and
- * testable standalone, firmware/tests/test_fault_screen.c), so the exact
- * same dither spec firmware/tools/gen_fault_screen.py's Python port
- * implements can be verified byte-for-byte against this file on a
- * developer machine with no hardware and no IDF toolchain.
- */
+/* Pure C11, no ESP-IDF dependency at all (buildable and testable
+ * standalone, firmware/tests/test_fault_screen.c) — see fault_screen.h
+ * for the design rationale. The exact same dither spec
+ * firmware/tools/gen_fault_screen.py's Python port implements can be
+ * verified byte-for-byte against this file on a developer machine with
+ * no hardware and no IDF toolchain. */
 #include "fault_screen.h"
 
 #include <string.h>
@@ -24,22 +23,10 @@ _Static_assert(FP_FAULT_MASK_Y + FP_FAULT_MASK_H <= FP_FAULT_SCREEN_HEIGHT,
 #define DITHER_TARGET_LEVEL 102
 
 /* Two error-accumulator rows, WIDTH + 2 entries each, indexed x + 1 so
- * x - 1 and x + 1 never go out of bounds. static, not stack - the
- * app_main task stack is small (12 KiB, sdkconfig.defaults) and this is
- * 2 * 1202 * 2 bytes = ~4.7 KB, comfortably too large to put on it
- * safely alongside everything else a wake's call stack already holds.
- *
- * Range check: the maximum |e| a single pixel can produce is bounded by
- * the incoming error plus the level swing. v16 = level16 + cur[x+1];
- * level16 is a small constant (102*16 = 1632) and cur[x+1] is itself a
- * diffused fraction of a previous e, so the whole recurrence stays
- * bounded by the same order of magnitude as a single quantisation step:
- * |e| <= max(level16, 255*16 - level16) plus accumulated rounding, which
- * in practice never approaches the int16_t range (+-32767) for this
- * fixed, non-adversarial target level - verified empirically by
- * test_fault_screen.c's determinism/bounds checks across the whole
- * 1200x1600 field. int16_t is kept (not int32_t) to match
- * gen_fault_screen.py's own spec exactly, byte for byte. */
+ * x - 1/x + 1 never go out of bounds; static, not stack (~4.7 KB, too
+ * large for the small app_main task stack). int16_t never overflows for
+ * this fixed target level (verified by test_fault_screen.c's bounds
+ * checks) and matches gen_fault_screen.py's port exactly, byte for byte. */
 static int16_t s_cur[FP_FAULT_SCREEN_WIDTH + 2];
 static int16_t s_nxt[FP_FAULT_SCREEN_WIDTH + 2];
 

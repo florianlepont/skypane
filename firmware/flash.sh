@@ -1,23 +1,17 @@
 #!/bin/sh
 # firmware/flash.sh - host-side flash of the EE02 build artifact over USB,
-# native (not containerised) - Docker Desktop's macOS USB passthrough is
-# unreliable, so build.sh stays containerised while flashing runs on the
-# host (see build.sh's own comment).
+# native (not containerised): Docker Desktop's macOS USB passthrough is
+# unreliable, so build.sh stays containerised while flashing runs here.
+
+# Usage: firmware/flash.sh <serial-port>
 #
-# Usage:
-#   firmware/flash.sh <serial-port>
+# The serial port is REQUIRED, never guessed -- flashing the wrong device
+# is not recoverable by re-running this script.
 #
-# The serial port is REQUIRED and never guessed or wildcarded. Find it
-# with `ls /dev/cu.*` before and after plugging the board in - the newly
-# appeared entry is the board. Flashing the wrong device is not
-# recoverable by re-running this script.
-#
-# Flash offsets and file names are read from the build's own generated
-# flasher_args.json, never hand-typed, so they can never drift from what
-# build.sh actually produced. After writing, the application region is
-# read back off the device and compared byte-for-byte against
-# build-ee02/skypane.bin; a partial or corrupted flash is caught here,
-# not misdiagnosed later as a firmware bug (T-01-06-01).
+# Flash offsets/file names come from the build's own flasher_args.json,
+# never hand-typed, so they can't drift from what build.sh produced.
+# After writing, the app region is read back and compared byte-for-byte
+# against skypane.bin, so a partial/corrupted flash is caught here.
 
 set -eu
 

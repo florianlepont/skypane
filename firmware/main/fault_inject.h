@@ -1,7 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
-/* Bench-only verification hooks for the reset/backoff path (FW-01), the
- * wake-budget path (FW-02) and the unusable-NVS path at boot: a real
+/* Bench-only verification hooks for the reset/backoff path, the
+ * wake-budget path and the unusable-NVS path at boot: a real
  * crash, hang, brownout or flash fault is hard
  * to reproduce on demand, so the hardware session needs a way to
  * trigger each one deliberately. Selected by the

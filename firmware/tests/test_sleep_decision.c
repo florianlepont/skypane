@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0 */
 /* HOST_TEST_DEPS: backoff.c */
 /* Host-side unit test for the sleep decision extracted from
- * app_main.c's wake dispatcher (FW-06): backoff on failure, honour the
+ * app_main.c's wake dispatcher: backoff on failure, honour the
  * server's interval on success, shorten a deferred wait, and never let
  * a zero server sleep through as if it were a real interval.
  *

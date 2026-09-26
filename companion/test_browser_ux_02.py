@@ -1,46 +1,20 @@
 #!/usr/bin/env python3
-"""Part 02 of `companion/test_browser_ux.py` (33-22-PLAN.md, TST-11), the
-second of the browser_ux chain's four migration plans (33-21..33-24).
+"""Browser checks for both `<dialog>`s' entrance/exit motion, the live theme preview's
+crossfade, the image-hold skeletons, the login card's layout and show-password toggle, the
+login lockout countdown, the nav-status reminder's line-breaking, the mobile nav's close
+consistency, the restored dirty bar's own clearance geometry, the Health refresh loop's
+failure/recovery pill, overflow sweeps (Home, the recent-flight callsign column, Health's
+disclosure-gated tables, every `<details>` on every page), the cross-document view-transition
+name uniqueness and its reduced-motion opt-out, and the Health freshness line's live-tab
+ticking, hidden-tab idling and no-JS floor.
 
-Covers the original file's check() calls #19-#37: both `<dialog>`s'
-entrance/exit motion, the live theme preview's crossfade, the image-hold
-skeletons, the login card's layout and show-password toggle, the login
-lockout countdown, the nav-status reminder's line-breaking, the mobile
-nav's close consistency, the restored dirty bar's own clearance geometry,
-the Health refresh loop's failure/recovery pill, four B11-class overflow
-sweeps (Home, the recent-flight callsign column, Health's disclosure-
-gated tables, every `<details>` on every page), the cross-document view-
-transition name uniqueness and its reduced-motion opt-out, and the
-Health freshness line's live-tab ticking, hidden-tab idling and no-JS
-floor.
+Read-only checks share one module-scoped, read-only `server` fixture. The login-lockout check
+drives the process-global LoginThrottle to its limit, which would lock out every other check
+sharing that subprocess, so it alone gets its own function-scoped `make_app_server` server.
 
-Every test below drives a real headless Chromium against a real
-`companion/app.py` subprocess, through the guarded `page`/`new_context`
-fixtures (`companion/conftest.py`), and never constructs or navigates to
-any URL outside `server.base_url()` — a `127.0.0.1:<ephemeral-port>`
-origin the guarded fixture itself created. A missing/unlaunchable
-Chromium is a hard failure under CI / `SKYPANE_REQUIRE_BROWSER=1` (the
-`browser` fixture override in `companion/conftest.py`), never a silent
-skip.
-
-Read-only checks (none below saves a real setting through Enregistrer;
-the one that reveals the dirty bar never clicks it) share one
-module-scoped, read-only `server` fixture (33-MIGRATION-RULES.md section
-2). The login-lockout check drives the process-global LoginThrottle to
-its limit, which would lock out every other check sharing that
-subprocess for the rest of the module's run, so it alone gets its own
-function-scoped `make_app_server` server.
-
-Loops the original checks ran with no cross-iteration comparison (each
-route/width/language/motion-mode combination independently asserted, in
-its own context) are converted to `@pytest.mark.parametrize` — the
-dirty-bar clearance check, the two-route dialog check, the recent-flight
-starvation sweep, the Home overflow sweep, the every-disclosure sweep,
-the reduced-motion opt-out check and the no-JS freshness check. The
-nav-status check stays a single test: it is a linear three-phase
-procedure (a 240px sidebar read, then a 390px dropdown read in the SAME
-context, then a Home-specific read in that same context again), not a
-loop over independent scenarios.
+Route/width/language/motion-mode combinations with no cross-iteration comparison are
+parametrized rather than looped. The nav-status check stays a single test: it is a linear
+three-phase procedure in one context, not a loop over independent scenarios.
 """
 import pytest
 
@@ -60,19 +34,11 @@ pytestmark = pytest.mark.browser
 
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
-    """The shared, read-only 22-AUDIT.md-methodology fixture every read-only
-    check in this module measures against — module-scoped because none of
-    them saves a real setting through Enregistrer.
+    """The shared, read-only seeded fixture every read-only check in this module measures
+    against — module-scoped because none of them saves a real setting through Enregistrer.
     """
     return module_app_server_factory(seed=seed_state_dir, fake_providers=True)
 
-
-# ===========================================================================
-# 23-10-PLAN.md Task 2 (D3/CFG-32, T-23-36): the panel-lookup dialog's own
-# entrance/exit motion, on both routes that trigger it. Each route is
-# independently asserted with no comparison across the two, so the
-# original two-tuple loop is parametrized.
-# ===========================================================================
 
 @pytest.mark.parametrize(
     "route,trigger_sel", [
@@ -80,21 +46,14 @@ def server(module_app_server_factory):
         ("/airlines", "[data-view-panel-src]"),
     ], ids=["history", "airlines"])
 def test_both_dialogs_fade_in_and_leave_nothing_behind(new_context, server, route, trigger_sel):
-    """both <dialog>s FADE AND ZOOM in — measured mid-flight, two frames after the
-    trigger, on History and on the Airlines gallery — settle fully opaque at
-    their own scale, and on close() reach display:none with a zero-area box and
-    a viewport-centre hit test that lands OUTSIDE them, with no settle wait at
-    all, so an invisible click-swallowing sheet cannot hide behind one
-    (D3/CFG-32, T-23-36, 23-10-PLAN.md Task 2)"""
-    # 23-10-PLAN.md Task 2 (D3/CFG-32, T-23-36). The entrance is a
-    # stylesheet fact a source scan can read; the CLOSE is not. A
-    # <dialog> that fades out but never reaches `display: none` is an
-    # invisible sheet in the top layer that swallows every click on the
-    # page beneath it, and the only instrument that can see that is a
-    # real hit test. So this check does both: the opening is sampled
-    # mid-flight (a real transition is running, opacity below 1 two
-    # frames after the trigger), and the close is hit-tested at the
-    # viewport centre.
+    """Both <dialog>s fade and zoom in — measured mid-flight, two frames after the trigger, on
+    History and on the Airlines gallery — settle fully opaque at their own scale, and on
+    close() reach display:none with a zero-area box and a viewport-centre hit test that lands
+    outside them, so an invisible click-swallowing sheet cannot hide behind one.
+    """
+    # The entrance is a stylesheet fact a source scan can read; the close is not. A <dialog>
+    # that fades out but never reaches `display: none` is an invisible sheet in the top layer
+    # that swallows every click on the page beneath it, and only a real hit test can see that.
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -183,21 +142,15 @@ def test_both_dialogs_fade_in_and_leave_nothing_behind(new_context, server, rout
 
 
 def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new_context, server):
-    """the live theme preview CROSSFADES - proven by the opacity transition the
-    browser CREATES on the preview image, caught as a transitionrun event rather
-    than sampled at a guessed instant, because every other assertion here is
-    satisfied by the cut this plan replaces - and settles on the theme that was
-    actually selected, fully opaque rather than stuck mid-fade, driven entirely by
-    theme-preview.js's OWN delegated listener with no save and no dirty-state.js
-    involvement at all (D3/CFG-32, T-23-38, 23-10-PLAN.md Task 2; the Cancel half
-    retired by 27-04-PLAN.md Task 2, CFG-63; re-pointed to details.usage-row/
-    .palette-chip by 30-08-PLAN.md Task 2, CFG-85)"""
-    # 23-10-PLAN.md Task 2 (D3/CFG-32, T-23-38). The stylesheet and the
-    # script are each individually correct; this asserts the SETTLED
-    # state after the transition, never a frame during it. The live
-    # preview follows a chip selection through theme-preview.js's OWN
-    # delegated listener on the card, with dirty-state.js never in the
-    # loop at all — this check drives no Cancel and no save of any kind.
+    """The live theme preview crossfades — proven by the opacity transition the browser
+    creates on the preview image, caught as a transitionrun event rather than sampled at a
+    guessed instant — and settles on the theme that was actually selected, fully opaque rather
+    than stuck mid-fade, driven entirely by theme-preview.js's own delegated listener with no
+    save and no dirty-state.js involvement at all.
+    """
+    # This asserts the settled state after the transition, never a frame during it. The live
+    # preview follows a chip selection through theme-preview.js's own delegated listener on the
+    # card, with dirty-state.js never in the loop — this check drives no Cancel and no save.
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -209,13 +162,7 @@ def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new
             " document.querySelector('.theme-live-preview__image');"
             "return {src: i.getAttribute('src'),"
             " opacity: parseFloat(getComputedStyle(i).opacity)}; }")
-        page.evaluate(read)  # pre-click baseline; no longer compared (Cancel retired)
-        # 30-08-PLAN.md Task 2 (CFG-85): re-pointed from the retired
-        # [data-usage-panel-target]/label.theme-chip departures panel to
-        # details.usage-row[data-usage="departures"]/label.palette-chip —
-        # the crossfade mechanism itself (theme-preview.js's
-        # applyPreviewSrc()/FADE_CLASS) is unchanged by the rebuild, so
-        # every OTHER clause below is unchanged too.
+        page.evaluate(read)  # pre-click baseline, not compared below
         target = page.evaluate(
             "() => { const row = document.querySelector("
             "'details.usage-row[data-usage=\"departures\"]');"
@@ -227,15 +174,11 @@ def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new
             " src: chip.getAttribute('data-preview-src')} : null; }")
         if not target:
             raise AssertionError("found no unchecked departures palette chip to click")
-        # Click, then WAIT FOR THE TRANSITION ITSELF to be created rather
-        # than sampling at a guessed instant. `transitionrun` fires when
-        # the browser CREATES the transition, before any delay and
-        # before the first painted step, so it is independent of frame
-        # timing — while a cut creates no transition at all and fires
-        # nothing. The listener is on `document` in the CAPTURE phase
-        # because the crossfade swaps layer elements: a listener bound
-        # to whichever image existed before the click can be watching
-        # the wrong one.
+        # Click, then wait for the transition itself to be created rather than sampling at a
+        # guessed instant: `transitionrun` fires when the browser creates the transition,
+        # before any delay or the first painted step, independent of frame timing. The listener
+        # is on `document` in the capture phase because the crossfade swaps layer elements, so
+        # a listener bound to whichever image existed before the click could watch the wrong one.
         mid = page.evaluate(
             "sel => new Promise(resolve => {"
             "let ran = null;"
@@ -286,31 +229,23 @@ def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new
 
 
 def test_images_hold_their_place_before_they_arrive(new_context, server):
-    """Home's frame picture and a theme chip's preview band each reserve their FINAL
-    box before their image arrives — the real request is HELD, the real box is
-    measured unloaded (and asserted to be a real box, not a collapsed one, with
-    a skeleton painted in it), the request is let through, and the box after the
-    decoded image lands is plain-equal to the box before it, at the 360px
-    contract floor and at 1280px (D3/CFG-32, T-23-39, 23-10-PLAN.md Task 3)"""
-    # 23-10-PLAN.md Task 3 (D3/CFG-32, T-23-39). The only assertion that
-    # proves a skeleton did what it was for: the box BEFORE the image
-    # resource resolves equals the box AFTER, measured at the 360px
-    # contract floor and at 1280px.
-    #
-    # The image request is HELD by a route handler rather than raced
-    # against — "measure quickly and hope" is how this kind of check
-    # passes on a fast machine and proves nothing. Nothing is faked: the
-    # real request is paused, the real boxes are read, the real request
-    # is then let through, and the real decoded image is measured.
+    """Home's frame picture and a theme chip's preview band each reserve their final box
+    before their image arrives: the real request is held, the real box is measured unloaded
+    (and asserted to be a real box, not a collapsed one, with a skeleton painted in it), the
+    request is let through, and the box after the decoded image lands is plain-equal to the
+    box before it, at the 360px contract floor and at 1280px.
+    """
+    # The only assertion that proves a skeleton did what it was for: the box before the image
+    # resource resolves equals the box after. The image request is held by a route handler
+    # rather than raced against — "measure quickly and hope" is how this kind of check passes
+    # on a fast machine and proves nothing.
     surfaces = (
         ("/", ".preview-frame", ".preview-frame__image", "**/gallery/**", 100, ()),
-        # 30-08-PLAN.md Task 2 (CFG-85): the accordion's own
-        # .palette-chip renders NO <img> of any kind (a CSS-drawn shape
-        # only), so the ONE surviving .theme-chip/.theme-chip__preview
-        # pair on Display now lives inside the rules row's own nested,
-        # closed-by-default rule-add disclosure — opened here before
-        # measuring. 30, because that chip is the COMPACT variant, whose
-        # band is 36px rather than the base 56px — measured, not assumed.
+        # The accordion's own .palette-chip renders no <img> (a CSS-drawn shape only), so the
+        # one surviving .theme-chip/.theme-chip__preview pair on Display lives inside the rules
+        # row's own nested, closed-by-default rule-add disclosure — opened here before
+        # measuring. 30 because that chip is the compact variant, whose band is 36px rather
+        # than the base 56px — measured, not assumed.
         ("/display", ".theme-chip", ".theme-chip__preview",
          "**/theme-preview/**", 30,
          ('details.usage-row[data-usage="rules"] > summary',
@@ -389,32 +324,12 @@ def test_images_hold_their_place_before_they_arrive(new_context, server):
                 context.close()
 
 
-# 30-03-PLAN.md Task 3 (CFG-85): the check that used to live here —
-# _the_no_js_floor_holds_for_both_settings_pages — is RETIRED and
-# LEDGERED to 30-08 (see the ledger fragment's own R/S-coded row for it).
-# A REQUIREMENT-TEXT VS. APPROVED-DESIGN DISCREPANCY was recorded against
-# it: CFG-85's own requirement text includes "every row open with
-# scripts blocked", but 30-UI-SPEC.md's developer-approved accordion is a
-# native `<details name="aspect-rows">` group, mutually exclusive by
-# construction — 30-08's own replacement proves the PROPERTY CFG-85 is
-# actually protecting (no control unreachable/unsaveable with scripts
-# blocked) more strongly than a visible stack ever could.
-
-
-# ===========================================================================
-# 22-13-PLAN.md Task 3 (X3): the login card's own layout and its
-# show-password toggle.
-# ===========================================================================
-
 def test_login_card_stacks_at_both_widths(new_context, server):
-    """at 390px and at 1280px the login card's field and primary are stacked, the
-    same width, filling the card's content column, both 44px tall, sharing one
-    radius and separated by the one 16px token — never a 225x44 field beside a
-    68x30 button, and never glued at a 0px gap (X3, 22-13-PLAN.md Task 3)"""
-    # X3's measurement, re-taken by a real layout engine at both ends of
-    # the range the audit measured: desktop was a 225x44 r8 field beside
-    # a 68x30 r6 button sitting 7px lower, and at 390px the field kept
-    # 225 of 278px with the button glued underneath at a 0px gap.
+    """At 390px and at 1280px the login card's field and primary are stacked, the same
+    width, filling the card's content column, both 44px tall, sharing one radius and
+    separated by the one 16px token — never a small field beside a mismatched button, and
+    never glued at a 0px gap.
+    """
     for width in (390, 1280):
         context = new_context(viewport={"width": width, "height": 844})
         try:
@@ -449,8 +364,7 @@ def test_login_card_stacks_at_both_widths(new_context, server):
                 raise AssertionError(
                     "%dpx: the gap must be the one medium spacing token "
                     "(16px), measured %.1f" % (width, gap))
-            # Same radius as well as same height — the other half of C4's
-            # composition rule, which a bounding box cannot see.
+            # Same radius as well as same height, which a bounding box cannot see.
             radii = page.evaluate(
                 "() => [getComputedStyle(document.querySelector("
                 "'.login-form__input')).borderTopLeftRadius,"
@@ -466,11 +380,11 @@ def test_login_card_stacks_at_both_widths(new_context, server):
 
 
 def test_show_password_toggle_reveals_itself_and_swaps_its_name(new_context, server):
-    """the show-password toggle reveals ITSELF at load (the hidden attribute is
-    removed, not overridden), swaps aria-pressed and its translated accessible
-    name with the state, keeps .copy-btn's synthesized 44x44 hit area — and
-    with scripts blocked it never appears, reserves no gutter, and the form
-    still signs in (X3/D-09, 22-13-PLAN.md Task 3)"""
+    """The show-password toggle reveals itself at load (the hidden attribute is removed, not
+    overridden), swaps aria-pressed and its translated accessible name with the state, keeps
+    .copy-btn's synthesized 44x44 hit area, and with scripts blocked it never appears,
+    reserves no gutter, and the form still signs in.
+    """
     context = new_context()
     try:
         page = context.new_page()
@@ -497,8 +411,8 @@ def test_show_password_toggle_reveals_itself_and_swaps_its_name(new_context, ser
             raise AssertionError(
                 "expected login-card.js to append the padding modifier at "
                 "load, got %r" % (wrapper_class,))
-        # .copy-btn reused verbatim: a 22x22 visual box with the ::before
-        # inset synthesizing 44x44.
+        # .copy-btn reused verbatim: a 22x22 visual box with the ::before inset synthesizing
+        # 44x44.
         hit = toggle.evaluate(
             "el => { var r = el.getBoundingClientRect();"
             " var s = getComputedStyle(el, '::before');"
@@ -525,9 +439,8 @@ def test_show_password_toggle_reveals_itself_and_swaps_its_name(new_context, ser
     finally:
         context.close()
 
-    # D-09's floor, asserted at this plan's own commit: with scripts
-    # blocked the toggle is not there at all (never a dead control), no
-    # gutter is reserved for it, and the form still signs in.
+    # With scripts blocked the toggle is not there at all (never a dead control), no gutter is
+    # reserved for it, and the form still signs in.
     with _no_js_page(
             new_context, server.base_url(), "/login", sign_in=False) as page:
         if page.locator("[data-login-reveal]").is_visible():
@@ -549,23 +462,19 @@ def test_show_password_toggle_reveals_itself_and_swaps_its_name(new_context, ser
                 % page.url)
 
 
-# ===========================================================================
-# 22-13-PLAN.md Task 3 (X3): the login lockout countdown. Driving the
-# process-global LoginThrottle to its limit locks THAT subprocess out for
-# the whole window, and the lockout branch is checked before the
-# password is, so a correct password cannot unlock it over HTTP — an
-# isolated, function-scoped server keeps this from locking out any other
-# test that shares a server in this module.
-# ===========================================================================
+# Driving the process-global LoginThrottle to its limit locks that subprocess out for the
+# whole window, and the lockout branch is checked before the password is, so a correct
+# password cannot unlock it over HTTP — an isolated, function-scoped server keeps this from
+# locking out any other test that shares a server in this module.
 
 def test_a_locked_out_login_page_ticks_down_and_re_enables_the_form(page, make_app_server):
-    """a locked-out login page ticks down from the server's own seed, with both
-    controls natively disabled, and re-enables them by itself at zero with no
-    reload — the message cleared and its aria-describedby dropped with it
-    (X3, 22-13-PLAN.md Task 3)"""
-    # Playwright's clock API drives the countdown to zero instead of this
-    # check sleeping for the real five-minute window. The timer under
-    # test is the page's own; only its clock is faked.
+    """A locked-out login page ticks down from the server's own seed, with both controls
+    natively disabled, and re-enables them by itself at zero with no reload — the message
+    cleared and its aria-describedby dropped with it.
+    """
+    # Playwright's clock API drives the countdown to zero instead of this check sleeping for
+    # the real five-minute window. The timer under test is the page's own; only its clock is
+    # faked.
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     page.clock.install()
@@ -611,25 +520,18 @@ def test_a_locked_out_login_page_ticks_down_and_re_enables_the_form(page, make_a
             "no longer there")
 
 
-# ===========================================================================
-# 22-14-PLAN.md Task 2 (B10/X9/D-04): the nav-status reminder's own
-# line-breaking, at the 240px sidebar and inside the 390px dropdown, plus
-# Home's own non-link rendering of it. One linear, three-phase procedure
-# in a single French-language context — never a loop over independent
-# scenarios, so it stays one test.
-# ===========================================================================
+# One linear, three-phase procedure in a single French-language context — never a loop over
+# independent scenarios, so it stays one test.
 
 def test_nav_status_segments_never_break_mid_phrase_in_french(new_context, server):
-    """in French the two nav-status segments each report exactly ONE client rect at both
-    the 240px sidebar and 390px — the line breaks between them, never mid-phrase — the
-    reminder stays within 48px, the reduced dropdown opens by at most 220px, and on
-    Home the reminder is a <span> with no href whose announced name is the visible
-    state and names no destination (B10/X9/D-04, 22-14-PLAN.md Task 2)"""
-    # B10 (22-AUDIT.md's own measurement: .nav-status was 207x48 and
-    # broke "Screen on · Quiet hours" / "on"; in French "Heures / calmes
-    # activées"). The target is getClientRects().length === 1 PER
-    # SEGMENT at both the 240px sidebar and a 390px phone — a count only
-    # a real layout engine can produce.
+    """In French the two nav-status segments each report exactly one client rect at both the
+    240px sidebar and 390px (the line breaks between them, never mid-phrase), the reminder
+    stays within 48px, the reduced dropdown opens by at most 220px, and on Home the reminder
+    is a <span> with no href whose announced name is the visible state and names no
+    destination.
+    """
+    # The target is getClientRects().length === 1 per segment at both the 240px sidebar and a
+    # 390px phone — a count only a real layout engine can produce.
     base_url = server.base_url()
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
@@ -715,14 +617,13 @@ def test_nav_status_segments_never_break_mid_phrase_in_french(new_context, serve
             raise AssertionError(
                 "off Home the reminder must stay a link to Home, got %r/%r"
                 % (phone["tag"], phone["href"]))
-        # X9's actual fix: the remaining push, measured.
+        # The remaining push, measured.
         if phone["panelHeight"] > 220:
             raise AssertionError(
                 "X9's target is a remaining push of at most 220px, measured "
                 "%rpx" % (phone["panelHeight"],))
 
-        # And on Home it is not a link at all, so it cannot claim a
-        # destination the user occupies.
+        # On Home it is not a link at all, so it cannot claim a destination the user occupies.
         page.goto(base_url + "/")
         page.wait_for_load_state("networkidle")
         page.click("#site-nav-toggle")
@@ -750,22 +651,15 @@ def test_nav_status_segments_never_break_mid_phrase_in_french(new_context, serve
         context.close()
 
 
-# ===========================================================================
-# 22-14-PLAN.md Task 2 (T5/D-02): the mobile nav's own hidden/aria-expanded
-# consistency on both the transitioned close and the reduced-motion,
-# no-transition close.
-# ===========================================================================
-
 def test_mobile_nav_close_leaves_hidden_and_aria_expanded_consistent(new_context, server):
-    """the mobile nav opens and closes leaving the hidden property and aria-expanded
-    consistent on both paths — a descendant's transitionend never hides an open panel,
-    and a close with no transition applies hidden synchronously rather than waiting for
-    an event that never arrives (T5/D-02, 22-14-PLAN.md Task 2)"""
-    # T5, and D-02's own minimum-set item 3. Two paths, because the
-    # defect had two halves: a transitionend listener with no
-    # target/property filter (any child's colour transition could hide
-    # an OPEN panel), and a close with no transition at all that never
-    # re-applied the hidden property.
+    """The mobile nav opens and closes leaving the hidden property and aria-expanded
+    consistent on both paths: a descendant's transitionend never hides an open panel, and a
+    close with no transition applies hidden synchronously rather than waiting for an event
+    that never arrives.
+    """
+    # Two paths, because the defect had two halves: a transitionend listener with no
+    # target/property filter (any child's colour transition could hide an open panel), and a
+    # close with no transition at all that never re-applied the hidden property.
     base_url = server.base_url()
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
@@ -797,9 +691,9 @@ def test_mobile_nav_close_leaves_hidden_and_aria_expanded_consistent(new_context
         if opened["height"] <= 0:
             raise AssertionError("expected the open panel to have a box")
 
-        # A descendant transition must NOT hide the open panel: fire a
-        # transitionend from a child with the very property the listener
-        # cares about, which is the strictest form of the target filter.
+        # A descendant transition must not hide the open panel: fire a transitionend from a
+        # child with the very property the listener cares about, the strictest form of the
+        # target filter.
         page.evaluate(
             "() => {"
             " var p = document.getElementById('mobile-nav');"
@@ -822,9 +716,8 @@ def test_mobile_nav_close_leaves_hidden_and_aria_expanded_consistent(new_context
                 "close, got %r" % (closed,))
         context.close()
 
-        # The no-transition path: reduced motion, where the stylesheet
-        # switches the transition off entirely and no transitionend will
-        # ever arrive.
+        # The no-transition path: reduced motion, where the stylesheet switches the transition
+        # off entirely and no transitionend will ever arrive.
         context = new_context(viewport=VIEWPORT_PHONE, reduced_motion="reduce")
         page = context.new_page()
         _login(page, base_url)
@@ -849,14 +742,10 @@ def test_mobile_nav_close_leaves_hidden_and_aria_expanded_consistent(new_context
         context.close()
 
 
-# ===========================================================================
-# 27-04-PLAN.md D-04/CFG-63, retargeted onto the restored bar by
-# 28-10-PLAN.md Task 3 (CFG-77/CFG-78): the bar's own clearance geometry
-# against the ONE other fixed element each breakpoint has, and against
-# the page's own last in-flow element. Independently asserted per
-# breakpoint/language combination with no comparison across them, so the
-# original nested loop is parametrized on both axes.
-# ===========================================================================
+# The bar's own clearance geometry against the one other fixed element each breakpoint has,
+# and against the page's own last in-flow element. Independently asserted per
+# breakpoint/language combination with no comparison across them, so this is parametrized on
+# both axes rather than looped.
 
 def _rects_intersect(a, b):
     return (a["left"] < b["right"] and b["left"] < a["right"]
@@ -871,40 +760,19 @@ def _rects_intersect(a, b):
     ], ids=["390x844", "1280x900"])
 def test_the_dirty_bar_never_overlaps_the_tab_bar_sidebar_or_the_pages_last_element(
         new_context, server, lang, width, height, fixed_sel, fixed_name):
-    """the restored bar — genuinely position: fixed at both breakpoints, the
-    INVERSE of this check's own retired position: fixed/sticky refusal — never
-    intersects the ONE other fixed element each breakpoint has (the tab bar
-    under 960px, the sticky sidebar column at and above it) and never covers
-    the page's own last in-flow element, measured via resolved
-    getBoundingClientRect()es (never a CSS property value) at 390x844 and
-    1280x900, in BOTH shipped languages (the longer French copy is what makes
-    the bar wrap to two lines) — the scripts-blocked variant of the
-    last-in-flow clause is 28-08-PLAN.md Task 2's own acceptance criterion,
-    verified LIVE by that plan rather than by an automated check in this file,
-    named here rather than assumed covered (CFG-31, 27-04-PLAN.md D-04/CFG-63;
-    retargeted onto the restored bar by 28-10-PLAN.md Task 3, CFG-77/CFG-78;
-    retired the fixed save-bar-vs-tab-bar geometry D-10/T7, 22-14-PLAN.md Task
-    3, this check now measures again)"""
-    # 28-10-PLAN.md Task 3 (CFG-77/CFG-78): RETARGETED, not a mechanical
-    # swap — this check's own pre-28-08 subject proved the save-status
-    # region was NEVER position: fixed/sticky. That is exactly the
-    # contract this phase reverses: the restored bar IS position: fixed,
-    # at both breakpoints (28-08-PLAN.md Task 2). Retargeted onto the
-    # bar, and widened to the case 28-08's own clearance work turns on:
-    # the bar must never intersect the ONE other fixed element each
-    # breakpoint has, and the page's own last in-flow element must never
-    # sit under either.
-    #
-    # SCOPE NOTE: the scripts-BLOCKED variant of the last-in-flow-element
-    # clause is 28-08-PLAN.md Task 2's own acceptance criterion. 28-08's
-    # own SUMMARY records it as verified LIVE in a real Chromium tab
-    # during that plan's own execution, not as an automated Playwright
-    # check in this file — the automated coverage that DOES exist for it
-    # (test_config_page.py/test_status_pages.py) reads the CSS SOURCE for
-    # the :has(.dirty-bar) clearance rule rather than rendering a
-    # scripts-blocked page and measuring it. That gap is named here
-    # rather than assumed covered; this check itself only runs with
-    # scripts ENABLED.
+    """The restored bar is genuinely position: fixed at both breakpoints, and never
+    intersects the one other fixed element each breakpoint has (the tab bar under 960px, the
+    sticky sidebar column at and above it) and never covers the page's own last in-flow
+    element, measured via resolved getBoundingClientRect()es (never a CSS property value) at
+    390x844 and 1280x900, in both shipped languages (the longer French copy is what makes the
+    bar wrap to two lines).
+    """
+    # This check runs only with scripts enabled. The scripts-blocked variant of the
+    # last-in-flow-element clause is verified live in a real Chromium tab rather than by an
+    # automated check in this file — the automated coverage that does exist for it
+    # (test_config_page.py/test_status_pages.py) reads the CSS source for the
+    # :has(.dirty-bar) clearance rule rather than rendering a scripts-blocked page and
+    # measuring it. That gap is named here rather than assumed covered.
     base_url = server.base_url()
     context = new_context(viewport={"width": width, "height": height})
     try:
@@ -918,25 +786,18 @@ def test_the_dirty_bar_never_overlaps_the_tab_bar_sidebar_or_the_pages_last_elem
         other = next(t for t in device_config.THEME_IDS if t != current)
         _click_control(page, 'input[name="theme"][value="%s"]' % other)
         _wait_for_bar(page)
-        # Well past var(--motion-fast) (180ms): the bar's own entrance
-        # animation (skypane-bar-arrive) translates it from
-        # var(--space-md) below its resting position — reading geometry
-        # mid-flight would measure a frame that is not the settled
-        # position this check asserts.
+        # Well past the bar's own entrance animation, which translates it up from below its
+        # resting position — reading geometry mid-flight would measure an unsettled frame.
         page.wait_for_timeout(600)
 
-        # SCROLLED TO THE BOTTOM: getBoundingClientRect() is
-        # viewport-relative, and both the bar (fixed near the viewport's
-        # own foot) and the page's last in-flow element can only ever
-        # occupy the SAME region of the viewport once the page is
-        # scrolled that far.
+        # Scrolled to the bottom: getBoundingClientRect() is viewport-relative, and both the
+        # bar (fixed near the viewport's own foot) and the page's last in-flow element can only
+        # occupy the same region of the viewport once the page is scrolled that far.
         page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
 
-        # The bar itself renders as the LAST in-DOM-order child of
-        # .dashboard-main — it is taken OUT of flow by its own position:
-        # fixed, so the page's own last IN-FLOW element is the bar's
-        # last non-fixed PRECEDING sibling, never the bar comparing
-        # against itself.
+        # The bar itself renders as the last in-DOM-order child of .dashboard-main and is taken
+        # out of flow by its own position: fixed, so the page's own last in-flow element is the
+        # bar's last non-fixed preceding sibling, never the bar comparing against itself.
         geom = page.evaluate(
             "sel => {"
             " var bar = document.querySelector('[data-dirty-bar]');"
@@ -992,27 +853,15 @@ def test_the_dirty_bar_never_overlaps_the_tab_bar_sidebar_or_the_pages_last_elem
         context.close()
 
 
-# ===========================================================================
-# 22-15-PLAN.md Task 2 (T13): Health's refresh loop must not stop on a
-# failing endpoint — it retries with a visible neutral pill, and recovers
-# cleanly.
-# ===========================================================================
-
 def test_refresh_loop_shows_a_neutral_pill_on_failure_and_clears_on_recovery(page, server):
-    """when Health's refresh endpoint starts failing the loop does NOT stop: it schedules a
-    backed-off retry and shows a visible NEUTRAL .dot--off badge carrying no warn token
-    while the 'Updating' pill stands down, and when the endpoint recovers the next
-    attempt succeeds and the badge goes away and computes display: none through the
-    .banner__pill[hidden] guard (T13, 22-15-PLAN.md Task 2)"""
-    # T13 (22-15-PLAN.md Task 2). The defect was that any non-OK response
-    # stopped the loop for the life of the page with NO visible sign - a
-    # frozen page and a live one looked identical.
-    #
-    # Playwright's clock is what makes this a fast check rather than a
-    # two-minute one: freshness.js's cadence is 45s and its first retry
-    # rung is another 45s, so real time would cost 90s of wall clock per
-    # run. install() is called AFTER login so the login navigation runs
-    # on a real clock.
+    """When Health's refresh endpoint starts failing the loop does not stop: it schedules a
+    backed-off retry and shows a visible neutral .dot--off badge carrying no warn token while
+    the 'Updating' pill stands down, and when the endpoint recovers the next attempt succeeds
+    and the badge goes away and computes display: none through the .banner__pill[hidden] guard.
+    """
+    # Playwright's clock makes this a fast check rather than a two-minute one: freshness.js's
+    # cadence is 45s and its first retry rung is another 45s. install() is called after login so
+    # the login navigation runs on a real clock.
     base_url = server.base_url()
     _login(page, base_url)
     page.clock.install()
@@ -1069,8 +918,8 @@ def test_refresh_loop_shows_a_neutral_pill_on_failure_and_clears_on_recovery(pag
             "expected the 'Updating' pill to be hidden while the state badge "
             "shows - exactly one pill is ever visible")
 
-    # Recover. The first rung is another 45s; the next attempt succeeds
-    # and the badge clears.
+    # Recover: the first rung is another 45s, and the next attempt succeeds and clears the
+    # badge.
     failing["on"] = False
     page.clock.run_for(46000)
     page.wait_for_function(
@@ -1079,11 +928,9 @@ def test_refresh_loop_shows_a_neutral_pill_on_failure_and_clears_on_recovery(pag
         " return !el || el.hidden === true;}",
         timeout=10000)
 
-    # The [hidden]-versus-display collision: the badge composes
-    # .banner__pill, whose own rule declares display: inline-flex, and
-    # an author display always beats the user-agent [hidden] { display:
-    # none } regardless of source order. Without style.css's own guard
-    # the badge would still be painted right here.
+    # The [hidden]-versus-display collision: the badge composes .banner__pill, whose own rule
+    # declares display: inline-flex, and an author display always beats the user-agent
+    # [hidden] { display: none } regardless of source order, so the guard rule matters here.
     hidden_display = page.evaluate(
         "() => {"
         " var el = document.querySelector('[data-refresh-state-pill]');"
@@ -1095,48 +942,23 @@ def test_refresh_loop_shows_a_neutral_pill_on_failure_and_clears_on_recovery(pag
             "attribute work on this component, got %r" % (hidden_display,))
 
 
-# 28-10-PLAN.md Task 1 (CFG-77/CFG-78): REMOVED outright —
-# _a_double_fire_of_change_before_the_first_save_resolves_coalesces_to_one_
-# follow_up and its own _hold_posts() helper (27-04-PLAN.md Task 4,
-# T-27-04-C/D, CFG-63) tested that two rapid `change` commits arriving
-# while a fetch was still in flight coalesced into exactly one follow-up
-# POST. That entire subject no longer exists: the restored bar issues no
-# request at all until the user clicks Enregistrer, once, and a native
-# form submission has no "in flight" window for a second commit to race
-# against. Removed rather than retargeted; its subject ceased to exist
-# with the auto-save model.
-
-
-# ===========================================================================
-# Quick task 260913-bjy (B11's fourth and last surface): nothing on Home
-# paints outside the viewport or outside its own recent-flight rows.
-# Independently asserted per width/language with no cross-comparison, so
-# parametrized on both axes.
-# ===========================================================================
+# Nothing on Home paints outside the viewport or outside its own recent-flight rows.
+# Independently asserted per width/language with no cross-comparison, so parametrized on both
+# axes rather than looped.
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("width", [390, 1280])
 def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, server, width, lang):
-    """Home paints nothing outside the viewport and nothing outside its own
-    recent-flight rows, measured in BOTH languages at 390px and at 1280px:
-    documentElement.scrollWidth never exceeds the viewport, no element's right
-    edge clears it, and no row's content escapes its own box (B11's fourth and
-    last surface, quick task 260913-bjy)"""
-    # B11 (quick task 260913-bjy) — the audit's "no horizontal scrollbar
-    # at 390px" closed on its FOURTH and last surface. Flights (22-09),
-    # Airlines (22-11) and Health (22-12) were each measured and closed;
-    # Home is the page nobody re-measured after 22-07 put the
-    # recent-flight time on one line, and it had been scrolling sideways
-    # ever since.
-    #
-    # Written to catch the CLASS on this page rather than the one
-    # selector that happened to cause it: every element is measured
-    # against the viewport, and every recent-flights descendant against
-    # its own row box. The second half is not redundant: the cause was a
-    # percentage width cap resolving against a content-sized `auto` grid
-    # track, so it clamped the box to 60% of its own content at EVERY
-    # width — scrollWidth alone is blind to the desktop half of the same
-    # defect.
+    """Home paints nothing outside the viewport and nothing outside its own recent-flight
+    rows, measured in both languages at 390px and at 1280px: documentElement.scrollWidth
+    never exceeds the viewport, no element's right edge clears it, and no row's content
+    escapes its own box.
+    """
+    # Written to catch the class of defect rather than the one selector that happened to cause
+    # it: every element is measured against the viewport, and every recent-flights descendant
+    # against its own row box. The second half is not redundant: a percentage width cap can
+    # resolve against a content-sized `auto` grid track and clamp the box at every width, which
+    # scrollWidth alone is blind to.
     probe = (
         "() => {"
         "  const vw = window.innerWidth;"
@@ -1196,32 +1018,26 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
         context.close()
 
 
-# ===========================================================================
-# Quick task 260913-dgh: the recent-flight callsign column must never be
-# starved by the time column beside it. Independently asserted per
-# width/language with no cross-comparison, so parametrized on both axes.
-# ===========================================================================
+# The recent-flight callsign column must never be starved by the time column beside it.
+# Independently asserted per width/language with no cross-comparison, so parametrized on both
+# axes rather than looped.
 
 @pytest.mark.parametrize("lang", ["fr", "en"])
 @pytest.mark.parametrize("width", list(VIEWPORT_WIDTHS_ALL))
 def test_recent_flight_callsigns_are_never_starved(new_context, server, width, lang):
-    """no recent-flight callsign is ever starved by the time column - its box is
-    never narrower than its own text at 320, 360, 390, 768 or 1280px in EITHER
-    language, Home still never scrolls sideways at any of them, and at 768px
-    the callsign and the time still share one line (quick task 260913-dgh)"""
-    # Quick task 260913-dgh. The Home check above measures every element
-    # against the VIEWPORT and every row descendant against its own ROW
-    # box, and is structurally blind to this defect: the starved
-    # element's own box stays well inside the row — it is the box itself
-    # that collapses, and the TEXT paints out of it, straight over the
-    # time beside it.
+    """No recent-flight callsign is ever starved by the time column: its box is never
+    narrower than its own text at 320, 360, 390, 768 or 1280px in either language, Home still
+    never scrolls sideways at any of them, and at 768px the callsign and the time still share
+    one line.
+    """
+    # This check is structurally different from the Home overflow check above: a starved
+    # element's own box stays well inside the row — it is the box itself that collapses, and
+    # the text paints out of it, straight over the time beside it.
     #
-    # The 768px assertion is the other half, and it is what stops the
-    # fix being "give the time its own line everywhere": with 686px of
-    # row there, the callsign and the time must still share the first
-    # line. It is deliberately NOT asserted at 1280px, where the growing
-    # age string will legitimately wrap one day — that is the fix
-    # working, not failing.
+    # The 768px assertion stops the fix being "give the time its own line everywhere": with
+    # 686px of row there, the callsign and the time must still share the first line. It is
+    # deliberately not asserted at 1280px, where the growing age string will legitimately wrap
+    # one day — that is the fix working, not failing.
     probe = (
         "() => {"
         "  const rows = document.querySelectorAll('.recent-flight');"
@@ -1297,34 +1113,23 @@ def test_recent_flight_callsigns_are_never_starved(new_context, server, width, l
         context.close()
 
 
-# ===========================================================================
-# Quick task 260913-cz6: Health's tables must fit their own
-# .data-table-wrap with every disclosure forced open — the readings
-# table is reachable only through a closed-by-default disclosure, so no
-# page-level scan ever laid it out. Independently asserted per language,
-# so parametrized.
-# ===========================================================================
+# Health's tables must fit their own .data-table-wrap with every disclosure forced open — the
+# readings table is reachable only through a closed-by-default disclosure, so no page-level
+# scan ever lays it out. Independently asserted per language, so parametrized.
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_health_tables_fit_their_wraps_with_every_disclosure_open(new_context, server, lang):
-    """Health's tables each fit inside their own .data-table-wrap at 390px in BOTH
-    languages with EVERY <details> on the page forced open — the readings table
-    is reachable only through a closed-by-default disclosure, and its wrap
-    scrolls while documentElement.scrollWidth never moves, so no page-level
-    assertion can see it (B12's cause on its third table, quick task 260913-cz6)"""
-    # Measured before the fix, at 390px: the readings .data-table-wrap
-    # was 308px against a 432px (FR) / 369px (EN) table — 124px of
-    # overflow, its own horizontal scrollbar, and a completely still
-    # page. Written for the CLASS, not that one selector: it opens EVERY
-    # <details> on the page and measures EVERY .data-table-wrap.
+    """Health's tables each fit inside their own .data-table-wrap at 390px in both languages
+    with every <details> on the page forced open — the readings table is reachable only
+    through a closed-by-default disclosure, and its wrap scrolls while
+    documentElement.scrollWidth never moves, so no page-level assertion can see it.
+    """
+    # Written for the class of defect, not one selector: it opens every <details> on the page
+    # and measures every .data-table-wrap.
     #
-    # 23-08-PLAN.md Task 3: this context REQUESTS REDUCED MOTION on
-    # purpose. Setting `details.open = true` and measuring in the same
-    # task is sound only while nothing animates; Health carries four
-    # disclosures and a box measured mid-transition is narrower than its
-    # final box. Reduced motion makes the final state the IMMEDIATE
-    # state through the app's own global override, so this is
-    # deterministic prophylaxis rather than a weakened measurement.
+    # This context requests reduced motion on purpose: setting `details.open = true` and
+    # measuring in the same task is sound only while nothing animates, and reduced motion makes
+    # the final state the immediate state through the app's own global override.
     probe = (
         "() => {"
         "  document.querySelectorAll('details').forEach(d => { d.open = true; });"
@@ -1359,10 +1164,8 @@ def test_health_tables_fit_their_wraps_with_every_disclosure_open(new_context, s
         seen = page.evaluate(probe)
         if page.viewport_size["width"] != width:
             raise AssertionError("expected the measurement to be taken at %dpx" % (width,))
-        # Both guards exist so this check cannot pass by measuring an
-        # empty page: the seeded fixture renders the readings table, and
-        # a render that stops emitting it must fail here rather than
-        # quietly measure nothing.
+        # Both guards exist so this check cannot pass by measuring an empty page: a render that
+        # stops emitting the seeded readings table must fail here rather than measure nothing.
         if not seen["wraps"]:
             raise AssertionError(
                 "expected at least one .data-table-wrap on Health at %dpx/%s "
@@ -1385,14 +1188,11 @@ def test_health_tables_fit_their_wraps_with_every_disclosure_open(new_context, s
         context.close()
 
 
-# ===========================================================================
-# Quick task 260913-eab: the general form of the check above — EVERY
-# <details> on EVERY authenticated page (plus the login page, which
-# renders none) opens without overflowing anything. Independently
-# asserted per width/language, so parametrized on both axes; the inner
-# per-page sweep stays a loop within each combination (one session, one
-# sign-in, all pages measured in turn — not independent scenarios).
-# ===========================================================================
+# The general form of the check above: every <details> on every authenticated page (plus the
+# login page, which renders none) opens without overflowing anything. Independently asserted
+# per width/language, so parametrized on both axes; the inner per-page sweep stays a loop
+# within each combination (one session, one sign-in, all pages measured in turn — not
+# independent scenarios).
 
 _DISCLOSURE_SWEEP_PROBE = (
     "() => {"
@@ -1431,12 +1231,10 @@ def _assert_disclosure_sweep_clean(seen, where, width):
             "documentElement.scrollWidth %d against a client width of %d, "
             "painted past the right edge by %r"
             % (where, seen["sw"], seen["cw"], seen["escaped"]))
-    # The scroll-container diagnostic is reported BEFORE the viewport
-    # one, and not by accident: when a container overflows, every
-    # descendant's layout rect extends past the viewport too, so
-    # `escaped` fires as well and reports a list of tag names. Naming
-    # the container, its box and its content width first is what
-    # actually points at the cause.
+    # The scroll-container diagnostic is reported before the viewport one, not by accident:
+    # when a container overflows, every descendant's layout rect extends past the viewport too,
+    # so `escaped` also fires. Naming the container, its box and its content width first is
+    # what actually points at the cause.
     if seen["scrolled"]:
         raise AssertionError(
             "%s gives a scroll container its own horizontal scrollbar with "
@@ -1459,30 +1257,23 @@ def _assert_disclosure_sweep_clean(seen, where, width):
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("width", list(VIEWPORT_WIDTHS_RESPONSIVE))
 def test_every_disclosure_on_every_page_opens_without_overflow(new_context, server, width, lang):
-    """EVERY <details> on EVERY page opens without overflowing anything — all six
-    authenticated pages plus the login page, at 360px, 390px and 1280px, in BOTH
-    languages, with every disclosure on the page forced open: documentElement.
-    scrollWidth never exceeds the viewport, nothing paints right of it, and no
-    scroll container's content is wider than its own box (the readings-table
-    class, which no page-level assertion can see). Each page asserts a minimum
-    disclosure count and that at least one was closed beforehand, so a selector
-    change makes this fail rather than silently measure nothing (quick task
-    260913-eab)"""
-    # Quick task 260913-eab. The general form of the check immediately
-    # above: a COLLAPSED <details> has its contents not laid out at all,
-    # so every sweep elsewhere in this repo measured pages in their
-    # DEFAULT state, and everything asleep inside a disclosure was
-    # invisible to measurement BY CONSTRUCTION. This one opens EVERY
-    # <details> on EVERY page, so it covers the disclosures that exist
-    # today AND any added later without editing this file.
+    """Every <details> on every page opens without overflowing anything: all six
+    authenticated pages plus the login page, at 360px, 390px and 1280px, in both languages,
+    with every disclosure on the page forced open. documentElement.scrollWidth never exceeds
+    the viewport, nothing paints right of it, and no scroll container's content is wider than
+    its own box. Each page asserts a minimum disclosure count and that at least one was closed
+    beforehand, so a selector change makes this fail rather than silently measure nothing.
+    """
+    # A collapsed <details> has its contents not laid out at all, so a page measured in its
+    # default state leaves anything asleep inside a disclosure invisible to measurement by
+    # construction. This opens every <details> on every page, so it covers disclosures added
+    # later too, without editing this file.
     #
-    # (route, minimum <details> the page must render). Every
-    # authenticated page, in nav order. Each route's own floor is its
-    # page-specific disclosure count plus the ONE shared
-    # `<details class="tab-bar__more">` every authenticated page
-    # renders. 29-03-PLAN.md (CFG-83): /flights' floor is derived from
-    # history_page.FLIGHTS_PAGE_SIZE, the page's own default page size,
-    # not the seeded fixture's own flight count, since Vols is paginated.
+    # (route, minimum <details> the page must render), every authenticated page in nav order.
+    # Each route's own floor is its page-specific disclosure count plus the one shared
+    # `<details class="tab-bar__more">` every authenticated page renders. /flights' floor is
+    # derived from history_page.FLIGHTS_PAGE_SIZE, the page's own default page size, not the
+    # seeded fixture's own flight count, since Vols is paginated.
     pages = (("/", 1), ("/display", 3),
              ("/flights", history_page.FLIGHTS_PAGE_SIZE + 1),
              ("/airlines", 1), ("/health", 4), ("/device", 1))
@@ -1494,11 +1285,10 @@ def test_every_disclosure_on_every_page_opens_without_overflow(new_context, serv
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
 
-        # The login page is measured FIRST, in this same context, while
-        # it is still the real unauthenticated page — after _login()
-        # below, /login is a 303 to /. It renders no nav and so carries
-        # no <details> at all: its own "this measured something" guard
-        # is the password field, not a disclosure count.
+        # The login page is measured first, in this same context, while it is still the real
+        # unauthenticated page — after _login() below, /login is a 303 to /. It renders no nav
+        # and carries no <details> at all, so its own "this measured something" guard is the
+        # password field, not a disclosure count.
         page.goto(base_url + "/login")
         page.locator("#password").wait_for(state="visible")
         seen = page.evaluate(_DISCLOSURE_SWEEP_PROBE)
@@ -1532,41 +1322,27 @@ def test_every_disclosure_on_every_page_opens_without_overflow(new_context, serv
         context.close()
 
 
-# ===========================================================================
-# 23-04-PLAN.md Task 2 (D10/CFG-33): the two ways a cross-document view
-# transition fails silently.
-# ===========================================================================
-
 def test_view_transition_names_are_unique_on_every_route(page, server):
-    """every view-transition name the served stylesheet declares resolves to AT MOST
-    one element on each of the six authenticated routes, counted from the
-    COMPUTED value on every element of the real document — the sidebar and the
-    page title on all six, Home's frame picture on Home only, and the declared
-    set itself pinned so a dropped declaration fails rather than emptying the
-    measurement. A name matching twice (two navigation landmarks share every
-    authenticated DOM, and a bare `nav` selector reaches both) makes the browser
-    drop the whole transition with no error anywhere, and no source scan can see
-    it (D10/CFG-33, 23-04-PLAN.md Task 2)"""
-    # WHY THIS IS COUNTED IN A BROWSER AND FROM COMPUTED VALUES. A
-    # stylesheet scan can prove that a name is DECLARED once; it cannot
-    # prove that its selector MATCHES once. companion/layout.py puts two
-    # navigation landmarks into every authenticated document at the same
-    # time — the sidebar's vertical one and the bottom tab bar — and the
-    # 960px media query decides only which is VISIBLE, never how many
-    # exist. A name hung on a class those share — or on the bare `nav`
-    # element — is declared exactly once in style.css, passes every
-    # source scan, and resolves to two elements in the DOM, at which
-    # point the browser drops the entire transition with no error, no
-    # console warning and no visual difference. Only a real document can
-    # see that.
+    """Every view-transition name the served stylesheet declares resolves to at most one
+    element on each of the six authenticated routes, counted from the computed value on every
+    element of the real document — the sidebar and the page title on all six, Home's frame
+    picture on Home only, and the declared set itself pinned so a dropped declaration fails
+    rather than emptying the measurement. A name matching twice makes the browser drop the
+    whole transition with no error anywhere, and no source scan can see it.
+    """
+    # A stylesheet scan can prove that a name is declared once; it cannot prove that its
+    # selector matches once. Two navigation landmarks (the sidebar and the bottom tab bar) sit
+    # in every authenticated document at the same time, hidden from each other only by a media
+    # query, so a name hung on a class or element they share is declared exactly once in
+    # style.css, passes every source scan, and resolves to two elements in the DOM — at which
+    # point the browser drops the entire transition with no error or visual difference. Only a
+    # real document can see that.
     #
-    # Three anti-vacuity guards, because "no name appears twice" is
-    # trivially satisfied by a page that declares no names at all:
-    #   1. the set of names the SERVED stylesheet declares must equal
-    #      VIEW_TRANSITION_NAMES's keys;
-    #   2. every name must resolve to EXACTLY one element on each route
-    #      its entry lists — zero is a failure, not a pass;
-    #   3. and to zero elements on the routes it does not.
+    # Three anti-vacuity guards, since "no name appears twice" is trivially satisfied by a page
+    # that declares no names at all: the served stylesheet's declared set must equal
+    # VIEW_TRANSITION_NAMES's keys, every name must resolve to exactly one element on each
+    # route its entry lists (zero is a failure, not a pass), and to zero on the routes it does
+    # not.
     probe = (
         "() => {"
         "  const declared = [];"
@@ -1612,9 +1388,8 @@ def test_view_transition_names_are_unique_on_every_route(page, server):
                 "must be a deliberate edit here too, because every assertion "
                 "below is empty for a name nobody declares"
                 % (route, declared, sorted(VIEW_TRANSITION_NAMES)))
-        # Duplicates FIRST, and over every computed name rather than
-        # only the declared three: the browser's own `root` name on the
-        # document element counts here too.
+        # Duplicates first, and over every computed name rather than only the declared three:
+        # the browser's own `root` name on the document element counts here too.
         for name, count in sorted(seen["counts"].items()):
             if count > 1:
                 raise AssertionError(
@@ -1645,25 +1420,19 @@ def test_view_transition_names_are_unique_on_every_route(page, server):
 @pytest.mark.parametrize("reduced,want_match", [(True, False), (False, True)],
                           ids=["reduced-motion", "no-preference"])
 def test_the_view_transition_is_off_under_reduced_motion(new_context, server, reduced, want_match):
-    """the cross-document view transition is genuinely OPT-OUT: its at-rule is the
-    only one in the CSSOM, declares navigation: auto, and is nested inside a
-    media rule whose own conditionText — read off the at-rule's parent, never
-    from a bare matchMedia() call, which would pass with the at-rule unwrapped —
-    evaluates FALSE in a reduced_motion='reduce' context and TRUE in a default
-    one, so a visitor who asked for less motion never has the transition set up
-    at all rather than having one set up and run fast (D3+D10/CFG-33,
-    23-04-PLAN.md Task 2)"""
-    # ASKING THE CSSOM, NOT WATCHING THE PIXELS. A visual assertion here
-    # would be a timing test on the slowest file in the suite, and an
-    # intermittently red check teaches people to ignore it. AND NOT
-    # matchMedia() ON ITS OWN, which would be the vacuous version of this
-    # check: `matchMedia('(prefers-reduced-motion: no-preference)')
-    # .matches` is false in a reduce context no matter what this app's
-    # stylesheet says, so it would pass with the at-rule sitting
-    # unwrapped at the top level. The condition evaluated below is read
-    # OFF THE AT-RULE'S OWN PARENT RULE, so the check fails unless the
-    # at-rule is genuinely nested inside a media rule whose condition is
-    # false under reduced motion and true otherwise.
+    """The cross-document view transition is genuinely opt-out: its at-rule is the only one
+    in the CSSOM, declares navigation: auto, and is nested inside a media rule whose own
+    conditionText — read off the at-rule's parent, never a bare matchMedia() call — evaluates
+    false in a reduced_motion='reduce' context and true in a default one, so a visitor who
+    asked for less motion never has the transition set up at all rather than having one set up
+    and run fast.
+    """
+    # Asking the CSSOM, not watching the pixels: a visual assertion here would be a timing test
+    # on the slowest file in the suite. A bare `matchMedia()` call would be the vacuous version
+    # of this check, since it is false in a reduce context no matter what this app's stylesheet
+    # says and would pass with the at-rule sitting unwrapped at the top level; the condition is
+    # instead read off the at-rule's own parent rule, so the check fails unless the at-rule is
+    # genuinely nested inside a media rule whose condition tracks motion preference.
     probe = (
         "() => {"
         "  const found = [];"
@@ -1735,24 +1504,20 @@ def test_the_view_transition_is_off_under_reduced_motion(new_context, server, re
         context.close()
 
 
-# ===========================================================================
-# 23-05-PLAN.md Task 3 (D14/CFG-34): the ticker, proven in a browser. The
-# claim is "the user sees it change, and a background tab costs nothing"
-# — so every assertion below reads element TEXT twice with a real wait
-# between the reads, never a timer internal.
-# ===========================================================================
+# The ticker, proven in a browser. The claim is "the user sees it change, and a background tab
+# costs nothing", so every assertion below reads element text twice with a real wait between
+# the reads, never a timer internal.
 
 TICK_SETTLE_MS = 2200
 FRESHNESS_AGE = ".page-header__freshness time[data-relative]"
 
 
 def test_the_relative_age_ticks_in_a_real_tab(page, server):
-    """the Health freshness line's <time data-relative> text ADVANCES within ~2s in
-    a real visible tab, starting from text the server already rendered, ending
-    on something that is no longer the server's own clock (the enhancement
-    really did take over), carrying no raw quantity placeholder, and leaving the
-    prefix and pill beside it untouched (D14/CFG-34, 23-05-PLAN.md Task 3; the
-    clock-to-age half added by 23-06-PLAN.md)"""
+    """The Health freshness line's <time data-relative> text advances within ~2s in a real
+    visible tab, starting from text the server already rendered, ending on something that is
+    no longer the server's own clock (the enhancement really did take over), carrying no raw
+    quantity placeholder, and leaving the prefix and pill beside it untouched.
+    """
     base_url = server.base_url()
     _login(page, base_url)
     page.goto(base_url + "/health")
@@ -1780,13 +1545,11 @@ def test_the_relative_age_ticks_in_a_real_tab(page, server):
             "(D14/D22)" % (TICK_SETTLE_MS, first, second))
     if "#" in second:
         raise AssertionError("the ticked text carries a raw quantity placeholder: %r" % (second,))
-    # 23-06-PLAN.md: the other half of the same contract the no-JS check
-    # below states. The server renders a CLOCK here; with scripts on the
-    # ticker must have replaced it with a live age, so the settled text
-    # must NOT still be the clock the element's own datetime resolves
-    # to. The FIRST read is deliberately not pinned to the clock: the
-    # ticker's first repaint lands one second after load and this
-    # harness cannot promise to read faster than that.
+    # The other half of the same contract the no-JS check below states. The server renders a
+    # clock here; with scripts on the ticker must have replaced it with a live age, so the
+    # settled text must not still be the clock the element's own datetime resolves to. The
+    # first read is deliberately not pinned to the clock: the ticker's first repaint lands one
+    # second after load and this harness cannot promise to read faster than that.
     instant = page.eval_on_selector(FRESHNESS_AGE, "el => el.getAttribute('datetime')")
     parsed = layout.parse_iso(instant or "")
     if parsed is None:
@@ -1799,8 +1562,8 @@ def test_the_relative_age_ticks_in_a_real_tab(page, server):
             "expected the ticker to have replaced the server's clock %r with "
             "a live age within %dms — the clock is the no-JS floor, the age "
             "is the enhancement over it (D14/D22)" % (clock, TICK_SETTLE_MS))
-    # It rewrote ONE element's text and nothing else: the prefix and the
-    # pill beside it are untouched.
+    # It rewrote one element's text and nothing else: the prefix and the pill beside it are
+    # untouched.
     wrapper = page.eval_on_selector(".page-header__freshness", "el => el.textContent")
     if "Updated" not in wrapper:
         raise AssertionError(
@@ -1810,30 +1573,24 @@ def test_the_relative_age_ticks_in_a_real_tab(page, server):
 
 
 def test_a_hidden_tab_does_no_work_and_catches_up_on_return(page, server):
-    """a page reporting itself hidden runs no ticker work at all — its age is
-    byte-identical across ~2s, against a control proving the same age DOES move
-    while visible — and on becoming visible again it is repainted immediately
-    rather than after waiting out an interval (T-23-14, 23-05-PLAN.md Task 3;
-    the visibility mechanism and its limits are stated in this check's own
-    comment)"""
-    # WHICH MECHANISM, AND WHY THIS ONE. Two real ways to hide a page
-    # were tried in this harness first and neither works: a second page
-    # in the same context taking focus leaves the first page's
-    # document.visibilityState at "visible" in headless Chromium, and
-    # CDP's Emulation.setPageVisibilityOverride is not present in this
-    # Chromium at all. So the page's own visibility state is overridden
-    # in-page and a real `visibilitychange` Event is dispatched on
-    # document — which is what the browser itself dispatches. What that
-    # simulates is the BROWSER'S REPORT; what it exercises is the
-    # shipped script's own listener and its own document.hidden reads,
-    # unmodified.
+    """A page reporting itself hidden runs no ticker work at all: its age is byte-identical
+    across ~2s, against a control proving the same age does move while visible, and on
+    becoming visible again it is repainted immediately rather than after waiting out an
+    interval.
+    """
+    # Two real ways to hide a page were tried in this harness first and neither works: a second
+    # page in the same context taking focus leaves the first page's document.visibilityState at
+    # "visible" in headless Chromium, and CDP's page-visibility override is not present in this
+    # Chromium at all. So the page's own visibility state is overridden in-page and a real
+    # `visibilitychange` Event is dispatched on document, exercising the shipped script's own
+    # listener and its own document.hidden reads, unmodified.
     base_url = server.base_url()
     _login(page, base_url)
     page.goto(base_url + "/health")
     page.locator(FRESHNESS_AGE).first.wait_for(state="attached")
     read = "() => document.querySelector(%r).textContent" % FRESHNESS_AGE
-    # CONTROL FIRST. Without this the check passes on a page whose
-    # element never changes for any reason at all.
+    # Control first: without this the check passes on a page whose element never changes for
+    # any reason at all.
     control_before = page.evaluate(read)
     page.wait_for_timeout(TICK_SETTLE_MS)
     control_after = page.evaluate(read)
@@ -1859,9 +1616,8 @@ def test_a_hidden_tab_does_no_work_and_catches_up_on_return(page, server):
             "hidden, read %r then %r over %dms — a once-a-second timer in "
             "every background tab forever is the one real cost this file "
             "carries (T-23-14)" % (hidden_before, hidden_after, TICK_SETTLE_MS))
-    # Back in view: the repaint happens IMMEDIATELY, well inside one
-    # tick. A tab returning after a long hidden stretch showing a stale
-    # age is the same defect this file exists to remove, just later on.
+    # Back in view: the repaint happens immediately, well inside one tick. A tab returning
+    # after a long hidden stretch showing a stale age is the same defect, just later on.
     page.evaluate(
         "() => {"
         "  Object.defineProperty(document, 'hidden',"
@@ -1880,17 +1636,15 @@ def test_a_hidden_tab_does_no_work_and_catches_up_on_return(page, server):
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_the_relative_age_is_server_rendered_and_static_without_scripts(new_context, server, lang):
-    """with scripts blocked at 360px, in BOTH languages, the freshness line still
-    renders exactly one <time data-relative> carrying the server's own CLOCK —
-    derived from the element's own datetime, never the ladder's zero bucket and
-    never any age, because nothing there can advance one — and it does NOT
-    change over ~2s, which is what separates an intact no-JS floor from an
-    enhancement that quietly took over (CFG-38, 23-05-PLAN.md Task 3; the
-    frozen-zero half reversed by 23-06-PLAN.md)"""
+    """With scripts blocked at 360px, in both languages, the freshness line still renders
+    exactly one <time data-relative> carrying the server's own clock — derived from the
+    element's own datetime, never the ladder's zero bucket and never any age, because nothing
+    there can advance one — and it does not change over ~2s, which is what separates an intact
+    no-JS floor from an enhancement that quietly took over.
+    """
     base_url = server.base_url()
-    # 25-02-PLAN.md: needs the UI-language cookie set before the first
-    # navigation, which is what _no_js_page()'s own `cookies` parameter
-    # is for.
+    # Needs the UI-language cookie set before the first navigation, which is what
+    # _no_js_page()'s own `cookies` parameter is for.
     with _no_js_page(
             new_context, base_url, "/health",
             viewport=VIEWPORT_MIN_SUPPORTED,
@@ -1906,15 +1660,10 @@ def test_the_relative_age_is_server_rendered_and_static_without_scripts(new_cont
         seen = page.eval_on_selector(
             FRESHNESS_AGE, "el => [el.textContent, el.getAttribute('datetime')]")
         first, instant = seen[0], seen[1]
-        # 23-06-PLAN.md (23-05's own finding 2): this assertion is
-        # REVERSED on purpose. 23-05 required the ladder's zero bucket
-        # here, which is what a page with no ticker freezes on —
-        # "Updated 0s ago", true at load and false one second later. The
-        # server now renders the CLOCK as this element's text and the
-        # ticker replaces it with the live age when it runs. The
-        # expected value is derived from the element's OWN datetime
-        # attribute rather than from a wall clock read in this process,
-        # so the assertion cannot flake across a minute boundary.
+        # The server renders the clock as this element's text and the ticker replaces it with
+        # the live age when it runs. The expected value is derived from the element's own
+        # datetime attribute rather than from a wall clock read in this process, so the
+        # assertion cannot flake across a minute boundary.
         parsed = layout.parse_iso(instant or "")
         if parsed is None:
             raise AssertionError(

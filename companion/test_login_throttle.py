@@ -1,18 +1,16 @@
-"""companion/test_login_throttle.py — SEC-01 (audit ledger 2026-09-23):
-the keyed, bounded LoginThrottle and the client_ip()/login_throttle_key()
-helpers it is built on.
+"""Tests the keyed, bounded LoginThrottle and the client_ip()/
+login_throttle_key() helpers it is built on.
 
-Native pytest (Phase 32's conftest.py fixtures and no-network socket
-guard apply automatically to this module).
+Native pytest (conftest.py fixtures and the no-network socket guard
+apply automatically to this module).
 
 Section 1 is pure in-process unit coverage of companion/auth.py. Section
 2 is HTTP integration coverage proving the same property end to end
 against a real companion/app.py subprocess: failed logins from one IP
-never lock another (ROADMAP SC-1), and --bind (SEC-01/D-22). The
-subprocess itself, and the HTTP client that talks to it, come from
-companion/conftest.py's app_server/make_app_server fixtures and
-test-support/companion_app_server.py (Phase 33, TST-10) — this module
-owns no subprocess-launching code of its own.
+never lock another. The subprocess itself, and the HTTP client that
+talks to it, come from companion/conftest.py's app_server/
+make_app_server fixtures and test-support/companion_app_server.py —
+this module owns no subprocess-launching code of its own.
 """
 import socket
 import urllib.parse

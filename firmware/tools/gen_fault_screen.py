@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Florian Lepont
 # SPDX-License-Identifier: Apache-2.0
-"""Quick task 260924-u7n (DEVICE-06): generates
+"""Generates
 `firmware/main/fault_screen_mask.h` - the committed 1-bpp ink mask
 firmware/main/fault_screen.c stamps onto its own on-device dithered dark
 field to draw the NO CONNECTION hold screen with zero server round-trip.
@@ -11,7 +11,7 @@ Source of truth: `server.plane.render._build_no_connection_canvas(flat=True)`
 BATTERY EMPTY go through, called flat (no dither) so the extracted mask is
 an exact ink/no-ink boolean per pixel, not a dithered approximation of one.
 `server/test_fault_screen_mask.py` proves this generator's output matches
-the committed header byte-for-byte (T-u7n-03) - rerunning this tool must
+the committed header byte-for-byte - rerunning this tool must
 always leave `git diff --stat firmware/main/fault_screen_mask.h` empty.
 
 --- The dither spec (shared with firmware/main/fault_screen.c) ---------------
@@ -235,8 +235,8 @@ def firmware_equivalent_image():
 
 def _write_preview(preview_path):
     """Write the firmware-equivalent image side by side with the server's
-    own dithered `_build_no_connection_canvas()`, mirroring 260923-fr4's
-    side-by-side preview convention (server preview left, firmware
+    own dithered `_build_no_connection_canvas()`, following this
+    project's side-by-side preview convention (server preview left, firmware
     reproduction right, joined via server.panel_preview's decode path for
     the server side so the comparison uses the same colour conversion the
     companion's own preview route uses).

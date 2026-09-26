@@ -1,60 +1,10 @@
-"""Part 05 of the `companion/test_status_pages.py` migration chain
-(33-29-PLAN.md), first half: the original harness's `check()` calls
-#172-#208 (37 of part 05's 73 checks) — Home/the Frame strip going live
-from `layout.freshness_line_html()`'s one definition site, the strip's
-own next-update countdown (formatting only, never deciding) and the
-refreshed picture's src-compared fade, `layout.stat_tile()`'s
-`caption_title` tooltip, Health's stat tiles/corroboration rows reading
-in plain language with no jargon or requirement id leaking into visible
-text, the 52 vendored illustrations' normalized-output contract
-(dimensions, byte ceiling, centring), `layout.page_shell()`/
-`login_shell()`'s `<html lang>` and the two ordered theme forms, the
-French nav labels and the D-17 always-rendered Advanced group, the nav
-status reminder's markup/position/dot-class/French-text/None-degrade
-contract, `layout.status_row()`/`section_intro_html()`'s markup and
-escaping, `_device_timestamp_only()`'s verdict-free fragment, and
-`layout.relative_age_text()`/`local_clock_text()`'s French forms.
+"""Companion status-page tests: Home/the Frame strip's freshness line,
+countdown and picture fade, `layout.stat_tile()`'s tooltip, the vendored
+illustrations' normalized-output contract, `page_shell()`'s theme forms,
+the nav's French labels, and `relative_age_text()`'s French forms.
 
-One check's two source-text sub-clauses are dropped in place (TST-12
-rubric S), its structural half kept fully intact: the freshness-line
-check's own grep of `companion/pages/health_page.py` and
-`companion/layout.py` for a literal `class="page-header__freshness`
-substring is redundant with the SAME check's own rendered-equality
-proof (both pages already assert `built in rendered` against
-`layout.freshness_line_html()`'s own output) — a second, unused
-definition of that markup inside `health_page.py` could exist and never
-be observed unless it were actually rendered, which the equality check
-already rules out.
-
-One check is deleted outright (TST-12 rubric S): "no module anywhere
-under companion/ defines its own alpha-threshold constant" grepped
-every `.py` file under `companion/` for a second `ALPHA_THRESHOLD`
-assignment, with no behaviour behind it beyond what this same module's
-own centred/unclipped-bbox checks already prove by calling
-`server.plane.render._opaque_bbox()` directly — a stray, unused constant
-elsewhere in the package would never change what those checks observe.
-
-One check's `inspect.getsource()` call (TST-12 rubric S) is rewritten as
-a behaviour proof: `relative_age_text()`'s positional-vs-keyword call
-sites are compared instead of parsing its signature's source text.
-
-The next-update countdown check's `companion/static/*.js` source scan
-(TST-12 rubric J) is rewritten to fetch every served script through
-`companion/app.py`'s own `*_SCRIPT_ROUTE` registry (enumerated from the
-live module's attributes, never a `companion/static` directory listing)
-and strip only its comments with this chain's own
-`strip_js_line_and_block_comments()` — never
-`companion_markup.strip_js_comments_and_strings()`, which would also
-erase the very identifiers this check searches for. The picture-fade
-check's two source reads (`style.css`, `freshness.js`) are rewritten the
-same way plus `companion_markup.keyframes()`/`declarations_for()` for
-the stylesheet half (33-FOLLOWUPS.md F-01).
-
-Every other check in this module calls `companion.layout`/
-`companion.wake`/`companion.prefs`/`companion.pages.health_page`/
-`companion.pages.home_page`/`companion.illustration_normalize` directly,
-in-process, seeding fixtures under `tmp_path` via `companion.test_status_
-pages_helpers`.
+JS/CSS checks fetch served bytes through companion/app.py; everything else
+calls companion.layout/companion.pages.health_page directly, in-process.
 """
 import io
 import os
@@ -104,7 +54,7 @@ def _all_static_script_routes():
     """Every companion/app.py `*_SCRIPT_ROUTE` constant's value — the served
     static-JS surface, enumerated from the production module's own
     registered route names rather than a filesystem glob over
-    companion/static/*.js (TST-12: no production source is opened as text,
+    companion/static/*.js (: no production source is opened as text,
     and this floor tracks whatever app.py itself registers). Mirrors
     companion/test_view_pages_03.py's own `_all_static_script_routes()`."""
     names = [name for name in dir(app_module) if _SCRIPT_ROUTE_NAME_RE.match(name)]
@@ -137,7 +87,7 @@ def _selector_literals(selector):
 
 def _visible_text_outside_title_attributes(markup):
     # A title="..." attribute IS the sanctioned home for a technical term
-    # under D-06 — strip every such attribute's value before scanning for
+    # under — strip every such attribute's value before scanning for
     # banned jargon, so this guard only ever fires on a real leak into
     # visible text.
     return re.sub(r'\btitle="[^"]*"', "", markup)
@@ -145,7 +95,7 @@ def _visible_text_outside_title_attributes(markup):
 
 # ==========================================================================
 # Home and the Frame strip go live, from the same builder and the same
-# loop (23-06-PLAN.md Task 2, D1/CFG-35)
+# loop
 # ==========================================================================
 
 
@@ -153,7 +103,7 @@ def test_23_06_the_freshness_line_has_one_builder_and_three_call_sites(tmp_path)
     """Health's and Home's freshness lines are layout.freshness_line_html()'s own output
     verbatim — ONE definition site — each page renders exactly one data-loaded-at and one
     data-refresh-pill, and the builder emits the dot, the prefix, the clock element and the
-    pill in that order with exactly one <time data-relative> (D1/CFG-35, 23-06-PLAN.md Task 2)"""
+    pill in that order with exactly one <time data-relative>"""
     now_iso = shp.iso(shp.now())
     built = layout.freshness_line_html(now_iso)
     health = health_page.render(shp.ctx(str(tmp_path / "h"), now_iso))
@@ -181,7 +131,7 @@ def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
     status tiles, the picture, the recent-flights list) plus its freshness line, every
     literal in every one of its selectors appears in the rendered page, and the Display
     scope declares exactly the strip and the freshness line — everything else there is a
-    form (D1/CFG-35, 23-06-PLAN.md Task 2)"""
+    form"""
     now_iso = shp.iso(shp.now())
     rendered = home_page.render(_home_ctx(str(tmp_path), now_iso))
     registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
@@ -214,7 +164,7 @@ def test_23_06_the_strip_countdown_formats_and_never_decides(_module_server):
     """the Frame strip's next-update cell carries a marked <time data-relative-countdown>
     over companion/wake.py's OWN resolved instant, reading the ladder's future form, beside
     a state word that stays frame_state.resolve_state()'s — and no served script names a
-    state or a headline template at all (D1/D-03/CFG-26, 23-06-PLAN.md Task 2)"""
+    state or a headline template at all"""
     now_iso = "2026-08-27T12:00:00+00:00"
     ctx = {
         "now": now_iso, "last_checkin_ts": "2026-08-27T11:55:00+00:00",
@@ -257,7 +207,7 @@ def test_23_06_the_picture_fades_only_when_the_picture_changed(
     """the refreshed picture fades through a named keyframes block spending
     var(--motion-fast) with no bare literal, the class is applied only after freshness.js
     compares the image's own src (a fade on every swap would flash the page every 45s for no
-    information), and the server renders it never (D1+D3/CFG-32, 23-06-PLAN.md Task 2)"""
+    information), and the server renders it never"""
     assert "skypane-fade-in" in keyframes(css_text), (
         "expected a named fade-in keyframes block for the refreshed picture")
     rule_decls = declarations_for(css_text, ".is-fading-in")
@@ -288,13 +238,13 @@ def test_23_06_the_picture_fades_only_when_the_picture_changed(
 
 
 # ==========================================================================
-# layout.stat_tile()'s caption_title tooltip (19-06-PLAN.md Task 1, D-06)
+# layout.stat_tile()'s caption_title tooltip
 # ==========================================================================
 
 
 def test_stat_tile_caption_title_byte_identical_when_unused():
     """layout.stat_tile()'s new caption_title parameter is byte-identical to the
-    pre-existing output when omitted, None, or '' (19-06-PLAN.md Task 1, D-06)"""
+    pre-existing output when omitted, None, or ''"""
     default_call = layout.stat_tile("C", "<p>x</p>", "ok", None)
     explicit_none = layout.stat_tile("C", "<p>x</p>", "ok", None, caption_title=None)
     explicit_empty = layout.stat_tile("C", "<p>x</p>", "ok", None, caption_title="")
@@ -304,7 +254,7 @@ def test_stat_tile_caption_title_byte_identical_when_unused():
 
 def test_stat_tile_caption_title_renders_as_tooltip_on_caption_only():
     """layout.stat_tile()'s caption_title renders as a title attribute on the caption <p>
-    element, and nowhere else (19-06-PLAN.md Task 1, D-06)"""
+    element, and nowhere else"""
     markup = layout.stat_tile("Cap", "<p>y</p>", "ok", None, caption_title="Tech Term")
     assert markup.count('title="Tech Term"') == 1
     caption_open = markup.index('<p class="text-label stat-tile__caption"')
@@ -316,7 +266,7 @@ def test_stat_tile_caption_title_renders_as_tooltip_on_caption_only():
 
 def test_stat_tile_caption_title_is_escaped():
     """layout.stat_tile()'s caption_title is escaped through escape_html(), matching every
-    other attribute value this module emits (19-06-PLAN.md Task 1, D-06/T-19-08)"""
+    other attribute value this module emits"""
     hostile = 'a<b"c'
     markup = layout.stat_tile("Cap", "<p>y</p>", "ok", None, caption_title=hostile)
     assert hostile not in markup
@@ -325,7 +275,6 @@ def test_stat_tile_caption_title_is_escaped():
 
 # ==========================================================================
 # Health's stat tiles and corroboration rows read in plain language
-# (19-06-PLAN.md Task 2/3, D-06)
 # ==========================================================================
 
 
@@ -333,7 +282,7 @@ def test_health_tiles_and_rows_read_in_plain_language(tmp_path):
     """Health's stat tiles and corroboration rows read in plain language: 'Corroboration',
     'Single-source (uncorroborated)' and 'pipeline last ran' are all absent from visible
     text, and the Pipeline/Corroboration/Resolution-rate tiles' caption elements each carry
-    a title attribute equal to their matching technical constant (19-06-PLAN.md Task 2, D-06)"""
+    a title attribute equal to their matching technical constant"""
     tmp = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(tmp, [(shp.iso(now), 4200)])
@@ -365,7 +314,7 @@ def test_health_tiles_and_rows_read_in_plain_language(tmp_path):
 def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_path):
     """a full Health render with a non-empty unresolved registry and stats rows (every
     branch rendered) contains no 'adsbdb' and no CFG-\\d requirement id outside a title
-    attribute (19-06-PLAN.md Task 3, D-06/T-19-24)"""
+    attribute"""
     tmp = str(tmp_path)
     now = shp.now()
     from server import history_db
@@ -392,8 +341,8 @@ def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_pat
 
 # ==========================================================================
 # companion/illustration_normalize.py — the shared opaque-bbox
-# normalization helper (quick task 260902-req-02 Task 1). All checks
-# below iterate the real vendored files under illustrations.ILLUSTRATION_
+# normalization helper. All checks below iterate the real vendored files
+# under illustrations.ILLUSTRATION_
 # DIR (the same "real project assets, not synthetic fixtures" discipline
 # server/test_render.py already uses) except the None-bbox fallback
 # check, which needs a synthetic fully-transparent source.
@@ -422,7 +371,7 @@ def test_all_illustrations_normalize_to_identical_pixel_dimensions(filename):
 @pytest.mark.parametrize("filename", _VENDORED_ILLUSTRATION_FILENAMES)
 def test_all_illustrations_serve_well_under_the_byte_ceiling(filename):
     """all 52 vendored illustrations normalize and serve well under 65536 bytes per file,
-    the UIR-08 weight fix — a regression that got the dimensions right but left the served
+    the weight fix — a regression that got the dimensions right but left the served
     bytes unchanged would defeat this check"""
     path = os.path.join(illustrations.ILLUSTRATION_DIR, filename)
     png_bytes = illustration_normalize.normalized_png_bytes(path)
@@ -469,14 +418,13 @@ def test_none_opaque_bbox_falls_back_to_source_image_without_raising(tmp_path):
 
 # ==========================================================================
 # companion/layout.py: <html lang>, the three-switch nav footer,
-# localised nav labels and simple-mode nav suppression (D-01..D-09/
-# D-29/D-30, 20-01-PLAN.md Task 3)
+# localised nav labels and simple-mode nav suppression
 # ==========================================================================
 
 
 def test_page_shell_html_lang_follows_prefs():
     """page_shell() renders <html lang="fr" under prefs.set_request_prefs(lang='fr') and
-    <html lang="en" otherwise (D-03)"""
+    <html lang="en" otherwise"""
     try:
         prefs.set_request_prefs(lang="fr")
         fr_rendered = layout.page_shell(title="Health", active="health", body="", ui_theme="auto")
@@ -490,7 +438,7 @@ def test_page_shell_html_lang_follows_prefs():
 
 def test_login_shell_html_lang_follows_prefs():
     """login_shell() renders <html lang="fr" under prefs.set_request_prefs(lang='fr') and
-    <html lang="en" otherwise (D-03)"""
+    <html lang="en" otherwise"""
     try:
         prefs.set_request_prefs(lang="fr")
         fr_rendered = layout.login_shell("", ui_theme="auto")
@@ -504,8 +452,7 @@ def test_login_shell_html_lang_follows_prefs():
 
 def test_shell_has_two_ordered_theme_forms_each_with_aria_label():
     """a rendered shell contains exactly two aria-labelled theme-form forms per footer copy,
-    actions /ui-lang, /ui-theme in that document order, and zero /ui-mode forms (D-02/D-17,
-    21-UI-SPEC.md §G)"""
+    actions /ui-lang, /ui-theme in that document order, and zero /ui-mode forms"""
     rendered = layout.page_shell(title="Health", active="health", body="", ui_theme="auto")
     actions_in_order = re.findall(
         r'<form class="theme-form" method="post" action="([^"]+)" aria-label="[^"]+"', rendered)
@@ -513,16 +460,15 @@ def test_shell_has_two_ordered_theme_forms_each_with_aria_label():
         "expected exactly 2 /ui-lang forms (sidebar + mobile), got %r"
         % (actions_in_order.count("/ui-lang"),))
     assert actions_in_order.count("/ui-theme") == 2
-    # D-17 (21-01-PLAN.md Task 1): the simple-mode switch is deleted —
-    # zero /ui-mode forms anywhere in a rendered shell.
+    # The simple-mode switch is deleted — zero /ui-mode forms anywhere
+    # in a rendered shell.
     assert actions_in_order.count("/ui-mode") == 0
     assert actions_in_order[:2] == ["/ui-lang", "/ui-theme"], (
         "expected the first footer's forms in order lang/theme, got %r" % (actions_in_order[:2],))
 
 
 def test_french_shell_nav_reads_the_locked_french_labels():
-    """under lang='fr' the nav reads Accueil/Affichage/Vols/Compagnies/Avancé/État/Appareil
-    (D-09)"""
+    """under lang='fr' the nav reads Accueil/Affichage/Vols/Compagnies/Avancé/État/Appareil"""
     try:
         prefs.set_request_prefs(lang="fr")
         rendered = layout.page_shell(title="Home", active="home", body="", ui_theme="auto")
@@ -534,8 +480,7 @@ def test_french_shell_nav_reads_the_locked_french_labels():
 
 def test_advanced_group_always_renders_in_both_nav_copies():
     """the Advanced group (Health, Device) and the nav status dot always render, in both the
-    sidebar and the bottom tab bar, on a plain request (D-17; retargeted from the dropdown by
-    22-14-PLAN.md Task 2)"""
+    sidebar and the bottom tab bar, on a plain request (retargeted from the dropdown)"""
     rendered = layout.page_shell(
         title="Home", active="home", body="", ui_theme="auto", health_alert="warn",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
@@ -550,7 +495,7 @@ def test_advanced_group_always_renders_in_both_nav_copies():
 
 
 # ==========================================================================
-# The nav state reminder (D-03/R-03/R-04, 21-04-PLAN.md Task 2)
+# The nav state reminder
 # ==========================================================================
 
 _NAV_STATUS_DEVICE_CFG = {"display_enabled": True, "quiet_hours_enabled": False}
@@ -559,7 +504,7 @@ _NAV_STATUS_DEVICE_CFG = {"display_enabled": True, "quiet_hours_enabled": False}
 def test_nav_status_appears_once_in_each_nav_copy_after_the_brand():
     """the sidebar and the mobile dropdown each contain exactly one .nav-status link, with no
     <form> or <button> inside it, sitting after the brand and before the primary nav list in
-    document order (D-03)"""
+    document order"""
     rendered = layout.page_shell(
         title="Home", active="home", body="", ui_theme="auto",
         device_config=_NAV_STATUS_DEVICE_CFG)
@@ -585,7 +530,7 @@ def test_nav_status_appears_once_in_each_nav_copy_after_the_brand():
 
 def test_nav_status_dot_classes_follow_the_four_on_off_combinations():
     """nav_status_html()'s two dots follow all four Screen/Quiet-hours on/off combinations
-    (dot--ok for on, dot--off for off) (D-03)"""
+    (dot--ok for on, dot--off for off)"""
     for display_enabled, quiet_hours_enabled, screen_dot, quiet_dot in (
             (True, False, "dot--ok", "dot--off"),
             (False, False, "dot--off", "dot--off"),
@@ -618,7 +563,7 @@ def test_french_nav_status_reads_ecran_allume_heures_calmes_desactivees():
 def test_nav_status_html_none_or_falsy_device_config_renders_nothing():
     """nav_status_html(None) and nav_status_html({}) both return '', and page_shell(...,
     device_config=None) — the default, used by login/404/error pages — renders no
-    .nav-status at all (D-03)"""
+    .nav-status at all"""
     assert layout.nav_status_html(None) == ""
     assert layout.nav_status_html({}) == ""
     rendered = layout.page_shell(title="Home", active="home", body="", ui_theme="auto")
@@ -627,21 +572,20 @@ def test_nav_status_html_none_or_falsy_device_config_renders_nothing():
 
 def test_login_shell_carries_no_nav_status_and_is_unchanged():
     """login_shell() — which never takes a device_config parameter — carries no .nav-status
-    markup, unchanged by this task (D-03)"""
+    markup, unchanged by this task"""
     rendered = layout.login_shell("", ui_theme="auto")
     assert "nav-status" not in rendered
 
 
 # ==========================================================================
 # layout.status_row()/section_intro_html(), and health_page.py's
-# verdict-free _device_timestamp_only()/device_detail_html (D-21/D-17/
-# §C, 20-03-PLAN.md Task 1)
+# verdict-free _device_timestamp_only()/device_detail_html
 # ==========================================================================
 
 
 def test_status_row_renders_dot_label_verdict_detail():
     """status_row('Frame', 'Checking in normally', 'Last check-in 2m ago', 'ok') carries
-    status-row--ok, dot--ok, all three texts and exactly one status-row__label (D-21)"""
+    status-row--ok, dot--ok, all three texts and exactly one status-row__label"""
     rendered = layout.status_row("Frame", "Checking in normally", "Last check-in 2m ago", "ok")
     assert "status-row--ok" in rendered
     assert "dot--ok" in rendered
@@ -652,14 +596,14 @@ def test_status_row_renders_dot_label_verdict_detail():
 
 def test_status_row_empty_label_omits_the_label_span():
     """status_row('', ..., 'warn') omits the status-row__label span entirely, not merely its
-    text (D-21, 20-UI-SPEC.md Section Anatomy A)"""
+    text"""
     rendered = layout.status_row("", "Not connected", "checked 10 min ago", "warn")
     assert "status-row__label" not in rendered
 
 
 def test_status_row_unrecognised_state_falls_back_safely():
     """status_row(..., state='nonsense') falls back to the default dot class and emits no
-    status-row--nonsense class (T-20-18)"""
+    status-row--nonsense class"""
     rendered = layout.status_row("Frame", "Verdict", "Detail", "nonsense")
     assert "status-row--nonsense" not in rendered
     assert layout._DEFAULT_STATUS_DOT_CLASS in rendered
@@ -667,7 +611,7 @@ def test_status_row_unrecognised_state_falls_back_safely():
 
 def test_status_row_escapes_hostile_verdict_and_detail():
     """status_row() with a hostile <script>-shaped verdict/detail comes back escaped, never
-    raw markup (T-20-03)"""
+    raw markup"""
     rendered = layout.status_row(
         "Frame", "<script>alert(1)</script>", "<img src=x onerror=alert(1)>", "error")
     assert "<script>" not in rendered and "<img " not in rendered
@@ -676,8 +620,7 @@ def test_status_row_escapes_hostile_verdict_and_detail():
 
 def test_section_intro_html_is_byte_identical_to_the_promoted_markup():
     """layout.section_intro_html() emits the byte-identical markup health_page.py's own
-    former private _section_intro_html() rendered before the promotion (20-UI-SPEC.md
-    Section Anatomy C)"""
+    former private _section_intro_html() rendered before the promotion"""
     rendered = layout.section_intro_html("test-id", "Heading", "Description")
     expected = (
         '<div class="section-intro">'
@@ -689,7 +632,7 @@ def test_section_intro_html_is_byte_identical_to_the_promoted_markup():
 
 def test_section_intro_html_escapes_hostile_section_id():
     """layout.section_intro_html() escapes a hostile section_id argument, never writing it
-    raw into the id="..." attribute (WR-03, 20-REVIEW.md)"""
+    raw into the id="..." attribute"""
     rendered = layout.section_intro_html('"><script>alert(1)</script>', "Heading", "Description")
     assert "<script>" not in rendered
     assert "&lt;script&gt;" in rendered
@@ -703,7 +646,7 @@ def test_health_page_no_longer_defines_section_intro_html():
 
 def test_device_timestamp_only_carries_no_verdict_text():
     """_device_timestamp_only() emits no widget-verdict class and no DEVICE_STATE_TEXT
-    value, while _device_section() still carries exactly one (D-17)"""
+    value, while _device_section() still carries exactly one"""
     now = shp.iso(shp.now())
     ts = shp.ago(120)
     detail_only = health_page._device_timestamp_only({"ts": ts}, now)
@@ -720,7 +663,7 @@ def test_device_timestamp_only_carries_no_verdict_text():
 
 def test_compute_health_state_carries_device_detail_html(tmp_path):
     """compute_health_state()'s returned dict carries a device_detail_html key holding the
-    verdict-free fragment also embedded (once) inside device_html (D-17)"""
+    verdict-free fragment also embedded (once) inside device_html"""
     tmp = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(tmp, [(shp.ago(120), 3800)])
@@ -737,13 +680,13 @@ def test_compute_health_state_carries_device_detail_html(tmp_path):
 
 # ==========================================================================
 # companion/layout.py's language-aware relative_age_text()/
-# local_clock_text() (D-07, 20-03-PLAN.md Task 2)
+# local_clock_text()
 # ==========================================================================
 
 
 def test_relative_age_text_french_seconds_bucket_reads_a_linstant():
     """under lang='fr', relative_age_text(30) reads 'à l’instant' and relative_age_text(90000)
-    reads 'il y a 1\\u00a0j' (D-07)"""
+    reads 'il y a 1\\u00a0j'"""
     try:
         prefs.set_request_prefs(lang="fr")
         thirty_s = layout.relative_age_text(30)
@@ -757,7 +700,7 @@ def test_relative_age_text_french_seconds_bucket_reads_a_linstant():
 
 def test_relative_age_text_english_unchanged_under_default_lang():
     """under lang='en' (the default), relative_age_text()'s English output is byte-for-byte
-    unchanged — '30s ago'/'1d ago' (D-07)"""
+    unchanged — '30s ago'/'1d ago'"""
     try:
         prefs.set_request_prefs(lang="en")
         thirty_s = layout.relative_age_text(30)
@@ -770,7 +713,7 @@ def test_relative_age_text_english_unchanged_under_default_lang():
 
 def test_local_clock_text_french_month_abbreviation():
     """local_clock_text() on a September timestamp reads 'sept.' under fr and 'Sep' under en,
-    with an identical HH:MM in both (D-07)"""
+    with an identical HH:MM in both"""
     try:
         prefs.set_request_prefs(lang="fr")
         september = datetime(2026, 9, 10, 11, 53, tzinfo=timezone.utc)
@@ -789,9 +732,8 @@ def test_local_clock_text_french_month_abbreviation():
 def test_relative_age_text_first_positional_argument_is_age_seconds():
     """relative_age_text()'s positional signature (age_seconds first) is untouched — lang is
     a trailing keyword only"""
-    # TST-12 rubric S: the legacy check parsed inspect.getsource(relative_age_text)'s first
-    # line for the parameter order. Rewritten as a behaviour proof instead: a positional call
-    # in the pinned order (age_seconds, lang) must equal the same call spelled out with both
-    # parameter names — a signature that quietly swapped the two would still satisfy the
+    # A positional call in the pinned order (age_seconds, lang) must
+    # equal the same call spelled out with both parameter names — a
+    # signature that quietly swapped the two would still satisfy the
     # keyword call but not the positional one.
     assert layout.relative_age_text(30, "fr") == layout.relative_age_text(age_seconds=30, lang="fr")

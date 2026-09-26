@@ -1,16 +1,10 @@
 # SkyPane — Firmware build workflow.
 #
-# Two independent jobs, so a compile failure and a host-test failure
-# always show as separate results. `host-tests` runs
-# firmware/tests/run_host_tests.sh — every hardware-free C test compiled
-# and run with the system `cc`, no ESP-IDF and no Docker — in a plain
-# ubuntu-latest job with no `needs:`, so it starts and finishes without
-# waiting on the container-based build below. `build` covers everything
-# that does need the toolchain: it invokes firmware/build.sh directly
-# (an ESP-IDF marketplace action was considered and rejected — the
-# script already pins the toolchain image and the sdkconfig-defaults
-# invocation, so running it as-is means CI builds with the exact same
-# command the developer runs locally) plus the static and built-image
+# Two independent jobs so a compile failure and a host-test failure
+# always show separately. `host-tests` runs the hardware-free C suite
+# with the system `cc`, no ESP-IDF/Docker, so it finishes without
+# waiting on `build`. `build` runs firmware/build.sh directly (the exact
+# command a developer runs locally, not a marketplace action) plus the
 # production-config and Log Line Contract checks.
 name: Firmware Build
 
@@ -24,9 +18,8 @@ on:
       - 'firmware/**'
       - '.github/workflows/firmware.yml'
 
-# Least privilege for the workflow's GITHUB_TOKEN: read the repository,
-# nothing else. (The repo default is already read-only; declaring it here
-# keeps it read-only even if that repository setting is ever changed.)
+# Least privilege: read-only GITHUB_TOKEN (repo default already is; kept
+# explicit so it can't silently change).
 permissions:
   contents: read
 
@@ -64,17 +57,15 @@ jobs:
         run: sh firmware/tests/check_log_contract.sh
 
       - name: Create compile-only credentials header
-        # firmware/main/secrets.h is gitignored and never committed
-        # (firmware/.gitignore). This copies the tracked placeholder
-        # template so the build has the four symbols it needs — enough
-        # to prove the code compiles, incapable of connecting anywhere.
-        # The real header is never committed and never touched by CI.
+        # firmware/main/secrets.h is gitignored and never committed. This
+        # copies the tracked placeholder template so the build has the
+        # four symbols it needs, incapable of connecting anywhere.
         run: cp firmware/main/secrets.example.h firmware/main/secrets.h
 
       - name: Build firmware image
-        # Same containerised invocation used locally — no container
-        # image reference, toolchain setup, or sdkconfig flags belong
-        # here; all of that stays owned by the script.
+        # Same containerised invocation used locally; the container
+        # image, toolchain setup and sdkconfig flags stay owned by the
+        # script, not duplicated here.
         run: ./firmware/build.sh
 
       - name: Verify built image artifact exists

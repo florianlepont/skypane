@@ -8,26 +8,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* The panel's refresh-spacing arithmetic, with no ESP-IDF in it.
- *
- * A full redraw is slow and visible (measured ~31.5 s) and it costs
- * battery, so this module exists to stop the frame redrawing more often
- * than it is worth redrawing. It lives apart from panel.c so it can be
- * reasoned about and tested on a host: panel.c owns the retained state
- * and the SPI, this owns the decisions.
- *
- * The spacing is a build option (CONFIG_FP_MIN_REFRESH_SPACING_S) - see
- * its help text for the full reasoning and the source citation. Short
- * version: the real panel is the Good Display GDEP133C02 (the part
- * behind Seeed SKU E-6569, the panel in the EE02 kit); its datasheet
- * documents no maximum refresh rate and no cycle-count endurance
- * rating, and its only refresh-frequency guidance points the other
- * way - refresh at least every 24 hours or risk ghosting or image sticking.
- * That is an absence in the document consulted, not proof
- * the glass never degrades. The spacing here is this project's own
- * conservative margin against needless redraws and the battery they
- * spend, not a vendor-mandated threshold.
- */
+/* The panel's refresh-spacing arithmetic, with no ESP-IDF in it. A full
+ * redraw is slow (~31.5 s measured) and costs battery, so this exists to
+ * limit how often the frame redraws. Lives apart from panel.c (which
+ * owns the retained state and SPI) so it can be reasoned about on a
+ * host. The spacing (CONFIG_FP_MIN_REFRESH_SPACING_S) is this project's
+ * own conservative margin, not a vendor threshold — the real panel
+ * (Good Display GDEP133C02) documents no refresh-rate limit, only
+ * "refresh at least every 24 hours or risk ghosting". */
 
 typedef enum {
     FP_PANEL_DRAW_NOW,        /* guard clear: blit immediately         */

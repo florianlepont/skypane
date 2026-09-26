@@ -1,6 +1,6 @@
-"""Self-tests for companion_markup.py's HTML/CSS/JS structural parsers
-(33-03-PLAN.md Task 1, TST-12): every idiom a migrated companion test
-needs instead of grepping served source text as a raw string.
+"""Self-tests for companion_markup.py's HTML/CSS/JS structural parsers:
+every idiom a companion test needs instead of grepping served source
+text as a raw string.
 """
 
 import pytest

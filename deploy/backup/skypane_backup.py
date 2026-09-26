@@ -1,23 +1,18 @@
 #!/usr/bin/env python3
-"""SkyPane nightly off-box-ready state snapshot (SEC-04, D-03).
+"""SkyPane nightly off-box-ready state snapshot.
 
-Runs on the VPS as user `skypane`, from `skypane-backup.service`
-(triggered nightly at 03:15 UTC by `skypane-backup.timer` - see
-`deploy/skypane-backup.service` for the exact CLI contract this module
-implements). Writes one dated, checksummed `tar.gz` archive of
-`/opt/skypane/state` into a local archive directory per run. This job
-never leaves the VPS: the off-box copy is a separate pull, over SSH,
-driven by the developer's Mac through the narrow forced-command gate in
-`deploy/backup/backup_gate.py` - nothing is ever pushed from here.
+Runs on the VPS as user `skypane` from `skypane-backup.service`, writing
+one dated, checksummed `tar.gz` archive of `/opt/skypane/state` into a
+local archive directory per run. This job never leaves the VPS: the
+off-box copy is a separate pull, over SSH, driven by the developer's Mac
+through the forced-command gate in `deploy/backup/backup_gate.py`.
 
-INCLUDE_FILES/INCLUDE_DIRS below are an ALLOW-list, not a deny-list, on
-purpose: a file `state/` grows in some later phase and is never added
-here is meant to be *noticed* (a drift line printed to stdout, captured
-by journald), not silently carried into every nightly archive from then
-on, or - worse - silently left out of one the developer assumes is
-complete. `history.db` is handled outside both lists entirely: it is a
-live WAL database, never copied byte-for-byte (see `snapshot_db()`
-below), so it can never be "just another include file".
+INCLUDE_FILES/INCLUDE_DIRS are an ALLOW-list, not a deny-list: a
+`state/` entry added later but never added here is meant to be
+*noticed* (a drift line to stdout, captured by journald), not silently
+carried into or left out of the archive. `history.db` is handled
+outside both lists: it is a live WAL database, never copied
+byte-for-byte (see `snapshot_db()` below).
 """
 import argparse
 import fnmatch
@@ -34,10 +29,9 @@ DEFAULT_STATE_DIR = "/opt/skypane/state"
 DEFAULT_ARCHIVE_DIR = "/var/lib/skypane-backup/archives"
 DEFAULT_KEEP = 14
 
-# Allow-list (RESEARCH.md SEC-04 "State inventory" + D-24: gallery/ IS
-# backed up). devices.json is Phase 34 FW-08's per-device enrolment
-# registry - included when present; losing it would make byos refuse
-# every re-enrolment.
+# Allow-list. devices.json is the per-device enrolment registry --
+# included when present; losing it would make byos refuse every
+# re-enrolment.
 INCLUDE_FILES = (
     "byos_state.json",
     "devices.json",
@@ -55,8 +49,8 @@ INCLUDE_DIRS = (
 )
 
 # Known-regenerable/transient entries this job deliberately never
-# archives and never reports as drift (RESEARCH.md "Known excluded").
-# Matched with fnmatch against each top-level state/ entry name.
+# archives and never reports as drift. Matched with fnmatch against
+# each top-level state/ entry name.
 KNOWN_EXCLUDED = (
     "panel.bin",
     "theme_previews",
@@ -111,12 +105,10 @@ def _no_symlinks(tarinfo):
 
 def snapshot_db(src_path, dst_path):
     """Copy `history.db` consistently while a writer may hold it open
-    under WAL (T-37-18): sqlite3's own backup API copies pages under a
-    shared lock rather than a byte-for-byte file copy, so a concurrent
-    writer never produces a torn snapshot [CITED: Python sqlite3 docs].
-    `PRAGMA integrity_check` runs on the COPY, never the live database
-    (that would contend with the same writer) - it is the only proof the
-    snapshot itself is sound, not just present.
+    under WAL: sqlite3's own backup API copies pages under a shared lock
+    rather than a byte-for-byte file copy, so a concurrent writer never
+    produces a torn snapshot. `PRAGMA integrity_check` runs on the copy,
+    never the live database, as the only proof the snapshot is sound.
     """
     src = sqlite3.connect(src_path, timeout=30)
     dst = sqlite3.connect(dst_path)
@@ -175,11 +167,10 @@ def _prune(archive_dir, keep):
 
 def backup(state_dir, archive_dir, keep):
     """Build one dated, checksummed archive of `state_dir` into
-    `archive_dir`, then prune to the newest `keep`. Returns 0/1 - never
-    raises past here (T-37-18): a state directory that does not exist,
-    or a `history.db` that fails `integrity_check`, is reported as one
-    line and a non-zero return, not a traceback (the systemd timer's own
-    journal is the only audience for that line).
+    `archive_dir`, then prune to the newest `keep`. Returns 0/1, never
+    raises: a missing state directory or a `history.db` that fails
+    `integrity_check` is reported as one line and a non-zero return, not
+    a traceback, since the systemd timer's journal is the only audience.
     """
     if not os.path.isdir(state_dir):
         print("skypane_backup: state directory not found: %s" % state_dir)

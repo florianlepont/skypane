@@ -4,13 +4,10 @@
  * wake cause, into the Log Line Contract's honest wake-reason token.
  * Pure, no ESP-IDF, no I/O: host-compilable so the classification rules
  * are asserted on every commit instead of only observed on hardware.
- *
- * The enum below mirrors esp_reset_reason_t (ESP-IDF v5.3.1,
- * components/esp_system/include/esp_system.h) value-for-value so this
- * header needs no ESP-IDF include; the firmware side asserts that
- * equality at compile time with _Static_assert (app_main.c), so a
- * future ESP-IDF enum reorder fails the build instead of silently
- * misclassifying resets. */
+ * The enum below mirrors esp_reset_reason_t (ESP-IDF v5.3.1) value-for-
+ * value so this header needs no ESP-IDF include; app_main.c asserts
+ * that equality at compile time, so a future ESP-IDF enum reorder fails
+ * the build instead of silently misclassifying resets. */
 #pragma once
 #include <stdbool.h>
 

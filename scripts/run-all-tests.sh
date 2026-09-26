@@ -1,31 +1,20 @@
 #!/usr/bin/env bash
 # SkyPane — the single entry point for the whole test suite.
 #
-# A thin wrapper over `pytest -n auto --cov`: pytest itself (via
-# pytest-xdist) owns discovery, parallelism and reporting, and pytest-cov
-# owns the coverage gate (`[tool.coverage.report] fail_under` in
-# pyproject.toml). pytest discovers every test: server/, stub-server/,
-# deploy/tests/, test-support/ and the companion suite, including its
-# pytest-playwright browser tests — one command, no drift between what CI
-# runs and what a contributor runs locally. This file owns the stable
-# PYTHON-interpreter contract CI and README both depend on.
+# A thin wrapper over `pytest -n auto --cov`: pytest-xdist owns
+# discovery/parallelism, pytest-cov owns the coverage gate
+# (`[tool.coverage.report] fail_under` in pyproject.toml). Runs the same
+# command CI runs, so there is no drift between CI and a local run.
+
+# Usage: scripts/run-all-tests.sh [-- pytest-args]
+#   PYTHON=/other/python3       use a different interpreter
+#   JOBS=1                      serial run
+#   SKYPANE_REQUIRE_BROWSER=1   missing Chromium fails instead of skipping
 #
-# Usage:
-#   scripts/run-all-tests.sh
-#   PYTHON=/some/other/python3 scripts/run-all-tests.sh
-#   JOBS=1 scripts/run-all-tests.sh              # serial run
-#   scripts/run-all-tests.sh -k dither -- -x     # extra args go to pytest
-#                                                 # (e.g. -k, a path, -x)
-#   SKYPANE_REQUIRE_BROWSER=1 scripts/run-all-tests.sh
-#                                                 # a missing Chromium fails
-#                                                 # instead of skipping
-#
-# Coverage gate: `fail_under` is a whole-suite floor, so it is enforced
-# only on a run with NO extra arguments (what CI runs). Any extra argument
-# (-k, a path, -x, ...) adds `--cov-fail-under=0` before your arguments:
-# a subset still reports coverage but never fails on the gate. To enforce
-# a floor on a run with arguments anyway, pass it explicitly, e.g.
-# `scripts/run-all-tests.sh -x --cov-fail-under=88` (the later flag wins).
+# fail_under is a whole-suite floor: enforced only when no extra pytest
+# arguments are given (what CI runs). Any extra argument adds
+# --cov-fail-under=0 first; pass an explicit --cov-fail-under=N after your
+# own args to enforce a floor on a subset run too.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,18 +32,16 @@ fi
 echo "==> Clearing stale coverage data files from any previous run"
 rm -f "${REPO_ROOT}"/.coverage "${REPO_ROOT}"/.coverage.*
 
-# coverage.py reads [tool.coverage.run] from pyproject.toml, including
-# `patch = ["subprocess"]` (which implies `parallel = true`) — each
-# pytest-xdist worker, and every subprocess a test itself launches
-# (byos_server.py, companion/app.py), writes its own .coverage.* data file; pytest-cov combines them all at
-# the end of the session.
+# coverage.py reads [tool.coverage.run] from pyproject.toml: `patch =
+# ["subprocess"]` (implies parallel=true) makes each xdist worker and
+# subprocess (byos_server.py, companion/app.py) write its own data file;
+# pytest-cov combines them all at session end.
 if [ -z "${COVERAGE_CORE:-}" ]; then
     py_minor="$("${PYTHON}" -c 'import sys; print(1 if sys.version_info >= (3, 12) else 0)')"
     if [ "${py_minor}" = "1" ]; then
-        # Measured by the prior hand-rolled runner (retired 32-13): tracing
-        # overhead essentially vanishes on 3.12+'s sysmon core. Left alone on older
-        # interpreters where sysmon doesn't exist; an explicit
-        # COVERAGE_CORE from the caller always wins over this default.
+        # Tracing overhead is negligible on 3.12+'s sysmon core (measured
+        # by the prior hand-rolled runner). Left off older interpreters;
+        # an explicit COVERAGE_CORE from the caller always wins.
         export COVERAGE_CORE=sysmon
     fi
 fi

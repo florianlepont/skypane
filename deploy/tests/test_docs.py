@@ -1,8 +1,8 @@
-"""deploy/tests/test_docs.py — deploy/README.md corrections (SEC-04, D-06):
-the "fully reproducible" claim is gone, backups/restore are documented,
-the new release-layout deploy flow replaces the old rsync description,
-env ownership matches provision.sh, and every operator example logs in
-as `ubuntu@`, never `root@` (SEC-08, D-08).
+"""deploy/tests/test_docs.py -- deploy/README.md corrections: the "fully
+reproducible" claim is gone, backups/restore are documented, the
+release-layout deploy flow replaces the old rsync description, env
+ownership matches provision.sh, and every operator example logs in as
+`ubuntu@`, never `root@`.
 """
 from pathlib import Path
 

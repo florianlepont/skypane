@@ -3,36 +3,26 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # firmware/provision.sh - writes a fresh, random per-device enrolment
-# secret into the dedicated "secret" NVS partition over USB (D-34-02).
-# The secret authenticates POST /device/v1/setup for this MAC (see
-# stub-server/byos_server.py's registry); it is never the byos bearer
-# token itself and this script never touches the main "nvs" partition
-# (token, image hash, backoff counter, boot counter) unless
-# --reset-device-state is explicitly passed.
-#
+# secret into the "secret" NVS partition over USB. Authenticates POST
+# /device/v1/setup for this MAC; never touches the main "nvs" partition
+# unless --reset-device-state is passed.
+
 # Usage:
 #   firmware/provision.sh <serial-port> [--reset-device-state]
 #   firmware/provision.sh --dry-run <mac>
 #
-# The serial port is REQUIRED and never guessed - find it with
-# `ls /dev/cu.*` before and after plugging the board in (same discipline
-# as flash.sh; flashing the wrong device is not recoverable by re-running
-# this script).
+# The serial port is REQUIRED, never guessed (same discipline as flash.sh).
 #
 # --reset-device-state additionally erases the main "nvs" partition
-# (bearer token, image hash, backoff counter, boot counter, cached DHCP
-# lease) - only pass this when the device should also forget who it
-# thinks it is. Without it, only the "secret" partition is touched.
+# (bearer token, image hash, backoff/boot counters, cached DHCP lease) --
+# only pass this when the device should also forget who it thinks it is.
 #
 # --dry-run <mac> generates a secret and prints the registry line and
-# registration commands without touching any hardware - useful to
-# preview what a real run against that MAC would print. Every dry run
-# (and every real run) generates a NEW secret, so re-running this script
-# for an already-provisioned device means the registry entry must be
-# replaced (hence --replace in the printed commands below).
+# registration commands without touching hardware. Every run (dry or
+# real) generates a NEW secret, so re-running for an already-provisioned
+# device means the registry entry must be replaced (--replace below).
 #
-# Works from any working directory - resolves its own location first,
-# same as build.sh/flash.sh.
+# Works from any working directory: resolves its own location first.
 
 set -eu
 
@@ -212,9 +202,9 @@ fi
 
 # --- 9. Write only the secret partition, verify by read-back ------------
 # parttool.py needs serial access from inside the container, which this
-# project avoids on macOS (see flash.sh's own comment). Writing the single
-# partition's byte range with host esptool, at the offset read from
-# partitions.csv above, is the same non-destructive operation.
+# project avoids on macOS (flash.sh's own comment); writing the single
+# partition's byte range with host esptool at the partitions.csv offset
+# is the same non-destructive operation.
 
 if [ "${DRY_RUN}" -eq 0 ]; then
     echo "Writing secret partition (offset=${SEC_PART_OFFSET}, size=${SEC_PART_SIZE_DEC}) to ${PORT} ..."

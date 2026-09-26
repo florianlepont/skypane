@@ -5,33 +5,20 @@
  * Modified from FlightPortrait (github.com/flightportrait/frame) for
  * SkyPane; the changes are listed in firmware/VENDOR.md. */
 /*
- * SkyPane - wake dispatcher.
- *
- * On every wake: turn on the bring-up LED, arm the whole-wake budget
- * timer and task watchdog, let the panel guard account for elapsed
- * awake/sleep time, init NVS (an unusable NVS sleeps a fixed interval
+ * SkyPane wake dispatcher. On every wake: turn on the bring-up LED, arm
+ * the wake budget timer and watchdog, let the panel guard account for
+ * elapsed time, init NVS (an unusable NVS sleeps a fixed interval
  * instead, nvs_boot.h), increment the boot counter, and classify why
- * the chip last reset. An abnormal reset (panic, either watchdog,
- * brownout, power glitch, CPU lockup) means the previous wake never
- * reached deep sleep on its own, so this wake backs off instead of
- * polling - the radio never starts on that path. A healthy wake reads
- * the battery before Wi-Fi (the radio's own draw sags the pack and
- * couples noise into the ADC), then runs one poll attempt through
- * state_machine.c and lets fp_sleep_decide() turn the result into a
- * sleep plan. Every branch below ends in deep sleep - there is no path
- * out of app_main that does not enter it, because a device that stays
- * awake on an unexpected path is a flat battery (01-SKELETON.md's Sleep
- * Invariant).
- *
- * The failure counter (FP_NVS_BACKOFF_N) is persisted in NVS, not RTC
- * memory: RTC memory survives deep sleep but not power loss or a
- * brownout, and a counter that resets on brownout is exactly the
- * counter that lets a device hot-loop until the battery is flat.
- *
- * Every log line below with tag `skypane` matches the frozen Log Line
- * Contract (firmware/VENDOR.md § Log Line Contract). Their token
- * spelling is a contract, not a style choice. The `fp_boot`- and
- * `fp_diag`-tagged lines are diagnostics outside that contract.
+ * the chip last reset — an abnormal reset backs off without starting
+ * the radio. A healthy wake reads the battery before Wi-Fi (its draw
+ * sags the pack and couples noise into the ADC), runs one poll attempt
+ * through state_machine.c, and lets fp_sleep_decide() turn the result
+ * into a sleep plan. Every branch ends in deep sleep — a device that
+ * stays awake on an unexpected path is a flat battery. The failure
+ * counter (FP_NVS_BACKOFF_N) lives in NVS, not RTC memory, since RTC
+ * survives deep sleep but not a brownout. Every `skypane`-tagged log
+ * line is the frozen Log Line Contract (firmware/VENDOR.md); the
+ * `fp_boot`/`fp_diag`-tagged lines are diagnostics outside it.
  */
 #include <inttypes.h>
 #include <stdbool.h>
@@ -89,7 +76,7 @@ _Static_assert(ESP_ERR_NVS_NEW_VERSION_FOUND == FP_NVS_ERR_NEW_VERSION_FOUND, "n
 
 static const char *TAG = "skypane";
 
-/* Per-stage poll timings for the diagnostic wake-duration line (FW-10).
+/* Per-stage poll timings for the diagnostic wake-duration line.
  * File-scope so fail_and_sleep() (reachable both from fp_poll_once()'s
  * own failure returns and, via on_wake_deadline(), from a budget expiry
  * mid-poll) can log whatever stages actually completed. Zero-initialised
@@ -105,8 +92,8 @@ static fp_wake_cause_t wake_cause_of(esp_sleep_wakeup_cause_t cause)
     case ESP_SLEEP_WAKEUP_EXT0:
     case ESP_SLEEP_WAKEUP_EXT1:
     case ESP_SLEEP_WAKEUP_GPIO:
-        /* No button is wired up yet (DEVICE-01); this case exists so
-         * the log contract's "button" token is exercised by the switch
+        /* No button is wired up yet; this case exists so the log
+         * contract's "button" token is exercised by the switch
          * statement from day one. */
         return FP_WAKE_CAUSE_BUTTON;
     case ESP_SLEEP_WAKEUP_UNDEFINED:
@@ -148,8 +135,7 @@ static void __attribute__((noreturn)) enter_deep_sleep(uint32_t seconds)
      * draw, healthy refresh) funnels through it, so one call here is
      * what covers every path there is. An LED left energised past this
      * point would draw single-digit-to-tens of mA against a
-     * tens-of-µA sleep budget, so this is a hard requirement of
-     * DEVICE-05, not housekeeping. It is deliberately not conditioned on
+     * tens-of-µA sleep budget. It is deliberately not conditioned on
      * any server-supplied preference, because a value that arrives over
      * the network must never be able to hold a pin high through deep
      * sleep. */
@@ -158,7 +144,7 @@ static void __attribute__((noreturn)) enter_deep_sleep(uint32_t seconds)
 }
 
 /* Diagnostic wake-duration line, tag fp_diag, outside the Log Line
- * Contract (FW-10). total_ms is the whole wake so far
+ * Contract. total_ms is the whole wake so far
  * (fp_wake_elapsed_ms()); the per-stage fields are whatever
  * s_timing holds - 0 for a stage this wake never reached. */
 static void log_wake_timing(void)
@@ -171,31 +157,18 @@ static void log_wake_timing(void)
              s_timing.display_ms, s_timing.download_ms, s_timing.draw_ms);
 }
 
-/* Quick task 260924-u7n (DEVICE-06): draws the firmware-local NO
- * CONNECTION hold screen on the 2nd+ consecutive failure of an
- * allow-listed comm/data step - see fault_screen.h for the full design
- * rationale and fp_fault_screen_should_draw()'s exact gate.
- *
- * No new NVS key is needed for the once-per-outage sentinel: reusing
- * FP_NVS_IMAGE_HASH does two jobs at once. First, comparing it against
- * FP_FAULT_SCREEN_HASH before drawing is what suppresses a redraw on
- * every subsequent failing wake during the same outage (T-u7n-01).
- * Second, because FP_FAULT_SCREEN_HASH is never of the "sha256:<64 hex>"
- * shape a real server hash takes (validate.c; T-u7n-04), the first
- * healthy poll after recovery can never mistake it for the server's own
- * hash - state_machine.c's hash-skip compares against whatever value is
- * already in FP_NVS_IMAGE_HASH, and a real server hash will always
- * differ from this sentinel, so the real picture is guaranteed to
- * download and blit on that first healthy wake, not be skipped.
- *
- * fp_panel_draw() may itself light-sleep up to CONFIG_FP_MAX_GUARD_WAIT_S
- * waiting out the panel's refresh spacing (panel_guard.h) - accepted
- * here exactly as it is on the healthy-poll path in state_machine.c.
- *
- * Never calls fp_wake_checkpoint() anywhere in this path: that function
- * can call on_wake_deadline(), which calls fail_and_sleep() again - this
- * helper is only ever reached FROM fail_and_sleep(), so that re-entrancy
- * must never be possible here. */
+/* Draws the firmware-local NO CONNECTION hold screen on the 2nd+
+ * consecutive failure of an allow-listed comm/data step — see
+ * fault_screen.h for the rationale and
+ * fp_fault_screen_should_draw()'s exact gate. No new NVS key is needed
+ * for the once-per-outage sentinel: comparing FP_NVS_IMAGE_HASH against
+ * FP_FAULT_SCREEN_HASH before drawing suppresses a redraw on every
+ * later failing wake of the outage, and since that sentinel is never
+ * shaped like a real server hash, the first healthy poll after
+ * recovery always redraws the real picture rather than skipping it.
+ * Never calls fp_wake_checkpoint() here: that could re-enter
+ * fail_and_sleep() via on_wake_deadline(), and this helper is only
+ * ever reached FROM fail_and_sleep(). */
 static void maybe_draw_fault_screen(const char *step, uint8_t next_backoff_n)
 {
     char last_hash[80] = "";
@@ -340,12 +313,12 @@ void app_main(void)
     ESP_LOGI("fp_boot", "reset reason=%s", fp_reset_label((int)rr));
     if (fp_reset_is_abnormal((int)rr)) {
         /* The previous wake never reached deep sleep on its own - do
-         * not start the radio again until backoff has elapsed (FW-01). */
+         * not start the radio again until backoff has elapsed. */
         fail_and_sleep("reset");
     }
 
     /* Before Wi-Fi: the radio's own current draw sags the pack and
-     * couples noise into the ADC (FW-11, battery.h). */
+     * couples noise into the ADC (battery.h). */
     fp_battery_mv();
 
     fp_wake_checkpoint();

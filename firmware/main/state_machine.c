@@ -26,7 +26,7 @@ static const char *TAG = "skypane";
 /* Shared failure -> Log Line Contract step-token mapping for both
  * fp_api_setup() and fp_api_get_display(): each FP_ERR_* value maps to
  * exactly one token regardless of which call produced it, so the table
- * exists once (FW-14). A value neither call can actually return (e.g.
+ * exists once. A value neither call can actually return (e.g.
  * FP_ERR_HTTP_AUTH from fp_api_setup(), which only ever returns
  * FP_ERR_ENROL_REJECTED for a 401/403) simply never reaches this
  * function from that call site. */
@@ -106,17 +106,13 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     *sleep_s_out = disp.sleep_s;
     fp_wake_checkpoint();
 
-    /* DEVICE-05 bring-up LED toggle: this is the first instruction at
-     * which a server answer exists, and it precedes every downstream
-     * exit (the unchanged-hash early return, the download, the blit,
-     * the deferred-draw return and every failure return below) - so
-     * placing it here is what makes all of those inherit the decision
-     * from one branch. Doing this after the blit instead would leave
-     * the LED lit through the longest part of the wake, which is
-     * exactly the part a server wanting to suppress it would want
-     * suppressed. This call can only ever extinguish the LED earlier
-     * than the unconditional pre-sleep call in app_main.c would - it is
-     * not, and must not become, a substitute for that call. */
+    /* The bring-up LED toggle sits here because this is the first point
+     * a server answer exists, and it precedes every downstream exit
+     * (hash skip, download, blit, deferred-draw, and every failure
+     * return below) — so every exit inherits the decision from this one
+     * branch. This can only ever extinguish the LED earlier than
+     * app_main.c's unconditional pre-sleep call — never a substitute
+     * for it. */
     if (!disp.led_enabled) {
         fp_led_off();
     }

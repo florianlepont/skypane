@@ -1,100 +1,26 @@
 /*
  * SkyPane companion service — theme-preview.js.
  *
- * 30-04-PLAN.md Task 3 (CFG-85): re-scoped from the retired "Frame
- * colours" card (.frame-colours, a colour_usage radiogroup driving
- * JS-toggled usage-panel visibility, plus a scroll-snap carousel with
- * two gated pagers) to the "Aspect" card (.aspect-card, a native
- * details name="aspect-rows" grouped accordion). The accordion
- * needs ZERO script for open/close — a grouped details set is
- * mutually exclusive in the browser by construction — so every
- * carousel/colour_usage-driven function this file used to carry
- * (panel visibility, pagers, scroll-position tracking) is retired
- * outright, not ported forward. What survives is the one thing this
- * file has always actually been for: keeping the live preview <img>
- * in sync with whichever theme chip is checked.
+ * Keeps the Aspect card's live preview <img> in sync with whichever
+ * theme/palette chip is checked (or hovered/focused). The accordion
+ * itself needs no script: a native <details name="aspect-rows">
+ * group is mutually exclusive in the browser by construction. No
+ * build step, ES5-safe subset. Inert on a page with no .aspect-card
+ * (today only Display). Served by companion/app.py's
+ * THEME_PREVIEW_SCRIPT_ROUTE. Never a network call, a timer, or an
+ * HTML-writing DOM sink: the only writes are one <img>'s src
+ * (always from a server-rendered data-preview-src attribute) and a
+ * class-list toggle for the crossfade.
  *
- * D-08/D-12/R-11 (21-CONTEXT.md, 21-UI-SPEC.md §D) originally rewrote
- * this file's own selector/event-delegation strategy so a page-wide
- * single-grid lookup could never silently bind to only the FIRST of
- * several chip grids on the page — every lookup below stays scoped to
- * the one .aspect-card container. Like nav-dropdown.js/
- * battery-trend.js/dirty-state.js/flight-rows.js before it, this file
- * has no build step, no bundler, no framework and no dependency of any
- * kind, and must stay written to an ES5-safe subset (var-only
- * declarations, no arrow functions, no template-literal syntax) so no
- * transpiler is ever needed to ship it. It is served by
- * companion/app.py's THEME_PREVIEW_SCRIPT_ROUTE, mirroring the
- * existing /static/style.css route — the route, the script-src pair
- * and the <script> tag are all unchanged by this rewrite; only this
- * file's own body changes.
+ * No-JS floor: row visibility is native <details> state this file
+ * never writes. A closed row's radios stay in the DOM and participate
+ * in form submission, and <summary> is natively activatable with
+ * scripts blocked, so every row keeps working with this script absent.
  *
- * Standing constraints, not just a description of this version: this
- * file must never introduce a network call, a timer, or any persistent
- * state, and must never use any HTML-writing DOM sink at all, matching
- * the CSP's own "no inline script, no on* attribute" rule (D-32) with
- * this file's own "no markup-building sink" rule. The only DOM write
- * this file ever makes is one <img>'s "src" (always assigned from a
- * server-rendered data-preview-src attribute, never a string this file
- * builds itself) and a class-list toggle on that same <img> for the
- * crossfade — no markup-writing DOM sink of any kind is used anywhere
- * in this file.
- *
- * 30-08-PLAN.md Task 1 (CFG-85): re-checked against the hover/focus-
- * follow listener pair added below — still true. The new listeners
- * read one attribute (data-preview-src, off whichever chip label the
- * pointer/focus walk resolves to) and call applyPreviewSrc() with it,
- * the exact same write sink every other caller in this file already
- * uses; they write nothing else — no checked= write, no dispatchEvent,
- * no .click(), no requestSubmit(), no form-value write, and no "src"
- * write outside applyPreviewSrc(). That governs the hover path too,
- * not only the existing crossfade/change-listener paths.
- *
- * 23-10-PLAN.md Task 2 (D3/CFG-32) changed that src write from
- * the .src PROPERTY to setAttribute("src", …) — the same sink, the same
- * server-rendered value, and the change is load-bearing rather than
- * stylistic: the crossfade below has to compare what is on screen
- * against what was last requested, and reading .src back gives the
- * resolved ABSOLUTE url while every value this file has to compare it
- * with (the server-rendered attribute, and the chips' own
- * data-preview-src) is relative. Comparing those two forms never
- * matches, and a comparison that never matches would fade on every
- * event including the ones that change nothing.
- *
- * This script is served to every page on the site (a single cached
- * static asset, not re-emitted per page). Most pages carry no
- * .aspect-card at all — today only Display does — so the guard below
- * is load-bearing, not defensive noise, matching the project's
- * established convention (nav-dropdown.js/battery-trend.js's own early
- * returns). THIS IS THE MOST DANGEROUS LINE IN THE FILE: the whole IIFE
- * is gated behind it, and getting it wrong makes the entire script a
- * silent no-op on every page — no error, no console warning, no
- * failing check unless one specifically probes the live preview's
- * dynamic behaviour (30-RESEARCH.md Pitfall 5).
- *
- * No-JS floor (CFG-85, locked — STRONGER than the retired card's own
- * claim, not merely re-stated): row visibility is native <details>
- * state this file NEVER WRITES, at any point, for any reason. The
- * retired card's own no-JS floor used to read "the server never emits
- * a hidden attribute on a usage panel" — that claim no longer applies
- * because there is no usage panel any more, and the replacement claim
- * is stronger: a closed row's own radios stay in the DOM and DO
- * participate in form submission, and <summary> is natively
- * activatable by pointer and keyboard with scripts blocked, so a
- * visitor can open any row themselves with zero help from this file. A
- * browser with JavaScript disabled (or this specific script blocked by
- * a stricter CSP directive) simply never runs this file at all, and
- * the accordion, every palette radio and every row all keep working
- * exactly as CFG-85 requires.
- *
- * 22-01-PLAN.md Task 2 (D-01/T8): exposes window.SkyPaneLivePreview, a
- * single small namespace object carrying one function, refresh() —
- * this file's own first and only global. companion/static/dirty-state.js
- * calls it after its Cancel handler's form.reset(), which restores every
- * form=-attached theme radio's checked property natively but fires no
- * change event, so this file's own delegated listener (below) never
- * hears about the reverted selection on its own. refresh() re-derives
- * the open row's own checked chip and re-applies its preview src.
+ * Exposes window.SkyPaneLivePreview.refresh(): dirty-state.js's Cancel
+ * handler calls it after form.reset(), which restores every radio's
+ * checked property natively but fires no change event, so this file's
+ * own delegated listener never hears about the reverted selection.
  */
 (function () {
   "use strict";
@@ -108,29 +34,11 @@
     return;
   }
 
-  // 23-10-PLAN.md Task 2 (D3/CFG-32): the crossfade.
-  //
-  // Every preview swap in this file now goes through applyPreviewSrc()
-  // instead of assigning preview.src directly, so the fade and the swap
-  // can never get out of step: the image fades out, the src is replaced
-  // while it is invisible, and it fades back in once the new frame has
-  // actually arrived. pendingSrc is the ONE piece of state this adds,
-  // and it is the answer to the only way a crossfade goes wrong — a
-  // second click landing mid-fade and the preview settling on the theme
-  // whose load happened to finish last. Every handler below compares
-  // against pendingSrc, so the settled frame is always the most recently
-  // requested one.
-  //
-  // NO TIMER, and that is this file's own standing rule rather than a
-  // preference: a timed crossfade guesses when the fade ended and when
-  // the image arrived, and is wrong on both counts on a slow connection.
-  // transitionend is when the fade-out is genuinely over and the
-  // image's own load/error is when the new frame genuinely is (or will
-  // never be) there. companion/test_companion_app.py bans every
-  // timer primitive in this file outright, by name.
-  //
-  // The class is declared in companion/static/style.css, which also owns
-  // the duration; this file names neither a duration nor an easing.
+  // Every swap goes through applyPreviewSrc(): fade out, replace src
+  // while invisible, fade back in. pendingSrc is compared by every
+  // handler, so a click mid-fade settles on the most recently requested
+  // theme. No timer: transitionend and the image's load/error are the
+  // real signals. Class and duration are declared in style.css.
   var FADE_CLASS = "theme-live-preview__image--swapping";
   var pendingSrc = preview.getAttribute("src");
 
@@ -166,40 +74,23 @@
     }
     pendingSrc = src;
     if (preview.getAttribute("src") === src) {
-      // Already showing it (the load-time call, and any re-selection of
-      // the theme already on screen) - nothing to cross-fade to, and
-      // fading out and back in for no change would be motion with no
-      // information in it.
+      // Already showing it: nothing to cross-fade to.
       endFade();
       return;
     }
     startFade();
-    // THE ONE STALL THIS MACHINE CAN HAVE, CLOSED HERE. Everything
-    // below waits on the fade-out's own transitionend, and a
-    // transitionend only arrives if a transition actually RAN. There are
-    // two ordinary ways it does not:
-    //
-    //   1. The image is already invisible - a previous swap faded it out
-    //      and is still waiting on its load. Adding the class again
-    //      changes nothing, so nothing transitions.
-    //   2. The class was removed and re-added without the browser
-    //      running a style recalculation in between (an image load event
-    //      and a click landing inside the same frame will do it). The
-    //      computed opacity never left 0, so again nothing transitions.
-    //
-    // In both cases there is no fade-out left to wait for, so the swap
-    // happens now instead of never. This was a REAL flake, not a
-    // hypothetical: the Cancel-restore check in
-    // companion/test_browser_ux.py failed once with the preview stuck on
-    // the discarded theme, then passed on a rerun with no code change.
+    // Everything below waits on the fade-out's own transitionend, which
+    // only arrives if a transition actually ran. It does not when the
+    // image is already invisible (a previous swap is still fading, or
+    // the class was removed and re-added with no style recalculation in
+    // between), so if opacity is already 0 the swap happens now instead
+    // of waiting forever.
     if (parseFloat(getComputedStyle(preview).opacity) === 0) {
       swapIfNeeded();
     }
   }
 
-  // The fade-out has finished: the image is invisible, so this is the
-  // moment to replace it. If there is nothing left to swap to (the user
-  // came back to the frame already showing), fade straight back in.
+  // Fade-out finished; if nothing is left to swap to, fade back in.
   preview.addEventListener("transitionend", function (evt) {
     if (evt.propertyName !== "opacity" || !isFading()) {
       return;
@@ -209,9 +100,8 @@
     }
   });
 
-  // The new frame has arrived. If a newer one was requested while this
-  // one was loading, go straight on to it rather than fading in a frame
-  // that is already stale.
+  // New frame arrived; if a newer one was requested meanwhile, go
+  // straight on to it rather than fading in a stale frame.
   function onSettled() {
     if (preview.getAttribute("src") === pendingSrc) {
       endFade();
@@ -224,16 +114,11 @@
   // opacity 0 - an invisible preview is worse than a stale one.
   preview.addEventListener("error", onSettled);
 
-  // 30-04-PLAN.md Task 3 (CFG-85): re-keyed from "a usage panel" to
-  // "any element" — this function already took its container as an
-  // argument and walked input[type="radio"]:checked looking for a
-  // parentNode carrying data-preview-src, which the accordion rebuild
-  // does not change. The currently-effective live-preview source for
-  // one scope: the first checked radio inside it that is actually a
-  // theme/palette chip (carries data-preview-src) — never the first
-  // checked radio overall, since the rules row's own "Match by"
-  // segmented control and the Aspect card's own value input are
-  // checked radios too, with no preview of their own.
+  // The currently-effective live-preview source for one scope: the
+  // first checked radio inside it that is actually a theme/palette chip
+  // (carries data-preview-src) — never the first checked radio overall,
+  // since other checked radios in the card (the rules row's "Match by"
+  // control, the value input) carry no preview of their own.
   function checkedChipSrc(scope) {
     if (!scope) {
       return null;
@@ -252,76 +137,48 @@
     return null;
   }
 
-  // The departures row, by its own locked data-usage value — never a
-  // strip id or a panel-target attribute, both retired with the
-  // carousel/usage-panel markup. Arrivals'/calendar's own leading "Same
-  // as departures" option carries no data-preview-src of its own (D-09:
-  // no fabricated theme-coloured preview for "no override"), so this is
-  // also the fallback source whenever a scope's own checked chip has
-  // none.
+  // The departures row, by its own locked data-usage value. Arrivals'/
+  // calendar's own leading "Same as departures" option carries no
+  // data-preview-src, so this is also the fallback source whenever a
+  // scope's own checked chip has none.
   function departuresRow() {
     return card.querySelector('details.usage-row[data-usage="departures"]');
   }
 
-  // 30-04-PLAN.md Task 3 (CFG-85): the card's own currently-open row.
-  // <details name="aspect-rows"> is a native, browser-enforced
-  // mutually-exclusive group, so at most one row is ever open — but a
-  // visitor can legitimately close the one open row, leaving NONE open
-  // for a moment, and a null read here must not throw. Falls back to
-  // the departures row in that case, matching the server's own default
-  // (row 1 ships open).
+  // The card's currently-open row. A visitor can legitimately close the
+  // one open row, leaving none open, so this falls back to departures
+  // (the server's own default).
   function openRow() {
     return card.querySelector("details.usage-row[open]") || departuresRow();
   }
 
-  // 22-01-PLAN.md Task 2 (D-01/T8): re-derives the open row's own
-  // checked chip and re-applies its preview src from the CURRENT DOM
-  // state - the one entry point dirty-state.js's Cancel handler calls
-  // after form.reset(), since reset() restores every radio's checked
-  // property natively but fires no change event, so this file would
-  // otherwise never hear that a selection just reverted. Exposed as the
-  // file's own one new global, a small namespace object rather than a
-  // bare function, matching this codebase's "no stray globals"
-  // discipline while still giving another script a named, stable entry
-  // point to call.
+  // Re-derives the open row's own checked chip and re-applies its
+  // preview src from the current DOM state — the entry point
+  // dirty-state.js's Cancel handler calls after form.reset(), since
+  // reset() restores every radio's checked property natively but fires
+  // no change event.
   function refreshFromCurrentState() {
     applyPreviewSrc(checkedChipSrc(openRow()) || checkedChipSrc(departuresRow()));
   }
   window.SkyPaneLivePreview = { refresh: refreshFromCurrentState };
 
-  // Settle the preview on the saved theme at first paint — the direct
-  // replacement for the retired "collapse three of four panels at
-  // load" call. There is nothing to collapse any more (the accordion is
-  // native, closed-by-default state, never a class this file adds), but
-  // the preview still needs to agree with whichever row/chip the server
-  // rendered as checked.
+  // Settle the preview on the saved theme at first paint, so it agrees
+  // with whichever row/chip the server rendered as checked.
   refreshFromCurrentState();
 
   // One delegated listener on the card container, never one per radio
-  // or per chip (a single row can carry a full THEME_IDS-sized palette)
-  // — matching this file's own pre-existing event-delegation idiom, now
-  // scoped to the card rather than to a single global grid.
-  //
-  // 30-04-PLAN.md Task 3 (CFG-85): widened to recognise palette-chip
-  // IN ADDITION TO theme-chip — palette-chip is the new control
-  // (departures/arrivals/calendar rows), and theme-chip still exists
-  // on this page inside the rule-add form's own compact grid, whose
-  // radios already moved the preview today. Preserving that
-  // deliberately: this plan changes the Aspect tile's structure and
-  // must not silently change an unrelated behaviour as a side effect.
+  // or per chip, since a single row can carry a full palette of chips.
   card.addEventListener("change", function (evt) {
     var input = evt.target;
     if (!input || input.type !== "radio") {
       return;
     }
-    // config_page._palette_chip_html()/_theme_chip_grid_html() both wrap
-    // each real chip's radio directly in its own <label class=
-    // "palette-chip ..."> / <label class="theme-chip ...">, which is
-    // where the server renders data-preview-src — the input's own
-    // parentNode is that label in both markup shapes. A checked radio
-    // whose parentNode carries neither class at all (the rules row's
-    // own "Match by" segmented control, whose radio and label are
-    // SIBLINGS, not parent/child) is never treated as a chip click here.
+    // The server wraps each real chip's radio directly in its own
+    // label, where data-preview-src is rendered — the input's own
+    // parentNode is that label. A checked radio whose parentNode
+    // carries neither chip class (the "Match by" segmented control,
+    // whose radio and label are siblings, not parent/child) is never
+    // treated as a chip click here.
     var chip = input.parentNode;
     if (!chip || !chip.getAttribute) {
       return;
@@ -332,36 +189,17 @@
       || className.indexOf("palette-chip") !== -1);
     var src = chip.getAttribute("data-preview-src");
     if (!src && isChip) {
-      // The empty-data-preview-src fallback: the leading "Same as
-      // departures" option carries none, and its effective preview is
-      // the departures row's own checked chip.
+      // "Same as departures" carries no src of its own.
       src = checkedChipSrc(departuresRow());
     }
     applyPreviewSrc(src);
   });
 
-  // 30-08-PLAN.md Task 1 (CFG-85): the one genuinely new interaction
-  // this file adds. The old carousel followed SCROLL position, which
-  // has no "leaving" — scrolling away from a chip has no opposite
-  // event. Hover and focus are a different shape entirely: both have a
-  // real exit (mouseout/focusout), and the exit needs somewhere to go
-  // back to (30-RESEARCH.md Pitfall 4). Delegated on the card, never
-  // one pair per chip — a single row can carry a full THEME_IDS-sized
-  // palette, and binding 18+ listeners per row is exactly what
-  // delegation exists to avoid.
-  //
-  // mouseover/mouseout, not mouseenter/mouseleave: the latter do not
-  // bubble, so a delegated listener on the card could never see them.
-  // Same reasoning rules out pointerenter/pointerleave.
-  //
-  // Walks from the event target up to (but not including) the card,
-  // mirroring the walk-up-by-parentNode idiom
-  // companion/static/flight-rows.js already uses for its own delegated
-  // listener, rather than inventing a second resolution style. Only a
-  // real chip label ever carries data-preview-src (D-24) — the leading
-  // "Same as departures" option and every other element in the card
-  // carry none, so a walk that finds nothing is the correct "not a
-  // chip" signal, not an error.
+  // Hover/focus preview, delegated on the card. mouseover/mouseout, not
+  // mouseenter/mouseleave, since the latter do not bubble and a
+  // delegated listener could never see them. Walks up from the event
+  // target to the card; a walk that finds no data-preview-src means
+  // "not a chip", not an error.
   function resolveChipPreviewSrc(node) {
     while (node && node !== card) {
       if (node.getAttribute) {
@@ -375,10 +213,8 @@
     return null;
   }
 
-  // A mouseover/focusin that resolves to no chip is a no-op, never a
-  // preview change — hovering the "Same as departures" option, the
-  // summary chevron, or empty grid padding must not disturb the
-  // preview at all.
+  // Resolving to no chip is a no-op: hovering the summary chevron or
+  // empty grid padding must not disturb the preview.
   function previewHoveredOrFocusedChip(evt) {
     var src = resolveChipPreviewSrc(evt.target);
     if (src) {
@@ -386,20 +222,11 @@
     }
   }
 
-  // Reverts to the OPEN row's own checked chip (falling back to
-  // departures when that row's own checked option is the leading "Same
-  // as departures" radio, which carries no data-preview-src of its
-  // own) — computed fresh on every revert, never cached at load, since
-  // the checked selection changes under this script's feet whenever a
-  // visitor clicks one.
-  //
-  // Only reverts when evt.relatedTarget (the element the pointer/focus
-  // is moving TO) resolves to no chip of its own. This is what makes
-  // hovering from one chip straight to a sibling chip preview the
-  // sibling without flashing back to the checked selection in between:
-  // the outgoing mouseout/focusout fires first, sees the incoming
-  // target is itself a chip, and does nothing, leaving the very next
-  // mouseover/focusin (on that sibling) to apply its own src instead.
+  // Reverts to the open row's own checked chip, computed fresh on every
+  // revert since the checked selection changes under this script's
+  // feet. Only reverts when evt.relatedTarget resolves to no chip of
+  // its own, so hovering from one chip straight to a sibling previews
+  // the sibling without flashing back to the checked selection first.
   function revertUnlessMovingToAnotherChip(evt) {
     if (!resolveChipPreviewSrc(evt.target)) {
       return;
@@ -415,8 +242,6 @@
   card.addEventListener("mouseout", revertUnlessMovingToAnotherChip);
   card.addEventListener("focusout", revertUnlessMovingToAnotherChip);
 
-  // No DOMContentLoaded wrapper is needed: the <script> tag
-  // companion/layout.py's page_shell() emits carries the defer
-  // attribute, so this file only ever runs after parsing. Do not add
-  // one later.
+  // No DOMContentLoaded wrapper needed: the <script> tag carries defer,
+  // so this file only ever runs after parsing.
 })();

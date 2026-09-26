@@ -49,7 +49,7 @@ void fp_fault_inject_point(void)
     ESP_LOGE(TAG, "SKYPANE-FAULT-INJECT %s", FP_FAULT_NAME);
 
 #if CONFIG_SKYPANE_FAULT_INJECT_PANIC
-    /* Verifies FW-01's reset classification: the next boot's
+    /* Verifies the reset classification: the next boot's
      * esp_reset_reason() must read ESP_RST_PANIC and back off instead
      * of polling. */
     abort();
@@ -70,7 +70,7 @@ void fp_fault_inject_point(void)
     /* Keeps making progress (feeding the watchdog, checkpointing) past
      * every legitimate wake's duration, so only CONFIG_SKYPANE_WAKE_
      * BUDGET_S's deadline — not the 60 s task watchdog — ends this wake,
-     * verifying FW-02's `step=deadline` path. fp_wake_checkpoint()'s
+     * verifying the `step=deadline` path. fp_wake_checkpoint()'s
      * on_expired callback is noreturn, so this loop never falls through. */
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(1000));

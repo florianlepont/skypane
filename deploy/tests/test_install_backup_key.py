@@ -1,10 +1,9 @@
-"""deploy/tests/test_install_backup_key.py — deploy/backup/install-backup-key.sh
-(SEC-04, D-05), run as a real subprocess against a tmp BACKUP_HOME with
+"""deploy/tests/test_install_backup_key.py -- deploy/backup/install-backup-key.sh,
+run as a real subprocess against a tmp BACKUP_HOME with
 SKYPANE_KEY_ALLOW_NONROOT=1 and a stub `chown` on PATH (the script's only
-external command that needs real root). Also carries the text checks for
-the SKYPANE_OFFBOX_MARKER doc block in deploy/skypane.env.example and the
-CI shellcheck step in .github/workflows/ci.yml (37-RESEARCH.md CP-8,
-SEC-04 D-07).
+external command that needs real root). Also carries the checks for the
+SKYPANE_OFFBOX_MARKER doc block in deploy/skypane.env.example and the CI
+shellcheck step in .github/workflows/ci.yml.
 """
 import os
 import subprocess
@@ -16,6 +15,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _SCRIPT = _REPO_ROOT / "deploy" / "backup" / "install-backup-key.sh"
 _ENV_EXAMPLE = _REPO_ROOT / "deploy" / "skypane.env.example"
 _CI_YML = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
+_PROVISION_SH = _REPO_ROOT / "deploy" / "provision.sh"
 
 _VALID_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyDataForTesting123 skypane-backup-pull@mac"
 _VALID_KEY_2 = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDifferentKeyData456789012 other@mac"
@@ -135,9 +135,12 @@ def test_env_example_documents_offbox_marker():
 
 
 def test_env_example_header_says_root_owned_600_read_by_systemd():
-    text = _ENV_EXAMPLE.read_text()
-    assert "root:root" in text
-    assert "0600" in text or "600" in text
+    # The env file's root:root 0600 permissions are set by deploy/provision.sh
+    # on the VPS, not by anything in this repo's env.example template, so this
+    # checks the actual permission-setting code path rather than a comment.
+    text = _PROVISION_SH.read_text()
+    assert "chown root:root" in text
+    assert "chmod 600" in text
 
 
 def test_ci_yml_shellchecks_deploy_scripts():

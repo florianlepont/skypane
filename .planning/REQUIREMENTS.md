@@ -145,12 +145,12 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **FW-13**: Use `fp_api_base_normalize` or delete; delete dead code; drop orphan symbols; rollback disabled until OTA exists
 - [x] **FW-14**: One helper each
 - [x] **FW-15**: Derived from `git describe`
-- [ ] **HYG-01**: Keep what the code does, the *why* and invariants; drop plan/ticket history
-- [ ] **HYG-02**: Same purge in CSS and JS
-- [ ] **HYG-03**: Same purge
+- [x] **HYG-01**: Keep what the code does, the *why* and invariants; drop plan/ticket history
+- [x] **HYG-02**: Same purge in CSS and JS
+- [x] **HYG-03**: Same purge
 - [x] **HYG-04**: English-only rule for code, comments, docs and commits in CLAUDE.md and CONTRIBUTING.md
 - [x] **HYG-05**: Deleted
-- [ ] **HYG-06**: Lint guard in CI rejecting plan/ticket IDs in comments (e.g. `\d{2}-\d{2}-PLAN`, `D-\d+`, `WR-\d+`)
+- [x] **HYG-06**: Lint guard in CI rejecting plan/ticket IDs in comments (e.g. `\d{2}-\d{2}-PLAN`, `D-\d+`, `WR-\d+`)
 - [ ] **INT-01**: `fcntl.flock` on `state/poll.lock` around `run_once`
 - [ ] **INT-02**: One `atomic_write(path, data)` with unique temp names
 - [ ] **INT-03**: Thread lock + flock
@@ -395,12 +395,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FW-13 | Phase 34 | Complete |
 | FW-14 | Phase 34 | Complete |
 | FW-15 | Phase 34 | Complete |
-| HYG-01 | Phase 35 | In progress (server group done) |
-| HYG-02 | Phase 35 | Pending |
-| HYG-03 | Phase 35 | Pending |
+| HYG-01 | Phase 35 | Complete |
+| HYG-02 | Phase 35 | Complete |
+| HYG-03 | Phase 35 | Complete |
 | HYG-04 | Phase 35 | Complete |
 | HYG-05 | Phase 35 | Complete |
-| HYG-06 | Phase 35 | In progress (guard live; pending list removed by 35-22) |
+| HYG-06 | Phase 35 | Complete |
 | INT-01 | Phase 36 | Pending |
 | INT-02 | Phase 36 | Pending |
 | INT-03 | Phase 36 | Pending |

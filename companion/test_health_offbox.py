@@ -1,18 +1,14 @@
-"""companion/test_health_offbox.py — SEC-04/D-07/D-23 (37-02-PLAN.md):
-the companion Health page's off-box backup freshness card.
+"""Tests the companion Health page's off-box backup freshness card.
 
-Native pytest (Phase 32's conftest.py fixtures and no-network socket
-guard apply automatically to this module) — the same shape
-companion/test_login_throttle.py established as the first native
-pytest test module under companion/ (37-01-PLAN.md).
+Native pytest (conftest.py fixtures and the no-network socket guard
+apply automatically to this module) — the same shape
+companion/test_login_throttle.py established.
 
 Section 1 covers offbox_backup_status() (the marker reader) in
 isolation. Section 2 covers the severity/anomaly wiring
 (overall_severity()/collect_anomalies()) in isolation. Section 3
 covers compute_health_state() end to end against a real (empty)
-state directory. Section 4 (Task 2) covers the rendered off-box
-backup card, once companion/pages/health_page.py grows
-_offbox_section_html().
+state directory. Section 4 covers the rendered off-box backup card.
 """
 import os
 import sys
@@ -108,7 +104,7 @@ def test_offbox_backup_status_huge_file_warns(monkeypatch, tmp_path):
 
 
 def test_offbox_backup_status_reads_env_every_call_not_cached(monkeypatch, tmp_path):
-    # D-23 fail-closed contract: the marker path must never be resolved
+    # Fail-closed contract: the marker path must never be resolved
     # once at import time — a test (or a systemd unit reload) that
     # changes the env var between two calls must see the change.
     monkeypatch.delenv(OFFBOX_ENV_VAR, raising=False)

@@ -1,8 +1,6 @@
-"""The ONE shared companion/app.py test-server implementation (33-02-PLAN.md,
-TST-10). Every companion test that used to build its own copy of
-`Harness`, `_InProcessHarness`, `http_request` or `_NoRedirectHandler`
-(companion/test_companion_app.py, test_config_page.py, test_status_pages.py,
-test_view_pages.py) now gets the same behaviour from `companion/conftest.py`'s
+"""The ONE shared companion/app.py test-server implementation. Every
+companion test that needs `Harness`-shaped behaviour (`_InProcessHarness`,
+`http_request`, `_NoRedirectHandler`) gets it from `companion/conftest.py`'s
 fixtures, which are all built on this module.
 
 Stdlib-only, plus `skypane_test_support` (`child_env`, `FakeProviders`) and

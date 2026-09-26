@@ -1,8 +1,8 @@
-"""deploy/tests/test_backup_gate.py -- the forced-command gate (SEC-04,
-D-05, D-25). Runs deploy/backup/backup_gate.py as a real subprocess (the
-gate itself runs under /usr/bin/python3 outside the venv, via sshd's
-`command=`) with SSH_ORIGINAL_COMMAND set the way sshd would set it, so
-this test exercises the exact argv/env contract, not an in-process import.
+"""deploy/tests/test_backup_gate.py -- the forced-command gate. Runs
+deploy/backup/backup_gate.py as a real subprocess (the gate itself runs
+under /usr/bin/python3 outside the venv, via sshd's `command=`) with
+SSH_ORIGINAL_COMMAND set the way sshd would set it, so this test
+exercises the exact argv/env contract, not an in-process import.
 """
 import hashlib
 import os

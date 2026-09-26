@@ -1,32 +1,24 @@
 #!/bin/sh
-# Containerised ESP-IDF v5.3.1 build for the EE02 board profile - no host
-# toolchain install required (01-RESEARCH.md Pitfall 4: `idf.py --version`
-# answers happily on a broken host Python environment, and only a real
-# build is evidence the toolchain works).
+# Containerised ESP-IDF v5.3.1 build for the EE02 board profile -- no
+# host toolchain install required, and only a real build proves the
+# toolchain works.
 #
-# This script covers BUILD only. Flashing over USB is deliberately left to
-# flash.sh and runs natively on the host, because Docker Desktop's USB
-# serial passthrough on macOS is unreliable.
-#
-# Usage:
-#   ./build.sh                                    # production build (default)
-#   ./build.sh fullclean                          # any idf.py subcommand may be passed through
-#   SKYPANE_PROFILE=dev ./build.sh                # dev build, http allowed, separate build dir
-#   SKYPANE_PROFILE=dev SKYPANE_FAULT=panic ./build.sh   # dev build with a fault-injection hook compiled in
+# Build only: flash.sh runs natively on the host (Docker Desktop's macOS
+# USB passthrough is unreliable), so build.sh stays containerised.
+
+# Usage: ./build.sh [idf.py-subcommand]
+#   SKYPANE_PROFILE=dev ./build.sh              # dev build, http allowed
+#   SKYPANE_PROFILE=dev SKYPANE_FAULT=panic ./build.sh   # bench fault hook
 #
 # SKYPANE_PROFILE: prod (default) | dev. dev uses its own build directory
-# (build-ee02-dev) and layers sdkconfig.dev.defaults (CONFIG_SKYPANE_ALLOW_HTTP=y)
-# on top of the production defaults, so a dev image can never be confused
-# with, or accidentally reused as, a production one.
+# and layers sdkconfig.dev.defaults (CONFIG_SKYPANE_ALLOW_HTTP=y), so a
+# dev image can never be confused with a production one.
 #
-# SKYPANE_FAULT: none (default) | panic | task_wdt | int_wdt | slow_wake | nvs.
-# Selects one SKYPANE_FAULT_INJECT_* Kconfig choice for bench verification
-# of the reset/backoff and deadline paths. Refused outside SKYPANE_PROFILE=dev
-# - a production image can never carry a fault hook.
+# SKYPANE_FAULT: none (default) | panic | task_wdt | int_wdt | slow_wake |
+# nvs -- selects one fault-injection Kconfig choice for bench verification.
+# Refused outside SKYPANE_PROFILE=dev; a production image can never carry one.
 #
-# Works from any working directory - the script resolves its own location
-# first, so `./build.sh`, `firmware/build.sh` and `bash build.sh` from
-# inside firmware/ all behave the same way.
+# Works from any working directory: resolves its own location first.
 
 set -eu
 

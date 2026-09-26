@@ -1,5 +1,5 @@
 """deploy/tests/test_mac_pull.py -- the Mac-side pull script and its
-launchd installer (SEC-04, D-04). Runs both POSIX sh scripts as real
+launchd installer. Runs both POSIX sh scripts as real
 subprocesses under /bin/sh (dash on Linux, which enforces POSIX - the
 same shell class the scripts are written for; macOS's own /bin/sh is
 also a POSIX-only, non-bash shell). A fake `ssh` placed first on PATH

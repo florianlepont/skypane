@@ -1,56 +1,9 @@
-"""Part 02 of the `companion/test_status_pages.py` migration chain
-(33-26-PLAN.md): the original harness's `check()` calls #38-#85 — the
-remainder of Section 1: `battery_sparkline_svg()`'s axis-label/flat-
-series/wiggle/clamp/density/area/mark/low-battery-threshold contract,
-the 24-07-PLAN.md check-in regularity grid (`companion/draw.py`'s
-`cell_class()`/`regularity_grid()`, Health's own regularity caption and
-its "moved, not cut" clauses), the daily-mode sparkline date/average-
-label contract, the D-05/B4 Paris-local-time sweep (axis clock/day
-labels, the sparkline point's title/aria-label/data-when agreement,
-`battery-trend.js`'s absence of client-side date math, `concise_
-timestamp_html()`'s title), the D-03/A-21 Device/Pipeline/Corroboration
-tile verdicts, the X8/C1 one-tile-anatomy sweep (including the compact
-`empty_state()` variant), the D-06/B16 resolution-rate singular form,
-and the B2 never-ran-pipeline neutral state.
+"""Companion status-page tests: battery_sparkline_svg()'s axis/label/density
+contract, the check-in regularity grid, tile verdicts, and Paris-local-time
+and resolution-rate copy.
 
-Three checks in this slice read production source/CSS from disk in the
-legacy harness (TST-12 rubric C/S) and are ported here against SERVED
-bytes instead:
-
-- `_sparkline_scale_bounded_at_one_across_real_container_widths()`'s and
-  `_sparkline_area_sits_under_the_line_in_its_own_nested_viewbox()`'s raw
-  `style.css` reads become `declarations_for()`/`rules_with_selector()`/
-  `css_rules()` calls against the stylesheet `companion/app.py` actually
-  serves (the `css_text` fixture, a single module-scoped read-only
-  server — none of the checks below mutate server state).
-- `_battery_trend_js_has_no_client_side_date_math()`'s raw `battery-
-  trend.js` read becomes `served_asset()` against the same server (the
-  `battery_trend_js` fixture).
-- `_sparkline_low_battery_threshold_is_read_from_battery_py_and_labelled()`'s
-  `open(health_page.__file__).read()` — proving the millivolt threshold
-  is never re-typed into `health_page.py`'s own source — is dropped
-  entirely (TST-12 rubric S: a source-text assertion with no observable
-  rendered consequence; the check's remaining assertions, that the
-  threshold's VALUE and placement come from `companion/battery.py`, are
-  unaffected and still ported).
-- `_every_cell_verdict_is_the_classifiers_own_output()`'s
-  `inspect.getsource(fn)` sweep for forbidden interval-arithmetic tokens
-  is dropped for the same reason (rubric S); the check's own
-  `fn.__code__.co_names` sweep — a real reuse proof, not a source-text
-  read — is kept.
-
-Per-case loops become `@pytest.mark.parametrize` tests, one node id per
-case: the Device/Pipeline/Corroboration tile severities, the "Only one
-saw it" language pair, the seeded/fresh tile-anatomy sweep, the four
-check-in-disclosure cases, and the resolution-rate singular/plural
-matrix (whose own trailing French-catalogue-entry assertion becomes its
-own small test, `test_resolution_detail_templates_have_french_catalogue_entries`,
-so the parametrised test keeps one node id per seeded case).
-
-Every check in this module calls `companion.pages.health_page`/
-`companion.draw`/`companion.wake`/`companion.layout` directly, in-process,
-except the three CSS/JS checks above, which need a running `companion/
-app.py` only to fetch what it serves.
+CSS/JS checks fetch served bytes from a running companion/app.py; everything
+else calls health_page/draw/wake/layout directly, in-process.
 """
 import re
 from datetime import datetime, timedelta
@@ -148,7 +101,7 @@ def test_sparkline_axis_labels_present_with_fixed_range():
     """battery_sparkline_svg() emits exactly four aria-hidden axis-label text
     nodes carrying the FIXED SPARKLINE_Y_MIN_MV/SPARKLINE_Y_MAX_MV values (not
     the fixture's own real min/max), with every prior no-external-reference
-    guarantee intact (D-09, retargeted by 19-05-PLAN.md Task 2/D-04)"""
+    guarantee intact"""
     rows = [
         {"ts": "2024-01-01T08:00:00", "battery_mv": 4200},
         {"ts": "2024-01-01T09:00:00", "battery_mv": 3850},
@@ -192,7 +145,7 @@ def test_sparkline_axis_labels_present_with_fixed_range():
 def test_sparkline_flat_series_draws_flat_not_pinned_to_bottom():
     """battery_sparkline_svg() draws a flat series (every value identical) at
     one consistent y level, never pinned to the canvas edge by a collapsed
-    min==max range (19-05-PLAN.md Task 2/D-04, A-22)"""
+    min==max range"""
     rows = [{"ts": "t%d" % i, "battery_mv": 3800} for i in range(4)]
     svg = health_page.battery_sparkline_svg(rows)
     ys = _extract_point_ys(svg)
@@ -204,7 +157,7 @@ def test_sparkline_flat_series_draws_flat_not_pinned_to_bottom():
 def test_sparkline_small_wiggle_stays_small_not_a_cliff():
     """battery_sparkline_svg() draws a small (15mV) wiggle as a small y
     movement, well under a tenth of the fixed range's full excursion — not a
-    cliff spanning the whole canvas (19-05-PLAN.md Task 2/D-04, A-22)"""
+    cliff spanning the whole canvas"""
     rows = [
         {"ts": "t0", "battery_mv": 3800},
         {"ts": "t1", "battery_mv": 3785},
@@ -225,7 +178,7 @@ def test_sparkline_small_wiggle_stays_small_not_a_cliff():
 def test_sparkline_out_of_range_values_clamp_not_rescale():
     """battery_sparkline_svg() clamps out-of-range values (2500mV, 4500mV) to
     the canvas edge rather than escaping it or rescaling the fixed axis
-    labels (19-05-PLAN.md Task 2/D-04)"""
+    labels"""
     # `rows` is newest-first (battery_trend_rows()'s own ordering);
     # battery_sparkline_svg() plots chronologically (oldest first), so the
     # 2500mV reading (oldest here) becomes the LEFTMOST point.
@@ -255,7 +208,7 @@ def test_sparkline_out_of_range_values_clamp_not_rescale():
 def test_sparkline_dense_threshold_is_width_derived():
     """_sparkline_dense_threshold() derives a different threshold for
     different canvas widths, proving the density rule is width-derived
-    rather than a typed constant (19-05-PLAN.md Task 2/D-04)"""
+    rather than a typed constant"""
     narrow = health_page._sparkline_dense_threshold(226)
     wide = health_page._sparkline_dense_threshold(900)
     assert narrow != wide, "expected two different canvas widths to derive two different thresholds"
@@ -271,8 +224,7 @@ def test_sparkline_scale_bounded_at_one_across_real_container_widths(css_text):
     with strictly increasing chronological marker x-positions, marker/hit-
     target radii stay the unchanged absolute 3/8, and the served stylesheet
     declares the canvas height exactly once for this selector and never
-    inside a @media block (quick task 260902-ep7 BUG 4, rewritten in place
-    from 260902-dng's retired scale-bound mechanism)"""
+    inside a @media block"""
     rows = [
         {"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4000 + i * 40}
         for i in range(5)]
@@ -301,8 +253,8 @@ def test_sparkline_scale_bounded_at_one_across_real_container_widths(css_text):
         "expected strictly increasing, distinct marker x-positions (chronological order), got %r"
         % marker_xs)
 
-    # 24-05-PLAN.md Task 2 (CFG-41): every radius is an ABSOLUTE pixel value
-    # that no container width can scale — the newest point is a mark rather
+    # Every radius is an ABSOLUTE pixel value that no container width can
+    # scale — the newest point is a mark rather
     # than a cosmetic dot, so the 5-point fixture draws 4 dots at r=3, 1
     # mark at its own named radius, and 5 unchanged r=8 hit targets. The
     # hit-target radius in particular is asserted unchanged here: nothing
@@ -343,7 +295,7 @@ def test_sparkline_area_sits_under_the_line_in_its_own_nested_viewbox(css_text):
     line, in currentColor at a translucent fill-opacity, with the outer
     canvas still carrying no viewBox, no url(/image/script reference, no
     colour literal, no rule of its own for the layer, and nothing at all
-    below two points (CFG-41/CFG-45, 24-05-PLAN.md Task 1)"""
+    below two points"""
     rows = [
         {"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4000 + i * 40}
         for i in range(5)]
@@ -398,8 +350,8 @@ def test_sparkline_area_sits_under_the_line_in_its_own_nested_viewbox(css_text):
         "expected the baseline corners to span exactly the plotted x range (newest then oldest), "
         "got %r and %r" % (vertices[5], vertices[6]))
 
-    # D-09's no-external-reference guarantee, re-asserted AT the area: a
-    # flat translucent fill instead of url(#gradient). No colour value is
+    # The no-external-reference guarantee, re-asserted AT the area: a flat
+    # translucent fill instead of url(#gradient). No colour value is
     # introduced either — the fill is currentColor in CSS.
     for forbidden in ("url(", "<image", "<script"):
         assert forbidden not in svg, "found forbidden %r in the sparkline SVG after adding the area" % forbidden
@@ -437,7 +389,7 @@ def test_sparkline_marks_the_newest_plotted_point_not_the_newest_row():
     a named radius that fits the canvas's vertical inset, last in document
     order, carrying the same timestamp its hit target does, leaving the
     roving-tabindex path byte-identical, and surviving the density rule that
-    suppresses cosmetic dots (CFG-41, 24-05-PLAN.md Task 2)"""
+    suppresses cosmetic dots"""
     # The fixture's newest row deliberately carries NO battery_mv: a mark
     # derived from the raw rows would mark a row the chart never plotted.
     # The mark must come from the SAME single-pass filtered pair list the
@@ -518,8 +470,7 @@ def test_sparkline_low_battery_threshold_is_read_from_battery_py_and_labelled(cs
     companion/battery.py, labelled by meaning in a non-aria-hidden <span>
     outside the canvas in both languages, painted with the status-warn
     token the legend's own swatch shares, and absent entirely — line and
-    label — when the value falls outside the chart's fixed range (CFG-41,
-    T-24-05-A/B, 24-05-PLAN.md Task 2)"""
+    label — when the value falls outside the chart's fixed range"""
     rows = [
         {"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4000 + i * 40}
         for i in range(5)]
@@ -571,8 +522,7 @@ def test_sparkline_low_battery_threshold_is_read_from_battery_py_and_labelled(cs
     assert fr_text != legend_text, "expected a French translation of the threshold legend, got the English string %r" % fr_text
 
     # Out of range: no line, and no label for a line that is not there.
-    # 24-01 chose a value strictly inside the range on purpose — this
-    # guards a later change, not today's value.
+    # This guards a later change to the threshold, not today's value.
     for bad in (health_page.SPARKLINE_Y_MIN_MV - 100, health_page.SPARKLINE_Y_MIN_MV,
                 health_page.SPARKLINE_Y_MAX_MV + 100):
         monkeypatch.setattr(battery, "LOW_BATTERY_DISPLAY_MV", bad)
@@ -593,12 +543,11 @@ def test_sparkline_low_battery_threshold_is_read_from_battery_py_and_labelled(cs
 
 
 # ==========================================================================
-# 24-07-PLAN.md Task 1 (CFG-43): the check-in regularity grid
+# The check-in regularity grid
 #
 # THESE FOUR TESTS COVER companion/draw.py, NOT A PAGE, and they live here
-# rather than in companion/test_companion_app.py for the same reason
-# 33-25-PLAN.md's own header explains: the plan that migrated them names
-# this harness, not that one.
+# rather than in companion/test_companion_app.py because this harness, not
+# that one, is where their migration landed.
 # ==========================================================================
 
 
@@ -607,8 +556,7 @@ def test_regularity_grid_has_four_states_and_never_conflates_them():
     DISTINCT classes, all of them in DRAWING_CLASSES, and falls to the
     no-observation class for anything else — so a bucket with no
     observation can never emit the on-cadence or the missing class — and
-    regularity_grid() raises rather than emitting a cell with no <title>
-    (CFG-43, T-24-07-A, 24-07-PLAN.md Task 1)"""
+    regularity_grid() raises rather than emitting a cell with no <title>"""
     states = (wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE,
               wake.CHECK_IN_MISSING, wake.CHECK_IN_UNKNOWN)
     classes = [draw.cell_class(state) for state in states]
@@ -651,8 +599,7 @@ def test_regularity_grid_cells_are_sized_from_the_360px_floor():
     cells still clear the 24px minimum and one more column would not, a
     narrower card reduces the columns rather than the cells, every cell is
     square, inside the viewBox, spread across every column and row with
-    exactly CELL_GAP_PX of clear ground, and no colour literal is emitted
-    (CFG-43, CFG-45, T-24-07-D, 24-07-PLAN.md Task 1)"""
+    exactly CELL_GAP_PX of clear ground, and no colour literal is emitted"""
     width = draw.CARD_DRAWING_WIDTH_PX
     columns = draw.grid_columns(width)
     size = draw.grid_cell_size(width, columns)
@@ -717,7 +664,7 @@ def test_regularity_grid_is_bounded_and_keeps_the_newest_buckets():
     and never by the caller's window — at capacity it keeps the NEWEST
     buckets, reports exactly how many it dropped, and paints none of the
     dropped verdicts — while one cell still draws one full-size cell and no
-    cells draw nothing (CFG-43, T-24-07-D, 24-07-PLAN.md Task 1)"""
+    cells draw nothing"""
     columns = draw.grid_columns(draw.CARD_DRAWING_WIDTH_PX)
     capacity = columns * draw.GRID_MAX_ROWS
     cells = [(wake.CHECK_IN_ON_CADENCE, "day %03d" % i) for i in range(capacity + 17)]
@@ -751,7 +698,7 @@ def test_regularity_grid_is_bounded_and_keeps_the_newest_buckets():
 def test_draw_cell_vocabulary_is_the_classifiers_own():
     """draw.CELL_STATE_CLASSES is keyed on EXACTLY wake.classify_check_in_gap()'s
     own four CHECK_IN_* values — the one coupling a stdlib-only geometry
-    module cannot express as an import (CFG-43, 24-07-PLAN.md Task 1)"""
+    module cannot express as an import"""
     # draw.py is stdlib-only and may not import the server package, so the
     # four verdict strings are re-typed there by necessity. This is what
     # stops that necessity becoming a drift: rename a CHECK_IN_* value in
@@ -765,7 +712,7 @@ def test_draw_cell_vocabulary_is_the_classifiers_own():
         "observation at all" % (sorted(draw.CELL_STATE_CLASSES), sorted(vocabulary)))
 
 
-# --- 24-07-PLAN.md Task 2 (CFG-43): the Health section ---------------------
+# --- the Health section's regularity caption --------------------------
 #
 # THE CAPTION'S THREE CLAUSES GET THREE TESTS, one each, because they are
 # three separate claims and a later editor will be tempted to trim the
@@ -775,8 +722,7 @@ def test_draw_cell_vocabulary_is_the_classifiers_own():
 
 def test_the_caption_says_what_the_grid_shows(tmp_path):
     """CLAUSE 1 — Health's regularity caption says what the grid SHOWS: one
-    cell is one day of OBSERVED check-in regularity (CFG-43, 24-07-PLAN.md
-    Task 2)"""
+    cell is one day of OBSERVED check-in regularity"""
     rendered = _seeded_regularity_page(str(tmp_path), shp.now())
     clause = layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_OBSERVED))
     assert clause in rendered, (
@@ -790,7 +736,7 @@ def test_the_caption_names_the_cadence_it_judged_against_and_says_it_is_todays(t
     """CLAUSE 2 — Health's regularity caption names the cadence the grid was
     judged against, by its value and in this app's own duration form, and
     says that cadence is the one configured NOW rather than the one in
-    force on an earlier day (CFG-43, 24-07-PLAN.md Task 2)"""
+    force on an earlier day"""
     now = shp.now()
     rendered = _seeded_regularity_page(str(tmp_path), now, wake_interval_s=300)
     # The VALUE, formatted the one way this app formats a length of time —
@@ -803,9 +749,9 @@ def test_the_caption_names_the_cadence_it_judged_against_and_says_it_is_todays(t
 def test_the_caption_says_a_gap_is_not_proof_of_a_missed_wake(tmp_path):
     """CLAUSE 3 — Health's regularity caption says a day with no record is
     NOT proof the frame did not wake, naming the log rotation that leaves
-    the same gap (CFG-43, T-24-07-A, 24-07-PLAN.md Task 2)"""
-    # T-24-07-A. This is the clause a later editor trims as noise, and it
-    # is the difference between reporting an observation and accusing the
+    the same gap"""
+    # This is the clause a later editor trims as noise, and it is the
+    # difference between reporting an observation and accusing the
     # device: the record cannot tell a missed wake from a log range the
     # ingest lost.
     rendered = _seeded_regularity_page(str(tmp_path), shp.now())
@@ -818,7 +764,7 @@ def test_the_caption_says_a_gap_is_not_proof_of_a_missed_wake(tmp_path):
 def test_with_no_determinable_cadence_the_caption_names_the_floors(tmp_path, monkeypatch):
     """with a config yielding no cadence at all, Health's regularity caption
     says the grid is judged against the fallback staleness floors and does
-    NOT name a configured value (CFG-43, 24-07-PLAN.md Task 2)"""
+    NOT name a configured value"""
     monkeypatch.delenv(wake.SLEEP_ENV_VAR, raising=False)
     now = shp.now()
     # No device_config.json and no SKYPANE_SLEEP_S: exactly the
@@ -839,8 +785,7 @@ def test_every_cell_verdict_is_the_classifiers_own_output(tmp_path):
     for that day's longest observed gap — computed in this check from the
     classifier, never hard-coded — every unobserved day carries the
     no-observation class, and the page's own regularity builders call the
-    classifier while referencing no threshold constant of their own (CFG-43,
-    24-07-PLAN.md Task 2)"""
+    classifier while referencing no threshold constant of their own"""
     now = shp.now()
     state_dir = str(tmp_path)
     rendered = _seeded_regularity_page(state_dir, now, wake_interval_s=300)
@@ -902,8 +847,7 @@ def test_every_cell_verdict_is_the_classifiers_own_output(tmp_path):
 def test_with_no_observations_the_section_still_renders_its_grid(tmp_path):
     """with no observations at all the regularity section still renders — a
     full grid of no-observation cells, none of them on-cadence or missing,
-    under its own caption saying there is nothing recorded yet (CFG-43,
-    T-24-07-A, 24-07-PLAN.md Task 2)"""
+    under its own caption saying there is nothing recorded yet"""
     now = shp.now()
     state_dir = str(tmp_path)
     device_config.save_device_config(state_dir, wake_interval_s=300)
@@ -928,7 +872,7 @@ def test_the_rendered_page_never_claims_punctuality_in_either_language(tmp_path)
     """the rendered Health page contains neither 'honoured' nor 'punctual'
     (nor 'punctualité') in EITHER language while carrying the full grid in
     both, and the section heading has a real French sibling rather than an
-    English string inside a French page (CFG-43, 24-07-PLAN.md Task 2)"""
+    English string inside a French page"""
     # The roadmap's own phrasing for this drawing was "wake punctuality",
     # and the expected interval is not recoverable, so a page using that
     # word would assert something this deployment cannot observe. The
@@ -998,8 +942,7 @@ def test_check_in_disclosure_moved_clauses_render_across_all_four_cases(
     visible caption carries EXACTLY CHECK_IN_CAPTION_OBSERVED and every
     other clause that case renders moves, byte-identical, into the card's
     own <details class="readings-disclosure"> — 'moved, not cut' proven as
-    a relationship, case and clause named on failure (29-06-PLAN.md Task 2,
-    CFG-79)"""
+    a relationship, case and clause named on failure"""
     monkeypatch.delenv(wake.SLEEP_ENV_VAR, raising=False)
     if wake_interval_s is None:
         assert wake.effective_wake_interval_s(None) is None, (
@@ -1041,8 +984,7 @@ def test_sparkline_axis_chrome_present():
     """battery_sparkline_svg() draws real axis chrome — at least one
     full-height vertical axis <rect>, at least one full-width horizontal
     axis <rect>, and at least two tick <rect> elements, all carrying
-    SPARKLINE_AXIS_CLASS and aria-hidden="true" on their own tags (quick
-    task 260902-ep7 BUG 4)"""
+    SPARKLINE_AXIS_CLASS and aria-hidden="true" on their own tags"""
     rows = [
         {"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4000 + i * 40}
         for i in range(5)]
@@ -1072,7 +1014,7 @@ def test_sparkline_axis_chrome_present():
 def test_sparkline_daily_mode_shows_date_endpoints_not_clock():
     """battery_sparkline_svg(daily=True) renders day-plus-month date
     endpoint labels ('31 Aug'/'2 Sep'), never the clock-format labels a day
-    string would otherwise silently print (260902-l0b)"""
+    string would otherwise silently print"""
     # In daily mode, the X-axis endpoints must be day-plus-month date
     # labels (_axis_day_label()), never the clock-format labels a day
     # string would otherwise silently render as.
@@ -1092,7 +1034,7 @@ def test_sparkline_daily_mode_shows_date_endpoints_not_clock():
 def test_sparkline_daily_point_label_names_day_and_average_count():
     """each daily chart point's data-when names its day, says it is a daily
     average, and gives the singular/plural-correct contributing reading
-    count (260902-l0b)"""
+    count"""
     rows = [
         {"ts": "2026-09-02", "battery_mv": 4100, "reading_count": 12},
         {"ts": "2026-09-01", "battery_mv": 4101, "reading_count": 9},
@@ -1112,7 +1054,7 @@ def test_sparkline_density_rule_suppresses_dots_only_above_threshold():
     """the density rule suppresses cosmetic dots only at/above the derived
     threshold (every hit target still reachable, at the reduced radius),
     survives untouched just below it, and a below-threshold non-daily call
-    stays byte-for-byte what it is today (260902-l0b)"""
+    stays byte-for-byte what it is today"""
     threshold_names = [name for name in dir(health_page) if "DENSE" in name]
     assert threshold_names, "expected a named, documented DENSE* density-threshold constant, not a literal in the loop"
     threshold = max(
@@ -1148,13 +1090,11 @@ def test_battery_readout_seeded_with_latest_reading_not_placeholder(tmp_path, mo
     """the battery readout's initial markup equals the humanised (value,
     when) pair the latest reading's own helper builds, split across its
     value/detail spans, and the retired placeholder prompt no longer
-    appears (D-09, quick task 260901-uzi finding 3)"""
+    appears"""
     # health_page._battery_section() deliberately computes its own `now`
-    # via history_db.utc_now_iso() (06.6-01, D-02) rather than accepting
-    # the render() ctx's injected `now`, so the real wall clock is what
-    # actually humanises the readout's "ago" text. Pinning
-    # history_db.utc_now_iso() to `base` for the duration of this render()
-    # call makes the two `now` values identical by construction.
+    # via history_db.utc_now_iso() rather than the render() ctx's injected
+    # `now`, so the real wall clock humanises the readout's "ago" text.
+    # Pinning utc_now_iso() to `base` makes the two `now` values agree.
     state_dir = str(tmp_path)
     base = shp.now()
     readings = [
@@ -1165,9 +1105,9 @@ def test_battery_readout_seeded_with_latest_reading_not_placeholder(tmp_path, mo
     monkeypatch.setattr(history_db, "utc_now_iso", lambda: shp.iso(base))
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(base)))
     value_text, when_text = health_page._battery_reading_parts(4190, shp.iso(base), shp.iso(base))
-    # 22-06-PLAN.md Task 2 (D-05, B4): the detail span's title is when_text
-    # itself (a full Europe/Paris local timestamp), never the raw ISO —
-    # and the span carries the .time-value role (22-04-PLAN.md, C5).
+    # The detail span's title is when_text itself (a full Europe/Paris
+    # local timestamp), never the raw ISO, and the span carries the
+    # .time-value role.
     expected_inner = (
         '<span class="battery-readout__value mono">%s</span>'
         '<span class="battery-readout__detail time-value" title="%s"> — %s</span>'
@@ -1190,7 +1130,7 @@ def test_battery_readout_seeded_with_latest_reading_not_placeholder(tmp_path, mo
 def test_battery_reading_parts_value_carries_the_percentage_estimate():
     """_battery_reading_parts()'s value text leads with a '≈ NN%' estimate
     ahead of the exact millivolt figure, for a numeric reading
-    battery.battery_percent() can estimate (D-01/A-19)"""
+    battery.battery_percent() can estimate"""
     value_text, _when_text = health_page._battery_reading_parts(
         3750, "2026-09-11T10:00:00+00:00", "2026-09-11T10:05:00+00:00")
     assert value_text.startswith("≈"), "expected the value text to start with the estimate's ≈ marker, got %r" % value_text
@@ -1201,7 +1141,7 @@ def test_battery_reading_parts_value_carries_the_percentage_estimate():
 def test_battery_reading_parts_value_has_no_estimate_when_percent_is_none():
     """_battery_reading_parts()'s value text stays a bare millivolt figure,
     with no ≈ marker, when battery.battery_percent() cannot estimate the
-    reading (D-01/A-19)"""
+    reading"""
     # battery.battery_percent(0) returns None (the non-positive guard) —
     # the value text must fall back to the bare millivolt figure, with no
     # stray "≈", rather than raising on a reading the estimate cannot be
@@ -1213,18 +1153,17 @@ def test_battery_reading_parts_value_has_no_estimate_when_percent_is_none():
 
 
 # ==========================================================================
-# 22-06-PLAN.md Task 2 (D-05, B4): layout.local_clock_text() is the only
-# formatter for a visible battery time — the readout, every sparkline
-# point's tooltip/aria-label/data-when, and the axis clock labels all
-# read Paris local text, and the literal " UTC" appears nowhere in the
-# rendered page.
+# layout.local_clock_text() is the only formatter for a visible battery
+# time — the readout, every sparkline point's tooltip/aria-label/data-when,
+# and the axis clock labels all read Paris local text, and the literal
+# " UTC" appears nowhere in the rendered page.
 # ==========================================================================
 
 
 def test_axis_clock_label_is_paris_local_not_utc():
     """_axis_clock_label() renders Europe/Paris local time, not the
-    unconverted UTC clock (D-05, B4): 22:30 UTC in September prints
-    '00:30', not '22:30'"""
+    unconverted UTC clock: 22:30 UTC in September prints '00:30', not
+    '22:30'"""
     # 22:30 UTC in September (CEST, Europe/Paris = UTC+2) is 00:30 the
     # NEXT Paris day.
     clock = health_page._axis_clock_label("2026-09-02T22:30:00+00:00")
@@ -1233,7 +1172,7 @@ def test_axis_clock_label_is_paris_local_not_utc():
 
 def test_axis_day_label_names_the_paris_day():
     """_axis_day_label() names the Europe/Paris calendar day an instant
-    falls on, not its UTC day (D-05, D-12.3)"""
+    falls on, not its UTC day"""
     # Same instant as above: 22:30 UTC on 2026-09-02 is 00:30 Paris on
     # 2026-09-03 — the axis day label must name the LATER day.
     day = health_page._axis_day_label("2026-09-02T22:30:00+00:00")
@@ -1242,8 +1181,7 @@ def test_axis_day_label_names_the_paris_day():
 
 def test_sparkline_point_title_aria_data_when_are_one_string():
     """a sparkline point's <title>, aria-label and data-when carry the SAME
-    string — one formatted value, never three independently-derived ones
-    (D-05, B4)"""
+    string — one formatted value, never three independently-derived ones"""
     rows = [
         {"ts": "2026-09-11T22:30:00+00:00", "battery_mv": 4100},
         {"ts": "2026-09-12T10:00:00+00:00", "battery_mv": 4050},
@@ -1264,7 +1202,7 @@ def test_sparkline_point_title_aria_data_when_are_one_string():
 
 def test_health_page_has_zero_utc_literal_in_either_language(tmp_path):
     """a seeded Health page renders zero occurrences of the literal ' UTC'
-    in either English or French (D-05, B4)"""
+    in either English or French"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [
@@ -1284,10 +1222,10 @@ def test_health_page_has_zero_utc_literal_in_either_language(tmp_path):
 
 
 # ==========================================================================
-# 22-06-PLAN.md Task 3 (D-05, B4): the client-side hover swap reads only
-# pre-formatted server text (no date parsing/formatting of its own, and
-# no raw-ISO fallback), and concise_timestamp_html()'s title is a local
-# full timestamp, never the raw ISO.
+# The client-side hover swap reads only pre-formatted server text (no date
+# parsing/formatting of its own, and no raw-ISO fallback), and
+# concise_timestamp_html()'s title is a local full timestamp, never the
+# raw ISO.
 # ==========================================================================
 
 
@@ -1295,7 +1233,7 @@ def test_battery_trend_js_has_no_client_side_date_math(battery_trend_js):
     """battery-trend.js contains no client-side date parsing or formatting
     (new Date(), toISOString, getHours, getMinutes), sets title to the
     pre-formatted 'when' text rather than the raw ts, and its fallback no
-    longer shows a raw ISO string (D-05, B4)"""
+    longer shows a raw ISO string"""
     js_source = battery_trend_js
     assert not re.search(r"new Date\(|toISOString|getHours|getMinutes", js_source), (
         "expected zero client-side date-parsing/formatting calls in battery-trend.js")
@@ -1307,7 +1245,7 @@ def test_battery_trend_js_has_no_client_side_date_math(battery_trend_js):
 def test_concise_timestamp_html_title_is_a_full_local_timestamp_not_raw_iso():
     """concise_timestamp_html()'s title is a full Europe/Paris local
     timestamp ('D Mon HH:MM'), never the raw ISO string and never a 'UTC'
-    suffix (D-05, B4)"""
+    suffix"""
     now_iso = "2026-09-12T12:00:00+00:00"
     ts = "2026-09-11T22:30:00+00:00"  # 00:30 Paris the NEXT day (CEST)
     rendered = layout.concise_timestamp_html(ts, now_iso)
@@ -1321,8 +1259,7 @@ def test_concise_timestamp_html_title_is_a_full_local_timestamp_not_raw_iso():
 
 def test_seeded_render_shows_both_the_estimate_and_the_millivolt_figure(tmp_path):
     """a seeded health_page.render() call's battery-readout__value span
-    carries both the '≈' estimate and the ' mV' millivolt figure
-    (D-01/A-19)"""
+    carries both the '≈' estimate and the ' mV' millivolt figure"""
     state_dir = str(tmp_path)
     base = shp.now()
     shp.seed_device_health(state_dir, [
@@ -1339,8 +1276,8 @@ def test_seeded_render_shows_both_the_estimate_and_the_millivolt_figure(tmp_path
     assert " mV" in value_html, "expected the millivolt figure inside the readout's value span"
 
 
-# --- D-03/A-21 (19-01-PLAN.md Task 3): text verdicts on the Device/ --------
-# Pipeline/Corroboration stat tiles (WCAG 1.4.1)
+# --- Text verdicts on the Device/Pipeline/Corroboration stat tiles --------
+# (WCAG 1.4.1)
 # ----------------------------------------------------------------------
 
 
@@ -1351,7 +1288,7 @@ def test_seeded_render_shows_both_the_estimate_and_the_millivolt_figure(tmp_path
 def test_device_tile_verdict_matches_state_at_each_severity(tmp_path, age_s, expected_state):
     """the Device tile's widget-verdict paragraph matches DEVICE_STATE_TEXT
     at each of the three severities a real health_page.render() call can
-    produce (D-03/A-21)"""
+    produce"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now - timedelta(seconds=age_s)), 4200)])
@@ -1371,7 +1308,7 @@ def test_device_tile_verdict_matches_state_at_each_severity(tmp_path, age_s, exp
 def test_pipeline_tile_verdict_matches_state_at_each_severity(tmp_path, age_s, expected_state):
     """the Pipeline tile's widget-verdict paragraph matches
     PIPELINE_STATE_TEXT at each of the three severities a real
-    health_page.render() call can produce (D-03/A-21)"""
+    health_page.render() call can produce"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -1390,7 +1327,7 @@ def test_pipeline_tile_verdict_matches_state_at_each_severity(tmp_path, age_s, e
 def test_corroboration_tile_verdict_matches_disagreement_state(tmp_path, corroborated, expected_state):
     """the Corroboration tile's widget-verdict paragraph matches
     CORROBORATION_STATE_TEXT for both the agreement and disagreement
-    states a real health_page.render() call can produce (D-03/A-21)"""
+    states a real health_page.render() call can produce"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -1406,7 +1343,7 @@ def test_corroboration_tile_verdict_matches_disagreement_state(tmp_path, corrobo
 
 def test_resolution_rate_tile_carries_no_verdict(tmp_path):
     """the Resolution-rate tile deliberately carries no widget-verdict
-    paragraph (D-03/A-21)"""
+    paragraph"""
     # The Resolution-rate tile is the one deliberate exception: it is
     # passed status=None and has no status function of its own, so
     # inventing a verdict word for it would assert a judgement this page
@@ -1421,11 +1358,11 @@ def test_resolution_rate_tile_carries_no_verdict(tmp_path):
         "expected the Resolution-rate tile to carry no widget-verdict paragraph, got tile %r" % (tile_slice,))
 
 
-# --- 22-12-PLAN.md Task 1 (X8/C1): one tile anatomy ------------------------
+# --- One tile anatomy ------------------------------------------------------
 #
 # The Emphasis slot is ONE element per tile, but two class names can
 # legitimately carry it: a verdict word (three tiles) and a figure (the
-# Resolution-rate tile, which D-03/A-21 forbids from making a judgement).
+# Resolution-rate tile, which carries no verdict of its own).
 # The empty form is a third, and is the compact empty_state()'s own
 # heading. The muted detail slot is the same two-way split.
 _EMPHASIS_SLOT_CLASSES = (
@@ -1444,9 +1381,9 @@ def test_one_tile_anatomy_across_every_health_tile(tmp_path, seed):
     """every .stat-tile on a rendered Health page — seeded and on a fresh
     install alike — carries exactly one label, exactly one Emphasis-role
     element, exactly one muted detail slot, in that fixed order, and no
-    22px serif heading anywhere inside it (X8/C1, 22-12-PLAN.md Task 1)"""
-    # X8: "three server cards, three anatomies". Walks EVERY .stat-tile on
-    # a rendered page and asserts the four slots in their fixed order.
+    22px serif heading anywhere inside it"""
+    # Walks EVERY .stat-tile on a rendered page and asserts the four slots
+    # in their fixed order.
     state_dir = str(tmp_path)
     now = shp.now()
     if seed:
@@ -1485,8 +1422,7 @@ def test_only_one_saw_it_is_neutral_and_still_distinct(tmp_path, lang, agree_lab
     """Health's 'Only one saw it' corroboration row renders the neutral
     dot--off with its own distinct visible dot-label while 'Both agree'
     keeps dot--ok — in both languages, and never a warn dot — so the two
-    states are readable with colour vision entirely absent (X8 /
-    22-UI-SPEC.md §5 contract 4, 22-12-PLAN.md Task 1)"""
+    states are readable with colour vision entirely absent"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -1522,12 +1458,11 @@ def test_empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
     data_table()'s own real no-rows caller), an explicit compact=False
     matches it, and compact=True renders its own modifier plus the 16px
     sans / 14px muted pair through the empty state's own class names, still
-    escaped (C1/T-22-44, 22-12-PLAN.md Task 1)"""
-    # T-22-44: the compact variant must not be able to change an existing
-    # caller. The default form's expected markup is written out as a
-    # LITERAL here, copied from the pre-change function, so this check
-    # fails even if layout.empty_state() and the expectation are edited
-    # together.
+    escaped"""
+    # The compact variant must not be able to change an existing caller.
+    # The default form's expected markup is written out as a LITERAL
+    # here, copied from the pre-change function, so this check fails even
+    # if layout.empty_state() and the expectation are edited together.
     heading, body = "No data yet.", "Nothing to show here yet."
     expected_default = (
         '<div class="empty-state">'
@@ -1564,11 +1499,11 @@ def test_health_in_tile_empty_states_are_compact_and_card_ones_are_not(tmp_path)
     """on a fresh install Health's two IN-TILE empty states (Corroboration,
     Resolution rate) use the compact form while its two full-width card
     empty states (Battery trend, Unresolved prefixes) keep the default
-    22px serif one (C1/X8, 22-12-PLAN.md Task 1)"""
-    # C1: the compact form belongs to the two empty states that land
-    # INSIDE a .stat-tile. The two full-width card empty states on the
-    # same page keep the default form — the variant is a tile fix, not a
-    # page-wide restyle.
+    22px serif one"""
+    # The compact form belongs to the two empty states that land INSIDE a
+    # .stat-tile. The two full-width card empty states on the same page
+    # keep the default form — the variant is a tile fix, not a page-wide
+    # restyle.
     state_dir = str(tmp_path)
     now = shp.now()
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
@@ -1607,10 +1542,10 @@ _RESOLUTION_SINGULAR_CASES = [
 def test_resolution_detail_line_has_a_singular_form(tmp_path, total, lang, expected, forbidden):
     """the Resolution-rate tile's detail line has a singular form, so a
     window holding exactly one detection never reads '1 events' /
-    '1 événements', in both languages (D-06/B16/CFG-29, 22-12-PLAN.md Task 1)"""
-    # D-06/B16, CFG-29: the LAST plural on this page with no singular form
-    # — a window holding exactly one detection read "over the last 30
-    # days, 1 events".
+    '1 événements', in both languages"""
+    # The last plural on this page with no singular form — a window
+    # holding exactly one detection read "over the last 30 days, 1
+    # events".
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_runway_events(state_dir, [
@@ -1628,21 +1563,20 @@ def test_resolution_detail_line_has_a_singular_form(tmp_path, total, lang, expec
 
 def test_resolution_detail_templates_have_french_catalogue_entries():
     """the Resolution-rate tile's singular and plural detail templates both
-    exist as separate constants with their own French catalogue entries —
-    never a runtime "add an s" (D-06/B16/CFG-29, 22-12-PLAN.md Task 1)"""
+    exist as separate constants with their own French catalogue entries,
+    never a runtime add-an-s"""
     for template in (health_page._RESOLUTION_DETAIL_TEMPLATE, health_page._RESOLUTION_DETAIL_SINGULAR_TEMPLATE):
         assert health_page.i18n.t_lang(template, "fr") != template, (
             "expected %r to have its own French catalogue entry" % (template,))
 
 
 def test_state_text_dicts_have_expected_key_sets():
-    """DEVICE_STATE_TEXT has exactly ok/warn/error/off (widened by
-    22-04-PLAN.md Task 3 for the frame's own held state), PIPELINE_STATE_TEXT
-    has exactly ok/warn/error/off (B2, 22-03-PLAN.md Task 1) and
-    CORROBORATION_STATE_TEXT has exactly ok/warn (it has no error state)
-    (D-03/A-21)"""
-    # 22-04-PLAN.md Task 3 (D-03/CFG-26): DEVICE_STATE_TEXT gains the
-    # fourth "off" key (frame_state.STATE_HELD's own neutral device_state);
+    """DEVICE_STATE_TEXT has exactly ok/warn/error/off (widened for the
+    frame's own held state), PIPELINE_STATE_TEXT has exactly
+    ok/warn/error/off and CORROBORATION_STATE_TEXT has exactly ok/warn (it
+    has no error state)"""
+    # DEVICE_STATE_TEXT gains the fourth "off" key
+    # (frame_state.STATE_HELD's own neutral device_state);
     # CORROBORATION_STATE_TEXT is deliberately unwidened.
     assert set(health_page.DEVICE_STATE_TEXT) == {"ok", "warn", "error", "off"}, (
         "expected DEVICE_STATE_TEXT's keys to be exactly ok/warn/error/off, got %r" % (set(health_page.DEVICE_STATE_TEXT),))
@@ -1653,8 +1587,8 @@ def test_state_text_dicts_have_expected_key_sets():
 
 
 # ==========================================================================
-# 22-03-PLAN.md Task 1 (B2): a real neutral never-ran pipeline state, and
-# a verdict-free pipeline_detail_html for Home.
+# A real neutral never-ran pipeline state, and a verdict-free
+# pipeline_detail_html for Home.
 # ==========================================================================
 
 
@@ -1662,8 +1596,7 @@ def test_pipeline_never_ran_renders_neutral_no_warn_no_banner(tmp_path):
     """a genuinely never-ran pipeline (no META_LAST_PIPELINE_RUN, no
     META_LAST_DETECTION) renders the neutral verdict with the existing
     dot--off class, zero dot--warn, zero battery-fallback text, no second
-    detail line, and no anomaly banner when the device is healthy (B2,
-    22-03-PLAN.md Task 1)"""
+    detail line, and no anomaly banner when the device is healthy"""
     # A pipeline that has genuinely never run renders the neutral "No
     # detection yet" verdict — proven against a real health_page.render()
     # call, with the device seeded healthy so only the pipeline signal is
@@ -1690,7 +1623,7 @@ def test_pipeline_never_ran_renders_neutral_no_warn_no_banner(tmp_path):
 def test_pipeline_never_ran_renders_neutral_in_french(tmp_path):
     """the same never-ran pipeline tile reads in French — 'Aucune détection
     pour l’instant.', dot--off, zero dot--warn, zero French battery-
-    fallback text (B2, 22-03-PLAN.md Task 1)"""
+    fallback text"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -1709,7 +1642,7 @@ def test_compute_health_state_carries_pipeline_detail_html_never_ran(tmp_path):
     """compute_health_state()'s pipeline_detail_html key, for a never-ran
     pipeline, is the bare PIPELINE_NEVER_RAN_DETAIL_TEXT sentence — no
     widget-verdict class, no PIPELINE_STATE_TEXT verdict text — embedded
-    once inside pipeline_html (B2, 22-03-PLAN.md Task 1)"""
+    once inside pipeline_html"""
     state_dir = str(tmp_path)
     now = shp.now()
     state = health_page.compute_health_state(state_dir, now=shp.iso(now))

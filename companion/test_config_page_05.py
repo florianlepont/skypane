@@ -1,49 +1,23 @@
-"""Part 05 of the `companion/test_config_page.py` migration chain
-(33-13-PLAN.md), THE CHAIN'S CLOSING PLAN: the original harness's
-`check()` calls #229-#276 (the last of the file) — the retired
-delay-wording guard, the settings-pages editorial floor, the live
-authenticated `companion/app.py` HTTP round trips (save confirmation,
-PRG redirect + flash cleanup, the retired LED route, the runway-image
-route's session/path-traversal guards, the calendar secret never
-reaching the served bytes), the Notifications group, the live theme
-preview, the Aspect card's swatch legend and "Current" badge, several
-cross-file DOM-contract guards between `config_page.py` and
-`companion/static/style.css`/`value-controls.js`, the two wake-interval
-gauges (D18's honesty contract) and the gated range/readout seam that
-steers them, and the closing structural proofs (one radio set per
-theme field, no duplicate id, the no-JS save floor emitted
-unconditionally).
+"""Tests the retired delay-wording guard, the settings-pages editorial
+floor, live authenticated companion/app.py HTTP round trips (save
+confirmation, PRG redirect + flash cleanup, the retired LED route, the
+runway-image route's session/path-traversal guards, the calendar secret
+never reaching the served bytes), the Notifications group, the live
+theme preview, the Aspect card's swatch legend and "Current" badge,
+cross-file DOM-contract guards between config_page.py and
+companion/static/style.css/value-controls.js, the two wake-interval
+gauges' honesty contract and the gated range/readout seam that steers
+them, and the closing structural proofs (one radio set per theme field,
+no duplicate id, the no-JS save floor emitted unconditionally).
 
-Every in-process check calls `companion.pages.config_page`'s own
-functions directly against a `tmp_path`-backed state directory. The
-checks that need a live `companion/app.py` HTTP round trip use
-`companion/conftest.py`'s `make_app_server` (function-scoped: several of
-them POST and mutate state, so each gets its own fresh server rather
-than sharing one — TST-10). The checks that used to read
-`companion/static/style.css` or `value-controls.js` off disk instead
-fetch them from a running server and assert on `companion_markup`'s
-parsed CSS structure (`declarations_for()`/`css_rules()`) or the served
-JS text with its comments stripped (never a raw file on disk, TST-12) —
-per 33-FOLLOWUPS.md F-01, no CSS assertion in this module reads the
-served stylesheet as raw text.
-
-Two checks that used to open `companion/pages/config_page.py` from disk
-and walk its syntax tree with `ast`/`tokenize` (banned outright by guard
-G2) are rewritten as behaviour: the "no second days-remaining
-computation" guard becomes a `monkeypatch` proof that
-`wake_battery_observed_text()` reads `companion.battery`'s own function
-through the QUALIFIED module reference on every call (a `not hasattr()`
-check plus a patched-function round trip — the same technique rubric S
-recommends for "retired symbol gone"), and the "no-JS save floor is
-unconditional" guard becomes a purely render-level proof across every
-scope AND every extra keyword shape `render()` accepts, which is a
-wider behavioural net than the retired source-tree scan on its own
-established.
-
-This is the config-page chain's LAST plan: `companion/test_config_page.py`
-is deleted outright once this module lands (`git rm`), and the ledger
-fragment's `33-ledger-check.py` run drops `--allow-pending` to confirm
-zero rows remain pending.
+Every in-process check calls companion.pages.config_page's own functions
+directly against a tmp_path-backed state directory. Checks that need a
+live companion/app.py HTTP round trip use companion/conftest.py's
+make_app_server (function-scoped: several of them POST and mutate state,
+so each gets its own fresh server rather than sharing one). Checks that
+need style.css or value-controls.js fetch them from a running server and
+assert on companion_markup's parsed CSS structure or the served JS text
+with its comments stripped, never a raw file on disk.
 """
 import html
 import os
@@ -70,8 +44,7 @@ from server.plane import calendar_rules
 @pytest.fixture(scope="module")
 def app(module_app_server_factory):
     """A read-only companion/app.py server this module's checks fetch the
-    served stylesheet/JS assets from, instead of opening them from disk
-    (TST-12)."""
+    served stylesheet/JS assets from, instead of opening them from disk."""
     return module_app_server_factory()
 
 
@@ -84,26 +57,24 @@ def served_css(app):
 @pytest.fixture(scope="module")
 def value_controls_js(app):
     """companion/static/value-controls.js's served text, fetched over
-    HTTP instead of opened from disk (TST-12)."""
+    HTTP instead of opened from disk."""
     return served_asset(app, "/static/value-controls.js")
 
 
 # ======================================================================
-# 29-05-PLAN.md Task 3 (CFG-79/D-04): the retired delay wordings, and the
-# settings-pages editorial floor.
+# The retired delay wordings, and the settings-pages editorial floor.
 # ======================================================================
 
 def test_retired_delay_wordings_are_absent_from_the_rendered_settings_pages():
     """none of the three retired delay wordings ('Takes effect within about 5 minutes',
     'Applies on the next scheduled poll, which may now be hours away', 'Saved - will apply on
     the frame's next scheduled refresh') appears anywhere on the RENDERED Display/Device pages,
-    in either language (D-04)
+    in either language
 
-    Rewritten from the retired whole-repo source-text scan (grepping every non-test .py file
-    under companion/ and server/, banned by TST-12) into a rendered-page absence check: the three
-    literal wordings never appear in what config_page.render() actually produces, for both
-    scopes that can carry an apply-timing sentence at all (Display, via the Frame strip; Device,
-    via the same strip), in both languages. What replaced these three sentences -
+    A rendered-page absence check: the three literal wordings never appear in what
+    config_page.render() actually produces, for both scopes that can carry an apply-timing
+    sentence at all (Display, via the Frame strip; Device, via the same strip), in both
+    languages. What replaced these three sentences -
     frame_state.DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN's own computed sentence - is exercised
     directly by the editorial-floor check immediately below.
     """
@@ -141,7 +112,7 @@ _FLOOR_CTX = {
     "poll_cooldown_remaining": 0,
 }
 # Minimums pinned a little below the observed figures - re-derived by RUNNING this exact
-# fixture through this exact selector, 30-05-PLAN.md Task 3 (CFG-85).
+# fixture through this exact selector.
 _FLOOR_MIN_MEASURED = {"display": 10, "device": 6}
 _FLOOR_EXPECTED_SKIPS = {"display": len(config_page.ASPECT_CAPTION_EXEMPTIONS), "device": 0}
 
@@ -171,7 +142,7 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
     silently over-broad); and the apply-timing sentence - read from frame_state.py's own
     DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN constants - never renders outside the Frame strip's own
     markup slice, proven to actually fire inside it at least once so the assertion is not
-    vacuous (CFG-79, 29-05-PLAN.md Task 3)"""
+    vacuous"""
     exempt_by_lang = {
         lang: {
             cp.caption_word_count_text(i18n.t_lang(text, lang))
@@ -248,7 +219,7 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
 # ======================================================================
 
 def test_save_round_trip_shows_confirmation_and_new_selection(make_app_server):
-    """a real HTTP save round trip shows D-07's confirmation copy and the newly-saved runway
+    """a real HTTP save round trip shows the confirmation copy and the newly-saved runway
     selected"""
     server = make_app_server()
     session_cookie = login(server)
@@ -275,7 +246,7 @@ def test_save_round_trip_shows_confirmation_and_new_selection(make_app_server):
 def test_settings_save_redirect_carries_flash_banner_and_cleanup_script(make_app_server):
     """a real HTTP save round trip keeps the server-side PRG redirect exactly
     SETTINGS_ROUTE?flash=saved, and the rendered redirect target carries BOTH the flash banner
-    and flash-cleanup.js's deferred script tag (quick task 260903-peo, UIR-19)"""
+    and flash-cleanup.js's deferred script tag"""
     server = make_app_server()
     session_cookie = login(server)
     status, headers, _ = http_request(
@@ -301,8 +272,7 @@ def test_settings_save_redirect_carries_flash_banner_and_cleanup_script(make_app
 def test_settings_post_empty_body_leaves_led_unchanged_and_renders_unchecked(make_app_server):
     """a live authenticated POST SETTINGS_ROUTE with an empty body 303-redirects to
     SETTINGS_ROUTE?flash=saved, LEAVES the stored led_enabled exactly as it was, and a
-    follow-up GET renders the control in that same off state (retargeted in place from
-    absent-means-False by 23-07-PLAN.md Task 2)"""
+    follow-up GET renders the control in that same off state"""
     server = make_app_server()
     session_cookie = login(server)
     device_config.save_device_config(server.state_dir, led_enabled=False)
@@ -325,9 +295,7 @@ def test_settings_post_empty_body_leaves_led_unchanged_and_renders_unchecked(mak
 
 def test_settings_form_raw_post_no_js_sets_and_clears_theme_arriving(make_app_server):
     """a raw, URL-encoded no-JS POST to SETTINGS_ROUTE sets theme_arriving to a real id and
-    clears it back to None via theme_arriving='', over the real HTTP path (15-VALIDATION.md
-    row 11, the Settings-form half; D-06/D-09, retargeted from the retired arrivals-override
-    checkbox)"""
+    clears it back to None via theme_arriving='', over the real HTTP path"""
     server = make_app_server()
     session_cookie = login(server)
     status, _headers, _body = http_request(
@@ -368,7 +336,7 @@ def test_settings_post_unauthenticated_redirects_to_login_and_writes_nothing(mak
 
 
 def test_led_route_retired_returns_404(make_app_server):
-    """an authenticated POST to the retired /config-led route returns 404 (D-05)"""
+    """an authenticated POST to the retired /config-led route returns 404"""
     server = make_app_server()
     session_cookie = login(server)
     status, _headers, _body = http_request(
@@ -415,8 +383,7 @@ def test_runway_image_route_path_traversal_rejected(make_app_server, adversarial
 
 
 # ------------------------------------------------------------------
-# Section 3 (T-16-SECRET, D-14/R-10): the calendar secret never reaches
-# the SERVED HTTP bytes.
+# Section 3: the calendar secret never reaches the SERVED HTTP bytes.
 # ------------------------------------------------------------------
 
 _CALENDAR_TOKEN = "sk1-distinctive-token-2rv9"
@@ -435,8 +402,7 @@ def test_calendar_secret_never_reaches_served_http_bytes(make_app_server):
     """with a calendar configured via its secret file to a URL carrying a distinctive token, a
     real authenticated HTTP GET of the Settings page serves the masked host + ellipsis fragment
     but never the token, the path segment, the query-parameter name, or the whole raw URL in the
-    response body (T-16-SECRET, real HTTP round trip, extended by 21-07-PLAN.md Task 2 for the
-    new masked-URL line, D-14/R-10)"""
+    response body"""
     server = make_app_server(seed=_seed_calendar)
     session_cookie = login(server)
     status, _headers, body = get(server, companion_app.DISPLAY_ROUTE, cookie=session_cookie)
@@ -454,8 +420,8 @@ def test_calendar_secret_never_reaches_served_http_bytes(make_app_server):
     "unparseable", "empty-string", "javascript-uri"])
 def test_calendar_hostile_stored_url_renders_no_masked_line(tmp_path, hostile):
     """a hostile or unparseable stored calendar URL ('not a url', the empty string, a
-    javascript: URI) renders no calendar-masked-url line at all and raises nothing (D-14/R-10,
-    _masked_calendar_url()'s own fail-soft, never-fabricate contract)"""
+    javascript: URI) renders no calendar-masked-url line at all and raises nothing
+    (_masked_calendar_url()'s own fail-soft, never-fabricate contract)"""
     state_dir = str(tmp_path)
     assert calendar_rules.save_calendar_url(state_dir, hostile) is not None
     ctx = dict(
@@ -467,7 +433,7 @@ def test_calendar_hostile_stored_url_renders_no_masked_line(tmp_path, hostile):
 
 
 # ======================================================================
-# Section 4 (D-12/A-30): radiogroups and aria-describedby/labelledby.
+# Section 4: radiogroups and aria-describedby/labelledby.
 # ======================================================================
 
 _TASK3_BASE_CTX = {
@@ -478,8 +444,7 @@ _TASK3_BASE_CTX = {
 
 def test_display_scope_has_three_radiogroups_device_has_none():
     """the Display scope renders at least three role="radiogroup" elements (Theme's departures
-    and arrivals chip grids, plus the Runway row) and the Device scope renders none (D-12/A-30,
-    retargeted by 20-07-PLAN.md Task 1/D-10)"""
+    and arrivals chip grids, plus the Runway row) and the Device scope renders none"""
     display_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     device_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE)
     display_count = display_rendered.count('role="radiogroup"')
@@ -500,7 +465,7 @@ _DESCRIBEDBY_RE = re.compile(r'aria-describedby="([^"]*)"')
 def test_every_aria_reference_resolves_and_none_is_empty(scope_name):
     """every aria-labelledby and aria-describedby value render() emits, at every scope, resolves
     to an id the same output actually carries, and no element emits an empty aria-describedby
-    or aria-labelledby (D-12/A-30)"""
+    or aria-labelledby"""
     scope = {
         "all": config_page.SCOPE_ALL, "display": config_page.SCOPE_DISPLAY,
         "device": config_page.SCOPE_DEVICE,
@@ -524,8 +489,7 @@ def test_every_aria_reference_resolves_and_none_is_empty(scope_name):
 def test_control_with_both_hint_and_error_carries_both_ids_in_order():
     """a control carrying both a hint and an error (led_enabled's switch, rendered with an
     errors dict) has its state, hint and error ids in its aria-describedby, hint still before
-    error, never one overwriting another, and no error id at all when there is no error
-    (D-12/A-30; retargeted in place from the retired checkbox by 23-07-PLAN.md Task 2)"""
+    error, never one overwriting another, and no error id at all when there is no error"""
     rendered = config_page.render(
         _TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE,
         errors={"led_enabled": "msg"}, submitted={})
@@ -545,13 +509,13 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
 
 
 # ======================================================================
-# Section 5 (D-26/D-28): the Notifications group.
+# Section 5: the Notifications group.
 # ======================================================================
 
 def test_notifications_group_status_row_configured_vs_not_and_write_only_url():
     """notifications_group()'s status row reads 'Not configured' with no URL stored and
     'Configured' with one, the topic-URL input never carries a value attribute in either state,
-    and no substring of a seeded URL appears anywhere in the rendered page (T-20-12)"""
+    and no substring of a seeded URL appears anywhere in the rendered page"""
     rendered_unconfigured = config_page.render(
         {"device_config": {}, "poll_cooldown_remaining": 0}, scope=config_page.SCOPE_DEVICE)
     assert config_page.NOTIFICATIONS_SECTION_HEADING in rendered_unconfigured
@@ -597,7 +561,7 @@ def test_notifications_checkboxes_reflect_stored_state():
 
 
 def test_notifications_group_has_no_lang_selector():
-    """the Device page contains no notifications_lang control anywhere (D-28: lang travels
+    """the Device page contains no notifications_lang control anywhere (lang travels
     silently, never through a <select>)"""
     rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE)
     assert "notifications_lang" not in rendered
@@ -605,7 +569,7 @@ def test_notifications_group_has_no_lang_selector():
 
 def test_handle_post_notifications_round_trip_writes_lang_from_ctx(tmp_path):
     """handle_post() with scope=device, a topic URL and both checkboxes persists the whole
-    notifications group and writes lang from ctx['lang'] (D-26/D-28)"""
+    notifications group and writes lang from ctx['lang']"""
     ctx = {"state_dir": str(tmp_path), "lang": "fr"}
     flash_key = config_page.handle_post(
         {
@@ -625,7 +589,7 @@ def test_handle_post_notifications_round_trip_writes_lang_from_ctx(tmp_path):
 
 def test_handle_post_empty_notifications_url_leaves_stored_url_intact(tmp_path):
     """handle_post() with an empty notifications_topic_url leaves the previously stored URL
-    unchanged (D-26: empty means 'leave unchanged', never 'clear it')"""
+    unchanged (empty means 'leave unchanged', never 'clear it')"""
     ctx = {"state_dir": str(tmp_path)}
     device_config.save_device_config(
         str(tmp_path), notifications={
@@ -642,15 +606,13 @@ def test_handle_post_empty_notifications_url_leaves_stored_url_intact(tmp_path):
 
 
 # ======================================================================
-# Section 6 (D-22..D-24): the live theme preview.
+# Section 6: the live theme preview.
 # ======================================================================
 
 def test_aspect_display_render_has_exactly_one_live_preview_figure_eager_with_dimensions():
     """a Display render contains exactly one .theme-live-preview.aspect-card__preview figure
     whose <img> src ends in the saved theme's ?live=1 URL, carries loading="eager" and explicit
-    width/height, positioned ABOVE the first accordion row (D-22..D-24, 30-05-PLAN.md Task 2,
-    replacing the retired
-    _display_render_has_exactly_one_live_preview_figure_eager_with_dimensions)"""
+    width/height, positioned ABOVE the first accordion row"""
     rendered = config_page.render(
         {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0},
         scope=config_page.SCOPE_DISPLAY)
@@ -672,7 +634,7 @@ def test_aspect_display_render_has_exactly_one_live_preview_figure_eager_with_di
 
 def test_every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
     """every chip's own <label> carries a data-preview-src ending in .png?live=1, while each
-    chip's own <img> keeps loading="lazy" and the fixed, non-live src (D-24)"""
+    chip's own <img> keeps loading="lazy" and the fixed, non-live src"""
     rendered = config_page.render(
         {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0},
         scope=config_page.SCOPE_DISPLAY)
@@ -690,7 +652,7 @@ def test_every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
 
 def test_live_preview_caption_names_seeded_callsign_and_falls_back_to_sample(tmp_path):
     """the live preview's caption names the seeded event's callsign, and falls back to the
-    sample-flight wording with no events (D-24)"""
+    sample-flight wording with no events"""
     state_dir = str(tmp_path)
     with history_db.open_db(state_dir) as conn:
         history_db.record_runway_event(
@@ -717,7 +679,7 @@ def test_live_preview_caption_names_seeded_callsign_and_falls_back_to_sample(tmp
 
 def test_french_display_render_shows_live_preview_caption_with_flight(tmp_path):
     """a French Display render's live preview shows the "Aperçu avec votre dernier vol"
-    caption followed by the seeded event's callsign (D-24/D-05)"""
+    caption followed by the seeded event's callsign"""
     state_dir = str(tmp_path)
     with history_db.open_db(state_dir) as conn:
         history_db.record_runway_event(
@@ -736,14 +698,13 @@ def test_french_display_render_shows_live_preview_caption_with_flight(tmp_path):
         "expected the French live-preview caption naming the seeded callsign")
 
 
-# --- 22-10-PLAN.md Task 1 (X6, T10, T12, C1) ----------------------
+# --- the compact chip grid, the swatch legend and the palette grids ----
 
 def test_display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatch_legend():
-    """Display renders exactly one .theme-chip-grid (the rule-add form's own compact grid,
-    unaffected by CFG-85), followed by exactly one swatch legend in .text-label section-caption's
+    """Display renders exactly one .theme-chip-grid (the rule-add form's own compact grid),
+    followed by exactly one swatch legend in .text-label section-caption's
     own declaration set outside the radiogroup, and exactly 3 .palette grids
-    (departures/arrivals/calendar) carrying no legend at all (22-10-PLAN.md Task 1, updated by
-    30-05-PLAN.md Task 3 for CFG-85's accordion rebuild)"""
+    (departures/arrivals/calendar) carrying no legend at all"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "poll_cooldown_remaining": 0,
@@ -781,7 +742,7 @@ def test_the_swatch_legend_names_as_many_things_as_the_registry_carries():
     """the chip swatch legend names exactly as many things as the registry gives EVERY theme -
     computed from _palette_hex(departing_index)/_palette_hex(arriving_index) at check time,
     never a restated literal, so a future theme that DOES give departures and arrivals different
-    inks would make this check demand two labels on its own (CFG-70, 27-07-PLAN.md Task 3)"""
+    inks would make this check demand two labels on its own"""
     legend = config_page.THEME_CHIP_SWATCH_LEGEND
     labels = [part.strip() for part in legend.split("·") if part.strip()]
     label_count = len(labels)
@@ -801,7 +762,7 @@ def test_the_swatch_legend_names_as_many_things_as_the_registry_carries():
 def test_the_current_badge_reads_a_server_rendered_translated_attribute():
     """the 'Current' badge's text is server-rendered as a translated data-current-label attribute
     on exactly the --selected chip/card (never on any other), and the French render carries the
-    French text (T10/B16, 22-10-PLAN.md Task 1)"""
+    French text"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "poll_cooldown_remaining": 0,
@@ -830,18 +791,17 @@ def test_the_current_badge_reads_a_server_rendered_translated_attribute():
 
 
 # ------------------------------------------------------------------
-# 30-07-PLAN.md Task 3 (T12/C1): structural CSS checks over the SERVED
-# stylesheet (33-FOLLOWUPS.md F-01: declarations_for()/css_rules(),
-# never a raw index/substring scan).
+# Structural CSS checks over the SERVED stylesheet
+# (declarations_for()/css_rules(), never a raw index/substring scan).
 # ------------------------------------------------------------------
 
 def test_segmented_control_resets_label_margin_and_panel_legend_retired(served_css):
-    """the rule-kind segmented control (config_page.py's 'Match by' <div class="theme-form">,
-    unaffected by CFG-85) keeps its own global label-margin reset and 28px row height (T12), and
+    """the rule-kind segmented control (config_page.py's 'Match by' <div class="theme-form">)
+    keeps its own global label-margin reset and 28px row height, and
     .frame-colours__panel-legend is confirmed retired outright rather than repointed - the usage
     panels and their <legend> elements are gone, the rule-add form's own segmented control never
     had a <legend> to begin with, and this genuinely NARROWS the serif boundary's own documented
-    non-serif-exception set by one (C1, 30-07-PLAN.md Task 3)"""
+    non-serif-exception set by one"""
     decls = declarations_for(served_css, '.theme-form input[type="radio"] + label')
     assert decls.get("margin-bottom") == "0", (
         "'.theme-form input[type=\"radio\"] + label' must reset the global label rule's own "
@@ -859,9 +819,9 @@ def test_segmented_control_resets_label_margin_and_panel_legend_retired(served_c
 
 
 def test_the_rules_add_form_is_one_left_aligned_centre_aligned_row(served_css):
-    """the rules add-form renders as one left-aligned, centre-aligned flex ROW (X6/C4) - the
+    """the rules add-form renders as one left-aligned, centre-aligned flex ROW - the
     flex-direction: column it never reset, not an auto margin, is what pushed 'Add rule' to the
-    far right (22-10-PLAN.md Task 1)"""
+    far right"""
     decls = declarations_for(served_css, ".rule-add-form--inline")
     assert decls.get("flex-direction") == "row", (
         "'.rule-add-form--inline' must reset .rule-add-form's own flex-direction: column, got %r"
@@ -874,7 +834,8 @@ def test_the_rules_add_form_is_one_left_aligned_centre_aligned_row(served_css):
     assert decls.get("margin-left") != "auto", "'.rule-add-form--inline' must declare no auto left margin"
 
 
-# --- 22-10-PLAN.md Task 2 (B9, B14, B15, B7/C3) -------------------
+# --- the time-input site-language sibling, the runway/calendar/segment
+# geometry rules -----------------------------------------------------
 
 _TASK2_BASE_CTX = {
     "device_config": {
@@ -887,8 +848,7 @@ _TASK2_BASE_CTX = {
 
 def test_each_time_input_carries_the_site_language_and_a_visible_24h_sibling():
     """each <input type="time"> carries the site language and a visible sibling showing the
-    normalised 24h value (never a placeholder, never a title), in both languages (B14,
-    22-10-PLAN.md Task 2)"""
+    normalised 24h value (never a placeholder, never a title), in both languages"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     for name, value in (("quiet_hours_start", "22:00"), ("quiet_hours_end", "06:00")):
         needle = '<input type="time" name="%s" value="%s"' % (name, value)
@@ -915,8 +875,7 @@ def test_each_time_input_carries_the_site_language_and_a_visible_24h_sibling():
 def test_style_css_carries_b9_b15_and_b7_geometry_rules(served_css):
     """style.css carries B9's zero-basis runway card (with .runway-row still wrapping for its
     second consumer), B15's content-width left-aligned calendar button with its accent kept, and
-    B7/C3's active-segment hover restore at the register's own 12% accent wash (22-10-PLAN.md
-    Task 2)"""
+    B7/C3's active-segment hover restore at the register's own 12% accent wash"""
     css = served_css
 
     runway_card = declarations_for(css, ".runway-card")
@@ -946,12 +905,12 @@ def test_style_css_carries_b9_b15_and_b7_geometry_rules(served_css):
     assert partner, "expected the :not()-scoped non-active hover rule to still exist"
 
 
-# --- 22-10-PLAN.md Task 3 (B8, B17) -------------------------------
+# --- the Notifications form idiom and the wake-interval field --------
 
 def test_send_a_test_lives_inside_the_notifications_card_via_the_form_idiom():
     """'Send a test' renders inside the Notifications card and reaches its own EMPTY sibling
     <form> through the cross-DOM form= idiom's fifth consumer - no control renders between two
-    cards, and the form keeps its own action (B8, 22-10-PLAN.md Task 3)"""
+    cards, and the form keeps its own action"""
     card = config_page.notifications_group(True, False, False)
     button = '<button type="submit" form="notifications-test">%s</button>' % escape_html(
         config_page.NOTIFICATIONS_TEST_BUTTON_TEXT)
@@ -982,7 +941,7 @@ def test_send_a_test_lives_inside_the_notifications_card_via_the_form_idiom():
 def test_the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input(served_css):
     """the wake-interval field puts its label on its own line above a content-sized input (8ch
     with a 96px minimum, no height declared so the 44px touch-target floor is untouched) with
-    the unit as a sibling label (B17, 22-10-PLAN.md Task 3)"""
+    the unit as a sibling label"""
     rendered = config_page.wake_interval_group(300)
     label = '<label for="%s">%s</label>' % (
         config_page.WAKE_INTERVAL_INPUT_ID, escape_html(config_page.i18n.t("Wake interval (seconds)")))
@@ -1007,8 +966,7 @@ def test_the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input(
 
 def test_the_calendar_status_detail_has_a_singular_form():
     """the Calendar status detail has a singular form, so a feed holding exactly one flight
-    never reads '1 upcoming flights', in both languages (D-06/B16/CFG-29, 22-10-PLAN.md Task 3 -
-    found by 22-08, landed here because this plan owns config_page.py)"""
+    never reads '1 upcoming flights', in both languages"""
     synced = "2026-09-13T09:00:00+00:00"
     now = "2026-09-13T09:05:00+00:00"
 
@@ -1034,7 +992,7 @@ def test_the_calendar_status_detail_has_a_singular_form():
     assert "3 vols à venir" in fr_many, "expected the French plural form"
 
 
-# --- 23-06-PLAN.md Task 2 (D1/CFG-35) -----------------------------
+# --- the page-refresh loop's swap regions and freshness markers ------
 
 def _display_ctx(tmp_path, now=None):
     ctx = {
@@ -1052,7 +1010,7 @@ def test_the_display_scope_refreshes_itself_from_the_same_builder(tmp_path):
     """the Display scope renders layout.freshness_line_html()'s own output verbatim with
     exactly one data-loaded-at and one data-refresh-pill, declares its own swap regions, carries
     its page key on <body>, and renders no freshness marker at all when the caller has no render
-    instant (D1/CFG-35, 23-06-PLAN.md Task 2)"""
+    instant"""
     now = "2026-08-27T12:00:00+00:00"
     rendered = config_page.render(_display_ctx(tmp_path, now), scope=config_page.SCOPE_DISPLAY)
     built = layout.freshness_line_html(now)
@@ -1075,8 +1033,8 @@ def test_the_display_scope_refreshes_itself_from_the_same_builder(tmp_path):
 def test_the_display_form_is_untouched_by_the_refresh_loop(tmp_path):
     """no Display swap region names a form, a dirty marker or a save control, and the settings
     form, its cross-DOM form= attachment and the fallback Save all still render with the
-    freshness line above them in the page header - a swap landing on this page's form is the P0
-    Phase 22 existed to fix (B1/D1, 23-06-PLAN.md Task 2)"""
+    freshness line above them in the page header - a swap landing on this page's form is a
+    regression this check guards against"""
     now = "2026-08-27T12:00:00+00:00"
     rendered = config_page.render(_display_ctx(tmp_path, now), scope=config_page.SCOPE_DISPLAY)
     for selector in layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_DISPLAY]:
@@ -1098,7 +1056,7 @@ def test_the_display_form_is_untouched_by_the_refresh_loop(tmp_path):
 
 
 # ------------------------------------------------------------------
-# 25-05-PLAN.md Task 1 (CFG-49): D18's two gauges, server-rendered.
+# D18's two gauges, server-rendered.
 # ------------------------------------------------------------------
 
 def _battery_series(*pairs):
@@ -1118,8 +1076,8 @@ def test_the_two_gauges_claim_exactly_what_the_data_supports():
     prints an absolute figure ONLY when companion/battery.py's own estimate supports one -
     recomputed from the estimator, singular and plural both - and renders the NAMED "not enough
     history yet" sentence with no number at all for a rising, a one-day and an empty series;
-    neither gauge renders without a usable interval, D-07's echo is honoured only where it is
-    usable, and the screen-off cadence is stated (CFG-49, 25-05-PLAN.md Task 1)"""
+    neither gauge renders without a usable interval, a rejected save's echo is honoured only
+    where it is usable, and the screen-off cadence is stated"""
     min_s = device_config.WAKE_INTERVAL_MIN_S
     max_s = device_config.WAKE_INTERVAL_MAX_S
 
@@ -1185,18 +1143,14 @@ def test_the_two_gauges_claim_exactly_what_the_data_supports():
 def test_wake_battery_text_reads_the_estimate_through_the_qualified_battery_module(monkeypatch):
     """no days-remaining arithmetic exists anywhere under companion/pages/ - the estimate is
     called QUALIFIED off companion.battery, and every quantity template this card adds carries
-    the "#" mark rather than a format artefact and has a French sibling (CFG-49/D-27,
-    25-05-PLAN.md Task 1, quick 260923-gaf)
+    the "#" mark rather than a format artefact and has a French sibling
 
-    Rewritten from the retired `_python_identifiers()` tokenize-over-source scan and the
-    `ast.parse()` unqualified-import check (both banned outright by guard G2) into a behavioural
-    proof: `config_page` never binds `battery_life_estimate` into its own namespace (a `not
-    hasattr()` check - the same technique rubric S recommends for "retired symbol gone" - proving
-    no unqualified `from companion.battery import battery_life_estimate` ever ran), and patching
-    `companion.battery.battery_life_estimate` itself changes what
-    `wake_battery_observed_text()` reports, byte for byte - which only holds if `config_page`
-    reads the function off the QUALIFIED module object on every call rather than a name bound
-    once at import time.
+    A behavioural proof: `config_page` never binds `battery_life_estimate` into its own
+    namespace (a `not hasattr()` check, proving no unqualified `from companion.battery import
+    battery_life_estimate` ever ran), and patching `companion.battery.battery_life_estimate`
+    itself changes what `wake_battery_observed_text()` reports, byte for byte - which only holds
+    if `config_page` reads the function off the QUALIFIED module object on every call rather than
+    a name bound once at import time.
     """
     assert not hasattr(config_page, "battery_life_estimate"), (
         "config_page.py must never bind battery_life_estimate() into its own namespace - the "
@@ -1228,9 +1182,8 @@ def test_wake_battery_text_reads_the_estimate_through_the_qualified_battery_modu
 
 
 # ------------------------------------------------------------------
-# 27-06-PLAN.md Task 3 (CFG-67): the three texts, cut against
-# 27-01-SUMMARY.md's own recorded baselines (measured 360px, rendered,
-# both languages).
+# The three texts, cut against their own recorded baselines (measured
+# 360px, rendered, both languages).
 # ------------------------------------------------------------------
 
 _DAYS_FIGURE_PATTERN = re.compile(r"≈\s*\d+\s*(?:day|days|jour|jours)\b")
@@ -1243,9 +1196,9 @@ def _html_region_text(fragment):
 
 def test_wake_interval_caption_is_shortened_in_both_languages():
     """the wake-interval caption (#wake-interval-caption) is materially shorter than
-    27-01-SUMMARY.md's recorded 220-char baseline in BOTH languages - the mechanism and
+    its own recorded 220-char baseline in BOTH languages - the mechanism and
     apply-timing sentences are cut, the derived "(next wake ≈ ...)" suffix (a real
-    timestamp, not an invented figure) is untouched (CFG-67, 27-06-PLAN.md Task 3)"""
+    timestamp, not an invented figure) is untouched"""
     baseline = 220
     for lang in ("en", "fr"):
         prefs.set_request_prefs(lang=lang)
@@ -1265,12 +1218,11 @@ def test_wake_interval_caption_is_shortened_in_both_languages():
 
 
 def test_wake_gauges_are_shortened_and_battery_refusal_survives_in_both_languages():
-    """the two wake gauges (.wake-gauge) are materially shorter than 27-01-SUMMARY.md's recorded
+    """the two wake gauges (.wake-gauge) are materially shorter than their own recorded
     254-char combined baseline in BOTH languages, and the insufficient-history state still
     prints NO absolute battery figure - asserted about the SAME reading the length is measured
     from, with the forbidden pattern scoped to the days-claim shape itself so it does not
-    false-positive on an unrelated ≈-bearing timestamp (D18's honesty contract, CFG-67,
-    27-06-PLAN.md Task 3)"""
+    false-positive on an unrelated ≈-bearing timestamp (D18's honesty contract)"""
     baseline = 254
     for lang in ("en", "fr"):
         prefs.set_request_prefs(lang=lang)
@@ -1294,10 +1246,9 @@ def test_wake_gauges_are_shortened_and_battery_refusal_survives_in_both_language
 
 def test_quiet_hours_caption_is_shortened_and_carries_no_delay_sentence():
     """the Quiet hours paragraph (#quiet-hours-caption) is materially shorter than
-    27-01-SUMMARY.md's recorded 188-char baseline in BOTH languages, and renders as EXACTLY
+    its own recorded 188-char baseline in BOTH languages, and renders as EXACTLY
     QUIET_HOURS_SECTION_CAPTION's own translated text with no delay sentence appended at all any
-    more - quiet_hours_group() no longer accepts a delay_sentence keyword (CFG-79, 29-05-PLAN.md
-    Task 2, narrowing CFG-67's 27-06-PLAN.md Task 3 cut)"""
+    more - quiet_hours_group() no longer accepts a delay_sentence keyword"""
     baseline = 188
     for lang in ("en", "fr"):
         prefs.set_request_prefs(lang=lang)
@@ -1341,7 +1292,7 @@ def test_the_gauges_are_an_addition_and_the_number_input_is_untouched(
     placeholder, the value attribute present exactly when the guard admits it and absent
     otherwise (an out-of-range value blocks submission of the ENTIRE form) - with B17's label
     still above it, the unit sibling still immediately after it, the error block still attached,
-    and both gauges appended after all of them (CFG-49/D-07/B17, 25-05-PLAN.md Task 1)"""
+    and both gauges appended after all of them"""
     min_s = device_config.WAKE_INTERVAL_MIN_S
     max_s = device_config.WAKE_INTERVAL_MAX_S
     expected_head = (
@@ -1380,9 +1331,9 @@ def test_the_gauges_are_an_addition_and_the_number_input_is_untouched(
 
 
 def test_the_gauges_error_block_still_attaches_with_the_gauges_after_it():
-    """the error block still attaches to the field, with the gauges after it (CFG-49/D-07/B17,
-    25-05-PLAN.md Task 1) - the second half of the six-shape check above, split out because it
-    exercises a distinct fixture (an `errors` dict) rather than a seventh parametrize case"""
+    """the error block still attaches to the field, with the gauges after it - the second half
+    of the six-shape check above, split out because it exercises a distinct fixture (an `errors`
+    dict) rather than a seventh parametrize case"""
     with_error = config_page.wake_interval_group(
         600, errors={"wake_interval_s": "Enter a whole number of seconds."},
         submitted={"wake_interval_s": "900"}, battery_rows=_FALLING)
@@ -1395,8 +1346,7 @@ def test_the_gauges_error_block_still_attaches_with_the_gauges_after_it():
 
 
 # ------------------------------------------------------------------
-# 25-05-PLAN.md Task 2 (CFG-49/CFG-52): the gated range, and the seam it
-# shares with the one script.
+# The gated range, and the seam it shares with the one script.
 # ------------------------------------------------------------------
 
 def test_the_range_is_gated_nameless_and_bounded_by_device_config():
@@ -1404,9 +1354,8 @@ def test_the_range_is_gated_nameless_and_bounded_by_device_config():
     setting and the last to arrive would win), carries no role="slider" on top of a native
     slider, takes its min/max from server.device_config rather than a literal, steps by exactly
     the minute both gauges speak in, has its own accessible name and describes itself by the two
-    gauges, renders ONLY inside 25-01's .js gate and only when there is a saved interval to
-    start from, and nothing on the card is a live region (CFG-49/CFG-52/T-25-05-D, 25-05-PLAN.md
-    Task 2)"""
+    gauges, renders ONLY inside the .js gate and only when there is a saved interval to
+    start from, and nothing on the card is a live region"""
     markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
     tag = re.search(r'<input type="range"[^>]*>', markup)
     assert tag, "no <input type=\"range\"> renders on the card"
@@ -1453,9 +1402,9 @@ def test_the_readout_seam_this_card_declares_is_the_one_the_script_reads(value_c
     a bound that is false), all three gesture listeners stand aside for a wrapper holding a
     native mirror (without which preventDefault cancels the thumb drag), the relative clause's
     base is the saved interval so it renders EMPTY until something else is proposed, and no
-    readout template contains the days wording at all (CFG-49/T-25-05-C, 25-05-PLAN.md Task 2)
+    readout template contains the days wording at all
 
-    Fetched over HTTP (served_asset()), never opened from disk (TST-12); comments stripped with
+    Fetched over HTTP (served_asset()), never opened from disk; comments stripped with
     `strip_js_line_and_block_comments()` (preserves string/template literals, unlike
     `companion_markup.strip_js_comments_and_strings()`, which the quoted-literal searches below
     depend on).
@@ -1498,14 +1447,13 @@ def test_the_readout_seam_this_card_declares_is_the_one_the_script_reads(value_c
                 "a readout template carries the days wording (%r)" % template)
 
 
-# 30-03-PLAN.md Task 1 (CFG-85) / 27-07-PLAN.md Task 1 (CFG-68): the two
-# closing structural proofs over the whole rendered Display page.
+# The two closing structural proofs over the whole rendered Display page.
 
 def test_the_display_page_carries_exactly_one_radio_set_per_theme_field():
     """the whole rendered Display page carries exactly len(device_config.THEME_IDS) radios
     named 'theme' - ONE set, computed from the registry at check time, re-homed from the
     retiring carousel's own equivalent guard so the page can never show one setting in two
-    disagreeing places (CFG-85, 30-03-PLAN.md Task 1)"""
+    disagreeing places"""
     page = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
         "poll_cooldown_remaining": 0,
@@ -1521,7 +1469,7 @@ def test_the_rendered_settings_page_carries_no_duplicate_id():
     """the rendered Display page carries no duplicate id anywhere - asserted as page-wide id
     uniqueness (THE property the THEME_CAROUSEL_STRIP_ID trap violates), never as 'the carousel
     ids I expect differ', with a failure message naming the duplicated id and how many times it
-    appeared (CFG-68, 27-07-PLAN.md Task 1)"""
+    appeared"""
     page = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
         "poll_cooldown_remaining": 0,
@@ -1540,13 +1488,13 @@ def test_the_rendered_settings_page_carries_no_duplicate_id():
             % (dup_id, dup_count))
 
 
-# --- 27-03-PLAN.md Task 1 (CFG-64) -------------------------------
+# --- the no-JS save floor's structural proof ----------------------
 
 def test_the_native_submit_is_emitted_unconditionally_on_every_render(tmp_path):
     """the native submit carrying STATIC_SAVE_FALLBACK_ATTR is emitted UNCONDITIONALLY - AND
     every one of the three scopes (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE) renders it exactly
     once, across every extra keyword shape render() accepts, so there is no code path, past or
-    future, that can omit the no-JS save floor (CFG-64, 27-03-PLAN.md Task 1)
+    future, that can omit the no-JS save floor
 
     Rewritten from the retired `ast.parse()` proof over render()'s own source (banned outright
     by guard G2: no ast/tokenize over production code) into a purely behavioural one: render()

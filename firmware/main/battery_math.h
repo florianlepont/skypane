@@ -1,8 +1,8 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
 /* Pure divider-ratio conversion for the EE02 driver board's onboard
- * battery-voltage sense circuit (DEVICE-04). Host-compilable, standard
- * headers only. */
+ * battery-voltage sense circuit. Host-compilable, standard headers
+ * only. */
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
@@ -13,8 +13,8 @@
  * wrapping on overflow). */
 uint32_t battery_math_apply_divider(uint32_t divider_mv);
 
-/* Mean of the non-negative entries in samples[0..n), rounded to nearest
- * (FW-11's 8-sample average). A negative entry marks a failed ADC read
+/* Mean of the non-negative entries in samples[0..n), rounded to nearest.
+ * A negative entry marks a failed ADC read
  * for that sample and is excluded rather than dragging the average
  * toward zero. Returns 0 if samples is NULL, n is 0, or every entry is
  * negative - the same "0 means unknown" sentinel the divider path
