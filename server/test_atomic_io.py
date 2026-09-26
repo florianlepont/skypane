@@ -1,10 +1,12 @@
-"""Behaviour tests for server/atomic_io.py's atomic_write and staged_write.
+"""Behaviour tests for server/atomic_io.py: atomic_write, staged_write and
+exclusive_lock.
 
 Every assertion here is about observable behaviour (final bytes on disk,
 file mode, presence/absence of a leftover temp file, exceptions raised) --
 never about the module's source text.
 """
 
+import errno
 import os
 import stat
 import subprocess
@@ -291,3 +293,80 @@ def test_exclusive_lock_releases_on_exception(tmp_path):
     # The prior failure released the lock: a fresh non-blocking acquire succeeds at once.
     with atomic_io.exclusive_lock(lock_path, 1, blocking=False):
         pass
+
+
+# --- Fallback / defensive-branch coverage -----------------------------------
+#
+# The behaviours below are not in the plan's required behaviour list, but
+# each covers a branch that the tests above never reach on this platform
+# (Linux, with /proc and fcntl always present): the /proc-unavailable umask
+# fallback, a write failure after the temp file is open, an already-deleted
+# temp file at cleanup time, the no-fcntl lock fallback, and an unrelated
+# OSError propagating out of flock instead of becoming LockBusy.
+
+
+def test_read_umask_falls_back_without_proc(monkeypatch):
+    real_open = open
+
+    def fake_open(path, *args, **kwargs):
+        if path == "/proc/self/status":
+            raise OSError("no /proc on this platform")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(atomic_io, "open", fake_open, raising=False)
+    old = os.umask(0)
+    os.umask(old)
+    assert atomic_io._read_umask() == old
+
+
+def test_staged_write_failure_during_write_leaves_no_temp(tmp_path, monkeypatch):
+    path = tmp_path / "state.json"
+
+    def failing_fsync(fd):
+        raise OSError("write error injected for test")
+
+    monkeypatch.setattr(atomic_io.os, "fsync", failing_fsync)
+    with pytest.raises(OSError):
+        atomic_io.atomic_write(str(path), "data")
+
+    assert not path.exists()
+    assert _temp_leftovers(str(tmp_path)) == []
+
+
+def test_staged_write_cleanup_tolerates_already_deleted_temp(tmp_path):
+    path = tmp_path / "state.json"
+
+    with atomic_io.staged_write(str(path), "data"):
+        # Delete the temp file out from under staged_write before it exits
+        # the block without commit(): the cleanup unlink must tolerate a
+        # temp file that is already gone.
+        leftovers = _temp_leftovers(str(tmp_path))
+        assert len(leftovers) == 1
+        os.unlink(str(tmp_path / leftovers[0]))
+
+    assert not path.exists()
+    assert _temp_leftovers(str(tmp_path)) == []
+
+
+def test_exclusive_lock_without_fcntl_yields_unlocked(tmp_path, monkeypatch):
+    monkeypatch.setattr(atomic_io, "fcntl", None)
+    lock_path = str(tmp_path / "no-fcntl.lock")
+    # No lock file is created and no exception is raised: a documented gap
+    # on a platform without fcntl.
+    with atomic_io.exclusive_lock(lock_path, 1):
+        pass
+    assert not os.path.exists(lock_path)
+
+
+def test_exclusive_lock_propagates_unrelated_oserror(tmp_path, monkeypatch):
+    lock_path = str(tmp_path / "odd.lock")
+
+    def failing_flock(fd, flags):
+        raise OSError(errno.EINVAL, "unrelated failure")
+
+    monkeypatch.setattr(atomic_io.fcntl, "flock", failing_flock)
+
+    with pytest.raises(OSError) as excinfo:
+        with atomic_io.exclusive_lock(lock_path, 1):
+            pass
+    assert not isinstance(excinfo.value, atomic_io.LockBusy)

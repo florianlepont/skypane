@@ -20,11 +20,34 @@ the directory), and any failure -- an unsupported `data` type, a write
 error, a failed `os.replace` -- leaves the destination untouched and no
 temp file behind. Callers are expected to have already created the
 destination directory.
+
+`exclusive_lock` gives one cross-process, cross-thread lock over
+`fcntl.flock`, generalising the pattern already proven by
+`calendar_rules._calendar_registry_lock`. Lock order used across this
+codebase: an in-process `threading.Lock` first (each subsystem keeps its
+own fast path for same-process contention, since `flock` alone is a
+fragile substitute for one), then `poll.lock`, then `calendar_rules.lock`.
+`device_config.lock` is never taken while another of these file locks is
+held, so the poll cycle and the companion cannot deadlock on each other.
+This order is documented here for callers of `exclusive_lock` to respect;
+this module does not enforce it. Note also that a `flock` lock belongs to
+the *open file description*, not the path or the process: two threads in
+one process that each open the lock file independently still exclude each
+other on Linux (a fresh open() call makes a fresh open file description),
+which is why `exclusive_lock` alone is enough to add cross-thread
+exclusion on top of cross-process exclusion.
 """
 
 import contextlib
+import errno
 import os
 import tempfile
+import time
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - not exercised on this project's targets
+    fcntl = None
 
 
 def _read_umask():
@@ -126,3 +149,59 @@ def atomic_write(path, data, mode=None):
     """
     with staged_write(path, data, mode=mode) as commit:
         commit()
+
+
+class LockBusy(TimeoutError):
+    """Raised by `exclusive_lock` when the lock could not be acquired
+    within `timeout_s`, or at once with `blocking=False`. A `TimeoutError`
+    subclass so an existing `except TimeoutError` caller keeps working.
+    """
+
+
+# Poll interval for a blocking exclusive_lock wait, matching the interval
+# already tuned in calendar_rules's own cross-process lock.
+LOCK_POLL_S = 0.05
+
+
+@contextlib.contextmanager
+def exclusive_lock(lock_path, timeout_s, blocking=True):
+    """Cross-process, cross-thread advisory lock over `fcntl.flock`.
+    Creates `lock_path`'s parent directory and the lock file itself (mode
+    0600) if missing. With `blocking=True` (the default) a busy lock is
+    retried every `LOCK_POLL_S` until `timeout_s` has elapsed since the
+    first attempt, then raises `LockBusy`; with `blocking=False` a busy
+    lock raises `LockBusy` at once. Any other `OSError` from `flock`
+    propagates. The lock is always released (and the file descriptor
+    closed) in a `finally`, including when the caller's block raises.
+
+    POSIX-only (see the `fcntl` import guard above); on a platform without
+    `fcntl` this yields without locking -- a documented gap, matching
+    `calendar_rules`'s existing one.
+    """
+    if fcntl is None:
+        yield
+        return
+
+    directory = os.path.dirname(lock_path) or "."
+    os.makedirs(directory, exist_ok=True)
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        deadline = time.monotonic() + timeout_s
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError as exc:
+                if exc.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                if not blocking or time.monotonic() >= deadline:
+                    raise LockBusy(
+                        "atomic_io: lock at %r is busy" % (lock_path,)
+                    ) from exc
+                time.sleep(LOCK_POLL_S)
+        try:
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
