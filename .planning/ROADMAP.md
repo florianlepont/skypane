@@ -1830,11 +1830,43 @@ Plans:
 3. SQLite connections per page request: 1; per poll cycle: 1
 4. Poll cycle wall time measured before/after (no fixed 1.1 s sleep)
 
-**Plans:** 0 plans
+**Plans:** 13 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 38 to break down)
+**Wave 1**
+
+- [ ] 38-01-PLAN.md — instruments (`test-support/efficiency_probe.py`, `scripts/measure_efficiency.py`) + BEFORE tables in `38-EFF-BASELINE.md`, no production change [EFF-01..06]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 38-02-PLAN.md — static files: in-memory bytes, strong ETag + Last-Modified, 304, `no-cache` (D-1); Caddy `encode zstd gzip` in the companion block only [EFF-01]
+- [ ] 38-03-PLAN.md — `history_db`: thread-bound `connection_scope`, schema once per file identity, `write_batch` [EFF-03]
+- [ ] 38-04-PLAN.md — `detect`: providers in parallel, results in provider order, per-provider spacing; COMPLIANCE.md [EFF-06]
+- [ ] 38-05-PLAN.md — `health_signals`: severity and anomalies without markup [EFF-04]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 38-06-PLAN.md — per-page script tuples, `page_shell(scripts=...)`, hook-coverage test [EFF-02]
+- [ ] 38-07-PLAN.md — poll cycle: one connection, one COMMIT, no transaction during ntfy [EFF-03]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 38-08-PLAN.md — companion: one connection per request (scope around GET/POST dispatch) [EFF-03]
+- [ ] 38-09-PLAN.md — `poll_state.json` saved once, only if changed, compact [EFF-05]
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 38-10-PLAN.md — lazy `page_context`, 404/403 severity from signals, cooldown degrades to 0 [EFF-04]
+- [ ] 38-11-PLAN.md — provider last-call times persisted in meta; spacing kept across back-to-back cycles [EFF-06]
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 38-12-PLAN.md — freshness: input token, conditional GET on the same URL, 304, forced full refresh (D-2) [EFF-04]
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 38-13-PLAN.md — AFTER tables + criteria check; VPS compression checkpoint (before now, after deploy) [EFF-01..06]
 
 ### Phase 39: Server architecture — run_once split, state store, shared modules
 
