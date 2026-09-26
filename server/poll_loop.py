@@ -620,10 +620,16 @@ _NO_WAKE_EPOCH = object()
 
 
 def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False):
-    """Write this cycle's durable signals into `history.db`, in one
-    connection: a database/filesystem failure is caught and logged, never
+    """Write this cycle's durable signals into `history.db` in one
+    connection and one transaction: every write below runs inside one
+    `history_db.write_batch(conn)`, committed once as this function
+    returns (or rolled back as one unit if any write raises) - never left
+    open while `_notify_silence_transition()` makes its ntfy HTTP call
+    afterwards. A database/filesystem failure is caught and logged, never
     allowed to fail the poll cycle - history is an accessory to the
-    panel, not a dependency of it.
+    panel, not a dependency of it; the batch's rollback means a mid-batch
+    failure discards every write this call made, not just the one that
+    raised.
 
     `record_event` gates the one thing not written every cycle: a
     `runway_events` row, on a real transition only. The pipeline-run
@@ -643,29 +649,30 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     route = route if isinstance(route, dict) else {}
     try:
         with history_db.open_db(state_dir) as conn:
-            if record_event and isinstance(flight, dict):
-                history_db.record_runway_event(
-                    conn,
-                    ts=now_iso,
-                    hex=flight.get("hex"),
-                    callsign=flight.get("callsign"),
-                    aircraft_type=flight.get("aircraft_type"),
-                    confirmed_state=confirmed_state,
-                    corroborated=flight.get("corroborated"),
-                    route_source=route_source,
-                    airline=route.get("airline_name"),
-                    origin=route.get("origin_iata"),
-                    destination=route.get("destination_iata"),
-                    tracked_runway=tracked_runway_id,
-                )
-            history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, now_iso)
-            history_db.set_meta(conn, history_db.META_SOURCE_FAULT, str(source_fault))
-            if flight is not None or detected:
-                history_db.set_meta(conn, history_db.META_LAST_DETECTION, now_iso)
-            if caddy_log:
-                history_db.ingest_caddy_battery_log(conn, caddy_log)
-            if wake_interval_s is not _NO_WAKE_EPOCH:
-                history_db.record_wake_epoch(conn, now_iso, wake_interval_s)
+            with history_db.write_batch(conn):
+                if record_event and isinstance(flight, dict):
+                    history_db.record_runway_event(
+                        conn,
+                        ts=now_iso,
+                        hex=flight.get("hex"),
+                        callsign=flight.get("callsign"),
+                        aircraft_type=flight.get("aircraft_type"),
+                        confirmed_state=confirmed_state,
+                        corroborated=flight.get("corroborated"),
+                        route_source=route_source,
+                        airline=route.get("airline_name"),
+                        origin=route.get("origin_iata"),
+                        destination=route.get("destination_iata"),
+                        tracked_runway=tracked_runway_id,
+                    )
+                history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, now_iso)
+                history_db.set_meta(conn, history_db.META_SOURCE_FAULT, str(source_fault))
+                if flight is not None or detected:
+                    history_db.set_meta(conn, history_db.META_LAST_DETECTION, now_iso)
+                if caddy_log:
+                    history_db.ingest_caddy_battery_log(conn, caddy_log)
+                if wake_interval_s is not _NO_WAKE_EPOCH:
+                    history_db.record_wake_epoch(conn, now_iso, wake_interval_s)
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: history write failed: %s: %s" % (type(exc).__name__, exc))
 
@@ -734,13 +741,19 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     is passed straight through to `poll_cycle_lock()` - `None` (the
     systemd oneshot's default) waits up to `POLL_LOCK_WAIT_S`; `0` (the
     companion's POST /poll-now) raises `PollBusy` at once rather than
-    ever blocking a request thread. See `_run_once_locked()` for the
-    cycle itself.
+    ever blocking a request thread. Nested inside the lock, one
+    `history_db.connection_scope(state_dir)` spans the whole cycle body,
+    so every `history_db.open_db(state_dir)` call `_run_once_locked()`
+    makes on this thread - directly, or nested inside `connection_scope`
+    itself if a caller (e.g. the companion's request dispatch) is already
+    inside one for the same path - shares the one connection this cycle
+    opens. See `_run_once_locked()` for the cycle itself.
     """
     state_dir = state_dir or DEFAULT_STATE_DIR
     with poll_cycle_lock(state_dir, lock_timeout_s):
-        return _run_once_locked(
-            snapshot=snapshot, state_dir=state_dir, geofence=geofence, caddy_log=caddy_log)
+        with history_db.connection_scope(state_dir):
+            return _run_once_locked(
+                snapshot=snapshot, state_dir=state_dir, geofence=geofence, caddy_log=caddy_log)
 
 
 def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
