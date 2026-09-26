@@ -35,11 +35,13 @@ Usage:
     server/.venv/bin/python3 server/plane/detect.py --provider all --json
 """
 import argparse
+import concurrent.futures
 import json
 import math
 import os
 import re
 import sys
+import threading
 import time
 
 import requests
@@ -99,8 +101,13 @@ PROVIDERS = {
 # argument is passed - this is what production actually uses.
 DEFAULT_PROVIDER_ORDER = ("adsbfi", "adsblol")
 
-# Both providers document a 1 request/second limit; sleeping longer than
-# the strict minimum leaves headroom.
+# The minimum spacing between two calls to THE SAME provider - never
+# between two different providers, which are queried in parallel (see
+# poll_current_aircraft()/_spaced_query()). adsb.fi documents a 1
+# request/second limit on its public endpoints and counts 4xx responses
+# against it; adsb.lol documents dynamic rate limits rather than a fixed
+# number. Sleeping longer than the strict minimum leaves headroom for
+# either.
 MIN_SECONDS_BETWEEN_CALLS = 1.1
 
 # Real ICAO aircraft type designators are short alphanumeric codes (B738,
@@ -142,9 +149,11 @@ DEFAULT_RUNWAY_ID = "3"
 # individual read, same as the old default's role); PROVIDER_DEADLINE_S
 # bounds the call's TOTAL wall-clock time regardless of how many small
 # reads it takes; PROVIDER_MAX_BYTES caps the response body a malformed or
-# hostile aggregator can make this process buffer. Worst case per call is
-# deadline + one read timeout (13s), which feeds the 90s systemd unit
-# budget (see deploy/skypane-poll.service).
+# hostile aggregator can make this process buffer. Providers are queried
+# in parallel (poll_current_aircraft()), so the per-cycle provider budget
+# is now one deadline plus one read timeout total (13s), not two calls
+# back to back - which feeds the 90s systemd unit budget (see
+# deploy/skypane-poll.service).
 PROVIDER_TIMEOUT_S = 5.0
 PROVIDER_DEADLINE_S = 8.0
 PROVIDER_MAX_BYTES = 4 * 1024 * 1024
@@ -665,11 +674,54 @@ def select_runway3_aircraft(aircraft, geofence):
     return select_aircraft_for_runway(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID)
 
 
-def poll_current_aircraft(geofence, timeout=PROVIDER_TIMEOUT_S, providers=None, runway_id=DEFAULT_RUNWAY_ID, diagnostics=None):
-    """Query provider(s) in order (by default `DEFAULT_PROVIDER_ORDER`),
-    sleeping `MIN_SECONDS_BETWEEN_CALLS` between calls, catching
+def _spaced_query(name, center, radius_nm, timeout, last_call_at, lock, clock, sleep):
+    """Wait out `name`'s own `MIN_SECONDS_BETWEEN_CALLS` spacing - measured
+    against `last_call_at[name]` alone, never against any other provider's
+    entry - then call `query_provider`. Runs inside one
+    `ThreadPoolExecutor` worker per provider, so waiting for one provider
+    never delays another's own call.
+
+    The read-wait-write around `last_call_at` is split so the actual
+    `sleep()` never happens while `lock` is held - otherwise one
+    provider's wait would block every other provider's read of its own
+    entry, defeating the point of spacing them independently. `clock` and
+    `sleep` are the caller's already-resolved `time.time`/`time.sleep` (or
+    a test double), never looked up here.
+    """
+    with lock:
+        previous = last_call_at.get(name)
+        wait = (previous + MIN_SECONDS_BETWEEN_CALLS - clock()) if previous is not None else 0.0
+    if wait > 0:
+        sleep(wait)
+    with lock:
+        last_call_at[name] = clock()
+    return query_provider(name, center["lat"], center["lon"], radius_nm, timeout)
+
+
+def poll_current_aircraft(geofence, timeout=PROVIDER_TIMEOUT_S, providers=None, runway_id=DEFAULT_RUNWAY_ID,
+                           diagnostics=None, last_call_at=None, clock=None, sleep=None):
+    """Query provider(s) (by default `DEFAULT_PROVIDER_ORDER`) in
+    parallel, one `ThreadPoolExecutor` worker per provider, each worker
+    spaced against its OWN previous call via `_spaced_query` rather than
+    sleeping between different providers - catching
     `(requests.RequestException, ValueError)` per provider so one
     aggregator being down never aborts the poll.
+
+    `last_call_at` is a mutable `{provider_name: epoch_seconds}` map the
+    caller may keep across polls (a timer cycle followed by a manual
+    "poll now" is the hazard this guards: without it, two back-to-back
+    polls could both call the same provider immediately). Passing `None`
+    (the default) uses a fresh local dict, so a single poll never sleeps
+    for spacing it cannot know about, and never raises. `clock`/`sleep`
+    default to `time.time`/`time.sleep`, resolved here rather than as
+    default parameter values, so a test (or a future caller) that patches
+    `time.sleep` is honoured even though the actual wait happens inside a
+    worker thread.
+
+    Futures are submitted and collected in `provider_names` order (never
+    `as_completed`), so which provider physically answers first has no
+    effect on `queried`/`failed`/`polled`, or on which provider's record
+    wins below - only submission order does.
 
     When more than one provider actually answers, their candidate SETS
     (not their final picks) are cross-validated - comparing final picks
@@ -716,6 +768,19 @@ def poll_current_aircraft(geofence, timeout=PROVIDER_TIMEOUT_S, providers=None, 
     center = geofence["center"]
     radius_nm = geofence["radius_nm"]
 
+    # Resolved here, not as default parameter values, so a caller (or
+    # test) that patches time.sleep/time.time AFTER this module loads is
+    # still honoured - a default argument would have captured the
+    # unpatched function at import time instead.
+    resolved_clock = clock or time.time
+    resolved_sleep = sleep or time.sleep
+    # A caller-supplied map is mutated in place (that persistence across
+    # polls is the whole point); no caller means a fresh dict local to
+    # this one poll, which can never carry a previous call for any
+    # provider, so it never waits and never raises.
+    call_times = last_call_at if last_call_at is not None else {}
+    call_times_lock = threading.Lock()
+
     effective_runway_id = _effective_runway_id(geofence, runway_id)
     queried = []
     failed = []
@@ -724,19 +789,33 @@ def poll_current_aircraft(geofence, timeout=PROVIDER_TIMEOUT_S, providers=None, 
     # selected runway. A provider that answered but saw nothing there is
     # not a dissenting vote - it simply has nothing to corroborate with.
     polled = []
-    for i, name in enumerate(provider_names):
-        if i > 0:
-            time.sleep(MIN_SECONDS_BETWEEN_CALLS)
-        queried.append(name)
-        try:
-            aircraft = query_provider(name, center["lat"], center["lon"], radius_nm, timeout)
-        except (requests.RequestException, ValueError) as exc:
-            print("detect: %s query failed: %s: %s" % (name, type(exc).__name__, exc), file=sys.stderr)
-            failed.append(name)
-            continue
-        candidates = runway_candidates(aircraft, geofence, runway_id=runway_id)
-        if candidates:
-            polled.append((name, candidates))
+
+    # One worker per provider so no provider's own spacing wait ever
+    # blocks another provider's call - the fixed inter-provider sleep this
+    # replaces used to cost ~90% of a no-network poll cycle. Futures are
+    # submitted AND collected in provider_names order (never
+    # as_completed()), so which provider physically answers first can
+    # never change queried/failed/polled ordering or which provider's
+    # record wins on agreement below.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(provider_names))) as pool:
+        futures = [
+            pool.submit(
+                _spaced_query, name, center, radius_nm, timeout,
+                call_times, call_times_lock, resolved_clock, resolved_sleep,
+            )
+            for name in provider_names
+        ]
+        for name, future in zip(provider_names, futures):
+            queried.append(name)
+            try:
+                aircraft = future.result()
+            except (requests.RequestException, ValueError) as exc:
+                print("detect: %s query failed: %s: %s" % (name, type(exc).__name__, exc), file=sys.stderr)
+                failed.append(name)
+                continue
+            candidates = runway_candidates(aircraft, geofence, runway_id=runway_id)
+            if candidates:
+                polled.append((name, candidates))
 
     # Populated before every return below, so an all-providers-failed poll
     # stays distinguishable from a nothing-on-the-runway poll even though

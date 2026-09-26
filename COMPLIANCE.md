@@ -200,17 +200,26 @@ document.
 ## Runtime behaviour vs. the aggregators' constraints
 
 - **Poll cadence:** `server/poll_loop.py` runs on a 30-second cadence
-  (`server/README.md`'s "Poll cadence" section). A production cycle now
-  issues **two** aggregator requests per 30-second cycle — adsb.fi, then
-  adsb.lol, per `DEFAULT_PROVIDER_ORDER` — separated by
-  `server/plane/detect.py`'s `MIN_SECONDS_BETWEEN_CALLS = 1.1` second
-  sleep. Per provider, that is still one request every 30 seconds, well
-  inside either aggregator's documented 1 request/second limit; the
-  aggregate (two requests, 1.1s apart, once every 30 seconds) sits
-  comfortably inside that ceiling too. An explicit `--provider all`
-  invocation additionally reaches a third provider, airplanes.live, adding
-  one more 1.1s-spaced request to the same cycle — still well inside the
-  limit.
+  (`server/README.md`'s "Poll cadence" section). A production cycle issues
+  **two** aggregator requests per 30-second cycle — one to adsb.fi and one
+  to adsb.lol, per `DEFAULT_PROVIDER_ORDER` — sent **in parallel**
+  (`server/plane/detect.py`'s `poll_current_aircraft()` runs both through a
+  `ThreadPoolExecutor`, not one after the other). Each provider still
+  receives at most one request per 30-second cycle either way, and the
+  code separately enforces at least `MIN_SECONDS_BETWEEN_CALLS` (1.1
+  seconds) between two requests to the **same** provider — including
+  across back-to-back cycles, such as a timer-driven cycle immediately
+  followed by a manual "poll now". The documented limits differ per
+  provider: adsb.fi documents a 1 request/second limit on its public
+  endpoints and counts 4xx responses against it [CITED:
+  github.com/adsbfi/opendata], while adsb.lol documents **dynamic** rate
+  limits rather than a fixed request-per-second number [CITED:
+  adsb.lol/docs/open-data/api] — one request every 30 seconds, spaced at
+  least 1.1 seconds from the previous request to that same provider, sits
+  comfortably inside either policy. An explicit `--provider all`
+  invocation additionally reaches a third provider, airplanes.live, as one
+  more parallel request in the same cycle, under the same per-provider
+  spacing.
 - **No raw aggregator data is republished.** What this project serves to
   the device is a rendered panel image (`server/plane/render.py`)
   derived from a single selected flight

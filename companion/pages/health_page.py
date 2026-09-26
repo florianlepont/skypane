@@ -1067,20 +1067,98 @@ def overall_severity(
     return "ok"
 
 
-def compute_health_state(state_dir, now=None):
-    """The single computation both the nav-tab dot and the full Health
-    page need. Running these independently against fresh DB connections
-    at two different instants let a write land between them and make
-    the two disagree; `page_context()` now calls this once per request
-    and threads the result through `ctx["health_state"]`.
+def _device_resolved_state(next_wake_iso, effective_interval_s, hold_reason, now):
+    """The one `frame_state.resolve_state()` call both `_device_state()`
+    and `_device_section()` key off, so a due/held/late/unknown verdict
+    can never differ between the state-only path and the tile markup.
+    """
+    return frame_state.resolve_state(next_wake_iso, effective_interval_s, hold_reason, now)
+
+
+def _device_state(
+        device_health, now, warn_s=None, error_s=None,
+        next_wake_iso=None, effective_interval_s=None, hold_reason=None):
+    """The Device tile's `"ok"`/`"warn"`/`"error"`/`"off"` verdict alone,
+    with no markup built: the exact state logic `_device_section()` used
+    to compute inline, now shared so `health_signals()` can read it
+    without ever calling a markup builder.
+    """
+    if device_health is _DB_UNAVAILABLE:
+        return "ok"
+    if warn_s is None or error_s is None:
+        warn_s, error_s = wake.device_staleness_thresholds(None)
+    resolved_state = _device_resolved_state(
+        next_wake_iso, effective_interval_s, hold_reason, now)
+    if resolved_state == frame_state.STATE_UNKNOWN:
+        ts = (device_health or {}).get("ts")
+        age = layout.age_seconds(ts, now)
+        return staleness_status(age, warn_s, error_s)
+    return _FRAME_STATE_TO_DEVICE_STATE[resolved_state]
+
+
+def _pipeline_state(pipeline_ts, last_detection, now):
+    """The Pipeline tile's verdict alone, with no markup built: the exact
+    state logic `_pipeline_section()` used to compute inline.
+    """
+    if pipeline_ts is _DB_UNAVAILABLE:
+        return "ok"
+    if _pipeline_never_ran(pipeline_ts, last_detection):
+        return "off"
+    age = layout.age_seconds(pipeline_ts, now)
+    return staleness_status(age, STALE_PIPELINE_WARN_S, STALE_PIPELINE_ERROR_S)
+
+
+def _battery_state(trend_rows, daily_rows=None):
+    """The Battery tile's verdict alone, with no markup built.
+    `battery_status()` is already pure state logic; this only restates
+    the two early-exit cases (`_DB_UNAVAILABLE`, no readings yet)
+    `_battery_section()` special-cases before ever reaching it, so a
+    caller with no markup to build never needs that function at all.
+    `daily_rows` plays no part in the verdict (only in which series the
+    chart plots) but is accepted for signature symmetry with
+    `_battery_section()`.
+    """
+    if trend_rows is _DB_UNAVAILABLE:
+        return "ok"
+    if not trend_rows:
+        return "ok"
+    return battery_status(trend_rows)
+
+
+def _disagreement_warn(counts):
+    """The Corroboration tile's disagreement flag alone, with no markup
+    built: the exact state logic `_corroboration_section()` used to
+    compute inline.
+    """
+    if counts is _DB_UNAVAILABLE:
+        return False
+    counts = counts or {}
+    if not any(counts.values()):
+        return False
+    return bool(counts.get("False"))
+
+
+def health_signals(state_dir, now=None):
+    """Every state the nav-tab dot and the full Health page banner need
+    — severity, the anomaly list, and each section's own state — derived
+    from one `_read_health_inputs()` read, with zero markup built. This
+    is the snapshot `health_state_from_signals()` renders from and
+    `compute_health_state()` composes with it; nothing computed here is
+    ever recomputed downstream, only rendered.
+
+    Returns a dict carrying `now`, the raw `inputs` dict (consumed by the
+    markup step), the device cadence/staleness/next-wake triple, every
+    section's state, `disagreement_warn`, `coverage_state`,
+    `source_fault`/`source_fault_raw`, `registry_rows`, `offbox`,
+    `severity` and `anomalies`.
     """
     if now is None:
         now = history_db.utc_now_iso()
     inputs = _read_health_inputs(state_dir, now)
     # The device's effective wake cadence resolves to its staleness
-    # thresholds, computed once here. The regularity grid below judges
-    # its cells against this same cadence and names it in its caption,
-    # so it is held in a local rather than recomputed inline.
+    # thresholds, computed once here. The regularity grid judges its
+    # cells against this same cadence and names it in its caption, so it
+    # is held in a local rather than recomputed inline.
     wake_interval_s = wake.effective_wake_interval_s(inputs["device_config"])
     warn_s, error_s = wake.device_staleness_thresholds(wake_interval_s)
     # The same triple companion/layout.py's frame_strip_html() consumes,
@@ -1090,22 +1168,13 @@ def compute_health_state(state_dir, now=None):
         device_ts = (inputs["device_health"] or {}).get("ts")
     next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
         device_ts, inputs["device_config"])
-    device_html, device_state = _device_section(
+    device_state = _device_state(
         inputs["device_health"], now, warn_s=warn_s, error_s=error_s,
         next_wake_iso=next_wake_iso, effective_interval_s=effective_interval_s,
         hold_reason=hold_reason)
-    device_detail_html = _device_timestamp_only(inputs["device_health"], now)
-    pipeline_html, pipeline_state = _pipeline_section(
-        inputs["pipeline_ts"], inputs["last_detection"], now)
-    pipeline_detail_html = _pipeline_timestamp_only(
-        inputs["pipeline_ts"], inputs["last_detection"], now)
-    battery_html, battery_state = _battery_section(inputs["trend_rows"], inputs["daily_rows"])
-    # Threaded through the returned dict rather than as a third
-    # _battery_section() return value: that function's 2-tuple return is
-    # directly unpacked by a pinned harness check.
-    battery_caption = _battery_trend_caption(inputs["trend_rows"], inputs["daily_rows"])
-    corroboration_html, disagreement_warn = _corroboration_section(
-        inputs["corroboration_counts"])
+    pipeline_state = _pipeline_state(inputs["pipeline_ts"], inputs["last_detection"], now)
+    battery_state = _battery_state(inputs["trend_rows"], inputs["daily_rows"])
+    disagreement_warn = _disagreement_warn(inputs["corroboration_counts"])
     coverage_state = coverage_status(inputs["registry_rows"])
     source_fault = _meta_flag_true(inputs["source_fault_raw"])
     # Read exactly once per request, here — never independently inside
@@ -1123,29 +1192,112 @@ def compute_health_state(state_dir, now=None):
         offbox=offbox)
     return {
         "now": now,
+        "inputs": inputs,
+        "wake_interval_s": wake_interval_s,
+        "warn_s": warn_s,
+        "error_s": error_s,
+        # The frame-strip and freshness-token triple: published here
+        # (rather than only inside the markup step) so a caller that
+        # never renders markup — the freshness token, later — can still
+        # read it from one snapshot.
+        "next_wake_iso": next_wake_iso,
+        "effective_interval_s": effective_interval_s,
+        "hold_reason": hold_reason,
+        "device_state": device_state,
+        "pipeline_state": pipeline_state,
+        "battery_state": battery_state,
+        "disagreement_warn": disagreement_warn,
+        "coverage_state": coverage_state,
+        "source_fault": source_fault,
         "source_fault_raw": inputs["source_fault_raw"],
         "registry_rows": inputs["registry_rows"],
+        "offbox": offbox,
+        "severity": severity,
+        "anomalies": anomalies,
+    }
+
+
+def safe_health_signals(state_dir, now=None):
+    """Fail-closed wrapper around `health_signals()`, mirroring
+    `safe_health_state()`'s broad `except Exception` and "`None` means
+    ok" convention: `None` on any unanticipated exception, never a raise.
+    """
+    try:
+        return health_signals(state_dir, now)
+    except Exception:
+        return None
+
+
+def health_state_from_signals(signals):
+    """Builds every `*_html` value and `battery_caption` from
+    `signals["inputs"]` (a `health_signals()` snapshot), and returns
+    exactly `compute_health_state()`'s historical key set. Every state,
+    `severity` and `anomalies` value is copied straight from `signals`,
+    never recomputed here — each `_x_section()` builder is still called
+    (for its markup), but its own returned state is discarded in favour
+    of the snapshot's, so the nav-tab dot and this page's own banner can
+    never disagree.
+    """
+    now = signals["now"]
+    inputs = signals["inputs"]
+    device_html, _device_state_unused = _device_section(
+        inputs["device_health"], now, warn_s=signals["warn_s"], error_s=signals["error_s"],
+        next_wake_iso=signals["next_wake_iso"],
+        effective_interval_s=signals["effective_interval_s"],
+        hold_reason=signals["hold_reason"])
+    device_detail_html = _device_timestamp_only(inputs["device_health"], now)
+    pipeline_html, _pipeline_state_unused = _pipeline_section(
+        inputs["pipeline_ts"], inputs["last_detection"], now)
+    pipeline_detail_html = _pipeline_timestamp_only(
+        inputs["pipeline_ts"], inputs["last_detection"], now)
+    battery_html, _battery_state_unused = _battery_section(
+        inputs["trend_rows"], inputs["daily_rows"])
+    # Threaded through the returned dict rather than as a third
+    # _battery_section() return value: that function's 2-tuple return is
+    # directly unpacked by a pinned harness check.
+    battery_caption = _battery_trend_caption(inputs["trend_rows"], inputs["daily_rows"])
+    corroboration_html, _disagreement_warn_unused = _corroboration_section(
+        inputs["corroboration_counts"])
+    return {
+        "now": now,
+        "source_fault_raw": signals["source_fault_raw"],
+        "registry_rows": signals["registry_rows"],
         # render() reuses this rather than reading the marker a second
         # time per request.
-        "offbox": offbox,
+        "offbox": signals["offbox"],
         # The cadence the Device tile's thresholds were derived from,
         # published so render()'s regularity grid judges its cells
         # against the same value and can name it.
-        "wake_interval_s": wake_interval_s,
+        "wake_interval_s": signals["wake_interval_s"],
         "device_html": device_html,
-        "device_state": device_state,
+        "device_state": signals["device_state"],
         "device_detail_html": device_detail_html,
         "pipeline_html": pipeline_html,
-        "pipeline_state": pipeline_state,
+        "pipeline_state": signals["pipeline_state"],
         "pipeline_detail_html": pipeline_detail_html,
         "battery_html": battery_html,
-        "battery_state": battery_state,
+        "battery_state": signals["battery_state"],
         "battery_caption": battery_caption,
         "corroboration_html": corroboration_html,
-        "disagreement_warn": disagreement_warn,
-        "anomalies": anomalies,
-        "severity": severity,
+        "disagreement_warn": signals["disagreement_warn"],
+        "anomalies": signals["anomalies"],
+        "severity": signals["severity"],
     }
+
+
+def compute_health_state(state_dir, now=None):
+    """The single computation both the nav-tab dot and the full Health
+    page need. Running these independently against fresh DB connections
+    at two different instants let a write land between them and make
+    the two disagree; `page_context()` now calls this once per request
+    and threads the result through `ctx["health_state"]`.
+
+    Composed from exactly one `health_signals()` snapshot fed into
+    `health_state_from_signals()`, so the severity `safe_health_signals()`
+    could hand the nav dot and the banner this page renders always come
+    from the same read.
+    """
+    return health_state_from_signals(health_signals(state_dir, now))
 
 
 def safe_health_state(state_dir, now=None):
@@ -1290,15 +1442,15 @@ def _device_section(
         return _unavailable_block(), "ok"
     if warn_s is None or error_s is None:
         warn_s, error_s = wake.device_staleness_thresholds(None)
-    ts = (device_health or {}).get("ts")
-    resolved_state = frame_state.resolve_state(
+    resolved_state = _device_resolved_state(
         next_wake_iso, effective_interval_s, hold_reason, now)
+    state = _device_state(
+        device_health, now, warn_s=warn_s, error_s=error_s,
+        next_wake_iso=next_wake_iso, effective_interval_s=effective_interval_s,
+        hold_reason=hold_reason)
     if resolved_state == frame_state.STATE_UNKNOWN:
-        age = layout.age_seconds(ts, now)
-        state = staleness_status(age, warn_s, error_s)
         detail = _device_timestamp_only(device_health, now)
     else:
-        state = _FRAME_STATE_TO_DEVICE_STATE[resolved_state]
         next_wake_parsed = layout.parse_iso(next_wake_iso)
         next_wake_clock = layout.local_clock_text(next_wake_parsed, now_parsed=layout.parse_iso(now))
         # The base .time-value role (not .time-value--primary, which is
@@ -1347,6 +1499,10 @@ def _pipeline_timestamp_only(pipeline_ts, last_detection, now):
 def _pipeline_section(pipeline_ts, last_detection, now):
     if pipeline_ts is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
+    # Computed once here, through the state-only sibling, so this tile
+    # and the nav-dot severity path can never derive different verdicts
+    # from the same inputs.
+    state = _pipeline_state(pipeline_ts, last_detection, now)
     if _pipeline_never_ran(pipeline_ts, last_detection):
         # "off" is the app's existing token for a state that is not a
         # problem: no "off" entry in _STAT_TILE_BORDER_CLASSES falls
@@ -1354,7 +1510,6 @@ def _pipeline_section(pipeline_ts, last_detection, now):
         # collect_anomalies()/overall_severity() treat "off" like "ok".
         # The dot is hand-built rather than status_dot(): this verdict's
         # text is the paragraph's own content, not a dot-label span.
-        state = "off"
         verdict_html = (
             '<span class="dot dot--off"></span>%s'
             % escape_html(i18n.t(PIPELINE_STATE_TEXT["off"])))
@@ -1363,8 +1518,6 @@ def _pipeline_section(pipeline_ts, last_detection, now):
         # falsy by definition here, so PIPELINE_NEVER_RAN_DETAIL_TEXT
         # above already says so without repeating it.
         return _tile_body(verdict_html, detail), state
-    age = layout.age_seconds(pipeline_ts, now)
-    state = staleness_status(age, STALE_PIPELINE_WARN_S, STALE_PIPELINE_ERROR_S)
     verdict = escape_html(
         i18n.t(PIPELINE_STATE_TEXT.get(state, PIPELINE_STATE_TEXT["warn"])))
     detail = _pipeline_timestamp_only(pipeline_ts, last_detection, now)
@@ -1507,7 +1660,10 @@ def _battery_section(trend_rows, daily_rows=None):
             i18n.t(
                 "No battery telemetry recorded yet — check back after the "
                 "device's next poll.")), "ok"
-    state = battery_status(trend_rows)
+    # Through the state-only sibling, not a bare battery_status() call:
+    # keeps this tile's border colour and health_signals()'s severity
+    # input reading identically from the same two early-exit cases.
+    state = _battery_state(trend_rows, daily_rows)
     now = history_db.utc_now_iso()
     # The Timestamp column is already-safe raw HTML (a concise
     # Europe/Paris span with the full timestamp demoted to `title`), so
@@ -1599,7 +1755,9 @@ def _corroboration_section(counts):
                 counts.get(key, 0) or 0,
             )
         )
-    disagreement_warn = bool(counts.get("False"))
+    # Through the state-only sibling so this tile's flag and
+    # health_signals()'s copy of it can never diverge.
+    disagreement_warn = _disagreement_warn(counts)
     verdict_state = "warn" if disagreement_warn else "ok"
     verdict = escape_html(
         i18n.t(CORROBORATION_STATE_TEXT.get(
