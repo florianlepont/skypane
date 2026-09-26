@@ -1,9 +1,9 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
-/* Host-side unit test for the NO CONNECTION hold screen (quick task
- * 260924-u7n, DEVICE-06) - fp_fault_screen_render()'s on-device dither +
- * mask stamp, and fp_fault_screen_should_draw()'s allow-list/counter/
- * already-shown gate.
+/* Host-side unit test for the NO CONNECTION hold screen:
+ * fp_fault_screen_render()'s on-device dither + mask stamp, and
+ * fp_fault_screen_should_draw()'s allow-list/counter/already-shown
+ * gate.
  *
  *   cc -Wall -Wextra -std=c11 main/fault_screen.c \
  *      tests/test_fault_screen.c -o /tmp/tfs && /tmp/tfs

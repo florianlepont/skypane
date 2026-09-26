@@ -1,7 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
-/* Host-side unit test for the whole-wake deadline arithmetic (FW-02):
- * expiry at the microsecond boundary and the worst-case-wake macro.
+/* Host-side unit test for the whole-wake deadline arithmetic: expiry at
+ * the microsecond boundary and the worst-case-wake macro.
  *
  *   cc -Wall -Wextra -std=c11 main/wake_deadline.c tests/test_wake_deadline.c \
  *      -o /tmp/twd && /tmp/twd

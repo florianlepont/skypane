@@ -1,7 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
 /* Host-side unit test for reset-reason classification and the honest
- * wake-reason token (FW-01).
+ * wake-reason token.
  *
  *   cc -Wall -Wextra -std=c11 main/reset_reason.c tests/test_reset_reason.c \
  *      -o /tmp/trr && /tmp/trr
