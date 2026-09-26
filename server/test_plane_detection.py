@@ -33,6 +33,8 @@ import json
 import os
 import random
 import sys
+import threading
+import time
 
 import pytest
 import requests
@@ -45,6 +47,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
+import efficiency_probe  # noqa: E402
 import server.plane.detect as detect  # noqa: E402
 from server import http_fetch  # noqa: E402
 
@@ -421,24 +424,150 @@ def test_missing_track_does_not_disqualify(geofence):
 # ---------------------------------------------------------------
 
 def test_default_poll_queries_adsbfi_then_adsblol(geofence, monkeypatch):
-    """default poll (no providers arg) queries adsb.fi then adsb.lol"""
+    """default poll (no providers arg) queries both adsb.fi and adsb.lol, diagnostics['queried'] keeps provider order"""
     # Default poll (no providers argument - exactly how
     # server/poll_loop.py's run_once() calls it in production) queries
-    # adsb.fi then adsb.lol, in that order. Pins the 2026-08-27
-    # default-provider-order change (adsb.lol added as the second entry)
-    # so this regression cannot silently reopen.
-    recorded = []
+    # both adsb.fi and adsb.lol. Pins the 2026-08-27 default-provider-order
+    # change (adsb.lol added as the second entry) so this regression
+    # cannot silently reopen - but since the two are now queried in
+    # parallel (concurrent.futures.ThreadPoolExecutor), which one actually
+    # answers first is no longer deterministic, so this asserts the call
+    # SET and diagnostics['queried']'s provider order, not call order.
+    recorded = set()
 
     def recording_query_provider(name, lat, lon, radius_nm, timeout=10.0):
-        recorded.append(name)
+        recorded.add(name)
         return []
 
     monkeypatch.setattr(detect, "query_provider", recording_query_provider)
     monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 0)
+    diagnostics = {}
+    detect.poll_current_aircraft(geofence, diagnostics=diagnostics)
+
+    assert recorded == {"adsbfi", "adsblol"}, (
+        "expected default poll to query exactly {'adsbfi', 'adsblol'}, got %r" % (recorded,)
+    )
+    assert diagnostics["queried"] == ["adsbfi", "adsblol"], (
+        "expected diagnostics['queried'] to keep DEFAULT_PROVIDER_ORDER, got %r" % (diagnostics["queried"],)
+    )
+
+
+def test_diagnostics_queried_order_is_stable_even_when_adsblol_answers_first(geofence, monkeypatch):
+    """poll_current_aircraft: diagnostics['queried'] stays ['adsbfi', 'adsblol'] even when adsblol's fake returns first"""
+    monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 0)
+    called = set()
+
+    def fake_query_provider(name, lat, lon, radius_nm, timeout=10.0):
+        called.add(name)
+        if name == "adsbfi":
+            time.sleep(0.05)  # the real sleep, not the injected `sleep` param - adsblol answers first
+        return []
+
+    monkeypatch.setattr(detect, "query_provider", fake_query_provider)
+    diagnostics = {}
+    detect.poll_current_aircraft(geofence, diagnostics=diagnostics)
+
+    assert called == {"adsbfi", "adsblol"}, "expected both providers to have been called, got %r" % (called,)
+    assert diagnostics["queried"] == ["adsbfi", "adsblol"], (
+        "expected diagnostics['queried'] to keep provider order regardless of answer order, got %r" % (
+            diagnostics["queried"],
+        )
+    )
+
+
+def test_providers_are_queried_concurrently(geofence, monkeypatch):
+    """poll_current_aircraft queries adsbfi and adsblol concurrently, not one after another"""
+    # A sequential loop can never observe this: adsbfi's fake blocks on an
+    # Event that adsblol's fake sets on entry, so adsbfi only returns if
+    # adsblol was already running at the same time.
+    monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 0)
+    adsblol_started = threading.Event()
+    observed = {}
+
+    def fake_query_provider(name, lat, lon, radius_nm, timeout=10.0):
+        if name == "adsblol":
+            adsblol_started.set()
+            return []
+        if name == "adsbfi":
+            observed["adsblol_was_running"] = adsblol_started.wait(timeout=5.0)
+            return []
+        raise AssertionError("unexpected provider %r" % (name,))
+
+    monkeypatch.setattr(detect, "query_provider", fake_query_provider)
     detect.poll_current_aircraft(geofence)
 
-    assert recorded == ["adsbfi", "adsblol"], (
-        "expected default poll to query exactly ['adsbfi', 'adsblol'], got %r" % (recorded,)
+    assert observed.get("adsblol_was_running") is True, (
+        "adsbfi never observed adsblol's event - the two providers were not queried concurrently"
+    )
+
+
+def test_default_last_call_at_uses_local_dict_and_no_sleep(geofence, monkeypatch):
+    """poll_current_aircraft: with MIN_SECONDS_BETWEEN_CALLS at 1.1 and no last_call_at, one poll records zero sleeps and does not raise"""
+    # Within one cycle, each provider is called exactly once, so no
+    # previous call for it can exist yet - the fixed inter-provider sleep
+    # this removes used to cost ~90% of a no-network poll cycle.
+    monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 1.1)
+    monkeypatch.setattr(detect, "query_provider", lambda name, lat, lon, radius_nm, timeout=10.0: [])
+
+    with efficiency_probe.count_sleeps() as sleeps:
+        result = detect.poll_current_aircraft(geofence)
+
+    assert sleeps == [], "expected zero sleep calls on a poll with no prior last_call_at, got %r" % (sleeps,)
+    assert result is None
+
+
+def test_first_provider_wins_on_agreement_even_if_it_answers_last(geofence, stubbed_query_provider):
+    """poll_current_aircraft: on agreement, adsbfi's own record wins even though adsblol's fake answers first"""
+    winner = dict(_runway3_record()[0])
+    adsblol_copy = dict(winner)
+    adsblol_copy["alt_baro"] = 999  # same hex, different altitude - proves whose record actually won
+    stubbed_query_provider({"adsbfi": [winner], "adsblol": [adsblol_copy]})
+
+    result = detect.poll_current_aircraft(geofence)
+
+    assert result is not None, "expected a selection on agreement"
+    assert result["hex"] == winner["hex"], "expected %r, got %r" % (winner["hex"], result["hex"])
+    assert result.get("corroborated") is True, "expected corroborated True, got %r" % (result.get("corroborated"),)
+    assert sorted(result.get("sources") or []) == ["adsbfi", "adsblol"], (
+        "expected both providers in sources, got %r" % (result.get("sources"),)
+    )
+    assert result.get("altitude_ft") == winner["alt_baro"], (
+        "expected adsbfi's own altitude (the first-listed provider) to win, got %r" % (result.get("altitude_ft"),)
+    )
+
+
+def test_failing_provider_is_caught_and_recorded_per_provider(geofence, stubbed_query_provider):
+    """poll_current_aircraft: a provider raising requests.ConnectionError is caught per-provider, the other's selection still comes back"""
+    stubbed_query_provider({
+        "adsbfi": requests.ConnectionError("simulated adsb.fi outage"),
+        "adsblol": _runway3_record(),
+    })
+    diagnostics = {}
+
+    result = detect.poll_current_aircraft(geofence, diagnostics=diagnostics)
+
+    assert result is not None, "expected adsblol's own selection despite adsbfi raising ConnectionError"
+    assert result["hex"] == "347288", "expected 347288, got %r" % (result["hex"],)
+    assert diagnostics["failed"] == ["adsbfi"], "expected adsbfi recorded as failed, got %r" % (diagnostics["failed"],)
+
+
+def test_spacing_uses_injected_clock_and_sleep_per_provider(geofence, monkeypatch):
+    """poll_current_aircraft: an injected clock/sleep spaces only the provider whose last_call_at is due, never the other"""
+    monkeypatch.setattr(detect, "query_provider", lambda name, lat, lon, radius_nm, timeout=10.0: [])
+    last_call_at = {"adsbfi": 100.0}
+    sleeps = []
+
+    detect.poll_current_aircraft(
+        geofence,
+        last_call_at=last_call_at,
+        clock=lambda: 100.4,
+        sleep=lambda seconds: sleeps.append(seconds),
+    )
+
+    assert len(sleeps) == 1, "expected exactly one injected sleep call (for adsbfi only), got %r" % (sleeps,)
+    assert abs(sleeps[0] - 0.7) < 1e-9, "expected a ~0.7s wait for adsbfi, got %r" % (sleeps[0],)
+    assert last_call_at["adsbfi"] == 100.4 and last_call_at["adsblol"] == 100.4, (
+        "expected both providers' last_call_at updated to the clock value at call time, got %r" % (last_call_at,)
     )
 
 
