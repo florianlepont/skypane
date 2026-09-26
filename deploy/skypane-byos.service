@@ -1,9 +1,10 @@
 [Unit]
 Description=SkyPane BYOS device-protocol server (stub-server/byos_server.py)
 # Caddy is the only thing that should reach this (deploy/Caddyfile
-# reverse-proxies 127.0.0.1:${SKYPANE_BYOS_PORT}; provision.sh's ufw
-# denies it from outside). byos_server.py itself binds 0.0.0.0 (known
-# vendored behaviour, deploy/README.md); loopback is enforced there instead.
+# reverse-proxies 127.0.0.1:${SKYPANE_BYOS_PORT}): byos listens on
+# 127.0.0.1 only, the IP filter below drops anything non-loopback, and
+# provision.sh's ufw denies the port from outside. No secret is passed:
+# enrolment uses the per-device registry (devices.json in the state dir).
 After=network-online.target
 Wants=network-online.target
 
@@ -15,6 +16,7 @@ EnvironmentFile=/opt/skypane/skypane.env
 WorkingDirectory=/opt/skypane
 ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/byos_server.py \
     --image ${SKYPANE_STATE_DIR}/panel.bin \
+    --bind 127.0.0.1 \
     --port ${SKYPANE_BYOS_PORT} \
     --sleep ${SKYPANE_SLEEP_S} \
     --state-dir ${SKYPANE_STATE_DIR} \
@@ -44,6 +46,10 @@ ProtectHostname=true
 ProtectProc=invisible
 ProcSubset=pid
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# byos makes no outbound connections and Caddy on loopback is its only
+# client; the filter applies in both directions.
+IPAddressDeny=any
+IPAddressAllow=localhost
 RestrictNamespaces=true
 RestrictRealtime=true
 RestrictSUIDSGID=true

@@ -842,6 +842,11 @@ def main():
     ap.add_argument("--image", required=True,
                     help="960,000-byte panel image to serve")
     ap.add_argument("--port", type=int, default=8642)
+    ap.add_argument("--bind", default="0.0.0.0",
+                    help="address to listen on (default: 0.0.0.0, for the "
+                         "LAN stub flow). Production passes 127.0.0.1 "
+                         "because Caddy on loopback is the only intended "
+                         "client.")
     ap.add_argument("--secret", default="",
                     help="retired: ignored; enrolment uses the per-device "
                          "registry (devices.json)")
@@ -879,9 +884,9 @@ def main():
     Handler.args = args
     Handler.state = load_state(args.state_dir)
     Handler.timeout = args.request_timeout
-    server = ThreadingHTTPServer(("0.0.0.0", args.port), Handler)
-    print("serving %s on port %d — point the frame at http://<this-host>:%d"
-          % (args.image, args.port, args.port))
+    server = ThreadingHTTPServer((args.bind, args.port), Handler)
+    print("serving %s on %s:%d — point the frame at http://<this-host>:%d"
+          % (args.image, args.bind, args.port, args.port))
     server.serve_forever()
 
 

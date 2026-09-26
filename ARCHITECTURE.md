@@ -418,11 +418,10 @@ as `<public-host>`, never by its real address).
 
 - **Caddy** terminates TLS (automatic Let's Encrypt) and reverse-proxies
   the public hostname to the app's loopback address on port 8642. This is
-  the only process that can reach the app port — `byos_server.py` itself
-  binds every interface (unpatched, vendored behaviour), so the loopback
-  restriction is enforced at the network layer instead: `ufw deny
-  8642/tcp` plus ufw's own default-deny-incoming policy block any direct
-  external connection.
+  the only process that can reach the app port: `byos_server.py` runs with
+  `--bind 127.0.0.1`, its unit carries `IPAddressDeny=any` +
+  `IPAddressAllow=localhost`, and `ufw deny 8642/tcp` plus ufw's own
+  default-deny-incoming policy block any direct external connection.
 - **`skypane-byos.service`** runs `stub-server/byos_server.py` as a
   dedicated `skypane` user, `Restart=always`.
 - **`skypane-poll.service` / `skypane-poll.timer`** is a `Type=oneshot`

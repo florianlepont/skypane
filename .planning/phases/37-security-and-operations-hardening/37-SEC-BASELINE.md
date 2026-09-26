@@ -141,7 +141,13 @@ Run 2026-09-24 ~20:02 UTC from the laptop with a throwaway local commit
 
 ## Wave B (CP-11)
 
-_Pending CP-11 (Plan 37-11, after Phase 36)._
+Offline score after the Wave B unit change (`systemd-analyze security
+--offline=true deploy/skypane-byos.service`, systemd 255.4): **1.3 OK**
+(1.5 OK after Wave A; the drop is `IPAddressDeny=any` +
+`IPAddressAllow=localhost`). ExecStart now carries `--bind 127.0.0.1` and no
+`--secret`.
+
+_Live values pending CP-11 (after the Wave B deploy)._
 
 ## Off-box backup pull key (CP-8)
 
