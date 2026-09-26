@@ -1830,13 +1830,13 @@ Plans:
 3. SQLite connections per page request: 1; per poll cycle: 1
 4. Poll cycle wall time measured before/after (no fixed 1.1 s sleep)
 
-**Plans:** 13 plans
+**Plans:** 1/13 plans executed
 
 Plans:
 
 **Wave 1**
 
-- [ ] 38-01-PLAN.md — instruments (`test-support/efficiency_probe.py`, `scripts/measure_efficiency.py`) + BEFORE tables in `38-EFF-BASELINE.md`, no production change [EFF-01..06]
+- [x] 38-01-PLAN.md — instruments (`test-support/efficiency_probe.py`, `scripts/measure_efficiency.py`) + BEFORE tables in `38-EFF-BASELINE.md`, no production change [EFF-01..06]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
