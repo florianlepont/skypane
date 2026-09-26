@@ -9,11 +9,11 @@
 # therefore contain site blocks only — a global options block is only
 # legal at the very top of the host file.
 #
-# Runs on the VPS as root, from deploy/activate.sh (Plan 37-06), which
+# Runs on the VPS as root, from deploy/activate.sh, which
 # stages the result next to the site file, moves it into place, and
 # validates the whole host config with it before swapping the release.
 # This script is the one render implementation, so the substitution
-# logic exists in exactly one place (SEC-05, D-11).
+# logic exists in exactly one place.
 #
 # Usage:
 #   deploy/render_caddyfile.sh <template> <public-host> <companion-host> > out
@@ -23,7 +23,7 @@
 # <companion-host> hostname of the companion web interface
 #
 # Both hostnames must match ^[A-Za-z0-9.-]+$ — the same rule
-# deploy/provision.sh already applies (T-37-11) — checked before anything
+# deploy/provision.sh already applies -- checked before anything
 # is printed, so a bad argument produces empty stdout and a non-zero exit
 # rather than a half-rendered file. This script never reads the
 # operator's environment file directly: the caller is responsible for

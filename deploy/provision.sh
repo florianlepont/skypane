@@ -6,14 +6,14 @@
 # default) only a passwordless-sudo non-root user - either way, invoke
 # this script itself with `sudo`.
 #
-# Prepares the machine for the release-layout deploy flow (SEC-05, D-09):
+# Prepares the machine for the release-layout deploy flow:
 # the service user, the root-owned releases/ directory and venv,
 # root:root 600 ownership of skypane.env, the dedicated skypane-backup
-# pull user and its directories (SEC-04, D-05), SSH hardening (SEC-08),
+# pull user and its directories, SSH hardening,
 # and the OS packages/firewall. It does NOT install systemd unit files or
-# render SkyPane's Caddy site file - deploy/activate.sh (Plan 37-06) does
+# render SkyPane's Caddy site file -- deploy/activate.sh does
 # that on every deploy, so units and the site file always match the code
-# actually running (D-11). It also never edits the host Caddyfile: that
+# actually running. It also never edits the host Caddyfile: that
 # file is shared with other projects on the same VPS, so the one-time
 # `import sites/*.caddy` line is added by hand (deploy/README.md). Run this once before the first deploy, and
 # again after any change to this script itself.
@@ -79,7 +79,7 @@ mkdir -p "${APP_ROOT}/releases" "${STATE_DIR}"
 # APP_ROOT itself is root:skypane 0750, not skypane-owned: releases/ and
 # the venv (below) must stay out of the service user's write reach so a
 # compromised service cannot rewrite its own code or interpreter
-# (T-37-37). Only state/ is skypane-writable.
+# Only state/ is skypane-writable.
 chown "root:${APP_USER}" "${APP_ROOT}"
 chmod 0750 "${APP_ROOT}"
 chown root:root "${APP_ROOT}/releases"
@@ -103,7 +103,7 @@ echo "==> Installing Caddy from the official Caddy apt repository"
 # Official documented install path (caddyserver.com/docs/install#debian-ubuntu-raspbian):
 # a signed GPG key over HTTPS, then the repo's own signed apt source list.
 # Never installed via npm - an unrelated, irrelevant low-download npm
-# package shares the name "caddy" (02-RESEARCH.md Package Legitimacy note).
+# package shares the name "caddy".
 apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | \
     gpg --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
@@ -127,7 +127,7 @@ chmod g+ws "${STATE_DIR}"
 
 echo "==> Creating the Python virtualenv (root-owned)"
 # Root-owned, not skypane-owned: services must never be able to rewrite
-# their own interpreter or installed packages (T-37-37). activate.sh runs
+# their own interpreter or installed packages. activate.sh runs
 # `pip install` as root before every deploy that needs it. A venv created
 # by an earlier version of this script (skypane-owned) is re-chowned here
 # on every re-run, so provisioning an existing box also narrows it.
@@ -139,8 +139,8 @@ chown -R root:root "${APP_ROOT}/venv"
 echo "==> Securing skypane.env (if it already exists on this box)"
 # systemd reads EnvironmentFile= as PID 1, before dropping privileges to
 # the unit's own User=, so nothing running as skypane needs to read this
-# file directly (confirmed by grep across server/companion/stub-server -
-# see 37-RESEARCH.md SEC-07). root:root 0600 keeps every secret in it
+# file directly (confirmed by grep across server/companion/stub-server).
+# root:root 0600 keeps every secret in it
 # unreadable to the service user and to any other account on the box.
 if [ -f "${APP_ROOT}/skypane.env" ]; then
     chown root:root "${APP_ROOT}/skypane.env"
@@ -159,7 +159,7 @@ id -u "${BACKUP_USER}" >/dev/null 2>&1 || \
 usermod -p '*' "${BACKUP_USER}"
 # skypane-backup must never read live state through group membership -
 # state/ is group-writable (g+ws above), so joining group skypane would
-# hand the pull key write access to it (37-RESEARCH.md Pitfall 2).
+# hand the pull key write access to it.
 # Removed here in case an earlier manual fix added it.
 if id -nG "${BACKUP_USER}" 2>/dev/null | tr ' ' '\n' | grep -qx "${APP_USER}"; then
     gpasswd -d "${BACKUP_USER}" "${APP_USER}" >/dev/null
@@ -179,7 +179,7 @@ install -d -o root -g root -m 0755 "${CADDY_SITES_DIR}"
 
 echo "==> Enabling and starting Caddy"
 # Units and the Caddyfile itself are installed by deploy/activate.sh on
-# every deploy (D-11) - caddy's own package-provided unit just needs to
+# every deploy -- caddy's own package-provided unit just needs to
 # be enabled so it comes up on boot even before the first deploy.
 systemctl enable --now caddy
 
