@@ -13,8 +13,6 @@ five keys (airline, origin, destination, start, end) — this data is a
 named person's work schedule, so nothing else is retained.
 """
 import contextlib
-import errno
-import ipaddress
 import json
 import math
 import os
@@ -27,16 +25,7 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse, urlunparse
 
-import requests
-
-from server import device_config
-
-# fcntl.flock() backs the cross-process lock in _calendar_registry_lock().
-# POSIX-only; absent on Windows, which this project does not target.
-try:
-    import fcntl
-except ImportError:  # pragma: no cover - not exercised on this project's targets
-    fcntl = None
+from server import atomic_io, device_config, http_fetch
 
 # --- Constants -------------------------------------------------------------
 
@@ -86,9 +75,20 @@ CALENDAR_MAX_RAW_EXAMINED = 5000
 # most a few times a day, well below this interval.
 CALENDAR_FETCH_INTERVAL_S = 1800
 
-# Per-request timeout: generous for a small iCal feed, short enough that
-# a hung upstream never meaningfully delays the 30s poll cycle.
-CALENDAR_FETCH_TIMEOUT_S = 10.0
+# Per-request (connect/read) timeout, clamped further per hop to the
+# time left under CALENDAR_FETCH_DEADLINE_S below - generous for a small
+# iCal feed, short enough that a hung upstream never meaningfully delays
+# the 30s poll cycle.
+CALENDAR_FETCH_TIMEOUT_S = 5.0
+
+# Total wall-clock deadline across every hop of one fetch_ics() call
+# (the original request plus every redirect it follows) - CALENDAR_FETCH_
+# TIMEOUT_S alone only bounds a single connect/read, so a feed trickling
+# one byte at a time across several hops could otherwise run far longer
+# than that. Worst case per call is this plus one more read timeout: the
+# chunk in flight when the deadline check fires can still take up to
+# CALENDAR_FETCH_TIMEOUT_S to arrive before the loop notices.
+CALENDAR_FETCH_DEADLINE_S = 10.0
 
 # Hard response-size cap, enforced by streaming rather than trusting a
 # response's own declared-length header, which a hostile or misconfigured
@@ -126,12 +126,19 @@ CALENDAR_REGISTRY_KEYS = (
 )
 
 # Fetch-outcome result codes for poll_loop.py. Not flash keys —
-# companion/ never sees these.
+# companion/ never sees these. Every caller compares only against
+# FETCH_OK; any other code is "did not sync this cycle", so a new code
+# here never requires a caller change.
 FETCH_OK = "fetch_ok"
 FETCH_SKIPPED_UNCONFIGURED = "fetch_skipped_unconfigured"
 FETCH_SKIPPED_THROTTLED = "fetch_skipped_throttled"
 FETCH_REJECTED_URL = "fetch_rejected_url"
 FETCH_FAILED = "fetch_failed"
+# A companion save/clear changed the configured URL while this cycle's
+# fetch was in flight (see refresh_calendar_registry()) - the stale
+# fetch result is discarded rather than persisted, since the newer URL
+# always wins.
+FETCH_SUPERSEDED = "fetch_superseded"
 
 # In-process write lock guarding the final tmp-write. Defence in depth
 # only: this file's actual cross-process race (the poll oneshot's own
@@ -141,9 +148,11 @@ _WRITE_LOCK = threading.Lock()
 
 # Bounded wait for _calendar_registry_lock() below. Set comfortably above
 # CALENDAR_FETCH_TIMEOUT_S so a save arriving mid-poll-cycle almost always
-# succeeds once the cycle's own fetch finishes.
+# succeeds once the cycle's own fetch finishes. Generous now that the
+# fetch itself no longer runs under this lock (see refresh_calendar_
+# registry()) - this timeout only ever bounds the brief load/throttle or
+# reload/compare steps, never the network call.
 CALENDAR_REGISTRY_LOCK_TIMEOUT_S = 15.0
-CALENDAR_REGISTRY_LOCK_POLL_S = 0.05
 
 
 def _calendar_registry_lock_path(state_dir):
@@ -152,45 +161,22 @@ def _calendar_registry_lock_path(state_dir):
 
 @contextlib.contextmanager
 def _calendar_registry_lock(state_dir):
-    """Cross-process advisory lock over calendar_rules.json's entire
-    read-modify-write sequence, via `fcntl.flock()` — a `threading.Lock`
-    cannot cross the poll oneshot's and companion's separate processes.
+    """Cross-process advisory lock over calendar_rules.json's read-
+    modify-write steps — a `threading.Lock` cannot cross the poll
+    oneshot's and companion's separate processes.
 
-    POSIX-only (see the `fcntl` import guard above); degrades to no
-    locking on a platform without `fcntl` rather than raising at import
-    time. Polls for the lock every `CALENDAR_REGISTRY_LOCK_POLL_S` up to
-    `CALENDAR_REGISTRY_LOCK_TIMEOUT_S`, then raises `TimeoutError` rather
-    than proceeding unlocked. Released in a `finally`.
+    Delegates to `atomic_io`'s own `exclusive_lock()` (POSIX-only
+    `fcntl.flock()` under the hood, degrading to no locking on a
+    platform without `fcntl`), bounded by
+    `CALENDAR_REGISTRY_LOCK_TIMEOUT_S`. Raises `TimeoutError` (via
+    `LockBusy`, a subclass) rather than proceeding unlocked when the wait
+    expires. Kept as this module's own name/contract since every caller
+    here already expects it; the generalised lock now lives in
+    `atomic_io` alongside `poll.lock` and `device_config.lock`.
     """
-    if fcntl is None:
-        # No cross-process primitive on this platform — a documented gap.
+    with atomic_io.exclusive_lock(
+            _calendar_registry_lock_path(state_dir), CALENDAR_REGISTRY_LOCK_TIMEOUT_S):
         yield
-        return
-
-    os.makedirs(state_dir, exist_ok=True)
-    path = _calendar_registry_lock_path(state_dir)
-    fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
-    try:
-        deadline = time.monotonic() + CALENDAR_REGISTRY_LOCK_TIMEOUT_S
-        while True:
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except OSError as exc:
-                if exc.errno not in (errno.EACCES, errno.EAGAIN):
-                    raise
-                if time.monotonic() >= deadline:
-                    raise TimeoutError(
-                        "calendar_rules: timed out waiting for the cross-process "
-                        "registry lock at %r" % (path,)
-                    )
-                time.sleep(CALENDAR_REGISTRY_LOCK_POLL_S)
-        try:
-            yield
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-    finally:
-        os.close(fd)
 
 # --- Compiled positive allowlists -------------------------------------------
 #
@@ -682,9 +668,11 @@ def write_calendar_registry(state_dir, entries, last_attempt_at, last_synced_at,
     the rolling window exists to drop. `entries` are rebuilt through the
     same gates `load_calendar_registry()` applies (via
     `_rebuild_capped_entries()`), so a caller can never persist what the
-    loader would only drop again on the next read. Written via a
-    pid/thread-tagged temp file and `os.replace()`, tolerating a failed
-    temp-file cleanup.
+    loader would only drop again on the next read. Written through
+    `atomic_io.atomic_write()` (a unique-name temp file, fsynced, then
+    `os.replace()`), tolerating any failure — an unsupported data shape,
+    a write error, a failed rename — by leaving the previous file
+    untouched.
 
     `now` is the retention clock (distinct from `last_attempt_at`, the
     throttle clock, which is recorded verbatim and may be `None` or in
@@ -707,18 +695,10 @@ def write_calendar_registry(state_dir, entries, last_attempt_at, last_synced_at,
         }
 
         path = calendar_rules_path(state_dir)
-        tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
         try:
             os.makedirs(state_dir, exist_ok=True)
-            with open(tmp, "w") as fh:
-                json.dump(registry, fh, indent=1)
-            os.replace(tmp, path)
+            atomic_io.atomic_write(path, json.dumps(registry, indent=1))
         except Exception:
-            if os.path.exists(tmp):
-                try:
-                    os.remove(tmp)
-                except OSError:
-                    pass
             return False
 
     return True
@@ -734,9 +714,12 @@ def save_calendar_url(state_dir, value, now=None):
     "disconnected" must mean nothing of the schedule remains even if
     removal then fails. Any other value must be non-empty after strip,
     else this returns `False` with no side effect. The set/replace branch
-    writes the new secret to a verified temp file first, then erases the
-    registry, then `os.replace()`s it live, so a local write failure
-    touches neither the old secret nor the old registry.
+    stages the new secret through `atomic_io.staged_write(mode=0o600)` —
+    written, fsynced and 0600 from creation before any byte is visible at
+    the final path — then erases the registry inside that staged write's
+    block, publishing the new secret with `commit()` only once the erase
+    succeeded; not calling `commit()` leaves the previous secret and
+    registry untouched.
 
     Runs under `_calendar_registry_lock()` (not `_WRITE_LOCK`, already
     held non-reentrantly by `write_calendar_registry()`) around the whole
@@ -767,45 +750,23 @@ def save_calendar_url(state_dir, value, now=None):
                     return False
                 return True
 
-            # set/replace: build and verify the new secret in a temp file
-            # before the registry erase runs.
-            tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
+            # set/replace: stage the new secret first (written, fsynced,
+            # 0600 at creation — caddy is in this file's group via
+            # setgid on state_dir, so a umask-created file would be
+            # group-readable, which is why the mode is set at creation
+            # rather than a follow-up chmod), then erase the registry,
+            # publishing the secret only if the erase succeeds.
             try:
                 os.makedirs(state_dir, exist_ok=True)
-                # Mode set at creation, not a follow-up chmod (which
-                # would leave a window at the wider default bits): caddy
-                # is in this file's group via setgid on state_dir, so a
-                # umask-created file would be group-readable.
-                # os.replace() preserves this temp file's mode, not the
-                # destination's.
-                fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-                with os.fdopen(fd, "w") as fh:
-                    fh.write(_normalise_calendar_url(value.strip()))
+                with atomic_io.staged_write(
+                        path, _normalise_calendar_url(value.strip()), mode=0o600) as commit:
+                    # The new secret is verified-written and durable at
+                    # its temp file — only now does the previous
+                    # calendar's registry get erased.
+                    if not write_calendar_registry(state_dir, [], None, None, now=now):
+                        return False
+                    commit()
             except Exception:
-                if os.path.exists(tmp):
-                    try:
-                        os.remove(tmp)
-                    except OSError:
-                        pass
-                return False
-
-            # The new secret is verified-written and durable at `tmp` —
-            # only now does the previous calendar's registry get erased.
-            if not write_calendar_registry(state_dir, [], None, None, now=now):
-                try:
-                    os.remove(tmp)
-                except OSError:
-                    pass
-                return False
-
-            try:
-                os.replace(tmp, path)
-            except OSError:
-                if os.path.exists(tmp):
-                    try:
-                        os.remove(tmp)
-                    except OSError:
-                        pass
                 return False
 
             return True
@@ -948,20 +909,12 @@ def _address_is_public(ip_text):
     """`True` when `ip_text` parses as a public unicast address, `False`
     otherwise — including on a parse failure.
 
-    Delegates range classification to `ipaddress` rather than hand-rolled
-    CIDR arithmetic; its `is_private`/`is_loopback`/`is_link_local`/
-    `is_reserved`/`is_multicast`/`is_unspecified` properties cover both
-    IPv4 and IPv6 through one call.
+    Delegates to `http_fetch.address_is_public()` — the identical
+    classification `pinned_request()`'s own resolution check applies, so
+    this early gate and the real connection agree by construction on
+    what counts as public.
     """
-    try:
-        address = ipaddress.ip_address(ip_text)
-    except (ValueError, TypeError):
-        return False
-    if (address.is_private or address.is_loopback or address.is_link_local
-            or address.is_reserved or address.is_multicast
-            or address.is_unspecified):
-        return False
-    return True
+    return http_fetch.address_is_public(ip_text)
 
 
 def _host_is_safe(hostname, port=None):
@@ -969,12 +922,18 @@ def _host_is_safe(hostname, port=None):
     unicast address; `False` on a resolution failure or if even one
     resolved address is not public.
 
-    Resolves first, then checks every returned address, rather than
-    matching the hostname string against a blocklist: a hostname can
-    resolve to a public address at validation time and a private one at
-    connection time (DNS rebinding), so only the addresses actually
-    returned can be checked. A single private answer among several public
-    ones refuses the whole hostname. Never raises.
+    An early refusal only — this resolution is never reused by the real
+    connection. The actual protection against a changed DNS answer (DNS
+    rebinding) is that `default_calendar_transport()` goes through
+    `http_fetch`'s own pinned request primitive, which resolves once more
+    of its own accord, checks every address that second resolution
+    returns, and connects only to one it already checked — never
+    re-resolving between the check and the connect. This function's own
+    resolve-then-check is
+    still useful as a cheap, early "obviously unsafe" refusal (e.g. a
+    literal loopback/private/link-local address needs no network fetch to
+    reject), and every redirect hop repeats it before ever calling the
+    transport. Never raises.
     """
     try:
         infos = socket.getaddrinfo(hostname, port)
@@ -1037,41 +996,56 @@ def _url_is_safe(url):
 
 
 def default_calendar_transport(url, timeout):
-    """Thin `requests.get()` wrapper: GET `url` with this module's
-    `USER_AGENT`, streaming enabled and automatic redirects disabled,
-    returning the response object unread.
+    """GET `url` with this module's `USER_AGENT` through `http_fetch.
+    pinned_request()`, returning the response object unread.
 
-    Redirects are disabled so `fetch_ics()` can re-validate each
-    `Location` target through `_url_is_safe()` before following it — a
-    hook `requests`'s own redirect handling has no equivalent for. The
+    `pinned_request()` resolves the hostname once, refuses the whole
+    host unless every resolved address is public, and connects only to
+    an address it already checked — closing the gap where a plain HTTP
+    client call would re-resolve the hostname again at connect time (DNS
+    rebinding: the address `_url_is_safe()` checked and the address the
+    socket actually reaches could otherwise differ). It
+    never follows a redirect itself, so `fetch_ics()` can re-validate
+    each `Location` target through `_url_is_safe()` before following it
+    — a hook a self-following client has no equivalent for. Bounded by
+    `CALENDAR_FETCH_DEADLINE_S` (the total deadline across every hop —
+    see `fetch_ics()`), on top of this call's own `timeout`. The
     injectable `transport` parameter lets tests replace this with a
     hermetic fake.
     """
-    return requests.get(
+    return http_fetch.pinned_request(
+        "GET",
         url,
         headers={"User-Agent": USER_AGENT},
         timeout=timeout,
-        stream=True,
-        allow_redirects=False,
+        deadline_s=CALENDAR_FETCH_DEADLINE_S,
     )
 
 
-def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=None):
+def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=None,
+              deadline_s=None, clock=None):
     """Fetch `url` and return its decoded body text, or `None` on any
     refusal or failure. Never raises.
 
-    Four independent bounds, all defaulting from this module's constants:
-    `_url_is_safe()` re-checked on every redirect hop; the response is
+    Five independent bounds, all defaulting from this module's
+    constants: `_url_is_safe()` re-checked on every redirect hop; one
+    total wall-clock `deadline_s` across every hop combined (not just a
+    per-request `timeout`) — checked before each hop and after every
+    chunk, so a feed trickling one byte at a time across several
+    redirects cannot run far longer than the deadline; the response is
     read in chunks with a running byte count, aborting past `max_bytes`
-    rather than trusting a declared length; a `timeout` per request; and
-    at most `max_redirects` hops. Redirects are never followed
-    automatically (`default_calendar_transport()` disables it) — each
-    `Location` target is re-validated before being requested.
+    rather than trusting a declared length; a per-hop `timeout`, clamped
+    to `min(timeout, time left under the deadline)`; and at most
+    `max_redirects` hops. Redirects are never followed automatically
+    (`default_calendar_transport()`'s underlying `pinned_request()` never
+    follows one) — each `Location` target is re-validated before being
+    requested.
 
-    The only path that logs is the transport-exception catch, which logs
-    `type(exc).__name__` only, never the exception object — several
-    `requests.exceptions.*` subclasses embed the request URL, which
-    carries the calendar's access token, in their default string form.
+    The only paths that log are the transport-exception and deadline-
+    exceeded catches, which log `type(exc).__name__` only, never the
+    exception object — several `requests.exceptions.*` subclasses embed
+    the request URL, which carries the calendar's access token, in their
+    default string form.
 
     `url` is normalised once, before the redirect loop, so a hand-edited
     secret file (bypassing `save_calendar_url()`'s own normalisation)
@@ -1085,16 +1059,25 @@ def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=N
         max_redirects = CALENDAR_MAX_REDIRECTS
     if max_bytes is None:
         max_bytes = CALENDAR_MAX_RESPONSE_BYTES
+    if deadline_s is None:
+        deadline_s = CALENDAR_FETCH_DEADLINE_S
+    if clock is None:
+        clock = time.monotonic
     if transport is None:
         transport = default_calendar_transport
 
+    deadline = clock() + deadline_s
     current_url = _normalise_calendar_url(url)
     for _ in range(max_redirects + 1):
         if not _url_is_safe(current_url):
             return None
 
         try:
-            response = transport(current_url, timeout)
+            time_left = deadline - clock()
+            if time_left <= 0:
+                raise http_fetch.DeadlineExceeded(
+                    "fetch_ics: total deadline exceeded before a hop")
+            response = transport(current_url, min(timeout, time_left))
         except Exception as exc:
             # Deliberately broad: a caller-supplied fake transport or a
             # future requests version is not guaranteed to only raise
@@ -1129,6 +1112,9 @@ def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=N
                     response.close()
                     return None
                 chunks.append(chunk)
+                if clock() > deadline:
+                    raise http_fetch.DeadlineExceeded(
+                        "fetch_ics: total deadline exceeded while reading the response")
         except Exception as exc:
             # Deliberately broad - see the transport-call catch above.
             print(
@@ -1136,6 +1122,7 @@ def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=N
                 % type(exc).__name__,
                 file=sys.stderr,
             )
+            response.close()
             return None
         response.close()
         return b"".join(chunks).decode("utf-8", errors="replace")
