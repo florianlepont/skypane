@@ -27,7 +27,6 @@ esp_err_t fp_wifi_connect(int timeout_ms);
 /* 0 if unknown (not connected, or no AP info available). */
 int fp_wifi_rssi(void);
 
-/* Radio off before deep sleep — this is what makes the "radio off
- * before sleep" clause of DEVICE-03 true and matters directly for the
- * battery measurement in plan 01-08. */
+/* Radio off before deep sleep — this is what makes the radio-off-
+ * before-sleep guarantee true, and matters directly for battery life. */
 void fp_wifi_stop(void);

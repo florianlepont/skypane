@@ -34,14 +34,13 @@ static esp_netif_t *s_sta_netif;
 #error "SKYPANE_STATIC_IP requires SKYPANE_STATIC_NETMASK, SKYPANE_STATIC_GW and SKYPANE_STATIC_DNS to all be defined"
 #endif
 
-/* Optional fallback (D-34-03, off unless secrets.h defines all four
- * macros): stops the DHCP client on this netif and assigns a fixed
- * address instead, for measuring against CONFIG_LWIP_DHCP_RESTORE_LAST_IP
- * on hardware. With the DHCP client stopped, esp_netif's own
- * esp_netif_action_connected() (ESP-IDF v5.3.1,
- * components/esp_netif/esp_netif_handlers.c) posts IP_EVENT_STA_GOT_IP
- * itself once the station associates, so fp_wifi_connect()'s existing
- * wait on that event needs no change. */
+/* Optional fallback, off unless secrets.h defines all four macros:
+ * stops the DHCP client on this netif and assigns a fixed address
+ * instead, for measuring against CONFIG_LWIP_DHCP_RESTORE_LAST_IP on
+ * hardware. With the DHCP client stopped, esp_netif's own
+ * esp_netif_action_connected() posts IP_EVENT_STA_GOT_IP itself once
+ * the station associates, so fp_wifi_connect()'s existing wait on that
+ * event needs no change. */
 static esp_err_t apply_static_ip(esp_netif_t *netif)
 {
     esp_err_t err = esp_netif_dhcpc_stop(netif);
