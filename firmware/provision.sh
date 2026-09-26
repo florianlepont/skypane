@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # firmware/provision.sh - writes a fresh, random per-device enrolment
-# secret into the dedicated "secret" NVS partition over USB (D-34-02).
+# secret into the dedicated "secret" NVS partition over USB.
 # The secret authenticates POST /device/v1/setup for this MAC (see
 # stub-server/byos_server.py's registry); it is never the byos bearer
 # token itself and this script never touches the main "nvs" partition

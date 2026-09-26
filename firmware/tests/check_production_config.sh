@@ -12,8 +12,8 @@
 #                        sdkconfig and image. Runs after firmware.yml's
 #                        build step, against firmware/build-ee02.
 #
-# A production build failing either mode is a release blocker, not a
-# warning - see 34-CONTEXT.md's threat model (T-34-04-02, T-34-04-03).
+# A production build failing either mode is a release blocker,
+# not a warning.
 #
 # Usage: ./check_production_config.sh [static|built <build-dir>]
 
@@ -24,8 +24,8 @@ FIRMWARE_DIR="${SCRIPT_DIR}/.."
 MODE="${1:-static}"
 
 # Pinned SHA-256 fingerprints, verified against letsencrypt.org and
-# cross-checked against curl.se/ca/cacert.pem (Mozilla store mirror) at
-# plan time - see 34-04-SUMMARY.md.
+# cross-checked against curl.se/ca/cacert.pem (Mozilla store
+# mirror).
 FP_X1="96:BC:EC:06:26:49:76:F3:74:60:77:9A:CF:28:C5:A7:CF:E8:A3:C0:AA:E1:1A:8F:FC:EE:05:C0:BD:DF:08:C6"
 FP_X2="69:72:9B:8E:15:A8:6E:FC:17:7A:57:AF:B7:17:1D:FC:64:AD:D2:8C:2F:CA:8C:F1:50:7E:34:45:3C:CB:14:70"
 
@@ -142,8 +142,8 @@ check_built() {
         fi
     done
 
-    # The fault-injection module (plan 34-08) logs this marker only when
-    # compiled in; a production build must not contain it at all.
+    # The fault-injection module logs this marker only when compiled in;
+    # a production build must not contain it at all.
     if grep -a -q "SKYPANE-FAULT-INJECT" "${image}"; then
         fail "skypane.bin contains the SKYPANE-FAULT-INJECT marker"
     fi

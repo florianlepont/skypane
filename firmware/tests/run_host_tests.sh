@@ -8,8 +8,8 @@
 # files (resolved against main/) are compiled in alongside it.
 #
 # No ESP-IDF, no Docker, no hardware required - that property is the whole
-# point: it is the only automated feedback signal available in this phase
-# before the EE02 kit arrives (01-RESEARCH.md, D-08).
+# point: it is an automated feedback signal available even without the
+# EE02 kit in hand.
 #
 # Usage: ./run_host_tests.sh   (from any working directory)
 
