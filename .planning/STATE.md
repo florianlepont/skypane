@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 37 complete (11/11 plans): 37-11 Wave B merged (PR #143) and verified live — byos on 127.0.0.1:8642 only behind IPAddressDeny=any/IPAddressAllow=localhost, no secret in argv, stale SKYPANE_BYOS_SECRET removed from the live env file, byos score 1.3 OK, frame still fetching; CP-7 removed the old in-place code directories. SEC-06/SEC-07 complete. Next: Phase 38."
-last_updated: "2026-09-26T12:45:00.000Z"
+stopped_at: "Phase 38 plan 01 complete (1/13 plans): test-support/efficiency_probe.py (count_db, count_sleeps, count_poll_state_writes, fake_provider_latency, seed_history, route_weight, cycle_probe) plus its 9 self-tests, scripts/measure_efficiency.py (an offline CLI printing the phase's markdown measurement tables), and 38-EFF-BASELINE.md's committed Before section for every EFF-01..EFF-06 metric, measured on the unmodified tree and cross-checked against 38-RESEARCH.md's baseline table (no value differs by more than 20%). Instruments-first rule satisfied: no production file touched yet. Next: 38-02."
+last_updated: "2026-09-26T13:15:00.000Z"
 last_activity: 2026-09-26
 progress:
   total_phases: 54
   completed_phases: 46
-  total_plans: 392
-  completed_plans: 367
-  percent: 85
+  total_plans: 405
+  completed_plans: 368
+  percent: 91
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -56,12 +56,15 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
+Phase: 38 (efficiency-companion-poll-cycle-storage) — EXECUTING (1/13 plans; 38-01 instruments + Before baseline complete on branch claude/plan-phase-38, unmerged)
 Phase: 37 (security-and-operations-hardening) — COMPLETE (11/11 plans; 37-11 Wave B: byos loopback-only + IP filter, no secret in argv, CP-11 and CP-7 done live 2026-09-26)
 Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human_needed: TimeoutStartUSec=1min 30s confirmed live 2026-09-26; only the optional on-frame panel-swap check remains)
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 7 of 7
+Plan: 1 of 13
+
+**38-01 executed (2026-09-26), plan 1/13 of Phase 38 (no dependencies) — instruments-first, per the phase's own "Locked by the ledger" rule.** Task 1 added `test-support/efficiency_probe.py` (`_patched()` self-restoring attribute-swap seam behind `count_db`, `count_sleeps`, `count_poll_state_writes`, `fake_provider_latency`, `seed_history`, `route_weight`, `cycle_probe`) plus `test-support/test_efficiency_probe.py` (9 tests of the probe mechanics only, never today's inefficiency numbers, so they stay green through every later plan). Task 2 added `scripts/measure_efficiency.py` (offline CLI: DNS resolver guard, offline `enrich.default_transport`/`detect.query_provider` fakes, prints Routes/First-load weight/Static revalidation/Freshness tick/Poll cycle markdown tables) and committed `38-EFF-BASELINE.md`'s `## Before` section from a real unmodified-tree run — cross-checked against `38-RESEARCH.md`'s own baseline table (every static byte count matches exactly; no route or poll-cycle value differs by more than 20%). `## After` and `## Live compression (VPS)` sections left as placeholders for the phase's later plans and final (developer-only VPS) checkpoint. No production file touched (`git diff --name-only` for both tasks lists only `test-support/`, `scripts/`, and the `.planning/` baseline doc). `state.advance-plan`/`state.update-progress` reproduced this file's own documented recurring bug this session — `state.advance-plan` returned `current_plan: 7, total_plans: 7` (stale, unrelated to Phase 38) and `state.update-progress` rewrote the LIVE frontmatter block's `status`/`stopped_at` back to a stale Phase-36 record while also mutating the DEMOTED/frozen 2026-09-04 historical frontmatter block's progress bar (93%→91%) — both mutations discarded via `git checkout -- .planning/STATE.md`, corrected by hand instead: `total_plans: 405` (392 + Phase 38's 13 newly-planned plans), `completed_plans: 368` (367 + this plan), `percent: 91` (368/405).
 
 **36-01 executed (2026-09-26), wave 1 (no dependencies) — lands the two stdlib primitives every later plan of Phase 36 migrates onto.** Task 1 re-verified gate G-35 independently against `origin/main` before any edit: 23 `35-*-SUMMARY.md` files present (≥22 required), `35-VERIFICATION.md` status `passed` on HEAD, ROADMAP's Phase 35 section fully checked, `origin/main` an ancestor of HEAD — all four checks passed, no edits made by that task. Task 2 (TDD) added `server/atomic_io.py`'s `atomic_write`/`staged_write`: a same-directory `tempfile.mkstemp` + `fchmod` + write + `fsync` + `os.replace`, with `DEFAULT_FILE_MODE` reading the umask once from `/proc/self/status`'s `Umask:` line (0022 on this runner) so a caller migrating from `open()` keeps its existing file mode unless it asks for a different one; an explicit `mode` (e.g. 0600 for a secret) lands on the temp file's descriptor before any byte is written and the destination path is never chmod'ed afterwards. Task 3 (TDD) added `exclusive_lock`/`LockBusy`/`LOCK_POLL_S`, generalising `calendar_rules._calendar_registry_lock` into one reusable cross-process, cross-thread `fcntl.flock` lock (0600 lock file, parent directory created, `LockBusy` a `TimeoutError` subclass, released in `finally`, no-op on a platform without `fcntl`), and wrote the module docstring's lock-order paragraph (`threading.Lock` → `poll.lock` → `calendar_rules.lock`; `device_config.lock` never held with another file lock). 19 behaviour tests total, including 8 threads × 50 writes and 2 OS processes × 200 writes to one path each landing exactly one complete 64 KiB payload with no leftover temp, and a child-process-held lock making the parent's blocking and non-blocking acquires both raise `LockBusy` before succeeding once the child releases. **One deviation, Rule 1/2 (coverage-gate correctness):** the new module's own defensive branches (the `/proc`-less umask fallback, the no-`fcntl` lock fallback, a write failure after the temp file is open, an already-deleted temp at cleanup, an unrelated `OSError` from `flock`) were untested by the plan's required behaviour list, pulling whole-repo coverage to 92.93% against the 93.0% floor — 8 more tests (each faking the platform condition, never reading source text) brought `server/atomic_io.py` to 98% and the full suite to 93.11%, `./scripts/run-all-tests.sh` exit 0, 2597 passed / 132 skipped (Playwright-Chromium and root-euid skips, pre-existing in this sandbox). Commits: `481fbc9` (test, RED), `08352b2` (feat, GREEN) for Task 2; `1151e42` (test, RED), `1d420f3` (feat, GREEN) for Task 3. `requirements.mark-complete INT-01 INT-02` per this plan's own frontmatter (the poll-cycle integration of INT-01 and every other caller's migration onto `atomic_write`/`exclusive_lock` land in 36-03..36-07). `roadmap.update-plan-progress "36"` confirmed `plan_count: 7, summary_count: 1, status: "In Progress"`.
 
