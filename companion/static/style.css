@@ -2549,15 +2549,10 @@ fieldset {
   margin-bottom: var(--space-lg);
 }
 
-/* Size and padding only. The family/weight/letter-spacing come from the
- * `h1, h2, h3, legend, .text-heading` serif rule near the top of this
- * file — and this rule must NOT restate font-weight, which is what it
- * used to do (--weight-semibold). Both selectors are bare `legend`
- * (0,0,1), so at equal specificity the later one wins, and this rule is
- * the later one: declaring a weight here silently beat the serif rule's
- * --weight-regular no matter what that rule said. That is precisely how
- * `<legend>` ended up as the only section heading in the app rendering
- * at a different weight from its siblings. */
+/* Size and padding only: font-weight must NOT be restated here. Both
+ * this and the serif `legend` rule near the top are bare `legend`
+ * (0,0,1); at equal specificity the later one wins, so a weight here
+ * would silently override that rule's own --weight-regular. */
 legend {
   font-size: var(--font-heading-size);
   padding: 0 var(--space-xs);
@@ -2569,13 +2564,6 @@ label {
   margin-bottom: var(--space-sm);
 }
 
-/* The 1px edge uses --color-border, the structural-line token, matching
- * .site-nav-toggle / .logout-form button. It used
- * to use --color-secondary — the control's own fill colour — so the
- * field had a border in name only and read as a flat block, while the
- * quiet buttons beside it on the same form were properly outlined. Two
- * conventions for one "quiet control edge" role; this is the one the
- * file's own header comment describes ("border is structural only"). */
 input,
 select {
   min-height: 44px;
@@ -2587,31 +2575,17 @@ select {
   color: var(--color-text);
   font-size: var(--font-body-size);
   font-family: var(--font-ui);
-  /* D-06: every native radio/checkbox site-wide renders with the
-   * terracotta accent instead of browser-default blue. */
+  /* Every native radio/checkbox site-wide renders with the terracotta
+   * accent instead of the browser default blue. */
   accent-color: var(--color-accent);
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
-/* 06.6.4 (D-01c) — 44px touch-target floor register, exhaustive audit.
- * Gave the floor up this phase: text buttons (this rule, 30px — D-01),
- * desktop sidebar nav links (.sidebar-link, 32px — D-05, plan 06.6.4-04),
- * theme-picker segments (.theme-form .theme-option, 28px — D-06, plan
- * 06.6.4-04), and the filter input (.filter-bar__field input, 32px —
- * D-08, plan 06.6.4-05). The icon button (.copy-btn, D-02) is
- * deliberately NOT in this list — it keeps a genuine 44x44 hit area via
- * a `::before` pseudo-element, no accessibility trade-off. Kept the
- * floor: the hamburger toggle (.site-nav-toggle), the global native
- * `input, select` rule directly above, the disclosure `summary` rule, and
- * the mobile dropdown nav link (.mobile-nav__link) — D-05's compaction
- * reached this selector by mistake (it is mobile-only, with no desktop
- * compactness argument to trade against) and quick task 260902-qkm
- * restored its 44px floor. None of these are named by CONTEXT.md, all
- * must stay intact. Criterion: WCAG 2.5.8 (Level AA, 24px) is met
- * everywhere, including every selector that gave up the floor; it is
- * 2.5.5 (Level AAA, 44px) that was consciously traded away on the four
- * named selectors only, with the developer's recorded acceptance
- * (06.6.4-CONTEXT.md Provenance note). */
+/* Touch-target floor register: WCAG 2.5.8 (AA, 24px) is met everywhere
+ * in this file, including every control that trades away the 2.5.5
+ * (AAA, 44px) floor for density here — a developer-accepted trade, not
+ * an oversight. .copy-btn needs no trade: a ::before pseudo-element
+ * synthesizes a real 44x44 hit area instead. */
 button {
   height: 30px;
   padding: 0 12px;
@@ -2621,16 +2595,6 @@ button {
   font-family: var(--font-ui);
   border-radius: 6px;
   cursor: pointer;
-  /* 06.6.4 (D-01b): near-invisible at rest, revealed on hover below.
-   * Expressed through the file's own color-mix(in srgb,
-   * var(--color-text) N%, transparent) idiom (see .sidebar-link--active,
-   * .banner) instead of CONTEXT.md's light-only rgba literals.
-   * --color-text resolves near-black in light mode and near-white in
-   * dark mode, so this one declaration produces a dark wash on light
-   * surfaces and a light wash on dark surfaces with no per-theme
-   * override block — numerically equivalent to CONTEXT.md's light-mode
-   * values and closes D-01b's own open "dark-mode analogue needed"
-   * question. */
   background: rgba(23, 25, 31, 0.045); /* fallback for browsers without color-mix() */
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   border: 1px solid rgba(23, 25, 31, 0.09); /* fallback for browsers without color-mix() */
@@ -2639,18 +2603,6 @@ button {
   transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 
-/* Primary-action buttons (Save settings, Trigger poll now, Save LED
- * Setting, Sign in) — accent fill. Theme-picker buttons are also
- * type="submit" but are excluded via the higher-specificity
- * `.theme-form .theme-option` rule above, which is what actually keeps
- * them out of this accent treatment, not their absence from this
- * selector's match set. 06.6.4 (D-01a): a subtle inset top highlight
- * plus a soft drop shadow reads as "lit and slightly raised" instead of
- * a flat fill; border-color is explicitly neutralized since the base
- * `button` rule above now paints a text-tinted hairline that would
- * otherwise sit on top of the accent fill and read muddy. Both shadow
- * value pairs are theme-neutral black/white alphas by design — no
- * dark-mode variant is needed. */
 button[type="submit"] {
   background: var(--color-accent);
   color: var(--color-on-accent);
@@ -2658,58 +2610,27 @@ button[type="submit"] {
   box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(18,21,27,.14);
 }
 
-/* Not a bare .theme-option:hover: .theme-form .theme-option (0,2,0) is
- * what currently keeps theme buttons out of this accent fill (see the
- * comment above that rule), and a lower-specificity hover rule here would
- * lose to this selector and repaint them — the exact 06.3-REVIEW.md
- * finding this file already carries a comment about. If a theme-button
- * hover state is wanted, write it as .theme-form .theme-option:hover.
- * 06.6.4 (D-01a): deeper shadow pair on hover, border-color repeated so
- * the primary button's edge stays neutralized even once the quiet-hover
- * rule below (equal specificity) exists. */
+/* Not a bare .theme-option:hover: .theme-form .theme-option (0,2,0)
+ * is what keeps theme buttons out of the accent fill, and a lower-
+ * specificity hover rule here would lose to it and repaint them. */
 button[type="submit"]:hover {
   background: var(--color-accent-hover);
   border-color: transparent;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 2px 5px rgba(18,21,27,.18);
 }
 
-/* 06.6.4 (D-01b): every button — primary and quiet alike — depresses 1px
- * while pressed. Placed here, before button:disabled below, so a
- * disabled button's own treatment stays the later, winning declaration
- * set.
- *
- * 28-02-PLAN.md (CFG-73, Bug B): excludes `.value-control__handle` from
- * this depress. That class is absolutely positioned from
- * `--value-fraction` (see its own rule above) — a `transform` declared
- * here would REPLACE that position rather than nudge it, because CSS
- * `transform` replaces wholesale, it never composes. Before this fix,
- * `.quiet-dial__handle` (a real `<button>` wearing that shared class)
- * measured 78px from the dial's centre — correct, on the ring — at
- * press, collapsing to 14-16px (the centre) within 90-150ms as the base
- * `button` rule's `transition: transform .15s ease` animated the
- * deleted position, then recovering to 78px roughly 200ms after
- * release. The exclusion is written against the SHARED class, not the
- * dial's own, so any future second consumer of `.value-control__handle`
- * is covered by construction rather than by a list someone has to
- * maintain. Every other button in the app keeps matching this rule and
- * still depresses exactly as before. */
+/* Excludes .value-control__handle: that class is positioned via
+ * transform from --value-fraction, and CSS transform REPLACES wholesale
+ * rather than composing — a transform declared here would silently
+ * delete that position instead of nudging it. */
 button:not(.value-control__handle):active {
   transform: translateY(1px);
 }
 
-/* 06.6.2-05 (D-17): Sign out (_logout_form_html()) is a quiet/ghost
- * action, not a primary call to action — it must not inherit the
- * accent fill above. `.logout-form button` and `button[type="submit"]`
- * share equal (0,1,1) specificity, so — same precedent
- * `.theme-form .theme-option`'s comment above documents for its own
- * higher-specificity override — this rule is placed after
- * `button[type="submit"]` in source order, which is what actually wins
- * the cascade here, not merely coincidental proximity. 06.6.4 (D-01b):
- * restates the base rule's quiet wash/border explicitly (equal
- * specificity to the base rule too, same source-order reasoning) and
- * adds `box-shadow: none` — this is a submit button and would otherwise
- * inherit button[type="submit"]'s new inset highlight, making Sign out
- * read as a primary action. */
+/* .logout-form button and button[type="submit"] are equal (0,1,1)
+ * specificity, so source order (placed after) is what actually wins
+ * here. box-shadow: none clears the inset highlight a submit button
+ * would otherwise inherit from the primary rule. */
 .logout-form button {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
@@ -2717,45 +2638,6 @@ button:not(.value-control__handle):active {
   color: var(--color-text);
 }
 
-/* 27-04-PLAN.md (D-04/D-06/CFG-63): the dirty save bar that used to
- * render here — the docked/floating-card styling history (06.6.3 D-03,
- * quick tasks 260901-re6/260901-s5o), its `[hidden]`-vs-`display`
- * guard, and its Cancel button's quiet-wash override — is deleted
- * wholesale along with the markup that carried it (companion/pages/
- * config_page.py's dirty_bar_html(), retired by that same plan's Task
- * 3). The `.js [data-static-save-fallback]` rule above still hides the
- * always-rendered bottom Save settings button once script runs — that
- * floor is untouched — and `.save-status`, further down this file, is
- * what replaces the bar as the visible save affordance. See
- * companion/static/dirty-state.js's own header for the full account of
- * what auto-save replaced and why.
- *
- * CORRECTION, recorded here rather than silently fixed: the paragraph
- * below claimed the `skypane-bar-arrive` @keyframes block was "ALSO
- * deleted". It was not — verified live against the shipped file at
- * 28-08 planning time, the block survives at this file's top, and
- * companion/test_config_page.py's own
- * _skypane_bar_arrive_keyframes_survive_unreferenced (added by this
- * same 27-04 plan) says so explicitly: kept ON PURPOSE, unreferenced,
- * specifically so the file's pinned @keyframes count would not need to
- * move for a component that might return. It has now returned — see
- * the restored `.dirty-bar` rule immediately below, and that check's
- * own retarget (28-08-PLAN.md Task 2) for the other half of this story.
- * The `skypane-bar-arrive` @keyframes block this rule used to reference
- * is ALSO deleted — its own site (near this file's top) records the
- * removal and this file's total @keyframes count (still 4, unchanged by
- * this plan) is what a harness pins, not this comment.
- *
- * SUPERSEDED by 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: the
- * developer asked for the pre-Phase-27 dirty bar back (ROADMAP.md's
- * Phase 28 addendum). `.dirty-bar`, its `[hidden]` override and
- * `.dirty-bar__cancel`'s quiet-wash override are ALL RESTORED below,
- * verbatim from `6dea46a` except where noted in their own comments
- * (re-measured clearance, Cancel's type="reset" change, and the CSS
- * consequence that change has — or does not have — on the wash
- * override). `.js [data-static-save-fallback]` above is retired in
- * turn (see that rule's own superseded comment); `.save-status` below
- * loses its RULE the identical way. */
 .dirty-bar {
   display: flex;
   align-items: center;
@@ -2766,61 +2648,20 @@ button:not(.value-control__handle):active {
   border-radius: var(--radius-card);
   margin-top: var(--space-md);
   box-shadow: var(--shadow-card-hover), 0 12px 32px rgba(18, 21, 27, 0.16);
-  /* 23-09-PLAN.md Task 1 (D3/CFG-32): the entrance, REUSED rather than
-   * reinvented — this is the SAME `skypane-bar-arrive` @keyframes block
-   * 27-04 deliberately kept unreferenced for exactly this moment (see
-   * this rule's own superseded comment above), not a new block. The
-   * file's pinned @keyframes count therefore stays at 4, re-verified by
-   * RUNNING rather than assumed — the SUMMARY states the number.
-   *
-   * It fires when the bar's own `display` changes from `none`, which is
-   * the only way this element is ever revealed (companion/static/
-   * dirty-state.js sets `bar.hidden = false`, and the `[hidden]`
-   * override immediately below is what makes that attribute mean
-   * anything against the `display: flex` above). `ease-out` at the call
-   * site because easing is not a token — 23-01 spent exactly two custom
-   * properties and easing was deliberately not one of them. Its
-   * duration comes from `var(--motion-fast)`, 23-01's own REACTION
-   * token: the user just made an edit and is watching for confirmation
-   * that it can be saved. Under reduced motion this does not slide —
-   * the global `@media (prefers-reduced-motion: reduce)` override
-   * earlier in this file already zeroes animation-duration for every
-   * element, so no per-rule block is needed here either. */
+  /* Reuses the existing skypane-bar-arrive @keyframes rather than a new
+   * block, keeping the file's pinned @keyframes count unchanged. Fires
+   * when display changes from none, the only way this element is ever
+   * revealed. The global reduced-motion override already zeroes it. */
   animation: skypane-bar-arrive var(--motion-fast) ease-out;
 }
 
-/* Without this, the native `hidden` attribute dirty-state.js relies on to
- * hide the bar on load has no effect: the author-stylesheet `display: flex`
- * above always beats the user-agent stylesheet's `[hidden] { display: none }`
- * regardless of source order, so the bar would render visible even when
- * the form isn't dirty. Same collision class as the `.stat-tile svg`/
- * `.mobile-nav` cases elsewhere in this file — a higher-specificity
- * selector for the `[hidden]` case is required whenever a component's own
- * base rule sets `display`. */
+/* [hidden]-vs-author-display collision, the same trap fixed elsewhere
+ * in this file: an author display: flex always beats the UA
+ * [hidden] { display: none } rule regardless of source order. */
 .dirty-bar[hidden] {
   display: none;
 }
 
-/* `.dirty-bar__save` needs no rule of its own — it is a bare
- * `<button type="submit">`, already accent-filled by `button[type="submit"]`
- * above.
- *
- * 28-08-PLAN.md Task 2 (CFG-77, Cancel's type change), 2026-09-16: Cancel
- * is now a `<button type="reset" form="settings-form">` (companion/pages/
- * config_page.py, Task 1's own BLOCKER 4), not `6dea46a`'s
- * `<button type="button">`. Checked live: this file declares no
- * `button[type="reset"]` rule and no other type-qualified `button` rule
- * that would reach it — the base, unqualified `button` rule above (the
- * 4.5%/9% quiet wash) already governs a `type="reset"` button with
- * nothing competing, so this override is no longer load-bearing the way
- * it was for `type="button"` either (that reasoning turns out to have
- * been stale even before this plan — `button[type="submit"]` never
- * matched `type="button"` to begin with). It is restored anyway,
- * unchanged, for the same "explicit is better than implicit" precedent
- * `.logout-form button`/`.frame-strip__cell button` already establish —
- * restating the wash and neutralizing `box-shadow` here means a reader
- * auditing this button never has to prove a negative by reading every
- * OTHER rule in the file first. */
 .dirty-bar__cancel {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
@@ -2828,21 +2669,9 @@ button:not(.value-control__handle):active {
   color: var(--color-text);
 }
 
-/* 22-04-PLAN.md Task 2 (C2, T-22-13): the Frame strip's two switch
- * buttons ("Switch off"/"Switch on", "Turn off"/"Turn on") are
- * `<button type="submit">` and would otherwise inherit the primary
- * accent fill above. `.frame-strip__cell button` and
- * `button[type="submit"]` share equal (0,1,1) specificity — an element
- * selector plus a class selector on the same side either way — so this
- * rule is placed after `button[type="submit"]` in source order, which
- * is what actually wins the cascade here (the exact `.logout-form
- * button` precedent above, never raised further: a higher specificity
- * would start beating class-scoped controls this app also relies on).
- * Restates the base `button` rule's own quiet wash/border explicitly
- * (never a new wash value — 4.5%/9% is the existing register) and
- * neutralizes `box-shadow` for the identical reason `.logout-form
- * button` does: this is a submit button and would otherwise inherit
- * the primary inset highlight. */
+/* .frame-strip__cell button and button[type="submit"] are equal
+ * (0,1,1) specificity; placed after it in source order to win, the
+ * same precedent .logout-form button above documents. */
 .frame-strip__cell button {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
@@ -2850,42 +2679,18 @@ button:not(.value-control__handle):active {
   color: var(--color-text);
 }
 
-/* 06.6.4 (D-01b): the quiet-button hover reveal. Placement here is
- * load-bearing: this rule MUST sit after `.logout-form button` (0,1,1)
- * above in source order. `button:hover` is itself (0,1,1) — equal to
- * `.logout-form button`, so source order is what decides the winner
- * there. Without this placement the quietest control in the app would
- * have no hover feedback. The primary button is unaffected — its own
- * hover rule above carries higher specificity and restates the
- * neutralized border explicitly.
- * 22-04-PLAN.md Task 2: `.frame-strip__cell button` (0,1,1) above is
- * ALSO equal specificity to this rule, and is placed before it in
- * source order too, so the strip's own switch buttons get the same
- * hover wash for free, exactly like the quiet button above. */
+/* button:hover (0,1,1) must sit after .logout-form button (also
+ * (0,1,1)) in source order, or the quietest control gets no hover
+ * feedback. .frame-strip__cell button (0,1,1), placed before this
+ * rule, inherits the same hover wash for free. */
 button:hover {
   background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
   border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
 }
 
-/* Icon-only compact action button (06.6.3 D-23, e.g. the copy buttons in
- * History/Health). 06.6.4 (D-02) replaces the old "inherits the base
- * button rule's 44x44 floor unmodified" mechanism, which no longer
- * exists now that the base `button` rule has no min-height/min-width —
- * this is a 28x28 visual box with a real 44x44 pointer/touch hit area
- * synthesized by the `::before` pseudo-element's negative inset below,
- * no accessibility trade-off (unlike D-01's button-density reduction).
- * This is the pattern to reuse for any future icon-only button, rather
- * than reintroducing a minimum-size floor. `border: none` and a
- * transparent background keep the icon from reading as a filled control
- * now that the base rule paints a wash and a hairline; `display:
- * inline-flex` centres the SVG glyph explicitly, since a fixed 28x28 box
- * with zero padding needs it (unlike the base rule, which deliberately
- * avoids `display` — native buttons already centre a text label without
- * it). History's merged Callsign/Hex cell (`_callsign_hex_cell()`)
- * renders two of these in one cell, separated by the inline separator
- * span and the hex value itself (roughly 50px), so the two enlarged hit
- * areas do not overlap; a future layout placing two icon buttons closer
- * than 16px apart would need to revisit the inset below. */
+/* 28x28 visual box with a real 44x44 hit area synthesized by the
+ * ::before pseudo-element's negative inset below — no accessibility
+ * trade-off. The pattern to reuse for any future icon-only button. */
 .copy-btn {
   width: 22px;
   height: 22px;
@@ -2899,50 +2704,26 @@ button:hover {
   background: transparent;
 }
 
-/* D-02 follow-up (06.6.4-06 checkpoint): the global 20px .icon glyph
- * nearly filled the original 28px box (4px of padding per side), which
- * read as "the whole button is too big" rather than a quiet inline
- * affordance. Scoped down to 14px here only — every other .icon consumer
- * (nav, stat tiles, banners) keeps the standard 20px. */
 .copy-btn .icon {
   width: 14px;
   height: 14px;
 }
 
-/* The invisible 44x44 hit area: 22 (visual box) + 11 on each side = 44,
- * centred on the glyph. Pointer target only — no background, border or
- * content of its own. */
+/* The invisible 44x44 hit area: 22 (visual box) + 11 on each side. */
 .copy-btn::before {
   content: "";
   position: absolute;
   inset: -11px;
 }
 
-/* 06.6.4 (D-02): hover wash, the same text-based color-mix idiom as the
- * base quiet-hover rule above, at D-02's specified 7% strength. Comes
- * after that base `button:hover` rule in source order (the icon-button
- * rules already sit later in the file, verified rather than assumed). */
 .copy-btn:hover {
   background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
-/* A-37/D-20: the "Copied" label rendered beside the icon on a
- * successful copy. Hidden at rest — .copy-btn's box stays exactly
- * 22x22px, icon-only, unchanged from before this pair of rules existed. */
 .copy-btn__label {
   display: none;
 }
 
-/* Positioned to overflow .copy-btn's own fixed-size box (via its
- * existing `position: relative`) rather than growing it: the button
- * must keep its 22x22px footprint so the ::before 44x44 hit area and
- * the table's column widths never shift for the ~1.5s a confirmation
- * is visible. Colour and label-voice values (12px/semibold/uppercase/
- * 0.06em, this file's existing label-voice register — see `.data-table
- * th` for another instance; `.frame-colours__panel-legend`, the
- * instance this comment used to point to, is retired by 30-07-PLAN.md
- * Task 2, CFG-85) are reused verbatim; --color-status-ok
- * is the existing token, no new custom property, no accent use. */
 .copy-btn--copied .copy-btn__label {
   display: inline;
   position: absolute;
@@ -2958,64 +2739,18 @@ button:hover {
   color: var(--color-status-ok);
 }
 
-/* Disabled/cooldown state (CFG-07/D-17): reduced opacity, not-allowed
- * cursor, no separate colour needed. */
+/* Disabled/cooldown state: reduced opacity, not-allowed cursor. */
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* Runway row (quick task 260901-qif): a layout-only wrapping flex
- * container introduced around just the three `.runway-card` elements —
- * it carries no visual treatment of its own, only the cards keep theirs.
- * Its `gap` is now the single owner of both inter-card and wrapped-row
- * spacing; `.runway-card`'s own former `margin-bottom` was retired below
- * to avoid double-spacing (a 16px margin stacked on top of this 8px
- * gap). Before this wrapper, the cards were bare `display: block`
- * siblings of `.theme-status`'s heading and both paragraphs, so each
- * card took a full line and the group rendered as three stacked
- * full-width bars instead of a row.
- *
- * 29-04-PLAN.md Task 1 (CFG-80): this rule's SECOND consumer is gone.
- * quiet_hours_group()'s preset row used to borrow this exact class (see
- * the two comments below, kept in place rather than silently corrected,
- * that still say otherwise) — it now has its own dedicated
- * `.quiet-preset-row` rule immediately below this one, styled as a
- * segmented control rather than a wrapping flex row. `.runway-row` is
- * therefore back to its original one consumer, the runway picker. */
 .runway-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
 }
 
-/* 29-04-PLAN.md Task 1 (CFG-80) — THE QUIET-HOURS PRESET ROW, A
- * SEGMENTED CONTROL WITH NO SELECTED STATE.
- *
- * Same bordered-container-plus-borderless-segment idiom `.theme-form`/
- * `.theme-option` already use for the language/theme footer switches
- * (a hairline border and radius on the container, segments with no
- * border of their own) — but this control keeps NO active/selected
- * modifier, deliberately: these three buttons are momentary actions
- * that WRITE a value into the two time fields below, not a persistent
- * choice, so there is nothing to keep visually "current" the way a
- * theme or language choice is. That is also why this rule adds no
- * accent consumer and needs no change to style.css's header-comment
- * accent-reservation list — a control with no selected state has no
- * accent-filled state to reserve one for.
- *
- * The hairline divider between segments is a `border-left` on every
- * button but the first, reusing the same `--color-border` hairline
- * every card edge in this file already uses — not `.theme-form`'s own
- * `gap`-only separation, because these buttons keep the app's ordinary
- * quiet-button treatment (padding, background wash) rather than
- * `.theme-option`'s flush segment styling, and a gap alone would read
- * as three loose buttons rather than one control.
- *
- * Quick task 260922-jiy: `margin-bottom: var(--space-md)` separates this
- * row from the Debut/Fin fields below it, matching `.quiet-dial__readout`'s
- * own `margin: 0 0 var(--space-md)` one component above — the same gap
- * stacked twice so the card reads as one rhythm rather than two. */
 .quiet-preset-row {
   display: flex;
   border: 1px solid var(--color-border);
@@ -3035,35 +2770,10 @@ button:disabled {
   border-left: 1px solid var(--color-border);
 }
 
-/* 29-04-PLAN.md Task 1 (CFG-80) — START AND END, ONE ROW.
- *
- * Two tracks at the card's own width, from the existing spacing scale —
- * no new token. `minmax(0, 1fr)` on both (not a bare `1fr`) so a long
- * error message inside either column can wrap instead of forcing the
- * grid wider than the card, the same overflow guard `.data-table`'s own
- * `min-width: max-content` note elsewhere in this file exists to avoid
- * the opposite failure of.
- *
- * A NARROW-VIEWPORT FALLBACK IS DECLARED, and it is not pre-emptive —
- * it is required by a number already on record in THIS file.
- * `.config-form input[type="time"] { min-width: 9rem }` (144px) is a
- * hard floor on each native time input, independent of anything this
- * rule declares. At the 360px contract floor, this card's own inner
- * content width is 360 − 2×24 (`.page-content`'s side padding,
- * `--space-lg`) − 2×16 (`.theme-status`'s own padding below 960px,
- * `--space-md`) = 280px. Two 144px inputs plus even the smallest
- * column gap already need 2×144 + 8 = 296px — 16px MORE than the
- * 280px available, before the "Start "/"End " label text or either
- * twin has taken any width at all. Two columns cannot fit at the
- * contract floor, arithmetically, from numbers already declared in
- * this file — no live-browser measurement was available in this
- * worktree to refine the exact breakpoint further (see the plan's own
- * SUMMARY for the open follow-up), so the threshold below is set with
- * deliberate headroom above the bare 392px the same arithmetic gives
- * at the wider `--space-lg` (24px) gap this rule actually uses
- * (2×144 + 24 + 80px of combined padding = 392px), rather than cut
- * exactly to it. Below the threshold the row degrades to the ORIGINAL
- * stacked layout (one track), never a broken two-column overflow. */
+/* Narrow-viewport fallback required by arithmetic already on record:
+ * two 144px time inputs (.config-form input[type="time"]'s own
+ * min-width) plus a gap need more width than this card's own 280px
+ * inner content at the 360px contract floor. */
 .quiet-times-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3076,195 +2786,45 @@ button:disabled {
   }
 }
 
-/* Runway picker (06.4/06.6.3 D-05): selectable card, number prominence +
- * optional airport diagram. Supersedes the old .runway-option/
- * .runway-option__number/.runway-option__image rules (06.4) — removed
- * outright here, not left as unreferenced bloat, matching 06.6.1-05's own
- * precedent for a redesign superseding a prior rule set. The entire
- * <label> is the hit target/card; `position: relative` anchors the
- * visually-hidden native radio absolutely positioned inside it. */
 .runway-card {
   display: block;
   position: relative;
   background: var(--color-dominant);
-  /* Hairline --color-border edge at rest, no resting shadow — 06.6.4
-   * (D-03) supersedes 06.6.1's shadow-at-rest treatment (the border used
-   * to be transparent, reserving a width only the now-deleted dark-mode
-   * card-edge override coloured in). The shadow now appears only on
-   * hover/focus-within, below. SUPERSEDED (quick task 260904-bbi): this
-   * comment used to say "the --selected modifier still replaces this
-   * hairline with its own real 2px accent border" — that was the
-   * defect. `--selected` is server-computed from the SAVED config and
-   * never updates when the user clicks a different card without
-   * reloading, so the border stayed on the saved card even after
-   * another one was chosen. The strong border is now driven by live
-   * `:has(input:checked)` state (see the @supports block after the
-   * .theme-chip group below); `--selected` alone still replaces the
-   * hairline as the no-:has() FALLBACK (identical result, just not the
-   * live-state mechanism), and the hover rule below is scoped so it can
-   * never reach a selected-at-rest card either way (D-03a; its live-
-   * state transfer is documented in the @supports block). */
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   box-shadow: none;
   padding: var(--space-md);
-  /* quick task 260901-qif: traded for flex sizing now that .runway-row
-   * (above) owns inter-card spacing via its own `gap`. .runway-card has
-   * exactly one emitter in the repository, runway_fieldset() (confirmed
-   * by grep), so retiring this declaration cannot affect another
-   * consumer. Grow-and-shrink from a 150px basis with a 140px floor lays
-   * the three cards out in one wrapping row instead of one per line.
-   *
-   * SUPERSEDED by 22-10-PLAN.md Task 2 (B9). The 150px basis plus the
-   * 140px floor is exactly what produced the measured 2 + 1 orphan at
-   * 390px: a 308px content column fits two 150px cards and wraps the
-   * third alone, which then grew to the full 308x217. A zero basis with
-   * no minimum makes the three cards structurally incapable of
-   * overflowing their line — three items whose hypothetical main size is
-   * 0 always share one flex line — so there is no width at which they
-   * can wrap 2 + 1 again. At 1280px this is a no-op: the old rule
-   * already distributed the free space equally, so all three cards
-   * measure 271.3px before and after.
-   *
-   * `.runway-row` itself is deliberately NOT given `flex-wrap: nowrap`,
-   * which is what 22-UI-SPEC.md §2's B9 row prescribes — SUPERSEDED-in-
-   * reasoning by 29-04-PLAN.md Task 1 (CFG-80): this paragraph used to
-   * name a SECOND consumer, `quiet_hours_group()`'s three-preset row
-   * (whose long labels, e.g. "Night (23:00-07:00)", needed to wrap on a
-   * phone), as the reason `.runway-row` itself keeps wrapping rather
-   * than being fixed to `nowrap` here. That second consumer is gone —
-   * the preset row now has its own `.quiet-preset-row` rule and short,
-   * non-wrapping labels — so `.runway-row` is back to its original one
-   * consumer, but the conclusion (fix B9 on the card, not the row) is
-   * unaffected and kept as written. */
   flex: 1 1 0;
   min-width: 0;
   cursor: pointer;
-  /* 23-10-PLAN.md Task 1 (D3/CFG-32) — SELECTION ANSWERS, AND WHY THIS
-   * DECLARATION IS ON THE BASE RULE AND NOT IN A FEATURE QUERY.
-   *
-   * Read this before reaching for `@supports`. The strong selected
-   * treatment for this component is driven by live `:has(input:checked)`
-   * state, which lives inside the ONE feature-query block further down,
-   * and the file is pinned at exactly one such block by two checks in
-   * companion/test_config_page.py. The obvious way to animate a rule
-   * that lives inside a feature query is to write a second feature
-   * query — Phase 15's D-05 did exactly that and had it retired, and
-   * 23-RESEARCH.md names it as the single largest threat to that count
-   * in the whole of Phase 23.
-   *
-   * It is not needed, and the reason is one sentence: a transition is a
-   * property of the ELEMENT, not of the state. Declared here, on the
-   * base rule, it animates each property however the state that changes
-   * it is reached — through `:has(input:checked)` inside the query on a
-   * browser that supports `:has()`, and through the server-rendered
-   * `--selected` fallback outside it on a browser that does not. One
-   * declaration, both mechanisms, identical result. The same reason
-   * covers the hover/focus-within reveal above for free.
-   *
-   * The four properties named are the four that actually change on
-   * selection (the scale, the accent edge, the inset ring and the 12%
-   * wash); `transition: all` is deliberately not used, since it would
-   * also animate the layout properties this component's own geometry
-   * contract depends on. `var(--motion-fast)` is the phase's REACTION
-   * token: a selection is a state change the user just caused and is
-   * watching for confirmation of. No per-rule reduced-motion block is
-   * added — the single global `@media (prefers-reduced-motion: reduce)`
-   * override near the top of this file already zeroes every transition
-   * duration in it, and a second one here is the dead code
-   * `references/accessibility-contrast.md` records rather than a safety
-   * net. */
+  /* Declared on the base rule, not inside @supports: a transition
+   * animates however the state is reached — through :has() where
+   * supported, through the --selected fallback where not.
+   * test_config_page.py pins the file at exactly one feature-query block. */
   transition: transform var(--motion-fast) ease,
     border-color var(--motion-fast) ease,
     box-shadow var(--motion-fast) ease,
     background-color var(--motion-fast) ease;
 }
 
-/* Scoped with :not(.runway-card--selected) so this rule is structurally
- * incapable of matching a selected card, independent of source order or
- * specificity — the selected card's own 2px accent border (below) can
- * never be cleared by hovering it (D-03a). */
+/* :not(.runway-card--selected) makes this structurally incapable of
+ * matching a selected card, independent of source order or specificity. */
 .runway-card:not(.runway-card--selected):hover,
 .runway-card:not(.runway-card--selected):focus-within {
   border-color: transparent;
   box-shadow: var(--shadow-card-hover);
 }
 
-/* T6 (22-AUDIT.md, 22-UI-SPEC.md §2's T6 row, 22-15-PLAN.md Task 1) —
- * THE BORDER WIDTH IS NOW CONSTANT AT 1px IN EVERY STATE, and the
- * selection weight moves to an inset ring. The paragraph below used to
- * claim the opposite was safe; it was wrong, and the correction is
- * recorded here rather than the claim quietly deleted.
- *
- * What the old claim missed: `box-sizing: border-box` keeps an
- * element's own CONTENT box from growing when its border thickens — it
- * does not keep the element's own OUTER box from growing, because
- * border-box sizing only fixes the outer box where a `width` or a
- * `flex-basis` resolves to a definite length. `.runway-card` is
- * `flex: 1 1 0` in a wrapping row (B9, 22-10-PLAN.md Task 2), so its
- * outer width is DISTRIBUTED free space plus its own border: the saved
- * card measured 98.67px against its siblings' 96.66/96.67px at 390px —
- * exactly 2px wider, exactly the audit's reported symptom. Siblings do
- * shift, and a selected card is a different size from an unselected
- * one. companion/test_browser_ux.py carried a STATED allowance for that
- * difference, naming this plan as the one that deletes it; it is
- * deleted.
- *
- * The replacement signal: `box-shadow: inset 0 0 0 2px` paints a 2px
- * ring just inside the padding box. It occupies no layout space at all
- * — a box-shadow never contributes to any box — so selection is now
- * geometrically free. The border stays 1px and only RECOLOURS to the
- * accent, which is what it already did; the 12% wash and the check
- * glyph are untouched. The result reads slightly heavier than the old
- * 2px border (1px accent edge plus a 2px accent ring), which is on the
- * right side of 06.6.4.1.1-06's own "the selected element is very hard
- * to see" report.
- *
- * Every rule in this file that painted a 2px selected-state border is
- * converted the same way in this one commit, including the two dashed
- * "this is what is saved" markers inside the @supports block below —
- * a 2px dashed ring against 1px siblings is the identical defect
- * wearing a different dash pattern.
- *
- *
- * 06.6.4.1.1-06 (developer checkpoint follow-up): the background wash
- * below is an ADDITION to the border above, not a replacement — the
- * border and the always-present check glyph (`.runway-card__check`)
- * both stay exactly as they were. The developer reported that, across
- * the whole site, "the selected element is very hard to see" — a thin
- * 2px border and a small stroke-only check glyph against the same
- * `--color-dominant` card surface every unselected sibling also uses.
- * The fix reuses this app's own already-established "this is the
- * current selection" language instead of inventing a new one:
- * `.theme-form .theme-option--active` and the nav-pill active-link rules
- * (`.sidebar-link--active`, `.mobile-nav__link--active`) all use this
- * same `color-mix(in srgb, var(--color-accent) 12%, transparent)`
- * background wash, and none of them were reported as hard to notice.
- * Safe to add here: `.runway-card` has no separate body wrapper, but its
- * only other child content is `.runway-card__number` (plain text) and
- * the optional `.runway-card__image` (an airport-diagram PNG on two of
- * the three cards) — a 12%-opacity accent tint does not obscure either.
- * The hover-exclusion guard above (`:not(.runway-card--selected)`)
- * still cannot reach a selected card after this addition, since it adds
- * a new property to this same already-excluded selector rather than
- * touching the hover rule itself. */
-/* 23-10-PLAN.md Task 1 (D3/CFG-32): the scale is declared on BOTH the
- * `--selected` fallback here and the live `:has(input:checked)` rule
- * inside the feature query, at the SAME value — the identical parity
- * contract T6 already holds for the border and the ring, and for the
- * identical reason: a browser without `:has()` must render a
- * selected card the same size as a browser with it.
- *
- * A `transform` and not a width, a padding or a border, and that is the
- * whole point: a transform paints at a different size without
- * participating in layout at all, so T6's defect (a selected card 2px
- * wider than its siblings, measured at 98.67px against 96.66px at
- * 390px, pushing them along the row) is structurally incapable of
- * recurring through it. companion/test_browser_ux.py measures the
- * layout box through offsetWidth rather than
- * getBoundingClientRect() precisely because that distinction is the
- * thing being asserted. 1.02 is punctuation, not a bounce: the wash's
- * fade is the primary signal. */
+/* box-shadow: inset ... 2px, not a thicker border: in a flex: 1 1 0
+ * row, border-box sizing does not stop a thicker border growing the
+ * card's own distributed outer width (measured: 98.67px vs siblings'
+ * 96.66px). An inset box-shadow paints inside the padding box instead
+ * and contributes to no box at all, so selection is geometrically free. */
+/* transform: scale, not a width/padding/border change: a transform
+ * paints at a different size without participating in layout, so the
+ * old 2px-wider-selected-card defect (measured 98.67px vs 96.66px) is
+ * structurally impossible here. test_browser_ux.py measures offsetWidth
+ * specifically, not getBoundingClientRect(), to assert that. */
 .runway-card--selected {
   border-color: var(--color-accent);
   box-shadow: inset 0 0 0 2px var(--color-accent);
@@ -3285,10 +2845,8 @@ button:disabled {
   margin-top: var(--space-sm);
 }
 
-/* The check glyph's markup exists on every card, but only ever visually
- * shown on the selected one — its visibility follows selection state
- * (the server-rendered `--selected` modifier) with no second conditional
- * needed at the markup level. */
+/* The check glyph's markup exists on every card, shown only on the
+ * selected one via the server-rendered --selected modifier. */
 .runway-card__check {
   position: absolute;
   top: var(--space-sm);
@@ -3301,34 +2859,6 @@ button:disabled {
   display: inline-flex;
 }
 
-/* Theme picker chip (06.6.4.1.1-05, sketch 004 variant B — the
- * developer-confirmed winner, UIR-01/UIR-02). This is a second
- * selectable-card component, deliberately placed as a neighbour of
- * .runway-card above because it reuses that component's mechanism
- * verbatim rather than inventing a new one: a visually-hidden native
- * radio inside the <label>, and an always-present check glyph shown
- * only when selected.
- *
- * SUPERSEDED (quick task 260904-bbi): this comment used to claim the
- * mechanism was "a server-computed --selected modifier (never a
- * client-side :has() trick) driving a real 2px accent border" — that
- * reasoning is now DISPROVEN. `--selected` is computed once, server-
- * side, from the SAVED config; clicking a different chip changes the
- * live `:checked` radio but never re-renders the page, so the strong
- * border/wash/check-glyph treatment stayed on the SAVED chip instead of
- * following the user's live click — the exact defect a developer
- * checkpoint follow-up found. The strong treatment is now driven by
- * live `:has(input:checked)` state instead, inside the
- * `@supports selector(:has(*))` block placed immediately after this
- * group (see that block's own comment for the specificity arithmetic
- * and the fallback story). `--selected` keeps two honest jobs: it still
- * truthfully marks the SAVED value, and it is now the no-`:has()`
- * FALLBACK, painting the identical strong treatment in browsers that
- * don't support `:has()`. It is NOT related to .theme-form .theme-option
- * below, which is a different component entirely — the segmented
- * light/dark UI-theme control in the nav footer, not a colour-theme
- * picker.
- */
 .theme-chip-grid {
   display: flex;
   flex-wrap: wrap;
@@ -3339,12 +2869,8 @@ button:disabled {
   display: block;
   position: relative;
   width: 160px;
-  /* The margin reset below and the font-size declaration are load-
-   * bearing overrides of the global `label` rule (which gives every
-   * label an 8px bottom margin and shrinks its text to Label size) —
-   * without them every chip would carry an extra bottom margin on top
-   * of the grid's own `gap`, and the name/swatch text below would
-   * render at the wrong scale. */
+  /* margin-bottom: 0 and the font-size below are load-bearing overrides
+   * of the global label rule (8px bottom margin, Label-size text). */
   margin-bottom: 0;
   font-size: var(--font-body-size);
   background: var(--color-dominant);
@@ -3354,48 +2880,16 @@ button:disabled {
   /* Clips the preview <img> to the chip's own rounded corners. */
   overflow: hidden;
   cursor: pointer;
-  /* 23-10-PLAN.md Task 1 (D3/CFG-32): the same base-rule transition
-   * `.runway-card` above carries, for the same reason — see that rule's
-   * own comment for why this is NOT wrapped in a second
-   * `@supports selector(:has(*))` block and must never be. The wash
-   * itself is scoped to `.theme-chip__body` on this component (the
-   * preview band must never be tinted), so its own fade is declared
-   * there rather than here; this rule animates the three properties
-   * that change on the chip itself. */
   transition: transform var(--motion-fast) ease,
     border-color var(--motion-fast) ease,
     box-shadow var(--motion-fast) ease;
 }
 
-/* T6's one chip-specific addition (22-15-PLAN.md Task 1). An inset
- * box-shadow is painted on an element's own background/border layer, so
- * it sits BENEATH that element's children — and `.theme-chip__preview`
- * is a full-bleed `width: 100%` image occupying the chip's top 56px.
- * Without this overlay the selection ring would be hidden along the
- * whole preview band and visible only around the body, which reads as a
- * rendering fault rather than as a selected chip. `.runway-card` needs
- * nothing equivalent: its own image sits inside `var(--space-md)` of
- * padding and never reaches the ring.
- *
- * `box-shadow: inherit` is the entire mechanism, and it is why this is
- * ONE unconditional rule rather than a duplicate of every selected-state
- * rule below. The pseudo-element simply redraws whatever box-shadow the
- * chip itself currently computes, above the image instead of below it,
- * so every state — selected, saved-but-not-live, hovered — tracks
- * automatically and can never drift out of step with the rule that
- * actually declares it.
- *
- * The chip's own `overflow: hidden` clips this overlay, which is what
- * keeps the inherited OUTER hover shadow (`--shadow-card-hover`, on an
- * unselected hovered chip) from painting a second, smaller copy of
- * itself: an outer shadow drawn on a padding-box-sized overlay falls
- * entirely outside that overlay and is clipped away. Only the inset
- * ring survives, which is the one thing this overlay exists to carry.
- *
- * `pointer-events: none` so the overlay can never intercept a click
- * meant for the label; the check glyph and the saved-state `::after`
- * badge are both positioned later in tree order and so still paint
- * above it. */
+/* box-shadow: inherit redraws the chip's own current box-shadow above
+ * the full-bleed preview image instead of beneath it (a box-shadow
+ * paints under an element's children by default) — one rule that
+ * tracks every selected/hover state automatically instead of
+ * duplicating each one. */
 .theme-chip::before {
   content: "";
   position: absolute;
@@ -3405,8 +2899,7 @@ button:disabled {
   box-shadow: inherit;
 }
 
-/* Scoped with :not(.theme-chip--selected), the same D-03a property
- * .runway-card documents above: hovering a selected chip must never be
+/* :not(.theme-chip--selected): hovering a selected chip must never be
  * able to clear its accent border, independent of source order. */
 .theme-chip:not(.theme-chip--selected):hover,
 .theme-chip:not(.theme-chip--selected):focus-within {
@@ -3414,51 +2907,27 @@ button:disabled {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* T6 (22-15-PLAN.md Task 1): constant 1px border, selection carried by
- * the inset ring — see `.runway-card--selected`'s own comment above for
- * the full diagnosis and the measurement. `.theme-chip` is a fixed
- * `width: 160px` rather than a flex child, so its own outer box did NOT
- * grow; what it did instead was eat 1px of its 160px on each side, so
- * the selected chip's preview band and body were 2px narrower than its
- * neighbours' and the swatch row reflowed. Same defect, same fix, and
- * the ring is drawn INSIDE the chip's `overflow: hidden` clip so it
- * follows the rounded corners exactly as the border does. */
+/* .theme-chip is a fixed width: 160px, so a thicker border ate 1px on
+ * each side instead of growing the outer box — narrowing the preview
+ * band and reflowing the swatch row. Same fix as .runway-card above:
+ * an inset ring instead, drawn inside the chip's own clip so it follows
+ * the rounded corners. */
 .theme-chip--selected {
   border-color: var(--color-accent);
   box-shadow: inset 0 0 0 2px var(--color-accent);
-  /* 23-10-PLAN.md Task 1 (D3/CFG-32): the fallback half of the scale
-   * parity pair — see `.runway-card--selected`'s comment above for the
-   * full reasoning, and note this component's OWN T6 history: the chip
-   * is a fixed `width: 160px`, so its outer box never grew; what the
-   * 2px border did instead was eat 1px of that 160px on each side, so
-   * the selected chip's preview band and body were 2px narrower than
-   * its neighbours' and the swatch row reflowed. A transform cannot do
-   * that either — it scales the painted result and leaves every box,
-   * inner and outer, exactly where it was. */
   transform: scale(1.02);
 }
 
-/* 06.6.4.1.1-06 (developer checkpoint follow-up): same background-wash
- * addition as `.runway-card--selected` above, and for the same reason —
- * see that rule's comment for the full diagnosis. Scoped to
- * `.theme-chip__body` specifically, NOT the whole `.theme-chip`, because
- * unlike `.runway-card` this component has a real rendered preview band
- * (`.theme-chip__preview`, the theme's own cropped panel render) sitting
- * above the body — a wash across the whole chip would sit half-behind
- * that photo-like image and visibly tint it, undermining the very thing
- * the chip exists to show (the theme's real, undithered colours). The
- * body area (name + swatch dots) has no such constraint and is the
- * region that reads as "this chip's own info panel," matching how the
- * wash reads as the "selected" surface on `.theme-form .theme-option`
- * and the nav-pill links. */
+/* Scoped to .theme-chip__body, not the whole chip: unlike .runway-card
+ * this component has a real rendered preview band above the body, and a
+ * wash across it would visibly tint the theme's own undithered colours. */
 .theme-chip--selected .theme-chip__body {
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
-/* 56px is sketch 004 variant B's own validated band height.
- * object-fit: cover absorbs the small ratio difference between the
- * served 320x120 PNG and the chip's own ~156px-wide box, so the band
- * never letterboxes (the UIR-07 defect). */
+/* 56px is this component's validated band height. object-fit: cover
+ * absorbs the small ratio difference between the served PNG and the
+ * chip's own box so the band never letterboxes. */
 .theme-chip__preview {
   display: block;
   width: 100%;
@@ -3469,17 +2938,6 @@ button:disabled {
 .theme-chip__body {
   display: block;
   padding: var(--space-sm);
-  /* 23-10-PLAN.md Task 1 (D3/CFG-32): the wash FADES rather than cuts.
-   * It is declared here and not on `.theme-chip` because the wash
-   * itself is scoped here — the preview band above it is the theme's
-   * own real, undithered render and a wash across it would tint the one
-   * thing the chip exists to show. Base rule, one declaration, both the
-   * live `:has(input:checked)` treatment and the `--selected` fallback:
-   * see `.runway-card`'s own transition comment for why that removes
-   * any need for a second feature query. The colour is unchanged — this
-   * animates the existing
-   * `color-mix(in srgb, var(--color-accent) 12%, transparent)` in, it
-   * introduces no new colour and no new accent consumer. */
   transition: background-color var(--motion-fast) ease;
 }
 
@@ -3497,24 +2955,16 @@ button:disabled {
   display: flex;
   gap: var(--space-xs);
   align-items: center;
-  /* quick task 260904-bbi: real-browser measurement caught this row's
-   * own bounding box (a block-level flex container defaults to filling
-   * the full available width of .theme-chip__body, even though its two
-   * 12px dots only occupy the left ~28px of it) geometrically
-   * intersecting the new bottom-right "Current" tag's box, even though
-   * no visible pixel ever collides (the tag sits in the row's own empty
-   * right-hand space). width: fit-content shrinks the box to its actual
-   * rendered content with zero visual change (the dots already render
-   * flush-left via the default flex-start justification) and clears the
-   * measured collision outright. */
+  /* width: fit-content shrinks this row to its actual rendered content:
+   * a block-level flex row otherwise fills .theme-chip__body's full
+   * width, geometrically intersecting the bottom-right "Current" tag's
+   * box even though no visible pixel ever collides (measured). */
   width: fit-content;
 }
 
-/* Carries over .theme-swatch__chip's own comment reasoning: the fill is
- * an inline style holding a raw panel PALETTE_RGB value, the one colour
- * in this file the stylesheet cannot reason about, and the structural
- * hairline is what keeps a white swatch visible on a white card
- * surface. */
+/* The fill is an inline style holding a raw palette colour — the one
+ * colour in this file the stylesheet cannot reason about. The
+ * structural hairline keeps a white swatch visible on a white card. */
 .theme-chip__dot {
   width: 12px;
   height: 12px;
@@ -3523,9 +2973,8 @@ button:disabled {
   display: inline-block;
 }
 
-/* The check glyph's markup exists on every chip, but only ever visually
- * shown on the selected one — matches .runway-card__check's own
- * mechanism directly above. */
+/* Shown only on the selected chip, matching .runway-card__check's own
+ * mechanism above. */
 .theme-chip__check {
   position: absolute;
   top: var(--space-sm);
@@ -3538,77 +2987,16 @@ button:disabled {
   display: inline-flex;
 }
 
-/* Touch target: .theme-chip is ~160px wide and roughly 100px tall, far
- * above the 44px floor, and the visually-hidden radio inside it is
- * exempt-by-delegation exactly as quick task 260902-l9w recorded for the
- * Runway radios above. This adds no entry to the traded-floor register. */
 
-/* Live-selection layer (quick task 260904-bbi) — re-keys the strong
- * "this is your selection" treatment of BOTH selectable-card components
- * above (.theme-chip, .runway-card) from the server-rendered --selected
- * class to live :has(input:checked) state, and demotes --selected to an
- * honest, quiet "this is what is saved" marker for when the saved value
- * is no longer the live choice.
- *
- * Diagnosis: --selected is computed once, server-side, from the SAVED
- * config (config_page.py:269/:374) and painted at first response. It
- * never changes when the user clicks a different chip/card client-side
- * — dirty-state.js only snapshots/compares form values for the dirty
- * bar, it never touches this class. Every selected-state rule keying
- * off --selected alone therefore keeps painting the SAVED value as
- * selected even after the user has visibly chosen something else — the
- * defect a developer checkpoint follow-up found.
- *
- * Specificity arithmetic (verified, not to be re-derived): :has(X) and
- * :not(X) each take the specificity of their most specific argument.
- * .theme-chip--selected is (0,1,0). .theme-chip:has(input:checked) is
- * (0,1,0)+(0,1,1) = (0,2,1), beating the fallback.
- * .theme-chip--selected:not(:has(input:checked)) is also (0,2,1) — equal
- * specificity to the rule above is NOT a conflict, because the two
- * selectors are structurally incapable of matching the same element (one
- * requires a checked descendant, the other forbids one). The existing
- * hover guard `.theme-chip:not(.theme-chip--selected):hover` (above,
- * unchanged) is (0,3,0), which OUTRANKS (0,2,1) and matches the newly-
- * clicked chip (which lacks --selected) — it would clear that chip's
- * live-state border on hover if left as the only guard. The fix is a
- * POSITIVE restore rule below, on the checked-chip's own hover state:
- * (0,2,1)+(0,1,0) = (0,3,1), which wins. Do NOT instead rewrite the base
- * guard's :not(.theme-chip--selected) to :not(:has(...)) — an
- * unsupported :has() invalidates the WHOLE selector list it appears in,
- * dropping the hover reveal entirely in non-supporting browsers, which
- * would violate the fallback story below. Identical reasoning and rule
- * shape apply to .runway-card.
- *
- * Fallback (no-:has() browsers): every live-state rule lives inside this
- * @supports selector(:has(*)) block. A browser without :has() support
- * evaluates the feature query as false and skips this entire block,
- * leaving the pre-existing --selected-keyed rules above (unchanged, not
- * touched by this task) as the sole selected-state mechanism — exactly
- * today's shipped strong treatment, never unstyled. This mirrors the
- * file's own WR-02 fallback idiom (a plain declaration immediately
- * followed by an enhanced color-mix() form, e.g. :1387-1389) one level
- * up, at the selector rather than the value.
- *
- * Placement note: this block sits here, right after the .theme-chip
- * group, purely for READABILITY (both components' live-state rules read
- * as one group). This file does have genuine source-order-dependent
- * rules elsewhere — this is NOT one of them; every rule inside this
- * block already wins its target element on specificity alone, verified
- * above. */
+/* Re-keys selection from --selected (server-computed, never updates on
+ * a client click) to live :has(input:checked) state, which is (0,2,1)
+ * and beats the (0,1,0) fallback. A positive restore rule further down
+ * re-wins the existing (0,3,0) hover guard at (0,3,1). A browser
+ * without :has() skips this whole block and keeps --selected only. */
 @supports selector(:has(*)) {
-  /* T6 (22-15-PLAN.md Task 1): constant 1px border plus the inset ring,
-   * matching the `--selected` fallback rule above declaration for
-   * declaration — the two mechanisms must stay visually identical or a
-   * browser without `:has()` gets a different-sized chip. */
   .theme-chip:has(input:checked) {
     border-color: var(--color-accent);
     box-shadow: inset 0 0 0 2px var(--color-accent);
-    /* 23-10-PLAN.md Task 1 (D3/CFG-32): the live half of the scale
-     * parity pair, matching `.theme-chip--selected`'s own value exactly.
-     * NOTHING ELSE about this plan's change lives inside this block —
-     * the property that animates it is declared on `.theme-chip`'s base
-     * rule, outside this query, which is what keeps the file's
-     * feature-query count at one. */
     transform: scale(1.02);
   }
 
@@ -3620,47 +3008,23 @@ button:disabled {
     display: inline-flex;
   }
 
-  /* D-03a, transferred to live state: a positive restore rule, not a
-   * re-scoped guard — see the specificity arithmetic above.
-   *
-   * T6 (22-15-PLAN.md Task 1), reconciled IN THE SAME COMMIT as the
-   * rule it guards. This used to declare `box-shadow: none`, whose only
-   * job was to suppress the hover elevation shadow the (0,3,0) guard
-   * above would otherwise paint. Once selection IS a box-shadow, `none`
-   * stops being a suppression and becomes an erasure: the selection
-   * ring would vanish the instant a pointer crossed a selected chip.
-   * The ring is restated here instead, which suppresses the hover
-   * elevation exactly as before (box-shadow is a single property, so
-   * declaring the ring replaces the elevation outright) while keeping
-   * the selection signal. */
+    /* Positive restore, not box-shadow: none: once selection IS a
+     * box-shadow, none would erase the ring instead of merely suppressing
+     * the hover elevation shadow the (0,3,0) guard above would paint. */
   .theme-chip:has(input:checked):hover,
   .theme-chip:has(input:checked):focus-within {
     border-color: var(--color-accent);
     box-shadow: inset 0 0 0 2px var(--color-accent);
   }
 
-  /* Quiet "this is what is saved" marker: accent-free, so it can never
-   * read as a second selection. Reuses the file's established 70%
-   * muted-text mix rather than inventing a new strength — no new wash
-   * percentage either, since this ring has no background at all. */
-  /* T6 (22-15-PLAN.md Task 1): 1px, not 2px. A dashed 2px ring against
-   * 1px siblings is the same layout shift wearing a different dash
-   * pattern — a chip can be saved-but-not-live at the very moment its
-   * neighbour is live-selected, so both states have to be geometrically
-   * free or the grid still moves. `box-shadow: none` is explicit here
-   * and load-bearing: this rule must CLEAR the accent ring the
-   * `--selected` fallback rule above paints, and a `border` shorthand
-   * cannot reach a box-shadow. The dashed 1px muted edge is a
-   * deliberately quiet marker with no accent in it at all, exactly as
-   * before. */
+  /* box-shadow: none is explicit and load-bearing here too: it must
+   * clear the accent ring the --selected fallback rule paints, which a
+   * border shorthand cannot reach. 1px, not 2px: a chip can be
+   * saved-but-not-live while its neighbour is live-selected, so both
+   * states must stay geometrically free or the grid still shifts. */
   .theme-chip--selected:not(:has(input:checked)) {
     border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
     box-shadow: none;
-    /* 23-10-PLAN.md Task 1 (D3/CFG-32): clears the selection scale for
-     * the same reason the two declarations above clear the ring and the
-     * next rule clears the wash — a chip can be SAVED at the very
-     * moment its neighbour is the LIVE choice, and two scaled chips
-     * would claim two selections. */
     transform: none;
   }
 
@@ -3672,43 +3036,12 @@ button:disabled {
     display: none;
   }
 
-  /* content: "Current" — a CSS pseudo-element, deliberately not a real
-   * <span> (config_page.py keeps a zero diff). The authoritative
-   * selection state for assistive technology is the native radio's own
-   * checked property inside a real radio group, already announced
-   * natively; the pending-vs-saved distinction is separately carried in
-   * real, announced DOM text by the dirty bar ("Theme changed · Save
-   * settings · Cancel"). This tag is a supplementary VISUAL cue for a
-   * sighted user comparing 16 dense chips against the one saved chip —
-   * a real <span> would inject a redundant announcement into exactly 1
-   * of 16 chips for zero accessibility gain, and would force
-   * retargeting test_config_page.py's exact-count markup assertions.
-   * Bottom-right, not top-right: top-right on this component sits over
-   * .theme-chip__preview, the rendered panel image — the identical
-   * constraint that already scopes this chip's selected-wash to
-   * .theme-chip__body rather than the whole chip.
-   *
-   * 22-10-PLAN.md Task 1 (T10, 22-AUDIT.md): the text is no longer the
-   * hard-coded English literal it was — `attr(data-current-label)` reads
-   * a translated string companion/pages/config_page.py renders onto the
-   * saved chip/card (CURRENT_BADGE_LABEL/CURRENT_BADGE_ATTR). Only the
-   * English moved; the four points above are unchanged and the
-   * pseudo-element stays a pseudo-element. A chip with no such attribute
-   * renders an empty string, which is the correct degradation: the
-   * attribute is emitted only on the one chip this selector can match.
-   *
-   * 22-14-PLAN.md Task 2, Rule 1 auto-fix: the paragraph above used to
-   * open with a stray comment TERMINATOR — the 22-10 note was appended
-   * after the original block's own closing marker instead of inside it.
-   * Everything from that marker to the next brace parsed as part of the
-   * selector below, so THIS ENTIRE RULE WAS SILENTLY DROPPED by every
-   * browser and the saved-chip "Current" badge never rendered at all.
-   * Found while measuring B10 in a real browser, which is the only
-   * place a CSS parse error of this shape is visible: no
-   * string-comparison harness can see it, because the file still
-   * CONTAINS every declaration it is asked about. A structural guard
-   * pinning the file at zero stray terminators ships in
-   * companion/test_status_pages.py alongside this fix. */
+  /* content, not a real <span>: the native radio's own checked state is
+   * already announced; this is a supplementary visual cue only.
+   * attr(data-current-label) reads a translated string the server
+   * renders. A guard in test_status_pages.py pins the file at zero
+   * stray comment terminators — one previously dropped this entire rule
+   * silently, found only by real-browser testing, not string checks. */
   .theme-chip--selected:not(:has(input:checked))::after {
     content: attr(data-current-label);
     position: absolute;
@@ -3721,17 +3054,10 @@ button:disabled {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  /* T6 (22-15-PLAN.md Task 1): constant 1px border plus the inset ring,
-   * matching `.runway-card--selected` above declaration for
-   * declaration. */
   .runway-card:has(input:checked) {
     border-color: var(--color-accent);
     box-shadow: inset 0 0 0 2px var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-    /* 23-10-PLAN.md Task 1 (D3/CFG-32): the live half of this
-     * component's scale parity pair — see `.runway-card--selected` for
-     * the reasoning, and `.runway-card`'s base rule for the property
-     * that animates it, which is deliberately NOT in here. */
     transform: scale(1.02);
   }
 
@@ -3739,25 +3065,16 @@ button:disabled {
     display: inline-flex;
   }
 
-  /* T6 (22-15-PLAN.md Task 1): the same positive-restore reconciliation
-   * the chip's own hover rule above documents in full — `none` would
-   * now erase the selection ring rather than suppress the hover
-   * elevation. */
   .runway-card:has(input:checked):hover,
   .runway-card:has(input:checked):focus-within {
     border-color: var(--color-accent);
     box-shadow: inset 0 0 0 2px var(--color-accent);
   }
 
-  /* T6 (22-15-PLAN.md Task 1): 1px dashed, and an explicit
-   * `box-shadow: none` to clear the fallback rule's accent ring — see
-   * the chip's own saved-state rule above for the full reasoning. */
   .runway-card--selected:not(:has(input:checked)) {
     border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
     box-shadow: none;
     background: transparent;
-    /* 23-10-PLAN.md Task 1 (D3/CFG-32): clears the selection scale — see
-     * the chip's own saved-state rule above. */
     transform: none;
   }
 
@@ -3765,13 +3082,8 @@ button:disabled {
     display: none;
   }
 
-  /* Top-right here (unlike the chip's bottom-right): .runway-card has no
-   * preview band occupying that corner — its only other content is a
-   * plain-text number and an optional airport-diagram image below it.
-   *
-   * 22-10-PLAN.md Task 1 (T10): attribute-driven, exactly like the
-   * chip's own badge above — see that rule's comment for the full
-   * reasoning. */
+  /* Top-right here (unlike the chip's bottom-right): .runway-card has
+   * no preview band occupying that corner. */
   .runway-card--selected:not(:has(input:checked))::after {
     content: attr(data-current-label);
     position: absolute;
@@ -3784,58 +3096,17 @@ button:disabled {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  /* T15 (22-UI-SPEC.md §5 contract 1, 22-15-PLAN.md Task 1). A selected
-   * chip or card had a focus state PIXEL-IDENTICAL to rest: the real
-   * focus target is the visually-hidden native radio inside the label,
-   * whose own outline is off-screen and unseeable, and both components'
-   * `:focus-within` rules are `:not(--selected)`-scoped precisely so
-   * they can never repaint a selected card. So keyboard focus on the
-   * one card that matters was invisible.
-   *
-   * The values are the GLOBAL focus-visible floor's own, copied
-   * verbatim from the `a/button/input/select:focus-visible` rule near
-   * the top of this file — not a new treatment, and deliberately an
-   * `outline` rather than another box-shadow so it cannot collide with
-   * T6's selection ring on the same property. `outline-offset: 2px`
-   * puts it clear of the chip's `overflow: hidden` clip (an element's
-   * own outline is never clipped by its own overflow).
-   *
-   * `:focus-visible` on the inner radio, not `:focus-within`: a mouse
-   * click on a label focuses the radio, and a ring on every pointer
-   * selection would be noise. This is the distinction the rest of the
-   * file's focus rules already draw.
-   *
-   * It lives INSIDE this one feature-query block because it needs
-   * `:has()`, and companion/test_config_page.py pins this file at
-   * EXACTLY ONE such block. A browser without `:has()` keeps today's
-   * behaviour — the same accepted-degradation framing every other rule
-   * in this block already carries, and `:has()` has been Baseline
-   * widely-available since December 2023. */
+  /* The real focus target is the visually-hidden native radio; its own
+   * outline is off-screen and unseeable, so keyboard focus on a
+   * selected card was invisible without this. :focus-visible on the
+   * radio, not :focus-within on the card, since a mouse click on the
+   * label also focuses the radio and a ring on every click would be noise. */
   .runway-card:has(input:focus-visible),
   .theme-chip:has(input:focus-visible) {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
 
-  /* 30-07-PLAN.md Task 1 (CFG-85): the Aspect card's palette chip's
-   * selected state, joining this block rather than opening a second one
-   * (the file's own pinned block-count convention,
-   * _exactly_one_has_feature_query_block_survives()). Three
-   * consequences, matching `.theme-chip`'s own pattern rule for rule:
-   * accent border-colour plus the inset ring on the chip itself; the
-   * 12% accent wash on `.palette-chip__name` (this component's own
-   * equivalent of `.theme-chip__body` — the swatch itself is
-   * deliberately excluded, for the identical reason `.theme-chip__
-   * preview` is: it is real, undithered ink colour, and a wash would
-   * misrepresent it); and the check glyph switching to `inline-flex`,
-   * matching `.theme-chip__check`'s own mechanism. No scale/transform is
-   * added here (unlike `.theme-chip`'s own first rule) — 30-UI-SPEC.md
-   * names exactly these three consequences for this component and no
-   * fourth, and a fourth would also need a new `transition` declared on
-   * this component's own base rule to animate, which is out of this
-   * plan's scope. A browser without `:has()` support keeps the chip
-   * unstyled-but-functional on selection — the same accepted degradation
-   * every other rule in this block already carries. */
   .palette-chip:has(input:checked) {
     border-color: var(--color-accent);
     box-shadow: inset 0 0 0 2px var(--color-accent);
@@ -3849,148 +3120,37 @@ button:disabled {
     display: inline-flex;
   }
 
-  /* 30-07-PLAN.md Task 1 (CFG-85): the "Comme les départs" leading
-   * option's checked state — a re-keyed consumer of the already-listed
-   * `.theme-form .theme-option--active` idiom (12% accent wash, accent
-   * text, semibold weight), not a new accent use (30-UI-SPEC.md Color
-   * section, item 2). `:has()` is required for the identical structural
-   * reason `.theme-chip`/`.palette-chip` above need it: the radio is a
-   * DESCENDANT of the `<label>` this rule must repaint, not a preceding
-   * sibling a plain `:checked ~` selector could reach. The check-glyph
-   * markup this control's own `<label>` carries
-   * (`.theme-chip__check`, reused verbatim from that component per
-   * `_same_as_departures_chip_html()`'s own markup) is deliberately NOT
-   * toggled visible here — 30-UI-SPEC.md names only the wash/text/weight
-   * consequences for this control, and inventing a fourth is out of this
-   * plan's scope. */
   .leading-option:has(input:checked) {
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
 
-  /* 28-08-PLAN.md Task 2 (CFG-77/CFG-78), 2026-09-16: the bar's own
-   * content-clearance, and the ONE genuinely new problem this
-   * restoration has that `6dea46a` never did — the OLD clearance rules
-   * were scoped to `.dirty-ready`, a class dirty-state.js wrote onto
-   * `<html>` only once it had proven its own bar live, so a
-   * scripts-blocked visitor (for whom that class never gets written)
-   * reserved no space, but also never SAW the bar — it was `hidden`
-   * for them. Both premises change at once (Task 1's own no-JS-floor
-   * inversion): the bar renders VISIBLE without script now, so a
-   * scripts-blocked visitor needs the clearance too, and `.dirty-ready`
-   * — never written for them — would silently fail exactly that case.
-   *
-   * `:has()` is the fix, joining THIS block rather than opening a
-   * second one (the file's own pinned block-count convention, restated
-   * above): `.dashboard-main:has(.dirty-bar)` /
-   * `.has-tab-bar .page-content:has(.dirty-bar)` are TRUE the instant
-   * the bar exists in the DOM, with zero script needed to prove
-   * anything live first — the server already only ever emits
-   * `.dirty-bar` on a settings page (Task 1), so "the bar exists" and
-   * "clearance is owed" are the same fact by construction. A page that
-   * renders no bar (`/health`, `/flights`, Home) matches neither
-   * selector and gains no dead space, at either breakpoint, with
-   * scripts running or blocked — a browser without `:has()` support
-   * simply reserves no clearance and the bar may cover the last
-   * element, the same accepted degradation every other rule in this
-   * block already carries.
-   *
-   * Both figures below are MEASURED, not guessed and not copied from
-   * `6dea46a` (its own 88px/144px pair was measured against a bar with
-   * DIFFERENT content — a seeded count span and a differently-styled
-   * Cancel button — fifteen months before this restoration): rendered
-   * via a real Chromium tab, scripts BLOCKED (the binding case), at
-   * both breakpoints, in BOTH languages, on `/display` AND `/device`,
-   * reading `.dirty-bar`'s own `getBoundingClientRect().height`.
-   *
-   * >=960px: 64px, IDENTICAL across English/French and both routes (the
-   * bar is `width: fit-content` and does not wrap at this width) — plus
-   * `var(--space-lg)` (24px) above the viewport foot, 88px total,
-   * already on the 8px spacing grid. `.dashboard-main:has(.dirty-bar)`
-   * is (0,2,0), beating the base `.dashboard-main` rule's (0,1,0)
-   * regardless of source order (this block sits textually BEFORE that
-   * rule), so no `@media (min-width: 960px)` wrapper is needed here —
-   * specificity alone decides it. */
+  /* :has() proves the bar exists in the DOM with no script needed, so a
+   * scripts-blocked visitor still gets clearance. >=960px: the bar
+   * measures 64px (never wraps at this width) plus --space-lg (24px)
+   * above the viewport foot = 88px, measured via a real browser. */
   .dashboard-main:has(.dirty-bar) {
     padding-bottom: calc(var(--space-2xl) + 88px);
   }
 
-  /* CORRECTED, 28-10-PLAN.md Task 3 (CFG-77/CFG-78) — a Rule 1 (direct,
-   * unavoidable consequence) fix found while mutation-testing this
-   * file's own tab-bar/last-in-flow-element overlap check against a
-   * REAL, scripts-enabled, scrolled-to-bottom page: the original 70px
-   * figure below (superseded, kept for its own record) was measured
-   * with the count span EMPTY, the SERVER-rendered initial state — not
-   * the populated, scripts-enabled state a real edit produces. The bar
-   * WRAPS at this width once the section-naming text plus Enregistrer
-   * no longer fit on one row (`flex-wrap: wrap`, this file's own
-   * `.dirty-bar` phone-width rule below), dropping Annuler to a second
-   * row and growing the bar's own height well past 70px. MEASURED, not
-   * guessed, via a real Chromium tab, scripts enabled, scrolled to the
-   * true document bottom: a single changed section reaches 122px
-   * (English "Frame colours changed"/French "Couleurs du cadre
-   * modifié"), and THREE changed sections — the realistic worst case on
-   * this scope — reach 134px in BOTH languages ("Frame colours, Runway,
-   * and Quiet hours changed" / "Couleurs du cadre, Piste et Heures
-   * calmes modifié"). 134px (bar) + 56px (tab bar) + `var(--space-md)`
-   * (16px, the bar's own bottom anchor) + `var(--space-md)` (16px,
-   * cushion above the bar, this rule's own original allowance) = 222px,
-   * rounded UP to 224px on the 8px grid.
-   *
-   * <960px, WAS 70px/88px total (see above): superseded — that figure
-   * only ever covered the empty-bar, pre-edit state, and this rule's
-   * OWN `.has-tab-bar .page-content:has(.dirty-bar)` is what has to
-   * clear the tallest state a real edit reaches, not the shortest.
-   *
-   * `.has-tab-bar .page-content:has(.dirty-bar)` is (0,3,0) — higher
-   * than both `.page-content`'s own base rule (0,1,0) AND
-   * `.has-tab-bar .page-content`'s own tab-bar-only clearance (0,2,0),
-   * further down this file, near the tab bar's own block — so this
-   * rule wins regardless of which is declared later in source, unlike
-   * `6dea46a`'s own T7 clearance, which needed EQUAL specificity and a
-   * later source position to win. The extra `.has-tab-bar` qualifier is
-   * not decorative: it is what keeps this rule from ALSO matching a
-   * hypothetical future page that renders `.dirty-bar` without the tab
-   * bar, which no route in this app does today, but a bare
-   * `.page-content:has(.dirty-bar)` would silently assume forever. */
+  /* Measured via a real browser, scripts enabled, scrolled to the
+   * document bottom, worst realistic case: 134px bar + 56px tab bar +
+   * 16px anchor + 16px cushion = 222px, rounded up to 224px on the 8px
+   * grid. .has-tab-bar keeps this from matching a hypothetical future
+   * page that renders the bar without the tab bar. */
   .has-tab-bar .page-content:has(.dirty-bar) {
     padding-bottom: calc(
       var(--space-2xl) + 176px + env(safe-area-inset-bottom, 0px));
   }
 }
 
-/* 21-05-PLAN.md Task 1 (D-06/D-09): the retired arrivals-override
- * checkbox's own reveal rule and its "Arrivals theme" direction label
- * (both scoped to the now-deleted checkbox markup) are removed
- * outright — the Frame colours card's own usage panels are collapsed
- * by theme-preview.js at load instead (D-08's no-JS floor: the server
- * never emits `hidden` on any panel). This @supports block used to
- * survive for one more, unrelated rule below (the Calendar-card
- * fusion) — 21-07-PLAN.md Task 3 (D-13/R-08/Pitfall 2) retires that
- * rule too, and with it the whole block: the Calendar card and its
- * disconnect form are real nested/sibling DOM now, not two visually-
- * fused siblings, so no feature-query fallback is needed for either
- * any more. The whole-file pinned block count (companion/test_config_
- * page.py) moves from 2 to 1 as a direct result — see that check's
- * own history comment for the exact before/after. */
 
-/* Shared Settings-page checkbox normalization (quick task 260901-qif,
- * generalised 10-05-PLAN.md Task 2): now used by both the Diagnostic LED
- * group and the Quiet hours group, so this is a single rule serving two
- * consumers rather than a duplicated one, per 10-UI-SPEC.md's CSS reuse
- * note. `summary`'s own idiom reused verbatim: a centred flex row with a
- * 44px `min-height`. The 44px is deliberate — a native checkbox's label
- * is already a click target, so putting the floor here means the
- * control's real activation target stays 44px tall while its painted box
- * (below) shrinks to 16px. This is a relocation of the floor, exactly
- * like `.copy-btn`'s synthesized `::before` hit area — NOT a fourth
- * entry for the 44px floor register's opt-out list above the base
- * `button` rule; see that comment, which cross-references this rule.
- * `gap`, not the literal space in the markup, is what separates the box
- * from its text once the label is a flex container — this flex row is
- * only possible because this rule overrides the global block-level
- * `label` rule. */
+/* summary's own idiom reused verbatim: a centred flex row with a 44px
+ * min-height. This relocates the touch-target floor to the label (a
+ * native checkbox's label is already a click target), the same pattern
+ * .copy-btn's synthesized ::before hit area uses — not a new opt-out
+ * of the base button rule's floor register. */
 .settings-checkbox {
   display: flex;
   align-items: center;
@@ -3998,25 +3158,10 @@ button:disabled {
   min-height: 44px;
 }
 
-/* Undoes the global `input, select` rule for this one control, declaration
- * by declaration: a 16px square box, both of that rule's 44px minimums
- * cleared to zero, padding cleared to zero, and the surface/edge/corner
- * rounding all explicitly reset the way `.filter-bar [data-filter-clear]`
- * resets its own inherited button chrome. That global rule is written for
- * text inputs and selects and was reaching this element only because it
- * carried no class of its own — that is the entire reason it used to
- * paint as an oversized filled box. The two cleared minimums are
- * load-bearing for the same reason `.filter-bar__field input`'s own
- * cleared minimum is: a browser never lets a plain width or height shrink
- * an element below a minimum another rule sets unless that minimum is
- * itself cleared, so without them the 16px sizing below is inert.
- * `flex: none` is required for the same reason `.icon` / `.banner::before`
- * state theirs — without it the 16px box shrinks under the flex row's
- * default shrink behaviour. This rule deliberately neither clears nor
- * restates the native-control tint (`accent-color`) the global rule
- * declares once site-wide (D-06) — restating it here would create a
- * second place one value lives, the exact failure mode this file's
- * --color-destructive comment already documents. */
+/* Undoes the global input/select rule declaration by declaration: both
+ * 44px minimums are cleared to zero — load-bearing, since a plain
+ * width/height cannot shrink an element below another rule's minimum
+ * unless that minimum is itself cleared, or the 16px sizing is inert. */
 .settings-checkbox input[type="checkbox"] {
   width: 16px;
   height: 16px;
