@@ -50,6 +50,26 @@ created: 2026-09-26
 
 *Status is tracked per plan in each SUMMARY.*
 
+### Per-plan map
+
+| Plan | Wave | Requirement | Test files (automated verify) | Manual |
+|------|------|-------------|-------------------------------|--------|
+| 38-01 | 1 | instruments (all) | `test-support/test_efficiency_probe.py`; `scripts/measure_efficiency.py --label before` | — |
+| 38-02 | 2 | EFF-01 | `companion/test_static_cache.py` (+ browser), `deploy/tests/test_caddyfile.py`, updated `test_companion_app_02/03/04.py` | — |
+| 38-03 | 2 | EFF-03 | `server/test_history_db_scope.py`, `server/test_config_history.py`, `deploy/tests/test_backup.py` | — |
+| 38-04 | 2 | EFF-06 | `server/test_plane_detection.py` (concurrency via events, order, spacing with fake clock) | — |
+| 38-05 | 2 | EFF-04 | `companion/test_health_signals.py` | — |
+| 38-06 | 3 | EFF-02 | `companion/test_page_scripts.py` (+ existing browser UX suites in CI) | — |
+| 38-07 | 3 | EFF-03 | `server/test_poll_efficiency.py` | — |
+| 38-08 | 4 | EFF-03 | `companion/test_request_connections.py` | — |
+| 38-09 | 4 | EFF-05 | `server/test_poll_state_writes.py` | — |
+| 38-10 | 5 | EFF-04 | `companion/test_page_context.py` | — |
+| 38-11 | 5 | EFF-06 | `server/test_provider_rate.py` | — |
+| 38-12 | 6 | EFF-04 | `companion/test_freshness_token.py` (+ browser) | — |
+| 38-13 | 7 | all | `./scripts/run-all-tests.sh`; `scripts/measure_efficiency.py --label after` | VPS curl (before now, after deploy) |
+
+Deviations from the requirement table above: EFF-05 and EFF-06 cycle tests live in their own files (`server/test_poll_state_writes.py`, `server/test_provider_rate.py`) so the three poll-loop plans never share a test file; the lazy-context checks live in `companion/test_page_context.py`.
+
 ---
 
 ## Wave 0 Requirements
