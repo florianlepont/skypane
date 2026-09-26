@@ -165,3 +165,24 @@ def test_rendered_output_is_an_importable_site_snippet():
     assert not any(ln.strip() == "{" for ln in code_lines if not ln.startswith((" ", "\t")))
     assert not any(ln.startswith("import ") for ln in code_lines)
     assert set(_site_blocks(r.stdout)) == {"pub.example.org", "cfg.example.org"}
+
+
+def _non_comment_lines(body):
+    return [ln.strip() for ln in body.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+
+
+def test_companion_block_carries_exactly_one_encode_directive():
+    result = _render("pub.example.org", "cfg.example.org")
+    assert result.returncode == 0, result.stderr
+    blocks = _site_blocks(result.stdout)
+    non_comment = _non_comment_lines(blocks["cfg.example.org"])
+    encode_lines = [ln for ln in non_comment if ln == "encode zstd gzip"]
+    assert len(encode_lines) == 1, non_comment
+
+
+def test_device_block_carries_no_encode_directive():
+    result = _render("pub.example.org", "cfg.example.org")
+    assert result.returncode == 0, result.stderr
+    blocks = _site_blocks(result.stdout)
+    non_comment = _non_comment_lines(blocks["pub.example.org"])
+    assert not any(ln.split()[0] == "encode" for ln in non_comment), non_comment

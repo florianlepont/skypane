@@ -1444,8 +1444,8 @@ def test_unauth_post_poll_now_redirects_to_login_without_next(app02_server):
 
 def test_stylesheet_public(app02_server):
     """GET /static/style.css succeeds without a session, returns a CSS content type, and
-    stays shared-cacheable (public, max-age=300) — this route is a deliberate gate
-    exemption with no per-user content"""
+    stays shared-cacheable (public, no-cache with a validator) — this route is a
+    deliberate gate exemption with no per-user content"""
     status, headers, body = http_request(app02_server.base_url() + "/static/style.css")
     assert status == 200, "expected 200, got %d" % status
     assert "text/css" in headers.get("Content-Type", ""), (
@@ -1455,8 +1455,11 @@ def test_stylesheet_public(app02_server):
     directives = [part.strip() for part in cache_control.split(",")]
     assert "public" in directives, (
         "expected a shared-cacheable (public) Cache-Control scope, got %r" % cache_control)
-    assert "max-age=300" in directives, (
-        "expected a 300-second max-age on the stylesheet's Cache-Control header, got %r" % cache_control)
+    assert "no-cache" in directives, (
+        "expected no-cache (every load revalidates), got %r" % cache_control)
+    assert not any(d.startswith("max-age") for d in directives), (
+        "expected no max-age directive, got %r" % cache_control)
+    assert headers.get("ETag"), "expected an ETag validator, got none"
 
 
 def test_battery_trend_script_public(app02_server):
@@ -1467,8 +1470,8 @@ def test_battery_trend_script_public(app02_server):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_nav_dropdown_script_public(app02_server):
@@ -1497,8 +1500,8 @@ def test_static_script_public_and_cacheable(app02_server, route):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_four_new_static_routes_dom_contract_guard():

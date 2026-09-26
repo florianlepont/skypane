@@ -1830,7 +1830,7 @@ Plans:
 3. SQLite connections per page request: 1; per poll cycle: 1
 4. Poll cycle wall time measured before/after (no fixed 1.1 s sleep)
 
-**Plans:** 1/13 plans executed
+**Plans:** 2/13 plans executed
 
 Plans:
 
@@ -1840,7 +1840,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 38-02-PLAN.md — static files: in-memory bytes, strong ETag + Last-Modified, 304, `no-cache` (D-1); Caddy `encode zstd gzip` in the companion block only [EFF-01]
+- [x] 38-02-PLAN.md — static files: in-memory bytes, strong ETag + Last-Modified, 304, `no-cache` (D-1); Caddy `encode zstd gzip` in the companion block only [EFF-01]
 - [ ] 38-03-PLAN.md — `history_db`: thread-bound `connection_scope`, schema once per file identity, `write_batch` [EFF-03]
 - [ ] 38-04-PLAN.md — `detect`: providers in parallel, results in provider order, per-provider spacing; COMPLIANCE.md [EFF-06]
 - [ ] 38-05-PLAN.md — `health_signals`: severity and anomalies without markup [EFF-04]

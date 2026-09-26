@@ -42,6 +42,14 @@
 }
 
 config-203-0-113-10.nip.io {
+    # Compression for the browser-facing companion only: Caddy suffixes a
+    # strong upstream ETag with the encoding and strips that suffix from
+    # an incoming If-None-Match before proxying, so origin-side 304s keep
+    # working through this layer. The device block above stays
+    # uncompressed on purpose — the firmware's esp_http_client sends no
+    # Accept-Encoding, and the device protocol is not touched here.
+    encode zstd gzip
+
     reverse_proxy 127.0.0.1:8643
 
     # Same HSTS policy as the device block above: no preload, no

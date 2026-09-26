@@ -150,8 +150,8 @@ def test_panel_lookup_script_public(app03_server):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_panel_lookup_script_es5_safe_and_no_html_write(app03_server):
@@ -248,8 +248,8 @@ def test_flash_cleanup_script_public(app03_server):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_flash_cleanup_script_es5_safe_and_no_html_write(app03_server):
@@ -286,8 +286,8 @@ def test_poll_cooldown_script_public(app03_server):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_poll_cooldown_script_es5_safe_and_no_html_write(app03_server):
@@ -327,8 +327,8 @@ def test_confirm_submit_script_public(app03_server):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_confirm_submit_script_es5_safe_and_no_html_write(app03_server):
@@ -368,8 +368,8 @@ def test_theme_preview_script_public(app03_server):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_theme_preview_script_es5_safe_and_no_html_write(app03_server):
@@ -422,8 +422,8 @@ def test_flight_rows_script_public(app03_server):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_flight_rows_script_es5_safe_and_no_html_write(app03_server):
@@ -587,8 +587,8 @@ def test_relative_time_script_public(app03_server):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_relative_time_script_es5_safe_and_no_html_write(app03_server):
@@ -818,8 +818,8 @@ def test_quick_switch_script_public(app03_server):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_quick_switch_script_es5_safe_and_no_html_write(app03_server):
@@ -915,8 +915,8 @@ def test_value_controls_script_public(app03_server):
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
     assert body, "expected a non-empty script body"
-    assert "max-age=300" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control max-age=300, got %r" % headers.get("Cache-Control", ""))
+    assert "no-cache" in headers.get("Cache-Control", ""), (
+        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
 
 
 def test_value_controls_script_es5_safe_and_never_holds_the_value(app03_server):
