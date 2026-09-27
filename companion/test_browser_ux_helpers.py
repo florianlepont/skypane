@@ -32,7 +32,7 @@ from companion.pages import config_page  # noqa: E402
 from companion_app_server import TEST_PASSWORD  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import colour_rules, manual_resolutions  # noqa: E402
-import server.poll_loop as poll_loop  # noqa: E402
+import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
 
 VIEW_TRANSITION_ROUTES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
@@ -69,7 +69,7 @@ SEED_BASE_TS = datetime(2026, 8, 1, 6, 0, 0, tzinfo=timezone.utc)
 
 def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
     """Write a fixture into a fresh temp state directory, through the same modules
-    companion/app.py, server/poll_loop.py and server/state_store.py use to write this
+    companion/app.py, server/poll_cycle.py and server/state_store.py use to write this
     data themselves.
     """
     runway_ids = device_config.RUNWAY_IDS
@@ -133,7 +133,7 @@ def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
     colour_rules.add_rule(
         state_dir, colour_rules.RULE_KIND_CALLSIGN, "EZY456", theme_ids[-1], now=now_iso)
 
-    # 3 gallery renders, archived through poll_loop's own writer so the on-disk filename/format
+    # 3 gallery renders, archived through poll_cycle's own writer so the on-disk filename/format
     # contract can never drift from what a real poll cycle produces.
     from PIL import Image
     # 600x800 matches Home's <img width="600" height="800">, so a layout-shift check comparing
@@ -141,7 +141,7 @@ def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
     canvas = Image.new("RGB", (600, 800), "white")
     for i in range(3):
         render_ts = (base_ts + timedelta(minutes=i)).isoformat()
-        poll_loop._save_to_gallery(state_dir, canvas, render_ts)
+        poll_cycle._save_to_gallery(state_dir, canvas, render_ts)
 
 
 def _login(page, base_url):

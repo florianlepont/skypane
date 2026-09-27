@@ -95,7 +95,7 @@ def seed_unresolved_prefixes(state_dir, registry):
 
 def write_panel_file(state_dir):
     """A real, production-produced panel.bin — the same bytes
-    `server.poll_loop.write_panel_atomic()` would write."""
+    `server.poll_cycle.write_panel_atomic()` would write."""
     os.makedirs(str(state_dir), exist_ok=True)
     packed = panel_render.render_panel(None, "empty")
     with open(os.path.join(str(state_dir), "panel.bin"), "wb") as fh:
