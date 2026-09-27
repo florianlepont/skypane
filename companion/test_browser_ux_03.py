@@ -18,11 +18,15 @@ Request-count assertions are counted through `page.on("request", ...)` on the gu
 context, never inferred from the DOM: a page that fetched and then declined to swap is a
 different and worse behaviour than a page that never fetched at all.
 """
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from companion import auth, i18n, layout
 from companion.pages import config_page, history_page
 from server import device_config, history_db
+import server.poll_loop as poll_loop
+from server.plane import calendar_rules
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
     _assert_hit_target, _assert_no_page_overflow, _click_control,
@@ -1792,5 +1796,116 @@ def test_the_preview_follows_hover_and_focus_and_selects_nothing(new_context, se
             raise AssertionError(
                 "the value on disk changed over the course of this check - "
                 "hovering/focusing must never write a selection")
+    finally:
+        context.close()
+
+
+# --- The three converted static ages tick in a real browser ---------------
+#
+# Each site is seeded relative to the REAL wall clock (never a fixed past
+# date like seed_state_dir()'s), so its age lands in the minutes bucket at
+# the moment the page loads. Playwright's clock is installed BEFORE
+# navigation, freezing Date.now() at the real instant it was installed, so
+# the server-rendered text and the script's own first read agree; run_for()
+# then advances it 65 virtual seconds without any real wall-clock wait,
+# firing relative-time.js's once-a-second interval enough times to cross
+# the two-minute boundary.
+
+_TICK_MINUTES_AGO = 2
+_TICK_ADVANCE_MS = 65_000
+
+
+def _seed_flights_ticker(state_dir):
+    seen = datetime.now(timezone.utc) - timedelta(minutes=_TICK_MINUTES_AGO)
+    with history_db.open_db(state_dir) as conn:
+        history_db.record_runway_event(
+            conn, ts=seen.isoformat(), hex="3c6444", callsign="AFR1380",
+            aircraft_type="A320", confirmed_state="confirmed",
+            corroborated=True, route_source="adsb", airline="Air France",
+            origin="ORY", destination="TLS",
+            tracked_runway=device_config.RUNWAY_IDS[0])
+
+
+def _seed_calendar_ticker(state_dir):
+    now = datetime.now(timezone.utc)
+    synced = now - timedelta(minutes=_TICK_MINUTES_AGO)
+    calendar_rules.save_calendar_url(
+        state_dir, "https://example.invalid/roster.ics", now=now.timestamp())
+    entry_start = now + timedelta(hours=3)
+    entry_end = entry_start + timedelta(hours=2)
+    calendar_rules.write_calendar_registry(
+        state_dir,
+        [{"airline_iata": "AF", "origin_iata": "ORY", "destination_iata": "NCE",
+          "start_at": entry_start.timestamp(), "end_at": entry_end.timestamp()}],
+        last_attempt_at=now.timestamp(),
+        last_synced_at=synced.isoformat(timespec="seconds"),
+        now=now.timestamp())
+
+
+def _seed_health_ticker(state_dir):
+    seen = (datetime.now(timezone.utc) - timedelta(minutes=_TICK_MINUTES_AGO)).isoformat()
+    poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": {
+        "TVF": {"count": 5, "first_seen": seen, "last_seen": seen,
+                "example_callsign": "TVF123"},
+    }})
+
+
+_TICKER_SITES = (
+    ("flights", "/flights",
+     'table.data-table--flights tr[data-filter-group="0"] time[data-relative]',
+     _seed_flights_ticker),
+    ("display-calendar", "/display",
+     'details.usage-row[data-usage="calendar"] time[data-relative]',
+     _seed_calendar_ticker),
+    ("health-registry", "/health",
+     '.data-table--registry tr[data-filter-group="0"] time[data-relative]',
+     _seed_health_ticker),
+)
+
+
+@pytest.mark.parametrize(
+    "name, path, selector, seed_fn", _TICKER_SITES,
+    ids=[site[0] for site in _TICKER_SITES])
+def test_cfg34_live_age_ticks_at_each_converted_site(
+        new_context, make_app_server, name, path, selector, seed_fn):
+    """Each of the three converted ages (Flights' When cell, Display's Calendar status
+    detail, Health's registry First-seen cell) is a genuine <time data-relative> element that
+    relative-time.js's once-a-second ticker advances in a visible tab: read once right after
+    load, read again with the clock UNMOVED (the control an element that never changes for any
+    reason would also pass — see below), then again after the virtual clock runs forward past
+    a minute boundary, where the text must have moved to the next bucket.
+    """
+    server = make_app_server(seed=seed_fn, fake_providers=True)
+    base_url = server.base_url()
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    try:
+        page = context.new_page()
+        # Installed before navigation: Date.now() freezes at the real instant
+        # of install() until explicitly advanced, so relative-time.js's first
+        # repaint (on load) reads the same instant the server itself rendered
+        # from — no race between the two clocks.
+        page.clock.install()
+        _login(page, base_url)
+        page.goto(base_url + path)
+        locator = page.locator(selector).first
+        locator.wait_for(state="attached")
+        before = locator.text_content()
+        if not before or not before.strip():
+            raise AssertionError(
+                "%s: expected the converted age to already carry text at load, got %r"
+                % (name, before))
+        control = locator.text_content()
+        if control != before:
+            raise AssertionError(
+                "%s: control failed — the text moved (%r -> %r) with the clock "
+                "never advanced at all, so the assertion below would prove "
+                "nothing about the ticker specifically" % (name, before, control))
+        page.clock.run_for(_TICK_ADVANCE_MS)
+        after = locator.text_content()
+        if after == before:
+            raise AssertionError(
+                "%s: expected the age to ADVANCE to the next bucket after the "
+                "clock ran forward %dms, still reads %r — a dead element would "
+                "read exactly this way" % (name, _TICK_ADVANCE_MS, before))
     finally:
         context.close()
