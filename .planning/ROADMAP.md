@@ -1932,7 +1932,7 @@ Plans:
 3. No duplicated CSS selector; no hard-coded colour outside tokens
 4. Rewording an English string cannot drop its French translation
 
-**Plans:** 12/16 plans executed
+**Plans:** 13/16 plans executed
 
 Plans:
 
@@ -1948,7 +1948,7 @@ Plans:
 - [x] 40-10-PLAN.md — three live relative ages (CFG-34) with a wrapper-only baseline diff (W4)
 - [x] 40-11-PLAN.md — typed lazy PageContext replaces the page_context() dict (W5)
 - [x] 40-12-PLAN.md — stable message IDs: mechanism + shared modules (W6)
-- [ ] 40-13-PLAN.md — stable message IDs: Home/Flights/Airlines/Health (W7)
+- [x] 40-13-PLAN.md — stable message IDs: Home/Flights/Airlines/Health (W7)
 - [ ] 40-14-PLAN.md — stable message IDs: Display/Device settings (W7)
 - [ ] 40-15-PLAN.md — ID-only i18n lookup enforced + completeness/rewording tests (W8)
 - [ ] 40-16-PLAN.md — final structural guard, full suite, requirement outcomes recorded (W9)

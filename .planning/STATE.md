@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 40-12-PLAN.md
-last_updated: "2026-09-27T19:16:35.101Z"
+stopped_at: Completed 40-13-PLAN.md
+last_updated: "2026-09-27T20:03:43.978Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 48
   total_plans: 434
-  completed_plans: 405
+  completed_plans: 406
   percent: 89
 ---
 
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 93%
+  [█████████░] 94%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -64,7 +64,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 13 of 16
+Plan: 14 of 16
 
 **39-13 executed (2026-09-27), plan 13/13 of Phase 39 (depends on 39-04/39-06/39-08/39-10/39-11/39-12), wave 7 — the phase close-out, two commits.** Task 1 added a tree-wide `test_no_function_in_server_or_stub_server_exceeds_80_code_lines` to `test-support/test_check_function_size.py` (calls `check_function_size.py`'s own `main()` in-process) plus a blocking CI step "Function size gate (non-test code in server/ and stub-server/)" right after the Type check step — two independent enforcement paths from one tool, so deleting either alone still fails the suite. Added `server/poll_cycle.py` to `[tool.mypy]`'s global `files` list (not the strict override — its pure core is fully typed per 39-11, the orchestration steps stay partially annotated); the only real gap was `detect_flight`'s `diagnostics` local needing an explicit `dict | None` annotation (typing-only, zero behaviour change) — `mypy` now reports 12 source files, up from 11. Refreshed `pyproject.toml`'s E402 comment to the real 6-file list from `ruff check --isolated --select E402 .`, dropping `server/poll_loop.py` (its own two imports now carry an inline `noqa: E402` rather than relying on the project-wide suppression). Task 2 re-ran every Before command from `39-ARC-BASELINE.md` on the final tree and filled in the After section (function size: 401 scanned, zero offenders, up from 365/6; CC: `run_once` 3, its highest named step `advance_display_queue` 10, vs Before's `_run_once_locked` 53/grade F — an 81% drop; typed functions: 73 of 356 non-test server functions annotated, up from 0/318, mypy 12 files green; companion imports of `server.poll_loop`: zero statement-level imports left; module-global setters: all three deleted outright; duplicated device policy: all nine rows now one definition each, the tenth — the quiet-hours invalid-time fallback — unified per D-4; suite: 2995 passed/139 skipped, coverage 94.27%, ruff and comment-history clean), a Criteria table (four ROADMAP criteria, each Met with its evidence command), and an Intentional behaviour changes section naming D-4 and D-5 with the tests that pin each. Updated `ARCHITECTURE.md`: replaced every stale `poll_loop.py`/`render.py` pipeline-body reference with `poll_cycle.py`/`server/plane/render/`, and added a Module map paragraph naming `poll_loop.py`, `poll_cycle.py`, `state_store.py`, `device_policy.py`, `themes.py`, `net/safe_fetch.py` and the `render/`/`calendar_rules/` packages. Commits: `9a1f444` (feat) Task 1, `39f9401` (docs) Task 2. Phase close-out (this plan's own scope): `ARC-01`..`ARC-06` marked Complete in `REQUIREMENTS.md` (checklist + summary table) via `requirements.mark-complete`; `roadmap.update-plan-progress 39` now reports the phase Complete at 13/13. `state.update-progress` reproduced this file's own documented recurring bug one final time — its own JSON correctly returned `percent: 94` (393/418) but the written frontmatter showed `percent: 89` (`completed_phases/total_phases` = 48/54) — corrected to `94` by hand per this file's established precedent, as the last STATE.md edit before this plan's own final commit.
 
@@ -609,6 +609,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 40 P10 | 45m | 2 tasks | 10 files |
 | Phase 40 P11 | 30min | 3 tasks | 22 files |
 | Phase 40 P12 | 29min | 3 tasks | 17 files |
+| Phase 40 P13 | long session | 2 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -1201,6 +1202,8 @@ Recent decisions affecting current work:
 - [Phase 40]: i18n stable-ID scheme: '<area>.<slug>', slug = deterministic slug_for(english) in test-support/i18n_ids.py, shared by plans 40-12/13/14 so independently-migrated catalogue halves agree on one id
 - [Phase 40]: common.py and nav.py i18n catalogues fully converted to MESSAGES in plan 40-12 (not partially) since every entry is consumed by a module that plan already touches
 - [Phase 40]: CMP-09 requirement NOT marked complete after plan 40-12 — this plan is explicitly part 1 of 4 (message-ID mechanism plus shared modules only); pages and the leftover legacy fallback removal are 40-13/40-14/40-15
+- [Phase ?]: registry.py's residual CATALOG kept for entries with no in-scope declaring module (theme names, screen label) — documented for 40-14
+- [Phase ?]: AST byte-span codemod (col_offset is UTF-8 byte offset, not codepoint offset) converts health.py's 130-entry catalogue to MESSAGES while preserving every comment and byte-exact French text
 
 ### Pending Todos
 
@@ -1230,6 +1233,7 @@ None yet.
 - NOTED by 22-13, for whoever records the collision: a component whose base rule sets `display` needs its own higher-specificity `[hidden]` selector or the server-rendered hidden attribute is silently defeated by the author stylesheet. style.css now has THREE such rules — `.dirty-bar[hidden]`, `.refresh-pill[hidden]` and `.login-reveal[hidden]`. The third was found by companion/test_browser_ux.py's scripts-blocked pass, not by inspection: `.copy-btn`'s `display: inline-flex` was rendering a dead show-password button on a page with JavaScript off
 - NOTED by 22-13, a plan-frontmatter inaccuracy 22-16 may want to correct rather than inherit: 22-13-PLAN.md's own must_haves claim style.css had no `.login-card` rule, and derive an acceptance grep from it. `.login-shell`/`.login-card` have existed since 06.6.2-07, so that grep was already non-zero before the plan ran and cannot discriminate. What genuinely did not exist is any rule for the two CONTROLS inside the card, which is what the audit row actually said (`.login-form`)
 - STATE.md was structurally degraded: two YAML frontmatter blocks and two '## Current Position' sections, both stale, so 'gsd-sdk query state.advance-plan' could not parse it and errored. **REPAIRED 2026-09-13.** The real parse failure was one line — 'Plan: 1 of ?', whose '?' the parser's /of\s+(\d+)/ cannot read — not the duplication itself; the duplication was a separate, genuine defect fixed alongside. The stale frontmatter is demoted to a quoted yaml block under the title rather than deleted, since its stopped_at prose records phase 06.6.4.1's closing and exists nowhere else. Verified: state.advance-plan now returns current_plan 16, total_plans 16, ready_for_verification.
+- Pre-existing test_cfg34_live_age_ticks_at_each_converted_site[chromium-health-registry] fails on server.poll_loop.save_poll_state AttributeError, reproduces before 40-13 — Phase 39's server/ scope, logged in 40-13's deferred-items.md
 
 ### Quick Tasks Completed
 
@@ -1321,8 +1325,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T19:16:11.815Z
-Stopped at: Completed 40-12-PLAN.md
+Last session: 2026-09-27T20:03:43.900Z
+Stopped at: Completed 40-13-PLAN.md
 
 Resume file: 
 
