@@ -144,11 +144,11 @@ def test_quiet_hours_window_none_when_not_enabled():
 
 
 def test_quiet_hours_invalid_stored_time_falls_back_to_default_window():
-    """The unified invalid-time fallback (D-4): with quiet hours enabled
-    and an invalid start ("25:99"), an invalid end (7, an int), or a
-    missing start, quiet_hours_window() falls back to the server's
-    23:00-07:00 defaults - the behaviour both byos and the poll cycle now
-    share, replacing byos's old "treat as disabled" fallback."""
+    """The unified invalid-time fallback: with quiet hours enabled and an
+    invalid start ("25:99"), an invalid end (7, an int), or a missing
+    start, quiet_hours_window() falls back to the server's 23:00-07:00
+    defaults - the behaviour both byos and the poll cycle now share,
+    replacing byos's old "treat as disabled" fallback."""
     cases = (
         {"quiet_hours_enabled": True, "quiet_hours_start": "25:99", "quiet_hours_end": "07:00"},
         {"quiet_hours_enabled": True, "quiet_hours_start": "23:00", "quiet_hours_end": 7},
