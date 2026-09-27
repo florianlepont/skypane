@@ -3,9 +3,9 @@
 compact poll_state.json save.
 
 Covers `state_store.serialize_poll_state()`/`state_store.persist_poll_state_if_changed()`
-(the end-of-cycle save `_run_once_locked()` calls from its two exits instead of the
-former mid-branch/unconditional-final saves) and `state_store.save_poll_state()`'s
-still-unconditional, now-compact seam:
+(the end-of-cycle save `run_hold_cycle()`/`persist()` each call from their own
+exit instead of the former mid-branch/unconditional-final saves) and
+`state_store.save_poll_state()`'s still-unconditional, now-compact seam:
 
   * the research's seven poll-cycle branches each write poll_state.json
     at most once

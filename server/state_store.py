@@ -2,9 +2,10 @@
 """The single owner of `<state_dir>/poll_state.json` and the read-only
 reader of byos's `<state_dir>/battery_state.json`.
 
-Every writer of poll_state.json (server/poll_loop.py's `_run_once_locked`)
-and every reader (server/wake.py, stub-server/byos_server.py, the
-companion's health/airlines pages) goes through this module instead of
+Every writer of poll_state.json (server/poll_cycle.py's `persist`/
+`run_hold_cycle` steps) and every reader (server/wake.py,
+stub-server/byos_server.py, the companion's health/airlines pages) goes
+through this module instead of
 each keeping its own copy of the path, the load/save logic and the
 compact-JSON encoding. Key names and the compact serialisation format are
 an on-disk contract shared across three independent processes (the

@@ -2,8 +2,8 @@
 """Contract tests for one SQLite connection and one transaction per poll
 cycle.
 
-Covers `server/poll_cycle.py`'s `run_once()` (now wrapping `_run_once_locked()`
-in a `history_db.connection_scope(state_dir)`, nested inside
+Covers `server/poll_cycle.py`'s `run_once()` (its whole named-step sequence
+runs inside one `history_db.connection_scope(state_dir)`, nested inside
 `poll_cycle_lock()`) and `_record_history()` (now grouping every write in one
 `history_db.write_batch(conn)`), across:
 
