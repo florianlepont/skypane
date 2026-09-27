@@ -1900,11 +1900,26 @@ Plans:
 3. No duplicated CSS selector; no hard-coded colour outside tokens
 4. Rewording an English string cannot drop its French translation
 
-**Plans:** 0 plans
+**Plans:** 16 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 40 to break down)
+- [ ] 40-01-PLAN.md — structural length guard + committed render/unauthenticated baseline (W1)
+- [ ] 40-02-PLAN.md — CSS: merge duplicated selectors, colour literals to tokens, computed styles proven unchanged (W1)
+- [ ] 40-03-PLAN.md — route table + static allowlist; table-driven auth coverage test (W2)
+- [ ] 40-04-PLAN.md — layout.py split into ui_* modules; named templates for page_shell/login_shell (W2)
+- [ ] 40-05-PLAN.md — config_page.py settings groups extracted into companion/settings/ (W2)
+- [ ] 40-06-PLAN.md — battery chart migrated onto draw.py (CFG-39); health signals/chart split out of health_page.py (W2)
+- [ ] 40-07-PLAN.md — history/airlines builder splits; artwork drop zone keyboard measurement (CFG-52) (W2)
+- [ ] 40-08-PLAN.md — config_page render/handle_post split per settings group (W3)
+- [ ] 40-09-PLAN.md — shared body-drain and cookie helpers; flash/freshness/login/post-action modules out of app.py (W3)
+- [ ] 40-10-PLAN.md — three live relative ages (CFG-34) with a wrapper-only baseline diff (W4)
+- [ ] 40-11-PLAN.md — typed lazy PageContext replaces the page_context() dict (W5)
+- [ ] 40-12-PLAN.md — stable message IDs: mechanism + shared modules (W6)
+- [ ] 40-13-PLAN.md — stable message IDs: Home/Flights/Airlines/Health (W7)
+- [ ] 40-14-PLAN.md — stable message IDs: Display/Device settings (W7)
+- [ ] 40-15-PLAN.md — ID-only i18n lookup enforced + completeness/rewording tests (W8)
+- [ ] 40-16-PLAN.md — final structural guard, full suite, requirement outcomes recorded (W9)
 
 ### Phase 41: Docs, repository hygiene and closing re-audit
 
